@@ -26,8 +26,10 @@ void replaceGetItemText(RandoCheckId randoCheckId, u16* textId, bool* loadFromMe
 
     auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
     entry.autoFormat = false;
-    entry.msg.assign("You received " + std::string(randoStaticItem.article) + " " + std::string(randoStaticItem.name) +
-                     "!\x1C\x02\x10");
+    // RI_JUNK (#1499) has an empty article: no double space before its name.
+    const bool hasArticle = randoStaticItem.article != nullptr && randoStaticItem.article[0] != '\0';
+    const std::string article = hasArticle ? std::string(randoStaticItem.article) + " " : std::string();
+    entry.msg.assign("You received " + article + std::string(randoStaticItem.name) + "!\x1C\x02\x10");
     entry.icon = 0xFE; // No icon
 
     CustomMessage::LoadCustomMessageIntoFont(entry);

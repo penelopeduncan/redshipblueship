@@ -12,7 +12,9 @@
  * Shuffle Tingle Maps on:
  *  (1) Starting Maps and Compasses off: each RI_TINGLE_MAP_* is in the item
  *      pool exactly once, with Plentiful off and with it on (Plentiful never adds
- *      a second copy).
+ *      a second copy). The Plentiful legs walk eight seeds; whether any of them
+ *      reaches the Plentiful guard (a map's LESSER roll with the copy threshold
+ *      met) is not established, so the guard alone may have no RED here.
  *  (2) Starting Maps and Compasses on: no RI_TINGLE_MAP_* is in the item pool,
  *      with Plentiful off and on.
  *  (3) Every leg: the twelve Tingle checks are still in the check pool, and the
@@ -114,7 +116,7 @@ const char* ItemName(RandoItemId id) {
 
 /** One pool generation over a fresh save info, every option at its default but
  *  Shuffle Tingle Maps (on) and the two named here. Seeded, so deterministic. */
-void GenerateTinglePool(bool startingMaps, bool plentiful, std::vector<RandoCheckId>& checkPool,
+void GenerateTinglePool(bool startingMaps, bool plentiful, uint32_t seed, std::vector<RandoCheckId>& checkPool,
                         std::vector<RandoItemId>& itemPool) {
     auto info = std::make_unique<RandoSaveInfo>();
     memset(info.get(), 0, sizeof(RandoSaveInfo));
@@ -127,16 +129,16 @@ void GenerateTinglePool(bool startingMaps, bool plentiful, std::vector<RandoChec
     info->randoSaveOptions[RO_PLENTIFUL_ITEMS] = plentiful ? RO_GENERIC_YES : RO_GENERIC_NO;
     checkPool.clear();
     itemPool.clear();
-    Ship_Random_Seed(0x1499u);
+    Ship_Random_Seed(seed);
     Rando::Logic::GeneratePools(*info, checkPool, itemPool);
 }
 
-int RunPoolLeg(bool startingMaps, bool plentiful) {
+int RunPoolLeg(bool startingMaps, bool plentiful, uint32_t seed) {
     const char* leg = startingMaps ? (plentiful ? "Starting Maps + Plentiful" : "Starting Maps")
                                    : (plentiful ? "Plentiful" : "Tingle shuffle only");
     std::vector<RandoCheckId> checkPool;
     std::vector<RandoItemId> itemPool;
-    GenerateTinglePool(startingMaps, plentiful, checkPool, itemPool);
+    GenerateTinglePool(startingMaps, plentiful, seed, checkPool, itemPool);
 
     // ---- (1) / (2) the maps ------------------------------------------------
     const size_t expected = startingMaps ? 0u : 1u;
@@ -171,8 +173,8 @@ int RunPoolLeg(bool startingMaps, bool plentiful) {
         return Fail(15, "%s: Plentiful is off but the seam records %zu copies", leg,
                     gRsbsComboPlentifulTo - gRsbsComboPlentifulFrom);
     }
-    printf("[TEST] mm-tingle-map-pool: %s: %zu items, %zu of each map, Plentiful copies %zu\n", leg,
-           itemPool.size(), expected, gRsbsComboPlentifulTo - gRsbsComboPlentifulFrom);
+    printf("[TEST] mm-tingle-map-pool: %s, seed 0x%X: %zu items, %zu of each map, Plentiful copies %zu\n", leg,
+           (unsigned)seed, itemPool.size(), expected, gRsbsComboPlentifulTo - gRsbsComboPlentifulFrom);
     return 0;
 }
 
@@ -186,8 +188,14 @@ int RunPool() {
     CVarClear("gRando.ExcludedChecks");
     int rc = 0;
     const bool legs[4][2] = { { false, false }, { false, true }, { true, false }, { true, true } };
+    // Plentiful legs walk several seeds: only a map's RITYPE_LESSER roll with the
+    // copy threshold met reaches the Plentiful guard, and one seed may not get there.
+    constexpr uint32_t kPlentifulSeeds = 8;
     for (const auto& leg : legs) {
-        rc = RunPoolLeg(leg[0], leg[1]);
+        const uint32_t seeds = leg[1] ? kPlentifulSeeds : 1u;
+        for (uint32_t k = 0; k < seeds && rc == 0; k++) {
+            rc = RunPoolLeg(leg[0], leg[1], 0x1499u + k);
+        }
         if (rc != 0) {
             break;
         }

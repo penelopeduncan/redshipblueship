@@ -261,9 +261,10 @@ std::string PlainItemName(RandoItemId item) {
  *  ownership, so Plain names the placed item. */
 std::string BombShopItemPhrase(const RandoSaveCheck* checks, Rando::HintSources::JunkName junkName) {
     const RandoCheckId rc = RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM;
-    const RandoItemId item = (junkName == Rando::HintSources::JunkName::Textbox)
-                                 ? Rando::UncollectedNamedItem(checks[rc].randoItemId, rc)
-                                 : checks[rc].randoItemId;
+    // An item already bought keeps its placed name: UncollectedNamedItem is for uncollected checks only.
+    const bool namesWhatItSells = junkName == Rando::HintSources::JunkName::Textbox && !checks[rc].obtained;
+    const RandoItemId item =
+        namesWhatItSells ? Rando::UncollectedNamedItem(checks[rc].randoItemId, rc) : checks[rc].randoItemId;
     const std::string nativeName = (junkName == Rando::HintSources::JunkName::Plain && item == RI_JUNK)
                                        ? PlainItemName(item)
                                        : Rando::StaticData::GetItemName(item);
@@ -826,7 +827,9 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
                 "If nothing devastating happens to Mommy tonight, we should be able to sell %r{{itemName}}%w.\x19\xA8";
             // #1499: the hook names what the slot will sell (BombShopItemPhrase).
             const RandoCheckId stockCheck = RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM;
-            const RandoItemId named = Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, stockCheck);
+            const RandoItemId named = randoSaveCheck.obtained
+                                          ? randoSaveCheck.randoItemId
+                                          : Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, stockCheck);
             const std::string itemName =
                 Rando::ActorBehavior::ShopOfferedItemName(stockCheck, Rando::StaticData::GetItemName(named), true);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);

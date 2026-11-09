@@ -30,8 +30,9 @@ std::map<int16_t, std::vector<RandoCheckId>> tingleMap = {
 std::string Rando::ActorBehavior::TingleOfferedItemName(RandoCheckId rc) {
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1499: a paid offer never reads "Junk (literally nothing)": CheckQueue's give
-    // for a paid check re-rolls RI_NONE the same way (CurrentPaidJunkItem).
-    if (Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc) == RI_JUNK) {
+    // for a paid check re-rolls RI_NONE the same way (CurrentPaidJunkItem). A foreign
+    // host's offer names the OoT item, so it draws nothing for a name never shown.
+    if (!Rando::Foreign::IsForeignCheck(rc) && Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc) == RI_JUNK) {
         (void)Rando::CurrentPaidJunkItem();
     }
 #endif
