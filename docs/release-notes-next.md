@@ -1,3 +1,15 @@
+# Release notes: next release (draft)
+
+**Status:** draft, for the release after `v0.5.0-alpha`. Pull requests add their lines here as they merge.
+
+## Since v0.5.0-alpha
+
+### Fixes
+
+- **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
+  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad, the pause name and the
+  A-button description now show that mask, not the slot's own.
+
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
 
 **Status:** released. The release is cut as the tag `v0.5.0-alpha` on the commit that merges this text (the version

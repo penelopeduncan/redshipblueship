@@ -56,6 +56,28 @@ const char* MM_ForeignMask_PageIcon(int maskSlot, const char* nativeIcon);
  *  written). */
 uint8_t MM_ForeignMask_PageCellItem(int maskSlot, uint8_t stored);
 
+/** #1500: the OoT mask MM item `item` stands for wherever MM draws or names it (a
+ *  shared slot's own item: the slot's live variant), or NONE. The button keeps the
+ *  native ItemId; every label below reads this. */
+uint8_t MM_ForeignMask_ItemShows(int item);
+
+/** #1500: the icon for MM item `item` (C button, D-pad, equip flight, page):
+ *  the OoT mask it stands for when mounted, else `nativeIcon`. */
+const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
+
+/** #1500: Ocarina of Time's pause name texture for an OoT mask MM wears, or NULL. */
+const char* MM_ForeignMask_NameTexture(uint8_t mask);
+
+/** #1500: the pause name texture for MM item `item`: the OoT mask's when it stands
+ *  for one and the texture is mounted, else `nativeName`. */
+const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
+
+/** #1500: the A-press description of an OoT mask MM wears, or NULL. */
+const char* MM_ForeignMask_DescriptionText(uint8_t mask);
+
+/** #1500: the A-press description MM item `item` opens instead of its own, or NULL. */
+const char* MM_ForeignMask_ItemDescription(int item);
+
 /** The list MM's head draw would emit for the live worn field, or NULL. */
 const char* MM_ForeignMask_WornDl(struct Player* player);
 
