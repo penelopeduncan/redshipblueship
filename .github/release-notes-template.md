@@ -27,7 +27,7 @@ All builds bundle `soh.o2r`, `2ship.o2r`, and the asset extraction tools (`asset
 
 ## Known issues and changes
 
-- Known issues: [`docs/known-issues.md`](https://github.com/spencerduncan/redshipblueship/blob/{{TAG}}/docs/known-issues.md)
-- What changed in this release: [`docs/release-notes-next.md`](https://github.com/spencerduncan/redshipblueship/blob/{{TAG}}/docs/release-notes-next.md)
+- Known issues: [`docs/known-issues.md`](https://github.com/penelopeduncan/redshipblueship/blob/{{TAG}}/docs/known-issues.md)
+- What changed in this release: [`docs/release-notes-next.md`](https://github.com/penelopeduncan/redshipblueship/blob/{{TAG}}/docs/release-notes-next.md)
 
-Found something else? Report it at https://github.com/spencerduncan/redshipblueship/issues.
+Found something else? Report it at https://github.com/penelopeduncan/redshipblueship/issues.

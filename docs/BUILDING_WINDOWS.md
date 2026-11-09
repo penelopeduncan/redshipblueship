@@ -22,7 +22,7 @@ During installation, select:
 ## Clone
 
 ```cmd
-git clone https://github.com/spencerduncan/redshipblueship.git
+git clone https://github.com/penelopeduncan/redshipblueship.git
 cd redshipblueship
 git submodule update --init --recursive
 ```

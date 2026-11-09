@@ -422,7 +422,7 @@ session; the window will flash through the phases.)
 ### Sweep / soak in CI (once `RSBS_ROM_RUNNER` is set)
 
 ```bash
-gh workflow run integration-tests -R spencerduncan/redshipblueship \
+gh workflow run integration-tests -R penelopeduncan/redshipblueship \
   --field gp_warp_entrances=0x00B1,0x01D1,0x00CD,0x0033 \
   --field gp_cycles=3 --field gp_frames=300
 gh run watch   # or poll `gh run list --workflow=integration-tests`

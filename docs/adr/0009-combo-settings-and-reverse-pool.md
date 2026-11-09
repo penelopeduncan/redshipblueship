@@ -10,7 +10,7 @@
 - For: #498 (combo-level settings), gating #493 (MM -> OoT foreign items); Phase
   3.1 tracker #492, Lane 1
 - Amended: **2026-07-30, #564** (the one-game ruling is recorded on
-  [#500](https://github.com/spencerduncan/redshipblueship/issues/500#issuecomment-5126492334))
+  [#500](https://github.com/penelopeduncan/redshipblueship/issues/500#issuecomment-5126492334))
   — decision 1 (a frozen record on the save side is world identity, not a second
   settings store; the digest becomes a cross-check stamped before the act it
   validates) and decision 2 (identity is the post-condition of the WHOLE
@@ -28,10 +28,10 @@
   `reserved[124]`.) See the amendment inside "The `reserved[264]` byte
   budget" below; the table's original rows are kept for the trail and marked,
   not deleted.
-- Extended: **2026-08-04, [#589](https://github.com/spencerduncan/redshipblueship/issues/589)**
+- Extended: **2026-08-04, [#589](https://github.com/penelopeduncan/redshipblueship/issues/589)**
   — decision 4 applies the same one-game ruling to durable commits (a commit is
   the WHOLE file; on load the newest whole commit wins), which structurally
-  retires [#531](https://github.com/spencerduncan/redshipblueship/issues/531).
+  retires [#531](https://github.com/penelopeduncan/redshipblueship/issues/531).
   Decisions 1-3 are unchanged. Added rather than amended because it decides a
   question none of them addressed: not what a save file *identifies*, but what
   a save *commits*. **Decision 4a (2026-08-05)** closes the one question
@@ -49,7 +49,7 @@
   for the switch that follows the exit — decision 4c below makes every
   crossing a commit. The death moment itself is still unwritten with
   Autosave off.)*
-  **Decision 4c (ruled 2026-10-01, [#837](https://github.com/spencerduncan/redshipblueship/issues/837))**:
+  **Decision 4c (ruled 2026-10-01, [#837](https://github.com/penelopeduncan/redshipblueship/issues/837))**:
   every cross-game crossing (door or F10, either direction) is a whole-file
   commit, as OoTMM saves at every game switch. Carves no bytes.
 - Depends on:
@@ -371,7 +371,7 @@ determinism digest.
 
 ## Decision 4 — a durable commit is the WHOLE file; on load, the newest whole commit wins
 
-> **2026-08-04, operator ruling on [#589](https://github.com/spencerduncan/redshipblueship/issues/589).**
+> **2026-08-04, operator ruling on [#589](https://github.com/penelopeduncan/redshipblueship/issues/589).**
 > *Whole-file commit: any half's save-and-quit commits BOTH halves at one
 > generation, in one instant, through the existing #569 commit choke point; on
 > load, the newest whole commit wins.* Recorded here rather than in a new ADR
@@ -412,7 +412,7 @@ at that commit: `LoadSlot` arms it and OoT's load seam consumes it into the
 live `SaveContext` before `Sram_OpenSave` interprets the file. Detection
 becomes authority.
 
-**What this retires.** [#531](https://github.com/spencerduncan/redshipblueship/issues/531)
+**What this retires.** [#531](https://github.com/penelopeduncan/redshipblueship/issues/531)
 (P1, permanent loss of cross-game progression items) is retired
 *structurally*, not patched. Its mechanism was a durable
 `RSBS_SHARED_ITEM_REDEEMED` record outliving the world state it accounted for:
@@ -497,7 +497,7 @@ not a teardown.
 ### Decision 4b — MM's death-decline exit is an AUTOSAVE POINT iff Autosave is on (decided, not a consequence)
 
 > **2026-09-06, operator ruling on the sub-question PR #625 recorded for
-> [#590](https://github.com/spencerduncan/redshipblueship/issues/590); written
+> [#590](https://github.com/penelopeduncan/redshipblueship/issues/590); written
 > down 2026-09-10.** *When the player declines the "continue?" prompt on MM's
 > game-over screen and exits, that exit is an AUTOSAVE point if and only if the
 > MM Autosave enhancement is on: a whole-file commit through the #569 choke
@@ -595,7 +595,7 @@ a force-boot never leaves it — has the bootstrap file resident, and committing
 it would write a vanilla bootstrap into the player's slot by one more route.
 Behind the same cross-game gate as the owl exit (`Context_HasFrozenState(GAME_OOT)`),
 so standalone 2ship keeps its title-screen exit and its save untouched. The
-F10-during-game-over route ([#626](https://github.com/spencerduncan/redshipblueship/issues/626))
+F10-during-game-over route ([#626](https://github.com/penelopeduncan/redshipblueship/issues/626))
 bypasses this leg entirely and is not decided here.
 
 **What this obliges.** The death-decline exit is now a save route when Autosave
@@ -611,8 +611,8 @@ committed Tier-3 carries the revived bar.
 ### Decision 4c — every cross-game crossing is a WHOLE-FILE COMMIT
 
 > **2026-10-01, operator ruling on decision 16 (the moon-crash scope PR #789
-> and [#803](https://github.com/spencerduncan/redshipblueship/issues/803) left
-> open), scoped by [#837](https://github.com/spencerduncan/redshipblueship/issues/837).**
+> and [#803](https://github.com/penelopeduncan/redshipblueship/issues/803) left
+> open), scoped by [#837](https://github.com/penelopeduncan/redshipblueship/issues/837).**
 > *Option (b): every cross-game crossing is a save commit, as OoTMM's
 > `comboGameSwitch` saves at every game switch. The F10 hot swap is a
 > crossing.*
@@ -672,7 +672,7 @@ Temple of Time, or with Remember Save Location to the frozen `entranceIndex`
 field.
 
 *The departure records its scene*
-([#850](https://github.com/spencerduncan/redshipblueship/issues/850)). Only a
+([#850](https://github.com/penelopeduncan/redshipblueship/issues/850)). Only a
 save wrote `savedSceneNum` (`Play_PerformSave`, the kaleido save prompt), so the
 freeze carried the scene of the last *save*, not the one Link stood in at the
 crossing: an F10 crossing taken inside a grotto, a fairy fountain, a boss room
@@ -703,7 +703,7 @@ does not write, and the despawn test for heart pieces, small keys, heart
 containers and shuffled freestanding items reads that status, not the
 collectible flag in the half. A reload of a crossing commit therefore
 respawned such an item collected before the crossing
-([#849](https://github.com/spencerduncan/redshipblueship/issues/849)).
+([#849](https://github.com/penelopeduncan/redshipblueship/issues/849)).
 Resolved without a format change: when a load applies the `.redsave`'s OoT
 half, every check whose own collection flag differs between the `.sav`'s base
 section and the loaded half takes the loaded half's answer (found: `SAVED`;
@@ -731,7 +731,7 @@ see the cross-reference at the end of this section.
 ### (a) #653 — MM death keeps 2ship's inherited direct respawn
 
 > **2026-09-16, operator ruling on
-> [#653](https://github.com/spencerduncan/redshipblueship/issues/653).** *"Keep
+> [#653](https://github.com/penelopeduncan/redshipblueship/issues/653).** *"Keep
 > the current respawn behaviour (vanilla MM: reload at the area entrance with
 > three hearts, no prompt). Works as intended."*
 
@@ -766,7 +766,7 @@ menu-surface question.
 ### (b) #654 — the cross-game arrival IS Majora's Mask's intro event
 
 > **2026-09-16, operator ruling on
-> [#654](https://github.com/spencerduncan/redshipblueship/issues/654).** *"The way
+> [#654](https://github.com/penelopeduncan/redshipblueship/issues/654).** *"The way
 > it works in both combo and rando is: MM starts with the randomized starting
 > items, going into the field acts like you have the ocarina, etc. Going into MM
 > triggers those drops as checks (ocarina/deku/songs/magic), puts you in human

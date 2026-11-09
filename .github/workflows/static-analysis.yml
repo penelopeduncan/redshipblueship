@@ -15,7 +15,7 @@ jobs:
   clang-tidy:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/spencerduncan/redshipblueship-build:latest
+      image: ghcr.io/penelopeduncan/redshipblueship-build:latest
     steps:
       - name: Install dependencies
         run: |
