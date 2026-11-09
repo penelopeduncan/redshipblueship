@@ -365,9 +365,11 @@ jobs:
             fail=1
             continue
           fi
-          if otool -L "$exe" | grep -q '/opt/local/'; then
+          # Captured first: grep -q exiting early must not SIGPIPE otool.
+          deps="$(otool -L "$exe")"
+          if grep -q '/opt/local/' <<<"$deps"; then
             echo "::error::Contents/MacOS/${zapd}.out still links a MacPorts library:"
-            otool -L "$exe"
+            echo "$deps"
             fail=1
           fi
         done
@@ -1290,8 +1292,8 @@ jobs:
     # The macOS dmg, attached to the release create-release made (#1501). It
     # needs both jobs, so the implicit success() skips it when the macOS build
     # failed, timed out or was cancelled, and the release keeps the Windows and
-    # Linux assets. Re-running this job after a fixed macOS build attaches the
-    # dmg to the existing release (--clobber).
+    # Linux assets. Re-running the failed build-macos job of the same run (which
+    # re-runs this one) attaches the dmg to the existing release (--clobber).
     name: Attach macOS release
     if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
     needs: [create-release, build-macos]

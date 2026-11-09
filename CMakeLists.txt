@@ -626,10 +626,10 @@ install(TARGETS ZAPD_MM RUNTIME DESTINATION ../MacOS COMPONENT ship)
 
 set(PROGRAM_PERMISSIONS_EXECUTE OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
 
 if(SINGLE_EXECUTABLE_BUILD)
     # MM's port-asset archive, as on Linux and Windows above. The games/mm
@@ -658,9 +658,10 @@ endif()
 
 # COMPONENT ship: CPack's Bundle generator installs monolithically today, but
 # Packaging-2.cmake limits component installs to "ship", and this must run last
-# under either. The ZAPD executables are passed as extra items: nothing the
-# main executable loads names them, so fixup_bundle would otherwise leave their
-# /opt/local library references in place, which verify_app refuses.
+# under either. The ZAPD executables are also passed as extra items, belt and
+# braces: get_bundle_keys already walks every Mach-O executable in the bundle,
+# and naming them again yields the same keys, so either way their /opt/local
+# library references are embedded and rewritten before verify_app checks them.
 install(CODE "
     include(BundleUtilities)
     fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/../MacOS/${RSBS_MACOS_BUNDLE_EXECUTABLE}\"
