@@ -1638,6 +1638,17 @@ if(BUILD_TESTING)
     # options looked up by name.
     redship_add_test(NAME MMShopPrices COMMAND redship --test mm-shop-prices)
     redship_add_test(NAME MMShopPricesPool COMMAND redship --test mm-shop-prices-pool)
+    # Majora's Mask's Tingle maps (#1499). MMTingleMapPool: over a real pool
+    # generation with Shuffle Tingle Maps on, each map is in the item pool once
+    # (with Plentiful off and on), none with Starting Maps and Compasses on, the
+    # twelve Tingle checks stay in the check pool and the K9 seam describes the
+    # pool. MMTingleMapDisplay: with Tingle's Clock Town Map on the Bomb Shop's
+    # first slot and owned, the owner's hand, the shelf, its line, the MM Check
+    # Tracker and the Combo Tracker's MM pane all name "Junk" (the map while not
+    # owned); the shelf and a Tingle slot sell that junk once; a paid junk sale
+    # never gives RI_NONE. Pure (no display, no ROM).
+    redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
+    redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside
