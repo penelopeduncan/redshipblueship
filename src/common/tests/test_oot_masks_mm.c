@@ -102,6 +102,8 @@ const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
 const char* MM_ForeignMask_NameTexture(uint8_t mask);
 const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
 const char* MM_ForeignMask_ItemDescription(int item);
+const char* MM_ForeignMask_ItemNameTexture(int item);
+int MM_ForeignMask_CycleSlot(uint8_t slot, int dir);
 // games/mm/2s2h/Rando/ComboLogicEngineSingleExe.cpp
 int MM_ComboLogic_ClassifyItem(uint16_t id, ComboItemClassRow* out);
 #ifdef __cplusplus
@@ -190,11 +192,16 @@ bool OmmLabelsShow(uint8_t item, int cell, uint8_t mask) {
     if (icon != MM_ForeignMask_PageIcon(cell, kNative)) {
         return false;
     }
+    // The texture asked for before the mount check: unmounted, `name` is always
+    // kNative, so this is the half of the name a headless run can tell apart.
+    const char* nameTex = MM_ForeignMask_NameTexture(mask);
+    if (MM_ForeignMask_ItemNameTexture(item) != nameTex) {
+        return false;
+    }
     const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(mask);
     if (info == nullptr) {
         return icon == kNative && name == kNative && desc == nullptr;
     }
-    const char* nameTex = MM_ForeignMask_NameTexture(mask);
     return (icon == kNative || icon == info->icon) && nameTex != nullptr && (name == kNative || name == nameTex) &&
            desc != nullptr && std::strstr(desc, info->name) != nullptr;
 }
@@ -533,9 +540,13 @@ TestResult Test_OoTMasksMMItems(void) {
         OMM_CHECK(MM_OoTMasksTest_EquipNative(MM_OoTMasksTest_Const(0)) == 0,
                   "with the Stone Mask owned and nothing else, its C button no longer wears the Stone Mask");
         // #1500: both owned through the real give: the slot's own mask chosen, then
-        // the Skull Mask chosen (the A cycle's write); and the Spooky Mask lent
-        // Gibdo's cell. Every label follows the page.
+        // the Skull Mask chosen (the A cycle's write, then the cycle itself); and the
+        // Spooky Mask lent Gibdo's cell. Every label follows the page. The ArmLive
+        // above cleared the Gerudo Mask's owned bit, so Stone's slot holds two
+        // variants here: the Stone and Skull Masks.
         MM_OoTMasksTest_Give(skull);
+        OMM_CHECK(!MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull),
+                  "after the re-arm, the Gerudo Mask is still owned or the Skull Mask's give owned nothing");
         OMM_CHECK(OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_NONE),
                   "with the Stone and Skull Masks owned and the Stone Mask chosen, a label of Stone's cell is not the "
                   "Stone Mask's");
@@ -546,6 +557,18 @@ TestResult Test_OoTMasksMMItems(void) {
         OMM_CHECK(OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_OOT_SKULL),
                   "with the Skull Mask chosen beside the Stone Mask, a label of Stone's cell is not the Skull Mask's "
                   "(the item stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
+        // The A cycle itself (the path that reloads the pause name): Skull, then
+        // Stone, then Skull again, with every label following.
+        OMM_CHECK(MM_ForeignMask_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1) == 1 &&
+                      OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_NONE),
+                  "A on Stone's slot from the Skull Mask did not bring every label back to the Stone Mask (the item "
+                  "stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
+        OMM_CHECK(MM_ForeignMask_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1) == 1 &&
+                      OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_OOT_SKULL),
+                  "A on Stone's slot from the Stone Mask did not move every label to the Skull Mask (the item stands "
+                  "for %u)",
                   (unsigned)MM_ForeignMask_ItemShows(stoneItem));
         const uint8_t gibdoItem = MM_OoTMasksTest_ItemConst(1);
         const int gibdoCell = MM_OoTMasksTest_PageCell(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);

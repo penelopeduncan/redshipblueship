@@ -2303,7 +2303,9 @@ Cooldown.
   `MM_ForeignMask_ItemShows` (the slot's live variant, the mask its C button
   wears): the C-button and D-pad icons, the equip-flight icon, the pause name
   (OoT's own name texture, curated in redship-mm.o2r) and the A-press
-  description. No item id, button table or save byte was added; the cost is
+  description of a cell lent one OoT mask (opened at
+  `VB_KALEIDO_DISPLAY_ITEM_TEXT`, because the pause opens descriptions through
+  `func_801514B0`, which dispatches no `OnOpenText`). No item id, button table or save byte was added; the cost is
   that a label is never stored, so it follows the slot's variant rather than
   the moment the button was set.
 

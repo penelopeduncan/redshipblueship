@@ -42,10 +42,12 @@
  * page icon reads: the C-button and D-pad icons (z_parameter.c's icon draws), the
  * icon that flies to the button on equip, the pause name (Ocarina of Time's own
  * name texture, curated in redship-mm.o2r, the way StoneMaskOoT.cpp names the
- * Stone Mask in OoT with MM's) and the A-press description (OnOpenText on the
- * slot's description text). OoTMM binds the button to the variant's own item
- * id instead; this build has no MM ItemId for an OoT mask, so nothing is saved
- * for the label and a crossing or a load cannot leave a stale one.
+ * Stone Mask in OoT with MM's) and the A-press description of a cell lent one
+ * OoT mask (MM_ForeignMask_OnPressA at VB_KALEIDO_DISPLAY_ITEM_TEXT: the pause
+ * opens descriptions through func_801514B0, which dispatches no OnOpenText).
+ * OoTMM binds the button to the variant's own item id instead; this build has no
+ * MM ItemId for an OoT mask, so nothing is saved for the label and a crossing or
+ * a load cannot leave a stale one.
  *
  * THE DRAW. OnPlayerPostLimbDraw on PLAYER_LIMB_HEAD, where MM draws its own
  * masks. Each OoT list loads the head matrix itself from segment 0x0D + 0x1C0
@@ -85,7 +87,6 @@ extern "C" {
 #include "functions.h"
 #include "macros.h"
 #include "z64skin_matrix.h"
-#include "overlays/kaleido_scope/ovl_kaleido_scope/z_kaleido_scope.h" // PAUSE_ITEM_NONE (#1500)
 void func_8082E1F0(Player* player, u16 sfxId);
 }
 
@@ -371,11 +372,17 @@ extern "C" const char* MM_ForeignMask_NameTexture(uint8_t mask) {
     }
 }
 
+/** #1500: the name texture MM item `item` asks for before the mount check: the
+ *  OoT mask it stands for's, or NULL for the item's own name. */
+extern "C" const char* MM_ForeignMask_ItemNameTexture(int item) {
+    return MM_ForeignMask_NameTexture(MM_ForeignMask_ItemShows(item));
+}
+
 /** #1500: the pause name texture for MM item `item`, whose own is `nativeName`:
  *  the name of the OoT mask it stands for when mounted, else `nativeName`.
  *  Called by z_kaleido_scope_NES.c's Kaleido_LoadItemNameStatic. */
 extern "C" const char* MM_ForeignMask_ItemName(int item, const char* nativeName) {
-    const char* name = MM_ForeignMask_NameTexture(MM_ForeignMask_ItemShows(item));
+    const char* name = MM_ForeignMask_ItemNameTexture(item);
     if (name == nullptr || !PathMounted(name)) {
         return nativeName;
     }
@@ -499,22 +506,65 @@ bool ArmFrozenBlastMaskCooldown() {
 // The pause menu's item descriptions: text 0x1700 + ItemId (z_kaleido_mask.c).
 constexpr int kItemDescriptionText = 0x1700;
 
-/** #1500: OnOpenText on a shared slot's description: the text of the mask its
- *  cell shows (MM_ForeignMask_ItemDescription), in the vanilla entry's box. */
-void DescribeSharedSlot(u16* textId, bool* loadFromMessageTable) {
-    if (textId == nullptr || loadFromMessageTable == nullptr || MM_gPlayState == nullptr ||
-        Context_GetCurrentGame() != GAME_MM) {
-        return;
-    }
-    const char* text = MM_ForeignMask_ItemDescription((int)*textId - kItemDescriptionText);
-    if (text == nullptr) {
-        return;
-    }
-    auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
+/**
+ * #1500: the default description opener. z_kaleido_mask.c opens a description
+ * through func_801514B0, which reads the vanilla table straight into the font
+ * and dispatches no OnOpenText, so an OnOpenText hook never sees it. This opens
+ * the same text the same way, then writes the OoT mask's text over the buffer
+ * in the vanilla entry's header. The header's first two bytes (the box type and
+ * position, which func_801514B0 decoded into unk11F08/unk11F18/unk11F0C) are
+ * copied from the vanilla entry unchanged, so nothing it decoded goes stale;
+ * LoadCustomMessageIntoFont sets msgLength.
+ */
+void OpenDescription(PlayState* play, uint16_t textId, uint8_t boxPos, const char* text) {
+    func_801514B0(play, textId, boxPos);
+    auto entry = CustomMessage::LoadVanillaMessageTableEntry(textId);
     entry.msg = text;
     CustomMessage::LoadCustomMessageIntoFont(entry);
-    *loadFromMessageTable = false;
 }
+
+MM_ForeignMaskDescriptionOpener sDescriptionOpener = OpenDescription;
+
+} // namespace
+
+extern "C" void MM_ForeignMask_SetDescriptionOpener(MM_ForeignMaskDescriptionOpener opener) {
+    sDescriptionOpener = opener != nullptr ? opener : OpenDescription;
+}
+
+/**
+ * #1500: A on mask-page item `item`, the body of the VB_KALEIDO_DISPLAY_ITEM_TEXT
+ * hook. A shared slot with a choice cycles its variant. A shared slot with one
+ * variant that is an OoT mask (lent the cell while the slot's own mask is not
+ * owned) opens that mask's description where vanilla would open the slot's own,
+ * with z_kaleido_mask.c's own state and box position. Everything else is vanilla.
+ */
+extern "C" int MM_ForeignMask_OnPressA(PlayState* play, int item, int vanillaShows) {
+    const uint8_t slot = SlotForItem(item);
+    if (slot == COMBO_FOREIGN_MASK_SLOT_NONE) {
+        return MM_FOREIGN_MASK_PRESS_A_VANILLA;
+    }
+    if (MM_ForeignMask_SlotVariantCount(slot) >= 2) {
+        if (MM_ForeignMask_CycleSlot(slot, 1) && play != nullptr) {
+            // The name panel reloads only when the named item changes, and the
+            // cell's item did not. A value no cursor item takes (never
+            // PAUSE_ITEM_NONE, which would also drop the name and the "to equip"
+            // prompt for a frame) makes MM_KaleidoScope_UpdateNamePanel reload it.
+            play->pauseCtx.namedItem = (u16)(item | 0x8000);
+        }
+        return MM_FOREIGN_MASK_PRESS_A_CYCLED;
+    }
+    const char* text = MM_ForeignMask_ItemDescription(item);
+    if (!vanillaShows || text == nullptr || play == nullptr || play->pauseCtx.pageIndex != PAUSE_MASK) {
+        return MM_FOREIGN_MASK_PRESS_A_VANILLA;
+    }
+    // z_kaleido_mask.c's own branch, with the OoT mask's text.
+    play->pauseCtx.itemDescriptionOn = true;
+    const uint8_t boxPos = play->pauseCtx.cursorYIndex[PAUSE_MASK] < 2 ? 3 : 1;
+    sDescriptionOpener(play, (uint16_t)(kItemDescriptionText + item), boxPos, text);
+    return MM_FOREIGN_MASK_PRESS_A_DESCRIBED;
+}
+
+namespace {
 
 void RegisterForeignMasksMM() {
     COND_ID_HOOK(OnPlayerPostLimbDraw, PLAYER_LIMB_HEAD, true, DrawOnHead);
@@ -546,30 +596,24 @@ void RegisterForeignMasksMM() {
         }
     });
 
-    // A on a shared slot with a choice cycles it instead of showing the text.
+    // A on a shared slot with a choice cycles it instead of showing the text; on
+    // a cell lent one OoT mask it shows that mask's text (#1500). The pause
+    // description is opened by func_801514B0, which dispatches no OnOpenText, so
+    // this hook, not an OnOpenText one, is where it can be replaced.
     COND_VB_SHOULD(VB_KALEIDO_DISPLAY_ITEM_TEXT, true, {
         u16* cursorItem = va_arg(args, u16*);
         if (cursorItem == nullptr) {
             return;
         }
-        const uint8_t slot = SlotForItem(*cursorItem);
-        if (slot == COMBO_FOREIGN_MASK_SLOT_NONE || MM_ForeignMask_SlotVariantCount(slot) < 2) {
+        const int pressed = MM_ForeignMask_OnPressA(MM_gPlayState, (int)*cursorItem, *should ? 1 : 0);
+        if (pressed == MM_FOREIGN_MASK_PRESS_A_VANILLA) {
             return;
         }
         *should = false;
-        if (MM_ForeignMask_CycleSlot(slot, 1) && MM_gPlayState != nullptr) {
-            // #1500: the name panel reloads only when the named item changes, and
-            // the cell's item did not: forget it so the new variant's name loads.
-            MM_gPlayState->pauseCtx.namedItem = PAUSE_ITEM_NONE;
+        if (pressed == MM_FOREIGN_MASK_PRESS_A_CYCLED) {
+            Audio_PlaySfx(NA_SE_SY_CURSOR);
         }
-        Audio_PlaySfx(NA_SE_SY_CURSOR);
     });
-
-    // #1500: A on a shared slot's cell with one variant shows the description of
-    // the mask the cell shows (the lent OoT mask), not the slot's own mask's. The
-    // pause menu opens item `item`'s description as text 0x1700 + item.
-    COND_ID_HOOK(OnOpenText, kItemDescriptionText + ITEM_MASK_STONE, true, DescribeSharedSlot);
-    COND_ID_HOOK(OnOpenText, kItemDescriptionText + ITEM_MASK_GIBDO, true, DescribeSharedSlot);
 }
 
 } // namespace

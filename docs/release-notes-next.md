@@ -7,8 +7,8 @@
 ### Fixes
 
 - **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
-  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad, the pause name and the
-  A-button description now show that mask, not the slot's own.
+  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
+  show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
 
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
 

@@ -446,6 +446,8 @@ void Kaleido_LoadItemNameStatic(void** segment, u32 texIndex) {
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
     // RSBS #1500: the name of the mask a shared slot's item stands for (ForeignMaskMM.cpp).
+    // Keyed on texIndex alone: both callers pass a cursor item, and ITEM_MASK_GIBDO (0x41)
+    // and ITEM_MASK_STONE (0x45) are cursor items only on the mask page.
     *segment = (void*)MM_ForeignMask_ItemName((int)texIndex, (const char*)*segment);
 #endif
 

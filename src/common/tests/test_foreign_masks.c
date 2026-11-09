@@ -129,6 +129,11 @@ const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
 const char* MM_ForeignMask_NameTexture(uint8_t mask);
 const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
 const char* MM_ForeignMask_ItemDescription(int item);
+const char* MM_ForeignMask_ItemNameTexture(int item);
+// games/mm/2s2h/mm_foreign_mask_test.cpp (#1500): A on a mask-page item, through the
+// VB_KALEIDO_DISPLAY_ITEM_TEXT hook's real body (MM_ForeignMask_OnPressA)
+int MM_ForeignMaskTest_PressA(int item, int yIndex, int vanillaShows, int* opened, unsigned* textId, unsigned* boxPos,
+                              const char** text, int* descriptionOn, int* nameReloads);
 #ifdef __cplusplus
 }
 #endif
@@ -228,6 +233,11 @@ void FmCheckLabels(const char* label, uint8_t slot, uint8_t expect, const char* 
              "%s: the C-button icon %s is not the page icon %s", when, hud, page);
     const char* nameTex = MM_ForeignMask_NameTexture(expect);
     const char* name = MM_ForeignMask_ItemName(item, kNative);
+    // The texture the item asks for before the mount check: the one half of the
+    // name a ROM-free run can tell apart (unmounted, `name` is always kNative).
+    const char* asked = MM_ForeignMask_ItemNameTexture(item);
+    FM_CHECK(asked == nameTex, label, "%s: the pause name asks for %s, not %s", when, asked != NULL ? asked : "none",
+             nameTex != NULL ? nameTex : "none");
     if (info == NULL) {
         FM_CHECK(nameTex == NULL && name == kNative, label, "%s: the slot's own mask is not named by its own texture",
                  when);
@@ -244,6 +254,44 @@ void FmCheckLabels(const char* label, uint8_t slot, uint8_t expect, const char* 
     FM_CHECK(desc != NULL && strstr(desc, info->name) != NULL, label,
              "%s: the A-press description does not name the %s (%s)", when, info->name,
              desc != NULL ? desc : "the slot's own text");
+}
+
+/**
+ * #1500: A on shared slot `slot`'s cell, on row `yIndex`, through the hook's real
+ * body. `expect` is MM_FOREIGN_MASK_PRESS_A_* (0 vanilla, 1 cycled, 2 described)
+ * and `mask` the OoT mask a description must name. Only a description opens
+ * text: 0x1700 + the slot's item, in z_kaleido_mask.c's box (3 on rows 0-1, else
+ * 1), with itemDescriptionOn set; only a cycle reloads the name panel.
+ */
+void FmCheckPressA(const char* label, uint8_t slot, int yIndex, int vanillaShows, int expect, uint8_t mask,
+                   const char* when) {
+    const int item = MM_ForeignMaskTest_SlotItem(slot);
+    int opened = -1;
+    unsigned textId = 0;
+    unsigned boxPos = 0;
+    const char* text = NULL;
+    int descriptionOn = -1;
+    int nameReloads = -1;
+    const int pressed = MM_ForeignMaskTest_PressA(item, yIndex, vanillaShows, &opened, &textId, &boxPos, &text,
+                                                  &descriptionOn, &nameReloads);
+    FM_CHECK(pressed == expect, label, "%s: A did %d, not %d (0 vanilla, 1 cycled, 2 described)", when, pressed,
+             expect);
+    if (expect != 2) {
+        FM_CHECK(opened == 0 && descriptionOn == 0, label, "%s: A opened a description (%d call(s))", when, opened);
+        FM_CHECK(nameReloads == (expect == 1 ? 1 : 0), label, "%s: the name panel reload is %d after A", when,
+                 nameReloads);
+        return;
+    }
+    const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(mask);
+    FM_CHECK(opened == 1 && descriptionOn == 1, label, "%s: A opened %d description(s), itemDescriptionOn %d", when,
+             opened, descriptionOn);
+    FM_CHECK(textId == 0x1700u + (unsigned)item && boxPos == (yIndex < 2 ? 3u : 1u), label,
+             "%s: the description opened as text 0x%X in box %u, not 0x%X in box %u", when, textId, boxPos,
+             0x1700u + (unsigned)item, yIndex < 2 ? 3u : 1u);
+    FM_CHECK(info != NULL && text != NULL && strstr(text, info->name) != NULL, label,
+             "%s: the description opened does not name the %s (%s)", when, info != NULL ? info->name : "mask",
+             text != NULL ? text : "no text");
+    FM_CHECK(nameReloads == 0, label, "%s: a description reloaded the name panel", when);
 }
 
 const char* FmGameName(uint8_t game) {
@@ -587,6 +635,8 @@ TestResult Test_ForeignMaskRules(void) {
     FM_CHECK(MM_ForeignMaskTest_PageIcon(cell, kNativeIcon) == kNativeIcon, "R6",
              "the Stone slot showed another icon with nothing owned");
     FmCheckLabels("R6", COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_NONE, "the Stone Mask alone");
+    FmCheckPressA("R6", COMBO_FOREIGN_MASK_SLOT_MM_STONE, 0, 1, 0, COMBO_FOREIGN_MASK_NONE,
+                  "A on the Stone Mask alone");
     Combo_ForeignMask_SetOwnedSource(GAME_MM, FmOwned);
     FmOwn((1u << COMBO_FOREIGN_MASK_OOT_GERUDO) | (1u << COMBO_FOREIGN_MASK_OOT_SKULL));
     FM_CHECK(MM_ForeignMaskTest_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1) == 1 &&
@@ -621,6 +671,13 @@ TestResult Test_ForeignMaskRules(void) {
              "three presses did not bring Stone's slot back to the Stone Mask");
     FmCheckLabels("R6", COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_NONE,
                   "the Stone Mask chosen beside the Gerudo and Skull Masks");
+    // #1500: A through the hook's body cycles (and reloads the name), never describes.
+    FmCheckPressA("R6", COMBO_FOREIGN_MASK_SLOT_MM_STONE, 0, 1, 1, COMBO_FOREIGN_MASK_NONE,
+                  "A on Stone's slot beside the Gerudo and Skull Masks");
+    FM_CHECK(MM_ForeignMaskTest_SlotSelection(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == COMBO_FOREIGN_MASK_OOT_GERUDO, "R6",
+             "A through the hook's body did not move Stone's slot to the Gerudo Mask");
+    FmCheckLabels("R6", COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_OOT_GERUDO,
+                  "the Gerudo Mask chosen by A beside the Stone Mask");
     MM_ForeignMaskTest_SetSlotSel(COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_OOT_SPOOKY);
     FM_CHECK(MM_ForeignMaskTest_SlotSelection(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == 0, "R6",
              "Gibdo's Spooky Mask was chosen in Stone's slot");
@@ -682,12 +739,25 @@ TestResult Test_ForeignMaskRules(void) {
              "R6b", "Stone's C button, its own mask owned, was taken over while Gibdo's cell showed the Spooky Mask");
     FmCheckLabels("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, COMBO_FOREIGN_MASK_OOT_SPOOKY,
                   "the Spooky Mask lent Gibdo's cell");
+    // #1500: A on the lent cell (one variant) opens the Spooky Mask's description,
+    // in the box z_kaleido_mask.c picks for the row; a press another handler took
+    // opens nothing.
+    FmCheckPressA("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 0, 1, 2, COMBO_FOREIGN_MASK_OOT_SPOOKY,
+                  "A on the Spooky Mask lent Gibdo's cell, top rows");
+    FmCheckPressA("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 2, 1, 2, COMBO_FOREIGN_MASK_OOT_SPOOKY,
+                  "A on the Spooky Mask lent Gibdo's cell, lower rows");
+    FmCheckPressA("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 0, 0, 0, COMBO_FOREIGN_MASK_NONE,
+                  "A on the lent Gibdo cell that another handler took");
     FmCheckLabels("R6b", COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_NONE,
                   "Stone's own mask owned beside a lent Gibdo cell");
     // #1500: both owned in Gibdo's slot: its own mask, then the Spooky Mask chosen.
     MM_ForeignMaskTest_SetNativeOwned(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 1);
     FmCheckLabels("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, COMBO_FOREIGN_MASK_NONE,
                   "the Gibdo Mask owned beside the Spooky Mask");
+    FmCheckPressA("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 0, 1, 1, COMBO_FOREIGN_MASK_NONE,
+                  "A on Gibdo's slot with both masks owned");
+    FM_CHECK(MM_ForeignMaskTest_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 1) == 1, "R6b",
+             "A on Gibdo's slot did not move back to the Gibdo Mask");
     FM_CHECK(MM_ForeignMaskTest_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, 1) == 1, "R6b",
              "A on Gibdo's slot with both masks owned did not move to the Spooky Mask");
     FmCheckLabels("R6b", COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, COMBO_FOREIGN_MASK_OOT_SPOOKY,
