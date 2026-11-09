@@ -134,7 +134,7 @@ ImVec4 trackerBG = ImVec4{ 0, 0, 0, 0.5f };
 std::map<SceneId, std::set<RandoCheckId>> sceneChecks;
 std::vector<SceneId> sortedSceneIds;
 std::unordered_map<RandoCheckId, std::string> accessLogicFuncs;
-std::unordered_map<RandoRegionId, SceneId> regionParentSceneMap;
+static std::unordered_map<RandoRegionId, SceneId> regionParentSceneMap;
 std::set<RandoCheckType> checkTypeFiltersAvailable;
 std::set<RandoCheckType> checkTypeFilter;
 
@@ -204,12 +204,34 @@ static std::set<SceneId> scenesToCheckParent = {
     SCENE_BANDROOM,  SCENE_TOUGITES,    SCENE_MUSICHOUSE,
 };
 
-SceneId GetScrollTargetScene(s32 rawSceneId) {
+// The last scene OnSceneInit saw that is not a grotto, or -1: GetScrollTargetScene's last resort.
+static s32 sLastNonGrottoScene = -1;
+
+static SceneId GetScrollTargetScene(s32 rawSceneId) {
     SceneId sceneId = (SceneId)Play_GetOriginalSceneId(rawSceneId);
     if (scenesToCheckParent.contains(sceneId)) {
         RandoRegionId regionId = Rando::Logic::GetRegionIdFromEntrance(gSaveContext.save.entrance);
         if (regionParentSceneMap.contains(regionId)) {
             return regionParentSceneMap[regionId];
+        }
+        // Local divergence from f8bf9bb3b (#1498): upstream's Logic half gives each grotto that shares
+        // ENTRANCE(GROTTOS, 4) / (GROTTOS, 10) its own entrance. That half is not ported (it moves the fill), so here
+        // those grottos' entrance names no region. Answer the scene the grotto was entered from instead: the region
+        // of the entrance the respawn point was last set from outside a grotto (Play_SetupRespawnPoint skips
+        // SCENE_KAKUSIANA; upstream keys on the same field), else the last non-grotto scene played.
+        if (sceneId == SCENE_KAKUSIANA) {
+            const RandoRegionId fromRegionId =
+                Rando::Logic::GetRegionIdFromEntrance(gSaveContext.respawn[RESPAWN_MODE_DOWN].entrance);
+            const auto fromRegion = Rando::Logic::Regions.find(fromRegionId);
+            if (fromRegionId != RR_MAX && fromRegion != Rando::Logic::Regions.end()) {
+                const SceneId fromScene = (SceneId)Play_GetOriginalSceneId(fromRegion->second.sceneId);
+                if (fromScene != SCENE_MAX && fromScene != SCENE_KAKUSIANA) {
+                    return fromScene;
+                }
+            }
+            if (sLastNonGrottoScene >= 0) {
+                return (SceneId)Play_GetOriginalSceneId(sLastNonGrottoScene);
+            }
         }
     }
     return sceneId;
@@ -221,8 +243,15 @@ void initializeSceneChecks() {
     checkTypeFiltersAvailable.clear();
     checkTypeFiltersAvailable.insert(RCTYPE_UNKNOWN); // Always include the unknown type
 
+    // Local divergence from f8bf9bb3b (#1498): upstream lists a check only through a region. The root (RR_MAX at
+    // SCENE_MAX: the starting Deku Mask and Song of Healing) and a grotto with no parent found are skipped here, and
+    // every shuffled check no listed region holds goes under its own static scene below, as before the port.
+    std::set<RandoCheckId> listedChecks;
     for (auto& [regionId, staticRegion] : Rando::Logic::Regions) {
         SceneId sceneId = (SceneId)Play_GetOriginalSceneId(staticRegion.sceneId);
+        if (sceneId == SCENE_MAX) {
+            continue;
+        }
 
         // For some scenes we want to show them in their parent instead
         if (scenesToCheckParent.contains(sceneId)) {
@@ -251,7 +280,15 @@ void initializeSceneChecks() {
             }
             checkTypeFiltersAvailable.insert(randoStaticCheck.randoCheckType);
             sceneChecks[sceneId].insert(randoCheckId);
+            listedChecks.insert(randoCheckId);
         }
+    }
+    for (auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+        if (!RANDO_SAVE_CHECKS[randoCheckId].shuffled || listedChecks.contains(randoCheckId)) {
+            continue;
+        }
+        checkTypeFiltersAvailable.insert(randoStaticCheck.randoCheckType);
+        sceneChecks[(SceneId)Play_GetOriginalSceneId(randoStaticCheck.sceneId)].insert(randoCheckId);
     }
 
     sortedSceneIds.clear();
@@ -323,7 +360,8 @@ static void RecomputeChecksInLogic() {
 
     std::map<RandoCheckId, std::vector<SceneId>> dropScenes;
     for (auto& [regionId, randoCheckId] : instances) {
-        if (!IsEnemyDrop(randoCheckId)) {
+        // The instances also name obtained checks (the combo pane files by them); a copy is in logic only unobtained.
+        if (!IsEnemyDrop(randoCheckId) || !checksInLogic.contains(randoCheckId)) {
             continue;
         }
         const SceneId sceneId = TrackerListScene(regionId);
@@ -384,6 +422,47 @@ extern "C" int MM_CheckTracker_TestCheckCopy(uint16_t sceneId, uint16_t randoChe
         return -1;
     }
     return CheckCopyInLogic((SceneId)sceneId, (RandoCheckId)randoCheckId) ? 1 : 0;
+}
+
+// TEST BRIDGE (#1498): rebuild the scene lists from the live save and count the shuffled checks listed under no
+// scene the window draws (only under SCENE_MAX, or nowhere); up to `cap` of them go to `out` (may be NULL).
+extern "C" int MM_CheckTracker_TestUnlistedShuffled(uint16_t* out, int cap) {
+    initializeSceneChecks();
+    int count = 0;
+    for (auto& [randoCheckId, _] : Rando::StaticData::Checks) {
+        if (!RANDO_SAVE_CHECKS[randoCheckId].shuffled) {
+            continue;
+        }
+        bool drawn = false;
+        for (auto& [sceneId, checks] : sceneChecks) {
+            if (sceneId != SCENE_MAX && checks.contains(randoCheckId)) {
+                drawn = true;
+                break;
+            }
+        }
+        if (!drawn) {
+            if (out != nullptr && count < cap) {
+                out[count] = (uint16_t)randoCheckId;
+            }
+            count++;
+        }
+    }
+    return count;
+}
+
+// TEST BRIDGE (#1498): the scene Only Show Current Scene and the scroll target answer while raw scene `rawSceneId`
+// is played, from the live save's entrance and respawn point. The scene lists must have been built.
+extern "C" int MM_CheckTracker_TestScrollTargetScene(int rawSceneId) {
+    return (int)GetScrollTargetScene((s32)rawSceneId);
+}
+
+// TEST BRIDGE (#1498): after a row restores the live save, rebuild the scene lists from it and forget the in-logic
+// answer, so nothing the row authored stays listed for later code in the process.
+extern "C" void MM_CheckTracker_TestReset(void) {
+    initializeSceneChecks();
+    checksInLogic.clear();
+    dropCopiesInLogic.clear();
+    dropLogicAreas.clear();
 }
 #endif
 
@@ -584,16 +663,21 @@ std::set<RandoCheckId> ComputeChecksInLogic(s32 startEntrance, std::set<Rando::L
 
     // The tracker's own semantics on top of the shared crawl: a check is "in logic" when its access lambda passes
     // AND it is shuffled AND not yet obtained.
+    std::set<RandoCheckId> shuffledReached;
     for (RandoCheckId randoCheckId : reached) {
         auto& randoSaveCheck = RANDO_SAVE_CHECKS[randoCheckId];
-        if (randoSaveCheck.shuffled && !randoSaveCheck.obtained) {
-            inLogic.insert(randoCheckId);
+        if (randoSaveCheck.shuffled) {
+            shuffledReached.insert(randoCheckId);
+            if (!randoSaveCheck.obtained) {
+                inLogic.insert(randoCheckId);
+            }
         }
     }
-    // #1498: the same answer per instance, over the same guarded crawl and kept to the same checks, so the drops it
-    // names are exactly the drops in `inLogic`. Before the events are put back: the rows read them.
+    // #1498: the same answer per instance, over the same guarded crawl, for every shuffled check it reaches,
+    // obtained or not, so a collected drop keeps the area it was filed under. Before the events are put back: the
+    // rows read them.
     if (outInstances != nullptr) {
-        *outInstances = Rando::Logic::EvaluateReachableCheckInstances(crawl, inLogic);
+        *outInstances = Rando::Logic::EvaluateReachableCheckInstances(crawl, shuffledReached);
     }
 
     memcpy(RANDO_EVENTS, savedEvents, sizeof(savedEvents));
@@ -799,6 +883,9 @@ void Init() {
         }
     }
     S2H::GameHooks::Register<GameInteractor::OnSceneInit>([](s8 sceneId, s8 spawnNum) {
+        if (Play_GetOriginalSceneId(sceneId) != SCENE_KAKUSIANA) {
+            sLastNonGrottoScene = sceneId;
+        }
         if (CVAR_SCROLL_TO_SCENE) {
             sScrollToTargetScene = GetScrollTargetScene(sceneId);
             sScrollToTargetEntrance = gSaveContext.save.entrance;

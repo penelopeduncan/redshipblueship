@@ -485,8 +485,9 @@ void MMRefreshInLogic(bool force) {
         for (RandoCheckId id : Rando::CheckTracker::ComputeChecksInLogic(gSaveContext.save.entrance, &instances)) {
             sInLogic[id] = 1;
         }
-        // #1498: each drop's area is its first instance in logic, in region order (the set's order, and the
-        // order MMCheckScenes takes its first region in); the tooltip names every such area once.
+        // #1498: each drop's area is its first reachable instance, in region order (the set's order, and the
+        // order MMCheckScenes takes its first region in). The instances include obtained drops, so a collected
+        // drop stays filed where it was; the tooltip names every area of an unobtained drop's instances once.
         std::unordered_map<uint16_t, std::vector<s16>> dropScenes;
         for (const auto& [regionId, checkId] : instances) {
             const auto region = Rando::Logic::Regions.find(regionId);
@@ -499,6 +500,9 @@ void MMRefreshInLogic(bool force) {
             }
             if (sDropScene[checkId] == (s16)SCENE_MAX) {
                 sDropScene[checkId] = scene;
+            }
+            if (sInLogic[checkId] == 0) {
+                continue;
             }
             std::vector<s16>& scenes = dropScenes[(uint16_t)checkId];
             if (std::find(scenes.begin(), scenes.end(), scene) == scenes.end()) {
@@ -763,6 +767,10 @@ extern "C" void MM_TrackerAdapter_TestLiveSeam(int live) {
 extern "C" int MM_TrackerAdapter_TestInLogicSeam(int authored, const uint16_t* ids, int count) {
     sInLogicAuthored = authored != 0;
     sInLogicValid = false;
+    // #1498: the drop filing and tooltips came from the previous computation's save; drop them with it.
+    sDropScene.clear();
+    sDropLogicText.clear();
+    sDropAreasValid = false;
     sInLogicAuthoredIds.clear();
     if (ids != nullptr && count > 0) {
         sInLogicAuthoredIds.assign(ids, ids + count);

@@ -16,10 +16,16 @@
  *      Termina Field copy in logic and kept by Only Show Current Scene in Termina
  *      Field (2Ship f8bf9bb3b), and the drop's tooltip names Termina Field and not
  *      Beneath the Well.
+ *   G  Only Show Current Scene inside a grotto whose shared entrance names no region
+ *      (the Termina Field Mini Baba grottos' ENTRANCE(GROTTOS, 4)) answers the scene
+ *      it was entered from (the respawn point's entrance), not the grotto scene.
  *   C  the combo tracker's MM pane: the drop is available and filed under the area
- *      of one of its instances in logic (not Beneath the Well), its tooltip names
- *      Termina Field, reading the row twice computes availability once, and with
- *      Enable Available Checks off the row goes back to the static first region.
+ *      of one of its instances in logic (not Beneath the Well, its static first
+ *      region), its tooltip names Termina Field, reading the row twice computes
+ *      availability once, a collected drop keeps that area, and with Enable
+ *      Available Checks off the row goes back to the static first region.
+ *   U  with every check shuffled, MM's native tracker lists each one under a scene it
+ *      draws (the root's starting Deku Mask and Song of Healing included).
  *
  * MM_CheckInstancesPerId_Run (row MMCheckInstancesPerIdUnchanged): over the same
  * save, the new per-instance function leaves the per-id answer exactly as it was,
@@ -69,6 +75,9 @@ extern "C" uint16_t MM_TrackerAdapter_TestStaticAreaKey(uint16_t checkId);
 // CheckTracker.cpp.
 extern "C" int MM_CheckTracker_TestCheckCopy(uint16_t sceneId, uint16_t randoCheckId, char* tip, int cap,
                                              int currentSceneId, int* outShown);
+extern "C" int MM_CheckTracker_TestUnlistedShuffled(uint16_t* out, int cap);
+extern "C" int MM_CheckTracker_TestScrollTargetScene(int rawSceneId);
+extern "C" void MM_CheckTracker_TestReset(void);
 
 extern "C" {
 #include "z64save.h"
@@ -154,7 +163,8 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
         return 1;
     }
 
-    EdiSaveGuard guard;
+    // Released before the end so the scene lists can be rebuilt from the restored save (MM_CheckTracker_TestReset).
+    auto guard = std::make_unique<EdiSaveGuard>();
     EdiAuthorSave();
 
     const s16 fieldScene = Play_GetOriginalSceneId(SCENE_00KEIKOKU);
@@ -197,6 +207,22 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
               "N: Only Show Current Scene in Termina Field does not keep exactly the Termina Field copy");
     EDI_CHECK(nativeTip.find(fieldName) != std::string::npos && nativeTip.find(wellName) == std::string::npos,
               "N: the native drop tooltip does not name Termina Field alone of the two");
+
+    // ---- G: Only Show Current Scene inside a shared-entrance grotto -------------------------------
+    // The pillar and tall-grass grottos are entered through ENTRANCE(GROTTOS, 4) from Termina Field; MM sets the
+    // respawn point from the field's entrance and not from inside the grotto (Play_SetupRespawnPoint).
+    gSaveContext.save.entrance = ENTRANCE(GROTTOS, 4);
+    gSaveContext.respawn[RESPAWN_MODE_DOWN].entrance = ENTRANCE(TERMINA_FIELD, 0);
+    const int grottoRegion = (int)Rando::Logic::GetRegionIdFromEntrance(gSaveContext.save.entrance);
+    const int grottoTarget = MM_CheckTracker_TestScrollTargetScene((int)SCENE_KAKUSIANA);
+    gSaveContext.save.entrance = kArrivalEntrance;
+    gSaveContext.respawn[RESPAWN_MODE_DOWN].entrance = 0;
+    printf("[TEST] G: grotto entrance region %d (RR_MAX %d), current scene in the grotto %d (Termina Field %d)
+           ",
+           grottoRegion,
+           (int)RR_MAX, grottoTarget, (int)fieldScene);
+    EDI_CHECK(grottoTarget == (int)fieldScene,
+              "G: Only Show Current Scene in a Termina Field Mini Baba grotto does not answer Termina Field");
 
     // ---- C: the combo tracker's MM pane ------------------------------------------------------
     MM_TrackerAdapter_Register();
@@ -241,6 +267,24 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     EDI_CHECK(computations == 1, "C: reading the summary and the row twice did not compute availability exactly once");
     EDI_CHECK(comboTipText.find(fieldName) != std::string::npos && comboTipText.find(wellName) == std::string::npos,
               "C: the combo pane's drop tooltip does not name Termina Field alone of the two");
+    // The issue's claim, and the guard that keeps the area legs from passing against the static rule.
+    EDI_CHECK(staticKey == wellKey, "C: Mini Baba's static first region is not Beneath the Well (the issue's claim)");
+    EDI_CHECK(reachableAreas.count(staticKey) == 0,
+              "C: Mini Baba's static first region is an area in logic, so the area legs would be vacuous");
+
+    // Collected: the drop keeps the area it was filed under instead of going back to the static first region.
+    RANDO_SAVE_CHECKS[kDrop].obtained = true;
+    (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
+    ComboTrackerGameSummary obtainedSummary = {};
+    Combo_TrackerGameSummary((uint8_t)GAME_MM, &obtainedSummary);
+    ComboTrackerCheckRow obtainedRow = {};
+    const bool haveObtained = Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kDrop, &obtainedRow);
+    RANDO_SAVE_CHECKS[kDrop].obtained = false;
+    (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
+    printf("[TEST] C (collected): area %04X
+", (unsigned)obtainedRow.areaKey);
+    EDI_CHECK(haveObtained && obtainedRow.areaKey == row.areaKey,
+              "C: collecting Mini Baba's drop moved its row to another area");
 
     // Enable Available Checks off: nothing is computed, and the row keeps the static first region.
     CVarSetInteger(kEdiAvailableKey, 0);
@@ -259,6 +303,24 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     MM_TrackerAdapter_TestLiveSeam(-1);
     (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
     Context_SetCurrentGame(prevGame);
+
+    // ---- U: every shuffled check is listed under a scene the native tracker draws -------------------
+    for (auto& [checkId, _] : Rando::StaticData::Checks) {
+        RANDO_SAVE_CHECKS[checkId].shuffled = true;
+    }
+    uint16_t unlisted[8] = {};
+    const int unlistedCount = MM_CheckTracker_TestUnlistedShuffled(unlisted, 8);
+    printf("[TEST] U: %d shuffled check(s) listed under no drawn scene:", unlistedCount);
+    for (int i = 0; i < unlistedCount && i < 8; i++) {
+        printf(" %u", (unsigned)unlisted[i]);
+    }
+    printf(" (RC_STARTING_ITEM_DEKU_MASK %d, RC_STARTING_ITEM_SONG_OF_HEALING %d)
+", (int)RC_STARTING_ITEM_DEKU_MASK,
+           (int)RC_STARTING_ITEM_SONG_OF_HEALING);
+    EDI_CHECK(unlistedCount == 0, "U: a shuffled check is listed under no scene MM's native tracker draws");
+
+    guard.reset();
+    MM_CheckTracker_TestReset();
     if (sFailures != 0) {
         printf("[TEST] FAIL: mm-enemy-drop-instances: %d check(s) failed\n", sFailures);
     } else {

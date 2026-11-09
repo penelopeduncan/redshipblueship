@@ -7,8 +7,11 @@
 ### Trackers
 
 - **Majora's Mask enemy drops show where the kill is in logic** (issue #1498). With Available Checks on, the Combo Tracker
-  lists a drop under an area where it can be killed; MM's Check Tracker greys each area's copy on its own, and both name the areas in the
-  drop's tooltip. Only Show Current Scene now lists drops too.
+  lists a drop under an area where it can be killed, and keeps it there once collected. MM's Check Tracker greys each
+  area's copy on its own and names the areas in the drop's tooltip (when Out of Logic Checks is not Normal), as does the
+  Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
+  inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
+  the scene they open from.
 
 ---
 
