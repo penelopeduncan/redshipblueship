@@ -615,7 +615,14 @@ else()
     add_dependencies(soh CreateOSXIcons)
 endif()
 
-install(TARGETS ZAPD_OoT DESTINATION ${CMAKE_BINARY_DIR}/assets)
+# In-app extraction spawns the standalone ZAPD executables as subprocesses
+# (issue #325), as on Linux and Windows above. In the bundle they sit beside
+# redship in Contents/MacOS, not under Resources/assets/extractor: they link
+# MacPorts' libpng, libz and libbz2, and fixup_bundle (below, which is given
+# both) embeds those at @executable_path/../MacOS, a path that resolves only
+# from Contents/MacOS. ZapdSubprocess_Locate looks there on Apple (#1501).
+install(TARGETS ZAPD_OoT RUNTIME DESTINATION ../MacOS COMPONENT ship)
+install(TARGETS ZAPD_MM RUNTIME DESTINATION ../MacOS COMPONENT ship)
 
 set(PROGRAM_PERMISSIONS_EXECUTE OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
@@ -651,10 +658,14 @@ endif()
 
 # COMPONENT ship: CPack's Bundle generator installs monolithically today, but
 # Packaging-2.cmake limits component installs to "ship", and this must run last
-# under either.
+# under either. The ZAPD executables are passed as extra items: nothing the
+# main executable loads names them, so fixup_bundle would otherwise leave their
+# /opt/local library references in place, which verify_app refuses.
 install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/../MacOS/${RSBS_MACOS_BUNDLE_EXECUTABLE}\" \"\" \"${dirs}\")
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/../MacOS/${RSBS_MACOS_BUNDLE_EXECUTABLE}\"
+                 \"\${CMAKE_INSTALL_PREFIX}/../MacOS/$<TARGET_FILE_NAME:ZAPD_OoT>;\${CMAKE_INSTALL_PREFIX}/../MacOS/$<TARGET_FILE_NAME:ZAPD_MM>\"
+                 \"${dirs}\")
     " COMPONENT ship)
 
 endif()

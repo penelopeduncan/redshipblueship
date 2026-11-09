@@ -340,6 +340,42 @@ jobs:
 
         mv _packages/*.dmg RedShipBlueShip.dmg
         mv README.md readme.txt
+    # In-app ROM extraction spawns ZAPD_OoT and ZAPD_MM (ZapdSubprocess_Locate
+    # looks in the bundle's Contents/MacOS), so a dmg without either one stops
+    # a fresh install at "ZAPD extractor executable not found" (#1501). Opens
+    # the dmg as a player gets it and fails when either executable is missing,
+    # still names a MacPorts library, or the extractor configs are absent.
+    - name: Check the app bundle ships both extractors (#1501)
+      run: |
+        MNT="$(mktemp -d)"
+        hdiutil attach RedShipBlueShip.dmg -nobrowse -readonly -mountpoint "$MNT" > /dev/null
+        trap 'hdiutil detach "$MNT" > /dev/null || true' EXIT
+        APP="$(find "$MNT" -maxdepth 1 -name '*.app' | head -n 1)"
+        if [ -z "$APP" ]; then
+          echo "::error::RedShipBlueShip.dmg holds no .app"
+          exit 1
+        fi
+        echo "Bundle: ${APP#"$MNT"/}"
+        ls -l "$APP/Contents/MacOS"
+        fail=0
+        for zapd in ZAPD_OoT ZAPD_MM; do
+          exe="$APP/Contents/MacOS/${zapd}.out"
+          if [ ! -x "$exe" ]; then
+            echo "::error::the app bundle has no executable Contents/MacOS/${zapd}.out"
+            fail=1
+            continue
+          fi
+          if otool -L "$exe" | grep -q '/opt/local/'; then
+            echo "::error::Contents/MacOS/${zapd}.out still links a MacPorts library:"
+            otool -L "$exe"
+            fail=1
+          fi
+        done
+        if [ ! -d "$APP/Contents/Resources/assets/xml" ]; then
+          echo "::error::the app bundle has no Contents/Resources/assets/xml"
+          fail=1
+        fi
+        exit "$fail"
     - name: Upload build
       uses: actions/upload-artifact@v4
       with:
@@ -1129,8 +1165,11 @@ jobs:
     # download URL that outlives the short CI artifact retention window.
     # Also runs on workflow_dispatch, where it creates the tag itself at the
     # dispatched commit (see the trigger comment at the top of this file).
+    # Not build-macos: a red or timed-out macOS build must not hold back the
+    # Windows and Linux assets. release-macos below attaches the dmg once both
+    # this job and the macOS build have succeeded (#1501).
     if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
-    needs: [build-linux, build-windows, build-macos]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -1192,11 +1231,6 @@ jobs:
       with:
         name: redship-map-windows
         path: redship-map-windows
-    - name: Download macOS build
-      uses: actions/download-artifact@v4
-      with:
-        name: rsbs-mac
-        path: rsbs-mac
     - name: Prepare release assets
       run: |
         mv rsbs-linux/rsbs.appimage "redshipblueship-${RELEASE_TAG}-linux.AppImage"
@@ -1205,7 +1239,6 @@ jobs:
         # extracted so PR testers get a browsable tree); re-zip it for release.
         (cd rsbs-windows && zip -qr "../redshipblueship-${RELEASE_TAG}-windows.zip" .)
         mv redship-map-windows/redship.map "redshipblueship-${RELEASE_TAG}-windows.map"
-        mv rsbs-mac/RedShipBlueShip.dmg "redshipblueship-${RELEASE_TAG}-macos.dmg"
     # The notes name the seed generator version a package must match, read from
     # RSBS_GENERATOR_VERSION (src/common/foreign_items.h) so it never goes
     # stale. tools/tests/test_repo_invariants.py runs this step's script
@@ -1231,7 +1264,6 @@ jobs:
           "redshipblueship-${RELEASE_TAG}-linux.map"
           "redshipblueship-${RELEASE_TAG}-windows.zip"
           "redshipblueship-${RELEASE_TAG}-windows.map"
-          "redshipblueship-${RELEASE_TAG}-macos.dmg"
         )
         # Idempotent on re-runs: if the release already exists, refresh its assets.
         if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
@@ -1253,6 +1285,38 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/${GITHUB_REF}"
+
+  release-macos:
+    # The macOS dmg, attached to the release create-release made (#1501). It
+    # needs both jobs, so the implicit success() skips it when the macOS build
+    # failed, timed out or was cancelled, and the release keeps the Windows and
+    # Linux assets. Re-running this job after a fixed macOS build attaches the
+    # dmg to the existing release (--clobber).
+    name: Attach macOS release
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
+    needs: [create-release, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    # The same precedence as create-release's "Resolve release tag" step.
+    - name: Resolve macOS release tag
+      env:
+        INPUT_TAG: ${{ inputs.release_tag }}
+      run: |
+        TAG="${INPUT_TAG:-${GITHUB_REF_NAME#release/}}"
+        echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
+    - name: Download macOS build
+      uses: actions/download-artifact@v4
+      with:
+        name: rsbs-mac
+        path: rsbs-mac
+    - name: Attach the macOS dmg
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mv rsbs-mac/RedShipBlueShip.dmg "redshipblueship-${RELEASE_TAG}-macos.dmg"
+        gh release upload "${RELEASE_TAG}" "redshipblueship-${RELEASE_TAG}-macos.dmg" --repo "${GITHUB_REPOSITORY}" --clobber
 
   monotonicity-probe:
     # ADR 0010 answer O6's STATIC PROBE (#645, #500). The combo fill is sound
