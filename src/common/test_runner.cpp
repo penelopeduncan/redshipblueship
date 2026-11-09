@@ -8234,6 +8234,18 @@ TestResult Test_MMLogicGates(void) {
     }
     return MM_LogicGates_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1453: an MM logic edge carries only the half-days its condition holds on, in
+// CrawlReachableRegions and FindReachableRegions, over a synthetic region map
+// swapped in for Rando::Logic::Regions (games/mm/2s2h/mm_time_edges_test.cpp).
+// Same bring-up as mm-logic-gates; skipped by `--test all` below because it
+// swaps the process-wide region map and resets the entrance->region cache.
+extern "C" int MM_TimeEdges_RunHeadless(void);
+TestResult Test_MMTimeEdges(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_TimeEdges_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #980: Ocarina of Time's masks in MM's logic (games/mm/2s2h/mm_oot_masks_test.cpp),
 // over MM's real region lambdas. Same bring-up as mm-logic-gates.
 extern "C" int MM_OoTMasksLogic_RunHeadless(void);
@@ -9801,6 +9813,10 @@ const TestDescriptor gTests[] = {
       "Romani Ranch's cows, Epona's Song and the alien drop need the Milk Road boulder broken on Day 1, and the "
       "Circus Leader's Mask needs Romani's Mask (#1168)",
       Test_MMLogicGates },
+    // #1453. Swaps the region map; skipped by `--test all` below like its siblings.
+    { "mm-time-edges",
+      "A night-only MM logic edge carries no day time into its target, in the crawl and the glitchless fill (#1453)",
+      Test_MMTimeEdges },
     // #980. Skipped by `--test all` below like its siblings.
     { "oot-masks-mm-logic",
       "Under their frozen rules the Skull Mask opens the Deku Palace, the Gerudo Mask gets past the purple guard, "
@@ -10418,7 +10434,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "tracker-fill-superset") == 0 ||
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
-                strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
                 strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||
