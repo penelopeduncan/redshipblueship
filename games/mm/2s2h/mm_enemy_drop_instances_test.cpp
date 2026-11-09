@@ -217,10 +217,9 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     const int grottoTarget = MM_CheckTracker_TestScrollTargetScene((int)SCENE_KAKUSIANA);
     gSaveContext.save.entrance = kArrivalEntrance;
     gSaveContext.respawn[RESPAWN_MODE_DOWN].entrance = 0;
-    printf("[TEST] G: grotto entrance region %d (RR_MAX %d), current scene in the grotto %d (Termina Field %d)
-           ",
-           grottoRegion,
-           (int)RR_MAX, grottoTarget, (int)fieldScene);
+    printf("[TEST] G: grotto entrance region %d (RR_MAX %d), current scene in the grotto %d (Termina Field %d)\n       "
+           "    ",
+           grottoRegion, (int)RR_MAX, grottoTarget, (int)fieldScene);
     EDI_CHECK(grottoTarget == (int)fieldScene,
               "G: Only Show Current Scene in a Termina Field Mini Baba grotto does not answer Termina Field");
 
@@ -281,8 +280,7 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     const bool haveObtained = Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kDrop, &obtainedRow);
     RANDO_SAVE_CHECKS[kDrop].obtained = false;
     (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
-    printf("[TEST] C (collected): area %04X
-", (unsigned)obtainedRow.areaKey);
+    printf("[TEST] C (collected): area %04X\n", (unsigned)obtainedRow.areaKey);
     EDI_CHECK(haveObtained && obtainedRow.areaKey == row.areaKey,
               "C: collecting Mini Baba's drop moved its row to another area");
 
@@ -314,8 +312,7 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     for (int i = 0; i < unlistedCount && i < 8; i++) {
         printf(" %u", (unsigned)unlisted[i]);
     }
-    printf(" (RC_STARTING_ITEM_DEKU_MASK %d, RC_STARTING_ITEM_SONG_OF_HEALING %d)
-", (int)RC_STARTING_ITEM_DEKU_MASK,
+    printf(" (RC_STARTING_ITEM_DEKU_MASK %d, RC_STARTING_ITEM_SONG_OF_HEALING %d)\n", (int)RC_STARTING_ITEM_DEKU_MASK,
            (int)RC_STARTING_ITEM_SONG_OF_HEALING);
     EDI_CHECK(unlistedCount == 0, "U: a shuffled check is listed under no scene MM's native tracker draws");
 
