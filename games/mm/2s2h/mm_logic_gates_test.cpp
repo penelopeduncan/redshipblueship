@@ -14,6 +14,9 @@
  * bar is handed the night windows too. A probe of the check lambda alone, under a
  * hand-picked time mask, would not show that; CrawlReachableRegions +
  * EvaluateReachableChecks (the tracker's and the combo engine's crawl) does.
+ * (Since #1453 an edge carries only the half-days its own condition holds on,
+ * so the Day 3 road hands the ranch Day 3 and Night 3 only; mm-time-edges locks
+ * that. These legs gate the check rows themselves and hold either way.)
  *
  *  R. Romani Ranch (2S2H 9b699dee1). From Milk Road with the Ocarina of Time,
  *     Epona's Song and the Bow but no way to break the boulder (no Goron Mask, no

@@ -9,6 +9,7 @@
 #include "Rando/OoTMasksMM.h" // #980: HAS_OOT_MASK
 #endif
 
+#include <functional>
 #include <set>
 #include <cassert>
 #include <stdexcept>
@@ -157,6 +158,15 @@ inline void SetCurrentRegionTime(const std::unordered_map<RandoRegionId, RegionT
                                  RandoRegionId regionId) {
     gCurrentRegionTime = regionTimeStates.at(regionId).timeSlices;
 }
+
+// #1453: the slices of `sourceTime` that an edge whose `condition` PASSED on the
+// whole of `sourceTime` carries into its target: the union of the half-days of
+// `sourceTime` on which `condition` holds alone (re-evaluated with
+// gCurrentRegionTime restricted to each one, at most six calls, none when
+// `sourceTime` sits in one half-day). Returns `sourceTime` unchanged when no
+// single half-day holds. gCurrentRegionTime is restored before returning. Both
+// FindReachableRegions and CrawlReachableRegions propagate through it.
+uint64_t NarrowEdgeTime(uint64_t sourceTime, const std::function<bool()>& condition);
 
 void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& reachableRegions,
                           std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates);
