@@ -216,7 +216,7 @@ void SetBought(bool bought) {
     if (bought) {
         WEEKEVENTREG(kBoughtFlag >> 8) |= (u8)(kBoughtFlag & 0xFF);
     } else {
-        WEEKEVENTREG(kBoughtFlag >> 8) &= (u8)~(kBoughtFlag & 0xFF);
+        WEEKEVENTREG(kBoughtFlag >> 8) &= (u8) ~(kBoughtFlag & 0xFF);
     }
 }
 
