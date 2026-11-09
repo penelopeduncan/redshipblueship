@@ -1,3 +1,18 @@
+# Release notes: next release (draft)
+
+**Status:** draft, for the release after `v0.5.0-alpha`. Pull requests add their lines here as they merge.
+
+## Since v0.5.0-alpha
+
+### Randomizer and logic
+
+- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A path open only at night
+  (Milk Road's Night 2 exits, the graveyard holes, shop hours) now leads only to that night, so a
+  daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time above all, make different
+  worlds from the same seed.
+
+---
+
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
 
 **Status:** released. The release is cut as the tag `v0.5.0-alpha` on the commit that merges this text (the version
