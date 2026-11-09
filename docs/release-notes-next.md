@@ -6,10 +6,10 @@
 
 ### Randomizer and logic
 
-- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A path open only at night
-  (Milk Road's Night 2 exits, the graveyard holes, shop hours) now leads only to that night, so a
-  daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time above all, make different
-  worlds from the same seed.
+- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
+  carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
+  leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
+  above all, make different worlds from the same seed.
 
 ---
 

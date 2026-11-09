@@ -280,13 +280,15 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
         // Set global time for check evaluation
         gCurrentRegionTime = currentTime;
 
-        // carriedTime: the slices this edge holds on (#1453, NarrowEdgeTime).
-        auto propagate = [&](RandoRegionId targetId, uint64_t carriedTime) {
+        // An edge carries only the slices it holds on (#1453, NarrowEdgeTime).
+        // The carry is always a subset of currentTime, so a target that already
+        // holds all of currentTime cannot grow and is not narrowed at all.
+        auto propagate = [&](RandoRegionId targetId, const std::function<bool()>& condition) {
             if (targetId == RR_MAX) {
                 return; // never re-enter the virtual root (see the header note)
             }
             if (reachableRegions.insert(targetId).second) {
-                regionTimeStates[targetId] = { .timeSlices = carriedTime,
+                regionTimeStates[targetId] = { .timeSlices = NarrowEdgeTime(currentTime, condition),
                                                .canStayOverTime = Regions[targetId].canStayOverTime };
                 worklist.push_back(targetId);
                 return;
@@ -297,7 +299,10 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
                 // its state when the worklist reaches it.
                 return;
             }
-            const uint64_t merged = stateIt->second.timeSlices | carriedTime;
+            if ((stateIt->second.timeSlices | currentTime) == stateIt->second.timeSlices) {
+                return; // no carry can grow this target
+            }
+            const uint64_t merged = stateIt->second.timeSlices | NarrowEdgeTime(currentTime, condition);
             if (merged != stateIt->second.timeSlices) {
                 stateIt->second.timeSlices = merged; // THE JOIN
                 worklist.push_back(targetId);
@@ -307,14 +312,14 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
         // Explore connections
         for (auto& [connectedRegionId, condition] : sourceRegion.connections) {
             if (condition.first()) {
-                propagate(connectedRegionId, NarrowEdgeTime(currentTime, condition.first));
+                propagate(connectedRegionId, condition.first);
             }
         }
 
         // Explore exits
         for (auto& [exitId, regionExit] : sourceRegion.exits) {
             if (regionExit.condition()) {
-                propagate(GetRegionIdFromEntrance(exitId), NarrowEdgeTime(currentTime, regionExit.condition));
+                propagate(GetRegionIdFromEntrance(exitId), regionExit.condition);
             }
         }
     }
@@ -387,14 +392,16 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
             const uint64_t currentTime = sourceState.timeSlices;
             gCurrentRegionTime = currentTime;
 
-            auto propagate = [&](RandoRegionId targetId, uint64_t carriedTime) {
+            // Narrowed lazily, as in FindReachableRegions: only a new target or
+            // one whose join can still grow pays for NarrowEdgeTime.
+            auto propagate = [&](RandoRegionId targetId, const std::function<bool()>& condition) {
                 if (targetId == RR_MAX) {
                     // Never re-enter the root: it is the seed, and an exit
                     // whose entrance resolves nowhere also lands here.
                     return;
                 }
                 if (crawl.reachableRegions.insert(targetId).second) {
-                    crawl.regionTimeStates[targetId] = { .timeSlices = carriedTime,
+                    crawl.regionTimeStates[targetId] = { .timeSlices = NarrowEdgeTime(currentTime, condition),
                                                          .canStayOverTime = Regions[targetId].canStayOverTime };
                     changed = true;
                     return;
@@ -406,7 +413,10 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
                     // loop reaches it.
                     return;
                 }
-                const uint64_t merged = stateIt->second.timeSlices | carriedTime;
+                if ((stateIt->second.timeSlices | currentTime) == stateIt->second.timeSlices) {
+                    return; // no carry can grow this target
+                }
+                const uint64_t merged = stateIt->second.timeSlices | NarrowEdgeTime(currentTime, condition);
                 if (merged != stateIt->second.timeSlices) {
                     stateIt->second.timeSlices = merged; // the join
                     changed = true;
@@ -415,12 +425,12 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
 
             for (auto& [connectedRegionId, condition] : sourceRegion.connections) {
                 if (condition.first()) {
-                    propagate(connectedRegionId, NarrowEdgeTime(currentTime, condition.first));
+                    propagate(connectedRegionId, condition.first);
                 }
             }
             for (auto& [exitId, regionExit] : sourceRegion.exits) {
                 if (regionExit.condition()) {
-                    propagate(GetRegionIdFromEntrance(exitId), NarrowEdgeTime(currentTime, regionExit.condition));
+                    propagate(GetRegionIdFromEntrance(exitId), regionExit.condition);
                 }
             }
         }

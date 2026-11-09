@@ -21,6 +21,7 @@
  *   SRC --IS_NIGHT2()-------------> NIGHT  (checks: IS_DAY1 day row, IS_NIGHT2 control)
  *   SRC --HAS_ITEM(ITEM_BOW)------> FREE   (check: IS_DAY1 row; the Bow is given)
  *   SRC --IS_DAY1() || IS_NIGHT2()-> TWO
+ *   STAY (can stay, not linked from the root) --IS_NIGHT2()--> STAYNIGHT
  *
  * LEGS (each on CrawlReachableRegions + EvaluateReachableChecks, then on
  * FindReachableRegions from SRC with every slice owned):
@@ -30,6 +31,10 @@
  *   b   FREE's mask is every slice and its IS_DAY1 row IS satisfied: a
  *       time-free edge still carries the whole mask.
  *   c   TWO's mask is Day 1 | Night 2: a two-half-day edge keeps both.
+ *   d   (FindReachableRegions only) STAY seeded at Day 1 06:00 alone stays
+ *       to every slice, and STAYNIGHT's mask is exactly Night 2: the
+ *       narrowing applies after ExpandTimeForward, the default-settings
+ *       shape (a Day 1 seed plus a stay).
  * Unit legs on NarrowEdgeTime itself:
  *   u1  a source in one half-day is returned as is with no extra evaluation;
  *   u2  a time-free condition over every slice costs exactly six evaluations
@@ -85,6 +90,8 @@ constexpr RandoRegionId kSrc = RR_MILK_ROAD;
 constexpr RandoRegionId kNight = RR_ROMANI_RANCH;
 constexpr RandoRegionId kFree = RR_RANCH_BARN;
 constexpr RandoRegionId kTwo = RR_MILK_BAR;
+constexpr RandoRegionId kStay = RR_GORMAN_TRACK;
+constexpr RandoRegionId kStayNight = RR_DOGGY_RACETRACK;
 
 constexpr RandoCheckId kNightDayRow = RC_ROMANI_RANCH_FIELD_LARGE_CRATE;
 constexpr RandoCheckId kNightNightRow = RC_ROMANI_RANCH_EPONAS_SONG;
@@ -132,6 +139,12 @@ std::map<RandoRegionId, RandoRegion> BuildGraph() {
     graph[kFree] = freeTarget;
 
     graph[kTwo] = NoStayRegion("time-edges two-half-day target");
+
+    RandoRegion stay = NoStayRegion("time-edges staying source");
+    stay.canStayOverTime = true;
+    stay.connections[kStayNight] = { [] { return IS_NIGHT2(); }, "IS_NIGHT2()" };
+    graph[kStay] = stay;
+    graph[kStayNight] = NoStayRegion("time-edges night-only target of a staying source");
     return graph;
 }
 
@@ -231,6 +244,22 @@ void RunFind() {
     CheckTraversal("find", reached, states, satisfiable);
 }
 
+void RunFindStay() {
+    ArmSave();
+    std::set<RandoRegionId> reached = { kStay };
+    std::unordered_map<RandoRegionId, RegionTimeState> states;
+    states[kStay] = { .timeSlices = TIME_BIT_ONE << TIME_DAY1_AM_06_00, .canStayOverTime = true };
+    FindReachableRegions(kStay, reached, states);
+
+    if (!reached.contains(kStayNight)) {
+        TeFail("find d: the staying source's night-only target is not reached, so leg d probes nothing");
+    }
+    ExpectMask("find d staying source stays to every slice", MaskOf(states, kStay), TIME_ALL_SLICES,
+               "ExpandTimeForward did not widen the Day 1 06:00 seed, so leg d does not test a stay");
+    ExpectMask("find d IS_NIGHT2 edge out of a staying source carries Night 2 only", MaskOf(states, kStayNight),
+               GetHalfDayTimeMask(3), "the night-only edge carried the stayed-to day slices into its target (#1453)");
+}
+
 void RunUnit() {
     ArmSave();
     int calls = 0;
@@ -282,6 +311,7 @@ extern "C" int MM_TimeEdges_RunHeadless(void) {
 
     RunCrawl();
     RunFind();
+    RunFindStay();
     RunUnit();
 
     std::swap(Rando::Logic::Regions, graph);
