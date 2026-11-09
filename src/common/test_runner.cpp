@@ -8177,6 +8177,23 @@ TestResult Test_MMTrackerInLogicArrival(void) {
     }
     return MM_TrackerInLogic_RunArrival() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1498: MM's enemy drops answered per instance, by both trackers, and the per-id
+// answer the fill reads left as it was. Same bring-up (MM's real region graph);
+// bodies in games/mm/2s2h/mm_enemy_drop_instances_test.cpp.
+extern "C" int MM_EnemyDropInstances_Run(void);
+extern "C" int MM_CheckInstancesPerId_Run(void);
+TestResult Test_MMEnemyDropInstances(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_EnemyDropInstances_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+TestResult Test_MMCheckInstancesPerId(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_CheckInstancesPerId_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1434: Time Travel Requires Master Sword (OoTMM's timeTravelSword): the option's
 // default, the pedestal's real wait action, OoT's real search through the pedestal,
 // and a stored world's own value. Same bring-up as the rows above (OTRGlobals'
@@ -9782,6 +9799,14 @@ const TestDescriptor gTests[] = {
       "MM's Check Tracker in-logic set: a hookshot tier applied at an arrival brings the South Clock Town lower chest "
       "into logic, obtained drops it, and the computation writes nothing (#994)",
       Test_MMTrackerInLogicArrival },
+    { "mm-enemy-drop-instances",
+      "MM enemy drops per instance: with a Kokiri Sword, Mini Baba is in logic, the native tracker's Beneath the Well "
+      "copy is not, and the combo pane files it under an area where the kill is in logic (#1498)",
+      Test_MMEnemyDropInstances },
+    { "mm-check-instances-per-id",
+      "The per-instance check answer leaves the per-id answer the fill reads unchanged, raw and under the reset-time "
+      "guard (#1498)",
+      Test_MMCheckInstancesPerId },
     { "tracker-fill-superset",
       "On one paired creation save, each game's tracker shows every check the fill's sphere zero reaches, minus "
       "obtained (#994)",
@@ -10415,6 +10440,8 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "rando-mask-quest-paired") == 0 ||
                 strcmp(gTests[i].name, "tracker-availability-arrival") == 0 ||
                 strcmp(gTests[i].name, "mm-tracker-in-logic-arrival") == 0 ||
+                strcmp(gTests[i].name, "mm-enemy-drop-instances") == 0 ||
+                strcmp(gTests[i].name, "mm-check-instances-per-id") == 0 ||
                 strcmp(gTests[i].name, "tracker-fill-superset") == 0 ||
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||

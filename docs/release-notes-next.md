@@ -1,3 +1,17 @@
+# Release notes: next release (draft)
+
+**Status:** draft, for the release after `v0.5.0-alpha`. Pull requests add their lines here as they merge.
+
+## Since v0.5.0-alpha
+
+### Trackers
+
+- **Majora's Mask enemy drops show where the kill is in logic** (issue #1498). With Available Checks on, the Combo Tracker
+  lists a drop under an area where it can be killed; MM's Check Tracker greys each area's copy on its own, and both name the areas in the
+  drop's tooltip. Only Show Current Scene now lists drops too.
+
+---
+
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
 
 **Status:** released. The release is cut as the tag `v0.5.0-alpha` on the commit that merges this text (the version
