@@ -62,6 +62,31 @@ extern "C" int MM_CheckTracker_TestItemName(const void* mmSave, uint16_t randoCh
     memcpy(out, name.c_str(), name.size() + 1);
     return 1;
 }
+
+// The item a seen, uncollected check's row names (#1499): the crossed OoT item
+// first, as above; otherwise what the player will receive there, so an item
+// already owned for good (a second Tingle map) reads as the junk the check hands
+// (Rando::UncollectedNamedItem, over MM's live save).
+static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSaveCheck& randoSaveCheck) {
+    if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
+        return std::string(foreignName) + " (OoT)";
+    }
+    return Rando::StaticData::Items[Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId)].name;
+}
+
+// TEST BRIDGE (#1499): the name the row for MM check `randoCheckId` prints while
+// seen and uncollected, over MM's live save. Returns 1 when written, 0 otherwise.
+extern "C" int MM_CheckTracker_TestSeenItemName(uint16_t randoCheckId, char* out, int cap) {
+    if (out == nullptr || cap <= 0 || randoCheckId == RC_UNKNOWN || randoCheckId >= RC_MAX) {
+        return 0;
+    }
+    const std::string name = SeenItemTrackerName((RandoCheckId)randoCheckId, RANDO_SAVE_CHECKS[randoCheckId]);
+    if ((int)name.size() >= cap) {
+        return 0;
+    }
+    memcpy(out, name.c_str(), name.size() + 1);
+    return 1;
+}
 #endif
 
 #define WIDGET_COLOR UIWidgets::Colors(CVarGetInteger("gSettings.Menu.Theme", 5))
@@ -406,7 +431,7 @@ void CheckTrackerDrawNonLogicalList() {
                     } else if (randoSaveCheck.seen != RCSEEN_UNCHECKED) {
                         ImGui::SameLine();
 #ifdef RSBS_SINGLE_EXECUTABLE
-                        const std::string seenName = ObtainedItemTrackerName(randoCheckId, randoSaveCheck);
+                        const std::string seenName = SeenItemTrackerName(randoCheckId, randoSaveCheck);
                         const char* itemName = seenName.c_str();
 #else
                         const char* itemName = Rando::StaticData::Items[randoSaveCheck.randoItemId].name;

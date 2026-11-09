@@ -99,8 +99,15 @@ void Rando::ActorBehavior::InitEnKgyBehavior() {
         std::string itemName = "40 Rupees";
 
         if (!RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].eligible) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1499: the trade names what it will hand (ConvertItem, as the give).
+            itemName = Rando::StaticData::GetItemName(
+                Rando::ConvertItem(RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId,
+                                   RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD));
+#else
             itemName =
                 Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId);
+#endif
         }
         entry.msg = "Want to know a secret? If you bring me some gold dust, I can offer you %r{itemName}%w.\xE0";
         CustomMessage::Replace(&entry.msg, "{itemName}", itemName);

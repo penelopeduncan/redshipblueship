@@ -28,6 +28,13 @@ std::map<int16_t, std::vector<RandoCheckId>> tingleMap = {
 // crossing was delivered: CheckQueue's foreign branch would show it as found
 // again while RecordForeignPickup refuses the second crossing.
 std::string Rando::ActorBehavior::TingleOfferedItemName(RandoCheckId rc) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1499: a paid offer never reads "Junk (literally nothing)": CheckQueue's give
+    // for a paid check re-rolls RI_NONE the same way (CurrentPaidJunkItem).
+    if (Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc) == RI_JUNK) {
+        (void)Rando::CurrentPaidJunkItem();
+    }
+#endif
     return Rando::ActorBehavior::ShopOfferedItemName(
         rc, Rando::StaticData::GetItemName(Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc), false), false);
 }
@@ -41,6 +48,11 @@ bool Rando::ActorBehavior::TingleMapSlotSold(RandoCheckId rc) {
         // answer, so a sale the outbox cannot send is refused before it is paid.
         return Rando::Foreign::IsDeliveredForeignHost(rc) || RANDO_SAVE_CHECKS[rc].eligible ||
                Rando::Foreign::ForeignOutboxFullFor(rc);
+    }
+    // #1499: a slot that resolves to junk sells it once (RI_JUNK is always
+    // obtainable, so the test below would sell it forever).
+    if (Rando::ActorBehavior::JunkSlotSpent(rc)) {
+        return true;
     }
 #endif
     return !Rando::IsItemObtainable(Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc), rc);
