@@ -618,9 +618,9 @@ endif()
 # In-app extraction spawns the standalone ZAPD executables as subprocesses
 # (issue #325), as on Linux and Windows above. In the bundle they sit beside
 # redship in Contents/MacOS, not under Resources/assets/extractor: they link
-# MacPorts' libpng, libz and libbz2, and fixup_bundle (below, which is given
-# both) embeds those at @executable_path/../MacOS, a path that resolves only
-# from Contents/MacOS. ZapdSubprocess_Locate looks there on Apple (#1501).
+# MacPorts libraries (libpng among them), and fixup_bundle (below, which is
+# given both) embeds those at @executable_path/../MacOS, a path that resolves
+# only from Contents/MacOS. ZapdSubprocess_Locate looks there on Apple (#1501).
 install(TARGETS ZAPD_OoT RUNTIME DESTINATION ../MacOS COMPONENT ship)
 install(TARGETS ZAPD_MM RUNTIME DESTINATION ../MacOS COMPONENT ship)
 
