@@ -5,7 +5,7 @@ RedShipBlueShip needs a game archive for each game it runs:
 | Game | Archive | Generated from | First-run extraction in-app? |
 |------|---------|----------------|------------------------------|
 | Ocarina of Time | `oot.o2r` (or `oot-mq.o2r`) | Your OoT ROM | Yes — on a normal launch (or `--game oot`) the built-in extractor walks you through it |
-| Majora's Mask | `mm.o2r` (also accepts `mm.zip` / `mm.otr`) | Your MM ROM | Yes — a normal launch offers it once `oot.o2r` is in place; `--game mm` offers it before any window opens ([#317](https://github.com/spencerduncan/redshipblueship/issues/317), [#944](https://github.com/spencerduncan/redshipblueship/issues/944)) |
+| Majora's Mask | `mm.o2r` (also accepts `mm.zip` / `mm.otr`) | Your MM ROM | Yes — a normal launch offers it once `oot.o2r` is in place; `--game mm` offers it before any window opens ([#317](https://github.com/penelopeduncan/redshipblueship/issues/317), [#944](https://github.com/penelopeduncan/redshipblueship/issues/944)) |
 
 ## In-app generation (recommended)
 

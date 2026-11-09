@@ -100,11 +100,11 @@ here for completeness; it is part of the same unresolved status as SoH.
 
 | Component | Path in tree | License | Copyright | Upstream | License text in-tree |
 |---|---|---|---|---|---|
-| libultraship | `libultraship/` | MIT | Copyright (c) 2022 kenix3 kenixwhisperwind@gmail.com | https://github.com/spencerduncan/libultraship (fork of https://github.com/Kenix3/libultraship) | **yes** — `libultraship/LICENSE` |
+| libultraship | `libultraship/` | MIT | Copyright (c) 2022 kenix3 kenixwhisperwind@gmail.com | https://github.com/penelopeduncan/libultraship (fork of https://github.com/Kenix3/libultraship) | **yes** — `libultraship/LICENSE` |
 | libcore `Crc` / SHA-1, vendored inside libultraship as `StrHash64` | `libultraship/src/ship/utils/StrHash64.cpp`, `libultraship/include/ship/utils/StrHash64.h` | **three cumulative notices**: MIT, zlib, and BSD-3-Clause (ReichlSoft) | Copyright (c) 2006 Anton Samokhvalov (MIT); Copyright (C) 1995-2004 Jean-loup Gailly and Mark Adler (zlib); Copyright (c) 2003, Dominik Reichl <dominik.reichl@t-online.de>, All rights reserved (BSD-3-Clause, ReichlSoft) | libcore 0.22.7 (`lib/hash/Crc.cpp`), as recorded in the file's own header | **yes** — all three notices are reproduced at the head of both files |
 | Fast3D | `libultraship/src/fast/`, `libultraship/include/fast/` | MIT | Copyright (c) 2020 Emill, MaikelChan | vendored inside libultraship | **yes** — `libultraship/src/fast/LICENSE.txt`, `libultraship/include/fast/LICENSE.txt` |
-| ZAPDTR | `ZAPDTR/` | MIT | Copyright (c) 2020 Zelda Reverse Engineering Team | https://github.com/spencerduncan/ZAPDTR (fork of https://github.com/HarbourMasters/ZAPDTR) | **yes** — `ZAPDTR/LICENSE` |
-| OTRExporter | `OTRExporter/` | MIT | Copyright (c) 2022 Harbour Masters | https://github.com/spencerduncan/OTRExporter (fork of https://github.com/HarbourMasters/OTRExporter) | **yes** — `OTRExporter/LICENSE` |
+| ZAPDTR | `ZAPDTR/` | MIT | Copyright (c) 2020 Zelda Reverse Engineering Team | https://github.com/penelopeduncan/ZAPDTR (fork of https://github.com/HarbourMasters/ZAPDTR) | **yes** — `ZAPDTR/LICENSE` |
+| OTRExporter | `OTRExporter/` | MIT | Copyright (c) 2022 Harbour Masters | https://github.com/penelopeduncan/OTRExporter (fork of https://github.com/HarbourMasters/OTRExporter) | **yes** — `OTRExporter/LICENSE` |
 | libgfxd (vendored in ZAPDTR) | `ZAPDTR/lib/libgfxd/` | MIT | Copyright (c) 2016-2021 glank (glankk@github.com) | https://github.com/glankk/libgfxd | **yes** — `ZAPDTR/lib/libgfxd/LICENSE` |
 | TinyXML-2 (vendored in ZAPDTR) | `ZAPDTR/lib/tinyxml2/` | zlib | Original code by Lee Thomason (www.grinninglizard.com) | https://github.com/leethomason/tinyxml2 | **yes** — notice in the header of `ZAPDTR/lib/tinyxml2/tinyxml2.h` and `.cpp` |
 
@@ -514,14 +514,14 @@ fork-side on 2026-09-21 at `a26d3937`.** It was
 `9334dad594277ba8339786217d75260e58436dc8`, md5
 `f939d3db2e61212c288325fc8b0bb255`, the same 34220 bytes as the two copies deleted
 above, present at the previously pinned gitlink `a9567801` of
-`https://github.com/spencerduncan/OTRExporter`, this project's own fork. It was
+`https://github.com/penelopeduncan/OTRExporter`, this project's own fork. It was
 disclosed here because `git submodule update --init` is a documented build step, so
 every source checkout materialised it, and because the sentence "deleted from both
 trees" would otherwise have read as "gone".
 
 The gitlink now points at
 `a26d3937b0aa73c21db7ff969010c8129140d400`, the merge commit that fork PR
-`spencerduncan/OTRExporter#1` produced, and it is the new tip of
+`penelopeduncan/OTRExporter#1` produced, and it is the new tip of
 `claude/namespace-exporter-globals`. Its first parent is the previously pinned and
 tested `a95678017c73ebeacd68bd5156bc80ff8d50a6f0`; its second is
 `ca696842bfc90966d704e7fe43ef7d42a6bfc25a`, the one deletion commit. `git diff
@@ -573,7 +573,7 @@ These are documentation/packaging gaps, not blockers:
 * Decide the disposition of the one remaining unresolved item above (Ship of
   Harkinian's absent license) before any public binary release. Note that it
   cannot be resolved by an election, only by a decision about redistribution.
-* ~~**Delete `assets/fonts/Fipps-Regular.otf` in `spencerduncan/OTRExporter` and
+* ~~**Delete `assets/fonts/Fipps-Regular.otf` in `penelopeduncan/OTRExporter` and
   bump the gitlink here.**~~ **Done 2026-09-21.** The operator ruled that day to go
   ahead with the fork change; the file was deleted on the fork's
   `claude/remove-fipps-font` branch (stacked on
