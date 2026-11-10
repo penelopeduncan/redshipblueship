@@ -568,8 +568,17 @@ std::vector<LoadInput> LoadInputs() {
     }
     inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, ThroughLoadBuffer(masks), (int)masks.size(),
                        "rules restored (the fifteen mask rows, through the load's buffer)" });
-    inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, ThroughLoadBuffer(SplitNames(rules)),
-                       (int)SplitNames(rules).size(), "rules restored (every rule, through the load's buffer)" });
+    // Every restorable row, in the order the restore writes and names them
+    // (Combo_ComboSettingsRestorableAt: "Goal, Logic, ..."), not the page's.
+    std::vector<std::string> restorable;
+    for (int i = 0; i < Combo_ComboSettingsRestorableCount(); i++) {
+        const char* label = Combo_ComboSettingLabel(Combo_ComboSettingsRestorableAt(i));
+        if (label != nullptr && label[0] != '\0') {
+            restorable.push_back(label);
+        }
+    }
+    inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, ThroughLoadBuffer(restorable), (int)restorable.size(),
+                       "rules restored (every restorable rule, through the load's buffer)" });
     inputs.push_back(
         { RSBS_LOAD_TOAST_MM_RESTORED, "Starting Hearts", 2, "MM restored (#881's 'Starting Hearts +1')" });
     // The descriptor tables the MM options and tricks pages publish (both

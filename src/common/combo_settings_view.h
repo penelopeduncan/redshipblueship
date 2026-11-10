@@ -493,6 +493,14 @@ void Combo_ComboSettingsRestoreUndo(const ComboSettingsKeyUndo* undo);
  *  is damage, or a field only another build writes. */
 uint32_t Combo_ComboSettingsRestorableMask(void);
 
+/** #1479: the rows a load can restore, in the order the restore writes and
+ *  names them (Goal, Logic, the Triforce Hunt's numbers, Crossing Direction,
+ *  then the item rules), so a page or test can build the list a load hands the
+ *  toast. Combo_ComboSettingsRestorableCount() rows; the @p index-th row's id,
+ *  or COMBO_SETTING_COUNT outside [0, count). */
+int Combo_ComboSettingsRestorableCount(void);
+ComboSettingId Combo_ComboSettingsRestorableAt(int index);
+
 /** The bits of @p divergedBits no key can answer for this file: those outside
  *  Combo_ComboSettingsRestorableMask, plus RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS
  *  when an item rule that differs from the session has no key in this build

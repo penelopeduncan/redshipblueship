@@ -776,6 +776,17 @@ uint32_t Combo_ComboSettingsRestorableMask(void) {
     return mask;
 }
 
+int Combo_ComboSettingsRestorableCount(void) {
+    return (int)(sizeof(kRestorable) / sizeof(kRestorable[0]));
+}
+
+ComboSettingId Combo_ComboSettingsRestorableAt(int index) {
+    if (index < 0 || index >= Combo_ComboSettingsRestorableCount()) {
+        return COMBO_SETTING_COUNT;
+    }
+    return kRestorable[index].id;
+}
+
 uint32_t Combo_ComboSettingsUnrestorableBits(const ComboItemRulesRecord* frozenRules, uint32_t divergedBits) {
     return Combo_ComboSettingsUnrestorableBitsEx2(frozenRules, 0u, divergedBits);
 }
@@ -911,10 +922,10 @@ int Combo_ComboSettingsRestoreLiveEx3(const ComboSettingsRecord* frozen, const C
     if (outCount != nullptr) {
         *outCount = (int)restored.size();
     }
-    if (!restored.empty()) {
-        std::fprintf(stderr, "[Combo] load: %d Cross-Game Rule(s) restored to the file's values: %s\n",
-                     (int)restored.size(), joined.c_str());
-    }
+    // Printed even when nothing was written (every differing rule already agreed,
+    // #1369), so the load's [RsbsSave] line that points here always finds it.
+    std::fprintf(stderr, "[Combo] load: %d Cross-Game Rule(s) restored to the file's values: %s\n",
+                 (int)restored.size(), restored.empty() ? "(none)" : joined.c_str());
     return 1;
 }
 
