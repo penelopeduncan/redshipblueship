@@ -42,6 +42,16 @@
  *      this red; each non-zero value of each of the four adds exactly
  *      "|<name>:<value>" to both the seed string and the identity string, and
  *      nothing else, so a positional fold or a skipped option is red too.
+ *  (f) THE PATH-HINT SONG RULE (combo_woth.h Combo_Woth_ItemSkipsPathHint, OoTMM
+ *      isLocationFullyShuffled with `songs: klass === 'path'`): an MM
+ *      song-location song is no Way of the Hero candidate under Song Locations
+ *      and Vanilla (red if the rule is missing or reads only one non-Anywhere
+ *      value) and is one under Anywhere (red if songs are always skipped); a
+ *      shared song recorded as its OoT half (an OoT host holds the pair's OoT id)
+ *      gets the same answer as its MM half under every value (red if the rule asks
+ *      the hosted half only); an OoT id no pair names, and an item that is not a
+ *      song, are never skipped (red if the rule matches too widely). It does not
+ *      cover Combo_Woth_DefaultEligible's call (the frozen pairs it passes).
  *
  * ============================================================================
  * mm-placement-confined-world (CTest MMPlacementConfinedWorld, rando tier)
@@ -75,6 +85,7 @@
 // src/common — outside any extern "C" block; these headers manage their own.
 #include "combo_logic.h"
 #include "combo_single_bag.h"
+#include "combo_woth.h"
 
 extern "C" {
 #include "variables.h"
@@ -86,6 +97,8 @@ extern "C" int MM_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int coun
 extern "C" int MM_ComboLogic_TestLastPoolConfinement(uint16_t* outItems, uint32_t* outMasks, int cap);
 extern "C" void MM_ComboLogic_SetHostPool(const uint16_t* checks, int count);
 extern "C" void MM_ComboLogic_ForgetPlacements(void);
+extern "C" void MM_ComboLogic_TestSaveHostPool(void);
+extern "C" void MM_ComboLogic_TestRestoreHostPool(void);
 
 namespace {
 
@@ -114,18 +127,21 @@ const RandoOptionId kAppendedOptions[7] = { RO_SHUFFLE_TREE_DROPS,  RO_SHOP_PRIC
                                             RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
                                             RO_SHUFFLE_SONGS };
 
+/** The four options and MM's host pool (with its cached groups) as the row found
+ *  them; the legs replace the pool, so it is put back verbatim, not cleared. */
 struct SavedOptions {
     uint32_t values[4];
     SavedOptions() {
         for (int i = 0; i < 4; ++i) {
             values[i] = RANDO_SAVE_OPTIONS[kPlacementOptions[i]];
         }
+        MM_ComboLogic_TestSaveHostPool();
     }
     ~SavedOptions() {
         for (int i = 0; i < 4; ++i) {
             RANDO_SAVE_OPTIONS[kPlacementOptions[i]] = values[i];
         }
-        MM_ComboLogic_SetHostPool(nullptr, 0);
+        MM_ComboLogic_TestRestoreHostPool();
     }
 };
 
@@ -349,6 +365,55 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
                           "(e) %s=%u must add exactly '%s' to the identity string", it->second.name, (unsigned)value,
                           term.c_str());
             }
+        }
+    }
+
+    // ---- (f) the path-hint song rule, on the item ----------------------------
+    {
+        uint16_t song = 0;
+        for (const uint16_t id : AllItems()) {
+            if (Rando::Logic::IsSongLocationItem((RandoItemId)id)) {
+                song = id;
+                break;
+            }
+        }
+        MPC_CHECK(song != 0, "(f) no song-location song in StaticData");
+        // The OoT ids are the test's own: only their pairing is under test.
+        const ComboLogicSharedPair pairs[2] = { { 0x0F01, song }, { 0x0F02, (uint16_t)RI_WOODFALL_SMALL_KEY } };
+        SharedItem mmSong;
+        memset(&mmSong, 0, sizeof(mmSong));
+        mmSong.originGame = (uint8_t)GAME_MM;
+        mmSong.id = song;
+        SharedItem ootHalf = mmSong;
+        ootHalf.originGame = (uint8_t)GAME_OOT;
+        ootHalf.id = 0x0F01;
+        SharedItem ootUnpaired = ootHalf;
+        ootUnpaired.id = 0x0F03;
+        SharedItem ootKeyHalf = ootHalf;
+        ootKeyHalf.id = 0x0F02;
+        SharedItem mmKey = mmSong;
+        mmKey.id = (uint16_t)RI_WOODFALL_SMALL_KEY;
+        const uint32_t values[3] = { RO_SONG_SHUFFLE_SONG_LOCATIONS, RO_SONG_SHUFFLE_VANILLA,
+                                     RO_SONG_SHUFFLE_ANYWHERE };
+        for (const uint32_t value : values) {
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = value;
+            const bool want = value != RO_SONG_SHUFFLE_ANYWHERE;
+            const bool mmAnswer = Combo_Woth_ItemSkipsPathHint(mmSong, pairs, 2);
+            const bool ootAnswer = Combo_Woth_ItemSkipsPathHint(ootHalf, pairs, 2);
+            printf("[TEST] (f) Shuffle Songs %u: MM song %u skipped %d, its OoT half skipped %d\n", (unsigned)value,
+                   (unsigned)song, mmAnswer ? 1 : 0, ootAnswer ? 1 : 0);
+            MPC_CHECK(mmAnswer == want, "(f) Shuffle Songs %u: the MM song's path-hint answer is %d, want %d",
+                      (unsigned)value, mmAnswer ? 1 : 0, want ? 1 : 0);
+            MPC_CHECK(ootAnswer == mmAnswer,
+                      "(f) Shuffle Songs %u: a shared song on an OoT host answers %d, on an MM host %d: the rule "
+                      "must read the item, not the hosted half",
+                      (unsigned)value, ootAnswer ? 1 : 0, mmAnswer ? 1 : 0);
+            MPC_CHECK(!Combo_Woth_ItemSkipsPathHint(ootUnpaired, pairs, 2) &&
+                          !Combo_Woth_ItemSkipsPathHint(ootHalf, nullptr, 0),
+                      "(f) Shuffle Songs %u: an OoT item no pair names was skipped", (unsigned)value);
+            MPC_CHECK(!Combo_Woth_ItemSkipsPathHint(mmKey, pairs, 2) &&
+                          !Combo_Woth_ItemSkipsPathHint(ootKeyHalf, pairs, 2),
+                      "(f) Shuffle Songs %u: a non-song item was skipped by the song rule", (unsigned)value);
         }
     }
 

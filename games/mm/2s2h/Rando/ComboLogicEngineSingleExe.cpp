@@ -1383,6 +1383,35 @@ extern "C" const ComboLogicEngine* MM_ComboLogic_TestEngine(void) {
     return &kMmEngine;
 }
 
+namespace {
+std::vector<uint16_t> sSavedHostPool;
+bool sSavedHostPoolSet = false;
+std::unordered_map<uint16_t, uint32_t> sSavedHostGroupMask;
+bool sSavedHostGroupsCached = false;
+} // namespace
+
+/** TEST BRIDGE (#1502): snapshot the host pool and its cached groups (Save), and
+ *  put that snapshot back verbatim (Restore), so a lock that replaces the pool
+ *  leaves the one it found, groups included, without recomputing them from the
+ *  live save. One snapshot; Restore without a Save restores "no pool". */
+extern "C" void MM_ComboLogic_TestSaveHostPool(void) {
+    sSavedHostPool = sHostPool;
+    sSavedHostPoolSet = sHostPoolSet;
+    sSavedHostGroupMask = sHostGroupMask;
+    sSavedHostGroupsCached = sHostGroupsCached;
+}
+
+extern "C" void MM_ComboLogic_TestRestoreHostPool(void) {
+    sHostPool = sSavedHostPool;
+    sHostPoolSet = sSavedHostPoolSet;
+    sHostGroupMask = sSavedHostGroupMask;
+    sHostGroupsCached = sSavedHostGroupsCached;
+    sSavedHostPool.clear();
+    sSavedHostPoolSet = false;
+    sSavedHostGroupMask.clear();
+    sSavedHostGroupsCached = false;
+}
+
 /**
  * THE HOST GROUPS' ROW HALF (#1502): each MM pool row's confinement mask, the bit of
  * its 2Ship group (RandoItemIdToConfinementGroup over the live save's options, the

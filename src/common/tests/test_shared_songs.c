@@ -790,23 +790,32 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     }
     const int priorShuffle = CVarGetInteger(kSsSongShuffleKey, -1);
     CVarSetInteger(kSsSongShuffleKey, shuffleSongs);
+    // MM's key is touched only by a row that sets it (the four OoT rows pass -1),
+    // and that row puts back what was there.
+    const int priorMm = CVarGetInteger(kSsMmSongShuffleKey, -1);
     if (mmShuffleSongs >= 0) {
         CVarSetInteger(kSsMmSongShuffleKey, mmShuffleSongs);
     }
     struct Restore {
         int prior;
+        bool setMm;
+        int priorMm;
         ~Restore() {
             if (prior < 0) {
                 CVarClear(kSsSongShuffleKey);
             } else {
                 CVarSetInteger(kSsSongShuffleKey, prior);
             }
-            CVarClear(kSsMmSongShuffleKey);
+            if (setMm && priorMm < 0) {
+                CVarClear(kSsMmSongShuffleKey);
+            } else if (setMm) {
+                CVarSetInteger(kSsMmSongShuffleKey, priorMm);
+            }
             for (int s = 0; s < 3; s++) {
                 CVarClear(SsOneCopyKey(s).c_str());
             }
         }
-    } restore{ priorShuffle };
+    } restore{ priorShuffle, mmShuffleSongs >= 0, priorMm };
 
     const int gen = Rando_HeadlessSeedTest("RSBSSONGSONECOPY");
     SS_CHECK(gen == 0, "the paired OoT generation failed under Shuffle Songs %s", shuffleName);

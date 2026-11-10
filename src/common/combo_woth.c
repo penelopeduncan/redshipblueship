@@ -9,6 +9,7 @@
 
 #include "combo_woth.h"
 
+#include "combo_single_bag.h" // Combo_SingleBag_SharedPairs: a shared song is its MM half
 #include "context.h"
 #include "foreign_items.h" // Combo_ComboLogicClaimsAllowed: No Logic claims nothing
 #include "game.h"
@@ -87,11 +88,29 @@ bool Combo_Woth_DefaultEligible(uint8_t hostGame, const ComboLogicPlacement* pla
     // OoTMM locations.ts isLocationFullyShuffled with `songs: klass === 'path'`: a
     // song is never a path hint unless songs are shuffled Anywhere (#1502). OoT's
     // songs under its own restricted song pass never reach this table, so only
-    // MM's own songs, which the bag confines under Song Locations, are asked.
-    if (placement->item.originGame == (uint8_t)GAME_MM && MM_ComboLogic_PathHintSkipsItem(placement->item.id) != 0) {
+    // MM's own songs, which the bag confines under Song Locations, are asked; a
+    // shared song is asked as its MM half on either host.
+    if (placement->item.originGame == (uint8_t)GAME_MM) {
+        return !Combo_Woth_ItemSkipsPathHint(placement->item, NULL, 0);
+    }
+    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
+    const int pairCount = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    return !Combo_Woth_ItemSkipsPathHint(placement->item, pairs, pairCount);
+}
+
+bool Combo_Woth_ItemSkipsPathHint(SharedItem item, const ComboLogicSharedPair* pairs, int pairCount) {
+    if (item.originGame == (uint8_t)GAME_MM) {
+        return MM_ComboLogic_PathHintSkipsItem(item.id) != 0;
+    }
+    if (item.originGame != (uint8_t)GAME_OOT || pairs == NULL) {
         return false;
     }
-    return true;
+    for (int i = 0; i < pairCount; ++i) {
+        if (pairs[i].ootId == item.id) {
+            return MM_ComboLogic_PathHintSkipsItem(pairs[i].mmId) != 0;
+        }
+    }
+    return false;
 }
 
 /** One round of the frozen goal with `forbidden` (NULL for none) withheld.

@@ -4129,14 +4129,41 @@ TestResult Test_ComboLogicHostGroups(void) {
         forced.item = ClItem(M, kMmBow);
         CLG_CHECK(Combo_Logic_TestSetForcedPlacements(&forced, 1) == 1, "(7) the forced row is armed");
         const int offGroup = ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026003u, &fr);
-        forced.hostCheck = 22;
-        CLG_CHECK(Combo_Logic_TestSetForcedPlacements(&forced, 1) == 1, "(7) the forced row is re-armed");
-        ClBuildGroupWorld(6, 0, 0);
-        const int inGroup = ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026004u, &fr);
-        const int forcedHost = ClHostOfMM(kMmBow, NULL);
         (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
-        CLG_CHECK(offGroup == RSBS_COMBO_LOGIC_ERR_BAD_REQUEST && inGroup == RSBS_COMBO_LOGIC_OK && forcedHost == 22,
-                  "(7) a forced confined row must be refused off its group and accepted on it");
+        CLG_CHECK(offGroup == RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a forced confined row must be refused off its group");
+
+        // On its group: two hosts in group A (22 and 24), the row forced onto 24.
+        // Over the seed loop an ordinary draw lands on 22 at least once (the
+        // control, unforced), so "on 24 every seed" proves the forced row was
+        // placed, not merely drawn into the group (red if the forced claim skips a
+        // confined row).
+        int inGroupOk = 0;
+        int onForced = 0;
+        int controlOn22 = 0;
+        const int kForcedSeeds = 16;
+        for (int s = 0; s < kForcedSeeds; ++s) {
+            const uint32_t seed = 0x15026100u + (uint32_t)s;
+            (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
+            ClBuildGroupWorld(6, 24, 0);
+            if (ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, seed, &fr) == RSBS_COMBO_LOGIC_OK &&
+                ClHostOfMM(kMmBow, NULL) == 22) {
+                controlOn22++;
+            }
+            forced.hostCheck = 24;
+            CLG_CHECK(Combo_Logic_TestSetForcedPlacements(&forced, 1) == 1, "(7) the forced row is re-armed");
+            ClBuildGroupWorld(6, 24, 0);
+            if (ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, seed, &fr) == RSBS_COMBO_LOGIC_OK) {
+                inGroupOk++;
+                onForced += (ClHostOfMM(kMmBow, NULL) == 24) ? 1 : 0;
+            }
+        }
+        (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
+        printf("[TEST] (7) forced onto group host 24: %d/%d accepted, %d on 24; unforced control on 22 %d time(s)\n",
+               inGroupOk, kForcedSeeds, onForced, controlOn22);
+        CLG_CHECK(controlOn22 > 0, "(7) control: the unforced draw never chose 22, so the forced leg proves nothing");
+        CLG_CHECK(inGroupOk == kForcedSeeds && onForced == kForcedSeeds,
+                  "(7) a forced confined row on its group must be accepted and placed on its forced host");
     }
 
     ClUninstall();
