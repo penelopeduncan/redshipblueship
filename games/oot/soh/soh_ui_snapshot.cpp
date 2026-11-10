@@ -5364,9 +5364,15 @@ void Session::CaptureModalVariant(const PageSpec& p, const std::string& state) {
  */
 static void EmitLoadToastPage(const std::string& id) {
     if (id == "toast/load-rules-restored") {
+        // #1479: every labelled rule at once, the list complete (count 0 counts
+        // its names), which posts the same message as the load's buffer of whole
+        // labels with the restore's true count.
         std::string rules;
-        for (ComboSettingId rule : { COMBO_SETTING_GOAL, COMBO_SETTING_DIRECTION }) {
-            rules += (rules.empty() ? "" : ", ") + std::string(Combo_ComboSettingLabel(rule));
+        for (int i = 0; i < COMBO_SETTING_COUNT; i++) {
+            const char* label = Combo_ComboSettingLabel(static_cast<ComboSettingId>(i));
+            if (label != nullptr && *label != 0) {
+                rules += (rules.empty() ? "" : ", ") + std::string(label);
+            }
         }
         RsbsSave_EmitLoadToast(RSBS_LOAD_TOAST_RULES_RESTORED, rules.c_str(), 0);
     } else if (id == "toast/load-mm-restored-one" || id == "toast/load-mm-restored-many") {

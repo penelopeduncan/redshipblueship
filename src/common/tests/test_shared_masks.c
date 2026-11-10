@@ -612,6 +612,65 @@ TestResult SharedMasksRule_Run(void) {
         ComboContext_Init();
     }
 
+    // ---- (5b) #1479: every mask row restored at once, through the load's buffer
+    // The fifteen mask rows (these five, the OoT Blast and Stone Masks, the MM
+    // Gerudo, Skull and Spooky Masks, and their five shared variants) joined take
+    // 282 characters, more than the load's buffer holds: the restore must hand
+    // back whole labels only, the most that fit, and the true count of 15.
+    {
+        const ComboSettingId maskRows[] = {
+            COMBO_SETTING_SHARED_MASK_GORON,  COMBO_SETTING_SHARED_MASK_ZORA,  COMBO_SETTING_SHARED_MASK_BUNNY,
+            COMBO_SETTING_SHARED_MASK_KEATON, COMBO_SETTING_SHARED_MASK_TRUTH, COMBO_SETTING_BLAST_MASK_OOT,
+            COMBO_SETTING_STONE_MASK_OOT,     COMBO_SETTING_GERUDO_MASK_MM,    COMBO_SETTING_SKULL_MASK_MM,
+            COMBO_SETTING_SPOOKY_MASK_MM,     COMBO_SETTING_SHARED_MASK_BLAST, COMBO_SETTING_SHARED_MASK_STONE,
+            COMBO_SETTING_SHARED_MASK_GERUDO, COMBO_SETTING_SHARED_MASK_SKULL, COMBO_SETTING_SHARED_MASK_SPOOKY,
+        };
+        const int maskRowCount = (int)(sizeof(maskRows) / sizeof(maskRows[0]));
+        const uint32_t everyMask = RSBS_XITEM_SHARED_GORON | RSBS_XITEM_SHARED_ZORA | RSBS_XITEM_SHARED_BUNNY |
+                                   RSBS_XITEM_SHARED_KEATON | RSBS_XITEM_SHARED_TRUTH | RSBS_XITEM_BLAST_MASK_OOT |
+                                   RSBS_XITEM_STONE_MASK_OOT | RSBS_XITEM_GERUDO_MASK_MM | RSBS_XITEM_SKULL_MASK_MM |
+                                   RSBS_XITEM_SPOOKY_MASK_MM | RSBS_XITEM_SHARED_BLAST | RSBS_XITEM_SHARED_STONE |
+                                   RSBS_XITEM_SHARED_GERUDO | RSBS_XITEM_SHARED_SKULL | RSBS_XITEM_SHARED_SPOOKY;
+        SmClearAllKeys();
+        const ComboItemRulesRecord fileRules = SmRules(everyMask);
+        SmFreezeWorld(&fileRules);
+        const uint32_t bits = Combo_ComboSettingsDivergence();
+        char names[RSBS_LOAD_RULES_NAMES_LEN];
+        memset(names, 'x', sizeof(names));
+        int count = -1;
+        ComboSettingsKeyUndo undo;
+        const int restored = Combo_ComboSettingsRestoreLiveEx3(&gComboCtx.comboSettings, &gComboCtx.comboItemRules, 0u,
+                                                               NULL, bits, names, sizeof(names), &count, &undo);
+        printf("[TEST] (5b) every mask row: diverged %08X, restore %d, count %d, names '%s'\n", (unsigned)bits,
+               restored, count, names);
+        SM_CHECK(bits == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS && restored == 1,
+                 "a file with every mask rule on, met by a session with none, must restore (diverged %08X, %d)",
+                 (unsigned)bits, restored);
+        SM_CHECK(count == maskRowCount, "the restore counted %d rows, expected all %d mask rows", count, maskRowCount);
+        // Exactly the longest run of leading whole labels, in the page's order,
+        // that fits the buffer with its terminator.
+        std::string want;
+        int shown = 0;
+        for (int i = 0; i < maskRowCount; i++) {
+            const char* label = Combo_ComboSettingLabel(maskRows[i]);
+            const std::string candidate = want.empty() ? std::string(label) : want + ", " + label;
+            if (candidate.size() >= sizeof(names)) {
+                break;
+            }
+            want = candidate;
+            shown++;
+        }
+        SM_CHECK(shown > 0 && shown < maskRowCount,
+                 "the fifteen labels fit the %d-byte buffer whole (%d shown): the case no longer exercises the cut",
+                 (int)sizeof(names), shown);
+        SM_CHECK(want == names,
+                 "the load's buffer carries '%s', expected the %d whole leading labels '%s' (no label cut short)",
+                 names, shown, want.c_str());
+        Combo_ComboSettingsRestoreUndo(&undo);
+        SmClearAllKeys();
+        ComboContext_Init();
+    }
+
     // ---- (6) Frozen wins at load: a real .redsave ------------------------------
     {
         const ComboItemRulesRecord allOn = SmRules(kSmAll);

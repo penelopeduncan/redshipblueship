@@ -84,6 +84,13 @@
  *     each is drawn at the player's own size in BOTH windows, because #904's
  *     name-dropping fit runs first; only its floor, a bare count ("37 settings",
  *     every settable MM trick at 640 px and 1.8), may be drawn smaller there.
+ *     #1479: a Cross-Game Rule's name is never cut. Every "Restored from file:"
+ *     message is whole labels from its input, in order, then " +N" for the rest
+ *     of the true count (never "...", never a bare count), over inputs that
+ *     include what the load's RSBS_LOAD_RULES_NAMES_LEN buffer carries for a
+ *     long restore (the fifteen mask rows, every rule) with the restore's true
+ *     count; that floor, one whole name and its "+N", may be drawn smaller in the
+ *     640-px window, never below 1.0.
  * That the production refusal SITES call these emitters is locked where each
  * site is driven: mm-combo-settings-gate (MM options, rules, missing half),
  * mm-spoiler-identity (spoiler) and combo-creation-event (OoT spoiler) compare
@@ -226,7 +233,8 @@ struct FitRun {
     // #906: the load's "Restored ..." toasts carry their own fit (#904 drops
     // names until the toast fits the window at the player's size), so the
     // overlay may draw one smaller only once that fit has reached its floor, the
-    // bare count ("37 settings"), which has nothing left to drop.
+    // bare count ("37 settings"), which has nothing left to drop, or (#1479) the
+    // rules toast's floor, one whole rule name and its "+N".
     bool fullSizeOnly = false;
     int floorShrunk = 0;
 };
@@ -250,6 +258,24 @@ bool IsBareCount(const std::string& text) {
     return word == " rule" || word == " rules" || word == " setting" || word == " settings";
 }
 
+// The rules toast's prefix (save.cpp, RsbsSave_EmitLoadToast).
+const char* const kRulesRestoredPrefix = "Restored from file:";
+
+/**
+ * #1479: whether a toast is the rules toast's floor, ONE whole rule name and its
+ * "+N" ("Restored from file: Shared Nocturne of Shadow +1"): a rule name is never
+ * cut, so this has nothing left to drop and the overlay may draw it smaller.
+ * That the name is whole and the count true is CheckRulesMessage's.
+ */
+bool IsRulesNameFloor(const std::string& text) {
+    const std::string prefix = std::string(kRulesRestoredPrefix) + " ";
+    if (text.compare(0, prefix.size(), prefix) != 0) {
+        return false;
+    }
+    const std::string message = text.substr(prefix.size());
+    return !message.empty() && message.find(", ") == std::string::npos && message.find("...") == std::string::npos;
+}
+
 // #906: the copy contract. In the ui tier's smallest window and wider, every
 // toast's copy fits at the player's own size, so the overlay's fit never draws
 // one smaller there. Only a narrower window (libultraship's 640-px default) at a
@@ -270,7 +296,7 @@ int CheckFontScale(FitRun& run, const char* what, float scale, float fontScale, 
         run.smallest = fontScale;
         run.smallestText = text;
     }
-    if (run.fullSizeOnly && !IsBareCount(text)) {
+    if (run.fullSizeOnly && !IsBareCount(text) && !IsRulesNameFloor(text)) {
         return Fail("%s at %.1fx, %s: the overlay drew it at %.2fx to fit; the load toast's own fit (#904) must "
                     "drop names until it fits at the player's size: '%s'",
                     what, scale, p.name, fontScale, text.c_str());
@@ -455,6 +481,59 @@ struct LoadInput {
     std::string what;
 };
 
+/** A ", "-joined list's names, in order. */
+std::vector<std::string> SplitNames(const std::string& list) {
+    std::vector<std::string> names;
+    std::size_t start = 0;
+    while (!list.empty()) {
+        const std::size_t comma = list.find(", ", start);
+        names.push_back(list.substr(start, comma == std::string::npos ? std::string::npos : comma - start));
+        if (comma == std::string::npos) {
+            break;
+        }
+        start = comma + 2;
+    }
+    return names;
+}
+
+/** #1479: @p labels as the load's buffer carries them, the fill of
+ *  Combo_ComboSettingsRestoreLiveEx3: as many leading WHOLE labels as fit
+ *  RSBS_LOAD_RULES_NAMES_LEN with its terminator. */
+std::string ThroughLoadBuffer(const std::vector<std::string>& labels) {
+    std::string fitted;
+    for (const std::string& label : labels) {
+        const std::string candidate = fitted.empty() ? label : fitted + ", " + label;
+        if (candidate.size() >= (std::size_t)RSBS_LOAD_RULES_NAMES_LEN) {
+            break;
+        }
+        fitted = candidate;
+    }
+    return fitted;
+}
+
+/**
+ * #1479: a "Restored from file:" message names whole rule labels only, the
+ * input's leading ones in order (at least one), followed by " +N" where N is the
+ * true count less the names shown: never a name cut with "...", never a bare
+ * count, never a "+N" short of the true count.
+ */
+int CheckRulesMessage(const std::string& names, int count, const std::string& message, const char* what, float scale,
+                      const Profile& p) {
+    const std::vector<std::string> labels = SplitNames(names);
+    const std::size_t total = std::max<std::size_t>(labels.size(), count > 0 ? (std::size_t)count : 0u);
+    std::string shown;
+    for (std::size_t k = 1; k <= labels.size(); k++) {
+        shown += (k == 1 ? "" : ", ") + labels[k - 1];
+        const std::string want = shown + (total > k ? " +" + std::to_string(total - k) : std::string());
+        if (message == want) {
+            return 0;
+        }
+    }
+    return Fail("%s at %.1fx, %s: the rules toast reads '%s %s'; it must name whole rule labels from the list, in "
+                "order, then ' +N' for the rest of the %zu restored (never a name cut with '...', never a bare count)",
+                what, scale, p.name, kRulesRestoredPrefix, message.c_str(), total);
+}
+
 /**
  * #881: the load's "Restored from file:" and "Restored for Majora's Mask:" toasts,
  * through RsbsSave_EmitLoadToast, with the inputs a real load hands it: every
@@ -474,6 +553,23 @@ std::vector<LoadInput> LoadInputs() {
         rules += (rules.empty() ? "" : ", ") + std::string(label);
     }
     inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, rules, 0, "rules restored (every rule)" });
+    // #1479: what the load hands the emitter for a long restore, its buffer of
+    // whole labels and the restore's true count (shared-masks-rule locks that the
+    // restore fills the buffer this way): the fifteen mask rows, and every rule.
+    std::vector<std::string> masks;
+    for (ComboSettingId id :
+         { COMBO_SETTING_SHARED_MASK_GORON, COMBO_SETTING_SHARED_MASK_ZORA, COMBO_SETTING_SHARED_MASK_BUNNY,
+           COMBO_SETTING_SHARED_MASK_KEATON, COMBO_SETTING_SHARED_MASK_TRUTH, COMBO_SETTING_BLAST_MASK_OOT,
+           COMBO_SETTING_STONE_MASK_OOT, COMBO_SETTING_GERUDO_MASK_MM, COMBO_SETTING_SKULL_MASK_MM,
+           COMBO_SETTING_SPOOKY_MASK_MM, COMBO_SETTING_SHARED_MASK_BLAST, COMBO_SETTING_SHARED_MASK_STONE,
+           COMBO_SETTING_SHARED_MASK_GERUDO, COMBO_SETTING_SHARED_MASK_SKULL, COMBO_SETTING_SHARED_MASK_SPOOKY }) {
+        const char* label = Combo_ComboSettingLabel(id);
+        masks.push_back(label != nullptr ? label : "");
+    }
+    inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, ThroughLoadBuffer(masks), (int)masks.size(),
+                       "rules restored (the fifteen mask rows, through the load's buffer)" });
+    inputs.push_back({ RSBS_LOAD_TOAST_RULES_RESTORED, ThroughLoadBuffer(SplitNames(rules)),
+                       (int)SplitNames(rules).size(), "rules restored (every rule, through the load's buffer)" });
     inputs.push_back(
         { RSBS_LOAD_TOAST_MM_RESTORED, "Starting Hearts", 2, "MM restored (#881's 'Starting Hearts +1')" });
     // The descriptor tables the MM options and tricks pages publish (both
@@ -557,6 +653,10 @@ int CheckLoadToasts(Notification::Window& overlay, const ImGuiStyle& baseStyle, 
                 if (in.what.find("#881") != std::string::npos) {
                     issueText = text;
                 }
+                if (in.kind == RSBS_LOAD_TOAST_RULES_RESTORED) {
+                    failures += CheckRulesMessage(in.names, in.count, last.message != nullptr ? last.message : "",
+                                                  in.what.c_str(), scale, profile);
+                }
                 failures += CheckOne(run, in.what.c_str(), scale, Class::OTHER);
             }
             printf("[TEST] %s, %.1fx: the #881 toast reads '%s'\n", profile.name, scale, issueText.c_str());
@@ -571,7 +671,7 @@ int CheckLoadToasts(Notification::Window& overlay, const ImGuiStyle& baseStyle, 
         }
         checked += run.checked;
         printf("[TEST] %s: %zu load toast inputs checked; widest at 1.8x %.0f px ('%s'); %d drawn below the "
-               "player's size, %d of them a bare count (#904's floor)\n",
+               "player's size, %d of them a fit's floor (a bare count, #904, or one whole rule name, #1479)\n",
                profile.name, inputs.size(), run.widest, run.widestText.c_str(), run.shrunk, run.floorShrunk);
     }
     return failures;
