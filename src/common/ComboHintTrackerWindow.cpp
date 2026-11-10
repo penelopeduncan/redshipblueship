@@ -394,7 +394,7 @@ int ComboHintItemSlot(const std::vector<int>& ranks, int& sortRank) {
     bool ungraded = false;
     for (const int rank : ranks) {
         if (rank >= COMBO_HINT_RANK_MAJOR && rank <= COMBO_HINT_RANK_JUNK) {
-            sortRank = std::min(sortRank, rank);
+            sortRank = (std::min)(sortRank, rank); // parenthesised: windows.h defines min
         } else {
             ungraded = true;
         }
@@ -402,7 +402,7 @@ int ComboHintItemSlot(const std::vector<int>& ranks, int& sortRank) {
     if (ungraded && sortRank > COMBO_HINT_RANK_JUNK) {
         return COMBO_HINT_RANK_UNGRADED;
     }
-    return std::min(sortRank, (int)COMBO_HINT_RANK_JUNK);
+    return (std::min)(sortRank, (int)COMBO_HINT_RANK_JUNK);
 }
 
 bool ComboHintMMFixedNamesArea(uint16_t source) {
