@@ -61,7 +61,7 @@ void Settings::CreateOptionDescriptions() {
         "Free - The bridge is repaired from the start, and Nabooru cannot spawn.\n"
         "If the Gerudo Membership Card isn't shuffled, you start with it.\n"
         "\n"
-        "Only \"Normal\" is compatible with Gerudo Fortress Keyrings.";
+        "Only \"Normal\" is compatible with Gerudo Fortress Key Rings.";
     mOptionDescriptions[RSK_RAINBOW_BRIDGE] =
         "Alters the requirements to open the bridge to Ganon's Castle.\n"
         "\n"
@@ -508,7 +508,7 @@ void Settings::CreateOptionDescriptions() {
         "with keys found elsewhere instead of keys won in the game.\n"
         "\n"
         "Six Chest Game Small Keys are added to the pool, or a single keyring holding all six "
-        "if the Chest Minigame Keyring is selected under Keyrings.";
+        "if the Chest Minigame Keyring is selected under Key Rings.";
     mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD] =
         "Shuffle the item the cursed rich man in the House of Skulltula gives when you "
         "have collected all 100 Gold Skulltula Tokens.\n"
@@ -598,7 +598,7 @@ void Settings::CreateOptionDescriptions() {
         "\n"
         "Selecting keyring for dungeons will have no effect if Small Keys are set to Start With or Vanilla.\n"
         "\n"
-        "The maximum amount of Keyrings that can be selected by Random or Count is 8, plus one if "
+        "The maximum amount of Key Rings that can be selected by Random or Count is 8, plus one if "
         "Gerudo Fortress Carpenters is set to Normal and Gerudo Fortress Keys is set to anything "
         "other than Vanilla, plus one if Shuffle Chest Minigame is on.";
     mOptionDescriptions[RSK_GERUDO_KEYS] = "Vanilla - Thieves' Hideout Keys will appear in their vanilla locations.\n"
