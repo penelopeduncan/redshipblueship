@@ -3068,6 +3068,14 @@ typedef enum {
     // - `s32*` camMode
     VB_CHANGE_AIMING_CAMERA,
 
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY,
+
 } GIVanillaBehavior;
 
 #endif

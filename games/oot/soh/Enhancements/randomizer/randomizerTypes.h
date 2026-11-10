@@ -476,6 +476,7 @@ typedef enum {
     RCTYPE_BEAN_FAIRY,                 // Fairies from Beans
     RCTYPE_SONG_FAIRY,                 // Fairies from Songs
     RCTYPE_GRASS,                      // Grass
+    RCTYPE_BUTTERFLY_FAIRY,            // Fairies from Butterflies
 } RandomizerCheckType;
 
 typedef enum { RCQUEST_VANILLA, RCQUEST_MQ, RCQUEST_BOTH } RandomizerCheckQuest;
@@ -4167,6 +4168,16 @@ typedef enum {
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_7,
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8,
     // End Grass
+    RC_HC_NEAR_WALL_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_STAIRS_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_BOULDER_PATH_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_ARCHWAY_BUTTERFLY_FAIRY,
+    RC_LW_MEADOW_BUTTERFLY_FAIRY,
+    RC_GY_NEAR_HUT_GRAVE_BUTTERFLY_FAIRY,
+    RC_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY,
+    RC_ZR_WATERFALL_BUTTERFLY_FAIRY,
+    RC_ZF_LOG_BUTTERFLY_FAIRY,
+    RC_LH_SCARECROW_BUTTERFLY_FAIRY,
 
     RC_MAX
 } RandomizerCheck;
@@ -6405,6 +6416,12 @@ typedef enum {
     // [RSBS #1169 XW4] the hint text of RG_SONG_OF_SOARING_OOT. Appended last, as
     // RHT_STONE_MASK is.
     RHT_SONG_OF_SOARING_OOT,
+    RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE,
+    RHT_BUTTERFLY_FAIRY_LOST_WOODS,
+    RHT_BUTTERFLY_FAIRY_GRAVEYARD,
+    RHT_BUTTERFLY_FAIRY_ZORAS_RIVER,
+    RHT_BUTTERFLY_FAIRY_ZORAS_FOUNTAIN,
+    RHT_BUTTERFLY_FAIRY_LAKE_HYLIA,
     // MAX
     RHT_MAX,
 } RandomizerHintTextKey;
@@ -6740,6 +6757,7 @@ typedef enum {
     // a save's randoSettings array is indexed by this enum, and a world saved
     // before it reads the missing tail as 0, off.
     RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
+    RSK_SHUFFLE_BUTTERFLY_FAIRIES,
     RSK_MAX
 } RandomizerSettingKey;
 
