@@ -980,11 +980,6 @@ if (BUILD_CROWD_CONTROL)
     set(SDL2-NET-INCLUDE ${SDL_NET_INCLUDE_DIRS})
 endif()
 
-find_library(ESPEAK espeak-ng)
-if (ESPEAK)
-    add_compile_definitions(ESPEAK=1)
-endif()
-
 target_include_directories(${_t} PRIVATE assets
 	${CMAKE_CURRENT_SOURCE_DIR}/include/
 	${CMAKE_CURRENT_SOURCE_DIR}/include/PR
