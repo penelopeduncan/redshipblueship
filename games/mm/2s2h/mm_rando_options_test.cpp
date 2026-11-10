@@ -566,7 +566,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             { RO_SHUFFLE_BOSS_REMAINS, "Shuffle Items" },
             { RO_SHUFFLE_GOLD_SKULLTULAS, "Shuffle Items" },
             { RO_MINIMUM_SKULLTULA_TOKENS, "Shuffle Items" },
-            { RO_SKULLTULA_TOKENS_MAX, "Shuffle Items" },
+            { RO_SKULLTULA_SHUFFLED, "Shuffle Items" },
             { RO_PLACEMENT_SMALL_KEYS, "Shuffle Items" },
             { RO_PLACEMENT_BOSS_KEYS, "Shuffle Items" },
             { RO_PLACEMENT_STRAY_FAIRIES, "Shuffle Items" },

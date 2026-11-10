@@ -259,7 +259,7 @@ static RegisterShipInitFunc refreshMetricsInit(RefreshMetrics, {
                                                                    "gRando.Options.RO_SHUFFLE_TINGLE_SHOPS",
                                                                    "gRando.Options.RO_SHUFFLE_TREE_DROPS",
                                                                    "gRando.Options.RO_SHUFFLE_TRIFORCE_PIECES",
-                                                                   "gRando.Options.RO_SKULLTULA_TOKENS_MAX",
+                                                                   "gRando.Options.RO_SKULLTULA_SHUFFLED",
                                                                    "gRando.Options.RO_STARTING_CONSUMABLES",
                                                                    "gRando.Options.RO_STARTING_HEALTH",
                                                                    "gRando.Options.RO_STARTING_MAPS_AND_COMPASSES",
@@ -405,31 +405,23 @@ static void DrawShufflesTab() {
     CVarCheckbox("Shuffle Cows", Rando::StaticData::Options[RO_SHUFFLE_COWS].cvar);
     CVarCheckbox("Shuffle Gold Skulltula Tokens", Rando::StaticData::Options[RO_SHUFFLE_GOLD_SKULLTULAS].cvar);
     ImGui::BeginDisabled(!CVarGetInteger(Rando::StaticData::Options[RO_SHUFFLE_GOLD_SKULLTULAS].cvar, RO_GENERIC_OFF));
-    CVarSliderInt(
-        "Required Gold Skulltula Tokens", Rando::StaticData::Options[RO_MINIMUM_SKULLTULA_TOKENS].cvar,
-        IntSliderOptions()
-            .Tooltip("Minimum Gold Skulltula tokens needed to obtain the Spider House checks.")
-            .LabelPosition(UIWidgets::LabelPosition::None)
-            .Min(1)
-            .Format("%d Tokens Required")
-            .Max(CVarGetInteger(Rando::StaticData::Options[RO_SKULLTULA_TOKENS_MAX].cvar, SPIDER_HOUSE_TOKENS_REQUIRED))
-            .DefaultValue(SPIDER_HOUSE_TOKENS_REQUIRED));
-    if (CVarSliderInt("Gold Skulltula Tokens in Pool", Rando::StaticData::Options[RO_SKULLTULA_TOKENS_MAX].cvar,
-                      IntSliderOptions()
-                          .Tooltip("Maximum Gold Skulltula tokens that can appear in the item pool.")
-                          .LabelPosition(UIWidgets::LabelPosition::None)
-                          .Min(1)
-                          .Format("%d Tokens in Pool")
-                          .Max(SPIDER_HOUSE_TOKENS_REQUIRED)
-                          .DefaultValue(SPIDER_HOUSE_TOKENS_REQUIRED))) {
-        if (CVarGetInteger(Rando::StaticData::Options[RO_MINIMUM_SKULLTULA_TOKENS].cvar,
-                           SPIDER_HOUSE_TOKENS_REQUIRED) >
-            CVarGetInteger(Rando::StaticData::Options[RO_SKULLTULA_TOKENS_MAX].cvar, SPIDER_HOUSE_TOKENS_REQUIRED)) {
-            CVarSetInteger(
-                Rando::StaticData::Options[RO_MINIMUM_SKULLTULA_TOKENS].cvar,
-                CVarGetInteger(Rando::StaticData::Options[RO_SKULLTULA_TOKENS_MAX].cvar, SPIDER_HOUSE_TOKENS_REQUIRED));
-        }
-    }
+    CVarSliderInt("Required Gold Skulltula Tokens", Rando::StaticData::Options[RO_MINIMUM_SKULLTULA_TOKENS].cvar,
+                  IntSliderOptions()
+                      .Tooltip("Minimum Gold Skulltula tokens needed to obtain the Spider House checks.")
+                      .LabelPosition(UIWidgets::LabelPosition::None)
+                      .Min(1)
+                      .Format("%d Tokens Required")
+                      .Max(SPIDER_HOUSE_TOKENS_REQUIRED)
+                      .DefaultValue(SPIDER_HOUSE_TOKENS_REQUIRED));
+    CVarSliderInt("Shuffled Gold Skulltulas", Rando::StaticData::Options[RO_SKULLTULA_SHUFFLED].cvar,
+                  IntSliderOptions()
+                      .Tooltip("How many Gold Skulltulas in each Spider House are randomized checks. The rest "
+                               "contain their associated token. The spiders are chosen at random each seed.")
+                      .LabelPosition(UIWidgets::LabelPosition::None)
+                      .Min(1)
+                      .Format("%d of 30 Shuffled Per House")
+                      .Max(SPIDER_HOUSE_TOKENS_REQUIRED)
+                      .DefaultValue(SPIDER_HOUSE_TOKENS_REQUIRED));
     ImGui::EndDisabled();
     UIWidgets::CVarCombobox(
         "Small Keys", Rando::StaticData::Options[RO_PLACEMENT_SMALL_KEYS].cvar, &dungeonItemPlacementOptions,

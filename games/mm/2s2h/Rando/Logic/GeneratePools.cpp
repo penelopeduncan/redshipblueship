@@ -41,6 +41,28 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         excludedChecks.push_back((RandoCheckId)std::stoi(word));
     }
 
+    std::set<RandoCheckId> vanillaSkulltulas;
+    if (saveInfo.randoSaveOptions[RO_SHUFFLE_GOLD_SKULLTULAS] == RO_GENERIC_YES) {
+        std::map<SceneId, std::vector<RandoCheckId>> skulltulasByScene;
+        for (auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+            if (randoStaticCheck.randoCheckType == RCTYPE_SKULL_TOKEN) {
+                skulltulasByScene[randoStaticCheck.sceneId].push_back(randoCheckId);
+            }
+        }
+
+        size_t shuffledCount = saveInfo.randoSaveOptions[RO_SKULLTULA_SHUFFLED];
+        for (auto& [sceneId, sceneSkulltulas] : skulltulasByScene) {
+            if (shuffledCount >= sceneSkulltulas.size()) {
+                continue;
+            }
+
+            for (size_t i = 0; i < sceneSkulltulas.size(); i++) {
+                std::swap(sceneSkulltulas[i], sceneSkulltulas[Ship_Random(0, sceneSkulltulas.size())]);
+            }
+            vanillaSkulltulas.insert(sceneSkulltulas.begin() + shuffledCount, sceneSkulltulas.end());
+        }
+    }
+
     // First loop through all regions and add checks/items to the pool
     for (auto& [randoRegionId, randoRegion] : Rando::Logic::Regions) {
         for (auto& [randoCheckId, _] : randoRegion.checks) {
@@ -67,9 +89,15 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 continue;
             }
 
-            if (randoStaticCheck.randoCheckType == RCTYPE_SKULL_TOKEN &&
-                saveInfo.randoSaveOptions[RO_SHUFFLE_GOLD_SKULLTULAS] == RO_GENERIC_NO) {
-                continue;
+            if (randoStaticCheck.randoCheckType == RCTYPE_SKULL_TOKEN) {
+                if (saveInfo.randoSaveOptions[RO_SHUFFLE_GOLD_SKULLTULAS] == RO_GENERIC_NO) {
+                    continue;
+                }
+
+                if (vanillaSkulltulas.contains(randoCheckId)) {
+                    saveInfo.randoSaveChecks[randoCheckId].shuffled = true;
+                    continue;
+                }
             }
 
             if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
@@ -293,10 +321,12 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         }
     }
 
-    // Remove extra stray fairies/gold skulltulas from the pool
+    // Remove extra stray fairies from the pool.
     std::map<RandoItemId, int> removeAbleItemsInPool = {
-        { RI_STONE_TOWER_STRAY_FAIRY, 0 }, { RI_GREAT_BAY_STRAY_FAIRY, 0 }, { RI_SNOWHEAD_STRAY_FAIRY, 0 },
-        { RI_WOODFALL_STRAY_FAIRY, 0 },    { RI_GS_TOKEN_SWAMP, 0 },        { RI_GS_TOKEN_OCEAN, 0 },
+        { RI_STONE_TOWER_STRAY_FAIRY, 0 },
+        { RI_GREAT_BAY_STRAY_FAIRY, 0 },
+        { RI_SNOWHEAD_STRAY_FAIRY, 0 },
+        { RI_WOODFALL_STRAY_FAIRY, 0 },
     };
     for (RandoItemId itemId : itemPool) {
         if (removeAbleItemsInPool.find(itemId) != removeAbleItemsInPool.end()) {
@@ -311,10 +341,6 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             case RI_SNOWHEAD_STRAY_FAIRY:
             case RI_WOODFALL_STRAY_FAIRY:
                 max = saveInfo.randoSaveOptions[RO_STRAY_FAIRIES_MAX];
-                break;
-            case RI_GS_TOKEN_SWAMP:
-            case RI_GS_TOKEN_OCEAN:
-                max = saveInfo.randoSaveOptions[RO_SKULLTULA_TOKENS_MAX];
                 break;
             default:
                 break;

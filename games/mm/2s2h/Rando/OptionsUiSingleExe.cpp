@@ -422,9 +422,10 @@ const OptionUi kOptionUi[] = {
       "Minimum Skulltula Tokens",
       "Tokens needed for the Spider House reward. Forced to the vanilla value when tokens are not shuffled.",
       1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
-    { RO_SKULLTULA_TOKENS_MAX, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
-      "Gold Skulltula Tokens in Pool",
-      "Maximum Gold Skulltula tokens that can appear in the item pool.",
+    { RO_SKULLTULA_SHUFFLED, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
+      "Shuffled Gold Skulltulas",
+      "How many Gold Skulltulas in each Spider House are randomized checks. The rest contain their associated token. "
+      "The spiders are chosen at random each seed.",
       1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_PLACEMENT_SMALL_KEYS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Small Keys",
