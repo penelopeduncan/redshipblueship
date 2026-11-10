@@ -43,6 +43,19 @@ static std::string GoldDustPrizeHintText() {
 }
 #endif
 
+// The name the gold-dust trade offers. A function of its own, because a preprocessor conditional may not sit
+// inside the arguments of the COND_ID_HOOK macro call (MSVC C2121).
+static std::string GildedSwordOfferName() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1499: the trade names what it will hand (ConvertItem, as the give).
+    return Rando::StaticData::GetItemName(
+        Rando::ConvertItem(RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId,
+                           RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD));
+#else
+    return Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId);
+#endif
+}
+
 void Rando::ActorBehavior::InitEnKgyBehavior() {
     COND_VB_SHOULD(VB_SMITHY_START_UPGRADING_SWORD, IS_RANDO, {
         EnKgy* refActor = va_arg(args, EnKgy*);
@@ -99,8 +112,7 @@ void Rando::ActorBehavior::InitEnKgyBehavior() {
         std::string itemName = "40 Rupees";
 
         if (!RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].eligible) {
-            itemName =
-                Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId);
+            itemName = GildedSwordOfferName();
         }
         entry.msg = "Want to know a secret? If you bring me some gold dust, I can offer you %r{itemName}%w.\xE0";
         CustomMessage::Replace(&entry.msg, "{itemName}", itemName);

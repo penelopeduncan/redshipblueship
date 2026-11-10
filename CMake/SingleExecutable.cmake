@@ -1638,6 +1638,17 @@ if(BUILD_TESTING)
     # options looked up by name.
     redship_add_test(NAME MMShopPrices COMMAND redship --test mm-shop-prices)
     redship_add_test(NAME MMShopPricesPool COMMAND redship --test mm-shop-prices-pool)
+    # Majora's Mask's Tingle maps (#1499). MMTingleMapPool: over a real pool
+    # generation with Shuffle Tingle Maps on, each map is in the item pool once
+    # (with Plentiful off and on), none with Starting Maps and Compasses on, the
+    # twelve Tingle checks stay in the check pool and the K9 seam describes the
+    # pool. MMTingleMapDisplay: with Tingle's Clock Town Map on the Bomb Shop's
+    # first slot and owned, the owner's hand, the shelf, its line, the MM Check
+    # Tracker and the Combo Tracker's MM pane all name "Junk" (the map while not
+    # owned); the shelf and a Tingle slot sell that junk once; a paid junk sale
+    # never gives RI_NONE. Pure (no display, no ROM).
+    redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
+    redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside
@@ -3059,6 +3070,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1498: an MM enemy drop answered per instance. MMEnemyDropInstances: with a
+    # Kokiri Sword, Mini Baba is in logic, MM's native tracker lists its Beneath the
+    # Well copy out of logic, and the combo pane files it under an area where the
+    # kill is in logic; MMCheckInstancesPerIdUnchanged: the per-instance answer
+    # leaves the per-id answer the fill reads as it was. `rando`: MM's real region
+    # graph (the MMTrackerInLogicArrival reason).
+    redship_add_test(NAME MMEnemyDropInstances COMMAND redship --test mm-enemy-drop-instances
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME MMCheckInstancesPerIdUnchanged COMMAND redship --test mm-check-instances-per-id
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME TrackerFillSuperset COMMAND redship --test tracker-fill-superset
         LABEL rando
         TIMEOUT 600
@@ -3084,6 +3109,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME MMLogicGates COMMAND redship --test mm-logic-gates
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1453: an MM logic edge carries only the half-days its own condition holds
+    # on, in CrawlReachableRegions (paired fills, both trackers) and
+    # FindReachableRegions (the solo glitchless fill): an IS_NIGHT2-only edge with
+    # every slice owned and no stay carries no day slice, a day-gated row behind
+    # it fails, and a time-free edge still carries the whole mask. A synthetic
+    # region map swapped in for the real one; games/mm/2s2h/mm_time_edges_test.cpp.
+    # Same bring-up as MMLogicGates.
+    redship_add_test(NAME MMTimeEdges COMMAND redship --test mm-time-edges
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3554,6 +3590,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the sword; a world saved before the option loads it off.
     # games/oot/soh/oot_time_travel_sword_test.cpp.
     redship_add_test(NAME OoTTimeTravelSword COMMAND redship --test oot-time-travel-sword
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1414: Early Granny's Potion Shop (Shipwright#6693): with Shuffle Adult Trade
+    # off and no Claim Check, Granny's real offer (VB_OFFER_BLUE_POTION) and sale
+    # gate both open; off, or under Shuffle Adult Trade, they answer as before and
+    # the settings fold skips the option, so default worlds keep their fingerprint.
+    # games/oot/soh/oot_early_granny_shop_test.cpp.
+    redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

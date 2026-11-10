@@ -405,6 +405,12 @@ int MM_TreeShuffleHooks_RunHeadless(void);
 // shared bring-up first. Return 0 on pass.
 int MM_ShopPrices_RunHeadless(void);
 int MM_ShopPricesPool_RunHeadless(void);
+// Majora's Mask's Tingle maps (games/mm/2s2h/mm_tingle_maps_test.cpp, #1499): one
+// copy of each map in a real pool generation (none of a starting map); then every
+// surface of a shop slot holding an owned map names the junk it sells, once. Both
+// need the display-free shared bring-up first. Return 0 on pass.
+int MM_TingleMapPool_RunHeadless(void);
+int MM_TingleMapDisplay_RunHeadless(void);
 // The curated MM enhancement keys' liveness evidence
 // (games/mm/2s2h/mm_enhancement_toggles_test.cpp, #682): the EVIDENCE half of the
 // pair above, MM-side because the registries are. Per key: exactly one
@@ -7033,6 +7039,35 @@ static TestResult Test_MMShopPricesPool(void) {
     return MM_ShopPricesPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// The Tingle maps (#1499). Same display-free bring-up as mm-shop-prices-pool.
+static TestResult Test_MMTingleMapPool(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMTingleMapDisplay(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapDisplay_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's evidence half. Same display-free shared bring-up and the same reason as
 // mm-clock-shuffle-songs: it drives MM's registrars through CVarSetInteger +
 // MM_ShipInit_OnCVarChanged, and reads the Ship::Context singleton's
@@ -8177,6 +8212,23 @@ TestResult Test_MMTrackerInLogicArrival(void) {
     }
     return MM_TrackerInLogic_RunArrival() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1498: MM's enemy drops answered per instance, by both trackers, and the per-id
+// answer the fill reads left as it was. Same bring-up (MM's real region graph);
+// bodies in games/mm/2s2h/mm_enemy_drop_instances_test.cpp.
+extern "C" int MM_EnemyDropInstances_Run(void);
+extern "C" int MM_CheckInstancesPerId_Run(void);
+TestResult Test_MMEnemyDropInstances(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_EnemyDropInstances_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+TestResult Test_MMCheckInstancesPerId(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_CheckInstancesPerId_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1434: Time Travel Requires Master Sword (OoTMM's timeTravelSword): the option's
 // default, the pedestal's real wait action, OoT's real search through the pedestal,
 // and a stored world's own value. Same bring-up as the rows above (OTRGlobals'
@@ -8187,6 +8239,16 @@ TestResult Test_OoTTimeTravelSword(void) {
         return TEST_FAIL;
     }
     return OoT_TimeTravelSwordTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1414: Early Granny's Potion Shop opens Granny's real offer and sale without the
+// Claim Check, and folds into the settings fingerprint only while it can matter.
+// Same bring-up as the rows above; body in games/oot/soh/oot_early_granny_shop_test.cpp.
+extern "C" int OoT_EarlyGrannyShopTest_Run(void);
+TestResult Test_OoTEarlyGrannyShop(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
@@ -8233,6 +8295,18 @@ TestResult Test_MMLogicGates(void) {
         return TEST_FAIL;
     }
     return MM_LogicGates_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1453: an MM logic edge carries only the half-days its condition holds on, in
+// CrawlReachableRegions and FindReachableRegions, over a synthetic region map
+// swapped in for Rando::Logic::Regions (games/mm/2s2h/mm_time_edges_test.cpp).
+// Same bring-up as mm-logic-gates; skipped by `--test all` below because it
+// swaps the process-wide region map and resets the entrance->region cache.
+extern "C" int MM_TimeEdges_RunHeadless(void);
+TestResult Test_MMTimeEdges(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_TimeEdges_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 // #980: Ocarina of Time's masks in MM's logic (games/mm/2s2h/mm_oot_masks_test.cpp),
 // over MM's real region lambdas. Same bring-up as mm-logic-gates.
@@ -9408,6 +9482,12 @@ const TestDescriptor gTests[] = {
     { "mm-shop-prices-pool",
       "MM's price pass draws in a fixed order from the seeded stream, Vanilla by default (#1427)",
       Test_MMShopPricesPool },
+    // The Tingle maps (#1499). After mm-registrar-coverage for the same reason as
+    // the tree rows (the pool row runs MM_Rando_Init). Both restore what they write.
+    { "mm-tingle-map-pool", "MM's pool holds one copy of each Tingle map, none of a starting map (#1499)",
+      Test_MMTingleMapPool },
+    { "mm-tingle-map-display", "A shop slot holding an owned Tingle map is named and sold as junk, once (#1499)",
+      Test_MMTingleMapDisplay },
     // The two MM resume-contract tests below mutate process-global state
     // (mm-resume-arena re-inits the MM system arena + heaps; mm-startup-restore
     // scribbles and re-zeroes the unified gSaveContext). Both clean up after
@@ -9782,6 +9862,14 @@ const TestDescriptor gTests[] = {
       "MM's Check Tracker in-logic set: a hookshot tier applied at an arrival brings the South Clock Town lower chest "
       "into logic, obtained drops it, and the computation writes nothing (#994)",
       Test_MMTrackerInLogicArrival },
+    { "mm-enemy-drop-instances",
+      "MM enemy drops per instance: with a Kokiri Sword, Mini Baba is in logic, the native tracker's Beneath the Well "
+      "copy is not, and the combo pane files it under an area where the kill is in logic (#1498)",
+      Test_MMEnemyDropInstances },
+    { "mm-check-instances-per-id",
+      "The per-instance check answer leaves the per-id answer the fill reads unchanged, raw and under the reset-time "
+      "guard (#1498)",
+      Test_MMCheckInstancesPerId },
     { "tracker-fill-superset",
       "On one paired creation save, each game's tracker shows every check the fill's sphere zero reaches, minus "
       "obtained (#994)",
@@ -9801,6 +9889,10 @@ const TestDescriptor gTests[] = {
       "Romani Ranch's cows, Epona's Song and the alien drop need the Milk Road boulder broken on Day 1, and the "
       "Circus Leader's Mask needs Romani's Mask (#1168)",
       Test_MMLogicGates },
+    // #1453. Swaps the region map; skipped by `--test all` below like its siblings.
+    { "mm-time-edges",
+      "A night-only MM logic edge carries no day time into its target, in the crawl and the glitchless fill (#1453)",
+      Test_MMTimeEdges },
     // #980. Skipped by `--test all` below like its siblings.
     { "oot-masks-mm-logic",
       "Under their frozen rules the Skull Mask opens the Deku Palace, the Gerudo Mask gets past the purple guard, "
@@ -10077,6 +10169,11 @@ const TestDescriptor gTests[] = {
       "Time offers the pull and logic sends Link through time, either way, only with the sword; a world saved before "
       "the option keeps its pedestal (#1434)",
       Test_OoTTimeTravelSword },
+    { "oot-early-granny-shop",
+      "Early Granny's Potion Shop: with Shuffle Adult Trade off and no Claim Check, Granny offers and sells her "
+      "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
+      "it (#1414)",
+      Test_OoTEarlyGrannyShop },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10415,10 +10512,12 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "rando-mask-quest-paired") == 0 ||
                 strcmp(gTests[i].name, "tracker-availability-arrival") == 0 ||
                 strcmp(gTests[i].name, "mm-tracker-in-logic-arrival") == 0 ||
+                strcmp(gTests[i].name, "mm-enemy-drop-instances") == 0 ||
+                strcmp(gTests[i].name, "mm-check-instances-per-id") == 0 ||
                 strcmp(gTests[i].name, "tracker-fill-superset") == 0 ||
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
-                strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
                 strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||
@@ -10448,6 +10547,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
+                strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

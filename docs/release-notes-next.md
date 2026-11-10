@@ -4,11 +4,51 @@
 
 ## Since v0.5.0-alpha
 
+### Read this first
+
+- **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
+  with Shuffle Tingle Maps on (each Tingle map is now placed once), and with Shuffle Time on (Majora's Mask logic now
+  carries only the half-days a time-gated path is open on). A seed package exported by `v0.5.0-alpha` is refused, so
+  generate the seed again. Saved files are not affected.
+
+### Majora's Mask randomizer
+
+- **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
+  each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
+  or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
+  nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
+
 ### Fixes
 
+- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
+  carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
+  leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
+  above all, make different worlds from the same seed.
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
+- **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
+  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
+  show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+
+### Trackers
+
+- **Majora's Mask enemy drops show where the kill is in logic** (issue #1498). With Available Checks on, the Combo Tracker
+  lists a drop under an area where it can be killed, and keeps it there once collected. MM's Check Tracker greys each
+  area's copy on its own and names the areas in the drop's tooltip (when Out of Logic Checks is not Normal), as does the
+  Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
+  inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
+  the scene they open from.
+
+### Options and quality of life
+
+- **Ocarina of Time: Text Speed has a sixth notch, Instant** (issue #1414). At 6 the slider shows each text box in
+  full at once.
+- **New randomizer option: Early Granny's Potion Shop** (issue #1414). With Shuffle Adult Trade off, Granny's shop in
+  Kakariko is open from the start, without the Claim Check, and logic counts her item that way. It is off by
+  default, and a seed made with it off makes the same world as before.
+- **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
+  instead of queueing behind it.
 
 ---
 

@@ -96,6 +96,14 @@ uint8_t MM_ForeignMask_SlotSelRaw(uint8_t slot);
 void MM_ForeignMask_SetSlotSelRaw(uint8_t slot, uint8_t value);
 void MM_ForeignMask_SetStoredRaw(uint8_t value);
 uint8_t MM_ForeignMask_PageCellItem(int maskSlot, uint8_t stored);
+const char* MM_ForeignMask_PageIcon(int maskSlot, const char* nativeIcon);
+uint8_t MM_ForeignMask_ItemShows(int item);
+const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
+const char* MM_ForeignMask_NameTexture(uint8_t mask);
+const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
+const char* MM_ForeignMask_ItemDescription(int item);
+const char* MM_ForeignMask_ItemNameTexture(int item);
+int MM_ForeignMask_CycleSlot(uint8_t slot, int dir);
 // games/mm/2s2h/Rando/ComboLogicEngineSingleExe.cpp
 int MM_ComboLogic_ClassifyItem(uint16_t id, ComboItemClassRow* out);
 #ifdef __cplusplus
@@ -164,6 +172,38 @@ void OmmClearKeys() {
     Combo_ComboSettingClear(COMBO_SETTING_SHARED_MASK_BLAST);
     Combo_ComboSettingClear(COMBO_SETTING_STONE_MASK_OOT);
     Combo_ComboSettingClear(COMBO_SETTING_SHARED_MASK_STONE);
+}
+
+/**
+ * #1500: every label of MM item `item`, whose page cell is `cell`, names `mask`
+ * (NONE: the item's own): the mask it stands for, the C-button icon (the page
+ * icon), the pause name and the A-press description. No archive is mounted
+ * headless, so the icon and the name answer the native texture or exactly the
+ * mask's.
+ */
+bool OmmLabelsShow(uint8_t item, int cell, uint8_t mask) {
+    static const char kNative[] = "__OTR__native";
+    if (MM_ForeignMask_ItemShows(item) != mask) {
+        return false;
+    }
+    const char* icon = MM_ForeignMask_ItemIcon(item, kNative);
+    const char* name = MM_ForeignMask_ItemName(item, kNative);
+    const char* desc = MM_ForeignMask_ItemDescription(item);
+    if (icon != MM_ForeignMask_PageIcon(cell, kNative)) {
+        return false;
+    }
+    // The texture asked for before the mount check: unmounted, `name` is always
+    // kNative, so this is the half of the name a headless run can tell apart.
+    const char* nameTex = MM_ForeignMask_NameTexture(mask);
+    if (MM_ForeignMask_ItemNameTexture(item) != nameTex) {
+        return false;
+    }
+    const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(mask);
+    if (info == nullptr) {
+        return icon == kNative && name == kNative && desc == nullptr;
+    }
+    return (icon == kNative || icon == info->icon) && nameTex != nullptr && (name == kNative || name == nameTex) &&
+           desc != nullptr && std::strstr(desc, info->name) != nullptr;
 }
 
 } // namespace
@@ -466,6 +506,11 @@ TestResult Test_OoTMasksMMItems(void) {
                   "the inventory was written)");
         OMM_CHECK(MM_ForeignMask_SlotSelection(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == COMBO_FOREIGN_MASK_OOT_GERUDO,
                   "the slot does not read as the Gerudo Mask while it is the only variant");
+        // #1500: the lent cell's C button, name and description say Gerudo, as the page does.
+        OMM_CHECK(OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_OOT_GERUDO),
+                  "the lent Stone cell's C-button icon, pause name or description is not the Gerudo Mask's (the "
+                  "item stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
         MM_OoTMasksTest_SetPlayer(1, (uint8_t)MM_OoTMasksTest_Const(4));
         OMM_CHECK(MM_OoTMasksTest_EquipNative(MM_OoTMasksTest_Const(0)) == 1 &&
                       MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
@@ -494,6 +539,44 @@ TestResult Test_OoTMasksMMItems(void) {
         MM_OoTMasksTest_SetNativeOwned(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1);
         OMM_CHECK(MM_OoTMasksTest_EquipNative(MM_OoTMasksTest_Const(0)) == 0,
                   "with the Stone Mask owned and nothing else, its C button no longer wears the Stone Mask");
+        // #1500: both owned through the real give: the slot's own mask chosen, then
+        // the Skull Mask chosen (the A cycle's write, then the cycle itself); and the
+        // Spooky Mask lent Gibdo's cell. Every label follows the page. The ArmLive
+        // above cleared the Gerudo Mask's owned bit, so Stone's slot holds two
+        // variants here: the Stone and Skull Masks.
+        MM_OoTMasksTest_Give(skull);
+        OMM_CHECK(!MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull),
+                  "after the re-arm, the Gerudo Mask is still owned or the Skull Mask's give owned nothing");
+        OMM_CHECK(OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_NONE),
+                  "with the Stone and Skull Masks owned and the Stone Mask chosen, a label of Stone's cell is not the "
+                  "Stone Mask's");
+        MM_ForeignMask_SetSlotSelRaw(
+            COMBO_FOREIGN_MASK_SLOT_MM_STONE,
+            Combo_ForeignMask_SlotByteWithSelection(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE),
+                                                    COMBO_FOREIGN_MASK_OOT_SKULL));
+        OMM_CHECK(OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_OOT_SKULL),
+                  "with the Skull Mask chosen beside the Stone Mask, a label of Stone's cell is not the Skull Mask's "
+                  "(the item stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
+        // The A cycle itself (the path that reloads the pause name): Skull, then
+        // Stone, then Skull again, with every label following.
+        OMM_CHECK(MM_ForeignMask_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1) == 1 &&
+                      OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_NONE),
+                  "A on Stone's slot from the Skull Mask did not bring every label back to the Stone Mask (the item "
+                  "stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
+        OMM_CHECK(MM_ForeignMask_CycleSlot(COMBO_FOREIGN_MASK_SLOT_MM_STONE, 1) == 1 &&
+                      OmmLabelsShow(stoneItem, stoneCell, COMBO_FOREIGN_MASK_OOT_SKULL),
+                  "A on Stone's slot from the Stone Mask did not move every label to the Skull Mask (the item stands "
+                  "for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(stoneItem));
+        const uint8_t gibdoItem = MM_OoTMasksTest_ItemConst(1);
+        const int gibdoCell = MM_OoTMasksTest_PageCell(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+        MM_OoTMasksTest_Give(spooky);
+        OMM_CHECK(OmmLabelsShow(gibdoItem, gibdoCell, COMBO_FOREIGN_MASK_OOT_SPOOKY),
+                  "the lent Gibdo cell's C-button icon, pause name or description is not the Spooky Mask's (the "
+                  "item stands for %u)",
+                  (unsigned)MM_ForeignMask_ItemShows(gibdoItem));
         ComboContext_Init();
     }
 

@@ -934,8 +934,8 @@ u8 EnDs_RandoCanGetGrannyItem() {
            !Flags_GetRandomizerInf(RAND_INF_MERCHANTS_GRANNYS_SHOP) &&
            // Traded odd mushroom when adult trade is on
            ((RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) && Flags_GetItemGetInf(ITEMGETINF_30)) ||
-            // Found claim check when adult trade is off
-            (!RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) && INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK));
+            (!RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) &&
+             (RAND_GET_OPTION(RSK_EARLY_GRANNYS_SHOP) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)));
 }
 
 u8 EnJs_RandoCanGetCarpetMerchantItem() {
@@ -1216,8 +1216,12 @@ void RandomizerOnDialogMessageHandler() {
                 }
                 break;
             case TEXT_GRANNYS_SHOP:
+                // [RSBS #1414] Early Granny's Potion Shop (only read with Shuffle Adult Trade
+                // off, the first term) stands in for the Claim Check, as at her offer
+                // (VB_OFFER_BLUE_POTION); missing upstream too, inherited, fixed here.
                 if (revealMerchant && nonBeanMerchants &&
-                    (ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)) {
+                    (ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE) || ctx->GetOption(RSK_EARLY_GRANNYS_SHOP) ||
+                     INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)) {
                     reveal = RC_KAK_GRANNYS_SHOP;
                 }
                 break;
@@ -1940,8 +1944,15 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
             break;
         }
         case VB_OFFER_BLUE_POTION: {
+            // [RSBS #1414] Early Granny's Potion Shop opens her offer without the Claim
+            // Check, as EnDs_RandoCanGetGrannyItem and the RC_KAK_GRANNYS_SHOP logic row
+            // (kakariko.cpp) already do. Upstream (Shipwright#6693) changed only the sale
+            // gate and left this offer, BuildGrannyMessage and the TEXT_GRANNYS_SHOP
+            // reveal on the Claim Check, so logic opened a check Granny never offered:
+            // inherited, fixed here. This also opens her vanilla Blue Potion offer when
+            // merchants are not shuffled, as the logic row does not depend on that.
             *should |= RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) == RO_GENERIC_OFF &&
-                       INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK;
+                       (RAND_GET_OPTION(RSK_EARLY_GRANNYS_SHOP) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK);
             break;
         }
         case VB_OKARINA_TAG_COMPLETE: {
@@ -2440,6 +2451,18 @@ static int RandomizerTestBeanSalesmanSells() {
         randomizerQueuedChecks = kept;
     }
     return verdict;
+}
+
+// TEST BRIDGE (#1414, Early Granny's Potion Shop): Granny's two runtime gates on the
+// current save and options, read through the REAL code and changing nothing. Bit 0:
+// her sale gate, EnDs_RandoCanGetGrannyItem (what VB_GIVE_ITEM_FROM_GRANNYS_SHOP and
+// her price and bottle hooks consult). Bit 1: her offer, the handler's answer to
+// VB_OFFER_BLUE_POTION from the default z_en_ds.c's EnDs_Wait passes (the Odd
+// Mushroom traded, ITEMGETINF_30). Read by games/oot/soh/oot_early_granny_shop_test.cpp.
+extern "C" int OoT_Rando_TestGrannyGates(void) {
+    bool offers = Flags_GetItemGetInf(ITEMGETINF_30) != 0;
+    RandomizerTestVanillaBehavior(VB_OFFER_BLUE_POTION, &offers, (void*)nullptr);
+    return (EnDs_RandoCanGetGrannyItem() ? 1 : 0) | (offers ? 2 : 0);
 }
 #endif
 
