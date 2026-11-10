@@ -48,13 +48,14 @@
  *
  * A check whose flag is the same in both halves is not touched: its status is
  * what SoH's own load gives it. That keeps a check that file creation marks
- * obtained without setting its flag (StartingItemGive: the Master Sword on an
- * adult start) obtained; a plain "status := flag" rule would undo it and let it
- * be given again. Checks with no flag a save half holds (none of them holds an
- * item: RC_GANON and RC_TRIFORCE_COMPLETED), a temporary collectible flag,
- * checks the flag-set hooks do not resolve to (a flag two locations share
- * resolves to the one the dungeon's quest selects) and locations outside the
- * seed (nothing placed) are not touched either.
+ * obtained obtained: the Master Sword on an adult start, whose creation give sets
+ * its own flag (RAND_INF_TOT_MASTER_SWORD, #1484) in the created file and so in
+ * both halves; a plain "status := flag" rule would undo any such check whose
+ * flag a half lacked and let it be given again. Checks with no flag a save half
+ * holds (none of them holds an item: RC_GANON and RC_TRIFORCE_COMPLETED), a
+ * temporary collectible flag, checks the flag-set hooks do not resolve to (a
+ * flag two locations share resolves to the one the dungeon's quest selects) and
+ * locations outside the seed (nothing placed) are not touched either.
  *
  * A VANILLA FILE (#861). A paired file that is not a randomizer file reloads
  * the same way, and its Check Tracker reads, saves and reloads the same
@@ -67,9 +68,11 @@
  * includes the dungeon rewards and songs whose collection flag is an
  * EventChkInf (Queen Gohma's blue warp, Saria's Song): the tracker marks them
  * in play on the item receive, but its generic EventChkInf loop resolves their
- * flags to them too, so they follow the loaded half like any other check. A
- * check those maps never resolve to (a chest the tracker does not show, which
- * its scene-flag loop skips, such as a Mido chest) is not touched; in a
+ * flags to them too, so they follow the loaded half like any other check. The
+ * Master Sword pedestal is read at the pull's EventChkInf there, not at its
+ * location's randomizer flag (CollectionCheckFor, #1484). A check those maps
+ * never resolve to (a chest the tracker does not show, which its scene-flag
+ * loop skips, such as a Mido chest) is not touched; in a
  * process with no Randomizer (the ROM-free rows) a RandomizerInf flag resolves
  * to nothing. Display only: a vanilla file gives nothing through these
  * statuses.
@@ -121,10 +124,23 @@ struct CollectionFlag {
     int16_t flag;
 };
 
+// The collection check `loc` is found by in a file that is (`rando`) or is not a
+// randomizer file. The pedestal's own flag is the randomizer's child give
+// (RAND_INF_TOT_MASTER_SWORD, #1484), which a vanilla file never sets: its Check
+// Tracker finds the pedestal at the pull (CheckTrackerFlagSet's special case), so
+// the seam reads the pull's flag there.
+Rando::SpoilerCollectionCheck CollectionCheckFor(const Rando::Location& loc, bool rando) {
+    if (!rando && loc.GetRandomizerCheck() == RC_TOT_MASTER_SWORD) {
+        return Rando::SpoilerCollectionCheck::EventChkInf(EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL);
+    }
+    return loc.GetCollectionCheck();
+}
+
 // Fills *out with `loc`'s collection flag and *outSet with whether `save` holds
 // it. false when no save half holds that flag.
-bool CollectionFlagIn(const SaveContext& save, const Rando::Location& loc, CollectionFlag* out, bool* outSet) {
-    const Rando::SpoilerCollectionCheck cc = loc.GetCollectionCheck();
+bool CollectionFlagIn(const SaveContext& save, const Rando::Location& loc, bool rando, CollectionFlag* out,
+                      bool* outSet) {
+    const Rando::SpoilerCollectionCheck cc = CollectionCheckFor(loc, rando);
     out->scene = cc.scene;
     out->flag = (int16_t)cc.flag;
     switch (cc.type) {
@@ -221,9 +237,9 @@ extern "C" int OoT_Combo_ReconcileCheckStateToLoadedHalf(const SaveContext* desc
             CollectionFlag f{};
             bool wasSet = false;
             bool isSet = false;
-            if (!CollectionFlagIn(*described, *loc, &f, &wasSet) || !CollectionFlagIn(*loaded, *loc, &f, &isSet) ||
-                wasSet == isSet || isSet == itemLoc->HasObtained() ||
-                !(rando ? HooksResolveTo(rc, f) : TrackerResolvesTo(rc, f))) {
+            if (!CollectionFlagIn(*described, *loc, rando, &f, &wasSet) ||
+                !CollectionFlagIn(*loaded, *loc, rando, &f, &isSet) || wasSet == isSet ||
+                isSet == itemLoc->HasObtained() || !(rando ? HooksResolveTo(rc, f) : TrackerResolvesTo(rc, f))) {
                 continue;
             }
             if (isSet) {

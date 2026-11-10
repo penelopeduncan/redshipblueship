@@ -26,13 +26,39 @@
  *       P6 the option on, the sword NOT shuffled, not owned: offered (the pull
  *          hands the sword over, VB_GIVE_ITEM_MASTER_SWORD).
  *       P7 a vanilla file, the randomizer's handler gone: offered.
+ *     P1 to P6 run with the pedestal's own check already obtained, so the child
+ *     give below (and its hold on the pull) is out of their way.
+ *  G  THE CHILD GIVE (#1484, OoTMM's child pedestal check): the pedestal's frame
+ *     as z_actor.c runs it, the wait action and then the OnActorUpdate dispatch,
+ *     with the randomizer's real vanilla-behaviour, actor-update and flag-set
+ *     handlers registered as a randomizer load registers them, the pedestal
+ *     holding an item.
+ *       P8  child in reach, sword shuffled, no sword: RAND_INF_TOT_MASTER_SWORD is
+ *           set, RC_TOT_MASTER_SWORD queued exactly once over three frames, and no
+ *           pull offered.
+ *       P9  adult in reach: no give.
+ *       P10 a save that pulled before this change (the pull's EventChkInf set, the
+ *           check SAVED): no give.
+ *       P11 the flag maps: the pull's EventChkInf no longer resolves to the check,
+ *           RAND_INF_TOT_MASTER_SWORD does.
+ *       P12 the sword not shuffled: no approach give; the pull's give
+ *           (VB_GIVE_ITEM_MASTER_SWORD) still hands the vanilla sword over, marks
+ *           the check and sets RAND_INF_TOT_MASTER_SWORD, queueing nothing.
+ *       P13 child in reach HOLDING the sword: the pull waits while the give is
+ *           pending or queued, and is offered once the check is obtained.
+ *       P14 a child out of reach (250 across): no give.
+ *       C1  the adult start's creation flag (savefile.cpp,
+ *           Randomizer_SetPedestalFlagAfterCreationGive) on a check the creation
+ *           give marked SAVED: the flag is set, the check stays SAVED, nothing
+ *           queued.
  *  L  THE LOGIC: OoT's real search (3drando/fill.cpp's ReachabilitySearch, whose
  *     PropagateTimeTravel is the one place an age reaches RR_ROOT through the
  *     pedestal), started in the Temple of Time with the Door of Time open, over
  *     an empty world (nothing placed, nothing to collect), on the search's own
  *     save holding the sword or not.
  *       L1 child start, option on, shuffled, no sword: no adult RR_ROOT, and the
- *          pedestal's adult check RC_TOT_MASTER_SWORD is not reached.
+ *          pedestal's check RC_TOT_MASTER_SWORD IS reached: with the sword
+ *          shuffled it is a child check beyond the Door of Time (#1484).
  *       L2 the same holding the sword: adult, and the check reached.
  *       L3 the option off, no sword: adult, and the check reached (L1's control).
  *       L4 the option on, the sword not shuffled, no sword: adult.
@@ -41,11 +67,20 @@
  *          RR_MARKET_MASK_SHOP->Child()) waits for the sword.
  *       L6 the same holding the sword: child.
  *       L7 the option off, no sword: child (L5's control).
+ *       L8 the row itself, evaluated at each age: the sword not shuffled, adult
+ *          only (L4 passes under either row, the pull being free); L9 shuffled,
+ *          child only.
  *  S  A STORED WORLD KEEPS ITS OWN PEDESTAL: the OoT world a save and a seed
  *     package carry (SaveManager's randomizer section) loads the option as it was
  *     stored (on), and the same world with its randoSettings array cut before the
  *     option, as every world saved before #1434 is, loads it off. Last: the load
  *     replaces the randomizer context.
+ *
+ * #1484 RED HALVES, derived, not run (this lane had no local build): on
+ * origin/main L1 and L9 fail (the row is IsAdult), P8 fails (no give), P11 fails
+ * (the location still names the pull's flag), P13 fails without the pull's hold,
+ * P12 fails without the unshuffled pull's flag, and C1 fails without the
+ * creation's status put back once the flag resolves to the check.
  *
  * RED HALVES, derived, not run (this lane had no local build): on origin/main the
  * row does not compile (no RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD); with the enum,
@@ -97,11 +132,21 @@ extern "C" {
 // z_bg_toki_swd.c: the pedestal's wait action (external linkage there), where it
 // offers the pull.
 void func_808BAF40(BgTokiSwd* thisx, PlayState* play);
+extern PlayState* OoT_gPlayState;
+// hook_handlers.cpp (#849, #1204 test bridges): empty the randomizer's check queue,
+// writing up to `cap` of its checks to `out`; set or clear the give slot.
+int OoT_Rando_TestTakeQueuedChecks(uint16_t* out, int cap);
+void OoT_Rando_TestQueueGive(uint16_t rc, const GetItemEntry* entry);
+// savefile.cpp (#1484): the adult start's pedestal flag after its creation give.
+void Randomizer_SetPedestalFlagAfterCreationGive(void);
 }
 
-// hook_handlers.cpp: the handler RandomizerRegisterHooks registers on a randomizer
-// file load.
+// hook_handlers.cpp: the handlers RandomizerRegisterHooks registers on a randomizer
+// file load, and the flag -> check map the flag-set handler queues through.
 void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_list originalArgs);
+void RandomizerOnActorUpdateHandler(void* refActor);
+void RandomizerOnFlagSetHandler(int16_t flagType, int16_t flag);
+RandomizerCheck GetRandomizerCheckFromFlag(int16_t flagType, int16_t flag);
 // SaveManager.cpp (#1044): the OoT world a save and a seed package carry, written
 // and read back by the functions a save uses.
 std::string OoT_SeedPackage_SerializeOoTWorld();
@@ -247,10 +292,10 @@ PlayState sPlay;
 Player sPlayer;
 BgTokiSwd sSwd;
 
-/** One frame of the pedestal's wait action: Link (adult or child) on a file of
- *  @p questId, in reach and facing it, owning the Master Sword or not, after the
- *  chamber's first-visit cutscene. Returns 1 when the pull was offered. */
-int PedestalOffers(uint8_t questId, bool adult, bool ownsSword) {
+/** Link (adult or child) on a file of @p questId, in reach of the pedestal and
+ *  facing it, owning the Master Sword or not, after the chamber's first-visit
+ *  cutscene. */
+void ArmPedestal(uint8_t questId, bool adult, bool ownsSword) {
     std::memset(&gSaveContext, 0, sizeof(SaveContext));
     std::memset(gSaveContext.inventory.items, ITEM_NONE, sizeof(gSaveContext.inventory.items));
     gSaveContext.ship.quest.id = questId;
@@ -273,9 +318,21 @@ int PedestalOffers(uint8_t questId, bool adult, bool ownsSword) {
     sSwd.actor.yDistToPlayer = 0.0f;
     sSwd.actor.yawTowardsPlayer = 0; // facing Link: OoT_Actor_IsFacingPlayer(0x2000)
     sSwd.actor.shape.rot.y = 0;
+}
 
+/** One frame of the pedestal's wait action. Returns 1 when the pull was offered.
+ *  Link's offer slot is cleared first, as his own update clears it each frame. */
+int PedestalWaitFrame() {
+    sPlayer.interactRangeActor = nullptr;
+    sPlayer.getItemDirection = 0;
     func_808BAF40(&sSwd, &sPlay);
     return sPlayer.interactRangeActor == &sSwd.actor ? 1 : 0;
+}
+
+/** One frame of the pedestal's wait action on an armed Link. */
+int PedestalOffers(uint8_t questId, bool adult, bool ownsSword) {
+    ArmPedestal(questId, adult, ownsSword);
+    return PedestalWaitFrame();
 }
 
 void PedestalLeg(Rando::Context& world, const char* leg, bool requiresSword, bool swordShuffled, bool adult,
@@ -295,6 +352,11 @@ void CheckPedestal(Rando::Context& world) {
     HooksAside<GameInteractor::OnVanillaBehavior> aside;
     const HOOK_ID vbHook = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnVanillaBehavior>(
         RandomizerOnVanillaBehaviorHandler);
+    // The pedestal's own check already given (#1484): the pull's hold for the child
+    // give (legs G) is not what these legs measure.
+    Rando::ItemLocation* pedestal = world.GetItemLocation(RC_TOT_MASTER_SWORD);
+    const RandomizerCheckStatus priorStatus = pedestal->GetCheckStatus();
+    pedestal->SetCheckStatus(RCSHOW_COLLECTED);
 
     PedestalLeg(world, "P1", true, true, false, false, 0);
     PedestalLeg(world, "P2", true, true, false, true, 1);
@@ -310,6 +372,179 @@ void CheckPedestal(Rando::Context& world) {
     const int vanilla = PedestalOffers(QUEST_NORMAL, false, false);
     printf("[TEST] P7: a vanilla file, no sword: the pull is %s\n", vanilla ? "offered" : "not offered");
     TTS_CHECK(vanilla == 1, "P7: a vanilla file's pedestal did not offer the pull");
+    pedestal->SetCheckStatus(priorStatus);
+}
+
+// ---- G: the child give (#1484) -----------------------------------------------------------
+
+bool SaveHasRandInf(RandomizerInf flag) {
+    return (gSaveContext.ship.randomizerInf[flag >> 4] & (1u << (flag & 0xF))) != 0;
+}
+
+/** One frame of the pedestal as z_actor.c's Actor_UpdateAll runs it: the actor's
+ *  update (its wait action), then GameInteractor_ExecuteOnActorUpdate. Returns 1
+ *  when the pull was offered. */
+int PedestalFrame() {
+    const int offered = PedestalWaitFrame();
+    GameInteractor_ExecuteOnActorUpdate(&sSwd.actor);
+    return offered;
+}
+
+/** Runs @p frames pedestal frames; returns how many offered the pull. */
+int PedestalFrames(int frames) {
+    int offered = 0;
+    for (int i = 0; i < frames; i++) {
+        offered += PedestalFrame();
+    }
+    return offered;
+}
+
+/** Empties the randomizer's check queue and give slot; returns how many checks
+ *  were queued and whether RC_TOT_MASTER_SWORD was the only one. */
+int TakeQueued(bool* onlyPedestal) {
+    uint16_t queued[8] = {};
+    const int n = OoT_Rando_TestTakeQueuedChecks(queued, 8);
+    *onlyPedestal = n >= 1;
+    for (int i = 0; i < n && i < 8; i++) {
+        *onlyPedestal = *onlyPedestal && queued[i] == (uint16_t)RC_TOT_MASTER_SWORD;
+    }
+    OoT_Rando_TestQueueGive(0, nullptr);
+    return n;
+}
+
+void CheckChildGive(Rando::Context& world) {
+    if (GameInteractor::Instance == nullptr) {
+        GameInteractor::Instance = new GameInteractor();
+    }
+    if (Rando::StaticData::GetLocation(RC_TOT_MASTER_SWORD)->GetName().empty()) {
+        Rando::StaticData::InitLocationTable(); // the flag -> check map's table
+    }
+    HooksAside<GameInteractor::OnVanillaBehavior> vbAside;
+    HooksAside<GameInteractor::OnActorUpdate> updateAside;
+    HooksAside<GameInteractor::OnFlagSet> flagAside;
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnVanillaBehavior>(RandomizerOnVanillaBehaviorHandler);
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnActorUpdate>(RandomizerOnActorUpdateHandler);
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFlagSet>(RandomizerOnFlagSetHandler);
+
+    PlayState* const priorPlay = OoT_gPlayState;
+    OoT_gPlayState = &sPlay; // the hook reads the live play state, as in play
+    Rando::ItemLocation* pedestal = world.GetItemLocation(RC_TOT_MASTER_SWORD);
+    const RandomizerGet priorItem = pedestal->GetPlacedRandomizerGet();
+    const RandomizerCheckStatus priorStatus = pedestal->GetCheckStatus();
+    // The flag-set handler queues only a location holding an item.
+    pedestal->SetPlacedItem(RG_PIECE_OF_HEART);
+    bool only = false;
+    (void)TakeQueued(&only);
+
+    // P8: a child in reach without the sword, the option on and the sword shuffled.
+    SetRule(world, true, true);
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, false, false);
+    int offered = PedestalFrames(3);
+    bool given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    int queued = TakeQueued(&only);
+    printf("[TEST] P8: child in reach, shuffled, no sword: flag %d, %d check(s) queued%s over 3 frames, the pull "
+           "offered %d time(s)\n",
+           given ? 1 : 0, queued, only ? " (the pedestal)" : "", offered);
+    TTS_CHECK(given, "P8: the child in reach was not handed the pedestal's check (RAND_INF_TOT_MASTER_SWORD unset)");
+    TTS_CHECK(queued == 1 && only, "P8: the pedestal's check was queued %d time(s), want exactly once", queued);
+    TTS_CHECK(offered == 0, "P8: the pull was offered to a child without the sword");
+
+    // P9: an adult in reach: the child check waits for a child.
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, true, false);
+    (void)PedestalFrames(3);
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    printf("[TEST] P9: adult in reach: flag %d, %d check(s) queued\n", given ? 1 : 0, queued);
+    TTS_CHECK(!given && queued == 0, "P9: an adult was handed the child's pedestal check");
+
+    // P10: a save that pulled before #1484 (the pull's flag gave the check then).
+    pedestal->SetCheckStatus(RCSHOW_SAVED);
+    ArmPedestal(QUEST_RANDOMIZER, false, false);
+    SET_EVENTCHKINF(EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL);
+    (void)PedestalFrames(3);
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    printf("[TEST] P10: pulled before the change: flag %d, %d check(s) queued, status %d\n", given ? 1 : 0, queued,
+           (int)pedestal->GetCheckStatus());
+    TTS_CHECK(!given && queued == 0, "P10: a save that already pulled was handed the pedestal's check again");
+
+    // P14: a child out of reach (OoTMM's 200 across).
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, false, false);
+    sSwd.actor.xzDistToPlayer = 250.0f;
+    (void)PedestalFrames(3);
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    printf("[TEST] P14: child 250 away: flag %d, %d check(s) queued\n", given ? 1 : 0, queued);
+    TTS_CHECK(!given && queued == 0, "P14: a child out of reach was handed the pedestal's check");
+
+    // P13: a child in reach holding the sword: the pull waits for the give.
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, false, true);
+    const int firstFrame = PedestalFrame();  // not given yet: the give comes in this frame's update
+    const int queuedFrame = PedestalFrame(); // given, still in the queue
+    queued = TakeQueued(&only);
+    pedestal->SetCheckStatus(RCSHOW_COLLECTED); // the give landed
+    const int landedFrame = PedestalFrame();
+    printf("[TEST] P13: child holding the sword: the pull offered %d before the give, %d while it is queued, %d once "
+           "it landed (%d queued)\n",
+           firstFrame, queuedFrame, landedFrame, queued);
+    TTS_CHECK(firstFrame == 0 && queuedFrame == 0,
+              "P13: the pull was offered before the pedestal's give landed (the child would take its item as adult)");
+    TTS_CHECK(queued == 1 && only, "P13: the pedestal's check was queued %d time(s), want once", queued);
+    TTS_CHECK(landedFrame == 1, "P13: the pull stayed withheld after the pedestal's give landed");
+
+    // P11: the flag maps the flag-set handler and the load seam go through.
+    const RandomizerCheck fromPull =
+        GetRandomizerCheckFromFlag(FLAG_EVENT_CHECK_INF, EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL);
+    const RandomizerCheck fromGive = GetRandomizerCheckFromFlag(FLAG_RANDOMIZER_INF, RAND_INF_TOT_MASTER_SWORD);
+    printf("[TEST] P11: the pull's flag resolves to check %d, RAND_INF_TOT_MASTER_SWORD to %d (pedestal %d)\n",
+           (int)fromPull, (int)fromGive, (int)RC_TOT_MASTER_SWORD);
+    TTS_CHECK(fromPull != RC_TOT_MASTER_SWORD, "P11: the pull's EventChkInf still resolves to the pedestal's check");
+    TTS_CHECK(fromGive == RC_TOT_MASTER_SWORD, "P11: RAND_INF_TOT_MASTER_SWORD does not resolve to the pedestal");
+
+    // P12: the sword not shuffled: the pull hands the vanilla sword over.
+    SetRule(world, true, false);
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, false, false);
+    (void)PedestalFrames(3);
+    const bool approachGave = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    const bool handsOver = GameInteractor_Should(VB_GIVE_ITEM_MASTER_SWORD, true);
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    const RandomizerCheckStatus pulled = pedestal->GetCheckStatus();
+    printf("[TEST] P12: unshuffled: approach flag %d; the pull hands the sword over %d, flag %d, status %d, %d "
+           "queued\n",
+           approachGave ? 1 : 0, handsOver ? 1 : 0, given ? 1 : 0, (int)pulled, queued);
+    TTS_CHECK(!approachGave, "P12: an unshuffled pedestal handed its check over on approach");
+    TTS_CHECK(handsOver, "P12: the unshuffled pull no longer hands the vanilla sword over");
+    TTS_CHECK(pulled == RCSHOW_COLLECTED && given,
+              "P12: the unshuffled pull did not mark the check and set RAND_INF_TOT_MASTER_SWORD (the load seam "
+              "follows that flag)");
+    TTS_CHECK(queued == 0, "P12: the unshuffled pull queued the pedestal's check (%d), a second give", queued);
+
+    // C1: the adult start's creation give (savefile.cpp): StartingItemGive marked
+    // the check SAVED, then the flag is set with the flag-set handler registered.
+    SetRule(world, true, true);
+    std::memset(&gSaveContext, 0, sizeof(SaveContext));
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    gSaveContext.linkAge = LINK_AGE_ADULT;
+    pedestal->SetCheckStatus(RCSHOW_SAVED);
+    Randomizer_SetPedestalFlagAfterCreationGive();
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    const RandomizerCheckStatus created = pedestal->GetCheckStatus();
+    printf("[TEST] C1: adult-start creation: flag %d, status %d (SAVED %d), %d queued\n", given ? 1 : 0, (int)created,
+           (int)RCSHOW_SAVED, queued);
+    TTS_CHECK(given, "C1: the adult start's creation did not set RAND_INF_TOT_MASTER_SWORD");
+    TTS_CHECK(created == RCSHOW_SAVED, "C1: the creation give's SAVED status was changed to %d", (int)created);
+    TTS_CHECK(queued == 0, "C1: the adult start's creation queued the pedestal's check (%d), a second give", queued);
+
+    pedestal->SetPlacedItem(priorItem);
+    pedestal->SetCheckStatus(priorStatus);
+    OoT_gPlayState = priorPlay;
 }
 
 // ---- L: the logic ------------------------------------------------------------------------
@@ -351,11 +586,36 @@ void LogicLeg(Rando::Context& world, const char* leg, bool adultStart, bool requ
     TTS_CHECK(otherAge == wantOtherAge, "%s: logic %s Link through time, want %s", leg, otherAge ? "sends" : "keeps",
               wantOtherAge ? "sent" : "kept");
     if (!adultStart) {
-        // RC_TOT_MASTER_SWORD is an adult check beyond the Door of Time (and a root
-        // check only for an adult start): reached exactly when the adult side is.
-        TTS_CHECK(r.pedestalCheck == wantOtherAge, "%s: the pedestal's check is %s, want %s", leg,
-                  r.pedestalCheck ? "reached" : "not reached", wantOtherAge ? "reached" : "not reached");
+        // #1484: with the sword shuffled RC_TOT_MASTER_SWORD is a CHILD check beyond
+        // the Door of Time (open here, so the child is beyond it): always reached.
+        // Unshuffled it is the adult check of the pull (and a root check only for an
+        // adult start): reached exactly when the adult side is.
+        const bool wantPedestal = swordShuffled || wantOtherAge;
+        TTS_CHECK(r.pedestalCheck == wantPedestal, "%s: the pedestal's check is %s, want %s", leg,
+                  r.pedestalCheck ? "reached" : "not reached", wantPedestal ? "reached" : "not reached");
     }
+}
+
+/** The pedestal's row beyond the Door of Time, evaluated at one age (day) the way
+ *  LocationAccess::ConditionsMet asks it. -1 when the row is missing. */
+int PedestalRowAt(bool adult) {
+    for (const LocationAccess& row : RegionTable(RR_TOT_BEYOND_DOOR_OF_TIME)->locations) {
+        if (row.GetLocation() == RC_TOT_MASTER_SWORD) {
+            return row.CheckConditionAtAgeTime(adult ? logic->IsAdult : logic->IsChild, logic->AtDay) ? 1 : 0;
+        }
+    }
+    return -1;
+}
+
+void RowLeg(Rando::Context& world, const char* leg, bool swordShuffled, int wantChild, int wantAdult) {
+    SetRule(world, true, swordShuffled);
+    const int child = PedestalRowAt(false);
+    const int adult = PedestalRowAt(true);
+    printf("[TEST] %s: shuffled %d: the pedestal's row holds for a child %d, for an adult %d\n", leg,
+           swordShuffled ? 1 : 0, child, adult);
+    TTS_CHECK(child == wantChild && adult == wantAdult,
+              "%s: the pedestal's row is child %d / adult %d, want child %d / adult %d", leg, child, adult, wantChild,
+              wantAdult);
 }
 
 void CheckLogic(Rando::Context& world) {
@@ -389,6 +649,8 @@ void CheckLogic(Rando::Context& world) {
     LogicLeg(world, "L5", true, true, true, false, false);
     LogicLeg(world, "L6", true, true, true, true, true);
     LogicLeg(world, "L7", true, false, true, false, true);
+    RowLeg(world, "L8", false, 0, 1);
+    RowLeg(world, "L9", true, 1, 0);
 
     StartingInventory = savedStarting;
 }
@@ -460,6 +722,7 @@ extern "C" int OoT_TimeTravelSwordTest_Run(void) {
     CheckDefault();
     CheckRule();
     CheckPedestal(*world);
+    CheckChildGive(*world);
     CheckLogic(*world);
     RestoreOptions(*world);
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
