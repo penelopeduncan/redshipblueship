@@ -430,7 +430,8 @@ extern "C" int MM_CheckTracker_TestUnlistedShuffled(uint16_t* out, int cap) {
     initializeSceneChecks();
     int count = 0;
     for (auto& [randoCheckId, _] : Rando::StaticData::Checks) {
-        if (!RANDO_SAVE_CHECKS[randoCheckId].shuffled) {
+        // RC_UNKNOWN is the table's placeholder row, not a check: it has no scene and is never drawn.
+        if (randoCheckId == RC_UNKNOWN || !RANDO_SAVE_CHECKS[randoCheckId].shuffled) {
             continue;
         }
         bool drawn = false;
