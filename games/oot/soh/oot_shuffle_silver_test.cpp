@@ -43,7 +43,9 @@
  * with the fold's skip removed at its call site F and P fail (lines folded); with the
  * classifier returning false F's and P's left-out count is 0; without the paired
  * pin P fails (pinned 0, the option on, a different fingerprint); with the menu
- * greying removed D fails; with the LOGIC_* silver events reordered against the
+ * greying removed D fails; with the exclude list reading the stored ShuffleSilver
+ * key again (randomizer_check_objects.cpp) D fails (silver rows listed while keyed
+ * On); with the LOGIC_* silver events reordered against the
  * RG_* items (or one removed) L fails for the items past the change.
  *
  * Every key, option, logic value and save field a leg changes is put back (in
@@ -70,6 +72,7 @@
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/logic.h"
 #include "soh/Enhancements/randomizer/item_location.h"
+#include "soh/Enhancements/randomizer/randomizer_check_objects.h"
 
 #include "context.h" // src/common: gComboCtx, Context_GetCurrentGame, Context_SetCurrentGame
 #include "game.h"
@@ -243,7 +246,30 @@ void CheckOption() {
     SR_CHECK(shipped == RO_SHUFFLE_SILVER_OFF, "D: the shipped default is %d, not Off", shipped);
     SR_CHECK(option.IsDisabled() && !option.GetDisabledText().empty(),
              "D: the option is not greyed out with a reason, though every world here generates it off");
+
+    // A stored On (an older build, a preset) must not list the silver checks under
+    // Exclude Locations: the world is generated with the option off (leg P) and the
+    // fold leaves those rows out (leg F). Vanilla-quest checks are counted, so the
+    // default MQ setting (none) does not hide them for another reason.
+    CVarSetInteger(kShuffleKey, RO_SHUFFLE_SILVER_ON);
+    RandomizerCheckObjects::UpdateImGuiVisibility();
+    int vanillaSilver = 0;
+    int listedSilver = 0;
+    for (auto& loc : Rando::StaticData::GetLocationTable()) {
+        if (loc.GetRCType() != RCTYPE_SILVER || loc.GetQuest() != RCQUEST_VANILLA) {
+            continue;
+        }
+        vanillaSilver++;
+        if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
+            listedSilver++;
+        }
+    }
+    printf("[TEST] D: keyed On, the exclude list shows %d of %d vanilla silver checks\n", listedSilver, vanillaSilver);
+    SR_CHECK(vanillaSilver > 0, "D: the location table holds no vanilla silver check to look at");
+    SR_CHECK(listedSilver == 0, "D: keyed On, the exclude list shows %d silver checks of a world generated off",
+             listedSilver);
     shuffle.Restore();
+    RandomizerCheckObjects::UpdateImGuiVisibility();
 }
 
 // ---- F and P: the fold -------------------------------------------------------------------
