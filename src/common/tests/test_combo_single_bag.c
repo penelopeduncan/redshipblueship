@@ -2134,7 +2134,7 @@ TestResult ComboSingleBag_Run(void) {
             }
         } restoreCVars{ &savedCVars };
 
-        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS") == 0,
+        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS5") == 0,
                    "the paired generation with both shop shuffles on failed");
         // V2c. A new generation forgets the one file 1 consumed.
         {
@@ -2159,6 +2159,11 @@ TestResult ComboSingleBag_Run(void) {
         // path), so "buying records exactly one MM crossing" is a claim about the
         // other items only. Before #1428/#1425/#1427 moved RSBSSINGLEBAGSHOPS's world,
         // each kind's first MM item happened to be one that crosses.
+        // The seed is RSBSSINGLEBAGSHOPS5 since the MM logic P3 re-pin (#1398): that
+        // moved RSBSSINGLEBAGSHOPS's world so its one merchant-hosted MM item is credited
+        // at pickup, and seeds 2 to 4 put no MM item on an OoT merchant at all (there are
+        // only four merchant hosts). When a re-pin moves this world again, pick the next
+        // suffix whose world has a crossing MM item on each of the three kinds.
         auto creditedAtPickup = [](const SharedItem& item) {
             uint8_t kind = 0;
             uint16_t units = 0;
