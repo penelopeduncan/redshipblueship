@@ -17,7 +17,10 @@ cmake_policy(SET CMP0057 NEW)
 #       that can only ever error out;
 #   (4) a "rando"-label row that `redship --test all` would run, unless it is
 #       declared redship_test_not_generating() (#1465) — a real generation
-#       there leaves its world alive and poisons a later row (#1455).
+#       there leaves its world alive and poisons a later row (#1455). Row-less
+#       unit entries (redship_test_exempt, mostly driven by a cmake -P row the
+#       manifest records as an unlabelled meta row) are judged the same way,
+#       since AllTests runs them too and no label says whether they generate.
 #   ((3) and (5) keep the exemption and non-generating lists honest.)
 #
 # The table side is read from the BINARY (`redship --test list`), not from the
@@ -225,11 +228,13 @@ endfunction()
 
 # (1) every dispatch-table entry needs a CTest row (or a declared exemption)
 set(_used_exempt "")
+set(_exempt_unit "")       # row-less gTests[] entries; (4) judges them like rando rows
 foreach(_entry IN LISTS _found_unit)
     if(_entry IN_LIST _reg_unit)
         continue()
     elseif(_entry IN_LIST _exempt)
         list(APPEND _used_exempt "${_entry}")
+        list(APPEND _exempt_unit "${_entry}")
     else()
         list(APPEND _problems
             "dispatch entry '${_entry}' (test_runner.cpp gTests[]) has no CTest row -- \
@@ -306,13 +311,25 @@ skip list -- if it runs a real generation, add it to the skip condition in TestR
 (src/common/test_runner.cpp), and if it does not, declare redship_test_not_generating(${_d} \"<why>\") \
 next to its row")
 endforeach()
+#     Row-less unit entries next. Most are generations driven through a cmake -P
+#     row (golden digests, seed-package drivers); the manifest records that row as
+#     an unlabelled meta row, so the loop above never sees them.
+foreach(_d IN LISTS _exempt_unit)
+    if(_d IN_LIST _skipped_by_all OR _d IN_LIST _nogen)
+        continue()
+    endif()
+    list(APPEND _problems
+        "row-less dispatch entry '${_d}' (redship_test_exempt) is not on the --test all skip list -- \
+if it runs a real generation, add it to the skip condition in TestRunner_Run (src/common/test_runner.cpp), \
+and if it does not, declare redship_test_not_generating(${_d} \"<why>\") next to its exemption")
+endforeach()
 
 # (5) non-generating declarations must stay honest, like the exemptions in (3).
 foreach(_g IN LISTS _nogen)
-    if(NOT _g IN_LIST _rando_dispatch)
+    if(NOT _g IN_LIST _rando_dispatch AND NOT _g IN_LIST _exempt_unit)
         list(APPEND _problems
             "stale declaration: redship_test_not_generating(${_g}) names no rando-label --test row \
--- drop the declaration")
+and no row-less dispatch entry -- drop the declaration")
     elseif(_g IN_LIST _skipped_by_all)
         list(APPEND _problems
             "contradicted declaration: redship_test_not_generating(${_g}) names a row that is on \

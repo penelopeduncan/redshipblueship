@@ -1879,6 +1879,9 @@ if(BUILD_TESTING)
     # a row, so the list cannot rot into a rubber stamp.
     redship_test_exempt(lifecycle "Game lifecycle unit tests — runs inside AllTests only")
     redship_test_exempt(midos-house "Test-entrance (--test-entrance) path — runs inside AllTests only")
+    # AllTests runs both, so the --test all skip-list check (#1465) asks whether they generate: neither does.
+    redship_test_not_generating(lifecycle "TestLifecycle_RunAll only: no InitOTRForMMFirstBoot, no seed")
+    redship_test_not_generating(midos-house "ComboEntrance link lookup only: no InitOTRForMMFirstBoot, no seed")
 
     # ========================================================================
     # Rando seed-generation test (requires a display for the Fast3dWindow

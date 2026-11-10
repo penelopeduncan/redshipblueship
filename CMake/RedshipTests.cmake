@@ -143,14 +143,16 @@ endfunction()
 # ============================================================================
 # redship_test_not_generating(<dispatch-name> <reason>)
 #
-# Declares a dispatch-table entry driven by a "rando"-label row that runs NO
-# real generation, so `redship --test all` may run it (#1465). Every other
-# rando-label row must be on the `--test all` skip list in test_runner.cpp: a
+# Declares a dispatch-table entry driven by a "rando"-label row, or declared
+# row-less with redship_test_exempt(), that runs NO real generation, so
+# `redship --test all` may run it (#1465). Every other such entry must be on the
+# `--test all` skip list in test_runner.cpp: a
 # generation leaves its world alive for the rest of the process
 # (Rando::Settings::AssignContext keeps a strong reference), and a later row in
 # AllTests then reads a found state instead of an empty world (#1455).
-# TestRegistrationComplete fails on a rando-label row that is in neither place,
-# and on a declaration that is stale (no rando-label row drives the name) or
+# TestRegistrationComplete fails on such an entry that is in neither place, and
+# on a declaration that is stale (no rando-label row drives the name and it is
+# not a row-less entry) or
 # contradicted (the name is on the skip list).
 # ============================================================================
 function(redship_test_not_generating name reason)
