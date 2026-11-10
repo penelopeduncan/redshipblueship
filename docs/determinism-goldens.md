@@ -345,7 +345,7 @@ word) had merged into it. Measured against the Stone Mask pin:
 
 Rule 6 does not bump `RSBS_GENERATOR_VERSION` for it, for #979's reasons: the
 world moved because this profile's inputs changed, the six bits are folded into
-`comboSettingsHash`, and no release has carried generator 4 (the latest is
+`comboSettingsHash`, and no release had carried generator 4 then (the latest was
 `v0.4.4-alpha`, generator 3).
 
 **A profile key that does not take is refused.** `GoldenSeedsRoundBudget` lists
@@ -615,8 +615,8 @@ Measured against the version-4 pins:
   (two, 531), the entrances profile two, 488 (one, 268), and the other round-running
   goldens 267 to 272.
 
-Why no bump: #1392 bumped to 4 in this release window, and no release has carried
-generator 4 (the latest is `v0.4.4-alpha`, generator 3), which #979's re-pin also
+Why no bump: #1392 bumped to 4 in this release window, and no release had carried
+generator 4 then (the latest was `v0.4.4-alpha`, generator 3), which #979's re-pin also
 relied on. The OoT changes are default changes that `settingsHash`, and so the
 fingerprint, folds, so a default world made after this change does not share a
 fingerprint with one made before it. #1427 changes the generator behind an
@@ -693,7 +693,7 @@ Measured against the OoTMM-defaults pins:
   under its 400-round cap and not charged to the fill's budget.
 
 Why no bump: the same reasons as the OoTMM-defaults re-pin. #1392 bumped to 4 in
-this release window and no release has carried generator 4 (the latest is
+this release window and no release had carried generator 4 then (the latest was
 `v0.4.4-alpha`, generator 3). #1442's and #1445's default changes are folded by
 the fingerprint (OoT's settings string and MM's profile digest), so a default
 world made after this re-pin never shares a fingerprint with one made before it.
@@ -717,6 +717,28 @@ this re-pin only:
 
 `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
 (`759F783D` to `AC30C06B`, still 17 hints, 15 of them drawing).
+
+Version 5 (2026-11-09). `v0.5.0-alpha` shipped generator 4, and two fixes since
+then make the same seed and settings produce a different world than it does:
+
+* PR #1507 (issue #1499): with Shuffle Tingle Maps on, Majora's Mask's pool keeps
+  one copy of each of the six Tingle maps (none with Starting Maps and Compasses
+  on), and the other copies become junk in place. Every seed with Shuffle Tingle
+  Maps on moves. With Plentiful on, the junk also changes Plentiful's lesser-copy
+  gate.
+* PR #1504 (issue #1453): MM logic carries only the half-days a time-gated path is
+  open on, so with time shuffled (Shuffle Time, `RO_CLOCK_SHUFFLE`) reachability,
+  and with it the fill, can differ.
+
+No pinned world moved under either change. No golden profile turns Shuffle Tingle
+Maps on, and no golden's world happened to move under the time logic, so no golden
+was re-pinned for a world-moving reason and rule 6 did not ask for this bump. The
+version moves anyway, because its purpose is that two builds whose generators
+differ never show the same fingerprint for the same seed and settings, and that a
+seed package from the released generator is refused. **This bump is for worlds no
+golden pins.** In the goldens it moves `comboSettingsHash` alone, an INPUT field,
+in the ten goldens that carry it; no placement field moves, because the version
+is a label (see the list above).
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

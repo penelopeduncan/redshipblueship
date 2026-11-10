@@ -4,6 +4,13 @@
 
 ## Since v0.5.0-alpha
 
+### Read this first
+
+- **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
+  with Shuffle Tingle Maps on (each Tingle map is now placed once), and with Shuffle Time on (Majora's Mask logic now
+  carries only the half-days a time-gated path is open on). A seed package exported by `v0.5.0-alpha` is refused, so
+  generate the seed again. Saved files are not affected.
+
 ### Majora's Mask randomizer
 
 - **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
