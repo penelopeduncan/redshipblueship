@@ -9,9 +9,16 @@ extern "C" {
 #include "2s2h/Rando/ForeignModel.h"
 #endif
 
-void EnSob1_DrawCustomItem(Actor* thisx, PlayState* play) {
-    auto randoSaveCheck = RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_01];
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1499: the item the Bomb Shop owner holds, as the shelf draws it
+// (EnGirlA_RandoDrawFunc, through ShopShelfItem): ConvertItem's answer, so a map
+// the player already owns is held as the junk the slot sells, not as the map.
+RandoItemId Rando::ActorBehavior::BombShopHandItem() {
+    return Rando::ConvertItem(RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_01].randoItemId, RC_BOMB_SHOP_ITEM_01);
+}
+#endif
 
+void EnSob1_DrawCustomItem(Actor* thisx, PlayState* play) {
     MM_Matrix_Scale(20.0f, 20.0f, 20.0f, MTXMODE_APPLY);
     MM_Matrix_Translate(23.0f, 0.0f, -43.0f, MTXMODE_APPLY);
 
@@ -30,7 +37,11 @@ void EnSob1_DrawCustomItem(Actor* thisx, PlayState* play) {
     }
 #endif
 
-    Rando::DrawItem(randoSaveCheck.randoItemId);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    Rando::DrawItem(Rando::ActorBehavior::BombShopHandItem());
+#else
+    Rando::DrawItem(RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_01].randoItemId);
+#endif
 }
 
 static MtxF sLeftHandMtxF;

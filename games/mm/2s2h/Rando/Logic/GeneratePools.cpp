@@ -22,6 +22,42 @@ extern "C" {
 size_t gRsbsComboPlentifulFrom = 0;
 size_t gRsbsComboPlentifulTo = 0;
 size_t gRsbsComboPoolSize = 0;
+
+// RedShipBlueShip #1499: the six Tingle maps. Owning one turns every other copy
+// into junk (ConvertItem: its WEEKEVENTREG_TINGLE_MAP_BOUGHT_* flag is set), and
+// the twelve Tingle checks carry each map twice (StaticData/Checks.cpp).
+static bool RsbsIsTingleMap(RandoItemId randoItemId) {
+    switch (randoItemId) {
+        case RI_TINGLE_MAP_CLOCK_TOWN:
+        case RI_TINGLE_MAP_GREAT_BAY:
+        case RI_TINGLE_MAP_ROMANI_RANCH:
+        case RI_TINGLE_MAP_SNOWHEAD:
+        case RI_TINGLE_MAP_STONE_TOWER:
+        case RI_TINGLE_MAP_WOODFALL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// RedShipBlueShip #1499: one copy of each Tingle map in the pool, and none of a
+// map the file starts with (Starting Maps and Compasses grants all six). Every
+// other copy becomes RI_JUNK in place, so the pool keeps its size and order.
+static void RsbsKeepOneOfEachTingleMap(const std::vector<RandoItemId>& startingItems,
+                                       std::vector<RandoItemId>& itemPool) {
+    std::vector<RandoItemId> kept;
+    for (RandoItemId& item : itemPool) {
+        if (!RsbsIsTingleMap(item)) {
+            continue;
+        }
+        const bool started = std::find(startingItems.begin(), startingItems.end(), item) != startingItems.end();
+        if (started || std::find(kept.begin(), kept.end(), item) != kept.end()) {
+            item = RI_JUNK;
+        } else {
+            kept.push_back(item);
+        }
+    }
+}
 #endif
 
 namespace Rando {
@@ -297,6 +333,8 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
+    // #1499: after the starting items left the pool, before Plentiful reads it.
+    RsbsKeepOneOfEachTingleMap(startingItems, itemPool);
     gRsbsComboPlentifulFrom = itemPool.size();
 #endif
     // Plentiful
@@ -325,6 +363,14 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 case RITYPE_SKULLTULA_TOKEN:
                 case RITYPE_STRAY_FAIRY:
                     if (Ship_Random(0, 2) == 1) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                        // #1499: never a second Tingle map (it is junk once one is
+                        // owned). A narrow guard only: backport MLA-13 (2Ship
+                        // bfcb60476) replaces this block; the draw above stays.
+                        if (RsbsIsTingleMap(itemPool[i])) {
+                            break;
+                        }
+#endif
                         potentialPlentifulItems.push_back(itemPool[i]);
                     }
                     break;

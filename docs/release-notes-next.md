@@ -4,6 +4,13 @@
 
 ## Since v0.5.0-alpha
 
+### Majora's Mask randomizer
+
+- **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
+  each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
+  or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
+  nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
+
 ### Fixes
 
 - **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now

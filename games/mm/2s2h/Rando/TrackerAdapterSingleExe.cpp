@@ -300,7 +300,11 @@ const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
  * MM's own check tracker's rule (CheckTracker.cpp, ObtainedItemTrackerName,
  * #796) without its " (OoT)" suffix, which the window adds from `*outGame`. A
  * check that hosts an OoT item holds RI_JUNK in MM's table, so the crossed item
- * comes first; otherwise the item MM's table stores in this save.
+ * comes first; otherwise the item MM's table stores in this save. #1499: on a
+ * seen, uncollected row over MM's LIVE save, what the player will receive there
+ * (Rando::UncollectedNamedItem, the MM tracker's rule): a placed item already
+ * owned for good reads as the junk it becomes. A frozen image is named as stored
+ * (ownership is MM's live state).
  */
 const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t* outGame) {
     if (save == nullptr || checkId == (uint16_t)RC_UNKNOWN || checkId >= (uint16_t)RC_MAX) {
@@ -313,7 +317,10 @@ const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t*
         return foreignName;
     }
     const RandoSaveCheck& row = static_cast<const SaveContext*>(save)->save.shipSaveInfo.rando.randoSaveChecks[checkId];
-    const auto item = Rando::StaticData::Items.find(row.randoItemId);
+    const RandoItemId named = (save == static_cast<const void*>(&gSaveContext) && !row.obtained)
+                                  ? Rando::UncollectedNamedItem(row.randoItemId, (RandoCheckId)checkId)
+                                  : row.randoItemId;
+    const auto item = Rando::StaticData::Items.find(named);
     if (item == Rando::StaticData::Items.end() || item->second.name == nullptr) {
         return nullptr;
     }
@@ -745,6 +752,15 @@ extern "C" int MM_TrackerAdapter_TestSetStoredItem(void* save, uint16_t checkId,
  */
 extern "C" int MM_TrackerAdapter_TestSetSkippedIn(void* save, uint16_t checkId, int skipped) {
     return MMTrackerSetSkippedIn(static_cast<SaveContext*>(save), checkId, skipped != 0) ? 1 : 0;
+}
+
+/**
+ * TEST BRIDGE (redship --test mm-tingle-map-display, #1499): the name the
+ * Combo Tracker's MM pane gives check `checkId`'s item over the SaveContext image
+ * `save` (the descriptor's placedItemName), or NULL.
+ */
+extern "C" const char* MM_TrackerAdapter_TestPlacedItemName(const void* save, uint16_t checkId) {
+    return MMTrackerPlacedItemName(save, checkId, nullptr);
 }
 
 /**

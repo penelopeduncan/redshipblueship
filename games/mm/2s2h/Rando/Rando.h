@@ -19,6 +19,14 @@ void RemoveItem(RandoItemId randoItemId);
 RandoItemId CurrentJunkItem();
 bool IsItemObtainable(RandoItemId randoItemId, RandoCheckId randoCheckId = RC_UNKNOWN);
 RandoItemId ConvertItem(RandoItemId randoItemId, RandoCheckId randoCheckId = RC_UNKNOWN);
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1499 (ConvertItem.cpp): CurrentJunkItem for a sale the player paid for (never
+// RI_NONE); whether a check is such a sale; and the item an uncollected check's
+// tracker row or hint names (RI_JUNK for an item already owned for good).
+RandoItemId CurrentPaidJunkItem();
+bool IsPaidCheck(RandoCheckId randoCheckId);
+RandoItemId UncollectedNamedItem(RandoItemId randoItemId, RandoCheckId randoCheckId);
+#endif
 RandoCheckId FindItemPlacement(RandoItemId randoItemId);
 void RegisterMenu();
 

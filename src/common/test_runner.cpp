@@ -405,6 +405,12 @@ int MM_TreeShuffleHooks_RunHeadless(void);
 // shared bring-up first. Return 0 on pass.
 int MM_ShopPrices_RunHeadless(void);
 int MM_ShopPricesPool_RunHeadless(void);
+// Majora's Mask's Tingle maps (games/mm/2s2h/mm_tingle_maps_test.cpp, #1499): one
+// copy of each map in a real pool generation (none of a starting map); then every
+// surface of a shop slot holding an owned map names the junk it sells, once. Both
+// need the display-free shared bring-up first. Return 0 on pass.
+int MM_TingleMapPool_RunHeadless(void);
+int MM_TingleMapDisplay_RunHeadless(void);
 // The curated MM enhancement keys' liveness evidence
 // (games/mm/2s2h/mm_enhancement_toggles_test.cpp, #682): the EVIDENCE half of the
 // pair above, MM-side because the registries are. Per key: exactly one
@@ -7033,6 +7039,35 @@ static TestResult Test_MMShopPricesPool(void) {
     return MM_ShopPricesPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// The Tingle maps (#1499). Same display-free bring-up as mm-shop-prices-pool.
+static TestResult Test_MMTingleMapPool(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMTingleMapDisplay(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapDisplay_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's evidence half. Same display-free shared bring-up and the same reason as
 // mm-clock-shuffle-songs: it drives MM's registrars through CVarSetInteger +
 // MM_ShipInit_OnCVarChanged, and reads the Ship::Context singleton's
@@ -9437,6 +9472,12 @@ const TestDescriptor gTests[] = {
     { "mm-shop-prices-pool",
       "MM's price pass draws in a fixed order from the seeded stream, Vanilla by default (#1427)",
       Test_MMShopPricesPool },
+    // The Tingle maps (#1499). After mm-registrar-coverage for the same reason as
+    // the tree rows (the pool row runs MM_Rando_Init). Both restore what they write.
+    { "mm-tingle-map-pool", "MM's pool holds one copy of each Tingle map, none of a starting map (#1499)",
+      Test_MMTingleMapPool },
+    { "mm-tingle-map-display", "A shop slot holding an owned Tingle map is named and sold as junk, once (#1499)",
+      Test_MMTingleMapDisplay },
     // The two MM resume-contract tests below mutate process-global state
     // (mm-resume-arena re-inits the MM system arena + heaps; mm-startup-restore
     // scribbles and re-zeroes the unified gSaveContext). Both clean up after
