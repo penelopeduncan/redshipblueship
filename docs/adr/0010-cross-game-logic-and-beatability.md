@@ -2785,7 +2785,7 @@ golden re-pinned; seed packages written by generator 3 are refused, as designed)
 - **Home capacity (#1483), words only.** When a fill fails and a game's REQUIRED
   HOME_ONLY rows outnumber that game's empty hosts (counted after the roll-back,
   `Combo_SingleBag_HomeShortGames`), no seed can place them, so Generate's toast
-  reads "Not generated: too many pieces for <game>." when that game holds Triforce
+  reads "Not generated: too many <game> pieces." when that game holds Triforce
   Pieces, else "too few checks in <game>." ("either game" when both are short),
   and the file-select fallback takes `RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY` as its
   `reason`. The status, the ladder and every placement are unchanged: the

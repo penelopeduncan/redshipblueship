@@ -962,9 +962,9 @@ static const char* AllLocationsGoalLine(unsigned goal, int goalOoT, int goalMM) 
 static const char* HomeCapacityLine(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
     switch (shortGames & (RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM)) {
         case RSBS_COMBO_HALF_OOT:
-            return piecesOoT > 0 ? "too many pieces for Ocarina of Time." : "too few checks in Ocarina of Time.";
+            return piecesOoT > 0 ? "too many Ocarina of Time pieces." : "too few checks in Ocarina of Time.";
         case RSBS_COMBO_HALF_MM:
-            return piecesMM > 0 ? "too many pieces for Majora's Mask." : "too few checks in Majora's Mask.";
+            return piecesMM > 0 ? "too many Majora's Mask pieces." : "too few checks in Majora's Mask.";
         case RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM:
             return (piecesOoT > 0 && piecesMM > 0) ? "too many pieces for either game."
                                                    : "too few checks in either game.";

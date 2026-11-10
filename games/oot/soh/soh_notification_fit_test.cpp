@@ -706,8 +706,8 @@ extern "C" int OoT_NotificationFit_RunHeadless(const char* fontPath) {
                 const char* line;
             };
             for (const HomeCapacityCase& c : {
-                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 100, 155, "too many pieces for Majora's Mask." },
-                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 100, 155, "too many pieces for Ocarina of Time." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 100, 155, "too many Majora's Mask pieces." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 100, 155, "too many Ocarina of Time pieces." },
                      HomeCapacityCase{ RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM, 100, 155,
                                        "too many pieces for either game." },
                      HomeCapacityCase{ RSBS_COMBO_HALF_MM, 0, 0, "too few checks in Majora's Mask." },
