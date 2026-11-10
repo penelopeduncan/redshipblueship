@@ -36,6 +36,9 @@
  *  (4) Pool generation behind the EXISTING "Shuffle Grass Drops": off, none of
  *      the 171 enters; on, all 171 enter, and the on pool minus every grass row
  *      is the off pool. No wonder item enters, with grass and hives both on.
+ *  (5) The coordinator's host universe agrees (RunHostUniverseLegs): MM's
+ *      engine offers no wonder item, MM_ComboLogic_SetHostPool drops one, and
+ *      with every boolean RO_SHUFFLE_* option on it keeps every pool row.
  *
  * ============================================================================
  * mm-hive-grass-shuffle-hooks (MMHiveGrassShuffleHooks) -- the providers
@@ -51,7 +54,12 @@
  *    OnActorUpdate[ACTOR_EN_KUSA2] and the VBs VB_BEEHIVE_SPAWN_ACTOR,
  *    VB_BEEHIVE_ALREADY_BROKEN, VB_KEATON_GRASS_ATTACH_CHILD,
  *    VB_KEATON_GRASS_DRAW, VB_KUSA_DRAW_BE_OVERRIDDEN and
- *    VB_GRASS_DROP_COLLECTIBLE.
+ *    VB_GRASS_DROP_COLLECTIBLE. The last two predate #1410: main's ObjGrass.cpp
+ *    already registered VB_GRASS_DROP_COLLECTIBLE, and VB_KUSA_DRAW_BE_OVERRIDDEN
+ *    is its VB_KUSA_BUSH_DRAW_BE_OVERRIDDEN renamed. Those two probes lock that
+ *    the providers still arm, not anything #1410 added. Of the branches #1410
+ *    added inside them, the sprout-grass draw is locked by the drive legs below;
+ *    the En_Kusa2 drop branch is not (its live leg spawns an item).
  *  - Hive identification: OnActorInit on a hive in the Swamp Spider House gold
  *    room attaches its check; the reused cow-grotto room resolves to the Termina
  *    Field hive when the respawn data says so and to the Great Bay Coast hive
@@ -69,6 +77,15 @@
  * bush with a live check through VB_BEEHIVE_SPAWN_ACTOR, VB_BEEHIVE_ALREADY_
  * BROKEN, VB_KEATON_GRASS_DRAW or VB_GRASS_DROP_COLLECTIBLE) need a real play
  * state and are not driven here.
+ *
+ * THE OVERLAY DISPATCH SITES ARE UNLOCKED. Every VB leg calls
+ * GameInteractor_Should itself rather than going through the overlay, so this
+ * row stays green if a dispatch is removed: z_obj_comb.c (VB_BEEHIVE_SPAWN_ACTOR,
+ * VB_BEEHIVE_ALREADY_BROKEN), z_en_kusa2.c (VB_KEATON_GRASS_ATTACH_CHILD,
+ * VB_KEATON_GRASS_DRAW, VB_GRASS_DROP_COLLECTIBLE for ACTOR_EN_KUSA2) and
+ * z_en_kusa.c (VB_GRASS_DROP_COLLECTIBLE for the grass type, the widened
+ * VB_KUSA_DRAW_BE_OVERRIDDEN). Those sites were read-verified when #1410 landed;
+ * a hook registered with no dispatch is the dead-dispatch class (#512/#517).
  *
  * Every id is looked up BY NAME, so the rows compile at a tree that has none of
  * them, and fail there on their first leg. The hooks row restores the
@@ -113,7 +130,9 @@ extern "C" int MM_HiveGrassShuffleHooks_RunHeadless(void) {
 #include "2s2h/ShipUtils.h"
 #include "mm_game_hooks.h"
 
-// src/common: the page's descriptor table and Randomizer > MM Locations.
+// src/common: the page's descriptor table, Randomizer > MM Locations, and the
+// combo logic engine vtable (the host-universe legs).
+#include "combo_logic.h"
 #include "combo_mm_locations_view.h"
 #include "combo_mm_options_view.h"
 
@@ -124,6 +143,9 @@ extern "C" {
 #include "overlays/actors/ovl_En_Kusa2/z_en_kusa2.h"
 #include "overlays/actors/ovl_Obj_Comb/z_obj_comb.h"
 void MM_Rando_Init(void);
+// The MM engine's pool seam and diagnostics (ComboLogicEngineSingleExe.cpp).
+void MM_ComboLogic_SetHostPool(const uint16_t* checks, int count);
+int MM_ComboLogic_HeldPlacementCount(void);
 }
 
 namespace {
@@ -452,6 +474,111 @@ bool Contains(const std::vector<RandoCheckId>& pool, RandoCheckId id) {
     return std::find(pool.begin(), pool.end(), id) != pool.end();
 }
 
+/** Puts the MM engine back on the graph's own host set on every exit. */
+struct HostPoolReset {
+    ~HostPoolReset() {
+        MM_ComboLogic_SetHostPool(nullptr, 0);
+    }
+};
+
+/** The engine's whole `allEmptyHosts` answer, ascending. */
+std::vector<uint16_t> EnumerateAllEmptyHosts(const ComboLogicEngine* engine) {
+    const int total = engine->allEmptyHosts(engine->self, nullptr, 0);
+    std::vector<uint16_t> out(total > 0 ? (size_t)total : (size_t)0);
+    if (total > 0) {
+        engine->allEmptyHosts(engine->self, out.data(), total);
+    }
+    return out;
+}
+
+/**
+ * The coordinator's side of the story (#1410 item 3): MM's engine excludes, with
+ * no setting involved, exactly what GeneratePools skips with no setting
+ * involved. Three legs:
+ *  - 46: the graph host universe (no pool handed in) offers no wonder item;
+ *  - 47: MM_ComboLogic_SetHostPool drops a handed-in wonder item and keeps an
+ *    ordinary check;
+ *  - 48: with EVERY boolean RO_SHUFFLE_* option on (so any option added later,
+ *    such as a "Shuffle Wonder Items", is on here without editing this row),
+ *    every row of GeneratePools' check pool survives MM_ComboLogic_SetHostPool.
+ *    When a change lets GeneratePools pool a type IsUnconditionallyExcluded
+ *    still refuses, this goes red instead of the paired fill silently leaving
+ *    those checks unfilled.
+ */
+int RunHostUniverseLegs(const std::set<RandoCheckId>& wonder, RandoCheckId ordinary) {
+    const ComboLogicEngine* engine = Combo_Logic_GetEngine(GAME_MM);
+    if (engine == nullptr || engine->allEmptyHosts == nullptr) {
+        return Fail(46, "no combo logic engine is registered for GAME_MM");
+    }
+    const int held = MM_ComboLogic_HeldPlacementCount();
+    if (held != 0) {
+        return Fail(46, "the MM engine holds %d placements before this leg, so allEmptyHosts would hide them", held);
+    }
+    HostPoolReset reset;
+
+    // ---- 46: the graph universe ---------------------------------------------
+    MM_ComboLogic_SetHostPool(nullptr, 0);
+    const std::vector<uint16_t> universe = EnumerateAllEmptyHosts(engine);
+    if (universe.empty()) {
+        return Fail(46, "the MM engine's graph host universe is empty; the next assertion would be vacuous");
+    }
+    for (RandoCheckId id : wonder) {
+        if (std::find(universe.begin(), universe.end(), (uint16_t)id) != universe.end()) {
+            return Fail(46,
+                        "%s is in the MM engine's graph host universe: GeneratePools never pools a wonder item, "
+                        "so IsUnconditionallyExcluded must refuse it",
+                        Rando::StaticData::Checks.at(id).name);
+        }
+    }
+
+    // ---- 47: the pool seam --------------------------------------------------
+    const uint16_t handed[2] = { (uint16_t)*wonder.begin(), (uint16_t)ordinary };
+    MM_ComboLogic_SetHostPool(handed, 2);
+    const std::vector<uint16_t> kept = EnumerateAllEmptyHosts(engine);
+    if (kept.size() != 1 || kept[0] != (uint16_t)ordinary) {
+        return Fail(47, "a host pool of {%s, %s} enumerates %zu hosts, expected only the second",
+                    Rando::StaticData::Checks.at(*wonder.begin()).name, Rando::StaticData::Checks.at(ordinary).name,
+                    kept.size());
+    }
+
+    // ---- 48: every pool row is a host ---------------------------------------
+    OptionOverrides everyShuffle;
+    for (const auto& [randoOptionId, row] : Rando::StaticData::Options) {
+        // RO_SHUFFLE_SONGS is a three-way mode, not an off/on switch; its default
+        // (Anywhere) already pools every song.
+        if (randoOptionId != RO_SHUFFLE_SONGS && row.name != nullptr && strncmp(row.name, "RO_SHUFFLE_", 11) == 0 &&
+            row.defaultValue == 0) {
+            everyShuffle.emplace_back(randoOptionId, 1u);
+        }
+    }
+    std::vector<RandoCheckId> defaultChecks, everyChecks;
+    std::vector<RandoItemId> defaultItems, everyItems;
+    GeneratePair({}, everyShuffle, defaultChecks, defaultItems, everyChecks, everyItems);
+    std::vector<uint16_t> pool;
+    for (RandoCheckId id : everyChecks) {
+        pool.push_back((uint16_t)id);
+    }
+    MM_ComboLogic_SetHostPool(pool.data(), (int)pool.size());
+    const std::vector<uint16_t> hosts = EnumerateAllEmptyHosts(engine);
+    const std::set<uint16_t> hostSet(hosts.begin(), hosts.end());
+    for (uint16_t id : pool) {
+        if (hostSet.count(id) == 0) {
+            return Fail(48,
+                        "%s is in GeneratePools' check pool with every shuffle option on, but "
+                        "MM_ComboLogic_SetHostPool dropped it: IsUnconditionallyExcluded and GeneratePools no "
+                        "longer tell the same story, and a paired fill would leave that check unfilled",
+                        Rando::StaticData::Checks.at((RandoCheckId)id).name);
+        }
+    }
+    if (hostSet.size() != std::set<uint16_t>(pool.begin(), pool.end()).size()) {
+        return Fail(48, "the host pool enumerates %zu hosts for a check pool of %zu distinct checks", hostSet.size(),
+                    std::set<uint16_t>(pool.begin(), pool.end()).size());
+    }
+    printf("[TEST] mm-extra-grass-shuffle: %zu graph hosts; %zu options on -> %zu pool rows, all hosts\n",
+           universe.size(), everyShuffle.size(), pool.size());
+    return 0;
+}
+
 // ---------------------------------------------------------------------------
 // mm-hive-shuffle
 // ---------------------------------------------------------------------------
@@ -609,6 +736,9 @@ int RunExtraGrassTableAndPool() {
             return Fail(39, "%s %s RCTYPE_WONDER_ITEM: that type must hold exactly the %d ring rewards", check.name,
                         isWonder ? "lacks" : "carries", kWonderCount);
         }
+        if (isWonder && (check.name == nullptr || check.name[0] == '\0')) {
+            return Fail(40, "wonder item check %d has no name", (int)randoCheckId);
+        }
         if (isWonder && RegionCount(listed, randoCheckId) != 1) {
             return Fail(40, "%s is listed by %d logic regions, expected exactly one", check.name,
                         RegionCount(listed, randoCheckId));
@@ -663,6 +793,10 @@ int RunExtraGrassTableAndPool() {
                             Rando::StaticData::Checks.at(id).name);
             }
         }
+    }
+    rc = RunHostUniverseLegs(wonder, *grass.begin());
+    if (rc != 0) {
+        return rc;
     }
     printf("[TEST] mm-extra-grass-shuffle: %d new grass rows (%d Keaton rings of %d), %d wonder items; grass off "
            "-> %zu checks, grass on -> %zu, grass and hives on -> %zu\n",

@@ -424,6 +424,10 @@ bool sHostPoolSet = false;
  *     the rows ship ahead of a "Shuffle Wonder Items" option, which is still a
  *     disabled "Coming Soon" placeholder in Rando/Menu.cpp. Whichever change
  *     gives that option a real value (PR #1510) moves this row to the pool seam.
+ *     mm-extra-grass-shuffle locks both halves: legs 46-47 go red if this row
+ *     is dropped while GeneratePools still skips the type, and leg 48 (every
+ *     RO_SHUFFLE_* switch on, so a new wonder-item option is on there too) goes
+ *     red if GeneratePools can pool the type while this row is still here.
  *
  *  THAT IS THE WHOLE LIST. Shops and Tingle shops were here and are not
  *  `GeneratePools`-unconditional — see A3's correction in the file header for
