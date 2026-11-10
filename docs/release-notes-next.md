@@ -7,9 +7,10 @@
 ### Read this first
 
 - **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
-  with Shuffle Tingle Maps on (each Tingle map is now placed once), and with Shuffle Time on (Majora's Mask logic now
-  carries only the half-days a time-gated path is open on). A seed package exported by `v0.5.0-alpha` is refused, so
-  generate the seed again. Saved files are not affected.
+  with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
+  carries only the half-days a time-gated path is open on), and with Shuffle Master Sword on, which is the default
+  (the pedestal is now a child check, see below). A seed package exported by `v0.5.0-alpha` is refused, so generate
+  the seed again. Saved files are not affected.
 
 ### Majora's Mask randomizer
 
@@ -31,6 +32,14 @@
     gone.
 - **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
   does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
+
+### Ocarina of Time randomizer
+
+- **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
+  Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
+  open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold
+  the Master Sword (with Time Travel Requires Master Sword on). With the sword unshuffled nothing changes: pulling
+  the sword is the check.
 
 ### Fixes
 
