@@ -88,11 +88,14 @@ void RegisterShuffleTreasureChestGame() {
     COND_VB_SHOULD(VB_TAKARA_MAN_RESET_CHESTS_AND_KEYS, shouldRegister, { *should = false; });
 
     COND_VB_SHOULD(VB_TAKARA_MAN_OFFER_GET_ITEM, shouldRegister, {
-        Actor* takaraMan = va_arg(args, Actor*);
-        GetItemEntry getItemEntry =
-            Rando::Context::GetInstance()->GetFinalGIEntry(RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER, true, GI_DOOR_KEY);
-        Flags_SetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER);
-        GiveItemEntryFromActor(takaraMan, OoT_gPlayState, getItemEntry, 2000.0f, 1000.0f);
+        if (!Flags_GetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)) {
+            Actor* takaraMan = va_arg(args, Actor*);
+            GetItemEntry getItemEntry = Rando::Context::GetInstance()->GetFinalGIEntry(
+                RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER, true, GI_DOOR_KEY);
+            if (GiveItemEntryFromActor(takaraMan, OoT_gPlayState, getItemEntry, 2000.0f, 1000.0f)) {
+                Flags_SetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER);
+            }
+        }
         *should = false;
     });
 
