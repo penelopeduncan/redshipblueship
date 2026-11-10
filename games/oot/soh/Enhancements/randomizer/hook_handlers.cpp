@@ -587,7 +587,8 @@ void RandomizerOnPlayerUpdateForRCQueueHandler() {
         // nothing. The toast stays for the player who skips every get-item
         // animation, where an ordinary pickup gets no cutscene either.
         if (RandomizerSkipForeignGetItemAnimation(rc) || !RandomizerQueueForeignShowOnly(rc)) {
-            OoT_Rando_Foreign_EmitPickupToast(*foreignItem);
+            // #1481: named as it will be granted (a Progressive Time as its half-day).
+            OoT_Rando_Foreign_EmitPickupToast(Combo_PresentForeignItem(*foreignItem, true));
         }
 
         // RCSHOW_COLLECTED is what HasObtained() reads (status == RCSHOW_COLLECTED

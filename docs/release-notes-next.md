@@ -13,6 +13,8 @@
 
 ### Majora's Mask randomizer
 
+- **A Progressive Time found in Ocarina of Time shows the half-day it grants** (issue #1481). It is named and drawn
+  as that half-day (for example "Time (Night 1)") at its pickup, in its toast and on a shop shelf, as OoTMM does.
 - **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
   each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
   or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally

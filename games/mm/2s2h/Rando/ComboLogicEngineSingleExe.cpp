@@ -318,6 +318,9 @@ void MM_Sram_InitNewSave(void);
 #include "gen_budget.h"          // src/common — the #582 per-attempt budget
 #include "shared_items.h"        // src/common — the O8 class of a pool row (traps stay home)
 
+// ForeignItemsSingleExe.cpp: the id an MM item found in Ocarina of Time is shown as (#1481).
+extern "C" uint16_t MM_ForeignItem_PresentItem(uint16_t riId, int ahead);
+
 namespace {
 
 // ============================================================================
@@ -1234,9 +1237,10 @@ const char* MmComboDescribeArticle(uint16_t id) {
 }
 
 // No icon: an MM item arriving in MM builds its own toast (BuildArrivalToast,
-// ForeignItemsSingleExe.cpp), so nothing asks the describer for one.
+// ForeignItemsSingleExe.cpp), so nothing asks the describer for one. #1481: a
+// Progressive Time found in Ocarina of Time is shown as the half-day it grants.
 const ComboGameDescriber kMmComboDescriber = { MmComboDescribeItem, MmComboDescribeCheck, MmComboDescribeArticle,
-                                               nullptr };
+                                               nullptr, MM_ForeignItem_PresentItem };
 
 /** Same shape as the engine registrar above: stores a pointer, calls nothing. */
 struct MmComboDescriberRegistrar {
