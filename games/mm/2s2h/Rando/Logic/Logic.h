@@ -392,9 +392,15 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // more. MM_TRICK reads the FROZEN per-file set (Rando/StaticData/Tricks.h), so a
 // world generated with the trick on keeps expecting it forever and a
 // post-creation toggle cannot change a live world's rules.
-#define CAN_USE_EXPLOSIVE                                                                                \
-    ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) ||                                                   \
-      (HAS_ITEM(ITEM_MASK_BLAST) && GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) > EQUIP_VALUE_SHIELD_NONE) || \
+//
+// DIVERGES FROM 2SHIP on purpose (#1398 MLA-4): upstream 0fa8ba899 makes the
+// Blast Mask leg also require an equipped shield. OoTMM, this project's
+// reference for game-design choices, has no shield term in has_explosives
+// (has_bombs || has_mask_blast || has_bombchu), and a paired MM file starts
+// with no shield, so taking the term would move default paired logic. The
+// Blast Mask alone counts here.
+#define CAN_USE_EXPLOSIVE                                                           \
+    ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) || HAS_ITEM(ITEM_MASK_BLAST) || \
       (MM_TRICK(MMRT_KEG_EXPLOSIVES) && HAS_ITEM(ITEM_POWDER_KEG) && CAN_BE_GORON)))
 #define CAN_USE_HUMAN_SWORD (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) >= EQUIP_VALUE_SWORD_KOKIRI)
 // #719 — Deku-Stick COMBAT is now TRICK-GATED, default off, the same way and for
