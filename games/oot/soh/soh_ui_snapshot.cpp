@@ -2011,8 +2011,6 @@ const ComboOoTTrackerOps kSnapshotOoTOps = { SnapshotOoTSummary,
 // grouped rows. "hints-journal" is the same under SoH's Journal view. "waiting"
 // authors nothing: OoT's real adapter has no file loaded.
 constexpr const char* kSnapshotHintOoTText = "They say that Mido's house holds the Kokiri Sword.";
-constexpr const char* kSnapshotHintMMSource = "Swamp Spider House Man";
-constexpr const char* kSnapshotHintMMText = "normal again";
 constexpr const char* kSnapshotHintStates[] = { "waiting", "hints", "hints-journal" };
 
 uint8_t SnapshotHintCollect(int* outCount) {
@@ -3014,12 +3012,12 @@ void Session::BuildPageList() {
                             { kSnapshotHintStates[1], true },
                             { kSnapshotHintStates[2], true } };
         p.stateText[kSnapshotHintStates[0]] = { "Ocarina of Time", "Majora's Mask", "Waiting for file load..." };
-        // MM's Locations list is 74 sources long, so the one read source is below the
-        // captured views; the Journal (read hints only) shows its name and text.
-        p.stateText[kSnapshotHintStates[1]] = { "Ocarina of Time", "Majora's Mask",   kSnapshotHintOoTText, "???",
-                                                "Hints Read",      "South Clock Town" };
-        p.stateText[kSnapshotHintStates[2]] = { "Way of the Hero (1)", "Major Items (1)", kSnapshotHintMMSource,
-                                                kSnapshotHintMMText };
+        // Each state's text must be absent from the state it is contrasted with
+        // (stateContrast below), so "hints" names nothing the waiting panes show
+        // (the pane names) and "hints-journal" names only the Journal's group
+        // headers: the Locations views show the same sources and texts.
+        p.stateText[kSnapshotHintStates[1]] = { kSnapshotHintOoTText, "???", "Hints Read", "South Clock Town" };
+        p.stateText[kSnapshotHintStates[2]] = { "Way of the Hero (1)", "Major Items (1)", "Junk Items (1)" };
         p.stateContrast = { { kSnapshotHintStates[1], kSnapshotHintStates[0] },
                             { kSnapshotHintStates[2], kSnapshotHintStates[1] } };
         pages.push_back(p);
