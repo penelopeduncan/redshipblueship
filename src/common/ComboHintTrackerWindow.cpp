@@ -145,9 +145,7 @@ int DrawViewTabs(int& seeded) {
                 shown = tab.mode;
                 ImGui::EndTabItem();
             }
-            if (ImGui::IsItemHovered()) {
-                ImGui::SetTooltip("%s", tab.tooltip);
-            }
+            Ui().Tooltip(tab.tooltip);
         }
         ImGui::EndTabBar();
     }
@@ -186,7 +184,7 @@ void DrawHintEntry(const ComboHintEntry& entry, const HintColours& colours) {
     if (entry.compact) {
         return;
     }
-    ImGui::Indent();
+    Ui().Indent();
     if (entry.read) {
         ImGui::PushStyleColor(ImGuiCol_Text, entry.found ? colours.found : colours.read);
         ImGui::TextWrapped("%s", entry.text.c_str());
@@ -196,7 +194,7 @@ void DrawHintEntry(const ComboHintEntry& entry, const HintColours& colours) {
         ImGui::TextUnformatted(RSBS_HINT_MASKED_TEXT);
         ImGui::PopStyleColor();
     }
-    ImGui::Unindent();
+    Ui().Unindent();
     Ui().Spacer(0.0f);
 }
 
