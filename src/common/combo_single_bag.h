@@ -143,6 +143,20 @@ typedef struct {
  */
 uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r);
 
+/**
+ * #1483: THE HOME-CAPACITY COUNTS. Writes @p r's homeRequiredOoT/MM (each game's
+ * REQUIRED, not SURPLUS, HOME_ONLY rows of @p bag, by origin: they may land on that
+ * game's hosts only) and hostsOoT/MM (Combo_Logic_LeftoverHosts, -1 when a game has
+ * no engine), and prints a stderr line with the counts and the remedy for each
+ * game that is short (the Triforce Pieces clause only when @p r says that game
+ * holds pieces). Combo_SingleBag_Run calls it for a fill that ran an attempt and
+ * failed, AFTER Combo_Logic_ResetPlacements, so the leftover hosts are all of each
+ * game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
+ * round): no draw, no placement, no status. A shared pair is never HOME_ONLY, so
+ * it is never counted. Exported for the ROM-free lock (ComboLogicBagModel).
+ */
+void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r);
+
 /** A creation-failure REASON (OoT_Creation_ReportFailureAtFileSelect's `reason`),
  *  never a fill status: the creation's own fill failed and
  *  Combo_SingleBag_HomeShortGames names a game whose checks cannot hold its
@@ -252,6 +266,12 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung);
  *  it after a generation can tell "this generation's fill said X" from a previous
  *  generation's leftover. Generate's completion calls it before MM's half runs. */
 void Combo_SingleBag_ClearLastReport(void);
+
+/** TEST ONLY (#1483): make @p r the last report (NULL zeroes it, as
+ *  Combo_SingleBag_ClearLastReport does), so a ROM-free row can draw a refusal whose
+ *  words come from it (OoT_Creation_ReportFailureAtFileSelect's home-capacity line).
+ *  Production never calls it. */
+void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
 
 // ----------------------------------------------------------------------------
 // The two ports' halves (implemented in each game's engine TU; declared here so

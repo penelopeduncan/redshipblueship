@@ -113,6 +113,7 @@
 #include "combo_mm_options_view.h" // Combo_MMOptionAt: the labels the load's MM toast names (#881)
 #include "combo_mm_tricks_view.h"
 #include "combo_settings_view.h" // Combo_ComboSettingLabel: the labels the load's rules toast names
+#include "combo_single_bag.h"    // #1483: the last report the file select's home-capacity toast reads
 #include "foreign_items.h"       // Combo_ComboSettingsDivergenceDescribe / FieldName, RSBS_COMBO_DIVERGE_*
 #include "notification_bridge.h"
 #include "pairing_refusal_toast.h"
@@ -696,8 +697,8 @@ extern "C" int OoT_NotificationFit_RunHeadless(const char* fontPath) {
             failures += CheckOne(run, "OoT No Logic pin toast", scale, Class::OTHER);
             // #1483: Generate's home-capacity refusal, every line, read back word
             // for word (a branch that picks the wrong line, or a line that is not
-            // drawn, fails here), then under the width and copy contract. "Not
-            // created:" is the shorter prefix, so the file select's copy fits too.
+            // drawn, fails here), then under the width and copy contract; and the
+            // file select's "Not created:" copy of each, drawn the same way.
             struct HomeCapacityCase {
                 uint32_t shortGames;
                 unsigned piecesOoT;
@@ -729,6 +730,31 @@ extern "C" int OoT_NotificationFit_RunHeadless(const char* fontPath) {
                         Fail("home-capacity toast: reads '%s', expected 'Not generated: %s'", text.c_str(), c.line);
                 }
                 failures += CheckOne(run, "home-capacity toast", scale, Class::OTHER);
+                // The file select's copy ("Not created:"), whose words come from
+                // the last report: one that names exactly c.shortGames (10 rows on
+                // 9 checks in each short game, 1 on 9 in the other) and the pieces.
+                ComboSingleBagReport last;
+                memset(&last, 0, sizeof(last));
+                last.status = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
+                last.hostsOoT = 9;
+                last.hostsMM = 9;
+                last.homeRequiredOoT = (c.shortGames & RSBS_COMBO_HALF_OOT) != 0u ? 10 : 1;
+                last.homeRequiredMM = (c.shortGames & RSBS_COMBO_HALF_MM) != 0u ? 10 : 1;
+                last.triforcePiecesOoT = (uint16_t)c.piecesOoT;
+                last.triforcePiecesMM = (uint16_t)c.piecesMM;
+                Combo_SingleBag_TestSetLastReport(&last);
+                OoT_Creation_ReportFailureAtFileSelect(0, RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY);
+                Combo_SingleBag_TestSetLastReport(nullptr);
+                memset(&shown, 0, sizeof(shown));
+                const std::string created = OoT_Notification_PeekLastForTest(&shown) == 1
+                                                ? std::string(shown.prefix != nullptr ? shown.prefix : "") + " " +
+                                                      (shown.message != nullptr ? shown.message : "")
+                                                : std::string();
+                if (created != std::string("Not created: ") + c.line) {
+                    failures += Fail("file-select home-capacity toast: reads '%s', expected 'Not created: %s'",
+                                     created.c_str(), c.line);
+                }
+                failures += CheckOne(run, "file-select home-capacity toast", scale, Class::OTHER);
             }
             if (OoT_Creation_EmitHomeCapacityToast(0u, 100, 155) != 0) {
                 OoT_Notification_ClearForTest();

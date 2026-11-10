@@ -2672,22 +2672,31 @@ extern "C" int MM_ComboLogic_TestCriticalRenewables(void) {
 // ("MM'S BALANCE STEP AND THE BAG") left to this lane: the bag is composed from the
 // pre-balance pool, and only the leftovers are balanced, by this pass.
 namespace {
+/** " (N Triforce Pieces)" for a game that holds pieces, else nothing: a shortfall a
+ *  direction made is not a hunt's. */
+std::string SingleBagHomeShortPieces(uint16_t pieces) {
+    if (pieces == 0u) {
+        return std::string();
+    }
+    return " (" + std::to_string(pieces) + " Triforce Pieces)";
+}
+
 /** #1483: the stderr words for a fill Combo_SingleBag_HomeShortGames names: which
  *  game's own items outnumber its own empty checks, by how many. */
 std::string SingleBagHomeShortText(const ComboSingleBagReport& report) {
     const uint32_t shortGames = Combo_SingleBag_HomeShortGames(&report);
     std::string text;
     if ((shortGames & RSBS_COMBO_HALF_OOT) != 0u) {
-        text += "Ocarina of Time must keep " + std::to_string(report.homeRequiredOoT) + " required item(s) (" +
-                std::to_string(report.triforcePiecesOoT) + " Triforce Pieces) on its " +
-                std::to_string(report.hostsOoT) + " empty check(s)";
+        text += "Ocarina of Time must keep " + std::to_string(report.homeRequiredOoT) + " required item(s)" +
+                SingleBagHomeShortPieces(report.triforcePiecesOoT) + " on its " + std::to_string(report.hostsOoT) +
+                " empty check(s)";
     }
     if ((shortGames & RSBS_COMBO_HALF_MM) != 0u) {
         if (!text.empty()) {
             text += "; ";
         }
-        text += "Majora's Mask must keep " + std::to_string(report.homeRequiredMM) + " required item(s) (" +
-                std::to_string(report.triforcePiecesMM) + " Triforce Pieces) on its " + std::to_string(report.hostsMM) +
+        text += "Majora's Mask must keep " + std::to_string(report.homeRequiredMM) + " required item(s)" +
+                SingleBagHomeShortPieces(report.triforcePiecesMM) + " on its " + std::to_string(report.hostsMM) +
                 " empty check(s)";
     }
     return text + ", so no seed can place them";

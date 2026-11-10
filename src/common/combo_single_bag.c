@@ -262,43 +262,47 @@ static bool SingleBagOriginMayCross(uint8_t origin) {
            (Combo_ComboItemClassFor(origin) & (uint16_t)RSBS_ITEMCLASS_PROGRESSION) != 0u;
 }
 
-/**
- * #1483: THE HOME-CAPACITY COUNTS of a fill that ran and failed, AFTER its roll-back
- * (so each game's leftover hosts are all of its empty hosts): each game's REQUIRED
- * HOME_ONLY rows, which may land on that game's hosts only, against those hosts.
- * Pure reads (the bag, and `allEmptyHosts` through Combo_Logic_LeftoverHosts, legal
- * outside a round): no draw, no placement, no status. A shared pair is never
- * HOME_ONLY, so it is never counted. The stderr line names the remedy (OoTMM's
- * capacity error: fewer items, or more places to put them).
- */
-static void SingleBagCountHomeCapacity(void) {
-    sReport.homeRequiredOoT = 0;
-    sReport.homeRequiredMM = 0;
-    for (int i = 0; i < sReport.bagCount; ++i) {
-        const uint16_t f = sBag[i].bagFlags;
+void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r) {
+    if (r == NULL) {
+        return;
+    }
+    r->homeRequiredOoT = 0;
+    r->homeRequiredMM = 0;
+    for (int i = 0; bag != NULL && i < bagCount; ++i) {
+        const uint16_t f = bag[i].bagFlags;
         if ((f & RSBS_COMBO_BAG_HOME_ONLY) == 0u || (f & RSBS_COMBO_BAG_SURPLUS) != 0u) {
             continue;
         }
-        if (sBag[i].item.originGame == (uint8_t)GAME_OOT) {
-            sReport.homeRequiredOoT++;
-        } else if (sBag[i].item.originGame == (uint8_t)GAME_MM) {
-            sReport.homeRequiredMM++;
+        if (bag[i].item.originGame == (uint8_t)GAME_OOT) {
+            r->homeRequiredOoT++;
+        } else if (bag[i].item.originGame == (uint8_t)GAME_MM) {
+            r->homeRequiredMM++;
         }
     }
-    sReport.hostsOoT = Combo_Logic_LeftoverHosts(GAME_OOT, NULL, 0);
-    sReport.hostsMM = Combo_Logic_LeftoverHosts(GAME_MM, NULL, 0);
+    r->hostsOoT = Combo_Logic_LeftoverHosts(GAME_OOT, NULL, 0);
+    r->hostsMM = Combo_Logic_LeftoverHosts(GAME_MM, NULL, 0);
     const GameId games[2] = { GAME_OOT, GAME_MM };
     for (int g = 0; g < 2; ++g) {
         const bool oot = games[g] == GAME_OOT;
-        const int rows = oot ? sReport.homeRequiredOoT : sReport.homeRequiredMM;
-        const int hosts = oot ? sReport.hostsOoT : sReport.hostsMM;
-        if (hosts >= 0 && rows > hosts) {
+        const int rows = oot ? r->homeRequiredOoT : r->homeRequiredMM;
+        const int hosts = oot ? r->hostsOoT : r->hostsMM;
+        const unsigned pieces = (unsigned)(oot ? r->triforcePiecesOoT : r->triforcePiecesMM);
+        if (hosts < 0 || rows <= hosts) {
+            continue;
+        }
+        // The Triforce Pieces clause and its remedy only when this game holds
+        // pieces: a shortfall a direction made names only the remedies that apply.
+        if (pieces > 0u) {
             fprintf(stderr,
                     "[SingleBag] home capacity: %d required item(s) that must stay in %s (%u of them Triforce "
                     "Pieces) for %d empty check(s) there, so no seed can place them; lower [Both Games] Triforce "
                     "Pieces, let that game's items cross, or shuffle more of its checks\n",
-                    rows, Game_ToString(games[g]),
-                    (unsigned)(oot ? sReport.triforcePiecesOoT : sReport.triforcePiecesMM), hosts);
+                    rows, Game_ToString(games[g]), pieces, hosts);
+        } else {
+            fprintf(stderr,
+                    "[SingleBag] home capacity: %d required item(s) that must stay in %s for %d empty check(s) "
+                    "there, so no seed can place them; let that game's items cross, or shuffle more of its checks\n",
+                    rows, Game_ToString(games[g]), hosts);
         }
     }
 }
@@ -586,7 +590,9 @@ finish:
         Combo_Logic_ResetPlacements();
     }
     if (fillRan && status != RSBS_COMBO_LOGIC_OK && sReport.fill.attempts > 0) {
-        SingleBagCountHomeCapacity();
+        // #1483: after the roll-back, so each game's leftover hosts are all of its
+        // empty hosts.
+        Combo_SingleBag_CountHomeCapacity(sBag, sReport.bagCount, &sReport);
     }
     sReport.status = status;
     // THE TOTAL'S CHARGE (#950): every round this fill ran, whatever its status,
@@ -650,6 +656,14 @@ uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r) {
 
 void Combo_SingleBag_ClearLastReport(void) {
     memset(&sReport, 0, sizeof(sReport));
+}
+
+void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r) {
+    if (r == NULL) {
+        memset(&sReport, 0, sizeof(sReport));
+        return;
+    }
+    sReport = *r;
 }
 
 void Combo_SingleBag_Forget(void) {
