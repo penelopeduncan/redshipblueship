@@ -2429,7 +2429,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Re-pinned again by the OoT logic P3 backports (#1396, #1397; still generator 4,
 // was 0xAC30C06B): the OoT logic changes move the default world's placements named
 // by the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x2DC34889u;
+// Re-pinned again by the MM logic P3 backports (#1398; generator 5, was 0x2DC34889):
+// the MM logic changes (the Fisherman's heart piece behind the Hookshot, the
+// postbox's region, the region order) move the default world's placements named by
+// the static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x1F6A69EBu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
