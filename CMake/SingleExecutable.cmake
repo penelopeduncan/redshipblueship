@@ -1859,6 +1859,17 @@ if(BUILD_TESTING)
                 -DREDSHIP_EXE=$<TARGET_FILE:redship>
                 -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake)
+    # Its red half (#1465): the same guard over the real manifest plus one
+    # synthetic line per leg must fail, naming the row -- a rando-label row
+    # missing from the `--test all` skip list, a non-generating declaration on a
+    # skipped row, and a stale declaration.
+    redship_add_test(NAME TestRegistrationAllSkipGuardRed
+        COMMAND ${CMAKE_COMMAND}
+                -DREDSHIP_EXE=$<TARGET_FILE:redship>
+                -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
+                -DSCRATCH_DIR=${CMAKE_BINARY_DIR}/test-registration-red
+                -DGUARD=${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistrationRed.cmake)
 
     # Dispatch-table entries that deliberately have no dedicated CTest row.
     # Both predate this refactor and both still execute inside AllTests, which
@@ -1868,6 +1879,9 @@ if(BUILD_TESTING)
     # a row, so the list cannot rot into a rubber stamp.
     redship_test_exempt(lifecycle "Game lifecycle unit tests — runs inside AllTests only")
     redship_test_exempt(midos-house "Test-entrance (--test-entrance) path — runs inside AllTests only")
+    # AllTests runs both, so the --test all skip-list check (#1465) asks whether they generate: neither does.
+    redship_test_not_generating(lifecycle "TestLifecycle_RunAll only: no InitOTRForMMFirstBoot, no seed")
+    redship_test_not_generating(midos-house "ComboEntrance link lookup only: no InitOTRForMMFirstBoot, no seed")
 
     # ========================================================================
     # Rando seed-generation test (requires a display for the Fast3dWindow
@@ -1983,6 +1997,8 @@ if(BUILD_TESTING)
     # per MM scene. Display-free and ROM-free.
     redship_add_test(NAME MMMirroredWorld COMMAND redship --test mm-mirrored-world
         LABEL rando)
+    # It sets CVars through the shared bring-up and generates nothing, so `--test all` runs it (#1465).
+    redship_test_not_generating(mm-mirrored-world "CVar translator only: no InitOTRForMMFirstBoot, no seed")
 
     # #575 H1: the one shared hint AREA vocabulary (src/common/combo_area.c).
     # Unlike the two rows above it is display-free and ROM-free, so it sits in
