@@ -121,12 +121,13 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
            randoOptionId == RO_PLACEMENT_SMALL_KEYS || randoOptionId == RO_PLACEMENT_STRAY_FAIRIES ||
-           randoOptionId == RO_SHUFFLE_SONGS || randoOptionId == RO_SHUFFLE_SKELETON_KEY;
+           randoOptionId == RO_SHUFFLE_SONGS || randoOptionId == RO_SHUFFLE_SKELETON_KEY ||
+           randoOptionId == RO_SKULLTULA_TOKENS_MAX || randoOptionId == RO_STRAY_FAIRIES_MAX;
 }
 
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-        if (IsAppendedOption(randoOptionId) && values[randoOptionId] != 0) {
+        if (IsAppendedOption(randoOptionId) && values[randoOptionId] != randoStaticOption.defaultValue) {
             s += '|';
             s += randoStaticOption.name;
             s += ':';

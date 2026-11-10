@@ -422,6 +422,10 @@ const OptionUi kOptionUi[] = {
       "Minimum Skulltula Tokens",
       "Tokens needed for the Spider House reward. Forced to the vanilla value when tokens are not shuffled.",
       1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SKULLTULA_TOKENS_MAX, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
+      "Gold Skulltula Tokens in Pool",
+      "Maximum Gold Skulltula tokens that can appear in the item pool.",
+      1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_PLACEMENT_SMALL_KEYS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Small Keys",
       "Where each dungeon's small keys may be placed: anywhere in the world, only within that dungeon, on their "
@@ -453,6 +457,10 @@ const OptionUi kOptionUi[] = {
       // reward one. That hook type dispatches (#512, ExecuteForID leg present)
       // and z_actor.c's call site is live. Its other legs are VB.
       COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_STRAY_FAIRIES_MAX, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
+      "Stray Fairies in Pool",
+      "Maximum Stray Fairies that can appear in the item pool.",
+      1, STRAY_FAIRY_SCATTERED_TOTAL, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_SHUFFLE_FROGS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Frogs", "Adds the Frog Choir frogs to the check pool.",
       0, 0, nullptr, 0,

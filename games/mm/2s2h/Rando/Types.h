@@ -3013,6 +3013,11 @@ typedef enum {
     RO_SHUFFLE_SONGS,
     // Appended for the same reason (#1403): 2Ship's Skeleton Key option (b3cc36628).
     RO_SHUFFLE_SKELETON_KEY,
+    // Appended for the same reason (#1403): 2Ship's skulltula & stray fairy pool
+    // configuration options (977544284), while keeping RO_MINIMUM_SKULLTULA_TOKENS
+    // and RO_MINIMUM_STRAY_FAIRIES in place so existing identity strings stay intact.
+    RO_SKULLTULA_TOKENS_MAX,
+    RO_STRAY_FAIRIES_MAX,
     RO_MAX,
 } RandoOptionId;
 
