@@ -1779,6 +1779,8 @@ typedef struct {
      *  `ahead` un-redeemed crossings of the same id come before it (a
      *  Progressive Time shown as the half-day it will grant), or `id` itself to
      *  show the item as placed. Display only: the crossing record keeps `id`.
+     *  An id answered as itself at `ahead` 0 must be answered as itself at
+     *  every `ahead` (Combo_PresentForeignItem skips its slot scan on that).
      *  Optional (NULL: always `id`). */
     uint16_t (*presentItem)(uint16_t id, int ahead);
 } ComboGameDescriber;

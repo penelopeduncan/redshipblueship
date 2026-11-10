@@ -221,9 +221,9 @@ void OwnCrossedHalfDay(uint16_t riId) {
  * (GiveItem.cpp), as OoTMM's clamps to a clock already owned. The pool holds
  * five plus the start (one per half-day, as OoTMM's), so a surplus copy comes
  * only from Plentiful, which adds one per pool copy. ConvertItem reads the save
- * and the options only, no
- * play state (RI_TIME_PROGRESSIVE has no ItemId, so its obtainability test never
- * reaches MM_Item_CheckObtainability). Every other id is returned unchanged.
+ * and the options only, no play state (RI_TIME_PROGRESSIVE has no ItemId, so its
+ * obtainability test never reaches MM_Item_CheckObtainability). Every other id
+ * is returned unchanged.
  */
 uint16_t ResolveCrossedClock(uint16_t riId) {
     if ((RandoItemId)riId != RI_TIME_PROGRESSIVE) {

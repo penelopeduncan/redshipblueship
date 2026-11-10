@@ -137,6 +137,13 @@
  *     panel under two joints), day and night differing only in the face and
  *     panel turns, DrawClock's constants read off DrawFuncs.cpp; OoT's shop
  *     shelf and get-item cutscene draw the clock, not the mystery stand-in.
+ *  M23 A PROGRESSIVE TIME FOUND IN OoT (#1481): read off MM's frozen half, the
+ *     common presenter (Combo_PresentForeignItem) names a Progressive Time as
+ *     the next half-day MM does not own, in the world's order, past the copies
+ *     crossed and not yet redeemed; the shelf model and the get-item cutscene's
+ *     text and model follow it. With every half-day owned, an unmarked half or
+ *     another item, the item is shown as placed. The shop text and the pickup
+ *     toast call the same presenter, but no row drives those two call sites.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++);
  * every symbol it drives is C-linkage.
@@ -1765,10 +1772,16 @@ bool FmStageClockHalf(std::vector<uint8_t>& half, int mode, uint8_t owned, int m
  * half-day MM's redemption will grant (OoTMM names the resolved clock), read off
  * MM's frozen half: the next half-day not owned, in the world's order, past the
  * un-redeemed copies already crossed. The get-item cutscene (its text and its
- * model) counts its own just-recorded crossing out; a shelf and a shop text,
- * whose check is not collected, count every crossing. With no half-day left, an
- * unmarked half or another item, the item is shown as placed. Red before #1481:
- * every case presents "Progressive Time" with the day (sun) pose.
+ * model) counts its own just-recorded crossing out; the shelf model, whose check
+ * is not collected, counts every crossing. With no half-day left, an unmarked
+ * half or another item, the item is shown as placed. Red before #1481: every
+ * case presents "Progressive Time" with the day (sun) pose.
+ *
+ * What this leg reaches: the common presenter, the shelf model
+ * (OoT_ForeignModel_ModelForOoTCheck) and the show-only entry's text and model.
+ * The shop text (MerchantMessages.cpp, BuildForeignHostMessage) and the pickup
+ * toast (hook_handlers.cpp, the drain) call the same presenter, but no row
+ * drives those two call sites: reverting either one leaves this leg green.
  */
 TestResult FmClockPresentation(void) {
     SharedItem progressive, day1, night1, day2, day3, deku;
@@ -1786,6 +1799,9 @@ TestResult FmClockPresentation(void) {
     }
     std::vector<uint8_t> comboBackup(sizeof(gComboCtx));
     std::memcpy(comboBackup.data(), &gComboCtx, sizeof(gComboCtx));
+    // ComboContext_Init (FmStageClockHalf) clears the overflow segment too.
+    std::vector<uint8_t> overflowBackup(sizeof(gComboSharedItemOverflow));
+    std::memcpy(overflowBackup.data(), gComboSharedItemOverflow, sizeof(gComboSharedItemOverflow));
     std::vector<uint8_t> half((size_t)MM_SAVE_CONTEXT_SIZE, 0);
     const uint16_t shelf = 0x0126;     // opaque to the table, as in M22
     const uint16_t reference = 0x0127; // hosts the concrete half-day the shelf must match
@@ -1795,7 +1811,7 @@ TestResult FmClockPresentation(void) {
     const bool stagedAsc = FmStageClockHalf(half, 1, 0x01, 1);
     const int placed = Combo_SetForeignPlacementOoT(shelf, progressive);
     const int placedRef = Combo_SetForeignPlacementOoT(reference, night1);
-    const uint16_t shopFirst = Combo_PresentForeignItem(progressive, false).id;
+    const uint16_t unrecordedFirst = Combo_PresentForeignItem(progressive, false).id;
     ComboModel shelfModel, nightModel;
     const int shelfDrawn = OoT_ForeignModel_ModelForOoTCheck(shelf, &shelfModel);
     const int nightDrawn = OoT_ForeignModel_ModelForOoTCheck(reference, &nightModel);
@@ -1809,25 +1825,26 @@ TestResult FmClockPresentation(void) {
     const int shownFirst = OoT_ForeignModel_TestShowOnlyGetItem(shelf, 1, &nightModel, "Time (Night 1)");
     ComboModel cutsceneModel;
     const int cutsceneDrawn = OoT_ForeignModel_TestShowOnlyModel(&cutsceneModel);
-    // One copy crossed and not redeemed: the next one is Day 2, on the shelf
-    // (its own crossing not recorded) and in the cutscene (recorded).
-    const uint16_t shopSecond = Combo_PresentForeignItem(progressive, false).id;
+    // One copy crossed and not redeemed: the next one is Day 2, before its own
+    // crossing is recorded and after.
+    const uint16_t unrecordedSecond = Combo_PresentForeignItem(progressive, false).id;
     const int recorded2 = Combo_RecordSharedItemCrossing(GAME_MM, progressive.id);
     const uint16_t pickupSecond = Combo_PresentForeignItem(progressive, true).id;
     const uint16_t dekuShown = Combo_PresentForeignItem(deku, false).id;
 
     // Descending, Night 3 owned (its start): Day 3.
     const bool stagedDesc = FmStageClockHalf(half, 2, 0x20, 1);
-    const uint16_t shopDescending = Combo_PresentForeignItem(progressive, false).id;
+    const uint16_t unrecordedDescending = Combo_PresentForeignItem(progressive, false).id;
     // Every half-day owned: no half-day left, shown as placed.
     const bool stagedAll = FmStageClockHalf(half, 1, 0x3F, 1);
-    const uint16_t shopAllOwned = Combo_PresentForeignItem(progressive, false).id;
+    const uint16_t unrecordedAllOwned = Combo_PresentForeignItem(progressive, false).id;
     // A half with no started MM file: shown as placed.
     const bool stagedUnmarked = FmStageClockHalf(half, 1, 0x01, 0);
-    const uint16_t shopUnmarked = Combo_PresentForeignItem(progressive, false).id;
+    const uint16_t unrecordedUnmarked = Combo_PresentForeignItem(progressive, false).id;
 
     OoT_ForeignModel_TestSetMountOverride(-1);
     std::memcpy(&gComboCtx, comboBackup.data(), sizeof(gComboCtx));
+    std::memcpy(gComboSharedItemOverflow, overflowBackup.data(), sizeof(gComboSharedItemOverflow));
     Context_UpdateShadowCopy(GAME_MM, mmBackup.data(), mmBackup.size());
 
     FM_ASSERT(stagedAsc && stagedDesc && stagedAll && stagedUnmarked, "M23 MM's frozen half authored");
@@ -1836,8 +1853,9 @@ TestResult FmClockPresentation(void) {
     FM_ASSERT(dayKind == COMBO_MODEL_ANSWER_DESCRIPTOR && nightKind == COMBO_MODEL_ANSWER_DESCRIPTOR &&
                   std::memcmp(&dayAnswer.model, &nightAnswer.model, sizeof(ComboModel)) != 0,
               "M23 the day and night clocks are different models (else the model checks below are vacuous)");
-    FM_ASSERT(shopFirst == night1.id, "M23 #1481: Ascending with Day 1 owned, a shop names a Progressive Time as Time "
-                                      "(Night 1), not Progressive Time");
+    FM_ASSERT(unrecordedFirst == night1.id,
+              "M23 #1481: Ascending with Day 1 owned, the presenter shows a Progressive Time at a check not collected "
+              "yet as Time (Night 1), not Progressive Time");
     FM_ASSERT(shelfDrawn == 1 && nightDrawn == 1 && std::memcmp(&shelfModel, &nightModel, sizeof(ComboModel)) == 0,
               "M23 #1481: the shelf draws that Progressive Time as the night clock, not the day (sun) pose");
     FM_ASSERT(pickupFirst == night1.id, "M23 #1481: the pickup does not count its own just-recorded crossing");
@@ -1845,14 +1863,15 @@ TestResult FmClockPresentation(void) {
                                "M13 lines above)");
     FM_ASSERT(cutsceneDrawn == 1 && std::memcmp(&cutsceneModel, &nightModel, sizeof(ComboModel)) == 0,
               "M23 #1481: the get-item cutscene holds up the night clock, not the day (sun) pose");
-    FM_ASSERT(shopSecond == day2.id && pickupSecond == day2.id,
-              "M23 #1481: with one copy crossed and not redeemed, the next is Time (Day 2), on a shelf and at its "
-              "pickup");
+    FM_ASSERT(unrecordedSecond == day2.id && pickupSecond == day2.id,
+              "M23 #1481: with one copy crossed and not redeemed, the presenter shows the next as Time (Day 2), before "
+              "and after its own crossing is recorded");
     FM_ASSERT(dekuShown == deku.id, "M23 every MM item but Progressive Time is shown as placed");
-    FM_ASSERT(shopDescending == day3.id, "M23 #1481: Descending with Night 3 owned, the first copy is Time (Day 3)");
-    FM_ASSERT(shopAllOwned == progressive.id,
+    FM_ASSERT(unrecordedDescending == day3.id,
+              "M23 #1481: Descending with Night 3 owned, the first copy is Time (Day 3)");
+    FM_ASSERT(unrecordedAllOwned == progressive.id,
               "M23 with every half-day owned the copy is junk at the redemption, so it is shown as Progressive Time");
-    FM_ASSERT(shopUnmarked == progressive.id, "M23 with no started MM half the item is shown as placed");
+    FM_ASSERT(unrecordedUnmarked == progressive.id, "M23 with no started MM half the item is shown as placed");
     return TEST_PASS;
 }
 

@@ -78,6 +78,13 @@
  *      Before the fix: the Night of the Third Day (day 3, 18:00).
  *  12  Ascending with all six owned: the surplus copy resolves to RI_JUNK, owns
  *      nothing new and its drain gives nothing.
+ *   #1481, legs 9-12: before the arrival, each crossed copy is shown through
+ *      the common presenter (Combo_PresentForeignItem, MM's describer) off the
+ *      frozen half, before its record and after it, as an OoT shelf and pickup
+ *      would show it; the two agree, and after the arrival each equals what the
+ *      redemption queued for that copy's slot (Progressive Time itself where it
+ *      queued junk). The frozen half lends the 'ZELDA3' marker for the reading
+ *      only.
  *  13  The give order itself, no arrival: seven gives of Progressive Time hand
  *      out Day 1 .. Night 3 then junk Ascending, and the reverse Descending.
  *      #1481: before each give, the id an OoT pickup would show for it
@@ -118,6 +125,7 @@ extern "C" int MM_ClockShuffleFirstArrival_RunHeadless(void) {
 
 // src/common. Outside extern "C": each header manages its own linkage.
 #include "context.h"
+#include "foreign_items.h" // #1481: Combo_PresentForeignItem
 #include "notification_bridge.h"
 #include "shared_items.h"
 
@@ -266,15 +274,47 @@ int Arrive(const Arrival& a, int code) {
     SetOwnedHalfDays(a.owned);
     Combo_FreezeState("mm", kArrival, &gSaveContext, sizeof(gSaveContext));
 
+    // #1481: what an OoT pickup shows for each crossed Progressive Time, read
+    // off this frozen half through the common presenter (the shared-array count
+    // and MM's describer), as the drain does: shown before its record (a shelf)
+    // and after it (the pickup). The presenter reads only a started file, so the
+    // 'ZELDA3' marker is lent to the frozen half for the reading and the bytes
+    // the arrival restores are put back before it.
+    const bool presents = a.item == RI_TIME_PROGRESSIVE && !a.sourced;
+    uint16_t presented[2] = { (uint16_t)RI_NONE, (uint16_t)RI_NONE };
+    char savedNewf[6] = { 0 };
+    SaveContext* const frozen =
+        presents ? static_cast<SaveContext*>(Context_GetFrozenMMSaveContextForWrite()) : nullptr;
+    if (presents) {
+        FA_ASSERT(frozen != nullptr, code, "%s: no frozen MM half to present the crossed Progressive Time from", a.leg);
+        static const char kNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+        memcpy(savedNewf, frozen->save.saveInfo.playerData.newf, sizeof(savedNewf));
+        memcpy(frozen->save.saveInfo.playerData.newf, kNewf, sizeof(kNewf));
+    }
+    SharedItem crossed = {};
+    crossed.originGame = (uint8_t)GAME_MM;
+    crossed.id = (uint16_t)a.item;
+
     for (int copy = 0; a.item != RI_NONE && copy < a.copies; copy++) {
         if (a.sourced) {
             FA_ASSERT(Combo_SubmitSourcedGrant(kSourceKey + (uint32_t)copy, 1, GAME_MM, (uint16_t)a.item) ==
                           RSBS_GRANT_ACCEPTED,
                       code, "%s: the sourced grant of RI id %u was not accepted", a.leg, (unsigned)a.item);
         } else {
+            const uint16_t shelf = presents ? Combo_PresentForeignItem(crossed, false).id : (uint16_t)RI_NONE;
             FA_ASSERT(Combo_RecordSharedItemCrossing(GAME_MM, (uint16_t)a.item) >= 0, code,
                       "%s: the crossing of RI id %u was not recorded", a.leg, (unsigned)a.item);
+            if (presents && copy < 2) {
+                presented[copy] = Combo_PresentForeignItem(crossed, true).id;
+                FA_ASSERT(shelf == presented[copy], code,
+                          "%s: copy %d shows RI id %u before its record and %u after it (#1481: the pickup must "
+                          "not count its own crossing)",
+                          a.leg, copy + 1, (unsigned)shelf, (unsigned)presented[copy]);
+            }
         }
+    }
+    if (presents) {
+        memcpy(frozen->save.saveInfo.playerData.newf, savedNewf, sizeof(savedNewf));
     }
 
     // The boot chain: MM_SaveContext_Init's wipe, then TitleSetup's vanilla
@@ -312,6 +352,16 @@ int Arrive(const Arrival& a, int code) {
                   "%s: queue slot %d holds RI id %u, expected %u (#1437: a crossed Progressive Time is queued as "
                   "the half-day it resolved to)",
                   a.leg, i, (unsigned)MM_ForeignItem_TestPendingAt(i), (unsigned)want);
+    }
+    // #1481: each copy was shown at its pickup as what the redemption then
+    // queued for its slot (Progressive Time itself where that is junk).
+    for (int i = 0; presents && i < expectedPending && i < 2; i++) {
+        const uint16_t queued = MM_ForeignItem_TestPendingAt(i);
+        const uint16_t want = queued == (uint16_t)RI_JUNK ? (uint16_t)RI_TIME_PROGRESSIVE : queued;
+        FA_ASSERT(presented[i] == want, code,
+                  "%s: copy %d was shown in Hyrule as RI id %u, but the redemption queued %u for its slot (#1481: "
+                  "the shown half-day must be the one granted)",
+                  a.leg, i + 1, (unsigned)presented[i], (unsigned)queued);
     }
     FA_ASSERT(OoT_Notification_EmittedCountForTest() == sToastMark, code,
               "%s: the arrival itself toasted; a give's toast waits for the first gameplay frame", a.leg);

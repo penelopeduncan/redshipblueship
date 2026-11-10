@@ -1638,6 +1638,13 @@ SharedItem Combo_PresentForeignItem(SharedItem item, bool recorded) {
     if (d == NULL || d->presentItem == NULL) {
         return item;
     }
+    // A shelf calls this every frame for every MM item it draws. An id shown as
+    // placed with nothing ahead is shown as placed with anything ahead (the
+    // presentItem contract, foreign_items.h), so only an id that can change
+    // pays for the slot scan below.
+    if (d->presentItem(item.id, 0) == item.id) {
+        return item;
+    }
     // The origin game redeems in slot order (Combo_RedeemSharedItemsForGame), so
     // every un-redeemed copy of this id already in the array resolves first. A
     // crossing pickup writes its slot at once (Combo_RecordSharedItemCrossing),
