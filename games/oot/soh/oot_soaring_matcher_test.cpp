@@ -14,7 +14,10 @@
  * i + 1, the Song of Soaring RSBS_OOT_SONG_SOARING + 1). The gates read the live
  * save (age, the song's RAND_INF flag) and OoT_gPlayState's ocarinaAction, which
  * a private PlayState stands in for; the rule and the pairing are the frozen
- * combo record the row sets. Everything touched is restored.
+ * combo record the row sets. Everything touched is restored: the gate inputs
+ * (age, the flag, OoT_gPlayState) and every checker global func_800ECC04,
+ * func_800ECB7C and func_800ED200 write (SoaringMatcherState), so a later row
+ * in the same process starts from the state this one found.
  */
 
 #include <cstdint>
@@ -39,6 +42,19 @@ extern u32 sCurOcarinaBtnPress;
 extern s8 D_80130F2C;
 extern u32 D_80130F3C;
 extern u8 D_80131878;
+extern u8 sOcarinaInpEnabled;
+extern u8 sLearnSongLastBtn;
+extern u16 D_80130F4C;
+extern u8 D_8013187C;
+extern OcarinaStaff OoT_sPlayingStaff;
+extern u8 sOcarinaSongNoteStartIdx;
+extern u8 sOcarinaSongCnt;
+extern u16 sOcarinaAvailSongs;
+extern u8 sStaffPlayingPos;
+extern u16 sLearnSongPos[0x10];
+extern u16 D_8016BA50[0x10];
+extern u16 D_8016BA70[0x10];
+extern u8 sLearnSongExpectedNote[0x10];
 extern u8 sOcarinaNoteValues[5];
 extern OcarinaNote sOcarinaSongs[OCARINA_SONG_MAX][20];
 }
@@ -47,8 +63,92 @@ namespace {
 
 PlayState sSoaringMatcherPlay;
 
-/** Play @p count notes into the real checker; the first nonzero D_80131878, or 0. */
-int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int freePlay) {
+/** Every code_800EC960.c global the start (func_800ECC04, func_800ECB7C) and the
+ *  checker (func_800ED200) write, copied field by field. */
+struct SoaringMatcherState {
+    u8 curSong[8];
+    u8 appendPos;
+    u8 hasStarted;
+    u8 btnVal;
+    u8 prevNoteVal;
+    u32 btnPress;
+    s8 bend;
+    u32 seq;
+    u8 playingState;
+    u8 inpEnabled;
+    u8 learnLastBtn;
+    u16 bFlags;
+    u8 staffMin;
+    OcarinaStaff playingStaff;
+    u8 noteStartIdx;
+    u8 songCnt;
+    u16 availSongs;
+    u8 staffPos;
+    u16 learnPos[0x10];
+    u16 timerA[0x10];
+    u16 timerB[0x10];
+    u8 learnExpected[0x10];
+    OcarinaSongInfo scarecrowNotes;
+};
+
+void SoaringMatcherSave(SoaringMatcherState* st) {
+    std::memcpy(st->curSong, sCurOcarinaSong, sizeof(st->curSong));
+    st->appendPos = sOcarinaSongAppendPos;
+    st->hasStarted = OoT_sOcarinaHasStartedSong;
+    st->btnVal = sCurOcarinaBtnVal;
+    st->prevNoteVal = sPrevOcarinaNoteVal;
+    st->btnPress = sCurOcarinaBtnPress;
+    st->bend = D_80130F2C;
+    st->seq = D_80130F3C;
+    st->playingState = D_80131878;
+    st->inpEnabled = sOcarinaInpEnabled;
+    st->learnLastBtn = sLearnSongLastBtn;
+    st->bFlags = D_80130F4C;
+    st->staffMin = D_8013187C;
+    st->playingStaff = OoT_sPlayingStaff;
+    st->noteStartIdx = sOcarinaSongNoteStartIdx;
+    st->songCnt = sOcarinaSongCnt;
+    st->availSongs = sOcarinaAvailSongs;
+    st->staffPos = sStaffPlayingPos;
+    std::memcpy(st->learnPos, sLearnSongPos, sizeof(st->learnPos));
+    std::memcpy(st->timerA, D_8016BA50, sizeof(st->timerA));
+    std::memcpy(st->timerB, D_8016BA70, sizeof(st->timerB));
+    std::memcpy(st->learnExpected, sLearnSongExpectedNote, sizeof(st->learnExpected));
+    st->scarecrowNotes = gOcarinaSongNotes[OCARINA_SONG_SCARECROW];
+}
+
+void SoaringMatcherRestore(const SoaringMatcherState* st) {
+    std::memcpy(sCurOcarinaSong, st->curSong, sizeof(st->curSong));
+    sOcarinaSongAppendPos = st->appendPos;
+    OoT_sOcarinaHasStartedSong = st->hasStarted;
+    sCurOcarinaBtnVal = st->btnVal;
+    sPrevOcarinaNoteVal = st->prevNoteVal;
+    sCurOcarinaBtnPress = st->btnPress;
+    D_80130F2C = st->bend;
+    D_80130F3C = st->seq;
+    D_80131878 = st->playingState;
+    sOcarinaInpEnabled = st->inpEnabled;
+    sLearnSongLastBtn = st->learnLastBtn;
+    D_80130F4C = st->bFlags;
+    D_8013187C = st->staffMin;
+    OoT_sPlayingStaff = st->playingStaff;
+    sOcarinaSongNoteStartIdx = st->noteStartIdx;
+    sOcarinaSongCnt = st->songCnt;
+    sOcarinaAvailSongs = st->availSongs;
+    sStaffPlayingPos = st->staffPos;
+    std::memcpy(sLearnSongPos, st->learnPos, sizeof(st->learnPos));
+    std::memcpy(D_8016BA50, st->timerA, sizeof(st->timerA));
+    std::memcpy(D_8016BA70, st->timerB, sizeof(st->timerB));
+    std::memcpy(sLearnSongExpectedNote, st->learnExpected, sizeof(st->learnExpected));
+    gOcarinaSongNotes[OCARINA_SONG_SCARECROW] = st->scarecrowNotes;
+}
+
+/** Play @p count notes into the real checker; the first nonzero D_80131878, or 0.
+ *  With @p bendLast the last note is played bent past func_800ED200's 0x15
+ *  threshold, so the checker stores it as 0xFF (no pitch). */
+int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int freePlay, int bendLast) {
+    SoaringMatcherState saved;
+    SoaringMatcherSave(&saved);
     PlayState* const prevPlay = OoT_gPlayState;
     const u8 prevAge = (u8)gSaveContext.linkAge;
     const bool prevOwned = Flags_GetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT) != 0;
@@ -69,7 +169,7 @@ int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int
     int answer = 0;
     for (int n = 0; n < count && answer == 0; n++) {
         sCurOcarinaBtnPress = 0;
-        D_80130F2C = 0;
+        D_80130F2C = (bendLast && n == count - 1) ? 0x20 : 0;
         OoT_sOcarinaHasStartedSong = 1;
         sPrevOcarinaNoteVal = (u8)(notes[n] == 0xFE ? 0xFD : 0xFE);
         sCurOcarinaBtnVal = notes[n];
@@ -77,8 +177,7 @@ int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int
         answer = D_80131878;
     }
     func_800ECC04(0xFFFF); // stop: no checker left running
-    D_80131878 = 0;
-    sCurOcarinaBtnVal = 0xFF;
+    SoaringMatcherRestore(&saved);
 
     if (prevOwned) {
         Flags_SetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
@@ -97,7 +196,16 @@ extern "C" int OoT_SoaringMatcherTest_Play(const uint8_t* notes, int count, int 
     if (notes == nullptr || count <= 0) {
         return 0;
     }
-    return SoaringMatcherRun(notes, count, child, owned, freePlay);
+    return SoaringMatcherRun(notes, count, child, owned, freePlay, 0);
+}
+
+/** As OoT_SoaringMatcherTest_Play for a child who owns the song, in free play,
+ *  with the last note bent (stored as 0xFF by func_800ED200). */
+extern "C" int OoT_SoaringMatcherTest_PlayBentLast(const uint8_t* notes, int count) {
+    if (notes == nullptr || count <= 0) {
+        return 0;
+    }
+    return SoaringMatcherRun(notes, count, 1, 1, 1, 1);
 }
 
 /** Plays vanilla song @p song's own notes (gOcarinaSongNotes) as a child who owns
@@ -114,7 +222,7 @@ extern "C" int OoT_SoaringMatcherTest_PlayVanilla(int song) {
     for (int j = 0; j < len; j++) {
         notes[j] = sOcarinaNoteValues[gOcarinaSongNotes[song].notesIdx[j]];
     }
-    return SoaringMatcherRun(notes, len, 1, 1, 1);
+    return SoaringMatcherRun(notes, len, 1, 1, 1, 0);
 }
 
 /**
@@ -141,7 +249,7 @@ extern "C" int OoT_SoaringMatcherTest_PlayWithPierre(const uint8_t* pierre, cons
         sOcarinaSongs[OCARINA_SONG_SCARECROW][j].noteIdx = 0xFF;
         sOcarinaSongs[OCARINA_SONG_SCARECROW][j].volume = 0xFF;
     }
-    const int answer = SoaringMatcherRun(notes, count, 1, 1, 1);
+    const int answer = SoaringMatcherRun(notes, count, 1, 1, 1, 0);
     std::memcpy(sOcarinaSongs[OCARINA_SONG_SCARECROW], savedRow, sizeof(savedRow));
     gOcarinaSongNotes[OCARINA_SONG_SCARECROW] = savedNotes;
     return answer;

@@ -313,6 +313,9 @@ void SoaringOoTPollChooser() {
     }
 }
 
+// Deliberately NOT behind the #344 shared-hook-storage guard the other hooks
+// carry: it touches nothing but this file's chooser state, and clearing that on
+// either game's file load is correct (no chooser outlives a load).
 void SoaringOoTOnLoadGame(int32_t fileNum) {
     (void)fileNum;
     sSoaringOoTChooserOpen = false;

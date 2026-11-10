@@ -31,8 +31,9 @@
  *   (games/oot/soh/oot_soaring_matcher_test.cpp): nothing with the rule off,
  *   unowned, adult, unpaired or under check-no-warp; every vanilla song still
  *   answers itself with every gate on; Soaring answers RSBS_OOT_SONG_SOARING;
- *   the tail rule (junk first, five notes, a sharpened note); Pierre's song wins
- *   only when both finish on the same note.
+ *   the tail rule (junk first, five notes, a sharpened note, a bent last note);
+ *   Pierre's song wins only when both finish on the same note, and its
+ *   recorded row does not outlive the leg.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the
@@ -65,6 +66,7 @@ void MM_SoaringTest_FreezeHalf(uint16_t owls, int32_t day, int marked);
 int OoT_SoaringMatcherTest_Play(const uint8_t* notes, int count, int child, int owned, int freePlay);
 int OoT_SoaringMatcherTest_PlayVanilla(int song);
 int OoT_SoaringMatcherTest_PlayWithPierre(const uint8_t* pierre, const uint8_t* notes, int count);
+int OoT_SoaringMatcherTest_PlayBentLast(const uint8_t* notes, int count);
 // games/oot/soh/Enhancements/randomizer/SongOfSoaringOoT.cpp
 bool OoT_SongOfSoaringOoTOn(void);
 #ifdef __cplusplus
@@ -393,23 +395,31 @@ TestResult Test_OoTSoaringMatcher(void) {
         XW6_CHECK(OoT_SoaringMatcherTest_Play(kXw6Soaring, 5, 1, 1, 1) == 0, "five of its six notes matched");
         const uint8_t sharp[6] = { 5, 11, 15, 5, 11, 14 };
         XW6_CHECK(OoT_SoaringMatcherTest_Play(sharp, 6, 1, 1, 1) == 0, "a sharpened third note matched");
-        const uint8_t bent[6] = { 5, 11, 14, 5, 11, 0xFF };
-        XW6_CHECK(OoT_SoaringMatcherTest_Play(bent, 6, 1, 1, 1) == 0, "a bent (unpitched) last note matched");
+        // The song's own six notes with the last one bent: func_800ED200 stores
+        // a bent note as 0xFF, so a matcher that read the live button (or
+        // skipped unpitched notes) instead of the buffer would match here.
+        XW6_CHECK(OoT_SoaringMatcherTest_PlayBentLast(kXw6Soaring, 6) == 0, "a bent (unpitched) last note matched");
     }
 
     // ---- (4) Pierre's song (decision 8: as OoTMM) ---------------------------------------------
     {
-        // Pierre's song ENDS with the Song of Soaring: both finish on the same
-        // note, and the vanilla loop's answer (the scarecrow) stands.
         const uint8_t pierreEnds[8] = { 9, 9, 5, 11, 14, 5, 11, 14 };
-        XW6_CHECK(OoT_SoaringMatcherTest_PlayWithPierre(pierreEnds, pierreEnds, 8) == kXw6ScarecrowAnswer,
-                  "Pierre's song and the Song of Soaring finishing on the same note did not answer Pierre");
+        XW6_CHECK(OoT_SoaringMatcherTest_Play(pierreEnds, 8, 1, 1, 1) == kSoaringAnswer,
+                  "eight notes ending in the Song of Soaring did not answer Soaring before any Pierre's song was "
+                  "recorded (setup: the process started with one)");
         // Pierre's song BEGINS with it: Soaring finishes first and wins.
         const uint8_t pierreBegins[8] = { 5, 11, 14, 5, 11, 14, 9, 9 };
         XW6_CHECK(OoT_SoaringMatcherTest_PlayWithPierre(pierreBegins, pierreBegins, 8) == kSoaringAnswer,
                   "the Song of Soaring finishing before Pierre's song did not answer Soaring");
-        XW6_CHECK(OoT_SoaringMatcherTest_Play(kXw6Soaring, 6, 1, 1, 1) == kSoaringAnswer,
-                  "Pierre's song was not restored (setup)");
+        // Pierre's song ENDS with the Song of Soaring: both finish on the same
+        // note, and the vanilla loop's answer (the scarecrow) stands.
+        XW6_CHECK(OoT_SoaringMatcherTest_PlayWithPierre(pierreEnds, pierreEnds, 8) == kXw6ScarecrowAnswer,
+                  "Pierre's song and the Song of Soaring finishing on the same note did not answer Pierre");
+        // The same eight notes with no Pierre's song: a restored scarecrow row
+        // leaves Soaring's answer; a leaked pierreEnds row (the restore in
+        // OoT_SoaringMatcherTest_PlayWithPierre dropped) would answer Pierre.
+        XW6_CHECK(OoT_SoaringMatcherTest_Play(pierreEnds, 8, 1, 1, 1) == kSoaringAnswer,
+                  "Pierre's song was not restored: the recorded row outlived its leg");
     }
 
     // ---- (5) from source: one guarded call, after the vanilla loop ---------------------------
@@ -417,10 +427,18 @@ TestResult Test_OoTSoaringMatcher(void) {
     if (audio.empty()) {
         XW6_CHECK(false, "code_800EC960.c is not readable under RSBS_SOURCE_DIR");
     } else {
-        const size_t call = audio.find("D_80131878 == 0 && OoT_SoaringOoT_NoteMatched(sCurOcarinaSong");
-        const size_t vanilla = audio.find("D_80131878 = i + 1;");
-        XW6_CHECK(Xw6Count(audio, "OoT_SoaringOoT_NoteMatched(") == 2 && call != std::string::npos &&
-                      vanilla != std::string::npos && vanilla < call,
+        // Bounded to func_800ED200 itself: func_800ECDF8, above it, also sets
+        // D_80131878 = i + 1, so an unbounded search would pass a call placed
+        // anywhere after that function, including above func_800ED200's loop.
+        const size_t fn = audio.find("void func_800ED200(void) {");
+        const size_t fnEnd = fn == std::string::npos ? std::string::npos : audio.find("\nvoid ", fn + 1);
+        const size_t vanilla = fn == std::string::npos ? std::string::npos : audio.find("D_80131878 = i + 1;", fn);
+        const size_t call = fn == std::string::npos
+                                ? std::string::npos
+                                : audio.find("D_80131878 == 0 && OoT_SoaringOoT_NoteMatched(sCurOcarinaSong", fn);
+        XW6_CHECK(Xw6Count(audio, "OoT_SoaringOoT_NoteMatched(") == 2 && fn != std::string::npos &&
+                      fnEnd != std::string::npos && vanilla != std::string::npos && call != std::string::npos &&
+                      fn < vanilla && vanilla < call && call < fnEnd,
                   "the Soaring check is not one guarded call after func_800ED200's vanilla loop");
         XW6_CHECK(Xw6Count(audio, "sOcarinaAvailSongs = flg & 0x3FFF;") == 1,
                   "the vanilla song mask was widened (OoTMM never widens it)");
