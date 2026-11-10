@@ -2014,6 +2014,29 @@ int Combo_Logic_RunAllLocationsPreflight(const ComboLogicBagItem* bag, int bagCo
     return status;
 }
 
+/** Why a batch attempt was rolled back (#1447), one line per roll-back: the
+ *  required row whose draw found no host and how far the batch got, or which
+ *  half of the exit condition failed. Logged only; it draws and changes nothing,
+ *  so no world moves. */
+static void ComboLogicLogDeadEndRollBack(const ComboLogicFillRequest* req, int attempt, int maxAttempts,
+                                         const ComboLogicBagItem* row, int placedBefore, int requiredCount,
+                                         int rounds) {
+    fprintf(stderr,
+            "[ComboLogic] fill seed %08X attempt %d of %d rolled back: no reached empty host for required row %d of "
+            "%d (%s item %u%s), %d round(s) so far\n",
+            (unsigned)req->seed, attempt + 1, maxAttempts, placedBefore + 1, requiredCount,
+            Game_ToString((GameId)row->item.originGame), (unsigned)row->item.id,
+            ComboLogicRowMustRenew(row) ? ", a pending critical renewable" : "", rounds);
+}
+
+static void ComboLogicLogProofRollBack(const ComboLogicFillRequest* req, int attempt, int maxAttempts, const char* why,
+                                       int rounds) {
+    fprintf(stderr,
+            "[ComboLogic] fill seed %08X attempt %d of %d rolled back: every required row placed, but %s, %d "
+            "round(s) so far\n",
+            (unsigned)req->seed, attempt + 1, maxAttempts, why, rounds);
+}
+
 int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* out) {
     ComboLogicFillResult res;
     ComboLogicRoundResult round;
@@ -2214,6 +2237,8 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
         }
 
         if (deadEnd) {
+            ComboLogicLogDeadEndRollBack(req, attempt, maxAttempts, &req->bag[sBagOrder[res.requiredPlaced]],
+                                         res.requiredPlaced, sRequiredCount, res.rounds);
             lastFailure = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
             continue;
         }
@@ -2238,12 +2263,16 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
             }
         }
         if (round.goalExpression != 1) {
+            ComboLogicLogProofRollBack(req, attempt, maxAttempts, "the GOAL is not proven", res.rounds);
             lastFailure = RSBS_COMBO_LOGIC_ERR_GOAL_UNPROVABLE;
             continue;
         }
         // `all-reachable`: the GOAL AND every placed host AND every location the
         // pre-flight captured, in both games, whatever the GOAL (ABI 8).
         if (allLocationsRung && (round.allHostsReached != 1 || round.allLocationsReached != 1)) {
+            ComboLogicLogProofRollBack(req, attempt, maxAttempts,
+                                       "All Locations' proof does not reach every placed host and location",
+                                       res.rounds);
             res.locationsUnreachable = round.locationsUnreached;
             lastFailure = RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED;
             continue;

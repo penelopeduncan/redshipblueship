@@ -490,11 +490,28 @@ build would turn the oracle back into a no-op.
    "Which gate runs these rows"), so a re-pin on Linux and a re-pin on Windows are
    equally verifiable and a divergence between the two toolchains turns one leg red
    rather than passing unnoticed.
-6. **Bump `RSBS_GENERATOR_VERSION`** (`src/common/foreign_items.h`) in any PR that
-   re-pins a golden for a world-moving reason. Do it in the same PR, so the
-   re-pin commit records both the moved world and the moved `comboSettingsHash`.
-   A re-pin that moved only an input field or a digest writer does not bump it.
-   See "The generator version" below.
+6. **Bump `RSBS_GENERATOR_VERSION`** (`src/common/foreign_items.h`) **once per
+   release window**: in the first PR after a release that makes the same seed and
+   settings produce a different world than the last *released* generator does,
+   whether or not a golden pins that world. Do it in the same PR, so a re-pin
+   commit in it records both the moved world and the moved `comboSettingsHash`.
+   * **A later world-moving change in the same window does not bump again.** It
+     rides the unreleased version, because only unreleased dev builds can show a
+     matching fingerprint for a different world. Its history entry under "The
+     generator version" names the version it rides and lists its residuals: the
+     worlds or text that change behind an unchanged fingerprint against the earlier
+     builds of that window.
+   * **A world-moving change that no golden pins still bumps**, when it is the
+     window's first. The version's purpose is that a released generator and a
+     later build never show one fingerprint for two worlds, and a golden only
+     samples the worlds.
+   * A re-pin that moved only an input field or a digest writer does not bump it.
+
+   Precedents: #1392 bumped to 4 after `v0.4.4-alpha` shipped generator 3; #979, #1436 and #1446 re-pinned worlds in the same
+   window and rode generator 4. PR #1517 bumped to 5 after `v0.5.0-alpha` shipped
+   generator 4, with no golden moved, for PRs #1507 and #1504, which moved worlds
+   no golden pins; the world-moving re-pins after it in that window (the #1398
+   logic backports) ride generator 5. See "The generator version" below.
 
 ## The generator version (#1003)
 
@@ -506,8 +523,9 @@ and the fingerprint #960 prints beside the seed icons at file select did not mov
 
 `RSBS_GENERATOR_VERSION` (`src/common/foreign_items.h`) is a hand-bumped constant
 folded into `comboSettingsHash` as a fourth term (ADR 0011, amendment of
-2026-10-18). **Bump it in any PR that re-pins a golden for a world-moving reason**
-(rule 6 under "Re-pinning"). After a bump, a file created by the new build shows a
+2026-10-18). **Bump it once per release window, at the first change that moves a
+world relative to the last released generator, pinned or not** (rule 6 under
+"Re-pinning"). After a bump, a file created by the new build shows a
 different fingerprint at file select than the same seed created by the old one.
 
 What a bump moves, and what it must not:
@@ -732,8 +750,9 @@ then make the same seed and settings produce a different world than it does:
 
 No pinned world moved under either change. No golden profile turns Shuffle Tingle
 Maps on, and no golden's world happened to move under the time logic, so no golden
-was re-pinned for a world-moving reason and rule 6 did not ask for this bump. The
-version moves anyway, because its purpose is that two builds whose generators
+was re-pinned for a world-moving reason and rule 6 as it read then (bump in a PR
+that re-pins a golden for a world-moving reason) did not ask for this bump. The
+version moves anyway, and rule 6 now says so (#1447), because its purpose is that two builds whose generators
 differ never show the same fingerprint for the same seed and settings, and that a
 seed package from the released generator is refused. **This bump is for worlds no
 golden pins.** In the goldens it moves `comboSettingsHash` alone, an INPUT field,
