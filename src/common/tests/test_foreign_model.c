@@ -1851,17 +1851,17 @@ TestResult FmClockPresentation(void) {
     FM_ASSERT(placed >= 0 && placedRef >= 0 && recorded1 >= 0 && recorded2 >= 0,
               "M23 placements and crossings accepted");
     FM_ASSERT(dayKind == COMBO_MODEL_ANSWER_DESCRIPTOR && nightKind == COMBO_MODEL_ANSWER_DESCRIPTOR &&
-                  std::memcmp(&dayAnswer.model, &nightAnswer.model, sizeof(ComboModel)) != 0,
+                  !FmModelEqual(dayAnswer.model, nightAnswer.model),
               "M23 the day and night clocks are different models (else the model checks below are vacuous)");
     FM_ASSERT(unrecordedFirst == night1.id,
               "M23 #1481: Ascending with Day 1 owned, the presenter shows a Progressive Time at a check not collected "
               "yet as Time (Night 1), not Progressive Time");
-    FM_ASSERT(shelfDrawn == 1 && nightDrawn == 1 && std::memcmp(&shelfModel, &nightModel, sizeof(ComboModel)) == 0,
+    FM_ASSERT(shelfDrawn == 1 && nightDrawn == 1 && FmModelEqual(shelfModel, nightModel),
               "M23 #1481: the shelf draws that Progressive Time as the night clock, not the day (sun) pose");
     FM_ASSERT(pickupFirst == night1.id, "M23 #1481: the pickup does not count its own just-recorded crossing");
     FM_ASSERT(shownFirst == 0, "M23 #1481: the get-item cutscene reads \"You found Time (Night 1) (MM)!\" (see the "
                                "M13 lines above)");
-    FM_ASSERT(cutsceneDrawn == 1 && std::memcmp(&cutsceneModel, &nightModel, sizeof(ComboModel)) == 0,
+    FM_ASSERT(cutsceneDrawn == 1 && FmModelEqual(cutsceneModel, nightModel),
               "M23 #1481: the get-item cutscene holds up the night clock, not the day (sun) pose");
     FM_ASSERT(unrecordedSecond == day2.id && pickupSecond == day2.id,
               "M23 #1481: with one copy crossed and not redeemed, the presenter shows the next as Time (Day 2), before "
