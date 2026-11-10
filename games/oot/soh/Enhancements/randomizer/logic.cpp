@@ -3146,7 +3146,7 @@ bool Logic::SpiritSunBlockSouthLedge() {
     return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) /*|| BunnyHovers()*/ ||
            (CanUse(RG_HOOKSHOT) &&
             (HasFireSource() ||
-             (Get(LOGIC_SPIRIT_SUN_BLOCK_TORCH) &&
+             (HasItem(RG_SPIRIT_SILVER_SUN) &&
               (CanUse(RG_STICKS) || (ctx->GetTrickOption(RT_SPIRIT_SUN_CHEST) && CanUse(RG_FAIRY_BOW))))));
 }
 
