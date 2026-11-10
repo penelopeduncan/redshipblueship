@@ -3007,14 +3007,19 @@ void Session::BuildPageList() {
         p.window = ComboGui::kComboHintTrackerWindowName;
         p.states = { kSnapshotHintStates[0], kSnapshotHintStates[1], kSnapshotHintStates[2] };
         p.compareWith = kSohPaneReference;
-        p.expectText = { ComboGui::kComboHintTrackerWindowName, "Ocarina of Time", "Majora's Mask" };
+        // The title only: a scrolled view keeps nothing else on screen. The pane
+        // names are per-state text below.
+        p.expectText = { ComboGui::kComboHintTrackerWindowName };
         p.stateTitleBar = { { kSnapshotHintStates[0], true },
                             { kSnapshotHintStates[1], true },
                             { kSnapshotHintStates[2], true } };
-        p.stateText[kSnapshotHintStates[0]] = { "Waiting for file load..." };
-        p.stateText[kSnapshotHintStates[1]] = { kSnapshotHintOoTText, "???", kSnapshotHintMMSource, kSnapshotHintMMText,
-                                                "Hints Read" };
-        p.stateText[kSnapshotHintStates[2]] = { "Way of the Hero (1)", "Major Items (1)" };
+        p.stateText[kSnapshotHintStates[0]] = { "Ocarina of Time", "Majora's Mask", "Waiting for file load..." };
+        // MM's Locations list is 74 sources long, so the one read source is below the
+        // captured views; the Journal (read hints only) shows its name and text.
+        p.stateText[kSnapshotHintStates[1]] = { "Ocarina of Time", "Majora's Mask",   kSnapshotHintOoTText, "???",
+                                                "Hints Read",      "South Clock Town" };
+        p.stateText[kSnapshotHintStates[2]] = { "Way of the Hero (1)", "Major Items (1)", kSnapshotHintMMSource,
+                                                kSnapshotHintMMText };
         p.stateContrast = { { kSnapshotHintStates[1], kSnapshotHintStates[0] },
                             { kSnapshotHintStates[2], kSnapshotHintStates[1] } };
         pages.push_back(p);
