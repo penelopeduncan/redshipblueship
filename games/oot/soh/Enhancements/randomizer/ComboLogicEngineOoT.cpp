@@ -1113,11 +1113,10 @@ void OoT_ComboLogic_EndQuery(void* self) {
  * shopkeeper's paid item) stay refused: no paired world makes them locations, and
  * their give paths are untraced for a crossing (see the room's comment below).
  * The fill-side half of the old predicate ("the fill put junk here") is the old
- * overlay pass's and does not apply: the
- * coordinator only ever offers EMPTY hosts, and this engine's `place` puts the
- * junk cover there itself. A shelf is empty only when shopsanity replaced its
- * vanilla stock (fill.cpp): with shopsanity off every shelf keeps its RG_BUY_*
- * item and is never offered. A scrub is a location at all only under scrub
+ * overlay pass's and does not apply: the coordinator only ever offers EMPTY hosts,
+ * and this engine's `place` puts the junk cover there itself. A shelf is empty
+ * only when shopsanity replaced its vanilla stock (fill.cpp): with shopsanity off
+ * every shelf keeps its RG_BUY_* item and is never offered. A scrub is a location at all only under scrub
  * shuffle (Context::GenerateLocationPool): all 46 under "All", the three
  * upgrade scrubs under "One-Time Only", none when it is off (the default). A
  * merchant is always a location, but with merchant shuffle off (the default)
@@ -1164,9 +1163,9 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
     //    key count (EnTakaraMan_Init, behind VB_TAKARA_MAN_RESET_CHESTS_AND_KEYS,
     //    which ShuffleTreasureChestGame.cpp suppresses under the shuffle), never
     //    ITEMGETINF_1B, and once that flag is set EnChanger spawns the final
-    //    chest (0x4EAA) and the
-    //    display above it (0x0A0B) with params Randomizer::GetCheckObjectFromActor
-    //    resolves to no check, so a later play never gives the reward again;
+    //    chest (0x4EAA) and the display above it (0x0A0B) with params
+    //    Randomizer::GetCheckObjectFromActor resolves to no check, so a later
+    //    play never gives the reward again;
     //  - the ACTOR_ITEM_ETCETERA "prize" GetCheckObjectFromActor also resolves to
     //    the reward is the Lens of Truth display above the final chest, not a
     //    give path: ItemEtcetera_Init gives it func_80B85B28, which only kills it
