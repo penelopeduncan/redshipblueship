@@ -17,6 +17,18 @@
   each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
   or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
   nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
+- **Majora's Mask logic fixes from 2Ship2Harkinian** (issue #1398). These change where items can land, so the same
+  seed and settings make a different paired world than before:
+  - The Peahat's drop and its grotto chest are in logic only by day, since a Peahat cannot be fought at night.
+  - The Great Bay Coast fisherman's minigame and the tree on its platforms need the Hookshot after Great Bay Temple is
+    cleared. Ice Arrows no longer count, and the minigame is in logic from 7:00 to 4:00 on each of the three days.
+  - Water enemies (Shellblade, Desbreko, Skullfish) need Swim, and the Pirates' Fortress aquarium drops need the
+    Hookshot.
+  - Logic uses the Song of Soaring warp to Woodfall's owl statue.
+  - The Clock Town postbox is listed under East Clock Town, and a duplicate Bad Bat drop in the upper graveyard is
+    gone.
+- **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
+  does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
 
 ### Fixes
 
