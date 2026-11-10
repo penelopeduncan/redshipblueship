@@ -2671,6 +2671,29 @@ extern "C" int MM_ComboLogic_TestCriticalRenewables(void) {
 // (MM's bombchus and hearts are PROGRESSION), which is the decision combo_logic.h
 // ("MM'S BALANCE STEP AND THE BAG") left to this lane: the bag is composed from the
 // pre-balance pool, and only the leftovers are balanced, by this pass.
+namespace {
+/** #1483: the stderr words for a fill Combo_SingleBag_HomeShortGames names: which
+ *  game's own items outnumber its own empty checks, by how many. */
+std::string SingleBagHomeShortText(const ComboSingleBagReport& report) {
+    const uint32_t shortGames = Combo_SingleBag_HomeShortGames(&report);
+    std::string text;
+    if ((shortGames & RSBS_COMBO_HALF_OOT) != 0u) {
+        text += "Ocarina of Time must keep " + std::to_string(report.homeRequiredOoT) + " required item(s) (" +
+                std::to_string(report.triforcePiecesOoT) + " Triforce Pieces) on its " +
+                std::to_string(report.hostsOoT) + " empty check(s)";
+    }
+    if ((shortGames & RSBS_COMBO_HALF_MM) != 0u) {
+        if (!text.empty()) {
+            text += "; ";
+        }
+        text += "Majora's Mask must keep " + std::to_string(report.homeRequiredMM) + " required item(s) (" +
+                std::to_string(report.triforcePiecesMM) + " Triforce Pieces) on its " + std::to_string(report.hostsMM) +
+                " empty check(s)";
+    }
+    return text + ", so no seed can place them";
+}
+} // namespace
+
 void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool,
                                             int ladderAttempt) {
     // THE LADDER'S TEST RUNG (ForceShortForeignPlacements): a deterministic dead
@@ -2738,6 +2761,10 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
             why += " - no seed can finish the goal under these settings (Ocarina of Time half " +
                    std::to_string(report.fill.goalOoT) + ", Majora's Mask half " + std::to_string(report.fill.goalMM) +
                    " with every required item assumed)";
+        } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u) {
+            // #1483: one game's own items outnumber its own checks, whatever the
+            // other game has free.
+            why += " - " + SingleBagHomeShortText(report);
         } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE) {
             why += " - No Logic: both worlds together hold fewer free checks than the bag's required items (" +
                    std::to_string(report.fill.requiredPlaced) + " placed before they ran out)";
@@ -2745,8 +2772,14 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
         throw Rando::Foreign::PairedFillRefused(why + " (not a world dead end; no re-seed can fix it)");
     }
     if (status != RSBS_COMBO_LOGIC_OK) {
-        throw std::runtime_error(std::string("single-bag fill: ") + Combo_Logic_StatusName(status) + " after " +
-                                 std::to_string(report.fill.attempts) + " batch attempt(s)");
+        // #1483: still a rung (the status is unchanged), but the stderr reason
+        // says when no seed can fit one game's own items.
+        std::string why = std::string("single-bag fill: ") + Combo_Logic_StatusName(status) + " after " +
+                          std::to_string(report.fill.attempts) + " batch attempt(s)";
+        if (Combo_SingleBag_HomeShortGames(&report) != 0u) {
+            why += " - " + SingleBagHomeShortText(report);
+        }
+        throw std::runtime_error(why);
     }
 
     // --- MM's own pass over its leftover hosts --------------------------------

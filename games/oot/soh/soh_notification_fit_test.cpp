@@ -127,6 +127,9 @@ extern "C" void OoT_Creation_EmitShortfallToast(int placed, int requested);
 extern "C" void OoT_Creation_EmitGoalWarningToast(uint32_t unprovedHalves);
 // #1350: Generate's toast for OoT's No Logic generated Glitchless (ForeignItemsSingleExe.cpp).
 extern "C" void OoT_Creation_EmitLogicPinToast(void);
+// #1483: Generate's home-capacity refusal and the goal refusal (ForeignItemsSingleExe.cpp).
+extern "C" int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM);
+extern "C" void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT, int goalMM);
 // #865: the pickup toast for an MM item found at an OoT check (hook_handlers.cpp),
 // and the MM items that may cross (MM's classification and its id space).
 extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item);
@@ -691,6 +694,59 @@ extern "C" int OoT_NotificationFit_RunHeadless(const char* fontPath) {
             // #1350: Generate's note that OoT's No Logic was generated Glitchless.
             OoT_Creation_EmitLogicPinToast();
             failures += CheckOne(run, "OoT No Logic pin toast", scale, Class::OTHER);
+            // #1483: Generate's home-capacity refusal, every line, read back word
+            // for word (a branch that picks the wrong line, or a line that is not
+            // drawn, fails here), then under the width and copy contract. "Not
+            // created:" is the shorter prefix, so the file select's copy fits too.
+            struct HomeCapacityCase {
+                uint32_t shortGames;
+                unsigned piecesOoT;
+                unsigned piecesMM;
+                const char* line;
+            };
+            for (const HomeCapacityCase& c : {
+                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 100, 155, "too many pieces for Majora's Mask." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 100, 155, "too many pieces for Ocarina of Time." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM, 100, 155,
+                                       "too many pieces for either game." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 0, 0, "too few checks in Majora's Mask." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 0, 0, "too few checks in Ocarina of Time." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM, 30, 0,
+                                       "too few checks in either game." },
+                 }) {
+                if (OoT_Creation_EmitHomeCapacityToast(c.shortGames, c.piecesOoT, c.piecesMM) != 1) {
+                    failures += Fail("home-capacity toast (%s): the emitter raised nothing", c.line);
+                    continue;
+                }
+                ComboNotification shown;
+                memset(&shown, 0, sizeof(shown));
+                const std::string text = OoT_Notification_PeekLastForTest(&shown) == 1
+                                             ? std::string(shown.prefix != nullptr ? shown.prefix : "") + " " +
+                                                   (shown.message != nullptr ? shown.message : "")
+                                             : std::string();
+                if (text != std::string("Not generated: ") + c.line) {
+                    failures +=
+                        Fail("home-capacity toast: reads '%s', expected 'Not generated: %s'", text.c_str(), c.line);
+                }
+                failures += CheckOne(run, "home-capacity toast", scale, Class::OTHER);
+            }
+            if (OoT_Creation_EmitHomeCapacityToast(0u, 100, 155) != 0) {
+                OoT_Notification_ClearForTest();
+                failures +=
+                    Fail("home-capacity toast: raised with no short game; Generate would lose its generic line");
+            }
+            // #1483: the goal refusal under the hunt names the Triforce Goal row.
+            OoT_Creation_EmitGoalUnreachableToast(RSBS_COMBO_GOAL_TRIFORCE_HUNT, 0, 0);
+            {
+                ComboNotification shown;
+                memset(&shown, 0, sizeof(shown));
+                if (OoT_Notification_PeekLastForTest(&shown) != 1 || shown.message == nullptr ||
+                    strcmp(shown.message, "the Triforce Goal can never be met.") != 0) {
+                    failures += Fail("hunt goal-unreachable toast: reads '%s'",
+                                     shown.message != nullptr ? shown.message : "(nothing)");
+                }
+            }
+            failures += CheckOne(run, "hunt goal-unreachable toast", scale, Class::OTHER);
 
             MM_Rando_EmitPairingRefusalToast(RSBS_PAIRING_REFUSAL_MM_OPTIONS, nullptr);
             failures += CheckOne(run, "MM-options refusal", scale);

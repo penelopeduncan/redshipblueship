@@ -933,6 +933,10 @@ static std::string AllLocationsUnreachableLine(size_t prefixChars, int* outCount
  * goal. At most 38 characters, so it fits after either refusal prefix.
  */
 static const char* AllLocationsGoalLine(unsigned goal, int goalOoT, int goalMM) {
+    if (goal == RSBS_COMBO_GOAL_TRIFORCE_HUNT) {
+        // #1483: the hunt is won in either game, so no game is named; the row is.
+        return "the Triforce Goal can never be met.";
+    }
     const bool ootFailed = goalOoT == 0;
     const bool mmFailed = goalMM == 0;
     if (goal == RSBS_COMBO_GOAL_BEAT_OOT || (goal == RSBS_COMBO_GOAL_BEAT_BOTH && ootFailed && !mmFailed)) {
@@ -947,14 +951,39 @@ static const char* AllLocationsGoalLine(unsigned goal, int goalOoT, int goalMM) 
     return "no seed can finish the goal.";
 }
 
+/**
+ * #1483: the home-capacity line: a game whose own items (those that may not cross,
+ * the Triforce Pieces among them) outnumber its own empty checks
+ * (Combo_SingleBag_HomeShortGames), so no seed can fill it. "Too many pieces" when
+ * the short game holds Triforce Pieces (both games short: when both hold them),
+ * else "too few checks". At most 38 characters, so it fits after either refusal
+ * prefix; nullptr when @p shortGames names no game.
+ */
+static const char* HomeCapacityLine(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
+    switch (shortGames & (RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM)) {
+        case RSBS_COMBO_HALF_OOT:
+            return piecesOoT > 0 ? "too many pieces for Ocarina of Time." : "too few checks in Ocarina of Time.";
+        case RSBS_COMBO_HALF_MM:
+            return piecesMM > 0 ? "too many pieces for Majora's Mask." : "too few checks in Majora's Mask.";
+        case RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM:
+            return (piecesOoT > 0 && piecesMM > 0) ? "too many pieces for either game."
+                                                   : "too few checks in either game.";
+        default:
+            return nullptr;
+    }
+}
+
 /** The `reason` a file-select refusal passes (OoT_Creation_ReportFailureAtFileSelect)
  *  for the fill it has just run itself: that fill's All Locations refusal when that
- *  is why it failed, else 0 (the generic line). */
+ *  is why it failed, RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY when a game's own items
+ *  cannot fit its checks (#1483), else 0 (the generic line). */
 static int CreationFailureReasonFromOwnFill(void) {
-    const int status = Combo_SingleBag_LastReport()->status;
-    return (status == RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE || status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE)
-               ? status
-               : 0;
+    const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
+    const int status = last->status;
+    if (status == RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE || status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
+        return status;
+    }
+    return Combo_SingleBag_HomeShortGames(last) != 0u ? RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY : 0;
 }
 
 /**
@@ -999,6 +1028,32 @@ extern "C" void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT
         .message = AllLocationsGoalLine(goal, goalOoT, goalMM),
         .mute = true,
     });
+}
+
+/**
+ * THE HOME-CAPACITY REFUSAL (#1483): Generate's toast when the single bag failed and
+ * a game's own items outnumber its own empty checks (Combo_SingleBag_HomeShortGames),
+ * in place of "try a new seed or other options.", because no seed has more checks:
+ * fewer pieces, or other settings, do (OoTMM's capacity error says the same). The
+ * unreachable toast's shape (one line, the default colours, muted); the counts and
+ * the remedy are on the single bag's stderr line.
+ *
+ * @param shortGames RSBS_COMBO_HALF_* bits of the short games; 0 draws nothing.
+ * @param piecesOoT / @param piecesMM the frozen hunt's pieces in each game's pool
+ *        (ComboSingleBagReport.triforcePiecesOoT / MM), 0 outside a hunt.
+ * @return 1 when a toast was raised, 0 when @p shortGames names no game.
+ */
+extern "C" int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
+    const char* line = HomeCapacityLine(shortGames, piecesOoT, piecesMM);
+    if (line == nullptr) {
+        return 0;
+    }
+    Notification::Emit({
+        .prefix = "Not generated:",
+        .message = line,
+        .mute = true,
+    });
+    return 1;
 }
 
 // The completed world, between this completion and the package it is written into.
@@ -1723,14 +1778,17 @@ extern "C" void OoT_Creation_EmitShortfallToast(int placed, int requested) {
  * line names what no seed can reach instead, as Generate's toast does: the first
  * location ("Name is unreachable.", else the count) for
  * RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE, the game that can never be finished
- * for RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE. The reason is the CALLER's word, never
+ * for RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE, and (#1483) the game whose own items
+ * cannot fit its checks for RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY, whose counts are
+ * the last report's. The reason is the CALLER's word, never
  * read here from the process-wide last report, so the ui tier's page (reason 0)
  * draws the same line whatever row ran before it.
  *
  * @param slot   the slot whose creation failed.
  * @param reason 0 ("generation did not converge"), or the single bag's
  *               RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE /
- *               RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE for this creation's own fill.
+ *               RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE /
+ *               RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY for this creation's own fill.
  */
 extern "C" void OoT_Creation_ReportFailureAtFileSelect(int slot, int reason) {
     fprintf(stderr,
@@ -1749,6 +1807,13 @@ extern "C" void OoT_Creation_ReportFailureAtFileSelect(int slot, int reason) {
     } else if (reason == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
         const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
         message = AllLocationsGoalLine(last->goal, last->fill.goalOoT, last->fill.goalMM);
+    } else if (reason == RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY) {
+        const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
+        const char* line =
+            HomeCapacityLine(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT, last->triforcePiecesMM);
+        if (line != nullptr) {
+            message = line;
+        }
     }
     Notification::Emit({
         .prefix = "Not created:",
