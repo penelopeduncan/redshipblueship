@@ -3623,6 +3623,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1364: Shuffle Treasure Chest Game (SoH 6706b49d1) ships off and greyed out;
+    # two real generations fold none of the lines it added (the default world's
+    # fingerprint is the one it had before), a paired generation pins it off even
+    # when keyed on, and the shopkeeper's real wait action gives his item without
+    # queueing it a second time (SoH 4868b0712). Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
+    redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and

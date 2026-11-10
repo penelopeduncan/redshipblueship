@@ -8257,6 +8257,17 @@ TestResult Test_OoTEarlyGrannyShop(void) {
     }
     return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1364: Shuffle Treasure Chest Game (SoH 6706b49d1, 4868b0712): the options, the
+// settings fold over two real generations, the paired pin, and the shopkeeper's
+// real wait action. Same bring-up as the row above; body in
+// games/oot/soh/oot_chest_game_shuffle_test.cpp.
+extern "C" int OoT_ChestGameShuffleTest_Run(void);
+TestResult Test_OoTChestGameShuffle(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ChestGameShuffleTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -10181,6 +10192,12 @@ const TestDescriptor gTests[] = {
       "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
       "it (#1414)",
       Test_OoTEarlyGrannyShop },
+    // #1364. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-chest-game-shuffle",
+      "Shuffle Chest Minigame ships off and greyed out, a default world's settings fold reads none of the lines it "
+      "added, a paired generation pins it off even when keyed on, and the chest game's shopkeeper gives his item "
+      "without queueing it a second time (SoH 4868b0712) (#1364)",
+      Test_OoTChestGameShuffle },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10570,6 +10587,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
                 strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
+                strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

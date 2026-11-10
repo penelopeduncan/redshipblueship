@@ -73,6 +73,10 @@
   default, and a seed made with it off makes the same world as before.
 - **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
   instead of queueing behind it.
+- **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
+  Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
+  room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
+  generated with it off. The same seed and settings make the same world as before.
 
 ---
 
