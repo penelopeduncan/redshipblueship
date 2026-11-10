@@ -3114,6 +3114,8 @@ typedef enum {
     // default), so a world created before them keeps its seed and digest.
     RO_SHOP_PRICES,
     RO_TINGLE_PRICES,
+    // Appended for the same reason (#1406): 2Ship's Wonder Item shuffle
+    // (630536f68). The identity strings fold it only when it is on.
     RO_SHUFFLE_WONDER_ITEMS,
     RO_MAX,
 } RandoOptionId;

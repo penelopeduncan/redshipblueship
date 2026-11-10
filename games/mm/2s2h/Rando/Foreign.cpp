@@ -117,7 +117,7 @@ std::string PairedInputSeedString() {
  *  (#1427) are off at RO_PRICES_VANILLA, their default. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
-           randoOptionId == RO_TINGLE_PRICES;
+           randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_SHUFFLE_WONDER_ITEMS;
 }
 
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
