@@ -112,6 +112,96 @@ extern "C" int OoT_Rando_EarlyGrannyFolds(void) {
 }
 #endif
 
+// The settings fold: every Setting-category option of every non-subgroup option
+// group, as the text of its value, concatenated (Playthrough_Init hashes it into
+// the settings fingerprint and the fill's seed). [RSBS #1414] Lifted out of
+// Playthrough_Init unchanged, so the oot-early-granny-shop row can run the real
+// fold over a world it sets up (OoT_Rando_TestFoldLines below) instead of a copy
+// of its filter. In single-exe builds it also records what it folded (#702).
+static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx) {
+    std::string settingsStr;
+    auto& optionGroups = Rando::Settings::GetInstance()->GetOptionGroups();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    sRsbsFoldTotalLines = 0;
+    for (uint32_t& lines : sRsbsFoldExcludeLines) {
+        lines = 0;
+    }
+#endif
+    for (size_t i = 0; i < RSG_MAX; i++) {
+        auto& optionGroup = optionGroups[i];
+        // don't go through non-menus
+        if (optionGroup.GetContainsType() == Rando::OptionGroupType::SUBGROUP) {
+            continue;
+        }
+
+        for (Rando::Option* option : optionGroup.GetOptions()) {
+            if (option->IsCategory(Rando::OptionCategory::Setting)) {
+                if (option->GetOptionCount() > 0) {
+                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
+                        auto locationOption = static_cast<Rando::LocationOption*>(option);
+                        settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
+                    } else if (i == RSG_TRICKS) {
+                        auto trickOption = static_cast<Rando::TrickOption*>(option);
+                        if (trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
+                            ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
+                            continue;
+                        }
+                        settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
+                    } else {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                        // [RSBS #1434] Time Travel Requires Master Sword changes the world only
+                        // while it can stop Link (TimeTravelSword.cpp); otherwise a world keeps
+                        // the fingerprint it had before the option existed.
+                        if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD &&
+                            !OoT_TimeTravelSword_RuleCanBlock()) {
+                            continue;
+                        }
+                        // [RSBS #1414] Early Granny's Potion Shop, likewise, only while it
+                        // can open her shop (OoT_Rando_EarlyGrannyFolds above).
+                        if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && OoT_Rando_EarlyGrannyFolds() == 0) {
+                            continue;
+                        }
+#endif
+                        settingsStr += option->GetOptionText(ctx->GetOption(option->GetKey()).Get());
+                    }
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    sRsbsFoldTotalLines++;
+                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
+                        sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
+                    }
+#endif
+                }
+            }
+        }
+    }
+    return settingsStr;
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// [RSBS #1414] The number of option lines the real fold folds over the current
+// context and options, or -1 with no context. The record of the last
+// generation's fold (OoT_Rando_LastSettingsFold) is put back afterwards. Read only
+// by the oot-early-granny-shop row (games/oot/soh/oot_early_granny_shop_test.cpp).
+extern "C" int OoT_Rando_TestFoldLines(void) {
+    const auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    const uint32_t savedTotal = sRsbsFoldTotalLines;
+    uint32_t savedExclude[kRsbsFoldExcludeGroups];
+    for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
+        savedExclude[i] = sRsbsFoldExcludeLines[i];
+    }
+    FoldSettingsString(ctx);
+    const int lines = (int)sRsbsFoldTotalLines;
+    sRsbsFoldTotalLines = savedTotal;
+    for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
+        sRsbsFoldExcludeLines[i] = savedExclude[i];
+    }
+    return lines;
+}
+#endif
+
 namespace Playthrough {
 
 int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
@@ -332,61 +422,7 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     }
 #endif
     // once the settings have been finalized turn them into a string for hashing
-    std::string settingsStr;
-    auto& optionGroups = Rando::Settings::GetInstance()->GetOptionGroups();
-#ifdef RSBS_SINGLE_EXECUTABLE
-    sRsbsFoldTotalLines = 0;
-    for (uint32_t& lines : sRsbsFoldExcludeLines) {
-        lines = 0;
-    }
-#endif
-    for (size_t i = 0; i < RSG_MAX; i++) {
-        auto& optionGroup = optionGroups[i];
-        // don't go through non-menus
-        if (optionGroup.GetContainsType() == Rando::OptionGroupType::SUBGROUP) {
-            continue;
-        }
-
-        for (Rando::Option* option : optionGroup.GetOptions()) {
-            if (option->IsCategory(Rando::OptionCategory::Setting)) {
-                if (option->GetOptionCount() > 0) {
-                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
-                        auto locationOption = static_cast<Rando::LocationOption*>(option);
-                        settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
-                    } else if (i == RSG_TRICKS) {
-                        auto trickOption = static_cast<Rando::TrickOption*>(option);
-                        if (trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
-                            ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
-                            continue;
-                        }
-                        settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
-                    } else {
-#ifdef RSBS_SINGLE_EXECUTABLE
-                        // [RSBS #1434] Time Travel Requires Master Sword changes the world only
-                        // while it can stop Link (TimeTravelSword.cpp); otherwise a world keeps
-                        // the fingerprint it had before the option existed.
-                        if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD &&
-                            !OoT_TimeTravelSword_RuleCanBlock()) {
-                            continue;
-                        }
-                        // [RSBS #1414] Early Granny's Potion Shop, likewise, only while it
-                        // can open her shop (OoT_Rando_EarlyGrannyFolds above).
-                        if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && OoT_Rando_EarlyGrannyFolds() == 0) {
-                            continue;
-                        }
-#endif
-                        settingsStr += option->GetOptionText(ctx->GetOption(option->GetKey()).Get());
-                    }
-#ifdef RSBS_SINGLE_EXECUTABLE
-                    sRsbsFoldTotalLines++;
-                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
-                        sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
-                    }
-#endif
-                }
-            }
-        }
-    }
+    std::string settingsStr = FoldSettingsString(ctx);
 #ifdef RSBS_SINGLE_EXECUTABLE
     sRsbsFoldRuns++;
 #endif
