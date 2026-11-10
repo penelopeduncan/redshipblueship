@@ -1470,6 +1470,8 @@ bool IsAreaSpoiled(RandomizerCheckArea rcArea) {
 }
 
 // we don't care how many silvers for this check, only that all possible silver items are known
+// [RSBS #1363] SoH's Silver Rupee Tracker window reads this; this port keeps main's
+// item tracker (the #1328 layout editor) and has no silver section yet.
 bool AreAllSilversSpoiled() {
     return IsAreaSpoiled(RCAREA_DODONGOS_CAVERN) && IsAreaSpoiled(RCAREA_BOTTOM_OF_THE_WELL) &&
            IsAreaSpoiled(RCAREA_GANONS_CASTLE) && IsAreaSpoiled(RCAREA_SHADOW_TEMPLE) &&
@@ -1479,7 +1481,6 @@ bool AreAllSilversSpoiled() {
 void SetAreaSpoiled(RandomizerCheckArea rcArea) {
     areasSpoiled |= (1 << rcArea);
     SaveManager::Instance->SaveSection(gSaveContext.fileNum, sectionId, true);
-    RefreshItemTrackerMainWindow();
 }
 
 void CheckTrackerWindow::DrawElement() {
