@@ -3101,6 +3101,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1453: an MM logic edge carries only the half-days its own condition holds
+    # on, in CrawlReachableRegions (paired fills, both trackers) and
+    # FindReachableRegions (the solo glitchless fill): an IS_NIGHT2-only edge with
+    # every slice owned and no stay carries no day slice, a day-gated row behind
+    # it fails, and a time-free edge still carries the whole mask. A synthetic
+    # region map swapped in for the real one; games/mm/2s2h/mm_time_edges_test.cpp.
+    # Same bring-up as MMLogicGates.
+    redship_add_test(NAME MMTimeEdges COMMAND redship --test mm-time-edges
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #980: Ocarina of Time's masks in MM's real logic, each leg with a control
     # that opens the same edge the native way: the Skull Mask opens the Deku
     # Palace, the Gerudo Mask gets past the purple guard, and the Spooky Mask

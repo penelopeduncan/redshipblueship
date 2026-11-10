@@ -6,6 +6,10 @@
 
 ### Fixes
 
+- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
+  carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
+  leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
+  above all, make different worlds from the same seed.
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
