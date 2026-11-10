@@ -148,8 +148,17 @@ void Settings::HandleKeyringUI() {
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) ==
             RO_GF_CARPENTERS_NORMAL &&
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) != RO_GERUDO_KEYS_VANILLA;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1364: every world is generated with Shuffle Chest Minigame off
+    // (Playthrough_Init pins it), so FinalizeSettings never adds the Chest Minigame
+    // Keyring to its list. The menu follows the pin, not the stored CVar (which a
+    // preset or the config file can still set): a count slider one past that list
+    // would index past its end.
+    const bool chestGameKeyring = false;
+#else
     const bool chestGameKeyring =
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF) != RO_GENERIC_OFF;
+#endif
     const uint8_t maxKeyringCount = 8 + fortressKeyring + chestGameKeyring;
     if (mOptions[RSK_KEYRINGS_RANDOM_COUNT].GetOptionCount() != maxKeyringCount + 1) {
         mOptions[RSK_KEYRINGS_RANDOM_COUNT].ChangeOptions(NumOpts(0, maxKeyringCount));
@@ -165,7 +174,12 @@ void Settings::HandleKeyringUI() {
     if (chestGameKeyring) {
         mOptions[RSK_KEYRINGS_CHEST_GAME].Enable();
     } else {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because the cross-game randomizer does not support\n"
+                                                  "the Treasure Chest Game's keys yet.");
+#else
         mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because Shuffle Chest Minigame is off.");
+#endif
     }
 }
 
@@ -3382,9 +3396,18 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
             mOptions[RSK_KEYRINGS_CHEST_GAME].Set(RO_KEYRING_FOR_DUNGEON_OFF);
         }
         if (mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_RANDOM) || mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)) {
-            const uint32_t keyRingCount = mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)
-                                              ? mOptions[RSK_KEYRINGS_RANDOM_COUNT].Get()
-                                              : Random(0, static_cast<int>(keyrings.size()));
+            uint32_t keyRingCount = mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)
+                                        ? mOptions[RSK_KEYRINGS_RANDOM_COUNT].Get()
+                                        : Random(0, static_cast<int>(keyrings.size()));
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1364: the count comes from a slider whose length the menu sets
+            // (HandleKeyringUI), but a stored count, a preset or a headless
+            // generation can exceed this list, and the loop below would index past
+            // its end (inherited from SoH). Only such counts change here.
+            if (keyRingCount > keyrings.size()) {
+                keyRingCount = static_cast<uint32_t>(keyrings.size());
+            }
+#endif
             Shuffle(keyrings);
             for (size_t i = 0; i < keyRingCount; i++) {
                 keyrings[i]->Set(RO_KEYRING_FOR_DUNGEON_ON);

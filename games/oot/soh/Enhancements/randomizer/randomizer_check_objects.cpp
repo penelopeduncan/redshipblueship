@@ -114,9 +114,14 @@ RandomizerCheckArea RandomizerCheckObjects::GetRCAreaBySceneID(SceneID sceneId) 
 // options themselves read it, and the exclude list shows the locations they shuffle.
 static constexpr int kShuffleOcarinasDefault = RO_GENERIC_YES;
 static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_YES;
+// #1364: every world is generated with Shuffle Chest Minigame off (Playthrough_Init
+// pins it), so the Treasure Chest Game's checks are never locations and are not
+// offered for exclusion, whatever the stored CVar says.
+static constexpr bool kChestGameRowsShown = false;
 #else
 static constexpr int kShuffleOcarinasDefault = RO_GENERIC_NO;
 static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_NO;
+static constexpr bool kChestGameRowsShown = true;
 #endif
 
 void RandomizerCheckObjects::UpdateImGuiVisibility() {
@@ -183,7 +188,7 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
             (location.GetRCType() != RCTYPE_STATIC_HINT) &&  // don't show static hints
             (location.GetRCType() != RCTYPE_LINKS_POCKET) && // links pocket can be set to nothing if needed
             (location.GetRCType() != RCTYPE_CHEST_GAME ||
-             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF)) &&
+             (kChestGameRowsShown && CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF))) &&
             (location.GetRCType() != RCTYPE_SKULL_TOKEN ||
              (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleTokens"), RO_TOKENSANITY_OFF) == RO_TOKENSANITY_ALL) ||
              ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleTokens"), RO_TOKENSANITY_OFF) ==
