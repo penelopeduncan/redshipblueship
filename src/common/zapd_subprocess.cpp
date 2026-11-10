@@ -23,6 +23,12 @@ std::string ZapdSubprocess_Locate(const std::string& assetsPath, const char* var
     const std::string base = assetsPath + "/extractor/" + variant;
 #ifdef _WIN32
     const std::string candidates[] = { base + ".exe" };
+#elif defined(__APPLE__)
+    // The app bundle installs them beside redship in Contents/MacOS, where
+    // fixup_bundle's @executable_path/../MacOS library paths resolve
+    // (CMakeLists.txt, Darwin block); assetsPath is Contents/Resources/assets.
+    const std::string bundled = assetsPath + "/../../MacOS/" + variant;
+    const std::string candidates[] = { base + ".out", base, bundled + ".out", bundled };
 #else
     // ZAPDTR names the Linux/macOS executables "<variant>.out" (OUTPUT_NAME,
     // ZAPDTR/ZAPD/CMakeLists.txt); accept the bare name too in case a

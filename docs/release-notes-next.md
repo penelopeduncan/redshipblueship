@@ -11,6 +11,12 @@
   or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
   nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
 
+### Fixes
+
+- **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
+  install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
+  longer holds back a release's Windows and Linux downloads.
+
 ---
 
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
@@ -19,7 +25,7 @@
 bump, the release workflow's title and these notes), whose code is `main` at `a6d80794` and whose docs are that commit.
 The next release's draft starts above this section when something merges after the tag.
 **Version:** `v0.5.0-alpha`, codename "Ellen Alfa" (`src/common/rsbs_version.h`). Under [`VERSIONING.md`](VERSIONING.md) the number is a `y`
-bump: major cross-game randomizer feature parity with OoTMM (`[Both Games] Logic` All Locations default, OoTMM goal gates and shuffles, Way of the Hero and Hint Tracker across both games, Shared Swim, Paired Triforce Hunt, Cross-Game Masks, Song of Soaring in OoT, and the SoH 9.1.2–9.2.0 and 2Ship2Harkinian 3.0.0–4.0.1 backport waves) without a new `oot.otr` (the archive version, `project(Ship VERSION 9.1.1)`, is unchanged), so it takes a new film character ("Ellen") and resets the NATO phonetic code word to Alfa. A build's window title reads `RedShipBlueShip v0.5.0-alpha+<commit> (Ellen Alfa)`, and `redship --version` prints the same first line. Saves written by this version remain version 5; seeds come from generator 4.
+bump: major cross-game randomizer feature parity with OoTMM (`[Both Games] Logic` All Locations default, OoTMM goal gates and shuffles, Way of the Hero across both games, Ocarina of Time's Hint Tracker, Shared Swim, Paired Triforce Hunt, Cross-Game Masks, and the SoH 9.1.2–9.2.0 and 2Ship2Harkinian 3.0.0–4.0.1 backport waves) without a new `oot.otr` (the archive version, `project(Ship VERSION 9.1.1)`, is unchanged), so it takes a new film character ("Ellen") and resets the NATO phonetic code word to Alfa. A build's window title reads `RedShipBlueShip v0.5.0-alpha+<commit> (Ellen Alfa)`, and `redship --version` prints the same first line. Saves written by this version remain version 5; seeds come from generator 4.
 **Last release:** `v0.4.4-alpha` ("Deckard Echo"), tagged 2026-11-01 at `a3a146d2`. Its notes follow this section.
 **Merged up to:** `main` at `a6d80794` (2026-11-05) for the code, 60 commits after the tag: pull requests #1331 and #1353 to #1495.
 **Covers:** everything merged after `a3a146d2`. Numbers in parentheses are pull requests; issues are written "issue #N".
@@ -109,7 +115,7 @@ bump: major cross-game randomizer feature parity with OoTMM (`[Both Games] Logic
 - **[Both Games] Disable Crit Wiggle** (Enhancements > Quality of Life > Misc): SoH's row now also stops Majora's
   Mask's low-health camera wiggle. The low-health zoom stays in both games, as before.
 
-### Majora's Mask: Time Progression defaults to Ascending (issue #1437)
+### Majora's Mask: Time Progression defaults to Ascending (#1440, issue #1437)
 
 - **Shuffle Time's Time Progression now defaults to Ascending**, OoTMM's `progressiveClocks` default (Randomizer > MM
   Randomizer > Additional Items). You start with the First Day, and each Progressive Time unlocks the next half-day.
@@ -177,11 +183,11 @@ bump: major cross-game randomizer feature parity with OoTMM (`[Both Games] Logic
 
 ### Hint Tracker, Shared Swim, Paired Triforce Hunt, Cross-Game Masks & Songs
 
-- **Hint Tracker window across both games** (#1468, #1480; issues #1366, #1475). Backported SoH's Hint Tracker window (`Randomizer > Hint Tracker`) and extended it with Majora's Mask's hint sources (Gossip Stones, boss remains posters, Oath to Order, spider house rewards, and the Hookshot hint), a unified hint resolver for both textboxes and the tracker, persistent read-state records, and automatic Check Tracker "Seen" marking when a hint names a location.
+- **Hint Tracker window for Ocarina of Time** (#1468, #1480; issue #1366). Backported SoH's Hint Tracker window (`Randomizer > Hint Tracker`), with automatic Check Tracker "Seen" marking when a hint names a location. The window lists Ocarina of Time's hints only. #1480 adds Majora's Mask's hint sources (Gossip Stones, boss remains posters, Oath to Order, spider house rewards, and the Hookshot hint), one resolver for both textboxes and the tracker, and read records in the save, but nothing shows them yet: one window for both games is issue #1475.
 - **Shared Swim, Shuffle Swim and Shuffle Ocarina Buttons** (#1375, issue #1369). Added unified `[Both Games] Shared Swim` and paired `Shuffle Swim` / `Shuffle Ocarina Buttons` support, OoT ability tracker rows, and MM ocarina button glyphs across both games.
 - **Paired Triforce Hunt** (#1390, issue #1389). `[Both Games] Triforce Pieces` / `Triforce Goal` generates a unified Triforce Hunt across both Hyrule and Termina and can be won from either game upon collecting the required pieces.
 - **Blast Mask in Ocarina of Time and Gerudo, Skull and Spooky Masks in Majora's Mask** (#1391, #1450; issues #979, #980). Added `[Both Games] Blast Mask (OoT)`, `[Both Games] Shared Blast Mask`, and `Blast Mask Cooldown`, plus `Gerudo Mask (MM)`, `Skull Mask (MM)`, `Spooky Mask (MM)` and their shared mask rules on `Randomizer > Cross-Game` (all off by default).
-- **Song of Soaring in Ocarina of Time and MM Song Placement** (#1455, #1492; issues #1169, #1362). Added the Song of Soaring item and pool integration in OoT (gated behind the cross-game warp song rule, #1448, #1449) with OoTMM's "Not enough locations" capacity check, and backported 2Ship's MM Song Shuffle placement options (`Song Locations`, `Dungeon Rewards`, `Anywhere`).
+- **Groundwork: Song of Soaring in Ocarina of Time and MM Song Placement** (#1455, #1492; issues #1169, #1362). Neither can be used yet. The Song of Soaring item for Ocarina of Time, its pool and OoTMM's "Not enough locations" check sit behind a hidden cross-game warp song rule until the warp songs are finished (#1448, #1449; issue #1169). 2Ship's MM song placement (`Shuffle Songs`: Anywhere, Song Locations, Vanilla) and its key, boss key and stray fairy placement rows are listed in the menu as Not Yet Supported in Paired Worlds (issue #1502).
 
 ### Upstream SoH (9.1.2–9.2.0) and 2Ship2Harkinian (3.0.0–4.0.1) Backports & Engine Hardening
 
