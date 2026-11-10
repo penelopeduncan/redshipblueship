@@ -218,6 +218,11 @@ set(REDSHIP_COMMON_SOURCES
     # refusal when the restricted song pass has more songs than spots.
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
+    # #1169 XW6: OoT's Song of Soaring to a Termina owl, the game-neutral half:
+    # the note matcher, the gates, the chooser's answers, MM's owl table and the
+    # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
+    # reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.c
     # #1475 (lane H1): the combined Hint Tracker's view model, Majora's Mask pane:
     # MM's hint sources, the read record in the combo save record and the masked
     # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
@@ -331,6 +336,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
+    # Header for warp_song_soaring.c above (#1169 XW6)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
 )
 
 # ============================================================================
@@ -3472,6 +3479,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTSoaringTableBounds COMMAND redship --test oot-soaring-table-bounds)
     redship_add_test(NAME OoTSoaringRuleLogic COMMAND redship --test oot-soaring-rule-logic)
     redship_add_test(NAME OoTSoaringRulesOffUnchanged COMMAND redship --test oot-soaring-rules-off-unchanged)
+    # PLAYING IT (#1169 lane XW6): SoaringOwlTable: the ten owls are MM's own,
+    # MM_SlotMeta_Register registers the owl-flag layout, the mask is exactly MM's
+    # frozen half's. OoTSoaringGates: every restriction, an unplayable MM and no
+    # owls refuse with OCARINA_MODE_04, the chooser, and the branches' anchors.
+    # OoTSoaringMatcher: OoT's real free-play checker behind every gate, vanilla
+    # songs unchanged, Pierre's tie. All three ROM-free, generating nothing.
+    # src/common/tests/test_warp_song_soaring.c.
+    redship_add_test(NAME SoaringOwlTable COMMAND redship --test soaring-owl-table)
+    redship_add_test(NAME OoTSoaringGates COMMAND redship --test oot-soaring-gates)
+    redship_add_test(NAME OoTSoaringMatcher COMMAND redship --test oot-soaring-matcher)
     redship_add_test(NAME OoTSoaringPooledOnlyWhenRuleOn COMMAND redship --test oot-soaring-pooled-only-when-rule-on
         LABEL rando
         TIMEOUT 600

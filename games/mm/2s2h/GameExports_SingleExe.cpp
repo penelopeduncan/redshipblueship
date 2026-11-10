@@ -69,6 +69,7 @@
 #include "pairing_refusal_toast.h"
 #include "2s2h/BenGui/Notification.h"
 #include "entrance.h"
+#include "warp_song_soaring.h" // #1169 XW6: the owl table and the owl-flag layout
 #include <ship/resource/ResourceManager.h>
 #include <ship/resource/ResourceLoader.h>
 #include <ship/resource/archive/ArchiveManager.h>
@@ -6785,7 +6786,74 @@ static void MM_SlotMeta_DecodePlayerName(const uint8_t* blob, size_t blobSize, c
     RsbsSave_DecodeN64FilenameName(blob + offset, outName);
 }
 
+// #1169 XW6: OoT's Song of Soaring offers the owls active in this half and lands
+// on their entrances (src/common/warp_song_soaring.c). The table there is MM's own
+// sOwlWarpEntrances (ovl_En_Test7) in OwlWarpId order; pin it here, where
+// ENTRANCE() and OwlWarpId are in scope, so the two cannot drift.
+static_assert(OWL_WARP_CLOCK_TOWN == RSBS_SOARING_OWL_CLOCK_TOWN && OWL_WARP_STONE_TOWER + 1 == RSBS_SOARING_OWL_COUNT,
+              "warp_song_soaring.h's owl indices must be MM's OwlWarpId (#1169 XW6)");
+static_assert(ENTRANCE(GREAT_BAY_COAST, 11) == 0x68B0 && ENTRANCE(ZORA_CAPE, 6) == 0x6A60 &&
+                  ENTRANCE(SNOWHEAD, 3) == 0xB230 && ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8) == 0x9A80 &&
+                  ENTRANCE(SOUTH_CLOCK_TOWN, 9) == 0xD890 && ENTRANCE(MILK_ROAD, 4) == 0x3E40 &&
+                  ENTRANCE(WOODFALL, 4) == 0x8640 && ENTRANCE(SOUTHERN_SWAMP_POISONED, 10) == 0x84A0 &&
+                  ENTRANCE(IKANA_CANYON, 4) == 0x2040 && ENTRANCE(STONE_TOWER, 3) == 0xAA30,
+              "warp_song_soaring.c's owl entrances must be MM's sOwlWarpEntrances (#1169 XW6)");
+static_assert(sizeof(gSaveContext.save.saveInfo.playerData.owlActivationFlags) == sizeof(uint16_t) &&
+                  sizeof(gSaveContext.save.day) == sizeof(int32_t),
+              "the Soaring descriptor reads a u16 owl mask and an s32 day (#1169 XW6)");
+// z_play.c (C, without entrance.h) spells the kind MM_COMBO_SWITCH_KIND_SOARING 2.
+static_assert(COMBO_SWITCH_KIND_SOARING == 2, "z_play.c's MM_COMBO_SWITCH_KIND_SOARING must stay 2 (#1169 XW6)");
+
+/** MM's own owl table for the soaring-owl-table row: ENTRANCE() in MM's TU. */
+extern "C" uint16_t MM_SoaringTest_OwlEntrance(int owl) {
+    static const uint16_t kOwls[RSBS_SOARING_OWL_COUNT] = {
+        ENTRANCE(GREAT_BAY_COAST, 11), ENTRANCE(ZORA_CAPE, 6),
+        ENTRANCE(SNOWHEAD, 3),         ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8),
+        ENTRANCE(SOUTH_CLOCK_TOWN, 9), ENTRANCE(MILK_ROAD, 4),
+        ENTRANCE(WOODFALL, 4),         ENTRANCE(SOUTHERN_SWAMP_POISONED, 10),
+        ENTRANCE(IKANA_CANYON, 4),     ENTRANCE(STONE_TOWER, 3),
+    };
+    return (owl >= 0 && owl < RSBS_SOARING_OWL_COUNT) ? kOwls[owl] : (uint16_t)0;
+}
+
+/**
+ * For the soaring-owl-table row: freezes MM's own SaveContext as MM's half with
+ * @p owls, @p day and the "ZELDA3" marker (or none), the way a departure does
+ * (Context_FreezeState over the whole struct), then puts the three fields back.
+ */
+extern "C" void MM_SoaringTest_FreezeHalf(uint16_t owls, int32_t day, int marked) {
+    auto& playerData = gSaveContext.save.saveInfo.playerData;
+    const u16 prevOwls = playerData.owlActivationFlags;
+    const s32 prevDay = gSaveContext.save.day;
+    char prevNewf[6];
+    std::memcpy(prevNewf, playerData.newf, sizeof(prevNewf));
+    const char kMarker[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    if (marked != 0) {
+        std::memcpy(playerData.newf, kMarker, sizeof(kMarker));
+    } else {
+        std::memset(playerData.newf, 0, sizeof(playerData.newf));
+    }
+    playerData.owlActivationFlags = owls;
+    gSaveContext.save.day = day;
+    Context_FreezeState(GAME_MM, 0, &gSaveContext, sizeof(gSaveContext));
+    playerData.owlActivationFlags = prevOwls;
+    gSaveContext.save.day = prevDay;
+    std::memcpy(playerData.newf, prevNewf, sizeof(prevNewf));
+}
+
 extern "C" void MM_SlotMeta_Register(void) {
+    // #1169 XW6: the owl flags and the day the Song of Soaring reads from this
+    // half, registered here (not from main.cpp) so the --test rows, which call
+    // MM_SlotMeta_Register themselves, see the same layout production does.
+    ComboSoaringMMDesc soaring{};
+    soaring.owlFlagsOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.owlActivationFlags));
+    soaring.dayOffset = static_cast<uint32_t>(offsetof(SaveContext, save.day));
+    soaring.newfOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.newf));
+    soaring.newfLen = 6;
+    const char kSoaringNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    std::memcpy(soaring.newf, kSoaringNewf, sizeof(kSoaringNewf));
+    Combo_Soaring_RegisterMMDesc(&soaring);
+
     RsbsGameMetaDesc desc{};
     desc.playerNameOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.playerName));
     desc.playerNameLen = 8;

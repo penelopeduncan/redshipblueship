@@ -1202,6 +1202,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
+// frozen owl flags (soaring-owl-table), the gates and the chooser
+// (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
+// All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_warp_song_soaring.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -10099,6 +10104,22 @@ const TestDescriptor gTests[] = {
       "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
       "meets the song-spot refusal, and every id before it is main's (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
+    // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
+    // generate nothing.
+    { "soaring-owl-table",
+      "The Song of Soaring's ten owls are MM's own entrances and names, MM_SlotMeta_Register registers the owl-flag "
+      "layout, and the owl mask is exactly MM's frozen half's: none unfrozen, unmarked, on day 0 or for the hidden "
+      "owl (#1169)",
+      Test_SoaringOwlTable },
+    { "oot-soaring-gates",
+      "The Song of Soaring refuses any warp-song restriction, an unplayable MM and no owls with OCARINA_MODE_04, its "
+      "chooser cycles, only A soars, every exit hands control back, and the message branches act on these decisions "
+      "(#1169)",
+      Test_OoTSoaringGates },
+    { "oot-soaring-matcher",
+      "OoT's real free-play checker matches the Song of Soaring only for a child who owns it under the frozen rule in "
+      "a paired world, every vanilla song still answers itself, and Pierre's song wins a same-note tie (#1169)",
+      Test_OoTSoaringMatcher },
     { "oot-soaring-pooled-only-when-rule-on",
       "A real paired OoT generation pools no Song of Soaring (OoT) with the rule off, exactly one with it on through "
       "the test seam, and none with the shared song; its hint names it and its give sets only its flag (#1169)",
