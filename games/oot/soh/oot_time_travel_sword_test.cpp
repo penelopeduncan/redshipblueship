@@ -35,7 +35,10 @@
  *     holding an item.
  *       P8  child in reach, sword shuffled, no sword: RAND_INF_TOT_MASTER_SWORD is
  *           set, RC_TOT_MASTER_SWORD queued exactly once over three frames, and no
- *           pull offered.
+ *           pull offered (that last by #1434's rule, which refuses it either way).
+ *       P8b the same child with Time Travel Requires Master Sword off: given once,
+ *           and the pull, which the rule now allows, is withheld until the give
+ *           lands and offered after.
  *       P9  adult in reach: no give.
  *       P10 a save that pulled before this change (the pull's EventChkInf set, the
  *           check SAVED): no give.
@@ -78,7 +81,7 @@
  *
  * #1484 RED HALVES, derived, not run (this lane had no local build): on
  * origin/main L1 and L9 fail (the row is IsAdult), P8 fails (no give), P11 fails
- * (the location still names the pull's flag), P13 fails without the pull's hold,
+ * (the location still names the pull's flag), P8b and P13 fail without the pull's hold,
  * P12 fails without the unshuffled pull's flag, and C1 fails without the
  * creation's status put back once the flag resolves to the check.
  *
@@ -448,7 +451,31 @@ void CheckChildGive(Rando::Context& world) {
            given ? 1 : 0, queued, only ? " (the pedestal)" : "", offered);
     TTS_CHECK(given, "P8: the child in reach was not handed the pedestal's check (RAND_INF_TOT_MASTER_SWORD unset)");
     TTS_CHECK(queued == 1 && only, "P8: the pedestal's check was queued %d time(s), want exactly once", queued);
-    TTS_CHECK(offered == 0, "P8: the pull was offered to a child without the sword");
+    // #1434's rule (option on, no sword) refuses this pull with or without the
+    // hold; P8b and P13 measure the hold.
+    TTS_CHECK(offered == 0, "P8: the pull was offered to a child without the sword (#1434's rule)");
+
+    // P8b: the same child with Time Travel Requires Master Sword off (#1484 D2):
+    // the rule allows the pull, so only the hold withholds it until the give lands.
+    SetRule(world, false, true);
+    pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
+    ArmPedestal(QUEST_RANDOMIZER, false, false);
+    const int ruleOffFirst = PedestalFrame();  // not given yet: the give comes in this frame's update
+    const int ruleOffQueued = PedestalFrame(); // given, still in the queue
+    given = SaveHasRandInf(RAND_INF_TOT_MASTER_SWORD);
+    queued = TakeQueued(&only);
+    pedestal->SetCheckStatus(RCSHOW_COLLECTED); // the give landed
+    const int ruleOffLanded = PedestalFrame();
+    (void)TakeQueued(&only);
+    printf("[TEST] P8b: rule off, child without the sword: flag %d, %d queued; the pull offered %d before the give, %d "
+           "while it is queued, %d once it landed\n",
+           given ? 1 : 0, queued, ruleOffFirst, ruleOffQueued, ruleOffLanded);
+    TTS_CHECK(given && queued == 1 && only,
+              "P8b: with the rule off the child was not handed the pedestal's check once");
+    TTS_CHECK(ruleOffFirst == 0 && ruleOffQueued == 0,
+              "P8b: with the rule off the pull was offered before the pedestal's give landed");
+    TTS_CHECK(ruleOffLanded == 1, "P8b: with the rule off the pull stayed withheld after the pedestal's give landed");
+    SetRule(world, true, true);
 
     // P9: an adult in reach: the child check waits for a child.
     pedestal->SetCheckStatus(RCSHOW_UNCHECKED);
