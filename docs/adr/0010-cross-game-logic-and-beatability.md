@@ -1829,6 +1829,12 @@ and `Combo_ComboSettingsFrozen`):
   draws the MM model. The room's other chests (`RCTYPE_CHEST_GAME`) stay
   refused: they are never locations (upstream skips the type and forces "Shuffle
   Chest Minigame" off), and the room clears their flags on every play.
+  *Amended (#1364, SoH's Shuffle Treasure Chest Game):* "Shuffle Chest Minigame"
+  is now a real option, the room keeps its flags under it, and the shopkeeper's
+  paid item is a check (also `RCTYPE_CHEST_GAME`). The rows stay refused for two
+  other reasons: every paired world is generated with the option off (its keys
+  have no confinement, so the single bag could put them in Termina), so they are
+  never locations there; and their give paths are untraced for a crossing.
 - MM's engine grants the fixed contents of reached checks outside the host pool
   during expansion (#737), without which beat-both was unprovable on the
   shipped profile.

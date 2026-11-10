@@ -2121,8 +2121,12 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_BLAST_MASK)
 DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // [RSBS #1169 XW4] OoT owns the Song of Soaring (OoT) (OoTMM songSoaringOot).
 // Appended last, as the masks': 2063 flags fill 2063 of the 129 u16 words' 2064
-// bits, so the save layout is unchanged and ONE flag is left before a 130th word
-// (SongOfSoaringOoT.cpp static_asserts the word count).
+// bits, so the save layout is unchanged (SongOfSoaringOoT.cpp static_asserts the
+// word count).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
-// SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so no other flag moves.
+// [RSBS #1364] SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so
+// no other flag moves. It takes the LAST free bit: 2064 flags fill all 2064 bits of
+// the 129 u16 words. The next flag appended here needs a 130th word, which widens
+// ShipSaveContextData::randomizerInf: a save-layout change that needs a migration,
+// and the word-count static_assert in SongOfSoaringOoT.cpp fails until it has one.
 DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)

@@ -475,8 +475,8 @@ void OoT_EnBox_WaitOpen(EnBox* this, PlayState* play) {
             OoT_Player_IsFacingActor(&this->dyna.actor, 0x3000, play)) {
             OoT_Actor_OfferGetItemNearby(&this->dyna.actor, play, -(this->dyna.actor.params >> 5 & 0x7F));
         }
-        if (GameInteractor_Should(VB_CHEST_CONSIDER_CHEST_OPEN, OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F),
-                              this)) {
+        if (GameInteractor_Should(VB_CHEST_CONSIDER_CHEST_OPEN,
+                                  OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F), this)) {
             OoT_EnBox_SetupAction(this, OoT_EnBox_Open);
         }
     }

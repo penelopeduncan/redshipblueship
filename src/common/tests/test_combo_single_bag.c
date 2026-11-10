@@ -74,7 +74,8 @@
  *       plain shop shelf (#800 pass 1), every Business Scrub, every merchant and
  *       the treasure chest game's reward (#800 pass 2) accepted, the reward
  *       collected by an ItemGetInf flag the room never resets; the chest game's
- *       room chests (RCTYPE_CHEST_GAME), a shop-ish NAME that is neither a shelf,
+ *       other rows (RCTYPE_CHEST_GAME: the room chests and, since #1364, the
+ *       shopkeeper's paid item), a shop-ish NAME that is neither a shelf,
  *       a merchant nor the reward, and every other non-chest rejected; and
  *       some chests accepted. Leg A asks the same predicate the fill used, so it
  *       could not see the predicate itself loosen. Swept after leg A, asserted at

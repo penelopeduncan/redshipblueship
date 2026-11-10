@@ -1109,9 +1109,11 @@ void OoT_ComboLogic_EndQuery(void* self) {
  *    chest is (see the room's comment below); the Lens of Truth display above
  *    it draws the MM model (ItemEtcetera_DrawRandomizedItem, hook_handlers.cpp).
  *
- * The chest game's room chests (RCTYPE_CHEST_GAME) stay refused: they are never
- * locations (see the room's comment below). The fill-side half of the old predicate
- * ("the fill put junk here") is the old overlay pass's and does not apply: the
+ * The chest game's other rows (RCTYPE_CHEST_GAME: the ten room chests and the
+ * shopkeeper's paid item) stay refused: no paired world makes them locations, and
+ * their give paths are untraced for a crossing (see the room's comment below).
+ * The fill-side half of the old predicate ("the fill put junk here") is the old
+ * overlay pass's and does not apply: the
  * coordinator only ever offers EMPTY hosts, and this engine's `place` puts the
  * junk cover there itself. A shelf is empty only when shopsanity replaced its
  * vanilla stock (fill.cpp): with shopsanity off every shelf keeps its RG_BUY_*
@@ -1158,10 +1160,11 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
     // (z_en_changer.c) sets ITEMGETINF_1B, the reward's collection flag, which
     // the flag handler queues for the RC-queue drain's foreign branch. The two
     // reasons the room was refused do not reach it:
-    //  - the room's per-play reset clears its chests' scene flags
-    //    (EnTakaraMan_Init) and the RCTYPE_CHEST_GAME rows' RandomizerInf flags
-    //    and check status (RandomizerOnSceneInitHandler), never ITEMGETINF_1B; and
-    //    once that flag is set EnChanger spawns the final chest (0x4EAA) and the
+    //  - the room's per-play reset clears only its chests' scene flags and its
+    //    key count (EnTakaraMan_Init, behind VB_TAKARA_MAN_RESET_CHESTS_AND_KEYS,
+    //    which ShuffleTreasureChestGame.cpp suppresses under the shuffle), never
+    //    ITEMGETINF_1B, and once that flag is set EnChanger spawns the final
+    //    chest (0x4EAA) and the
     //    display above it (0x0A0B) with params Randomizer::GetCheckObjectFromActor
     //    resolves to no check, so a later play never gives the reward again;
     //  - the ACTOR_ITEM_ETCETERA "prize" GetCheckObjectFromActor also resolves to
@@ -1169,11 +1172,21 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
     //    give path: ItemEtcetera_Init gives it func_80B85B28, which only kills it
     //    once the chest is open, and under rando it draws the item the check
     //    holds, now the MM model (ItemEtcetera_DrawRandomizedItem).
-    // The room's other chests, the RCTYPE_CHEST_GAME rows, stay refused (above):
-    // they are never locations (Context::GenerateLocationPool skips the type, and
-    // Settings forces RSK_SHUFFLE_CHEST_MINIGAME off), and the room clears their
-    // flags and check status on every play, so a crossing there would be offered
-    // again. A row the room gains upstream is refused until someone traces it.
+    // The room's other rows, RCTYPE_CHEST_GAME (the ten room chests and, from SoH
+    // 6706b49d1, the shopkeeper's paid item), stay refused (above), for two reasons
+    // (#1364; the old one, a per-play reset of their flags, is gone: Shuffle Chest
+    // Minigame keeps them):
+    //  - no paired world makes them locations: Context::GenerateLocationPool skips
+    //    the type while RSK_SHUFFLE_CHEST_MINIGAME is off, and Playthrough_Init
+    //    generates the option off in every paired world until the paired generator
+    //    supports the room's keys;
+    //  - under the shuffle their give paths are untraced for a crossing: a room
+    //    chest sets a RandomizerInf flag instead of its treasure flag
+    //    (VB_CHEST_SET_TREASURE_FLAG, ShuffleTreasureChestGame.cpp), and the
+    //    shopkeeper row is an ACTOR_EN_TAKARA_MAN give (refused by the actor test
+    //    above as well).
+    // Refused, they hold only Ocarina of Time items whenever the pin is lifted. A
+    // row the room gains upstream is refused until someone traces it.
     if (loc->GetScene() == SCENE_TREASURE_BOX_SHOP && rc != RC_MARKET_TREASURE_CHEST_GAME_REWARD) {
         return 0;
     }
@@ -2159,7 +2172,9 @@ bool OoTFillClassIsRupee(RandomizerGet rg) {
  *   - treasure-game keys (ITEMTYPE_SMALLKEY, but not a dungeon's): NO confinement.
  *     RSK_SHUFFLE_CHEST_MINIGAME only decides whether they enter the pool
  *     (item_pool.cpp), the treasure box shop is not in the dungeon list, and no
- *     restricted pass names them, so when present the general pass places them;
+ *     restricted pass names them, so when present the general pass places them
+ *     (in a paired world the single bag, which is why Playthrough_Init generates
+ *     the option off there, #1364);
  *   - dungeon boss keys: RSK_BOSS_KEYSANITY, which fill.cpp applies to every boss
  *     key EXCEPT Ganon's;
  *   - Ganon's Castle boss key: RSK_GANONS_BOSS_KEY.
@@ -3196,10 +3211,12 @@ extern "C" void OoT_ComboLogic_TestSetWritingSingleBagSpoiler(int on) {
  *       chest-game room (SCENE_TREASURE_BOX_SHOP) that is an ACTOR_EN_BOX chest
  *       and not an RCTYPE_CHEST_GAME row must be ACCEPTED, and must be collected
  *       by an ItemGetInf flag, a save flag the room never resets (on every play
- *       it clears only its chests' scene flags and the RCTYPE_CHEST_GAME rows'
- *       RandomizerInf flags);
+ *       it clears only its chests' scene flags and its key count, and not even
+ *       those under Shuffle Chest Minigame);
  * and each of these must be REJECTED:
- *   [3] RCTYPE_CHEST_GAME rows,
+ *   [3] RCTYPE_CHEST_GAME rows (the room chests and the shopkeeper's paid item:
+ *       never locations in a paired world, #1364, and their give paths untraced
+ *       for a crossing),
  *   [4] every location whose NAME says shop, bazaar or chest game and whose
  *       actor is not ACTOR_EN_GIRLA and which is not a merchant of [2] or the
  *       reward of [7] (a shop-ish check that is not a shelf, told apart by
