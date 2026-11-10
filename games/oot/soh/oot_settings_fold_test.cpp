@@ -109,8 +109,7 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID]) {
     std::set<std::string> seen[RCAREA_INVALID];
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
         if (loc.GetRandomizerCheck() == RC_UNKNOWN_CHECK || loc.GetRandomizerCheck() == RC_TRIFORCE_COMPLETED ||
-            loc.GetRCType() == RCTYPE_CHEST_GAME || loc.GetRCType() == RCTYPE_STATIC_HINT ||
-            loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
+            loc.GetRCType() == RCTYPE_STATIC_HINT || loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
             continue;
         }
         const RandomizerCheckArea area = loc.GetArea();

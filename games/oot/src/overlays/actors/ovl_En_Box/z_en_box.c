@@ -149,7 +149,8 @@ void OoT_EnBox_Init(Actor* thisx, PlayState* play2) {
 
     if (play) {} // helps the compiler store play2 into s1
 
-    if (OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F)) {
+    if (GameInteractor_Should(VB_CHEST_CONSIDER_CHEST_OPEN, OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F),
+                              this)) {
         this->alpha = 255;
         this->iceSmokeTimer = 100;
         OoT_EnBox_SetupAction(this, OoT_EnBox_Open);
@@ -464,7 +465,9 @@ void OoT_EnBox_WaitOpen(EnBox* this, PlayState* play) {
             }
         }
         osSyncPrintf("Actor_Environment_Tbox_On() %d\n", this->dyna.actor.params & 0x1F);
-        OoT_Flags_SetTreasure(play, this->dyna.actor.params & 0x1F);
+        if (GameInteractor_Should(VB_CHEST_SET_TREASURE_FLAG, true, this)) {
+            OoT_Flags_SetTreasure(play, this->dyna.actor.params & 0x1F);
+        }
     } else {
         player = GET_PLAYER(play);
         OoT_Actor_WorldToActorCoords(&this->dyna.actor, &sp4C, &player->actor.world.pos);
@@ -472,7 +475,8 @@ void OoT_EnBox_WaitOpen(EnBox* this, PlayState* play) {
             OoT_Player_IsFacingActor(&this->dyna.actor, 0x3000, play)) {
             OoT_Actor_OfferGetItemNearby(&this->dyna.actor, play, -(this->dyna.actor.params >> 5 & 0x7F));
         }
-        if (OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F)) {
+        if (GameInteractor_Should(VB_CHEST_CONSIDER_CHEST_OPEN, OoT_Flags_GetTreasure(play, this->dyna.actor.params & 0x1F),
+                              this)) {
             OoT_EnBox_SetupAction(this, OoT_EnBox_Open);
         }
     }
@@ -599,9 +603,10 @@ void EnBox_UpdateTexture(EnBox* this, PlayState* play) {
     GetItemCategory getItemCategory;
     GetItemEntry chestItem = this->getItemEntry;
 
+    // Exclude treasure game chests except for the final room, unless the chest game is shuffled
     int isVanilla = !csmc || (requiresStoneAgony && !CHECK_QUEST_ITEM(QUEST_STONE_OF_AGONY)) ||
-                    (play->sceneNum == SCENE_TREASURE_BOX_SHOP &&
-                     this->dyna.actor.room != 6); // Exclude treasure game chests except for the final room
+                    (play->sceneNum == SCENE_TREASURE_BOX_SHOP && this->dyna.actor.room != 6 &&
+                     !Randomizer_GetSettingValue(RSK_SHUFFLE_CHEST_MINIGAME));
 
     if (!isVanilla) {
         getItemCategory = chestItem.getItemCategory;

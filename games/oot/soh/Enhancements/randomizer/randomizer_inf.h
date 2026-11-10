@@ -2124,3 +2124,5 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // bits, so the save layout is unchanged and ONE flag is left before a 130th word
 // (SongOfSoaringOoT.cpp static_asserts the word count).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
+// SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so no other flag moves.
+DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)

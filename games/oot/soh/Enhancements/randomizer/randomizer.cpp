@@ -3024,7 +3024,7 @@ Rando::Location* Randomizer::GetCheckObjectFromActor(s16 actorId, s16 sceneNum, 
                 specialRc = RC_MARKET_TREASURE_CHEST_GAME_REWARD;
             }
 
-            // todo: handle the itemetc part of this so drawing works when we implement shuffle
+            // the low bits of a game chest's params are its treasure flag, odd for the key chest
             if (actorId == ACTOR_EN_BOX) {
                 bool isAKey = (actorParams & 0x60) == 0x20;
                 if ((actorParams & 0xF) < 2) {

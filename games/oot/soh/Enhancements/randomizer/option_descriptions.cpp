@@ -61,7 +61,7 @@ void Settings::CreateOptionDescriptions() {
         "Free - The bridge is repaired from the start, and Nabooru cannot spawn.\n"
         "If the Gerudo Membership Card isn't shuffled, you start with it.\n"
         "\n"
-        "Only \"Normal\" is compatible with Gerudo Fortress Key Rings.";
+        "Only \"Normal\" is compatible with Gerudo Fortress Keyrings.";
     mOptionDescriptions[RSK_RAINBOW_BRIDGE] =
         "Alters the requirements to open the bridge to Ganon's Castle.\n"
         "\n"
@@ -502,6 +502,13 @@ void Settings::CreateOptionDescriptions() {
         "D-pad.\n"
         "\n"
         "If disabled, only the Claim Check will be found in the pool.";
+    mOptionDescriptions[RSK_SHUFFLE_CHEST_MINIGAME] =
+        "Shuffles the contents of the Market Treasure Chest Game, including the item you pay "
+        "the host for. Both chests in every room can be opened, and the locked doors are opened "
+        "with keys found elsewhere instead of keys won in the game.\n"
+        "\n"
+        "Six Chest Game Small Keys are added to the pool, or a single keyring holding all six "
+        "if the Chest Minigame Keyring is selected under Keyrings.";
     mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD] =
         "Shuffle the item the cursed rich man in the House of Skulltula gives when you "
         "have collected all 100 Gold Skulltula Tokens.\n"
@@ -582,18 +589,18 @@ void Settings::CreateOptionDescriptions() {
         "\n"
         "Off - No dungeons will have their keys replaced with keyrings.\n"
         "\n"
-        "Random - A random amount of dungeons (0-8 or 9) will have their keys replaced with keyrings.\n"
+        "Random - A random amount of dungeons will have their keys replaced with keyrings.\n"
         "\n"
         "Count - A specified amount of randomly selected dungeons will have their keys replaced with keyrings.\n"
         "\n"
         "Selection - Hand select which dungeons will have their keys replaced with keyrings\n"
         "(can also be left as random, in which case each one will have a 50% chance of being a keyring).\n"
         "\n"
-        "Selecting key ring for dungeons will have no effect if Small Keys are set to Start With or Vanilla.\n"
+        "Selecting keyring for dungeons will have no effect if Small Keys are set to Start With or Vanilla.\n"
         "\n"
-        "If Gerudo Fortress Carpenters is set to Normal, and Gerudo Fortress Keys is set to anything "
-        "other than Vanilla, then the maximum amount of Key Rings that can be selected by Random or "
-        "Count will be 9. Otherwise, the maximum amount of Key Rings will be 8.";
+        "The maximum amount of Keyrings that can be selected by Random or Count is 8, plus one if "
+        "Gerudo Fortress Carpenters is set to Normal and Gerudo Fortress Keys is set to anything "
+        "other than Vanilla, plus one if Shuffle Chest Minigame is on.";
     mOptionDescriptions[RSK_GERUDO_KEYS] = "Vanilla - Thieves' Hideout Keys will appear in their vanilla locations.\n"
                                            "\n"
                                            "Any dungeon - Thieves' Hideout Keys can only appear inside of any dungon.\n"
