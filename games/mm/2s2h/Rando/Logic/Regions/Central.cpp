@@ -154,6 +154,16 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_CLOCK_TOWN_NORTH] = RandoRegion{ .sceneId = SCENE_BACKTOWN,
         .checks = {
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_01, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_02, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_03, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_04, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_05, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_06, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_07, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_08, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_09, true),
+            CHECK(RC_CLOCK_TOWN_NORTH_KEATON_GRASS_WONDER_ITEM, CAN_FULLY_CUT_KEATON_GRASS),
             // #578 part 3 — MMRT_NCT_TINGLE ("Jump off the tree and jump slash Tingle's balloon. Sticks
             // will not work."), DEFAULT OFF, on North Clock Town's two Tingle maps only — the key is
             // NCT-specific and the Ikana / Milk Road / Twin Islands Tingles keep their projectile term.
