@@ -120,6 +120,7 @@
 #include "combo_mm_options_view.h" // Combo_MMOptionAt: the labels the load's MM toast names (#881)
 #include "combo_mm_tricks_view.h"
 #include "combo_settings_view.h" // Combo_ComboSettingLabel: the labels the load's rules toast names
+#include "combo_single_bag.h"    // #1483: the last report the file select's home-capacity toast reads
 #include "foreign_items.h"       // Combo_ComboSettingsDivergenceDescribe / FieldName, RSBS_COMBO_DIVERGE_*
 #include "notification_bridge.h"
 #include "pairing_refusal_toast.h"
@@ -134,6 +135,9 @@ extern "C" void OoT_Creation_EmitShortfallToast(int placed, int requested);
 extern "C" void OoT_Creation_EmitGoalWarningToast(uint32_t unprovedHalves);
 // #1350: Generate's toast for OoT's No Logic generated Glitchless (ForeignItemsSingleExe.cpp).
 extern "C" void OoT_Creation_EmitLogicPinToast(void);
+// #1483: Generate's home-capacity refusal and the goal refusal (ForeignItemsSingleExe.cpp).
+extern "C" int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM);
+extern "C" void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT, int goalMM);
 // #865: the pickup toast for an MM item found at an OoT check (hook_handlers.cpp),
 // and the MM items that may cross (MM's classification and its id space).
 extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item);
@@ -800,6 +804,84 @@ extern "C" int OoT_NotificationFit_RunHeadless(const char* fontPath) {
             // #1350: Generate's note that OoT's No Logic was generated Glitchless.
             OoT_Creation_EmitLogicPinToast();
             failures += CheckOne(run, "OoT No Logic pin toast", scale, Class::OTHER);
+            // #1483: Generate's home-capacity refusal, every line, read back word
+            // for word (a branch that picks the wrong line, or a line that is not
+            // drawn, fails here), then under the width and copy contract; and the
+            // file select's "Not created:" copy of each, drawn the same way.
+            struct HomeCapacityCase {
+                uint32_t shortGames;
+                unsigned piecesOoT;
+                unsigned piecesMM;
+                const char* line;
+            };
+            for (const HomeCapacityCase& c : {
+                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 100, 155, "too many Majora's Mask pieces." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 100, 155, "too many Ocarina of Time pieces." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM, 100, 155,
+                                       "too many pieces for either game." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_MM, 0, 0, "too few checks in Majora's Mask." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT, 0, 0, "too few checks in Ocarina of Time." },
+                     HomeCapacityCase{ RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM, 30, 0,
+                                       "too few checks in either game." },
+                 }) {
+                if (OoT_Creation_EmitHomeCapacityToast(c.shortGames, c.piecesOoT, c.piecesMM) != 1) {
+                    failures += Fail("home-capacity toast (%s): the emitter raised nothing", c.line);
+                    continue;
+                }
+                ComboNotification shown;
+                memset(&shown, 0, sizeof(shown));
+                const std::string text = OoT_Notification_PeekLastForTest(&shown) == 1
+                                             ? std::string(shown.prefix != nullptr ? shown.prefix : "") + " " +
+                                                   (shown.message != nullptr ? shown.message : "")
+                                             : std::string();
+                if (text != std::string("Not generated: ") + c.line) {
+                    failures +=
+                        Fail("home-capacity toast: reads '%s', expected 'Not generated: %s'", text.c_str(), c.line);
+                }
+                failures += CheckOne(run, "home-capacity toast", scale, Class::OTHER);
+                // The file select's copy ("Not created:"), whose words come from
+                // the last report: one that names exactly c.shortGames (10 rows on
+                // 9 checks in each short game, 1 on 9 in the other) and the pieces.
+                ComboSingleBagReport last;
+                memset(&last, 0, sizeof(last));
+                last.status = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
+                last.hostsOoT = 9;
+                last.hostsMM = 9;
+                last.homeRequiredOoT = (c.shortGames & RSBS_COMBO_HALF_OOT) != 0u ? 10 : 1;
+                last.homeRequiredMM = (c.shortGames & RSBS_COMBO_HALF_MM) != 0u ? 10 : 1;
+                last.triforcePiecesOoT = (uint16_t)c.piecesOoT;
+                last.triforcePiecesMM = (uint16_t)c.piecesMM;
+                Combo_SingleBag_TestSetLastReport(&last);
+                OoT_Creation_ReportFailureAtFileSelect(0, RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY);
+                Combo_SingleBag_TestSetLastReport(nullptr);
+                memset(&shown, 0, sizeof(shown));
+                const std::string created = OoT_Notification_PeekLastForTest(&shown) == 1
+                                                ? std::string(shown.prefix != nullptr ? shown.prefix : "") + " " +
+                                                      (shown.message != nullptr ? shown.message : "")
+                                                : std::string();
+                if (created != std::string("Not created: ") + c.line) {
+                    failures += Fail("file-select home-capacity toast: reads '%s', expected 'Not created: %s'",
+                                     created.c_str(), c.line);
+                }
+                failures += CheckOne(run, "file-select home-capacity toast", scale, Class::OTHER);
+            }
+            if (OoT_Creation_EmitHomeCapacityToast(0u, 100, 155) != 0) {
+                OoT_Notification_ClearForTest();
+                failures +=
+                    Fail("home-capacity toast: raised with no short game; Generate would lose its generic line");
+            }
+            // #1483: the goal refusal under the hunt names the Triforce Goal row.
+            OoT_Creation_EmitGoalUnreachableToast(RSBS_COMBO_GOAL_TRIFORCE_HUNT, 0, 0);
+            {
+                ComboNotification shown;
+                memset(&shown, 0, sizeof(shown));
+                if (OoT_Notification_PeekLastForTest(&shown) != 1 || shown.message == nullptr ||
+                    strcmp(shown.message, "the Triforce Goal can never be met.") != 0) {
+                    failures += Fail("hunt goal-unreachable toast: reads '%s'",
+                                     shown.message != nullptr ? shown.message : "(nothing)");
+                }
+            }
+            failures += CheckOne(run, "hunt goal-unreachable toast", scale, Class::OTHER);
 
             MM_Rando_EmitPairingRefusalToast(RSBS_PAIRING_REFUSAL_MM_OPTIONS, nullptr);
             failures += CheckOne(run, "MM-options refusal", scale);

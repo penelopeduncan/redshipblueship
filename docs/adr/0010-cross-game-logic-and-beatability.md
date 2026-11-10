@@ -2780,6 +2780,16 @@ golden re-pinned; seed packages written by generator 3 are refused, as designed)
   ever be finished.", or "no seed can finish the goal."). The file-select fallback
   (`OoT_Creation_ReportFailureAtFileSelect`) takes the refusal as its `reason` and
   names the unreachable location or game instead of "try a new seed".
+  Under the Triforce Hunt the goal line reads "the Triforce Goal can never be met."
+  (#1483).
+- **Home capacity (#1483), words only.** When a fill fails and a game's REQUIRED
+  HOME_ONLY rows outnumber that game's empty hosts (counted after the roll-back,
+  `Combo_SingleBag_HomeShortGames`), no seed can place them, so Generate's toast
+  reads "Not generated: too many <game> pieces." when that game holds Triforce
+  Pieces, else "too few checks in <game>." ("either game" when both are short),
+  and the file-select fallback takes `RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY` as its
+  `reason`. The status, the ladder and every placement are unchanged: the
+  creation still fails where it failed before, only with the right words.
 - **Goldens.** Every golden re-pinned for generator 4; `seed-digest-beatable-only`
   and `seed-digest-no-logic` pin the other two rungs; the unread
   `seed-digest-mm-nearly-no-logic.txt` is deleted.
