@@ -3593,6 +3593,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1414: Early Granny's Potion Shop (Shipwright#6693): with Shuffle Adult Trade
+    # off and no Claim Check, Granny's real offer (VB_OFFER_BLUE_POTION) and sale
+    # gate both open; off, or under Shuffle Adult Trade, they answer as before and
+    # the settings fold skips the option, so default worlds keep their fingerprint.
+    # games/oot/soh/oot_early_granny_shop_test.cpp.
+    redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and
