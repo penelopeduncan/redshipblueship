@@ -8,7 +8,7 @@ RedShipBlueShip combines Ocarina of Time (Ship of Harkinian) and Majora's Mask (
 - **Linux (x86_64):** `redshipblueship-{{TAG}}-linux.AppImage`
 - **macOS (Universal, macOS 15+):** `redshipblueship-{{TAG}}-macos.dmg`
 
-All builds bundle `soh.o2r`, `2ship.o2r`, and the asset extraction tools (`assets/extractor/`, `assets/xml/`). You need your own original Ocarina of Time and Majora's Mask ROMs: on first launch the game asks for them and extracts the remaining assets.
+All builds bundle `soh.o2r`, `2ship.o2r`, and the asset extraction tools: the `ZAPD_OoT` and `ZAPD_MM` extractors and `assets/xml/` (on Windows and Linux the extractors are in `assets/extractor/`; in the macOS app they are in `Contents/MacOS/`, beside the game). The macOS dmg is attached by its own job once the macOS build succeeds, so it can appear after the other downloads. You need your own original Ocarina of Time and Majora's Mask ROMs: on first launch the game asks for them and extracts the remaining assets.
 
 ## Running
 
