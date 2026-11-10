@@ -170,6 +170,15 @@ uint64_t NarrowEdgeTime(uint64_t sourceTime, const std::function<bool()>& condit
 
 void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& reachableRegions,
                           std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates);
+
+// #1509: the solo glitchless fill's step after it places a time item. Resets
+// `regionsInLogic` to { RR_MAX } and `regionTimeStates` to RR_MAX alone at the
+// now-owned slices (GetOwnedTimeSlices(), no stay), so the fill's next
+// FindReachableRegions sweep rebuilds every other region from the seed through
+// the narrowed edges (#1453) instead of keeping a mask widened in place.
+// Must not be called while either container is being iterated.
+void ResetRegionTimeStatesForTimeGain(std::set<RandoRegionId>& regionsInLogic,
+                                      std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates);
 RandoRegionId GetRegionIdFromEntrance(s32 entrance);
 
 /**
