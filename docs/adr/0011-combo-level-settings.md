@@ -2295,6 +2295,19 @@ Cooldown.
   family of OoT's own mask (`RG_GERUDO_MASK` ...) and MM's copy. Greyed with
   their extension's reason and shown off while it is off, and dropped by the
   resolver then.
+- **The shared slot's labels** (2026-11-09, #1500). OoTMM binds a C button to
+  the variant itself: each OoT mask has its own MM item id, so slot, icon, name
+  and button all carry it. This build keeps the slot's own `ItemId`
+  (`ITEM_MASK_STONE`, `ITEM_MASK_GIBDO`) on the button, in the tables and in the
+  save, and resolves every label at draw and use time through
+  `MM_ForeignMask_ItemShows` (the slot's live variant, the mask its C button
+  wears): the C-button and D-pad icons, the equip-flight icon, the pause name
+  (OoT's own name texture, curated in redship-mm.o2r) and the A-press
+  description of a cell lent one OoT mask (opened at
+  `VB_KALEIDO_DISPLAY_ITEM_TEXT`, because the pause opens descriptions through
+  `func_801514B0`, which dispatches no `OnOpenText`). No item id, button table or save byte was added; the cost is
+  that a label is never stored, so it follows the slot's variant rather than
+  the moment the button was set.
 
 Capacity spent: six `ComboSettingId`s (appended after #1169 XW2's fourteen
 warp-song ids, so no id moves), six identity keys (manifest 61 to 67, identity 41

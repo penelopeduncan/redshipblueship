@@ -16,11 +16,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <memory>
 
 extern "C" {
 #include "z64save.h"
+#include "overlays/kaleido_scope/ovl_kaleido_scope/z_kaleido_scope.h" // PAUSE_ITEM_NONE (#1500)
 extern SaveContext gSaveContext;
 }
 #include "Rando/ForeignMaskMM.h"
@@ -43,7 +45,57 @@ Player* TestPlayer() {
     }
     return sPlayer.get();
 }
+
+// #1500: a zeroed heap PlayState for the A-press body, and what it opened.
+PlayState* sPausePlay = nullptr;
+int sOpenCalls = 0;
+uint16_t sOpenTextId = 0;
+uint8_t sOpenBoxPos = 0;
+const char* sOpenText = nullptr;
+
+void CaptureDescription(PlayState* play, uint16_t textId, uint8_t boxPos, const char* text) {
+    (void)play;
+    sOpenCalls++;
+    sOpenTextId = textId;
+    sOpenBoxPos = boxPos;
+    sOpenText = text;
+}
 } // namespace
+
+/**
+ * #1500: A on mask-page item `item` with the cursor on row `yIndex`, through MM's
+ * REAL MM_ForeignMask_OnPressA (the VB_KALEIDO_DISPLAY_ITEM_TEXT hook's body) on a
+ * zeroed pause on the mask page. Returns what it did; `opened` the opener's call
+ * count, and the text id, box position and text it was given; `descriptionOn` the
+ * pause's itemDescriptionOn; `nameReloads` 1 when the name panel will reload (the
+ * named item, set to `item` before, no longer matches and is not PAUSE_ITEM_NONE).
+ */
+extern "C" int MM_ForeignMaskTest_PressA(int item, int yIndex, int vanillaShows, int* opened, unsigned* textId,
+                                         unsigned* boxPos, const char** text, int* descriptionOn, int* nameReloads) {
+    if (sPausePlay == nullptr) {
+        sPausePlay = static_cast<PlayState*>(std::calloc(1, sizeof(PlayState)));
+    }
+    std::memset(sPausePlay, 0, sizeof(PlayState));
+    sPausePlay->pauseCtx.pageIndex = PAUSE_MASK;
+    sPausePlay->pauseCtx.cursorYIndex[PAUSE_MASK] = (s16)yIndex;
+    sPausePlay->pauseCtx.cursorItem[PAUSE_MASK] = (u16)item;
+    sPausePlay->pauseCtx.namedItem = (u16)item;
+    sOpenCalls = 0;
+    sOpenTextId = 0;
+    sOpenBoxPos = 0;
+    sOpenText = nullptr;
+    MM_ForeignMask_SetDescriptionOpener(CaptureDescription);
+    const int pressed = MM_ForeignMask_OnPressA(sPausePlay, item, vanillaShows);
+    MM_ForeignMask_SetDescriptionOpener(nullptr);
+    *opened = sOpenCalls;
+    *textId = sOpenTextId;
+    *boxPos = sOpenBoxPos;
+    *text = sOpenText;
+    *descriptionOn = sPausePlay->pauseCtx.itemDescriptionOn ? 1 : 0;
+    *nameReloads =
+        (sPausePlay->pauseCtx.namedItem != (u16)item && sPausePlay->pauseCtx.namedItem != PAUSE_ITEM_NONE) ? 1 : 0;
+    return pressed;
+}
 
 /** MM's live save as a cross-game MM session runs it, human, all else zero. */
 extern "C" void MM_ForeignMaskTest_ArmLive(void) {

@@ -9,6 +9,9 @@
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
+- **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
+  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
+  show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
 
 ---
 
