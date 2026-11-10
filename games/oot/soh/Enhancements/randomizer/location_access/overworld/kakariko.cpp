@@ -273,6 +273,7 @@ void RegionTable_Init_Kakariko() {
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_2,                logic->CanCutShrubs()),
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_3,                logic->CanCutShrubs()),
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_4,                logic->CanCutShrubs()),
+        LOCATION(RC_KAK_OPEN_GROTTO_BUTTERFLY_FAIRY,        logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_KAK_BACKYARD, []{return true;}),

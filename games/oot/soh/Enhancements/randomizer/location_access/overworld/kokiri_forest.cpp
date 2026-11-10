@@ -234,6 +234,7 @@ void RegionTable_Init_KokiriForest() {
         LOCATION(RC_KF_STORMS_GROTTO_GRASS_2,                logic->CanCutShrubs()),
         LOCATION(RC_KF_STORMS_GROTTO_GRASS_3,                logic->CanCutShrubs()),
         LOCATION(RC_KF_STORMS_GROTTO_GRASS_4,                logic->CanCutShrubs()),
+        LOCATION(RC_KF_STORMS_GROTTO_BUTTERFLY_FAIRY,        logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_KF_OUTSIDE_LOST_WOODS, []{return true;})
