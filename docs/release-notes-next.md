@@ -30,6 +30,11 @@
 - **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
   Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
   show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+- **The "Restored from file:" toast keeps Cross-Game Rule names whole** (issue #1479). After loading a save in a small
+  window the toast no longer cuts a rule's name to "...", and its "+N" counts every restored rule, even on a long
+  restore.
+- **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
+  "Hide In-Game Timer Background", which did not fit at the smallest window size.
 
 ### Trackers
 
