@@ -207,8 +207,10 @@ void SetupGuiElements() {
     mEntranceTrackerSettingsWindow = std::make_shared<EntranceTracker::EntranceTrackerSettingsWindow>(
         CVAR_WINDOW("EntranceTrackerSettings"), "Entrance Tracker Settings", ImVec2(600, 375));
     gui->AddGuiWindow(mEntranceTrackerSettingsWindow);
-    mHintTrackerWindow = std::make_shared<OoTActiveGated<HintTracker::HintTrackerWindow>>(
-        CVAR_WINDOW("HintTracker"), "Hint Tracker", ImVec2(500, 600));
+    // RSBS (#1475, lane H2): retired as the Check Tracker is; the combined Hint Tracker replaces it, and this
+    // window's InitElement keeps feeding its OoT pane (SohRetiredWindow.h).
+    mHintTrackerWindow = std::make_shared<OoTActiveGated<RetiredInSingleExe<HintTracker::HintTrackerWindow>>>(
+        SOH_RETIRED_HINT_TRACKER_KEY, kSohRetiredHintTrackerWindowName, ImVec2(500, 600));
     gui->AddGuiWindow(mHintTrackerWindow);
     mHintTrackerSettingsWindow = std::make_shared<HintTracker::HintTrackerSettingsWindow>(
         CVAR_WINDOW("HintTrackerSettings"), "Hint Tracker Settings", ImVec2(600, 375));

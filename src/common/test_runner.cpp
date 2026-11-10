@@ -772,6 +772,10 @@ extern "C" {
 // ComboGui::RegisterComboTrackerWindow.
 #include "tests/test_combo_tracker_view.c"
 #include "tests/test_combo_tracker_window.c"
+// The combined Hint Tracker (#1475 lane H2): the window, SoH's grouping, MM's
+// Journal decisions and the cross-game Seen plumbing. FILE SCOPE (compiled as
+// C++) for the C++-linkage ComboGui functions.
+#include "tests/test_combo_hint_tracker_window.c"
 // Unified item view (#458 U1a): FILE SCOPE (compiled as C++) for the authored
 // std::vector buffers; every symbol it drives is extern-C.
 #include "tests/test_combo_item_view.c"
@@ -6461,10 +6465,12 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     int wrapped = 0;
     bool ok = true;
 
-    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace.
+    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace;
+    // #1475 (lane H2): and SoH's Hint Tracker, which the combined Hint Tracker replaces.
     static const char* const kRetired[] = {
         "CheckTracker::CheckTrackerWindow",
         "ItemTrackerWindow",
+        "HintTracker::HintTrackerWindow",
     };
     int retiredSeen[sizeof(kRetired) / sizeof(kRetired[0])] = {};
     static const std::string kRetiredWrap = "RetiredInSingleExe<";
@@ -7261,6 +7267,21 @@ TestResult Test_ComboTrackerWindow(void) {
     }
 
     return Combo_TrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// The combined Hint Tracker (#1475 lane H2). The Check Tracker window's bring-up,
+// for the same reason (GuiWindow ctors read ConsoleVariables off the singleton).
+TestResult Test_ComboHintTrackerWindow(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return Combo_HintTrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // Unified item view (#458 U1a). No Gui; the display-free bring-up because the
@@ -9112,6 +9133,9 @@ const TestDescriptor gTests[] = {
     { "combo-tracker-window",
       "Combo tracker window registers de-collided; inert under every active game and absent adapters (#458)",
       Test_ComboTrackerWindow },
+    { "combo-hint-tracker-window",
+      "Combined Hint Tracker under SoH's name: inert, SoH's grouping both panes, cross-game Seen (#1475)",
+      Test_ComboHintTrackerWindow },
     { "combo-item-view",
       "Item rows from OoT's live save or frozen shadow, never live for the inactive game; shared group label (#458)",
       Test_ComboItemView },

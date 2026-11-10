@@ -60,6 +60,8 @@ set(REDSHIP_COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/combo_tracker_view.c
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.c
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.cpp
+    # The combined Hint Tracker (#1475 lane H2): both games' hints in SoH's window
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.cpp
     # The unified Item Tracker overlay over combo_item_view (#458 U2)
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.cpp
     # MM randomizer options: the registry + value accessors over the descriptor
@@ -273,6 +275,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.h
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_page.h
@@ -897,6 +900,11 @@ if(BUILD_TESTING)
     # an ungated draw path aborts the process).
     redship_add_test(NAME ComboTrackerView COMMAND redship --test combo-tracker-view)
     redship_add_test(NAME ComboTrackerWindow COMMAND redship --test combo-tracker-window)
+    # #1475 (lane H2): the combined Hint Tracker, display-free: registered under SoH's
+    # window name and inert with no ImGui context, SoH's DrawHintList grouping over
+    # synthetic rows, MM's Journal decisions over MM's real descriptor, and the
+    # cross-game Seen plumbing over an authored MM half.
+    redship_add_test(NAME ComboHintTrackerWindow COMMAND redship --test combo-hint-tracker-window)
     # Unified item view (#458 U1a). Display-free: OoT's item adapter reads
     # SaveContext images the OoT TU authors, handed to it as the frozen shadow
     # or a test live source; the shared group reads the resource pool.

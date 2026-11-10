@@ -221,6 +221,9 @@ extern "C" void OoT_ApplySharedResourcesAtFileLoad(void);
 // #1294 (combo_tracker_view.h): the OoT skip journal, the far pane's skips the .sav
 // does not have yet: replayed at a load, emptied by the full save that writes them.
 extern "C" int OoT_TrackerAdapter_ReplaySkipJournal(void);
+// #1475 (lane H2, combo_hint_view.h): the Seen a read MM hint gives the OoT host it names, derived again
+// at a load from the read record the .redsave carries (a commit from Termina stores no OoT .sav).
+extern "C" int OoT_TrackerAdapter_ApplyMMHintsSeen(void);
 extern "C" void Combo_TrackerOoTSkipJournalClear(void);
 #endif
 
@@ -357,6 +360,9 @@ extern "C" void OoT_Combo_OnLoadFileSeam(int32_t fileNum, uint32_t savGeneration
         // was played after this .sav was written, which the .redsave's Tier-1
         // (just loaded) journals and the tracker section (already applied) lacks.
         OoT_TrackerAdapter_ReplaySkipJournal();
+        // #1475 (lane H2): the OoT hosts read MM hints name, Seen as the hint made them while Majora's Mask
+        // was played, over the MM half and the read record this load brought back.
+        OoT_TrackerAdapter_ApplyMMHintsSeen();
     }
 #endif
 }

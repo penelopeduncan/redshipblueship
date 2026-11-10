@@ -17,7 +17,8 @@
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 // src/common, outside the extern "C" block below: it manages its own linkage.
-#include "foreign_items.h" // SharedItem
+#include "combo_hint_view.h" // the combined Hint Tracker's OoT adapter (#1475 lane H2)
+#include "foreign_items.h"   // SharedItem
 #endif
 
 extern "C" {
@@ -39,6 +40,11 @@ extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc);
 // `rc` is dressed by: the crossed MM item's own grade at a crossing host, else
 // `coverCategory`.
 extern "C" int OoT_Rando_Foreign_ChestCategory(uint16_t rc, int coverCategory);
+// TrackerAdapterSingleExe.cpp (#1475 lane H2): whether OoT's suspended heap is the
+// randomizer world it departed from, and the Seen an MM hint gives the OoT host it
+// names, written there while Majora's Mask plays the paired file.
+extern "C" int OoT_TrackerAdapter_SuspendedRandoWorld(void);
+extern "C" bool OoT_TrackerAdapter_MarkHintedSeen(uint16_t checkId);
 #endif
 
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
@@ -257,16 +263,23 @@ static std::string NormalizeForCompare(const std::string& text) {
     return key;
 }
 
+// The language CustomMessage::GetForCurrentLanguage picks (JPN reads English).
+static uint8_t CurrentHintLanguage() {
+    return ((Language)gSaveContext.language == LANGUAGE_JPN) ? (uint8_t)LANGUAGE_ENG : (uint8_t)gSaveContext.language;
+}
+
 // Assembles the full text of a hint, joining multi-message hints into one
 // entry. The "Buy" replacements mirror BuildHintStoneMessage
-// (GossipStoneHints.cpp) and must stay in sync with it.
-static const std::string& GetJoinedHintText(RandomizerHint hintKey) {
+// (GossipStoneHints.cpp) and must stay in sync with it. RSBS (#1475): in
+// `language`, with `playerName` for the '@' marker, so the combined window's OoT
+// pane can build it while Majora's Mask owns gSaveContext; the cache is the one
+// SoH's draw keeps, cleared on a language change by whichever reader sees it.
+static const std::string& GetJoinedHintText(RandomizerHint hintKey, uint8_t language, const std::string& playerName) {
     auto cached = hintTextCache.find(hintKey);
     if (cached != hintTextCache.end()) {
         return cached->second;
     }
-    Rando::Hint* hint = OTRGlobals::Instance->gRandoContext->GetHint(hintKey);
-    const std::string playerName = GetPlayerName();
+    Rando::Hint* hint = Rando::Context::GetInstance()->GetHint(hintKey);
     std::vector<std::string> parts;
     std::vector<std::string> keys;
     size_t numMessages = hint->GetNumberOfMessages();
@@ -277,7 +290,7 @@ static const std::string& GetJoinedHintText(RandomizerHint hintKey) {
         msg.Replace(" kaufen ", "");
         msg.Replace(" kaufen", "");
         msg.Replace("@", playerName);
-        std::string part = msg.GetForCurrentLanguage(MF_CLEAN);
+        std::string part = msg.GetForLanguage(language, MF_CLEAN);
         // Variants of a hint often share the same wording give or take
         // punctuation (e.g. Saria's in-person and ocarina messages); show
         // each distinct wording once.
@@ -295,6 +308,10 @@ static const std::string& GetJoinedHintText(RandomizerHint hintKey) {
         text += part;
     }
     return hintTextCache[hintKey] = text;
+}
+
+static const std::string& GetJoinedHintText(RandomizerHint hintKey) {
+    return GetJoinedHintText(hintKey, CurrentHintLanguage(), GetPlayerName());
 }
 
 struct HintEntry {
@@ -346,7 +363,7 @@ static int ItemCategoryRank(GetItemCategory category) {
 
 // Group label for each ItemCategoryRank value, in rank order. Callers clamp
 // the unresolved-item fallback rank (JUNK + 1) into the Junk group first.
-static std::string ItemCategoryRankName(int rank) {
+static std::string ItemCategoryRankName(int rank, uint8_t language) {
     static const CustomMessage* const rankLabels[] = {
         &majorItemsLabel,      // ITEM_CATEGORY_MAJOR
         &bossKeysLabel,        // ITEM_CATEGORY_BOSS_KEY
@@ -356,7 +373,11 @@ static std::string ItemCategoryRankName(int rank) {
         &lesserItemsLabel,     // ITEM_CATEGORY_LESSER
         &junkItemsLabel,       // ITEM_CATEGORY_JUNK
     };
-    return rankLabels[rank]->GetForCurrentLanguage(MF_CLEAN);
+    return rankLabels[rank]->GetForLanguage(language, MF_CLEAN);
+}
+
+static std::string ItemCategoryRankName(int rank) {
+    return ItemCategoryRankName(rank, CurrentHintLanguage());
 }
 
 // RSBS: the group slot after the seven category groups (DrawHintList's
@@ -367,7 +388,10 @@ static constexpr int kItemSlotUngraded = 7;
 
 // The rank one check an item hint points at gives the hint (an ItemCategoryRank),
 // or -1 when the check holds no OoT item to grade (RSBS).
-static int HintedCheckRank(const std::shared_ptr<Rando::Context>& ctx, RandomizerCheck rc) {
+// RSBS (#1475): `live` false grades the placed item as it is, without SoH's
+// downgrades, which read OoT's inventory and flags from gSaveContext (MM's
+// while Majora's Mask is played).
+static int HintedCheckRank(const std::shared_ptr<Rando::Context>& ctx, RandomizerCheck rc, bool live = true) {
 #ifdef RSBS_SINGLE_EXECUTABLE
     // RSBS: an OoT item placed in Termina sits at no OoT check (RC_UNKNOWN_CHECK),
     // and that slot's vanilla item is not the hinted item.
@@ -387,13 +411,14 @@ static int HintedCheckRank(const std::shared_ptr<Rando::Context>& ctx, Randomize
     // otherwise a genuine major item that isn't reachable yet (e.g. Anju's Lens of
     // Truth as adult) gets masked to a blue rupee and wrongly sinks to junk rank.
     GetItemEntry itemEntry = ctx->GetFinalGIEntry(rc, false, GI_NONE);
-    return ItemCategoryRank(Randomizer_AdjustItemCategory(itemEntry));
+    return ItemCategoryRank(live ? Randomizer_AdjustItemCategory(itemEntry) : itemEntry.getItemCategory);
 }
 
 // Files an item hint in the Journal. Returns its group slot: an ItemCategoryRank
 // (0 Major Items .. 6 Junk Items), or kItemSlotUngraded. Sets the entry's sort
 // rank and whether every location it points at has been collected.
-static int ItemHintSlot(const std::shared_ptr<Rando::Context>& ctx, Rando::Hint* hint, int& sortRank, bool& found) {
+static int ItemHintSlot(const std::shared_ptr<Rando::Context>& ctx, Rando::Hint* hint, int& sortRank, bool& found,
+                        bool live = true) {
     sortRank = ItemCategoryRank(ITEM_CATEGORY_JUNK) + 1;
     bool ungraded = false;
     std::vector<RandomizerCheck> hintedLocations = hint->GetHintedLocations();
@@ -401,7 +426,7 @@ static int ItemHintSlot(const std::shared_ptr<Rando::Context>& ctx, Rando::Hint*
     // a multi-location hint still matters while any part is uncollected.
     found = !hintedLocations.empty();
     for (RandomizerCheck rc : hintedLocations) {
-        const int rank = HintedCheckRank(ctx, rc);
+        const int rank = HintedCheckRank(ctx, rc, live);
         if (rank >= 0) {
             sortRank = std::min(sortRank, rank);
         } else {
@@ -495,6 +520,41 @@ static HintTrackerViewMode DrawViewTabs() {
         ImGui::EndTabBar();
     }
     return viewMode;
+}
+
+// The Journal group a hint type files under (DrawHintList's typeGroupKey).
+static size_t TypeGroupKey(HintType type) {
+    // Item and item-area hints share one "Items" group in the Journal.
+    if (type == HINT_TYPE_ITEM_AREA) {
+        type = HINT_TYPE_ITEM;
+    }
+    // High-value hint types first, junk lines last.
+    static const std::vector<HintType> priority = {
+        HINT_TYPE_WOTH,  HINT_TYPE_FOOLISH,     HINT_TYPE_ITEM,        HINT_TYPE_AREA,    HINT_TYPE_ENTRANCE,
+        HINT_TYPE_TRIAL, HINT_TYPE_ALTAR_CHILD, HINT_TYPE_ALTAR_ADULT, HINT_TYPE_MESSAGE, HINT_TYPE_HINT_KEY,
+    };
+    // Keys are scaled so the "Items" slot can fan out into the item
+    // categories (+0..+6) without colliding with the next hint type.
+    // RSBS: +7 is kItemSlotUngraded.
+    constexpr size_t kCategorySlots = 8;
+    auto rank = std::find(priority.begin(), priority.end(), type);
+    if (rank == priority.end()) {
+        // Unranked types each get their own group after the ranked ones.
+        return (priority.size() + static_cast<size_t>(type)) * kCategorySlots;
+    }
+    return static_cast<size_t>(rank - priority.begin()) * kCategorySlots;
+}
+
+// The Journal group's name for a hint type (DrawHintList's typeGroupName), in `language`.
+static std::string TypeGroupName(HintType type, uint8_t language) {
+    if (type == HINT_TYPE_ITEM || type == HINT_TYPE_ITEM_AREA) {
+        return itemsLabel.GetForLanguage(language, MF_CLEAN);
+    }
+    // Upstream calls the junk hint type "Message"; "Junk" is clearer here.
+    if (type == HINT_TYPE_HINT_KEY) {
+        return junkLabel.GetForLanguage(language, MF_CLEAN);
+    }
+    return Rando::StaticData::hintTypeNames[type].GetForLanguage(language, MF_CLEAN);
 }
 
 static void DrawHintList() {
@@ -639,37 +699,10 @@ static void DrawHintList() {
             group.entries.push_back({ hintKey, hintName, compact, sortRank, nameColor, found });
         }
     };
-    auto typeGroupKey = [](HintType type) {
-        // Item and item-area hints share one "Items" group in the Journal.
-        if (type == HINT_TYPE_ITEM_AREA) {
-            type = HINT_TYPE_ITEM;
-        }
-        // High-value hint types first, junk lines last.
-        static const std::vector<HintType> priority = {
-            HINT_TYPE_WOTH,  HINT_TYPE_FOOLISH,     HINT_TYPE_ITEM,        HINT_TYPE_AREA,    HINT_TYPE_ENTRANCE,
-            HINT_TYPE_TRIAL, HINT_TYPE_ALTAR_CHILD, HINT_TYPE_ALTAR_ADULT, HINT_TYPE_MESSAGE, HINT_TYPE_HINT_KEY,
-        };
-        // Keys are scaled so the "Items" slot can fan out into the item
-        // categories (+0..+6) without colliding with the next hint type.
-        // RSBS: +7 is kItemSlotUngraded.
-        constexpr size_t kCategorySlots = 8;
-        auto rank = std::find(priority.begin(), priority.end(), type);
-        if (rank == priority.end()) {
-            // Unranked types each get their own group after the ranked ones.
-            return (priority.size() + static_cast<size_t>(type)) * kCategorySlots;
-        }
-        return static_cast<size_t>(rank - priority.begin()) * kCategorySlots;
-    };
-    auto typeGroupName = [](HintType type) {
-        if (type == HINT_TYPE_ITEM || type == HINT_TYPE_ITEM_AREA) {
-            return itemsLabel.GetForCurrentLanguage(MF_CLEAN);
-        }
-        // Upstream calls the junk hint type "Message"; "Junk" is clearer here.
-        if (type == HINT_TYPE_HINT_KEY) {
-            return junkLabel.GetForCurrentLanguage(MF_CLEAN);
-        }
-        return Rando::StaticData::hintTypeNames[type].GetForCurrentLanguage(MF_CLEAN);
-    };
+    // RSBS (#1475): the two decisions are TypeGroupKey / TypeGroupName, shared
+    // with the combined window's OoT adapter.
+    auto typeGroupKey = [](HintType type) { return TypeGroupKey(type); };
+    auto typeGroupName = [](HintType type) { return TypeGroupName(type, CurrentHintLanguage()); };
 
     std::set<RandomizerHint> stoneHintKeys;
     for (auto& [rc, hintKey] : Rando::StaticData::gossipStoneCheckToHint) {
@@ -970,7 +1003,197 @@ void RegisterHintTrackerWidgets() {
 }
 
 static RegisterMenuInitFunc menuInitFunc(RegisterHintTrackerWidgets);
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// ---- RSBS (#1475, lane H2): the combined Hint Tracker's OoT adapter. ------------
+// The combined window (src/common/ComboHintTrackerWindow.cpp) draws DrawHintList
+// for both games from game-neutral rows (combo_hint_view.h, ComboHintPaneRow).
+// This is DrawHintList's walk, made once for both of its views: the gossip
+// stones by area, then every other enabled hint under "Other Hints", each with
+// the Journal group, label, colour, rank and found state DrawHintList's addHint
+// gives it, and its text once read. Live while OoT plays; otherwise from the
+// suspended heap, which a cross-game switch keeps, and the read set, which the
+// arrival guard in InitHintTrackerData keeps: then gSaveContext is MM's, so the
+// language is the setting OoT copies it from, the player's name is the one last
+// read live, and the item ranks skip SoH's inventory downgrades (HintedCheckRank).
+
+namespace {
+
+struct PaneRowStore {
+    RandomizerHint hintKey = RH_NONE;
+    bool read = false;
+    std::string name;
+    bool hasText = false;
+    std::string text;
+    uint32_t locationKey = RSBS_HINT_GROUP_OTHER;
+    std::string locationName;
+    bool locationIsArea = false;
+    uint32_t journalKey = 0;
+    std::string journalName;
+    std::string journalLabel;
+    bool journalCompact = false;
+    uint8_t journalColour = COMBO_HINT_COLOUR_NONE;
+    int sortRank = 0;
+    bool found = false;
+};
+
+// The last collect's rows; rowAt points into them until the next collect.
+std::vector<PaneRowStore> sPaneRows;
+// The '@' marker's name, read while OoT plays (GetPlayerName reads gSaveContext).
+std::string sPanePlayerName;
+
+/** The language the pane reads in: OoT's own while it plays, else the setting it copies it from at a load. */
+uint8_t PaneLanguage(bool live) {
+    const uint8_t language =
+        live ? CurrentHintLanguage() : (uint8_t)CVarGetInteger(CVAR_SETTING("Languages"), LANGUAGE_ENG);
+    // CustomMessage holds English, German and French (GetForLanguage indexes them).
+    return language > (uint8_t)LANGUAGE_FRA ? (uint8_t)LANGUAGE_ENG : language;
+}
+
+void PaneAddRow(const std::shared_ptr<Rando::Context>& ctx, RandomizerHint hintKey, uint32_t locationKey,
+                const std::string& locationName, bool locationIsArea, uint8_t language, bool live, bool ranked) {
+    PaneRowStore r;
+    r.hintKey = hintKey;
+    r.read = IsHintRead(hintKey);
+    const auto name = Rando::StaticData::hintNames.find(hintKey);
+    r.name = name != Rando::StaticData::hintNames.end() ? name->second.GetForLanguage(language, MF_CLEAN) : "";
+    r.locationKey = locationKey;
+    r.locationName = locationName;
+    r.locationIsArea = locationIsArea;
+    Rando::Hint* hint = ctx->GetHint(hintKey);
+    const HintType type = hint->GetHintType();
+    r.journalKey = static_cast<uint32_t>(TypeGroupKey(type));
+    r.journalName = TypeGroupName(type, language);
+    // What only a read hint shows: its text, and the Journal's decisions (the
+    // Journal lists read hints only).
+    if (r.read) {
+        r.hasText = true;
+        r.text = GetJoinedHintText(hintKey, language, sPanePlayerName);
+        if (type == HINT_TYPE_WOTH || type == HINT_TYPE_FOOLISH) {
+            // Way of the Hero / Foolish hints are area statements: the area names
+            // say everything the hint did.
+            const size_t numAreas = hint->GetHintedAreas().size();
+            for (size_t slot = 0; slot < numAreas; slot++) {
+                if (!r.journalLabel.empty()) {
+                    r.journalLabel += ", ";
+                }
+                r.journalLabel += hint->GetAreaName(static_cast<uint8_t>(slot)).GetForLanguage(language, MF_CLEAN);
+            }
+            r.journalCompact = !r.journalLabel.empty();
+            if (r.journalCompact) {
+                r.journalColour =
+                    type == HINT_TYPE_WOTH ? (uint8_t)COMBO_HINT_COLOUR_WOTH : (uint8_t)COMBO_HINT_COLOUR_FOOLISH;
+            }
+        } else if ((type == HINT_TYPE_ITEM || type == HINT_TYPE_ITEM_AREA) && ranked) {
+            int sortRank = 0;
+            bool found = false;
+            const int slot = ItemHintSlot(ctx, hint, sortRank, found, live);
+            r.journalKey += static_cast<uint32_t>(slot);
+            if (slot != kItemSlotUngraded) {
+                r.journalName = ItemCategoryRankName(slot, language);
+            }
+            r.sortRank = sortRank;
+            r.found = found;
+        }
+    }
+    sPaneRows.push_back(std::move(r));
+}
+
+uint8_t PaneCollect(int* outCount) {
+    if (outCount != nullptr) {
+        *outCount = 0;
+    }
+    sPaneRows.clear();
+    const bool live = Context_GetCurrentGame() == GAME_OOT;
+    // HintTrackerWindow::DrawElement's states, live: both read gSaveContext,
+    // which is OoT's only while it plays. Otherwise the world OoT departed from
+    // while playing a randomizer file.
+    if (live) {
+        if (!GameInteractor::IsSaveLoaded()) {
+            return (uint8_t)COMBO_HINT_PANE_WAITING;
+        }
+        if (!IS_RANDO) {
+            return (uint8_t)COMBO_HINT_PANE_NOT_RANDO;
+        }
+    } else if (OoT_TrackerAdapter_SuspendedRandoWorld() == 0) {
+        return (uint8_t)COMBO_HINT_PANE_WAITING;
+    }
+    const auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return (uint8_t)COMBO_HINT_PANE_WAITING;
+    }
+    const uint8_t language = PaneLanguage(live);
+    if (language != cachedLanguage) {
+        hintTextCache.clear();
+        cachedLanguage = language;
+    }
+    if (live) {
+        sPanePlayerName = GetPlayerName();
+    }
+    // Mysterious Shuffle disables the Journal's item ranking (DrawHintList).
+    const bool ranked = !CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0);
+
+    std::set<RandomizerHint> stoneHintKeys;
+    for (auto& [rc, hintKey] : Rando::StaticData::gossipStoneCheckToHint) {
+        stoneHintKeys.insert(hintKey);
+        if (!ctx->GetHint(hintKey)->IsEnabled()) {
+            continue;
+        }
+        const RandomizerCheckArea area = Rando::StaticData::GetLocation(rc)->GetArea();
+        PaneAddRow(ctx, hintKey, static_cast<uint32_t>(area), RandomizerCheckObjects::GetRCAreaName(area), true,
+                   language, live, ranked);
+    }
+    const std::string otherHintsName = otherHintsLabel.GetForLanguage(language, MF_CLEAN);
+    for (int i = RH_NONE + 1; i < RH_MAX; i++) {
+        const RandomizerHint hintKey = static_cast<RandomizerHint>(i);
+        if (stoneHintKeys.contains(hintKey) || !ctx->GetHint(hintKey)->IsEnabled()) {
+            continue;
+        }
+        PaneAddRow(ctx, hintKey, RSBS_HINT_GROUP_OTHER, otherHintsName, false, language, live, ranked);
+    }
+    if (outCount != nullptr) {
+        *outCount = static_cast<int>(sPaneRows.size());
+    }
+    return (uint8_t)COMBO_HINT_PANE_READY;
+}
+
+bool PaneRowAt(int index, ComboHintPaneRow* out) {
+    if (out == nullptr || index < 0 || index >= static_cast<int>(sPaneRows.size())) {
+        return false;
+    }
+    const PaneRowStore& r = sPaneRows[static_cast<size_t>(index)];
+    out->source = static_cast<uint16_t>(r.hintKey);
+    out->read = r.read;
+    out->name = r.name.c_str();
+    out->text = r.hasText ? r.text.c_str() : nullptr;
+    out->locationKey = r.locationKey;
+    out->locationName = r.locationName.c_str();
+    out->locationIsArea = r.locationIsArea;
+    out->journalKey = r.journalKey;
+    out->journalName = r.journalName.c_str();
+    out->journalLabel = r.journalLabel.empty() ? nullptr : r.journalLabel.c_str();
+    out->journalCompact = r.journalCompact;
+    out->journalColour = r.journalColour;
+    out->sortRank = r.sortRank;
+    out->found = r.found;
+    return true;
+}
+
+} // namespace
+
+const ComboOoTHintOps* PaneOps() {
+    static const ComboOoTHintOps kOps = { PaneCollect, PaneRowAt, OoT_TrackerAdapter_MarkHintedSeen };
+    return &kOps;
+}
+#endif // RSBS_SINGLE_EXECUTABLE
 } // namespace HintTracker
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+/** combo_hint_view.h: register the combined Hint Tracker's OoT adapter (Combo_TrackerWindow_Init calls it). */
+extern "C" void OoT_HintAdapter_Register(void) {
+    Combo_Hint_RegisterOoT(HintTracker::PaneOps());
+}
+#endif
 
 // ---- RSBS: arrival-rehydration lock (#482), hint-tracker half. --------------
 // Drives the REAL InitHintTrackerData (the init function the arrival title-demo
