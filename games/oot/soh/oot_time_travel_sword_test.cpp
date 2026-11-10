@@ -466,7 +466,8 @@ void CheckChildGive(Rando::Context& world) {
     queued = TakeQueued(&only);
     pedestal->SetCheckStatus(RCSHOW_COLLECTED); // the give landed
     const int ruleOffLanded = PedestalFrame();
-    (void)TakeQueued(&only);
+    bool drained = false; // not `only`: the assertion below still reads the first take's answer
+    (void)TakeQueued(&drained);
     printf("[TEST] P8b: rule off, child without the sword: flag %d, %d queued; the pull offered %d before the give, %d "
            "while it is queued, %d once it landed\n",
            given ? 1 : 0, queued, ruleOffFirst, ruleOffQueued, ruleOffLanded);
