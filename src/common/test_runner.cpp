@@ -8144,6 +8144,16 @@ TestResult Test_OoTTimeTravelSword(void) {
     }
     return OoT_TimeTravelSwordTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1414: Early Granny's Potion Shop opens Granny's real offer and sale without the
+// Claim Check, and folds into the settings fingerprint only while it can matter.
+// Same bring-up as the rows above; body in games/oot/soh/oot_early_granny_shop_test.cpp.
+extern "C" int OoT_EarlyGrannyShopTest_Run(void);
+TestResult Test_OoTEarlyGrannyShop(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -9984,6 +9994,11 @@ const TestDescriptor gTests[] = {
       "Time offers the pull and logic sends Link through time, either way, only with the sword; a world saved before "
       "the option keeps its pedestal (#1434)",
       Test_OoTTimeTravelSword },
+    { "oot-early-granny-shop",
+      "Early Granny's Potion Shop: with Shuffle Adult Trade off and no Claim Check, Granny offers and sells her "
+      "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
+      "it (#1414)",
+      Test_OoTEarlyGrannyShop },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10354,6 +10369,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
+                strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

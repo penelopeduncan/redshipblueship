@@ -92,6 +92,24 @@ extern "C" void OoT_Rando_WidenTriforceRequiredOptions(void) {
     }
     required.ChangeOptions(std::move(counts));
 }
+
+// [RSBS #1414] Early Granny's Potion Shop (Shipwright#6693) changes the world only
+// while it can open Granny's shop: on, with Shuffle Adult Trade off. Under Shuffle
+// Adult Trade the menu disables it and every reader (kakariko.cpp, hook_handlers.cpp,
+// MerchantMessages.cpp) tests adult trade first. Otherwise the fold below skips it,
+// so a world keeps the fingerprint it had before the option existed, as the #1434
+// term does. 1 when the fold folds it. Read by the fold and the oot-early-granny-shop
+// row (games/oot/soh/oot_early_granny_shop_test.cpp).
+extern "C" int OoT_Rando_EarlyGrannyFolds(void) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return 0;
+    }
+    return (ctx->GetOption(RSK_EARLY_GRANNYS_SHOP).Is(RO_GENERIC_ON) &&
+            ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE).Is(RO_GENERIC_OFF))
+               ? 1
+               : 0;
+}
 #endif
 
 namespace Playthrough {
@@ -349,6 +367,11 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                         // the fingerprint it had before the option existed.
                         if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD &&
                             !OoT_TimeTravelSword_RuleCanBlock()) {
+                            continue;
+                        }
+                        // [RSBS #1414] Early Granny's Potion Shop, likewise, only while it
+                        // can open her shop (OoT_Rando_EarlyGrannyFolds above).
+                        if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && OoT_Rando_EarlyGrannyFolds() == 0) {
                             continue;
                         }
 #endif
