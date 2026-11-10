@@ -697,7 +697,16 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
         // #1398) is probed on the stick alone; the Peahat's own night arm below
         // narrows it. CanKillEnemy reads gCurrentRegionTime, which nothing else in
         // this probe sets.
-        const uint64_t savedRegionTime = Rando::Logic::gCurrentRegionTime;
+        // Restored on every exit from this block, the early Fail returns
+        // included, so a red arm cannot leak its time mask or the frozen stick
+        // trick into a later row sharing the process (`--test all`).
+        struct StickBlockRestore {
+            uint64_t savedRegionTime;
+            ~StickBlockRestore() {
+                Rando::Logic::gCurrentRegionTime = savedRegionTime;
+                SetFrozenTrick(MMRT_DEKU_STICK_FIGHTING, false);
+            }
+        } stickBlockRestore{ Rando::Logic::gCurrentRegionTime };
         auto armStickSave = [](bool needsBow, bool withStick) {
             ResetSaveWithEmptyInventory();
             ClearAllTrickCVars();
@@ -751,8 +760,6 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
             return Fail(75, "Peahat: NOT killable on Day 2 with a Deku Stick and the trick on — the day test reads "
                             "the wrong time, so the night arm above proves nothing (#1398)");
         }
-        Rando::Logic::gCurrentRegionTime = savedRegionTime;
-        SetFrozenTrick(MMRT_DEKU_STICK_FIGHTING, false);
         printf("[TEST] mm-trick-table: Deku-Stick combat gated on %d actor ids (17 CanKillEnemy rows) (#719); the "
                "Peahat dies by day only (#1398)\n",
                (int)(sizeof(kStickRows) / sizeof(kStickRows[0])));
