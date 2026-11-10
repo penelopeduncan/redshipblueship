@@ -392,8 +392,9 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // more. MM_TRICK reads the FROZEN per-file set (Rando/StaticData/Tricks.h), so a
 // world generated with the trick on keeps expecting it forever and a
 // post-creation toggle cannot change a live world's rules.
-#define CAN_USE_EXPLOSIVE                                                           \
-    ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) || HAS_ITEM(ITEM_MASK_BLAST) || \
+#define CAN_USE_EXPLOSIVE                                                                                \
+    ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) ||                                                   \
+      (HAS_ITEM(ITEM_MASK_BLAST) && GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) > EQUIP_VALUE_SHIELD_NONE) || \
       (MM_TRICK(MMRT_KEG_EXPLOSIVES) && HAS_ITEM(ITEM_POWDER_KEG) && CAN_BE_GORON)))
 #define CAN_USE_HUMAN_SWORD (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) >= EQUIP_VALUE_SWORD_KOKIRI)
 // #719 — Deku-Stick COMBAT is now TRICK-GATED, default off, the same way and for
