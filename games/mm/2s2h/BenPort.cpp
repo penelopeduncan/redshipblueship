@@ -1133,7 +1133,7 @@ extern "C" void Graph_StartFrame() {
             break;
         }
 #endif
-#if defined(_WIN32) || defined(__APPLE__)
+#if defined(_WIN32) || defined(__APPLE__) || defined(ESPEAK)
         case KbScancode::LUS_KB_F9: {
             // Toggle TTS
             CVarSetInteger("gA11yTTS", !CVarGetInteger("gA11yTTS", 0));
