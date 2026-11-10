@@ -18,6 +18,7 @@
 #include <cstdio>
 
 #include <string>
+#include <vector>
 
 #include <ship/Context.h>
 #include <ship/window/Window.h>
@@ -703,7 +704,7 @@ int32_t FrozenValue(const ComboSettingsRecord* frozen, const ComboItemRulesRecor
 
 /** Write @p value into @p id's key for the restore, recording the undo and the
  *  label. */
-void RestoreKey(ComboSettingId id, int32_t value, ComboSettingsKeyUndo* undo, std::string& restored) {
+void RestoreKey(ComboSettingId id, int32_t value, ComboSettingsKeyUndo* undo, std::vector<std::string>& restored) {
     const char* key = kComboSettingDescs[id].key;
     if (undo != nullptr) {
         undo->written[id] = 1;
@@ -711,10 +712,7 @@ void RestoreKey(ComboSettingId id, int32_t value, ComboSettingsKeyUndo* undo, st
         undo->value[id] = CVarGetInteger(key, 0);
     }
     CVarSetInteger(key, value);
-    if (!restored.empty()) {
-        restored += ", ";
-    }
-    restored += kComboSettingDescs[id].label;
+    restored.push_back(kComboSettingDescs[id].label);
     std::fprintf(stderr, "[Combo] load: '%s' restored to the file's value %d (frozen wins at load, #781)\n", key,
                  (int)value);
 }
@@ -776,6 +774,17 @@ uint32_t Combo_ComboSettingsRestorableMask(void) {
         mask |= r.bit;
     }
     return mask;
+}
+
+int Combo_ComboSettingsRestorableCount(void) {
+    return (int)(sizeof(kRestorable) / sizeof(kRestorable[0]));
+}
+
+ComboSettingId Combo_ComboSettingsRestorableAt(int index) {
+    if (index < 0 || index >= Combo_ComboSettingsRestorableCount()) {
+        return COMBO_SETTING_COUNT;
+    }
+    return kRestorable[index].id;
 }
 
 uint32_t Combo_ComboSettingsUnrestorableBits(const ComboItemRulesRecord* frozenRules, uint32_t divergedBits) {
@@ -841,8 +850,19 @@ int Combo_ComboSettingsRestoreLiveEx(const ComboSettingsRecord* frozen, const Co
 int Combo_ComboSettingsRestoreLiveEx2(const ComboSettingsRecord* frozen, const ComboItemRulesRecord* frozenRules,
                                       uint32_t frozenRules2, const ComboTriforceRecord* frozenTriforce,
                                       uint32_t divergedBits, char* names, size_t len, ComboSettingsKeyUndo* undo) {
+    return Combo_ComboSettingsRestoreLiveEx3(frozen, frozenRules, frozenRules2, frozenTriforce, divergedBits, names,
+                                             len, nullptr, undo);
+}
+
+int Combo_ComboSettingsRestoreLiveEx3(const ComboSettingsRecord* frozen, const ComboItemRulesRecord* frozenRules,
+                                      uint32_t frozenRules2, const ComboTriforceRecord* frozenTriforce,
+                                      uint32_t divergedBits, char* names, size_t len, int* outCount,
+                                      ComboSettingsKeyUndo* undo) {
     if (names != nullptr && len > 0) {
         names[0] = '\0';
+    }
+    if (outCount != nullptr) {
+        *outCount = 0;
     }
     if (undo != nullptr) {
         *undo = ComboSettingsKeyUndo{};
@@ -853,7 +873,7 @@ int Combo_ComboSettingsRestoreLiveEx2(const ComboSettingsRecord* frozen, const C
         return 0;
     }
 
-    std::string restored;
+    std::vector<std::string> restored;
     for (const Restorable& r : kRestorable) {
         if ((divergedBits & r.bit) == 0u) {
             continue;
@@ -878,9 +898,34 @@ int Combo_ComboSettingsRestoreLiveEx2(const ComboSettingsRecord* frozen, const C
         }
         RestoreKey(r.id, value, undo, restored);
     }
-    if (names != nullptr && len > 0) {
-        std::snprintf(names, len, "%s", restored.c_str());
+    // #1479: @p names gets as many WHOLE labels as fit @p len (never a cut one)
+    // and @p outCount the true number, the shape of MM_Rando_RestoreProfileForLoad,
+    // so the toast's "+N" counts every restored row however long the list is.
+    // The whole list goes to stderr once.
+    std::string joined;
+    std::string fitted;
+    bool full = false;
+    for (const std::string& label : restored) {
+        joined += joined.empty() ? label : ", " + label;
+        if (!full) {
+            const std::string candidate = fitted.empty() ? label : fitted + ", " + label;
+            if (candidate.size() < len) {
+                fitted = candidate;
+            } else {
+                full = true;
+            }
+        }
     }
+    if (names != nullptr && len > 0) {
+        std::snprintf(names, len, "%s", fitted.c_str());
+    }
+    if (outCount != nullptr) {
+        *outCount = (int)restored.size();
+    }
+    // Printed even when nothing was written (every differing rule already agreed,
+    // #1369), so the load's [RsbsSave] line that points here always finds it.
+    std::fprintf(stderr, "[Combo] load: %d Cross-Game Rule(s) restored to the file's values: %s\n",
+                 (int)restored.size(), restored.empty() ? "(none)" : joined.c_str());
     return 1;
 }
 

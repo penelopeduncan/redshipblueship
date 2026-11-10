@@ -998,6 +998,11 @@ int RsbsSave_GetSlotRefuseReason(int slot);
 int RsbsSave_HasQuarantine(int slot);
 void RsbsSave_ResetSlotSessionState(void);
 
+/** The size of the buffer the load hands the rules restore for its labels
+ *  (Combo_ComboSettingsRestoreLiveEx3, #1479): the restore fills it with whole
+ *  labels only and reports the true count beside it. */
+#define RSBS_LOAD_RULES_NAMES_LEN 192
+
 /**
  * The paired-file load's toasts (#781), in SoH's toast shape (default colours,
  * the player's duration, one line; docs/ui-style-guide.md section 10b). One
@@ -1007,8 +1012,12 @@ void RsbsSave_ResetSlotSessionState(void);
  * @p names is a ", "-joined list of row labels (RULES_RESTORED and
  * MM_RESTORED only; NULL otherwise) and @p count the true number of rows,
  * which may exceed the names the list carries (0: the list is complete). The
- * message names as many rows as fit whole, cuts a first name that does not fit
- * with "...", and counts the rest as "+N".
+ * message names as many rows as fit whole and counts the rest as "+N". A
+ * Cross-Game Rule's name is never cut (#1479): the rules toast's floor is its
+ * first whole name and "+N", which the overlay draws smaller (never below 1.0)
+ * in a window too narrow for it. The MM toast, whose longest trick label is
+ * wider than the narrowest window even at 1.0, still cuts a first name that
+ * does not fit with "..." and falls to a bare count ("37 settings").
  */
 enum {
     RSBS_LOAD_TOAST_RULES_RESTORED = 0, // "Restored from file: Goal, Crossing Direction"
