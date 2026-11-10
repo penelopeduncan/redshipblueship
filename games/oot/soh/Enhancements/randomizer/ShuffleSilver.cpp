@@ -263,7 +263,9 @@ void RegisterShuffleSilver() {
             EnGSwitch* silver = va_arg(args, EnGSwitch*);
             auto silverIdentity =
                 OTRGlobals::Instance->gRandomizer->IdentifySilver(OoT_gPlayState->sceneNum, silver->actor.world.pos);
-            Flags_SetRandomizerInf(silverIdentity.randomizerInf);
+            if (silverIdentity.randomizerCheck != RC_UNKNOWN_CHECK) {
+                Flags_SetRandomizerInf(silverIdentity.randomizerInf);
+            }
             OoT_Actor_Kill(&silver->actor);
             *should = false;
         }
