@@ -225,8 +225,16 @@ void Rando::ActorBehavior::InitWonderItemsBehavior() {
             randoCheckId = it->second;
         }
 
-        if (randoCheckId != RC_UNKNOWN && RANDO_SAVE_CHECKS[randoCheckId].shuffled ||
-            RANDO_SAVE_CHECKS[randoCheckId].cycleObtained) {
+        // Upstream 2Ship (99bb6318c) writes this condition without parentheses,
+        // `id != RC_UNKNOWN && shuffled || cycleObtained`, which C++ reads as
+        // `(id != RC_UNKNOWN && shuffled) || cycleObtained` and so indexes the
+        // check table at RC_UNKNOWN for an unmapped rupee. The RC_UNKNOWN test
+        // exists only to guard that lookup, so the intended meaning is the one
+        // below. For a mapped rupee the two readings agree; for an unmapped one
+        // the old reading could only reach WonderItemInit(RC_UNKNOWN), which
+        // returns at once because RC_UNKNOWN is never shuffled.
+        if (randoCheckId != RC_UNKNOWN &&
+            (RANDO_SAVE_CHECKS[randoCheckId].shuffled || RANDO_SAVE_CHECKS[randoCheckId].cycleObtained)) {
             WonderItemInit(actor, randoCheckId, true, should);
         }
     });

@@ -1,24 +1,11 @@
 #include "ActorBehavior.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "2s2h/Rando/Logic/Logic.h"
-#ifdef RSBS_SINGLE_EXECUTABLE
-#include "2s2h/Rando/Foreign.h" // #1369: ShuffleOcarinaButtonsForWorld
-#endif
 
 extern "C" {
 #include "variables.h"
 #include "src/overlays/actors/ovl_En_Toto/z_en_toto.h"
 extern void func_80BA36C0(EnToto* enToto, PlayState* play, s32 index);
-}
-
-// RedShipBlueShip #1369: the sound check's gate reads MM's button shuffle the way
-// the note gate does (Player.cpp), the pair's one shuffle included.
-static bool RsbsTotoShuffleOcarinaButtonsOn() {
-#ifdef RSBS_SINGLE_EXECUTABLE
-    return Rando::Foreign::ShuffleOcarinaButtonsForWorld(RANDO_SAVE_OPTIONS);
-#else
-    return RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA_BUTTONS];
-#endif
 }
 
 void Rando::ActorBehavior::InitEnTotoBehavior() {
@@ -53,7 +40,14 @@ void Rando::ActorBehavior::InitEnTotoBehavior() {
         Message_BombersNotebookQueueEvent(MM_gPlayState, BOMBERS_NOTEBOOK_EVENT_MET_GORMAN);
     });
 
-    COND_VB_SHOULD(VB_TOTO_START_SOUND_CHECK, IS_RANDO && (RsbsTotoShuffleOcarinaButtonsOn() || !HAS_ITEM(ITEM_OCARINA_OF_TIME)), {
+    // Upstream 99bb6318c registers this on IS_RANDO alone: the body decides on
+    // live state, since canPlaySong now also requires the Ocarina. RedShipBlueShip
+    // #1369 (the pair's one button shuffle) is kept by that body rather than by a
+    // registration gate: canPlaySong reads the RANDO_INF_OBTAINED_OCARINA_BUTTON_*
+    // bits, which a world that shuffles no buttons (by its own option or the
+    // pair's, Foreign::ShuffleOcarinaButtonsForWorld) holds from file creation
+    // (StartingItems.cpp RsbsWorldShuffles), so the check never fires there.
+    COND_VB_SHOULD(VB_TOTO_START_SOUND_CHECK, IS_RANDO, {
         EnToto* totoActor = va_arg(args, EnToto*);
         if (totoActor->text->textId == 0x2B24) {
             if (!(Rando::Logic::canPlaySong(OCARINA_SONG_WIND_FISH_HUMAN) &&

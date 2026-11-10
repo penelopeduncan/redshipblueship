@@ -114,7 +114,8 @@ std::string PairedInputSeedString() {
  *  only when it is not off, as a named term after the positional ones, so the
  *  strings every world created before the option existed hashed are unchanged
  *  with it off (its default) and still distinct with it on. The two price modes
- *  (#1427) are off at RO_PRICES_VANILLA, their default. */
+ *  (#1427) are off at RO_PRICES_VANILLA, their default, and Shuffle Wonder Items
+ *  (#1406) at RO_GENERIC_OFF. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_SHUFFLE_WONDER_ITEMS;

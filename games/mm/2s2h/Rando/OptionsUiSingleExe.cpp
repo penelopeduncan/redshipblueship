@@ -488,6 +488,16 @@ const OptionUi kOptionUi[] = {
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_WONDER_ITEMS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Wonder Items", "Adds invisible wonder item drops to the check pool.",
+      // #1406, upstream 2Ship's Wonder Item shuffle. WonderItems.cpp (2ship_rando,
+      // WHOLE_ARCHIVE, reached from ActorBehavior::OnFileLoad) has two VB legs,
+      // VB_ENEMY_DROP_COLLECTIBLE (z_en_item00.c's MM_Item_DropCollectible and
+      // MM_Item_DropCollectibleRandom: the hit tags and the Termina wall) and
+      // VB_GONG_DROP_COLLECTIBLE (z_obj_dora.c), plus id-keyed OnActorInit on
+      // ACTOR_EN_HIT_TAG and id-keyed ShouldActorInit on ACTOR_EN_INVISIBLE_RUPPE
+      // and ACTOR_EN_SCOPECOIN, which z_actor.c reaches through the ExecuteForID
+      // legs of MM_GameHooks_ExecuteOnActorInit / ExecuteShouldActorInit. The
+      // collectible-flag rows ride EnItem00.cpp's ShouldActorInit on
+      // ACTOR_EN_ITEM00. MMWonderItemsHooks locks the five registrations.
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
 
     // ---- Additional Items, Traps -------------------------------------------
