@@ -116,7 +116,6 @@ class Logic {
     bool HasFireSource();
     bool HasFireSourceWithTorch();
     bool SunlightArrows();
-    bool TradeQuestStep(RandomizerGet rg);
     bool CanStandingShield();
     bool CanShield();
     bool CanUseProjectile();
