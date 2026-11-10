@@ -8144,6 +8144,17 @@ TestResult Test_OoTTimeTravelSword(void) {
     }
     return OoT_TimeTravelSwordTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1363: Shuffle Silver Rupees (SoH b76e303ce): the silver checks' flag map, the
+// option, the settings fold over two real generations, the paired pin, and the
+// option-off logic fallback. Same bring-up as the row above; body in
+// games/oot/soh/oot_shuffle_silver_test.cpp.
+extern "C" int OoT_ShuffleSilverTest_Run(void);
+TestResult Test_OoTShuffleSilver(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ShuffleSilverTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -9984,6 +9995,12 @@ const TestDescriptor gTests[] = {
       "Time offers the pull and logic sends Link through time, either way, only with the sword; a world saved before "
       "the option keeps its pedestal (#1434)",
       Test_OoTTimeTravelSword },
+    // #1363. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-shuffle-silver",
+      "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and greyed out, a default world's "
+      "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
+      "logic reads each silver rupee item's own event while it is off (#1363)",
+      Test_OoTShuffleSilver },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10354,6 +10371,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
+                strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

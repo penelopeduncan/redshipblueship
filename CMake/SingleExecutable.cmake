@@ -3509,6 +3509,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1363: Shuffle Silver Rupees (SoH b76e303ce): every silver check has its own
+    # RandomizerInf and IdentifySilver finds it, the option ships off and greyed
+    # out, two real generations fold none of the lines it added (a paired one pins
+    # it off even when keyed on, with the default world's fingerprint), and logic
+    # reads each silver item's own LOGIC_* event while it is off. Two generations,
+    # so twice the neighbours' timeout. games/oot/soh/oot_shuffle_silver_test.cpp.
+    redship_add_test(NAME OoTShuffleSilver COMMAND redship --test oot-shuffle-silver
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and
