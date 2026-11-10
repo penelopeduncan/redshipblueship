@@ -64,7 +64,7 @@
  *      AMENDED (D wave 2 re-pin, #1434/#1439/#1443; OoT logic P3 re-pin,
  *      #1396/#1397): when a re-pinned world runs through a fixed PROGRESSION
  *      content besides the remains, it is listed in kCsbFLoadBearingFixedChecks
- *      (nullptr-terminated) and asserted both ways (necessary and sufficient).
+ *      and asserted both ways (necessary and sufficient).
  *      Under the OoT logic P3 re-pin (#1396, #1397), remains + renewables alone
  *      restore goalMM=1 again, so kCsbFLoadBearingFixedChecks is empty.
  *
@@ -1283,18 +1283,17 @@ TestResult ComboSingleBag_Run(void) {
                 renewableIds++;
             }
         }
-        // THE NAMED EXCEPTION (D wave 2 re-pin). The worlds that re-pin moved need one
-        // fixed PROGRESSION content besides the remains: the Progressive Bomb Bag MM's
-        // vanilla Bomb Shop sells (Shuffle Shops is off by default, so the shelf keeps
-        // its stock), which the player buys in play. Single-content probes over every
-        // fixed content named it and nothing else. The same seed generated with Time
-        // Travel Requires Master Sword off (another world: the option moves the bag's
-        // seed) names it too, so the bag's draw put every other explosive behind it,
-        // not that rule. Named by check, and required both ways below: sufficient (no OTHER
-        // fixed progression content is load-bearing) and necessary (an exception the
-        // world stops needing must be dropped here, so the claim stays exact).
-        static const char* const kCsbFLoadBearingFixedChecks[] = { nullptr };
-        const int namedCount = (int)(sizeof(kCsbFLoadBearingFixedChecks) / sizeof(kCsbFLoadBearingFixedChecks[0])) - 1;
+        // THE NAMED EXCEPTIONS: the fixed PROGRESSION contents besides the remains that
+        // this pinned world's MM goal runs through, each one bought or collected in play.
+        // Listed by check name, and required both ways below: sufficient (no OTHER fixed
+        // progression content is load-bearing) and necessary (an exception the world
+        // stops needing must be dropped here, so the claim stays exact). When a re-pin
+        // moves the world, the single-content probe lines name the candidates. Empty
+        // under the OoT logic P3 re-pin (#1396, #1397): remains and renewables alone
+        // restore goalMM=1. (The D wave 2 worlds needed RC_BOMB_SHOP_ITEM_03, the
+        // Bomb Shop's Progressive Bomb Bag.)
+        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = {};
+        const int namedCount = (int)kCsbFLoadBearingFixedChecks.size();
         std::vector<ComboLogicBagItem> remainsRenewablesAndNamed = remainsAndRenewables;
         int namedFound = 0;
         int namedProgression = 0;
@@ -1404,7 +1403,9 @@ TestResult ComboSingleBag_Run(void) {
         CSB_ASSERT(namedFound == namedCount && namedProgression == namedCount,
                    "a named fixed content of leg F is not a fixed PROGRESSION content of this world (see "
                    "kCsbFLoadBearingFixedChecks)");
-        CSB_ASSERT(namedCount == 0 || (renewablesRc == RSBS_COMBO_LOGIC_OK && withRenewables.goalMM == 0),
+        CSB_ASSERT(renewablesRc == RSBS_COMBO_LOGIC_OK,
+                   "the round with the fixed boss remains and every fixed renewable assumed did not run");
+        CSB_ASSERT(namedCount == 0 || withRenewables.goalMM == 0,
                    "assuming the fixed boss remains and every fixed renewable restores MM's goal without the named "
                    "fixed content, so the named exception is no longer load-bearing: drop it from "
                    "kCsbFLoadBearingFixedChecks");
