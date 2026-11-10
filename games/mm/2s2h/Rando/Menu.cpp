@@ -239,6 +239,7 @@ static RegisterShipInitFunc refreshMetricsInit(RefreshMetrics, {
                                                                    "gRando.Options.RO_SHUFFLE_BARREL_DROPS",
                                                                    "gRando.Options.RO_SHUFFLE_BOSS_REMAINS",
                                                                    "gRando.Options.RO_SHUFFLE_BOSS_SOULS",
+                                                                   "gRando.Options.RO_SHUFFLE_BUTTERFLIES",
                                                                    "gRando.Options.RO_SHUFFLE_COWS",
                                                                    "gRando.Options.RO_SHUFFLE_CRATE_DROPS",
                                                                    "gRando.Options.RO_SHUFFLE_ENEMY_DROPS",
@@ -457,6 +458,7 @@ static void DrawShufflesTab() {
     CVarCheckbox("Shuffle Snowball Drops", Rando::StaticData::Options[RO_SHUFFLE_SNOWBALL_DROPS].cvar);
     CVarCheckbox("Shuffle Grass Drops", Rando::StaticData::Options[RO_SHUFFLE_GRASS_DROPS].cvar);
     CVarCheckbox("Shuffle Tree Drops", Rando::StaticData::Options[RO_SHUFFLE_TREE_DROPS].cvar);
+    CVarCheckbox("Shuffle Butterflies", Rando::StaticData::Options[RO_SHUFFLE_BUTTERFLIES].cvar);
     CVarCheckbox("Shuffle Frogs", Rando::StaticData::Options[RO_SHUFFLE_FROGS].cvar);
     CVarCheckbox("Shuffle Hive Drops", "gPlaceholderBool",
                  CheckboxOptions({ { .disabled = true, .disabledTooltip = "Coming Soon" } }));

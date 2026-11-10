@@ -548,6 +548,15 @@ const OptionUi kOptionUi[] = {
       // are ShouldActorInit and ShouldVanillaBehavior (VB_APPLY_BONK_TO_ACTOR in
       // z_player.c, VB_TREE_DROP_COLLECTIBLE in z_obj_yasi.c and z_en_snowwd.c).
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_BUTTERFLIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Shuffle Butterflies",
+      "Shuffles the fairies that spawn from interacting with certain butterflies with a Deku Stick.",
+      // #1407, upstream 2Ship's Butterfly Shuffle (b690db6fd). EnButte.cpp
+      // (2ship_rando, WHOLE_ARCHIVE, reached from ActorBehavior::OnFileLoad)
+      // identifies butterfly groups through id-keyed OnActorUpdate on
+      // ACTOR_OBJ_MURE (MM-dispatched via MM_GameHooks_ExecuteOnActorUpdate)
+      // and swaps the child butterflies' draw/update pointers.
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
 
     // ---- Additional Items, Traps -------------------------------------------
     { RO_PLENTIFUL_ITEMS, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
