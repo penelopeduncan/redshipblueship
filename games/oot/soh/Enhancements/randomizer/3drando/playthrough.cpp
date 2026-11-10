@@ -33,6 +33,7 @@ extern "C" int OoT_ComboLogic_GeneralPassDeferred(void);
 // generation (#564 V2), which a new generation replaces.
 extern "C" void OoT_Creation_ForgetConsumedGeneration(void);
 #include "soh/Enhancements/randomizer/TimeTravelSword.h" // the fold's #1434 term
+#include "soh/Enhancements/randomizer/static_data.h"     // the fold's #1407 term (a check's type)
 
 // #702: a record of what the LAST settings fold below actually folded, so a
 // rando-tier row can assert that the per-area exclude-location groups reach the
@@ -44,6 +45,36 @@ constexpr int kRsbsFoldExcludeGroups = RSG_EXCLUDES_GANONS_CASTLE - RSG_EXCLUDES
 uint32_t sRsbsFoldTotalLines = 0;
 uint32_t sRsbsFoldExcludeLines[kRsbsFoldExcludeGroups] = {};
 int sRsbsFoldRuns = 0;
+// #1407: the Shuffle Butterfly Fairies lines the last fold read and the ones it
+// left out (oot_butterfly_fairy_test.cpp). Each is counted at the line it
+// describes in the fold loop, after the skip, so a skip deleted there shows up
+// here as a folded line.
+uint32_t sRsbsFoldButterflyLines = 0;
+uint32_t sRsbsFoldButterflySkipped = 0;
+
+/**
+ * #1407: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Butterfly Fairies (Shipwright's butterfly fairy shuffle), and so is left
+ * out while the option is off: the option's own rows (Shuffle Settings and the
+ * Basic Shuffles menu section) and the exclude rows of its RCTYPE_BUTTERFLY_FAIRY
+ * checks. None of these lines existed before #1407, so with the option off the
+ * settings string is the one a world had before (#1434's rule). Trick rows are
+ * never one: a trick's key is a RandomizerTrick, which could equal a setting key's
+ * number. The exclude rows are told apart by their check's type, not by name: the
+ * exclude lists de-duplicate by name (Settings::PopulateExcludeLocationsOptions),
+ * and the butterfly checks come after every older check in the location table, so
+ * an older check sharing a butterfly's name would own that row.
+ */
+bool RsbsFoldIsButterflyFairyLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_BUTTERFLY_FAIRY;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_BUTTERFLY_FAIRIES;
+}
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
 // derivation in Playthrough_Init, #1367).
@@ -65,6 +96,19 @@ extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* out
     }
     for (int i = 0; outExcludeLines != nullptr && i < groupCap && i < kRsbsFoldExcludeGroups; i++) {
         outExcludeLines[i] = sRsbsFoldExcludeLines[i];
+    }
+    return sRsbsFoldRuns;
+}
+
+// #1407: of the last fold, the lines that belong to Shuffle Butterfly Fairies (its
+// two option rows and its checks' exclude rows) as folded and as left out.
+// Returns how many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldButterfly(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldButterflyLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldButterflySkipped;
     }
     return sRsbsFoldRuns;
 }
@@ -321,6 +365,13 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     for (uint32_t& lines : sRsbsFoldExcludeLines) {
         lines = 0;
     }
+    // [RSBS #1407] While Shuffle Butterfly Fairies is off its lines cannot change the
+    // world (its checks are not locations, Context::GenerateLocationPool, and their
+    // vanilla item is RG_NONE), so they are left out and a world keeps the
+    // fingerprint it had before the option existed; with it on they fold.
+    const bool rsbsButterflyOff = ctx->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
+    sRsbsFoldButterflyLines = 0;
+    sRsbsFoldButterflySkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -332,6 +383,13 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
         for (Rando::Option* option : optionGroup.GetOptions()) {
             if (option->IsCategory(Rando::OptionCategory::Setting)) {
                 if (option->GetOptionCount() > 0) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    const bool rsbsButterflyLine = RsbsFoldIsButterflyFairyLine(i, option);
+                    if (rsbsButterflyLine && rsbsButterflyOff) {
+                        sRsbsFoldButterflySkipped++;
+                        continue;
+                    }
+#endif
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         auto locationOption = static_cast<Rando::LocationOption*>(option);
                         settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
@@ -358,6 +416,9 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                     sRsbsFoldTotalLines++;
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
+                    }
+                    if (rsbsButterflyLine) {
+                        sRsbsFoldButterflyLines++;
                     }
 #endif
                 }

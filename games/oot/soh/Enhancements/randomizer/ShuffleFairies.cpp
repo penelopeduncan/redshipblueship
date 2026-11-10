@@ -222,7 +222,8 @@ void RegisterShuffleFairies() {
     COND_VB_SHOULD(VB_SPAWN_BUTTERFLY_FAIRY, shouldRegisterButterfly, {
         if (*should) {
             EnButte* enButte = va_arg(args, EnButte*);
-            int32_t params = (OoT_gPlayState->sceneNum == SCENE_GROTTOS) ? Grotto_CurrentGrotto() : enButte->actor.params;
+            int32_t params =
+                (OoT_gPlayState->sceneNum == SCENE_GROTTOS) ? Grotto_CurrentGrotto() : enButte->actor.params;
             if (SpawnFairy(enButte->actor.focus.pos.x, enButte->actor.focus.pos.y, enButte->actor.focus.pos.z,
                            TWO_ACTOR_PARAMS(params, (int32_t)enButte->actor.home.pos.y), FAIRY_HEAL, ACTOR_EN_BUTTE)) {
                 *should = false;
