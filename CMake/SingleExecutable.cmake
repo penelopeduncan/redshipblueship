@@ -921,6 +921,11 @@ if(BUILD_TESTING)
     # never reaches ImGui.
     redship_add_test(NAME MMRandoOptions COMMAND redship --test mm-rando-options)
     redship_add_test(NAME MMPairedProfile COMMAND redship --test mm-paired-profile)
+    # #1502: MM's Own Dungeon and Song Locations as the single bag's host groups
+    # (the registered MM engine's `hostGroups` against 2Ship's IsItemAllowedAtCheck,
+    # the defaults confining nothing) and the four placement options' fold into
+    # the MM seed and identity strings, pinned. Display-free like the two above.
+    redship_add_test(NAME MMPlacementConfinement COMMAND redship --test mm-placement-confinement)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
@@ -2452,6 +2457,12 @@ if(BUILD_TESTING)
         # host, OoT generated No Logic with All Locations Reachable off).
         "GoldenSeedDigestBeatableOnly|seed-digest-beatable-only|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=2"
         "GoldenSeedDigestNoLogic|seed-digest-no-logic|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=1"
+        # #1502: MM's CONFINED placements, the one golden whose single bag hands the
+        # fill host-group masks: Small Keys, Boss Keys and Stray Fairies at Own
+        # Dungeon (1) and Shuffle Songs at Song Locations (1). Every profile above
+        # leaves all four at Anywhere, which folds nothing and confines nothing.
+        # Same seed and dispatch as seed-digest-default.
+        "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 
@@ -2845,6 +2856,11 @@ if(BUILD_TESTING)
     # own half, the far half through the crossing gate, and composed from both
     # games' rows into one.
     redship_add_test(NAME ComboLogicSharedPair COMMAND redship --test combo-logic-shared-pair)
+    # THE HOST GROUPS (ABI 9, #1502): a confined row (MM's Own Dungeon and Song
+    # Locations) lands only on its own game's hosts in its group, is drawn first,
+    # drops alone as surplus, and a group with more rows than hosts is refused
+    # before any attempt. Same stub fixture, same `redship` tier.
+    redship_add_test(NAME ComboLogicHostGroups COMMAND redship --test combo-logic-host-groups)
 
     # The OoT ENGINE behind that coordinator (#645, lane K2a). `rando` tier, and
     # for a correctness reason rather than a convenience one: every fact this row
@@ -3298,6 +3314,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedSongsOneCopyAnywhere COMMAND redship --test shared-songs-one-copy-anywhere
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the same with MM's Shuffle Songs at Vanilla, where MM's copy must leave
+    # its vanilla check to the bag's one shared row (counted over every MM check).
+    redship_add_test(NAME SharedSongsOneCopyMMVanilla COMMAND redship --test shared-songs-one-copy-mm-vanilla
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the confined golden's profile created for real: every MM key, boss key
+    # and dungeon fairy in its own dungeon, every song-location song on an MM song
+    # check, none crossing into OoT. The golden pins the digest; this row checks
+    # the rule.
+    redship_add_test(NAME MMPlacementConfinedWorld COMMAND redship --test mm-placement-confined-world
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

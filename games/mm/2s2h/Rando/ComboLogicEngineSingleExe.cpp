@@ -1031,6 +1031,83 @@ int HostAcceptsForeign(void* self, uint16_t hostCheck) {
     return Rando::Foreign::IsForeignHostClass((RandoCheckId)hostCheck) ? 1 : 0;
 }
 
+// ============================================================================
+// THE HOST GROUPS (combo_logic.h ABI 9, `hostGroups`; #1502)
+// ============================================================================
+//
+// MM's groups are 2Ship's confinement groups (PlacementConstraints.cpp), one bit
+// each in MM's own namespace: bit g for CheckIdToConfinementGroup == g. A dungeon
+// check is in its dungeon's group whatever the options say (SceneIdToDungeon, the
+// boss rooms and both Stone Tower scenes included); a song check is in the song
+// group only under Song Locations. Rows are confined by the same functions
+// (MM_ComboLogic_PoolRowConfineMasks), so "host in the row's group" is exactly
+// 2Ship's IsItemAllowedAtCheck. Both read RANDO_SAVE_OPTIONS, which at the paired
+// creation is the frozen MM profile OnFileCreate copied in.
+
+/** Group `group` as a mask bit; 0 for "no group" (-1) or a group past 31. */
+uint32_t MmConfinementBit(int group) {
+    return (group >= 0 && group < 32) ? (1u << group) : 0u;
+}
+
+/** The group bits of `check` read off the live save's options. `find`, never
+ *  `operator[]`: an unknown id must not insert a Checks row. */
+uint32_t MmHostGroupsLive(uint16_t check) {
+    if (Rando::StaticData::Checks.find((RandoCheckId)check) == Rando::StaticData::Checks.end()) {
+        return 0u;
+    }
+    return MmConfinementBit(Rando::Logic::CheckIdToConfinementGroup((RandoCheckId)check));
+}
+
+/** A group mask's name for a refusal ("Woodfall Temple"); the dungeon groups are
+ *  SceneIdToDungeon's indices, the song group is the one after the boss rooms. */
+std::string MmConfinementGroupName(uint32_t mask) {
+    std::string out;
+    for (int g = 0; g < 32; ++g) {
+        if ((mask & (1u << g)) == 0u) {
+            continue;
+        }
+        const char* name = nullptr;
+        switch (g) {
+            case DUNGEON_SCENE_INDEX_WOODFALL_TEMPLE:
+                name = "Woodfall Temple";
+                break;
+            case DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE:
+                name = "Snowhead Temple";
+                break;
+            case DUNGEON_SCENE_INDEX_GREAT_BAY_TEMPLE:
+                name = "Great Bay Temple";
+                break;
+            case DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE:
+                name = "Stone Tower Temple";
+                break;
+            case DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1:
+                name = "Song Locations";
+                break;
+            default:
+                break;
+        }
+        if (!out.empty()) {
+            out += " or ";
+        }
+        out += (name != nullptr) ? name : ("group " + std::to_string(g));
+    }
+    return out.empty() ? std::string("no group") : out;
+}
+
+/** The host pool's group bits, cached by MM_ComboLogic_SetHostPool so a draw never
+ *  reads the save. Empty (and `sHostGroupsCached` false) without a pool. */
+std::unordered_map<uint16_t, uint32_t> sHostGroupMask;
+bool sHostGroupsCached = false;
+
+uint32_t HostGroups(void* self, uint16_t hostCheck) {
+    (void)self;
+    if (sHostGroupsCached) {
+        const auto it = sHostGroupMask.find(hostCheck);
+        return (it != sHostGroupMask.end()) ? it->second : 0u;
+    }
+    return MmHostGroupsLive(hostCheck);
+}
+
 void EndQuery(void* self) {
     (void)self;
     sEndQueryCalls++;
@@ -1162,6 +1239,7 @@ const ComboLogicEngine kMmEngine = {
     /* hostAcceptsForeign*/ HostAcceptsForeign,
     /* withholdHost      */ WithholdHost,
     /* allLocations      */ AllLocations,
+    /* hostGroups        */ HostGroups,
 };
 
 /**
@@ -1265,6 +1343,8 @@ const MmComboDescriberRegistrar gMmComboDescriberRegistrar;
  * the coordinator hands its `checkPool` in through here.
  */
 extern "C" void MM_ComboLogic_SetHostPool(const uint16_t* checks, int count) {
+    sHostGroupMask.clear();
+    sHostGroupsCached = false;
     if (checks == nullptr || count <= 0) {
         sHostPool.clear();
         sHostPoolSet = false;
@@ -1278,6 +1358,81 @@ extern "C" void MM_ComboLogic_SetHostPool(const uint16_t* checks, int count) {
     }
     sHostPool.assign(unique.begin(), unique.end());
     sHostPoolSet = true;
+    // THE HOST GROUPS (#1502): each host's group bits, read once, here, where the
+    // live save is the creation's (GeneratePools just built this pool from it).
+    for (const uint16_t host : sHostPool) {
+        const uint32_t groups = MmHostGroupsLive(host);
+        if (groups != 0u) {
+            sHostGroupMask[host] = groups;
+        }
+    }
+    sHostGroupsCached = true;
+}
+
+/** TEST BRIDGE (#1502): the group bits MM's engine answers `hostGroups` with for
+ *  `check` right now (the cache MM_ComboLogic_SetHostPool filled, or the live save
+ *  without a pool). Exactly what the coordinator reads; never recomputed. */
+extern "C" uint32_t MM_ComboLogic_HostGroupsFor(uint16_t check) {
+    return HostGroups(nullptr, check);
+}
+
+/** TEST BRIDGE (#1502): MM's own engine vtable, whatever the coordinator's
+ *  registry holds right now (a stub row earlier in `--test all` may have
+ *  unregistered it). */
+extern "C" const ComboLogicEngine* MM_ComboLogic_TestEngine(void) {
+    return &kMmEngine;
+}
+
+/**
+ * THE HOST GROUPS' ROW HALF (#1502): each MM pool row's confinement mask, the bit of
+ * its 2Ship group (RandoItemIdToConfinementGroup over the live save's options, the
+ * frozen MM profile at the paired creation), 0 when it may go anywhere. Own Dungeon
+ * confines a key, boss key or dungeon fairy to its dungeon; Song Locations confines
+ * a song-location song to the song checks. Returns how many rows are confined.
+ */
+extern "C" int MM_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* outMasks) {
+    int confined = 0;
+    for (int i = 0; i < count && items != nullptr && outMasks != nullptr; ++i) {
+        uint32_t mask = 0u;
+        const RandoItemId ri = (RandoItemId)items[i];
+        if (items[i] < (uint16_t)RI_MAX && Rando::StaticData::Items.find(ri) != Rando::StaticData::Items.end()) {
+            mask = MmConfinementBit(Rando::Logic::RandoItemIdToConfinementGroup(ri));
+        }
+        outMasks[i] = mask;
+        confined += (mask != 0u) ? 1 : 0;
+    }
+    return confined;
+}
+
+/**
+ * THE PATH-HINT SONG RULE (#1502; OoTMM locations.ts isLocationFullyShuffled with
+ * `songs: klass === 'path'`): an MM song-location song is no Way of the Hero
+ * candidate while MM's frozen Shuffle Songs is not Anywhere. Read at the creation
+ * (Combo_Woth_RunAtCreation), where RANDO_SAVE_OPTIONS is the frozen MM profile.
+ */
+extern "C" int MM_ComboLogic_PathHintSkipsItem(uint16_t id) {
+    if (id >= (uint16_t)RI_MAX || RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_ANYWHERE) {
+        return 0;
+    }
+    return Rando::Logic::IsSongLocationItem((RandoItemId)id) ? 1 : 0;
+}
+
+/** TEST BRIDGE (#1502): the masks the LAST RunPairedSingleBagFill handed
+ *  Combo_SingleBag_Run, one per MM pool row in pool order, with the items they
+ *  belong to (either out may be NULL). At most `cap` written, the TOTAL returned. */
+static std::vector<uint16_t> sLastPairedItems;
+static std::vector<uint32_t> sLastPairedMasks;
+extern "C" int MM_ComboLogic_TestLastPoolConfinement(uint16_t* outItems, uint32_t* outMasks, int cap) {
+    const int total = (int)sLastPairedMasks.size();
+    for (int i = 0; i < total && i < cap; ++i) {
+        if (outItems != nullptr) {
+            outItems[i] = sLastPairedItems[(size_t)i];
+        }
+        if (outMasks != nullptr) {
+            outMasks[i] = sLastPairedMasks[(size_t)i];
+        }
+    }
+    return total;
 }
 
 /**
@@ -1290,6 +1445,8 @@ extern "C" void MM_ComboLogic_ForgetPlacements(void) {
     sHeld.clear();
     sHostPool.clear();
     sHostPoolSet = false;
+    sHostGroupMask.clear();
+    sHostGroupsCached = false;
 }
 
 /** How many fixed check contents rounds have granted (A7, #737). */
@@ -2697,6 +2854,14 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
     if (!items.empty() && MM_ComboLogic_MarkPoolRows(items.data(), (int)items.size(), flags.data()) < 0) {
         throw std::runtime_error("single-bag fill: MM's pool is not the one GeneratePools just returned");
     }
+    // THE HOST GROUPS (#1502): Own Dungeon and Song Locations, as each row's group
+    // mask. With every placement option at Anywhere no row is confined and the bag
+    // fills exactly as it did before (Combo_SingleBag_Run passes no masks).
+    std::vector<uint32_t> confine(items.size(), 0u);
+    const int confinedRows =
+        items.empty() ? 0 : MM_ComboLogic_PoolRowConfineMasks(items.data(), (int)items.size(), confine.data());
+    sLastPairedItems = items;
+    sLastPairedMasks = confine;
 
     // The per-attempt budget, in coordinator fill rounds (#950): a compile-time
     // constant, or a lock's armed override (Combo_GenBudget_SetRoundBudgetOverride).
@@ -2706,8 +2871,8 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
 
     std::vector<uint8_t> inBag(items.size(), 0);
     ComboSingleBagReport report;
-    const int status = Combo_SingleBag_Run(items.data(), flags.data(), (int)items.size(), ladderAttempt, roundBudget,
-                                           inBag.data(), &report);
+    const int status = Combo_SingleBag_Run(items.data(), flags.data(), confinedRows > 0 ? confine.data() : nullptr,
+                                           (int)items.size(), ladderAttempt, roundBudget, inBag.data(), &report);
     if (status == RSBS_COMBO_LOGIC_ERR_ABORTED) {
         throw Rando::Logic::GenerationTimeout("single-bag fill stopped by its " + std::to_string(roundBudget) +
                                               "-round per-attempt budget after " + std::to_string(report.fill.rounds) +
@@ -2741,12 +2906,32 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
         } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE) {
             why += " - No Logic: both worlds together hold fewer free checks than the bag's required items (" +
                    std::to_string(report.fill.requiredPlaced) + " placed before they ran out)";
+        } else if (status == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY) {
+            ComboLogicGroupShortfall shortfall;
+            if (Combo_Logic_LastGroupShortfall(&shortfall)) {
+                why += " - " + MmConfinementGroupName(shortfall.mask) + ": " + std::to_string(shortfall.rows) +
+                       " items for " + std::to_string(shortfall.hosts) + " checks";
+            }
         }
         throw Rando::Foreign::PairedFillRefused(why + " (not a world dead end; no re-seed can fix it)");
     }
     if (status != RSBS_COMBO_LOGIC_OK) {
         throw std::runtime_error(std::string("single-bag fill: ") + Combo_Logic_StatusName(status) + " after " +
                                  std::to_string(report.fill.attempts) + " batch attempt(s)");
+    }
+    // THE HOST GROUPS (#1502): every confined row is PROGRESSION to MM's classifier
+    // (keys, boss keys, stray fairies and songs are none of RITYPE_JUNK or
+    // RITYPE_HEALTH), so the bag took it and the coordinator kept it in its group.
+    // MM's own pass below confines nothing, so a confined row left to it would
+    // break the setting silently: refuse instead (no seed changes a classifier).
+    for (size_t i = 0; i < confine.size(); ++i) {
+        if (confine[i] != 0u && inBag[i] == RSBS_SINGLE_BAG_MM_ROW_OWN_PASS) {
+            Combo_Logic_ResetPlacements();
+            throw Rando::Foreign::PairedFillRefused(
+                "single-bag fill refused: MM item " + std::to_string((unsigned)items[i]) + " is confined to " +
+                MmConfinementGroupName(confine[i]) +
+                " but was left to MM's own pass, which cannot confine it (not a world dead end)");
+        }
     }
 
     // --- MM's own pass over its leftover hosts --------------------------------

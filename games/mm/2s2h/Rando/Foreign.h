@@ -352,6 +352,14 @@ bool ForeignOutboxFullFor(RandoCheckId randoCheckId);
  *  MiscBehavior/CheckQueue.cpp (#1222). */
 void NotifyForeignOutboxFull();
 
+/** TEST BRIDGES (#1502, the placement fold lock): the MM seed-derivation string
+ *  (MMOptionsString) and the profile identity string (ProfileIdentityString, with
+ *  an empty trick set, no trap types, no excluded checks and the other terms at
+ *  zero) for an RO_MAX-long option array. Exactly the strings production hashes;
+ *  nothing is recomputed. Defined in Foreign.cpp. */
+std::string TestFoldOptionsString(const uint32_t* values);
+std::string TestFoldIdentityString(const uint32_t* values);
+
 } // namespace Foreign
 } // namespace Rando
 

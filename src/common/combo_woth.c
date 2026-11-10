@@ -17,6 +17,10 @@
 #include <stdio.h>
 #include <string.h>
 
+/* MM (ComboLogicEngineSingleExe.cpp, #1502): nonzero when MM's frozen song shuffle
+ * keeps MM song `id` out of path hints (OoTMM: songs not shuffled Anywhere). */
+int MM_ComboLogic_PathHintSkipsItem(uint16_t id);
+
 /* The PRESENT tag: bit 0 of the OoT half (area 0 is COMBO_AREA_NONE). */
 #define WOTH_PRESENT_BIT 0x01u
 
@@ -78,8 +82,16 @@ bool Combo_Woth_DefaultEligible(uint8_t hostGame, const ComboLogicPlacement* pla
         case RSBS_CHEST_GRADE_FAIRY:
             return false;
         default:
-            return true;
+            break;
     }
+    // OoTMM locations.ts isLocationFullyShuffled with `songs: klass === 'path'`: a
+    // song is never a path hint unless songs are shuffled Anywhere (#1502). OoT's
+    // songs under its own restricted song pass never reach this table, so only
+    // MM's own songs, which the bag confines under Song Locations, are asked.
+    if (placement->item.originGame == (uint8_t)GAME_MM && MM_ComboLogic_PathHintSkipsItem(placement->item.id) != 0) {
+        return false;
+    }
+    return true;
 }
 
 /** One round of the frozen goal with `forbidden` (NULL for none) withheld.

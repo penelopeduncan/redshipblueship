@@ -36,6 +36,9 @@ static uint16_t sOoTItems[COMBO_SINGLE_BAG_ROW_CAP];
 static uint16_t sOoTFlags[COMBO_SINGLE_BAG_ROW_CAP];
 static ComboLogicBagItem sBag[RSBS_COMBO_LOGIC_BAG_CAP];
 static int sBagPoolIndex[RSBS_COMBO_LOGIC_BAG_CAP];
+/** THE HOST GROUPS (combo_logic.h ABI 9, #1502): each bag row's confinement mask,
+ *  handed to the fill only when one is nonzero. */
+static uint32_t sBagConfine[RSBS_COMBO_LOGIC_BAG_CAP];
 static int sOoTBagRows[RSBS_COMBO_LOGIC_BAG_CAP];
 /** The pool rows (indices into sRows) THE SHARED-QUANTITY TRIM removed, captured
  *  right after the compose (Combo_Logic_ComposeTrimmedAt's record is the
@@ -262,8 +265,8 @@ static bool SingleBagOriginMayCross(uint8_t origin) {
            (Combo_ComboItemClassFor(origin) & (uint16_t)RSBS_ITEMCLASS_PROGRESSION) != 0u;
 }
 
-int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mmCount, int ladderAttempt,
-                        uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out) {
+int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const uint32_t* mmConfine, int mmCount,
+                        int ladderAttempt, uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out) {
     const uint32_t t0 = Combo_GenBudget_NowMs();
     memset(&sReport, 0, sizeof(sReport));
     sReport.ladderAttempt = ladderAttempt;
@@ -385,6 +388,25 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mm
             if (!mayCross && !sharedPair) {
                 sBag[i].bagFlags |= RSBS_COMBO_BAG_HOME_ONLY;
             }
+            // THE HOST GROUPS (#1502): a bag row taken from a confined MM pool row
+            // keeps its mask, and with it its home. A shared pair is exempt: it has
+            // no single home, so a confined song a frozen shared-song rule pairs
+            // roams, as OoT's held-back copy does (#1085).
+            sBagConfine[i] = 0u;
+            const int poolRow = sBagPoolIndex[i];
+            if (mmConfine != NULL && poolRow >= sReport.ootRows && poolRow < sReport.ootRows + sReport.mmRows &&
+                sBag[i].item.originGame == (uint8_t)GAME_MM) {
+                const uint32_t mask = mmConfine[poolRow - sReport.ootRows];
+                if (mask != 0u && !sharedPair) {
+                    sBagConfine[i] = mask;
+                    sBag[i].bagFlags |= RSBS_COMBO_BAG_HOME_ONLY;
+                    sReport.confinedRows++;
+                } else if (mask != 0u) {
+                    fprintf(stderr,
+                            "[SingleBag] MM item %u is confined (mask 0x%08X) but is a shared pair's row; it roams\n",
+                            (unsigned)sBag[i].item.id, (unsigned)mask);
+                }
+            }
             if ((sBag[i].bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u) {
                 sReport.homeOnlyRows++;
             }
@@ -398,7 +420,7 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mm
             "[SingleBag] bag: %d rows (OoT %d req + %d surplus + %d confined; MM %d req + %d surplus + %d confined) "
             "from %d OoT + %d MM pool rows; %d home-only; crossings armed OoT->MM=%d MM->OoT=%d; filler left to "
             "each game: OoT %d junk / %d renewable / %d trap / %d trimmed, MM %d junk / %d renewable / %d trap / "
-            "%d trimmed (trim seed %08X, starting health OoT 0x%X MM 0x%X)\n",
+            "%d trimmed (trim seed %08X, starting health OoT 0x%X MM 0x%X); %d confined to a group\n",
             sReport.bagCount, sReport.compose.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_REQUIRED],
             sReport.compose.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_SURPLUS],
             sReport.compose.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_CONFINED],
@@ -412,7 +434,7 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mm
             sReport.compose.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_JUNK],
             sReport.compose.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_RENEWABLE],
             sReport.compose.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_TRAP], sReport.trimmedMM, sReport.trimSeed,
-            (unsigned)sReport.startingHealthOoT, (unsigned)sReport.startingHealthMM);
+            (unsigned)sReport.startingHealthOoT, (unsigned)sReport.startingHealthMM, sReport.confinedRows);
     }
 
     // --- 3 + 4. the fill, seeded from the identity, stopped by the budget -----
@@ -450,6 +472,9 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mm
         // OoTMM's critical-renewables rule (critical_renewables.h): the fill
         // applies it under All Locations only, over both games' registered sources.
         freq.criticalRenewables = 1u;
+        // THE HOST GROUPS (#1502): only when a row is confined, so a world with
+        // every placement option at its default runs the mask-free fill.
+        freq.confineMasks = (sReport.confinedRows > 0) ? sBagConfine : NULL;
         status = Combo_Logic_RunFill(&freq, &sReport.fill);
         if (status != RSBS_COMBO_LOGIC_OK) {
             fprintf(stderr, "[SingleBag] fill failed on ladder attempt %d: %s after %d batch attempt(s), %d rounds%s\n",
@@ -463,6 +488,15 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mm
                 fprintf(stderr,
                         "[SingleBag] All Locations: %d location(s) no seed can reach under these settings: %s\n", n,
                         names);
+            } else if (status == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY) {
+                ComboLogicGroupShortfall shortfall;
+                if (Combo_Logic_LastGroupShortfall(&shortfall)) {
+                    fprintf(stderr,
+                            "[SingleBag] a confinement group holds more items than checks: %d %s item(s) for %d "
+                            "check(s) (group mask 0x%08X)\n",
+                            shortfall.rows, Game_ToString((GameId)shortfall.game), shortfall.hosts,
+                            (unsigned)shortfall.mask);
+                }
             } else if (status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
                 fprintf(stderr,
                         "[SingleBag] All Locations: no seed can finish the goal under these settings (OoT half %d, MM "
