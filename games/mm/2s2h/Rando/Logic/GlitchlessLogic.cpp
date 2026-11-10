@@ -181,6 +181,7 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
                         RANDO_EVENTS[randoEvent.first]++;
                         eventsInLogic.insert(&randoEvent);
                         eventsInLogicChanged = true;
+                        SPDLOG_TRACE("Event: {}", Rando::StaticData::GetEventName(randoEvent.first));
                     }
                 }
             }
@@ -216,13 +217,13 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
                             checksWithJunk.push_back(randoCheckId);
                             checksWithJunkWeights.push_back(weight);
                         }
-                        SPDLOG_TRACE("Check: {}:{}", Rando::StaticData::Checks[randoCheckId].name,
-                                     Rando::StaticData::Items[randoItemId].spoilerName);
                         RANDO_SAVE_CHECKS[randoCheckId].randoItemId = randoItemId;
                         RANDO_SAVE_CHECKS[randoCheckId].shuffled = true;
                     }
 
                     GiveItem(ConvertItem(randoItemId));
+                    SPDLOG_TRACE("Check: {}:{}", Rando::StaticData::Checks[randoCheckId].name,
+                                 Rando::StaticData::Items[randoItemId].spoilerName);
 
                     // Update time states for all regions when time items are obtained
                     if (randoItemId >= RI_TIME_DAY_1 && randoItemId <= RI_TIME_PROGRESSIVE) {
@@ -264,6 +265,8 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
 
                 if (checksWithJunk.size() == 1) {
                     checkWithJunk = checksWithJunk[0];
+                    checksWithJunk.pop_back();
+                    checksWithJunkWeights.pop_back();
                 } else {
                     std::vector<double> cumulativeWeights(checksWithJunkWeights.size());
                     std::partial_sum(checksWithJunkWeights.begin(), checksWithJunkWeights.end(),
@@ -298,7 +301,7 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
             }
 
             if (nonJunkItemsThatWeHaveNotTried.empty()) {
-                SPDLOG_TRACE("Already tried all non-junk items, leaving the last non-junk item in place: {}: {}",
+                SPDLOG_DEBUG("Already tried all non-junk items, leaving the last non-junk item in place: {}: {}",
                              Rando::StaticData::Checks[checkWithJunk].name,
                              Rando::StaticData::Items[RANDO_SAVE_CHECKS[checkWithJunk].randoItemId].spoilerName);
                 checkWithJunk = RC_UNKNOWN;
@@ -324,7 +327,7 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
         } else {
             weight++;
             if (checkWithJunk != RC_UNKNOWN) {
-                SPDLOG_TRACE("Successfully Replaced junk item with: {}:{}",
+                SPDLOG_DEBUG("Successfully Replaced junk item with: {}:{}",
                              Rando::StaticData::Checks[checkWithJunk].name,
                              Rando::StaticData::Items[RANDO_SAVE_CHECKS[checkWithJunk].randoItemId].spoilerName);
             }
