@@ -13,6 +13,8 @@
 
 ### Majora's Mask randomizer
 
+- **A Progressive Time found in Ocarina of Time shows the half-day it grants** (issue #1481). It is named and drawn
+  as that half-day (for example "Time (Night 1)") at its pickup, in its toast and on a shop shelf, as OoTMM does.
 - **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
   each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
   or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
@@ -32,6 +34,11 @@
 
 ### Fixes
 
+- **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
+  own than it has checks, as a hunt with too many pieces does, Generate now fails with a toast that names the game,
+  for example "Not generated: too many Majora's Mask pieces.", instead of "try a new seed or other options." The
+  file select's "Not created:" toast says the same, and a hunt whose goal can never be met reads "the Triforce Goal
+  can never be met."
 - **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
   carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
   leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time

@@ -1788,6 +1788,14 @@ typedef struct {
     /** The arrival-toast icon key for `id` IN THIS GAME's own notification
      *  overlay, or NULL for a text-only toast. Optional. */
     const char* (*itemIcon)(uint16_t id);
+    /** #1481: the id a pickup or shop in the OTHER game shows for `id` when
+     *  `ahead` un-redeemed crossings of the same id come before it (a
+     *  Progressive Time shown as the half-day it will grant), or `id` itself to
+     *  show the item as placed. Display only: the crossing record keeps `id`.
+     *  An id answered as itself at `ahead` 0 must be answered as itself at
+     *  every `ahead` (Combo_PresentForeignItem skips its slot scan on that).
+     *  Optional (NULL: always `id`). */
+    uint16_t (*presentItem)(uint16_t id, int ahead);
 } ComboGameDescriber;
 
 /** Register (or, with NULL, un-register) `game`'s describer. A non-game is ignored. */
@@ -1801,6 +1809,18 @@ const char* Combo_DescribeItemName(SharedItem item);
  *  game's describer: what Combo_GetForeignItemArticle gives every item but a pack
  *  named by its count (#1160). NULL as Combo_DescribeItemName. */
 const char* Combo_DescribeItemArticle(SharedItem item);
+
+/**
+ * #1481: the item a pickup, its toast or a shop in the host game shows for
+ * crossing item `item`: what the origin game's presentItem answers, given how
+ * many un-redeemed shared-item slots of the same origin and id come before it.
+ * `recorded` is true when `item`'s own crossing is already in the array (the
+ * drain records before it shows, so that slot is the last one and is not
+ * counted), false for a check not yet collected (a shelf, a shop text). The
+ * result keeps `item`'s origin and flags. `item` unchanged when the origin game
+ * has no presentItem. Display only: nothing is written.
+ */
+SharedItem Combo_PresentForeignItem(SharedItem item, bool recorded);
 
 /** The name of `check` in `hostGame`'s check id-space through that game's
  *  describer, or NULL. */

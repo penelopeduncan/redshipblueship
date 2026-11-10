@@ -2037,6 +2037,37 @@ TestResult Test_ComboLogicFill(void) {
         CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
     }
 
+    // --- #1483: the home-capacity words read the counts, never the status -----
+    // Combo_SingleBag_HomeShortGames names a game only for a FAILED fill whose
+    // counted HOME_ONLY REQUIRED rows outnumber that game's empty hosts.
+    {
+        ComboSingleBagReport r;
+        memset(&r, 0, sizeof(r));
+        r.status = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == 0u && Combo_SingleBag_HomeShortGames(NULL) == 0u,
+                  "a zeroed report (Combo_SingleBag_ClearLastReport's shape) and NULL name no game");
+        r.homeRequiredMM = 156;
+        r.hostsMM = 155;
+        r.homeRequiredOoT = 40;
+        r.hostsOoT = 300;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == RSBS_COMBO_HALF_MM,
+                  "one row more than MM's hosts names MM, and only MM (OoT has room)");
+        r.homeRequiredMM = 155;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == 0u, "as many rows as hosts fits: it is not short");
+        r.homeRequiredMM = 156;
+        r.homeRequiredOoT = 301;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == (RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM),
+                  "both games short name both");
+        r.hostsOoT = -1;
+        r.hostsMM = -1;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == 0u,
+                  "hosts never counted (-1: the fill did not run an attempt) name no game, whatever the rows");
+        r.hostsOoT = 300;
+        r.hostsMM = 155;
+        r.status = RSBS_COMBO_LOGIC_OK;
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == 0u, "a fill that succeeded is never refused in words");
+    }
+
     // --- the fill's own bracket bookkeeping ------------------------------
     {
         ClBuildFillWorld(true);
@@ -2964,6 +2995,53 @@ TestResult ClProductionRulesLeg(void) {
             }
         }
         CL_ASSERT(freeCrossed > 0, "P1: without HOME_ONLY no seed crossed, so the leg above proves nothing");
+    }
+
+    // P1b. THE HOME-CAPACITY COUNTS (#1483), over the production counter
+    //      Combo_SingleBag_CountHomeCapacity: 4 MM HOME_ONLY REQUIRED rows on 3 MM
+    //      hosts (OoT roomy, plus one OoT row that may cross) fail the fill, and
+    //      after the roll-back the counter names MM with 4 rows and 3 hosts. The
+    //      discriminating bags: 3 rows (an exact fit) and 3 rows plus one SURPLUS
+    //      HOME_ONLY row (a surplus copy may be dropped) name no game.
+    {
+        ComboLogicBagItem bag[5];
+        for (int i = 0; i < 4; ++i) {
+            bag[i] = ClBagItem(M, mItems[i], RSBS_ITEMCLASS_PROGRESSION);
+            bag[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+        }
+        bag[4] = ClBagItem(O, oItems[0], RSBS_ITEMCLASS_PROGRESSION); // not HOME_ONLY: never counted
+        ClBuildOpenWorld(4, 3);
+        ComboLogicFillResult res;
+        const int rc = ClRunFill(bag, 5, RSBS_COMBO_GOAL_BEAT_EITHER, RSBS_COMBO_RUNG_NONE, 1u, &res);
+        CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE, "P1b: 4 MM HOME_ONLY rows on 3 MM hosts cannot fill");
+        Combo_Logic_ResetPlacements();
+        ComboSingleBagReport r;
+        memset(&r, 0, sizeof(r));
+        r.status = rc;
+        Combo_SingleBag_CountHomeCapacity(bag, 5, &r);
+        // Catches: the origin tests swapped (OoT 4), a row that is not HOME_ONLY
+        // counted (OoT 1), the hosts read from the wrong game (MM 4). That
+        // Combo_SingleBag_Run calls the counter AFTER its roll-back needs both real
+        // engines and is not locked here.
+        CL_ASSERT(r.homeRequiredMM == 4 && r.homeRequiredOoT == 0,
+                  "P1b: the counter counts the HOME_ONLY REQUIRED rows by origin, and only those");
+        CL_ASSERT(r.hostsMM == 3 && r.hostsOoT == 4, "P1b: after the roll-back every empty host of each game counts");
+        CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == RSBS_COMBO_HALF_MM,
+                  "P1b: MM, and only MM, is named short (OoT has room)");
+
+        ClBuildOpenWorld(4, 3);
+        memset(&r, 0, sizeof(r));
+        r.status = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
+        Combo_SingleBag_CountHomeCapacity(bag, 3, &r);
+        CL_ASSERT(r.homeRequiredMM == 3 && r.hostsMM == 3 && Combo_SingleBag_HomeShortGames(&r) == 0u,
+                  "P1b: 3 HOME_ONLY rows on 3 hosts fit: no game is named (catches > turned into >=)");
+
+        bag[3].bagFlags = (uint16_t)(RSBS_COMBO_BAG_HOME_ONLY | RSBS_COMBO_BAG_SURPLUS);
+        memset(&r, 0, sizeof(r));
+        r.status = RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE;
+        Combo_SingleBag_CountHomeCapacity(bag, 4, &r);
+        CL_ASSERT(r.homeRequiredMM == 3 && Combo_SingleBag_HomeShortGames(&r) == 0u,
+                  "P1b: a SURPLUS HOME_ONLY row is never counted (it may be dropped), so 3 + 1 surplus fit");
     }
 
     // P2. THE FOREIGN-HOST PREDICATE: MM accepts a foreign item only on host 41,

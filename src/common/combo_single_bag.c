@@ -265,6 +265,51 @@ static bool SingleBagOriginMayCross(uint8_t origin) {
            (Combo_ComboItemClassFor(origin) & (uint16_t)RSBS_ITEMCLASS_PROGRESSION) != 0u;
 }
 
+void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r) {
+    if (r == NULL) {
+        return;
+    }
+    r->homeRequiredOoT = 0;
+    r->homeRequiredMM = 0;
+    for (int i = 0; bag != NULL && i < bagCount; ++i) {
+        const uint16_t f = bag[i].bagFlags;
+        if ((f & RSBS_COMBO_BAG_HOME_ONLY) == 0u || (f & RSBS_COMBO_BAG_SURPLUS) != 0u) {
+            continue;
+        }
+        if (bag[i].item.originGame == (uint8_t)GAME_OOT) {
+            r->homeRequiredOoT++;
+        } else if (bag[i].item.originGame == (uint8_t)GAME_MM) {
+            r->homeRequiredMM++;
+        }
+    }
+    r->hostsOoT = Combo_Logic_LeftoverHosts(GAME_OOT, NULL, 0);
+    r->hostsMM = Combo_Logic_LeftoverHosts(GAME_MM, NULL, 0);
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int g = 0; g < 2; ++g) {
+        const bool oot = games[g] == GAME_OOT;
+        const int rows = oot ? r->homeRequiredOoT : r->homeRequiredMM;
+        const int hosts = oot ? r->hostsOoT : r->hostsMM;
+        const unsigned pieces = (unsigned)(oot ? r->triforcePiecesOoT : r->triforcePiecesMM);
+        if (hosts < 0 || rows <= hosts) {
+            continue;
+        }
+        // The Triforce Pieces clause and its remedy only when this game holds
+        // pieces: a shortfall a direction made names only the remedies that apply.
+        if (pieces > 0u) {
+            fprintf(stderr,
+                    "[SingleBag] home capacity: %d required item(s) that must stay in %s (%u of them Triforce "
+                    "Pieces) for %d empty check(s) there, so no seed can place them; lower [Both Games] Triforce "
+                    "Pieces, let that game's items cross, or shuffle more of its checks\n",
+                    rows, Game_ToString(games[g]), pieces, hosts);
+        } else {
+            fprintf(stderr,
+                    "[SingleBag] home capacity: %d required item(s) that must stay in %s for %d empty check(s) "
+                    "there, so no seed can place them; let that game's items cross, or shuffle more of its checks\n",
+                    rows, Game_ToString(games[g]), hosts);
+        }
+    }
+}
+
 int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const uint32_t* mmConfine, int mmCount,
                         int ladderAttempt, uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out) {
     const uint32_t t0 = Combo_GenBudget_NowMs();
@@ -273,7 +318,10 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
     sReport.roundBudget = roundBudget;
     sReport.goal = gComboCtx.comboSettings.goal;
     sReport.rung = gComboCtx.comboSettings.logicRung;
+    sReport.hostsOoT = -1;
+    sReport.hostsMM = -1;
     int status = RSBS_COMBO_LOGIC_OK;
+    bool fillRan = false; // #1483: Combo_Logic_RunFill was called (the home-capacity counts need it)
     // #1439: an attempt's Way of the Hero is its own proved world's or none, so a
     // failed attempt never leaves an earlier one's behind.
     Combo_Woth_Clear();
@@ -461,6 +509,13 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         // by no record, so the compose admits them HOME_ONLY (each game's
         // pieces on its own hosts), and the proof counts them.
         freq.triforceRequired = Combo_TriforceHuntRequired();
+        // #1483: each game's share of the pieces, read now, for the refusal's
+        // words: a failed creation retracts the triforce record before
+        // Generate's toast is raised.
+        if (Combo_TriforceHuntArmed()) {
+            sReport.triforcePiecesOoT = gComboCtx.comboTriforce.totalOoT;
+            sReport.triforcePiecesMM = gComboCtx.comboTriforce.totalMM;
+        }
         freq.seed = sReport.seed;
         freq.maxAttempts = 0; // RSBS_COMBO_LOGIC_FILL_RETRIES batch roll-backs
         // Every crossing is delivered through one shared-item slot; bound each
@@ -476,6 +531,7 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         // every placement option at its default runs the mask-free fill.
         freq.confineMasks = (sReport.confinedRows > 0) ? sBagConfine : NULL;
         status = Combo_Logic_RunFill(&freq, &sReport.fill);
+        fillRan = true;
         if (status != RSBS_COMBO_LOGIC_OK) {
             fprintf(stderr, "[SingleBag] fill failed on ladder attempt %d: %s after %d batch attempt(s), %d rounds%s\n",
                     ladderAttempt + 1, Combo_Logic_StatusName(status), sReport.fill.attempts, sReport.fill.rounds,
@@ -567,6 +623,11 @@ finish:
         // this, and the next attempt must see its general pass empty.
         Combo_Logic_ResetPlacements();
     }
+    if (fillRan && status != RSBS_COMBO_LOGIC_OK && sReport.fill.attempts > 0) {
+        // #1483: after the roll-back, so each game's leftover hosts are all of its
+        // empty hosts.
+        Combo_SingleBag_CountHomeCapacity(sBag, sReport.bagCount, &sReport);
+    }
     sReport.status = status;
     // THE TOTAL'S CHARGE (#950): every round this fill ran, whatever its status,
     // so the ladder's between-attempt check sees dead ends and successes alike.
@@ -613,8 +674,30 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
     }
 }
 
+uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r) {
+    if (r == NULL || r->status == RSBS_COMBO_LOGIC_OK) {
+        return 0u;
+    }
+    uint32_t bits = 0u;
+    if (r->hostsOoT >= 0 && r->homeRequiredOoT > r->hostsOoT) {
+        bits |= RSBS_COMBO_HALF_OOT;
+    }
+    if (r->hostsMM >= 0 && r->homeRequiredMM > r->hostsMM) {
+        bits |= RSBS_COMBO_HALF_MM;
+    }
+    return bits;
+}
+
 void Combo_SingleBag_ClearLastReport(void) {
     memset(&sReport, 0, sizeof(sReport));
+}
+
+void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r) {
+    if (r == NULL) {
+        memset(&sReport, 0, sizeof(sReport));
+        return;
+    }
+    sReport = *r;
 }
 
 void Combo_SingleBag_Forget(void) {

@@ -76,6 +76,8 @@ void OoT_Creation_EmitLogicPinToast(void);
 // and the goal refusal of #1367 R5).
 int OoT_Creation_EmitUnreachableToast(void);
 void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT, int goalMM);
+// #1483: a game's own items outnumber its checks (ForeignItemsSingleExe.cpp).
+int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM);
 // ComboLogicEngineOoT.cpp.
 void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
 // games/mm/2s2h/GameExports_SingleExe.cpp: the bytes of MM's half.
@@ -710,8 +712,14 @@ int CompleteAndStage(bool fromGenerate) {
                 OoT_Creation_EmitGoalUnreachableToast(last->goal, last->fill.goalOoT, last->fill.goalMM);
             } else if (last->status != RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE ||
                        OoT_Creation_EmitUnreachableToast() <= 0) {
-                Notification::Emit(
-                    { .prefix = "Not generated:", .message = "try a new seed or other options.", .mute = true });
+                // #1483: a game whose own items cannot fit its checks is a fact of
+                // the settings too; the generic line stays for real seed dead ends
+                // and budget stops.
+                if (OoT_Creation_EmitHomeCapacityToast(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT,
+                                                       last->triforcePiecesMM) == 0) {
+                    Notification::Emit(
+                        { .prefix = "Not generated:", .message = "try a new seed or other options.", .mute = true });
+                }
             }
         }
         return Finish(RSBS_SEEDPKG_ERR_GENERATION);
