@@ -168,7 +168,7 @@ const char* const kShuffleKey = CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame");
 const char* const kKeyringKey = CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsChestGame");
 
 /** A key's stored state, put back by Restore. */
-struct SavedKey {
+struct CgSavedKey {
     const char* key;
     bool existed;
     int32_t value;
@@ -200,7 +200,7 @@ int IndexInGroup(const std::vector<Rando::Option*>& options, const Rando::Option
 void CheckOptions() {
     auto settings = Rando::Settings::GetInstance();
     settings->CreateOptions(); // idempotent; what Rando_HeadlessSeedTest calls first
-    SavedKey shuffle;
+    CgSavedKey shuffle;
     shuffle.Save(kShuffleKey);
     CVarClear(kShuffleKey);
 
@@ -307,7 +307,7 @@ struct FoldRecord {
     int chestGameKeysPlaced;
 };
 
-FoldRecord Generate(const char* leg) {
+FoldRecord CgGenerate(const char* leg) {
     FoldRecord r = {};
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
@@ -358,14 +358,14 @@ void CheckOffWorld(const char* leg, const FoldRecord& r, uint32_t expectedSkippe
 
 /** Legs F and P. Returns leg P's generation result (H runs over its world). */
 bool CheckFold() {
-    SavedKey shuffle;
-    SavedKey keyring;
+    CgSavedKey shuffle;
+    CgSavedKey keyring;
     shuffle.Save(kShuffleKey);
     keyring.Save(kKeyringKey);
 
     CVarClear(kShuffleKey);
     CVarClear(kKeyringKey);
-    const FoldRecord f = Generate("F");
+    const FoldRecord f = CgGenerate("F");
     const uint32_t expectedF = CountChestGameLines();
     CheckOffWorld("F", f, expectedF);
     CG_CHECK(f.pinned == 0, "F: the generation reports pinning an option that was already off");
@@ -373,7 +373,7 @@ bool CheckFold() {
     // Never stored: a stored rando key poisons later rows (CVarClear below).
     CVarSetInteger(kShuffleKey, RO_GENERIC_ON);
     CVarSetInteger(kKeyringKey, RO_KEYRING_FOR_DUNGEON_ON);
-    const FoldRecord p = Generate("P");
+    const FoldRecord p = CgGenerate("P");
     shuffle.Restore();
     keyring.Restore();
     const uint32_t expectedP = CountChestGameLines();
