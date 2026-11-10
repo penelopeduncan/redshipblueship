@@ -144,6 +144,15 @@ bool ComboHintMMFixedNamesArea(uint16_t source);
  */
 ComboHintRowData ComboHintMMPaneRow(const ComboHintRow& row);
 
+/**
+ * The MM pane's group key for MM's current area (#1475): MM's check tracker keys
+ * the player's area by scene (Combo_TrackerCurrentArea(GAME_MM)), its hint rows
+ * by the shared vocabulary's MM area. This is the area (Combo_Area_OfCheck) of the
+ * first MM check its tracker lists under scene key `sceneKey`, in `*outArea`; false
+ * when no such check has an area (no MM save to read, a scene with no checks).
+ */
+bool ComboHintMMAreaOfScene(uint16_t sceneKey, uint16_t* outArea);
+
 /** `game`'s rows into `out` and what the pane has to list (a ComboHintPaneState). */
 uint8_t ComboCollectHintRows(uint8_t game, std::vector<ComboHintRowData>& out);
 

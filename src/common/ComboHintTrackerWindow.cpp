@@ -11,7 +11,8 @@
  * in a child, so the window scrolls as a whole across both panes, as the
  * combined Check Tracker does. Nothing is cached: the rows are read again every
  * frame. The file's only state is each pane's search box and its scroll to the
- * current area, and the tab bar's last seed.
+ * current area (with, for MM's pane, the last scene it mapped to an area), and
+ * the tab bar's last seed.
  *
  * src/common cannot include UIWidgets, so the themed buttons and the panes'
  * collapsing headers go through the combo_ui seam (Button: SoH's
@@ -95,6 +96,11 @@ HintColours ReadHintColours() {
 struct HintPaneState {
     ImGuiTextFilter search;
     ComboAreaScroll scroll;
+    // MM's pane: the last scene key mapped to a hint area (ComboHintMMAreaOfScene).
+    bool sceneCached = false;
+    uint16_t mappedScene = 0;
+    bool sceneMapped = false;
+    uint16_t sceneArea = 0;
 };
 
 HintPaneState& Pane(uint8_t game) {
@@ -272,7 +278,18 @@ void DrawHintPane(uint8_t game, bool journal, const HintColours& colours) {
     }
 
     uint16_t area = 0;
-    const bool areaKnown = Combo_TrackerCurrentArea(game, &area);
+    bool areaKnown = Combo_TrackerCurrentArea(game, &area);
+    if (areaKnown && game == (uint8_t)GAME_MM) {
+        // MM's current area is a scene key; its hint groups are shared-vocabulary
+        // areas. The scene's area is worked out once per scene, not per frame.
+        if (!pane.sceneCached || pane.mappedScene != area) {
+            pane.sceneMapped = ComboHintMMAreaOfScene(area, &pane.sceneArea);
+            pane.mappedScene = area;
+            pane.sceneCached = true;
+        }
+        areaKnown = pane.sceneMapped;
+        area = pane.sceneArea;
+    }
     const bool activePane = game == (uint8_t)Context_GetCurrentGame();
     (void)ComboAreaScrollNote(pane.scroll, activePane, true, areaKnown, area);
     for (const ComboHintGroup& group : groups.groups) {
@@ -327,8 +344,20 @@ bool TargetObtained(const ComboHintTarget& t) {
     if (t.checkGame != (uint8_t)GAME_OOT && t.checkGame != (uint8_t)GAME_MM) {
         return false;
     }
+    // OoT's own adapter indexes rows by check id; any other registrant (the UI
+    // snapshot's synthetic world) is searched, as combo_tracker_view.c's
+    // HostCheckFound does, so the answer never rests on that coincidence.
     ComboTrackerCheckRow row;
-    return Combo_TrackerCheckAt(t.checkGame, (int)t.check, &row) && row.obtained;
+    if (Combo_TrackerCheckAt(t.checkGame, (int)t.check, &row) && row.checkId == t.check) {
+        return row.obtained;
+    }
+    const int count = Combo_TrackerCheckCount(t.checkGame);
+    for (int i = 0; i < count; i++) {
+        if (Combo_TrackerCheckAt(t.checkGame, i, &row) && row.checkId == t.check) {
+            return row.obtained;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -409,8 +438,9 @@ ComboHintRowData ComboHintMMPaneRow(const ComboHintRow& row) {
         d.locationName = "Other Hints";
     }
     // MM's areas are the shared vocabulary's, not the check tracker's MM area
-    // keys, so no group is the one MM's current area names.
-    d.locationIsArea = false;
+    // keys (scenes): the pane maps MM's current scene into this space
+    // (ComboHintMMAreaOfScene) to scroll to it, as SoH's Locations view does.
+    d.locationIsArea = d.locationKey != RSBS_HINT_GROUP_OTHER;
 
     const ComboHintResolution& hint = row.hint;
     switch (hint.type) {
@@ -470,6 +500,26 @@ ComboHintRowData ComboHintMMPaneRow(const ComboHintRow& row) {
             break;
     }
     return d;
+}
+
+bool ComboHintMMAreaOfScene(uint16_t sceneKey, uint16_t* outArea) {
+    const int count = Combo_TrackerCheckCount((uint8_t)GAME_MM);
+    for (int i = 0; i < count; i++) {
+        ComboTrackerCheckRow row;
+        if (!Combo_TrackerCheckAt((uint8_t)GAME_MM, i, &row) || row.areaName == nullptr || row.areaKey != sceneKey) {
+            continue;
+        }
+        const ComboArea area = Combo_Area_OfCheck((uint8_t)GAME_MM, row.checkId);
+        if (area.game != (uint8_t)GAME_MM || area.area == (uint8_t)COMBO_AREA_NONE ||
+            area.area == (uint8_t)COMBO_AREA_POCKET) {
+            continue;
+        }
+        if (outArea != nullptr) {
+            *outArea = area.area;
+        }
+        return true;
+    }
+    return false;
 }
 
 uint8_t ComboCollectHintRows(uint8_t game, std::vector<ComboHintRowData>& out) {

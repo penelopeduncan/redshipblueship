@@ -59,7 +59,7 @@ extern "C" {
 
 // src/common. Included outside any extern "C" block: the header manages its
 // own linkage (matching ForeignItemsSingleExe.cpp).
-#include "combo_hint_view.h" // #1475 lane H2: Combo_HintReadHostChecks, RSBS_HINT_HOST_CAP
+#include "combo_hint_view.h" // #1475 lane H2: Combo_HintReadHostChecks, the departure's name capture
 #include "combo_tracker_view.h"
 
 // randomizer_check_tracker.cpp (#1126): whether SoH's Check Tracker has loaded its
@@ -696,6 +696,8 @@ extern "C" void OoT_TrackerAdapter_CaptureAvailability(void) {
     if (!sDepartedRando) {
         return;
     }
+    // #1475: the combined Hint Tracker's OoT pane reads this world while MM plays.
+    OoT_HintAdapter_CaptureDeparture();
     if (!OoTAvailabilityLive()) {
         Combo_TrackerFreezeAvailability((uint8_t)GAME_OOT, nullptr, 0);
         return;
@@ -942,6 +944,37 @@ extern "C" int OoT_TrackerAdapter_TestSkipSeam(int saveLoaded) {
     const int persists = sSkipTestPersists;
     sSkipTestPersists = 0;
     return persists;
+}
+
+/**
+ * The departure record's seam (#1475): @p rando 1 records that OoT departed from a
+ * randomizer file in the heap world live now (its seed), 0 that it departed from
+ * none, as the departure capture would, without the capture's availability
+ * freeze; -1 restores what the record held before the first such call. @return the
+ * record's previous "departed from a randomizer file" (1 or 0).
+ */
+extern "C" int OoT_TrackerAdapter_TestSetDeparted(int rando) {
+    static bool sSaved = false;
+    static bool sSavedRando = false;
+    static uint32_t sSavedSeed = 0;
+    const int was = sDepartedRando ? 1 : 0;
+    if (rando < 0) {
+        if (sSaved) {
+            sDepartedRando = sSavedRando;
+            sDepartedSeed = sSavedSeed;
+            sSaved = false;
+        }
+        return was;
+    }
+    if (!sSaved) {
+        sSavedRando = sDepartedRando;
+        sSavedSeed = sDepartedSeed;
+        sSaved = true;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    sDepartedRando = rando != 0 && ctx != nullptr;
+    sDepartedSeed = sDepartedRando ? ctx->GetSeed() : 0;
+    return was;
 }
 
 /**

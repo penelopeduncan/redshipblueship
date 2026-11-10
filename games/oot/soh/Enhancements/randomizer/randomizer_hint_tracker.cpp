@@ -36,6 +36,10 @@ extern "C" void Combo_ClearStartupEntrance(void);
 // ForeignItemsSingleExe.cpp (#575 H3b): the MM item OoT check `rc` yields for the
 // text of a hint that names it (the crossed item the hint names), else NULL.
 extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc);
+// ForeignItemsSingleExe.cpp (#1475 lane H2): open that gate for the suspended
+// world the combined Hint Tracker's OoT pane reads while Majora's Mask plays;
+// returns the previous setting.
+extern "C" int OoT_Combo_SetHintingSuspendedWorld(int on);
 // ForeignItemsSingleExe.cpp (#577 M5, #862): the item category a chest at OoT check
 // `rc` is dressed by: the crossed MM item's own grade at a crossing host, else
 // `coverCategory`.
@@ -1130,6 +1134,24 @@ uint8_t PaneCollect(int* outCount) {
     if (live) {
         sPanePlayerName = GetPlayerName();
     }
+    // Off OoT, the crossed-item gate (OoT_Combo_HintTextCrossingAt) has no play
+    // state to read, though the heap is the departed paired world: open it for
+    // this walk, so a crossing host is ranked (HintedCheckRank) and named
+    // (CrossedItemHintName) by its MM item, as it is while OoT plays.
+    struct SuspendedGate {
+        bool on;
+        int was = 0;
+        explicit SuspendedGate(bool open) : on(open) {
+            if (on) {
+                was = OoT_Combo_SetHintingSuspendedWorld(1);
+            }
+        }
+        ~SuspendedGate() {
+            if (on) {
+                (void)OoT_Combo_SetHintingSuspendedWorld(was);
+            }
+        }
+    } suspendedGate(!live);
     // Mysterious Shuffle disables the Journal's item ranking (DrawHintList).
     const bool ranked = !CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0);
 
@@ -1192,6 +1214,17 @@ const ComboOoTHintOps* PaneOps() {
 /** combo_hint_view.h: register the combined Hint Tracker's OoT adapter (Combo_TrackerWindow_Init calls it). */
 extern "C" void OoT_HintAdapter_Register(void) {
     Combo_Hint_RegisterOoT(HintTracker::PaneOps());
+}
+
+/**
+ * The departure's half for the OoT pane (#1475): the '@' marker's name, read while
+ * gSaveContext is still OoT's. OoT_TrackerAdapter_CaptureAvailability calls it as
+ * OoT departs from a randomizer file, whether or not the window is open, so the
+ * pane's text built while Majora's Mask plays (and kept in the text cache) never
+ * names an empty player.
+ */
+extern "C" void OoT_HintAdapter_CaptureDeparture(void) {
+    HintTracker::sPanePlayerName = HintTracker::GetPlayerName();
 }
 #endif
 
@@ -1263,5 +1296,82 @@ extern "C" int RandoTest_HintTrackerJournalSlot(int hintKey) {
 // ranks at: ItemCategoryRank.
 extern "C" int RandoTest_HintTrackerCategorySlot(int category) {
     return HintTracker::ItemCategoryRank(static_cast<GetItemCategory>(category));
+}
+
+// ---- RSBS: the combined Hint Tracker's OoT pane (#1475, lane H2). -----------------
+// TEST BRIDGES for rows TrackerOoTPanelList (OoT_HintTrackerCrossing_RunPaired) and
+// ComboHintTrackerWindow (test_combo_hint_tracker_window.c).
+
+// Mark hint `hintKey` read (`read` nonzero) or unread, as the hint-revealed hook
+// does without its save, and drop the text cache, so the pane's next collect
+// builds the hint's text afresh. Returns whether it was read, or -1 for no hint.
+extern "C" int RandoTest_HintTrackerSetRead(int hintKey, int read) {
+    if (hintKey <= RH_NONE || hintKey >= RH_MAX) {
+        return -1;
+    }
+    const RandomizerHint key = static_cast<RandomizerHint>(hintKey);
+    int was = 0;
+    {
+        std::lock_guard<std::mutex> lock(HintTracker::readHintsMutex);
+        was = HintTracker::readHints.contains(key) ? 1 : 0;
+        if (read != 0) {
+            HintTracker::readHints.insert(key);
+        } else {
+            HintTracker::readHints.erase(key);
+        }
+    }
+    HintTracker::hintTextCache.clear();
+    return was;
+}
+
+// The production pane ops' collect (the ops OoT_HintAdapter_Register registers),
+// then its row for hint `hintKey`: how many rows in *outCount, that row's Journal
+// group key in *outJournalKey (0xFFFFFFFF: no such row) and its text in `outText`
+// ("" unread or no row). Returns the collect's ComboHintPaneState.
+extern "C" int RandoTest_HintTrackerPaneRow(int hintKey, int* outCount, uint32_t* outJournalKey, char* outText,
+                                            int textCap) {
+    const ComboOoTHintOps* ops = HintTracker::PaneOps();
+    int count = 0;
+    const uint8_t state = ops->collect(&count);
+    if (outCount != nullptr) {
+        *outCount = count;
+    }
+    if (outJournalKey != nullptr) {
+        *outJournalKey = 0xFFFFFFFFu;
+    }
+    if (outText != nullptr && textCap > 0) {
+        outText[0] = '\0';
+    }
+    for (int i = 0; i < count; i++) {
+        ComboHintPaneRow row = {};
+        if (!ops->rowAt(i, &row) || static_cast<int>(row.source) != hintKey) {
+            continue;
+        }
+        if (outJournalKey != nullptr) {
+            *outJournalKey = row.journalKey;
+        }
+        if (outText != nullptr && textCap > 0 && row.text != nullptr) {
+            snprintf(outText, static_cast<size_t>(textCap), "%s", row.text);
+        }
+        break;
+    }
+    return static_cast<int>(state);
+}
+
+// The Journal group key of an item hint before its rank slot is added (the
+// pane's journalKey is this plus ItemHintSlot's slot).
+extern "C" uint32_t RandoTest_HintTrackerItemGroupKey(void) {
+    return static_cast<uint32_t>(HintTracker::TypeGroupKey(HINT_TYPE_ITEM));
+}
+
+// The pane's '@' name: with `clear` nonzero, replace it with a marker no save's
+// name decodes to and return 0; otherwise 1 when it is the name gSaveContext holds
+// now (GetPlayerName), else 0.
+extern "C" int RandoTest_HintTrackerPaneName(int clear) {
+    if (clear != 0) {
+        HintTracker::sPanePlayerName = "\x01";
+        return 0;
+    }
+    return HintTracker::sPanePlayerName == HintTracker::GetPlayerName() ? 1 : 0;
 }
 #endif

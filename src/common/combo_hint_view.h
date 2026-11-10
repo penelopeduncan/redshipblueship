@@ -378,6 +378,14 @@ const ComboOoTHintOps* Combo_Hint_GetOoTOps(void);
  */
 void OoT_HintAdapter_Register(void);
 
+/**
+ * Keep what the OoT pane needs from OoT's gSaveContext while it is still OoT's: the
+ * player's name for the '@' marker. DEFINED OoT-SIDE (randomizer_hint_tracker.cpp);
+ * OoT's departure capture (OoT_TrackerAdapter_CaptureAvailability) calls it as OoT
+ * departs from a randomizer file, open window or not.
+ */
+void OoT_HintAdapter_CaptureDeparture(void);
+
 // ============================================================================
 // Cross-game Seen (lane H2): a hint that names a check in the other game
 // ============================================================================

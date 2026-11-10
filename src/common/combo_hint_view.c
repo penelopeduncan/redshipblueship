@@ -236,7 +236,7 @@ void Combo_HintGameSummary(uint8_t game, ComboHintGameSummary* out) {
     }
     memset(out, 0, sizeof(*out));
     if (game != (uint8_t)GAME_MM) {
-        return; // OoT's pane is lane H2's (#1468's data)
+        return; // OoT's pane state comes from Combo_Hint_GetOoTOps()->collect (randomizer_hint_tracker.cpp)
     }
     bool world = false;
     const void* save = MMHintSave(&out->freshness, &world);

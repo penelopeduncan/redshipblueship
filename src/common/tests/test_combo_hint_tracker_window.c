@@ -15,7 +15,10 @@
  *    ImGui::Begin would abort the process: with the visibility key cleared,
  *    Draw() and Update() run under GAME_OOT, GAME_MM and GAME_NONE, and the
  *    model reads the draw makes (both games' rows through the production
- *    adapters) run under each, answering no rows unless a pane is READY.
+ *    adapters) run under each. With no file anywhere (no OoT play state, no
+ *    departure from a randomizer file, a zeroed MM half), the OoT pane waits and
+ *    the MM pane waits or says it is rando-only, as its summary says, never
+ *    listing a world.
  *
  * 3. SoH's GROUPING (DrawHintList), over synthetic rows: the Locations view's
  *    groups in key order with "(read/total)" headers and every row; the
@@ -35,7 +38,17 @@
  *    OoT host only; Combo_HintReadHostChecks names each OoT check the READ MM
  *    hints name once (never an MM one), only over an ARMED MM half, and counts
  *    past its cap. Source scans hold the two call sites (MM's read hook, OoT's
- *    load seam) and that SoH's toggle row names this window.
+ *    load seam), that SoH's toggle row names this window, and that SoH's retired
+ *    window has no key in the single executable.
+ *
+ * 6. WHAT THE MM PANE READS BACK. An MM hint's OoT host is found by its own row
+ *    under any OoT registrant, and MM's current scene maps to the hint area the
+ *    pane scrolls to.
+ *
+ * 7. OoT's SIDE FOR REAL, over the authored heap world while MM plays: the
+ *    production pane waits or lists by the departure record, the departure keeps
+ *    the '@' name, the production writer marks Seen only under its gate, and the
+ *    load seam derives the same Seen from the read record.
  *
  * Appearance is the UiSnapshot rows' (window/Hint Tracker), not this.
  *
@@ -66,6 +79,17 @@
 
 // games/mm/2s2h/Rando/HintSourcesSingleExe.cpp's test bridge (also declared by test_mm_hint_sources.c).
 extern "C" void MM_HintSources_TestAuthorSave(void* image, uint32_t finalSeed, int hintsOn);
+// games/oot/soh/Enhancements/randomizer/TrackerAdapterSingleExe.cpp: the authored heap
+// world and its seams (also declared by test_combo_tracker_view.c), and H2's OoT side.
+extern "C" int OoT_TrackerAdapter_TestAuthorWorld(uint32_t seed, uint16_t outIds[3]);
+extern "C" void OoT_TrackerAdapter_TestReleaseWorld(void);
+extern "C" int OoT_TrackerAdapter_TestSetCollected(uint16_t rc, int collected);
+extern "C" int OoT_TrackerAdapter_TestSkipSeam(int saveLoaded);
+extern "C" void OoT_TrackerAdapter_TestAvailableSeam(int current);
+extern "C" int OoT_TrackerAdapter_TestSetDeparted(int rando);
+extern "C" int OoT_TrackerAdapter_ApplyMMHintsSeen(void);
+// games/oot/soh/Enhancements/randomizer/randomizer_hint_tracker.cpp: the pane's '@' name.
+extern "C" int RandoTest_HintTrackerPaneName(int clear);
 
 #define HTW_CHECK(cond)                                                    \
     do {                                                                   \
@@ -123,7 +147,15 @@ bool HtwRegistration() {
     }
     ComboGui::RegisterComboHintTrackerWindow(nullptr); // a null Gui is a no-op
 
+    // What the production adapters answer here, with no file anywhere: OoT has no
+    // play state (so no loaded save) and no departure from a randomizer file; MM's
+    // half is zeroed and unarmed, so it holds no randomizer world.
+    (void)OoT_TrackerAdapter_TestSetDeparted(0);
+    Context_ClearFrozenState(GAME_MM);
+    std::vector<uint8_t> zeroHalf((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    Context_UpdateShadowCopy(GAME_MM, zeroHalf.data(), zeroHalf.size());
     const GameId prevGame = Context_GetCurrentGame();
+    bool ok = true;
     for (const GameId game : { GAME_OOT, GAME_MM, GAME_NONE }) {
         Context_SetCurrentGame(game);
         window->Update();
@@ -134,11 +166,25 @@ bool HtwRegistration() {
             printf("[TEST] combo-hint-tracker-window: %s running, the %s pane is state %u with %zu row(s)\n",
                    game == GAME_OOT ? "OoT" : (game == GAME_MM ? "MM" : "no game"),
                    pane == (uint8_t)GAME_OOT ? "OoT" : "MM", (unsigned)state, rows.size());
-            HTW_CHECK(state <= (uint8_t)COMBO_HINT_PANE_READY);
-            HTW_CHECK(state == (uint8_t)COMBO_HINT_PANE_READY || rows.empty());
+            if (pane == (uint8_t)GAME_OOT) {
+                // SoH's "Waiting for file load...": no live save, and no suspended
+                // world (PaneCollect's two gates); never the rando-only note.
+                ok = ok && state == (uint8_t)COMBO_HINT_PANE_WAITING && rows.empty();
+            } else {
+                // The MM summary's mapping (no save: waiting; no world: rando-only),
+                // and a zeroed half is never a world to list.
+                ComboHintGameSummary summary;
+                Combo_HintGameSummary((uint8_t)GAME_MM, &summary);
+                const uint8_t want = summary.freshness == (uint8_t)COMBO_TRACKER_FRESH_UNAVAILABLE
+                                         ? (uint8_t)COMBO_HINT_PANE_WAITING
+                                         : (uint8_t)COMBO_HINT_PANE_NOT_RANDO;
+                ok = ok && !summary.hasWorld && state == want && rows.empty();
+            }
         }
     }
     Context_SetCurrentGame(prevGame);
+    (void)OoT_TrackerAdapter_TestSetDeparted(-1);
+    HTW_CHECK(ok);
     return true;
 }
 
@@ -259,6 +305,7 @@ bool HtwMMJournal() {
     HTW_CHECK(d.journalKey == kComboHintJournalWoth && d.journalCompact && d.journalColour == COMBO_HINT_COLOUR_WOTH);
     HTW_CHECK(d.journalLabel == std::string(Combo_Area_Name(zora)) + ", " + Combo_Area_Name(village));
     HTW_CHECK(d.locationKey == zora.area && d.locationName == Combo_Area_Name(zora) && d.text == "plain text");
+    HTW_CHECK(d.locationIsArea); // MM's pane scrolls to it (ComboHintMMAreaOfScene)
 
     ComboHintRow foolish = HtwMMRow(1, COMBO_HINT_TYPE_FOOLISH, zora);
     d = ComboHintMMPaneRow(foolish); // no area named: not compact, so no colour (SoH's rule)
@@ -296,6 +343,7 @@ bool HtwMMJournal() {
     nowhere.known = false;
     d = ComboHintMMPaneRow(nowhere);
     HTW_CHECK(d.locationKey == RSBS_HINT_GROUP_OTHER && d.locationName == "Other Hints" && !d.hasText);
+    HTW_CHECK(!d.locationIsArea);
     return true;
 }
 
@@ -433,6 +481,222 @@ bool HtwCrossGameLegs() {
     return true;
 }
 
+// ---- 6. What the MM pane reads back from the check trackers -------------------
+
+// An OoT registrant whose rows are not indexed by check id (as the UI snapshot's
+// synthetic world is not): row 0 is check 0x0300, open; row 1 is 0x0301, found.
+bool HtwShuffledSummary(ComboTrackerGameSummary*) {
+    return true;
+}
+int HtwShuffledCount(void) {
+    return 2;
+}
+bool HtwShuffledCheckAt(int index, ComboTrackerCheckRow* out) {
+    if (index < 0 || index > 1) {
+        return false;
+    }
+    out->checkId = (uint16_t)(0x0300 + index);
+    out->obtained = index == 1;
+    return true;
+}
+const char* HtwShuffledName(uint16_t) {
+    return "Shuffled Check";
+}
+
+/**
+ * An MM item hint naming an OoT host is found by that host's own row, whatever
+ * index the OoT registrant lists it at. Catches a lookup by index alone: check
+ * 0x0301 (row 1, found) would read as not found, and check 0x0001 would take row
+ * 1's found state.
+ */
+bool HtwTargetLookup() {
+    static const ComboOoTTrackerOps kShuffled = { HtwShuffledSummary, HtwShuffledCount, HtwShuffledCheckAt,
+                                                  HtwShuffledName };
+    Combo_Tracker_RegisterOoT(&kShuffled);
+    ComboHintRow row = HtwMMRow(RSBS_MM_HINT_SRC_SPIDER_HOUSE_SWAMP, COMBO_HINT_TYPE_FIXED,
+                                ComboArea{ (uint8_t)GAME_MM, (uint8_t)COMBO_AREA_MM_ZORA_HALL });
+    ComboHintTarget t = {};
+    t.checkGame = (uint8_t)GAME_OOT;
+    t.check = 0x0301;
+    t.itemGame = (uint8_t)GAME_MM;
+    (void)Combo_HintResolutionAddTarget(&row.hint, &t);
+    const bool foundRowOne = ComboGui::ComboHintMMPaneRow(row).found;
+    row.hint.targets[0].check = 0x0300;
+    const bool foundRowZero = ComboGui::ComboHintMMPaneRow(row).found;
+    row.hint.targets[0].check = 0x0001;
+    const bool foundByIndex = ComboGui::ComboHintMMPaneRow(row).found;
+    OoT_TrackerAdapter_Register(); // the production adapter again
+    printf("[TEST] combo-hint-tracker-window: OoT host found by its row: 0x0301 %d, 0x0300 %d, 0x0001 %d\n",
+           (int)foundRowOne, (int)foundRowZero, (int)foundByIndex);
+    HTW_CHECK(foundRowOne && !foundRowZero && !foundByIndex);
+    return true;
+}
+
+/**
+ * The MM pane's scroll to the current area: MM's check tracker keys the player's
+ * area by scene, the hint groups by shared-vocabulary area. Over the MM half the
+ * cross-game legs left (MM's real descriptor), the first MM check row with an area
+ * maps its scene key to that area, and a scene no row carries maps to none.
+ * Catches the mapping being dropped or reading another key space.
+ */
+bool HtwMMSceneArea() {
+    const int count = Combo_TrackerCheckCount((uint8_t)GAME_MM);
+    HTW_CHECK(count > 0);
+    for (int i = 0; i < count; i++) {
+        ComboTrackerCheckRow row;
+        if (!Combo_TrackerCheckAt((uint8_t)GAME_MM, i, &row) || row.areaName == nullptr) {
+            continue;
+        }
+        const ComboArea want = Combo_Area_OfCheck((uint8_t)GAME_MM, row.checkId);
+        if (want.area == (uint8_t)COMBO_AREA_NONE || want.area == (uint8_t)COMBO_AREA_POCKET) {
+            continue;
+        }
+        uint16_t got = 0xFFFF;
+        const bool mapped = ComboGui::ComboHintMMAreaOfScene(row.areaKey, &got);
+        printf("[TEST] combo-hint-tracker-window: MM scene key %u (%s) maps to hint area %u (want %u)\n",
+               (unsigned)row.areaKey, row.areaName, (unsigned)got, (unsigned)want.area);
+        HTW_CHECK(mapped && got == want.area);
+        HTW_CHECK(!ComboGui::ComboHintMMAreaOfScene(0xFFFE, &got));
+        return true;
+    }
+    printf("[TEST] FAIL: %s:%d: no MM check row has an area, so the scene mapping is untested\n", __FILE__, __LINE__);
+    return false;
+}
+
+// ---- 7. OoT's cross-game Seen writer and the suspended pane, for real ------------
+
+uint16_t gHtwApplyHosts[2] = { 0, 0 };
+
+// Source 6 names the two OoT checks in gHtwApplyHosts.
+bool HtwApplyResolve(const void*, uint16_t source, ComboHintResolution* out) {
+    Combo_HintResolutionClear(out);
+    if (source != 6) {
+        return false;
+    }
+    out->type = COMBO_HINT_TYPE_ITEM;
+    for (const uint16_t host : gHtwApplyHosts) {
+        ComboHintTarget t = {};
+        t.checkGame = (uint8_t)GAME_OOT;
+        t.check = host;
+        (void)Combo_HintResolutionAddTarget(out, &t);
+    }
+    return true;
+}
+
+uint8_t HtwOoTStatus(uint16_t id) {
+    ComboTrackerCheckRow row;
+    return Combo_TrackerCheckAt((uint8_t)GAME_OOT, (int)id, &row) ? row.status : (uint8_t)0xFF;
+}
+
+/** OoT departs (OoT_Game_Suspend's capture) playing a randomizer file (1) or not (0); MM plays on. */
+void HtwOoTDepart(int playingRandoFile) {
+    Context_SetCurrentGame(GAME_OOT);
+    (void)OoT_TrackerAdapter_TestSkipSeam(playingRandoFile);
+    OoT_TrackerAdapter_TestAvailableSeam(0); // the set is not current: the capture freezes none
+    OoT_TrackerAdapter_CaptureAvailability();
+    OoT_TrackerAdapter_TestAvailableSeam(-1);
+    (void)OoT_TrackerAdapter_TestSkipSeam(-1);
+    Context_SetCurrentGame(GAME_MM);
+}
+
+void HtwPair() {
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0xC0FF1475u;
+    gComboCtx.sharedRandoSettingsHash = 0x5EED1475u;
+}
+
+/**
+ * The production OoT ops over the authored heap world (ids: saved, untouched,
+ * skipped), as Majora's Mask plays the paired file.
+ *
+ *   a. OoT departed from no randomizer file: the pane waits, MM's hint marks
+ *      nothing, and no '@' name is kept. Catches a writer or pane that reads a
+ *      heap not known to be the played world.
+ *   b. Departed from it: the departure keeps the '@' name (whether or not the
+ *      window was open), the pane lists the suspended world (READY; the authored
+ *      world enables no hint, so no row), and MM's hint marks the untouched host
+ *      Seen once. A saved check and check 0 never move. Catches a gate that never
+ *      opens, a status that never moves, or one that moves past unchecked.
+ *   c. Refused unpaired, and while OoT plays (SoH's own hint marks it there).
+ *   d. OoT's load seam derives the Seen from the read record over the armed MM
+ *      half: nothing with nothing read or unpaired, then exactly the untouched
+ *      host (the saved one named beside it stays), then nothing again.
+ */
+bool HtwOoTWriterLegs() {
+    uint16_t ids[3] = { 0, 0, 0 };
+    HTW_CHECK(OoT_TrackerAdapter_TestAuthorWorld(0x14751476u, ids) == 3);
+    OoT_HintAdapter_Register();
+    const ComboOoTHintOps* ops = Combo_Hint_GetOoTOps();
+    HTW_CHECK(ops != nullptr && ops->collect != nullptr && ops->markHostSeen != nullptr);
+    ComboContext_Init();
+    HtwPair();
+    const uint8_t savedStatus = HtwOoTStatus(ids[0]);
+    HTW_CHECK(savedStatus == (uint8_t)COMBO_TRACKER_CHECK_SAVED);
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_UNCHECKED);
+
+    // a.
+    (void)RandoTest_HintTrackerPaneName(1);
+    HtwOoTDepart(0);
+    int count = -1;
+    HTW_CHECK(ops->collect(&count) == (uint8_t)COMBO_HINT_PANE_WAITING && count == 0);
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[1]));
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_UNCHECKED);
+    HTW_CHECK(RandoTest_HintTrackerPaneName(0) == 0);
+
+    // b.
+    HtwOoTDepart(1);
+    HTW_CHECK(RandoTest_HintTrackerPaneName(0) == 1);
+    count = -1;
+    HTW_CHECK(ops->collect(&count) == (uint8_t)COMBO_HINT_PANE_READY && count == 0);
+    HTW_CHECK(Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[1]));
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_SEEN);
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[1])); // already past unchecked
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_SEEN);
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[0]) && HtwOoTStatus(ids[0]) == savedStatus);
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, 0));
+
+    // c.
+    HTW_CHECK(OoT_TrackerAdapter_TestSetCollected(ids[1], 0) == 0); // back to unchecked
+    gComboCtx.sharedRandoSettingsHash = 0;
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[1]));
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_UNCHECKED);
+    HtwPair();
+    Context_SetCurrentGame(GAME_OOT);
+    HTW_CHECK(!Combo_HintMarkHostSeen((uint8_t)GAME_OOT, ids[1]));
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_UNCHECKED);
+
+    // d. (OoT's load seam runs while OoT is the active game.)
+    gHtwApplyHosts[0] = ids[1];
+    gHtwApplyHosts[1] = ids[0];
+    ComboMMHintDesc fake = {};
+    fake.sourceCount = (uint16_t)RSBS_MM_HINT_SRC_COUNT;
+    fake.sourceInfo = HtwFakeInfo;
+    fake.listed = HtwFakeListed;
+    fake.resolve = HtwApplyResolve;
+    Combo_Hint_RegisterMM(&fake);
+    std::vector<uint8_t> half((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    MM_HintSources_TestAuthorSave(half.data(), 0x14751476u, 1);
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+    HTW_CHECK(Context_ArmShadowAsFrozen(GAME_MM, 0) != 0);
+    HTW_CHECK(OoT_TrackerAdapter_ApplyMMHintsSeen() == 0); // nothing read
+    (void)Combo_HintMarkRead((uint8_t)GAME_MM, 6);
+    gComboCtx.sharedRandoSettingsHash = 0;
+    HTW_CHECK(OoT_TrackerAdapter_ApplyMMHintsSeen() == 0); // unpaired
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_UNCHECKED);
+    HtwPair();
+    const int applied = OoT_TrackerAdapter_ApplyMMHintsSeen();
+    printf("[TEST] combo-hint-tracker-window: the load seam marked %d OoT host(s) Seen (want 1)\n", applied);
+    HTW_CHECK(applied == 1);
+    HTW_CHECK(HtwOoTStatus(ids[1]) == (uint8_t)COMBO_TRACKER_CHECK_SEEN && HtwOoTStatus(ids[0]) == savedStatus);
+    HTW_CHECK(OoT_TrackerAdapter_ApplyMMHintsSeen() == 0); // already Seen
+
+    MM_HintAdapter_Register();
+    HtwOoTDepart(0); // no departure record left naming the authored world
+    OoT_TrackerAdapter_TestReleaseWorld();
+    ComboContext_Init();
+    return true;
+}
+
 bool HtwSourceScans() {
     const std::string mm = HtwSource("games/mm/2s2h/Rando/HintSourcesSingleExe.cpp");
     const size_t markRead = mm.find("void Rando::HintSources::MarkRead(uint16_t source) {");
@@ -460,6 +724,18 @@ bool HtwSourceScans() {
                        "RETIRED_HINT_TRACKER_KEY,kSohRetiredHintTrackerWindowName,ImVec2(500,600));") !=
               std::string::npos);
     HTW_CHECK(gui.find("gui->AddGuiWindow(mHintTrackerWindow);") != std::string::npos);
+    // ...and has no key in the single executable, where SoH's key opens this window
+    // (a retired window holding it would show beside it); elsewhere it keeps SoH's.
+    const std::string retired = HtwSource("games/oot/soh/SohGui/SohRetiredWindow.h");
+    const size_t singleAt = retired.find("#ifdef RSBS_SINGLE_EXECUTABLE\n");
+    const size_t otherAt = retired.find("#else // RSBS_SINGLE_EXECUTABLE\n", singleAt);
+    const size_t endAt = retired.find("#endif", otherAt);
+    HTW_CHECK(singleAt != std::string::npos && otherAt != std::string::npos && endAt != std::string::npos);
+    const std::string retiredSingle = retired.substr(singleAt, otherAt - singleAt);
+    const std::string retiredOther = retired.substr(otherAt, endAt - otherAt);
+    HTW_CHECK(retiredSingle.find("#define SOH_RETIRED_HINT_TRACKER_KEY \"\"\n") != std::string::npos);
+    HTW_CHECK(retiredOther.find("#define SOH_RETIRED_HINT_TRACKER_KEY CVAR_WINDOW(\"HintTracker\")\n") !=
+              std::string::npos);
 
     // SoH's Toggle Hint Tracker row opens its window by name and labels itself from the key this window reads.
     const std::string menu = HtwSource("games/oot/soh/SohGui/SohMenuRandomizer.cpp");
@@ -490,6 +766,8 @@ extern "C" int Combo_HintTrackerWindow_RunHeadless(void) {
 
     bool ok = HtwRegistration() && HtwGrouping() && HtwItemSlot() && HtwMMJournal();
     ok = ok && HtwCrossGameLegs();
+    ok = ok && HtwTargetLookup() && HtwMMSceneArea();
+    ok = ok && HtwOoTWriterLegs();
     ok = ok && HtwSourceScans();
 
     // Leave the process as it was: the production adapters, the MM half, no read record.
