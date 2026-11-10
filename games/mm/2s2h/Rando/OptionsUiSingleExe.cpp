@@ -550,12 +550,15 @@ const OptionUi kOptionUi[] = {
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_BUTTERFLIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Butterflies",
-      "Shuffles the fairies that spawn from interacting with certain butterflies with a Deku Stick.",
+      "Certain butterflies carry a randomized item. Hold out a Deku Stick near one and it flies to the stick's tip, "
+      "giving you the item.",
       // #1407, upstream 2Ship's Butterfly Shuffle (b690db6fd). EnButte.cpp
       // (2ship_rando, WHOLE_ARCHIVE, reached from ActorBehavior::OnFileLoad)
       // identifies butterfly groups through id-keyed OnActorUpdate on
       // ACTOR_OBJ_MURE (MM-dispatched via MM_GameHooks_ExecuteOnActorUpdate)
-      // and swaps the child butterflies' draw/update pointers.
+      // and swaps the child butterflies' draw/update pointers. Unlike Ocarina
+      // of Time's butterflies, no fairy spawns: the item is drawn on the
+      // butterfly and given when it reaches the stick (EnButte_UpdateRandoCheck).
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
 
     // ---- Additional Items, Traps -------------------------------------------

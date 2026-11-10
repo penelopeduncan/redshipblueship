@@ -458,6 +458,7 @@ static void DrawShufflesTab() {
     CVarCheckbox("Shuffle Snowball Drops", Rando::StaticData::Options[RO_SHUFFLE_SNOWBALL_DROPS].cvar);
     CVarCheckbox("Shuffle Grass Drops", Rando::StaticData::Options[RO_SHUFFLE_GRASS_DROPS].cvar);
     CVarCheckbox("Shuffle Tree Drops", Rando::StaticData::Options[RO_SHUFFLE_TREE_DROPS].cvar);
+    // #1407: parity only: the single-exe link elides this TU (2ship_rando_ui); the live row is OptionsUiSingleExe.cpp.
     CVarCheckbox("Shuffle Butterflies", Rando::StaticData::Options[RO_SHUFFLE_BUTTERFLIES].cvar);
     CVarCheckbox("Shuffle Frogs", Rando::StaticData::Options[RO_SHUFFLE_FROGS].cvar);
     CVarCheckbox("Shuffle Hive Drops", "gPlaceholderBool",

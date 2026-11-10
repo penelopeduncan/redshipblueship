@@ -155,6 +155,7 @@ std::vector<const char*> checkTypeIconList = {
     /*RCTYPE_STRAY_FAIRY*/ gStrayFairyGreatBayIconTex,
     /*RCTYPE_TINGLE_SHOP*/ gItemIconAdultsWalletTex,
     /*RCTYPE_TREE*/ gItemIconDekuStickTex,
+    // #1407: parity only: the single-exe link elides this TU (plain-archive 2ship_rando_ui).
     /*RCTYPE_BUTTERFLY*/ gItemIconDekuStickTex,
 };
 

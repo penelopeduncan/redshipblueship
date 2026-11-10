@@ -323,7 +323,8 @@ TestResult Test_MmHintAreaText(void) {
         }
         grottoRows++;
     }
-    CA_ASSERT(grottoRows == 415);
+    // 427 since #1407: the 12 grotto butterflies (HintAreaSingleExe.cpp's overrides).
+    CA_ASSERT(grottoRows == 427);
     printf("[TEST]   %d grotto checks name their overworld area, none \"%s\"\n", grottoRows, kGrottoScene);
 
     // ---- 2. Every check with an area is named by it, with OoTMM's preposition.
