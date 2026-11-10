@@ -13,6 +13,15 @@
   Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
   show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
 
+### Trackers
+
+- **Majora's Mask enemy drops show where the kill is in logic** (issue #1498). With Available Checks on, the Combo Tracker
+  lists a drop under an area where it can be killed, and keeps it there once collected. MM's Check Tracker greys each
+  area's copy on its own and names the areas in the drop's tooltip (when Out of Logic Checks is not Normal), as does the
+  Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
+  inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
+  the scene they open from.
+
 ---
 
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
