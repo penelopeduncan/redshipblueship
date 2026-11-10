@@ -333,7 +333,8 @@ void RunFillClockGain() {
 }
 
 // Leg f's unshuffled clock check: any non-song check works (the fill gives an
-// unshuffled check its static vanilla item, which leg f points at Day 1).
+// unshuffled check the item the save's check table holds for it, seeded from the
+// vanilla item by GeneratePools; leg f seeds Day 1 there).
 constexpr RandoCheckId kClockCheck = RC_MILK_ROAD_OWL_STATUE;
 // Leg f's one shuffled item: non-junk, and handled by its own GiveItem case, so
 // the fill never reaches the play-state Item_Give fallback headless.
@@ -384,10 +385,6 @@ std::map<RandoRegionId, RandoRegion> BuildFillGraph() {
  * the fill throws "No checks with junk". Either regression fails f1 and f2.
  */
 void RunFillDriven() {
-    auto& clockStatic = Rando::StaticData::Checks.at(kClockCheck);
-    const RandoItemId savedVanilla = clockStatic.randoItemId;
-    clockStatic.randoItemId = RI_TIME_DAY_1;
-
     std::map<RandoRegionId, RandoRegion> graph = BuildFillGraph();
     std::swap(Rando::Logic::Regions, graph);
     Rando::Logic::InvalidateEntranceRegionCache();
@@ -397,6 +394,8 @@ void RunFillDriven() {
         TeFail("fill f: owned time is 0x%llX, not Night 2 alone, so leg f probes nothing",
                (unsigned long long)TimeLogic::GetOwnedTimeSlices());
     }
+    // After ArmSaveOwning, which zeroes the save.
+    RANDO_SAVE_CHECKS[kClockCheck].randoItemId = RI_TIME_DAY_1;
 
     std::vector<RandoCheckId> checkPool = { kNightDayRow, kFreeDayRow };
     std::vector<RandoItemId> itemPool = { kFillItem };
@@ -419,7 +418,6 @@ void RunFillDriven() {
 
     std::swap(Rando::Logic::Regions, graph);
     Rando::Logic::InvalidateEntranceRegionCache();
-    clockStatic.randoItemId = savedVanilla;
 }
 
 void RunUnit() {
