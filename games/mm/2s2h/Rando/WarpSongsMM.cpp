@@ -16,7 +16,7 @@
  * lane XW10's.
  *
  * WHERE OWNERSHIP IS STORED. In gComboCtx.mmWarpSongsOwned (context.h, ADR 0009
- * claim 20), one bit per song, not in MM's half: RandoSaveInfo has no padding and
+ * claim 21), one bit per song, not in MM's half: RandoSaveInfo has no padding and
  * randoInf two free bits, so six flags there would shift every later SaveContext
  * field of every older .redsave; the slot state byte P5 used has one free bit. A
  * starting song is the WORLD's (a seed package's world record carries the byte),

@@ -4,15 +4,15 @@
  *        their ownership byte (#1169 lane XW5; OoTMM songMinuetMm ..
  *        songPreludeMm; the items are games/mm/2s2h/Rando/WarpSongsMM.cpp, the
  *        rules and the byte src/common/warp_songs_mm.c, the carve context.h's
- *        mmWarpSongsOwned, ADR 0009 claim 20).
+ *        mmWarpSongsOwned, ADR 0009 claim 21).
  *
  * Three ROM-free rows here, split by what each one needs, and one rando row in
  * games/mm/2s2h/mm_warp_songs_mm_test.cpp:
  *
  *   mm-warp-songs-items (CTest MMWarpSongsItems, redship tier; MM's pool reads
  *   the CVar store, so the runner brings up the display-free shared context
- *   first) -- THE ITEMS. The carve (1003, the tail of reserved[], which keeps 74
- *   bytes at 929, over ADR 0009's floor) and the ownership bits; the six ids
+ *   first) -- THE ITEMS. The carve (1003, the tail of reserved[], which keeps 64
+ *   bytes at 939, on ADR 0009's floor) and the ownership bits; the six ids
  *   appended after the masks with every saved id unchanged; their rows
  *   (RITYPE_MAJOR, OoTMM's names, the text and hint name, no ItemId, progression
  *   to the bag, MM's song note as icon, OoT's own song as model, the tooltips
@@ -246,11 +246,11 @@ TestResult MMWarpSongsItems_Run(void) {
 
     // ---- (0) The carve and the ownership bits --------------------------------------
     {
-        WSM_CHECK(offsetof(ComboContext, mmWarpSongsOwned) == 1003u && offsetof(ComboContext, reserved) == 929u &&
-                      sizeof(((ComboContext*)0)->reserved) == 74u &&
+        WSM_CHECK(offsetof(ComboContext, mmWarpSongsOwned) == 1003u && offsetof(ComboContext, reserved) == 939u &&
+                      sizeof(((ComboContext*)0)->reserved) == 64u &&
                       offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
                   "the ownership byte is at %u and reserved[] is %u bytes at %u (sizeof %u); expected 1003, the tail "
-                  "of reserved[], which keeps 74 bytes at 929, and nothing behind it moved",
+                  "of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
                   (unsigned)offsetof(ComboContext, mmWarpSongsOwned), (unsigned)sizeof(((ComboContext*)0)->reserved),
                   (unsigned)offsetof(ComboContext, reserved), (unsigned)sizeof(ComboContext));
         WSM_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");

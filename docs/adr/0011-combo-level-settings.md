@@ -963,7 +963,7 @@ No finding was rejected outright.
 
 ### 2026-09-10 — Increment 1 as landed: the eight under-specification resolutions recorded in PR #628 (merged 2026-08-06, `c414a6d1`)
 
-Increment 1 shipped as [PR #628](https://github.com/spencerduncan/redshipblueship/pull/628).
+Increment 1 shipped as [PR #628](https://github.com/penelopeduncan/redshipblueship/pull/628).
 Its body recorded eight points on which this ADR was under-specified and which
 the implementation had to resolve; until now they lived only in that PR body.
 They are folded in here, each dated to the merge (2026-08-06) and stated with
@@ -1096,10 +1096,10 @@ record's fields, and **not** into `MixPairedFinalSeed()` (`MMRandoGen` and
 
 Retired by #879 (the 2026-10-09 note below): the key and the row are gone, the bit is reserved and arms nothing.
 
-Operator direction, 2026-09-16, alongside the [#654](https://github.com/spencerduncan/redshipblueship/issues/654)
+Operator direction, 2026-09-16, alongside the [#654](https://github.com/penelopeduncan/redshipblueship/issues/654)
 ruling that the ocarina is a pool item findable in either game — *"there should
 be an option to have the ocarina be shared in both games."* Landed as
-[#668](https://github.com/spencerduncan/redshipblueship/issues/668). Nothing in
+[#668](https://github.com/penelopeduncan/redshipblueship/issues/668). Nothing in
 decisions 1–4 changes; this records the value space, the record bit and the
 mapping, which decision 1.2.1 requires to be written down before they are
 spent.
@@ -1885,8 +1885,9 @@ The problem it fixes: the three terms name the seed and the settings, never the
 generator, so two builds whose generator differs made two worlds behind one
 fingerprint. #840, #874 and #895 each moved worlds without moving the 8 hex
 digits #960 prints at file select. `RSBS_GENERATOR_VERSION` (`foreign_items.h`) is
-bumped by hand in any PR that re-pins a golden for a world-moving reason
-(`docs/determinism-goldens.md`).
+bumped by hand once per release window, at the first change that moves a world
+relative to the last released generator, whether or not a golden pins it
+(`docs/determinism-goldens.md`, rule 6 under "Re-pinning"; #1447).
 
 - **Version 0 is the decision 1.4 formula as it was**, with no fourth term. Every
   fingerprint written before #1003 is a version-0 fingerprint. The load and
@@ -2295,6 +2296,19 @@ Cooldown.
   family of OoT's own mask (`RG_GERUDO_MASK` ...) and MM's copy. Greyed with
   their extension's reason and shown off while it is off, and dropped by the
   resolver then.
+- **The shared slot's labels** (2026-11-09, #1500). OoTMM binds a C button to
+  the variant itself: each OoT mask has its own MM item id, so slot, icon, name
+  and button all carry it. This build keeps the slot's own `ItemId`
+  (`ITEM_MASK_STONE`, `ITEM_MASK_GIBDO`) on the button, in the tables and in the
+  save, and resolves every label at draw and use time through
+  `MM_ForeignMask_ItemShows` (the slot's live variant, the mask its C button
+  wears): the C-button and D-pad icons, the equip-flight icon, the pause name
+  (OoT's own name texture, curated in redship-mm.o2r) and the A-press
+  description of a cell lent one OoT mask (opened at
+  `VB_KALEIDO_DISPLAY_ITEM_TEXT`, because the pause opens descriptions through
+  `func_801514B0`, which dispatches no `OnOpenText`). No item id, button table or save byte was added; the cost is
+  that a label is never stored, so it follows the slot's variant rather than
+  the moment the button was set.
 
 Capacity spent: six `ComboSettingId`s (appended after #1169 XW2's fourteen
 warp-song ids, so no id moves), six identity keys (manifest 61 to 67, identity 41
@@ -2372,7 +2386,7 @@ player can make changes and no golden moves.
   `can_play_tp_*` buttons); no region reads it until XW9. The six tooltips drop
   OoTMM's Song Locations sentence (2Ship has no song-location pass).
 - **Ownership** is one byte, `mmWarpSongsOwned`, carved from the END of
-  `reserved[]` at **1003** (ADR 0009 claim 20; lane H1 carves from the front),
+  `reserved[]` at **1003** (ADR 0009 claim 21, after lane H1's claim 20 at 929),
   one bit per song in OoTMM's order. Not in MM's half: `RandoSaveInfo` has no tail
   padding and two free `randoInf` bits, and a new `RO_*` grows
   `randoSaveOptions`; either would shift MM's half and refuse every seed package
@@ -2388,7 +2402,7 @@ player can make changes and no golden moves.
   engine, MM's crawl, its glitchless fill, the attempt ladder) restores the byte
   too, and a new or failed MM file owns nothing.
 
-Capacity spent: one format byte (ADR 0009 claim 20), six `RI_*` ids; no
+Capacity spent: one format byte (ADR 0009 claim 21), six `RI_*` ids; no
 `ComboSettingId`, first- or second-word bit, `RO_*`, divergence bit or
 shared-resource slot. Locked by `MMWarpSongsItems`, `MMWarpSongsOwnershipSurvives`,
 `MMWarpSongsRulesOffUnchanged` (new), `MMWarpSongsPooledOnlyWhenRuleOn` (rando

@@ -79,7 +79,7 @@ docs/               # Build guides, modding docs, versioning
 
 **CI base image** (pre-compiled deps, suitable for network-isolated runs):
 ```bash
-# Image: ghcr.io/spencerduncan/redshipblueship-build:latest
+# Image: ghcr.io/penelopeduncan/redshipblueship-build:latest
 # Dockerfile: .github/docker/build-base.Dockerfile
 # All external downloads baked in at image build time
 
@@ -87,7 +87,7 @@ docs/               # Build guides, modding docs, versioning
 docker run --network=none \
   -v /path/to/repo:/workspace \
   -v ccache-vol:/root/.ccache \
-  ghcr.io/spencerduncan/redshipblueship-build:latest \
+  ghcr.io/penelopeduncan/redshipblueship-build:latest \
   bash -c "cd /workspace && cmake -B build -S . && cmake --build build --parallel"
 ```
 
@@ -105,8 +105,8 @@ Prerequisites for isolated runs:
 - Wave tooling (gate lock, `verify.cmd`, workflow preflight, lane resume manifests): `.claude/tools/wave/README.md`
 - Pushes, PRs, and merges are automated: push your branch as you work, open a PR when the change is ready for CI, and squash-merge once CI is fully green — no need to ask
 - Never merge red or partial CI; if blocked or uncertain, push the branch and report instead
-- **Human-filed issues and PRs are hands-off.** Anything authored by a GitHub account other than `spencerduncan` was filed by a person, and only the operator talks to people. Never comment on, label, assign, retitle, edit, close, or auto-close (`Fixes`/`Closes`/`Resolves #N`) it, and never reply to a person's comment on an agent issue or PR; surface it in your report instead. To work on one, file a secondary tracking issue titled `[agent] #N: <summary>` with the `agent-tracking` label, link the human issue from its body, verify the premise in code there, and point PRs at the agent issue (`Fixes #<agent>`, `Refs #<human>`). When unsure whether an author is a person, treat them as one.
+- **Human-filed issues and PRs are hands-off.** Anything authored by a GitHub account other than `penelopeduncan` was filed by a person, and only the operator talks to people. Never comment on, label, assign, retitle, edit, close, or auto-close (`Fixes`/`Closes`/`Resolves #N`) it, and never reply to a person's comment on an agent issue or PR; surface it in your report instead. To work on one, file a secondary tracking issue titled `[agent] #N: <summary>` with the `agent-tracking` label, link the human issue from its body, verify the premise in code there, and point PRs at the agent issue (`Fixes #<agent>`, `Refs #<human>`). When unsure whether an author is a person, treat them as one.
 - **No upstream reports unless the operator explicitly asks.** Never file, draft, propose, or mention an issue, PR, or comment to HarbourMasters or any other external repo, and do not offer it as an option. Document inherited defects in this tracker only, with the lineage evidence. PRs against the operator's own forks (libultraship, ZAPDTR, OTRExporter) are not upstream reports and follow the fork-PR convention.
 - When modifying MM code in single-exe mode, check `src/common/mm_stubs.c` for related stubs
 - Upstream repos, for reference only (see the no-upstream rule above): [Ship of Harkinian](https://github.com/HarbourMasters/Shipwright), [2Ship2Harkinian](https://github.com/HarbourMasters/2ship2harkinian)
-- Issue tracking: `gh issue list -R spencerduncan/redshipblueship`
+- Issue tracking: `gh issue list -R penelopeduncan/redshipblueship`

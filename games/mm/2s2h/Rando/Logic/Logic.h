@@ -10,6 +10,7 @@
 #include "Rando/WarpSongsMM.h" // #1169 XW5: CAN_PLAY_OOT_WARP_SONG
 #endif
 
+#include <functional>
 #include <set>
 #include <cassert>
 #include <stdexcept>
@@ -159,6 +160,15 @@ inline void SetCurrentRegionTime(const std::unordered_map<RandoRegionId, RegionT
     gCurrentRegionTime = regionTimeStates.at(regionId).timeSlices;
 }
 
+// #1453: the slices of `sourceTime` that an edge whose `condition` PASSED on the
+// whole of `sourceTime` carries into its target: the union of the half-days of
+// `sourceTime` on which `condition` holds alone (re-evaluated with
+// gCurrentRegionTime restricted to each one, at most six calls, none when
+// `sourceTime` sits in one half-day). Returns `sourceTime` unchanged when no
+// single half-day holds. gCurrentRegionTime is restored before returning. Both
+// FindReachableRegions and CrawlReachableRegions propagate through it.
+uint64_t NarrowEdgeTime(uint64_t sourceTime, const std::function<bool()>& condition);
+
 void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& reachableRegions,
                           std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates);
 RandoRegionId GetRegionIdFromEntrance(s32 entrance);
@@ -230,6 +240,20 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance);
  *  wants everything the world can yield). */
 std::set<RandoCheckId> EvaluateReachableChecks(const ReachabilityCrawl& crawl);
 
+/** One placement of a check: the region whose `checks` row lists it. Only the enemy drops have more than one
+ *  (#1498): one check per species, listed under every region where the species lives. */
+using CheckInstance = std::pair<RandoRegionId, RandoCheckId>;
+
+/** The per-instance answer beside EvaluateReachableChecks (#1498): the (region, check) pairs of the crawl's
+ *  reachable regions whose own row passes, each under its region's joined time state, kept only for the checks in
+ *  `checks`. Hand it a crawl and the per-id answer over that same crawl, after ApplyResetTimeGuard has restricted
+ *  both (ResetTimeGuard.h), and it is the guarded per-instance answer: the guard's region pruning is in the crawl
+ *  and its check pruning in `checks`, so the checks the result names are exactly `checks`. Reads the save and the
+ *  region graph only; it changes neither, nor the per-id answer (every caller of EvaluateReachableChecks, the fill
+ *  included, is untouched). */
+std::set<CheckInstance> EvaluateReachableCheckInstances(const ReachabilityCrawl& crawl,
+                                                        const std::set<RandoCheckId>& checks);
+
 /** Headless reachable-check CLOSURE over the CURRENT generated world: starting
  *  from the live save (post-fill, starting items granted), repeatedly crawl,
  *  and simulate collecting every reachable check's placed item (shuffled
@@ -297,6 +321,12 @@ extern unsigned int gRsbsGlitchlessTimeoutMsOverride;
 void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
 void ApplyNearlyNoLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
 void ApplyNoLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
+bool StaysAtVanillaCheck(RandoItemId itemId, const RandoSaveInfo& saveInfo);
+bool IsSongLocationItem(RandoItemId itemId);
+bool IsItemAllowedAtCheck(RandoItemId itemId, RandoCheckId checkId);
+size_t SelectItemForCheck(const std::vector<RandoItemId>& itemPool, const std::vector<RandoCheckId>& checkPool,
+                          RandoCheckId checkId);
+void PreplaceConfinedItems(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
 
 struct RandoRegionExit {
     s32 returnEntrance;

@@ -1,7 +1,7 @@
 # Debug seed: the Sonata, the Deku Mask and a bottle in Mido's House
 
 A paired seed for reproducing the Woodfall Temple reports of
-[#1070](https://github.com/spencerduncan/redshipblueship/issues/1070) without playing a seed through. Mido's House
+[#1070](https://github.com/penelopeduncan/redshipblueship/issues/1070) without playing a seed through. Mido's House
 holds Majora's Mask's **Sonata of Awakening**, **Deku Mask** and an **Empty Bottle**, Closed Forest is Off, Shared
 Bottles is On, and everything else is the shipped defaults. A new file can open the chests within a minute, walk to
 the Happy Mask Shop and cross: the Sonata and the mask are waiting at the Clock Tower, and the bottle is in both
@@ -9,7 +9,7 @@ games.
 
 ## What changed (third version: generator 2)
 
-[#1264](https://github.com/spencerduncan/redshipblueship/pull/1264) raised the generator version
+[#1264](https://github.com/penelopeduncan/redshipblueship/pull/1264) raised the generator version
 (`RSBS_GENERATOR_VERSION`, `src/common/foreign_items.h`) from 1 to 2, so a build from #1264 on refuses the second
 version's package ("Refused: Seed package from another generator"). This version is the same seed made again by a
 generator 2 build, with the same command, rows and settings, and it makes the **same world**:
@@ -129,7 +129,7 @@ Steps:
 4. A second bottle (the Red Potion in the Water Temple, the Bugs in Stone Tower) raises both games to two the same
    way. Any other result (a missing bottle, a second empty bottle appearing, contents copied across, a filled bottle
    emptied by a crossing) is a finding for
-   [#970](https://github.com/spencerduncan/redshipblueship/issues/970): keep the save, the newest `.log` in `logs/`
+   [#970](https://github.com/penelopeduncan/redshipblueship/issues/970): keep the save, the newest `.log` in `logs/`
    and `stderr.txt` (launch with `cmd /c "redship.exe 2> stderr.txt"`).
 
 ## The Woodfall test
@@ -143,7 +143,7 @@ Steps:
    - **Pass:** the temple rises (its cutscene plays).
    - **Fail:** the chime played, you played the Sonata as Deku Link on the symbol, and the temple does not rise. Keep
      the save, the newest `.log` in `logs/`, `stderr.txt` (launch with `cmd /c "redship.exe 2> stderr.txt"`) and the
-     spoiler above, and attach them to [#1070](https://github.com/spencerduncan/redshipblueship/issues/1070).
+     spoiler above, and attach them to [#1070](https://github.com/penelopeduncan/redshipblueship/issues/1070).
    - Played on the pink flower, or where the Song of Soaring sets you down, the Sonata gives its full announcement and
      nothing happens. That is vanilla, not a finding.
 4. Do it twice: once with **Settings > Controls > Ocarina Controls > Dpad Ocarina Playback** on and the Sonata played

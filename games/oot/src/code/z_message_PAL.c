@@ -15,6 +15,9 @@
 #include "soh/SaveManager.h"
 #include "soh/ResourceManagerHelpers.h"
 
+// SOH [Enhancement] Text Speed which fills whole box in one frame
+#define TEXT_SPEED_INSTANT 6
+
 // #region SOH [NTSC] - Allows custom messages to work on japanese
 static bool sDisplayNextMessageAsEnglish = false;
 static u8 sLastLanguage = LANGUAGE_ENG;
@@ -1274,7 +1277,9 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
         }
     }
 
-    if (msgCtx->textDelay == 0) {
+    if (gTextSpeed >= TEXT_SPEED_INSTANT) {
+        msgCtx->textDrawPos = msgCtx->decodedTextLen + 1;
+    } else if (msgCtx->textDelay == 0) {
         msgCtx->textDrawPos = i + gTextSpeed;
         if (msgCtx->textDrawPos > msgCtx->decodedTextLen) {
             msgCtx->textDrawPos = msgCtx->decodedTextLen + 1;
@@ -1624,7 +1629,9 @@ void OoT_Message_DrawText(PlayState* play, Gfx** gfxP) {
                 break;
         }
     }
-    if (msgCtx->textDelay == 0) {
+    if (gTextSpeed >= TEXT_SPEED_INSTANT) {
+        msgCtx->textDrawPos = msgCtx->decodedTextLen + 1;
+    } else if (msgCtx->textDelay == 0) {
         msgCtx->textDrawPos = i + gTextSpeed;
     } else if (msgCtx->textDelayTimer == 0) {
         msgCtx->textDrawPos = i + 1;
@@ -3865,23 +3872,7 @@ void OoT_Message_DrawMain(PlayState* play, Gfx** p) {
 
                     u8 songItemId = ITEM_SONG_MINUET + OoT_gOcarinaSongItemMap[msgCtx->ocarinaStaff->state];
 
-                    if ((songItemId == ITEM_SONG_MINUET &&
-                         GameInteractor_Should(VB_GIVE_ITEM_MINUET_OF_FOREST, true)) ||
-                        (songItemId == ITEM_SONG_BOLERO && GameInteractor_Should(VB_GIVE_ITEM_BOLERO_OF_FIRE, true)) ||
-                        (songItemId == ITEM_SONG_SERENADE &&
-                         GameInteractor_Should(VB_GIVE_ITEM_SERENADE_OF_WATER, true)) ||
-                        (songItemId == ITEM_SONG_REQUIEM &&
-                         GameInteractor_Should(VB_GIVE_ITEM_REQUIEM_OF_SPIRIT, true)) ||
-                        (songItemId == ITEM_SONG_NOCTURNE &&
-                         GameInteractor_Should(VB_GIVE_ITEM_NOCTURNE_OF_SHADOW, true)) ||
-                        (songItemId == ITEM_SONG_PRELUDE &&
-                         GameInteractor_Should(VB_GIVE_ITEM_PRELUDE_OF_LIGHT, true)) ||
-                        (songItemId == ITEM_SONG_LULLABY && GameInteractor_Should(VB_GIVE_ITEM_ZELDAS_LULLABY, true)) ||
-                        (songItemId == ITEM_SONG_EPONA && GameInteractor_Should(VB_GIVE_ITEM_EPONAS_SONG, true)) ||
-                        (songItemId == ITEM_SONG_SARIA && GameInteractor_Should(VB_GIVE_ITEM_SARIAS_SONG, true)) ||
-                        (songItemId == ITEM_SONG_SUN && GameInteractor_Should(VB_GIVE_ITEM_SUNS_SONG, true)) ||
-                        (songItemId == ITEM_SONG_TIME && GameInteractor_Should(VB_GIVE_ITEM_SONG_OF_TIME, true)) ||
-                        (songItemId == ITEM_SONG_STORMS && GameInteractor_Should(VB_GIVE_ITEM_SONG_OF_STORMS, true))) {
+                    if (GameInteractor_Should(VB_GIVE_ITEM_SONG, true, songItemId)) {
                         OoT_Item_Give(play, songItemId);
                     }
 

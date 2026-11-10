@@ -10,7 +10,7 @@
 #     build-linux:
 #       runs-on: ubuntu-22.04
 #       container:
-#         image: ghcr.io/spencerduncan/redshipblueship-build:latest
+#         image: ghcr.io/penelopeduncan/redshipblueship-build:latest
 #       steps:
 #       - name: Git Checkout
 #         uses: actions/checkout@v4
@@ -49,7 +49,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: spencerduncan/redshipblueship-build
+  IMAGE_NAME: penelopeduncan/redshipblueship-build
 
 jobs:
   build-and-push:

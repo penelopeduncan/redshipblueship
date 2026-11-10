@@ -5359,14 +5359,21 @@ void Session::CaptureModalVariant(const PageSpec& p, const std::string& state) {
  * The paired-file load's toasts (#781) through RsbsSave_EmitLoadToast, the one
  * emitter the load and the MM arrival call, each with the longest input a real
  * load can hand it: every Cross-Game Rule restored at once (their labels in the
- * page's order), the settable MM trick with the longest label alone (the cut
- * case), and every settable MM trick at once (the "+N" case).
+ * order the load restores them), the settable MM trick with the longest label
+ * alone (the cut case), and every settable MM trick at once (the "+N" case).
  */
 static void EmitLoadToastPage(const std::string& id) {
     if (id == "toast/load-rules-restored") {
+        // #1479: every restorable rule at once, in the order the load restores
+        // and names them (Combo_ComboSettingsRestorableAt), the list complete
+        // (count 0 counts its names), which posts the same message as the load's
+        // buffer of whole labels with the restore's true count.
         std::string rules;
-        for (ComboSettingId rule : { COMBO_SETTING_GOAL, COMBO_SETTING_DIRECTION }) {
-            rules += (rules.empty() ? "" : ", ") + std::string(Combo_ComboSettingLabel(rule));
+        for (int i = 0; i < Combo_ComboSettingsRestorableCount(); i++) {
+            const char* label = Combo_ComboSettingLabel(Combo_ComboSettingsRestorableAt(i));
+            if (label != nullptr && *label != 0) {
+                rules += (rules.empty() ? "" : ", ") + std::string(label);
+            }
         }
         RsbsSave_EmitLoadToast(RSBS_LOAD_TOAST_RULES_RESTORED, rules.c_str(), 0);
     } else if (id == "toast/load-mm-restored-one" || id == "toast/load-mm-restored-many") {

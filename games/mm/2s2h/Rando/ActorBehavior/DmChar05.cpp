@@ -7,15 +7,29 @@
 #define GIBDO_MASK_TEXT 0x87
 #define COUPLES_MASK_TEXT 0x85
 
+// The item check `randoCheckId`'s cutscene shows and names. #1499: until the give
+// (CheckQueue) collects the check, what ConvertItem will hand, as the give does: a
+// placed item the player already owns is shown as the junk it becomes.
+static RandoItemId DmChar05_ShownItem(RandoCheckId randoCheckId) {
+    const RandoSaveCheck& randoSaveCheck = RANDO_SAVE_CHECKS[randoCheckId];
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (!randoSaveCheck.obtained) {
+        return Rando::ConvertItem(randoSaveCheck.randoItemId, randoCheckId);
+    }
+#endif
+    return randoSaveCheck.randoItemId;
+}
+
 // Replace vanilla item get text with a simple message stating what randomized item has been received
 void replaceGetItemText(RandoCheckId randoCheckId, u16* textId, bool* loadFromMessageTable) {
-    auto randoSaveCheck = RANDO_SAVE_CHECKS[randoCheckId];
-    auto randoStaticItem = Rando::StaticData::Items[randoSaveCheck.randoItemId];
+    auto randoStaticItem = Rando::StaticData::Items[DmChar05_ShownItem(randoCheckId)];
 
     auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
     entry.autoFormat = false;
-    entry.msg.assign("You received " + std::string(randoStaticItem.article) + " " + std::string(randoStaticItem.name) +
-                     "!\x1C\x02\x10");
+    // RI_JUNK (#1499) has an empty article: no double space before its name.
+    const bool hasArticle = randoStaticItem.article != nullptr && randoStaticItem.article[0] != '\0';
+    const std::string article = hasArticle ? std::string(randoStaticItem.article) + " " : std::string();
+    entry.msg.assign("You received " + article + std::string(randoStaticItem.name) + "!\x1C\x02\x10");
     entry.icon = 0xFE; // No icon
 
     CustomMessage::LoadCustomMessageIntoFont(entry);
@@ -52,16 +66,16 @@ void Rando::ActorBehavior::InitDmChar05Behavior() {
         GetItemDrawId vanillaItemId = (GetItemDrawId)va_arg(args, int);
         switch (vanillaItemId) {
             case GID_MASK_GIBDO:
-                Rando::DrawItem(RANDO_SAVE_CHECKS[RC_MUSIC_BOX_HOUSE_FATHER].randoItemId);
+                Rando::DrawItem(DmChar05_ShownItem(RC_MUSIC_BOX_HOUSE_FATHER));
                 break;
             case GID_MASK_GORON:
-                Rando::DrawItem(RANDO_SAVE_CHECKS[RC_GORON_GRAVEYARD_DARMANI].randoItemId);
+                Rando::DrawItem(DmChar05_ShownItem(RC_GORON_GRAVEYARD_DARMANI));
                 break;
             case GID_MASK_ZORA:
-                Rando::DrawItem(RANDO_SAVE_CHECKS[RC_GREAT_BAY_COAST_MIKAU].randoItemId);
+                Rando::DrawItem(DmChar05_ShownItem(RC_GREAT_BAY_COAST_MIKAU));
                 break;
             case GID_MASK_COUPLE:
-                Rando::DrawItem(RANDO_SAVE_CHECKS[RC_STOCK_POT_INN_COUPLES_MASK].randoItemId);
+                Rando::DrawItem(DmChar05_ShownItem(RC_STOCK_POT_INN_COUPLES_MASK));
                 break;
             default:
                 break;

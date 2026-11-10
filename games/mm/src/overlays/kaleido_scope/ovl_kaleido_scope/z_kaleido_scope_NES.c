@@ -47,6 +47,12 @@ extern void MM_Combo_EndPauseSaveCommit(void);
 #include "2s2h/Enhancements/Songs/Songs.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// games/mm/2s2h/Rando/ForeignMaskMM.cpp (#1500): a shared mask slot's own item is
+// named as the Ocarina of Time mask it stands for; every other item by its own name.
+const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
+#endif
+
 #pragma increment_block_number "n64-us:128"
 
 // Page Textures (Background of Page):
@@ -438,6 +444,12 @@ void Kaleido_LoadItemNameStatic(void** segment, u32 texIndex) {
     } else {
         *segment = gEmptyTexture;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // RSBS #1500: the name of the mask a shared slot's item stands for (ForeignMaskMM.cpp).
+    // Keyed on texIndex alone: both callers pass a cursor item, and ITEM_MASK_GIBDO (0x41)
+    // and ITEM_MASK_STONE (0x45) are cursor items only on the mask page.
+    *segment = (void*)MM_ForeignMask_ItemName((int)texIndex, (const char*)*segment);
+#endif
 
     // CmpDma_LoadFile(SEGMENT_ROM_START(item_name_static), texIndex, segment, 0x400);
 }

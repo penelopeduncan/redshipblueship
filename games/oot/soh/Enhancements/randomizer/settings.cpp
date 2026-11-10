@@ -1065,6 +1065,13 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_MERCHANT_PRICES_AFFORDABLE, "Merchant Affordable Prices", CVAR_RANDOMIZER_SETTING("MerchantPricesAffordable"), mOptionDescriptions[RSK_MERCHANT_PRICES_AFFORDABLE]);
     OPT_BOOL(RSK_SHUFFLE_FROG_SONG_RUPEES, "Shuffle Frog Song Rupees", CVAR_RANDOMIZER_SETTING("ShuffleFrogSongRupees"), mOptionDescriptions[RSK_SHUFFLE_FROG_SONG_RUPEES]);
     OPT_BOOL(RSK_SHUFFLE_ADULT_TRADE, "Shuffle Adult Trade", CVAR_RANDOMIZER_SETTING("ShuffleAdultTrade"), mOptionDescriptions[RSK_SHUFFLE_ADULT_TRADE]);
+    OPT_CALLBACK(RSK_SHUFFLE_ADULT_TRADE, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleAdultTrade"), RO_GENERIC_OFF)) {
+            mOptions[RSK_EARLY_GRANNYS_SHOP].Disable("This has no effect when Shuffle Adult Trade is on.");
+        } else {
+            mOptions[RSK_EARLY_GRANNYS_SHOP].Enable();
+        }
+    });
     OPT_U8(RSK_SHUFFLE_CHEST_MINIGAME, "Shuffle Chest Minigame", {"Off", "On (Separate)", "On (Pack)"});
     OPT_BOOL(RSK_SHUFFLE_100_GS_REWARD, "Shuffle 100 GS Reward", CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_CALLBACK(RSK_SHUFFLE_100_GS_REWARD, {
@@ -1286,6 +1293,7 @@ void Settings::CreateOptions() {
             mOptions[RSK_SKIP_CHILD_STEALTH].Enable();
         }
     });
+    OPT_BOOL(RSK_EARLY_GRANNYS_SHOP, "Early Granny's Potion Shop", CVAR_RANDOMIZER_SETTING("EarlyGrannysShop"), mOptionDescriptions[RSK_EARLY_GRANNYS_SHOP]);
     OPT_BOOL(RSK_SKIP_EPONA_RACE, "Skip Epona Race", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipEponaRace"), mOptionDescriptions[RSK_SKIP_EPONA_RACE], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
     OPT_BOOL(RSK_SKIP_SCARECROWS_SONG, "Skip Scarecrow's Song", CVAR_RANDOMIZER_SETTING("SkipScarecrowsSong"), mOptionDescriptions[RSK_SKIP_SCARECROWS_SONG]);
     OPT_BOOL(RSK_SKIP_PLANTING_BEANS, "Skip Planting Beans", CVAR_RANDOMIZER_SETTING("SkipPlantingBeans"), mOptionDescriptions[RSK_SKIP_PLANTING_BEANS]);
@@ -1506,10 +1514,15 @@ void Settings::CreateOptions() {
     // RCQUEST_BOTH, RA_NONE, {Tricks::Tag::ADVANCED, Tricks::Tag::EXPERIMENTAL, Tricks::Tag::GLITCH}, "ISG", "Enables
     // locations requiring use of the infinite sword glitch.");
 
-    OPT_TRICK(RT_VISIBLE_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE },
-              "Pass Through Visible One-Way Collision",
-              "Allows climbing through the platform to reach Impa's House Back as adult with no items and going "
-              "through the Kakariko Village Gate as child when coming from the Mountain Trail side.");
+    OPT_TRICK(RT_VISIBLE_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Ignore Visible Collision",
+              "Allows ignoring visible barriers and objects that do not actually stop Link from walking, climbing or "
+              "hitting things, without clipping.\n\n"
+              "This notably allows for walking through Kak's gate backwards, climb into the back of Impa's house as "
+              "Adult from the coop,"
+              "and hitting Rusted Switches or boulders through Blocks, Ice and Walls.\n\n"
+              "This trick only applies to case where doing the thing is trivial, instances where it only works from "
+              "certain angles are not part of this trick,"
+              "niether are any form of clips, including clipping Link's hitbox inside boulders with jumpslash.");
     OPT_TRICK(RT_GROTTOS_WITHOUT_AGONY, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE },
               "Hidden Grottos without Stone of Agony", "Allows entering hidden grottos without the Stone of Agony.");
     OPT_TRICK(RT_FEWER_TUNIC_REQUIREMENTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE },
@@ -1521,18 +1534,9 @@ void Settings::CreateOptions() {
               "Many ledges can be overcome with particular jumps which are simple to execute without items.\n"
               "This includes jumping from heights to dive deeper without scales,\n"
               "though this trick doesn't cover Water Temple's Dragon Room.");
-    OPT_TRICK(RT_RUSTED_SWITCHES, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Hammer Through Collision",
-              "Applies to:\n"
-              "- Hitting Fire Temple Highest Goron Chest's Rusted Switch in the SoT Block without Song of Time.\n"
-              "- Hitting the rusted switch in Water Trial through the Ice."
-              "- Hitting MQ Fire Temple Lizalfos Maze's Rusted Switch in the wall.\n"
-              "- Having Adult hammer the rock in the west side crawlspace of MQ Spirit so child can get through "
-              "without bombchus."
-              "- MQ Spirit Trial's Rusted Switch between the thrones without hitting the eye target to drop an Iron "
-              "Knuckle.\n");
-    OPT_TRICK(RT_FLAMING_CHESTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Flaming Chests",
-              "The chests encircled in flames in Gerudo Training Ground and in Spirit Temple can be opened by running "
-              "into the flames while Link is invincible after taking damage.");
+    OPT_TRICK(RT_FIRE_RINGS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Fire Ring",
+              "Fire Rings can be run into while Link is invincible from having taken damage,"
+              "letting you interact with some objects inside them such as large chests");
     // disabled for now, can't check for being able to use bunny hood & bunny hood speedup is currently completely
     // decoupled from rando OPT_TRICK(RT_BUNNY_HOOD_JUMPS, RCQUEST_BOTH, RA_NONE, {Tricks::Tag::ADVANCED}, "Bunny Hood
     // Jumps", "Allows reaching locations using Bunny Hood's extended jumps.");
@@ -1560,12 +1564,14 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_OPEN_UNDERWATER_CHEST, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
               "Open Underwater Chests",
               "Underwater chests can be opened by wearing iron boots and hookshotting the chest.");
-    OPT_TRICK(RT_DISTANT_BOULDER_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
-              "Distant Boulder Collision",
-              "From afar boulder collision is disabled, allowing projectiles to pass through them.");
-    OPT_TRICK(RT_HOOKSHOT_EXTENSION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE },
-              "Hookshot/Projectile Extension",
-              "Slightly extends range. Also allows clipping projectile past collision. Used for:\n"
+    OPT_TRICK(RT_BOULDER_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
+              "Flawed Boulder Collision",
+              "From afar, boulder collision is disabled, allowing projectiles to pass through them.\n"
+              "Additionally, boulders do not have projectile collision from below, allow them to be shot into in some "
+              "cases.");
+    OPT_TRICK(RT_ITEM_EXTENSION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Item Extension",
+              "Slightly extends the range of projectiles such as Hookshot, Bow or Slingshot. Also allows clipping "
+              "projectile past collision. Used for:\n"
               "- Crossing Gerudo Valley with Hookshot\n"
               "- Retrieving DMT Gold Skulltula beside bomb flower\n"
               "- Hitting switch through wall in Spirit Temple's big mirror room with Bow, Slingshot, or Hookshot\n"
@@ -1588,9 +1594,9 @@ void Settings::CreateOptions() {
               "Adult Kokiri Forest GS with Hover Boots",
               "Can be obtained without Hookshot by using the Hover Boots off of one of the roots.");
     OPT_TRICK(RT_LW_BRIDGE, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::EXPERT },
-              "Jump onto the Lost Woods Bridge as Adult with Nothing",
-              "With very precise movement it's possible for adult to jump onto the bridge without needing Longshot, "
-              "Hover Boots, or Bean.");
+              "Jump onto the Lost Woods Bridge as Adult with a Jumpslash",
+              "With very precise movement and a jumpslash it's possible for Adult to jump onto the bridge without "
+              "needing Longshot, Hover Boots, or Bean.");
     OPT_TRICK(RT_LW_MIDO_BACKFLIP, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::NOVICE },
               "Backflip over Mido as Adult", "With a specific position and angle, you can backflip over Mido.");
     OPT_TRICK(RT_LOST_WOOD_NAVI_DIVE, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
@@ -1634,6 +1640,10 @@ void Settings::CreateOptions() {
               "Shadow Temple Entry with Fire Arrows",
               "It is possible to light all of the torches to open the Shadow Temple entrance with just Fire Arrows, "
               "but you must be very quick, precise, and strategic with how you take your shots.");
+    OPT_TRICK(RT_DMT_SHIELDLESS_CLIMB, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::NOVICE },
+              "Death Mountain Trail Child Climb Without Shield",
+              "Child can make it past the eruption to reach DMT Summit without a Hylian Shield or Nayru's Love"
+              "by backwalking or simply taking damage.");
     OPT_TRICK(RT_DMT_SOIL_GS, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::INTERMEDIATE },
               "Death Mountain Trail Soil GS without Destroying Boulder",
               "Bugs will go into the soft soil even while the boulder is still blocking the entrance. Then, using a "
@@ -2374,6 +2384,7 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                       &mOptions[RSK_MASK_QUEST],
                                                                       &mOptions[RSK_SKIP_CHILD_STEALTH],
+                                                                      &mOptions[RSK_EARLY_GRANNYS_SHOP],
                                                                       &mOptions[RSK_SKIP_PLANTING_BEANS],
                                                                       &mOptions[RSK_SKIP_EPONA_RACE],
                                                                       &mOptions[RSK_SKIP_SCARECROWS_SONG],
@@ -3352,7 +3363,7 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         }
     }
 
-    // Set key ring for each dungeon
+    // Set keyring for each dungeon
     for (const auto dungeon : dungeons) {
         dungeon->ClearKeyRing();
     }
@@ -3365,7 +3376,7 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
     };
 
     if (mOptions[RSK_KEYRINGS]) {
-        // Random Key Rings
+        // Random Keyrings
         auto keyrings = keyRingOptions;
         if (mOptions[RSK_GERUDO_FORTRESS].Is(RO_GF_CARPENTERS_NORMAL) &&
             mOptions[RSK_GERUDO_KEYS].IsNot(RO_GERUDO_KEYS_VANILLA)) {
@@ -3416,6 +3427,11 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         if (mOptions[RSK_KEYRINGS_GANONS_CASTLE].Is(RO_KEYRING_FOR_DUNGEON_ON) ||
             (mOptions[RSK_KEYRINGS_GANONS_CASTLE].Is(RO_KEYRING_FOR_DUNGEON_RANDOM) && Random(0, 2) == 1)) {
             this->GetDungeon(GANONS_CASTLE)->SetKeyRing();
+        }
+        // Gerudo Fortress has no DungeonInfo, so resolve its random roll into the option
+        if (mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Is(RO_KEYRING_FOR_DUNGEON_RANDOM)) {
+            mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Set(Random(0, 2) == 0 ? RO_KEYRING_FOR_DUNGEON_ON
+                                                                         : RO_KEYRING_FOR_DUNGEON_OFF);
         }
     }
 

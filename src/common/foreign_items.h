@@ -1306,9 +1306,12 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  * a fourth term, so a build whose generator changed shows a different
  * fingerprint at file select (#960's surface) for the same seed and settings.
  *
- * BUMP IT in any PR that re-pins a golden for a world-moving reason
- * (docs/determinism-goldens.md, "Re-pinning"). Do not bump it for a re-pin that
- * moved only an input field or a digest writer.
+ * BUMP IT ONCE PER RELEASE WINDOW, in the first PR after a release that makes the
+ * same seed and settings produce a different world than the last released
+ * generator does, whether or not a golden pins that world; later world-moving
+ * changes in the same window ride the unreleased version
+ * (docs/determinism-goldens.md, "Re-pinning", rule 6). Do not bump it for a
+ * re-pin that moved only an input field or a digest writer.
  *
  * IT IS A LABEL, NOT AN ENTROPY INPUT. Nothing is seeded from it: the single
  * bag folds the fingerprint with this term taken off
@@ -1334,8 +1337,18 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     the proof credits a shared tier family's copies to both games' logic (the
  *     shared-quantity credit), which moves every proving rung's placements.
  *     Seed packages written by generator 3 are refused, as designed.
+ * 5 = the worlds v0.5.0-alpha (generator 4) made that this build makes
+ *     differently: with Shuffle Tingle Maps on, the MM pool keeps one copy of
+ *     each of the six Tingle maps (none with Starting Maps and Compasses on)
+ *     and the other copies become junk in place, which moves every such seed
+ *     and, with Plentiful on, its lesser-copy gate (#1499, PR #1507); and MM
+ *     logic carries only the half-days a time-gated path is open on, so with
+ *     Clock Shuffle on reachability and fill can differ (#1453, PR #1504). No
+ *     golden pins either world, so no golden moved for a world-moving reason;
+ *     the bump is for the worlds no golden pins. Seed packages written by
+ *     generator 4 are refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 4u
+#define RSBS_GENERATOR_VERSION 5u
 
 /**
  * The fingerprint formula at an explicit generator version:

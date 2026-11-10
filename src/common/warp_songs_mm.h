@@ -18,7 +18,7 @@
  * Combo_SongSoaringOoTCopies.
  *
  * OWNERSHIP is one bit per song in gComboCtx.mmWarpSongsOwned (context.h, ADR 0009
- * claim 20), in OoTMM's order, each one bit below its rule bit. The reasons it is
+ * claim 21), in OoTMM's order, each one bit below its rule bit. The reasons it is
  * there and not in MM's half, why it is not in the invalidation KEEP set and why
  * it is not folded into the fingerprint are the field's comment.
  *

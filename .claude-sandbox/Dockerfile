@@ -4,7 +4,7 @@
 # Build:  docker build -t rsbs-claude-sandbox .claude-sandbox/
 # Usage:  .claude-sandbox/run-sandboxed-claude.sh --shell
 #
-FROM ghcr.io/spencerduncan/redshipblueship-build:latest
+FROM ghcr.io/penelopeduncan/redshipblueship-build:latest
 
 # ============================================================
 # Claude Code + Node.js
