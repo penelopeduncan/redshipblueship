@@ -996,11 +996,13 @@ def test_link_map_emitted_verified_and_shipped_outside_player_zip():
     windows_start = wf.index("  build-windows:", netplay_start)
     digest_start = wf.index("  digest-crossos-diff:", windows_start)
     release_start = wf.index("  create-release:", digest_start)
-    mono_start = wf.index("  monotonicity-probe:", release_start)
+    release_macos_start = wf.index("  release-macos:", release_start)
+    mono_start = wf.index("  monotonicity-probe:", release_macos_start)
 
     linux_job = wf[linux_start:netplay_start]
     windows_job = wf[windows_start:digest_start]
-    release_job = wf[release_start:mono_start]
+    release_job = wf[release_start:release_macos_start]
+    release_macos_job = wf[release_macos_start:mono_start]
 
     assert "build-cmake/redship.map" in linux_job and "Context_GetCurrentGame" in linux_job, (
         "#1303: build-linux must verify build-cmake/redship.map exists and names Context_GetCurrentGame"
@@ -1030,8 +1032,30 @@ def test_link_map_emitted_verified_and_shipped_outside_player_zip():
     assert "name: redship-map-linux" in release_job and "name: redship-map-windows" in release_job, (
         "#1303: create-release must download redship-map-linux and redship-map-windows"
     )
-    assert "name: rsbs-mac" in release_job, (
-        "create-release must download rsbs-mac so releases include the macOS dmg"
+    # #1501: the Windows and Linux assets never wait on the macOS build; the dmg
+    # is attached by its own job, which runs only once both have succeeded.
+    release_needs = re.search(r"^    needs:\s*\[([^\]]*)\]", release_job, re.MULTILINE)
+    assert release_needs and "build-macos" not in release_needs.group(1), (
+        "#1501: create-release must not need build-macos (a red macOS build would hold back every asset)"
+    )
+    assert "rsbs-mac" not in release_job, "#1501: create-release must leave the macOS dmg to release-macos"
+    macos_needs = re.search(r"^    needs:\s*\[([^\]]*)\]", release_macos_job, re.MULTILINE)
+    assert macos_needs and {n.strip() for n in macos_needs.group(1).split(",")} == {"create-release", "build-macos"}, (
+        "#1501: release-macos must need exactly create-release and build-macos"
+    )
+    assert not re.search(r"^    if:.*(always|failure|cancelled)\(", release_macos_job, re.MULTILINE), (
+        "#1501: release-macos must keep the implicit success(), so a failed macOS build attaches nothing"
+    )
+    assert "name: rsbs-mac" in release_macos_job, (
+        "release-macos must download rsbs-mac so releases include the macOS dmg"
+    )
+    assert re.search(
+        r'gh release upload "\$\{RELEASE_TAG\}" "redshipblueship-\$\{RELEASE_TAG\}-macos\.dmg"', release_macos_job
+    ), "release-macos must attach redshipblueship-${RELEASE_TAG}-macos.dmg to the GitHub Release"
+    macos_start = wf.index("  build-macos:")
+    macos_job = wf[macos_start : wf.index("  odr-declaration-gate:", macos_start)]
+    assert "hdiutil attach RedShipBlueShip.dmg" in macos_job and "for zapd in ZAPD_OoT ZAPD_MM" in macos_job, (
+        "#1501: build-macos must open the dmg and fail when ZAPD_OoT or ZAPD_MM is missing from the bundle"
     )
     assets_block = re.search(r"ASSETS=\(\s*(.+?)\s*\)", release_job, re.DOTALL)
     assert assets_block, "could not find ASSETS=(...) in create-release"
@@ -1040,9 +1064,6 @@ def test_link_map_emitted_verified_and_shipped_outside_player_zip():
     )
     assert '"redshipblueship-${RELEASE_TAG}-linux.map"' in assets_block.group(1), (
         "#1303: create-release must attach redshipblueship-${RELEASE_TAG}-linux.map to the GitHub Release"
-    )
-    assert '"redshipblueship-${RELEASE_TAG}-macos.dmg"' in assets_block.group(1), (
-        "create-release must attach redshipblueship-${RELEASE_TAG}-macos.dmg to the GitHub Release"
     )
 
 

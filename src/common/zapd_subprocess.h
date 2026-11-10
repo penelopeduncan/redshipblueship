@@ -20,7 +20,9 @@
  * Locate the bundled standalone ZAPD executable `variant` ("ZAPD_OoT" or
  * "ZAPD_MM") under assetsPath + "/extractor". Probes the platform name
  * variants: "<variant>.exe" on Windows; "<variant>.out" (ZAPDTR's
- * OUTPUT_NAME for Linux/macOS) and the bare "<variant>" elsewhere.
+ * OUTPUT_NAME for Linux/macOS) and the bare "<variant>" elsewhere. On macOS
+ * it then tries the app bundle's Contents/MacOS (assetsPath + "/../../MacOS"),
+ * where the bundle installs them.
  *
  * @return the path of the executable that exists, or "" when none does
  */
