@@ -39,6 +39,7 @@
 
 #include "combo_logic.h"         // src/common: the coordinator's placement table
 #include "combo_settings_view.h" // src/common: the warp-song keys
+#include "combo_single_bag.h"    // src/common: the creation's commit (Combo_SingleBag_Forget)
 #include "context.h"             // src/common: gComboCtx, the frozen states
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
 #include "warp_songs_mm.h"       // src/common: the ownership byte
@@ -273,10 +274,28 @@ void ClearKeys() {
     Combo_ComboItemRules2RevealForTest(0);
 }
 
-/** Every key a leg set is cleared and the seam closed however the row ends. */
+/**
+ * THE CREATION'S COMMIT (Combo_SingleBag_Forget), which the real creation event
+ * makes and MM_Rando_HeadlessPairedHalf does not: that bridge stops before OoT's
+ * tail so a row can still read the coordinator's tables, which leaves the world
+ * recorded in both engines. A leg's next generation then inherits that record, and
+ * its All Locations pre-flight resets the tables: the OoT engine's ClearPlacements
+ * writes the previous world's prior items (RG_NONE) over the keys, rewards and songs
+ * the new OoT generation has just placed on the same hosts, and the pre-flight
+ * refuses dozens of OoT locations "by construction" (the first CI run of this row:
+ * the second leg, 56 OoT locations). Forgetting drops the record and restores
+ * nothing, as K11FinishPairedOoTHalf and mm-creation-new-file do.
+ */
+void ForgetCreatedWorld() {
+    Combo_SingleBag_Forget();
+}
+
+/** Every key a leg set is cleared, the seam closed and the last world forgotten
+ *  however the row ends. */
 struct WsRestore {
     ~WsRestore() {
         ClearKeys();
+        ForgetCreatedWorld();
     }
 };
 
@@ -316,6 +335,9 @@ int PlacedInWorld(RandoItemId id) {
  * creation ran.
  */
 int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinuet) {
+    // Before this leg's generation places anything: the previous leg's world is
+    // committed, never rolled back over this one (ForgetCreatedWorld).
+    ForgetCreatedWorld();
     ComboContext_Init();
     ClearKeys();
     if (extensions) {

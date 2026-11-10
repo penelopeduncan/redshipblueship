@@ -3485,7 +3485,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
     # songMinuetMm .. songPreludeMm, hidden until XW12). MMWarpSongsItems: the
     # ownership byte carved from the tail of ComboContext's reserved[] (1003,
-    # ADR 0009 claim 20), the six RI ids appended after the masks, their rows and
+    # ADR 0009 claim 21), the six RI ids appended after the masks, their rows and
     # names, MM's real give and conversion, rule-gated ownership, the copies rule,
     # MM's real pool, OoTMM's button sets through MM's logic macro, and the
     # snapshot brackets. MMWarpSongsOwnershipSurvives: a starting song owned after
