@@ -422,14 +422,14 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                       Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_SOARING) &&
                       !Combo_ComboCrossItemRule2(RSBS_XITEM2_SONG_MINUET_MM),
                   "FreezeComboSettingsEx2 must store the word and the frozen accessors read it");
-        XW2_CHECK(gComboCtx.comboSettingsHash == 0xE59A4747u && Combo_ComboSettingsWorldHash() == 0xC5D0FBFBu,
-                  "the stamp is %08X and the world hash %08X; expected E59A4747 (v4) and C5D0FBFB (v0, the bag's)",
+        XW2_CHECK(gComboCtx.comboSettingsHash == 0x956E0836u && Combo_ComboSettingsWorldHash() == 0xC5D0FBFBu,
+                  "the stamp is %08X and the world hash %08X; expected 956E0836 (v5) and C5D0FBFB (v0, the bag's)",
                   (unsigned)gComboCtx.comboSettingsHash, (unsigned)Combo_ComboSettingsWorldHash());
         XW2_CHECK((Combo_ComboSettingsDivergence() & RSBS_COMBO_DIVERGE_FINGERPRINT) == 0u,
                   "a freshly frozen word does not reproduce its own fingerprint");
         Context_InvalidateSessionState(RSBS_SEED_STAMP_KEEP);
         XW2_CHECK(Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == kXw2SoaringPair &&
-                      gComboCtx.comboSettingsHash == 0xE59A4747u,
+                      gComboCtx.comboSettingsHash == 0x956E0836u,
                   "the file-create invalidation dropped the second word while keeping the fingerprint over it");
         Context_InvalidateSessionState(RSBS_SEED_STAMP_DROP);
         XW2_CHECK(Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == 0u && Combo_ComboCrossItemFlags2() == 0u,
@@ -569,7 +569,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   (unsigned)Combo_ComboItemRules2Word(&carried->comboItemRules2), (unsigned)carried->sharedFamilyOwned,
                   (unsigned)kXw2SoaringPair);
         XW2_CHECK(Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == kXw2SoaringPair &&
-                      gComboCtx.comboSettingsHash == 0xE59A4747u &&
+                      gComboCtx.comboSettingsHash == 0x956E0836u &&
                       Combo_ComboSettingsHashGeneratorVersionEx2(
                           &gComboCtx.comboSettings, &gComboCtx.comboItemRules,
                           Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2), gComboCtx.sharedRandoSettingsHash,
@@ -631,7 +631,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         ComboContext_Init();
         const bool keyedLoaded = mgr.Load(0);
         XW2_CHECK(keyedLoaded && Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == kXw2SoaringPair &&
-                      gComboCtx.comboSettingsHash == 0xE59A4747u && Combo_ComboSettingsDivergence() == 0u,
+                      gComboCtx.comboSettingsHash == 0x956E0836u && Combo_ComboSettingsDivergence() == 0u,
                   "THE .redsave ROUND TRIP: loaded %d, word %08X, fingerprint %08X", keyedLoaded ? 1 : 0,
                   (unsigned)Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2),
                   (unsigned)gComboCtx.comboSettingsHash);
@@ -724,8 +724,8 @@ TestResult Test_RulesOffGoldensUnchanged(void) {
         const uint32_t viaEx2 = gComboCtx.comboSettingsHash;
         XW2_CHECK(Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == 0u && Combo_ComboCrossItemFlags2() == 0u,
                   "a rules-off freeze left a second-word bit");
-        XW2_CHECK(viaEx2 == 0xA06B18F7u && Combo_ComboSettingsWorldHash() == 0xCEA3786Bu,
-                  "a rules-off world stamps %08X with world hash %08X; main's are A06B18F7 and CEA3786B",
+        XW2_CHECK(viaEx2 == 0x503ED9E6u && Combo_ComboSettingsWorldHash() == 0xCEA3786Bu,
+                  "a rules-off world stamps %08X with world hash %08X; expected 503ED9E6 (generator 5) and CEA3786B",
                   (unsigned)viaEx2, (unsigned)Combo_ComboSettingsWorldHash());
         // The single bag's three seeds, computed outside the build from main's
         // SingleBagIdentityHash over (seed 0169A0FF, DEADBEEF, 0BADF00D, CEA3786B).
@@ -769,10 +769,10 @@ TestResult Test_RulesOffGoldensUnchanged(void) {
         const int rt = OoT_SeedPackage_WorldRecordRoundTripForTest(&live, carried);
         static const uint8_t kZero[4] = { 0, 0, 0, 0 };
         XW2_CHECK(rt == 1 && memcmp(carried->comboItemRules2.crossItemFlags2, kZero, sizeof(kZero)) == 0 &&
-                      carried->comboSettingsHash == 0xA06B18F7u,
+                      carried->comboSettingsHash == 0x503ED9E6u,
                   "a rules-off world's package record carries second-word bytes, or another fingerprint");
         XW2_CHECK(Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == 0u &&
-                      gComboCtx.comboSettingsHash == 0xA06B18F7u && Combo_SingleBag_SeedFor(0) == 0x7ED4B1E3u,
+                      gComboCtx.comboSettingsHash == 0x503ED9E6u && Combo_SingleBag_SeedFor(0) == 0x7ED4B1E3u,
                   "applying a rules-off package moved the world");
         delete carried;
     }
