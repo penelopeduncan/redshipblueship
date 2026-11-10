@@ -1306,9 +1306,12 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  * a fourth term, so a build whose generator changed shows a different
  * fingerprint at file select (#960's surface) for the same seed and settings.
  *
- * BUMP IT in any PR that re-pins a golden for a world-moving reason
- * (docs/determinism-goldens.md, "Re-pinning"). Do not bump it for a re-pin that
- * moved only an input field or a digest writer.
+ * BUMP IT ONCE PER RELEASE WINDOW, in the first PR after a release that makes the
+ * same seed and settings produce a different world than the last released
+ * generator does, whether or not a golden pins that world; later world-moving
+ * changes in the same window ride the unreleased version
+ * (docs/determinism-goldens.md, "Re-pinning", rule 6). Do not bump it for a
+ * re-pin that moved only an input field or a digest writer.
  *
  * IT IS A LABEL, NOT AN ENTROPY INPUT. Nothing is seeded from it: the single
  * bag folds the fingerprint with this term taken off

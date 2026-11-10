@@ -17,6 +17,18 @@
   each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
   or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
   nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
+- **Majora's Mask logic fixes from 2Ship2Harkinian** (issue #1398). These change where items can land, so the same
+  seed and settings make a different paired world than before:
+  - The Peahat's drop and its grotto chest are in logic only by day, since a Peahat cannot be fought at night.
+  - The Great Bay Coast fisherman's minigame and the tree on its platforms need the Hookshot after Great Bay Temple is
+    cleared. Ice Arrows no longer count, and the minigame is in logic from 7:00 to 4:00 on each of the three days.
+  - Water enemies (Shellblade, Desbreko, Skullfish) need Swim, and the Pirates' Fortress aquarium drops need the
+    Hookshot.
+  - Logic uses the Song of Soaring warp to Woodfall's owl statue.
+  - The Clock Town postbox is listed under East Clock Town, and a duplicate Bad Bat drop in the upper graveyard is
+    gone.
+- **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
+  does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
 
 ### Fixes
 
@@ -30,6 +42,11 @@
 - **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
   Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
   show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+- **The "Restored from file:" toast keeps Cross-Game Rule names whole** (issue #1479). After loading a save in a small
+  window the toast no longer cuts a rule's name to "...", and its "+N" counts every restored rule, even on a long
+  restore.
+- **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
+  "Hide In-Game Timer Background", which did not fit at the smallest window size.
 
 ### Trackers
 

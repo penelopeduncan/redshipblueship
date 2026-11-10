@@ -425,6 +425,13 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // more. MM_TRICK reads the FROZEN per-file set (Rando/StaticData/Tricks.h), so a
 // world generated with the trick on keeps expecting it forever and a
 // post-creation toggle cannot change a live world's rules.
+//
+// DIVERGES FROM 2SHIP on purpose (#1398 MLA-4): upstream 0fa8ba899 makes the
+// Blast Mask leg also require an equipped shield. OoTMM, this project's
+// reference for game-design choices, has no shield term in has_explosives
+// (has_bombs || has_mask_blast || has_bombchu), and a paired MM file starts
+// with no shield, so taking the term would move default paired logic. The
+// Blast Mask alone counts here.
 #define CAN_USE_EXPLOSIVE                                                           \
     ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) || HAS_ITEM(ITEM_MASK_BLAST) || \
       (MM_TRICK(MMRT_KEG_EXPLOSIVES) && HAS_ITEM(ITEM_POWDER_KEG) && CAN_BE_GORON)))
@@ -1002,7 +1009,8 @@ inline bool CanKillEnemy(ActorId EnemyId) {
         case ACTOR_EN_KAREBABA: // Wilted/Mini Babas
             return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU);
         case ACTOR_EN_PEEHAT: // Peahat
-            return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU || CAN_FIGHT_WITH_DEKU_STICK);
+            return ((CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU || CAN_FIGHT_WITH_DEKU_STICK) &&
+                    IS_DAY());
         case ACTOR_EN_RD: // Redead & Gibdos
             return (CAN_USE_SWORD || CAN_BE_DEKU || CAN_BE_GORON || CAN_BE_ZORA || CAN_FIGHT_WITH_DEKU_STICK);
         case ACTOR_EN_BSB: // Captain Keeta (May be possible without bow, but the window is tight. Requiring for now)
@@ -1022,8 +1030,6 @@ inline bool CanKillEnemy(ActorId EnemyId) {
             return (CAN_BE_ZORA && HAS_MAGIC);
         case ACTOR_EN_KAME: // Snapper (non Gekko Miniboss)
             return (CAN_USE_EXPLOSIVE || CAN_BE_GORON);
-        case ACTOR_EN_SB: // Shellblade
-            return (CAN_BE_ZORA && HAS_MAGIC);
         case ACTOR_EN_OKUTA: // Octorok
         case ACTOR_EN_EGOL:  // Eyegore
             return (CAN_USE_PROJECTILE);
@@ -1035,9 +1041,10 @@ inline bool CanKillEnemy(ActorId EnemyId) {
         case ACTOR_EN_PP: // Hiploop
             return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || (CAN_BE_DEKU && HAS_MAGIC) || HAS_ITEM(ITEM_BOW) ||
                     CAN_FIGHT_WITH_DEKU_STICK || HAS_ITEM(ITEM_HOOKSHOT));
+        case ACTOR_EN_SB:  // Shellblade
         case ACTOR_EN_PR:  // Desbreko
         case ACTOR_EN_PR2: // Skull fish
-            return (CAN_BE_ZORA && HAS_MAGIC);
+            return (CAN_BE_ZORA && HAS_MAGIC && CAN_USE_ABILITY(SWIM));
         case ACTOR_BOSS_05: // Bio Deku Baba
             return CAN_BE_ZORA && CAN_USE_ABILITY(SWIM);
         case ACTOR_EN_BEE: // Giant Bee

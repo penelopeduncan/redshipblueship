@@ -1044,6 +1044,9 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // registered sources and over the stub engines above (whose fixture it reuses, so
 // it is included after them). ROM-free; FILE SCOPE (compiled as C++).
 #include "tests/test_critical_renewables.c"
+// #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again, over
+// ShopRestockSingleExe.cpp's bridges. ROM-free; FILE SCOPE (compiled as C++).
+#include "tests/test_oot_shelf_restock.c"
 // #1439: the pair-level Way of the Hero over the stub engines above, both games'
 // stones naming it, and MM's hints on by default. FILE SCOPE, after
 // test_combo_logic.c, whose fixture it drives.
@@ -2429,7 +2432,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Re-pinned again by the OoT logic P3 backports (#1396, #1397; still generator 4,
 // was 0xAC30C06B): the OoT logic changes move the default world's placements named
 // by the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x2DC34889u;
+// Re-pinned again by the MM logic P3 backports (#1398; generator 5, was 0x2DC34889):
+// the MM logic changes (the Fisherman's heart piece behind the Hookshot, the
+// postbox's region, the region order) move the default world's placements named by
+// the static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x1F6A69EBu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -10370,6 +10377,12 @@ const TestDescriptor gTests[] = {
       "Under All Locations the first copy of each critical renewable lands on its own game's renewing host; Beatable "
       "Only and No Logic are unchanged, and a world whose kinds are renewed is the world it was (#1443)",
       Test_CriticalRenewablesRule },
+    // #1482: ROM-free; the restock list, a real shelf check's answer and the
+    // nothing-to-add refusals.
+    { "oot-shelf-restock",
+      "A bought shuffled Ocarina of Time shop shelf sells OoTMM's renewables again and sells out everything else, "
+      "a shelf hosting a Majora's Mask item included (#1482)",
+      Test_OoTShelfRestock },
     // R6, rando tier (needs a display, like the golden rows): two real creations.
     { "critical-renewables-world",
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
