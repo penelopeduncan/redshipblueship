@@ -578,6 +578,11 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_OCARINA_BUTTONS, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Ocarina Buttons", "Ocarina buttons become items; a song is unplayable until its notes are found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_SKELETON_KEY, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Skeleton Key",
+      "Adds the Skeleton Key to the item pool. Collecting it immediately grants the maximum number of Small Keys for "
+      "every dungeon.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_SHUFFLE_SWIM, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Swim", "Swimming becomes an item; deep water respawns Link until it is found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },

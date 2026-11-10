@@ -577,6 +577,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             { RO_TINGLE_PRICES, "Shuffle Shops & Merchants" },
             { RO_SHUFFLE_SWIM, "Additional Items" },
             { RO_SHUFFLE_OCARINA_BUTTONS, "Additional Items" },
+            { RO_SHUFFLE_SKELETON_KEY, "Additional Items" },
             { RO_SHUFFLE_BOSS_SOULS, "Additional Items" },
             { RO_SHUFFLE_ENEMY_SOULS, "Additional Items" },
             { RO_SHUFFLE_ENEMY_DROPS, "Additional Items" },

@@ -268,6 +268,11 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         }
     }
 
+    // Shuffle the Skeleton Key into the Pool
+    if (saveInfo.randoSaveOptions[RO_SHUFFLE_SKELETON_KEY] == RO_GENERIC_YES) {
+        itemPool.push_back(RI_SKELETON_KEY);
+    }
+
 #ifdef RSBS_SINGLE_EXECUTABLE
     // RedShipBlueShip #980 (OoTMM gerudoMaskMm, skullMaskMm, spookyMaskMm): each
     // Ocarina of Time mask its frozen Cross-Game Rules row adds to Majora's Mask.
@@ -307,6 +312,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         for (size_t i = 0; i < itemPool.size(); i++) {
             // The user can specify exactly how many pieces they want to shuffle, so skip those
             if (itemPool[i] == RI_TRIFORCE_PIECE) {
+                continue;
+            }
+            if (itemPool[i] == RI_SKELETON_KEY) {
                 continue;
             }
             if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS &&

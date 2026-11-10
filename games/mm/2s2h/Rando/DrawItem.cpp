@@ -381,6 +381,17 @@ void DrawBossKey(RandoItemId randoItemId) {
     CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
 }
 
+void DrawSkeletonKey() {
+    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
+
+    Gfx_SetupDL25_Opa(MM_gPlayState->state.gfxCtx);
+    MM_Matrix_Scale(0.05f, 0.05f, 0.05f, MTXMODE_APPLY);
+    MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, MM_gPlayState->state.gfxCtx);
+    MM_gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gSkeletonKeyDL);
+
+    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+}
+
 static Gfx gSkulltulaTokenFlameCopyDL[76];
 
 void DrawSkulltulaToken(RandoItemId randoItemId, Actor* actor) {
@@ -808,6 +819,9 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_OCARINA_BUTTON_C_RIGHT:
         case RI_OCARINA_BUTTON_C_UP:
             DrawOcarinaButtonItem(randoItemId, actor);
+            break;
+        case RI_SKELETON_KEY:
+            DrawSkeletonKey();
             break;
 #ifdef RSBS_SINGLE_EXECUTABLE
         // #980: Ocarina of Time's own mask model from the co-mounted archives

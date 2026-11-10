@@ -2615,6 +2615,7 @@ typedef enum {
     RI_MASK_SKULL,
     RI_MASK_SPOOKY,
 #endif
+    RI_SKELETON_KEY,
     RI_MAX_TRAP,
     RI_MAX,
 } RandoItemId;
@@ -3010,6 +3011,8 @@ typedef enum {
     // RandoOptionMMSongShuffle values. The identity strings fold it only when it
     // is not Anywhere (0, the default).
     RO_SHUFFLE_SONGS,
+    // Appended for the same reason (#1403): 2Ship's Skeleton Key option (b3cc36628).
+    RO_SHUFFLE_SKELETON_KEY,
     RO_MAX,
 } RandoOptionId;
 
