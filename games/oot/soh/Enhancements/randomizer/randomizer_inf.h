@@ -2129,4 +2129,7 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
 // the 129 u16 words. The next flag appended here needs a 130th word, which widens
 // ShipSaveContextData::randomizerInf: a save-layout change that needs a migration,
 // and the word-count static_assert in SongOfSoaringOoT.cpp fails until it has one.
+// RAND_INF_MAX is now exactly 129 * 16, so the "no flag" sentinel that unidentified
+// crates, grass, pots and cows keep is no longer a valid index (its word is one past
+// the array): Flags_Get/Set/UnsetRandomizerInf (z_actor.c) ignore it.
 DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)

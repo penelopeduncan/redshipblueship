@@ -41,6 +41,10 @@
  *       H2 the next frame, Link has not taken it: the item is offered again and
  *          still nothing is queued.
  *       H3 Link has taken it: the shopkeeper moves on and offers nothing.
+ *  S  THE SENTINEL HAS NO BIT. The shopkeeper's flag took the last free bit, so
+ *     RAND_INF_MAX (kept by unidentified crates, grass, pots and cows) indexes the
+ *     word past randomizerInf, over foreignMask: setting it writes nothing, and it
+ *     reads unset (and unsetting it clears nothing) with foreignMask all ones.
  *
  * RED HALVES, derived, not run (this lane had no build): with the fold's skip
  * removed at its call site F and P fail (lines folded); with the classifier
@@ -49,7 +53,10 @@
  * pool); with the check marked collected after its flag (or not at all), H1 and H2
  * see the check queued; with the give put back behind the flag guard (the shape
  * this PR first had), H2 sees no offer; with the menu greying removed or Key Rings
- * renamed, D fails.
+ * renamed, D fails; with the bound removed from Flags_SetRandomizerInf S1 fails
+ * (foreignMask written), and from Flags_GetRandomizerInf S2 fails (it reads 1).
+ * Flags_UnsetRandomizerInf's own bound is not separately observable: it writes only
+ * after Flags_GetRandomizerInf reads the bit set, which that bound already stops.
  *
  * Every key, option, flag and save field a leg changes is put back (in memory:
  * nothing here writes a config file).
@@ -538,6 +545,41 @@ void CheckShopkeeper(Rando::Context& world) {
     free(s.takaraMan);
 }
 
+// S: the shopkeeper's flag took the last free bit, so RAND_INF_MAX (the sentinel
+// unidentified crates, grass, pots and cows keep) is exactly the 129 words' bit
+// count and indexes the word past randomizerInf, which overlaps foreignMask, the
+// field after it. The accessors must ignore it.
+void CheckSentinel() {
+    static_assert((RAND_INF_MAX + 15) / 16 * 16 == RAND_INF_MAX,
+                  "S assumes RAND_INF_MAX is a whole number of words, so its word is past randomizerInf");
+    std::unique_ptr<SaveContext> before = std::make_unique<SaveContext>();
+    HooksAside<GameInteractor::OnFlagSet> asideSet;
+    HooksAside<GameInteractor::OnFlagUnset> asideUnset;
+
+    // S1: a set of the sentinel writes nothing (the field after the array is clear,
+    // so a write there shows).
+    std::memset(&gSaveContext, 0, sizeof(SaveContext));
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    std::memcpy(before.get(), &gSaveContext, sizeof(SaveContext));
+    Flags_SetRandomizerInf(RAND_INF_MAX);
+    const bool setWrote = std::memcmp(before.get(), &gSaveContext, sizeof(SaveContext)) != 0;
+    printf("[TEST] S1: setting RAND_INF_MAX %s the save\n", setWrote ? "changed" : "left");
+    CG_CHECK(!setWrote, "S1: Flags_SetRandomizerInf(RAND_INF_MAX) wrote past randomizerInf (foreignMask %u)",
+             (unsigned)gSaveContext.ship.foreignMask);
+
+    // S2: with every bit of the field after the array set, the sentinel still reads
+    // unset and an unset of it clears nothing.
+    gSaveContext.ship.foreignMask = 0xFF;
+    std::memcpy(before.get(), &gSaveContext, sizeof(SaveContext));
+    const s32 read = Flags_GetRandomizerInf(RAND_INF_MAX);
+    Flags_UnsetRandomizerInf(RAND_INF_MAX);
+    const bool unsetWrote = std::memcmp(before.get(), &gSaveContext, sizeof(SaveContext)) != 0;
+    printf("[TEST] S2: RAND_INF_MAX reads %d over a set foreignMask; unsetting it %s the save\n", (int)read,
+           unsetWrote ? "changed" : "left");
+    CG_CHECK(read == 0, "S2: Flags_GetRandomizerInf(RAND_INF_MAX) read %d from past randomizerInf", (int)read);
+    CG_CHECK(!unsetWrote, "S2: Flags_UnsetRandomizerInf(RAND_INF_MAX) wrote past randomizerInf");
+}
+
 } // namespace
 
 /**
@@ -565,6 +607,7 @@ extern "C" int OoT_ChestGameShuffleTest_Run(void) {
     } else {
         CgFail("H: no generated world to run the shopkeeper over");
     }
+    CheckSentinel();
 
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
     Context_SetCurrentGame(prevGame);
