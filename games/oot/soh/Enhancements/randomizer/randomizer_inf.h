@@ -2122,7 +2122,10 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // [RSBS #1169 XW4] OoT owns the Song of Soaring (OoT) (OoTMM songSoaringOot).
 // Appended last, as the masks': 2063 flags fill 2063 of the 129 u16 words' 2064
 // bits, so the save layout is unchanged and ONE flag is left before a 130th word
-// (SongOfSoaringOoT.cpp static_asserts the word count).
+// (SongOfSoaringOoT.cpp static_asserts the word count). That held until #1363:
+// the 154 silver rupee flags below grow RAND_INF to 2217 flags, 139 u16 words,
+// which moves every saved field after it; how that layout change is handled is
+// an open save-layout decision (OoTSoaringTableBounds still pins 129).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
 
 // Start Silver Rupees

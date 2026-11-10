@@ -61,9 +61,10 @@ int OoT_ForeignModel_DrawForeignItem(PlayState* play, uint8_t originGame, uint16
 }
 
 // THE APPEND-ONLY LOCKS. Each id sits right after the Stone Mask's, so no id a
-// world or a save already holds moves, and the RAND_INF words OoT saves are still
-// the 129 they were: one more flag would make a 130th word and move every field
-// after it in the save.
+// world or a save already holds moves. The Song of Soaring's flag filled the last
+// bit of the 129 RAND_INF words OoT saved; #1363's 154 silver rupee flags grow them
+// to 139 words, which moves every field after them in the save, pending the
+// save-layout decision (OoTSoaringTableBounds still pins 129).
 static_assert(RG_SONG_OF_SOARING_OOT == RG_STONE_MASK + 1,
               "RG_SONG_OF_SOARING_OOT is appended right after the masks, before the logic-only ids (#1169 XW4)");
 static_assert(RHT_SONG_OF_SOARING_OOT == RHT_STONE_MASK + 1,
