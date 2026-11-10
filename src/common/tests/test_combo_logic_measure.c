@@ -529,8 +529,9 @@ struct ClmMmPool {
 
 /**
  * MM's pool in ONE GeneratePools call, into buffers sized up front. GeneratePools
- * consumes Ship_Random (and under RO_PLENTIFUL_ITEMS draws WHICH lesser rows to
- * duplicate), so a count-then-fill pair would be two DIFFERENT pools — the first
+ * consumes Ship_Random (shop and Tingle prices; before 2Ship bfcb60476, #1398, its
+ * RO_PLENTIFUL_ITEMS step also drew WHICH lesser rows to duplicate), so a
+ * count-then-fill pair would be two DIFFERENT pools — the first
  * "maximal" measurement read its count from one and its rows from another and
  * showed two phantom RI_UNKNOWN rows where the pools differed. With
  * `authorCheckTable` the same call also writes the live save's check table

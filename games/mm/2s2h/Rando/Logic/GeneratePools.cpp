@@ -16,9 +16,11 @@ extern "C" {
 // RedShipBlueShip (#645 increment 3, lane K9): where RO_PLENTIFUL_ITEMS' copies
 // sit in the last `itemPool` this function returned — [from, to), both 0 when
 // plentiful added none — and that pool's final size, so a consumer can tell it is
-// marking the pool this record describes. RECORDED where the port decides (its
-// all-or-nothing test and its random half of the lesser rows), never re-derived;
-// read by MM_ComboLogic_MarkPoolRows (ComboLogicEngineSingleExe.cpp).
+// marking the pool this record describes. RECORDED around the step itself, never
+// re-derived; since 2Ship bfcb60476 (#1398) the step has no room test and draws
+// no random number: it appends one copy of every major, mask and key and of
+// every lesser item except maps, compasses and Tingle maps. Read by
+// MM_ComboLogic_MarkPoolRows (ComboLogicEngineSingleExe.cpp).
 size_t gRsbsComboPlentifulFrom = 0;
 size_t gRsbsComboPlentifulTo = 0;
 size_t gRsbsComboPoolSize = 0;
