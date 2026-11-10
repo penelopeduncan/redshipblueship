@@ -2436,7 +2436,10 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // the MM logic changes (the Fisherman's heart piece behind the Hookshot, the
 // postbox's region, the region order) move the default world's placements named by
 // the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x1F6A69EBu;
+// Re-pinned again by the pedestal child check (#1484; generator 5, was 0x1F6A69EB):
+// with Shuffle Master Sword on the pedestal is reachable as a child, which moves the
+// default world's placements named by the static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0xD5F895FFu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
