@@ -911,7 +911,6 @@ void GenerateItemPool() {
     if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_ON) ||
         ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_WALLET)) {
         ctx->possibleIceTrapModels.insert(RG_SHADOW_SILVER_BLADES); // ice traps reroll this into a random silver rupee
-        bool isWallet = ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_WALLET);
         auto dungeons = ctx->GetDungeons();
 
         if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_ON)){
