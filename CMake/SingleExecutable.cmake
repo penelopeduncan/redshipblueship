@@ -1626,6 +1626,18 @@ if(BUILD_TESTING)
     # state is tolerated. Pure (no display, no ROM); ids looked up by name.
     redship_add_test(NAME MMTreeShuffle COMMAND redship --test mm-tree-shuffle)
     redship_add_test(NAME MMTreeShuffleHooks COMMAND redship --test mm-tree-shuffle-hooks)
+    # Majora's Mask butterfly shuffle (#1407; upstream 2Ship's Butterfly Shuffle).
+    # MMButterflyShuffle: the option defaults off, the page draws its row after
+    # Shuffle Tree Drops with a tooltip that says what MM's butterflies do, the 25
+    # butterflies are one check type, sit in logic regions and Randomizer > MM
+    # Locations, never host an OoT item, name their hint area (the 12 grotto ones
+    # the area their grotto opens from), and enter the pool only with the option
+    # on. MMButterflyShuffleHooks: EnButte.cpp's OnActorUpdate[ACTOR_OBJ_MURE] hook
+    # arms through ActorBehavior::OnFileLoad (exactly +1) and gives the Termina
+    # Field group's butterflies their checks only with the option on. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMButterflyShuffle COMMAND redship --test mm-butterfly-shuffle)
+    redship_add_test(NAME MMButterflyShuffleHooks COMMAND redship --test mm-butterfly-shuffle-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle
@@ -3545,6 +3557,23 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # rather than &actor (its own local pointer), and VB_SPAWN_GOSSIP_STONE_FAIRY
     # relies on it to suppress a duplicate spawn while the fairy lives.
     redship_add_test(NAME ShuffledFairyExists COMMAND redship --test shuffled-fairy-exists
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1407: Shuffle Butterfly Fairies (Shipwright's butterfly fairy shuffle).
+    # OoTButterflyFairyShuffle: two real generations; with the option off (its
+    # default) the settings fold reads none of the lines it added and no butterfly
+    # check is a location, so default worlds keep their fingerprint; on, every
+    # line folds and all 20 checks are locations. OoTButterflyFairyHooks: with it
+    # and Easy Butterfly Fairies off no butterfly hook is registered and both
+    # dispatches keep the vanilla answer; on, each arms once and does its job, and
+    # each butterfly location resolves to its own check through ACTOR_EN_BUTTE.
+    # games/oot/soh/oot_butterfly_fairy_test.cpp.
+    redship_add_test(NAME OoTButterflyFairyShuffle COMMAND redship --test oot-butterfly-fairy-shuffle
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME OoTButterflyFairyHooks COMMAND redship --test oot-butterfly-fairy-hooks
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
