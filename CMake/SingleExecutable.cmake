@@ -2987,6 +2987,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the coordinator over the stub engines (the first copy lands on its own
     # game's renewing host; Beatable Only and a renewed world are unchanged).
     redship_add_test(NAME CriticalRenewablesRule COMMAND redship --test critical-renewables-rule)
+    # #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again.
+    # ROM-free and display-free: the restock list by real id, a real shelf check's
+    # answer on a transient context (also hosting an MM item), and the vanilla
+    # shelves' nothing-to-add refusals on the live save.
+    redship_add_test(NAME OoTShelfRestock COMMAND redship --test oot-shelf-restock)
     # R6, the same rule in two REAL All Locations creations of one seed, MM's
     # shops, cows and Tingle shuffled (the rule acts) and vanilla (it has nothing
     # to do). The golden rows' harness, label and environment.

@@ -1044,6 +1044,9 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // registered sources and over the stub engines above (whose fixture it reuses, so
 // it is included after them). ROM-free; FILE SCOPE (compiled as C++).
 #include "tests/test_critical_renewables.c"
+// #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again, over
+// ShopRestockSingleExe.cpp's bridges. ROM-free; FILE SCOPE (compiled as C++).
+#include "tests/test_oot_shelf_restock.c"
 // #1439: the pair-level Way of the Hero over the stub engines above, both games'
 // stones naming it, and MM's hints on by default. FILE SCOPE, after
 // test_combo_logic.c, whose fixture it drives.
@@ -10374,6 +10377,12 @@ const TestDescriptor gTests[] = {
       "Under All Locations the first copy of each critical renewable lands on its own game's renewing host; Beatable "
       "Only and No Logic are unchanged, and a world whose kinds are renewed is the world it was (#1443)",
       Test_CriticalRenewablesRule },
+    // #1482: ROM-free; the restock list, a real shelf check's answer and the
+    // nothing-to-add refusals.
+    { "oot-shelf-restock",
+      "A bought shuffled Ocarina of Time shop shelf sells OoTMM's renewables again and sells out everything else, "
+      "a shelf hosting a Majora's Mask item included (#1482)",
+      Test_OoTShelfRestock },
     // R6, rando tier (needs a display, like the golden rows): two real creations.
     { "critical-renewables-world",
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "

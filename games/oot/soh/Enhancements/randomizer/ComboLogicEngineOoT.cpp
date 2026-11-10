@@ -2438,9 +2438,11 @@ const OoTItemClassRegistrar gOoTItemClassRegistrar;
 // RG_BUY_* row gives the same shield, so it answers the same kind.
 //
 // THE HOSTS: a shop shelf that keeps its VANILLA stock (an ITEMTYPE_SHOP row),
-// and nothing else, because nothing else re-gives in this port:
-//   - a SHUFFLED shelf is SI_RANDOMIZED_ITEM, and z_en_girla.c turns it
-//     SI_SOLD_OUT once the purchase sets its RandomizerInf;
+// and nothing else:
+//   - a SHUFFLED shelf is SI_RANDOMIZED_ITEM; since #1482 it sells its item
+//     again when OoTMM restocks it (ShopRestockSingleExe.cpp), both shields
+//     included, but this source does not credit that yet: it assumes less than
+//     the runtime gives, which is sound, and leaves every world as it was;
 //   - a shuffled cow gives once (randomizer.cpp's RAND_INF_COWS_MILKED_* table),
 //     a shuffled scrub despawns once bought (hook_handlers.cpp
 //     VB_BUSINESS_SCRUB_DESPAWN), a merchant is sold out after one sale.
