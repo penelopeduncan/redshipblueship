@@ -22,7 +22,7 @@ same seed reproduces) — never a timing (PR #581 §2a: a wall clock never
 decides anything). Do not replace `fill.cpp`'s general pass or
 `OnFileCreate.cpp`'s paired branch. Prove no generated world changed, against
 a main binary. Then post the numbers as ONE comment on #645 (confirm the
-author is `spencerduncan` first) with a reading: does increment 3 fit the
+author is `penelopeduncan` first) with a reading: does increment 3 fit the
 floor as-is, and if not, where the time goes and the cheapest lever. State
 what the measurement cannot tell (other hosts, non-default profiles, tricks
 on).

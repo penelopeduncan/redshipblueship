@@ -218,6 +218,11 @@ set(REDSHIP_COMMON_SOURCES
     # refusal when the restricted song pass has more songs than spots.
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
+    # #1475 (lane H1): the combined Hint Tracker's view model, Majora's Mask pane:
+    # MM's hint sources, the read record in the combo save record and the masked
+    # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
+    # never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -265,6 +270,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/combo_spoiler_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboSpoilerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_tracker_view.h
+    ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
@@ -673,6 +679,14 @@ if(BUILD_TESTING)
     # checked from source (RSBS_SOURCE_DIR). The generated half is ComboSingleBag
     # D2's P8 (rando tier).
     redship_add_test(NAME WothHints COMMAND redship --test woth-hints)
+    # #1475 (lane H1): the combined Hint Tracker's MM side, ROM-free: MM's 74 hint
+    # sources (58 stone placements, scene versions apart, and 16 fixed hints), the
+    # resolver's caller-held stream against Ship_Random, the read record carved at
+    # .redsave 929 (cleared by a new file, round-tripped by a .redsave and an
+    # OoT -> MM -> OoT crossing pair through the real switch commits), the masked
+    # pane over an authored MM half, and the hooks' wiring from source. The
+    # generated half is MmHintSourcesWorld (rando tier).
+    redship_add_test(NAME MmHintSources COMMAND redship --test mm-hint-sources)
     # #1047: what MM decides while you play is a pure function of the frozen world.
     # A free stone's seed was a float sum converted to uint32_t (undefined when
     # negative, which 23 of MM's 58 stones are); a trap's type was rolled at pickup
@@ -1682,6 +1696,13 @@ if(BUILD_TESTING)
     # and names each bad file in one log line. Display-free and ROM-free.
     # games/oot/soh/soh_presets_folder_test.cpp.
     redship_add_test(NAME PresetsSkipNonJson COMMAND redship --test presets-skip-non-json)
+    # Operator ruling 2026-11-05: the shipped "Rando Seed Settings - Standard" and
+    # "- Beginner" presets pin no gRandoSettings key whose default the D wave moved
+    # to OoTMM's (#1425, #1428, #1434, #1367), carry a null pairedProfile (#1368's
+    # reset, so the MM and Cross-Game defaults apply too), and Beginner keeps its
+    # own excluded checks and starting Kokiri Sword. Reads the checkout only:
+    # ROM-free, display-free. src/common/tests/test_rando_presets.c.
+    redship_add_test(NAME RandoPresetsFollowDefaults COMMAND redship --test rando-presets-follow-defaults)
     # #1298 / #1302: an MM Pause Menu Save commits both halves into the .redsave,
     # persists and clears pauseSaveEntrance + shipSaveInfo.respawn, and a reload
     # reconciles OoT's check statuses and MM's Combo Tracker panel. Display-free
@@ -3038,6 +3059,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1498: an MM enemy drop answered per instance. MMEnemyDropInstances: with a
+    # Kokiri Sword, Mini Baba is in logic, MM's native tracker lists its Beneath the
+    # Well copy out of logic, and the combo pane files it under an area where the
+    # kill is in logic; MMCheckInstancesPerIdUnchanged: the per-instance answer
+    # leaves the per-id answer the fill reads as it was. `rando`: MM's real region
+    # graph (the MMTrackerInLogicArrival reason).
+    redship_add_test(NAME MMEnemyDropInstances COMMAND redship --test mm-enemy-drop-instances
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME MMCheckInstancesPerIdUnchanged COMMAND redship --test mm-check-instances-per-id
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME TrackerFillSuperset COMMAND redship --test tracker-fill-superset
         LABEL rando
         TIMEOUT 600
@@ -3083,6 +3118,22 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # chest in SoH's tracker, Triforce Hunt still deciding the key, and a stored
     # world's OLD gates restoring unchanged. `rando`: a paired creation.
     redship_add_test(NAME RandoGoalGateDefaults COMMAND redship --test rando-goal-gate-defaults
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # Operator ruling 2026-11-05: one paired world from each shipped preset the
+    # ruling covers. The preset is applied as Settings > Presets applies it (over a
+    # session holding the old pins), every value it holds is one its option offers,
+    # the D wave's OoTMM defaults are read, and the world is created on the file
+    # select's path with nothing left unproved under All Locations, holding the
+    # defaults, the preset's own values and Beginner's excluded checks; after it the
+    # same preset is refused. `rando`: a paired creation.
+    # games/oot/soh/oot_preset_world_test.cpp.
+    redship_add_test(NAME RandoPresetWorldStandard COMMAND redship --test rando-preset-world-standard
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME RandoPresetWorldBeginner COMMAND redship --test rando-preset-world-beginner
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3260,6 +3311,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # spoiler's combo.crossingStore section (rando tier: it needs a generation).
     redship_add_test(NAME ComboCrossingViews COMMAND redship --test combo-crossing-views)
     redship_add_test(NAME ComboCrossingViewsWorld COMMAND redship --test combo-crossing-views-world
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1475 (lane H1): over the ComboSingleBag pinned seed's real paired world, the
+    # Hint Tracker's MM resolver over the frozen MM half equals it over MM's live
+    # save for every source, every stone's pick is main's global-stream pick and
+    # its text the textbox's, every fixed hint's text is main's, neither the
+    # resolver nor the read hook moves MM's stream, and reading a stone's item hint
+    # marks its MM check Seen in the combined Check Tracker (rando tier: it needs a
+    # generation).
+    redship_add_test(NAME MmHintSourcesWorld COMMAND redship --test mm-hint-sources-world
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

@@ -11,7 +11,7 @@
 #
 FROM ubuntu:22.04
 
-LABEL org.opencontainers.image.source="https://github.com/spencerduncan/redshipblueship"
+LABEL org.opencontainers.image.source="https://github.com/penelopeduncan/redshipblueship"
 LABEL org.opencontainers.image.description="Build environment for redshipblueship with pre-compiled dependencies"
 
 # Prevent interactive prompts during package installation

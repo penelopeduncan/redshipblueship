@@ -16,6 +16,7 @@ extern "C" {
 #endif
 
 struct Player;
+struct PlayState;
 
 /** The worn OoT mask: the stored ComboForeignMask when MM wears it and the
  *  frozen world added it (Combo_ForeignMask_Wearable), else NONE. */
@@ -55,6 +56,48 @@ const char* MM_ForeignMask_PageIcon(int maskSlot, const char* nativeIcon);
  *  owns an OoT mask sharing it, the slot's own ItemId (the inventory is never
  *  written). */
 uint8_t MM_ForeignMask_PageCellItem(int maskSlot, uint8_t stored);
+
+/** #1500: the OoT mask MM item `item` stands for wherever MM draws or names it (a
+ *  shared slot's own item: the slot's live variant), or NONE. The button keeps the
+ *  native ItemId; every label below reads this. */
+uint8_t MM_ForeignMask_ItemShows(int item);
+
+/** #1500: the icon for MM item `item` (C button, D-pad, equip flight, page):
+ *  the OoT mask it stands for when mounted, else `nativeIcon`. */
+const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
+
+/** #1500: Ocarina of Time's pause name texture for an OoT mask MM wears, or NULL. */
+const char* MM_ForeignMask_NameTexture(uint8_t mask);
+
+/** #1500: the pause name texture for MM item `item`: the OoT mask's when it stands
+ *  for one and the texture is mounted, else `nativeName`. */
+const char* MM_ForeignMask_ItemName(int item, const char* nativeName);
+
+/** #1500: the A-press description of an OoT mask MM wears, or NULL. */
+const char* MM_ForeignMask_DescriptionText(uint8_t mask);
+
+/** #1500: the A-press description MM item `item` opens instead of its own, or NULL. */
+const char* MM_ForeignMask_ItemDescription(int item);
+
+/** #1500: the name texture MM item `item` asks for before the mount check (the OoT
+ *  mask it stands for's), or NULL for the item's own name. */
+const char* MM_ForeignMask_ItemNameTexture(int item);
+
+/** #1500: what A on mask-page item `item` did (VB_KALEIDO_DISPLAY_ITEM_TEXT).
+ *  VANILLA leaves MM's own description; CYCLED cycled the shared slot's variant
+ *  (the caller plays the cursor sound); DESCRIBED opened the description of the
+ *  OoT mask the cell shows. `vanillaShows` is the hook's `*should` as it arrives:
+ *  0 (another handler took the press) describes nothing. */
+enum { MM_FOREIGN_MASK_PRESS_A_VANILLA = 0, MM_FOREIGN_MASK_PRESS_A_CYCLED = 1, MM_FOREIGN_MASK_PRESS_A_DESCRIBED = 2 };
+int MM_ForeignMask_OnPressA(struct PlayState* play, int item, int vanillaShows);
+
+/** #1500 test seam: what DESCRIBED calls. The default opens pause text 0x1700 +
+ *  item through func_801514B0, as z_kaleido_mask.c does, and writes the OoT
+ *  mask's text over it; a test passes its own to see the call, NULL restores
+ *  the default. */
+typedef void (*MM_ForeignMaskDescriptionOpener)(struct PlayState* play, uint16_t textId, uint8_t boxPos,
+                                                const char* text);
+void MM_ForeignMask_SetDescriptionOpener(MM_ForeignMaskDescriptionOpener opener);
 
 /** The list MM's head draw would emit for the live worn field, or NULL. */
 const char* MM_ForeignMask_WornDl(struct Player* player);

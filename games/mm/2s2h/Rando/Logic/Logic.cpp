@@ -405,6 +405,24 @@ std::set<RandoCheckId> EvaluateReachableChecks(const ReachabilityCrawl& crawl) {
     return satisfiable;
 }
 
+std::set<CheckInstance> EvaluateReachableCheckInstances(const ReachabilityCrawl& crawl,
+                                                        const std::set<RandoCheckId>& checks) {
+    // EvaluateReachableChecks stops at the first passing row of a check; the trackers need every passing row, so
+    // that each place an enemy drop is listed under is answered by its own kill (#1498). Same regions, same order,
+    // same time states, so a check is named here exactly when EvaluateReachableChecks named it over this crawl.
+    std::set<CheckInstance> satisfiable;
+    for (RandoRegionId regionId : crawl.reachableRegions) {
+        auto& randoRegion = Regions.at(regionId);
+        SetCurrentRegionTime(crawl.regionTimeStates, regionId);
+        for (auto& [randoCheckId, checkLogic] : randoRegion.checks) {
+            if (checks.contains(randoCheckId) && checkLogic.first()) {
+                satisfiable.insert({ regionId, randoCheckId });
+            }
+        }
+    }
+    return satisfiable;
+}
+
 std::set<RandoCheckId> ComputeReachableCheckSet() {
     // The GlitchlessLogic memcpy swap discipline: the closure simulates a
     // playthrough by GIVING items into the live save, so the whole run is

@@ -77,7 +77,7 @@
 #   run uploads a regenerated baseline as the `symbol-collision-baseline`
 #   artifact, pass or fail, so there is no separate "regenerate" dispatch to
 #   remember. Take the newest run of that workflow and:
-#     gh run download <run-id> -R spencerduncan/redshipblueship \
+#     gh run download <run-id> -R penelopeduncan/redshipblueship \
 #         -n symbol-collision-baseline -D .github
 #   which lands the file directly at .github/symbol-collision-baseline.txt,
 #   ready to commit. The companion `symbol-census` artifact from the same run

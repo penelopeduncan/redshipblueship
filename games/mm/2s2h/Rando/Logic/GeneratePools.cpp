@@ -1,6 +1,7 @@
 #include "Logic.h"
 #include "Rando/MiscBehavior/ClockShuffle.h"
 #include <libultraship/bridge/consolevariablebridge.h>
+#include <algorithm>
 #include <sstream>
 
 extern "C" {
@@ -60,8 +61,19 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 continue;
             }
 
+            // dungeon items
+            if (StaysAtVanillaCheck(randoStaticCheck.randoItemId, saveInfo)) {
+                saveInfo.randoSaveChecks[randoCheckId].shuffled = true;
+                continue;
+            }
+
             if (randoStaticCheck.randoCheckType == RCTYPE_SKULL_TOKEN &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_GOLD_SKULLTULAS] == RO_GENERIC_NO) {
+                continue;
+            }
+
+            if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
+                saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA) {
                 continue;
             }
 
@@ -157,17 +169,26 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 }
             }
 
-            // When a check is skipped, we still want to add it's vanilla item to the pool, but we don't add the check.
-            // Mark it as skipped and set it to junk. These leaves an inbalance in the pools that will get sorted
-            // automatically if there is enough space.
+            // Excluded checks are always left out of the check pool, but what happens to them depends on what their
+            // vanilla item is worth. A check whose vanilla item is junk (grass, pots, snowballs...) has nothing worth
+            // preserving, so it stays unshuffled and behaves exactly like it does in vanilla, and its item never enters
+            // the item pool. Every other check keeps its item in the pool and is marked as skipped with junk in its
+            // place. That leaves an inbalance in the pools that will get sorted automatically if there is enough space.
             if (saveInfo.randoSaveOptions[RO_LOGIC] != RO_LOGIC_VANILLA) {
                 auto it = std::find(excludedChecks.begin(), excludedChecks.end(), randoCheckId);
                 if (it != excludedChecks.end()) {
-                    itemPool.push_back(randoStaticCheck.randoItemId);
+                    if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                        randoStaticCheck.randoCheckType == RCTYPE_SONG) {
+                        continue;
+                    }
 
-                    saveInfo.randoSaveChecks[randoCheckId].shuffled = true;
-                    saveInfo.randoSaveChecks[randoCheckId].randoItemId = RI_JUNK;
-                    saveInfo.randoSaveChecks[randoCheckId].skipped = true;
+                    if (Rando::StaticData::Items[randoStaticCheck.randoItemId].randoItemType != RITYPE_JUNK) {
+                        itemPool.push_back(randoStaticCheck.randoItemId);
+
+                        saveInfo.randoSaveChecks[randoCheckId].shuffled = true;
+                        saveInfo.randoSaveChecks[randoCheckId].randoItemId = RI_JUNK;
+                        saveInfo.randoSaveChecks[randoCheckId].skipped = true;
+                    }
                     continue;
                 }
             }
@@ -288,6 +309,10 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             if (itemPool[i] == RI_TRIFORCE_PIECE) {
                 continue;
             }
+            if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                IsSongLocationItem(itemPool[i])) {
+                continue;
+            }
 
             switch (Rando::StaticData::Items[itemPool[i]].randoItemType) {
                 case RITYPE_BOSS_KEY:
@@ -334,6 +359,37 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         while (trapsToShuffle) {
             itemPool.push_back(RI_TRAP);
             trapsToShuffle--;
+        }
+    }
+
+    if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS) {
+        size_t songItems = std::count_if(itemPool.begin(), itemPool.end(), IsSongLocationItem);
+
+        std::vector<RandoCheckId> songChecks;
+        for (RandoCheckId checkId : checkPool) {
+            if (Rando::StaticData::Checks[checkId].randoCheckType == RCTYPE_SONG) {
+                songChecks.push_back(checkId);
+            }
+        }
+
+        for (size_t i = 0; i < songChecks.size(); i++) {
+            std::swap(songChecks[i], songChecks[Ship_Random(0, songChecks.size())]);
+        }
+
+        // we want to junk the song of healing check first, people normally start with SoT so we don't want
+        // them getting two free songs at the start of every seed.
+        auto healing = std::find(songChecks.begin(), songChecks.end(), RC_STARTING_ITEM_SONG_OF_HEALING);
+        if (healing != songChecks.end()) {
+            std::swap(songChecks[0], *healing);
+        }
+
+        size_t surplusLocations = songChecks.size() - songItems;
+        for (size_t i = 0; i < surplusLocations; i++) {
+            auto& randoSaveCheck = saveInfo.randoSaveChecks[songChecks[i]];
+            randoSaveCheck.shuffled = true;
+            randoSaveCheck.randoItemId = RI_JUNK;
+            randoSaveCheck.skipped = true;
+            checkPool.erase(std::find(checkPool.begin(), checkPool.end(), songChecks[i]));
         }
     }
 #ifdef RSBS_SINGLE_EXECUTABLE

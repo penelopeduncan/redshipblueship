@@ -64,7 +64,7 @@ jobs:
     # are baked in, and xvfb/mesa are only needed by the ctest tiers this job
     # does not run.
     container:
-      image: ghcr.io/spencerduncan/redshipblueship-build:latest
+      image: ghcr.io/penelopeduncan/redshipblueship-build:latest
     steps:
     - name: Git Checkout
       uses: actions/checkout@v4
