@@ -1094,6 +1094,12 @@ void Settings::CreateOptions() {
     });
     OPT_U8(RSK_SHUFFLE_FREESTANDING, "Shuffle Freestanding Items", {"Off", "Dungeons", "Overworld", "All Items"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleFreestanding"), mOptionDescriptions[RSK_SHUFFLE_FREESTANDING], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_FREESTANDING_OFF);
     OPT_U8(RSK_SHUFFLE_SILVER, "Shuffle Silver Rupees", {"Off", "On", "Wallet", "Start With"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleSilver"), mOptionDescriptions[RSK_SHUFFLE_SILVER], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_SILVER_OFF);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1363: every world is generated with it off (Playthrough_Init) until the
+    // cross-game generator supports silver rupees, so the menu says so.
+    mOptions[RSK_SHUFFLE_SILVER].Disable("Disabled because the cross-game randomizer does not support\n"
+                                         "Silver Rupees yet.");
+#endif
     OPT_U8(RSK_FISHSANITY, "Fishsanity", {"Off", "Shuffle only Hyrule Loach", "Shuffle Fishing Pond", "Shuffle Overworld Fish", "Shuffle Both"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Fishsanity"), mOptionDescriptions[RSK_FISHSANITY], WIDGET_CVAR_COMBOBOX, RO_FISHSANITY_OFF);
     OPT_CALLBACK(RSK_FISHSANITY, {
         // Hide fishing pond settings if we aren't shuffling the fishing pond

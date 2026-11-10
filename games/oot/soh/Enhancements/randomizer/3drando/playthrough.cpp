@@ -33,6 +33,7 @@ extern "C" int OoT_ComboLogic_GeneralPassDeferred(void);
 // generation (#564 V2), which a new generation replaces.
 extern "C" void OoT_Creation_ForgetConsumedGeneration(void);
 #include "soh/Enhancements/randomizer/TimeTravelSword.h" // the fold's #1434 term
+#include "soh/Enhancements/randomizer/static_data.h"     // the fold's #1363 term (a check's type)
 
 // #702: a record of what the LAST settings fold below actually folded, so a
 // rando-tier row can assert that the per-area exclude-location groups reach the
@@ -44,6 +45,37 @@ constexpr int kRsbsFoldExcludeGroups = RSG_EXCLUDES_GANONS_CASTLE - RSG_EXCLUDES
 uint32_t sRsbsFoldTotalLines = 0;
 uint32_t sRsbsFoldExcludeLines[kRsbsFoldExcludeGroups] = {};
 int sRsbsFoldRuns = 0;
+// #1363: the Shuffle Silver Rupees lines the last fold read and the ones it left
+// out (oot_shuffle_silver_test.cpp). Each is counted at the line it describes in
+// the fold loop, after the skip, so a skip deleted there shows up here as a folded
+// line. And 1 while the last generation pinned the option off.
+uint32_t sRsbsFoldSilverLines = 0;
+uint32_t sRsbsFoldSilverSkipped = 0;
+int sRsbsSilverPinned = 0;
+
+/**
+ * #1363: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Silver Rupees, and so is left out while the option is off: the option's
+ * own rows (Basic Shuffles menu section and Shuffle Settings) and the exclude rows
+ * of the RCTYPE_SILVER checks. None of these lines existed before #1363, so with
+ * the option off the settings string is the one a world had before (#1434's rule).
+ * Trick rows are never one: a trick's key is a RandomizerTrick, which could equal
+ * a setting key's number. The exclude rows are told apart by their check's type,
+ * not by name: the exclude lists de-duplicate by name
+ * (Settings::PopulateExcludeLocationsOptions), and the silver checks sit after
+ * every older check in the location table, so an older check always owns a shared
+ * name's row.
+ */
+bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SILVER;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_SILVER;
+}
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
 // derivation in Playthrough_Init, #1367).
@@ -65,6 +97,23 @@ extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* out
     }
     for (int i = 0; outExcludeLines != nullptr && i < groupCap && i < kRsbsFoldExcludeGroups; i++) {
         outExcludeLines[i] = sRsbsFoldExcludeLines[i];
+    }
+    return sRsbsFoldRuns;
+}
+
+// #1363: of the last fold, the lines that belong to Shuffle Silver Rupees (the
+// option's rows, the RCTYPE_SILVER exclude rows) as folded and as left out, and
+// whether that generation pinned the option off in a paired world. Returns how
+// many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldSilverLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldSilverSkipped;
+    }
+    if (outPinned != nullptr) {
+        *outPinned = sRsbsSilverPinned;
     }
     return sRsbsFoldRuns;
 }
@@ -182,6 +231,25 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                     (unsigned)rsbsComboPreview.logicRung);
             ctx->GetOption(RSK_ALL_LOCATIONS_REACHABLE).Set(rsbsAlr);
         }
+    }
+    // #1363: Shuffle Silver Rupees (SoH b76e303ce) is generated OFF in a paired
+    // world until the paired generator is integrated with it. With it on, the 22
+    // silver rupee items join OoT's pool as progression with no confinement
+    // (OoTFillClassArmedBy, ComboLogicEngineOoT.cpp, has no ITEMTYPE_SILVER case),
+    // so the single-bag fill can put them on Majora's Mask checks, and nobody has
+    // traced a crossing that delivers one. Every generation in this build is a
+    // paired creation (the gate below refuses any other), so the option only takes
+    // effect once this pin is lifted; the menu greys it out with the same reason
+    // (settings.cpp). Decided before FinalizeSettings; settings only, no RNG, and
+    // the settings fold below leaves the option's lines out while it is off, so the
+    // string is the one a world had before the option existed.
+    sRsbsSilverPinned = 0;
+    if (ctx->GetOption(RSK_SHUFFLE_SILVER).IsNot(RO_SHUFFLE_SILVER_OFF)) {
+        SPDLOG_WARN("Paired world: Shuffle Silver Rupees is generated off: its silver rupees would join the paired "
+                    "item bag before the paired generator supports them (#1363)");
+        fprintf(stderr, "[OoT] Shuffle Silver Rupees: generated off in a paired world (#1363)\n");
+        ctx->GetOption(RSK_SHUFFLE_SILVER).Set(RO_SHUFFLE_SILVER_OFF);
+        sRsbsSilverPinned = 1;
     }
 #endif
     ctx->FinalizeSettings(excludedLocations, enabledTricks);
@@ -321,6 +389,14 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     for (uint32_t& lines : sRsbsFoldExcludeLines) {
         lines = 0;
     }
+    // [RSBS #1363] While Shuffle Silver Rupees is off its lines cannot change the
+    // world (the silver checks are not locations, Context::GenerateLocationPool, and
+    // item_pool.cpp adds the silver rupees only with it on), so they are left out and
+    // a world keeps the fingerprint it had before the option existed; with it on
+    // they fold.
+    const bool rsbsSilverOff = ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
+    sRsbsFoldSilverLines = 0;
+    sRsbsFoldSilverSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -332,6 +408,13 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
         for (Rando::Option* option : optionGroup.GetOptions()) {
             if (option->IsCategory(Rando::OptionCategory::Setting)) {
                 if (option->GetOptionCount() > 0) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    const bool rsbsSilverLine = RsbsFoldIsSilverLine(i, option);
+                    if (rsbsSilverLine && rsbsSilverOff) {
+                        sRsbsFoldSilverSkipped++;
+                        continue;
+                    }
+#endif
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         auto locationOption = static_cast<Rando::LocationOption*>(option);
                         settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
@@ -358,6 +441,9 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                     sRsbsFoldTotalLines++;
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
+                    }
+                    if (rsbsSilverLine) {
+                        sRsbsFoldSilverLines++;
                     }
 #endif
                 }
