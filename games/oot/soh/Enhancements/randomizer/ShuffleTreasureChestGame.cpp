@@ -1,5 +1,7 @@
 #include <soh/OTRGlobals.h>
 #include "soh/Enhancements/randomizer/randomizer.h"
+#include "soh/Enhancements/randomizer/item_location.h"
+#include "soh/Enhancements/randomizer/randomizer_check_tracker.h"
 
 extern "C" {
 #include "overlays/actors/ovl_Door_Shutter/z_door_shutter.h"
@@ -34,7 +36,10 @@ void DoorShutter_RandomizerInit(void* actorRef) {
     door->dyna.actor.params &= ~0x20;
 
     if (OoT_Flags_GetSwitch(OoT_gPlayState, door->dyna.actor.params & 0x3F)) {
-        door->unlockTimer = 0;
+        // Upstream's `unlockTimer`: the same s8 at 0x016E, unnamed in this tree's
+        // z_door_shutter.h (z_door_shutter.c sets it to 10 when the door locks and
+        // draws the lock while it is nonzero).
+        door->unk_16E = 0;
     }
 }
 
@@ -87,15 +92,23 @@ void RegisterShuffleTreasureChestGame() {
     // prevent wiping chest flags and key count on every visit
     COND_VB_SHOULD(VB_TAKARA_MAN_RESET_CHESTS_AND_KEYS, shouldRegister, { *should = false; });
 
+    // SoH 4868b0712 (#7118): the check is marked collected BEFORE its flag is set,
+    // so the flag handler (RandomizerOnFlagSetHandler) finds it obtained and queues
+    // nothing; the direct give below is then the only give. The give is offered on
+    // every frame the shopkeeper asks (z_en_takara_man.c's func_80B17A6C asks until
+    // Link has taken it), because GiveItemEntryFromActor only arms the offer.
     COND_VB_SHOULD(VB_TAKARA_MAN_OFFER_GET_ITEM, shouldRegister, {
+        Actor* takaraMan = va_arg(args, Actor*);
+        GetItemEntry getItemEntry =
+            Rando::Context::GetInstance()->GetFinalGIEntry(RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER, true, GI_DOOR_KEY);
         if (!Flags_GetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)) {
-            Actor* takaraMan = va_arg(args, Actor*);
-            GetItemEntry getItemEntry = Rando::Context::GetInstance()->GetFinalGIEntry(
-                RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER, true, GI_DOOR_KEY);
-            if (GiveItemEntryFromActor(takaraMan, OoT_gPlayState, getItemEntry, 2000.0f, 1000.0f)) {
-                Flags_SetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER);
-            }
+            Rando::Context::GetInstance()
+                ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)
+                ->SetCheckStatus(RCSHOW_COLLECTED);
+            CheckTracker::RecalculateAllAreaTotals();
+            Flags_SetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER);
         }
+        GiveItemEntryFromActor(takaraMan, OoT_gPlayState, getItemEntry, 2000.0f, 1000.0f);
         *should = false;
     });
 
