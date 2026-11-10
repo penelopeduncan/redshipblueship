@@ -316,7 +316,9 @@ extern "C" int OoT_ForeignModel_ModelForOoTCheck(uint16_t rc, ComboModel* out) {
         return 0;
     }
     const SharedItem* item = Combo_GetForeignPlacementForOoTCheck(rc);
-    return item != nullptr && HostModelForItem(*item, model) ? 1 : 0;
+    // #1481: as the item it will be (a Progressive Time as its next half-day);
+    // the check is not collected yet, so its own crossing is not in the array.
+    return item != nullptr && HostModelForItem(Combo_PresentForeignItem(*item, false), model) ? 1 : 0;
 }
 
 /**
@@ -441,8 +443,11 @@ extern "C" int OoT_Rando_Foreign_BuildShowOnlyGetItem(uint16_t rc, GetItemEntry*
     entry.drawFunc = ShowOnlyDraw;
     sShowOnly.armed = true;
     sShowOnly.rc = rc;
-    sShowOnly.item = *item;
-    sShowOnly.hasModel = HostModelForItem(*item, &sShowOnly.model);
+    // #1481: the item as it will be granted (a Progressive Time as its half-day),
+    // so the model and the text (OoT_Rando_Foreign_ShowOnlyItemText) agree. The
+    // drain recorded this crossing before it queued the entry.
+    sShowOnly.item = Combo_PresentForeignItem(*item, true);
+    sShowOnly.hasModel = HostModelForItem(sShowOnly.item, &sShowOnly.model);
     sShowOnly.entry = entry;
     *out = entry;
     return 1;
@@ -477,6 +482,18 @@ extern "C" int OoT_Rando_Foreign_ShowOnlyItemText(const GetItemEntry* entry, con
 }
 
 // ---- TEST BRIDGES (ForeignModel row M12, src/common/tests/test_foreign_model.c)
+
+/** M23 (#1481): the model the last built show-only entry draws: 1 and *out, or 0
+ *  (and *out untouched) when it draws the mystery stand-in. */
+extern "C" int OoT_ForeignModel_TestShowOnlyModel(ComboModel* out) {
+    if (!sShowOnly.hasModel) {
+        return 0;
+    }
+    if (out != nullptr) {
+        *out = sShowOnly.model;
+    }
+    return 1;
+}
 
 extern "C" void OoT_ForeignModel_TestSetMountOverride(int value) {
     sHostMountOverride = value;

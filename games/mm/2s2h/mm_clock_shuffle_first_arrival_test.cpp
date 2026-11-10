@@ -80,6 +80,11 @@
  *      nothing new and its drain gives nothing.
  *  13  The give order itself, no arrival: seven gives of Progressive Time hand
  *      out Day 1 .. Night 3 then junk Ascending, and the reverse Descending.
+ *      #1481: before each give, the id an OoT pickup would show for it
+ *      (MM_ForeignItem_TestPresentFrom over the same save) is the id the give
+ *      then resolves to, Progressive Time itself where it resolves to junk;
+ *      from the empty save, the copy with `ahead` copies before it shows the
+ *      (ahead + 1)-th give; in Random mode it stays Progressive Time.
  *   Cleanup: the pending queue, the crossings, gComboCtx, the frozen and
  *   startup slots, the cross-game latches, MM_gPlayState, gSceneSeqState and
  *   the SaveContext image come back, and the hooks are taken down against a
@@ -135,6 +140,8 @@ int MM_ForeignItem_TestPendingCount(void);
 uint16_t MM_ForeignItem_TestPendingAt(int index);
 void MM_ForeignItem_TestResetPending(void);
 int MM_ForeignItem_TestFlushWithStandInPlay(void);
+// #1481: the half-day a Progressive Time found in Ocarina of Time is shown as.
+uint16_t MM_ForeignItem_TestPresentFrom(const void* save, uint16_t riId, int ahead);
 }
 
 namespace {
@@ -623,16 +630,39 @@ int RunLegs() {
             RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE] = RO_GENERIC_ON;
             RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE_PROGRESSIVE] = (uint32_t)order.mode;
             SetOwnedHalfDays(0);
+            // #1481: a copy with `ahead` copies crossed before it shows the give
+            // it will be, Progressive Time itself where that give is junk.
+            for (int ahead = 0; ahead < 7; ahead++) {
+                const uint16_t shown = MM_ForeignItem_TestPresentFrom(&gSaveContext, RI_TIME_PROGRESSIVE, ahead);
+                const RandoItemId want = order.gives[ahead] == RI_JUNK ? RI_TIME_PROGRESSIVE : order.gives[ahead];
+                FA_ASSERT(shown == (uint16_t)want, 53,
+                          "leg 13: %s, nothing owned: a Progressive Time with %d crossed before it is shown as RI id "
+                          "%u, expected %u (#1481)",
+                          order.name, ahead, (unsigned)shown, (unsigned)want);
+            }
             for (int i = 0; i < 7; i++) {
+                const uint16_t shown = MM_ForeignItem_TestPresentFrom(&gSaveContext, RI_TIME_PROGRESSIVE, 0);
                 const RandoItemId got = Rando::ConvertItem(RI_TIME_PROGRESSIVE);
                 FA_ASSERT(got == order.gives[i], 51,
                           "leg 13: %s give %d of Progressive Time resolved to RI id %u, expected %u", order.name, i + 1,
                           (unsigned)got, (unsigned)order.gives[i]);
+                const RandoItemId want = got == RI_JUNK ? RI_TIME_PROGRESSIVE : got;
+                FA_ASSERT(shown == (uint16_t)want, 54,
+                          "leg 13: %s give %d: an OoT pickup showed RI id %u, but the give resolved to %u (#1481: the "
+                          "shown half-day must be the one granted)",
+                          order.name, i + 1, (unsigned)shown, (unsigned)got);
                 Rando::GiveItem(got);
             }
             FA_ASSERT(OwnedHalfDays() == kAllSix, 52, "leg 13: %s: seven gives own 0x%02X, expected all six",
                       order.name, (unsigned)OwnedHalfDays());
         }
+        // #1481: Random pools no Progressive Time and names none.
+        SetOwnedHalfDays(0);
+        RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE_PROGRESSIVE] = RO_CLOCK_SHUFFLE_RANDOM;
+        const uint16_t shownRandom = MM_ForeignItem_TestPresentFrom(&gSaveContext, RI_TIME_PROGRESSIVE, 0);
+        FA_ASSERT(shownRandom == (uint16_t)RI_TIME_PROGRESSIVE, 55,
+                  "leg 13: Random mode: a Progressive Time is shown as RI id %u, expected itself (#1481)",
+                  (unsigned)shownRandom);
     }
     return 0;
 }
