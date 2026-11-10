@@ -1845,8 +1845,8 @@ int GeneratePoolBridge(bool authorCheckTable, uint16_t* outItems, uint16_t* outF
  * OnFileCreate does. Returns the item pool (with its plentiful marks) and the
  * check pool, the host list MM's creation would shuffle over.
  *
- * IT CONSUMES `Ship_Random`: GeneratePools draws shop and Tingle prices and, under
- * RO_PLENTIFUL_ITEMS, the half of the lesser rows it duplicates. That is the same
+ * IT CONSUMES `Ship_Random`: GeneratePools draws shop and Tingle prices (its
+ * RO_PLENTIFUL_ITEMS step draws nothing since 2Ship bfcb60476, #1398). That is the same
  * stream and the same draws the creation seam's own GeneratePools call makes, so
  * a caller must call this INSTEAD of generating, never in addition — which is why
  * it is a measurement bridge and not a production entry (production marks its own
