@@ -61,6 +61,13 @@ int OoT_Rando_Foreign_HostCollected(uint16_t rc);
 int OoT_ComboLogic_TestEnsureItemTableTransient(void);
 }
 
+// The sale lock's give runs OoT_Item_Give ROM-free (oot_load_reconcile_test.cpp's
+// recipe): its hooks set aside, an empty MOD_NONE item table standing in.
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/Enhancements/item-tables/ItemTableManager.h"
+
+#include <cstring>
+
 namespace {
 
 /** OoTMM's OoT restock list (progressive.c comboRenewable), as the RG ids that
@@ -134,7 +141,9 @@ extern "C" int OoT_Rando_ShopShelfSoldOut(uint16_t rc, int bought) {
 }
 
 /** Would a restocked sale of @p rg add nothing right now? The vanilla shelves'
- *  own refusals (z_en_girla.c EnGirlA_CanBuy_*): ammo at capacity, health full.
+ *  own refusals (z_en_girla.c EnGirlA_CanBuy_*, Bombchus.cpp): ammo at capacity,
+ *  health full, Bombchus with no explosives to use them (no Bombchu Bag, no bomb
+ *  bag).
  *  Whether the player may hold it at all (a bag, an empty bottle, a shield
  *  already owned) is the item's obtainability, which the caller asks first. */
 extern "C" int OoT_Rando_ShopRestockFull(uint16_t rg) {
@@ -159,11 +168,19 @@ extern "C" int OoT_Rando_ShopRestockFull(uint16_t rg) {
         case RG_BOMBCHU_5:
         case RG_BOMBCHU_10:
         case RG_BOMBCHU_20: {
-            // Bombchus.cpp's VB_CAN_BUY_BOMBCHUS: 50, or the progressive bag's.
+            // Bombchus.cpp's VB_CAN_BUY_BOMBCHUS: with no Bombchu Bag a player
+            // without a bomb bag may not buy them (the item's obtainability says
+            // CAN_OBTAIN there; with a bag it asks for the bag itself); the cap is
+            // 50, or the progressive bag's.
             int capacity = 50;
             const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
-            if (IS_RANDO && ctx != nullptr && ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_PROGRESSIVE)) {
-                capacity = ctx->GetBombchuCapacity();
+            if (IS_RANDO && ctx != nullptr) {
+                if (ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_NONE) && CUR_CAPACITY(UPG_BOMB_BAG) == 0) {
+                    return 1;
+                }
+                if (ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_PROGRESSIVE)) {
+                    capacity = ctx->GetBombchuCapacity();
+                }
             }
             return AMMO(ITEM_BOMBCHU) >= capacity ? 1 : 0;
         }
@@ -198,6 +215,38 @@ extern "C" int OoT_Rando_ShopRestockGive(PlayState* play, uint16_t rc) {
         return 0;
     }
     OoT_Item_Give(play, itemId);
+    return 1;
+}
+
+/** The restock rule at the shelf's CanBuy (z_en_girla.c EnGirlA_CanBuy_Randomizer)
+ *  for shuffled shelf @p rc, whose RandomizerInf is @p bought. @return 0 on sale
+ *  (unbought, or bought and restocking with room for it), 1 bought and sold out,
+ *  2 bought and restocking but the sale would add nothing (the caller refuses it
+ *  as CANBUY_RESULT_CANT_GET_NOW). */
+extern "C" int OoT_Rando_ShopRestockBuyState(uint16_t rc, int bought) {
+    if (bought == 0) {
+        return 0;
+    }
+    const uint16_t rg = OoT_Rando_ShopRestockItem(rc);
+    if (rg == (uint16_t)RG_NONE) {
+        return 1;
+    }
+    return OoT_Rando_ShopRestockFull(rg) != 0 ? 2 : 0;
+}
+
+/** The sale at the shelf's ItemGive (z_en_girla.c EnGirlA_ItemGive_Randomizer)
+ *  for shuffled shelf @p rc, whose RandomizerInf is @p bought. @return 0 when it
+ *  is unbought: the first sale, which the caller makes (it sets the flag, the
+ *  check queue gives the placed item, and it charges). Otherwise 1: a restocked
+ *  sale, made here (the item given directly and @p price charged, or, if the
+ *  shelf has nothing to sell again, neither), and the flag left alone. */
+extern "C" int OoT_Rando_ShopRestockSell(PlayState* play, uint16_t rc, int bought, int16_t price) {
+    if (bought == 0) {
+        return 0;
+    }
+    if (OoT_Rando_ShopRestockGive(play, rc) != 0) {
+        OoT_Rupees_ChangeBy((s16)-price);
+    }
     return 1;
 }
 
@@ -292,13 +341,146 @@ extern "C" int OoT_Rando_ShopRestockTestTable(void) {
     return 0;
 }
 
+namespace {
+
+template <typename H> struct ShopRestockHooksAside {
+    decltype(GameInteractor::RegisteredGameHooks<H>::functions) functions;
+    decltype(GameInteractor::RegisteredGameHooks<H>::functionsForFilter) filters;
+    ShopRestockHooksAside() {
+        functions.swap(GameInteractor::RegisteredGameHooks<H>::functions);
+        filters.swap(GameInteractor::RegisteredGameHooks<H>::functionsForFilter);
+    }
+    ~ShopRestockHooksAside() {
+        functions.swap(GameInteractor::RegisteredGameHooks<H>::functions);
+        filters.swap(GameInteractor::RegisteredGameHooks<H>::functionsForFilter);
+    }
+};
+
+int ShopRestockPurse(void) {
+    return (int)gSaveContext.rupees + (int)gSaveContext.rupeeAccumulator;
+}
+
+/**
+ * The CanBuy decision and the sale itself, on the test shelf @p il / @p rc, on
+ * the live save, which is put back byte for byte. The vanilla quest is set for
+ * the leg so OoT_Item_Give asks no randomizer setting. @return 0, or a step code
+ * from 6.
+ *
+ *   6  unbought, the shelf is on sale (both modes).
+ *   7  bought, holding Deku Nuts (5) with room: on sale (state 0), or with a
+ *      foreign host sold out (state 1). Catches CanBuy refusing every bought
+ *      shelf (main before #1482: CANBUY_RESULT_CANT_GET_NOW).
+ *   8  bought, nuts at capacity: refused for nothing to add (state 2), or with a
+ *      foreign host sold out (1).
+ *   9  the unbought sale is left to the caller (0) and changes nothing.
+ *  10  the bought sale is made here (1).
+ *  11  it adds the pack: nuts +5 (nothing with a foreign host). Catches a dropped
+ *      or wrong OoT_Item_Give, or a give through the flag (the check queue gives
+ *      nothing on a check already obtained).
+ *  12  it charges the price (nothing with a foreign host). Catches a dropped
+ *      OoT_Rupees_ChangeBy, or charging for a sale that gave nothing.
+ *  13  it leaves every RandomizerInf as it was (the check stays as it is).
+ *  14  bought, holding a Piece of Heart: sold out (1), and its sale gives and
+ *      charges nothing.
+ */
+int ShopRestockSaleLeg(Rando::ItemLocation* il, RandomizerCheck rc, int foreignHosted) {
+    std::unique_ptr<SaveContext> savedSave = std::make_unique<SaveContext>();
+    memcpy(savedSave.get(), &gSaveContext, sizeof(SaveContext));
+    GameInteractor* const savedInteractor = GameInteractor::Instance;
+    std::unique_ptr<GameInteractor> harnessInteractor;
+    if (GameInteractor::Instance == nullptr) {
+        harnessInteractor = std::make_unique<GameInteractor>();
+        GameInteractor::Instance = harnessInteractor.get();
+    }
+    ItemTableManager* const savedItemTables = ItemTableManager::Instance;
+    std::unique_ptr<ItemTableManager> harnessItemTables;
+    if (ItemTableManager::Instance == nullptr) {
+        harnessItemTables = std::make_unique<ItemTableManager>();
+        harnessItemTables->AddItemTable(MOD_NONE);
+        ItemTableManager::Instance = harnessItemTables.get();
+    }
+
+    int step = 0;
+    {
+        ShopRestockHooksAside<GameInteractor::OnItemReceive> receive;
+        ShopRestockHooksAside<GameInteractor::OnTimestamp> timestamp;
+        const bool foreign = foreignHosted != 0;
+        const int16_t price = 20;
+
+        gSaveContext.ship.quest.id = QUEST_NORMAL;
+        OoT_Inventory_ChangeUpgrade(UPG_NUTS, 1);
+        INV_CONTENT(ITEM_NUT) = ITEM_NUT;
+        const int nutCap = CUR_CAPACITY(UPG_NUTS);
+        AMMO(ITEM_NUT) = (s8)(nutCap - 10);
+        gSaveContext.rupees = 100;
+        gSaveContext.rupeeAccumulator = 0;
+        il->SetPlacedItem(RG_DEKU_NUTS_5);
+
+        if (nutCap <= 10) {
+            step = 6;
+        } else if (OoT_Rando_ShopRestockBuyState((uint16_t)rc, 0) != 0) {
+            step = 6;
+        } else if (OoT_Rando_ShopRestockBuyState((uint16_t)rc, 1) != (foreign ? 1 : 0)) {
+            step = 7;
+        }
+        if (step == 0) {
+            AMMO(ITEM_NUT) = (s8)nutCap;
+            if (OoT_Rando_ShopRestockBuyState((uint16_t)rc, 1) != (foreign ? 1 : 2)) {
+                step = 8;
+            }
+            AMMO(ITEM_NUT) = (s8)(nutCap - 10);
+        }
+        if (step == 0) {
+            if (OoT_Rando_ShopRestockSell(nullptr, (uint16_t)rc, 0, price) != 0 || AMMO(ITEM_NUT) != nutCap - 10 ||
+                ShopRestockPurse() != 100) {
+                step = 9;
+            }
+        }
+        if (step == 0) {
+            decltype(gSaveContext.ship.randomizerInf) infBefore;
+            memcpy(infBefore, gSaveContext.ship.randomizerInf, sizeof(infBefore));
+            if (OoT_Rando_ShopRestockSell(nullptr, (uint16_t)rc, 1, price) != 1) {
+                step = 10;
+            } else if (AMMO(ITEM_NUT) != (foreign ? nutCap - 10 : nutCap - 5)) {
+                fprintf(stderr, "[OoT ShopRestock] restocked nut sale (foreign %d): ammo %d, expected %d\n",
+                        foreignHosted, (int)AMMO(ITEM_NUT), foreign ? nutCap - 10 : nutCap - 5);
+                step = 11;
+            } else if (ShopRestockPurse() != (foreign ? 100 : 100 - price)) {
+                fprintf(stderr, "[OoT ShopRestock] restocked nut sale (foreign %d): purse %d, expected %d\n",
+                        foreignHosted, ShopRestockPurse(), foreign ? 100 : 100 - price);
+                step = 12;
+            } else if (memcmp(infBefore, gSaveContext.ship.randomizerInf, sizeof(infBefore)) != 0) {
+                step = 13;
+            }
+        }
+        if (step == 0) {
+            il->SetPlacedItem(RG_PIECE_OF_HEART);
+            const int nuts = AMMO(ITEM_NUT);
+            const int purse = ShopRestockPurse();
+            if (OoT_Rando_ShopRestockBuyState((uint16_t)rc, 1) != 1 ||
+                OoT_Rando_ShopRestockSell(nullptr, (uint16_t)rc, 1, price) != 1 || AMMO(ITEM_NUT) != nuts ||
+                ShopRestockPurse() != purse) {
+                step = 14;
+            }
+        }
+    }
+
+    ItemTableManager::Instance = savedItemTables;
+    GameInteractor::Instance = savedInteractor;
+    memcpy(&gSaveContext, savedSave.get(), sizeof(SaveContext));
+    return step;
+}
+
+} // namespace
+
 /**
  * The shelf, by placement: the test shelf holding a restocking item answers it
  * and is not sold out once bought; holding a Piece of Heart, a bottle or an ice
  * trap it is sold out once bought; unbought it is on sale either way. With
  * @p foreignHosted the caller has made the shelf host a Majora's Mask item
  * (Combo_SetForeignPlacementOoT), and then nothing restocks and a bought shelf
- * is sold out whatever the OoT table holds there.
+ * is sold out whatever the OoT table holds there. Then the CanBuy decision and
+ * the sale itself (ShopRestockSaleLeg, steps 6 to 14).
  *
  * Uses the live Rando::Context when there is one and puts the shelf's
  * ItemLocation back exactly; otherwise creates one and releases it again
@@ -353,6 +535,9 @@ extern "C" int OoT_Rando_ShopRestockTestShelves(int foreignHosted) {
                     step = 5;
                     break;
                 }
+            }
+            if (step == 0) {
+                step = ShopRestockSaleLeg(il, rc, foreignHosted);
             }
             *il = saved;
         }

@@ -22,10 +22,9 @@ s32 OoT_Rando_Foreign_HostCollected(u16 rc);
 s32 OoT_ForeignModel_DrawForOoTCheck(PlayState* play, u16 rc);
 // #1482: a bought shuffled shelf sells its item again when OoTMM restocks it
 // (ShopRestockSingleExe.cpp).
-u16 OoT_Rando_ShopRestockItem(u16 rc);
 s32 OoT_Rando_ShopShelfSoldOut(u16 rc, s32 bought);
-s32 OoT_Rando_ShopRestockFull(u16 rg);
-s32 OoT_Rando_ShopRestockGive(PlayState* play, u16 rc);
+s32 OoT_Rando_ShopRestockBuyState(u16 rc, s32 bought);
+s32 OoT_Rando_ShopRestockSell(PlayState* play, u16 rc, s32 bought, s16 price);
 #endif
 
 void OoT_EnGirlA_Init(Actor* thisx, PlayState* play);
@@ -884,19 +883,18 @@ s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {
         return CANBUY_RESULT_CANT_GET_NOW_5;
     }
 
-    s32 bought = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
 #ifdef RSBS_SINGLE_EXECUTABLE
-    // #1482: a bought shelf whose item OoTMM restocks sells it again. The refusals
-    // around this one are asked of that item (it is the placed item), and a sale
-    // that would add nothing (ammo at capacity, health full) is refused as a
-    // vanilla shelf refuses it.
-    u16 restockItem = bought ? OoT_Rando_ShopRestockItem(shopItemIdentity.identity.randomizerCheck) : RG_NONE;
-    if (restockItem != RG_NONE) {
-        if (OoT_Rando_ShopRestockFull(restockItem)) {
-            return CANBUY_RESULT_CANT_GET_NOW;
-        }
-        bought = false;
+    // #1482: a bought shelf whose item OoTMM restocks sells it again (state 0).
+    // The refusals around this one are asked of that item (it is the placed
+    // item), and a sale that would add nothing (state 2: ammo at capacity, health
+    // full) is refused as a vanilla shelf refuses it.
+    s32 bought = OoT_Rando_ShopRestockBuyState(shopItemIdentity.identity.randomizerCheck,
+                                               Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+    if (bought == 2) {
+        return CANBUY_RESULT_CANT_GET_NOW;
     }
+#else
+    s32 bought = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
 #endif
 
     if (bought || itemObtainability == CANT_OBTAIN_ALREADY_HAVE || itemObtainability == CANT_OBTAIN_MISC) {
@@ -1107,10 +1105,8 @@ void EnGirlA_ItemGive_Randomizer(PlayState* play, EnGirlA* this) {
     // #1482: a restocked sale. The check is already obtained, so setting the flag
     // again would give nothing: the item is given here, and the check, the tracker
     // and the hints are left as they are.
-    if (Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf)) {
-        if (OoT_Rando_ShopRestockGive(play, shopItemIdentity.identity.randomizerCheck)) {
-            OoT_Rupees_ChangeBy(-this->basePrice);
-        }
+    if (OoT_Rando_ShopRestockSell(play, shopItemIdentity.identity.randomizerCheck,
+                                  Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf), this->basePrice)) {
         return;
     }
 #endif

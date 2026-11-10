@@ -22,13 +22,28 @@
  *      nothing and is sold out once bought, whatever the OoT table holds there
  *      (the crossing store delivers once). Catches the restock predicate losing
  *      its foreign-host guard.
+ *   B/C, THE SALE (steps 6 to 14, both modes). The shelf's CanBuy decision
+ *      (OoT_Rando_ShopRestockBuyState, which EnGirlA_CanBuy_Randomizer asks) and
+ *      the sale itself (OoT_Rando_ShopRestockSell, which
+ *      EnGirlA_ItemGive_Randomizer asks), on the live save, put back byte for
+ *      byte. Bought, a Deku Nuts (5) shelf with room is on sale; at capacity it
+ *      is refused for nothing to add; a Piece of Heart shelf is sold out. The
+ *      bought sale really gives: OoT_Item_Give runs (NULL play, its hooks set
+ *      aside), the nut count rises by 5, the price is charged, and no
+ *      RandomizerInf changes; the unbought sale is left to the first-sale path.
+ *      With a foreign host the bought shelf is sold out and its sale gives and
+ *      charges nothing. Catches CanBuy refusing every bought shelf (main before
+ *      #1482), a dropped or wrong give, a give through the flag (which gives
+ *      nothing on an obtained check), a dropped charge, and a charge for nothing.
  *   D. NOTHING TO ADD. Deku Nuts at capacity, a Recovery Heart at full health and
  *      Bombchus at 50 refuse a restocked sale, one short they do not, and a
  *      shield never does. Catches a restocked sale charging for nothing.
  *
  * What this row does NOT drive: the actors themselves (they need a PlayState and
- * a loaded shop scene). That the four call sites ask these functions is read in
- * review; the playtest shows a bought shelf selling again.
+ * a loaded shop scene). Each actor call site is one call into the functions
+ * above, read in review: reverting a call site does NOT turn this row red. The
+ * Bombchu no-explosives refusal needs a randomizer context's options and is not
+ * driven either. The playtest shows a bought shelf selling again.
  *
  * FILE SCOPE (compiled as C++ inside test_runner.cpp); every symbol it drives is
  * C-linkage.
@@ -68,7 +83,8 @@ TestResult Test_OoTShelfRestock(void) {
     const int shelves = OoT_Rando_ShopRestockTestShelves(0);
     if (shelves != 0) {
         printf("[TEST] FAIL: the shelf's restock answer is wrong (step %d: 1 no item table, 2 no item location, 3 "
-               "the restock item, 4 sold out once bought, 5 sold out before it is bought)\n",
+               "the restock item, 4 sold out once bought, 5 sold out before it is bought, 6-8 the CanBuy decision, "
+               "9-13 the restocked sale's give, charge and flags, 14 a Piece of Heart shelf's sale)\n",
                shelves);
         ComboContext_Init();
         return TEST_FAIL;
@@ -88,7 +104,7 @@ TestResult Test_OoTShelfRestock(void) {
     ComboContext_Init();
     if (foreign != 0) {
         printf("[TEST] FAIL: a shelf hosting a Majora's Mask item restocks, or is not sold out once bought (step "
-               "%d)\n",
+               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-14 the sale gives or charges)\n",
                foreign);
         return TEST_FAIL;
     }
