@@ -440,9 +440,10 @@ TestResult Test_CriticalRenewablesRule(void) {
     Combo_TestSwapCriticalRenewableSource((uint8_t)GAME_MM, &kCrStubMM);
     // CrBody installs the Cl stub engines and ClUninstall leaves both slots empty.
     // The real engines (both games' file-scope registrars) go back afterwards, as
-    // woth-hints does: `--test all` runs every row in one process, and a later row
-    // that reads the registry (menu-capability-gating needs MM's engine) would
-    // otherwise inherit an empty one (#1447).
+    // woth-hints does: `--test all` runs every row in one process, and a row added
+    // after this one (it is the last row `--test all` runs) would otherwise inherit
+    // an empty registry, the class #1446 fixed in woth-hints, where
+    // menu-capability-gating broke (#1447).
     const ComboLogicEngine* priorOoT = Combo_Logic_GetEngine(GAME_OOT);
     const ComboLogicEngine* priorMM = Combo_Logic_GetEngine(GAME_MM);
     const TestResult result = CrBody();

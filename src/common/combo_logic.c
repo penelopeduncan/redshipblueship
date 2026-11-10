@@ -2016,17 +2016,22 @@ int Combo_Logic_RunAllLocationsPreflight(const ComboLogicBagItem* bag, int bagCo
 
 /** Why a batch attempt was rolled back (#1447), one line per roll-back: the
  *  required row whose draw found no host and how far the batch got, or which
- *  half of the exit condition failed. Logged only; it draws and changes nothing,
- *  so no world moves. */
+ *  half of the exit condition failed. A dead end also prints each side's raw
+ *  reached-empty supply and whether its crossing budget is full, so an empty
+ *  supply can be told apart from one the row's rules filtered to nothing.
+ *  Logged only; it draws and changes nothing, so no world moves. */
 static void ComboLogicLogDeadEndRollBack(const ComboLogicFillRequest* req, int attempt, int maxAttempts,
                                          const ComboLogicBagItem* row, int placedBefore, int requiredCount,
                                          int rounds) {
     fprintf(stderr,
-            "[ComboLogic] fill seed %08X attempt %d of %d rolled back: no reached empty host for required row %d of "
-            "%d (%s item %u%s), %d round(s) so far\n",
+            "[ComboLogic] fill seed %08X attempt %d of %d rolled back: no eligible reached empty host for required "
+            "row %d of %d (%s item %u%s; reached empty hosts OoT %d, MM %d; crossing budget full OoT %s, MM %s), "
+            "%d round(s) so far\n",
             (unsigned)req->seed, attempt + 1, maxAttempts, placedBefore + 1, requiredCount,
             Game_ToString((GameId)row->item.originGame), (unsigned)row->item.id,
-            ComboLogicRowMustRenew(row) ? ", a pending critical renewable" : "", rounds);
+            ComboLogicRowMustRenew(row) ? ", a pending critical renewable" : "", sCandidates[(uint8_t)GAME_OOT].count,
+            sCandidates[(uint8_t)GAME_MM].count, sCrossingSideFull[(uint8_t)GAME_OOT] ? "yes" : "no",
+            sCrossingSideFull[(uint8_t)GAME_MM] ? "yes" : "no", rounds);
 }
 
 static void ComboLogicLogProofRollBack(const ComboLogicFillRequest* req, int attempt, int maxAttempts, const char* why,

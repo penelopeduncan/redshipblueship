@@ -507,11 +507,13 @@ build would turn the oracle back into a no-op.
      samples the worlds.
    * A re-pin that moved only an input field or a digest writer does not bump it.
 
-   Precedents: #1392 bumped to 4 after `v0.4.4-alpha` shipped generator 3; #979, #1436 and #1446 re-pinned worlds in the same
-   window and rode generator 4. PR #1517 bumped to 5 after `v0.5.0-alpha` shipped
-   generator 4, with no golden moved, for PRs #1507 and #1504, which moved worlds
-   no golden pins; the world-moving re-pins after it in that window (the #1398
-   logic backports) ride generator 5. See "The generator version" below.
+   Precedents: #1392 bumped to 4 after `v0.4.4-alpha` shipped generator 3; #979,
+   #1436 and #1446 re-pinned worlds in the same window and rode generator 4. PR
+   #1517 bumped to 5 after `v0.5.0-alpha` shipped generator 4, with no golden
+   moved, for PRs #1507 and #1504, which moved worlds no golden pins. Any
+   world-moving re-pin that lands after it in that window (the #1398 logic
+   backports, still open when this was written) will ride generator 5 and must
+   list its residuals. See "The generator version" below.
 
 ## The generator version (#1003)
 
@@ -752,12 +754,12 @@ No pinned world moved under either change. No golden profile turns Shuffle Tingl
 Maps on, and no golden's world happened to move under the time logic, so no golden
 was re-pinned for a world-moving reason and rule 6 as it read then (bump in a PR
 that re-pins a golden for a world-moving reason) did not ask for this bump. The
-version moves anyway, and rule 6 now says so (#1447), because its purpose is that two builds whose generators
-differ never show the same fingerprint for the same seed and settings, and that a
-seed package from the released generator is refused. **This bump is for worlds no
-golden pins.** In the goldens it moves `comboSettingsHash` alone, an INPUT field,
-in the ten goldens that carry it; no placement field moves, because the version
-is a label (see the list above).
+version moves anyway, and rule 6 now says so (#1447), because its purpose is that
+two builds whose generators differ never show the same fingerprint for the same
+seed and settings, and that a seed package from the released generator is
+refused. **This bump is for worlds no golden pins.** In the goldens it moves
+`comboSettingsHash` alone, an INPUT field, in the ten goldens that carry it; no
+placement field moves, because the version is a label (see the list above).
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
