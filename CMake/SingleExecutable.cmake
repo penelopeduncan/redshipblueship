@@ -1859,6 +1859,17 @@ if(BUILD_TESTING)
                 -DREDSHIP_EXE=$<TARGET_FILE:redship>
                 -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake)
+    # Its red half (#1465): the same guard over the real manifest plus one
+    # synthetic line per leg must fail, naming the row -- a rando-label row
+    # missing from the `--test all` skip list, a non-generating declaration on a
+    # skipped row, and a stale declaration.
+    redship_add_test(NAME TestRegistrationAllSkipGuardRed
+        COMMAND ${CMAKE_COMMAND}
+                -DREDSHIP_EXE=$<TARGET_FILE:redship>
+                -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
+                -DSCRATCH_DIR=${CMAKE_BINARY_DIR}/test-registration-red
+                -DGUARD=${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistrationRed.cmake)
 
     # Dispatch-table entries that deliberately have no dedicated CTest row.
     # Both predate this refactor and both still execute inside AllTests, which
@@ -1983,6 +1994,8 @@ if(BUILD_TESTING)
     # per MM scene. Display-free and ROM-free.
     redship_add_test(NAME MMMirroredWorld COMMAND redship --test mm-mirrored-world
         LABEL rando)
+    # It sets CVars through the shared bring-up and generates nothing, so `--test all` runs it (#1465).
+    redship_test_not_generating(mm-mirrored-world "CVar translator only: no InitOTRForMMFirstBoot, no seed")
 
     # #575 H1: the one shared hint AREA vocabulary (src/common/combo_area.c).
     # Unlike the two rows above it is display-free and ROM-free, so it sits in

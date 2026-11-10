@@ -10466,12 +10466,21 @@ int TestRunner_Run(const char* testName) {
         return 0;
     }
 
-    if (strcmp(testName, "all") == 0) {
+    // `--test all-skips` prints the rows `--test all` skips, through the very
+    // condition below, and runs nothing. TestRegistrationComplete reads it (#1465):
+    // every rando-label CTest row must be on this list or be declared
+    // redship_test_not_generating(), so a new generation row that is missed here
+    // fails registration by name instead of poisoning a later row in AllTests.
+    const bool listSkipsOnly = strcmp(testName, "all-skips") == 0;
+    if (strcmp(testName, "all") == 0 || listSkipsOnly) {
         int failures = 0;
         int passed = 0;
         int skipped = 0;
         int total = 0;
 
+        if (listSkipsOnly) {
+            printf("Skipped by --test all:\n");
+        }
         for (int i = 0; gTests[i].name != nullptr; i++) {
             // rando-gen / rando-determinism need a display (Fast3dWindow
             // bring-up) and the RSBS_DISABLE_OTR_INIT environment; they run as
@@ -10560,8 +10569,16 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "mm-hint-sources-world") == 0 ||
                 // A window and soh.o2r, and a run of its own: the `ui` CTest label.
                 strcmp(gTests[i].name, "ui-snapshot") == 0) {
+                if (listSkipsOnly) {
+                    printf("  %-20s skipped by --test all\n", gTests[i].name);
+                    skipped++;
+                    continue;
+                }
                 printf("\n--- Skipping: %s (needs display; runs as a %s-label CTest) ---\n", gTests[i].name,
                        strcmp(gTests[i].name, "ui-snapshot") == 0 ? "ui" : "rando");
+                continue;
+            }
+            if (listSkipsOnly) {
                 continue;
             }
             // mm-registrar-coverage used to be skipped here: it is the only row
@@ -10599,6 +10616,11 @@ int TestRunner_Run(const char* testName) {
             } else if (result == TEST_FAIL || result == TEST_ERROR) {
                 failures++;
             }
+        }
+
+        if (listSkipsOnly) {
+            printf("\n%d row(s) skipped by --test all\n", skipped);
+            return 0;
         }
 
         printf("\n=== Test Summary ===\n");
@@ -10661,6 +10683,7 @@ void TestRunner_ListTests(void) {
     printf("\nSpecial commands:\n");
     printf("  %-20s Run all unit tests\n", "all");
     printf("  %-20s Show this list\n", "list");
+    printf("  %-20s List the rows `all` skips (#1465)\n", "all-skips");
 
     printf("\nIntegration tests (--integration-test <name>):\n");
     printf("  (These tests actually boot the game - requires display/Xvfb)\n\n");

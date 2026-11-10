@@ -14,7 +14,11 @@ cmake_policy(SET CMP0057 NEW)
 #   (1) a dispatch-table entry in test_runner.cpp with no CTest row  — a test
 #       that exists but is never scheduled;
 #   (2) a CTest row whose `--test <name>` is not in the dispatch table — a row
-#       that can only ever error out.
+#       that can only ever error out;
+#   (4) a "rando"-label row that `redship --test all` would run, unless it is
+#       declared redship_test_not_generating() (#1465) — a real generation
+#       there leaves its world alive and poisons a later row (#1455).
+#   ((3) and (5) keep the exemption and non-generating lists honest.)
 #
 # The table side is read from the BINARY (`redship --test list`), not from the
 # source text, so it reflects what actually linked.
@@ -50,17 +54,25 @@ set(_reg_int "")           # dispatch names driven by an --integration-test row
 set(_exempt "")            # dispatch names declared row-less on purpose
 set(_row_for "")           # parallel to _reg_unit/_reg_int: owning CTest row
 set(_meta_rows "")         # rows that drive neither table (this guard itself)
+set(_rando_rows "")        # "<dispatch>=<ctest row>" for every rando-label --test row
+set(_rando_dispatch "")    # the dispatch names of those rows
+set(_nogen "")             # redship_test_not_generating() declarations (#1465)
 
 foreach(_line IN LISTS _manifest_lines)
     if(_line MATCHES "^#")
         continue()
     elseif(_line MATCHES "^register\\|([^|]*)\\|([^|]*)\\|([^|]*)\\|(.*)$")
+        string(REPLACE "," ";" _labels "${CMAKE_MATCH_1}")
         set(_ctest_name "${CMAKE_MATCH_2}")
         set(_kind "${CMAKE_MATCH_3}")
         set(_dispatch "${CMAKE_MATCH_4}")
         if(_kind STREQUAL "unit")
             list(APPEND _reg_unit "${_dispatch}")
             list(APPEND _row_for "${_dispatch}=${_ctest_name}")
+            if("rando" IN_LIST _labels)
+                list(APPEND _rando_rows "${_dispatch}=${_ctest_name}")
+                list(APPEND _rando_dispatch "${_dispatch}")
+            endif()
         elseif(_kind STREQUAL "integration")
             list(APPEND _reg_int "${_dispatch}")
             list(APPEND _row_for "${_dispatch}=${_ctest_name}")
@@ -69,6 +81,8 @@ foreach(_line IN LISTS _manifest_lines)
         endif()
     elseif(_line MATCHES "^exempt\\|([^|]*)\\|(.*)$")
         list(APPEND _exempt "${CMAKE_MATCH_1}")
+    elseif(_line MATCHES "^nogen\\|([^|]*)\\|(.*)$")
+        list(APPEND _nogen "${CMAKE_MATCH_1}")
     endif()
 endforeach()
 
@@ -142,6 +156,51 @@ if(NOT _found_unit OR NOT _found_integration)
         "CheckTestRegistration: parsed zero entries from a '--test list' section "
         "(unit=${_found_unit} / integration=${_found_integration}). Refusing to pass vacuously.\n"
         "Raw output:\n${_out}")
+endif()
+
+# ============================================================================
+# Side C — what `redship --test all` skips (`redship --test all-skips`, #1465)
+# ============================================================================
+#
+# Read from the binary, through the same condition TestRunner_Run's "all" loop
+# uses, so the two cannot drift and the prefix entries (rando-preset-world-*,
+# shared-songs-one-copy-*) resolve exactly as the suite resolves them.
+
+execute_process(
+    COMMAND "${REDSHIP_EXE}" --test all-skips
+    OUTPUT_VARIABLE _skips_out
+    ERROR_VARIABLE _skips_err
+    RESULT_VARIABLE _skips_rc
+)
+if(NOT _skips_rc EQUAL 0)
+    message(FATAL_ERROR
+        "CheckTestRegistration: '${REDSHIP_EXE} --test all-skips' exited ${_skips_rc}.\n"
+        "stdout:\n${_skips_out}\nstderr:\n${_skips_err}")
+endif()
+
+string(REPLACE "\r\n" "\n" _skips_n "${_skips_out}")
+string(REPLACE ";" "\\;" _skips_n "${_skips_n}")
+string(REPLACE "\n" ";" _skips_lines "${_skips_n}")
+
+set(_saw_skips_header FALSE)
+set(_skipped_by_all "")
+foreach(_line IN LISTS _skips_lines)
+    if(_line MATCHES "^Skipped by --test all:")
+        set(_saw_skips_header TRUE)
+    elseif(_saw_skips_header AND _line MATCHES "^  ([A-Za-z0-9._-]+)[ \t]")
+        list(APPEND _skipped_by_all "${CMAKE_MATCH_1}")
+    endif()
+endforeach()
+
+# rando-gen is the first and oldest skip (#337). If it is not read back, the
+# parse or the command is broken and every rando-label row below would be
+# reported missing; refuse with the raw output instead of a list of 80 rows.
+if(NOT _saw_skips_header OR NOT "rando-gen" IN_LIST _skipped_by_all)
+    message(FATAL_ERROR
+        "CheckTestRegistration: could not read the --test all skip list -- expected a "
+        "'Skipped by --test all:' header and a 'rando-gen' entry from '--test all-skips' "
+        "(header=${_saw_skips_header}).\n"
+        "Raw output:\n${_skips_out}")
 endif()
 
 # ============================================================================
@@ -228,6 +287,39 @@ redship_test_exempt(${_e}) line")
     endif()
 endforeach()
 
+# (4) every rando-label row must stay out of `redship --test all` unless it is
+#     declared non-generating (#1465). A real generation leaves its world alive
+#     for the rest of the process, so a missed one turns AllTests red on an
+#     unrelated later row (#1455). Only dispatch names in the table are judged;
+#     a row naming a missing entry is already reported by (2).
+foreach(_pair IN LISTS _rando_rows)
+    string(REGEX REPLACE "=.*$" "" _d "${_pair}")
+    string(REGEX REPLACE "^[^=]*=" "" _owner "${_pair}")
+    if(NOT _d IN_LIST _found_unit)
+        continue()
+    elseif(_d IN_LIST _skipped_by_all OR _d IN_LIST _nogen)
+        continue()
+    endif()
+    list(APPEND _problems
+        "rando-label CTest row '${_owner}' runs '--test ${_d}', which is not on the --test all \
+skip list -- if it runs a real generation, add it to the skip condition in TestRunner_Run \
+(src/common/test_runner.cpp), and if it does not, declare redship_test_not_generating(${_d} \"<why>\") \
+next to its row")
+endforeach()
+
+# (5) non-generating declarations must stay honest, like the exemptions in (3).
+foreach(_g IN LISTS _nogen)
+    if(NOT _g IN_LIST _rando_dispatch)
+        list(APPEND _problems
+            "stale declaration: redship_test_not_generating(${_g}) names no rando-label --test row \
+-- drop the declaration")
+    elseif(_g IN_LIST _skipped_by_all)
+        list(APPEND _problems
+            "contradicted declaration: redship_test_not_generating(${_g}) names a row that is on \
+the --test all skip list -- drop one of the two")
+    endif()
+endforeach()
+
 if(_problems)
     list(LENGTH _problems _n)
     string(REPLACE ";" "\n  * " _pretty "${_problems}")
@@ -242,6 +334,11 @@ list(LENGTH _reg_unit _n_reg)
 list(LENGTH _found_integration _n_int)
 list(LENGTH _used_exempt _n_ex)
 list(LENGTH _meta_rows _n_meta)
+list(LENGTH _rando_rows _n_rando)
+list(LENGTH _skipped_by_all _n_skips)
+list(LENGTH _nogen _n_nogen)
 message(STATUS
     "Test registration complete: ${_n_unit} dispatch entries covered by ${_n_reg} "
-    "--test rows (${_n_ex} exempt), ${_n_int} integration entries, ${_n_meta} meta row(s).")
+    "--test rows (${_n_ex} exempt), ${_n_int} integration entries, ${_n_meta} meta row(s); "
+    "${_n_rando} rando-label row(s) against ${_n_skips} --test all skip(s) and "
+    "${_n_nogen} non-generating declaration(s).")
