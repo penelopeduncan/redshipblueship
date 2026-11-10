@@ -20,6 +20,11 @@
 
 ### Fixes
 
+- **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
+  own than it has checks, as a hunt with too many pieces does, Generate now fails with a toast that names the game,
+  for example "Not generated: too many Majora's Mask pieces.", instead of "try a new seed or other options." The
+  file select's "Not created:" toast says the same, and a hunt whose goal can never be met reads "the Triforce Goal
+  can never be met."
 - **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
   carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
   leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
