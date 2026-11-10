@@ -418,7 +418,12 @@ bool sHostPoolSet = false;
  *   - `SCENE_LAST_BS` is Majora's arena, whose two pots GeneratePools declines
  *     outright ("We may never shuffle these 2 pots"). They are also exactly the
  *     two checks mm_majora_goal_test.cpp pins as the lair's whole fill-visible
- *     surface, so offering them as hosts would contradict a live lock.
+ *     surface, so offering them as hosts would contradict a live lock;
+ *   - `RCTYPE_WONDER_ITEM` rows (#1410: the bonus red rupee of each of the three
+ *     Keaton grass rings) are skipped by GeneratePools with no option at all:
+ *     the rows ship ahead of a "Shuffle Wonder Items" option, which is still a
+ *     disabled "Coming Soon" placeholder in Rando/Menu.cpp. Whichever change
+ *     gives that option a real value (PR #1510) moves this row to the pool seam.
  *
  *  THAT IS THE WHOLE LIST. Shops and Tingle shops were here and are not
  *  `GeneratePools`-unconditional — see A3's correction in the file header for
@@ -434,6 +439,9 @@ bool IsUnconditionallyExcluded(RandoCheckId randoCheckId) {
         return true;
     }
     if (it->second.sceneId == SCENE_LAST_BS) {
+        return true;
+    }
+    if (it->second.randoCheckType == RCTYPE_WONDER_ITEM) {
         return true;
     }
     return false;

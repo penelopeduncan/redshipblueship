@@ -155,6 +155,7 @@ std::vector<const char*> checkTypeIconList = {
     /*RCTYPE_STRAY_FAIRY*/ gStrayFairyGreatBayIconTex,
     /*RCTYPE_TINGLE_SHOP*/ gItemIconAdultsWalletTex,
     /*RCTYPE_TREE*/ gItemIconDekuStickTex,
+    // Standalone 2Ship only: CheckTracker.cpp is not linked into the single exe (placeholder icons).
     /*RCTYPE_BEEHIVE*/ gArcheryScoreIconTex,
     /*RCTYPE_WONDER_ITEM*/ gArcheryScoreIconTex,
 };

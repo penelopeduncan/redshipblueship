@@ -115,8 +115,9 @@ std::string PairedInputSeedString() {
  *  strings every world created before the option existed hashed are unchanged
  *  with it off (its default) and still distinct with it on. The two price modes
  *  (#1427) are off at RO_PRICES_VANILLA, their default, the three dungeon
- *  item placements (#1361) at RO_DUNGEON_ITEM_ANYWHERE, theirs, and the song
- *  placement (#1362) at RO_SONG_SHUFFLE_ANYWHERE, its own. */
+ *  item placements (#1361) at RO_DUNGEON_ITEM_ANYWHERE, theirs, the song
+ *  placement (#1362) at RO_SONG_SHUFFLE_ANYWHERE, its own, and hive drops
+ *  (#1410) at RO_GENERIC_OFF, theirs. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
