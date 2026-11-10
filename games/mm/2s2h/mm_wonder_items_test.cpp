@@ -15,8 +15,12 @@
  *      "Shuffle Wonder Items" under "Shuffle Items".
  *  (3) The check table holds exactly the 113 wonder items, all of one check type
  *      that no other check carries, every one listed by some logic region, none a
- *      cross-game host class, and every one a named row of Randomizer > MM
- *      Locations.
+ *      cross-game host class, and every one a row of Randomizer > MM
+ *      Locations. A check's name is its RC enumerator itself (Checks.cpp's RC()
+ *      stringifies the id, PopulateCheckNames converts that spelling and the
+ *      locations page falls back to it), so the 113 names resolving to 113
+ *      distinct ids (code 7) is the name lock; a non-empty-name assertion on
+ *      the page row could not fail, so there is none (code 11 is unused).
  *  (4) The id runs WonderItems.cpp indexes exist: each Hit Tag in its location
  *      map spawns its base check and the two after it (`base + 1`, `base + 2`),
  *      and the Termina Field wall spawns RC_TERMINA_FIELD_WALL_WONDER_ITEM_01 +
@@ -401,9 +405,6 @@ int RunOptionAndPool() {
     for (int i = 0; i < Combo_MMLocationCount(); i++) {
         const ComboMMLocationDesc* desc = Combo_MMLocationAt(i);
         const RandoCheckId id = (RandoCheckId)desc->id;
-        if (wonder.count(id) != 0 && (desc->name == NULL || desc->name[0] == '\0')) {
-            return Fail(11, "%s has no name in Randomizer > MM Locations", Rando::StaticData::Checks.at(id).name);
-        }
         located.insert(id);
     }
     for (RandoCheckId id : wonder) {
