@@ -33,6 +33,16 @@
   inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
   the scene they open from.
 
+### Options and quality of life
+
+- **Ocarina of Time: Text Speed has a sixth notch, Instant** (issue #1414). At 6 the slider shows each text box in
+  full at once.
+- **New randomizer option: Early Granny's Potion Shop** (issue #1414). With Shuffle Adult Trade off, Granny's shop in
+  Kakariko is open from the start, without the Claim Check, and logic counts her item that way. It is off by
+  default, and a seed made with it off makes the same world as before.
+- **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
+  instead of queueing behind it.
+
 ---
 
 # Release notes: v0.5.0-alpha ("Ellen Alfa")
