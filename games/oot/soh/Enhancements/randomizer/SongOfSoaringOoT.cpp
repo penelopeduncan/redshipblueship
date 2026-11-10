@@ -70,9 +70,8 @@ static_assert(RHT_SONG_OF_SOARING_OOT == RHT_STONE_MASK + 1,
               "RHT_SONG_OF_SOARING_OOT is appended after RHT_STONE_MASK (#1169 XW4)");
 static_assert(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT == RAND_INF_OBTAINED_STONE_MASK + 1,
               "RAND_INF_OBTAINED_SONG_OF_SOARING_OOT is appended after the Stone Mask's flag (#1169 XW4)");
-static_assert((RAND_INF_MAX + 15) / 16 == 129 && sizeof(ShipSaveContextData::randomizerInf) == 129 * sizeof(u16),
-              "OoT's RAND_INF flags must still fit the 129 saved u16 words: a 130th word moves the save layout "
-              "(#1169 XW4)");
+static_assert((RAND_INF_MAX + 15) / 16 == 139 && sizeof(ShipSaveContextData::randomizerInf) == 139 * sizeof(u16),
+              "OoT's RAND_INF flags must fit the 139 saved u16 words (#1169 XW4, #1363)");
 // The refusal names the mode from RSK_SHUFFLE_SONGS's raw value, which fill.cpp
 // passes through; warp_song_items.h spells the two restricted values game-free.
 static_assert(RSBS_SONG_SPOTS_SONG_LOCATIONS == (unsigned)RO_SONG_SHUFFLE_SONG_LOCATIONS &&

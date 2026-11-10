@@ -1,0 +1,11 @@
+#pragma once
+
+#include <stdint.h>
+#include "randomizerTypes.h"
+#include <libultraship/libultra.h>
+
+bool IsSilverInPool(RandomizerGet rg);
+RandomizerGet SilverFromSwitchFlag(s16 switchFlag);
+bool IsSilverCleared(s16 switchFlag);
+bool IsSilverCleared(RandomizerGet rg);
+bool IsSilver(RandomizerGet rg);

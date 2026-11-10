@@ -53,6 +53,12 @@ void GenerateStartingInventory() {
         AddItemToInventory(RG_SHADOW_TEMPLE_BOSS_KEY);
     }
 
+    if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_STARTWITH)) {
+        for (int rg = (int)RG_SHADOW_SILVER_BLADES; rg <= (int)RG_GANONS_CASTLE_MQ_SILVER_SHADOW; rg++) {
+            AddItemToInventory((RandomizerGet)rg);
+        }
+    }
+
     // Add Ganon's Boss key with Triforce Hunt's Win setting so the game thinks it's obtainable from the start.
     // During save init, the boss key isn't actually given and it's instead given when completing the triforce.
 #ifdef RSBS_SINGLE_EXECUTABLE

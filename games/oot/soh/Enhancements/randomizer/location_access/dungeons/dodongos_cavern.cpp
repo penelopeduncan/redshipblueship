@@ -348,6 +348,8 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_POT_4,         logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_1, logic->CanBreakCrates()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_2, logic->CanBreakCrates()),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_BEAMOS_SILVER,           true),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_1F_CRATE_SILVER,         logic->CanBreakCrates() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->IsChild)),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_LOBBY,               []{return true;}),
@@ -370,7 +372,8 @@ void RegionTable_Init_DodongosCavern() {
 
     areaTable[RR_DODONGOS_CAVERN_MQ_STAIRS_UPPER] = Region("Dodongos Cavern MQ Stairs Upper", SCENE_DODONGOS_CAVERN, {
         //Events
-        EventAccess(LOGIC_DC_MQ_STAIRS_SILVER_RUPEES, []{return logic->HasItem(RG_CLIMB);}),
+        EventAccess(LOGIC_DODONGOS_CAVERN_MQ_SILVER, []{return (logic->CanPassEnemy(RE_BIG_SKULLTULA) || logic->CanUse(RG_HOVER_BOOTS)) && 
+                                                               logic->HasItem(RG_CLIMB) && (logic->CanBreakCrates() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->IsChild));}),
     }, {
         //Locations
         LOCATION(RC_DODONGOS_CAVERN_MQ_DEKU_SCRUB_STAIRCASE,    logic->CanStunDeku() && logic->HasItem(RG_SPEAK_DEKU) && GetCheckPrice() <= GetWalletCapacity()),
@@ -378,17 +381,23 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_UPPER_CRATE_2, logic->CanBreakCrates()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_UPPER_CRATE_3, logic->CanBreakCrates()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_UPPER_CRATE_4, logic->CanBreakCrates()),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_LOWER_2F_CRATE_SILVER,   logic->CanBreakCrates() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && (logic->IsChild || logic->CanUse(RG_HOOKSHOT)))),
+        // possible with the hookshot method and longshot, but precise and would be it's own trick
+        LOCATION(RC_DODONGOS_CAVERN_MQ_UPPER_2F_CRATE_SILVER,   logic->CanBreakCrates() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->IsChild)),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_STAIRS_LOWER,               []{return true;}),
         Entrance(RR_DODONGOS_CAVERN_MQ_STAIRS_PAST_BIG_SKULLTULAS, []{return logic->CanPassEnemy(RE_BIG_SKULLTULA) || logic->CanUse(RG_HOVER_BOOTS);}),
     });
 
-    areaTable[RR_DODONGOS_CAVERN_MQ_STAIRS_PAST_BIG_SKULLTULAS] = Region("Dodongos Cavern MQ Past Big Skulltulas", SCENE_DODONGOS_CAVERN, {}, {}, {
+    areaTable[RR_DODONGOS_CAVERN_MQ_STAIRS_PAST_BIG_SKULLTULAS] = Region("Dodongos Cavern MQ Past Big Skulltulas", SCENE_DODONGOS_CAVERN, {}, {
+        //Locations
+        LOCATION(RC_DODONGOS_CAVERN_MQ_VINES_SILVER, logic->HasItem(RG_CLIMB)),
+    }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_STAIRS_UPPER, []{return logic->CanPassEnemy(RE_BIG_SKULLTULA) || logic->CanUse(RG_HOVER_BOOTS);}),
         Entrance(RR_DODONGOS_CAVERN_MQ_STAIRS_LOWER, []{return logic->TakeDamage();}),
-        Entrance(RR_DODONGOS_CAVERN_MQ_DODONGO_ROOM, []{return logic->Get(LOGIC_DC_MQ_STAIRS_SILVER_RUPEES);}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_DODONGO_ROOM, []{return logic->HasItem(RG_DODONGOS_CAVERN_MQ_SILVER);}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_MQ_DODONGO_ROOM] = Region("Dodongos Cavern MQ Dodongo Room", SCENE_DODONGOS_CAVERN, {}, {
