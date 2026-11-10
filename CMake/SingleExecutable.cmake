@@ -2987,6 +2987,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the coordinator over the stub engines (the first copy lands on its own
     # game's renewing host; Beatable Only and a renewed world are unchanged).
     redship_add_test(NAME CriticalRenewablesRule COMMAND redship --test critical-renewables-rule)
+    # #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again.
+    # ROM-free and display-free: the restock list by real id, a real shelf check's
+    # answer on a transient context (also hosting an MM item), and the vanilla
+    # shelves' nothing-to-add refusals on the live save.
+    redship_add_test(NAME OoTShelfRestock COMMAND redship --test oot-shelf-restock)
     # R6, the same rule in two REAL All Locations creations of one seed, MM's
     # shops, cows and Tingle shuffled (the rule acts) and vanilla (it has nothing
     # to do). The golden rows' harness, label and environment.
@@ -3617,6 +3622,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
         LABEL rando
         TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1364: Shuffle Treasure Chest Game (SoH 6706b49d1) ships off and greyed out;
+    # two real generations fold none of the lines it added (the default world's
+    # fingerprint is the one it had before), a paired generation pins it off even
+    # when keyed on, and the shopkeeper's real wait action gives his item without
+    # queueing it a second time (SoH 4868b0712). Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
+    redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own

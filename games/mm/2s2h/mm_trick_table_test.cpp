@@ -645,6 +645,19 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
         return Fail(41, "a real bomb no longer satisfies an explosive-only edge — the gate caught the wrong "
                         "disjunct");
     }
+    // The Blast Mask alone, with NO shield equipped, is an explosive (#1398
+    // MLA-4): OoTMM's has_explosives has no shield term, so this project does
+    // not take 2Ship 0fa8ba899's (see CAN_USE_EXPLOSIVE in Logic.h).
+    ResetSaveWithEmptyInventory();
+    ClearAllTrickCVars();
+    GiveInventoryItem(ITEM_MASK_BLAST);
+    if (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
+        return Fail(77, "the zeroed save has a shield equipped, so the Blast Mask arm below proves nothing");
+    }
+    if (!Rando::Logic::CanKillEnemy(ACTOR_EN_VM)) {
+        return Fail(76, "the Blast Mask with no shield no longer satisfies an explosive-only edge — CAN_USE_EXPLOSIVE "
+                        "took 2Ship's shield term, which OoTMM (the reference) does not have (#1398)");
+    }
 
     // ---- (j) #719: Deku-Stick COMBAT is trick-gated, row by row -------------
     // Every CanKillEnemy row that offers a Deku Stick as a weapon, probed with
@@ -680,9 +693,24 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
             { ACTOR_EN_PP, "Hiploop", false },         { ACTOR_EN_BEE, "Giant Bee", false },
             { ACTOR_BOSS_07, "Majora", false },
         };
+        // Every slice, so a row that also reads the time (the Peahat's IS_DAY(),
+        // #1398) is probed on the stick alone; the Peahat's own night arm below
+        // narrows it. CanKillEnemy reads gCurrentRegionTime, which nothing else in
+        // this probe sets.
+        // Restored on every exit from this block, the early Fail returns
+        // included, so a red arm cannot leak its time mask or the frozen stick
+        // trick into a later row sharing the process (`--test all`).
+        struct StickBlockRestore {
+            uint64_t savedRegionTime;
+            ~StickBlockRestore() {
+                Rando::Logic::gCurrentRegionTime = savedRegionTime;
+                SetFrozenTrick(MMRT_DEKU_STICK_FIGHTING, false);
+            }
+        } stickBlockRestore{ Rando::Logic::gCurrentRegionTime };
         auto armStickSave = [](bool needsBow, bool withStick) {
             ResetSaveWithEmptyInventory();
             ClearAllTrickCVars();
+            Rando::Logic::gCurrentRegionTime = Rando::Logic::TIME_ALL_SLICES;
             gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
             if (needsBow) {
                 GiveInventoryItem(ITEM_BOW);
@@ -716,8 +744,24 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
                             row.what);
             }
         }
-        SetFrozenTrick(MMRT_DEKU_STICK_FIGHTING, false);
-        printf("[TEST] mm-trick-table: Deku-Stick combat gated on %d actor ids (17 CanKillEnemy rows) (#719)\n",
+        // The Peahat burrows at night (#1398, 2S2H f237dd293): the same stick
+        // save that kills it above, with the trick on, must not kill it under
+        // the three night half-days, and must under one day half-day alone.
+        armStickSave(false, true);
+        SetFrozenTrick(MMRT_DEKU_STICK_FIGHTING, true);
+        Rando::Logic::gCurrentRegionTime = Rando::Logic::GetHalfDayTimeMask(1) | Rando::Logic::GetHalfDayTimeMask(3) |
+                                           Rando::Logic::GetHalfDayTimeMask(5);
+        if (Rando::Logic::CanKillEnemy(ACTOR_EN_PEEHAT)) {
+            return Fail(74, "Peahat: killable at night with a Deku Stick and the trick on — CanKillEnemy lost its "
+                            "IS_DAY() term, so its enemy drop is in logic when the Peahat cannot be fought (#1398)");
+        }
+        Rando::Logic::gCurrentRegionTime = Rando::Logic::GetHalfDayTimeMask(2);
+        if (!Rando::Logic::CanKillEnemy(ACTOR_EN_PEEHAT)) {
+            return Fail(75, "Peahat: NOT killable on Day 2 with a Deku Stick and the trick on — the day test reads "
+                            "the wrong time, so the night arm above proves nothing (#1398)");
+        }
+        printf("[TEST] mm-trick-table: Deku-Stick combat gated on %d actor ids (17 CanKillEnemy rows) (#719); the "
+               "Peahat dies by day only (#1398)\n",
                (int)(sizeof(kStickRows) / sizeof(kStickRows[0])));
     }
 

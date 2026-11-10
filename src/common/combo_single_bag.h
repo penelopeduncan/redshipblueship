@@ -122,7 +122,46 @@ typedef struct {
     ComboLogicFillResult fill;
     int crossingsIntoMM;  // OoT-origin rows placed on MM hosts
     int crossingsIntoOoT; // MM-origin rows placed on OoT hosts
+    // #1483: THE HOME-CAPACITY COUNTS, the words of a failed fill's refusal
+    // (Combo_SingleBag_HomeShortGames). Counted only after a fill that ran and
+    // failed, once it was rolled back; they change no status, rung or placement.
+    int homeRequiredOoT;        // REQUIRED (not SURPLUS) HOME_ONLY bag rows of OoT origin: OoT's hosts only
+    int homeRequiredMM;         // ... and of MM origin: MM's hosts only
+    int hostsOoT;               // OoT's empty hosts after the roll-back (Combo_Logic_LeftoverHosts); -1 not counted
+    int hostsMM;                // ... and MM's
+    uint16_t triforcePiecesOoT; // the frozen hunt's pieces in OoT's own pool; 0 when the hunt is not armed
+    uint16_t triforcePiecesMM;  // ... and in MM's
 } ComboSingleBagReport;
+
+/**
+ * #1483: the games whose HOME_ONLY REQUIRED rows outnumber their own empty hosts in
+ * @p r, as RSBS_COMBO_HALF_OOT / RSBS_COMBO_HALF_MM bits; 0 for a fill that
+ * succeeded, was not counted, or fits. A HOME_ONLY row may land only on its own
+ * game's hosts and a REQUIRED row is never dropped, so a game named here could not
+ * be filled by any seed: the refusal's words say so instead of "try a new seed".
+ * The fill's status and the ladder are unchanged; this only chooses the words.
+ */
+uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r);
+
+/**
+ * #1483: THE HOME-CAPACITY COUNTS. Writes @p r's homeRequiredOoT/MM (each game's
+ * REQUIRED, not SURPLUS, HOME_ONLY rows of @p bag, by origin: they may land on that
+ * game's hosts only) and hostsOoT/MM (Combo_Logic_LeftoverHosts, -1 when a game has
+ * no engine), and prints a stderr line with the counts and the remedy for each
+ * game that is short (the Triforce Pieces clause only when @p r says that game
+ * holds pieces). Combo_SingleBag_Run calls it for a fill that ran an attempt and
+ * failed, AFTER Combo_Logic_ResetPlacements, so the leftover hosts are all of each
+ * game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
+ * round): no draw, no placement, no status. A shared pair is never HOME_ONLY, so
+ * it is never counted. Exported for the ROM-free lock (ComboLogicBagModel).
+ */
+void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r);
+
+/** A creation-failure REASON (OoT_Creation_ReportFailureAtFileSelect's `reason`),
+ *  never a fill status: the creation's own fill failed and
+ *  Combo_SingleBag_HomeShortGames names a game whose checks cannot hold its
+ *  home-only items (#1483). Far above every RSBS_COMBO_LOGIC_* value. */
+#define RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY 1000
 
 /**
  * THE FILL. Compose the bag from OoT's general-pass pool and `mmItems`, gate each
@@ -227,6 +266,12 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung);
  *  it after a generation can tell "this generation's fill said X" from a previous
  *  generation's leftover. Generate's completion calls it before MM's half runs. */
 void Combo_SingleBag_ClearLastReport(void);
+
+/** TEST ONLY (#1483): make @p r the last report (NULL zeroes it, as
+ *  Combo_SingleBag_ClearLastReport does), so a ROM-free row can draw a refusal whose
+ *  words come from it (OoT_Creation_ReportFailureAtFileSelect's home-capacity line).
+ *  Production never calls it. */
+void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
 
 // ----------------------------------------------------------------------------
 // The two ports' halves (implemented in each game's engine TU; declared here so

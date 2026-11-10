@@ -318,6 +318,9 @@ void MM_Sram_InitNewSave(void);
 #include "gen_budget.h"          // src/common — the #582 per-attempt budget
 #include "shared_items.h"        // src/common — the O8 class of a pool row (traps stay home)
 
+// ForeignItemsSingleExe.cpp: the id an MM item found in Ocarina of Time is shown as (#1481).
+extern "C" uint16_t MM_ForeignItem_PresentItem(uint16_t riId, int ahead);
+
 namespace {
 
 // ============================================================================
@@ -1234,9 +1237,10 @@ const char* MmComboDescribeArticle(uint16_t id) {
 }
 
 // No icon: an MM item arriving in MM builds its own toast (BuildArrivalToast,
-// ForeignItemsSingleExe.cpp), so nothing asks the describer for one.
+// ForeignItemsSingleExe.cpp), so nothing asks the describer for one. #1481: a
+// Progressive Time found in Ocarina of Time is shown as the half-day it grants.
 const ComboGameDescriber kMmComboDescriber = { MmComboDescribeItem, MmComboDescribeCheck, MmComboDescribeArticle,
-                                               nullptr };
+                                               nullptr, MM_ForeignItem_PresentItem };
 
 /** Same shape as the engine registrar above: stores a pointer, calls nothing. */
 struct MmComboDescriberRegistrar {
@@ -1845,8 +1849,8 @@ int GeneratePoolBridge(bool authorCheckTable, uint16_t* outItems, uint16_t* outF
  * OnFileCreate does. Returns the item pool (with its plentiful marks) and the
  * check pool, the host list MM's creation would shuffle over.
  *
- * IT CONSUMES `Ship_Random`: GeneratePools draws shop and Tingle prices and, under
- * RO_PLENTIFUL_ITEMS, the half of the lesser rows it duplicates. That is the same
+ * IT CONSUMES `Ship_Random`: GeneratePools draws shop and Tingle prices (its
+ * RO_PLENTIFUL_ITEMS step draws nothing since 2Ship bfcb60476, #1398). That is the same
  * stream and the same draws the creation seam's own GeneratePools call makes, so
  * a caller must call this INSTEAD of generating, never in addition — which is why
  * it is a measurement bridge and not a production entry (production marks its own
@@ -2671,6 +2675,38 @@ extern "C" int MM_ComboLogic_TestCriticalRenewables(void) {
 // (MM's bombchus and hearts are PROGRESSION), which is the decision combo_logic.h
 // ("MM'S BALANCE STEP AND THE BAG") left to this lane: the bag is composed from the
 // pre-balance pool, and only the leftovers are balanced, by this pass.
+namespace {
+/** " (N Triforce Pieces)" for a game that holds pieces, else nothing: a shortfall a
+ *  direction made is not a hunt's. */
+std::string SingleBagHomeShortPieces(uint16_t pieces) {
+    if (pieces == 0u) {
+        return std::string();
+    }
+    return " (" + std::to_string(pieces) + " Triforce Pieces)";
+}
+
+/** #1483: the stderr words for a fill Combo_SingleBag_HomeShortGames names: which
+ *  game's own items outnumber its own empty checks, by how many. */
+std::string SingleBagHomeShortText(const ComboSingleBagReport& report) {
+    const uint32_t shortGames = Combo_SingleBag_HomeShortGames(&report);
+    std::string text;
+    if ((shortGames & RSBS_COMBO_HALF_OOT) != 0u) {
+        text += "Ocarina of Time must keep " + std::to_string(report.homeRequiredOoT) + " required item(s)" +
+                SingleBagHomeShortPieces(report.triforcePiecesOoT) + " on its " + std::to_string(report.hostsOoT) +
+                " empty check(s)";
+    }
+    if ((shortGames & RSBS_COMBO_HALF_MM) != 0u) {
+        if (!text.empty()) {
+            text += "; ";
+        }
+        text += "Majora's Mask must keep " + std::to_string(report.homeRequiredMM) + " required item(s)" +
+                SingleBagHomeShortPieces(report.triforcePiecesMM) + " on its " + std::to_string(report.hostsMM) +
+                " empty check(s)";
+    }
+    return text + ", so no seed can place them";
+}
+} // namespace
+
 void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool,
                                             int ladderAttempt) {
     // THE LADDER'S TEST RUNG (ForceShortForeignPlacements): a deterministic dead
@@ -2738,6 +2774,10 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
             why += " - no seed can finish the goal under these settings (Ocarina of Time half " +
                    std::to_string(report.fill.goalOoT) + ", Majora's Mask half " + std::to_string(report.fill.goalMM) +
                    " with every required item assumed)";
+        } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u) {
+            // #1483: one game's own items outnumber its own checks, whatever the
+            // other game has free.
+            why += " - " + SingleBagHomeShortText(report);
         } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE) {
             why += " - No Logic: both worlds together hold fewer free checks than the bag's required items (" +
                    std::to_string(report.fill.requiredPlaced) + " placed before they ran out)";
@@ -2745,8 +2785,14 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
         throw Rando::Foreign::PairedFillRefused(why + " (not a world dead end; no re-seed can fix it)");
     }
     if (status != RSBS_COMBO_LOGIC_OK) {
-        throw std::runtime_error(std::string("single-bag fill: ") + Combo_Logic_StatusName(status) + " after " +
-                                 std::to_string(report.fill.attempts) + " batch attempt(s)");
+        // #1483: still a rung (the status is unchanged), but the stderr reason
+        // says when no seed can fit one game's own items.
+        std::string why = std::string("single-bag fill: ") + Combo_Logic_StatusName(status) + " after " +
+                          std::to_string(report.fill.attempts) + " batch attempt(s)";
+        if (Combo_SingleBag_HomeShortGames(&report) != 0u) {
+            why += " - " + SingleBagHomeShortText(report);
+        }
+        throw std::runtime_error(why);
     }
 
     // --- MM's own pass over its leftover hosts --------------------------------

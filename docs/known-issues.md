@@ -284,7 +284,9 @@ triforce count ([#740](https://github.com/penelopeduncan/redshipblueship/pull/74
   ("Not created: ..."). The stop depends only on the seed and settings, never on the machine (PR
   [#959](https://github.com/penelopeduncan/redshipblueship/pull/959)). No creation in
   the 30-seed sample needed more than two fill batches, which bounds the failure rate
-  below about 10%, not at zero. No partial or corrupt file is left behind.
+  below about 10%, not at zero. No partial or corrupt file is left behind. When one game's
+  own items outnumber its checks, which no seed can fix, the toast names that game instead
+  ("Not generated: too many Majora's Mask pieces.", [#1483](https://github.com/penelopeduncan/redshipblueship/issues/1483)).
 - **One MM randomizer option is drawn disabled on purpose.** "Majora Access: Remains"
   on Randomizer → MM Randomizer is retired ("Option is Retired"; ADR 0010 answer O1). No MM
   game-hook type is registered but undispatched in the single-executable build since PR
@@ -442,9 +444,8 @@ names. (Refreshed 2026-11-09 at `bc09231c`, the code of `v0.5.0-alpha` plus PRs 
 - [#1479](https://github.com/penelopeduncan/redshipblueship/issues/1479) (cosmetic): the "Restored from file" toast shortens rule names to "..." in the default 640x480 window, and a long list is cut short.
 - [#1481](https://github.com/penelopeduncan/redshipblueship/issues/1481): a Progressive Time found in Ocarina of Time is shown as "Progressive Time" with the Day 1 clock; OoTMM names the half-day it grants.
 - [#1482](https://github.com/penelopeduncan/redshipblueship/issues/1482): a shuffled Ocarina of Time shop shelf sells its item once; OoTMM restocks renewable items on every shuffled shelf.
-- [#1483](https://github.com/penelopeduncan/redshipblueship/issues/1483): a Triforce Hunt with more pieces than one game's checks can hold fails with "Not generated: try a new seed or other options." A new seed does not help: lower the piece count.
+- [#1483](https://github.com/penelopeduncan/redshipblueship/issues/1483): a Triforce Hunt with more pieces than one game's checks can hold now fails with a toast that names the game, for example "Not generated: too many Majora's Mask pieces." (a game whose own items cannot fit its checks for another reason: "too few checks in Majora's Mask."). Under All Locations and Beatable Only it says so only after the attempt ladder or a round budget stops, as before; under No Logic at once. Lower the piece count.
 - [#1484](https://github.com/penelopeduncan/redshipblueship/issues/1484): the Master Sword pedestal is an adult check here and a child check in OoTMM.
-- [#1487](https://github.com/penelopeduncan/redshipblueship/issues/1487) (cosmetic): at the smallest window size, the "Hide In-Game Timer Background" row does not fit its column.
 - [#1498](https://github.com/penelopeduncan/redshipblueship/issues/1498), [#1499](https://github.com/penelopeduncan/redshipblueship/issues/1499) and [#1500](https://github.com/penelopeduncan/redshipblueship/issues/1500) (found in play on `v0.5.0-alpha`): enemy drops shown as available where they cannot be got, extra Tingle map copies sold as junk under the map's name, and a borrowed mask shown as its spot's own mask. Entries under "Majora's Mask specific".
 - [#1502](https://github.com/penelopeduncan/redshipblueship/issues/1502): Majora's Mask's Small Keys, Boss Keys, Stray Fairies and Shuffle Songs rows are listed as "Not Yet Supported in Paired Worlds" and do nothing in a paired world yet.
 - [#1501](https://github.com/penelopeduncan/redshipblueship/issues/1501): `v0.5.0-alpha`'s follow-ups, the macOS dmg's missing extraction tools above all ("macOS is untested" under "Platform and packaging").

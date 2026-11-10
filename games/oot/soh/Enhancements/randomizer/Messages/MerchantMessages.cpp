@@ -75,7 +75,9 @@ static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc) {
     if (foreignItem == nullptr) {
         return false;
     }
-    const char* foreignName = Combo_GetForeignItemName(*foreignItem);
+    // #1481: named as it will be granted (a Progressive Time as its next
+    // half-day); not bought yet, so its own crossing is not in the array.
+    const char* foreignName = Combo_GetForeignItemName(Combo_PresentForeignItem(*foreignItem, false));
     msg.Replace("[[color]]", "%g");
     msg.InsertNames({ CustomMessage(std::string(foreignName != nullptr ? foreignName : "Majora's Mask item")),
                       CustomMessage(std::to_string(RAND_GET_ITEM(rc)->GetPrice())) });

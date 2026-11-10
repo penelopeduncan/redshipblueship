@@ -33,6 +33,7 @@ extern "C" int OoT_ComboLogic_GeneralPassDeferred(void);
 // generation (#564 V2), which a new generation replaces.
 extern "C" void OoT_Creation_ForgetConsumedGeneration(void);
 #include "soh/Enhancements/randomizer/TimeTravelSword.h" // the fold's #1434 term
+#include "soh/Enhancements/randomizer/static_data.h"     // the fold's #1364 term (a check's type)
 
 // #702: a record of what the LAST settings fold below actually folded, so a
 // rando-tier row can assert that the per-area exclude-location groups reach the
@@ -44,6 +45,38 @@ constexpr int kRsbsFoldExcludeGroups = RSG_EXCLUDES_GANONS_CASTLE - RSG_EXCLUDES
 uint32_t sRsbsFoldTotalLines = 0;
 uint32_t sRsbsFoldExcludeLines[kRsbsFoldExcludeGroups] = {};
 int sRsbsFoldRuns = 0;
+// #1364: the Shuffle Chest Minigame lines the last fold read and the ones it left
+// out (oot_chest_game_shuffle_test.cpp). Each is counted at the line it describes
+// in the fold loop, after the skip, so a skip deleted there shows up here as a
+// folded line. And 1 while the last generation pinned the option off.
+uint32_t sRsbsFoldChestGameLines = 0;
+uint32_t sRsbsFoldChestGameSkipped = 0;
+int sRsbsChestGamePinned = 0;
+
+/**
+ * #1364: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Chest Minigame, and so is left out while the option is off: the Chest
+ * Minigame Keyring rows (RSK_KEYRINGS_CHEST_GAME, in the Keyrings menu section and
+ * in Shuffle Dungeon Items), the option's own row in the Basic Shuffles menu section
+ * (its Shuffle Settings row, RSG_SHUFFLE, folded before #1364 too, as "Off", and
+ * still does) and the exclude rows of the room's RCTYPE_CHEST_GAME checks. None of
+ * these lines existed before #1364, so with the option off the settings string is
+ * the one a world had before (#1434's rule). Trick rows are never one: a trick's
+ * key is a RandomizerTrick, which could equal a setting key's number.
+ * The exclude rows are told apart by their check's type, not by name: the exclude
+ * lists de-duplicate by name (Settings::PopulateExcludeLocationsOptions).
+ */
+bool RsbsFoldIsChestGameLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_CHEST_GAME;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_KEYRINGS_CHEST_GAME ||
+           (option->GetKey() == RSK_SHUFFLE_CHEST_MINIGAME && group == RSG_MENU_SECTION_BASIC_SHUFFLES);
+}
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
 // derivation in Playthrough_Init, #1367).
@@ -65,6 +98,24 @@ extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* out
     }
     for (int i = 0; outExcludeLines != nullptr && i < groupCap && i < kRsbsFoldExcludeGroups; i++) {
         outExcludeLines[i] = sRsbsFoldExcludeLines[i];
+    }
+    return sRsbsFoldRuns;
+}
+
+// #1364: of the last fold, the lines that belong to Shuffle Chest Minigame (the
+// Chest Minigame Keyring rows, the option's Basic Shuffles menu row, the rooms'
+// RCTYPE_CHEST_GAME exclude rows) as folded and as left out, and whether that
+// generation pinned the option off in a paired world. Returns how many folds have
+// run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldChestGame(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldChestGameLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldChestGameSkipped;
+    }
+    if (outPinned != nullptr) {
+        *outPinned = sRsbsChestGamePinned;
     }
     return sRsbsFoldRuns;
 }
@@ -126,6 +177,15 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
     for (uint32_t& lines : sRsbsFoldExcludeLines) {
         lines = 0;
     }
+    // [RSBS #1364] While Shuffle Chest Minigame is off its lines cannot change the
+    // world (the room's checks are not locations, Context::GenerateLocationPool, and
+    // item_pool.cpp adds the room's keys only with it on; the Chest Minigame Keyring
+    // keeps whatever it was set to while Key Rings is off, FinalizeSettings, but
+    // nothing reads it), so they are left out and a world keeps the fingerprint it
+    // had before the option existed; with it on they fold.
+    const bool rsbsChestGameOff = ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
+    sRsbsFoldChestGameLines = 0;
+    sRsbsFoldChestGameSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -137,6 +197,13 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
         for (Rando::Option* option : optionGroup.GetOptions()) {
             if (option->IsCategory(Rando::OptionCategory::Setting)) {
                 if (option->GetOptionCount() > 0) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    const bool rsbsChestGameLine = RsbsFoldIsChestGameLine(i, option);
+                    if (rsbsChestGameLine && rsbsChestGameOff) {
+                        sRsbsFoldChestGameSkipped++;
+                        continue;
+                    }
+#endif
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         auto locationOption = static_cast<Rando::LocationOption*>(option);
                         settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
@@ -169,6 +236,9 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
                     }
+                    if (rsbsChestGameLine) {
+                        sRsbsFoldChestGameLines++;
+                    }
 #endif
                 }
             }
@@ -192,9 +262,13 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         savedExclude[i] = sRsbsFoldExcludeLines[i];
     }
+    const uint32_t savedChestGameLines = sRsbsFoldChestGameLines;
+    const uint32_t savedChestGameSkipped = sRsbsFoldChestGameSkipped;
     FoldSettingsString(ctx);
     const int lines = (int)sRsbsFoldTotalLines;
     sRsbsFoldTotalLines = savedTotal;
+    sRsbsFoldChestGameLines = savedChestGameLines;
+    sRsbsFoldChestGameSkipped = savedChestGameSkipped;
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         sRsbsFoldExcludeLines[i] = savedExclude[i];
     }
@@ -290,6 +364,27 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                     (unsigned)rsbsComboPreview.logicRung);
             ctx->GetOption(RSK_ALL_LOCATIONS_REACHABLE).Set(rsbsAlr);
         }
+    }
+    // #1364: Shuffle Chest Minigame (SoH 6706b49d1) is generated OFF in a paired
+    // world until the paired generator is integrated with it. With it on, the
+    // room's six Chest Game Small Keys (or its keyring) join OoT's pool with no
+    // confinement (OoTFillClassArmedBy, ComboLogicEngineOoT.cpp), so the single-bag
+    // fill can put them on Majora's Mask checks, and nobody has traced a crossing
+    // that delivers one or the combo proof over the room's key doors. Every
+    // generation in this build is a paired creation (the gate below refuses any
+    // other), so the option only takes effect once this pin is lifted; the menu
+    // greys it out with the same reason (settings.cpp). Decided before
+    // FinalizeSettings, so its keyring roll never sees the option; settings only,
+    // no RNG, and the settings fold below leaves the option's own lines out while
+    // it is off, so the string is the one a world had before the option existed.
+    sRsbsChestGamePinned = 0;
+    if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).IsNot(RO_GENERIC_OFF)) {
+        SPDLOG_WARN("Paired world: Shuffle Chest Minigame is generated off: its keys would join the paired item bag "
+                    "before the paired generator supports them (#1364)");
+        fprintf(stderr, "[OoT] Shuffle Chest Minigame: generated off in a paired world (#1364)\n");
+        ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(RO_GENERIC_OFF);
+        ctx->GetOption(RSK_KEYRINGS_CHEST_GAME).Set(RO_KEYRING_FOR_DUNGEON_OFF);
+        sRsbsChestGamePinned = 1;
     }
 #endif
     ctx->FinalizeSettings(excludedLocations, enabledTricks);
