@@ -1885,8 +1885,9 @@ The problem it fixes: the three terms name the seed and the settings, never the
 generator, so two builds whose generator differs made two worlds behind one
 fingerprint. #840, #874 and #895 each moved worlds without moving the 8 hex
 digits #960 prints at file select. `RSBS_GENERATOR_VERSION` (`foreign_items.h`) is
-bumped by hand in any PR that re-pins a golden for a world-moving reason
-(`docs/determinism-goldens.md`).
+bumped by hand once per release window, at the first change that moves a world
+relative to the last released generator, whether or not a golden pins it
+(`docs/determinism-goldens.md`, rule 6 under "Re-pinning"; #1447).
 
 - **Version 0 is the decision 1.4 formula as it was**, with no fourth term. Every
   fingerprint written before #1003 is a version-0 fingerprint. The load and
@@ -2295,6 +2296,19 @@ Cooldown.
   family of OoT's own mask (`RG_GERUDO_MASK` ...) and MM's copy. Greyed with
   their extension's reason and shown off while it is off, and dropped by the
   resolver then.
+- **The shared slot's labels** (2026-11-09, #1500). OoTMM binds a C button to
+  the variant itself: each OoT mask has its own MM item id, so slot, icon, name
+  and button all carry it. This build keeps the slot's own `ItemId`
+  (`ITEM_MASK_STONE`, `ITEM_MASK_GIBDO`) on the button, in the tables and in the
+  save, and resolves every label at draw and use time through
+  `MM_ForeignMask_ItemShows` (the slot's live variant, the mask its C button
+  wears): the C-button and D-pad icons, the equip-flight icon, the pause name
+  (OoT's own name texture, curated in redship-mm.o2r) and the A-press
+  description of a cell lent one OoT mask (opened at
+  `VB_KALEIDO_DISPLAY_ITEM_TEXT`, because the pause opens descriptions through
+  `func_801514B0`, which dispatches no `OnOpenText`). No item id, button table or save byte was added; the cost is
+  that a label is never stored, so it follows the slot's variant rather than
+  the moment the button was set.
 
 Capacity spent: six `ComboSettingId`s (appended after #1169 XW2's fourteen
 warp-song ids, so no id moves), six identity keys (manifest 61 to 67, identity 41

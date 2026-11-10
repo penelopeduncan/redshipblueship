@@ -143,8 +143,13 @@ void BuildGrannyMessage(uint16_t* textId, bool* loadFromMessageTable) {
         return;
     }
 #endif
+    // [RSBS #1414] Early Granny's Potion Shop (only read with Shuffle Adult Trade off,
+    // the first term) stands in for the Claim Check, as at her offer
+    // (VB_OFFER_BLUE_POTION, hook_handlers.cpp); missing upstream too, inherited,
+    // fixed here.
     if (!Flags_GetRandomizerInf(RAND_INF_MERCHANTS_GRANNYS_SHOP) &&
         (RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE).Is(RO_GENERIC_ON) ||
+         RAND_GET_OPTION(RSK_EARLY_GRANNYS_SHOP).Is(RO_GENERIC_ON) ||
          INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)) {
         CustomMessage msg = CustomMessage("Want to buy [[color]][[1]]%w for %y[[2]] Rupees%w?\x1B%gYes&No%w",
                                           "Möchten Sie [[color]][[1]]%w für %y[[2]] Rubin%w kaufen?\x1B%gJa&Nein%w",

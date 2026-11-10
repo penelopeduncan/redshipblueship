@@ -254,10 +254,17 @@ std::string PlainItemName(RandoItemId item) {
  *  crossed) draws its suffix as main drew it, even when ShopOfferedItemName then
  *  names the crossed item instead. Plain: GetItemName is never asked about
  *  RI_JUNK; ShopOfferedItemName names a crossed item first (the foreign name, so
- *  a cover's suffix was never shown), and MM's own padding is "Junk". */
+ *  a cover's suffix was never shown), and MM's own padding is "Junk".
+ *  #1499: the Textbox form (MM's live save, talk time) names what the slot will
+ *  sell: an item the player already owns for good reads as junk
+ *  (Rando::UncollectedNamedItem). The resolver reads save images, never MM's live
+ *  ownership, so Plain names the placed item. */
 std::string BombShopItemPhrase(const RandoSaveCheck* checks, Rando::HintSources::JunkName junkName) {
     const RandoCheckId rc = RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM;
-    const RandoItemId item = checks[rc].randoItemId;
+    // An item already bought keeps its placed name: UncollectedNamedItem is for uncollected checks only.
+    const bool namesWhatItSells = junkName == Rando::HintSources::JunkName::Textbox && !checks[rc].obtained;
+    const RandoItemId item =
+        namesWhatItSells ? Rando::UncollectedNamedItem(checks[rc].randoItemId, rc) : checks[rc].randoItemId;
     const std::string nativeName = (junkName == Rando::HintSources::JunkName::Plain && item == RI_JUNK)
                                        ? PlainItemName(item)
                                        : Rando::StaticData::GetItemName(item);
@@ -818,9 +825,13 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
             auto randoSaveCheck = RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM];
             msg =
                 "If nothing devastating happens to Mommy tonight, we should be able to sell %r{{itemName}}%w.\x19\xA8";
-            const std::string itemName = Rando::ActorBehavior::ShopOfferedItemName(
-                RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM, Rando::StaticData::GetItemName(randoSaveCheck.randoItemId),
-                true);
+            // #1499: the hook names what the slot will sell (BombShopItemPhrase).
+            const RandoCheckId stockCheck = RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM;
+            const RandoItemId named = randoSaveCheck.obtained
+                                          ? randoSaveCheck.randoItemId
+                                          : Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, stockCheck);
+            const std::string itemName =
+                Rando::ActorBehavior::ShopOfferedItemName(stockCheck, Rando::StaticData::GetItemName(named), true);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);
             break;
         }

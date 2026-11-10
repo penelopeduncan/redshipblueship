@@ -1638,6 +1638,17 @@ if(BUILD_TESTING)
     # options looked up by name.
     redship_add_test(NAME MMShopPrices COMMAND redship --test mm-shop-prices)
     redship_add_test(NAME MMShopPricesPool COMMAND redship --test mm-shop-prices-pool)
+    # Majora's Mask's Tingle maps (#1499). MMTingleMapPool: over a real pool
+    # generation with Shuffle Tingle Maps on, each map is in the item pool once
+    # (with Plentiful off and on), none with Starting Maps and Compasses on, the
+    # twelve Tingle checks stay in the check pool and the K9 seam describes the
+    # pool. MMTingleMapDisplay: with Tingle's Clock Town Map on the Bomb Shop's
+    # first slot and owned, the owner's hand, the shelf, its line, the MM Check
+    # Tracker and the Combo Tracker's MM pane all name "Junk" (the map while not
+    # owned); the shelf and a Tingle slot sell that junk once; a paid junk sale
+    # never gives RI_NONE. Pure (no display, no ROM).
+    redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
+    redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside
@@ -1848,6 +1859,17 @@ if(BUILD_TESTING)
                 -DREDSHIP_EXE=$<TARGET_FILE:redship>
                 -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake)
+    # Its red half (#1465): the same guard over the real manifest plus one
+    # synthetic line per leg must fail, naming the row -- a rando-label row
+    # missing from the `--test all` skip list, a non-generating declaration on a
+    # skipped row, and a stale declaration.
+    redship_add_test(NAME TestRegistrationAllSkipGuardRed
+        COMMAND ${CMAKE_COMMAND}
+                -DREDSHIP_EXE=$<TARGET_FILE:redship>
+                -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
+                -DSCRATCH_DIR=${CMAKE_BINARY_DIR}/test-registration-red
+                -DGUARD=${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistrationRed.cmake)
 
     # Dispatch-table entries that deliberately have no dedicated CTest row.
     # Both predate this refactor and both still execute inside AllTests, which
@@ -1857,6 +1879,9 @@ if(BUILD_TESTING)
     # a row, so the list cannot rot into a rubber stamp.
     redship_test_exempt(lifecycle "Game lifecycle unit tests — runs inside AllTests only")
     redship_test_exempt(midos-house "Test-entrance (--test-entrance) path — runs inside AllTests only")
+    # AllTests runs both, so the --test all skip-list check (#1465) asks whether they generate: neither does.
+    redship_test_not_generating(lifecycle "TestLifecycle_RunAll only: no InitOTRForMMFirstBoot, no seed")
+    redship_test_not_generating(midos-house "ComboEntrance link lookup only: no InitOTRForMMFirstBoot, no seed")
 
     # ========================================================================
     # Rando seed-generation test (requires a display for the Fast3dWindow
@@ -1972,6 +1997,8 @@ if(BUILD_TESTING)
     # per MM scene. Display-free and ROM-free.
     redship_add_test(NAME MMMirroredWorld COMMAND redship --test mm-mirrored-world
         LABEL rando)
+    # It sets CVars through the shared bring-up and generates nothing, so `--test all` runs it (#1465).
+    redship_test_not_generating(mm-mirrored-world "CVar translator only: no InitOTRForMMFirstBoot, no seed")
 
     # #575 H1: the one shared hint AREA vocabulary (src/common/combo_area.c).
     # Unlike the two rows above it is display-free and ROM-free, so it sits in
@@ -2960,6 +2987,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the coordinator over the stub engines (the first copy lands on its own
     # game's renewing host; Beatable Only and a renewed world are unchanged).
     redship_add_test(NAME CriticalRenewablesRule COMMAND redship --test critical-renewables-rule)
+    # #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again.
+    # ROM-free and display-free: the restock list by real id, a real shelf check's
+    # answer on a transient context (also hosting an MM item), and the vanilla
+    # shelves' nothing-to-add refusals on the live save.
+    redship_add_test(NAME OoTShelfRestock COMMAND redship --test oot-shelf-restock)
     # R6, the same rule in two REAL All Locations creations of one seed, MM's
     # shops, cows and Tingle shuffled (the rule acts) and vanilla (it has nothing
     # to do). The golden rows' harness, label and environment.
@@ -3059,6 +3091,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1498: an MM enemy drop answered per instance. MMEnemyDropInstances: with a
+    # Kokiri Sword, Mini Baba is in logic, MM's native tracker lists its Beneath the
+    # Well copy out of logic, and the combo pane files it under an area where the
+    # kill is in logic; MMCheckInstancesPerIdUnchanged: the per-instance answer
+    # leaves the per-id answer the fill reads as it was. `rando`: MM's real region
+    # graph (the MMTrackerInLogicArrival reason).
+    redship_add_test(NAME MMEnemyDropInstances COMMAND redship --test mm-enemy-drop-instances
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME MMCheckInstancesPerIdUnchanged COMMAND redship --test mm-check-instances-per-id
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME TrackerFillSuperset COMMAND redship --test tracker-fill-superset
         LABEL rando
         TIMEOUT 600
@@ -3084,6 +3130,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME MMLogicGates COMMAND redship --test mm-logic-gates
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1453: an MM logic edge carries only the half-days its own condition holds
+    # on, in CrawlReachableRegions (paired fills, both trackers) and
+    # FindReachableRegions (the solo glitchless fill): an IS_NIGHT2-only edge with
+    # every slice owned and no stay carries no day slice, a day-gated row behind
+    # it fails, and a time-free edge still carries the whole mask. A synthetic
+    # region map swapped in for the real one; games/mm/2s2h/mm_time_edges_test.cpp.
+    # Same bring-up as MMLogicGates.
+    redship_add_test(NAME MMTimeEdges COMMAND redship --test mm-time-edges
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3554,6 +3611,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the sword; a world saved before the option loads it off.
     # games/oot/soh/oot_time_travel_sword_test.cpp.
     redship_add_test(NAME OoTTimeTravelSword COMMAND redship --test oot-time-travel-sword
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1414: Early Granny's Potion Shop (Shipwright#6693): with Shuffle Adult Trade
+    # off and no Claim Check, Granny's real offer (VB_OFFER_BLUE_POTION) and sale
+    # gate both open; off, or under Shuffle Adult Trade, they answer as before and
+    # the settings fold skips the option, so default worlds keep their fingerprint.
+    # games/oot/soh/oot_early_granny_shop_test.cpp.
+    redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

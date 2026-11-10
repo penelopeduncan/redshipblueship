@@ -44,7 +44,9 @@
 
 #include <algorithm>
 #include <deque>
+#include <set>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "Rando/Rando.h"                          // SaveContext (via variables.h), RC_MAX, SAVETYPE_RANDO, StaticData
@@ -139,14 +141,49 @@ const std::unordered_map<s32, s32> kMMSceneOrder = {
 #undef DEFINE_SCENE_UNSET
 
 /**
- * The scene each check is listed under, by the rule MM's check tracker groups
- * its rows with (CheckTracker.cpp, initializeSceneChecks): the check's own scene
- * through Play_GetOriginalSceneId, except a grotto check, which goes under the
- * scene of the region its grotto connects to, and an enemy drop, which goes under
- * the first region (in region order) that lists it. The native tracker may list
- * one enemy drop under several scenes; a row has one area, so this keeps the
- * first. A check neither rule places (a grotto with no connection, which the
- * native tracker leaves out) keeps its own scene rather than vanishing.
+ * The scene MMCheckScenes lists region `regionId`'s grotto checks and enemy drops
+ * under: a grotto region's (SCENE_KAKUSIANA) is the scene of the region its grotto
+ * connects to (Lone Peak Shrine connects to itself), any other region's its own
+ * scene through Play_GetOriginalSceneId. SCENE_MAX for a grotto with no connection.
+ */
+s16 MMRegionListScene(RandoRegionId regionId, const Rando::Logic::RandoRegion& region) {
+    if (region.sceneId != SCENE_KAKUSIANA) {
+        return Play_GetOriginalSceneId(region.sceneId);
+    }
+    RandoRegionId connected = RR_MAX;
+    if (regionId == RR_LONE_PEAK_SHRINE) {
+        connected = RR_LONE_PEAK_SHRINE;
+    } else {
+        for (const auto& [entrance, _] : region.exits) {
+            connected = Rando::Logic::GetRegionIdFromEntrance(entrance);
+        }
+        for (const auto& [connectedId, _] : region.connections) {
+            connected = connectedId;
+        }
+    }
+    const auto target = Rando::Logic::Regions.find(connected);
+    if (target == Rando::Logic::Regions.end()) {
+        return (s16)SCENE_MAX;
+    }
+    return target->second.sceneId;
+}
+
+bool MMIsEnemyDrop(RandoCheckId checkId) {
+    const auto check = Rando::StaticData::Checks.find(checkId);
+    return check != Rando::StaticData::Checks.end() && check->second.randoCheckType == RCTYPE_ENEMY_DROP;
+}
+
+/**
+ * The scene each check is listed under, by the rule MM's check tracker grouped
+ * its rows with before 2Ship f8bf9bb3b (CheckTracker.cpp, initializeSceneChecks):
+ * the check's own scene through Play_GetOriginalSceneId, except a grotto check,
+ * which goes under the scene of the region its grotto connects to, and an enemy
+ * drop, which goes under the first region (in region order) that lists it. The
+ * native tracker may list one enemy drop under several scenes; a row has one
+ * area, so this keeps the first (once availability is known the combo pane moves
+ * a drop to its first instance in logic instead, MMTrackerAreaName, #1498). A
+ * check neither rule places (a grotto with no connection, which the native
+ * tracker leaves out) keeps its own scene rather than vanishing.
  *
  * Built from Rando::Logic::Regions, which registration fills during bring-up, so
  * the table is rebuilt whenever the region count changes (the #659 entrance
@@ -166,34 +203,14 @@ const std::vector<s16>& MMCheckScenes(void) {
         sScenes[check.randoCheckId] = Play_GetOriginalSceneId(check.sceneId);
     }
     for (const auto& [regionId, region] : Rando::Logic::Regions) {
-        if (region.sceneId == SCENE_KAKUSIANA) {
-            RandoRegionId connected = RR_MAX;
-            if (regionId == RR_LONE_PEAK_SHRINE) {
-                connected = RR_LONE_PEAK_SHRINE;
-            } else {
-                for (const auto& [entrance, _] : region.exits) {
-                    connected = Rando::Logic::GetRegionIdFromEntrance(entrance);
-                }
-                for (const auto& [connectedId, _] : region.connections) {
-                    connected = connectedId;
-                }
-            }
-            const auto target = Rando::Logic::Regions.find(connected);
-            if (target == Rando::Logic::Regions.end()) {
-                continue;
-            }
-            for (const auto& [checkId, _] : region.checks) {
-                if (sScenes[checkId] == (s16)SCENE_MAX) {
-                    sScenes[checkId] = target->second.sceneId;
-                }
-            }
-        } else {
-            for (const auto& [checkId, _] : region.checks) {
-                const auto check = Rando::StaticData::Checks.find(checkId);
-                if (check != Rando::StaticData::Checks.end() && check->second.randoCheckType == RCTYPE_ENEMY_DROP &&
-                    sScenes[checkId] == (s16)SCENE_MAX) {
-                    sScenes[checkId] = Play_GetOriginalSceneId(region.sceneId);
-                }
+        const s16 scene = MMRegionListScene(regionId, region);
+        if (scene == (s16)SCENE_MAX) {
+            continue;
+        }
+        const bool grotto = region.sceneId == SCENE_KAKUSIANA;
+        for (const auto& [checkId, _] : region.checks) {
+            if ((grotto || MMIsEnemyDrop(checkId)) && sScenes[checkId] == (s16)SCENE_MAX) {
+                sScenes[checkId] = scene;
             }
         }
     }
@@ -218,14 +235,10 @@ uint16_t MMSceneAreaKey(s16 scene) {
 }
 
 /**
- * The area a check's row is listed under: its scene's name, as MM's tracker
- * heads the scene (Ship_GetSceneName), keyed by MMSceneAreaKey.
+ * The area scene `scene`'s rows are listed under: its name, as MM's tracker heads
+ * the scene (Ship_GetSceneName), keyed by MMSceneAreaKey. NULL for no scene.
  */
-const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
-    if (checkId >= (uint16_t)RC_MAX) {
-        return nullptr;
-    }
-    const s16 scene = MMCheckScenes()[checkId];
+const char* MMSceneAreaName(s16 scene, uint16_t* outKey) {
     if (scene < 0 || scene >= (s16)SCENE_MAX) {
         return nullptr; // not a check MM's static data knows
     }
@@ -235,12 +248,63 @@ const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
     return Ship_GetSceneName(scene);
 }
 
+/** The area a check is listed under by MMCheckScenes' static rule (Randomizer > MM Locations' table). */
+const char* MMTrackerStaticAreaName(uint16_t checkId, uint16_t* outKey) {
+    if (checkId >= (uint16_t)RC_MAX) {
+        return nullptr;
+    }
+    return MMSceneAreaName(MMCheckScenes()[checkId], outKey);
+}
+
+// #1498: where the combo pane files each enemy drop, from the last in-logic computation (MMRefreshInLogic): the
+// list scene of the drop's first satisfiable instance in region order, SCENE_MAX for a drop with none, and the
+// tooltip naming every scene with one. Computed with the availability, never per frame, and only answered for the
+// save it was computed on (sDropAreasSeed / sDropAreasCreatedAt) while Enable Available Checks is on.
+std::vector<s16> sDropScene;
+std::unordered_map<uint16_t, std::string> sDropLogicText;
+bool sDropAreasValid = false;
+uint32_t sDropAreasSeed = 0;
+uint64_t sDropAreasCreatedAt = 0;
+
+bool MMAvailableChecksOn(void);
+
+/** Whether the drop areas were computed on the MM save the combo pane reads now. */
+bool MMDropAreasApply(void) {
+    if (!sDropAreasValid || !MMAvailableChecksOn()) {
+        return false;
+    }
+    const auto* shown = static_cast<const SaveContext*>(Combo_TrackerMMSave(nullptr));
+    return shown != nullptr && shown->save.shipSaveInfo.rando.finalSeed == sDropAreasSeed &&
+           shown->save.shipSaveInfo.fileCreatedAt == sDropAreasCreatedAt;
+}
+
+/**
+ * The descriptor's areaName: MMTrackerStaticAreaName, except an enemy drop (#1498),
+ * which is filed under the area of its first instance in logic (MMRefreshInLogic),
+ * so a drop shown available is shown under an area where its kill is in logic. A
+ * drop with no instance in logic, or before availability was computed on this
+ * save, keeps the static rule's first region.
+ */
+const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
+    if (checkId >= (uint16_t)RC_MAX) {
+        return nullptr;
+    }
+    if (checkId < sDropScene.size() && sDropScene[checkId] != (s16)SCENE_MAX && MMDropAreasApply()) {
+        return MMSceneAreaName(sDropScene[checkId], outKey);
+    }
+    return MMTrackerStaticAreaName(checkId, outKey);
+}
+
 /**
  * The item an obtained check's row names, from the SaveContext image `save`:
  * MM's own check tracker's rule (CheckTracker.cpp, ObtainedItemTrackerName,
  * #796) without its " (OoT)" suffix, which the window adds from `*outGame`. A
  * check that hosts an OoT item holds RI_JUNK in MM's table, so the crossed item
- * comes first; otherwise the item MM's table stores in this save.
+ * comes first; otherwise the item MM's table stores in this save. #1499: on a
+ * seen, uncollected row over MM's LIVE save, what the player will receive there
+ * (Rando::UncollectedNamedItem, the MM tracker's rule): a placed item already
+ * owned for good reads as the junk it becomes. A frozen image is named as stored
+ * (ownership is MM's live state).
  */
 const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t* outGame) {
     if (save == nullptr || checkId == (uint16_t)RC_UNKNOWN || checkId >= (uint16_t)RC_MAX) {
@@ -253,7 +317,10 @@ const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t*
         return foreignName;
     }
     const RandoSaveCheck& row = static_cast<const SaveContext*>(save)->save.shipSaveInfo.rando.randoSaveChecks[checkId];
-    const auto item = Rando::StaticData::Items.find(row.randoItemId);
+    const RandoItemId named = (save == static_cast<const void*>(&gSaveContext) && !row.obtained)
+                                  ? Rando::UncollectedNamedItem(row.randoItemId, (RandoCheckId)checkId)
+                                  : row.randoItemId;
+    const auto item = Rando::StaticData::Items.find(named);
     if (item == Rando::StaticData::Items.end() || item->second.name == nullptr) {
         return nullptr;
     }
@@ -410,6 +477,9 @@ void MMRefreshInLogic(bool force) {
     }
     sInLogicCalls++;
     sInLogic.assign((size_t)RC_MAX, 0);
+    sDropScene.assign((size_t)RC_MAX, (s16)SCENE_MAX);
+    sDropLogicText.clear();
+    sDropAreasValid = false;
     if (sInLogicAuthored) {
         for (uint16_t id : sInLogicAuthoredIds) {
             if (id < (uint16_t)RC_MAX) {
@@ -418,9 +488,46 @@ void MMRefreshInLogic(bool force) {
         }
     } else {
         // Gate-free and bracketed (#995): the live save is left byte-identical.
-        for (RandoCheckId id : Rando::CheckTracker::ComputeChecksInLogic(gSaveContext.save.entrance)) {
+        std::set<std::pair<RandoRegionId, RandoCheckId>> instances;
+        for (RandoCheckId id : Rando::CheckTracker::ComputeChecksInLogic(gSaveContext.save.entrance, &instances)) {
             sInLogic[id] = 1;
         }
+        // #1498: each drop's area is its first reachable instance, in region order (the set's order, and the
+        // order MMCheckScenes takes its first region in). The instances include obtained drops, so a collected
+        // drop stays filed where it was; the tooltip names every area of an unobtained drop's instances once.
+        std::unordered_map<uint16_t, std::vector<s16>> dropScenes;
+        for (const auto& [regionId, checkId] : instances) {
+            const auto region = Rando::Logic::Regions.find(regionId);
+            if (!MMIsEnemyDrop(checkId) || region == Rando::Logic::Regions.end()) {
+                continue;
+            }
+            const s16 scene = MMRegionListScene(regionId, region->second);
+            if (scene < 0 || scene >= (s16)SCENE_MAX) {
+                continue;
+            }
+            if (sDropScene[checkId] == (s16)SCENE_MAX) {
+                sDropScene[checkId] = scene;
+            }
+            if (sInLogic[checkId] == 0) {
+                continue;
+            }
+            std::vector<s16>& scenes = dropScenes[(uint16_t)checkId];
+            if (std::find(scenes.begin(), scenes.end(), scene) == scenes.end()) {
+                scenes.push_back(scene);
+            }
+        }
+        for (auto& [checkId, scenes] : dropScenes) {
+            std::sort(scenes.begin(), scenes.end(), [](s16 a, s16 b) { return MMSceneAreaKey(a) < MMSceneAreaKey(b); });
+            std::string text = "In logic at: ";
+            for (size_t i = 0; i < scenes.size(); i++) {
+                text += (i == 0 ? "" : ", ");
+                text += Ship_GetSceneName(scenes[i]);
+            }
+            sDropLogicText[checkId] = text;
+        }
+        sDropAreasValid = true;
+        sDropAreasSeed = gSaveContext.save.shipSaveInfo.rando.finalSeed;
+        sDropAreasCreatedAt = gSaveContext.save.shipSaveInfo.fileCreatedAt;
     }
     sInLogicValid = true;
     sInLogicState = state;
@@ -450,13 +557,22 @@ int MMTrackerLiveAvailable(uint16_t checkId) {
  * Rando::Init's CheckTracker::Init call). Its rule: none for an empty string, and
  * none for an enemy drop (RC_ENEMY_DROP_ALIEN .. RC_ENEMY_DROP_WOLFOS, plus
  * RC_ENEMY_DROP_GOMESS, appended at the end of the enum), whose conditions
- * differ per instance. NULL before MM's rando init has filled it.
+ * differ per instance. NULL before MM's rando init has filled it. #1498: an enemy
+ * drop answers MM's tracker's replacement instead, the areas where its kill is in
+ * logic, from the last availability computation on the save shown (MMRefreshInLogic);
+ * NULL when it has none.
  */
 const char* MMTrackerCheckLogic(uint16_t checkId) {
-    if (checkId >= (uint16_t)RC_MAX ||
-        (checkId >= (uint16_t)RC_ENEMY_DROP_ALIEN && checkId <= (uint16_t)RC_ENEMY_DROP_WOLFOS) ||
-        checkId == (uint16_t)RC_ENEMY_DROP_GOMESS) {
+    if (checkId >= (uint16_t)RC_MAX) {
         return nullptr;
+    }
+    if ((checkId >= (uint16_t)RC_ENEMY_DROP_ALIEN && checkId <= (uint16_t)RC_ENEMY_DROP_WOLFOS) ||
+        checkId == (uint16_t)RC_ENEMY_DROP_GOMESS) {
+        const auto text = sDropLogicText.find(checkId);
+        if (text == sDropLogicText.end() || !MMDropAreasApply()) {
+            return nullptr;
+        }
+        return text->second.c_str();
     }
     auto it = accessLogicFuncs.find((RandoCheckId)checkId);
     if (it == accessLogicFuncs.end() || it->second.empty()) {
@@ -639,6 +755,15 @@ extern "C" int MM_TrackerAdapter_TestSetSkippedIn(void* save, uint16_t checkId, 
 }
 
 /**
+ * TEST BRIDGE (redship --test mm-tingle-map-display, #1499): the name the
+ * Combo Tracker's MM pane gives check `checkId`'s item over the SaveContext image
+ * `save` (the descriptor's placedItemName), or NULL.
+ */
+extern "C" const char* MM_TrackerAdapter_TestPlacedItemName(const void* save, uint16_t checkId) {
+    return MMTrackerPlacedItemName(save, checkId, nullptr);
+}
+
+/**
  * TEST BRIDGE (#1129): @p live -1 restores production; 0 or 1 answers "does MM
  * play a randomizer file now" for the reachability op, the departure capture and
  * (#1189) the current-area op, in place of MM's play state, which no ROM-free or rando tier has (1 also hands
@@ -658,6 +783,10 @@ extern "C" void MM_TrackerAdapter_TestLiveSeam(int live) {
 extern "C" int MM_TrackerAdapter_TestInLogicSeam(int authored, const uint16_t* ids, int count) {
     sInLogicAuthored = authored != 0;
     sInLogicValid = false;
+    // #1498: the drop filing and tooltips came from the previous computation's save; drop them with it.
+    sDropScene.clear();
+    sDropLogicText.clear();
+    sDropAreasValid = false;
     sInLogicAuthoredIds.clear();
     if (ids != nullptr && count > 0) {
         sInLogicAuthoredIds.assign(ids, ids + count);
@@ -721,6 +850,36 @@ extern "C" int MM_TrackerAdapter_TestGrottoScene(void) {
     return (int)SCENE_KAKUSIANA;
 }
 
+/** TEST BRIDGE (#1498): the area key of scene @p sceneId's rows (MMSceneAreaKey). */
+extern "C" uint16_t MM_TrackerAdapter_TestSceneAreaKey(int sceneId) {
+    return MMSceneAreaKey((s16)sceneId);
+}
+
+/**
+ * TEST BRIDGE (#1498): in @p outKey, the area key the combo pane files region
+ * @p regionId's enemy drops under (MMRegionListScene). @return 1 when written, 0
+ * for an unknown region or a grotto with no connection.
+ */
+extern "C" int MM_TrackerAdapter_TestRegionAreaKey(int regionId, uint16_t* outKey) {
+    const auto region = Rando::Logic::Regions.find((RandoRegionId)regionId);
+    if (outKey == nullptr || region == Rando::Logic::Regions.end()) {
+        return 0;
+    }
+    const s16 scene = MMRegionListScene((RandoRegionId)regionId, region->second);
+    if (scene < 0 || scene >= (s16)SCENE_MAX) {
+        return 0;
+    }
+    *outKey = MMSceneAreaKey(scene);
+    return 1;
+}
+
+/** TEST BRIDGE (#1498): the static rule's area key for check @p checkId (MMCheckScenes); 0xFFFF for none. */
+extern "C" uint16_t MM_TrackerAdapter_TestStaticAreaKey(uint16_t checkId) {
+    uint16_t key = 0xFFFF;
+    (void)MMTrackerStaticAreaName(checkId, &key);
+    return key;
+}
+
 // ---- #1101 lane R3: Randomizer > MM Locations' check table ------------------
 
 namespace {
@@ -747,9 +906,10 @@ bool MMLocationsVanillaLogic(void) {
  * static check but RC_UNKNOWN and the two Stone Tower pots GeneratePools.cpp
  * never adds (excluding a check the pool never holds would be a control that
  * changes nothing). Each row carries the name and the area the combo tracker
- * lists it under (MMTrackerCheckName, MMTrackerAreaName above: MM's own check
- * tracker's names and scene order), sorted by area, then id, the order the page
- * draws.
+ * lists it under (MMTrackerCheckName, MMTrackerStaticAreaName above: MM's own
+ * check tracker's names and scene order; an enemy drop keeps its first region
+ * here, the page having no availability to file it by, #1498), sorted by area,
+ * then id, the order the page draws.
  *
  * The rows are built once and own copies of their names: CheckNames[id] is
  * reassigned (a move from a temporary, which frees each longer name's old
@@ -784,7 +944,7 @@ extern "C" void MM_RandoLocationsUi_Register(void) {
     if (sAreasAt != Rando::Logic::Regions.size()) {
         for (ComboMMLocationDesc& desc : sTable) {
             uint16_t areaKey = 0xFFFF;
-            const char* areaName = MMTrackerAreaName(desc.id, &areaKey);
+            const char* areaName = MMTrackerStaticAreaName(desc.id, &areaKey);
             desc.areaName = areaName != nullptr ? areaName : "";
             desc.areaKey = areaKey;
         }

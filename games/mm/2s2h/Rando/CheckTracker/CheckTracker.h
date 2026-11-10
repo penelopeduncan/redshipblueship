@@ -3,6 +3,7 @@
 
 #include "Rando/Rando.h"
 #include <set>
+#include <utility>
 #include <ship/window/gui/GuiWindow.h>
 
 namespace Rando {
@@ -18,6 +19,13 @@ void OnFileLoad();
  *  inside the SaveContext the departure freeze copies and the .redsave persists, so this brackets those RE_MAX bytes
  *  and leaves the live save byte-identical (Logic.h's contract for a caller that must not perturb it). */
 std::set<RandoCheckId> ComputeChecksInLogic(s32 startEntrance);
+
+/** The same set, and in `outInstances` (when not NULL) a per-instance answer (#1498): the (region, check) pairs
+ *  whose own row passes, from the same guarded crawl (Rando::Logic::EvaluateReachableCheckInstances), for every
+ *  shuffled check that crawl reaches, obtained or not (so the checks it names are the set plus the reached obtained
+ *  ones). An enemy drop has one pair per region where its kill is in logic. */
+std::set<RandoCheckId> ComputeChecksInLogic(s32 startEntrance,
+                                            std::set<std::pair<RandoRegionId, RandoCheckId>>* outInstances);
 
 class CheckTrackerWindow : public Ship::GuiWindow {
   public:

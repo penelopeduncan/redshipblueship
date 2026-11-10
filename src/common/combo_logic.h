@@ -247,8 +247,13 @@ const char* Combo_Logic_StatusName(int status);
  * RO_PLENTIFUL_ITEMS, traps on in both) and 784 / 799 on two runs of the
  * "maximal" profile — plentiful plus every OoT confinement family at its
  * general-pass value, every token, and every MM LOCATION category shuffled. The
- * maximal figure moves between runs because MM's plentiful step duplicates a
+ * maximal figure moved between runs because MM's plentiful step then duplicated a
  * RANDOM half of its lesser rows from Ship_Random (161 vs 176 MM surplus rows).
+ * Since 2Ship bfcb60476 (#1398) the step is deterministic and duplicates every
+ * major, mask, key and non-map lesser row but no skull token or stray fairy, so
+ * these figures need re-measuring. Each MM surplus copy repeats one base row's
+ * item, which the rule admits as REQUIRED, so before the shared-quantity trim
+ * MM's surplus rows never outnumber its REQUIRED rows.
  *
  * 799 IS THE LARGEST BAG MEASURED ON THE PROFILES RUN, NOT A PROVEN WORST CASE. The
  * "maximal" profile leaves out every ITEM family that is gated on a give

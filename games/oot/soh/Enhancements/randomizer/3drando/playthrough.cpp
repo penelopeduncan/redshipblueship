@@ -143,6 +143,137 @@ extern "C" void OoT_Rando_WidenTriforceRequiredOptions(void) {
     }
     required.ChangeOptions(std::move(counts));
 }
+
+// [RSBS #1414] Early Granny's Potion Shop (Shipwright#6693) changes the world only
+// while it can open Granny's shop: on, with Shuffle Adult Trade off. Under Shuffle
+// Adult Trade the menu disables it and every reader (kakariko.cpp, hook_handlers.cpp,
+// MerchantMessages.cpp) tests adult trade first. Otherwise the fold below skips it,
+// so a world keeps the fingerprint it had before the option existed, as the #1434
+// term does. 1 when the fold folds it. Read by the fold and the oot-early-granny-shop
+// row (games/oot/soh/oot_early_granny_shop_test.cpp).
+extern "C" int OoT_Rando_EarlyGrannyFolds(void) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return 0;
+    }
+    return (ctx->GetOption(RSK_EARLY_GRANNYS_SHOP).Is(RO_GENERIC_ON) &&
+            ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE).Is(RO_GENERIC_OFF))
+               ? 1
+               : 0;
+}
+#endif
+
+// The settings fold: every Setting-category option of every non-subgroup option
+// group, as the text of its value, concatenated (Playthrough_Init hashes it into
+// the settings fingerprint and the fill's seed). [RSBS #1414] Lifted out of
+// Playthrough_Init unchanged, so the oot-early-granny-shop row can run the real
+// fold over a world it sets up (OoT_Rando_TestFoldLines below) instead of a copy
+// of its filter. In single-exe builds it also records what it folded (#702).
+static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx) {
+    std::string settingsStr;
+    auto& optionGroups = Rando::Settings::GetInstance()->GetOptionGroups();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    sRsbsFoldTotalLines = 0;
+    for (uint32_t& lines : sRsbsFoldExcludeLines) {
+        lines = 0;
+    }
+    // [RSBS #1364] While Shuffle Chest Minigame is off its lines cannot change the
+    // world (the room's checks are not locations, Context::GenerateLocationPool, and
+    // item_pool.cpp adds the room's keys only with it on; the Chest Minigame Keyring
+    // keeps whatever it was set to while Key Rings is off, FinalizeSettings, but
+    // nothing reads it), so they are left out and a world keeps the fingerprint it
+    // had before the option existed; with it on they fold.
+    const bool rsbsChestGameOff = ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
+    sRsbsFoldChestGameLines = 0;
+    sRsbsFoldChestGameSkipped = 0;
+#endif
+    for (size_t i = 0; i < RSG_MAX; i++) {
+        auto& optionGroup = optionGroups[i];
+        // don't go through non-menus
+        if (optionGroup.GetContainsType() == Rando::OptionGroupType::SUBGROUP) {
+            continue;
+        }
+
+        for (Rando::Option* option : optionGroup.GetOptions()) {
+            if (option->IsCategory(Rando::OptionCategory::Setting)) {
+                if (option->GetOptionCount() > 0) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    const bool rsbsChestGameLine = RsbsFoldIsChestGameLine(i, option);
+                    if (rsbsChestGameLine && rsbsChestGameOff) {
+                        sRsbsFoldChestGameSkipped++;
+                        continue;
+                    }
+#endif
+                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
+                        auto locationOption = static_cast<Rando::LocationOption*>(option);
+                        settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
+                    } else if (i == RSG_TRICKS) {
+                        auto trickOption = static_cast<Rando::TrickOption*>(option);
+                        if (trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
+                            ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
+                            continue;
+                        }
+                        settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
+                    } else {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                        // [RSBS #1434] Time Travel Requires Master Sword changes the world only
+                        // while it can stop Link (TimeTravelSword.cpp); otherwise a world keeps
+                        // the fingerprint it had before the option existed.
+                        if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD &&
+                            !OoT_TimeTravelSword_RuleCanBlock()) {
+                            continue;
+                        }
+                        // [RSBS #1414] Early Granny's Potion Shop, likewise, only while it
+                        // can open her shop (OoT_Rando_EarlyGrannyFolds above).
+                        if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && OoT_Rando_EarlyGrannyFolds() == 0) {
+                            continue;
+                        }
+#endif
+                        settingsStr += option->GetOptionText(ctx->GetOption(option->GetKey()).Get());
+                    }
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    sRsbsFoldTotalLines++;
+                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
+                        sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
+                    }
+                    if (rsbsChestGameLine) {
+                        sRsbsFoldChestGameLines++;
+                    }
+#endif
+                }
+            }
+        }
+    }
+    return settingsStr;
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// [RSBS #1414] The number of option lines the real fold folds over the current
+// context and options, or -1 with no context. The record of the last
+// generation's fold (OoT_Rando_LastSettingsFold) is put back afterwards. Read only
+// by the oot-early-granny-shop row (games/oot/soh/oot_early_granny_shop_test.cpp).
+extern "C" int OoT_Rando_TestFoldLines(void) {
+    const auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    const uint32_t savedTotal = sRsbsFoldTotalLines;
+    uint32_t savedExclude[kRsbsFoldExcludeGroups];
+    for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
+        savedExclude[i] = sRsbsFoldExcludeLines[i];
+    }
+    const uint32_t savedChestGameLines = sRsbsFoldChestGameLines;
+    const uint32_t savedChestGameSkipped = sRsbsFoldChestGameSkipped;
+    FoldSettingsString(ctx);
+    const int lines = (int)sRsbsFoldTotalLines;
+    sRsbsFoldTotalLines = savedTotal;
+    sRsbsFoldChestGameLines = savedChestGameLines;
+    sRsbsFoldChestGameSkipped = savedChestGameSkipped;
+    for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
+        sRsbsFoldExcludeLines[i] = savedExclude[i];
+    }
+    return lines;
+}
 #endif
 
 namespace Playthrough {
@@ -386,75 +517,7 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     }
 #endif
     // once the settings have been finalized turn them into a string for hashing
-    std::string settingsStr;
-    auto& optionGroups = Rando::Settings::GetInstance()->GetOptionGroups();
-#ifdef RSBS_SINGLE_EXECUTABLE
-    sRsbsFoldTotalLines = 0;
-    for (uint32_t& lines : sRsbsFoldExcludeLines) {
-        lines = 0;
-    }
-    // [RSBS #1364] While Shuffle Chest Minigame is off its lines cannot change the
-    // world (the room's checks are not locations, Context::GenerateLocationPool, and
-    // item_pool.cpp adds the room's keys only with it on; the Chest Minigame Keyring
-    // keeps whatever it was set to while Key Rings is off, FinalizeSettings, but
-    // nothing reads it), so they are left out and a world keeps the fingerprint it
-    // had before the option existed; with it on they fold.
-    const bool rsbsChestGameOff = ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
-    sRsbsFoldChestGameLines = 0;
-    sRsbsFoldChestGameSkipped = 0;
-#endif
-    for (size_t i = 0; i < RSG_MAX; i++) {
-        auto& optionGroup = optionGroups[i];
-        // don't go through non-menus
-        if (optionGroup.GetContainsType() == Rando::OptionGroupType::SUBGROUP) {
-            continue;
-        }
-
-        for (Rando::Option* option : optionGroup.GetOptions()) {
-            if (option->IsCategory(Rando::OptionCategory::Setting)) {
-                if (option->GetOptionCount() > 0) {
-#ifdef RSBS_SINGLE_EXECUTABLE
-                    const bool rsbsChestGameLine = RsbsFoldIsChestGameLine(i, option);
-                    if (rsbsChestGameLine && rsbsChestGameOff) {
-                        sRsbsFoldChestGameSkipped++;
-                        continue;
-                    }
-#endif
-                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
-                        auto locationOption = static_cast<Rando::LocationOption*>(option);
-                        settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
-                    } else if (i == RSG_TRICKS) {
-                        auto trickOption = static_cast<Rando::TrickOption*>(option);
-                        if (trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
-                            ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
-                            continue;
-                        }
-                        settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
-                    } else {
-#ifdef RSBS_SINGLE_EXECUTABLE
-                        // [RSBS #1434] Time Travel Requires Master Sword changes the world only
-                        // while it can stop Link (TimeTravelSword.cpp); otherwise a world keeps
-                        // the fingerprint it had before the option existed.
-                        if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD &&
-                            !OoT_TimeTravelSword_RuleCanBlock()) {
-                            continue;
-                        }
-#endif
-                        settingsStr += option->GetOptionText(ctx->GetOption(option->GetKey()).Get());
-                    }
-#ifdef RSBS_SINGLE_EXECUTABLE
-                    sRsbsFoldTotalLines++;
-                    if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
-                        sRsbsFoldExcludeLines[i - RSG_EXCLUDES_KOKIRI_FOREST]++;
-                    }
-                    if (rsbsChestGameLine) {
-                        sRsbsFoldChestGameLines++;
-                    }
-#endif
-                }
-            }
-        }
-    }
+    std::string settingsStr = FoldSettingsString(ctx);
 #ifdef RSBS_SINGLE_EXECUTABLE
     sRsbsFoldRuns++;
 #endif

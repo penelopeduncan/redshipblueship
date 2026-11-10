@@ -106,9 +106,10 @@ void* gStagedCopyHookCtxForTest = nullptr;
 // keep to 48 (the UI snapshot's toast/load-* pages measure the pixels at that
 // profile). That is the CAP: a narrower window gets fewer names (#881: the
 // 640-px window a config with no size opens cut a 46-character toast at both
-// edges), see FitLoadToast. The long explanation, with every field, stays on the
-// stderr line beside each toast. Muted: the overlay's ding is OoT's audio, and
-// the load also runs in the display-free rows.
+// edges), see FitLoadToast; a Cross-Game Rule's name is never cut, the rules
+// toast keeps at least one whole name (#1479). The long explanation, with every
+// field, stays on the stderr line beside each toast. Muted: the overlay's ding
+// is OoT's audio, and the load also runs in the display-free rows.
 constexpr std::size_t kLoadToastBudget = 48;
 
 // The message budget left beside @p prefix and the space between them.
@@ -120,10 +121,13 @@ std::size_t LoadToastRoom(const char* prefix) {
 // "A, B, C" cut to at most @p budget characters: as many leading names as fit
 // whole, then " +N" for the rest, where N counts from @p total (the true number
 // of names, which may exceed the ones @p list carries; 0 means "the list is
-// complete"). When not even the first name fits whole, it is cut with "..."
-// (keeping at least eight of its characters); only when not even that fits is
-// the toast a bare count, "1 <singular>" or "N <plural>".
-std::string FitNames(const std::string& list, int total, std::size_t budget, const char* singular, const char* plural) {
+// complete"). When not even the first name fits whole: with @p wholeNames (the
+// Cross-Game Rules toast, #1479) the first name stays whole with its " +N", the
+// floor, and the overlay draws that smaller to fit (never below 1.0); otherwise
+// it is cut with "..." (keeping at least eight of its characters), and only when
+// not even that fits is the toast a bare count, "1 <singular>" or "N <plural>".
+std::string FitNames(const std::string& list, int total, std::size_t budget, const char* singular, const char* plural,
+                     bool wholeNames) {
     std::vector<std::string> names;
     std::size_t start = 0;
     while (!list.empty() && start <= list.size()) {
@@ -153,6 +157,9 @@ std::string FitNames(const std::string& list, int total, std::size_t budget, con
     }
     if (shown == 0 && !names.empty()) {
         const std::string plus = plusFor(1);
+        if (wholeNames && !names[0].empty()) {
+            return names[0] + plus;
+        }
         constexpr std::size_t kMinKept = 8;
         if (budget >= plus.size() + 3 + kMinKept) {
             std::string cut = names[0].substr(0, budget - plus.size() - 3);
@@ -175,13 +182,16 @@ std::string FitNames(const std::string& list, int total, std::size_t budget, con
 // The "Restored ..." message for @p prefix (#881): the longest FitNames cut, at
 // most the 48-character cap, whose toast the overlay draws inside the window it
 // is drawn in, measured in pixels by the overlay itself
-// (OoT_Notification_FitsWindow). Each step down drops a name to "+N", or cuts the
-// first name, and at the bottom the toast is a bare count ("2 settings"). With
-// nothing to measure against (a display-free row) the cap stands.
-std::string FitLoadToast(const char* prefix, const char* names, int count, const char* singular, const char* plural) {
+// (OoT_Notification_FitsWindow). Each step down drops a name to "+N", or (without
+// @p wholeNames) cuts the first name, and at the bottom the toast is a bare count
+// ("2 settings"); with @p wholeNames the bottom is the first whole name and its
+// "+N", which the overlay's own fit draws smaller (#1479). With nothing to
+// measure against (a display-free row) the cap stands.
+std::string FitLoadToast(const char* prefix, const char* names, int count, const char* singular, const char* plural,
+                         bool wholeNames) {
     const std::string list = names != nullptr ? names : "";
     for (std::size_t budget = LoadToastRoom(prefix);; budget--) {
-        std::string message = FitNames(list, count, budget, singular, plural);
+        std::string message = FitNames(list, count, budget, singular, plural, wholeNames);
         if (budget == 0 || OoT_Notification_FitsWindow(prefix, message.c_str()) != 0) {
             return message;
         }
@@ -1389,16 +1399,19 @@ RsbsLoadOutcome SaveManager::LoadSlotImpl(int slot, uint32_t ootSavGeneration, i
     // resolver is a straight overlay of these keys; when it does (forced by the
     // test hook), the keys go back exactly as the player left them and the load
     // refuses. On the open path that is the backstop's trigger (#836).
-    char restoredRules[192] = { 0 };
+    // #1479: the restore fills restoredRules with whole labels only and reports
+    // the true number of rows beside it, which the toast's "+N" counts from.
+    char restoredRules[RSBS_LOAD_RULES_NAMES_LEN] = { 0 };
+    int restoredRulesCount = 0;
     ComboSettingsKeyUndo rulesUndo;
     bool rulesWritten = false;
     if (v.comboDiverged != 0) {
         uint32_t afterRestore = v.comboDiverged;
         // #1169 XW2: the file's second rules word restores beside the first.
         const uint32_t comboRules2 = Combo_ComboItemRules2Word(&combo.comboItemRules2);
-        if (Combo_ComboSettingsRestoreLiveEx2(&combo.comboSettings, &combo.comboItemRules, comboRules2,
+        if (Combo_ComboSettingsRestoreLiveEx3(&combo.comboSettings, &combo.comboItemRules, comboRules2,
                                               &combo.comboTriforce, v.comboDiverged, restoredRules,
-                                              sizeof(restoredRules), &rulesUndo) == 1) {
+                                              sizeof(restoredRules), &restoredRulesCount, &rulesUndo) == 1) {
             rulesWritten = true;
             afterRestore = Combo_ComboSettingsDivergenceForEx2(&combo.comboSettings, &combo.comboItemRules, comboRules2,
                                                                combo.comboSettingsHash, combo.sharedRandoSettingsHash,
@@ -1408,8 +1421,9 @@ RsbsLoadOutcome SaveManager::LoadSlotImpl(int slot, uint32_t ootSavGeneration, i
                            (gForceLoadRestoreVerifyFail ? v.comboDiverged : 0u);
             std::fprintf(stderr,
                          "[RsbsSave] slot %d: the cross-game rules this session held differed from the file's; the "
-                         "file's own values were restored (%s) — frozen wins at load (#781)\n",
-                         slot, restoredRules);
+                         "file's own values were restored (%d row(s); the [Combo] line above lists every one) — "
+                         "frozen wins at load (#781)\n",
+                         slot, restoredRulesCount);
         }
         if (afterRestore != 0) {
             if (rulesWritten) {
@@ -1529,7 +1543,7 @@ RsbsLoadOutcome SaveManager::LoadSlotImpl(int slot, uint32_t ootSavGeneration, i
         Combo_ComboSettingsPersistStore();
     }
     if (restoredRules[0] != '\0') {
-        RsbsSave_EmitLoadToast(RSBS_LOAD_TOAST_RULES_RESTORED, restoredRules, 0);
+        RsbsSave_EmitLoadToast(RSBS_LOAD_TOAST_RULES_RESTORED, restoredRules, restoredRulesCount);
     }
     if (mmProfileOutcome == RSBS_MM_PROFILE_LOAD_RESTORED) {
         RsbsSave_EmitLoadToast(RSBS_LOAD_TOAST_MM_RESTORED, restoredMm, restoredMmCount);
@@ -2323,11 +2337,11 @@ void RsbsSave_EmitLoadToast(int kind, const char* names, int count) {
     switch (kind) {
         case RSBS_LOAD_TOAST_RULES_RESTORED:
             prefix = "Restored from file:";
-            message = rsbs::FitLoadToast(prefix, names, count, "rule", "rules");
+            message = rsbs::FitLoadToast(prefix, names, count, "rule", "rules", /*wholeNames=*/true);
             break;
         case RSBS_LOAD_TOAST_MM_RESTORED:
             prefix = "Restored for Majora's Mask:";
-            message = rsbs::FitLoadToast(prefix, names, count, "setting", "settings");
+            message = rsbs::FitLoadToast(prefix, names, count, "setting", "settings", /*wholeNames=*/false);
             break;
         case RSBS_LOAD_TOAST_REFUSED_RULES:
         case RSBS_LOAD_TOAST_REFUSED_OTHER_BUILD:

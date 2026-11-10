@@ -6745,6 +6745,7 @@ typedef enum {
     // a save's randoSettings array is indexed by this enum, and a world saved
     // before it reads the missing tail as 0, off.
     RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
+    RSK_EARLY_GRANNYS_SHOP,
     // SoH 6706b49d1 puts this after RSK_KEYRINGS_GANONS_CASTLE; appended here so no other setting key moves.
     RSK_KEYRINGS_CHEST_GAME,
     RSK_MAX

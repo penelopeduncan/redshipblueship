@@ -127,6 +127,7 @@ games/oot/soh/Enhancements/cosmetics/CustomLogoTitle.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.cpp
 games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMm.h
 games/oot/soh/Enhancements/randomizer/ForeignItemsSingleExe.cpp
+games/oot/soh/Enhancements/randomizer/ShopRestockSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/HintAreaOoT.cpp
 games/oot/soh/Enhancements/randomizer/CheckStateLoadSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/ItemAdapterSingleExe.cpp
@@ -136,6 +137,7 @@ games/oot/soh/Enhancements/randomizer/TrackerAdapterSingleExe.cpp
 games/oot/soh/Enhancements/randomizer/TimeTravelSword.h
 games/oot/soh/Enhancements/randomizer/TimeTravelSword.cpp
 games/oot/soh/oot_time_travel_sword_test.cpp
+games/oot/soh/oot_early_granny_shop_test.cpp
 games/oot/soh/oot_chest_game_shuffle_test.cpp
 games/oot/soh/GameExports_SingleExe.cpp
 games/oot/soh/OTRGlobals.cpp
@@ -207,7 +209,9 @@ games/mm/2s2h/Rando/Logic/ResetTimeGuard.cpp
 games/mm/2s2h/Rando/Logic/ResetTimeGuard.h
 games/mm/2s2h/mm_combo_logic_engine_test.cpp
 games/mm/2s2h/mm_tracker_in_logic_test.cpp
+games/mm/2s2h/mm_enemy_drop_instances_test.cpp
 games/mm/2s2h/mm_logic_gates_test.cpp
+games/mm/2s2h/mm_time_edges_test.cpp
 games/oot/soh/Enhancements/randomizer/ComboLogicMonotonicityOoT.cpp
 games/mm/2s2h/Rando/ComboLogicMonotonicitySingleExe.cpp
 games/mm/2s2h/mm_triforce_hunt_test.cpp
@@ -284,6 +288,7 @@ games/mm/2s2h/Enhancements/Masks/GoronRollingLenientSpikes.cpp
 games/mm/2s2h/Rando/Logic/ShopPrices.cpp
 games/mm/2s2h/Rando/Logic/ShopPrices.h
 games/mm/2s2h/mm_shop_prices_test.cpp
+games/mm/2s2h/mm_tingle_maps_test.cpp
 games/oot/soh/Enhancements/randomizer/StoneMaskOoT.h
 games/oot/soh/Enhancements/randomizer/StoneMaskOoT.cpp
 games/oot/soh/oot_stone_mask_test.cpp

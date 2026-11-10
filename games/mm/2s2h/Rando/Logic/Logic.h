@@ -9,6 +9,7 @@
 #include "Rando/OoTMasksMM.h" // #980: HAS_OOT_MASK
 #endif
 
+#include <functional>
 #include <set>
 #include <cassert>
 #include <stdexcept>
@@ -158,6 +159,15 @@ inline void SetCurrentRegionTime(const std::unordered_map<RandoRegionId, RegionT
     gCurrentRegionTime = regionTimeStates.at(regionId).timeSlices;
 }
 
+// #1453: the slices of `sourceTime` that an edge whose `condition` PASSED on the
+// whole of `sourceTime` carries into its target: the union of the half-days of
+// `sourceTime` on which `condition` holds alone (re-evaluated with
+// gCurrentRegionTime restricted to each one, at most six calls, none when
+// `sourceTime` sits in one half-day). Returns `sourceTime` unchanged when no
+// single half-day holds. gCurrentRegionTime is restored before returning. Both
+// FindReachableRegions and CrawlReachableRegions propagate through it.
+uint64_t NarrowEdgeTime(uint64_t sourceTime, const std::function<bool()>& condition);
+
 void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& reachableRegions,
                           std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates);
 RandoRegionId GetRegionIdFromEntrance(s32 entrance);
@@ -228,6 +238,20 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance);
  *  semantics (the tracker wants shuffled && !obtained; the generation gate
  *  wants everything the world can yield). */
 std::set<RandoCheckId> EvaluateReachableChecks(const ReachabilityCrawl& crawl);
+
+/** One placement of a check: the region whose `checks` row lists it. Only the enemy drops have more than one
+ *  (#1498): one check per species, listed under every region where the species lives. */
+using CheckInstance = std::pair<RandoRegionId, RandoCheckId>;
+
+/** The per-instance answer beside EvaluateReachableChecks (#1498): the (region, check) pairs of the crawl's
+ *  reachable regions whose own row passes, each under its region's joined time state, kept only for the checks in
+ *  `checks`. Hand it a crawl and the per-id answer over that same crawl, after ApplyResetTimeGuard has restricted
+ *  both (ResetTimeGuard.h), and it is the guarded per-instance answer: the guard's region pruning is in the crawl
+ *  and its check pruning in `checks`, so the checks the result names are exactly `checks`. Reads the save and the
+ *  region graph only; it changes neither, nor the per-id answer (every caller of EvaluateReachableChecks, the fill
+ *  included, is untouched). */
+std::set<CheckInstance> EvaluateReachableCheckInstances(const ReachabilityCrawl& crawl,
+                                                        const std::set<RandoCheckId>& checks);
 
 /** Headless reachable-check CLOSURE over the CURRENT generated world: starting
  *  from the live save (post-fill, starting items granted), repeatedly crawl,
@@ -392,6 +416,13 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // more. MM_TRICK reads the FROZEN per-file set (Rando/StaticData/Tricks.h), so a
 // world generated with the trick on keeps expecting it forever and a
 // post-creation toggle cannot change a live world's rules.
+//
+// DIVERGES FROM 2SHIP on purpose (#1398 MLA-4): upstream 0fa8ba899 makes the
+// Blast Mask leg also require an equipped shield. OoTMM, this project's
+// reference for game-design choices, has no shield term in has_explosives
+// (has_bombs || has_mask_blast || has_bombchu), and a paired MM file starts
+// with no shield, so taking the term would move default paired logic. The
+// Blast Mask alone counts here.
 #define CAN_USE_EXPLOSIVE                                                           \
     ((HAS_ITEM(ITEM_BOMB) || HAS_ITEM(ITEM_BOMBCHU) || HAS_ITEM(ITEM_MASK_BLAST) || \
       (MM_TRICK(MMRT_KEG_EXPLOSIVES) && HAS_ITEM(ITEM_POWDER_KEG) && CAN_BE_GORON)))
@@ -969,7 +1000,8 @@ inline bool CanKillEnemy(ActorId EnemyId) {
         case ACTOR_EN_KAREBABA: // Wilted/Mini Babas
             return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU);
         case ACTOR_EN_PEEHAT: // Peahat
-            return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU || CAN_FIGHT_WITH_DEKU_STICK);
+            return ((CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || CAN_BE_DEKU || CAN_FIGHT_WITH_DEKU_STICK) &&
+                    IS_DAY());
         case ACTOR_EN_RD: // Redead & Gibdos
             return (CAN_USE_SWORD || CAN_BE_DEKU || CAN_BE_GORON || CAN_BE_ZORA || CAN_FIGHT_WITH_DEKU_STICK);
         case ACTOR_EN_BSB: // Captain Keeta (May be possible without bow, but the window is tight. Requiring for now)
@@ -989,8 +1021,6 @@ inline bool CanKillEnemy(ActorId EnemyId) {
             return (CAN_BE_ZORA && HAS_MAGIC);
         case ACTOR_EN_KAME: // Snapper (non Gekko Miniboss)
             return (CAN_USE_EXPLOSIVE || CAN_BE_GORON);
-        case ACTOR_EN_SB: // Shellblade
-            return (CAN_BE_ZORA && HAS_MAGIC);
         case ACTOR_EN_OKUTA: // Octorok
         case ACTOR_EN_EGOL:  // Eyegore
             return (CAN_USE_PROJECTILE);
@@ -1002,9 +1032,10 @@ inline bool CanKillEnemy(ActorId EnemyId) {
         case ACTOR_EN_PP: // Hiploop
             return (CAN_USE_SWORD || CAN_BE_GORON || CAN_BE_ZORA || (CAN_BE_DEKU && HAS_MAGIC) || HAS_ITEM(ITEM_BOW) ||
                     CAN_FIGHT_WITH_DEKU_STICK || HAS_ITEM(ITEM_HOOKSHOT));
+        case ACTOR_EN_SB:  // Shellblade
         case ACTOR_EN_PR:  // Desbreko
         case ACTOR_EN_PR2: // Skull fish
-            return (CAN_BE_ZORA && HAS_MAGIC);
+            return (CAN_BE_ZORA && HAS_MAGIC && CAN_USE_ABILITY(SWIM));
         case ACTOR_BOSS_05: // Bio Deku Baba
             return CAN_BE_ZORA && CAN_USE_ABILITY(SWIM);
         case ACTOR_EN_BEE: // Giant Bee

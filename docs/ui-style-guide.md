@@ -385,9 +385,12 @@ surface that freezes at creation, or that feeds generation, is never a pop-out.
   characters are a cap, not a fit: `RsbsSave_EmitLoadToast` drops names to "+N" until the overlay measures the toast
   inside the window it is drawn in (`OoT_Notification_FitsWindow`, #881), because a config with no window size opens
   libultraship's default 640 x 480, narrower than the 832-px contract. `PairingRefusalToastFit` draws them at
-  640 x 480 and 832 x 600 too, and requires the player's own size in both windows except for that fit's floor: a
-  bare count ("Restored for Majora's Mask: 37 settings", every settable MM trick) has nothing left to drop and is
-  wider than 580 px at 1.8x, so the overlay draws it a little smaller in the 640-px window. **One recorded exception to R-N8:** the Cross-Game Rules refusal names the diverged fields by
+  640 x 480 and 832 x 600 too, and requires the player's own size in both windows except for that fit's floor, which
+  has nothing left to drop, so the overlay draws it a little smaller (never below 1.0) in the 640-px window. For the
+  MM toast the floor is a bare count ("Restored for Majora's Mask: 37 settings", every settable MM trick, wider than
+  580 px at 1.8x). A Cross-Game Rule's name is never cut (#1479): "Shared Song of..." could be any of three rows, so
+  the rules toast's floor is one whole name and its true "+N" ("Restored from file: Shared Nocturne of Shadow +1"),
+  and the load hands it whole labels and the restore's true count (`Combo_ComboSettingsRestoreLiveEx3`). **One recorded exception to R-N8:** the Cross-Game Rules refusal names the diverged fields by
   their record names (`goal`, `direction`, `triforceHunt`). ADR 0011 decision 4 requires the refusal to name the
   field, and ten of the thirteen fields (`poolSizeOoT`, `poolSizeMM` since #801 retired their rows, `itemClassOoT`,
   `itemClassMM` since #834 retired theirs, `logicRung`, `comboFlags`, `spare1`, `formatVersion`, `comboSettingsHash`,

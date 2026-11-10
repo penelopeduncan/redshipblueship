@@ -66,7 +66,9 @@
  *      content besides the remains, it is listed in kCsbFLoadBearingFixedChecks
  *      and asserted both ways (necessary and sufficient).
  *      Under the OoT logic P3 re-pin (#1396, #1397), remains + renewables alone
- *      restore goalMM=1 again, so kCsbFLoadBearingFixedChecks is empty.
+ *      restored goalMM=1, so kCsbFLoadBearingFixedChecks was empty. Under the MM
+ *      logic P3 re-pin (#1398) the world runs through the Bomb Shop's Progressive
+ *      Bomb Bag again, so the list names RC_BOMB_SHOP_ITEM_03.
  *
  * PR #743 REVIEW LEGS, each with its red half observed when it was written:
  *
@@ -1289,11 +1291,12 @@ TestResult ComboSingleBag_Run(void) {
         // Listed by check name, and required both ways below: sufficient (no OTHER fixed
         // progression content is load-bearing) and necessary (an exception the world
         // stops needing must be dropped here, so the claim stays exact). When a re-pin
-        // moves the world, the single-content probe lines name the candidates. Empty
-        // under the OoT logic P3 re-pin (#1396, #1397): remains and renewables alone
-        // restore goalMM=1. (The D wave 2 worlds needed RC_BOMB_SHOP_ITEM_03, the
-        // Bomb Shop's Progressive Bomb Bag.)
-        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = {};
+        // moves the world, the single-content probe lines name the candidates. Under
+        // the MM logic P3 re-pin (#1398) the world needs RC_BOMB_SHOP_ITEM_03, the Bomb
+        // Shop's Progressive Bomb Bag, as the D wave 2 worlds did. (It was empty under
+        // the OoT logic P3 re-pin, #1396 and #1397: remains and renewables alone restored
+        // goalMM=1.)
+        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = { "RC_BOMB_SHOP_ITEM_03" };
         const int namedCount = (int)kCsbFLoadBearingFixedChecks.size();
         std::vector<ComboLogicBagItem> remainsRenewablesAndNamed = remainsAndRenewables;
         int namedFound = 0;
@@ -2132,7 +2135,7 @@ TestResult ComboSingleBag_Run(void) {
             }
         } restoreCVars{ &savedCVars };
 
-        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS") == 0,
+        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS5") == 0,
                    "the paired generation with both shop shuffles on failed");
         // V2c. A new generation forgets the one file 1 consumed.
         {
@@ -2157,6 +2160,11 @@ TestResult ComboSingleBag_Run(void) {
         // path), so "buying records exactly one MM crossing" is a claim about the
         // other items only. Before #1428/#1425/#1427 moved RSBSSINGLEBAGSHOPS's world,
         // each kind's first MM item happened to be one that crosses.
+        // The seed is RSBSSINGLEBAGSHOPS5 since the MM logic P3 re-pin (#1398): that
+        // moved RSBSSINGLEBAGSHOPS's world so its one merchant-hosted MM item is credited
+        // at pickup, and seeds 2 to 4 put no MM item on an OoT merchant at all (there are
+        // only four merchant hosts). When a re-pin moves this world again, pick the next
+        // suffix whose world has a crossing MM item on each of the three kinds.
         auto creditedAtPickup = [](const SharedItem& item) {
             uint8_t kind = 0;
             uint16_t units = 0;

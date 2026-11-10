@@ -14,6 +14,9 @@
  * bar is handed the night windows too. A probe of the check lambda alone, under a
  * hand-picked time mask, would not show that; CrawlReachableRegions +
  * EvaluateReachableChecks (the tracker's and the combo engine's crawl) does.
+ * (Since #1453 an edge carries only the half-days its own condition holds on,
+ * so the Day 3 road hands the ranch Day 3 and Night 3 only; mm-time-edges locks
+ * that. These legs gate the check rows themselves and hold either way.)
  *
  *  R. Romani Ranch (2S2H 9b699dee1). From Milk Road with the Ocarina of Time,
  *     Epona's Song and the Bow but no way to break the boulder (no Goron Mask, no
@@ -33,6 +36,15 @@
  *     on the door without firing RE_BOMBER_CODE) each reach the observatory and
  *     the Moon's Tear, while the Deku Mask alone reaches the observatory from the
  *     Termina Field balcony without magic or the code.
+ *  G. Great Bay Coast's minigame platforms (#1398; 2S2H 4661df2e6 split them into
+ *     their own region, 20b09fe5b made the edge Hookshot-only). On the row
+ *     lambdas: the cliffside edge opens with the Hookshot after the temple, stays
+ *     shut without the temple and with Ice Arrows alone; the platforms connect
+ *     back to the cliffside only; the Fisherman minigame is open from 07:00 to
+ *     04:00 on each of the three days and closed at 06:00 and at 04:00.
+ *  P. The Peahat (#1398; 2S2H f237dd293 moved IS_DAY() into CanKillEnemy). Both
+ *     Peahat grotto rows, the enemy drop and the chest, pass by day with the
+ *     Zora Mask and fail under every night half-day.
  *
  * Every "not reached" leg is paired with a "reached" leg on the same save plus
  * one thing, and each names a region or check that must be reached, so a probe
@@ -171,7 +183,8 @@ void ArmMilkBarSave() {
 extern "C" int MM_LogicGates_RunHeadless(void) {
     printf("[TEST] mm-logic-gates: Romani Ranch's cows, Epona's Song and the alien drop need the Milk Road boulder "
            "broken, the Circus Leader needs Romani's Mask (#1168), and East Clock Town's Bombers' hideout door needs "
-           "the Bombers' code or backflip trick (#1306)\n");
+           "the Bombers' code or backflip trick (#1306), Great Bay Coast's minigame platforms need the Hookshot after "
+           "the temple and the Fisherman plays 07:00-04:00 each day, and the Peahat dies by day only (#1398)\n");
     sFailures = 0;
 
     // Populate the region graph (file-scope ShipInit registrars; see
@@ -343,6 +356,135 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
                     "not reached from Termina Field's Deku Flower onto the observatory balcony");
         ExpectCheck(leg, reach, RC_CLOCK_TOWN_BOMBERS_NOTEBOOK, "the Bomber's Notebook", false,
                     "reached with the Deku Mask and no magic (cannot pop the balloon or learn the code)");
+    }
+
+    // ---- G: Great Bay Coast's minigame platforms (#1398, 2S2H 4661df2e6 and
+    // 20b09fe5b). Probed on the row lambdas, as O1 does, because each leg is
+    // about one edge or one check row under a chosen time mask.
+    {
+        auto cliffIt = Rando::Logic::Regions.find(RR_GREAT_BAY_COAST_CLIFFSIDE);
+        auto platIt = Rando::Logic::Regions.find(RR_GREAT_BAY_COAST_MINIGAME_PLATFORMS);
+        if (cliffIt == Rando::Logic::Regions.end() ||
+            !cliffIt->second.connections.contains(RR_GREAT_BAY_COAST_MINIGAME_PLATFORMS)) {
+            GateFail("G1 the cliffside -> minigame platforms edge is missing from Rando::Logic::Regions");
+        } else if (platIt == Rando::Logic::Regions.end() ||
+                   !platIt->second.checks.contains(RC_GREAT_BAY_COAST_FISHERMAN_MINIGAME)) {
+            GateFail("G1 the Fisherman minigame row is missing from RR_GREAT_BAY_COAST_MINIGAME_PLATFORMS");
+        } else {
+            const auto& edge = cliffIt->second.connections.at(RR_GREAT_BAY_COAST_MINIGAME_PLATFORMS).first;
+            const auto& fisherman = platIt->second.checks.at(RC_GREAT_BAY_COAST_FISHERMAN_MINIGAME).first;
+            auto expectEdge = [&](const char* leg, bool expected, const char* why) {
+                Rando::Logic::gCurrentRegionTime = Rando::Logic::TIME_ALL_SLICES;
+                if (edge() != expected) {
+                    GateFail("%s: the minigame platforms edge is %s: %s", leg, expected ? "shut" : "open", why);
+                    return;
+                }
+                printf("[TEST]   ok: %s: platforms edge %s\n", leg, expected ? "open" : "shut");
+            };
+
+            ResetSave();
+            Give(ITEM_HOOKSHOT);
+            RANDO_EVENTS[RE_CLEARED_GREAT_BAY_TEMPLE] = 1;
+            expectEdge("G1 Hookshot, temple cleared", true, "the Hookshot route after the temple no longer opens it");
+
+            ResetSave();
+            Give(ITEM_HOOKSHOT);
+            expectEdge("G2 Hookshot, temple not cleared", false,
+                       "the platforms are only up after Great Bay Temple is cleared (upstream 20b09fe5b)");
+
+            ResetSave();
+            Give(ITEM_BOW);
+            Give(ITEM_ARROW_ICE);
+            gSaveContext.save.saveInfo.playerData.isMagicAcquired = true;
+            RANDO_EVENTS[RE_CLEARED_GREAT_BAY_TEMPLE] = 1;
+            if (!CAN_USE_MAGIC_ARROW(ICE)) {
+                GateFail("G3 the save does not satisfy CAN_USE_MAGIC_ARROW(ICE), so this leg probes nothing");
+            }
+            expectEdge("G3 Ice Arrows, temple cleared, no Hookshot", false,
+                       "upstream 20b09fe5b REMOVED the Ice Arrow route to the platforms; only the Hookshot works");
+
+            if (platIt->second.connections.contains(RR_GREAT_BAY_COAST)) {
+                GateFail("G4 the platforms have a direct edge to the beach that upstream's region does not have");
+            } else if (!platIt->second.connections.contains(RR_GREAT_BAY_COAST_CLIFFSIDE)) {
+                GateFail("G4 the platforms have no edge back to the cliffside");
+            } else {
+                printf("[TEST]   ok: G4 platforms connect back to the cliffside only\n");
+            }
+
+            // The Fisherman's window: 07:00 to 04:00 on each of the three days.
+            auto expectFisherman = [&](const char* leg, Rando::Logic::TimeSlice slice, bool expected, const char* why) {
+                Rando::Logic::gCurrentRegionTime = Rando::Logic::TIME_BIT_ONE << slice;
+                if (fisherman() != expected) {
+                    GateFail("%s: the Fisherman minigame is %s: %s", leg, expected ? "closed" : "open", why);
+                    return;
+                }
+                printf("[TEST]   ok: %s: Fisherman minigame %s\n", leg, expected ? "open" : "closed");
+            };
+            ResetSave();
+            Give(ITEM_HOOKSHOT);
+            RANDO_EVENTS[RE_CLEARED_GREAT_BAY_TEMPLE] = 1;
+            expectFisherman("F1 Day 1 07:00", Rando::Logic::TIME_DAY1_AM_07_00, true, "the Day 1 window is closed");
+            expectFisherman("F2 Day 2 07:00", Rando::Logic::TIME_DAY2_AM_07_00, true,
+                            "the window is Day 1 only, but the game runs on all three days");
+            expectFisherman("F3 Day 3 07:00", Rando::Logic::TIME_DAY3_AM_07_00, true,
+                            "the window is missing Day 3, which upstream and main both have");
+            expectFisherman("F4 Day 1 06:00", Rando::Logic::TIME_DAY1_AM_06_00, false,
+                            "the window opens at 06:00, an hour before the game does");
+            expectFisherman("F5 Night 2 04:00", Rando::Logic::TIME_NIGHT2_AM_04_00, false,
+                            "the window runs past 04:00");
+
+            ResetSave();
+            RANDO_EVENTS[RE_CLEARED_GREAT_BAY_TEMPLE] = 1;
+            expectFisherman("F6 no Hookshot, Day 2 07:00", Rando::Logic::TIME_DAY2_AM_07_00, false,
+                            "the minigame needs the Hookshot");
+        }
+    }
+
+    // ---- P: the Peahat dies by day only (#1398, 2S2H f237dd293) ------------
+    // The term lives in CanKillEnemy now, so the ENEMY DROP row, which never had
+    // it, is gated as well as the grotto chest that used to carry it alone.
+    {
+        auto grottoIt = Rando::Logic::Regions.find(RR_TERMINA_FIELD_PEAHAT_GROTTO);
+        if (grottoIt == Rando::Logic::Regions.end() || !grottoIt->second.checks.contains(RC_ENEMY_DROP_PEAHAT) ||
+            !grottoIt->second.checks.contains(RC_TERMINA_FIELD_PEAHAT_GROTTO_CHEST)) {
+            GateFail("P1 the Peahat grotto's drop or chest row is missing from Rando::Logic::Regions");
+        } else {
+            struct PeahatRow {
+                RandoCheckId check;
+                const char* name;
+            };
+            const PeahatRow kPeahatRows[] = {
+                { RC_ENEMY_DROP_PEAHAT, "the Peahat drop" },
+                { RC_TERMINA_FIELD_PEAHAT_GROTTO_CHEST, "the Peahat grotto chest" },
+            };
+            const uint64_t kDays = Rando::Logic::GetHalfDayTimeMask(0) | Rando::Logic::GetHalfDayTimeMask(2) |
+                                   Rando::Logic::GetHalfDayTimeMask(4);
+            const uint64_t kNights = Rando::Logic::GetHalfDayTimeMask(1) | Rando::Logic::GetHalfDayTimeMask(3) |
+                                     Rando::Logic::GetHalfDayTimeMask(5);
+            ResetSave();
+            Give(ITEM_MASK_ZORA);
+            for (const PeahatRow& row : kPeahatRows) {
+                const auto& cond = grottoIt->second.checks.at(row.check).first;
+                Rando::Logic::gCurrentRegionTime = Rando::Logic::GetHalfDayTimeMask(2);
+                if (!cond()) {
+                    GateFail("P2 Zora Mask, Day 2: %s is out of logic by day, so the night leg probes nothing",
+                             row.name);
+                } else {
+                    printf("[TEST]   ok: P2 Zora Mask, Day 2: %s in logic\n", row.name);
+                }
+                Rando::Logic::gCurrentRegionTime = kNights;
+                if (cond()) {
+                    GateFail("P3 Zora Mask, every night: %s is in logic, but the Peahat cannot be killed at night",
+                             row.name);
+                } else {
+                    printf("[TEST]   ok: P3 Zora Mask, every night: %s out of logic\n", row.name);
+                }
+                Rando::Logic::gCurrentRegionTime = kDays;
+                if (!cond()) {
+                    GateFail("P4 Zora Mask, every day: %s is out of logic", row.name);
+                }
+            }
+        }
     }
 
     memcpy(&gSaveContext, saved.get(), sizeof(SaveContext));
