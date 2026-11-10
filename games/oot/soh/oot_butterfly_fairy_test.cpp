@@ -27,10 +27,13 @@
  * oot-butterfly-fairy-hooks (OoTButterflyFairyHooks), the real registrars
  * (RegisterShuffleFairies, EasyButterflyFairies_Register) on a stub frame, through
  * the real GameInteractor_Should dispatch z_en_butte.c makes:
- *  O  OFF MEANS UNCHANGED. A randomizer save with Shuffle Butterfly Fairies off and
- *     Easy Butterfly Fairies' key cleared registers no VB_SPAWN_BUTTERFLY_FAIRY or
- *     VB_SPAWN_BUTTERFLY_FAIRY_EASY hook; both dispatches return the value they
- *     are given; a butterfly beside Link's held Deku Stick keeps its action.
+ *  O  OFF MEANS UNCHANGED. A randomizer save with Shuffle Butterfly Fairies off,
+ *     Shuffle Fountain Fairies on (so the registrar's shared `shouldRegister` is
+ *     true and the fairy pickup hook VB_FAIRY_HEAL is registered, which shows the
+ *     registrar ran) and Easy Butterfly Fairies' key cleared registers no
+ *     VB_SPAWN_BUTTERFLY_FAIRY or VB_SPAWN_BUTTERFLY_FAIRY_EASY hook; both
+ *     dispatches return the value they are given; a butterfly beside Link's held
+ *     Deku Stick keeps its action.
  *  A  ON. Exactly one hook each; the easy hook starts the transformation of a
  *     butterfly within 60 units of a held Deku Stick (EnButte_TransformIntoFairy,
  *     timer 9) and answers false, and leaves one alone when Link holds no stick
@@ -46,10 +49,11 @@
  * false F's left-out count is 0; with the classifier's exclude branch removed F
  * counts 2, not 22, left out; with RCTYPE_BUTTERFLY_FAIRY dropped from
  * Context::GenerateLocationPool's filter F sees butterfly locations; with the spawn
- * hook registered on `shouldRegister` instead of `shouldRegisterButterfly`, or the
- * easy hook armed on the randomizer save alone, O fails (a registrant); with the
- * easy hook's stick or distance test removed A's control fails; with
- * GetCheckObjectFromActor asked for ACTOR_EN_ELF again I fails.
+ * hook registered on `shouldRegister` instead of `shouldRegisterButterfly` (true in O,
+ * where Shuffle Fountain Fairies is on), or the easy hook armed on the randomizer
+ * save alone, O fails (a registrant); with VB_FAIRY_HEAL's registration dropped O's
+ * non-vacuity check fails; with the easy hook's stick or distance test removed A's
+ * control fails; with GetCheckObjectFromActor asked for ACTOR_EN_ELF again I fails.
  *
  * Every key, option, flag and save field a leg changes is put back (in memory:
  * nothing here writes a config file).
@@ -370,17 +374,23 @@ void ArmFrame(bool holdingStick) {
     sButte.actionFunc = nullptr; // a sentinel: only the easy hook may change it
 }
 
-void Register(bool shuffleOn) {
-    Rando::Context::GetInstance()
-        ->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES)
-        .Set(shuffleOn ? RO_GENERIC_ON : RO_GENERIC_OFF);
+void Register(bool shuffleOn, bool fountainOn) {
+    const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
+    ctx->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Set(shuffleOn ? RO_GENERIC_ON : RO_GENERIC_OFF);
+    ctx->GetOption(RSK_SHUFFLE_FOUNTAIN_FAIRIES).Set(fountainOn ? RO_GENERIC_ON : RO_GENERIC_OFF);
     RegisterShuffleFairies();
     EasyButterflyFairies_Register();
 }
 
 void OffLeg() {
     ArmFrame(true);
-    Register(false);
+    // A sibling fairy shuffle on: RegisterShuffleFairies' `shouldRegister` (every
+    // fairy shuffle or'd) is then true while `shouldRegisterButterfly` is not, so a
+    // spawn hook armed on the wrong one registers here.
+    Register(false, true);
+    BF_CHECK(VbCount(VB_FAIRY_HEAL) >= 1,
+             "O: with Shuffle Fountain Fairies on the registrar registered no fairy pickup hook, so this leg tests "
+             "nothing");
     BF_CHECK(VbCount(VB_SPAWN_BUTTERFLY_FAIRY) == 0 && VbCount(VB_SPAWN_BUTTERFLY_FAIRY_EASY) == 0,
              "O: with both off, %zu spawn and %zu easy hook(s) are registered", VbCount(VB_SPAWN_BUTTERFLY_FAIRY),
              VbCount(VB_SPAWN_BUTTERFLY_FAIRY_EASY));
@@ -395,7 +405,7 @@ void OffLeg() {
 
 void OnLeg() {
     ArmFrame(true);
-    Register(true);
+    Register(true, false);
     BF_CHECK(VbCount(VB_SPAWN_BUTTERFLY_FAIRY) == 1 && VbCount(VB_SPAWN_BUTTERFLY_FAIRY_EASY) == 1,
              "A: with the shuffle on, %zu spawn and %zu easy hook(s) are registered, want 1 each",
              VbCount(VB_SPAWN_BUTTERFLY_FAIRY), VbCount(VB_SPAWN_BUTTERFLY_FAIRY_EASY));
@@ -455,6 +465,7 @@ void CheckHooks() {
     }
     const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
     const uint8_t priorOption = ctx->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Get();
+    const uint8_t priorFountain = ctx->GetOption(RSK_SHUFFLE_FOUNTAIN_FAIRIES).Get();
     SavedKey easyKey;
     easyKey.Save(kEasyKey);
     CVarClear(kEasyKey);
@@ -477,6 +488,7 @@ void CheckHooks() {
         EasyButterflyFairies_Register();
     }
     ctx->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Set(priorOption);
+    ctx->GetOption(RSK_SHUFFLE_FOUNTAIN_FAIRIES).Set(priorFountain);
     easyKey.Restore();
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
     OoT_gPlayState = priorPlay;
