@@ -1077,6 +1077,12 @@ void Settings::CreateOptions() {
     OPT_CALLBACK(RSK_SHUFFLE_CHEST_MINIGAME, {
         HandleKeyringUI();
     });
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1364: every world is generated with it off (Playthrough_Init) until the
+    // cross-game generator supports the chest game's keys, so the menu says so.
+    mOptions[RSK_SHUFFLE_CHEST_MINIGAME].Disable("Disabled because the cross-game randomizer does not support\n"
+                                                 "the Treasure Chest Game's keys yet.");
+#endif
     OPT_BOOL(RSK_SHUFFLE_100_GS_REWARD, "Shuffle 100 GS Reward", CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_CALLBACK(RSK_SHUFFLE_100_GS_REWARD, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), RO_GENERIC_OFF)) {
@@ -1212,7 +1218,7 @@ void Settings::CreateOptions() {
             }
         }
     });
-    OPT_U8(RSK_KEYRINGS, "Keyrings", {"Off", "Random", "Count", "Selection"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRings"), mOptionDescriptions[RSK_KEYRINGS], WIDGET_CVAR_COMBOBOX, RO_KEYRINGS_OFF);
+    OPT_U8(RSK_KEYRINGS, "Key Rings", {"Off", "Random", "Count", "Selection"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRings"), mOptionDescriptions[RSK_KEYRINGS], WIDGET_CVAR_COMBOBOX, RO_KEYRINGS_OFF);
     OPT_CALLBACK(RSK_KEYRINGS, {
         switch (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleKeyRings"), RO_KEYRINGS_OFF)) {
             case RO_KEYRINGS_COUNT:
