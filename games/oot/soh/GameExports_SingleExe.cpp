@@ -2080,9 +2080,9 @@ const uint16_t kSoarOwlsActivated = (uint16_t)((1u << RSBS_SOARING_OWL_CLOCK_TOW
 // warp-song restriction is 3 (z_parameter.c, flags2 0x03), the one the
 // randomizer lets vanilla warp songs through and Soaring does not (ruling 5).
 // Not the grave half of the scene: Dampe's ghost (En_Po_Relay) auto-starts a
-// conversation within 250 units, and as a child the Windmill's man (En_Fu,
+// conversation within 250 units. As a child the Windmill's man (En_Fu,
 // EnFu_WaitChild) only offers a talk within 100 units and never marks Link as
-// near an ocarina actor, so the ocarina stays free play.
+// near an ocarina actor, but the Song of Storms tag does (SoarQuietWindmillTag).
 const uint16_t kSoarRestrictedEntrance = ENTR_WINDMILL_AND_DAMPES_GRAVE_WINDMILL;
 const u16 kSoarTextRestricted = 0x88C; // OoT's "You can't warp here!"
 
@@ -2294,6 +2294,55 @@ bool SoarPreparePhase(PlayState* play, GameplayPhase phase) {
     return true;
 }
 
+// The Windmill's Song of Storms spot (EnOkarinaTag type 2, the child-only tag
+// that drains Kakariko's well; z_en_okarina_tag.c). Within 50 + its range of
+// it, a child taking out the ocarina plays for the tag (PLAYER_STATE2_NEAR_
+// OCARINA_ACTOR, then OCARINA_ACTION_CHECK_STORMS), not in free play, and no
+// warp song (vanilla or Soaring) is ever heard there: the first real run stood
+// at the Kakariko door inside its range and failed with ocarinaAction 0x27. A
+// player who has drained the well finds the tag quiet (its switch flag set,
+// VB_OKARINA_TAG_COMPLETED), and that is the state the leg plays in: the
+// switch is set here, in the live scene, and put back before the Windmill is
+// left (SoarPreLegsDone).
+const s16 kSoarWindmillTagType = 2;
+s16 sSoarWindmillTagSwitch = -1;
+
+bool SoarQuietWindmillTag(PlayState* play) {
+    Player* player = GET_PLAYER(play);
+    for (Actor* actor = play->actorCtx.actorLists[ACTORCAT_PROP].head; actor != NULL; actor = actor->next) {
+        if (actor->id != ACTOR_EN_OKARINA_TAG || actor->update == NULL) {
+            continue;
+        }
+        const s16 type = (actor->params >> 0xA) & 0x3F;
+        const s16 sw = actor->params & 0x3F;
+        const f32 range = actor->home.rot.z > 0 ? actor->home.rot.z * 40.0f : 0.0f;
+        fprintf(stderr,
+                "[PFC] soaring leg 'restriction refused': ocarina tag type %d, switch 0x%02X, range %.0f, Link %.0f "
+                "units away (pos %.0f %.0f %.0f)\n",
+                (int)type, (unsigned)sw, range, actor->xzDistToPlayer, player->actor.world.pos.x,
+                player->actor.world.pos.y, player->actor.world.pos.z);
+        fflush(stderr);
+        if (type != kSoarWindmillTagType) {
+            continue;
+        }
+        if (sw == 0x3F) {
+            SoarFail("the Windmill's Song of Storms tag has no switch flag, so no drained-well state quiets it: a "
+                     "child at the Kakariko door can never play in free play there");
+            return false;
+        }
+        if (!OoT_Flags_GetSwitch(play, sw)) {
+            OoT_Flags_SetSwitch(play, sw);
+            sSoarWindmillTagSwitch = sw;
+            fprintf(stderr,
+                    "[PFC] soaring leg 'restriction refused': the well is drained (switch 0x%02X set), so the "
+                    "Song of Storms tag is quiet and the ocarina plays in free play\n",
+                    (unsigned)sw);
+            fflush(stderr);
+        }
+    }
+    return true;
+}
+
 // The leg's setup. Only the Windmill needs one: its door, the scene, a landing.
 void SoarStepPrepare(PlayState* play) {
     if (SoarCurrentLeg() != SoarLeg::Restricted) {
@@ -2337,6 +2386,9 @@ void SoarStepPrepare(PlayState* play) {
                 snprintf(why, sizeof(why), "the Windmill is scene %d with warp-song restriction %d; the leg needs 3",
                          (int)play->sceneNum, (int)play->interfaceCtx.restrictions.warpSongs);
                 SoarFail(why);
+                return;
+            }
+            if (!SoarQuietWindmillTag(play)) {
                 return;
             }
             SoarNext(SoarStep::TakeOut);
@@ -2675,6 +2727,11 @@ void SoarPreLegsDone(void) {
     if (sSoar.adultFlipped || gSaveContext.linkAge != LINK_AGE_CHILD) {
         SoarFail("Link is not a child at the end of the first OoT leg (the adult leg's age flip was not undone)");
         return;
+    }
+    // The world as it was: the drained-well switch goes back before the door.
+    if (sSoarWindmillTagSwitch >= 0 && OoT_gPlayState != NULL) {
+        OoT_Flags_UnsetSwitch(OoT_gPlayState, sSoarWindmillTagSwitch);
+        sSoarWindmillTagSwitch = -1;
     }
     gSaveContext.deaths = kPfcDeathsSentinel;
     fprintf(stderr, "[PFC] soaring: the first OoT leg's three refusals PASS; OoT-half sentinel deaths=%u\n",
