@@ -1360,6 +1360,15 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     quest and Inside Ganon's Castle's quest-specific items enter the pool,
  *     which moves every such world. All three are off by default and no golden
  *     turns one on.
+ *     Also on 5: #1363 (Shuffle Silver Rupees, SoH b76e303ce) rewrites the OoT
+ *     regions around every silver rupee room (Shadow and Spirit Temples, Bottom
+ *     of the Well, Ice Cavern, Gerudo Training Ground, Ganon's Castle's trials,
+ *     MQ Dodongo's Cavern) into new rooms joined by the silver rupee events, with
+ *     the option OFF too. The rules reviewed equal at the shipped settings, but
+ *     the fill reaches those dungeons' checks in another order, so a DEFAULT
+ *     world can move (OoT placements and what follows from them); #1363's gate
+ *     re-pin records which goldens did. The option itself is generated off in a
+ *     paired world, so it makes no new world yet.
  */
 #define RSBS_GENERATOR_VERSION 5u
 
