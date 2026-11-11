@@ -20,7 +20,8 @@
 #define RSBS_OOT_ITEM_TIMESTAMP_CAP 320 // SohStats.itemTimestamp, TIMESTAMP_MAX 240 at format 6
 #define RSBS_OOT_STATS_COUNT_CAP 192    // SohStats.count, COUNT_MAX 106 at format 6
 #define RSBS_OOT_RAND_INF_CAP 8192      // ShipSaveContextData.randomizerInf flags, RAND_INF_MAX 2064 at format 6
-// ShipRandomizerSaveContextData's fixed size: its two counters, then rsbsSpare.
+// ShipRandomizerSaveContextData's fixed size: its counters (triforce, bombchu,
+// #1363's 22 silver counters), then rsbsSpare.
 #define RSBS_OOT_RANDO_QUEST_DATA_SIZE 48
 
 #define FULL_HEART_HEALTH 0x10
