@@ -20,6 +20,20 @@ void MM_EnButte_Draw(Actor* thisx, PlayState* play);
 void MM_EnButte_Update(Actor* thisx, PlayState* play);
 }
 
+// At file scope, not in the anonymous namespace below: OPEN_DISPS and CLOSE_DISPS redeclare the
+// FrameInterpolation record functions at block scope, and inside a namespace that names a new C++ function
+// in that namespace instead of the extern "C" one, which then fails to link.
+static void DrawButterfly(Actor* actor, PlayState* play) {
+    MM_EnButte_Draw(actor, play);
+    RSBS_SINGLE_EXE_REQUIRE(MM_gPlayState != nullptr);
+
+    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
+    RandoCheckId randoCheckId = Rando::ActorBehavior::GetObjectRandoCheckId(actor);
+    MM_Matrix_Scale(8.0f, 8.0f, 8.0f, MTXMODE_APPLY);
+    Rando::DrawItem(Rando::ConvertItem(RANDO_SAVE_CHECKS[randoCheckId].randoItemId, randoCheckId), actor);
+    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+}
+
 namespace {
 
 typedef enum {
@@ -65,17 +79,6 @@ std::map<std::tuple<s16, u8, u8>, std::tuple<RandoCheckId, u8>> butterflyMap = {
     { { SCENE_KAKUSIANA, 12, 4 }, { RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01, 4 } },
 };
 // clang-format on
-
-void DrawButterfly(Actor* actor, PlayState* play) {
-    MM_EnButte_Draw(actor, play);
-    RSBS_SINGLE_EXE_REQUIRE(MM_gPlayState != nullptr);
-
-    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
-    RandoCheckId randoCheckId = Rando::ActorBehavior::GetObjectRandoCheckId(actor);
-    MM_Matrix_Scale(8.0f, 8.0f, 8.0f, MTXMODE_APPLY);
-    Rando::DrawItem(Rando::ConvertItem(RANDO_SAVE_CHECKS[randoCheckId].randoItemId, randoCheckId), actor);
-    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
-}
 
 // Runs the actual vanilla update (flight AI, wing animation, gravity, collider sync) every frame so a butterfly
 // looks and moves exactly like normal until it's lured in, then eases its position toward the stick tip on top.
