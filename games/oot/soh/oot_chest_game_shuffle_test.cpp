@@ -41,10 +41,10 @@
  *       H2 the next frame, Link has not taken it: the item is offered again and
  *          still nothing is queued.
  *       H3 Link has taken it: the shopkeeper moves on and offers nothing.
- *  S  THE SENTINEL HAS NO BIT. The shopkeeper's flag took the last free bit, so
- *     RAND_INF_MAX (kept by unidentified crates, grass, pots and cows) indexes the
- *     word past randomizerInf, over foreignMask: setting it writes nothing, and it
- *     reads unset (and unsetting it clears nothing) with foreignMask all ones.
+ *  S  THE SENTINEL HAS NO BIT. RAND_INF_MAX (kept by unidentified crates, grass,
+ *     pots and cows) is no flag: setting it writes nothing, and it reads unset (and
+ *     unsetting it clears nothing) with its own word all ones. (Before save format
+ *     6 that word was past randomizerInf, over foreignMask; it is spare capacity now.)
  *
  * RED HALVES, derived, not run (this lane had no build): with the fold's skip
  * removed at its call site F and P fail (lines folded); with the classifier
@@ -545,13 +545,13 @@ void CheckShopkeeper(Rando::Context& world) {
     free(s.takaraMan);
 }
 
-// S: the shopkeeper's flag took the last free bit, so RAND_INF_MAX (the sentinel
-// unidentified crates, grass, pots and cows keep) is exactly the 129 words' bit
-// count and indexes the word past randomizerInf, which overlaps foreignMask, the
-// field after it. The accessors must ignore it.
+// S: RAND_INF_MAX (the sentinel unidentified crates, grass, pots and cows keep) is
+// no flag. Since save format 6 its word is inside randomizerInf's fixed capacity
+// (spare, never a flag), so a guard-less accessor would set and read a real bit
+// there. The accessors must ignore it.
 void CheckSentinel() {
-    static_assert((RAND_INF_MAX + 15) / 16 * 16 == RAND_INF_MAX,
-                  "S assumes RAND_INF_MAX is a whole number of words, so its word is past randomizerInf");
+    static_assert((size_t)(RAND_INF_MAX >> 4) < sizeof(gSaveContext.ship.randomizerInf) / sizeof(u16),
+                  "S assumes the sentinel's word is inside randomizerInf's saved capacity (save format 6)");
     std::unique_ptr<SaveContext> before = std::make_unique<SaveContext>();
     HooksAside<GameInteractor::OnFlagSet> asideSet;
     HooksAside<GameInteractor::OnFlagUnset> asideUnset;
@@ -564,20 +564,20 @@ void CheckSentinel() {
     Flags_SetRandomizerInf(RAND_INF_MAX);
     const bool setWrote = std::memcmp(before.get(), &gSaveContext, sizeof(SaveContext)) != 0;
     printf("[TEST] S1: setting RAND_INF_MAX %s the save\n", setWrote ? "changed" : "left");
-    CG_CHECK(!setWrote, "S1: Flags_SetRandomizerInf(RAND_INF_MAX) wrote past randomizerInf (foreignMask %u)",
-             (unsigned)gSaveContext.ship.foreignMask);
+    CG_CHECK(!setWrote, "S1: Flags_SetRandomizerInf(RAND_INF_MAX) wrote the save (its word %04X)",
+             (unsigned)gSaveContext.ship.randomizerInf[RAND_INF_MAX >> 4]);
 
-    // S2: with every bit of the field after the array set, the sentinel still reads
+    // S2: with every bit of the sentinel's own word set, the sentinel still reads
     // unset and an unset of it clears nothing.
-    gSaveContext.ship.foreignMask = 0xFF;
+    gSaveContext.ship.randomizerInf[RAND_INF_MAX >> 4] = 0xFFFF;
     std::memcpy(before.get(), &gSaveContext, sizeof(SaveContext));
     const s32 read = Flags_GetRandomizerInf(RAND_INF_MAX);
     Flags_UnsetRandomizerInf(RAND_INF_MAX);
     const bool unsetWrote = std::memcmp(before.get(), &gSaveContext, sizeof(SaveContext)) != 0;
-    printf("[TEST] S2: RAND_INF_MAX reads %d over a set foreignMask; unsetting it %s the save\n", (int)read,
+    printf("[TEST] S2: RAND_INF_MAX reads %d over its own word all ones; unsetting it %s the save\n", (int)read,
            unsetWrote ? "changed" : "left");
-    CG_CHECK(read == 0, "S2: Flags_GetRandomizerInf(RAND_INF_MAX) read %d from past randomizerInf", (int)read);
-    CG_CHECK(!unsetWrote, "S2: Flags_UnsetRandomizerInf(RAND_INF_MAX) wrote past randomizerInf");
+    CG_CHECK(read == 0, "S2: Flags_GetRandomizerInf(RAND_INF_MAX) read %d from its spare word", (int)read);
+    CG_CHECK(!unsetWrote, "S2: Flags_UnsetRandomizerInf(RAND_INF_MAX) cleared its spare word");
 }
 
 } // namespace

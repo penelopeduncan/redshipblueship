@@ -8,7 +8,8 @@
  *   combo-item-rules-second-word (CTest ComboItemRulesSecondWord, redship tier;
  *   needs the CVar store, so the runner brings up the display-free shared
  *   context first) -- THE WORD. Its carve (offset 925 after #1439's Way of the
- *   Hero record, four bytes, reserved[] from 929, still above ADR 0009's floor)
+ *   Hero record, four bytes, reserved[] from 929; reserved[] is frozen at 64
+ *   bytes since save format 6)
  *   and its little-endian codec; the
  *   pinned bit space (OoTMM's seven warp-song extensions at bits 0-6, the seven
  *   shared songs at 7-13, each requiring its extension); the fourteen keys
@@ -203,14 +204,17 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "comboWoth at 914), then #1475's read record at 929 and 64 at 939 (#1169 XW5's byte is the tail)",
                   (unsigned)offsetof(ComboContext, comboItemRules2), (unsigned)sizeof(((ComboContext*)0)->reserved),
                   (unsigned)offsetof(ComboContext, reserved));
-        XW2_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");
+        XW2_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u,
+                  "reserved[] shrank below its frozen 64 bytes (save format 6, ADR 0009 amendment)");
         XW2_CHECK(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved) == 1003u &&
                       offsetof(ComboContext, mmWarpSongsOwned) == 1003u &&
-                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
-                  "the carve moved the record behind reserved[] (ends %u, captures at %u, sizeof %u): every .redsave "
-                  "and every seed package's combo record would be reinterpreted",
+                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u &&
+                      offsetof(ComboContext, trackerAvailOoT) == 1008u,
+                  "the carve moved the record behind reserved[] (ends %u, captures at %u, OoT capture at %u): every "
+                  ".redsave and every seed package's combo record would be reinterpreted",
                   (unsigned)(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved)),
-                  (unsigned)offsetof(ComboContext, trackerAvailCountOoT), (unsigned)sizeof(ComboContext));
+                  (unsigned)offsetof(ComboContext, trackerAvailCountOoT),
+                  (unsigned)offsetof(ComboContext, trackerAvailOoT));
 
         ComboItemRules2Record r;
         memset(&r, 0xEE, sizeof(r));

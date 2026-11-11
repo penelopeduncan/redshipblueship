@@ -73,18 +73,19 @@ bool ComboWarp_Arm(GameId sourceGame, uint16_t marker, GameId targetGame, uint16
 }
 
 // THE APPEND-ONLY LOCKS. Each id sits right after the Stone Mask's, so no id a
-// world or a save already holds moves, and the RAND_INF words OoT saves are still
-// the 129 they were: one more flag would make a 130th word and move every field
-// after it in the save.
+// world or a save already holds moves. Since save format 6 the RAND_INF words OoT
+// saves are a fixed capacity (RSBS_OOT_RAND_INF_CAP, z64save.h), so a new flag
+// moves no field; only outgrowing the capacity does (a save format generation).
 static_assert(RG_SONG_OF_SOARING_OOT == RG_STONE_MASK + 1,
               "RG_SONG_OF_SOARING_OOT is appended right after the masks, before the logic-only ids (#1169 XW4)");
 static_assert(RHT_SONG_OF_SOARING_OOT == RHT_STONE_MASK + 1,
               "RHT_SONG_OF_SOARING_OOT is appended after RHT_STONE_MASK (#1169 XW4)");
 static_assert(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT == RAND_INF_OBTAINED_STONE_MASK + 1,
               "RAND_INF_OBTAINED_SONG_OF_SOARING_OOT is appended after the Stone Mask's flag (#1169 XW4)");
-static_assert((RAND_INF_MAX + 15) / 16 == 129 && sizeof(ShipSaveContextData::randomizerInf) == 129 * sizeof(u16),
-              "OoT's RAND_INF flags must still fit the 129 saved u16 words: a 130th word moves the save layout "
-              "(#1169 XW4)");
+static_assert((unsigned)RAND_INF_MAX <= (unsigned)RSBS_OOT_RAND_INF_CAP &&
+                  sizeof(ShipSaveContextData::randomizerInf) == (RSBS_OOT_RAND_INF_CAP / 16) * sizeof(u16),
+              "OoT's RAND_INF flags must fit the saved capacity of RSBS_OOT_RAND_INF_CAP flags (z64save.h); "
+              "outgrowing it is a save format generation");
 // The refusal names the mode from RSK_SHUFFLE_SONGS's raw value, which fill.cpp
 // passes through; warp_song_items.h spells the two restricted values game-free.
 static_assert(RSBS_SONG_SPOTS_SONG_LOCATIONS == (unsigned)RO_SONG_SHUFFLE_SONG_LOCATIONS &&

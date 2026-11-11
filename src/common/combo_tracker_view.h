@@ -424,8 +424,8 @@ void MM_TrackerAdapter_CaptureAvailability(void);
 // ============================================================================
 //
 // OoT's check status lives on the HEAP (Rando::Context), not in the
-// SaveContext blob — and OOT_SAVE_CONTEXT_SIZE has ~1KB slack, so the blob
-// route is not available even in principle. OoT is suspended, not shut down,
+// SaveContext blob, so there is no blob route to read it through. OoT is
+// suspended, not shut down,
 // during MM, so the heap survives and these accessors stay valid while MM
 // runs. Every function must be null-safe for the never-booted case (the heap
 // context is created lazily; Rando::Context::GetInstance() is NULL until

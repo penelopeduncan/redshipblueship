@@ -326,13 +326,10 @@ bool HsCheckStream() {
 
 bool HsCheckRecord() {
     HS_CHECK(offsetof(ComboContext, mmHintsRead) == 929u && sizeof(((ComboContext*)0)->mmHintsRead) == 10u &&
-                 offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u &&
-                 sizeof(ComboContext) == 1844u,
-             "S3: the read record is %u bytes at %u and reserved[] %u at %u (sizeof %u); want 10 at 929, 64 at 939, "
-             "1844",
+                 offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u,
+             "S3: the read record is %u bytes at %u and reserved[] %u at %u; want 10 at 929, 64 at 939",
              (unsigned)sizeof(((ComboContext*)0)->mmHintsRead), (unsigned)offsetof(ComboContext, mmHintsRead),
-             (unsigned)sizeof(((ComboContext*)0)->reserved), (unsigned)offsetof(ComboContext, reserved),
-             (unsigned)sizeof(ComboContext));
+             (unsigned)sizeof(((ComboContext*)0)->reserved), (unsigned)offsetof(ComboContext, reserved));
     ComboContext_Init();
     HS_CHECK(Combo_HintReadCount((uint8_t)GAME_MM) == 0, "S3: a fresh record reads something read");
     HS_CHECK(Combo_HintMarkRead((uint8_t)GAME_MM, 0) && !Combo_HintMarkRead((uint8_t)GAME_MM, 0),
