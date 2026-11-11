@@ -123,9 +123,10 @@ const RandoOptionId kPlacementOptions[4] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEME
 
 /** Every option Foreign.cpp folds by NAME, only when non-zero (IsAppendedOption):
  *  listed here independently, so dropping one there is a red count below. */
-const RandoOptionId kAppendedOptions[7] = { RO_SHUFFLE_TREE_DROPS,  RO_SHOP_PRICES,          RO_TINGLE_PRICES,
-                                            RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
-                                            RO_SHUFFLE_SONGS };
+const RandoOptionId kAppendedOptions[] = { RO_SHUFFLE_TREE_DROPS,  RO_SHOP_PRICES,          RO_TINGLE_PRICES,
+                                           RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
+                                           RO_SHUFFLE_SONGS,       RO_SHUFFLE_WONDER_ITEMS, RO_SHUFFLE_HIVE_DROPS,
+                                           RO_SHUFFLE_BUTTERFLIES };
 
 /** The four options and MM's host pool (with its cached groups) as the row found
  *  them; the legs replace the pool, so it is put back verbatim, not cleared. */
@@ -335,7 +336,8 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         std::vector<uint32_t> zeros(RO_MAX, 0u);
         const std::string base = Rando::Foreign::TestFoldOptionsString(zeros.data());
         const std::string baseIdentity = Rando::Foreign::TestFoldIdentityString(zeros.data());
-        const int positional = (int)Rando::StaticData::Options.size() - 7;
+        const int appendedCount = (int)(sizeof(kAppendedOptions) / sizeof(kAppendedOptions[0]));
+        const int positional = (int)Rando::StaticData::Options.size() - appendedCount;
         printf("[TEST] (e) %zu options, %d positional; zero seed string is %zu chars\n",
                Rando::StaticData::Options.size(), positional, base.size());
         MPC_CHECK(base == RepeatZero(positional),
