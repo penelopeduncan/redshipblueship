@@ -71,6 +71,11 @@
   Ocarina of Time items. With it off, worlds are made exactly as before. The new Easy Butterfly Fairies enhancement
   turns a butterfly into its fairy as soon as you hold a Deku Stick near it; it is always on while Shuffle Butterfly
   Fairies is.
+- **Shuffled pots, crates and freestanding items in Gerudo Training Ground and Ganon's Castle follow the right
+  dungeon** (from Ship of Harkinian, with issue #1363). With any of those shuffles on in dungeons (they are off by
+  default), Gerudo Training Ground's items now follow its own Master Quest setting instead of Ganon's Castle's, and
+  the Master Quest or vanilla items inside Ganon's Castle are now in the item pool. A seed made with one of those
+  shuffles on makes a different world than before.
 - **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
   Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
   open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold

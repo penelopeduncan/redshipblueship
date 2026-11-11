@@ -1353,6 +1353,13 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     Hive Drops (#1410) and Shuffle Wonder Items (#1406, PR #1510), default
  *     off and make new worlds only when on. No default world moves; no golden
  *     turns grass on.
+ *     Also on 5: OoT's PlaceItemsForType (3drando/item_pool.cpp) finds a
+ *     dungeon check's quest by its scene, not by the scene's number (SoH
+ *     b76e303ce, carried by #1363). With pots, crates or freestanding items
+ *     shuffled in dungeons, Gerudo Training Ground's items follow its own
+ *     quest and Inside Ganon's Castle's quest-specific items enter the pool,
+ *     which moves every such world. All three are off by default and no golden
+ *     turns one on.
  */
 #define RSBS_GENERATOR_VERSION 5u
 

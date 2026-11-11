@@ -150,6 +150,16 @@ static void PlaceItemsForType(RandomizerCheckType rctype, bool overworldActive =
                     AddFixedItemToPool(loc->GetVanillaItem(), 1, false);
                 } else {
                     // Check if current item's dungeon is vanilla or MQ, and only add if quest corresponds to it
+                    // [RSBS #1363] SoH b76e303ce's fix, carried with Shuffle Silver Rupees and disclosed
+                    // here because it changes worlds whatever that option says. The old test read the
+                    // dungeon by the scene's NUMBER (GetDungeon(itemScene) for scenes 0..11), which
+                    // only lines up for the first ten: Ganon's Tower (scene 10) read Gerudo Training
+                    // Ground's quest, Gerudo Training Ground (11) read Ganon's Castle's, and Inside
+                    // Ganon's Castle (13) was never reached, so its quest-specific items were never
+                    // added. With pots, crates, small crates or freestanding items shuffled in
+                    // dungeons (all off by default), Gerudo Training Ground's and Ganon's Castle's
+                    // pool items change, and so does such a world (generator 5's History line,
+                    // src/common/foreign_items.h).
                     SceneID itemScene = loc->GetScene();
                     auto dungeon = ctx->GetDungeonFromScene(itemScene);
 
