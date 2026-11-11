@@ -32,6 +32,11 @@
     gone.
 - **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
   does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
+- **Majora's Mask dungeon item and song placement work in paired worlds** (issue #1502). Majora's Mask's Small Keys,
+  Boss Keys, Stray Fairies and Shuffle Songs rows are no longer marked Not Yet Supported in Paired Worlds. Own Dungeon
+  keeps each item in its own dungeon in Majora's Mask, Song Locations puts Majora's Mask's songs on Majora's Mask's
+  song checks, and Vanilla and Start With behave as in 2Ship. The defaults stay Anywhere, so worlds created with the
+  defaults do not change.
 
 ### Ocarina of Time randomizer
 

@@ -477,6 +477,12 @@ int Combo_ItemTrackerWindow_RunHeadless(void);
 // need MM's headers — this file must never acquire them. Return 0 on pass.
 int MM_RandoOptions_RunHeadless(void);
 int MM_PairedProfile_RunHeadless(void);
+// games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): MM's placement settings
+// as the single bag's host groups, and the fold of the four options. MM-side for
+// the same reason (2Ship's PlacementConstraints and the live save's options). The
+// world check runs after a real paired generation. Return 0 on pass.
+int MM_PlacementConfinement_RunHeadless(void);
+int MM_PlacementConfinedWorld_Check(void);
 // games/mm/2s2h/mm_trick_table_test.cpp (#578 part 1): MM's per-trick
 // vocabulary. MM-side for the same reason as the two above — they drive
 // Rando::StaticData::Tricks, Rando::Logic::CanKillEnemy and
@@ -7391,6 +7397,22 @@ TestResult Test_MMRandoOptions(void) {
     return MM_RandoOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1502: MM's placement settings as the single bag's host groups. ROM-free and
+// display-free: the static tables, the registered MM engine's `hostGroups`, and
+// the live save's option slots it sets and restores; MM_RandoOptions' bring-up.
+TestResult Test_MMPlacementConfinement(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MM_PlacementConfinement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Paired MM PROFILE lock (#499 steps 2-4). Drives the real resolver over a
 // zeroed MM SaveContext — no fill, no region graph, no window — which is the
 // whole point of extracting it out of OnFileCreate.
@@ -8034,7 +8056,7 @@ TestResult Test_SharedSongsBag(void) {
 
 // #1085: one copy of each shared song per Shuffle Songs value (0 Off, 1 Song
 // Locations, 2 Dungeon Rewards, 3 Anywhere), shared-lens-bag's bring-up.
-static TestResult SharedSongsOneCopyRow(int shuffleSongs) {
+static TestResult SharedSongsOneCopyRow(int shuffleSongs, int mmShuffleSongs) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
         printf("[TEST] FAIL: could not create Ship::Context singleton\n");
@@ -8043,19 +8065,67 @@ static TestResult SharedSongsOneCopyRow(int shuffleSongs) {
     static char ssoArg0[] = "redship";
     static char* ssoArgv[] = { ssoArg0, nullptr };
     InitOTRForMMFirstBoot(1, ssoArgv);
-    return SharedSongsOneCopy_Run(shuffleSongs);
+    return SharedSongsOneCopy_Run(shuffleSongs, mmShuffleSongs);
 }
 TestResult Test_SharedSongsOneCopyOff(void) {
-    return SharedSongsOneCopyRow(0);
+    return SharedSongsOneCopyRow(0, -1);
 }
 TestResult Test_SharedSongsOneCopySongLocations(void) {
-    return SharedSongsOneCopyRow(1);
+    return SharedSongsOneCopyRow(1, -1);
 }
 TestResult Test_SharedSongsOneCopyDungeonRewards(void) {
-    return SharedSongsOneCopyRow(2);
+    return SharedSongsOneCopyRow(2, -1);
 }
 TestResult Test_SharedSongsOneCopyAnywhere(void) {
-    return SharedSongsOneCopyRow(3);
+    return SharedSongsOneCopyRow(3, -1);
+}
+// #1502: OoT's songs Anywhere (3), MM's Shuffle Songs Vanilla (2).
+TestResult Test_SharedSongsOneCopyMMVanilla(void) {
+    return SharedSongsOneCopyRow(3, 2);
+}
+
+// #1502: the confined golden's profile (Small Keys, Boss Keys and Stray Fairies at
+// Own Dungeon, Shuffle Songs at Song Locations) created for real, and the world
+// checked against 2Ship's groups. shared-lens-bag's bring-up.
+TestResult Test_MMPlacementConfinedWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char mpcArg0[] = "redship";
+    static char* mpcArgv[] = { mpcArg0, nullptr };
+    InitOTRForMMFirstBoot(1, mpcArgv);
+    printf("[TEST] mm-placement-confined-world: with MM's keys, boss keys and fairies at Own Dungeon and its songs at "
+           "Song Locations, every confined MM item lands in its group and none crosses (#1502)\n");
+    ComboContext_Init();
+    static const char* const kKeys[4] = { "gRando.Options.RO_PLACEMENT_SMALL_KEYS",
+                                          "gRando.Options.RO_PLACEMENT_BOSS_KEYS",
+                                          "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES",
+                                          "gRando.Options.RO_SHUFFLE_SONGS" };
+    struct Restore {
+        ~Restore() {
+            for (const char* key : kKeys) {
+                CVarClear(key);
+            }
+        }
+    } restore;
+    for (const char* key : kKeys) {
+        CVarSetInteger(key, 1); // RO_DUNGEON_ITEM_OWN_DUNGEON / RO_SONG_SHUFFLE_SONG_LOCATIONS
+    }
+    const int gen = Rando_HeadlessSeedTest("RSBSMMCONFINED1");
+    const int mmHalf = (gen == 0) ? MM_Rando_HeadlessPairedHalf() : -1;
+    if (gen != 0 || mmHalf != 0) {
+        printf("[TEST] FAIL: the confined paired generation failed (OoT %d, MM %d)\n", gen, mmHalf);
+        return TEST_FAIL;
+    }
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    if (bag->status != RSBS_COMBO_LOGIC_OK || !bag->fill.goalProven) {
+        printf("[TEST] FAIL: the single-bag fill did not prove the GOAL under the confined profile (%s)\n",
+               Combo_Logic_StatusName(bag->status));
+        return TEST_FAIL;
+    }
+    return MM_PlacementConfinedWorld_Check() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1169 XW4: the Song of Soaring (OoT)'s pool and OoTMM's overflow refusal over
@@ -9248,6 +9318,10 @@ const TestDescriptor gTests[] = {
     // SaveContext, the window needs a Gui.
     { "mm-rando-options", "Every MM rando option has a row, a label, a bound cvar, and honest gating (#497)",
       Test_MMRandoOptions },
+    { "mm-placement-confinement",
+      "MM's Own Dungeon and Song Locations reach the single bag as host groups that agree with 2Ship's rule, the "
+      "defaults confine nothing, and the four placement options fold by name only when set (#1502)",
+      Test_MMPlacementConfinement },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section
@@ -9860,6 +9934,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-host-groups",
+      "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
+      "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
+      Test_ComboLogicHostGroups },
     // Increment 3's two §6.3 MEASUREMENTS, over both real engines at once (#645,
     // lane K3). Needs a real OoT generation AND MM's rando graph, hence the
     // `rando` tier and the `--test all` skip below. It asserts no timing: only
@@ -10088,6 +10166,14 @@ const TestDescriptor gTests[] = {
       "With the three shared-song rules on and Shuffle Songs Anywhere, the paired world holds one copy of each shared "
       "song (#1085)",
       Test_SharedSongsOneCopyAnywhere },
+    { "shared-songs-one-copy-mm-vanilla",
+      "With MM's Shuffle Songs at Vanilla, each shared song is still ONE copy over both games: MM's copy leaves its "
+      "vanilla check to the bag's shared row (#1502)",
+      Test_SharedSongsOneCopyMMVanilla },
+    { "mm-placement-confined-world",
+      "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
+      "every confined MM item lands in its group and none crosses into Ocarina of Time (#1502)",
+      Test_MMPlacementConfinedWorld },
     { "shared-arrows-bag",
       "With all three shared-arrow rules on, the single bag holds one row per arrow both solvers credit, each placed "
       "once over both games, and the GOAL is still proven (#968)",
@@ -10711,6 +10797,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shared-songs-bag") == 0 || strcmp(gTests[i].name, "shared-arrows-bag") == 0 ||
                 strcmp(gTests[i].name, "shared-masks-bag") == 0 ||
                 strncmp(gTests[i].name, "shared-songs-one-copy-", 22) == 0 ||
+                strcmp(gTests[i].name, "mm-placement-confined-world") == 0 ||
                 strcmp(gTests[i].name, "combo-crossing-views-world") == 0 ||
                 strcmp(gTests[i].name, "combo-item-view-new-file") == 0 ||
                 strcmp(gTests[i].name, "mm-creation-new-file-world") == 0 ||
