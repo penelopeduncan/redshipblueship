@@ -181,7 +181,7 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_TERMINA_FIELD_PEAHAT_GROTTO] = RandoRegion{ .name = "Termina Field Peahat", .sceneId = SCENE_KAKUSIANA,
         .checks = {
-            CHECK(RC_TERMINA_FIELD_PEAHAT_GROTTO_CHEST, CanKillEnemy(ACTOR_EN_PEEHAT) && IS_DAY()),
+            CHECK(RC_TERMINA_FIELD_PEAHAT_GROTTO_CHEST, CanKillEnemy(ACTOR_EN_PEEHAT)),
             CHECK(RC_TERMINA_FIELD_PEAHAT_GROTTO_GRASS_01, true),
             CHECK(RC_TERMINA_FIELD_PEAHAT_GROTTO_GRASS_02, true),
             CHECK(RC_TERMINA_FIELD_PEAHAT_GROTTO_GRASS_03, true),

@@ -2351,6 +2351,7 @@ typedef enum {
     RC_ZORA_CAPE_TREE_03,
     RC_ZORA_CAPE_TREE_04,
     RC_ZORA_CAPE_TREE_05,
+    RC_ENEMY_DROP_GOMESS,
 
     RC_CLOCK_TOWN_EAST_WONDER_ITEM_01,
     RC_CLOCK_TOWN_EAST_WONDER_ITEM_02,
@@ -2728,6 +2729,15 @@ typedef enum {
     RI_MASK_GERUDO,
     RI_MASK_SKULL,
     RI_MASK_SPOOKY,
+    // RedShipBlueShip #1169 lane XW5: Ocarina of Time's six warp songs, added to
+    // Majora's Mask by OoTMM's songMinuetMm .. songPreludeMm (Rando/WarpSongsMM.cpp).
+    // APPENDED after the masks for the same reason: no saved id renumbers.
+    RI_SONG_MINUET,
+    RI_SONG_BOLERO,
+    RI_SONG_SERENADE,
+    RI_SONG_REQUIEM,
+    RI_SONG_NOCTURNE,
+    RI_SONG_PRELUDE,
 #endif
     RI_MAX_TRAP,
     RI_MAX,
@@ -2797,6 +2807,7 @@ typedef enum {
     RR_GREAT_BAY_COAST_FISHERMAN_GROTTO,
     RR_GREAT_BAY_COAST,
     RR_GREAT_BAY_COAST_MARINE_LAB_EXTERIOR,
+    RR_GREAT_BAY_COAST_MINIGAME_PLATFORMS,
     RR_GREAT_BAY_COAST_PIRATE_LEDGE,
     RR_GREAT_BAY_GREAT_FAIRY_FOUNTAIN,
     RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM,
@@ -3114,6 +3125,16 @@ typedef enum {
     // default), so a world created before them keeps its seed and digest.
     RO_SHOP_PRICES,
     RO_TINGLE_PRICES,
+    // Appended for the same reason (#1361): 2Ship's dungeon item placements
+    // (a0c9b12ce, 7bc1c4a8c, 236aa75ba), RandoOptionDungeonItemPlacement values.
+    // The identity strings fold each only when it is not Anywhere (0, the default).
+    RO_PLACEMENT_BOSS_KEYS,
+    RO_PLACEMENT_SMALL_KEYS,
+    RO_PLACEMENT_STRAY_FAIRIES,
+    // Appended for the same reason (#1362): 2Ship's song placement (528eed442),
+    // RandoOptionMMSongShuffle values. The identity strings fold it only when it
+    // is not Anywhere (0, the default).
+    RO_SHUFFLE_SONGS,
     // Appended for the same reason (#1406): 2Ship's Wonder Item shuffle
     // (630536f68). The identity strings fold it only when it is on.
     RO_SHUFFLE_WONDER_ITEMS,
@@ -3151,6 +3172,21 @@ typedef enum {
     RO_ACCESS_TRIALS_FORMS,
     RO_ACCESS_TRIALS_OPEN,
 } RandoOptionAccessTrials;
+
+typedef enum {
+    RO_DUNGEON_ITEM_ANYWHERE,
+    RO_DUNGEON_ITEM_OWN_DUNGEON,
+    RO_DUNGEON_ITEM_START_WITH,
+    RO_DUNGEON_ITEM_VANILLA,
+} RandoOptionDungeonItemPlacement;
+
+// Not "RandoOptionSongShuffle": SoH declares that global name with other
+// enumerators, and one binary links both trees (the ODR declaration gate).
+typedef enum {
+    RO_SONG_SHUFFLE_ANYWHERE,
+    RO_SONG_SHUFFLE_SONG_LOCATIONS,
+    RO_SONG_SHUFFLE_VANILLA,
+} RandoOptionMMSongShuffle;
 
 typedef enum {
     RO_CLOCK_SHUFFLE_RANDOM,

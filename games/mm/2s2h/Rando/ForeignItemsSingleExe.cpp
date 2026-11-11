@@ -217,17 +217,90 @@ void OwnCrossedHalfDay(uint16_t riId) {
  *  - the queue holds the CONCRETE half-day, whose give at the drain is the same
  *    single flag write, so nothing resolves twice.
  *
- * A copy past the sixth half-day (the start plus six in the pool is seven)
- * resolves to RI_JUNK, whose give does nothing (GiveItem.cpp), as OoTMM's clamps
- * to a clock already owned. ConvertItem reads the save and the options only, no
- * play state (RI_TIME_PROGRESSIVE has no ItemId, so its obtainability test never
- * reaches MM_Item_CheckObtainability). Every other id is returned unchanged.
+ * A copy past the sixth half-day resolves to RI_JUNK, whose give does nothing
+ * (GiveItem.cpp), as OoTMM's clamps to a clock already owned. The pool holds
+ * five plus the start (one per half-day, as OoTMM's), so a surplus copy comes
+ * only from Plentiful, which adds one per pool copy. ConvertItem reads the save
+ * and the options only, no play state (RI_TIME_PROGRESSIVE has no ItemId, so its
+ * obtainability test never reaches MM_Item_CheckObtainability). Every other id
+ * is returned unchanged.
  */
 uint16_t ResolveCrossedClock(uint16_t riId) {
     if ((RandoItemId)riId != RI_TIME_PROGRESSIVE) {
         return riId;
     }
     return (uint16_t)Rando::ConvertItem(RI_TIME_PROGRESSIVE);
+}
+
+/**
+ * #1481: the half-day a Progressive Time found in Ocarina of Time will grant,
+ * so its pickup, its toast and its shop can name and draw it (OoTMM shows the
+ * resolved clock there too: Item_Progressive at the override, the get-item
+ * text off the resolved id). Display only: the crossing stays
+ * RI_TIME_PROGRESSIVE and ResolveCrossedClock above still decides at the
+ * redemption. The answer is ConvertItem's, read off `save` instead of the live
+ * save: the (ahead + 1)-th half-day `save` does not own, in the world's order,
+ * because the `ahead` copies already crossed redeem first, in slot order, each
+ * owning the next one. MM is suspended between the pickup and the redemption
+ * and writes no clock flag, so the two agree.
+ *
+ * RI_TIME_PROGRESSIVE itself when there is nothing to name: `save` is not a
+ * randomizer save with Shuffle Time on, the mode is Random (no Progressive Time
+ * is pooled there), or no half-day is left. A copy with no half-day left becomes
+ * RI_JUNK at the redemption, so naming an owned clock, as OoTMM's clamp does,
+ * would name something the arrival does not give.
+ */
+uint16_t PresentCrossedClockFrom(const SaveContext* save, uint16_t riId, int ahead) {
+    if ((RandoItemId)riId != RI_TIME_PROGRESSIVE || save == nullptr || ahead < 0 ||
+        save->save.shipSaveInfo.saveType != SAVETYPE_RANDO) {
+        return riId;
+    }
+    const auto& rando = save->save.shipSaveInfo.rando;
+    const u32 mode = rando.randoSaveOptions[RO_CLOCK_SHUFFLE_PROGRESSIVE];
+    if (rando.randoSaveOptions[RO_CLOCK_SHUFFLE] == 0 || mode == RO_CLOCK_SHUFFLE_RANDOM) {
+        return riId;
+    }
+    // ConvertItem's two orders (ConvertItem.cpp, case RI_TIME_PROGRESSIVE).
+    static const RandoItemId kAscending[] = { RI_TIME_DAY_1,   RI_TIME_NIGHT_1, RI_TIME_DAY_2,
+                                              RI_TIME_NIGHT_2, RI_TIME_DAY_3,   RI_TIME_NIGHT_3 };
+    static const RandoItemId kDescending[] = { RI_TIME_NIGHT_3, RI_TIME_DAY_3,   RI_TIME_NIGHT_2,
+                                               RI_TIME_DAY_2,   RI_TIME_NIGHT_1, RI_TIME_DAY_1 };
+    const RandoItemId* order = (mode == RO_CLOCK_SHUFFLE_DESCENDING) ? kDescending : kAscending;
+    int skip = ahead;
+    for (int i = 0; i < Rando::ClockItems::HALF_COUNT; i++) {
+        const int half = Rando::ClockItems::GetHalfDayIndexFromClockItem(order[i]);
+        if (half < 0) {
+            continue;
+        }
+        const int flag = RANDO_INF_OBTAINED_CLOCK_DAY_1 + half;
+        if ((rando.randoInf[flag >> 4] & (1u << (flag & 0xF))) != 0) {
+            continue;
+        }
+        if (skip == 0) {
+            return (uint16_t)order[i];
+        }
+        skip--;
+    }
+    return riId;
+}
+
+/** PresentCrossedClockFrom over MM's frozen half (Context_GetMMSaveContext), the
+ *  buffer the Item Tracker reads the half-days from while Ocarina of Time plays;
+ *  `riId` unchanged when that half holds no started MM file ('ZELDA3'). */
+uint16_t PresentCrossedClock(uint16_t riId, int ahead) {
+    if ((RandoItemId)riId != RI_TIME_PROGRESSIVE) {
+        return riId;
+    }
+    const void* shadow = Context_GetMMSaveContext();
+    if (shadow == nullptr || (reinterpret_cast<uintptr_t>(shadow) % alignof(SaveContext)) != 0) {
+        return riId;
+    }
+    const SaveContext* half = static_cast<const SaveContext*>(shadow);
+    static const char kNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    if (std::memcmp(half->save.saveInfo.playerData.newf, kNewf, sizeof(kNewf)) != 0) {
+        return riId;
+    }
+    return PresentCrossedClockFrom(half, riId, ahead);
 }
 
 /**
@@ -579,6 +652,57 @@ extern "C" int MM_ForeignItem_TestFlushWithStandInPlay(void) {
     MM_gPlayState = previous;
     memcpy(gSaveContext.save.saveInfo.weekEventReg, weekEvents, sizeof(weekEvents));
     return given;
+}
+
+// ============================================================================
+// #1481: what an MM item found in Ocarina of Time is shown as
+// ============================================================================
+
+/** MM's describer's presentItem (ComboLogicEngineSingleExe.cpp registers it):
+ *  PresentCrossedClock over the frozen half; every id but Progressive Time is
+ *  shown as placed. */
+extern "C" uint16_t MM_ForeignItem_PresentItem(uint16_t riId, int ahead) {
+    return PresentCrossedClock(riId, ahead);
+}
+
+/** TEST BRIDGE (MMClockShuffleFirstArrival leg 13): PresentCrossedClockFrom over
+ *  `save`, a SaveContext image, without the frozen half or its marker. */
+extern "C" uint16_t MM_ForeignItem_TestPresentFrom(const void* save, uint16_t riId, int ahead) {
+    return PresentCrossedClockFrom(static_cast<const SaveContext*>(save), riId, ahead);
+}
+
+/**
+ * TEST BRIDGE (ForeignModel row M23): write into `buf` (zeroed first) a started
+ * ('ZELDA3' unless `marked` is 0) randomizer MM save with Shuffle Time on, Time
+ * Progression `mode` (0 Random, 1 Ascending, 2 Descending) and the half-days of
+ * `owned` (bit i: RANDO_INF_OBTAINED_CLOCK_DAY_1 + i) owned, so a lock in
+ * src/common can stage MM's frozen half without seeing its layout. Returns 1,
+ * or 0 when `size` cannot hold a SaveContext, `buf` is misaligned or `mode` is
+ * unknown.
+ */
+extern "C" int MM_ForeignItem_TestAuthorClockSave(void* buf, size_t size, int mode, uint8_t owned, int marked) {
+    if (buf == nullptr || size < sizeof(SaveContext) ||
+        (reinterpret_cast<uintptr_t>(buf) % alignof(SaveContext)) != 0 || mode < 0 || mode > 2) {
+        return 0;
+    }
+    std::memset(buf, 0, size);
+    SaveContext* s = static_cast<SaveContext*>(buf);
+    if (marked != 0) {
+        static const char kNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+        std::memcpy(s->save.saveInfo.playerData.newf, kNewf, sizeof(kNewf));
+    }
+    s->save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    auto& rando = s->save.shipSaveInfo.rando;
+    rando.randoSaveOptions[RO_CLOCK_SHUFFLE] = RO_GENERIC_YES;
+    static const u32 kModes[3] = { RO_CLOCK_SHUFFLE_RANDOM, RO_CLOCK_SHUFFLE_ASCENDING, RO_CLOCK_SHUFFLE_DESCENDING };
+    rando.randoSaveOptions[RO_CLOCK_SHUFFLE_PROGRESSIVE] = kModes[mode];
+    for (int i = 0; i < Rando::ClockItems::HALF_COUNT; i++) {
+        if ((owned & (1u << i)) != 0) {
+            const int flag = RANDO_INF_OBTAINED_CLOCK_DAY_1 + i;
+            rando.randoInf[flag >> 4] = (u16)(rando.randoInf[flag >> 4] | (1u << (flag & 0xF)));
+        }
+    }
+    return 1;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

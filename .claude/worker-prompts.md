@@ -168,7 +168,7 @@ are the reasoning behind them.
   found and recommend closing or re-scoping. Several findings have changed shape
   under scrutiny; that is a good outcome.
 - Human-filed issues and PRs are hands-off. Anything authored by an account other
-  than `spencerduncan` was filed by a person, and only the operator talks to
+  than `penelopeduncan` was filed by a person, and only the operator talks to
   people. Never comment on, label, assign, retitle, edit, close, or auto-close
   (`Fixes`/`Closes`/`Resolves #N`) it, and never reply to a person's comment on
   an agent issue or PR; surface it in your report instead. To work on one, file

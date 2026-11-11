@@ -16,7 +16,7 @@ file's own TODO text; for each one skipped, say why. Tricks-off logic must
 not change: prove it with an artifact comparison against a main binary, not
 a green row. Extend the table-driven `MMTrickBindings` lock with a
 red/green pair per new binding. Update #697's status table (confirm the
-author is `spencerduncan`) as a comment.
+author is `penelopeduncan`) as a comment.
 
 **Files owned:** `games/mm/2s2h/Rando/Logic/Regions/*.cpp` (touched seams
 only), the bindings test, `OptionsUiSingleExe.cpp` (`kBoundTricks` only),

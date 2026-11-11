@@ -143,6 +143,46 @@ void Settings::HandleMixedEntrancePoolsUI() {
     }
 }
 
+void Settings::HandleKeyringUI() {
+    const bool fortressKeyring =
+        CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) ==
+            RO_GF_CARPENTERS_NORMAL &&
+        CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) != RO_GERUDO_KEYS_VANILLA;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1364: every world is generated with Shuffle Chest Minigame off
+    // (Playthrough_Init pins it), so FinalizeSettings never adds the Chest Minigame
+    // Keyring to its list. The menu follows the pin, not the stored CVar (which a
+    // preset or the config file can still set): a count slider one past that list
+    // would index past its end.
+    const bool chestGameKeyring = false;
+#else
+    const bool chestGameKeyring =
+        CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF) != RO_GENERIC_OFF;
+#endif
+    const uint8_t maxKeyringCount = 8 + fortressKeyring + chestGameKeyring;
+    if (mOptions[RSK_KEYRINGS_RANDOM_COUNT].GetOptionCount() != maxKeyringCount + 1) {
+        mOptions[RSK_KEYRINGS_RANDOM_COUNT].ChangeOptions(NumOpts(0, maxKeyringCount));
+    }
+    if (fortressKeyring) {
+        mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Enable();
+    } else {
+        mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Disable(
+            "Disabled because the currently selected Gerudo Fortress Carpenters\n"
+            "setting and/or Gerudo Fortress Keys setting is incompatible with\n"
+            "having a Gerudo Fortress Keyring.");
+    }
+    if (chestGameKeyring) {
+        mOptions[RSK_KEYRINGS_CHEST_GAME].Enable();
+    } else {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because the cross-game randomizer does not support\n"
+                                                  "the Treasure Chest Game's keys yet.");
+#else
+        mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because Shuffle Chest Minigame is off.");
+#endif
+    }
+}
+
 void Settings::HandleStartingAgeUI() {
     // Starting Age - Disabled under very specific conditions unless it's No Logic
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -201,25 +241,7 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_LOCK_OVERWORLD_DOORS, "Lock Overworld Doors", CVAR_RANDOMIZER_SETTING("LockOverworldDoors"), mOptionDescriptions[RSK_LOCK_OVERWORLD_DOORS]);
     OPT_U8(RSK_GERUDO_FORTRESS, "Fortress Carpenters", {"Normal", "Fast", "Free"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("FortressCarpenters"), mOptionDescriptions[RSK_GERUDO_FORTRESS]);
     OPT_CALLBACK(RSK_GERUDO_FORTRESS, {
-        const uint8_t maxKeyringCount =
-            (CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) ==
-                RO_GF_CARPENTERS_NORMAL &&
-            CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) != RO_GERUDO_KEYS_VANILLA)
-                ? 9
-                : 8;
-        if (mOptions[RSK_KEYRINGS_RANDOM_COUNT].GetOptionCount() != maxKeyringCount + 1) {
-            mOptions[RSK_KEYRINGS_RANDOM_COUNT].ChangeOptions(NumOpts(0, maxKeyringCount));
-        }
-        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) !=
-                RO_GF_CARPENTERS_NORMAL ||
-            CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) == RO_GERUDO_KEYS_VANILLA) {
-            mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Disable(
-                "Disabled because the currently selected Gerudo Fortress Carpenters\n"
-                "setting and/or Gerudo Fortress Keys setting is incompatible with\n"
-                "having a Gerudo Fortress Keyring.");
-        } else {
-            mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Enable();
-        }
+        HandleKeyringUI();
     });
     OPT_U8(RSK_RAINBOW_BRIDGE, "Rainbow Bridge", {"Vanilla", "Always open", "Stones", "Medallions", "Dungeon rewards", "Dungeons", "Tokens", "Greg"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("RainbowBridge"), mOptionDescriptions[RSK_RAINBOW_BRIDGE], WIDGET_CVAR_COMBOBOX, RO_BRIDGE_SHIPPED_DEFAULT, false, nullptr, IMFLAG_NONE);
     OPT_CALLBACK(RSK_RAINBOW_BRIDGE, {
@@ -1065,7 +1087,23 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_MERCHANT_PRICES_AFFORDABLE, "Merchant Affordable Prices", CVAR_RANDOMIZER_SETTING("MerchantPricesAffordable"), mOptionDescriptions[RSK_MERCHANT_PRICES_AFFORDABLE]);
     OPT_BOOL(RSK_SHUFFLE_FROG_SONG_RUPEES, "Shuffle Frog Song Rupees", CVAR_RANDOMIZER_SETTING("ShuffleFrogSongRupees"), mOptionDescriptions[RSK_SHUFFLE_FROG_SONG_RUPEES]);
     OPT_BOOL(RSK_SHUFFLE_ADULT_TRADE, "Shuffle Adult Trade", CVAR_RANDOMIZER_SETTING("ShuffleAdultTrade"), mOptionDescriptions[RSK_SHUFFLE_ADULT_TRADE]);
-    OPT_U8(RSK_SHUFFLE_CHEST_MINIGAME, "Shuffle Chest Minigame", {"Off", "On (Separate)", "On (Pack)"});
+    OPT_CALLBACK(RSK_SHUFFLE_ADULT_TRADE, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleAdultTrade"), RO_GENERIC_OFF)) {
+            mOptions[RSK_EARLY_GRANNYS_SHOP].Disable("This has no effect when Shuffle Adult Trade is on.");
+        } else {
+            mOptions[RSK_EARLY_GRANNYS_SHOP].Enable();
+        }
+    });
+    OPT_BOOL(RSK_SHUFFLE_CHEST_MINIGAME, "Shuffle Chest Minigame", CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), mOptionDescriptions[RSK_SHUFFLE_CHEST_MINIGAME]);
+    OPT_CALLBACK(RSK_SHUFFLE_CHEST_MINIGAME, {
+        HandleKeyringUI();
+    });
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1364: every world is generated with it off (Playthrough_Init) until the
+    // cross-game generator supports the chest game's keys, so the menu says so.
+    mOptions[RSK_SHUFFLE_CHEST_MINIGAME].Disable("Disabled because the cross-game randomizer does not support\n"
+                                                 "the Treasure Chest Game's keys yet.");
+#endif
     OPT_BOOL(RSK_SHUFFLE_100_GS_REWARD, "Shuffle 100 GS Reward", CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_CALLBACK(RSK_SHUFFLE_100_GS_REWARD, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), RO_GENERIC_OFF)) {
@@ -1124,25 +1162,7 @@ void Settings::CreateOptions() {
     OPT_U8(RSK_KEYSANITY, "Small Key Shuffle", {"Start With", "Vanilla", "Own Dungeon", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Keysanity"), mOptionDescriptions[RSK_KEYSANITY], WIDGET_CVAR_COMBOBOX, RO_DUNGEON_ITEM_LOC_OWN_DUNGEON);
     OPT_U8(RSK_GERUDO_KEYS, "Gerudo Fortress Keys", {"Vanilla", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("GerudoKeys"), mOptionDescriptions[RSK_GERUDO_KEYS], WIDGET_CVAR_COMBOBOX, RO_GERUDO_KEYS_VANILLA);
     OPT_CALLBACK(RSK_GERUDO_KEYS, {
-        const uint8_t maxKeyringCount =
-            (CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) ==
-                RO_GF_CARPENTERS_NORMAL &&
-            CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) != RO_GERUDO_KEYS_VANILLA)
-                ? 9
-                : 8;
-        if (mOptions[RSK_KEYRINGS_RANDOM_COUNT].GetOptionCount() != maxKeyringCount + 1) {
-            mOptions[RSK_KEYRINGS_RANDOM_COUNT].ChangeOptions(NumOpts(0, maxKeyringCount));
-        }
-        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) !=
-                RO_GF_CARPENTERS_NORMAL ||
-            CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) == RO_GERUDO_KEYS_VANILLA) {
-            mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Disable(
-                "Disabled because the currently selected Gerudo Fortress Carpenters\n"
-                "setting and/or Gerudo Fortress Keys setting is incompatible with\n"
-                "having a Gerudo Fortress Keyring.");
-        } else {
-            mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Enable();
-        }
+        HandleKeyringUI();
     });
     OPT_U8(RSK_BOSS_KEYSANITY, "Boss Key Shuffle", {"Start With", "Vanilla", "Own Dungeon", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("BossKeysanity"), mOptionDescriptions[RSK_BOSS_KEYSANITY], WIDGET_CVAR_COMBOBOX, RO_DUNGEON_ITEM_LOC_OWN_DUNGEON);
     OPT_U8(RSK_GANONS_BOSS_KEY, "Ganon's Boss Key", {"Vanilla", "Own Dungeon", "Start With", "Any Dungeon", "Overworld", "Anywhere", "LACS-Vanilla", "LACS-Stones", "LACS-Medallions", "LACS-Rewards", "LACS-Dungeons", "LACS-Tokens", "100 GS Reward"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleGanonBossKey"), mOptionDescriptions[RSK_GANONS_BOSS_KEY], WIDGET_CVAR_COMBOBOX, RO_GANON_BOSS_KEY_SHIPPED_DEFAULT);
@@ -1234,6 +1254,7 @@ void Settings::CreateOptions() {
                 mOptions[RSK_KEYRINGS_BOTTOM_OF_THE_WELL].Hide();
                 mOptions[RSK_KEYRINGS_GTG].Hide();
                 mOptions[RSK_KEYRINGS_GANONS_CASTLE].Hide();
+                mOptions[RSK_KEYRINGS_CHEST_GAME].Hide();
                 break;
             case RO_KEYRINGS_SELECTION:
                 // Show checkboxes for each dungeon with keys.
@@ -1247,6 +1268,7 @@ void Settings::CreateOptions() {
                 mOptions[RSK_KEYRINGS_BOTTOM_OF_THE_WELL].Unhide();
                 mOptions[RSK_KEYRINGS_GTG].Unhide();
                 mOptions[RSK_KEYRINGS_GANONS_CASTLE].Unhide();
+                mOptions[RSK_KEYRINGS_CHEST_GAME].Unhide();
                 break;
             default:
                 mOptions[RSK_KEYRINGS_RANDOM_COUNT].Hide();
@@ -1259,10 +1281,11 @@ void Settings::CreateOptions() {
                 mOptions[RSK_KEYRINGS_BOTTOM_OF_THE_WELL].Hide();
                 mOptions[RSK_KEYRINGS_GTG].Hide();
                 mOptions[RSK_KEYRINGS_GANONS_CASTLE].Hide();
+                mOptions[RSK_KEYRINGS_CHEST_GAME].Hide();
                 break;
         }
     });
-    OPT_U8(RSK_KEYRINGS_RANDOM_COUNT, "Keyring Dungeon Count", {NumOpts(0, 9)}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsRandomCount"), "", WIDGET_CVAR_SLIDER_INT, 8);
+    OPT_U8(RSK_KEYRINGS_RANDOM_COUNT, "Keyring Dungeon Count", {NumOpts(0, 10)}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsRandomCount"), "", WIDGET_CVAR_SLIDER_INT, 8);
     OPT_U8(RSK_KEYRINGS_GERUDO_FORTRESS, "Gerudo Fortress Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsGerudoFortress"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_U8(RSK_KEYRINGS_FOREST_TEMPLE, "Forest Temple Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsForestTemple"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_U8(RSK_KEYRINGS_FIRE_TEMPLE, "Fire Temple Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsFireTemple"), "", WIDGET_CVAR_COMBOBOX, 0);
@@ -1272,6 +1295,7 @@ void Settings::CreateOptions() {
     OPT_U8(RSK_KEYRINGS_BOTTOM_OF_THE_WELL, "Bottom of the Well Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsBottomOfTheWell"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_U8(RSK_KEYRINGS_GTG, "Gerudo Training Ground Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsGTG"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_U8(RSK_KEYRINGS_GANONS_CASTLE, "Ganon's Castle Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsGanonsCastle"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_KEYRINGS_CHEST_GAME, "Chest Minigame Keyring", {"No", "Random", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleKeyRingsChestGame"), "", WIDGET_CVAR_COMBOBOX, 0);
     //Dummied out due to redundancy with TimeSavers.SkipChildStealth until such a time that logic needs to consider child stealth e.g. because it's freestanding checks are added to freestanding shuffle.
     //To undo this dummying, readd this setting to an OptionGroup so it appears in the UI, then edit the timesaver check hooks to look at this, and the timesaver setting to lock itself as needed.
     OPT_BOOL(RSK_SKIP_CHILD_STEALTH, "Skip Child Stealth", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipChildStealth"), mOptionDescriptions[RSK_SKIP_CHILD_STEALTH], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
@@ -1286,6 +1310,7 @@ void Settings::CreateOptions() {
             mOptions[RSK_SKIP_CHILD_STEALTH].Enable();
         }
     });
+    OPT_BOOL(RSK_EARLY_GRANNYS_SHOP, "Early Granny's Potion Shop", CVAR_RANDOMIZER_SETTING("EarlyGrannysShop"), mOptionDescriptions[RSK_EARLY_GRANNYS_SHOP]);
     OPT_BOOL(RSK_SKIP_EPONA_RACE, "Skip Epona Race", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipEponaRace"), mOptionDescriptions[RSK_SKIP_EPONA_RACE], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
     OPT_BOOL(RSK_SKIP_SCARECROWS_SONG, "Skip Scarecrow's Song", CVAR_RANDOMIZER_SETTING("SkipScarecrowsSong"), mOptionDescriptions[RSK_SKIP_SCARECROWS_SONG]);
     OPT_BOOL(RSK_SKIP_PLANTING_BEANS, "Skip Planting Beans", CVAR_RANDOMIZER_SETTING("SkipPlantingBeans"), mOptionDescriptions[RSK_SKIP_PLANTING_BEANS]);
@@ -1506,10 +1531,15 @@ void Settings::CreateOptions() {
     // RCQUEST_BOTH, RA_NONE, {Tricks::Tag::ADVANCED, Tricks::Tag::EXPERIMENTAL, Tricks::Tag::GLITCH}, "ISG", "Enables
     // locations requiring use of the infinite sword glitch.");
 
-    OPT_TRICK(RT_VISIBLE_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE },
-              "Pass Through Visible One-Way Collision",
-              "Allows climbing through the platform to reach Impa's House Back as adult with no items and going "
-              "through the Kakariko Village Gate as child when coming from the Mountain Trail side.");
+    OPT_TRICK(RT_VISIBLE_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Ignore Visible Collision",
+              "Allows ignoring visible barriers and objects that do not actually stop Link from walking, climbing or "
+              "hitting things, without clipping.\n\n"
+              "This notably allows for walking through Kak's gate backwards, climb into the back of Impa's house as "
+              "Adult from the coop,"
+              "and hitting Rusted Switches or boulders through Blocks, Ice and Walls.\n\n"
+              "This trick only applies to case where doing the thing is trivial, instances where it only works from "
+              "certain angles are not part of this trick,"
+              "niether are any form of clips, including clipping Link's hitbox inside boulders with jumpslash.");
     OPT_TRICK(RT_GROTTOS_WITHOUT_AGONY, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE },
               "Hidden Grottos without Stone of Agony", "Allows entering hidden grottos without the Stone of Agony.");
     OPT_TRICK(RT_FEWER_TUNIC_REQUIREMENTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE },
@@ -1521,18 +1551,9 @@ void Settings::CreateOptions() {
               "Many ledges can be overcome with particular jumps which are simple to execute without items.\n"
               "This includes jumping from heights to dive deeper without scales,\n"
               "though this trick doesn't cover Water Temple's Dragon Room.");
-    OPT_TRICK(RT_RUSTED_SWITCHES, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Hammer Through Collision",
-              "Applies to:\n"
-              "- Hitting Fire Temple Highest Goron Chest's Rusted Switch in the SoT Block without Song of Time.\n"
-              "- Hitting the rusted switch in Water Trial through the Ice."
-              "- Hitting MQ Fire Temple Lizalfos Maze's Rusted Switch in the wall.\n"
-              "- Having Adult hammer the rock in the west side crawlspace of MQ Spirit so child can get through "
-              "without bombchus."
-              "- MQ Spirit Trial's Rusted Switch between the thrones without hitting the eye target to drop an Iron "
-              "Knuckle.\n");
-    OPT_TRICK(RT_FLAMING_CHESTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Flaming Chests",
-              "The chests encircled in flames in Gerudo Training Ground and in Spirit Temple can be opened by running "
-              "into the flames while Link is invincible after taking damage.");
+    OPT_TRICK(RT_FIRE_RINGS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Fire Ring",
+              "Fire Rings can be run into while Link is invincible from having taken damage,"
+              "letting you interact with some objects inside them such as large chests");
     // disabled for now, can't check for being able to use bunny hood & bunny hood speedup is currently completely
     // decoupled from rando OPT_TRICK(RT_BUNNY_HOOD_JUMPS, RCQUEST_BOTH, RA_NONE, {Tricks::Tag::ADVANCED}, "Bunny Hood
     // Jumps", "Allows reaching locations using Bunny Hood's extended jumps.");
@@ -1560,12 +1581,14 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_OPEN_UNDERWATER_CHEST, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
               "Open Underwater Chests",
               "Underwater chests can be opened by wearing iron boots and hookshotting the chest.");
-    OPT_TRICK(RT_DISTANT_BOULDER_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
-              "Distant Boulder Collision",
-              "From afar boulder collision is disabled, allowing projectiles to pass through them.");
-    OPT_TRICK(RT_HOOKSHOT_EXTENSION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE },
-              "Hookshot/Projectile Extension",
-              "Slightly extends range. Also allows clipping projectile past collision. Used for:\n"
+    OPT_TRICK(RT_BOULDER_COLLISION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
+              "Flawed Boulder Collision",
+              "From afar, boulder collision is disabled, allowing projectiles to pass through them.\n"
+              "Additionally, boulders do not have projectile collision from below, allow them to be shot into in some "
+              "cases.");
+    OPT_TRICK(RT_ITEM_EXTENSION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Item Extension",
+              "Slightly extends the range of projectiles such as Hookshot, Bow or Slingshot. Also allows clipping "
+              "projectile past collision. Used for:\n"
               "- Crossing Gerudo Valley with Hookshot\n"
               "- Retrieving DMT Gold Skulltula beside bomb flower\n"
               "- Hitting switch through wall in Spirit Temple's big mirror room with Bow, Slingshot, or Hookshot\n"
@@ -1588,9 +1611,9 @@ void Settings::CreateOptions() {
               "Adult Kokiri Forest GS with Hover Boots",
               "Can be obtained without Hookshot by using the Hover Boots off of one of the roots.");
     OPT_TRICK(RT_LW_BRIDGE, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::EXPERT },
-              "Jump onto the Lost Woods Bridge as Adult with Nothing",
-              "With very precise movement it's possible for adult to jump onto the bridge without needing Longshot, "
-              "Hover Boots, or Bean.");
+              "Jump onto the Lost Woods Bridge as Adult with a Jumpslash",
+              "With very precise movement and a jumpslash it's possible for Adult to jump onto the bridge without "
+              "needing Longshot, Hover Boots, or Bean.");
     OPT_TRICK(RT_LW_MIDO_BACKFLIP, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::NOVICE },
               "Backflip over Mido as Adult", "With a specific position and angle, you can backflip over Mido.");
     OPT_TRICK(RT_LOST_WOOD_NAVI_DIVE, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
@@ -1634,6 +1657,10 @@ void Settings::CreateOptions() {
               "Shadow Temple Entry with Fire Arrows",
               "It is possible to light all of the torches to open the Shadow Temple entrance with just Fire Arrows, "
               "but you must be very quick, precise, and strategic with how you take your shots.");
+    OPT_TRICK(RT_DMT_SHIELDLESS_CLIMB, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::NOVICE },
+              "Death Mountain Trail Child Climb Without Shield",
+              "Child can make it past the eruption to reach DMT Summit without a Hylian Shield or Nayru's Love"
+              "by backwalking or simply taking damage.");
     OPT_TRICK(RT_DMT_SOIL_GS, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::INTERMEDIATE },
               "Death Mountain Trail Soil GS without Destroying Boulder",
               "Bugs will go into the soft soil even while the boulder is still blocking the entrance. Then, using a "
@@ -2374,6 +2401,7 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                       &mOptions[RSK_MASK_QUEST],
                                                                       &mOptions[RSK_SKIP_CHILD_STEALTH],
+                                                                      &mOptions[RSK_EARLY_GRANNYS_SHOP],
                                                                       &mOptions[RSK_SKIP_PLANTING_BEANS],
                                                                       &mOptions[RSK_SKIP_EPONA_RACE],
                                                                       &mOptions[RSK_SKIP_SCARECROWS_SONG],
@@ -2476,7 +2504,8 @@ void Settings::CreateOptions() {
           &mOptions[RSK_KEYRINGS_FIRE_TEMPLE], &mOptions[RSK_KEYRINGS_WATER_TEMPLE],
           &mOptions[RSK_KEYRINGS_SPIRIT_TEMPLE], &mOptions[RSK_KEYRINGS_SHADOW_TEMPLE],
           &mOptions[RSK_KEYRINGS_BOTTOM_OF_THE_WELL], &mOptions[RSK_KEYRINGS_GTG],
-          &mOptions[RSK_KEYRINGS_GANONS_CASTLE], &mOptions[RSK_KEYRINGS_GERUDO_FORTRESS] },
+          &mOptions[RSK_KEYRINGS_GANONS_CASTLE], &mOptions[RSK_KEYRINGS_GERUDO_FORTRESS],
+          &mOptions[RSK_KEYRINGS_CHEST_GAME] },
         WidgetContainerType::SECTION);
     mOptionGroups[RSG_MENU_COLUMN_KEYRINGS] =
         OptionGroup::SubGroup("", { &mOptionGroups[RSG_MENU_SECTION_KEYRINGS] }, WidgetContainerType::COLUMN);
@@ -2513,6 +2542,7 @@ void Settings::CreateOptions() {
                                   &mOptions[RSK_SHUFFLE_BUSHES],
                                   &mOptions[RSK_SHUFFLE_FROG_SONG_RUPEES],
                                   &mOptions[RSK_SHUFFLE_ADULT_TRADE],
+                                  &mOptions[RSK_SHUFFLE_CHEST_MINIGAME],
                                   &mOptions[RSK_SHUFFLE_100_GS_REWARD],
                                   &mOptions[RSK_SHUFFLE_FOUNTAIN_FAIRIES],
                                   &mOptions[RSK_SHUFFLE_STONE_FAIRIES],
@@ -2852,6 +2882,7 @@ void Settings::CreateOptions() {
                                                  &mOptions[RSK_KEYRINGS_BOTTOM_OF_THE_WELL],
                                                  &mOptions[RSK_KEYRINGS_GTG],
                                                  &mOptions[RSK_KEYRINGS_GANONS_CASTLE],
+                                                 &mOptions[RSK_KEYRINGS_CHEST_GAME],
                                              });
     mOptionGroups[RSG_STARTING_ITEMS] =
         OptionGroup::SubGroup("Items", { &mOptions[RSK_STARTING_OCARINA], &mOptions[RSK_STARTING_KOKIRI_SWORD],
@@ -3092,8 +3123,7 @@ void Settings::PopulateExcludeLocationsOptions() {
     for (auto& loc : StaticData::GetLocationTable()) {
         // Checks of these types don't have items, skip them.
         if (loc.GetRandomizerCheck() == RC_UNKNOWN_CHECK || loc.GetRandomizerCheck() == RC_TRIFORCE_COMPLETED ||
-            loc.GetRCType() == RCTYPE_CHEST_GAME || loc.GetRCType() == RCTYPE_STATIC_HINT ||
-            loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
+            loc.GetRCType() == RCTYPE_STATIC_HINT || loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
             continue;
         }
         bool alreadyAdded = false;
@@ -3231,10 +3261,6 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         mOptions[RSK_STARTING_NUTS].Set(false);
     }
 
-    // RANDOTODO implement chest shuffle with keysanity
-    // ShuffleChestMinigame.Set(cvarSettings[RSK_SHUFFLE_CHEST_MINIGAME]);
-    mOptions[RSK_SHUFFLE_CHEST_MINIGAME].Set(RO_CHEST_GAME_OFF);
-
     // TODO: RandomizeAllSettings(true) when implementing the ability to randomize the options themselves.
     std::array<DungeonInfo*, 12> dungeons = this->GetDungeons()->GetDungeonList();
 
@@ -3352,7 +3378,7 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         }
     }
 
-    // Set key ring for each dungeon
+    // Set keyring for each dungeon
     for (const auto dungeon : dungeons) {
         dungeon->ClearKeyRing();
     }
@@ -3365,7 +3391,7 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
     };
 
     if (mOptions[RSK_KEYRINGS]) {
-        // Random Key Rings
+        // Random Keyrings
         auto keyrings = keyRingOptions;
         if (mOptions[RSK_GERUDO_FORTRESS].Is(RO_GF_CARPENTERS_NORMAL) &&
             mOptions[RSK_GERUDO_KEYS].IsNot(RO_GERUDO_KEYS_VANILLA)) {
@@ -3373,10 +3399,24 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         } else {
             mOptions[RSK_KEYRINGS_GERUDO_FORTRESS].Set(RO_KEYRING_FOR_DUNGEON_OFF);
         }
+        if (mOptions[RSK_SHUFFLE_CHEST_MINIGAME]) {
+            keyrings.push_back(&mOptions[RSK_KEYRINGS_CHEST_GAME]);
+        } else {
+            mOptions[RSK_KEYRINGS_CHEST_GAME].Set(RO_KEYRING_FOR_DUNGEON_OFF);
+        }
         if (mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_RANDOM) || mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)) {
-            const uint32_t keyRingCount = mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)
-                                              ? mOptions[RSK_KEYRINGS_RANDOM_COUNT].Get()
-                                              : Random(0, static_cast<int>(keyrings.size()));
+            uint32_t keyRingCount = mOptions[RSK_KEYRINGS].Is(RO_KEYRINGS_COUNT)
+                                        ? mOptions[RSK_KEYRINGS_RANDOM_COUNT].Get()
+                                        : Random(0, static_cast<int>(keyrings.size()));
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1364: the count comes from a slider whose length the menu sets
+            // (HandleKeyringUI), but a stored count, a preset or a headless
+            // generation can exceed this list, and the loop below would index past
+            // its end (inherited from SoH). Only such counts change here.
+            if (keyRingCount > keyrings.size()) {
+                keyRingCount = static_cast<uint32_t>(keyrings.size());
+            }
+#endif
             Shuffle(keyrings);
             for (size_t i = 0; i < keyRingCount; i++) {
                 keyrings[i]->Set(RO_KEYRING_FOR_DUNGEON_ON);
@@ -3416,6 +3456,12 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
         if (mOptions[RSK_KEYRINGS_GANONS_CASTLE].Is(RO_KEYRING_FOR_DUNGEON_ON) ||
             (mOptions[RSK_KEYRINGS_GANONS_CASTLE].Is(RO_KEYRING_FOR_DUNGEON_RANDOM) && Random(0, 2) == 1)) {
             this->GetDungeon(GANONS_CASTLE)->SetKeyRing();
+        }
+        // Gerudo Fortress & the chest minigame have no DungeonInfo, so resolve their random rolls into the option
+        for (const auto keyring : { &mOptions[RSK_KEYRINGS_GERUDO_FORTRESS], &mOptions[RSK_KEYRINGS_CHEST_GAME] }) {
+            if (keyring->Is(RO_KEYRING_FOR_DUNGEON_RANDOM)) {
+                keyring->Set(Random(0, 2) == 0 ? RO_KEYRING_FOR_DUNGEON_ON : RO_KEYRING_FOR_DUNGEON_OFF);
+            }
         }
     }
 

@@ -11,7 +11,7 @@ Stale-open issues #656, #657, #659, #667 (fixed by merged PR #689, whose
 `Fixes #659 #656 #657 #667` line only closed #659) and #660 (fixed by merged
 PR #680, whose `Fixes #583 #585 #660` line only closed #583): for each,
 confirmed the fix on `origin/main` by file:line, confirmed the author is
-`spencerduncan`, closed with a one-line comment naming the PR and evidence.
+`penelopeduncan`, closed with a one-line comment naming the PR and evidence.
 Epic #644: its remaining children (#661, #662) were both already closed
 (PR #691, PR #684) — closed #644 with a summary. (2) Marked
 `docs/solver-inventory.md` §6.2 rows P1, P2, P3, P4, P6, P9, P10, P11, P13,

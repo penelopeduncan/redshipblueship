@@ -412,6 +412,12 @@ int MM_WonderItemsHooks_RunHeadless(void);
 // shared bring-up first. Return 0 on pass.
 int MM_ShopPrices_RunHeadless(void);
 int MM_ShopPricesPool_RunHeadless(void);
+// Majora's Mask's Tingle maps (games/mm/2s2h/mm_tingle_maps_test.cpp, #1499): one
+// copy of each map in a real pool generation (none of a starting map); then every
+// surface of a shop slot holding an owned map names the junk it sells, once. Both
+// need the display-free shared bring-up first. Return 0 on pass.
+int MM_TingleMapPool_RunHeadless(void);
+int MM_TingleMapDisplay_RunHeadless(void);
 // The curated MM enhancement keys' liveness evidence
 // (games/mm/2s2h/mm_enhancement_toggles_test.cpp, #682): the EVIDENCE half of the
 // pair above, MM-side because the registries are. Per key: exactly one
@@ -670,6 +676,10 @@ extern "C" {
 // facts. FILE SCOPE (compiled as C++) for rsbs::SaveManager.
 #include "tests/test_save_refusal.c"
 
+// Save format 6's layout rows: the layout pins' measured values and the committed
+// format-6 fixture read back by name. FILE SCOPE (compiled as C++).
+#include "tests/test_save_layout.c"
+
 // The .redsave commit choke point (#537/#531): monotonic commit generation,
 // the torn-write impossibility (stage on the game thread, write from the
 // immutable snapshot only), and the load-time cross-artifact freshness
@@ -752,6 +762,13 @@ extern "C" {
 // like the window lock it replaces.
 #include "tests/test_combo_mm_options_page.c"
 
+// Operator ruling 2026-11-05: the shipped Standard and Beginner presets pin no
+// option whose default the D wave moved to OoTMM's, and reset the paired profile.
+// ROM-free: it reads the checkout only. FILE SCOPE (compiled as C++); its
+// RandoPresets_ReadShipped also hands the files to the rando-preset-world rows
+// below, because RSBS_SOURCE_DIR is this translation unit's.
+#include "tests/test_rando_presets.c"
+
 // The combo settings pane's window (ADR 0011 increment 2, ADR 0004 §6 + 0008):
 // same registration/idempotence/de-collision shape as the two above, plus the
 // draw-path tripwire under all three pairing states the pane renders
@@ -766,6 +783,10 @@ extern "C" {
 // ComboGui::RegisterComboTrackerWindow.
 #include "tests/test_combo_tracker_view.c"
 #include "tests/test_combo_tracker_window.c"
+// The combined Hint Tracker (#1475 lane H2): the window, SoH's grouping, MM's
+// Journal decisions and the cross-game Seen plumbing. FILE SCOPE (compiled as
+// C++) for the C++-linkage ComboGui functions.
+#include "tests/test_combo_hint_tracker_window.c"
 // Unified item view (#458 U1a): FILE SCOPE (compiled as C++) for the authored
 // std::vector buffers; every symbol it drives is extern-C.
 #include "tests/test_combo_item_view.c"
@@ -1038,6 +1059,9 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // registered sources and over the stub engines above (whose fixture it reuses, so
 // it is included after them). ROM-free; FILE SCOPE (compiled as C++).
 #include "tests/test_critical_renewables.c"
+// #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again, over
+// ShopRestockSingleExe.cpp's bridges. ROM-free; FILE SCOPE (compiled as C++).
+#include "tests/test_oot_shelf_restock.c"
 // #1439: the pair-level Way of the Hero over the stub engines above, both games'
 // stones naming it, and MM's hints on by default. FILE SCOPE, after
 // test_combo_logic.c, whose fixture it drives.
@@ -1193,6 +1217,13 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1169 lane XW5: Ocarina of Time's six warp songs as Majora's Mask items and
+// their ownership byte: the items, the pool and the button sets
+// (mm-warp-songs-items, needs the CVar store), ownership surviving creation, an
+// MM in-game save, a freeze and a .redsave reload (mm-warp-songs-ownership, the
+// same bring-up), and the rules-off world staying main's
+// (mm-warp-songs-rules-off-unchanged). FILE SCOPE (compiled as C++).
+#include "tests/test_warp_songs_mm.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -1229,6 +1260,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // scan and validation, the ROM search dirs and the tools check, ROM-free; plus
 // the staged MM ROM when OTRExporter/mm.z64 exists. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_extract.c"
+// #1475 (lane H1): the combined Hint Tracker's Majora's Mask side: MM's hint
+// sources, the resolver, the read record and its round trips, the pane and the
+// hooks' wiring (mm-hint-sources, ROM-free), and the same over a real paired world
+// (mm-hint-sources-world, rando tier). FILE SCOPE (compiled as C++): it drives
+// rsbs::SaveManager, after test_crossing_commit.c and test_combo_crossing_views.c.
+#include "tests/test_mm_hint_sources.c"
 
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
@@ -2414,7 +2451,17 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // generator 4, was 0x759F783D): Ganon's door names Link's pocket for the Start With
 // key (#1435), and Time Travel Requires Master Sword and MM's hint defaults move the
 // placements every static hint names; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0xAC30C06Bu;
+// Re-pinned again by the OoT logic P3 backports (#1396, #1397; still generator 4,
+// was 0xAC30C06B): the OoT logic changes move the default world's placements named
+// by the static hints; the count stays 17.
+// Re-pinned again by the MM logic P3 backports (#1398; generator 5, was 0x2DC34889):
+// the MM logic changes (the Fisherman's heart piece behind the Hookshot, the
+// postbox's region, the region order) move the default world's placements named by
+// the static hints; the count stays 17.
+// Re-pinned again by the pedestal child check (#1484; generator 5, was 0x1F6A69EB):
+// with Shuffle Master Sword on the pedestal is reachable as a child, which moves the
+// default world's placements named by the static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0xD5F895FFu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -4892,6 +4939,26 @@ TestResult Test_MMPairedStartSharedSongTime(void) {
     return MM_PairedStartSharedSongTime_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1169 XW5: Ocarina of Time's warp songs as MM items over real paired creations,
+// rules off, on through the hidden-bit test seam, and shared. Body in
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
+// skips it.
+extern "C" int MM_WarpSongsPooled_RunHeadless(void);
+
+TestResult Test_MMWarpSongsPooledOnlyWhenRuleOn(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw5PoolArg0[] = "redship";
+    static char* xw5PoolArgv[] = { xw5PoolArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw5PoolArgv);
+
+    return MM_WarpSongsPooled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Attempt-ladder convergence + determinism digest (ADR 0010 increment 1.2
 // lock (b)). Single-run assertions here; the two-process byte-diff runs via
 // the MMPairedAttemptDeterminism row (CMake/CheckPairedAttemptDeterminism
@@ -6446,10 +6513,12 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     int wrapped = 0;
     bool ok = true;
 
-    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace.
+    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace;
+    // #1475 (lane H2): and SoH's Hint Tracker, which the combined Hint Tracker replaces.
     static const char* const kRetired[] = {
         "CheckTracker::CheckTrackerWindow",
         "ItemTrackerWindow",
+        "HintTracker::HintTrackerWindow",
     };
     int retiredSeen[sizeof(kRetired) / sizeof(kRetired[0])] = {};
     static const std::string kRetiredWrap = "RetiredInSingleExe<";
@@ -7053,6 +7122,35 @@ static TestResult Test_MMShopPricesPool(void) {
     return MM_ShopPricesPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// The Tingle maps (#1499). Same display-free bring-up as mm-shop-prices-pool.
+static TestResult Test_MMTingleMapPool(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapPool_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMTingleMapDisplay(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_TingleMapDisplay_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's evidence half. Same display-free shared bring-up and the same reason as
 // mm-clock-shuffle-songs: it drives MM's registrars through CVarSetInteger +
 // MM_ShipInit_OnCVarChanged, and reads the Ship::Context singleton's
@@ -7246,6 +7344,21 @@ TestResult Test_ComboTrackerWindow(void) {
     }
 
     return Combo_TrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// The combined Hint Tracker (#1475 lane H2). The Check Tracker window's bring-up,
+// for the same reason (GuiWindow ctors read ConsoleVariables off the singleton).
+TestResult Test_ComboHintTrackerWindow(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return Combo_HintTrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // Unified item view (#458 U1a). No Gui; the display-free bring-up because the
@@ -7701,6 +7814,34 @@ TestResult Test_ComboItemRulesSecondWord(void) {
     return ComboItemRulesSecondWord_Run();
 }
 
+// #1169 XW5: the MM warp songs' pool reads the CVar store (GeneratePools) and a
+// .redsave load compares the warp-song keys, the same bring-up as
+// combo-item-rules-second-word.
+TestResult Test_MMWarpSongsItems(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongsItems_Run();
+}
+TestResult Test_MMWarpSongsOwnership(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongsOwnership_Run();
+}
+
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
 TestResult Test_ComboSettingsWindow(void) {
@@ -8032,6 +8173,34 @@ TestResult Test_MMCreationNewFileWorld(void) {
     return MM_CreationNewFile_RunWorld() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1475's two rows (tests/test_mm_hint_sources.c): the ROM-free row gets the
+// display-free shared bring-up, like combo-crossing-views (it saves, loads and
+// switches games); the world row needs a generation, like combo-crossing-views-world.
+TestResult Test_MmHintSources(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MmHintSources_RunSynthetic();
+}
+
+TestResult Test_MmHintSourcesWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char mhsArg0[] = "redship";
+    static char* mhsArgv[] = { mhsArg0, nullptr };
+    InitOTRForMMFirstBoot(1, mhsArgv);
+    return MmHintSources_RunWorld();
+}
+
 // ADR 0010 answer O6's grow-check over both real engines (#645, #500). Same
 // bring-up split as Test_ComboLogicMeasure above, for the same reason.
 TestResult Test_ComboLogicMonotonicity(void) {
@@ -8169,6 +8338,23 @@ TestResult Test_MMTrackerInLogicArrival(void) {
     }
     return MM_TrackerInLogic_RunArrival() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1498: MM's enemy drops answered per instance, by both trackers, and the per-id
+// answer the fill reads left as it was. Same bring-up (MM's real region graph);
+// bodies in games/mm/2s2h/mm_enemy_drop_instances_test.cpp.
+extern "C" int MM_EnemyDropInstances_Run(void);
+extern "C" int MM_CheckInstancesPerId_Run(void);
+TestResult Test_MMEnemyDropInstances(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_EnemyDropInstances_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+TestResult Test_MMCheckInstancesPerId(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_CheckInstancesPerId_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1434: Time Travel Requires Master Sword (OoTMM's timeTravelSword): the option's
 // default, the pedestal's real wait action, OoT's real search through the pedestal,
 // and a stored world's own value. Same bring-up as the rows above (OTRGlobals'
@@ -8179,6 +8365,27 @@ TestResult Test_OoTTimeTravelSword(void) {
         return TEST_FAIL;
     }
     return OoT_TimeTravelSwordTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1414: Early Granny's Potion Shop opens Granny's real offer and sale without the
+// Claim Check, and folds into the settings fingerprint only while it can matter.
+// Same bring-up as the rows above; body in games/oot/soh/oot_early_granny_shop_test.cpp.
+extern "C" int OoT_EarlyGrannyShopTest_Run(void);
+TestResult Test_OoTEarlyGrannyShop(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1364: Shuffle Treasure Chest Game (SoH 6706b49d1, 4868b0712): the options, the
+// settings fold over two real generations, the paired pin, and the shopkeeper's
+// real wait action. Same bring-up as the row above; body in
+// games/oot/soh/oot_chest_game_shuffle_test.cpp.
+extern "C" int OoT_ChestGameShuffleTest_Run(void);
+TestResult Test_OoTChestGameShuffle(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ChestGameShuffleTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
@@ -8226,6 +8433,18 @@ TestResult Test_MMLogicGates(void) {
     }
     return MM_LogicGates_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1453: an MM logic edge carries only the half-days its condition holds on, in
+// CrawlReachableRegions and FindReachableRegions, over a synthetic region map
+// swapped in for Rando::Logic::Regions (games/mm/2s2h/mm_time_edges_test.cpp).
+// Same bring-up as mm-logic-gates; skipped by `--test all` below because it
+// swaps the process-wide region map and resets the entrance->region cache.
+extern "C" int MM_TimeEdges_RunHeadless(void);
+TestResult Test_MMTimeEdges(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_TimeEdges_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #980: Ocarina of Time's masks in MM's logic (games/mm/2s2h/mm_oot_masks_test.cpp),
 // over MM's real region lambdas. Same bring-up as mm-logic-gates.
 extern "C" int MM_OoTMasksLogic_RunHeadless(void);
@@ -8244,6 +8463,31 @@ TestResult Test_RandoGoalGateDefaults(void) {
         return TEST_FAIL;
     }
     return OoT_GoalGateDefaults_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// Operator ruling 2026-11-05: a paired world made from the shipped Standard or
+// Beginner preset takes the D wave's OoTMM defaults and is proved under All
+// Locations. The preset is read from the checkout here (RandoPresets_ReadShipped,
+// tests/test_rando_presets.c); same bring-up as the rows above; body in
+// games/oot/soh/oot_preset_world_test.cpp.
+extern "C" int OoT_PresetWorld_Run(const char* presetName, const char* presetJson, const char* seed);
+static TestResult RandoPresetWorld(const char* name, const char* seed) {
+    std::string json;
+    std::string why;
+    if (!RandoPresets_ReadShipped(name, &json, &why)) {
+        printf("[TEST] FAIL: rando-preset-world (%s): %s\n", name, why.c_str());
+        return TEST_FAIL;
+    }
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_PresetWorld_Run(name, json.c_str(), seed) == 0 ? TEST_PASS : TEST_FAIL;
+}
+TestResult Test_RandoPresetWorldStandard(void) {
+    return RandoPresetWorld("Standard", "RSBSPRESETS1");
+}
+TestResult Test_RandoPresetWorldBeginner(void) {
+    return RandoPresetWorld("Beginner", "RSBSPRESETB1");
 }
 
 // The bag composition rule over both real pools (#645 lane K9; #731, #733). Same
@@ -8775,6 +9019,16 @@ const TestDescriptor gTests[] = {
       "The pair's Way of the Hero is the hosts its goal cannot do without in either game, both games' stones name "
       "it, and MM's hints default on (#1439)",
       Test_WothHints },
+    // #1475 (lane H1): the combined Hint Tracker's MM side. The world row needs a
+    // generation; skipped by `--test all` below like its siblings.
+    { "mm-hint-sources",
+      "MM's 74 hint sources, the resolver's stream, the read record (cleared by a new file, round-tripped by a "
+      ".redsave and an OoT -> MM -> OoT crossing pair), the masked pane and the hooks' wiring (#1475)",
+      Test_MmHintSources },
+    { "mm-hint-sources-world",
+      "Over a real paired world the MM hint resolver is the textbox for every source, over the frozen half as over "
+      "the live save, moves no stream, and a read item hint marks its MM check Seen (#1475)",
+      Test_MmHintSourcesWorld },
     // #1047: a free stone's seed and a trap's type are pure functions of the frozen world.
     { "mm-gossip-stone-seed", "MM's free gossip stone seeds are defined integers (#1047)", Test_MmGossipStoneSeed },
     { "mm-trap-roll-frozen", "MM trap types come from the frozen world and the check (#1047)", Test_MmTrapRollFrozen },
@@ -8995,6 +9249,9 @@ const TestDescriptor gTests[] = {
     { "combo-tracker-window",
       "Combo tracker window registers de-collided; inert under every active game and absent adapters (#458)",
       Test_ComboTrackerWindow },
+    { "combo-hint-tracker-window",
+      "Combined Hint Tracker under SoH's name: inert, SoH's grouping both panes, cross-game Seen (#1475)",
+      Test_ComboHintTrackerWindow },
     { "combo-item-view",
       "Item rows from OoT's live save or frozen shadow, never live for the inactive game; shared group label (#458)",
       Test_ComboItemView },
@@ -9080,7 +9337,8 @@ const TestDescriptor gTests[] = {
     { "save-has-delete", "Unified save HasSave/DeleteSave lifecycle (#35)", Test_SaveHasDelete },
     { "save-version-reject", "Unified save Load rejects unknown version, no clobber (#35)", Test_SaveVersionReject },
     { "save-size-mismatch", "Unified save Load rejects oversized tier, no clobber (#35)", Test_SaveSizeMismatch },
-    { "save-legacy-size", "Unified save Load zero-extends shorter legacy tiers (#35)", Test_SaveLegacySize },
+    { "save-legacy-size", "Unified save Load zero-extends shorter v6 tiers; v1-v5 refused as older (#35)",
+      Test_SaveLegacySize },
     { "save-crc-corrupt", "Unified save Load rejects corrupt payload, no clobber (#35)", Test_SaveCrcCorrupt },
     // #533: REFUSED as a first-class slot state, distinct from ABSENT.
     { "save-refused-quarantine", "A refused .redsave is quarantined byte-exact and the slot write-latched (#533)",
@@ -9092,16 +9350,21 @@ const TestDescriptor gTests[] = {
       Test_SaveRefusedMeta },
     // Tier-1 format-headroom locks: the migration path Lane A's widened
     // sharedItems rides on. Without these, "ComboContext can grow" is a claim.
-    { "save-combo-legacy-record", "Pre-headroom Tier-1 still loads and zero-extends", Test_SaveComboLegacyRecord },
+    { "save-combo-legacy-record", "A shorter v6 Tier-1 record still loads and zero-extends",
+      Test_SaveComboLegacyRecord },
     { "save-combo-record-fixed", "Tier-1 written at a fixed padded size; headroom round-trips",
       Test_SaveComboRecordFixed },
     { "save-combo-oversize", "Load rejects an oversized Tier-1 record, no clobber", Test_SaveComboOversize },
+    { "save-layout-pins", "Save format 6: every layout pin's compiled value, UNPINNED while 0", Test_SaveLayoutPins },
+    { "save-format-v6-fixture", "Save format 6: the committed fixture loads and reads back by name",
+      Test_SaveFormatV6Fixture },
     { "save-tagged-items", "Origin-tagged shared items round-trip; empty slots stay unset (ADR 0002)",
       Test_SaveTaggedItems },
     // The shared-item overflow (Tier-5, format v5): one logical outbox past the fixed 64 slots (Refs #1222).
     { "save-shared-item-overflow-roundtrip", "Crossings past the fixed 64 shared-item slots save and load in order",
       Test_SaveSharedItemOverflowRoundtrip },
-    { "save-shared-item-overflow-legacy", "A v4 .redsave loads with an empty overflow and re-saves as v5",
+    { "save-shared-item-overflow-legacy",
+      "A v4 .redsave is refused as an older version; a v6 save ends in an empty Tier-5",
       Test_SaveSharedItemOverflowLegacy },
     { "save-shared-item-overflow-reset-restore",
       "The moon-crash reset restores both shared-item segments to the last commit (#785)",
@@ -9374,6 +9637,12 @@ const TestDescriptor gTests[] = {
     { "mm-shop-prices-pool",
       "MM's price pass draws in a fixed order from the seeded stream, Vanilla by default (#1427)",
       Test_MMShopPricesPool },
+    // The Tingle maps (#1499). After mm-registrar-coverage for the same reason as
+    // the tree rows (the pool row runs MM_Rando_Init). Both restore what they write.
+    { "mm-tingle-map-pool", "MM's pool holds one copy of each Tingle map, none of a starting map (#1499)",
+      Test_MMTingleMapPool },
+    { "mm-tingle-map-display", "A shop slot holding an owned Tingle map is named and sold as junk, once (#1499)",
+      Test_MMTingleMapDisplay },
     // The two MM resume-contract tests below mutate process-global state
     // (mm-resume-arena re-inits the MM system arena + heaps; mm-startup-restore
     // scribbles and re-zeroes the unified gSaveContext). Both clean up after
@@ -9448,6 +9717,10 @@ const TestDescriptor gTests[] = {
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
+    { "rando-presets-follow-defaults",
+      "The shipped Standard and Beginner presets pin no option whose default the D wave moved to OoTMM's, and "
+      "reset the paired profile (operator ruling 2026-11-05)",
+      Test_RandoPresetsFollowDefaults },
     // #658: MM_GOAL's "Majora defeated" conjunct. Display-free and ROM-free,
     // but it MUST stay after mm-registrar-coverage in this table: it drives
     // MM_Rando_InitCore, and that row's non-vacuity requires the registries to
@@ -9679,9 +9952,9 @@ const TestDescriptor gTests[] = {
       "a crafted .redsave; bad rows and repeated hosts are refused; the frozen set refuses divergence (ADR 0010 O7)",
       Test_CrossingStoreCapacity },
     { "crossing-store-redsave",
-      "The .redsave is format v3 and its Tier-4 is the serialized crossing block; save/load is byte-identical with MM "
-      "never booted; a refused load applies nothing; malformed and truncated blocks refuse; v2 loads empty (ADR 0010 "
-      "O7)",
+      "The .redsave's Tier-4 is the serialized crossing block; save/load is byte-identical with MM never booted; a "
+      "refused load applies nothing; malformed and truncated blocks refuse; a v2 file is refused as an older version "
+      "(ADR 0010 O7)",
       Test_CrossingStoreRedsave },
     { "crossing-store-spoiler",
       "combo.crossingStore round-trips write -> load byte-identical, reloads as a no-op, and refuses a different "
@@ -9744,6 +10017,14 @@ const TestDescriptor gTests[] = {
       "MM's Check Tracker in-logic set: a hookshot tier applied at an arrival brings the South Clock Town lower chest "
       "into logic, obtained drops it, and the computation writes nothing (#994)",
       Test_MMTrackerInLogicArrival },
+    { "mm-enemy-drop-instances",
+      "MM enemy drops per instance: with a Kokiri Sword, Mini Baba is in logic, the native tracker's Beneath the Well "
+      "copy is not, and the combo pane files it under an area where the kill is in logic (#1498)",
+      Test_MMEnemyDropInstances },
+    { "mm-check-instances-per-id",
+      "The per-instance check answer leaves the per-id answer the fill reads unchanged, raw and under the reset-time "
+      "guard (#1498)",
+      Test_MMCheckInstancesPerId },
     { "tracker-fill-superset",
       "On one paired creation save, each game's tracker shows every check the fill's sphere zero reaches, minus "
       "obtained (#994)",
@@ -9763,6 +10044,10 @@ const TestDescriptor gTests[] = {
       "Romani Ranch's cows, Epona's Song and the alien drop need the Milk Road boulder broken on Day 1, and the "
       "Circus Leader's Mask needs Romani's Mask (#1168)",
       Test_MMLogicGates },
+    // #1453. Swaps the region map; skipped by `--test all` below like its siblings.
+    { "mm-time-edges",
+      "A night-only MM logic edge carries no day time into its target, in the crawl and the glitchless fill (#1453)",
+      Test_MMTimeEdges },
     // #980. Skipped by `--test all` below like its siblings.
     { "oot-masks-mm-logic",
       "Under their frozen rules the Skull Mask opens the Deku Palace, the Gerudo Mask gets past the purple guard, "
@@ -9773,6 +10058,16 @@ const TestDescriptor gTests[] = {
       "OoT's Rainbow Bridge and Ganon's Boss Key ship at OoTMM's defaults (Medallions, all six; Start With) on a "
       "paired creation, Triforce Hunt still decides the key, and a stored world keeps its own gates (#1428)",
       Test_RandoGoalGateDefaults },
+    // Operator ruling 2026-11-05. Each needs a paired creation; skipped by `--test
+    // all` below like its siblings.
+    { "rando-preset-world-standard",
+      "A paired world from the shipped Standard preset takes the D wave's OoTMM defaults and is proved under All "
+      "Locations (operator ruling 2026-11-05)",
+      Test_RandoPresetWorldStandard },
+    { "rando-preset-world-beginner",
+      "A paired world from the shipped Beginner preset takes the D wave's OoTMM defaults and is proved under All "
+      "Locations (operator ruling 2026-11-05)",
+      Test_RandoPresetWorldBeginner },
     // The bag composition rule over both real pools (#645 lane K9). Needs a
     // generation; skipped by `--test all` below like its siblings.
     { "combo-logic-bag-composition",
@@ -9940,7 +10235,7 @@ const TestDescriptor gTests[] = {
     // real paired OoT generations (rando tier) through the hidden-bit test seam.
     { "oot-soaring-table-bounds",
       "The Song of Soaring (OoT) is appended after the masks in OoT's item, hint and RAND_INF enums, adds no ItemID, "
-      "still fits the 129 saved RAND_INF words, and its item row is a song with its own flag, note, text and hint "
+      "still fits the 512 saved RAND_INF words, and its item row is a song with its own flag, note, text and hint "
       "(#1169)",
       Test_OoTSoaringTableBounds },
     { "oot-soaring-rule-logic",
@@ -9960,6 +10255,26 @@ const TestDescriptor gTests[] = {
       "Thirteen songs on the twelve spots of Song Locations or Dungeon Rewards are refused at Generate with OoTMM's "
       "\"Not enough locations\" wording; a starting song, a shared song or Anywhere generates (#1169)",
       Test_SongLocationsOverflowRefused },
+    // #1169 XW5: Ocarina of Time's warp songs as MM items. The first two need the
+    // CVar store (their wrappers bring it up); the third is ROM-free and
+    // store-free; the fourth runs real paired creations (rando tier).
+    { "mm-warp-songs-items",
+      "Ocarina of Time's six warp songs are MM items appended after the masks with OoTMM's names, owned through one "
+      "byte of the combo record only under their frozen rules, pooled once each unless shared, played with OoTMM's "
+      "buttons, and no simulated pickup owns one (#1169)",
+      Test_MMWarpSongsItems },
+    { "mm-warp-songs-ownership",
+      "A starting MM warp song is owned after creation, after an MM in-game save and a .redsave load, and a pickup "
+      "after a freeze, the crossing's commit and a reload; the fingerprint never moves (#1169)",
+      Test_MMWarpSongsOwnership },
+    { "mm-warp-songs-rules-off-unchanged",
+      "While the warp-song rules are hidden no world pools or credits an MM warp song, and owning one moves no "
+      "fingerprint, bag seed or package record (#1169)",
+      Test_MMWarpSongsRulesOffUnchanged },
+    { "mm-warp-songs-pooled-only-when-rule-on",
+      "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
+      "none of a shared song, place every copy and leave none owned (#1169)",
+      Test_MMWarpSongsPooledOnlyWhenRuleOn },
     { "combo-crossing-views",
       "The Combo Tracker and the Cross-Game Spoiler list the crossing store's rows in both directions, named, with "
       "found state per host check from each game's save, across a game switch and a .redsave load (#755, #757)",
@@ -10029,6 +10344,17 @@ const TestDescriptor gTests[] = {
       "Time offers the pull and logic sends Link through time, either way, only with the sword; a world saved before "
       "the option keeps its pedestal (#1434)",
       Test_OoTTimeTravelSword },
+    { "oot-early-granny-shop",
+      "Early Granny's Potion Shop: with Shuffle Adult Trade off and no Claim Check, Granny offers and sells her "
+      "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
+      "it (#1414)",
+      Test_OoTEarlyGrannyShop },
+    // #1364. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-chest-game-shuffle",
+      "Shuffle Chest Minigame ships off and greyed out, a default world's settings fold reads none of the lines it "
+      "added, a paired generation pins it off even when keyed on, and the chest game's shopkeeper gives his item "
+      "without queueing it a second time (SoH 4868b0712) (#1364)",
+      Test_OoTChestGameShuffle },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10225,6 +10551,12 @@ const TestDescriptor gTests[] = {
       "Under All Locations the first copy of each critical renewable lands on its own game's renewing host; Beatable "
       "Only and No Logic are unchanged, and a world whose kinds are renewed is the world it was (#1443)",
       Test_CriticalRenewablesRule },
+    // #1482: ROM-free; the restock list, a real shelf check's answer and the
+    // nothing-to-add refusals.
+    { "oot-shelf-restock",
+      "A bought shuffled Ocarina of Time shop shelf sells OoTMM's renewables again and sells out everything else, "
+      "a shelf hosting a Majora's Mask item included (#1482)",
+      Test_OoTShelfRestock },
     // R6, rando tier (needs a display, like the golden rows): two real creations.
     { "critical-renewables-world",
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
@@ -10321,12 +10653,21 @@ int TestRunner_Run(const char* testName) {
         return 0;
     }
 
-    if (strcmp(testName, "all") == 0) {
+    // `--test all-skips` prints the rows `--test all` skips, through the very
+    // condition below, and runs nothing. TestRegistrationComplete reads it (#1465):
+    // every rando-label CTest row must be on this list or be declared
+    // redship_test_not_generating(), so a new generation row that is missed here
+    // fails registration by name instead of poisoning a later row in AllTests.
+    const bool listSkipsOnly = strcmp(testName, "all-skips") == 0;
+    if (strcmp(testName, "all") == 0 || listSkipsOnly) {
         int failures = 0;
         int passed = 0;
         int skipped = 0;
         int total = 0;
 
+        if (listSkipsOnly) {
+            printf("Skipped by --test all:\n");
+        }
         for (int i = 0; gTests[i].name != nullptr; i++) {
             // rando-gen / rando-determinism need a display (Fast3dWindow
             // bring-up) and the RSBS_DISABLE_OTR_INIT environment; they run as
@@ -10367,11 +10708,14 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "rando-mask-quest-paired") == 0 ||
                 strcmp(gTests[i].name, "tracker-availability-arrival") == 0 ||
                 strcmp(gTests[i].name, "mm-tracker-in-logic-arrival") == 0 ||
+                strcmp(gTests[i].name, "mm-enemy-drop-instances") == 0 ||
+                strcmp(gTests[i].name, "mm-check-instances-per-id") == 0 ||
                 strcmp(gTests[i].name, "tracker-fill-superset") == 0 ||
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
-                strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
+                strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||
                 strcmp(gTests[i].name, "oot-plentiful-progressive") == 0 ||
                 strcmp(gTests[i].name, "combo-single-bag") == 0 || strcmp(gTests[i].name, "shared-lens-bag") == 0 ||
@@ -10399,6 +10743,8 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
+                strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
+                strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process
@@ -10408,10 +10754,22 @@ int TestRunner_Run(const char* testName) {
                 // never-booted leg) would read it.
                 strcmp(gTests[i].name, "oot-soaring-pooled-only-when-rule-on") == 0 ||
                 strcmp(gTests[i].name, "song-locations-overflow-refused") == 0 ||
+                // #1169 XW5's generation row: like every row above, a real
+                // generation leaves its world alive for the rest of the process.
+                strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||
+                strcmp(gTests[i].name, "mm-hint-sources-world") == 0 ||
                 // A window and soh.o2r, and a run of its own: the `ui` CTest label.
                 strcmp(gTests[i].name, "ui-snapshot") == 0) {
+                if (listSkipsOnly) {
+                    printf("  %-20s skipped by --test all\n", gTests[i].name);
+                    skipped++;
+                    continue;
+                }
                 printf("\n--- Skipping: %s (needs display; runs as a %s-label CTest) ---\n", gTests[i].name,
                        strcmp(gTests[i].name, "ui-snapshot") == 0 ? "ui" : "rando");
+                continue;
+            }
+            if (listSkipsOnly) {
                 continue;
             }
             // mm-registrar-coverage used to be skipped here: it is the only row
@@ -10449,6 +10807,11 @@ int TestRunner_Run(const char* testName) {
             } else if (result == TEST_FAIL || result == TEST_ERROR) {
                 failures++;
             }
+        }
+
+        if (listSkipsOnly) {
+            printf("\n%d row(s) skipped by --test all\n", skipped);
+            return 0;
         }
 
         printf("\n=== Test Summary ===\n");
@@ -10511,6 +10874,7 @@ void TestRunner_ListTests(void) {
     printf("\nSpecial commands:\n");
     printf("  %-20s Run all unit tests\n", "all");
     printf("  %-20s Show this list\n", "list");
+    printf("  %-20s List the rows `all` skips (#1465)\n", "all-skips");
 
     printf("\nIntegration tests (--integration-test <name>):\n");
     printf("  (These tests actually boot the game - requires display/Xvfb)\n\n");

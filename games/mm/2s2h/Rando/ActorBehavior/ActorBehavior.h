@@ -33,8 +33,8 @@ std::string ShopOfferedItemName(RandoCheckId rc, const std::string& nativeName, 
 // item whose crossing was delivered, for the rest of the game.
 bool ShopCounterSlotSold(RandoCheckId rc);
 // A shelf slot (EnGirlA) is sold out: a native one once its item is no longer
-// obtainable, a foreign-hosting one once its crossing was delivered (it never
-// restocks).
+// obtainable (or, #1499, once it sold the junk its item resolves to), a
+// foreign-hosting one once its crossing was delivered (it never restocks).
 bool ShopShelfSlotSold(RandoCheckId rc);
 // The Hags' mushroom line (text 0x884) may arm RC_HAGS_POTION_SHOP_ITEM_01 for
 // CheckQueue's give: shuffled, not armed yet, and not a foreign host whose
@@ -49,6 +49,16 @@ bool HagsMushroomLineArms();
 // whether a purchase of it is refused as "already have".
 std::string TingleOfferedItemName(RandoCheckId rc);
 bool TingleMapSlotSold(RandoCheckId rc);
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1499: what the Bomb Shop owner holds (EnSob1.cpp), what shelf `rc` draws and
+// the name its lines give it (EnGirlA.cpp): all ConvertItem's answer for the slot.
+RandoItemId BombShopHandItem();
+RandoItemId ShopShelfItem(RandoCheckId rc);
+std::string ShopShelfItemName(RandoCheckId rc);
+// #1499: a slot whose item now resolves to junk sells it once: it is spent once
+// the check was collected (or, for Tingle, is waiting in CheckQueue).
+bool JunkSlotSpent(RandoCheckId rc);
+#endif
 // The Beaver Bros (EnAz.cpp, #1216): a race reward offer `getItemId` stands in for
 // one of the two race checks, so the hook replaces it instead of letting the
 // vanilla give through.

@@ -19,6 +19,12 @@
 #include <assert.h>
 #include "soh/OTRGlobals.h"
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1482 (ShopRestockSingleExe.cpp): is a shuffled shelf sold out, given its
+// RandomizerInf? A bought shelf whose item OoTMM restocks is not.
+s32 OoT_Rando_ShopShelfSoldOut(u16 rc, s32 bought);
+#endif
+
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_FRIENDLY | ACTOR_FLAG_UPDATE_CULLING_DISABLED)
 
 void OoT_EnOssan_Init(Actor* thisx, PlayState* play);
@@ -437,7 +443,15 @@ void EnOssan_SpawnItemsOnShelves(EnOssan* this, PlayState* play, ShopItem* shopI
                 if (shopItemIdentity.identity.randomizerCheck != RC_UNKNOWN_CHECK) {
                     itemParams = shopItemIdentity.enGirlAShopItem;
 
-                    if (Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf)) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    // #1482: a bought shelf whose item OoTMM restocks is on sale again.
+                    s32 soldOut =
+                        OoT_Rando_ShopShelfSoldOut(shopItemIdentity.identity.randomizerCheck,
+                                                   Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+#else
+                    s32 soldOut = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
+#endif
+                    if (soldOut) {
                         itemParams = SI_SOLD_OUT;
                     }
                 }
@@ -2128,7 +2142,8 @@ u16 EnOssan_SetupHelloDialog(EnOssan* this) {
     this->happyMaskShopState = OSSAN_HAPPY_STATE_NONE;
     // mask shop messages
     if (this->actor.params == OSSAN_TYPE_MASK) {
-        if (INV_CONTENT(ITEM_TRADE_CHILD) == ITEM_SOLD_OUT) {
+        if (GameInteractor_Should(VB_HAPPY_MASK_SHOP_CHECK_SOLD_OUT, INV_CONTENT(ITEM_TRADE_CHILD) == ITEM_SOLD_OUT,
+                                  this)) {
             if (Flags_GetItemGetInf(ITEMGETINF_3B)) {
                 if (!OoT_Flags_GetEventChkInf(EVENTCHKINF_PAID_BACK_BUNNY_HOOD_FEE)) {
                     // Pay back Bunny Hood

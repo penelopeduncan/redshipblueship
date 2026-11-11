@@ -22,7 +22,7 @@ DRY_RUN=0
 list_issues() {
     echo "Open issues:"
     echo ""
-    gh issue list -R spencerduncan/redshipblueship --state open --limit 30 \
+    gh issue list -R penelopeduncan/redshipblueship --state open --limit 30 \
         --json number,title,labels \
         --jq '.[] | "  #\(.number)\t\(.title)\t[\(.labels | map(.name) | join(", "))]"'
 }

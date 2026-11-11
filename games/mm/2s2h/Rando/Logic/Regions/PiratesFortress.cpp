@@ -36,7 +36,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_WONDER_ITEM_01, RANDO_EVENTS[RE_PIRATE_FORTRESS_BEEHIVE_HIT] && CAN_USE_PROJECTILE),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_WONDER_ITEM_02, RANDO_EVENTS[RE_PIRATE_FORTRESS_BEEHIVE_HIT] && CAN_USE_PROJECTILE),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_WONDER_ITEM_03, RANDO_EVENTS[RE_PIRATE_FORTRESS_BEEHIVE_HIT] && CAN_USE_PROJECTILE),
-            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB)),
+            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB) && HAS_ITEM(ITEM_HOOKSHOT)),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS, 1),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 0), true),
@@ -65,7 +65,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_CHEST_AQUARIUM_POT_01, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_CHEST_AQUARIUM_POT_02, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_CHEST_AQUARIUM_POT_03, true),
-            CHECK(RC_ENEMY_DROP_DESBREKO, CanKillEnemy(ACTOR_EN_PR)),
+            CHECK(RC_ENEMY_DROP_DESBREKO, CanKillEnemy(ACTOR_EN_PR) && HAS_ITEM(ITEM_HOOKSHOT)),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS, 8),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 7), true)
@@ -134,7 +134,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_GUARDED_BARREL, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_GUARDED_POT_01, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_GUARDED_POT_02, true),
-            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB)),
+            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB) && HAS_ITEM(ITEM_HOOKSHOT)),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS, 4),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 3), true),
@@ -308,7 +308,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_BARREL_MAZE_POT_01, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_BARREL_MAZE_POT_02, true),
             CHECK(RC_PIRATE_FORTRESS_INTERIOR_BARREL_MAZE_POT_03, true),
-            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB)),
+            CHECK(RC_ENEMY_DROP_SHELLBLADE, CanKillEnemy(ACTOR_EN_SB) && HAS_ITEM(ITEM_HOOKSHOT)),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS, 6),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 5), true)

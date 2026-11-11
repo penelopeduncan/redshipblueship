@@ -55,6 +55,29 @@ uint8_t SaveTestMMByte(size_t i) {
     return static_cast<uint8_t>(0x5Cu + i * 17u);
 }
 
+// Defined with the Tier-5 helpers below; Test_SaveComboOversize's save format 6
+// legs use them too.
+std::vector<uint8_t> SaveTestReadAll(const std::string& path);
+bool SaveTestWriteAll(const std::string& path, const std::vector<uint8_t>& bytes);
+void SaveTestRestampCrc(std::vector<uint8_t>& file);
+
+// Save format 6: the Tier-4 crossing block and the Tier-5 overflow block of the
+// live stores, the two self-sized blocks every v6 file carries after Tier-3.
+// Crafted files append them so they are v6 files a reader accepts.
+bool SaveTestAppendBlocks(std::vector<uint8_t>& payload) {
+    std::vector<uint8_t> crossings(Combo_Crossings_SerializedSize());
+    if (Combo_Crossings_Serialize(crossings.data(), crossings.size()) != crossings.size()) {
+        return false;
+    }
+    std::vector<uint8_t> overflow(Combo_SharedItemOverflow_SerializedSize());
+    if (Combo_SharedItemOverflow_Serialize(overflow.data(), overflow.size()) != overflow.size()) {
+        return false;
+    }
+    payload.insert(payload.end(), crossings.begin(), crossings.end());
+    payload.insert(payload.end(), overflow.begin(), overflow.end());
+    return true;
+}
+
 // Seed gComboCtx + both shadow copies with recognizable, distinct content.
 void SaveTestSeed(uint32_t tag) {
     Context_InitFrozenStates();
@@ -214,6 +237,11 @@ TestResult Test_SaveHeader(void) {
     SAVE_ASSERT(in.gcount() == static_cast<std::streamsize>(sizeof(h)), "short header read");
 
     SAVE_ASSERT(std::memcmp(h.magic, RSBS_SAVE_MAGIC, sizeof(h.magic)) == 0, "bad magic");
+    // Save format 6, by number: a change to the format generation or to the
+    // Tier-1 record size is a decision, never a side effect of an edit elsewhere.
+    SAVE_ASSERT(RSBS_SAVE_VERSION == 6u && RSBS_SAVE_VERSION_MIN == 6u && RSBS_COMBO_CONTEXT_RECORD_SIZE == 4096u &&
+                    RSBS_SAVE_LAYOUT_REVISION >= 1u,
+                "the format constants are not save format 6's (version 6, minimum 6, a 4096-byte Tier-1)");
     SAVE_ASSERT(h.version == RSBS_SAVE_VERSION, "bad version");
     SAVE_ASSERT(h.endian == RSBS_SAVE_ENDIAN_LE, "bad endian");
     SAVE_ASSERT(h.slot == 0, "bad slot");
@@ -318,12 +346,14 @@ TestResult Test_SaveSizeMismatch(void) {
 }
 
 TestResult Test_SaveLegacySize(void) {
-    printf("[TEST] save-legacy-size: Load accepts a shorter (pre-capacity-fix) tier and zero-extends (#35)\n");
+    printf("[TEST] save-legacy-size: Load accepts a v6 file with shorter game tiers and zero-extends; the same file "
+           "at v2 is refused as an older version (#35, save format 6)\n");
 
-    // Tier sizes written by builds from before the blob capacities covered the
-    // ports' full runtime SaveContexts (the N64 struct sizes). The header is
-    // self-describing, so such files must still load; the missing tail is the
-    // ship.* state those builds truncated away and is restored as zeros.
+    // Save format 6 refuses every v1-v5 file, so the zero-extension a SHORTER
+    // stored tier gets is crafted at v6 now: a stored size below the capacity
+    // (raising a capacity is free, context.h growth rule 7) loads as a prefix and
+    // the missing tail reads zero. The sizes are the N64 struct sizes the
+    // pre-capacity-fix builds wrote.
     const uint32_t kLegacyOoTSize = 0x1428;
     const uint32_t kLegacyMMSize = 0x48C8;
 
@@ -344,13 +374,13 @@ TestResult Test_SaveLegacySize(void) {
     for (size_t i = 0; i < kLegacyMMSize; i++) {
         payload.push_back(SaveTestMMByte(i));
     }
+    // A v6 file carries the Tier-4 and Tier-5 blocks after Tier-3.
+    SAVE_ASSERT(SaveTestAppendBlocks(payload), "the crossing or overflow block did not serialize");
 
     rsbs::RsbsSaveHeader h;
     std::memset(&h, 0, sizeof(h));
     std::memcpy(h.magic, RSBS_SAVE_MAGIC, sizeof(h.magic));
-    // Hand-assembled from Tiers 1-3, so it claims the last version WITHOUT the
-    // Tier-4 crossing block (ADR 0010 O7) rather than RSBS_SAVE_VERSION.
-    h.version = RSBS_SAVE_VERSION_CROSSINGS - 1u;
+    h.version = RSBS_SAVE_VERSION;
     h.endian = RSBS_SAVE_ENDIAN_LE;
     h.slot = 0;
     h.headerSize = sizeof(rsbs::RsbsSaveHeader);
@@ -398,8 +428,24 @@ TestResult Test_SaveLegacySize(void) {
         SAVE_ASSERT(mm[i] == 0, "MM tail beyond legacy size not zero-extended");
     }
 
+    // The same short tiers under a pre-format-6 version (2, the last one without
+    // Tier-4) are another layout: refused as an older version, nothing loaded.
+    // Catches RSBS_SAVE_VERSION_MIN left at 1 (this file would load).
     mgr.DeleteSave(0);
-    printf("[TEST] PASS: legacy-size tiers load and zero-extend to the current capacities\n");
+    h.version = RSBS_SAVE_VERSION_CROSSINGS - 1u;
+    {
+        std::ofstream out(mgr.SlotPath(0), std::ios::binary | std::ios::trunc);
+        SAVE_ASSERT(static_cast<bool>(out), "could not write the v2 slot file");
+        out.write(reinterpret_cast<const char*>(&h), sizeof(h));
+        out.write(reinterpret_cast<const char*>(payload.data()), static_cast<std::streamsize>(payload.size()));
+    }
+    gComboCtx.saveSlot = 0x0BADF00D;
+    SAVE_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_REFUSED && mgr.GetSlotRefuseReason(0) == RSBS_REFUSE_OLD_VERSION,
+                "a v2 file with legacy-size tiers was not refused as an older version");
+    SAVE_ASSERT(gComboCtx.saveSlot == 0x0BADF00D, "the refused v2 load clobbered ComboContext");
+
+    mgr.DeleteSave(0);
+    printf("[TEST] PASS: short v6 tiers load and zero-extend to the current capacities; a v2 file is refused\n");
     return TEST_PASS;
 }
 
@@ -454,6 +500,11 @@ bool SaveTestWriteCraftedSlot(const std::string& path, uint32_t version, uint32_
     for (size_t i = 0; i < MM_SAVE_CONTEXT_SIZE; i++) {
         payload.push_back(SaveTestMMByte(i));
     }
+    // Save format 6: a v6 file carries the Tier-4 and Tier-5 blocks (a crafted
+    // older version is written without them, as its build wrote it).
+    if (version >= RSBS_SAVE_VERSION_SHARED_OVERFLOW && !SaveTestAppendBlocks(payload)) {
+        return false;
+    }
 
     rsbs::RsbsSaveHeader h;
     std::memset(&h, 0, sizeof(h));
@@ -480,7 +531,7 @@ bool SaveTestWriteCraftedSlot(const std::string& path, uint32_t version, uint32_
 } // namespace
 
 TestResult Test_SaveComboLegacyRecord(void) {
-    printf("[TEST] save-combo-legacy-record: a pre-headroom .redsave still loads and zero-extends\n");
+    printf("[TEST] save-combo-legacy-record: a v6 file with a short (pre-headroom) Tier-1 loads and zero-extends\n");
 
     rsbs::SaveManager& mgr = rsbs::SaveManager::Instance();
     mgr.SetSaveDirectory(kSaveTestDir());
@@ -501,6 +552,9 @@ TestResult Test_SaveComboLegacyRecord(void) {
     const uint32_t kLegacyComboSize = RSBS_COMBO_CONTEXT_PRECARVE_SIZE;
     SAVE_ASSERT(kLegacyComboSize < RSBS_COMBO_CONTEXT_RECORD_SIZE,
                 "legacy Tier-1 must be shorter than the record budget");
+    // Save format 6: crafted at v6 (RSBS_SAVE_VERSION_MIN is 6), so the short
+    // record's zero-extension stays covered: a later build's longer ComboContext
+    // reads an earlier v6 file's record this way (growth rule 1).
     SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_MIN, kLegacyComboSize),
                 "could not write legacy-record slot file");
 
@@ -641,10 +695,10 @@ TestResult Test_SaveComboLegacyRecord(void) {
     }
 
     mgr.DeleteSave(0);
-    // v2: the crafted file carries Tiers 1-3 only (no v3 Tier-4 crossing block).
-    SAVE_ASSERT(
-        SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_CROSSINGS - 1u, (uint32_t)sizeof(ComboContext)),
-        "could not write v2 fixed-offset slot file");
+    // Save format 6: crafted at v6 with its Tier-4 and Tier-5 blocks (it was v2,
+    // which format 6 refuses); the literal offsets are format 6's too.
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION, (uint32_t)sizeof(ComboContext)),
+                "could not write the v6 fixed-offset slot file");
 
     // Scribble the whole carve region so a pass cannot come from leftovers.
     ComboContext_Init();
@@ -656,7 +710,7 @@ TestResult Test_SaveComboLegacyRecord(void) {
     std::memset(&gComboCtx.comboSettings, 0x5A, sizeof(gComboCtx.comboSettings));
     gComboCtx.comboSettingsHash = 0x5A5A5A5Au;
 
-    SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v2 Tier-1 record");
+    SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v6 Tier-1 record");
 
     SAVE_ASSERT(gComboCtx.grantCursors[0].sourceKey == kCraftedSourceKey,
                 "byte 672 did not land in grantCursors[0].sourceKey — a field ahead of the ADR 0005 "
@@ -715,11 +769,17 @@ TestResult Test_SaveComboRecordFixed(void) {
     mgr.SetSaveDirectory(kSaveTestDir());
     SaveTestSeed(0xFEEDFACEu);
 
-    // Stand in for a field Lane A will carve out of `reserved`: if these bytes
-    // survive a Save/Load, so will the real field.
+    // Scribble reserved[] (frozen since save format 6, kept for this) and the
+    // record's last data member before the watermark, the skip journal (the
+    // tail an appended field follows): if these bytes survive a Save/Load, so
+    // will a field appended after them.
     for (size_t i = 0; i < sizeof(gComboCtx.reserved); i++) {
         gComboCtx.reserved[i] = static_cast<uint8_t>(0x30u + i * 7u);
     }
+    for (size_t i = 0; i < RSBS_TRACKER_SKIP_JOURNAL_OOT_CAP; i++) {
+        gComboCtx.trackerSkipJournalOoT[i] = static_cast<uint16_t>(0x4100u + i * 3u);
+    }
+    std::memset(&gComboCtx.saveWatermark, 0, sizeof(gComboCtx.saveWatermark));
 
     mgr.DeleteSave(0);
     SAVE_ASSERT(mgr.Save(0), "Save(0) failed");
@@ -746,9 +806,32 @@ TestResult Test_SaveComboRecordFixed(void) {
         SAVE_ASSERT(gComboCtx.reserved[i] == static_cast<uint8_t>(0x30u + i * 7u),
                     "reserved headroom not round-tripped — a future field would be lost");
     }
+    for (size_t i = 0; i < RSBS_TRACKER_SKIP_JOURNAL_OOT_CAP; i++) {
+        SAVE_ASSERT(gComboCtx.trackerSkipJournalOoT[i] == static_cast<uint16_t>(0x4100u + i * 3u),
+                    "the record's tail (the skip journal) not round-tripped");
+    }
+    // Save format 6: the commit stamped this build's watermark (StageCommit), so
+    // a newer build's file is what an older build refuses. Catches the stamp
+    // removed (a zero watermark would load everywhere) or a term left out.
+    ComboSaveWatermark build;
+    RsbsSave_BuildWatermark(&build);
+    const ComboSaveWatermark& got = gComboCtx.saveWatermark;
+    printf("[TEST]   watermark after the round trip: revision %u, OoT %u/%u/%u, MM %u/%u/%u/%u/%u\n",
+           (unsigned)got.layoutRevision, (unsigned)got.ootRcMax, (unsigned)got.ootRandInfMax, (unsigned)got.ootRskMax,
+           (unsigned)got.mmRcMax, (unsigned)got.mmRoMax, (unsigned)got.mmRtMax, (unsigned)got.mmRandoInfMax,
+           (unsigned)got.mmReMax);
+    SAVE_ASSERT(got.layoutRevision == build.layoutRevision && got.ootRcMax == build.ootRcMax &&
+                    got.ootRandInfMax == build.ootRandInfMax && got.ootRskMax == build.ootRskMax &&
+                    got.mmRcMax == build.mmRcMax && got.mmRoMax == build.mmRoMax && got.mmRtMax == build.mmRtMax &&
+                    got.mmRandoInfMax == build.mmRandoInfMax && got.mmReMax == build.mmReMax,
+                "the commit did not stamp this build's save watermark");
+    SAVE_ASSERT(build.layoutRevision == RSBS_SAVE_LAYOUT_REVISION && build.ootRcMax != 0 && build.mmRcMax != 0 &&
+                    build.mmRoMax != 0 && build.mmRtMax != 0 && build.ootRandInfMax != 0 && build.ootRskMax != 0 &&
+                    build.mmRandoInfMax != 0 && build.mmReMax != 0,
+                "this build's watermark has an empty term (an export does not report its enum)");
 
     mgr.DeleteSave(0);
-    printf("[TEST] PASS: Tier-1 record size is fixed and its headroom round-trips\n");
+    printf("[TEST] PASS: Tier-1 record size is fixed, its headroom and tail round-trip, the watermark is stamped\n");
     return TEST_PASS;
 }
 
@@ -775,8 +858,97 @@ TestResult Test_SaveComboOversize(void) {
     SAVE_ASSERT(gComboCtx.saveSlot == 0x0BADF00D, "rejected Load clobbered ComboContext");
     SAVE_ASSERT(SaveTestOoTShadowMatchesPattern(), "rejected Load clobbered OoT shadow");
 
+    // ---- Save format 6: the newer-content guard ------------------------------
+    // Armed as production start-up arms it (the games' struct sizes), disarmed on
+    // every way out, so no later row in the process inherits it.
+    struct TailArm {
+        TailArm() {
+            RsbsSave_ArmTierTailChecks();
+        }
+        ~TailArm() {
+            RsbsSave_SetTierLayoutSizesForTest(0u, 0u);
+        }
+    } arm;
+    uint32_t ootLayout = 0;
+    uint32_t mmLayout = 0;
+    RsbsSave_GetTierLayoutSizes(&ootLayout, &mmLayout);
+    printf("[TEST]   tail checks armed: Tier-2 past %u of %u bytes, Tier-3 past %u of %u\n", (unsigned)ootLayout,
+           (unsigned)OOT_SAVE_CONTEXT_SIZE, (unsigned)mmLayout, (unsigned)MM_SAVE_CONTEXT_SIZE);
+    SAVE_ASSERT(ootLayout != 0 && ootLayout < OOT_SAVE_CONTEXT_SIZE && mmLayout != 0 && mmLayout < MM_SAVE_CONTEXT_SIZE,
+                "the tail checks did not arm with both games' struct sizes inside the blob capacities");
+
+    // The writer: SaveTestSeed fills both shadows to capacity, and the armed
+    // commit still writes both game tiers' tails as zero (catches StageCommit's
+    // zeroing removed: the file this build wrote would be refused by itself).
+    SaveTestSeed(0x7A11C0DEu);
     mgr.DeleteSave(0);
-    printf("[TEST] PASS: oversized Tier-1 rejected, live state intact\n");
+    SAVE_ASSERT(mgr.Save(0), "Save(0) with the tail checks armed failed");
+    std::vector<uint8_t> file = SaveTestReadAll(mgr.SlotPath(0));
+    const size_t t1 = sizeof(rsbs::RsbsSaveHeader);
+    const size_t t2 = t1 + RSBS_COMBO_CONTEXT_RECORD_SIZE;
+    const size_t t3 = t2 + OOT_SAVE_CONTEXT_SIZE;
+    SAVE_ASSERT(file.size() > t3 + MM_SAVE_CONTEXT_SIZE, "short slot file");
+    bool tailsZero = true;
+    for (size_t i = ootLayout; i < OOT_SAVE_CONTEXT_SIZE; i++) {
+        tailsZero = tailsZero && file[t2 + i] == 0;
+    }
+    for (size_t i = mmLayout; i < MM_SAVE_CONTEXT_SIZE; i++) {
+        tailsZero = tailsZero && file[t3 + i] == 0;
+    }
+    SAVE_ASSERT(tailsZero, "the armed writer left a nonzero byte past a game's SaveContext");
+    SAVE_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_OK, "the armed writer's own file was refused");
+
+    // A nonzero byte in each tier's tail, the CRC restamped so only the guard can
+    // refuse it: Tier-1 (always on), Tier-2 and Tier-3 (armed). Each is a field a
+    // newer build appended; each catches its own tail check removed.
+    struct TailLeg {
+        const char* what;
+        size_t at;
+    };
+    const TailLeg legs[3] = {
+        { "a Tier-1 byte past sizeof(ComboContext)", t1 + sizeof(ComboContext) },
+        { "a Tier-2 byte past OoT's SaveContext", t2 + ootLayout },
+        { "a Tier-3 byte past MM's SaveContext", t3 + MM_SAVE_CONTEXT_SIZE - 1u },
+    };
+    for (const TailLeg& leg : legs) {
+        std::vector<uint8_t> bad = file;
+        bad[leg.at] = 0x01;
+        SaveTestRestampCrc(bad);
+        mgr.DeleteSave(0);
+        SAVE_ASSERT(SaveTestWriteAll(mgr.SlotPath(0), bad), "could not write a tail slot file");
+        const RsbsLoadOutcome outcome = mgr.LoadSlot(0);
+        const RsbsRefuseReason reason = mgr.GetSlotRefuseReason(0);
+        printf("[TEST]   %s: outcome %d, reason %s\n", leg.what, (int)outcome,
+               rsbs::SaveManager::RefuseReasonLabel(reason));
+        SAVE_ASSERT(outcome == RSBS_LOAD_REFUSED && reason == RSBS_REFUSE_TIER_SIZE, leg.what);
+    }
+
+    // A watermark one MM check above this build's (a newer build's ids): refused
+    // as another build's (RSBS_REFUSE_VERSION). One below loads (an older v6
+    // file). Catches the watermark compare removed or turned around.
+    for (int dir = 1; dir >= -1; dir -= 2) {
+        std::vector<uint8_t> marked = file;
+        ComboSaveWatermark mark;
+        std::memcpy(&mark, marked.data() + t1 + offsetof(ComboContext, saveWatermark), sizeof(mark));
+        mark.mmRcMax = static_cast<uint16_t>(mark.mmRcMax + dir);
+        std::memcpy(marked.data() + t1 + offsetof(ComboContext, saveWatermark), &mark, sizeof(mark));
+        SaveTestRestampCrc(marked);
+        mgr.DeleteSave(0);
+        SAVE_ASSERT(SaveTestWriteAll(mgr.SlotPath(0), marked), "could not write a watermark slot file");
+        const RsbsLoadOutcome outcome = mgr.LoadSlot(0);
+        const RsbsRefuseReason reason = mgr.GetSlotRefuseReason(0);
+        printf("[TEST]   watermark MM checks %s this build's: outcome %d, reason %s\n",
+               dir > 0 ? "one above" : "one below", (int)outcome, rsbs::SaveManager::RefuseReasonLabel(reason));
+        if (dir > 0) {
+            SAVE_ASSERT(outcome == RSBS_LOAD_REFUSED && reason == RSBS_REFUSE_VERSION,
+                        "a record stamped above this build's watermark was not refused as another build's");
+        } else {
+            SAVE_ASSERT(outcome == RSBS_LOAD_OK, "a record stamped below this build's watermark was refused");
+        }
+    }
+
+    mgr.DeleteSave(0);
+    printf("[TEST] PASS: oversized Tier-1 rejected, live state intact; nonzero tails and a newer watermark refused\n");
     return TEST_PASS;
 }
 
@@ -1012,8 +1184,8 @@ TestResult Test_SaveSharedItemOverflowRoundtrip(void) {
 }
 
 TestResult Test_SaveSharedItemOverflowLegacy(void) {
-    printf("[TEST] save-shared-item-overflow-legacy: a v4 .redsave loads its 64 slots with an empty overflow and "
-           "re-saves as v5; a malformed Tier-5 is refused\n");
+    printf("[TEST] save-shared-item-overflow-legacy: a v4 .redsave is refused as an older version (save format 6) and "
+           "nothing is written over it; a v6 save ends in an empty Tier-5; a malformed Tier-5 is refused\n");
 
     rsbs::SaveManager& mgr = rsbs::SaveManager::Instance();
     mgr.SetSaveDirectory(kSaveTestDir());
@@ -1034,39 +1206,50 @@ TestResult Test_SaveSharedItemOverflowLegacy(void) {
         Combo_RecordSharedItemCrossing(GAME_OOT, 0x7777);
     }
 
-    SAVE_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_OK, "a v4 .redsave was refused");
-    const int wrong = SaveTestPatternMismatches(static_cast<int>(RSBS_SHARED_ITEM_CAP));
-    const bool overflowEmpty = SaveTestSlotEmpty(static_cast<int>(RSBS_SHARED_ITEM_CAP));
-    printf("[TEST]   v4 load: %d of 64 fixed slots wrong; first overflow slot empty=%d\n", wrong,
-           overflowEmpty ? 1 : 0);
-    SAVE_ASSERT(wrong == 0, "a v4 file's 64 fixed slots did not load intact");
-    SAVE_ASSERT(overflowEmpty, "a v4 file must load with an EMPTY overflow, not the live session's");
-    SAVE_ASSERT(Combo_CountSharedItems(GAME_OOT, true) + Combo_CountSharedItems(GAME_MM, true) ==
-                    static_cast<int>(RSBS_SHARED_ITEM_CAP),
-                "a v4 load holds other than its 64 entries");
+    // Save format 6: a v4 file is another layout. Refused as an older version,
+    // the live outbox untouched, and a write to the slot refused (the latch), so
+    // nothing lands on the evidence. Catches the v4 file loading (MIN below 6).
+    const int liveBefore = Combo_CountSharedItems(GAME_OOT, true) + Combo_CountSharedItems(GAME_MM, true);
+    const RsbsLoadOutcome v4 = mgr.LoadSlot(0);
+    const RsbsRefuseReason v4Reason = mgr.GetSlotRefuseReason(0);
+    printf("[TEST]   v4 load: outcome %d, reason %s\n", (int)v4, rsbs::SaveManager::RefuseReasonLabel(v4Reason));
+    SAVE_ASSERT(v4 == RSBS_LOAD_REFUSED && v4Reason == RSBS_REFUSE_OLD_VERSION,
+                "a v4 .redsave was not refused as an older version");
+    SAVE_ASSERT(Combo_CountSharedItems(GAME_OOT, true) + Combo_CountSharedItems(GAME_MM, true) == liveBefore,
+                "the refused v4 load changed the live outbox");
+    SAVE_ASSERT(!mgr.Save(0), "a save over a refused v4 slot was written");
 
-    // It re-saves as v5, with an empty Tier-5 block after Tier-4.
-    SAVE_ASSERT(mgr.Save(0), "re-save of the loaded v4 file failed");
+    // A v6 save of the same 64 fixed slots ends in an empty Tier-5 block after Tier-4.
+    SaveTestSeed(0x0F10F111u);
+    Combo_ClearSharedItemOutbox();
+    for (int i = 0; i < static_cast<int>(RSBS_SHARED_ITEM_CAP); i++) {
+        gComboCtx.sharedItemsTagged[i].originGame = SaveTestOverflowOrigin(i);
+        gComboCtx.sharedItemsTagged[i].flags = RSBS_SHARED_ITEM_CROSSING;
+        gComboCtx.sharedItemsTagged[i].id = SaveTestOverflowId(i);
+    }
+    Combo_Crossings_Clear();
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(mgr.Save(0), "the v6 save failed");
     std::vector<uint8_t> file = SaveTestReadAll(mgr.SlotPath(0));
     rsbs::RsbsSaveHeader h;
     SAVE_ASSERT(file.size() >= sizeof(h), "short re-saved file");
     std::memcpy(&h, file.data(), sizeof(h));
     const size_t t5 = SaveTestTier4Offset() + Combo_Crossings_SerializedSize();
-    printf("[TEST]   re-saved: version %u, %zu bytes (Tier-5 at %zu)\n", (unsigned)h.version, file.size(), t5);
-    SAVE_ASSERT(h.version == RSBS_SAVE_VERSION_SHARED_OVERFLOW, "the re-save is not format version 5");
+    printf("[TEST]   saved: version %u, %zu bytes (Tier-5 at %zu)\n", (unsigned)h.version, file.size(), t5);
+    SAVE_ASSERT(h.version == RSBS_SAVE_VERSION, "the save is not this build's format version");
     SAVE_ASSERT(file.size() == t5 + RSBS_SHARED_OVERFLOW_BLOCK_HEADER_SIZE,
                 "the re-save does not end in an empty Tier-5 block");
     SAVE_ASSERT(std::memcmp(file.data() + t5, RSBS_SHARED_OVERFLOW_BLOCK_MAGIC, 4) == 0 &&
                     SaveTestGetU32(file, t5 + 8) == 0u,
                 "Tier-5 is not an empty RSSO block");
 
-    // ---- malformed v5 files are refused, never truncated -------------------
+    // ---- malformed v6 Tier-5 blocks are refused, never truncated -----------
     struct Bad {
         const char* what;
         RsbsRefuseReason reason;
     };
     const Bad cases[4] = {
-        { "a v5 file without its Tier-5 block", RSBS_REFUSE_TRUNCATED },
+        { "a v6 file without its Tier-5 block", RSBS_REFUSE_TRUNCATED },
         { "a Tier-5 count past the overflow capacity", RSBS_REFUSE_TIER_SIZE },
         { "a Tier-5 block with a bad magic", RSBS_REFUSE_TIER_SIZE },
         { "a Tier-5 count with no rows behind it", RSBS_REFUSE_TRUNCATED },
@@ -1097,7 +1280,8 @@ TestResult Test_SaveSharedItemOverflowLegacy(void) {
     mgr.DeleteSave(0);
     Combo_Crossings_Clear();
     ComboContext_Init();
-    printf("[TEST] PASS: v4 loads with an empty overflow and re-saves as v5; a malformed Tier-5 is refused\n");
+    printf("[TEST] PASS: v4 is refused as an older version; a v6 save ends in an empty Tier-5; a malformed Tier-5 is "
+           "refused\n");
     return TEST_PASS;
 }
 

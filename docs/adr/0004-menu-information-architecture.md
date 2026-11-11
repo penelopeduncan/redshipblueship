@@ -15,7 +15,7 @@
   §4.1a), §2d (the #454 disagreement, now ruled), and "What this ADR does not
   decide" (all five calls resolved).
 - Amended **2026-07-30, #564** (the one-game ruling is recorded on
-  [#500](https://github.com/spencerduncan/redshipblueship/issues/500#issuecomment-5126492334)):
+  [#500](https://github.com/penelopeduncan/redshipblueship/issues/500#issuecomment-5126492334)):
   §6 gains a **fourth presentation state** — frozen-at-creation, read-only, with
   the reason — and its "a player should be able to set MM options before
   switching" clause is superseded; §4.1a's timing is restated as *reachable
@@ -24,7 +24,7 @@
   the section layout are untouched.
 - Superseded in part **2026-07-31**, by
   [ADR 0010](0010-cross-game-logic-and-beatability.md) (Accepted 2026-07-31,
-  [PR #572](https://github.com/spencerduncan/redshipblueship/pull/572)):
+  [PR #572](https://github.com/penelopeduncan/redshipblueship/pull/572)):
   §4.1a's "no raised profile ships" consequence — the paired `RO_LOGIC` default
   is raised from Nearly No Logic to Glitchless by ADR 0010 increment 1, with
   its deterministic attempt ladder answering the dead-end-rate concern §4.1a
@@ -124,7 +124,7 @@ sidebar-name caveat.
 **~~One live disagreement, deliberately preserved.~~ RULED (P) on acceptance, 2026-07-23; FIXED and
 returned to (S), 2026-08-02 (#454).** On `gDeveloperTools.DebugSaveFileMode`, ADR 0003 §4.1 classified
 (S) — value spaces align, only the unwritten fallback differs, "acceptable, worth knowing" — and this
-document classified it **(P)**, filed as [#454](https://github.com/spencerduncan/redshipblueship/issues/454).
+document classified it **(P)**, filed as [#454](https://github.com/penelopeduncan/redshipblueship/issues/454).
 The (P) reading was correct for the tree as it stood; #454 has since removed what made it (P) (see the
 resolution note at the end of this subsection), so the key is genuine (S) now.
 
@@ -316,7 +316,7 @@ measuring a profile nobody chose. The one previously-hardcoded value, the paired
 to Nearly No Logic (#426), becomes a default that an explicit choice overrides.
 
 > **Superseded on a single point (2026-07-31):** [ADR 0010](0010-cross-game-logic-and-beatability.md)
-> — **Accepted** 2026-07-31, [PR #572](https://github.com/spencerduncan/redshipblueship/pull/572) —
+> — **Accepted** 2026-07-31, [PR #572](https://github.com/penelopeduncan/redshipblueship/pull/572) —
 > resolves the forward pointer previously recorded here. Its increment 1 raises this one default:
 > the paired `RO_LOGIC` default becomes **Glitchless**, not Nearly No Logic, at its single
 > resolution point (`Rando::Foreign::ResolveProfileValues`, `Rando/Foreign.cpp`), with a
@@ -328,7 +328,7 @@ to Nearly No Logic (#426), becomes a default that an explicit choice overrides.
 > `RO_GENERIC_OFF` default, and the explicit-choice-overrides rule is unchanged: an explicit
 > player choice of a no-logic mode is still honored and recorded in the frozen identity.
 
-> **Superseded on the hint rows (2026-11-03, [#1439](https://github.com/spencerduncan/redshipblueship/issues/1439)):**
+> **Superseded on the hint rows (2026-11-03, [#1439](https://github.com/penelopeduncan/redshipblueship/issues/1439)):**
 > following OoTMM, which ships its hints on (operator directive 2026-09-27, "OoTMM is the reference
 > for game choices"), five `RO_HINTS_*` rows now default **on** (`Rando/StaticData/Options.cpp`,
 > single-exe only): Gossip Stone Hints, Spider House Hints, Hookshot Hint, Boss Remains Hints and
@@ -557,7 +557,7 @@ kept so the decision trail stays legible.
 ## Amendment 2026-09-20 — §5, §4.2 and §6 are built; §4's Combo row is partly built
 
 **Nothing decided above changes.** This paragraph records what shipped against it, on the
-operator's 2026-09-17 ruling on [#497](https://github.com/spencerduncan/redshipblueship/issues/497):
+operator's 2026-09-17 ruling on [#497](https://github.com/penelopeduncan/redshipblueship/issues/497):
 *"#497 go ahead"* — build steps 3, 5 and 6 and the `SetMenu`-count invariant. Written as an
 amendment rather than an edit because §5, §4.2 and §6 are decided text.
 

@@ -97,6 +97,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_CLOCK_TOWN_STRAY_FAIRY,         CAN_BE_DEKU && IS_NIGHT()),
             CHECK(RC_CLOCK_TOWN_EAST_UPPER_CHEST,    true),
             CHECK(RC_CLOCK_TOWN_BOMBERS_NOTEBOOK,    RANDO_EVENTS[RE_BOMBER_CODE]),
+            CHECK(RC_CLOCK_TOWN_POSTBOX,             HAS_ITEM(ITEM_MASK_POSTMAN)),
             CHECK(RC_CLOCK_TOWN_EAST_WONDER_ITEM_01, CAN_USE_SWORD || CAN_USE_PROJECTILE || HAS_ITEM(ITEM_DEKU_STICK) || HAS_ITEM(ITEM_DEKU_NUT)),
             CHECK(RC_CLOCK_TOWN_EAST_WONDER_ITEM_02, CAN_USE_SWORD || CAN_USE_PROJECTILE || HAS_ITEM(ITEM_DEKU_STICK) || HAS_ITEM(ITEM_DEKU_NUT)),
             CHECK(RC_CLOCK_TOWN_EAST_WONDER_ITEM_03, CAN_USE_SWORD || CAN_USE_PROJECTILE || HAS_ITEM(ITEM_DEKU_STICK) || HAS_ITEM(ITEM_DEKU_NUT)),
@@ -278,7 +279,6 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_CLOCK_TOWN_WEST] = RandoRegion{ .sceneId = SCENE_ICHIBA,
         .checks = {
-            CHECK(RC_CLOCK_TOWN_POSTBOX, HAS_ITEM(ITEM_MASK_POSTMAN)),
             CHECK(RC_CLOCK_TOWN_WEST_BANK_ADULTS_WALLET, true),
             // #578 part 3 — MMRT_BANK_NO_WALLET ("Bank Rewards Require No Extra Wallets — All bank
             // rewards will only require the Child Wallet."), DEFAULT OFF, on the two rewards that carry

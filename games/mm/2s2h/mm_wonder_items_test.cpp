@@ -131,7 +131,8 @@ constexpr const char* kOptionName = "RO_SHUFFLE_WONDER_ITEMS";
 constexpr const char* kOptionCVar = "gRando.Options.RO_SHUFFLE_WONDER_ITEMS";
 constexpr const char* kRowLabel = "Shuffle Wonder Items";
 
-// Every wonder item check (Types.h, between RC_ZORA_CAPE_TREE_05 and RC_MAX).
+// Every wonder item check (Types.h, ids 2311..2423 after RC_ENEMY_DROP_GOMESS;
+// GameExports_SingleExe.cpp locks the first and last numbers).
 const char* const kWonderChecks[] = {
     "RC_CLOCK_TOWN_EAST_WONDER_ITEM_01",
     "RC_CLOCK_TOWN_EAST_WONDER_ITEM_02",

@@ -15,7 +15,7 @@
  * 46 MM areas holds checks. It is stored as a scene default plus a per-check
  * override list. The table was derived by a script over OoTMM's world and check
  * files; the 636 2ship rows whose names match an OoTMM location by name all
- * agree with OoTMM's region (PR for #575 H1). OoTMM gives the 55 enemy drops no
+ * agree with OoTMM's region (PR for #575 H1). OoTMM gives the 56 enemy drops no
  * region (packages/logic/src/hints.ts ignores region-less checks), so they are
  * COMBO_AREA_NONE, as is RC_UNKNOWN.
  *
@@ -853,16 +853,54 @@ bool Rando::HintArea::HasArea(RandoCheckId randoCheckId) {
 }
 
 void Rando::HintArea::ReplaceItemLocation(std::string* msg, const char* key, RandoItemId randoItemId) {
-    const RandoCheckId randoCheckId = Rando::FindItemPlacement(randoItemId);
+    ReplaceItemLocation(RANDO_SAVE_CHECKS, msg, key, randoItemId);
+}
+
+bool Rando::HintArea::ItemLocation(const RandoSaveCheck* checks, RandoItemId randoItemId, uint8_t* outGame,
+                                   uint16_t* outCheck, ComboArea* outArea) {
+    // Rando::FindItemPlacement's rule over `checks`: the first check, in check
+    // order, whose stored item is this one.
+    RandoCheckId randoCheckId = RC_UNKNOWN;
+    for (auto& [id, check] : Rando::StaticData::Checks) {
+        if (checks[id].randoItemId == randoItemId) {
+            randoCheckId = id;
+            break;
+        }
+    }
+    uint8_t game = (uint8_t)GAME_MM;
+    uint16_t host = (uint16_t)randoCheckId;
     if (randoCheckId == RC_UNKNOWN) {
         // No MM check holds it: it crossed into Hyrule, or it is nowhere.
         const uint16_t ootHost = OoTHostOfItem(randoItemId);
         if (ootHost != 0) {
-            ReplaceOoTHostLocation(msg, key, ootHost);
-            return;
+            game = (uint8_t)GAME_OOT;
+            host = ootHost;
         }
     }
-    ReplaceLocation(msg, key, randoCheckId);
+    if (outGame != nullptr) {
+        *outGame = game;
+    }
+    if (outCheck != nullptr) {
+        *outCheck = host;
+    }
+    if (outArea != nullptr) {
+        // ReplaceLocation's and ReplaceOoTHostLocation's area ("nowhere" for RC_UNKNOWN).
+        *outArea = Combo_Area_OfCheck(game, host);
+    }
+    return !(game == (uint8_t)GAME_MM && randoCheckId == RC_UNKNOWN);
+}
+
+void Rando::HintArea::ReplaceItemLocation(const RandoSaveCheck* checks, std::string* msg, const char* key,
+                                          RandoItemId randoItemId) {
+    ComboArea area = { (uint8_t)GAME_MM, (uint8_t)COMBO_AREA_NONE };
+    (void)ItemLocation(checks, randoItemId, nullptr, nullptr, &area);
+    ReplaceAreaText(msg, key, area);
+}
+
+ComboArea Rando::HintArea::SceneArea(int16_t sceneId) {
+    const uint8_t area = (sceneId == (int16_t)SCENE_KAKUSIANA) ? (uint8_t)COMBO_AREA_MM_TERMINA_FIELD
+                                                               : MmSceneDefaultArea((SceneId)sceneId);
+    return ComboArea{ (uint8_t)GAME_MM, area };
 }
 
 std::vector<uint16_t> Rando::HintArea::OoTHostedHintCandidates(bool excludeObtained) {

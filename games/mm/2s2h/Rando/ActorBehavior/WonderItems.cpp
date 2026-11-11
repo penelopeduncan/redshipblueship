@@ -176,7 +176,9 @@ void WonderItemInit(Actor* actor, RandoCheckId randoCheckId, bool isInvisible, b
     }
 
     Actor* customActor = (Actor*)spawnReplacementItem(actor->world.pos, Rando::StaticData::Checks[randoCheckId]);
-    if (isInvisible) {
+    // RSBS: CustomItem::Spawn returns NULL without a play state or when the actor
+    // table is full; upstream dereferences it unguarded.
+    if (isInvisible && customActor != nullptr) {
         customActor->draw = Rando::ActorBehavior::DrawWonderItemSparkle;
     }
 

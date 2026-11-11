@@ -276,7 +276,7 @@ what links).
 **Venue:** cloud for the change and the linker-level proof; ONE command on the
 operator's box for crash clearance. **Model:** opus. **Independent** of every other
 lane. **File ownership:** the OTRExporter submodule (fork
-`spencerduncan/OTRExporter`, branch `claude/<description>` — the pinned
+`penelopeduncan/OTRExporter`, branch `claude/<description>` — the pinned
 `claude/disable-ipo-single-exe` branch is the precedent) plus the submodule pointer
 in the superproject.
 

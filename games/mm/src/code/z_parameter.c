@@ -26,6 +26,15 @@
 #include <libultraship/bridge/gfxbridge.h>
 #include <libultraship/bridge/consolevariablebridge.h>
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// games/mm/2s2h/Rando/ForeignMaskMM.cpp (#1500): a shared mask slot's own item on a
+// button draws the Ocarina of Time mask it stands for; every other item its own icon.
+const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
+#define RSBS_BUTTON_ICON(item, nativeIcon) ((TexturePtr)MM_ForeignMask_ItemIcon((item), (const char*)(nativeIcon)))
+#else
+#define RSBS_BUTTON_ICON(item, nativeIcon) (nativeIcon)
+#endif
+
 // 2S2H [Port] This was originally static but needs to be global so it can be accessed in z_kaleido_collect,
 // z_kaleido_debug, and z_kaleido_draw.
 const char* sCounterTextures[] = {
@@ -6096,6 +6105,11 @@ s16 sDpadItemIconTop[] = {
 void Interface_Dpad_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 button) {
     static s16 sDpadItemIconWidth[] = { 16, 16, 16, 16 };
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1500: the icon of the mask the button's item stands for (ForeignMaskMM.cpp).
+    texture = RSBS_BUTTON_ICON(DPAD_GET_CUR_FORM_BTN_ITEM(button), texture);
+#endif
+
     OPEN_DISPS(play->state.gfxCtx);
 
     gDPLoadTextureBlock(OVERLAY_DISP++, texture, G_IM_FMT_RGBA, G_IM_SIZ_32b, 32, 32, 0, G_TX_NOMIRROR | G_TX_WRAP,
@@ -6214,6 +6228,11 @@ void MM_Interface_DrawItemIconTexture(PlayState* play, TexturePtr texture, s16 b
         24, // EQUIP_SLOT_C_DOWN
         24, // EQUIP_SLOT_C_RIGHT
     };
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1500: the icon of the mask the button's item stands for (ForeignMaskMM.cpp).
+    texture = RSBS_BUTTON_ICON(GET_CUR_FORM_BTN_ITEM(button), texture);
+#endif
 
     OPEN_DISPS(play->state.gfxCtx);
 
@@ -6703,9 +6722,11 @@ void Interface_DrawPauseMenuEquippingIcons(PlayState* play) {
             // Normal Equip (icon goes from the inventory slot to the C button when equipping it)
             gDPSetPrimColor(OVERLAY_DISP++, 0, 0, 255, 255, 255, pauseCtx->equipAnimAlpha);
             MM_gSPVertex(OVERLAY_DISP++, &pauseCtx->cursorVtx[16], 4, 0);
-            gDPLoadTextureBlock(OVERLAY_DISP++, MM_gItemIcons[pauseCtx->equipTargetItem], G_IM_FMT_RGBA, G_IM_SIZ_32b,
-                                ICON_ITEM_TEX_WIDTH, ICON_ITEM_TEX_HEIGHT, 0, G_TX_NOMIRROR | G_TX_WRAP,
-                                G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
+            // RSBS #1500: RSBS_BUTTON_ICON, the icon of the mask a shared slot's item stands for.
+            gDPLoadTextureBlock(
+                OVERLAY_DISP++, RSBS_BUTTON_ICON(pauseCtx->equipTargetItem, MM_gItemIcons[pauseCtx->equipTargetItem]),
+                G_IM_FMT_RGBA, G_IM_SIZ_32b, ICON_ITEM_TEX_WIDTH, ICON_ITEM_TEX_HEIGHT, 0, G_TX_NOMIRROR | G_TX_WRAP,
+                G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD, G_TX_NOLOD);
         } else {
             // Magic Arrow Equip Effect
             temp = pauseCtx->equipTargetItem - 0xB5;
@@ -8691,7 +8712,8 @@ void Interface_DrawMinigameIcons(PlayState* play) {
 
     if (!IS_PAUSED(&play->pauseCtx)) {
         // Carrots rendering if the action corresponds to riding a horse
-        if (interfaceCtx->aButtonDoActionDelayed == DO_ACTION_FASTER) {
+        if ((interfaceCtx->aButtonDoActionDelayed == DO_ACTION_FASTER) &&
+            GameInteractor_Should(VB_CONSUME_EPONA_CARROT, true)) {
             // Load Carrot Icon
             gDPLoadTextureBlock(OVERLAY_DISP++, gCarrotIconTex, G_IM_FMT_RGBA, G_IM_SIZ_32b, 16, 16, 0,
                                 G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK,

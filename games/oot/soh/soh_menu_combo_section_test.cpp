@@ -127,10 +127,12 @@
 #include "soh/SohGui/OoTActiveGated.h"
 #include "soh/SohGui/SohRetiredWindow.h"
 #include "soh/Enhancements/randomizer/randomizer_check_tracker.h"
+#include "soh/Enhancements/randomizer/randomizer_hint_tracker.h" // leg 8d (#1475 lane H2)
 #include "soh/Enhancements/randomizer/randomizer_item_tracker.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/SaveManager.h"
 
+#include "ComboHintTrackerWindow.h" // leg 8d: the combined Hint Tracker (#1475 lane H2)
 #include "ComboItemTrackerWindow.h" // legs 3, 7, 8: the overlay's name, key, window types and Icon Size range
 #include "ComboTrackerWindow.h"     // legs 3 and 8: the Check Tracker's name and key
 #include "context.h"                // leg 8: the running game OoTActiveGated<> reads
@@ -1559,9 +1561,45 @@ extern "C" int OoT_MenuComboSection_RunHeadless(void) {
                         "not follow their keys");
         }
 
+        // d. #1475 (lane H2): SoH's Hint Tracker, retired the same way for the
+        //    combined Hint Tracker, which SoH's Toggle Hint Tracker opens by name.
+        //    Its InitElement must still register the read hook and the transition
+        //    hook (the combined window's OoT pane reads the read set they keep).
+        HookWatch<GameInteractor::OnRandoHintRevealed> hintRevealed;
+        {
+            IntKeyGuard hintKey("gOpenWindows.HintTracker");
+            CVarSetInteger("gOpenWindows.HintTracker", 1);
+            transitionEnd.Mark();
+            hintRevealed.Mark();
+            std::shared_ptr<Ship::GuiWindow> hint =
+                std::make_shared<OoTActiveGated<RetiredInSingleExe<HintTracker::HintTrackerWindow>>>(
+                    "", kSohRetiredHintTrackerWindowName, ImVec2(500, 600));
+            gui->AddGuiWindow(hint);
+            ComboGui::RegisterComboHintTrackerWindow(gui);
+            printf("[TEST] leg 8: the retired Hint Tracker registered OnRandoHintRevealed %zu, OnTransitionEnd %zu\n",
+                   hintRevealed.Added(), transitionEnd.Added());
+            COMBO_CHECK(hintRevealed.Added() == 1 && transitionEnd.Added() == 1,
+                        "the retired Hint Tracker did not register its read and transition hooks once: the combined "
+                        "Hint Tracker's OoT pane would never see a hint read");
+            COMBO_CHECK(!hint->IsVisible(), "the retired Hint Tracker is visible because its SoH key is on: it latched "
+                                            "the key that opens the combined window");
+            COMBO_CHECK(gui->GetGuiWindow(kSohRetiredHintTrackerWindowName) == hint,
+                        "the retired Hint Tracker is not registered under its retired name");
+            COMBO_CHECK(std::dynamic_pointer_cast<ComboGui::ComboHintTrackerWindow>(
+                            gui->GetGuiWindow("Hint Tracker")) != nullptr,
+                        "the window named \"Hint Tracker\" is not the combined Hint Tracker, so SoH's Toggle Hint "
+                        "Tracker opens SoH's own");
+            if (std::string(kSohRetiredHintTrackerWindowName) != "Hint Tracker") {
+                hint->Show();
+                hint->Draw();
+                hint->DrawElement();
+                hint->Hide();
+            }
+        }
+
         for (HookWatchBase* w : std::initializer_list<HookWatchBase*>{
                  &loadGame, &exitGame, &itemReceive, &transitionEnd, &shopSlot, &sceneFlag, &flagSet, &dialog, &frame,
-                 &deleteFile, &fileChoose, &loadFile, &saveFile }) {
+                 &deleteFile, &fileChoose, &loadFile, &saveFile, &hintRevealed }) {
             w->Drop();
         }
         SaveManager::Instance = saveManagerBefore;
