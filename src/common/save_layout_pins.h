@@ -110,12 +110,18 @@
 // ---- Tier-1: ComboContext (context.h) --------------------------------------
 // Offsets <= 1007 are pinned as literals in context.h already (unchanged by format
 // 6). These are the members format 6 moved or added: the MM capture (after the
-// OoT capture grew to 1024 bytes), the skip journal, the watermark, and the size.
+// OoT capture grew to 1024 bytes), the skip journal, the watermark, every append
+// after it, and the size.
 #define RSBS_PIN_COMBO_TRACKER_AVAIL_MM 2032u   // offsetof(ComboContext, trackerAvailMM)
 #define RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT 2544u // offsetof(ComboContext, trackerSkipJournalCountOoT)
 #define RSBS_PIN_COMBO_SKIP_JOURNAL 2546u       // offsetof(ComboContext, trackerSkipJournalOoT)
 #define RSBS_PIN_COMBO_SAVE_WATERMARK 2676u     // offsetof(ComboContext, saveWatermark)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2696u     // sizeof(ComboContext)
+// Layout revision 2 (#1169 XW7): comboOoTWarps appended directly after the
+// watermark, by hand 2676 + 20 = 2696 (no padding: the watermark ends on a
+// multiple of 4 and the record has alignment 1); sizeof 2696 + 20 = 2716, a
+// multiple of the struct's alignment 4, so no tail padding. The gate re-measures.
+#define RSBS_PIN_COMBO_OOT_WARPS 2696u      // offsetof(ComboContext, comboOoTWarps)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2716u // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset

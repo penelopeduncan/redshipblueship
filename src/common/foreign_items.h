@@ -1448,6 +1448,7 @@ typedef struct ComboCreationRecords {
     uint8_t comboFillWallets;              // #1284: the pair's fill-wallets rule, frozen in the same act
     ComboWothRecord comboWoth;             // #1439: the pair's Way of the Hero, written by the same creation's fill
     ComboItemRules2Record comboItemRules2; // #1169 XW2: the second rules word, frozen with the first
+    ComboOoTWarpRecord comboOoTWarps; // #1169 XW7: the OoT warp songs as MM plays them, written by the same creation
 } ComboCreationRecords;
 
 /** Copy the creation records (every ComboCreationRecords field) out of gComboCtx into @p out. */

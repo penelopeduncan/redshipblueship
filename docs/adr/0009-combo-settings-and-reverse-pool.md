@@ -902,6 +902,7 @@ Publishing the allocation once beats five sequential re-versions:
 | 19 (2026-11-04) | `comboItemRules2` (`ComboItemRules2Record`, #1169 lane XW2: the second cross-game rules word, OoTMM's fourteen warp-song rules; a creation record and a world field; ADR 0011's 2026-11-04 amendment) | 4 B | **carved** — offset **925**, directly after claim 18, four bytes little-endian (no alignment, so no padding byte is spent); `reserved[75]` now begins at 929, 11 bytes above the floor; `sizeof(ComboContext)` stays 1844, so a seed package's combo record keeps its size. `ComboItemRulesRecord.spare[3]` was measured first and holds 24 bits, not 32 |
 | 20 (2026-11-04) | `mmHintsRead[10]` (#1475 lane H1: the combined Hint Tracker's Majora's Mask read record, one bit per MM hint source, `RSBS_MM_HINT_READ_CAP` 80 bits for 74 sources: the 58 gossip-stone placements and MM's 16 fixed-location hints; progress, not a creation record or a world field) | 10 B | **carved** — offset **929**, directly after claim 19; `reserved[65]` now begins at 939, **1 byte above the floor**; `sizeof(ComboContext)` stays 1844, so a seed package's combo record keeps its size. Session state: not in the invalidation KEEP set (a new file reads nothing read), carried by every Tier-1 write and restored by every load, written only by MM's read hook. Carved rather than appended because an append moves `sizeof(ComboContext)` and with it a seed package's combo record, which this lane may not change. **The next carver has one byte**: anything wider appends after claim 17's journal (and owns the seed-package consequence) or amends the floor |
 | 21 (2026-11-10) | `mmWarpSongsOwned` (#1169 lane XW5: which of Ocarina of Time's six warp songs Majora's Mask owns as its own items, one bit each in OoTMM's order; session state, and at Generate the world's starting songs, so a seed package's world record carries it; not KEPT by the file-create invalidation and not folded into the fingerprint) | 1 B | **carved from the END** — offset **1003**, the last byte of claim 20's `reserved[65]`, so claim 20's record and every offset ahead of it stay put; `reserved[64]` still begins at 939, **exactly on the floor**; `sizeof(ComboContext)` stays 1844 and #1129's captures stay at 1004. MM's `RandoSaveInfo` was measured first: no tail padding and two free `randoInf` bits, so six flags there would shift every later `SaveContext` field. **`reserved[]` is now spent**: the next claimant appends after claim 17's journal (and owns the seed-package consequence) or amends the floor |
+| 22 (2026-11-10) | `comboOoTWarps` (`ComboOoTWarpRecord`, #1169 lane XW7: per OoT warp song, the entrance its pad leads to in this world and the area the Majora's Mask warp prompt names, plus the world's Shuffle Warp Songs / Warp Song Hints flags; a creation record and a world field) | 20 B | **appended** under save format 6's growth rule 1, directly after `saveWatermark`: offsets **2696-2715** by hand (the watermark ends on a multiple of 4 and the record has alignment 1, so no padding before it; 2716 is a multiple of 4, so none after it); `sizeof(ComboContext)` 2696 -> **2716** (`RSBS_PIN_COMBO_CONTEXT_SIZEOF`; `RSBS_PIN_COMBO_OOT_WARPS` 2696; both re-measured at the gate); the last-member assert moves to it; `RSBS_SAVE_LAYOUT_REVISION` 1 -> **2**; the record size (4096) and `RSBS_SAVE_VERSION` (6) do not move. A revision-1 `.redsave` and a format-2 seed package written before it zero-extend to UNSET (formatVersion 0), which refuses every warp song of that file; a package is no longer refused for it. `reserved[64]` untouched |
 
 Total reserved-against: 152 B of 284. After claims 1, 3, 5 and 6 land, `reserved[]`
 is 132 bytes and 152 B of capacity remain.
@@ -1103,13 +1104,14 @@ break. For this ADR's budget it means:
   depends on a budget anyone spends from.
 - **`reserved[64]` at offset 939 is frozen.** It is never carved again
   (`context.h` asserts its size `== 64`, not `>= 64`). Claim 21 (`mmWarpSongsOwned`,
-  carved from its end at 1003) is the last claim this table records.
+  carved from its end at 1003) is the last claim carved from it; later rows
+  (claim 22 on) are appends.
 - **Growth is append-only, at the end of `ComboContext`.** A new Tier-1 field goes
-  after the last member (today `saveWatermark`, the save watermark appended by
-  format 6), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
+  after the last member (today `comboOoTWarps`, appended after format 6's save
+  watermark by claim 22), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
   `sizeof` pin (`src/common/save_layout_pins.h`). It also moves `context.h`'s
   last-member assert (`sizeof(ComboContext) == offsetof(<last member>) +
-  sizeof(<it>)`, today written against `saveWatermark`) to the new member, which
+  sizeof(<it>)`, today written against `comboOoTWarps` (claim 22)) to the new member, which
   that assert otherwise refuses whatever the pin says; the members before it keep
   their contiguity asserts. No `RSBS_SAVE_VERSION` change:
   an older format-6 record zero-extends, so "zero means unset" holds for every
@@ -1118,8 +1120,9 @@ break. For this ADR's budget it means:
   Format 6 widened the tracker captures (OoT 8192 checks, 1024 bytes; MM 4096,
   512 bytes), which moved the MM capture, the skip journal and everything after
   them; the watermark (20 bytes, after 2 bytes of padding) follows the journal.
-  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes, leaving
-  about 1400 to append into; the measured value is the pin's.
+  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes at layout
+  revision 1 (2716 after claim 22, layout revision 2), leaving about 1400 to
+  append into; the measured value is the pin's.
 - **A seed package's combo record is fixed-size too** (package format 2): written
   at 4096 bytes, zero-padded, accepted shorter and refused with a nonzero byte past
   the reading build's struct. An append therefore no longer refuses every older
