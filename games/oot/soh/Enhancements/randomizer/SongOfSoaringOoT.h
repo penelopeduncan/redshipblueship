@@ -12,6 +12,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+struct PlayState;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -24,6 +26,32 @@ bool OoT_SongOfSoaringOoTOn(void);
  *  pool (Combo_SongSoaringOoTCopies over the frozen second rules word): 1 with
  *  the rule on and the shared song off, else 0. */
 int OoT_SongOfSoaringOoTPooledCopies(void);
+
+/** Does Link hold the Song of Soaring (OoT)? Its RAND_INF flag; lane XW10 widens
+ *  this one predicate for the shared song. */
+bool OoT_SoaringOoTOwned(void);
+
+/* #1169 lane XW6: playing it (the gates are src/common/warp_song_soaring.h). */
+
+/** THE MATCHER's question (code_800EC960.c, func_800ED200): 1 when the note
+ *  buffer's tail is the Song of Soaring AND the frozen rule is on, the world is
+ *  paired, Link owns the song, is a child and plays in free play; else 0. */
+int32_t OoT_SoaringOoT_NoteMatched(const uint8_t* song, uint8_t appendPos);
+
+/** The song's playback (z_message_PAL.c, SETUP_DISPLAY_SONG_PLAYED): MM's
+ *  Soaring notes in OoT's format, without an index into sOcarinaSongs. */
+void OoT_SoaringOoT_StartPlayback(void);
+
+/** SONG_PLAYED_ACT for the song: the gates, then the owl chooser. Every refusal
+ *  shows its text and leaves OCARINA_MODE_04. */
+void OoT_SoaringOoT_OnSongPlayed(struct PlayState* play);
+
+/** THE XW8 SEAM. Opens the owl chooser over @p owlMask (the interim one is a
+ *  3-choice text cycle; lane XW8 replaces only this with OoTMM's pause map) and
+ *  crosses to one owl (the gates again, then the one-shot warp target and an
+ *  ordinary game switch). */
+void OoT_SoaringOoT_BeginChooser(struct PlayState* play, uint16_t owlMask);
+void OoT_SoaringOoT_Depart(struct PlayState* play, int owl);
 
 #ifdef __cplusplus
 }

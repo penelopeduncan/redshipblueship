@@ -218,6 +218,12 @@ struct ClEngine {
      *  table) stands in, which is every world authored before ABI 8. */
     bool withAllLocations;
     uint32_t notLocation;
+    /** ABI 9 (#1502, THE HOST GROUPS): install `hostGroups`, answering
+     *  `hostGroup[i]` for authored host i (0 for any other id). Clear, the entry
+     *  is NULL, which is every world authored before ABI 9. */
+    bool withHostGroups;
+    uint32_t hostGroup[kClMaxHosts];
+    int hostGroupCalls;
     ClFault fault;
 
     // --- live state ------------------------------------------------------
@@ -680,6 +686,15 @@ int ClAllLocations(void* self, uint16_t* out, int cap) {
     return total;
 }
 
+/** ABI 9's `hostGroups`: the authored host's group bits. Legal outside a round,
+ *  so it sets no trap; counted, so a lock can see it was (or was not) asked. */
+uint32_t ClHostGroups(void* self, uint16_t hostCheck) {
+    ClEngine* e = (ClEngine*)self;
+    e->hostGroupCalls++;
+    const int i = ClHostIndex(e, hostCheck);
+    return (i >= 0) ? e->hostGroup[i] : 0u;
+}
+
 void ClFillVtable(ComboLogicEngine* vt, ClEngine* e) {
     memset(vt, 0, sizeof(*vt));
     vt->abiVersion = RSBS_COMBO_LOGIC_ENGINE_ABI;
@@ -698,6 +713,9 @@ void ClFillVtable(ComboLogicEngine* vt, ClEngine* e) {
     vt->withholdHost = ClWithholdHost;
     if (e->withAllLocations) {
         vt->allLocations = ClAllLocations;
+    }
+    if (e->withHostGroups) {
+        vt->hostGroups = ClHostGroups;
     }
     if (e->withSnapshot) {
         vt->snapshot = ClSnapshot;
@@ -2936,9 +2954,9 @@ void ClCountCrossings(int* intoOoT, int* intoMM, bool* ootForeignOnly41) {
 }
 
 TestResult ClProductionRulesLeg(void) {
-    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 8u,
-              "P0: this build speaks ABI 8 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
-              "hosts; 7: the shared pair; 8: All Locations' allLocations)");
+    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 9u,
+              "P0: this build speaks ABI 9 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
+              "hosts; 7: the shared pair; 8: All Locations' allLocations; 9: the host groups)");
     const uint8_t O = (uint8_t)GAME_OOT;
     const uint8_t M = (uint8_t)GAME_MM;
     const uint16_t oItems[4] = { kOotSword, kOotHook, kOotLens, kOotBoots };
@@ -3842,4 +3860,391 @@ TestResult Test_ComboLogicSharedPair(void) {
 
     printf("[TEST] combo-logic-shared-pair: %s\n", sClpFailures == 0 ? "PASS" : "FAIL");
     return sClpFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// combo-logic-host-groups — THE HOST GROUPS (ABI 9, #1502)
+// ============================================================================
+//
+// A confined row (ComboLogicFillRequest.confineMasks) may only be drawn onto a host
+// of its own game whose `hostGroups` answer meets its mask: MM's Own Dungeon and
+// Song Locations. Each leg names the rule it would catch removed.
+
+namespace {
+
+/** MM host 22 is the one host of group bit 0 unless a leg says otherwise. */
+const uint32_t kClGroupA = 0x1u;
+const uint32_t kClGroupB = 0x2u; // a group no authored host is in
+
+/** A world for the group legs: OoT hosts 10 and 11 (11 in group A of OoT's own
+ *  namespace, to catch a predicate that forgot the origin), MM hosts 20 ..
+ *  20 + mmHosts - 1, all sphere zero except `mmHostNeedsOcarina` (0 for none);
+ *  MM host 22 in group A, and also `alsoInA` (an MM host id, 0 for none). Every
+ *  bag id the legs use is in its engine's table, and both goals are
+ *  unconditional. */
+void ClBuildGroupWorld(int mmHosts, uint16_t alsoInA, uint16_t mmHostNeedsOcarina) {
+    ClResetEngine(&gClOoT, (uint8_t)GAME_OOT);
+    ClAddItem(&gClOoT, kOotSword);
+    ClAddItem(&gClOoT, kOotPairMask);
+    ClAddHost(&gClOoT, 10, 0u);
+    ClAddHost(&gClOoT, 11, 0u);
+    gClOoT.withHostGroups = true;
+    gClOoT.hostGroup[1] = kClGroupA;
+    gClOoT.crossingRequires = 0u;
+    gClOoT.goalRequires = 0u;
+
+    ClResetEngine(&gClMM, (uint8_t)GAME_MM);
+    ClAddItem(&gClMM, kMmOcarina);
+    ClAddItem(&gClMM, kMmBow);
+    ClAddItem(&gClMM, kMmRemains);
+    ClAddItem(&gClMM, kMmMask);
+    ClAddItem(&gClMM, kMmPairMask);
+    for (int i = 0; i < mmHosts; ++i) {
+        const uint16_t id = (uint16_t)(20 + i);
+        ClAddHost(&gClMM, id, (id == mmHostNeedsOcarina) ? ClBit(&gClMM, kMmOcarina) : 0u);
+        if (id == 22 || (alsoInA != 0 && id == alsoInA)) {
+            gClMM.hostGroup[i] = kClGroupA;
+        }
+    }
+    gClMM.withHostGroups = true;
+    gClMM.crossingRequires = 0u;
+    gClMM.goalRequires = 0u;
+    ClInstall();
+}
+
+int ClRunConfinedFill(const ComboLogicBagItem* bag, int bagCount, const uint32_t* masks, uint8_t rung, uint32_t seed,
+                      ComboLogicFillResult* out) {
+    ComboLogicFillRequest req;
+    memset(&req, 0, sizeof(req));
+    req.bag = bag;
+    req.bagCount = bagCount;
+    req.goal = (uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH;
+    req.logicRung = rung;
+    req.seed = seed;
+    req.confineMasks = masks;
+    return Combo_Logic_RunFill(&req, out);
+}
+
+/** Which host holds MM item `id`, in either game's table? -1 when none does. */
+int ClHostOfMM(uint16_t id, GameId* outGame) {
+    const GameId both[2] = { GAME_OOT, GAME_MM };
+    for (int s = 0; s < 2; ++s) {
+        for (int i = 0; i < Combo_Logic_PlacementCount(both[s]); ++i) {
+            ComboLogicPlacement p;
+            if (Combo_Logic_PlacementAt(both[s], i, &p) && p.item.originGame == (uint8_t)GAME_MM && p.item.id == id) {
+                if (outGame != NULL) {
+                    *outGame = both[s];
+                }
+                return (int)p.hostCheck;
+            }
+        }
+    }
+    return -1;
+}
+
+ComboLogicBagItem ClHomeItem(uint8_t origin, uint16_t id) {
+    ComboLogicBagItem b = ClBagItem(origin, id, RSBS_ITEMCLASS_PROGRESSION);
+    b.bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+    return b;
+}
+
+} // namespace
+
+// A SOFT check, like CLP_CHECK: every leg runs after one fails.
+static int sClgFailures;
+#define CLG_CHECK(cond, msg)                                                \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            printf("[TEST] FAIL: %s (%s:%d)\n", (msg), __FILE__, __LINE__); \
+            sClgFailures++;                                                 \
+        }                                                                   \
+    } while (0)
+
+TestResult Test_ComboLogicHostGroups(void) {
+    printf("[TEST] combo-logic-host-groups: a confined row lands only on its own game's hosts in its group, is drawn "
+           "first, drops alone as surplus, and a group with more rows than hosts is refused up front (ABI 9, #1502)\n");
+    const uint8_t O = (uint8_t)GAME_OOT;
+    const uint8_t M = (uint8_t)GAME_MM;
+    sClgFailures = 0;
+    ClUninstall();
+    const int kSeeds = 32;
+
+    // ---- (1) THE PREDICATE, under both host sources ----------------------------
+    // One MM row confined to group A, whose only MM host is 22 (OoT host 11 is in
+    // group A of OoT's namespace, which must not count). Catches: the group test
+    // missing from ComboLogicRowMayUseHost, the whole-side shortcut not refused for
+    // a confined row (the row would land anywhere on MM's side), and a predicate
+    // that lets the row cross onto the other game's group hosts (OoT host 11).
+    {
+        const uint8_t rungs[2] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE };
+        for (int r = 0; r < 2; ++r) {
+            int offGroup = 0;
+            int failed = 0;
+            int ootAsked = 0;
+            int mmAsked = 0;
+            for (int s = 1; s <= kSeeds; ++s) {
+                ClBuildGroupWorld(6, 0, 0);
+                const ComboLogicBagItem bag[1] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+                const uint32_t masks[1] = { kClGroupA };
+                ComboLogicFillResult fr;
+                const int rc = ClRunConfinedFill(bag, 1, masks, rungs[r], 0x15020000u + (uint32_t)s, &fr);
+                GameId g = GAME_NONE;
+                const int host = ClHostOfMM(kMmBow, &g);
+                failed += (rc != RSBS_COMBO_LOGIC_OK) ? 1 : 0;
+                offGroup += (host != 22 || g != GAME_MM) ? 1 : 0;
+                ootAsked += gClOoT.hostGroupCalls;
+                mmAsked += gClMM.hostGroupCalls;
+            }
+            printf("[TEST] (1) rung %u: %d of %d seeds failed, %d placed off group A, group queries OoT %d MM %d "
+                   "(expected 0, 0, 0, >0)\n",
+                   (unsigned)rungs[r], failed, kSeeds, offGroup, ootAsked, mmAsked);
+            CLG_CHECK(failed == 0, "(1) a confined row with a free group host must fill");
+            CLG_CHECK(offGroup == 0, "(1) a confined row landed off its group: the predicate or the whole-side "
+                                     "refusal is missing, or the row was let onto the other game's hosts");
+            CLG_CHECK(ootAsked == 0 && mmAsked > 0, "(1) only the row's own engine may be asked for host groups");
+        }
+
+        // THE CONTROL: the same row unconfined lands elsewhere on some seed (the
+        // world has seven other hosts), and no engine is ever asked for a group.
+        int elsewhere = 0;
+        int asked = 0;
+        for (int s = 1; s <= kSeeds; ++s) {
+            ClBuildGroupWorld(6, 0, 0);
+            const ComboLogicBagItem bag[1] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+            ComboLogicFillResult fr;
+            (void)ClRunConfinedFill(bag, 1, NULL, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15020000u + (uint32_t)s, &fr);
+            elsewhere += (ClHostOfMM(kMmBow, NULL) != 22) ? 1 : 0;
+            asked += gClMM.hostGroupCalls + gClOoT.hostGroupCalls;
+        }
+        printf("[TEST] (1) control: unconfined, %d of %d seeds off host 22, %d group queries (expected >0, 0)\n",
+               elsewhere, kSeeds, asked);
+        CLG_CHECK(elsewhere > 0, "(1) control: the unconfined row never left host 22, so leg 1 proves nothing");
+        CLG_CHECK(asked == 0, "(1) control: a fill with no masks must never ask an engine for host groups");
+    }
+
+    // ---- (2) NO MASK IS THE ABI-8 FILL ------------------------------------------
+    // An all-zero mask array must fill byte-identically to NULL and ask no engine
+    // for a group. Catches any mask path (the partition, the capacity check's
+    // reset, the whole-side refusal) that runs for a mask-free bag and would move
+    // every default world.
+    {
+        const ComboLogicBagItem bag[4] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmRemains, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClSurplusItem(M, kMmMask, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t zeros[4] = { 0u, 0u, 0u, 0u };
+        int differ = 0;
+        for (int s = 1; s <= kSeeds; ++s) {
+            ClBuildGroupWorld(6, 0, 0);
+            ComboLogicFillResult a;
+            ComboLogicFillResult b;
+            const int ra =
+                ClRunConfinedFill(bag, 4, NULL, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15021000u + (uint32_t)s, &a);
+            ClBuildGroupWorld(6, 0, 0);
+            const int rb =
+                ClRunConfinedFill(bag, 4, zeros, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15021000u + (uint32_t)s, &b);
+            differ += (ra != rb || a.placementDigest != b.placementDigest || a.droppedDigest != b.droppedDigest ||
+                       a.rounds != b.rounds || gClMM.hostGroupCalls != 0)
+                          ? 1
+                          : 0;
+        }
+        printf("[TEST] (2) all-zero masks vs none: %d of %d seeds differ (expected 0)\n", differ, kSeeds);
+        CLG_CHECK(differ == 0, "(2) an all-zero mask array changed the fill: default worlds would move");
+    }
+
+    // ---- (3) CONFINED ROWS FIRST ------------------------------------------------
+    // MM has exactly four hosts, one of them (22) in group A; the bag is three
+    // home-only MM rows and, LAST in bag order, one row confined to A. A general
+    // row drawn before it takes host 22 on some seed unless confined rows go first,
+    // and the confined row then has nowhere to go. Catches the partition removed
+    // from either fill path (this leg runs `none` and `beatable`).
+    {
+        const ComboLogicBagItem bag[4] = { ClHomeItem(M, kMmOcarina), ClHomeItem(M, kMmRemains), ClHomeItem(M, kMmMask),
+                                           ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks[4] = { 0u, 0u, 0u, kClGroupA };
+        const uint8_t rungs[2] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE };
+        for (int r = 0; r < 2; ++r) {
+            int bad = 0;
+            for (int s = 1; s <= kSeeds; ++s) {
+                ClBuildGroupWorld(4, 0, 0);
+                ComboLogicFillResult fr;
+                const int rc = ClRunConfinedFill(bag, 4, masks, rungs[r], 0x15022000u + (uint32_t)s, &fr);
+                bad += (rc != RSBS_COMBO_LOGIC_OK || ClHostOfMM(kMmBow, NULL) != 22 || fr.attempts != 1) ? 1 : 0;
+            }
+            printf("[TEST] (3) rung %u: %d of %d seeds did not place the confined row on 22 in one attempt "
+                   "(expected 0)\n",
+                   (unsigned)rungs[r], bad, kSeeds);
+            CLG_CHECK(bad == 0, "(3) a general row took the group's only host: confined rows are not drawn first");
+        }
+    }
+
+    // ---- (4) SOUNDNESS: never on a group host that needs the row itself ---------
+    // Group A is hosts 22 (sphere zero) and 23 (needs the Ocarina); the confined
+    // row IS the Ocarina. A proving rung draws from hosts reached with the row
+    // itself NOT assumed, so 23 is never offered. Catches a confined pass that
+    // draws from every empty host (2Ship's PreplaceConfinedItems) under a proving
+    // rung, which can lock a key behind its own door.
+    {
+        int bad = 0;
+        for (int s = 1; s <= kSeeds; ++s) {
+            ClBuildGroupWorld(6, 23, 23);
+            const ComboLogicBagItem bag[3] = { ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmRemains, RSBS_ITEMCLASS_PROGRESSION) };
+            const uint32_t masks[3] = { kClGroupA, 0u, 0u };
+            ComboLogicFillResult fr;
+            const int rc =
+                ClRunConfinedFill(bag, 3, masks, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15023000u + (uint32_t)s, &fr);
+            bad += (rc != RSBS_COMBO_LOGIC_OK || ClHostOfMM(kMmOcarina, NULL) != 22) ? 1 : 0;
+        }
+        printf("[TEST] (4) beatable: %d of %d seeds put the Ocarina anywhere but 22 (expected 0)\n", bad, kSeeds);
+        CLG_CHECK(bad == 0, "(4) a confined row was placed behind itself (or the fill failed)");
+        CLG_CHECK(ClContractClean(), "(4) no engine saw the other game's id");
+    }
+
+    // ---- (5) THE CAPACITY REFUSAL -----------------------------------------------
+    // Two REQUIRED rows confined to A, one group host. Catches: the check missing
+    // (the fill would run and dead-end), running after an attempt (attempts != 0),
+    // a shortfall naming the wrong group, and the status read as a world dead end
+    // the ladder may climb (no seed has more checks).
+    {
+        const ComboLogicBagItem bag[3] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmRemains, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmMask, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks[3] = { kClGroupA, 0u, kClGroupA };
+        const uint8_t rungs[3] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE,
+                                   (uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE };
+        for (int r = 0; r < 3; ++r) {
+            ClBuildGroupWorld(6, 0, 0);
+            ComboLogicFillResult fr;
+            const int rc = ClRunConfinedFill(bag, 3, masks, rungs[r], 0x15024000u, &fr);
+            ComboLogicGroupShortfall sf;
+            memset(&sf, 0, sizeof(sf));
+            const bool named = Combo_Logic_LastGroupShortfall(&sf);
+            printf("[TEST] (5) rung %u: rc %s attempts %d rounds %d placed %d, shortfall %d game %u mask %08X rows "
+                   "%d hosts %d (expected group-capacity, 0, 0, 0, 1, MM, 1, 2, 1)\n",
+                   (unsigned)rungs[r], Combo_Logic_StatusName(rc), fr.attempts, fr.rounds, fr.placed, named ? 1 : 0,
+                   (unsigned)sf.game, (unsigned)sf.mask, sf.rows, sf.hosts);
+            CLG_CHECK(rc == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY, "(5) two rows for one group host must be refused");
+            CLG_CHECK(fr.attempts == 0 && fr.rounds == 0 && fr.placed == 0,
+                      "(5) the refusal must come before any attempt or round");
+            CLG_CHECK(named && sf.game == M && sf.mask == kClGroupA && sf.rows == 2 && sf.hosts == 1,
+                      "(5) the shortfall must name MM, group A, 2 rows, 1 host");
+            CLG_CHECK(!Combo_SingleBag_StatusIsWorldDeadEnd(RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY, rungs[r]),
+                      "(5) a group shortfall is a fact of the settings, never a ladder rung");
+        }
+        CLG_CHECK(strcmp(Combo_Logic_StatusName(RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY), "group-capacity") == 0,
+                  "(5) the status has its own name");
+
+        // A second group host fits; the shortfall is forgotten by the next fill.
+        ClBuildGroupWorld(6, 24, 0);
+        ComboLogicFillResult fr;
+        const int rc = ClRunConfinedFill(bag, 3, masks, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15024001u, &fr);
+        const int a = ClHostOfMM(kMmBow, NULL);
+        const int b = ClHostOfMM(kMmMask, NULL);
+        CLG_CHECK(rc == RSBS_COMBO_LOGIC_OK && !Combo_Logic_LastGroupShortfall(NULL),
+                  "(5) with two group hosts the same bag fills, and no shortfall is left behind");
+        CLG_CHECK((a == 22 && b == 24) || (a == 24 && b == 22), "(5) both confined rows take the two group hosts");
+
+        // A SURPLUS row is not counted: one required and one surplus row, one host.
+        ClBuildGroupWorld(6, 0, 0);
+        const ComboLogicBagItem withSurplus[2] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                                   ClSurplusItem(M, kMmMask, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t both[2] = { kClGroupA, kClGroupA };
+        const int rcSurplus = ClRunConfinedFill(withSurplus, 2, both, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15024002u, &fr);
+        CLG_CHECK(rcSurplus == RSBS_COMBO_LOGIC_OK && fr.surplusDropped == 1,
+                  "(5) a surplus copy is droppable, so it never makes a group refuse");
+    }
+
+    // ---- (6) A CONFINED SURPLUS ROW DROPS ALONE ---------------------------------
+    // Surplus rows in bag order: S confined to group B (no host is in it), then T
+    // free. S dead-ends on its group, not on the supply, so T must still be
+    // placed. Catches the drop-alone rule removed (the tail rule drops T with S).
+    {
+        ClBuildGroupWorld(6, 0, 0);
+        const ComboLogicBagItem bag[3] = { ClHomeItem(M, kMmBow), ClSurplusItem(M, kMmMask, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClSurplusItem(M, kMmRemains, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks[3] = { 0u, kClGroupB, 0u };
+        ComboLogicFillResult fr;
+        const int rc = ClRunConfinedFill(bag, 3, masks, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15025000u, &fr);
+        printf("[TEST] (6) rc %s surplus placed %d dropped %d, free surplus on %d (expected ok, 1, 1, a host)\n",
+               Combo_Logic_StatusName(rc), fr.surplusPlaced, fr.surplusDropped, ClHostOfMM(kMmRemains, NULL));
+        CLG_CHECK(rc == RSBS_COMBO_LOGIC_OK && fr.surplusPlaced == 1 && fr.surplusDropped == 1 &&
+                      ClHostOfMM(kMmRemains, NULL) >= 0 && ClHostOfMM(kMmMask, NULL) < 0,
+                  "(6) a confined surplus row with no group host must drop ALONE, the free one after it placed");
+    }
+
+    // ---- (7) REFUSALS AND THE FORCED ROWS ---------------------------------------
+    // Catches: a confined shared pair accepted (it has no single home), a confined
+    // row whose engine cannot answer groups dead-ending instead of refusing, and a
+    // forced debug row bypassing the predicate.
+    {
+        ClBuildGroupWorld(6, 0, 0);
+        const ComboLogicBagItem pair[1] = { ClPairRow() };
+        const uint32_t one[1] = { kClGroupA };
+        ComboLogicFillResult fr;
+        CLG_CHECK(ClRunConfinedFill(pair, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026000u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a confined shared pair must be refused");
+
+        ClBuildGroupWorld(6, 0, 0);
+        gClMM.withHostGroups = false;
+        ClInstall();
+        const ComboLogicBagItem row[1] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+        CLG_CHECK(ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026001u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a confined row whose engine has no hostGroups must be refused");
+        const uint32_t none[1] = { 0u };
+        CLG_CHECK(ClRunConfinedFill(row, 1, none, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026002u, &fr) ==
+                      RSBS_COMBO_LOGIC_OK,
+                  "(7) control: an unconfined row needs no hostGroups");
+
+        ClBuildGroupWorld(6, 0, 0);
+        ComboLogicForcedPlacement forced;
+        memset(&forced, 0, sizeof(forced));
+        forced.hostGame = M;
+        forced.hostCheck = 21; // not in group A
+        forced.item = ClItem(M, kMmBow);
+        CLG_CHECK(Combo_Logic_TestSetForcedPlacements(&forced, 1) == 1, "(7) the forced row is armed");
+        const int offGroup = ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026003u, &fr);
+        (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
+        CLG_CHECK(offGroup == RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a forced confined row must be refused off its group");
+
+        // On its group: two hosts in group A (22 and 24), the row forced onto 24.
+        // Over the seed loop an ordinary draw lands on 22 at least once (the
+        // control, unforced), so "on 24 every seed" proves the forced row was
+        // placed, not merely drawn into the group (red if the forced claim skips a
+        // confined row).
+        int inGroupOk = 0;
+        int onForced = 0;
+        int controlOn22 = 0;
+        const int kForcedSeeds = 16;
+        for (int s = 0; s < kForcedSeeds; ++s) {
+            const uint32_t seed = 0x15026100u + (uint32_t)s;
+            (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
+            ClBuildGroupWorld(6, 24, 0);
+            if (ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, seed, &fr) == RSBS_COMBO_LOGIC_OK &&
+                ClHostOfMM(kMmBow, NULL) == 22) {
+                controlOn22++;
+            }
+            forced.hostCheck = 24;
+            CLG_CHECK(Combo_Logic_TestSetForcedPlacements(&forced, 1) == 1, "(7) the forced row is re-armed");
+            ClBuildGroupWorld(6, 24, 0);
+            if (ClRunConfinedFill(row, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, seed, &fr) == RSBS_COMBO_LOGIC_OK) {
+                inGroupOk++;
+                onForced += (ClHostOfMM(kMmBow, NULL) == 24) ? 1 : 0;
+            }
+        }
+        (void)Combo_Logic_TestSetForcedPlacements(NULL, 0);
+        printf("[TEST] (7) forced onto group host 24: %d/%d accepted, %d on 24; unforced control on 22 %d time(s)\n",
+               inGroupOk, kForcedSeeds, onForced, controlOn22);
+        CLG_CHECK(controlOn22 > 0, "(7) control: the unforced draw never chose 22, so the forced leg proves nothing");
+        CLG_CHECK(inGroupOk == kForcedSeeds && onForced == kForcedSeeds,
+                  "(7) a forced confined row on its group must be accepted and placed on its forced host");
+    }
+
+    ClUninstall();
+    printf("[TEST] combo-logic-host-groups: %s\n", sClgFailures == 0 ? "PASS" : "FAIL");
+    return sClgFailures == 0 ? TEST_PASS : TEST_FAIL;
 }
