@@ -125,7 +125,8 @@ const RandoOptionId kPlacementOptions[4] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEME
  *  listed here independently, so dropping one there is a red count below. */
 const RandoOptionId kAppendedOptions[] = { RO_SHUFFLE_TREE_DROPS,  RO_SHOP_PRICES,          RO_TINGLE_PRICES,
                                            RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
-                                           RO_SHUFFLE_SONGS,       RO_SHUFFLE_WONDER_ITEMS, RO_SHUFFLE_HIVE_DROPS };
+                                           RO_SHUFFLE_SONGS,       RO_SHUFFLE_WONDER_ITEMS, RO_SHUFFLE_HIVE_DROPS,
+                                           RO_SHUFFLE_BUTTERFLIES };
 
 /** The four options and MM's host pool (with its cached groups) as the row found
  *  them; the legs replace the pool, so it is put back verbatim, not cleared. */
