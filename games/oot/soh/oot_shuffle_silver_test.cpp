@@ -188,7 +188,7 @@ void CheckFlagMap() {
             printf("[TEST]   M: %s shares flag %d with another silver check\n", loc->GetName().c_str(), (int)inf);
             shared++;
         }
-        const SpoilerCollectionCheck collection = loc->GetCollectionCheck();
+        const Rando::SpoilerCollectionCheck collection = loc->GetCollectionCheck();
         if (collection.type != SPOILER_CHK_RANDOMIZER_INF || collection.flag != (uint16_t)inf) {
             printf("[TEST]   M: %s maps to flag %d, its spoiler collection check names %u\n", loc->GetName().c_str(),
                    (int)inf, (unsigned)collection.flag);
