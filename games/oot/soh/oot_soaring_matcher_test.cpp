@@ -143,6 +143,18 @@ void SoaringMatcherRestore(const SoaringMatcherState* st) {
     gOcarinaSongNotes[OCARINA_SONG_SCARECROW] = st->scarecrowNotes;
 }
 
+/** The song's ownership bit, written directly. Flags_SetRandomizerInf also runs the
+ *  OnFlagSet hooks (the randomizer's give queue, the trackers), which have nothing
+ *  to serve in a process that loaded no file; the matcher reads only the bit. */
+void SoaringMatcherSetOwned(bool owned) {
+    const u32 flag = RAND_INF_OBTAINED_SONG_OF_SOARING_OOT;
+    if (owned) {
+        gSaveContext.ship.randomizerInf[flag >> 4] |= (u16)(1 << (flag & 0xF));
+    } else {
+        gSaveContext.ship.randomizerInf[flag >> 4] &= (u16)~(1 << (flag & 0xF));
+    }
+}
+
 /** Play @p count notes into the real checker; the first nonzero D_80131878, or 0.
  *  With @p bendLast the last note is played bent past func_800ED200's 0x15
  *  threshold, so the checker stores it as 0xFF (no pitch). */
@@ -157,11 +169,7 @@ int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int
     sSoaringMatcherPlay.msgCtx.ocarinaAction = freePlay ? OCARINA_ACTION_FREE_PLAY : OCARINA_ACTION_CHECK_NOWARP;
     OoT_gPlayState = &sSoaringMatcherPlay;
     gSaveContext.linkAge = child ? LINK_AGE_CHILD : LINK_AGE_ADULT;
-    if (owned) {
-        Flags_SetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
-    } else {
-        Flags_UnsetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
-    }
+    SoaringMatcherSetOwned(owned != 0);
 
     // The free-play start (z_message_PAL.c, MSGMODE_OCARINA_STARTING:
     // func_800ECC04(sOcarinaSongBitFlags + 0xC000)) with every song's bit.
@@ -179,11 +187,7 @@ int SoaringMatcherRun(const uint8_t* notes, int count, int child, int owned, int
     func_800ECC04(0xFFFF); // stop: no checker left running
     SoaringMatcherRestore(&saved);
 
-    if (prevOwned) {
-        Flags_SetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
-    } else {
-        Flags_UnsetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
-    }
+    SoaringMatcherSetOwned(prevOwned);
     gSaveContext.linkAge = prevAge;
     OoT_gPlayState = prevPlay;
     return answer;
