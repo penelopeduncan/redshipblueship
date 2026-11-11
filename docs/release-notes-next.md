@@ -43,8 +43,8 @@
 - **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
   does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
 - **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
-  With it on, the 113 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees and hearts that
-  fall when you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee and the song wall's
+  With it on, the 113 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
+  you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee and the song wall's
   drops. A hidden one sparkles until you collect it. In a paired world the option is set when the file is created, like
   every other setting, and these checks only ever hold Majora's Mask items, never an Ocarina of Time item. With it off,
   worlds are made exactly as before.
