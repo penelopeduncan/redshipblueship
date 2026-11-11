@@ -4260,12 +4260,21 @@ crossing to refuse (#954).")
     # at the CLEARED swamp's owl (0x0CA0), not the pause-save spot, with the
     # one-shot target spent. games/oot/soh/GameExports_SingleExe.cpp (the OoT
     # legs), games/mm/2s2h/GameExports_SingleExe.cpp (the MM leg and the arrival).
-    # Longer than its siblings: two more scene loads and five songs.
+    # Longer than its siblings: two more scene loads and five songs. The first OoT
+    # phase holds the paired drive's frames plus three ocarina legs and a Windmill
+    # round trip, so the per-phase watchdog budget is doubled too (ceiling 4 x 120 s,
+    # under the row's TIMEOUT). The world is the paired seed with two settings
+    # moved, so a red on the inherited stone-hint or chest checks is a fixture
+    # failure (its line says "soaring world"), not a Soaring leg. Not locked here:
+    # the cancel arm's own OCARINA_MODE_04 write and the no-statues gate (the
+    # vanilla close and the chooser's fallback do the same), and the day-0 gate
+    # apart from the zero-owl case (the ROM-free SoaringOwlTable row has it).
     math(EXPR REDSHIP_SOARING_TO_OWL_TIMEOUT "${REDSHIP_GAMEPLAY_TEST_TIMEOUT} * 2")
     redship_add_test(NAME IntSoaringToOwl
         COMMAND redship --integration-test int-soaring-to-owl
         LABEL integration
-        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT})
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
