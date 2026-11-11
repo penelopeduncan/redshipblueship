@@ -7,6 +7,10 @@
 #include "prevent_bss_reordering.h"
 #include "z_en_test7.h"
 #include "objects/gameplay_keep/gameplay_keep.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW7: an OoT warp song's departure (2s2h/Rando/WarpSongsMM.cpp).
+#include "2s2h/Rando/WarpSongsMM.h"
+#endif
 
 #define FLAGS                                                                                              \
     (ACTOR_FLAG_UPDATE_CULLING_DISABLED | ACTOR_FLAG_DRAW_CULLING_DISABLED | ACTOR_FLAG_FREEZE_EXCEPTION | \
@@ -641,6 +645,23 @@ static u16 sOwlWarpEntrances[OWL_WARP_MAX - 1] = {
     ENTRANCE(STONE_TOWER, 3),              // OWL_WARP_STONE_TOWER
 };
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW7: after an OoT warp song's departure, the feathers and the wind capsule
+// of EnTest7_WarpCsWarp and nothing else, until the scene unloads (vanilla never
+// kills En_Test7 here: its Destroy stops the song-warp cutscene mid-fade).
+static void EnTest7_WarpCsXGameHold(EnTest7* this, PlayState* play) {
+    Vec3f featherPos;
+
+    MM_Math_Vec3f_Copy(&featherPos, &this->actor.world.pos);
+
+    if (MM_Rand_ZeroOne() < 0.1f) {
+        EnTest7_AddAndChooseFeather(this->feathers, &featherPos, true);
+    }
+
+    this->windCapsule.yaw -= 0x2EE0;
+}
+#endif
+
 void EnTest7_WarpCsWarp(EnTest7* this, PlayState* play) {
     Vec3f featherPos;
 
@@ -654,6 +675,17 @@ void EnTest7_WarpCsWarp(EnTest7* this, PlayState* play) {
     }
 
     this->windCapsule.yaw -= 0x2EE0;
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW7: an OoT warp song (params 0x8000 | song, OoTMM's
+    // EnTest7_TriggerWarpWrapper) departs ONCE, before the owl table below, which
+    // its params would index past; the hold action keeps the visuals running.
+    if (MM_WarpSongMM_IsEnTest7Params(OWL_WARP_CS_GET_OCARINA_MODE(&this->actor))) {
+        MM_WarpSongMM_Depart(play, OWL_WARP_CS_GET_OCARINA_MODE(&this->actor) & 0xFF);
+        EnTest7_SetupAction(this, EnTest7_WarpCsXGameHold);
+        return;
+    }
+#endif
 
     if (play->sceneId == SCENE_SECOM) {
         play->nextEntrance = ENTRANCE(IKANA_CANYON, 6);

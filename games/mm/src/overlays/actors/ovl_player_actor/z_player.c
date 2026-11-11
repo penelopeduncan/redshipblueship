@@ -49,6 +49,10 @@
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include <libultraship/bridge/consolevariablebridge.h>
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW7: Ocarina of Time's warp songs played in Termina (2s2h/Rando/WarpSongsMM.cpp).
+#include "2s2h/Rando/WarpSongsMM.h"
+#endif
 
 void MM_Player_Init(Actor* thisx, PlayState* play);
 void MM_Player_Destroy(Actor* thisx, PlayState* play);
@@ -17862,6 +17866,10 @@ void Player_Action_63(Player* this, PlayState* play) {
         }
     } else if (this->av2.actionVar2 != 0) {
         if (play->msgCtx.ocarinaMode == OCARINA_MODE_END) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1169 XW7: the warp prompt's "No", a refusal and B all end here.
+            MM_WarpSongMM_ClearPending();
+#endif
             play->interfaceCtx.bButtonInterfaceDoActionActive = false;
             CutsceneManager_Stop(play->playerCsIds[PLAYER_CS_ID_ITEM_OCARINA]);
             this->actor.flags &= ~ACTOR_FLAG_OCARINA_INTERACTION;
@@ -17877,6 +17885,41 @@ void Player_Action_63(Player* this, PlayState* play) {
                 func_80836A5C(this, play);
                 Player_Anim_PlayOnceAdjustedReverse(play, this, D_8085D17C[this->transformation]);
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+        } else if ((play->msgCtx.ocarinaMode == OCARINA_MODE_WARP) && MM_WarpSongMM_HasPending(play)) {
+            // #1169 XW7: OK on the warp prompt. OoTMM's Ocarina_HandleWarp: En_Test7
+            // with params 0x8000 | song through vanilla's own spawn path; its final
+            // action departs (MM_WarpSongMM_Depart, one-shot). With no song-warp
+            // cutscene En_Test7 would kill itself in Init and strand Link, so then,
+            // and when the spawn fails, the departure is a plain fade from here.
+            u8 rsbsWarpSong = 0;
+            Actor* rsbsWarpActor = NULL;
+
+            (void)MM_WarpSongMM_TakePending(play, &rsbsWarpSong);
+            play->interfaceCtx.bButtonInterfaceDoActionActive = false;
+            CutsceneManager_Stop(play->playerCsIds[PLAYER_CS_ID_ITEM_OCARINA]);
+            this->actor.flags &= ~ACTOR_FLAG_OCARINA_INTERACTION;
+            if (play->playerCsIds[PLAYER_CS_ID_SONG_WARP] != CS_ID_NONE) {
+                rsbsWarpActor = MM_Actor_Spawn(&play->actorCtx, play, ACTOR_EN_TEST7, this->actor.world.pos.x,
+                                               this->actor.world.pos.y, this->actor.world.pos.z, 0, 0, 0,
+                                               MM_WarpSongMM_EnTest7Params(rsbsWarpSong));
+            }
+            if (rsbsWarpActor != NULL) {
+                this->stateFlags1 &= ~PLAYER_STATE1_20000000;
+                this->csAction = PLAYER_CSACTION_NONE;
+                MM_Player_TryCsAction(play, NULL, PLAYER_CSACTION_19);
+                this->stateFlags1 |= PLAYER_STATE1_10000000 | PLAYER_STATE1_20000000;
+            } else {
+                // The plain fade with Link frozen, held the way the spawn path
+                // holds him; MM_WarpSongMM_Depart always starts the transition
+                // here (TakePending armed its one shot), so the hold ends with it.
+                this->stateFlags1 &= ~PLAYER_STATE1_20000000;
+                this->csAction = PLAYER_CSACTION_NONE;
+                MM_Player_TryCsAction(play, NULL, PLAYER_CSACTION_WAIT);
+                this->stateFlags1 |= PLAYER_STATE1_10000000 | PLAYER_STATE1_20000000;
+                MM_WarpSongMM_Depart(play, rsbsWarpSong);
+            }
+#endif
         } else {
             s32 var_v1 = (play->msgCtx.ocarinaMode >= OCARINA_MODE_WARP_TO_GREAT_BAY_COAST) &&
                          (play->msgCtx.ocarinaMode <= OCARINA_MODE_WARP_TO_ENTRANCE);

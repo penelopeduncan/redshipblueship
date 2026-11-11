@@ -461,6 +461,10 @@ void Context_InvalidateSessionState(ComboSeedStampPolicy seedPolicy) {
     const ComboWothRecord savedComboWoth = gComboCtx.comboWoth;
     // #1169 XW2: the second rules word, frozen and folded with the first.
     const ComboItemRules2Record savedComboItemRules2 = gComboCtx.comboItemRules2;
+    // #1169 XW7: the OoT warp-song record is written by the same creation (a
+    // creation record, at Generate, before the file-create invalidation), so it is
+    // KEPT with them; without that the creation would wipe its own output.
+    const ComboOoTWarpRecord savedComboOoTWarps = gComboCtx.comboOoTWarps;
 
     // Frozen blobs and shadow copies in one call — they are the same storage
     // (FrozenStateManager::ClearFrozenState memsets the buffer AND clears
@@ -537,6 +541,7 @@ void Context_InvalidateSessionState(ComboSeedStampPolicy seedPolicy) {
         // Half of the fingerprint too: a kept hash with a dropped word would read
         // as damage at the next compare (#1169 XW2).
         gComboCtx.comboItemRules2 = savedComboItemRules2;
+        gComboCtx.comboOoTWarps = savedComboOoTWarps; // #1169 XW7
         // The crossing store (ADR 0010 O7) is KEPT by not being cleared: it
         // lives outside gComboCtx, so the ComboContext_Init above never touched
         // it. Same author and same moment as the stamp; see

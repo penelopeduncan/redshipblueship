@@ -210,8 +210,9 @@ void Combo_ClearGameSwitchRequest(void);
 // through Switch_GetTargetStatus before it arms; Combo_CheckEntranceSwitch's
 // #954 refusal stays as the backstop and hands back returnEntrance.
 //
-// Nothing in either game arms it yet (XW6 and XW7 will); the ROM-free row
-// entrance-warp-target drives it.
+// Majora's Mask arms it from MM_WarpSongMM_Depart (games/mm/2s2h/Rando/
+// WarpSongsMM.cpp, XW7: an OoT warp song played in Termina); Ocarina of Time's
+// Song of Soaring arm is XW6's. The ROM-free row entrance-warp-target drives it.
 bool ComboWarp_Arm(GameId sourceGame, uint16_t marker, GameId targetGame, uint16_t targetEntrance, uint8_t kind);
 bool ComboWarp_IsArmed(void);
 // Copies the target (armed or not) into *out; false when out is NULL.

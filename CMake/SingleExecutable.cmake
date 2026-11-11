@@ -235,6 +235,11 @@ set(REDSHIP_COMMON_SOURCES
     # in ComboContext (ADR 0009 claim 21). Game-header-free. APPENDED, never
     # reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.c
+    # #1169 XW7: those six songs PLAYED in Majora's Mask: the note matcher, the
+    # prompt's gates and texts, the En_Test7 params, the pad table, OoT's frozen
+    # age and the creation's warp-song record (ADR 0009 claim 22).
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -348,6 +353,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
     # Header for warp_songs_mm.c above (#1169 XW5)
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
+    # Header for mm_warp_song_play.c above (#1169 XW7)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
 )
 
 # ============================================================================
@@ -1881,7 +1888,10 @@ if(BUILD_TESTING)
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
 
-    redship_add_test(NAME AllTests COMMAND redship --test all)
+    # Every --test row in one process, so its time grows with the table. On the hosted
+    # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
+    redship_add_test(NAME AllTests COMMAND redship --test all
+        TIMEOUT 300)
 
     # Registration-completeness guard (#376). Diffs the dispatch table the
     # binary actually links (`redship --test list`) against the rows registered
@@ -3573,6 +3583,29 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # PLAYING THEM (#1169 lane XW7). MMWarpSongPlay: the creation's warp-song record
+    # (ADR 0009 claim 22: appended after the save watermark, a creation record),
+    # the pads, OoTMM's buttons, the pure matcher, the gates in order, the texts
+    # (ruling A1: shuffled with hints off is OoT's "a mysterious place"), OoT's frozen age,
+    # the MM-first offer, the latches, and every vendored branch by a
+    # function-scoped source anchor. MMWarpSongMatcher: MM's real free-play checker
+    # and Termina wall behind every gate. MMWarpSongDeparture: the real
+    # EnTest7_WarpCsWarp departs once, every refusal arms nothing. All three
+    # ROM-free, generating nothing, the CVar store brought up.
+    # src/common/tests/test_mm_warp_song_play.c, games/mm/2s2h/mm_warp_song_play_test.cpp.
+    redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
+    redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
+    redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # OoTWarpSongRecord: the creation's warp-song record over real paired creations
+    # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
+    # the end of OoT's side of the tail and nowhere before it, every destination what
+    # the real Entrance_Init installs for its pad, every area what OoT's own warp
+    # prompt names, and carried by a package. rando tier: it needs real generations.
+    # games/mm/2s2h/mm_warp_songs_mm_test.cpp.
+    redship_add_test(NAME OoTWarpSongRecord COMMAND redship --test oot-warp-song-record
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # THE PAIRED GAME'S END (#762, OoTMM parity): the frozen goal's predicate over
     # the two final-boss defeats recorded in sharedFlags, the decision for every
@@ -3845,7 +3878,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
                 -DCTEST_EXE=${CMAKE_CTEST_COMMAND}
                 -DBUILD_DIR=${CMAKE_BINARY_DIR}
                 "-DEXEMPT=prism" # libultraship's own row; it runs no redship
-                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake)
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake
+        # Lists every row through ctest, so its time grows with the table: 48 s and then
+        # a timeout at the 60 s default on the hosted Windows runner (2026-11-11).
+        TIMEOUT 300)
     # #1346 (SFX-23): on Windows main.cpp's setlocale(LC_ALL, ".UTF8") makes the CRT
     # decode narrow paths as UTF-8, and rsbs/windows/redship.manifest (activeCodePage
     # UTF-8, root CMakeLists.txt) makes the OS ANSI code page UTF-8 to match, so an
