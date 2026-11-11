@@ -50,11 +50,14 @@
 #include "crossing_store.h"
 #include "foreign_items.h"
 #include "rsbs_version.h"
+#include "save.h" // RsbsSave_BuildWatermark: identity.json's watermark term (package format 2)
 #include "seed_package.h"
 
 // ForeignItemsSingleExe.cpp: the completed world Generate holds.
 extern "C" int OoT_PairedGen_CompletedWorld(const uint8_t** outHalf, size_t* outHalfSize, const char** outDigest,
                                             const char** outMMProfile, uint32_t* outUnprovedHalves, unsigned* outGoal);
+// SeedPackageSingleExe.cpp: the production placement/combo-context.bin of a record.
+extern "C" size_t OoT_SeedPackage_WorldRecordBytesForTest(const ComboContext* live, uint8_t* out, size_t cap);
 
 namespace {
 
@@ -302,6 +305,22 @@ int LiveTerms(Terms& t, std::string& why) {
 
     t.AddJson("id.packageFormat", RSBS_SEED_PACKAGE_FORMAT);
     t.AddJson("id.generatorVersion", RSBS_GENERATOR_VERSION);
+    {
+        // Package format 2: the generating build's save watermark (this build's).
+        ComboSaveWatermark mark;
+        RsbsSave_BuildWatermark(&mark);
+        nlohmann::json w = nlohmann::json::object();
+        w["layoutRevision"] = mark.layoutRevision;
+        w["ootRcMax"] = mark.ootRcMax;
+        w["ootRandInfMax"] = mark.ootRandInfMax;
+        w["ootRskMax"] = mark.ootRskMax;
+        w["mmRcMax"] = mark.mmRcMax;
+        w["mmRoMax"] = mark.mmRoMax;
+        w["mmRtMax"] = mark.mmRtMax;
+        w["mmRandoInfMax"] = mark.mmRandoInfMax;
+        w["mmReMax"] = mark.mmReMax;
+        t.AddJson("id.watermark", w);
+    }
     t.AddJson("id.build", RsbsVersion_Display());
     t.AddJson("id.seedString", ctx->GetSeedString());
     t.AddJson("id.seedName", seedName);
@@ -375,6 +394,7 @@ int PackageTerms(const char* pkgPath, Terms& t, std::string& why) {
 
     t.AddJson("id.packageFormat", At(id, "packageFormat"));
     t.AddJson("id.generatorVersion", At(id, "generatorVersion"));
+    t.AddJson("id.watermark", At(id, "watermark"));
     t.AddJson("id.build", At(id, "build"));
     t.AddJson("id.seedString", At(id, "seedString"));
     t.AddJson("id.seedName", At(id, "seedName"));

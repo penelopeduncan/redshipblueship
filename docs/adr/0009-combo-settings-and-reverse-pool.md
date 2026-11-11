@@ -6,7 +6,9 @@
   (#589, whole-file commit) and **decision 4a decided 2026-08-05** (#589,
   quit-to-title is a durable commit) under the one-game ruling; **decision 4b
   decided 2026-09-06, recorded 2026-09-10** (#590/#625, MM's death-decline
-  exit is an autosave point iff Autosave is on)
+  exit is an autosave point iff Autosave is on); **the `reserved[]` budget
+  retired 2026-11-10** under save format 6 (the clean break of #1510, #1512,
+  #1513 and #1514; see "Amendment — save format 6" at the end of the budget)
 - For: #498 (combo-level settings), gating #493 (MM -> OoT foreign items); Phase
   3.1 tracker #492, Lane 1
 - Amended: **2026-07-30, #564** (the one-game ruling is recorded on
@@ -1086,6 +1088,42 @@ The capacity that does **not** exist, so nobody re-derives it hopefully: raising
 `RSBS_FOREIGN_PLACEMENT_CAP` in place is a build error as of #490, and a
 symmetric ~55-entry carve in both directions would consume the entire budget and
 leave nothing for claims 2-4.
+
+### Amendment — save format 6: the floor is retired, `reserved[]` is frozen, growth is append-only (2026-11-10)
+
+The operator ruled on 2026-11-10 that the four layout-changing backports
+(#1510, #1512, #1513, #1514) land as **one clean save break**, and that the
+shared context record stop being a recurring problem. Save format 6
+(`RSBS_SAVE_VERSION` 6, `RSBS_SAVE_VERSION_MIN` 6, `src/common/save.h`) is that
+break. For this ADR's budget it means:
+
+- **The 64-byte floor is retired.** It existed so `Test_SaveComboRecordFixed`'s
+  scribble loop could never pass vacuously; that loop now runs over a frozen
+  `reserved[]` and over the record's tail (the skip journal), so it no longer
+  depends on a budget anyone spends from.
+- **`reserved[64]` at offset 939 is frozen.** It is never carved again
+  (`context.h` asserts its size `== 64`, not `>= 64`). Claim 21 (`mmWarpSongsOwned`,
+  carved from its end at 1003) is the last claim this table records.
+- **Growth is append-only, at the end of `ComboContext`.** A new Tier-1 field goes
+  after the last member (today `saveWatermark`, the save watermark appended by
+  format 6), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
+  `sizeof` pin (`src/common/save_layout_pins.h`). No `RSBS_SAVE_VERSION` change:
+  an older format-6 record zero-extends, so "zero means unset" holds for every
+  appended field, as it did for every carve.
+- **The record is 4096 bytes** (`RSBS_COMBO_CONTEXT_RECORD_SIZE`, was 2048).
+  Format 6 widened the tracker captures (OoT 8192 checks, 1024 bytes; MM 4096,
+  512 bytes), which moved the MM capture, the skip journal and everything after
+  them; the watermark (20 bytes, after 2 bytes of padding) follows the journal.
+  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes, leaving
+  about 1400 to append into; the measured value is the pin's.
+- **A seed package's combo record is fixed-size too** (package format 2): written
+  at 4096 bytes, zero-padded, accepted shorter and refused with a nonzero byte past
+  the reading build's struct. An append therefore no longer refuses every older
+  package, which was the cost that made carving preferable to appending until now.
+
+The full rule a lane follows without asking (the per-game spare blocks, the
+capacity rule for upstream-growing arrays, what forces a format generation) is
+the seven-point growth rule in `context.h` above `RSBS_COMBO_CONTEXT_RECORD_SIZE`.
 
 ## Consequences
 
