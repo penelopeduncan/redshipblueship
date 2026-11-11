@@ -1935,7 +1935,10 @@ if(BUILD_TESTING)
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
 
-    redship_add_test(NAME AllTests COMMAND redship --test all)
+    # Every --test row in one process, so its time grows with the table. On the hosted
+    # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
+    redship_add_test(NAME AllTests COMMAND redship --test all
+        TIMEOUT 300)
 
     # Registration-completeness guard (#376). Diffs the dispatch table the
     # binary actually links (`redship --test list`) against the rows registered
@@ -3941,7 +3944,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
                 -DCTEST_EXE=${CMAKE_CTEST_COMMAND}
                 -DBUILD_DIR=${CMAKE_BINARY_DIR}
                 "-DEXEMPT=prism" # libultraship's own row; it runs no redship
-                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake)
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake
+        # Lists every row through ctest, so its time grows with the table: 48 s and then
+        # a timeout at the 60 s default on the hosted Windows runner (2026-11-11).
+        TIMEOUT 300)
     # #1346 (SFX-23): on Windows main.cpp's setlocale(LC_ALL, ".UTF8") makes the CRT
     # decode narrow paths as UTF-8, and rsbs/windows/redship.manifest (activeCodePage
     # UTF-8, root CMakeLists.txt) makes the OS ANSI code page UTF-8 to match, so an
