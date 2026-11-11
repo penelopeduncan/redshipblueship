@@ -63,6 +63,11 @@
 #include "gen_budget.h"       // src/common — the #582 fill budget + progress surface
 #include "seed_package.h"     // src/common — the seed package the creation binds (#1044)
 
+#include "mm_warp_song_play.h" // src/common — the creation's warp-song record (#1169 XW7)
+
+// WarpSongRecordOoT.cpp (#1169 XW7): the creation's warp-song record.
+extern "C" int OoT_Creation_FreezeWarpSongRecord(void);
+
 extern "C" {
 #include <z64.h>
 #include "variables.h"
@@ -817,6 +822,9 @@ extern "C" int OoT_ComboLogic_FinishGeneralPass(int writeSpoiler);
  *         run). On failure the store is left empty.
  */
 extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
+    // #1169 XW7: no previous world's warp-song record survives a step that fails
+    // below (Combo_SingleBag_Run clears comboWoth per attempt the same way).
+    Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
     const int crossings = Combo_Crossings_CaptureFromCoordinator();
     if (crossings < 0) {
         fprintf(stderr, "[OoT] creation: the crossing store refused the single bag's crossings (%s)\n",
@@ -828,6 +836,11 @@ extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
         Combo_Crossings_Clear();
         return -2;
     }
+    // #1169 XW7: the remainder created this world's entrance overrides and
+    // warp-song texts (fill.cpp, RsbsFinishPairedGeneralPass); freeze what MM's warp
+    // prompt and OoT's warp arrival read. A record the validator refuses stays
+    // UNSET, which refuses every MM warp song of the file and fails nothing else.
+    (void)OoT_Creation_FreezeWarpSongRecord();
     return crossings;
 }
 

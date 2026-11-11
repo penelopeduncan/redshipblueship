@@ -1033,6 +1033,7 @@ void Combo_SnapshotCreationRecords(ComboCreationRecords* out) {
     out->comboFillWallets = gComboCtx.comboFillWallets;
     out->comboWoth = gComboCtx.comboWoth;
     out->comboItemRules2 = gComboCtx.comboItemRules2; // #1169 XW2
+    out->comboOoTWarps = gComboCtx.comboOoTWarps;     // #1169 XW7
 }
 
 void Combo_RestoreCreationRecords(const ComboCreationRecords* in) {
@@ -1046,6 +1047,7 @@ void Combo_RestoreCreationRecords(const ComboCreationRecords* in) {
     gComboCtx.comboFillWallets = in->comboFillWallets;
     gComboCtx.comboWoth = in->comboWoth;
     gComboCtx.comboItemRules2 = in->comboItemRules2; // #1169 XW2
+    gComboCtx.comboOoTWarps = in->comboOoTWarps;     // #1169 XW7
 }
 
 void Combo_RetractCreationRecords(void) {
@@ -1056,6 +1058,7 @@ void Combo_RetractCreationRecords(void) {
     gComboCtx.comboFillWallets = 0;                                           // #1284
     memset(&gComboCtx.comboWoth, 0, sizeof(gComboCtx.comboWoth));             // #1439: ABSENT
     memset(&gComboCtx.comboItemRules2, 0, sizeof(gComboCtx.comboItemRules2)); // #1169 XW2: every rule off
+    memset(&gComboCtx.comboOoTWarps, 0, sizeof(gComboCtx.comboOoTWarps));     // #1169 XW7: UNSET
 }
 
 int Combo_FreezeLegacyComboSettings(void) {

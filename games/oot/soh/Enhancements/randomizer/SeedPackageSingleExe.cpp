@@ -236,6 +236,11 @@ std::string WorldRecordBytes(const ComboContext& live) {
     // songs (MM's starting grant gave them). 0 in every world without one, so a
     // package written before XW5 reads the same.
     memcpy(&rec->mmWarpSongsOwned, &live.mmWarpSongsOwned, sizeof(rec->mmWarpSongsOwned));
+    // #1169 XW7: the OoT warp-song record, the world's (its creation wrote it).
+    // Appended after the save watermark (layout revision 2), so a format-2
+    // package written before it carries zeros there, or ends before it, and its
+    // record reads UNSET (ComboRecordFromPackageBytes zero-extends).
+    memcpy(&rec->comboOoTWarps, &live.comboOoTWarps, sizeof(rec->comboOoTWarps));
     std::string bytes(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
     bytes.resize(RSBS_COMBO_CONTEXT_RECORD_SIZE, '\0');
     return bytes;
@@ -654,6 +659,7 @@ void ApplyComboWorld(const ComboContext& rec) {
     records.comboFillWallets = rec.comboFillWallets; // #1284
     records.comboWoth = rec.comboWoth;               // #1439
     records.comboItemRules2 = rec.comboItemRules2;   // #1169 XW2
+    records.comboOoTWarps = rec.comboOoTWarps;       // #1169 XW7
     Combo_RestoreCreationRecords(&records);
 }
 
@@ -1141,6 +1147,27 @@ extern "C" void OoT_SeedPackage_TestReapplyWorldRecord(void) {
     }
     ComboContext_Init();
     ApplyComboWorld(*rec);
+}
+
+// TEST HOOK (MMWarpSongPlay P2, #1169 XW7): an OLDER package's world record,
+// ROM-free. gComboCtx's world record is written as a package carries it, cut to
+// its first @p keep bytes (what a package from a build whose ComboContext ended
+// there holds; one from a layout-revision-1 build of package format 2 is the same
+// bytes followed by zeros), read back through the production acceptance rule and
+// applied into a cleared context. Returns that rule's status (RSBS_SEEDPKG_OK when
+// accepted); nothing is applied otherwise.
+extern "C" int OoT_SeedPackage_TestApplyShortWorldRecord(size_t keep) {
+    std::string bytes = WorldRecordBytes(gComboCtx);
+    bytes.resize((std::min)(keep, bytes.size()));
+    auto rec = std::make_unique<ComboContext>();
+    std::string why;
+    const int status = ComboRecordFromPackageBytes(bytes, *rec, why);
+    if (status != RSBS_SEEDPKG_OK) {
+        return status;
+    }
+    ComboContext_Init();
+    ApplyComboWorld(*rec);
+    return status;
 }
 
 // TEST BRIDGE (SeedPackageRoundTrip, save format 6): the production
