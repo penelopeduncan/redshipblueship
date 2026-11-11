@@ -493,6 +493,12 @@ int Combo_ItemTrackerWindow_RunHeadless(void);
 // need MM's headers — this file must never acquire them. Return 0 on pass.
 int MM_RandoOptions_RunHeadless(void);
 int MM_PairedProfile_RunHeadless(void);
+// games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): MM's placement settings
+// as the single bag's host groups, and the fold of the four options. MM-side for
+// the same reason (2Ship's PlacementConstraints and the live save's options). The
+// world check runs after a real paired generation. Return 0 on pass.
+int MM_PlacementConfinement_RunHeadless(void);
+int MM_PlacementConfinedWorld_Check(void);
 // games/mm/2s2h/mm_trick_table_test.cpp (#578 part 1): MM's per-trick
 // vocabulary. MM-side for the same reason as the two above — they drive
 // Rando::StaticData::Tricks, Rando::Logic::CanKillEnemy and
@@ -1226,6 +1232,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
+// frozen owl flags (soaring-owl-table), the gates and the chooser
+// (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
+// All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_warp_song_soaring.c"
 // #1169 lane XW5: Ocarina of Time's six warp songs as Majora's Mask items and
 // their ownership byte: the items, the pool and the button sets
 // (mm-warp-songs-items, needs the CVar store), ownership surviving creation, an
@@ -7463,6 +7474,22 @@ TestResult Test_MMRandoOptions(void) {
     return MM_RandoOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1502: MM's placement settings as the single bag's host groups. ROM-free and
+// display-free: the static tables, the registered MM engine's `hostGroups`, and
+// the live save's option slots it sets and restores; MM_RandoOptions' bring-up.
+TestResult Test_MMPlacementConfinement(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MM_PlacementConfinement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Paired MM PROFILE lock (#499 steps 2-4). Drives the real resolver over a
 // zeroed MM SaveContext — no fill, no region graph, no window — which is the
 // whole point of extracting it out of OnFileCreate.
@@ -7851,6 +7878,22 @@ TestResult Test_ComboItemRulesSecondWord(void) {
     return ComboItemRulesSecondWord_Run();
 }
 
+// #1169 XW6: OoT's free-play checker reads a CVar on every note (func_800ED200),
+// so oot-soaring-matcher needs the same bring-up; without it the row crashed on
+// every compiler.
+TestResult Test_OoTSoaringMatcher(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoTSoaringMatcher_Run();
+}
+
 // #1169 XW5: the MM warp songs' pool reads the CVar store (GeneratePools) and a
 // .redsave load compares the warp-song keys, the same bring-up as
 // combo-item-rules-second-word.
@@ -8090,7 +8133,7 @@ TestResult Test_SharedSongsBag(void) {
 
 // #1085: one copy of each shared song per Shuffle Songs value (0 Off, 1 Song
 // Locations, 2 Dungeon Rewards, 3 Anywhere), shared-lens-bag's bring-up.
-static TestResult SharedSongsOneCopyRow(int shuffleSongs) {
+static TestResult SharedSongsOneCopyRow(int shuffleSongs, int mmShuffleSongs) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
         printf("[TEST] FAIL: could not create Ship::Context singleton\n");
@@ -8099,19 +8142,67 @@ static TestResult SharedSongsOneCopyRow(int shuffleSongs) {
     static char ssoArg0[] = "redship";
     static char* ssoArgv[] = { ssoArg0, nullptr };
     InitOTRForMMFirstBoot(1, ssoArgv);
-    return SharedSongsOneCopy_Run(shuffleSongs);
+    return SharedSongsOneCopy_Run(shuffleSongs, mmShuffleSongs);
 }
 TestResult Test_SharedSongsOneCopyOff(void) {
-    return SharedSongsOneCopyRow(0);
+    return SharedSongsOneCopyRow(0, -1);
 }
 TestResult Test_SharedSongsOneCopySongLocations(void) {
-    return SharedSongsOneCopyRow(1);
+    return SharedSongsOneCopyRow(1, -1);
 }
 TestResult Test_SharedSongsOneCopyDungeonRewards(void) {
-    return SharedSongsOneCopyRow(2);
+    return SharedSongsOneCopyRow(2, -1);
 }
 TestResult Test_SharedSongsOneCopyAnywhere(void) {
-    return SharedSongsOneCopyRow(3);
+    return SharedSongsOneCopyRow(3, -1);
+}
+// #1502: OoT's songs Anywhere (3), MM's Shuffle Songs Vanilla (2).
+TestResult Test_SharedSongsOneCopyMMVanilla(void) {
+    return SharedSongsOneCopyRow(3, 2);
+}
+
+// #1502: the confined golden's profile (Small Keys, Boss Keys and Stray Fairies at
+// Own Dungeon, Shuffle Songs at Song Locations) created for real, and the world
+// checked against 2Ship's groups. shared-lens-bag's bring-up.
+TestResult Test_MMPlacementConfinedWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char mpcArg0[] = "redship";
+    static char* mpcArgv[] = { mpcArg0, nullptr };
+    InitOTRForMMFirstBoot(1, mpcArgv);
+    printf("[TEST] mm-placement-confined-world: with MM's keys, boss keys and fairies at Own Dungeon and its songs at "
+           "Song Locations, every confined MM item lands in its group and none crosses (#1502)\n");
+    ComboContext_Init();
+    static const char* const kKeys[4] = { "gRando.Options.RO_PLACEMENT_SMALL_KEYS",
+                                          "gRando.Options.RO_PLACEMENT_BOSS_KEYS",
+                                          "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES",
+                                          "gRando.Options.RO_SHUFFLE_SONGS" };
+    struct Restore {
+        ~Restore() {
+            for (const char* key : kKeys) {
+                CVarClear(key);
+            }
+        }
+    } restore;
+    for (const char* key : kKeys) {
+        CVarSetInteger(key, 1); // RO_DUNGEON_ITEM_OWN_DUNGEON / RO_SONG_SHUFFLE_SONG_LOCATIONS
+    }
+    const int gen = Rando_HeadlessSeedTest("RSBSMMCONFINED1");
+    const int mmHalf = (gen == 0) ? MM_Rando_HeadlessPairedHalf() : -1;
+    if (gen != 0 || mmHalf != 0) {
+        printf("[TEST] FAIL: the confined paired generation failed (OoT %d, MM %d)\n", gen, mmHalf);
+        return TEST_FAIL;
+    }
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    if (bag->status != RSBS_COMBO_LOGIC_OK || !bag->fill.goalProven) {
+        printf("[TEST] FAIL: the single-bag fill did not prove the GOAL under the confined profile (%s)\n",
+               Combo_Logic_StatusName(bag->status));
+        return TEST_FAIL;
+    }
+    return MM_PlacementConfinedWorld_Check() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1169 XW4: the Song of Soaring (OoT)'s pool and OoTMM's overflow refusal over
@@ -9304,6 +9395,10 @@ const TestDescriptor gTests[] = {
     // SaveContext, the window needs a Gui.
     { "mm-rando-options", "Every MM rando option has a row, a label, a bound cvar, and honest gating (#497)",
       Test_MMRandoOptions },
+    { "mm-placement-confinement",
+      "MM's Own Dungeon and Song Locations reach the single bag as host groups that agree with 2Ship's rule, the "
+      "defaults confine nothing, and the four placement options fold by name only when set (#1502)",
+      Test_MMPlacementConfinement },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section
@@ -9942,6 +10037,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-host-groups",
+      "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
+      "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
+      Test_ComboLogicHostGroups },
     // Increment 3's two §6.3 MEASUREMENTS, over both real engines at once (#645,
     // lane K3). Needs a real OoT generation AND MM's rando graph, hence the
     // `rando` tier and the `--test all` skip below. It asserts no timing: only
@@ -10170,6 +10269,14 @@ const TestDescriptor gTests[] = {
       "With the three shared-song rules on and Shuffle Songs Anywhere, the paired world holds one copy of each shared "
       "song (#1085)",
       Test_SharedSongsOneCopyAnywhere },
+    { "shared-songs-one-copy-mm-vanilla",
+      "With MM's Shuffle Songs at Vanilla, each shared song is still ONE copy over both games: MM's copy leaves its "
+      "vanilla check to the bag's shared row (#1502)",
+      Test_SharedSongsOneCopyMMVanilla },
+    { "mm-placement-confined-world",
+      "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
+      "every confined MM item lands in its group and none crosses into Ocarina of Time (#1502)",
+      Test_MMPlacementConfinedWorld },
     { "shared-arrows-bag",
       "With all three shared-arrow rules on, the single bag holds one row per arrow both solvers credit, each placed "
       "once over both games, and the GOAL is still proven (#968)",
@@ -10295,6 +10402,22 @@ const TestDescriptor gTests[] = {
       "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
       "meets the song-spot refusal, and every id before it is main's (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
+    // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
+    // generate nothing.
+    { "soaring-owl-table",
+      "The Song of Soaring's ten owls are MM's own entrances and names, MM_SlotMeta_Register registers the owl-flag "
+      "layout, and the owl mask is exactly MM's frozen half's: none unfrozen, unmarked, on day 0 or for the hidden "
+      "owl (#1169)",
+      Test_SoaringOwlTable },
+    { "oot-soaring-gates",
+      "The Song of Soaring refuses any warp-song restriction, an unplayable MM and no owls with OCARINA_MODE_04, its "
+      "chooser cycles, only A soars, every exit hands control back, and the message branches act on these decisions "
+      "(#1169)",
+      Test_OoTSoaringGates },
+    { "oot-soaring-matcher",
+      "OoT's real free-play checker matches the Song of Soaring only for a child who owns it under the frozen rule in "
+      "a paired world, every vanilla song still answers itself, and Pierre's song wins a same-note tie (#1169)",
+      Test_OoTSoaringMatcher },
     { "oot-soaring-pooled-only-when-rule-on",
       "A real paired OoT generation pools no Song of Soaring (OoT) with the rule off, exactly one with it on through "
       "the test seam, and none with the shared song; its hint names it and its give sets only its flag (#1169)",
@@ -10652,6 +10775,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "the creation-frozen half (stderr lines, pairing, crossing store, no refusal), and come back restored. "
       "RSBS_PFC_SKIP_CREATION=1 is the red half",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_PAIRED_FIRST_CROSSING },
+    { "int-soaring-to-owl",
+      "The paired first crossing with OoT's Song of Soaring rule revealed (#1169 XW6): an adult plays it and nothing "
+      "matches; the creation shadow shows the no-statues text; the Windmill refuses it; after an MM leg that "
+      "activates two owls (one an owl save with a pause-save entrance, the swamp cleared) the return leg cancels the "
+      "owl chooser, then steps it to the second owl and soars: MM must land on the cleared swamp's owl, not the "
+      "pause-save spot, with the one-shot target spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -10770,6 +10900,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shared-songs-bag") == 0 || strcmp(gTests[i].name, "shared-arrows-bag") == 0 ||
                 strcmp(gTests[i].name, "shared-masks-bag") == 0 ||
                 strncmp(gTests[i].name, "shared-songs-one-copy-", 22) == 0 ||
+                strcmp(gTests[i].name, "mm-placement-confined-world") == 0 ||
                 strcmp(gTests[i].name, "combo-crossing-views-world") == 0 ||
                 strcmp(gTests[i].name, "combo-item-view-new-file") == 0 ||
                 strcmp(gTests[i].name, "mm-creation-new-file-world") == 0 ||
@@ -11033,6 +11164,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
+    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
+    // hidden rules are hidden again, pass or fail.
+    IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.
     IntegrationTest_StderrCaptureStop();
