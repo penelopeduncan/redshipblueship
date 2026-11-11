@@ -220,10 +220,10 @@ typedef struct {
 typedef struct ShipRandomizerSaveContextData {
     u8 triforcePiecesCollected;
     u8 bombchuUpgradeLevel;
-    // #1363 (Shuffle Silver Rupees), layout revision 2: the 22 per-room silver
+    // #1363 (Shuffle Silver Rupees), layout revision 3: the 22 per-room silver
     // rupee counters below are CARVED from the front of rsbsSpare (growth rule 2):
     // 22 one-byte fields at offsets 2..23, so the struct stays 48 bytes and the
-    // union does not move. Zero means none collected, which is what a revision-1
+    // union does not move. Zero means none collected, which is what an earlier
     // file's zeroed spare bytes read as. Saved by key in OoT's .sav
     // (SaveManager.cpp, beside triforcePiecesCollected).
     s8 silverShadowBlades;

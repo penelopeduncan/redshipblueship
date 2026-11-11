@@ -120,10 +120,13 @@
 // another build"): an older build cannot know what the newer one put there. New
 // enum ids need no bump; the watermark stamps the enums' _MAX values itself.
 //   1  save format 6 as P0 landed it (#1510/#1512/#1513/#1514's clean break).
-//   2  #1363 (Shuffle Silver Rupees): 22 s8 silver rupee counters carved from
+//   2  #1169 XW7 appends ComboContext.comboOoTWarps (ComboOoTWarpRecord, 20
+//      bytes) after the watermark (ADR 0009 claim 22); a revision-1 record
+//      zero-extends to UNSET there.
+//   3  #1363 (Shuffle Silver Rupees): 22 s8 silver rupee counters carved from
 //      the front of OoT's ShipRandomizerSaveContextData::rsbsSpare (offsets
 //      2..23 of the 48-byte struct; rsbsSpare 46 -> 24 bytes, now at offset 24).
-#define RSBS_SAVE_LAYOUT_REVISION 2u
+#define RSBS_SAVE_LAYOUT_REVISION 3u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

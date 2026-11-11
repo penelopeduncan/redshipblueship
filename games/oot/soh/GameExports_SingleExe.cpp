@@ -169,7 +169,7 @@ static_assert(RHT_SILVER_RUPEE_DODONGOS_CAVERN == 1531 && RHT_GANONS_CASTLE_SILV
 static_assert(RG_SHADOW_SILVER_BLADES == 307 && RG_GANONS_CASTLE_MQ_SILVER_SHADOW == 328,
               "OoT's silver rupee items (#1363) are 307..328, appended after RG_NUTS");
 static_assert(RSK_SHUFFLE_SILVER == 235, "OoT's Shuffle Silver Rupees key (#1363) is 235, after #1407's");
-// #1363's carve (context.h growth rule 2, layout revision 2): the 22 one-byte silver
+// #1363's carve (context.h growth rule 2, layout revision 3): the 22 one-byte silver
 // counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
 // 24. Every member is one byte, so these offsets hold on every compiler.
 static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &&
@@ -267,7 +267,7 @@ extern "C" int OoT_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
                               sc->ship.quest.data.randomizer.triforcePiecesCollected, 7, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.bombchuUpgradeLevel",
                               sc->ship.quest.data.randomizer.bombchuUpgradeLevel, 2, bad);
-    // #1363's carve (layout revision 2): a revision-1 file's spare bytes were zero, so
+    // #1363's carve (layout revision 3): an earlier file's spare bytes were zero, so
     // the silver counters carved from them read 0, none collected. A carve that
     // moved bombchuUpgradeLevel or wrote over it would fail the line above instead.
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.silverShadowBlades",
