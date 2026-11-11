@@ -112,29 +112,16 @@ std::string SettingsFnv(const std::map<std::string, std::string>& settings) {
     return std::to_string(settings.size()) + "/" + SizeFnv(text);
 }
 
-/** The world fields of @p live in an otherwise zeroed record: what a package's
- *  placement/combo-context.bin must hold (no session state an earlier file left). */
+/** What a package's placement/combo-context.bin must hold for @p live: the
+ *  PRODUCTION writer's bytes (SeedPackageSingleExe.cpp WorldRecordBytes, through
+ *  OoT_SeedPackage_WorldRecordBytesForTest), so the expected entry cannot drift
+ *  from the writer's field list (save format 6: a copy of that list here omitted
+ *  mmWarpSongsOwned, and built a sizeof record where the writer pads to
+ *  RSBS_COMBO_CONTEXT_RECORD_SIZE). */
 std::string WorldOnlyRecord(const ComboContext& live) {
-    auto rec = std::make_unique<ComboContext>();
-    memset(rec.get(), 0, sizeof(ComboContext));
-    memcpy(rec->magic, live.magic, sizeof(rec->magic));
-    memcpy(&rec->version, &live.version, sizeof(rec->version));
-    memcpy(&rec->sourceIsRando, &live.sourceIsRando, sizeof(rec->sourceIsRando));
-    memcpy(&rec->sharedRandoSeed, &live.sharedRandoSeed, sizeof(rec->sharedRandoSeed));
-    memcpy(&rec->sharedRandoSettingsHash, &live.sharedRandoSettingsHash, sizeof(rec->sharedRandoSettingsHash));
-    memcpy(rec->foreignPlacements, live.foreignPlacements, sizeof(rec->foreignPlacements));
-    memcpy(rec->foreignPlacementsOoT, live.foreignPlacementsOoT, sizeof(rec->foreignPlacementsOoT));
-    memcpy(&rec->mmProfileDigest, &live.mmProfileDigest, sizeof(rec->mmProfileDigest));
-    memcpy(&rec->mmKeepItemsReset, &live.mmKeepItemsReset, sizeof(rec->mmKeepItemsReset)); // #1175
-    memcpy(&rec->mmPairedAttempt, &live.mmPairedAttempt, sizeof(rec->mmPairedAttempt));
-    memcpy(&rec->comboSettingsHash, &live.comboSettingsHash, sizeof(rec->comboSettingsHash));
-    memcpy(&rec->comboSettings, &live.comboSettings, sizeof(rec->comboSettings));
-    memcpy(&rec->comboTriforce, &live.comboTriforce, sizeof(rec->comboTriforce));
-    memcpy(&rec->comboItemRules, &live.comboItemRules, sizeof(rec->comboItemRules));
-    memcpy(&rec->comboFillWallets, &live.comboFillWallets, sizeof(rec->comboFillWallets)); // #1284
-    memcpy(&rec->comboWoth, &live.comboWoth, sizeof(rec->comboWoth));                      // #1439
-    memcpy(&rec->comboItemRules2, &live.comboItemRules2, sizeof(rec->comboItemRules2));    // #1169 XW2
-    return std::string(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
+    std::string bytes(OoT_SeedPackage_WorldRecordBytesForTest(&live, nullptr, 0), '\0');
+    OoT_SeedPackage_WorldRecordBytesForTest(&live, reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+    return bytes;
 }
 
 std::string ReadFileBytes(const std::string& path) {

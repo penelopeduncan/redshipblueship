@@ -55,6 +55,97 @@ constexpr uint32_t kMMSize = static_cast<uint32_t>(MM_SAVE_CONTEXT_SIZE);
 
 static_assert(sizeof(ComboContext) <= kComboSize, "ComboContext must fit the fixed Tier-1 record");
 
+// ---- Save format 6: the newer-content guard ---------------------------------
+// The game tiers' LAYOUT sizes (each game's sizeof(SaveContext)), for the Tier-2
+// and Tier-3 tail checks: the bytes of a stored tier past this build's struct
+// must be zero, because only a newer build's appended field could put anything
+// there. src/common cannot see either struct, so the sizes come from the games'
+// exports, armed by production start-up (RsbsSave_ArmTierTailChecks from
+// rsbs/src/main.cpp, after the `--test` exit). 0 = that tier's tail check is off:
+// the ROM-free rows that fill whole capacity-sized shadows with byte patterns
+// never arm it, and the rows that test it arm and disarm it themselves
+// (RsbsSave_SetTierLayoutSizesForTest). Tier-1's tail check needs no arming:
+// sizeof(ComboContext) is this TU's to know. Index GameId.
+std::atomic<uint32_t> sRsbsTierLayoutSize[3]{};
+
+/** The bytes [from, len) of `bytes` are all zero. */
+bool RsbsSaveTailIsZero(const uint8_t* bytes, size_t len, size_t from) {
+    for (size_t i = from; i < len; i++) {
+        if (bytes[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Save format 6: THE ONE TIER-CONTENT VALIDATOR, shared by ReadSlotFile (every
+ * load, probe, create-seam check and reset restore) and ReadMeta (the Save Files
+ * page), so the page can never call "Ready" a file a load refuses for these.
+ *   - Tier-1's tail [sizeof(ComboContext), record) must be zero, and the Tier-2 /
+ *     Tier-3 tails [sizeof(SaveContext), stored size) too (when armed): a nonzero
+ *     tail is a field a newer build appended -> RSBS_REFUSE_TIER_SIZE.
+ *   - The record's watermark (ComboContext.saveWatermark) must not exceed this
+ *     build's in any term: a higher layout revision or enum _MAX is a file a newer
+ *     build wrote ids or carved fields into -> RSBS_REFUSE_VERSION.
+ * Both refusals read "File made by another build". RSBS_REFUSE_NONE when the
+ * contents pass. `combo` holds at least sizeof(ComboContext) bytes (the reader's
+ * zero-extended staging record).
+ */
+RsbsRefuseReason RsbsSaveValidateTierContents(int slot, const uint8_t* combo, size_t comboLen, const uint8_t* oot,
+                                              size_t ootLen, const uint8_t* mm, size_t mmLen, bool verbose) {
+    if (!RsbsSaveTailIsZero(combo, comboLen, sizeof(ComboContext))) {
+        if (verbose) {
+            std::fprintf(stderr,
+                         "[RsbsSave] slot %d REFUSED: Tier-1 carries bytes past this build's ComboContext (%u bytes): "
+                         "a newer build's record\n",
+                         slot, (unsigned)sizeof(ComboContext));
+        }
+        return RSBS_REFUSE_TIER_SIZE;
+    }
+    const uint32_t ootLayout = sRsbsTierLayoutSize[GAME_OOT].load(std::memory_order_relaxed);
+    if (ootLayout != 0 && !RsbsSaveTailIsZero(oot, ootLen, ootLayout)) {
+        if (verbose) {
+            std::fprintf(stderr,
+                         "[RsbsSave] slot %d REFUSED: Tier-2 carries bytes past this build's Ocarina of Time "
+                         "SaveContext (%u bytes): a newer build's file\n",
+                         slot, (unsigned)ootLayout);
+        }
+        return RSBS_REFUSE_TIER_SIZE;
+    }
+    const uint32_t mmLayout = sRsbsTierLayoutSize[GAME_MM].load(std::memory_order_relaxed);
+    if (mmLayout != 0 && !RsbsSaveTailIsZero(mm, mmLen, mmLayout)) {
+        if (verbose) {
+            std::fprintf(stderr,
+                         "[RsbsSave] slot %d REFUSED: Tier-3 carries bytes past this build's Majora's Mask "
+                         "SaveContext (%u bytes): a newer build's file\n",
+                         slot, (unsigned)mmLayout);
+        }
+        return RSBS_REFUSE_TIER_SIZE;
+    }
+    ComboSaveWatermark stored;
+    std::memcpy(&stored, combo + offsetof(ComboContext, saveWatermark), sizeof(stored));
+    if (RsbsSave_WatermarkExceedsBuild(&stored) != 0) {
+        if (verbose) {
+            ComboSaveWatermark build;
+            RsbsSave_BuildWatermark(&build);
+            std::fprintf(stderr,
+                         "[RsbsSave] slot %d REFUSED: the record's watermark is above this build's (layout revision "
+                         "%u/%u; OoT checks %u/%u, inf %u/%u, settings %u/%u; MM checks %u/%u, options %u/%u, tricks "
+                         "%u/%u, inf %u/%u, events %u/%u): a newer build's file\n",
+                         slot, (unsigned)stored.layoutRevision, (unsigned)build.layoutRevision,
+                         (unsigned)stored.ootRcMax, (unsigned)build.ootRcMax, (unsigned)stored.ootRandInfMax,
+                         (unsigned)build.ootRandInfMax, (unsigned)stored.ootRskMax, (unsigned)build.ootRskMax,
+                         (unsigned)stored.mmRcMax, (unsigned)build.mmRcMax, (unsigned)stored.mmRoMax,
+                         (unsigned)build.mmRoMax, (unsigned)stored.mmRtMax, (unsigned)build.mmRtMax,
+                         (unsigned)stored.mmRandoInfMax, (unsigned)build.mmRandoInfMax, (unsigned)stored.mmReMax,
+                         (unsigned)build.mmReMax);
+        }
+        return RSBS_REFUSE_VERSION;
+    }
+    return RSBS_REFUSE_NONE;
+}
+
 bool SlotInRange(int slot) {
     return slot >= 0 && slot < RSBS_SAVE_MAX_SLOTS;
 }
@@ -237,7 +328,13 @@ const char* RefuseReasonSlug(RsbsRefuseReason reason) {
             // Never quarantined (there is nothing to set aside); named anyway so
             // every reason has a slug QuarantineReason can read back.
             return "missing";
+        case RSBS_REFUSE_OLD_VERSION:
+            // Save format 6: a v1-v5 file, set aside by the load that refused it.
+            // A later session reads it back (QuarantineReason), so a randomizer
+            // .sav at the slot is still told "File made by an older version".
+            return "oldversion";
         case RSBS_REFUSE_NONE:
+        case RSBS_REFUSE_COUNT:
         default:
             return "unknown";
     }
@@ -252,9 +349,9 @@ const char* SaveManager::RefuseReasonLabel(RsbsRefuseReason reason) {
         case RSBS_REFUSE_HEADER:
             return "not a .redsave (bad header)";
         case RSBS_REFUSE_VERSION:
-            return "unsupported format version";
+            return "format version or watermark newer than this build reads";
         case RSBS_REFUSE_TIER_SIZE:
-            return "tier larger than this build supports";
+            return "tier larger than this build supports, or a tier's tail carries a newer build's bytes";
         case RSBS_REFUSE_WRONG_SLOT:
             return "file claims a different slot";
         case RSBS_REFUSE_TRUNCATED:
@@ -280,7 +377,10 @@ const char* SaveManager::RefuseReasonLabel(RsbsRefuseReason reason) {
             return "cross-game placement record damaged";
         case RSBS_REFUSE_MISSING:
             return "a randomizer file without its paired cross-game record";
+        case RSBS_REFUSE_OLD_VERSION:
+            return "format version older than this build reads";
         case RSBS_REFUSE_NONE:
+        case RSBS_REFUSE_COUNT:
         default:
             return "";
     }
@@ -385,12 +485,27 @@ uint32_t SaveManager::StageCommit() {
     // the whole struct back), so the sequence is monotonic across sessions.
     gComboCtx.commitGeneration += 1;
     const uint32_t generation = gComboCtx.commitGeneration;
+    // Save format 6: the watermark rises to at least this build's in every term,
+    // here at the one commit choke point, so the creation's first commit stamps
+    // it and a newer build's commit marks the file as one an older build refuses.
+    RsbsSave_RaiseWatermark(&gComboCtx.saveWatermark);
 
     {
         std::lock_guard<std::mutex> lock(mStageMtx);
         std::memcpy(&mStaged.combo, &gComboCtx, sizeof(ComboContext));
         mStaged.oot.assign(static_cast<const uint8_t*>(ootShadow), static_cast<const uint8_t*>(ootShadow) + kOoTSize);
         mStaged.mm.assign(static_cast<const uint8_t*>(mmShadow), static_cast<const uint8_t*>(mmShadow) + kMMSize);
+        // Save format 6: the game tiers' tails go out as zero (the reader refuses
+        // a nonzero one as a newer build's), whatever the shadow's spare bytes
+        // hold. Only when armed (sRsbsTierLayoutSize): the sizes are the games'.
+        const uint32_t ootLayout = sRsbsTierLayoutSize[GAME_OOT].load(std::memory_order_relaxed);
+        const uint32_t mmLayout = sRsbsTierLayoutSize[GAME_MM].load(std::memory_order_relaxed);
+        if (ootLayout != 0 && ootLayout < kOoTSize) {
+            std::fill(mStaged.oot.begin() + ootLayout, mStaged.oot.end(), uint8_t{ 0 });
+        }
+        if (mmLayout != 0 && mmLayout < kMMSize) {
+            std::fill(mStaged.mm.begin() + mmLayout, mStaged.mm.end(), uint8_t{ 0 });
+        }
         mStaged.crossings.swap(crossings);
         mStaged.sharedOverflow.swap(sharedOverflow);
         mStaged.generation = generation;
@@ -641,11 +756,19 @@ bool SaveManager::DeserializeHeader(std::istream& in, int expectedSlot, RsbsSave
         reason = RSBS_REFUSE_HEADER;
         return false;
     }
-    // A version WINDOW, not an equality test. Bumping RSBS_SAVE_VERSION against
-    // an equality test is precisely how a format change orphans every existing
-    // save; older versions inside the window are prefix-compatible and load.
-    if (h.version < RSBS_SAVE_VERSION_MIN || h.version > RSBS_SAVE_VERSION) {
-        SaveLogReject(verbose, "unsupported format version", h.version, RSBS_SAVE_VERSION);
+    // A version WINDOW, not an equality test. Since save format 6 the window is
+    // [6, 6]: a v1-v5 file (v0.5.0-alpha and earlier) is another layout and is
+    // refused under its own reason, RSBS_REFUSE_OLD_VERSION ("File made by an
+    // older version"); a newer file keeps RSBS_REFUSE_VERSION ("File made by
+    // another build").
+    if (h.version < RSBS_SAVE_VERSION_MIN) {
+        SaveLogReject(verbose, "format version older than this build reads (a v0.5.0-alpha or earlier file)",
+                      h.version, RSBS_SAVE_VERSION_MIN);
+        reason = RSBS_REFUSE_OLD_VERSION;
+        return false;
+    }
+    if (h.version > RSBS_SAVE_VERSION) {
+        SaveLogReject(verbose, "format version newer than this build reads", h.version, RSBS_SAVE_VERSION);
         reason = RSBS_REFUSE_VERSION;
         return false;
     }
@@ -884,6 +1007,16 @@ SaveManager::SlotReadResult SaveManager::ReadSlotFile(int slot, SlotFileData& ou
         return SlotReadResult::Refused;
     }
 
+    // Save format 6: the newer-content guard (tails and watermark), the one
+    // validator ReadMeta shares.
+    const RsbsRefuseReason contentReason =
+        RsbsSaveValidateTierContents(slot, out.comboRecord.data(), out.comboRecord.size(), out.ootBlob.data(),
+                                     header.ootSize, out.mmBlob.data(), header.mmSize, verbose);
+    if (contentReason != RSBS_REFUSE_NONE) {
+        outReason = contentReason;
+        return SlotReadResult::Refused;
+    }
+
     // Every row of the crossing block, validated BEFORE anything commits: a
     // CRC-clean block can still be one no writer of this build could have
     // produced (a host twice, an own-origin row), and committing it would hand
@@ -1031,6 +1164,17 @@ void SaveManager::EvaluateSlot(int slot, uint32_t ootSavGeneration, int openKind
             return;
         }
         if (openKind == kOpenRandoFile) {
+            // Save format 6: a record an earlier session set aside as an OLDER
+            // VERSION's (its quarantine file's slug says so) is why this .sav has
+            // none. Say that, not "Cross-game record is missing", in every later
+            // session: the player's way on is the same erase, and the words must
+            // not suggest the record was lost.
+            if (QuarantineReason(slot) == RSBS_REFUSE_OLD_VERSION) {
+                v.outcome = RSBS_LOAD_REFUSED;
+                v.reason = RSBS_REFUSE_OLD_VERSION;
+                v.words = Combo_SaveFiles_RefuseText(RSBS_REFUSE_OLD_VERSION);
+                return;
+            }
             // #836 P3 / #564 V12 gap 2: a randomizer .sav with no .redsave (a
             // lost or deleted record, one quarantined in an earlier session, or
             // SoH's Copy, which copies the .sav only). Opening it used to ARM the
@@ -1778,7 +1922,7 @@ RsbsRefuseReason SaveManager::QuarantineReason(int slot) const {
             slug.resize(dash);
         }
         RsbsRefuseReason reason = RSBS_REFUSE_NONE;
-        for (int r = RSBS_REFUSE_UNREADABLE; r <= RSBS_REFUSE_MISSING; r++) {
+        for (int r = RSBS_REFUSE_UNREADABLE; r < RSBS_REFUSE_COUNT; r++) {
             if (slug == RefuseReasonSlug(static_cast<RsbsRefuseReason>(r))) {
                 reason = static_cast<RsbsRefuseReason>(r);
                 break;
@@ -2017,6 +2161,20 @@ SlotMeta SaveManager::ReadMeta(int slot) const {
         meta.valid = false;
         meta.state = RSBS_SLOT_REFUSED;
         meta.refuseReason = RSBS_REFUSE_TRUNCATED;
+        return meta;
+    }
+    // Save format 6: the same newer-content guard a load runs (the one validator,
+    // RsbsSaveValidateTierContents), so this page never shows "Ready" for a file
+    // the file select refuses as another build's.
+    const RsbsRefuseReason contentReason =
+        RsbsSaveValidateTierContents(slot, comboRecord.data(), comboRecord.size(), ootBlob.data(), ootBlob.size(),
+                                     mmBlob.data(), mmBlob.size(), /*verbose=*/false);
+    if (contentReason != RSBS_REFUSE_NONE) {
+        meta.valid = false;
+        meta.state = RSBS_SLOT_REFUSED;
+        if (meta.refuseReason == RSBS_REFUSE_NONE) {
+            meta.refuseReason = contentReason;
+        }
         return meta;
     }
 
@@ -2406,6 +2564,78 @@ void RsbsSave_DecodeN64FilenameName(const uint8_t name[8], char outName[9]) {
         }
     }
     outName[len] = '\0';
+}
+
+// ---- Save format 6: the watermark and the tier tail checks -------------------
+// The games' exports (games/oot/soh/GameExports_SingleExe.cpp,
+// games/mm/2s2h/GameExports_SingleExe.cpp): the only TUs that see the enums and
+// the SaveContext structs.
+void OoT_SaveLayout_EnumMaxima(uint16_t* outRcMax, uint16_t* outRandInfMax, uint16_t* outRskMax);
+void MM_SaveLayout_EnumMaxima(uint16_t* outRcMax, uint16_t* outRoMax, uint16_t* outRtMax, uint16_t* outRandoInfMax,
+                              uint16_t* outReMax);
+uint32_t OoT_SaveLayout_ContextSize(void);
+size_t MM_SeedPackage_HalfSize(void);
+
+void RsbsSave_BuildWatermark(ComboSaveWatermark* out) {
+    if (out == nullptr) {
+        return;
+    }
+    std::memset(out, 0, sizeof(*out));
+    out->layoutRevision = RSBS_SAVE_LAYOUT_REVISION;
+    OoT_SaveLayout_EnumMaxima(&out->ootRcMax, &out->ootRandInfMax, &out->ootRskMax);
+    MM_SaveLayout_EnumMaxima(&out->mmRcMax, &out->mmRoMax, &out->mmRtMax, &out->mmRandoInfMax, &out->mmReMax);
+}
+
+void RsbsSave_RaiseWatermark(ComboSaveWatermark* inOut) {
+    if (inOut == nullptr) {
+        return;
+    }
+    ComboSaveWatermark build;
+    RsbsSave_BuildWatermark(&build);
+    inOut->layoutRevision = (std::max)(inOut->layoutRevision, build.layoutRevision);
+    inOut->ootRcMax = (std::max)(inOut->ootRcMax, build.ootRcMax);
+    inOut->ootRandInfMax = (std::max)(inOut->ootRandInfMax, build.ootRandInfMax);
+    inOut->ootRskMax = (std::max)(inOut->ootRskMax, build.ootRskMax);
+    inOut->mmRcMax = (std::max)(inOut->mmRcMax, build.mmRcMax);
+    inOut->mmRoMax = (std::max)(inOut->mmRoMax, build.mmRoMax);
+    inOut->mmRtMax = (std::max)(inOut->mmRtMax, build.mmRtMax);
+    inOut->mmRandoInfMax = (std::max)(inOut->mmRandoInfMax, build.mmRandoInfMax);
+    inOut->mmReMax = (std::max)(inOut->mmReMax, build.mmReMax);
+}
+
+int RsbsSave_WatermarkExceedsBuild(const ComboSaveWatermark* stored) {
+    if (stored == nullptr) {
+        return 0;
+    }
+    ComboSaveWatermark build;
+    RsbsSave_BuildWatermark(&build);
+    // Field by field (never a struct compare): any one term above this build's.
+    return (stored->layoutRevision > build.layoutRevision || stored->ootRcMax > build.ootRcMax ||
+            stored->ootRandInfMax > build.ootRandInfMax || stored->ootRskMax > build.ootRskMax ||
+            stored->mmRcMax > build.mmRcMax || stored->mmRoMax > build.mmRoMax || stored->mmRtMax > build.mmRtMax ||
+            stored->mmRandoInfMax > build.mmRandoInfMax || stored->mmReMax > build.mmReMax)
+               ? 1
+               : 0;
+}
+
+void RsbsSave_ArmTierTailChecks(void) {
+    RsbsSave_SetTierLayoutSizesForTest(OoT_SaveLayout_ContextSize(), static_cast<uint32_t>(MM_SeedPackage_HalfSize()));
+}
+
+void RsbsSave_SetTierLayoutSizesForTest(uint32_t ootSize, uint32_t mmSize) {
+    // A size past the capacity could never be a tail: clamp to "off" rather than
+    // index past a blob (the static_asserts beside each sizeof make it unreachable).
+    rsbs::sRsbsTierLayoutSize[GAME_OOT].store(ootSize <= rsbs::kOoTSize ? ootSize : 0u, std::memory_order_relaxed);
+    rsbs::sRsbsTierLayoutSize[GAME_MM].store(mmSize <= rsbs::kMMSize ? mmSize : 0u, std::memory_order_relaxed);
+}
+
+void RsbsSave_GetTierLayoutSizes(uint32_t* outOoTSize, uint32_t* outMMSize) {
+    if (outOoTSize != nullptr) {
+        *outOoTSize = rsbs::sRsbsTierLayoutSize[GAME_OOT].load(std::memory_order_relaxed);
+    }
+    if (outMMSize != nullptr) {
+        *outMMSize = rsbs::sRsbsTierLayoutSize[GAME_MM].load(std::memory_order_relaxed);
+    }
 }
 
 } // extern "C"

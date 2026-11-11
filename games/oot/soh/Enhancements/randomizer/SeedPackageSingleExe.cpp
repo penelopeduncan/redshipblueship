@@ -32,6 +32,7 @@
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
+#include <algorithm>
 #include <atomic>
 #include <cstdio>
 #include <cstring>
@@ -59,6 +60,7 @@
 #include "combo_single_bag.h"      // OoT_ComboLogic_GeneralPassDeferred
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX
 #include "rsbs_version.h"
+#include "save.h" // RsbsSave_BuildWatermark / RsbsSave_WatermarkExceedsBuild: identity.json's watermark (format 2)
 #include "seed_package.h"
 
 extern "C" {
@@ -200,6 +202,11 @@ std::string SeedNameOf(const Rando::Context& ctx) {
  * can still hold what an earlier opened file left, and none of it is the world:
  * copied raw, a package's bytes, and identity.json's digest of them, would depend
  * on the session's history.
+ *
+ * Package format 2 (save format 6): the entry is the FIXED record size,
+ * RSBS_COMBO_CONTEXT_RECORD_SIZE, the struct then zeros, the way the .redsave's
+ * Tier-1 is written, so a field appended to ComboContext (growth rule 1) no
+ * longer changes the entry's size and refuses every older package.
  */
 std::string WorldRecordBytes(const ComboContext& live) {
     auto rec = std::make_unique<ComboContext>();
@@ -229,7 +236,35 @@ std::string WorldRecordBytes(const ComboContext& live) {
     // songs (MM's starting grant gave them). 0 in every world without one, so a
     // package written before XW5 reads the same.
     memcpy(&rec->mmWarpSongsOwned, &live.mmWarpSongsOwned, sizeof(rec->mmWarpSongsOwned));
-    return std::string(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
+    std::string bytes(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
+    bytes.resize(RSBS_COMBO_CONTEXT_RECORD_SIZE, '\0');
+    return bytes;
+}
+
+/**
+ * Package format 2: placement/combo-context.bin back into a record. Accepted when
+ * it is 1..RSBS_COMBO_CONTEXT_RECORD_SIZE bytes and every byte past this build's
+ * sizeof(ComboContext) is zero (a nonzero one is a field a newer build appended:
+ * RSBS_SEEDPKG_ERR_LAYOUT, "Seed package made by another build"). The first
+ * min(size, sizeof) bytes are copied into a zeroed @p out, so a shorter record
+ * from an older build zero-extends as a .redsave's Tier-1 does.
+ */
+int ComboRecordFromPackageBytes(const std::string& bytes, ComboContext& out, std::string& why) {
+    memset(&out, 0, sizeof(ComboContext));
+    if (bytes.empty() || bytes.size() > RSBS_COMBO_CONTEXT_RECORD_SIZE) {
+        why = "the combo record is " + std::to_string(bytes.size()) + " bytes; this build reads 1 to " +
+              std::to_string(RSBS_COMBO_CONTEXT_RECORD_SIZE);
+        return RSBS_SEEDPKG_ERR_LAYOUT;
+    }
+    for (size_t i = sizeof(ComboContext); i < bytes.size(); i++) {
+        if (bytes[i] != '\0') {
+            why = "the combo record carries bytes past this build's " + std::to_string(sizeof(ComboContext)) +
+                  " (a newer build's record)";
+            return RSBS_SEEDPKG_ERR_LAYOUT;
+        }
+    }
+    memcpy(&out, bytes.data(), (std::min)(bytes.size(), sizeof(ComboContext)));
+    return RSBS_SEEDPKG_OK;
 }
 
 int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::string& outFileName) {
@@ -309,6 +344,17 @@ int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::str
     nlohmann::ordered_json id = nlohmann::ordered_json::object();
     id["packageFormat"] = RSBS_SEED_PACKAGE_FORMAT;
     id["generatorVersion"] = RSBS_GENERATOR_VERSION;
+    {
+        // Package format 2: the save watermark of the generating build (context.h
+        // ComboSaveWatermark), which Validate holds against the loading build's.
+        ComboSaveWatermark mark;
+        RsbsSave_BuildWatermark(&mark);
+        id["watermark"] = { { "layoutRevision", mark.layoutRevision }, { "ootRcMax", mark.ootRcMax },
+                            { "ootRandInfMax", mark.ootRandInfMax },   { "ootRskMax", mark.ootRskMax },
+                            { "mmRcMax", mark.mmRcMax },               { "mmRoMax", mark.mmRoMax },
+                            { "mmRtMax", mark.mmRtMax },               { "mmRandoInfMax", mark.mmRandoInfMax },
+                            { "mmReMax", mark.mmReMax } };
+    }
     id["build"] = RsbsVersion_Display();
     id["seedString"] = ctx->GetSeedString();
     id["seedName"] = seedName;
@@ -429,6 +475,51 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
               std::to_string(RSBS_GENERATOR_VERSION);
         return RSBS_SEEDPKG_ERR_GENERATOR_VERSION;
     }
+    // Package format 2 (save format 6): an OLDER format is another layout (its
+    // combo record was the raw struct of a build before the format-6 capacities),
+    // refused by name. After the generator check on purpose: every v0.5.0-alpha
+    // package is generator 4, and its player reads "Seed package from another
+    // generator", which is what the release note tells them.
+    if (format < RSBS_SEED_PACKAGE_FORMAT) {
+        why = "the package format " + std::to_string(format) + " is older than this build reads (" +
+              std::to_string(RSBS_SEED_PACKAGE_FORMAT) + ")";
+        return RSBS_SEEDPKG_ERR_LAYOUT;
+    }
+    // THE WATERMARK (package format 2): the generating build's save watermark must
+    // not be above this build's in any term, or the world may hold ids or fields
+    // this build would ignore. Before anything is staged or applied.
+    {
+        ComboSaveWatermark mark;
+        memset(&mark, 0, sizeof(mark));
+        const nlohmann::json& w = id.contains("watermark") ? id["watermark"] : nlohmann::json();
+        uint32_t terms[9] = {};
+        const char* const kTermNames[9] = { "layoutRevision", "ootRcMax", "ootRandInfMax", "ootRskMax",    "mmRcMax",
+                                            "mmRoMax",        "mmRtMax",  "mmRandoInfMax", "mmReMax" };
+        bool parsed = w.is_object();
+        for (int i = 0; parsed && i < 9; i++) {
+            parsed = w.contains(kTermNames[i]) && ParseU32(w[kTermNames[i]], terms[i]) &&
+                     (i == 0 || terms[i] <= 0xFFFFu);
+        }
+        if (!parsed) {
+            why = "identity.json names no save watermark";
+            return RSBS_SEEDPKG_ERR_IDENTITY;
+        }
+        mark.layoutRevision = terms[0];
+        mark.ootRcMax = (uint16_t)terms[1];
+        mark.ootRandInfMax = (uint16_t)terms[2];
+        mark.ootRskMax = (uint16_t)terms[3];
+        mark.mmRcMax = (uint16_t)terms[4];
+        mark.mmRoMax = (uint16_t)terms[5];
+        mark.mmRtMax = (uint16_t)terms[6];
+        mark.mmRandoInfMax = (uint16_t)terms[7];
+        mark.mmReMax = (uint16_t)terms[8];
+        if (RsbsSave_WatermarkExceedsBuild(&mark) != 0) {
+            why = "the package's save watermark is above this build's (layout revision " +
+                  std::to_string(mark.layoutRevision) + ", this build " + std::to_string(RSBS_SAVE_LAYOUT_REVISION) +
+                  "): a newer build's world";
+            return RSBS_SEEDPKG_ERR_FORMAT;
+        }
+    }
     for (const char* name : kRequiredEntries) {
         if (entries.find(name) == entries.end()) {
             why = std::string("the package has no ") + name;
@@ -470,11 +561,14 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
               " bytes; this build's is " + std::to_string(MM_SeedPackage_HalfSize());
         return RSBS_SEEDPKG_ERR_LAYOUT;
     }
+    // Package format 2: the combo record is fixed-size, zero-padded, and accepted
+    // shorter (ComboRecordFromPackageBytes); MM's half above stays exact, because
+    // MM's sizeof changes only at a save format generation (growth rule 3/6).
     const std::string& comboBytes = entries.at(RSBS_SEEDPKG_ENTRY_COMBO_RECORD);
-    if (comboBytes.size() != sizeof(ComboContext)) {
-        why = "the combo record is " + std::to_string(comboBytes.size()) + " bytes; this build's is " +
-              std::to_string(sizeof(ComboContext));
-        return RSBS_SEEDPKG_ERR_LAYOUT;
+    ComboContext rec;
+    const int recordStatus = ComboRecordFromPackageBytes(comboBytes, rec, why);
+    if (recordStatus != RSBS_SEEDPKG_OK) {
+        return recordStatus;
     }
     const std::string& crossingBytes = entries.at(RSBS_SEEDPKG_ENTRY_CROSSINGS);
     if (Combo_Crossings_ValidateBlock(reinterpret_cast<const uint8_t*>(crossingBytes.data()), crossingBytes.size()) !=
@@ -485,8 +579,6 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
 
     // THE IDENTITY, TWICE OVER: the combo record names the pair identity.json
     // names, and its fingerprint is this generator's formula over it.
-    ComboContext rec;
-    memcpy(&rec, comboBytes.data(), sizeof(ComboContext));
     uint32_t masterSeed = 0;
     uint32_t settingsHash = 0;
     uint32_t profileDigest = 0;
@@ -564,7 +656,11 @@ void ApplyComboWorld(const ComboContext& rec) {
 /** The combo world, the crossings and the give capabilities of @p p. */
 int ApplyComboState(const StagedPackage& p) {
     ComboContext rec;
-    memcpy(&rec, p.entries.at(RSBS_SEEDPKG_ENTRY_COMBO_RECORD).data(), sizeof(ComboContext));
+    std::string why;
+    if (ComboRecordFromPackageBytes(p.entries.at(RSBS_SEEDPKG_ENTRY_COMBO_RECORD), rec, why) != RSBS_SEEDPKG_OK) {
+        fprintf(stderr, "[OoT] seed package: %s\n", why.c_str()); // Validate refused this already
+        return RSBS_SEEDPKG_ERR_APPLY;
+    }
     ApplyComboWorld(rec);
     const std::string& crossings = p.entries.at(RSBS_SEEDPKG_ENTRY_CROSSINGS);
     if (Combo_Crossings_LoadBlock(reinterpret_cast<const uint8_t*>(crossings.data()), crossings.size()) !=
@@ -788,17 +884,21 @@ int CompleteAndStage(bool fromGenerate) {
 // and its apply, end to end, ROM-free. @p live's world fields go through
 // WorldRecordBytes (what placement/combo-context.bin holds) and back through
 // ApplyComboWorld into gComboCtx; @p outRecordBytes (may be NULL) receives the
-// record a package would carry. Returns 1 when the record has this build's size.
+// record a package would carry. Returns 1 when the record has this build's size
+// (package format 2: the fixed RSBS_COMBO_CONTEXT_RECORD_SIZE) and reads back.
 extern "C" int OoT_SeedPackage_WorldRecordRoundTripForTest(const ComboContext* live, ComboContext* outRecordBytes) {
     if (live == nullptr) {
         return 0;
     }
     const std::string bytes = WorldRecordBytes(*live);
-    if (bytes.size() != sizeof(ComboContext)) {
+    if (bytes.size() != RSBS_COMBO_CONTEXT_RECORD_SIZE) {
         return 0;
     }
     auto rec = std::make_unique<ComboContext>();
-    memcpy(rec.get(), bytes.data(), sizeof(ComboContext));
+    std::string why;
+    if (ComboRecordFromPackageBytes(bytes, *rec, why) != RSBS_SEEDPKG_OK) {
+        return 0;
+    }
     if (outRecordBytes != nullptr) {
         memcpy(outRecordBytes, rec.get(), sizeof(ComboContext));
     }
@@ -1031,9 +1131,37 @@ extern "C" const uint8_t* OoT_SeedPackage_TestStagedMMHalf(size_t* outSize) {
 extern "C" void OoT_SeedPackage_TestReapplyWorldRecord(void) {
     const std::string bytes = WorldRecordBytes(gComboCtx);
     auto rec = std::make_unique<ComboContext>();
-    memcpy(rec.get(), bytes.data(), sizeof(ComboContext));
+    std::string why;
+    if (ComboRecordFromPackageBytes(bytes, *rec, why) != RSBS_SEEDPKG_OK) {
+        return;
+    }
     ComboContext_Init();
     ApplyComboWorld(*rec);
+}
+
+// TEST BRIDGE (SeedPackageRoundTrip, save format 6): the production
+// placement/combo-context.bin of @p live, so the bridge's expected entry is the
+// writer's own bytes and not a copy of its field list (the copy omitted
+// mmWarpSongsOwned). Copies at most @p cap bytes into @p out (may be NULL);
+// returns the entry's full size.
+extern "C" size_t OoT_SeedPackage_WorldRecordBytesForTest(const ComboContext* live, uint8_t* out, size_t cap) {
+    if (live == nullptr) {
+        return 0;
+    }
+    const std::string bytes = WorldRecordBytes(*live);
+    if (out != nullptr && cap > 0) {
+        memcpy(out, bytes.data(), (std::min)(cap, bytes.size()));
+    }
+    return bytes.size();
+}
+
+// TEST HOOK (SeedPackageContainer, save format 6): the combo-record acceptance
+// rule, ROM-free: RSBS_SEEDPKG_OK or RSBS_SEEDPKG_ERR_LAYOUT for @p size bytes.
+extern "C" int OoT_SeedPackage_CheckComboRecordForTest(const uint8_t* bytes, size_t size) {
+    ComboContext rec;
+    std::string why;
+    return ComboRecordFromPackageBytes(std::string(reinterpret_cast<const char*>(bytes), bytes != nullptr ? size : 0),
+                                       rec, why);
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

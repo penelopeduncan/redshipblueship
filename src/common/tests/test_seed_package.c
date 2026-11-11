@@ -21,6 +21,30 @@
  *     check that refused the first one. RED with the check removed: the bumped
  *     package then reaches the entry check and reports MISSING_ENTRY.
  *
+ *     Save format 6 (package format 2) legs, each through the same production load
+ *     and each leaving nothing staged and the resident identity untouched:
+ *       G4  a v0.5.0-alpha package (generator 4, format 1) reads "Seed package from
+ *           another generator" (catches the older-format check moved ahead of the
+ *           generator check, which would tell that player "made by another build");
+ *       F1  format 1 at this generator is LAYOUT, "Seed package made by another
+ *           build" (catches the `format < RSBS_SEED_PACKAGE_FORMAT` refusal removed:
+ *           the package would reach the entry check, MISSING_ENTRY);
+ *       F3  format 3 is FORMAT, "Seed package from a newer build";
+ *       W   a watermark one MM check above this build's is FORMAT before any entry
+ *           is read (catches the watermark check removed or comparing the wrong
+ *           way: MISSING_ENTRY); W0 a package with no watermark is IDENTITY.
+ *     The non-vacuity package carries this build's own watermark, so W's refusal
+ *     is the comparison's, not the field's absence.
+ *
+ *   SeedPackageContainer also locks the format-2 combo-record rule
+ *   (OoT_SeedPackage_CheckComboRecordForTest, the production
+ *   ComboRecordFromPackageBytes): a v5-era 2048-byte record, a sizeof(ComboContext)
+ *   record and a full RSBS_COMBO_CONTEXT_RECORD_SIZE record are accepted (catches
+ *   the old exact-size test), a nonzero byte past sizeof is LAYOUT (catches the
+ *   tail check removed), a record past the record size or an empty one is LAYOUT
+ *   (catches an unbounded copy), and LAYOUT's words are "Seed package made by
+ *   another build" (catches the case falling back to "damaged or incomplete").
+ *
  * Included at FILE SCOPE by test_runner.cpp (compiled as C++). Its files go to
  * this process's own scratch directory (test_scratch.h).
  */
@@ -34,8 +58,13 @@
 
 #include "../context.h"
 #include "../foreign_items.h" // RSBS_GENERATOR_VERSION
+#include "../save.h"          // RsbsSave_BuildWatermark: the identity fixtures' watermark (package format 2)
 #include "../seed_package.h"
 #include "../test_scratch.h"
+
+// games/oot/soh/Enhancements/randomizer/SeedPackageSingleExe.cpp: the production
+// combo-record acceptance rule (package format 2).
+extern "C" int OoT_SeedPackage_CheckComboRecordForTest(const uint8_t* bytes, size_t size);
 
 namespace {
 
@@ -67,17 +96,40 @@ int SpkReadEntry(const std::string& path, const char* name, std::string& out) {
     return rc;
 }
 
-/** A package holding only identity.json, at @p generatorVersion. */
-int SpkWriteIdentityOnly(const std::string& path, uint32_t generatorVersion) {
-    char identity[512];
+/**
+ * A package holding only identity.json, at @p generatorVersion and @p format, with
+ * this build's save watermark (package format 2) raised by @p mmRcBump MM checks,
+ * or no watermark at all when @p withWatermark is false.
+ */
+int SpkWriteIdentityOnlyEx(const std::string& path, uint32_t generatorVersion, uint32_t format, bool withWatermark,
+                           unsigned mmRcBump) {
+    ComboSaveWatermark mark;
+    RsbsSave_BuildWatermark(&mark);
+    char watermark[384] = "";
+    if (withWatermark) {
+        snprintf(watermark, sizeof(watermark),
+                 ",\n  \"watermark\": {\"layoutRevision\": %u, \"ootRcMax\": %u, \"ootRandInfMax\": %u, "
+                 "\"ootRskMax\": %u, \"mmRcMax\": %u, \"mmRoMax\": %u, \"mmRtMax\": %u, \"mmRandoInfMax\": %u, "
+                 "\"mmReMax\": %u}",
+                 (unsigned)mark.layoutRevision, (unsigned)mark.ootRcMax, (unsigned)mark.ootRandInfMax,
+                 (unsigned)mark.ootRskMax, (unsigned)mark.mmRcMax + mmRcBump, (unsigned)mark.mmRoMax,
+                 (unsigned)mark.mmRtMax, (unsigned)mark.mmRandoInfMax, (unsigned)mark.mmReMax);
+    }
+    char identity[1024];
     snprintf(identity, sizeof(identity),
-             "{\n  \"packageFormat\": %u,\n  \"generatorVersion\": %u,\n  \"seedString\": \"RSBSPKGFIXTURE\",\n"
+             "{\n  \"packageFormat\": %u,\n  \"generatorVersion\": %u%s,\n  \"seedString\": \"RSBSPKGFIXTURE\",\n"
              "  \"seedName\": \"01-02-03-04-05\",\n  \"comboSettingsHash\": \"63F09A31\"\n}\n",
-             (unsigned)RSBS_SEED_PACKAGE_FORMAT, (unsigned)generatorVersion);
+             (unsigned)format, (unsigned)generatorVersion, watermark);
     const char* names[] = { RSBS_SEEDPKG_ENTRY_IDENTITY };
     const void* data[] = { identity };
     const size_t sizes[] = { strlen(identity) };
     return SeedPackage_WriteEntries(path.c_str(), names, data, sizes, 1);
+}
+
+/** A package holding only identity.json, at @p generatorVersion, this build's
+ *  package format and this build's watermark. */
+int SpkWriteIdentityOnly(const std::string& path, uint32_t generatorVersion) {
+    return SpkWriteIdentityOnlyEx(path, generatorVersion, RSBS_SEED_PACKAGE_FORMAT, true, 0u);
 }
 
 } // namespace
@@ -158,6 +210,34 @@ int SeedPackageContainer_Run(void) {
     SPK_ASSERT(SeedPackage_Fnv1a("", 0) == 0x811C9DC5u, "FNV-1a of nothing is %08X",
                (unsigned)SeedPackage_Fnv1a("", 0));
 
+    // Package format 2 (save format 6): the combo record's acceptance rule.
+    {
+        std::string record(RSBS_COMBO_CONTEXT_RECORD_SIZE + 1u, '\0');
+        memcpy(&record[0], COMBO_CONTEXT_MAGIC, 8);
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(record.data());
+        const size_t kAccepted[] = { 2048u, sizeof(ComboContext), RSBS_COMBO_CONTEXT_RECORD_SIZE };
+        for (const size_t size : kAccepted) {
+            rc = OoT_SeedPackage_CheckComboRecordForTest(bytes, size);
+            printf("[TEST] seed-package-container: a %zu-byte combo record reads %d (%s)\n", size, rc,
+                   SeedPackage_StatusName(rc));
+            SPK_ASSERT(rc == RSBS_SEEDPKG_OK, "a %zu-byte zero-padded combo record is refused (%d, %s)", size, rc,
+                       SeedPackage_StatusName(rc));
+        }
+        rc = OoT_SeedPackage_CheckComboRecordForTest(bytes, RSBS_COMBO_CONTEXT_RECORD_SIZE + 1u);
+        SPK_ASSERT(rc == RSBS_SEEDPKG_ERR_LAYOUT, "a combo record past %u bytes reads %d (%s), not layout",
+                   (unsigned)RSBS_COMBO_CONTEXT_RECORD_SIZE, rc, SeedPackage_StatusName(rc));
+        rc = OoT_SeedPackage_CheckComboRecordForTest(bytes, 0u);
+        SPK_ASSERT(rc == RSBS_SEEDPKG_ERR_LAYOUT, "an empty combo record reads %d (%s), not layout", rc,
+                   SeedPackage_StatusName(rc));
+        record[sizeof(ComboContext)] = '\x01';
+        rc = OoT_SeedPackage_CheckComboRecordForTest(bytes, RSBS_COMBO_CONTEXT_RECORD_SIZE);
+        SPK_ASSERT(rc == RSBS_SEEDPKG_ERR_LAYOUT,
+                   "a combo record with a byte past this build's %zu reads %d (%s), not layout", sizeof(ComboContext),
+                   rc, SeedPackage_StatusName(rc));
+        SPK_ASSERT(strcmp(SeedPackage_RefusalWords(RSBS_SEEDPKG_ERR_LAYOUT), "Seed package made by another build") == 0,
+                   "a layout refusal reads \"%s\"", SeedPackage_RefusalWords(RSBS_SEEDPKG_ERR_LAYOUT));
+    }
+
     printf("[TEST] seed-package-container: %d failure(s)\n", failures);
     return failures;
 }
@@ -211,6 +291,45 @@ int SeedPackageGeneratorRefused_Run(void) {
     SPK_ASSERT(OoT_SeedPackage_Staged() == 0, "an incomplete package is staged");
     SPK_ASSERT(memcmp(&gComboCtx, &resident, sizeof(ComboContext)) == 0,
                "the incomplete package changed the resident identity");
+
+    // Save format 6 (package format 2): G4, F1, F3, W, W0 (the file header).
+    struct SpkFormatLeg {
+        const char* name;
+        uint32_t generator;
+        uint32_t format;
+        bool withWatermark;
+        unsigned mmRcBump;
+        int expected;
+        const char* words;
+    };
+    const SpkFormatLeg kLegs[] = {
+        { "G4", 4u, 1u, false, 0u, RSBS_SEEDPKG_ERR_GENERATOR_VERSION, "Seed package from another generator" },
+        { "F1", RSBS_GENERATOR_VERSION, 1u, true, 0u, RSBS_SEEDPKG_ERR_LAYOUT, "Seed package made by another build" },
+        { "F3", RSBS_GENERATOR_VERSION, RSBS_SEED_PACKAGE_FORMAT + 1u, true, 0u, RSBS_SEEDPKG_ERR_FORMAT,
+          "Seed package from a newer build" },
+        { "W", RSBS_GENERATOR_VERSION, RSBS_SEED_PACKAGE_FORMAT, true, 1u, RSBS_SEEDPKG_ERR_FORMAT,
+          "Seed package from a newer build" },
+        { "W0", RSBS_GENERATOR_VERSION, RSBS_SEED_PACKAGE_FORMAT, false, 0u, RSBS_SEEDPKG_ERR_IDENTITY,
+          "Seed package damaged or incomplete" },
+    };
+    for (const SpkFormatLeg& leg : kLegs) {
+        const std::string path = (dir / (std::string(leg.name) + ".rsbs-seed.zip")).string();
+        rc = SpkWriteIdentityOnlyEx(path, leg.generator, leg.format, leg.withWatermark, leg.mmRcBump);
+        SPK_ASSERT(rc == RSBS_SEEDPKG_OK, "%s: writing the fixture returned %d", leg.name, rc);
+        rc = OoT_SeedPackage_LoadFile(path.c_str());
+        printf("[TEST] seed-package-generator-refused: %s (generator %u, format %u, watermark %s) loaded with %d "
+               "(%s): \"%s\"\n",
+               leg.name, (unsigned)leg.generator, (unsigned)leg.format,
+               leg.withWatermark ? (leg.mmRcBump != 0 ? "above this build's" : "this build's") : "none", rc,
+               SeedPackage_StatusName(rc), SeedPackage_RefusalWords(rc));
+        SPK_ASSERT(rc == leg.expected, "%s loaded with %d (%s), not %d (%s)", leg.name, rc,
+                   SeedPackage_StatusName(rc), leg.expected, SeedPackage_StatusName(leg.expected));
+        SPK_ASSERT(strcmp(SeedPackage_RefusalWords(rc), leg.words) == 0, "%s reads \"%s\", not \"%s\"", leg.name,
+                   SeedPackage_RefusalWords(rc), leg.words);
+        SPK_ASSERT(OoT_SeedPackage_Staged() == 0, "%s: the refused package is staged", leg.name);
+        SPK_ASSERT(memcmp(&gComboCtx, &resident, sizeof(ComboContext)) == 0,
+                   "%s: the refusal changed the resident identity", leg.name);
+    }
 
     gComboCtx = before;
     printf("[TEST] seed-package-generator-refused: %d failure(s)\n", failures);

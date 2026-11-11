@@ -305,7 +305,9 @@ namespace rsbs {
  * EXCEPT the CRC, the Tier-4 crossing block and the commit-generation
  * comparison: those three are only found by a load, so a file that fails one
  * of them reads VALID here until a load refuses it (then the session's refusal
- * record and, after a restart, `quarantineReason` carry it).
+ * record and, after a restart, `quarantineReason` carry it). The save format 6
+ * newer-content guard (the tier tails and the watermark) IS run here, through
+ * the same validator a load uses.
  */
 struct SlotMeta {
     bool exists;          // slot file is present and readable
@@ -1125,6 +1127,35 @@ void RsbsSave_DecodeN64FilenameName(const uint8_t name[8], char outName[9]);
  */
 int RsbsSave_RestoreLastCommitForReset(int slot, uint8_t* mmOut, size_t mmOutSize, RsbsResetAcceptHalf accept,
                                        void* acceptCtx, int* outOoTHalfMoved);
+
+/**
+ * Save format 6: THE SAVE WATERMARK (context.h ComboSaveWatermark).
+ * RsbsSave_BuildWatermark fills `out` with this build's values
+ * (RSBS_SAVE_LAYOUT_REVISION and both games' enum _MAX values, from the games'
+ * exports). RsbsSave_RaiseWatermark raises each term of `inOut` to at least this
+ * build's (StageCommit's stamp). RsbsSave_WatermarkExceedsBuild returns 1 when any
+ * term of `stored` is above this build's: the shared tier validator refuses that
+ * record (RSBS_REFUSE_VERSION) and the seed package's Validate that package.
+ */
+void RsbsSave_BuildWatermark(ComboSaveWatermark* out);
+void RsbsSave_RaiseWatermark(ComboSaveWatermark* inOut);
+int RsbsSave_WatermarkExceedsBuild(const ComboSaveWatermark* stored);
+
+/**
+ * Save format 6: THE GAME TIERS' TAIL CHECKS. A stored Tier-2 / Tier-3 byte past
+ * this build's sizeof(SaveContext) must be zero (a newer build's appended field
+ * would be there); the shared validator refuses it as RSBS_REFUSE_TIER_SIZE, and
+ * StageCommit writes those bytes as zero. The sizes are the games'.
+ * RsbsSave_ArmTierTailChecks arms both from the games' exports; production start-up
+ * (rsbs/src/main.cpp) calls it after the `--test` exit, so ROM-free rows that fill
+ * capacity-sized shadows with byte patterns run without it.
+ * RsbsSave_SetTierLayoutSizesForTest sets them directly (0 turns a tier's check
+ * off); RsbsSave_GetTierLayoutSizes reads them back. Tier-1's tail check
+ * (sizeof(ComboContext)) is always on.
+ */
+void RsbsSave_ArmTierTailChecks(void);
+void RsbsSave_SetTierLayoutSizesForTest(uint32_t ootSize, uint32_t mmSize);
+void RsbsSave_GetTierLayoutSizes(uint32_t* outOoTSize, uint32_t* outMMSize);
 
 #ifdef __cplusplus
 }
