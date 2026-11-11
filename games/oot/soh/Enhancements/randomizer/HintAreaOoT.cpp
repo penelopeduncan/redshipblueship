@@ -128,6 +128,12 @@ const OoTAreaAdapterRegistrar gOoTAreaAdapterRegistrar;
 
 } // namespace
 
+/** #1169 XW7: RandomizerArea @p ra in the OoT half (OoTComboAreaOf), for the
+ *  creation's warp-song record (WarpSongRecordOoT.cpp). */
+extern "C" uint8_t OoT_HintArea_ComboAreaOfRandomizerArea(int ra) {
+    return OoTComboAreaOf((RandomizerArea)ra);
+}
+
 /**
  * Give every location of the just-loaded world its areas. Called once at the
  * end of SaveManager::LoadRandomizer, after the entrance overrides are loaded:

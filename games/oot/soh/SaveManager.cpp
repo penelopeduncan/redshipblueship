@@ -67,6 +67,28 @@ extern "C" {
 static int sRsbsRefusedLoadSlot = -1;
 // #575 H1: a loaded world's locations get their hint areas (HintAreaOoT.cpp).
 extern "C" void OoT_HintArea_OnRandomizerLoaded(void);
+// #1169 XW7: MM's warp prompt reads OoT's frozen age and asks OoT's arrival
+// readiness through src/common (mm_warp_song_play.h); the pad table it arms is
+// pinned here against OoT's own entrances.
+#include "mm_warp_song_play.h"
+#include "soh/Enhancements/randomizer/randomizerTypes.h"     // ENTRANCE_GROTTO_LOAD_START
+#include "soh/Enhancements/randomizer/randomizer_entrance.h" // Entrance_WarpArrivalOverridesReady
+static_assert(OCARINA_SONG_MINUET == 0 && OCARINA_SONG_BOLERO == 1 && OCARINA_SONG_SERENADE == 2 &&
+                  OCARINA_SONG_REQUIEM == 3 && OCARINA_SONG_NOCTURNE == 4 && OCARINA_SONG_PRELUDE == 5,
+              "MM's warp songs use OoT's warp-song order, Minuet .. Prelude = 0 .. 5 (#1169 XW7)");
+static_assert(ENTR_SACRED_FOREST_MEADOW_WARP_PAD == 0x0600 && ENTR_DEATH_MOUNTAIN_CRATER_WARP_PAD == 0x04F6 &&
+                  ENTR_LAKE_HYLIA_WARP_PAD == 0x0604 && ENTR_DESERT_COLOSSUS_WARP_PAD == 0x01F1 &&
+                  ENTR_GRAVEYARD_WARP_PAD == 0x0568 && ENTR_TEMPLE_OF_TIME_WARP_PAD == 0x05F4,
+              "Combo_MMWarpPlay_PadEntrance (mm_warp_song_play.c) is OoT's six warp pads (#1169 XW7)");
+static_assert(ENTRANCE_GROTTO_LOAD_START == RSBS_MMWP_GROTTO_PSEUDO_FIRST,
+              "RSBS_MMWP_GROTTO_PSEUDO_FIRST is SoH's first grotto pseudo index (#1169 XW7)");
+static_assert(LINK_AGE_ADULT == RSBS_MMWP_AGE_ADULT && LINK_AGE_CHILD == RSBS_MMWP_AGE_CHILD,
+              "OoT's frozen age reads LINK_AGE_ADULT 0 and LINK_AGE_CHILD 1 (#1169 XW7)");
+static_assert(sizeof(SaveContext::linkAge) == sizeof(int32_t), "OoT's linkAge is an s32 (#1169 XW7)");
+/** The readiness of OoT's arrival for a grotto destination (randomizer_entrance.c). */
+static int OoT_MMWarpPlay_ArrivalReadyProbe(void) {
+    return Entrance_WarpArrivalOverridesReady() != 0 ? 1 : 0;
+}
 #endif
 using namespace std::string_literals;
 
@@ -210,6 +232,15 @@ extern "C" void OoT_SlotMeta_Register(void) {
     desc.isStarted = OoT_SaveBlobIsStarted;
     desc.decodePlayerName = OoT_SlotMeta_DecodePlayerName; // OoT's charset, not ASCII (#773)
     RsbsSave_RegisterGameMeta(GAME_OOT, &desc);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW7: OoT's frozen age for MM's warp prompt (crossing is child-only),
+    // with OoT's own "started" test, and its arrival's grotto readiness.
+    ComboMMWarpOoTDesc warpDesc{};
+    warpDesc.linkAgeOffset = static_cast<uint32_t>(offsetof(SaveContext, linkAge));
+    warpDesc.isStarted = OoT_SaveBlobIsStarted;
+    Combo_MMWarpPlay_RegisterOoTDesc(&warpDesc);
+    Combo_MMWarpPlay_RegisterOoTReadyProbe(OoT_MMWarpPlay_ArrivalReadyProbe);
+#endif
 }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
