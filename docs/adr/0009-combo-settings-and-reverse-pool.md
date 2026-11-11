@@ -1107,11 +1107,11 @@ break. For this ADR's budget it means:
   carved from its end at 1003) is the last claim carved from it; later rows
   (claim 22 on) are appends.
 - **Growth is append-only, at the end of `ComboContext`.** A new Tier-1 field goes
-  after the last member (today `saveWatermark`, the save watermark appended by
-  format 6), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
+  after the last member (today `comboOoTWarps`, appended after format 6's save
+  watermark by claim 22), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
   `sizeof` pin (`src/common/save_layout_pins.h`). It also moves `context.h`'s
   last-member assert (`sizeof(ComboContext) == offsetof(<last member>) +
-  sizeof(<it>)`, today written against `saveWatermark`) to the new member, which
+  sizeof(<it>)`, today written against `comboOoTWarps` (claim 22)) to the new member, which
   that assert otherwise refuses whatever the pin says; the members before it keep
   their contiguity asserts. No `RSBS_SAVE_VERSION` change:
   an older format-6 record zero-extends, so "zero means unset" holds for every
@@ -1120,8 +1120,9 @@ break. For this ADR's budget it means:
   Format 6 widened the tracker captures (OoT 8192 checks, 1024 bytes; MM 4096,
   512 bytes), which moved the MM capture, the skip journal and everything after
   them; the watermark (20 bytes, after 2 bytes of padding) follows the journal.
-  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes, leaving
-  about 1400 to append into; the measured value is the pin's.
+  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes at layout
+  revision 1 (2716 after claim 22, layout revision 2), leaving about 1400 to
+  append into; the measured value is the pin's.
 - **A seed package's combo record is fixed-size too** (package format 2): written
   at 4096 bytes, zero-padded, accepted shorter and refused with a nonzero byte past
   the reading build's struct. An append therefore no longer refuses every older

@@ -346,6 +346,9 @@ TestResult Test_SaveFormatV6Fixture(void) {
     Context_InitFrozenStates();
     ComboContext_Init();
     gComboCtx.saveSlot = 0x7FFFFFFF;
+    // Scribble XW7's record so its UNSET legs below read the loaded bytes, not
+    // ComboContext_Init's zeros: a loader that skipped them would leave 0x5A.
+    memset(&gComboCtx.comboOoTWarps, 0x5A, sizeof(gComboCtx.comboOoTWarps));
     const RsbsLoadOutcome outcome = mgr.LoadSlot(0);
     printf("[FIXTURE] load outcome %d, reason %s\n", (int)outcome,
            rsbs::SaveManager::RefuseReasonLabel(mgr.GetSlotRefuseReason(0)));
@@ -378,8 +381,11 @@ TestResult Test_SaveFormatV6Fixture(void) {
     RSBS_LAYOUT_FIXTURE_FIELD("combo.saveWatermark.mmRandoInfMax", gComboCtx.saveWatermark.mmRandoInfMax, 78u, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("combo.saveWatermark.mmReMax", gComboCtx.saveWatermark.mmReMax, 83u, bad);
     // #1169 XW7's record, appended after the watermark at layout revision 2: the
-    // revision-1 fixture never wrote it, so its bytes zero-extend to UNSET (growth
-    // rule 1's "zero means unset"), and every field above stays where it was.
+    // revision-1 fixture holds zeros where the record now sits (its comboSize is
+    // 4096, so these are the file's own bytes, read over the scribble above), so
+    // it reads UNSET (growth rule 1's "zero means unset") and every field above
+    // stays where it was. The short-record zero-extension itself is proved by
+    // SaveComboLegacyRecord's short version-6 leg, not here.
     RSBS_LAYOUT_FIXTURE_FIELD("combo.comboOoTWarps.formatVersion", gComboCtx.comboOoTWarps.formatVersion, 0u, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("combo.comboOoTWarps.flags", gComboCtx.comboOoTWarps.flags, 0u, bad);
     bad += OoT_SaveLayout_FixtureCheck(static_cast<const uint8_t*>(Context_GetOoTSaveContext()),
