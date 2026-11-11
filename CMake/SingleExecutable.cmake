@@ -1674,9 +1674,10 @@ if(BUILD_TESTING)
     # enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
     # grass rows sit behind the existing Shuffle Grass Drops, the three Keaton
     # rings own nine contiguous ids each, and the rings' three wonder items
-    # follow Shuffle Wonder Items (#1406) and are hosts. MMHiveGrassShuffleHooks: ObjComb.cpp's and ObjGrass.cpp's new
-    # hooks arm through ActorBehavior::OnFileLoad (exactly +1 each), hives and a
-    # Keaton ring identify their checks, and grass sprouts get their own draw.
+    # follow Shuffle Wonder Items (#1406) and are hosts.
+    # MMHiveGrassShuffleHooks: ObjComb.cpp's and ObjGrass.cpp's new hooks arm
+    # through ActorBehavior::OnFileLoad (exactly +1 each), hives and a Keaton
+    # ring identify their checks, and grass sprouts get their own draw.
     # Pure (no display, no ROM); ids looked up by name.
     redship_add_test(NAME MMHiveShuffle COMMAND redship --test mm-hive-shuffle)
     redship_add_test(NAME MMExtraGrassShuffle COMMAND redship --test mm-extra-grass-shuffle)
