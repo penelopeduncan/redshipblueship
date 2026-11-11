@@ -65,6 +65,10 @@ extern uint16_t Combo_GetStartupEntrance(void);
 extern void Combo_ClearStartupEntrance(void);
 extern uint16_t Combo_GetStartupEntranceForGame(const char* gameId);
 extern bool Combo_HasStartupEntranceForGame(const char* gameId);
+// The kind of switch that set the startup entrance (src/common/entrance.h,
+// ComboSwitchKind); COMBO_SWITCH_KIND_SOARING is 2 (#1169 XW6).
+extern int Combo_GetStartupEntranceKindForGame(const char* gameId);
+#define MM_COMBO_SWITCH_KIND_SOARING 2
 // Frozen-state consumption (src/common/switch.cpp): applies the frozen save
 // and retires it in the same step, so a blob can never be consumed twice.
 // Deliberately NOT the bare Combo_HasFrozenState/Combo_RestoreState pair that
@@ -2633,8 +2637,14 @@ void MM_Play_ConsumeStartupEntrance(void) {
     // SavingEnhancements' OnSaveLoad hook does not seed Remember Save Location
     // from a stale entrance and MM_Player_Init does not force a standing start for
     // a save this arrival ignored. Same clear the commit sites use.
+    //
+    // A Song of Soaring arrival (#1169 XW6) lands on the owl the player chose,
+    // never on the pause-save spot: OoTMM's Soaring always lands on the owl, and
+    // the startup entrance IS that owl. Its pair is cleared like any unused one.
     const s32 pauseSaveEntrance = gSaveContext.save.shipSaveInfo.pauseSaveEntrance;
-    if (hadFrozenState && gSaveContext.save.isOwlSave && (pauseSaveEntrance >= 0) && (pauseSaveEntrance <= 0xFFFF)) {
+    const bool soaringArrival = Combo_GetStartupEntranceKindForGame("mm") == MM_COMBO_SWITCH_KIND_SOARING;
+    if (hadFrozenState && !soaringArrival && gSaveContext.save.isOwlSave && (pauseSaveEntrance >= 0) &&
+        (pauseSaveEntrance <= 0xFFFF)) {
         gSaveContext.save.entrance = pauseSaveEntrance;
     } else {
         gSaveContext.save.entrance = startupEntrance;

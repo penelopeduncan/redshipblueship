@@ -1206,6 +1206,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
+// frozen owl flags (soaring-owl-table), the gates and the chooser
+// (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
+// All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_warp_song_soaring.c"
 // #1169 lane XW5: Ocarina of Time's six warp songs as Majora's Mask items and
 // their ownership byte: the items, the pool and the button sets
 // (mm-warp-songs-items, needs the CVar store), ownership surviving creation, an
@@ -7774,6 +7779,22 @@ TestResult Test_ComboItemRulesSecondWord(void) {
     return ComboItemRulesSecondWord_Run();
 }
 
+// #1169 XW6: OoT's free-play checker reads a CVar on every note (func_800ED200),
+// so oot-soaring-matcher needs the same bring-up; without it the row crashed on
+// every compiler.
+TestResult Test_OoTSoaringMatcher(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoTSoaringMatcher_Run();
+}
+
 // #1169 XW5: the MM warp songs' pool reads the CVar store (GeneratePools) and a
 // .redsave load compares the warp-song keys, the same bring-up as
 // combo-item-rules-second-word.
@@ -10192,6 +10213,22 @@ const TestDescriptor gTests[] = {
       "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
       "meets the song-spot refusal, and every id before it is main's (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
+    // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
+    // generate nothing.
+    { "soaring-owl-table",
+      "The Song of Soaring's ten owls are MM's own entrances and names, MM_SlotMeta_Register registers the owl-flag "
+      "layout, and the owl mask is exactly MM's frozen half's: none unfrozen, unmarked, on day 0 or for the hidden "
+      "owl (#1169)",
+      Test_SoaringOwlTable },
+    { "oot-soaring-gates",
+      "The Song of Soaring refuses any warp-song restriction, an unplayable MM and no owls with OCARINA_MODE_04, its "
+      "chooser cycles, only A soars, every exit hands control back, and the message branches act on these decisions "
+      "(#1169)",
+      Test_OoTSoaringGates },
+    { "oot-soaring-matcher",
+      "OoT's real free-play checker matches the Song of Soaring only for a child who owns it under the frozen rule in "
+      "a paired world, every vanilla song still answers itself, and Pierre's song wins a same-note tie (#1169)",
+      Test_OoTSoaringMatcher },
     { "oot-soaring-pooled-only-when-rule-on",
       "A real paired OoT generation pools no Song of Soaring (OoT) with the rule off, exactly one with it on through "
       "the test seam, and none with the shared song; its hint names it and its give sets only its flag (#1169)",
@@ -10549,6 +10586,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "the creation-frozen half (stderr lines, pairing, crossing store, no refusal), and come back restored. "
       "RSBS_PFC_SKIP_CREATION=1 is the red half",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_PAIRED_FIRST_CROSSING },
+    { "int-soaring-to-owl",
+      "The paired first crossing with OoT's Song of Soaring rule revealed (#1169 XW6): an adult plays it and nothing "
+      "matches; the creation shadow shows the no-statues text; the Windmill refuses it; after an MM leg that "
+      "activates two owls (one an owl save with a pause-save entrance, the swamp cleared) the return leg cancels the "
+      "owl chooser, then steps it to the second owl and soars: MM must land on the cleared swamp's owl, not the "
+      "pause-save spot, with the one-shot target spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -10930,6 +10974,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
+    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
+    // hidden rules are hidden again, pass or fail.
+    IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.
     IntegrationTest_StderrCaptureStop();

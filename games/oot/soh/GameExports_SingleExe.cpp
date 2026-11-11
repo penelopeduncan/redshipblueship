@@ -51,6 +51,7 @@
 #include "combo_mm_options_view.h"
 #include "combo_mm_tricks_view.h"
 #include "combo_settings_view.h"
+#include "warp_song_soaring.h"      // int-soaring-to-owl (#1169 XW6): the owls, the text ids, the owl mask
 #include "ComboItemTrackerWindow.h" // ComboItemTrackerFlushLayoutSave: the exit writes an unsettled layout edit (#1349)
 // #750: OoT_RetireAbandonedSession resets the actor DB's clients and drops every
 // per-actor object extension of the session a departure abandons.
@@ -825,6 +826,9 @@ static uint16_t PfcShopPlaytestLogShelves(int scene, const char* when);
 // The #577 M5 chest playtest drive (defined beside the shop drive).
 static bool PfcChestPlaytest(void);
 static void PfcChestPlaytestLogHosts(void);
+// int-soaring-to-owl (#1169 XW6): the world's settings for the drive (defined
+// with the drive, below).
+static void SoarArmWorld(void);
 
 static bool PfcNoRefusalToast(char* msg, size_t cap) {
     const int toasts = OoT_Notification_EmittedCountForTest();
@@ -1209,6 +1213,9 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         return;
     }
     fprintf(stderr, "[PFC] shipped defaults verified: %s\n", msg);
+    if (IntegrationTest_SoaringToOwl()) {
+        SoarArmWorld();
+    }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(true);
     }
@@ -1496,11 +1503,17 @@ static void GpPairedCheckStoneHints(const char* leg) {
             leg, probes, stones, failures);
     fflush(stderr);
     if (failures != 0 || probes == 0) {
-        char msg[256];
+        char msg[384];
+        // int-soaring-to-owl generates the same seed with two settings moved
+        // (songSoaringOot on, Shuffle Songs Anywhere), so its world is not the
+        // one these checks were proven on: say so, or the red reads as Soaring's.
         snprintf(msg, sizeof(msg),
                  "%s: an OoT stone hint for a crossing host does not name the MM item it yields in play (%d "
-                 "failure(s), %d host(s) probed; see [H3B])",
-                 leg, failures, probes);
+                 "failure(s), %d host(s) probed; see [H3B])%s",
+                 leg, failures, probes,
+                 IntegrationTest_SoaringToOwl() ? " [PFC] soaring world: songSoaringOot on, Shuffle Songs Anywhere; a "
+                                                  "fixture failure of the paired checks, not a Soaring leg"
+                                                : "");
         IntegrationTest_GameplayFail(msg);
     }
 }
@@ -1534,6 +1547,11 @@ static void GpPairedTrackerPlaytest(int frame) {
             fflush(stderr);
             GameInteractor_ExecuteOnSceneFlagSet(cc.scene, FLAG_SCENE_TREASURE, cc.flag);
             break;
+        }
+        if (sHost < 0 && IntegrationTest_SoaringToOwl()) {
+            fprintf(stderr, "[PFC] soaring world: no OoT crossing row is hosted at a chest, so this leg carries no "
+                            "pickup (the paired checks' fixture, not a Soaring leg)\n");
+            fflush(stderr);
         }
     }
     if (!trackerDrive) {
@@ -1983,6 +2001,947 @@ static bool GpPairedCheckReturn(void) {
 }
 
 // ============================================================================
+// int-soaring-to-owl (#1169 XW6): OoT's Song of Soaring, played for real
+// ============================================================================
+//
+// The paired first crossing (every check above runs unchanged) with the hidden
+// songSoaringOot rule revealed. The song is played the way a player plays it:
+// the Fairy Ocarina on C-left, pressed, then the six notes, all through SoH's
+// emulated buttons (GameInteractor_SetEmulatedButtons, which padmgr.c ORs into
+// the controller's state, so both the message system's input and the ocarina's
+// own read, Audio_GetOcaInput, see real presses). Nothing calls the matcher,
+// the gates or the chooser directly: code_800EC960.c's matcher and the four
+// z_message_PAL.c Soaring arms run in their real frame order, and the drive only
+// watches the message context they leave.
+//
+// The first OoT leg (Market, then the Windmill), after the paired checks' own
+// frames:
+//   ADULT       the age the matcher reads is adult while the notes are played:
+//               nothing matches, the ocarina stays in MSGMODE_OCARINA_PLAYING,
+//               and only B closes it (OCARINA_MODE_04, nothing armed).
+//   NO_STATUES  a child in the Market, MM's half the creation shadow (day 0, no
+//               owl): "You played the Song of Soaring", then the no-statues text,
+//               OCARINA_MODE_04, nothing armed, control back.
+//   RESTRICTED  a child in the Windmill (warp-song restriction 3): "You played",
+//               then 0x88C, OCARINA_MODE_04, nothing armed, control back.
+// The MM leg (games/mm/2s2h/GameExports_SingleExe.cpp) activates the Clock Town
+// and swamp owls before the Clock Tower door. The return leg (Market):
+//   CANCEL      the chooser opens on Clock Town in OCARINA_MODE_01; B closes it
+//               with OCARINA_MODE_04 and nothing armed.
+//   CROSS       the chooser opens, D-down then A on "Next statue" steps it to the
+//               swamp owl, A on "Soar" arms the one-shot target (OoT, this
+//               entrance, MM, the swamp owl's uncleared entrance, the Soaring
+//               kind); OoT must not reload any scene before MM takes over, and
+//               MM's arrival check ends the run.
+//
+// The adult leg flips gSaveContext.linkAge for the notes only, in a scene loaded
+// as a child: reloading a scene as an adult swaps the age equipment of a file
+// that never had an adult bucket (OoT_Play_Destroy), the crash class the forced
+// child arrival guards. Every wait has a frame budget and fails by name.
+
+extern "C" {
+u8 OoT_Message_GetState(MessageContext* msgCtx);
+bool OoT_SongOfSoaringOoTOn(void);
+bool OoT_SoaringOoTOwned(void);
+// games/mm/2s2h/GameExports_SingleExe.cpp: MM's frozen half carries what the
+// MM leg set (owls, cleared Woodfall, the owl-save pair), read in MM's TU.
+int MM_SoaringTest_FrozenHalfReady(char* why, size_t cap);
+}
+
+namespace {
+
+enum class SoarLeg { Adult, NoStatues, Restricted, Cancel, Cross };
+
+enum class SoarStep {
+    Prepare, // the leg's setup (the Windmill: its door and the landing)
+    TakeOut, // C-left until the ocarina is open (MSGMODE_OCARINA_PLAYING)
+    Settle,  // a few frames with the ocarina open
+    Notes,   // the six notes
+    After,   // the leg's own verdict, up to the press that ends it
+    Close,   // the box closes and Link has control again
+};
+
+const SoarLeg kSoarPreLegs[] = { SoarLeg::Adult, SoarLeg::NoStatues, SoarLeg::Restricted };
+const SoarLeg kSoarReturnLegs[] = { SoarLeg::Cancel, SoarLeg::Cross };
+
+// The song: C-down, C-left, C-up, twice (sOcarinaF4BtnMap, sOcarinaB4BtnMap and
+// sOcarinaD5BtnMap give OoT's note values 5, 11 and 14, the ones
+// Combo_SoaringOoTPitches lists).
+const u16 kSoarNotes[RSBS_SOARING_NOTE_COUNT] = { BTN_CDOWN, BTN_CLEFT, BTN_CUP, BTN_CDOWN, BTN_CLEFT, BTN_CUP };
+const int kSoarNoteHold = 4;
+const int kSoarNoteGap = 4;
+const int kSoarNotePeriod = kSoarNoteHold + kSoarNoteGap;
+// MM's swamp owl (OWL_WARP_SOUTHERN_SWAMP; MM's TU static-asserts it is 7), and
+// the two owls the MM leg activates. The chooser opens on Clock Town, so the
+// swamp is the owl "Next statue" moves to.
+const int kSoarTargetOwl = 7;
+const uint16_t kSoarOwlsActivated = (uint16_t)((1u << RSBS_SOARING_OWL_CLOCK_TOWN) | (1u << kSoarTargetOwl));
+// The Windmill (spawn 1, its Kakariko door): SCENE_WINDMILL_AND_DAMPES_GRAVE's
+// warp-song restriction is 3 (z_parameter.c, flags2 0x03), the one the
+// randomizer lets vanilla warp songs through and Soaring does not (ruling 5).
+// Not the grave half of the scene: Dampe's ghost (En_Po_Relay) auto-starts a
+// conversation within 250 units. As a child the Windmill's man (En_Fu,
+// EnFu_WaitChild) only offers a talk within 100 units and never marks Link as
+// near an ocarina actor, but the Song of Storms tag does (SoarQuietWindmillTag).
+const uint16_t kSoarRestrictedEntrance = ENTR_WINDMILL_AND_DAMPES_GRAVE_WINDMILL;
+const u16 kSoarTextRestricted = 0x88C; // OoT's "You can't warp here!"
+
+// Frame budgets: each wait that runs out fails the row by name.
+const int kSoarTakeOutBudget = 300;
+const int kSoarSettleFrames = 8;
+const int kSoarTextBudget = 900;
+const int kSoarCloseBudget = 300;
+const int kSoarSceneBudget = 400;
+const int kSoarLandBudget = 300;
+const int kSoarCursorBudget = 60;
+const int kSoarReopenBudget = 300;
+const int kSoarArmBudget = 20;
+const int kSoarDepartBudget = 600;
+const int kSoarAdultStayFrames = 30;
+const int kSoarIdleFrames = 10;
+
+struct SoarState {
+    GameplayPhase phase = GP_PHASE_DONE;
+    int leg = 0;
+    SoarStep step = SoarStep::Prepare;
+    int stepFrames = 0;
+    int sub = 0;
+    int subFrames = 0;
+    int lastPress = -1000;
+    int idleFrames = 0;
+    bool failed = false;
+    bool adultFlipped = false;
+    bool sawPlayed = false;
+    bool sawMode04 = false;
+    bool sawLeave = false;
+    bool awaitScene = false;
+    bool arrivedScene = false;
+    bool awaitArm = false;
+    int armFrames = 0;
+    bool departed = false;
+    int departFrames = 0;
+    u16 held = 0;
+    int heldFrames = 0;
+};
+SoarState sSoar;
+
+const char* SoarLegName(SoarLeg leg) {
+    switch (leg) {
+        case SoarLeg::Adult:
+            return "adult refused";
+        case SoarLeg::NoStatues:
+            return "no statues";
+        case SoarLeg::Restricted:
+            return "restriction refused";
+        case SoarLeg::Cancel:
+            return "cancel";
+        case SoarLeg::Cross:
+            return "the crossing";
+    }
+    return "?";
+}
+
+SoarLeg SoarCurrentLeg(void) {
+    if (sSoar.phase == GP_PHASE_OOT_RETURN) {
+        return kSoarReturnLegs[sSoar.leg < 2 ? sSoar.leg : 1];
+    }
+    return kSoarPreLegs[sSoar.leg < 3 ? sSoar.leg : 2];
+}
+
+int SoarLegCount(void) {
+    return sSoar.phase == GP_PHASE_OOT_RETURN ? 2 : 3;
+}
+
+void SoarFail(const char* why) {
+    if (sSoar.failed) {
+        return;
+    }
+    sSoar.failed = true;
+    sSoar.awaitArm = false;
+    if (sSoar.adultFlipped) {
+        gSaveContext.linkAge = LINK_AGE_CHILD;
+        sSoar.adultFlipped = false;
+    }
+    PlayState* play = OoT_gPlayState;
+    MessageContext* m = play != NULL ? &play->msgCtx : NULL;
+    char msg[1024];
+    snprintf(msg, sizeof(msg),
+             "int-soaring-to-owl, leg '%s': %s [msgMode=%d textId=0x%04X textState=%d ocarinaMode=%d "
+             "ocarinaAction=%d choiceIndex=%d warpArmed=%d owls=0x%03X scene=%d entrance=0x%04X linkAge=%d]",
+             SoarLegName(SoarCurrentLeg()), why, m != NULL ? (int)m->msgMode : -1, m != NULL ? (unsigned)m->textId : 0u,
+             m != NULL ? (int)OoT_Message_GetState(m) : -1, m != NULL ? (int)m->ocarinaMode : -1,
+             m != NULL ? (int)m->ocarinaAction : -1, m != NULL ? (int)m->choiceIndex : -1, ComboWarp_IsArmed() ? 1 : 0,
+             (unsigned)Combo_SoaringOwlMask(), play != NULL ? (int)play->sceneNum : -1,
+             (unsigned)(uint16_t)gSaveContext.entranceIndex, (int)gSaveContext.linkAge);
+    IntegrationTest_GameplayFail(msg);
+}
+
+// Holds @p buttons for the next @p frames frames (a fresh press on the first).
+void SoarHold(u16 buttons, int frames) {
+    sSoar.held = buttons;
+    sSoar.heldFrames = frames;
+    sSoar.lastPress = sSoar.stepFrames;
+}
+
+// Once per driven frame: the emulated buttons are consumed by the next
+// PadMgr_ProcessInputs, so a held button is set again every frame.
+void SoarPump(void) {
+    if (sSoar.heldFrames > 0) {
+        GameInteractor_SetEmulatedButtons(GameInteractor_GetEmulatedButtons() | sSoar.held);
+        sSoar.heldFrames--;
+    }
+}
+
+bool SoarIdle(PlayState* play) {
+    Player* player = GET_PLAYER(play);
+    return player != NULL && play->msgCtx.msgMode == MSGMODE_NONE && play->transitionTrigger == TRANS_TRIGGER_OFF &&
+           play->transitionMode == TRANS_MODE_OFF && play->csCtx.state == CS_STATE_IDLE &&
+           (player->stateFlags1 & (PLAYER_STATE1_IN_CUTSCENE | PLAYER_STATE1_TALKING)) == 0 &&
+           gSaveContext.gameMode == GAMEMODE_NORMAL;
+}
+
+void SoarNext(SoarStep step) {
+    sSoar.step = step;
+    sSoar.stepFrames = 0;
+    sSoar.sub = 0;
+    sSoar.subFrames = 0;
+    sSoar.lastPress = -1000;
+    sSoar.idleFrames = 0;
+}
+
+void SoarBeginLeg(void) {
+    SoarNext(SoarStep::Prepare);
+    sSoar.sawPlayed = false;
+    sSoar.sawMode04 = false;
+    sSoar.sawLeave = false;
+    fprintf(stderr, "[PFC] soaring leg '%s' starts (scene %d, owls offered 0x%03X)\n", SoarLegName(SoarCurrentLeg()),
+            OoT_gPlayState != NULL ? (int)OoT_gPlayState->sceneNum : -1, (unsigned)Combo_SoaringOwlMask());
+    fflush(stderr);
+}
+
+void SoarLegPassed(const char* what) {
+    fprintf(stderr, "[PFC] soaring leg '%s' PASS: %s\n", SoarLegName(SoarCurrentLeg()), what);
+    fflush(stderr);
+    sSoar.leg++;
+    if (sSoar.leg < SoarLegCount()) {
+        SoarBeginLeg();
+    }
+}
+
+/**
+ * Each phase's setup, once: the song owned (its RAND_INF flag, what its get-item
+ * sets), the Fairy Ocarina in its slot and on C-left, and the gates the legs
+ * rely on checked up front, so a leg that fails names its own step and not a
+ * missing precondition.
+ */
+bool SoarPreparePhase(PlayState* play, GameplayPhase phase) {
+    char why[384];
+    Flags_SetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
+    const u8 ocarina = gSaveContext.inventory.items[SLOT_OCARINA];
+    if (ocarina != ITEM_OCARINA_FAIRY && ocarina != ITEM_OCARINA_TIME) {
+        gSaveContext.inventory.items[SLOT_OCARINA] = ITEM_OCARINA_FAIRY;
+    }
+    gSaveContext.equips.buttonItems[1] = gSaveContext.inventory.items[SLOT_OCARINA];
+    gSaveContext.equips.cButtonSlots[0] = SLOT_OCARINA;
+    const uint16_t owls = Combo_SoaringOwlMask();
+    if (!OoT_SongOfSoaringOoTOn() || !Combo_ForeignPairingActive() || !OoT_SoaringOoTOwned() || !LINK_IS_CHILD ||
+        !Combo_Soaring_MMDescRegistered() || !Context_HasFrozenState(GAME_MM)) {
+        snprintf(why, sizeof(why),
+                 "a precondition does not hold before the legs (songSoaringOot frozen on %d, paired %d, owned %d, "
+                 "child %d, MM layout registered %d, MM half frozen %d)",
+                 OoT_SongOfSoaringOoTOn() ? 1 : 0, Combo_ForeignPairingActive() ? 1 : 0, OoT_SoaringOoTOwned() ? 1 : 0,
+                 LINK_IS_CHILD ? 1 : 0, Combo_Soaring_MMDescRegistered() ? 1 : 0,
+                 Context_HasFrozenState(GAME_MM) ? 1 : 0);
+        SoarFail(why);
+        return false;
+    }
+    if (phase == GP_PHASE_OOT_PRE && owls != 0) {
+        snprintf(why, sizeof(why), "the creation shadow already offers owls 0x%03X; the no-statues leg needs none",
+                 (unsigned)owls);
+        SoarFail(why);
+        return false;
+    }
+    if (phase == GP_PHASE_OOT_RETURN) {
+        // Exactly these two: "Next statue" walks upward from Clock Town, so an
+        // extra owl in 5..6 would take the step and the Cross leg would red on
+        // the wrong production code.
+        if ((owls & RSBS_SOARING_OWL_BITS) != kSoarOwlsActivated) {
+            snprintf(why, sizeof(why),
+                     "MM's frozen half offers owls 0x%03X after the MM leg set exactly 0x%03X (the departure did not "
+                     "freeze them, the half is on day 0, or another owl is active)",
+                     (unsigned)owls, (unsigned)kSoarOwlsActivated);
+            SoarFail(why);
+            return false;
+        }
+        // The half the arrival consumes must be the one the MM leg prepared, or
+        // the cleared-variant and pause-save assertions would prove nothing.
+        char half[256];
+        if (MM_SoaringTest_FrozenHalfReady(half, sizeof(half)) == 0) {
+            snprintf(why, sizeof(why), "the MM leg's preparation did not survive the departure's freeze: %s", half);
+            SoarFail(why);
+            return false;
+        }
+        fprintf(stderr, "[PFC] soaring: %s\n", half);
+        // The chooser's cursor moves with the D-pad when this is on (the stick
+        // cannot be emulated); in memory for the run, put back at the verdict.
+        IntegrationTest_SoaringSetCVarInt(CVAR_SETTING("DpadInText"), 1);
+    }
+    fprintf(stderr,
+            "[PFC] soaring: %s legs on scene %d; song owned, Fairy Ocarina on C-left, rule frozen on, owls offered "
+            "0x%03X\n",
+            phase == GP_PHASE_OOT_PRE ? "first OoT" : "return", (int)play->sceneNum, (unsigned)owls);
+    fflush(stderr);
+    return true;
+}
+
+// The Windmill's Song of Storms spot (EnOkarinaTag type 2, the child-only tag
+// that drains Kakariko's well; z_en_okarina_tag.c). Within 50 + its range of
+// it, a child taking out the ocarina plays for the tag (PLAYER_STATE2_NEAR_
+// OCARINA_ACTOR, then OCARINA_ACTION_CHECK_STORMS), not in free play, and no
+// warp song (vanilla or Soaring) is ever heard there: the first real run stood
+// at the Kakariko door inside its range and failed with ocarinaAction 0x27. A
+// player who has drained the well finds the tag quiet (its switch flag set,
+// VB_OKARINA_TAG_COMPLETED), and that is the state the leg plays in: the
+// switch is set here, in the live scene, and put back before the Windmill is
+// left (SoarPreLegsDone).
+const s16 kSoarWindmillTagType = 2;
+s16 sSoarWindmillTagSwitch = -1;
+
+bool SoarQuietWindmillTag(PlayState* play) {
+    Player* player = GET_PLAYER(play);
+    for (Actor* actor = play->actorCtx.actorLists[ACTORCAT_PROP].head; actor != NULL; actor = actor->next) {
+        if (actor->id != ACTOR_EN_OKARINA_TAG || actor->update == NULL) {
+            continue;
+        }
+        const s16 type = (actor->params >> 0xA) & 0x3F;
+        const s16 sw = actor->params & 0x3F;
+        const f32 range = actor->home.rot.z > 0 ? actor->home.rot.z * 40.0f : 0.0f;
+        fprintf(stderr,
+                "[PFC] soaring leg 'restriction refused': ocarina tag type %d, switch 0x%02X, range %.0f, Link %.0f "
+                "units away (pos %.0f %.0f %.0f)\n",
+                (int)type, (unsigned)sw, range, actor->xzDistToPlayer, player->actor.world.pos.x,
+                player->actor.world.pos.y, player->actor.world.pos.z);
+        fflush(stderr);
+        if (type != kSoarWindmillTagType) {
+            continue;
+        }
+        if (sw == 0x3F) {
+            SoarFail("the Windmill's Song of Storms tag has no switch flag, so no drained-well state quiets it: a "
+                     "child at the Kakariko door can never play in free play there");
+            return false;
+        }
+        if (!OoT_Flags_GetSwitch(play, sw)) {
+            OoT_Flags_SetSwitch(play, sw);
+            sSoarWindmillTagSwitch = sw;
+            fprintf(stderr,
+                    "[PFC] soaring leg 'restriction refused': the well is drained (switch 0x%02X set), so the "
+                    "Song of Storms tag is quiet and the ocarina plays in free play\n",
+                    (unsigned)sw);
+            fflush(stderr);
+        }
+    }
+    return true;
+}
+
+// The leg's setup. Only the Windmill needs one: its door, the scene, a landing.
+void SoarStepPrepare(PlayState* play) {
+    if (SoarCurrentLeg() != SoarLeg::Restricted) {
+        SoarNext(SoarStep::TakeOut);
+        return;
+    }
+    char why[192];
+    sSoar.subFrames++;
+    switch (sSoar.sub) {
+        case 0:
+            if (!SoarIdle(play)) {
+                if (sSoar.subFrames > kSoarCloseBudget) {
+                    SoarFail("Link never stood idle in the Market before the Windmill door");
+                }
+                return;
+            }
+            sSoar.awaitScene = true;
+            sSoar.arrivedScene = false;
+            GpFireOoTDoor(kSoarRestrictedEntrance, "the Windmill door (warp-song restriction 3)");
+            sSoar.sub = 1;
+            sSoar.subFrames = 0;
+            return;
+        case 1:
+            if (sSoar.arrivedScene) {
+                sSoar.sub = 2;
+                sSoar.subFrames = 0;
+                sSoar.idleFrames = 0;
+            } else if (sSoar.subFrames > kSoarSceneBudget) {
+                SoarFail("the Windmill never loaded after its door was fired");
+            }
+            return;
+        default:
+            sSoar.idleFrames = SoarIdle(play) ? sSoar.idleFrames + 1 : 0;
+            if (sSoar.idleFrames < 20) {
+                if (sSoar.subFrames > kSoarLandBudget) {
+                    SoarFail("Link never stood idle in the Windmill after the door");
+                }
+                return;
+            }
+            if (play->sceneNum != SCENE_WINDMILL_AND_DAMPES_GRAVE || play->interfaceCtx.restrictions.warpSongs != 3) {
+                snprintf(why, sizeof(why), "the Windmill is scene %d with warp-song restriction %d; the leg needs 3",
+                         (int)play->sceneNum, (int)play->interfaceCtx.restrictions.warpSongs);
+                SoarFail(why);
+                return;
+            }
+            if (!SoarQuietWindmillTag(play)) {
+                return;
+            }
+            SoarNext(SoarStep::TakeOut);
+            return;
+    }
+}
+
+void SoarStepTakeOut(PlayState* play) {
+    if (play->msgCtx.msgMode == MSGMODE_OCARINA_PLAYING) {
+        SoarNext(SoarStep::Settle);
+        return;
+    }
+    if (sSoar.stepFrames > kSoarTakeOutBudget) {
+        SoarFail("Link never took out the ocarina: no MSGMODE_OCARINA_PLAYING after C-left presses (the Fairy "
+                 "Ocarina is on C-left)");
+        return;
+    }
+    if (SoarIdle(play) && sSoar.heldFrames == 0 && sSoar.stepFrames - sSoar.lastPress >= 30) {
+        SoarHold(BTN_CLEFT, 2);
+        return;
+    }
+    // A textbox nobody else will press past (the paired drive's own frame-30
+    // pickup, say) would keep Link from ever standing idle: A, once it has
+    // printed. Never the Soaring texts, which only a played song opens.
+    const u8 state = OoT_Message_GetState(&play->msgCtx);
+    const u16 id = play->msgCtx.textId;
+    if (play->msgCtx.msgMode == MSGMODE_TEXT_DONE && (state == TEXT_STATE_DONE || state == TEXT_STATE_DONE_HAS_NEXT) &&
+        id != RSBS_OOT_TEXT_SOARING_PLAYED && id != RSBS_OOT_TEXT_SOARING_NO_STATUES &&
+        id != RSBS_OOT_TEXT_SOARING_CHOOSER && sSoar.heldFrames == 0 && sSoar.stepFrames - sSoar.lastPress >= 15) {
+        fprintf(stderr, "[PFC] soaring leg '%s': pressing A past text 0x%04X before taking out the ocarina\n",
+                SoarLegName(SoarCurrentLeg()), (unsigned)id);
+        fflush(stderr);
+        SoarHold(BTN_A, 1);
+    }
+}
+
+void SoarStepSettle(PlayState* play) {
+    if (play->msgCtx.msgMode != MSGMODE_OCARINA_PLAYING) {
+        SoarFail("the ocarina closed before the first note");
+        return;
+    }
+    if (sSoar.stepFrames < kSoarSettleFrames) {
+        return;
+    }
+    if (SoarCurrentLeg() == SoarLeg::Adult) {
+        // For the notes only (see the block comment): the age the matcher reads.
+        gSaveContext.linkAge = LINK_AGE_ADULT;
+        sSoar.adultFlipped = true;
+    }
+    SoarNext(SoarStep::Notes);
+}
+
+void SoarStepNotes(PlayState* play) {
+    const int t = sSoar.stepFrames - 1;
+    const int note = t / kSoarNotePeriod;
+    if (note >= (int)RSBS_SOARING_NOTE_COUNT) {
+        fprintf(stderr, "[PFC] soaring leg '%s': six notes played (C-down C-left C-up, twice)\n",
+                SoarLegName(SoarCurrentLeg()));
+        fflush(stderr);
+        SoarNext(SoarStep::After);
+        return;
+    }
+    if (t > 0 && note < (int)RSBS_SOARING_NOTE_COUNT - 1 && play->msgCtx.msgMode != MSGMODE_OCARINA_PLAYING) {
+        char why[160];
+        snprintf(why, sizeof(why), "the ocarina left MSGMODE_OCARINA_PLAYING after note %d of 6, before the sixth",
+                 note + 1);
+        SoarFail(why);
+        return;
+    }
+    if (t % kSoarNotePeriod == 0) {
+        SoarHold(kSoarNotes[note], kSoarNoteHold);
+    }
+}
+
+// The texts a refusal leg must not show, and the chooser, which none may open.
+bool SoarRefusalTextsWrong(PlayState* play, u16 want) {
+    const u16 id = play->msgCtx.textId;
+    char why[192];
+    if (id == RSBS_OOT_TEXT_SOARING_CHOOSER) {
+        SoarFail("the owl chooser opened: the gates offered owls where they must refuse");
+        return true;
+    }
+    if ((id == kSoarTextRestricted || id == RSBS_OOT_TEXT_SOARING_NO_STATUES) && id != want) {
+        snprintf(why, sizeof(why), "the refusal showed text 0x%04X, not 0x%04X", (unsigned)id, (unsigned)want);
+        SoarFail(why);
+        return true;
+    }
+    return false;
+}
+
+// Before the song matched (or failed to): the notes must have matched within
+// the budget, which "You played the Song of Soaring." (E3) proves.
+bool SoarNotMatched(PlayState* play) {
+    if (!sSoar.sawPlayed && sSoar.stepFrames > 90 && play->msgCtx.msgMode == MSGMODE_OCARINA_PLAYING) {
+        char why[256];
+        snprintf(why, sizeof(why),
+                 "the six notes did not match: still MSGMODE_OCARINA_PLAYING 90 frames after them (rule %d, paired "
+                 "%d, owned %d, child %d, free play %d)",
+                 OoT_SongOfSoaringOoTOn() ? 1 : 0, Combo_ForeignPairingActive() ? 1 : 0, OoT_SoaringOoTOwned() ? 1 : 0,
+                 LINK_IS_CHILD ? 1 : 0, play->msgCtx.ocarinaAction == OCARINA_ACTION_FREE_PLAY ? 1 : 0);
+        SoarFail(why);
+        return true;
+    }
+    return false;
+}
+
+void SoarStepAfter(PlayState* play) {
+    MessageContext* m = &play->msgCtx;
+    const SoarLeg leg = SoarCurrentLeg();
+    char why[256];
+    if (m->textId == RSBS_OOT_TEXT_SOARING_PLAYED) {
+        sSoar.sawPlayed = true;
+    }
+    if (m->ocarinaMode == OCARINA_MODE_04) {
+        sSoar.sawMode04 = true;
+    }
+    if (leg != SoarLeg::Cross && ComboWarp_IsArmed()) {
+        SoarFail("the one-shot warp target is armed");
+        return;
+    }
+    switch (leg) {
+        case SoarLeg::Adult:
+            if (m->msgMode != MSGMODE_OCARINA_PLAYING || m->lastPlayedSong == RSBS_OOT_SONG_SOARING ||
+                sSoar.sawPlayed) {
+                snprintf(why, sizeof(why),
+                         "an adult's notes left MSGMODE_OCARINA_PLAYING (msgMode %d, lastPlayedSong 0x%X): the song "
+                         "matched, or the ocarina failed; it must stay open until B",
+                         (int)m->msgMode, (unsigned)m->lastPlayedSong);
+                SoarFail(why);
+                return;
+            }
+            if (sSoar.stepFrames < kSoarAdultStayFrames) {
+                return;
+            }
+            gSaveContext.linkAge = LINK_AGE_CHILD;
+            sSoar.adultFlipped = false;
+            fprintf(stderr,
+                    "[PFC] soaring leg 'adult refused': still MSGMODE_OCARINA_PLAYING %d frames after the notes; "
+                    "pressing B\n",
+                    kSoarAdultStayFrames);
+            fflush(stderr);
+            SoarHold(BTN_B, 2);
+            SoarNext(SoarStep::Close);
+            return;
+        case SoarLeg::NoStatues:
+        case SoarLeg::Restricted: {
+            const u16 want = leg == SoarLeg::NoStatues ? (u16)RSBS_OOT_TEXT_SOARING_NO_STATUES : kSoarTextRestricted;
+            if (SoarRefusalTextsWrong(play, want) || SoarNotMatched(play)) {
+                return;
+            }
+            if (m->textId == want) {
+                if (!sSoar.sawPlayed) {
+                    SoarFail("the refusal showed without \"You played the Song of Soaring.\" before it (E3)");
+                    return;
+                }
+                fprintf(stderr, "[PFC] soaring leg '%s': \"You played the Song of Soaring.\", then text 0x%04X\n",
+                        SoarLegName(leg), (unsigned)want);
+                fflush(stderr);
+                SoarNext(SoarStep::Close);
+                return;
+            }
+            if (sSoar.stepFrames > kSoarTextBudget) {
+                snprintf(why, sizeof(why), "text 0x%04X never showed after the notes (\"You played\" seen %d)",
+                         (unsigned)want, sSoar.sawPlayed ? 1 : 0);
+                SoarFail(why);
+            }
+            return;
+        }
+        case SoarLeg::Cancel:
+        case SoarLeg::Cross:
+            break;
+    }
+
+    // The chooser legs.
+    if (m->textId == kSoarTextRestricted || m->textId == RSBS_OOT_TEXT_SOARING_NO_STATUES) {
+        snprintf(why, sizeof(why), "the song was refused with text 0x%04X while MM's half offers owls 0x%03X",
+                 (unsigned)m->textId, (unsigned)Combo_SoaringOwlMask());
+        SoarFail(why);
+        return;
+    }
+    if (SoarNotMatched(play)) {
+        return;
+    }
+    const bool choosing = m->textId == RSBS_OOT_TEXT_SOARING_CHOOSER && OoT_Message_GetState(m) == TEXT_STATE_CHOICE;
+    sSoar.subFrames++;
+    if (sSoar.sub == 0) {
+        if (!choosing) {
+            if (sSoar.stepFrames > kSoarTextBudget) {
+                snprintf(why, sizeof(why),
+                         "the owl chooser (text 0x%04X) never reached TEXT_STATE_CHOICE after the notes (\"You "
+                         "played\" seen %d)",
+                         (unsigned)RSBS_OOT_TEXT_SOARING_CHOOSER, sSoar.sawPlayed ? 1 : 0);
+                SoarFail(why);
+            }
+            return;
+        }
+        if (!sSoar.sawPlayed || m->ocarinaMode != OCARINA_MODE_01 || m->choiceIndex != 0) {
+            snprintf(why, sizeof(why),
+                     "the chooser opened wrong (\"You played\" seen %d, ocarinaMode %d, not OCARINA_MODE_01; cursor "
+                     "on choice %d, not Soar)",
+                     sSoar.sawPlayed ? 1 : 0, (int)m->ocarinaMode, (int)m->choiceIndex);
+            SoarFail(why);
+            return;
+        }
+        fprintf(stderr, "[PFC] soaring leg '%s': the owl chooser is open in OCARINA_MODE_01, cursor on Soar\n",
+                SoarLegName(leg));
+        fflush(stderr);
+        if (leg == SoarLeg::Cancel) {
+            SoarHold(BTN_B, 2);
+            SoarNext(SoarStep::Close);
+            return;
+        }
+        SoarHold(BTN_DDOWN, 1);
+        sSoar.sub = 1;
+        sSoar.subFrames = 0;
+        return;
+    }
+    if (ComboWarp_IsArmed() && sSoar.sub < 3) {
+        SoarFail("the one-shot warp target was armed before Soar was chosen");
+        return;
+    }
+    if (sSoar.sub == 1) {
+        // Cursor on "Next statue", then A.
+        if (choosing && m->choiceIndex == 1) {
+            SoarHold(BTN_A, 1);
+            sSoar.sub = 2;
+            sSoar.subFrames = 0;
+            sSoar.sawLeave = false;
+        } else if (sSoar.subFrames > kSoarCursorBudget) {
+            SoarFail("D-down never moved the chooser's cursor to \"Next statue\" (choice 1)");
+        }
+        return;
+    }
+    if (sSoar.sub == 2) {
+        // The box must leave TEXT_STATE_CHOICE and come back as the chooser on
+        // the next owl, still in OCARINA_MODE_01.
+        if (!choosing) {
+            sSoar.sawLeave = true;
+            if (sSoar.subFrames > 5 && m->textId != RSBS_OOT_TEXT_SOARING_CHOOSER) {
+                snprintf(why, sizeof(why), "\"Next statue\" closed the chooser (text 0x%04X, ocarinaMode %d)",
+                         (unsigned)m->textId, (int)m->ocarinaMode);
+                SoarFail(why);
+                return;
+            }
+        } else if (sSoar.sawLeave && sSoar.heldFrames == 0) {
+            if (m->ocarinaMode != OCARINA_MODE_01) {
+                snprintf(why, sizeof(why), "the chooser re-opened in ocarinaMode %d, not OCARINA_MODE_01",
+                         (int)m->ocarinaMode);
+                SoarFail(why);
+                return;
+            }
+            if (m->choiceIndex != 0) {
+                SoarHold(BTN_DUP, 1); // back to "Soar"
+                return;
+            }
+            fprintf(stderr, "[PFC] soaring leg 'the crossing': \"Next statue\" re-opened the chooser on the next owl; "
+                            "choosing Soar\n");
+            fflush(stderr);
+            IntegrationTest_PairedMarkCrossing("Majora's Mask");
+            SoarHold(BTN_A, 1);
+            sSoar.sub = 3;
+            sSoar.subFrames = 0;
+            sSoar.awaitArm = true;
+            sSoar.armFrames = 0;
+            return;
+        }
+        if (sSoar.subFrames > kSoarReopenBudget) {
+            SoarFail("the chooser never re-opened on the next owl after \"Next statue\"");
+        }
+        return;
+    }
+    // sub 3: Soar pressed; SoarMainStart takes the verdict (Link is frozen from
+    // the departure on, and a frozen Player runs no OnPlayerUpdate).
+}
+
+void SoarStepClose(PlayState* play) {
+    MessageContext* m = &play->msgCtx;
+    const SoarLeg leg = SoarCurrentLeg();
+    if (m->ocarinaMode == OCARINA_MODE_04) {
+        sSoar.sawMode04 = true;
+    }
+    if (ComboWarp_IsArmed()) {
+        SoarFail("the one-shot warp target is armed after the leg ended");
+        return;
+    }
+    // TEXT_CLOSING zeroes textId (z_message_PAL.c), so this only sees an open
+    // chooser; the msgMode guard is belt and braces.
+    if (m->textId == RSBS_OOT_TEXT_SOARING_CHOOSER && m->msgMode != MSGMODE_NONE && sSoar.stepFrames > 30) {
+        SoarFail("the chooser is still open 30 frames after B");
+        return;
+    }
+    // A closes a refusal box once it has printed, and any other box that opens
+    // once the ocarina is put away (an actor or Navi talk Player can start after
+    // OCARINA_MODE_04), so the leg ends on Link's control, not on a stray box.
+    // Never the chooser or "You played", which only the song opens.
+    const u8 state = OoT_Message_GetState(m);
+    const bool refusalBox = (leg == SoarLeg::NoStatues || leg == SoarLeg::Restricted) && state == TEXT_STATE_DONE;
+    const bool strayBox = m->msgMode == MSGMODE_TEXT_DONE &&
+                          (state == TEXT_STATE_DONE || state == TEXT_STATE_DONE_HAS_NEXT) &&
+                          m->textId != RSBS_OOT_TEXT_SOARING_PLAYED && m->textId != RSBS_OOT_TEXT_SOARING_CHOOSER;
+    if ((refusalBox || strayBox) && sSoar.heldFrames == 0 && sSoar.stepFrames - sSoar.lastPress >= 15) {
+        if (!refusalBox) {
+            fprintf(stderr, "[PFC] soaring leg '%s': pressing A past text 0x%04X after the ocarina closed\n",
+                    SoarLegName(leg), (unsigned)m->textId);
+            fflush(stderr);
+        }
+        SoarHold(BTN_A, 1);
+    }
+    // Control back: no box, and Link free to act (SoarIdle), which also proves
+    // the restriction leg's hand-back before the Happy Mask Shop door.
+    sSoar.idleFrames = SoarIdle(play) ? sSoar.idleFrames + 1 : 0;
+    if (sSoar.idleFrames >= kSoarIdleFrames) {
+        if (!sSoar.sawMode04) {
+            SoarFail("control came back but OCARINA_MODE_04 was never seen");
+            return;
+        }
+        SoarLegPassed(leg == SoarLeg::Adult       ? "nothing matched, the ocarina stayed open until B, then "
+                                                    "OCARINA_MODE_04 and control back, nothing armed"
+                      : leg == SoarLeg::Cancel    ? "B closed the chooser with OCARINA_MODE_04, nothing armed, control "
+                                                    "back"
+                      : leg == SoarLeg::NoStatues ? "the no-statues text, OCARINA_MODE_04, nothing armed, control back"
+                                                  : "0x88C, OCARINA_MODE_04, nothing armed, control back");
+        return;
+    }
+    if (sSoar.stepFrames > kSoarCloseBudget) {
+        SoarFail(m->msgMode == MSGMODE_NONE ? "the box closed but Link never stood idle (SoarIdle)"
+                                            : "the box never closed and control never came back");
+    }
+}
+
+// The first OoT leg is over: the round trip's own door, exactly as the paired
+// drive fires it.
+void SoarPreLegsDone(void) {
+    // The adult flip must be undone before the door reloads a scene (a reload
+    // with linkAge != linkAgeOnLoad swaps the age equipment, OoT_Play_Destroy).
+    if (sSoar.adultFlipped || gSaveContext.linkAge != LINK_AGE_CHILD) {
+        SoarFail("Link is not a child at the end of the first OoT leg (the adult leg's age flip was not undone)");
+        return;
+    }
+    // The world as it was: the drained-well switch goes back before the door.
+    if (sSoarWindmillTagSwitch >= 0 && OoT_gPlayState != NULL) {
+        OoT_Flags_UnsetSwitch(OoT_gPlayState, sSoarWindmillTagSwitch);
+        sSoarWindmillTagSwitch = -1;
+    }
+    gSaveContext.deaths = kPfcDeathsSentinel;
+    fprintf(stderr, "[PFC] soaring: the first OoT leg's three refusals PASS; OoT-half sentinel deaths=%u\n",
+            (unsigned)kPfcDeathsSentinel);
+    IntegrationTest_PairedMarkCrossing("Majora's Mask");
+    GpFireOoTDoor(OOT_ENTR_HAPPY_MASK_SHOP, "Happy Mask Shop door (after the Soaring refusals)");
+    IntegrationTest_SetGameplayPhase(GP_PHASE_MM_STABILIZE);
+}
+
+/** Per driven OoT frame of GP_PHASE_OOT_PRE / GP_PHASE_OOT_RETURN, once the
+ *  paired drive's own frames for the phase are done. */
+void SoarFrame(PlayState* play, GameplayPhase phase) {
+    if (sSoar.failed || play == NULL) {
+        return;
+    }
+    if (sSoar.phase != phase) {
+        sSoar.phase = phase;
+        sSoar.leg = 0;
+        if (!SoarPreparePhase(play, phase)) {
+            return;
+        }
+        SoarBeginLeg();
+    }
+    if (sSoar.leg >= SoarLegCount()) {
+        return;
+    }
+    SoarPump();
+    sSoar.stepFrames++;
+    switch (sSoar.step) {
+        case SoarStep::Prepare:
+            SoarStepPrepare(play);
+            break;
+        case SoarStep::TakeOut:
+            SoarStepTakeOut(play);
+            break;
+        case SoarStep::Settle:
+            SoarStepSettle(play);
+            break;
+        case SoarStep::Notes:
+            SoarStepNotes(play);
+            break;
+        case SoarStep::After:
+            SoarStepAfter(play);
+            break;
+        case SoarStep::Close:
+            SoarStepClose(play);
+            break;
+    }
+    if (!sSoar.failed && phase == GP_PHASE_OOT_PRE && sSoar.leg >= SoarLegCount()) {
+        SoarPreLegsDone();
+    }
+}
+
+/**
+ * OoT's frame start, every frame (OnGameStateMainStart): the Soar verdict, and
+ * the watch over the fade. From the departure on Link is frozen and runs no
+ * OnPlayerUpdate, so this is where the drive sees it.
+ */
+void SoarMainStart(void) {
+    // A failure from another path (the watchdog, a paired check) inside the
+    // adult window: put the age back before anything reloads or destroys the
+    // child-loaded scene (SoarPlayDestroy is the last line).
+    if (sSoar.adultFlipped && IntegrationTest_ExitRequested()) {
+        gSaveContext.linkAge = LINK_AGE_CHILD;
+        sSoar.adultFlipped = false;
+    }
+    if (Context_GetCurrentGame() == GAME_MM || sSoar.failed) {
+        return;
+    }
+    char why[384];
+    // Only Soar may arm the one-shot target. The departure freezes Link at once
+    // (no OnPlayerUpdate, so no step check runs again), and an unplanned
+    // crossing lands MM in a phase its tick ignores: the frame start is the one
+    // place that still sees a leg that must not soar arming the target.
+    if (sSoar.phase != GP_PHASE_DONE && !sSoar.awaitArm && !sSoar.departed && ComboWarp_IsArmed()) {
+        SoarFail("the one-shot warp target is armed although Soar was not chosen (an unplanned departure)");
+        return;
+    }
+    if (sSoar.awaitArm) {
+        sSoar.armFrames++;
+        ComboWarpTarget t;
+        if (ComboWarp_Peek(&t) && t.armed) {
+            sSoar.awaitArm = false;
+            const uint16_t want = Combo_SoaringOwlEntrance(kSoarTargetOwl);
+            if (t.targetEntrance == Combo_SoaringOwlEntrance(RSBS_SOARING_OWL_CLOCK_TOWN)) {
+                SoarFail("Soar armed Clock Town's owl, the first one offered, not the owl \"Next statue\" moved to");
+                return;
+            }
+            if (t.sourceGame != GAME_OOT || t.targetGame != GAME_MM || t.targetEntrance != want ||
+                t.kind != (uint8_t)RSBS_SOARING_SWITCH_KIND || t.marker != (uint16_t)gSaveContext.entranceIndex) {
+                snprintf(why, sizeof(why),
+                         "the armed target is {source %d, marker 0x%04X, target %d, entrance 0x%04X, kind %u}; "
+                         "expected {OoT, 0x%04X, MM, 0x%04X (%s), kind %u}",
+                         (int)t.sourceGame, (unsigned)t.marker, (int)t.targetGame, (unsigned)t.targetEntrance,
+                         (unsigned)t.kind, (unsigned)(uint16_t)gSaveContext.entranceIndex, (unsigned)want,
+                         Combo_SoaringOwlName(kSoarTargetOwl), (unsigned)RSBS_SOARING_SWITCH_KIND);
+                SoarFail(why);
+                return;
+            }
+            fprintf(stderr,
+                    "[PFC] soaring leg 'the crossing': Soar armed {OoT, marker 0x%04X, MM, 0x%04X (%s), the Soaring "
+                    "kind}; the fade's end must cross\n",
+                    (unsigned)t.marker, (unsigned)t.targetEntrance, Combo_SoaringOwlName(kSoarTargetOwl));
+            fflush(stderr);
+            sSoar.departed = true;
+            sSoar.departFrames = 0;
+            IntegrationTest_SoaringExpectArrival(kSoarTargetOwl);
+            IntegrationTest_SetGameplayPhase(GP_PHASE_MM_STABILIZE);
+        } else if (sSoar.armFrames > kSoarArmBudget) {
+            SoarFail("A on Soar armed no warp target");
+        }
+        return;
+    }
+    if (sSoar.departed && IntegrationTest_GetGameplayPhase() == GP_PHASE_MM_STABILIZE) {
+        sSoar.departFrames++;
+        if (sSoar.departFrames > kSoarDepartBudget) {
+            snprintf(why, sizeof(why),
+                     "OoT is still running %d frames after the Soaring departure (warp target armed %d, a switch "
+                     "pending %d): the fade never crossed",
+                     sSoar.departFrames, ComboWarp_IsArmed() ? 1 : 0, Combo_IsCrossGameSwitch() ? 1 : 0);
+            SoarFail(why);
+        }
+    }
+}
+
+/**
+ * OoT's scene init in the soaring drive. True when the drive owned it (the
+ * caller returns): the Windmill arrival, or any OoT scene after the
+ * departure, which means the armed target was spent before the fade ended (or
+ * the crossing was refused) and fails the run.
+ */
+bool SoarSceneInit(GameplayPhase phase, int16_t sceneNum, uint16_t entrance) {
+    char why[256];
+    if (sSoar.departed || sSoar.awaitArm) {
+        snprintf(why, sizeof(why),
+                 "OoT loaded scene %d (entrance 0x%04X) after Soar was chosen: the armed target was spent before the "
+                 "fade ended, or the crossing was refused",
+                 (int)sceneNum, (unsigned)entrance);
+        SoarFail(why);
+        return true;
+    }
+    if (phase == GP_PHASE_OOT_PRE && sSoar.awaitScene) {
+        sSoar.awaitScene = false;
+        if (entrance != kSoarRestrictedEntrance || sceneNum != SCENE_WINDMILL_AND_DAMPES_GRAVE) {
+            snprintf(why, sizeof(why), "the Windmill door arrived at scene %d, entrance 0x%04X", (int)sceneNum,
+                     (unsigned)entrance);
+            SoarFail(why);
+            return true;
+        }
+        fprintf(stderr, "[PFC] soaring: arrived in the Windmill (scene %d, entrance 0x%04X)\n", (int)sceneNum,
+                (unsigned)entrance);
+        fflush(stderr);
+        sSoar.arrivedScene = true;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * OnPlayDestroy (the top of OoT_Play_Destroy, before its age-equipment swap):
+ * whatever ended the run or reloads the scene, a scene loaded as a child is
+ * never destroyed with the adult flip still on.
+ */
+void SoarPlayDestroy(void) {
+    if (sSoar.adultFlipped) {
+        gSaveContext.linkAge = LINK_AGE_CHILD;
+        sSoar.adultFlipped = false;
+        fprintf(stderr, "[PFC] soaring: the adult leg's age flip was undone at OoT_Play_Destroy\n");
+        fflush(stderr);
+    }
+}
+
+} // namespace
+
+/**
+ * A pass leaves no file behind (#1169 XW6). The paired rows erase file 3 in
+ * their OoT exit arm; this row's pass is signalled from MM's arrival
+ * (games/mm/2s2h/GameExports_SingleExe.cpp, MM_SoaringCheckArrival), which
+ * calls this before the shutdown. A failure keeps the file for forensics, and
+ * the next paired run erases it by its name.
+ */
+extern "C" void OoT_SoaringTest_ErasePairedFile(void) {
+    if (!IntegrationTest_SoaringToOwl() || !IntegrationTest_PairedFirstCrossing() ||
+        IntegrationTest_PairedSkipCreation()) {
+        return;
+    }
+    Save_DeleteFile(kPfcSlot);
+    fprintf(stderr, "[PFC] PASS: the Song of Soaring crossing; erased file %d\n", kPfcSlot + 1);
+    fflush(stderr);
+}
+
+/**
+ * The world the drive needs, set right after the shipped-defaults check and
+ * before the generation: songSoaringOot on, through its own key and the hidden
+ * rules revealed by the test seam (never through a stored setting), and Shuffle
+ * Songs on Anywhere (thirteen songs do not fit the twelve song spots, which
+ * Generate refuses with OoTMM's words). Both keys are in memory only and go back
+ * at the verdict (IntegrationTest_SoaringCleanup), which also hides the rules
+ * again; the reveal stays on until then because the .redsave load and the MM
+ * arrival refuse a world with a hidden rule.
+ */
+static void SoarArmWorld(void) {
+    IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
+    IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
+    Combo_ComboItemRules2RevealForTest(1);
+    fprintf(stderr, "[PFC] soaring: songSoaringOot on (hidden rules revealed for the test), Shuffle Songs Anywhere\n");
+    fflush(stderr);
+}
+
+// ============================================================================
 // Integration Test Hooks
 // ============================================================================
 
@@ -2316,6 +3275,13 @@ static void OoT_RegisterIntegrationTestHooks(void) {
                 GpBootInject((GameState*)gameState, "file select", true);
             });
         }
+        if (IntegrationTest_SoaringToOwl()) {
+            // #1169 XW6: the Soar verdict and the fade's watch (Link is frozen
+            // from the departure on, so the frame start is where they run).
+            sSoar = SoarState{};
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnGameStateMainStart>([]() { SoarMainStart(); });
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayDestroy>([]() { SoarPlayDestroy(); });
+        }
 
         // Arrival tracking + entrance verification. Fires from the scene
         // build inside OoT_Play_Init — i.e. AFTER the startup-entrance
@@ -2331,6 +3297,11 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             GameplayPhase phase = IntegrationTest_GetGameplayPhase();
             const GameplayTestConfig* cfg = IntegrationTest_GetGameplayConfig();
             uint16_t entrance = (uint16_t)gSaveContext.entranceIndex;
+            // int-soaring-to-owl (#1169 XW6): the Windmill arrival is the drive's,
+            // and an OoT scene after Soar fails the run.
+            if (IntegrationTest_SoaringToOwl() && SoarSceneInit(phase, sceneNum, entrance)) {
+                return;
+            }
             uint16_t expected;
             const char* what;
             switch (phase) {
@@ -2565,6 +3536,17 @@ static void OoT_RegisterIntegrationTestHooks(void) {
                         }
                     }
                 }
+            }
+
+            // int-soaring-to-owl (#1169 XW6): once the paired drive's own frames
+            // of the phase are done, the Soaring legs own it. They fire the
+            // Happy Mask Shop door after the first leg's refusals, and the return
+            // leg ends in the Soaring departure instead of the warp.
+            if (IntegrationTest_SoaringToOwl() && (phase == GP_PHASE_OOT_PRE || phase == GP_PHASE_OOT_RETURN)) {
+                if (sGpFramesInPhase >= cfg->framesPerPhase) {
+                    SoarFrame(play, phase);
+                }
+                return;
             }
 
             // The warp phase gets its own (usually longer) budget so time-
