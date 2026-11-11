@@ -536,14 +536,32 @@ extern "C" int OoT_Combo_HintPassCrossingIsMajor(int rc) {
  * generation and the next load) the store may be another world's, and the check
  * names its own item. Unpaired, the drain refuses the crossing and gives the cover,
  * so the cover is what the check yields: the Check Tracker names it too.
+ *
+ * #1475 (lane H2): a fourth moment, the combined Hint Tracker's OoT pane read while
+ * Majora's Mask plays the paired file. OoT's play state is gone then (the suspend
+ * nulls it), so the in-play term is shut, but the store is still the loaded file's
+ * and the suspended heap is the world OoT departed from. The pane opens this term
+ * for its walk only (OoT_Combo_SetHintingSuspendedWorld), once it has checked that
+ * heap is that world (OoT_TrackerAdapter_SuspendedRandoWorld).
  */
+namespace {
+int sHintingSuspendedWorld = 0;
+} // namespace
+
+extern "C" int OoT_Combo_SetHintingSuspendedWorld(int on) {
+    const int was = sHintingSuspendedWorld;
+    sHintingSuspendedWorld = on != 0 ? 1 : 0;
+    return was;
+}
+
 extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc) {
     if (rc <= 0) {
         return nullptr;
     }
     const bool hintingThisWorld = OoT_ComboLogic_HintingPairedRemainder() != 0 ||
                                   OoT_ComboLogic_WritingSingleBagSpoiler() != 0 ||
-                                  (Combo_ForeignPairingActive() && GameInteractor::IsSaveLoaded());
+                                  (Combo_ForeignPairingActive() && GameInteractor::IsSaveLoaded()) ||
+                                  (Combo_ForeignPairingActive() && sHintingSuspendedWorld != 0);
     return hintingThisWorld ? Combo_GetForeignPlacementForOoTCheck((uint16_t)rc) : nullptr;
 }
 

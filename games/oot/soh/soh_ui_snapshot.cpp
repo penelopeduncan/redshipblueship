@@ -143,6 +143,7 @@
 
 // src/common (on soh's include path). All game-header-free.
 #include "ComboSpoilerWindow.h"
+#include "ComboHintTrackerWindow.h" // #1475 lane H2: the combined Hint Tracker and its states
 #include "ComboTrackerWindow.h"
 #include "combo_logic.h"             // RSBS_COMBO_HALF_* (the goal-warning toast page)
 #include "pairing_refusal_toast.h"   // the cross-game refusal toast pages
@@ -195,6 +196,8 @@ extern "C" int OoT_ItemAdapter_TestAuthorSave(void* buf, size_t size, int varian
 extern "C" int MM_ItemAdapter_TestAuthorSave(void* buf, size_t size, int variant);
 // MM's tracker-rows world (#1140): the shadow world plus small keys found 1 / 3 / 0 / 2 and held 0 / 1 / none / 2.
 extern "C" int MM_ItemAdapter_TestAuthorTrackerWorld(void* buf, size_t size, int rando, unsigned options);
+// #1475 (lane H2): an MM half for the combined Hint Tracker's states (games/mm/2s2h/Rando/HintSourcesSingleExe.cpp).
+extern "C" void MM_HintSources_TestAuthorSave(void* image, uint32_t finalSeed, int hintsOn);
 // #1347's Shared Ocarina Buttons states: OoT's tracker world (a randomizer file holding the A and C-Left buttons), the
 // frozen options its shuffle-gated groups read (OoT's live in the seed's context, not the buffer; bit 4 is
 // RSK_SHUFFLE_OCARINA_BUTTONS, `enabled` 0 puts the production read back), and MM's button world (the shadow world
@@ -1998,6 +2001,85 @@ const ComboOoTTrackerOps kSnapshotOoTOps = { SnapshotOoTSummary,
                                              SnapshotOoTSetSkipped,
                                              nullptr,
                                              SnapshotOoTCurrentArea };
+
+// ---- #1475 (lane H2): the combined Hint Tracker's states ---------------------------
+// "hints" installs a synthetic OoT hint adapter (three rows, as SoH's Hint Tracker
+// files them: a read item stone and an unread one in one area, a read Way of the
+// Hero stone in another) and authors an MM half with every hint option on and two
+// sources read (MM_HintSources_TestAuthorSave: a zeroed world, so the texts name
+// MM's item 0), so both panes draw SoH's Locations list with read, masked and
+// grouped rows. "hints-journal" is the same under SoH's Journal view. "waiting"
+// authors nothing: OoT's real adapter has no file loaded.
+constexpr const char* kSnapshotHintOoTText = "They say that Mido's house holds the Kokiri Sword.";
+constexpr const char* kSnapshotHintStates[] = { "waiting", "hints", "hints-journal" };
+
+uint8_t SnapshotHintCollect(int* outCount) {
+    *outCount = 3;
+    return COMBO_HINT_PANE_READY;
+}
+
+bool SnapshotHintRowAt(int index, ComboHintPaneRow* out) {
+    if (index < 0 || index > 2) {
+        return false;
+    }
+    std::memset(out, 0, sizeof(*out));
+    out->source = (uint16_t)(1 + index);
+    out->locationIsArea = true;
+    if (index == 2) {
+        out->name = "LW Gossip Stone";
+        out->read = true;
+        out->text = "They say that the Lost Woods is on the way of the hero.";
+        out->locationKey = 11;
+        out->locationName = "Lost Woods";
+        out->journalKey = ComboGui::kComboHintJournalWoth;
+        out->journalName = "Way of the Hero";
+        out->journalLabel = "Lost Woods";
+        out->journalCompact = true;
+        out->journalColour = COMBO_HINT_COLOUR_WOTH;
+        return true;
+    }
+    out->name = index == 0 ? "KF Deku Tree Left Gossip Stone" : "KF Deku Tree Right Gossip Stone";
+    out->read = index == 0;
+    out->text = index == 0 ? kSnapshotHintOoTText : nullptr;
+    out->locationKey = 10;
+    out->locationName = "Kokiri Forest";
+    out->journalKey = ComboGui::kComboHintJournalItem + COMBO_HINT_RANK_MAJOR;
+    out->journalName = "Major Items";
+    return true;
+}
+
+const ComboOoTHintOps kSnapshotOoTHintOps = { SnapshotHintCollect, SnapshotHintRowAt, nullptr };
+
+bool IsHintTrackerState(const std::string& state) {
+    for (const char* s : kSnapshotHintStates) {
+        if (state == s) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// The MM half the "hints" states read (`world`): a randomized MM world with every
+// hint option on, the Swamp Spider House man's line read; else ("waiting") an
+// unmarked half, so MM's pane has nothing to read either. The resident shadow is
+// kept aside (RestoreMMShadow puts it back in LeaveState).
+void AuthorMMHintShadow(bool world) {
+    Context_InitFrozenStates();
+    const void* resident = Context_GetMMSaveContext();
+    if (resident == nullptr || Combo_Tracker_GetMMDesc() == nullptr) {
+        return;
+    }
+    gSnapshotMMShadowBackup.assign((const uint8_t*)resident, (const uint8_t*)resident + MM_SAVE_CONTEXT_SIZE);
+    std::vector<uint8_t> blob((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    if (world) {
+        MM_HintSources_TestAuthorSave(blob.data(), 0x14751475u, 1);
+    }
+    Context_UpdateShadowCopy(GAME_MM, blob.data(), blob.size());
+    if (world) {
+        (void)Combo_HintMarkRead((uint8_t)GAME_MM, RSBS_MM_HINT_SRC_SPIDER_HOUSE_SWAMP);
+    }
+}
+
 // The skip buttons that synthetic world draws: one per check of the seed not yet
 // found (the skipped one and the two open ones), none on the saved one.
 constexpr int kSnapshotOoTSkipButtons = 3;
@@ -2911,6 +2993,36 @@ void Session::BuildPageList() {
         pages.push_back(p);
     }
     {
+        // #1475 (lane H2): the combined Hint Tracker, read against SoH's pane like
+        // the Check Tracker. "waiting": nothing loaded, SoH's note. "hints": both
+        // panes' Locations lists (kSnapshotOoTHintOps, AuthorMMHintShadow): a read
+        // row's text, an unread row's "???", the MM source's name and its text.
+        // "hints-journal": SoH's Journal over the same rows, whose headers carry
+        // no total.
+        PageSpec p;
+        p.id = std::string("window/") + ComboGui::kComboHintTrackerWindowName;
+        p.kind = Kind::WINDOW;
+        p.window = ComboGui::kComboHintTrackerWindowName;
+        p.states = { kSnapshotHintStates[0], kSnapshotHintStates[1], kSnapshotHintStates[2] };
+        p.compareWith = kSohPaneReference;
+        // The title only: a scrolled view keeps nothing else on screen. The pane
+        // names are per-state text below.
+        p.expectText = { ComboGui::kComboHintTrackerWindowName };
+        p.stateTitleBar = { { kSnapshotHintStates[0], true },
+                            { kSnapshotHintStates[1], true },
+                            { kSnapshotHintStates[2], true } };
+        p.stateText[kSnapshotHintStates[0]] = { "Ocarina of Time", "Majora's Mask", "Waiting for file load..." };
+        // Each state's text must be absent from the state it is contrasted with
+        // (stateContrast below), so "hints" names nothing the waiting panes show
+        // (the pane names) and "hints-journal" names only the Journal's group
+        // headers: the Locations views show the same sources and texts.
+        p.stateText[kSnapshotHintStates[1]] = { kSnapshotHintOoTText, "???", "Hints Read", "South Clock Town" };
+        p.stateText[kSnapshotHintStates[2]] = { "Way of the Hero (1)", "Major Items (1)", "Junk Items (1)" };
+        p.stateContrast = { { kSnapshotHintStates[1], kSnapshotHintStates[0] },
+                            { kSnapshotHintStates[2], kSnapshotHintStates[1] } };
+        pages.push_back(p);
+    }
+    {
         // The unified Item Tracker overlay (#458 U2), read against SoH's own
         // Item Tracker overlay (window/Item Tracker). "live": OoT live, MM from
         // its snapshot; "snapshot": the mirror image; both floating, as SoH's
@@ -3576,6 +3688,18 @@ void Session::EnterState(const PageSpec& p, const std::string& state) {
         MM_TimeSplits_SetDataPathForTest(
             (rsbs::test::ScratchDir("ui-snapshot-time-splits") / "2S2HTimeSplitData.json").string().c_str());
     } else if (p.kind == Kind::WINDOW) {
+        if (p.window == ComboGui::kComboHintTrackerWindowName && IsHintTrackerState(state)) {
+            // #1475 (lane H2): OoT is played, so OoT's pane is live; see kSnapshotHintStates.
+            Context_SetCurrentGame(GAME_OOT);
+            const bool hints = state != kSnapshotHintStates[0];
+            AuthorMMHintShadow(hints);
+            if (hints) {
+                Combo_Hint_RegisterOoT(&kSnapshotOoTHintOps);
+            }
+            if (state == kSnapshotHintStates[2]) {
+                CVarSetInteger(ComboGui::kComboHintTrackerViewModeKey, ComboGui::kComboHintViewJournal);
+            }
+        }
         if (p.window == ComboGui::kComboItemTrackerWindowName && p.guiWindow.empty()) {
             AuthorItemTrackerState(state);
         } else if (p.id == kSohItemTrackerReference) {
@@ -3671,6 +3795,12 @@ void Session::LeaveState(const PageSpec& p, const std::string& state) {
     }
     if (p.kind == Kind::WINDOW && p.window == ComboGui::kComboItemTrackerWindowName && p.guiWindow.empty()) {
         RestoreItemTrackerState();
+    }
+    if (p.kind == Kind::WINDOW && p.window == ComboGui::kComboHintTrackerWindowName && IsHintTrackerState(state)) {
+        // #1475 (lane H2): the production OoT adapter, the resident MM half, SoH's view key cleared, never stored.
+        OoT_HintAdapter_Register();
+        RestoreMMShadow();
+        CVarClear(ComboGui::kComboHintTrackerViewModeKey);
     }
     if (p.id == kSohItemTrackerReference) {
         gSohRetiredWindowReferenceDraw = false;
@@ -4466,6 +4596,9 @@ const char* PaneCvar(const std::string& window) {
     }
     if (window == ComboGui::kComboItemTrackerWindowName) {
         return ComboGui::kComboItemTrackerVisibilityCVar;
+    }
+    if (window == ComboGui::kComboHintTrackerWindowName) {
+        return ComboGui::kComboHintTrackerVisibilityCVar;
     }
     return nullptr;
 }

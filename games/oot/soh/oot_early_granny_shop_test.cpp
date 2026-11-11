@@ -69,6 +69,7 @@
 #include "soh/Enhancements/randomizer/location_access.h"
 #include "soh/Enhancements/randomizer/logic.h"
 #include "soh/Enhancements/randomizer/TimeTravelSword.h" // the fold's #1434 term
+#include "soh/Enhancements/randomizer/static_data.h"     // the fold's #1364 term (a check's type)
 
 // At file scope, not inside an extern "C" block (see oot_shared_kokiri_sword_test.cpp).
 #include <z64.h>
@@ -115,8 +116,23 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
             continue;
         }
         const bool excludes = g >= RSG_EXCLUDES_KOKIRI_FOREST && g <= RSG_EXCLUDES_GANONS_CASTLE;
+        // #1364: with Shuffle Chest Minigame off the fold leaves out the lines that option added
+        // (playthrough.cpp, RsbsFoldIsChestGameLine): the room's exclude rows, the Chest Minigame
+        // Keyring rows and the option's Basic Shuffles row.
+        const bool chestGameOff = world.GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
         for (const Rando::Option* option : group.GetOptions()) {
             if (!option->IsCategory(Rando::OptionCategory::Setting) || option->GetOptionCount() == 0) {
+                continue;
+            }
+            if (chestGameOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_CHEST_GAME) {
+                    continue;
+                }
+            }
+            if (chestGameOff && !excludes && g != RSG_TRICKS &&
+                (option->GetKey() == RSK_KEYRINGS_CHEST_GAME ||
+                 (option->GetKey() == RSK_SHUFFLE_CHEST_MINIGAME && g == RSG_MENU_SECTION_BASIC_SHUFFLES))) {
                 continue;
             }
             if (g == RSG_TRICKS) {

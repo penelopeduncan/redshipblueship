@@ -217,6 +217,13 @@ typedef struct {
      */
     bool (*SearchInputWithAction)(const char* id, char* buf, int bufSize, const char* icon, const char* tooltip,
                                   bool* clicked);
+    /**
+     * Indent what follows by one level, until Unindent. SoH's Hint Tracker draws
+     * a hint's text one level in from its name (DrawHintEntry's ImGui::Indent).
+     */
+    void (*Indent)(void);
+    /** Undo one Indent. */
+    void (*Unindent)(void);
 } ComboUiTable;
 
 /** Install the table the panes draw through. NULL uninstalls (back to the fallback). */

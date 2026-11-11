@@ -388,11 +388,20 @@ void SohPopCountFont() {
     ImGui::PopFont();
 }
 
+/** SoH's Hint Tracker indents with ImGui's own call (DrawHintEntry); UIWidgets has no wrapper. */
+void SohIndent() {
+    ImGui::Indent();
+}
+
+void SohUnindent() {
+    ImGui::Unindent();
+}
+
 const ComboUiTable kSohTable = {
     SohCheckbox, SohCombobox,      SohSliderInt,    SohButton,       SohSearchInput, SohSeparatorText,
     SohNoteText, SohWarningText,   SohTooltip,      SohTagChip,      SohConfirm,     SohPushTheme,
     SohPopTheme, SohSpacer,        SohRowText,      SohIconButton,   SohImage,       SohHasImage,
-    SohToneText, SohPushCountFont, SohPopCountFont, SohSearchAction,
+    SohToneText, SohPushCountFont, SohPopCountFont, SohSearchAction, SohIndent,      SohUnindent,
 };
 
 struct InstallSohComboUi {
