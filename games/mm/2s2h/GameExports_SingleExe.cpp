@@ -71,6 +71,7 @@
 #include "2s2h/BenGui/Notification.h"
 #include "entrance.h"
 #include "mm_warp_song_play.h" // #1169 XW7: Combo_MMWarpPlay_ResetLatches at every MM file load
+#include "warp_song_soaring.h" // #1169 XW6: the owl table and the owl-flag layout
 #include <ship/resource/ResourceManager.h>
 #include <ship/resource/ResourceLoader.h>
 #include <ship/resource/archive/ArchiveManager.h>
@@ -1936,6 +1937,171 @@ static bool MM_PairedFirstCrossingCheckArrival(int arrival) {
     return true;
 }
 
+// ============================================================================
+// int-soaring-to-owl (#1169 XW6): the MM leg and the Soaring arrival
+// ============================================================================
+//
+// The OoT drive (games/oot/soh/GameExports_SingleExe.cpp) needs MM's frozen half
+// to offer two owls, so the first MM leg activates Clock Town's and the swamp's
+// before the Clock Tower door freezes it. It also clears Woodfall, so the swamp
+// owl's arrival must resolve the CLEARED swamp (MM_Play_Init's 0xFFEF block),
+// and makes the half an owl save with a pause-save entrance, so the arrival
+// must ignore that entrance (MM_Play_ConsumeStartupEntrance's Soaring guard).
+
+static_assert(OWL_WARP_SOUTHERN_SWAMP == 7 && OWL_WARP_CLOCK_TOWN == RSBS_SOARING_OWL_CLOCK_TOWN,
+              "the OoT drive soars to owl 7 after Clock Town's (int-soaring-to-owl, #1169 XW6)");
+
+// A pause-save entrance no Soaring arrival may land on: South Clock Town's
+// crossing entrance, what every non-temple pause save records.
+static const s32 kSoarPauseSaveEntrance = ENTRANCE(SOUTH_CLOCK_TOWN, 0);
+// The owls the MM leg leaves active, exactly: "Next statue" from Clock Town (4)
+// walks 5 and 6 before the swamp (7), so any other active owl would steer it.
+static const u16 kSoarOwlsWanted = (u16)((1u << OWL_WARP_CLOCK_TOWN) | (1u << OWL_WARP_SOUTHERN_SWAMP));
+// A respawn sentinel planted with the pause-save pair. Only the consume's clear
+// (SavingEnhancements_ClearSaveEntranceInfo in MM_Play_ConsumeStartupEntrance)
+// zeroes shipSaveInfo.respawn on this path; MM_Player_Init clears isOwlSave and
+// pauseSaveEntrance on its own, so those two alone cannot show the consume ran.
+static const u32 kSoarRespawnSentinel = 0x50A41169u;
+// games/oot/soh/GameExports_SingleExe.cpp: erases the paired drive's file 3 on a
+// pass, as the paired rows do from OoT (this row's pass is signalled from MM).
+extern "C" void OoT_SoaringTest_ErasePairedFile(void);
+// The leg waits this many frames past its window for MM's clock to reach the
+// first day (a half on day 0 offers no owl: decision 3 of the PR).
+static const int kSoarMMDayBudget = 1800;
+static int sGpMMSoarWrongSceneFrames = 0;
+
+/**
+ * The OoT return leg's precondition, read from MM's FROZEN half (what the
+ * Soaring arrival will consume), not the live save: the swamp and Clock Town
+ * owls, a cleared Woodfall, a day past 0, and the owl-save pair with
+ * kSoarPauseSaveEntrance. Without the pair the "not the pause-save entrance"
+ * assertion at the arrival would be vacuous, so a half that lost it on the
+ * departure fails the run by name instead. 1 when every fact holds; otherwise 0
+ * with the facts in @p why.
+ */
+extern "C" int MM_SoaringTest_FrozenHalfReady(char* why, size_t cap) {
+    if (!Context_HasFrozenState(GAME_MM) || Context_GetMMSaveContext() == nullptr) {
+        snprintf(why, cap, "MM has no frozen half");
+        return 0;
+    }
+    const SaveContext* half = static_cast<const SaveContext*>(Context_GetMMSaveContext());
+    const u16 owls = half->save.saveInfo.playerData.owlActivationFlags;
+    const u32 woodfall = WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE;
+    const bool cleared = (half->save.saveInfo.weekEventReg[woodfall >> 8] & (woodfall & 0xFF)) != 0;
+    const u32 respawn = half->save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags;
+    const bool ready = (owls & RSBS_SOARING_OWL_BITS) == kSoarOwlsWanted && cleared && half->save.day >= 1 &&
+                       half->save.isOwlSave && half->save.shipSaveInfo.pauseSaveEntrance == kSoarPauseSaveEntrance &&
+                       respawn == kSoarRespawnSentinel;
+    snprintf(why, cap,
+             "MM's frozen half: owls 0x%03X (need exactly 0x%03X), Woodfall cleared %d, day %d, isOwlSave %d, "
+             "pauseSaveEntrance %d (need 0x%04X), respawn sentinel 0x%08X (need 0x%08X)",
+             (unsigned)(owls & RSBS_SOARING_OWL_BITS), (unsigned)kSoarOwlsWanted, cleared ? 1 : 0, (int)half->save.day,
+             (int)half->save.isOwlSave, (int)half->save.shipSaveInfo.pauseSaveEntrance,
+             (unsigned)kSoarPauseSaveEntrance, (unsigned)respawn, (unsigned)kSoarRespawnSentinel);
+    return ready ? 1 : 0;
+}
+
+/**
+ * Before the Clock Tower door of the first MM leg. False while MM is still on
+ * day 0 (the leg keeps playing), and after failing the run when it never leaves
+ * it. True once the owls, the cleared swamp and the owl save are in the live
+ * save, which the door's freeze takes.
+ */
+static bool MM_SoaringPrepareDeparture(const GameplayTestConfig* cfg) {
+    static bool sDayFailed = false;
+    if (gSaveContext.save.day < 1) {
+        if (!sDayFailed && sGpMMPlayFrames >= cfg->framesPerPhase + kSoarMMDayBudget) {
+            sDayFailed = true;
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                     "int-soaring-to-owl: MM's first leg never left day 0 (day %d, time 0x%04X after %d frames); a "
+                     "frozen half on day 0 offers no owl to the Song of Soaring",
+                     (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time, sGpMMPlayFrames);
+            IntegrationTest_GameplayFail(msg);
+        }
+        return false;
+    }
+    // Assigned, not ORed: the owl bits are exactly Clock Town's and the swamp's
+    // (bits outside the owl table are kept).
+    u16& owlFlags = gSaveContext.save.saveInfo.playerData.owlActivationFlags;
+    owlFlags = (u16)((owlFlags & ~RSBS_SOARING_OWL_BITS) | kSoarOwlsWanted);
+    WEEKEVENTREG(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE >> 8) |= (u8)(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE & 0xFF);
+    gSaveContext.save.isOwlSave = true;
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance = kSoarPauseSaveEntrance;
+    gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags = kSoarRespawnSentinel;
+    fprintf(stderr,
+            "[PFC] soaring: MM leg on day %d activated owls 0x%03X (Clock Town, Southern Swamp), cleared Woodfall, "
+            "and made the half an owl save with pause-save entrance 0x%04X (and a respawn sentinel), before the Clock "
+            "Tower door\n",
+            (int)gSaveContext.save.day, (unsigned)gSaveContext.save.saveInfo.playerData.owlActivationFlags,
+            (unsigned)kSoarPauseSaveEntrance);
+    fflush(stderr);
+    return true;
+}
+
+/**
+ * The Soaring arrival's verdict, taken once the swamp is stable and the paired
+ * arrival checks passed. Ends the run either way.
+ */
+static void MM_SoaringCheckArrival(int owl) {
+    // A failure taken earlier (OoT's drive, or the fade's watch) has already
+    // requested the exit; the arrival must never turn that run green.
+    if (IntegrationTest_ExitRequested()) {
+        IntegrationTest_SoaringExpectArrival(-1);
+        return;
+    }
+    char msg[512];
+    const s32 cleared = ENTRANCE(SOUTHERN_SWAMP_CLEARED, 10);
+    const s32 entrance = gSaveContext.save.entrance;
+    const char* why = nullptr;
+    if (owl != OWL_WARP_SOUTHERN_SWAMP) {
+        why = "the OoT drive named another owl than the swamp's";
+    } else if (entrance == kSoarPauseSaveEntrance) {
+        why = "the arrival took the half's pause-save entrance, not the owl the player chose";
+    } else if (entrance != cleared || MM_gPlayState->sceneId != SCENE_20SICHITAI2) {
+        why = "the arrival is not the cleared swamp's owl (ENTRANCE(SOUTHERN_SWAMP_CLEARED, 10))";
+    } else if (gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags != 0) {
+        // The consume's clear (SavingEnhancements_ClearSaveEntranceInfo) is the
+        // only writer that zeroes the MM leg's respawn sentinel on this path.
+        why = "the arrival did not clear the half's save-entrance info (the respawn sentinel survived "
+              "MM_Play_ConsumeStartupEntrance)";
+    } else if (gSaveContext.save.isOwlSave || gSaveContext.save.shipSaveInfo.pauseSaveEntrance != -1) {
+        // A sanity check only: MM_Player_Init clears this pair on its own at the
+        // scene load, so it cannot show the consume's clear ran.
+        why = "the unused pause-save pair was not cleared at the arrival";
+    } else if (ComboWarp_IsArmed()) {
+        why = "the one-shot warp target is still armed after the arrival";
+    } else if (!CHECK_WEEKEVENTREG(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE) ||
+               (gSaveContext.save.saveInfo.playerData.owlActivationFlags & (1u << OWL_WARP_SOUTHERN_SWAMP)) == 0 ||
+               gSaveContext.save.day < 1) {
+        why = "the arriving half is not the one the MM leg froze (no cleared Woodfall, no swamp owl, or day 0)";
+    }
+    if (why != nullptr) {
+        snprintf(msg, sizeof(msg),
+                 "int-soaring-to-owl, leg 'the crossing': %s [scene %d, entrance 0x%04X (cleared swamp owl 0x%04X, "
+                 "pause-save 0x%04X), isOwlSave %d, pauseSaveEntrance %d, warp armed %d, owls 0x%03X, day %d]",
+                 why, (int)MM_gPlayState->sceneId, (unsigned)entrance, (unsigned)cleared,
+                 (unsigned)kSoarPauseSaveEntrance, (int)gSaveContext.save.isOwlSave,
+                 (int)gSaveContext.save.shipSaveInfo.pauseSaveEntrance, ComboWarp_IsArmed() ? 1 : 0,
+                 (unsigned)gSaveContext.save.saveInfo.playerData.owlActivationFlags, (int)gSaveContext.save.day);
+        IntegrationTest_GameplayFail(msg);
+        return;
+    }
+    fprintf(stderr,
+            "[PFC] soaring leg 'the crossing' PASS: MM landed at the cleared swamp's owl (scene %d, entrance 0x%04X), "
+            "not the pause-save entrance 0x%04X; the one-shot target is spent\n",
+            (int)MM_gPlayState->sceneId, (unsigned)entrance, (unsigned)kSoarPauseSaveEntrance);
+    fprintf(stderr, "[PFC] PASS: int-soaring-to-owl (five legs)\n");
+    fflush(stderr);
+    IntegrationTest_SoaringExpectArrival(-1);
+    IntegrationTest_SetGameplayPhase(GP_PHASE_DONE);
+    // A pass leaves no file behind, as the paired rows' OoT pass does (a
+    // failure keeps it for forensics). Before the shutdown, while OoT's
+    // SaveManager is still up.
+    OoT_SoaringTest_ErasePairedFile();
+    IntegrationTest_SignalBootComplete(GAME_MM, "Song of Soaring crossing to an owl complete");
+}
+
 /**
  * Per-frame MM driver for the gameplay round-trip. Called directly from MM's
  * graph loop (games/mm/src/code/graph.c, single-exe only) once per frame —
@@ -1987,10 +2153,27 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         // the tower-exit arrival (0xD800, as if walking out of the Clock
         // Tower), first room's commands ran — plus a few stable frames
         // before the gameplay window starts.
-        if (!MM_SceneLoadComplete() || MM_gPlayState->sceneId != SCENE_CLOCKTOWER) {
+        // int-soaring-to-owl (#1169 XW6): the Soaring arrival lands at the swamp
+        // owl instead, and a stable wrong scene fails by name.
+        const int soaringOwl = IntegrationTest_SoaringToOwl() ? IntegrationTest_SoaringExpectedOwl() : -1;
+        const s16 expectedScene = soaringOwl >= 0 ? (s16)SCENE_20SICHITAI2 : (s16)SCENE_CLOCKTOWER;
+        if (!MM_SceneLoadComplete() || MM_gPlayState->sceneId != expectedScene) {
+            if (soaringOwl >= 0 && MM_SceneLoadComplete() && ++sGpMMSoarWrongSceneFrames >= 10) {
+                char msg[384];
+                snprintf(msg, sizeof(msg),
+                         "int-soaring-to-owl, leg 'the crossing': MM settled in scene %d at entrance 0x%04X, not the "
+                         "cleared swamp (scene %d) the swamp owl leads to%s",
+                         (int)MM_gPlayState->sceneId, (unsigned)gSaveContext.save.entrance, (int)SCENE_20SICHITAI2,
+                         gSaveContext.save.entrance == kSoarPauseSaveEntrance
+                             ? " (that is the frozen half's pause-save entrance: the Soaring guard did not hold)"
+                             : "");
+                IntegrationTest_GameplayFail(msg);
+                IntegrationTest_SoaringExpectArrival(-1);
+            }
             sGpMMStableFrames = 0;
             return;
         }
+        sGpMMSoarWrongSceneFrames = 0;
         sGpMMStableFrames++;
         if (sGpMMStableFrames == 10) {
             sGpMMArrivalCount++;
@@ -2036,6 +2219,12 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
                 fprintf(stderr, "[GP-TEST] MM save continuity verified (arrival %d: rupee sentinel %d)\n",
                         sGpMMArrivalCount, actual);
                 fflush(stderr);
+            }
+            if (soaringOwl >= 0) {
+                // int-soaring-to-owl: the paired checks above passed for the
+                // Soaring arrival too; its own verdict ends the run.
+                MM_SoaringCheckArrival(soaringOwl);
+                return;
             }
             fprintf(stderr,
                     "[GP-TEST] MM South Clock Town stable (entrance=0x%04X); "
@@ -2094,6 +2283,11 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         MM_Shop_PlaytestShopFrame();
     }
     if (sGpMMPlayFrames < cfg->framesPerPhase) {
+        return;
+    }
+    // int-soaring-to-owl (#1169 XW6): the owls the OoT drive soars to, frozen
+    // by this door.
+    if (IntegrationTest_SoaringToOwl() && !MM_SoaringPrepareDeparture(cfg)) {
         return;
     }
     PlayState* play = MM_gPlayState;
@@ -6958,7 +7152,74 @@ static void MM_SlotMeta_DecodePlayerName(const uint8_t* blob, size_t blobSize, c
     RsbsSave_DecodeN64FilenameName(blob + offset, outName);
 }
 
+// #1169 XW6: OoT's Song of Soaring offers the owls active in this half and lands
+// on their entrances (src/common/warp_song_soaring.c). The table there is MM's own
+// sOwlWarpEntrances (ovl_En_Test7) in OwlWarpId order; pin it here, where
+// ENTRANCE() and OwlWarpId are in scope, so the two cannot drift.
+static_assert(OWL_WARP_CLOCK_TOWN == RSBS_SOARING_OWL_CLOCK_TOWN && OWL_WARP_STONE_TOWER + 1 == RSBS_SOARING_OWL_COUNT,
+              "warp_song_soaring.h's owl indices must be MM's OwlWarpId (#1169 XW6)");
+static_assert(ENTRANCE(GREAT_BAY_COAST, 11) == 0x68B0 && ENTRANCE(ZORA_CAPE, 6) == 0x6A60 &&
+                  ENTRANCE(SNOWHEAD, 3) == 0xB230 && ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8) == 0x9A80 &&
+                  ENTRANCE(SOUTH_CLOCK_TOWN, 9) == 0xD890 && ENTRANCE(MILK_ROAD, 4) == 0x3E40 &&
+                  ENTRANCE(WOODFALL, 4) == 0x8640 && ENTRANCE(SOUTHERN_SWAMP_POISONED, 10) == 0x84A0 &&
+                  ENTRANCE(IKANA_CANYON, 4) == 0x2040 && ENTRANCE(STONE_TOWER, 3) == 0xAA30,
+              "warp_song_soaring.c's owl entrances must be MM's sOwlWarpEntrances (#1169 XW6)");
+static_assert(sizeof(gSaveContext.save.saveInfo.playerData.owlActivationFlags) == sizeof(uint16_t) &&
+                  sizeof(gSaveContext.save.day) == sizeof(int32_t),
+              "the Soaring descriptor reads a u16 owl mask and an s32 day (#1169 XW6)");
+// z_play.c (C, without entrance.h) spells the kind MM_COMBO_SWITCH_KIND_SOARING 2.
+static_assert(COMBO_SWITCH_KIND_SOARING == 2, "z_play.c's MM_COMBO_SWITCH_KIND_SOARING must stay 2 (#1169 XW6)");
+
+/** MM's own owl table for the soaring-owl-table row: ENTRANCE() in MM's TU. */
+extern "C" uint16_t MM_SoaringTest_OwlEntrance(int owl) {
+    static const uint16_t kOwls[RSBS_SOARING_OWL_COUNT] = {
+        ENTRANCE(GREAT_BAY_COAST, 11), ENTRANCE(ZORA_CAPE, 6),
+        ENTRANCE(SNOWHEAD, 3),         ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8),
+        ENTRANCE(SOUTH_CLOCK_TOWN, 9), ENTRANCE(MILK_ROAD, 4),
+        ENTRANCE(WOODFALL, 4),         ENTRANCE(SOUTHERN_SWAMP_POISONED, 10),
+        ENTRANCE(IKANA_CANYON, 4),     ENTRANCE(STONE_TOWER, 3),
+    };
+    return (owl >= 0 && owl < RSBS_SOARING_OWL_COUNT) ? kOwls[owl] : (uint16_t)0;
+}
+
+/**
+ * For the soaring-owl-table row: freezes MM's own SaveContext as MM's half with
+ * @p owls, @p day and the "ZELDA3" marker (or none), the way a departure does
+ * (Context_FreezeState over the whole struct), then puts the three fields back.
+ */
+extern "C" void MM_SoaringTest_FreezeHalf(uint16_t owls, int32_t day, int marked) {
+    auto& playerData = gSaveContext.save.saveInfo.playerData;
+    const u16 prevOwls = playerData.owlActivationFlags;
+    const s32 prevDay = gSaveContext.save.day;
+    char prevNewf[6];
+    std::memcpy(prevNewf, playerData.newf, sizeof(prevNewf));
+    const char kMarker[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    if (marked != 0) {
+        std::memcpy(playerData.newf, kMarker, sizeof(kMarker));
+    } else {
+        std::memset(playerData.newf, 0, sizeof(playerData.newf));
+    }
+    playerData.owlActivationFlags = owls;
+    gSaveContext.save.day = day;
+    Context_FreezeState(GAME_MM, 0, &gSaveContext, sizeof(gSaveContext));
+    playerData.owlActivationFlags = prevOwls;
+    gSaveContext.save.day = prevDay;
+    std::memcpy(playerData.newf, prevNewf, sizeof(prevNewf));
+}
+
 extern "C" void MM_SlotMeta_Register(void) {
+    // #1169 XW6: the owl flags and the day the Song of Soaring reads from this
+    // half, registered here (not from main.cpp) so the --test rows, which call
+    // MM_SlotMeta_Register themselves, see the same layout production does.
+    ComboSoaringMMDesc soaring{};
+    soaring.owlFlagsOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.owlActivationFlags));
+    soaring.dayOffset = static_cast<uint32_t>(offsetof(SaveContext, save.day));
+    soaring.newfOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.newf));
+    soaring.newfLen = 6;
+    const char kSoaringNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    std::memcpy(soaring.newf, kSoaringNewf, sizeof(kSoaringNewf));
+    Combo_Soaring_RegisterMMDesc(&soaring);
+
     RsbsGameMetaDesc desc{};
     desc.playerNameOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.playerName));
     desc.playerNameLen = 8;

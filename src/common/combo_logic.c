@@ -132,6 +132,8 @@ const char* Combo_Logic_StatusName(int status) {
             return "locations-unreachable";
         case RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE:
             return "goal-unreachable";
+        case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
+            return "group-capacity";
         default:
             return "(unknown)";
     }
@@ -1358,7 +1360,60 @@ static SharedItem ComboLogicHalfFor(const ComboLogicBagItem* item, uint8_t hostG
     return half;
 }
 
+// ----------------------------------------------------------------------------
+// THE HOST GROUPS (ABI 9, #1502; ComboLogicFillRequest.confineMasks)
+// ----------------------------------------------------------------------------
+//
+// The running fill's masks, one per row of its bag, or NULL. Every predicate
+// below receives a pointer INTO that bag (the draw, the surplus phase, No Logic
+// and the forced rows all pass &req->bag[i]), so the row's index is its offset;
+// any other pointer has no mask. Set once the request is validated, cleared at
+// the fill's finish, so no draw outside a fill ever sees one.
+static const uint32_t* sConfineMasks;
+static const ComboLogicBagItem* sConfineBag;
+static int sConfineCount;
+static ComboLogicGroupShortfall sGroupShortfall;
+static bool sGroupShortfallSet;
+
+/** The confinement mask of `item`, a row of the running fill's bag; 0 = none. */
+static uint32_t ComboLogicRowConfine(const ComboLogicBagItem* item) {
+    if (sConfineMasks == NULL || item == NULL) {
+        return 0u;
+    }
+    // Compared as addresses, so a pointer from another array is merely "not a row".
+    const uintptr_t at = (uintptr_t)item;
+    const uintptr_t base = (uintptr_t)sConfineBag;
+    if (at < base || (at - base) % sizeof(*item) != 0u || (at - base) / sizeof(*item) >= (uintptr_t)sConfineCount) {
+        return 0u;
+    }
+    return sConfineMasks[(at - base) / sizeof(*item)];
+}
+
+/** Does `host` of `hostGame` belong to a group of `mask` (the engine's own
+ *  namespace)? False for an engine with no groups. */
+static bool ComboLogicHostInGroups(uint8_t hostGame, uint16_t host, uint32_t mask) {
+    const ComboLogicEngine* e = ComboLogicEngineFor(hostGame);
+    return e != NULL && e->hostGroups != NULL && (e->hostGroups(e->self, host) & mask) != 0u;
+}
+
+bool Combo_Logic_LastGroupShortfall(ComboLogicGroupShortfall* out) {
+    if (!sGroupShortfallSet) {
+        return false;
+    }
+    if (out != NULL) {
+        *out = sGroupShortfall;
+    }
+    return true;
+}
+
 static bool ComboLogicRowMayUseHost(const ComboLogicBagItem* item, uint8_t hostGame, uint16_t host) {
+    // A CONFINED row: its own game's hosts in its groups, and nothing else. The
+    // mask is in its origin's namespace (combo_logic.h, `hostGroups`), so the
+    // other side's hosts are never asked. A mask-0 row never reaches this branch.
+    const uint32_t confine = ComboLogicRowConfine(item);
+    if (confine != 0u) {
+        return item->item.originGame == hostGame && ComboLogicHostInGroups(hostGame, host, confine);
+    }
     if (ComboLogicRowNativeTo(item, hostGame)) {
         return true;
     }
@@ -1373,6 +1428,12 @@ static bool ComboLogicRowMayUseHost(const ComboLogicBagItem* item, uint8_t hostG
  *  True for its own side, and for the other side when the row may cross and the
  *  host engine accepts foreign items everywhere (no predicate). */
 static bool ComboLogicRowUsesWholeSide(const ComboLogicBagItem* item, uint8_t hostGame) {
+    // A confined row is asked host by host, its own side included: without this
+    // line the native shortcut below would skip the group test on the only side
+    // a confined row may use.
+    if (ComboLogicRowConfine(item) != 0u) {
+        return false;
+    }
     if (ComboLogicRowNativeTo(item, hostGame)) {
         return true;
     }
@@ -1621,6 +1682,94 @@ static int ComboLogicDrawAndPlace(const ComboLogicBagItem* item, uint32_t* rng, 
     return RSBS_COMBO_LOGIC_OK;
 }
 
+/** THE HOST GROUPS: confined rows FIRST. A STABLE partition of the attempt's
+ *  shuffled order `order[0..n)`, confined rows (in their shuffled order) ahead of
+ *  the rest (in theirs), so each confined row is placed with every other REQUIRED
+ *  row of the bag assumed: OoTMM's fixDungeon / placeSemiShuffled before its main
+ *  fill (solve.ts), SoH's restricted passes before its general one (fill.cpp). It
+ *  draws no RNG, and with no confined row it writes nothing, so a mask-free bag's
+ *  order is exactly the shuffle's. */
+static int sConfinedScratch[RSBS_COMBO_LOGIC_BAG_CAP];
+static void ComboLogicConfinedFirst(const ComboLogicFillRequest* req, int* order, int n) {
+    if (sConfineMasks == NULL) {
+        return;
+    }
+    int confined = 0;
+    for (int i = 0; i < n; ++i) {
+        confined += (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) ? 1 : 0;
+    }
+    if (confined == 0 || confined == n) {
+        return;
+    }
+    int front = 0;
+    int back = confined;
+    for (int i = 0; i < n; ++i) {
+        if (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) {
+            sConfinedScratch[front++] = order[i];
+        } else {
+            sConfinedScratch[back++] = order[i];
+        }
+    }
+    memcpy(order, sConfinedScratch, sizeof(order[0]) * (size_t)n);
+}
+
+/**
+ * THE HOST GROUPS' capacity check (combo_logic.h, Combo_Logic_LastGroupShortfall).
+ * Only called with confined rows in the request. Empties both tables first, so the
+ * engines' empty hosts are the whole of each pool.
+ */
+static int ComboLogicCheckGroupCapacity(const ComboLogicFillRequest* req) {
+    Combo_Logic_ResetPlacements();
+    for (int i = 0; i < req->bagCount; ++i) {
+        const uint32_t mask = req->confineMasks[i];
+        if (mask == 0u || (req->bag[i].bagFlags & RSBS_COMBO_BAG_SURPLUS) != 0u) {
+            continue;
+        }
+        const uint8_t game = req->bag[i].item.originGame;
+        // The first REQUIRED row of each (origin, mask) counts the group; a later
+        // one with the same pair was already counted with it.
+        bool seen = false;
+        for (int j = 0; j < i && !seen; ++j) {
+            seen = req->confineMasks[j] == mask && req->bag[j].item.originGame == game &&
+                   (req->bag[j].bagFlags & RSBS_COMBO_BAG_SURPLUS) == 0u;
+        }
+        if (seen) {
+            continue;
+        }
+        int rows = 0;
+        for (int j = i; j < req->bagCount; ++j) {
+            rows += (req->confineMasks[j] == mask && req->bag[j].item.originGame == game &&
+                     (req->bag[j].bagFlags & RSBS_COMBO_BAG_SURPLUS) == 0u)
+                        ? 1
+                        : 0;
+        }
+        const ComboLogicEngine* e = ComboLogicEngineFor(game);
+        const int total = e->allEmptyHosts(e->self, sHostScratch, RSBS_COMBO_LOGIC_HOST_CAP);
+        if (total < 0 || total > RSBS_COMBO_LOGIC_HOST_CAP) {
+            fprintf(stderr, "[ComboLogic] fill refused: %s offered %d hosts to the group check (cap %d)\n",
+                    Game_ToString((GameId)game), total, RSBS_COMBO_LOGIC_HOST_CAP);
+            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+        }
+        int hosts = 0;
+        for (int h = 0; h < total; ++h) {
+            hosts += ComboLogicHostInGroups(game, sHostScratch[h], mask) ? 1 : 0;
+        }
+        if (rows > hosts) {
+            sGroupShortfall.game = game;
+            sGroupShortfall.mask = mask;
+            sGroupShortfall.rows = rows;
+            sGroupShortfall.hosts = hosts;
+            sGroupShortfallSet = true;
+            fprintf(stderr,
+                    "[ComboLogic] fill refused: %d confined %s row(s) of group mask 0x%08X for %d host(s) in that "
+                    "group (a fact of the settings, not of the seed)\n",
+                    rows, Game_ToString((GameId)game), (unsigned)mask, hosts);
+            return RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY;
+        }
+    }
+    return RSBS_COMBO_LOGIC_OK;
+}
+
 /** Record SURPLUS row `bagIndex` as dropped, and fold it into the digest. */
 static void ComboLogicRecordDrop(const ComboLogicFillRequest* req, int bagIndex, ComboLogicFillResult* res) {
     if (sDroppedCount < RSBS_COMBO_LOGIC_BAG_CAP) {
@@ -1697,7 +1846,11 @@ static int ComboLogicPlaceSurplus(const ComboLogicFillRequest* req, bool reached
             // not load-bearing, and a dropped one stands nowhere, so the rule still
             // holds. No world reaches this today: a kind's REQUIRED copy is placed
             // (and renews the kind) before this phase runs.
-            if (ComboLogicRowMustRenew(&req->bag[sSurplusIdx[s]])) {
+            // THE HOST GROUPS (ABI 9) likewise: a confined copy (a plentiful key
+            // under Own Dungeon) that finds no host in its group dead-ended on its
+            // group, not on the supply, so it drops alone too.
+            if (ComboLogicRowMustRenew(&req->bag[sSurplusIdx[s]]) ||
+                ComboLogicRowConfine(&req->bag[sSurplusIdx[s]]) != 0u) {
                 ComboLogicRecordDrop(req, sSurplusIdx[s], res);
                 continue;
             }
@@ -1860,6 +2013,10 @@ static int ComboLogicFillNoLogic(const ComboLogicFillRequest* req, ComboLogicFil
         sBagOrder[i] = sRequiredIdx[i];
     }
     ComboLogicShuffle(sBagOrder, sRequiredCount, &rng);
+    // THE HOST GROUPS: confined rows first, so a group's rows take its hosts
+    // before any free row can (with the capacity check, No Logic never runs out
+    // of room inside a group). A no-op without a confined row.
+    ComboLogicConfinedFirst(req, sBagOrder, sRequiredCount);
 
     for (int k = 0; k < sRequiredCount; ++k) {
         bool deadEnd = false;
@@ -2051,6 +2208,12 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
     int status = RSBS_COMBO_LOGIC_OK;
 
     ComboLogicResetFillResult(&res);
+    // THE HOST GROUPS: nothing of an earlier fill's survives into this one.
+    sConfineMasks = NULL;
+    sConfineBag = NULL;
+    sConfineCount = 0;
+    memset(&sGroupShortfall, 0, sizeof(sGroupShortfall));
+    sGroupShortfallSet = false;
 
     if (req == NULL || req->bagCount < 0 || (req->bagCount > 0 && req->bag == NULL) || req->maxAttempts < 0) {
         status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
@@ -2098,6 +2261,28 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
             goto finish;
         }
     }
+    // THE HOST GROUPS (ABI 9): a confined row has one home and an engine that can
+    // say which of its hosts are in the row's groups.
+    bool anyConfined = false;
+    for (int i = 0; req->confineMasks != NULL && i < req->bagCount; ++i) {
+        if (req->confineMasks[i] == 0u) {
+            continue;
+        }
+        anyConfined = true;
+        if ((req->bag[i].bagFlags & RSBS_COMBO_BAG_SHARED_PAIR) != 0u) {
+            fprintf(stderr, "[ComboLogic] fill refused: bag entry %d is a shared pair with a confinement mask\n", i);
+            status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+            goto finish;
+        }
+        const ComboLogicEngine* home = ComboLogicEngineFor(req->bag[i].item.originGame);
+        if (home != NULL && home->hostGroups == NULL) {
+            fprintf(stderr,
+                    "[ComboLogic] fill refused: bag entry %d is confined but the %s engine has no host groups\n", i,
+                    Game_ToString((GameId)req->bag[i].item.originGame));
+            status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+            goto finish;
+        }
+    }
     // The goal is validated BEFORE any placement, so an unsupported goal cannot
     // leave a half-filled world behind. triforce-hunt is a COUNT (answer O10),
     // not a boolean, so the boolean evaluator's -1 does not refuse it; what it
@@ -2127,6 +2312,19 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
         if (req->triforceRequired == 0u) {
             fprintf(stderr, "[ComboLogic] fill refused: triforce-hunt with no frozen requirement\n");
             status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+            goto finish;
+        }
+    }
+
+    // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined,
+    // so a mask-free request (NULL, or every mask 0) runs exactly the ABI-8 fill:
+    // no reset here, no capacity count, no partition.
+    if (anyConfined) {
+        sConfineMasks = req->confineMasks;
+        sConfineBag = req->bag;
+        sConfineCount = req->bagCount;
+        status = ComboLogicCheckGroupCapacity(req);
+        if (status != RSBS_COMBO_LOGIC_OK) {
             goto finish;
         }
     }
@@ -2200,6 +2398,9 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
             sBagOrder[i] = sRequiredIdx[i];
         }
         ComboLogicShuffle(sBagOrder, sRequiredCount, &rng);
+        // THE HOST GROUPS: confined rows first, each placed with the whole rest
+        // of the bag assumed (below). A no-op without a confined row.
+        ComboLogicConfinedFirst(req, sBagOrder, sRequiredCount);
 
         for (int k = 0; k < sRequiredCount; ++k) {
             // The assumed set: every REQUIRED row NOT yet placed, EXCLUDING the
@@ -2343,6 +2544,10 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
 finish:
     res.status = status;
     sRenewArmed = false; // the rule is this fill's; no later draw inherits it
+    // ... and so are THE HOST GROUPS' masks.
+    sConfineMasks = NULL;
+    sConfineBag = NULL;
+    sConfineCount = 0;
     if (status == RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED && sUnreachedCount > 0) {
         ComboLogicLogUnreached("in the last All Locations proof round (after a pre-flight that held: an engine is "
                                "not monotone)");

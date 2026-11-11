@@ -43,6 +43,13 @@
  *   and the GOAL is still proven. (The headless half does not run OoT's junk
  *   remainder, so the check OoT's copy leaves is not inspected here.)
  *
+ *   shared-songs-one-copy-mm-vanilla (CTest SharedSongsOneCopyMMVanilla, rando
+ *   tier, #1502) -- the same with OoT's songs Anywhere and MAJORA'S MASK's Shuffle
+ *   Songs at Vanilla: MM's copy of each shared song leaves its vanilla check to
+ *   the bag's one shared row (GeneratePools.cpp RsbsReleasesVanillaSharedSong),
+ *   counted over EVERY MM check, vanilla ones included, so a copy left at home
+ *   is seen.
+ *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
  *
@@ -91,6 +98,9 @@ int MM_ComboLogic_TestShuffledItems(uint16_t* outItems, uint16_t* outChecks, int
 int OoT_SharedSongsTest_WorldCopies(int rg);
 int OoT_SharedSongsTest_OtherVanillaSongsAtHome(const int* sharedRgs, int sharedCount);
 int OoT_SharedSongsTest_VanillaSongCount(void);
+// games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): every MM check holding
+// the id, vanilla (unshuffled) checks included.
+int MM_PlacementConfinement_WorldCopies(uint16_t id);
 void OoT_SharedSongsTest_EponaBegin(void);
 void OoT_SharedSongsTest_EponaEnd(void);
 void OoT_SharedSongsTest_SetEponaFile(int rando, int skip);
@@ -760,8 +770,15 @@ std::string SsOneCopyKey(int song) {
 }
 } // namespace
 
-TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
-    const char* shuffleName = (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs] : "?";
+/** MM's Shuffle Songs key (Rando/Menu.cpp) and its Vanilla value (RO_SONG_SHUFFLE_VANILLA). */
+const char* const kSsMmSongShuffleKey = "gRando.Options.RO_SHUFFLE_SONGS";
+const int kSsMmSongShuffleVanilla = 2;
+
+TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
+    const bool mmVanilla = mmShuffleSongs == kSsMmSongShuffleVanilla;
+    const char* shuffleName = mmVanilla                                 ? "MM Vanilla"
+                              : (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs]
+                                                                        : "?";
     printf("[TEST] shared-songs-one-copy (Shuffle Songs %s): with the three shared-song rules on, the paired world "
            "holds exactly ONE copy of each shared song over both games, and the GOAL is still proven (#1085)\n",
            shuffleName);
@@ -773,19 +790,32 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
     }
     const int priorShuffle = CVarGetInteger(kSsSongShuffleKey, -1);
     CVarSetInteger(kSsSongShuffleKey, shuffleSongs);
+    // MM's key is touched only by a row that sets it (the four OoT rows pass -1),
+    // and that row puts back what was there.
+    const int priorMm = CVarGetInteger(kSsMmSongShuffleKey, -1);
+    if (mmShuffleSongs >= 0) {
+        CVarSetInteger(kSsMmSongShuffleKey, mmShuffleSongs);
+    }
     struct Restore {
         int prior;
+        bool setMm;
+        int priorMm;
         ~Restore() {
             if (prior < 0) {
                 CVarClear(kSsSongShuffleKey);
             } else {
                 CVarSetInteger(kSsSongShuffleKey, prior);
             }
+            if (setMm && priorMm < 0) {
+                CVarClear(kSsMmSongShuffleKey);
+            } else if (setMm) {
+                CVarSetInteger(kSsMmSongShuffleKey, priorMm);
+            }
             for (int s = 0; s < 3; s++) {
                 CVarClear(SsOneCopyKey(s).c_str());
             }
         }
-    } restore{ priorShuffle };
+    } restore{ priorShuffle, mmShuffleSongs >= 0, priorMm };
 
     const int gen = Rando_HeadlessSeedTest("RSBSSONGSONECOPY");
     SS_CHECK(gen == 0, "the paired OoT generation failed under Shuffle Songs %s", shuffleName);
@@ -831,10 +861,16 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
         // OoT-hosted shared row (a host holds its own game's half of the pair).
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         // MM's world: the bag's MM-hosted shared row, or MM's own copy back in play.
+        // Under MM's Vanilla the copy left at home is an UNSHUFFLED check, so every
+        // check is counted there (#1502).
         int mmCopies = 0;
-        for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
-            if (items[(size_t)i] == mmId) {
-                mmCopies++;
+        if (mmVanilla) {
+            mmCopies = MM_PlacementConfinement_WorldCopies(mmId);
+        } else {
+            for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
+                if (items[(size_t)i] == mmId) {
+                    mmCopies++;
+                }
             }
         }
         printf("[TEST] shared-songs-one-copy (%s): %s held by %d OoT check(s) and %d MM check(s) (expected one in "
@@ -847,7 +883,7 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
     }
 
     // Off: only the shared songs leave their vanilla checks.
-    if (shuffleSongs == 0) {
+    if (shuffleSongs == 0 && !mmVanilla) {
         const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount() - 3;
         const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(sharedRgs, 3);
         printf("[TEST] shared-songs-one-copy (Off): %d of the other vanilla songs at home (expected %d)\n", atHome,

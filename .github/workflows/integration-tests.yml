@@ -401,9 +401,11 @@ jobs:
     # select instead and checks its fingerprint is drawn beside its seed icons.
     # IntPairedFirstCrossingForeignSpoiler (#1055) plants another identity's
     # spoiler at the seed's name first; the creation's goes beside it.
+    # IntSoaringToOwl (#1169 XW6) rides the same creation with the hidden Song of
+    # Soaring (OoT) rule revealed for the test, and crosses by playing the song.
     - name: Integration Test - Paired First Crossing
       if: steps.check-archives.outputs.has_oot == 'true' && steps.check-archives.outputs.has_mm == 'true'
-      run: ctest --test-dir build-cmake --output-on-failure -R "^(IntPairedFirstCrossing(Diverged|TwoCycles|ForeignSpoiler)?|IntPairedFileSelectIdentity)$" --no-tests=error
+      run: ctest --test-dir build-cmake --output-on-failure -R "^(IntPairedFirstCrossing(Diverged|TwoCycles|ForeignSpoiler)?|IntPairedFileSelectIdentity|IntSoaringToOwl)$" --no-tests=error
       env:
         DISPLAY: :99
 

@@ -122,6 +122,7 @@ typedef struct {
     ComboLogicFillResult fill;
     int crossingsIntoMM;  // OoT-origin rows placed on MM hosts
     int crossingsIntoOoT; // MM-origin rows placed on OoT hosts
+    int confinedRows;     // bag rows handed a confinement mask (THE HOST GROUPS, #1502); all MM-origin
     // #1483: THE HOME-CAPACITY COUNTS, the words of a failed fill's refusal
     // (Combo_SingleBag_HomeShortGames). Counted only after a fill that ran and
     // failed, once it was rolled back; they change no status, rung or placement.
@@ -176,6 +177,13 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
  *
  * @param mmItems     MM's pool, one row per copy, in GeneratePools' order
  * @param mmFlags     each row's RSBS_COMBO_POOL_* flags (MM_ComboLogic_MarkPoolRows)
+ * @param mmConfine   optional (NULL: none), `mmCount` masks: each MM row's
+ *                    confinement group mask in MM's namespace (THE HOST GROUPS,
+ *                    combo_logic.h ABI 9; MM_ComboLogic_PoolRowConfineMasks), 0 for
+ *                    a row that may go anywhere. A bag row taken from a confined MM
+ *                    row is HOME_ONLY and carries the mask into the fill, unless the
+ *                    composer made it a SHARED PAIR (a pair has no single home, so
+ *                    it roams, the MM mirror of OoT's #1085 hold-back).
  * @param roundBudget the per-attempt budget in coordinator fill rounds (#950):
  *                    the fill stops before running round `roundBudget + 1`;
  *                    0 = none
@@ -192,8 +200,8 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
  *         which the trim removed, so OoT_ComboLogic_FinishGeneralPass fills OoT's
  *         leftovers from the rest, with one junk copy per trimmed row.
  */
-int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mmCount, int ladderAttempt,
-                        uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out);
+int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const uint32_t* mmConfine, int mmCount,
+                        int ladderAttempt, uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out);
 
 /** The most recent Combo_SingleBag_Run's report. Never NULL (zeroed before any run). */
 const ComboSingleBagReport* Combo_SingleBag_LastReport(void);

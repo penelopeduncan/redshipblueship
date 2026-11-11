@@ -128,8 +128,22 @@ typedef struct {
  *       regenerate it. RSBS_PFC_SKIP_CREATION=1 skips the generation and the
  *       creation and boots the debug save instead (the red half: the arrival
  *       must then fail on the skipped-because-no-paired-oot-world leg).
+ *   GP_VARIANT_SOARING_TO_OWL (int-soaring-to-owl; #1169 XW6): the paired
+ *       variant with OoT's Song of Soaring rule on (the hidden rule revealed
+ *       through Combo_ComboItemRules2RevealForTest, never through a stored
+ *       setting). IntegrationTest_PairedFirstCrossing() is true for it too, so
+ *       every paired check above runs unchanged. On top of them the first OoT
+ *       leg plays the song as an adult, in the creation shadow (no statues) and
+ *       in the Windmill (warp-song restriction 3); the MM leg activates two
+ *       owls before the Clock Tower door; the return leg cancels the owl
+ *       chooser once and then soars to the second owl offered. The run ends on
+ *       that MM arrival (IntegrationTest_SoaringExpectedOwl).
  */
-typedef enum { GP_VARIANT_ROUNDTRIP = 0, GP_VARIANT_PAIRED_FIRST_CROSSING = 1 } GameplayVariant;
+typedef enum {
+    GP_VARIANT_ROUNDTRIP = 0,
+    GP_VARIANT_PAIRED_FIRST_CROSSING = 1,
+    GP_VARIANT_SOARING_TO_OWL = 2
+} GameplayVariant;
 
 /**
  * Initialize integration test mode
@@ -146,8 +160,36 @@ void IntegrationTest_SetMode(IntegrationTestMode mode);
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant);
 GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
-/** True when the running test is int-paired-first-crossing. */
+/** True when the running test is int-paired-first-crossing, or
+ *  int-soaring-to-owl (which rides it). */
 bool IntegrationTest_PairedFirstCrossing(void);
+
+/** True when the running test is int-soaring-to-owl (#1169 XW6). */
+bool IntegrationTest_SoaringToOwl(void);
+
+/**
+ * int-soaring-to-owl: set the integer CVar @p key to @p value IN MEMORY for the
+ * run (this call never saves). The value the key had, or that it was unset, is
+ * recorded on its first set, and IntegrationTest_SoaringCleanup puts it back.
+ */
+void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value);
+
+/**
+ * int-soaring-to-owl's verdict-time cleanup, pass or fail: every key
+ * IntegrationTest_SoaringSetCVarInt set goes back to what it was, the config is
+ * saved (the #804 cleanup's discipline: whatever reached the file mid-run is
+ * taken back out), and the hidden second-word rules are hidden again. A no-op
+ * on every other run.
+ */
+void IntegrationTest_SoaringCleanup(void);
+
+/**
+ * int-soaring-to-owl: the OoT drive soared to MM owl @p owl (OwlWarpId), so the
+ * next MM arrival is the Soaring one. -1 clears it.
+ */
+void IntegrationTest_SoaringExpectArrival(int owl);
+/** The owl IntegrationTest_SoaringExpectArrival named, or -1. */
+int IntegrationTest_SoaringExpectedOwl(void);
 
 /** True when RSBS_PFC_SKIP_CREATION=1: the paired row's red half (no creation). */
 bool IntegrationTest_PairedSkipCreation(void);
