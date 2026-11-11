@@ -747,22 +747,49 @@ struct PairedMMWorldHashes {
     uint32_t placementHash = 0;
 };
 
-PairedMMWorldHashes ComputePairedMMWorldHashes() {
-    PairedMMWorldHashes out;
-    // Canonical MM placement blob in fixed check order (std::map), folded
-    // through the project's FNV-1a — mirrors the OoT digest's placementHash.
+/**
+ * THE CANONICAL MM PLACEMENT HASH (clean save break, part 2): "<rc>:<randoItemId>;"
+ * for every SHUFFLED row of @p rows, in ascending RandoCheckId order (the static
+ * check table is a std::map), folded through the project's FNV-1a. Mirrors OoT's
+ * Rando_HeadlessPlacementHash, which folds every PLACED row.
+ *
+ * A row folds when its `shuffled` flag is set: everything the fill, the single bag,
+ * the coordinator, the excluded-check junk (`skipped`), the vanilla-kept dungeon
+ * items (StaysAtVanillaCheck) and every foreign host write sets it, so every row
+ * whose content the generation chose is in the fold. An unshuffled row leaves it:
+ * it plays its vanilla behaviour, its randoItemId is the vanilla item GeneratePools
+ * copies from the static table (or zero outside every region), so its content is a
+ * function of the build, not of the world. Before this fold walked every check, so
+ * a backport that only ADDED checks behind an option that is off moved every
+ * pinned mmPlacementHash. A row flipping between shuffled and unshuffled still
+ * moves the hash (its text enters or leaves the blob), and the blob parses back to
+ * exactly one set of (id, item) pairs, so two worlds whose shuffled rows differ in
+ * any host, item or membership never fold the same text.
+ *
+ * Rows at or past @p rowCount are not read. Production passes the live save's
+ * table and RC_MAX; MM_Rando_TestPlacementFold passes a synthetic table.
+ */
+uint32_t FoldShuffledMMRows(const RandoSaveCheck* rows, size_t rowCount) {
     std::string blob;
     for (auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
-        if (randoStaticCheck.randoCheckId == RC_UNKNOWN) {
+        if (randoStaticCheck.randoCheckId == RC_UNKNOWN || (size_t)randoCheckId >= rowCount) {
+            continue;
+        }
+        const RandoSaveCheck& row = rows[randoCheckId];
+        if (!row.shuffled) {
             continue;
         }
         blob += std::to_string((int)randoCheckId);
         blob += ':';
-        blob += std::to_string((int)RANDO_SAVE_CHECKS[randoCheckId].randoItemId);
+        blob += std::to_string((int)row.randoItemId);
         blob += ';';
     }
-    out.placementHash = Ship_Hash(blob);
+    return Ship_Hash(blob);
+}
 
+PairedMMWorldHashes ComputePairedMMWorldHashes() {
+    PairedMMWorldHashes out;
+    out.placementHash = FoldShuffledMMRows(RANDO_SAVE_CHECKS, (size_t)RC_MAX);
     return out;
 }
 
@@ -898,6 +925,29 @@ int WritePairedHalfDigest(const char* outPath, const PairedMMWorldHashes& mm, co
 }
 
 } // namespace
+
+/**
+ * TEST BRIDGE (PlacementHashPlacedRows): mmPlacementHash's own fold
+ * (FoldShuffledMMRows) over a synthetic check table, so a ROM-free row can prove
+ * which rows it reads. Every row starts zeroed (unshuffled, item 0); row i of the
+ * arguments writes check @p checkIds[i] with @p items[i] and @p shuffled[i]. An id
+ * of RC_UNKNOWN or at or past RC_MAX is ignored. Reads only the static check table
+ * and this table, never the live save.
+ */
+extern "C" uint32_t MM_Rando_TestPlacementFold(const int* checkIds, const int* items, const unsigned char* shuffled,
+                                               int count) {
+    static std::vector<RandoSaveCheck> sRows;
+    sRows.assign((size_t)RC_MAX, RandoSaveCheck{});
+    for (int i = 0; i < count; i++) {
+        if (checkIds[i] <= (int)RC_UNKNOWN || checkIds[i] >= (int)RC_MAX) {
+            continue;
+        }
+        RandoSaveCheck& row = sRows[(size_t)checkIds[i]];
+        row.randoItemId = (RandoItemId)items[i];
+        row.shuffled = shuffled[i] != 0;
+    }
+    return FoldShuffledMMRows(sRows.data(), sRows.size());
+}
 
 /**
  * Foreign-placement determinism digest (Lane C1, #392) — the MM half of the
@@ -2496,18 +2546,10 @@ extern "C" int MM_Rando_HeadlessPairedAttemptDigest(const char* outPath) {
 
     // Canonical world digest, mirroring MM_Rando_HeadlessForeignDigest's
     // shape: final seed + attempt + placement blob hash + every foreign
-    // placement. Written fresh (not appended) — this row owns its file.
-    std::string blob;
-    for (auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
-        if (randoStaticCheck.randoCheckId == RC_UNKNOWN) {
-            continue;
-        }
-        blob += std::to_string((int)randoCheckId);
-        blob += ':';
-        blob += std::to_string((int)RANDO_SAVE_CHECKS[randoCheckId].randoItemId);
-        blob += ';';
-    }
-    const uint32_t placementHash = Ship_Hash(blob);
+    // placement. Written fresh (not appended) — this row owns its file. The
+    // placement hash is the paired digests' own (ComputePairedMMWorldHashes),
+    // so the two goldens' mmPlacementHash fields cannot fold differently.
+    const uint32_t placementHash = ComputePairedMMWorldHashes().placementHash;
 
     FILE* out = stdout;
     bool closeOut = false;

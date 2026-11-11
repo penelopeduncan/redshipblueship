@@ -159,6 +159,30 @@ Key, which the shipped Start With grants), `mmStartingItems` and `mmStartInvento
 are constant too, as expected for a fixed paired start. (These values are as of the
 OoTMM-defaults re-pin below.)
 
+### What the placement hashes fold (clean save break, part 2)
+
+`placementHash`, `ootFinalPlacementHash` and `mmPlacementHash` fold
+`<check>:<item>;` for every **placed** row, in ascending check order, through the
+project's FNV-1a:
+
+* OoT (`OoT_FoldPlacedRows`, `3drando/menu.cpp`): every `RandomizerCheck` below
+  `RC_MAX` whose placed item is not `RG_NONE`. A location the world holds is never
+  `RG_NONE` (pooled locations are filled, vanilla-kept ones hold their vanilla item,
+  crossing hosts the foreign junk cover); `RG_NONE` is a location
+  `GenerateLocationPool` left out. `placedCount` and `ootFinalPlacedCount` are the
+  number of rows folded.
+* MM (`FoldShuffledMMRows`, `mm_rando_gen_test.cpp`): every check whose
+  `RANDO_SAVE_CHECKS[].shuffled` is set. That covers the fill, the single bag, the
+  excluded-check junk, the vanilla-kept dungeon items and every crossing host; an
+  unshuffled row plays vanilla and holds the static table's vanilla item.
+
+Until the clean save break they folded every check id, placed or not, so a backport
+that only added checks behind an option that is off moved every pinned world (the
+53 MM tree checks of #1125 moved `mmPlacementHash` in eight goldens). Now such a
+backport moves none of the three. A row entering or leaving the placed set still
+moves its hash. `PlacementHashPlacedRows` (redship tier, ROM-free) runs both real
+folds over synthetic tables and checks this.
+
 ### The profiles #982 added
 
 The first five goldens vary the OoT settings, the ladder rung and MM's armed
