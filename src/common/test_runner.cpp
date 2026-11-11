@@ -1228,6 +1228,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // same bring-up), and the rules-off world staying main's
 // (mm-warp-songs-rules-off-unchanged). FILE SCOPE (compiled as C++).
 #include "tests/test_warp_songs_mm.c"
+// #1169 lane XW7: those six songs PLAYED in Majora's Mask: the record, the gates,
+// the texts, the age and the vendored branches' anchors (mm-warp-song-play); the
+// MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
+// there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_mm_warp_song_play.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -5069,6 +5074,27 @@ TestResult Test_MMWarpSongsPooledOnlyWhenRuleOn(void) {
     return MM_WarpSongsPooled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1169 XW7: the creation's warp-song record over real paired creations (shuffled
+// with hints on and off, unshuffled), written at the end of OoT's side of the tail
+// from the world it created, and carried by a package. Body in
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
+// skips it.
+extern "C" int MM_WarpSongRecordWorld_RunHeadless(void);
+
+TestResult Test_OoTWarpSongRecord(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw7RecordArg0[] = "redship";
+    static char* xw7RecordArgv[] = { xw7RecordArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw7RecordArgv);
+
+    return MM_WarpSongRecordWorld_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Attempt-ladder convergence + determinism digest (ADR 0010 increment 1.2
 // lock (b)). Single-run assertions here; the two-process byte-diff runs via
 // the MMPairedAttemptDeterminism row (CMake/CheckPairedAttemptDeterminism
@@ -7955,6 +7981,34 @@ TestResult Test_MMWarpSongsOwnership(void) {
     return MMWarpSongsOwnership_Run();
 }
 
+// #1169 XW7: playing them. The same bring-up as mm-warp-songs-items: the MM rows
+// drive the ocarina path, which reads the CustomOcarina CVars, and the common row
+// round-trips a seed package's world record and the file-create invalidation.
+static TestResult Test_MMWarpSongPlayRow(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongPlay_Run();
+}
+static TestResult Test_MMWarpSongMatcher(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_WarpSongPlay_MatcherRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+static TestResult Test_MMWarpSongDeparture(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
 TestResult Test_ComboSettingsWindow(void) {
@@ -10462,6 +10516,29 @@ const TestDescriptor gTests[] = {
       "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
       "none of a shared song, place every copy and leave none owned (#1169)",
       Test_MMWarpSongsPooledOnlyWhenRuleOn },
+    // #1169 XW7: playing them. Three ROM-free rows that generate nothing; their
+    // wrappers bring up the CVar store.
+    { "mm-warp-song-play",
+      "The creation's OoT warp-song record is a 20-byte creation record appended after the watermark with a strict "
+      "validator; the pads, OoTMM's buttons, the matcher, the gates in order, the texts and OoT's frozen age "
+      "answer from it alone, and every vendored branch sits where it claims (#1169)",
+      Test_MMWarpSongPlayRow },
+    { "mm-warp-song-matcher",
+      "MM's real free-play checker matches an OoT warp song only under its frozen rule, owned, paired and in free "
+      "play, "
+      "on its last note; vanilla songs win same-note ties and the Termina wall shows no OoT song under the rules "
+      "(#1169)",
+      Test_MMWarpSongMatcher },
+    { "mm-warp-song-departure",
+      "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
+      "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
+      Test_MMWarpSongDeparture },
+    // #1169 XW7: the creation's warp-song record over real paired creations
+    // (rando tier, a generation row: on the --test all skip list).
+    { "oot-warp-song-record",
+      "A real paired creation freezes OoT's warp-song record at the end of OoT's side of the tail, from the world it "
+      "created (the real entrance table's pads, OoT's own warp prompt's areas), and a package carries it (#1169)",
+      Test_OoTWarpSongRecord },
     { "combo-crossing-views",
       "The Combo Tracker and the Cross-Game Spoiler list the crossing store's rows in both directions, named, with "
       "found state per host check from each game's save, across a game switch and a .redsave load (#755, #757)",
@@ -10952,6 +11029,8 @@ int TestRunner_Run(const char* testName) {
                 // #1169 XW5's generation row: like every row above, a real
                 // generation leaves its world alive for the rest of the process.
                 strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||
+                // #1169 XW7's generation row, for the same reason.
+                strcmp(gTests[i].name, "oot-warp-song-record") == 0 ||
                 strcmp(gTests[i].name, "mm-hint-sources-world") == 0 ||
                 // A window and soh.o2r, and a run of its own: the `ui` CTest label.
                 strcmp(gTests[i].name, "ui-snapshot") == 0) {

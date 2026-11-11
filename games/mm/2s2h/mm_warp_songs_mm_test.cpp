@@ -17,6 +17,13 @@
  * shape) with the rules off, on through the hidden-bit test seam
  * (Combo_ComboItemRules2RevealForTest, XW2's; production never calls it) and with
  * the shared rules on too.
+ *
+ * THE RECORD ROW (`oot-warp-song-record`, MM_WarpSongRecordWorld_RunHeadless,
+ * #1169 XW7): the same creations followed by OoT's side of the tail, under Shuffle
+ * Warp Songs with Warp Song Hints on and off, and unshuffled: the creation's
+ * warp-song record (gComboCtx.comboOoTWarps) is written there and only there, from
+ * the world it created (the real Entrance_Init's table, OoT's own warp prompt's
+ * areas), and a package carries it.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -42,6 +49,7 @@
 #include "combo_single_bag.h"    // src/common: the creation's commit (Combo_SingleBag_Forget)
 #include "context.h"             // src/common: gComboCtx, the frozen states
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
+#include "mm_warp_song_play.h"   // src/common: the creation's warp-song record (#1169 XW7)
 #include "warp_songs_mm.h"       // src/common: the ownership byte
 
 extern "C" {
@@ -415,6 +423,178 @@ extern "C" int MM_WarpSongsPooled_RunHeadless(void) {
         return 1;
     }
     printf("[TEST] PASS: mm-warp-songs-pooled-only-when-rule-on\n");
+    return 0;
+}
+
+// ============================================================================
+// oot-warp-song-record (rando tier, #1169 XW7)
+// ============================================================================
+
+extern "C" {
+// ForeignItemsSingleExe.cpp: OoT's side of the creation tail; the warp-song
+// record's writer runs at its end (OoT_Creation_FreezeWarpSongRecord).
+int OoT_Creation_FinishPairedHalf(int writeSpoiler);
+// WarpSongRecordOoT.cpp: the created world's own answers, read beside the record.
+int OoT_WarpSongRecord_TestTableDisagreements(void);
+int OoT_WarpSongRecord_TestHintArea(int song);
+// SeedPackageSingleExe.cpp: a package's world-record copy and its apply.
+int OoT_SeedPackage_WorldRecordRoundTripForTest(const ComboContext* live, ComboContext* outRecordBytes);
+}
+
+namespace {
+
+int sWsrFailures = 0;
+
+void WsrCheck(bool ok, const char* leg, const char* what) {
+    if (!ok) {
+        sWsrFailures++;
+        printf("[TEST] FAIL (oot-warp-song-record): %s: %s\n", leg, what);
+    }
+}
+
+bool WsrSameRecord(const ComboOoTWarpRecord& a, const ComboOoTWarpRecord& b) {
+    if (a.formatVersion != b.formatVersion || a.flags != b.flags) {
+        return false;
+    }
+    for (size_t i = 0; i < sizeof(a.destLE); i++) {
+        if (a.destLE[i] != b.destLE[i]) {
+            return false;
+        }
+    }
+    for (size_t i = 0; i < sizeof(a.area); i++) {
+        if (a.area[i] != b.area[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// settings.cpp: RSK_SHUFFLE_WARP_SONGS and RSK_WARP_SONG_HINTS (default on).
+const char* const kWsrShuffleKey = "gRandoSettings.ShuffleWarpSongs";
+const char* const kWsrHintsKey = "gRandoSettings.WarpSongText";
+
+void WsrClearKeys() {
+    CVarClear(kWsrShuffleKey);
+    CVarClear(kWsrHintsKey);
+}
+
+/** Both keys cleared and the last world forgotten however the row ends. */
+struct WsrRestore {
+    ~WsrRestore() {
+        WsrClearKeys();
+        ForgetCreatedWorld();
+    }
+};
+
+/**
+ * One leg: a real paired creation (OoT's Generate, MM's creation-time half, OoT's
+ * side of the tail, mm-warp-songs-pooled-only-when-rule-on's shape plus the tail)
+ * under Shuffle Warp Songs @p shuffled and Warp Song Hints @p hints. The record is
+ * unset until the tail, then PRESENT with the world's flags; every destination is
+ * what the real Entrance_Init installs for the pad; every area is what OoT's own
+ * warp prompt names (none without hints); and a package carries all 20 bytes back.
+ */
+void WsrRunLeg(const char* leg, const char* seed, bool shuffled, bool hints) {
+    ForgetCreatedWorld();
+    ComboContext_Init();
+    WsrClearKeys();
+    if (shuffled) {
+        CVarSetInteger(kWsrShuffleKey, 1);
+    }
+    CVarSetInteger(kWsrHintsKey, hints ? 1 : 0);
+    int rc = Rando_HeadlessSeedTest(seed);
+    if (rc != 0 || !Combo_ForeignPairingActive() || !OoT_ComboLogic_GeneralPassDeferred()) {
+        WsrCheck(false, leg, "the paired OoT generation did not leave a paired world at its general pass");
+        return;
+    }
+    rc = MM_Rando_HeadlessPairedHalf();
+    if (rc != 0) {
+        WsrCheck(false, leg, "MM's creation-time half did not produce a rando world");
+        return;
+    }
+    const int beforeTail = Combo_OoTWarpRecord_Status();
+    const int crossings = OoT_Creation_FinishPairedHalf(0);
+    if (crossings < 0) {
+        WsrCheck(false, leg, "OoT's side of the creation tail failed");
+        return;
+    }
+    const int status = Combo_OoTWarpRecord_Status();
+    const unsigned flags = (unsigned)Combo_OoTWarpRecord_Flags();
+    const unsigned wantFlags =
+        (shuffled ? RSBS_OOT_WARP_REC_SHUFFLED : 0u) | (shuffled && hints ? RSBS_OOT_WARP_REC_HINTS : 0u);
+    int moved = 0;
+    int areaMismatches = 0;
+    int named = 0;
+    for (int i = 0; i < RSBS_MMWP_SONG_COUNT; i++) {
+        moved += Combo_OoTWarpRecord_Dest(i) != Combo_MMWarpPlay_PadEntrance(i) ? 1 : 0;
+        const int area = (int)Combo_OoTWarpRecord_Area(i);
+        const int want = (shuffled && hints) ? OoT_WarpSongRecord_TestHintArea(i) : 0;
+        areaMismatches += area != want ? 1 : 0;
+        named += area != 0 ? 1 : 0;
+    }
+    const int disagreements = OoT_WarpSongRecord_TestTableDisagreements();
+    printf("[TEST] oot-warp-song-record: %s: crossings %d, status before the tail %d, after %d, flags %u (want %u), "
+           "pads moved %d, table disagreements %d, areas named %d, area mismatches %d\n",
+           leg, crossings, beforeTail, status, flags, wantFlags, moved, disagreements, named, areaMismatches);
+    WsrCheck(beforeTail == COMBO_OOT_WARP_REC_UNSET, leg,
+             "a record existed before OoT's side of the tail: something other than its writer wrote it");
+    WsrCheck(status == COMBO_OOT_WARP_REC_PRESENT, leg, "the creation did not freeze a PRESENT warp-song record");
+    WsrCheck(flags == wantFlags, leg, "the record's flags are not the world's Shuffle Warp Songs / Warp Song Hints");
+    WsrCheck(disagreements == 0, leg,
+             "a recorded destination is not what Entrance_Init installs for its pad (the writer ran before "
+             "the overrides, or read another table)");
+    WsrCheck(shuffled ? moved > 0 : moved == 0, leg,
+             shuffled ? "no pad moved under Shuffle Warp Songs, so the table check proves nothing"
+                      : "an unshuffled world recorded a destination other than a pad");
+    WsrCheck(areaMismatches == 0, leg,
+             "a recorded area is not what OoT's own warp prompt names (the writer ran before the warp-song texts)");
+    WsrCheck((shuffled && hints) ? named > 0 : named == 0, leg,
+             (shuffled && hints) ? "no area was recorded with Warp Song Hints on, so the area check proves nothing"
+                                 : "an area was recorded with Warp Song Hints off");
+    // The operator's ruling on A1, from this real world's frozen record: hints on
+    // names the frozen area, shuffled with hints off says OoT's "a mysterious
+    // place", unshuffled says OoTMM's fixed text.
+    char prompt[128];
+    const int form = Combo_MMWarpPlay_PromptText(0, prompt, sizeof(prompt));
+    int wantForm = (int)COMBO_MMWP_PROMPT_FIXED;
+    if (shuffled) {
+        wantForm = hints ? (int)COMBO_MMWP_PROMPT_HINT : (int)COMBO_MMWP_PROMPT_MYSTERIOUS;
+    }
+    printf("[TEST] oot-warp-song-record: %s: Minuet's MM prompt form %d (want %d)\n", leg, form, wantForm);
+    WsrCheck(form == wantForm, leg,
+             "MM's warp prompt for this world is not the ruled form (the frozen area with hints on, OoT's \"a "
+             "mysterious place\" shuffled with hints off, OoTMM's fixed text unshuffled)");
+
+    // A package carries the record: the copy holds all 20 bytes, and the apply
+    // puts them back into a context that lost them.
+    const ComboOoTWarpRecord created = gComboCtx.comboOoTWarps;
+    std::unique_ptr<ComboContext> live = std::make_unique<ComboContext>();
+    std::memcpy(live.get(), &gComboCtx, sizeof(ComboContext));
+    std::unique_ptr<ComboContext> carried = std::make_unique<ComboContext>();
+    std::memset(carried.get(), 0, sizeof(ComboContext));
+    Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+    const int roundTrip = OoT_SeedPackage_WorldRecordRoundTripForTest(live.get(), carried.get());
+    WsrCheck(roundTrip == 1 && WsrSameRecord(carried->comboOoTWarps, created), leg,
+             "the package's world record does not carry the warp-song record");
+    WsrCheck(WsrSameRecord(gComboCtx.comboOoTWarps, created), leg,
+             "applying the package did not put the warp-song record back");
+}
+
+} // namespace
+
+extern "C" int MM_WarpSongRecordWorld_RunHeadless(void) {
+    printf("[TEST] oot-warp-song-record: a real paired creation freezes OoT's warp-song record at the end of OoT's "
+           "side of the tail, from the world it created, and a package carries it (#1169 XW7)\n");
+    sWsrFailures = 0;
+    WsrRestore restore;
+    WsrRunLeg("shuffled, hints on", "RSBSXW7RECORD1", true, true);
+    WsrRunLeg("shuffled, hints off", "RSBSXW7RECORD2", true, false);
+    WsrRunLeg("unshuffled", "RSBSXW7RECORD0", false, false);
+    if (sWsrFailures != 0) {
+        printf("[TEST] FAIL: oot-warp-song-record: %d contract(s) broken\n", sWsrFailures);
+        return 1;
+    }
+    printf("[TEST] PASS: oot-warp-song-record\n");
     return 0;
 }
 

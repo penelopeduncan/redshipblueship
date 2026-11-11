@@ -171,10 +171,10 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * amendment of the same date). A lane that adds saved state follows it without
  * asking; anything it does not cover is a save format generation.
  *
- *   1. ComboContext. APPEND after the last member (today saveWatermark, below).
+ *   1. ComboContext. APPEND after the last member (today comboOoTWarps, below).
  *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Move
  *      the LAST-MEMBER assert below (`sizeof(ComboContext) == offsetof(ComboContext,
- *      <last>) + sizeof(<it>)`, today written against saveWatermark) to the new
+ *      <last>) + sizeof(<it>)`, today written against comboOoTWarps) to the new
  *      member, and tie the new member to the one before it by a contiguity assert
  *      (mind its alignment: say where any padding falls); the members before it
  *      keep theirs. Update RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h)
@@ -916,6 +916,53 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboWothRecord, oot) == 0 && offsetof(ComboWoth
                        "ComboWothRecord member offsets are .redsave format and must not move");
 
 /**
+ * THE PAIR'S OoT WARP SONGS, as Majora's Mask plays them (#1169 lane XW7; ADR
+ * 0009 claim 22). For each of Ocarina of Time's six warp songs, in OoTMM's order
+ * (Minuet, Bolero, Serenade, Requiem, Nocturne, Prelude), the entrance its pad
+ * leads to in this world (what Entrance_GetOverride(pad) answers once OoT's
+ * Entrance_Init ran for this world; a grotto pseudo index 0x0700.. included) and
+ * the area MM's warp prompt names when OoT's Warp Song Hints are on, plus the
+ * world's Shuffle Warp Songs and Warp Song Hints flags.
+ *
+ * WHY IT IS STORED. MM's warp prompt and OoT's warp arrival must say what the
+ * file froze at creation (one-game semantics), and the only live source of those
+ * answers is OoT's Rando::Context heap, which an MM session may never have
+ * loaded. So the creation event writes the answers here, once
+ * (WarpSongRecordOoT.cpp, OoT_Creation_FreezeWarpSongRecord), and nothing reads
+ * OoT's heap for them. A creation record (ComboCreationRecords, foreign_items.h):
+ * rolled back, retracted, KEPT and copied by the seed package's world record with
+ * the others; never written by an arrival or a load; not folded into any digest
+ * or fingerprint (it is a function of OoT's seed and settings, which the stamp
+ * already pins).
+ *
+ * ZERO MEANS UNSET (formatVersion 0): every save-format-6 file written before
+ * layout revision 2 (save.h), whose shorter record zero-extends here, and every
+ * seed package whose combo record ends before this member. MM refuses every warp
+ * song of such a file (mm_warp_song_play.h, NOT_RECORDED), which costs nothing: a
+ * song can only play under a frozen rule Generate refuses until lane XW12. An
+ * unset record carries no flags, so it never reads as "shuffled" or "unshuffled":
+ * the prompt text is never chosen for it. Bytes only, no alignment (alignment 1):
+ * destinations are u16 little-endian.
+ */
+#define RSBS_OOT_WARP_REC_VERSION 1u
+#define RSBS_OOT_WARP_REC_SHUFFLED 0x01u /* RSK_SHUFFLE_WARP_SONGS on */
+#define RSBS_OOT_WARP_REC_HINTS 0x02u    /* RSK_WARP_SONG_HINTS on (only with SHUFFLED) */
+#define RSBS_OOT_WARP_REC_SONGS 6u
+typedef struct {
+    uint8_t formatVersion;                        /* 0 = UNSET (every file before XW7), 1 = v1 */
+    uint8_t flags;                                /* SHUFFLED | HINTS; bits 2-7 zero */
+    uint8_t destLE[RSBS_OOT_WARP_REC_SONGS * 2u]; /* u16 little-endian per song: the pad's resolved OoT entrance */
+    uint8_t area[RSBS_OOT_WARP_REC_SONGS];        /* COMBO_AREA_OOT_* the prompt names; 0 unless HINTS */
+} ComboOoTWarpRecord;
+
+RSBS_CTX_STATIC_ASSERT(sizeof(ComboOoTWarpRecord) == 20,
+                       "ComboOoTWarpRecord is serialized raw inside the .redsave Tier-1 record; its layout is format "
+                       "(#1169 XW7)");
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboOoTWarpRecord, flags) == 1 && offsetof(ComboOoTWarpRecord, destLE) == 2 &&
+                           offsetof(ComboOoTWarpRecord, area) == 14,
+                       "ComboOoTWarpRecord member offsets are .redsave format and must not move");
+
+/**
  * THE SECOND CROSS-GAME RULES WORD (#1169 lane XW2; ADR 0011's 2026-11-04
  * amendment is its format note, ADR 0009's claim 19 its byte spend): a second
  * full 32-bit bitset of frozen item rules, RSBS_XITEM2_* in foreign_items.h,
@@ -1408,7 +1455,8 @@ typedef struct {
     // never carved again, and every new field is appended after the last member
     // (context.h's growth rule 1). A seed package's combo record is written at
     // the fixed RSBS_COMBO_CONTEXT_RECORD_SIZE, so an append no longer refuses
-    // older packages.
+    // older packages. #1169 XW7's comboOoTWarps (ADR 0009 claim 22) is the first
+    // such append, after the save watermark, and this array is untouched by it.
     uint8_t reserved[64];
 
     // #1169 lane XW5 (ADR 0009 claim 21): which of Ocarina of Time's six warp
@@ -1501,9 +1549,26 @@ typedef struct {
     // skip journal; its u32 aligns it to 4, so 2 bytes of padding sit between the
     // journal's last entry and it (the journal ends 2 bytes past a multiple of 4).
     // Not a world field (WorldRecordBytes copies named world fields only), not in
-    // the invalidation KEEP set, not folded into comboSettingsHash. THE LAST
-    // MEMBER: the next field is appended after it (growth rule 1).
+    // the invalidation KEEP set, not folded into comboSettingsHash. The last
+    // member of save format 6 as P0 landed it (layout revision 1); #1169 XW7's
+    // record below is appended after it (growth rule 1).
     ComboSaveWatermark saveWatermark;
+
+    // #1169 lane XW7 (ADR 0009 claim 22): the pair's OoT warp songs as MM plays
+    // them, per song the entrance its pad leads to, the area MM's warp prompt
+    // names and the world's Shuffle Warp Songs / Warp Song Hints flags
+    // (ComboOoTWarpRecord above). A CREATION record: written once at Generate by
+    // OoT_Creation_FreezeWarpSongRecord, in ComboCreationRecords (rollback,
+    // retract, restore), in the invalidation KEEP set, and in a seed package's
+    // world record. Not folded into comboSettingsHash. APPENDED after the save
+    // watermark (growth rule 1; RSBS_SAVE_LAYOUT_REVISION 2), at offset 2696:
+    // the watermark ends on a multiple of 4 and this record has alignment 1, so no
+    // padding precedes it, and its 20 bytes end on a multiple of 4 (2716), so none
+    // follows it either. Inside RSBS_COMBO_CONTEXT_RECORD_SIZE, so neither the
+    // record size nor RSBS_SAVE_VERSION moves: a format-6 .redsave written before
+    // it, and a format-2 seed package, zero-extend to UNSET. THE LAST MEMBER: the
+    // next field is appended after it.
+    ComboOoTWarpRecord comboOoTWarps;
 } ComboContext;
 
 /**
@@ -1785,21 +1850,31 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, trackerSkipJournalCountOoT) ==
                        "the OoT skip journal follows the MM capture directly (#1294); if this fires, a field ahead "
                        "of it moved");
 // Save format 6's watermark: after the journal, at the next multiple of 4 (its
-// u32), and the last member, so sizeof is its end (already a multiple of the
-// struct's 4-byte alignment).
+// u32). It was the last member until #1169 XW7's append below, which took the
+// last-member term over (growth rule 1).
 RSBS_CTX_STATIC_ASSERT(sizeof(ComboSaveWatermark) == 20u &&
                            offsetof(ComboContext, saveWatermark) ==
                                ((offsetof(ComboContext, trackerSkipJournalOoT) +
                                  RSBS_TRACKER_SKIP_JOURNAL_OOT_CAP * sizeof(uint16_t) + 3u) &
-                                ~(size_t)3u) &&
-                           sizeof(ComboContext) == offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark),
-                       "the save watermark (save format 6) is 4-aligned after the skip journal and, until a later "
-                       "append, ComboContext's last member: an append moves this last-member term to the new member "
-                       "and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF (growth rule 1)");
+                                ~(size_t)3u),
+                       "the save watermark (save format 6) is 4-aligned after the skip journal; if this fires, a "
+                       "field ahead of it moved");
+// #1169 XW7's append (layout revision 2): directly after the watermark, with no
+// padding between (the watermark ends on a multiple of 4; the record is bytes
+// only, alignment 1), and THE LAST MEMBER, so sizeof is its end: 2696 + 20 = 2716,
+// already a multiple of the struct's 4-byte alignment, so no tail padding.
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, comboOoTWarps) ==
+                               offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark) &&
+                           sizeof(ComboContext) == offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord),
+                       "comboOoTWarps (#1169 XW7, ADR 0009 claim 22) is appended directly after the save watermark "
+                       "and is ComboContext's last member: the next append moves this last-member term to the new "
+                       "member, raises RSBS_SAVE_LAYOUT_REVISION and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF "
+                       "(growth rule 1)");
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_TRACKER_AVAIL_MM, offsetof(ComboContext, trackerAvailMM));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT, offsetof(ComboContext, trackerSkipJournalCountOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL, offsetof(ComboContext, trackerSkipJournalOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SAVE_WATERMARK, offsetof(ComboContext, saveWatermark));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_OOT_WARPS, offsetof(ComboContext, comboOoTWarps));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext));
 RSBS_CTX_STATIC_ASSERT(RSBS_TRACKER_AVAIL_OOT_CAP % 64u == 0 && RSBS_TRACKER_AVAIL_MM_CAP % 64u == 0 &&
                            RSBS_TRACKER_AVAIL_OOT_CAP <= 0xFFFFu && RSBS_TRACKER_AVAIL_MM_CAP <= 0xFFFFu,

@@ -120,7 +120,10 @@
 // another build"): an older build cannot know what the newer one put there. New
 // enum ids need no bump; the watermark stamps the enums' _MAX values itself.
 //   1  save format 6 as P0 landed it (#1510/#1512/#1513/#1514's clean break).
-#define RSBS_SAVE_LAYOUT_REVISION 1u
+//   2  #1169 XW7 appends ComboContext.comboOoTWarps (ComboOoTWarpRecord, 20
+//      bytes) after the watermark (ADR 0009 claim 22); a revision-1 record
+//      zero-extends to UNSET there.
+#define RSBS_SAVE_LAYOUT_REVISION 2u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

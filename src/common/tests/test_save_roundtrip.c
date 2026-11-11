@@ -756,9 +756,40 @@ TestResult Test_SaveComboLegacyRecord(void) {
     SAVE_ASSERT(offsetof(ComboContext, comboSettings) == kComboSettingsOffset,
                 "comboSettings moved off .redsave byte offset 884");
 
+    // #1169 XW7 (layout revision 2): a save-format-6 record written before the
+    // warp-song record was appended after the watermark is a version-6 file whose
+    // Tier-1 stops at offsetof(ComboContext, comboOoTWarps) (format 6's own
+    // converted legacy rows craft a short v6 record the same way; a version-2
+    // file is refused at the header now). It loads with the record UNSET,
+    // whatever the live context held: the scribble below survives only a loader
+    // that stops copying at the file's Tier-1 length, and the watermark just
+    // ahead of it still lands (the prefix is read field for field).
+    SaveTestSeed(tag);
+    gComboCtx.saveWatermark.layoutRevision = 1u; // what a revision-1 build stamped
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_MIN,
+                                         (uint32_t)offsetof(ComboContext, comboOoTWarps)),
+                "could not write the short v6 slot file that ends before the warp-song record");
+    std::memset(&gComboCtx.comboOoTWarps, 0x5A, sizeof(gComboCtx.comboOoTWarps));
+    gComboCtx.saveWatermark.layoutRevision = 0u;
+    SAVE_ASSERT(mgr.Load(0), "Load refused a v6 Tier-1 record written before the warp-song record");
+    {
+        const uint8_t* warps = reinterpret_cast<const uint8_t*>(&gComboCtx.comboOoTWarps);
+        bool unset = true;
+        for (size_t i = 0; i < sizeof(gComboCtx.comboOoTWarps); i++) {
+            unset = unset && warps[i] == 0;
+        }
+        SAVE_ASSERT(unset, "a v6 Tier-1 record written before the warp-song record did not load it as UNSET (all "
+                           "zero)");
+    }
+    SAVE_ASSERT(gComboCtx.sharedRandoSeed == (tag ^ 0xA5A5A5A5u), "the short v6 record's prefix did not load");
+    SAVE_ASSERT(gComboCtx.saveWatermark.layoutRevision == 1u,
+                "the watermark just ahead of the warp-song record did not load from the short v6 record");
+
     mgr.DeleteSave(0);
     printf("[TEST] PASS: pre-headroom Tier-1 loads, added fields read as zero, "
-           "and bytes 672/676/736/824/880/884 still land in their carves\n");
+           "bytes 672/676/736/824/880/884 still land in their carves, and a v6 record that ends before the "
+           "warp-song record loads it UNSET\n");
     return TEST_PASS;
 }
 

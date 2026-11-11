@@ -70,6 +70,7 @@
 #include "pairing_refusal_toast.h"
 #include "2s2h/BenGui/Notification.h"
 #include "entrance.h"
+#include "mm_warp_song_play.h" // #1169 XW7: Combo_MMWarpPlay_ResetLatches at every MM file load
 #include "warp_song_soaring.h" // #1169 XW6: the owl table and the owl-flag layout
 #include <ship/resource/ResourceManager.h>
 #include <ship/resource/ResourceLoader.h>
@@ -4708,6 +4709,10 @@ extern "C" void GameInteractor_ExecuteOnSaveInit(s16 fileNum) {
 }
 
 extern "C" void GameInteractor_ExecuteOnSaveLoad(s16 fileNum) {
+    // #1169 XW7: an MM file load drops a warp song's pending prompt and departure
+    // latches (RAM only), so nothing a previous file's ocarina session left can
+    // reach this file's Player or En_Test7. A plain call, not a hook: no registrar.
+    Combo_MMWarpPlay_ResetLatches();
     S2H::GameHooks::Execute<GameInteractor::OnSaveLoad>(fileNum);
 }
 
