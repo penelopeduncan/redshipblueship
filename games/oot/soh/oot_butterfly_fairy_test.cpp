@@ -22,8 +22,12 @@
  *     folded line. No butterfly check is a location.
  *  N  THE OPTION ON, THE PAIRED-ON LEG. The same generation with the key on (every
  *     generation in this build is a paired creation): every one of those lines
- *     folds and none is left out, the settings fingerprint differs from F's, all
- *     20 butterfly checks are locations, and the paired fill gives each an item.
+ *     folds and none is left out, the settings fingerprint differs from F's, and
+ *     all 20 butterfly checks are locations. The headless generation stops at OoT's
+ *     general pass, before any general host is filled, so the leg then finishes the
+ *     pair the way a creation does (MM's half, whose chain runs the single-bag fill,
+ *     then OoT's crossings and remainder): the bag proves the goal with the 20
+ *     checks in the world, and each of them holds an item.
  *     With RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN set (randomizerTypes.h; the
  *     orchestrator's call if this leg fails) D expects the option greyed out and N
  *     expects F's world exactly.
@@ -87,6 +91,7 @@
 
 #include "context.h" // src/common: gComboCtx, Context_GetCurrentGame, Context_SetCurrentGame
 #include "game.h"
+#include "combo_single_bag.h" // src/common: the single bag's report and commit
 
 // At file scope, not inside an extern "C" block (see oot_shared_kokiri_sword_test.cpp).
 #include <z64.h>
@@ -101,6 +106,12 @@ void EnButte_TransformIntoFairy(EnButte* thisx, PlayState* play);
 
 // 3drando/menu.cpp: the headless generation bridge every rando row uses.
 extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
+// The rest of a paired creation, for leg N: is OoT's fill waiting at its general
+// pass (ComboLogicEngineOoT.cpp), MM's half over that world (mm_rando_gen_test.cpp),
+// and OoT's crossings and remainder (ForeignItemsSingleExe.cpp).
+extern "C" int OoT_ComboLogic_GeneralPassDeferred(void);
+extern "C" int MM_Rando_HeadlessPairedHalf(void);
+extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler);
 // 3drando/playthrough.cpp: what the last settings fold folded, in total and of
 // Shuffle Butterfly Fairies' lines.
 extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* outExcludeLines, int groupCap);
@@ -261,7 +272,6 @@ struct FoldRecord {
     uint8_t option;
     size_t locations;
     size_t butterflyLocations;
-    size_t butterflyPlaced;
 };
 
 FoldRecord BfGenerate(const char* leg) {
@@ -278,9 +288,6 @@ FoldRecord BfGenerate(const char* leg) {
         for (RandomizerCheck check : world->allLocations) {
             if (Rando::StaticData::GetLocation(check)->GetRCType() == RCTYPE_BUTTERFLY_FAIRY) {
                 r.butterflyLocations++;
-                if (world->GetItemLocation(check)->GetPlacedRandomizerGet() != RG_NONE) {
-                    r.butterflyPlaced++;
-                }
             }
         }
     }
@@ -291,7 +298,52 @@ FoldRecord BfGenerate(const char* leg) {
     return r;
 }
 
+/**
+ * Finish the paired world the last BfGenerate left at OoT's general pass, the way
+ * a creation does (mm-placement-confined-world's sequence, plus OoT's tail): MM's
+ * half, whose OnSaveInit chain runs the single-bag fill over both games' hosts,
+ * then OoT's crossings and its remainder. Rando_HeadlessSeedTest alone fills no
+ * general host, so a count taken there reads every butterfly check as empty.
+ * @return the butterfly checks that hold an item in the finished world, or -1 when
+ *         the pair could not be finished (the failure is recorded here).
+ */
+int BfFinishPairAndCountPlaced() {
+    if (!OoT_ComboLogic_GeneralPassDeferred()) {
+        BfFail("N: the generation did not stop at OoT's general pass, so it left no paired world to finish");
+        return -1;
+    }
+    const int mmHalf = MM_Rando_HeadlessPairedHalf();
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    const bool proven = mmHalf == 0 && bag->status == RSBS_COMBO_LOGIC_OK && bag->fill.goalProven;
+    // OoT's tail only over a world the bag decided; the commit either way, so no
+    // record of this fill is left for a later one to roll back.
+    const int crossings = proven ? OoT_Creation_FinishPairedHalf(0) : -1;
+    Combo_SingleBag_Forget();
+    printf("[TEST] N: the pair: MM half rc %d, bag %s, goal proven %d, crossings %d\n", mmHalf,
+           Combo_Logic_StatusName(bag->status), bag->fill.goalProven ? 1 : 0, crossings);
+    if (!proven) {
+        BfFail("N: with the option on the paired fill did not prove the goal (MM half rc %d, bag %s)", mmHalf,
+               Combo_Logic_StatusName(bag->status));
+        return -1;
+    }
+    if (crossings < 0) {
+        BfFail("N: OoT's crossings and remainder after the paired fill failed");
+        return -1;
+    }
+    int placed = 0;
+    auto world = Rando::Context::GetInstance();
+    for (RandomizerCheck check : world->allLocations) {
+        if (Rando::StaticData::GetLocation(check)->GetRCType() == RCTYPE_BUTTERFLY_FAIRY &&
+            world->GetItemLocation(check)->GetPlacedRandomizerGet() != RG_NONE) {
+            placed++;
+        }
+    }
+    return placed;
+}
+
 void CheckFold() {
+    // The combo record every row that finishes a paired world starts from (leg N).
+    ComboContext_Init();
     BfSavedKey shuffle;
     shuffle.Save(kShuffleKey);
 
@@ -337,13 +389,15 @@ void CheckFold() {
              "N: %zu of the %d butterfly checks are locations with the option on", n.butterflyLocations,
              kButterflyChecks);
     // THE PAIRED-ON LEG (clean-break design section 6): every generation here is a
-    // paired creation, so this is the paired fill with the option on. Each butterfly
-    // check must come out of it holding an item; if this leg fails at the gate the
-    // option is pinned off in paired worlds (RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN,
-    // randomizerTypes.h) instead of shipping half-working.
-    BF_CHECK(n.butterflyPlaced == (size_t)kButterflyChecks,
-             "N: the paired fill left %zu of the %d butterfly checks without an item",
-             (size_t)kButterflyChecks - n.butterflyPlaced, kButterflyChecks);
+    // paired creation, so finishing it is the paired fill with the option on. The bag
+    // must prove the goal with the 20 checks in the world and each must come out
+    // holding an item; if this leg fails at the gate the option is pinned off in
+    // paired worlds (RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN, randomizerTypes.h)
+    // instead of shipping half-working.
+    const int placed = BfFinishPairAndCountPlaced();
+    BF_CHECK(placed < 0 || placed == kButterflyChecks,
+             "N: the paired fill left %d of the %d butterfly checks without an item", kButterflyChecks - placed,
+             kButterflyChecks);
 #endif
 }
 
