@@ -3697,7 +3697,9 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # OoTButterflyFairyShuffle: two real generations; with the option off (its
     # default) the settings fold reads none of the lines it added and no butterfly
     # check is a location, so default worlds keep their fingerprint; on, every
-    # line folds and all 20 checks are locations. OoTButterflyFairyHooks: with it
+    # line folds, all 20 checks are locations and the paired fill gives each an
+    # item (the paired-on leg N; RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN pins the
+    # option off if it fails). OoTButterflyFairyHooks: with it
     # and Easy Butterfly Fairies off no butterfly hook is registered and both
     # dispatches keep the vanilla answer; on, each arms once and does its job, and
     # each butterfly location resolves to its own check through ACTOR_EN_BUTTE.
