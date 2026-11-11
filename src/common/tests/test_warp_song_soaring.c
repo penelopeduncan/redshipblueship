@@ -348,7 +348,10 @@ TestResult Test_OoTSoaringGates(void) {
 // oot-soaring-matcher
 // ============================================================================
 
-TestResult Test_OoTSoaringMatcher(void) {
+// The row's body. The checker reads a CVar on every note (func_800ED200,
+// CustomOcarina.Enabled), so the runner brings up the display-free shared context
+// first (Test_OoTSoaringMatcher, test_runner.cpp), as the XW5 rows do.
+static TestResult OoTSoaringMatcher_Run(void) {
     printf("[TEST] oot-soaring-matcher: OoT's real free-play checker matches the Song of Soaring only behind every "
            "gate and never instead of a vanilla song (#1169 XW6)\n");
     sXw6Failures = 0;

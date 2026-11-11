@@ -7779,6 +7779,24 @@ TestResult Test_ComboItemRulesSecondWord(void) {
     return ComboItemRulesSecondWord_Run();
 }
 
+// #1169 XW6: OoT's free-play checker reads a CVar on every note (func_800ED200),
+// so oot-soaring-matcher needs the same bring-up; without it the row crashed on
+// every compiler.
+TestResult Test_OoTSoaringMatcher(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure
+");
+        return TEST_FAIL;
+    }
+    return OoTSoaringMatcher_Run();
+}
+
 // #1169 XW5: the MM warp songs' pool reads the CVar store (GeneratePools) and a
 // .redsave load compares the warp-song keys, the same bring-up as
 // combo-item-rules-second-word.
