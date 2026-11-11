@@ -14,6 +14,16 @@
 #include "soh/OTRGlobals.h"
 #include "soh/SaveManager.h"
 #include "soh/ResourceManagerHelpers.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW6: OoT's Song of Soaring (src/common/warp_song_soaring.h; the gates,
+// the owl chooser and the departure are soh/Enhancements/randomizer/
+// SongOfSoaringOoT.cpp). The song's staff state, RSBS_OOT_SONG_SOARING, is above
+// every vanilla one, so each branch below that would index a song table with it
+// takes the Soaring arm instead.
+#include "warp_song_soaring.h"
+void OoT_SoaringOoT_StartPlayback(void);
+void OoT_SoaringOoT_OnSongPlayed(PlayState* play);
+#endif
 
 // SOH [Enhancement] Text Speed which fills whole box in one frame
 #define TEXT_SPEED_INSTANT 6
@@ -3459,6 +3469,35 @@ void OoT_Message_DrawMain(PlayState* play, Gfx** p) {
                     }
                 }
                 msgCtx->lastPlayedSong = msgCtx->ocarinaStaff->state;
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1169 XW6 (E1): the Song of Soaring. Free play takes OoTMM's
+                // free-play arm (Ocarina_BeforeSongPlayingProcessed): the
+                // song-played box, as for a vanilla song. Any other action fails
+                // the ocarina, which is what the state becomes a frame later
+                // anyway (Audio_OcaGetPlayingStaff). OoT_sLastPlayedSong is left
+                // alone, so TEXT_CLOSING's Saria branch never sees a stale song.
+                if (msgCtx->ocarinaStaff->state == RSBS_OOT_SONG_SOARING) {
+                    if (Combo_SoaringOnPlayed(msgCtx->ocarinaAction == OCARINA_ACTION_FREE_PLAY) ==
+                        COMBO_SOARING_PLAYED_ACCEPT) {
+                        msgCtx->unk_E3F2 = RSBS_OOT_SONG_SOARING;
+                        OoT_Message_ContinueTextbox(play, 0x86F); // Ocarina
+                        msgCtx->msgMode = MSGMODE_SONG_PLAYED;
+                        msgCtx->textBoxType = TEXTBOX_TYPE_OCARINA;
+                        msgCtx->stateTimer = 10;
+                        Audio_PlaySoundGeneral(NA_SE_SY_TRE_BOX_APPEAR, &OoT_gSfxDefaultPos, 4,
+                                               &OoT_gSfxDefaultFreqAndVolScale, &OoT_gSfxDefaultFreqAndVolScale,
+                                               &OoT_gSfxDefaultReverb);
+                        Interface_ChangeAlpha(1);
+                    } else {
+                        Audio_OcaSetInstrument(0);
+                        Audio_PlaySoundGeneral(NA_SE_SY_OCARINA_ERROR, &OoT_gSfxDefaultPos, 4,
+                                               &OoT_gSfxDefaultFreqAndVolScale, &OoT_gSfxDefaultFreqAndVolScale,
+                                               &OoT_gSfxDefaultReverb);
+                        msgCtx->stateTimer = 10;
+                        msgCtx->msgMode = MSGMODE_OCARINA_FAIL;
+                    }
+                } else
+#endif
                 if (msgCtx->ocarinaStaff->state < OCARINA_SONG_MEMORY_GAME) {
                     if (msgCtx->ocarinaStaff->state == OCARINA_SONG_SCARECROW ||
                         CHECK_QUEST_ITEM(QUEST_SONG_MINUET + OoT_gOcarinaSongItemMap[msgCtx->ocarinaStaff->state])) {
@@ -3685,15 +3724,35 @@ void OoT_Message_DrawMain(PlayState* play, Gfx** p) {
                     }
                     Audio_OcaSetInstrument(1);
                     Audio_OcaSetInstrument(1);
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    // #1169 XW6 (E2): the Song of Soaring's notes, without an
+                    // index into sOcarinaSongs.
+                    if (msgCtx->lastPlayedSong == RSBS_OOT_SONG_SOARING) {
+                        OoT_SoaringOoT_StartPlayback();
+                    } else {
+                        Audio_OcaSetSongPlayback(msgCtx->lastPlayedSong + 1, 1);
+                    }
+#else
                     Audio_OcaSetSongPlayback(msgCtx->lastPlayedSong + 1, 1);
+#endif
                 } else {
                     Audio_OcaSetInstrument(1);
                     Audio_OcaSetInstrument(1);
                 }
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1169 XW6 (E2): no fanfare for the Song of Soaring (MM's is not
+                // ported; OoTMM plays it), and no index into sOcarinaSongFanfares.
+                if (msgCtx->lastPlayedSong != OCARINA_SONG_SCARECROW &&
+                    msgCtx->lastPlayedSong != RSBS_OOT_SONG_SOARING) {
+                    OoT_Audio_PlayFanfare(sOcarinaSongFanfares[msgCtx->lastPlayedSong]);
+                    Audio_SetSoundBanksMute(0x20);
+                }
+#else
                 if (msgCtx->lastPlayedSong != OCARINA_SONG_SCARECROW) {
                     OoT_Audio_PlayFanfare(sOcarinaSongFanfares[msgCtx->lastPlayedSong]);
                     Audio_SetSoundBanksMute(0x20);
                 }
+#endif
                 play->msgCtx.ocarinaMode = OCARINA_MODE_01;
                 if (msgCtx->ocarinaAction == OCARINA_ACTION_FREE_PLAY) {
                     msgCtx->ocarinaAction = OCARINA_ACTION_FREE_PLAY_DONE;
@@ -3733,7 +3792,17 @@ void OoT_Message_DrawMain(PlayState* play, Gfx** p) {
                 }
                 break;
             case MSGMODE_DISPLAY_SONG_PLAYED_TEXT_BEGIN:
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1169 XW6 (E3): "You played the Song of Soaring." (OoTMM
+                // Ocarina_DisplaySongPlayedTextbox), not 0x893 + the state.
+                if (msgCtx->lastPlayedSong == RSBS_OOT_SONG_SOARING) {
+                    OoT_Message_ContinueTextbox(play, RSBS_OOT_TEXT_SOARING_PLAYED);
+                } else {
+                    OoT_Message_ContinueTextbox(play, msgCtx->lastPlayedSong + 0x893); // You played [song name]
+                }
+#else
                 OoT_Message_ContinueTextbox(play, msgCtx->lastPlayedSong + 0x893); // You played [song name]
+#endif
                 OoT_Message_Decode(play);
                 msgCtx->msgMode = MSGMODE_DISPLAY_SONG_PLAYED_TEXT;
 
@@ -3777,6 +3846,15 @@ void OoT_Message_DrawMain(PlayState* play, Gfx** p) {
             case MSGMODE_SONG_PLAYED_ACT:
                 msgCtx->stateTimer--;
                 if (msgCtx->stateTimer == 0) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    // #1169 XW6 (E4): the Song of Soaring's gates and its owl
+                    // chooser. Every refusal ends in OCARINA_MODE_04, as the warp
+                    // refusal below does; no path sets OCARINA_MODE_02, so
+                    // Player never indexes sWarpSongEntrances with the state.
+                    if (msgCtx->lastPlayedSong == RSBS_OOT_SONG_SOARING) {
+                        OoT_SoaringOoT_OnSongPlayed(play);
+                    } else
+#endif
                     if (msgCtx->lastPlayedSong < OCARINA_SONG_SARIAS &&
                         (msgCtx->ocarinaAction < OCARINA_ACTION_PLAYBACK_MINUET ||
                          msgCtx->ocarinaAction >= OCARINA_ACTION_PLAYBACK_SARIA)) {

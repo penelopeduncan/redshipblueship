@@ -1263,6 +1263,16 @@ bool ForeignOutboxFullFor(RandoCheckId randoCheckId) {
     return !Combo_SharedItemCrossingHasRoom();
 }
 
+std::string TestFoldOptionsString(const uint32_t* values) {
+    return MMOptionsString(values);
+}
+
+std::string TestFoldIdentityString(const uint32_t* values) {
+    std::vector<uint8_t> tricks(MMRT_MAX, 0);
+    std::vector<uint8_t> excluded(kExcludedChecksBytes, 0);
+    return ProfileIdentityString(values, tricks.data(), 0, 0, excluded.data(), 0);
+}
+
 } // namespace Foreign
 } // namespace Rando
 
