@@ -85,15 +85,18 @@ static_assert(sizeof(((ShipSaveInfo*)0)->fileCreatedAt) == 8, "fileCreatedAt is 
 // exact bytes the tracker reads, so an upstream ShipSaveInfo growth that
 // pushes the table past the capacity names the actual consumer that breaks.
 static_assert(offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveChecks) +
-                      (size_t)RC_MAX * sizeof(RandoSaveCheck) <=
+                      sizeof(((RandoSaveInfo*)0)->randoSaveChecks) <=
                   (size_t)MM_SAVE_CONTEXT_SIZE,
               "MM's rando check table no longer fits the cross-game shadow blob; the combo tracker (and the "
               "freeze machinery) would truncate it");
 
-// The departure capture's record holds every MM check id (#1129).
+// The departure capture's record holds every MM check id (#1129), and since
+// save format 6 it is exactly the saved check capacity (a capture bit per saved
+// row), so the two can only move together, at a save format generation.
 static_assert((unsigned)RC_MAX <= RSBS_TRACKER_AVAIL_MM_CAP,
-              "MM's RC_MAX outgrew the tracker availability capture (context.h): raise RSBS_TRACKER_AVAIL_MM_CAP with "
-              "the record size and RSBS_SAVE_VERSION");
+              "MM's RC_MAX outgrew the tracker availability capture (context.h): a save format generation");
+static_assert(RSBS_TRACKER_AVAIL_MM_CAP == (unsigned)RSBS_MM_SAVE_CHECK_CAP,
+              "the MM tracker capture (context.h) and MM's saved check capacity (z64save.h) are one capacity");
 
 // Every flag the descriptor names must live inside one row's stride, and adding
 // RandoSaveCheck.seen at byte 9 (the 1-byte alignment gap before u16 price at

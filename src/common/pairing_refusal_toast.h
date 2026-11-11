@@ -147,6 +147,10 @@ typedef enum RsbsRefusalWords {
     RSBS_REFUSAL_WORDS_SETTINGS_DIFFER, // "Settings differ from its creation" (identity)
     RSBS_REFUSAL_WORDS_NOT_GENERATED,   // "Termina could not be generated" (generation)
     RSBS_REFUSAL_WORDS_UNCHECKED,       // "File could not be checked" (no reason recorded)
+    // Save format 6 (the clean break): a .redsave whose format version is below
+    // RSBS_SAVE_VERSION_MIN, a file from v0.5.0-alpha or earlier
+    // (RSBS_REFUSE_OLD_VERSION). Appended: the entries' numbers are not words.
+    RSBS_REFUSAL_WORDS_OLDER_VERSION, // "File made by an older version"
     RSBS_REFUSAL_WORDS_COUNT
 } RsbsRefusalWords;
 

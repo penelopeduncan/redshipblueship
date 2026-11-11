@@ -57,7 +57,7 @@ Naming:
 **Game lifecycle** (`src/common/game_lifecycle.h`):
 `Game_Init` → `Game_Run` → `Game_Suspend`/`Game_Resume` → `Game_Shutdown`
 
-**Cross-game state**: `Context_FreezeState` / `Context_RestoreState` (`src/common/context.h`) preserve SaveContexts across game switches. Blob capacities come from `src/common/game.h` (`OOT_SAVE_CONTEXT_SIZE` 0x22000, `MM_SAVE_CONTEXT_SIZE` 0x10000 — the ports' runtime structs are far larger than the N64 sizes); each game's `GameExports_SingleExe.cpp` static-asserts `sizeof(SaveContext)` fits. Both shadows are kept in memory.
+**Cross-game state**: `Context_FreezeState` / `Context_RestoreState` (`src/common/context.h`) preserve SaveContexts across game switches. Blob capacities come from `src/common/game.h` (`OOT_SAVE_CONTEXT_SIZE` 0x23000, `MM_SAVE_CONTEXT_SIZE` 0x14000 since save format 6 — the ports' runtime structs are far larger than the N64 sizes, and every saved array upstream keeps growing has a fixed capacity; the growth rule is in `src/common/context.h` and the measured layout in `src/common/save_layout_pins.h`); each game's `GameExports_SingleExe.cpp` static-asserts `sizeof(SaveContext)` fits. Both shadows are kept in memory.
 
 **MM stubs**: `src/common/mm_stubs.c` has stubs for MM functions not yet ported to single-exe mode. When working on MM integration, check this file for functions that may need real implementations.
 

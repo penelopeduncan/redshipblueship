@@ -34,3 +34,5 @@
 *.mp3 binary
 *.ogg binary
 *.flac binary
+# Save format 6 fixture (tests/fixtures/save-format-6): a CRC-checked .redsave.
+*.redsave binary

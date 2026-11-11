@@ -6,11 +6,21 @@
 
 ### Read this first
 
+- **Save files from v0.5.0-alpha and earlier cannot be opened. This includes plain (non-randomizer) files.** This
+  version stores more checks and settings for both games, with room for the ones upstream keeps adding (Wonder Items,
+  beehives and extra grass, butterflies and butterfly fairies, silver rupees), so the save format changed. Old files
+  are not converted. When you pick one, the game refuses it with "Refused: File made by an older version" and leaves
+  the file on disk. Erase it to start a new file in that slot. Seed packages from `v0.5.0-alpha` are refused too
+  ("Seed package from another generator"), so generate a new seed. Saves and seed packages made with development
+  builds between releases are not supported.
+
+  The new format leaves room for upstream additions, so future check and setting additions should not need another
+  save break.
 - **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
   with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
   carries only the half-days a time-gated path is open on), and with Shuffle Master Sword on, which is the default
   (the pedestal is now a child check, see below). A seed package exported by `v0.5.0-alpha` is refused, so generate
-  the seed again. Saved files are not affected.
+  the seed again. Saved files are a separate break (above).
 
 ### Majora's Mask randomizer
 

@@ -383,6 +383,16 @@ const char* Combo_MMWarpPlay_GateName(ComboMMWarpPlayGate gate) {
 
 /* ---- The texts ------------------------------------------------------------------ */
 
+ComboMMWarpPlayPromptForm Combo_MMWarpPlay_PromptFormFor(uint8_t flags) {
+    if ((flags & RSBS_OOT_WARP_REC_HINTS) != 0u) {
+        return COMBO_MMWP_PROMPT_HINT;
+    }
+    if ((flags & RSBS_OOT_WARP_REC_SHUFFLED) != 0u) {
+        return COMBO_MMWP_PROMPT_MYSTERIOUS;
+    }
+    return COMBO_MMWP_PROMPT_FIXED;
+}
+
 int Combo_MMWarpPlay_PromptText(int song, char* out, size_t len) {
     if (out == NULL || len == 0) {
         return -1;
@@ -392,23 +402,27 @@ int Combo_MMWarpPlay_PromptText(int song, char* out, size_t len) {
         return -1;
     }
     int written;
-    int form;
-    if ((Combo_OoTWarpRecord_Flags() & RSBS_OOT_WARP_REC_HINTS) != 0u) {
+    const ComboMMWarpPlayPromptForm form = Combo_MMWarpPlay_PromptFormFor(Combo_OoTWarpRecord_Flags());
+    if (form == COMBO_MMWP_PROMPT_HINT) {
         // OoT's own prompt (StaticHints.cpp, RHT_WARP_SONG "Warp to&%r<area>%w?"):
         // an area with no name reads as OoT's "a mysterious place".
         const ComboArea area = { (uint8_t)GAME_OOT, Combo_OoTWarpRecord_Area(song) };
         const char* name = area.area != 0u ? Combo_Area_Name(area) : NULL;
         written = snprintf(out, len, "Warp to\n%%r%s%%w?", name != NULL ? name : "a mysterious place");
-        form = 1;
+    } else if (form == COMBO_MMWP_PROMPT_MYSTERIOUS) {
+        // Shuffled with hints off (operator ruling A1): OoT's own prompt for the
+        // same song in the same file, BuildMysteriousWarpMessage (StaticHints.cpp)
+        // "Warp to&%ra mysterious place?%w", the question mark inside the red as
+        // there ('&' is SoH's line break, '\n' 2Ship's).
+        written = snprintf(out, len, "Warp to\n%%ra mysterious place?%%w");
     } else {
         written = snprintf(out, len, "%s%s%%w", kMMWarpPlaySongs[song].colour, kMMWarpPlaySongs[song].fixed);
-        form = 0;
     }
     if (written < 0 || (size_t)written >= len) {
         out[0] = '\0';
         return -1;
     }
-    return form;
+    return (int)form;
 }
 
 int Combo_MMWarpPlay_PlayedText(int song, char* out, size_t len) {

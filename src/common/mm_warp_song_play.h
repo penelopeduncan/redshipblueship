@@ -235,13 +235,35 @@ const char* Combo_MMWarpPlay_GateName(ComboMMWarpPlayGate gate);
 /* ---- The texts ---------------------------------------------------------------- */
 
 /**
+ * Which prompt a frozen record's flags ask for (operator ruling 2026-11-10 on
+ * open question A1, "Yes, mysterious"), decided from the record's flags only:
+ *   - HINT: Warp Song Hints on (the record's HINTS flag): the frozen hint area,
+ *     OoT's RHT_WARP_SONG shape;
+ *   - MYSTERIOUS: warp songs SHUFFLED and hints off: OoT's own prompt in that
+ *     case, BuildMysteriousWarpMessage (Messages/StaticHints.cpp), "Warp to&%ra
+ *     mysterious place?%w", since the vanilla place OoTMM's fixed text names is
+ *     not where the song leads in that world;
+ *   - FIXED: not shuffled: OoTMM's fixed warpTexts[i], which is true there.
+ * The values are Combo_MMWarpPlay_PromptText's return codes.
+ */
+typedef enum ComboMMWarpPlayPromptForm {
+    COMBO_MMWP_PROMPT_FIXED = 0,
+    COMBO_MMWP_PROMPT_HINT = 1,
+    COMBO_MMWP_PROMPT_MYSTERIOUS = 2,
+} ComboMMWarpPlayPromptForm;
+/** The pure decision above over a PRESENT record's @p flags (RSBS_OOT_WARP_REC_*). */
+ComboMMWarpPlayPromptForm Combo_MMWarpPlay_PromptFormFor(uint8_t flags);
+
+/**
  * The prompt's question for @p song, read from the frozen record only, in 2Ship's
  * CustomMessage colour codes (%r %g %b %y %p %w, plus %t for MM's teal, which the
- * MM TU maps) with '\n' line breaks; the MM TU appends the two-choice. Returns 1
- * for the Warp Song Hints form ("Warp to\n%r<area>%w?", OoT's RHT_WARP_SONG
- * shape; "a mysterious place" for an area 0), 0 for OoTMM's fixed warpTexts[i]
- * (hints off), -1 when the record is not PRESENT, the song is out of range or the
- * buffer is too small (out is then "").
+ * MM TU maps) with '\n' line breaks; the MM TU appends the two-choice. Returns the
+ * form Combo_MMWarpPlay_PromptFormFor chose: COMBO_MMWP_PROMPT_HINT (1,
+ * "Warp to\n%r<area>%w?", OoT's RHT_WARP_SONG shape; "a mysterious place" for an
+ * area 0), COMBO_MMWP_PROMPT_MYSTERIOUS (2, "Warp to\n%ra mysterious place?%w",
+ * OoT's BuildMysteriousWarpMessage) or COMBO_MMWP_PROMPT_FIXED (0, OoTMM's fixed
+ * warpTexts[i]); -1 when the record is not PRESENT, the song is out of range or
+ * the buffer is too small (out is then "").
  */
 int Combo_MMWarpPlay_PromptText(int song, char* out, size_t len);
 /** "You played the <colour><song>%w!" (OoTMM sCustomSongPlayedText). Returns the

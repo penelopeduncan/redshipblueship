@@ -125,7 +125,9 @@ TestResult Test_ComboSaveFilesView(void) {
     int failures = 0;
 
     // ---- A. Every refusal reason has the page's own words ----------------------
-    for (int r = RSBS_REFUSE_UNREADABLE; r <= RSBS_REFUSE_MISSING; r++) {
+    // Save format 6: to the sentinel, so an appended reason (OLD_VERSION) is held
+    // to the same rules without an edit here.
+    for (int r = RSBS_REFUSE_UNREADABLE; r < RSBS_REFUSE_COUNT; r++) {
         const RsbsRefuseReason reason = static_cast<RsbsRefuseReason>(r);
         const char* text = Combo_SaveFiles_RefuseText(reason);
         CSF_ASSERT(text != nullptr && text[0] != '\0', "refusal reason %d has no player words", r);
@@ -142,6 +144,14 @@ TestResult Test_ComboSaveFilesView(void) {
         CSF_ASSERT(std::strcmp(text, Combo_SaveFiles_RefuseText(RSBS_REFUSE_NONE)) != 0,
                    "reason %d falls through to the fallback \"%s\"", r, text);
     }
+    // Save format 6: an older file has its own words, never the newer file's, so
+    // the player reads which way the file is off (catches OLD_VERSION mapped to
+    // OTHER_BUILD, or the loop above stopping before it).
+    CSF_ASSERT(std::strcmp(Combo_SaveFiles_RefuseText(RSBS_REFUSE_OLD_VERSION), "File made by an older version") == 0 &&
+                   std::strcmp(Combo_SaveFiles_RefuseText(RSBS_REFUSE_VERSION), "File made by another build") == 0,
+               "an older file reads \"%s\" and a newer one \"%s\"; want \"File made by an older version\" and "
+               "\"File made by another build\"",
+               Combo_SaveFiles_RefuseText(RSBS_REFUSE_OLD_VERSION), Combo_SaveFiles_RefuseText(RSBS_REFUSE_VERSION));
     CSF_ASSERT(std::strcmp(Combo_SaveFiles_RefuseText(RSBS_REFUSE_NONE), "File could not be checked") == 0,
                "RSBS_REFUSE_NONE reads \"%s\", not the fallback", Combo_SaveFiles_RefuseText(RSBS_REFUSE_NONE));
     CSF_ASSERT(

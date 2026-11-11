@@ -75,14 +75,14 @@ if(_n_written LESS 30)
                         "that small pins nothing")
 endif()
 
-# The package's own terms (the bridge's 45 `id.*`/`pkg.*` lines): fewer means the
+# The package's own terms (the bridge's 46 `id.*`/`pkg.*` lines; 46 since package format 2's `id.watermark`): fewer means the
 # live side stopped naming a term, and a dropped one could then pass unseen.
 set(_terms ${_written})
 list(FILTER _terms INCLUDE REGEX "^(id|pkg)\\.")
 list(LENGTH _terms _n_terms)
-if(_n_terms LESS 45)
+if(_n_terms LESS 46)
     message(FATAL_ERROR "CheckSeedPackageRoundTrip: the live world's report names only ${_n_terms} identity term(s) "
-                        "and entries (45 expected)")
+                        "and entries (46 expected)")
 endif()
 
 set(_diff "")

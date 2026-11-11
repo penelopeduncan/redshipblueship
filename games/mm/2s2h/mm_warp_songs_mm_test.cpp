@@ -551,6 +551,19 @@ void WsrRunLeg(const char* leg, const char* seed, bool shuffled, bool hints) {
     WsrCheck((shuffled && hints) ? named > 0 : named == 0, leg,
              (shuffled && hints) ? "no area was recorded with Warp Song Hints on, so the area check proves nothing"
                                  : "an area was recorded with Warp Song Hints off");
+    // The operator's ruling on A1, from this real world's frozen record: hints on
+    // names the frozen area, shuffled with hints off says OoT's "a mysterious
+    // place", unshuffled says OoTMM's fixed text.
+    char prompt[128];
+    const int form = Combo_MMWarpPlay_PromptText(0, prompt, sizeof(prompt));
+    int wantForm = (int)COMBO_MMWP_PROMPT_FIXED;
+    if (shuffled) {
+        wantForm = hints ? (int)COMBO_MMWP_PROMPT_HINT : (int)COMBO_MMWP_PROMPT_MYSTERIOUS;
+    }
+    printf("[TEST] oot-warp-song-record: %s: Minuet's MM prompt form %d (want %d)\n", leg, form, wantForm);
+    WsrCheck(form == wantForm, leg,
+             "MM's warp prompt for this world is not the ruled form (the frozen area with hints on, OoT's \"a "
+             "mysterious place\" shuffled with hints off, OoTMM's fixed text unshuffled)");
 
     // A package carries the record: the copy holds all 20 bytes, and the apply
     // puts them back into a context that lost them.

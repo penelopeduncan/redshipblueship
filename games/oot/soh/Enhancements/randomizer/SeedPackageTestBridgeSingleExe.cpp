@@ -18,15 +18,20 @@
  *           store, the give capabilities, the completed world Generate holds (its
  *           digest, MM's profile, the goal, the unproved halves, MM's half) and the
  *           spoiler document gGeneral.SpoilerLog names. Read before the package
- *           exists, so a term the writer drops cannot also be missing here.
+ *           exists, so a term the writer drops cannot also be missing here. ONE
+ *           EXCEPTION (save format 6): the expected placement/combo-context.bin is
+ *           built by the production writer itself (WorldOnlyRecord below), so that
+ *           entry is a self-comparison: it catches only gComboCtx drifting between
+ *           the two reads, never a field the writer drops or adds. The applied
+ *           world fields it carries are covered by the world report instead.
  *   package (pkgPath set): the entries of the zip, read one by one, and the terms
  *           parsed out of its identity.json.
  *
  * Both sides print every value as the JSON its identity.json term holds (dump()),
  * and every JSON document in canonical form (keys sorted), so the lines compare
  * as text whatever the writer's key order. The row requires the two sides equal:
- * a writer that drops or alters any term, any entry, or either split spoiler makes
- * them differ.
+ * a writer that drops or alters any term, any entry other than the combo record
+ * (above), or either split spoiler makes them differ.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -50,11 +55,14 @@
 #include "crossing_store.h"
 #include "foreign_items.h"
 #include "rsbs_version.h"
+#include "save.h" // RsbsSave_BuildWatermark: identity.json's watermark term (package format 2)
 #include "seed_package.h"
 
 // ForeignItemsSingleExe.cpp: the completed world Generate holds.
 extern "C" int OoT_PairedGen_CompletedWorld(const uint8_t** outHalf, size_t* outHalfSize, const char** outDigest,
                                             const char** outMMProfile, uint32_t* outUnprovedHalves, unsigned* outGoal);
+// SeedPackageSingleExe.cpp: the production placement/combo-context.bin of a record.
+extern "C" size_t OoT_SeedPackage_WorldRecordBytesForTest(const ComboContext* live, uint8_t* out, size_t cap);
 
 namespace {
 
@@ -112,30 +120,16 @@ std::string SettingsFnv(const std::map<std::string, std::string>& settings) {
     return std::to_string(settings.size()) + "/" + SizeFnv(text);
 }
 
-/** The world fields of @p live in an otherwise zeroed record: what a package's
- *  placement/combo-context.bin must hold (no session state an earlier file left). */
+/** What a package's placement/combo-context.bin must hold for @p live: the
+ *  PRODUCTION writer's bytes (SeedPackageSingleExe.cpp WorldRecordBytes, through
+ *  OoT_SeedPackage_WorldRecordBytesForTest), so the expected entry cannot drift
+ *  from the writer's field list (save format 6: a copy of that list here omitted
+ *  mmWarpSongsOwned, and built a sizeof record where the writer pads to
+ *  RSBS_COMBO_CONTEXT_RECORD_SIZE). */
 std::string WorldOnlyRecord(const ComboContext& live) {
-    auto rec = std::make_unique<ComboContext>();
-    memset(rec.get(), 0, sizeof(ComboContext));
-    memcpy(rec->magic, live.magic, sizeof(rec->magic));
-    memcpy(&rec->version, &live.version, sizeof(rec->version));
-    memcpy(&rec->sourceIsRando, &live.sourceIsRando, sizeof(rec->sourceIsRando));
-    memcpy(&rec->sharedRandoSeed, &live.sharedRandoSeed, sizeof(rec->sharedRandoSeed));
-    memcpy(&rec->sharedRandoSettingsHash, &live.sharedRandoSettingsHash, sizeof(rec->sharedRandoSettingsHash));
-    memcpy(rec->foreignPlacements, live.foreignPlacements, sizeof(rec->foreignPlacements));
-    memcpy(rec->foreignPlacementsOoT, live.foreignPlacementsOoT, sizeof(rec->foreignPlacementsOoT));
-    memcpy(&rec->mmProfileDigest, &live.mmProfileDigest, sizeof(rec->mmProfileDigest));
-    memcpy(&rec->mmKeepItemsReset, &live.mmKeepItemsReset, sizeof(rec->mmKeepItemsReset)); // #1175
-    memcpy(&rec->mmPairedAttempt, &live.mmPairedAttempt, sizeof(rec->mmPairedAttempt));
-    memcpy(&rec->comboSettingsHash, &live.comboSettingsHash, sizeof(rec->comboSettingsHash));
-    memcpy(&rec->comboSettings, &live.comboSettings, sizeof(rec->comboSettings));
-    memcpy(&rec->comboTriforce, &live.comboTriforce, sizeof(rec->comboTriforce));
-    memcpy(&rec->comboItemRules, &live.comboItemRules, sizeof(rec->comboItemRules));
-    memcpy(&rec->comboFillWallets, &live.comboFillWallets, sizeof(rec->comboFillWallets)); // #1284
-    memcpy(&rec->comboWoth, &live.comboWoth, sizeof(rec->comboWoth));                      // #1439
-    memcpy(&rec->comboItemRules2, &live.comboItemRules2, sizeof(rec->comboItemRules2));    // #1169 XW2
-    memcpy(&rec->comboOoTWarps, &live.comboOoTWarps, sizeof(rec->comboOoTWarps));          // #1169 XW7
-    return std::string(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
+    std::string bytes(OoT_SeedPackage_WorldRecordBytesForTest(&live, nullptr, 0), '\0');
+    OoT_SeedPackage_WorldRecordBytesForTest(&live, reinterpret_cast<uint8_t*>(bytes.data()), bytes.size());
+    return bytes;
 }
 
 std::string ReadFileBytes(const std::string& path) {
@@ -316,6 +310,22 @@ int LiveTerms(Terms& t, std::string& why) {
 
     t.AddJson("id.packageFormat", RSBS_SEED_PACKAGE_FORMAT);
     t.AddJson("id.generatorVersion", RSBS_GENERATOR_VERSION);
+    {
+        // Package format 2: the generating build's save watermark (this build's).
+        ComboSaveWatermark mark;
+        RsbsSave_BuildWatermark(&mark);
+        nlohmann::json w = nlohmann::json::object();
+        w["layoutRevision"] = mark.layoutRevision;
+        w["ootRcMax"] = mark.ootRcMax;
+        w["ootRandInfMax"] = mark.ootRandInfMax;
+        w["ootRskMax"] = mark.ootRskMax;
+        w["mmRcMax"] = mark.mmRcMax;
+        w["mmRoMax"] = mark.mmRoMax;
+        w["mmRtMax"] = mark.mmRtMax;
+        w["mmRandoInfMax"] = mark.mmRandoInfMax;
+        w["mmReMax"] = mark.mmReMax;
+        t.AddJson("id.watermark", w);
+    }
     t.AddJson("id.build", RsbsVersion_Display());
     t.AddJson("id.seedString", ctx->GetSeedString());
     t.AddJson("id.seedName", seedName);
@@ -389,6 +399,7 @@ int PackageTerms(const char* pkgPath, Terms& t, std::string& why) {
 
     t.AddJson("id.packageFormat", At(id, "packageFormat"));
     t.AddJson("id.generatorVersion", At(id, "generatorVersion"));
+    t.AddJson("id.watermark", At(id, "watermark"));
     t.AddJson("id.build", At(id, "build"));
     t.AddJson("id.seedString", At(id, "seedString"));
     t.AddJson("id.seedName", At(id, "seedName"));

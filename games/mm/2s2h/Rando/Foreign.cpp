@@ -473,10 +473,15 @@ static uint8_t ResolveKeepItemsResetFromCVar() {
 }
 
 /** Bytes of the frozen excluded-check set (randoSaveExcludedChecks): one bit
- *  per RandoCheckId. */
-constexpr size_t kExcludedChecksBytes = (RC_MAX + 7) / 8;
+ *  per check id up to the saved check capacity (save format 6; it was
+ *  (RC_MAX + 7) / 8). Bits at or past RC_MAX stay zero: ResolveExcludedChecks
+ *  sets ids below RC_MAX only and every fold (ExcludedChecksString) visits ids
+ *  below RC_MAX only, so the wider buffer moves no digest. */
+constexpr size_t kExcludedChecksBytes = RSBS_MM_SAVE_CHECK_CAP / 8;
 static_assert(sizeof(((RandoSaveInfo*)0)->randoSaveExcludedChecks) == kExcludedChecksBytes,
-              "randoSaveExcludedChecks holds one bit per RandoCheckId");
+              "randoSaveExcludedChecks holds one bit per saved check row");
+static_assert((size_t)RC_MAX <= kExcludedChecksBytes * 8,
+              "MM's RC_MAX outgrew the excluded-check set's saved capacity: a save format generation");
 
 /** Resolve gRando.ExcludedChecks into `bits` (kExcludedChecksBytes), with no
  *  side effects (#1101 lane R3): the ids MM's pool generation parses out of the
@@ -714,8 +719,10 @@ uint32_t ResolvePairedProfile(bool paired) {
     // too, unlike the paired identity work below: a solo file's logic is gated by
     // its own trick set exactly the same way, and leaving the array zeroed there
     // would silently mean "every trick off" for a player who set one.
-    static_assert(sizeof(gSaveContext.save.shipSaveInfo.rando.randoSaveTricks) == (size_t)MMRT_MAX,
-                  "randoSaveTricks must be sized by MMRT_MAX — the id IS the index");
+    static_assert(sizeof(gSaveContext.save.shipSaveInfo.rando.randoSaveTricks) == (size_t)RSBS_MM_SAVE_TRICK_CAP &&
+                      (size_t)MMRT_MAX <= (size_t)RSBS_MM_SAVE_TRICK_CAP,
+                  "randoSaveTricks is indexed by MMRT_* (the id IS the index) and holds the saved trick capacity; "
+                  "MMRT_MAX past it is a save format generation");
     std::vector<uint8_t> tricks(MMRT_MAX, 0);
     ResolveProfileTricks(tricks.data());
     for (auto& [mmRandoTrickId, randoStaticTrick] : Rando::StaticData::Tricks) {
@@ -1631,6 +1638,8 @@ extern "C" int MM_Rando_ClassifyHalfForPair(const void* mmHalf, size_t mmHalfSiz
     const unsigned char* bytes = static_cast<const unsigned char*>(mmHalf);
     SaveType type;
     uint32_t finalSeed = 0;
+    static_assert((size_t)RO_MAX <= (size_t)RSBS_MM_SAVE_OPTION_CAP,
+                  "MM's RO_MAX outgrew randoSaveOptions' saved capacity: a save format generation");
     std::vector<uint32_t> options(RO_MAX, 0);
     memcpy(&type, bytes + offsetof(SaveContext, save.shipSaveInfo.saveType), sizeof(type));
     memcpy(&finalSeed, bytes + offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed), sizeof(finalSeed));

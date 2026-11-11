@@ -10,10 +10,15 @@
  * constructed, so nobody could see it. It was deleted on 2026-09-28. What the
  * page adds is each file's cross-game state between loads, in one place:
  *   - BEFORE any load, ReadMeta reports the refusals it can see without one:
- *     the header, version, tier size, slot and truncation checks. It does NOT
- *     run the CRC, the Tier-4 crossing block or the commit-generation
- *     comparison, so a file that fails one of those reads "Ready" until a load
- *     refuses it.
+ *     the header, version (an older file, save format 6: "File made by an older
+ *     version"), tier size, slot and truncation checks, and the newer-content
+ *     guard a load runs through the same validator (a nonzero tier tail, a save
+ *     watermark above this build's), on a Tier-1 that carries ComboContext's
+ *     magic. It does NOT run the CRC, the ComboContext magic refusal, the Tier-4
+ *     crossing block or the commit-generation comparison, so a file that fails
+ *     one of those reads "Ready" until a load refuses it; and since there is no
+ *     CRC here, damage that lands inside a tier tail or the watermark bytes reads
+ *     as another build's file until a load refuses it as damaged.
  *   - AFTER a refusal, the session's record names it: the load's structural,
  *     CRC, crossing-block and commit-skew refusals (which post no toast), and
  *     the refusals that do post one. For those the row repeats the toast's own

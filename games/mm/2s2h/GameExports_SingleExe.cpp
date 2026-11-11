@@ -30,6 +30,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream> // #670: the mods/mm first-run marker file
+#include <memory>  // std::make_unique: the save format 6 fixture half
 #include <string>
 #include <vector>
 
@@ -212,6 +213,173 @@ AudioCollection* AudioCollection::Instance = nullptr;
 static_assert(sizeof(SaveContext) <= MM_SAVE_CONTEXT_SIZE,
               "MM_SAVE_CONTEXT_SIZE (src/common/game.h) is smaller than 2S2H's runtime SaveContext; "
               "raise the capacity or cross-game freeze/restore will truncate save state");
+// Save format 6 grew RandoSaveInfo (inside Save) by about 22 KB. z_sram_NES.c
+// copies a whole Save into each half of the sram buffer (saveBuf[0] and
+// saveBuf[SAVE_BUFFER_SIZE_HALF], `memcpy(..., sizeof(Save))`) and the owl save's
+// offsetof(SaveContext, fileNum) bytes into saveBuf[0]; the buffer is
+// SAVE_BUFFER_SIZE bytes (THA_AllocTailAlign16, and the test rows' static
+// buffers). A Save past the half overruns it silently, so it fails here instead.
+static_assert(sizeof(Save) <= SAVE_BUFFER_SIZE_HALF,
+              "MM's Save outgrew the sram buffer half z_sram_NES.c copies it into: raise SAVE_BUFFER_SIZE or shrink "
+              "a capacity");
+static_assert(offsetof(SaveContext, fileNum) <= SAVE_BUFFER_SIZE, "MM's owl save outgrew the sram buffer");
+
+// ---- Save format 6 (src/common/save.h; context.h's growth rule) --------------
+// THE CAPACITY LOCKS. Every RandoSaveInfo array that upstream sizes by a growing
+// enum has a fixed capacity in z64save.h; the enum must fit it. Outgrowing one is
+// a save format generation, never a silent truncation.
+static_assert((size_t)RC_MAX <= RSBS_MM_SAVE_CHECK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveChecks) == RSBS_MM_SAVE_CHECK_CAP * sizeof(RandoSaveCheck),
+              "MM's RC_MAX outgrew randoSaveChecks' saved capacity: a save format generation");
+static_assert((size_t)RO_MAX <= RSBS_MM_SAVE_OPTION_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveOptions) == RSBS_MM_SAVE_OPTION_CAP * sizeof(u32),
+              "MM's RO_MAX outgrew randoSaveOptions' saved capacity: a save format generation");
+static_assert((size_t)MMRT_MAX <= RSBS_MM_SAVE_TRICK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveTricks) == RSBS_MM_SAVE_TRICK_CAP,
+              "MM's MMRT_MAX outgrew randoSaveTricks' saved capacity: a save format generation");
+static_assert((size_t)RANDO_INF_MAX <= RSBS_MM_RANDO_INF_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoInf) == RSBS_MM_RANDO_INF_CAP / 16 * sizeof(u16),
+              "MM's RANDO_INF_MAX outgrew randoInf's saved capacity: a save format generation");
+static_assert((size_t)RE_MAX <= RSBS_MM_RANDO_EVENT_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoEvents) == RSBS_MM_RANDO_EVENT_CAP,
+              "MM's RE_MAX outgrew randoEvents' saved capacity: a save format generation");
+static_assert(sizeof(((RandoSaveInfo*)0)->randoSaveExcludedChecks) * 8 == RSBS_MM_SAVE_CHECK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->rsbsSpare) == RSBS_MM_RANDO_SPARE_SIZE,
+              "the excluded-check set holds one bit per saved check row, and the spare block is 256 bytes");
+static_assert(sizeof(RandoSaveCheck) == 12, "a saved MM check row is 12 bytes on every compiler");
+static_assert(offsetof(RandoSaveInfo, rsbsSpare) + RSBS_MM_RANDO_SPARE_SIZE <= sizeof(RandoSaveInfo) &&
+                  sizeof(RandoSaveInfo) - (offsetof(RandoSaveInfo, rsbsSpare) + RSBS_MM_RANDO_SPARE_SIZE) <
+                      alignof(RandoSaveInfo),
+              "rsbsSpare is RandoSaveInfo's last member, followed only by tail padding (growth rule 3 carves it)");
+static_assert((size_t)RC_MAX <= 0xFFFFu && (size_t)RO_MAX <= 0xFFFFu && (size_t)MMRT_MAX <= 0xFFFFu &&
+                  (size_t)RANDO_INF_MAX <= 0xFFFFu && (size_t)RE_MAX <= 0xFFFFu,
+              "the save watermark (context.h ComboSaveWatermark) stamps these as u16");
+// THE NAME-TO-NUMBER LOCKS for the existing tails: an id appended in the wrong
+// place (or an enumerator removed) changes the number every save, spoiler and
+// pinned digest knows the last id by, and fails here instead.
+static_assert(RC_ENEMY_DROP_GOMESS == 2310, "MM's last check id at save format 6 is 2310: append after it");
+static_assert(RO_SHUFFLE_SONGS == 53, "MM's last option id at save format 6 is 53: append after it");
+static_assert(MMRT_GBT_BOSS_KEY_ICE == 85, "MM's last trick id at save format 6 is 85: append after it");
+static_assert(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP == 77,
+              "MM's last randomizer-inf flag at save format 6 is 77: append after it");
+static_assert(RE_MAIL_LETTER_TO_KAFEI == 82, "MM's last randomizer event at save format 6 is 82: append after it");
+// THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_FOREIGN_MASK, offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SPARE, offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_EVENT_INF, offsetof(SaveContext, eventInf));
+
+/** Save format 6: MM's terms of the save watermark (context.h ComboSaveWatermark). */
+extern "C" void MM_SaveLayout_EnumMaxima(uint16_t* outRcMax, uint16_t* outRoMax, uint16_t* outRtMax,
+                                         uint16_t* outRandoInfMax, uint16_t* outReMax) {
+    if (outRcMax != nullptr) {
+        *outRcMax = (uint16_t)RC_MAX;
+    }
+    if (outRoMax != nullptr) {
+        *outRoMax = (uint16_t)RO_MAX;
+    }
+    if (outRtMax != nullptr) {
+        *outRtMax = (uint16_t)MMRT_MAX;
+    }
+    if (outRandoInfMax != nullptr) {
+        *outRandoInfMax = (uint16_t)RANDO_INF_MAX;
+    }
+    if (outReMax != nullptr) {
+        *outReMax = (uint16_t)RE_MAX;
+    }
+}
+
+/** Save format 6: the SaveLayoutPins row's MM lines (save_layout_pins.h); returns
+ *  the number of nonzero pins that differ from the compiled value. */
+extern "C" int MM_SaveLayout_ReportPins(void) {
+    int mismatches = 0;
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save), mismatches);
+    printf("[LAYOUT] slack MM Save in the sram buffer half %u\n", (unsigned)(SAVE_BUFFER_SIZE_HALF - sizeof(Save)));
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FOREIGN_MASK, offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SPARE, offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_EVENT_INF, offsetof(SaveContext, eventInf), mismatches);
+    return mismatches;
+}
+
+/**
+ * Save format 6: THE FIXTURE'S MM HALF (SaveFormatV6Fixture; OoT's twin is
+ * OoT_SaveLayout_FixtureWrite/Check). Set and read BY NAME; indices are LITERALS,
+ * the last ids at save format 6 (option 53, trick 85, check 2310, event 82,
+ * randoInf word 4 holds flag 77), so a later build's growing enums do not move
+ * what the fixture wrote. eventInf is the first SaveContext field after Save: it
+ * moves when anything inside Save grows.
+ */
+extern "C" void MM_SaveLayout_FixtureWrite(uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        return;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memset(sc.get(), 0, sizeof(SaveContext));
+    RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    sc->save.day = 2;
+    sc->save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    rando.finalSeed = 0x6F6F6F6Fu;
+    rando.randoSaveOptions[0] = 3u;
+    rando.randoSaveOptions[53] = 0x00ABCDEFu;
+    rando.randoSaveTricks[0] = 1;
+    rando.randoSaveTricks[85] = 1;
+    rando.randoInf[0] = 0x0F0Fu;
+    rando.randoInf[4] = 0x2000u;
+    rando.randoEvents[82] = 1;
+    rando.randoSaveChecks[2310].randoItemId = (RandoItemId)5;
+    rando.randoSaveChecks[2310].obtained = true;
+    rando.randoSaveChecks[2310].price = 0x1234u;
+    rando.randoSaveExcludedChecks[288] = 0x40u; // check 2310's bit
+    rando.foreignMask = 2;
+    rando.foreignMaskSlotSel[1] = 0x21u;
+    sc->eventInf[0] = 0x5Au;
+    memcpy(blob, sc.get(), sizeof(SaveContext));
+}
+
+extern "C" int MM_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        printf("[FIXTURE] FAIL mm: no half to read (%zu bytes)\n", size);
+        return 1;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memcpy(sc.get(), blob, sizeof(SaveContext));
+    const RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    int bad = 0;
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.day", sc->save.day, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.shipSaveInfo.saveType", sc->save.shipSaveInfo.saveType, SAVETYPE_RANDO, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.finalSeed", rando.finalSeed, 0x6F6F6F6Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[0]", rando.randoSaveOptions[0], 3u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[53]", rando.randoSaveOptions[53], 0x00ABCDEFu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[0]", rando.randoSaveTricks[0], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[85]", rando.randoSaveTricks[85], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[0]", rando.randoInf[0], 0x0F0Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[4]", rando.randoInf[4], 0x2000u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoEvents[82]", rando.randoEvents[82], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].randoItemId", rando.randoSaveChecks[2310].randoItemId, 5,
+                              bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].obtained", rando.randoSaveChecks[2310].obtained ? 1 : 0,
+                              1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].price", rando.randoSaveChecks[2310].price, 0x1234u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveExcludedChecks[288]", rando.randoSaveExcludedChecks[288], 0x40u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMask", rando.foreignMask, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMaskSlotSel[1]", rando.foreignMaskSlotSel[1], 0x21u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.eventInf[0]", sc->eventInf[0], 0x5Au, bad);
+    return bad;
+}
 
 // #1176: MM's SkelAnime has no skeletonHeader (SoH appended one to OoT's), and
 // OoT's skeleton patcher is the one both games register with. The
@@ -7253,6 +7421,8 @@ int MM_Rando_GateCrossGameArrival(void) {
             }
             // A world: this pair's, or another pair's, which is refused.
             uint32_t blobFinalSeed = 0;
+            static_assert((size_t)RO_MAX <= (size_t)RSBS_MM_SAVE_OPTION_CAP,
+                          "MM's RO_MAX outgrew randoSaveOptions' saved capacity: a save format generation");
             uint32_t blobOptions[RO_MAX];
             memcpy(&blobFinalSeed, blob + offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed),
                    sizeof(blobFinalSeed));

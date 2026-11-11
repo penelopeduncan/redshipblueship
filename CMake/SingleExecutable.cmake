@@ -1158,6 +1158,16 @@ if(BUILD_TESTING)
     redship_add_test(NAME SaveComboLegacyRecord COMMAND redship --test save-combo-legacy-record)
     redship_add_test(NAME SaveComboRecordFixed COMMAND redship --test save-combo-record-fixed)
     redship_add_test(NAME SaveComboOversize COMMAND redship --test save-combo-oversize)
+    # Save format 6 (the clean break, #1510/#1512/#1513/#1514): SaveLayoutPins prints
+    # every sizeof/offsetof pin of src/common/save_layout_pins.h as "[LAYOUT]
+    # <name>=<decimal>" ("[LAYOUT] UNPINNED <name>" while a pin is 0, which passes);
+    # the pins are filled from all three CI legs and then fail the build when a
+    # field moves. SaveFormatV6Fixture loads the committed format-6 .redsave
+    # (tests/fixtures/save-format-6) and reads every field it wrote by name; it
+    # prints "[FIXTURE] absent" and passes until the fixture and its REQUIRED
+    # marker are committed (RSBS_WRITE_SAVE_FORMAT_V6_FIXTURE=1 authors it).
+    redship_add_test(NAME SaveLayoutPins COMMAND redship --test save-layout-pins)
+    redship_add_test(NAME SaveFormatV6Fixture COMMAND redship --test save-format-v6-fixture)
     # Origin-tagged shared items (ADR 0002): the array carved out of reserved[]
     # must round-trip byte-exact, and SaveComboLegacyRecord's crafted "legacy"
     # length is pinned to the pre-carve prefix (RSBS_COMBO_CONTEXT_PRECARVE_SIZE)
@@ -1166,7 +1176,8 @@ if(BUILD_TESTING)
     # The shared-item overflow (operator ruling 2026-10-27; Refs #1222): the outbox is one
     # logical array, the fixed 64 slots then an overflow segment carried as the .redsave
     # Tier-5 block (format v5). Crossings past 64 record and round-trip in order, a v4
-    # file loads with an empty overflow, and room runs out only at the logical capacity.
+    # file is refused as an older version (save format 6), and room runs out only at the
+    # logical capacity.
     redship_add_test(NAME SaveSharedItemOverflowRoundtrip COMMAND redship --test save-shared-item-overflow-roundtrip)
     redship_add_test(NAME SaveSharedItemOverflowLegacy COMMAND redship --test save-shared-item-overflow-legacy)
     # The #785 moon-crash reset restores the overflow segment with the fixed slots (#1264 review N1).
@@ -3484,7 +3495,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # item pooled only under its hidden second-word rule, and OoTMM's "Not enough
     # locations" refusal when it makes thirteen songs for twelve spots.
     # OoTSoaringTableBounds: appended after the masks in the RG, RHT and RAND_INF
-    # enums, no ItemID added, the 129 saved words, the item row and its textbox
+    # enums, no ItemID added, the 512 saved words, the item row and its textbox
     # icon. OoTSoaringRuleLogic: the pooled-copies rule, OoT's real logic (a child
     # with C-down, C-up and C-left, only under the rule), the flag effect, the
     # wording and the warning. OoTSoaringRulesOffUnchanged: hidden bits refused
@@ -3523,8 +3534,9 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # PLAYING THEM (#1169 lane XW7). MMWarpSongPlay: the creation's warp-song record
-    # (ADR 0009 claim 22: offset 1842, a creation record), the pads, OoTMM's
-    # buttons, the pure matcher, the gates in order, the texts, OoT's frozen age,
+    # (ADR 0009 claim 22: appended after the save watermark, a creation record),
+    # the pads, OoTMM's buttons, the pure matcher, the gates in order, the texts
+    # (ruling A1: shuffled with hints off is OoT's "a mysterious place"), OoT's frozen age,
     # the MM-first offer, the latches, and every vendored branch by a
     # function-scoped source anchor. MMWarpSongMatcher: MM's real free-play checker
     # and Termina wall behind every gate. MMWarpSongDeparture: the real

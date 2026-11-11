@@ -12,7 +12,7 @@
  *   mm-warp-songs-items (CTest MMWarpSongsItems, redship tier; MM's pool reads
  *   the CVar store, so the runner brings up the display-free shared context
  *   first) -- THE ITEMS. The carve (1003, the tail of reserved[], which keeps 64
- *   bytes at 939, on ADR 0009's floor) and the ownership bits; the six ids
+ *   bytes at 939, frozen since save format 6) and the ownership bits; the six ids
  *   appended after the masks with every saved id unchanged; their rows
  *   (RITYPE_MAJOR, OoTMM's names, the text and hint name, no ItemId, progression
  *   to the bag, MM's song note as icon, OoT's own song as model, the tooltips
@@ -248,12 +248,14 @@ TestResult MMWarpSongsItems_Run(void) {
     {
         WSM_CHECK(offsetof(ComboContext, mmWarpSongsOwned) == 1003u && offsetof(ComboContext, reserved) == 939u &&
                       sizeof(((ComboContext*)0)->reserved) == 64u &&
-                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1864u,
-                  "the ownership byte is at %u and reserved[] is %u bytes at %u (sizeof %u); expected 1003, the tail "
-                  "of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
+                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u &&
+                      offsetof(ComboContext, trackerAvailOoT) == 1008u,
+                  "the ownership byte is at %u and reserved[] is %u bytes at %u (OoT capture at %u); expected 1003, "
+                  "the tail of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
                   (unsigned)offsetof(ComboContext, mmWarpSongsOwned), (unsigned)sizeof(((ComboContext*)0)->reserved),
-                  (unsigned)offsetof(ComboContext, reserved), (unsigned)sizeof(ComboContext));
-        WSM_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");
+                  (unsigned)offsetof(ComboContext, reserved), (unsigned)offsetof(ComboContext, trackerAvailOoT));
+        WSM_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u,
+                  "reserved[] shrank below its frozen 64 bytes (save format 6, ADR 0009 amendment)");
         WSM_CHECK(RSBS_MM_WARP_SONG_OWNED_ALL == 0x3Fu && RSBS_MM_WARP_SONG_COUNT == 6u,
                   "the six ownership bits are not 0x3F");
         for (const WsmSong& s : kWsmSongs) {

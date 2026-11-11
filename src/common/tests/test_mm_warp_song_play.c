@@ -12,12 +12,16 @@
  *   mm-warp-song-play (CTest MMWarpSongPlay) -- the game-neutral half, and every
  *   vendored branch by a source anchor scoped to the function (or switch case) it
  *   claims to sit in:
- *     P1 the record's layout (offset 1842, 20 bytes, sizeof(ComboContext) 1864,
- *        reserved[64] still at 939) and its validator over every malformed shape;
- *        a pre-XW7 record loaded from a .redsave is UNSET (save-combo-legacy-record);
+ *     P1 the record's layout (20 bytes appended directly after save format 6's
+ *        watermark, the last member, at RSBS_PIN_COMBO_OOT_WARPS; reserved[64]
+ *        still at 939) and its validator over every malformed shape; a format-6
+ *        record written before it, loaded from a .redsave, is UNSET
+ *        (save-combo-legacy-record);
  *     P2 the record is a creation record: a failed generation's rollback restores
  *        it, a retracted creation clears it, the file-create KEEP invalidation keeps
- *        it, a DROP clears it, and a seed package's world record carries it;
+ *        it, a DROP clears it, and a seed package's world record carries it; an
+ *        older package whose record ends before it is accepted (package format
+ *        2) and applies its world with the record UNSET;
  *     P3 the pads (OoT's sWarpSongEntrances order) and their inverse; OoTMM's
  *        button lists, whose distinct buttons are XW5's can_play_tp_* sets;
  *     P4 the pure matcher: each song on its last note only; a usable mask; the
@@ -25,9 +29,10 @@
  *        (a steal before the last note, never a tie on it);
  *     P5 staff states and En_Test7's params (exactly 0x8000..0x8005);
  *     P6 the decision, gate by gate in order, every refusal shown as 0x1B95;
- *     P7 the texts: OoTMM's fixed text with hints off, OoT's RHT_WARP_SONG shape
- *        with them on ("a mysterious place" for an area with no name), nothing
- *        for an unset record or a short buffer;
+ *     P7 the texts (operator ruling A1): OoTMM's fixed text unshuffled, OoT's
+ *        "Warp to&%ra mysterious place?%w" shuffled with hints off, OoT's
+ *        RHT_WARP_SONG shape with hints on ("a mysterious place" for an area with
+ *        no name), nothing for an unset record or a short buffer;
  *     P8 OoT's frozen age over OoT's real layout (CHILD, ADULT, not started, not
  *        a live file, none, an odd value, unregistered);
  *     P9 MM-FIRST: with nothing but the frozen record, a child OoT half and a
@@ -53,6 +58,8 @@
 #include "../entrance.h"
 #include "../foreign_items.h"
 #include "../mm_warp_song_play.h"
+#include "../save_layout_pins.h" // RSBS_PIN_COMBO_OOT_WARPS
+#include "../seed_package.h"     // RSBS_SEEDPKG_OK
 #include "../test_runner.h"
 
 #include <cstdio>
@@ -77,6 +84,8 @@ void OoT_WarpSongRecord_TestFreezeOoTHalf(int linkAge, int started, int live);
 // games/oot/soh/Enhancements/randomizer/SeedPackageSingleExe.cpp: a package's world
 // record copied and applied again (WhCheckCreationRecord uses it the same way).
 void OoT_SeedPackage_TestReapplyWorldRecord(void);
+// The same, cut to an older build's record length (package format 2 accepts it).
+int OoT_SeedPackage_TestApplyShortWorldRecord(size_t keep);
 #ifdef __cplusplus
 }
 #endif
@@ -152,13 +161,20 @@ int MwpProbeNotReady(void) {
 
 // ---- P1 ---------------------------------------------------------------------------
 void MwpCheckRecordLayoutAndValidator() {
-    MWP_CHECK(offsetof(ComboContext, comboOoTWarps) == 1842u && sizeof(ComboOoTWarpRecord) == 20u &&
-                  sizeof(ComboContext) == 1864u && offsetof(ComboContext, reserved) == 939u &&
-                  sizeof(((ComboContext*)0)->reserved) == 64u,
-              "P1: the record is %u bytes at %u (sizeof %u, reserved[] %u at %u); want 20 at 1842, 1864, 64 at 939\n",
+    // Save format 6's growth rule 1: appended directly after the save watermark (no
+    // padding: the watermark ends 4-aligned, the record is bytes only), the last
+    // member, at its pin; reserved[64] untouched at 939.
+    MWP_CHECK(offsetof(ComboContext, comboOoTWarps) ==
+                      offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark) &&
+                  sizeof(ComboOoTWarpRecord) == 20u &&
+                  sizeof(ComboContext) == offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord) &&
+                  offsetof(ComboContext, comboOoTWarps) == RSBS_PIN_COMBO_OOT_WARPS &&
+                  offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u,
+              "P1: the record is %u bytes at %u (sizeof %u, reserved[] %u at %u); want 20 directly after the "
+              "watermark at the pin %u, the last member, 64 at 939\n",
               (unsigned)sizeof(ComboOoTWarpRecord), (unsigned)offsetof(ComboContext, comboOoTWarps),
               (unsigned)sizeof(ComboContext), (unsigned)sizeof(((ComboContext*)0)->reserved),
-              (unsigned)offsetof(ComboContext, reserved));
+              (unsigned)offsetof(ComboContext, reserved), (unsigned)RSBS_PIN_COMBO_OOT_WARPS);
     MWP_CHECK(RSBS_OOT_WARP_REC_VERSION == 1u && RSBS_OOT_WARP_REC_SHUFFLED == 0x01u &&
                   RSBS_OOT_WARP_REC_HINTS == 0x02u && RSBS_OOT_WARP_REC_SONGS == 6u,
               "P1: the record's pinned values moved\n");
@@ -216,9 +232,9 @@ void MwpCheckRecordLayoutAndValidator() {
     unnamed.area[0] = 0;
     MWP_CHECK(Combo_OoTWarpRecord_StatusOf(&unnamed) == COMBO_OOT_WARP_REC_PRESENT,
               "P1: a hinted record with an unnamed area is refused\n");
-
-    // A pre-XW7 Tier-1 record loaded through the real SaveManager reads UNSET:
-    // save-combo-legacy-record (tests/test_save_roundtrip.c) loads one.
+    // A format-6 Tier-1 record that ends before this append, loaded through the real
+    // SaveManager, reads UNSET: save-combo-legacy-record (tests/test_save_roundtrip.c)
+    // loads one, and save-format-v6-fixture reads the committed fixture so.
     ComboContext_Init();
 }
 
@@ -249,9 +265,38 @@ void MwpCheckCreationRecord() {
     gComboCtx.comboOoTWarps = sample;
     OoT_SeedPackage_TestReapplyWorldRecord();
     const bool packaged = MwpSameRecord(gComboCtx.comboOoTWarps, sample);
-    printf("[TEST] mm-warp-song-play P2: rollback-restored %d, retracted %d, KEEP %d, DROP cleared %d, package %d "
-           "(want 1 1 1 1 1)\n",
-           restored ? 1 : 0, retracted ? 1 : 0, kept ? 1 : 0, dropped ? 1 : 0, packaged ? 1 : 0);
+
+    // An OLDER package (save format 6, package format 2): its combo record ends
+    // before this append (or carries zeros there, the same bytes once
+    // zero-extended). Package format 2 accepts a shorter record, so such a package
+    // is NOT refused: its world applies with the warp-song record UNSET, so MM
+    // refuses every warp song of a file made from it (NOT_RECORDED, no prompt), and
+    // the world fields ahead of the record still land.
+    ComboContext_Init();
+    MwpPair();
+    gComboCtx.comboOoTWarps = sample;
+    const int shortStatus = OoT_SeedPackage_TestApplyShortWorldRecord(offsetof(ComboContext, comboOoTWarps));
+    char shortPrompt[128];
+    const bool olderUnset = shortStatus == RSBS_SEEDPKG_OK && MwpSameRecord(gComboCtx.comboOoTWarps, zero) &&
+                            Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_UNSET &&
+                            Combo_MMWarpPlay_PromptText(0, shortPrompt, sizeof(shortPrompt)) == -1 &&
+                            gComboCtx.sharedRandoSeed == kMwpSeed && gComboCtx.sourceIsRando;
+    // The same package cut one byte INTO the record keeps formatVersion 1 and
+    // nothing after it: never PRESENT (the validator refuses its zero
+    // destinations), so a torn record cannot offer a song either.
+    ComboContext_Init();
+    MwpPair();
+    gComboCtx.comboOoTWarps = sample;
+    const int tornStatus = OoT_SeedPackage_TestApplyShortWorldRecord(offsetof(ComboContext, comboOoTWarps) + 1u);
+    const bool tornRefused =
+        tornStatus == RSBS_SEEDPKG_OK && Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_INVALID;
+    printf("[TEST] mm-warp-song-play P2: rollback-restored %d, retracted %d, KEEP %d, DROP cleared %d, package %d, "
+           "older package UNSET %d (status %d), torn package INVALID %d (want 1 1 1 1 1 1 1)\n",
+           restored ? 1 : 0, retracted ? 1 : 0, kept ? 1 : 0, dropped ? 1 : 0, packaged ? 1 : 0, olderUnset ? 1 : 0,
+           shortStatus, tornRefused ? 1 : 0);
+    MWP_CHECK(olderUnset, "P2: a package whose record ends before the warp-song record is refused, or does not "
+                          "apply its world with the record UNSET\n");
+    MWP_CHECK(tornRefused, "P2: a package cut inside the warp-song record reads as anything but INVALID\n");
     MWP_CHECK(restored, "P2: a failed generation's rollback does not restore the warp-song record\n");
     MWP_CHECK(retracted, "P2: a retracted creation leaves its warp-song record behind\n");
     MWP_CHECK(kept, "P2: the file-create invalidation drops the record the creation just wrote\n");
@@ -428,7 +473,7 @@ void MwpCheckTexts() {
                               "%pWarp to the graveyard?%w",  "%tWarp to the Temple of Time?%w" };
     for (int i = 0; i < 6; i++) {
         const int form = Combo_MMWarpPlay_PromptText(i, out, sizeof(out));
-        MWP_CHECK(form == 0 && std::string(out) == kFixed[i], "P7: hints off, song %d says \"%s\" (form %d)\n", i, out,
+        MWP_CHECK(form == 0 && std::string(out) == kFixed[i], "P7: unshuffled, song %d says \"%s\" (form %d)\n", i, out,
                   form);
     }
     gComboCtx.comboOoTWarps = MwpSampleRecord();
@@ -440,6 +485,38 @@ void MwpCheckTexts() {
     form = Combo_MMWarpPlay_PromptText(1, out, sizeof(out));
     MWP_CHECK(form == 1 && std::string(out) == "Warp to\n%ra mysterious place%w?",
               "P7: hints on, an unnamed area says \"%s\" (form %d)\n", out, form);
+    // Operator ruling 2026-11-10 on A1 ("Yes, mysterious"): shuffled with Warp Song
+    // Hints off says what OoT's own prompt says then (StaticHints.cpp
+    // BuildMysteriousWarpMessage, "Warp to&%ra mysterious place?%w"), for every
+    // song, never OoTMM's fixed text naming the vanilla place. Each of the three
+    // cases is pinned by its form AND its text, so swapping any two fails: FIXED
+    // names the vanilla place, HINT puts the '?' outside the red ("...place%w?")
+    // and names the record's area, MYSTERIOUS puts it inside.
+    MWP_CHECK(Combo_MMWarpPlay_PromptFormFor(0u) == COMBO_MMWP_PROMPT_FIXED &&
+                  Combo_MMWarpPlay_PromptFormFor(RSBS_OOT_WARP_REC_SHUFFLED) == COMBO_MMWP_PROMPT_MYSTERIOUS &&
+                  Combo_MMWarpPlay_PromptFormFor(RSBS_OOT_WARP_REC_SHUFFLED | RSBS_OOT_WARP_REC_HINTS) ==
+                      COMBO_MMWP_PROMPT_HINT,
+              "P7: the prompt decision over the flags is not unshuffled FIXED, shuffled MYSTERIOUS, hinted HINT\n");
+    MWP_CHECK(COMBO_MMWP_PROMPT_FIXED == 0 && COMBO_MMWP_PROMPT_HINT == 1 && COMBO_MMWP_PROMPT_MYSTERIOUS == 2,
+              "P7: the prompt forms' return codes moved\n");
+    {
+        uint16_t dest[6];
+        for (int i = 0; i < 6; i++) {
+            dest[i] = kMwpPads[i];
+        }
+        dest[0] = 0x00DBu;
+        MWP_CHECK(Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, true, false, dest, NULL) ==
+                          COMBO_OOT_WARP_REC_PRESENT &&
+                      gComboCtx.comboOoTWarps.flags == RSBS_OOT_WARP_REC_SHUFFLED,
+                  "P7 setup: a shuffled record with hints off does not build PRESENT with flags 1\n");
+        for (int i = 0; i < 6; i++) {
+            const int mform = Combo_MMWarpPlay_PromptText(i, out, sizeof(out));
+            MWP_CHECK(mform == COMBO_MMWP_PROMPT_MYSTERIOUS && std::string(out) == "Warp to\n%ra mysterious place?%w",
+                      "P7: shuffled with hints off, song %d says \"%s\" (form %d); want OoT's \"Warp to\\n%%ra "
+                      "mysterious place?%%w\" (form 2)\n",
+                      i, out, mform);
+        }
+    }
     MWP_CHECK(Combo_MMWarpPlay_PromptText(0, out, 8) == -1 && out[0] == '\0' &&
                   Combo_MMWarpPlay_PromptText(6, out, sizeof(out)) == -1,
               "P7: a short buffer or song 6 gave a prompt\n");
