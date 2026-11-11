@@ -5063,9 +5063,8 @@ s32 Flags_GetRandomizerInf(RandomizerInf flag) {
     }
     */
 
-    // [RSBS #1364] RAND_INF_MAX is the "no flag" sentinel (unidentified crates, grass, pots, cows), and since
-    // the chest game's flag took the last free bit it is exactly 129 * 16: its word would be one past
-    // randomizerInf (the field after it, foreignMask). No flag is RAND_INF_MAX or above, so it reads unset.
+    // [RSBS #1364] RAND_INF_MAX is the "no flag" sentinel (unidentified crates, grass, pots, cows). No flag is
+    // RAND_INF_MAX or above, so it reads unset; since save format 6 its word is spare capacity, never a flag.
     if (flag >= RAND_INF_MAX) {
         return 0;
     }

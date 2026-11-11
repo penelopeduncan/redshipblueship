@@ -84,8 +84,8 @@ bool IsEoDCheck(RandomizerCheckType type);
 
 // The departure capture's record holds every OoT check id (#1129).
 static_assert((unsigned)RC_MAX <= RSBS_TRACKER_AVAIL_OOT_CAP,
-              "OoT's RC_MAX outgrew the tracker availability capture (context.h): raise RSBS_TRACKER_AVAIL_OOT_CAP "
-              "with the record size and RSBS_SAVE_VERSION");
+              "OoT's RC_MAX outgrew the tracker availability capture (context.h): a save format generation, or "
+              "move the captures to a Tier-6 (context.h's growth rule 6)");
 
 namespace {
 

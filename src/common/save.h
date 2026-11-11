@@ -68,7 +68,22 @@
 
 // On-disk constants (visible to both C and C++).
 #define RSBS_SAVE_MAGIC "REDSHIP1" // 8 bytes, NOT NUL-terminated on disk
-#define RSBS_SAVE_VERSION 5u       // version THIS build writes
+#define RSBS_SAVE_VERSION 6u       // version THIS build writes
+// v6 (operator ruling 2026-11-10, "clean break"; save format 6) is a FORMAT
+// GENERATION, the first since the format began: it moves fields, so no older
+// file is a prefix of it and RSBS_SAVE_VERSION_MIN rose with it (below). It
+// gives every saved array that upstream keeps growing a fixed capacity with
+// headroom (OoT: stats.itemTimestamp 320, stats.count 192, ship.randomizerInf
+// 8192 flags, a 48-byte randomizer quest union with a spare block; MM: checks
+// 4096, options 128, tricks 128, randoInf 256 flags, events 256, the
+// excluded-check set 512 bytes, a 256-byte spare block at the end of
+// RandoSaveInfo), widens the tracker captures (OoT 8192, MM 4096), raises the
+// Tier-1 record to 4096 bytes and both blob capacities (OOT_SAVE_CONTEXT_SIZE
+// 0x23000, MM_SAVE_CONTEXT_SIZE 0x14000), and appends the save watermark
+// (ComboSaveWatermark) at the end of ComboContext. A v1-v5 file is refused as
+// RSBS_REFUSE_OLD_VERSION ("File made by an older version"), never converted.
+// From v6 on, additions inside the capacities need no new version: the growth
+// rule (context.h) and RSBS_SAVE_LAYOUT_REVISION below say how.
 // v5 (operator ruling 2026-10-27) APPENDS the Tier-5 shared-item overflow block
 // after Tier-4 and changes nothing about Tiers 0-4, so v1-v4 stay inside the read
 // window below and load with an empty overflow. A v5 file is refused by a v4 (or
@@ -87,12 +102,25 @@
 // The first version that carries the Tier-5 shared-item overflow block (the
 // outbox's slots past the fixed 64, shared_items.h).
 #define RSBS_SAVE_VERSION_SHARED_OVERFLOW 5u
-// Oldest version this build can still read. v1 files predate the fixed-size
-// Tier-1 record: their comboSize is the raw sizeof(ComboContext) of the build
-// that wrote them, which is a prefix of the current layout and therefore
-// zero-extends cleanly. Widen this window rather than bumping VERSION alone —
-// bumping alone is what silently orphans every existing .redsave.
-#define RSBS_SAVE_VERSION_MIN 1u
+// Oldest version this build can still read. It is 6 since the v6 format
+// generation: a v1-v5 file's game tiers are another layout (the v6 capacities
+// moved fields), so it is refused as RSBS_REFUSE_OLD_VERSION, never read.
+// RSBS_SAVE_VERSION_CROSSINGS and RSBS_SAVE_VERSION_SHARED_OVERFLOW stay as
+// history; their `< 3` / `< 5` reader branches are unreachable now and are kept
+// for the smallest diff. A later format generation raises VERSION and MIN
+// together (context.h's growth rule 6); anything short of a generation needs
+// neither (rules 1-5, RSBS_SAVE_LAYOUT_REVISION).
+#define RSBS_SAVE_VERSION_MIN 6u
+// The LAYOUT REVISION inside format 6 (the growth rule in context.h, rule 4):
+// every carve of a spare block (OoT ShipRandomizerSaveContextData::rsbsSpare,
+// MM RandoSaveInfo::rsbsSpare) and every append (at the end of ComboContext, or
+// at the end of OoT's `ship`) raises it by one. It is stamped into every commit's
+// watermark (ComboContext.saveWatermark, context.h), and a build refuses a file
+// whose stamped revision is above its own (RSBS_REFUSE_VERSION, "File made by
+// another build"): an older build cannot know what the newer one put there. New
+// enum ids need no bump; the watermark stamps the enums' _MAX values itself.
+//   1  save format 6 as P0 landed it (#1510/#1512/#1513/#1514's clean break).
+#define RSBS_SAVE_LAYOUT_REVISION 1u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 
@@ -116,8 +144,8 @@ typedef enum RsbsRefuseReason {
     RSBS_REFUSE_NONE = 0,
     RSBS_REFUSE_UNREADABLE,  // file exists but cannot be opened/read
     RSBS_REFUSE_HEADER,      // short header / bad magic / endianness / headerSize
-    RSBS_REFUSE_VERSION,     // outside [RSBS_SAVE_VERSION_MIN, RSBS_SAVE_VERSION]
-    RSBS_REFUSE_TIER_SIZE,   // a stored tier size exceeds this build's capacity
+    RSBS_REFUSE_VERSION,     // newer than RSBS_SAVE_VERSION, or a v6 file whose watermark is above this build's
+    RSBS_REFUSE_TIER_SIZE,   // a stored tier size exceeds this build's capacity, or a tier's tail is not zero
     RSBS_REFUSE_WRONG_SLOT,  // header.slot != the slot this path belongs to
     RSBS_REFUSE_TRUNCATED,   // a tier read came up short
     RSBS_REFUSE_CRC,         // payload CRC mismatch
@@ -164,6 +192,17 @@ typedef enum RsbsRefuseReason {
     // select (SaveManager::ProbeSlotForOpen) and by the open path's load, never
     // quarantined (there is nothing, or nothing damaged, to set aside).
     RSBS_REFUSE_MISSING,
+    // Save format 6 (the clean break): the file's format version is below
+    // RSBS_SAVE_VERSION_MIN, a file from v0.5.0-alpha or earlier whose layout this
+    // build does not read. Split from RSBS_REFUSE_VERSION (a NEWER file) so the
+    // player reads "File made by an older version" and knows to erase it. Quarantined
+    // by a load like any refused file (renamed aside, never written over).
+    // APPENDED, never inserted: the enum's numbers are the quarantine slugs'
+    // read-back order (QuarantineReason).
+    RSBS_REFUSE_OLD_VERSION,
+    // Not a reason: one past the last one. Every loop over the reasons runs to
+    // `< RSBS_REFUSE_COUNT`, so an appended reason is read back without an edit.
+    RSBS_REFUSE_COUNT,
 } RsbsRefuseReason;
 
 // What a load attempt actually did — richer than the old bool, because ABSENT

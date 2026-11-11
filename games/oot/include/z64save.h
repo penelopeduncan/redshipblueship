@@ -9,6 +9,20 @@
 #include "soh/Enhancements/randomizer/randomizer_entrance.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
 
+// RedShipBlueShip save format 6 (src/common/save.h, context.h's growth rule):
+// the SAVED CAPACITIES of the arrays upstream keeps sizing by a growing enum.
+// The whole SaveContext is the .redsave's Tier-2 image, so an array sized by
+// its enum would move every field after it whenever upstream appends an id.
+// Storage is fixed here instead; every loop, fold and display still runs to the
+// enum's _MAX, so the spare tail is zero and is never read. Outgrowing one is a
+// save format generation (GameExports_SingleExe.cpp static_asserts each _MAX
+// against its capacity). Multiples of 64; headroom stated in the PR that set them.
+#define RSBS_OOT_ITEM_TIMESTAMP_CAP 320 // SohStats.itemTimestamp, TIMESTAMP_MAX 240 at format 6
+#define RSBS_OOT_STATS_COUNT_CAP 192    // SohStats.count, COUNT_MAX 106 at format 6
+#define RSBS_OOT_RAND_INF_CAP 8192      // ShipSaveContextData.randomizerInf flags, RAND_INF_MAX 2064 at format 6
+// ShipRandomizerSaveContextData's fixed size: its two counters, then rsbsSpare.
+#define RSBS_OOT_RANDO_QUEST_DATA_SIZE 48
+
 #define FULL_HEART_HEALTH 0x10
 #define STARTING_HEALTH (3 * FULL_HEART_HEALTH)
 #define MAX_HEALTH (20 * FULL_HEART_HEALTH)
@@ -90,10 +104,10 @@ typedef struct {
     /*      */ s16 sceneNum;
     /*      */ s8 roomNum;
     /*      */ bool gameComplete;
-    /*      */ u32 itemTimestamp[TIMESTAMP_MAX];
+    /*      */ u32 itemTimestamp[RSBS_OOT_ITEM_TIMESTAMP_CAP]; // RSBS format 6: was [TIMESTAMP_MAX], a fixed capacity
     /*      */ SceneTimestamp sceneTimestamps[8191];
     /*      */ u32 tsIdx;
-    /*      */ u32 count[COUNT_MAX];
+    /*      */ u32 count[RSBS_OOT_STATS_COUNT_CAP]; // RSBS format 6: was [COUNT_MAX], a fixed capacity
     /*      */ u32 entrancesDiscovered[SAVEFILE_ENTRANCES_DISCOVERED_IDX_COUNT];
     /*      */ u32 scenesDiscovered[SAVEFILE_SCENES_DISCOVERED_IDX_COUNT];
     /*      */ bool rtaTiming;
@@ -205,6 +219,13 @@ typedef struct {
 typedef struct ShipRandomizerSaveContextData {
     u8 triforcePiecesCollected;
     u8 bombchuUpgradeLevel;
+    // RedShipBlueShip save format 6 (context.h's growth rule 2): a new per-file
+    // OoT randomizer field is CARVED from the FRONT of this block (and
+    // RSBS_SAVE_LAYOUT_REVISION rises), so the union, and everything after it in
+    // `ship`, never moves. All bytes, no padding: the struct stays exactly
+    // RSBS_OOT_RANDO_QUEST_DATA_SIZE (48) on every compiler
+    // (GameExports_SingleExe.cpp static_asserts it). Zero means unset.
+    u8 rsbsSpare[RSBS_OOT_RANDO_QUEST_DATA_SIZE - 2];
 } ShipRandomizerSaveContextData;
 
 typedef struct ShipBossRushSaveContextData {
@@ -232,11 +253,18 @@ typedef struct ShipSaveContextData {
     u8 maskMemory;
     u8 filenameLanguage;
     //TODO: Move non-rando specific flags to a new sohInf and move the remaining randomizerInf to ShipRandomizerSaveContextData
-    u16 randomizerInf[(RAND_INF_MAX + 15) / 16];
+    // RedShipBlueShip save format 6: a fixed capacity of RSBS_OOT_RAND_INF_CAP
+    // flags (was [(RAND_INF_MAX + 15) / 16], which moved foreignMask with every
+    // appended flag). Words past RAND_INF_MAX's are zero and never read: the
+    // accessors (z_actor.c) ignore every flag at or past RAND_INF_MAX.
+    u16 randomizerInf[RSBS_OOT_RAND_INF_CAP / 16];
     // RedShipBlueShip (#977): the Majora's Mask mask Link wears, a ComboForeignMask
     // (src/common/foreign_masks.h), never currentMask: OoT indexes unbounded tables
-    // by currentMask. APPENDED at the end of `ship`, the last member of SaveContext,
-    // so an older save's Tier-2 blob zero-extends into it (zero is no mask).
+    // by currentMask. At the end of `ship`, the last member of SaveContext. From
+    // save format 6 a new per-file OoT field is APPENDED after it (context.h's
+    // growth rule 2: the end of `ship` is the end of SaveContext, so nothing moves)
+    // or carved from ShipRandomizerSaveContextData::rsbsSpare, and either raises
+    // RSBS_SAVE_LAYOUT_REVISION (src/common/save.h).
     u8 foreignMask;
 } ShipSaveContextData;
 

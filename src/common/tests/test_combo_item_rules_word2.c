@@ -206,11 +206,13 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");
         XW2_CHECK(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved) == 1003u &&
                       offsetof(ComboContext, mmWarpSongsOwned) == 1003u &&
-                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
-                  "the carve moved the record behind reserved[] (ends %u, captures at %u, sizeof %u): every .redsave "
-                  "and every seed package's combo record would be reinterpreted",
+                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u &&
+                      offsetof(ComboContext, trackerAvailOoT) == 1008u,
+                  "the carve moved the record behind reserved[] (ends %u, captures at %u, OoT capture at %u): every "
+                  ".redsave and every seed package's combo record would be reinterpreted",
                   (unsigned)(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved)),
-                  (unsigned)offsetof(ComboContext, trackerAvailCountOoT), (unsigned)sizeof(ComboContext));
+                  (unsigned)offsetof(ComboContext, trackerAvailCountOoT),
+                  (unsigned)offsetof(ComboContext, trackerAvailOoT));
 
         ComboItemRules2Record r;
         memset(&r, 0xEE, sizeof(r));

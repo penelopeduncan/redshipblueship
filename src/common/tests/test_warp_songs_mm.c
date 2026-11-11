@@ -248,11 +248,12 @@ TestResult MMWarpSongsItems_Run(void) {
     {
         WSM_CHECK(offsetof(ComboContext, mmWarpSongsOwned) == 1003u && offsetof(ComboContext, reserved) == 939u &&
                       sizeof(((ComboContext*)0)->reserved) == 64u &&
-                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
-                  "the ownership byte is at %u and reserved[] is %u bytes at %u (sizeof %u); expected 1003, the tail "
-                  "of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
+                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u &&
+                      offsetof(ComboContext, trackerAvailOoT) == 1008u,
+                  "the ownership byte is at %u and reserved[] is %u bytes at %u (OoT capture at %u); expected 1003, "
+                  "the tail of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
                   (unsigned)offsetof(ComboContext, mmWarpSongsOwned), (unsigned)sizeof(((ComboContext*)0)->reserved),
-                  (unsigned)offsetof(ComboContext, reserved), (unsigned)sizeof(ComboContext));
+                  (unsigned)offsetof(ComboContext, reserved), (unsigned)offsetof(ComboContext, trackerAvailOoT));
         WSM_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");
         WSM_CHECK(RSBS_MM_WARP_SONG_OWNED_ALL == 0x3Fu && RSBS_MM_WARP_SONG_COUNT == 6u,
                   "the six ownership bits are not 0x3F");

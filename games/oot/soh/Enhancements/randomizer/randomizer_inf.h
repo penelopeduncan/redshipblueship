@@ -2125,11 +2125,10 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // word count).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
 // [RSBS #1364] SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so
-// no other flag moves. It takes the LAST free bit: 2064 flags fill all 2064 bits of
-// the 129 u16 words. The next flag appended here needs a 130th word, which widens
-// ShipSaveContextData::randomizerInf: a save-layout change that needs a migration,
-// and the word-count static_assert in SongOfSoaringOoT.cpp fails until it has one.
-// RAND_INF_MAX is now exactly 129 * 16, so the "no flag" sentinel that unidentified
-// crates, grass, pots and cows keep is no longer a valid index (its word is one past
-// the array): Flags_Get/Set/UnsetRandomizerInf (z_actor.c) ignore it.
+// no other flag moves. 2064 flags. Since save format 6 the saved array is a fixed
+// capacity of RSBS_OOT_RAND_INF_CAP (8192) flags (z64save.h), so the next flag
+// appended here moves no save field; SongOfSoaringOoT.cpp static_asserts that
+// RAND_INF_MAX fits the capacity. RAND_INF_MAX is the "no flag" sentinel that
+// unidentified crates, grass, pots and cows keep, never a flag:
+// Flags_Get/Set/UnsetRandomizerInf (z_actor.c) ignore it and everything past it.
 DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)
