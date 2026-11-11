@@ -2362,32 +2362,68 @@ extern "C" int Rando_HeadlessHintCrossGameTest(const char* seedStr) {
 }
 
 /**
- * The canonical OoT placement hash: "<rc>:<placedItem>;" for every location in
- * ascending RandomizerCheck order, folded through the project's FNV-1a so a digest
- * file stays small and stable. Shared by the OoT digest above and by the MM half's
- * digest, which folds OoT's FINAL world after the single-bag fill (lane K11).
+ * THE CANONICAL OoT PLACEMENT FOLD (clean save break, part 2): "<rc>:<placedItem>;"
+ * for every PLACED row (placed item not RG_NONE), in ascending RandomizerCheck order,
+ * folded through the project's FNV-1a. @p itemAt(i) returns row i's placed item for
+ * i in [0, rowCount). @p outPlaced, when not null, receives the number of rows folded.
+ *
+ * A row the world holds is never RG_NONE: the fill places every pooled location, a
+ * location kept vanilla gets its vanilla item (PlaceVanillaItem), a crossing host
+ * gets the foreign junk cover and Link's pocket at least a green rupee. RG_NONE is a
+ * location GenerateLocationPool left out (its option is off, its quest is not this
+ * dungeon's, or it can hold no item). Before this fold walked every check id, so a
+ * backport that only ADDED checks behind an option that is off moved every pinned
+ * placementHash and ootFinalPlacementHash. A row going from RG_NONE to an item (or
+ * back) still moves the hash, since its text enters or leaves the blob, and the blob
+ * parses back to exactly one set of (rc, item) pairs, so two worlds whose placed rows
+ * differ in any host, item or membership never fold the same text.
+ */
+template <typename ItemAt> static uint32_t OoT_FoldPlacedRows(int rowCount, ItemAt itemAt, size_t* outPlaced) {
+    size_t placedCount = 0;
+    std::string blob;
+    for (int i = 0; i < rowCount; i++) {
+        const RandomizerGet item = itemAt(i);
+        if (item == RG_NONE) {
+            continue;
+        }
+        placedCount++;
+        blob += std::to_string(i);
+        blob += ':';
+        blob += std::to_string(static_cast<int>(item));
+        blob += ';';
+    }
+    if (outPlaced != nullptr) {
+        *outPlaced = placedCount;
+    }
+    return SohUtils::Hash(blob);
+}
+
+/**
+ * The canonical OoT placement hash (OoT_FoldPlacedRows over the live context, every
+ * RandomizerCheck below RC_MAX). Shared by the OoT digest above (placementHash) and
+ * by the MM half's digests, which fold OoT's FINAL world after the single-bag fill
+ * (ootFinalPlacementHash, lane K11). placedCount is the number of rows folded.
  */
 extern "C" uint32_t Rando_HeadlessPlacementHash(size_t* outPlacedCount) {
     auto ctx = Rando::Context::GetInstance();
-    size_t placedCount = 0;
-    std::string blob;
-    if (ctx) {
-        blob.reserve(static_cast<size_t>(RC_MAX) * 8);
-        for (int i = 0; i < RC_MAX; i++) {
-            RandomizerGet item = ctx->GetItemLocation(static_cast<RandomizerCheck>(i))->GetPlacedRandomizerGet();
-            if (item != RG_NONE) {
-                placedCount++;
-            }
-            blob += std::to_string(i);
-            blob += ':';
-            blob += std::to_string(static_cast<int>(item));
-            blob += ';';
-        }
+    if (!ctx) {
+        return OoT_FoldPlacedRows(
+            0, [](int) { return RG_NONE; }, outPlacedCount);
     }
-    if (outPlacedCount != nullptr) {
-        *outPlacedCount = placedCount;
-    }
-    return SohUtils::Hash(blob);
+    return OoT_FoldPlacedRows(
+        static_cast<int>(RC_MAX),
+        [&ctx](int i) { return ctx->GetItemLocation(static_cast<RandomizerCheck>(i))->GetPlacedRandomizerGet(); },
+        outPlacedCount);
+}
+
+/**
+ * TEST BRIDGE (PlacementHashPlacedRows): placementHash's own fold over a synthetic
+ * table of @p count placed items, row i holding @p items[i] (RG_NONE is 0), so a
+ * ROM-free row can prove which rows it reads. Touches no context.
+ */
+extern "C" uint32_t OoT_Rando_TestPlacementFold(const int* items, int count, size_t* outPlaced) {
+    return OoT_FoldPlacedRows(
+        count, [items](int i) { return static_cast<RandomizerGet>(items[i]); }, outPlaced);
 }
 
 /**
