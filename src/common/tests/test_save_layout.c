@@ -16,8 +16,18 @@
  *         no-op for a nonzero pin);
  *       - a measured struct past its blob capacity, or the MM tracker capture not
  *         the MM check capacity (catches the capacity static_asserts deleted);
- *       - the save watermark this build stamps disagreeing with the enum values
- *         the games report, or a zero term (catches an export reporting nothing).
+ *       - a watermark term RsbsSave_BuildWatermark wires to the wrong export
+ *         position, or a zero term (catches an export reporting nothing). Both
+ *         sides read the same exports, so a wrong VALUE in an export is not
+ *         caught here: the capacity static_asserts and the fixture row hold those;
+ *       - a term RsbsSave_WatermarkExceedsBuild leaves out or compares the wrong
+ *         way: each term is raised by one (must read as newer) and lowered by
+ *         one (must not);
+ *       - production start-up no longer arming the Tier-2/3 tail checks: every
+ *         `--test` row runs disarmed, so the row reads rsbs/src/main.cpp and
+ *         requires exactly one live `RsbsSave_ArmTierTailChecks();` after the
+ *         `--test` exit and before the integration branch and the save directory
+ *         (catches the call deleted, commented out or moved below a slot read).
  *
  *   SaveFormatV6Fixture ("save-format-v6-fixture"): loads the COMMITTED format-6
  *     .redsave (tests/fixtures/save-format-6/redship_slot0.redsave) through the
@@ -55,6 +65,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -132,10 +144,86 @@ TestResult Test_SaveLayoutPins(void) {
         printf("[TEST] FAIL: the watermark this build stamps is not the games' enum values (or a term is zero)\n");
         failures++;
     }
-    if (RsbsSave_WatermarkExceedsBuild(&build) != 0) {
-        printf("[TEST] FAIL: this build's own watermark reads as newer than this build\n");
-        failures++;
+    // Every term of the newer-content compare, one at a time: one above this
+    // build's must read as newer, one below must not (the terms are nonzero,
+    // checked above, and far below 0xFFFF, so neither step wraps).
+    struct WatermarkTerm {
+        const char* name;
+        uint32_t* u32;
+        uint16_t* u16;
+    };
+    ComboSaveWatermark probe = build;
+    const WatermarkTerm terms[] = {
+        { "layoutRevision", &probe.layoutRevision, nullptr },
+        { "ootRcMax", nullptr, &probe.ootRcMax },
+        { "ootRandInfMax", nullptr, &probe.ootRandInfMax },
+        { "ootRskMax", nullptr, &probe.ootRskMax },
+        { "mmRcMax", nullptr, &probe.mmRcMax },
+        { "mmRoMax", nullptr, &probe.mmRoMax },
+        { "mmRtMax", nullptr, &probe.mmRtMax },
+        { "mmRandoInfMax", nullptr, &probe.mmRandoInfMax },
+        { "mmReMax", nullptr, &probe.mmReMax },
+    };
+    for (const WatermarkTerm& term : terms) {
+        for (int step = -1; step <= 1; step += 2) {
+            probe = build;
+            if (term.u32 != nullptr) {
+                *term.u32 = (uint32_t)((int64_t)*term.u32 + step);
+            } else {
+                *term.u16 = (uint16_t)((int32_t)*term.u16 + step);
+            }
+            const int exceeds = RsbsSave_WatermarkExceedsBuild(&probe);
+            if (exceeds != (step > 0 ? 1 : 0)) {
+                printf("[TEST] FAIL: a watermark with %s %s this build's reads as %s\n", term.name,
+                       step > 0 ? "one above" : "one below", exceeds != 0 ? "newer" : "not newer");
+                failures++;
+            }
+        }
     }
+
+    // Production arms the Tier-2/3 tail checks in rsbs/src/main.cpp, which no
+    // `--test` row reaches (the rows run disarmed): hold the call's place by
+    // source, as mm-creation-new-file holds MM_SlotMeta_Register's.
+#ifdef RSBS_SOURCE_DIR
+    {
+        std::ifstream in(std::string(RSBS_SOURCE_DIR) + "/rsbs/src/main.cpp", std::ios::binary);
+        std::string text;
+        for (std::istreambuf_iterator<char> it(in), end; it != end; ++it) {
+            if (*it != '\r') {
+                text.push_back(*it);
+            }
+        }
+        const std::string stmt = "RsbsSave_ArmTierTailChecks();";
+        const size_t testExit = text.find("_Exit(testResult);");
+        const size_t integration = text.find("TestRunner_ParseIntegrationArgs(argc, argv)");
+        const size_t saveDir = text.find("SaveManager::Instance().SetSaveDirectory(");
+        size_t live = 0;
+        size_t at = std::string::npos;
+        for (size_t pos = text.find(stmt); pos != std::string::npos; pos = text.find(stmt, pos + 1)) {
+            size_t lineStart = text.rfind('\n', pos);
+            lineStart = lineStart == std::string::npos ? 0 : lineStart + 1;
+            // Its own line, only indentation before it: not a comment, not a mention.
+            if (text.find_first_not_of(" \t", lineStart) == pos && text.find('\n', pos) == pos + stmt.size()) {
+                at = pos;
+                live++;
+            }
+        }
+        const bool placed = live == 1 && testExit != std::string::npos && integration != std::string::npos &&
+                            saveDir != std::string::npos && at > testExit && at < integration && at < saveDir;
+        printf("[LAYOUT] main.cpp `%s` live statements=%zu, after the --test exit and before the integration branch "
+               "and the save directory=%d\n",
+               stmt.c_str(), live, placed ? 1 : 0);
+        if (text.empty() || !placed) {
+            printf("[TEST] FAIL: rsbs/src/main.cpp does not arm the Tier-2/3 tail checks exactly once between the "
+                   "`--test` exit and the integration branch: the game would read a newer build's tier tail without "
+                   "refusing it, and StageCommit would stop zeroing the tails it writes\n");
+            failures++;
+        }
+    }
+#else
+    printf("[TEST] FAIL: RSBS_SOURCE_DIR undefined; main.cpp's tail-check arming cannot be checked\n");
+    failures++;
+#endif
 
     printf("[TEST] save-layout-pins: %d failure(s)\n", failures);
     return failures == 0 ? TEST_PASS : TEST_FAIL;

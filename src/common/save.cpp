@@ -2142,7 +2142,8 @@ SlotMeta SaveManager::ReadMeta(int slot) const {
     }
     ComboContext combo;
     std::memcpy(&combo, comboRecord.data(), sizeof(ComboContext));
-    if (std::memcmp(combo.magic, COMBO_CONTEXT_MAGIC, sizeof(combo.magic)) == 0) {
+    const bool comboMagic = std::memcmp(combo.magic, COMBO_CONTEXT_MAGIC, sizeof(combo.magic)) == 0;
+    if (comboMagic) {
         meta.lastGame = combo.sourceGame;
         meta.comboSettingsHash = combo.comboSettingsHash;
     }
@@ -2165,10 +2166,15 @@ SlotMeta SaveManager::ReadMeta(int slot) const {
     }
     // Save format 6: the same newer-content guard a load runs (the one validator,
     // RsbsSaveValidateTierContents), so this page never shows "Ready" for a file
-    // the file select refuses as another build's.
+    // the file select refuses as another build's. Only on a Tier-1 that IS a
+    // ComboContext, the order a load checks them in (ReadSlotFile: magic, then the
+    // validator): a record that is not one is refused by the load as such, so
+    // reading its watermark bytes here would name another build for it. Such a
+    // file reads as before until a load refuses it, like a CRC failure.
     const RsbsRefuseReason contentReason =
-        RsbsSaveValidateTierContents(slot, comboRecord.data(), comboRecord.size(), ootBlob.data(), ootBlob.size(),
-                                     mmBlob.data(), mmBlob.size(), /*verbose=*/false);
+        comboMagic ? RsbsSaveValidateTierContents(slot, comboRecord.data(), comboRecord.size(), ootBlob.data(),
+                                                  ootBlob.size(), mmBlob.data(), mmBlob.size(), /*verbose=*/false)
+                   : RSBS_REFUSE_NONE;
     if (contentReason != RSBS_REFUSE_NONE) {
         meta.valid = false;
         meta.state = RSBS_SLOT_REFUSED;

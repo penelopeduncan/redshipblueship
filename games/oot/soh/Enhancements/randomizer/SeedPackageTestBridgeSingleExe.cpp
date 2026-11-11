@@ -18,15 +18,20 @@
  *           store, the give capabilities, the completed world Generate holds (its
  *           digest, MM's profile, the goal, the unproved halves, MM's half) and the
  *           spoiler document gGeneral.SpoilerLog names. Read before the package
- *           exists, so a term the writer drops cannot also be missing here.
+ *           exists, so a term the writer drops cannot also be missing here. ONE
+ *           EXCEPTION (save format 6): the expected placement/combo-context.bin is
+ *           built by the production writer itself (WorldOnlyRecord below), so that
+ *           entry is a self-comparison: it catches only gComboCtx drifting between
+ *           the two reads, never a field the writer drops or adds. The applied
+ *           world fields it carries are covered by the world report instead.
  *   package (pkgPath set): the entries of the zip, read one by one, and the terms
  *           parsed out of its identity.json.
  *
  * Both sides print every value as the JSON its identity.json term holds (dump()),
  * and every JSON document in canonical form (keys sorted), so the lines compare
  * as text whatever the writer's key order. The row requires the two sides equal:
- * a writer that drops or alters any term, any entry, or either split spoiler makes
- * them differ.
+ * a writer that drops or alters any term, any entry other than the combo record
+ * (above), or either split spoiler makes them differ.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 

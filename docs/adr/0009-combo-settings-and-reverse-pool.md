@@ -1107,7 +1107,11 @@ break. For this ADR's budget it means:
 - **Growth is append-only, at the end of `ComboContext`.** A new Tier-1 field goes
   after the last member (today `saveWatermark`, the save watermark appended by
   format 6), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
-  `sizeof` pin (`src/common/save_layout_pins.h`). No `RSBS_SAVE_VERSION` change:
+  `sizeof` pin (`src/common/save_layout_pins.h`). It also moves `context.h`'s
+  last-member assert (`sizeof(ComboContext) == offsetof(<last member>) +
+  sizeof(<it>)`, today written against `saveWatermark`) to the new member, which
+  that assert otherwise refuses whatever the pin says; the members before it keep
+  their contiguity asserts. No `RSBS_SAVE_VERSION` change:
   an older format-6 record zero-extends, so "zero means unset" holds for every
   appended field, as it did for every carve.
 - **The record is 4096 bytes** (`RSBS_COMBO_CONTEXT_RECORD_SIZE`, was 2048).

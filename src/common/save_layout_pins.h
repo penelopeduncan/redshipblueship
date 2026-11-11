@@ -32,8 +32,12 @@
  * ShipRandomizerSaveContextData::rsbsSpare, MM RandoSaveInfo::rsbsSpare) or
  * appended at the very end of its struct (ComboContext; OoT's `ship`, the last
  * member of SaveContext), RSBS_SAVE_LAYOUT_REVISION (save.h) rises by one, and the
- * pins that legitimately moved (a sizeof after an append) are re-measured with the
- * row. Any other movement of a pinned field is a save format generation
+ * pins that legitimately moved are re-measured with the row: after a ComboContext
+ * append RSBS_PIN_COMBO_CONTEXT_SIZEOF; after an append to OoT's `ship`
+ * RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF; after a carve of a spare block the spare's
+ * offset (RSBS_PIN_MM_RANDO_SPARE moves by the carved bytes plus any alignment
+ * padding; OoT's spare is not pinned). Any other movement of a pinned field is a
+ * save format generation
  * (RSBS_SAVE_VERSION and RSBS_SAVE_VERSION_MIN rise together), never an edit of
  * the pin alone.
  *
@@ -130,6 +134,7 @@
 // growing), and the sizes.
 #define RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF 0    // sizeof(SaveContext)
 #define RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF 0 // sizeof(RandoSaveInfo)
+#define RSBS_PIN_MM_SAVE_SIZEOF 0            // sizeof(Save): asserted <= SAVE_BUFFER_SIZE_HALF (the sram copy)
 #define RSBS_PIN_MM_SAVE_TYPE 0              // offsetof(SaveContext, save.shipSaveInfo.saveType)
 #define RSBS_PIN_MM_RANDO_FINAL_SEED 0       // offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed)
 #define RSBS_PIN_MM_RANDO_OPTIONS 0          // offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions)

@@ -9301,7 +9301,8 @@ const TestDescriptor gTests[] = {
     { "save-has-delete", "Unified save HasSave/DeleteSave lifecycle (#35)", Test_SaveHasDelete },
     { "save-version-reject", "Unified save Load rejects unknown version, no clobber (#35)", Test_SaveVersionReject },
     { "save-size-mismatch", "Unified save Load rejects oversized tier, no clobber (#35)", Test_SaveSizeMismatch },
-    { "save-legacy-size", "Unified save Load zero-extends shorter legacy tiers (#35)", Test_SaveLegacySize },
+    { "save-legacy-size", "Unified save Load zero-extends shorter v6 tiers; v1-v5 refused as older (#35)",
+      Test_SaveLegacySize },
     { "save-crc-corrupt", "Unified save Load rejects corrupt payload, no clobber (#35)", Test_SaveCrcCorrupt },
     // #533: REFUSED as a first-class slot state, distinct from ABSENT.
     { "save-refused-quarantine", "A refused .redsave is quarantined byte-exact and the slot write-latched (#533)",
@@ -9313,7 +9314,8 @@ const TestDescriptor gTests[] = {
       Test_SaveRefusedMeta },
     // Tier-1 format-headroom locks: the migration path Lane A's widened
     // sharedItems rides on. Without these, "ComboContext can grow" is a claim.
-    { "save-combo-legacy-record", "Pre-headroom Tier-1 still loads and zero-extends", Test_SaveComboLegacyRecord },
+    { "save-combo-legacy-record", "A shorter v6 Tier-1 record still loads and zero-extends",
+      Test_SaveComboLegacyRecord },
     { "save-combo-record-fixed", "Tier-1 written at a fixed padded size; headroom round-trips",
       Test_SaveComboRecordFixed },
     { "save-combo-oversize", "Load rejects an oversized Tier-1 record, no clobber", Test_SaveComboOversize },
@@ -9325,7 +9327,8 @@ const TestDescriptor gTests[] = {
     // The shared-item overflow (Tier-5, format v5): one logical outbox past the fixed 64 slots (Refs #1222).
     { "save-shared-item-overflow-roundtrip", "Crossings past the fixed 64 shared-item slots save and load in order",
       Test_SaveSharedItemOverflowRoundtrip },
-    { "save-shared-item-overflow-legacy", "A v4 .redsave loads with an empty overflow and re-saves as v5",
+    { "save-shared-item-overflow-legacy",
+      "A v4 .redsave is refused as an older version; a v6 save ends in an empty Tier-5",
       Test_SaveSharedItemOverflowLegacy },
     { "save-shared-item-overflow-reset-restore",
       "The moon-crash reset restores both shared-item segments to the last commit (#785)",
@@ -9904,9 +9907,9 @@ const TestDescriptor gTests[] = {
       "a crafted .redsave; bad rows and repeated hosts are refused; the frozen set refuses divergence (ADR 0010 O7)",
       Test_CrossingStoreCapacity },
     { "crossing-store-redsave",
-      "The .redsave is format v3 and its Tier-4 is the serialized crossing block; save/load is byte-identical with MM "
-      "never booted; a refused load applies nothing; malformed and truncated blocks refuse; v2 loads empty (ADR 0010 "
-      "O7)",
+      "The .redsave's Tier-4 is the serialized crossing block; save/load is byte-identical with MM never booted; a "
+      "refused load applies nothing; malformed and truncated blocks refuse; a v2 file is refused as an older version "
+      "(ADR 0010 O7)",
       Test_CrossingStoreRedsave },
     { "crossing-store-spoiler",
       "combo.crossingStore round-trips write -> load byte-identical, reloads as a no-op, and refuses a different "
@@ -10187,7 +10190,7 @@ const TestDescriptor gTests[] = {
     // real paired OoT generations (rando tier) through the hidden-bit test seam.
     { "oot-soaring-table-bounds",
       "The Song of Soaring (OoT) is appended after the masks in OoT's item, hint and RAND_INF enums, adds no ItemID, "
-      "still fits the 129 saved RAND_INF words, and its item row is a song with its own flag, note, text and hint "
+      "still fits the 512 saved RAND_INF words, and its item row is a song with its own flag, note, text and hint "
       "(#1169)",
       Test_OoTSoaringTableBounds },
     { "oot-soaring-rule-logic",

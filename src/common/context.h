@@ -172,18 +172,35 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * asking; anything it does not cover is a save format generation.
  *
  *   1. ComboContext. APPEND after the last member (today saveWatermark, below).
- *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Update
- *      RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h) after measuring it with
- *      the SaveLayoutPins row, and raise RSBS_SAVE_LAYOUT_REVISION (rule 4). No
- *      RSBS_SAVE_VERSION change: an older record zero-extends, so "zero means
- *      unset" must hold for every appended field.
+ *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Move
+ *      the LAST-MEMBER assert below (`sizeof(ComboContext) == offsetof(ComboContext,
+ *      <last>) + sizeof(<it>)`, today written against saveWatermark) to the new
+ *      member, and tie the new member to the one before it by a contiguity assert
+ *      (mind its alignment: say where any padding falls); the members before it
+ *      keep theirs. Update RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h)
+ *      after measuring it with the SaveLayoutPins row, and raise
+ *      RSBS_SAVE_LAYOUT_REVISION (rule 4). No RSBS_SAVE_VERSION change: an older
+ *      record zero-extends, so "zero means unset" must hold for every appended
+ *      field.
  *   2. OoT per-file fields. Either APPEND at the end of `ship`, the last member
- *      of OoT's SaveContext (games/oot/include/z64save.h), or CARVE the front of
- *      ShipRandomizerSaveContextData::rsbsSpare.
+ *      of OoT's SaveContext (games/oot/include/z64save.h), which moves
+ *      RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF (re-measure it); or CARVE the front of
+ *      ShipRandomizerSaveContextData::rsbsSpare, shrinking rsbsSpare by the
+ *      carved bytes so the struct stays 48 bytes (GameExports_SingleExe.cpp
+ *      asserts it). EITHER WAY, also add the field's LoadData/SaveData pair to
+ *      games/oot/soh/SaveManager.cpp, beside foreignMask's for a `ship` append or
+ *      beside triforcePiecesCollected's for a carve: OoT's live SaveContext is
+ *      loaded from its own .sav key by key, and a .redsave load refreshes only the
+ *      shadow, so a field with no key is reset whenever the .sav loads. Zero must
+ *      mean unset there too, because older .sav files lack the key.
  *   3. MM per-file fields. CARVE the front of RandoSaveInfo::rsbsSpare, never
  *      append to RandoSaveInfo: Save is the FIRST member of MM's SaveContext
  *      (games/mm/include/z64save.h), so an append there shifts every field after
- *      it in the Tier-3 image.
+ *      it in the Tier-3 image. Shrink RSBS_MM_RANDO_SPARE_SIZE by the carved bytes
+ *      plus any alignment padding the new field brings (carve u8 arrays, or put a
+ *      wider field where its alignment already falls), so sizeof(RandoSaveInfo)
+ *      and every field after it keep their pins. The carve moves
+ *      RSBS_PIN_MM_RANDO_SPARE by that amount: re-measure it.
  *   4. Every carve or append raises RSBS_SAVE_LAYOUT_REVISION (save.h) by one.
  *      The watermark (ComboSaveWatermark) carries it into every commit, so an
  *      older build refuses the file instead of reading it without the new field.
@@ -1479,7 +1496,7 @@ typedef struct {
 
     // Save format 6: THE SAVE WATERMARK (ComboSaveWatermark above), raised by
     // every commit to at least this build's values and checked by the shared
-    // tier validator (save.cpp ValidateTierContents) on every read: a record
+    // tier validator (save.cpp RsbsSaveValidateTierContents) on every read: a record
     // stamped above this build is refused as another build's. APPENDED after the
     // skip journal; its u32 aligns it to 4, so 2 bytes of padding sit between the
     // journal's last entry and it (the journal ends 2 bytes past a multiple of 4).
@@ -1776,8 +1793,9 @@ RSBS_CTX_STATIC_ASSERT(sizeof(ComboSaveWatermark) == 20u &&
                                  RSBS_TRACKER_SKIP_JOURNAL_OOT_CAP * sizeof(uint16_t) + 3u) &
                                 ~(size_t)3u) &&
                            sizeof(ComboContext) == offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark),
-                       "the save watermark (save format 6) is ComboContext's last member, 4-aligned after the skip "
-                       "journal; a field appended after it moves sizeof (re-measure RSBS_PIN_COMBO_CONTEXT_SIZEOF)");
+                       "the save watermark (save format 6) is 4-aligned after the skip journal and, until a later "
+                       "append, ComboContext's last member: an append moves this last-member term to the new member "
+                       "and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF (growth rule 1)");
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_TRACKER_AVAIL_MM, offsetof(ComboContext, trackerAvailMM));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT, offsetof(ComboContext, trackerSkipJournalCountOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL, offsetof(ComboContext, trackerSkipJournalOoT));

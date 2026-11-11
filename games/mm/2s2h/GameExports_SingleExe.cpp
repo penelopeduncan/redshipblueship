@@ -212,6 +212,16 @@ AudioCollection* AudioCollection::Instance = nullptr;
 static_assert(sizeof(SaveContext) <= MM_SAVE_CONTEXT_SIZE,
               "MM_SAVE_CONTEXT_SIZE (src/common/game.h) is smaller than 2S2H's runtime SaveContext; "
               "raise the capacity or cross-game freeze/restore will truncate save state");
+// Save format 6 grew RandoSaveInfo (inside Save) by about 22 KB. z_sram_NES.c
+// copies a whole Save into each half of the sram buffer (saveBuf[0] and
+// saveBuf[SAVE_BUFFER_SIZE_HALF], `memcpy(..., sizeof(Save))`) and the owl save's
+// offsetof(SaveContext, fileNum) bytes into saveBuf[0]; the buffer is
+// SAVE_BUFFER_SIZE bytes (THA_AllocTailAlign16, and the test rows' static
+// buffers). A Save past the half overruns it silently, so it fails here instead.
+static_assert(sizeof(Save) <= SAVE_BUFFER_SIZE_HALF,
+              "MM's Save outgrew the sram buffer half z_sram_NES.c copies it into: raise SAVE_BUFFER_SIZE or shrink "
+              "a capacity");
+static_assert(offsetof(SaveContext, fileNum) <= SAVE_BUFFER_SIZE, "MM's owl save outgrew the sram buffer");
 
 // ---- Save format 6 (src/common/save.h; context.h's growth rule) --------------
 // THE CAPACITY LOCKS. Every RandoSaveInfo array that upstream sizes by a growing
@@ -255,6 +265,7 @@ static_assert(RE_MAIL_LETTER_TO_KAFEI == 82, "MM's last randomizer event at save
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions));
@@ -288,6 +299,8 @@ extern "C" int MM_SaveLayout_ReportPins(void) {
     int mismatches = 0;
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext), mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save), mismatches);
+    printf("[LAYOUT] slack MM Save in the sram buffer half %u\n", (unsigned)(SAVE_BUFFER_SIZE_HALF - sizeof(Save)));
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType), mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed),
                            mismatches);
