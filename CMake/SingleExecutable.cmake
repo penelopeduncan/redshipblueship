@@ -4244,13 +4244,35 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
         ENVIRONMENT "RSBS_PFC_FILE_SELECT_SHOT=1" "RSBS_CAPTURE_OUT=${CMAKE_BINARY_DIR}/frame-capture")
+    # #1169 XW6: OoT's Song of Soaring crossing to a Termina owl, driven for real.
+    # The paired first crossing with the hidden songSoaringOot rule revealed
+    # through the test seam (Combo_ComboItemRules2RevealForTest, never a stored
+    # setting) and Shuffle Songs set to Anywhere in memory (13 songs do not fit
+    # the 12 song spots); both are put back at the verdict. The notes are played
+    # through SoH's emulated buttons (the controller input both the ocarina and
+    # the message system read), so the message system's Soaring arms run for real.
+    # First OoT leg: an adult's notes match nothing, the creation shadow (day 0, no
+    # owl) shows the no-statues text, the Windmill (warp-song restriction 3)
+    # refuses with 0x88C; each refusal ends in OCARINA_MODE_04 with nothing armed.
+    # The MM leg activates the Clock Town and swamp owls, clears Woodfall and makes
+    # the half an owl save with a pause-save entrance. Return leg: the chooser is
+    # cancelled with B, then stepped to the second owl and soared to; MM must land
+    # at the CLEARED swamp's owl (0x0CA0), not the pause-save spot, with the
+    # one-shot target spent. games/oot/soh/GameExports_SingleExe.cpp (the OoT
+    # legs), games/mm/2s2h/GameExports_SingleExe.cpp (the MM leg and the arrival).
+    # Longer than its siblings: two more scene loads and five songs.
+    math(EXPR REDSHIP_SOARING_TO_OWL_TIMEOUT "${REDSHIP_GAMEPLAY_TEST_TIMEOUT} * 2")
+    redship_add_test(NAME IntSoaringToOwl
+        COMMAND redship --integration-test int-soaring-to-owl
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT})
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl
         PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================

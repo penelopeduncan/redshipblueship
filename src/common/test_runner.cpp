@@ -10588,6 +10588,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "the creation-frozen half (stderr lines, pairing, crossing store, no refusal), and come back restored. "
       "RSBS_PFC_SKIP_CREATION=1 is the red half",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_PAIRED_FIRST_CROSSING },
+    { "int-soaring-to-owl",
+      "The paired first crossing with OoT's Song of Soaring rule revealed (#1169 XW6): an adult plays it and nothing "
+      "matches; the creation shadow shows the no-statues text; the Windmill refuses it; after an MM leg that "
+      "activates two owls (one an owl save with a pause-save entrance, the swamp cleared) the return leg cancels the "
+      "owl chooser, then steps it to the second owl and soars: MM must land on the cleared swamp's owl, not the "
+      "pause-save spot, with the one-shot target spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -10969,6 +10976,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
+    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
+    // hidden rules are hidden again, pass or fail.
+    IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.
     IntegrationTest_StderrCaptureStop();
