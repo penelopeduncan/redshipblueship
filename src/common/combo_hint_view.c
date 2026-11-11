@@ -236,7 +236,7 @@ void Combo_HintGameSummary(uint8_t game, ComboHintGameSummary* out) {
     }
     memset(out, 0, sizeof(*out));
     if (game != (uint8_t)GAME_MM) {
-        return; // OoT's pane is lane H2's (#1468's data)
+        return; // OoT's pane state comes from Combo_Hint_GetOoTOps()->collect (randomizer_hint_tracker.cpp)
     }
     bool world = false;
     const void* save = MMHintSave(&out->freshness, &world);
@@ -264,6 +264,8 @@ int Combo_HintRowCount(uint8_t game) {
     return MMHintOrder(save, order);
 }
 
+static void MMHintFillRow(const void* save, uint16_t source, ComboHintRow* out);
+
 bool Combo_HintRowAt(uint8_t game, int index, ComboHintRow* out) {
     if (out == NULL || index < 0) {
         return false;
@@ -282,7 +284,31 @@ bool Combo_HintRowAt(uint8_t game, int index, ComboHintRow* out) {
     if (index >= count) {
         return false;
     }
-    const uint16_t source = order[index];
+    MMHintFillRow(save, order[index], out);
+    return true;
+}
+
+int Combo_HintRowsAll(uint8_t game, ComboHintRow* out, int cap) {
+    if (game != (uint8_t)GAME_MM) {
+        return 0;
+    }
+    bool world = false;
+    const void* save = MMHintSave(NULL, &world);
+    if (save == NULL || !world) {
+        return 0;
+    }
+    uint16_t order[RSBS_MM_HINT_READ_CAP];
+    const int count = MMHintOrder(save, order);
+    for (int i = 0; out != NULL && i < count && i < cap; i++) {
+        memset(&out[i], 0, sizeof(out[i]));
+        MMHintFillRow(save, order[i], &out[i]);
+    }
+    return count;
+}
+
+/** Fill the zeroed row `out` for MM source `source` over the save image `save` (Combo_HintRowAt's row). */
+static void MMHintFillRow(const void* save, uint16_t source, ComboHintRow* out) {
+    const uint8_t game = (uint8_t)GAME_MM;
     (void)sMMHintDesc.sourceInfo(source, &out->info);
     out->areaName = Combo_Area_Name(out->info.area);
     out->read = Combo_HintIsRead(game, source);
@@ -302,5 +328,80 @@ bool Combo_HintRowAt(uint8_t game, int index, ComboHintRow* out) {
         Combo_HintResolutionClear(&out->hint);
         snprintf(out->display, sizeof(out->display), "%s", RSBS_HINT_MASKED_TEXT);
     }
-    return true;
+}
+
+// ============================================================================
+// The OoT pane's adapter (lane H2)
+// ============================================================================
+
+static const ComboOoTHintOps* sOoTHintOps = NULL;
+
+void Combo_Hint_RegisterOoT(const ComboOoTHintOps* ops) {
+    if (ops == NULL) {
+        sOoTHintOps = NULL;
+        return;
+    }
+    if (ops->collect == NULL || ops->rowAt == NULL) {
+        fprintf(stderr, "[HintTracker] REJECTED OoT hint ops: a NULL member\n");
+        return;
+    }
+    sOoTHintOps = ops;
+}
+
+const ComboOoTHintOps* Combo_Hint_GetOoTOps(void) {
+    return sOoTHintOps;
+}
+
+// ============================================================================
+// Cross-game Seen (lane H2)
+// ============================================================================
+
+bool Combo_HintMarkHostSeen(uint8_t hostGame, uint16_t check) {
+    // Only an OoT host can be named by the other game's hint (combo_hint_view.h).
+    if (hostGame != (uint8_t)GAME_OOT || sOoTHintOps == NULL || sOoTHintOps->markHostSeen == NULL) {
+        return false;
+    }
+    return sOoTHintOps->markHostSeen(check);
+}
+
+int Combo_HintReadHostChecks(uint8_t hostGame, uint16_t* out, int cap) {
+    if (hostGame != (uint8_t)GAME_OOT) {
+        return 0; // no OoT hint names an MM check (combo_hint_view.h)
+    }
+    uint8_t freshness = COMBO_TRACKER_FRESH_UNAVAILABLE;
+    bool world = false;
+    const void* save = MMHintSave(&freshness, &world);
+    // MM's live save, or the frozen half a load, a creation or a departure armed:
+    // a resident image that is neither may be another file's MM half.
+    const bool current = freshness == (uint8_t)COMBO_TRACKER_FRESH_LIVE ||
+                         (freshness == (uint8_t)COMBO_TRACKER_FRESH_STALE && Context_HasFrozenState(GAME_MM));
+    if (save == NULL || !world || !current) {
+        return 0;
+    }
+    // Every read source names at most RSBS_HINT_TARGET_CAP checks, so the distinct
+    // hosts fit here whatever `cap` is, and the count is exact.
+    uint16_t hosts[RSBS_HINT_HOST_CAP];
+    int n = 0;
+    for (uint16_t s = 0; s < sMMHintDesc.sourceCount && s < RSBS_MM_HINT_READ_CAP; s++) {
+        ComboHintResolution hint;
+        if (!Combo_HintIsRead((uint8_t)GAME_MM, s) || !sMMHintDesc.resolve(save, s, &hint)) {
+            continue;
+        }
+        for (int i = 0; i < (int)hint.targetCount && i < RSBS_HINT_TARGET_CAP; i++) {
+            if (hint.targets[i].checkGame != (uint8_t)GAME_OOT) {
+                continue;
+            }
+            bool listed = false;
+            for (int j = 0; j < n; j++) {
+                listed = listed || hosts[j] == hint.targets[i].check;
+            }
+            if (!listed && n < (int)RSBS_HINT_HOST_CAP) {
+                hosts[n++] = hint.targets[i].check;
+            }
+        }
+    }
+    for (int j = 0; out != NULL && j < n && j < cap; j++) {
+        out[j] = hosts[j];
+    }
+    return n;
 }

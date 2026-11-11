@@ -67,6 +67,10 @@
   Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
   inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
   the scene they open from.
+- **The Hint Tracker shows both games** (issue #1475). It keeps Ship of Harkinian's Locations and Journal views, with an
+  Ocarina of Time pane and a Majora's Mask pane, works in either game, and each pane scrolls to the area you are in.
+  Majora's Mask hints you have read are now listed. Reading a Majora's Mask hint about an item that crossed into Hyrule
+  marks that Ocarina of Time check as Seen in the Check Tracker.
 
 ### Options and quality of life
 

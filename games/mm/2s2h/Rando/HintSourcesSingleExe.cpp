@@ -449,6 +449,44 @@ bool MMHintResolve(const void* save, uint16_t source, ComboHintResolution* out) 
     return Rando::HintSources::Resolve(static_cast<const SaveContext*>(save), source, out);
 }
 
+/**
+ * #1475 (lane H2): the combined Hint Tracker's Journal group for MM item `item`,
+ * by its RandoItemType in SoH's ItemCategoryRank order (combo_hint_view.h,
+ * COMBO_HINT_RANK_*): a mask is major, as SoH's Journal ranks a mask at an OoT
+ * crossing host (ITEM_CATEGORY_MM_MASK) and as OoTMM grades masks; a stray fairy
+ * ranks with the lesser items, as SoH's does (ITEM_CATEGORY_MM_STRAY_FAIRY). An
+ * OoT item (one that crossed to an MM check) is not graded here.
+ */
+int MMHintItemRank(uint8_t itemGame, uint16_t item) {
+    if (itemGame != (uint8_t)GAME_MM || item >= (uint16_t)RI_MAX) {
+        return COMBO_HINT_RANK_UNGRADED;
+    }
+    const auto found = Rando::StaticData::Items.find((RandoItemId)item);
+    if (found == Rando::StaticData::Items.end()) {
+        return COMBO_HINT_RANK_UNGRADED;
+    }
+    switch (found->second.randoItemType) {
+        case RITYPE_MAJOR:
+        case RITYPE_MASK:
+            return COMBO_HINT_RANK_MAJOR;
+        case RITYPE_BOSS_KEY:
+            return COMBO_HINT_RANK_BOSS_KEY;
+        case RITYPE_SMALL_KEY:
+            return COMBO_HINT_RANK_SMALL_KEY;
+        case RITYPE_SKULLTULA_TOKEN:
+            return COMBO_HINT_RANK_SKULLTULA_TOKEN;
+        case RITYPE_HEALTH:
+            return COMBO_HINT_RANK_HEALTH;
+        case RITYPE_LESSER:
+        case RITYPE_STRAY_FAIRY:
+            return COMBO_HINT_RANK_LESSER;
+        case RITYPE_JUNK:
+            return COMBO_HINT_RANK_JUNK;
+        default:
+            return COMBO_HINT_RANK_UNGRADED;
+    }
+}
+
 } // namespace
 
 // ============================================================================
@@ -547,8 +585,11 @@ void Rando::HintSources::MarkRead(uint16_t source) {
     (void)Combo_HintMarkRead((uint8_t)GAME_MM, source);
     // MM-side Seen: every MM check the hint names is marked seen in MM's live
     // save, the byte MM's own check tracker and the combined Check Tracker's MM
-    // pane read (MarkCheckSeen, as the Bomb Shop's line already did). A hint that
-    // names an OoT host (an MM item that crossed) is left to lane H2.
+    // pane read (MarkCheckSeen, as the Bomb Shop's line already did). #1475
+    // (lane H2): a check the hint names in Ocarina of Time (an MM item that
+    // crossed to an OoT host) is marked Seen there, in OoT's suspended heap
+    // (Combo_HintMarkHostSeen; OoT's load seam derives it again from the read
+    // record, so a commit made from Termina keeps it).
     ComboHintResolution resolved;
     if (!Resolve(&gSaveContext, source, &resolved)) {
         return;
@@ -557,6 +598,8 @@ void Rando::HintSources::MarkRead(uint16_t source) {
         const ComboHintTarget& t = resolved.targets[i];
         if (t.checkGame == (uint8_t)GAME_MM && t.check > (uint16_t)RC_UNKNOWN && t.check < (uint16_t)RC_MAX) {
             Rando::ActorBehavior::MarkCheckSeen((RandoCheckId)t.check, RCSEEN_SEEN);
+        } else if (t.checkGame == (uint8_t)GAME_OOT) {
+            (void)Combo_HintMarkHostSeen((uint8_t)GAME_OOT, t.check);
         }
     }
 }
@@ -574,6 +617,7 @@ extern "C" void MM_HintAdapter_Register(void) {
     desc.sourceInfo = MMHintSourceInfo;
     desc.listed = MMHintListed;
     desc.resolve = MMHintResolve;
+    desc.itemRank = MMHintItemRank; // #1475 (lane H2): the Journal's item groups
     Combo_Hint_RegisterMM(&desc);
 }
 

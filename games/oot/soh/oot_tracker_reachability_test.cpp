@@ -87,6 +87,11 @@
  *   K  Reading the probe under Obscure and under Ambiguous hint clarity marks the
  *      host Seen in the Check Tracker. With the gate shut, Obscure leaves it
  *      unchecked, SoH's own rule (the control).
+ *   L  #1475 (lane H2): the combined Hint Tracker's OoT pane read while Majora's
+ *      Mask plays (OoT's play state gone, the departure record set) files the read
+ *      probe under the crossed item's group and its text names the MM item, with
+ *      the gate's other terms shut, and leaves the gate shut; with no departure
+ *      from a randomizer file the pane waits (the control).
  *
  * Every check runs and reports; the entry point returns the failure count.
  */
@@ -169,6 +174,16 @@ int OoT_Rando_Foreign_TestChestCategory(uint16_t rc);
 // ComboLogicEngineOoT.cpp: the paired spoiler's term of the hint text's gate.
 int OoT_ComboLogic_WritingSingleBagSpoiler(void);
 void OoT_ComboLogic_TestSetWritingSingleBagSpoiler(int on);
+// randomizer_hint_tracker.cpp (#1475, lane H2): a hint marked read, the combined Hint
+// Tracker's OoT pane through its production ops, and an item hint's Journal key.
+int RandoTest_HintTrackerSetRead(int hintKey, int read);
+int RandoTest_HintTrackerPaneRow(int hintKey, int* outCount, uint32_t* outJournalKey, char* outText, int textCap);
+uint32_t RandoTest_HintTrackerItemGroupKey(void);
+// TrackerAdapterSingleExe.cpp (#1475): the departure record the pane's suspended read needs.
+int OoT_TrackerAdapter_TestSetDeparted(int rando);
+// src/common/context.h (kept out of this TU's include set, as above).
+GameId Context_GetCurrentGame(void);
+void Context_SetCurrentGame(GameId game);
 }
 
 namespace {
@@ -1099,6 +1114,53 @@ void TrrSeenLegs(RandomizerHint key, RandomizerCheck host) {
     il->SetCheckStatus(statusBefore);
 }
 
+/**
+ * L (#1475, lane H2): the combined Hint Tracker's OoT pane read while Majora's Mask
+ * plays the paired file (the suspended heap, OoT's play state gone). The probe at
+ * `host`, read, is filed under the crossed MM item's group, not the cover's Junk
+ * Items, and its text names the MM item ("... (MM)"), not the cover, with every
+ * other term of the hint text's gate shut; the gate is shut again once the walk is
+ * over. The control: with no departure from a randomizer file the pane waits.
+ */
+void TrrSuspendedPaneLeg(RandomizerHint key, RandomizerCheck host) {
+    const GameId gameBefore = Context_GetCurrentGame();
+    const int readBefore = RandoTest_HintTrackerSetRead((int)key, 1);
+    OoT_ComboLogic_TestSetWritingSingleBagSpoiler(0);
+    TrrPutProbeHint(key, host);
+    const int want = RandoTest_HintTrackerCategorySlot(OoT_Rando_Foreign_TestChestCategory((uint16_t)host));
+    const int junkSlot = RandoTest_HintTrackerCategorySlot((int)ITEM_CATEGORY_JUNK);
+    const uint32_t itemKey = RandoTest_HintTrackerItemGroupKey();
+    (void)OoT_TrackerAdapter_TestSetDeparted(1);
+    Context_SetCurrentGame(GAME_MM);
+
+    const bool shutBefore = OoT_Combo_HintTextCrossingAt((int)host) == nullptr;
+    int count = 0;
+    uint32_t journalKey = 0;
+    char text[512];
+    const int state = RandoTest_HintTrackerPaneRow((int)key, &count, &journalKey, text, (int)sizeof(text));
+    const bool shutAfter = OoT_Combo_HintTextCrossingAt((int)host) == nullptr;
+    printf("[TEST] L (OoT pane, MM playing): state %d, %d row(s); the probe at %s (MM %s) is in Journal group %u (the "
+           "crossed item's %u, Junk Items %u); text \"%s\"; gate shut before %d, after %d\n",
+           state, count, TrrName(host), TrrCrossedName(host), (unsigned)journalKey, (unsigned)(itemKey + want),
+           (unsigned)(itemKey + junkSlot), text, shutBefore ? 1 : 0, shutAfter ? 1 : 0);
+    TRR_CHECK(shutBefore, "L: the hint text's gate is open off OoT before the pane's walk, so the leg proves nothing");
+    TRR_CHECK(state == 2 && count > 0, "L: the OoT pane does not list the suspended paired world while MM plays");
+    TRR_CHECK(journalKey == itemKey + (uint32_t)want,
+              "L: off OoT the pane files an item hint at a crossing host away from the crossed item's group "
+              "(under Junk Items, the cover's, when the gate stays shut)");
+    TRR_CHECK(strstr(text, " (MM)") != nullptr,
+              "L: off OoT the pane's text for an item hint at a crossing host names the cover, not the MM item");
+    TRR_CHECK(shutAfter, "L: the pane's walk left the hint text's gate open");
+
+    (void)OoT_TrackerAdapter_TestSetDeparted(0);
+    const int waiting = RandoTest_HintTrackerPaneRow((int)key, &count, &journalKey, text, (int)sizeof(text));
+    TRR_CHECK(waiting == 0 && count == 0, "L: with no departure from a randomizer file the OoT pane lists a world");
+
+    (void)OoT_TrackerAdapter_TestSetDeparted(-1);
+    Context_SetCurrentGame(gameBefore);
+    (void)RandoTest_HintTrackerSetRead((int)key, readBefore == 1 ? 1 : 0);
+}
+
 } // namespace
 
 /**
@@ -1126,6 +1188,7 @@ extern "C" int OoT_HintTrackerCrossing_RunPaired(void) {
     TrrUngradedLeg(key);
     if (host != RC_UNKNOWN_CHECK) {
         TrrSeenLegs(key, host);
+        TrrSuspendedPaneLeg(key, host);
     }
 
     ctx->AddHint(key, savedHint);
