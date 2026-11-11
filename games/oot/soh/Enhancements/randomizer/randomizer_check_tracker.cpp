@@ -943,6 +943,14 @@ void CheckTrackerFlagSet(int16_t flagType, int32_t flag) {
                 SetCheckCollected(RC_TH_FREED_CARPENTERS);
                 return;
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // [RSBS #1484] RC_TOT_MASTER_SWORD's collection flag is a RandomizerInf now (the
+            // child pedestal check, location_list.cpp); a vanilla file still finds it at the pull.
+            if (flag == EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL) {
+                SetCheckCollected(RC_TOT_MASTER_SWORD);
+                return;
+            }
+#endif
             checkMatchType = SpoilerCollectionCheckType::SPOILER_CHK_EVENT_CHK_INF;
             break;
         case FLAG_INF_TABLE:

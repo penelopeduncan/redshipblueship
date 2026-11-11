@@ -267,6 +267,12 @@ static void RandomizerLogGiveAttemptsDone() {
     sGiveAttemptsCheck = RC_UNKNOWN_CHECK;
     sGiveAttempts = 0;
 }
+
+// #1484: a check is queued or being given (VB_BE_ABLE_TO_TIME_TRAVEL_AT_PEDESTAL
+// holds the pull while the child's pedestal give is on its way).
+static bool RandomizerGiveInFlight() {
+    return randomizerQueuedCheck != RC_UNKNOWN_CHECK || !randomizerQueuedChecks.empty();
+}
 #endif
 
 void RandomizerOnFlagSetHandler(int16_t flagType, int16_t flag) {
@@ -1430,11 +1436,20 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
                 *should = true;
                 Rando::Context::GetInstance()->GetItemLocation(RC_TOT_MASTER_SWORD)->SetCheckStatus(RCSHOW_COLLECTED);
                 CheckTracker::RecalculateAllAreaTotals();
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // [RSBS #1484] The check's collection flag is RAND_INF_TOT_MASTER_SWORD now
+                // (location_list.cpp), which this pull would otherwise never set, so the
+                // load seam would stop following it. Set after the status: the flag-set
+                // hook then only re-marks the obtained check.
+                Flags_SetRandomizerInf(RAND_INF_TOT_MASTER_SWORD);
+#endif
             }
             break;
 #ifdef RSBS_SINGLE_EXECUTABLE
         case VB_BE_ABLE_TO_TIME_TRAVEL_AT_PEDESTAL: // [RSBS #1434] OoTMM's timeTravelSword
-            *should = OoT_TimeTravelSword_PedestalAllows();
+            // [RSBS #1484] and, as OoTMM's pedestal does, no pull before the child's give lands.
+            *should =
+                OoT_TimeTravelSword_PedestalAllows() && !OoT_PedestalChildCheck_HoldsPull(RandomizerGiveInFlight());
             break;
 #endif
         case VB_ITEM00_DESPAWN: {
@@ -3039,6 +3054,12 @@ void RandomizerOnActorUpdateHandler(void* refActor) {
             Flags_UnsetRandomizerInf(RAND_INF_SPIRIT_BIG_MIRROR_STATUE_TURNED);
         }
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (actor->id == ACTOR_BG_TOKI_SWD) {
+        // [RSBS #1484] OoTMM's child pedestal check: given as the child walks up (TimeTravelSword.cpp).
+        OoT_PedestalChildCheck_OnPedestalUpdate(actor);
+    }
+#endif
 }
 
 // In ER, warp songs lead to their shuffled entrance rather than their warp pad. Every warp path commits its
