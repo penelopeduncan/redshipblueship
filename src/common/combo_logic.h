@@ -132,8 +132,16 @@ extern "C" {
  *  stops meaning "every PLACED host reached" and means OoTMM's "every location in
  *  BOTH games reached, whatever the GOAL". An ABI-7 engine was never asked for its
  *  locations, so its silence would be read as a host-only list, which is exactly
- *  the narrow reading this ABI retires. */
-#define RSBS_COMBO_LOGIC_ENGINE_ABI 8u
+ *  the narrow reading this ABI retires.
+ *
+ *  9 (2026-11-10, #1502, THE HOST GROUPS): the vtable gains ONE more OPTIONAL
+ *  trailing pointer, `hostGroups`, and the fill request a parallel
+ *  `confineMasks` array. A confined row may only be drawn onto a host of its own
+ *  game whose groups meet its mask (MM's Own Dungeon and Song Locations). An
+ *  ABI-8 engine was never asked which group a host is in, so its silence would
+ *  be read as "in no group" and every confined row would dead-end; the number
+ *  moves so that engine is refused at registration instead. */
+#define RSBS_COMBO_LOGIC_ENGINE_ABI 9u
 
 // ============================================================================
 // Status codes — DIAGNOSTICS, NOT FORMAT
@@ -225,6 +233,14 @@ extern "C" {
  *  whole bag ten times to report ERR_GOAL_UNPROVABLE. No ladder rung. Checked
  *  after the locations, so a world that misses both reports the named locations. */
 #define RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE 13
+/** THE HOST GROUPS (ABI 9, #1502): some group of confined REQUIRED rows
+ *  (`ComboLogicFillRequest.confineMasks`) has more rows than its game has empty
+ *  hosts in that group, so no placement of any seed can hold them all (OoTMM
+ *  refuses the same world; 2Ship's No Logic would silently un-confine). A fact of
+ *  the frozen settings, checked BEFORE any attempt (`attempts` 0, nothing placed,
+ *  no round run), never a ladder rung. Combo_Logic_LastGroupShortfall names the
+ *  group. */
+#define RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY 14
 
 /** Its name ("ok", "no-engine", ...), or "(unknown)". Never NULL. */
 const char* Combo_Logic_StatusName(int status);
@@ -941,6 +957,31 @@ typedef struct ComboLogicEngine {
      * Never called under any other rung.
      */
     int (*allLocations)(void* self, uint16_t* out, int cap);
+
+    /**
+     * OPTIONAL (ABI 9, #1502, THE HOST GROUPS). The confinement GROUP bits of
+     * `hostCheck`, a host in THIS engine's check id-space: which of this game's
+     * restricted check sets the host belongs to (MM: one bit per dungeon, one for
+     * the song checks under Song Locations). 0 = in no group.
+     *
+     * THE NAMESPACE IS THE ENGINE'S OWN. A bit means something only in the game
+     * that defines it, exactly as a host id does (ADR 0002): a confined row's
+     * mask is in its ORIGIN game's namespace, and the coordinator only ever ANDs
+     * it with its origin engine's answer — a confined row is never drawn onto the
+     * other game's hosts (see `confineMasks`). A future group that spans both
+     * games (OoTMM's one song-location set) is NOT expressible by this entry as
+     * it stands: it needs a reserved combo-wide bit range that both engines
+     * answer for, and a predicate that lets such a row cross. Nothing uses one.
+     *
+     * A pure function of the host and the engine's FROZEN settings (cached when
+     * the host pool is handed in, never a live CVar): legal outside a round,
+     * consumes no RNG, called during a draw and by the capacity pre-check.
+     *
+     * NULL means this engine has no groups: a fill whose request confines a row
+     * of this engine's origin is refused (RSBS_COMBO_LOGIC_ERR_BAD_REQUEST)
+     * rather than dead-ended. A fill that confines nothing never calls it.
+     */
+    uint32_t (*hostGroups)(void* self, uint16_t hostCheck);
 } ComboLogicEngine;
 
 /**
@@ -1880,6 +1921,32 @@ typedef struct {
      *  exactly as it was: the rule reads the games' REGISTERED sources, which
      *  describe the real engines' ids, not a stub engine's. */
     uint8_t criticalRenewables;
+    /**
+     * THE HOST GROUPS (ABI 9, #1502): NULL (every memset-initialised request), or
+     * `bagCount` masks, one per bag row. A row whose mask is nonzero is CONFINED:
+     * it may only be drawn onto a host of its ORIGIN game whose `hostGroups`
+     * answer meets the mask (any one bit is enough, so a mask of several groups
+     * is "any of these"), in every path the fill has — the proving draw, the
+     * surplus phase, No Logic and the forced debug rows. It never crosses, so it
+     * is HOME_ONLY in effect whatever its flags say.
+     *
+     * A PARALLEL ARRAY, not a bag-row field, on purpose: dozens of bag rows in the
+     * tree are built field by field with no memset, and a new trailing field
+     * would be indeterminate in every one of them.
+     *
+     * WHAT IT CHANGES. Confined REQUIRED rows are drawn FIRST in each attempt (a
+     * stable partition after the shuffle, so each is placed with the whole rest
+     * of the bag assumed: OoTMM's fixDungeon / placeSemiShuffled, SoH's restricted
+     * passes before the general one); a confined SURPLUS row that finds no host
+     * drops alone; and the fill refuses up front with
+     * RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY when a group's REQUIRED rows outnumber
+     * its empty hosts. With NULL, or every mask 0, none of that runs: the shuffle,
+     * every draw and every RNG value are byte-for-byte those of an ABI-8 fill.
+     *
+     * Refused (BAD_REQUEST): a confined shared pair (it has no single home), and a
+     * confined row whose origin engine has no `hostGroups`.
+     */
+    const uint32_t* confineMasks;
 } ComboLogicFillRequest;
 
 typedef struct {
@@ -2022,6 +2089,30 @@ typedef struct {
  * @return the status, also written to `out->status` when `out` is non-NULL.
  */
 int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* out);
+
+/** THE HOST GROUPS' capacity refusal (ABI 9, #1502): the first group of confined
+ *  REQUIRED rows, in bag order, that outnumbered its game's empty hosts in that
+ *  group. Diagnostics, not format. */
+typedef struct {
+    uint8_t game;  // the rows' origin game, whose hosts were counted
+    uint32_t mask; // the rows' confinement mask, in that game's group namespace
+    int rows;      // REQUIRED rows carrying exactly that mask
+    int hosts;     // that game's empty hosts whose groups meet the mask
+} ComboLogicGroupShortfall;
+
+/**
+ * The shortfall behind the latest RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY. Cleared on
+ * entry to every Combo_Logic_RunFill, so it never describes an earlier fill. THE
+ * CHECK, run before any attempt and before the All
+ * Locations pre-flight, only when some row is confined: it empties both tables
+ * (Combo_Logic_ResetPlacements, as the pre-flight does), counts per distinct
+ * (origin, mask) the REQUIRED rows against the origin engine's `allEmptyHosts`
+ * whose `hostGroups` meet the mask, and refuses on the first group that does not
+ * fit. Exact for disjoint groups (MM's are), and together with confined-first
+ * ordering it means No Logic never runs out of room inside a group.
+ * @return true, with `*out` written, when the latest fill was refused that way.
+ */
+bool Combo_Logic_LastGroupShortfall(ComboLogicGroupShortfall* out);
 
 /** What THE PRE-FLIGHT saw (ABI 8). Diagnostics, not format. */
 typedef struct {

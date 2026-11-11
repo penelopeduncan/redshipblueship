@@ -853,7 +853,7 @@ void IntegrationTest_GameplayFail(const char* reason) {
 
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
-    if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING) {
+    if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -862,6 +862,9 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
         fprintf(stderr, "[PFC] variant: paired first crossing (creation %s)\n",
                 IntegrationTest_PairedSkipCreation() ? "SKIPPED by RSBS_PFC_SKIP_CREATION=1: the red half"
                                                      : "through the production event");
+        if (variant == GP_VARIANT_SOARING_TO_OWL) {
+            fprintf(stderr, "[PFC] variant: Song of Soaring to an owl (#1169 XW6), riding the paired first crossing\n");
+        }
         fflush(stderr);
     }
 }
@@ -871,7 +874,12 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void) {
 }
 
 bool IntegrationTest_PairedFirstCrossing(void) {
-    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING;
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP &&
+           (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL);
+}
+
+bool IntegrationTest_SoaringToOwl(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_SOARING_TO_OWL;
 }
 
 bool IntegrationTest_PairedSkipCreation(void) {
@@ -1360,6 +1368,75 @@ void IntegrationTest_PairedDivergeCleanup(void) {
     fprintf(stderr, "[PFC] divergence cleanup: %s, %s and %s cleared and the config saved\n", sDiverge.option->cvar,
             sDiverge.trick->cvar, Combo_ComboSettingKey(COMBO_SETTING_GOAL));
     fflush(stderr);
+}
+
+} // extern "C"
+
+// ============================================================================
+// int-soaring-to-owl (#1169 XW6): the in-memory keys and the arrival handshake
+// ============================================================================
+
+namespace {
+
+struct SoaringSetKey {
+    std::string key;
+    bool wasExplicit;
+    int32_t before;
+};
+std::vector<SoaringSetKey> sSoaringKeys;
+std::atomic<int> sSoaringExpectedOwl{ -1 };
+
+} // namespace
+
+extern "C" {
+
+void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value) {
+    if (key == nullptr || key[0] == '\0') {
+        return;
+    }
+    bool known = false;
+    for (const SoaringSetKey& k : sSoaringKeys) {
+        known = known || k.key == key;
+    }
+    if (!known) {
+        const bool wasExplicit = Combo_CVarIsExplicitInt(key);
+        sSoaringKeys.push_back({ key, wasExplicit, wasExplicit ? CVarGetInteger(key, 0) : 0 });
+    }
+    // In memory only: nothing here saves the config.
+    CVarSetInteger(key, value);
+    fprintf(stderr, "[PFC] soaring: %s = %d for this run (in memory; put back at the verdict)\n", key, (int)value);
+    fflush(stderr);
+}
+
+void IntegrationTest_SoaringCleanup(void) {
+    if (!IntegrationTest_SoaringToOwl()) {
+        return;
+    }
+    Combo_ComboItemRules2RevealForTest(0);
+    sSoaringExpectedOwl = -1;
+    if (sSoaringKeys.empty()) {
+        return;
+    }
+    for (auto it = sSoaringKeys.rbegin(); it != sSoaringKeys.rend(); ++it) {
+        if (it->wasExplicit) {
+            CVarSetInteger(it->key.c_str(), it->before);
+        } else {
+            CVarClear(it->key.c_str());
+        }
+        fprintf(stderr, "[PFC] soaring cleanup: %s %s\n", it->key.c_str(), it->wasExplicit ? "restored" : "cleared");
+    }
+    sSoaringKeys.clear();
+    CVarSave();
+    fprintf(stderr, "[PFC] soaring cleanup: the hidden rules are hidden again and the config is saved\n");
+    fflush(stderr);
+}
+
+void IntegrationTest_SoaringExpectArrival(int owl) {
+    sSoaringExpectedOwl = owl;
+}
+
+int IntegrationTest_SoaringExpectedOwl(void) {
+    return sSoaringExpectedOwl.load();
 }
 
 } // extern "C"

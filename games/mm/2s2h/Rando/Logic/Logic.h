@@ -333,6 +333,12 @@ void ApplyNoLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector
 bool StaysAtVanillaCheck(RandoItemId itemId, const RandoSaveInfo& saveInfo);
 bool IsSongLocationItem(RandoItemId itemId);
 bool IsItemAllowedAtCheck(RandoItemId itemId, RandoCheckId checkId);
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1502: PlacementConstraints.cpp's two group functions, which the paired fill's
+// host groups are built from (ComboLogicEngineSingleExe.cpp). -1 = no group.
+int CheckIdToConfinementGroup(RandoCheckId checkId);
+int RandoItemIdToConfinementGroup(RandoItemId itemId);
+#endif
 size_t SelectItemForCheck(const std::vector<RandoItemId>& itemPool, const std::vector<RandoCheckId>& checkPool,
                           RandoCheckId checkId);
 void PreplaceConfinedItems(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);

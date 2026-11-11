@@ -13,6 +13,8 @@ extern "C" {
 #include "Rando/Foreign.h" // #1369: ShuffleSwimForWorld / ShuffleOcarinaButtonsForWorld
 #include "ShopPrices.h"    // #1427: the shop and Tingle price modes
 #include "Rando/OoTMasksMM.h" // #980: the OoT masks' frozen rules
+#include "combo_single_bag.h" // #1502: the shared pairs a vanilla song check is released for
+#include "foreign_items.h"    // #1502: Combo_ForeignPairingActive
 #include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' frozen rules
 // RedShipBlueShip (#645 increment 3, lane K9): where RO_PLENTIFUL_ITEMS' copies
 // sit in the last `itemPool` this function returned — [from, to), both 0 when
@@ -41,6 +43,25 @@ static bool RsbsIsTingleMap(RandoItemId randoItemId) {
         default:
             return false;
     }
+}
+
+// RedShipBlueShip #1502 (the MM mirror of OoT's #1085 RsbsReleaseVanillaSharedSongs,
+// fill.cpp): under Shuffle Songs Vanilla, a song whose shared rule is frozen on in
+// a paired world is the single bag's ONE shared row, so MM's copy must not also
+// stay on its vanilla check. The check stays an ordinary host and the song a pool
+// row, which the composer pairs (and trims when OoT's half is the row).
+static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
+    if (!Combo_ForeignPairingActive()) {
+        return false;
+    }
+    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
+    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    for (int i = 0; i < n; ++i) {
+        if (pairs[i].mmId == (uint16_t)randoItemId) {
+            return true;
+        }
+    }
+    return false;
 }
 
 // RedShipBlueShip #1499: one copy of each Tingle map in the pool, and none of a
@@ -113,7 +134,14 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
 
             if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1502: a frozen-on shared song leaves its vanilla check to the bag.
+                if (!RsbsReleasesVanillaSharedSong(randoStaticCheck.randoItemId)) {
+                    continue;
+                }
+#else
                 continue;
+#endif
             }
 
             if (randoStaticCheck.randoCheckType == RCTYPE_OWL &&

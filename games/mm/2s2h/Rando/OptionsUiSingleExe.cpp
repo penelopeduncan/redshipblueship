@@ -279,17 +279,14 @@ struct OptionUi {
 // REFUSES any reason naming a dispatched hook type, so a shared "waiting on
 // dispatch" constant cannot be reintroduced without the test going red.
 //
-// The one shared reason is a fill blocker, not a hook: 2Ship's dungeon item
-// placements (#1361; RO_PLACEMENT_SMALL_KEYS, _BOSS_KEYS, _STRAY_FAIRIES) and
-// its song placement (#1362; RO_SHUFFLE_SONGS). This pane only authors paired
-// worlds, and a paired world is filled by the single bag
-// (RunPairedSingleBagFill), which has no MM restricted pass: Own Dungeon and
-// Song Locations would confine nothing there (MM's PreplaceConfinedItems and
-// SelectItemForCheck run only in MM's own fills), and the packets keep every
-// value out of the paired generator and the frozen identity until that
-// integration lands. Open each row (GENERATION_ONLY, empty reason) in the
-// change that integrates it.
-const char* const kReasonPairedPlacement = "Not Yet Supported in Paired Worlds";
+// 2Ship's dungeon item placements (#1361; RO_PLACEMENT_SMALL_KEYS, _BOSS_KEYS,
+// _STRAY_FAIRIES) and its song placement (#1362; RO_SHUFFLE_SONGS) went live in
+// #1502, which taught the single bag (RunPairedSingleBagFill) MM's confinement
+// groups: Own Dungeon and Song Locations confine their rows to the group's hosts
+// (combo_logic.h ABI 9, THE HOST GROUPS), Vanilla and Start With work through
+// GeneratePools and StartingItems as in 2Ship, and each non-default value folds
+// into the MM seed and the frozen identity by name (Foreign.cpp
+// IsAppendedOption), so the defaults move no world.
 
 // clang-format off
 const OptionUi kOptionUi[] = {
@@ -385,15 +382,15 @@ const OptionUi kOptionUi[] = {
       "Vanilla - Every song stays where it is, and song locations are not checks.",
       0, 0, kSongShuffleLabels, UI_COUNT(kSongShuffleLabels),
       // #1362, 2Ship's song placement (528eed442) with upstream's tooltip and
-      // SoH's label for its twin. Gated with the placement rows below (see
-      // kReasonPairedPlacement): GeneratePools.cpp's legs run (Vanilla drops the
-      // song checks, Song Locations junks the surplus ones), but the single-bag
-      // fill never confines a song. Vanilla also keeps MM's copy of a frozen-on
-      // shared song (Epona's Song, Song of Storms, Song of Time) on its vanilla
-      // check while OoT's copy is placed too, two copies of one shared row; OoT
-      // releases those checks (fill.cpp RsbsReleaseVanillaSharedSongs) and MM has
-      // no counterpart yet. The option stays at Anywhere, which changes no world.
-      COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+      // SoH's label for its twin; live since #1502. GeneratePools.cpp's legs run
+      // (Vanilla drops the song checks, Song Locations junks the surplus ones)
+      // and the single bag keeps MM's songs on MM's song checks under Song
+      // Locations. Under Vanilla a frozen-on shared song (Epona's Song, Song of
+      // Storms, Song of Time) leaves its vanilla check to the bag's one shared
+      // row (GeneratePools.cpp RsbsReleasesVanillaSharedSong, the mirror of OoT's
+      // fill.cpp RsbsReleaseVanillaSharedSongs). Generation-only: the frozen
+      // value is read at creation.
+      COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_SHUFFLE_COWS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Cows", "Adds the reward for playing Epona's Song for a cow to the check pool.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
@@ -427,21 +424,21 @@ const OptionUi kOptionUi[] = {
       "Where each dungeon's small keys may be placed: anywhere in the world, only within that dungeon, on their "
       "vanilla checks, or start with every dungeon's small keys.",
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
-      // Gated with the next two until the paired restricted pass lands (see
-      // kReasonPairedPlacement); the lock still needs the row for the id.
-      COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+      // Live since #1502 with the next two: Own Dungeon is a host group of the
+      // single bag (RunPairedSingleBagFill), Vanilla and Start With are 2Ship's.
+      COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_PLACEMENT_BOSS_KEYS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Boss Keys",
       "Where each dungeon's boss key may be placed: anywhere in the world, only within that dungeon, on its vanilla "
       "check, or start with every dungeon's boss key.",
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
-      COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+      COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_PLACEMENT_STRAY_FAIRIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Stray Fairies",
       "Where each dungeon's Stray Fairies may be placed: anywhere in the world (with the Clock Town Stray Fairy), only "
       "within that dungeon (Clock Town Stray Fairy vanilla), on their vanilla checks, or start with every Stray Fairy.",
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
-      COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+      COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_MINIMUM_STRAY_FAIRIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
       "Minimum Stray Fairies",
       "Stray Fairies needed for a Great Fairy reward. Does not affect the Clock Town fairy.",
