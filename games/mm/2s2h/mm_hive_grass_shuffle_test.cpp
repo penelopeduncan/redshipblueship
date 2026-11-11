@@ -31,14 +31,19 @@
  *  (2) The three Keaton grass rings own nine CONTIGUOUS ids each
  *      (<ring>_KEATON_GRASS_01 + i for i in 0..8): ObjGrass.cpp's
  *      VB_KEATON_GRASS_ATTACH_CHILD derives a bush's check as base + index.
- *  (3) The three RCTYPE_WONDER_ITEM rows (each ring's bonus red rupee) are the
- *      only rows of that type and sit in one region each.
+ *  (3) The three Keaton grass ring rewards (each ring's bonus red rupee) are
+ *      RCTYPE_WONDER_ITEM rows, #1406's check type, and sit in one region each.
+ *      mm-wonder-items owns the type's whole membership (116 rows).
  *  (4) Pool generation behind the EXISTING "Shuffle Grass Drops": off, none of
  *      the 171 enters; on, all 171 enter, and the on pool minus every grass row
- *      is the off pool. No wonder item enters, with grass and hives both on.
+ *      is the off pool. The three ring rewards follow Shuffle Wonder Items
+ *      (#1406), not grass or hives: none enters with grass and hives both on and
+ *      wonder items off, and all three enter with wonder items on.
  *  (5) The coordinator's host universe agrees (RunHostUniverseLegs): MM's
- *      engine offers no wonder item, MM_ComboLogic_SetHostPool drops one, and
- *      with every boolean RO_SHUFFLE_* option on it keeps every pool row.
+ *      engine offers every ring reward as a graph host, MM_ComboLogic_SetHostPool
+ *      keeps a handed-in one, and with every boolean RO_SHUFFLE_* option on (the
+ *      wonder option included) it keeps every pool row, the ring rewards among
+ *      them.
  *
  * ============================================================================
  * mm-hive-grass-shuffle-hooks (MMHiveGrassShuffleHooks) -- the providers
@@ -470,7 +475,7 @@ void GeneratePair(const OptionOverrides& off, const OptionOverrides& on, std::ve
     }
 }
 
-bool Contains(const std::vector<RandoCheckId>& pool, RandoCheckId id) {
+bool PoolContains(const std::vector<RandoCheckId>& pool, RandoCheckId id) {
     return std::find(pool.begin(), pool.end(), id) != pool.end();
 }
 
@@ -494,16 +499,17 @@ std::vector<uint16_t> EnumerateAllEmptyHosts(const ComboLogicEngine* engine) {
 /**
  * The coordinator's side of the story (#1410 item 3): MM's engine excludes, with
  * no setting involved, exactly what GeneratePools skips with no setting
- * involved. Three legs:
- *  - 46: the graph host universe (no pool handed in) offers no wonder item;
- *  - 47: MM_ComboLogic_SetHostPool drops a handed-in wonder item and keeps an
- *    ordinary check;
- *  - 48: with EVERY boolean RO_SHUFFLE_* option on (so any option added later,
- *    such as a "Shuffle Wonder Items", is on here without editing this row),
- *    every row of GeneratePools' check pool survives MM_ComboLogic_SetHostPool.
- *    When a change lets GeneratePools pool a type IsUnconditionallyExcluded
- *    still refuses, this goes red instead of the paired fill silently leaving
- *    those checks unfilled.
+ * involved. Since #1406 gave wonder items an option, a wonder item is not among
+ * those. Three legs:
+ *  - 46: the graph host universe (no pool handed in) offers every ring reward;
+ *  - 47: MM_ComboLogic_SetHostPool keeps a handed-in ring reward and an
+ *    ordinary check, both;
+ *  - 48: with EVERY boolean RO_SHUFFLE_* option on (Shuffle Wonder Items among
+ *    them, and any option added later without editing this row), every row of
+ *    GeneratePools' check pool survives MM_ComboLogic_SetHostPool, and the ring
+ *    rewards are among those rows. When a change lets GeneratePools pool a type
+ *    IsUnconditionallyExcluded still refuses, this goes red instead of the
+ *    paired fill silently leaving those checks unfilled.
  */
 int RunHostUniverseLegs(const std::set<RandoCheckId>& wonder, RandoCheckId ordinary) {
     const ComboLogicEngine* engine = Combo_Logic_GetEngine(GAME_MM);
@@ -523,10 +529,10 @@ int RunHostUniverseLegs(const std::set<RandoCheckId>& wonder, RandoCheckId ordin
         return Fail(46, "the MM engine's graph host universe is empty; the next assertion would be vacuous");
     }
     for (RandoCheckId id : wonder) {
-        if (std::find(universe.begin(), universe.end(), (uint16_t)id) != universe.end()) {
+        if (std::find(universe.begin(), universe.end(), (uint16_t)id) == universe.end()) {
             return Fail(46,
-                        "%s is in the MM engine's graph host universe: GeneratePools never pools a wonder item, "
-                        "so IsUnconditionallyExcluded must refuse it",
+                        "%s is not in the MM engine's graph host universe: Shuffle Wonder Items pools it, so "
+                        "IsUnconditionallyExcluded must not refuse it",
                         Rando::StaticData::Checks.at(id).name);
         }
     }
@@ -535,8 +541,9 @@ int RunHostUniverseLegs(const std::set<RandoCheckId>& wonder, RandoCheckId ordin
     const uint16_t handed[2] = { (uint16_t)*wonder.begin(), (uint16_t)ordinary };
     MM_ComboLogic_SetHostPool(handed, 2);
     const std::vector<uint16_t> kept = EnumerateAllEmptyHosts(engine);
-    if (kept.size() != 1 || kept[0] != (uint16_t)ordinary) {
-        return Fail(47, "a host pool of {%s, %s} enumerates %zu hosts, expected only the second",
+    const std::set<uint16_t> keptSet(kept.begin(), kept.end());
+    if (kept.size() != 2 || keptSet.count(handed[0]) == 0 || keptSet.count(handed[1]) == 0) {
+        return Fail(47, "a host pool of {%s, %s} enumerates %zu hosts, expected both",
                     Rando::StaticData::Checks.at(*wonder.begin()).name, Rando::StaticData::Checks.at(ordinary).name,
                     kept.size());
     }
@@ -573,6 +580,14 @@ int RunHostUniverseLegs(const std::set<RandoCheckId>& wonder, RandoCheckId ordin
     if (hostSet.size() != std::set<uint16_t>(pool.begin(), pool.end()).size()) {
         return Fail(48, "the host pool enumerates %zu hosts for a check pool of %zu distinct checks", hostSet.size(),
                     std::set<uint16_t>(pool.begin(), pool.end()).size());
+    }
+    for (RandoCheckId id : wonder) {
+        if (hostSet.count((uint16_t)id) == 0) {
+            return Fail(48,
+                        "%s is not a host with every shuffle option on: Shuffle Wonder Items no longer pools it, "
+                        "so this leg no longer covers the wonder type",
+                        Rando::StaticData::Checks.at(id).name);
+        }
     }
     printf("[TEST] mm-extra-grass-shuffle: %zu graph hosts; %zu options on -> %zu pool rows, all hosts\n",
            universe.size(), everyShuffle.size(), pool.size());
@@ -661,7 +676,7 @@ int RunHiveOptionAndPool() {
         }
     }
     for (RandoCheckId id : hives) {
-        if (!Contains(onChecks, id)) {
+        if (!PoolContains(onChecks, id)) {
             return Fail(16, "with Shuffle Hive Drops on, %s did not enter the check pool",
                         Rando::StaticData::Checks.at(id).name);
         }
@@ -732,9 +747,11 @@ int RunExtraGrassTableAndPool() {
     const std::map<RandoCheckId, int> listed = RegionListings();
     for (const auto& [randoCheckId, check] : Rando::StaticData::Checks) {
         const bool isWonder = wonder.count(randoCheckId) != 0;
-        if (isWonder != (check.randoCheckType == RCTYPE_WONDER_ITEM)) {
-            return Fail(39, "%s %s RCTYPE_WONDER_ITEM: that type must hold exactly the %d ring rewards", check.name,
-                        isWonder ? "lacks" : "carries", kWonderCount);
+        if (isWonder && check.randoCheckType != RCTYPE_WONDER_ITEM) {
+            return Fail(39,
+                        "%s is not an RCTYPE_WONDER_ITEM row: Shuffle Wonder Items would not govern a ring's "
+                        "reward",
+                        check.name);
         }
         if (isWonder && (check.name == nullptr || check.name[0] == '\0')) {
             return Fail(40, "wonder item check %d has no name", (int)randoCheckId);
@@ -757,7 +774,7 @@ int RunExtraGrassTableAndPool() {
         }
     }
     for (RandoCheckId id : grass) {
-        if (!Contains(onChecks, id)) {
+        if (!PoolContains(onChecks, id)) {
             return Fail(42, "with Shuffle Grass Drops on, %s did not enter the check pool",
                         Rando::StaticData::Checks.at(id).name);
         }
@@ -788,10 +805,22 @@ int RunExtraGrassTableAndPool() {
     const std::vector<RandoCheckId>* pools[] = { &offChecks, &onChecks, &defaultChecks, &allChecks };
     for (const std::vector<RandoCheckId>* pool : pools) {
         for (RandoCheckId id : wonder) {
-            if (Contains(*pool, id)) {
-                return Fail(45, "%s entered a check pool: GeneratePools skips wonder items in every setting",
+            if (PoolContains(*pool, id)) {
+                return Fail(45,
+                            "%s entered a check pool with Shuffle Wonder Items off: a ring's reward follows that "
+                            "option (#1406), not grass or hives",
                             Rando::StaticData::Checks.at(id).name);
             }
+        }
+    }
+    std::vector<RandoCheckId> wonderOffChecks, wonderOnChecks;
+    std::vector<RandoItemId> wonderOffItems, wonderOnItems;
+    GeneratePair({}, { { RO_SHUFFLE_WONDER_ITEMS, RO_GENERIC_YES } }, wonderOffChecks, wonderOffItems, wonderOnChecks,
+                 wonderOnItems);
+    for (RandoCheckId id : wonder) {
+        if (!PoolContains(wonderOnChecks, id)) {
+            return Fail(45, "with Shuffle Wonder Items on, %s did not enter the check pool",
+                        Rando::StaticData::Checks.at(id).name);
         }
     }
     rc = RunHostUniverseLegs(wonder, *grass.begin());
@@ -1014,7 +1043,7 @@ int RunHookLegs(Fixtures& fx, PlayState* play) {
     otherRing->actor.room = 0;
     SetActorListIndex(&ring->actor, 16);
     SetActorListIndex(&otherRing->actor, 17);
-    ArmCheck(ringWonder, false, false, false); // never shuffled, as GeneratePools leaves it
+    ArmCheck(ringWonder, false, false, false); // unshuffled: Shuffle Wonder Items off (its default)
     RunIdKeyedInit(&ring->actor);
     RunIdKeyedInit(&otherRing->actor);
     const int obtainedBush = 4;
@@ -1037,7 +1066,7 @@ int RunHookLegs(Fixtures& fx, PlayState* play) {
         return Fail(58, "a bush of an unmapped ring, or the ring manager itself, was given a check");
     }
     // A bush with no check keeps its vanilla draw and drop; the wonder item is
-    // never shuffled, so the ring's last bush still drops the vanilla red rupee.
+    // unshuffled here, so the ring's last bush still drops the vanilla red rupee.
     ring->unk_1BC = 8;
     if (!GameInteractor_Should(VB_KEATON_GRASS_DRAW, true, bushes[obtainedBush]) ||
         !GameInteractor_Should(VB_GRASS_DROP_COLLECTIBLE, true, (int32_t)ACTOR_EN_KUSA2, bushes[obtainedBush])) {
@@ -1103,7 +1132,7 @@ extern "C" int MM_HiveShuffle_RunHeadless(void) {
 
 extern "C" int MM_ExtraGrassShuffle_RunHeadless(void) {
     printf("[TEST] mm-extra-grass-shuffle: 171 grass rows behind Shuffle Grass Drops, three contiguous Keaton "
-           "rings, wonder items never pooled (#1410)\n");
+           "rings, ring rewards behind Shuffle Wonder Items (#1410)\n");
     auto ctx = Ship::Context::GetInstance();
     if (ctx == nullptr || ctx->GetConsoleVariables() == nullptr) {
         return Fail(1, "Ship::Context or its ConsoleVariables are missing; run the shared bring-up first");

@@ -645,6 +645,13 @@ int main(int argc, char** argv) {
         _Exit(testResult);
     }
 
+    // Save format 6: arm the .redsave's Tier-2 / Tier-3 tail checks (save.h). Here,
+    // after the `--test` exit and before anything can read a slot: the ROM-free
+    // rows fill whole capacity-sized shadows with byte patterns and run without
+    // them, while every session that plays (the game, and the integration tier
+    // below) refuses a game tier carrying bytes past its struct as a newer build's.
+    RsbsSave_ArmTierTailChecks();
+
     // Check for integration test mode (--integration-test)
     const char* integrationTestArg = TestRunner_ParseIntegrationArgs(argc, argv);
     if (integrationTestArg != nullptr) {

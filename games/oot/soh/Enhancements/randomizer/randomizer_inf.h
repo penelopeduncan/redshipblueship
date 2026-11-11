@@ -2121,6 +2121,14 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_BLAST_MASK)
 DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // [RSBS #1169 XW4] OoT owns the Song of Soaring (OoT) (OoTMM songSoaringOot).
 // Appended last, as the masks': 2063 flags fill 2063 of the 129 u16 words' 2064
-// bits, so the save layout is unchanged and ONE flag is left before a 130th word
-// (SongOfSoaringOoT.cpp static_asserts the word count).
+// bits, so the save layout is unchanged (SongOfSoaringOoT.cpp static_asserts the
+// word count).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
+// [RSBS #1364] SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so
+// no other flag moves. 2064 flags. Since save format 6 the saved array is a fixed
+// capacity of RSBS_OOT_RAND_INF_CAP (8192) flags (z64save.h), so the next flag
+// appended here moves no save field; SongOfSoaringOoT.cpp static_asserts that
+// RAND_INF_MAX fits the capacity. RAND_INF_MAX is the "no flag" sentinel that
+// unidentified crates, grass, pots and cows keep, never a flag:
+// Flags_Get/Set/UnsetRandomizerInf (z_actor.c) ignore it and everything past it.
+DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)

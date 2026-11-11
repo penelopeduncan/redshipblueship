@@ -195,10 +195,31 @@ typedef struct ComboMMHintDesc {
     // no global random stream, no save written. False (out cleared) when the
     // image holds no randomizer world or the source says nothing there.
     bool (*resolve)(const void* save, uint16_t source, ComboHintResolution* out);
+    // #1475 (lane H2), optional (NULL: every item hint is ungraded): the Journal
+    // group an item `item` of game `itemGame` ranks in, SoH's ItemCategoryRank
+    // order (COMBO_HINT_RANK_MAJOR .. COMBO_HINT_RANK_JUNK), or
+    // COMBO_HINT_RANK_UNGRADED for an item the game cannot grade.
+    int (*itemRank)(uint8_t itemGame, uint16_t item);
 } ComboMMHintDesc;
 
+/**
+ * SoH's Journal item groups (randomizer_hint_tracker.cpp, ItemCategoryRank), in
+ * its order: most valuable first. UNGRADED files a hint under the plain "Items"
+ * group instead (SoH's kItemSlotUngraded).
+ */
+enum {
+    COMBO_HINT_RANK_MAJOR = 0,
+    COMBO_HINT_RANK_BOSS_KEY = 1,
+    COMBO_HINT_RANK_SMALL_KEY = 2,
+    COMBO_HINT_RANK_SKULLTULA_TOKEN = 3,
+    COMBO_HINT_RANK_HEALTH = 4,
+    COMBO_HINT_RANK_LESSER = 5,
+    COMBO_HINT_RANK_JUNK = 6,
+    COMBO_HINT_RANK_UNGRADED = 7,
+};
+
 /** Install MM's descriptor (copied). NULL un-registers. A descriptor with a NULL
- *  member or a source count past the read record's capacity is refused. */
+ *  member (itemRank excepted) or a source count past the read record's capacity is refused. */
 void Combo_Hint_RegisterMM(const ComboMMHintDesc* desc);
 /** The registered MM descriptor, or NULL. */
 const ComboMMHintDesc* Combo_Hint_GetMMDesc(void);
@@ -267,6 +288,137 @@ int Combo_HintRowCount(uint8_t game);
  * source's game's half), then by source id. False out of range / unavailable.
  */
 bool Combo_HintRowAt(uint8_t game, int index, ComboHintRow* out);
+
+/**
+ * Every row Combo_HintRowAt answers, in its order, into `out` (`cap` entries),
+ * with the order worked out once (the window's per-frame read; RowAt alone works
+ * it out per call). Returns how many rows there are, which may exceed `cap`.
+ */
+int Combo_HintRowsAll(uint8_t game, ComboHintRow* out, int cap);
+
+// ============================================================================
+// The combined window's OoT pane (lane H2): the OoT adapter over SoH's Hint
+// Tracker data (#1468, randomizer_hint_tracker.cpp)
+// ============================================================================
+
+/** What a pane has to list: SoH's Hint Tracker's three states (HintTrackerWindow::DrawElement). */
+typedef enum {
+    COMBO_HINT_PANE_WAITING = 0,   // no file to read: SoH's "Waiting for file load..."
+    COMBO_HINT_PANE_NOT_RANDO = 1, // a file with no randomizer world: SoH's rando-only note
+    COMBO_HINT_PANE_READY = 2,     // a randomizer world: its rows follow (none: SoH's "No hints" note)
+} ComboHintPaneState;
+
+/** The colour a Journal entry's name takes: SoH's Way of the Hero and Foolish colours, or none. */
+typedef enum {
+    COMBO_HINT_COLOUR_NONE = 0,
+    COMBO_HINT_COLOUR_WOTH = 1,
+    COMBO_HINT_COLOUR_FOOLISH = 2,
+} ComboHintNameColour;
+
+/** The Locations group key of a hint read nowhere in particular: SoH's "Other Hints", drawn last. */
+#define RSBS_HINT_GROUP_OTHER 0xFFFFFFFFu
+
+/**
+ * One hint as the combined window lists it, in both of SoH's views, with every
+ * decision SoH's DrawHintList makes for it already made by the game that owns
+ * it. Strings are the owning adapter's, valid until its next collect.
+ *
+ * Locations view: the entry `name` (and, read, `text` below it, else "???")
+ * under group `locationKey` / `locationName`, groups in ascending key order.
+ * `locationIsArea`: the key is an area key the game's current area
+ * (Combo_TrackerCurrentArea) can equal, for SoH's scroll to the current area.
+ *
+ * Journal view (read hints only): under group `journalKey` / `journalName`; the
+ * entry's name is `journalLabel` (NULL: `name`), drawn alone when
+ * `journalCompact` (a Way of the Hero or Foolish hint's area names), in
+ * `journalColour`; entries sort found last, then by `sortRank`, then by name.
+ * `found`: every check the hint names is collected (SoH's tick and dim).
+ */
+typedef struct {
+    uint16_t source; // the game-local hint id (OoT: RandomizerHint; MM: RSBS_MM_HINT_SRC_*)
+    bool read;
+    const char* name;
+    const char* text; // read rows: the hint's text, its messages one per line; NULL unread
+    uint32_t locationKey;
+    const char* locationName;
+    bool locationIsArea;
+    uint32_t journalKey;
+    const char* journalName;
+    const char* journalLabel;
+    bool journalCompact;
+    uint8_t journalColour; // ComboHintNameColour
+    int sortRank;
+    bool found;
+} ComboHintPaneRow;
+
+typedef struct ComboOoTHintOps {
+    // Gather OoT's rows now (SoH's DrawHintList's walk: the gossip stones, then
+    // every other enabled hint); *outCount is how many (0 unless READY). Returns
+    // a ComboHintPaneState. Live while OoT plays; from the suspended heap (the
+    // world OoT departed from while playing a randomizer file) otherwise.
+    uint8_t (*collect)(int* outCount);
+    // Row `index` of the last collect; false out of range.
+    bool (*rowAt)(int index, ComboHintPaneRow* out);
+    // Mark OoT check `checkId` Seen for a hint Majora's Mask showed that names it
+    // (an MM item that crossed to that OoT host): SoH's RCSHOW_SEEN_OR_HINTED, on
+    // the suspended heap while MM plays the paired file. False with nothing
+    // written otherwise, or when the check is past unchecked. May itself be NULL.
+    bool (*markHostSeen)(uint16_t checkId);
+} ComboOoTHintOps;
+
+/** Install OoT's ops (kept by pointer: static storage). NULL un-registers; ops missing collect or rowAt are refused. */
+void Combo_Hint_RegisterOoT(const ComboOoTHintOps* ops);
+/** The registered OoT ops, or NULL. */
+const ComboOoTHintOps* Combo_Hint_GetOoTOps(void);
+
+/**
+ * Build and register OoT's ops. DEFINED OoT-SIDE
+ * (games/oot/soh/Enhancements/randomizer/randomizer_hint_tracker.cpp);
+ * Combo_TrackerWindow_Init calls it with the check tracker's adapters.
+ */
+void OoT_HintAdapter_Register(void);
+
+/**
+ * Keep what the OoT pane needs from OoT's gSaveContext while it is still OoT's: the
+ * player's name for the '@' marker. DEFINED OoT-SIDE (randomizer_hint_tracker.cpp);
+ * OoT's departure capture (OoT_TrackerAdapter_CaptureAvailability) calls it as OoT
+ * departs from a randomizer file, open window or not.
+ */
+void OoT_HintAdapter_CaptureDeparture(void);
+
+// ============================================================================
+// Cross-game Seen (lane H2): a hint that names a check in the other game
+// ============================================================================
+//
+// A hint names a check of the other game when the item it names crossed: an MM
+// hint about an MM item now at an OoT host. The host is marked Seen in its own
+// game, as a hint about a check of that game marks it (SoH's
+// ApplyItemHintToChecks; MM's MarkCheckSeen). No OoT hint names an MM check:
+// OoT's hints that find an item somewhere name a Termina slot by its MM AREA
+// only (HINT_TYPE_AREA, hint.cpp's foreignAreas), and SoH marks no check Seen
+// for an area hint, so that direction has nothing to mark.
+
+/** The most host checks Combo_HintReadHostChecks can name: every read MM source's every target. */
+#define RSBS_HINT_HOST_CAP (RSBS_MM_HINT_READ_CAP * RSBS_HINT_TARGET_CAP)
+
+/**
+ * Mark `hostGame`'s check `check` Seen for a hint the other game is showing now
+ * (MM's read hook, Rando::HintSources::MarkRead). Only GAME_OOT has a host to
+ * mark (see above), through the OoT ops' markHostSeen. True when it was marked.
+ */
+bool Combo_HintMarkHostSeen(uint8_t hostGame, uint16_t check);
+
+/**
+ * The checks of `hostGame` that the other game's READ hints name, each once,
+ * into `out` (`cap` entries); returns how many there are. For GAME_OOT: every
+ * read MM source's targets on an OoT check, resolved over the MM save the pane
+ * reads, but only while that save is MM's live one or the armed frozen half
+ * (Context_HasFrozenState), never a stale image another file left. OoT's load
+ * seam re-applies them (OoT_TrackerAdapter_ApplyMMHintsSeen), because a Seen
+ * written to the suspended heap reaches OoT's .sav only at OoT's next save.
+ * 0 for GAME_MM (nothing names one) or with nothing to read.
+ */
+int Combo_HintReadHostChecks(uint8_t hostGame, uint16_t* out, int cap);
 
 #ifdef __cplusplus
 }

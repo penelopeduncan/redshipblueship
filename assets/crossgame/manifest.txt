@@ -321,3 +321,10 @@ oot->mm objects/object_link_child/object_link_childVtx_029670
 oot->mm textures/icon_item_static/gItemIconMaskGerudoTex
 oot->mm textures/icon_item_static/gItemIconMaskSkullTex
 oot->mm textures/icon_item_static/gItemIconMaskSpookyTex
+# Their pause-menu names (#1500): MM names a shared slot's own item as the OoT mask
+# it stands for with OoT's own texture (MM_ForeignMask_ItemName, ForeignMaskMM.cpp),
+# the way OoT names the Blast and Stone Masks with MM's.  OoT's item names live
+# under textures/, MM's under item_name_static/, so the paths collide with nothing.
+oot->mm textures/item_name_static/gGerudoMaskItemNameENGTex
+oot->mm textures/item_name_static/gSkullMaskItemNameENGTex
+oot->mm textures/item_name_static/gSpookyMaskItemNameENGTex

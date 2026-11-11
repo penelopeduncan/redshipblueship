@@ -141,6 +141,17 @@ bool ForeignTestWriteShortRecord(const std::string& path, uint32_t comboSize) {
     payload.insert(payload.end(), comboBytes, comboBytes + comboSize);
     payload.insert(payload.end(), OOT_SAVE_CONTEXT_SIZE, 0u);
     payload.insert(payload.end(), MM_SAVE_CONTEXT_SIZE, 0u);
+    // Save format 6: RSBS_SAVE_VERSION_MIN is 6, and a v6 file carries the Tier-4
+    // crossing block and the Tier-5 overflow block after Tier-3 (the live stores'),
+    // or the reader refuses it as truncated.
+    std::vector<uint8_t> crossings(Combo_Crossings_SerializedSize());
+    std::vector<uint8_t> overflow(Combo_SharedItemOverflow_SerializedSize());
+    if (Combo_Crossings_Serialize(crossings.data(), crossings.size()) != crossings.size() ||
+        Combo_SharedItemOverflow_Serialize(overflow.data(), overflow.size()) != overflow.size()) {
+        return false;
+    }
+    payload.insert(payload.end(), crossings.begin(), crossings.end());
+    payload.insert(payload.end(), overflow.begin(), overflow.end());
 
     rsbs::RsbsSaveHeader h;
     memset(&h, 0, sizeof(h));

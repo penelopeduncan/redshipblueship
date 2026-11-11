@@ -2278,6 +2278,14 @@ typedef enum {
     // true
     // ```
     // #### `args`
+    // - `ObjDora*`
+    VB_GONG_DROP_COLLECTIBLE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
     // - `*Actor` (ObjComb)
     VB_BEEHIVE_ALREADY_BROKEN,
 

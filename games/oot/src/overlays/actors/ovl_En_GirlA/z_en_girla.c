@@ -20,6 +20,11 @@
 s32 OoT_Rando_Foreign_HostsForeign(u16 rc);
 s32 OoT_Rando_Foreign_HostCollected(u16 rc);
 s32 OoT_ForeignModel_DrawForOoTCheck(PlayState* play, u16 rc);
+// #1482: a bought shuffled shelf sells its item again when OoTMM restocks it
+// (ShopRestockSingleExe.cpp).
+s32 OoT_Rando_ShopShelfSoldOut(u16 rc, s32 bought);
+s32 OoT_Rando_ShopRestockBuyState(u16 rc, s32 bought);
+s32 OoT_Rando_ShopRestockSell(PlayState* play, u16 rc, s32 bought, s16 price);
 #endif
 
 void OoT_EnGirlA_Init(Actor* thisx, PlayState* play);
@@ -396,12 +401,15 @@ s32 EnGirlA_TryChangeShopItemShip(EnGirlA* this, PlayState* play) {
         }
     } else if (this->actor.params == SI_RANDOMIZED_ITEM) {
         ShopItemIdentity shopItemIdentity = Randomizer_IdentifyShopItem(play->sceneNum, this->randoSlotIndex);
-        if (Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf)
 #ifdef RSBS_SINGLE_EXECUTABLE
-            // #800 S1: a shelf hosting an MM item whose check is collected is sold out too.
-            || OoT_Rando_Foreign_HostCollected(shopItemIdentity.identity.randomizerCheck)
+        // #800 S1: a shelf hosting an MM item whose check is collected is sold out too.
+        // #1482: a bought shelf whose item OoTMM restocks stays on sale.
+        s32 soldOut = OoT_Rando_ShopShelfSoldOut(shopItemIdentity.identity.randomizerCheck,
+                                                 Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+#else
+        s32 soldOut = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
 #endif
-        ) {
+        if (soldOut) {
             this->actor.params = SI_SOLD_OUT;
             GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
                 shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
@@ -875,8 +883,21 @@ s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {
         return CANBUY_RESULT_CANT_GET_NOW_5;
     }
 
-    if (Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf) ||
-        itemObtainability == CANT_OBTAIN_ALREADY_HAVE || itemObtainability == CANT_OBTAIN_MISC) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1482: a bought shelf whose item OoTMM restocks sells it again (state 0).
+    // The refusals around this one are asked of that item (it is the placed
+    // item), and a sale that would add nothing (state 2: ammo at capacity, health
+    // full) is refused as a vanilla shelf refuses it.
+    s32 bought = OoT_Rando_ShopRestockBuyState(shopItemIdentity.identity.randomizerCheck,
+                                               Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+    if (bought == 2) {
+        return CANBUY_RESULT_CANT_GET_NOW;
+    }
+#else
+    s32 bought = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
+#endif
+
+    if (bought || itemObtainability == CANT_OBTAIN_ALREADY_HAVE || itemObtainability == CANT_OBTAIN_MISC) {
         return CANBUY_RESULT_CANT_GET_NOW;
     }
 
@@ -1080,6 +1101,15 @@ void EnGirlA_ItemGive_Randomizer(PlayState* play, EnGirlA* this) {
     GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
         shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1482: a restocked sale. The check is already obtained, so setting the flag
+    // again would give nothing: the item is given here, and the check, the tracker
+    // and the hints are left as they are.
+    if (OoT_Rando_ShopRestockSell(play, shopItemIdentity.identity.randomizerCheck,
+                                  Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf), this->basePrice)) {
+        return;
+    }
+#endif
     Flags_SetRandomizerInf(shopItemIdentity.identity.randomizerInf);
     OoT_Rupees_ChangeBy(-this->basePrice);
 }
@@ -1237,6 +1267,15 @@ void EnGirlA_UpdateStockedItem(PlayState* play, EnGirlA* this) {
         } else {
             this->isInvisible = false;
             this->actor.draw = OoT_EnGirlA_Draw;
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1482: EnGirlA_SetItemOutOfStock gave this randomized shelf the
+            // sold-out text; restocked, it names its item again.
+            if (this->actor.params == SI_RANDOMIZED_ITEM) {
+                ShopItemIdentity shopItemIdentity = Randomizer_IdentifyShopItem(play->sceneNum, this->randoSlotIndex);
+                this->actor.textId =
+                    0x9100 + (shopItemIdentity.identity.randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1);
+            }
+#endif
         }
     }
     // #endregion

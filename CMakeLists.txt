@@ -7,6 +7,19 @@ set(CMAKE_C_STANDARD 23 CACHE STRING "The C standard to use")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 project(Ship VERSION 9.1.1 LANGUAGES C CXX)
+# Save format 6's tripwire (src/common/save.h). Ship of Harkinian stamps this
+# version into every .sav (sohStats buildVersion*) and, at start-up,
+# StartupCheckAndInitMetaImpl (games/oot/soh/SaveManager.cpp) renames aside every
+# randomizer .sav whose stamp differs. A bump would therefore empty every
+# randomizer slot at the first launch, and the slot's next creation would
+# quarantine a valid .redsave as another file's. It is a save break of its own:
+# make it one on purpose, with the release note, never as a side effect.
+if(NOT PROJECT_VERSION VERSION_EQUAL "9.1.1")
+    message(FATAL_ERROR "project(Ship VERSION) is ${PROJECT_VERSION}, not 9.1.1: a Ship version bump renames aside "
+                        "every randomizer .sav at the first launch (StartupCheckAndInitMetaImpl) and the slot's next "
+                        "creation quarantines a valid .redsave. Decide it as a save break (src/common/save.h), then "
+                        "move this tripwire with it.")
+endif()
 include(CMake/soh-cvars.cmake)
 include(CMake/lus-cvars.cmake)
 set(SPDLOG_LEVEL_TRACE 0)

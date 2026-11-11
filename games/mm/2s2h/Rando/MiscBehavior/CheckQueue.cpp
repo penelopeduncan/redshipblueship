@@ -260,6 +260,14 @@ void Rando::MiscBehavior::CheckQueue() {
                         auto& randoSaveCheck = RANDO_SAVE_CHECKS[CUSTOM_ITEM_PARAM];
                         RandoItemId randoItemId =
                             Rando::ConvertItem(randoSaveCheck.randoItemId, (RandoCheckId)CUSTOM_ITEM_PARAM);
+#ifdef RSBS_SINGLE_EXECUTABLE
+                        // #1499: a paid check (Tingle, a scrub's sale) never gives
+                        // "literally nothing": re-roll the junk cache before the
+                        // message and the give below read it.
+                        if (randoItemId == RI_JUNK && Rando::IsPaidCheck((RandoCheckId)CUSTOM_ITEM_PARAM)) {
+                            (void)Rando::CurrentPaidJunkItem();
+                        }
+#endif
                         std::string prefix = "You found";
                         std::string message = Rando::StaticData::GetItemName(randoItemId);
 
