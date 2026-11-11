@@ -20,9 +20,13 @@
  *     The counts are taken inside the fold loop at the line itself
  *     (playthrough.cpp), so a skip deleted at the call site shows up here as a
  *     folded line. No butterfly check is a location.
- *  N  THE OPTION ON. The same generation with the key on: every one of those lines
- *     folds and none is left out, the settings fingerprint differs from F's, and
- *     all 20 butterfly checks are locations.
+ *  N  THE OPTION ON, THE PAIRED-ON LEG. The same generation with the key on (every
+ *     generation in this build is a paired creation): every one of those lines
+ *     folds and none is left out, the settings fingerprint differs from F's, all
+ *     20 butterfly checks are locations, and the paired fill gives each an item.
+ *     With RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN set (randomizerTypes.h; the
+ *     orchestrator's call if this leg fails) D expects the option greyed out and N
+ *     expects F's world exactly.
  *
  * oot-butterfly-fairy-hooks (OoTButterflyFairyHooks), the real registrars
  * (RegisterShuffleFairies, EasyButterflyFairies_Register) on a stub frame, through
@@ -110,13 +114,14 @@ void EasyButterflyFairies_Register();
 
 // THE APPEND-ONLY LOCKS: each id #1407 adds sits after the last id main had, so no
 // id a world or a save already holds moves.
-static_assert(RC_HC_NEAR_WALL_BUTTERFLY_FAIRY > RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8,
+// The exact numbers are locked in GameExports_SingleExe.cpp (save format 6's locks).
+static_assert(RC_HC_NEAR_WALL_BUTTERFLY_FAIRY > RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
               "the butterfly fairy checks are appended after every check id main had (#1407)");
-static_assert(RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE > RHT_SONG_OF_SOARING_OOT,
+static_assert(RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE > RHT_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
               "the butterfly fairy hint texts are appended after every hint text id main had (#1407)");
-static_assert(RSK_SHUFFLE_BUTTERFLY_FAIRIES > RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
+static_assert(RSK_SHUFFLE_BUTTERFLY_FAIRIES > RSK_KEYRINGS_CHEST_GAME,
               "RSK_SHUFFLE_BUTTERFLY_FAIRIES is appended after every setting key main had (#1407)");
-static_assert(RAND_INF_HC_NEAR_WALL_BUTTERFLY_FAIRY > RAND_INF_OBTAINED_SONG_OF_SOARING_OOT,
+static_assert(RAND_INF_HC_NEAR_WALL_BUTTERFLY_FAIRY > RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
               "the butterfly fairy flags are appended after every flag main had (#1407)");
 static_assert(RO_GENERIC_OFF == 0, "#1407: a world saved before the option reads its missing entry as 0, Off");
 
@@ -148,7 +153,7 @@ const char* const kShuffleKey = CVAR_RANDOMIZER_SETTING("ShuffleButterflyFairies
 const char* const kEasyKey = CVAR_ENHANCEMENT("EasyButterflyFairies");
 
 /** A key's stored state, put back by Restore. */
-struct SavedKey {
+struct BfSavedKey {
     const char* key;
     bool existed;
     int32_t value;
@@ -181,7 +186,7 @@ std::vector<RandomizerCheck> ButterflyChecks() {
 void CheckOption() {
     auto settings = Rando::Settings::GetInstance();
     settings->CreateOptions(); // idempotent; what Rando_HeadlessSeedTest calls first
-    SavedKey shuffle;
+    BfSavedKey shuffle;
     shuffle.Save(kShuffleKey);
     CVarClear(kShuffleKey);
     Rando::Option& option = settings->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES);
@@ -192,8 +197,12 @@ void CheckOption() {
              "D: the option is named '%s', not 'Shuffle Butterfly Fairies'", option.GetName().c_str());
     BF_CHECK(option.GetCVarName() == kShuffleKey, "D: the option is not keyed %s", kShuffleKey);
     BF_CHECK(shipped == RO_GENERIC_OFF, "D: the shipped default is %d, not Off", shipped);
+#if RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN
+    BF_CHECK(option.IsDisabled(), "D: the option is pinned off in paired worlds but the menu does not grey it out");
+#else
     BF_CHECK(!option.IsDisabled(), "D: the option is greyed out ('%s'), though a paired world generates it as set",
              option.GetDisabledText().c_str());
+#endif
     BF_CHECK((int)ButterflyChecks().size() == kButterflyChecks,
              "D: the location table holds %zu butterfly checks, not %d", ButterflyChecks().size(), kButterflyChecks);
     shuffle.Restore();
@@ -252,9 +261,10 @@ struct FoldRecord {
     uint8_t option;
     size_t locations;
     size_t butterflyLocations;
+    size_t butterflyPlaced;
 };
 
-FoldRecord Generate(const char* leg) {
+FoldRecord BfGenerate(const char* leg) {
     FoldRecord r = {};
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
@@ -268,6 +278,9 @@ FoldRecord Generate(const char* leg) {
         for (RandomizerCheck check : world->allLocations) {
             if (Rando::StaticData::GetLocation(check)->GetRCType() == RCTYPE_BUTTERFLY_FAIRY) {
                 r.butterflyLocations++;
+                if (world->GetItemLocation(check)->GetPlacedRandomizerGet() != RG_NONE) {
+                    r.butterflyPlaced++;
+                }
             }
         }
     }
@@ -279,11 +292,11 @@ FoldRecord Generate(const char* leg) {
 }
 
 void CheckFold() {
-    SavedKey shuffle;
+    BfSavedKey shuffle;
     shuffle.Save(kShuffleKey);
 
     CVarClear(kShuffleKey);
-    const FoldRecord f = Generate("F");
+    const FoldRecord f = BfGenerate("F");
     const uint32_t expectedLines = CountButterflyLines();
     BF_CHECK(f.generated && f.runs > 0, "F: the generation failed or ran no settings fold");
     BF_CHECK(f.folded == 0,
@@ -300,9 +313,17 @@ void CheckFold() {
 
     // Never stored: a stored rando key poisons later rows (Restore below).
     CVarSetInteger(kShuffleKey, RO_GENERIC_ON);
-    const FoldRecord n = Generate("N");
+    const FoldRecord n = BfGenerate("N");
     shuffle.Restore();
     BF_CHECK(n.generated && n.runs > f.runs, "N: the generation with the option on failed or ran no new fold");
+#if RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN
+    // Pinned off in paired worlds (randomizerTypes.h): the key on must generate F's
+    // world exactly.
+    BF_CHECK(n.option == RO_GENERIC_OFF && n.folded == 0 && n.butterflyLocations == 0 &&
+                 n.settingsHash == f.settingsHash,
+             "N: with the option pinned off the world still read it (option %u, %u line(s), %zu location(s))",
+             (unsigned)n.option, (unsigned)n.folded, n.butterflyLocations);
+#else
     BF_CHECK(n.option == RO_GENERIC_ON, "N: the world was generated with Shuffle Butterfly Fairies %u",
              (unsigned)n.option);
     BF_CHECK(n.folded == expectedLines && n.skipped == 0,
@@ -315,6 +336,15 @@ void CheckFold() {
     BF_CHECK(n.butterflyLocations == (size_t)kButterflyChecks,
              "N: %zu of the %d butterfly checks are locations with the option on", n.butterflyLocations,
              kButterflyChecks);
+    // THE PAIRED-ON LEG (clean-break design section 6): every generation here is a
+    // paired creation, so this is the paired fill with the option on. Each butterfly
+    // check must come out of it holding an item; if this leg fails at the gate the
+    // option is pinned off in paired worlds (RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN,
+    // randomizerTypes.h) instead of shipping half-working.
+    BF_CHECK(n.butterflyPlaced == (size_t)kButterflyChecks,
+             "N: the paired fill left %zu of the %d butterfly checks without an item",
+             (size_t)kButterflyChecks - n.butterflyPlaced, kButterflyChecks);
+#endif
 }
 
 // ---- O, A and I: the hooks ---------------------------------------------------------------
@@ -466,7 +496,7 @@ void CheckHooks() {
     const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
     const uint8_t priorOption = ctx->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Get();
     const uint8_t priorFountain = ctx->GetOption(RSK_SHUFFLE_FOUNTAIN_FAIRIES).Get();
-    SavedKey easyKey;
+    BfSavedKey easyKey;
     easyKey.Save(kEasyKey);
     CVarClear(kEasyKey);
     std::unique_ptr<SaveContext> priorSave = std::make_unique<SaveContext>();

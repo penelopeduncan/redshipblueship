@@ -12,6 +12,7 @@
 #include <cmath>
 #include <chrono>
 #include <filesystem>
+#include <memory> // std::make_unique: the save format 6 fixture halves
 #include <string>
 #include "OTRGlobals.h"
 #include "soh/CrashHandlerExt.h"
@@ -113,6 +114,144 @@ extern SaveContext gSaveContext;
 static_assert(sizeof(SaveContext) <= OOT_SAVE_CONTEXT_SIZE,
               "OOT_SAVE_CONTEXT_SIZE (src/common/game.h) is smaller than SoH's runtime SaveContext; "
               "raise the capacity or cross-game freeze/restore will truncate save state");
+
+// ---- Save format 6 (src/common/save.h; context.h's growth rule) --------------
+// THE CAPACITY LOCKS. Every array OoT saves that upstream sizes by a growing enum
+// has a fixed capacity in z64save.h; the enum must fit it. Outgrowing one is a
+// save format generation, never a silent truncation.
+static_assert((unsigned)TIMESTAMP_MAX <= RSBS_OOT_ITEM_TIMESTAMP_CAP &&
+                  sizeof(((SohStats*)0)->itemTimestamp) == RSBS_OOT_ITEM_TIMESTAMP_CAP * sizeof(u32),
+              "OoT's TIMESTAMP_MAX outgrew SohStats.itemTimestamp's saved capacity: a save format generation");
+static_assert((unsigned)COUNT_MAX <= RSBS_OOT_STATS_COUNT_CAP &&
+                  sizeof(((SohStats*)0)->count) == RSBS_OOT_STATS_COUNT_CAP * sizeof(u32),
+              "OoT's COUNT_MAX outgrew SohStats.count's saved capacity: a save format generation");
+static_assert((unsigned)RAND_INF_MAX <= RSBS_OOT_RAND_INF_CAP &&
+                  sizeof(((ShipSaveContextData*)0)->randomizerInf) == RSBS_OOT_RAND_INF_CAP / 16 * sizeof(u16),
+              "OoT's RAND_INF_MAX outgrew ship.randomizerInf's saved capacity: a save format generation");
+static_assert(sizeof(ShipRandomizerSaveContextData) == RSBS_OOT_RANDO_QUEST_DATA_SIZE &&
+                  sizeof(ShipRandomizerSaveContextData) >= sizeof(ShipBossRushSaveContextData) &&
+                  sizeof(ShipQuestSpecificSaveContextData) == RSBS_OOT_RANDO_QUEST_DATA_SIZE,
+              "ShipRandomizerSaveContextData is exactly 48 bytes (its counters, then rsbsSpare) and is the "
+              "quest union's largest member: carve rsbsSpare's front, never grow the struct");
+static_assert((unsigned)RC_MAX <= 0xFFFFu && (unsigned)RAND_INF_MAX <= 0xFFFFu && (unsigned)RSK_MAX <= 0xFFFFu,
+              "the save watermark (context.h ComboSaveWatermark) stamps these as u16");
+// THE NAME-TO-NUMBER LOCKS for the existing tails: an id appended in the wrong
+// place (or an enumerator removed) changes the number every save, spoiler and
+// pinned digest knows the last id by, and fails here instead.
+static_assert(RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER == 2527,
+              "OoT's last check id at save format 6 is 2527: append new checks after it, never insert");
+static_assert(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER == 2063,
+              "OoT's last randomizer-inf flag at save format 6 is 2063: append after it, never insert");
+static_assert(RSK_KEYRINGS_CHEST_GAME == 233,
+              "OoT's last setting key at save format 6 is 233: append after it, never insert");
+// Each backport appended after format 6 locks its own ids the same way, so a
+// merge that reorders the appended blocks fails here instead of renumbering
+// saved rows. #1407 (Shuffle Butterfly Fairies): 20 checks, their 20 flags, 14
+// hint texts and one setting key.
+static_assert(RC_HC_NEAR_WALL_BUTTERFLY_FAIRY == 2528 && RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY == 2547,
+              "OoT's butterfly fairy checks (#1407) are ids 2528..2547, appended after the shopkeeper's");
+static_assert(RAND_INF_HC_NEAR_WALL_BUTTERFLY_FAIRY == 2064 && RAND_INF_KAK_WATCHTOWER_BUTTERFLY_FAIRY == 2083,
+              "OoT's butterfly fairy flags (#1407) are 2064..2083, appended after the shopkeeper's");
+static_assert(RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE == 1517 && RHT_BUTTERFLY_FAIRY_KAKARIKO_VILLAGE == 1530,
+              "OoT's butterfly fairy hint texts (#1407) are 1517..1530, appended after the shopkeeper's");
+static_assert(RSK_SHUFFLE_BUTTERFLY_FAIRIES == 234,
+              "OoT's Shuffle Butterfly Fairies key (#1407) is 234, after RSK_KEYRINGS_CHEST_GAME");
+// THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP_QUEST, offsetof(SaveContext, ship.quest));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE, offsetof(SaveContext, ship.filenameLanguage));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP_RANDOMIZER_INF, offsetof(SaveContext, ship.randomizerInf));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP_FOREIGN_MASK, offsetof(SaveContext, ship.foreignMask));
+
+/** Save format 6: the bytes of OoT's SaveContext, the start of Tier-2's zero tail
+ *  (save.cpp's tail check; MM's twin is MM_SeedPackage_HalfSize). */
+extern "C" uint32_t OoT_SaveLayout_ContextSize(void) {
+    return (uint32_t)sizeof(SaveContext);
+}
+
+/** Save format 6: OoT's terms of the save watermark (context.h ComboSaveWatermark). */
+extern "C" void OoT_SaveLayout_EnumMaxima(uint16_t* outRcMax, uint16_t* outRandInfMax, uint16_t* outRskMax) {
+    if (outRcMax != nullptr) {
+        *outRcMax = (uint16_t)RC_MAX;
+    }
+    if (outRandInfMax != nullptr) {
+        *outRandInfMax = (uint16_t)RAND_INF_MAX;
+    }
+    if (outRskMax != nullptr) {
+        *outRskMax = (uint16_t)RSK_MAX;
+    }
+}
+
+/** Save format 6: the SaveLayoutPins row's OoT lines (save_layout_pins.h); returns
+ *  the number of nonzero pins that differ from the compiled value. */
+extern "C" int OoT_SaveLayout_ReportPins(void) {
+    int mismatches = 0;
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_QUEST, offsetof(SaveContext, ship.quest), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE, offsetof(SaveContext, ship.filenameLanguage),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_RANDOMIZER_INF, offsetof(SaveContext, ship.randomizerInf), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_FOREIGN_MASK, offsetof(SaveContext, ship.foreignMask), mismatches);
+    return mismatches;
+}
+
+/**
+ * Save format 6: THE FIXTURE'S OoT HALF (SaveFormatV6Fixture, the committed
+ * tests/fixtures/save-format-6/redship_slot0.redsave). The writer sets these
+ * fields BY NAME in a zeroed SaveContext; the check reads them back by name from
+ * a loaded half. Indices are LITERALS, the last ids at save format 6 (count 105,
+ * itemTimestamp 239, randomizerInf word 128 holds flag 2063): a later build's
+ * enums grow, the fixture's bytes do not. A field that moves in a later build
+ * reads other bytes and fails by name, which is the per-step proof that no saved
+ * field moved.
+ */
+extern "C" void OoT_SaveLayout_FixtureWrite(uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        return;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memset(sc.get(), 0, sizeof(SaveContext));
+    sc->healthCapacity = 0x0130;
+    sc->ship.stats.itemTimestamp[0] = 0x01020304u;
+    sc->ship.stats.itemTimestamp[239] = 0x0A0B0C0Du;
+    sc->ship.stats.count[0] = 0x11u;
+    sc->ship.stats.count[105] = 0x22u;
+    sc->ship.quest.id = QUEST_RANDOMIZER;
+    sc->ship.quest.data.randomizer.triforcePiecesCollected = 7;
+    sc->ship.quest.data.randomizer.bombchuUpgradeLevel = 2;
+    sc->ship.filenameLanguage = 1;
+    sc->ship.randomizerInf[0] = 0x1234u;
+    sc->ship.randomizerInf[128] = 0x8001u;
+    sc->ship.foreignMask = 3;
+    memcpy(blob, sc.get(), sizeof(SaveContext));
+}
+
+extern "C" int OoT_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        printf("[FIXTURE] FAIL oot: no half to read (%zu bytes)\n", size);
+        return 1;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memcpy(sc.get(), blob, sizeof(SaveContext));
+    int bad = 0;
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.healthCapacity", sc->healthCapacity, 0x0130, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.itemTimestamp[0]", sc->ship.stats.itemTimestamp[0], 0x01020304u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.itemTimestamp[239]", sc->ship.stats.itemTimestamp[239], 0x0A0B0C0Du, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.count[0]", sc->ship.stats.count[0], 0x11u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.count[105]", sc->ship.stats.count[105], 0x22u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.id", sc->ship.quest.id, QUEST_RANDOMIZER, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.triforcePiecesCollected",
+                              sc->ship.quest.data.randomizer.triforcePiecesCollected, 7, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.bombchuUpgradeLevel",
+                              sc->ship.quest.data.randomizer.bombchuUpgradeLevel, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.filenameLanguage", sc->ship.filenameLanguage, 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[0]", sc->ship.randomizerInf[0], 0x1234u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[128]", sc->ship.randomizerInf[128], 0x8001u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.foreignMask", sc->ship.foreignMask, 3, bad);
+    return bad;
+}
 
 // #1176: SoH appended skeletonHeader to OoT's SkelAnime; MM's has no such
 // field. The skeleton-patcher-mm-layout row checks this size is MM's

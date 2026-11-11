@@ -4,11 +4,137 @@
 
 ## Since v0.5.0-alpha
 
+### Read this first
+
+- **Save files from v0.5.0-alpha and earlier cannot be opened. This includes plain (non-randomizer) files.** This
+  version stores more checks and settings for both games, with room for the ones upstream keeps adding (Wonder Items,
+  beehives and extra grass, butterflies and butterfly fairies, silver rupees), so the save format changed. Old files
+  are not converted. When you pick one, the game refuses it with "Refused: File made by an older version" and leaves
+  the file on disk. Erase it to start a new file in that slot. Seed packages from `v0.5.0-alpha` are refused too
+  ("Seed package from another generator"), so generate a new seed. Saves and seed packages made with development
+  builds between releases are not supported.
+
+  The new format leaves room for upstream additions, so future check and setting additions should not need another
+  save break.
+- **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
+  with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
+  carries only the half-days a time-gated path is open on), and with Shuffle Master Sword on, which is the default
+  (the pedestal is now a child check, see below). A seed package exported by `v0.5.0-alpha` is refused, so generate
+  the seed again. Saved files are a separate break (above).
+
+### Majora's Mask randomizer
+
+- **A Progressive Time found in Ocarina of Time shows the half-day it grants** (issue #1481). It is named and drawn
+  as that half-day (for example "Time (Night 1)") at its pickup, in its toast and on a shop shelf, as OoTMM does.
+- **Each Tingle map is placed once** (issue #1499). With Shuffle Tingle Maps on, a new file's pool holds one copy of
+  each of the six maps, and none with Starting Maps and Compasses on, so no check holds a map you already own. A shop
+  or Tingle slot whose item you already own shows and sells junk, once, and a paid junk sale never gives "literally
+  nothing". A seed made with Shuffle Tingle Maps on makes a different world than before (with or without Plentiful).
+- **Majora's Mask logic fixes from 2Ship2Harkinian** (issue #1398). These change where items can land, so the same
+  seed and settings make a different paired world than before:
+  - The Peahat's drop and its grotto chest are in logic only by day, since a Peahat cannot be fought at night.
+  - The Great Bay Coast fisherman's minigame and the tree on its platforms need the Hookshot after Great Bay Temple is
+    cleared. Ice Arrows no longer count, and the minigame is in logic from 7:00 to 4:00 on each of the three days.
+  - Water enemies (Shellblade, Desbreko, Skullfish) need Swim, and the Pirates' Fortress aquarium drops need the
+    Hookshot.
+  - Logic uses the Song of Soaring warp to Woodfall's owl statue.
+  - The Clock Town postbox is listed under East Clock Town, and a duplicate Bad Bat drop in the upper graveyard is
+    gone.
+- **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
+  does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
+- **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, the 116 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
+  you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee, the song wall's drops and the
+  red rupee you get for cutting a whole ring of Keaton grass. A hidden one sparkles until you collect it. In a paired
+  world the option is set when the file is created, like every other setting, and these checks only ever hold Majora's
+  Mask items, never an Ocarina of Time item. With it off, worlds are made exactly as before.
+- **New option: Shuffle Hive Drops** (issue #1410), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, the item that falls when you break each of Majora's Mask's 19 beehives is a check. In a paired world the
+  option is set when the file is created, and these checks only ever hold Majora's Mask items. With it off, worlds are
+  made exactly as before.
+- **Shuffle Grass Drops covers more grass** (issue #1410), from 2Ship2Harkinian: 171 more patches of Majora's Mask
+  grass are checks, among them the three rings of Keaton grass, each bush its own check. With Shuffle Grass Drops on
+  (it is off by default), a seed makes a different world than before; in a paired world these checks only ever hold
+  Majora's Mask items. With it off, worlds are made exactly as before.
+- **New option: Shuffle Butterflies** (issue #1407), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, 25 of Majora's Mask's butterflies (in Termina Field, Great Bay Coast, Mountain Village in spring and
+  four grottos) each carry a check: hold out a Deku Stick near one and it flies to the stick and gives you the item.
+  In a paired world the option is set when the file is created, and these checks only ever hold Majora's Mask items.
+  With it off, worlds are made exactly as before.
+
+### Ocarina of Time randomizer
+
+- **New option: Shuffle Butterfly Fairies** (issue #1407), from Ship of Harkinian, under the fairy shuffles. It is off
+  by default. With it on, the fairy that 20 of Ocarina of Time's butterflies turn into when you hold a Deku Stick near
+  them is a check (in Hyrule Castle, the Lost Woods, the Graveyard, Zora's River and Fountain, Lake Hylia, Kakariko and
+  nine grottos). In a paired world the option is set when the file is created, and these checks only ever hold
+  Ocarina of Time items. With it off, worlds are made exactly as before. The new Easy Butterfly Fairies enhancement
+  turns a butterfly into its fairy as soon as you hold a Deku Stick near it; it is always on while Shuffle Butterfly
+  Fairies is.
+- **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
+  Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
+  open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold
+  the Master Sword (with Time Travel Requires Master Sword on). With the sword unshuffled nothing changes: pulling
+  the sword is the check.
+
 ### Fixes
 
+- **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
+  own than it has checks, as a hunt with too many pieces does, Generate now fails with a toast that names the game,
+  for example "Not generated: too many Majora's Mask pieces.", instead of "try a new seed or other options." The
+  file select's "Not created:" toast says the same, and a hunt whose goal can never be met reads "the Triforce Goal
+  can never be met."
+- **Majora's Mask logic no longer carries time through a time-gated path** (issue #1453). A time-gated path now
+  carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
+  leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
+  above all, make different worlds from the same seed.
+- **Majora's Mask solo randomizer: finding a clock no longer opens day-only checks behind night-only paths** (issue
+  #1509). With Shuffle Time on, the fill used to give every region it had already reached the newly found half-day, so
+  a daytime check behind a path open only at night could be placed as reachable. The fill now works the reachable
+  regions out again from the start after each clock. Paired worlds were not affected.
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
+- **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
+  Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
+  show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+- **The "Restored from file:" toast keeps Cross-Game Rule names whole** (issue #1479). After loading a save in a small
+  window the toast no longer cuts a rule's name to "...", and its "+N" counts every restored rule, even on a long
+  restore.
+- **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
+  "Hide In-Game Timer Background", which did not fit at the smallest window size.
+
+### Trackers
+
+- **Majora's Mask enemy drops show where the kill is in logic** (issue #1498). With Available Checks on, the Combo Tracker
+  lists a drop under an area where it can be killed, and keeps it there once collected. MM's Check Tracker greys each
+  area's copy on its own and names the areas in the drop's tooltip (when Out of Logic Checks is not Normal), as does the
+  Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
+  inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
+  the scene they open from.
+- **The Hint Tracker shows both games** (issue #1475). It keeps Ship of Harkinian's Locations and Journal views, with an
+  Ocarina of Time pane and a Majora's Mask pane, works in either game, and each pane scrolls to the area you are in.
+  Majora's Mask hints you have read are now listed. Reading a Majora's Mask hint about an item that crossed into Hyrule
+  marks that Ocarina of Time check as Seen in the Check Tracker.
+
+### Options and quality of life
+
+- **Ocarina of Time: Text Speed has a sixth notch, Instant** (issue #1414). At 6 the slider shows each text box in
+  full at once.
+- **A bought Ocarina of Time shop shelf sells its item again when OoTMM would restock it** (issue #1482). With Shuffle
+  Shops on, a shelf holding ammo, Bombchus, a Deku or Hylian Shield, a potion refill, milk, fish or a Recovery Heart
+  stays on sale after you buy it; the second sale gives the item and charges the price. Bottles, other items and shelves
+  holding Majora's Mask items still sell out, and a shelf whose Majora's Mask item was already collected shows as sold
+  out as soon as the shop loads.
+- **New randomizer option: Early Granny's Potion Shop** (issue #1414). With Shuffle Adult Trade off, Granny's shop in
+  Kakariko is open from the start, without the Claim Check, and logic counts her item that way. It is off by
+  default, and a seed made with it off makes the same world as before.
+- **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
+  instead of queueing behind it.
+- **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
+  Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
+  room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
+  generated with it off. The same seed and settings make the same world as before.
 
 ---
 

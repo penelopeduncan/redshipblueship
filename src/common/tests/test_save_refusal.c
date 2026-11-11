@@ -24,6 +24,7 @@
  * can drive the C++ rsbs::SaveManager API.
  */
 
+#include "../combo_save_files_view.h" // Combo_SaveFiles_RowFor: the page's status line (save format 6 legs)
 #include "../context.h"
 #include "../game.h"
 #include "../save.h"
@@ -265,11 +266,57 @@ TestResult Test_SaveRefusedQuarantine(void) {
     if (RefusalExpectRefusal(0, RSBS_REFUSE_VERSION, "future format version") != TEST_PASS) {
         return TEST_FAIL;
     }
+    // Save format 6: the future version (7) keeps "File made by another build";
+    // the older one below gets its own words. Catches the split undone.
+    REFUSE_ASSERT(std::strcmp(RsbsSave_SlotRefusalWords(0), "File made by another build") == 0,
+                  "a newer file's refusal does not read \"File made by another build\"");
+
+    // ---- Older version (save format 6: a v0.5.0-alpha file, version 5) ------
+    // Refused under its own reason, quarantined with its own slug, and read back
+    // by a later session: a randomizer .sav at that slot then says "File made by
+    // an older version", not "Cross-game record is missing".
+    RefusalFreshDir();
+    REFUSE_ASSERT(RefusalAuthorValidSlot(0, 0x0BD5A5E5u), "could not author the valid base save");
+    REFUSE_ASSERT(RefusalPatchU32(mgr.SlotPath(0), offsetof(rsbs::RsbsSaveHeader, version), 5u),
+                  "could not patch the version field");
+    if (RefusalExpectRefusal(0, RSBS_REFUSE_OLD_VERSION, "older format version (5)") != TEST_PASS) {
+        return TEST_FAIL;
+    }
+    {
+        const std::vector<std::string> baks = RefusalQuarantines(0);
+        REFUSE_ASSERT(baks.size() == 1 && baks[0].find("refused-oldversion") != std::string::npos,
+                      "an older file's quarantine is not tagged \"oldversion\"");
+        printf("[TEST]   older version: words \"%s\", evidence %s\n", RsbsSave_SlotRefusalWords(0), baks[0].c_str());
+        REFUSE_ASSERT(std::strcmp(RsbsSave_SlotRefusalWords(0), "File made by an older version") == 0,
+                      "an older file's refusal does not read \"File made by an older version\"");
+    }
+    // A later session (the latches reset, the evidence still on disk).
+    mgr.ResetSlotSessionState();
+    REFUSE_ASSERT(mgr.QuarantineReason(0) == RSBS_REFUSE_OLD_VERSION,
+                  "a later session does not read the quarantine back as an older version (the reason loop stops "
+                  "short of RSBS_REFUSE_COUNT, or the slug is missing)");
+    {
+        std::string words;
+        const RsbsLoadOutcome probe = mgr.ProbeSlotForOpen(0, 0u, /*isRandoFile=*/true, nullptr, &words);
+        printf("[TEST]   later session, randomizer .sav at the slot: probe %d, reason %s, words \"%s\"\n", (int)probe,
+               rsbs::SaveManager::RefuseReasonLabel(mgr.GetSlotRefuseReason(0)), words.c_str());
+        REFUSE_ASSERT(probe == RSBS_LOAD_REFUSED && mgr.GetSlotRefuseReason(0) == RSBS_REFUSE_OLD_VERSION &&
+                          words == "File made by an older version",
+                      "a randomizer .sav whose record was set aside as an older version is not told so (it reads "
+                      "the record-missing refusal)");
+        REFUSE_ASSERT(std::filesystem::exists(mgr.SlotPath(0) + ".refused-oldversion.bak"),
+                      "the probe moved the evidence");
+    }
+    // A vanilla .sav at the same slot has no record to need: ABSENT, as before.
+    mgr.ResetSlotSessionState();
+    REFUSE_ASSERT(mgr.ProbeSlotForOpen(0, 0u, /*isRandoFile=*/false, nullptr, nullptr) == RSBS_LOAD_ABSENT,
+                  "a vanilla .sav at a slot with older-version evidence was refused");
 
     std::error_code ec;
     std::filesystem::remove_all(kRefusalTestDir(), ec);
     rsbs::SaveManager::Instance().ResetSlotSessionState();
-    printf("[TEST] PASS: CRC/truncation/wrong-slot/future-version each quarantine + latch, evidence intact\n");
+    printf("[TEST] PASS: CRC/truncation/wrong-slot/future/older-version each quarantine + latch, evidence intact; an "
+           "older file's reason survives a restart\n");
     return TEST_PASS;
 }
 
@@ -494,9 +541,73 @@ TestResult Test_SaveRefusedMeta(void) {
         REFUSE_ASSERT(donor.state == RSBS_SLOT_VALID, "the donor slot must stay VALID");
     }
 
+    // ---- Save format 6: an older version's file in place, before any load ------
+    // The page says exactly what the file select's toast says. Catches the
+    // header's older-version reason or its words lost on the way to the page.
+    RefusalFreshDir();
+    REFUSE_ASSERT(RefusalAuthorValidSlot(0, 0x0BD5A5E6u), "could not author the valid base save");
+    REFUSE_ASSERT(RefusalPatchU32(mgr.SlotPath(0), offsetof(rsbs::RsbsSaveHeader, version), 5u),
+                  "could not patch the version field");
+    {
+        rsbs::SlotMeta meta = mgr.ReadMeta(0);
+        const ComboSaveFileRow row = Combo_SaveFiles_RowFor(0, meta);
+        printf("[TEST]   a v5 file in place: state %d, reason %s, status \"%s\"\n", (int)meta.state,
+               rsbs::SaveManager::RefuseReasonLabel(meta.refuseReason), row.status.c_str());
+        REFUSE_ASSERT(meta.state == RSBS_SLOT_REFUSED && meta.refuseReason == RSBS_REFUSE_OLD_VERSION && meta.exists,
+                      "a v5 file in place must read REFUSED as an older version");
+        REFUSE_ASSERT(row.status == "Refused: File made by an older version",
+                      "a v5 file's row does not read exactly \"Refused: File made by an older version\"");
+    }
+
+    // ---- Save format 6: ReadMeta shares the load's newer-content validator ------
+    // A nonzero byte in Tier-2 past OoT's SaveContext (armed as production arms
+    // it), CRC restamped: the page reads it REFUSED for the reason the load
+    // refuses it, never "Ready". Catches ReadMeta skipping the validator.
+    RefusalFreshDir();
+    {
+        struct TailArm {
+            TailArm() {
+                RsbsSave_ArmTierTailChecks();
+            }
+            ~TailArm() {
+                RsbsSave_SetTierLayoutSizesForTest(0u, 0u);
+            }
+        } arm;
+        uint32_t ootLayout = 0;
+        RsbsSave_GetTierLayoutSizes(&ootLayout, nullptr);
+        REFUSE_ASSERT(ootLayout != 0 && ootLayout < OOT_SAVE_CONTEXT_SIZE, "the Tier-2 tail check did not arm");
+        REFUSE_ASSERT(RefusalAuthorValidSlot(0, 0x7A117A11u), "could not author the valid base save");
+        REFUSE_ASSERT(mgr.ReadMeta(0).state == RSBS_SLOT_VALID, "the armed writer's own file does not read VALID");
+        std::vector<uint8_t> file;
+        REFUSE_ASSERT(RefusalReadFile(mgr.SlotPath(0), file), "could not read the authored save");
+        const size_t at = sizeof(rsbs::RsbsSaveHeader) + RSBS_COMBO_CONTEXT_RECORD_SIZE + ootLayout;
+        REFUSE_ASSERT(file.size() > at, "short authored save");
+        file[at] = 0x01;
+        rsbs::RsbsSaveHeader h;
+        std::memcpy(&h, file.data(), sizeof(h));
+        h.crc32 = rsbs::SaveManager::Crc32(file.data() + sizeof(h), file.size() - sizeof(h));
+        std::memcpy(file.data(), &h, sizeof(h));
+        {
+            std::ofstream out(mgr.SlotPath(0), std::ios::binary | std::ios::trunc);
+            out.write(reinterpret_cast<const char*>(file.data()), static_cast<std::streamsize>(file.size()));
+            REFUSE_ASSERT(static_cast<bool>(out), "could not write the tail fixture");
+        }
+        rsbs::SlotMeta meta = mgr.ReadMeta(0);
+        const ComboSaveFileRow row = Combo_SaveFiles_RowFor(0, meta);
+        printf("[TEST]   a nonzero Tier-2 tail: state %d, reason %s, status \"%s\"\n", (int)meta.state,
+               rsbs::SaveManager::RefuseReasonLabel(meta.refuseReason), row.status.c_str());
+        REFUSE_ASSERT(meta.state == RSBS_SLOT_REFUSED && meta.refuseReason == RSBS_REFUSE_TIER_SIZE,
+                      "a nonzero Tier-2 tail does not read REFUSED on the page");
+        REFUSE_ASSERT(row.status == "Refused: File made by another build",
+                      "a nonzero Tier-2 tail's row does not read \"Refused: File made by another build\"");
+        REFUSE_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_REFUSED && mgr.GetSlotRefuseReason(0) == RSBS_REFUSE_TIER_SIZE,
+                      "the load does not refuse the file the page refused, for the same reason");
+    }
+
     std::error_code ec;
     std::filesystem::remove_all(kRefusalTestDir(), ec);
     mgr.ResetSlotSessionState();
-    printf("[TEST] PASS: ABSENT / VALID / REFUSED are three different surfaced facts\n");
+    printf("[TEST] PASS: ABSENT / VALID / REFUSED are three different surfaced facts; an older file and a newer "
+           "build's tail read REFUSED with the toast's words\n");
     return TEST_PASS;
 }

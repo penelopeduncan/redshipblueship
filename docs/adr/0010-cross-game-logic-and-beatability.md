@@ -1829,6 +1829,12 @@ and `Combo_ComboSettingsFrozen`):
   draws the MM model. The room's other chests (`RCTYPE_CHEST_GAME`) stay
   refused: they are never locations (upstream skips the type and forces "Shuffle
   Chest Minigame" off), and the room clears their flags on every play.
+  *Amended (#1364, SoH's Shuffle Treasure Chest Game):* "Shuffle Chest Minigame"
+  is now a real option, the room keeps its flags under it, and the shopkeeper's
+  paid item is a check (also `RCTYPE_CHEST_GAME`). The rows stay refused for two
+  other reasons: every paired world is generated with the option off (its keys
+  have no confinement, so the single bag could put them in Termina), so they are
+  never locations there; and their give paths are untraced for a crossing.
 - MM's engine grants the fixed contents of reached checks outside the host pool
   during expansion (#737), without which beat-both was unprovable on the
   shipped profile.
@@ -2780,6 +2786,16 @@ golden re-pinned; seed packages written by generator 3 are refused, as designed)
   ever be finished.", or "no seed can finish the goal."). The file-select fallback
   (`OoT_Creation_ReportFailureAtFileSelect`) takes the refusal as its `reason` and
   names the unreachable location or game instead of "try a new seed".
+  Under the Triforce Hunt the goal line reads "the Triforce Goal can never be met."
+  (#1483).
+- **Home capacity (#1483), words only.** When a fill fails and a game's REQUIRED
+  HOME_ONLY rows outnumber that game's empty hosts (counted after the roll-back,
+  `Combo_SingleBag_HomeShortGames`), no seed can place them, so Generate's toast
+  reads "Not generated: too many <game> pieces." when that game holds Triforce
+  Pieces, else "too few checks in <game>." ("either game" when both are short),
+  and the file-select fallback takes `RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY` as its
+  `reason`. The status, the ladder and every placement are unchanged: the
+  creation still fails where it failed before, only with the right words.
 - **Goldens.** Every golden re-pinned for generator 4; `seed-digest-beatable-only`
   and `seed-digest-no-logic` pin the other two rungs; the unread
   `seed-digest-mm-nearly-no-logic.txt` is deleted.

@@ -76,6 +76,10 @@ const char* Combo_SaveFiles_RefuseText(RsbsRefuseReason reason) {
             return Combo_RefusalWords(RSBS_REFUSAL_WORDS_ITEMS_DAMAGED);
         case RSBS_REFUSE_MISSING:
             return Combo_RefusalWords(RSBS_REFUSAL_WORDS_RECORD_MISSING);
+        case RSBS_REFUSE_OLD_VERSION:
+            // Save format 6: a file from v0.5.0-alpha or earlier. Its own words, so
+            // the player knows the file is not damaged and that erasing it is the way on.
+            return Combo_RefusalWords(RSBS_REFUSAL_WORDS_OLDER_VERSION);
         case RSBS_REFUSE_NONE:
         default:
             return Combo_RefusalWords(RSBS_REFUSAL_WORDS_UNCHECKED);

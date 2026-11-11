@@ -419,7 +419,8 @@ typedef struct ComboSettingsKeyUndo {
  * gate refuses EDITS of a decided world, and this is the decided world's own
  * value going back where the resolver reads it. @p names (may be NULL)
  * receives the restored rows' labels in page order ("Goal, Crossing
- * Direction"); "" when nothing was restored. @p undo (may be NULL) records
+ * Direction"), whole labels only, as many as fit @p len (#1479); "" when
+ * nothing was restored. @p undo (may be NULL) records
  * what was written. A caller whose own after-check then fails passes it to
  * Combo_ComboSettingsRestoreUndo, which puts every written key back as it was
  * (its old value, or unset), so a refused load leaves the keys exactly as the
@@ -469,6 +470,20 @@ int Combo_ComboSettingsCanRestoreLiveEx2(const ComboSettingsRecord* frozen, cons
                                          uint32_t frozenRules2, const ComboTriforceRecord* frozenTriforce,
                                          uint32_t divergedBits);
 
+/**
+ * Combo_ComboSettingsRestoreLiveEx2 with the true number of restored rows
+ * (#1479). @p names (in every form) receives only WHOLE labels, as many
+ * leading ones as fit @p len, never a label cut mid-word; @p outCount (may be
+ * NULL) receives how many rows were restored, which may exceed the labels
+ * @p names holds, so a caller's "+N" counts every one (the shape of
+ * MM_Rando_RestoreProfileForLoad). 0 when nothing was restored. The load path
+ * calls this.
+ */
+int Combo_ComboSettingsRestoreLiveEx3(const ComboSettingsRecord* frozen, const ComboItemRulesRecord* frozenRules,
+                                      uint32_t frozenRules2, const ComboTriforceRecord* frozenTriforce,
+                                      uint32_t divergedBits, char* names, size_t len, int* outCount,
+                                      ComboSettingsKeyUndo* undo);
+
 /** Undo a Combo_ComboSettingsRestoreLive: every key it wrote goes back to the
  *  value it held, or back to unset. A NULL or all-unwritten @p undo is a no-op. */
 void Combo_ComboSettingsRestoreUndo(const ComboSettingsKeyUndo* undo);
@@ -477,6 +492,14 @@ void Combo_ComboSettingsRestoreUndo(const ComboSettingsKeyUndo* undo);
  *  Combo_ComboSettingsRestoreLive can answer. A divergence with any other bit
  *  is damage, or a field only another build writes. */
 uint32_t Combo_ComboSettingsRestorableMask(void);
+
+/** #1479: the rows a load can restore, in the order the restore writes and
+ *  names them (Goal, Logic, the Triforce Hunt's numbers, Crossing Direction,
+ *  then the item rules), so a page or test can build the list a load hands the
+ *  toast. Combo_ComboSettingsRestorableCount() rows; the @p index-th row's id,
+ *  or COMBO_SETTING_COUNT outside [0, count). */
+int Combo_ComboSettingsRestorableCount(void);
+ComboSettingId Combo_ComboSettingsRestorableAt(int index);
 
 /** The bits of @p divergedBits no key can answer for this file: those outside
  *  Combo_ComboSettingsRestorableMask, plus RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS

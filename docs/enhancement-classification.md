@@ -688,7 +688,7 @@ windows' registration and gate.
 | MM key | MM default | Row or surface (page > section) | Call |
 |---|---|---|---|
 | `gDisplayOverlay.Mode` | Off | In-Game Timer (Enhancements > Timers, Majora's Mask block): Off, Real-Time, In-Game Time | (O) MM-only. The mode alone shows the timer; 2Ship's `gWindows.DisplayOverlay` is not used |
-| `gDisplayOverlay.Background` | off | Hide In-Game Timer Background (likewise) | (O) MM-only |
+| `gDisplayOverlay.Background` | off | Hide Timer Background (likewise) | (O) MM-only |
 | `gDisplayOverlay.Scale` | 1.0 | In-Game Timer Scale (likewise), 1x to 5x | (O) MM-only |
 | `gSettings.TimeSplits.Enable` | off | Enable Time Splits (Enhancements > Time Splits, Majora's Mask block) | (O) MM-only; arms `TimeSplitsActions.cpp`'s six hooks and shows the splits list |
 | `gSettings.TimeSplits.ShowHeaders` | off | Show Split Headers (likewise) | (O) MM-only |

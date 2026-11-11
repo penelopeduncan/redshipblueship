@@ -45,8 +45,19 @@ typedef enum {
 // sizeof(SaveContext) <= *_SAVE_CONTEXT_SIZE so drift fails the build loudly
 // instead of silently truncating cross-game save state (issue: freeze/restore
 // used to clamp OoT to 0x1428, losing all SoH ship.* state per switch).
-#define OOT_SAVE_CONTEXT_SIZE 0x22000 // ~136KB capacity (SoH runtime struct ~0x21C30)
-#define MM_SAVE_CONTEXT_SIZE 0x10000  // 64KB capacity (2S2H runtime struct ~0xC000)
+//
+// Save format 6 (save.h) raised both, unconditionally, because the fixed saved
+// capacities it gave the enum-sized arrays (both z64save.h files) do not fit the
+// old values: OoT grows by about 1.5 KB (itemTimestamp 320, count 192,
+// randomizerInf 8192 flags = 512 words, the 48-byte quest union), on a struct the
+// old 0x22000 already held with under 1 KB to spare; MM grows by about 22.4 KB
+// (checks 4096 rows of 12 bytes, options 128, tricks 128, randoInf 256 flags,
+// events 256, the excluded-check set 512 bytes, the 256-byte spare block), from
+// about 0xC000 to about 0x117A0. The exact sizes are pinned in
+// save_layout_pins.h (RSBS_PIN_*_SAVE_CONTEXT_SIZEOF) once measured. Raising a
+// capacity is prefix-compatible (context.h's growth rule 7).
+#define OOT_SAVE_CONTEXT_SIZE 0x23000 // 140KB capacity (SoH runtime struct ~0x22200 at save format 6)
+#define MM_SAVE_CONTEXT_SIZE 0x14000  // 80KB capacity (2S2H runtime struct ~0x117A0 at save format 6)
 
 /**
  * Convert game ID string to enum

@@ -4168,6 +4168,11 @@ typedef enum {
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_7,
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8,
     // End Grass
+
+    // SoH 6706b49d1 puts this after RC_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other check id moves.
+    RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // Butterfly fairies (#1407; SoH's butterfly fairy shuffle). Appended after main's
+    // last check, so no id a world or a save holds moves: 2528..2547.
     RC_HC_NEAR_WALL_BUTTERFLY_FAIRY,
     RC_HC_NEAR_STAIRS_BUTTERFLY_FAIRY,
     RC_HC_NEAR_BOULDER_PATH_BUTTERFLY_FAIRY,
@@ -6426,6 +6431,9 @@ typedef enum {
     // [RSBS #1169 XW4] the hint text of RG_SONG_OF_SOARING_OOT. Appended last, as
     // RHT_STONE_MASK is.
     RHT_SONG_OF_SOARING_OOT,
+    // SoH 6706b49d1 puts this after RHT_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other hint text id moves.
+    RHT_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // [RSBS #1407] the butterfly fairy hint texts, appended after the shopkeeper's (1517..1530).
     RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE,
     RHT_BUTTERFLY_FAIRY_LOST_WOODS,
     RHT_BUTTERFLY_FAIRY_GRAVEYARD,
@@ -6775,9 +6783,21 @@ typedef enum {
     // a save's randoSettings array is indexed by this enum, and a world saved
     // before it reads the missing tail as 0, off.
     RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
+    RSK_EARLY_GRANNYS_SHOP,
+    // SoH 6706b49d1 puts this after RSK_KEYRINGS_GANONS_CASTLE; appended here so no other setting key moves.
+    RSK_KEYRINGS_CHEST_GAME,
+    // [RSBS #1407] SoH's butterfly fairy shuffle, appended after the chest game keyring (234): a
+    // world saved before it reads the missing entry as 0, Off.
     RSK_SHUFFLE_BUTTERFLY_FAIRIES,
     RSK_MAX
 } RandomizerSettingKey;
+
+// [RSBS #1407] 1 pins Shuffle Butterfly Fairies off in every paired world (every
+// generation in the single exe is one): Playthrough_Init generates it off and the
+// menu greys it out, as #1364 does for Shuffle Chest Minigame. 0 (the default)
+// leaves it usable; set it to 1 if oot-butterfly-fairy-shuffle's paired-on leg N
+// fails at the gate, and that leg then expects the pinned world instead.
+#define RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN 0
 
 // Generic Settings (any binary option can use this)
 //  off/on
@@ -7205,12 +7225,6 @@ typedef enum {
     RO_LOCATION_INCLUDE,
     RO_LOCATION_EXCLUDE,
 } RandoOptionLocationInclusion;
-
-typedef enum {
-    RO_CHEST_GAME_OFF,
-    RO_CHEST_GAME_SINGLE_KEYS,
-    RO_CHEST_GAME_PACK,
-} RandoOptionChestGame;
 
 typedef enum {
     RO_MQ_SET_VANILLA,

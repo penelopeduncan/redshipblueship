@@ -11,7 +11,7 @@
  *   oot-soaring-table-bounds (CTest OoTSoaringTableBounds, redship tier,
  *   ROM-free) -- THE TABLES. RG_SONG_OF_SOARING_OOT, its RHT key and its RAND_INF
  *   flag are each appended right after the Stone Mask's (so no id a world or a
- *   save holds moves), the RAND_INF flags still fit OoT's 129 saved words, no
+ *   save holds moves), the RAND_INF flags fit OoT's 512 saved words (save format 6), no
  *   ItemID was added (OoT_gItemIcons still ends at ITEM_MASK_STONE, so none of the
  *   vanilla-sized ItemID tables is reached), and the item table's row: a song
  *   (the restricted song passes take it), an advancement item, a MOD_RANDOMIZER
@@ -194,7 +194,7 @@ bool Xw4StartsWith(const char* s, const char* prefix) {
 
 TestResult Test_OoTSoaringTableBounds(void) {
     printf("[TEST] oot-soaring-table-bounds: the Song of Soaring (OoT) is appended after the masks in every OoT "
-           "enum, adds no ItemID, fits the 129 saved RAND_INF words, and its item row is a song with its own flag, "
+           "enum, adds no ItemID, fits the 512 saved RAND_INF words, and its item row is a song with its own flag, "
            "note, text and hint (#1169 XW4)\n");
     sXw4Failures = 0;
     XW4_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available");
@@ -220,8 +220,12 @@ TestResult Test_OoTSoaringTableBounds(void) {
                   "RAND_INF_OBTAINED_SONG_OF_SOARING_OOT is %d (Stone Mask's %d, RAND_INF_MAX %d): flags are saved by "
                   "index, so it must follow the Stone Mask's, appended",
                   flag, stoneFlag, infMax);
-        XW4_CHECK(savedWords == 129 && infMax <= savedWords * 16,
-                  "%d RAND_INF flags in %d saved words: OoT's save keeps 129 words (2064 bits)", infMax, savedWords);
+        // Save format 6: the saved words are a fixed capacity of 8192 flags (512
+        // words, RSBS_OOT_RAND_INF_CAP), and every flag must fit it. Catches the
+        // capacity moved (a format generation) or the array sized by the enum again.
+        XW4_CHECK(savedWords == 512 && infMax <= savedWords * 16,
+                  "%d RAND_INF flags in %d saved words: OoT's save keeps 512 words (8192 flags, save format 6)", infMax,
+                  savedWords);
         const int key = OoT_SoaringTest_Id(7);
         const int stoneKey = OoT_SoaringTest_Id(8);
         const int keyMax = OoT_SoaringTest_Id(9);

@@ -157,10 +157,11 @@ constexpr int kButterflyCount = (int)(sizeof(kButterflies) / sizeof(kButterflies
 static_assert(kButterflyCount == 25, "2Ship's butterfly shuffle has 25 checks");
 // THE APPEND-ONLY LOCK: the butterflies sit after the last check main had, so no
 // check id a world or a save already holds moves.
-static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 > RC_ENEMY_DROP_GOMESS,
-              "the butterfly checks are appended after every check id main had (#1407)");
-static_assert(RO_SHUFFLE_BUTTERFLIES > RO_SHUFFLE_SONGS,
-              "RO_SHUFFLE_BUTTERFLIES is appended after every option id main had (#1407)");
+// The exact numbers (2617..2641, option 56) are locked in GameExports_SingleExe.cpp.
+static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 > RC_MOUNTAIN_VILLAGE_SPRING_KEATON_GRASS_WONDER_ITEM,
+              "the butterfly checks are appended after every check id before them (#1407, after #1406 and #1410)");
+static_assert(RO_SHUFFLE_BUTTERFLIES > RO_SHUFFLE_HIVE_DROPS,
+              "RO_SHUFFLE_BUTTERFLIES is appended after every option id before it (#1407, after #1406 and #1410)");
 // EnButte.cpp's butterflyMap names each group's FIRST check and a count, and
 // reaches the rest by adding 0..count-1 (and the Termina Field cow grotto by the
 // distance between the two cow grottos' first checks), so each group's checks

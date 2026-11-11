@@ -244,9 +244,14 @@ void RegionTable_Init_Kakariko() {
     }, {
         //Locations
         LOCATION(RC_KAK_TRADE_ODD_MUSHROOM, logic->IsAdult && logic->CanUse(RG_ODD_MUSHROOM)),
+        // [RSBS #1414] The price test applies to every way in (#1457). Upstream's port
+        // of Early Granny's Potion Shop (Shipwright#6693) closes the Odd Mushroom group
+        // after the price test, so the Odd Mushroom branch skipped it: not taken here.
+        // Early Granny must open her offer at runtime as well (hook_handlers.cpp,
+        // VB_OFFER_BLUE_POTION), or this row opens a check she never offers.
         LOCATION(RC_KAK_GRANNYS_SHOP,       logic->IsAdult && logic->HasItem(RG_SPEAK_HYLIAN) &&
                                             (logic->CanUse(RG_ODD_MUSHROOM) || (ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE).Is(RO_GENERIC_OFF) &&
-                                                                                logic->HasItem(RG_CLAIM_CHECK))) &&
+                                                                                (logic->HasItem(RG_CLAIM_CHECK) || ctx->GetOption(RSK_EARLY_GRANNYS_SHOP)))) &&
                                             GetCheckPrice() <= GetWalletCapacity()),
     }, {
         // Exits

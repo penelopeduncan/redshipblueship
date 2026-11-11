@@ -61,6 +61,7 @@
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
+#include "../notification_bridge.h" // OoT_Notification_RecordForTest: the load's toast (#1479)
 #include "../save.h"
 #include "../shared_resources.h"
 #include "../test_runner.h"
@@ -145,6 +146,24 @@ const uint32_t kSmLaterBuildBit = 0x40000000u;
 const uint32_t kSmSettingsHash = 0xDEADBEEFu;
 const uint32_t kSmProfileDigest = 0x0BADF00Du;
 const char* const kSmLoadDir = "rsbs_test_shared_masks_load";
+
+/** #1479: the fifteen mask rows (the five above, the OoT Blast and Stone Masks,
+ *  the MM Gerudo, Skull and Spooky Masks, and their five shared variants), in
+ *  the order the restore writes and names them, and their rule bits. Their
+ *  labels joined take more than the load's buffer holds. */
+const ComboSettingId kSmEveryMaskRow[] = {
+    COMBO_SETTING_SHARED_MASK_GORON,  COMBO_SETTING_SHARED_MASK_ZORA,  COMBO_SETTING_SHARED_MASK_BUNNY,
+    COMBO_SETTING_SHARED_MASK_KEATON, COMBO_SETTING_SHARED_MASK_TRUTH, COMBO_SETTING_BLAST_MASK_OOT,
+    COMBO_SETTING_STONE_MASK_OOT,     COMBO_SETTING_GERUDO_MASK_MM,    COMBO_SETTING_SKULL_MASK_MM,
+    COMBO_SETTING_SPOOKY_MASK_MM,     COMBO_SETTING_SHARED_MASK_BLAST, COMBO_SETTING_SHARED_MASK_STONE,
+    COMBO_SETTING_SHARED_MASK_GERUDO, COMBO_SETTING_SHARED_MASK_SKULL, COMBO_SETTING_SHARED_MASK_SPOOKY,
+};
+const int kSmEveryMaskRowCount = (int)(sizeof(kSmEveryMaskRow) / sizeof(kSmEveryMaskRow[0]));
+const uint32_t kSmEveryMaskRule = RSBS_XITEM_SHARED_GORON | RSBS_XITEM_SHARED_ZORA | RSBS_XITEM_SHARED_BUNNY |
+                                  RSBS_XITEM_SHARED_KEATON | RSBS_XITEM_SHARED_TRUTH | RSBS_XITEM_BLAST_MASK_OOT |
+                                  RSBS_XITEM_STONE_MASK_OOT | RSBS_XITEM_GERUDO_MASK_MM | RSBS_XITEM_SKULL_MASK_MM |
+                                  RSBS_XITEM_SPOOKY_MASK_MM | RSBS_XITEM_SHARED_BLAST | RSBS_XITEM_SHARED_STONE |
+                                  RSBS_XITEM_SHARED_GERUDO | RSBS_XITEM_SHARED_SKULL | RSBS_XITEM_SHARED_SPOOKY;
 
 /** SoH's "Bunny Hood Effect" enhancement (CVAR_ENHANCEMENT("MMBunnyHood")) and
  *  its BunnyHoodMode values (soh/Enhancements/enhancementTypes.h). */
@@ -612,6 +631,54 @@ TestResult SharedMasksRule_Run(void) {
         ComboContext_Init();
     }
 
+    // ---- (5b) #1479: every mask row restored at once, through the load's buffer
+    // The fifteen mask rows (these five, the OoT Blast and Stone Masks, the MM
+    // Gerudo, Skull and Spooky Masks, and their five shared variants) joined take
+    // 282 characters, more than the load's buffer holds: the restore must hand
+    // back whole labels only, the most that fit, and the true count of 15.
+    {
+        const ComboSettingId* maskRows = kSmEveryMaskRow;
+        const int maskRowCount = kSmEveryMaskRowCount;
+        SmClearAllKeys();
+        const ComboItemRulesRecord fileRules = SmRules(kSmEveryMaskRule);
+        SmFreezeWorld(&fileRules);
+        const uint32_t bits = Combo_ComboSettingsDivergence();
+        char names[RSBS_LOAD_RULES_NAMES_LEN];
+        memset(names, 'x', sizeof(names));
+        int count = -1;
+        ComboSettingsKeyUndo undo;
+        const int restored = Combo_ComboSettingsRestoreLiveEx3(&gComboCtx.comboSettings, &gComboCtx.comboItemRules, 0u,
+                                                               NULL, bits, names, sizeof(names), &count, &undo);
+        printf("[TEST] (5b) every mask row: diverged %08X, restore %d, count %d, names '%s'\n", (unsigned)bits,
+               restored, count, names);
+        SM_CHECK(bits == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS && restored == 1,
+                 "a file with every mask rule on, met by a session with none, must restore (diverged %08X, %d)",
+                 (unsigned)bits, restored);
+        SM_CHECK(count == maskRowCount, "the restore counted %d rows, expected all %d mask rows", count, maskRowCount);
+        // Exactly the longest run of leading whole labels, in the page's order,
+        // that fits the buffer with its terminator.
+        std::string want;
+        int shown = 0;
+        for (int i = 0; i < maskRowCount; i++) {
+            const char* label = Combo_ComboSettingLabel(maskRows[i]);
+            const std::string candidate = want.empty() ? std::string(label) : want + ", " + label;
+            if (candidate.size() >= sizeof(names)) {
+                break;
+            }
+            want = candidate;
+            shown++;
+        }
+        SM_CHECK(shown > 0 && shown < maskRowCount,
+                 "the fifteen labels fit the %d-byte buffer whole (%d shown): the case no longer exercises the cut",
+                 (int)sizeof(names), shown);
+        SM_CHECK(want == names,
+                 "the load's buffer carries '%s', expected the %d whole leading labels '%s' (no label cut short)",
+                 names, shown, want.c_str());
+        Combo_ComboSettingsRestoreUndo(&undo);
+        SmClearAllKeys();
+        ComboContext_Init();
+    }
+
     // ---- (6) Frozen wins at load: a real .redsave ------------------------------
     {
         const ComboItemRulesRecord allOn = SmRules(kSmAll);
@@ -649,6 +716,88 @@ TestResult SharedMasksRule_Run(void) {
         RsbsSave_ResetSlotSessionState();
         mgr.DeleteSave(0);
         mgr.SetSaveDirectory(priorSaveDir);
+        ComboContext_Init();
+    }
+
+    // ---- (6b) #1479: a real load restoring every mask row, read off its toast --
+    // The fifteen labels overflow the load's buffer (5b), so the toast's "+N" must
+    // count from the restore's true count: the names shown plus N make 15 (11
+    // before #1479, when the load passed count 0 and N counted the buffer's
+    // names), and every name shown is a whole label, in the restore's order.
+    {
+        const ComboItemRulesRecord everyOn = SmRules(kSmEveryMaskRule);
+        rsbs::SaveManager& mgr = rsbs::SaveManager::Instance();
+        const std::string priorSaveDir = std::filesystem::path(mgr.SlotPath(0)).parent_path().string();
+        mgr.SetSaveDirectory(rsbs::test::ScratchDir(kSmLoadDir).string());
+        RsbsSave_ResetSlotSessionState();
+        mgr.DeleteSave(0);
+        ComboContext_Init();
+        SmSeedShadows(0x79u);
+        SmFreezeWorld(&everyOn);
+        SmSeedShadows(0x79u);
+        SM_CHECK(mgr.Save(0), "Save(0) failed for the every-mask file");
+        RsbsSave_ResetSlotSessionState();
+        ComboContext_Init();
+        SmClearAllKeys();
+        OoT_Notification_RecordForTest(1);
+        const int mark = OoT_Notification_EmittedCountForTest();
+        const bool loaded = mgr.Load(0);
+        int keysOn = 0;
+        for (int i = 0; i < kSmEveryMaskRowCount; i++) {
+            int32_t v = 0;
+            if (Combo_ComboSettingReadStore(kSmEveryMaskRow[i], &v) && v == 1) {
+                keysOn++;
+            }
+        }
+        // The load's "Restored from file:" toast, as the overlay recorded it.
+        const std::string prefix = "Restored from file: ";
+        std::string message;
+        int rulesToasts = 0;
+        for (int i = mark; i < OoT_Notification_EmittedCountForTest(); i++) {
+            char line[512];
+            if (OoT_Notification_EmittedAtForTest(i, line, sizeof(line)) == 1 &&
+                std::string(line).compare(0, prefix.size(), prefix) == 0) {
+                message = std::string(line).substr(prefix.size());
+                rulesToasts++;
+            }
+        }
+        OoT_Notification_RecordForTest(0);
+        const std::size_t at = message.rfind(" +");
+        const int plus = at == std::string::npos ? 0 : std::atoi(message.c_str() + at + 2);
+        const std::string list = at == std::string::npos ? message : message.substr(0, at);
+        int shown = 0;
+        bool whole = !list.empty();
+        for (std::size_t start = 0; !list.empty();) {
+            const std::size_t comma = list.find(", ", start);
+            const std::string name = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+            if (shown >= kSmEveryMaskRowCount || name != Combo_ComboSettingLabel(kSmEveryMaskRow[shown])) {
+                whole = false;
+            }
+            shown++;
+            if (comma == std::string::npos) {
+                break;
+            }
+            start = comma + 2;
+        }
+        printf("[TEST] (6b) every-mask file under a no-mask session: loaded %d, keys on %d, rules toasts %d, "
+               "message '%s' (%d shown, +%d)\n",
+               loaded ? 1 : 0, keysOn, rulesToasts, message.c_str(), shown, plus);
+        SM_CHECK(loaded, "an every-mask file was refused under a session with no mask rule on (frozen wins at load)");
+        SM_CHECK(keysOn == kSmEveryMaskRowCount, "the load restored %d of the %d mask rows into their keys", keysOn,
+                 kSmEveryMaskRowCount);
+        SM_CHECK(rulesToasts == 1, "the load posted %d 'Restored from file:' toasts, expected one", rulesToasts);
+        SM_CHECK(whole && shown >= 1,
+                 "the toast '%s' does not name the restore's leading mask rows as whole labels, in order",
+                 message.c_str());
+        SM_CHECK(shown + plus == kSmEveryMaskRowCount,
+                 "the toast '%s' accounts for %d rows (%d named, +%d), expected all %d the load restored: its '+N' "
+                 "must count from the restore's true count",
+                 message.c_str(), shown + plus, shown, plus, kSmEveryMaskRowCount);
+
+        RsbsSave_ResetSlotSessionState();
+        mgr.DeleteSave(0);
+        mgr.SetSaveDirectory(priorSaveDir);
+        OoT_Notification_ClearForTest();
         ComboContext_Init();
     }
 

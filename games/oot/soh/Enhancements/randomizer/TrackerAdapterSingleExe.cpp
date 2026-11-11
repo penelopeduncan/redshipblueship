@@ -59,6 +59,7 @@ extern "C" {
 
 // src/common. Included outside any extern "C" block: the header manages its
 // own linkage (matching ForeignItemsSingleExe.cpp).
+#include "combo_hint_view.h" // #1475 lane H2: Combo_HintReadHostChecks, the departure's name capture
 #include "combo_tracker_view.h"
 
 // randomizer_check_tracker.cpp (#1126): whether SoH's Check Tracker has loaded its
@@ -83,8 +84,8 @@ bool IsEoDCheck(RandomizerCheckType type);
 
 // The departure capture's record holds every OoT check id (#1129).
 static_assert((unsigned)RC_MAX <= RSBS_TRACKER_AVAIL_OOT_CAP,
-              "OoT's RC_MAX outgrew the tracker availability capture (context.h): raise RSBS_TRACKER_AVAIL_OOT_CAP "
-              "with the record size and RSBS_SAVE_VERSION");
+              "OoT's RC_MAX outgrew the tracker availability capture (context.h): a save format generation, or "
+              "move the captures to a Tier-6 (context.h's growth rule 6)");
 
 namespace {
 
@@ -695,6 +696,8 @@ extern "C" void OoT_TrackerAdapter_CaptureAvailability(void) {
     if (!sDepartedRando) {
         return;
     }
+    // #1475: the combined Hint Tracker's OoT pane reads this world while MM plays.
+    OoT_HintAdapter_CaptureDeparture();
     if (!OoTAvailabilityLive()) {
         Combo_TrackerFreezeAvailability((uint8_t)GAME_OOT, nullptr, 0);
         return;
@@ -706,6 +709,72 @@ extern "C" void OoT_TrackerAdapter_CaptureAvailability(void) {
         }
     }
     Combo_TrackerFreezeAvailability((uint8_t)GAME_OOT, bits.data(), (uint32_t)RC_MAX);
+}
+
+// ---- #1475 (lane H2): the combined Hint Tracker's OoT side -------------------------
+
+/**
+ * Whether the suspended heap is the randomizer world OoT departed from: the
+ * departure capture's record (sDepartedRando, sDepartedSeed), still the heap's
+ * seed. The combined Hint Tracker's OoT pane lists that world's hints while
+ * Majora's Mask is played; nothing of gSaveContext is read.
+ */
+extern "C" int OoT_TrackerAdapter_SuspendedRandoWorld(void) {
+    auto ctx = Rando::Context::GetInstance();
+    return (sDepartedRando && ctx != nullptr && ctx->GetSeed() == sDepartedSeed) ? 1 : 0;
+}
+
+/**
+ * Mark OoT check `checkId` Seen for a hint Majora's Mask is showing that names it
+ * (an MM item that crossed to that OoT host; Rando::HintSources::MarkRead through
+ * Combo_HintMarkHostSeen): SoH's RCSHOW_SEEN_OR_HINTED, as its own hint marks a
+ * check it names (randomizer_check_tracker.cpp, ApplyItemHintToChecks), on the
+ * suspended heap under the far pane's skip gate (the pairing live, MM playing,
+ * the heap the world OoT departed from). Only an unchecked check moves. No OoT
+ * save section is written while MM owns gSaveContext: OoT's next save writes the
+ * status, and OoT's load seam derives it again from MM's read record
+ * (OoT_TrackerAdapter_ApplyMMHintsSeen), so a commit made from Termina keeps it.
+ */
+extern "C" bool OoT_TrackerAdapter_MarkHintedSeen(uint16_t checkId) {
+    if (checkId == 0 || checkId >= (uint16_t)RC_MAX || !OoTTrackerSuspendedSkipWritable()) {
+        return false;
+    }
+    Rando::ItemLocation* loc = Rando::Context::GetInstance()->GetItemLocation((size_t)checkId);
+    if (loc->GetCheckStatus() != RCSHOW_UNCHECKED) {
+        return false;
+    }
+    loc->SetCheckStatus(RCSHOW_SEEN_OR_HINTED);
+    return true;
+}
+
+/**
+ * OoT's load seam (SaveManager.cpp, after the skip journal's replay): every OoT
+ * host a read MM hint names (Combo_HintReadHostChecks, over the MM half the same
+ * load brought back) is Seen, as MarkHintedSeen made it while MM was played. The
+ * .sav may predate that write (a commit made from Termina stores no OoT .sav), and
+ * the read record rides the .redsave, so the status is derived from it, never
+ * stored apart. Only unchecked checks move; returns how many did.
+ */
+extern "C" int OoT_TrackerAdapter_ApplyMMHintsSeen(void) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr || !Combo_ForeignPairingActive()) {
+        return 0;
+    }
+    uint16_t hosts[RSBS_HINT_HOST_CAP];
+    const int count =
+        std::min(Combo_HintReadHostChecks((uint8_t)GAME_OOT, hosts, (int)RSBS_HINT_HOST_CAP), (int)RSBS_HINT_HOST_CAP);
+    int marked = 0;
+    for (int i = 0; i < count; i++) {
+        if (hosts[i] == 0 || hosts[i] >= (uint16_t)RC_MAX) {
+            continue;
+        }
+        Rando::ItemLocation* loc = ctx->GetItemLocation((size_t)hosts[i]);
+        if (loc->GetCheckStatus() == RCSHOW_UNCHECKED) {
+            loc->SetCheckStatus(RCSHOW_SEEN_OR_HINTED);
+            marked++;
+        }
+    }
+    return marked;
 }
 
 extern "C" void OoT_TrackerAdapter_Register(void) {
@@ -875,6 +944,37 @@ extern "C" int OoT_TrackerAdapter_TestSkipSeam(int saveLoaded) {
     const int persists = sSkipTestPersists;
     sSkipTestPersists = 0;
     return persists;
+}
+
+/**
+ * The departure record's seam (#1475): @p rando 1 records that OoT departed from a
+ * randomizer file in the heap world live now (its seed), 0 that it departed from
+ * none, as the departure capture would, without the capture's availability
+ * freeze; -1 restores what the record held before the first such call. @return the
+ * record's previous "departed from a randomizer file" (1 or 0).
+ */
+extern "C" int OoT_TrackerAdapter_TestSetDeparted(int rando) {
+    static bool sSaved = false;
+    static bool sSavedRando = false;
+    static uint32_t sSavedSeed = 0;
+    const int was = sDepartedRando ? 1 : 0;
+    if (rando < 0) {
+        if (sSaved) {
+            sDepartedRando = sSavedRando;
+            sDepartedSeed = sSavedSeed;
+            sSaved = false;
+        }
+        return was;
+    }
+    if (!sSaved) {
+        sSavedRando = sDepartedRando;
+        sSavedSeed = sDepartedSeed;
+        sSaved = true;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    sDepartedRando = rando != 0 && ctx != nullptr;
+    sDepartedSeed = sDepartedRando ? ctx->GetSeed() : 0;
+    return was;
 }
 
 /**

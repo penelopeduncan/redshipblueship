@@ -391,12 +391,27 @@ typedef struct RandoSaveCheck {
     u16 price; // Only applicable for shops/merchants
 } RandoSaveCheck;
 
+// RedShipBlueShip save format 6 (src/common/save.h, context.h's growth rule):
+// the SAVED CAPACITIES of RandoSaveInfo's enum-sized arrays. RandoSaveInfo sits
+// inside Save, which is the FIRST member of SaveContext, so an array sized by a
+// growing enum moved every later SaveContext field of the raw Tier-3 image.
+// Storage is fixed here instead; every loop, fold and identity string still runs
+// to the enum's _MAX, so the spare tail of each array is zero and never read.
+// Outgrowing one is a save format generation (GameExports_SingleExe.cpp
+// static_asserts each _MAX against its capacity). Multiples of 64.
+#define RSBS_MM_SAVE_CHECK_CAP 4096      // randoSaveChecks rows, RC_MAX 2311 at format 6
+#define RSBS_MM_SAVE_OPTION_CAP 128      // randoSaveOptions, RO_MAX 54 at format 6
+#define RSBS_MM_SAVE_TRICK_CAP 128       // randoSaveTricks, MMRT_MAX 86 at format 6
+#define RSBS_MM_RANDO_INF_CAP 256        // randoInf flags, RANDO_INF_MAX 78 at format 6
+#define RSBS_MM_RANDO_EVENT_CAP 256      // randoEvents, RE_MAX 83 at format 6
+#define RSBS_MM_RANDO_SPARE_SIZE 256     // rsbsSpare, the carve target of growth rule 3
+
 typedef struct RandoSaveInfo {
-    u16 randoInf[(RANDO_INF_MAX + 15) / 16];
-    u8 randoEvents[RE_MAX]; // This is purely for logic tracking, not to be used for anything else
-    RandoSaveCheck randoSaveChecks[RC_MAX];
+    u16 randoInf[RSBS_MM_RANDO_INF_CAP / 16]; // RSBS format 6: was [(RANDO_INF_MAX + 15) / 16]
+    u8 randoEvents[RSBS_MM_RANDO_EVENT_CAP]; // RSBS format 6: was [RE_MAX]. Purely for logic tracking, not to be used for anything else
+    RandoSaveCheck randoSaveChecks[RSBS_MM_SAVE_CHECK_CAP]; // RSBS format 6: was [RC_MAX]
     u32 finalSeed;
-    u32 randoSaveOptions[RO_MAX]; // Type here may change in the future
+    u32 randoSaveOptions[RSBS_MM_SAVE_OPTION_CAP]; // RSBS format 6: was [RO_MAX]. Type here may change in the future
     u16 randoStartingItems[256]; // Max 256 starting items, using u16 in case we add more than 255 items
     s8 foundDungeonKeys[9]; // Tracks the number of dungeon keys found, opposed to the number of keys in the inventory
     // RedShipBlueShip (#1424): bits 8-15 of the FROZEN trap-type set; bits 0-7
@@ -414,27 +429,21 @@ typedef struct RandoSaveInfo {
     // the index arithmetic is the enumerator itself and a future tri-state
     // ("on / off / forced by another setting") costs no format change.
     //
-    // APPENDED AT THE END OF RandoSaveInfo, which is itself the last member of
-    // ShipSaveInfo, which is the last member of Save, deliberately: a .redsave
-    // written before this field existed zero-extends into it, and zero is "every
-    // trick off" — which is exactly O11's shipped default rung. So the LAYOUT
-    // survives old saves. Their IDENTITY does not: ProfileIdentityString now
-    // folds the trick set, so every already-created paired world's MM profile
-    // digest changes and its next arrival is refused as divergent. That
-    // invalidation is accepted pre-release (operator ruling 2026-09-17) and is
-    // stated rather than papered over.
+    // RandoSaveInfo is the last member of ShipSaveInfo, which is the last member
+    // of Save -- but Save is the FIRST member of SaveContext, so nothing here is
+    // a tail append of the Tier-3 image: growing RandoSaveInfo shifts every later
+    // SaveContext field (eventInf, bButtonStatus, ...). Since save format 6 the
+    // array has a fixed capacity (RSBS_MM_SAVE_TRICK_CAP), so a new key needs no
+    // layout change; zero is "trick off".
     //
-    // Sized by MMRT_MAX, so adding a key grows this array. It must stay
-    // APPEND-ONLY: the enumerator's number is the index in every written save
-    // and a positional term in the identity string.
-    u8 randoSaveTricks[MMRT_MAX];
+    // It must stay APPEND-ONLY: the enumerator's number is the index in every
+    // written save and a positional term in the identity string.
+    u8 randoSaveTricks[RSBS_MM_SAVE_TRICK_CAP]; // RSBS format 6: was [MMRT_MAX]
     // The FROZEN set of trap types (#1047): bit (1 << TrapTypes) per enabled
     // type, resolved from the gRando.Traps.* CVars at creation beside the trick
     // set and read when a trap springs, so a trap's type is part of the world.
-    // Appended after randoSaveTricks for the same reason: a .redsave written
-    // before it zero-extends into it, and zero reads as Freeze only, the
-    // fallback the roll always had (and the only type the single-exe options
-    // page offers). Not a generation input, but world identity: the profile
+    // Zero reads as Freeze only, the fallback the roll always had (and the only
+    // type the single-exe options page offers). Not a generation input, but world identity: the profile
     // digest folds it when nonzero (Foreign.cpp ProfileIdentityString), so a
     // paired world cannot change it between creation and its first crossing.
     // Types 8 and up live in randoSaveTrapTypesHi (#1424).
@@ -444,8 +453,7 @@ typedef struct RandoSaveInfo {
     // (cycle: the crash starts a new cycle as the Song of Time does, keeping
     // inventory and progress). The player's choice from gRando.Options.MoonCrash,
     // resolved at creation beside the trap-type set and read when the moon falls.
-    // Appended after randoSaveTrapTypes for the same reason: a .redsave written
-    // before it zero-extends into it, and zero is "Last Save", today's behaviour.
+    // Zero is "Last Save", today's behaviour.
     // The profile digest folds it when nonzero (Foreign.cpp
     // ProfileIdentityString), so no existing pair's mmProfileDigest moves. The
     // Shared Song of Time rule FORCES a New Cycle in play whatever this holds
@@ -458,33 +466,31 @@ typedef struct RandoSaveInfo {
     // is written); it is what the load-time restore puts back into the key
     // (Foreign.cpp, #781), since the profile digest folds the list.
     //
-    // A .redsave written before this field does NOT zero-extend into it: Save
-    // is the FIRST member of SaveContext, and the MM tier is a raw SaveContext
-    // image of fixed size (MM_SAVE_CONTEXT_SIZE), so growing Save shifts every
-    // later SaveContext field. On such a file these bytes are that file's
-    // eventInf, bButtonStatus, jinxTimer and the fields after them (the trick,
-    // trap-type and moon-crash appends shift the same way). A file whose live
-    // MM profile still matches its frozen digest is unaffected (that path reads
-    // the live CVars only); one that needs the load-time restore folds those
-    // bytes as a set and, unless they happen to be zero, is refused as
-    // UNRESTORABLE. That invalidation is stated rather than papered over; the
-    // trick set's was accepted pre-release (operator ruling 2026-09-17), and
-    // accepting this one is the operator's call.
-    u8 randoSaveExcludedChecks[(RC_MAX + 7) / 8];
+    // One bit per check id up to the CHECK capacity (save format 6: was
+    // [(RC_MAX + 7) / 8], which moved every later field with each new check).
+    // Bits at or past RC_MAX are zero; every fold reads ids below RC_MAX only.
+    u8 randoSaveExcludedChecks[RSBS_MM_SAVE_CHECK_CAP / 8];
     // RedShipBlueShip (#977): the Ocarina of Time mask Link wears in human form, a
     // ComboForeignMask (src/common/foreign_masks.h), never currentMask or
     // equippedMask: MM indexes unbounded tables by both. Then the variant each
     // shared pause slot shows (index ComboForeignMaskSlot - 1; NONE is the slot's
-    // own mask). Appended after the excluded-check set, and with the same caveat:
-    // a .redsave written before them does not zero-extend into them (growing Save
-    // shifts every later SaveContext field of the raw MM tier). Every reader
-    // sanitizes the bytes (Combo_ForeignMask_Sanitize), so a shifted byte selects
-    // no mask unless it is a mask MM wears whose rule the world froze on. Not part
+    // own mask). Every reader sanitizes the bytes (Combo_ForeignMask_Sanitize),
+    // so a stray byte selects no mask unless it is a mask MM wears whose rule the
+    // world froze on. Not part
     // of the profile identity: ProfileIdentityString does not fold them. #980: a
     // slot byte's LOW nibble is the chosen variant and its HIGH nibble which OoT
     // masks sharing the slot MM owns (Combo_ForeignMask_SlotOwnedBit); no byte moved.
     u8 foreignMask;
     u8 foreignMaskSlotSel[2];
+    // RedShipBlueShip save format 6 (context.h's growth rule 3): THE MM SPARE
+    // BLOCK. A new per-file MM field is CARVED from the FRONT of this block, never
+    // appended to RandoSaveInfo (that would shift every later SaveContext field,
+    // see randoSaveTricks), and the carve raises RSBS_SAVE_LAYOUT_REVISION
+    // (src/common/save.h). Bytes only, so the carve's own alignment is the
+    // carver's to state; zero means unset. sizeof(RandoSaveInfo) is 4-aligned
+    // (RandoItemId and u32 members), so 3 bytes of tail padding follow this block
+    // on every compiler.
+    u8 rsbsSpare[RSBS_MM_RANDO_SPARE_SIZE];
 } RandoSaveInfo;
 
 // These are values added by 2S2H that we need to be persisted to the save file
