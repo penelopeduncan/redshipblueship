@@ -189,9 +189,11 @@ TestResult Test_ComboSettingsFormat(void) {
     // #1475 carved the 10-byte MM hint read record (mmHintsRead, 929) after that.
     CS_ASSERT(offsetof(ComboContext, mmHintsRead) == 929u, "mmHintsRead moved off .redsave offset 929");
     CS_ASSERT(offsetof(ComboContext, reserved) == 939u, "reserved[] moved off .redsave offset 939");
-    CS_ASSERT(sizeof(((ComboContext*)0)->reserved) == 65u,
-              "reserved[] is not 65 bytes after the ADR 0011, O10, #976, #1175, #1284, #1439, #1169 XW2 and #1475 "
-              "carves — ADR 0009's budget table and context.h must reconcile");
+    CS_ASSERT(sizeof(((ComboContext*)0)->reserved) == 64u,
+              "reserved[] is not 64 bytes after the ADR 0011, O10, #976, #1175, #1284, #1439, #1169 XW2 and #1475 "
+              "carves and #1169 XW5's tail byte — ADR 0009's budget table and context.h must reconcile");
+    // #1169 XW5 carved its byte (mmWarpSongsOwned, 1003) from the END of reserved[].
+    CS_ASSERT(offsetof(ComboContext, mmWarpSongsOwned) == 1003u, "mmWarpSongsOwned moved off .redsave offset 1003");
     CS_ASSERT(sizeof(((ComboContext*)0)->reserved) >= 64u, "reserved[] fell below ADR 0009's 64-byte floor");
     CS_ASSERT(sizeof(ComboContext) <= RSBS_COMBO_CONTEXT_RECORD_SIZE, "ComboContext outgrew its Tier-1 budget");
 
