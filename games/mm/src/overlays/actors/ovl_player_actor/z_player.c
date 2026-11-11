@@ -17910,8 +17910,13 @@ void Player_Action_63(Player* this, PlayState* play) {
                 MM_Player_TryCsAction(play, NULL, PLAYER_CSACTION_19);
                 this->stateFlags1 |= PLAYER_STATE1_10000000 | PLAYER_STATE1_20000000;
             } else {
-                func_80836A5C(this, play);
-                Player_Anim_PlayOnceAdjustedReverse(play, this, D_8085D17C[this->transformation]);
+                // The plain fade with Link frozen, held the way the spawn path
+                // holds him; MM_WarpSongMM_Depart always starts the transition
+                // here (TakePending armed its one shot), so the hold ends with it.
+                this->stateFlags1 &= ~PLAYER_STATE1_20000000;
+                this->csAction = PLAYER_CSACTION_NONE;
+                MM_Player_TryCsAction(play, NULL, PLAYER_CSACTION_WAIT);
+                this->stateFlags1 |= PLAYER_STATE1_10000000 | PLAYER_STATE1_20000000;
                 MM_WarpSongMM_Depart(play, rsbsWarpSong);
             }
 #endif

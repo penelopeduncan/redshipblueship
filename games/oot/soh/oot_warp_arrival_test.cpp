@@ -291,7 +291,8 @@ constexpr s16 kWarpRecordPads[6] = { ENTR_SACRED_FOREST_MEADOW_WARP_PAD,
  *      arrival lands on the record's destination, where XW3's body kept the pad.
  *   W9 A GROTTO DESTINATION through the record, table ready: Serenade lands on the
  *      tektite grotto's return with respawnFlag 2.
- *   W10 AN UNSHUFFLED RECORD keeps the pad although the table has an override.
+ *   W10 AN UNSHUFFLED RECORD keeps the pad although the table has an override,
+ *       and marks it discovered (Shuffle Entrances on, table ready) as XW3 does.
  *   W11 AN UNSET RECORD runs XW3's body (the table's override).
  */
 void RunRecordLegs(Rando::Context& ctx) {
@@ -370,8 +371,13 @@ void RunRecordLegs(Rando::Context& ctx) {
     // W10. An unshuffled record keeps the pad.
     (void)Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, false, false, NULL, NULL);
     const s16 unshuffled = Arrive(true, ENTR_SACRED_FOREST_MEADOW_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    // ArmArrival zeroed the save, so the bit is this arrival's: with another
+    // entrance shuffle on the kept pad is discovered, as XW3's body marks it.
+    const bool unshuffledDiscovered = Entrance_GetIsEntranceDiscovered(ENTR_SACRED_FOREST_MEADOW_WARP_PAD) != 0;
     WA_CHECK(unshuffled == ENTR_SACRED_FOREST_MEADOW_WARP_PAD, "an unshuffled record did not keep the pad (0x%04X)\n",
              (unsigned)(u16)unshuffled);
+    WA_CHECK(unshuffledDiscovered, "an unshuffled record's kept pad was not marked discovered with Shuffle Entrances "
+                                   "on\n");
 
     // W11. An unset record runs XW3's body.
     Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);

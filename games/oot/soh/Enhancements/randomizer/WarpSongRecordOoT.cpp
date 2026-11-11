@@ -136,6 +136,56 @@ extern "C" uint16_t OoT_WarpSongRecord_TestResolve(const int16_t* index, const i
 }
 
 /**
+ * oot-warp-song-record (rando tier): over the world just created, the songs whose
+ * recorded destination differs from what the REAL Entrance_Init installs and
+ * Entrance_GetOverride answers for the song's pad; -1 with no PRESENT record. The
+ * table is reset afterwards (Entrance_ResetEntranceTable) when it was not ready
+ * before, as the arrival row leaves it.
+ */
+extern "C" int OoT_WarpSongRecord_TestTableDisagreements(void) {
+    if (Combo_OoTWarpRecord_Status() != COMBO_OOT_WARP_REC_PRESENT) {
+        return -1;
+    }
+    const bool wasReady = Entrance_WarpArrivalOverridesReady() != 0;
+    Entrance_Init();
+    int disagreements = 0;
+    for (int song = 0; song < RSBS_MMWP_SONG_COUNT; song++) {
+        const uint16_t pad = Combo_MMWarpPlay_PadEntrance(song);
+        const uint16_t table = (uint16_t)Entrance_GetOverride((int16_t)pad);
+        if (table != Combo_OoTWarpRecord_Dest(song)) {
+            fprintf(stderr,
+                    "[TEST] oot-warp-song-record: song %d pad 0x%04X: the table says 0x%04X, the record 0x%04X\n", song,
+                    (unsigned)pad, (unsigned)table, (unsigned)Combo_OoTWarpRecord_Dest(song));
+            disagreements++;
+        }
+    }
+    if (!wasReady) {
+        Entrance_ResetEntranceTable();
+    }
+    return disagreements;
+}
+
+/** oot-warp-song-record: the area OoT's own warp prompt names for @p song in the
+ *  world just created (its RH_*_WARP_LOC hint's first area, in the shared
+ *  vocabulary; Link's Pocket as none), 0 for none, -1 out of range or with no
+ *  randomizer context. */
+extern "C" int OoT_WarpSongRecord_TestHintArea(int song) {
+    if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
+        return -1;
+    }
+    const auto ctx = Rando::Context::GetInstance();
+    if (!ctx) {
+        return -1;
+    }
+    const std::vector<RandomizerArea> areas = ctx->GetHint(kWarpSongRecordHints[song])->GetHintedAreas();
+    if (areas.empty()) {
+        return 0;
+    }
+    const uint8_t a = OoT_HintArea_ComboAreaOfRandomizerArea((int)areas[0]);
+    return a == COMBO_AREA_POCKET ? 0 : (int)a;
+}
+
+/**
  * Freeze an Ocarina of Time half whose s32 linkAge is @p linkAge, as a started
  * file (heart capacity, a slot, GAMEMODE_NORMAL) when @p started, else as the
  * title screen's save (fileNum 0xFF, GAMEMODE_TITLE_SCREEN), with OoT's real

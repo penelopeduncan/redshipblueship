@@ -896,6 +896,13 @@ s16 Entrance_OverrideWarpArrival(s16 entranceIndex) {
     u16 recordDest = 0;
     const int recordAnswer = Combo_OoTWarpRecord_ArrivalFor((u16)entranceIndex, &recordDest);
     if (recordAnswer == 1) {
+        // The pad stays, but it is still discovered and tracked as XW3's body
+        // below and SoH's own warp songs (Entrance_OverrideNextIndex) do whenever
+        // another entrance shuffle is on and the table is ready.
+        if (IS_RANDO && Randomizer_GetSettingValue(RSK_SHUFFLE_ENTRANCES) && hasModifiedEntranceTable) {
+            Entrance_SetEntranceDiscovered(entranceIndex, false);
+            EntranceTracker_SetLastEntranceOverride(entranceIndex);
+        }
         return entranceIndex;
     }
     if (recordAnswer == 2) {

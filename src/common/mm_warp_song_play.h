@@ -269,6 +269,25 @@ bool Combo_MMWarpPlay_DepartOnce(void);
 /** Clears both latches (an MM file load, a test). */
 void Combo_MMWarpPlay_ResetLatches(void);
 
+/* ---- The prompt's action ------------------------------------------------------ */
+
+/** What a played warp song does when its "You played" text closes (MM_Message_Update
+ *  TEXT_CLOSING, MM_WarpSongMM_OnSongPlayed). */
+typedef struct ComboMMWarpPlayPromptAction {
+    uint8_t gate;       // ComboMMWarpPlayGate, Combo_MMWarpPlay_Decide's answer
+    uint8_t prompt;     // 1: the OK / No prompt (OCARINA_MODE_ACTIVE); 0: MM's refusal
+                        // (OCARINA_MODE_PROCESS_RESTRICTED_SONG)
+    uint16_t textId;    // the prompt's box RSBS_MMWP_TEXT_PROMPT_BOX (its text is question),
+                        // or the refusal's text RSBS_MMWP_TEXT_RESTRICTED
+    int8_t pendingSong; // the pending latch it leaves: the song for the prompt, -1 otherwise
+    char question[128]; // Combo_MMWarpPlay_PromptText's question for the prompt, "" otherwise
+} ComboMMWarpPlayPromptAction;
+
+/** Clears the pending latch, decides @p in, and on OFFER with a question sets the
+ *  pending latch to the song (Player's OCARINA_MODE_WARP arm takes it); every other
+ *  answer, and a NULL @p in, is the refusal. @p out NULL: nothing but the clear. */
+void Combo_MMWarpPlay_BeginPrompt(const ComboMMWarpPlayInputs* in, ComboMMWarpPlayPromptAction* out);
+
 #ifdef __cplusplus
 }
 #endif

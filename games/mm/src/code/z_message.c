@@ -4873,11 +4873,9 @@ void MM_Message_DrawMain(PlayState* play, Gfx** gfxP) {
                     // Ocarina_SetPlaybackSong: slot 1, then the custom notes), and no
                     // fanfare: MM's audio has no OoT sequence, and the vanilla index
                     // and fanfare table would read past their ends. Everything after
-                    // this block runs for every song.
-                    if (MM_WarpSongMM_IsStaffState(msgCtx->songPlayed)) {
-                        AudioOcarina_SetPlaybackSong(1, 1);
-                        MM_WarpSongMM_PointPlaybackAtSong(msgCtx->songPlayed);
-                    } else
+                    // this block runs for every song. The helper does the warp
+                    // song's playback and answers whether it did.
+                    if (!MM_WarpSongMM_SetupSongPlayback(msgCtx->songPlayed))
 #endif
                     {
                         AudioOcarina_SetPlaybackSong((u8)msgCtx->songPlayed + 1, 1);

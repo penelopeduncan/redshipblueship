@@ -4953,6 +4953,27 @@ TestResult Test_MMWarpSongsPooledOnlyWhenRuleOn(void) {
     return MM_WarpSongsPooled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1169 XW7: the creation's warp-song record over real paired creations (shuffled
+// with hints on and off, unshuffled), written at the end of OoT's side of the tail
+// from the world it created, and carried by a package. Body in
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
+// skips it.
+extern "C" int MM_WarpSongRecordWorld_RunHeadless(void);
+
+TestResult Test_OoTWarpSongRecord(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw7RecordArg0[] = "redship";
+    static char* xw7RecordArgv[] = { xw7RecordArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw7RecordArgv);
+
+    return MM_WarpSongRecordWorld_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Attempt-ladder convergence + determinism digest (ADR 0010 increment 1.2
 // lock (b)). Single-run assertions here; the two-process byte-diff runs via
 // the MMPairedAttemptDeterminism row (CMake/CheckPairedAttemptDeterminism
@@ -10270,6 +10291,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1169 XW7: the creation's warp-song record over real paired creations
+    // (rando tier, a generation row: on the --test all skip list).
+    { "oot-warp-song-record",
+      "A real paired creation freezes OoT's warp-song record at the end of OoT's side of the tail, from the world it "
+      "created (the real entrance table's pads, OoT's own warp prompt's areas), and a package carries it (#1169)",
+      Test_OoTWarpSongRecord },
     { "combo-crossing-views",
       "The Combo Tracker and the Cross-Game Spoiler list the crossing store's rows in both directions, named, with "
       "found state per host check from each game's save, across a game switch and a .redsave load (#755, #757)",
@@ -10752,6 +10779,8 @@ int TestRunner_Run(const char* testName) {
                 // #1169 XW5's generation row: like every row above, a real
                 // generation leaves its world alive for the rest of the process.
                 strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||
+                // #1169 XW7's generation row, for the same reason.
+                strcmp(gTests[i].name, "oot-warp-song-record") == 0 ||
                 strcmp(gTests[i].name, "mm-hint-sources-world") == 0 ||
                 // A window and soh.o2r, and a run of its own: the `ui` CTest label.
                 strcmp(gTests[i].name, "ui-snapshot") == 0) {

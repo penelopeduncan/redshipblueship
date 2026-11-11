@@ -361,6 +361,15 @@ extern "C" void MM_WarpSongMM_PointPlaybackAtSong(unsigned state) {
     }
 }
 
+extern "C" bool MM_WarpSongMM_SetupSongPlayback(unsigned state) {
+    if (!Combo_MMWarpPlay_IsStaffState(state)) {
+        return false;
+    }
+    AudioOcarina_SetPlaybackSong(1, 1);
+    MM_WarpSongMM_PointPlaybackAtSong(state);
+    return true;
+}
+
 extern "C" bool MM_WarpSongMM_SpawnSongEffect(PlayState* play, unsigned state) {
     const int song = Combo_MMWarpPlay_SongOfStaffState(state);
     if (song < 0 || play == nullptr) {
@@ -392,26 +401,32 @@ extern "C" uint16_t MM_WarpSongMM_PlayedTextId(unsigned state) {
     return (uint16_t)CUSTOM_MESSAGE_ID;
 }
 
-extern "C" void MM_WarpSongMM_OnSongPlayed(PlayState* play, unsigned state) {
-    const int song = Combo_MMWarpPlay_SongOfStaffState(state);
-    Combo_MMWarpPlay_ClearPending();
+extern "C" void MM_WarpSongMM_PromptActionFor(PlayState* play, int song, ComboMMWarpPlayPromptAction* out) {
     if (play == nullptr) {
+        Combo_MMWarpPlay_BeginPrompt(nullptr, out);
         return;
     }
     const ComboMMWarpPlayInputs in = MMWarpPlayGather(play, song);
-    const ComboMMWarpPlayGate gate = Combo_MMWarpPlay_Decide(&in);
-    char question[128];
-    if (gate == COMBO_MMWP_OFFER && Combo_MMWarpPlay_PromptText(song, question, sizeof(question)) >= 0) {
+    Combo_MMWarpPlay_BeginPrompt(&in, out);
+}
+
+extern "C" void MM_WarpSongMM_OnSongPlayed(PlayState* play, unsigned state) {
+    const int song = Combo_MMWarpPlay_SongOfStaffState(state);
+    ComboMMWarpPlayPromptAction action;
+    MM_WarpSongMM_PromptActionFor(play, song, &action);
+    if (play == nullptr) {
+        return;
+    }
+    if (action.prompt) {
         // OoTMM's layout: the question, a blank line under a one-line question,
         // then the two-choice in green.
-        std::string msg = question;
-        if (Combo_MMWarpPlay_LineCount(question) < 2) {
+        std::string msg = action.question;
+        if (Combo_MMWarpPlay_LineCount(action.question) < 2) {
             msg += "\n ";
         }
         msg += "\n%g\xC2"
                "     OK\n     No";
-        CustomMessage::Entry entry = CustomMessage::LoadVanillaMessageTableEntry((u16)RSBS_MMWP_TEXT_PROMPT_BOX);
-        Combo_MMWarpPlay_SetPending(song);
+        CustomMessage::Entry entry = CustomMessage::LoadVanillaMessageTableEntry(action.textId);
         // As the Soaring branch opens 0x1B93 (no talk actor), with the custom text.
         CustomMessage::SetActiveCustomMessage(MMWarpPlayMapTeal(msg.c_str()), entry);
         MM_Message_StartTextbox(play, (u16)CUSTOM_MESSAGE_ID, NULL);
@@ -420,8 +435,8 @@ extern "C" void MM_WarpSongMM_OnSongPlayed(PlayState* play, unsigned state) {
         return;
     }
     fprintf(stderr, "[MM] warp song: %s refused: %s (#1169 XW7)\n", MMWarpPlaySongName(song),
-            Combo_MMWarpPlay_GateName(gate));
-    MM_Message_StartTextbox(play, (u16)RSBS_MMWP_TEXT_RESTRICTED, NULL);
+            Combo_MMWarpPlay_GateName((ComboMMWarpPlayGate)action.gate));
+    MM_Message_StartTextbox(play, action.textId, NULL);
     play->msgCtx.ocarinaMode = OCARINA_MODE_PROCESS_RESTRICTED_SONG;
 }
 

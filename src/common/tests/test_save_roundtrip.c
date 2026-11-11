@@ -702,9 +702,31 @@ TestResult Test_SaveComboLegacyRecord(void) {
     SAVE_ASSERT(offsetof(ComboContext, comboSettings) == kComboSettingsOffset,
                 "comboSettings moved off .redsave byte offset 884");
 
+    // #1169 XW7: a record written before the warp-song record (every byte before
+    // its offset 1842, the fixed record's zero padding after it) loads with the
+    // record UNSET, whatever the live context held: the scribble below survives
+    // only a loader that stops copying at the file's Tier-1 length.
+    SaveTestSeed(tag);
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_CROSSINGS - 1u,
+                                         (uint32_t)offsetof(ComboContext, comboOoTWarps)),
+                "could not write the pre-XW7 slot file");
+    std::memset(&gComboCtx.comboOoTWarps, 0x5A, sizeof(gComboCtx.comboOoTWarps));
+    SAVE_ASSERT(mgr.Load(0), "Load refused a Tier-1 record written before the warp-song record");
+    {
+        const uint8_t* warps = reinterpret_cast<const uint8_t*>(&gComboCtx.comboOoTWarps);
+        bool unset = true;
+        for (size_t i = 0; i < sizeof(gComboCtx.comboOoTWarps); i++) {
+            unset = unset && warps[i] == 0;
+        }
+        SAVE_ASSERT(unset, "a Tier-1 record written before the warp-song record did not load it as UNSET (all zero)");
+    }
+    SAVE_ASSERT(gComboCtx.sharedRandoSeed == (tag ^ 0xA5A5A5A5u), "the pre-XW7 record's prefix did not load");
+
     mgr.DeleteSave(0);
     printf("[TEST] PASS: pre-headroom Tier-1 loads, added fields read as zero, "
-           "and bytes 672/676/736/824/880/884 still land in their carves\n");
+           "bytes 672/676/736/824/880/884 still land in their carves, and a pre-XW7 record loads its warp-song "
+           "record UNSET\n");
     return TEST_PASS;
 }
 

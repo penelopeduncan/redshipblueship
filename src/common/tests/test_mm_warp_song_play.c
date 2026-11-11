@@ -14,7 +14,7 @@
  *   claims to sit in:
  *     P1 the record's layout (offset 1842, 20 bytes, sizeof(ComboContext) 1864,
  *        reserved[64] still at 939) and its validator over every malformed shape;
- *        a pre-XW7 record (the bytes before 1842 copied, zeros after) is UNSET;
+ *        a pre-XW7 record loaded from a .redsave is UNSET (save-combo-legacy-record);
  *     P2 the record is a creation record: a failed generation's rollback restores
  *        it, a retracted creation clears it, the file-create KEEP invalidation keeps
  *        it, a DROP clears it, and a seed package's world record carries it;
@@ -217,15 +217,8 @@ void MwpCheckRecordLayoutAndValidator() {
     MWP_CHECK(Combo_OoTWarpRecord_StatusOf(&unnamed) == COMBO_OOT_WARP_REC_PRESENT,
               "P1: a hinted record with an unnamed area is refused\n");
 
-    // A pre-XW7 Tier-1 record: every byte before 1842 as written, zeros after.
-    ComboContext_Init();
-    gComboCtx.comboOoTWarps = sample;
-    ComboContext* legacy = new ComboContext;
-    memset(legacy, 0, sizeof(ComboContext));
-    memcpy(legacy, &gComboCtx, offsetof(ComboContext, comboOoTWarps));
-    MWP_CHECK(Combo_OoTWarpRecord_StatusOf(&legacy->comboOoTWarps) == COMBO_OOT_WARP_REC_UNSET,
-              "P1: a record written before XW7 does not zero-extend to UNSET\n");
-    delete legacy;
+    // A pre-XW7 Tier-1 record loaded through the real SaveManager reads UNSET:
+    // save-combo-legacy-record (tests/test_save_roundtrip.c) loads one.
     ComboContext_Init();
 }
 
@@ -667,8 +660,9 @@ void MwpCheckAnchors() {
     const std::string mm = MwpReadSource("games/mm/2s2h/Rando/WarpSongsMM.cpp");
     const std::string arrival = MwpReadSource("games/oot/soh/Enhancements/randomizer/randomizer_entrance.c");
     const std::string creation = MwpReadSource("games/oot/soh/Enhancements/randomizer/ForeignItemsSingleExe.cpp");
+    const std::string mmExports = MwpReadSource("games/mm/2s2h/GameExports_SingleExe.cpp");
     if (audio.empty() || message.empty() || player.empty() || test7.empty() || skip.empty() || mm.empty() ||
-        arrival.empty() || creation.empty()) {
+        arrival.empty() || creation.empty() || mmExports.empty()) {
         MWP_CHECK(false, "P11: a source file under test could not be read (RSBS_SOURCE_DIR)\n");
         return;
     }
@@ -694,13 +688,19 @@ void MwpCheckAnchors() {
     const std::string e2 =
         MwpRegion(drawMain, "case MSGMODE_SETUP_DISPLAY_SONG_PLAYED:", "case MSGMODE_DISPLAY_SONG_PLAYED_TEXT_BEGIN:");
     MWP_CHECK(
-        MwpInOrder(e2, { "MM_WarpSongMM_IsStaffState(msgCtx->songPlayed)", "AudioOcarina_SetPlaybackSong(1, 1);",
-                         "MM_WarpSongMM_PointPlaybackAtSong(msgCtx->songPlayed);", "#endif",
+        MwpInOrder(e2, { "if (!MM_WarpSongMM_SetupSongPlayback(msgCtx->songPlayed))", "#endif",
+                         "AudioOcarina_SetPlaybackSong((u8)msgCtx->songPlayed + 1, 1);",
                          "sOcarinaSongFanfares[msgCtx->songPlayed]", "play->msgCtx.ocarinaMode = OCARINA_MODE_ACTIVE;",
                          "msgCtx->ocarinaAction = OCARINA_ACTION_FREE_PLAY_DONE;",
                          "msgCtx->msgMode = MSGMODE_DISPLAY_SONG_PLAYED;" }),
         "P11: E2 does not guard only the playback and fanfare of SETUP_DISPLAY_SONG_PLAYED, leaving its tail "
         "(ACTIVE, FREE_PLAY_DONE, DISPLAY_SONG_PLAYED) to every song\n");
+    const std::string setupPlayback =
+        MwpFunctionBody(mm, "extern \"C\" bool MM_WarpSongMM_SetupSongPlayback(unsigned state)");
+    MWP_CHECK(MwpInOrder(setupPlayback, { "Combo_MMWarpPlay_IsStaffState(state)", "return false;",
+                                          "AudioOcarina_SetPlaybackSong(1, 1);",
+                                          "MM_WarpSongMM_PointPlaybackAtSong(state);", "return true;" }),
+              "P11: MM_WarpSongMM_SetupSongPlayback does not set slot 1 then OoT's notes for a warp state only\n");
     const std::string e3 = MwpRegion(drawMain, "case MSGMODE_DISPLAY_SONG_PLAYED_TEXT_BEGIN:", "case MSGMODE_16:");
     MWP_CHECK(MwpInOrder(e3, { "MM_WarpSongMM_PlayedTextId(msgCtx->songPlayed)", "0x1B72 + msgCtx->songPlayed" }),
               "P11: E3 does not replace the played text before the vanilla 0x1B72 + song\n");
@@ -718,6 +718,8 @@ void MwpCheckAnchors() {
                                   "(play->msgCtx.ocarinaMode == OCARINA_MODE_WARP) && MM_WarpSongMM_HasPending(play)",
                                   "MM_WarpSongMM_TakePending(play, &rsbsWarpSong)",
                                   "playerCsIds[PLAYER_CS_ID_SONG_WARP] != CS_ID_NONE", "ACTOR_EN_TEST7",
+                                  "MM_Player_TryCsAction(play, NULL, PLAYER_CSACTION_WAIT);",
+                                  "PLAYER_STATE1_10000000 | PLAYER_STATE1_20000000;",
                                   "MM_WarpSongMM_Depart(play, rsbsWarpSong);", "s32 var_v1" }),
               "P11: Player_Action_63 does not clear the prompt at END and spawn En_Test7 (or fade) for OK before "
               "vanilla's warp chain\n");
@@ -735,8 +737,22 @@ void MwpCheckAnchors() {
                                    "play->nextEntrance = marker;" }),
               "P11: MM_WarpSongMM_Depart does not take its one-shot latch before re-asking and arming\n");
     const std::string arrive = MwpFunctionBody(arrival, "s16 Entrance_OverrideWarpArrival(s16 entranceIndex)");
-    MWP_CHECK(MwpInOrder(arrive, { "Combo_OoTWarpRecord_ArrivalFor(", "the record wins", "IS_RANDO" }),
-              "P11: Entrance_OverrideWarpArrival does not ask the frozen record before XW3's body\n");
+    MWP_CHECK(MwpInOrder(arrive, { "Combo_OoTWarpRecord_ArrivalFor(", "if (recordAnswer == 1) {",
+                                   "Entrance_SetEntranceDiscovered(entranceIndex, false);", "return entranceIndex;",
+                                   "the record wins", "IS_RANDO" }),
+              "P11: Entrance_OverrideWarpArrival does not ask the frozen record before XW3's body (and discover a "
+              "kept pad)\n");
+    const std::string onLoad =
+        MwpFunctionBody(mmExports, "extern \"C\" void GameInteractor_ExecuteOnSaveLoad(s16 fileNum)");
+    MWP_CHECK(MwpInOrder(onLoad, { "Combo_MMWarpPlay_ResetLatches();", "Execute<GameInteractor::OnSaveLoad>" }),
+              "P11: an MM file load (GameInteractor_ExecuteOnSaveLoad) does not reset the warp-song latches\n");
+    const std::string onPlayed =
+        MwpFunctionBody(mm, "extern \"C\" void MM_WarpSongMM_OnSongPlayed(PlayState* play, unsigned state)");
+    MWP_CHECK(MwpInOrder(onPlayed, { "MM_WarpSongMM_PromptActionFor(play, song, &action);", "if (action.prompt) {",
+                                     "MM_Message_StartTextbox(play, (u16)CUSTOM_MESSAGE_ID, NULL);",
+                                     "OCARINA_MODE_ACTIVE;", "MM_Message_StartTextbox(play, action.textId, NULL);",
+                                     "OCARINA_MODE_PROCESS_RESTRICTED_SONG;" }),
+              "P11: MM_WarpSongMM_OnSongPlayed does not act on MM_WarpSongMM_PromptActionFor's answer\n");
     const std::string finish =
         MwpFunctionBody(creation, "extern \"C\" int OoT_Creation_FinishPairedHalf(int writeSpoiler)");
     MWP_CHECK(MwpInOrder(finish, { "Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);",

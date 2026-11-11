@@ -82,18 +82,29 @@ bool MM_WarpSongMM_IsStaffState(unsigned state);
  *  complete before its last note. Both false with the rules off. */
 bool MM_WarpSongMM_WallRandomOnly(void);
 bool MM_WarpSongMM_WallRejected(const uint8_t* buttons, uint8_t n);
-/** z_message.c's SETUP_DISPLAY_SONG_PLAYED: point MM's playback at OoT's own notes
- *  of the song of staff state @p state (OoTMM sOcarinaCustomSongNotes), after
- *  AudioOcarina_SetPlaybackSong(1, 1). */
+/** Point MM's playback at OoT's own notes of the song of staff state @p state
+ *  (OoTMM sOcarinaCustomSongNotes), after AudioOcarina_SetPlaybackSong(1, 1). */
 void MM_WarpSongMM_PointPlaybackAtSong(unsigned state);
+/** z_message.c's SETUP_DISPLAY_SONG_PLAYED (E2): for a warp song's staff state,
+ *  AudioOcarina_SetPlaybackSong(1, 1) then MM_WarpSongMM_PointPlaybackAtSong, no
+ *  fanfare, and true; false, touching nothing, for every other state (vanilla's
+ *  playback and fanfare then run). */
+bool MM_WarpSongMM_SetupSongPlayback(unsigned state);
 /** z_message.c's song effect: OoTMM's OCEFF_WIPE5 (params = song) or, for the
  *  Prelude, OCEFF_WIPE (params 1). True when it handled @p state. */
 bool MM_WarpSongMM_SpawnSongEffect(struct PlayState* play, unsigned state);
 /** z_message.c's DISPLAY_SONG_PLAYED_TEXT_BEGIN: arms "You played the <song>!" in
  *  0x1B78's box and returns the custom text id to continue to. */
 uint16_t MM_WarpSongMM_PlayedTextId(unsigned state);
-/** z_message.c's TEXT_CLOSING: the prompt or a refusal for the song of @p state. */
+/** z_message.c's TEXT_CLOSING: the prompt or a refusal for the song of @p state,
+ *  as MM_WarpSongMM_PromptActionFor answers. */
 void MM_WarpSongMM_OnSongPlayed(struct PlayState* play, unsigned state);
+/** The decision OnSongPlayed acts on, gathered from @p play (its Soaring
+ *  restriction) and the combo state: Combo_MMWarpPlay_BeginPrompt, which clears the
+ *  pending latch and sets it on the prompt. @p out is a ComboMMWarpPlayPromptAction
+ *  (src/common/mm_warp_song_play.h); NULL @p play is the refusal. */
+struct ComboMMWarpPlayPromptAction;
+void MM_WarpSongMM_PromptActionFor(struct PlayState* play, int song, struct ComboMMWarpPlayPromptAction* out);
 /** Player's OCARINA_MODE_WARP arm: whether the prompt's song is pending AND is the
  *  song this ocarina session played (msgCtx.lastPlayedSong). */
 bool MM_WarpSongMM_HasPending(struct PlayState* play);

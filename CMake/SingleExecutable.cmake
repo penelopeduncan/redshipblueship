@@ -3534,6 +3534,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # OoTWarpSongRecord: the creation's warp-song record over real paired creations
+    # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
+    # the end of OoT's side of the tail and nowhere before it, every destination what
+    # the real Entrance_Init installs for its pad, every area what OoT's own warp
+    # prompt names, and carried by a package. rando tier: it needs real generations.
+    # games/mm/2s2h/mm_warp_songs_mm_test.cpp.
+    redship_add_test(NAME OoTWarpSongRecord COMMAND redship --test oot-warp-song-record
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # THE PAIRED GAME'S END (#762, OoTMM parity): the frozen goal's predicate over
     # the two final-boss defeats recorded in sharedFlags, the decision for every

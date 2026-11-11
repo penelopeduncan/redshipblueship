@@ -486,3 +486,25 @@ void Combo_MMWarpPlay_ResetLatches(void) {
     sMmWpPendingSong = -1;
     sMmWpDepartArmed = false;
 }
+
+/* ---- The prompt's action -------------------------------------------------------- */
+
+void Combo_MMWarpPlay_BeginPrompt(const ComboMMWarpPlayInputs* in, ComboMMWarpPlayPromptAction* out) {
+    Combo_MMWarpPlay_ClearPending();
+    if (out == NULL) {
+        return;
+    }
+    memset(out, 0, sizeof(*out));
+    out->pendingSong = -1;
+    const ComboMMWarpPlayGate gate = Combo_MMWarpPlay_Decide(in);
+    out->gate = (uint8_t)gate;
+    if (gate == COMBO_MMWP_OFFER &&
+        Combo_MMWarpPlay_PromptText((int)in->song, out->question, sizeof(out->question)) >= 0) {
+        out->prompt = 1u;
+        out->textId = (uint16_t)RSBS_MMWP_TEXT_PROMPT_BOX;
+        Combo_MMWarpPlay_SetPending((int)in->song);
+        out->pendingSong = (int8_t)Combo_MMWarpPlay_PendingSong();
+        return;
+    }
+    out->textId = (uint16_t)RSBS_MMWP_TEXT_RESTRICTED;
+}

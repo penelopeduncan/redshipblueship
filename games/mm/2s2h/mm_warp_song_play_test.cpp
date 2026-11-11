@@ -44,6 +44,11 @@
  *        OoT unplayable) arms nothing and reloads the current entrance;
  *     D6 Player's fallback (Depart straight after TakePending) arms once per
  *        TakePending;
+ *     D6b the prompt's decision MM_WarpSongMM_OnSongPlayed acts on
+ *        (MM_WarpSongMM_PromptActionFor): every gate holding offers the prompt
+ *        (0x1B93's box, a question, Minuet pending where Player's warp arm
+ *        looks); OoT frozen as an adult and a Soaring-restricted scene refuse
+ *        with 0x1B95 and leave nothing pending, a stale pending song included;
  *     D7 En_Test7's predicate takes exactly 0x8000..0x8005, never
  *        ENTEST7_ARRIVE or an owl mode.
  *
@@ -101,6 +106,15 @@ extern OcarinaSongButtons gOcarinaSongButtons[OCARINA_SONG_MAX];
 extern OcarinaNote sOcarinaSongNotes[OCARINA_SONG_MAX][20];
 extern u32 sOcarinaWallCounter;
 extern u8 sButtonToPitchMap[5];
+// The playback MM_WarpSongMM_SetupSongPlayback sets (D8 restores it).
+extern OcarinaNote* MM_sPlaybackSong;
+extern u8 MM_sPlaybackState;
+extern u8 sPlaybackStaffStopPos;
+extern u8 sPlaybackStaffStartPos;
+extern s32 sPlaybackNoteTimer;
+extern u16 MM_sPlaybackNotePos;
+extern u16 sPlaybackStaffPos;
+extern u8 sPlaybackPitch;
 void AudioOcarina_Update(void);
 void AudioOcarina_StartDefault(u32 ocarinaFlags);
 void AudioOcarina_SetInstrument(u8 ocarinaInstrumentId);
@@ -567,6 +581,52 @@ void WspDepartureLegs(PlayState* play) {
     WSP_CHECK(tag, first && !ComboWarp_IsArmed(), "D6: Player's fallback departed %s\n",
               first ? "twice for one prompt" : "not at all");
 
+    // D6b. The prompt's decision, as MM_WarpSongMM_OnSongPlayed acts on it: every
+    // gate holding offers the prompt and leaves Minuet pending for Player's warp
+    // arm; OoT frozen as an adult, or the scene restricting the Song of Soaring,
+    // refuses with MM's own text and leaves nothing pending. A stale pending song
+    // is set first, so a decision that does not clear the latch shows.
+    struct PromptCase {
+        const char* name;
+        int mode;
+        ComboMMWarpPlayGate gate;
+    };
+    const PromptCase kPromptCases[] = { { "every gate holds", 0, COMBO_MMWP_OFFER },
+                                        { "OoT adult", 1, COMBO_MMWP_NOT_CHILD },
+                                        { "Soaring restricted", 2, COMBO_MMWP_RESTRICTED } };
+    for (const PromptCase& c : kPromptCases) {
+        WspArrangeDeparture(play);
+        if (c.mode == 1) {
+            Context_ClearAllFrozenStates();
+            OoT_WarpSongRecord_TestFreezeOoTHalf(0, 1, 1);
+        } else if (c.mode == 2) {
+            play->interfaceCtx.restrictions.songOfSoaring = 1;
+        }
+        Combo_MMWarpPlay_SetPending(3);
+        ComboMMWarpPlayPromptAction action;
+        memset(&action, 0xA5, sizeof(action));
+        MM_WarpSongMM_PromptActionFor(play, 0, &action);
+        const int pendingAfter = Combo_MMWarpPlay_PendingSong();
+        const bool hasPending = MM_WarpSongMM_HasPending(play);
+        printf("[TEST] %s D6b: %s -> gate %d, prompt %d, text 0x%04X, pending %d (latch %d, Player sees %d)\n", tag,
+               c.name, (int)action.gate, (int)action.prompt, (unsigned)action.textId, (int)action.pendingSong,
+               pendingAfter, hasPending ? 1 : 0);
+        WSP_CHECK(tag, action.gate == (uint8_t)c.gate, "D6b: %s decided gate %d, want %d\n", c.name, (int)action.gate,
+                  (int)c.gate);
+        if (c.mode == 0) {
+            WSP_CHECK(tag,
+                      action.prompt == 1u && action.textId == (uint16_t)RSBS_MMWP_TEXT_PROMPT_BOX &&
+                          action.question[0] != '\0' && action.pendingSong == 0 && pendingAfter == 0 && hasPending,
+                      "D6b: with every gate holding the prompt was not offered with Minuet pending\n");
+        } else {
+            WSP_CHECK(tag,
+                      action.prompt == 0u && action.textId == (uint16_t)RSBS_MMWP_TEXT_RESTRICTED &&
+                          action.pendingSong == -1 && pendingAfter == -1 && !hasPending,
+                      "D6b: %s did not refuse with 0x1B95 and nothing pending\n", c.name);
+        }
+    }
+    Combo_MMWarpPlay_ResetLatches();
+
     // D7. En_Test7's predicate.
     int accepted = 0;
     for (int p = -32768; p <= 32767; p++) {
@@ -580,6 +640,68 @@ void WspDepartureLegs(PlayState* play) {
               accepted == RSBS_MMWP_SONG_COUNT && MM_WarpSongMM_IsEnTest7Params((int16_t)(uint16_t)0x8000u) &&
                   MM_WarpSongMM_IsEnTest7Params((int16_t)(uint16_t)0x8005u) && owlsVanilla,
               "D7: En_Test7's predicate takes %d params (want 6: 0x8000..0x8005) or an owl mode\n", accepted);
+
+    // D8. E2's playback (z_message.c SETUP_DISPLAY_SONG_PLAYED calls this helper
+    // and runs vanilla's playback and fanfare only when it answers false): every
+    // vanilla state and every non-song state leaves the playback alone; each warp
+    // state points it at OoT's own notes, never a vanilla table (whose index 0x80+
+    // would read past sOcarinaSongNotes' end).
+    OcarinaNote* const priorPlayback = MM_sPlaybackSong;
+    const u8 priorPlaybackState = MM_sPlaybackState;
+    const u8 priorStopPos = sPlaybackStaffStopPos;
+    const u8 priorStartPos = sPlaybackStaffStartPos;
+    const s32 priorNoteTimer = sPlaybackNoteTimer;
+    const u16 priorNotePos = MM_sPlaybackNotePos;
+    const u16 priorStaffPos = sPlaybackStaffPos;
+    const u8 priorPitch = sPlaybackPitch;
+    int wrongVanilla = -1;
+    for (unsigned s = 0; s <= 0xFFu; s++) {
+        if (s >= RSBS_MMWP_STATE_FIRST && s <= RSBS_MMWP_STATE_LAST) {
+            continue;
+        }
+        MM_sPlaybackSong = sOcarinaSongNotes[0];
+        if (MM_WarpSongMM_SetupSongPlayback(s) || MM_sPlaybackSong != sOcarinaSongNotes[0]) {
+            wrongVanilla = (int)s;
+            break;
+        }
+    }
+    WSP_CHECK(tag, wrongVanilla < 0, "D8: state 0x%02X took the warp song's playback\n", (unsigned)wrongVanilla);
+    OcarinaNote* warpTables[RSBS_MMWP_SONG_COUNT] = {};
+    bool warpOk = true;
+    for (int i = 0; i < RSBS_MMWP_SONG_COUNT; i++) {
+        MM_sPlaybackSong = sOcarinaSongNotes[0];
+        const bool took = MM_WarpSongMM_SetupSongPlayback(Combo_MMWarpPlay_StaffState(i));
+        warpTables[i] = MM_sPlaybackSong;
+        bool vanillaTable = false;
+        for (int k = 0; k < OCARINA_SONG_MAX; k++) {
+            vanillaTable = vanillaTable || (MM_sPlaybackSong == sOcarinaSongNotes[k]);
+        }
+        warpOk = warpOk && took && !vanillaTable;
+        for (int j = 0; j < i; j++) {
+            warpOk = warpOk && warpTables[j] != warpTables[i];
+        }
+    }
+    // Minuet of Forest, OoT's notes: D4 D5 B4 A4 B4 A4, then the end.
+    MM_sPlaybackSong = sOcarinaSongNotes[0];
+    (void)MM_WarpSongMM_SetupSongPlayback(Combo_MMWarpPlay_StaffState(0));
+    const u8 kMinuetPitches[7] = { OCARINA_PITCH_D4, OCARINA_PITCH_D5, OCARINA_PITCH_B4,  OCARINA_PITCH_A4,
+                                   OCARINA_PITCH_B4, OCARINA_PITCH_A4, OCARINA_PITCH_NONE };
+    bool minuetOk = true;
+    for (int n = 0; n < 7; n++) {
+        minuetOk = minuetOk && MM_sPlaybackSong[n].pitch == kMinuetPitches[n];
+    }
+    printf("[TEST] %s D8: vanilla states untouched %d, six warp tables distinct and OoT's %d, Minuet's notes %d\n", tag,
+           wrongVanilla < 0 ? 1 : 0, warpOk ? 1 : 0, minuetOk ? 1 : 0);
+    WSP_CHECK(tag, warpOk, "D8: a warp state did not point the playback at its own OoT table\n");
+    WSP_CHECK(tag, minuetOk, "D8: Minuet's playback is not OoT's D4 D5 B4 A4 B4 A4\n");
+    MM_sPlaybackSong = priorPlayback;
+    MM_sPlaybackState = priorPlaybackState;
+    sPlaybackStaffStopPos = priorStopPos;
+    sPlaybackStaffStartPos = priorStartPos;
+    sPlaybackNoteTimer = priorNoteTimer;
+    MM_sPlaybackNotePos = priorNotePos;
+    sPlaybackStaffPos = priorStaffPos;
+    sPlaybackPitch = priorPitch;
 }
 
 struct WspSavedCVar {
