@@ -228,11 +228,13 @@ jobs:
     # on one macOS is never restored on another), and sets the deployment
     # target; the first step fails the job when the two disagree.
     runs-on: macos-15
-    # A warm build takes 10-25 minutes. A cold one (every TU missing, e.g. a
-    # pull request that edits a header included everywhere) takes about 4.5
-    # hours on this 3-core runner, so the limit sits above that: lower, and
-    # main could never finish the cold build that saves the cache. It still
-    # stops a hung build an hour before GitHub's six-hour default (#1518).
+    # A warm build takes 5-25 minutes. Cold builds (every TU missing, e.g. a
+    # pull request that edits a header included everywhere) took about 4.5
+    # hours at --parallel 10. They should be much faster at one job per core
+    # (see "Build redship"), but none has been measured yet. So the limit
+    # stays above 4.5 hours: lower, and main could never finish the cold
+    # build that saves the cache. It still stops a hung build an hour before
+    # GitHub's six-hour default (#1518).
     timeout-minutes: 300
     env:
       MACOS_MAJOR: '15'
@@ -346,7 +348,12 @@ jobs:
         echo "MacPorts libSDL2 build version:"
         vtool -show-build /opt/local/lib/libSDL2.dylib || true
         cmake --no-warn-unused-cli -H. -Bbuild-cmake -GNinja -DCMAKE_BUILD_TYPE:STRING=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET="${MACOS_MAJOR}.0" -DCMAKE_PREFIX_PATH=/opt/local -DBUILD_REMOTE_CONTROL=1
-        cmake --build build-cmake --config Release --parallel 10
+        # One job per core (#1518). The runner has 3 cores and 7 GB, and each
+        # MM Rando/Logic/Regions TU peaks at 1.1 GB. At --parallel 10, the
+        # Regions TUs ran ten at a time and overcommitted memory: on the same
+        # runner the 17 of them took 6815 s at -j10 and 387 s at -j3. That is
+        # why a few genuine misses in Logic.h cost 1.5-3 hours.
+        cmake --build build-cmake --config Release --parallel "$(sysctl -n hw.ncpu)"
         if ! (cd build-cmake && cpack); then
           # The install rules and fixup_bundle log here, not to the console.
           find build-cmake/_CPack_Packages -name 'InstallOutput.log' -exec sh -c 'echo "== $1"; tail -n 300 "$1"' _ {} \;
@@ -360,38 +367,6 @@ jobs:
     # a fresh install at "ZAPD extractor executable not found" (#1501). Opens
     # the dmg as a player gets it and fails when either executable is missing,
     # still names a MacPorts library, or the extractor configs are absent.
-    - name: TEMPORARY diagnose MM region TU cost (#1518)
-      continue-on-error: true
-      run: |
-        set -x
-        sysctl -n hw.ncpu hw.memsize machdep.cpu.brand_string || true
-        sysctl vm.swapusage || true
-        cd build-cmake
-        objs=$(ninja -t targets all | grep -oE 'games/mm/CMakeFiles/2ship_rando.dir/2s2h/Rando/Logic/Regions/[A-Za-z]+\.cpp\.o' | sort -u)
-        echo "$objs" | wc -l
-        one=games/mm/CMakeFiles/2ship_rando.dir/2s2h/Rando/Logic/Regions/PiratesFortress.cpp.o
-        cmd="$(ninja -t commands "$one" | tail -n 1)"
-        echo "$cmd" | tr ' ' '\n' | grep -E '^-(O|g|arch|std|f)' | sort -u
-        # 1: PiratesFortress alone, both architectures, no ccache.
-        rm -f "$one"
-        /usr/bin/time -l env CCACHE_DISABLE=1 sh -c "$cmd" 2>&1 | grep -E 'real|maximum resident|page faults|swaps' || true
-        # 2: the same TU, arm64 only.
-        cmd1="$(echo "$cmd" | sed -e 's/ -arch x86_64//')"
-        rm -f "$one"
-        /usr/bin/time -l env CCACHE_DISABLE=1 sh -c "$cmd1" 2>&1 | grep -E 'real|maximum resident' || true
-        # 3: every Regions TU at -j10 (what the build does) with swap sampled.
-        ( while true; do echo "$(date -u +%T) $(sysctl -n vm.swapusage)"; sleep 20; done ) &
-        sampler=$!
-        rm -f $objs
-        start=$(date +%s)
-        CCACHE_DISABLE=1 ninja -j10 $objs > /dev/null
-        echo "regions at -j10: $(( $(date +%s) - start )) s"
-        kill $sampler || true
-        # 4: the same at -j3.
-        rm -f $objs
-        start=$(date +%s)
-        CCACHE_DISABLE=1 ninja -j3 $objs > /dev/null
-        echo "regions at -j3: $(( $(date +%s) - start )) s"
     - name: Check the app bundle ships both extractors (#1501)
       run: |
         MNT="$(mktemp -d)"
