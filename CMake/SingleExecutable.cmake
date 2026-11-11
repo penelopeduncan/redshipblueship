@@ -220,6 +220,11 @@ set(REDSHIP_COMMON_SOURCES
     # refusal when the restricted song pass has more songs than spots.
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
+    # #1169 XW6: OoT's Song of Soaring to a Termina owl, the game-neutral half:
+    # the note matcher, the gates, the chooser's answers, MM's owl table and the
+    # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
+    # reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.c
     # #1475 (lane H1): the combined Hint Tracker's view model, Majora's Mask pane:
     # MM's hint sources, the read record in the combo save record and the masked
     # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
@@ -339,6 +344,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
+    # Header for warp_song_soaring.c above (#1169 XW6)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
     # Header for warp_songs_mm.c above (#1169 XW5)
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
 )
@@ -936,6 +943,11 @@ if(BUILD_TESTING)
     # never reaches ImGui.
     redship_add_test(NAME MMRandoOptions COMMAND redship --test mm-rando-options)
     redship_add_test(NAME MMPairedProfile COMMAND redship --test mm-paired-profile)
+    # #1502: MM's Own Dungeon and Song Locations as the single bag's host groups
+    # (the registered MM engine's `hostGroups` against 2Ship's IsItemAllowedAtCheck,
+    # the defaults confining nothing) and the four placement options' fold into
+    # the MM seed and identity strings, pinned. Display-free like the two above.
+    redship_add_test(NAME MMPlacementConfinement COMMAND redship --test mm-placement-confinement)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
@@ -2491,6 +2503,12 @@ if(BUILD_TESTING)
         # host, OoT generated No Logic with All Locations Reachable off).
         "GoldenSeedDigestBeatableOnly|seed-digest-beatable-only|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=2"
         "GoldenSeedDigestNoLogic|seed-digest-no-logic|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=1"
+        # #1502: MM's CONFINED placements, the one golden whose single bag hands the
+        # fill host-group masks: Small Keys, Boss Keys and Stray Fairies at Own
+        # Dungeon (1) and Shuffle Songs at Song Locations (1). Every profile above
+        # leaves all four at Anywhere, which folds nothing and confines nothing.
+        # Same seed and dispatch as seed-digest-default.
+        "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 
@@ -2884,6 +2902,11 @@ if(BUILD_TESTING)
     # own half, the far half through the crossing gate, and composed from both
     # games' rows into one.
     redship_add_test(NAME ComboLogicSharedPair COMMAND redship --test combo-logic-shared-pair)
+    # THE HOST GROUPS (ABI 9, #1502): a confined row (MM's Own Dungeon and Song
+    # Locations) lands only on its own game's hosts in its group, is drawn first,
+    # drops alone as surplus, and a group with more rows than hosts is refused
+    # before any attempt. Same stub fixture, same `redship` tier.
+    redship_add_test(NAME ComboLogicHostGroups COMMAND redship --test combo-logic-host-groups)
 
     # The OoT ENGINE behind that coordinator (#645, lane K2a). `rando` tier, and
     # for a correctness reason rather than a convenience one: every fact this row
@@ -3340,6 +3363,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the same with MM's Shuffle Songs at Vanilla, where MM's copy must leave
+    # its vanilla check to the bag's one shared row (counted over every MM check).
+    redship_add_test(NAME SharedSongsOneCopyMMVanilla COMMAND redship --test shared-songs-one-copy-mm-vanilla
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the confined golden's profile created for real: every MM key, boss key
+    # and dungeon fairy in its own dungeon, every song-location song on an MM song
+    # check, none crossing into OoT. The golden pins the digest; this row checks
+    # the rule.
+    redship_add_test(NAME MMPlacementConfinedWorld COMMAND redship --test mm-placement-confined-world
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #968: each shared arrow's ONE bag row over a real paired generation: one
     # copy per arrow, both solvers credit it (OoT's logic and MM's Snowhead, Great
     # Bay and Stone Tower logic), MM's world holds no second copy, the GOAL proven.
@@ -3511,6 +3548,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTSoaringTableBounds COMMAND redship --test oot-soaring-table-bounds)
     redship_add_test(NAME OoTSoaringRuleLogic COMMAND redship --test oot-soaring-rule-logic)
     redship_add_test(NAME OoTSoaringRulesOffUnchanged COMMAND redship --test oot-soaring-rules-off-unchanged)
+    # PLAYING IT (#1169 lane XW6): SoaringOwlTable: the ten owls are MM's own,
+    # MM_SlotMeta_Register registers the owl-flag layout, the mask is exactly MM's
+    # frozen half's. OoTSoaringGates: every restriction, an unplayable MM and no
+    # owls refuse with OCARINA_MODE_04, the chooser, and the branches' anchors.
+    # OoTSoaringMatcher: OoT's real free-play checker behind every gate, vanilla
+    # songs unchanged, Pierre's tie. All three ROM-free, generating nothing.
+    # src/common/tests/test_warp_song_soaring.c.
+    redship_add_test(NAME SoaringOwlTable COMMAND redship --test soaring-owl-table)
+    redship_add_test(NAME OoTSoaringGates COMMAND redship --test oot-soaring-gates)
+    redship_add_test(NAME OoTSoaringMatcher COMMAND redship --test oot-soaring-matcher)
     redship_add_test(NAME OoTSoaringPooledOnlyWhenRuleOn COMMAND redship --test oot-soaring-pooled-only-when-rule-on
         LABEL rando
         TIMEOUT 600
@@ -4251,13 +4298,44 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
         ENVIRONMENT "RSBS_PFC_FILE_SELECT_SHOT=1" "RSBS_CAPTURE_OUT=${CMAKE_BINARY_DIR}/frame-capture")
+    # #1169 XW6: OoT's Song of Soaring crossing to a Termina owl, driven for real.
+    # The paired first crossing with the hidden songSoaringOot rule revealed
+    # through the test seam (Combo_ComboItemRules2RevealForTest, never a stored
+    # setting) and Shuffle Songs set to Anywhere in memory (13 songs do not fit
+    # the 12 song spots); both are put back at the verdict. The notes are played
+    # through SoH's emulated buttons (the controller input both the ocarina and
+    # the message system read), so the message system's Soaring arms run for real.
+    # First OoT leg: an adult's notes match nothing, the creation shadow (day 0, no
+    # owl) shows the no-statues text, the Windmill (warp-song restriction 3)
+    # refuses with 0x88C; each refusal ends in OCARINA_MODE_04 with nothing armed.
+    # The MM leg activates the Clock Town and swamp owls, clears Woodfall and makes
+    # the half an owl save with a pause-save entrance. Return leg: the chooser is
+    # cancelled with B, then stepped to the second owl and soared to; MM must land
+    # at the CLEARED swamp's owl (0x0CA0), not the pause-save spot, with the
+    # one-shot target spent. games/oot/soh/GameExports_SingleExe.cpp (the OoT
+    # legs), games/mm/2s2h/GameExports_SingleExe.cpp (the MM leg and the arrival).
+    # Longer than its siblings: two more scene loads and five songs. The first OoT
+    # phase holds the paired drive's frames plus three ocarina legs and a Windmill
+    # round trip, so the per-phase watchdog budget is doubled too (ceiling 4 x 120 s,
+    # under the row's TIMEOUT). The world is the paired seed with two settings
+    # moved, so a red on the inherited stone-hint or chest checks is a fixture
+    # failure (its line says "soaring world"), not a Soaring leg. Not locked here:
+    # the cancel arm's own OCARINA_MODE_04 write and the no-statues gate (the
+    # vanilla close and the chooser's fallback do the same), and the day-0 gate
+    # apart from the zero-owl case (the ROM-free SoaringOwlTable row has it).
+    math(EXPR REDSHIP_SOARING_TO_OWL_TIMEOUT "${REDSHIP_GAMEPLAY_TEST_TIMEOUT} * 2")
+    redship_add_test(NAME IntSoaringToOwl
+        COMMAND redship --integration-test int-soaring-to-owl
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl
         PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================

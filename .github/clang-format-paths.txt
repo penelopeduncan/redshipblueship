@@ -179,6 +179,7 @@ games/oot/src/code/z_scene.c
 games/oot/src/overlays/gamestates/ovl_title/z_title.c
 games/oot/soh/soh_combo_settings_rows_test.cpp
 games/mm/2s2h/mm_clock_shuffle_songs_test.cpp
+games/mm/2s2h/mm_placement_confinement_test.cpp
 games/mm/2s2h/mm_clock_shuffle_final_hours_test.cpp
 games/mm/2s2h/mm_clock_shuffle_first_arrival_test.cpp
 games/oot/soh/SohGui/SohMenuCombo.cpp
@@ -301,6 +302,7 @@ games/mm/2s2h/mm_oot_masks_test.cpp
 games/oot/soh/Enhancements/randomizer/SongOfSoaringOoT.h
 games/oot/soh/Enhancements/randomizer/SongOfSoaringOoT.cpp
 games/oot/soh/oot_song_of_soaring_oot_test.cpp
+games/oot/soh/oot_soaring_matcher_test.cpp
 games/oot/soh/oot_preset_world_test.cpp
 games/mm/2s2h/Rando/WarpSongsMM.h
 games/mm/2s2h/Rando/WarpSongsMM.cpp

@@ -4,6 +4,14 @@
 #include "soh/Enhancements/audio/AudioEditor.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW6: OoT's Song of Soaring (src/common/warp_song_soaring.h). The matcher
+// in func_800ED200 asks soh/Enhancements/randomizer/SongOfSoaringOoT.cpp whether
+// the buffer's tail is the song AND every gate holds (rule, pairing, ownership,
+// child, free play); with the hidden rule off that is always 0.
+#include "warp_song_soaring.h"
+s32 OoT_SoaringOoT_NoteMatched(const u8* song, u8 appendPos);
+#endif
 
 // TODO: can these macros be shared between files? code_800F9280 seems to use
 // versions without any casts...
@@ -1595,6 +1603,17 @@ void func_800ED200(void) {
                     }
                 }
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1169 XW6: OoTMM's custom-song check (comboCheckSong), after the
+            // vanilla loop and only when no vanilla song matched on this note.
+            // The vanilla masks and tables are untouched; the staff state it
+            // publishes, RSBS_OOT_SONG_SOARING, is above every vanilla one.
+            if (D_80131878 == 0 && OoT_SoaringOoT_NoteMatched(sCurOcarinaSong, sOcarinaSongAppendPos)) {
+                D_80131878 = RSBS_OOT_SONG_SOARING + 1;
+                sOcarinaInpEnabled = 0;
+                D_80130F3C = 0;
+            }
+#endif
         }
     }
 }
