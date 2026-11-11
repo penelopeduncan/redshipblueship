@@ -10,8 +10,10 @@
  * packages/logic/src/items/groups.ts:535 `CRITICAL_RENEWABLES` names twelve items:
  * MM's Hero's Shield, 10 Bombchus, Magic Bean, Red Potion, Blue Potion and Milk;
  * OoT's Deku and Hylian Shields; and the SHARED_* forms of the potions and the
- * shields. packages/logic/src/solver/solve.ts places them under one rule, in both
- * of its fills (forwardFill :1101, randomAssumed :1149):
+ * shields. (OoTMM's SHARED_POTION_RED/BLUE exist only under its sharedBottles,
+ * which shares bottle CONTENTS; SHARED POTIONS below says why they have no
+ * counterpart here.) packages/logic/src/solver/solve.ts places them under one
+ * rule, in both of its fills (forwardFill :1101, randomAssumed :1149):
  *
  *     if (settings.logic === 'allLocations' && isItemCriticalRenewable(item)
  *         && !state.criticalRenewables.has(item))
@@ -41,10 +43,14 @@
  * this port actually does when the player comes back, and the PR that added this
  * file cites the runtime line for every exclusion:
  *
- *   OoT. A shuffled shop shelf sells its item ONCE (z_en_girla.c: the slot's
- *        RandomizerInf turns it SI_SOLD_OUT), cows, scrubs and merchants give a
- *        shuffled item once (RAND_INF_COWS_MILKED_*, VB_BUSINESS_SCRUB_DESPAWN,
- *        the merchants' sold-out hooks). What renews is a shelf that keeps its
+ *   OoT. Since #1482 a bought shuffled shop shelf sells its item again when
+ *        OoTMM restocks it (ShopRestockSingleExe.cpp: OoTMM's OoT list, the
+ *        items that restock as themselves, both shields among them) and is
+ *        sold out otherwise; the predicate here does NOT credit that yet, so it
+ *        assumes less than the runtime gives (sound, and no world moved). Cows,
+ *        scrubs and merchants give a shuffled item once (RAND_INF_COWS_MILKED_*,
+ *        VB_BUSINESS_SCRUB_DESPAWN, the merchants' sold-out hooks). What the
+ *        predicate counts as renewing is a shelf that keeps its
  *        VANILLA stock (an ITEMTYPE_SHOP `RG_BUY_*` row): SoH caps the shop count
  *        at seven (settings.cpp RSK_SHOPSANITY_COUNT 0..7, shops.cpp's minimum
  *        list puts both shields first), so both shields are always on a vanilla
@@ -65,6 +71,13 @@
  *   critical renewable's first copy may only land on its OWN game's hosts.
  *   SHARED SHIELDS (#1068): the Hylian and Hero's Shields are ONE item, so a
  *   renewed Hylian Shield renews the Hero's Shield and back.
+ *   SHARED POTIONS: none. OoTMM's SHARED_POTION_RED/BLUE replace both games'
+ *   potions only under its sharedBottles (transform.ts), which shares bottle
+ *   contents; this port's Shared Bottles (#970) shares only the bottle count,
+ *   and each game keeps its own contents (cvar_shared_keys.h, foreign_items.h).
+ *   An OoT Red Potion fills only an OoT bottle, so an OoT potion shelf renews
+ *   nothing in Termina: counting it for MM would let MM's first Red Potion land
+ *   away from every MM host that renews it, with nothing there to replace it.
  *
  * WHERE IT RUNS. Three places fill a paired world under All Locations, and the
  * rule is in all three (ADR 0010's bag model, shape 4):

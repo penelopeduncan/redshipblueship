@@ -29,7 +29,7 @@ void RegionTable_Init_DeathMountainCrater() {
         //Exits
         Entrance(RR_DMC_UPPER_NEARBY,       []{return true;}),
         Entrance(RR_DMC_LADDER_AREA_NEARBY, []{return logic->FireTimer() >= 16 || logic->Hearts() >= 3;}),
-        Entrance(RR_DMC_CENTRAL_NEARBY,     []{return logic->IsAdult && logic->CanUse(RG_GORON_TUNIC) && logic->ReachDistantScarecrow() && ((logic->EffectiveHealth() > 2) || (logic->CanUse(RG_BOTTLE_WITH_FAIRY) && ctx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).IsNot(RO_DUNGEON_ENTRANCE_SHUFFLE_OFF)) || logic->CanUse(RG_NAYRUS_LOVE));}),
+        Entrance(RR_DMC_CENTRAL_NEARBY,     []{return logic->IsAdult && logic->CanUse(RG_GORON_TUNIC) && logic->ReachDistantScarecrow() && ((logic->EffectiveHealth() > 16) || (logic->CanUse(RG_BOTTLE_WITH_FAIRY) && ctx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).IsNot(RO_DUNGEON_ENTRANCE_SHUFFLE_OFF)) || logic->CanUse(RG_NAYRUS_LOVE));}),
         Entrance(RR_DMC_LOWER_NEARBY,       []{return false;}),
         Entrance(RR_DMC_DISTANT_PLATFORM,   []{return (logic->FireTimer() >= 48 && logic->Hearts() >= 2) || logic->Hearts() >= 3;}),
     });
@@ -110,17 +110,18 @@ void RegionTable_Init_DeathMountainCrater() {
 
     areaTable[RR_DMC_UPPER_GROTTO] = Region("DMC Upper Grotto", SCENE_GROTTOS, grottoEvents, {
         //Locations
-        LOCATION(RC_DMC_UPPER_GROTTO_CHEST,                  logic->HasItem(RG_OPEN_CHEST)),
-        LOCATION(RC_DMC_UPPER_GROTTO_FISH,                   logic->HasBottle()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE_FAIRY,     logic->CallGossipFairy()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE_FAIRY_BIG, logic->CanUse(RG_SONG_OF_STORMS)),
-        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE,           true),
-        LOCATION(RC_DMC_UPPER_GROTTO_BEEHIVE_LEFT,           logic->CanBreakLowerBeehives()),
-        LOCATION(RC_DMC_UPPER_GROTTO_BEEHIVE_RIGHT,          logic->CanBreakLowerBeehives()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_1,                logic->CanCutShrubs()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_2,                logic->CanCutShrubs()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_3,                logic->CanCutShrubs()),
-        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_4,                logic->CanCutShrubs()),
+        LOCATION(RC_DMC_UPPER_GROTTO_CHEST,                   logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_DMC_UPPER_GROTTO_FISH,                    logic->HasBottle()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE_FAIRY,      logic->CallGossipFairy()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE_FAIRY_BIG,  logic->CanUse(RG_SONG_OF_STORMS)),
+        LOCATION(RC_DMC_UPPER_GROTTO_GOSSIP_STONE,            true),
+        LOCATION(RC_DMC_UPPER_GROTTO_BEEHIVE_LEFT,            logic->CanBreakLowerBeehives()),
+        LOCATION(RC_DMC_UPPER_GROTTO_BEEHIVE_RIGHT,           logic->CanBreakLowerBeehives()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_1,                 logic->CanCutShrubs()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_2,                 logic->CanCutShrubs()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_3,                 logic->CanCutShrubs()),
+        LOCATION(RC_DMC_UPPER_GROTTO_GRASS_4,                 logic->CanCutShrubs()),
+        LOCATION(RC_DMC_UPPER_BOULDER_GROTTO_BUTTERFLY_FAIRY, logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_DMC_UPPER_LOCAL, []{return true;}),

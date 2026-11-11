@@ -221,6 +221,9 @@ extern "C" void OoT_ApplySharedResourcesAtFileLoad(void);
 // #1294 (combo_tracker_view.h): the OoT skip journal, the far pane's skips the .sav
 // does not have yet: replayed at a load, emptied by the full save that writes them.
 extern "C" int OoT_TrackerAdapter_ReplaySkipJournal(void);
+// #1475 (lane H2, combo_hint_view.h): the Seen a read MM hint gives the OoT host it names, derived again
+// at a load from the read record the .redsave carries (a commit from Termina stores no OoT .sav).
+extern "C" int OoT_TrackerAdapter_ApplyMMHintsSeen(void);
 extern "C" void Combo_TrackerOoTSkipJournalClear(void);
 #endif
 
@@ -357,6 +360,9 @@ extern "C" void OoT_Combo_OnLoadFileSeam(int32_t fileNum, uint32_t savGeneration
         // was played after this .sav was written, which the .redsave's Tier-1
         // (just loaded) journals and the tracker section (already applied) lacks.
         OoT_TrackerAdapter_ReplaySkipJournal();
+        // #1475 (lane H2): the OoT hosts read MM hints name, Seen as the hint made them while Majora's Mask
+        // was played, over the MM half and the read record this load brought back.
+        OoT_TrackerAdapter_ApplyMMHintsSeen();
     }
 #endif
 }
@@ -1344,6 +1350,10 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
     fileMetaInfo[fileNum].gregFound = false;
     fileMetaInfo[fileNum].filenameLanguage = baseBlock.value("filenameLanguage", 0);
     fileMetaInfo[fileNum].hasWallet = !isRando;
+    fileMetaInfo[fileNum].triforcePieces = 0;
+    fileMetaInfo[fileNum].maxTriforcePieces = 0;
+    fileMetaInfo[fileNum].hasFishingRod = !isRando;
+    fileMetaInfo[fileNum].fishingPoleShuffled = false;
     fileMetaInfo[fileNum].defense = baseBlock["inventory"]["defenseHearts"];
     fileMetaInfo[fileNum].health = baseBlock["health"];
 
@@ -1361,6 +1371,15 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
             (int16_t)baseBlock["randomizerInf"][RAND_INF_GREG_FOUND >> 4] & (1 << (RAND_INF_GREG_FOUND & 0xF));
         fileMetaInfo[fileNum].hasWallet =
             (int16_t)baseBlock["randomizerInf"][RAND_INF_HAS_WALLET >> 4] & (1 << (RAND_INF_HAS_WALLET & 0xF));
+        fileMetaInfo[fileNum].triforcePieces = randoBlock.value("triforcePiecesCollected", 0);
+        nlohmann::json& randoSettings = randoBlock["randoSettings"];
+        if (randoSettings[RSK_TRIFORCE_HUNT].get<uint8_t>() != 0) {
+            fileMetaInfo[fileNum].maxTriforcePieces =
+                randoSettings[RSK_TRIFORCE_HUNT_PIECES_REQUIRED].get<uint8_t>() + 1;
+        }
+        fileMetaInfo[fileNum].hasFishingRod = (int16_t)baseBlock["randomizerInf"][RAND_INF_FISHING_POLE_FOUND >> 4] &
+                                              (1 << (RAND_INF_FISHING_POLE_FOUND & 0xF));
+        fileMetaInfo[fileNum].fishingPoleShuffled = randoSettings[RSK_SHUFFLE_FISHING_POLE].get<uint8_t>() != 0;
         fileMetaInfo[fileNum].requiresMasterQuest = randoBlock["masterQuestDungeonCount"] > 0;
         // If the file is not marked as Master Quest, it could still theoretically be a rando save with all 12 MQ
         // dungeons, in which case we don't actually require a vanilla OTR.
@@ -3417,27 +3436,7 @@ void SaveManager::CopyZeldaFile(int from, int to) {
 #else
     std::filesystem::copy_file(GetFileName(from), GetFileName(to));
 #endif
-    fileMetaInfo[to].valid = true;
-    fileMetaInfo[to].deaths = fileMetaInfo[from].deaths;
-    for (int i = 0; i < ARRAY_COUNT(fileMetaInfo[to].playerName); i++) {
-        fileMetaInfo[to].playerName[i] = fileMetaInfo[from].playerName[i];
-    }
-    for (int i = 0; i < ARRAY_COUNT(fileMetaInfo[to].seedHash); i++) {
-        fileMetaInfo[to].seedHash[i] = fileMetaInfo[from].seedHash[i];
-    }
-    fileMetaInfo[to].healthCapacity = fileMetaInfo[from].healthCapacity;
-    fileMetaInfo[to].questItems = fileMetaInfo[from].questItems;
-    fileMetaInfo[to].defense = fileMetaInfo[from].defense;
-    fileMetaInfo[to].health = fileMetaInfo[from].health;
-    fileMetaInfo[to].randoSave = fileMetaInfo[from].randoSave;
-    fileMetaInfo[to].requiresMasterQuest = fileMetaInfo[from].requiresMasterQuest;
-    fileMetaInfo[to].requiresOriginal = fileMetaInfo[from].requiresOriginal;
-    fileMetaInfo[to].buildVersionMajor = fileMetaInfo[from].buildVersionMajor;
-    fileMetaInfo[to].buildVersionMinor = fileMetaInfo[from].buildVersionMinor;
-    fileMetaInfo[to].buildVersionPatch = fileMetaInfo[from].buildVersionPatch;
-    fileMetaInfo[to].filenameLanguage = fileMetaInfo[from].filenameLanguage;
-    SohUtils::CopyStringToCharArray(fileMetaInfo[to].buildVersion, fileMetaInfo[from].buildVersion,
-                                    ARRAY_COUNT(fileMetaInfo[to].buildVersion));
+    fileMetaInfo[to] = fileMetaInfo[from];
 }
 
 void SaveManager::DeleteZeldaFile(int fileNum) {

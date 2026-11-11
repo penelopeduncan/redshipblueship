@@ -49,7 +49,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag to cut, e.g. v0.4.4-alpha (must equal RSBS_VERSION_STRING)'
+        description: 'Release tag to cut, e.g. v0.5.0-alpha (must equal RSBS_VERSION_STRING)'
         required: true
         type: string
 # CONCURRENCY (#1377). Only a pull request's run is ever cancelled in progress:
@@ -150,7 +150,7 @@ jobs:
     # replacing the per-run apt install + deps-folder cache + from-source builds
     # that used to live in this job. static-analysis.yml uses the same image.
     container:
-      image: ghcr.io/spencerduncan/redshipblueship-build:latest
+      image: ghcr.io/penelopeduncan/redshipblueship-build:latest
     steps:
     - name: Git Checkout
       uses: actions/checkout@v4
@@ -187,11 +187,9 @@ jobs:
       if: steps.rsbs-otr-cache.outputs.cache-hit != 'true'
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        # Save on every branch (same rationale as build-linux's ccache step).
-        # This step only runs when the port-archive cache missed, and it uses
-        # the action's default 500M cap, so its quota footprint is small and
-        # infrequent.
-        save: true
+        # Saved on main only, like every other build cache (see build-linux's
+        # ccache step for why). A pull request restores main's entry.
+        save: ${{ github.ref_name == github.event.repository.default_branch }}
         key: ${{ runner.os }}-otr-ccache-${{ github.ref }}
         restore-keys: |
           ${{ runner.os }}-otr-ccache-${{ github.ref }}
@@ -230,6 +228,12 @@ jobs:
     # on one macOS is never restored on another), and sets the deployment
     # target; the first step fails the job when the two disagree.
     runs-on: macos-15
+    # A warm build takes 10-25 minutes. A cold one (every TU missing, e.g. a
+    # pull request that edits a header included everywhere) takes about 4.5
+    # hours on this 3-core runner, so the limit sits above that: lower, and
+    # main could never finish the cold build that saves the cache. It still
+    # stops a hung build an hour before GitHub's six-hour default (#1518).
+    timeout-minutes: 300
     env:
       MACOS_MAJOR: '15'
       # Proven on macos-15 by run 41302059266.
@@ -262,6 +266,15 @@ jobs:
         # churn that can evict main's entries for a gain that shrinks once
         # main is warm; revisit with the ccache numbers of a finished macOS run.
         save: ${{ github.ref_name == github.event.repository.default_branch }}
+        # The action's default is 500M, and one universal (x86_64+arm64) build
+        # of the tree fills that on its own: every run on 2026-11-10 ended at
+        # "Cache size 0.5 / 0.5 (99.9%)". A full cache evicts its oldest
+        # entries on every miss, and the oldest are the ones THIS build has
+        # not reached yet, so a few dozen genuine misses cascaded into 1136,
+        # 1405 or 2506 (115-250 cleanups) and a 10-minute build into 1.5-4
+        # hours (#1518). 2G holds several builds, so a miss only evicts stale
+        # results. Restoring 2G costs under a minute.
+        max-size: "2G"
         key: ${{ runner.os }}-${{ env.MACOS_MAJOR }}-${{ runner.arch }}-ccache-${{ github.ref }}
         restore-keys: |
           ${{ runner.os }}-${{ env.MACOS_MAJOR }}-${{ runner.arch }}-ccache-${{ github.ref }}
@@ -342,6 +355,44 @@ jobs:
 
         mv _packages/*.dmg RedShipBlueShip.dmg
         mv README.md readme.txt
+    # In-app ROM extraction spawns ZAPD_OoT and ZAPD_MM (ZapdSubprocess_Locate
+    # looks in the bundle's Contents/MacOS), so a dmg without either one stops
+    # a fresh install at "ZAPD extractor executable not found" (#1501). Opens
+    # the dmg as a player gets it and fails when either executable is missing,
+    # still names a MacPorts library, or the extractor configs are absent.
+    - name: Check the app bundle ships both extractors (#1501)
+      run: |
+        MNT="$(mktemp -d)"
+        hdiutil attach RedShipBlueShip.dmg -nobrowse -readonly -mountpoint "$MNT" > /dev/null
+        trap 'hdiutil detach "$MNT" > /dev/null || true' EXIT
+        APP="$(find "$MNT" -maxdepth 1 -name '*.app' | head -n 1)"
+        if [ -z "$APP" ]; then
+          echo "::error::RedShipBlueShip.dmg holds no .app"
+          exit 1
+        fi
+        echo "Bundle: ${APP#"$MNT"/}"
+        ls -l "$APP/Contents/MacOS"
+        fail=0
+        for zapd in ZAPD_OoT ZAPD_MM; do
+          exe="$APP/Contents/MacOS/${zapd}.out"
+          if [ ! -x "$exe" ]; then
+            echo "::error::the app bundle has no executable Contents/MacOS/${zapd}.out"
+            fail=1
+            continue
+          fi
+          # Captured first: grep -q exiting early must not SIGPIPE otool.
+          deps="$(otool -L "$exe")"
+          if grep -q '/opt/local/' <<<"$deps"; then
+            echo "::error::Contents/MacOS/${zapd}.out still links a MacPorts library:"
+            echo "$deps"
+            fail=1
+          fi
+        done
+        if [ ! -d "$APP/Contents/Resources/assets/xml" ]; then
+          echo "::error::the app bundle has no Contents/Resources/assets/xml"
+          fail=1
+        fi
+        exit "$fail"
     - name: Upload build
       uses: actions/upload-artifact@v4
       with:
@@ -393,7 +444,7 @@ jobs:
     # apt install + deps-folder cache + SDL/SDL_net/tinyxml2/libzip source
     # builds that used to live in this job.
     container:
-      image: ghcr.io/spencerduncan/redshipblueship-build:latest
+      image: ghcr.io/penelopeduncan/redshipblueship-build:latest
     steps:
     - name: Git Checkout
       uses: actions/checkout@v4
@@ -424,22 +475,15 @@ jobs:
     - name: Configure ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        # Save on every branch, not just main. Compilation is 31.42 of this
-        # job's 32.7 minutes, so a cache miss is essentially the whole job.
-        # Under the old main-only policy a PR restored main's cache but never
-        # wrote one back, so every push to a long-lived claude/** branch
-        # re-compiled that branch's own touched files from scratch — the same
-        # misses, forever. With save on, push N+1 restores push N's cache
-        # (the key below is ref-scoped and the action appends a timestamp, so
-        # restore-keys prefix-matches the newest entry for this ref).
-        #
-        # This cannot poison main's cache: GitHub scopes a cache to the ref
-        # that wrote it. A PR run writes to refs/pull/<n>/merge, which only
-        # that PR can read; main still restores only main-written entries.
-        # The real cost is quota — see the sccache step below, which stays
-        # main-only because its per-run save is ~2.3GB. This one is capped at
-        # 1.5G and PR-scoped caches are released when the PR closes.
-        save: true
+        # Saved on main only (operator, 2026-11-05). A pull request restores
+        # main's newest entry (restore-keys below) and recompiles only the files
+        # it touches, on every push. Saving on every branch (2026-06 to
+        # 2026-11) made each PR write ~700 MB, and with a dozen open PRs the
+        # repository's 10 GB Actions cache cap evicted, least recently used
+        # first, the caches only main writes: the macOS ccache (a cold macOS
+        # build is ~4.5 hours), the MacPorts tree and the Windows sccache.
+        # Main-only saving keeps those alive between releases.
+        save: ${{ github.ref_name == github.event.repository.default_branch }}
         # The action's default 500M cap is too small for the full OoT+MM build
         # (~8180 objects): measured 2026-06-11 at 89.66% full with 15 cleanups
         # and a 73.24% hit rate. The working set is ~1.0-1.2G compressed.
@@ -673,7 +717,7 @@ jobs:
     needs: generate-rsbs-otr
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/spencerduncan/redshipblueship-build:latest
+      image: ghcr.io/penelopeduncan/redshipblueship-build:latest
     steps:
     - name: Git Checkout
       uses: actions/checkout@v4
@@ -692,11 +736,14 @@ jobs:
     - name: Configure ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
-        save: true
+        # Saved on main only, like build-linux's ccache (see the reason there);
+        # a pull request restores main's netplay entry first.
+        save: ${{ github.ref_name == github.event.repository.default_branch }}
         max-size: "1.5G"
         key: ${{ runner.os }}-ccache-netplay-${{ github.ref }}
         restore-keys: |
           ${{ runner.os }}-ccache-netplay-${{ github.ref }}
+          ${{ runner.os }}-ccache-netplay-refs/heads/main
           ${{ runner.os }}-ccache-${{ github.ref }}
           ${{ runner.os }}-ccache-refs/heads/main
           ${{ runner.os }}-ccache
@@ -1135,8 +1182,9 @@ jobs:
     # download URL that outlives the short CI artifact retention window.
     # Also runs on workflow_dispatch, where it creates the tag itself at the
     # dispatched commit (see the trigger comment at the top of this file).
-    # macOS is intentionally absent: build-macos packages a bundle, but nobody
-    # has run it on a Mac yet, so releases do not carry it.
+    # Not build-macos: a red or timed-out macOS build must not hold back the
+    # Windows and Linux assets. release-macos below attaches the dmg once both
+    # this job and the macOS build have succeeded (#1501).
     if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
     needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
@@ -1254,6 +1302,38 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/${GITHUB_REF}"
+
+  release-macos:
+    # The macOS dmg, attached to the release create-release made (#1501). It
+    # needs both jobs, so the implicit success() skips it when the macOS build
+    # failed, timed out or was cancelled, and the release keeps the Windows and
+    # Linux assets. Re-running the failed build-macos job of the same run (which
+    # re-runs this one) attaches the dmg to the existing release (--clobber).
+    name: Attach macOS release
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
+    needs: [create-release, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    # The same precedence as create-release's "Resolve release tag" step.
+    - name: Resolve macOS release tag
+      env:
+        INPUT_TAG: ${{ inputs.release_tag }}
+      run: |
+        TAG="${INPUT_TAG:-${GITHUB_REF_NAME#release/}}"
+        echo "RELEASE_TAG=${TAG}" >> "$GITHUB_ENV"
+    - name: Download macOS build
+      uses: actions/download-artifact@v4
+      with:
+        name: rsbs-mac
+        path: rsbs-mac
+    - name: Attach the macOS dmg
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        mv rsbs-mac/RedShipBlueShip.dmg "redshipblueship-${RELEASE_TAG}-macos.dmg"
+        gh release upload "${RELEASE_TAG}" "redshipblueship-${RELEASE_TAG}-macos.dmg" --repo "${GITHUB_REPOSITORY}" --clobber
 
   monotonicity-probe:
     # ADR 0010 answer O6's STATIC PROBE (#645, #500). The combo fill is sound

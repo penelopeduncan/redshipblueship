@@ -200,7 +200,7 @@ TestResult Test_ComboAreaVocabulary(void) {
     printf("[TEST]   MM: %d check rows, %d enemy drops; %d other rows without an area, %d enemy drops with one\n", rows,
            enemyDrops, rowsWithoutArea, enemyDropsWithArea);
     CA_ASSERT(rows > 0);
-    CA_ASSERT(enemyDrops == 55);
+    CA_ASSERT(enemyDrops == 56);
     CA_ASSERT(rowsWithoutArea == 0);
     CA_ASSERT(enemyDropsWithArea == 0);
     int emptyAreas = 0;
@@ -275,8 +275,9 @@ TestResult Test_ComboAreaVocabulary(void) {
 // #575 H2: MM's own hints name the shared area, never the scene.
 //
 // MM's gossip stones said where a check is by its SCENE's display name, so all
-// 415 grotto checks (SCENE_KAKUSIANA) read "Lone Peak Shrine & Grottos" wherever
-// the grotto is, and the 55 enemy drops (SCENE_SPOT00, "Cutscene Scene") could
+// 415 grotto checks (SCENE_KAKUSIANA; 432 with #1410's five grotto beehives and
+// #1407's 12 grotto butterflies) read "Lone Peak Shrine & Grottos" wherever
+// the grotto is, and the 56 enemy drops (SCENE_SPOT00, "Cutscene Scene") could
 // be hinted at all. The stone now names the check's area in the shared
 // vocabulary (H1's MM table) with OoTMM's preposition, and hints only checks
 // that have an area. Drives the stone's REAL text (GossipHintText, the function
@@ -323,7 +324,9 @@ TestResult Test_MmHintAreaText(void) {
         }
         grottoRows++;
     }
-    CA_ASSERT(grottoRows == 415);
+    // 415, + the five grotto beehives (#1410), + the 12 grotto butterflies (#1407,
+    // HintAreaSingleExe.cpp's overrides).
+    CA_ASSERT(grottoRows == 432);
     printf("[TEST]   %d grotto checks name their overworld area, none \"%s\"\n", grottoRows, kGrottoScene);
 
     // ---- 2. Every check with an area is named by it, with OoTMM's preposition.

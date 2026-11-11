@@ -56,20 +56,41 @@
  * loads it off (SaveManager::LoadArray default-constructs the tail) and keeps the
  * pedestal it was generated with.
  *
- * NOT MODELLED: OoTMM's pedestal check is a CHILD check ("Temple of Time Master
- * Sword": `is_child && event(DOOR_OF_TIME_OPEN)`), handed over as the child walks
- * up. Ship of Harkinian's RC_TOT_MASTER_SWORD is collected at the first pull
- * (EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL), so under the rule the
- * pedestal's own item is reached on the first trip to adult, after the sword.
+ * THE CHILD PEDESTAL CHECK (#1484). OoTMM's pedestal check is a CHILD check
+ * ("Temple of Time Master Sword": `is_child && event(DOOR_OF_TIME_OPEN)`,
+ * data/world/oot/overworld/temple_of_time.yml, with no setting term), handed over
+ * as the child walks up (generator/src/oot/actors/Bg/Bg_Toki_Swd.c, before any
+ * pull is offered). Here, while the frozen world has Shuffle Master Sword on:
+ *  - THE LOGIC. RC_TOT_MASTER_SWORD beyond the Door of Time is `logic->IsChild`
+ *    (location_access/overworld/temple_of_time.cpp); unshuffled it stays
+ *    `logic->IsAdult`, so those worlds do not move. An adult start still collects
+ *    it at RR_ROOT (location_access/root.cpp), as savefile.cpp's creation give does.
+ *  - THE FLAG. Its collection check is RAND_INF_TOT_MASTER_SWORD, not the pull's
+ *    EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL (location_list.cpp), so the pull
+ *    no longer gives it. The unshuffled pull sets that flag after marking the check
+ *    (VB_GIVE_ITEM_MASTER_SWORD), so the load seam (CheckStateLoadSingleExe.cpp)
+ *    still follows it; a vanilla file's tracker and seam keep reading the pull.
+ *  - THE GIVE. OoT_PedestalChildCheck_OnPedestalUpdate below: a child in reach
+ *    (OoTMM's comboGiveItemNpc range, 200 across and 50 up) outside a cutscene sets
+ *    the flag, and the randomizer's flag-set hook queues the check. A save that
+ *    already pulled before this change (the pull's flag set) is not given again.
+ *  - THE PULL WAITS for that give (OoT_PedestalChildCheck_HoldsPull), as OoTMM's
+ *    handler returns before offering it, so a child holding the sword cannot leave
+ *    and receive the pedestal's item as adult.
+ * The sword unshuffled, the pedestal holds the vanilla sword and the pull hands it
+ * over, which already matches OoTMM's reachability. OoTMM's adult start gives
+ * nothing at creation; Ship of Harkinian's creation give is kept (#1484 D1).
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
 #include "TimeTravelSword.h"
 
+#include <cmath>
 #include <memory>
 
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
+#include "soh/Enhancements/randomizer/item_location.h"
 #include "soh/Enhancements/randomizer/logic.h"
 #include "soh/Enhancements/randomizer/location_access.h" // logic: the object every search asks
 
@@ -78,7 +99,9 @@
 #include <z64.h>
 extern "C" {
 #include "macros.h"
+#include "functions.h"
 #include "variables.h"
+extern PlayState* OoT_gPlayState;
 }
 
 namespace {
@@ -122,6 +145,51 @@ extern "C" bool OoT_TimeTravelSword_LogicAllows(void) {
     // Logic's own save: the search's simulated inventory, or the live save while
     // the Check Tracker counts Available Checks (Logic::SetSaveContext).
     return OoT_TimeTravelSword_Allows(RequiresSword(world), SwordShuffled(world), logic->HasItem(RG_MASTER_SWORD));
+}
+
+// OoTMM's comboGiveItemNpc reach at the pedestal (Bg_Toki_Swd.c: 200.f, 50.f).
+constexpr float kPedestalGiveXZ = 200.0f;
+constexpr float kPedestalGiveY = 50.0f;
+
+extern "C" bool OoT_PedestalChildCheck_Applies(void) {
+    const std::shared_ptr<Rando::Context> world = Rando::Context::GetInstance();
+    return world != nullptr && IS_RANDO && SwordShuffled(world);
+}
+
+extern "C" void OoT_PedestalChildCheck_OnPedestalUpdate(void* actor) {
+    const Actor* swd = static_cast<const Actor*>(actor);
+    if (swd == nullptr || swd->id != ACTOR_BG_TOKI_SWD || OoT_gPlayState == nullptr || LINK_IS_ADULT ||
+        !OoT_PedestalChildCheck_Applies()) {
+        return;
+    }
+    // Given already, or pulled before this change (the pull then gave it).
+    if (Flags_GetRandomizerInf(RAND_INF_TOT_MASTER_SWORD) ||
+        OoT_Flags_GetEventChkInf(EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL)) {
+        return;
+    }
+    // In reach as OoT_Actor_OfferGetItem measures it (strictly inside both ranges).
+    if (OoT_Play_InCsMode(OoT_gPlayState) || !(swd->xzDistToPlayer < kPedestalGiveXZ) ||
+        !(std::fabs(swd->yDistToPlayer) < kPedestalGiveY)) {
+        return;
+    }
+    // The randomizer's flag-set hook resolves the flag to RC_TOT_MASTER_SWORD and
+    // queues it (hook_handlers.cpp, RandomizerOnFlagSetHandler).
+    Flags_SetRandomizerInf(RAND_INF_TOT_MASTER_SWORD);
+}
+
+extern "C" bool OoT_PedestalChildCheck_HoldsPull(bool giveInFlight) {
+    if (LINK_IS_ADULT || !OoT_PedestalChildCheck_Applies() ||
+        OoT_Flags_GetEventChkInf(EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL)) {
+        return false;
+    }
+    const Rando::ItemLocation* pedestal = Rando::Context::GetInstance()->GetItemLocation(RC_TOT_MASTER_SWORD);
+    if (pedestal == nullptr || pedestal->HasObtained()) {
+        return false;
+    }
+    // Not given yet (the give comes on this frame's update), or given and still on
+    // its way. A give that is neither (dropped) does not hold the pull: holding it
+    // then would keep the child from ever travelling.
+    return !Flags_GetRandomizerInf(RAND_INF_TOT_MASTER_SWORD) || giveInFlight;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

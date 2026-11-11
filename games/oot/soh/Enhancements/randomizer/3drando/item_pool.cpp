@@ -566,10 +566,12 @@ void GenerateItemPool() {
     }
     AddItemToPool(RG_CLAIM_CHECK, 2, 1, 1, 1);
 
-    if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_CHEST_GAME_SINGLE_KEYS)) {
-        AddItemToPool(RG_TREASURE_GAME_SMALL_KEY, 7, 6, 6, 6);
-    } else if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_CHEST_GAME_PACK)) {
-        AddItemToPool(RG_TREASURE_GAME_KEY_RING, 2, 1, 1, 1);
+    if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME)) {
+        if (ctx->GetOption(RSK_KEYRINGS_CHEST_GAME) && ctx->GetOption(RSK_KEYRINGS)) {
+            AddItemToPool(RG_TREASURE_GAME_KEY_RING, 2, 1, 1, 1);
+        } else {
+            AddItemToPool(RG_TREASURE_GAME_SMALL_KEY, 7, 6, 6, 6);
+        }
     }
 
     int tokensToAdd = 0;
@@ -662,7 +664,7 @@ void GenerateItemPool() {
             ctx->PlaceItemInLocation(RC_TH_DOUBLE_CELL_CARPENTER, RG_RECOVERY_HEART, false, true);
             ctx->PlaceItemInLocation(RC_TH_STEEP_SLOPE_CARPENTER, RG_RECOVERY_HEART, false, true);
         } else {
-            // Only add key ring if 4 Fortress keys necessary
+            // Only add keyring if 4 Fortress keys necessary
             if (ctx->GetOption(RSK_KEYRINGS_GERUDO_FORTRESS) && ctx->GetOption(RSK_KEYRINGS)) {
                 AddItemToPool(RG_GERUDO_FORTRESS_KEY_RING, 2, 1, 1, 1);
             } else {
@@ -1044,7 +1046,7 @@ void GenerateItemPool() {
                     break;
                 case RO_ITEM_POOL_BALANCED: {
                     int heartsToPlace = maxHearts - startingHearts;
-                    int halfHearts = maxHearts >> 2;
+                    int halfHearts = heartsToPlace / 2;
                     AddFixedItemToPool(RG_HEART_CONTAINER, heartsToPlace - halfHearts, false);
                     AddFixedItemToPool(RG_PIECE_OF_HEART, halfHearts * 4, false);
                     break;

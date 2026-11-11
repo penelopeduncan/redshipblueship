@@ -70,6 +70,11 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
         // recorded for any previous world must not leak into it (they are
         // re-placed below iff this world pairs with a live OoT rando world).
         Combo_ClearForeignPlacements();
+        // #1169 XW5: likewise, a new MM file owns none of Ocarina of Time's warp
+        // songs (the combo record's ownership byte, outside the rando struct zeroed
+        // above): its starting grant below gives the world's starting songs, and
+        // a byte an earlier, abandoned generation left must not reach this one.
+        MM_WarpSongsMM_RestoreOwned(0);
 #endif
 
         try {
@@ -138,19 +143,28 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                 if (!RANDO_SAVE_OPTIONS[RO_SHUFFLE_GOLD_SKULLTULAS]) {
                     RANDO_SAVE_OPTIONS[RO_MINIMUM_SKULLTULA_TOKENS] = SPIDER_HOUSE_TOKENS_REQUIRED;
                 }
+
+                // Starting with every Stray Fairy means the Great Fairies always have their full set
+                if (RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] == RO_DUNGEON_ITEM_START_WITH) {
+                    RANDO_SAVE_OPTIONS[RO_MINIMUM_STRAY_FAIRIES] = STRAY_FAIRY_SCATTERED_TOTAL;
+                }
 #endif
 
                 // ------------------------------------------------------------
                 // ONE generation attempt, from starting items through the
                 // foreign-placement pass. Factored into a callable because the
                 // paired path below runs it under the deterministic attempt
-                // ladder (ADR 0010 increment 1.2) while the solo path keeps
-                // its single-shot upstream behavior. Everything inside is a
-                // pure function of (the save state at entry, the live RNG
-                // stream, the resolved options) — the ladder restores the
-                // first two per attempt, which is what makes a retry a
-                // genuinely fresh derivation rather than a mutation of a
-                // half-failed one.
+                // ladder (ADR 0010 increment 1.2) while the solo path runs it
+                // once, as upstream does (upstream's own Glitchless retry loop,
+                // a0c9b12ce, sits inside it and is never reached by a paired
+                // world, which returns into the single bag first; that loop
+                // retries any std::exception, GenerationTimeout included, so a
+                // solo Glitchless fill may take up to ten budgets of wall
+                // clock). Everything inside is a pure function of (the save
+                // state at entry, the live RNG stream, the resolved options) —
+                // the ladder restores the first two per attempt, which is what
+                // makes a retry a genuinely fresh derivation rather than a
+                // mutation of a half-failed one.
                 // ------------------------------------------------------------
 #ifdef RSBS_SINGLE_EXECUTABLE
                 // The ladder attempt the next runGenerationOnce belongs to: the
@@ -285,7 +299,22 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                     } else if (RANDO_SAVE_OPTIONS[RO_LOGIC] == RO_LOGIC_NEARLY_NO_LOGIC) {
                         Rando::Logic::ApplyNearlyNoLogicToSaveContext(checkPool, itemPool);
                     } else if (RANDO_SAVE_OPTIONS[RO_LOGIC] == RO_LOGIC_GLITCHLESS) {
-                        Rando::Logic::ApplyGlitchlessLogicToSaveContext(checkPool, itemPool);
+                        // Various things can result in failed generation now (confined placement, junked items,
+                        // too many traps, etc), so we retry a few times before giving up
+                        const int maxAttempts = 10;
+                        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+                            std::vector<RandoCheckId> attemptCheckPool = checkPool;
+                            std::vector<RandoItemId> attemptItemPool = itemPool;
+                            try {
+                                Rando::Logic::ApplyGlitchlessLogicToSaveContext(attemptCheckPool, attemptItemPool);
+                                break;
+                            } catch (const std::exception& e) {
+                                if (attempt >= maxAttempts) {
+                                    throw;
+                                }
+                                SPDLOG_WARN("Glitchless generation attempt {} failed ({}), retrying", attempt, e.what());
+                            }
+                        }
                     } else {
                         throw std::runtime_error("Logic option not implemented: " +
                                                  std::to_string(RANDO_SAVE_OPTIONS[RO_LOGIC]));
@@ -330,6 +359,9 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                     gComboCtx.mmPairedAttempt = 0;
                     static SaveContext sPreAttemptSave;
                     memcpy(&sPreAttemptSave, &gSaveContext, sizeof(SaveContext));
+                    // #1169 XW5: the warp songs' ownership byte lives outside the
+                    // save image; a retry restores it with the image.
+                    const uint8_t rsbsPreAttemptWarpSongs = MM_WarpSongsMM_SnapshotOwned();
                     // ------------------------------------------------------
                     // THE FILL BUDGET (#582's operator decision; ADR 0010
                     // increment 2), COUNTED IN ROUNDS since #950. Every number
@@ -350,6 +382,7 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                     for (int attempt = 0;; attempt++) {
                         if (attempt > 0) {
                             memcpy(&gSaveContext, &sPreAttemptSave, sizeof(SaveContext));
+                            MM_WarpSongsMM_RestoreOwned(rsbsPreAttemptWarpSongs);
                             Combo_ClearForeignPlacements();
                             // ROUNDS SPENT, summed over every attempt so far: each
                             // single-bag fill charges the rounds it ran, dead end
@@ -528,6 +561,8 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
             // increment 1.2): the reverted file authored no paired world.
             Combo_ClearForeignPlacements();
             gComboCtx.mmPairedAttempt = 0;
+            // #1169 XW5: nor may the aborted world's starting warp songs.
+            MM_WarpSongsMM_RestoreOwned(0);
 #endif
             gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_VANILLA;
             char invalidName[8] = { 18, 23, 31, 10, 21, 18, 13, 62 };

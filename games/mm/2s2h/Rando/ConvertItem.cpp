@@ -5,6 +5,7 @@
 #include <cassert>
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "Rando/OoTMasksMM.h" // #980: the OoT masks' owned bits
+#include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' owned bits
 #endif
 
 // Copied from z_player.c, we could instead move this to a header file, idk
@@ -81,10 +82,31 @@ static std::vector<RandoItemId> junkItems = {
     RI_NONE,
 };
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1475: CurrentJunkItem's cache sits at file scope rather than in the function,
+// so a ROM-free row can make it cold again (MM_Rando_TestColdJunkCache below) and
+// see whether a caller draws a junk item from MM's global stream. The function
+// reads and writes it exactly as it did its function-local statics.
+static RandoItemId sLastJunkItem = RI_UNKNOWN;
+static u32 sLastChosenAt = 0;
+
+/** TEST BRIDGE (#1475, mm-hint-sources): CurrentJunkItem's cache made cold, as
+ *  at process start. Draws nothing. */
+extern "C" void MM_Rando_TestColdJunkCache(void) {
+    sLastJunkItem = RI_UNKNOWN;
+    sLastChosenAt = 0;
+}
+#endif
+
 // Pick a random junk item every second
 RandoItemId Rando::CurrentJunkItem() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    RandoItemId& lastJunkItem = sLastJunkItem;
+    u32& lastChosenAt = sLastChosenAt;
+#else
     static RandoItemId lastJunkItem = RI_UNKNOWN;
     static u32 lastChosenAt = 0;
+#endif
     if (MM_gPlayState != NULL && ABS(MM_gPlayState->gameplayFrames - lastChosenAt) > 20) {
         lastChosenAt = MM_gPlayState->gameplayFrames;
         lastJunkItem = RI_UNKNOWN;
@@ -484,6 +506,14 @@ bool Rando::IsItemObtainable(RandoItemId randoItemId, RandoCheckId randoCheckId)
         case RI_MASK_SKULL:
         case RI_MASK_SPOOKY:
             return !MM_OoTMask_Owned(randoItemId);
+        // #1169 XW5: Ocarina of Time's warp songs (WarpSongsMM.cpp).
+        case RI_SONG_MINUET:
+        case RI_SONG_BOLERO:
+        case RI_SONG_SERENADE:
+        case RI_SONG_REQUIEM:
+        case RI_SONG_NOCTURNE:
+        case RI_SONG_PRELUDE:
+            return !MM_WarpSongMM_Owned(randoItemId);
 #endif
         case RI_FROG_BLUE:
             return !CHECK_WEEKEVENTREG(WEEKEVENTREG_33_01);
@@ -681,3 +711,58 @@ RandoItemId Rando::ConvertItem(RandoItemId randoItemId, RandoCheckId randoCheckI
         return RI_JUNK;
     }
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1499: a sale the player paid for never hands "literally nothing". When the
+// junk cache holds RI_NONE, it is re-rolled from the same list without RI_NONE
+// and stored back, so a name read after this call (GetItemName's junk suffix)
+// names the item the sale then gives. Bounded: a green rupee when no other junk
+// item is obtainable.
+RandoItemId Rando::CurrentPaidJunkItem() {
+    const RandoItemId junk = CurrentJunkItem();
+    if (junk != RI_NONE) {
+        return junk;
+    }
+    for (int attempt = 0; attempt < 64; attempt++) {
+        const RandoItemId candidate = junkItems[Ship_Random(0, junkItems.size())];
+        if (candidate != RI_NONE && Rando::IsItemObtainable(candidate)) {
+            sLastJunkItem = candidate;
+            return candidate;
+        }
+    }
+    sLastJunkItem = RI_RUPEE_GREEN;
+    return RI_RUPEE_GREEN;
+}
+
+// #1499: the checks the player pays rupees for: shop shelves and counters, Tingle's
+// maps, and the business scrubs' purchases (EnAkindonuts_ReplacePurchaseMessage).
+bool Rando::IsPaidCheck(RandoCheckId randoCheckId) {
+    switch (randoCheckId) {
+        case RC_SOUTHERN_SWAMP_SCRUB_BEANS:
+        case RC_ZORA_HALL_SCRUB_POTION_REFILL:
+        case RC_IKANA_CANYON_SCRUB_POTION_REFILL:
+        case RC_GORON_VILLAGE_SCRUB_BOMB_BAG:
+            return true;
+        default:
+            break;
+    }
+    const auto it = Rando::StaticData::Checks.find(randoCheckId);
+    if (it == Rando::StaticData::Checks.end()) {
+        return false;
+    }
+    return it->second.randoCheckType == RCTYPE_SHOP || it->second.randoCheckType == RCTYPE_TINGLE_SHOP;
+}
+
+// #1499: the item an uncollected check's tracker row or hint names. A placed item
+// the player already owns for good (a second Tingle map, a mask they hold) is
+// handed as junk (ConvertItem), so it is named as junk. A junk-class item that
+// is only unobtainable for now (ammo with no bag, a refill with no empty bottle)
+// keeps its own name: it becomes obtainable again. Reads MM's live save.
+RandoItemId Rando::UncollectedNamedItem(RandoItemId randoItemId, RandoCheckId randoCheckId) {
+    const auto it = Rando::StaticData::Items.find(randoItemId);
+    if (it == Rando::StaticData::Items.end() || it->second.randoItemType == RITYPE_JUNK) {
+        return randoItemId;
+    }
+    return ConvertItem(randoItemId, randoCheckId) == RI_JUNK ? RI_JUNK : randoItemId;
+}
+#endif

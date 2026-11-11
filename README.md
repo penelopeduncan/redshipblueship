@@ -9,7 +9,7 @@ world, and you move between them in-game through the Happy Mask Shop and the Clo
 The shuffle design follows [OoTMM](https://ootmm.com).
 
 The project is in alpha. Pre-release builds for Windows, Linux and macOS are on the
-[releases page](https://github.com/spencerduncan/redshipblueship/releases). Read
+[releases page](https://github.com/penelopeduncan/redshipblueship/releases). Read
 [docs/known-issues.md](docs/known-issues.md) before playing, and back up your saves.
 
 ## Running a release
@@ -27,7 +27,7 @@ details are in [docs/BUILDING.md](docs/BUILDING.md) and
 [docs/BUILDING_WINDOWS.md](docs/BUILDING_WINDOWS.md).
 
 ```bash
-git clone --recursive https://github.com/spencerduncan/redshipblueship.git
+git clone --recursive https://github.com/penelopeduncan/redshipblueship.git
 cd redshipblueship
 cmake -B build -S .
 cmake --build build --parallel

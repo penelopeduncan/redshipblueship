@@ -61,14 +61,14 @@
  *      PROGRESSION content other than the remains is load-bearing", and a fixed
  *      renewable is regainable in play by construction. The remains-only round is
  *      still run and printed, and the red half is untouched.
- *      AMENDED (D wave 2 re-pin, #1434/#1439/#1443): the re-pinned world also runs
- *      through the Progressive Bomb Bag MM's vanilla Bomb Shop sells
- *      (RC_BOMB_SHOP_ITEM_03; Shuffle Shops is off by default), named by
- *      single-content probes and nothing else. It is a NAMED exception
- *      (kCsbFLoadBearingFixedChecks), asserted both ways: remains + renewables
- *      alone leave goalMM=0, and with the named content goalMM=1. When either
- *      fails, the leg prints every single fixed content whose probe restores
- *      goalMM.
+ *      AMENDED (D wave 2 re-pin, #1434/#1439/#1443; OoT logic P3 re-pin,
+ *      #1396/#1397): when a re-pinned world runs through a fixed PROGRESSION
+ *      content besides the remains, it is listed in kCsbFLoadBearingFixedChecks
+ *      and asserted both ways (necessary and sufficient).
+ *      Under the OoT logic P3 re-pin (#1396, #1397), remains + renewables alone
+ *      restored goalMM=1, so kCsbFLoadBearingFixedChecks was empty. Under the MM
+ *      logic P3 re-pin (#1398) the world runs through the Bomb Shop's Progressive
+ *      Bomb Bag again, so the list names RC_BOMB_SHOP_ITEM_03.
  *
  * PR #743 REVIEW LEGS, each with its red half observed when it was written:
  *
@@ -76,7 +76,8 @@
  *       plain shop shelf (#800 pass 1), every Business Scrub, every merchant and
  *       the treasure chest game's reward (#800 pass 2) accepted, the reward
  *       collected by an ItemGetInf flag the room never resets; the chest game's
- *       room chests (RCTYPE_CHEST_GAME), a shop-ish NAME that is neither a shelf,
+ *       other rows (RCTYPE_CHEST_GAME: the room chests and, since #1364, the
+ *       shopkeeper's paid item), a shop-ish NAME that is neither a shelf,
  *       a merchant nor the reward, and every other non-chest rejected; and
  *       some chests accepted. Leg A asks the same predicate the fill used, so it
  *       could not see the predicate itself loosen. Swept after leg A, asserted at
@@ -1285,18 +1286,18 @@ TestResult ComboSingleBag_Run(void) {
                 renewableIds++;
             }
         }
-        // THE NAMED EXCEPTION (D wave 2 re-pin). The worlds that re-pin moved need one
-        // fixed PROGRESSION content besides the remains: the Progressive Bomb Bag MM's
-        // vanilla Bomb Shop sells (Shuffle Shops is off by default, so the shelf keeps
-        // its stock), which the player buys in play. Single-content probes over every
-        // fixed content named it and nothing else. The same seed generated with Time
-        // Travel Requires Master Sword off (another world: the option moves the bag's
-        // seed) names it too, so the bag's draw put every other explosive behind it,
-        // not that rule. Named by check, and required both ways below: sufficient (no OTHER
-        // fixed progression content is load-bearing) and necessary (an exception the
-        // world stops needing must be dropped here, so the claim stays exact).
-        static const char* const kCsbFLoadBearingFixedChecks[] = { "RC_BOMB_SHOP_ITEM_03" };
-        const int namedCount = (int)(sizeof(kCsbFLoadBearingFixedChecks) / sizeof(kCsbFLoadBearingFixedChecks[0]));
+        // THE NAMED EXCEPTIONS: the fixed PROGRESSION contents besides the remains that
+        // this pinned world's MM goal runs through, each one bought or collected in play.
+        // Listed by check name, and required both ways below: sufficient (no OTHER fixed
+        // progression content is load-bearing) and necessary (an exception the world
+        // stops needing must be dropped here, so the claim stays exact). When a re-pin
+        // moves the world, the single-content probe lines name the candidates. Under
+        // the MM logic P3 re-pin (#1398) the world needs RC_BOMB_SHOP_ITEM_03, the Bomb
+        // Shop's Progressive Bomb Bag, as the D wave 2 worlds did. (It was empty under
+        // the OoT logic P3 re-pin, #1396 and #1397: remains and renewables alone restored
+        // goalMM=1.)
+        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = { "RC_BOMB_SHOP_ITEM_03" };
+        const int namedCount = (int)kCsbFLoadBearingFixedChecks.size();
         std::vector<ComboLogicBagItem> remainsRenewablesAndNamed = remainsAndRenewables;
         int namedFound = 0;
         int namedProgression = 0;
@@ -1343,7 +1344,7 @@ TestResult ComboSingleBag_Run(void) {
         // When the claim fails, the single-content probes that name the culprit: each
         // distinct fixed content not assumed above, added alone (printed, not asserted).
         int probesRestoring = 0;
-        if (namedRc != RSBS_COMBO_LOGIC_OK || withNamed.goalMM != 1 || withRenewables.goalMM != 0) {
+        if (namedRc != RSBS_COMBO_LOGIC_OK || withNamed.goalMM != 1 || (namedCount > 0 && withRenewables.goalMM != 0)) {
             std::vector<uint16_t> probed;
             for (size_t i = 0; i < fixedItems.size(); i++) {
                 bool skip = false;
@@ -1406,7 +1407,9 @@ TestResult ComboSingleBag_Run(void) {
         CSB_ASSERT(namedFound == namedCount && namedProgression == namedCount,
                    "a named fixed content of leg F is not a fixed PROGRESSION content of this world (see "
                    "kCsbFLoadBearingFixedChecks)");
-        CSB_ASSERT(renewablesRc == RSBS_COMBO_LOGIC_OK && withRenewables.goalMM == 0,
+        CSB_ASSERT(renewablesRc == RSBS_COMBO_LOGIC_OK,
+                   "the round with the fixed boss remains and every fixed renewable assumed did not run");
+        CSB_ASSERT(namedCount == 0 || withRenewables.goalMM == 0,
                    "assuming the fixed boss remains and every fixed renewable restores MM's goal without the named "
                    "fixed content, so the named exception is no longer load-bearing: drop it from "
                    "kCsbFLoadBearingFixedChecks");
@@ -2132,7 +2135,7 @@ TestResult ComboSingleBag_Run(void) {
             }
         } restoreCVars{ &savedCVars };
 
-        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS") == 0,
+        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS5") == 0,
                    "the paired generation with both shop shuffles on failed");
         // V2c. A new generation forgets the one file 1 consumed.
         {
@@ -2157,6 +2160,11 @@ TestResult ComboSingleBag_Run(void) {
         // path), so "buying records exactly one MM crossing" is a claim about the
         // other items only. Before #1428/#1425/#1427 moved RSBSSINGLEBAGSHOPS's world,
         // each kind's first MM item happened to be one that crosses.
+        // The seed is RSBSSINGLEBAGSHOPS5 since the MM logic P3 re-pin (#1398): that
+        // moved RSBSSINGLEBAGSHOPS's world so its one merchant-hosted MM item is credited
+        // at pickup, and seeds 2 to 4 put no MM item on an OoT merchant at all (there are
+        // only four merchant hosts). When a re-pin moves this world again, pick the next
+        // suffix whose world has a crossing MM item on each of the three kinds.
         auto creditedAtPickup = [](const SharedItem& item) {
             uint8_t kind = 0;
             uint16_t units = 0;
@@ -2395,7 +2403,7 @@ TestResult ComboSingleBag_Run(void) {
             }
         } restoreCVars{ &savedCVars };
 
-        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSTATICHINTS1") == 0,
+        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSTATICHINTS2") == 0,
                    "the paired generation with Mido's and the boss-door hints on failed");
         CSB_ASSERT(MM_Rando_HeadlessPairedHalf() == 0, "MM's creation-time half failed with the static hints on");
         const int stored = OoT_Creation_FinishPairedHalf(0);

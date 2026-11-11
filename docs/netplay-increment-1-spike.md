@@ -275,7 +275,7 @@ Minimum contract for 1b:
 ## 5. Across a soft reset — blocked on #440
 
 **This is a hard dependency, not a footnote.**
-[#440](https://github.com/spencerduncan/redshipblueship/issues/440) records that
+[#440](https://github.com/penelopeduncan/redshipblueship/issues/440) records that
 cross-game session state is process-global and **nothing invalidates it** on soft
 reset or new game: frozen blobs, both shadows, and `gComboCtx` session fields
 *including `sharedItemsTagged`* all survive. The operator-observed symptom was a new

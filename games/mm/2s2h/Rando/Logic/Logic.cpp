@@ -165,6 +165,62 @@ void EnsureRegionTimeState(std::unordered_map<RandoRegionId, RegionTimeState>& r
     }
 }
 
+// #1453 — WHAT AN EDGE CARRIES. Both traversals below used to copy the source
+// region's WHOLE time mask into the target of any edge whose condition passed.
+// Conditions read time as "any slice in range" against gCurrentRegionTime, so an
+// `IS_NIGHT2()` exit from a region reachable at every owned slice passed once
+// and then handed its target the Day 1 morning too, where a day-gated check row
+// was satisfied by a route that only exists at night.
+//
+// The fix keeps the one whole-mask evaluation the traversal already makes and,
+// only for an edge that PASSED from a source spanning more than one half-day,
+// asks the same lambda again once per spanned half-day with gCurrentRegionTime
+// restricted to that half-day's slices; the edge carries the union of the
+// half-days on which it holds. Cost: an edge that fails, or whose source sits in
+// a single half-day, costs exactly what it did; a passing edge from a multi-
+// half-day source costs at most six more evaluations of the same pure predicate.
+// Per-slice narrowing (46) was rejected on cost (the fill crawls thousands of
+// times per creation). The resolution is the half-day: an edge gated inside a
+// half-day (a shop's hours) still carries that whole half-day's slices, which
+// was already true of the region it leaves.
+//
+// The fallback when NO single half-day satisfies a condition that the whole
+// mask satisfied — only a conjunction of two different half-days can do that,
+// and no edge in Regions/ is written that way today — is the old whole-mask
+// carry, so this change can only ever narrow what an edge carries, never close
+// an edge that was open.
+static constexpr uint64_t kHalfDayMasks[6] = {
+    GetHalfDayTimeMask(0), GetHalfDayTimeMask(1), GetHalfDayTimeMask(2),
+    GetHalfDayTimeMask(3), GetHalfDayTimeMask(4), GetHalfDayTimeMask(5),
+};
+
+uint64_t NarrowEdgeTime(uint64_t sourceTime, const std::function<bool()>& condition) {
+    int spannedHalfDays = 0;
+    for (const uint64_t halfDayMask : kHalfDayMasks) {
+        if ((sourceTime & halfDayMask) != 0) {
+            spannedHalfDays++;
+        }
+    }
+    if (spannedHalfDays <= 1) {
+        return sourceTime;
+    }
+
+    const uint64_t savedTime = gCurrentRegionTime;
+    uint64_t carried = 0;
+    for (const uint64_t halfDayMask : kHalfDayMasks) {
+        const uint64_t slices = sourceTime & halfDayMask;
+        if (slices == 0) {
+            continue;
+        }
+        gCurrentRegionTime = slices;
+        if (condition()) {
+            carried |= slices;
+        }
+    }
+    gCurrentRegionTime = savedTime;
+    return carried != 0 ? carried : sourceTime;
+}
+
 // Time expansion during region traversal with stay restrictions
 // Time expansion semantics: if canStayOverTime, sequentially test each future time slice
 // Stop permanently if any timeStayRestrictions check fails
@@ -224,12 +280,15 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
         // Set global time for check evaluation
         gCurrentRegionTime = currentTime;
 
-        auto propagate = [&](RandoRegionId targetId) {
+        // An edge carries only the slices it holds on (#1453, NarrowEdgeTime).
+        // The carry is always a subset of currentTime, so a target that already
+        // holds all of currentTime cannot grow and is not narrowed at all.
+        auto propagate = [&](RandoRegionId targetId, const std::function<bool()>& condition) {
             if (targetId == RR_MAX) {
                 return; // never re-enter the virtual root (see the header note)
             }
             if (reachableRegions.insert(targetId).second) {
-                regionTimeStates[targetId] = { .timeSlices = currentTime,
+                regionTimeStates[targetId] = { .timeSlices = NarrowEdgeTime(currentTime, condition),
                                                .canStayOverTime = Regions[targetId].canStayOverTime };
                 worklist.push_back(targetId);
                 return;
@@ -240,7 +299,10 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
                 // its state when the worklist reaches it.
                 return;
             }
-            const uint64_t merged = stateIt->second.timeSlices | currentTime;
+            if ((stateIt->second.timeSlices | currentTime) == stateIt->second.timeSlices) {
+                return; // no carry can grow this target
+            }
+            const uint64_t merged = stateIt->second.timeSlices | NarrowEdgeTime(currentTime, condition);
             if (merged != stateIt->second.timeSlices) {
                 stateIt->second.timeSlices = merged; // THE JOIN
                 worklist.push_back(targetId);
@@ -250,17 +312,42 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
         // Explore connections
         for (auto& [connectedRegionId, condition] : sourceRegion.connections) {
             if (condition.first()) {
-                propagate(connectedRegionId);
+                propagate(connectedRegionId, condition.first);
             }
         }
 
         // Explore exits
         for (auto& [exitId, regionExit] : sourceRegion.exits) {
             if (regionExit.condition()) {
-                propagate(GetRegionIdFromEntrance(exitId));
+                propagate(GetRegionIdFromEntrance(exitId), regionExit.condition);
             }
         }
     }
+}
+
+// #1509 — A CLOCK GAIN IN THE SOLO FILL. The glitchless fill used to answer a
+// time item by setting EVERY entry of its regionTimeStates to the new owned
+// slices (plus ExpandTimeForward for regions that can stay). The next sweep
+// only joins into those masks, so a region reached through an `IS_NIGHT2()`
+// edge got every owned half-day back after the first clock and a day-gated
+// check behind it was in logic again: #1453's narrowing undone for every
+// region discovered before the clock.
+//
+// Instead the fill starts its traversal over from the root: the reachable set
+// goes back to { RR_MAX }, the root's state takes the new owned slices (exactly
+// the value the old code gave it), and every other state is dropped, so the
+// next sweep rebuilds each region through NarrowEdgeTime. Clearing the states
+// alone is not enough: a region still in the set would be visited by the
+// fill's sweep with no state and EnsureRegionTimeState would hand it every
+// owned slice, which is the same widening again. Checks and events already in
+// logic are kept by the fill; Regions/ has no negated time predicate, so the
+// rebuild reaches everything it reached before.
+void ResetRegionTimeStatesForTimeGain(std::set<RandoRegionId>& regionsInLogic,
+                                      std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates) {
+    regionsInLogic.clear();
+    regionsInLogic.insert(RR_MAX);
+    regionTimeStates.clear();
+    regionTimeStates[RR_MAX] = { .timeSlices = TimeLogic::GetOwnedTimeSlices(), .canStayOverTime = false };
 }
 
 // ============================================================================
@@ -309,8 +396,11 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
 
         // Region/time propagation with a real JOIN (ADR 0010 D2.3): reaching
         // an already-explored region with NEW time slices unions them and
-        // re-explores, where FindReachableRegions' first-visit guard keeps
-        // whichever time set arrived first and never looks again.
+        // re-explores (FindReachableRegions does the same since #585). Each
+        // edge carries only the half-days its condition holds on (#1453,
+        // NarrowEdgeTime); the join and the fixpoint are unchanged, and a
+        // narrower carry can only make fewer growth events, so this still
+        // drains.
         const std::set<RandoRegionId> frontier = crawl.reachableRegions;
         for (RandoRegionId regionId : frontier) {
             EnsureRegionTimeState(crawl.regionTimeStates, regionId);
@@ -327,14 +417,16 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
             const uint64_t currentTime = sourceState.timeSlices;
             gCurrentRegionTime = currentTime;
 
-            auto propagate = [&](RandoRegionId targetId) {
+            // Narrowed lazily, as in FindReachableRegions: only a new target or
+            // one whose join can still grow pays for NarrowEdgeTime.
+            auto propagate = [&](RandoRegionId targetId, const std::function<bool()>& condition) {
                 if (targetId == RR_MAX) {
                     // Never re-enter the root: it is the seed, and an exit
                     // whose entrance resolves nowhere also lands here.
                     return;
                 }
                 if (crawl.reachableRegions.insert(targetId).second) {
-                    crawl.regionTimeStates[targetId] = { .timeSlices = currentTime,
+                    crawl.regionTimeStates[targetId] = { .timeSlices = NarrowEdgeTime(currentTime, condition),
                                                          .canStayOverTime = Regions[targetId].canStayOverTime };
                     changed = true;
                     return;
@@ -346,7 +438,10 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
                     // loop reaches it.
                     return;
                 }
-                const uint64_t merged = stateIt->second.timeSlices | currentTime;
+                if ((stateIt->second.timeSlices | currentTime) == stateIt->second.timeSlices) {
+                    return; // no carry can grow this target
+                }
+                const uint64_t merged = stateIt->second.timeSlices | NarrowEdgeTime(currentTime, condition);
                 if (merged != stateIt->second.timeSlices) {
                     stateIt->second.timeSlices = merged; // the join
                     changed = true;
@@ -355,12 +450,12 @@ ReachabilityCrawl CrawlReachableRegions(s32 startEntrance) {
 
             for (auto& [connectedRegionId, condition] : sourceRegion.connections) {
                 if (condition.first()) {
-                    propagate(connectedRegionId);
+                    propagate(connectedRegionId, condition.first);
                 }
             }
             for (auto& [exitId, regionExit] : sourceRegion.exits) {
                 if (regionExit.condition()) {
-                    propagate(GetRegionIdFromEntrance(exitId));
+                    propagate(GetRegionIdFromEntrance(exitId), regionExit.condition);
                 }
             }
         }
@@ -405,6 +500,24 @@ std::set<RandoCheckId> EvaluateReachableChecks(const ReachabilityCrawl& crawl) {
     return satisfiable;
 }
 
+std::set<CheckInstance> EvaluateReachableCheckInstances(const ReachabilityCrawl& crawl,
+                                                        const std::set<RandoCheckId>& checks) {
+    // EvaluateReachableChecks stops at the first passing row of a check; the trackers need every passing row, so
+    // that each place an enemy drop is listed under is answered by its own kill (#1498). Same regions, same order,
+    // same time states, so a check is named here exactly when EvaluateReachableChecks named it over this crawl.
+    std::set<CheckInstance> satisfiable;
+    for (RandoRegionId regionId : crawl.reachableRegions) {
+        auto& randoRegion = Regions.at(regionId);
+        SetCurrentRegionTime(crawl.regionTimeStates, regionId);
+        for (auto& [randoCheckId, checkLogic] : randoRegion.checks) {
+            if (checks.contains(randoCheckId) && checkLogic.first()) {
+                satisfiable.insert({ regionId, randoCheckId });
+            }
+        }
+    }
+    return satisfiable;
+}
+
 std::set<RandoCheckId> ComputeReachableCheckSet() {
     // The GlitchlessLogic memcpy swap discipline: the closure simulates a
     // playthrough by GIVING items into the live save, so the whole run is
@@ -418,6 +531,11 @@ std::set<RandoCheckId> ComputeReachableCheckSet() {
     // and truncate back to it so a simulated completion cannot leak a queued
     // transition into gameplay.
     const size_t gameEventsDepth = MM_GameEvents_Queue().size();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW5: Ocarina of Time's warp songs are owned in the combo record,
+    // outside the save snapshot; a simulated collect must not own one.
+    const uint8_t warpSongsOwned = MM_WarpSongsMM_SnapshotOwned();
+#endif
 
     std::set<RandoCheckId> obtainable;
     bool collectedAny = true;
@@ -452,6 +570,9 @@ std::set<RandoCheckId> ComputeReachableCheckSet() {
     if (MM_GameEvents_Queue().size() > gameEventsDepth) {
         MM_GameEvents_Queue().resize(gameEventsDepth);
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    MM_WarpSongsMM_RestoreOwned(warpSongsOwned);
+#endif
     return obtainable;
 }
 

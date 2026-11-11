@@ -390,6 +390,16 @@ void Combo_Tracker_RegisterMM(const ComboMMTrackerDesc* desc);
 const ComboMMTrackerDesc* Combo_Tracker_GetMMDesc(void);
 
 /**
+ * The MM save image every MM read of this view uses (THE SOURCE PICK, #799), for
+ * the other MM views that must switch source together with the check panes (the
+ * combined Hint Tracker's MM pane, #1475): MM's live save while MM is played and
+ * marked (LIVE), else the marked frozen shadow (STALE), else NULL (UNAVAILABLE).
+ * The image is MM's SaveContext layout. `*outFreshness` (may be NULL) receives
+ * the ComboTrackerFreshness. NULL, UNAVAILABLE, with no MM descriptor registered.
+ */
+const void* Combo_TrackerMMSave(uint8_t* outFreshness);
+
+/**
  * Build and register MM's descriptor. DEFINED MM-SIDE
  * (games/mm/2s2h/Rando/TrackerAdapterSingleExe.cpp), declared here because
  * the combo entry point is what calls it. A call rather than a file-scope
@@ -414,8 +424,8 @@ void MM_TrackerAdapter_CaptureAvailability(void);
 // ============================================================================
 //
 // OoT's check status lives on the HEAP (Rando::Context), not in the
-// SaveContext blob — and OOT_SAVE_CONTEXT_SIZE has ~1KB slack, so the blob
-// route is not available even in principle. OoT is suspended, not shut down,
+// SaveContext blob, so there is no blob route to read it through. OoT is
+// suspended, not shut down,
 // during MM, so the heap survives and these accessors stay valid while MM
 // runs. Every function must be null-safe for the never-booted case (the heap
 // context is created lazily; Rando::Context::GetInstance() is NULL until

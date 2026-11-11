@@ -784,8 +784,12 @@ bool MMExtractor::CallZapd(std::string installPath, std::string exportdir, bool 
             // instead (shared driver in src/common/zapd_subprocess.cpp).
             std::string zapdPath = ZapdSubprocess_Locate(assetsPath, "ZAPD_MM");
             if (zapdPath.empty()) {
-                std::string errMsg = "ZAPD extractor executable not found under: " + assetsPath +
-                                     "/extractor\n\nThis may indicate an incomplete installation.";
+                std::string errMsg = "ZAPD extractor executable not found under: " + assetsPath + "/extractor";
+#ifdef __APPLE__
+                // The app bundle ships it in Contents/MacOS (ZapdSubprocess_Locate, #1501).
+                errMsg += " or " + assetsPath + "/../../MacOS";
+#endif
+                errMsg += "\n\nThis may indicate an incomplete installation.";
                 fprintf(stderr, "%s\n", errMsg.c_str());
                 ShowErrorBox("Extraction Failed", errMsg.c_str());
             } else {

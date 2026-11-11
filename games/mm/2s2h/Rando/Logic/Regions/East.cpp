@@ -147,7 +147,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_IKANA_CANYON_SCRUB_PIECE_OF_HEART, Flags_GetRandoInf(RANDO_INF_OBTAINED_DEED_OCEAN) && CAN_BE_ZORA && CAN_BE_DEKU),
             CHECK(RC_IKANA_CANYON_SCRUB_HUGE_RUPEE, Flags_GetRandoInf(RANDO_INF_OBTAINED_DEED_OCEAN) && CAN_BE_ZORA),
             CHECK(RC_IKANA_CANYON_SCRUB_POTION_REFILL, CUR_UPG_VALUE(UPG_WALLET) >= 1),
-            CHECK(RC_ENEMY_DROP_OCTOROK, CanKillEnemy(ACTOR_EN_OKUTA)),
+            CHECK(RC_ENEMY_DROP_OCTOROK, CanKillEnemy(ACTOR_EN_OKUTA) && CAN_USE_ABILITY(SWIM)),
             CHECK(RC_ENEMY_DROP_GARO, CanKillEnemy(ACTOR_EN_JSO)),
         },
         .exits = { //     TO                                         FROM
@@ -177,6 +177,10 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_IKANA_CANYON_UPPER] = RandoRegion{ .name = "Upper", .sceneId = SCENE_IKANA,
         .checks = {
+            CHECK(RC_IKANA_CANYON_GRASS_01, true),
+            CHECK(RC_IKANA_CANYON_GRASS_02, true),
+            CHECK(RC_IKANA_CANYON_GRASS_03, true),
+            CHECK(RC_IKANA_CANYON_GRASS_04, true),
             CHECK(RC_IKANA_CANYON_OWL_STATUE, CAN_USE_SWORD),
             CHECK(RC_IKANA_CANYON_TINGLE_MAP_01, CAN_USE_PROJECTILE && CAN_AFFORD(RC_IKANA_CANYON_TINGLE_MAP_01)),
             CHECK(RC_IKANA_CANYON_TINGLE_MAP_02, CAN_USE_PROJECTILE && CAN_AFFORD(RC_IKANA_CANYON_TINGLE_MAP_02)),
@@ -228,6 +232,11 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_IKANA_GRAVEYARD_LOWER] = RandoRegion{ .name = "Lower", .sceneId = SCENE_BOTI,
         .checks = {
+            CHECK(RC_IKANA_GRAVEYARD_LOWER_GRASS_01, true),
+            CHECK(RC_IKANA_GRAVEYARD_LOWER_GRASS_02, true),
+            CHECK(RC_IKANA_GRAVEYARD_LOWER_GRASS_03, true),
+            CHECK(RC_IKANA_GRAVEYARD_LOWER_GRASS_04, true),
+            CHECK(RC_IKANA_GRAVEYARD_LOWER_GRASS_05, true),
             CHECK(RC_IKANA_GRAVEYARD_GRASS_01, true),
             CHECK(RC_IKANA_GRAVEYARD_GRASS_02, true),
             CHECK(RC_IKANA_GRAVEYARD_GRASS_03, true),
@@ -237,6 +246,19 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_IKANA_GRAVEYARD_GRASS_07, true),
             CHECK(RC_IKANA_GRAVEYARD_GRASS_08, true),
             CHECK(RC_IKANA_GRAVEYARD_GRASS_09, true),
+            // Rocks can be picked up and thrown at these:
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_01, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_02, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_03, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_04, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_05, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_06, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_07, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_08, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_09, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_10, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_11, true),
+            CHECK(RC_IKANA_GRAVEYARD_WONDER_ITEM_12, true),
             CHECK(RC_ENEMY_DROP_STALCHILD, CanKillEnemy(ACTOR_EN_SKB) && IS_NIGHT()), // Night only
             CHECK(RC_ENEMY_DROP_BAD_BAT, CanKillEnemy(ACTOR_EN_BAT) && IS_DAY()), // Day only
         },
@@ -258,7 +280,6 @@ static RegisterShipInitFunc initFunc([]() {
         .checks = {
             CHECK(RC_IKANA_GRAVEYARD_CAPTAIN_MASK, CanKillEnemy(ACTOR_EN_SKB) && CanKillEnemy(ACTOR_EN_BSB)),
             CHECK(RC_ENEMY_DROP_STALCHILD, CanKillEnemy(ACTOR_EN_SKB)),
-            CHECK(RC_ENEMY_DROP_BAD_BAT, CanKillEnemy(ACTOR_EN_BAT) && IS_DAY()), // Day only
             CHECK(RC_ENEMY_DROP_CAPTAIN_KEETA, CanKillEnemy(ACTOR_EN_SKB) && CanKillEnemy(ACTOR_EN_BSB)),
         },
         .connections = {
@@ -374,6 +395,12 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_SECRET_SHRINE_ENTRANCE] = RandoRegion{ .name = "Entrance", .sceneId = SCENE_RANDOM,
         .checks = {
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_01, true),
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_02, true),
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_03, true),
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_04, true),
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_05, true),
+            CHECK(RC_SECRET_SHRINE_ENTRANCE_GRASS_06, true),
             CHECK(RC_SECRET_SHRINE_FREESTANDING_RUPEE_01, CAN_GROW_BEAN_PLANT || CAN_BE_ZORA),
             CHECK(RC_SECRET_SHRINE_FREESTANDING_RUPEE_02, CAN_GROW_BEAN_PLANT || CAN_BE_ZORA),
             CHECK(RC_SECRET_SHRINE_FREESTANDING_RUPEE_03, CAN_GROW_BEAN_PLANT || CAN_BE_ZORA),
@@ -404,6 +431,29 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_SECRET_SHRINE] = RandoRegion{ .sceneId = SCENE_RANDOM,
         .checks = {
+            CHECK(RC_SECRET_SHRINE_DINOLFOS_GRASS_01, true),
+            CHECK(RC_SECRET_SHRINE_DINOLFOS_GRASS_02, true),
+            CHECK(RC_SECRET_SHRINE_DINOLFOS_GRASS_03, true),
+            CHECK(RC_SECRET_SHRINE_DINOLFOS_GRASS_04, true),
+            CHECK(RC_SECRET_SHRINE_WIZZROBE_GRASS_01, true),
+            CHECK(RC_SECRET_SHRINE_WIZZROBE_GRASS_02, true),
+            CHECK(RC_SECRET_SHRINE_WIZZROBE_GRASS_03, true),
+            CHECK(RC_SECRET_SHRINE_WIZZROBE_GRASS_04, true),
+            CHECK(RC_SECRET_SHRINE_WIZZROBE_GRASS_05, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_01, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_02, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_03, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_04, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_05, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_06, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_07, true),
+            CHECK(RC_SECRET_SHRINE_WART_GRASS_08, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_01, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_02, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_03, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_04, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_05, true),
+            CHECK(RC_SECRET_SHRINE_GARO_MASTER_GRASS_06, true),
             CHECK(RC_SECRET_SHRINE_DINALFOS_CHEST, RANDO_EVENTS[RE_SECRET_SHRINE_DINALFOS]),
             CHECK(RC_SECRET_SHRINE_WIZZROBE_CHEST, RANDO_EVENTS[RE_SECRET_SHRINE_WIZZROBE]),
             CHECK(RC_SECRET_SHRINE_WART_CHEST, RANDO_EVENTS[RE_SECRET_SHRINE_WART]),

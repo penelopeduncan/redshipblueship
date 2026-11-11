@@ -13,7 +13,7 @@
  * not thread-safe, both buffers come back zeroed, ReadResourceInitDataBinary
  * sees ByteOrder/Type/Version = 0, and both loads return nullptr — one
  * unchecked consumer then AVs. The root fix is a per-archive-object mutex in
- * the libultraship fork (spencerduncan/libultraship); this lock is the
+ * the libultraship fork (penelopeduncan/libultraship); this lock is the
  * regression tripwire for it, made possible by #562 mounting soh.o2r where the
  * ctest rows look.
  *

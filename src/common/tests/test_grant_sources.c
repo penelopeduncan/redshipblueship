@@ -31,6 +31,7 @@
  */
 
 #include "../context.h"
+#include "../crossing_store.h" // the v6 Tier-4 block the crafted pre-netplay file carries
 #include "../save.h"
 #include "../shared_items.h"
 #include "../test_runner.h"
@@ -107,7 +108,7 @@ int GrantTestOccupiedTotal(void) {
 // bytes no pre-netplay build ever wrote, and this test would keep passing
 // while the format broke. That is why context.h pins 672 and 736 as literals
 // and why bumping the cap is a build error rather than a comment violation.
-// Test_SaveComboLegacyRecord's v2 fixed-offset case is the runtime half of the
+// Test_SaveComboLegacyRecord's fixed-offset case is the runtime half of the
 // same lock: it drives literal bytes at 672/676/736 through the real Load.
 bool GrantTestWriteLegacySlot(const std::string& path) {
     const uint32_t comboSize = (uint32_t)offsetof(ComboContext, grantCursors);
@@ -116,14 +117,23 @@ bool GrantTestWriteLegacySlot(const std::string& path) {
     payload.insert(payload.end(), comboBytes, comboBytes + comboSize);
     payload.insert(payload.end(), OOT_SAVE_CONTEXT_SIZE, 0u);
     payload.insert(payload.end(), MM_SAVE_CONTEXT_SIZE, 0u);
+    // Save format 6 refuses every v1-v5 file, so the short pre-netplay record is
+    // crafted at v6 (the zero-extension it exercises is the same one a later v6
+    // build gives an earlier v6 record) with the Tier-4 and Tier-5 blocks a v6
+    // file carries, serialized from the live stores.
+    std::vector<uint8_t> crossings(Combo_Crossings_SerializedSize());
+    std::vector<uint8_t> overflow(Combo_SharedItemOverflow_SerializedSize());
+    if (Combo_Crossings_Serialize(crossings.data(), crossings.size()) != crossings.size() ||
+        Combo_SharedItemOverflow_Serialize(overflow.data(), overflow.size()) != overflow.size()) {
+        return false;
+    }
+    payload.insert(payload.end(), crossings.begin(), crossings.end());
+    payload.insert(payload.end(), overflow.begin(), overflow.end());
 
     rsbs::RsbsSaveHeader h;
     std::memset(&h, 0, sizeof(h));
     std::memcpy(h.magic, RSBS_SAVE_MAGIC, sizeof(h.magic));
-    // The last version WITHOUT the Tier-4 crossing block (ADR 0010 O7): this
-    // file is assembled by hand from Tiers 1-3 only, and a v3 header would
-    // promise a Tier-4 the payload does not carry.
-    h.version = RSBS_SAVE_VERSION_CROSSINGS - 1u;
+    h.version = RSBS_SAVE_VERSION;
     h.endian = RSBS_SAVE_ENDIAN_LE;
     h.slot = 0;
     h.headerSize = sizeof(rsbs::RsbsSaveHeader);

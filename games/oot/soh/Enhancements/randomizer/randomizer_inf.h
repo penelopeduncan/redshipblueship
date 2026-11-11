@@ -2121,13 +2121,44 @@ DEFINE_RAND_INF(RAND_INF_OBTAINED_BLAST_MASK)
 DEFINE_RAND_INF(RAND_INF_OBTAINED_STONE_MASK)
 // [RSBS #1169 XW4] OoT owns the Song of Soaring (OoT) (OoTMM songSoaringOot).
 // Appended last, as the masks': 2063 flags fill 2063 of the 129 u16 words' 2064
-// bits, so the save layout is unchanged and ONE flag is left before a 130th word
-// (SongOfSoaringOoT.cpp static_asserts the word count). That held until #1363:
-// the 154 silver rupee flags below grow RAND_INF to 2217 flags, 139 u16 words,
-// which moves every saved field after it; how that layout change is handled is
-// an open save-layout decision (OoTSoaringTableBounds still pins 129).
+// bits, so the save layout is unchanged (SongOfSoaringOoT.cpp static_asserts the
+// word count).
 DEFINE_RAND_INF(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT)
-
+// [RSBS #1364] SoH 6706b49d1 puts this after RAND_INF_GREG_FOUND; appended here so
+// no other flag moves. 2064 flags. Since save format 6 the saved array is a fixed
+// capacity of RSBS_OOT_RAND_INF_CAP (8192) flags (z64save.h), so the next flag
+// appended here moves no save field; SongOfSoaringOoT.cpp static_asserts that
+// RAND_INF_MAX fits the capacity. RAND_INF_MAX is the "no flag" sentinel that
+// unidentified crates, grass, pots and cows keep, never a flag:
+// Flags_Get/Set/UnsetRandomizerInf (z_actor.c) ignore it and everything past it.
+DEFINE_RAND_INF(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER)
+// [RSBS #1407] SoH's butterfly fairy shuffle: one flag per butterfly fairy check,
+// appended after the shopkeeper's, in the checks' order (2064..2083, 2084 flags).
+// They land in the fixed-capacity words, so no save field moves.
+DEFINE_RAND_INF(RAND_INF_HC_NEAR_WALL_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HC_NEAR_STAIRS_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HC_NEAR_BOULDER_PATH_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HC_NEAR_ARCHWAY_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_LW_MEADOW_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_GY_NEAR_HUT_GRAVE_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_ZR_WATERFALL_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_ZF_LOG_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_LH_SCARECROW_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_KF_STORMS_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_LW_TUNNEL_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_DMT_STORMS_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_DMC_UPPER_BOULDER_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HF_NEAR_MARKET_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HF_SOUTHEAST_BOULDER_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_HF_OPEN_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_KAK_OPEN_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_ZR_OPEN_GROTTO_BUTTERFLY_FAIRY)
+DEFINE_RAND_INF(RAND_INF_KAK_WATCHTOWER_BUTTERFLY_FAIRY)
+// [RSBS #1363] SoH b76e303ce's silver rupee shuffle: one flag per silver rupee
+// check, appended after #1407's butterfly fairies, in the checks' order
+// (2084..2237, 2238 flags). They land in the fixed-capacity words, so no save
+// field moves.
 // Start Silver Rupees
 DEFINE_RAND_INF(RAND_INF_RC_SHADOW_N_UNDER_BLADE_SILVER)
 DEFINE_RAND_INF(RAND_INF_RC_SHADOW_TALL_BLOCK_BLADE_SILVER)

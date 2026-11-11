@@ -6,11 +6,13 @@
   (#589, whole-file commit) and **decision 4a decided 2026-08-05** (#589,
   quit-to-title is a durable commit) under the one-game ruling; **decision 4b
   decided 2026-09-06, recorded 2026-09-10** (#590/#625, MM's death-decline
-  exit is an autosave point iff Autosave is on)
+  exit is an autosave point iff Autosave is on); **the `reserved[]` budget
+  retired 2026-11-10** under save format 6 (the clean break of #1510, #1512,
+  #1513 and #1514; see "Amendment — save format 6" at the end of the budget)
 - For: #498 (combo-level settings), gating #493 (MM -> OoT foreign items); Phase
   3.1 tracker #492, Lane 1
 - Amended: **2026-07-30, #564** (the one-game ruling is recorded on
-  [#500](https://github.com/spencerduncan/redshipblueship/issues/500#issuecomment-5126492334))
+  [#500](https://github.com/penelopeduncan/redshipblueship/issues/500#issuecomment-5126492334))
   — decision 1 (a frozen record on the save side is world identity, not a second
   settings store; the digest becomes a cross-check stamped before the act it
   validates) and decision 2 (identity is the post-condition of the WHOLE
@@ -28,10 +30,10 @@
   `reserved[124]`.) See the amendment inside "The `reserved[264]` byte
   budget" below; the table's original rows are kept for the trail and marked,
   not deleted.
-- Extended: **2026-08-04, [#589](https://github.com/spencerduncan/redshipblueship/issues/589)**
+- Extended: **2026-08-04, [#589](https://github.com/penelopeduncan/redshipblueship/issues/589)**
   — decision 4 applies the same one-game ruling to durable commits (a commit is
   the WHOLE file; on load the newest whole commit wins), which structurally
-  retires [#531](https://github.com/spencerduncan/redshipblueship/issues/531).
+  retires [#531](https://github.com/penelopeduncan/redshipblueship/issues/531).
   Decisions 1-3 are unchanged. Added rather than amended because it decides a
   question none of them addressed: not what a save file *identifies*, but what
   a save *commits*. **Decision 4a (2026-08-05)** closes the one question
@@ -49,7 +51,7 @@
   for the switch that follows the exit — decision 4c below makes every
   crossing a commit. The death moment itself is still unwritten with
   Autosave off.)*
-  **Decision 4c (ruled 2026-10-01, [#837](https://github.com/spencerduncan/redshipblueship/issues/837))**:
+  **Decision 4c (ruled 2026-10-01, [#837](https://github.com/penelopeduncan/redshipblueship/issues/837))**:
   every cross-game crossing (door or F10, either direction) is a whole-file
   commit, as OoTMM saves at every game switch. Carves no bytes.
 - Depends on:
@@ -371,7 +373,7 @@ determinism digest.
 
 ## Decision 4 — a durable commit is the WHOLE file; on load, the newest whole commit wins
 
-> **2026-08-04, operator ruling on [#589](https://github.com/spencerduncan/redshipblueship/issues/589).**
+> **2026-08-04, operator ruling on [#589](https://github.com/penelopeduncan/redshipblueship/issues/589).**
 > *Whole-file commit: any half's save-and-quit commits BOTH halves at one
 > generation, in one instant, through the existing #569 commit choke point; on
 > load, the newest whole commit wins.* Recorded here rather than in a new ADR
@@ -412,7 +414,7 @@ at that commit: `LoadSlot` arms it and OoT's load seam consumes it into the
 live `SaveContext` before `Sram_OpenSave` interprets the file. Detection
 becomes authority.
 
-**What this retires.** [#531](https://github.com/spencerduncan/redshipblueship/issues/531)
+**What this retires.** [#531](https://github.com/penelopeduncan/redshipblueship/issues/531)
 (P1, permanent loss of cross-game progression items) is retired
 *structurally*, not patched. Its mechanism was a durable
 `RSBS_SHARED_ITEM_REDEEMED` record outliving the world state it accounted for:
@@ -497,7 +499,7 @@ not a teardown.
 ### Decision 4b — MM's death-decline exit is an AUTOSAVE POINT iff Autosave is on (decided, not a consequence)
 
 > **2026-09-06, operator ruling on the sub-question PR #625 recorded for
-> [#590](https://github.com/spencerduncan/redshipblueship/issues/590); written
+> [#590](https://github.com/penelopeduncan/redshipblueship/issues/590); written
 > down 2026-09-10.** *When the player declines the "continue?" prompt on MM's
 > game-over screen and exits, that exit is an AUTOSAVE point if and only if the
 > MM Autosave enhancement is on: a whole-file commit through the #569 choke
@@ -595,7 +597,7 @@ a force-boot never leaves it — has the bootstrap file resident, and committing
 it would write a vanilla bootstrap into the player's slot by one more route.
 Behind the same cross-game gate as the owl exit (`Context_HasFrozenState(GAME_OOT)`),
 so standalone 2ship keeps its title-screen exit and its save untouched. The
-F10-during-game-over route ([#626](https://github.com/spencerduncan/redshipblueship/issues/626))
+F10-during-game-over route ([#626](https://github.com/penelopeduncan/redshipblueship/issues/626))
 bypasses this leg entirely and is not decided here.
 
 **What this obliges.** The death-decline exit is now a save route when Autosave
@@ -611,8 +613,8 @@ committed Tier-3 carries the revived bar.
 ### Decision 4c — every cross-game crossing is a WHOLE-FILE COMMIT
 
 > **2026-10-01, operator ruling on decision 16 (the moon-crash scope PR #789
-> and [#803](https://github.com/spencerduncan/redshipblueship/issues/803) left
-> open), scoped by [#837](https://github.com/spencerduncan/redshipblueship/issues/837).**
+> and [#803](https://github.com/penelopeduncan/redshipblueship/issues/803) left
+> open), scoped by [#837](https://github.com/penelopeduncan/redshipblueship/issues/837).**
 > *Option (b): every cross-game crossing is a save commit, as OoTMM's
 > `comboGameSwitch` saves at every game switch. The F10 hot swap is a
 > crossing.*
@@ -672,7 +674,7 @@ Temple of Time, or with Remember Save Location to the frozen `entranceIndex`
 field.
 
 *The departure records its scene*
-([#850](https://github.com/spencerduncan/redshipblueship/issues/850)). Only a
+([#850](https://github.com/penelopeduncan/redshipblueship/issues/850)). Only a
 save wrote `savedSceneNum` (`Play_PerformSave`, the kaleido save prompt), so the
 freeze carried the scene of the last *save*, not the one Link stood in at the
 crossing: an F10 crossing taken inside a grotto, a fairy fountain, a boss room
@@ -703,7 +705,7 @@ does not write, and the despawn test for heart pieces, small keys, heart
 containers and shuffled freestanding items reads that status, not the
 collectible flag in the half. A reload of a crossing commit therefore
 respawned such an item collected before the crossing
-([#849](https://github.com/spencerduncan/redshipblueship/issues/849)).
+([#849](https://github.com/penelopeduncan/redshipblueship/issues/849)).
 Resolved without a format change: when a load applies the `.redsave`'s OoT
 half, every check whose own collection flag differs between the `.sav`'s base
 section and the loaded half takes the loaded half's answer (found: `SAVED`;
@@ -731,7 +733,7 @@ see the cross-reference at the end of this section.
 ### (a) #653 — MM death keeps 2ship's inherited direct respawn
 
 > **2026-09-16, operator ruling on
-> [#653](https://github.com/spencerduncan/redshipblueship/issues/653).** *"Keep
+> [#653](https://github.com/penelopeduncan/redshipblueship/issues/653).** *"Keep
 > the current respawn behaviour (vanilla MM: reload at the area entrance with
 > three hearts, no prompt). Works as intended."*
 
@@ -766,7 +768,7 @@ menu-surface question.
 ### (b) #654 — the cross-game arrival IS Majora's Mask's intro event
 
 > **2026-09-16, operator ruling on
-> [#654](https://github.com/spencerduncan/redshipblueship/issues/654).** *"The way
+> [#654](https://github.com/penelopeduncan/redshipblueship/issues/654).** *"The way
 > it works in both combo and rando is: MM starts with the randomized starting
 > items, going into the field acts like you have the ocarina, etc. Going into MM
 > triggers those drops as checks (ocarina/deku/songs/magic), puts you in human
@@ -898,6 +900,8 @@ Publishing the allocation once beats five sequential re-versions:
 | 17 (2026-10-28) | `trackerSkipJournalCountOoT` + `trackerSkipJournalOoT[64]` (#1294: the combo tracker's OoT pane's skips taken while Majora's Mask is played) | 130 B | **appended** after #1129's availability captures, offsets **1712-1841** (1842 bytes of 2048 used, `sizeof(ComboContext)` 1844), inside the 2048-byte record; neither the record size nor `RSBS_SAVE_VERSION` moves (an older record zero-extends to an empty journal); `reserved[90]` is untouched |
 | 18 (2026-11-03) | `comboWoth` (`ComboWothRecord`, #1439: the pair's frozen Way of the Hero as areas of the shared hint vocabulary, which Majora's Mask's gossip stones read; a creation record) | 11 B | **carved** — offset **914**; `reserved[79]` now begins at 925, 15 bytes above the floor; `sizeof(ComboContext)` stays 1844, so a seed package's combo record keeps its size |
 | 19 (2026-11-04) | `comboItemRules2` (`ComboItemRules2Record`, #1169 lane XW2: the second cross-game rules word, OoTMM's fourteen warp-song rules; a creation record and a world field; ADR 0011's 2026-11-04 amendment) | 4 B | **carved** — offset **925**, directly after claim 18, four bytes little-endian (no alignment, so no padding byte is spent); `reserved[75]` now begins at 929, 11 bytes above the floor; `sizeof(ComboContext)` stays 1844, so a seed package's combo record keeps its size. `ComboItemRulesRecord.spare[3]` was measured first and holds 24 bits, not 32 |
+| 20 (2026-11-04) | `mmHintsRead[10]` (#1475 lane H1: the combined Hint Tracker's Majora's Mask read record, one bit per MM hint source, `RSBS_MM_HINT_READ_CAP` 80 bits for 74 sources: the 58 gossip-stone placements and MM's 16 fixed-location hints; progress, not a creation record or a world field) | 10 B | **carved** — offset **929**, directly after claim 19; `reserved[65]` now begins at 939, **1 byte above the floor**; `sizeof(ComboContext)` stays 1844, so a seed package's combo record keeps its size. Session state: not in the invalidation KEEP set (a new file reads nothing read), carried by every Tier-1 write and restored by every load, written only by MM's read hook. Carved rather than appended because an append moves `sizeof(ComboContext)` and with it a seed package's combo record, which this lane may not change. **The next carver has one byte**: anything wider appends after claim 17's journal (and owns the seed-package consequence) or amends the floor |
+| 21 (2026-11-10) | `mmWarpSongsOwned` (#1169 lane XW5: which of Ocarina of Time's six warp songs Majora's Mask owns as its own items, one bit each in OoTMM's order; session state, and at Generate the world's starting songs, so a seed package's world record carries it; not KEPT by the file-create invalidation and not folded into the fingerprint) | 1 B | **carved from the END** — offset **1003**, the last byte of claim 20's `reserved[65]`, so claim 20's record and every offset ahead of it stay put; `reserved[64]` still begins at 939, **exactly on the floor**; `sizeof(ComboContext)` stays 1844 and #1129's captures stay at 1004. MM's `RandoSaveInfo` was measured first: no tail padding and two free `randoInf` bits, so six flags there would shift every later `SaveContext` field. **`reserved[]` is now spent**: the next claimant appends after claim 17's journal (and owns the seed-package consequence) or amends the floor |
 
 Total reserved-against: 152 B of 284. After claims 1, 3, 5 and 6 land, `reserved[]`
 is 132 bytes and 152 B of capacity remain.
@@ -1084,6 +1088,46 @@ The capacity that does **not** exist, so nobody re-derives it hopefully: raising
 `RSBS_FOREIGN_PLACEMENT_CAP` in place is a build error as of #490, and a
 symmetric ~55-entry carve in both directions would consume the entire budget and
 leave nothing for claims 2-4.
+
+### Amendment — save format 6: the floor is retired, `reserved[]` is frozen, growth is append-only (2026-11-10)
+
+The operator ruled on 2026-11-10 that the four layout-changing backports
+(#1510, #1512, #1513, #1514) land as **one clean save break**, and that the
+shared context record stop being a recurring problem. Save format 6
+(`RSBS_SAVE_VERSION` 6, `RSBS_SAVE_VERSION_MIN` 6, `src/common/save.h`) is that
+break. For this ADR's budget it means:
+
+- **The 64-byte floor is retired.** It existed so `Test_SaveComboRecordFixed`'s
+  scribble loop could never pass vacuously; that loop now runs over a frozen
+  `reserved[]` and over the record's tail (the skip journal), so it no longer
+  depends on a budget anyone spends from.
+- **`reserved[64]` at offset 939 is frozen.** It is never carved again
+  (`context.h` asserts its size `== 64`, not `>= 64`). Claim 21 (`mmWarpSongsOwned`,
+  carved from its end at 1003) is the last claim this table records.
+- **Growth is append-only, at the end of `ComboContext`.** A new Tier-1 field goes
+  after the last member (today `saveWatermark`, the save watermark appended by
+  format 6), raises `RSBS_SAVE_LAYOUT_REVISION`, and updates the measured
+  `sizeof` pin (`src/common/save_layout_pins.h`). It also moves `context.h`'s
+  last-member assert (`sizeof(ComboContext) == offsetof(<last member>) +
+  sizeof(<it>)`, today written against `saveWatermark`) to the new member, which
+  that assert otherwise refuses whatever the pin says; the members before it keep
+  their contiguity asserts. No `RSBS_SAVE_VERSION` change:
+  an older format-6 record zero-extends, so "zero means unset" holds for every
+  appended field, as it did for every carve.
+- **The record is 4096 bytes** (`RSBS_COMBO_CONTEXT_RECORD_SIZE`, was 2048).
+  Format 6 widened the tracker captures (OoT 8192 checks, 1024 bytes; MM 4096,
+  512 bytes), which moved the MM capture, the skip journal and everything after
+  them; the watermark (20 bytes, after 2 bytes of padding) follows the journal.
+  Offsets up to 1007 are unchanged. By hand the struct is 2696 bytes, leaving
+  about 1400 to append into; the measured value is the pin's.
+- **A seed package's combo record is fixed-size too** (package format 2): written
+  at 4096 bytes, zero-padded, accepted shorter and refused with a nonzero byte past
+  the reading build's struct. An append therefore no longer refuses every older
+  package, which was the cost that made carving preferable to appending until now.
+
+The full rule a lane follows without asking (the per-game spare blocks, the
+capacity rule for upstream-growing arrays, what forces a format generation) is
+the seven-point growth rule in `context.h` above `RSBS_COMBO_CONTEXT_RECORD_SIZE`.
 
 ## Consequences
 

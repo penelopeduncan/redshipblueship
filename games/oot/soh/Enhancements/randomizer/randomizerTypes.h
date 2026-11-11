@@ -487,6 +487,7 @@ typedef enum {
     RCTYPE_BEAN_FAIRY,                 // Fairies from Beans
     RCTYPE_SONG_FAIRY,                 // Fairies from Songs
     RCTYPE_GRASS,                      // Grass
+    RCTYPE_BUTTERFLY_FAIRY,            // Fairies from Butterflies
     RCTYPE_SILVER,                     // Silver rupees
 } RandomizerCheckType;
 
@@ -1598,6 +1599,19 @@ typedef enum {
     // appended here so no other region id moves.
     RR_CASTLE_GROUNDS_FROM_GREAT_FAIRY,
     RR_CASTLE_GROUNDS_FROM_GROTTO,
+
+    // SoH a40ca58ab puts these just before and just after RR_SHADOW_TEMPLE_ACROSS_CHASM;
+    // appended here so no other region id moves.
+    RR_SHADOW_TEMPLE_CHASM_SCARECROW,
+    RR_SHADOW_TEMPLE_BROKEN_PILLAR,
+
+    // SoH 53f688df5 puts these after RR_FIRE_TEMPLE_NEAR_BOSS_ROOM and
+    // RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM; appended here so no other region id moves.
+    RR_FIRE_TEMPLE_NEAR_BOSS_PILLAR,
+    RR_FIRE_TEMPLE_NEAR_BOSS_DOOR,
+    RR_FIRE_TEMPLE_NEAR_BOSS_TARGET,
+    RR_FIRE_TEMPLE_MQ_NEAR_BOSS_PILLAR,
+    RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR,
 
     // SoH b76e303ce Shuffle Silver regions; appended here so no existing region id moves.
     RR_SHADOW_TEMPLE_FLOOR_SPIKES_S_DOOR,
@@ -3352,7 +3366,7 @@ typedef enum {
     RC_LW_NEAR_SHORTCUTS_GROTTO_BEEHIVE_LEFT,
     RC_LW_NEAR_SHORTCUTS_GROTTO_BEEHIVE_RIGHT,
     RC_LW_DEKU_SCRUB_GROTTO_BEEHIVE,
-    RC_SFM_STORMS_GROTTO_BEEHIVE,
+    RC_SFM_DEKU_SCRUB_GROTTO_BEEHIVE,
     RC_HF_NEAR_MARKET_GROTTO_BEEHIVE_LEFT,
     RC_HF_NEAR_MARKET_GROTTO_BEEHIVE_RIGHT,
     RC_HF_OPEN_GROTTO_BEEHIVE_LEFT,
@@ -3372,13 +3386,13 @@ typedef enum {
     RC_DMC_HAMMER_GROTTO_BEEHIVE,
     RC_ZR_OPEN_GROTTO_BEEHIVE_LEFT,
     RC_ZR_OPEN_GROTTO_BEEHIVE_RIGHT,
-    RC_ZR_STORMS_GROTTO_BEEHIVE,
+    RC_ZR_DEKU_SCRUB_GROTTO_BEEHIVE,
     RC_ZD_IN_FRONT_OF_KING_ZORA_BEEHIVE_LEFT,
     RC_ZD_IN_FRONT_OF_KING_ZORA_BEEHIVE_RIGHT,
     RC_ZD_BEHIND_KING_ZORA_BEEHIVE,
     RC_LH_GROTTO_BEEHIVE,
     RC_GV_DEKU_SCRUB_GROTTO_BEEHIVE,
-    RC_COLOSSUS_GROTTO_BEEHIVE,
+    RC_COLOSSUS_DEKU_SCRUB_GROTTO_BEEHIVE,
     RC_GANONDORF_HINT,
     RC_SHEIK_HINT_GC,
     RC_SHEIK_HINT_MQ_GC,
@@ -4179,6 +4193,33 @@ typedef enum {
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8,
     // End Grass
 
+    // SoH 6706b49d1 puts this after RC_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other check id moves.
+    RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // Butterfly fairies (#1407; SoH's butterfly fairy shuffle). Appended after main's
+    // last check, so no id a world or a save holds moves: 2528..2547.
+    RC_HC_NEAR_WALL_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_STAIRS_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_BOULDER_PATH_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_ARCHWAY_BUTTERFLY_FAIRY,
+    RC_LW_MEADOW_BUTTERFLY_FAIRY,
+    RC_GY_NEAR_HUT_GRAVE_BUTTERFLY_FAIRY,
+    RC_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY,
+    RC_ZR_WATERFALL_BUTTERFLY_FAIRY,
+    RC_ZF_LOG_BUTTERFLY_FAIRY,
+    RC_LH_SCARECROW_BUTTERFLY_FAIRY,
+    RC_KF_STORMS_GROTTO_BUTTERFLY_FAIRY,
+    RC_LW_TUNNEL_GROTTO_BUTTERFLY_FAIRY,
+    RC_DMT_STORMS_GROTTO_BUTTERFLY_FAIRY,
+    RC_DMC_UPPER_BOULDER_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_NEAR_MARKET_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_SOUTHEAST_BOULDER_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_KAK_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_ZR_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY,
+
+    // Silver rupees (#1363; SoH b76e303ce). Appended after #1407's butterfly
+    // fairies, so no id a world or a save holds moves: 2548..2701.
     // Start Silver Rupees
     RC_SHADOW_N_UNDER_BLADE_SILVER,
     RC_SHADOW_TALL_BLOCK_BLADE_SILVER,
@@ -4349,16 +4390,19 @@ typedef enum {
     RT_GROTTOS_WITHOUT_AGONY,
     RT_FEWER_TUNIC_REQUIREMENTS,
     RT_UNINTUITIVE_JUMPS,
-    RT_RUSTED_SWITCHES,
-    RT_FLAMING_CHESTS,
+    RT_RUSTED_SWITCHES = RT_VISIBLE_COLLISION,
+    RT_FIRE_RINGS = 5,
+    RT_FLAMING_CHESTS = RT_FIRE_RINGS,
     RT_BUNNY_HOOD_JUMPS,
     RT_DAMAGE_BOOST_SIMPLE,
     RT_HOVER_BOOST_SIMPLE,
     RT_BOMBCHU_BEEHIVES,
     RT_BLUE_FIRE_MUD_WALLS,
     RT_OPEN_UNDERWATER_CHEST,
-    RT_DISTANT_BOULDER_COLLISION,
-    RT_HOOKSHOT_EXTENSION,
+    RT_BOULDER_COLLISION,
+    RT_DISTANT_BOULDER_COLLISION = RT_BOULDER_COLLISION,
+    RT_ITEM_EXTENSION,
+    RT_HOOKSHOT_EXTENSION = RT_ITEM_EXTENSION,
     RT_SLIDE_JUMP,
     RT_KF_ADULT_GS, // -- location tricks
     RT_LW_BRIDGE,
@@ -4618,6 +4662,7 @@ typedef enum {
     RT_GANONS_CASTLE_BARRIER_SKIP_HOVER,
     RT_GANONS_CASTLE_GOLD_GAUNTLET_SKIP,
     RT_HOOKSHOT_LADDERS,
+    RT_DMT_SHIELDLESS_CLIMB,
     RT_MAX
 } RandomizerTrick;
 
@@ -6593,7 +6638,24 @@ typedef enum {
     // [RSBS #1169 XW4] the hint text of RG_SONG_OF_SOARING_OOT. Appended last, as
     // RHT_STONE_MASK is.
     RHT_SONG_OF_SOARING_OOT,
-    // Silver Shuffle
+    // SoH 6706b49d1 puts this after RHT_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other hint text id moves.
+    RHT_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // [RSBS #1407] the butterfly fairy hint texts, appended after the shopkeeper's (1517..1530).
+    RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE,
+    RHT_BUTTERFLY_FAIRY_LOST_WOODS,
+    RHT_BUTTERFLY_FAIRY_GRAVEYARD,
+    RHT_BUTTERFLY_FAIRY_ZORAS_RIVER,
+    RHT_BUTTERFLY_FAIRY_ZORAS_FOUNTAIN,
+    RHT_BUTTERFLY_FAIRY_LAKE_HYLIA,
+    RHT_BUTTERFLY_FAIRY_KF_GROTTO,
+    RHT_BUTTERFLY_FAIRY_LW_GROTTO,
+    RHT_BUTTERFLY_FAIRY_DMT_GROTTO,
+    RHT_BUTTERFLY_FAIRY_DMC_GROTTO,
+    RHT_BUTTERFLY_FAIRY_HF_GROTTO,
+    RHT_BUTTERFLY_FAIRY_KAK_GROTTO,
+    RHT_BUTTERFLY_FAIRY_ZR_GROTTO,
+    RHT_BUTTERFLY_FAIRY_KAKARIKO_VILLAGE,
+    // [RSBS #1363] Silver Shuffle, appended after #1407's butterfly fairy hint texts (1531..1544).
     RHT_SILVER_RUPEE_DODONGOS_CAVERN,
     RHT_SILVER_RUPEE_SHADOW_TEMPLE,
     RHT_SILVER_RUPEE_SPIRIT_TEMPLE,
@@ -6943,9 +7005,24 @@ typedef enum {
     // a save's randoSettings array is indexed by this enum, and a world saved
     // before it reads the missing tail as 0, off.
     RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
+    RSK_EARLY_GRANNYS_SHOP,
+    // SoH 6706b49d1 puts this after RSK_KEYRINGS_GANONS_CASTLE; appended here so no other setting key moves.
+    RSK_KEYRINGS_CHEST_GAME,
+    // [RSBS #1407] SoH's butterfly fairy shuffle, appended after the chest game keyring (234): a
+    // world saved before it reads the missing entry as 0, Off.
+    RSK_SHUFFLE_BUTTERFLY_FAIRIES,
+    // [RSBS #1363] SoH b76e303ce's Shuffle Silver Rupees, appended after #1407's key (235): a
+    // world saved before it reads the missing entry as 0, Off.
     RSK_SHUFFLE_SILVER,
     RSK_MAX
 } RandomizerSettingKey;
+
+// [RSBS #1407] 1 pins Shuffle Butterfly Fairies off in every paired world (every
+// generation in the single exe is one): Playthrough_Init generates it off and the
+// menu greys it out, as #1364 does for Shuffle Chest Minigame. 0 (the default)
+// leaves it usable; set it to 1 if oot-butterfly-fairy-shuffle's paired-on leg N
+// fails at the gate, and that leg then expects the pinned world instead.
+#define RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN 0
 
 // Generic Settings (any binary option can use this)
 //  off/on
@@ -7373,12 +7450,6 @@ typedef enum {
     RO_LOCATION_INCLUDE,
     RO_LOCATION_EXCLUDE,
 } RandoOptionLocationInclusion;
-
-typedef enum {
-    RO_CHEST_GAME_OFF,
-    RO_CHEST_GAME_SINGLE_KEYS,
-    RO_CHEST_GAME_PACK,
-} RandoOptionChestGame;
 
 typedef enum {
     RO_MQ_SET_VANILLA,

@@ -15,7 +15,7 @@
  * 46 MM areas holds checks. It is stored as a scene default plus a per-check
  * override list. The table was derived by a script over OoTMM's world and check
  * files; the 636 2ship rows whose names match an OoTMM location by name all
- * agree with OoTMM's region (PR for #575 H1). OoTMM gives the 55 enemy drops no
+ * agree with OoTMM's region (PR for #575 H1). OoTMM gives the 56 enemy drops no
  * region (packages/logic/src/hints.ts ignores region-less checks), so they are
  * COMBO_AREA_NONE, as is RC_UNKNOWN.
  *
@@ -230,10 +230,12 @@ const MmAreaOverride kMmAreaOverrides[] = {
     { RC_ROAD_TO_SOUTHERN_SWAMP_TINGLE_MAP_02, COMBO_AREA_MM_TINGLE },
     { RC_TWIN_ISLANDS_TINGLE_MAP_01, COMBO_AREA_MM_TINGLE },
     { RC_TWIN_ISLANDS_TINGLE_MAP_02, COMBO_AREA_MM_TINGLE },
-    // grotto: the overworld it opens from (415)
+    // grotto: the overworld it opens from (432; the five grotto beehives of #1410 and the
+    // 12 grotto butterflies of #1407 included)
     { RC_DEKU_PALACE_GROTTO_CHEST, COMBO_AREA_MM_DEKU_PALACE },
     { RC_GREAT_BAY_COAST_COW_BACK, COMBO_AREA_MM_GREAT_BAY_COAST },
     { RC_GREAT_BAY_COAST_COW_FRONT, COMBO_AREA_MM_GREAT_BAY_COAST },
+    { RC_GREAT_BAY_COAST_COW_GROTTO_BEEHIVE, COMBO_AREA_MM_GREAT_BAY_COAST },
     { RC_GREAT_BAY_COAST_FISHERMAN_GROTTO_CHEST, COMBO_AREA_MM_GREAT_BAY_COAST },
     { RC_IKANA_CANYON_GROTTO_CHEST, COMBO_AREA_MM_IKANA_CANYON },
     { RC_IKANA_GRAVEYARD_GROTTO, COMBO_AREA_MM_IKANA_GRAVEYARD },
@@ -246,10 +248,14 @@ const MmAreaOverride kMmAreaOverrides[] = {
     { RC_ROAD_TO_SOUTHERN_SWAMP_GROTTO_CHEST, COMBO_AREA_MM_ROAD_TO_SWAMP },
     { RC_SOUTHERN_SWAMP_GROTTO_CHEST, COMBO_AREA_MM_SOUTHERN_SWAMP },
     { RC_TERMINA_FIELD_BIO_BABA_GROTTO, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_BIO_BABA_GROTTO_BEEHIVE_01, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_BIO_BABA_GROTTO_BEEHIVE_02, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_COW_BACK, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_COW_FRONT, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_COW_GROTTO_BEEHIVE, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_DODONGO_GROTTO_CHEST, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BEEHIVE, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_GROTTO_SCRUB, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_PEAHAT_GROTTO_CHEST, COMBO_AREA_MM_TERMINA_FIELD },
     { RC_TERMINA_FIELD_PILLAR_GROTTO_CHEST, COMBO_AREA_MM_TERMINA_FIELD },
@@ -646,6 +652,22 @@ const MmAreaOverride kMmAreaOverrides[] = {
     { RC_ZORA_CAPE_GROTTO_GRASS_12, COMBO_AREA_MM_ZORA_CAPE },
     { RC_ZORA_CAPE_GROTTO_GRASS_13, COMBO_AREA_MM_ZORA_CAPE },
     { RC_ZORA_CAPE_GROTTO_GRASS_14, COMBO_AREA_MM_ZORA_CAPE },
+    // #1407: the grotto butterflies (2Ship's butterfly shuffle), each with its
+    // grotto's grass rows above. The cow grotto's rows split as its grass does:
+    // _GREAT_BAY_COAST_COW_GROTTO_ and _TERMINA_FIELD_COW_GROTTO_ are the two
+    // entrances' copies (EnButte.cpp tells them apart by the respawn data).
+    { RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01, COMBO_AREA_MM_DEKU_PALACE },
+    { RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_02, COMBO_AREA_MM_DEKU_PALACE },
+    { RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_03, COMBO_AREA_MM_DEKU_PALACE },
+    { RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_04, COMBO_AREA_MM_DEKU_PALACE },
+    { RC_GREAT_BAY_COAST_COW_GROTTO_BUTTERFLY_01, COMBO_AREA_MM_GREAT_BAY_COAST },
+    { RC_GREAT_BAY_COAST_COW_GROTTO_BUTTERFLY_02, COMBO_AREA_MM_GREAT_BAY_COAST },
+    { RC_GREAT_BAY_COAST_COW_GROTTO_BUTTERFLY_03, COMBO_AREA_MM_GREAT_BAY_COAST },
+    { RC_TERMINA_FIELD_COW_GROTTO_BUTTERFLY_01, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_COW_GROTTO_BUTTERFLY_02, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_COW_GROTTO_BUTTERFLY_03, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BUTTERFLY_01, COMBO_AREA_MM_TERMINA_FIELD },
+    { RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BUTTERFLY_02, COMBO_AREA_MM_TERMINA_FIELD },
     // Kafei's hideout is entered from the Laundry Pool (3)
     { RC_KAFEIS_HIDEOUT_KEATON_MASK, COMBO_AREA_MM_LAUNDRY_POOL },
     { RC_KAFEIS_HIDEOUT_LETTER_TO_MAMA, COMBO_AREA_MM_LAUNDRY_POOL },
@@ -853,16 +875,54 @@ bool Rando::HintArea::HasArea(RandoCheckId randoCheckId) {
 }
 
 void Rando::HintArea::ReplaceItemLocation(std::string* msg, const char* key, RandoItemId randoItemId) {
-    const RandoCheckId randoCheckId = Rando::FindItemPlacement(randoItemId);
+    ReplaceItemLocation(RANDO_SAVE_CHECKS, msg, key, randoItemId);
+}
+
+bool Rando::HintArea::ItemLocation(const RandoSaveCheck* checks, RandoItemId randoItemId, uint8_t* outGame,
+                                   uint16_t* outCheck, ComboArea* outArea) {
+    // Rando::FindItemPlacement's rule over `checks`: the first check, in check
+    // order, whose stored item is this one.
+    RandoCheckId randoCheckId = RC_UNKNOWN;
+    for (auto& [id, check] : Rando::StaticData::Checks) {
+        if (checks[id].randoItemId == randoItemId) {
+            randoCheckId = id;
+            break;
+        }
+    }
+    uint8_t game = (uint8_t)GAME_MM;
+    uint16_t host = (uint16_t)randoCheckId;
     if (randoCheckId == RC_UNKNOWN) {
         // No MM check holds it: it crossed into Hyrule, or it is nowhere.
         const uint16_t ootHost = OoTHostOfItem(randoItemId);
         if (ootHost != 0) {
-            ReplaceOoTHostLocation(msg, key, ootHost);
-            return;
+            game = (uint8_t)GAME_OOT;
+            host = ootHost;
         }
     }
-    ReplaceLocation(msg, key, randoCheckId);
+    if (outGame != nullptr) {
+        *outGame = game;
+    }
+    if (outCheck != nullptr) {
+        *outCheck = host;
+    }
+    if (outArea != nullptr) {
+        // ReplaceLocation's and ReplaceOoTHostLocation's area ("nowhere" for RC_UNKNOWN).
+        *outArea = Combo_Area_OfCheck(game, host);
+    }
+    return !(game == (uint8_t)GAME_MM && randoCheckId == RC_UNKNOWN);
+}
+
+void Rando::HintArea::ReplaceItemLocation(const RandoSaveCheck* checks, std::string* msg, const char* key,
+                                          RandoItemId randoItemId) {
+    ComboArea area = { (uint8_t)GAME_MM, (uint8_t)COMBO_AREA_NONE };
+    (void)ItemLocation(checks, randoItemId, nullptr, nullptr, &area);
+    ReplaceAreaText(msg, key, area);
+}
+
+ComboArea Rando::HintArea::SceneArea(int16_t sceneId) {
+    const uint8_t area = (sceneId == (int16_t)SCENE_KAKUSIANA) ? (uint8_t)COMBO_AREA_MM_TERMINA_FIELD
+                                                               : MmSceneDefaultArea((SceneId)sceneId);
+    return ComboArea{ (uint8_t)GAME_MM, area };
 }
 
 std::vector<uint16_t> Rando::HintArea::OoTHostedHintCandidates(bool excludeObtained) {

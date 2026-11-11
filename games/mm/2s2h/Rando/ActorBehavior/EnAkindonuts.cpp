@@ -12,6 +12,22 @@ void func_80BEF360(EnAkindonuts* enAkindonuts, PlayState* play);
 void func_80BEEFA8(EnAkindonuts* enAkindonuts, PlayState* play);
 }
 
+// The item scrub check `randoCheckId`'s sale names. #1499: what the sale will hand
+// (ConvertItem, as CheckQueue's give), so an item the player already owns is
+// offered as the junk it becomes; a paid junk offer never reads "literally
+// nothing" (CurrentPaidJunkItem, which the give re-rolls the same way).
+static std::string EnAkindonuts_OfferedItemName(RandoCheckId randoCheckId) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    const RandoItemId offered = Rando::ConvertItem(RANDO_SAVE_CHECKS[randoCheckId].randoItemId, randoCheckId);
+    if (offered == RI_JUNK) {
+        (void)Rando::CurrentPaidJunkItem();
+    }
+    return Rando::StaticData::GetItemName(offered);
+#else
+    return Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[randoCheckId].randoItemId);
+#endif
+}
+
 void EnAkindonuts_ReplacePurchaseMessage(RandoCheckId randoCheckId, RandoInf randoInf, s32 cost, u16* textId,
                                          bool* loadFromMessageTable) {
     auto& randoSaveCheck = RANDO_SAVE_CHECKS[randoCheckId];
@@ -26,7 +42,7 @@ void EnAkindonuts_ReplacePurchaseMessage(RandoCheckId randoCheckId, RandoInf ran
     auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
     entry.msg = "I'll sell you %g{{item}}%w for %r{{rupees}} Rupees%w!\xE0";
 
-    CustomMessage::Replace(&entry.msg, "{{item}}", Rando::StaticData::GetItemName(randoSaveCheck.randoItemId));
+    CustomMessage::Replace(&entry.msg, "{{item}}", EnAkindonuts_OfferedItemName(randoCheckId));
     CustomMessage::Replace(&entry.msg, "{{rupees}}", std::to_string(cost));
 
     CustomMessage::LoadCustomMessageIntoFont(entry);
@@ -112,9 +128,7 @@ void Rando::ActorBehavior::InitEnAkindonutsBehavior() {
         entry.msg = "I sell %g{{item}} %wand %gMagic Beans %wto Deku Scrubs, but recently I've been thinking about "
                     "relocating to a new area.\xE0";
 
-        CustomMessage::Replace(
-            &entry.msg, "{{item}}",
-            Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[RC_SOUTHERN_SWAMP_SCRUB_BEANS].randoItemId));
+        CustomMessage::Replace(&entry.msg, "{{item}}", EnAkindonuts_OfferedItemName(RC_SOUTHERN_SWAMP_SCRUB_BEANS));
         CustomMessage::LoadCustomMessageIntoFont(entry);
         *loadFromMessageTable = false;
     });

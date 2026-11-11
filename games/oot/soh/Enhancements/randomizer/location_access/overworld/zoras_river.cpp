@@ -56,6 +56,8 @@ void RegionTable_Init_ZoraRiver() {
         LOCATION(RC_ZR_BENEATH_WATERFALL_RIGHT_RUPEE,        logic->IsAdult && (logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_IRON_BOOTS) || logic->CanUse(RG_BOOMERANG))),
         LOCATION(RC_ZR_NEAR_DOMAIN_GOSSIP_STONE,             true),
         LOCATION(RC_ZR_NEAR_FREESTANDING_POH_GRASS,          logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY,     logic->IsChild && logic->CanUse(RG_STICKS)),
+        LOCATION(RC_ZR_WATERFALL_BUTTERFLY_FAIRY,            logic->IsChild && logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_ZR_FRONT,            []{return logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->HasItem(RG_POWER_BRACELET) || logic->BlastOrSmash() || logic->HasItem(RG_HOVER_BOOTS);}),
@@ -97,7 +99,7 @@ void RegionTable_Init_ZoraRiver() {
 
     areaTable[RR_ZR_FROM_SHORTCUT] = Region("ZR From Shortcut", SCENE_ZORAS_RIVER, {}, {}, {
         //Exits
-        Entrance(RR_ZORAS_RIVER,    []{return logic->Hearts() > 1 || logic->HasItem(RG_BOTTLE_WITH_FAIRY) || logic->HasItem(RG_BRONZE_SCALE);}),
+        Entrance(RR_ZORAS_RIVER,    []{return logic->CanVoid() || logic->HasItem(RG_BRONZE_SCALE);}),
         Entrance(RR_THE_LOST_WOODS, []{return logic->HasItem(RG_SILVER_SCALE) || logic->CanUse(RG_IRON_BOOTS);}),
     });
 
@@ -120,6 +122,7 @@ void RegionTable_Init_ZoraRiver() {
         LOCATION(RC_ZR_OPEN_GROTTO_GRASS_2,                logic->CanCutShrubs()),
         LOCATION(RC_ZR_OPEN_GROTTO_GRASS_3,                logic->CanCutShrubs()),
         LOCATION(RC_ZR_OPEN_GROTTO_GRASS_4,                logic->CanCutShrubs()),
+        LOCATION(RC_ZR_OPEN_GROTTO_BUTTERFLY_FAIRY,        logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_ZR_ATOP_LADDER, []{return true;}),
@@ -145,9 +148,9 @@ void RegionTable_Init_ZoraRiver() {
 
     areaTable[RR_ZR_STORMS_GROTTO] = Region("ZR Storms Grotto", SCENE_GROTTOS, {}, {
         //Locations
-        LOCATION(RC_ZR_DEKU_SCRUB_GROTTO_REAR,  logic->CanStunDeku() && logic->HasItem(RG_SPEAK_DEKU) && GetCheckPrice() <= GetWalletCapacity()),
-        LOCATION(RC_ZR_DEKU_SCRUB_GROTTO_FRONT, logic->CanStunDeku() && logic->HasItem(RG_SPEAK_DEKU) && GetCheckPrice() <= GetWalletCapacity()),
-        LOCATION(RC_ZR_STORMS_GROTTO_BEEHIVE,   logic->CanBreakUpperBeehives()),
+        LOCATION(RC_ZR_DEKU_SCRUB_GROTTO_REAR,    logic->CanStunDeku() && logic->HasItem(RG_SPEAK_DEKU) && GetCheckPrice() <= GetWalletCapacity()),
+        LOCATION(RC_ZR_DEKU_SCRUB_GROTTO_FRONT,   logic->CanStunDeku() && logic->HasItem(RG_SPEAK_DEKU) && GetCheckPrice() <= GetWalletCapacity()),
+        LOCATION(RC_ZR_DEKU_SCRUB_GROTTO_BEEHIVE, logic->CanBreakUpperBeehives()),
     }, {
         //Exits
         Entrance(RR_ZORAS_RIVER, []{return true;}),

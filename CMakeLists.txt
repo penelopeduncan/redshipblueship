@@ -7,6 +7,19 @@ set(CMAKE_C_STANDARD 23 CACHE STRING "The C standard to use")
 set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum OS X deployment version")
 
 project(Ship VERSION 9.1.1 LANGUAGES C CXX)
+# Save format 6's tripwire (src/common/save.h). Ship of Harkinian stamps this
+# version into every .sav (sohStats buildVersion*) and, at start-up,
+# StartupCheckAndInitMetaImpl (games/oot/soh/SaveManager.cpp) renames aside every
+# randomizer .sav whose stamp differs. A bump would therefore empty every
+# randomizer slot at the first launch, and the slot's next creation would
+# quarantine a valid .redsave as another file's. It is a save break of its own:
+# make it one on purpose, with the release note, never as a side effect.
+if(NOT PROJECT_VERSION VERSION_EQUAL "9.1.1")
+    message(FATAL_ERROR "project(Ship VERSION) is ${PROJECT_VERSION}, not 9.1.1: a Ship version bump renames aside "
+                        "every randomizer .sav at the first launch (StartupCheckAndInitMetaImpl) and the slot's next "
+                        "creation quarantines a valid .redsave. Decide it as a save break (src/common/save.h), then "
+                        "move this tripwire with it.")
+endif()
 include(CMake/soh-cvars.cmake)
 include(CMake/lus-cvars.cmake)
 set(SPDLOG_LEVEL_TRACE 0)
@@ -615,14 +628,21 @@ else()
     add_dependencies(soh CreateOSXIcons)
 endif()
 
-install(TARGETS ZAPD_OoT DESTINATION ${CMAKE_BINARY_DIR}/assets)
+# In-app extraction spawns the standalone ZAPD executables as subprocesses
+# (issue #325), as on Linux and Windows above. In the bundle they sit beside
+# redship in Contents/MacOS, not under Resources/assets/extractor: they link
+# MacPorts libraries (libpng among them), and fixup_bundle (below, which is
+# given both) embeds those at @executable_path/../MacOS, a path that resolves
+# only from Contents/MacOS. ZapdSubprocess_Locate looks there on Apple (#1501).
+install(TARGETS ZAPD_OoT RUNTIME DESTINATION ../MacOS COMPONENT ship)
+install(TARGETS ZAPD_MM RUNTIME DESTINATION ../MacOS COMPONENT ship)
 
 set(PROGRAM_PERMISSIONS_EXECUTE OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
 
 if(SINGLE_EXECUTABLE_BUILD)
     # MM's port-asset archive, as on Linux and Windows above. The games/mm
@@ -651,10 +671,15 @@ endif()
 
 # COMPONENT ship: CPack's Bundle generator installs monolithically today, but
 # Packaging-2.cmake limits component installs to "ship", and this must run last
-# under either.
+# under either. The ZAPD executables are also passed as extra items, belt and
+# braces: get_bundle_keys already walks every Mach-O executable in the bundle,
+# and naming them again yields the same keys, so either way their /opt/local
+# library references are embedded and rewritten before verify_app checks them.
 install(CODE "
     include(BundleUtilities)
-    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/../MacOS/${RSBS_MACOS_BUNDLE_EXECUTABLE}\" \"\" \"${dirs}\")
+    fixup_bundle(\"\${CMAKE_INSTALL_PREFIX}/../MacOS/${RSBS_MACOS_BUNDLE_EXECUTABLE}\"
+                 \"\${CMAKE_INSTALL_PREFIX}/../MacOS/$<TARGET_FILE_NAME:ZAPD_OoT>;\${CMAKE_INSTALL_PREFIX}/../MacOS/$<TARGET_FILE_NAME:ZAPD_MM>\"
+                 \"${dirs}\")
     " COMPONENT ship)
 
 endif()
