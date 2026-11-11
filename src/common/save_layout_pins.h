@@ -111,35 +111,35 @@
 // Offsets <= 1007 are pinned as literals in context.h already (unchanged by format
 // 6). These are the members format 6 moved or added: the MM capture (after the
 // OoT capture grew to 1024 bytes), the skip journal, the watermark, and the size.
-#define RSBS_PIN_COMBO_TRACKER_AVAIL_MM 0   // offsetof(ComboContext, trackerAvailMM)
-#define RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT 0 // offsetof(ComboContext, trackerSkipJournalCountOoT)
-#define RSBS_PIN_COMBO_SKIP_JOURNAL 0       // offsetof(ComboContext, trackerSkipJournalOoT)
-#define RSBS_PIN_COMBO_SAVE_WATERMARK 0     // offsetof(ComboContext, saveWatermark)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 0     // sizeof(ComboContext)
+#define RSBS_PIN_COMBO_TRACKER_AVAIL_MM 2032u   // offsetof(ComboContext, trackerAvailMM)
+#define RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT 2544u // offsetof(ComboContext, trackerSkipJournalCountOoT)
+#define RSBS_PIN_COMBO_SKIP_JOURNAL 2546u       // offsetof(ComboContext, trackerSkipJournalOoT)
+#define RSBS_PIN_COMBO_SAVE_WATERMARK 2676u     // offsetof(ComboContext, saveWatermark)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2696u     // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset
 // (SaveManager.cpp, ForeignMaskOoT.cpp), the start of `ship`, and the size.
-#define RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF 0    // sizeof(SaveContext)
-#define RSBS_PIN_OOT_SHIP 0                   // offsetof(SaveContext, ship)
-#define RSBS_PIN_OOT_SHIP_QUEST 0             // offsetof(SaveContext, ship.quest)
-#define RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE 0 // offsetof(SaveContext, ship.filenameLanguage)
-#define RSBS_PIN_OOT_SHIP_RANDOMIZER_INF 0    // offsetof(SaveContext, ship.randomizerInf)
-#define RSBS_PIN_OOT_SHIP_FOREIGN_MASK 0      // offsetof(SaveContext, ship.foreignMask)
+#define RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF 139832u    // sizeof(SaveContext)
+#define RSBS_PIN_OOT_SHIP 5192u                     // offsetof(SaveContext, ship)
+#define RSBS_PIN_OOT_SHIP_QUEST 138752u             // offsetof(SaveContext, ship.quest)
+#define RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE 138805u // offsetof(SaveContext, ship.filenameLanguage)
+#define RSBS_PIN_OOT_SHIP_RANDOMIZER_INF 138806u    // offsetof(SaveContext, ship.randomizerInf)
+#define RSBS_PIN_OOT_SHIP_FOREIGN_MASK 139830u      // offsetof(SaveContext, ship.foreignMask)
 
 // ---- Tier-3: MM SaveContext (games/mm/include/z64save.h) ---------------------
 // The fields read by offset from a raw half (Foreign.cpp's classifier,
 // GameExports_SingleExe.cpp's arrival gate, ForeignMaskMM.cpp), the spare block,
 // the first SaveContext field after Save (the tripwire for anything inside Save
 // growing), and the sizes.
-#define RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF 0    // sizeof(SaveContext)
-#define RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF 0 // sizeof(RandoSaveInfo)
-#define RSBS_PIN_MM_SAVE_SIZEOF 0            // sizeof(Save): asserted <= SAVE_BUFFER_SIZE_HALF (the sram copy)
-#define RSBS_PIN_MM_SAVE_TYPE 0              // offsetof(SaveContext, save.shipSaveInfo.saveType)
-#define RSBS_PIN_MM_RANDO_FINAL_SEED 0       // offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed)
-#define RSBS_PIN_MM_RANDO_OPTIONS 0          // offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions)
-#define RSBS_PIN_MM_RANDO_FOREIGN_MASK 0     // offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask)
-#define RSBS_PIN_MM_RANDO_SPARE 0            // offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare)
-#define RSBS_PIN_MM_EVENT_INF 0              // offsetof(SaveContext, eventInf)
+#define RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF 70400u    // sizeof(SaveContext)
+#define RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF 51384u // sizeof(RandoSaveInfo)
+#define RSBS_PIN_MM_SAVE_SIZEOF 55824u            // sizeof(Save): asserted <= SAVE_BUFFER_SIZE_HALF (the sram copy)
+#define RSBS_PIN_MM_SAVE_TYPE 4148u               // offsetof(SaveContext, save.shipSaveInfo.saveType)
+#define RSBS_PIN_MM_RANDO_FINAL_SEED 53880u       // offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed)
+#define RSBS_PIN_MM_RANDO_OPTIONS 53884u          // offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions)
+#define RSBS_PIN_MM_RANDO_FOREIGN_MASK 55562u     // offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask)
+#define RSBS_PIN_MM_RANDO_SPARE 55565u            // offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare)
+#define RSBS_PIN_MM_EVENT_INF 55824u              // offsetof(SaveContext, eventInf)
 
 #endif // RSBS_COMMON_SAVE_LAYOUT_PINS_H
