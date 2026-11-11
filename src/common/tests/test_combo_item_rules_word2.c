@@ -194,16 +194,18 @@ TestResult ComboItemRulesSecondWord_Run(void) {
     {
         XW2_CHECK(sizeof(ComboItemRules2Record) == 4u, "sizeof(ComboItemRules2Record) is %u, expected 4",
                   (unsigned)sizeof(ComboItemRules2Record));
-        // #1475 then carved the 10-byte MM hint read record (mmHintsRead, 929) after the word.
+        // #1475 then carved the 10-byte MM hint read record (mmHintsRead, 929) after the word,
+        // and #1169 XW5 took one byte from the END of reserved[] (1003), so 64 at 939.
         XW2_CHECK(offsetof(ComboContext, comboFillWallets) == 913u && offsetof(ComboContext, comboWoth) == 914u &&
                       offsetof(ComboContext, comboItemRules2) == 925u && offsetof(ComboContext, mmHintsRead) == 929u &&
-                      offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 65u,
+                      offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u,
                   "the second word is at %u and reserved[] is %u bytes at %u; expected 925 (after #1439's 11-byte "
-                  "comboWoth at 914), then #1475's read record at 929 and 65 at 939",
+                  "comboWoth at 914), then #1475's read record at 929 and 64 at 939 (#1169 XW5's byte is the tail)",
                   (unsigned)offsetof(ComboContext, comboItemRules2), (unsigned)sizeof(((ComboContext*)0)->reserved),
                   (unsigned)offsetof(ComboContext, reserved));
         XW2_CHECK(sizeof(((ComboContext*)0)->reserved) >= 64u, "the carve took reserved[] under ADR 0009's floor");
-        XW2_CHECK(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved) == 1004u &&
+        XW2_CHECK(offsetof(ComboContext, reserved) + sizeof(((ComboContext*)0)->reserved) == 1003u &&
+                      offsetof(ComboContext, mmWarpSongsOwned) == 1003u &&
                       offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
                   "the carve moved the record behind reserved[] (ends %u, captures at %u, sizeof %u): every .redsave "
                   "and every seed package's combo record would be reinterpreted",

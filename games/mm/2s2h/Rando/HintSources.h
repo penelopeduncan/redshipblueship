@@ -33,7 +33,9 @@
  * it sets the source's bit in the combo save record (ComboContext.mmHintsRead)
  * and marks every MM check the hint names Seen in MM's live save, as the Bomb
  * Shop's line already did (MarkCheckSeen), so the combined Check Tracker's MM
- * pane shows it. Naming an OoT host (a crossed MM item) is lane H2's.
+ * pane shows it. A check it names in Ocarina of Time (an MM item that crossed to
+ * an OoT host) is marked Seen there (lane H2: Combo_HintMarkHostSeen, and OoT's
+ * load seam derives it again from the read record).
  */
 #ifndef RANDO_HINT_SOURCES_H
 #define RANDO_HINT_SOURCES_H
@@ -116,7 +118,8 @@ bool Listed(const SaveContext* save, uint16_t source);
 /**
  * THE READ HOOK: MM is showing `source`'s hint textbox now. Sets its bit in the
  * combo save record and marks every MM check the hint names Seen in MM's live
- * save. A source past the count is ignored.
+ * save, and every OoT check it names Seen in OoT's suspended heap. A source past
+ * the count is ignored.
  */
 void MarkRead(uint16_t source);
 

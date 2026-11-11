@@ -1,7 +1,7 @@
 seed=4FF39390
 settingsHash=9F394EA0
 sourceIsRando=1
-placementHash=4514EA5D
+placementHash=AD90FC16
 placedCount=240
 generalPassDeferred=1
 comboSettingsHash=52655686
@@ -22,7 +22,7 @@ bagRounds=272
 bagLeftoverOoT=99
 bagLeftoverMM=124
 coordinatorDigest=324A86BC
-ootFinalPlacementHash=F4335C5F
+ootFinalPlacementHash=D304CF58
 ootFinalPlacedCount=490
 crossingDigest=30489DEA
 crossingsInOoT=60

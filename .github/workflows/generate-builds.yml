@@ -228,6 +228,12 @@ jobs:
     # on one macOS is never restored on another), and sets the deployment
     # target; the first step fails the job when the two disagree.
     runs-on: macos-15
+    # A warm build takes 10-25 minutes. A cold one (every TU missing, e.g. a
+    # pull request that edits a header included everywhere) takes about 4.5
+    # hours on this 3-core runner, so the limit sits above that: lower, and
+    # main could never finish the cold build that saves the cache. It still
+    # stops a hung build an hour before GitHub's six-hour default (#1518).
+    timeout-minutes: 300
     env:
       MACOS_MAJOR: '15'
       # Proven on macos-15 by run 41302059266.
@@ -260,6 +266,15 @@ jobs:
         # churn that can evict main's entries for a gain that shrinks once
         # main is warm; revisit with the ccache numbers of a finished macOS run.
         save: ${{ github.ref_name == github.event.repository.default_branch }}
+        # The action's default is 500M, and one universal (x86_64+arm64) build
+        # of the tree fills that on its own: every run on 2026-11-10 ended at
+        # "Cache size 0.5 / 0.5 (99.9%)". A full cache evicts its oldest
+        # entries on every miss, and the oldest are the ones THIS build has
+        # not reached yet, so a few dozen genuine misses cascaded into 1136,
+        # 1405 or 2506 (115-250 cleanups) and a 10-minute build into 1.5-4
+        # hours (#1518). 2G holds several builds, so a miss only evicts stale
+        # results. Restoring 2G costs under a minute.
+        max-size: "2G"
         key: ${{ runner.os }}-${{ env.MACOS_MAJOR }}-${{ runner.arch }}-ccache-${{ github.ref }}
         restore-keys: |
           ${{ runner.os }}-${{ env.MACOS_MAJOR }}-${{ runner.arch }}-ccache-${{ github.ref }}

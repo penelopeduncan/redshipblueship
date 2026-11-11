@@ -35,6 +35,22 @@
  *       to every slice, and STAYNIGHT's mask is exactly Night 2: the
  *       narrowing applies after ExpandTimeForward, the default-settings
  *       shape (a Day 1 seed plus a stay).
+ *   e   (#1509, the solo fill's clock-gain path) the fill's own sweep from
+ *       { RR_MAX } with only Night 2 owned, then Day 1 gained and
+ *       ResetRegionTimeStatesForTimeGain, then the sweep again:
+ *       e1  the reset leaves the set at { RR_MAX } and the root at the new
+ *           owned time (Day 1 | Night 2) with no other state;
+ *       e2  SRC and FREE take Day 1 | Night 2 and FREE's IS_DAY1 row IS
+ *           satisfied (non-vacuity: the gain reached the rebuilt regions);
+ *       e3  NIGHT's mask is still exactly Night 2 and its IS_DAY1 row is NOT
+ *           satisfied: the clock did not widen the region in place.
+ *   f   (#1509, the fill's call site) the real ApplyGlitchlessLogicToSaveContext
+ *       on its own small graph (BuildFillGraph), Night 2 owned, an unshuffled
+ *       root check giving Day 1, both IS_DAY1 rows shuffled, one item:
+ *       f1  the fill completes (main's widening throws "No allowed item
+ *           remains"; a removed reset throws "No checks with junk");
+ *       f2  the item went to FREE's day row (non-vacuity: the gain reached it);
+ *       f3  NIGHT's day row is still in the check pool.
  * Unit legs on NarrowEdgeTime itself:
  *   u1  a source in one half-day is returned as is with no extra evaluation;
  *   u2  a time-free condition over every slice costs exactly six evaluations
@@ -55,7 +71,10 @@
 #include <map>
 #include <memory>
 #include <set>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "Rando/Rando.h"
 #include "Rando/Types.h"
@@ -97,7 +116,9 @@ constexpr RandoCheckId kNightDayRow = RC_ROMANI_RANCH_FIELD_LARGE_CRATE;
 constexpr RandoCheckId kNightNightRow = RC_ROMANI_RANCH_EPONAS_SONG;
 constexpr RandoCheckId kFreeDayRow = RC_MILK_BAR_CIRCUS_LEADER_MASK;
 
-void ArmSave() {
+/** Arms Shuffle Time in Random mode owning exactly the half-days whose bit is
+ *  set in `ownedHalfDays` (bit i = half-day i, Day 1 = bit 0). */
+void ArmSaveOwning(unsigned ownedHalfDays) {
     memset(&gSaveContext, 0, sizeof(gSaveContext));
     memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE, sizeof(gSaveContext.save.saveInfo.inventory.items));
     gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
@@ -105,8 +126,14 @@ void ArmSave() {
     RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE] = RO_GENERIC_ON;
     RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE_PROGRESSIVE] = RO_CLOCK_SHUFFLE_RANDOM;
     for (int i = 0; i < 6; i++) {
-        Flags_SetRandoInf((RandoInf)(RANDO_INF_OBTAINED_CLOCK_DAY_1 + i));
+        if ((ownedHalfDays & (1u << i)) != 0) {
+            Flags_SetRandoInf((RandoInf)(RANDO_INF_OBTAINED_CLOCK_DAY_1 + i));
+        }
     }
+}
+
+void ArmSave() {
+    ArmSaveOwning(0x3F);
 }
 
 RandoRegion NoStayRegion(const char* name) {
@@ -260,6 +287,139 @@ void RunFindStay() {
                GetHalfDayTimeMask(3), "the night-only edge carried the stayed-to day slices into its target (#1453)");
 }
 
+/** The solo glitchless fill's region sweep, as GlitchlessLogic.cpp runs it at
+ *  the top of each pass. */
+void FillSweep(std::set<RandoRegionId>& regionsInLogic,
+               std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates) {
+    for (RandoRegionId regionId : regionsInLogic) {
+        FindReachableRegions(regionId, regionsInLogic, regionTimeStates);
+    }
+}
+
+void RunFillClockGain() {
+    const uint64_t day1 = GetHalfDayTimeMask(0);
+    const uint64_t night2 = GetHalfDayTimeMask(3);
+
+    ArmSaveOwning(1u << 3); // Night 2 only
+    std::set<RandoRegionId> regionsInLogic = { RR_MAX };
+    std::unordered_map<RandoRegionId, RegionTimeState> states = InitializeRegionTimeStates(RR_MAX);
+    FillSweep(regionsInLogic, states);
+    if (!regionsInLogic.contains(kNight) || MaskOf(states, kNight) != night2) {
+        TeFail("fill e: before the clock, NIGHT is %s with mask 0x%llX, not reached at Night 2, so leg e probes "
+               "nothing",
+               regionsInLogic.contains(kNight) ? "reached" : "unreached", (unsigned long long)MaskOf(states, kNight));
+    }
+
+    // The clock: Day 1 is now owned, as GiveItem(ConvertItem(RI_TIME_DAY_1)) leaves it.
+    Flags_SetRandoInf(RANDO_INF_OBTAINED_CLOCK_DAY_1);
+    ResetRegionTimeStatesForTimeGain(regionsInLogic, states);
+    ExpectBool("fill e1 reset leaves only the root in logic",
+               regionsInLogic.size() == 1 && regionsInLogic.contains(RR_MAX) && states.size() == 1, true,
+               "a region discovered before the clock kept its place or its state, so the sweep cannot rebuild it");
+    ExpectMask("fill e1 root takes the new owned time", MaskOf(states, RR_MAX), day1 | night2,
+               "the root was not reset to the owned time after the clock, so the gain reaches nothing");
+
+    FillSweep(regionsInLogic, states);
+    ExpectMask("fill e2 time-free source takes the gained half-day", MaskOf(states, kSrc), day1 | night2,
+               "the rebuilt source did not gain Day 1");
+    ExpectMask("fill e2 time-free target takes the gained half-day", MaskOf(states, kFree), day1 | night2,
+               "the rebuilt time-free target did not gain Day 1");
+    ExpectBool("fill e2 day row behind the time-free edge is satisfied", RowHolds(states, kFree, kFreeDayRow), true,
+               "the gained Day 1 did not reach a time-free target");
+    ExpectMask("fill e3 IS_NIGHT2 edge still carries Night 2 only after the clock", MaskOf(states, kNight), night2,
+               "the clock gain widened the night-only target in place (#1509)");
+    ExpectBool("fill e3 day row behind the night-only edge stays unsatisfied", RowHolds(states, kNight, kNightDayRow),
+               false, "an IS_DAY1 row passed behind an IS_NIGHT2 edge after a clock gain (#1509)");
+}
+
+// Leg f's unshuffled clock check: any non-song check works (the fill gives an
+// unshuffled check the item the save's check table holds for it, seeded from the
+// vanilla item by GeneratePools; leg f seeds Day 1 there).
+constexpr RandoCheckId kClockCheck = RC_MILK_ROAD_OWL_STATUE;
+// Leg f's one shuffled item: non-junk, and handled by its own GiveItem case, so
+// the fill never reaches the play-state Item_Give fallback headless.
+constexpr RandoItemId kFillItem = RI_GREAT_SPIN_ATTACK;
+
+/** Leg f's graph: only the checks the leg names, so the one unshuffled check
+ *  the fill gives is the clock.
+ *
+ *   RR_MAX (root, check: CLOCK unshuffled, vanilla Day 1) --true--> SRC
+ *   SRC --IS_NIGHT2()--> NIGHT (check: IS_DAY1 row, shuffled)
+ *   SRC --true---------> FREE  (check: IS_DAY1 row, shuffled)
+ */
+std::map<RandoRegionId, RandoRegion> BuildFillGraph() {
+    std::map<RandoRegionId, RandoRegion> graph;
+
+    RandoRegion root = NoStayRegion("time-edges fill root");
+    root.checks[kClockCheck] = { [] { return true; }, "true" };
+    root.connections[kSrc] = { [] { return true; }, "true" };
+    graph[RR_MAX] = root;
+
+    RandoRegion src = NoStayRegion("time-edges fill source");
+    src.connections[kNight] = { [] { return IS_NIGHT2(); }, "IS_NIGHT2()" };
+    src.connections[kFree] = { [] { return true; }, "true" };
+    graph[kSrc] = src;
+
+    RandoRegion night = NoStayRegion("time-edges fill night-only target");
+    night.checks[kNightDayRow] = { [] { return IS_DAY1(); }, "IS_DAY1()" };
+    graph[kNight] = night;
+
+    RandoRegion freeTarget = NoStayRegion("time-edges fill time-free target");
+    freeTarget.checks[kFreeDayRow] = { [] { return IS_DAY1(); }, "IS_DAY1()" };
+    graph[kFree] = freeTarget;
+    return graph;
+}
+
+/**
+ * Leg f (#1509): the real ApplyGlitchlessLogicToSaveContext, so the reset's
+ * call site after the region loop is what is tested. Only Night 2 owned; the
+ * clock check sits in the root (RR_MAX, the last region the check loop visits)
+ * and gives Day 1 on the first pass; both IS_DAY1 rows are shuffled and the
+ * pool holds one item, so the fill draws no random number.
+ *
+ * With the fix the second pass rebuilds from the root at Day 1 | Night 2: FREE
+ * takes Day 1, its row takes the item, the pool empties and the fill succeeds
+ * with NIGHT's row still in the check pool. With main's in-place widening both
+ * rows pass on the second pass and the second one finds an empty pool ("No
+ * allowed item remains"). With the reset call removed nothing gains Day 1 and
+ * the fill throws "No checks with junk". Either regression fails f1 and f2.
+ */
+void RunFillDriven() {
+    std::map<RandoRegionId, RandoRegion> graph = BuildFillGraph();
+    std::swap(Rando::Logic::Regions, graph);
+    Rando::Logic::InvalidateEntranceRegionCache();
+
+    ArmSaveOwning(1u << 3); // Night 2 only
+    if (TimeLogic::GetOwnedTimeSlices() != GetHalfDayTimeMask(3)) {
+        TeFail("fill f: owned time is 0x%llX, not Night 2 alone, so leg f probes nothing",
+               (unsigned long long)TimeLogic::GetOwnedTimeSlices());
+    }
+    // After ArmSaveOwning, which zeroes the save.
+    RANDO_SAVE_CHECKS[kClockCheck].randoItemId = RI_TIME_DAY_1;
+
+    std::vector<RandoCheckId> checkPool = { kNightDayRow, kFreeDayRow };
+    std::vector<RandoItemId> itemPool = { kFillItem };
+    std::string error;
+    try {
+        ApplyGlitchlessLogicToSaveContext(checkPool, itemPool);
+    } catch (const std::exception& e) { error = std::string("threw: ") + e.what(); }
+
+    if (error.empty()) {
+        TeOk("fill f1 the real fill completes after the clock gain");
+    } else {
+        TeFail("fill f1: the fill %s: the clock gain reached nothing or widened NIGHT (#1509)", error.c_str());
+    }
+    ExpectBool("fill f2 the gained Day 1 put FREE's day row in logic",
+               RANDO_SAVE_CHECKS[kFreeDayRow].randoItemId == kFillItem && RANDO_SAVE_CHECKS[kFreeDayRow].shuffled, true,
+               "the fill did not place the item behind the time-free edge after the clock");
+    ExpectBool("fill f3 NIGHT's day row never entered logic",
+               checkPool.size() == 1 && checkPool[0] == kNightDayRow && !RANDO_SAVE_CHECKS[kNightDayRow].shuffled, true,
+               "an IS_DAY1 row behind an IS_NIGHT2 edge left the check pool after a clock gain (#1509)");
+
+    std::swap(Rando::Logic::Regions, graph);
+    Rando::Logic::InvalidateEntranceRegionCache();
+}
+
 void RunUnit() {
     ArmSave();
     int calls = 0;
@@ -297,7 +457,7 @@ void RunUnit() {
 
 extern "C" int MM_TimeEdges_RunHeadless(void) {
     printf("[TEST] mm-time-edges: a time-gated MM logic edge carries only the half-days its condition holds on, in "
-           "the crawl and in the glitchless fill (#1453)\n");
+           "the crawl and in the glitchless fill, also after a clock gain (#1453, #1509)\n");
     sFailures = 0;
 
     // Heap, not stack: the port's SaveContext is tens of kilobytes.
@@ -312,6 +472,8 @@ extern "C" int MM_TimeEdges_RunHeadless(void) {
     RunCrawl();
     RunFind();
     RunFindStay();
+    RunFillClockGain();
+    RunFillDriven();
     RunUnit();
 
     std::swap(Rando::Logic::Regions, graph);

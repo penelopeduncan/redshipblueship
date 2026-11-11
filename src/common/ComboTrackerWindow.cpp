@@ -52,6 +52,7 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <libultraship/controller/controldeck/ControlDeck.h> // the pad SoH's combo-button hold reads (#1130)
 
+#include "ComboHintTrackerWindow.h" // RegisterComboHintTrackerWindow (#1475 lane H2)
 #include "ComboItemTrackerWindow.h" // RegisterComboItemTrackerWindow (#458 U2)
 #include "combo_identity_display.h" // the paired seed as the player typed it (#952)
 #include "combo_item_view.h"        // {OoT,MM}_ItemAdapter_Register (#458 U1)
@@ -1281,6 +1282,9 @@ extern "C" void Combo_TrackerWindow_Init(void) {
     // the check adapters so the view has them from the same bring-up.
     OoT_ItemAdapter_Register();
     MM_ItemAdapter_Register();
+    // The combined Hint Tracker's OoT adapter (#1475 lane H2), over SoH's Hint
+    // Tracker data; MM's came up with MM_TrackerAdapter_Register above.
+    OoT_HintAdapter_Register();
 
     auto ctx = Ship::Context::GetInstance();
     if (ctx == nullptr || ctx->GetWindow() == nullptr) {
@@ -1296,4 +1300,6 @@ extern "C" void Combo_TrackerWindow_Init(void) {
     // registered above: registered from common code with its sibling, never
     // from either game's boot.
     ComboGui::RegisterComboItemTrackerWindow(gui);
+    // The combined Hint Tracker (#1475 lane H2), under SoH's window name.
+    ComboGui::RegisterComboHintTrackerWindow(gui);
 }

@@ -42,7 +42,14 @@ void RegionTable_Init_TempleOfTime() {
 
     areaTable[RR_TOT_BEYOND_DOOR_OF_TIME] = Region("Beyond Door of Time", SCENE_TEMPLE_OF_TIME, {}, {
         //Locations
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // [RSBS #1484] OoTMM's "Temple of Time Master Sword" is `is_child && event(DOOR_OF_TIME_OPEN)`: with the
+        // sword shuffled the child is handed the pedestal's item as he walks up (TimeTravelSword.cpp). Unshuffled,
+        // the pull hands the vanilla sword over and the row stays as it was.
+        LOCATION(RC_TOT_MASTER_SWORD, ctx->GetOption(RSK_SHUFFLE_MASTER_SWORD).Is(RO_GENERIC_ON) ? logic->IsChild : logic->IsAdult),
+#else
         LOCATION(RC_TOT_MASTER_SWORD, logic->IsAdult),
+#endif
         LOCATION(RC_GIFT_FROM_RAURU,  logic->IsAdult),
         LOCATION(RC_SHEIK_AT_TEMPLE,  logic->HasItem(RG_FOREST_MEDALLION) && logic->IsAdult),
     }, {

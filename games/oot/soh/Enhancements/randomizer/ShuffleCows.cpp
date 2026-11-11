@@ -43,7 +43,10 @@ void RegisterShuffleCows() {
             OoT_gPlayState->sceneNum, static_cast<int32_t>(enCow->actor.world.pos.x),
             static_cast<int32_t>(enCow->actor.world.pos.z));
         // Has this cow already rewarded an item?
-        if (!Flags_GetRandomizerInf(cowIdentity.randomizerInf)) {
+        // [RSBS #1364] A cow IdentifyCow does not resolve keeps the RAND_INF_MAX
+        // sentinel, which has no bit since the chest game's flag took the last one
+        // (Flags_SetRandomizerInf ignores it), so it gives its vanilla milk.
+        if (cowIdentity.randomizerInf != RAND_INF_MAX && !Flags_GetRandomizerInf(cowIdentity.randomizerInf)) {
             Flags_SetRandomizerInf(cowIdentity.randomizerInf);
             // setting the ocarina mode here prevents intermittent issues
             // with the item get not triggering until walking away

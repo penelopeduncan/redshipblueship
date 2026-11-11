@@ -60,6 +60,8 @@ set(REDSHIP_COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/combo_tracker_view.c
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.c
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.cpp
+    # The combined Hint Tracker (#1475 lane H2): both games' hints in SoH's window
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.cpp
     # The unified Item Tracker overlay over combo_item_view (#458 U2)
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.cpp
     # MM randomizer options: the registry + value accessors over the descriptor
@@ -223,6 +225,11 @@ set(REDSHIP_COMMON_SOURCES
     # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
     # never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.c
+    # #1169 XW5: Ocarina of Time's six warp songs as Majora's Mask items: how many
+    # copies MM pools under the frozen rules, their names, and the ownership byte
+    # in ComboContext (ADR 0009 claim 21). Game-header-free. APPENDED, never
+    # reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -273,6 +280,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.h
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_page.h
@@ -331,6 +339,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
+    # Header for warp_songs_mm.c above (#1169 XW5)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
 )
 
 # ============================================================================
@@ -897,6 +907,11 @@ if(BUILD_TESTING)
     # an ungated draw path aborts the process).
     redship_add_test(NAME ComboTrackerView COMMAND redship --test combo-tracker-view)
     redship_add_test(NAME ComboTrackerWindow COMMAND redship --test combo-tracker-window)
+    # #1475 (lane H2): the combined Hint Tracker, display-free: registered under SoH's
+    # window name and inert with no ImGui context, SoH's DrawHintList grouping over
+    # synthetic rows, MM's Journal decisions over MM's real descriptor, and the
+    # cross-game Seen plumbing over an authored MM half.
+    redship_add_test(NAME ComboHintTrackerWindow COMMAND redship --test combo-hint-tracker-window)
     # Unified item view (#458 U1a). Display-free: OoT's item adapter reads
     # SaveContext images the OoT TU authors, handed to it as the frozen shadow
     # or a test live source; the shared group reads the resource pool.
@@ -3510,6 +3525,26 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
+    # songMinuetMm .. songPreludeMm, hidden until XW12). MMWarpSongsItems: the
+    # ownership byte carved from the tail of ComboContext's reserved[] (1003,
+    # ADR 0009 claim 21), the six RI ids appended after the masks, their rows and
+    # names, MM's real give and conversion, rule-gated ownership, the copies rule,
+    # MM's real pool, OoTMM's button sets through MM's logic macro, and the
+    # snapshot brackets. MMWarpSongsOwnershipSurvives: a starting song owned after
+    # creation, an MM in-game save, a freeze and the .redsave reloads. Both bring
+    # up the CVar store. MMWarpSongsRulesOffUnchanged: hidden bits refused, a
+    # rules-off world pools and credits nothing, and main's fingerprint, bag seeds
+    # and package record with the byte at 0 or full. All three ROM-free.
+    # MMWarpSongsPooledOnlyWhenRuleOn: `rando`, real paired creations through the
+    # hidden-bit test seam.
+    redship_add_test(NAME MMWarpSongsItems COMMAND redship --test mm-warp-songs-items)
+    redship_add_test(NAME MMWarpSongsOwnershipSurvives COMMAND redship --test mm-warp-songs-ownership)
+    redship_add_test(NAME MMWarpSongsRulesOffUnchanged COMMAND redship --test mm-warp-songs-rules-off-unchanged)
+    redship_add_test(NAME MMWarpSongsPooledOnlyWhenRuleOn COMMAND redship --test mm-warp-songs-pooled-only-when-rule-on
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # THE PAIRED GAME'S END (#762, OoTMM parity): the frozen goal's predicate over
     # the two final-boss defeats recorded in sharedFlags, the decision for every
@@ -3652,6 +3687,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
         LABEL rando
         TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1364: Shuffle Treasure Chest Game (SoH 6706b49d1) ships off and greyed out;
+    # two real generations fold none of the lines it added (the default world's
+    # fingerprint is the one it had before), a paired generation pins it off even
+    # when keyed on, and the shopkeeper's real wait action gives his item without
+    # queueing it a second time (SoH 4868b0712). Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
+    redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own

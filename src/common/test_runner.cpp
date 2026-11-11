@@ -778,6 +778,10 @@ extern "C" {
 // ComboGui::RegisterComboTrackerWindow.
 #include "tests/test_combo_tracker_view.c"
 #include "tests/test_combo_tracker_window.c"
+// The combined Hint Tracker (#1475 lane H2): the window, SoH's grouping, MM's
+// Journal decisions and the cross-game Seen plumbing. FILE SCOPE (compiled as
+// C++) for the C++-linkage ComboGui functions.
+#include "tests/test_combo_hint_tracker_window.c"
 // Unified item view (#458 U1a): FILE SCOPE (compiled as C++) for the authored
 // std::vector buffers; every symbol it drives is extern-C.
 #include "tests/test_combo_item_view.c"
@@ -1208,6 +1212,13 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1169 lane XW5: Ocarina of Time's six warp songs as Majora's Mask items and
+// their ownership byte: the items, the pool and the button sets
+// (mm-warp-songs-items, needs the CVar store), ownership surviving creation, an
+// MM in-game save, a freeze and a .redsave reload (mm-warp-songs-ownership, the
+// same bring-up), and the rules-off world staying main's
+// (mm-warp-songs-rules-off-unchanged). FILE SCOPE (compiled as C++).
+#include "tests/test_warp_songs_mm.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -2442,7 +2453,10 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // the MM logic changes (the Fisherman's heart piece behind the Hookshot, the
 // postbox's region, the region order) move the default world's placements named by
 // the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x1F6A69EBu;
+// Re-pinned again by the pedestal child check (#1484; generator 5, was 0x1F6A69EB):
+// with Shuffle Master Sword on the pedestal is reachable as a child, which moves the
+// default world's placements named by the static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0xD5F895FFu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -4920,6 +4934,26 @@ TestResult Test_MMPairedStartSharedSongTime(void) {
     return MM_PairedStartSharedSongTime_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1169 XW5: Ocarina of Time's warp songs as MM items over real paired creations,
+// rules off, on through the hidden-bit test seam, and shared. Body in
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
+// skips it.
+extern "C" int MM_WarpSongsPooled_RunHeadless(void);
+
+TestResult Test_MMWarpSongsPooledOnlyWhenRuleOn(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw5PoolArg0[] = "redship";
+    static char* xw5PoolArgv[] = { xw5PoolArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw5PoolArgv);
+
+    return MM_WarpSongsPooled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Attempt-ladder convergence + determinism digest (ADR 0010 increment 1.2
 // lock (b)). Single-run assertions here; the two-process byte-diff runs via
 // the MMPairedAttemptDeterminism row (CMake/CheckPairedAttemptDeterminism
@@ -6474,10 +6508,12 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     int wrapped = 0;
     bool ok = true;
 
-    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace.
+    // #1132: the two SoH windows the unified Check Tracker and Item Tracker replace;
+    // #1475 (lane H2): and SoH's Hint Tracker, which the combined Hint Tracker replaces.
     static const char* const kRetired[] = {
         "CheckTracker::CheckTrackerWindow",
         "ItemTrackerWindow",
+        "HintTracker::HintTrackerWindow",
     };
     int retiredSeen[sizeof(kRetired) / sizeof(kRetired[0])] = {};
     static const std::string kRetiredWrap = "RetiredInSingleExe<";
@@ -7276,6 +7312,21 @@ TestResult Test_ComboTrackerWindow(void) {
     return Combo_TrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// The combined Hint Tracker (#1475 lane H2). The Check Tracker window's bring-up,
+// for the same reason (GuiWindow ctors read ConsoleVariables off the singleton).
+TestResult Test_ComboHintTrackerWindow(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return Combo_HintTrackerWindow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Unified item view (#458 U1a). No Gui; the display-free bring-up because the
 // shared group reads the ocarina kind's arming, which resolves a CVar before a
 // world exists.
@@ -7743,6 +7794,34 @@ TestResult Test_ComboItemRulesSecondWord(void) {
         return TEST_FAIL;
     }
     return ComboItemRulesSecondWord_Run();
+}
+
+// #1169 XW5: the MM warp songs' pool reads the CVar store (GeneratePools) and a
+// .redsave load compares the warp-song keys, the same bring-up as
+// combo-item-rules-second-word.
+TestResult Test_MMWarpSongsItems(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongsItems_Run();
+}
+TestResult Test_MMWarpSongsOwnership(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongsOwnership_Run();
 }
 
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
@@ -8326,6 +8405,17 @@ TestResult Test_OoTEarlyGrannyShop(void) {
         return TEST_FAIL;
     }
     return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1364: Shuffle Treasure Chest Game (SoH 6706b49d1, 4868b0712): the options, the
+// settings fold over two real generations, the paired pin, and the shopkeeper's
+// real wait action. Same bring-up as the row above; body in
+// games/oot/soh/oot_chest_game_shuffle_test.cpp.
+extern "C" int OoT_ChestGameShuffleTest_Run(void);
+TestResult Test_OoTChestGameShuffle(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ChestGameShuffleTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
@@ -9189,6 +9279,9 @@ const TestDescriptor gTests[] = {
     { "combo-tracker-window",
       "Combo tracker window registers de-collided; inert under every active game and absent adapters (#458)",
       Test_ComboTrackerWindow },
+    { "combo-hint-tracker-window",
+      "Combined Hint Tracker under SoH's name: inert, SoH's grouping both panes, cross-game Seen (#1475)",
+      Test_ComboHintTrackerWindow },
     { "combo-item-view",
       "Item rows from OoT's live save or frozen shadow, never live for the inactive game; shared group label (#458)",
       Test_ComboItemView },
@@ -10193,6 +10286,26 @@ const TestDescriptor gTests[] = {
       "Thirteen songs on the twelve spots of Song Locations or Dungeon Rewards are refused at Generate with OoTMM's "
       "\"Not enough locations\" wording; a starting song, a shared song or Anywhere generates (#1169)",
       Test_SongLocationsOverflowRefused },
+    // #1169 XW5: Ocarina of Time's warp songs as MM items. The first two need the
+    // CVar store (their wrappers bring it up); the third is ROM-free and
+    // store-free; the fourth runs real paired creations (rando tier).
+    { "mm-warp-songs-items",
+      "Ocarina of Time's six warp songs are MM items appended after the masks with OoTMM's names, owned through one "
+      "byte of the combo record only under their frozen rules, pooled once each unless shared, played with OoTMM's "
+      "buttons, and no simulated pickup owns one (#1169)",
+      Test_MMWarpSongsItems },
+    { "mm-warp-songs-ownership",
+      "A starting MM warp song is owned after creation, after an MM in-game save and a .redsave load, and a pickup "
+      "after a freeze, the crossing's commit and a reload; the fingerprint never moves (#1169)",
+      Test_MMWarpSongsOwnership },
+    { "mm-warp-songs-rules-off-unchanged",
+      "While the warp-song rules are hidden no world pools or credits an MM warp song, and owning one moves no "
+      "fingerprint, bag seed or package record (#1169)",
+      Test_MMWarpSongsRulesOffUnchanged },
+    { "mm-warp-songs-pooled-only-when-rule-on",
+      "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
+      "none of a shared song, place every copy and leave none owned (#1169)",
+      Test_MMWarpSongsPooledOnlyWhenRuleOn },
     { "combo-crossing-views",
       "The Combo Tracker and the Cross-Game Spoiler list the crossing store's rows in both directions, named, with "
       "found state per host check from each game's save, across a game switch and a .redsave load (#755, #757)",
@@ -10267,6 +10380,12 @@ const TestDescriptor gTests[] = {
       "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
       "it (#1414)",
       Test_OoTEarlyGrannyShop },
+    // #1364. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-chest-game-shuffle",
+      "Shuffle Chest Minigame ships off and greyed out, a default world's settings fold reads none of the lines it "
+      "added, a paired generation pins it off even when keyed on, and the chest game's shopkeeper gives his item "
+      "without queueing it a second time (SoH 4868b0712) (#1364)",
+      Test_OoTChestGameShuffle },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -10657,6 +10776,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
                 strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
+                strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process
@@ -10666,6 +10786,9 @@ int TestRunner_Run(const char* testName) {
                 // never-booted leg) would read it.
                 strcmp(gTests[i].name, "oot-soaring-pooled-only-when-rule-on") == 0 ||
                 strcmp(gTests[i].name, "song-locations-overflow-refused") == 0 ||
+                // #1169 XW5's generation row: like every row above, a real
+                // generation leaves its world alive for the rest of the process.
+                strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||
                 strcmp(gTests[i].name, "mm-hint-sources-world") == 0 ||
                 // A window and soh.o2r, and a run of its own: the `ui` CTest label.
                 strcmp(gTests[i].name, "ui-snapshot") == 0) {

@@ -7,9 +7,10 @@
 ### Read this first
 
 - **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
-  with Shuffle Tingle Maps on (each Tingle map is now placed once), and with Shuffle Time on (Majora's Mask logic now
-  carries only the half-days a time-gated path is open on). A seed package exported by `v0.5.0-alpha` is refused, so
-  generate the seed again. Saved files are not affected.
+  with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
+  carries only the half-days a time-gated path is open on), and with Shuffle Master Sword on, which is the default
+  (the pedestal is now a child check, see below). A seed package exported by `v0.5.0-alpha` is refused, so generate
+  the seed again. Saved files are not affected.
 
 ### Majora's Mask randomizer
 
@@ -37,6 +38,14 @@
   song checks, and Vanilla and Start With behave as in 2Ship. The defaults stay Anywhere, so worlds created with the
   defaults do not change.
 
+### Ocarina of Time randomizer
+
+- **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
+  Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
+  open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold
+  the Master Sword (with Time Travel Requires Master Sword on). With the sword unshuffled nothing changes: pulling
+  the sword is the check.
+
 ### Fixes
 
 - **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
@@ -48,6 +57,10 @@
   carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
   leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
   above all, make different worlds from the same seed.
+- **Majora's Mask solo randomizer: finding a clock no longer opens day-only checks behind night-only paths** (issue
+  #1509). With Shuffle Time on, the fill used to give every region it had already reached the newly found half-day, so
+  a daytime check behind a path open only at night could be placed as reachable. The fill now works the reachable
+  regions out again from the start after each clock. Paired worlds were not affected.
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
@@ -68,16 +81,29 @@
   Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
   inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
   the scene they open from.
+- **The Hint Tracker shows both games** (issue #1475). It keeps Ship of Harkinian's Locations and Journal views, with an
+  Ocarina of Time pane and a Majora's Mask pane, works in either game, and each pane scrolls to the area you are in.
+  Majora's Mask hints you have read are now listed. Reading a Majora's Mask hint about an item that crossed into Hyrule
+  marks that Ocarina of Time check as Seen in the Check Tracker.
 
 ### Options and quality of life
 
 - **Ocarina of Time: Text Speed has a sixth notch, Instant** (issue #1414). At 6 the slider shows each text box in
   full at once.
+- **A bought Ocarina of Time shop shelf sells its item again when OoTMM would restock it** (issue #1482). With Shuffle
+  Shops on, a shelf holding ammo, Bombchus, a Deku or Hylian Shield, a potion refill, milk, fish or a Recovery Heart
+  stays on sale after you buy it; the second sale gives the item and charges the price. Bottles, other items and shelves
+  holding Majora's Mask items still sell out, and a shelf whose Majora's Mask item was already collected shows as sold
+  out as soon as the shop loads.
 - **New randomizer option: Early Granny's Potion Shop** (issue #1414). With Shuffle Adult Trade off, Granny's shop in
   Kakariko is open from the start, without the Claim Check, and logic counts her item that way. It is off by
   default, and a seed made with it off makes the same world as before.
 - **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
   instead of queueing behind it.
+- **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
+  Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
+  room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
+  generated with it off. The same seed and settings make the same world as before.
 
 ---
 

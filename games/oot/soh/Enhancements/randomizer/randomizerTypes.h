@@ -4168,6 +4168,9 @@ typedef enum {
     RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8,
     // End Grass
 
+    // SoH 6706b49d1 puts this after RC_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other check id moves.
+    RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+
     RC_MAX
 } RandomizerCheck;
 
@@ -6405,6 +6408,8 @@ typedef enum {
     // [RSBS #1169 XW4] the hint text of RG_SONG_OF_SOARING_OOT. Appended last, as
     // RHT_STONE_MASK is.
     RHT_SONG_OF_SOARING_OOT,
+    // SoH 6706b49d1 puts this after RHT_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other hint text id moves.
+    RHT_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
     // MAX
     RHT_MAX,
 } RandomizerHintTextKey;
@@ -6741,6 +6746,8 @@ typedef enum {
     // before it reads the missing tail as 0, off.
     RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD,
     RSK_EARLY_GRANNYS_SHOP,
+    // SoH 6706b49d1 puts this after RSK_KEYRINGS_GANONS_CASTLE; appended here so no other setting key moves.
+    RSK_KEYRINGS_CHEST_GAME,
     RSK_MAX
 } RandomizerSettingKey;
 
@@ -7170,12 +7177,6 @@ typedef enum {
     RO_LOCATION_INCLUDE,
     RO_LOCATION_EXCLUDE,
 } RandoOptionLocationInclusion;
-
-typedef enum {
-    RO_CHEST_GAME_OFF,
-    RO_CHEST_GAME_SINGLE_KEYS,
-    RO_CHEST_GAME_PACK,
-} RandoOptionChestGame;
 
 typedef enum {
     RO_MQ_SET_VANILLA,

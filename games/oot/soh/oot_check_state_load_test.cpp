@@ -35,6 +35,17 @@
  *   the item receive, but its generic EventChkInf loop resolves their flags to
  *   them too, so they follow the loaded half. Display only: a vanilla file
  *   gives nothing through these statuses.
+ *   Leg D (#1484, a randomizer file): the child's pedestal give, made after
+ *   the last OoT save and before the crossing, sets RAND_INF_TOT_MASTER_SWORD
+ *   in the committed half only. After the seam the pedestal reads found, so
+ *   its item is not given again. Red on a main whose pedestal still names the
+ *   pull's EventChkInf.
+ *   Leg E (#1484, a vanilla paired file): the pull's
+ *   EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL is in the committed half only.
+ *   After the seam the pedestal reads found: the seam reads the pull's flag for
+ *   it on a vanilla file (CheckStateLoadSingleExe.cpp, CollectionCheckFor) and
+ *   the tracker resolves that flag to it (CheckTrackerFlagSet's special case);
+ *   without either, the pedestal stops following the loaded half.
  *
  * THE SEAM UNDER TEST. OoT_Combo_OnLoadFileSeam (games/oot/soh/SaveManager.cpp),
  * the body of OoT's OnLoadFile hook, driven exactly as LoadFile drives it: the
@@ -43,11 +54,13 @@
  *
  * CONTROLS. Checks whose flag is the same in both halves keep their status: a
  * SCUMMED chest still closed, a SAVED chest still open, and the Master Sword a
- * file creation marks SAVED without its flag (StartingItemGive on an adult
- * start). A rule that set every status from the flag alone would turn that last
- * one not-found, and pulling the sword would give it a second time. Leg C adds
- * a check the vanilla tracker never marks (a Mido chest is not a vanilla
- * completion check): its flag differs between the halves and its status stays
+ * file creation marks SAVED (StartingItemGive on an adult start), whose own flag
+ * is the same in both halves (that creation sets RAND_INF_TOT_MASTER_SWORD in
+ * the created file since #1484; the controls leave it unset in both). A rule
+ * that set every status from the flag alone would turn that last one not-found
+ * wherever the flag is unset, and the pedestal would give it a second time.
+ * Leg C adds a check the vanilla tracker never marks (a Mido chest is not a
+ * vanilla completion check): its flag differs between the halves and its status stays
  * as the .sav has it, so the vanilla leg resolves flags through the tracker's
  * own maps and not through "any check with that flag".
  */
@@ -210,7 +223,9 @@ void BlankVanillaHalf(SaveContext* s) {
 void ArmControls(SaveContext* s) {
     s->sceneFlags[SCENE_MIDOS_HOUSE].chest |= kMidoRightBit; // RC_KF_MIDOS_TOP_RIGHT_CHEST: opened and saved
     // RC_KF_MIDOS_TOP_LEFT_CHEST: collected after the last save, never committed (closed).
-    // RC_TOT_MASTER_SWORD: given at creation, EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL never set.
+    // RC_TOT_MASTER_SWORD: given at creation and marked SAVED, its own flag the same in both halves.
+    // An adult start's creation sets that flag, RAND_INF_TOT_MASTER_SWORD (#1484), in the created
+    // file and so in both halves; here it is unset in both, which the rule treats the same way.
 }
 
 void SetTrackerStatuses(RandomizerCheckStatus sword, RandomizerCheckStatus heartPiece,
@@ -450,6 +465,65 @@ int RunLegs(void) {
         OCSL_CHECK(gohma == RCSHOW_SCUMMED,
                    "#861 reverse: on a vanilla paired file, a dungeon reward whose EventChkInf the loaded half does "
                    "not hold reads not found");
+    }
+
+    // ======================================================================
+    // Leg D (#1484): the child's pedestal give, crossed, reloaded.
+    // ======================================================================
+    // The last OoT save: the pedestal not yet visited. Then the child walks up,
+    // is handed the pedestal's item (RAND_INF_TOT_MASTER_SWORD) and crosses: the
+    // crossing commit's OoT half holds the flag, the .sav's tracker does not.
+    BlankRandoHalf(&sSavBase);
+    ArmControls(&sSavBase);
+    memcpy(&sCommitted, &sSavBase, sizeof(SaveContext));
+    SetRandoInf(&sCommitted, RAND_INF_TOT_MASTER_SWORD);
+    savGeneration = WriteCommits(sSavBase, sCommitted);
+    OCSL_CHECK(savGeneration != 0, "leg D setup: the two commits are written");
+    if (savGeneration == 0) {
+        return 1;
+    }
+    memcpy(&gSaveContext, &sSavBase, sizeof(SaveContext));
+    SetTrackerStatuses(RCSHOW_UNCHECKED, RCSHOW_UNCHECKED, RCSHOW_UNCHECKED);
+    Loc(RC_TOT_MASTER_SWORD)->SetCheckStatus(RCSHOW_SCUMMED); // the give, then a section-only tracker save
+    OoT_Combo_OnLoadFileSeam(kSlot, savGeneration, nullptr);
+    {
+        const bool halfApplied = HasRandoInf(&gSaveContext, RAND_INF_TOT_MASTER_SWORD);
+        const RandomizerCheckStatus master = Loc(RC_TOT_MASTER_SWORD)->GetCheckStatus();
+        printf("[TEST] oot-check-state-load: leg D: the loaded half %s the pedestal's give; the pedestal reads %s\n",
+               halfApplied ? "holds" : "does NOT hold", StatusName(master));
+        OCSL_CHECK(halfApplied, "leg D setup: the .redsave's newer OoT half, with the pedestal's give, loaded");
+        OCSL_CHECK(Loc(RC_TOT_MASTER_SWORD)->HasObtained(),
+                   "#1484: the child's pedestal give the loaded half holds reads found (the seam follows the "
+                   "pedestal's own flag, RAND_INF_TOT_MASTER_SWORD)");
+    }
+
+    // ======================================================================
+    // Leg E (#1484): a vanilla paired file, the sword pulled, crossed, reloaded.
+    // ======================================================================
+    BlankVanillaHalf(&sSavBase);
+    ArmControls(&sSavBase);
+    memcpy(&sCommitted, &sSavBase, sizeof(SaveContext));
+    SetEventChkInf(&sCommitted, EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL);
+    savGeneration = WriteCommits(sSavBase, sCommitted, /*rando=*/false);
+    OCSL_CHECK(savGeneration != 0, "leg E setup: the two commits of a vanilla file are written");
+    if (savGeneration == 0) {
+        return 1;
+    }
+    memcpy(&gSaveContext, &sSavBase, sizeof(SaveContext));
+    SetTrackerStatuses(RCSHOW_UNCHECKED, RCSHOW_UNCHECKED, RCSHOW_UNCHECKED);
+    Loc(RC_TOT_MASTER_SWORD)->SetCheckStatus(RCSHOW_SCUMMED);
+    OoT_Combo_OnLoadFileSeam(kSlot, savGeneration, nullptr);
+    {
+        const bool vanilla = gSaveContext.ship.quest.id == QUEST_NORMAL;
+        const bool halfApplied = (gSaveContext.eventChkInf[EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL >> 4] &
+                                  (1u << (EVENTCHKINF_PULLED_MASTER_SWORD_FROM_PEDESTAL & 0xF))) != 0;
+        const RandomizerCheckStatus master = Loc(RC_TOT_MASTER_SWORD)->GetCheckStatus();
+        printf("[TEST] oot-check-state-load: leg E (vanilla): the loaded half %s the pull; the pedestal reads %s\n",
+               halfApplied ? "holds" : "does NOT hold", StatusName(master));
+        OCSL_CHECK(vanilla && halfApplied, "leg E setup: the .redsave's newer OoT half of a vanilla file loaded");
+        OCSL_CHECK(Loc(RC_TOT_MASTER_SWORD)->HasObtained(),
+                   "#1484: on a vanilla paired file, the pull the loaded half holds reads found (the seam reads the "
+                   "pull's flag for the pedestal there, and the tracker resolves it)");
     }
     return 0;
 }
