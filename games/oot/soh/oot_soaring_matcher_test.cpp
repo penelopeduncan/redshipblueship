@@ -151,7 +151,7 @@ void SoaringMatcherSetOwned(bool owned) {
     if (owned) {
         gSaveContext.ship.randomizerInf[flag >> 4] |= (u16)(1 << (flag & 0xF));
     } else {
-        gSaveContext.ship.randomizerInf[flag >> 4] &= (u16)~(1 << (flag & 0xF));
+        gSaveContext.ship.randomizerInf[flag >> 4] &= (u16) ~(1 << (flag & 0xF));
     }
 }
 
