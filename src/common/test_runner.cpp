@@ -2602,6 +2602,112 @@ TestResult Test_HashBytesUnsigned(void) {
     return TEST_PASS;
 }
 
+// CLEAN SAVE BREAK, PART 2: THE PLACEMENT HASHES FOLD ONLY PLACED ROWS. The golden
+// digests' placementHash and ootFinalPlacementHash (OoT_FoldPlacedRows, 3drando/
+// menu.cpp) and mmPlacementHash (FoldShuffledMMRows, mm_rando_gen_test.cpp) used to
+// fold every check id, so a backport that only added checks behind an option that
+// is off moved every pinned world. Each game's real fold runs here over a synthetic
+// table: an unplaced row (OoT RG_NONE; MM unshuffled, holding a vanilla item as
+// GeneratePools leaves one) must not move the hash, and a changed, moved, added or
+// removed placed row must. The exact text is checked against an independent FNV-1a
+// of the expected blob, so the format ("<id>:<item>;" in ascending id order) is
+// pinned without a magic number and folds the same on every platform.
+static uint32_t PlacementFoldFnv1a(const std::string& text) {
+    uint32_t h = 0x811C9DC5u;
+    for (unsigned char c : text) {
+        h ^= (uint32_t)c;
+        h *= 0x01000193u;
+    }
+    return h;
+}
+
+extern "C" uint32_t OoT_Rando_TestPlacementFold(const int* items, int count, size_t* outPlaced);
+extern "C" uint32_t MM_Rando_TestPlacementFold(const int* checkIds, const int* items, const unsigned char* shuffled,
+                                               int count);
+
+TestResult Test_PlacementHashPlacedRows(void) {
+    int failures = 0;
+    auto expect = [&failures](const char* what, bool ok) {
+        printf("[TEST] placement-hash-placed-rows: %s: %s\n", what, ok ? "ok" : "FAIL");
+        if (!ok) {
+            failures++;
+        }
+    };
+
+    // ---- OoT: rows 0..7, three placed (RG_NONE is 0). ----
+    {
+        int base[8] = { 0, 12, 0, 34, 0, 0, 56, 0 };
+        size_t placed = 0;
+        const uint32_t h0 = OoT_Rando_TestPlacementFold(base, 8, &placed);
+        expect("OoT folds exactly \"1:12;3:34;6:56;\"", h0 == PlacementFoldFnv1a("1:12;3:34;6:56;"));
+        expect("OoT counts the three placed rows", placed == 3);
+
+        // More RG_NONE rows appended (a backport's new checks with their option off).
+        int grown[12] = { 0, 12, 0, 34, 0, 0, 56, 0, 0, 0, 0, 0 };
+        expect("OoT: appended RG_NONE rows leave the hash", OoT_Rando_TestPlacementFold(grown, 12, nullptr) == h0);
+
+        int changed[8] = { 0, 12, 0, 35, 0, 0, 56, 0 };
+        expect("OoT: a placed row's item moves the hash", OoT_Rando_TestPlacementFold(changed, 8, nullptr) != h0);
+
+        int swapped[8] = { 0, 34, 0, 12, 0, 0, 56, 0 };
+        expect("OoT: two placed rows trading items move the hash",
+               OoT_Rando_TestPlacementFold(swapped, 8, nullptr) != h0);
+
+        int moved[8] = { 0, 12, 34, 0, 0, 0, 56, 0 };
+        expect("OoT: a placed item moving host moves the hash", OoT_Rando_TestPlacementFold(moved, 8, nullptr) != h0);
+
+        int added[8] = { 0, 12, 0, 34, 0, 0, 56, 78 };
+        expect("OoT: a newly placed row moves the hash", OoT_Rando_TestPlacementFold(added, 8, &placed) != h0);
+        expect("OoT counts the added row", placed == 4);
+
+        int removed[8] = { 0, 12, 0, 0, 0, 0, 56, 0 };
+        expect("OoT: a placed row emptied moves the hash", OoT_Rando_TestPlacementFold(removed, 8, nullptr) != h0);
+    }
+
+    // ---- MM: checks 1..6 (real RandoCheckIds; 0 is RC_UNKNOWN). ----
+    {
+        // Shuffled 1, 3, 5 (5 holds item 0: a shuffled row is folded whatever it
+        // holds); 2 and 4 unshuffled holding their "vanilla" items.
+        const int ids[5] = { 1, 2, 3, 4, 5 };
+        const int items[5] = { 21, 99, 43, 77, 0 };
+        const unsigned char shuf[5] = { 1, 0, 1, 0, 1 };
+        const uint32_t h0 = MM_Rando_TestPlacementFold(ids, items, shuf, 5);
+        expect("MM folds exactly \"1:21;3:43;5:0;\"", h0 == PlacementFoldFnv1a("1:21;3:43;5:0;"));
+
+        const int idsGrown[6] = { 1, 2, 3, 4, 5, 6 };
+        const int itemsGrown[6] = { 21, 99, 43, 77, 0, 88 };
+        const unsigned char shufGrown[6] = { 1, 0, 1, 0, 1, 0 };
+        expect("MM: an added unshuffled row holding its vanilla item leaves the hash",
+               MM_Rando_TestPlacementFold(idsGrown, itemsGrown, shufGrown, 6) == h0);
+
+        const int itemsVanilla[5] = { 21, 98, 43, 76, 0 };
+        expect("MM: an unshuffled row's item leaves the hash",
+               MM_Rando_TestPlacementFold(ids, itemsVanilla, shuf, 5) == h0);
+
+        const int itemsChanged[5] = { 21, 99, 44, 77, 0 };
+        expect("MM: a shuffled row's item moves the hash",
+               MM_Rando_TestPlacementFold(ids, itemsChanged, shuf, 5) != h0);
+
+        const int itemsSwapped[5] = { 43, 99, 21, 77, 0 };
+        expect("MM: two shuffled rows trading items move the hash",
+               MM_Rando_TestPlacementFold(ids, itemsSwapped, shuf, 5) != h0);
+
+        const unsigned char shufOn[5] = { 1, 1, 1, 0, 1 };
+        expect("MM: a row becoming shuffled moves the hash", MM_Rando_TestPlacementFold(ids, items, shufOn, 5) != h0);
+
+        const unsigned char shufOff[5] = { 1, 0, 1, 0, 0 };
+        expect("MM: a shuffled row becoming unshuffled moves the hash",
+               MM_Rando_TestPlacementFold(ids, items, shufOff, 5) != h0);
+    }
+
+    if (failures > 0) {
+        printf("[TEST] FAIL: %d placement-fold assertion(s) failed\n", failures);
+        return TEST_FAIL;
+    }
+    printf("[TEST] PASS: both placement hashes fold exactly their placed rows\n");
+    return TEST_PASS;
+}
+
 // #710: WHERE A DIGEST DISPATCH WRITES, AND SAYING SO WHEN IT WRITES NOWHERE.
 //
 // The digest dispatches below read their output path from the environment and
@@ -9956,6 +10062,9 @@ const TestDescriptor gTests[] = {
       Test_RandoStaticHintOrder },
     { "hash-bytes-unsigned", "SohUtils::Hash and Ship_Hash fold bytes >= 0x80 unsigned (#951)",
       Test_HashBytesUnsigned },
+    { "placement-hash-placed-rows",
+      "The placement hashes fold only placed rows: unplaced rows never move them (clean break part 2)",
+      Test_PlacementHashPlacedRows },
     // #578 part 2: the trick BINDINGS. Appended at the end of the block rather
     // than next to its part-1 siblings above, because those sit before
     // archive-hotswap-logic's "keep LAST" row and this one runs a real generation
