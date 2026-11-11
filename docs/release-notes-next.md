@@ -43,6 +43,10 @@
   carries only the half-days it is open on: a path open only at night (Milk Road's Night 2 exits, the graveyard holes)
   leads only to that night, so a daytime check behind it is no longer treated as reachable. Some settings, Shuffle Time
   above all, make different worlds from the same seed.
+- **Majora's Mask solo randomizer: finding a clock no longer opens day-only checks behind night-only paths** (issue
+  #1509). With Shuffle Time on, the fill used to give every region it had already reached the newly found half-day, so
+  a daytime check behind a path open only at night could be placed as reachable. The fill now works the reachable
+  regions out again from the start after each clock. Paired worlds were not affected.
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
@@ -68,6 +72,11 @@
 
 - **Ocarina of Time: Text Speed has a sixth notch, Instant** (issue #1414). At 6 the slider shows each text box in
   full at once.
+- **A bought Ocarina of Time shop shelf sells its item again when OoTMM would restock it** (issue #1482). With Shuffle
+  Shops on, a shelf holding ammo, Bombchus, a Deku or Hylian Shield, a potion refill, milk, fish or a Recovery Heart
+  stays on sale after you buy it; the second sale gives the item and charges the price. Bottles, other items and shelves
+  holding Majora's Mask items still sell out, and a shelf whose Majora's Mask item was already collected shows as sold
+  out as soon as the shop loads.
 - **New randomizer option: Early Granny's Potion Shop** (issue #1414). With Shuffle Adult Trade off, Granny's shop in
   Kakariko is open from the start, without the Claim Check, and logic counts her item that way. It is off by
   default, and a seed made with it off makes the same world as before.

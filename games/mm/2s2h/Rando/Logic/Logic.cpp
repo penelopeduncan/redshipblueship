@@ -325,6 +325,31 @@ void FindReachableRegions(RandoRegionId currentRegion, std::set<RandoRegionId>& 
     }
 }
 
+// #1509 — A CLOCK GAIN IN THE SOLO FILL. The glitchless fill used to answer a
+// time item by setting EVERY entry of its regionTimeStates to the new owned
+// slices (plus ExpandTimeForward for regions that can stay). The next sweep
+// only joins into those masks, so a region reached through an `IS_NIGHT2()`
+// edge got every owned half-day back after the first clock and a day-gated
+// check behind it was in logic again: #1453's narrowing undone for every
+// region discovered before the clock.
+//
+// Instead the fill starts its traversal over from the root: the reachable set
+// goes back to { RR_MAX }, the root's state takes the new owned slices (exactly
+// the value the old code gave it), and every other state is dropped, so the
+// next sweep rebuilds each region through NarrowEdgeTime. Clearing the states
+// alone is not enough: a region still in the set would be visited by the
+// fill's sweep with no state and EnsureRegionTimeState would hand it every
+// owned slice, which is the same widening again. Checks and events already in
+// logic are kept by the fill; Regions/ has no negated time predicate, so the
+// rebuild reaches everything it reached before.
+void ResetRegionTimeStatesForTimeGain(std::set<RandoRegionId>& regionsInLogic,
+                                      std::unordered_map<RandoRegionId, RegionTimeState>& regionTimeStates) {
+    regionsInLogic.clear();
+    regionsInLogic.insert(RR_MAX);
+    regionTimeStates.clear();
+    regionTimeStates[RR_MAX] = { .timeSlices = TimeLogic::GetOwnedTimeSlices(), .canStayOverTime = false };
+}
+
 // ============================================================================
 // Factored reachability crawl + reachable-check closure (ADR 0010 increment
 // 1.3; #500 work item 2). Contracts in Logic.h; the discipline notes that are
