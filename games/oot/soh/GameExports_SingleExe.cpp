@@ -12,6 +12,7 @@
 #include <cmath>
 #include <chrono>
 #include <filesystem>
+#include <memory> // std::make_unique: the save format 6 fixture halves
 #include <string>
 #include "OTRGlobals.h"
 #include "soh/CrashHandlerExt.h"
@@ -182,6 +183,62 @@ extern "C" int OoT_SaveLayout_ReportPins(void) {
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_RANDOMIZER_INF, offsetof(SaveContext, ship.randomizerInf), mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_OOT_SHIP_FOREIGN_MASK, offsetof(SaveContext, ship.foreignMask), mismatches);
     return mismatches;
+}
+
+/**
+ * Save format 6: THE FIXTURE'S OoT HALF (SaveFormatV6Fixture, the committed
+ * tests/fixtures/save-format-6/redship_slot0.redsave). The writer sets these
+ * fields BY NAME in a zeroed SaveContext; the check reads them back by name from
+ * a loaded half. Indices are LITERALS, the last ids at save format 6 (count 105,
+ * itemTimestamp 239, randomizerInf word 128 holds flag 2063): a later build's
+ * enums grow, the fixture's bytes do not. A field that moves in a later build
+ * reads other bytes and fails by name, which is the per-step proof that no saved
+ * field moved.
+ */
+extern "C" void OoT_SaveLayout_FixtureWrite(uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        return;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memset(sc.get(), 0, sizeof(SaveContext));
+    sc->healthCapacity = 0x0130;
+    sc->ship.stats.itemTimestamp[0] = 0x01020304u;
+    sc->ship.stats.itemTimestamp[239] = 0x0A0B0C0Du;
+    sc->ship.stats.count[0] = 0x11u;
+    sc->ship.stats.count[105] = 0x22u;
+    sc->ship.quest.id = QUEST_RANDOMIZER;
+    sc->ship.quest.data.randomizer.triforcePiecesCollected = 7;
+    sc->ship.quest.data.randomizer.bombchuUpgradeLevel = 2;
+    sc->ship.filenameLanguage = 1;
+    sc->ship.randomizerInf[0] = 0x1234u;
+    sc->ship.randomizerInf[128] = 0x8001u;
+    sc->ship.foreignMask = 3;
+    memcpy(blob, sc.get(), sizeof(SaveContext));
+}
+
+extern "C" int OoT_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        printf("[FIXTURE] FAIL oot: no half to read (%zu bytes)\n", size);
+        return 1;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memcpy(sc.get(), blob, sizeof(SaveContext));
+    int bad = 0;
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.healthCapacity", sc->healthCapacity, 0x0130, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.itemTimestamp[0]", sc->ship.stats.itemTimestamp[0], 0x01020304u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.itemTimestamp[239]", sc->ship.stats.itemTimestamp[239], 0x0A0B0C0Du, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.count[0]", sc->ship.stats.count[0], 0x11u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.stats.count[105]", sc->ship.stats.count[105], 0x22u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.id", sc->ship.quest.id, QUEST_RANDOMIZER, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.triforcePiecesCollected",
+                              sc->ship.quest.data.randomizer.triforcePiecesCollected, 7, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.bombchuUpgradeLevel",
+                              sc->ship.quest.data.randomizer.bombchuUpgradeLevel, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.filenameLanguage", sc->ship.filenameLanguage, 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[0]", sc->ship.randomizerInf[0], 0x1234u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[128]", sc->ship.randomizerInf[128], 0x8001u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.foreignMask", sc->ship.foreignMask, 3, bad);
+    return bad;
 }
 
 // #1176: SoH appended skeletonHeader to OoT's SkelAnime; MM's has no such

@@ -669,6 +669,10 @@ extern "C" {
 // facts. FILE SCOPE (compiled as C++) for rsbs::SaveManager.
 #include "tests/test_save_refusal.c"
 
+// Save format 6's layout rows: the layout pins' measured values and the committed
+// format-6 fixture read back by name. FILE SCOPE (compiled as C++).
+#include "tests/test_save_layout.c"
+
 // The .redsave commit choke point (#537/#531): monotonic commit generation,
 // the torn-write impossibility (stage on the game thread, write from the
 // immutable snapshot only), and the load-time cross-artifact freshness
@@ -9313,6 +9317,9 @@ const TestDescriptor gTests[] = {
     { "save-combo-record-fixed", "Tier-1 written at a fixed padded size; headroom round-trips",
       Test_SaveComboRecordFixed },
     { "save-combo-oversize", "Load rejects an oversized Tier-1 record, no clobber", Test_SaveComboOversize },
+    { "save-layout-pins", "Save format 6: every layout pin's compiled value, UNPINNED while 0", Test_SaveLayoutPins },
+    { "save-format-v6-fixture", "Save format 6: the committed fixture loads and reads back by name",
+      Test_SaveFormatV6Fixture },
     { "save-tagged-items", "Origin-tagged shared items round-trip; empty slots stay unset (ADR 0002)",
       Test_SaveTaggedItems },
     // The shared-item overflow (Tier-5, format v5): one logical outbox past the fixed 64 slots (Refs #1222).

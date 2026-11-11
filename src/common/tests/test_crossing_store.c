@@ -614,7 +614,10 @@ TestResult Test_CrossingStoreRedsave(void) {
         XS_ASSERT(XsBytes() == known);
         mgr.DeleteSave(0);
     }
-    // A v2 file (Tiers 1-3, no block) loads as "no crossings".
+    // Save format 6: a v2 file (Tiers 1-3, no block) is another layout, refused as
+    // an older version, and the refusal applies nothing: the live crossing store
+    // keeps its rows. (It used to load as "no crossings"; catches
+    // RSBS_SAVE_VERSION_MIN left below 6, which loads it and empties the store.)
     {
         std::vector<uint8_t> v2(file.begin(), file.begin() + (std::ptrdiff_t)t4);
         rsbs::RsbsSaveHeader h2;
@@ -624,21 +627,15 @@ TestResult Test_CrossingStoreRedsave(void) {
         XsRestampCrc(v2);
         XS_ASSERT(XsWriteFile(mgr.SlotPath(0), v2));
         XS_ASSERT(Combo_Crossings_SerializedSize() > 16u);
-        XS_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_OK);
-        XS_ASSERT(Combo_Crossings_SerializedSize() == 16u);
-        // ...and FROZEN empty: no pre-crossing build could give that world a
-        // crossing, so a later set of rows is divergence, never a fill-in.
-        XS_ASSERT(Combo_Crossings_IsFrozen());
-        const uint32_t gen = Combo_Crossings_WriteGeneration();
-        XS_ASSERT(XsReplaceKnown() == RSBS_CROSSING_ERR_DIVERGED);
-        XS_ASSERT(Combo_Crossings_WriteGeneration() == gen);
-        XS_ASSERT(Combo_Crossings_SerializedSize() == 16u);
+        XS_ASSERT(mgr.LoadSlot(0) == RSBS_LOAD_REFUSED);
+        XS_ASSERT(mgr.GetSlotRefuseReason(0) == RSBS_REFUSE_OLD_VERSION);
+        XS_ASSERT(XsBytes() == known);
         mgr.DeleteSave(0);
     }
 
     XsRestore();
     printf("[TEST] PASS: v3 on disk, Tier-4 == the serialized block, load byte-identical with MM unbooted, refused "
-           "load applies nothing, malformed/truncated refused, v2 loads empty\n");
+           "load applies nothing, malformed/truncated refused, v2 refused as an older version\n");
     return TEST_PASS;
 }
 

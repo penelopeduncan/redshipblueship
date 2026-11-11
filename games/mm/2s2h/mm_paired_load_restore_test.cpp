@@ -1530,6 +1530,20 @@ int LegProbeRefusals() {
         { "combo magic", RSBS_REFUSE_COMBO_MAGIC, true,
           [](std::vector<uint8_t>& f) { f[kTier1 + offsetof(ComboContext, magic)] ^= 0x20; } },
         { "crossings", RSBS_REFUSE_CROSSINGS, true, [](std::vector<uint8_t>& f) { f[Tier4Offset(f)] ^= 0xFF; } },
+        // Save format 6: a v0.5.0-alpha file (format 5) reads "File made by an
+        // older version", not the newer file's words (catches the split undone).
+        { "old version", RSBS_REFUSE_OLD_VERSION, false,
+          [](std::vector<uint8_t>& f) { PlrPutU32(f, kHdrVersion, 5u); } },
+        // Save format 6: a record stamped one MM check above this build's
+        // watermark (a newer build's ids) is another build's file (catches the
+        // watermark check dropped from the shared validator the probe uses).
+        { "watermark newer", RSBS_REFUSE_VERSION, true,
+          [](std::vector<uint8_t>& f) {
+              const size_t at = kTier1 + offsetof(ComboContext, saveWatermark) + offsetof(ComboSaveWatermark, mmRcMax);
+              const uint16_t v = (uint16_t)((uint16_t)(f[at] | (f[at + 1] << 8)) + 1u);
+              f[at] = (uint8_t)(v & 0xFFu);
+              f[at + 1] = (uint8_t)(v >> 8);
+          } },
     };
     int code = 80;
     for (const Structural& s : structural) {

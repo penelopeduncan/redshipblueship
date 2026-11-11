@@ -30,6 +30,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream> // #670: the mods/mm first-run marker file
+#include <memory>  // std::make_unique: the save format 6 fixture half
 #include <string>
 #include <vector>
 
@@ -292,12 +293,78 @@ extern "C" int MM_SaveLayout_ReportPins(void) {
                            mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions),
                            mismatches);
-    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FOREIGN_MASK,
-                           offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FOREIGN_MASK, offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask),
+                           mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SPARE, offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare),
                            mismatches);
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_EVENT_INF, offsetof(SaveContext, eventInf), mismatches);
     return mismatches;
+}
+
+/**
+ * Save format 6: THE FIXTURE'S MM HALF (SaveFormatV6Fixture; OoT's twin is
+ * OoT_SaveLayout_FixtureWrite/Check). Set and read BY NAME; indices are LITERALS,
+ * the last ids at save format 6 (option 53, trick 85, check 2310, event 82,
+ * randoInf word 4 holds flag 77), so a later build's growing enums do not move
+ * what the fixture wrote. eventInf is the first SaveContext field after Save: it
+ * moves when anything inside Save grows.
+ */
+extern "C" void MM_SaveLayout_FixtureWrite(uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        return;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memset(sc.get(), 0, sizeof(SaveContext));
+    RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    sc->save.day = 2;
+    sc->save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    rando.finalSeed = 0x6F6F6F6Fu;
+    rando.randoSaveOptions[0] = 3u;
+    rando.randoSaveOptions[53] = 0x00ABCDEFu;
+    rando.randoSaveTricks[0] = 1;
+    rando.randoSaveTricks[85] = 1;
+    rando.randoInf[0] = 0x0F0Fu;
+    rando.randoInf[4] = 0x2000u;
+    rando.randoEvents[82] = 1;
+    rando.randoSaveChecks[2310].randoItemId = (RandoItemId)5;
+    rando.randoSaveChecks[2310].obtained = true;
+    rando.randoSaveChecks[2310].price = 0x1234u;
+    rando.randoSaveExcludedChecks[288] = 0x40u; // check 2310's bit
+    rando.foreignMask = 2;
+    rando.foreignMaskSlotSel[1] = 0x21u;
+    sc->eventInf[0] = 0x5Au;
+    memcpy(blob, sc.get(), sizeof(SaveContext));
+}
+
+extern "C" int MM_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        printf("[FIXTURE] FAIL mm: no half to read (%zu bytes)\n", size);
+        return 1;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memcpy(sc.get(), blob, sizeof(SaveContext));
+    const RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    int bad = 0;
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.day", sc->save.day, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.shipSaveInfo.saveType", sc->save.shipSaveInfo.saveType, SAVETYPE_RANDO, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.finalSeed", rando.finalSeed, 0x6F6F6F6Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[0]", rando.randoSaveOptions[0], 3u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[53]", rando.randoSaveOptions[53], 0x00ABCDEFu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[0]", rando.randoSaveTricks[0], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[85]", rando.randoSaveTricks[85], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[0]", rando.randoInf[0], 0x0F0Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[4]", rando.randoInf[4], 0x2000u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoEvents[82]", rando.randoEvents[82], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].randoItemId", rando.randoSaveChecks[2310].randoItemId, 5,
+                              bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].obtained", rando.randoSaveChecks[2310].obtained ? 1 : 0,
+                              1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].price", rando.randoSaveChecks[2310].price, 0x1234u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveExcludedChecks[288]", rando.randoSaveExcludedChecks[288], 0x40u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMask", rando.foreignMask, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMaskSlotSel[1]", rando.foreignMaskSlotSel[1], 0x21u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.eventInf[0]", sc->eventInf[0], 0x5Au, bad);
+    return bad;
 }
 
 // #1176: MM's SkelAnime has no skeletonHeader (SoH appended one to OoT's), and

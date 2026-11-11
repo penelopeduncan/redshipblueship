@@ -322,8 +322,8 @@ int SeedPackageGeneratorRefused_Run(void) {
                leg.name, (unsigned)leg.generator, (unsigned)leg.format,
                leg.withWatermark ? (leg.mmRcBump != 0 ? "above this build's" : "this build's") : "none", rc,
                SeedPackage_StatusName(rc), SeedPackage_RefusalWords(rc));
-        SPK_ASSERT(rc == leg.expected, "%s loaded with %d (%s), not %d (%s)", leg.name, rc,
-                   SeedPackage_StatusName(rc), leg.expected, SeedPackage_StatusName(leg.expected));
+        SPK_ASSERT(rc == leg.expected, "%s loaded with %d (%s), not %d (%s)", leg.name, rc, SeedPackage_StatusName(rc),
+                   leg.expected, SeedPackage_StatusName(leg.expected));
         SPK_ASSERT(strcmp(SeedPackage_RefusalWords(rc), leg.words) == 0, "%s reads \"%s\", not \"%s\"", leg.name,
                    SeedPackage_RefusalWords(rc), leg.words);
         SPK_ASSERT(OoT_SeedPackage_Staged() == 0, "%s: the refused package is staged", leg.name);

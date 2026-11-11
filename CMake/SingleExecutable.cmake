@@ -1151,6 +1151,16 @@ if(BUILD_TESTING)
     redship_add_test(NAME SaveComboLegacyRecord COMMAND redship --test save-combo-legacy-record)
     redship_add_test(NAME SaveComboRecordFixed COMMAND redship --test save-combo-record-fixed)
     redship_add_test(NAME SaveComboOversize COMMAND redship --test save-combo-oversize)
+    # Save format 6 (the clean break, #1510/#1512/#1513/#1514): SaveLayoutPins prints
+    # every sizeof/offsetof pin of src/common/save_layout_pins.h as "[LAYOUT]
+    # <name>=<decimal>" ("[LAYOUT] UNPINNED <name>" while a pin is 0, which passes);
+    # the pins are filled from all three CI legs and then fail the build when a
+    # field moves. SaveFormatV6Fixture loads the committed format-6 .redsave
+    # (tests/fixtures/save-format-6) and reads every field it wrote by name; it
+    # prints "[FIXTURE] absent" and passes until the fixture and its REQUIRED
+    # marker are committed (RSBS_WRITE_SAVE_FORMAT_V6_FIXTURE=1 authors it).
+    redship_add_test(NAME SaveLayoutPins COMMAND redship --test save-layout-pins)
+    redship_add_test(NAME SaveFormatV6Fixture COMMAND redship --test save-format-v6-fixture)
     # Origin-tagged shared items (ADR 0002): the array carved out of reserved[]
     # must round-trip byte-exact, and SaveComboLegacyRecord's crafted "legacy"
     # length is pinned to the pre-carve prefix (RSBS_COMBO_CONTEXT_PRECARVE_SIZE)

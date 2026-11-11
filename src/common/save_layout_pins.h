@@ -52,7 +52,7 @@
 #define RSBS_LAYOUT_STATIC_ASSERT_(cond, msg) _Static_assert(cond, msg)
 #endif
 
-#define RSBS_LAYOUT_PIN_RULE                                                                                         \
+#define RSBS_LAYOUT_PIN_RULE                                                                                        \
     "the raw .redsave tier layout changed: carve rsbsSpare, or append at the end of ComboContext or of OoT's "      \
     "`ship`, bump RSBS_SAVE_LAYOUT_REVISION (save.h) and re-measure with the SaveLayoutPins row; anything else is " \
     "a save format generation (context.h growth rule 6)"
@@ -62,7 +62,7 @@
  * is off: not yet measured); with a nonzero pin it is a real static_assert that
  * the compiled value equals the pin.
  */
-#define RSBS_LAYOUT_PIN_ASSERT(pin, measured) \
+#define RSBS_LAYOUT_PIN_ASSERT(pin, measured)                                                             \
     RSBS_LAYOUT_STATIC_ASSERT_((pin) == 0 || (unsigned long long)(pin) == (unsigned long long)(measured), \
                                "layout pin " #pin ": " RSBS_LAYOUT_PIN_RULE)
 
@@ -72,51 +72,69 @@
  * static_assert above makes that unreachable in a build that compiled; the runtime
  * compare is what proves the assert form itself was not disabled).
  */
-#define RSBS_LAYOUT_PIN_REPORT(pin, measured, mismatches)                                               \
-    do {                                                                                                 \
-        const unsigned long long rsbsPinMeasured_ = (unsigned long long)(measured);                      \
-        printf("[LAYOUT] %s=%llu\n", #pin, rsbsPinMeasured_);                                            \
-        if ((pin) == 0) {                                                                                \
-            printf("[LAYOUT] UNPINNED %s\n", #pin);                                                      \
-        } else if ((unsigned long long)(pin) != rsbsPinMeasured_) {                                      \
-            printf("[LAYOUT] FAIL %s: pinned %llu, compiled %llu\n", #pin, (unsigned long long)(pin),    \
-                   rsbsPinMeasured_);                                                                    \
-            (mismatches)++;                                                                              \
-        }                                                                                                \
+#define RSBS_LAYOUT_PIN_REPORT(pin, measured, mismatches)                                             \
+    do {                                                                                              \
+        const unsigned long long rsbsPinMeasured_ = (unsigned long long)(measured);                   \
+        printf("[LAYOUT] %s=%llu\n", #pin, rsbsPinMeasured_);                                         \
+        if ((pin) == 0) {                                                                             \
+            printf("[LAYOUT] UNPINNED %s\n", #pin);                                                   \
+        } else if ((unsigned long long)(pin) != rsbsPinMeasured_) {                                   \
+            printf("[LAYOUT] FAIL %s: pinned %llu, compiled %llu\n", #pin, (unsigned long long)(pin), \
+                   rsbsPinMeasured_);                                                                 \
+            (mismatches)++;                                                                           \
+        }                                                                                             \
+    } while (0)
+
+/**
+ * The SaveFormatV6Fixture row's check of one named field (the committed format-6
+ * fixture, read back through this build's struct): the line, and `bad`
+ * incremented when the field does not hold what the fixture wrote. A field that
+ * moved reads another field's bytes, so its check fails by name.
+ */
+#define RSBS_LAYOUT_FIXTURE_FIELD(name, expr, want, bad)                                                               \
+    do {                                                                                                               \
+        const unsigned long long rsbsFixtureGot_ = (unsigned long long)(expr);                                         \
+        const unsigned long long rsbsFixtureWant_ = (unsigned long long)(want);                                        \
+        printf("[FIXTURE] %s=%llu%s\n", (name), rsbsFixtureGot_, rsbsFixtureGot_ == rsbsFixtureWant_ ? "" : " MOVED"); \
+        if (rsbsFixtureGot_ != rsbsFixtureWant_) {                                                                     \
+            printf("[FIXTURE] FAIL %s: read %llu, the fixture wrote %llu\n", (name), rsbsFixtureGot_,                  \
+                   rsbsFixtureWant_);                                                                                  \
+            (bad)++;                                                                                                   \
+        }                                                                                                              \
     } while (0)
 
 // ---- Tier-1: ComboContext (context.h) --------------------------------------
 // Offsets <= 1007 are pinned as literals in context.h already (unchanged by format
 // 6). These are the members format 6 moved or added: the MM capture (after the
 // OoT capture grew to 1024 bytes), the skip journal, the watermark, and the size.
-#define RSBS_PIN_COMBO_TRACKER_AVAIL_MM 0          // offsetof(ComboContext, trackerAvailMM)
-#define RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT 0        // offsetof(ComboContext, trackerSkipJournalCountOoT)
-#define RSBS_PIN_COMBO_SKIP_JOURNAL 0              // offsetof(ComboContext, trackerSkipJournalOoT)
-#define RSBS_PIN_COMBO_SAVE_WATERMARK 0            // offsetof(ComboContext, saveWatermark)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 0            // sizeof(ComboContext)
+#define RSBS_PIN_COMBO_TRACKER_AVAIL_MM 0   // offsetof(ComboContext, trackerAvailMM)
+#define RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT 0 // offsetof(ComboContext, trackerSkipJournalCountOoT)
+#define RSBS_PIN_COMBO_SKIP_JOURNAL 0       // offsetof(ComboContext, trackerSkipJournalOoT)
+#define RSBS_PIN_COMBO_SAVE_WATERMARK 0     // offsetof(ComboContext, saveWatermark)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 0     // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset
 // (SaveManager.cpp, ForeignMaskOoT.cpp), the start of `ship`, and the size.
-#define RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF 0         // sizeof(SaveContext)
-#define RSBS_PIN_OOT_SHIP 0                        // offsetof(SaveContext, ship)
-#define RSBS_PIN_OOT_SHIP_QUEST 0                  // offsetof(SaveContext, ship.quest)
-#define RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE 0      // offsetof(SaveContext, ship.filenameLanguage)
-#define RSBS_PIN_OOT_SHIP_RANDOMIZER_INF 0         // offsetof(SaveContext, ship.randomizerInf)
-#define RSBS_PIN_OOT_SHIP_FOREIGN_MASK 0           // offsetof(SaveContext, ship.foreignMask)
+#define RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF 0    // sizeof(SaveContext)
+#define RSBS_PIN_OOT_SHIP 0                   // offsetof(SaveContext, ship)
+#define RSBS_PIN_OOT_SHIP_QUEST 0             // offsetof(SaveContext, ship.quest)
+#define RSBS_PIN_OOT_SHIP_FILENAME_LANGUAGE 0 // offsetof(SaveContext, ship.filenameLanguage)
+#define RSBS_PIN_OOT_SHIP_RANDOMIZER_INF 0    // offsetof(SaveContext, ship.randomizerInf)
+#define RSBS_PIN_OOT_SHIP_FOREIGN_MASK 0      // offsetof(SaveContext, ship.foreignMask)
 
 // ---- Tier-3: MM SaveContext (games/mm/include/z64save.h) ---------------------
 // The fields read by offset from a raw half (Foreign.cpp's classifier,
 // GameExports_SingleExe.cpp's arrival gate, ForeignMaskMM.cpp), the spare block,
 // the first SaveContext field after Save (the tripwire for anything inside Save
 // growing), and the sizes.
-#define RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF 0          // sizeof(SaveContext)
-#define RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF 0       // sizeof(RandoSaveInfo)
-#define RSBS_PIN_MM_SAVE_TYPE 0                    // offsetof(SaveContext, save.shipSaveInfo.saveType)
-#define RSBS_PIN_MM_RANDO_FINAL_SEED 0             // offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed)
-#define RSBS_PIN_MM_RANDO_OPTIONS 0                // offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions)
-#define RSBS_PIN_MM_RANDO_FOREIGN_MASK 0           // offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask)
-#define RSBS_PIN_MM_RANDO_SPARE 0                  // offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare)
-#define RSBS_PIN_MM_EVENT_INF 0                    // offsetof(SaveContext, eventInf)
+#define RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF 0    // sizeof(SaveContext)
+#define RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF 0 // sizeof(RandoSaveInfo)
+#define RSBS_PIN_MM_SAVE_TYPE 0              // offsetof(SaveContext, save.shipSaveInfo.saveType)
+#define RSBS_PIN_MM_RANDO_FINAL_SEED 0       // offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed)
+#define RSBS_PIN_MM_RANDO_OPTIONS 0          // offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions)
+#define RSBS_PIN_MM_RANDO_FOREIGN_MASK 0     // offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask)
+#define RSBS_PIN_MM_RANDO_SPARE 0            // offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare)
+#define RSBS_PIN_MM_EVENT_INF 0              // offsetof(SaveContext, eventInf)
 
 #endif // RSBS_COMMON_SAVE_LAYOUT_PINS_H

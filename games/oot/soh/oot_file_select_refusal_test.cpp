@@ -524,6 +524,57 @@ extern "C" int OoT_FileSelectRefusal_RunHeadless(void) {
         RsbsSave_DeleteSave(kOther);
     }
 
+    // ---- 6b. save format 6: a v0.5.0-alpha file (format 5) -----------------
+    // The gate keeps A on the file list, posts "Refused: File made by an older
+    // version" (not the newer file's words), and leaves the file at its path
+    // byte for byte: the probe quarantines nothing, so the player can erase it.
+    // Catches the older-version reason or words lost between the header check
+    // and the toast, or the gate moving the file.
+    {
+        const int kOld = kAbsent;
+        RsbsSave_ResetSlotSessionState();
+        RsbsSave_DeleteSave(kOld);
+        ComboContext_Init();
+        FSR_ASSERT(rsbsSave.Save(kOld), "leg 6b: authoring the slot's .redsave failed");
+        RsbsSave_ResetSlotSessionState();
+        RsbsSave_SetActiveSlot(kVanilla);
+        const std::string oldPath = rsbsSave.SlotPath(kOld);
+        {
+            std::fstream f(oldPath, std::ios::in | std::ios::out | std::ios::binary);
+            f.seekp((std::streamoff)offsetof(rsbs::RsbsSaveHeader, version), std::ios::beg);
+            const uint8_t five[4] = { 5, 0, 0, 0 };
+            f.write(reinterpret_cast<const char*>(five), sizeof(five));
+            FSR_ASSERT(static_cast<bool>(f), "leg 6b: could not stamp format version 5");
+        }
+        const std::vector<uint8_t> oldBytes = FileBytes(oldPath);
+        const int extraBefore = ExtraFiles(dir);
+        ComboContext comboSnap;
+        memcpy(&comboSnap, &gComboCtx, sizeof(ComboContext));
+        const int toastsBefore = OoT_Notification_EmittedCountForTest();
+        press(kOld, BTN_A);
+        dispatchChoose(fc);
+        const u16 left = fc->state.input[0].press.button;
+        const int toasts = OoT_Notification_EmittedCountForTest() - toastsBefore;
+        const std::string toast = LastToast();
+        const std::string want = std::string(RSBS_REFUSAL_TOAST_PREFIX) + " File made by an older version";
+        printf("[TEST] leg 6b OBSERVED: a format-5 file: press left %04X, %d toast(s) \"%s\", reason %d words \"%s\", "
+               "file %s, extra files %d (before %d)\n",
+               left, toasts, toast.c_str(), RsbsSave_GetSlotRefuseReason(kOld), RsbsSave_SlotRefusalWords(kOld),
+               FileBytes(oldPath) == oldBytes ? "unchanged at its path" : "CHANGED or moved", ExtraFiles(dir),
+               extraBefore);
+        FSR_ASSERT((left & (BTN_A | BTN_START)) == 0, "leg 6b: the A press on a format-5 file was not consumed");
+        FSR_ASSERT(toasts == 1 && toast == want, "leg 6b: %d toast(s), last \"%s\" (want one: \"%s\")", toasts,
+                   toast.c_str(), want.c_str());
+        FSR_ASSERT(RsbsSave_GetSlotRefuseReason(kOld) == (int)RSBS_REFUSE_OLD_VERSION &&
+                       RsbsSave_IsSlotWritable(kOld) == 0,
+                   "leg 6b: the refusal record is reason %d (want the older version) or the slot is writable",
+                   RsbsSave_GetSlotRefuseReason(kOld));
+        FSR_ASSERT(FileBytes(oldPath) == oldBytes && ExtraFiles(dir) == extraBefore,
+                   "leg 6b: the gate moved, renamed or changed the file");
+        FSR_ASSERT(memcmp(&comboSnap, &gComboCtx, sizeof(ComboContext)) == 0, "leg 6b: the gate changed gComboCtx");
+        RsbsSave_DeleteSave(kOld);
+    }
+
     // ---- 7. SoH's .sav writer and the load seam (#564 V12) -------------------
     // The writer: a base-section commit of a PAIRED session mirrors the pairing's
     // settings digest into the .sav beside its commit generation, and an

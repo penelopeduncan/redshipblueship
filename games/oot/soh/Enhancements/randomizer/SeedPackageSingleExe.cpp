@@ -349,10 +349,14 @@ int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::str
         // ComboSaveWatermark), which Validate holds against the loading build's.
         ComboSaveWatermark mark;
         RsbsSave_BuildWatermark(&mark);
-        id["watermark"] = { { "layoutRevision", mark.layoutRevision }, { "ootRcMax", mark.ootRcMax },
-                            { "ootRandInfMax", mark.ootRandInfMax },   { "ootRskMax", mark.ootRskMax },
-                            { "mmRcMax", mark.mmRcMax },               { "mmRoMax", mark.mmRoMax },
-                            { "mmRtMax", mark.mmRtMax },               { "mmRandoInfMax", mark.mmRandoInfMax },
+        id["watermark"] = { { "layoutRevision", mark.layoutRevision },
+                            { "ootRcMax", mark.ootRcMax },
+                            { "ootRandInfMax", mark.ootRandInfMax },
+                            { "ootRskMax", mark.ootRskMax },
+                            { "mmRcMax", mark.mmRcMax },
+                            { "mmRoMax", mark.mmRoMax },
+                            { "mmRtMax", mark.mmRtMax },
+                            { "mmRandoInfMax", mark.mmRandoInfMax },
                             { "mmReMax", mark.mmReMax } };
     }
     id["build"] = RsbsVersion_Display();
@@ -493,12 +497,12 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         memset(&mark, 0, sizeof(mark));
         const nlohmann::json& w = id.contains("watermark") ? id["watermark"] : nlohmann::json();
         uint32_t terms[9] = {};
-        const char* const kTermNames[9] = { "layoutRevision", "ootRcMax", "ootRandInfMax", "ootRskMax",    "mmRcMax",
+        const char* const kTermNames[9] = { "layoutRevision", "ootRcMax", "ootRandInfMax", "ootRskMax", "mmRcMax",
                                             "mmRoMax",        "mmRtMax",  "mmRandoInfMax", "mmReMax" };
         bool parsed = w.is_object();
         for (int i = 0; parsed && i < 9; i++) {
-            parsed = w.contains(kTermNames[i]) && ParseU32(w[kTermNames[i]], terms[i]) &&
-                     (i == 0 || terms[i] <= 0xFFFFu);
+            parsed =
+                w.contains(kTermNames[i]) && ParseU32(w[kTermNames[i]], terms[i]) && (i == 0 || terms[i] <= 0xFFFFu);
         }
         if (!parsed) {
             why = "identity.json names no save watermark";

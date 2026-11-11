@@ -762,8 +762,8 @@ bool SaveManager::DeserializeHeader(std::istream& in, int expectedSlot, RsbsSave
     // older version"); a newer file keeps RSBS_REFUSE_VERSION ("File made by
     // another build").
     if (h.version < RSBS_SAVE_VERSION_MIN) {
-        SaveLogReject(verbose, "format version older than this build reads (a v0.5.0-alpha or earlier file)",
-                      h.version, RSBS_SAVE_VERSION_MIN);
+        SaveLogReject(verbose, "format version older than this build reads (a v0.5.0-alpha or earlier file)", h.version,
+                      RSBS_SAVE_VERSION_MIN);
         reason = RSBS_REFUSE_OLD_VERSION;
         return false;
     }
