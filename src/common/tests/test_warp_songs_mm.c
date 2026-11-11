@@ -248,7 +248,7 @@ TestResult MMWarpSongsItems_Run(void) {
     {
         WSM_CHECK(offsetof(ComboContext, mmWarpSongsOwned) == 1003u && offsetof(ComboContext, reserved) == 939u &&
                       sizeof(((ComboContext*)0)->reserved) == 64u &&
-                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1844u,
+                      offsetof(ComboContext, trackerAvailCountOoT) == 1004u && sizeof(ComboContext) == 1864u,
                   "the ownership byte is at %u and reserved[] is %u bytes at %u (sizeof %u); expected 1003, the tail "
                   "of reserved[], which keeps 64 bytes at 939, and nothing behind it moved",
                   (unsigned)offsetof(ComboContext, mmWarpSongsOwned), (unsigned)sizeof(((ComboContext*)0)->reserved),

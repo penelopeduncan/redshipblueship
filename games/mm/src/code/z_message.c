@@ -18,6 +18,10 @@
 
 #include "2s2h_assets.h"
 #include <libultraship/bridge/consolevariablebridge.h>
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW7: Ocarina of Time's warp songs played in Termina (2s2h/Rando/WarpSongsMM.cpp).
+#include "2s2h/Rando/WarpSongsMM.h"
+#endif
 
 const char* gBombersNotebookPhotos[] = {
     gBombersNotebookPhotoAnjuTex,
@@ -4073,6 +4077,13 @@ void Message_SpawnSongEffect(PlayState* play) {
 
     //! FAKE:
     if (1) {}
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW7: OoTMM's effect for an OoT warp song (Ocarina_SpawnSongEffect);
+    // the vanilla test below already spawns nothing for its state.
+    if (MM_WarpSongMM_SpawnSongEffect(play, msgCtx->songPlayed)) {
+        return;
+    }
+#endif
     if ((msgCtx->songPlayed <= OCARINA_SONG_SCARECROW_SPAWN) &&
         (msgCtx->songPlayed != OCARINA_SONG_GORON_LULLABY_INTRO) &&
         !((msgCtx->ocarinaAction >= OCARINA_ACTION_PROMPT_WIND_FISH_HUMAN) &&
@@ -4629,6 +4640,36 @@ void MM_Message_DrawMain(PlayState* play, Gfx** gfxP) {
 
                 msgCtx->songPlayed = msgCtx->ocarinaStaff->state;
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1169 XW7 (E1): an OoT warp song's state, 0x80 + song, before the
+                // quest check below, which would index past the quest items. In free
+                // play it takes the song-played box as a vanilla song does (OoTMM
+                // Ocarina_BeforeSongPlayingProcessed); anywhere else (unreachable:
+                // the matcher answers in free play only) the ocarina fails.
+                if (MM_WarpSongMM_IsStaffState(msgCtx->ocarinaStaff->state)) {
+                    if (msgCtx->ocarinaAction == OCARINA_ACTION_FREE_PLAY) {
+                        MM_sLastPlayedSong = msgCtx->ocarinaStaff->state;
+                        msgCtx->lastPlayedSong = msgCtx->ocarinaStaff->state;
+                        msgCtx->songPlayed = msgCtx->ocarinaStaff->state;
+                        MM_Message_ContinueTextbox(play, 0x1B5B);
+                        msgCtx->msgMode = MSGMODE_SONG_PLAYED;
+                        msgCtx->textBoxType = TEXTBOX_TYPE_3;
+                        msgCtx->stateTimer = 10;
+                        Audio_PlaySfx(NA_SE_SY_TRE_BOX_APPEAR);
+                        Interface_SetHudVisibility(HUD_VISIBILITY_NONE);
+                    } else {
+                        AudioOcarina_SetInstrument(OCARINA_INSTRUMENT_OFF);
+                        Audio_PlaySfx(NA_SE_SY_OCARINA_ERROR);
+                        msgCtx->stateTimer = 10;
+                        msgCtx->msgMode = MSGMODE_OCARINA_FAIL;
+                        if (msgCtx->ocarinaAction != OCARINA_ACTION_CHECK_NOTIME) {
+                            MM_Message_DrawText(play, &gfx);
+                        }
+                    }
+                    break;
+                }
+#endif
+
                 bool vanillaOwnedSongCheck = (msgCtx->ocarinaStaff->state == OCARINA_SONG_SCARECROW_SPAWN) ||
                                              (msgCtx->ocarinaStaff->state == OCARINA_SONG_INVERTED_TIME) ||
                                              (msgCtx->ocarinaStaff->state == OCARINA_SONG_DOUBLE_TIME) ||
@@ -4827,11 +4868,24 @@ void MM_Message_DrawMain(PlayState* play, Gfx** gfxP) {
                     AudioOcarina_SetPlaybackSong(msgCtx->ocarinaAction - OCARINA_ACTION_SCARECROW_LONG_RECORDING, 1);
                 } else {
                     AudioOcarina_SetInstrument(sPlayerFormOcarinaInstruments[CUR_FORM]);
-                    AudioOcarina_SetPlaybackSong((u8)msgCtx->songPlayed + 1, 1);
-                    if (msgCtx->songPlayed != OCARINA_SONG_SCARECROW_SPAWN) {
-                        Audio_PlayFanfareWithPlayerIOPort7((u16)sOcarinaSongFanfares[msgCtx->songPlayed],
-                                                           (u8)sOcarinaSongFanfareIoData[CUR_FORM]);
-                        AudioSfx_MuteBanks(0x20);
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    // #1169 XW7 (E2): OoT's own notes for a warp song (OoTMM
+                    // Ocarina_SetPlaybackSong: slot 1, then the custom notes), and no
+                    // fanfare: MM's audio has no OoT sequence, and the vanilla index
+                    // and fanfare table would read past their ends. Everything after
+                    // this block runs for every song.
+                    if (MM_WarpSongMM_IsStaffState(msgCtx->songPlayed)) {
+                        AudioOcarina_SetPlaybackSong(1, 1);
+                        MM_WarpSongMM_PointPlaybackAtSong(msgCtx->songPlayed);
+                    } else
+#endif
+                    {
+                        AudioOcarina_SetPlaybackSong((u8)msgCtx->songPlayed + 1, 1);
+                        if (msgCtx->songPlayed != OCARINA_SONG_SCARECROW_SPAWN) {
+                            Audio_PlayFanfareWithPlayerIOPort7((u16)sOcarinaSongFanfares[msgCtx->songPlayed],
+                                                               (u8)sOcarinaSongFanfareIoData[CUR_FORM]);
+                            AudioSfx_MuteBanks(0x20);
+                        }
                     }
                 }
                 play->msgCtx.ocarinaMode = OCARINA_MODE_ACTIVE;
@@ -4846,6 +4900,13 @@ void MM_Message_DrawMain(PlayState* play, Gfx** gfxP) {
                 break;
 
             case MSGMODE_DISPLAY_SONG_PLAYED_TEXT_BEGIN:
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1169 XW7 (E3): "You played the <song>!" in 0x1B78's box (OoTMM
+                // Ocarina_DisplaySongPlayedTextbox), not 0x1B72 + 0x80 + song.
+                if (MM_WarpSongMM_IsStaffState(msgCtx->songPlayed)) {
+                    MM_Message_ContinueTextbox(play, MM_WarpSongMM_PlayedTextId(msgCtx->songPlayed));
+                } else
+#endif
                 if (msgCtx->songPlayed == OCARINA_SONG_SCARECROW_SPAWN) {
                     MM_Message_ContinueTextbox(play, 0x1B6B);
                 } else {
@@ -5960,6 +6021,18 @@ void MM_Message_Update(PlayState* play) {
             if (msgCtx->stateTimer != 0) {
                 break;
             }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1169 XW7 (E4): once "You played the <song>!" closes, the warp prompt
+            // or MM's restricted-song refusal (OoTMM Ocarina_HandleLastPlayedSong),
+            // in the Soaring branch's place and shape.
+            if (MM_WarpSongMM_IsStaffState((unsigned)MM_sLastPlayedSong)) {
+                const unsigned rsbsWarpState = (unsigned)MM_sLastPlayedSong;
+                MM_sLastPlayedSong = 0xFF;
+                MM_WarpSongMM_OnSongPlayed(play, rsbsWarpState);
+                break;
+            }
+#endif
 
             if (MM_sLastPlayedSong == OCARINA_SONG_SOARING) {
                 if (interfaceCtx->restrictions.songOfSoaring == 0) {

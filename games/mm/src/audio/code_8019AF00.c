@@ -4,6 +4,12 @@
 #include "GameInteractor/GameInteractor.h"
 #include "2s2h/Enhancements/Audio/AudioEditor.h"
 #include <libultraship/bridge/consolevariablebridge.h>
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1169 XW7: Ocarina of Time's warp songs played in Termina (OoTMM's custom-song
+// check, mm/ocarina.c). The matcher and the Termina wall's gates are asked of
+// 2s2h/Rando/WarpSongsMM.cpp; with the hidden rules off every answer is "no".
+#include "2s2h/Rando/WarpSongsMM.h"
+#endif
 
 typedef struct {
     /* 0x0 */ s8 x;
@@ -2635,6 +2641,22 @@ void AudioOcarina_CheckSongsWithoutMusicStaff(void) {
                 }
             }
         }
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1169 XW7: OoTMM's custom-song check (comboCheckSong), after the vanilla
+        // loop and only when no vanilla song matched on this note (a match zeroes
+        // sOcarinaFlags), so a vanilla song completed on the same note wins. The
+        // masks and tables are untouched; the state published, 0x80 + song, is
+        // above every vanilla state.
+        if (sOcarinaFlags != 0) {
+            u8 rsbsWarpState = MM_WarpSongMM_NoteMatched(sCurOcarinaSongWithoutMusicStaff,
+                                                         sOcarinaWithoutMusicStaffPos, sButtonToPitchMap);
+            if (rsbsWarpState != 0) {
+                sPlayedOcarinaSongIndexPlusOne = rsbsWarpState + 1;
+                sIsOcarinaInputEnabled = false;
+                sOcarinaFlags = 0;
+            }
+        }
+#endif
     }
 }
 
@@ -3301,7 +3323,15 @@ void AudioOcarina_TerminaWallGenerateNotes(void) {
 
     do {
         i = 0;
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1169 XW7: OoTMM's "Prevent OoT songs on Termina Field song wall"
+        // (mm/hooks.S, 0x8019D2D8 nops this branch), under any warp-song rule frozen
+        // on: the wall always takes the random notes, never an OoT song a player
+        // could now play. The counter still advances, as the nop leaves it.
+        if ((sOcarinaWallCounter++ % 2) || MM_WarpSongMM_WallRandomOnly()) {
+#else
         if (sOcarinaWallCounter++ % 2) {
+#endif
             j = 0;
 
             for (; i < 8; i++) {
@@ -3338,7 +3368,16 @@ void AudioOcarina_TerminaWallGenerateNotes(void) {
             AudioOcarina_MapSongFromPitchToButton(OCARINA_SONG_TERMINA_WALL, OCARINA_SONG_TERMINA_WALL,
                                                   sOoTOcarinaSongsNumNotes[j]);
         }
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1169 XW7 (an addition with no OoTMM counterpart): nor a random wall in
+        // which a usable warp song completes before the wall's last note, which
+        // would steal the wall when played note by note. False with the rules off.
+    } while ((AudioOcarina_TerminaWallValidateNotes(OCARINA_SONG_TERMINA_WALL, OCARINA_SONG_TERMINA_WALL) != 0) ||
+             MM_WarpSongMM_WallRejected(gOcarinaSongButtons[OCARINA_SONG_TERMINA_WALL].buttonIndex,
+                                        gOcarinaSongButtons[OCARINA_SONG_TERMINA_WALL].numButtons));
+#else
     } while (AudioOcarina_TerminaWallValidateNotes(OCARINA_SONG_TERMINA_WALL, OCARINA_SONG_TERMINA_WALL) != 0);
+#endif
 }
 
 /**

@@ -878,7 +878,49 @@ void Entrance_SetEntranceDiscovered(u16 entranceIndex, u8 isReversedEntrance) {
 // respawn a grotto return sets survives. OoT_gPlayState is NULL there (the
 // suspend's OoT_Graph_ResetRunFrameContext nulled it and Play_Init has not set
 // it yet), so Grotto_OverrideSpecialEntrance takes its load-from-save branch.
+//
+// #1169 XW7: an MM warp song's pad goes through the FROZEN warp-song record
+// first (gComboCtx.comboOoTWarps, written at creation; src/common/
+// mm_warp_song_play.h), so the arrival lands where the file's own creation said,
+// whatever override table this process holds. The record unshuffled keeps the
+// pad. The record shuffled lands on its destination: a plain entrance needs no
+// table; a grotto pseudo index goes through Grotto_OverrideSpecialEntrance only
+// with the table ready (MM refuses such a warp before arming otherwise). A live
+// table that disagrees is reported once per arrival and loses. Without a record
+// (every file before XW7, and every other warp) the body below is XW3's.
+// mm_warp_song_play.h: 0 no record answer, 1 keep the pad, 2 land on *outDest.
+#include <stdio.h> // the divergence line's fprintf
+int Combo_OoTWarpRecord_ArrivalFor(uint16_t entrance, uint16_t* outDest);
+
 s16 Entrance_OverrideWarpArrival(s16 entranceIndex) {
+    u16 recordDest = 0;
+    const int recordAnswer = Combo_OoTWarpRecord_ArrivalFor((u16)entranceIndex, &recordDest);
+    if (recordAnswer == 1) {
+        return entranceIndex;
+    }
+    if (recordAnswer == 2) {
+        const u8 ready = hasModifiedEntranceTable != 0;
+        if (ready && (u16)Entrance_GetOverride(entranceIndex) != recordDest) {
+            fprintf(stderr,
+                    "[OoT] warp arrival: the live override table (another file's?) disagrees with the frozen record "
+                    "(pad 0x%04X: table 0x%04X, record 0x%04X); the record wins (#1169 XW7)\n",
+                    (unsigned)(u16)entranceIndex, (unsigned)(u16)Entrance_GetOverride(entranceIndex),
+                    (unsigned)recordDest);
+        }
+        // With the table ready the tail runs as Entrance_SetWarpSongEntrance's does
+        // (discovery, the tracker, the grotto translation, which passes a plain
+        // entrance through and resets the grotto state, then the forced grotto
+        // return). Without it a plain destination lands as recorded; a grotto one
+        // is never armed then (MM's NOT_READY gate).
+        s16 landed = (s16)recordDest;
+        if (ready) {
+            Entrance_SetEntranceDiscovered(entranceIndex, false);
+            EntranceTracker_SetLastEntranceOverride(entranceIndex);
+            landed = Grotto_OverrideSpecialEntrance((s16)recordDest);
+            Grotto_ForceGrottoReturnOnSpecialEntrance();
+        }
+        return landed;
+    }
     if (!IS_RANDO || !Randomizer_GetSettingValue(RSK_SHUFFLE_ENTRANCES)) {
         return entranceIndex;
     }

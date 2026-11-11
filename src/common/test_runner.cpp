@@ -1213,6 +1213,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // same bring-up), and the rules-off world staying main's
 // (mm-warp-songs-rules-off-unchanged). FILE SCOPE (compiled as C++).
 #include "tests/test_warp_songs_mm.c"
+// #1169 lane XW7: those six songs PLAYED in Majora's Mask: the record, the gates,
+// the texts, the age and the vendored branches' anchors (mm-warp-song-play); the
+// MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
+// there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_mm_warp_song_play.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -7802,6 +7807,34 @@ TestResult Test_MMWarpSongsOwnership(void) {
     return MMWarpSongsOwnership_Run();
 }
 
+// #1169 XW7: playing them. The same bring-up as mm-warp-songs-items: the MM rows
+// drive the ocarina path, which reads the CustomOcarina CVars, and the common row
+// round-trips a seed package's world record and the file-create invalidation.
+static TestResult Test_MMWarpSongPlayRow(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MMWarpSongPlay_Run();
+}
+static TestResult Test_MMWarpSongMatcher(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_WarpSongPlay_MatcherRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+static TestResult Test_MMWarpSongDeparture(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
 TestResult Test_ComboSettingsWindow(void) {
@@ -10220,6 +10253,23 @@ const TestDescriptor gTests[] = {
       "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
       "none of a shared song, place every copy and leave none owned (#1169)",
       Test_MMWarpSongsPooledOnlyWhenRuleOn },
+    // #1169 XW7: playing them. Three ROM-free rows that generate nothing; their
+    // wrappers bring up the CVar store.
+    { "mm-warp-song-play",
+      "The creation's OoT warp-song record is a 20-byte creation record at 1842 with a strict validator; the pads, "
+      "OoTMM's buttons, the matcher, the gates in order, the texts and OoT's frozen age answer from it alone, and "
+      "every vendored branch sits where it claims (#1169)",
+      Test_MMWarpSongPlayRow },
+    { "mm-warp-song-matcher",
+      "MM's real free-play checker matches an OoT warp song only under its frozen rule, owned, paired and in free "
+      "play, "
+      "on its last note; vanilla songs win same-note ties and the Termina wall shows no OoT song under the rules "
+      "(#1169)",
+      Test_MMWarpSongMatcher },
+    { "mm-warp-song-departure",
+      "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
+      "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
+      Test_MMWarpSongDeparture },
     { "combo-crossing-views",
       "The Combo Tracker and the Cross-Game Spoiler list the crossing store's rows in both directions, named, with "
       "found state per host check from each game's save, across a game switch and a .redsave load (#755, #757)",

@@ -327,9 +327,9 @@ bool HsCheckStream() {
 bool HsCheckRecord() {
     HS_CHECK(offsetof(ComboContext, mmHintsRead) == 929u && sizeof(((ComboContext*)0)->mmHintsRead) == 10u &&
                  offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u &&
-                 sizeof(ComboContext) == 1844u,
+                 sizeof(ComboContext) == 1864u,
              "S3: the read record is %u bytes at %u and reserved[] %u at %u (sizeof %u); want 10 at 929, 64 at 939, "
-             "1844",
+             "1864",
              (unsigned)sizeof(((ComboContext*)0)->mmHintsRead), (unsigned)offsetof(ComboContext, mmHintsRead),
              (unsigned)sizeof(((ComboContext*)0)->reserved), (unsigned)offsetof(ComboContext, reserved),
              (unsigned)sizeof(ComboContext));

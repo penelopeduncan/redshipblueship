@@ -837,6 +837,49 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboWothRecord, oot) == 0 && offsetof(ComboWoth
                        "ComboWothRecord member offsets are .redsave format and must not move");
 
 /**
+ * THE PAIR'S OoT WARP SONGS, as Majora's Mask plays them (#1169 lane XW7; ADR
+ * 0009 claim 22). For each of Ocarina of Time's six warp songs, in OoTMM's order
+ * (Minuet, Bolero, Serenade, Requiem, Nocturne, Prelude), the entrance its pad
+ * leads to in this world (what Entrance_GetOverride(pad) answers once OoT's
+ * Entrance_Init ran for this world; a grotto pseudo index 0x0700.. included) and
+ * the area MM's warp prompt names when OoT's Warp Song Hints are on, plus the
+ * world's Shuffle Warp Songs and Warp Song Hints flags.
+ *
+ * WHY IT IS STORED. MM's warp prompt and OoT's warp arrival must say what the
+ * file froze at creation (one-game semantics), and the only live source of those
+ * answers is OoT's Rando::Context heap, which an MM session may never have
+ * loaded. So the creation event writes the answers here, once
+ * (WarpSongRecordOoT.cpp, OoT_Creation_FreezeWarpSongRecord), and nothing reads
+ * OoT's heap for them. A creation record (ComboCreationRecords, foreign_items.h):
+ * rolled back, retracted, KEPT and copied by the seed package's world record with
+ * the others; never written by an arrival or a load; not folded into any digest
+ * or fingerprint (it is a function of OoT's seed and settings, which the stamp
+ * already pins).
+ *
+ * ZERO MEANS UNSET (formatVersion 0): every file created before XW7. MM refuses
+ * every warp song of such a file (mm_warp_song_play.h, NOT_RECORDED), which
+ * costs nothing: a song can only play under a frozen rule Generate refuses until
+ * lane XW12. Bytes only, no alignment: destinations are u16 little-endian.
+ */
+#define RSBS_OOT_WARP_REC_VERSION 1u
+#define RSBS_OOT_WARP_REC_SHUFFLED 0x01u /* RSK_SHUFFLE_WARP_SONGS on */
+#define RSBS_OOT_WARP_REC_HINTS 0x02u    /* RSK_WARP_SONG_HINTS on (only with SHUFFLED) */
+#define RSBS_OOT_WARP_REC_SONGS 6u
+typedef struct {
+    uint8_t formatVersion;                        /* 0 = UNSET (every file before XW7), 1 = v1 */
+    uint8_t flags;                                /* SHUFFLED | HINTS; bits 2-7 zero */
+    uint8_t destLE[RSBS_OOT_WARP_REC_SONGS * 2u]; /* u16 little-endian per song: the pad's resolved OoT entrance */
+    uint8_t area[RSBS_OOT_WARP_REC_SONGS];        /* COMBO_AREA_OOT_* the prompt names; 0 unless HINTS */
+} ComboOoTWarpRecord;
+
+RSBS_CTX_STATIC_ASSERT(sizeof(ComboOoTWarpRecord) == 20,
+                       "ComboOoTWarpRecord is serialized raw inside the .redsave Tier-1 record; its layout is format "
+                       "(#1169 XW7)");
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboOoTWarpRecord, flags) == 1 && offsetof(ComboOoTWarpRecord, destLE) == 2 &&
+                           offsetof(ComboOoTWarpRecord, area) == 14,
+                       "ComboOoTWarpRecord member offsets are .redsave format and must not move");
+
+/**
  * THE SECOND CROSS-GAME RULES WORD (#1169 lane XW2; ADR 0011's 2026-11-04
  * amendment is its format note, ADR 0009's claim 19 its byte spend): a second
  * full 32-bit bitset of frozen item rules, RSBS_XITEM2_* in foreign_items.h,
@@ -1327,7 +1370,9 @@ typedef struct {
     // leaves 64 at 939, EXACTLY ON the floor. reserved[] has nothing left to
     // carve: the next claimant appends after the skip journal instead (ADR 0009
     // claim 17's route), which moves sizeof(ComboContext) and so a seed
-    // package's combo record, or amends the floor.
+    // package's combo record, or amends the floor. #1169 XW7's comboOoTWarps
+    // (ADR 0009 claim 22) is the first such append, at 1842, and this array is
+    // untouched by it.
     uint8_t reserved[64];
 
     // #1169 lane XW5 (ADR 0009 claim 21): which of Ocarina of Time's six warp
@@ -1412,6 +1457,19 @@ typedef struct {
     // invalidation KEEP set, not part of a world.
     uint16_t trackerSkipJournalCountOoT; // entries [0, count) in use
     uint16_t trackerSkipJournalOoT[RSBS_TRACKER_SKIP_JOURNAL_OOT_CAP];
+
+    // #1169 lane XW7 (ADR 0009 claim 22): the pair's OoT warp songs as MM plays
+    // them, per song the entrance its pad leads to and the area MM's warp prompt
+    // names (ComboOoTWarpRecord above). A CREATION record: written once at Generate
+    // by OoT_Creation_FreezeWarpSongRecord, in ComboCreationRecords (rollback,
+    // retract, restore), in the invalidation KEEP set, and in a seed package's
+    // world record. Not folded into comboSettingsHash. APPENDED after #1294's
+    // journal (reserved[] is on its floor; operator ruling 2026-11-10 "grow at the
+    // end"), at offset 1842, inside RSBS_COMBO_CONTEXT_RECORD_SIZE, so neither the
+    // record size nor RSBS_SAVE_VERSION moves and an older .redsave zero-extends to
+    // UNSET. It does move sizeof(ComboContext) (1844 -> 1864), so a seed package
+    // built before it is refused by its exact-size check.
+    ComboOoTWarpRecord comboOoTWarps;
 } ComboContext;
 
 /**
@@ -1678,9 +1736,18 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, trackerAvailCountOoT) == 1004u &&
 // #1294's append, on the same terms: directly after the captures, the count,
 // then the entries.
 RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, trackerSkipJournalCountOoT) == 1712u &&
-                           offsetof(ComboContext, trackerSkipJournalOoT) == 1714u && sizeof(ComboContext) == 1844u,
+                           offsetof(ComboContext, trackerSkipJournalOoT) == 1714u,
                        "the OoT skip journal lives at .redsave byte offsets 1712-1841 (#1294); if this fires, a "
                        "field ahead of it moved");
+// #1169 XW7's append, on the same terms: directly after #1294's journal; the
+// struct's alignment (4) pads it to 1864.
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, comboOoTWarps) == 1842u &&
+                           offsetof(ComboContext, comboOoTWarps) ==
+                               offsetof(ComboContext, trackerSkipJournalOoT) +
+                                   sizeof(((ComboContext*)0)->trackerSkipJournalOoT) &&
+                           sizeof(ComboContext) == 1864u,
+                       "comboOoTWarps (#1169 XW7, ADR 0009 claim 22) is APPENDED after #1294's journal at .redsave "
+                       "byte offset 1842; if this fires a field ahead of it moved");
 RSBS_CTX_STATIC_ASSERT(RSBS_TRACKER_AVAIL_OOT_CAP % 64u == 0 && RSBS_TRACKER_AVAIL_MM_CAP % 64u == 0 &&
                            RSBS_TRACKER_AVAIL_OOT_CAP <= 0xFFFFu && RSBS_TRACKER_AVAIL_MM_CAP <= 0xFFFFu,
                        "a tracker availability capacity must be whole 64-bit words and fit its u16 count");

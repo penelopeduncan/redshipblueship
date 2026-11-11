@@ -229,6 +229,10 @@ std::string WorldRecordBytes(const ComboContext& live) {
     // songs (MM's starting grant gave them). 0 in every world without one, so a
     // package written before XW5 reads the same.
     memcpy(&rec->mmWarpSongsOwned, &live.mmWarpSongsOwned, sizeof(rec->mmWarpSongsOwned));
+    // #1169 XW7: the OoT warp-song record, the world's (its creation wrote it). The
+    // field moved sizeof(ComboContext), so a package written before it is refused
+    // by the exact-size check below rather than read as UNSET.
+    memcpy(&rec->comboOoTWarps, &live.comboOoTWarps, sizeof(rec->comboOoTWarps));
     return std::string(reinterpret_cast<const char*>(rec.get()), sizeof(ComboContext));
 }
 
@@ -558,6 +562,7 @@ void ApplyComboWorld(const ComboContext& rec) {
     records.comboFillWallets = rec.comboFillWallets; // #1284
     records.comboWoth = rec.comboWoth;               // #1439
     records.comboItemRules2 = rec.comboItemRules2;   // #1169 XW2
+    records.comboOoTWarps = rec.comboOoTWarps;       // #1169 XW7
     Combo_RestoreCreationRecords(&records);
 }
 
