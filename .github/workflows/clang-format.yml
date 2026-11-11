@@ -17,7 +17,12 @@ concurrency:
 
 jobs:
   clang-format:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the check needs clang-format 14 exactly (the
+    # configs and run-clang-format.sh are written for it), and ubuntu-latest
+    # moved to 26.04 on 2026-11-10, whose archive has no clang-format-14
+    # ("E: Unable to locate package clang-format-14"). 22.04 ships it, and is
+    # the image the Linux build and the CI base image already use.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
