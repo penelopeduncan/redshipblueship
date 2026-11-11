@@ -156,6 +156,26 @@ static_assert(RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE == 1517 && RHT_BUTTERFLY_FAIRY_K
               "OoT's butterfly fairy hint texts (#1407) are 1517..1530, appended after the shopkeeper's");
 static_assert(RSK_SHUFFLE_BUTTERFLY_FAIRIES == 234,
               "OoT's Shuffle Butterfly Fairies key (#1407) is 234, after RSK_KEYRINGS_CHEST_GAME");
+// #1363 (Shuffle Silver Rupees), after #1407's: 154 checks, their 154 flags, 14
+// hint texts, 22 items and one setting key.
+static_assert(RC_SHADOW_N_UNDER_BLADE_SILVER == 2548 && RC_GANONS_CASTLE_MQ_MOVING_PLATFORM_SHADOW_SILVER == 2701,
+              "OoT's silver rupee checks (#1363) are ids 2548..2701, appended after the butterfly fairies'");
+static_assert(RAND_INF_RC_SHADOW_N_UNDER_BLADE_SILVER == 2084 &&
+                  RAND_INF_GANONS_CASTLE_MQ_MOVING_PLATFORM_SHADOW_SILVER == 2237,
+              "OoT's silver rupee flags (#1363) are 2084..2237, appended after the butterfly fairies'");
+static_assert(RHT_SILVER_RUPEE_DODONGOS_CAVERN == 1531 && RHT_GANONS_CASTLE_SILVER == 1544,
+              "OoT's silver rupee hint texts (#1363) are 1531..1544, appended after the butterfly fairies'");
+static_assert(RG_SHADOW_SILVER_BLADES == 307 && RG_GANONS_CASTLE_MQ_SILVER_SHADOW == 328,
+              "OoT's silver rupee items (#1363) are 307..328, appended after RG_NUTS");
+static_assert(RSK_SHUFFLE_SILVER == 235, "OoT's Shuffle Silver Rupees key (#1363) is 235, after #1407's");
+// #1363's carve (context.h growth rule 2, layout revision 2): the 22 one-byte silver
+// counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
+// 24. Every member is one byte, so these offsets hold on every compiler.
+static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &&
+                  offsetof(ShipRandomizerSaveContextData, silverMqGanonShadow) == 23 &&
+                  offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
+                  sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
+              "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
@@ -246,6 +266,13 @@ extern "C" int OoT_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
                               sc->ship.quest.data.randomizer.triforcePiecesCollected, 7, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.bombchuUpgradeLevel",
                               sc->ship.quest.data.randomizer.bombchuUpgradeLevel, 2, bad);
+    // #1363's carve (layout revision 2): a revision-1 file's spare bytes were zero, so
+    // the silver counters carved from them read 0, none collected. A carve that
+    // moved bombchuUpgradeLevel or wrote over it would fail the line above instead.
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.silverShadowBlades",
+                              sc->ship.quest.data.randomizer.silverShadowBlades, 0, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.quest.data.randomizer.silverMqGanonShadow",
+                              sc->ship.quest.data.randomizer.silverMqGanonShadow, 0, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.filenameLanguage", sc->ship.filenameLanguage, 1, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[0]", sc->ship.randomizerInf[0], 0x1234u, bad);
     RSBS_LAYOUT_FIXTURE_FIELD("oot.ship.randomizerInf[128]", sc->ship.randomizerInf[128], 0x8001u, bad);

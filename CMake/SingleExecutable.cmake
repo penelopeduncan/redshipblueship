@@ -2520,6 +2520,21 @@ if(BUILD_TESTING)
         # host, OoT generated No Logic with All Locations Reachable off).
         "GoldenSeedDigestBeatableOnly|seed-digest-beatable-only|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=2"
         "GoldenSeedDigestNoLogic|seed-digest-no-logic|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=1"
+        # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
+        # above generates with all of their options OFF, so none pins a world with
+        # their checks in it. This one turns on every one a paired world can use:
+        # MM Shuffle Wonder Items (#1406), Shuffle Hive Drops (#1410), Shuffle Grass
+        # Drops (on main, which #1410 extends with the extra grass rows), MM Shuffle
+        # Butterflies and OoT Shuffle Butterfly Fairies (#1407). OoT Shuffle Silver
+        # Rupees (#1363) is NOT in it: a paired world generates it off (its pin in
+        # Playthrough_Init), so keying it on here would pin nothing; when #1530 lifts
+        # the pin it joins this line and re-pins this file. Same seed and dispatch
+        # as seed-digest-default. Until the orchestrator first generates
+        # tests/golden/seed-digest-new-options.txt (regen-golden-digests), this row
+        # FAILS by design: CheckGoldenDigest.cmake refuses a missing golden with
+        # "A missing golden is a FAILURE, not a free pass" and prints the digest
+        # the run produced.
+        "GoldenSeedDigestNewOptions|seed-digest-new-options|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_SHUFFLE_WONDER_ITEMS=1,gRando.Options.RO_SHUFFLE_HIVE_DROPS=1,gRando.Options.RO_SHUFFLE_GRASS_DROPS=1,gRando.Options.RO_SHUFFLE_BUTTERFLIES=1,gRandoSettings.ShuffleButterflyFairies=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 

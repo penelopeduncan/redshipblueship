@@ -91,19 +91,20 @@ extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
 extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* outExcludeLines, int groupCap);
 extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned);
 
-// THE APPEND-ONLY LOCKS: each id #1363 adds sits after the last id main had, so no
-// id a world or a save already holds moves.
-static_assert(RC_SHADOW_N_UNDER_BLADE_SILVER == RC_DEKU_TREE_QUEEN_GOHMA_GRASS_8 + 1,
-              "the silver checks are appended after every check id main had (#1363)");
+// THE APPEND-ONLY LOCKS: each id #1363 adds sits after the last id before it (main's,
+// then #1407's butterfly fairies), so no id a world or a save already holds moves.
+// The numbers themselves are locked in GameExports_SingleExe.cpp.
+static_assert(RC_SHADOW_N_UNDER_BLADE_SILVER == RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY + 1,
+              "the silver checks are appended after #1407's butterfly fairy checks (#1363)");
 static_assert(RC_GANONS_CASTLE_MQ_MOVING_PLATFORM_SHADOW_SILVER - RC_SHADOW_N_UNDER_BLADE_SILVER + 1 == 154,
               "SoH b76e303ce adds 154 silver rupee checks, contiguous (#1363)");
 static_assert(RG_SHADOW_SILVER_BLADES == RG_NUTS + 1, "the silver rupee items are appended after RG_NUTS (#1363)");
 static_assert(RG_GANONS_CASTLE_MQ_SILVER_SHADOW - RG_SHADOW_SILVER_BLADES + 1 == 22,
               "SoH b76e303ce adds 22 silver rupee items, contiguous (#1363)");
-static_assert(RAND_INF_RC_SHADOW_N_UNDER_BLADE_SILVER == RAND_INF_OBTAINED_SONG_OF_SOARING_OOT + 1,
-              "the silver flags are appended after every flag main had (#1363)");
-static_assert(RSK_SHUFFLE_SILVER == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD + 1,
-              "RSK_SHUFFLE_SILVER is appended after every setting key main had (#1363)");
+static_assert(RAND_INF_RC_SHADOW_N_UNDER_BLADE_SILVER == RAND_INF_KAK_WATCHTOWER_BUTTERFLY_FAIRY + 1,
+              "the silver flags are appended after #1407's butterfly fairy flags (#1363)");
+static_assert(RSK_SHUFFLE_SILVER == RSK_SHUFFLE_BUTTERFLY_FAIRIES + 1,
+              "RSK_SHUFFLE_SILVER is appended after #1407's setting key (#1363)");
 static_assert(RO_SHUFFLE_SILVER_OFF == 0, "#1363: a world saved before the option reads its missing entry as 0, Off");
 
 namespace {
@@ -130,7 +131,7 @@ void SrFail(const char* fmt, ...) {
 const char* const kShuffleKey = CVAR_RANDOMIZER_SETTING("ShuffleSilver");
 
 /** A key's stored state, put back by Restore. */
-struct SavedKey {
+struct SilverSavedKey {
     const char* key;
     bool existed;
     int32_t value;
@@ -234,7 +235,7 @@ void CheckFlagMap() {
 void CheckOption() {
     auto settings = Rando::Settings::GetInstance();
     settings->CreateOptions(); // idempotent; what Rando_HeadlessSeedTest calls first
-    SavedKey shuffle;
+    SilverSavedKey shuffle;
     shuffle.Save(kShuffleKey);
     CVarClear(kShuffleKey);
     Rando::Option& option = settings->GetOption(RSK_SHUFFLE_SILVER);
@@ -327,7 +328,7 @@ struct FoldRecord {
     int silverPlaced;
 };
 
-FoldRecord Generate(const char* leg) {
+FoldRecord SilverGenerate(const char* leg) {
     FoldRecord r = {};
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
@@ -375,18 +376,18 @@ void CheckOffWorld(const char* leg, const FoldRecord& r, uint32_t expectedSkippe
 
 /** Legs F and P. Returns whether leg F's generation ran (L reads its world). */
 bool CheckFold() {
-    SavedKey shuffle;
+    SilverSavedKey shuffle;
     shuffle.Save(kShuffleKey);
 
     CVarClear(kShuffleKey);
-    const FoldRecord f = Generate("F");
+    const FoldRecord f = SilverGenerate("F");
     const uint32_t expectedF = CountSilverLines();
     CheckOffWorld("F", f, expectedF);
     SR_CHECK(f.pinned == 0, "F: the generation reports pinning an option that was already off");
 
     // Never stored: a stored rando key poisons later rows (Restore below).
     CVarSetInteger(kShuffleKey, RO_SHUFFLE_SILVER_ON);
-    const FoldRecord p = Generate("P");
+    const FoldRecord p = SilverGenerate("P");
     shuffle.Restore();
     const uint32_t expectedP = CountSilverLines();
     CheckOffWorld("P", p, expectedP);
