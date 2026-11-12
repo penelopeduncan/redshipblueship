@@ -1697,6 +1697,11 @@ static int CivOoTTrackerGroupLegs(const ComboItemOps* ops) {
     for (const char* flow : { "Inventory", "Songs", "Dungeon Items", "Dungeon Keys" }) {
         CIV_ASSERT(!grid->groupOwnLine(flow));
     }
+    // #1169 XW11: the dungeon tables start a line (the 66 fixed rows fill whole lines, so this is SoH's flow
+    // without an added song); the abilities after them still flow on.
+    CIV_ASSERT(grid->groupStartsLine != NULL && grid->groupStartsLine("Dungeon Items") &&
+               grid->groupStartsLine("Dungeon Keys") && !grid->groupStartsLine("Abilities") &&
+               !grid->groupStartsLine("Songs") && !grid->groupStartsLine("Inventory"));
 
     // ---- D. SoH's DisplayType keys govern them in the overlay, hidden by SoH's default -------------------
     static const struct {
@@ -2270,6 +2275,83 @@ static bool CivSameRow(const ComboItemRow& a, const ComboItemRow& b) {
            a.sharedFamily == b.sharedFamily && a.iconTint == b.iconTint && a.pad == b.pad;
 }
 
+/** One of SoH's two dungeon views of `rows` as the overlay draws them (DungeonItems.DisplayMaps on: the table
+ *  with maps, no keys-only table; off: the keys-only table), with one "Abilities" cell after it, as SoH flows
+ *  its ability rows on from the dungeon table. */
+static std::vector<ComboItemRow> CivXw11DungeonView(const std::vector<ComboItemRow>& rows, bool maps) {
+    std::vector<ComboItemRow> out;
+    for (const ComboItemRow& r : rows) {
+        if (r.group != NULL && strcmp(r.group, maps ? "Dungeon Keys" : "Dungeon Items") == 0) {
+            continue;
+        }
+        out.push_back(r);
+    }
+    if (!out.empty()) {
+        ComboItemRow ability = out.back();
+        ability.group = "Abilities";
+        out.push_back(ability);
+    }
+    return out;
+}
+
+/** `rows` laid out on `grid`, or on `grid` without its groupStartsLine (`withStarts` false). */
+static std::vector<ComboGui::ComboItemGridCell> CivXw11Layout(const std::vector<ComboItemRow>& rows,
+                                                              const ComboItemGridStyle& grid, bool withStarts) {
+    ComboItemGridStyle style = grid;
+    if (!withStarts) {
+        style.groupStartsLine = NULL;
+    }
+    std::vector<ComboGui::ComboItemGridCell> cells;
+    ComboGui::ComboItemIconLayout(rows, style, cells);
+    return cells;
+}
+
+/**
+ * #1169 XW11 review: SoH's grid with the Song of Soaring (OoT) row. Without it (`off`) each view lays out as it
+ * did before groupStartsLine existed (catches a dungeon or ability group moved in a rule-off file); with it
+ * (`on`, the row at `prelude + 1`) the note sits alone at the start of the line after the songs and every later
+ * cell is its rule-off cell one line down, same column (catches the dungeon table shifted one column right).
+ */
+static int CivXw11SoaringLayout(const ComboItemGridStyle& grid, const std::vector<ComboItemRow>& off,
+                                const std::vector<ComboItemRow>& on, int prelude) {
+    for (bool maps : { true, false }) {
+        const std::vector<ComboItemRow> offView = CivXw11DungeonView(off, maps);
+        const std::vector<ComboItemRow> onView = CivXw11DungeonView(on, maps);
+        const std::vector<ComboGui::ComboItemGridCell> offCells = CivXw11Layout(offView, grid, true);
+        const std::vector<ComboGui::ComboItemGridCell> offBefore = CivXw11Layout(offView, grid, false);
+        const std::vector<ComboGui::ComboItemGridCell> onCells = CivXw11Layout(onView, grid, true);
+        CIV_ASSERT(offCells.size() == offView.size() && offBefore.size() == offView.size() &&
+                   onCells.size() == onView.size() && onView.size() == offView.size() + 1 &&
+                   (size_t)prelude + 1 < onView.size());
+        for (size_t i = 0; i < offCells.size(); i++) {
+            if (offCells[i].line != offBefore[i].line || offCells[i].column != offBefore[i].column) {
+                printf("[TEST] FAIL: rule-off OoT cell %zu (%s) moved to line %d column %d from line %d column %d "
+                       "(maps %d)\n",
+                       i, offView[i].group, offCells[i].line, offCells[i].column, offBefore[i].line,
+                       offBefore[i].column, (int)maps);
+                return TEST_FAIL;
+            }
+        }
+        const ComboGui::ComboItemGridCell soaringCell = onCells[(size_t)prelude + 1];
+        CIV_ASSERT(soaringCell.column == 0 && soaringCell.line == offCells[(size_t)prelude].line + 1);
+        for (size_t i = 0; i < offCells.size(); i++) {
+            const size_t at = i <= (size_t)prelude ? i : i + 1;
+            const int wantLine = i <= (size_t)prelude ? offCells[i].line : offCells[i].line + 1;
+            if (onCells[at].line != wantLine || onCells[at].column != offCells[i].column) {
+                printf("[TEST] FAIL: rule-on OoT cell %zu (%s) at line %d column %d, want line %d column %d "
+                       "(maps %d)\n",
+                       at, onView[at].group, onCells[at].line, onCells[at].column, wantLine, offCells[i].column,
+                       (int)maps);
+                return TEST_FAIL;
+            }
+        }
+        const size_t firstDungeon = (size_t)prelude + 2;
+        CIV_ASSERT(strcmp(onView[firstDungeon].group, maps ? "Dungeon Items" : "Dungeon Keys") == 0 &&
+                   onCells[firstDungeon].column == 0);
+    }
+    return TEST_PASS;
+}
+
 static void CivFreezeRules2(uint32_t rules2) {
     ComboContext_Init();
     ComboSettingsRecord rec;
@@ -2337,6 +2419,11 @@ static int CivAddedWarpSongLegs(const ComboItemOps* ops, const ComboItemOps* mmO
     CIV_ASSERT(ootNotOwned.size() == ootOn.size());
     CIV_ASSERT(CivSlotKeyIs(ootNotOwned[(size_t)prelude + 1], "song_soaring_oot") &&
                !ootNotOwned[(size_t)prelude + 1].have);
+    // SoH's grid: the note alone on the line after the songs, both dungeon tables still from column 0.
+    CIV_ASSERT(ops->grid != NULL);
+    if (CivXw11SoaringLayout(*ops->grid, ootOff, ootOn, prelude) != TEST_PASS) {
+        return TEST_FAIL;
+    }
     // (c) a vanilla file shows none.
     CIV_ASSERT(CivIndexOfKey(CivRowsOf(ops, ootVanilla.data()), "song_soaring_oot") < 0);
     // The MM rules are off in this world: MM unchanged.

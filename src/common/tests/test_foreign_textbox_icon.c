@@ -65,6 +65,7 @@
 #include "../game.h"
 #include "../shared_items.h"
 #include "../test_runner.h"
+#include "../warp_song_items.h"
 #include "test_named_items.h"
 
 #include <cstdio>
@@ -430,6 +431,7 @@ TestResult Test_ForeignTextboxIcon(void) {
         int shared = 0;
         int failures8 = 0;
         bool songOfTimeShared = false;
+        bool soaringSwept = false; // #1169 XW11: the one OoT name that already carries its tag
         std::string longestShared;
         std::string longestSharedText;
         int longestSharedLines = 0;
@@ -452,14 +454,26 @@ TestResult Test_ForeignTextboxIcon(void) {
             int lines = 0;
             int pages = 0;
             MM_ForeignTextboxIcon_TestPickupLayout(article, name, text, (int)sizeof(text), &lines, &pages);
-            const std::string want = std::string("You found ") + article + name + " (OoT)!";
-            if (want != text) {
+            // #1169 XW11: a name that already ends with its tag (the Song of Soaring (OoT)) takes none again.
+            const std::string want =
+                std::string("You found ") + article + name + Combo_ForeignGameTag(name, (uint8_t)GAME_OOT) + "!";
+            // Independently of the helper: the tag appears exactly once and closes the sentence.
+            int tags = 0;
+            for (const char* p = std::strstr(text, "(OoT)"); p != nullptr; p = std::strstr(p + 1, "(OoT)")) {
+                tags++;
+            }
+            const std::string sentence = text;
+            const bool tagOnce =
+                tags == 1 && sentence.size() > 7 && sentence.compare(sentence.size() - 7, 7, " (OoT)!") == 0;
+            if (want != text || !tagOnce) {
                 if (failures8 < 5) {
-                    printf("[TEST]   I8 RG %d's textbox reads \"%s\", want \"%s\"\n", id, text, want.c_str());
+                    printf("[TEST]   I8 RG %d's textbox reads \"%s\", want \"%s\" with one \"(OoT)\" (%d)\n", id, text,
+                           want.c_str(), tags);
                 }
                 failures8++;
                 continue;
             }
+            soaringSwept = soaringSwept || std::strcmp(name, "Song of Soaring (OoT)") == 0;
             if (pages != 1) {
                 printf("[TEST]   I8 RG %d's sentence \"%s\" runs to %d pages of MM's textbox\n", id, text, pages);
                 failures8++;
@@ -479,14 +493,15 @@ TestResult Test_ForeignTextboxIcon(void) {
                 }
             }
         }
-        printf("[TEST]   I8 %d OoT progression sentences marked \" (OoT)\", each on one page of MM's textbox (most "
-               "lines: %d, \"%s\"); %d share a name with an MM item, the longest \"%s\": \"%s\" on %d line(s); %d "
-               "failures\n",
+        printf("[TEST]   I8 %d OoT progression sentences marked \" (OoT)\" once, each on one page of MM's textbox "
+               "(most lines: %d, \"%s\"); %d share a name with an MM item, the longest \"%s\": \"%s\" on %d line(s); "
+               "Song of Soaring (OoT) swept %d; %d failures\n",
                swept, mostLines, mostLinesText.c_str(), shared, longestShared.c_str(), longestSharedText.c_str(),
-               longestSharedLines, failures8);
-        FTI_ASSERT(failures8 == 0, "I8 every OoT item's MM textbox sentence is marked \" (OoT)\" and fits one page "
-                                   "(see the I8 lines above)");
+               longestSharedLines, (int)soaringSwept, failures8);
+        FTI_ASSERT(failures8 == 0, "I8 every OoT item's MM textbox sentence is marked \" (OoT)\" once and fits one "
+                                   "page (see the I8 lines above)");
         FTI_ASSERT(swept > 100, "I8 the sweep saw OoT's progression items");
+        FTI_ASSERT(soaringSwept, "I8 the sweep saw the Song of Soaring (OoT), whose name already carries its tag");
         FTI_ASSERT(songOfTimeShared && shared > 1, "I8 the shared-name set is real (the Song of Time is in it)");
     }
 

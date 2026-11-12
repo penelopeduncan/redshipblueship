@@ -8792,6 +8792,8 @@ extern "C" int MM_TrackerFillSuperset_RunMM(void);
 extern "C" int OoT_TrackerOoTPanelList_Run(void);       // #1126, same file as the OoT rows above
 extern "C" int OoT_TrackerSohFixes_RunPaired(void);     // #1420, the same file, over the panel list's paired file
 extern "C" int OoT_HintTrackerCrossing_RunPaired(void); // #1366, the same file, over the same paired file
+extern "C" int OoT_TrackerWarpTravel_RunPaired(void);   // #1169 XW11, the same file, over the arrival's paired file
+extern "C" int MM_TrackerSoaringTravel_Run(void);       // #1169 XW11, mm_tracker_in_logic_test.cpp
 static bool TrackerReachabilityBringUp(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -8803,17 +8805,27 @@ static bool TrackerReachabilityBringUp(void) {
     InitOTRForMMFirstBoot(1, trrArgv);
     return true;
 }
+// #1169 XW11: each tracker's warp-travel legs follow over the same state (the OoT
+// arrival's paired file; MM's real region graph), driving the real entry points.
 TestResult Test_TrackerAvailabilityArrival(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
     }
-    return OoT_TrackerAvailability_RunArrival() == 0 ? TEST_PASS : TEST_FAIL;
+    const int arrival = OoT_TrackerAvailability_RunArrival();
+    const int warps = OoT_TrackerWarpTravel_RunPaired();
+    printf("[TEST] %s: tracker-availability-arrival (arrival failures %d, #1169 XW11 failures %d)\n",
+           (arrival == 0 && warps == 0) ? "PASS" : "FAIL", arrival, warps);
+    return (arrival == 0 && warps == 0) ? TEST_PASS : TEST_FAIL;
 }
 TestResult Test_MMTrackerInLogicArrival(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
     }
-    return MM_TrackerInLogic_RunArrival() == 0 ? TEST_PASS : TEST_FAIL;
+    const int arrival = MM_TrackerInLogic_RunArrival();
+    const int soaring = MM_TrackerSoaringTravel_Run();
+    printf("[TEST] %s: mm-tracker-in-logic-arrival (arrival failures %d, #1169 XW11 failures %d)\n",
+           (arrival == 0 && soaring == 0) ? "PASS" : "FAIL", arrival, soaring);
+    return (arrival == 0 && soaring == 0) ? TEST_PASS : TEST_FAIL;
 }
 // #1498: MM's enemy drops answered per instance, by both trackers, and the per-id
 // answer the fill reads left as it was. Same bring-up (MM's real region graph);

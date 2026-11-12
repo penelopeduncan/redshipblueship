@@ -35,6 +35,11 @@
  *      sphere zero, two after the arrival's drain; and the departure capture
  *      OoT_Game_Suspend makes is what the panel shows once MM is played.
  *
+ * OoT_TrackerWarpTravel_RunPaired (row TrackerAvailabilityArrival, after the
+ * arrival legs, over the same paired file; #1169 XW11): Majora's Mask's warp
+ * songs, read from MM's frozen world, open the root's warp exits for the REAL
+ * Available Checks recalculation (legs W1-W3, at the function).
+ *
  * OoT_TrackerFillSuperset_RunOoT (row TrackerFillSuperset, OoT half): over the
  * shipped defaults (the ComboSingleBag pinned seed), the tracker's available set
  * against the fill engine's sphere-zero reached set on the same paired file
@@ -184,6 +189,12 @@ int OoT_TrackerAdapter_TestSetDeparted(int rando);
 // src/common/context.h (kept out of this TU's include set, as above).
 GameId Context_GetCurrentGame(void);
 void Context_SetCurrentGame(GameId game);
+// src/common/tests/test_warp_song_tracker.c (#1169 XW11): the frozen world the tracker's
+// warp-travel facts read, set and put back there; ComboLogicEngineOoT.cpp: the tracker arm.
+int Combo_Xw11TestTrackerWorldBegin(int freshWorld, uint32_t rules2);
+uint32_t Combo_Xw11TestTrackerMMHalf(int ocarina, unsigned buttons, uint8_t owned);
+void Combo_Xw11TestTrackerWorldEnd(void);
+uint32_t OoT_ComboLogic_TestTrackerTravel(int song, uint16_t* outDest);
 }
 
 namespace {
@@ -463,6 +474,130 @@ extern "C" int OoT_TrackerAvailability_RunArrival(void) {
         printf("[TEST] FAIL: tracker-availability-arrival (OoT): %d check(s) failed\n", sFailures);
     } else {
         printf("[TEST] PASS: tracker-availability-arrival (OoT)\n");
+    }
+    return sFailures;
+}
+
+namespace {
+
+/** Every location the tracker's last recalculation marked available. */
+std::set<RandomizerCheck> TrrAvailableSet() {
+    std::set<RandomizerCheck> out;
+    for (auto& location : Rando::StaticData::GetLocationTable()) {
+        const RandomizerCheck rc = location.GetRandomizerCheck();
+        if (rc != RC_UNKNOWN_CHECK && TrrAvailable(rc)) {
+            out.insert(rc);
+        }
+    }
+    return out;
+}
+
+/** One real recalculation (Enable Available Checks on, the deferred flag drained,
+ *  so ComputeAvailableChecks runs) and what it left: the available set, whether a
+ *  child reached the Bolero pad's region, and whether the tracker arm is clear. */
+struct TrrWarpRun {
+    std::set<RandomizerCheck> available;
+    bool crossing = false;
+    bool crater = false;
+    bool disarmed = false;
+};
+
+TrrWarpRun TrrWarpRecalc() {
+    TrrWarpRun run;
+    if (TrrEnableAndRecalc()) {
+        run.available = TrrAvailableSet();
+        run.crossing = TrrChildReaches(RR_MARKET_MASK_SHOP);
+        run.crater = TrrChildReaches(RR_DMC_CENTRAL_LOCAL);
+        uint16_t dest = 0xFFFFu;
+        run.disarmed = OoT_ComboLogic_TestTrackerTravel(0, &dest) == 0u && dest == 0u;
+    }
+    TrrTrackerOff();
+    return run;
+}
+
+} // namespace
+
+/**
+ * #1169 XW11 (the design's T11), over the paired file OoT_TrackerAvailability_RunArrival
+ * created (a child at day with the forest and the Kakariko gate open, so the mask
+ * shop, OoT's crossing, is reached at sphere zero): with every MM warp-song rule
+ * frozen on and a PRESENT warp record, the REAL ComputeAvailableChecks over an MM
+ * frozen half holding the Ocarina of Time and every button.
+ *   W1 the songs unowned: no fact, no second search, and the Bolero pad's region
+ *      (Death Mountain Crater's centre, which a child with no explosives reaches no
+ *      other way) is not reached.
+ *   W2 all six owned: the facts are the six songs, and the recalculation reaches the
+ *      crater and marks available every W1 check plus at least one more (a check
+ *      reachable only through a root warp exit); the arm is clear afterwards. With the
+ *      second search's result dropped, or its arm cleared before the search, W2 reads
+ *      W1's set.
+ *   W3 owned, but the frozen MM half holds no Ocarina: the frozen half is what the
+ *      real call reads, so W1's set again.
+ * The crossing-closed case is not driven here (no single option closes every child
+ * route to the market): Combo_TrackerTravel_OoTFactsNow(0) is warp-song-tracker E3,
+ * and the crossing's source is its S3 anchor.
+ */
+extern "C" int OoT_TrackerWarpTravel_RunPaired(void) {
+    printf("[TEST] tracker-warp-travel (OoT): the Check Tracker's Available Checks credit Majora's Mask's warp songs "
+           "from MM's frozen world (#1169 XW11)\n");
+    sFailures = 0;
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr || !Combo_ForeignPairingActive()) {
+        printf("[TEST] FAIL: tracker-warp-travel (OoT): no paired file to drive (run after the arrival legs)\n");
+        return 1;
+    }
+    const uint32_t kSongs = RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT;
+    const bool begun = Combo_Xw11TestTrackerWorldBegin(0, kSongs) == 1;
+    TRR_CHECK(begun, "W: the created file did not take the six MM warp-song rules, a PRESENT record and its pairing");
+    if (begun) {
+        const uint32_t factsOff = Combo_Xw11TestTrackerMMHalf(1, 0x1Fu, 0u);
+        const TrrWarpRun off = TrrWarpRecalc();
+        printf("[TEST] W1 (unowned): facts %08X, crossing %d, crater %d, available %d, disarmed %d\n",
+               (unsigned)factsOff, off.crossing ? 1 : 0, off.crater ? 1 : 0, (int)off.available.size(),
+               off.disarmed ? 1 : 0);
+        TRR_CHECK(factsOff == 0u && off.crossing && !off.crater && !off.available.empty() && off.disarmed,
+                  "W1: with the songs unowned the crossing is not reached, a fact was given, or the crater is reached "
+                  "(every leg after this one would be vacuous)");
+
+        const uint32_t factsOn = Combo_Xw11TestTrackerMMHalf(1, 0x1Fu, 0x3Fu);
+        const TrrWarpRun on = TrrWarpRecalc();
+        int lost = 0;
+        for (RandomizerCheck rc : off.available) {
+            lost += on.available.count(rc) == 0 ? 1 : 0;
+        }
+        int gained = 0;
+        for (RandomizerCheck rc : on.available) {
+            if (off.available.count(rc) == 0) {
+                if (gained < 5) {
+                    printf("[TEST] W2 gained: %s\n", TrrName(rc));
+                }
+                gained++;
+            }
+        }
+        printf("[TEST] W2 (owned): facts %08X, crossing %d, crater %d, available %d (gained %d, lost %d), disarmed "
+               "%d\n",
+               (unsigned)factsOn, on.crossing ? 1 : 0, on.crater ? 1 : 0, (int)on.available.size(), gained, lost,
+               on.disarmed ? 1 : 0);
+        TRR_CHECK(factsOn == kSongs, "W2: the frozen MM half owning and playing the six songs did not give six facts");
+        TRR_CHECK(on.crater, "W2: the real recalculation did not reach the Bolero pad's region through the root exit");
+        TRR_CHECK(gained > 0 && lost == 0,
+                  "W2: the warp songs added no available check, or dropped one the first search had");
+        TRR_CHECK(on.disarmed, "W2: the tracker arm was left set after the recalculation");
+
+        const uint32_t factsNoOcarina = Combo_Xw11TestTrackerMMHalf(0, 0x1Fu, 0x3Fu);
+        const TrrWarpRun noOcarina = TrrWarpRecalc();
+        printf("[TEST] W3 (no Ocarina in the frozen MM half): facts %08X, crater %d, available %d\n",
+               (unsigned)factsNoOcarina, noOcarina.crater ? 1 : 0, (int)noOcarina.available.size());
+        TRR_CHECK(factsNoOcarina == 0u && !noOcarina.crater && noOcarina.available == off.available &&
+                      noOcarina.disarmed,
+                  "W3: a frozen MM half without the Ocarina still credited the warp songs");
+    }
+    Combo_Xw11TestTrackerWorldEnd();
+
+    if (sFailures != 0) {
+        printf("[TEST] FAIL: tracker-warp-travel (OoT): %d check(s) failed\n", sFailures);
+    } else {
+        printf("[TEST] PASS: tracker-warp-travel (OoT)\n");
     }
     return sFailures;
 }

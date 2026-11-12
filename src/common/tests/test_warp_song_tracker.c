@@ -36,6 +36,10 @@
  *        record's destinations; nothing else arms them; both Register functions
  *        register their reader.
  *
+ * The Combo_Xw11TestTracker* bridge below sets the frozen world for the rando-tier
+ * legs that drive the REAL tracker entry points (leg W of TrackerAvailabilityArrival
+ * and of MMTrackerInLogicArrival); this row does not call it.
+ *
  * FILE SCOPE (compiled as C++, #included into test_runner.cpp).
  */
 
@@ -182,6 +186,120 @@ bool Xw11InOrder(const std::vector<size_t>& at) {
 }
 
 } // namespace
+
+// ============================================================================
+// TEST BRIDGE (#1169 XW11 review, the design's T11 and its MM twin): the frozen
+// world the two REAL check-tracker entry points read, for the rando-tier legs
+// that drive them (leg W of games/oot/soh/oot_tracker_reachability_test.cpp and
+// of games/mm/2s2h/mm_tracker_in_logic_test.cpp). Those TUs keep context.h out
+// of their include set, so the combo record and the frozen halves are set here.
+// Combo_Xw11TestTrackerWorldEnd puts back everything Begin and the two half
+// setters change.
+// ============================================================================
+
+namespace {
+ComboContext sXw11TrackerCtx;
+bool sXw11TrackerBegun = false;
+struct Xw11TrackerHalf {
+    bool had = false;
+    int live = 1;
+    uint16_t returnEntrance = 0u;
+    std::vector<uint8_t> bytes;
+};
+Xw11TrackerHalf sXw11TrackerHalves[2]; // [0] OoT, [1] MM
+
+void Xw11TrackerTakeHalf(GameId game, Xw11TrackerHalf& half) {
+    half.had = Context_HasFrozenState(game) != 0;
+    half.live = Context_FrozenStateIsLiveFile(game);
+    half.returnEntrance = Context_GetFrozenReturnEntrance(game);
+    const size_t size = game == GAME_OOT ? (size_t)OOT_SAVE_CONTEXT_SIZE : (size_t)MM_SAVE_CONTEXT_SIZE;
+    const void* blob = game == GAME_OOT ? Context_GetOoTSaveContext() : Context_GetMMSaveContext();
+    half.bytes.assign(size, 0);
+    if (half.had && blob != NULL) {
+        memcpy(half.bytes.data(), blob, size);
+    }
+}
+
+void Xw11TrackerPutHalf(GameId game, const Xw11TrackerHalf& half) {
+    Context_ClearFrozenState(game);
+    if (half.had) {
+        Context_NoteDepartureLiveFile(game, half.live);
+        Context_FreezeState(game, half.returnEntrance, half.bytes.data(), half.bytes.size());
+    }
+}
+} // namespace
+
+/**
+ * Take the combo record and both frozen halves (once), then freeze @p rules2 as
+ * the second rules word with a PRESENT warp record (every song to its pad) and
+ * register both games' item adapters (their readers) and OoT's slot meta (its
+ * frozen age). @p freshWorld nonzero: a fresh frozen record with a paired
+ * identity (an authored MM save); zero: the created paired file's own record,
+ * only its second word replaced. 1 when the frozen word reads @p rules2 and the
+ * file is paired.
+ */
+extern "C" int Combo_Xw11TestTrackerWorldBegin(int freshWorld, uint32_t rules2) {
+    if (!sXw11TrackerBegun) {
+        sXw11TrackerCtx = gComboCtx;
+        Xw11TrackerTakeHalf(GAME_OOT, sXw11TrackerHalves[0]);
+        Xw11TrackerTakeHalf(GAME_MM, sXw11TrackerHalves[1]);
+        sXw11TrackerBegun = true;
+    }
+    if (freshWorld != 0) {
+        Xw11FreezeWorld(rules2);
+        Xw11Pair(true);
+    } else {
+        Combo_ComboItemRules2Store(&gComboCtx.comboItemRules2, rules2);
+    }
+    Xw11Record(-1, 0u);
+    OoT_ItemAdapter_Register();
+    MM_ItemAdapter_Register();
+    OoT_SlotMeta_Register();
+    return (Combo_ComboCrossItemFlags2() == rules2 && Combo_ForeignPairingActive() &&
+            Combo_OoTWarpRecord_Status() == (int)COMBO_OOT_WARP_REC_PRESENT)
+               ? 1
+               : 0;
+}
+
+/** Freeze an MM half holding the Ocarina of Time (@p ocarina) and the buttons
+ *  @p buttons (MM_ItemAdapter_TestAuthorWarpSongWorld's mask), with the
+ *  ownership byte @p owned. Returns OoT's facts now with OoT's crossing open
+ *  (Combo_TrackerTravel_OoTFactsNow(1)), or 0xFFFFFFFF when nothing was authored. */
+extern "C" uint32_t Combo_Xw11TestTrackerMMHalf(int ocarina, unsigned buttons, uint8_t owned) {
+    std::vector<uint8_t> mm((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    if (MM_ItemAdapter_TestAuthorWarpSongWorld(mm.data(), mm.size(), ocarina, buttons) != 1) {
+        return 0xFFFFFFFFu;
+    }
+    Context_ClearFrozenState(GAME_MM);
+    Context_FreezeState(GAME_MM, 0, mm.data(), mm.size());
+    Combo_MMWarpSongsSetOwned(owned);
+    return Combo_TrackerTravel_OoTFactsNow(1);
+}
+
+/** Freeze an OoT half with the Ocarina and the Song of Soaring's buttons, owning
+ *  the song when @p soaringOwned, a child when @p child. Returns MM's fact now
+ *  with MM's crossing open (Combo_TrackerTravel_MMFactNow(1)), or 0xFFFFFFFF when
+ *  nothing was authored. */
+extern "C" uint32_t Combo_Xw11TestTrackerOoTHalf(int soaringOwned, int child) {
+    std::vector<uint8_t> oot((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    if (OoT_ItemAdapter_TestAuthorSoaringWorld(oot.data(), oot.size(), soaringOwned, 1, 1, child) != 1) {
+        return 0xFFFFFFFFu;
+    }
+    Context_ClearFrozenState(GAME_OOT);
+    Context_FreezeState(GAME_OOT, 0, oot.data(), oot.size());
+    return Combo_TrackerTravel_MMFactNow(1);
+}
+
+/** Put back the combo record and both frozen halves Begin took. */
+extern "C" void Combo_Xw11TestTrackerWorldEnd(void) {
+    if (!sXw11TrackerBegun) {
+        return;
+    }
+    gComboCtx = sXw11TrackerCtx;
+    Xw11TrackerPutHalf(GAME_OOT, sXw11TrackerHalves[0]);
+    Xw11TrackerPutHalf(GAME_MM, sXw11TrackerHalves[1]);
+    sXw11TrackerBegun = false;
+}
 
 TestResult Test_WarpSongTracker(void) {
     printf("[TEST] warp-song-tracker: the added warp songs' rows and names, and the check trackers' travel facts "

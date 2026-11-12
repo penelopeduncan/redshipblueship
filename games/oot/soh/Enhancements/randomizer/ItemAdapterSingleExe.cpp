@@ -1084,6 +1084,14 @@ bool OoTItemGroupOwnLine(const char* group) {
     return false;
 }
 
+/** #1169 XW11: each dungeon table starts a line, and the abilities after it still flow on. The 66 fixed rows
+ *  fill eleven whole lines, so a file with every rule off lays out exactly as before; in a file whose Song of
+ *  Soaring (OoT) rule is on, the added note after the songs sits alone on its line instead of shifting every
+ *  dungeon column by one. */
+bool OoTItemGroupStartsLine(const char* group) {
+    return group != nullptr && (std::strcmp(group, "Dungeon Items") == 0 || std::strcmp(group, "Dungeon Keys") == 0);
+}
+
 // ---- the vtable ----------------------------------------------------------------
 
 int OoTItemCount(void) {
@@ -1517,6 +1525,7 @@ extern "C" void OoT_ItemAdapter_Register(void) {
         kComboItemSohGrid.columns,      kComboItemSohGrid.groupLines,
         kComboItemSohGrid.groupColumns, kComboItemSohGrid.countStyle,
         kComboItemSohGrid.lineGapPx,    OoTItemGroupOwnLine,
+        OoTItemGroupStartsLine,
     };
     static const ComboItemOps kOps = {
         OoTItemCount,      OoTItemRowAt,    OoTItemHasSave,    OoTItemLiveSave,     OoTItemPaused,       &kOoTItemGrid,
