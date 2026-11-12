@@ -4305,10 +4305,13 @@ extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const 
 
 namespace {
 
-/** #1542: the keys one over-capacity leg sets; cleared by SpoClearKeys. */
+/** #1542: the keys one over-capacity leg sets; cleared by SpoClearKeys. Index i
+ *  authors second-word bit 1 << (i + 1) (RSBS_XITEM2_SONG_MINUET_MM ..). */
 const ComboSettingId kSpoWarpSongKeys[6] = { COMBO_SETTING_SONG_MINUET_MM,   COMBO_SETTING_SONG_BOLERO_MM,
                                              COMBO_SETTING_SONG_SERENADE_MM, COMBO_SETTING_SONG_REQUIEM_MM,
                                              COMBO_SETTING_SONG_NOCTURNE_MM, COMBO_SETTING_SONG_PRELUDE_MM };
+/** #1169 XW12: OoT's Starting Zelda's Lullaby, an OoT starting song (leg (e2)). */
+const char* const kSpoStartingLullabyKey = "gRandoSettings.StartingZeldasLullaby";
 
 void SpoClearKeys() {
     for (const ComboSettingId key : kSpoWarpSongKeys) {
@@ -4316,6 +4319,7 @@ void SpoClearKeys() {
     }
     CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
     CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
+    CVarClear(kSpoStartingLullabyKey);
     Combo_ComboItemRules2RevealForTest(0);
     Combo_SongSpotsRecordRefusal(nullptr);
     SpgClearSongsKeys();
@@ -4352,33 +4356,47 @@ void SpoSetOoTSongExcludes(int count) {
 }
 
 /**
- * One leg: generate @p seed with the warp-song rules @p xw5 (MM's six OoT warp
- * songs) and @p xw4 (the Song of Soaring (OoT)), and the Crossing Direction OFF when
- * @p directionOff, through the hidden-rule test seam; then Generate's completion.
- * @p wantText NULL: the world must create. Otherwise the completion must refuse
- * with the shared song pool's capacity refusal before any attempt, the refusal must
- * contain @p wantText after OoTMM's sentence, and the identity and the songs
- * capture must be gone.
+ * One leg: generate @p seed with the second-word warp-song extension rules
+ * @p rules2 (RSBS_XITEM2_SONG_SOARING_OOT and the six RSBS_XITEM2_SONG_*_MM, set by
+ * their keys, as a player sets them: offered since #1169 XW12, so no test seam),
+ * the Crossing Direction OFF when @p directionOff, and OoT's Starting Zelda's
+ * Lullaby when @p startLullaby; then Generate's completion. @p wantText NULL: the
+ * world must create. Otherwise the completion must refuse with the shared song
+ * pool's capacity refusal before any attempt, the refusal must contain
+ * @p wantText after OoTMM's sentence, and the identity and the songs capture must
+ * be gone.
  * @return 0, or a nonzero step code.
  */
-int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directionOff, const char* wantText,
-           int ootSongExcludes = 0) {
+int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOff, const char* wantText,
+           bool startLullaby = false, int ootSongExcludes = 0) {
     Combo_SingleBag_Forget();
     SpgFreshSession();
     SpoClearKeys();
     SpoSetOoTSongExcludes(ootSongExcludes);
-    if (xw5) {
-        for (const ComboSettingId key : kSpoWarpSongKeys) {
-            CVarSetInteger(Combo_ComboSettingKey(key), 1);
+    for (int i = 0; i < 6; i++) {
+        if ((rules2 & (RSBS_XITEM2_SONG_MINUET_MM << i)) != 0u) {
+            CVarSetInteger(Combo_ComboSettingKey(kSpoWarpSongKeys[i]), 1);
         }
     }
-    if (xw4) {
+    if ((rules2 & RSBS_XITEM2_SONG_SOARING_OOT) != 0u) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
     }
     if (directionOff) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION), (int32_t)RSBS_COMBO_DIR_OFF);
     }
-    Combo_ComboItemRules2RevealForTest((xw4 || xw5) ? 1 : 0);
+    if (startLullaby) {
+        CVarSetInteger(kSpoStartingLullabyKey, 1);
+    }
+    // THE PRODUCTION MASK: no reveal. Every rule a leg sets is offered.
+    Combo_ComboItemRules2RevealForTest(0);
+    for (uint32_t b = 0; b < 7u; b++) {
+        if ((rules2 & (1u << b)) != 0u && !Combo_ComboItemRule2Offered(1u << b)) {
+            fprintf(stderr, "[SONG-POOL-CAP] FAIL(8): %s: rule bit %u is not offered by this build\n", name,
+                    (unsigned)b);
+            SpoClearKeys();
+            return 8;
+        }
+    }
     const int generated = K11PairedOoTGenerate(seed);
     SpoSetOoTSongExcludes(0); // read by the generation alone; the world keeps them
     if (generated != 0) {
@@ -4404,12 +4422,17 @@ int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directio
     const std::string refusal = Combo_SongSpotsLastRefusal();
     const bool retracted = !Combo_ForeignPairingActive() && !Combo_ComboSettingsFrozen();
     const bool captureHeld = Combo_PairSongsCaptured(nullptr);
+    ComboLogicGroupShortfall shortfall;
+    memset(&shortfall, 0, sizeof(shortfall));
+    const bool haveShortfall = Combo_Logic_LastGroupShortfall(&shortfall);
     fprintf(stderr,
             "[SONG-POOL-CAP] %s: union %d, completion %d (%s), bag %s after %d attempt(s), short group 0x%08X; "
-            "refusal '%s'; identity retracted %d, capture held %d\n",
+            "refusal '%s'; identity retracted %d, capture held %d; shortfall %d: rows %d (OoT %d, MM %d) for %d "
+            "hosts\n",
             name, unionArmed ? 1 : 0, completed, SeedPackage_StatusName(completed),
             Combo_Logic_StatusName(report.status), report.fill.attempts, (unsigned)report.shortGroupMask,
-            refusal.c_str(), retracted ? 1 : 0, captureHeld ? 1 : 0);
+            refusal.c_str(), retracted ? 1 : 0, captureHeld ? 1 : 0, haveShortfall ? 1 : 0, shortfall.rows,
+            shortfall.rowsOoT, shortfall.rowsMM, shortfall.hosts);
     SpoClearKeys();
     if (!unionArmed) {
         fprintf(stderr, "[SONG-POOL-CAP] FAIL(2): %s: the shared song pool was not armed\n", name);
@@ -4461,31 +4484,64 @@ int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directio
  *   (b) The Song of Soaring (OoT) (XW4) with the Crossing Direction OFF: 13 OoT
  *       songs kept in OoT for its 12 song checks: refused naming OoT.
  *   (c) Control: XW4 alone, 13 + 10 = 23 songs for 23 song checks: created.
+ *   #1169 XW12, the exposed rules' capacity per Crossing Direction (the full set is
+ *   checked first, ComboLogicCheckWideCapacity, so a home-side text appears only
+ *   when the whole pool fits):
+ *   (d) Soaring (OoT) + Minuet (MM), Both: 13 + 11 = 24 for 23, refused naming
+ *       both games.
+ *   (e) Minuet + Bolero (MM), Direction Off: 12 + 12 = 24 for 23, refused naming
+ *       both games (not MM's side: the full set fails first).
+ *   (e2) The same with OoT's Starting Zelda's Lullaby: 11 + 12 = 23 fits the whole
+ *       pool, so MM's own 11 song checks refuse its 12 songs, naming MM. A
+ *       starting song that did not leave the pool reads 24 and fails (e2) by name.
+ *   (f) Control: Minuet (MM) alone, Direction Off: 12/12 and 11/11, created.
  * No leg excludes an OoT song check: SoH keeps song checks out of its exclude list
  * under Song Locations (randomizer_check_objects.cpp), so the profile parse drops
  * such a key and Generate refuses the profile ("the menu's parse kept 0"), as the
  * first local run of two such legs showed. No shipped setting reaches that state,
  * and SpoLeg's exclude count stays 0.
- * The warp-song rules are hidden until XW12; the legs read them through
- * Combo_ComboItemRules2RevealForTest, production never does.
+ * Every leg sets its rules by their keys with the production mask (offered since
+ * XW12, no test seam). Seven paired generations.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
  */
 extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
-    int rc = SpoLeg("(a) XW5", seed, true, false, false, "28 songs for the 23 song checks of both games");
+    const uint32_t xw5 = RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT;
+    const uint32_t minuet = RSBS_XITEM2_SONG_MINUET_MM;
+    const uint32_t bolero = RSBS_XITEM2_SONG_BOLERO_MM;
+    int rc = SpoLeg("(a) XW5", seed, xw5, false, "28 songs for the 23 song checks of both games");
     if (rc != 0) {
         return 10 + rc;
     }
-    rc = SpoLeg("(b) XW4 + Crossing Direction Off", seed, false, true, true,
+    rc = SpoLeg("(b) XW4 + Crossing Direction Off", seed, RSBS_XITEM2_SONG_SOARING_OOT, true,
                 "13 Ocarina of Time songs for the 12 song checks they may use");
     if (rc != 0) {
         return 20 + rc;
     }
-    rc = SpoLeg("(c) XW4 control", seed, false, true, false, nullptr);
+    rc = SpoLeg("(c) XW4 control", seed, RSBS_XITEM2_SONG_SOARING_OOT, false, nullptr);
     if (rc != 0) {
         return 30 + rc;
     }
-    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 songs for 23 and 13 home-only OoT songs for 12 are refused before any "
-                    "attempt with OoTMM's sentence, and 23 for 23 creates\n");
+    rc = SpoLeg("(d) Soaring (OoT) + Minuet (MM)", seed, RSBS_XITEM2_SONG_SOARING_OOT | minuet, false,
+                "24 songs for the 23 song checks of both games");
+    if (rc != 0) {
+        return 40 + rc;
+    }
+    rc = SpoLeg("(e) Minuet + Bolero (MM), Crossing Direction Off", seed, minuet | bolero, true,
+                "24 songs for the 23 song checks of both games");
+    if (rc != 0) {
+        return 50 + rc;
+    }
+    rc = SpoLeg("(e2) Minuet + Bolero (MM), Off, Starting Zelda's Lullaby", seed, minuet | bolero, true,
+                "12 Majora's Mask songs for the 11 song checks they may use", /*startLullaby=*/true);
+    if (rc != 0) {
+        return 60 + rc;
+    }
+    rc = SpoLeg("(f) Minuet (MM) control, Crossing Direction Off", seed, minuet, true, nullptr);
+    if (rc != 0) {
+        return 70 + rc;
+    }
+    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 and 24 songs for 23, 13 home-only OoT songs for 12 and 12 home-only MM "
+                    "songs for 11 are refused before any attempt with OoTMM's sentence, and 23 for 23 creates\n");
     return 0;
 }
 

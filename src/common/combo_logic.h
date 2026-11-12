@@ -1273,6 +1273,16 @@ void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, i
                             uint32_t* outToMM);
 
 /**
+ * TEST PROBE (#1169 XW12, combo-warp-travel-rounds T5/T6): the MASKED travel
+ * facts each engine reported at the last alternation the gates judged in the
+ * last Combo_Logic_RunRound (0 and 0 before any, and for a round that gated
+ * none). The facts are monotone inside a round, so this is the round's whole
+ * report. A closed-crossing leg reads it to prove the fact it expects the gate to
+ * drop was really there. Either pointer may be NULL. Production never reads it.
+ */
+void Combo_Logic_TestLastTravelFacts(uint32_t* outOoT, uint32_t* outMM);
+
+/**
  * The triforce-hunt GOAL expression (ADR 0010 answer O10): the ONE shared piece
  * count across both worlds against the frozen combo requirement.
  *

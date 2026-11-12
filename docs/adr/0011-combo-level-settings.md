@@ -2262,6 +2262,16 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   (OoTMM's `cond`), so it sets no bit and Generate proceeds. XW12 empties
   `RSBS_XITEM2_HIDDEN` once the matchers (XW6, XW7) and the logic edges (XW9)
   exist.
+- **2026-11-12, XW12.** XW12 did not empty the mask: it narrowed it.
+  `RSBS_XITEM2_HIDDEN` is now `RSBS_XITEM2_WARP_SONG_SHARED` (the seven shared
+  songs, `0x3F80`), so the seven extensions have rows under Randomizer >
+  Cross-Game > Cross-Game Songs and pass the predicate, while the shared ones keep
+  every refusal above until lane XW10 builds their family. A row is drawn only
+  while `Combo_ComboItemRule2Offered` is true, so clearing the shared bits from the
+  mask draws their rows with no UI change. XW12 also adds one invariant at every
+  entry, `Combo_MMWarpSongRecordBroken`: a word with a Majora's Mask warp-song rule
+  on and no PRESENT warp-song record fails the creation, and is refused at seed
+  package import, `.redsave` load and arrival.
 
 Capacity spent: four format bytes (ADR 0009 claim 19), fourteen
 `ComboSettingId`s, appended after #979's two Stone Mask ids, and identity keys

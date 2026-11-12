@@ -113,6 +113,8 @@
 #include "combo_settings_view.h"
 #include "context.h"
 #include "foreign_items.h"
+#include "warp_song_items.h" // #1169 XW12: the Song of Soaring (OoT) row's tooltip
+#include "warp_songs_mm.h"   // #1169 XW12: the six MM warp-song rows' tooltips
 
 // The Reset confirm's registrar (SohMenuCombo.cpp). Declared here rather than
 // in a header, so no production header grows a test-only entry point. SoH's
@@ -702,18 +704,45 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             ocarinaRows += retired ? 1 : 0;
             checkboxes += pageRow.first->type == WIDGET_CHECKBOX ? 1 : 0;
         }
-        ROWS_CHECK(checkboxes == 27,
-                   "the Cross-Game Rules page has %d checkbox row(s); the twenty-seven expected are the Shared Kokiri "
+        ROWS_CHECK(checkboxes == 41,
+                   "the Cross-Game Rules page has %d checkbox row(s); the forty-one expected are the Shared Kokiri "
                    "Sword (#886), the Shared Shields (#1068), the Shared Lens of Truth (#1065), Shared Epona's Song "
                    "and Shared Song of Storms (#1066), the Shared Ocarina Buttons (#1067), the Shared Song of Time "
                    "(#1069), Shared Fire, Ice and Light Arrows (#968), the Shared Bottles (#970), the Shared Goron, "
                    "Zora, Keaton and Truth masks and Bunny Hood (#978), the Shared Swim (#1369), the Blast and "
-                   "Stone Masks (OoT) and their shared variants (#979), and the Gerudo, Skull and Spooky Masks (MM) "
-                   "and their shared variants (#980), after #879 retired the Shared Ocarina",
+                   "Stone Masks (OoT) and their shared variants (#979), the Gerudo, Skull and Spooky Masks (MM) "
+                   "and their shared variants (#980), and the fourteen Cross-Game Songs rows (#1169), after #879 "
+                   "retired the Shared Ocarina",
                    checkboxes);
-        printf("[TEST] leg 1e: %d \"Shared Ocarina\" row(s) and %d checkbox(es) on the page, expected 0 and 27 "
-               "(#879, #886, #1068, #1065, #1066, #1067, #1069, #968, #970, #978, #1369, #979, #980)\n",
-               ocarinaRows, checkboxes);
+        // #1169 XW12: DRAWN, after each row's PreFunc: the seven shared warp songs
+        // are registered but hidden while their bits are (Combo_ComboItemRule2Offered),
+        // so 34 are drawn; with the test seam every one is. Catches a shared row
+        // drawn before XW10 builds it, or an extension row hidden.
+        auto drawnCheckboxes = [&]() {
+            int drawn = 0;
+            for (PageRow& pageRow : rows) {
+                WidgetInfo& row = *pageRow.first;
+                if (row.type != WIDGET_CHECKBOX) {
+                    continue;
+                }
+                RunPreFunc(row);
+                drawn += row.isHidden ? 0 : 1;
+            }
+            return drawn;
+        };
+        Combo_ComboItemRules2RevealForTest(0);
+        const int drawn = drawnCheckboxes();
+        Combo_ComboItemRules2RevealForTest(1);
+        const int drawnRevealed = drawnCheckboxes();
+        Combo_ComboItemRules2RevealForTest(0);
+        ROWS_CHECK(drawn == 34 && drawnRevealed == 41,
+                   "%d checkbox row(s) are drawn (%d with the shared warp songs revealed); expected 34 (the seven "
+                   "shared warp songs hidden until XW10) and 41",
+                   drawn, drawnRevealed);
+        printf("[TEST] leg 1e: %d \"Shared Ocarina\" row(s) and %d checkbox(es) on the page, %d drawn (%d revealed), "
+               "expected 0, 41, 34 and 41 (#879, #886, #1068, #1065, #1066, #1067, #1069, #968, #970, #978, #1369, "
+               "#979, #980, #1169)\n",
+               ocarinaRows, checkboxes, drawn, drawnRevealed);
     }
 
     // ---- Leg 1f: OoTMM's sections, in OoTMM's order (#1101, option C) -------
@@ -760,10 +789,30 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             "Shared Gerudo Mask",
             "Shared Skull Mask",
             "Shared Spooky Mask",
+            // #1169 XW12: OoTMM's next section, Cross-Game Songs
+            // (items.extensions.crossGame.songs), in its data.ts order: the song
+            // added to OoT (songSoaringOot), the six added to MM (songMinuetMm ..
+            // songPreludeMm), then their shared variants (sharedSongSoaring ..).
+            "Song of Soaring (OoT)",
+            "Minuet of Forest (MM)",
+            "Bolero of Fire (MM)",
+            "Serenade of Water (MM)",
+            "Requiem of Spirit (MM)",
+            "Nocturne of Shadow (MM)",
+            "Prelude of Light (MM)",
+            "Shared Song of Soaring",
+            "Shared Minuet of Forest",
+            "Shared Bolero of Fire",
+            "Shared Serenade of Water",
+            "Shared Requiem of Spirit",
+            "Shared Nocturne of Shadow",
+            "Shared Prelude of Light",
         };
         // The first rank of OoTMM's Cross-Game Masks section (#979); every rank
-        // before it is a Shared Items rule.
+        // before it is a Shared Items rule. The first rank of Cross-Game Songs
+        // (#1169 XW12) ends the masks.
         const int kFirstCrossGameMaskRank = 17;
+        const int kFirstCrossGameSongRank = 26;
         const int ranks = (int)(sizeof(kOotmmSharedOrder) / sizeof(kOotmmSharedOrder[0]));
         const std::string marker = std::string(Combo_ComboSettingSharedMarker()) + " ";
         auto rankOf = [&](const std::string& name) {
@@ -798,7 +847,9 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             } else if (row.type == WIDGET_CHECKBOX) {
                 sharedRows++;
                 const int rank = rankOf(row.name);
-                const char* const wantSection = rank >= kFirstCrossGameMaskRank ? "Cross-Game Masks" : "Shared Items";
+                const char* const wantSection = rank >= kFirstCrossGameSongRank   ? "Cross-Game Songs"
+                                                : rank >= kFirstCrossGameMaskRank ? "Cross-Game Masks"
+                                                                                  : "Shared Items";
                 ROWS_CHECK(section == wantSection, "the rule '%s' sits under '%s', expected \"%s\"", row.name.c_str(),
                            section.c_str(), wantSection);
                 ROWS_CHECK(rank >= 0, "the rule '%s' has no place in OoTMM's order; add it to this leg's table",
@@ -811,19 +862,99 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                 }
             }
         }
-        const std::vector<std::string> kSections = { "Win Condition", "Logic", "Item Crossing", "Shared Items",
-                                                     "Cross-Game Masks" };
+        const std::vector<std::string> kSections = { "Win Condition",    "Logic",
+                                                     "Item Crossing",    "Shared Items",
+                                                     "Cross-Game Masks", "Cross-Game Songs" };
         std::string got;
         for (const std::string& s : separators) {
             got += (got.empty() ? "" : ", ") + s;
         }
         ROWS_CHECK(separators == kSections,
                    "the page's sections read [%s]; expected Win Condition, Logic, Item Crossing, Shared Items, "
-                   "Cross-Game Masks",
+                   "Cross-Game Masks, Cross-Game Songs",
                    got.c_str());
-        printf("[TEST] leg 1f: the page's sections are [%s] and its %d rule checkbox(es) sit under Shared Items and "
-               "Cross-Game Masks in OoTMM's order\n",
+        printf("[TEST] leg 1f: the page's sections are [%s] and its %d rule checkbox(es) sit under Shared Items, "
+               "Cross-Game Masks and Cross-Game Songs in OoTMM's order\n",
                got.c_str(), sharedRows);
+    }
+
+    // ---- Leg 1g: the Cross-Game Songs rows (#1169 XW12) ---------------------
+    // Each extension row is drawn with the production mask, and its tooltip is
+    // the macro that ships with its item (the Song of Soaring (OoT)'s says "only
+    // as a child"). Each shared row is HIDDEN while its bit is hidden; revealed by
+    // the seam it is drawn, and while its extension key is off it is greyed with
+    // that extension's reason, as the shared masks are. Catches a shared row drawn
+    // early, a dependency not shown, and a tooltip that drifted from its macro.
+    {
+        static const struct {
+            ComboSettingId id;
+            ComboSettingId needs; // COMBO_SETTING_COUNT for an extension
+            const char* tooltip;  // an extension's macro; nullptr for a shared row
+            const char* reason;   // a shared row's exact disabled tooltip
+        } kSongRows[] = {
+            { COMBO_SETTING_SONG_SOARING_OOT, COMBO_SETTING_COUNT, RSBS_SONG_SOARING_OOT_TOOLTIP, nullptr },
+            { COMBO_SETTING_SONG_MINUET_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_MINUET, nullptr },
+            { COMBO_SETTING_SONG_BOLERO_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_BOLERO, nullptr },
+            { COMBO_SETTING_SONG_SERENADE_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_SERENADE, nullptr },
+            { COMBO_SETTING_SONG_REQUIEM_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_REQUIEM, nullptr },
+            { COMBO_SETTING_SONG_NOCTURNE_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_NOCTURNE, nullptr },
+            { COMBO_SETTING_SONG_PRELUDE_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE, nullptr },
+            { COMBO_SETTING_SHARED_SONG_SOARING, COMBO_SETTING_SONG_SOARING_OOT, nullptr,
+              "This setting is disabled because: \n\n- Song of Soaring (OoT) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_MINUET, COMBO_SETTING_SONG_MINUET_MM, nullptr,
+              "This setting is disabled because: \n\n- Minuet of Forest (MM) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_BOLERO, COMBO_SETTING_SONG_BOLERO_MM, nullptr,
+              "This setting is disabled because: \n\n- Bolero of Fire (MM) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_SERENADE, COMBO_SETTING_SONG_SERENADE_MM, nullptr,
+              "This setting is disabled because: \n\n- Serenade of Water (MM) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_REQUIEM, COMBO_SETTING_SONG_REQUIEM_MM, nullptr,
+              "This setting is disabled because: \n\n- Requiem of Spirit (MM) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_NOCTURNE, COMBO_SETTING_SONG_NOCTURNE_MM, nullptr,
+              "This setting is disabled because: \n\n- Nocturne of Shadow (MM) Is Off" },
+            { COMBO_SETTING_SHARED_SONG_PRELUDE, COMBO_SETTING_SONG_PRELUDE_MM, nullptr,
+              "This setting is disabled because: \n\n- Prelude of Light (MM) Is Off" },
+        };
+        int checked = 0;
+        for (const auto& s : kSongRows) {
+            WidgetInfo* row = FindRow(rows, RowName(s.id));
+            ROWS_CHECK(row != nullptr && row->type == WIDGET_CHECKBOX && row->preFunc != nullptr,
+                       "no Cross-Game Songs checkbox named '%s'", RowName(s.id).c_str());
+            if (row == nullptr || row->preFunc == nullptr) {
+                continue;
+            }
+            Combo_ComboItemRules2RevealForTest(0);
+            Combo_ComboSettingClear(s.id);
+            if (s.needs != COMBO_SETTING_COUNT) {
+                Combo_ComboSettingClear(s.needs);
+            }
+            RunPreFunc(*row);
+            if (s.needs == COMBO_SETTING_COUNT) {
+                const std::string tip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                ROWS_CHECK(!row->isHidden && tip == s.tooltip,
+                           "the extension row '%s' is hidden (%d) or its tooltip '%s' is not its macro's",
+                           row->name.c_str(), row->isHidden ? 1 : 0, tip.c_str());
+            } else {
+                ROWS_CHECK(row->isHidden, "the shared row '%s' is drawn while its rule is hidden (lane XW10's)",
+                           row->name.c_str());
+                Combo_ComboItemRules2RevealForTest(1);
+                RunPreFunc(*row);
+                const std::string tip = row->options->disabledTooltip != nullptr ? row->options->disabledTooltip : "";
+                ROWS_CHECK(!row->isHidden && row->options->disabled && tip == s.reason && StagedBool(*row) == 0,
+                           "revealed, the shared row '%s' with its extension off: hidden %d, disabled %d, staged %d, "
+                           "reason '%s' (expected drawn, greyed, off, '%s')",
+                           row->name.c_str(), row->isHidden ? 1 : 0, row->options->disabled ? 1 : 0, StagedBool(*row),
+                           tip.c_str(), s.reason);
+                Combo_ComboItemRules2RevealForTest(0);
+            }
+            checked++;
+        }
+        const std::string soaring(RSBS_SONG_SOARING_OOT_TOOLTIP);
+        ROWS_CHECK(soaring.find("only as a child") != std::string::npos,
+                   "the Song of Soaring (OoT) row does not say it is usable only as a child: '%s'", soaring.c_str());
+        Combo_ComboItemRules2RevealForTest(0);
+        printf("[TEST] leg 1g: %d Cross-Game Songs row(s): the seven extensions drawn with their items' tooltips, "
+               "the seven shared rows hidden, and revealed greyed with their extension's reason\n",
+               checked);
     }
 
     // ---- Leg 2: no row is its own writer, and no pop-out is offered ---------
@@ -1392,8 +1523,9 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                        Combo_ComboSettingSet(COMBO_SETTING_SHARED_MASK_SKULL, 1) == 1 &&
                        Combo_ComboSettingSet(COMBO_SETTING_SHARED_MASK_SPOOKY, 1) == 1,
                    "the writer refused a pre-creation value leg 9 needs");
-        // #1169 XW2: the fourteen warp-song keys have no row until XW12, but the
-        // Reset button clears every key, theirs included.
+        // #1169 XW2: the fourteen warp-song keys (Cross-Game Songs rows since XW12,
+        // the shared ones drawn once XW10 offers them): the Reset button clears
+        // every key, theirs included.
         for (int i = (int)COMBO_SETTING_SONG_SOARING_OOT; i <= (int)COMBO_SETTING_SHARED_SONG_PRELUDE; i++) {
             ROWS_CHECK(Combo_ComboSettingSet((ComboSettingId)i, 1) == 1,
                        "the writer refused the pre-creation value leg 9 needs for '%s'",

@@ -31,7 +31,8 @@
  * refused or missing curated generation) or a pause precondition fails. The
  * chooser stays until the map is proven in play.
  *
- * INERT UNTIL XW12, like the rest of the song (warp_song_soaring.h).
+ * Off by default, like the rest of the song (warp_song_soaring.h): nothing here
+ * runs unless the Song of Soaring (OoT) rule is frozen on.
  */
 
 #include <stdbool.h>

@@ -26,6 +26,7 @@
 #include "gen_budget.h" // src/common — the #582 progress surface (OoT's half)
 #include "shared_resources.h" // src/common — Combo_FreezeFillWalletsAtCreation (#1284)
 #include "combo_song_pool.h" // src/common — the pair's one songs setting (#1542)
+#include "warp_song_items.h" // src/common — Combo_GenRefusal_*: a worker refusal reaches the player (#1169 XW12)
 // ComboLogicEngineOoT.cpp: the paired world's general pass, deferred to the
 // single-bag fill at the creation event (ADR 0010 increment 3, lane K11).
 extern "C" void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
@@ -424,6 +425,10 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     // and the record of which file consumed the previous one (#564 V2).
     OoT_ComboLogic_SetGeneralPassDeferred(0);
     OoT_Creation_ForgetConsumedGeneration();
+    // #1169 XW12 (D4): a refusal recorded by an earlier generation is never shown
+    // for this one.
+    Combo_SongSpotsRecordRefusal(nullptr);
+    Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_NONE);
 #endif
     ctx->overrides.clear();
     ctx->ItemReset();
@@ -810,22 +815,25 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                      (unsigned)Combo_ComboDirection());
         return -1;
     }
-    // #1169 XW2: THE HIDDEN RULES' GATE. OoTMM's warp-song rules (the second
-    // rules word) have keys but no row until lane XW12, because nothing in this
-    // build plays them yet: a world frozen with one on would hold dead song
-    // pickups. A key set out of band (the console, a hand-made config or preset)
-    // is refused here by name, before anything is frozen, so the refusal is the
-    // same plain early return as the gate above. With no such key set (every
-    // player's case) the word resolves to 0 and this is not taken.
+    // #1169 XW2: THE HIDDEN RULES' GATE. Since XW12 the seven warp-song
+    // extensions have rows and pass it; the seven SHARED songs have keys but no
+    // row until lane XW10 builds their family, because nothing in this build
+    // plays them yet: a world frozen with one on would hold dead song pickups. A
+    // shared key set out of band (the console, a hand-made config or preset)
+    // together with its extension is refused here by name, before anything is
+    // frozen, so the refusal is the same plain early return as the gate above
+    // (without its extension the resolver drops it, OoTMM's `cond`). The player
+    // hears it as "Not generated: a rule needs a later build." (D4).
     const uint32_t rsbsItemRules2 = Combo_ResolveComboItemRules2();
     {
         char rsbsRefusedRules[160];
         if (Combo_ComboItemRules2Refused(rsbsItemRules2, rsbsRefusedRules, sizeof(rsbsRefusedRules)) != 0u) {
-            SPDLOG_ERROR("Paired identity: the cross-game rules {} are not offered by this build yet (the warp-song "
-                         "rules are hidden until they can be played); refusing to generate (#1169)",
+            SPDLOG_ERROR("Paired identity: the cross-game rules {} are not offered by this build yet (the shared "
+                         "warp songs are not built); refusing to generate (#1169)",
                          rsbsRefusedRules);
             fprintf(stderr, "[OoT] generation REFUSED: cross-game rules not offered yet: %s (#1169)\n",
                     rsbsRefusedRules);
+            Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_HIDDEN_RULE);
             return -1;
         }
     }
@@ -909,8 +917,9 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
             Combo_ComboItemRulesApplyCreationShuffles(&comboSettings, &comboItemRules, rsbsShuffled);
         }
         // #1169 XW2: the second rules word freezes in the same act. The gate above
-        // refused any word it names, so while the warp-song rules are hidden this
-        // is 0, and the freeze and its fingerprint are exactly the Ex form's.
+        // refused any word it names, so this holds no hidden (shared) bit: it is
+        // 0, and the freeze and its fingerprint exactly the Ex form's, unless a
+        // Cross-Game Songs row is on (XW12).
         Combo_FreezeComboSettingsEx2(&comboSettings, &comboItemRules, rsbsItemRules2);
         // #1369: publish MM's give capabilities again, now that the record they
         // read the pair's one shuffle from is this world's (the publish above may
@@ -1019,6 +1028,11 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
 #ifdef RSBS_SINGLE_EXECUTABLE
         rsbsRollbackFreeze();
         Combo_GenProgress_End(false);
+        // #1169 XW12 (D4): OoT's own song pass refused (Dungeon Rewards cannot
+        // hold the songs); the game thread tells the player why.
+        if (Combo_SongSpotsLastRefusal()[0] != '\0') {
+            Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_SONG_SPOTS);
+        }
 #endif
         return ret;
     }

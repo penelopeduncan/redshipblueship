@@ -2924,8 +2924,9 @@ because it is never granted.
   Way of the Hero and foolish run through `Combo_Logic_RunRound` and see the
   facts as the fill does.
 
-**Rules off.** With every warp-song rule off (every world a player can create
-until XW12 exposes them; Generate refuses a hidden bit) both `travelFacts` answer
+**Rules off.** With every warp-song rule off (every world a player could create
+until XW12 exposed them; 2026-11-12, XW12: the seven extensions are offered now and
+off by default, the shared songs stay hidden) both `travelFacts` answer
 0 (OoT returns before touching the logic when its rule is off; MM reads one word),
 no accept is made, no alternation is added, and both new disjuncts are false. So
 no placement, fingerprint, hint, spoiler line or tracker result moves, and no

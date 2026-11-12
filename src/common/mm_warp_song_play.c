@@ -234,6 +234,11 @@ int Combo_OoTWarpRecord_Status(void) {
     return Combo_OoTWarpRecord_StatusOf(&gComboCtx.comboOoTWarps);
 }
 
+bool Combo_MMWarpSongRecordBroken(uint32_t rules2, const ComboOoTWarpRecord* rec) {
+    return (rules2 & (uint32_t)RSBS_MMWP_RULE_MASK) != 0u &&
+           Combo_OoTWarpRecord_StatusOf(rec) != COMBO_OOT_WARP_REC_PRESENT;
+}
+
 uint16_t Combo_OoTWarpRecord_Dest(int song) {
     return MmWpSongInRange(song) ? MmWpRecDestOf(&gComboCtx.comboOoTWarps, song) : (uint16_t)0u;
 }

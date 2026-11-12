@@ -32,9 +32,9 @@
  * OoT's arrival resolves it through the record (Entrance_OverrideWarpArrival,
  * randomizer_entrance.c).
  *
- * INERT UNTIL XW12. The six rules are hidden (RSBS_XITEM2_HIDDEN): no world a
- * player can make has one, so no song matches, nothing is armed, and with the
- * rules off this module changes nothing a player can see or hear.
+ * OFFERED SINCE XW12. The six rules have Cross-Game Songs rows; with every one
+ * off (the default) no song matches, nothing is armed, and this module changes
+ * nothing a player can see or hear.
  */
 
 #include <stdbool.h>
@@ -153,6 +153,17 @@ int Combo_OoTWarpRecord_Build(ComboOoTWarpRecord* rec, bool shuffled, bool hints
 int Combo_OoTWarpRecord_StatusOf(const ComboOoTWarpRecord* rec);
 /** Combo_OoTWarpRecord_StatusOf over gComboCtx.comboOoTWarps. */
 int Combo_OoTWarpRecord_Status(void);
+/**
+ * THE WARP-SONG RECORD INVARIANT (#1169 XW12). True when a world whose second
+ * rules word is @p rules2 BREAKS it: a Majora's Mask warp-song rule is on
+ * (RSBS_MMWP_RULE_MASK) while @p rec is not PRESENT. Such a world's logic
+ * credits the warps from the entrance graph while play refuses every one of
+ * them (COMBO_MMWP_NOT_RECORDED), so no entry admits it: the creation fails
+ * (OoT_Creation_FinishPairedHalf), a seed package import and a .redsave load
+ * refuse it, and an arrival refuses it by name (Combo_ComboSettingsDivergence).
+ * False for every word with the six rules off, whatever the record holds.
+ */
+bool Combo_MMWarpSongRecordBroken(uint32_t rules2, const ComboOoTWarpRecord* rec);
 /** The frozen record's destination of @p song (0 out of range). */
 uint16_t Combo_OoTWarpRecord_Dest(int song);
 /** The frozen record's area of @p song (0 out of range). */
