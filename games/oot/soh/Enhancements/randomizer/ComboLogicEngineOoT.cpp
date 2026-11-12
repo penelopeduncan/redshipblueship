@@ -3588,7 +3588,7 @@ extern "C" int OoT_ComboLogic_TestHostAcceptsForeign(uint16_t rc) {
 
 /**
  * The static facts today's host rule is written in, for `rc`, read off the
- * location table and not through the predicate. outFacts[5]:
+ * location table and not through the predicate. outFacts[4]:
  *   [0] type: 1 RCTYPE_SHOP, 2 RCTYPE_SCRUB, 3 RCTYPE_MERCHANT, 4
  *       RCTYPE_CHEST_GAME, 5 RCTYPE_SONG_LOCATION, 0 any other;
  *   [1] actor: 1 ACTOR_EN_GIRLA, 2 ACTOR_EN_DNS, 3 ACTOR_EN_BOX, 0 any other;

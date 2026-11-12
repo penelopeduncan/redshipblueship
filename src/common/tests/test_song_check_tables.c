@@ -29,8 +29,11 @@
  *      answers (c)'s literal for the frozen Skip Child Zelda; MM's REAL host class
  *      accepts all eleven and agrees with the pure answer for the frozen value;
  *      OoT_Combo_FrozenShuffleSongs reads the context's option; and a creation
- *      capture of each value, then none, leaves every MM answer unchanged (red if
- *      the capture became a host-acceptance input again).
+ *      capture of each value, then none, leaves every MM answer unchanged. In S0
+ *      the switch ignores the songs value, so this loop catches only an explicit
+ *      capture-gated return; an indirect read of the capture or of MM's own songs
+ *      option is caught by (h)'s ban on Combo_PairSongs*, ResolvedPairedSongs and
+ *      RO_SHUFFLE_SONGS inside the host class, not here.
  *  (e) For every NON-song row of both games the answer is the same with the
  *      override on as with it cleared (red on a song branch keyed on a type or a
  *      flag instead of the check id: the Tier B trap).
@@ -46,7 +49,8 @@
  *  (h) Source anchors, each searched INSIDE the function it names: the OoT
  *      predicate asks the song index and the pure answer with OoT's frozen two
  *      options before its actor test; MM's host class asks them first, reads OoT's
- *      frozen value and never the creation capture; CheckQueue consumes a
+ *      frozen value and never the creation capture (no Combo_PairSongs*,
+ *      ResolvedPairedSongs or RO_SHUFFLE_SONGS in its body); CheckQueue consumes a
  *      delivered song host inside `eligible`, before the outbox hold and the
  *      queue; the switch's production body is "false" and the pool reads no
  *      CVar; MM's spoiler-load path is reachable only unpaired; StartingItemGive
@@ -199,6 +203,29 @@ std::string SctFunctionBody(const std::string& src, const char* signature) {
                 }
             }
             return std::string();
+        }
+        at = p;
+    }
+    return std::string();
+}
+
+/** The body of the TOP-LEVEL function whose definition starts with @p signature:
+ *  from its opening '{' to the first closing brace at column 0 after it. For
+ *  vendored functions whose `#ifdef ... #else` branches each open the same brace,
+ *  so a raw brace count never closes (CheckQueue, OnFileCreate); "" if absent. */
+std::string SctTopLevelBody(const std::string& src, const char* signature) {
+    size_t at = 0;
+    while ((at = src.find(signature, at)) != std::string::npos) {
+        size_t p = at + strlen(signature);
+        while (p < src.size() && (src[p] == ' ' || src[p] == '\n' || src[p] == '\t')) {
+            p++;
+        }
+        if (p < src.size() && src[p] == '{') {
+            const size_t end = src.find("\n}", p);
+            if (end == std::string::npos) {
+                return std::string();
+            }
+            return src.substr(p, end + 2 - p);
         }
         at = p;
     }
@@ -575,8 +602,11 @@ void SctCheckAnchors() {
                                     "Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(), false)",
                                     "RCTYPE_TINGLE_SHOP" }),
               "(h) MM's host class does not answer the song checks first from OoT's frozen Shuffle Songs\n");
-    SCT_CHECK(!mmClass.empty() && mmClass.find("Combo_PairSongsCaptured") == std::string::npos,
-              "(h) MM's host class reads the creation capture\n");
+    SCT_CHECK(!mmClass.empty() && mmClass.find("Combo_PairSongs") == std::string::npos &&
+                  mmClass.find("ResolvedPairedSongs") == std::string::npos &&
+                  mmClass.find("RO_SHUFFLE_SONGS") == std::string::npos,
+              "(h) MM's host class reads the creation capture or MM's own songs option, directly or through a "
+              "helper\n");
     const std::string guardFn = SctFunctionBody(mm, "bool IsDeliveredForeignSongHost(RandoCheckId randoCheckId)");
     SCT_CHECK(SctInOrder(guardFn, { "MM_SongCheckIndex(randoCheckId) >= 0", "IsDeliveredForeignHost(randoCheckId)" }) &&
                   guardFn.find("Combo_SongHostsArmed") == std::string::npos &&
@@ -584,7 +614,9 @@ void SctCheckAnchors() {
               "(h) IsDeliveredForeignSongHost is not 'a song check that delivered its placement' alone\n");
 
     const std::string queue = SctReadSource("games/mm/2s2h/Rando/MiscBehavior/CheckQueue.cpp");
-    const std::string queueFn = SctFunctionBody(queue, "void Rando::MiscBehavior::CheckQueue()");
+    const std::string queueFn = SctTopLevelBody(queue, "void Rando::MiscBehavior::CheckQueue()");
+    SCT_CHECK(!queueFn.empty() && queueFn.find("void Rando::MiscBehavior::CheckQueueReset()") == std::string::npos,
+              "(h) CheckQueue's body could not be read (signature changed, or the read ran past it)\n");
     SCT_CHECK(SctInOrder(queueFn, { "if (randoSaveCheck.eligible) {", "IsDeliveredForeignSongHost(randoCheckId)",
                                     "RANDO_SAVE_CHECKS[randoCheckId].eligible = false;",
                                     "RANDO_SAVE_CHECKS[randoCheckId].cycleObtained = true;", "continue;",
@@ -601,7 +633,8 @@ void SctCheckAnchors() {
               "(h) combo_song_pool.cpp reads or writes a CVar\n");
 
     const std::string create = SctReadSource("games/mm/2s2h/Rando/MiscBehavior/OnFileCreate.cpp");
-    const std::string createFn = SctFunctionBody(create, "void Rando::MiscBehavior::OnFileCreate(s16 fileNum)");
+    const std::string createFn = SctTopLevelBody(create, "void Rando::MiscBehavior::OnFileCreate(s16 fileNum)");
+    SCT_CHECK(!createFn.empty(), "(h) OnFileCreate's body could not be read (signature changed)\n");
     SCT_CHECK(SctInOrder(createFn, { "== 0 || rsbsPaired) {", "Rando::Spoiler::ApplyToSaveContext(" }),
               "(h) MM's spoiler-load branch (the one path whose host-class gate runs outside a creation) is no "
               "longer behind the paired world's always-generate condition\n");
