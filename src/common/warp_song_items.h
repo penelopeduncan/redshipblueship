@@ -64,13 +64,20 @@ extern "C" {
  * since OoT's Shuffle Songs has both restricted modes, and "an Ocarina of Time
  * song" for Dungeon Rewards, above). Under Song Locations the added song is one
  * more row of the shared song pool (23 checks for 22 songs with the defaults),
- * so one added song fits and a second needs a shared or starting song. The
- * Cross-Game Songs row draws it (SohMenuCombo.cpp).
+ * so with Crossing Direction Both one added song fits and a second needs a
+ * shared or starting song. When Ocarina of Time's songs stay home (Crossing
+ * Direction Off or MM Items to OoT: Combo_ComboDirectionArms(GAME_OOT) false,
+ * so the single bag confines them, RSBS_SONG_POOL_SHORT_OOT) the Song of Soaring
+ * (OoT) alone already makes 13 Ocarina of Time songs for OoT's 12 song checks,
+ * and only an Ocarina of Time song shared or started with frees one
+ * (SongPoolOverCapacity leg (b)); the text says so. The Cross-Game Songs row
+ * draws it (SohMenuCombo.cpp).
  */
-#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                              \
-    "Adds Majora's Mask's Song of Soaring to Ocarina of Time, usable only as a child. On Shuffle Songs: Song "     \
-    "Locations or Dungeon Rewards, Generate refuses when the songs outnumber the song checks they can use: share " \
-    "a song or start with one (an Ocarina of Time song, for Dungeon Rewards)."
+#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                               \
+    "Adds Majora's Mask's Song of Soaring to Ocarina of Time, usable only as a child. On Shuffle Songs: Song "      \
+    "Locations or Dungeon Rewards, Generate refuses when the songs outnumber the song checks they can use: share "  \
+    "a song or start with one (an Ocarina of Time song, for Dungeon Rewards or when Ocarina of Time items stay in " \
+    "Ocarina of Time)."
 
 /** OoT's restricted Shuffle Songs values (RO_SONG_SHUFFLE_SONG_LOCATIONS and
  *  RO_SONG_SHUFFLE_DUNGEON_REWARDS, randomizerTypes.h), the two passes with a

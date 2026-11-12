@@ -28,7 +28,8 @@
  * CAN_PLAY_OOT_WARP_SONG: OoTMM's can_play_tp_* button sets), and no region uses
  * it.
  *
- * OFFERED SINCE XW12. The six rules have Cross-Game Songs rows, off by default.
+ * HIDDEN UNTIL IntMMWarpSongMinuet (XW12). The six rules have Cross-Game Songs rows,
+ * drawn once that row exists, off by default.
  * With every one off no world pools one of these items, and the ownership byte
  * stays 0.
  */
@@ -61,7 +62,10 @@ extern "C" {
  * verb-first form. Since #1542 an MM warp song under Shuffle Songs: Song
  * Locations is one more row of the shared song pool of both games
  * (MM_ComboLogic_IsPairSongItem), 23 checks for 22 songs with the defaults, so
- * one added song fits and a second needs a shared or starting song: the warning
+ * one added song fits and a second needs a shared or starting song (when
+ * Majora's Mask's songs stay home, Crossing Direction Off or OoT Items to MM, a
+ * Majora's Mask one: SongPoolOverCapacity legs (e2) and (f)), while an added
+ * Song of Soaring (OoT) already takes the spare check: the warning
  * says "when", not OoTMM's "must". Under the other modes an MM warp song is a
  * general-pool item and never refused. The Cross-Game Songs rows draw them
  * (SohMenuCombo.cpp).

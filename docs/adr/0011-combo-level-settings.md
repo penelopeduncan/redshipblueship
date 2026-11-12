@@ -2263,12 +2263,16 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   `RSBS_XITEM2_HIDDEN` once the matchers (XW6, XW7) and the logic edges (XW9)
   exist.
 - **2026-11-12, XW12.** XW12 did not empty the mask: it narrowed it.
-  `RSBS_XITEM2_HIDDEN` is now `RSBS_XITEM2_WARP_SONG_SHARED` (the seven shared
-  songs, `0x3F80`), so the seven extensions have rows under Randomizer >
-  Cross-Game > Cross-Game Songs and pass the predicate, while the shared ones keep
-  every refusal above until lane XW10 builds their family. A row is drawn only
-  while `Combo_ComboItemRule2Offered` is true, so clearing the shared bits from the
-  mask draws their rows with no UI change. XW12 also adds one invariant at every
+  `RSBS_XITEM2_HIDDEN` is now `RSBS_XITEM2_WARP_SONG_SHARED |
+  RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS` (`0x3FFE`), so the Song of Soaring (OoT) has
+  a row under Randomizer > Cross-Game > Cross-Game Songs and passes the predicate,
+  while the six Majora's Mask extensions keep every refusal above until the
+  integration row IntMMWarpSongMinuet proves their path (the design's fallback
+  for that owed proof), and the shared ones until lane XW10 builds their family.
+  All fourteen rows are registered; a row is drawn only while
+  `Combo_ComboItemRule2Offered` is true, so clearing bits from the mask draws
+  their rows with no UI change. Rows reach the hidden MM extensions alone through
+  the test seam's `RSBS_XITEM2_REVEAL_MM_SONGS` level. XW12 also adds one invariant at every
   entry, `Combo_MMWarpSongRecordBroken`: a word with a Majora's Mask warp-song rule
   on and no PRESENT warp-song record fails the creation, and is refused at seed
   package import, `.redsave` load and arrival.

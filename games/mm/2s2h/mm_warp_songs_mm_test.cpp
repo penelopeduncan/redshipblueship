@@ -352,12 +352,12 @@ int PlacedInWorld(RandoItemId id) {
 
 /**
  * One leg: a paired creation with the six extension keys on when `extensions`, the
- * Shared Minuet of Forest too when `sharedMinuet`, through the seam only then
- * (the extensions are offered since XW12). Checks the frozen word, MM's pool over the half's own persisted input (one
- * copy of each song whose rule is on and whose shared song is off), the world (every
- * pool copy placed) and the ownership byte (nothing owned: the world starts with no
- * warp song, and the bag's simulated rounds gave none to the player). 1 when the
- * creation ran.
+ * Shared Minuet of Forest too when `sharedMinuet`, through the MM seam (the six
+ * stay hidden until IntMMWarpSongMinuet, #1169 XW12) or the full one. Checks the
+ * frozen word, MM's pool over the half's own persisted input (one copy of each song
+ * whose rule is on and whose shared song is off), the world (every pool copy placed)
+ * and the ownership byte (nothing owned: the world starts with no warp song, and the
+ * bag's simulated rounds gave none to the player). 1 when the creation ran.
  */
 int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinuet) {
     // Before this leg's generation places anything: the previous leg's world is
@@ -373,10 +373,13 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
     if (sharedMinuet) {
         CVarSetInteger(Combo_ComboSettingKey(kSharedKeys[0]), 1);
     }
-    // THE TEST SEAM, for the shared song only: since XW12 the six extensions are
-    // offered as production offers them; the Shared Minuet of Forest stays hidden
-    // until XW10, so only that leg reads the mask empty.
-    Combo_ComboItemRules2RevealForTest(sharedMinuet ? 1 : 0);
+    // THE TEST SEAM: the six extensions stay hidden until IntMMWarpSongMinuet
+    // (#1169 XW12), so a leg with them reveals them alone (the shared songs still
+    // refused); the Shared Minuet of Forest stays hidden until XW10, so only that
+    // leg reads the mask empty.
+    Combo_ComboItemRules2RevealForTest(sharedMinuet ? RSBS_XITEM2_REVEAL_ALL
+                                       : extensions ? RSBS_XITEM2_REVEAL_MM_SONGS
+                                                    : RSBS_XITEM2_REVEAL_NONE);
     // Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
     // takes the six warp songs too, and 12 OoT + 16 MM songs (27 with the Shared
     // Minuet) for the 23 song checks of both games refuse by design, OoTMM's
@@ -519,14 +522,15 @@ struct WsrRestore {
         WsrClearKeys();
         OoT_Creation_TestForceWarpRecordInvalid(0);
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
+        Combo_ComboItemRules2RevealForTest(0);
         ForgetCreatedWorld();
     }
 };
 
 /**
  * #1169 XW12 (D3): THE RECORD INVARIANT AT CREATION. With the freeze's seam forcing
- * a malformed record, three real paired creations, the rule set by its key with the
- * production mask (offered since XW12, no reveal):
+ * a malformed record, three real paired creations, the rule set by its key under the
+ * MM seam (the six MM extensions are hidden until IntMMWarpSongMinuet):
  *   (r1) Minuet of Forest (MM) on, OoT's side of the tail alone: it returns -3, the
  *        crossing store is empty and the record UNSET;
  *   (r2) the same through Generate's completion: refused
@@ -538,9 +542,13 @@ struct WsrRestore {
  */
 void WsrRunRefusalLegs() {
     const char* const minuetKey = Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM);
-    Combo_ComboItemRules2RevealForTest(0);
+    // The MM seam: the six extensions stay hidden until IntMMWarpSongMinuet
+    // (#1169 XW12), and Generate refuses a hidden rule before the record's tail
+    // runs, so without it (r1) and (r2) could not tell D3 from the hidden gate.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
     if (!Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM)) {
-        WsrCheck(false, "D3", "Minuet of Forest (MM) is not offered by this build (XW12 offers it)");
+        WsrCheck(false, "D3", "Minuet of Forest (MM) is not offered under the MM seam");
+        Combo_ComboItemRules2RevealForTest(0);
         return;
     }
     for (int leg = 1; leg <= 3; leg++) {
@@ -601,6 +609,7 @@ void WsrRunRefusalLegs() {
         OoT_Creation_TestForceWarpRecordInvalid(0);
         CVarClear(minuetKey);
     }
+    Combo_ComboItemRules2RevealForTest(0);
     ForgetCreatedWorld();
 }
 

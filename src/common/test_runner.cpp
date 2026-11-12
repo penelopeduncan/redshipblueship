@@ -8965,8 +8965,8 @@ TestResult Test_ComboWarpTravelRounds(void) {
 
     return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
-// #1169 XW12: real paired creations with one warp-song rule ON through its key and
-// the production mask (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
+// #1169 XW12: real paired creations with one warp-song rule ON through its key (the
+// MM seam for the Minuet) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
 // bring-up as combo-warp-travel-rounds; `--test all` skips it (a generation row).
 extern "C" int MM_WarpSongWorld_RunHeadless(void);
 TestResult Test_ComboWarpSongWorld(void) {

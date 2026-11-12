@@ -715,9 +715,11 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                    "retired the Shared Ocarina",
                    checkboxes);
         // #1169 XW12: DRAWN, after each row's PreFunc: the seven shared warp songs
-        // are registered but hidden while their bits are (Combo_ComboItemRule2Offered),
-        // so 34 are drawn; with the test seam every one is. Catches a shared row
-        // drawn before XW10 builds it, or an extension row hidden.
+        // and the six MM extensions are registered but hidden while their bits are
+        // (Combo_ComboItemRule2Offered), so 28 are drawn; the MM seam draws the six
+        // too (34), the full seam every one. Catches an MM row drawn before
+        // IntMMWarpSongMinuet, a shared row drawn before XW10 builds it, or the
+        // Song of Soaring (OoT) row hidden.
         auto drawnCheckboxes = [&]() {
             int drawn = 0;
             for (PageRow& pageRow : rows) {
@@ -732,17 +734,20 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
         };
         Combo_ComboItemRules2RevealForTest(0);
         const int drawn = drawnCheckboxes();
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+        const int drawnMM = drawnCheckboxes();
         Combo_ComboItemRules2RevealForTest(1);
         const int drawnRevealed = drawnCheckboxes();
         Combo_ComboItemRules2RevealForTest(0);
-        ROWS_CHECK(drawn == 34 && drawnRevealed == 41,
-                   "%d checkbox row(s) are drawn (%d with the shared warp songs revealed); expected 34 (the seven "
-                   "shared warp songs hidden until XW10) and 41",
-                   drawn, drawnRevealed);
-        printf("[TEST] leg 1e: %d \"Shared Ocarina\" row(s) and %d checkbox(es) on the page, %d drawn (%d revealed), "
-               "expected 0, 41, 34 and 41 (#879, #886, #1068, #1065, #1066, #1067, #1069, #968, #970, #978, #1369, "
-               "#979, #980, #1169)\n",
-               ocarinaRows, checkboxes, drawn, drawnRevealed);
+        ROWS_CHECK(drawn == 28 && drawnMM == 34 && drawnRevealed == 41,
+                   "%d checkbox row(s) are drawn (%d with the MM extensions revealed, %d with every rule revealed); "
+                   "expected 28 (the six MM extensions hidden until IntMMWarpSongMinuet, the seven shared warp songs "
+                   "until XW10), 34 and 41",
+                   drawn, drawnMM, drawnRevealed);
+        printf("[TEST] leg 1e: %d \"Shared Ocarina\" row(s) and %d checkbox(es) on the page, %d drawn (%d under the MM "
+               "seam, %d revealed), expected 0, 41, 28, 34 and 41 (#879, #886, #1068, #1065, #1066, #1067, #1069, "
+               "#968, #970, #978, #1369, #979, #980, #1169)\n",
+               ocarinaRows, checkboxes, drawn, drawnMM, drawnRevealed);
     }
 
     // ---- Leg 1f: OoTMM's sections, in OoTMM's order (#1101, option C) -------
@@ -810,10 +815,20 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
         };
         // The first rank of OoTMM's Cross-Game Masks section (#979); every rank
         // before it is a Shared Items rule. The first rank of Cross-Game Songs
-        // (#1169 XW12) ends the masks.
+        // (#1169 XW12) ends the masks: derived from the table, so a mask rule added
+        // before it cannot shift the boundary (27 today, after the ten mask rows).
         const int kFirstCrossGameMaskRank = 17;
-        const int kFirstCrossGameSongRank = 26;
         const int ranks = (int)(sizeof(kOotmmSharedOrder) / sizeof(kOotmmSharedOrder[0]));
+        int firstCrossGameSongRank = ranks;
+        for (int r = 0; r < ranks; r++) {
+            if (std::string(kOotmmSharedOrder[r]) == "Song of Soaring (OoT)") {
+                firstCrossGameSongRank = r;
+                break;
+            }
+        }
+        ROWS_CHECK(firstCrossGameSongRank > kFirstCrossGameMaskRank && firstCrossGameSongRank < ranks,
+                   "the Song of Soaring (OoT) is rank %d of OoTMM's order: it must follow the masks",
+                   firstCrossGameSongRank);
         const std::string marker = std::string(Combo_ComboSettingSharedMarker()) + " ";
         auto rankOf = [&](const std::string& name) {
             for (int r = 0; r < ranks; r++) {
@@ -847,7 +862,7 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             } else if (row.type == WIDGET_CHECKBOX) {
                 sharedRows++;
                 const int rank = rankOf(row.name);
-                const char* const wantSection = rank >= kFirstCrossGameSongRank   ? "Cross-Game Songs"
+                const char* const wantSection = rank >= firstCrossGameSongRank    ? "Cross-Game Songs"
                                                 : rank >= kFirstCrossGameMaskRank ? "Cross-Game Masks"
                                                                                   : "Shared Items";
                 ROWS_CHECK(section == wantSection, "the rule '%s' sits under '%s', expected \"%s\"", row.name.c_str(),
@@ -879,9 +894,11 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
     }
 
     // ---- Leg 1g: the Cross-Game Songs rows (#1169 XW12) ---------------------
-    // Each extension row is drawn with the production mask, and its tooltip is
-    // the macro that ships with its item (the Song of Soaring (OoT)'s says "only
-    // as a child"). Each shared row is HIDDEN while its bit is hidden; revealed by
+    // The Song of Soaring (OoT) row is drawn with the production mask; each MM
+    // extension row is hidden until IntMMWarpSongMinuet and drawn under the MM
+    // seam. Each extension's tooltip is the macro that ships with its item (the
+    // Song of Soaring (OoT)'s says "only as a child"). Each shared row is HIDDEN
+    // while its bit is hidden, the MM seam included; revealed by
     // the seam it is drawn, and while its extension key is off it is greyed with
     // that extension's reason, as the shared masks are. Catches a shared row drawn
     // early, a dependency not shown, and a tooltip that drifted from its macro.
@@ -928,7 +945,19 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                 Combo_ComboSettingClear(s.needs);
             }
             RunPreFunc(*row);
-            if (s.needs == COMBO_SETTING_COUNT) {
+            if (s.needs == COMBO_SETTING_COUNT && s.id != COMBO_SETTING_SONG_SOARING_OOT) {
+                // An MM extension: hidden with the production mask until
+                // IntMMWarpSongMinuet; the MM seam draws it with its macro.
+                ROWS_CHECK(row->isHidden, "the MM row '%s' is drawn before its end-to-end row exists",
+                           row->name.c_str());
+                Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+                RunPreFunc(*row);
+                const std::string tip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                ROWS_CHECK(!row->isHidden && tip == s.tooltip,
+                           "under the MM seam the row '%s' is hidden (%d) or its tooltip '%s' is not its macro's",
+                           row->name.c_str(), row->isHidden ? 1 : 0, tip.c_str());
+                Combo_ComboItemRules2RevealForTest(0);
+            } else if (s.needs == COMBO_SETTING_COUNT) {
                 const std::string tip = row->options->tooltip != nullptr ? row->options->tooltip : "";
                 ROWS_CHECK(!row->isHidden && tip == s.tooltip,
                            "the extension row '%s' is hidden (%d) or its tooltip '%s' is not its macro's",
@@ -936,6 +965,9 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             } else {
                 ROWS_CHECK(row->isHidden, "the shared row '%s' is drawn while its rule is hidden (lane XW10's)",
                            row->name.c_str());
+                Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+                RunPreFunc(*row);
+                ROWS_CHECK(row->isHidden, "the MM seam draws the shared row '%s' (lane XW10's)", row->name.c_str());
                 Combo_ComboItemRules2RevealForTest(1);
                 RunPreFunc(*row);
                 const std::string tip = row->options->disabledTooltip != nullptr ? row->options->disabledTooltip : "";
@@ -952,8 +984,9 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
         ROWS_CHECK(soaring.find("only as a child") != std::string::npos,
                    "the Song of Soaring (OoT) row does not say it is usable only as a child: '%s'", soaring.c_str());
         Combo_ComboItemRules2RevealForTest(0);
-        printf("[TEST] leg 1g: %d Cross-Game Songs row(s): the seven extensions drawn with their items' tooltips, "
-               "the seven shared rows hidden, and revealed greyed with their extension's reason\n",
+        printf("[TEST] leg 1g: %d Cross-Game Songs row(s): the Song of Soaring (OoT) drawn and the six MM rows "
+               "hidden until the MM seam draws them, each with its item's tooltip; the seven shared rows hidden, and "
+               "revealed greyed with their extension's reason\n",
                checked);
     }
 
