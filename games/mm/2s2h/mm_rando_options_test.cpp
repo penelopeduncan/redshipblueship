@@ -735,6 +735,43 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
                     summary.mmProfileDigest);
     }
 
+    // ---- #1403: a PARTIAL row's hand-set key never reaches a paired profile --
+    // The pane greys Skeleton Key (PARTIAL) and presets refuse it, but a key set
+    // by hand was copied into the paired profile and pooled an item with no
+    // Ocarina of Time model. A paired resolution now reads every PARTIAL row's
+    // default: the stamped pair resolves the same profile with the key on, no
+    // refusal, and the half holds Off. RED if ResolveProfileValues (1a) is removed
+    // (the folded On diverges from the stamp and the resolution throws).
+    {
+        const auto& keyRow = Rando::StaticData::Options[RO_SHUFFLE_SKELETON_KEY];
+        if (MM_RandoOptionsUi_RowIsPartial((uint16_t)RO_SHUFFLE_SKELETON_KEY) != 1 ||
+            MM_RandoOptionsUi_RowIsPartial((uint16_t)RO_SHUFFLE_COWS) != 0) {
+            return Fail(110, "the liveness accessor does not read Skeleton Key as PARTIAL and Shuffle Cows as not: the "
+                             "leg below would not test the pane's own liveness");
+        }
+        CVarSetInteger(keyRow.cvar, RO_GENERIC_ON);
+        bool threw = false;
+        uint32_t keyDigest = 0;
+        try {
+            keyDigest = Rando::Foreign::ResolvePairedProfile(true);
+        } catch (const std::exception&) {
+            threw = true;
+        }
+        const uint32_t keyHeld = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SKELETON_KEY];
+        const uint32_t keyStamp = MM_Rando_ComputeProfileStamp();
+        CVarClear(keyRow.cvar);
+        printf("[TEST] mm-paired-profile #1403 PARTIAL: Skeleton Key key On -> threw %d, half holds %u, digest %08X, "
+               "stamp %08X (default %08X)\n",
+               threw ? 1 : 0, (unsigned)keyHeld, (unsigned)keyDigest, (unsigned)keyStamp, (unsigned)defaultDigest);
+        if (threw || keyHeld != keyRow.defaultValue || keyDigest != defaultDigest || keyStamp != defaultDigest) {
+            return Fail(111,
+                        "a hand-set key on the PARTIAL Skeleton Key row reached the paired profile (threw %d, half "
+                        "holds %u, digest %08X, stamp %08X, default %08X)",
+                        threw ? 1 : 0, (unsigned)keyHeld, (unsigned)keyDigest, (unsigned)keyStamp,
+                        (unsigned)defaultDigest);
+        }
+    }
+
     // ---- paired, MM's own Logic explicitly chosen: [Both Games] Logic wins ---
     // #1367 (operator ruling 2026-11-02): a paired world's strictness is ONE
     // [Both Games] choice and MM's Logic row follows it. Before, an explicit MM

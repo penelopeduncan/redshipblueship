@@ -986,6 +986,17 @@ extern "C" void MM_RandoOptionsUi_Register(void) {
     }
 }
 
+/** Whether @p id's row is PARTIAL, read from kOptionUi itself (the pane's own
+ *  liveness), so it answers before and without registration. */
+extern "C" int MM_RandoOptionsUi_RowIsPartial(uint16_t id) {
+    for (const OptionUi& ui : kOptionUi) {
+        if ((uint16_t)ui.id == id) {
+            return ui.liveness == COMBO_MM_LIVENESS_PARTIAL ? 1 : 0;
+        }
+    }
+    return 0;
+}
+
 // ============================================================================
 // THE TRICK TABLE'S DESCRIPTORS (#578 part 1)
 // ============================================================================

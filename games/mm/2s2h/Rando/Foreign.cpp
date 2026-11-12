@@ -366,6 +366,22 @@ static void ResolveProfileValues(uint32_t* values, bool paired,
         values[randoOptionId] = (uint32_t)CVarGetInteger(randoStaticOption.cvar, randoStaticOption.defaultValue);
     }
 
+    // (1a) #1403 review: a PARTIAL row (the pane's own liveness, read from MM's
+    // option table) is not yet supported in a paired world: the pane greys it and
+    // presets refuse it, and a hand-set key must not reach the pool either (the
+    // songs and the Skeleton Key have no Ocarina of Time model, name or note row
+    // if they cross). So a paired profile resolves each to its default, on
+    // creation, arrival and load alike. A default is never folded
+    // (AppendedOptionIsFolded), so no identity or seed moves. Before the
+    // corrections below, which then read the default.
+    if (paired) {
+        for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
+            if (MM_RandoOptionsUi_RowIsPartial((uint16_t)randoOptionId) != 0) {
+                values[randoOptionId] = randoStaticOption.defaultValue;
+            }
+        }
+    }
+
     // (2) Derived correction: with skulltulas unshuffled the token requirement
     // is the vanilla one, whatever the slider says. Runs for solo and paired
     // files alike, as it always has.
