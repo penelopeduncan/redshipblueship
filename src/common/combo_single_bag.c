@@ -8,7 +8,8 @@
 
 #include "combo_single_bag.h"
 
-#include "combo_woth.h" // #1439: the Way of the Hero the proved world is analysed for
+#include "combo_song_pool.h" // #1542: the shared song pool's one predicate
+#include "combo_woth.h"      // #1439: the Way of the Hero the proved world is analysed for
 #include "context.h"
 #include "foreign_items.h"
 #include "gen_budget.h"
@@ -39,6 +40,9 @@ static int sBagPoolIndex[RSBS_COMBO_LOGIC_BAG_CAP];
 /** THE HOST GROUPS (combo_logic.h ABI 9, #1502): each bag row's confinement mask,
  *  handed to the fill only when one is nonzero. */
 static uint32_t sBagConfine[RSBS_COMBO_LOGIC_BAG_CAP];
+/** #1542: OoT's pool rows' masks (OoT_ComboLogic_PoolRowConfineMasks), one per
+ *  exported row: the shared song pool's wide group for a song, else 0. */
+static uint32_t sOoTConfine[COMBO_SINGLE_BAG_ROW_CAP];
 static int sOoTBagRows[RSBS_COMBO_LOGIC_BAG_CAP];
 /** The pool rows (indices into sRows) THE SHARED-QUANTITY TRIM removed, captured
  *  right after the compose (Combo_Logic_ComposeTrimmedAt's record is the
@@ -364,6 +368,10 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         }
         sReport.ootRows = ootTotal;
         sReport.mmRows = mmCount;
+        // #1542: OoT's songs carry the shared song pool's wide group while it is
+        // armed (0 for every row otherwise, so no other world moves).
+        memset(sOoTConfine, 0, sizeof(sOoTConfine[0]) * (size_t)ootTotal);
+        (void)OoT_ComboLogic_PoolRowConfineMasks(sOoTItems, ootTotal, sOoTConfine);
         for (int i = 0; i < ootTotal; ++i) {
             memset(&sRows[i], 0, sizeof(sRows[i]));
             sRows[i].item.originGame = (uint8_t)GAME_OOT;
@@ -436,24 +444,38 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
             if (!mayCross && !sharedPair) {
                 sBag[i].bagFlags |= RSBS_COMBO_BAG_HOME_ONLY;
             }
-            // THE HOST GROUPS (#1502): a bag row taken from a confined MM pool row
-            // keeps its mask, and with it its home. A shared pair is exempt: it has
-            // no single home, so a confined song a frozen shared-song rule pairs
-            // roams, as OoT's held-back copy does (#1085).
+            // THE HOST GROUPS (#1502): a bag row taken from a confined pool row
+            // keeps its mask. A LOCAL mask (MM's dungeons, MM's own Song Locations)
+            // keeps the row home as well. A shared pair is exempt from a local mask:
+            // it has no single home, so a confined song a frozen shared-song rule
+            // pairs roams, as OoT's held-back copy does (#1085).
+            // THE COMBO-WIDE GROUPS (#1542, combo_logic.h ABI 11): a WIDE mask (the
+            // shared song pool's) confines without keeping the row home, and a
+            // shared pair keeps it: the pair's one copy sits on a song check of
+            // either game (ruling D5). The pair's kept row is its earlier pool
+            // position, OoT's (the rows above are OoT's first), and both halves of
+            // a shared song carry the same wide mask under the pool.
             sBagConfine[i] = 0u;
             const int poolRow = sBagPoolIndex[i];
-            if (mmConfine != NULL && poolRow >= sReport.ootRows && poolRow < sReport.ootRows + sReport.mmRows &&
-                sBag[i].item.originGame == (uint8_t)GAME_MM) {
-                const uint32_t mask = mmConfine[poolRow - sReport.ootRows];
-                if (mask != 0u && !sharedPair) {
-                    sBagConfine[i] = mask;
-                    sBag[i].bagFlags |= RSBS_COMBO_BAG_HOME_ONLY;
-                    sReport.confinedRows++;
-                } else if (mask != 0u) {
-                    fprintf(stderr,
-                            "[SingleBag] MM item %u is confined (mask 0x%08X) but is a shared pair's row; it roams\n",
-                            (unsigned)sBag[i].item.id, (unsigned)mask);
-                }
+            uint32_t mask = 0u;
+            if (poolRow >= 0 && poolRow < sReport.ootRows && sBag[i].item.originGame == (uint8_t)GAME_OOT) {
+                mask = sOoTConfine[poolRow];
+            } else if (mmConfine != NULL && poolRow >= sReport.ootRows && poolRow < sReport.ootRows + sReport.mmRows &&
+                       sBag[i].item.originGame == (uint8_t)GAME_MM) {
+                mask = mmConfine[poolRow - sReport.ootRows];
+            }
+            const bool wideOnly = mask != 0u && (mask & ~RSBS_COMBO_GROUP_WIDE_MASK) == 0u;
+            if (mask != 0u && wideOnly) {
+                sBagConfine[i] = mask;
+                sReport.confinedRows++;
+            } else if (mask != 0u && !sharedPair) {
+                sBagConfine[i] = mask;
+                sBag[i].bagFlags |= RSBS_COMBO_BAG_HOME_ONLY;
+                sReport.confinedRows++;
+            } else if (mask != 0u) {
+                fprintf(stderr,
+                        "[SingleBag] %s item %u is confined (mask 0x%08X) but is a shared pair's row; it roams\n",
+                        Game_ToString((GameId)sBag[i].item.originGame), (unsigned)sBag[i].item.id, (unsigned)mask);
             }
             if ((sBag[i].bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u) {
                 sReport.homeOnlyRows++;
@@ -530,6 +552,12 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         // THE HOST GROUPS (#1502): only when a row is confined, so a world with
         // every placement option at its default runs the mask-free fill.
         freq.confineMasks = (sReport.confinedRows > 0) ? sBagConfine : NULL;
+        // THE SHARED SONG POOL (#1542, ruling D1; combo_logic.h ABI 11): under it
+        // the song checks of both games take songs only (OoTMM placeSemiShuffled
+        // then fillJunk), and the checks the songs leave over stay empty for each
+        // game's own junk step. 0 in every other world.
+        freq.exclusiveGroups = OoT_ComboLogic_SongPoolUnion() ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
+        sReport.exclusiveGroups = freq.exclusiveGroups;
         status = Combo_Logic_RunFill(&freq, &sReport.fill);
         fillRan = true;
         if (status != RSBS_COMBO_LOGIC_OK) {
@@ -547,6 +575,16 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
             } else if (status == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY) {
                 ComboLogicGroupShortfall shortfall;
                 if (Combo_Logic_LastGroupShortfall(&shortfall)) {
+                    sReport.shortGroupMask = shortfall.mask;
+                }
+                if (Combo_Logic_LastGroupShortfall(&shortfall) && (shortfall.mask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+                    fprintf(stderr,
+                            "[SingleBag] the song checks hold fewer checks than songs: %d song(s) (%d Ocarina of "
+                            "Time, %d Majora's Mask, the rest shared) for %d song check(s) they may use (%s)\n",
+                            shortfall.rows, shortfall.rowsOoT, shortfall.rowsMM, shortfall.hosts,
+                            shortfall.game == (uint8_t)GAME_NONE ? "both games"
+                                                                 : Game_ToString((GameId)shortfall.game));
+                } else if (Combo_Logic_LastGroupShortfall(&shortfall)) {
                     fprintf(stderr,
                             "[SingleBag] a confinement group holds more items than checks: %d %s item(s) for %d "
                             "check(s) (group mask 0x%08X)\n",
@@ -686,6 +724,11 @@ uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r) {
         bits |= RSBS_COMBO_HALF_MM;
     }
     return bits;
+}
+
+bool Combo_SingleBag_SongCapacityShort(const ComboSingleBagReport* r) {
+    return r != NULL && r->status == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY &&
+           (r->shortGroupMask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u;
 }
 
 void Combo_SingleBag_ClearLastReport(void) {

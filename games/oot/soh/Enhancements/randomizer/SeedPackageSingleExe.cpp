@@ -81,6 +81,8 @@ int OoT_Creation_EmitUnreachableToast(void);
 void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT, int goalMM);
 // #1483: a game's own items outnumber its checks (ForeignItemsSingleExe.cpp).
 int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM);
+// #1542: the shared song pool's capacity refusal.
+int OoT_Creation_EmitSongCapacityToast(const ComboSingleBagReport* r);
 // ComboLogicEngineOoT.cpp.
 void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
 // games/mm/2s2h/GameExports_SingleExe.cpp: the bytes of MM's half.
@@ -828,6 +830,8 @@ int CompleteAndStage(bool fromGenerate) {
             const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
             if (last->status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
                 OoT_Creation_EmitGoalUnreachableToast(last->goal, last->fill.goalOoT, last->fill.goalMM);
+            } else if (OoT_Creation_EmitSongCapacityToast(last) != 0) {
+                // #1542: more songs than the song checks of both games they may use.
             } else if (last->status != RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE ||
                        OoT_Creation_EmitUnreachableToast() <= 0) {
                 // #1483: a game whose own items cannot fit its checks is a fact of

@@ -42,6 +42,7 @@
 #include "notification_bridge.h"   // the paired row's "no refusal toast" check
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX: that check's matcher (#836)
 #include "crossing_store.h"        // the paired row's crossing-store check
+#include "combo_song_pool.h"       // #1542: the song checks' give paths (int-song-host-oot)
 #include "foreign_model.h"         // the #800 S1 shop playtest's model answer
 // The paired row's "shipped defaults" check: every setting the generation
 // reads, per surface (OoT's options/tricks/exclusions, MM's options/tricks, the
@@ -1900,6 +1901,115 @@ static void PfcChestPlaytestWarpFrame(PlayState* play, int frame) {
     fflush(stderr);
 }
 
+// ---- #1542 S3: an MM item on an OoT SONG CHECK, delivered live -----------------
+// RSBS_PFC_SONG_HOST=oot (CTest IntSongHostOoT). Under the shared song pool an OoT
+// song check can hold an MM song. At first-leg frame 200 (the leg's chest pickup
+// has played out) the drive picks the first OoT song check holding a crossing,
+// preferring one whose flag a transition trigger sets (the Song of Time, Requiem,
+// Nocturne: RSBS_SONG_GIVE_OOT_TRIGGER_FLAG), and sets that check's collection flag
+// the way its scene does: its EventChkInf flag (ShuffleSongs.cpp) through
+// OoT_Flags_SetEventChkInf, or a RandomizerInf flag through Flags_SetRandomizerInf,
+// whose flag-set hook queues the check for the RC-queue drain; any other collection
+// type is queued as the hooks queue it. Frame 320: the drain's foreign branch must have
+// recorded exactly one MM-bound item and the host must read collected; the check
+// is then queued again (a second trigger). Frame 440: no second record. A textbox
+// nobody will press past is closed after 60 frames. Not covered here: the trigger
+// cutscene itself and each scene's progression after it (traced in S0's table; a
+// playtest item).
+extern "C" int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+extern "C" int OoT_Rando_Foreign_PlaytestQueueCheck(uint16_t rc); // hook_handlers.cpp
+extern "C" void OoT_Flags_SetEventChkInf(s32 flag);               // z_actor.c
+
+static bool GpSongHostOoT(void) {
+    const char* env = getenv("RSBS_PFC_SONG_HOST");
+    return env != NULL && strcmp(env, "oot") == 0;
+}
+
+static void GpSongHostOoTFrame(PlayState* play, int frame) {
+    static int sHost = -1;
+    static int sRecordsBefore = -1;
+    static int sRecordsMid = -1;
+    static int sTextboxFrames = 0;
+    if (play != NULL && play->msgCtx.msgMode != MSGMODE_NONE) {
+        if (++sTextboxFrames >= 60) {
+            OoT_Message_CloseTextbox(play);
+            sTextboxFrames = 0;
+        }
+    } else {
+        sTextboxFrames = 0;
+    }
+    if (frame == 200) {
+        int fallback = -1;
+        for (int i = 0; i < Combo_Crossings_Count(GAME_OOT); i++) {
+            ComboCrossing row;
+            if (!Combo_Crossings_At(GAME_OOT, i, &row)) {
+                continue;
+            }
+            const int index = OoT_ComboLogic_TestSongCheckIndex(row.hostCheck);
+            const RsbsSongCheckInfo* info = Combo_SongCheckInfo(index);
+            if (info == NULL || OoT_Rando_Foreign_HostCollected(row.hostCheck)) {
+                continue;
+            }
+            if (info->path == RSBS_SONG_GIVE_OOT_TRIGGER_FLAG) {
+                sHost = row.hostCheck;
+                break;
+            }
+            fallback = fallback < 0 ? (int)row.hostCheck : fallback;
+        }
+        sHost = sHost >= 0 ? sHost : fallback;
+        if (sHost < 0) {
+            IntegrationTest_GameplayFail("int-song-host-oot: no OoT song check holds an MM item in this world (the "
+                                         "shared song pool is not armed, or the world moved: a fixture failure)");
+            return;
+        }
+        const SharedItem* item = Combo_Crossings_Lookup(GAME_OOT, (uint16_t)sHost);
+        const char* name = item != NULL ? Combo_GetForeignItemName(*item) : NULL;
+        const Rando::SpoilerCollectionCheck cc =
+            Rando::StaticData::GetLocation((RandomizerCheck)sHost)->GetCollectionCheck();
+        sRecordsBefore = Combo_CountSharedItems(GAME_MM, true);
+        fprintf(stderr,
+                "[SONG-HOST] OoT song check %d (%s) hosts the MM item %s: collection type %d flag %d; MM-bound "
+                "records %d\n",
+                sHost, Rando::StaticData::GetLocation((RandomizerCheck)sHost)->GetShortName().c_str(),
+                name != NULL ? name : "?", (int)cc.type, (int)cc.flag, sRecordsBefore);
+        fflush(stderr);
+        if (cc.type == SPOILER_CHK_EVENT_CHK_INF) {
+            OoT_Flags_SetEventChkInf((s32)cc.flag); // the song checks' own type (ShuffleSongs.cpp)
+        } else if (cc.type == SPOILER_CHK_RANDOMIZER_INF) {
+            Flags_SetRandomizerInf((RandomizerInf)cc.flag);
+        } else {
+            (void)OoT_Rando_Foreign_PlaytestQueueCheck((uint16_t)sHost);
+        }
+    }
+    if (sHost < 0) {
+        return;
+    }
+    if (frame == 320) {
+        const int records = Combo_CountSharedItems(GAME_MM, true);
+        const int collected = OoT_Rando_Foreign_HostCollected((uint16_t)sHost);
+        fprintf(stderr, "[SONG-HOST] frame 320: OoT song check %d collected %d, MM-bound records %d -> %d\n", sHost,
+                collected, sRecordsBefore, records);
+        fflush(stderr);
+        if (collected == 0 || records != sRecordsBefore + 1) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the RC-queue drain did not deliver the MM item on the "
+                                         "OoT song check exactly once (see [SONG-HOST])");
+            return;
+        }
+        sRecordsMid = records;
+        (void)OoT_Rando_Foreign_PlaytestQueueCheck((uint16_t)sHost); // a second trigger of the same check
+    }
+    if (frame == 440) {
+        const int records = Combo_CountSharedItems(GAME_MM, true);
+        fprintf(stderr, "[SONG-HOST] frame 440: after a second trigger MM-bound records %d (were %d)\n", records,
+                sRecordsMid);
+        fflush(stderr);
+        if (records != sRecordsMid) {
+            IntegrationTest_GameplayFail("int-song-host-oot: a second trigger of a delivered OoT song check recorded "
+                                         "its MM item again");
+        }
+    }
+}
+
 // The game framebuffer as a PNG in RSBS_GP_SHOT_DIR (a no-op without it). The
 // function lives in MM's export TU but reads only the shared window's Fast3D
 // interpreter, so it captures whichever game is drawing: OoT here. An outside
@@ -3598,6 +3708,10 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             sGpFramesInPhase++;
             if (phase == GP_PHASE_OOT_PRE && IntegrationTest_PairedFirstCrossing()) {
                 GpPairedTrackerPlaytest(sGpFramesInPhase);
+                // #1542 S3 (RSBS_PFC_SONG_HOST=oot): an MM item on an OoT song check, live.
+                if (GpSongHostOoT()) {
+                    GpSongHostOoTFrame(play, sGpFramesInPhase);
+                }
             }
             if (sGpFramesInPhase == 20 && (phase == GP_PHASE_OOT_PRE || phase == GP_PHASE_OOT_RETURN) &&
                 IntegrationTest_PairedFirstCrossing() && !IntegrationTest_PairedSkipCreation()) {

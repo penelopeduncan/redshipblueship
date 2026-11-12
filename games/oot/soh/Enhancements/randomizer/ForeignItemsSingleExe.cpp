@@ -1007,6 +1007,15 @@ static const char* HomeCapacityLine(uint32_t shortGames, unsigned piecesOoT, uns
     }
 }
 
+/**
+ * #1542: the shared song pool's capacity line (OoTMM's "Not enough locations for
+ * songs/dungeon rewards", solve.ts placeSemiShuffled): more songs than the song
+ * checks of both games they may use, a fact of the settings. At most 38
+ * characters, so it fits after either refusal prefix; the counts and the ways out
+ * are on the single bag's and MM's stderr lines (Combo_SongPoolCapacityRefusal).
+ */
+static const char* const kSongCapacityLine = "too many songs for the song checks.";
+
 /** The `reason` a file-select refusal passes (OoT_Creation_ReportFailureAtFileSelect)
  *  for the fill it has just run itself: that fill's All Locations refusal when that
  *  is why it failed, RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY when a game's own items
@@ -1016,6 +1025,9 @@ static int CreationFailureReasonFromOwnFill(void) {
     const int status = last->status;
     if (status == RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE || status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
         return status;
+    }
+    if (Combo_SingleBag_SongCapacityShort(last)) {
+        return RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY; // #1542
     }
     return Combo_SingleBag_HomeShortGames(last) != 0u ? RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY : 0;
 }
@@ -1077,6 +1089,25 @@ extern "C" void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT
  *        (ComboSingleBagReport.triforcePiecesOoT / MM), 0 outside a hunt.
  * @return 1 when a toast was raised, 0 when @p shortGames names no game.
  */
+/**
+ * THE SONG-POOL CAPACITY REFUSAL (#1542): Generate's toast when the single bag
+ * refused because the shared song pool's songs outnumber its song checks
+ * (Combo_SingleBag_SongCapacityShort), in place of "try a new seed or other
+ * options.", because no seed has more song checks. The unreachable toast's shape.
+ * @return 1 when a toast was raised, 0 when @p r is no such refusal.
+ */
+extern "C" int OoT_Creation_EmitSongCapacityToast(const ComboSingleBagReport* r) {
+    if (!Combo_SingleBag_SongCapacityShort(r)) {
+        return 0;
+    }
+    Notification::Emit({
+        .prefix = "Not generated:",
+        .message = kSongCapacityLine,
+        .mute = true,
+    });
+    return 1;
+}
+
 extern "C" int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
     const char* line = HomeCapacityLine(shortGames, piecesOoT, piecesMM);
     if (line == nullptr) {
@@ -1931,6 +1962,8 @@ extern "C" void OoT_Creation_ReportFailureAtFileSelect(int slot, int reason) {
     } else if (reason == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
         const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
         message = AllLocationsGoalLine(last->goal, last->fill.goalOoT, last->fill.goalMM);
+    } else if (reason == RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY) {
+        message = kSongCapacityLine; // #1542
     } else if (reason == RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY) {
         const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
         const char* line =

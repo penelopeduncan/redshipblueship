@@ -113,6 +113,8 @@ extern "C" void MM_ComboLogic_SetHostPool(const uint16_t* checks, int count);
 extern "C" void MM_ComboLogic_ForgetPlacements(void);
 extern "C" void MM_ComboLogic_TestSaveHostPool(void);
 extern "C" void MM_ComboLogic_TestRestoreHostPool(void);
+// ComboLogicEngineOoT.cpp (#1542): the RsbsSongCheck index of an OoT check, or -1.
+extern "C" int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 
 namespace {
 
@@ -698,7 +700,12 @@ extern "C" int MM_PlacementConfinedWorld_Check(void) {
     MPC_CHECK(keys > 0 && songs > 0, "the world holds no confined key or no confined song: nothing was checked");
     MPC_CHECK(wrong == 0, "%d confined MM item(s) were placed outside their group", wrong);
 
+    // A LOCALLY confined MM item never crosses. Under the shared song pool
+    // (#1542) an MM song carries the combo-wide song group instead and may sit on
+    // an OoT song check, but on no other OoT check.
     int crossed = 0;
+    int songsCrossed = 0;
+    int songsOffSongChecks = 0;
     for (int i = 0; i < Combo_Logic_PlacementCount(GAME_OOT); ++i) {
         ComboLogicPlacement p;
         if (!Combo_Logic_PlacementAt(GAME_OOT, i, &p) || p.item.originGame != (uint8_t)GAME_MM) {
@@ -706,9 +713,18 @@ extern "C" int MM_PlacementConfinedWorld_Check(void) {
         }
         uint32_t mask = 0u;
         MM_ComboLogic_PoolRowConfineMasks(&p.item.id, 1, &mask);
-        crossed += (mask != 0u) ? 1 : 0;
+        if ((mask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+            songsCrossed++;
+            songsOffSongChecks += (OoT_ComboLogic_TestSongCheckIndex(p.hostCheck) < 0) ? 1 : 0;
+        } else {
+            crossed += (mask != 0u) ? 1 : 0;
+        }
     }
-    MPC_CHECK(crossed == 0, "%d confined MM item(s) crossed onto OoT hosts", crossed);
+    printf("[TEST] mm-placement-confined-world: %d MM song(s) on OoT checks, %d of them off a song check\n",
+           songsCrossed, songsOffSongChecks);
+    MPC_CHECK(crossed == 0, "%d locally confined MM item(s) crossed onto OoT hosts", crossed);
+    MPC_CHECK(songsOffSongChecks == 0, "%d MM song(s) crossed onto an OoT check that is no song check",
+              songsOffSongChecks);
     printf("[TEST] mm-placement-confined-world: %s\n", sFailures == 0 ? "PASS" : "FAIL");
     return sFailures == 0 ? 0 : 1;
 }

@@ -109,6 +109,8 @@ int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint32_t* outRe
 #include "combo_area.h"          // src/common — MM's foolish areas the content digest folds (#949)
 #include "critical_renewables.h" // src/common — OoTMM's critical-renewables rule (R6)
 #include "combo_song_pool.h"     // src/common — the pair's one songs setting (#1542)
+#include "combo_settings_view.h" // src/common — the Cross-Game Rules keys the song-pool capacity row sets (#1542)
+#include "warp_song_items.h"     // src/common — the song-pool refusal's sentence and record (#1542)
 
 namespace {
 
@@ -4219,6 +4221,145 @@ extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const 
             "[SONG-POOL] PASS: %zu fields of one world from both completions, MM's Shuffle Songs the freeze's with "
             "both keys moved, and the lock refuses a key read after the freeze\n",
             a.size());
+    return 0;
+}
+
+namespace {
+
+/** #1542: the keys one over-capacity leg sets; cleared by SpoClearKeys. */
+const ComboSettingId kSpoWarpSongKeys[6] = { COMBO_SETTING_SONG_MINUET_MM,   COMBO_SETTING_SONG_BOLERO_MM,
+                                             COMBO_SETTING_SONG_SERENADE_MM, COMBO_SETTING_SONG_REQUIEM_MM,
+                                             COMBO_SETTING_SONG_NOCTURNE_MM, COMBO_SETTING_SONG_PRELUDE_MM };
+
+void SpoClearKeys() {
+    for (const ComboSettingId key : kSpoWarpSongKeys) {
+        CVarClear(Combo_ComboSettingKey(key));
+    }
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
+    Combo_ComboItemRules2RevealForTest(0);
+    Combo_SongSpotsRecordRefusal(nullptr);
+    SpgClearSongsKeys();
+}
+
+/**
+ * One leg: generate @p seed with the warp-song rules @p xw5 (MM's six OoT warp
+ * songs) and @p xw4 (the Song of Soaring (OoT)), and the Crossing Direction OFF when
+ * @p directionOff, through the hidden-rule test seam; then Generate's completion.
+ * @p wantText NULL: the world must create. Otherwise the completion must refuse
+ * with the shared song pool's capacity refusal before any attempt, the refusal must
+ * contain @p wantText after OoTMM's sentence, and the identity and the songs
+ * capture must be gone.
+ * @return 0, or a nonzero step code.
+ */
+int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directionOff, const char* wantText) {
+    Combo_SingleBag_Forget();
+    SpgFreshSession();
+    SpoClearKeys();
+    if (xw5) {
+        for (const ComboSettingId key : kSpoWarpSongKeys) {
+            CVarSetInteger(Combo_ComboSettingKey(key), 1);
+        }
+    }
+    if (xw4) {
+        CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
+    }
+    if (directionOff) {
+        CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION), (int32_t)RSBS_COMBO_DIR_OFF);
+    }
+    Combo_ComboItemRules2RevealForTest((xw4 || xw5) ? 1 : 0);
+    if (K11PairedOoTGenerate(seed) != 0) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(1): %s: OoT's generation failed (under the shared song pool its own song "
+                        "pass refuses nothing)\n",
+                name);
+        SpoClearKeys();
+        return 1;
+    }
+    const bool unionArmed = OoT_ComboLogic_SongPoolUnion();
+    OoT_Creation_TestClearPairedSpoiler();
+    OoT_Creation_TestStageGeneration();
+    const int completed = OoT_SeedPackage_TestCompleteWorld();
+    const ComboSingleBagReport report = *Combo_SingleBag_LastReport();
+    const std::string refusal = Combo_SongSpotsLastRefusal();
+    const bool retracted = !Combo_ForeignPairingActive() && !Combo_ComboSettingsFrozen();
+    const bool captureHeld = Combo_PairSongsCaptured(nullptr);
+    fprintf(stderr,
+            "[SONG-POOL-CAP] %s: union %d, completion %d (%s), bag %s after %d attempt(s), short group 0x%08X; "
+            "refusal '%s'; identity retracted %d, capture held %d\n",
+            name, unionArmed ? 1 : 0, completed, SeedPackage_StatusName(completed),
+            Combo_Logic_StatusName(report.status), report.fill.attempts, (unsigned)report.shortGroupMask,
+            refusal.c_str(), retracted ? 1 : 0, captureHeld ? 1 : 0);
+    SpoClearKeys();
+    if (!unionArmed) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(2): %s: the shared song pool was not armed\n", name);
+        SpgFreshSession();
+        return 2;
+    }
+    if (wantText == nullptr) {
+        const int ok = completed == RSBS_SEEDPKG_OK ? 0 : 3;
+        if (ok != 0) {
+            fprintf(stderr, "[SONG-POOL-CAP] FAIL(3): %s: the control world did not create\n", name);
+        }
+        Combo_SingleBag_Forget();
+        SpgFreshSession();
+        return ok;
+    }
+    SpgFreshSession();
+    if (completed != RSBS_SEEDPKG_ERR_GENERATION || report.status != RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY ||
+        report.fill.attempts != 0 || !Combo_SingleBag_SongCapacityShort(&report)) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(4): %s: the completion was not refused by the song pool's capacity "
+                        "check before any attempt\n",
+                name);
+        return 4;
+    }
+    if (refusal.rfind(RSBS_SONG_SPOTS_REFUSAL, 0) != 0 || refusal.find(wantText) == std::string::npos) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(5): %s: the refusal does not begin with OoTMM's sentence or does not "
+                        "say '%s'\n",
+                name, wantText);
+        return 5;
+    }
+    if (!retracted || captureHeld) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(6): %s: the refused completion left the identity or the capture "
+                        "behind\n",
+                name);
+        return 6;
+    }
+    return 0;
+}
+
+} // namespace
+
+/**
+ * SongPoolOverCapacity (--test song-pool-over-capacity; #1542 S3): the shared song
+ * pool refuses more songs than the song checks they may use before placing
+ * anything, as OoTMM does (solve.ts placeSemiShuffled: "Not enough locations for
+ * songs/dungeon rewards"), through Generate's completion (OoT_PairedGen_CompleteWorld),
+ * so the retraction and the cleared capture are the production ones.
+ *   (a) MM's six OoT warp songs (XW5): 12 + 16 = 28 songs for the 23 song checks of
+ *       both games: refused naming both games.
+ *   (b) The Song of Soaring (OoT) (XW4) with the Crossing Direction OFF: 13 OoT
+ *       songs kept in OoT for its 12 song checks: refused naming OoT.
+ *   (c) Control: XW4 alone, 13 + 10 = 23 songs for 23 song checks: created.
+ * The warp-song rules are hidden until XW12; the legs read them through
+ * Combo_ComboItemRules2RevealForTest, production never does.
+ * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
+ */
+extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
+    int rc = SpoLeg("(a) XW5", seed, true, false, false, "28 songs for the 23 song checks of both games");
+    if (rc != 0) {
+        return 10 + rc;
+    }
+    rc = SpoLeg("(b) XW4 + Crossing Direction Off", seed, false, true, true,
+                "13 Ocarina of Time songs for the 12 song checks they may use");
+    if (rc != 0) {
+        return 20 + rc;
+    }
+    rc = SpoLeg("(c) XW4 control", seed, false, true, false, nullptr);
+    if (rc != 0) {
+        return 30 + rc;
+    }
+    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 songs for 23 and 13 home-only OoT songs for 12 are refused before any "
+                    "attempt with OoTMM's sentence, and 23 for 23 creates\n");
     return 0;
 }
 

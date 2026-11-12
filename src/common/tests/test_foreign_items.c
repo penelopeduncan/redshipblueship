@@ -757,9 +757,11 @@ TestResult Test_ForeignItemGiveReverse(void) {
 TestResult Test_ForeignHostEligibility(void) {
     printf("[TEST] foreign-host-eligibility: only game-armed check classes can host a crossing (#488)\n");
 
-    // #1542 S0: production's song-host switch, not a test override, so the song
-    // checks (RCTYPE_SONG) fall among the rejected "other" rows below. When S3
-    // arms the union this restatement gains a song category.
+    // #1542: production's song-host switch, not a test override. Since S3 it is
+    // armed under OoT's frozen Shuffle Songs: Song Locations in a paired world;
+    // this ROM-free row holds no OoT context (the frozen value reads Off) and no
+    // pair, so the song checks (RCTYPE_SONG) fall among the rejected "other" rows
+    // below. SongCheckTables (d) locks the armed answers.
     FI_ASSERT(Combo_SongHostsTestOverride() == -1);
     const int checkIdMax = MM_Rando_Foreign_TestCheckIdMax();
     FI_ASSERT(checkIdMax > 1);

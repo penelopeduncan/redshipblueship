@@ -313,10 +313,13 @@ void MM_Sram_InitNewSave(void);
 // ForeignItemsSingleExe.cpp).
 #include "combo_logic.h"
 #include "combo_single_bag.h" // src/common — the single-bag fill at the creation event (lane K11)
+#include "combo_song_pool.h"  // src/common — the shared song pool's predicates (#1542)
 #include "context.h"
 #include "critical_renewables.h" // src/common — OoTMM's critical-renewables rule (MM's source, MM's own pass)
 #include "gen_budget.h"          // src/common — the #582 per-attempt budget
 #include "shared_items.h"        // src/common — the O8 class of a pool row (traps stay home)
+#include "warp_song_items.h"     // src/common — the song refusal's record (#1542)
+#include "crossing_store.h"      // src/common — the song-pool lock reads a song check's crossing (#1542)
 
 // ForeignItemsSingleExe.cpp: the id an MM item found in Ocarina of Time is shown as (#1481).
 extern "C" uint16_t MM_ForeignItem_PresentItem(uint16_t riId, int ahead);
@@ -1103,16 +1106,34 @@ int HostAcceptsForeign(void* self, uint16_t hostCheck) {
 // 2Ship's IsItemAllowedAtCheck. Both read RANDO_SAVE_OPTIONS, which at the paired
 // creation is the frozen MM profile OnFileCreate copied in.
 
-/** Group `group` as a mask bit; 0 for "no group" (-1) or a group past 31. */
+/** Group `group` as a mask bit; 0 for "no group" (-1) or a group past 23. MM's
+ *  groups live below bit 24: the top byte is combo-wide (combo_logic.h ABI 11). */
 uint32_t MmConfinementBit(int group) {
-    return (group >= 0 && group < 32) ? (1u << group) : 0u;
+    return (group >= 0 && group < 24) ? (1u << group) : 0u;
+}
+
+// 2Ship's song group (PlacementConstraints.cpp CONFINEMENT_GROUP_SONGS) must stay a
+// local bit, below the combo-wide range.
+static_assert(DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1 < 24,
+              "MM's confinement groups must stay below the combo-wide bits (combo_logic.h ABI 11)");
+
+/** Is `check` one of MM's eleven song checks (RCTYPE_SONG)? `find`, never
+ *  `operator[]`. */
+bool MmIsSongCheck(uint16_t check) {
+    const auto it = Rando::StaticData::Checks.find((RandoCheckId)check);
+    return it != Rando::StaticData::Checks.end() && it->second.randoCheckType == RCTYPE_SONG;
 }
 
 /** The group bits of `check` read off the live save's options. `find`, never
- *  `operator[]`: an unknown id must not insert a Checks row. */
+ *  `operator[]`: an unknown id must not insert a Checks row. Under the shared song
+ *  pool (#1542) a song check answers the combo-wide song group instead of 2Ship's
+ *  local one, so either game's songs may use it. */
 uint32_t MmHostGroupsLive(uint16_t check) {
     if (Rando::StaticData::Checks.find((RandoCheckId)check) == Rando::StaticData::Checks.end()) {
         return 0u;
+    }
+    if (MM_ComboLogic_SongPoolUnionLive() && MmIsSongCheck(check)) {
+        return RSBS_COMBO_GROUP_SONG_LOCATIONS;
     }
     return MmConfinementBit(Rando::Logic::CheckIdToConfinementGroup((RandoCheckId)check));
 }
@@ -1142,6 +1163,9 @@ std::string MmConfinementGroupName(uint32_t mask) {
             case DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1:
                 name = "Song Locations";
                 break;
+            case 24: // RSBS_COMBO_GROUP_SONG_LOCATIONS (#1542)
+                name = "Song Locations (both games)";
+                break;
             default:
                 break;
         }
@@ -1165,6 +1189,15 @@ uint32_t HostGroups(void* self, uint16_t hostCheck) {
         return (it != sHostGroupMask.end()) ? it->second : 0u;
     }
     return MmHostGroupsLive(hostCheck);
+}
+
+/** `wideGroups` (combo_logic.h ABI 11): the combo-wide song group under exactly
+ *  the condition MmHostGroupsLive answers it for (#1542 S3 amendment, section D),
+ *  so an MM half that is not at Song Locations declares none and the coordinator
+ *  refuses a request that carries it. */
+uint32_t MmWideGroups(void* self) {
+    (void)self;
+    return MM_ComboLogic_SongPoolUnionLive() ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
 }
 
 void EndQuery(void* self) {
@@ -1325,6 +1358,7 @@ const ComboLogicEngine kMmEngine = {
     /* hostGroups        */ HostGroups,
     /* travelFacts       */ TravelFacts,
     /* acceptTravelFacts */ AcceptTravelFacts,
+    /* wideGroups        */ MmWideGroups,
 };
 
 /**
@@ -1547,11 +1581,18 @@ extern "C" void MM_ComboLogic_TestRestoreHostPool(void) {
  */
 extern "C" int MM_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* outMasks) {
     int confined = 0;
+    // THE SHARED SONG POOL (#1542, ruling D1): OoTMM's songs (ItemGroups.SONGS)
+    // carry the combo-wide song group instead of 2Ship's local one, so they may
+    // sit on a song check of either game. Read once: a pure function of the
+    // frozen settings.
+    const bool songUnion = MM_ComboLogic_SongPoolUnionLive();
     for (int i = 0; i < count && items != nullptr && outMasks != nullptr; ++i) {
         uint32_t mask = 0u;
         const RandoItemId ri = (RandoItemId)items[i];
         if (items[i] < (uint16_t)RI_MAX && Rando::StaticData::Items.find(ri) != Rando::StaticData::Items.end()) {
-            mask = MmConfinementBit(Rando::Logic::RandoItemIdToConfinementGroup(ri));
+            mask = (songUnion && MM_ComboLogic_IsPairSongItem(items[i]))
+                       ? RSBS_COMBO_GROUP_SONG_LOCATIONS
+                       : MmConfinementBit(Rando::Logic::RandoItemIdToConfinementGroup(ri));
         }
         outMasks[i] = mask;
         confined += (mask != 0u) ? 1 : 0;
@@ -1559,15 +1600,63 @@ extern "C" int MM_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int coun
     return confined;
 }
 
+static_assert(RSBS_COMBO_GROUP_SONG_LOCATIONS == (1u << 24), "MmConfinementGroupName names bit 24 the song pool");
+
+extern "C" bool MM_ComboLogic_SongPoolUnionLive(void) {
+    return OoT_ComboLogic_SongPoolUnion() && RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS;
+}
+
+extern "C" bool MM_ComboLogic_IsPairSongItem(uint16_t id) {
+    if (id >= (uint16_t)RI_MAX) {
+        return false;
+    }
+    switch ((RandoItemId)id) {
+        // #1169 XW5's six OoT warp songs in MM (pooled only under their hidden
+        // rules): OoTMM's solve.ts places every ItemGroups.SONGS item with songs.
+        case RI_SONG_MINUET:
+        case RI_SONG_BOLERO:
+        case RI_SONG_SERENADE:
+        case RI_SONG_REQUIEM:
+        case RI_SONG_NOCTURNE:
+        case RI_SONG_PRELUDE:
+            return true;
+        default:
+            return Rando::Logic::IsSongLocationItem((RandoItemId)id);
+    }
+}
+
+extern "C" uint32_t MM_ComboLogic_ExcludedSongChecks(void) {
+    // Under Song Locations GeneratePools leaves a player-excluded song check out of
+    // the check pool (vanilla, its song unpooled), and under the shared song pool
+    // it is the only song check left out (no surplus step), so the song checks
+    // missing from the host pool this fill was handed are the excluded ones.
+    if (!sHostPoolSet) {
+        return 0u;
+    }
+    uint32_t n = 0u;
+    for (const auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+        if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
+            !std::binary_search(sHostPool.begin(), sHostPool.end(), (uint16_t)randoCheckId)) {
+            n++;
+        }
+    }
+    return n;
+}
+
 /**
  * THE PATH-HINT SONG RULE (#1502; OoTMM locations.ts isLocationFullyShuffled with
  * `songs: klass === 'path'`): an MM song-location song is no Way of the Hero
  * candidate while MM's frozen Shuffle Songs is not Anywhere. Read at the creation
  * (Combo_Woth_RunAtCreation), where RANDO_SAVE_OPTIONS is the frozen MM profile.
+ * Under the shared song pool (#1542) the rule covers OoTMM's whole song set
+ * (MM_ComboLogic_IsPairSongItem), the six XW5 warp songs included.
  */
 extern "C" int MM_ComboLogic_PathHintSkipsItem(uint16_t id) {
     if (id >= (uint16_t)RI_MAX || RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_ANYWHERE) {
         return 0;
+    }
+    if (MM_ComboLogic_SongPoolUnionLive()) {
+        return MM_ComboLogic_IsPairSongItem(id) ? 1 : 0;
     }
     return Rando::Logic::IsSongLocationItem((RandoItemId)id) ? 1 : 0;
 }
@@ -1588,6 +1677,125 @@ extern "C" int MM_ComboLogic_TestLastPoolConfinement(uint16_t* outItems, uint32_
         }
     }
     return total;
+}
+
+/** TEST BRIDGE (#1542): how many MM song checks the LAST RunPairedSingleBagFill's
+ *  own pass junked under the shared song pool, and (in @p outPadded, may be NULL)
+ *  how many of them took a fresh RI_JUNK because no junk row was left. */
+static int sLastSongChecksJunked = 0;
+static int sLastSongChecksPadded = 0;
+extern "C" int MM_ComboLogic_TestLastSongChecksJunked(int* outPadded) {
+    if (outPadded != nullptr) {
+        *outPadded = sLastSongChecksPadded;
+    }
+    return sLastSongChecksJunked;
+}
+
+/** TEST BRIDGE (#1542, SongCheckTables (j)/(k)): set the live save's MM Shuffle
+ *  Songs (RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS]) to `value`; returns the prior value
+ *  so the row can put it back. RAM only. */
+extern "C" int MM_ComboLogic_TestSetShuffleSongs(int value) {
+    const int prior = (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
+    RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = (u32)value;
+    return prior;
+}
+
+/** TEST BRIDGE (#1542, SongCheckTables (j)): MM_ComboLogic_PoolRowConfineMasks and
+ *  the live host-group answer over MM's static tables. Writes how many items are
+ *  OoTMM songs (`outSongItems`), how many got the wide song group (`outWideItems`),
+ *  how many items got a mask mixing a local and a wide bit (`outMixed`), how many
+ *  RCTYPE_SONG checks answer the wide song group (`outWideSongChecks`) and how many
+ *  other checks carry any wide bit (`outWideOtherChecks`). */
+extern "C" void MM_ComboLogic_TestSongGroupCensus(int* outSongItems, int* outWideItems, int* outMixed,
+                                                  int* outWideSongChecks, int* outWideOtherChecks);
+// ComboLogicEngineOoT.cpp (#1542 test bridge): is OoT item `id` a song?
+extern "C" int OoT_ComboLogic_TestIsSongItem(uint16_t id);
+
+/** TEST BRIDGE (#1542, SongPoolUnionWorld): what MM's eleven song checks hold in
+ *  the live save after a paired creation: an MM song (`outSongs`), a crossing (the
+ *  crossing store) that is an OoT song (`outCrossedSongs`), RI_JUNK or a
+ *  RENEWABLE-class row (`outJunk`), anything else (`outOther`, each printed); how
+ *  many are `skipped` (`outSkipped`) and how many are not shuffled at all
+ *  (`outNotShuffled`). */
+extern "C" void MM_ComboLogic_TestSongCheckContents(int* outSongs, int* outCrossedSongs, int* outJunk, int* outOther,
+                                                    int* outSkipped, int* outNotShuffled) {
+    int songs = 0;
+    int crossed = 0;
+    int junk = 0;
+    int other = 0;
+    int skipped = 0;
+    int notShuffled = 0;
+    for (const auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+        if (randoStaticCheck.randoCheckType != RCTYPE_SONG) {
+            continue;
+        }
+        const RandoSaveCheck& check = RANDO_SAVE_CHECKS[randoCheckId];
+        skipped += check.skipped ? 1 : 0;
+        if (!check.shuffled) {
+            notShuffled++;
+            continue;
+        }
+        const SharedItem* crossing = Combo_Crossings_Lookup(GAME_MM, (uint16_t)randoCheckId);
+        if (crossing != nullptr) {
+            if (crossing->originGame == (uint8_t)GAME_OOT && OoT_ComboLogic_TestIsSongItem(crossing->id) != 0) {
+                crossed++;
+            } else {
+                other++;
+                printf("[TEST]   MM song check %d holds the crossing %u:%u, no OoT song\n", (int)randoCheckId,
+                       (unsigned)crossing->originGame, (unsigned)crossing->id);
+            }
+            continue;
+        }
+        const SharedItem row = { (uint8_t)GAME_MM, 0, (uint16_t)check.randoItemId };
+        if (MM_ComboLogic_IsPairSongItem((uint16_t)check.randoItemId)) {
+            songs++;
+        } else if (check.randoItemId == RI_JUNK || Combo_ItemClassOf(row) == RSBS_FILL_CLASS_RENEWABLE) {
+            junk++;
+        } else {
+            other++;
+            printf("[TEST]   MM song check %d holds item %d, neither a song nor junk\n", (int)randoCheckId,
+                   (int)check.randoItemId);
+        }
+    }
+    *outSongs = songs;
+    *outCrossedSongs = crossed;
+    *outJunk = junk;
+    *outOther = other;
+    *outSkipped = skipped;
+    *outNotShuffled = notShuffled;
+}
+
+extern "C" void MM_ComboLogic_TestSongGroupCensus(int* outSongItems, int* outWideItems, int* outMixed,
+                                                  int* outWideSongChecks, int* outWideOtherChecks) {
+    int songItems = 0;
+    int wideItems = 0;
+    int mixed = 0;
+    for (int i = 1; i < (int)RI_MAX; ++i) {
+        const uint16_t id = (uint16_t)i;
+        if (Rando::StaticData::Items.find((RandoItemId)i) == Rando::StaticData::Items.end()) {
+            continue;
+        }
+        uint32_t mask = 0u;
+        (void)MM_ComboLogic_PoolRowConfineMasks(&id, 1, &mask);
+        songItems += MM_ComboLogic_IsPairSongItem(id) ? 1 : 0;
+        wideItems += (mask == RSBS_COMBO_GROUP_SONG_LOCATIONS) ? 1 : 0;
+        mixed += ((mask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u && (mask & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u) ? 1 : 0;
+    }
+    int wideSong = 0;
+    int wideOther = 0;
+    for (const auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+        const uint32_t g = MmHostGroupsLive((uint16_t)randoCheckId);
+        if (randoStaticCheck.randoCheckType == RCTYPE_SONG) {
+            wideSong += (g == RSBS_COMBO_GROUP_SONG_LOCATIONS) ? 1 : 0;
+        } else {
+            wideOther += ((g & RSBS_COMBO_GROUP_WIDE_MASK) != 0u) ? 1 : 0;
+        }
+    }
+    *outSongItems = songItems;
+    *outWideItems = wideItems;
+    *outMixed = mixed;
+    *outWideSongChecks = wideSong;
+    *outWideOtherChecks = wideOther;
 }
 
 /**
@@ -3021,6 +3229,8 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
     // end injected BEFORE any engine is touched, so the attempt fails the way a
     // real one does and the next attempt re-derives from its own seed. Zero on
     // every shipping path.
+    sLastSongChecksJunked = 0;
+    sLastSongChecksPadded = 0;
     if (Rando::Foreign::ConsumeForcedLadderRung()) {
         throw std::runtime_error("single-bag fill: injected ladder rung (test)");
     }
@@ -3099,7 +3309,24 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
                    std::to_string(report.fill.requiredPlaced) + " placed before they ran out)";
         } else if (status == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY) {
             ComboLogicGroupShortfall shortfall;
-            if (Combo_Logic_LastGroupShortfall(&shortfall)) {
+            if (Combo_Logic_LastGroupShortfall(&shortfall) && (shortfall.mask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+                // THE SHARED SONG POOL (#1542): OoTMM's own sentence first
+                // (solve.ts placeSemiShuffled), recorded for the locks and named
+                // in this refusal; the excluded song checks of both games are a
+                // fact of the settings too, so the advice can name them.
+                const uint8_t side = shortfall.game == (uint8_t)GAME_OOT  ? (uint8_t)RSBS_SONG_POOL_SHORT_OOT
+                                     : shortfall.game == (uint8_t)GAME_MM ? (uint8_t)RSBS_SONG_POOL_SHORT_MM
+                                     : shortfall.wholeGroup != 0          ? (uint8_t)RSBS_SONG_POOL_SHORT_BOTH
+                                                                          : (uint8_t)RSBS_SONG_POOL_SHORT_SOME;
+                char songText[384];
+                (void)Combo_SongPoolCapacityRefusal(side, (uint32_t)shortfall.rows, (uint32_t)shortfall.hosts,
+                                                    (uint32_t)shortfall.rowsOoT, (uint32_t)shortfall.rowsMM,
+                                                    OoT_ComboLogic_ExcludedSongChecks() +
+                                                        MM_ComboLogic_ExcludedSongChecks(),
+                                                    songText, sizeof(songText));
+                Combo_SongSpotsRecordRefusal(songText);
+                why += std::string(" - ") + songText;
+            } else if (Combo_Logic_LastGroupShortfall(&shortfall)) {
                 why += " - " + MmConfinementGroupName(shortfall.mask) + ": " + std::to_string(shortfall.rows) +
                        " items for " + std::to_string(shortfall.hosts) + " checks";
             }
@@ -3158,6 +3385,44 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
     std::vector<uint16_t> leftovers((size_t)leftoverTotal, 0);
     if (leftoverTotal > 0) {
         Combo_Logic_LeftoverHosts(GAME_MM, leftovers.data(), leftoverTotal);
+    }
+    // THE SHARED SONG POOL'S LEFTOVER SONG CHECKS (#1542; OoTMM placeSemiShuffled
+    // then fillJunk, solve.ts): a song check the bag's songs left empty takes junk
+    // only, never a heart piece, a map or a trap. In host-id order, before the
+    // shuffle and before the critical-renewables plan (a song check is never a
+    // renewing host here): each takes the first RENEWABLE-class row left to this
+    // pass (RI_JUNK included), or RI_JUNK when none is left. No random number is
+    // drawn. Not under the pool: nothing here runs, so every other world deals as
+    // before.
+    int songPadded = 0;
+    int songJunked = 0;
+    if (MM_ComboLogic_SongPoolUnionLive()) {
+        std::vector<uint16_t> keep;
+        keep.reserve(leftovers.size());
+        for (const uint16_t host : leftovers) {
+            if (!MmIsSongCheck(host)) {
+                keep.push_back(host);
+                continue;
+            }
+            RandoItemId junk = RI_JUNK;
+            bool fromPool = false;
+            for (size_t r = 0; r < rest.size(); ++r) {
+                const SharedItem row = { (uint8_t)GAME_MM, 0, (uint16_t)rest[r] };
+                if (rest[r] == RI_JUNK || Combo_ItemClassOf(row) == RSBS_FILL_CLASS_RENEWABLE) {
+                    junk = rest[r];
+                    rest.erase(rest.begin() + static_cast<std::vector<RandoItemId>::difference_type>(r));
+                    fromPool = true;
+                    break;
+                }
+            }
+            if (!fromPool) {
+                songPadded++;
+            }
+            songJunked++;
+            RANDO_SAVE_CHECKS[host].randoItemId = junk;
+            RANDO_SAVE_CHECKS[host].shuffled = true;
+        }
+        leftovers.swap(keep);
     }
     // Shuffle the hosts with MM's own fill RNG (the stream the ladder seeded for
     // this attempt), then deal traps first and the rest after.
@@ -3251,6 +3516,14 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
         fprintf(stderr, "[MM] single-bag fill: %d critical renewable first cop%s dealt onto renewing hosts first\n",
                 renewPlanned, renewPlanned == 1 ? "y" : "ies");
     }
+    if (songJunked > 0) {
+        fprintf(stderr,
+                "[MM] single-bag fill: the shared song pool left %d song check(s) to MM's junk (%d padded with "
+                "RI_JUNK for want of a junk row)\n",
+                songJunked, songPadded);
+    }
+    sLastSongChecksJunked = songJunked;
+    sLastSongChecksPadded = songPadded;
     fflush(stderr);
 }
 

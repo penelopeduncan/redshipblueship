@@ -1469,13 +1469,60 @@ bool Combo_Logic_LastGroupShortfall(ComboLogicGroupShortfall* out) {
     return true;
 }
 
+// THE EXCLUSIVE GROUPS (ABI 11, #1542; ComboLogicFillRequest.exclusiveGroups).
+// Set once the request is validated, from every empty host of both engines over
+// empty tables (a host's groups are a static fact, so every later candidate is
+// one of these), and cleared at the fill's finish. One bit per host id.
+static uint32_t sExclusiveGroups;
+static bool sSideHasExclusive[RSBS_FOREIGN_POOL_ORIGIN_COUNT];
+static uint8_t sExclusiveHostBits[RSBS_FOREIGN_POOL_ORIGIN_COUNT][65536u / 8u];
+
+static void ComboLogicClearExclusive(void) {
+    if (sExclusiveGroups != 0u) {
+        memset(sExclusiveHostBits, 0, sizeof(sExclusiveHostBits));
+    }
+    sExclusiveGroups = 0u;
+    for (int g = 0; g < (int)RSBS_FOREIGN_POOL_ORIGIN_COUNT; ++g) {
+        sSideHasExclusive[g] = false;
+    }
+}
+
+/** Is `host` of `hostGame` in an exclusive group of the running fill? */
+static bool ComboLogicHostIsExclusive(uint8_t hostGame, uint16_t host) {
+    return sExclusiveGroups != 0u && sSideHasExclusive[hostGame] &&
+           (sExclusiveHostBits[hostGame][host >> 3] & (uint8_t)(1u << (host & 7u))) != 0u;
+}
+
 static bool ComboLogicRowMayUseHost(const ComboLogicBagItem* item, uint8_t hostGame, uint16_t host) {
-    // A CONFINED row: its own game's hosts in its groups, and nothing else. The
-    // mask is in its origin's namespace (combo_logic.h, `hostGroups`), so the
-    // other side's hosts are never asked. A mask-0 row never reaches this branch.
+    // A CONFINED row: hosts in its groups, and nothing else. A LOCAL mask (below
+    // bit 24) is in its origin's namespace (combo_logic.h, `hostGroups`), so only
+    // its own game's hosts are asked. A WIDE mask (ABI 11) means the same in both
+    // games: its own side's hosts in the group, and the other side's in the group
+    // where the row may cross and the host accepts foreign items. A shared pair
+    // (wide-only, validated) uses either side's, as each half is that game's own.
+    // A mask-0 row never reaches this branch.
     const uint32_t confine = ComboLogicRowConfine(item);
     if (confine != 0u) {
-        return item->item.originGame == hostGame && ComboLogicHostInGroups(hostGame, host, confine);
+        const uint32_t wide = confine & RSBS_COMBO_GROUP_WIDE_MASK;
+        const uint32_t local = confine & ~RSBS_COMBO_GROUP_WIDE_MASK;
+        if (ComboLogicRowIsPair(item)) {
+            return wide != 0u && local == 0u && ComboLogicIsGame(hostGame) &&
+                   ComboLogicHostInGroups(hostGame, host, wide);
+        }
+        if (item->item.originGame == hostGame) {
+            return ComboLogicHostInGroups(hostGame, host, confine);
+        }
+        if (local != 0u || (item->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u || sCrossingSideFull[hostGame]) {
+            return false;
+        }
+        const ComboLogicEngine* fe = ComboLogicEngineFor(hostGame);
+        return fe != NULL && ComboLogicHostInGroups(hostGame, host, wide) &&
+               (fe->hostAcceptsForeign == NULL || fe->hostAcceptsForeign(fe->self, host) != 0);
+    }
+    // THE EXCLUSIVE GROUPS: an unconfined row never takes a host of one (OoTMM:
+    // under songLocations a non-song never sits on a song check).
+    if (ComboLogicHostIsExclusive(hostGame, host)) {
+        return false;
     }
     if (ComboLogicRowNativeTo(item, hostGame)) {
         return true;
@@ -1495,6 +1542,11 @@ static bool ComboLogicRowUsesWholeSide(const ComboLogicBagItem* item, uint8_t ho
     // line the native shortcut below would skip the group test on the only side
     // a confined row may use.
     if (ComboLogicRowConfine(item) != 0u) {
+        return false;
+    }
+    // ... and so is every row on a side that holds an exclusive host (ABI 11):
+    // the shortcut would hand an unconfined row a song check.
+    if (sSideHasExclusive[hostGame]) {
         return false;
     }
     if (ComboLogicRowNativeTo(item, hostGame)) {
@@ -1781,11 +1833,213 @@ static void ComboLogicConfinedFirst(const ComboLogicFillRequest* req, int* order
  * Only called with confined rows in the request. Empties both tables first, so the
  * engines' empty hosts are the whole of each pool.
  */
-static int ComboLogicCheckGroupCapacity(const ComboLogicFillRequest* req) {
-    Combo_Logic_ResetPlacements();
+/* THE COMBO-WIDE CAPACITY (ABI 11, #1542): Hall's condition over row and host
+ * CLASSES, exact because the rows of one class share one neighbourhood. Row
+ * classes: OoT home-only, OoT roaming, MM home-only, MM roaming, shared pair.
+ * Host classes (each empty host in the group, by its engine's hostAcceptsForeign
+ * answer): OoT accepting, OoT refusing, MM accepting, MM refusing. */
+enum {
+    COMBO_WIDE_ROW_OOT_HOME = 0,
+    COMBO_WIDE_ROW_OOT_ROAM,
+    COMBO_WIDE_ROW_MM_HOME,
+    COMBO_WIDE_ROW_MM_ROAM,
+    COMBO_WIDE_ROW_PAIR,
+    COMBO_WIDE_ROW_CLASSES
+};
+#define COMBO_WIDE_HOST_OOT_ACCEPT 0x1u
+#define COMBO_WIDE_HOST_OOT_REFUSE 0x2u
+#define COMBO_WIDE_HOST_MM_ACCEPT 0x4u
+#define COMBO_WIDE_HOST_MM_REFUSE 0x8u
+static const uint8_t kComboWideNeighbours[COMBO_WIDE_ROW_CLASSES] = {
+    COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE,
+    COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE | COMBO_WIDE_HOST_MM_ACCEPT,
+    COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE,
+    COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE | COMBO_WIDE_HOST_OOT_ACCEPT,
+    COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE | COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE,
+};
+
+/** Count, into `hostCount[4]` (by host class bit index), the empty hosts of both
+ *  engines in wide group `w`. Tables empty (the caller reset them). */
+static int ComboLogicWideHostCounts(uint32_t w, int hostCount[4]) {
+    for (int k = 0; k < 4; ++k) {
+        hostCount[k] = 0;
+    }
+    const uint8_t games[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+    for (int gi = 0; gi < 2; ++gi) {
+        const uint8_t game = games[gi];
+        const ComboLogicEngine* e = ComboLogicEngineFor(game);
+        const int total = e->allEmptyHosts(e->self, sHostScratch, RSBS_COMBO_LOGIC_HOST_CAP);
+        if (total < 0 || total > RSBS_COMBO_LOGIC_HOST_CAP) {
+            fprintf(stderr, "[ComboLogic] fill refused: %s offered %d hosts to the group check (cap %d)\n",
+                    Game_ToString((GameId)game), total, RSBS_COMBO_LOGIC_HOST_CAP);
+            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+        }
+        for (int h = 0; h < total; ++h) {
+            if (!ComboLogicHostInGroups(game, sHostScratch[h], w)) {
+                continue;
+            }
+            const bool accepts = e->hostAcceptsForeign == NULL || e->hostAcceptsForeign(e->self, sHostScratch[h]) != 0;
+            const int k = (game == (uint8_t)GAME_OOT) ? (accepts ? 0 : 1) : (accepts ? 2 : 3);
+            hostCount[k]++;
+        }
+    }
+    return RSBS_COMBO_LOGIC_OK;
+}
+
+/** Hall's check for wide group `w` (one bit). Writes the shortfall and returns
+ *  RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY on the first violation: the set of every
+ *  class that has rows first, then each nonempty subset in ascending order. */
+static int ComboLogicCheckWideCapacity(const ComboLogicFillRequest* req, uint32_t w) {
+    int rowCount[COMBO_WIDE_ROW_CLASSES] = { 0, 0, 0, 0, 0 };
     for (int i = 0; i < req->bagCount; ++i) {
+        const ComboLogicBagItem* row = &req->bag[i];
+        if ((req->confineMasks[i] & w) == 0u || (row->bagFlags & RSBS_COMBO_BAG_SURPLUS) != 0u) {
+            continue;
+        }
+        const bool home = (row->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u;
+        int c;
+        if (ComboLogicRowIsPair(row)) {
+            c = COMBO_WIDE_ROW_PAIR;
+        } else if (row->item.originGame == (uint8_t)GAME_OOT) {
+            c = home ? COMBO_WIDE_ROW_OOT_HOME : COMBO_WIDE_ROW_OOT_ROAM;
+        } else {
+            c = home ? COMBO_WIDE_ROW_MM_HOME : COMBO_WIDE_ROW_MM_ROAM;
+        }
+        rowCount[c]++;
+    }
+    int present = 0;
+    for (int c = 0; c < COMBO_WIDE_ROW_CLASSES; ++c) {
+        present |= (rowCount[c] > 0) ? (1 << c) : 0;
+    }
+    if (present == 0) {
+        return RSBS_COMBO_LOGIC_OK;
+    }
+    int hostCount[4];
+    const int st = ComboLogicWideHostCounts(w, hostCount);
+    if (st != RSBS_COMBO_LOGIC_OK) {
+        return st;
+    }
+    // The full set first, then every nonempty subset of the classes with rows.
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int s = 1; s < (1 << COMBO_WIDE_ROW_CLASSES); ++s) {
+            if ((s & ~present) != 0 || (pass == 0 && s != present) || (pass == 1 && s == present)) {
+                continue;
+            }
+            int rows = 0;
+            int rowsOoT = 0;
+            int rowsMM = 0;
+            unsigned nb = 0u;
+            for (int c = 0; c < COMBO_WIDE_ROW_CLASSES; ++c) {
+                if ((s & (1 << c)) == 0) {
+                    continue;
+                }
+                rows += rowCount[c];
+                rowsOoT += (c == COMBO_WIDE_ROW_OOT_HOME || c == COMBO_WIDE_ROW_OOT_ROAM) ? rowCount[c] : 0;
+                rowsMM += (c == COMBO_WIDE_ROW_MM_HOME || c == COMBO_WIDE_ROW_MM_ROAM) ? rowCount[c] : 0;
+                nb |= kComboWideNeighbours[c];
+            }
+            int hosts = 0;
+            for (int k = 0; k < 4; ++k) {
+                hosts += ((nb & (1u << k)) != 0u) ? hostCount[k] : 0;
+            }
+            if (rows <= hosts) {
+                continue;
+            }
+            const unsigned oot = COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE;
+            const unsigned mm = COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE;
+            sGroupShortfall.game =
+                (nb & ~oot) == 0u ? (uint8_t)GAME_OOT : ((nb & ~mm) == 0u ? (uint8_t)GAME_MM : (uint8_t)GAME_NONE);
+            sGroupShortfall.mask = w;
+            sGroupShortfall.rows = rows;
+            sGroupShortfall.hosts = hosts;
+            sGroupShortfall.rowsOoT = rowsOoT;
+            sGroupShortfall.rowsMM = rowsMM;
+            sGroupShortfall.wholeGroup = (s == present) ? 1 : 0;
+            sGroupShortfallSet = true;
+            fprintf(stderr,
+                    "[ComboLogic] fill refused: %d row(s) confined to the combo-wide group 0x%08X for %d host(s) they "
+                    "may use (%s; a fact of the settings, not of the seed)\n",
+                    rows, (unsigned)w, hosts,
+                    sGroupShortfall.game == (uint8_t)GAME_NONE ? "both games"
+                                                               : Game_ToString((GameId)sGroupShortfall.game));
+            return RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY;
+        }
+    }
+    return RSBS_COMBO_LOGIC_OK;
+}
+
+/** Arm THE EXCLUSIVE GROUPS for this fill: mark every empty host (tables empty)
+ *  in `groups`, per side. */
+static int ComboLogicArmExclusive(uint32_t groups) {
+    ComboLogicClearExclusive();
+    if (groups == 0u) {
+        return RSBS_COMBO_LOGIC_OK;
+    }
+    sExclusiveGroups = groups;
+    const uint8_t games[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+    for (int gi = 0; gi < 2; ++gi) {
+        const uint8_t game = games[gi];
+        const ComboLogicEngine* e = ComboLogicEngineFor(game);
+        const int total = e->allEmptyHosts(e->self, sHostScratch, RSBS_COMBO_LOGIC_HOST_CAP);
+        if (total < 0 || total > RSBS_COMBO_LOGIC_HOST_CAP) {
+            fprintf(stderr, "[ComboLogic] fill refused: %s offered %d hosts to the group check (cap %d)\n",
+                    Game_ToString((GameId)game), total, RSBS_COMBO_LOGIC_HOST_CAP);
+            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+        }
+        for (int h = 0; h < total; ++h) {
+            const uint16_t host = sHostScratch[h];
+            if (ComboLogicHostInGroups(game, host, groups)) {
+                sExclusiveHostBits[game][host >> 3] |= (uint8_t)(1u << (host & 7u));
+                sSideHasExclusive[game] = true;
+            }
+        }
+    }
+    return RSBS_COMBO_LOGIC_OK;
+}
+
+/** Refuse a host answering a local bit and a wide bit together (ABI 11): the
+ *  two namespaces must not meet in one host. Tables empty. */
+static int ComboLogicCheckGroupNamespaces(void) {
+    const uint8_t games[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+    for (int gi = 0; gi < 2; ++gi) {
+        const uint8_t game = games[gi];
+        const ComboLogicEngine* e = ComboLogicEngineFor(game);
+        if (e->hostGroups == NULL) {
+            continue;
+        }
+        const int total = e->allEmptyHosts(e->self, sHostScratch, RSBS_COMBO_LOGIC_HOST_CAP);
+        if (total < 0 || total > RSBS_COMBO_LOGIC_HOST_CAP) {
+            fprintf(stderr, "[ComboLogic] fill refused: %s offered %d hosts to the group check (cap %d)\n",
+                    Game_ToString((GameId)game), total, RSBS_COMBO_LOGIC_HOST_CAP);
+            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+        }
+        for (int h = 0; h < total; ++h) {
+            const uint32_t g = e->hostGroups(e->self, sHostScratch[h]);
+            if ((g & RSBS_COMBO_GROUP_WIDE_MASK) != 0u && (g & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+                fprintf(stderr,
+                        "[ComboLogic] fill refused: %s host %u answers the local groups 0x%08X and the combo-wide "
+                        "groups 0x%08X together\n",
+                        Game_ToString((GameId)game), (unsigned)sHostScratch[h],
+                        (unsigned)(g & ~RSBS_COMBO_GROUP_WIDE_MASK), (unsigned)(g & RSBS_COMBO_GROUP_WIDE_MASK));
+                return RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+            }
+        }
+    }
+    return RSBS_COMBO_LOGIC_OK;
+}
+
+static int ComboLogicCheckGroupCapacity(const ComboLogicFillRequest* req, uint32_t wideInPlay) {
+    Combo_Logic_ResetPlacements();
+    if (wideInPlay != 0u) {
+        const int ns = ComboLogicCheckGroupNamespaces();
+        if (ns != RSBS_COMBO_LOGIC_OK) {
+            return ns;
+        }
+    }
+    for (int i = 0; req->confineMasks != NULL && i < req->bagCount; ++i) {
         const uint32_t mask = req->confineMasks[i];
-        if (mask == 0u || (req->bag[i].bagFlags & RSBS_COMBO_BAG_SURPLUS) != 0u) {
+        if (mask == 0u || (mask & RSBS_COMBO_GROUP_WIDE_MASK) != 0u ||
+            (req->bag[i].bagFlags & RSBS_COMBO_BAG_SURPLUS) != 0u) {
             continue;
         }
         const uint8_t game = req->bag[i].item.originGame;
@@ -1828,6 +2082,17 @@ static int ComboLogicCheckGroupCapacity(const ComboLogicFillRequest* req) {
                     "group (a fact of the settings, not of the seed)\n",
                     rows, Game_ToString((GameId)game), (unsigned)mask, hosts);
             return RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY;
+        }
+    }
+    // THE COMBO-WIDE GROUPS (ABI 11): each wide bit a row carries, lowest first.
+    for (unsigned b = 24u; b < 32u && req->confineMasks != NULL; ++b) {
+        const uint32_t w = 1u << b;
+        if ((wideInPlay & w) == 0u) {
+            continue;
+        }
+        const int st = ComboLogicCheckWideCapacity(req, w);
+        if (st != RSBS_COMBO_LOGIC_OK) {
+            return st;
         }
     }
     return RSBS_COMBO_LOGIC_OK;
@@ -2275,6 +2540,7 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
     sConfineMasks = NULL;
     sConfineBag = NULL;
     sConfineCount = 0;
+    ComboLogicClearExclusive();
     memset(&sGroupShortfall, 0, sizeof(sGroupShortfall));
     sGroupShortfallSet = false;
 
@@ -2324,16 +2590,36 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
             goto finish;
         }
     }
-    // THE HOST GROUPS (ABI 9): a confined row has one home and an engine that can
-    // say which of its hosts are in the row's groups.
+    // THE HOST GROUPS (ABI 9): a locally confined row has one home and an engine
+    // that can say which of its hosts are in the row's groups. THE COMBO-WIDE
+    // GROUPS (ABI 11): a mask is local or wide, never both; a shared pair may
+    // carry only a wide one; every wide bit in play is checked below, once the
+    // engines are known.
     bool anyConfined = false;
+    uint32_t wideInPlay = 0u;
     for (int i = 0; req->confineMasks != NULL && i < req->bagCount; ++i) {
-        if (req->confineMasks[i] == 0u) {
+        const uint32_t mask = req->confineMasks[i];
+        if (mask == 0u) {
             continue;
         }
         anyConfined = true;
+        const uint32_t wide = mask & RSBS_COMBO_GROUP_WIDE_MASK;
+        const uint32_t local = mask & ~RSBS_COMBO_GROUP_WIDE_MASK;
+        if (wide != 0u && local != 0u) {
+            fprintf(stderr,
+                    "[ComboLogic] fill refused: bag entry %d mixes local groups 0x%08X with combo-wide groups "
+                    "0x%08X\n",
+                    i, (unsigned)local, (unsigned)wide);
+            status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+            goto finish;
+        }
+        wideInPlay |= wide;
+        if (wide != 0u) {
+            continue;
+        }
         if ((req->bag[i].bagFlags & RSBS_COMBO_BAG_SHARED_PAIR) != 0u) {
-            fprintf(stderr, "[ComboLogic] fill refused: bag entry %d is a shared pair with a confinement mask\n", i);
+            fprintf(stderr, "[ComboLogic] fill refused: bag entry %d is a shared pair with a local confinement mask\n",
+                    i);
             status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
             goto finish;
         }
@@ -2379,14 +2665,45 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
         }
     }
 
-    // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined,
-    // so a mask-free request (NULL, or every mask 0) runs exactly the ABI-8 fill:
-    // no reset here, no capacity count, no partition.
-    if (anyConfined) {
-        sConfineMasks = req->confineMasks;
-        sConfineBag = req->bag;
-        sConfineCount = req->bagCount;
-        status = ComboLogicCheckGroupCapacity(req);
+    // THE COMBO-WIDE GROUPS (ABI 11): every wide bit in play, in a mask or in
+    // `exclusiveGroups`, must be declared by BOTH engines, so a pair in which one
+    // half armed a wide group and the other did not is refused here rather than
+    // dead-ended or mis-reported as a capacity shortfall.
+    if ((req->exclusiveGroups & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+        fprintf(stderr, "[ComboLogic] fill refused: exclusive groups 0x%08X carry local group bits\n",
+                (unsigned)req->exclusiveGroups);
+        status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+        goto finish;
+    }
+    wideInPlay |= req->exclusiveGroups;
+    if (wideInPlay != 0u) {
+        const uint8_t wideGames[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+        for (int gi = 0; gi < 2; ++gi) {
+            const ComboLogicEngine* we = Combo_Logic_GetEngine((GameId)wideGames[gi]);
+            const uint32_t declared =
+                (we->hostGroups != NULL && we->wideGroups != NULL) ? we->wideGroups(we->self) : 0u;
+            if ((declared & wideInPlay) != wideInPlay) {
+                fprintf(stderr, "[ComboLogic] fill refused: the %s engine cannot answer the combo-wide group 0x%08X\n",
+                        Game_ToString((GameId)wideGames[gi]), (unsigned)(wideInPlay & ~declared));
+                status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+                goto finish;
+            }
+        }
+    }
+
+    // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined
+    // or a group is exclusive, so a mask-free request (NULL, or every mask 0, and
+    // no exclusive group) runs exactly the ABI-8 fill: no reset here, no capacity
+    // count, no partition.
+    if (anyConfined || req->exclusiveGroups != 0u) {
+        sConfineMasks = anyConfined ? req->confineMasks : NULL;
+        sConfineBag = anyConfined ? req->bag : NULL;
+        sConfineCount = anyConfined ? req->bagCount : 0;
+        status = ComboLogicCheckGroupCapacity(req, wideInPlay);
+        if (status != RSBS_COMBO_LOGIC_OK) {
+            goto finish;
+        }
+        status = ComboLogicArmExclusive(req->exclusiveGroups);
         if (status != RSBS_COMBO_LOGIC_OK) {
             goto finish;
         }
@@ -2607,10 +2924,11 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
 finish:
     res.status = status;
     sRenewArmed = false; // the rule is this fill's; no later draw inherits it
-    // ... and so are THE HOST GROUPS' masks.
+    // ... and so are THE HOST GROUPS' masks and the exclusive groups.
     sConfineMasks = NULL;
     sConfineBag = NULL;
     sConfineCount = 0;
+    ComboLogicClearExclusive();
     if (status == RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED && sUnreachedCount > 0) {
         ComboLogicLogUnreached("in the last All Locations proof round (after a pre-flight that held: an engine is "
                                "not monotone)");

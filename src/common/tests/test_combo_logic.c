@@ -224,6 +224,16 @@ struct ClEngine {
     bool withHostGroups;
     uint32_t hostGroup[kClMaxHosts];
     int hostGroupCalls;
+    /** ABI 11 (#1542, THE COMBO-WIDE GROUPS): install `wideGroups`, answering
+     *  `wideDeclared`. Clear, the entry is NULL, which is every world authored
+     *  before ABI 11. */
+    bool withWideGroups;
+    uint32_t wideDeclared;
+    int wideGroupCalls;
+    /** #1542: install `hostAcceptsForeign`, refusing authored host i while bit i of
+     *  `foreignRefused` is set. Clear, the entry is NULL (every host accepts). */
+    bool withAcceptsForeign;
+    uint32_t foreignRefused;
     /** ABI 10 (#1169 XW9, THE TRAVEL FACTS): install `travelFacts` and (unless
      *  `noAcceptTravel`) `acceptTravelFacts`. Clear, both entries are NULL, which is
      *  every world authored before ABI 10. Fact bit b (RSBS_COMBO_TRAVEL_* space) is
@@ -720,6 +730,21 @@ uint32_t ClHostGroups(void* self, uint16_t hostCheck) {
     return (i >= 0) ? e->hostGroup[i] : 0u;
 }
 
+/** ABI 11's `wideGroups`: the declared wide bits. Counted, so a lock can see a
+ *  mask-free fill never asks. */
+uint32_t ClWideGroups(void* self) {
+    ClEngine* e = (ClEngine*)self;
+    e->wideGroupCalls++;
+    return e->wideDeclared;
+}
+
+/** #1542: `hostAcceptsForeign`, refusing the hosts in `foreignRefused`. */
+int ClHostAcceptsForeign(void* self, uint16_t hostCheck) {
+    ClEngine* e = (ClEngine*)self;
+    const int i = ClHostIndex(e, hostCheck);
+    return (i >= 0 && (e->foreignRefused & (1u << i)) != 0u) ? 0 : 1;
+}
+
 /** ABI 10: the facts this stub can play now (see `withTravelFacts`). */
 uint32_t ClTravelFacts(void* self) {
     ClEngine* e = (ClEngine*)self;
@@ -774,6 +799,12 @@ void ClFillVtable(ComboLogicEngine* vt, ClEngine* e) {
     }
     if (e->withHostGroups) {
         vt->hostGroups = ClHostGroups;
+    }
+    if (e->withWideGroups) {
+        vt->wideGroups = ClWideGroups;
+    }
+    if (e->withAcceptsForeign) {
+        vt->hostAcceptsForeign = ClHostAcceptsForeign;
     }
     if (e->withTravelFacts) {
         vt->travelFacts = ClTravelFacts;
@@ -3018,9 +3049,10 @@ void ClCountCrossings(int* intoOoT, int* intoMM, bool* ootForeignOnly41) {
 }
 
 TestResult ClProductionRulesLeg(void) {
-    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 10u,
-              "P0: this build speaks ABI 10 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
-              "hosts; 7: the shared pair; 8: All Locations' allLocations; 9: the host groups; 10: travel facts)");
+    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 11u,
+              "P0: this build speaks ABI 11 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
+              "hosts; 7: the shared pair; 8: All Locations' allLocations; 9: the host groups; 10: travel facts; 11: "
+              "the combo-wide groups)");
     const uint8_t O = (uint8_t)GAME_OOT;
     const uint8_t M = (uint8_t)GAME_MM;
     const uint16_t oItems[4] = { kOotSword, kOotHook, kOotLens, kOotBoots };
@@ -4239,7 +4271,8 @@ TestResult Test_ComboLogicHostGroups(void) {
     }
 
     // ---- (7) REFUSALS AND THE FORCED ROWS ---------------------------------------
-    // Catches: a confined shared pair accepted (it has no single home), a confined
+    // Catches: a shared pair with a LOCAL mask accepted (it has no single home; a
+    // wide-only pair is legal since ABI 11, combo-logic-song-pool (7)), a confined
     // row whose engine cannot answer groups dead-ending instead of refusing, and a
     // forced debug row bypassing the predicate.
     {
@@ -4249,7 +4282,7 @@ TestResult Test_ComboLogicHostGroups(void) {
         ComboLogicFillResult fr;
         CLG_CHECK(ClRunConfinedFill(pair, 1, one, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15026000u, &fr) ==
                       RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
-                  "(7) a confined shared pair must be refused");
+                  "(7) a shared pair with a local confinement mask must be refused");
 
         ClBuildGroupWorld(6, 0, 0);
         gClMM.withHostGroups = false;
@@ -4311,6 +4344,436 @@ TestResult Test_ComboLogicHostGroups(void) {
     ClUninstall();
     printf("[TEST] combo-logic-host-groups: %s\n", sClgFailures == 0 ? "PASS" : "FAIL");
     return sClgFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// combo-logic-song-pool — THE COMBO-WIDE GROUPS (ABI 11, #1542)
+// ============================================================================
+//
+// A row whose mask is a combo-wide group (RSBS_COMBO_GROUP_WIDE_MASK) may land on
+// the hosts of EITHER game in that group, the other game's only where that host
+// accepts foreign items and the row is not HOME_ONLY; the request's exclusive
+// groups keep every unconfined row off those hosts (OoTMM songLocations); capacity
+// is Hall's condition over the row and host classes. Each leg names the rule it
+// would catch removed.
+
+namespace {
+
+const uint32_t kClWide = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+const uint32_t kClWide2 = 0x02000000u; // a wide group no authored host is in
+
+/** OoT hosts 10, 11 (wide "song checks") and 12, 13, 14; MM hosts 20 (wide) and
+ *  21, 22, 23; both engines declare `declared` (0: no wideGroups entry). Sphere
+ *  zero everywhere, both goals unconditional, every id the legs use in its table. */
+void ClBuildSongWorld(uint32_t declared) {
+    ClResetEngine(&gClOoT, (uint8_t)GAME_OOT);
+    ClAddItem(&gClOoT, kOotSword);
+    ClAddItem(&gClOoT, kOotHook);
+    ClAddItem(&gClOoT, kOotLens);
+    ClAddItem(&gClOoT, kOotBoots);
+    ClAddItem(&gClOoT, kOotPairMask);
+    for (uint16_t id = 10; id <= 14; ++id) {
+        ClAddHost(&gClOoT, id, 0u);
+    }
+    gClOoT.hostGroup[0] = kClWide;
+    gClOoT.hostGroup[1] = kClWide;
+    gClOoT.withHostGroups = true;
+    gClOoT.withWideGroups = declared != 0u;
+    gClOoT.wideDeclared = declared;
+
+    ClResetEngine(&gClMM, (uint8_t)GAME_MM);
+    ClAddItem(&gClMM, kMmOcarina);
+    ClAddItem(&gClMM, kMmBow);
+    ClAddItem(&gClMM, kMmRemains);
+    ClAddItem(&gClMM, kMmMask);
+    ClAddItem(&gClMM, kMmPairMask);
+    for (uint16_t id = 20; id <= 23; ++id) {
+        ClAddHost(&gClMM, id, 0u);
+    }
+    gClMM.hostGroup[0] = kClWide;
+    gClMM.withHostGroups = true;
+    gClMM.withWideGroups = declared != 0u;
+    gClMM.wideDeclared = declared;
+    ClInstall();
+}
+
+int ClRunSongFill(const ComboLogicBagItem* bag, int bagCount, const uint32_t* masks, uint32_t exclusive, uint8_t rung,
+                  uint32_t seed, ComboLogicFillResult* out) {
+    ComboLogicFillRequest req;
+    memset(&req, 0, sizeof(req));
+    req.bag = bag;
+    req.bagCount = bagCount;
+    req.goal = (uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH;
+    req.logicRung = rung;
+    req.seed = seed;
+    req.confineMasks = masks;
+    req.exclusiveGroups = exclusive;
+    return Combo_Logic_RunFill(&req, out);
+}
+
+/** Which host holds item (`origin`, `id`), in either game's table? -1 when none
+ *  does; the host's game in `outGame`. */
+int ClHostOfItem(uint8_t origin, uint16_t id, GameId* outGame) {
+    const GameId both[2] = { GAME_OOT, GAME_MM };
+    for (int g = 0; g < 2; ++g) {
+        for (int i = 0; i < Combo_Logic_PlacementCount(both[g]); ++i) {
+            ComboLogicPlacement p;
+            if (Combo_Logic_PlacementAt(both[g], i, &p) && p.item.originGame == origin && p.item.id == id) {
+                if (outGame != NULL) {
+                    *outGame = both[g];
+                }
+                return (int)p.hostCheck;
+            }
+        }
+    }
+    return -1;
+}
+
+bool ClIsSongHost(GameId game, int host) {
+    return (game == GAME_OOT && (host == 10 || host == 11)) || (game == GAME_MM && host == 20);
+}
+
+} // namespace
+
+static int sClsFailures;
+#define CLS_CHECK(cond, msg)                                                \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            printf("[TEST] FAIL: %s (%s:%d)\n", (msg), __FILE__, __LINE__); \
+            sClsFailures++;                                                 \
+        }                                                                   \
+    } while (0)
+
+TestResult Test_ComboLogicSongPool(void) {
+    printf("[TEST] combo-logic-song-pool: a combo-wide row lands only on the wide hosts of either game, crosses only "
+           "where the host accepts foreign items, an exclusive group keeps every other row off them, and capacity is "
+           "Hall's condition over both games (ABI 11, #1542)\n");
+    const uint8_t O = (uint8_t)GAME_OOT;
+    const uint8_t M = (uint8_t)GAME_MM;
+    sClsFailures = 0;
+    ClUninstall();
+    const int kSeeds = 32;
+
+    // ---- (1) THE PREDICATE, both origins, both host sources ---------------------
+    // Catches: the wide test missing (a song on a plain host), the whole-side
+    // shortcut left on for a wide row or for a side holding an exclusive host (an
+    // unconfined row on a song host), and a wide row barred from crossing (never on
+    // the other game's song host).
+    {
+        const uint8_t rungs[2] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE };
+        for (int r = 0; r < 2; ++r) {
+            int offSong = 0;
+            int unconfinedOnSong = 0;
+            int failed = 0;
+            int ootSongInMM = 0;
+            int mmSongInOoT = 0;
+            for (int sd = 1; sd <= kSeeds; ++sd) {
+                ClBuildSongWorld(kClWide);
+                const ComboLogicBagItem bag[4] = { ClBagItem(O, kOotHook, RSBS_ITEMCLASS_PROGRESSION),
+                                                   ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                                   ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                                   ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+                const uint32_t masks[4] = { kClWide, kClWide, 0u, 0u };
+                ComboLogicFillResult fr;
+                const int rc = ClRunSongFill(bag, 4, masks, kClWide, rungs[r], 0x15420000u + (uint32_t)sd, &fr);
+                if (rc != RSBS_COMBO_LOGIC_OK) {
+                    failed++;
+                    continue;
+                }
+                GameId g = GAME_NONE;
+                int h = ClHostOfItem(O, kOotHook, &g);
+                offSong += ClIsSongHost(g, h) ? 0 : 1;
+                ootSongInMM += (g == GAME_MM) ? 1 : 0;
+                h = ClHostOfItem(M, kMmBow, &g);
+                offSong += ClIsSongHost(g, h) ? 0 : 1;
+                mmSongInOoT += (g == GAME_OOT) ? 1 : 0;
+                h = ClHostOfItem(O, kOotSword, &g);
+                unconfinedOnSong += ClIsSongHost(g, h) ? 1 : 0;
+                h = ClHostOfItem(M, kMmOcarina, &g);
+                unconfinedOnSong += ClIsSongHost(g, h) ? 1 : 0;
+            }
+            printf("[TEST] (1) rung %u: %d failed, %d wide rows off the song hosts, %d unconfined rows on them, OoT "
+                   "song in MM %d, MM song in OoT %d\n",
+                   (unsigned)rungs[r], failed, offSong, unconfinedOnSong, ootSongInMM, mmSongInOoT);
+            CLS_CHECK(failed == 0, "(1) a fill with room for every row failed");
+            CLS_CHECK(offSong == 0, "(1) a wide row landed off the song hosts of both games");
+            CLS_CHECK(unconfinedOnSong == 0, "(1) an unconfined row took an exclusive song host");
+            CLS_CHECK(ootSongInMM > 0 && mmSongInOoT > 0,
+                      "(1) a wide row never crossed onto the other game's song host: the predicate keeps it home");
+        }
+    }
+
+    // ---- (2) A FORCED CROSSING, and its refusal ---------------------------------
+    // Three OoT wide rows for two OoT song hosts: one must sit on MM's song host on
+    // every seed. With that host refusing foreign items no seed can fit them, so the
+    // fill refuses up front. Catches: the crossing branch lost, and capacity counted
+    // without the hostAcceptsForeign answer.
+    {
+        int crossed = 0;
+        int failed = 0;
+        const ComboLogicBagItem bag[3] = { ClBagItem(O, kOotHook, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotLens, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotBoots, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks[3] = { kClWide, kClWide, kClWide };
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            ClBuildSongWorld(kClWide);
+            ComboLogicFillResult fr;
+            if (ClRunSongFill(bag, 3, masks, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15421000u + (uint32_t)sd, &fr) !=
+                RSBS_COMBO_LOGIC_OK) {
+                failed++;
+                continue;
+            }
+            GameId g = GAME_NONE;
+            const int onMM = (ClHostOfItem(O, kOotHook, &g) == 20 && g == GAME_MM) +
+                             (ClHostOfItem(O, kOotLens, &g) == 20 && g == GAME_MM) +
+                             (ClHostOfItem(O, kOotBoots, &g) == 20 && g == GAME_MM);
+            crossed += (onMM == 1) ? 1 : 0;
+        }
+        CLS_CHECK(failed == 0 && crossed == kSeeds, "(2) three OoT wide rows for two OoT song hosts did not put "
+                                                    "exactly one on MM's song host on every seed");
+        ClBuildSongWorld(kClWide);
+        gClMM.withAcceptsForeign = true;
+        gClMM.foreignRefused = 1u; // host 20
+        ClInstall();
+        ComboLogicFillResult fr;
+        const int rc = ClRunSongFill(bag, 3, masks, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15421100u, &fr);
+        ComboLogicGroupShortfall sf;
+        const bool named = Combo_Logic_LastGroupShortfall(&sf);
+        CLS_CHECK(rc == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY && fr.attempts == 0 && named &&
+                      sf.game == (uint8_t)GAME_OOT && sf.mask == kClWide && sf.rows == 3 && sf.hosts == 2 &&
+                      sf.rowsOoT == 3,
+                  "(2) with MM's song host refusing foreign items, 3 OoT songs for 2 OoT song hosts must be refused up "
+                  "front naming OoT (3 rows, 2 hosts)");
+    }
+
+    // ---- (3) THE EXCLUSIVE GROUPS' non-vacuity -----------------------------------
+    // With the exclusive group cleared, an unconfined row does land on a song host
+    // on some seed: so (1)'s "never" is the exclusive branch's doing.
+    {
+        int onSong = 0;
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            ClBuildSongWorld(kClWide);
+            const ComboLogicBagItem bag[2] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+            ComboLogicFillResult fr;
+            if (ClRunSongFill(bag, 2, NULL, 0u, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15422000u + (uint32_t)sd, &fr) ==
+                RSBS_COMBO_LOGIC_OK) {
+                GameId g = GAME_NONE;
+                const int a = ClHostOfItem(O, kOotSword, &g);
+                onSong += ClIsSongHost(g, a) ? 1 : 0;
+                const int b = ClHostOfItem(M, kMmOcarina, &g);
+                onSong += ClIsSongHost(g, b) ? 1 : 0;
+            }
+        }
+        CLS_CHECK(onSong > 0, "(3) control: with no exclusive group no unconfined row ever took a song host, so (1) "
+                              "proves nothing");
+    }
+
+    // ---- (4) A SONG HOST THAT NEEDS THE ROW ITSELF ---------------------------------
+    // OoT song host 11 needs the Hook: under the proving rung the Hook, the only
+    // row, is drawn with nothing assumed, so it never lands there; under `none` it
+    // does on some seed (the control). Catches the wide row drawn from unreached
+    // hosts under a proving rung.
+    {
+        int onEleven = 0;
+        int noneOnEleven = 0;
+        const ComboLogicBagItem bag[1] = { ClBagItem(O, kOotHook, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks[1] = { kClWide };
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            const uint8_t rungs[2] = { (uint8_t)RSBS_COMBO_RUNG_BEATABLE, (uint8_t)RSBS_COMBO_RUNG_NONE };
+            for (int r = 0; r < 2; ++r) {
+                ClBuildSongWorld(kClWide);
+                gClOoT.hostRequires[1] = ClBit(&gClOoT, kOotHook);
+                ClInstall();
+                ComboLogicFillResult fr;
+                if (ClRunSongFill(bag, 1, masks, kClWide, rungs[r], 0x15423000u + (uint32_t)sd, &fr) ==
+                    RSBS_COMBO_LOGIC_OK) {
+                    GameId g = GAME_NONE;
+                    const bool on11 = ClHostOfItem(O, kOotHook, &g) == 11 && g == GAME_OOT;
+                    if (r == 0) {
+                        onEleven += on11 ? 1 : 0;
+                    } else {
+                        noneOnEleven += on11 ? 1 : 0;
+                    }
+                }
+            }
+        }
+        CLS_CHECK(onEleven == 0, "(4) a wide row was placed behind itself under the proving rung");
+        CLS_CHECK(noneOnEleven > 0, "(4) control: under No Logic the row never took host 11, so the leg proves "
+                                    "nothing");
+    }
+
+    // ---- (5) + (6) HALL'S CONDITION AND ITS WORDS ---------------------------------
+    // Catches: a HOME_ONLY wide row counted against the other game's hosts, and a
+    // shortfall over both games reported as one game's.
+    {
+        ClBuildSongWorld(kClWide);
+        ComboLogicBagItem home[3] = { ClHomeItem(O, kOotHook), ClHomeItem(O, kOotLens), ClHomeItem(O, kOotBoots) };
+        const uint32_t masks[3] = { kClWide, kClWide, kClWide };
+        ComboLogicFillResult fr;
+        int rc = ClRunSongFill(home, 3, masks, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15424000u, &fr);
+        ComboLogicGroupShortfall sf;
+        bool named = Combo_Logic_LastGroupShortfall(&sf);
+        CLS_CHECK(rc == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY && fr.attempts == 0 && named &&
+                      sf.game == (uint8_t)GAME_OOT && sf.mask == kClWide && sf.rows == 3 && sf.hosts == 2 &&
+                      sf.wholeGroup == 1,
+                  "(5) three home-only OoT songs for two OoT song hosts (a spare MM one) must be refused as OoT's: "
+                  "{OoT, wide, 3, 2}");
+
+        ClBuildSongWorld(kClWide);
+        const ComboLogicBagItem four[4] = { ClBagItem(O, kOotHook, RSBS_ITEMCLASS_PROGRESSION),
+                                            ClBagItem(O, kOotLens, RSBS_ITEMCLASS_PROGRESSION),
+                                            ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                            ClBagItem(M, kMmRemains, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t masks4[4] = { kClWide, kClWide, kClWide, kClWide };
+        rc = ClRunSongFill(four, 4, masks4, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15424001u, &fr);
+        named = Combo_Logic_LastGroupShortfall(&sf);
+        CLS_CHECK(rc == RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY && fr.attempts == 0 && named &&
+                      sf.game == (uint8_t)GAME_NONE && sf.rows == 4 && sf.hosts == 3 && sf.rowsOoT == 2 &&
+                      sf.rowsMM == 2 && sf.wholeGroup == 1,
+                  "(6) four songs for three song hosts of both games must be refused naming both: {none, 4, 3}");
+
+        ClBuildSongWorld(kClWide);
+        rc = ClRunSongFill(four, 3, masks4, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15424002u, &fr);
+        CLS_CHECK(rc == RSBS_COMBO_LOGIC_OK && !Combo_Logic_LastGroupShortfall(NULL),
+                  "(6) control: three songs for three song hosts must fill");
+    }
+
+    // ---- (7) THE SHARED PAIR AND THE NAMESPACES ------------------------------------
+    // Catches: a wide pair refused or kept on one side, a mask mixing local and wide
+    // bits accepted, and a host answering both accepted.
+    {
+        int onOoT = 0;
+        int onMM = 0;
+        int off = 0;
+        const ComboLogicBagItem pair[1] = { ClPairRow() };
+        const uint32_t wide[1] = { kClWide };
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            ClBuildSongWorld(kClWide);
+            ComboLogicFillResult fr;
+            if (ClRunSongFill(pair, 1, wide, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15425000u + (uint32_t)sd, &fr) !=
+                RSBS_COMBO_LOGIC_OK) {
+                off++;
+                continue;
+            }
+            GameId g = GAME_NONE;
+            int h = ClHostOfItem(O, kOotPairMask, &g);
+            if (h < 0) {
+                h = ClHostOfItem(M, kMmPairMask, &g);
+            }
+            off += ClIsSongHost(g, h) ? 0 : 1;
+            onOoT += (g == GAME_OOT) ? 1 : 0;
+            onMM += (g == GAME_MM) ? 1 : 0;
+        }
+        CLS_CHECK(off == 0 && onOoT > 0 && onMM > 0,
+                  "(7) a wide shared pair must fill, only on song hosts, on either game's over the seeds");
+
+        ClBuildSongWorld(kClWide);
+        const ComboLogicBagItem row[1] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t mixed[1] = { kClWide | 0x1u };
+        ComboLogicFillResult fr;
+        CLS_CHECK(ClRunSongFill(row, 1, mixed, 0u, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15425100u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a mask with a local and a wide bit must be refused");
+
+        ClBuildSongWorld(kClWide);
+        gClMM.hostGroup[1] = kClWide | 0x1u; // host 21 answers both namespaces
+        ClInstall();
+        CLS_CHECK(ClRunSongFill(row, 1, wide, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15425101u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(7) a host answering a local and a wide group together must be refused");
+    }
+
+    // ---- (8) THE DECLARATION ----------------------------------------------------
+    // Catches: a wide row or an exclusive group accepted although an engine cannot
+    // answer it (a half-armed pair), and a local bit accepted as exclusive.
+    {
+        const ComboLogicBagItem row[1] = { ClBagItem(O, kOotHook, RSBS_ITEMCLASS_PROGRESSION) };
+        const uint32_t wide[1] = { kClWide };
+        ComboLogicFillResult fr;
+        ClBuildSongWorld(0u);
+        CLS_CHECK(ClRunSongFill(row, 1, wide, 0u, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15426000u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(8) a wide row with no engine declaring wide groups must be refused");
+        ClBuildSongWorld(kClWide);
+        gClMM.wideDeclared = 0u; // MM's half not armed
+        ClInstall();
+        CLS_CHECK(ClRunSongFill(row, 1, wide, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15426001u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(8) a wide row one engine does not declare must be refused");
+        ClBuildSongWorld(kClWide);
+        CLS_CHECK(ClRunSongFill(row, 1, NULL, kClWide2, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15426002u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(8) an exclusive group neither engine declares must be refused");
+        CLS_CHECK(ClRunSongFill(row, 1, NULL, 0x1u, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15426003u, &fr) ==
+                      RSBS_COMBO_LOGIC_ERR_BAD_REQUEST,
+                  "(8) a local bit as an exclusive group must be refused");
+        CLS_CHECK(ClRunSongFill(row, 1, wide, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15426004u, &fr) ==
+                      RSBS_COMBO_LOGIC_OK,
+                  "(8) control: both engines declaring the group, the row fills");
+    }
+
+    // ---- (9) A LOCALLY CONFINED ROW IS UNMOVED -------------------------------------
+    // The #1531 path: an MM row confined to MM's local group places identically with
+    // no exclusive group and with an exclusive wide group that holds no host.
+    // Catches: the wide branch or the exclusive branch reached by a local row.
+    {
+        int differ = 0;
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            const ComboLogicBagItem bag[2] = { ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+            const uint32_t masks[2] = { 0x1u, 0u };
+            ComboLogicFillResult a;
+            ComboLogicFillResult b;
+            ClBuildSongWorld(kClWide | kClWide2);
+            gClMM.hostGroup[2] = 0x1u; // host 22 in MM's local group
+            gClMM.hostGroup[0] = 0u;
+            gClOoT.hostGroup[0] = 0u;
+            gClOoT.hostGroup[1] = 0u;
+            ClInstall();
+            const int ra =
+                ClRunSongFill(bag, 2, masks, 0u, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15427000u + (uint32_t)sd, &a);
+            const int ha = ClHostOfItem(M, kMmBow, NULL);
+            ClInstall();
+            const int rb =
+                ClRunSongFill(bag, 2, masks, kClWide2, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x15427000u + (uint32_t)sd, &b);
+            const int hb = ClHostOfItem(M, kMmBow, NULL);
+            differ += (ra != RSBS_COMBO_LOGIC_OK || rb != RSBS_COMBO_LOGIC_OK || ha != 22 || hb != 22 ||
+                       a.placementDigest != b.placementDigest)
+                          ? 1
+                          : 0;
+        }
+        CLS_CHECK(differ == 0, "(9) a locally confined row placed differently under an empty exclusive wide group");
+    }
+
+    // ---- (10) A MASK-FREE FILL NEVER ASKS ------------------------------------------
+    // NULL masks and all-zero masks with no exclusive group: identical placements,
+    // and neither `hostGroups` nor `wideGroups` is called. Catches the arming block
+    // entered for a mask-free request (the ABI-8-identical path lost).
+    {
+        int differ = 0;
+        int asked = 0;
+        for (int sd = 1; sd <= kSeeds; ++sd) {
+            const ComboLogicBagItem bag[3] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION),
+                                               ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+            const uint32_t zeros[3] = { 0u, 0u, 0u };
+            ComboLogicFillResult a;
+            ComboLogicFillResult b;
+            ClBuildSongWorld(kClWide);
+            (void)ClRunSongFill(bag, 3, NULL, 0u, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15428000u + (uint32_t)sd, &a);
+            ClInstall();
+            (void)ClRunSongFill(bag, 3, zeros, 0u, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x15428000u + (uint32_t)sd, &b);
+            differ += (a.status != RSBS_COMBO_LOGIC_OK || a.placementDigest != b.placementDigest) ? 1 : 0;
+            asked += gClOoT.hostGroupCalls + gClMM.hostGroupCalls + gClOoT.wideGroupCalls + gClMM.wideGroupCalls;
+        }
+        CLS_CHECK(differ == 0, "(10) NULL masks and all-zero masks placed differently");
+        CLS_CHECK(asked == 0, "(10) a mask-free fill asked hostGroups or wideGroups");
+    }
+
+    ClUninstall();
+    printf("[TEST] combo-logic-song-pool: %s\n", sClsFailures == 0 ? "PASS" : "FAIL");
+    return sClsFailures == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // ============================================================================
@@ -4409,9 +4872,10 @@ TestResult Test_ComboLogicTravelFacts(void) {
         ComboLogicEngine vt;
         ClResetEngine(&gClOoT, O);
         ClFillVtable(&vt, &gClOoT);
-        CLT_CHECK(RSBS_COMBO_LOGIC_ENGINE_ABI == 10u, "T1: this build must speak ABI 10 (travel facts)");
-        CLT_CHECK(vt.travelFacts == NULL && vt.acceptTravelFacts == NULL,
-                  "T1: an ABI-9-shaped stub must leave both travel entries NULL");
+        CLT_CHECK(RSBS_COMBO_LOGIC_ENGINE_ABI == 11u,
+                  "T1: this build must speak ABI 11 (travel facts at 10, the combo-wide groups at 11)");
+        CLT_CHECK(vt.travelFacts == NULL && vt.acceptTravelFacts == NULL && vt.wideGroups == NULL,
+                  "T1: an ABI-9-shaped stub must leave both travel entries and the wide-groups entry NULL");
         CLT_CHECK(Combo_Logic_RegisterEngine(GAME_OOT, &vt), "T1: an engine without travel entries must register");
         CLT_CHECK(Combo_Logic_RegisterEngine(GAME_OOT, NULL), "T1: un-registration");
     }

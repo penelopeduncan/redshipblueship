@@ -1141,9 +1141,9 @@ static int MM_SongCheckIndex(RandoCheckId randoCheckId) {
 // GeneratePools leaves these rows out of the host pool.
 //
 // TIER SG — the eleven RCTYPE_SONG rows (#1542 S0; OoTMM's `songLocations`,
-// where a song of either game may sit on a song check of either game). DORMANT:
-// Combo_SongCheckAcceptsForeign answers false while Combo_SongHostsArmed is off,
-// which it is in production until #1542 S3, so this tier admits nothing today.
+// where a song of either game may sit on a song check of either game). ARMED by
+// #1542 S3 exactly under OoT's frozen Shuffle Songs: Song Locations, and only
+// while the pair is active (Combo_ForeignPairingActive).
 // Keyed on the check ID (MM_SongCheckIndex), never on the type or the flag, so
 // no other row can fall into it (the Tier B trap). The verdict reads OoT's
 // FROZEN Shuffle Songs through OoT_Combo_FrozenShuffleSongs, the source OoT's
@@ -1175,10 +1175,13 @@ static int MM_SongCheckIndex(RandoCheckId randoCheckId) {
 // song in the inventory: the vanilla gives are suppressed under rando, which
 // already places non-song items of MM's own on all eleven.
 static bool IsAllowedHostClass(const Rando::StaticData::RandoStaticCheck& randoStaticCheck) {
-    // Tier SG (#1542 S0): dormant until S3 arms Combo_SongHostsArmed.
+    // Tier SG (#1542): armed under Song Locations since S3, and only in a paired
+    // world: the unpaired spoiler-load gate (Spoiler/Apply.cpp) is the one reader
+    // outside a paired generation, and an unpaired world has no crossings.
     const int song = MM_SongCheckIndex(randoStaticCheck.randoCheckId);
     if (song >= 0) {
-        return Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(), false);
+        return Combo_ForeignPairingActive() &&
+               Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(), false);
     }
 
     // Tier T.

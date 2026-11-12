@@ -149,8 +149,27 @@ extern "C" {
  *  songs into Hyrule; THE TRAVEL FACTS below). An engine's `changed` must now
  *  answer for them too. An ABI-9 engine's silence would be safe (it would only
  *  under-credit), but its `expand` was never told it had a second input, so the
- *  number moves for the contract, as it did at 3 and 7. */
-#define RSBS_COMBO_LOGIC_ENGINE_ABI 10u
+ *  number moves for the contract, as it did at 3 and 7.
+ *
+ *  11 (2026-11-12, #1542, THE COMBO-WIDE GROUPS): bits 24..31 of `hostGroups`
+ *  (RSBS_COMBO_GROUP_WIDE_MASK) are COMBO-WIDE: one meaning in both games (OoTMM's
+ *  one song-location set, RSBS_COMBO_GROUP_SONG_LOCATIONS). An engine declares
+ *  the wide bits it answers for through ONE more OPTIONAL trailing pointer,
+ *  `wideGroups`. A row whose mask is wide-only may cross onto the other game's
+ *  hosts in the same wide group that accept foreign items; a shared pair may
+ *  carry a wide-only mask; and the request gains `exclusiveGroups`, wide groups
+ *  whose hosts take only rows confined to them. An ABI-10 engine never answered
+ *  the wide range, so its silence would strand every wide row; the number moves
+ *  so that engine is refused at registration instead. */
+#define RSBS_COMBO_LOGIC_ENGINE_ABI 11u
+
+/** THE COMBO-WIDE GROUPS (ABI 11, #1542). The top byte of a `hostGroups` answer
+ *  and of a confinement mask is shared by both games; the low 24 bits stay each
+ *  engine's own namespace. */
+#define RSBS_COMBO_GROUP_WIDE_MASK 0xFF000000u
+/** The song checks of both games under the shared song-location pool (OoTMM
+ *  `songLocations`; #1542 D1). */
+#define RSBS_COMBO_GROUP_SONG_LOCATIONS 0x01000000u
 
 /** THE TRAVEL FACTS (ABI 10, #1169 XW9). Game-neutral bits in the frozen second
  *  rules word's own positions (foreign_items.h, RSBS_XITEM2_*): a bit an engine
@@ -1003,14 +1022,17 @@ typedef struct ComboLogicEngine {
      * restricted check sets the host belongs to (MM: one bit per dungeon, one for
      * the song checks under Song Locations). 0 = in no group.
      *
-     * THE NAMESPACE IS THE ENGINE'S OWN. A bit means something only in the game
-     * that defines it, exactly as a host id does (ADR 0002): a confined row's
-     * mask is in its ORIGIN game's namespace, and the coordinator only ever ANDs
-     * it with its origin engine's answer — a confined row is never drawn onto the
-     * other game's hosts (see `confineMasks`). A future group that spans both
-     * games (OoTMM's one song-location set) is NOT expressible by this entry as
-     * it stands: it needs a reserved combo-wide bit range that both engines
-     * answer for, and a predicate that lets such a row cross. Nothing uses one.
+     * THE NAMESPACE IS THE ENGINE'S OWN BELOW BIT 24. A low bit means something
+     * only in the game that defines it, exactly as a host id does (ADR 0002): a
+     * locally confined row's mask is in its ORIGIN game's namespace, and the
+     * coordinator only ever ANDs it with its origin engine's answer, so such a row
+     * is never drawn onto the other game's hosts (see `confineMasks`).
+     *
+     * BITS 24..31 ARE COMBO-WIDE (ABI 11, RSBS_COMBO_GROUP_WIDE_MASK): one meaning
+     * in both games, declared through `wideGroups`. A host never answers a local
+     * bit and a wide bit together (refused as BAD_REQUEST). A row confined to a
+     * wide group may use the hosts of either game in it, the other game's only
+     * where that host accepts foreign items (OoTMM's one song-location set).
      *
      * A pure function of the host and the engine's FROZEN settings (cached when
      * the host pool is handed in, never a live CVar): legal outside a round,
@@ -1049,6 +1071,18 @@ typedef struct ComboLogicEngine {
      * means the facts are dropped (the engine under-credits, never over-credits).
      */
     void (*acceptTravelFacts)(void* self, uint32_t facts);
+
+    /**
+     * OPTIONAL (ABI 11, #1542, THE COMBO-WIDE GROUPS). The combo-wide bits
+     * (RSBS_COMBO_GROUP_WIDE_MASK) this engine's `hostGroups` answers for in this
+     * fill. A pure function of the engine's FROZEN settings: legal outside a
+     * round, consumes no RNG. A fill whose request carries a wide bit (in a mask
+     * or in `exclusiveGroups`) is refused (RSBS_COMBO_LOGIC_ERR_BAD_REQUEST)
+     * unless BOTH engines declare it, so a pair in which one half armed a wide
+     * group and the other did not is refused rather than dead-ended. NULL means
+     * none.
+     */
+    uint32_t (*wideGroups)(void* self);
 } ComboLogicEngine;
 
 /**
@@ -2032,10 +2066,27 @@ typedef struct {
      * its empty hosts. With NULL, or every mask 0, none of that runs: the shuffle,
      * every draw and every RNG value are byte-for-byte those of an ABI-8 fill.
      *
-     * Refused (BAD_REQUEST): a confined shared pair (it has no single home), and a
-     * confined row whose origin engine has no `hostGroups`.
+     * A WIDE mask (ABI 11: only bits of RSBS_COMBO_GROUP_WIDE_MASK) confines the
+     * row to the hosts of BOTH games in that wide group, the other game's only
+     * where its engine accepts foreign items and the row is not HOME_ONLY. It
+     * is confined but not home-only, and a shared pair may carry one (its host
+     * records that game's half).
+     *
+     * Refused (BAD_REQUEST): a mask with both local and wide bits, a shared pair
+     * with a local mask (it has no single home), a locally confined row whose
+     * origin engine has no `hostGroups`, and a wide bit that either engine does
+     * not declare through `wideGroups`.
      */
     const uint32_t* confineMasks;
+    /**
+     * THE EXCLUSIVE GROUPS (ABI 11, #1542): 0 (every memset-initialised request),
+     * or wide bits only. A host in one of these groups takes ONLY rows confined
+     * to a group it is in: under OoTMM's songLocations a non-song never sits on a
+     * song check (solve.ts placeSemiShuffled then fillJunk), so the hosts the
+     * songs leave over stay empty for each game's own junk. A local bit here is
+     * refused (BAD_REQUEST), and so is a wide bit an engine does not declare.
+     */
+    uint32_t exclusiveGroups;
 } ComboLogicFillRequest;
 
 typedef struct {
@@ -2183,10 +2234,17 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
  *  REQUIRED rows, in bag order, that outnumbered its game's empty hosts in that
  *  group. Diagnostics, not format. */
 typedef struct {
-    uint8_t game;  // the rows' origin game, whose hosts were counted
-    uint32_t mask; // the rows' confinement mask, in that game's group namespace
-    int rows;      // REQUIRED rows carrying exactly that mask
-    int hosts;     // that game's empty hosts whose groups meet the mask
+    uint8_t game;   // the rows' origin game, whose hosts were counted; for a WIDE
+                    // group (ABI 11) the one game whose hosts the short set of rows
+                    // could use, or GAME_NONE when they could use both games'
+    uint32_t mask;  // the rows' confinement mask, in that game's group namespace
+                    // (a wide group: that one wide bit)
+    int rows;       // REQUIRED rows carrying exactly that mask (wide: in the short set)
+    int hosts;      // that game's empty hosts whose groups meet the mask (wide: the
+                    // hosts the short set may use)
+    int rowsOoT;    // wide only: rows of the short set from OoT, not counting pairs
+    int rowsMM;     // wide only: rows of the short set from MM, not counting pairs
+    int wholeGroup; // wide only: 1 when the short set is every REQUIRED row of the group
 } ComboLogicGroupShortfall;
 
 /**

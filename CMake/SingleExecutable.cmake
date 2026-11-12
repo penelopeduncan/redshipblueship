@@ -966,13 +966,16 @@ if(BUILD_TESTING)
     # the file-create invalidation, dropped by DROP) and its call sites from source.
     # ROM-free, generates nothing (src/common/tests/test_combo_song_pool.c).
     redship_add_test(NAME PairSongsMapping COMMAND redship --test pair-songs-mapping)
-    # #1542 (S0): the song checks of both games as cross-game hosts, dormant behind
-    # one switch (Combo_SongHostsArmed, false in production). SongCheckTables: both
-    # games' song rows against OoTMM's 23 names, the verdict table and the pure
-    # answer against literals, both engines' answers under the test override and a
-    # held Rando context (the creation capture is no input), every non-song row
-    # unmoved by the switch, both host tables with the switch off against the base
-    # commit's rule restated from static facts, and the call sites from source.
+    # #1542 (S0, armed by S3): the song checks of both games as cross-game hosts,
+    # armed exactly under Song Locations in a paired world (Combo_SongHostsArmed),
+    # and the shared song pool's one predicate (OoT_ComboLogic_SongPoolUnion).
+    # SongCheckTables: both games' song rows against OoTMM's 23 names, the verdict
+    # table, the pure answers and the pool's truth table against literals, both
+    # engines' answers under the override and production with a held Rando
+    # context (the creation capture is no input; MM needs the pair active), both
+    # engines' wide host groups and row masks under the pool, the half-armed pair
+    # refused, every non-song row unmoved, both host tables with the switch off
+    # against the base commit's rule, and the call sites from source.
     # MMSongHostGuard: CheckQueue consumes a delivered MM song host armed again,
     # leaves its first delivery, a chest's re-arm and a native re-give alone, and
     # the real headless three-day reset (Sram_SaveEndOfCycle) re-arms neither
@@ -2575,8 +2578,11 @@ if(BUILD_TESTING)
         "GoldenSeedDigestNoLogic|seed-digest-no-logic|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=1"
         # #1502: MM's CONFINED placements, the one golden whose single bag hands the
         # fill host-group masks: Small Keys, Boss Keys and Stray Fairies at Own
-        # Dungeon (1) and Shuffle Songs at Song Locations (1). Every profile above
-        # leaves all four at Anywhere, which folds nothing and confines nothing.
+        # Dungeon (1) and Shuffle Songs at Song Locations (1). Shuffle Songs follows
+        # OoT since #1542 S1; every default-songs golden arms the shared song pool
+        # (#1542 S3); mm-confined differs only in keys, boss keys and stray fairies;
+        # its RO_SHUFFLE_SONGS=1 is a dead key, kept so this row's profile string
+        # does not change.
         # Same seed and dispatch as seed-digest-default.
         "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
         # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
@@ -2759,6 +2765,16 @@ if(BUILD_TESTING)
     # and with the capture gone the completion refuses. Three OoT generations and
     # two MM halves, hence the timeout.
     redship_add_test(NAME SongPoolCreationAgrees COMMAND redship --test song-pool-creation-agrees
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1542 S3: the shared song pool's capacity refusal (OoTMM placeSemiShuffled's
+    # "Not enough locations for songs/dungeon rewards") through Generate's
+    # completion: MM's six OoT warp songs make 28 songs for the 23 song checks of
+    # both games, and the Song of Soaring (OoT) with the Crossing Direction OFF 13
+    # home-only OoT songs for 12; both refused before any attempt with the identity
+    # and the capture retracted, and 23 for 23 creates. Three paired generations.
+    redship_add_test(NAME SongPoolOverCapacity COMMAND redship --test song-pool-over-capacity
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3002,6 +3018,14 @@ if(BUILD_TESTING)
     # drops alone as surplus, and a group with more rows than hosts is refused
     # before any attempt. Same stub fixture, same `redship` tier.
     redship_add_test(NAME ComboLogicHostGroups COMMAND redship --test combo-logic-host-groups)
+    # THE COMBO-WIDE GROUPS (ABI 11, #1542): a row confined to a combo-wide group
+    # (the shared song pool's song checks) lands only on that group's hosts of
+    # either game, crosses only where the host accepts foreign items and the row is
+    # not home-only, an exclusive group keeps every unconfined row off those hosts,
+    # capacity is Hall's condition over both games' hosts, a wide shared pair is
+    # legal, and an engine that cannot answer the group is refused. Same stub
+    # fixture, same `redship` tier; generates nothing.
+    redship_add_test(NAME ComboLogicSongPool COMMAND redship --test combo-logic-song-pool)
     # THE TRAVEL FACTS (ABI 10, #1169 XW9): an MM warp-song fact reaches OoT only
     # with OoT's crossing open, OoT's Soaring fact reaches MM only with both
     # crossings open, a chain of facts converges, a vanished fact is non-monotone,
@@ -3665,9 +3689,29 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # SongLocationsOverflowRefused since #1542 S3: only Dungeon Rewards keeps the
+    # 13-for-12 refusal; under Song Locations the 13 OoT songs share the 23 song
+    # checks of both games (the shared song pool), so those legs finish the pair
+    # (four paired fills, hence the longer timeout).
     redship_add_test(NAME SongLocationsOverflowRefused COMMAND redship --test song-locations-overflow-refused
         LABEL rando
-        TIMEOUT 600
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # THE SHARED SONG POOL (#1542 S3, rulings D1 and D5; OoTMM songLocations) over
+    # real paired worlds, finished as a creation finishes them. SongPoolUnionWorld:
+    # the shipped profile over two seeds, No Logic and Beatable Only; every song of
+    # either game on a song check of either game, every leftover song check junk
+    # from the pools, no MM song check skipped (the starting Song of Healing a
+    # host), Link's Pocket no song. SongPoolAnywhereUnconfined: under Anywhere, with
+    # the song-host override cleared and on, no group, mask or exclusive group of
+    # the pool exists; at Song Locations the override 0 moves the world.
+    redship_add_test(NAME SongPoolUnionWorld COMMAND redship --test song-pool-union-world
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolAnywhereUnconfined COMMAND redship --test song-pool-anywhere-unconfined
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
     # songMinuetMm .. songPreludeMm, hidden until XW12). MMWarpSongsItems: the
@@ -4481,11 +4525,38 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
         ENVIRONMENT "RSBS_PFC_FILE_SELECT_SHOT=1" "RSBS_CAPTURE_OUT=${CMAKE_BINARY_DIR}/frame-capture")
+    # #1542 S3: THE SHARED SONG POOL'S CROSSINGS, delivered live. The same paired
+    # creation (the shipped defaults arm the pool, so RSBSSINGLEBAG1's song checks
+    # hold either game's songs) with a longer play window per phase.
+    # IntSongHostOoT (RSBS_PFC_SONG_HOST=oot): in the first OoT leg the first OoT
+    # song check holding an MM song, a trigger-flag check preferred, has its
+    # collection flag set as its scene sets it; the RC-queue drain's foreign branch
+    # must record exactly one MM-bound item and the check must read collected, and
+    # a second trigger records nothing. IntSongHostMM (RSBS_PFC_SONG_HOST=mm): in
+    # the MM leg the starting Song of Healing when it holds an OoT song (armed at
+    # creation), else the first MM song check holding one, armed as its scene
+    # arms it; CheckQueue's foreign branch must deliver it once, and a re-arm (a
+    # later cycle, a re-entry) must be consumed by the delivered-song-host guard
+    # with no second record. Covered by trace only: each song scene's own cutscene
+    # and progression with a crossing on it, and a live three-day reset (the
+    # ROM-free MMSongHostGuard row drives the real headless one).
+    redship_add_test(NAME IntSongHostOoT
+        COMMAND redship --integration-test int-paired-first-crossing
+        LABEL integration
+        TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
+        ENVIRONMENT "RSBS_PFC_SONG_HOST=oot" "RSBS_GP_FRAMES=500")
+    redship_add_test(NAME IntSongHostMM
+        COMMAND redship --integration-test int-paired-first-crossing
+        LABEL integration
+        TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
+        ENVIRONMENT "RSBS_PFC_SONG_HOST=mm" "RSBS_GP_FRAMES=400")
     # #1169 XW6: OoT's Song of Soaring crossing to a Termina owl, driven for real.
     # The paired first crossing with the hidden songSoaringOot rule revealed
     # through the test seam (Combo_ComboItemRules2RevealForTest, never a stored
-    # setting) and Shuffle Songs set to Anywhere in memory (13 songs do not fit
-    # the 12 song spots); both are put back at the verdict. The notes are played
+    # setting) and Shuffle Songs set to Anywhere in memory (the row's world was
+    # authored before #1542, when 13 songs did not fit OoT's 12 song spots; under
+    # Song Locations they now share the 23 song checks of both games, and only
+    # Dungeon Rewards keeps the 12-spot limit); both are put back at the verdict. The notes are played
     # through SoH's emulated buttons (the controller input both the ocarina and
     # the message system read), so the message system's Soaring arms run for real.
     # First OoT leg: an adult's notes match nothing, the creation shadow (day 0, no
@@ -4518,8 +4589,8 @@ crossing to refuse (#954).")
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl
-        PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntSongHostOoT
+        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

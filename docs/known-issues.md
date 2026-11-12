@@ -241,8 +241,8 @@ triforce count ([#740](https://github.com/penelopeduncan/redshipblueship/pull/74
   name areas on the pair's Way of the Hero, OoTMM's largest default hint bucket: an area holding something the paired
   goal cannot do without, in either game ("They say that the Southern Swamp is on the way of the hero." in Hyrule,
   "They say Kokiri Forest is on the Way of the Hero." in Termina). It covers the items the single bag placed, not
-  the ones each game's own restricted pass placed (Ocarina of Time's songs on song locations, for example), and No
-  Logic claims none. A file created before #1439 has no Way of the Hero on Majora's Mask's stones.
+  the ones each game's own restricted pass placed (Ocarina of Time's reward-spot songs under Dungeon Rewards, for
+  example), and No Logic claims none. Songs are never path hints unless songs are shuffled Anywhere (OoTMM's rule). A file created before #1439 has no Way of the Hero on Majora's Mask's stones.
   Foolish hints work again: each game calls one of its own areas foolish when none of
   its checks holds a crossing, an item the single bag placed or one the game counts as
   progression (OoTMM's rule without its probabilistic refinement; OoT's own Foolish

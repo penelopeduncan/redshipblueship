@@ -2122,6 +2122,107 @@ static void MM_SoaringCheckArrival(int owl) {
     IntegrationTest_SignalBootComplete(GAME_MM, "Song of Soaring crossing to an owl complete");
 }
 
+// ---- #1542 S3: an OoT item on an MM SONG CHECK, delivered live ----------------
+// RSBS_PFC_SONG_HOST=mm (CTest IntSongHostMM). Under the shared song pool the
+// paired world's song checks of both games take either game's songs, so an MM
+// song check can hold an OoT song, delivered through CheckQueue's foreign branch.
+// At live MM frame 10 the drive picks its host: the starting Song of Healing when
+// it holds a crossing (armed at file creation: CheckQueue delivers it on the first
+// frames with no drive at all), else the first MM song check holding one, which it
+// arms `.eligible` as reaching the song's scene would. Frame 150: the host must be
+// delivered (Rando::Foreign::IsDeliveredForeignHost: the once-per-host record) and
+// obtained, and an armed host must have added exactly one OoT-bound record. Then
+// the host is armed again, as a later cycle or a re-entry re-arms nine of the
+// eleven; frame 260: CheckQueue must have consumed the re-arm (the S0 guard) and
+// added no record. A textbox nobody will press past is closed after 60 frames.
+// Not covered here: a live three-day reset (MMSongHostGuard drives the real
+// headless one), and each song scene's own cutscene (a playtest item).
+static bool GpSongHostMM(void) {
+    const char* env = std::getenv("RSBS_PFC_SONG_HOST");
+    return env != nullptr && std::strcmp(env, "mm") == 0;
+}
+
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+
+static void GpSongHostMMFrame(int playFrames) {
+    static RandoCheckId sHost = RC_UNKNOWN;
+    static bool sArmed = false;
+    static int sRecordsBefore = -1;
+    static int sRecordsMid = -1;
+    static int sTextboxFrames = 0;
+    PlayState* play = MM_gPlayState;
+    if (play != nullptr && play->msgCtx.msgMode != MSGMODE_NONE) {
+        if (++sTextboxFrames >= 60) {
+            MM_Message_CloseTextbox(play);
+            sTextboxFrames = 0;
+        }
+    } else {
+        sTextboxFrames = 0;
+    }
+    if (playFrames == 10) {
+        const RandoCheckId healing = RC_STARTING_ITEM_SONG_OF_HEALING;
+        if (Combo_Crossings_Lookup(GAME_MM, (uint16_t)healing) != nullptr) {
+            sHost = healing;
+        }
+        for (int i = 0; sHost == RC_UNKNOWN && i < Combo_Crossings_Count(GAME_MM); i++) {
+            ComboCrossing row;
+            if (Combo_Crossings_At(GAME_MM, i, &row) && row.hostCheck < RC_MAX &&
+                MM_Rando_Foreign_TestSongCheckIndex(row.hostCheck) >= 0 && !RANDO_SAVE_CHECKS[row.hostCheck].obtained) {
+                sHost = (RandoCheckId)row.hostCheck;
+                sArmed = true;
+            }
+        }
+        if (sHost == RC_UNKNOWN) {
+            IntegrationTest_GameplayFail("int-song-host-mm: no MM song check holds an OoT item in this world (the "
+                                         "shared song pool is not armed, or the world moved: a fixture failure)");
+            return;
+        }
+        const SharedItem* item = Combo_Crossings_Lookup(GAME_MM, (uint16_t)sHost);
+        const char* name = item != nullptr ? Combo_GetForeignItemName(*item) : nullptr;
+        sRecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
+        fprintf(stderr, "[SONG-HOST] MM song check %d hosts the OoT item %s; %s; OoT-bound records %d, delivered %d\n",
+                (int)sHost, name != nullptr ? name : "?",
+                sArmed ? "arming it as its scene would" : "the starting Song of Healing, armed at creation",
+                sRecordsBefore, Rando::Foreign::IsDeliveredForeignHost(sHost) ? 1 : 0);
+        fflush(stderr);
+        if (sArmed) {
+            RANDO_SAVE_CHECKS[sHost].eligible = true;
+        }
+    }
+    if (sHost == RC_UNKNOWN) {
+        return;
+    }
+    if (playFrames == 150) {
+        const int records = Combo_CountSharedItems(GAME_OOT, true);
+        const bool delivered = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        const bool obtained = RANDO_SAVE_CHECKS[sHost].obtained;
+        fprintf(stderr,
+                "[SONG-HOST] frame 150: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
+                (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
+        fflush(stderr);
+        if (!delivered || !obtained || (sArmed && records != sRecordsBefore + 1)) {
+            IntegrationTest_GameplayFail("int-song-host-mm: CheckQueue did not deliver the OoT item on the MM song "
+                                         "check exactly once (see [SONG-HOST])");
+            return;
+        }
+        sRecordsMid = records;
+        RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
+    }
+    if (playFrames == 260) {
+        const int records = Combo_CountSharedItems(GAME_OOT, true);
+        const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
+        fprintf(stderr,
+                "[SONG-HOST] frame 260: after the re-arm MM song check %d is eligible %d, OoT-bound records "
+                "%d (were %d)\n",
+                (int)sHost, eligible ? 1 : 0, records, sRecordsMid);
+        fflush(stderr);
+        if (eligible || records != sRecordsMid) {
+            IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its OoT "
+                                         "item was not consumed by CheckQueue's guard, or recorded the item again");
+        }
+    }
+}
+
 /**
  * Per-frame MM driver for the gameplay round-trip. Called directly from MM's
  * graph loop (games/mm/src/code/graph.c, single-exe only) once per frame —
@@ -2261,6 +2362,10 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         return;
     }
     sGpMMPlayFrames++;
+    // #1542 S3 (RSBS_PFC_SONG_HOST=mm): an OoT item on an MM song check, live.
+    if (IntegrationTest_PairedFirstCrossing() && GpSongHostMM()) {
+        GpSongHostMMFrame(sGpMMPlayFrames);
+    }
     // #577 M3 playtest drive (opt-in, RSBS_GP_MM_FOREIGN_MODEL=1): once the
     // player stands in South Clock Town and the arrival's own queued gives have
     // played out, mark one MM check that hosts a drawable OoT item eligible, so
@@ -2273,7 +2378,7 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
     // foreign give CheckQueue's pickup and a shop's purchase make, so the return
     // leg's arrival has an item it could announce a second time.
     if (sGpMMPlayFrames == 30 && IntegrationTest_PairedFirstCrossing() &&
-        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr) {
+        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr && !GpSongHostMM()) {
         for (int i = 0; i < Combo_Crossings_Count(GAME_MM); i++) {
             ComboCrossing row;
             if (!Combo_Crossings_At(GAME_MM, i, &row) || row.hostCheck >= RC_MAX ||

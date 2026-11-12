@@ -2149,9 +2149,15 @@ TestResult ComboSingleBag_Run(void) {
                        "E4: Impa's song check is not the creation-give host the save file gives from");
             const int impaAccepts = OoT_ComboLogic_TestHostAcceptsForeign(impa);
             const int sariaAccepts = OoT_ComboLogic_TestHostAcceptsForeign(saria);
+            // #1542 S3: the override arms host acceptance in any mode, never the
+            // shared song pool outside Song Locations (amendment, section C): this
+            // world is at Anywhere, so no producer of the pool may run.
+            const bool songUnion = OoT_ComboLogic_SongPoolUnion();
             CSB_ASSERT(MM_Rando_HeadlessPairedHalf() == 0,
                        "E4: MM's creation-time half failed with the song hosts armed");
             const ComboSingleBagReport songBag = *Combo_SingleBag_LastReport();
+            CSB_ASSERT(!songUnion && songBag.exclusiveGroups == 0u,
+                       "E4: the song-host override armed the shared song pool under Shuffle Songs: Anywhere");
             const CsbTables songTables = CsbCopyTables();
             int impaPlaced = 0;
             int impaCrossings = 0;
