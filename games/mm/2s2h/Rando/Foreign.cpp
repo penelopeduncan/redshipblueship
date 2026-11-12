@@ -358,6 +358,14 @@ static void ResolveProfileValues(uint32_t* values, bool paired,
         values[RO_MINIMUM_SKULLTULA_TOKENS] = SPIDER_HOUSE_TOKENS_REQUIRED;
     }
 
+    // (2-) #1403 (2Ship 977544284 clamps it in its menu): a Great Fairy cannot ask
+    // for more Stray Fairies than Stray Fairies in Pool leaves in each dungeon's
+    // pool. With the pool at its default (every fairy) this never fires, so no
+    // world created before the option existed resolves differently.
+    if (values[RO_STRAY_FAIRIES_MAX] != 0 && values[RO_MINIMUM_STRAY_FAIRIES] > values[RO_STRAY_FAIRIES_MAX]) {
+        values[RO_MINIMUM_STRAY_FAIRIES] = values[RO_STRAY_FAIRIES_MAX];
+    }
+
     // (2a) #1437: Time Progression ships Ascending (OoTMM's progressiveClocks),
     // and is inert while Shuffle Time is off: nothing reads it then (GeneratePools,
     // StartingItems, Logic.h's OwnsHalfDayForMode and the give caps all test
