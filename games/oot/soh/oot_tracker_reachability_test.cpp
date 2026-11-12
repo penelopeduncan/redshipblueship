@@ -19,8 +19,8 @@
  *   and the Deku Theater with nothing found. The player holds Zelda's Letter.
  *   A1 sphere zero: Mido's top-left chest is available.
  *   A2 a gated check is not: the Lost Woods target needs the slingshot.
- *   A3 #973: the Deku Theater is reached and the "Completed" prerequisites hold
- *      (the letter, the Kakariko gate), yet neither Deku Theater mask check is
+ *   A3 #973: the Deku Theater is reached and the "Completed" prerequisite holds
+ *      (the Kakariko gate; the letter is held too), yet neither Deku Theater mask check is
  *      available, and no check in the Mask Shop room is counted.
  *   A4 the arrival: an OoT slingshot found in Termina waits; the arrival flag is
  *      set; the real OoT_Play_ApplyArrivalShared (apply, redeem, tracker arm)
@@ -355,7 +355,9 @@ extern "C" int OoT_TrackerAvailability_RunArrival(void) {
     printf("[TEST] tracker-availability-arrival: generated Mask Quest %d (authored Completed %d)\n", maskQuest,
            (int)RO_MASK_QUEST_COMPLETED);
 
-    // The player holds Zelda's Letter (the "Completed" mask rule's first half).
+    // The player holds Zelda's Letter. Since #1404 (SoH #6938) the "Completed" mask rule reads only
+    // the open Kakariko gate, so the letter is no longer one of its prerequisites; it stays for A3's
+    // reach check, which still requires it.
     Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
     const bool slingshotAtCreation = gSaveContext.inventory.items[SLOT_SLINGSHOT] == ITEM_SLINGSHOT;
     TRR_CHECK(!slingshotAtCreation, "the creation save already holds the slingshot, so the arrival legs are vacuous");
