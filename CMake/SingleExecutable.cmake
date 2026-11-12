@@ -2780,13 +2780,12 @@ if(BUILD_TESTING)
     # completion: MM's six OoT warp songs make 28 songs for the 23 song checks of
     # both games, and the Song of Soaring (OoT) with the Crossing Direction OFF 13
     # home-only OoT songs for 12; both refused before any attempt with the identity
-    # and the capture retracted, and 23 for 23 creates. Then two OoT song checks
-    # excluded (RSBS_GOLDEN_EXCLUDES, set and removed inside the row): 22 songs for
-    # 21 refused naming both games with the "include an excluded song check"
-    # advice, and with one excluded 22 for 22 creates. Five paired generations.
+    # and the capture retracted, and 23 for 23 creates. Three paired generations.
+    # (No leg excludes an OoT song check: SoH keeps song checks out of its exclude
+    # list under Song Locations, so that state cannot be set up.)
     redship_add_test(NAME SongPoolOverCapacity COMMAND redship --test song-pool-over-capacity
         LABEL rando
-        TIMEOUT 1500
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and

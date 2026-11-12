@@ -4461,11 +4461,11 @@ int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directio
  *   (b) The Song of Soaring (OoT) (XW4) with the Crossing Direction OFF: 13 OoT
  *       songs kept in OoT for its 12 song checks: refused naming OoT.
  *   (c) Control: XW4 alone, 13 + 10 = 23 songs for 23 song checks: created.
- *   (e) One OoT song check excluded (Malon's; FillExcludedLocations puts OoT junk
- *       on it before the seam): 22 songs for the 22 song checks left: created.
- *   (d) Two excluded (Malon's and the Windmill's): 22 songs for 21: refused naming
- *       both games, with the advice to include an excluded song check. (e) runs
- *       first so (d)'s excludes are a superset of any the context kept.
+ * No leg excludes an OoT song check: SoH keeps song checks out of its exclude list
+ * under Song Locations (randomizer_check_objects.cpp), so the profile parse drops
+ * such a key and Generate refuses the profile ("the menu's parse kept 0"), as the
+ * first local run of two such legs showed. No shipped setting reaches that state,
+ * and SpoLeg's exclude count stays 0.
  * The warp-song rules are hidden until XW12; the legs read them through
  * Combo_ComboItemRules2RevealForTest, production never does.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
@@ -4484,20 +4484,8 @@ extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
     if (rc != 0) {
         return 30 + rc;
     }
-    rc = SpoLeg("(e) one OoT song check excluded", seed, false, false, false, nullptr, 1);
-    if (rc != 0) {
-        return 50 + rc;
-    }
-    rc = SpoLeg("(d) two OoT song checks excluded", seed, false, false, false,
-                "22 songs for the 21 song checks of both games (Shuffle Songs: Song Locations). Share a song or start "
-                "with a song, or include an excluded song check",
-                2);
-    if (rc != 0) {
-        return 40 + rc;
-    }
-    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 songs for 23, 13 home-only OoT songs for 12 and 22 songs for the 21 "
-                    "song checks two OoT excludes leave are refused before any attempt with OoTMM's sentence, and 23 "
-                    "for 23 and 22 for 22 create\n");
+    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 songs for 23 and 13 home-only OoT songs for 12 are refused before any "
+                    "attempt with OoTMM's sentence, and 23 for 23 creates\n");
     return 0;
 }
 
