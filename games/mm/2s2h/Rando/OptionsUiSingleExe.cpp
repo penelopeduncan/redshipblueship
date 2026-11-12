@@ -636,6 +636,12 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_SONG_SUN, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Sun's Song", "",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+    { RO_SHUFFLE_SONG_SARIA, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Saria's Song",
+      "Adds Saria's Song to the item pool, playing it will give you a hint to a progressive item that is reachable "
+      "in logic, weighted towards things like bow, bomb, and transformation masks. The song is one time use, you will "
+      "lose it after using it.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_SHUFFLE_SWIM, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Swim", "Swimming becomes an item; deep water respawns Link until it is found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },

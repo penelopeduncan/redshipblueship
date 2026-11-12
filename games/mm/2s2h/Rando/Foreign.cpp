@@ -128,7 +128,8 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
            randoOptionId == RO_SHUFFLE_HIVE_DROPS || randoOptionId == RO_SHUFFLE_BUTTERFLIES ||
            randoOptionId == RO_SHUFFLE_SKELETON_KEY || randoOptionId == RO_SKULLTULA_SHUFFLED ||
            randoOptionId == RO_STRAY_FAIRIES_MAX || randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME ||
-           randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME || randoOptionId == RO_SHUFFLE_SONG_SUN;
+           randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME || randoOptionId == RO_SHUFFLE_SONG_SUN ||
+           randoOptionId == RO_SHUFFLE_SONG_SARIA;
 }
 
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {

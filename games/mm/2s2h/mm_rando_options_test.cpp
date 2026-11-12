@@ -586,6 +586,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             { RO_SHUFFLE_SONG_DOUBLE_TIME, "Additional Items" },
             { RO_SHUFFLE_SONG_INVERTED_TIME, "Additional Items" },
             { RO_SHUFFLE_SONG_SUN, "Additional Items" },
+            { RO_SHUFFLE_SONG_SARIA, "Additional Items" },
             { RO_SHUFFLE_BOSS_SOULS, "Additional Items" },
             { RO_SHUFFLE_ENEMY_SOULS, "Additional Items" },
             { RO_SHUFFLE_ENEMY_DROPS, "Additional Items" },
