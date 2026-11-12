@@ -3417,6 +3417,8 @@ typedef enum {
     RO_ACCESS_TRIALS_REMAINS,
     RO_ACCESS_TRIALS_FORMS,
     RO_ACCESS_TRIALS_OPEN,
+    // Appended (#1403, b011f16bc) to preserve 0..3 enum slots and RO_ACCESS_TRIALS_20_MASKS default.
+    RO_ACCESS_TRIALS_VANILLA,
 } RandoOptionAccessTrials;
 
 typedef enum {

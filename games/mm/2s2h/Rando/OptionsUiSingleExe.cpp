@@ -214,6 +214,7 @@ const char* const kTrialsAccessLabels[] = {
     "Matching Remains",        // RO_ACCESS_TRIALS_REMAINS
     "Matching Transformation", // RO_ACCESS_TRIALS_FORMS
     "Open",                    // RO_ACCESS_TRIALS_OPEN
+    "Vanilla",                 // RO_ACCESS_TRIALS_VANILLA
 };
 
 const char* const kClockProgressiveLabels[] = {
@@ -315,19 +316,21 @@ const OptionUi kOptionUi[] = {
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_ACCESS_TRIALS, COMBO_MM_GROUP_AREA_ACCESS, COMBO_MM_WIDGET_COMBO,
       "Trials Access",
-      "What the Moon trials require. Mask counts, the matching remains, the matching transformation, or open.",
+      "What the Moon trials require. 2-6-12-20 masks, the matching remains, the matching transformation, open, or "
+      "vanilla mask handoff (1, 2, 3, and 4 masks).",
       0, 0, kTrialsAccessLabels, UI_COUNT(kTrialsAccessLabels),
       // Was PARTIAL on "trials read as Open regardless", which was true while
       // the gate was dead: EnJs.cpp's VB_JS_OVERRIDE_MASK_CHECK reports jsType
-      // 1-4 unlocked unconditionally, so the ONLY thing enforcing a trial
-      // requirement is the text leg. That leg is OverrideSubJsText on
-      // OnOpenText[0x2215], which dispatches (#512) — it reads
-      // RO_ACCESS_TRIALS and, when the requirement is unmet, swaps in the
-      // refusal message and routes to 0x2216, which ends the conversation
-      // without starting the trial. All three modes (20_MASKS, REMAINS, FORMS)
-      // are handled there; OPEN falls through by design. Both legs are
-      // dispatched hook types, EnJs.cpp is in the link, so the gate this row
-      // sets is the gate the player gets.
+      // 1-4 unlocked unconditionally when != RO_ACCESS_TRIALS_VANILLA, so the
+      // ONLY thing enforcing a non-vanilla trial requirement is the text leg.
+      // That leg is OverrideSubJsText on OnOpenText[0x2215], which dispatches
+      // (#512) — it reads RO_ACCESS_TRIALS and, when the requirement is unmet,
+      // swaps in the refusal message and routes to 0x2216, which ends the
+      // conversation without starting the trial. 20_MASKS, REMAINS, and FORMS
+      // are handled there; OPEN falls through by design; VANILLA leaves both
+      // VB_JS_OVERRIDE_MASK_CHECK and 0x2215/0x2216 unhooked so vanilla handoff
+      // runs. Both legs are dispatched hook types, EnJs.cpp is in the link, so
+      // the gate this row sets is the gate the player gets.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_TRIFORCE_PIECES, COMBO_MM_GROUP_WIN_CONDITION, COMBO_MM_WIDGET_CHECKBOX,
       "Triforce Hunt", "Scatters Triforce Pieces through the pool; collecting enough of them wins the seed.",
