@@ -145,8 +145,16 @@ static void StartingItemCombobox(RandomizerSettingKey rsk) {
     for (size_t i = 0; i < option.GetOptionCount(); i++) {
         entries.push_back(option.GetOptionText(i).c_str());
     }
+    // [RSBS #1404 QC] Honour the Option's own disabled state (Link's Pocket under End of Dungeons
+    // rewards), greyed with its reason as the page greys its other widgets.
+    const bool disabled = option.IsDisabled();
+    ImGui::BeginDisabled(disabled);
     CVarCombobox(option.GetName().c_str(), option.GetCVarName().c_str(), entries,
                  ComboboxOptions().Color(THEME_COLOR).LabelPosition(LabelPositions::Above));
+    ImGui::EndDisabled();
+    if (disabled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+        ImGui::SetTooltip("%s", option.GetDisabledText().c_str());
+    }
 }
 
 void DrawStartingItemsMenu(WidgetInfo& info) {
