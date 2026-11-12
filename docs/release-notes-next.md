@@ -105,6 +105,18 @@
   the Master Sword (with Time Travel Requires Master Sword on). With the sword unshuffled nothing changes: pulling
   the sword is the check.
 
+### Cross-game songs
+
+- **Song of Soaring in Ocarina of Time** (issue #1169). Randomizer > Cross-Game has a new Cross-Game Songs section
+  with Song of Soaring (OoT), off by default. It adds Majora's Mask's Song of Soaring to Ocarina of Time as its own
+  item. Played as a child, it opens Majora's Mask's owl map in the pause menu: pick an owl statue you have activated
+  and you soar to it in Termina. Both games' logic counts the warp. Under Shuffle Songs: Off the song has no location
+  of its own and is placed like any other item.
+- **Too many songs for the song checks is refused with a toast.** When the songs you added outnumber the song checks
+  they may use, Generate says "Not generated: too many songs for the song spots." and makes no world.
+- **Not in yet:** Ocarina of Time's six warp songs in Majora's Mask and the shared versions of these songs. Both are
+  built and stay off the menu until their end-to-end checks pass.
+
 ### Fixes
 
 - **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
@@ -140,6 +152,11 @@
   Combo Tracker's. In MM's Check Tracker, Only Show Current Scene now keeps a drop's copy for the scene played, and
   inside a grotto shows the checks of the scene the grotto opens from. Shop and house interiors are now listed under
   the scene they open from.
+- **The trackers show an added warp song** (issue #1169). With Song of Soaring (OoT) on, the item trackers show it
+  after Ocarina of Time's own songs, and an item named for its game is no longer tagged twice ("Song of Soaring (OoT)
+  (OoT)", "Gerudo Mask (MM) (MM)") in toasts, textboxes, hints and the check trackers. Both check trackers count warp
+  travel into the other game from that game's saved state, so a check you can only reach by soaring across is listed
+  as available.
 - **The Hint Tracker shows both games** (issue #1475). It keeps Ship of Harkinian's Locations and Journal views, with an
   Ocarina of Time pane and a Majora's Mask pane, works in either game, and each pane scrolls to the area you are in.
   Majora's Mask hints you have read are now listed. Reading a Majora's Mask hint about an item that crossed into Hyrule

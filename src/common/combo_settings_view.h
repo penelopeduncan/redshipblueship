@@ -175,9 +175,10 @@ typedef enum {
     // WORD (gComboCtx.comboItemRules2, RSBS_XITEM2_*), assembled by
     // Combo_ResolveComboItemRules2 (Combo_ComboItemRules2Authored). 0 or 1, default
     // 0 each; a shared song is dropped by the resolver while its extension is off
-    // (OoTMM's `cond`). HIDDEN until lane XW12: no Cross-Game Rules row exposes
-    // them, and Generate refuses a world with any of them on
-    // (Combo_ComboItemRules2Refused). The seven extensions, OoTMM's order:
+    // (OoTMM's `cond`). Since lane XW12 the seven extensions have Cross-Game
+    // Songs rows; the seven shared songs stay HIDDEN until XW10: no row is drawn
+    // and Generate refuses a world with one on (Combo_ComboItemRules2Refused).
+    // The seven extensions, OoTMM's order:
     COMBO_SETTING_SONG_SOARING_OOT, // gCombo.Rando.SongSoaringOoT -> RSBS_XITEM2_SONG_SOARING_OOT
     COMBO_SETTING_SONG_MINUET_MM,   // gCombo.Rando.SongMinuetMM -> RSBS_XITEM2_SONG_MINUET_MM
     COMBO_SETTING_SONG_BOLERO_MM,   // gCombo.Rando.SongBoleroMM -> RSBS_XITEM2_SONG_BOLERO_MM
@@ -228,7 +229,9 @@ uint32_t Combo_ComboItemRuleKeyedBits(void);
  * The same two for the SECOND rules word (#1169 XW2, RSBS_XITEM2_*): the bits
  * whose keys resolve on now (Combo_ResolveComboItemRules2 reads this and
  * nothing else), and every bit a key authors at all (all fourteen warp-song
- * rules). The keys exist and no row exposes them until lane XW12.
+ * rules). Since XW12 the extensions have rows, drawn while offered (the MM ones
+ * once IntMMWarpSongMinuet exists); the shared songs' rows are drawn once XW10
+ * offers them.
  */
 uint32_t Combo_ComboItemRules2Authored(void);
 uint32_t Combo_ComboItemRule2KeyedBits(void);
@@ -466,7 +469,7 @@ int Combo_ComboSettingsCanRestoreLiveEx(const ComboSettingsRecord* frozen, const
  * warp-song keys from @p frozenRules2 beside the first word's keys, and is
  * unrestorable when the file's word holds a bit this build refuses to load
  * (Combo_ComboItemRules2Refused: an unallocated bit, a shared song without its
- * extension, or, until XW12, any warp-song rule on), so such a file is refused
+ * extension, or, since XW12, an MM or shared warp-song rule on), so such a file is refused
  * as another build's. A file whose word is 0 restores exactly as the Ex forms
  * (which are these with 0): a session holding a stray second-word key is put
  * back to the file's "off". The load path calls these.

@@ -30,8 +30,9 @@
  *   OoTMM's refusal wording and arithmetic; the option text's warning.
  *
  *   oot-soaring-rules-off-unchanged (CTest OoTSoaringRulesOffUnchanged, redship
- *   tier, ROM-free) -- INERT. Both Soaring bits are refused at Generate while
- *   hidden (the seam off), and from source that gate precedes the fill; a
+ *   tier, ROM-free) -- RULES OFF. Since XW12 the Song of Soaring (OoT) passes the
+ *   gate and the shared Song of Soaring is still refused at Generate (the seam
+ *   off), and from source that gate precedes the fill; a
  *   rules-off world pools no copy and never credits the song; the refusal never
  *   fires for twelve or fewer songs in either restricted mode (today's song
  *   pass); main's ids for the masks before it are pinned; from source, the pool
@@ -40,10 +41,10 @@
  *
  *   oot-soaring-pooled-only-when-rule-on (CTest OoTSoaringPooledOnlyWhenRuleOn,
  *   rando tier) -- THE POOL, over real paired OoT generations. Rule off: no copy
- *   anywhere in OoT's world. Rule on through the TEST SEAM
- *   (Combo_ComboItemRules2RevealForTest; production never calls it): exactly one
- *   copy, under Shuffle Songs Anywhere and Off. Rule and shared rule on: none (the
- *   family path, held back). Then its hint text names it and OoT's REAL give sets
+ *   anywhere in OoT's world. Rule on (offered since XW12, no seam): exactly one
+ *   copy, under Shuffle Songs Anywhere and Off. Rule and shared rule on, the
+ *   shared one through the TEST SEAM (Combo_ComboItemRules2RevealForTest;
+ *   production never calls it): none (the family path, held back). Then its hint text names it and OoT's REAL give sets
  *   its flag and nothing else.
  *
  *   song-locations-overflow-refused (CTest SongLocationsOverflowRefused, rando
@@ -446,10 +447,15 @@ TestResult Test_OoTSoaringRuleLogic(void) {
         XW4_CHECK(Combo_SongSpotsLastRefusal() != NULL && Combo_SongSpotsLastRefusal()[0] == '\0',
                   "clearing the recorded refusal left '%s'", Combo_SongSpotsLastRefusal());
         const std::string tooltip(RSBS_SONG_SOARING_OOT_TOOLTIP);
-        XW4_CHECK(tooltip.find("only as a child") != std::string::npos &&
+        // #1169 XW12: the row's text in the page's verb-first form, still naming
+        // both restricted modes, the way out, and that only an Ocarina of Time
+        // starting song frees a Dungeon Rewards spot (decision 2's warning).
+        XW4_CHECK(tooltip.rfind("Adds Majora's Mask's Song of Soaring to Ocarina of Time", 0) == 0 &&
+                      tooltip.find("only as a child") != std::string::npos &&
                       tooltip.find("Song Locations") != std::string::npos &&
                       tooltip.find("Dungeon Rewards") != std::string::npos &&
-                      tooltip.find("share a song or start with an Ocarina of Time song") != std::string::npos,
+                      tooltip.find("share a song or start with") != std::string::npos &&
+                      tooltip.find("Ocarina of Time song") != std::string::npos,
                   "the option text does not warn as OoTMM's does: '%s'", tooltip.c_str());
     }
 
@@ -463,19 +469,21 @@ TestResult Test_OoTSoaringRuleLogic(void) {
 // ============================================================================
 
 TestResult Test_OoTSoaringRulesOffUnchanged(void) {
-    printf("[TEST] oot-soaring-rules-off-unchanged: while the warp-song rules are hidden no world a player can make "
-           "pools the Song of Soaring (OoT), credits it or meets the refusal, and every id before it is main's "
-           "(#1169 XW4)\n");
+    printf("[TEST] oot-soaring-rules-off-unchanged: the Song of Soaring (OoT) is offered and its shared song is not; "
+           "with the rule off no world pools the song, credits it or meets the refusal, and every id before it is "
+           "main's (#1169 XW4, XW12)\n");
     sXw4Failures = 0;
     Combo_ComboItemRules2RevealForTest(0);
     XW4_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available");
 
-    // ---- (1) Hidden: Generate refuses both Soaring bits before anything freezes -------
+    // ---- (1) Offered since XW12: the extension passes the gate; the shared song is
+    //      still refused (XW10's), and Generate refuses it before anything freezes --
     {
-        XW4_CHECK((Combo_ComboItemRules2Refused(kXw4Soaring, NULL, 0) & kXw4Soaring) == kXw4Soaring &&
-                      (Combo_ComboItemRules2Refused(kXw4Soaring | kXw4SharedSoaring, NULL, 0) &
-                       (kXw4Soaring | kXw4SharedSoaring)) == (kXw4Soaring | kXw4SharedSoaring),
-                  "a Soaring bit is not refused while the warp-song rules are hidden");
+        XW4_CHECK(Combo_ComboItemRules2Refused(kXw4Soaring, NULL, 0) == 0u &&
+                      Combo_ComboItemRules2Refused(kXw4Soaring | kXw4SharedSoaring, NULL, 0) == kXw4SharedSoaring &&
+                      Combo_ComboItemRule2Offered(kXw4Soaring) && !Combo_ComboItemRule2Offered(kXw4SharedSoaring),
+                  "the Song of Soaring (OoT) is not offered, or the shared Song of Soaring is (XW12: extensions "
+                  "offered, shared songs hidden)");
         XW4_CHECK(Combo_ResolveComboItemRules2() == 0u || !Combo_ComboSettingStoreAvailable(),
                   "the session resolves a second-word rule with no key set");
         const std::string play = Xw4ReadSource("games/oot/soh/Enhancements/randomizer/3drando/playthrough.cpp");
@@ -603,10 +611,10 @@ int Xw4Generate(const Xw4Leg& leg, const char* seed) {
     if (leg.sharedTime) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_TIME), 1);
     }
-    // THE TEST SEAM: the hidden warp-song rules read as offered, as they will
-    // once lane XW12 lands, so Generate takes a world with one on. Production
-    // never calls it.
-    Combo_ComboItemRules2RevealForTest(leg.soaring || leg.sharedSoaring ? 1 : 0);
+    // THE TEST SEAM, for the shared song only: since XW12 the Song of Soaring
+    // (OoT) is offered as production offers it; the shared Song of Soaring stays
+    // hidden until XW10, so only a leg with it reads the mask empty.
+    Combo_ComboItemRules2RevealForTest(leg.sharedSoaring ? 1 : 0);
     const int rc = Rando_HeadlessSeedTest(seed);
     Combo_ComboItemRules2RevealForTest(0);
     return rc;

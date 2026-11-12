@@ -37,9 +37,8 @@
  * One-game semantics: what OoT offers is what MM's half holds, so an owl
  * activated in MM counts from the next departure from MM.
  *
- * INERT UNTIL XW12. The rule is RSBS_XITEM2_SONG_SOARING_OOT, hidden
- * (RSBS_XITEM2_HIDDEN): no world a player can make has it, so the song never
- * matches and nothing here runs.
+ * OFFERED SINCE XW12. The rule is RSBS_XITEM2_SONG_SOARING_OOT, a Cross-Game Songs
+ * row, off by default: with it off the song never matches and nothing here runs.
  */
 
 #include <stdbool.h>

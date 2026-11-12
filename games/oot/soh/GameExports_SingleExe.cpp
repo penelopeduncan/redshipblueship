@@ -3489,19 +3489,17 @@ extern "C" void OoT_SoaringTest_ErasePairedFile(void) {
 
 /**
  * The world the drive needs, set right after the shipped-defaults check and
- * before the generation: songSoaringOot on, through its own key and the hidden
- * rules revealed by the test seam (never through a stored setting), and Shuffle
- * Songs on Anywhere (thirteen songs do not fit the twelve song spots, which
- * Generate refuses with OoTMM's words). Both keys are in memory only and go back
- * at the verdict (IntegrationTest_SoaringCleanup), which also hides the rules
- * again; the reveal stays on until then because the .redsave load and the MM
- * arrival refuse a world with a hidden rule.
+ * before the generation: songSoaringOot on, through its own key with the
+ * PRODUCTION mask (offered since #1169 XW12; no test seam, so the .redsave load
+ * and the MM arrival take the world as a player's), and Shuffle Songs on
+ * Anywhere (the drive's fixture: its pinned seed's placements were read under
+ * it). Both keys are in memory only and go back at the verdict
+ * (IntegrationTest_SoaringCleanup).
  */
 static void SoarArmWorld(void) {
     IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
-    Combo_ComboItemRules2RevealForTest(1);
-    fprintf(stderr, "[PFC] soaring: songSoaringOot on (hidden rules revealed for the test), Shuffle Songs Anywhere\n");
+    fprintf(stderr, "[PFC] soaring: songSoaringOot on (the production mask, no reveal), Shuffle Songs Anywhere\n");
     fflush(stderr);
 }
 

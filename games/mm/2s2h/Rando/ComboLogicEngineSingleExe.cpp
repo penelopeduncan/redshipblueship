@@ -385,6 +385,11 @@ bool sMmTravelTestValue = false;
  *  OoT's delivered Soaring fact through MM_ComboLogic_OoTSoaringTravel. Read and
  *  cleared by MM_ComboLogic_TestSoaringTravelHits only; nothing else reads it. */
 int sMmTravelEdgeHits = 0;
+/** THE CHECK TRACKER'S FACT (#1169 XW11): OoT's Song of Soaring derived from the
+ *  FROZEN world (warp_song_tracker.h), set only around the second crawl of MM's
+ *  ComputeChecksInLogic (MM_ComboLogic_SetTrackerSoaring) and cleared before it
+ *  returns, so generation's crawls never see it. Read only outside a round. */
+bool sMmTrackerSoaring = false;
 
 /** Ocarina of Time's warp songs as MM items, one travel bit each (0x02 << song). */
 constexpr int kMmTravelSongCount = 6;
@@ -1505,19 +1510,35 @@ extern "C" const ComboLogicEngine* MM_ComboLogic_TestEngine(void) {
 
 /**
  * Logic.h's CAN_OOT_SOAR_TO_OWL (#1169 XW9): has this coordinator round accepted
- * OoT's Song of Soaring fact? False outside a round, so MM's own glitchless fill,
- * its check tracker and every crawl outside the coordinator read the root's owl
- * landings exactly as before.
+ * OoT's Song of Soaring fact? False outside a round, so MM's own glitchless fill
+ * and every crawl outside the coordinator read the root's owl landings exactly as
+ * before; the one exception is the check tracker's second crawl (#1169 XW11,
+ * MM_ComboLogic_SetTrackerSoaring), armed from the frozen world.
  */
 extern "C" bool MM_ComboLogic_OoTSoaringTravel(void) {
     if (sMmTravelTestArmed) {
         return sMmTravelTestValue;
+    }
+    if (!sRound.inRound && sMmTrackerSoaring) {
+        return true; // #1169 XW11: the check tracker's second crawl, never a round's (no edge hit)
     }
     const bool open = sRound.inRound && (sRound.travelAccepted & RSBS_COMBO_TRAVEL_INTO_MM) != 0u;
     if (open) {
         sMmTravelEdgeHits++; // never with every warp-song rule off
     }
     return open;
+}
+
+/** #1169 XW11: arm (@p on nonzero) or disarm the check tracker's Soaring fact for
+ *  the crawl that follows. Only MM's ComputeChecksInLogic calls it, around its
+ *  second crawl. */
+extern "C" void MM_ComboLogic_SetTrackerSoaring(int on) {
+    sMmTrackerSoaring = on != 0;
+}
+
+/** TEST BRIDGE (tracker-warp-travel): whether the tracker's Soaring fact is armed. */
+extern "C" int MM_ComboLogic_TestTrackerSoaring(void) {
+    return sMmTrackerSoaring ? 1 : 0;
 }
 
 /** TEST BRIDGE (combo-warp-travel-rounds): the crawl's reads of a delivered

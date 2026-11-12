@@ -32,10 +32,9 @@
  * ONE SPOT SHORT. OoT_SongSpots_RefuseOverflow is OoTMM's "Not enough locations"
  * refusal, asked by the restricted song pass (warp_song_items.h says why).
  *
- * INERT. RSBS_XITEM2_HIDDEN covers the bit until lane XW12: Generate refuses it
- * before the freeze (3drando/playthrough.cpp) and a load refuses a world that has
- * it, so the frozen word is 0, the pool never gains the item, CanUse is false and
- * the song pass never sees a thirteenth song.
+ * OFFERED SINCE XW12. The rule has a Cross-Game Songs row, off by default; with it
+ * off the frozen word's bit is 0, the pool never gains the item, CanUse is false
+ * and the song pass never sees a thirteenth song.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -105,6 +104,8 @@ static_assert((unsigned)RAND_INF_MAX <= (unsigned)RSBS_OOT_RAND_INF_CAP &&
 static_assert(RSBS_SONG_SPOTS_SONG_LOCATIONS == (unsigned)RO_SONG_SHUFFLE_SONG_LOCATIONS &&
                   RSBS_SONG_SPOTS_DUNGEON_REWARDS == (unsigned)RO_SONG_SHUFFLE_DUNGEON_REWARDS,
               "RSBS_SONG_SPOTS_* must equal OoT's RO_SONG_SHUFFLE_* restricted values (#1169 XW4)");
+static_assert(RSBS_SONG_SPOTS_OFF == (unsigned)RO_SONG_SHUFFLE_OFF,
+              "RSBS_SONG_SPOTS_OFF must equal OoT's RO_SONG_SHUFFLE_OFF (#1169 XW12, D5)");
 
 extern "C" bool OoT_SongOfSoaringOoTOn(void) {
     return Combo_ComboCrossItemRule2(RSBS_XITEM2_SONG_SOARING_OOT);
@@ -448,8 +449,8 @@ void SoaringOoTMapOnPlayDestroy() {
 } // namespace
 
 extern "C" int32_t OoT_SoaringOoT_NoteMatched(const uint8_t* song, uint8_t appendPos) {
-    // With the hidden rule off (every world a player can make) this is the one
-    // read the matcher costs per note, and it writes nothing.
+    // With the rule off (the default) this is the one read the matcher costs per
+    // note, and it writes nothing.
     if (!OoT_SongOfSoaringOoTOn()) {
         return 0;
     }
@@ -585,8 +586,8 @@ extern "C" void OoT_SoaringOoT_Depart(PlayState* play, int owl) {
 }
 
 // Always registered: every handler acts only on the three Soaring text ids or
-// on an open chooser, which only a match opens, and a world without the hidden
-// rule never matches.
+// on an open chooser, which only a match opens, and a world without the rule
+// never matches.
 static void RegisterSongOfSoaringOoTPlay() {
     COND_ID_HOOK(OnOpenText, RSBS_OOT_TEXT_SOARING_PLAYED, true, SoaringOoTBuildPlayed);
     COND_ID_HOOK(OnOpenText, RSBS_OOT_TEXT_SOARING_NO_STATUES, true, SoaringOoTBuildNoStatues);

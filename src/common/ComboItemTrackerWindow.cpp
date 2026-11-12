@@ -640,7 +640,10 @@ void ComboItemIconLayout(const std::vector<ComboItemRow>& rows, const ComboItemG
         }
         const bool newGroup = group == nullptr || row.group == nullptr || strcmp(row.group, group) != 0;
         const bool ownLine = grid.groupOwnLine != nullptr && row.group != nullptr && grid.groupOwnLine(row.group);
-        if (line < 0 || (grid.groupLines && newGroup) || (newGroup && (ownLine || groupOwnLine))) {
+        // #1169 XW11: a group that starts a line, while the group after it flows on.
+        const bool startsLine =
+            grid.groupStartsLine != nullptr && row.group != nullptr && grid.groupStartsLine(row.group);
+        if (line < 0 || (grid.groupLines && newGroup) || (newGroup && (ownLine || startsLine || groupOwnLine))) {
             // A new line, at the group's own width.
             columns = (grid.groupColumns != nullptr) ? grid.groupColumns(row.group) : grid.columns;
             columns = columns < 1 ? 1 : columns;

@@ -50,6 +50,8 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 
 #include "ForeignTextboxIcon.h"
+#include "game.h"            // src/common: GAME_OOT
+#include "warp_song_items.h" // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
 
 #include <algorithm>
 #include <cstdint>
@@ -547,7 +549,7 @@ bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t want
     FTI_EXPECT(foreignName != nullptr, "Q2 the host %u names no foreign item", (unsigned)mmCheckId);
     const std::string wantMessage = std::string("You found ") +
                                     Rando::Foreign::ForeignArticleForCheck((RandoCheckId)mmCheckId) + foreignName +
-                                    " (OoT)!";
+                                    Combo_ForeignGameTag(foreignName, GAME_OOT) + "!";
     printf("[TEST]   Q2 the give's textbox reads \"%s\"\n", activeCustomMessage.msg.c_str());
     FTI_EXPECT(activeCustomMessage.msg == wantMessage, "Q2 the give left message \"%s\", want \"%s\"",
                activeCustomMessage.msg.c_str(), wantMessage.c_str());

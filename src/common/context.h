@@ -938,8 +938,9 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboWothRecord, oot) == 0 && offsetof(ComboWoth
  * ZERO MEANS UNSET (formatVersion 0): every save-format-6 file written before
  * layout revision 2 (save.h), whose shorter record zero-extends here, and every
  * seed package whose combo record ends before this member. MM refuses every warp
- * song of such a file (mm_warp_song_play.h, NOT_RECORDED), which costs nothing: a
- * song can only play under a frozen rule Generate refuses until lane XW12. An
+ * song of such a file (mm_warp_song_play.h, NOT_RECORDED). Since lane XW12 no
+ * world with a Majora's Mask warp-song rule on can hold one: it is refused at
+ * creation, package import, load and arrival (Combo_MMWarpSongRecordBroken). An
  * unset record carries no flags, so it never reads as "shuffled" or "unshuffled":
  * the prompt text is never chosen for it. Bytes only, no alignment (alignment 1):
  * destinations are u16 little-endian.
@@ -983,9 +984,10 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboOoTWarpRecord, flags) == 1 && offsetof(Comb
  *
  * ZERO MEANS EVERY SECOND-WORD RULE OFF, which is what every world written
  * before this carve holds (a zero-extended record) and what every world this
- * build creates freezes: the rules are hidden until lane XW12, and Generate
- * refuses a set bit (Combo_ComboItemRules2Refused). An all-clear word is not
- * folded into the fingerprint, so no golden, fingerprint or bag seed moves.
+ * build creates freezes unless a Cross-Game Songs row is on (the Song of
+ * Soaring (OoT), offered since lane XW12); Generate refuses a hidden (MM or shared) bit
+ * (Combo_ComboItemRules2Refused). An all-clear word is not folded into the
+ * fingerprint, so no golden, fingerprint or bag seed moves.
  */
 typedef struct {
     uint8_t crossItemFlags2[4]; // RSBS_XITEM2_* bitset, little-endian; all zero = every rule off
