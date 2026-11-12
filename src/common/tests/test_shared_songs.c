@@ -778,6 +778,12 @@ std::string SsOneCopyKey(int song) {
 }
 } // namespace
 
+extern "C" {
+// #1542 S3 (ComboLogicEngineOoT.cpp, Rando/Foreign.cpp): the song checks of both games.
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+}
+
 /** MM's Shuffle Songs key (Rando/Menu.cpp) and its Vanilla value (RO_SONG_SHUFFLE_VANILLA). */
 const char* const kSsMmSongShuffleKey = "gRando.Options.RO_SHUFFLE_SONGS";
 const int kSsMmSongShuffleVanilla = 2;
@@ -899,6 +905,37 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
                  "under Shuffle Songs %s the paired world holds %d copies of %s (OoT %d, MM %d), expected ONE: "
                  "OoT's own copy is still in the world beside the shared row",
                  shuffleName, ootCopies + mmCopies, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
+        // #1542 S3 (ruling D5): under the shared song pool the pair's one copy is a
+        // bag row confined to the song checks of both games, so the coordinator's
+        // one placement of either half is on a song check of one game or the other.
+        if (shuffleSongs == 1) {
+            int onSongChecks = 0;
+            int placements = 0;
+            for (GameId host : { GAME_OOT, GAME_MM }) {
+                for (int i = 0; i < Combo_Logic_PlacementCount(host); i++) {
+                    ComboLogicPlacement p;
+                    if (!Combo_Logic_PlacementAt(host, i, &p)) {
+                        continue;
+                    }
+                    const bool isPair = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == ootId) ||
+                                        (p.item.originGame == (uint8_t)GAME_MM && p.item.id == mmId);
+                    if (!isPair) {
+                        continue;
+                    }
+                    placements++;
+                    onSongChecks += (host == GAME_OOT ? OoT_ComboLogic_TestSongCheckIndex(p.hostCheck)
+                                                      : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck)) >= 0
+                                        ? 1
+                                        : 0;
+                }
+            }
+            printf("[TEST] shared-songs-one-copy (%s): %s placed %d time(s) by the bag, %d on a song check\n",
+                   shuffleName, kSsOneCopySongs[s].itemName, placements, onSongChecks);
+            SS_CHECK(placements == 1 && onSongChecks == 1,
+                     "under the shared song pool %s was placed %d time(s), %d on a song check: its one copy must be "
+                     "the bag's pair row on a song check of either game",
+                     kSsOneCopySongs[s].itemName, placements, onSongChecks);
+        }
     }
 
     // Off: only the shared songs leave their vanilla checks.

@@ -42,6 +42,8 @@
 #include "notification_bridge.h"   // the paired row's "no refusal toast" check
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX: that check's matcher (#836)
 #include "crossing_store.h"        // the paired row's crossing-store check
+#include "combo_song_pool.h"       // #1542: the song checks' give paths (int-song-host-oot)
+#include "combo_logic.h"           // #1542: the song-host rows' pin (ComboLogicForcedPlacement)
 #include "foreign_model.h"         // the #800 S1 shop playtest's model answer
 // The paired row's "shipped defaults" check: every setting the generation
 // reads, per surface (OoT's options/tricks/exclusions, MM's options/tricks, the
@@ -1298,6 +1300,49 @@ static bool PfcForeignSpoilerCheck(char* msg, size_t cap) {
     return true;
 }
 
+// #1542 S4 (IntSongHostOoT / IntSongHostMM): decision A's two hosts, pinned so the
+// rows drive them on every run instead of whichever song check the seed made a
+// crossing. The debug-seed seam (Combo_Logic_TestSetForcedPlacements, the
+// DebugSeedForcedPlacements row's) puts MM's Sonata of Awakening on OoT's Song of
+// Time check (a transition trigger) for `oot`, and OoT's Zelda's Lullaby on MM's
+// starting Song of Healing (armed at creation) for `mm`. Both are song rows of the
+// shared song pool, so the pin is legal only while the pool is armed: the fill
+// refuses it otherwise and the creation fails loudly. Set before the generation,
+// kept through the creation's fill, cleared after it. 1 pinned, 0 not a song-host
+// row, -1 refused.
+extern "C" void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem); // MM GameExports
+
+static int PfcSongHostPin(void) {
+    const char* env = getenv("RSBS_PFC_SONG_HOST");
+    if (env == NULL) {
+        return 0;
+    }
+    ComboLogicForcedPlacement row;
+    memset(&row, 0, sizeof(row));
+    uint16_t healing = 0;
+    uint16_t sonata = 0;
+    MM_IntSongHost_PinIds(&healing, &sonata);
+    if (strcmp(env, "oot") == 0) {
+        row.hostGame = (uint8_t)GAME_OOT;
+        row.hostCheck = (uint16_t)RC_SONG_FROM_OCARINA_OF_TIME;
+        row.item.originGame = (uint8_t)GAME_MM;
+        row.item.id = sonata;
+    } else if (strcmp(env, "mm") == 0) {
+        row.hostGame = (uint8_t)GAME_MM;
+        row.hostCheck = healing;
+        row.item.originGame = (uint8_t)GAME_OOT;
+        row.item.id = (uint16_t)RG_ZELDAS_LULLABY;
+    } else {
+        return 0;
+    }
+    const int pinned = Combo_Logic_TestSetForcedPlacements(&row, 1);
+    fprintf(stderr, "[SONG-HOST] pinned %s item %u on %s song check %u for this world (%d row)\n",
+            Game_ToString((GameId)row.item.originGame), (unsigned)row.item.id, Game_ToString((GameId)row.hostGame),
+            (unsigned)row.hostCheck, pinned);
+    fflush(stderr);
+    return pinned == 1 ? 1 : -1;
+}
+
 /**
  * The paired variant's boot: the production path a player takes, minus the menu
  * clicks. It runs from the REAL file select (FileChoose_Main's OnFileChooseMain,
@@ -1388,6 +1433,11 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(true);
     }
+    const int songHostPin = PfcSongHostPin();
+    if (songHostPin < 0) {
+        IntegrationTest_GameplayFail("int-song-host: the debug-seed seam refused the song-host pin");
+        return;
+    }
     fprintf(stderr, "[PFC] generating the pinned paired world %s on the shipped defaults at %s\n", kPfcSeed, from);
     fflush(stderr);
     if (Rando_HeadlessSeedTest(kPfcSeed) != 0) {
@@ -1436,6 +1486,9 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         return;
     }
     fprintf(stderr, "[PFC] created: \"%s\"\n", line);
+    if (songHostPin > 0) {
+        (void)Combo_Logic_TestSetForcedPlacements(NULL, 0); // the creation's fill took it
+    }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(false);
         PfcShopPlaytestLogShelves(-1, "created");
@@ -1901,6 +1954,106 @@ static void PfcChestPlaytestWarpFrame(PlayState* play, int frame) {
     fprintf(stderr, "[M5-PLAYTEST] warp arrival: %d chest actor(s) in scene %d, CSMC on\n", chests,
             (int)play->sceneNum);
     fflush(stderr);
+}
+
+// ---- #1542 S3: an MM item on an OoT SONG CHECK, delivered live -----------------
+// RSBS_PFC_SONG_HOST=oot (CTest IntSongHostOoT). Under the shared song pool an OoT
+// song check can hold an MM song. At first-leg frame 200 (the leg's chest pickup
+// has played out) the drive takes the Song of Time check, a transition trigger
+// (RSBS_SONG_GIVE_OOT_TRIGGER_FLAG), which PfcSongHostPin made hold MM's Sonata of
+// Awakening for this world, and sets that check's collection flag
+// the way its scene does: its EventChkInf flag (ShuffleSongs.cpp) through
+// OoT_Flags_SetEventChkInf, or a RandomizerInf flag through Flags_SetRandomizerInf,
+// whose flag-set hook queues the check for the RC-queue drain; any other collection
+// type is queued as the hooks queue it. Frame 320: the drain's foreign branch must have
+// recorded exactly one MM-bound item and the host must read collected; the check
+// is then queued again (a second trigger). Frame 440: no second record. A textbox
+// nobody will press past is closed after 60 frames. Not covered here: the trigger
+// cutscene itself and each scene's progression after it (traced in S0's table; a
+// playtest item).
+extern "C" int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+extern "C" int OoT_Rando_Foreign_PlaytestQueueCheck(uint16_t rc); // hook_handlers.cpp
+extern "C" void OoT_Flags_SetEventChkInf(s32 flag);               // z_actor.c
+
+static bool GpSongHostOoT(void) {
+    const char* env = getenv("RSBS_PFC_SONG_HOST");
+    return env != NULL && strcmp(env, "oot") == 0;
+}
+
+static void GpSongHostOoTFrame(PlayState* play, int frame) {
+    static int sHost = -1;
+    static int sRecordsBefore = -1;
+    static int sRecordsMid = -1;
+    static int sTextboxFrames = 0;
+    if (play != NULL && play->msgCtx.msgMode != MSGMODE_NONE) {
+        if (++sTextboxFrames >= 60) {
+            OoT_Message_CloseTextbox(play);
+            sTextboxFrames = 0;
+        }
+    } else {
+        sTextboxFrames = 0;
+    }
+    if (frame == 200) {
+        // Decision A's OoT host, pinned by PfcSongHostPin: the Song of Time check
+        // (a transition trigger) holds MM's Sonata of Awakening on every run.
+        const uint16_t pinnedHost = (uint16_t)RC_SONG_FROM_OCARINA_OF_TIME;
+        if (Combo_Crossings_Lookup(GAME_OOT, pinnedHost) == NULL) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the pinned Song of Time check holds no MM item (the "
+                                         "shared song pool is not armed, or the pin was dropped: a fixture failure)");
+            return;
+        }
+        if (OoT_Rando_Foreign_HostCollected(pinnedHost)) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the pinned Song of Time check was collected before the "
+                                         "drive set its flag (the leg's route moved: a fixture failure)");
+            return;
+        }
+        sHost = (int)pinnedHost;
+        const SharedItem* item = Combo_Crossings_Lookup(GAME_OOT, (uint16_t)sHost);
+        const char* name = item != NULL ? Combo_GetForeignItemName(*item) : NULL;
+        const Rando::SpoilerCollectionCheck cc =
+            Rando::StaticData::GetLocation((RandomizerCheck)sHost)->GetCollectionCheck();
+        sRecordsBefore = Combo_CountSharedItems(GAME_MM, true);
+        fprintf(stderr,
+                "[SONG-HOST] OoT song check %d (%s) hosts the MM item %s: collection type %d flag %d; MM-bound "
+                "records %d\n",
+                sHost, Rando::StaticData::GetLocation((RandomizerCheck)sHost)->GetShortName().c_str(),
+                name != NULL ? name : "?", (int)cc.type, (int)cc.flag, sRecordsBefore);
+        fflush(stderr);
+        if (cc.type == SPOILER_CHK_EVENT_CHK_INF) {
+            OoT_Flags_SetEventChkInf((s32)cc.flag); // the song checks' own type (ShuffleSongs.cpp)
+        } else if (cc.type == SPOILER_CHK_RANDOMIZER_INF) {
+            Flags_SetRandomizerInf((RandomizerInf)cc.flag);
+        } else {
+            (void)OoT_Rando_Foreign_PlaytestQueueCheck((uint16_t)sHost);
+        }
+    }
+    if (sHost < 0) {
+        return;
+    }
+    if (frame == 320) {
+        const int records = Combo_CountSharedItems(GAME_MM, true);
+        const int collected = OoT_Rando_Foreign_HostCollected((uint16_t)sHost);
+        fprintf(stderr, "[SONG-HOST] frame 320: OoT song check %d collected %d, MM-bound records %d -> %d\n", sHost,
+                collected, sRecordsBefore, records);
+        fflush(stderr);
+        if (collected == 0 || records != sRecordsBefore + 1) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the RC-queue drain did not deliver the MM item on the "
+                                         "OoT song check exactly once (see [SONG-HOST])");
+            return;
+        }
+        sRecordsMid = records;
+        (void)OoT_Rando_Foreign_PlaytestQueueCheck((uint16_t)sHost); // a second trigger of the same check
+    }
+    if (frame == 440) {
+        const int records = Combo_CountSharedItems(GAME_MM, true);
+        fprintf(stderr, "[SONG-HOST] frame 440: after a second trigger MM-bound records %d (were %d)\n", records,
+                sRecordsMid);
+        fflush(stderr);
+        if (records != sRecordsMid) {
+            IntegrationTest_GameplayFail("int-song-host-oot: a second trigger of a delivered OoT song check recorded "
+                                         "its MM item again");
+        }
+    }
 }
 
 // The game framebuffer as a PNG in RSBS_GP_SHOT_DIR (a no-op without it). The
@@ -3843,6 +3996,10 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             sGpFramesInPhase++;
             if (phase == GP_PHASE_OOT_PRE && IntegrationTest_PairedFirstCrossing()) {
                 GpPairedTrackerPlaytest(sGpFramesInPhase);
+                // #1542 S3 (RSBS_PFC_SONG_HOST=oot): an MM item on an OoT song check, live.
+                if (GpSongHostOoT()) {
+                    GpSongHostOoTFrame(play, sGpFramesInPhase);
+                }
             }
             if (sGpFramesInPhase == 20 && (phase == GP_PHASE_OOT_PRE || phase == GP_PHASE_OOT_RETURN) &&
                 IntegrationTest_PairedFirstCrossing() && !IntegrationTest_PairedSkipCreation()) {

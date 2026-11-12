@@ -122,7 +122,8 @@ typedef struct {
     ComboLogicFillResult fill;
     int crossingsIntoMM;  // OoT-origin rows placed on MM hosts
     int crossingsIntoOoT; // MM-origin rows placed on OoT hosts
-    int confinedRows;     // bag rows handed a confinement mask (THE HOST GROUPS, #1502); all MM-origin
+    int confinedRows;     // bag rows handed a confinement mask (THE HOST GROUPS, #1502): MM's local
+                          // groups, and either game's songs under the shared song pool (#1542)
     // #1483: THE HOME-CAPACITY COUNTS, the words of a failed fill's refusal
     // (Combo_SingleBag_HomeShortGames). Counted only after a fill that ran and
     // failed, once it was rolled back; they change no status, rung or placement.
@@ -132,6 +133,13 @@ typedef struct {
     int hostsMM;                // ... and MM's
     uint16_t triforcePiecesOoT; // the frozen hunt's pieces in OoT's own pool; 0 when the hunt is not armed
     uint16_t triforcePiecesMM;  // ... and in MM's
+    // #1542: the fill request's exclusive groups (combo_logic.h ABI 11):
+    // RSBS_COMBO_GROUP_SONG_LOCATIONS while the shared song pool is armed, else 0.
+    uint32_t exclusiveGroups;
+    // #1542: the group mask of a RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY refusal
+    // (Combo_Logic_LastGroupShortfall), copied so the refusal's words do not depend
+    // on a later fill; 0 otherwise.
+    uint32_t shortGroupMask;
 } ComboSingleBagReport;
 
 /**
@@ -163,6 +171,19 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
  *  Combo_SingleBag_HomeShortGames names a game whose checks cannot hold its
  *  home-only items (#1483). Far above every RSBS_COMBO_LOGIC_* value. */
 #define RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY 1000
+
+/** A creation-failure REASON, as above: the creation's own fill was refused because
+ *  the shared song pool's songs outnumber the song checks they may use
+ *  (Combo_SingleBag_SongCapacityShort, #1542). */
+#define RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY 1001
+
+/**
+ * #1542: did @p r's fill refuse because the shared song pool holds more songs than
+ * the song checks they may use (RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY on a combo-wide
+ * group, before any attempt)? A fact of the settings, so the refusal's words name
+ * it instead of "try a new seed". Pure.
+ */
+bool Combo_SingleBag_SongCapacityShort(const ComboSingleBagReport* r);
 
 /**
  * THE FILL. Compose the bag from OoT's general-pass pool and `mmItems`, gate each
@@ -290,6 +311,11 @@ void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
 int OoT_ComboLogic_ExportPool(int source, uint16_t* outItems, uint16_t* outHosts, uint16_t* outFlags, int cap);
 /** OoT: the confinement bits its frozen settings arm. */
 uint32_t OoT_ComboLogic_ConfinementArmed(void);
+/** OoT (#1542): each pool row's confinement mask, @p count rows of @p items (OoT
+ *  item ids, the export's order) into @p out: RSBS_COMBO_GROUP_SONG_LOCATIONS for
+ *  a song while the shared song pool is armed (OoT_ComboLogic_SongPoolUnion),
+ *  else 0. Returns how many rows got a nonzero mask. */
+int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* out);
 /** OoT: nonzero while OoT's world waits at its general-pass point for this fill. */
 int OoT_ComboLogic_GeneralPassDeferred(void);
 /** OoT: the export rows (source 0, export order) the bag took. */

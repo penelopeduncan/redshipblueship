@@ -146,6 +146,8 @@
 #include "context.h"               // src/common — SharedItem, GameId
 #include "critical_renewables.h"   // src/common — OoTMM's critical-renewables rule (OoT's source, OoT's remainder)
 #include "foreign_items.h"         // src/common — the frozen pairing identity and combo record
+#include "shared_items.h"          // src/common — #1542: the class of a row a leftover song check may take
+#include "crossing_store.h"        // src/common — #1542: the song-pool lock reads a song check's crossing
 #include "mm_warp_song_play.h"     // src/common — XW7's destination rule, which XW9's warp credit reads
 #include "soh/SohGui/ImGuiUtils.h" // GetTextureForItemId: the describer's arrival-toast icon key
 #include "soh/Enhancements/randomizer/SongOfSoaringOoT.h" // OoT_SongOfSoaringOoTOn: the frozen Soaring rule
@@ -1275,11 +1277,11 @@ int OoT_SongCheckIndex(RandomizerCheck rc) {
  * so it is never offered; "Bean Merchant Only" empties the bean salesman, "All
  * But Beans" the other three, "All" all four.
  *
- *  - OoT's TWELVE SONG CHECKS (#1542 S0; OoTMM's `songLocations`): DORMANT. Every
- *    song row is RCTYPE_SONG_LOCATION with ACTOR_ID_MAX (ShuffleSongs.cpp), so
- *    the actor test below refuses it, and the song branch first answers through
- *    Combo_SongCheckAcceptsForeign, which is false until #1542 S3 arms
- *    Combo_SongHostsArmed. Traced to the same drain as a shelf: under rando each
+ *  - OoT's TWELVE SONG CHECKS (#1542; OoTMM's `songLocations`): every song row is
+ *    RCTYPE_SONG_LOCATION with ACTOR_ID_MAX (ShuffleSongs.cpp), so the actor test
+ *    below would refuse it; the song branch first answers through
+ *    Combo_SongCheckAcceptsForeign, armed since #1542 S3 exactly under the frozen
+ *    Shuffle Songs: Song Locations. Traced to the same drain as a shelf: under rando each
  *    song's vanilla give and cutscene are suppressed (VB_GIVE_ITEM_SONG and the
  *    VB_PLAY_*_CS rows, timesaver_hook_handlers.cpp), and the check's collection
  *    flag is set by its actor or hook (Saria, Sheik in the Forest, the Crater,
@@ -1517,6 +1519,31 @@ void OoT_ComboLogic_AcceptTravelFacts(void* self, uint32_t facts) {
     sOoTTravelAccepted |= facts & RSBS_COMBO_TRAVEL_INTO_OOT;
 }
 
+/**
+ * `hostGroups` (combo_logic.h ABI 9, #1542 S2): OoT has no local groups (its
+ * restricted passes run before the seam, so no confined OoT row reaches the bag
+ * but the songs). Under the shared song pool (OoT_ComboLogic_SongPoolUnion) each
+ * of the twelve song checks answers the combo-wide song group, so either game's
+ * songs may use it and nothing else may (the request's exclusive group). The
+ * song index first: a non-song host answers 0 without reading the settings. A
+ * pure function of the static table and the frozen settings; no RNG.
+ */
+uint32_t OoT_ComboLogic_HostGroups(void* self, uint16_t hostCheck) {
+    (void)self;
+    const RandomizerCheck rc = (RandomizerCheck)hostCheck;
+    if (!OoTComboLogicIsRealCheck(rc) || OoT_SongCheckIndex(rc) < 0) {
+        return 0u;
+    }
+    return OoT_ComboLogic_SongPoolUnion() ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
+}
+
+/** `wideGroups` (combo_logic.h ABI 11): the song group exactly while the shared
+ *  song pool is armed. */
+uint32_t OoT_ComboLogic_WideGroups(void* self) {
+    (void)self;
+    return OoT_ComboLogic_SongPoolUnion() ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
+}
+
 const ComboLogicEngine kOoTComboLogicEngine = {
     /* abiVersion        */ RSBS_COMBO_LOGIC_ENGINE_ABI,
     /* self              */ nullptr,
@@ -1537,9 +1564,10 @@ const ComboLogicEngine kOoTComboLogicEngine = {
     /* hostAcceptsForeign*/ OoT_ComboLogic_HostAcceptsForeign,
     /* withholdHost      */ OoT_ComboLogic_WithholdHost,
     /* allLocations      */ OoT_ComboLogic_AllLocations,
-    /* hostGroups        */ nullptr,
+    /* hostGroups        */ OoT_ComboLogic_HostGroups,
     /* travelFacts       */ OoT_ComboLogic_TravelFacts,
     /* acceptTravelFacts */ OoT_ComboLogic_AcceptTravelFacts,
+    /* wideGroups        */ OoT_ComboLogic_WideGroups,
 };
 
 struct OoTComboLogicRegistrar {
@@ -1625,6 +1653,128 @@ const OoTComboDescriberRegistrar gOoTComboDescriberRegistrar;
 extern "C" uint32_t OoT_Combo_FrozenShuffleSongs(void) {
     const auto ctx = Rando::Context::GetInstance();
     return ctx != nullptr ? (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get() : RSBS_OOT_SONGS_OFF;
+}
+
+extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
+
+/**
+ * THE SHARED SONG POOL (#1542 S3, rulings D1 and D5; combo_song_pool.h): a paired
+ * world whose general pass defers to the single bag (the freeze in
+ * Playthrough_Init has run, so this is known inside Fill() and at the completion
+ * alike), under the frozen Shuffle Songs: Song Locations, with host acceptance
+ * armed. The one predicate every S3 producer reads: fill.cpp's song pass, the
+ * pocket and the restricted passes' song-check reserve; this engine's host and
+ * wide groups, row masks, confinement word and path-hint rule; MM's half through
+ * MM_ComboLogic_SongPoolUnionLive; the single bag's exclusive group. A pure
+ * function of frozen settings and the pairing, never of session history.
+ */
+extern "C" bool OoT_ComboLogic_SongPoolUnion(void) {
+    return Combo_SongPoolUnionRule(OoT_ComboLogic_DeferGeneralPassWanted() != 0, OoT_Combo_FrozenShuffleSongs());
+}
+
+/** SongPoolOverCapacity (d)/(e) (#1542 S4): the RC ids of two OoT song checks the
+ *  row excludes through RSBS_GOLDEN_EXCLUDES (Malon's, then the Windmill's), for
+ *  an MM TU that cannot see OoT's RandomizerCheck. */
+extern "C" void OoT_ComboLogic_TestExcludableSongChecks(uint16_t* first, uint16_t* second) {
+    *first = (uint16_t)RC_SONG_FROM_MALON;
+    *second = (uint16_t)RC_SONG_FROM_WINDMILL;
+}
+
+/** OoT's player-excluded song checks (combo_song_pool.h), for the song pool's
+ *  capacity refusal: FillExcludedLocations put OoT junk on each, so each costs a
+ *  song check and frees no song. */
+extern "C" uint32_t OoT_ComboLogic_ExcludedSongChecks(void) {
+    const auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return 0u;
+    }
+    uint32_t n = 0u;
+    for (int i = 1; i < (int)RC_MAX; ++i) {
+        const RandomizerCheck rc = (RandomizerCheck)i;
+        if (OoT_SongCheckIndex(rc) < 0) {
+            continue;
+        }
+        Rando::ItemLocation* il = ctx->GetItemLocation(rc);
+        n += (il != nullptr && il->IsExcluded()) ? 1u : 0u;
+    }
+    return n;
+}
+
+/**
+ * THE SHARED SONG POOL'S ROW HALF (combo_single_bag.h): every OoT song
+ * (ITEMTYPE_SONG, the separate Song of Soaring (OoT) included) carries the
+ * combo-wide song group while the pool is armed, so the coordinator draws it only
+ * onto a song check of either game; every other row, and every row of any other
+ * world, 0.
+ */
+extern "C" int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* out) {
+    if (items == nullptr || out == nullptr || count <= 0) {
+        return 0;
+    }
+    const bool songUnion = OoT_ComboLogic_SongPoolUnion();
+    int confined = 0;
+    for (int i = 0; i < count; ++i) {
+        uint32_t mask = 0u;
+        if (songUnion && items[i] > (uint16_t)RG_NONE && items[i] < (uint16_t)RG_MAX &&
+            Rando::StaticData::RetrieveItem((RandomizerGet)items[i]).GetItemType() == ITEMTYPE_SONG) {
+            mask = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+        }
+        out[i] = mask;
+        confined += (mask != 0u) ? 1 : 0;
+    }
+    return confined;
+}
+
+/**
+ * THE PATH-HINT SONG RULE, OoT's half (combo_woth.c; OoTMM locations.ts
+ * isLocationFullyShuffled with `songs: klass === 'path'`): under the shared song
+ * pool an OoT song is no Way of the Hero candidate. Outside the pool OoT's songs
+ * never reach the pair's table (its own song pass placed them) and a held-back
+ * shared song is asked as its MM half, as before.
+ */
+extern "C" int OoT_ComboLogic_PathHintSkipsItem(uint16_t id) {
+    if (!OoT_ComboLogic_SongPoolUnion() || id == (uint16_t)RG_NONE || id >= (uint16_t)RG_MAX) {
+        return 0;
+    }
+    return Rando::StaticData::RetrieveItem((RandomizerGet)id).GetItemType() == ITEMTYPE_SONG ? 1 : 0;
+}
+
+extern "C" int OoT_ComboLogic_ClassifyItem(uint16_t id, ComboItemClassRow* out);
+
+/**
+ * THE JUNK SET a leftover song check may take under the shared song pool (#1542;
+ * OoTMM fillJunk draws only its junk pools, solve.ts): a RENEWABLE-class row
+ * (refills, drops, rupees, the two shields, OoT's JUNK-category items), or any
+ * other non-progression, non-trap row OoT itself files as ITEM_CATEGORY_JUNK.
+ * Never a heart piece, a heart container, Double Defense, a map, a compass, a
+ * trap or a progression row.
+ */
+extern "C" int OoT_ComboLogic_SongCheckJunkRow(uint16_t id) {
+    ComboItemClassRow row = { RSBS_FILL_CLASS_NONE, 0u, 0u, 0u, RSBS_CHEST_GRADE_NONE };
+    if (OoT_ComboLogic_ClassifyItem(id, &row) != 1) {
+        return 0;
+    }
+    if (row.fillClass == RSBS_FILL_CLASS_RENEWABLE) {
+        return 1;
+    }
+    return (row.fillClass == RSBS_FILL_CLASS_JUNK &&
+            Rando::StaticData::RetrieveItem((RandomizerGet)id).GetCategory() == ITEM_CATEGORY_JUNK)
+               ? 1
+               : 0;
+}
+
+// fill.cpp (#1542): what the last paired remainder's leftover-song-check step did.
+extern int RsbsLastSongChecksJunked;
+extern int RsbsLastSongChecksPadded;
+
+/** TEST BRIDGE (#1542): how many OoT song checks the last paired remainder junked
+ *  under the shared song pool, and (in @p outPadded, may be NULL) how many took a
+ *  fresh GetJunkItem() because no junk row was left in the pool. */
+extern "C" int OoT_ComboLogic_TestLastSongChecksJunked(int* outPadded) {
+    if (outPadded != nullptr) {
+        *outPadded = RsbsLastSongChecksPadded;
+    }
+    return RsbsLastSongChecksJunked;
 }
 
 // ============================================================================
@@ -2992,6 +3142,14 @@ extern "C" uint32_t OoT_ComboLogic_ConfinementArmed(void) {
     if (OoTComboLogicHoldsBackASong()) {
         armed |= RSBS_FILL_ARM_SONGS_ROAM;
     }
+    // #1542 S3: under the shared song pool every OoT song reaches the bag (fill.cpp
+    // skips OoT's own song pass), and only an ARMED family's rows are REQUIRED
+    // rows the coordinator may cross or pair (Combo_Logic_ComposeDisposition); the
+    // row's wide mask (OoT_ComboLogic_PoolRowConfineMasks), not this word, keeps
+    // it on the song checks of both games.
+    if (OoT_ComboLogic_SongPoolUnion()) {
+        armed |= RSBS_FILL_ARM_SONGS_ROAM;
+    }
     if (ctx->GetOption(RSK_SHUFFLE_TOKENS).IsNot(RO_TOKENSANITY_OFF)) {
         armed |= RSBS_FILL_ARM_TOKENS_ROAM;
     }
@@ -3462,9 +3620,12 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         outCounts[i] = 0;
     }
     int violations = 0;
-    // #1542 S0: the categories below are production's, and [5] rejects the song
-    // checks; a song-host override left set by an earlier row would turn them
-    // into hosts. When S3 arms the union, [5] gains a song category.
+    // #1542: the categories below are production's. A song-host override left set
+    // by an earlier row would move the song checks, so it is a violation. Since
+    // S3 the twelve song checks are their own category (not counted): each must
+    // answer exactly the pure verdict for the frozen Shuffle Songs and Skip Child
+    // Zelda (accepted under Song Locations, Impa only without Skip Child Zelda),
+    // and is left out of [5] and [6], which describe the other host classes.
     if (Combo_SongHostsTestOverride() >= 0) {
         fprintf(stderr,
                 "[OoT/ComboLogic] host-rule sweep: the song-host test override is %d, not cleared; an earlier row "
@@ -3481,6 +3642,21 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         const bool accepted = OoT_ComboLogic_HostAcceptsForeign(nullptr, (uint16_t)c) != 0;
         const RandomizerCheckType type = loc->GetRCType();
         const std::string& name = loc->GetName();
+        if (const int song = OoT_SongCheckIndex(rc); song >= 0) {
+            const auto sweepCtx = Rando::Context::GetInstance();
+            const bool want = sweepCtx != nullptr &&
+                              Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
+                                                            sweepCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0);
+            if (accepted != want) {
+                fprintf(stderr,
+                        "[OoT/ComboLogic] host-rule sweep: song check '%s' (check %d) is %s, the pure verdict for the "
+                        "frozen songs value %u says %s (#1542)\n",
+                        name.c_str(), c, accepted ? "accepted" : "REJECTED", (unsigned)OoT_Combo_FrozenShuffleSongs(),
+                        want ? "accepted" : "rejected");
+                violations++;
+            }
+            continue;
+        }
         const bool shelf = type == RCTYPE_SHOP;
         if (shelf) {
             outCounts[0]++;
@@ -3680,6 +3856,91 @@ extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda)
 /** 1 while a Rando context exists (a ROM-free row checks it leaves none behind). */
 extern "C" int OoT_ComboLogic_TestRandoContextExists(void) {
     return Rando::Context::GetInstance() != nullptr ? 1 : 0;
+}
+
+/** TEST BRIDGE (#1542): 1 when OoT item `id` is a song (ITEMTYPE_SONG, the separate
+ *  Song of Soaring (OoT) included), read off the static item table; 0 otherwise. */
+extern "C" int OoT_ComboLogic_TestIsSongItem(uint16_t id) {
+    if (id == (uint16_t)RG_NONE || id >= (uint16_t)RG_MAX || !OoTComboLogicIsRealItem((RandomizerGet)id)) {
+        return 0;
+    }
+    return Rando::StaticData::RetrieveItem((RandomizerGet)id).GetItemType() == ITEMTYPE_SONG ? 1 : 0;
+}
+
+/** TEST BRIDGE (#1542, SongPoolUnionWorld): what OoT's twelve song checks hold in a
+ *  finished paired world: an OoT song (`outSongs`), a crossing (the crossing store)
+ *  that is an MM song (`outCrossedSongs`), a junk-set item
+ *  (OoT_ComboLogic_SongCheckJunkRow, `outJunk`), or anything else (`outOther`, each
+ *  printed); and whether Link's Pocket holds a song (`outPocketSong`). */
+extern "C" void OoT_ComboLogic_TestSongCheckContents(int* outSongs, int* outCrossedSongs, int* outJunk, int* outOther,
+                                                     int* outPocketSong) {
+    int songs = 0;
+    int crossed = 0;
+    int junk = 0;
+    int other = 0;
+    int pocket = 0;
+    const auto ctx = Rando::Context::GetInstance();
+    for (int i = 1; ctx != nullptr && i < (int)RC_MAX; ++i) {
+        const RandomizerCheck rc = (RandomizerCheck)i;
+        if (OoT_SongCheckIndex(rc) < 0) {
+            continue;
+        }
+        const SharedItem* crossing = Combo_Crossings_Lookup(GAME_OOT, (uint16_t)rc);
+        if (crossing != nullptr) {
+            if (crossing->originGame == (uint8_t)GAME_MM && MM_ComboLogic_IsPairSongItem(crossing->id)) {
+                crossed++;
+            } else {
+                other++;
+                printf("[TEST]   OoT song check %d holds the crossing %u:%u, no MM song\n", i,
+                       (unsigned)crossing->originGame, (unsigned)crossing->id);
+            }
+            continue;
+        }
+        const RandomizerGet placed = ctx->GetItemLocation(rc)->GetPlacedRandomizerGet();
+        if (OoT_ComboLogic_TestIsSongItem((uint16_t)placed) != 0) {
+            songs++;
+        } else if (OoT_ComboLogic_SongCheckJunkRow((uint16_t)placed) != 0) {
+            junk++;
+        } else {
+            other++;
+            printf("[TEST]   OoT song check %d holds item %d, neither a song nor junk\n", i, (int)placed);
+        }
+    }
+    if (ctx != nullptr) {
+        pocket =
+            OoT_ComboLogic_TestIsSongItem((uint16_t)ctx->GetItemLocation(RC_LINKS_POCKET)->GetPlacedRandomizerGet());
+    }
+    *outSongs = songs;
+    *outCrossedSongs = crossed;
+    *outJunk = junk;
+    *outOther = other;
+    *outPocketSong = pocket;
+}
+
+/** TEST BRIDGE (#1542, SongCheckTables (j)): OoT_ComboLogic_PoolRowConfineMasks
+ *  over every real OoT item id: how many are songs (`outSongs`), how many got the
+ *  wide song group (`outWide`), and how many got any other answer than "wide iff a
+ *  song" while `expectUnion`, or anything but 0 otherwise (`outWrong`). */
+extern "C" void OoT_ComboLogic_TestSongRowMasks(int expectUnion, int* outSongs, int* outWide, int* outWrong) {
+    int songs = 0;
+    int wide = 0;
+    int wrong = 0;
+    for (int i = 1; i < (int)RG_MAX; ++i) {
+        const uint16_t id = (uint16_t)i;
+        if (!OoTComboLogicIsRealItem((RandomizerGet)i)) {
+            continue;
+        }
+        uint32_t mask = 0u;
+        (void)OoT_ComboLogic_PoolRowConfineMasks(&id, 1, &mask);
+        const bool song = OoT_ComboLogic_TestIsSongItem(id) != 0;
+        songs += song ? 1 : 0;
+        wide += (mask == RSBS_COMBO_GROUP_SONG_LOCATIONS) ? 1 : 0;
+        const uint32_t want = (expectUnion != 0 && song) ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
+        wrong += (mask != want) ? 1 : 0;
+    }
+    *outSongs = songs;
+    *outWide = wide;
+    *outWrong = wrong;
 }
 
 /** TEST BRIDGE (combo-single-bag leg G, #800): 1 when `hostCheck` is a plain shop

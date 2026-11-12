@@ -2122,6 +2122,151 @@ static void MM_SoaringCheckArrival(int owl) {
     IntegrationTest_SignalBootComplete(GAME_MM, "Song of Soaring crossing to an owl complete");
 }
 
+// ---- #1542 S3: an OoT item on an MM SONG CHECK, delivered live ----------------
+// RSBS_PFC_SONG_HOST=mm (CTest IntSongHostMM). Under the shared song pool the
+// paired world's song checks of both games take either game's songs, so an MM
+// song check can hold an OoT song, delivered through CheckQueue's foreign branch.
+// At live MM frame 10 the drive takes the starting Song of Healing, which OoT's
+// PfcSongHostPin made hold OoT's Zelda's Lullaby for this world (armed at file
+// creation: CheckQueue delivers it on the first frames with no drive at all).
+// Frame 150: the host must be delivered (Rando::Foreign::IsDeliveredForeignHost:
+// the once-per-host record) and obtained. Then
+// the host is armed again, as a later cycle or a re-entry re-arms nine of the
+// eleven; frame 260: CheckQueue must have consumed the re-arm (the S0 guard) and
+// added no record. A textbox nobody will press past is closed after 60 frames.
+// Not covered here: a live three-day reset (MMSongHostGuard drives the real
+// headless one), and each song scene's own cutscene (a playtest item).
+static bool GpSongHostMM(void) {
+    const char* env = std::getenv("RSBS_PFC_SONG_HOST");
+    return env != nullptr && std::strcmp(env, "mm") == 0;
+}
+
+/** The MM ids OoT's PfcSongHostPin pins for the song-host rows (#1542 S4): the
+ *  starting Song of Healing check, and the Sonata of Awakening item. */
+extern "C" void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem) {
+    *healingCheck = (uint16_t)RC_STARTING_ITEM_SONG_OF_HEALING;
+    *sonataItem = (uint16_t)RI_SONG_SONATA;
+}
+
+static void GpSongHostMMFrame(int playFrames) {
+    static RandoCheckId sHost = RC_UNKNOWN;
+    static bool sDeliveredAt10 = false;
+    static int sRecordsBefore = -1;
+    static int sRecordsMid = -1;
+    static int sDeliveredFrame = -1;
+    static int sQuietFrames = 0;
+    static int sRearmFrame = -1;
+    static bool sRearmNoise = false;
+    static bool sRearmChecked = false;
+    // The arrival pays out MM's two free starting checks one after the other, the
+    // Deku Mask's first (its get-item cutscene and textbox run about 110 frames),
+    // so the Song of Healing's crossing lands between frames 150 and 200. The
+    // drive waits for it up to kDeliverDeadline instead of reading it at a fixed
+    // frame. The re-arm leg then waits for kQuietNeeded frames with no get-item
+    // event queued and no textbox (the delivery's own must be over, or its
+    // presentation would be taken for the re-arm's), arms the check again, and
+    // for kRearmWatch frames requires that it stays that quiet: without the
+    // delivered-song-host guard CheckQueue queues a get-item event that names an
+    // item it does not give, and nothing else tells the two apart (the record is
+    // refused by `obtained` either way). The three legs fit the row's
+    // RSBS_GP_FRAMES=600 window.
+    static const int kDeliverDeadline = 320;
+    static const int kQuietNeeded = 20;
+    static const int kQuietDeadline = 150;
+    static const int kRearmWatch = 60;
+    static int sTextboxFrames = 0;
+    PlayState* play = MM_gPlayState;
+    if (play != nullptr && play->msgCtx.msgMode != MSGMODE_NONE) {
+        if (++sTextboxFrames >= 60) {
+            MM_Message_CloseTextbox(play);
+            sTextboxFrames = 0;
+        }
+    } else {
+        sTextboxFrames = 0;
+    }
+    if (playFrames == 10) {
+        // Decision A's MM host, pinned by OoT's PfcSongHostPin: the starting Song of
+        // Healing holds OoT's Zelda's Lullaby on every run, armed at creation.
+        const RandoCheckId healing = RC_STARTING_ITEM_SONG_OF_HEALING;
+        if (Combo_Crossings_Lookup(GAME_MM, (uint16_t)healing) == nullptr) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the pinned starting Song of Healing holds no OoT item (the "
+                                         "shared song pool is not armed, or the pin was dropped: a fixture failure)");
+            return;
+        }
+        sHost = healing;
+        const SharedItem* item = Combo_Crossings_Lookup(GAME_MM, (uint16_t)sHost);
+        const char* name = item != nullptr ? Combo_GetForeignItemName(*item) : nullptr;
+        sRecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
+        sDeliveredAt10 = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        fprintf(stderr,
+                "[SONG-HOST] MM song check %d hosts the OoT item %s; the starting Song of Healing, armed at creation; "
+                "OoT-bound records %d, delivered %d\n",
+                (int)sHost, name != nullptr ? name : "?", sRecordsBefore, sDeliveredAt10 ? 1 : 0);
+        fflush(stderr);
+    }
+    if (sHost == RC_UNKNOWN) {
+        return;
+    }
+    if (sDeliveredFrame < 0 && playFrames > 10 &&
+        (Rando::Foreign::IsDeliveredForeignHost(sHost) || playFrames == kDeliverDeadline)) {
+        const int records = Combo_CountSharedItems(GAME_OOT, true);
+        const bool delivered = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        const bool obtained = RANDO_SAVE_CHECKS[sHost].obtained;
+        fprintf(stderr,
+                "[SONG-HOST] frame %d: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
+                playFrames, (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
+        fflush(stderr);
+        // Delivered before frame 10: no record since; after it: exactly one. Not
+        // delivered by the deadline is the same failure.
+        if (!delivered || !obtained || records != sRecordsBefore + (sDeliveredAt10 ? 0 : 1)) {
+            IntegrationTest_GameplayFail("int-song-host-mm: CheckQueue did not deliver the OoT item on the MM song "
+                                         "check exactly once (see [SONG-HOST])");
+            return;
+        }
+        sDeliveredFrame = playFrames;
+        sRecordsMid = records;
+        return;
+    }
+    const bool quiet = MM_GameEvents_Queue().empty() && (play == nullptr || play->msgCtx.msgMode == MSGMODE_NONE);
+    if (sDeliveredFrame >= 0 && sRearmFrame < 0) {
+        sQuietFrames = quiet ? sQuietFrames + 1 : 0;
+        if (sQuietFrames >= kQuietNeeded) {
+            sRearmFrame = playFrames;
+            RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
+            fprintf(stderr, "[SONG-HOST] frame %d: MM song check %d armed again after %d quiet frame(s)\n", playFrames,
+                    (int)sHost, sQuietFrames);
+            fflush(stderr);
+        } else if (playFrames >= sDeliveredFrame + kQuietDeadline) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the delivery's own presentation never ended, so the re-arm "
+                                         "leg could not start (see [SONG-HOST])");
+        }
+        return;
+    }
+    if (sRearmFrame >= 0 && !sRearmChecked) {
+        sRearmNoise = sRearmNoise || !quiet;
+        if (playFrames >= sRearmFrame + kRearmWatch) {
+            const int records = Combo_CountSharedItems(GAME_OOT, true);
+            const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
+            fprintf(stderr,
+                    "[SONG-HOST] frame %d: after the re-arm MM song check %d is eligible %d, OoT-bound records %d "
+                    "(were %d), a get-item event or textbox followed %d\n",
+                    playFrames, (int)sHost, eligible ? 1 : 0, records, sRecordsMid, sRearmNoise ? 1 : 0);
+            fflush(stderr);
+            sRearmChecked = true;
+            if (eligible || records != sRecordsMid || sRearmNoise) {
+                IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its "
+                                             "OoT item was not consumed silently by CheckQueue's guard: it stayed "
+                                             "armed, recorded the item again, or announced an item it does not give");
+            }
+        }
+    }
+    // The re-arm leg must have finished inside the window: a pass that never
+    // reached it would be vacuous.
+    if (playFrames == kDeliverDeadline + kQuietDeadline + kRearmWatch + 1 && !sRearmChecked) {
+        IntegrationTest_GameplayFail("int-song-host-mm: the re-arm leg never finished (see [SONG-HOST])");
+    }
+}
+
 /**
  * Per-frame MM driver for the gameplay round-trip. Called directly from MM's
  * graph loop (games/mm/src/code/graph.c, single-exe only) once per frame —
@@ -2261,6 +2406,10 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         return;
     }
     sGpMMPlayFrames++;
+    // #1542 S3 (RSBS_PFC_SONG_HOST=mm): an OoT item on an MM song check, live.
+    if (IntegrationTest_PairedFirstCrossing() && GpSongHostMM()) {
+        GpSongHostMMFrame(sGpMMPlayFrames);
+    }
     // #577 M3 playtest drive (opt-in, RSBS_GP_MM_FOREIGN_MODEL=1): once the
     // player stands in South Clock Town and the arrival's own queued gives have
     // played out, mark one MM check that hosts a drawable OoT item eligible, so
@@ -2273,7 +2422,7 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
     // foreign give CheckQueue's pickup and a shop's purchase make, so the return
     // leg's arrival has an item it could announce a second time.
     if (sGpMMPlayFrames == 30 && IntegrationTest_PairedFirstCrossing() &&
-        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr) {
+        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr && !GpSongHostMM()) {
         for (int i = 0; i < Combo_Crossings_Count(GAME_MM); i++) {
             ComboCrossing row;
             if (!Combo_Crossings_At(GAME_MM, i, &row) || row.hostCheck >= RC_MAX ||

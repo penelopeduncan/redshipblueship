@@ -1253,6 +1253,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // and the real three-day reset (mm-song-host-guard). Both ROM-free and
 // generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_song_check_tables.c"
+// #1542 (S3): the shared song-location pool over real paired generations: every
+// song of either game on a song check of either game, leftovers junked, Healing a
+// host, and nothing of it under Anywhere (song-pool-union-world,
+// song-pool-anywhere-unconfined; rando tier). FILE SCOPE (compiled as C++).
+#include "tests/test_song_pool_union.c"
 // #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
 // frozen owl flags (soaring-owl-table), the gates and the chooser
 // (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
@@ -2525,7 +2530,12 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Majora's Mask's Shuffle Songs follows Ocarina of Time's, so in the default world
 // its songs stay on its own song locations, which moves the placements named by the
 // static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x362833B2u;
+// Re-pinned again by the shared song-location pool (#1542 D1, D5; generator 5, was
+// 0x362833B2): under Song Locations the songs of both games share the song checks of
+// both, Ocarina of Time's songs are placed by the single bag, and the song check left
+// over holds junk, which moves the placements named by the static hints; the count
+// stays 17.
+static const uint32_t kStaticHintTextDigest = 0xEF3042B8u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -3827,6 +3837,20 @@ TestResult Test_SeedPackageCVarsFrozen(void) {
     const std::filesystem::path dir = rsbs::test::ScratchDir("rsbs-seed-package-cvars");
     const int rc = MM_SeedPackage_TestCVarsFrozen("RSBSUNIFIED1", dir.string().c_str());
     printf("[TEST] %s: seed package cvars frozen rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SongPoolOverCapacity (#1542 S3): the shared song pool's capacity refusal through
+// Generate's completion; song-pool-creation-agrees' bring-up.
+extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed);
+TestResult Test_SongPoolOverCapacity(void) {
+    printf("[TEST] song-pool-over-capacity: more songs than the song checks they may use are refused before any "
+           "attempt with OoTMM's sentence, and the identity is retracted; 23 songs for 23 creates (#1542)\n");
+    if (!SeedPackageHeadlessBringUp()) {
+        return TEST_FAIL;
+    }
+    const int rc = MM_SeedPackage_TestSongPoolOverCapacity("RSBSSONGPOOLCAP");
+    printf("[TEST] %s: song pool over capacity rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
     return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -8526,6 +8550,31 @@ TestResult Test_SongLocationsOverflowRefused(void) {
     return SongLocationsOverflowRefused_Run();
 }
 
+// #1542 S3: the shared song pool over real paired generations, the overflow row's
+// bring-up.
+TestResult Test_SongPoolUnionWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuWorldArg0[] = "redship";
+    static char* spuWorldArgv[] = { spuWorldArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuWorldArgv);
+    return SongPoolUnionWorld_Run();
+}
+TestResult Test_SongPoolAnywhereUnconfined(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuAnyArg0[] = "redship";
+    static char* spuAnyArgv[] = { spuAnyArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuAnyArgv);
+    return SongPoolAnywhereUnconfined_Run();
+}
+
 // #968: the shared arrows' bag rows over a real generation, shared-lens-bag's
 // bring-up.
 TestResult Test_SharedArrowsBag(void) {
@@ -9339,6 +9388,10 @@ const TestDescriptor gTests[] = {
     { "song-pool-creation-agrees",
       "MM's Shuffle Songs is the freeze's at Generate's and a creation's completion, keys moved since (#1542)",
       Test_SongPoolCreationAgrees },
+    { "song-pool-over-capacity",
+      "More songs than the shared song pool's song checks are refused at Generate's completion before any attempt, "
+      "with OoTMM's sentence and the identity retracted; 23 for 23 creates (#1542)",
+      Test_SongPoolOverCapacity },
     { "seed-package-golden-write", "The player's Generate writes the seed package the package golden loads (#1044)",
       Test_SeedPackageGoldenWrite },
     { "seed-package-golden-create", "A file created from a loaded seed package, digested against the golden (#1044)",
@@ -10401,6 +10454,11 @@ const TestDescriptor gTests[] = {
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
       Test_ComboLogicHostGroups },
+    { "combo-logic-song-pool",
+      "A combo-wide row lands only on the wide hosts of either game, crosses only where the host accepts foreign "
+      "items, an exclusive group keeps every other row off them, and capacity is Hall's condition over both games "
+      "(ABI 11, #1542)",
+      Test_ComboLogicSongPool },
     { "combo-logic-travel-facts",
       "An MM warp-song fact reaches OoT only with OoT's crossing open, OoT's Soaring fact reaches MM only with both "
       "crossings open, chains converge, a vanished fact is non-monotone and silent engines change nothing (ABI 10, "
@@ -10798,9 +10856,18 @@ const TestDescriptor gTests[] = {
       "the test seam, and none with the shared song; its hint names it and its give sets only its flag (#1169)",
       Test_OoTSoaringPooledOnlyWhenRuleOn },
     { "song-locations-overflow-refused",
-      "Thirteen songs on the twelve spots of Song Locations or Dungeon Rewards are refused at Generate with OoTMM's "
-      "\"Not enough locations\" wording; a starting song, a shared song or Anywhere generates (#1169)",
+      "Thirteen songs on the twelve spots of Dungeon Rewards are refused at Generate with OoTMM's \"Not enough "
+      "locations\" wording; under Song Locations they share the 23 song checks of both games and generate (#1542); "
+      "a starting song, a shared song or Anywhere generates (#1169)",
       Test_SongLocationsOverflowRefused },
+    { "song-pool-union-world",
+      "Under Song Locations every song of either game sits on a song check of either game, a leftover song check "
+      "holds junk, the Song of Healing is a host and Link's Pocket holds no song, over real paired worlds (#1542)",
+      Test_SongPoolUnionWorld },
+    { "song-pool-anywhere-unconfined",
+      "Under Shuffle Songs Anywhere nothing of the shared song pool runs, the song-host override included, and at "
+      "Song Locations the switch moves the world (#1542)",
+      Test_SongPoolAnywhereUnconfined },
     // #1169 XW5: Ocarina of Time's warp songs as MM items. The first two need the
     // CVar store (their wrappers bring it up); the third is ROM-free and
     // store-free; the fourth runs real paired creations (rando tier).
@@ -11290,6 +11357,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "seed-package-write") == 0 || strcmp(gTests[i].name, "seed-package-load") == 0 ||
                 strcmp(gTests[i].name, "seed-package-cvars-frozen") == 0 ||
                 strcmp(gTests[i].name, "song-pool-creation-agrees") == 0 ||
+                strcmp(gTests[i].name, "song-pool-over-capacity") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-write") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-create") == 0 ||
                 strcmp(gTests[i].name, "debug-seed-forced-placements") == 0 ||
@@ -11371,6 +11439,9 @@ int TestRunner_Run(const char* testName) {
                 // never-booted leg) would read it.
                 strcmp(gTests[i].name, "oot-soaring-pooled-only-when-rule-on") == 0 ||
                 strcmp(gTests[i].name, "song-locations-overflow-refused") == 0 ||
+                // #1542 S3's two generation rows, for the same reason.
+                strcmp(gTests[i].name, "song-pool-union-world") == 0 ||
+                strcmp(gTests[i].name, "song-pool-anywhere-unconfined") == 0 ||
                 // #1169 XW5's generation row: like every row above, a real
                 // generation leaves its world alive for the rest of the process.
                 strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||

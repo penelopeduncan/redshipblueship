@@ -101,6 +101,11 @@ int MM_Rando_Hints_DigestCandidates(uint32_t* outDigest);
 int MM_Rando_Hints_DigestFreeStones(uint32_t* outDigest); // #1047, EnGs.cpp
 // R6: OoT's critical renewables over its generated world (ComboLogicEngineOoT.cpp).
 int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint32_t* outRenewed, int* outRenewingShelves);
+// #1542 S4: two OoT song checks SongPoolOverCapacity (d)/(e) excludes (ComboLogicEngineOoT.cpp).
+void OoT_ComboLogic_TestExcludableSongChecks(uint16_t* first, uint16_t* second);
+// #1542 S4: which song check an id is, per game (ComboLogicEngineOoT.cpp, Rando/Foreign.cpp); -1 for none.
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 }
 
 #include "gen_budget.h"          // src/common — the creation's round budget (#950)
@@ -109,6 +114,8 @@ int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint32_t* outRe
 #include "combo_area.h"          // src/common — MM's foolish areas the content digest folds (#949)
 #include "critical_renewables.h" // src/common — OoTMM's critical-renewables rule (R6)
 #include "combo_song_pool.h"     // src/common — the pair's one songs setting (#1542)
+#include "combo_settings_view.h" // src/common — the Cross-Game Rules keys the song-pool capacity row sets (#1542)
+#include "warp_song_items.h"     // src/common — the song-pool refusal's sentence and record (#1542)
 
 namespace {
 
@@ -4040,6 +4047,56 @@ void SpgFreshSession() {
     Context_ClearFrozenState(GAME_MM);
 }
 
+/** #1542 S4: the shared song pool as a completed world left it: armed, the single
+ *  bag's exclusive group, the crossing store's rows folded in order (FNV-1a over
+ *  host game, host, item game, item), and the crossings on a song check of each
+ *  host game. */
+struct SpgSongWorld {
+    bool unionArmed = false;
+    uint32_t exclusive = 0u;
+    uint32_t crossingsDigest = 0u;
+    int crossings = 0;
+    int songHostedOoT = 0; // MM items on OoT song checks
+    int songHostedMM = 0;  // OoT items on MM song checks
+};
+
+SpgSongWorld SpgSongWorldNow() {
+    SpgSongWorld w;
+    w.unionArmed = OoT_ComboLogic_SongPoolUnion();
+    w.exclusive = Combo_SingleBag_LastReport()->exclusiveGroups;
+    uint32_t h = 2166136261u;
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (const GameId g : games) {
+        for (int i = 0; i < Combo_Crossings_Count(g); ++i) {
+            ComboCrossing row;
+            if (!Combo_Crossings_At(g, i, &row)) {
+                continue;
+            }
+            const uint32_t parts[4] = { (uint32_t)g, (uint32_t)row.hostCheck, (uint32_t)row.item.originGame,
+                                        (uint32_t)row.item.id };
+            for (const uint32_t v : parts) {
+                h = (h ^ v) * 16777619u;
+            }
+            w.crossings++;
+            if (g == GAME_OOT && OoT_ComboLogic_TestSongCheckIndex(row.hostCheck) >= 0) {
+                w.songHostedOoT++;
+            } else if (g == GAME_MM && MM_Rando_Foreign_TestSongCheckIndex(row.hostCheck) >= 0) {
+                w.songHostedMM++;
+            }
+        }
+    }
+    w.crossingsDigest = h;
+    return w;
+}
+
+void SpgPrintSongWorld(const char* leg, const SpgSongWorld& w) {
+    fprintf(stderr,
+            "[SONG-POOL] %s: union %d, exclusive group 0x%08X, %d crossing(s) digest %08X, MM items on OoT song "
+            "checks %d, OoT items on MM song checks %d\n",
+            leg, w.unionArmed ? 1 : 0, (unsigned)w.exclusive, w.crossings, (unsigned)w.crossingsDigest,
+            w.songHostedOoT, w.songHostedMM);
+}
+
 /** A generated half's frozen Shuffle Songs, read from its bytes; -1 when absent. */
 int SpgHalfSongs(const uint8_t* half, size_t size) {
     if (half == nullptr || size < sizeof(SaveContext)) {
@@ -4132,6 +4189,19 @@ extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const 
         SpgClearSongsKeys();
         return 6;
     }
+    // #1542 S4: the shared song pool armed from the frozen value (the keys say
+    // Anywhere and Vanilla now), its exclusive group set, and songs crossing onto
+    // the song checks of both games (a fact of this pinned seed: 23 song checks,
+    // about six crossings expected each way).
+    const SpgSongWorld generateWorld = SpgSongWorldNow();
+    SpgPrintSongWorld("(a)", generateWorld);
+    if (!generateWorld.unionArmed || generateWorld.exclusive != RSBS_COMBO_GROUP_SONG_LOCATIONS ||
+        generateWorld.crossings == 0 || generateWorld.songHostedOoT == 0 || generateWorld.songHostedMM == 0) {
+        fprintf(stderr, "[SONG-POOL] FAIL(17): Generate's completion did not make the shared song pool's world from "
+                        "the frozen Song Locations (union, exclusive group, or a song crossing each way)\n");
+        SpgClearSongsKeys();
+        return 17;
+    }
 
     // ---- (b) Generate, move the keys, create a file -------------------------
     SpgClearSongsKeys();
@@ -4186,6 +4256,17 @@ extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const 
     if (SpkWriteWorldReport(reportCreate.c_str(), sSpgArmedHalf, sizeof(SaveContext), false, std::string()) != 0) {
         return 13;
     }
+    // #1542 S4: one world: the creation's union, exclusive group and crossings are
+    // Generate's, row for row.
+    const SpgSongWorld createWorld = SpgSongWorldNow();
+    SpgPrintSongWorld("(b)", createWorld);
+    if (createWorld.unionArmed != generateWorld.unionArmed || createWorld.exclusive != generateWorld.exclusive ||
+        createWorld.crossings != generateWorld.crossings ||
+        createWorld.crossingsDigest != generateWorld.crossingsDigest) {
+        fprintf(stderr, "[SONG-POOL] FAIL(18): the file creation's shared song pool or crossings differ from "
+                        "Generate's completion's: the two completions did not make one world\n");
+        return 18;
+    }
     const std::vector<std::string> a = SpkLines(SpkReadText(reportGenerate));
     const std::vector<std::string> b = SpkLines(SpkReadText(reportCreate));
     const int moved = SpkCompareLines(a, b, "generate", "create");
@@ -4219,6 +4300,192 @@ extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const 
             "[SONG-POOL] PASS: %zu fields of one world from both completions, MM's Shuffle Songs the freeze's with "
             "both keys moved, and the lock refuses a key read after the freeze\n",
             a.size());
+    return 0;
+}
+
+namespace {
+
+/** #1542: the keys one over-capacity leg sets; cleared by SpoClearKeys. */
+const ComboSettingId kSpoWarpSongKeys[6] = { COMBO_SETTING_SONG_MINUET_MM,   COMBO_SETTING_SONG_BOLERO_MM,
+                                             COMBO_SETTING_SONG_SERENADE_MM, COMBO_SETTING_SONG_REQUIEM_MM,
+                                             COMBO_SETTING_SONG_NOCTURNE_MM, COMBO_SETTING_SONG_PRELUDE_MM };
+
+void SpoClearKeys() {
+    for (const ComboSettingId key : kSpoWarpSongKeys) {
+        CVarClear(Combo_ComboSettingKey(key));
+    }
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
+    Combo_ComboItemRules2RevealForTest(0);
+    Combo_SongSpotsRecordRefusal(nullptr);
+    SpgClearSongsKeys();
+}
+
+/** #1542 S4: OoT's player excludes for one leg, through the golden-profile vehicle
+ *  Rando_HeadlessSeedTest reads (RSBS_GOLDEN_EXCLUDES, 3drando/menu.cpp
+ *  ReadGoldenProfileSets): the first @p count (0..2) of two OoT song checks. 0
+ *  removes the variable and the key it wrote. */
+void SpoSetOoTSongExcludes(int count) {
+    uint16_t first = 0;
+    uint16_t second = 0;
+    OoT_ComboLogic_TestExcludableSongChecks(&first, &second);
+    std::string value;
+    if (count >= 1) {
+        value = std::to_string((unsigned)first);
+    }
+    if (count >= 2) {
+        value += "," + std::to_string((unsigned)second);
+    }
+#ifdef _WIN32
+    _putenv_s("RSBS_GOLDEN_EXCLUDES", value.c_str()); // "" removes it on Windows
+#else
+    if (value.empty()) {
+        unsetenv("RSBS_GOLDEN_EXCLUDES");
+    } else {
+        setenv("RSBS_GOLDEN_EXCLUDES", value.c_str(), 1);
+    }
+#endif
+    if (value.empty()) {
+        CVarClear("gRandoSettings.ExcludedLocations");
+        CVarClear("gRandoSettings.EnabledTricks");
+    }
+}
+
+/**
+ * One leg: generate @p seed with the warp-song rules @p xw5 (MM's six OoT warp
+ * songs) and @p xw4 (the Song of Soaring (OoT)), and the Crossing Direction OFF when
+ * @p directionOff, through the hidden-rule test seam; then Generate's completion.
+ * @p wantText NULL: the world must create. Otherwise the completion must refuse
+ * with the shared song pool's capacity refusal before any attempt, the refusal must
+ * contain @p wantText after OoTMM's sentence, and the identity and the songs
+ * capture must be gone.
+ * @return 0, or a nonzero step code.
+ */
+int SpoLeg(const char* name, const char* seed, bool xw5, bool xw4, bool directionOff, const char* wantText,
+           int ootSongExcludes = 0) {
+    Combo_SingleBag_Forget();
+    SpgFreshSession();
+    SpoClearKeys();
+    SpoSetOoTSongExcludes(ootSongExcludes);
+    if (xw5) {
+        for (const ComboSettingId key : kSpoWarpSongKeys) {
+            CVarSetInteger(Combo_ComboSettingKey(key), 1);
+        }
+    }
+    if (xw4) {
+        CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
+    }
+    if (directionOff) {
+        CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION), (int32_t)RSBS_COMBO_DIR_OFF);
+    }
+    Combo_ComboItemRules2RevealForTest((xw4 || xw5) ? 1 : 0);
+    const int generated = K11PairedOoTGenerate(seed);
+    SpoSetOoTSongExcludes(0); // read by the generation alone; the world keeps them
+    if (generated != 0) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(1): %s: OoT's generation failed (under the shared song pool its own song "
+                        "pass refuses nothing)\n",
+                name);
+        SpoClearKeys();
+        return 1;
+    }
+    const bool unionArmed = OoT_ComboLogic_SongPoolUnion();
+    const uint32_t excludedSongs = OoT_ComboLogic_ExcludedSongChecks();
+    if (excludedSongs != (uint32_t)ootSongExcludes) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(7): %s: %u OoT song check(s) excluded, the leg asked for %d\n", name,
+                (unsigned)excludedSongs, ootSongExcludes);
+        SpoClearKeys();
+        SpgFreshSession();
+        return 7;
+    }
+    OoT_Creation_TestClearPairedSpoiler();
+    OoT_Creation_TestStageGeneration();
+    const int completed = OoT_SeedPackage_TestCompleteWorld();
+    const ComboSingleBagReport report = *Combo_SingleBag_LastReport();
+    const std::string refusal = Combo_SongSpotsLastRefusal();
+    const bool retracted = !Combo_ForeignPairingActive() && !Combo_ComboSettingsFrozen();
+    const bool captureHeld = Combo_PairSongsCaptured(nullptr);
+    fprintf(stderr,
+            "[SONG-POOL-CAP] %s: union %d, completion %d (%s), bag %s after %d attempt(s), short group 0x%08X; "
+            "refusal '%s'; identity retracted %d, capture held %d\n",
+            name, unionArmed ? 1 : 0, completed, SeedPackage_StatusName(completed),
+            Combo_Logic_StatusName(report.status), report.fill.attempts, (unsigned)report.shortGroupMask,
+            refusal.c_str(), retracted ? 1 : 0, captureHeld ? 1 : 0);
+    SpoClearKeys();
+    if (!unionArmed) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(2): %s: the shared song pool was not armed\n", name);
+        SpgFreshSession();
+        return 2;
+    }
+    if (wantText == nullptr) {
+        const int ok = completed == RSBS_SEEDPKG_OK ? 0 : 3;
+        if (ok != 0) {
+            fprintf(stderr, "[SONG-POOL-CAP] FAIL(3): %s: the control world did not create\n", name);
+        }
+        Combo_SingleBag_Forget();
+        SpgFreshSession();
+        return ok;
+    }
+    SpgFreshSession();
+    if (completed != RSBS_SEEDPKG_ERR_GENERATION || report.status != RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY ||
+        report.fill.attempts != 0 || !Combo_SingleBag_SongCapacityShort(&report)) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(4): %s: the completion was not refused by the song pool's capacity "
+                        "check before any attempt\n",
+                name);
+        return 4;
+    }
+    if (refusal.rfind(RSBS_SONG_SPOTS_REFUSAL, 0) != 0 || refusal.find(wantText) == std::string::npos) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(5): %s: the refusal does not begin with OoTMM's sentence or does not "
+                        "say '%s'\n",
+                name, wantText);
+        return 5;
+    }
+    if (!retracted || captureHeld) {
+        fprintf(stderr, "[SONG-POOL-CAP] FAIL(6): %s: the refused completion left the identity or the capture "
+                        "behind\n",
+                name);
+        return 6;
+    }
+    return 0;
+}
+
+} // namespace
+
+/**
+ * SongPoolOverCapacity (--test song-pool-over-capacity; #1542 S3): the shared song
+ * pool refuses more songs than the song checks they may use before placing
+ * anything, as OoTMM does (solve.ts placeSemiShuffled: "Not enough locations for
+ * songs/dungeon rewards"), through Generate's completion (OoT_PairedGen_CompleteWorld),
+ * so the retraction and the cleared capture are the production ones.
+ *   (a) MM's six OoT warp songs (XW5): 12 + 16 = 28 songs for the 23 song checks of
+ *       both games: refused naming both games.
+ *   (b) The Song of Soaring (OoT) (XW4) with the Crossing Direction OFF: 13 OoT
+ *       songs kept in OoT for its 12 song checks: refused naming OoT.
+ *   (c) Control: XW4 alone, 13 + 10 = 23 songs for 23 song checks: created.
+ * No leg excludes an OoT song check: SoH keeps song checks out of its exclude list
+ * under Song Locations (randomizer_check_objects.cpp), so the profile parse drops
+ * such a key and Generate refuses the profile ("the menu's parse kept 0"), as the
+ * first local run of two such legs showed. No shipped setting reaches that state,
+ * and SpoLeg's exclude count stays 0.
+ * The warp-song rules are hidden until XW12; the legs read them through
+ * Combo_ComboItemRules2RevealForTest, production never does.
+ * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
+ */
+extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
+    int rc = SpoLeg("(a) XW5", seed, true, false, false, "28 songs for the 23 song checks of both games");
+    if (rc != 0) {
+        return 10 + rc;
+    }
+    rc = SpoLeg("(b) XW4 + Crossing Direction Off", seed, false, true, true,
+                "13 Ocarina of Time songs for the 12 song checks they may use");
+    if (rc != 0) {
+        return 20 + rc;
+    }
+    rc = SpoLeg("(c) XW4 control", seed, false, true, false, nullptr);
+    if (rc != 0) {
+        return 30 + rc;
+    }
+    fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 songs for 23 and 13 home-only OoT songs for 12 are refused before any "
+                    "attempt with OoTMM's sentence, and 23 for 23 creates\n");
     return 0;
 }
 

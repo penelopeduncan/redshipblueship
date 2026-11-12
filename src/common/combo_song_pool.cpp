@@ -4,9 +4,11 @@
  */
 
 #include "combo_song_pool.h"
+#include "warp_song_items.h" // RSBS_SONG_SPOTS_REFUSAL, OoTMM's wording
 
 #include <atomic>
 #include <cstddef>
+#include <cstdio>
 
 namespace {
 
@@ -113,14 +115,54 @@ extern "C" const RsbsSongCheckInfo* Combo_SongCheckInfo(int songCheck) {
 }
 
 extern "C" bool Combo_SongHostsArmed(uint32_t frozenOoTSongs) {
-    // S0: dormant. S3 replaces the fall-through with the read of the frozen
-    // value that arms the union (combo_song_pool.h, design decision 7).
-    (void)frozenOoTSongs;
+    // #1542 S3: armed exactly under Song Locations, the shared song pool's one
+    // value (design decision 7: never Dungeon Rewards, Anywhere or Off). The test
+    // override, when one is set, wins.
     const int8_t forced = sSongHostsOverride.load(std::memory_order_relaxed);
     if (forced >= 0) {
         return forced != 0;
     }
-    return false;
+    return frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS;
+}
+
+extern "C" bool Combo_SongPoolUnionRule(bool pairedFrozen, uint32_t frozenOoTSongs) {
+    // The override may switch host acceptance on in any mode (ComboSingleBag leg
+    // E4 does under Anywhere), but it never arms the union outside Song
+    // Locations: the songs value is its own term (#1542 S3 amendment, section C).
+    return pairedFrozen && frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS && Combo_SongHostsArmed(frozenOoTSongs);
+}
+
+extern "C" uint32_t Combo_SongPoolCapacityRefusal(uint8_t side, uint32_t rows, uint32_t hosts, uint32_t rowsOoT,
+                                                  uint32_t rowsMM, uint32_t excludedSongChecks, char* msg, size_t len) {
+    if (msg == nullptr || len == 0u) {
+        return 0u;
+    }
+    const char* excluded = excludedSongChecks > 0u ? ", or include an excluded song check" : "";
+    int n = 0;
+    if (side == RSBS_SONG_POOL_SHORT_OOT) {
+        n = std::snprintf(msg, len,
+                          "%s: %u Ocarina of Time songs for the %u song checks they may use (Crossing Direction "
+                          "keeps them in Ocarina of Time). Start with an Ocarina of Time song, change the Crossing "
+                          "Direction%s, or shuffle songs Anywhere",
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsOoT, (unsigned)hosts, excluded);
+    } else if (side == RSBS_SONG_POOL_SHORT_MM) {
+        n = std::snprintf(msg, len,
+                          "%s: %u Majora's Mask songs for the %u song checks they may use (Crossing Direction "
+                          "keeps them in Majora's Mask). Start with a Majora's Mask song, change the Crossing "
+                          "Direction%s, or shuffle songs Anywhere",
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsMM, (unsigned)hosts, excluded);
+    } else if (side == RSBS_SONG_POOL_SHORT_SOME) {
+        n = std::snprintf(msg, len,
+                          "%s: %u songs for the %u song checks that can hold them (Shuffle Songs: Song Locations). "
+                          "Share a song or start with a song%s, or shuffle songs Anywhere",
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rows, (unsigned)hosts, excluded);
+    } else {
+        n = std::snprintf(msg, len,
+                          "%s: %u songs for the %u song checks of both games (Shuffle Songs: Song Locations). Share "
+                          "a song or start with a song%s, or shuffle songs Anywhere",
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rows, (unsigned)hosts, excluded);
+    }
+    return n < 0 ? 0u : (uint32_t)n;
 }
 
 extern "C" void Combo_SongHostsForceForTest(int value) {

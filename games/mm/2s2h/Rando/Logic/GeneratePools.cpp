@@ -16,6 +16,7 @@ extern "C" {
 #include "combo_single_bag.h" // #1502: the shared pairs a vanilla song check is released for
 #include "foreign_items.h"    // #1502: Combo_ForeignPairingActive
 #include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' frozen rules
+#include "combo_song_pool.h"   // #1542: the shared song pool's MM half
 // RedShipBlueShip (#645 increment 3, lane K9): where RO_PLENTIFUL_ITEMS' copies
 // sit in the last `itemPool` this function returned — [from, to), both 0 when
 // plentiful added none — and that pool's final size, so a consumer can tell it is
@@ -62,6 +63,15 @@ static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
         }
     }
     return false;
+}
+
+// RedShipBlueShip #1542: the shared song pool for THIS save's options (the one
+// MM_ComboLogic_SongPoolUnionLive reads at the paired creation, where `saveInfo` is
+// the live save OnFileCreate passes): OoT's union and MM's own songs value at
+// Song Locations.
+static bool RsbsSongPoolUnion(const RandoSaveInfo& saveInfo) {
+    return OoT_ComboLogic_SongPoolUnion() &&
+           saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS;
 }
 
 // RedShipBlueShip #1499: one copy of each Tingle map in the pool, and none of a
@@ -406,6 +416,14 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 IsSongLocationItem(itemPool[i])) {
                 continue;
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1542: under the shared song pool OoTMM adds no song copy (transform.ts
+            // gives songs a Plentiful copy only under `anywhere`), the XW5 warp
+            // songs included.
+            if (RsbsSongPoolUnion(saveInfo) && MM_ComboLogic_IsPairSongItem((uint16_t)itemPool[i])) {
+                continue;
+            }
+#endif
 
             switch (Rando::StaticData::Items[itemPool[i]].randoItemType) {
                 case RITYPE_BOSS_KEY:
@@ -448,7 +466,18 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         }
     }
 
-    if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1542 (rulings D1, D5): under the shared song pool the song checks' surplus
+    // is a fact of BOTH games' song checks, so no MM song check is junked or
+    // skipped here and no random number is drawn: OoTMM keeps 'MM Initial Song of
+    // Healing' among its song locations (world/builder.ts loadChecks) and junks
+    // only the song locations still empty after the songs are placed (solve.ts
+    // fillJunk), which MM's own pass does after the single bag.
+    const bool rsbsSongUnion = RsbsSongPoolUnion(saveInfo);
+#else
+    const bool rsbsSongUnion = false;
+#endif
+    if (!rsbsSongUnion && saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS) {
         size_t songItems = std::count_if(itemPool.begin(), itemPool.end(), IsSongLocationItem);
 
         std::vector<RandoCheckId> songChecks;

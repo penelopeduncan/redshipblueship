@@ -1,8 +1,9 @@
 /**
  * @file test_song_check_tables.c
- * @brief THE SONG CHECKS AS CROSS-GAME HOSTS (#1542 S0): combo_song_pool.h's
- *        verdict table and its one switch, both engines' song-host answers, and
- *        today's host tables with the switch off.
+ * @brief THE SONG CHECKS AS CROSS-GAME HOSTS (#1542 S0, armed by S3):
+ *        combo_song_pool.h's verdict table, its two switches (host acceptance and
+ *        the shared song pool), both engines' song-host answers and groups, and
+ *        the host tables with the switch off.
  *
  * ============================================================================
  * song-check-tables (CTest SongCheckTables, redship tier, ROM-free, generates
@@ -18,22 +19,31 @@
  *      RandoCheckId names spelled here, indexed 12..22; every other row -1.
  *  (c) Combo_SongCheckAcceptsForeign against LITERAL expectations over the 23
  *      checks x OoT's four Shuffle Songs values x Skip Child Zelda x the override:
- *      cleared and 0 refuse everywhere (red if S0's production answer is
- *      anything but "dormant"); 1 accepts every check but Impa, which it accepts
- *      only with Skip Child Zelda off (red on a wrong rule, or on the Impa rule
- *      lost). Out-of-range indices refuse.
+ *      cleared arms exactly Song Locations (red if S3's production body arms any
+ *      other value, or none), 0 refuses everywhere, 1 everywhere; armed, every
+ *      check but Impa accepts, Impa only with Skip Child Zelda off (red on a wrong
+ *      rule, or on the Impa rule lost). Out-of-range indices refuse. The shared
+ *      song pool's rule (Combo_SongPoolUnionRule) against its literal truth
+ *      table: true only paired-and-frozen at Song Locations with the override
+ *      cleared or 1, never with 0, never outside Song Locations (red if the
+ *      override arms the union under Anywhere: ComboSingleBag leg E4's world).
+ *      Combo_SongPoolCapacityRefusal's four wordings against literals.
  *  (c2) The verdict table's game, rule and give path, row by row, against a
  *      literal list (red on any table edit that this row does not also make).
- *  (d) The two engines under the override, with a Rando context whose frozen
- *      options are set (OoT_ComboLogic_TestHoldSongContext): OoT's REAL predicate
- *      answers (c)'s literal for the frozen Skip Child Zelda; MM's REAL host class
- *      accepts all eleven and agrees with the pure answer for the frozen value;
- *      OoT_Combo_FrozenShuffleSongs reads the context's option; and a creation
- *      capture of each value, then none, leaves every MM answer unchanged. In S0
- *      the switch ignores the songs value, so this loop catches only an explicit
- *      capture-gated return; an indirect read of the capture or of MM's own songs
- *      option is caught by (h)'s ban on Combo_PairSongs*, ResolvedPairedSongs and
- *      RO_SHUFFLE_SONGS inside the host class, not here.
+ *  (d) The two engines with the override 1 and cleared, a Rando context whose
+ *      frozen options are set (OoT_ComboLogic_TestHoldSongContext) and the pair
+ *      active (gComboCtx.sourceIsRando and a settings hash): OoT's REAL predicate
+ *      answers (c)'s literal for the frozen values; MM's REAL host class answers
+ *      the pure answer for OoT's frozen value, so at override -1 both engines are
+ *      armed exactly at Song Locations (red if either engine's arming disagrees
+ *      with the pure switch); OoT_Combo_FrozenShuffleSongs reads the context's
+ *      option; and a creation capture of each value, then none, leaves every MM
+ *      answer unchanged (red on a capture-gated return; now that the switch reads
+ *      the songs value, a capture read in place of the frozen value moves an
+ *      answer at override -1 too).
+ *  (d-ctl) With the pair NOT active, songs Song Locations and the override 1,
+ *      MM's host class refuses all eleven: the lock on MM's pairing term (red if
+ *      the unpaired spoiler-load gate could admit a song check).
  *  (e) For every NON-song row of both games the answer is the same with the
  *      override on as with it cleared (red on a song branch keyed on a type or a
  *      flag instead of the check id: the Tier B trap).
@@ -44,8 +54,10 @@
  *      by EN_DNS), its four merchants, and EN_BOX chests that are no shop,
  *      scrub, merchant, chest-game row or shop-scene row, in the chest-game room
  *      only its reward; MM's Tingle maps, cycle chests (RCTYPE_CHEST with
- *      FLAG_CYCL_SCENE_CHEST) and shops. All 23 song checks refuse. Red on any
- *      host-acceptance change with the switch off.
+ *      FLAG_CYCL_SCENE_CHEST) and shops. All 23 song checks refuse. Run with the
+ *      override cleared under a held context at Anywhere (production, the switch
+ *      unarmed), and with the override 0 under a held context at Song Locations.
+ *      Red on any host-acceptance change with the switch off.
  *  (h) Source anchors, each searched INSIDE the function it names: the OoT
  *      predicate asks the song index and the pure answer with OoT's frozen two
  *      options before its actor test; MM's host class asks them first, reads OoT's
@@ -56,15 +68,32 @@
  *      CVar; MM's spoiler-load path is reachable only unpaired; StartingItemGive
  *      has no crossing branch (why Impa refuses under Skip Child Zelda); the two
  *      CheckQueue drives refuse a song check.
+ *  (j) THE SHARED SONG POOL'S GROUPS, with a held context at Song Locations, the
+ *      pair active and the combo settings frozen (gComboCtx), and MM's Shuffle
+ *      Songs at Song Locations: the union is on in both engines; OoT's REAL
+ *      `hostGroups` answers the wide song group on exactly the twelve OoT song
+ *      checks and 0 elsewhere; MM's answers it on exactly its eleven and no other
+ *      check carries a wide bit; both declare it (`wideGroups`); OoT's row masks
+ *      give it to exactly the songs, MM's to exactly OoTMM's song set, and no
+ *      mask mixes namespaces. At Dungeon Rewards nothing is wide and OoT's masks
+ *      are 0. Red on any producer that bypasses the union, or on the union
+ *      armed outside Song Locations.
+ *  (k) The union on but MM's own Shuffle Songs at Anywhere: MM declares no wide
+ *      group, and a fill request carrying the wide group is refused BAD_REQUEST
+ *      by the real coordinator before any attempt (red if a half-armed pair could
+ *      reach the fill).
  *  (i) After the scope guard: the override is cleared, the capture is what it was
- *      on entry, and no Rando context is left that was not there on entry.
+ *      on entry, the pairing fields and MM's songs value are restored, and no Rando
+ *      context is left that was not there on entry.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the
  * Sct prefix because every included test file shares one translation unit.
  */
 
+#include "../combo_logic.h"
 #include "../combo_song_pool.h"
+#include "../context.h"
 #include "../test_runner.h"
 #include "test_named_items.h"
 
@@ -97,6 +126,12 @@ int MM_Rando_Foreign_TestIsSongRow(uint16_t randoCheckId);
 const char* MM_Rando_Foreign_TestCheckRowName(uint16_t randoCheckId);
 // games/mm/2s2h/mm_song_host_guard_test.cpp.
 int MM_SongHostGuard_Run(uint8_t ootOrigin, uint16_t ootItemId);
+// #1542 S3 bridges (ComboLogicEngineOoT.cpp, ComboLogicEngineSingleExe.cpp).
+int OoT_ComboLogic_TestEnsureItemTableTransient(void);
+void OoT_ComboLogic_TestSongRowMasks(int expectUnion, int* outSongs, int* outWide, int* outWrong);
+int MM_ComboLogic_TestSetShuffleSongs(int value);
+void MM_ComboLogic_TestSongGroupCensus(int* outSongItems, int* outWideItems, int* outMixed, int* outWideSongChecks,
+                                       int* outWideOtherChecks);
 }
 
 namespace {
@@ -151,14 +186,41 @@ bool SctWantArmed(int songCheck, bool skipChildZelda) {
  *  return early; this row's do not, but its legs still nest). */
 struct SctHookGuard {
     int16_t capture;
-    SctHookGuard() : capture(Combo_PairSongsSnapshot()) {
+    bool sourceIsRando;
+    uint32_t settingsHash;
+    uint8_t formatVersion;
+    int mmSongs;
+    SctHookGuard()
+        : capture(Combo_PairSongsSnapshot()), sourceIsRando(gComboCtx.sourceIsRando),
+          settingsHash(gComboCtx.sharedRandoSettingsHash), formatVersion(gComboCtx.comboSettings.formatVersion),
+          mmSongs(MM_ComboLogic_TestSetShuffleSongs(0)) {
+        (void)MM_ComboLogic_TestSetShuffleSongs(mmSongs);
     }
     ~SctHookGuard() {
         Combo_SongHostsForceForTest(-1);
         Combo_PairSongsRestore(capture);
         OoT_ComboLogic_TestReleaseSongContext();
+        gComboCtx.sourceIsRando = sourceIsRando;
+        gComboCtx.sharedRandoSettingsHash = settingsHash;
+        gComboCtx.comboSettings.formatVersion = formatVersion;
+        (void)MM_ComboLogic_TestSetShuffleSongs(mmSongs);
     }
 };
+
+/** The pair active (Combo_ForeignPairingActive), as test_foreign_items.c sets it,
+ *  and optionally the combo settings frozen (Combo_ComboSettingsFrozen reads the
+ *  record's format version), so OoT_ComboLogic_DeferGeneralPassWanted holds. The
+ *  guard puts all three back. */
+void SctSetPairing(bool active, bool frozen) {
+    gComboCtx.sourceIsRando = active;
+    gComboCtx.sharedRandoSettingsHash = active ? 0x5EED5A5Du : 0u;
+    gComboCtx.comboSettings.formatVersion = frozen ? (uint8_t)1u : (uint8_t)0u;
+}
+
+/** (c)'s literal for the switch: the override, else Song Locations. */
+bool SctSwitchWant(int forced, uint32_t songs) {
+    return forced >= 0 ? forced == 1 : songs == RSBS_OOT_SONGS_SONG_LOCATIONS;
+}
 
 std::string SctReadSource(const char* rel) {
 #ifdef RSBS_SOURCE_DIR
@@ -341,12 +403,19 @@ void SctCheckPureAnswer() {
         SCT_CHECK(Combo_SongHostsTestOverride() == forced, "(c) the override reads %d after setting %d\n",
                   Combo_SongHostsTestOverride(), forced);
         for (uint32_t songs = 0; songs < 4; songs++) {
-            SCT_CHECK(Combo_SongHostsArmed(songs) == (forced == 1),
+            SCT_CHECK(Combo_SongHostsArmed(songs) == SctSwitchWant(forced, songs),
                       "(c) the switch reads %d for OoT Shuffle Songs %u with the override %d\n",
                       Combo_SongHostsArmed(songs) ? 1 : 0, (unsigned)songs, forced);
+            // The shared song pool's literal truth table (S3 amendment, section C).
+            const bool unionWant = songs == RSBS_OOT_SONGS_SONG_LOCATIONS && forced != 0;
+            SCT_CHECK(Combo_SongPoolUnionRule(true, songs) == unionWant && !Combo_SongPoolUnionRule(false, songs),
+                      "(c) the shared song pool reads %d paired / %d unpaired for OoT Shuffle Songs %u with the "
+                      "override %d, want %d / 0\n",
+                      Combo_SongPoolUnionRule(true, songs) ? 1 : 0, Combo_SongPoolUnionRule(false, songs) ? 1 : 0,
+                      (unsigned)songs, forced, unionWant ? 1 : 0);
             for (int skip = 0; skip < 2; skip++) {
                 for (int i = 0; i < RSBS_SONG_CHECK_COUNT; i++) {
-                    const bool want = forced == 1 && SctWantArmed(i, skip != 0);
+                    const bool want = SctSwitchWant(forced, songs) && SctWantArmed(i, skip != 0);
                     const bool got = Combo_SongCheckAcceptsForeign(i, songs, skip != 0);
                     SCT_CHECK(
                         got == want,
@@ -388,11 +457,51 @@ void SctCheckPureAnswer() {
     }
     SCT_CHECK(Combo_SongCheckInfo(-1) == NULL && Combo_SongCheckInfo(RSBS_SONG_CHECK_COUNT) == NULL,
               "(c2) an index outside 0..22 has a table row\n");
+
+    // The capacity refusal's four wordings (S3; OoTMM's sentence first).
+    struct Wording {
+        uint8_t side;
+        uint32_t excluded;
+        const char* want;
+    };
+    static const Wording kWordings[] = {
+        { RSBS_SONG_POOL_SHORT_BOTH, 0u,
+          "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
+          "Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_BOTH, 2u,
+          "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
+          "Songs: Song Locations). Share a song or start with a song, or include an excluded song check, or shuffle "
+          "songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_OOT, 0u,
+          "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they may "
+          "use (Crossing Direction keeps them in Ocarina of Time). Start with an Ocarina of Time song, change the "
+          "Crossing Direction, or shuffle songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_MM, 0u,
+          "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they may use "
+          "(Crossing Direction keeps them in Majora's Mask). Start with a Majora's Mask song, change the Crossing "
+          "Direction, or shuffle songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_SOME, 0u,
+          "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks that can hold them "
+          "(Shuffle Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },
+    };
+    for (const Wording& w : kWordings) {
+        char msg[512];
+        std::memset(msg, 'x', sizeof(msg));
+        (void)Combo_SongPoolCapacityRefusal(w.side, 28u, 23u, 13u, 16u, w.excluded, msg, sizeof(msg));
+        SCT_CHECK(std::strcmp(msg, w.want) == 0, "(c) the song pool refusal for side %u (excluded %u) reads '%s'\n",
+                  (unsigned)w.side, (unsigned)w.excluded, msg);
+    }
+    char tiny[8];
+    std::memset(tiny, 'x', sizeof(tiny));
+    (void)Combo_SongPoolCapacityRefusal(RSBS_SONG_POOL_SHORT_BOTH, 28u, 23u, 13u, 16u, 0u, tiny, sizeof(tiny));
+    SCT_CHECK(tiny[sizeof(tiny) - 1] == '\0', "(c) a short buffer is not NUL-terminated\n");
 }
 
 // ---- (d) -------------------------------------------------------------------------
-void SctCheckEnginesArmed() {
-    Combo_SongHostsForceForTest(1);
+void SctCheckEnginesArmed(int forced) {
+    Combo_SongHostsForceForTest(forced);
+    // MM's song tier answers only while the pair is active (#1542 S3).
+    SctSetPairing(true, false);
     for (int songs = 0; songs < 4; songs++) {
         for (int skip = 0; skip < 2; skip++) {
             SCT_CHECK(OoT_ComboLogic_TestHoldSongContext(songs, skip) == 0, "(d) no Rando context could be held\n");
@@ -403,20 +512,21 @@ void SctCheckEnginesArmed() {
                 if (sSctHost[i] == 0) {
                     continue; // (a) reported it
                 }
-                const int want = SctWantArmed(i, skip != 0) ? 1 : 0;
+                const int want = (SctSwitchWant(forced, (uint32_t)songs) && SctWantArmed(i, skip != 0)) ? 1 : 0;
                 const int got = OoT_ComboLogic_TestHostAcceptsForeign(sSctHost[i]);
-                SCT_CHECK(got == want, "(d) OoT's predicate on '%s' (songs %d, skip %d, armed): %d, want %d\n",
-                          kSctOoTSongNames[i], songs, skip, got, want);
+                SCT_CHECK(got == want, "(d) OoT's predicate on '%s' (songs %d, skip %d, override %d): %d, want %d\n",
+                          kSctOoTSongNames[i], songs, skip, forced, got, want);
             }
             for (int i = RSBS_SONG_CHECK_FIRST_MM; i < RSBS_SONG_CHECK_COUNT; i++) {
                 if (sSctHost[i] == 0) {
                     continue; // (b) reported it
                 }
                 const int pure = Combo_SongCheckAcceptsForeign(i, OoT_Combo_FrozenShuffleSongs(), false) ? 1 : 0;
+                const int want = SctSwitchWant(forced, (uint32_t)songs) ? 1 : 0;
                 const int got = MM_Rando_Foreign_TestIsForeignHostClass(sSctHost[i]);
-                SCT_CHECK(got == 1 && got == pure,
-                          "(d) MM's host class on %s (songs %d, armed): %d (pure %d), want 1\n",
-                          kSctMMSongNames[i - RSBS_SONG_CHECK_FIRST_MM], songs, got, pure);
+                SCT_CHECK(got == want && got == pure,
+                          "(d) MM's host class on %s (songs %d, override %d): %d (pure %d), want %d\n",
+                          kSctMMSongNames[i - RSBS_SONG_CHECK_FIRST_MM], songs, forced, got, pure, want);
                 for (uint32_t captured = 0; captured < 4; captured++) {
                     Combo_PairSongsCapture(captured);
                     const int withCapture = MM_Rando_Foreign_TestIsForeignHostClass(sSctHost[i]);
@@ -433,6 +543,136 @@ void SctCheckEnginesArmed() {
         }
     }
     Combo_SongHostsForceForTest(-1);
+    SctSetPairing(false, false);
+}
+
+// ---- (d-ctl) ---------------------------------------------------------------------
+void SctCheckMMNeedsPairing() {
+    Combo_SongHostsForceForTest(1);
+    SctSetPairing(false, false);
+    SCT_CHECK(OoT_ComboLogic_TestHoldSongContext((int)RSBS_OOT_SONGS_SONG_LOCATIONS, 0) == 0,
+              "(d-ctl) no Rando context could be held\n");
+    int admitted = 0;
+    for (int i = RSBS_SONG_CHECK_FIRST_MM; i < RSBS_SONG_CHECK_COUNT; i++) {
+        if (sSctHost[i] != 0) {
+            admitted += MM_Rando_Foreign_TestIsForeignHostClass(sSctHost[i]);
+        }
+    }
+    SCT_CHECK(admitted == 0,
+              "(d-ctl) with no pair active MM's host class admitted %d song checks: the unpaired "
+              "spoiler-load gate could take a crossing\n",
+              admitted);
+    OoT_ComboLogic_TestReleaseSongContext();
+    Combo_SongHostsForceForTest(-1);
+}
+
+// ---- (j), (k) --------------------------------------------------------------------
+void SctCheckPoolGroups() {
+    SCT_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "(j) OoT's item table is not available\n");
+    const ComboLogicEngine* oot = Combo_Logic_GetEngine(GAME_OOT);
+    const ComboLogicEngine* mm = Combo_Logic_GetEngine(GAME_MM);
+    SCT_CHECK(oot != NULL && mm != NULL && oot->hostGroups != NULL && mm->hostGroups != NULL &&
+                  oot->wideGroups != NULL && mm->wideGroups != NULL,
+              "(j) an engine is missing, or lacks hostGroups or wideGroups\n");
+    if (oot == NULL || mm == NULL || oot->hostGroups == NULL || mm->hostGroups == NULL || oot->wideGroups == NULL ||
+        mm->wideGroups == NULL) {
+        return;
+    }
+    const uint32_t kWide = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+    const int rcMax = OoT_ComboLogic_TestCheckIdSpace();
+    for (int songs = 0; songs < 4; songs++) {
+        Combo_SongHostsForceForTest(-1);
+        SctSetPairing(true, true);
+        (void)MM_ComboLogic_TestSetShuffleSongs((int)Combo_PairSongsMmValue((uint32_t)songs));
+        SCT_CHECK(OoT_ComboLogic_TestHoldSongContext(songs, 0) == 0, "(j) no Rando context could be held\n");
+        const bool on = songs == (int)RSBS_OOT_SONGS_SONG_LOCATIONS;
+        SCT_CHECK(OoT_ComboLogic_SongPoolUnion() == on && MM_ComboLogic_SongPoolUnionLive() == on,
+                  "(j) songs %d: the union reads OoT %d / MM %d, want %d\n", songs,
+                  OoT_ComboLogic_SongPoolUnion() ? 1 : 0, MM_ComboLogic_SongPoolUnionLive() ? 1 : 0, on ? 1 : 0);
+        SCT_CHECK(oot->wideGroups(oot->self) == (on ? kWide : 0u) && mm->wideGroups(mm->self) == (on ? kWide : 0u),
+                  "(j) songs %d: the engines declare 0x%08X / 0x%08X\n", songs, (unsigned)oot->wideGroups(oot->self),
+                  (unsigned)mm->wideGroups(mm->self));
+        int ootWideSong = 0;
+        int ootWideOther = 0;
+        for (int rc = 1; rc < rcMax; rc++) {
+            const uint32_t g = oot->hostGroups(oot->self, (uint16_t)rc);
+            if (OoT_ComboLogic_TestSongCheckIndex((uint16_t)rc) >= 0) {
+                ootWideSong += (g == kWide) ? 1 : 0;
+            } else {
+                ootWideOther += (g != 0u) ? 1 : 0;
+            }
+        }
+        SCT_CHECK(ootWideSong == (on ? RSBS_SONG_CHECK_OOT_COUNT : 0) && ootWideOther == 0,
+                  "(j) songs %d: OoT's hostGroups answers the song group on %d song checks and a group on %d other "
+                  "checks\n",
+                  songs, ootWideSong, ootWideOther);
+        int ootSongs = 0;
+        int ootWide = 0;
+        int ootWrong = 0;
+        OoT_ComboLogic_TestSongRowMasks(on ? 1 : 0, &ootSongs, &ootWide, &ootWrong);
+        SCT_CHECK(ootSongs >= RSBS_SONG_CHECK_OOT_COUNT && ootWrong == 0 && ootWide == (on ? ootSongs : 0),
+                  "(j) songs %d: OoT's row masks: %d songs, %d wide, %d wrong\n", songs, ootSongs, ootWide, ootWrong);
+        int mmSongItems = 0;
+        int mmWideItems = 0;
+        int mmMixed = 0;
+        int mmWideSong = 0;
+        int mmWideOther = 0;
+        MM_ComboLogic_TestSongGroupCensus(&mmSongItems, &mmWideItems, &mmMixed, &mmWideSong, &mmWideOther);
+        SCT_CHECK(mmSongItems >= 16 && mmMixed == 0 && mmWideOther == 0 && mmWideItems == (on ? mmSongItems : 0) &&
+                      mmWideSong == (on ? RSBS_SONG_CHECK_MM_COUNT : 0),
+                  "(j) songs %d: MM: %d song items, %d wide, %d mixed; %d song checks wide, %d other checks wide\n",
+                  songs, mmSongItems, mmWideItems, mmMixed, mmWideSong, mmWideOther);
+        // The override 0 disarms the union at Song Locations.
+        if (on) {
+            Combo_SongHostsForceForTest(0);
+            SCT_CHECK(!OoT_ComboLogic_SongPoolUnion() && oot->wideGroups(oot->self) == 0u &&
+                          mm->wideGroups(mm->self) == 0u,
+                      "(j) the override 0 left the union armed at Song Locations\n");
+            Combo_SongHostsForceForTest(1);
+            SCT_CHECK(OoT_ComboLogic_SongPoolUnion(), "(j) the override 1 disarmed the union at Song Locations\n");
+            Combo_SongHostsForceForTest(-1);
+            // Not paired-and-frozen: no union, whatever the songs value.
+            SctSetPairing(true, false);
+            SCT_CHECK(!OoT_ComboLogic_SongPoolUnion(), "(j) the union armed with the combo settings not frozen\n");
+            SctSetPairing(true, true);
+        } else {
+            Combo_SongHostsForceForTest(1);
+            SCT_CHECK(!OoT_ComboLogic_SongPoolUnion() && oot->wideGroups(oot->self) == 0u,
+                      "(j) songs %d: the override 1 armed the union outside Song Locations\n", songs);
+            Combo_SongHostsForceForTest(-1);
+        }
+        OoT_ComboLogic_TestReleaseSongContext();
+    }
+
+    // (k) the union on, MM's own songs at Anywhere: a half-armed pair.
+    SctSetPairing(true, true);
+    SCT_CHECK(OoT_ComboLogic_TestHoldSongContext((int)RSBS_OOT_SONGS_SONG_LOCATIONS, 0) == 0,
+              "(k) no Rando context could be held\n");
+    (void)MM_ComboLogic_TestSetShuffleSongs((int)RSBS_MM_SONGS_ANYWHERE);
+    SCT_CHECK(OoT_ComboLogic_SongPoolUnion() && !MM_ComboLogic_SongPoolUnionLive() && mm->wideGroups(mm->self) == 0u &&
+                  oot->wideGroups(oot->self) == kWide,
+              "(k) with MM at Anywhere MM still declares the song group, or OoT does not\n");
+    ComboLogicBagItem row;
+    std::memset(&row, 0, sizeof(row));
+    row.item.originGame = (uint8_t)GAME_OOT;
+    row.item.id = 1u;
+    row.itemClass = (uint16_t)RSBS_ITEMCLASS_PROGRESSION;
+    const uint32_t mask = kWide;
+    ComboLogicFillRequest req;
+    std::memset(&req, 0, sizeof(req));
+    req.bag = &row;
+    req.bagCount = 1;
+    req.goal = (uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH;
+    req.logicRung = (uint8_t)RSBS_COMBO_RUNG_NONE;
+    req.confineMasks = &mask;
+    req.exclusiveGroups = kWide;
+    ComboLogicFillResult res;
+    const int rc = Combo_Logic_RunFill(&req, &res);
+    SCT_CHECK(rc == RSBS_COMBO_LOGIC_ERR_BAD_REQUEST && res.attempts == 0,
+              "(k) a half-armed pair's wide request returned %s after %d attempt(s), want BAD_REQUEST before any\n",
+              Combo_Logic_StatusName(rc), res.attempts);
+    OoT_ComboLogic_TestReleaseSongContext();
+    SctSetPairing(false, false);
 }
 
 // ---- (e), (f) ---------------------------------------------------------------------
@@ -468,6 +708,11 @@ int SctMMBaseAnswer(int isChest, int hasChestFlag, int isShop, int isTingle) {
 
 void SctCheckBaseTables(int forced) {
     Combo_SongHostsForceForTest(forced);
+    // The switch off two ways (#1542 S3): production (override cleared) under a
+    // world at Anywhere, and the override 0 under a world at Song Locations.
+    SCT_CHECK(OoT_ComboLogic_TestHoldSongContext(
+                  forced < 0 ? (int)RSBS_OOT_SONGS_ANYWHERE : (int)RSBS_OOT_SONGS_SONG_LOCATIONS, 0) == 0,
+              "(f) no Rando context could be held\n");
     int ootAccepted = 0;
     int ootMerchants = 0;
     int ootMismatch = 0;
@@ -534,6 +779,7 @@ void SctCheckBaseTables(int forced) {
            "rule\n",
            forced, ootAccepted, mmAccepted, ootMismatch, mmMismatch);
     Combo_SongHostsForceForTest(-1);
+    OoT_ComboLogic_TestReleaseSongContext();
 }
 
 void SctCheckNonSongUnmoved() {
@@ -599,9 +845,11 @@ void SctCheckAnchors() {
     const std::string mmClass = SctFunctionBody(
         mm, "static bool IsAllowedHostClass(const Rando::StaticData::RandoStaticCheck& randoStaticCheck)");
     SCT_CHECK(SctInOrder(mmClass, { "MM_SongCheckIndex(randoStaticCheck.randoCheckId)", "if (song >= 0)",
+                                    "return Combo_ForeignPairingActive() &&",
                                     "Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(), false)",
                                     "RCTYPE_TINGLE_SHOP" }),
-              "(h) MM's host class does not answer the song checks first from OoT's frozen Shuffle Songs\n");
+              "(h) MM's host class does not answer the song checks first from OoT's frozen Shuffle Songs, behind the "
+              "pairing\n");
     SCT_CHECK(!mmClass.empty() && mmClass.find("Combo_PairSongs") == std::string::npos &&
                   mmClass.find("ResolvedPairedSongs") == std::string::npos &&
                   mmClass.find("RO_SHUFFLE_SONGS") == std::string::npos,
@@ -626,9 +874,75 @@ void SctCheckAnchors() {
 
     const std::string pool = SctReadSource("src/common/combo_song_pool.cpp");
     const std::string armed = SctFunctionBody(pool, "bool Combo_SongHostsArmed(uint32_t frozenOoTSongs)");
-    SCT_CHECK(SctInOrder(armed, { "sSongHostsOverride.load", "return false;" }) &&
-                  armed.find("RSBS_OOT_SONGS_SONG_LOCATIONS") == std::string::npos,
-              "(h) the switch's production body is not 'false' (S0 arms nothing)\n");
+    SCT_CHECK(SctInOrder(armed, { "sSongHostsOverride.load", "return forced != 0;",
+                                  "return frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS;" }),
+              "(h) the switch's production body is not 'the override, else Song Locations' (#1542 S3)\n");
+    const std::string unionRule = SctFunctionBody(pool, "bool Combo_SongPoolUnionRule(bool pairedFrozen, uint32_t "
+                                                        "frozenOoTSongs)");
+    SCT_CHECK(SctInOrder(unionRule, { "pairedFrozen && frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS && "
+                                      "Combo_SongHostsArmed(frozenOoTSongs)" }),
+              "(h) the shared song pool's rule is not 'paired, Song Locations, and acceptance armed'\n");
+    const std::string ootUnion = SctFunctionBody(oot, "bool OoT_ComboLogic_SongPoolUnion(void)");
+    SCT_CHECK(SctInOrder(ootUnion, { "Combo_SongPoolUnionRule(OoT_ComboLogic_DeferGeneralPassWanted() != 0, "
+                                     "OoT_Combo_FrozenShuffleSongs())" }) &&
+                  ootUnion.find("Captured") == std::string::npos,
+              "(h) OoT_ComboLogic_SongPoolUnion does not read the deferral and the frozen songs value alone\n");
+    const std::string mmEngine = SctReadSource("games/mm/2s2h/Rando/ComboLogicEngineSingleExe.cpp");
+    const std::string mmUnion = SctFunctionBody(mmEngine, "bool MM_ComboLogic_SongPoolUnionLive(void)");
+    SCT_CHECK(SctInOrder(mmUnion, { "OoT_ComboLogic_SongPoolUnion()",
+                                    "RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS" }),
+              "(h) MM's half of the union is not 'OoT's union and MM's own songs at Song Locations'\n");
+    // MM's leftover song checks take junk before the critical-renewables plan, so
+    // under All Locations the junk step must pass over a pending first copy (OoTMM
+    // solve.ts moves those out of the junk pool before fillJunk); column-0 close,
+    // because the body's strings hold braces.
+    SCT_CHECK(SctInOrder(SctTopLevelBody(mmEngine, "int ladderAttempt)"),
+                         { "if (MM_ComboLogic_SongPoolUnionLive()) {",
+                           "const bool critArmed = Combo_CriticalRenewablesArmed(report.rung);",
+                           "Combo_CriticalRenewablesRenewedNow(songRenewed);", "if (!MmIsSongCheck(host)) {",
+                           "if (critArmed && rest[r] != RI_JUNK && Combo_CriticalRenewablePending(row, songRenewed)) {",
+                           "Combo_ItemClassOf(row) == RSBS_FILL_CLASS_RENEWABLE",
+                           "Combo_CriticalRenewablesPlanFirstCopies(" }),
+              "(h) MM's song-check junk step can take a pending critical renewable's first copy before the plan\n");
+    const std::string fill = SctReadSource("games/oot/soh/Enhancements/randomizer/3drando/fill.cpp");
+    const std::string fillFn = SctFunctionBody(fill, "int Fill()");
+    SCT_CHECK(
+        SctInOrder(fillFn, { "const bool rsbsSongUnion = OoT_ComboLogic_SongPoolUnion();",
+                             "if (!rsbsSongUnion && ctx->GetOption(RSK_SHUFFLE_SONGS).IsNot(RO_SONG_SHUFFLE_ANYWHERE)",
+                             "RandomizeDungeonItems();", "RandomizeLinksPocket();",
+                             "OoT_ComboLogic_DeferGeneralPassWanted()" }),
+        "(h) Fill() does not skip OoT's own song pass under the shared song pool before the seam\n");
+    SCT_CHECK(SctInOrder(SctFunctionBody(fill, "static void RandomizeLinksPocket()"),
+                         { "RO_LINKS_POCKET_ADVANCEMENT", "RsbsSongHeldForBag(i)", "RandomElement(advancementItems" }),
+              "(h) Link's Pocket does not set the bag's songs aside before it draws\n");
+    SCT_CHECK(SctInOrder(SctFunctionBody(fill, "static void RandomizeDungeonItems()"),
+                         { "RsbsDropReservedSongChecks(anyDungeonLocations);",
+                           "RsbsDropReservedSongChecks(rsbsOverworldLocations);",
+                           "AssumedFill(anyDungeonItems, anyDungeonLocations, true);",
+                           "AssumedFill(overworldItems, RSBS_OVERWORLD_LOCATIONS, true);" }),
+              "(h) the restricted dungeon-item passes do not leave the song checks to the bag\n");
+    SCT_CHECK(SctInOrder(SctFunctionBody(fill, "int RsbsFinishPairedGeneralPass(std::vector<RandomizerGet>& "
+                                               "remainingPool)"),
+                         { "if (OoT_ComboLogic_SongPoolUnion())", "OoT_ComboLogic_SongCheckJunkRow(",
+                           "PlaceItemInLocation(rc, junk);", "FastFill(traps, GetAllEmptyLocations(), true);" }),
+              "(h) OoT's remainder does not junk the leftover song checks before it deals traps and the rest\n");
+    const std::string bag = SctReadSource("src/common/combo_single_bag.c");
+    SCT_CHECK(SctInOrder(bag, { "OoT_ComboLogic_PoolRowConfineMasks(sOoTItems, ootTotal, sOoTConfine);",
+                                "freq.exclusiveGroups = OoT_ComboLogic_SongPoolUnion() ? "
+                                "RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;",
+                                "Combo_Logic_RunFill(&freq" }),
+              "(h) the single bag does not mask OoT's songs and set the exclusive song group before the fill\n");
+    const std::string pools = SctReadSource("games/mm/2s2h/Rando/Logic/GeneratePools.cpp");
+    SCT_CHECK(SctInOrder(SctFunctionBody(pools, "void GeneratePools(RandoSaveInfo& saveInfo, "
+                                                "std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& "
+                                                "itemPool)"),
+                         { "RsbsSongPoolUnion(saveInfo) && MM_ComboLogic_IsPairSongItem(",
+                           "const bool rsbsSongUnion = RsbsSongPoolUnion(saveInfo);",
+                           "if (!rsbsSongUnion && saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == "
+                           "RO_SONG_SHUFFLE_SONG_LOCATIONS)",
+                           "randoSaveCheck.skipped = true;" }),
+              "(h) GeneratePools still junks and skips a song check (or adds a Plentiful song) under the shared song "
+              "pool\n");
     SCT_CHECK(!pool.empty() && pool.find("CVarGet") == std::string::npos && pool.find("CVarSet") == std::string::npos,
               "(h) combo_song_pool.cpp reads or writes a CVar\n");
 
@@ -665,13 +979,17 @@ void SctCheckAnchors() {
 } // namespace
 
 TestResult SongCheckTables_Run(void) {
-    printf("[TEST] song-check-tables: both games' song checks are cross-game hosts only behind one dormant "
-           "switch, Impa refuses under Skip Child Zelda, and with the switch off every host answer is the base "
-           "commit's (#1542 S0)\n");
+    printf("[TEST] song-check-tables: both games' song checks are cross-game hosts exactly under Song Locations in "
+           "a paired world, the shared song pool's groups and masks follow one predicate in both engines, Impa "
+           "refuses under Skip Child Zelda, and with the switch off every host answer is the base commit's (#1542 "
+           "S0, S3)\n");
     sSctFailures = 0;
     std::memset(sSctHost, 0, sizeof(sSctHost));
     const int contextBefore = OoT_ComboLogic_TestRandoContextExists();
     const int16_t captureBefore = Combo_PairSongsSnapshot();
+    const bool sourceBefore = gComboCtx.sourceIsRando;
+    const uint32_t hashBefore = gComboCtx.sharedRandoSettingsHash;
+    const uint8_t formatBefore = gComboCtx.comboSettings.formatVersion;
     SCT_CHECK(Combo_SongHostsTestOverride() == -1, "the override is %d on entry, not cleared\n",
               Combo_SongHostsTestOverride());
     if (OoT_ComboLogic_TestEnsureLocationTable() != 0) {
@@ -683,10 +1001,13 @@ TestResult SongCheckTables_Run(void) {
         SctCheckOoTSongRows();
         SctCheckMMSongRows();
         SctCheckPureAnswer();
-        SctCheckEnginesArmed();
+        SctCheckEnginesArmed(1);
+        SctCheckEnginesArmed(-1);
+        SctCheckMMNeedsPairing();
         SctCheckNonSongUnmoved();
         SctCheckBaseTables(-1);
         SctCheckBaseTables(0);
+        SctCheckPoolGroups();
         SctCheckAnchors();
     }
     // (i) the guard restored both hooks and dropped the context it held.
@@ -696,6 +1017,9 @@ TestResult SongCheckTables_Run(void) {
               (int)Combo_PairSongsSnapshot(), (int)captureBefore);
     SCT_CHECK(contextBefore != 0 || OoT_ComboLogic_TestRandoContextExists() == 0,
               "(i) the row left a Rando context behind that was not there before it\n");
+    SCT_CHECK(gComboCtx.sourceIsRando == sourceBefore && gComboCtx.sharedRandoSettingsHash == hashBefore &&
+                  gComboCtx.comboSettings.formatVersion == formatBefore,
+              "(i) the row left the pairing fields moved\n");
     if (sSctFailures != 0) {
         printf("[TEST] FAIL: song-check-tables (%d failure(s))\n", sSctFailures);
         return TEST_FAIL;

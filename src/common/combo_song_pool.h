@@ -48,6 +48,7 @@
  */
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -119,15 +120,24 @@ uint32_t Combo_PairSongsOoTValue(uint32_t ootKeyValue);
  * progress. The creation capture (Combo_PairSongsCaptured) is NOT a
  * host-acceptance input.
  *
- * DORMANT IN S0. Combo_SongHostsArmed answers false in production, so every song
- * check answers what it answered before #1542: refused in both games (OoT's
- * actor test, MM's tier allowlist). S3 replaces its body with
- * `frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS` (design decision 7: the
- * union only). S3 PRECONDITION: before arming, verify that the OoT context's
- * RSK_SHUFFLE_SONGS equals the loaded paired file's frozen value at every reader
- * of the host class (the coordinator inside Playthrough_Init, the post-generation
- * sweeps, MM's spoiler-load gate Spoiler/Apply.cpp, the MM test rows), and that
- * the settings pane cannot write the context option between a load and a reader.
+ * ARMED IN S3 exactly under Song Locations (design decision 7: the union only;
+ * never Dungeon Rewards, Anywhere or Off). Host acceptance is read only while a
+ * world is generated: by the coordinator inside the creation's completion and by
+ * MM's paired GeneratePools. Runtime delivery never asks the host class (OoT's
+ * RC-queue drain and MM's CheckQueue read the placement), and OoT's context
+ * options are written only by SetAllToContext at Generate, so the S0
+ * precondition (the context's RSK_SHUFFLE_SONGS is the frozen value at every
+ * reader) holds for every production reader. MM's unpaired spoiler-load gate
+ * (Spoiler/Apply.cpp) is the one reader outside a paired generation; MM's song
+ * tier also requires Combo_ForeignPairingActive(), so it keeps refusing there.
+ *
+ * TWO SWITCHES (S3 amendment, section C). Combo_SongHostsArmed is HOST
+ * ACCEPTANCE: may a song check carry the other game's item. The SHARED SONG POOL
+ * itself, the union every S3 producer reads (OoT's fill, both engines' host and
+ * row groups, MM's GeneratePools, the single bag), is
+ * OoT_ComboLogic_SongPoolUnion(): a paired frozen world under Song Locations with
+ * host acceptance armed. The test override can arm acceptance in any mode but
+ * never the union outside Song Locations.
  * ============================================================================ */
 
 /** The 23 song checks, OoT's 12 then MM's 11, in OoTMM's order. */
@@ -204,10 +214,61 @@ typedef struct RsbsSongCheckInfo {
 /** The verdict table row for @p songCheck, or NULL outside 0..22. */
 const RsbsSongCheckInfo* Combo_SongCheckInfo(int songCheck);
 
-/** THE ONE SWITCH. False in production in S0 (see the block comment); the test
- *  override, when one is set, wins. @p frozenOoTSongs is OoT's frozen Shuffle
- *  Songs, which S3's body reads. Pure apart from the override. */
+/** HOST ACCEPTANCE. True exactly when @p frozenOoTSongs (OoT's frozen Shuffle
+ *  Songs) is Song Locations; the test override, when one is set, wins. Pure
+ *  apart from the override. */
 bool Combo_SongHostsArmed(uint32_t frozenOoTSongs);
+
+/** THE SHARED SONG POOL's rule (#1542 S3, rulings D1 and D5): @p pairedFrozen (a
+ *  paired world whose combo settings are frozen: OoT's general pass defers to the
+ *  single bag) AND @p frozenOoTSongs is Song Locations AND host acceptance is
+ *  armed. So the override 1 never arms it outside Song Locations, and the
+ *  override 0 disarms it there. Pure apart from the override. */
+bool Combo_SongPoolUnionRule(bool pairedFrozen, uint32_t frozenOoTSongs);
+
+/** The union as both engines read it: Combo_SongPoolUnionRule over
+ *  OoT_ComboLogic_DeferGeneralPassWanted() and OoT_Combo_FrozenShuffleSongs().
+ *  DEFINED IN OoT (ComboLogicEngineOoT.cpp). Every S3 producer reads this and
+ *  nothing else, so one creation answers one way in every reader. */
+bool OoT_ComboLogic_SongPoolUnion(void);
+
+/** MM's half of the union (#1542 S3 amendment, section D): the union AND MM's own
+ *  frozen Shuffle Songs (RANDO_SAVE_OPTIONS) at Song Locations. MM's host groups,
+ *  its declared wide groups, its row masks, GeneratePools' surplus step, its
+ *  Plentiful guard and its path-hint rule read this and nothing else, so an MM
+ *  half whose songs value is not Song Locations declares no wide group and the
+ *  coordinator refuses the pair (BAD_REQUEST). DEFINED IN MM
+ *  (ComboLogicEngineSingleExe.cpp). */
+bool MM_ComboLogic_SongPoolUnionLive(void);
+
+/** Is MM item @p id one of OoTMM's songs for the shared pool: the vanilla item of
+ *  an MM song check (2Ship's IsSongLocationItem) or one of the six OoT warp songs
+ *  #1169 XW5 can add to MM (OoTMM ItemGroups.SONGS)? DEFINED IN MM. */
+bool MM_ComboLogic_IsPairSongItem(uint16_t id);
+
+/** MM's song checks the player excluded (left vanilla by GeneratePools). DEFINED
+ *  IN MM. */
+uint32_t MM_ComboLogic_ExcludedSongChecks(void);
+
+/** OoT's song checks the player excluded (FillExcludedLocations puts OoT junk on
+ *  each, so each costs the pool one check and no song). DEFINED IN OoT. 0 with
+ *  no context. */
+uint32_t OoT_ComboLogic_ExcludedSongChecks(void);
+
+/** Which side a song-pool capacity refusal names (Combo_SongPoolCapacityRefusal). */
+#define RSBS_SONG_POOL_SHORT_BOTH 0u /* every song against every song check of both games */
+#define RSBS_SONG_POOL_SHORT_OOT 1u  /* OoT's songs, kept in OoT by the Crossing Direction */
+#define RSBS_SONG_POOL_SHORT_MM 2u   /* MM's songs, kept in MM by the Crossing Direction */
+#define RSBS_SONG_POOL_SHORT_SOME 3u /* a set of songs against the song checks that can hold them */
+
+/** THE SONG POOL'S CAPACITY REFUSAL, OoTMM's sentence (RSBS_SONG_SPOTS_REFUSAL,
+ *  solve.ts placeSemiShuffled) followed by the counts and the ways out, for the
+ *  short side @p side (RSBS_SONG_POOL_SHORT_*): @p rows songs (@p rowsOoT of
+ *  OoT, @p rowsMM of MM) for @p hosts song checks. @p excludedSongChecks > 0 adds
+ *  "include an excluded song check" to the advice. Writes at most @p len bytes,
+ *  NUL-terminated; returns the length snprintf reports. Pure. */
+uint32_t Combo_SongPoolCapacityRefusal(uint8_t side, uint32_t rows, uint32_t hosts, uint32_t rowsOoT, uint32_t rowsMM,
+                                       uint32_t excludedSongChecks, char* msg, size_t len);
 
 /** TEST SEAM: -1 clears the override, 0 forces the switch off, 1 forces it on.
  *  RAM only, never a CVar (a stored CVar would persist into later processes).

@@ -2935,3 +2935,38 @@ silent engines give byte-identical rounds and fills), `OoTWarpTravelEdges`,
 `ComboWarpTravelRounds` (over both real engines on a real paired world: the rule
 bits alone change no field of a round, and with the rules off an assumed song is
 neither credited nor read).
+
+### 2026-11-12 -- Combo-wide song group: ABI 11 (#1542)
+
+Operator rulings 2026-11-10 (D1, D5): under Shuffle Songs: Song Locations the song
+checks of both games form ONE pool, as OoTMM's `songLocations`: a song of either
+game may sit on a song check of either game, a shared song is one row confined to
+the song checks, and over-capacity refuses before anything is placed with OoTMM's
+"Not enough locations for songs/dungeon rewards". The vtable gains one OPTIONAL
+trailing entry, `wideGroups`, and the request a trailing `exclusiveGroups`; the ABI
+moves to 11 so an ABI-10 engine, which never answered the wide range, is refused at
+registration rather than stranding every wide row (combo_logic.h, history entry 11;
+docs/combo-logic-coordinator.md section 4.6).
+
+- **One predicate.** `OoT_ComboLogic_SongPoolUnion()`: a paired, frozen world, OoT's
+  frozen Shuffle Songs at Song Locations, host acceptance armed. MM's half adds its
+  own frozen songs value (`MM_ComboLogic_SongPoolUnionLive`). A pure function of
+  frozen settings: an MM-first and an OoT-first creation of one seed answer alike.
+  Dungeon Rewards, Off and Anywhere never arm it.
+- **The fill.** OoT's own song pass is skipped; its songs stay in the pool, armed
+  (`RSBS_FILL_ARM_SONGS_ROAM`) so they are REQUIRED bag rows, and OoT's restricted
+  passes and Link's Pocket leave the song checks and the songs to the bag. MM's
+  GeneratePools no longer junks and skips its surplus song check (the starting Song
+  of Healing stays a host, as in OoTMM). The bag confines both games' songs (OoT
+  `ITEMTYPE_SONG`, MM's song-check items plus the six XW5 warp songs) to the wide
+  group, the song checks are exclusive, and each game's remainder junks the
+  leftover song checks first, from its own junk rows.
+- **Order divergence, recorded.** OoTMM places songs before everything else
+  (solve.ts); here OoT's own-dungeon and reward passes still run before the bag,
+  which places songs first among its rows. The song checks are reserved from those
+  passes, so no song check is taken before the songs.
+- **Divergence, recorded.** OoTMM's `fillJunk` may also use "nothing"; here a
+  leftover song check never gets `RI_NONE`, because no give path for nothing at a
+  song scene was traced.
+- **Late ABI 9 note.** ABI 9 (#1502, the host groups) had no dated entry here; its
+  contract is combo_logic.h's history entry 9 and the coordinator doc's section 4.6.
