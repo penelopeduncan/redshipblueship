@@ -18,9 +18,10 @@
   save break.
 - **Seeds come from generator 5.** The same seed and settings can make a different world than `v0.5.0-alpha` made:
   with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
-  carries only the half-days a time-gated path is open on), and with Shuffle Master Sword on, which is the default
-  (the pedestal is now a child check, see below). A seed package exported by `v0.5.0-alpha` is refused, so generate
-  the seed again. Saved files are a separate break (above).
+  carries only the half-days a time-gated path is open on), with Shuffle Master Sword on, which is the default
+  (the pedestal is now a child check, see below), and with Shuffle Songs at Song Locations, which is the default, or
+  Dungeon Rewards (Majora's Mask's songs follow that setting, see below). A seed package exported by `v0.5.0-alpha`
+  is refused, so generate the seed again. Saved files are a separate break (above).
 
 ### Majora's Mask randomizer
 
@@ -45,8 +46,13 @@
 - **Majora's Mask dungeon item and song placement work in paired worlds** (issue #1502). Majora's Mask's Small Keys,
   Boss Keys, Stray Fairies and Shuffle Songs rows are no longer marked Not Yet Supported in Paired Worlds. Own Dungeon
   keeps each item in its own dungeon in Majora's Mask, Song Locations puts Majora's Mask's songs on Majora's Mask's
-  song checks, and Vanilla and Start With behave as in 2Ship. The defaults stay Anywhere, so worlds created with the
-  defaults do not change.
+  song checks, and Vanilla and Start With behave as in 2Ship. The key, boss key and fairy defaults stay Anywhere.
+- **One Shuffle Songs setting for both games** (issue #1542), as OoTMM has. In a paired world Ocarina of Time's
+  Shuffle Songs decides both games' songs, and Majora's Mask's row follows it and is read-only ("Set by Ocarina of
+  Time's Shuffle Songs"): Song Locations and Dungeon Rewards put Majora's Mask's songs on Majora's Mask's song
+  locations, Anywhere leaves them anywhere, and Off leaves them vanilla. With the default (Song Locations), Majora's
+  Mask's songs now stay on its own song locations, so worlds created with the defaults change. A song of one game on
+  the other game's song location is not in yet.
 - **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
   With it on, the 116 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
   you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee, the song wall's drops and the
