@@ -2060,7 +2060,10 @@ typedef struct {
      * WHAT IT CHANGES. Confined REQUIRED rows are drawn FIRST in each attempt (a
      * stable partition after the shuffle, so each is placed with the whole rest
      * of the bag assumed: OoTMM's fixDungeon / placeSemiShuffled, SoH's restricted
-     * passes before the general one); a confined SURPLUS row that finds no host
+     * passes before the general one; among the confined rows, those of local
+     * groups first and then a wide group's rows by how many of its hosts each
+     * may use, fewest first, stable, so with one kind of confined row the order
+     * is the plain partition's); a confined SURPLUS row that finds no host
      * drops alone; and the fill refuses up front with
      * RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY when a group's REQUIRED rows outnumber
      * its empty hosts. With NULL, or every mask 0, none of that runs: the shuffle,

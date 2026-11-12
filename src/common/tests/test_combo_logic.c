@@ -4433,6 +4433,42 @@ bool ClIsSongHost(GameId game, int host) {
     return (game == GAME_OOT && (host == 10 || host == 11)) || (game == GAME_MM && host == 20);
 }
 
+// Leg (11)'s world: OoT hosts 40.. and MM hosts 60.., ascending, the first
+// `ootWide` / `mmWide` of each in the wide group and two plain hosts after them.
+const uint16_t kClStarveOoTBase = 40;
+const uint16_t kClStarveMMBase = 60;
+const int kClStarvePlain = 2;
+
+void ClBuildStarveWorld(int ootWide, int mmWide) {
+    ClResetEngine(&gClOoT, (uint8_t)GAME_OOT);
+    ClAddItem(&gClOoT, kOotSword);
+    for (int i = 0; i < ootWide + kClStarvePlain; ++i) {
+        ClAddHost(&gClOoT, (uint16_t)(kClStarveOoTBase + i), 0u);
+        gClOoT.hostGroup[i] = (i < ootWide) ? kClWide : 0u;
+    }
+    gClOoT.withHostGroups = true;
+    gClOoT.withWideGroups = true;
+    gClOoT.wideDeclared = kClWide;
+
+    ClResetEngine(&gClMM, (uint8_t)GAME_MM);
+    ClAddItem(&gClMM, kMmOcarina);
+    for (int i = 0; i < mmWide + kClStarvePlain; ++i) {
+        ClAddHost(&gClMM, (uint16_t)(kClStarveMMBase + i), 0u);
+        gClMM.hostGroup[i] = (i < mmWide) ? kClWide : 0u;
+    }
+    gClMM.withHostGroups = true;
+    gClMM.withWideGroups = true;
+    gClMM.wideDeclared = kClWide;
+    ClInstall();
+}
+
+/** Is `host` of `game` one of leg (11)'s wide hosts? */
+bool ClIsStarveWideHost(GameId game, uint16_t host, int ootWide, int mmWide) {
+    const ClEngine* e = (game == GAME_OOT) ? &gClOoT : &gClMM;
+    const int i = ClHostIndex(e, host);
+    return i >= 0 && i < ((game == GAME_OOT) ? ootWide : mmWide);
+}
+
 } // namespace
 
 static int sClsFailures;
@@ -4769,6 +4805,119 @@ TestResult Test_ComboLogicSongPool(void) {
         }
         CLS_CHECK(differ == 0, "(10) NULL masks and all-zero masks placed differently");
         CLS_CHECK(asked == 0, "(10) a mask-free fill asked hostGroups or wideGroups");
+    }
+
+    // ---- (11) THE HOME-ONLY ROWS GO FIRST (#1542, ComboLogicConfinedFirst) --------
+    // One game's 12 wide rows are HOME_ONLY and exactly fill its 12 wide hosts; the
+    // other game's 14 wide rows may cross and exactly fill its own 14, but every
+    // home-game wide host accepts them too; one unconfined row per game for the 2+2
+    // plain hosts. Hall's condition holds (12 <= 12, 14 <= 26, 26 <= 26), so the
+    // capacity check passes, and only the ORDER decides: the fill succeeds iff no
+    // crossing row ever takes a home-game wide host. The three-way partition places
+    // all 12 home-only rows first, each seeing only its own side's free wide hosts
+    // (never empty until all 12 are placed), so the crossing rows then see only
+    // their own side's 14 and the free rows only the plain hosts: OK on EVERY seed,
+    // by construction, not by luck. The old two-way partition kept the confined rows
+    // in plain shuffled order; over a uniform interleaving and uniform draws its
+    // success probability is 1235138341789679 / 400924658534400000 (about 0.31%) per
+    // seed, and a replay of ComboLogicShuffle's and ComboLogicDrawAndPlace's exact
+    // RNG over the old order dead-ends on all 32 seeds of each direction below (on
+    // the 15th to 26th row placed). No retry can rescue a seed: the `none` rung runs ONE
+    // attempt (ComboLogicFillNoLogic), asserted below, so the leg does not depend on
+    // the batch retries at all. Run twice: OoT home-only, then the mirror image.
+    // Catches: the own-side rows no longer placed ahead of the crossing ones (the
+    // pre-07467f284 order), and a ConfinedToOwnSide that misses HOME_ONLY.
+    {
+        const int kHome = 12;
+        const int kRoam = 14;
+        const int kStarveRows = kHome + kRoam + 2;
+        for (int dir = 0; dir < 2; ++dir) {
+            const uint8_t homeGame = (dir == 0) ? O : M;
+            const uint8_t roamGame = (dir == 0) ? M : O;
+            const int ootWide = (dir == 0) ? kHome : kRoam;
+            const int mmWide = (dir == 0) ? kRoam : kHome;
+            const uint16_t homeBaseId = (dir == 0) ? 120 : 220;
+            const uint16_t roamBaseId = (dir == 0) ? 220 : 120;
+            const uint32_t seedBase = (dir == 0) ? 0x15429000u : 0x15429100u;
+            // Bag order (home-only, crossing, the two free rows) is what the replay's
+            // seed list was computed against: the shuffle permutes bag indices.
+            ComboLogicBagItem bag[kStarveRows];
+            uint32_t masks[kStarveRows];
+            for (int i = 0; i < kHome; ++i) {
+                bag[i] = ClHomeItem(homeGame, (uint16_t)(homeBaseId + i));
+                masks[i] = kClWide;
+            }
+            for (int i = 0; i < kRoam; ++i) {
+                bag[kHome + i] = ClBagItem(roamGame, (uint16_t)(roamBaseId + i), RSBS_ITEMCLASS_PROGRESSION);
+                masks[kHome + i] = kClWide;
+            }
+            bag[kHome + kRoam] = ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION);
+            masks[kHome + kRoam] = 0u;
+            bag[kHome + kRoam + 1] = ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION);
+            masks[kHome + kRoam + 1] = 0u;
+
+            int failed = 0;
+            int miscounted = 0;
+            int homeOk = 0;
+            int roamOk = 0;
+            int freeOk = 0;
+            int unknown = 0;
+            for (int sd = 1; sd <= kSeeds; ++sd) {
+                ClBuildStarveWorld(ootWide, mmWide);
+                ComboLogicFillResult fr;
+                const int rc = ClRunSongFill(bag, kStarveRows, masks, kClWide, (uint8_t)RSBS_COMBO_RUNG_NONE,
+                                             seedBase + (uint32_t)sd, &fr);
+                if (rc != RSBS_COMBO_LOGIC_OK) {
+                    failed++;
+                    continue;
+                }
+                const int counted = Combo_Logic_PlacementCount(GAME_OOT) + Combo_Logic_PlacementCount(GAME_MM);
+                miscounted += (fr.attempts != 1 || fr.requiredPlaced != kStarveRows || counted != kStarveRows) ? 1 : 0;
+                const GameId both[2] = { GAME_OOT, GAME_MM };
+                for (int g = 0; g < 2; ++g) {
+                    for (int p = 0; p < Combo_Logic_PlacementCount(both[g]); ++p) {
+                        ComboLogicPlacement pl;
+                        if (!Combo_Logic_PlacementAt(both[g], p, &pl)) {
+                            unknown++;
+                            continue;
+                        }
+                        const bool onWide = ClIsStarveWideHost(both[g], pl.hostCheck, ootWide, mmWide);
+                        const uint8_t origin = pl.item.originGame;
+                        const uint16_t id = pl.item.id;
+                        if (origin == homeGame && id >= homeBaseId && id < homeBaseId + kHome) {
+                            homeOk += (onWide && (uint8_t)both[g] == homeGame) ? 1 : 0;
+                        } else if (origin == roamGame && id >= roamBaseId && id < roamBaseId + kRoam) {
+                            roamOk += onWide ? 1 : 0;
+                        } else if ((origin == O && id == kOotSword) || (origin == M && id == kMmOcarina)) {
+                            freeOk += onWide ? 0 : 1;
+                        } else {
+                            unknown++;
+                        }
+                    }
+                }
+            }
+            printf("[TEST] (11) %s home-only: %d failed, %d miscounted, home-only rows on own wide hosts %d of %d, "
+                   "crossing rows on wide hosts %d of %d, free rows on plain hosts %d of %d, %d unknown\n",
+                   dir == 0 ? "OoT" : "MM", failed, miscounted, homeOk, kHome * kSeeds, roamOk, kRoam * kSeeds, freeOk,
+                   2 * kSeeds, unknown);
+            // The old order dead-ends here on every seed (ERR_NO_CANDIDATE for a
+            // home-only row whose last host a crossing row took).
+            CLS_CHECK(failed == 0, "(11) a fill failed: a crossing wide row took a home-only row's only host (the "
+                                   "confined rows were not placed own-side first)");
+            // A fill that returned OK without placing every row, or that took a
+            // second attempt (the leg would then lean on retry luck).
+            CLS_CHECK(miscounted == 0, "(11) a fill took more than one attempt or placed a count other than the bag's");
+            // A home-only row on the other game, or off the wide hosts.
+            CLS_CHECK(homeOk == kHome * kSeeds, "(11) a home-only wide row sat off its own game's wide hosts");
+            // A crossing wide row on a plain host (its confinement lost).
+            CLS_CHECK(roamOk == kRoam * kSeeds, "(11) a crossing wide row sat off the wide hosts");
+            // An unconfined row on a wide host (the exclusive group lost), or a
+            // placement no row of the bag accounts for.
+            CLS_CHECK(freeOk == 2 * kSeeds && unknown == 0,
+                      "(11) an unconfined row took a wide host, or a placement matched no row of the bag");
+        }
+        // Back to the shape the row's other legs build.
+        ClBuildSongWorld(kClWide);
     }
 
     ClUninstall();

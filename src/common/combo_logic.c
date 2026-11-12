@@ -1797,16 +1797,9 @@ static int ComboLogicDrawAndPlace(const ComboLogicBagItem* item, uint32_t* rng, 
     return RSBS_COMBO_LOGIC_OK;
 }
 
-/** May this confined row use hosts of its OWN game only? A local mask is in its
- *  origin's namespace, and a HOME_ONLY row never crosses; a shared pair, and a
- *  wide row that may cross, use hosts of both games. */
-static bool ComboLogicConfinedToOwnSide(const ComboLogicBagItem* item) {
-    const uint32_t confine = ComboLogicRowConfine(item);
-    if (confine == 0u || ComboLogicRowIsPair(item)) {
-        return false;
-    }
-    return (confine & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u || (item->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u;
-}
+/** The order key of a confined row (defined with the wide capacity check below,
+ *  whose host counts it reads): the smaller, the earlier it is drawn. */
+static int ComboLogicConfinedOrderKey(const ComboLogicBagItem* item);
 
 /** THE HOST GROUPS: confined rows FIRST. A STABLE partition of the attempt's
  *  shuffled order `order[0..n)`, confined rows (in their shuffled order) ahead of
@@ -1816,46 +1809,63 @@ static bool ComboLogicConfinedToOwnSide(const ComboLogicBagItem* item) {
  *  draws no RNG, and with no confined row it writes nothing, so a mask-free bag's
  *  order is exactly the shuffle's.
  *
- *  Among the confined rows, the ones held to their OWN game's hosts go ahead of
- *  the ones that may use both games' (ABI 11, #1542). A wide group's hosts are
- *  shared: with one game's songs HOME_ONLY (a one-way direction, or a class set
- *  without PROGRESSION) and the other's free to cross, the crossing songs drawn
- *  first took the home-only songs' only hosts, and although the capacity check
- *  had passed (a full matching exists) every attempt dead-ended. Placed first,
- *  the own-side rows take hosts on their own side while every one is still empty,
- *  and the crossing rows keep the other side's hosts and what is left. Which of a
- *  side's own hosts they take is still the draw's choice, so a group with no slack
- *  and a host that refuses foreign items can still dead-end an attempt, which the
- *  batch retry redraws. With rows of only one of the two kinds (every world
- *  without a wide group; a default Song Locations world, whose songs all cross
- *  and which confines nothing else) the order is unchanged. */
+ *  Among the confined rows the order is by ComboLogicConfinedOrderKey, stable
+ *  (ABI 11, #1542): the rows of LOCAL groups first, as before, then the rows of a
+ *  WIDE group by how many of the group's hosts each may use, fewest first. A wide
+ *  group's hosts are shared between the games, and the capacity check only says
+ *  that a full matching EXISTS. In shuffled order the rows with the larger host
+ *  set took the only hosts of the rows with the smaller one: with one game's
+ *  songs HOME_ONLY (a one-way direction, or a class set without PROGRESSION) and
+ *  the other's free to cross, no attempt could finish, and with a host that
+ *  refuses foreign items in an exactly full group the single No Logic attempt
+ *  failed for some seeds. With every confined row's key equal (every world
+ *  without a wide group; a default Song Locations world, whose songs may all use
+ *  every song check and which confines nothing else) the order is unchanged.
+ *
+ *  What is left to the draw: WHICH of its hosts a row takes. A home-only row can
+ *  still take a host the other game's rows could have used and leave one they
+ *  cannot, so an exactly full group with both a home-only class and a refusing
+ *  host can still dead-end an attempt. The proving rungs redraw; No Logic does
+ *  not, and no shipped setting reaches that mix today. */
 static int sConfinedScratch[RSBS_COMBO_LOGIC_BAG_CAP];
+static int sConfinedKeys[RSBS_COMBO_LOGIC_BAG_CAP];
 static void ComboLogicConfinedFirst(const ComboLogicFillRequest* req, int* order, int n) {
     if (sConfineMasks == NULL) {
         return;
     }
-    int ownSide = 0;
     int confined = 0;
     for (int i = 0; i < n; ++i) {
-        const ComboLogicBagItem* row = &req->bag[order[i]];
-        confined += (ComboLogicRowConfine(row) != 0u) ? 1 : 0;
-        ownSide += ComboLogicConfinedToOwnSide(row) ? 1 : 0;
+        confined += (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) ? 1 : 0;
     }
-    if (confined == 0 || (confined == n && (ownSide == 0 || ownSide == confined))) {
+    if (confined == 0) {
         return;
     }
+    // Confined rows to the front and the rest behind them, both in shuffled order.
     int front = 0;
-    int middle = ownSide;
     int back = confined;
     for (int i = 0; i < n; ++i) {
-        const ComboLogicBagItem* row = &req->bag[order[i]];
-        if (ComboLogicConfinedToOwnSide(row)) {
+        if (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) {
             sConfinedScratch[front++] = order[i];
-        } else if (ComboLogicRowConfine(row) != 0u) {
-            sConfinedScratch[middle++] = order[i];
         } else {
             sConfinedScratch[back++] = order[i];
         }
+    }
+    // Then the confined block by key: a stable insertion sort (a few dozen rows),
+    // which moves nothing when the keys are equal.
+    for (int i = 0; i < confined; ++i) {
+        sConfinedKeys[i] = ComboLogicConfinedOrderKey(&req->bag[sConfinedScratch[i]]);
+    }
+    for (int i = 1; i < confined; ++i) {
+        const int row = sConfinedScratch[i];
+        const int key = sConfinedKeys[i];
+        int j = i;
+        while (j > 0 && sConfinedKeys[j - 1] > key) {
+            sConfinedScratch[j] = sConfinedScratch[j - 1];
+            sConfinedKeys[j] = sConfinedKeys[j - 1];
+            --j;
+        }
+        sConfinedScratch[j] = row;
+        sConfinedKeys[j] = key;
     }
     memcpy(order, sConfinedScratch, sizeof(order[0]) * (size_t)n);
 }
@@ -1889,6 +1899,57 @@ static const uint8_t kComboWideNeighbours[COMBO_WIDE_ROW_CLASSES] = {
     COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE | COMBO_WIDE_HOST_OOT_ACCEPT,
     COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE | COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE,
 };
+
+/** The wide groups' hosts by class, per wide bit (24..31), as the capacity check
+ *  counted them over empty tables for the running fill; invalid outside one. */
+static int sWideHostCount[8][4];
+static bool sWideHostCountValid[8];
+
+static void ComboLogicForgetWideHostCounts(void) {
+    for (int b = 0; b < 8; ++b) {
+        sWideHostCountValid[b] = false;
+    }
+}
+
+/** The row class of a wide-group row (COMBO_WIDE_ROW_*). */
+static int ComboLogicWideRowClass(const ComboLogicBagItem* row) {
+    const bool home = (row->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u;
+    if (ComboLogicRowIsPair(row)) {
+        return COMBO_WIDE_ROW_PAIR;
+    }
+    if (row->item.originGame == (uint8_t)GAME_OOT) {
+        return home ? COMBO_WIDE_ROW_OOT_HOME : COMBO_WIDE_ROW_OOT_ROAM;
+    }
+    return home ? COMBO_WIDE_ROW_MM_HOME : COMBO_WIDE_ROW_MM_ROAM;
+}
+
+/** ComboLogicConfinedFirst's key. A row with a LOCAL bit: -1, so local groups
+ *  keep their place ahead of the wide ones and their shuffled order among
+ *  themselves (their hosts are no wide group's: ComboLogicCheckGroupNamespaces).
+ *  A wide row: the number of its group's hosts its class may use, from the
+ *  capacity check's counts (its lowest wide bit; one wide group exists today).
+ *  Without counts (no check ran for that bit), home-only rows before the rest. */
+static int ComboLogicConfinedOrderKey(const ComboLogicBagItem* item) {
+    const uint32_t confine = ComboLogicRowConfine(item);
+    if (confine == 0u || (confine & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u) {
+        return -1;
+    }
+    const int c = ComboLogicWideRowClass(item);
+    for (unsigned b = 0u; b < 8u; ++b) {
+        if ((confine & (1u << (24u + b))) == 0u) {
+            continue;
+        }
+        if (!sWideHostCountValid[b]) {
+            break;
+        }
+        int hosts = 0;
+        for (int k = 0; k < 4; ++k) {
+            hosts += (kComboWideNeighbours[c] & (1u << k)) != 0u ? sWideHostCount[b][k] : 0;
+        }
+        return hosts;
+    }
+    return (c == COMBO_WIDE_ROW_OOT_HOME || c == COMBO_WIDE_ROW_MM_HOME) ? 0 : 1;
+}
 
 /** Count, into `hostCount[4]` (by host class bit index), the empty hosts of both
  *  engines in wide group `w`. Tables empty (the caller reset them). */
@@ -1928,16 +1989,7 @@ static int ComboLogicCheckWideCapacity(const ComboLogicFillRequest* req, uint32_
         if ((req->confineMasks[i] & w) == 0u || (row->bagFlags & RSBS_COMBO_BAG_SURPLUS) != 0u) {
             continue;
         }
-        const bool home = (row->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u;
-        int c;
-        if (ComboLogicRowIsPair(row)) {
-            c = COMBO_WIDE_ROW_PAIR;
-        } else if (row->item.originGame == (uint8_t)GAME_OOT) {
-            c = home ? COMBO_WIDE_ROW_OOT_HOME : COMBO_WIDE_ROW_OOT_ROAM;
-        } else {
-            c = home ? COMBO_WIDE_ROW_MM_HOME : COMBO_WIDE_ROW_MM_ROAM;
-        }
-        rowCount[c]++;
+        rowCount[ComboLogicWideRowClass(row)]++;
     }
     int present = 0;
     for (int c = 0; c < COMBO_WIDE_ROW_CLASSES; ++c) {
@@ -1950,6 +2002,15 @@ static int ComboLogicCheckWideCapacity(const ComboLogicFillRequest* req, uint32_
     const int st = ComboLogicWideHostCounts(w, hostCount);
     if (st != RSBS_COMBO_LOGIC_OK) {
         return st;
+    }
+    // Kept for the fill: ComboLogicConfinedOrderKey orders the group's rows by them.
+    for (unsigned b = 0u; b < 8u; ++b) {
+        if (w == (1u << (24u + b))) {
+            for (int k = 0; k < 4; ++k) {
+                sWideHostCount[b][k] = hostCount[k];
+            }
+            sWideHostCountValid[b] = true;
+        }
     }
     // The full set first, then every nonempty subset of the classes with rows.
     for (int pass = 0; pass < 2; ++pass) {
@@ -2363,7 +2424,10 @@ static int ComboLogicPlaceForced(const ComboLogicFillRequest* req) {
  *     defensible trade.
  * There is ONE attempt, because no re-shuffle can change the answer: the union
  * of all empty hosts does not depend on the order the bag is placed in, so if it
- * runs out it runs out for every order.
+ * runs out it runs out for every order. That is exact for a bag without host
+ * groups. With them the order does matter inside a group, and the one attempt
+ * relies on ComboLogicConfinedFirst's order (fewest usable hosts first) instead
+ * of on a redraw; its comment names the one mix that order does not cover.
  */
 static int ComboLogicFillNoLogic(const ComboLogicFillRequest* req, ComboLogicFillResult* res) {
     uint32_t rng = ComboLogicAttemptSeed(req->seed, 0);
@@ -2389,8 +2453,10 @@ static int ComboLogicFillNoLogic(const ComboLogicFillRequest* req, ComboLogicFil
     }
     ComboLogicShuffle(sBagOrder, sRequiredCount, &rng);
     // THE HOST GROUPS: confined rows first, so a group's rows take its hosts
-    // before any free row can (with the capacity check, No Logic never runs out
-    // of room inside a group). A no-op without a confined row.
+    // before any free row can, and within a wide group the rows with the fewest
+    // usable hosts first (ComboLogicConfinedFirst), so this single attempt does
+    // not run out of room inside a group the capacity check passed, short of the
+    // mix that function's comment names. A no-op without a confined row.
     ComboLogicConfinedFirst(req, sBagOrder, sRequiredCount);
 
     for (int k = 0; k < sRequiredCount; ++k) {
@@ -2588,6 +2654,7 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
     sConfineBag = NULL;
     sConfineCount = 0;
     ComboLogicClearExclusive();
+    ComboLogicForgetWideHostCounts();
     memset(&sGroupShortfall, 0, sizeof(sGroupShortfall));
     sGroupShortfallSet = false;
 
@@ -2976,6 +3043,7 @@ finish:
     sConfineBag = NULL;
     sConfineCount = 0;
     ComboLogicClearExclusive();
+    ComboLogicForgetWideHostCounts();
     if (status == RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED && sUnreachedCount > 0) {
         ComboLogicLogUnreached("in the last All Locations proof round (after a pre-flight that held: an engine is "
                                "not monotone)");
