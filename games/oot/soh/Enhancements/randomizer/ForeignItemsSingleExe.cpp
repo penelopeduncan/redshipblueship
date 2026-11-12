@@ -1262,6 +1262,34 @@ static bool OoTPairSongsAgree(void) {
 }
 
 /**
+ * #1542 (review): the half MM_Rando_AuthorHalfAtCreation just made was generated
+ * with the mapping of OoT's frozen Shuffle Songs. OoTPairSongsAgree checks the
+ * resolution before the half; MM's profile resolution can still adopt another
+ * candidate value when the frozen digest names one (ResolvePairedProfile), so the
+ * half's own option is checked too. Call only while MM's bytes are the shared
+ * gSaveContext (right after the half is authored).
+ * @return true when the authored half agrees with OoT's frozen option.
+ */
+static bool OoTPairHalfSongsAgree(void) {
+    const auto rsbsCtx = Rando::Context::GetInstance();
+    if (rsbsCtx == nullptr) {
+        fprintf(stderr, "[OoT] paired completion: REFUSED (#1542) — no OoT context to read Shuffle Songs from\n");
+        return false;
+    }
+    const uint32_t ootSongs = (uint32_t)rsbsCtx->GetOption(RSK_SHUFFLE_SONGS).Get();
+    const uint32_t want = Combo_PairSongsMmValue(ootSongs);
+    const int authored = MM_Rando_AuthoredHalfSongs();
+    if (authored != (int)want) {
+        fprintf(stderr,
+                "[OoT] paired completion: REFUSED (#1542) — Majora's Mask's half was generated with Shuffle Songs %d, "
+                "but Ocarina of Time's frozen Shuffle Songs %u gives %u: the pair's one songs setting would be two\n",
+                authored, (unsigned)ootSongs, (unsigned)want);
+        return false;
+    }
+    return true;
+}
+
+/**
  * Complete the paired world OoT's generation left at its general pass: MM's half
  * (the single-bag fill inside it), the crossings, OoT's remainder and its spoiler,
  * the spoiler join, and the package's digest and MM profile. Game thread only,
@@ -1326,6 +1354,11 @@ extern "C" int OoT_PairedGen_CompleteWorld(void) {
     Combo_SingleBag_ClearLastReport();
     const int mmRc = MM_Rando_AuthorHalfAtCreation(-1, "", nullptr);
     CreationStep('M');
+    // #1542: the half MM authored must carry the mapping of OoT's frozen option,
+    // read while MM's bytes are still the shared gSaveContext (put back below).
+    // The resolution was checked before the half (OoTPairSongsAgree); this checks
+    // the value the half was actually made with.
+    const bool songsAuthoredAgree = mmRc != 0 || OoTPairHalfSongsAgree();
     // #1542: MM's half is authored, so the songs capture is consumed: from here
     // the world's value is MM's frozen profile (combo_song_pool.h).
     Combo_PairSongsClear();
@@ -1338,6 +1371,12 @@ extern "C" int OoT_PairedGen_CompleteWorld(void) {
 
     if (mmRc != 0) {
         fprintf(stderr, "[OoT] paired completion: FAILED (MM half rc=%d) — retracting the pairing identity\n", mmRc);
+        fflush(stderr);
+        std::filesystem::remove(digestPath, digestEc);
+        RetractPairedWorld();
+        return RSBS_SEEDPKG_ERR_GENERATION;
+    }
+    if (!songsAuthoredAgree) {
         fflush(stderr);
         std::filesystem::remove(digestPath, digestEc);
         RetractPairedWorld();

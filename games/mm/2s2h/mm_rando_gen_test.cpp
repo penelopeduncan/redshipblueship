@@ -25,6 +25,7 @@
 #include <cstdlib> // getenv — the attempt-ladder scan/digest modes
 #include <cstring>
 #include <cstdint>
+#include <cstddef> // offsetof: a half's frozen Shuffle Songs (#1542)
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -107,6 +108,7 @@ int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint32_t* outRe
 #include "crossing_store.h"      // src/common — the crossings the creation stores (ADR 0010 O7)
 #include "combo_area.h"          // src/common — MM's foolish areas the content digest folds (#949)
 #include "critical_renewables.h" // src/common — OoTMM's critical-renewables rule (R6)
+#include "combo_song_pool.h"     // src/common — the pair's one songs setting (#1542)
 
 namespace {
 
@@ -4009,6 +4011,213 @@ extern "C" int MM_SeedPackage_TestCVarsFrozen(const char* seed, const char* scra
     fprintf(stderr,
             "[SEED-PACKAGE] PASS: %zu fields of the created world are the staged package's, with an MM option, a "
             "Cross-Game Rule and an OoT setting changed before the creation\n",
+            a.size());
+    return 0;
+}
+
+namespace {
+
+/** #1542: MM's own Shuffle Songs key (2Ship's Menu.cpp). OoT's is RSBS_OOT_SHUFFLE_SONGS_CVAR. */
+const char* SpgMmSongsKey() {
+    return Rando::StaticData::Options[RO_SHUFFLE_SONGS].cvar;
+}
+
+void SpgClearSongsKeys() {
+    CVarClear(RSBS_OOT_SHUFFLE_SONGS_CVAR);
+    CVarClear(SpgMmSongsKey());
+}
+
+/** The keys a player could move between the freeze and the completion: OoT's to
+ *  Anywhere (which maps to MM Anywhere) and MM's own to Vanilla. */
+void SpgMoveSongsKeys() {
+    CVarSetInteger(RSBS_OOT_SHUFFLE_SONGS_CVAR, (int32_t)RSBS_OOT_SONGS_ANYWHERE);
+    CVarSetInteger(SpgMmSongsKey(), (int32_t)RO_SONG_SHUFFLE_VANILLA);
+}
+
+/** No package staged and no MM shadow: the next leg's generation starts clean. */
+void SpgFreshSession() {
+    OoT_SeedPackage_Unstage();
+    Context_ClearFrozenState(GAME_MM);
+}
+
+/** A generated half's frozen Shuffle Songs, read from its bytes; -1 when absent. */
+int SpgHalfSongs(const uint8_t* half, size_t size) {
+    if (half == nullptr || size < sizeof(SaveContext)) {
+        return -1;
+    }
+    uint32_t songs = 0;
+    memcpy(&songs,
+           half + offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions) +
+               sizeof(uint32_t) * (size_t)RO_SHUFFLE_SONGS,
+           sizeof(songs));
+    return (int)songs;
+}
+
+} // namespace
+
+/**
+ * SongPoolCreationAgrees (--test song-pool-creation-agrees; #1542 D2 review):
+ * the pair's one songs setting is decided at the freeze, whatever the keys say by
+ * the time MM's half is made. OoT's Shuffle Songs is Song Locations (its default)
+ * at the generation; then OoT's key moves to Anywhere and MM's own to Vanilla
+ * BEFORE the completion runs.
+ *   (a) Generate's completion (OoT_SeedPackage_CompletePendingGeneration): the
+ *       staged half was made with MM Song Locations, the frozen digest is the
+ *       freeze's, and the capture is consumed.
+ *   (b) A test process's file creation (z_sram's KEEP invalidation, then
+ *       OoT_Creation_AuthorRandoFile, whose creation event completes the world
+ *       after that invalidation): the same, and the created world's report equals
+ *       (a)'s field for field.
+ *   (c) The lock can fire: with the capture gone, the completion resolves MM from
+ *       OoT's moved key and must refuse (RSBS_SEEDPKG_ERR_GENERATION) and retract.
+ * Non-vacuity: with no capture the moved OoT key does move MM's resolution.
+ * @p scratchDir receives the two reports.
+ * @return 0, or a distinct nonzero step code.
+ */
+extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const char* scratchDir) {
+    const std::string reportGenerate = std::string(scratchDir) + "/songs-frozen-generate.txt";
+    const std::string reportCreate = std::string(scratchDir) + "/songs-frozen-create.txt";
+    const int wantMm = (int)RO_SONG_SHUFFLE_SONG_LOCATIONS;
+
+    // ---- (a) Generate, move the keys, Generate's completion -----------------
+    SpgClearSongsKeys();
+    SpgFreshSession();
+    if (K11PairedOoTGenerate(seed) != 0) {
+        return 1;
+    }
+    OoT_Creation_TestClearPairedSpoiler();
+    const uint32_t frozenDigest = gComboCtx.mmProfileDigest;
+    uint32_t captured = 0xFFu;
+    if (!Combo_PairSongsCaptured(&captured) || captured != RSBS_OOT_SONGS_SONG_LOCATIONS) {
+        fprintf(stderr, "[SONG-POOL] FAIL(2): the freeze captured no Shuffle Songs, or %u, not Song Locations\n",
+                (unsigned)captured);
+        return 2;
+    }
+    SpgMoveSongsKeys();
+    {
+        const int16_t held = Combo_PairSongsSnapshot();
+        Combo_PairSongsClear();
+        const int uncaptured = MM_Rando_PairedSongsResolved();
+        Combo_PairSongsRestore(held);
+        const int withCapture = MM_Rando_PairedSongsResolved();
+        if (uncaptured != (int)RO_SONG_SHUFFLE_ANYWHERE || withCapture != wantMm) {
+            fprintf(stderr,
+                    "[SONG-POOL] FAIL(3): the moved keys resolve MM %d with no capture and %d with it; the lock "
+                    "would prove nothing\n",
+                    uncaptured, withCapture);
+            SpgClearSongsKeys();
+            return 3;
+        }
+    }
+    OoT_Creation_TestStageGeneration();
+    const int completed = OoT_SeedPackage_CompletePendingGeneration();
+    if (completed != 1 || OoT_SeedPackage_Staged() == 0) {
+        fprintf(stderr, "[SONG-POOL] FAIL(4): Generate's completion returned %d and staged %d package(s)\n", completed,
+                OoT_SeedPackage_Staged());
+        SpgClearSongsKeys();
+        return 4;
+    }
+    size_t stagedSize = 0;
+    const uint8_t* staged = OoT_SeedPackage_TestStagedMMHalf(&stagedSize);
+    const int stagedSongs = SpgHalfSongs(staged, stagedSize);
+    fprintf(stderr, "[SONG-POOL] (a) staged half Shuffle Songs %d (want %d), digest %08X (frozen %08X), capture %d\n",
+            stagedSongs, wantMm, gComboCtx.mmProfileDigest, frozenDigest, Combo_PairSongsCaptured(nullptr) ? 1 : 0);
+    if (stagedSongs != wantMm || gComboCtx.mmProfileDigest != frozenDigest || Combo_PairSongsCaptured(nullptr)) {
+        fprintf(stderr, "[SONG-POOL] FAIL(5): Generate's completion followed a key moved after the freeze, re-stamped "
+                        "the profile, or left the capture held\n");
+        SpgClearSongsKeys();
+        return 5;
+    }
+    if (SpkWriteWorldReport(reportGenerate.c_str(), staged, stagedSize, false, std::string()) != 0) {
+        SpgClearSongsKeys();
+        return 6;
+    }
+
+    // ---- (b) Generate, move the keys, create a file -------------------------
+    SpgClearSongsKeys();
+    SpgFreshSession();
+    if (K11PairedOoTGenerate(seed) != 0) {
+        return 7;
+    }
+    OoT_Creation_TestClearPairedSpoiler();
+    if (gComboCtx.mmProfileDigest != frozenDigest) {
+        fprintf(stderr, "[SONG-POOL] FAIL(8): the same seed and keys froze %08X, not %08X\n", gComboCtx.mmProfileDigest,
+                frozenDigest);
+        return 8;
+    }
+    SpgMoveSongsKeys();
+    OoT_Creation_TestStageGeneration();
+    // What z_sram.c runs before the creation event for a randomizer file.
+    Context_InvalidateSessionOnNewGame(1, gComboCtx.sharedRandoSeed);
+    if (!Combo_PairSongsCaptured(nullptr)) {
+        fprintf(stderr, "[SONG-POOL] FAIL(9): the file-create (KEEP) invalidation dropped the songs capture\n");
+        SpgClearSongsKeys();
+        return 9;
+    }
+    Context_ClearFrozenState(GAME_MM);
+    Randomizer_TestClearOoTSave();
+    const int created = OoT_Creation_AuthorRandoFile(0);
+    SpgClearSongsKeys();
+    if (created != 1) {
+        fprintf(stderr, "[SONG-POOL] FAIL(10): the file creation with the keys moved failed\n");
+        return 10;
+    }
+    static unsigned char sSpgArmedHalf[sizeof(SaveContext)];
+    {
+        static unsigned char sSpgOoTBytes[sizeof(SaveContext)];
+        memcpy(sSpgOoTBytes, &gSaveContext, sizeof(SaveContext));
+        const bool armed = Context_RestoreState(GAME_MM, &gSaveContext, sizeof(SaveContext)) != 0 &&
+                           gSaveContext.save.shipSaveInfo.saveType == SAVETYPE_RANDO;
+        memcpy(sSpgArmedHalf, &gSaveContext, sizeof(SaveContext));
+        memcpy(&gSaveContext, sSpgOoTBytes, sizeof(SaveContext));
+        if (!armed) {
+            fprintf(stderr, "[SONG-POOL] FAIL(11): the creation armed no randomizer MM half\n");
+            return 11;
+        }
+    }
+    const int createdSongs = SpgHalfSongs(sSpgArmedHalf, sizeof(SaveContext));
+    fprintf(stderr, "[SONG-POOL] (b) created half Shuffle Songs %d (want %d), digest %08X (frozen %08X), capture %d\n",
+            createdSongs, wantMm, gComboCtx.mmProfileDigest, frozenDigest, Combo_PairSongsCaptured(nullptr) ? 1 : 0);
+    if (createdSongs != wantMm || gComboCtx.mmProfileDigest != frozenDigest || Combo_PairSongsCaptured(nullptr)) {
+        fprintf(stderr, "[SONG-POOL] FAIL(12): the creation's completion followed a key moved after the freeze, "
+                        "re-stamped the profile, or left the capture held\n");
+        return 12;
+    }
+    if (SpkWriteWorldReport(reportCreate.c_str(), sSpgArmedHalf, sizeof(SaveContext), false, std::string()) != 0) {
+        return 13;
+    }
+    const std::vector<std::string> a = SpkLines(SpkReadText(reportGenerate));
+    const std::vector<std::string> b = SpkLines(SpkReadText(reportCreate));
+    const int moved = SpkCompareLines(a, b, "generate", "create");
+    if (a.size() < 20 || moved != 0) {
+        fprintf(stderr,
+                "[SONG-POOL] FAIL(14): %d field(s) of the created world differ from Generate's (%zu compared): the "
+                "two completions did not make one world\n",
+                moved, a.size());
+        return 14;
+    }
+
+    // ---- (c) the lock fires when the capture is gone -------------------------
+    SpgFreshSession();
+    if (K11PairedOoTGenerate(seed) != 0) {
+        return 15;
+    }
+    Combo_PairSongsClear();
+    CVarSetInteger(RSBS_OOT_SHUFFLE_SONGS_CVAR, (int32_t)RSBS_OOT_SONGS_ANYWHERE);
+    const int refused = OoT_SeedPackage_TestCompleteWorld();
+    SpgClearSongsKeys();
+    const bool retracted = !Combo_ForeignPairingActive();
+    fprintf(stderr, "[SONG-POOL] (c) capture gone, OoT key Anywhere: completion %d (%s), identity retracted %d\n",
+            refused, SeedPackage_StatusName(refused), retracted ? 1 : 0);
+    SpgFreshSession();
+    if (refused != RSBS_SEEDPKG_ERR_GENERATION || !retracted) {
+        fprintf(stderr, "[SONG-POOL] FAIL(16): the completion made MM's half from a key read after the freeze, or "
+                        "kept the identity\n");
+        return 16;
+    }
+    fprintf(stderr,
+            "[SONG-POOL] PASS: %zu fields of one world from both completions, MM's Shuffle Songs the freeze's with "
+            "both keys moved, and the lock refuses a key read after the freeze\n",
             a.size());
     return 0;
 }

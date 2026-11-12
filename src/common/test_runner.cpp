@@ -1965,6 +1965,8 @@ extern "C" int MM_Rando_HeadlessPlayerPathDigest(const char* seedStr, const char
 extern "C" int MM_SeedPackage_TestWrite(const char* seed, const char* pkgPath, const char* reportPath);
 extern "C" int MM_SeedPackage_TestLoad(const char* pkgPath, const char* reportPath);
 extern "C" int MM_SeedPackage_TestCVarsFrozen(const char* seed, const char* scratchDir);
+// #1542 (review): MM's Shuffle Songs is the freeze's at both completions.
+extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const char* scratchDir);
 extern "C" int MM_SeedPackage_TestGoldenWrite(const char* seed, const char* pkgPath);
 extern "C" int MM_SeedPackage_TestGoldenCreate(const char* pkgPath, const char* outPath);
 // randomizer.cpp (#982): Rando_HeadlessFullInitSeedTest's audio teardown.
@@ -3810,6 +3812,19 @@ TestResult Test_SeedPackageCVarsFrozen(void) {
     const std::filesystem::path dir = rsbs::test::ScratchDir("rsbs-seed-package-cvars");
     const int rc = MM_SeedPackage_TestCVarsFrozen("RSBSUNIFIED1", dir.string().c_str());
     printf("[TEST] %s: seed package cvars frozen rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SongPoolCreationAgrees (#1542 review): seed-package-cvars-frozen's bring-up.
+TestResult Test_SongPoolCreationAgrees(void) {
+    printf("[TEST] song-pool-creation-agrees: Majora's Mask's half follows Ocarina of Time's Shuffle Songs as frozen "
+           "at Generate, at Generate's completion and at a file creation's, with both keys moved since (#1542)\n");
+    if (!SeedPackageHeadlessBringUp()) {
+        return TEST_FAIL;
+    }
+    const std::filesystem::path dir = rsbs::test::ScratchDir("rsbs-song-pool-creation");
+    const int rc = MM_SeedPackage_TestSongsFrozenAtCreation("RSBSSONGPOOL1", dir.string().c_str());
+    printf("[TEST] %s: song pool creation agrees rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
     return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -9276,6 +9291,9 @@ const TestDescriptor gTests[] = {
       Test_SeedPackageLoad },
     { "seed-package-cvars-frozen", "Settings changed between Generate and file creation do not reach the world (#1044)",
       Test_SeedPackageCVarsFrozen },
+    { "song-pool-creation-agrees",
+      "MM's Shuffle Songs is the freeze's at Generate's and a creation's completion, keys moved since (#1542)",
+      Test_SongPoolCreationAgrees },
     { "seed-package-golden-write", "The player's Generate writes the seed package the package golden loads (#1044)",
       Test_SeedPackageGoldenWrite },
     { "seed-package-golden-create", "A file created from a loaded seed package, digested against the golden (#1044)",
@@ -11207,6 +11225,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "rando-player-path-digest") == 0 ||
                 strcmp(gTests[i].name, "seed-package-write") == 0 || strcmp(gTests[i].name, "seed-package-load") == 0 ||
                 strcmp(gTests[i].name, "seed-package-cvars-frozen") == 0 ||
+                strcmp(gTests[i].name, "song-pool-creation-agrees") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-write") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-create") == 0 ||
                 strcmp(gTests[i].name, "debug-seed-forced-placements") == 0 ||

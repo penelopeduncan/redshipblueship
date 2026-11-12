@@ -1467,6 +1467,82 @@ bool FrozenStampCandidate(Rando::Foreign::PairedLogicSource* outLogic, uint32_t*
     return false;
 }
 
+/**
+ * #1542 (review): FrozenStampCandidate for the rows drawn every frame, kept per
+ * frozen digest. A HIT is kept for its digest for good: the candidate that
+ * reproduces a frozen digest names the world's own values, and no key edit
+ * changes them. A MISS (a refused or diverged world, an MM-first session before
+ * the load restore, a test's placeholder digest) is kept only while the inputs a
+ * search reads stand still: the live stamp (every key the identity folds) and
+ * MM's own Logic row (the Authored candidate's one extra input). So a key the
+ * restore writes back re-runs the search on the next draw, and a world that stays
+ * unmatched costs one stamp per draw instead of up to eighteen. Game thread only
+ * (the options page and the tracker's Logic read).
+ */
+struct FrozenCandidateMemo {
+    uint32_t digest = 0;
+    bool hit = false;
+    Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+    uint32_t songs = 0;
+    uint32_t missLiveStamp = 0;
+    uint32_t missAuthoredLogic = 0;
+};
+FrozenCandidateMemo sFrozenCandidateMemo;
+
+bool MemoFrozenStampCandidate(Rando::Foreign::PairedLogicSource* outLogic, uint32_t* outSongs) {
+    FrozenCandidateMemo& memo = sFrozenCandidateMemo;
+    const uint32_t digest = gComboCtx.mmProfileDigest;
+    if (digest != 0 && memo.digest == digest && memo.hit) {
+        *outLogic = memo.logic;
+        *outSongs = memo.songs;
+        return true;
+    }
+    const uint32_t liveStamp = ComputeProfileStampFor(Rando::Foreign::PairedLogicSource::ComboRung);
+    const uint32_t authored = Rando::Foreign::AuthoredPairedLogic();
+    if (digest != 0 && memo.digest == digest && memo.missLiveStamp == liveStamp && memo.missAuthoredLogic == authored) {
+        return false;
+    }
+    Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+    uint32_t songs = 0;
+    const bool hit = FrozenStampCandidate(&logic, &songs);
+    memo = FrozenCandidateMemo{};
+    memo.digest = digest;
+    memo.hit = hit;
+    memo.logic = logic;
+    memo.songs = songs;
+    memo.missLiveStamp = liveStamp;
+    memo.missAuthoredLogic = authored;
+    if (hit) {
+        *outLogic = logic;
+        *outSongs = songs;
+    }
+    return hit;
+}
+
+/**
+ * #1542 (review; the amendment's rung 3): the live MM save's frozen Shuffle Songs
+ * when that save IS this pair's generated half: MM is the running game (outside
+ * it the shared gSaveContext holds OoT's bytes), the save is a randomizer save,
+ * its value is one of MM's three, and its final seed derives from this pair's
+ * master seed and the half's own options at the recorded ladder rung
+ * (FinalSeedBelongsToPair, the arrival's membership rule). Writes nothing.
+ */
+bool ResidentPairHalfSongs(uint32_t* outSongs) {
+    if (Context_GetCurrentGame() != GAME_MM || !Combo_MMProfileFrozen() ||
+        gSaveContext.save.shipSaveInfo.saveType != SAVETYPE_RANDO) {
+        return false;
+    }
+    const uint32_t songs = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
+    if (songs >= RSBS_MM_SONGS_VALUE_COUNT ||
+        !Rando::Foreign::FinalSeedBelongsToPair(gComboCtx.sharedRandoSeed, gComboCtx.mmPairedAttempt,
+                                                RANDO_SAVE_OPTIONS, gSaveContext.save.shipSaveInfo.rando.finalSeed,
+                                                nullptr, nullptr)) {
+        return false;
+    }
+    *outSongs = songs;
+    return true;
+}
+
 /** Today's resolution matches @p frozenDigest (either paired logic, #1367). */
 bool StampMatchesCurrentRules(uint32_t frozenDigest) {
     return StampMatchesLogicCandidates(frozenDigest, Rando::Foreign::ProfileEra::Current);
@@ -1515,7 +1591,7 @@ extern "C" int MM_Rando_PairedLogicShown(void) {
         // value (#1542).
         Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
         uint32_t songs = 0;
-        if (FrozenStampCandidate(&logic, &songs) && logic == Rando::Foreign::PairedLogicSource::Authored) {
+        if (MemoFrozenStampCandidate(&logic, &songs) && logic == Rando::Foreign::PairedLogicSource::Authored) {
             // A world created before [Both Games] Logic, with its own MM Logic.
             return (int)Rando::Foreign::AuthoredPairedLogic();
         }
@@ -1529,23 +1605,28 @@ extern "C" int MM_Rando_PairedSongsResolved(void) {
 
 extern "C" int MM_Rando_PairedSongsShown(void) {
     if (Combo_MMProfileFrozen()) {
-        // The world's own value: the one its stamp reproduces. A frozen world's
-        // value never changes, so the answer is kept for its digest (the row is
-        // drawn every frame, and the search computes up to eighteen stamps).
-        static uint32_t sShownDigest = 0;
-        static uint32_t sShownSongs = 0;
-        if (sShownDigest != 0 && sShownDigest == gComboCtx.mmProfileDigest) {
-            return (int)sShownSongs;
-        }
-        Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+        // The world's own value, in order: the resident half's frozen option when
+        // MM plays this pair's half (the amendment's rung 3), else the value whose
+        // stamp reproduces the frozen digest (MemoFrozenStampCandidate, kept per
+        // digest: the row is drawn every frame).
         uint32_t songs = 0;
-        if (FrozenStampCandidate(&logic, &songs)) {
-            sShownDigest = gComboCtx.mmProfileDigest;
-            sShownSongs = songs;
+        if (ResidentPairHalfSongs(&songs)) {
             return (int)songs;
         }
+        Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+        if (MemoFrozenStampCandidate(&logic, &songs)) {
+            return (int)songs;
+        }
+        // No source names the world's value (no half resident and no candidate
+        // reproduces the digest: a refused or diverged world, which the arrival
+        // gate and the load classification refuse on their own). The row then
+        // shows what a creation would resolve, the only value left to show.
     }
     return (int)Rando::Foreign::ResolvedPairedSongs();
+}
+
+extern "C" int MM_Rando_AuthoredHalfSongs(void) {
+    return (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
 }
 
 // ============================================================================

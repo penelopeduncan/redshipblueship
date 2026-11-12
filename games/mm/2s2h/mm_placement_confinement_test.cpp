@@ -479,7 +479,7 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         gComboCtx.mmProfileDigest = 0; // unfrozen: the next creation's resolution
         Combo_PairSongsClear();
 
-        // (g1) THE MAPPING, spelled here independently of combo_song_pool.c: OoT
+        // (g1) THE MAPPING, spelled here independently of combo_song_pool.cpp: OoT
         // Off, Song Locations, Dungeon Rewards, Anywhere -> MM Vanilla, Song
         // Locations, Song Locations, Anywhere. MM's own key is set to a value
         // the mapping does NOT give, so a resolution that reads it is red.
@@ -562,6 +562,81 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
                   "(g4) a world frozen with MM Anywhere shows %d once OoT's key is Song Locations",
                   MM_Rando_PairedSongsShown());
         gComboCtx.mmProfileDigest = 0;
+
+        // (g5) THE FROZEN ROW'S TWO OTHER SOURCES (#1542 review). (g5a) A digest
+        // no candidate reproduces now (stamped with Shuffle Cows flipped) shows
+        // the fallback, and once the key the world was made with is back (as the
+        // load restore puts it back) the next draw finds the world's value: red if
+        // a miss is kept past a change of the inputs the search reads. (g5b) With
+        // MM running this pair's randomizer half, the row shows the half's own
+        // frozen Shuffle Songs although no candidate reproduces the digest: red if
+        // the resident half's option is not read before the fallback, or is read
+        // for a half another pair's seed made.
+        {
+            const int32_t cowsBase = CVarGetInteger(cowsKey, Rando::StaticData::Options[RO_SHUFFLE_COWS].defaultValue);
+            CVarSetInteger(cowsKey, cowsBase != 0 ? 0 : 1);
+            Combo_PairSongsCapture(RSBS_OOT_SONGS_ANYWHERE);
+            const uint32_t flippedStamp = MM_Rando_ComputeProfileStamp();
+            Combo_PairSongsClear();
+            SongsRestore::Put(cowsKey, songsRestore.cowsSet, songsRestore.cowsValue);
+            CVarSetInteger(ootKey, (int32_t)RSBS_OOT_SONGS_SONG_LOCATIONS);
+            gComboCtx.mmProfileDigest = flippedStamp;
+            const int missShown = MM_Rando_PairedSongsShown();
+            const int missAgain = MM_Rando_PairedSongsShown();
+            CVarSetInteger(cowsKey, cowsBase != 0 ? 0 : 1);
+            const int refreshed = MM_Rando_PairedSongsShown();
+            SongsRestore::Put(cowsKey, songsRestore.cowsSet, songsRestore.cowsValue);
+            printf(
+                "[TEST] (g5a) unmatched digest %08X shows %d then %d; with the world's Shuffle Cows back it shows %d "
+                "(want Anywhere %d)\n",
+                (unsigned)flippedStamp, missShown, missAgain, refreshed, (int)RO_SONG_SHUFFLE_ANYWHERE);
+            MPC_CHECK(missShown == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS && missAgain == missShown,
+                      "(g5a) an unmatched frozen digest shows %d then %d, not the fallback (Song Locations) twice",
+                      missShown, missAgain);
+            MPC_CHECK(refreshed == (int)RO_SONG_SHUFFLE_ANYWHERE,
+                      "(g5a) with the world's keys back the frozen row shows %d, not the world's Anywhere: a miss was "
+                      "kept past a change of the search's inputs",
+                      refreshed);
+
+            // (g5b) A placeholder digest no candidate reproduces, and MM's live
+            // save made a randomizer half of this pair with Shuffle Songs Vanilla.
+            const GameId gameBefore = Context_GetCurrentGame();
+            const SaveType typeBefore = gSaveContext.save.shipSaveInfo.saveType;
+            const uint32_t finalBefore = gSaveContext.save.shipSaveInfo.rando.finalSeed;
+            const uint32_t songsBefore = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
+            const uint32_t masterBefore = gComboCtx.sharedRandoSeed;
+            const uint32_t attemptBefore = gComboCtx.mmPairedAttempt;
+            gComboCtx.mmProfileDigest = 0x0BADF00Du;
+            gComboCtx.sharedRandoSeed = 0x1542u;
+            gComboCtx.mmPairedAttempt = 1u; // the recorded rung: attempt 0
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = RO_SONG_SHUFFLE_VANILLA;
+            gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+            gSaveContext.save.shipSaveInfo.rando.finalSeed =
+                Rando::Foreign::MixPairedFinalSeedFromOptions(gComboCtx.sharedRandoSeed, RANDO_SAVE_OPTIONS, 0u);
+            Context_SetCurrentGame(GAME_OOT);
+            const int ootRunning = MM_Rando_PairedSongsShown();
+            Context_SetCurrentGame(GAME_MM);
+            const int resident = MM_Rando_PairedSongsShown();
+            gSaveContext.save.shipSaveInfo.rando.finalSeed ^= 1u;
+            const int otherPair = MM_Rando_PairedSongsShown();
+            printf("[TEST] (g5b) MM half of this pair (Vanilla) resident: shows %d (OoT running %d, another pair's "
+                   "half %d)\n",
+                   resident, ootRunning, otherPair);
+            MPC_CHECK(resident == (int)RO_SONG_SHUFFLE_VANILLA,
+                      "(g5b) with this pair's MM half resident the frozen row shows %d, not the half's Vanilla",
+                      resident);
+            MPC_CHECK(ootRunning == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                          otherPair == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS,
+                      "(g5b) the row read MM's save while OoT runs (%d) or a half another pair made (%d)", ootRunning,
+                      otherPair);
+            Context_SetCurrentGame(gameBefore);
+            gSaveContext.save.shipSaveInfo.saveType = typeBefore;
+            gSaveContext.save.shipSaveInfo.rando.finalSeed = finalBefore;
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = songsBefore;
+            gComboCtx.sharedRandoSeed = masterBefore;
+            gComboCtx.mmPairedAttempt = attemptBefore;
+            gComboCtx.mmProfileDigest = 0;
+        }
         printf("[TEST] (g) the paired songs row follows OoT's (capture first), the compares try every value, and "
                "the frozen row shows the world's (stamps Off %08X, Song Locations %08X, Anywhere %08X)\n",
                (unsigned)stamps[RSBS_OOT_SONGS_OFF], (unsigned)stamps[RSBS_OOT_SONGS_SONG_LOCATIONS],

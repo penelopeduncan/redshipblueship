@@ -7,7 +7,7 @@
  * pair-songs-mapping (CTest PairSongsMapping, redship tier, generates nothing)
  * ============================================================================
  *
- *  (1) THE MAPPING, spelled here independently of combo_song_pool.c: OoT Off,
+ *  (1) THE MAPPING, spelled here independently of combo_song_pool.cpp: OoT Off,
  *      Song Locations, Dungeon Rewards, Anywhere give MM Vanilla, Song Locations,
  *      Song Locations, Anywhere, and a value outside OoT's four gives OoT's
  *      default's (Song Locations). Red on any drift of the table.
@@ -25,11 +25,14 @@
  *      the hidden-rules gate and before the MM profile stamp, and its rollback
  *      restores the snapshot; OoT_PairedGen_CompleteWorld clears it when no world
  *      waits, refuses before MM's half when MM's resolution disagrees with OoT's
- *      frozen option, and clears it right after MM's half; RetractPairedWorld and
- *      the package's ApplyComboWorld clear it; MM's paired resolution sets
+ *      frozen option, and clears it right after MM's half; it checks the half MM
+ *      authored against OoT's frozen option while MM's bytes are still in view
+ *      and refuses after OoT's are put back; RetractPairedWorld and the
+ *      package's ApplyComboWorld clear it; MM's paired resolution sets
  *      RO_SHUFFLE_SONGS inside its paired branch, before the authored-logic early
- *      return, from the capture-aware helper and never from MM's key; and the
- *      load restore skips the row.
+ *      return, from the capture-aware helper and never from MM's key; the load
+ *      restore skips the row; and both frozen rows (Shuffle Songs, Logic) search
+ *      through the per-digest memo, the songs row after the resident half.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage.
@@ -213,6 +216,27 @@ void CspCheckAnchors() {
                                      "MM_Rando_AuthorHalfAtCreation(", "Combo_PairSongsClear();" }),
               "(4) OoT_PairedGen_CompleteWorld must clear the capture when no world waits, refuse before MM's half "
               "on a songs disagreement, and clear the capture right after MM's half\n");
+    CSP_CHECK(CspInOrder(complete, { "MM_Rando_AuthorHalfAtCreation(",
+                                     "const bool songsAuthoredAgree = mmRc != 0 || OoTPairHalfSongsAgree();",
+                                     "Combo_PairSongsClear();", "memcpy(&gSaveContext, sOoTSaveSnapshot,",
+                                     "if (!songsAuthoredAgree) {", "RetractPairedWorld();",
+                                     "return RSBS_SEEDPKG_ERR_GENERATION;" }),
+              "(4) OoT_PairedGen_CompleteWorld must check the authored half's Shuffle Songs while MM's bytes are in "
+              "view, and refuse after OoT's are put back\n");
+    CSP_CHECK(CspInOrder(CspFunctionBody(creation, "static bool OoTPairHalfSongsAgree(void)"),
+                         { "GetOption(RSK_SHUFFLE_SONGS).Get()", "Combo_PairSongsMmValue(",
+                           "MM_Rando_AuthoredHalfSongs()", "return false;" }),
+              "(4) the authored-half lock must compare the half's option with the mapping of OoT's frozen option\n");
+    CSP_CHECK(CspInOrder(CspFunctionBody(foreign, "extern \"C\" int MM_Rando_AuthoredHalfSongs(void)"),
+                         { "RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS]" }),
+              "(4) MM_Rando_AuthoredHalfSongs must read the live half's frozen Shuffle Songs\n");
+    CSP_CHECK(CspInOrder(CspFunctionBody(foreign, "extern \"C\" int MM_Rando_PairedSongsShown(void)"),
+                         { "Combo_MMProfileFrozen()", "ResidentPairHalfSongs(&songs)", "MemoFrozenStampCandidate(",
+                           "ResolvedPairedSongs()" }),
+              "(4) the frozen songs row must read the resident half, then the memoised search, then the fallback\n");
+    CSP_CHECK(CspInOrder(CspFunctionBody(foreign, "extern \"C\" int MM_Rando_PairedLogicShown(void)"),
+                         { "MemoFrozenStampCandidate(" }),
+              "(4) the frozen Logic row must search through the per-digest memo\n");
     const std::string agree = CspFunctionBody(creation, "static bool OoTPairSongsAgree(void)");
     CSP_CHECK(CspInOrder(agree, { "GetOption(RSK_SHUFFLE_SONGS).Get()", "Combo_PairSongsMmValue(",
                                   "MM_Rando_PairedSongsResolved()", "return false;" }),

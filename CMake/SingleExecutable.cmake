@@ -222,7 +222,7 @@ set(REDSHIP_COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
     # #1542 D2: the pair's one songs setting: OoT's Shuffle Songs onto MM's, and
     # the creation capture MM's paired resolution reads. Game-header-free.
-    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.c
+    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.cpp
     # #1169 XW6: OoT's Song of Soaring to a Termina owl, the game-neutral half:
     # the note matcher, the gates, the chooser's answers, MM's owl table and the
     # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
@@ -352,7 +352,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
-    # Header for combo_song_pool.c above (#1542)
+    # Header for combo_song_pool.cpp above (#1542)
     ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.h
     # Header for warp_song_soaring.c above (#1169 XW6)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
@@ -2736,6 +2736,16 @@ if(BUILD_TESTING)
     redship_add_test(NAME SeedPackageCVarsCannotMoveWorld COMMAND redship --test seed-package-cvars-frozen
         LABEL rando
         TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1542 (review): the pair's one songs setting is the freeze's. OoT's Shuffle
+    # Songs and MM's own key move after Generate and before MM's half is made:
+    # Generate's completion and a file creation's (after z_sram's KEEP
+    # invalidation) both make MM's half at Song Locations, one world between them,
+    # and with the capture gone the completion refuses. Three OoT generations and
+    # two MM halves, hence the timeout.
+    redship_add_test(NAME SongPoolCreationAgrees COMMAND redship --test song-pool-creation-agrees
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and

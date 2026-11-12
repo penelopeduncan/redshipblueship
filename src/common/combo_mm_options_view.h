@@ -357,11 +357,24 @@ int MM_Rando_PairedSongsResolved(void);
 
 /**
  * #1542 (D2): the value MM's Shuffle Songs row shows. While the profile is
- * frozen, the world's own (the MM value whose stamp reproduces the frozen
- * digest, so a world created before #1542 shows MM's own value), else
- * MM_Rando_PairedSongsResolved. DEFINED MM-SIDE (games/mm/2s2h/Rando/Foreign.cpp).
+ * frozen, the world's own: the resident half's frozen option while MM plays this
+ * pair's half, else the MM value whose stamp reproduces the frozen digest (so a
+ * world created before #1542 shows MM's own value; kept per digest, and a miss
+ * only while the search's inputs stand still). Otherwise, and for a frozen
+ * digest neither source names, MM_Rando_PairedSongsResolved. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
  */
 int MM_Rando_PairedSongsShown(void);
+
+/**
+ * #1542 (review): the Shuffle Songs MM's live save was generated with
+ * (RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS]). Meaningful only while MM's bytes are in
+ * the shared gSaveContext: OoT_PairedGen_CompleteWorld reads it right after
+ * MM_Rando_AuthorHalfAtCreation returns, before OoT's bytes are put back, to check
+ * the authored half against OoT's frozen option. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
+ */
+int MM_Rando_AuthoredHalfSongs(void);
 
 /**
  * Publish MM's frozen profile as GIVE CAPABILITIES (ADR 0011 O8's
