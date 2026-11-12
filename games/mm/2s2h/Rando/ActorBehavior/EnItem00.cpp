@@ -112,6 +112,11 @@ void Rando::ActorBehavior::InitEnItem00Behavior() {
         // Prevent the original item from spawning
         *should = false;
 
-        spawnReplacementItem(actor->world.pos, randoStaticCheck);
+        EnItem00* replacementItem = spawnReplacementItem(actor->world.pos, randoStaticCheck);
+
+        // RSBS: CustomItem::Spawn returns NULL when the actor table is full.
+        if (replacementItem != nullptr && randoStaticCheck.randoCheckType == RCTYPE_WONDER_ITEM) {
+            replacementItem->actor.draw = Rando::ActorBehavior::DrawWonderItemSparkle;
+        }
     });
 }

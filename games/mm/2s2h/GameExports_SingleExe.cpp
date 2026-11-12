@@ -264,6 +264,13 @@ static_assert(MMRT_GBT_BOSS_KEY_ICE == 85, "MM's last trick id at save format 6 
 static_assert(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP == 77,
               "MM's last randomizer-inf flag at save format 6 is 77: append after it");
 static_assert(RE_MAIL_LETTER_TO_KAFEI == 82, "MM's last randomizer event at save format 6 is 82: append after it");
+// Each backport appended after format 6 locks its own ids the same way, so a
+// merge that reorders the appended blocks fails here instead of renumbering
+// saved rows. #1406 (Shuffle Wonder Items): 113 checks and one option.
+static_assert(RC_CLOCK_TOWN_EAST_WONDER_ITEM_01 == 2311 && RC_TERMINA_FIELD_WONDER_ITEM_21 == 2423,
+              "MM's Wonder Item checks (#1406) are ids 2311..2423, appended after RC_ENEMY_DROP_GOMESS");
+static_assert(RO_SHUFFLE_WONDER_ITEMS == 54,
+              "MM's Shuffle Wonder Items option (#1406) is id 54, after RO_SHUFFLE_SONGS");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

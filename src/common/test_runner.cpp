@@ -399,6 +399,13 @@ int MM_OcarinaDpad_RunHeadless(void);
 // the display-free shared bring-up first. Return 0 on pass.
 int MM_TreeShuffle_RunHeadless(void);
 int MM_TreeShuffleHooks_RunHeadless(void);
+// Majora's Mask wonder item shuffle (games/mm/2s2h/mm_wonder_items_test.cpp,
+// #1406): the option, its page row, the 113 wonder item checks, the id runs the
+// hooks index and the pool switch; then the behaviour arming from
+// ActorBehavior::OnFileLoad and running. Both need the display-free shared
+// bring-up first. Return 0 on pass.
+int MM_WonderItems_RunHeadless(void);
+int MM_WonderItemsHooks_RunHeadless(void);
 // Majora's Mask's shop and Tingle price modes (games/mm/2s2h/mm_shop_prices_test.cpp,
 // #1427): the options, their page rows and the logic tiers; then the price pass
 // over a real pool generation and its determinism. Both need the display-free
@@ -7198,6 +7205,35 @@ static TestResult Test_MMTreeShuffleHooks(void) {
     return MM_TreeShuffleHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Wonder item shuffle (#1406). Same display-free bring-up as mm-tree-shuffle.
+static TestResult Test_MMWonderItems(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_WonderItems_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMWonderItemsHooks(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_WonderItemsHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // The MM price modes (#1427). Same display-free bring-up as mm-tree-shuffle: the
 // option table, the page view model and the region graph are all in the link,
 // and the CVar store must exist.
@@ -9839,6 +9875,15 @@ const TestDescriptor gTests[] = {
       Test_MMTreeShuffle },
     { "mm-tree-shuffle-hooks", "The MM tree behaviour arms from OnFileLoad and suppresses a tree check's drop (#1121)",
       Test_MMTreeShuffleHooks },
+    // Wonder item shuffle (#1406). After mm-registrar-coverage for the same
+    // reason as the tree rows (mm-wonder-items runs MM_Rando_Init). Both
+    // restore what they write.
+    { "mm-wonder-items",
+      "Shuffle Wonder Items is an MM option, a page row, 113 checks, id runs and a pool switch (#1406)",
+      Test_MMWonderItems },
+    { "mm-wonder-items-hooks",
+      "The MM wonder item behaviour arms from OnFileLoad and suppresses a Hit Tag's drop (#1406)",
+      Test_MMWonderItemsHooks },
     // The MM price modes (#1427). After mm-registrar-coverage for the same
     // reason as the tree rows (the pool row runs MM_Rando_Init). Both restore
     // what they write.

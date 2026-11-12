@@ -47,6 +47,12 @@
   keeps each item in its own dungeon in Majora's Mask, Song Locations puts Majora's Mask's songs on Majora's Mask's
   song checks, and Vanilla and Start With behave as in 2Ship. The defaults stay Anywhere, so worlds created with the
   defaults do not change.
+- **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, the 113 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
+  you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee and the song wall's
+  drops. A hidden one sparkles until you collect it. In a paired world the option is set when the file is created, like
+  every other setting, and these checks only ever hold Majora's Mask items, never an Ocarina of Time item. With it off,
+  worlds are made exactly as before.
 
 ### Ocarina of Time randomizer
 

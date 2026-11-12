@@ -2272,6 +2272,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_CONSUME_EPONA_CARROT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `ObjDora*`
+    VB_GONG_DROP_COLLECTIBLE,
 } GIVanillaBehavior;
 
 #endif

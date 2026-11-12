@@ -1676,6 +1676,19 @@ if(BUILD_TESTING)
     # state is tolerated. Pure (no display, no ROM); ids looked up by name.
     redship_add_test(NAME MMTreeShuffle COMMAND redship --test mm-tree-shuffle)
     redship_add_test(NAME MMTreeShuffleHooks COMMAND redship --test mm-tree-shuffle-hooks)
+    # Majora's Mask wonder item shuffle (#1406; upstream 2Ship's Wonder Item
+    # shuffle). MMWonderItems: the option defaults off, the page draws a live
+    # checkbox, the 113 wonder items are one check type, sit in logic regions
+    # and Randomizer > MM Locations, never host an OoT item, the id runs
+    # WonderItems.cpp indexes (each Hit Tag's base + 1 / + 2, the Termina wall's
+    # base + sRewardDropsIndex[hour] + 0..2) are the checks their names promise,
+    # and the rows enter the pool only with the option on. MMWonderItemsHooks:
+    # WonderItems.cpp's five hooks arm through ActorBehavior::OnFileLoad
+    # (exactly +1 each), a mapped Hit Tag gets its check, VB_ENEMY_DROP_
+    # COLLECTIBLE suppresses its vanilla drop once and latches it, and the gong
+    # and an unshuffled invisible rupee keep vanilla. Pure (no display, no ROM).
+    redship_add_test(NAME MMWonderItems COMMAND redship --test mm-wonder-items)
+    redship_add_test(NAME MMWonderItemsHooks COMMAND redship --test mm-wonder-items-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle

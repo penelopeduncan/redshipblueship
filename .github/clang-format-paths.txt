@@ -88,6 +88,7 @@ games/mm/2s2h/mm_monkey_destroy_sonata_test.cpp
 games/mm/2s2h/mm_woodfall_sonata_trigger_test.cpp
 games/mm/2s2h/mm_song_teacher_hooks_test.cpp
 games/mm/2s2h/mm_tree_shuffle_test.cpp
+games/mm/2s2h/mm_wonder_items_test.cpp
 games/mm/2s2h/mm_framebuffer_effects.c
 games/mm/2s2h/mm_gi_shim_test.cpp
 games/mm/2s2h/mm_audio_editor_test.cpp
