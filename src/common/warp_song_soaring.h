@@ -149,6 +149,7 @@ typedef struct ComboSoaringMMDesc {
     uint32_t newfOffset;     // save.saveInfo.playerData.newf, the "ZELDA3" marker
     uint8_t newfLen;
     char newf[6];
+    uint32_t cloudsOffset; // u32 save.saveInfo.worldMapCloudVisibility (#1169 XW8); 0: not registered
 } ComboSoaringMMDesc;
 /** Registers MM's layout; NULL unregisters. */
 void Combo_Soaring_RegisterMMDesc(const ComboSoaringMMDesc* desc);

@@ -1253,6 +1253,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
 // All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_warp_song_soaring.c"
+// #1169 lane XW8: the Termina owl map OoT's Song of Soaring opens in its pause:
+// the picker, the route and the pause precondition (soaring-map-picker), and
+// MM's page data and resource paths checked against MM's own source and the
+// curated manifest (soaring-map-tables). Both ROM-free and generation-free.
+// FILE SCOPE (compiled as C++).
+#include "tests/test_warp_song_soaring_map.c"
 // #1169 lane XW5: Ocarina of Time's six warp songs as Majora's Mask items and
 // their ownership byte: the items, the pool and the button sets
 // (mm-warp-songs-items, needs the CVar store), ownership surviving creation, an
@@ -10730,6 +10736,16 @@ const TestDescriptor gTests[] = {
       "chooser cycles, only A soars, every exit hands control back, and the message branches act on these decisions "
       "(#1169)",
       Test_OoTSoaringGates },
+    // #1169 XW8: the Termina owl map. Two ROM-free rows that generate nothing.
+    { "soaring-map-picker",
+      "The Song of Soaring's owl map offers exactly the active owls in MM's order and moves with MM's stick repeat, "
+      "every input has MM's outcome, every close restores the HUD and hands back OCARINA_MODE_04, the route falls "
+      "back to the text chooser, and the pause precondition ignores the ocarina's own cutscene flag (#1169)",
+      Test_SoaringMapPicker },
+    { "soaring-map-tables",
+      "The owl map's quads, cursors, clouds and names are MM's own tables, every asset path is MM's own define and "
+      "curated for OoT, and none is an OoT path (#1169)",
+      Test_SoaringMapTables },
     { "oot-soaring-matcher",
       "OoT's real free-play checker matches the Song of Soaring only for a child who owns it under the frozen rule in "
       "a paired world, every vanilla song still answers itself, and Pierre's song wins a same-note tie (#1169)",
@@ -11151,8 +11167,9 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "The paired first crossing with OoT's Song of Soaring rule revealed (#1169 XW6): an adult plays it and nothing "
       "matches; the creation shadow shows the no-statues text; the Windmill refuses it; after an MM leg that "
       "activates two owls (one an owl save with a pause-save entrance, the swamp cleared) the return leg cancels the "
-      "owl chooser, then steps it to the second owl and soars: MM must land on the cleared swamp's owl, not the "
-      "pause-save spot, with the one-shot target spent",
+      "fallback text chooser, opens and cancels the owl map (#1169 XW8), answers its prompt No, then soars to the "
+      "second owl from the map: MM must land on the cleared swamp's owl, not the pause-save spot, with the one-shot "
+      "target spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "

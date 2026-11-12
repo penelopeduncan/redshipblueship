@@ -349,7 +349,30 @@ const char* const kCaiTrackerIcons[] = {
     "icon_item_dungeon_static/gDungeonMapSkullTex",
     "icon_item_field_static/gWorldMapOwlFaceTex",
 };
-// Siblings in the same directories that no tracker row names.
+// #1169 XW8: the Termina owl map OoT's Song of Soaring opens draws MM's world
+// map from the same directory (the image, its TLUT and the fifteen clouds; the
+// owl face is the tracker's above). They are curated for the same reason, so
+// the exact-set check below counts them too.
+const char* const kCaiSoaringMapFieldTextures[] = {
+    "icon_item_field_static/gWorldMapImageTex",
+    "icon_item_field_static/gWorldMapImageTLUT",
+    "icon_item_field_static/gWorldMapClockTownCloud1Tex",
+    "icon_item_field_static/gWorldMapClockTownCloud2Tex",
+    "icon_item_field_static/gWorldMapWoodfallCloud1Tex",
+    "icon_item_field_static/gWorldMapWoodfallCloud2Tex",
+    "icon_item_field_static/gWorldMapWoodfallCloud3Tex",
+    "icon_item_field_static/gWorldMapSnowheadCloud1Tex",
+    "icon_item_field_static/gWorldMapSnowheadCloud2Tex",
+    "icon_item_field_static/gWorldMapSnowheadCloud3Tex",
+    "icon_item_field_static/gWorldMapRomaniRanchCloudTex",
+    "icon_item_field_static/gWorldMapGreatBayCloud1Tex",
+    "icon_item_field_static/gWorldMapGreatBayCloud2Tex",
+    "icon_item_field_static/gWorldMapGreatBayCloud3Tex",
+    "icon_item_field_static/gWorldMapGreatBayCloud4Tex",
+    "icon_item_field_static/gWorldMapStoneTowerCloud1Tex",
+    "icon_item_field_static/gWorldMapStoneTowerCloud2Tex",
+};
+// Siblings in the same directories that neither a tracker row nor the owl map names.
 // Each family's own sibling (an ocarina glyph, a stray-fairy icon, a clock
 // texture) catches a manifest entry shortened to the family's prefix.
 const char* const kCaiTrackerIconSiblings[] = {
@@ -590,14 +613,17 @@ int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::str
     // other), and before the first crossing that is redship-oot.o2r alone. The
     // embedded manifest's mm->oot lines over parameter_static/,
     // icon_item_dungeon_static/ and icon_item_field_static/ must carve exactly
-    // the thirteen tracker textures out of an mm.o2r that also holds their
-    // siblings: none missing (a row drawn as clipped text) and no sibling (a
-    // whole-directory entry would ship textures no row names).
+    // the thirteen tracker textures, and the owl map's seventeen field textures
+    // (#1169 XW8), out of an mm.o2r that also holds their siblings: none missing
+    // (a row drawn as clipped text, or the map falling back to the text chooser)
+    // and no sibling (a whole-directory entry would ship textures nothing names).
     {
         CaiFixture ix;
         bool wrote = CaiWriteFixture(root + "/icons", &ix);
+        std::vector<const char*> wanted(std::begin(kCaiTrackerIcons), std::end(kCaiTrackerIcons));
+        wanted.insert(wanted.end(), std::begin(kCaiSoaringMapFieldTextures), std::end(kCaiSoaringMapFieldTextures));
         std::vector<std::pair<std::string, std::string>> mmEntries;
-        for (const char* path : kCaiTrackerIcons) {
+        for (const char* path : wanted) {
             mmEntries.push_back({ path, CaiTexture(std::string("mm:") + path) });
         }
         for (const char* path : kCaiTrackerIconSiblings) {
@@ -625,7 +651,7 @@ int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::str
         } else {
             const CaiArchive half = CaiReadZip(in.outOoT);
             int missing = 0;
-            for (const char* path : kCaiTrackerIcons) {
+            for (const char* path : wanted) {
                 auto it = half.entries.find(path);
                 if (it == half.entries.end()) {
                     fprintf(stderr, "[curated-archive-inapp] FAIL: A2: redship-oot.o2r lacks %s\n", path);
@@ -638,7 +664,7 @@ int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::str
             int extra = 0;
             for (const auto& kv : half.entries) {
                 bool known = false;
-                for (const char* path : kCaiTrackerIcons) {
+                for (const char* path : wanted) {
                     known = known || kv.first == path;
                 }
                 if (!known) {
@@ -647,9 +673,9 @@ int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::str
                     extra++;
                 }
             }
-            printf("[curated-archive-inapp] A2: redship-oot.o2r holds %zu entries: %d of the %zu tracker icons "
+            printf("[curated-archive-inapp] A2: redship-oot.o2r holds %zu entries: %d of the %zu curated textures "
                    "missing, %d other\n",
-                   half.entries.size(), missing, sizeof(kCaiTrackerIcons) / sizeof(kCaiTrackerIcons[0]), extra);
+                   half.entries.size(), missing, wanted.size(), extra);
             failures += (missing + extra) != 0;
             if (havePython) {
                 const std::string iconManifestPath = root + "/icons-manifest.txt";

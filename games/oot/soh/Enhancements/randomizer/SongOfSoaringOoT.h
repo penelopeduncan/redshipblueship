@@ -42,14 +42,17 @@ int32_t OoT_SoaringOoT_NoteMatched(const uint8_t* song, uint8_t appendPos);
  *  Soaring notes in OoT's format, without an index into sOcarinaSongs. */
 void OoT_SoaringOoT_StartPlayback(void);
 
-/** SONG_PLAYED_ACT for the song: the gates, then the owl chooser. Every refusal
- *  shows its text and leaves OCARINA_MODE_04. */
+/** SONG_PLAYED_ACT for the song: the gates, then the Termina owl map
+ *  (SoaringMapOoT.h, #1169 XW8), or the text chooser below when the map cannot
+ *  open (Combo_SoaringMap_Route). Every refusal shows its text and leaves
+ *  OCARINA_MODE_04. */
 void OoT_SoaringOoT_OnSongPlayed(struct PlayState* play);
 
-/** THE XW8 SEAM. Opens the owl chooser over @p owlMask (the interim one is a
- *  3-choice text cycle; lane XW8 replaces only this with OoTMM's pause map) and
- *  crosses to one owl (the gates again, then the one-shot warp target and an
- *  ordinary game switch). */
+/** THE FALLBACK CHOOSER: XW6's 3-choice text cycle over @p owlMask, which the
+ *  route takes while an asset the owl map draws is not mounted or a pause
+ *  cannot open; kept until the map is proven in play. Depart crosses to one owl
+ *  for both (the gates again, then the one-shot warp target and an ordinary
+ *  game switch). */
 void OoT_SoaringOoT_BeginChooser(struct PlayState* play, uint16_t owlMask);
 void OoT_SoaringOoT_Depart(struct PlayState* play, int owl);
 

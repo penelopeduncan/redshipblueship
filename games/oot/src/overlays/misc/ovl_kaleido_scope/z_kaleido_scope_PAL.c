@@ -23,6 +23,9 @@
 #include "soh/SaveManager.h"
 #include "soh/Enhancements/kaleido.h"
 #include <soh_assets.h>
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/randomizer/SoaringMapOoT.h" // #1169 XW8: the Termina owl map (K3, K4)
+#endif
 
 static void* sEquipmentFRATexs[] = {
     gPauseEquipment00FRATex, gPauseEquipment01Tex, gPauseEquipment02Tex, gPauseEquipment03Tex, gPauseEquipment04Tex,
@@ -3508,6 +3511,15 @@ void OoT_KaleidoScope_Draw(PlayState* play) {
     PauseContext* pauseCtx = &play->pauseCtx;
     InterfaceContext* interfaceCtx = &play->interfaceCtx;
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW8 (K4): the owl map draws its own states (and the one 0x12 frame
+    // of its close) instead of the pages, whose vertices it never set up.
+    if (OoT_SoaringMap_OwnsDraw(pauseCtx->state)) {
+        OoT_SoaringMap_Draw(play);
+        return;
+    }
+#endif
+
     OPEN_DISPS(play->state.gfxCtx);
 
     pauseCtx->stickRelX = input->rel.stick_x;
@@ -3855,6 +3867,21 @@ void OoT_KaleidoScope_Update(PlayState* play) {
     s16 stepB;
     s16 stepA;
     s32 pad;
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW8 (K3): the owl map's states, and the one 0x12 frame of its
+    // close, are the map's; the buttons are saved once, as state 3 saves them,
+    // for 0x13 to put back.
+    if (OoT_SoaringMap_OwnsUpdate(pauseCtx->state)) {
+        if (OoT_SoaringMap_TakeButtonSave()) {
+            for (int buttonIndex = 0; buttonIndex < ARRAY_COUNT(gSaveContext.buttonStatus); buttonIndex++) {
+                sButtonStatusSave[buttonIndex] = gSaveContext.buttonStatus[buttonIndex];
+            }
+        }
+        OoT_SoaringMap_Update(play);
+        return;
+    }
+#endif
 
     if ((R_PAUSE_MENU_MODE >= 3) && (((pauseCtx->state >= 4) && (pauseCtx->state <= 7)) ||
                                      ((pauseCtx->state >= 0xA) && (pauseCtx->state <= 0x12)))) {
