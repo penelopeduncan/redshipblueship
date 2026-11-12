@@ -964,6 +964,14 @@ void SctCheckAnchors() {
                                  "StartingItemGive(getItemEntry, "
                                  "RC_SONG_FROM_IMPA)" }),
               "(h) Skip Child Zelda no longer gives Impa's check at creation through StartingItemGive\n");
+    // #1404 (SoH #6938): an unshuffled starting letter skips child Zelda too, so the
+    // creation give and OoT's host predicate must both read it.
+    SCT_CHECK(SctInOrder(init, { "RSK_STARTING_ZELDAS_LETTER", "RSK_SHUFFLE_ZELDAS_LETTER",
+                                 "StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA)" }) &&
+                  SctInOrder(ootHost, { "GetOption(RSK_SKIP_CHILD_ZELDA)", "GetOption(RSK_STARTING_ZELDAS_LETTER)",
+                                        "GetOption(RSK_SHUFFLE_ZELDAS_LETTER)", "ACTOR_EN_BOX" }),
+              "(h) Start with Zelda's Letter gives Impa's check at creation, but OoT's host predicate does not refuse "
+              "Impa for it (#1404)\n");
 
     const std::string model = SctReadSource("games/mm/2s2h/Rando/ForeignModelSingleExe.cpp");
     const std::string icon = SctReadSource("games/mm/2s2h/Rando/ForeignTextboxIconSingleExe.cpp");
