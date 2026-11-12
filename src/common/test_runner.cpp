@@ -2530,7 +2530,12 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Majora's Mask's Shuffle Songs follows Ocarina of Time's, so in the default world
 // its songs stay on its own song locations, which moves the placements named by the
 // static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x362833B2u;
+// Re-pinned again by the shared song-location pool (#1542 D1, D5; generator 5, was
+// 0x362833B2): under Song Locations the songs of both games share the song checks of
+// both, Ocarina of Time's songs are placed by the single bag, and the song check left
+// over holds junk, which moves the placements named by the static hints; the count
+// stays 17.
+static const uint32_t kStaticHintTextDigest = 0xEF3042B8u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 

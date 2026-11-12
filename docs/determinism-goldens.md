@@ -828,6 +828,51 @@ fingerprint.
 (`D5F895FF` to `362833B2`, still 17 hints), and `ComboSingleBag`'s
 `kCsbFLoadBearingFixedChecks` is empty again.
 
+The shared song-location pool (2026-11-12, PR #1546; issue #1542, rulings D1 and
+D5), still version 5. Under Shuffle Songs: Song Locations the song checks of both
+games are one pool (OoTMM's `songLocations`): Ocarina of Time's songs leave its
+own song pass and are placed by the single bag, a song of either game may sit on a
+song check of either game, a song check holds nothing but a song or junk, and the
+one left over holds junk. Twelve goldens moved. `seed-digest-profile-v1` did not:
+its profile has Shuffle Songs at Dungeon Rewards, where the shared pool is not
+armed. `seed-digest-mm-confined` moved this time.
+
+Measured against the pins before it (`seed-digest-default` unless named):
+
+* INPUT: nothing. `seed`, `settingsHash`, `comboSettings`, `comboSettingsHash`,
+  `mmFinalSeed` and `ladderMasterSeed` stay: no setting, default or fold changed.
+* OoT's general pass: `placementHash` moves and `placedCount` drops by twelve
+  (272 to 260), the twelve songs OoT no longer places before the seam.
+* The bag: `bagRows` and `bagRequiredPlaced` grow by twelve (270 to 282; 265 to
+  277 in `seed-digest-all-masks`, 269 to 281 in `seed-digest-mm-confined`), and
+  `bagHomeOnly` goes from 10 to 0, because MM's songs are no longer held to MM.
+  In `seed-digest-armed-caps`, `armedOoTPoolRows` goes from 178 to 190,
+  `armedBagRows` from 333 to 345 and `armedOoT` from `req81` to `req93`.
+* After that: `bagRounds` (272 to 284), the leftover counts, `coordinatorDigest`,
+  `mmPlacementHash`, `ootFinalPlacementHash`, `crossingDigest`, the crossing counts
+  (47 and 28 to 54 and 32) and every per-slot line, `ootHintDigest` (`ootHintCount`
+  stays 45), the MM hint count and digest, the foolish areas and
+  `mmFreeStoneDigest`.
+* Rounds: every golden creates on its pinned ladder attempt in one batch attempt,
+  except `seed-digest-excludes-tricks`, which takes two (533 rounds).
+  `seed-digest-direction-forward` creates on ladder attempt 1 because the fill
+  draws a shared group's rows fewest-usable-hosts first (`ComboLogicConfinedFirst`);
+  drawn in shuffled order, Ocarina of Time's crossing songs took the song checks
+  that Majora's Mask's songs, held to Termina by the one-way direction, needed,
+  and the world only came on attempt 4.
+
+Why no bump, and the residuals: generator 5 has not shipped. Unlike the change
+before it, this one moves no input, so a Song Locations world keeps its
+fingerprint while its placements move. That is a residual against the unreleased
+generator-5 builds only: against a build between PR #1543 and this change for
+every Song Locations world, and against an earlier one for a world whose MM
+Shuffle Songs key was set to Song Locations by hand (the `seed-digest-mm-confined`
+profile). Worlds with Shuffle Songs at Anywhere, Off or Dungeon Rewards do not
+move.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
+(`362833B2` to `EF3042B8`, still 17 hints). `ComboSingleBag`'s
+`kCsbFLoadBearingFixedChecks` stays empty and leg G keeps its seed.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned
