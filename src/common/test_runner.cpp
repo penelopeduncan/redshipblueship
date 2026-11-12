@@ -8965,6 +8965,23 @@ TestResult Test_ComboWarpTravelRounds(void) {
 
     return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW12: real paired creations with one warp-song rule ON through its key (the
+// MM seam for the Minuet) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
+// bring-up as combo-warp-travel-rounds; `--test all` skips it (a generation row).
+extern "C" int MM_WarpSongWorld_RunHeadless(void);
+TestResult Test_ComboWarpSongWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw12WorldArg0[] = "redship";
+    static char* xw12WorldArgv[] = { xw12WorldArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw12WorldArgv);
+
+    return MM_WarpSongWorld_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1428: OoT's goal gates at OoTMM's defaults on one paired creation save, Triforce
 // Hunt's override of Ganon's Boss Key and a stored world's own gates. Same bring-up
 // as the rows above; body in games/oot/soh/oot_goal_gate_defaults_test.cpp.
@@ -10924,6 +10941,13 @@ const TestDescriptor gTests[] = {
       "of Soaring reaches MM's owl landings through a coordinator round only with their frozen rules on, and the "
       "rule bits alone change no answer (#1169)",
       Test_ComboWarpTravelRounds },
+    // #1169 XW12: a real paired world with one warp-song rule on (rando tier, a
+    // generation row: on the --test all skip list).
+    { "combo-warp-song-world",
+      "A real paired creation with one warp-song rule on through its key places exactly one copy, proves the world "
+      "beatable with its travel credited and freezes the warp-song record; under Shuffle Songs Off the Song of "
+      "Soaring (OoT) roams (#1169)",
+      Test_ComboWarpSongWorld },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
     { "oot-warp-song-record",
@@ -11395,6 +11419,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "mm-warp-travel-edges") == 0 ||
                 strcmp(gTests[i].name, "combo-warp-travel-rounds") == 0 ||
+                strcmp(gTests[i].name, "combo-warp-song-world") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
                 strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||

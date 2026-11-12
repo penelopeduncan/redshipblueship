@@ -271,8 +271,9 @@
  * game's warp song to a game (OoTMM songSoaringOot, songMinuetMm .. songPreludeMm);
  * the seven shared ones make the two copies one item (OoTMM sharedSong*, each
  * requiring its extension). Boolean (0/1), DEFAULT 0 each, folded into
- * comboSettingsHash only when on. HIDDEN until lane XW12: no row exposes them, and
- * Generate refuses a world with any of them on. */
+ * comboSettingsHash only when on. The extensions have Cross-Game Songs rows since
+ * lane XW12; the shared ones stay HIDDEN until XW10: no row is drawn, and Generate
+ * refuses a world with one on. */
 #define RSBS_CVAR_COMBO_RANDO_SONG_SOARING_OOT "gCombo.Rando.SongSoaringOoT"
 #define RSBS_CVAR_COMBO_RANDO_SONG_MINUET_MM "gCombo.Rando.SongMinuetMM"
 #define RSBS_CVAR_COMBO_RANDO_SONG_BOLERO_MM "gCombo.Rando.SongBoleroMM"
@@ -1664,8 +1665,10 @@ inline constexpr ComboKey kComboKeys[] = {
       "ComboItemRulesRecord.crossItemFlags' RSBS_XITEM_SHARED_SPOOKY bit (#980): the two Spooky Masks are ONE "
       "shared-pair family across both games; frozen only with the Spooky Mask in MM" },
     // #1169 lane XW2: the fourteen warp-song rules, bits of the second rules word.
-    // Hidden until XW12 (no row; Generate refuses one set), IDENTITY all the same:
-    // each one, once offered, decides a world.
+    // Song of Soaring (OoT) offered since XW12, the MM ones hidden until
+    // IntMMWarpSongMinuet and the shared ones until XW10 (no
+    // row; Generate refuses one set), IDENTITY all the same: each one decides a
+    // world.
     { RSBS_CVAR_COMBO_RANDO_SONG_SOARING_OOT, ComboKeyClass::Identity,
       "ComboItemRules2Record's RSBS_XITEM2_SONG_SOARING_OOT bit (#1169): Majora's Mask's Song of Soaring is added to "
       "Ocarina of Time (OoTMM songSoaringOot)" },
@@ -2195,7 +2198,7 @@ inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kCombo
 // SharedMaskTruth (#978), SharedSwim (#1369), BlastMaskOoT, SharedMaskBlast,
 // BlastMaskCooldown, StoneMaskOoT and SharedMaskStone (#979), the fourteen
 // warp-song keys SongSoaringOoT, SongMinuetMM .. SongPreludeMM and
-// SharedSongSoaring .. SharedSongPrelude (#1169 XW2, hidden until XW12), and
+// SharedSongSoaring .. SharedSongPrelude (#1169 XW2; the shared ones hidden until XW10), and
 // GerudoMaskMM, SkullMaskMM, SpookyMaskMM, SharedMaskGerudo, SharedMaskSkull and
 // SharedMaskSpooky (#980); #879 retired SharedOcarina (#668)) + four
 // window-visibility preferences (the MM randomizer options window's left with

@@ -371,8 +371,8 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     }
     // RedShipBlueShip #1169 XW5 (OoTMM songMinuetMm .. songPreludeMm): each Ocarina
     // of Time warp song its frozen rule adds to Majora's Mask, one copy, none under
-    // its shared rule (lane XW10's family, held back). Hidden until XW12 and off by
-    // default, so every world a player can make builds the pool it always did. A
+    // its shared rule (lane XW10's family, held back). Hidden until IntMMWarpSongMinuet
+    // (#1169 XW12) and off by default, so a world with the rules off builds the pool it always did. A
     // starting copy leaves the pool with the other starting items below.
     for (RandoItemId song : { RI_SONG_MINUET, RI_SONG_BOLERO, RI_SONG_SERENADE, RI_SONG_REQUIEM, RI_SONG_NOCTURNE,
                               RI_SONG_PRELUDE }) {

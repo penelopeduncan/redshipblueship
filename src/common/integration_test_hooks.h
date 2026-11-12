@@ -129,12 +129,10 @@ typedef struct {
  *       creation and boots the debug save instead (the red half: the arrival
  *       must then fail on the skipped-because-no-paired-oot-world leg).
  *   GP_VARIANT_SOARING_TO_OWL (int-soaring-to-owl; #1169 XW6): the paired
- *       variant with OoT's Song of Soaring rule on (the hidden rule revealed
- *       through Combo_ComboItemRules2RevealForTest, never through a stored
- *       setting). IntegrationTest_PairedFirstCrossing() is true for it too, so
- *       every paired check above runs unchanged. On top of them the first OoT
- *       leg plays the song as an adult, in the creation shadow (no statues) and
- *       in the Windmill (warp-song restriction 3); the MM leg activates two
+ *       variant with OoT's Song of Soaring rule on (through its key with the
+ *       production mask since #1169 XW12, never through a stored setting). IntegrationTest_PairedFirstCrossing() is
+ * true for it too, so every paired check above runs unchanged. On top of them the first OoT leg plays the song as an
+ * adult, in the creation shadow (no statues) and in the Windmill (warp-song restriction 3); the MM leg activates two
  *       owls before the Clock Tower door; the return leg cancels the owl
  *       chooser once and then soars to the second owl offered. The run ends on
  *       that MM arrival (IntegrationTest_SoaringExpectedOwl).

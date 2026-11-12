@@ -67,6 +67,7 @@
 #include "combo_song_pool.h"       // src/common — the pair's one songs setting (#1542)
 
 #include "mm_warp_song_play.h" // src/common — the creation's warp-song record (#1169 XW7)
+#include "warp_song_items.h"   // src/common — Combo_GenRefusal_*: the OoT generation's own refusals (#1169 XW12)
 
 // WarpSongRecordOoT.cpp (#1169 XW7): the creation's warp-song record.
 extern "C" int OoT_Creation_FreezeWarpSongRecord(void);
@@ -822,7 +823,8 @@ extern "C" int OoT_ComboLogic_FinishGeneralPass(int writeSpoiler);
  *
  * @return the number of crossings stored (>= 0); negative when the creation must
  *         fail (-1 the store refused the crossings, -2 OoT's remainder could not
- *         run). On failure the store is left empty.
+ *         run, -3 the warp-song record could not be frozen while a Majora's Mask
+ *         warp-song rule is on, #1169 XW12). On failure the store is left empty.
  */
 extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
     // #1169 XW7: no previous world's warp-song record survives a step that fails
@@ -842,8 +844,24 @@ extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
     // #1169 XW7: the remainder created this world's entrance overrides and
     // warp-song texts (fill.cpp, RsbsFinishPairedGeneralPass); freeze what MM's warp
     // prompt and OoT's warp arrival read. A record the validator refuses stays
-    // UNSET, which refuses every MM warp song of the file and fails nothing else.
-    (void)OoT_Creation_FreezeWarpSongRecord();
+    // UNSET, which refuses every MM warp song of the file.
+    //
+    // #1169 XW12 (D3): with a Majora's Mask warp-song rule on, an UNSET record
+    // would strand the file: its logic credits the warps from the entrance graph
+    // while play refuses each one (COMBO_MMWP_NOT_RECORDED). So the creation fails
+    // (the record invariant, Combo_MMWarpSongRecordBroken), with the store left
+    // empty as the contract above says. The OoT spoiler the remainder wrote stays
+    // on disk, as on the package-build failure after it: the seed is marked not
+    // generated, so nothing loads it as a world. With the rules off the record
+    // stays UNSET and nothing fails, as before.
+    if (OoT_Creation_FreezeWarpSongRecord() != 0 &&
+        Combo_MMWarpSongRecordBroken(Combo_ComboCrossItemFlags2(), &gComboCtx.comboOoTWarps)) {
+        fprintf(stderr, "[OoT] creation: an Ocarina of Time warp song is on in Majora's Mask but the warp-song record "
+                        "could not be frozen; the creation fails (#1169 XW12)\n");
+        Combo_Crossings_Clear();
+        Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+        return -3;
+    }
     return crossings;
 }
 
@@ -1103,6 +1121,27 @@ extern "C" int OoT_Creation_EmitSongCapacityToast(const ComboSingleBagReport* r)
     Notification::Emit({
         .prefix = "Not generated:",
         .message = kSongCapacityLine,
+        .mute = true,
+    });
+    return 1;
+}
+
+/**
+ * THE OoT GENERATION'S OWN REFUSALS (#1169 XW12, D4): Shuffle Songs: Dungeon
+ * Rewards cannot hold the songs (OoT_SongSpots_RefuseOverflow), or a rule this
+ * build does not offer yet (the hidden-rules gate). Both are taken on the worker
+ * before any paired world exists, so no completion toast follows; the worker
+ * noted which (Combo_GenRefusal_Note) and this takes the note, once. The
+ * unreachable toast's shape. @return 1 when a toast was raised.
+ */
+extern "C" int OoT_Creation_EmitGenRefusalToast(void) {
+    const char* line = Combo_GenRefusal_Line(Combo_GenRefusal_Take());
+    if (line == nullptr) {
+        return 0;
+    }
+    Notification::Emit({
+        .prefix = "Not generated:",
+        .message = line,
         .mute = true,
     });
     return 1;

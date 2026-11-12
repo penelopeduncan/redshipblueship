@@ -149,6 +149,7 @@
 #include "shared_items.h"          // src/common — #1542: the class of a row a leftover song check may take
 #include "crossing_store.h"        // src/common — #1542: the song-pool lock reads a song check's crossing
 #include "mm_warp_song_play.h"     // src/common — XW7's destination rule, which XW9's warp credit reads
+#include "warp_song_items.h"       // src/common — #1169 XW12 D5: the Soaring (OoT) roam rule under Off
 #include "soh/SohGui/ImGuiUtils.h" // GetTextureForItemId: the describer's arrival-toast icon key
 #include "soh/Enhancements/randomizer/SongOfSoaringOoT.h" // OoT_SongOfSoaringOoTOn: the frozen Soaring rule
 
@@ -3134,12 +3135,14 @@ extern "C" uint32_t OoT_ComboLogic_ConfinementArmed(void) {
     // #1085: a shared song held back from the restricted song placement is handed
     // to the general pass, the bag. It is the only song left in the pool at the
     // seam (the restricted pass took every other one, and Off placed them), so
-    // arming the family moves no other song. One exception, inert while the rule
-    // is hidden (#1169 XW4): under Off a Song of Soaring (OoT) has no vanilla
-    // check and waits in the pool, so this arm also lets it leave OoT, while
-    // without a held-back song it stays home. Which one Off means is lane XW10's
-    // or XW12's decision.
-    if (OoTComboLogicHoldsBackASong()) {
+    // arming the family moves no other song. Under Off a Song of Soaring (OoT)
+    // has no vanilla check and waits in the pool (#1169 XW4); since XW12 its own
+    // rule arms it to roam (Combo_SongSoaringOoTRoamsUnderOff, D5), so whether it
+    // may leave OoT no longer depends on an unrelated held-back song.
+    if (OoTComboLogicHoldsBackASong() ||
+        (OoT_ComboLogic_DeferGeneralPassWanted() &&
+         Combo_SongSoaringOoTRoamsUnderOff((uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get(),
+                                           Combo_ComboCrossItemFlags2()))) {
         armed |= RSBS_FILL_ARM_SONGS_ROAM;
     }
     // #1542 S3: under the shared song pool every OoT song reaches the bag (fill.cpp
@@ -4104,6 +4107,37 @@ extern "C" uint32_t OoT_ComboLogic_TestTravelEdgeSeen(int reset) {
         sOoTTravelEdgeSeen = 0u;
     }
     return seen;
+}
+
+/**
+ * TEST BRIDGE (combo-warp-travel-rounds T6, #1169 XW12): CLOSE OoT's crossing for
+ * the rounds that follow (@p on 1) or open it again (@p on 0). The crossing is the
+ * Happy Mask Shop, and its one authored way in is the Market's exit to
+ * RR_MARKET_MASK_SHOP (location_access/overworld/market.cpp). Closing copies that
+ * whole Entrance first, then sets its condition false; reopening copy-assigns the
+ * saved Entrance back IN PLACE, so the list node and every Entrance* into it
+ * (other regions' `entrances`, a reverse, a replacement) stay valid, and no
+ * vendored file is edited. 1 when the exit exists and the step took.
+ */
+extern "C" int OoT_ComboLogic_TestCloseCrossing(int on) {
+    static std::unique_ptr<Rando::Entrance> sXw12SavedMaskShopExit;
+    Region* market = RegionTable(RR_THE_MARKET);
+    Rando::Entrance* exit = market != nullptr ? market->GetExit(RR_MARKET_MASK_SHOP) : nullptr;
+    if (exit == nullptr) {
+        return 0;
+    }
+    if (on != 0) {
+        if (!sXw12SavedMaskShopExit) {
+            sXw12SavedMaskShopExit = std::make_unique<Rando::Entrance>(*exit);
+        }
+        exit->SetCondition([] { return false; });
+        return 1;
+    }
+    if (sXw12SavedMaskShopExit) {
+        *exit = *sXw12SavedMaskShopExit;
+        sXw12SavedMaskShopExit.reset();
+    }
+    return 1;
 }
 
 /** TEST BRIDGE (combo-warp-travel-rounds): OoT ids an MM-tree row cannot spell:
