@@ -174,6 +174,16 @@ static_assert(RHT_SILVER_RUPEE_DODONGOS_CAVERN == 1531 && RHT_GANONS_CASTLE_SILV
 static_assert(RG_SHADOW_SILVER_BLADES == 307 && RG_GANONS_CASTLE_MQ_SILVER_SHADOW == 328,
               "OoT's silver rupee items (#1363) are 307..328, appended after RG_NUTS");
 static_assert(RSK_SHUFFLE_SILVER == 235, "OoT's Shuffle Silver Rupees key (#1363) is 235, after #1407's");
+// #1405 (Shuffle Wonder Items), after #1363's: 201 checks, their 201 flags, 26
+// hint texts and one setting key.
+static_assert(RC_KF_WONDER_TRAINING_1 == 2702 && RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2902,
+              "OoT's wonder item checks (#1405) are ids 2702..2902, appended after the silver rupees'");
+static_assert(RAND_INF_KF_WONDER_TRAINING_1 == 2238 &&
+                  RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2438,
+              "OoT's wonder item flags (#1405) are 2238..2438, appended after the silver rupees'");
+static_assert(RHT_WONDER_ITEM_KOKIRI_FOREST == 1545 && RHT_GANONS_CASTLE_WONDER_ITEM == 1570,
+              "OoT's wonder item hint texts (#1405) are 1545..1570, appended after the silver rupees'");
+static_assert(RSK_SHUFFLE_WONDER_ITEMS == 236, "OoT's Shuffle Wonder Items key (#1405) is 236, after #1363's");
 // #1363's carve (context.h growth rule 2, layout revision 3): the 22 one-byte silver
 // counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
 // 24. Every member is one byte, so these offsets hold on every compiler.

@@ -141,6 +141,30 @@ bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
     }
     return option->GetKey() == RSK_SHUFFLE_SILVER;
 }
+
+// #1405: the Shuffle Wonder Items lines the last fold read and the ones it left out.
+uint32_t sRsbsFoldWonderItemLines = 0;
+uint32_t sRsbsFoldWonderItemSkipped = 0;
+
+/**
+ * #1405: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Wonder Items, and so is left out while the option is off: the option's
+ * own rows (Basic Shuffles menu section and Shuffle Settings) and the exclude rows
+ * of the RCTYPE_WONDER_ITEM checks. None of these lines existed before #1405, so
+ * with the option off the settings string is the one a world had before (#1434's rule).
+ * Trick rows are never one: a trick's key is a RandomizerTrick, which could equal
+ * a setting key's number.
+ */
+bool RsbsFoldIsWonderItemLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_WONDER_ITEM;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS;
+}
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
 // derivation in Playthrough_Init, #1367).
@@ -210,6 +234,19 @@ extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* o
     }
     if (outPinned != nullptr) {
         *outPinned = sRsbsSilverPinned;
+    }
+    return sRsbsFoldRuns;
+}
+
+// #1405: of the last fold, the lines that belong to Shuffle Wonder Items (the
+// option's rows, the RCTYPE_WONDER_ITEM exclude rows) as folded and as left out.
+// Returns how many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldWonderItem(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldWonderItemLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldWonderItemSkipped;
     }
     return sRsbsFoldRuns;
 }
@@ -295,6 +332,13 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
     const bool rsbsSilverOff = ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
     sRsbsFoldSilverLines = 0;
     sRsbsFoldSilverSkipped = 0;
+    // [RSBS #1405] While Shuffle Wonder Items is off its lines cannot change the
+    // world (the wonder item checks are not locations, Context::GenerateLocationPool),
+    // so they are left out and a world keeps the fingerprint it had before the option
+    // existed; with it on they fold.
+    const bool rsbsWonderItemOff = ctx->GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
+    sRsbsFoldWonderItemLines = 0;
+    sRsbsFoldWonderItemSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -320,6 +364,11 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     const bool rsbsSilverLine = RsbsFoldIsSilverLine(i, option);
                     if (rsbsSilverLine && rsbsSilverOff) {
                         sRsbsFoldSilverSkipped++;
+                        continue;
+                    }
+                    const bool rsbsWonderItemLine = RsbsFoldIsWonderItemLine(i, option);
+                    if (rsbsWonderItemLine && rsbsWonderItemOff) {
+                        sRsbsFoldWonderItemSkipped++;
                         continue;
                     }
 #endif
@@ -364,6 +413,9 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     if (rsbsSilverLine) {
                         sRsbsFoldSilverLines++;
                     }
+                    if (rsbsWonderItemLine) {
+                        sRsbsFoldWonderItemLines++;
+                    }
 #endif
                 }
             }
@@ -393,6 +445,8 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     const uint32_t savedButterflySkipped = sRsbsFoldButterflySkipped;
     const uint32_t savedSilverLines = sRsbsFoldSilverLines;
     const uint32_t savedSilverSkipped = sRsbsFoldSilverSkipped;
+    const uint32_t savedWonderItemLines = sRsbsFoldWonderItemLines;
+    const uint32_t savedWonderItemSkipped = sRsbsFoldWonderItemSkipped;
     FoldSettingsString(ctx);
     const int lines = (int)sRsbsFoldTotalLines;
     sRsbsFoldTotalLines = savedTotal;
@@ -402,6 +456,8 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     sRsbsFoldButterflySkipped = savedButterflySkipped;
     sRsbsFoldSilverLines = savedSilverLines;
     sRsbsFoldSilverSkipped = savedSilverSkipped;
+    sRsbsFoldWonderItemLines = savedWonderItemLines;
+    sRsbsFoldWonderItemSkipped = savedWonderItemSkipped;
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         sRsbsFoldExcludeLines[i] = savedExclude[i];
     }

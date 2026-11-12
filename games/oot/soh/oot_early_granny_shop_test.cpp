@@ -128,6 +128,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
         // #1363: and with Shuffle Silver Rupees off, that option's (RsbsFoldIsSilverLine): the
         // RCTYPE_SILVER exclude rows and its own rows.
         const bool silverOff = world.GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
+        // #1405: and with Shuffle Wonder Items off, that option's (RsbsFoldIsWonderItemLine): the
+        // RCTYPE_WONDER_ITEM exclude rows and its own rows.
+        const bool wonderItemOff = world.GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
         for (const Rando::Option* option : group.GetOptions()) {
             if (!option->IsCategory(Rando::OptionCategory::Setting) || option->GetOptionCount() == 0) {
                 continue;
@@ -154,6 +157,15 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 }
             }
             if (silverOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_SILVER) {
+                continue;
+            }
+            if (wonderItemOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_WONDER_ITEM) {
+                    continue;
+                }
+            }
+            if (wonderItemOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS) {
                 continue;
             }
             if (chestGameOff && !excludes && g != RSG_TRICKS &&
