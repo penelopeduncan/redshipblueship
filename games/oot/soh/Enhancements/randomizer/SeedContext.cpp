@@ -15,6 +15,7 @@
 #include "soh/util.h"
 #include "../kaleido.h"
 #include "soh/Enhancements/randomizer/randomizer.h"
+#include "soh/Enhancements/randomizer/randomizer_check_tracker.h"
 
 #include <fstream>
 #include <spdlog/spdlog.h>
@@ -45,34 +46,6 @@ Context::Context() {
     mLogic = std::make_shared<Logic>();
     mTrials = std::make_shared<Trials>();
     mFishsanity = std::make_shared<Fishsanity>();
-    VanillaLogicDefaults = {
-        // RANDOTODO check what this does
-        &mOptions[RSK_LINKS_POCKET],
-        &mOptions[RSK_SHUFFLE_DUNGEON_REWARDS],
-        &mOptions[RSK_SHUFFLE_SONGS],
-        &mOptions[RSK_SHOPSANITY],
-        &mOptions[RSK_SHOPSANITY_COUNT],
-        &mOptions[RSK_SHOPSANITY_PRICES],
-        &mOptions[RSK_SHOPSANITY_PRICES_AFFORDABLE],
-        &mOptions[RSK_FISHSANITY],
-        &mOptions[RSK_FISHSANITY_POND_COUNT],
-        &mOptions[RSK_FISHSANITY_AGE_SPLIT],
-        &mOptions[RSK_SHUFFLE_SCRUBS],
-        &mOptions[RSK_SHUFFLE_BEEHIVES],
-        &mOptions[RSK_SHUFFLE_COWS],
-        &mOptions[RSK_SHUFFLE_POTS],
-        &mOptions[RSK_SHUFFLE_CRATES],
-        &mOptions[RSK_SHUFFLE_FREESTANDING],
-        &mOptions[RSK_SHUFFLE_MERCHANTS],
-        &mOptions[RSK_SHUFFLE_FROG_SONG_RUPEES],
-        &mOptions[RSK_SHUFFLE_ADULT_TRADE],
-        &mOptions[RSK_SHUFFLE_100_GS_REWARD],
-        &mOptions[RSK_SHUFFLE_FOUNTAIN_FAIRIES],
-        &mOptions[RSK_SHUFFLE_STONE_FAIRIES],
-        &mOptions[RSK_SHUFFLE_BEAN_FAIRIES],
-        &mOptions[RSK_SHUFFLE_SONG_FAIRIES],
-        &mOptions[RSK_GOSSIP_STONE_HINTS],
-    };
 }
 
 RandomizerArea Context::GetAreaFromString(std::string str) {
@@ -200,7 +173,7 @@ void Context::GenerateLocationPool() {
              mOptions[RSK_SHUFFLE_MASTER_SWORD].Is(RO_GENERIC_OFF)) ||
             (location.GetRandomizerCheck() == RC_KAK_100_GOLD_SKULLTULA_REWARD &&
              mOptions[RSK_SHUFFLE_100_GS_REWARD].Is(RO_GENERIC_OFF)) ||
-            location.GetRCType() == RCTYPE_CHEST_GAME ||   // not supported yet
+            (location.GetRCType() == RCTYPE_CHEST_GAME && mOptions[RSK_SHUFFLE_CHEST_MINIGAME].Is(RO_GENERIC_OFF)) ||
             location.GetRCType() == RCTYPE_STATIC_HINT ||  // can't have items
             location.GetRCType() == RCTYPE_GOSSIP_STONE || // can't have items
             (location.GetRCType() == RCTYPE_FROG_SONG && mOptions[RSK_SHUFFLE_FROG_SONG_RUPEES].Is(RO_GENERIC_OFF)) ||
@@ -224,12 +197,14 @@ void Context::GenerateLocationPool() {
             (location.GetRCType() == RCTYPE_STONE_FAIRY && !mOptions[RSK_SHUFFLE_STONE_FAIRIES]) ||
             (location.GetRCType() == RCTYPE_BEAN_FAIRY && !mOptions[RSK_SHUFFLE_BEAN_FAIRIES]) ||
             (location.GetRCType() == RCTYPE_SONG_FAIRY && !mOptions[RSK_SHUFFLE_SONG_FAIRIES]) ||
+            (location.GetRCType() == RCTYPE_BUTTERFLY_FAIRY && !mOptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES]) ||
             (location.GetRCType() == RCTYPE_TREE && !mOptions[RSK_SHUFFLE_TREES]) ||
             (location.GetRCType() == RCTYPE_NLTREE &&
              (!mOptions[RSK_SHUFFLE_TREES] || mOptions[RSK_LOGIC_RULES].IsNot(RO_LOGIC_NO_LOGIC))) ||
             (location.GetRCType() == RCTYPE_BUSH && !mOptions[RSK_SHUFFLE_BUSHES]) ||
             (location.GetRCType() == RCTYPE_FREESTANDING &&
              mOptions[RSK_SHUFFLE_FREESTANDING].Is(RO_SHUFFLE_FREESTANDING_OFF)) ||
+            (location.GetRCType() == RCTYPE_SILVER && !mOptions[RSK_SHUFFLE_SILVER]) ||
             (location.GetRCType() == RCTYPE_BEEHIVE && !mOptions[RSK_SHUFFLE_BEEHIVES])) {
             continue;
         }
@@ -281,8 +256,7 @@ void Context::AddExcludedOptions() {
     for (auto& loc : StaticData::GetLocationTable()) {
         // Checks of these types don't have items, skip them.
         if (loc.GetRandomizerCheck() == RC_UNKNOWN_CHECK || loc.GetRandomizerCheck() == RC_TRIFORCE_COMPLETED ||
-            loc.GetRCType() == RCTYPE_CHEST_GAME || loc.GetRCType() == RCTYPE_STATIC_HINT ||
-            loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
+            loc.GetRCType() == RCTYPE_STATIC_HINT || loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
             continue;
         }
         AddLocation(loc.GetRandomizerCheck(), &everyPossibleLocation);
@@ -369,6 +343,9 @@ void Context::CreateItemOverrides() {
             if (trickModel == RG_DEATH_MOUNTAIN_CRATER_BEAN_SOUL) {
                 trickModel = RandomElement(StaticData::beanSouls);
             }
+            if (trickModel == RG_SHADOW_SILVER_BLADES) {
+                trickModel = RandomElement(StaticData::silverRupees);
+            }
             ItemOverride val(locKey, trickModel);
             iceTrapModels[locKey] = val.LooksLike();
             val.SetTrickName(GetIceTrapName(val.LooksLike()));
@@ -401,7 +378,7 @@ void Context::SetSpoilerLoaded(const bool spoilerLoaded) {
 }
 
 GetItemEntry Context::GetFinalGIEntry(const RandomizerCheck rc, const bool checkObtainability,
-                                      const GetItemID ogItemId) {
+                                      const GetItemID ogItemId, const bool spoilAreas) {
     const auto itemLoc = GetItemLocation(rc);
     if (itemLoc->GetPlacedRandomizerGet() == RG_NONE) {
         if (ogItemId != GI_NONE) {
@@ -412,6 +389,9 @@ GetItemEntry Context::GetFinalGIEntry(const RandomizerCheck rc, const bool check
     }
     if (checkObtainability && OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet(
                                   itemLoc->GetPlacedRandomizerGet()) != CAN_OBTAIN) {
+        if (spoilAreas) {
+            CheckTracker::SpoilAreaFromCantObtain(itemLoc->GetPlacedRandomizerGet());
+        }
         return ItemTableManager::Instance->RetrieveItemEntry(MOD_NONE, GI_RUPEE_BLUE);
     }
     GetItemEntry giEntry = itemLoc->GetPlacedItem().GetGIEntry_Copy();
@@ -626,6 +606,10 @@ std::shared_ptr<Fishsanity> Context::GetFishsanity() {
 
 DungeonInfo* Context::GetDungeon(size_t key) const {
     return mDungeons->GetDungeon(static_cast<DungeonKey>(key));
+}
+
+DungeonInfo* Context::GetDungeonFromScene(uint16_t scene) const {
+    return mDungeons->GetDungeonFromScene(scene);
 }
 
 std::shared_ptr<Logic> Context::GetLogic() {

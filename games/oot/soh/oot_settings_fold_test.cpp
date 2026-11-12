@@ -25,8 +25,14 @@
  *      the same one-option-per-name rule `AddExcludedOptions` applies), and none
  *      of the 32 counts is zero;
  *   2. the fold that generation ran contributed exactly that many lines per group
- *      (`OoT_Rando_LastSettingsFold`, recorded inside the fold itself), so the
- *      groups being right is not enough: the fingerprint has to have read them.
+ *      (`OoT_Rando_LastSettingsFold`, recorded inside the fold itself), less, while
+ *      Shuffle Chest Minigame is off, the room's RCTYPE_CHEST_GAME rows (#1364;
+ *      oot_chest_game_shuffle_test.cpp locks that skip), and, while Shuffle
+ *      Butterfly Fairies is off, its RCTYPE_BUTTERFLY_FAIRY rows (#1407;
+ *      oot_butterfly_fairy_test.cpp locks that skip), and, while Shuffle Silver
+ *      Rupees is off, its RCTYPE_SILVER rows (#1363; oot_shuffle_silver_test.cpp
+ *      locks that skip), which the fold leaves out then, so the groups being right
+ *      is not enough: the fingerprint has to have read them.
  *
  * RED HALF, observed: on a binary without the fix, in a ROM-staged build
  * directory, check 1 fails on the first area (Kokiri Forest: the group holds 0
@@ -45,6 +51,7 @@
 #include "soh/Enhancements/randomizer/static_data.h"
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/location.h"
+#include "soh/Enhancements/randomizer/SeedContext.h"
 
 #include "context.h" // src/common — gComboCtx, for the settings fingerprint the fold stamped
 
@@ -104,13 +111,20 @@ constexpr GroupArea kGroupAreas[kGroups] = {
 
 // The shipped size of each area's exclude group, from the static location table
 // alone: the checks `Context::AddExcludedOptions()` gives an exclude option (it
-// skips the five types below, which hold no item), one option per distinct name.
-void CountExpected(size_t (&expected)[RCAREA_INVALID]) {
+// skips the four kinds below, which hold no item), one option per distinct name.
+// `folded` is what the settings fold reads of it: the same, less the room's
+// RCTYPE_CHEST_GAME rows while Shuffle Chest Minigame is off (#1364) and the
+// RCTYPE_BUTTERFLY_FAIRY rows while Shuffle Butterfly Fairies is off (#1407) and
+// the RCTYPE_SILVER rows while Shuffle Silver Rupees is off (#1363): the fold
+// leaves them out then, so a world keeps the fingerprint it had before the rows had
+// exclude options.
+void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_INVALID], bool chestGameOff,
+                   bool butterflyOff, bool silverOff) {
     std::set<std::string> seen[RCAREA_INVALID];
+    std::set<std::string> seenFolded[RCAREA_INVALID];
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
         if (loc.GetRandomizerCheck() == RC_UNKNOWN_CHECK || loc.GetRandomizerCheck() == RC_TRIFORCE_COMPLETED ||
-            loc.GetRCType() == RCTYPE_CHEST_GAME || loc.GetRCType() == RCTYPE_STATIC_HINT ||
-            loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
+            loc.GetRCType() == RCTYPE_STATIC_HINT || loc.GetRCType() == RCTYPE_GOSSIP_STONE) {
             continue;
         }
         const RandomizerCheckArea area = loc.GetArea();
@@ -118,9 +132,15 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID]) {
             continue;
         }
         seen[area].insert(loc.GetExcludedOption()->GetName());
+        if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
+            !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY) &&
+            !(silverOff && loc.GetRCType() == RCTYPE_SILVER)) {
+            seenFolded[area].insert(loc.GetExcludedOption()->GetName());
+        }
     }
     for (int a = 0; a < RCAREA_INVALID; a++) {
         expected[a] = seen[a].size();
+        folded[a] = seenFolded[a].size();
     }
 }
 
@@ -144,8 +164,16 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
         return 1;
     }
 
+    // The world the fold ran for: its own Shuffle Chest Minigame, Shuffle
+    // Butterfly Fairies and Shuffle Silver Rupees decide which exclude rows it read
+    // (#1364, #1407, #1363).
+    const bool chestGameOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
+    const bool butterflyOff =
+        Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
+    const bool silverOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
     size_t expected[RCAREA_INVALID] = {};
-    CountExpected(expected);
+    size_t expectedFolded[RCAREA_INVALID] = {};
+    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff);
 
     auto settings = Rando::Settings::GetInstance();
     int failures = 0;
@@ -155,6 +183,7 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
     for (int g = 0; g < kGroups; g++) {
         const GroupArea& ga = kGroupAreas[g];
         const size_t want = expected[ga.area];
+        const size_t wantFolded = expectedFolded[ga.area];
         const size_t held = settings->GetOptionGroup(ga.group).GetOptions().size();
         const uint32_t folded = foldPerGroup[ga.group - RSG_EXCLUDES_KOKIRI_FOREST];
         expectedTotal += want;
@@ -173,9 +202,9 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
                    ga.name, held, want);
             failures++;
         }
-        if (folded != want) {
+        if (folded != wantFolded) {
             printf("[TEST] FAIL: %s: the settings fold read %u line(s) from its group, expected %zu\n", ga.name,
-                   (unsigned)folded, want);
+                   (unsigned)folded, wantFolded);
             failures++;
         }
     }

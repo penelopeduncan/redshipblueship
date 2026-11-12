@@ -102,7 +102,7 @@ bool LocMatchesQuest(Rando::Location loc) {
     if (loc.GetQuest() == RCQUEST_BOTH) {
         return true;
     } else {
-        auto dungeon = OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(loc.GetScene());
+        auto dungeon = OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(loc.GetScene());
         return (dungeon->IsMQ() && loc.GetQuest() == RCQUEST_MQ) ||
                (dungeon->IsVanilla() && loc.GetQuest() == RCQUEST_VANILLA);
     }
@@ -267,6 +267,12 @@ static void RandomizerLogGiveAttemptsDone() {
     sGiveAttemptsCheck = RC_UNKNOWN_CHECK;
     sGiveAttempts = 0;
 }
+
+// #1484: a check is queued or being given (VB_BE_ABLE_TO_TIME_TRAVEL_AT_PEDESTAL
+// holds the pull while the child's pedestal give is on its way).
+static bool RandomizerGiveInFlight() {
+    return randomizerQueuedCheck != RC_UNKNOWN_CHECK || !randomizerQueuedChecks.empty();
+}
 #endif
 
 void RandomizerOnFlagSetHandler(int16_t flagType, int16_t flag) {
@@ -320,7 +326,7 @@ void RandomizerOnFlagSetHandler(int16_t flagType, int16_t flag) {
 
 void RandomizerOnSceneFlagSetHandler(int16_t sceneNum, int16_t flagType, int16_t flag) {
     if (flagType == FLAG_SCENE_SWITCH) {
-        auto dungeonInfo = Rando::Context::GetInstance()->GetDungeons()->GetDungeonFromScene(sceneNum);
+        auto dungeonInfo = Rando::Context::GetInstance()->GetDungeonFromScene((SceneID)sceneNum);
         bool isVanilla = dungeonInfo == nullptr || dungeonInfo->IsVanilla();
 
         switch (sceneNum) {
@@ -587,7 +593,8 @@ void RandomizerOnPlayerUpdateForRCQueueHandler() {
         // nothing. The toast stays for the player who skips every get-item
         // animation, where an ordinary pickup gets no cutscene either.
         if (RandomizerSkipForeignGetItemAnimation(rc) || !RandomizerQueueForeignShowOnly(rc)) {
-            OoT_Rando_Foreign_EmitPickupToast(*foreignItem);
+            // #1481: named as it will be granted (a Progressive Time as its half-day).
+            OoT_Rando_Foreign_EmitPickupToast(Combo_PresentForeignItem(*foreignItem, true));
         }
 
         // RCSHOW_COLLECTED is what HasObtained() reads (status == RCSHOW_COLLECTED
@@ -611,7 +618,7 @@ void RandomizerOnPlayerUpdateForRCQueueHandler() {
     RandomizerGet vanillaRandomizerGet = Rando::StaticData::GetLocation(rc)->GetVanillaItem();
     GetItemID vanillaItem = (GetItemID)Rando::StaticData::RetrieveItem(vanillaRandomizerGet).GetItemID();
     GetItemEntry getItemEntry =
-        Rando::Context::GetInstance()->GetFinalGIEntry(rc, true, (GetItemID)vanillaRandomizerGet);
+        Rando::Context::GetInstance()->GetFinalGIEntry(rc, true, (GetItemID)vanillaRandomizerGet, true);
 
     if (loc->HasObtained()) {
         SPDLOG_INFO("RC {} already obtained, skipping", static_cast<uint32_t>(rc));
@@ -934,8 +941,8 @@ u8 EnDs_RandoCanGetGrannyItem() {
            !Flags_GetRandomizerInf(RAND_INF_MERCHANTS_GRANNYS_SHOP) &&
            // Traded odd mushroom when adult trade is on
            ((RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) && Flags_GetItemGetInf(ITEMGETINF_30)) ||
-            // Found claim check when adult trade is off
-            (!RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) && INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK));
+            (!RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) &&
+             (RAND_GET_OPTION(RSK_EARLY_GRANNYS_SHOP) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)));
 }
 
 u8 EnJs_RandoCanGetCarpetMerchantItem() {
@@ -1216,8 +1223,12 @@ void RandomizerOnDialogMessageHandler() {
                 }
                 break;
             case TEXT_GRANNYS_SHOP:
+                // [RSBS #1414] Early Granny's Potion Shop (only read with Shuffle Adult Trade
+                // off, the first term) stands in for the Claim Check, as at her offer
+                // (VB_OFFER_BLUE_POTION); missing upstream too, inherited, fixed here.
                 if (revealMerchant && nonBeanMerchants &&
-                    (ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)) {
+                    (ctx->GetOption(RSK_SHUFFLE_ADULT_TRADE) || ctx->GetOption(RSK_EARLY_GRANNYS_SHOP) ||
+                     INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK)) {
                     reveal = RC_KAK_GRANNYS_SHOP;
                 }
                 break;
@@ -1425,11 +1436,20 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
                 *should = true;
                 Rando::Context::GetInstance()->GetItemLocation(RC_TOT_MASTER_SWORD)->SetCheckStatus(RCSHOW_COLLECTED);
                 CheckTracker::RecalculateAllAreaTotals();
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // [RSBS #1484] The check's collection flag is RAND_INF_TOT_MASTER_SWORD now
+                // (location_list.cpp), which this pull would otherwise never set, so the
+                // load seam would stop following it. Set after the status: the flag-set
+                // hook then only re-marks the obtained check.
+                Flags_SetRandomizerInf(RAND_INF_TOT_MASTER_SWORD);
+#endif
             }
             break;
 #ifdef RSBS_SINGLE_EXECUTABLE
         case VB_BE_ABLE_TO_TIME_TRAVEL_AT_PEDESTAL: // [RSBS #1434] OoTMM's timeTravelSword
-            *should = OoT_TimeTravelSword_PedestalAllows();
+            // [RSBS #1484] and, as OoTMM's pedestal does, no pull before the child's give lands.
+            *should =
+                OoT_TimeTravelSword_PedestalAllows() && !OoT_PedestalChildCheck_HoldsPull(RandomizerGiveInFlight());
             break;
 #endif
         case VB_ITEM00_DESPAWN: {
@@ -1940,14 +1960,20 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
             break;
         }
         case VB_OFFER_BLUE_POTION: {
+            // [RSBS #1414] Early Granny's Potion Shop opens her offer without the Claim
+            // Check, as EnDs_RandoCanGetGrannyItem and the RC_KAK_GRANNYS_SHOP logic row
+            // (kakariko.cpp) already do. Upstream (Shipwright#6693) changed only the sale
+            // gate and left this offer, BuildGrannyMessage and the TEXT_GRANNYS_SHOP
+            // reveal on the Claim Check, so logic opened a check Granny never offered:
+            // inherited, fixed here. This also opens her vanilla Blue Potion offer when
+            // merchants are not shuffled, as the logic row does not depend on that.
             *should |= RAND_GET_OPTION(RSK_SHUFFLE_ADULT_TRADE) == RO_GENERIC_OFF &&
-                       INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK;
+                       (RAND_GET_OPTION(RSK_EARLY_GRANNYS_SHOP) || INV_CONTENT(ITEM_CLAIM_CHECK) == ITEM_CLAIM_CHECK);
             break;
         }
         case VB_OKARINA_TAG_COMPLETE: {
             if (OoT_gPlayState->sceneNum == SCENE_BOTTOM_OF_THE_WELL) {
-                auto dungeon =
-                    OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
+                auto dungeon = OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
                 if (dungeon->IsVanilla()) {
                     EnOkarinaTag* enOkarinaTag = va_arg(args, EnOkarinaTag*);
                     if (enOkarinaTag->switchFlag >= 0 && OoT_Flags_GetSwitch(OoT_gPlayState, enOkarinaTag->switchFlag)) {
@@ -1960,8 +1986,7 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
         }
         case VB_OKARINA_TAG_COMPLETED: {
             if (OoT_gPlayState->sceneNum == SCENE_BOTTOM_OF_THE_WELL) {
-                auto dungeon =
-                    OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
+                auto dungeon = OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
                 if (dungeon->IsVanilla()) {
                     *should = false;
                 }
@@ -2441,56 +2466,21 @@ static int RandomizerTestBeanSalesmanSells() {
     }
     return verdict;
 }
+
+// TEST BRIDGE (#1414, Early Granny's Potion Shop): Granny's two runtime gates on the
+// current save and options, read through the REAL code and changing nothing. Bit 0:
+// her sale gate, EnDs_RandoCanGetGrannyItem (what VB_GIVE_ITEM_FROM_GRANNYS_SHOP and
+// her price and bottle hooks consult). Bit 1: her offer, the handler's answer to
+// VB_OFFER_BLUE_POTION from the default z_en_ds.c's EnDs_Wait passes (the Odd
+// Mushroom traded, ITEMGETINF_30). Read by games/oot/soh/oot_early_granny_shop_test.cpp.
+extern "C" int OoT_Rando_TestGrannyGates(void) {
+    bool offers = Flags_GetItemGetInf(ITEMGETINF_30) != 0;
+    RandomizerTestVanillaBehavior(VB_OFFER_BLUE_POTION, &offers, (void*)nullptr);
+    return (EnDs_RandoCanGetGrannyItem() ? 1 : 0) | (offers ? 2 : 0);
+}
 #endif
 
 void RandomizerOnSceneInitHandler(int16_t sceneNum) {
-    // Treasure Chest Game
-    // todo: for now we're just unsetting all of them, we will
-    //       probably need to do something different when we implement shuffle
-    if (sceneNum == SCENE_TREASURE_BOX_SHOP) {
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_ITEM_1);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_ITEM_1)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_ITEM_2);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_ITEM_2)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_ITEM_3);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_ITEM_3)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_ITEM_4);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_ITEM_4)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_ITEM_5);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_ITEM_5)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_KEY_1);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_KEY_1)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_KEY_2);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_KEY_2)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_KEY_3);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_KEY_3)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_KEY_4);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_KEY_4)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        Flags_UnsetRandomizerInf(RAND_INF_MARKET_TREASURE_CHEST_GAME_KEY_5);
-        Rando::Context::GetInstance()
-            ->GetItemLocation(RC_MARKET_TREASURE_CHEST_GAME_KEY_5)
-            ->SetCheckStatus(RCSHOW_UNCHECKED);
-        CheckTracker::RecalculateAllAreaTotals();
-    }
-
     // ENTRTODO: Move all entrance rando handling to a dedicated file
     if (RAND_GET_OPTION(RSK_SHUFFLE_ENTRANCES)) {
         // In ER, override roomNum to load based on scene and spawn during scene init
@@ -2597,7 +2587,7 @@ void RandomizerOnActorInitHandler(void* actorRef) {
     Actor* actor = static_cast<Actor*>(actorRef);
 
     if (actor->id == ACTOR_PLAYER) {
-        auto dungeonInfo = Rando::Context::GetInstance()->GetDungeons()->GetDungeonFromScene(OoT_gPlayState->sceneNum);
+        auto dungeonInfo = Rando::Context::GetInstance()->GetDungeonFromScene((SceneID)OoT_gPlayState->sceneNum);
         bool isVanilla = dungeonInfo == nullptr || dungeonInfo->IsVanilla();
         switch (OoT_gPlayState->sceneNum) {
             case SCENE_DEKU_TREE:
@@ -2981,8 +2971,7 @@ void RandomizerOnActorInitHandler(void* actorRef) {
     // Turn MQ switch into toggle
     if (actor->id == ACTOR_OBJ_SWITCH && OoT_gPlayState->sceneNum == SCENE_BOTTOM_OF_THE_WELL &&
         (actor->params & 0x3f07) == 0x303) {
-        auto dungeon =
-            OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
+        auto dungeon = OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL);
         if (dungeon->IsMQ()) {
             actor->params |= 0x10;
         }
@@ -3062,6 +3051,12 @@ void RandomizerOnActorUpdateHandler(void* refActor) {
             Flags_UnsetRandomizerInf(RAND_INF_SPIRIT_BIG_MIRROR_STATUE_TURNED);
         }
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (actor->id == ACTOR_BG_TOKI_SWD) {
+        // [RSBS #1484] OoTMM's child pedestal check: given as the child walks up (TimeTravelSword.cpp).
+        OoT_PedestalChildCheck_OnPedestalUpdate(actor);
+    }
+#endif
 }
 
 // In ER, warp songs lead to their shuffled entrance rather than their warp pad. Every warp path commits its

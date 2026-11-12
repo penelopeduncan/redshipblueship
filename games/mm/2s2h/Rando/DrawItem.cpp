@@ -7,6 +7,7 @@
 #include "2s2h/Rando/Foreign.h" // Lane 6 (#494 slice 6): IsForeignCheck, for the cross-game marker
 #include "triforce_hunt.h"      // #1389: the paired hunt's requirement, for the completed model
 #include "2s2h/Rando/OoTMasksMM.h" // #980: the OoT masks' get-item model
+#include "2s2h/Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' get-item model
 #endif
 
 extern "C" {
@@ -385,8 +386,10 @@ void DrawSkeletonKey() {
     OPEN_DISPS(MM_gPlayState->state.gfxCtx);
 
     Gfx_SetupDL25_Opa(MM_gPlayState->state.gfxCtx);
-    MM_Matrix_Scale(0.05f, 0.05f, 0.05f, MTXMODE_APPLY);
+    MM_Matrix_Scale(0.8f, 0.8f, 0.8f, MTXMODE_APPLY);
+
     MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, MM_gPlayState->state.gfxCtx);
+    gDPSetEnvColor(POLY_OPA_DISP++, 255, 255, 170, 255);
     MM_gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gSkeletonKeyDL);
 
     CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
@@ -830,6 +833,16 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_MASK_SKULL:
         case RI_MASK_SPOOKY:
             MM_OoTMask_DrawGetItem(randoItemId);
+            break;
+        // #1169 XW5: Ocarina of Time's warp songs, OoT's own song through the
+        // co-mounted archives, else MM's white note (WarpSongsMM.cpp).
+        case RI_SONG_MINUET:
+        case RI_SONG_BOLERO:
+        case RI_SONG_SERENADE:
+        case RI_SONG_REQUIEM:
+        case RI_SONG_NOCTURNE:
+        case RI_SONG_PRELUDE:
+            MM_WarpSongMM_DrawGetItem(randoItemId);
             break;
 #endif
         case RI_NONE:

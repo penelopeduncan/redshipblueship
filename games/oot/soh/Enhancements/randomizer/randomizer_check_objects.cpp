@@ -114,10 +114,27 @@ RandomizerCheckArea RandomizerCheckObjects::GetRCAreaBySceneID(SceneID sceneId) 
 // options themselves read it, and the exclude list shows the locations they shuffle.
 static constexpr int kShuffleOcarinasDefault = RO_GENERIC_YES;
 static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_YES;
+// #1364: every world is generated with Shuffle Chest Minigame off (Playthrough_Init
+// pins it), so the Treasure Chest Game's checks are never locations and are not
+// offered for exclusion, whatever the stored CVar says.
+static constexpr bool kChestGameRowsShown = false;
 #else
 static constexpr int kShuffleOcarinasDefault = RO_GENERIC_NO;
 static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_NO;
+static constexpr bool kChestGameRowsShown = true;
 #endif
+
+// #1363: whether the silver rupee checks get Exclude Locations rows. Every generation in
+// the single executable is paired, and Playthrough_Init pins Shuffle Silver Rupees off in
+// a paired world (the option is greyed out in settings.cpp), so a stored On from an older
+// build or a preset must not unhide 154 rows the fold leaves out.
+static bool RsbsSilverExcludeRowsVisible() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    return false;
+#else
+    return CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleSilver"), RO_GENERIC_NO) != 0;
+#endif
+}
 
 void RandomizerCheckObjects::UpdateImGuiVisibility() {
     auto ctx = Rando::Context::GetInstance();
@@ -182,8 +199,8 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
              RCTYPE_GOSSIP_STONE) && // don't show gossip stones (maybe gossipsanity will be a thing eventually?)
             (location.GetRCType() != RCTYPE_STATIC_HINT) &&  // don't show static hints
             (location.GetRCType() != RCTYPE_LINKS_POCKET) && // links pocket can be set to nothing if needed
-            (location.GetRCType() !=
-             RCTYPE_CHEST_GAME) && // don't show non final reward chest game checks until we support shuffling them
+            (location.GetRCType() != RCTYPE_CHEST_GAME ||
+             (kChestGameRowsShown && CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF))) &&
             (location.GetRCType() != RCTYPE_SKULL_TOKEN ||
              (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleTokens"), RO_TOKENSANITY_OFF) == RO_TOKENSANITY_ALL) ||
              ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleTokens"), RO_TOKENSANITY_OFF) ==
@@ -201,6 +218,7 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
              ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleFreestanding"), RO_SHUFFLE_FREESTANDING_OFF) ==
                RO_SHUFFLE_FREESTANDING_DUNGEONS) &&
               RandomizerCheckObjects::AreaIsDungeon(location.GetArea()))) &&
+            (location.GetRCType() != RCTYPE_SILVER || RsbsSilverExcludeRowsVisible()) &&
             (location.GetRCType() != RCTYPE_BEEHIVE ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBeehives"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_COW ||
@@ -241,6 +259,8 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBeanFairies"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_SONG_FAIRY ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleFairySpots"), RO_GENERIC_NO)) &&
+            (location.GetRCType() != RCTYPE_BUTTERFLY_FAIRY ||
+             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleButterflyFairies"), RO_GENERIC_NO)) &&
             ((location.GetRCType() != RCTYPE_MAP && location.GetRCType() != RCTYPE_COMPASS) ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("StartingMapsCompasses"), RO_DUNGEON_ITEM_LOC_OWN_DUNGEON) !=
                  RO_DUNGEON_ITEM_LOC_VANILLA) &&

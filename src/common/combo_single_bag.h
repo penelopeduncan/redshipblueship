@@ -122,7 +122,68 @@ typedef struct {
     ComboLogicFillResult fill;
     int crossingsIntoMM;  // OoT-origin rows placed on MM hosts
     int crossingsIntoOoT; // MM-origin rows placed on OoT hosts
+    int confinedRows;     // bag rows handed a confinement mask (THE HOST GROUPS, #1502): MM's local
+                          // groups, and either game's songs under the shared song pool (#1542)
+    // #1483: THE HOME-CAPACITY COUNTS, the words of a failed fill's refusal
+    // (Combo_SingleBag_HomeShortGames). Counted only after a fill that ran and
+    // failed, once it was rolled back; they change no status, rung or placement.
+    int homeRequiredOoT;        // REQUIRED (not SURPLUS) HOME_ONLY bag rows of OoT origin: OoT's hosts only
+    int homeRequiredMM;         // ... and of MM origin: MM's hosts only
+    int hostsOoT;               // OoT's empty hosts after the roll-back (Combo_Logic_LeftoverHosts); -1 not counted
+    int hostsMM;                // ... and MM's
+    uint16_t triforcePiecesOoT; // the frozen hunt's pieces in OoT's own pool; 0 when the hunt is not armed
+    uint16_t triforcePiecesMM;  // ... and in MM's
+    // #1542: the fill request's exclusive groups (combo_logic.h ABI 11):
+    // RSBS_COMBO_GROUP_SONG_LOCATIONS while the shared song pool is armed, else 0.
+    uint32_t exclusiveGroups;
+    // #1542: the group mask of a RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY refusal
+    // (Combo_Logic_LastGroupShortfall), copied so the refusal's words do not depend
+    // on a later fill; 0 otherwise.
+    uint32_t shortGroupMask;
 } ComboSingleBagReport;
+
+/**
+ * #1483: the games whose HOME_ONLY REQUIRED rows outnumber their own empty hosts in
+ * @p r, as RSBS_COMBO_HALF_OOT / RSBS_COMBO_HALF_MM bits; 0 for a fill that
+ * succeeded, was not counted, or fits. A HOME_ONLY row may land only on its own
+ * game's hosts and a REQUIRED row is never dropped, so a game named here could not
+ * be filled by any seed: the refusal's words say so instead of "try a new seed".
+ * The fill's status and the ladder are unchanged; this only chooses the words.
+ */
+uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r);
+
+/**
+ * #1483: THE HOME-CAPACITY COUNTS. Writes @p r's homeRequiredOoT/MM (each game's
+ * REQUIRED, not SURPLUS, HOME_ONLY rows of @p bag, by origin: they may land on that
+ * game's hosts only) and hostsOoT/MM (Combo_Logic_LeftoverHosts, -1 when a game has
+ * no engine), and prints a stderr line with the counts and the remedy for each
+ * game that is short (the Triforce Pieces clause only when @p r says that game
+ * holds pieces). Combo_SingleBag_Run calls it for a fill that ran an attempt and
+ * failed, AFTER Combo_Logic_ResetPlacements, so the leftover hosts are all of each
+ * game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
+ * round): no draw, no placement, no status. A shared pair is never HOME_ONLY, so
+ * it is never counted. Exported for the ROM-free lock (ComboLogicBagModel).
+ */
+void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r);
+
+/** A creation-failure REASON (OoT_Creation_ReportFailureAtFileSelect's `reason`),
+ *  never a fill status: the creation's own fill failed and
+ *  Combo_SingleBag_HomeShortGames names a game whose checks cannot hold its
+ *  home-only items (#1483). Far above every RSBS_COMBO_LOGIC_* value. */
+#define RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY 1000
+
+/** A creation-failure REASON, as above: the creation's own fill was refused because
+ *  the shared song pool's songs outnumber the song checks they may use
+ *  (Combo_SingleBag_SongCapacityShort, #1542). */
+#define RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY 1001
+
+/**
+ * #1542: did @p r's fill refuse because the shared song pool holds more songs than
+ * the song checks they may use (RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY on a combo-wide
+ * group, before any attempt)? A fact of the settings, so the refusal's words name
+ * it instead of "try a new seed". Pure.
+ */
+bool Combo_SingleBag_SongCapacityShort(const ComboSingleBagReport* r);
 
 /**
  * THE FILL. Compose the bag from OoT's general-pass pool and `mmItems`, gate each
@@ -137,6 +198,13 @@ typedef struct {
  *
  * @param mmItems     MM's pool, one row per copy, in GeneratePools' order
  * @param mmFlags     each row's RSBS_COMBO_POOL_* flags (MM_ComboLogic_MarkPoolRows)
+ * @param mmConfine   optional (NULL: none), `mmCount` masks: each MM row's
+ *                    confinement group mask in MM's namespace (THE HOST GROUPS,
+ *                    combo_logic.h ABI 9; MM_ComboLogic_PoolRowConfineMasks), 0 for
+ *                    a row that may go anywhere. A bag row taken from a confined MM
+ *                    row is HOME_ONLY and carries the mask into the fill, unless the
+ *                    composer made it a SHARED PAIR (a pair has no single home, so
+ *                    it roams, the MM mirror of OoT's #1085 hold-back).
  * @param roundBudget the per-attempt budget in coordinator fill rounds (#950):
  *                    the fill stops before running round `roundBudget + 1`;
  *                    0 = none
@@ -153,8 +221,8 @@ typedef struct {
  *         which the trim removed, so OoT_ComboLogic_FinishGeneralPass fills OoT's
  *         leftovers from the rest, with one junk copy per trimmed row.
  */
-int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, int mmCount, int ladderAttempt,
-                        uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out);
+int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const uint32_t* mmConfine, int mmCount,
+                        int ladderAttempt, uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out);
 
 /** The most recent Combo_SingleBag_Run's report. Never NULL (zeroed before any run). */
 const ComboSingleBagReport* Combo_SingleBag_LastReport(void);
@@ -228,6 +296,12 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung);
  *  generation's leftover. Generate's completion calls it before MM's half runs. */
 void Combo_SingleBag_ClearLastReport(void);
 
+/** TEST ONLY (#1483): make @p r the last report (NULL zeroes it, as
+ *  Combo_SingleBag_ClearLastReport does), so a ROM-free row can draw a refusal whose
+ *  words come from it (OoT_Creation_ReportFailureAtFileSelect's home-capacity line).
+ *  Production never calls it. */
+void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
+
 // ----------------------------------------------------------------------------
 // The two ports' halves (implemented in each game's engine TU; declared here so
 // src/common names no game header, ADR 0002).
@@ -237,6 +311,11 @@ void Combo_SingleBag_ClearLastReport(void);
 int OoT_ComboLogic_ExportPool(int source, uint16_t* outItems, uint16_t* outHosts, uint16_t* outFlags, int cap);
 /** OoT: the confinement bits its frozen settings arm. */
 uint32_t OoT_ComboLogic_ConfinementArmed(void);
+/** OoT (#1542): each pool row's confinement mask, @p count rows of @p items (OoT
+ *  item ids, the export's order) into @p out: RSBS_COMBO_GROUP_SONG_LOCATIONS for
+ *  a song while the shared song pool is armed (OoT_ComboLogic_SongPoolUnion),
+ *  else 0. Returns how many rows got a nonzero mask. */
+int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* out);
 /** OoT: nonzero while OoT's world waits at its general-pass point for this fill. */
 int OoT_ComboLogic_GeneralPassDeferred(void);
 /** OoT: the export rows (source 0, export order) the bag took. */

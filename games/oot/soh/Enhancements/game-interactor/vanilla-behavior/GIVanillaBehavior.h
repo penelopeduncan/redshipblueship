@@ -3068,6 +3068,90 @@ typedef enum {
     // - `s32*` camMode
     VB_CHANGE_AIMING_CAMERA,
 
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Whether the chest game shopkeeper wipes the scene's chest flags and keys on spawn.
+    // #### `args`
+    // - `*EnTakaraMan`
+    VB_TAKARA_MAN_RESET_CHESTS_AND_KEYS,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Whether the chest game shopkeeper hands over a small key after being paid.
+    // #### `args`
+    // - `*EnTakaraMan`
+    VB_TAKARA_MAN_OFFER_GET_ITEM,
+
+    // #### `result`
+    // ```c
+    // Rand_ZeroFloat(1.99f) < 1.0f
+    // ```
+    // Whether the chest game swaps which side of the room holds the key chest.
+    // #### `args`
+    // - `*EnChanger`
+    VB_EN_CHANGER_SWAP_CHESTS,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // Whether opening a chest sets its treasure flag.
+    // #### `args`
+    // - `*EnBox`
+    VB_CHEST_SET_TREASURE_FLAG,
+
+    // #### `result`
+    // ```c
+    // Flags_GetTreasure(play, this->dyna.actor.params & 0x1F)
+    // ```
+    // Whether a chest counts as already opened.
+    // #### `args`
+    // - `*EnBox`
+    VB_CHEST_CONSIDER_CHEST_OPEN,
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY_EASY,
+
+    // #### `result`
+    // ```c
+    // this->actor.xyzDistToPlayerSq < 900.0f
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_COLLECT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_COUNT_CHECK,
+
+    // #### `result`
+    // ```c
+    // Flags_GetSwitch(play, this->switchFlag)
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_DESPAWN,
+
 } GIVanillaBehavior;
 
 #endif

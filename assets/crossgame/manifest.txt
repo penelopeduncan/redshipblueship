@@ -218,6 +218,43 @@ mm->oot parameter_static/gThreeDayClockMoonHourTex
 mm->oot icon_item_dungeon_static/gDungeonMapSkullTex
 mm->oot icon_item_field_static/gWorldMapOwlFaceTex
 #
+# The Termina owl map OoT's Song of Soaring opens in its pause (#1169 XW8,
+# games/oot/soh/Enhancements/randomizer/SoaringMapOoT.c; every path is listed by
+# src/common/warp_song_soaring_map.c and probed before the map opens, with XW6's
+# text chooser as the fallback): MM's world map image and its TLUT, the fifteen
+# clouds, MM's map-page title quad and the ten owl names.  The owl face above
+# is already here.  Single paths, textures only: the rest of
+# icon_item_field_static is HUD and region art no OoT draw names, and none
+# collides (OoT's own copies live under textures/).
+mm->oot icon_item_field_static/gWorldMapImageTex
+mm->oot icon_item_field_static/gWorldMapImageTLUT
+mm->oot icon_item_field_static/gWorldMapClockTownCloud1Tex
+mm->oot icon_item_field_static/gWorldMapClockTownCloud2Tex
+mm->oot icon_item_field_static/gWorldMapWoodfallCloud1Tex
+mm->oot icon_item_field_static/gWorldMapWoodfallCloud2Tex
+mm->oot icon_item_field_static/gWorldMapWoodfallCloud3Tex
+mm->oot icon_item_field_static/gWorldMapSnowheadCloud1Tex
+mm->oot icon_item_field_static/gWorldMapSnowheadCloud2Tex
+mm->oot icon_item_field_static/gWorldMapSnowheadCloud3Tex
+mm->oot icon_item_field_static/gWorldMapRomaniRanchCloudTex
+mm->oot icon_item_field_static/gWorldMapGreatBayCloud1Tex
+mm->oot icon_item_field_static/gWorldMapGreatBayCloud2Tex
+mm->oot icon_item_field_static/gWorldMapGreatBayCloud3Tex
+mm->oot icon_item_field_static/gWorldMapGreatBayCloud4Tex
+mm->oot icon_item_field_static/gWorldMapStoneTowerCloud1Tex
+mm->oot icon_item_field_static/gWorldMapStoneTowerCloud2Tex
+mm->oot icon_item_jpn_static/gPauseMap10ENGTex
+mm->oot map_name_static/gMapPointGreatBayCoastENGTex
+mm->oot map_name_static/gMapPointZoraCapeENGTex
+mm->oot map_name_static/gMapPointSnowheadENGTex
+mm->oot map_name_static/gMapPointMountainVillageENGTex
+mm->oot map_name_static/gMapPointClockTownENGTex
+mm->oot map_name_static/gMapPointMilkRoadENGTex
+mm->oot map_name_static/gMapPointWoodfallENGTex
+mm->oot map_name_static/gMapPointSouthernSwampENGTex
+mm->oot map_name_static/gMapPointIkanaCanyonENGTex
+mm->oot map_name_static/gMapPointStoneTowerENGTex
+#
 # The MM masks OoT wears (#977, epic #975 P3; worn and drawn on Link's head by
 # ForeignMaskOoT.cpp, src/common/foreign_masks.h).  Single paths, not the
 # directories: object_mask_bakuretu also carries the Blast Mask's
@@ -321,3 +358,10 @@ oot->mm objects/object_link_child/object_link_childVtx_029670
 oot->mm textures/icon_item_static/gItemIconMaskGerudoTex
 oot->mm textures/icon_item_static/gItemIconMaskSkullTex
 oot->mm textures/icon_item_static/gItemIconMaskSpookyTex
+# Their pause-menu names (#1500): MM names a shared slot's own item as the OoT mask
+# it stands for with OoT's own texture (MM_ForeignMask_ItemName, ForeignMaskMM.cpp),
+# the way OoT names the Blast and Stone Masks with MM's.  OoT's item names live
+# under textures/, MM's under item_name_static/, so the paths collide with nothing.
+oot->mm textures/item_name_static/gGerudoMaskItemNameENGTex
+oot->mm textures/item_name_static/gSkullMaskItemNameENGTex
+oot->mm textures/item_name_static/gSpookyMaskItemNameENGTex

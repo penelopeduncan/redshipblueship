@@ -5063,6 +5063,11 @@ s32 Flags_GetRandomizerInf(RandomizerInf flag) {
     }
     */
 
+    // [RSBS #1364] RAND_INF_MAX is the "no flag" sentinel (unidentified crates, grass, pots, cows). No flag is
+    // RAND_INF_MAX or above, so it reads unset; since save format 6 its word is spare capacity, never a flag.
+    if (flag >= RAND_INF_MAX) {
+        return 0;
+    }
     return gSaveContext.ship.randomizerInf[flag >> 4] & (1 << (flag & 0xF));
 }
 
@@ -5079,6 +5084,10 @@ void Flags_SetRandomizerInf(RandomizerInf flag) {
     }
     */
 
+    // [RSBS #1364] see Flags_GetRandomizerInf: the sentinel has no bit.
+    if (flag >= RAND_INF_MAX) {
+        return;
+    }
     s32 previouslyOff = !Flags_GetRandomizerInf(flag);
     if (previouslyOff) {
         gSaveContext.ship.randomizerInf[flag >> 4] |= (1 << (flag & 0xF));
@@ -5100,6 +5109,10 @@ void Flags_UnsetRandomizerInf(RandomizerInf flag) {
     }
     */
 
+    // [RSBS #1364] see Flags_GetRandomizerInf: the sentinel has no bit.
+    if (flag >= RAND_INF_MAX) {
+        return;
+    }
     s32 previouslyOn = Flags_GetRandomizerInf(flag);
     if (previouslyOn) {
         gSaveContext.ship.randomizerInf[flag >> 4] &= ~(1 << (flag & 0xF));

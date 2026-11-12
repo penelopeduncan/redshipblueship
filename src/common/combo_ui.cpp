@@ -251,12 +251,20 @@ bool FallbackPushCountFont(void) {
 void FallbackPopCountFont(void) {
 }
 
+void FallbackIndent(void) {
+    ImGui::Indent();
+}
+
+void FallbackUnindent(void) {
+    ImGui::Unindent();
+}
+
 const ComboUiTable kFallback = {
     FallbackCheckbox,      FallbackCombobox,     FallbackSliderInt,   FallbackButton,   FallbackSearchInput,
     FallbackSeparatorText, FallbackNoteText,     FallbackWarningText, FallbackTooltip,  FallbackTagChip,
     FallbackConfirm,       FallbackPushTheme,    FallbackPopTheme,    FallbackSpacer,   FallbackRowText,
     FallbackIconButton,    FallbackImage,        FallbackHasImage,    FallbackToneText, FallbackPushCountFont,
-    FallbackPopCountFont,  FallbackSearchAction,
+    FallbackPopCountFont,  FallbackSearchAction, FallbackIndent,      FallbackUnindent,
 };
 
 } // namespace

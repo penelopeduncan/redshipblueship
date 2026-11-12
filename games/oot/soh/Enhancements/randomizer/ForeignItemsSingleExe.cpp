@@ -63,6 +63,14 @@
 #include "gen_budget.h"       // src/common — the #582 fill budget + progress surface
 #include "seed_package.h"     // src/common — the seed package the creation binds (#1044)
 
+#include "combo_mm_options_view.h" // src/common — MM_Rando_PairedSongsResolved (#1542)
+#include "combo_song_pool.h"       // src/common — the pair's one songs setting (#1542)
+
+#include "mm_warp_song_play.h" // src/common — the creation's warp-song record (#1169 XW7)
+
+// WarpSongRecordOoT.cpp (#1169 XW7): the creation's warp-song record.
+extern "C" int OoT_Creation_FreezeWarpSongRecord(void);
+
 extern "C" {
 #include <z64.h>
 #include "variables.h"
@@ -536,14 +544,32 @@ extern "C" int OoT_Combo_HintPassCrossingIsMajor(int rc) {
  * generation and the next load) the store may be another world's, and the check
  * names its own item. Unpaired, the drain refuses the crossing and gives the cover,
  * so the cover is what the check yields: the Check Tracker names it too.
+ *
+ * #1475 (lane H2): a fourth moment, the combined Hint Tracker's OoT pane read while
+ * Majora's Mask plays the paired file. OoT's play state is gone then (the suspend
+ * nulls it), so the in-play term is shut, but the store is still the loaded file's
+ * and the suspended heap is the world OoT departed from. The pane opens this term
+ * for its walk only (OoT_Combo_SetHintingSuspendedWorld), once it has checked that
+ * heap is that world (OoT_TrackerAdapter_SuspendedRandoWorld).
  */
+namespace {
+int sHintingSuspendedWorld = 0;
+} // namespace
+
+extern "C" int OoT_Combo_SetHintingSuspendedWorld(int on) {
+    const int was = sHintingSuspendedWorld;
+    sHintingSuspendedWorld = on != 0 ? 1 : 0;
+    return was;
+}
+
 extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc) {
     if (rc <= 0) {
         return nullptr;
     }
     const bool hintingThisWorld = OoT_ComboLogic_HintingPairedRemainder() != 0 ||
                                   OoT_ComboLogic_WritingSingleBagSpoiler() != 0 ||
-                                  (Combo_ForeignPairingActive() && GameInteractor::IsSaveLoaded());
+                                  (Combo_ForeignPairingActive() && GameInteractor::IsSaveLoaded()) ||
+                                  (Combo_ForeignPairingActive() && sHintingSuspendedWorld != 0);
     return hintingThisWorld ? Combo_GetForeignPlacementForOoTCheck((uint16_t)rc) : nullptr;
 }
 
@@ -799,6 +825,9 @@ extern "C" int OoT_ComboLogic_FinishGeneralPass(int writeSpoiler);
  *         run). On failure the store is left empty.
  */
 extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
+    // #1169 XW7: no previous world's warp-song record survives a step that fails
+    // below (Combo_SingleBag_Run clears comboWoth per attempt the same way).
+    Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
     const int crossings = Combo_Crossings_CaptureFromCoordinator();
     if (crossings < 0) {
         fprintf(stderr, "[OoT] creation: the crossing store refused the single bag's crossings (%s)\n",
@@ -810,6 +839,11 @@ extern "C" int OoT_Creation_FinishPairedHalf(int writeSpoiler) {
         Combo_Crossings_Clear();
         return -2;
     }
+    // #1169 XW7: the remainder created this world's entrance overrides and
+    // warp-song texts (fill.cpp, RsbsFinishPairedGeneralPass); freeze what MM's warp
+    // prompt and OoT's warp arrival read. A record the validator refuses stays
+    // UNSET, which refuses every MM warp song of the file and fails nothing else.
+    (void)OoT_Creation_FreezeWarpSongRecord();
     return crossings;
 }
 
@@ -933,6 +967,10 @@ static std::string AllLocationsUnreachableLine(size_t prefixChars, int* outCount
  * goal. At most 38 characters, so it fits after either refusal prefix.
  */
 static const char* AllLocationsGoalLine(unsigned goal, int goalOoT, int goalMM) {
+    if (goal == RSBS_COMBO_GOAL_TRIFORCE_HUNT) {
+        // #1483: the hunt is won in either game, so no game is named; the row is.
+        return "the Triforce Goal can never be met.";
+    }
     const bool ootFailed = goalOoT == 0;
     const bool mmFailed = goalMM == 0;
     if (goal == RSBS_COMBO_GOAL_BEAT_OOT || (goal == RSBS_COMBO_GOAL_BEAT_BOTH && ootFailed && !mmFailed)) {
@@ -947,14 +985,51 @@ static const char* AllLocationsGoalLine(unsigned goal, int goalOoT, int goalMM) 
     return "no seed can finish the goal.";
 }
 
+/**
+ * #1483: the home-capacity line: a game whose own items (those that may not cross,
+ * the Triforce Pieces among them) outnumber its own empty checks
+ * (Combo_SingleBag_HomeShortGames), so no seed can fill it. "Too many pieces" when
+ * the short game holds Triforce Pieces (both games short: when both hold them),
+ * else "too few checks". At most 38 characters, so it fits after either refusal
+ * prefix; nullptr when @p shortGames names no game.
+ */
+static const char* HomeCapacityLine(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
+    switch (shortGames & (RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM)) {
+        case RSBS_COMBO_HALF_OOT:
+            return piecesOoT > 0 ? "too many Ocarina of Time pieces." : "too few checks in Ocarina of Time.";
+        case RSBS_COMBO_HALF_MM:
+            return piecesMM > 0 ? "too many Majora's Mask pieces." : "too few checks in Majora's Mask.";
+        case RSBS_COMBO_HALF_OOT | RSBS_COMBO_HALF_MM:
+            return (piecesOoT > 0 && piecesMM > 0) ? "too many pieces for either game."
+                                                   : "too few checks in either game.";
+        default:
+            return nullptr;
+    }
+}
+
+/**
+ * #1542: the shared song pool's capacity line (OoTMM's "Not enough locations for
+ * songs/dungeon rewards", solve.ts placeSemiShuffled): more songs than the song
+ * checks of both games they may use, a fact of the settings. At most 38
+ * characters, so it fits after either refusal prefix; the counts and the ways out
+ * are on the single bag's and MM's stderr lines (Combo_SongPoolCapacityRefusal).
+ */
+static const char* const kSongCapacityLine = "too many songs for the song checks.";
+
 /** The `reason` a file-select refusal passes (OoT_Creation_ReportFailureAtFileSelect)
  *  for the fill it has just run itself: that fill's All Locations refusal when that
- *  is why it failed, else 0 (the generic line). */
+ *  is why it failed, RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY when a game's own items
+ *  cannot fit its checks (#1483), else 0 (the generic line). */
 static int CreationFailureReasonFromOwnFill(void) {
-    const int status = Combo_SingleBag_LastReport()->status;
-    return (status == RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE || status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE)
-               ? status
-               : 0;
+    const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
+    const int status = last->status;
+    if (status == RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE || status == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
+        return status;
+    }
+    if (Combo_SingleBag_SongCapacityShort(last)) {
+        return RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY; // #1542
+    }
+    return Combo_SingleBag_HomeShortGames(last) != 0u ? RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY : 0;
 }
 
 /**
@@ -999,6 +1074,51 @@ extern "C" void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT
         .message = AllLocationsGoalLine(goal, goalOoT, goalMM),
         .mute = true,
     });
+}
+
+/**
+ * THE HOME-CAPACITY REFUSAL (#1483): Generate's toast when the single bag failed and
+ * a game's own items outnumber its own empty checks (Combo_SingleBag_HomeShortGames),
+ * in place of "try a new seed or other options.", because no seed has more checks:
+ * fewer pieces, or other settings, do (OoTMM's capacity error says the same). The
+ * unreachable toast's shape (one line, the default colours, muted); the counts and
+ * the remedy are on the single bag's stderr line.
+ *
+ * @param shortGames RSBS_COMBO_HALF_* bits of the short games; 0 draws nothing.
+ * @param piecesOoT / @param piecesMM the frozen hunt's pieces in each game's pool
+ *        (ComboSingleBagReport.triforcePiecesOoT / MM), 0 outside a hunt.
+ * @return 1 when a toast was raised, 0 when @p shortGames names no game.
+ */
+/**
+ * THE SONG-POOL CAPACITY REFUSAL (#1542): Generate's toast when the single bag
+ * refused because the shared song pool's songs outnumber its song checks
+ * (Combo_SingleBag_SongCapacityShort), in place of "try a new seed or other
+ * options.", because no seed has more song checks. The unreachable toast's shape.
+ * @return 1 when a toast was raised, 0 when @p r is no such refusal.
+ */
+extern "C" int OoT_Creation_EmitSongCapacityToast(const ComboSingleBagReport* r) {
+    if (!Combo_SingleBag_SongCapacityShort(r)) {
+        return 0;
+    }
+    Notification::Emit({
+        .prefix = "Not generated:",
+        .message = kSongCapacityLine,
+        .mute = true,
+    });
+    return 1;
+}
+
+extern "C" int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM) {
+    const char* line = HomeCapacityLine(shortGames, piecesOoT, piecesMM);
+    if (line == nullptr) {
+        return 0;
+    }
+    Notification::Emit({
+        .prefix = "Not generated:",
+        .message = line,
+        .mute = true,
+    });
+    return 1;
 }
 
 // The completed world, between this completion and the package it is written into.
@@ -1062,6 +1182,8 @@ static void RetractPairedWorld(void) {
     // froze (Combo_TriforceRecordDivergence reads that as damage), and item rules
     // would be carried by the KEEP invalidation onto disk.
     Combo_RetractCreationRecords();
+    // #1542: the songs capture is a creation input of the world retracted here.
+    Combo_PairSongsClear();
     gComboCtx.sourceIsRando = false;
     gComboCtx.sharedRandoSeed = 0;
     gComboCtx.sharedRandoSettingsHash = 0;
@@ -1131,6 +1253,73 @@ static std::string ReadWholeFile(const std::filesystem::path& path) {
     return out;
 }
 
+// #1542: OoT's Shuffle Songs values as combo_song_pool.h spells them.
+static_assert(RSBS_OOT_SONGS_OFF == (unsigned)RO_SONG_SHUFFLE_OFF &&
+                  RSBS_OOT_SONGS_SONG_LOCATIONS == (unsigned)RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                  RSBS_OOT_SONGS_DUNGEON_REWARDS == (unsigned)RO_SONG_SHUFFLE_DUNGEON_REWARDS &&
+                  RSBS_OOT_SONGS_ANYWHERE == (unsigned)RO_SONG_SHUFFLE_ANYWHERE,
+              "combo_song_pool.h's OoT Shuffle Songs values must be randomizerTypes.h's");
+// settings.cpp's RSK_SHUFFLE_SONGS row ships RO_SONG_SHUFFLE_SONG_LOCATIONS.
+static_assert(RSBS_OOT_SHUFFLE_SONGS_DEFAULT == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS,
+              "combo_song_pool.h's OoT Shuffle Songs default must be settings.cpp's");
+
+/**
+ * #1542 (D2): the pair has one songs setting, and MM's half is about to be
+ * generated with MM's paired resolution of it. That resolution must be the
+ * mapping of OoT's FROZEN option (the creation capture, combo_song_pool.h), never
+ * of a key read now: a world whose MM half followed a later key would be two
+ * settings for one game. Pure apart from the reads it names.
+ * @return true when MM's resolution agrees with OoT's frozen option.
+ */
+static bool OoTPairSongsAgree(void) {
+    const auto rsbsCtx = Rando::Context::GetInstance();
+    if (rsbsCtx == nullptr) {
+        fprintf(stderr, "[OoT] paired completion: REFUSED (#1542) — no OoT context to read Shuffle Songs from\n");
+        return false;
+    }
+    const uint32_t ootSongs = (uint32_t)rsbsCtx->GetOption(RSK_SHUFFLE_SONGS).Get();
+    const uint32_t want = Combo_PairSongsMmValue(ootSongs);
+    const uint32_t mmSongs = (uint32_t)MM_Rando_PairedSongsResolved();
+    if (mmSongs != want) {
+        uint32_t captured = 0;
+        const bool held = Combo_PairSongsCaptured(&captured);
+        fprintf(stderr,
+                "[OoT] paired completion: REFUSED (#1542) — Majora's Mask's Shuffle Songs resolves %u, but Ocarina of "
+                "Time's frozen Shuffle Songs %u gives %u (capture %s %u): the pair's one songs setting would be two\n",
+                (unsigned)mmSongs, (unsigned)ootSongs, (unsigned)want, held ? "held" : "none", (unsigned)captured);
+        return false;
+    }
+    return true;
+}
+
+/**
+ * #1542 (review): the half MM_Rando_AuthorHalfAtCreation just made was generated
+ * with the mapping of OoT's frozen Shuffle Songs. OoTPairSongsAgree checks the
+ * resolution before the half; MM's profile resolution can still adopt another
+ * candidate value when the frozen digest names one (ResolvePairedProfile), so the
+ * half's own option is checked too. Call only while MM's bytes are the shared
+ * gSaveContext (right after the half is authored).
+ * @return true when the authored half agrees with OoT's frozen option.
+ */
+static bool OoTPairHalfSongsAgree(void) {
+    const auto rsbsCtx = Rando::Context::GetInstance();
+    if (rsbsCtx == nullptr) {
+        fprintf(stderr, "[OoT] paired completion: REFUSED (#1542) — no OoT context to read Shuffle Songs from\n");
+        return false;
+    }
+    const uint32_t ootSongs = (uint32_t)rsbsCtx->GetOption(RSK_SHUFFLE_SONGS).Get();
+    const uint32_t want = Combo_PairSongsMmValue(ootSongs);
+    const int authored = MM_Rando_AuthoredHalfSongs();
+    if (authored != (int)want) {
+        fprintf(stderr,
+                "[OoT] paired completion: REFUSED (#1542) — Majora's Mask's half was generated with Shuffle Songs %d, "
+                "but Ocarina of Time's frozen Shuffle Songs %u gives %u: the pair's one songs setting would be two\n",
+                authored, (unsigned)ootSongs, (unsigned)want);
+        return false;
+    }
+    return true;
+}
+
 /**
  * Complete the paired world OoT's generation left at its general pass: MM's half
  * (the single-bag fill inside it), the crossings, OoT's remainder and its spoiler,
@@ -1143,7 +1332,14 @@ static std::string ReadWholeFile(const std::filesystem::path& path) {
 extern "C" int OoT_PairedGen_CompleteWorld(void) {
     sPairedWorldComplete = false;
     if (!Combo_ForeignPairingActive() || OoT_ComboLogic_GeneralPassDeferred() == 0) {
+        // #1542: no world waits, so a capture held now describes none.
+        Combo_PairSongsClear();
         return RSBS_SEEDPKG_ERR_NO_WORLD;
+    }
+    if (!OoTPairSongsAgree()) {
+        fflush(stderr);
+        RetractPairedWorld();
+        return RSBS_SEEDPKG_ERR_GENERATION;
     }
 
     // The pre-Fill gate's answer, read FROM THE FROZEN RECORD rather than
@@ -1189,6 +1385,14 @@ extern "C" int OoT_PairedGen_CompleteWorld(void) {
     Combo_SingleBag_ClearLastReport();
     const int mmRc = MM_Rando_AuthorHalfAtCreation(-1, "", nullptr);
     CreationStep('M');
+    // #1542: the half MM authored must carry the mapping of OoT's frozen option,
+    // read while MM's bytes are still the shared gSaveContext (put back below).
+    // The resolution was checked before the half (OoTPairSongsAgree); this checks
+    // the value the half was actually made with.
+    const bool songsAuthoredAgree = mmRc != 0 || OoTPairHalfSongsAgree();
+    // #1542: MM's half is authored, so the songs capture is consumed: from here
+    // the world's value is MM's frozen profile (combo_song_pool.h).
+    Combo_PairSongsClear();
 
     sCreationBracketActive = false;
     // MM's finished half, kept for the spoiler join, the digest and the package.
@@ -1198,6 +1402,12 @@ extern "C" int OoT_PairedGen_CompleteWorld(void) {
 
     if (mmRc != 0) {
         fprintf(stderr, "[OoT] paired completion: FAILED (MM half rc=%d) — retracting the pairing identity\n", mmRc);
+        fflush(stderr);
+        std::filesystem::remove(digestPath, digestEc);
+        RetractPairedWorld();
+        return RSBS_SEEDPKG_ERR_GENERATION;
+    }
+    if (!songsAuthoredAgree) {
         fflush(stderr);
         std::filesystem::remove(digestPath, digestEc);
         RetractPairedWorld();
@@ -1723,14 +1933,17 @@ extern "C" void OoT_Creation_EmitShortfallToast(int placed, int requested) {
  * line names what no seed can reach instead, as Generate's toast does: the first
  * location ("Name is unreachable.", else the count) for
  * RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE, the game that can never be finished
- * for RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE. The reason is the CALLER's word, never
+ * for RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE, and (#1483) the game whose own items
+ * cannot fit its checks for RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY, whose counts are
+ * the last report's. The reason is the CALLER's word, never
  * read here from the process-wide last report, so the ui tier's page (reason 0)
  * draws the same line whatever row ran before it.
  *
  * @param slot   the slot whose creation failed.
  * @param reason 0 ("generation did not converge"), or the single bag's
  *               RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE /
- *               RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE for this creation's own fill.
+ *               RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE /
+ *               RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY for this creation's own fill.
  */
 extern "C" void OoT_Creation_ReportFailureAtFileSelect(int slot, int reason) {
     fprintf(stderr,
@@ -1749,6 +1962,15 @@ extern "C" void OoT_Creation_ReportFailureAtFileSelect(int slot, int reason) {
     } else if (reason == RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE) {
         const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
         message = AllLocationsGoalLine(last->goal, last->fill.goalOoT, last->fill.goalMM);
+    } else if (reason == RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY) {
+        message = kSongCapacityLine; // #1542
+    } else if (reason == RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY) {
+        const ComboSingleBagReport* last = Combo_SingleBag_LastReport();
+        const char* line =
+            HomeCapacityLine(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT, last->triforcePiecesMM);
+        if (line != nullptr) {
+            message = line;
+        }
     }
     Notification::Emit({
         .prefix = "Not created:",

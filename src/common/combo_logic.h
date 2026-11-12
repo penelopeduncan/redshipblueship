@@ -132,8 +132,55 @@ extern "C" {
  *  stops meaning "every PLACED host reached" and means OoTMM's "every location in
  *  BOTH games reached, whatever the GOAL". An ABI-7 engine was never asked for its
  *  locations, so its silence would be read as a host-only list, which is exactly
- *  the narrow reading this ABI retires. */
-#define RSBS_COMBO_LOGIC_ENGINE_ABI 8u
+ *  the narrow reading this ABI retires.
+ *
+ *  9 (2026-11-10, #1502, THE HOST GROUPS): the vtable gains ONE more OPTIONAL
+ *  trailing pointer, `hostGroups`, and the fill request a parallel
+ *  `confineMasks` array. A confined row may only be drawn onto a host of its own
+ *  game whose groups meet its mask (MM's Own Dungeon and Song Locations). An
+ *  ABI-8 engine was never asked which group a host is in, so its silence would
+ *  be read as "in no group" and every confined row would dead-end; the number
+ *  moves so that engine is refused at registration instead.
+ *
+ *  10 (2026-11-11, #1169 XW9, THE TRAVEL FACTS): the vtable gains TWO more
+ *  OPTIONAL trailing pointers, `travelFacts` and `acceptTravelFacts`, and
+ *  `expand` gains a second monotone input: the other game's travel facts the
+ *  coordinator handed over (OoT's Song of Soaring into Termina, MM's six OoT warp
+ *  songs into Hyrule; THE TRAVEL FACTS below). An engine's `changed` must now
+ *  answer for them too. An ABI-9 engine's silence would be safe (it would only
+ *  under-credit), but its `expand` was never told it had a second input, so the
+ *  number moves for the contract, as it did at 3 and 7.
+ *
+ *  11 (2026-11-12, #1542, THE COMBO-WIDE GROUPS): bits 24..31 of `hostGroups`
+ *  (RSBS_COMBO_GROUP_WIDE_MASK) are COMBO-WIDE: one meaning in both games (OoTMM's
+ *  one song-location set, RSBS_COMBO_GROUP_SONG_LOCATIONS). An engine declares
+ *  the wide bits it answers for through ONE more OPTIONAL trailing pointer,
+ *  `wideGroups`. A row whose mask is wide-only may cross onto the other game's
+ *  hosts in the same wide group that accept foreign items; a shared pair may
+ *  carry a wide-only mask; and the request gains `exclusiveGroups`, wide groups
+ *  whose hosts take only rows confined to them. An ABI-10 engine never answered
+ *  the wide range, so its silence would strand every wide row; the number moves
+ *  so that engine is refused at registration instead. */
+#define RSBS_COMBO_LOGIC_ENGINE_ABI 11u
+
+/** THE COMBO-WIDE GROUPS (ABI 11, #1542). The top byte of a `hostGroups` answer
+ *  and of a confinement mask is shared by both games; the low 24 bits stay each
+ *  engine's own namespace. */
+#define RSBS_COMBO_GROUP_WIDE_MASK 0xFF000000u
+/** The song checks of both games under the shared song-location pool (OoTMM
+ *  `songLocations`; #1542 D1). */
+#define RSBS_COMBO_GROUP_SONG_LOCATIONS 0x01000000u
+
+/** THE TRAVEL FACTS (ABI 10, #1169 XW9). Game-neutral bits in the frozen second
+ *  rules word's own positions (foreign_items.h, RSBS_XITEM2_*): a bit an engine
+ *  reports means "in this round's simulated state this game can PLAY that song".
+ *  RSBS_COMBO_TRAVEL_INTO_MM is OoT's fact (its Song of Soaring, played as a child,
+ *  lands at an ACTIVE Termina owl); RSBS_COMBO_TRAVEL_INTO_OOT are MM's (the six
+ *  OoT warp songs as MM items, song i = bit 0x02 << i in OoTMM's order Minuet ..
+ *  Prelude). The coordinator masks each engine's report to its own direction, so
+ *  an engine can never hand itself a fact. */
+#define RSBS_COMBO_TRAVEL_INTO_MM 0x00000001u
+#define RSBS_COMBO_TRAVEL_INTO_OOT 0x0000007Eu
 
 // ============================================================================
 // Status codes — DIAGNOSTICS, NOT FORMAT
@@ -225,6 +272,14 @@ extern "C" {
  *  whole bag ten times to report ERR_GOAL_UNPROVABLE. No ladder rung. Checked
  *  after the locations, so a world that misses both reports the named locations. */
 #define RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE 13
+/** THE HOST GROUPS (ABI 9, #1502): some group of confined REQUIRED rows
+ *  (`ComboLogicFillRequest.confineMasks`) has more rows than its game has empty
+ *  hosts in that group, so no placement of any seed can hold them all (OoTMM
+ *  refuses the same world; 2Ship's No Logic would silently un-confine). A fact of
+ *  the frozen settings, checked BEFORE any attempt (`attempts` 0, nothing placed,
+ *  no round run), never a ladder rung. Combo_Logic_LastGroupShortfall names the
+ *  group. */
+#define RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY 14
 
 /** Its name ("ok", "no-engine", ...), or "(unknown)". Never NULL. */
 const char* Combo_Logic_StatusName(int status);
@@ -247,8 +302,13 @@ const char* Combo_Logic_StatusName(int status);
  * RO_PLENTIFUL_ITEMS, traps on in both) and 784 / 799 on two runs of the
  * "maximal" profile — plentiful plus every OoT confinement family at its
  * general-pass value, every token, and every MM LOCATION category shuffled. The
- * maximal figure moves between runs because MM's plentiful step duplicates a
+ * maximal figure moved between runs because MM's plentiful step then duplicated a
  * RANDOM half of its lesser rows from Ship_Random (161 vs 176 MM surplus rows).
+ * Since 2Ship bfcb60476 (#1398) the step is deterministic and duplicates every
+ * major, mask, key and non-map lesser row but no skull token or stray fairy, so
+ * these figures need re-measuring. Each MM surplus copy repeats one base row's
+ * item, which the rule admits as REQUIRED, so before the shared-quantity trim
+ * MM's surplus rows never outnumber its REQUIRED rows.
  *
  * 799 IS THE LARGEST BAG MEASURED ON THE PROFILES RUN, NOT A PROVEN WORST CASE. The
  * "maximal" profile leaves out every ITEM family that is gated on a give
@@ -378,6 +438,7 @@ const char* Combo_Logic_StatusName(int status);
 //       changed |= exchange OoT-hosted, MM-origin items    // gated, below
 //       changed |= MM.expand()
 //       changed |= exchange MM-hosted, OoT-origin items    // gated, below
+//       changed |= hand across the travel facts            // ABI 10, gated, below
 //   until !changed
 //   read: crossingOpen, goalReached, reachedEmptyHosts, checkReached
 //   for each side S, in reverse:
@@ -438,6 +499,24 @@ const char* Combo_Logic_StatusName(int status);
 //     crossing is open (to get back).
 //   - Either way, never from a host the round's request FORBIDS (ABI 6): that
 //     host's contents are withheld for the whole round.
+//
+// THE TRAVEL GATES (ABI 10, #1169 XW9), the same travel stated for songs. After
+// both expands of every alternation the coordinator reads each engine's
+// `travelFacts`, masks it to its own direction, and hands across what passes:
+//   - MM's warp-song facts reach OoT iff OoT's crossing is open: the player must
+//     be IN MM to play an MM item, and the only first way into Termina is the
+//     crossing (ruling 9 of 2026-11-04: a warp is travel AFTER the door, never a
+//     first way in).
+//   - OoT's Soaring fact reaches MM iff OoT's crossing is open AND MM's crossing
+//     is open: OoT's Soaring lands only on owls already ACTIVE in MM's FROZEN
+//     copy, so the player must have entered MM and departed it again.
+// The accepted sets only grow within a round (an OR), they reset per round, and
+// a fact is never derived from anything but the round's own granted items and
+// placements, so the composite operator stays monotone and the least fixed point
+// credits each fact only after a well-founded derivation in play order: a fact
+// gated on the crossing can never help open the crossing circularly. At most
+// seven extra alternations per round (one per bit), far inside the bound.
+// Combo_Logic_TravelGate is that rule as a pure function.
 //
 // THE ARRIVAL GATE — a coordinator rule the audit did not state, taken here
 // deliberately. The combo's file starts in OoT and MM is reached through the
@@ -936,6 +1015,74 @@ typedef struct ComboLogicEngine {
      * Never called under any other rung.
      */
     int (*allLocations)(void* self, uint16_t* out, int cap);
+
+    /**
+     * OPTIONAL (ABI 9, #1502, THE HOST GROUPS). The confinement GROUP bits of
+     * `hostCheck`, a host in THIS engine's check id-space: which of this game's
+     * restricted check sets the host belongs to (MM: one bit per dungeon, one for
+     * the song checks under Song Locations). 0 = in no group.
+     *
+     * THE NAMESPACE IS THE ENGINE'S OWN BELOW BIT 24. A low bit means something
+     * only in the game that defines it, exactly as a host id does (ADR 0002): a
+     * locally confined row's mask is in its ORIGIN game's namespace, and the
+     * coordinator only ever ANDs it with its origin engine's answer, so such a row
+     * is never drawn onto the other game's hosts (see `confineMasks`).
+     *
+     * BITS 24..31 ARE COMBO-WIDE (ABI 11, RSBS_COMBO_GROUP_WIDE_MASK): one meaning
+     * in both games, declared through `wideGroups`. A host never answers a local
+     * bit and a wide bit together (refused as BAD_REQUEST). A row confined to a
+     * wide group may use the hosts of either game in it, the other game's only
+     * where that host accepts foreign items (OoTMM's one song-location set).
+     *
+     * A pure function of the host and the engine's FROZEN settings (cached when
+     * the host pool is handed in, never a live CVar): legal outside a round,
+     * consumes no RNG, called during a draw and by the capacity pre-check.
+     *
+     * NULL means this engine has no groups: a fill whose request confines a row
+     * of this engine's origin is refused (RSBS_COMBO_LOGIC_ERR_BAD_REQUEST)
+     * rather than dead-ended. A fill that confines nothing never calls it.
+     */
+    uint32_t (*hostGroups)(void* self, uint16_t hostCheck);
+
+    /**
+     * OPTIONAL (ABI 10, #1169 XW9, THE TRAVEL FACTS). Which songs this game can
+     * PLAY right now in the round's simulated state, as RSBS_COMBO_TRAVEL_* bits
+     * (OoT: RSBS_COMBO_TRAVEL_INTO_MM; MM: RSBS_COMBO_TRAVEL_INTO_OOT). Only
+     * inside a round, only after this engine's `expand` (the coordinator calls it
+     * once per alternation, after both expands). A PURE READ: consumes no RNG,
+     * grants nothing, leaves every simulated state it reads as it found it.
+     * MONOTONE in the round's items: a bit once reported is reported at every
+     * later call of the round, or the round fails RSBS_COMBO_LOGIC_ERR_NON_MONOTONE.
+     *
+     * Each engine answers with its OWN predicates (its own `CanUse`, its own
+     * buttons, its own frozen rule), so with every warp-song rule off it answers 0
+     * and nothing below ever runs. NULL means 0.
+     */
+    uint32_t (*travelFacts)(void* self);
+
+    /**
+     * OPTIONAL (ABI 10). For the rest of THIS ROUND, the other game's facts that
+     * passed THE TRAVEL GATES (below) are `facts`: always a superset of the
+     * previous call's, never a bit of this engine's own direction. The engine's
+     * NEXT `expand` must read them (OoT: its warp-song root exits; MM: its owl
+     * landings) and report `changed` for what they open. `beginQuery` and
+     * `endQuery` forget them, as they forget withheld hosts. Called only when the
+     * accepted set grows, so a world whose facts are all 0 never calls it. NULL
+     * means the facts are dropped (the engine under-credits, never over-credits).
+     */
+    void (*acceptTravelFacts)(void* self, uint32_t facts);
+
+    /**
+     * OPTIONAL (ABI 11, #1542, THE COMBO-WIDE GROUPS). The combo-wide bits
+     * (RSBS_COMBO_GROUP_WIDE_MASK) this engine's `hostGroups` answers for in this
+     * fill. A pure function of the engine's FROZEN settings: legal outside a
+     * round, consumes no RNG. A fill whose request carries a wide bit (in a mask
+     * or in `exclusiveGroups`) is refused (RSBS_COMBO_LOGIC_ERR_BAD_REQUEST)
+     * unless BOTH engines declare it, so a pair in which one half armed a wide
+     * group and the other did not is refused rather than dead-ended. NULL means
+     * none.
+     */
+    uint32_t (*wideGroups)(void* self);
 } ComboLogicEngine;
 
 /**
@@ -1110,6 +1257,22 @@ uint32_t Combo_Logic_PlacementDigest(void);
 int Combo_Logic_EvaluateGoal(uint8_t goal, int ootGoalReached, int mmGoalReached);
 
 /**
+ * THE TRAVEL GATES (ABI 10, #1169 XW9) as a pure function: the travel facts the
+ * coordinator may hand across in one alternation, given what each engine
+ * reported (`factsOoT`, `factsMM`, unmasked) and the two crossing flags.
+ *
+ *   *outToOoT = crossOoT              ? factsMM & RSBS_COMBO_TRAVEL_INTO_OOT : 0
+ *   *outToMM  = crossOoT && crossMM   ? factsOoT & RSBS_COMBO_TRAVEL_INTO_MM : 0
+ *
+ * MM's warp songs need the player IN MM, which only OoT's crossing opens; OoT's
+ * Soaring lands on owls already active in MM's FROZEN copy, so it needs MM
+ * entered (OoT's crossing) and departed (MM's). An engine's report outside its
+ * own direction is dropped. Either out pointer may be NULL.
+ */
+void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, int crossMM, uint32_t* outToOoT,
+                            uint32_t* outToMM);
+
+/**
  * The triforce-hunt GOAL expression (ADR 0010 answer O10): the ONE shared piece
  * count across both worlds against the frozen combo requirement.
  *
@@ -1249,6 +1412,12 @@ typedef struct {
     /** How many of those locations were NOT reached (0 when not asked); the list is
      *  Combo_Logic_UnreachableLocationAt's. */
     int locationsUnreached;
+    /** ABI 10 (#1169 XW9): the travel facts this round ACCEPTED, as
+     *  RSBS_COMBO_TRAVEL_* bits: MM's warp songs handed to OoT, and OoT's Soaring
+     *  handed to MM, each after THE TRAVEL GATES. 0 in every world with the
+     *  warp-song rules off. Diagnostics and locks, not format. */
+    uint32_t travelToOoT;
+    uint32_t travelToMM;
 } ComboLogicRoundResult;
 
 /**
@@ -1875,6 +2044,52 @@ typedef struct {
      *  exactly as it was: the rule reads the games' REGISTERED sources, which
      *  describe the real engines' ids, not a stub engine's. */
     uint8_t criticalRenewables;
+    /**
+     * THE HOST GROUPS (ABI 9, #1502): NULL (every memset-initialised request), or
+     * `bagCount` masks, one per bag row. A row whose mask is nonzero is CONFINED:
+     * it may only be drawn onto a host of its ORIGIN game whose `hostGroups`
+     * answer meets the mask (any one bit is enough, so a mask of several groups
+     * is "any of these"), in every path the fill has — the proving draw, the
+     * surplus phase, No Logic and the forced debug rows. It never crosses, so it
+     * is HOME_ONLY in effect whatever its flags say.
+     *
+     * A PARALLEL ARRAY, not a bag-row field, on purpose: dozens of bag rows in the
+     * tree are built field by field with no memset, and a new trailing field
+     * would be indeterminate in every one of them.
+     *
+     * WHAT IT CHANGES. Confined REQUIRED rows are drawn FIRST in each attempt (a
+     * stable partition after the shuffle, so each is placed with the whole rest
+     * of the bag assumed: OoTMM's fixDungeon / placeSemiShuffled, SoH's restricted
+     * passes before the general one; among the confined rows, those of local
+     * groups first and then a wide group's rows by how many of its hosts each
+     * may use, fewest first, stable, so with one kind of confined row the order
+     * is the plain partition's); a confined SURPLUS row that finds no host
+     * drops alone; and the fill refuses up front with
+     * RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY when a group's REQUIRED rows outnumber
+     * its empty hosts. With NULL, or every mask 0, none of that runs: the shuffle,
+     * every draw and every RNG value are byte-for-byte those of an ABI-8 fill.
+     *
+     * A WIDE mask (ABI 11: only bits of RSBS_COMBO_GROUP_WIDE_MASK) confines the
+     * row to the hosts of BOTH games in that wide group, the other game's only
+     * where its engine accepts foreign items and the row is not HOME_ONLY. It
+     * is confined but not home-only, and a shared pair may carry one (its host
+     * records that game's half).
+     *
+     * Refused (BAD_REQUEST): a mask with both local and wide bits, a shared pair
+     * with a local mask (it has no single home), a locally confined row whose
+     * origin engine has no `hostGroups`, and a wide bit that either engine does
+     * not declare through `wideGroups`.
+     */
+    const uint32_t* confineMasks;
+    /**
+     * THE EXCLUSIVE GROUPS (ABI 11, #1542): 0 (every memset-initialised request),
+     * or wide bits only. A host in one of these groups takes ONLY rows confined
+     * to a group it is in: under OoTMM's songLocations a non-song never sits on a
+     * song check (solve.ts placeSemiShuffled then fillJunk), so the hosts the
+     * songs leave over stay empty for each game's own junk. A local bit here is
+     * refused (BAD_REQUEST), and so is a wide bit an engine does not declare.
+     */
+    uint32_t exclusiveGroups;
 } ComboLogicFillRequest;
 
 typedef struct {
@@ -2017,6 +2232,37 @@ typedef struct {
  * @return the status, also written to `out->status` when `out` is non-NULL.
  */
 int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* out);
+
+/** THE HOST GROUPS' capacity refusal (ABI 9, #1502): the first group of confined
+ *  REQUIRED rows, in bag order, that outnumbered its game's empty hosts in that
+ *  group. Diagnostics, not format. */
+typedef struct {
+    uint8_t game;   // the rows' origin game, whose hosts were counted; for a WIDE
+                    // group (ABI 11) the one game whose hosts the short set of rows
+                    // could use, or GAME_NONE when they could use both games'
+    uint32_t mask;  // the rows' confinement mask, in that game's group namespace
+                    // (a wide group: that one wide bit)
+    int rows;       // REQUIRED rows carrying exactly that mask (wide: in the short set)
+    int hosts;      // that game's empty hosts whose groups meet the mask (wide: the
+                    // hosts the short set may use)
+    int rowsOoT;    // wide only: rows of the short set from OoT, not counting pairs
+    int rowsMM;     // wide only: rows of the short set from MM, not counting pairs
+    int wholeGroup; // wide only: 1 when the short set is every REQUIRED row of the group
+} ComboLogicGroupShortfall;
+
+/**
+ * The shortfall behind the latest RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY. Cleared on
+ * entry to every Combo_Logic_RunFill, so it never describes an earlier fill. THE
+ * CHECK, run before any attempt and before the All
+ * Locations pre-flight, only when some row is confined: it empties both tables
+ * (Combo_Logic_ResetPlacements, as the pre-flight does), counts per distinct
+ * (origin, mask) the REQUIRED rows against the origin engine's `allEmptyHosts`
+ * whose `hostGroups` meet the mask, and refuses on the first group that does not
+ * fit. Exact for disjoint groups (MM's are), and together with confined-first
+ * ordering it means No Logic never runs out of room inside a group.
+ * @return true, with `*out` written, when the latest fill was refused that way.
+ */
+bool Combo_Logic_LastGroupShortfall(ComboLogicGroupShortfall* out);
 
 /** What THE PRE-FLIGHT saw (ABI 8). Diagnostics, not format. */
 typedef struct {
@@ -2162,6 +2408,12 @@ int Combo_Logic_LeftoverHosts(GameId hostGame, uint16_t* out, int cap);
 //    The production caller passes the frozen requirement since #1389
 //    (combo_single_bag.c), so a paired triforce-hunt world is generated and
 //    proved like any other.
+//  - THE TRAVEL FACTS OUTSIDE A ROUND (ABI 10, #1169 XW9). Both games' check
+//    trackers, OoT's own restricted passes and its entrance validation evaluate
+//    the same warp-song and owl exits outside any round, where the accessors are
+//    false: they under-credit warp travel, identically in an MM-first session and
+//    after a crossing, until XW11 gives the trackers facts from the frozen world.
+//    Way of the Hero and foolish run rounds and see the facts as the fill does.
 //  - THE SPOILER. One artifact for the pair is #564 V23 / audit P11; this
 //    coordinator exposes its tables and stops there (the creation event prints
 //    the crossing store into the one spoiler's combo section).

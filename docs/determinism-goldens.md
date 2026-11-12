@@ -35,6 +35,7 @@ tests/golden/seed-digest-direction-forward.txt   # --test rando-determinism, RSB
 tests/golden/seed-digest-all-masks.txt           # --test rando-determinism, every mask option on: the five shared masks (#978), the Blast and Stone Masks in OoT and their shared variants (#979), the Gerudo, Skull and Spooky Masks in MM and their shared variants (#980)
 tests/golden/seed-digest-beatable-only.txt       # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=2 (#1367 R5)
 tests/golden/seed-digest-no-logic.txt            # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=1 (#1367 R5)
+tests/golden/seed-digest-new-options.txt         # --test rando-determinism, the clean save break's options on: MM Wonder Items, Hive Drops, Grass Drops, Butterflies; OoT Butterfly Fairies (#1406, #1410, #1407; generated at #1363's gate)
 ```
 
 Every golden without `gCombo.Rando.Logic` in its profile is an **All Locations**
@@ -158,6 +159,30 @@ Key, which the shipped Start With grants), `mmStartingItems` and `mmStartInvento
 are constant too, as expected for a fixed paired start. (These values are as of the
 OoTMM-defaults re-pin below.)
 
+### What the placement hashes fold (clean save break, part 2)
+
+`placementHash`, `ootFinalPlacementHash` and `mmPlacementHash` fold
+`<check>:<item>;` for every **placed** row, in ascending check order, through the
+project's FNV-1a:
+
+* OoT (`OoT_FoldPlacedRows`, `3drando/menu.cpp`): every `RandomizerCheck` below
+  `RC_MAX` whose placed item is not `RG_NONE`. A location the world holds is never
+  `RG_NONE` (pooled locations are filled, vanilla-kept ones hold their vanilla item,
+  crossing hosts the foreign junk cover); `RG_NONE` is a location
+  `GenerateLocationPool` left out. `placedCount` and `ootFinalPlacedCount` are the
+  number of rows folded.
+* MM (`FoldShuffledMMRows`, `mm_rando_gen_test.cpp`): every check whose
+  `RANDO_SAVE_CHECKS[].shuffled` is set. That covers the fill, the single bag, the
+  excluded-check junk, the vanilla-kept dungeon items and every crossing host; an
+  unshuffled row plays vanilla and holds the static table's vanilla item.
+
+Until the clean save break they folded every check id, placed or not, so a backport
+that only added checks behind an option that is off moved every pinned world (the
+53 MM tree checks of #1125 moved `mmPlacementHash` in eight goldens). Now such a
+backport moves none of the three. A row entering or leaving the placed set still
+moves its hash. `PlacementHashPlacedRows` (redship tier, ROM-free) runs both real
+folds over synthetic tables and checks this.
+
 ### The profiles #982 added
 
 The first five goldens vary the OoT settings, the ladder rung and MM's armed
@@ -172,6 +197,7 @@ capabilities. Four more profiles, on the same seed and dispatch as
 | `seed-digest-direction-forward` | combo direction FORWARD (OoT items into MM checks only) | a one-way bag: `crossingsInOoT=0`, `bagHomeOnly` non-zero |
 | `seed-digest-beatable-only` (#1367 R5) | `[Both Games] Logic` Beatable Only | the rung without the All Locations pre-flight and every-location exit term (`comboSettings=.../r2`) |
 | `seed-digest-no-logic` (#1367 R5) | `[Both Games] Logic` No Logic | the base rung: no round (`bagRounds=0`), every row drawn from every empty host, OoT generated No Logic with All Locations Reachable off (`comboSettings=.../r1`) |
+| `seed-digest-new-options` (#1363's gate) | MM Shuffle Wonder Items, Shuffle Hive Drops, Shuffle Grass Drops and Shuffle Butterflies, OoT Shuffle Butterfly Fairies, all on | a world holding the checks the clean save break's backports added (#1406, #1410, #1407). OoT Shuffle Silver Rupees is not in it: a paired world generates it off until #1530 lifts that pin, and then it joins the profile and re-pins the file |
 
 **How a profile names its sets.** The harness (`Rando_HeadlessSeedTest`,
 `ReadGoldenProfileSets` in `3drando/menu.cpp`) reads three variables:
@@ -345,7 +371,7 @@ word) had merged into it. Measured against the Stone Mask pin:
 
 Rule 6 does not bump `RSBS_GENERATOR_VERSION` for it, for #979's reasons: the
 world moved because this profile's inputs changed, the six bits are folded into
-`comboSettingsHash`, and no release has carried generator 4 (the latest is
+`comboSettingsHash`, and no release had carried generator 4 then (the latest was
 `v0.4.4-alpha`, generator 3).
 
 **A profile key that does not take is refused.** `GoldenSeedsRoundBudget` lists
@@ -490,11 +516,30 @@ build would turn the oracle back into a no-op.
    "Which gate runs these rows"), so a re-pin on Linux and a re-pin on Windows are
    equally verifiable and a divergence between the two toolchains turns one leg red
    rather than passing unnoticed.
-6. **Bump `RSBS_GENERATOR_VERSION`** (`src/common/foreign_items.h`) in any PR that
-   re-pins a golden for a world-moving reason. Do it in the same PR, so the
-   re-pin commit records both the moved world and the moved `comboSettingsHash`.
-   A re-pin that moved only an input field or a digest writer does not bump it.
-   See "The generator version" below.
+6. **Bump `RSBS_GENERATOR_VERSION`** (`src/common/foreign_items.h`) **once per
+   release window**: in the first PR after a release that makes the same seed and
+   settings produce a different world than the last *released* generator does,
+   whether or not a golden pins that world. Do it in the same PR, so a re-pin
+   commit in it records both the moved world and the moved `comboSettingsHash`.
+   * **A later world-moving change in the same window does not bump again.** It
+     rides the unreleased version, because only unreleased dev builds can show a
+     matching fingerprint for a different world. Its history entry under "The
+     generator version" names the version it rides and lists its residuals: the
+     worlds or text that change behind an unchanged fingerprint against the earlier
+     builds of that window.
+   * **A world-moving change that no golden pins still bumps**, when it is the
+     window's first. The version's purpose is that a released generator and a
+     later build never show one fingerprint for two worlds, and a golden only
+     samples the worlds.
+   * A re-pin that moved only an input field or a digest writer does not bump it.
+
+   Precedents: #1392 bumped to 4 after `v0.4.4-alpha` shipped generator 3; #979,
+   #1436 and #1446 re-pinned worlds in the same window and rode generator 4. PR
+   #1517 bumped to 5 after `v0.5.0-alpha` shipped generator 4, with no golden
+   moved, for PRs #1507 and #1504, which moved worlds no golden pins. Any
+   world-moving re-pin that lands after it in that window (the #1398 logic
+   backports, still open when this was written) will ride generator 5 and must
+   list its residuals. See "The generator version" below.
 
 ## The generator version (#1003)
 
@@ -506,8 +551,9 @@ and the fingerprint #960 prints beside the seed icons at file select did not mov
 
 `RSBS_GENERATOR_VERSION` (`src/common/foreign_items.h`) is a hand-bumped constant
 folded into `comboSettingsHash` as a fourth term (ADR 0011, amendment of
-2026-10-18). **Bump it in any PR that re-pins a golden for a world-moving reason**
-(rule 6 under "Re-pinning"). After a bump, a file created by the new build shows a
+2026-10-18). **Bump it once per release window, at the first change that moves a
+world relative to the last released generator, pinned or not** (rule 6 under
+"Re-pinning"). After a bump, a file created by the new build shows a
 different fingerprint at file select than the same seed created by the old one.
 
 What a bump moves, and what it must not:
@@ -615,8 +661,8 @@ Measured against the version-4 pins:
   (two, 531), the entrances profile two, 488 (one, 268), and the other round-running
   goldens 267 to 272.
 
-Why no bump: #1392 bumped to 4 in this release window, and no release has carried
-generator 4 (the latest is `v0.4.4-alpha`, generator 3), which #979's re-pin also
+Why no bump: #1392 bumped to 4 in this release window, and no release had carried
+generator 4 then (the latest was `v0.4.4-alpha`, generator 3), which #979's re-pin also
 relied on. The OoT changes are default changes that `settingsHash`, and so the
 fingerprint, folds, so a default world made after this change does not share a
 fingerprint with one made before it. #1427 changes the generator behind an
@@ -693,7 +739,7 @@ Measured against the OoTMM-defaults pins:
   under its 400-round cap and not charged to the fill's budget.
 
 Why no bump: the same reasons as the OoTMM-defaults re-pin. #1392 bumped to 4 in
-this release window and no release has carried generator 4 (the latest is
+this release window and no release had carried generator 4 then (the latest was
 `v0.4.4-alpha`, generator 3). #1442's and #1445's default changes are folded by
 the fingerprint (OoT's settings string and MM's profile digest), so a default
 world made after this re-pin never shares a fingerprint with one made before it.
@@ -717,6 +763,115 @@ this re-pin only:
 
 `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
 (`759F783D` to `AC30C06B`, still 17 hints, 15 of them drawing).
+
+Version 5 (2026-11-09). `v0.5.0-alpha` shipped generator 4, and two fixes since
+then make the same seed and settings produce a different world than it does:
+
+* PR #1507 (issue #1499): with Shuffle Tingle Maps on, Majora's Mask's pool keeps
+  one copy of each of the six Tingle maps (none with Starting Maps and Compasses
+  on), and the other copies become junk in place. Every seed with Shuffle Tingle
+  Maps on moves. With Plentiful on, the junk also changes Plentiful's lesser-copy
+  gate.
+* PR #1504 (issue #1453): MM logic carries only the half-days a time-gated path is
+  open on, so with time shuffled (Shuffle Time, `RO_CLOCK_SHUFFLE`) reachability,
+  and with it the fill, can differ.
+
+No pinned world moved under either change. No golden profile turns Shuffle Tingle
+Maps on, and no golden's world happened to move under the time logic, so no golden
+was re-pinned for a world-moving reason and rule 6 as it read then (bump in a PR
+that re-pins a golden for a world-moving reason) did not ask for this bump. The
+version moves anyway, and rule 6 now says so (#1447), because its purpose is that
+two builds whose generators differ never show the same fingerprint for the same
+seed and settings, and that a seed package from the released generator is
+refused. **This bump is for worlds no golden pins.** In the goldens it moves
+`comboSettingsHash` alone, an INPUT field, in the ten goldens that carry it; no
+placement field moves, because the version is a label (see the list above).
+
+The one songs setting (2026-11-12, PR #1543; issue #1542, ruling D2), still version 5.
+In a paired world Majora's Mask's Shuffle Songs follows Ocarina of Time's (Off to
+Vanilla, Song Locations and Dungeon Rewards to Song Locations, Anywhere to
+Anywhere), and MM's own key is no longer read. Every pinned profile leaves OoT's
+Shuffle Songs at its default, Song Locations, so MM's songs go from Anywhere to
+MM's own song locations in each of them. Twelve goldens moved.
+`seed-digest-mm-confined` did not: its profile already set MM's songs to Song
+Locations, which is now what OoT's default maps to.
+
+Measured against the pins before it:
+
+* INPUT: `comboSettingsHash` in the eleven moved goldens that carry it
+  (`seed-digest-default` `0A424E00` to `C882AB8B`), because MM's profile digest folds
+  `RO_SHUFFLE_SONGS` at Song Locations. `mmFinalSeed` moves with the profile.
+  `seed`, `settingsHash`, `comboSettings` and `ladderMasterSeed` stay.
+* OoT's general pass does not move: `placementHash`, `placedCount`,
+  `ootStartingItems`, `ootPriceCount` and `ootPriceDigest` stay.
+* The bag: `bagHomeOnly` goes from 0 to 10 in `seed-digest-default`, MM's ten
+  confined song rows. `bagRows`, `bagTrimmedOoT`, `bagTrimmedMM` and
+  `bagRequiredPlaced` stay. `bagSeed`, the leftover counts, `coordinatorDigest`,
+  `mmPlacementHash`, `ootFinalPlacementHash`, `crossingDigest`, the crossing counts
+  and every per-slot line move, and so do `ootHintDigest` (`ootHintCount` stays 45),
+  the MM hint count and digest, the foolish areas and `mmFreeStoneDigest`.
+* `seed-digest-armed-caps` moves `comboSettingsHash`, `armedBagDigest` and
+  `armedTrimSeed` only.
+* Rounds: `seed-digest-all-masks` now takes 486 rounds (267 before) and
+  `seed-digest-entrances` 465 (272 before); the others keep their counts.
+
+Why no bump, and the residuals: generator 5 has not shipped. A world whose MM songs
+value changes also changes its MM profile digest and so its fingerprint, so a
+default world made after this change does not share a fingerprint with one made
+before it. The one residual is against unreleased generator-5 builds: a paired
+file made by one of them with OoT's Shuffle Songs at Anywhere and MM's own key set
+to Song Locations or Vanilla, or with OoT's at Off and MM's at Anywhere or Song
+Locations, keeps loading (the load compare tries MM's three values), and the same
+seed and settings now make the world OoT's value maps to, under that world's own
+fingerprint.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
+(`D5F895FF` to `362833B2`, still 17 hints), and `ComboSingleBag`'s
+`kCsbFLoadBearingFixedChecks` is empty again.
+
+The shared song-location pool (2026-11-12, PR #1546; issue #1542, rulings D1 and
+D5), still version 5. Under Shuffle Songs: Song Locations the song checks of both
+games are one pool (OoTMM's `songLocations`): Ocarina of Time's songs leave its
+own song pass and are placed by the single bag, a song of either game may sit on a
+song check of either game, a song check holds nothing but a song or junk, and the
+one left over holds junk. Twelve goldens moved. `seed-digest-profile-v1` did not:
+its profile has Shuffle Songs at Dungeon Rewards, where the shared pool is not
+armed. `seed-digest-mm-confined` moved this time.
+
+Measured against the pins before it (`seed-digest-default` unless named):
+
+* INPUT: nothing. `seed`, `settingsHash`, `comboSettings`, `comboSettingsHash`,
+  `mmFinalSeed` and `ladderMasterSeed` stay: no setting, default or fold changed.
+* OoT's general pass: `placementHash` moves and `placedCount` drops by twelve
+  (272 to 260), the twelve songs OoT no longer places before the seam.
+* The bag: `bagRows` and `bagRequiredPlaced` grow by twelve (270 to 282; 265 to
+  277 in `seed-digest-all-masks`, 269 to 281 in `seed-digest-mm-confined`), and
+  `bagHomeOnly` goes from 10 to 0, because MM's songs are no longer held to MM.
+  In `seed-digest-armed-caps`, `armedOoTPoolRows` goes from 178 to 190,
+  `armedBagRows` from 333 to 345 and `armedOoT` from `req81` to `req93`.
+* After that: `bagRounds` (272 to 284), the leftover counts, `coordinatorDigest`,
+  `mmPlacementHash`, `ootFinalPlacementHash`, `crossingDigest`, the crossing counts
+  (47 and 28 to 54 and 32) and every per-slot line, `ootHintDigest` (`ootHintCount`
+  stays 45), the MM hint count and digest, the foolish areas and
+  `mmFreeStoneDigest`.
+* Rounds: every golden creates on its pinned ladder attempt in one batch attempt,
+  except `seed-digest-excludes-tricks`, which takes two (533 rounds).
+  `seed-digest-direction-forward` creates on ladder attempt 1 because the fill
+  draws a shared group's rows fewest-usable-hosts first (`ComboLogicConfinedFirst`);
+  drawn in shuffled order, Ocarina of Time's crossing songs took the song checks
+  that Majora's Mask's songs, held to Termina by the one-way direction, needed,
+  and the world only came on attempt 4.
+
+Why no bump, and the residuals: generator 5 has not shipped. Unlike the change
+before it, this one moves no input, so a Song Locations world keeps its
+fingerprint while its placements move. That is a residual against the unreleased
+generator-5 builds only: against a build between PR #1543 and this change for
+every Song Locations world, and against an earlier one for a world whose MM
+Shuffle Songs key was set to Song Locations by hand (the `seed-digest-mm-confined`
+profile). Worlds with Shuffle Songs at Anywhere, Off or Dungeon Rewards do not
+move.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
+(`362833B2` to `EF3042B8`, still 17 hints). `ComboSingleBag`'s
+`kCsbFLoadBearingFixedChecks` stays empty and leg G keeps its seed.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

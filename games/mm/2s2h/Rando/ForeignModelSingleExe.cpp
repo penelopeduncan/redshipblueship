@@ -139,6 +139,8 @@ void MM_GetItem_DrawSmallRupee(PlayState* play, s16 drawId);
 void MM_GetItem_DrawWallet(PlayState* play, s16 drawId);
 void GetItem_DrawRemains(PlayState* play, s16 drawId);
 }
+// Rando/Foreign.cpp (#1542 S0): an MM check's song-check index, -1 for any other.
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 namespace {
 
@@ -381,6 +383,14 @@ bool IsCustomDrawn(RandoItemId ri) {
         case RI_MASK_GERUDO:
         case RI_MASK_SKULL:
         case RI_MASK_SPOOKY:
+        // #1169 XW5: Ocarina of Time's warp songs in MM draw OoT's own song
+        // (WarpSongsMM.cpp, MM_WarpSongMM_DrawGetItem), as the masks do.
+        case RI_SONG_MINUET:
+        case RI_SONG_BOLERO:
+        case RI_SONG_SERENADE:
+        case RI_SONG_REQUIEM:
+        case RI_SONG_NOCTURNE:
+        case RI_SONG_PRELUDE:
             return true;
         default:
             return false;
@@ -1549,6 +1559,13 @@ bool LayerMatches(const char* name, const LayerRead& read, const ComboModel* wan
  * emits no model list at all.
  */
 bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
+    // #1542 S0: the `obtained` this drive pre-sets on its host is exactly what
+    // CheckQueue's delivered-song-host guard consumes, so a song check would queue
+    // nothing and this drive would read red for a reason that is not its own.
+    FMD_EXPECT(MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0,
+               "a song-check host cannot drive CheckQueue with obtained pre-set: the delivered-song-host guard "
+               "consumes it (#1542 S0); pass a non-song check (check %u)",
+               (unsigned)mmCheckId);
     struct Restore {
         std::vector<RandoSaveCheck> checks;
         std::vector<GIEvent> queue;

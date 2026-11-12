@@ -85,11 +85,18 @@ static bool OptionIsTriforceRow(const ComboMMOptionDesc* desc) {
             strcmp(desc->name, COMBO_MM_OPTION_NAME_TRIFORCE_REQUIRED) == 0);
 }
 
+/** Is @p desc MM's Shuffle Songs row (#1542)? */
+static bool OptionIsSongsRow(const ComboMMOptionDesc* desc) {
+    return desc != NULL && desc->name != NULL && strcmp(desc->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONGS) == 0;
+}
+
 bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc) {
     if (desc == NULL || desc->name == NULL) {
         return false;
     }
-    if (strcmp(desc->name, COMBO_MM_OPTION_NAME_LOGIC) == 0) {
+    // #1542 (D2): the pair has one songs setting, Ocarina of Time's, and MM's row
+    // follows it (Foreign.cpp's paired resolution), so it is read-only like Logic.
+    if (strcmp(desc->name, COMBO_MM_OPTION_NAME_LOGIC) == 0 || OptionIsSongsRow(desc)) {
         return true;
     }
     // #1389: under the triforce-hunt goal MM's half of the hunt is the split of
@@ -101,6 +108,9 @@ bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc) {
 const char* Combo_MMOptionsPage_OptionSetByComboReason(const ComboMMOptionDesc* desc) {
     if (!Combo_MMOptionsPage_OptionSetByCombo(desc)) {
         return "";
+    }
+    if (OptionIsSongsRow(desc)) {
+        return COMBO_SONGS_SET_BY_OOT_REASON;
     }
     return OptionIsTriforceRow(desc) ? COMBO_TRIFORCE_SET_BY_COMBO_REASON : COMBO_LOGIC_SET_BY_COMBO_REASON;
 }
@@ -127,6 +137,11 @@ int32_t Combo_MMOptionsPage_OptionShownValue(const ComboMMOptionDesc* desc) {
             return split ? (int32_t)mm.total : desc->defaultValue;
         }
         return split ? (int32_t)mm.required : desc->defaultValue;
+    }
+    // #1542: MM's Shuffle Songs follows Ocarina of Time's, so the row shows the
+    // value a paired world is (or was) made with, never MM's key.
+    if (OptionIsSongsRow(desc)) {
+        return (int32_t)MM_Rando_PairedSongsShown();
     }
     // #1367: MM's Logic follows the pair's [Both Games] Logic, so the row shows
     // what a paired world is (or was) made with, never the key: a value left

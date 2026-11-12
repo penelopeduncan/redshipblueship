@@ -28,6 +28,10 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
 // (ComboLogicEngineOoT.cpp).
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg);
 extern "C" void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
+// #1542 (ComboLogicEngineOoT.cpp; combo_song_pool.h): the shared song pool, and
+// the junk set a leftover song check may take.
+extern "C" bool OoT_ComboLogic_SongPoolUnion(void);
+extern "C" int OoT_ComboLogic_SongCheckJunkRow(uint16_t rg);
 #include "soh/Enhancements/randomizer/TimeTravelSword.h"
 // #1169 XW4: OoTMM's "Not enough locations" refusal for the song pass.
 #include "soh/Enhancements/randomizer/SongOfSoaringOoT.h"
@@ -75,6 +79,43 @@ static void RsbsReleaseVanillaSharedSongs() {
         il->SetHidden(false);
         itemPool.push_back(song);
     }
+}
+
+// #1542 (rulings D1 and D5, OoTMM `songLocations`): under the shared song pool the
+// song checks of both games are one pool that only songs may use, and OoT's songs
+// go to the single bag instead of OoT's own song pass.
+
+/** A song check, reserved for the bag's songs while the shared song pool is armed:
+ *  OoT's restricted passes before the seam must not take it. */
+static bool RsbsSongCheckReserved(RandomizerCheck rc) {
+    return OoT_ComboLogic_SongPoolUnion() &&
+           Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SONG_LOCATION;
+}
+
+/** Drop the reserved song checks from a restricted pass's location list. */
+static void RsbsDropReservedSongChecks(std::vector<RandomizerCheck>& locations) {
+    if (!OoT_ComboLogic_SongPoolUnion()) {
+        return;
+    }
+    locations.erase(std::remove_if(locations.begin(), locations.end(),
+                                   [](const RandomizerCheck rc) { return RsbsSongCheckReserved(rc); }),
+                    locations.end());
+}
+
+/** A song the single bag places, so Link's Pocket must not take it: every OoT song
+ *  under the shared song pool, and a #1085 held-back shared song under OoT's
+ *  restricted song modes (its one copy is the bag's shared pair row). */
+static bool RsbsSongHeldForBag(RandomizerGet rg) {
+    if (Rando::StaticData::RetrieveItem(rg).GetItemType() != ITEMTYPE_SONG) {
+        return false;
+    }
+    if (OoT_ComboLogic_SongPoolUnion()) {
+        return true;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    return (ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_SONG_LOCATIONS) ||
+            ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_DUNGEON_REWARDS)) &&
+           OoT_ComboLogic_SharedSongHeldBack((uint16_t)rg) != 0;
 }
 #endif
 
@@ -467,7 +508,7 @@ bool AddCheckToLogic(LocationAccess& locPair, GetAccessibleLocationsStruct& gals
 
 #ifndef NDEBUG
     RandomizerCheckQuest quest = Rando::StaticData::GetLocation(loc)->GetQuest();
-    auto dungeon = ctx->GetDungeons()->GetDungeonFromScene(parentRegion->scene);
+    auto dungeon = ctx->GetDungeonFromScene(parentRegion->scene);
     assert(quest == RCQUEST_BOTH ||
            (dungeon != nullptr && quest == RCQUEST_VANILLA && dungeon->IsVanilla()) ||
            (dungeon != nullptr && quest == RCQUEST_MQ && dungeon->IsMQ()));
@@ -1163,6 +1204,16 @@ static void RandomizeDungeonItems() {
 
     // Get Any Dungeon and Overworld group locations
     std::vector<RandomizerCheck> anyDungeonLocations = Rando::StaticData::GetAllDungeonLocations();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1542: under the shared song pool the song checks (Sheik in Ice Cavern among
+    // the dungeon ones, the rest overworld) wait for the bag's songs.
+    std::vector<RandomizerCheck> rsbsOverworldLocations = ctx->overworldLocations;
+    RsbsDropReservedSongChecks(anyDungeonLocations);
+    RsbsDropReservedSongChecks(rsbsOverworldLocations);
+#define RSBS_OVERWORLD_LOCATIONS rsbsOverworldLocations
+#else
+#define RSBS_OVERWORLD_LOCATIONS ctx->overworldLocations
+#endif
 
     // Create Any Dungeon and Overworld item pools
     std::vector<RandomizerGet> anyDungeonItems;
@@ -1230,7 +1281,7 @@ static void RandomizeDungeonItems() {
 
     // Randomize Any Dungeon and Overworld pools
     AssumedFill(anyDungeonItems, anyDungeonLocations, true);
-    AssumedFill(overworldItems, ctx->overworldLocations, true);
+    AssumedFill(overworldItems, RSBS_OVERWORLD_LOCATIONS, true);
 
     // Randomize maps and compasses after since they're not advancement items
     for (auto dungeon : ctx->GetDungeons()->GetDungeonList()) {
@@ -1243,9 +1294,10 @@ static void RandomizeDungeonItems() {
             auto mapAndCompassItems = FilterAndEraseFromPool(itemPool, [dungeon](const RandomizerGet i) {
                 return i == dungeon->GetMap() || i == dungeon->GetCompass();
             });
-            AssumedFill(mapAndCompassItems, ctx->overworldLocations, true);
+            AssumedFill(mapAndCompassItems, RSBS_OVERWORLD_LOCATIONS, true);
         }
     }
+#undef RSBS_OVERWORLD_LOCATIONS
 }
 
 static void RandomizeLinksPocket() {
@@ -1256,6 +1308,14 @@ static void RandomizeLinksPocket() {
             return Rando::StaticData::RetrieveItem(i).IsAdvancement() &&
                    Rando::StaticData::RetrieveItem(i).GetItemType() != ITEMTYPE_TOKEN;
         });
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1542: a song the single bag places is never Link's Pocket (OoTMM: under
+        // songLocations a song sits on a song check; a shared song's one copy is
+        // the bag's pair row). Back into the pool, where the bag takes it.
+        AddElementsToPool(itemPool, FilterAndEraseFromPool(advancementItems, [](const auto i) {
+                              return RsbsSongHeldForBag(i);
+                          }));
+#endif
         // select a random one
         RandomizerGet startingItem = RandomElement(advancementItems, true);
         // add the others back
@@ -1309,12 +1369,54 @@ void ClearProgress() {
  * still empty. Then the tail the native Fill() runs after its general pass,
  * minus the playthrough (see the seam in Fill()).
  */
+// #1542: what the last remainder's leftover-song-check step did, for the locks
+// (OoT_ComboLogic_TestLastSongChecksJunked, ComboLogicEngineOoT.cpp).
+int RsbsLastSongChecksJunked = 0;
+int RsbsLastSongChecksPadded = 0;
+
 // HintAreaOoT.cpp (#575 H5a; #1439)
 extern "C" int OoT_HintArea_MarkPairedFoolish(void);
 extern "C" int OoT_HintArea_MarkPairedWoth(void);
 
 int RsbsFinishPairedGeneralPass(std::vector<RandomizerGet>& remainingPool) {
     auto ctx = Rando::Context::GetInstance();
+    // #1542: THE SHARED SONG POOL'S LEFTOVER SONG CHECKS (OoTMM placeSemiShuffled
+    // then fillJunk, solve.ts). The bag kept every non-song off the song checks,
+    // so a song check still empty here takes junk only, never a heart piece, a map
+    // or a trap: in check order, the first junk-set row left in the pool (a row,
+    // not a new item: FastFill below drops what does not fit), or OoT's own junk
+    // when none is left. No random number is drawn unless the pool has no junk row.
+    if (OoT_ComboLogic_SongPoolUnion()) {
+        std::vector<RandomizerCheck> emptyNow = GetAllEmptyLocations();
+        std::vector<RandomizerCheck> songLeft = FilterFromPool(emptyNow, [](const RandomizerCheck rc) {
+            return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SONG_LOCATION;
+        });
+        std::sort(songLeft.begin(), songLeft.end());
+        int padded = 0;
+        for (const RandomizerCheck rc : songLeft) {
+            RandomizerGet junk = RG_NONE;
+            for (auto it = remainingPool.begin(); it != remainingPool.end(); ++it) {
+                if (OoT_ComboLogic_SongCheckJunkRow((uint16_t)*it) != 0) {
+                    junk = *it;
+                    remainingPool.erase(it);
+                    break;
+                }
+            }
+            if (junk == RG_NONE) {
+                junk = GetJunkItem();
+                padded++;
+            }
+            ctx->GetItemLocation(rc)->SetAsHintable();
+            ctx->PlaceItemInLocation(rc, junk);
+        }
+        RsbsLastSongChecksJunked = (int)songLeft.size();
+        RsbsLastSongChecksPadded = padded;
+        SPDLOG_INFO("Paired world: the shared song pool left {} Ocarina of Time song check(s) to junk ({} padded)",
+                    songLeft.size(), padded);
+    } else {
+        RsbsLastSongChecksJunked = 0;
+        RsbsLastSongChecksPadded = 0;
+    }
     std::vector<RandomizerGet> traps =
         FilterAndEraseFromPool(remainingPool, [](const RandomizerGet i) { return i == RG_ICE_TRAP; });
     FastFill(traps, GetAllEmptyLocations(), true);
@@ -1489,8 +1591,17 @@ int Fill() {
         StopPerformanceTimer(PT_OWN_DUNGEON);
 
         StartPerformanceTimer(PT_LIMITED_CHECKS);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1542 (rulings D1 and D5): under the shared song pool OoT's songs stay in
+        // the pool for the single bag, which places them on the song checks of
+        // both games (OoTMM placeSemiShuffled); every restricted pass below still
+        // assumes them, and none takes a song check (RsbsDropReservedSongChecks).
+        const bool rsbsSongUnion = OoT_ComboLogic_SongPoolUnion();
+#else
+        const bool rsbsSongUnion = false;
+#endif
         // Then Place songs if song shuffle is set to specific locations
-        if (ctx->GetOption(RSK_SHUFFLE_SONGS).IsNot(RO_SONG_SHUFFLE_ANYWHERE) &&
+        if (!rsbsSongUnion && ctx->GetOption(RSK_SHUFFLE_SONGS).IsNot(RO_SONG_SHUFFLE_ANYWHERE) &&
             ctx->GetOption(RSK_SHUFFLE_SONGS).IsNot(RO_SONG_SHUFFLE_OFF)) {
             // Get each song
             std::vector<RandomizerGet> songs = FilterAndEraseFromPool(itemPool, [](const auto i) {

@@ -1033,6 +1033,7 @@ void Combo_SnapshotCreationRecords(ComboCreationRecords* out) {
     out->comboFillWallets = gComboCtx.comboFillWallets;
     out->comboWoth = gComboCtx.comboWoth;
     out->comboItemRules2 = gComboCtx.comboItemRules2; // #1169 XW2
+    out->comboOoTWarps = gComboCtx.comboOoTWarps;     // #1169 XW7
 }
 
 void Combo_RestoreCreationRecords(const ComboCreationRecords* in) {
@@ -1046,6 +1047,7 @@ void Combo_RestoreCreationRecords(const ComboCreationRecords* in) {
     gComboCtx.comboFillWallets = in->comboFillWallets;
     gComboCtx.comboWoth = in->comboWoth;
     gComboCtx.comboItemRules2 = in->comboItemRules2; // #1169 XW2
+    gComboCtx.comboOoTWarps = in->comboOoTWarps;     // #1169 XW7
 }
 
 void Combo_RetractCreationRecords(void) {
@@ -1056,6 +1058,7 @@ void Combo_RetractCreationRecords(void) {
     gComboCtx.comboFillWallets = 0;                                           // #1284
     memset(&gComboCtx.comboWoth, 0, sizeof(gComboCtx.comboWoth));             // #1439: ABSENT
     memset(&gComboCtx.comboItemRules2, 0, sizeof(gComboCtx.comboItemRules2)); // #1169 XW2: every rule off
+    memset(&gComboCtx.comboOoTWarps, 0, sizeof(gComboCtx.comboOoTWarps));     // #1169 XW7: UNSET
 }
 
 int Combo_FreezeLegacyComboSettings(void) {
@@ -1628,6 +1631,41 @@ const char* Combo_DescribeItemArticle(SharedItem item) {
     }
     const ComboGameDescriber* d = sGameDescribers[item.originGame];
     return (d != NULL && d->itemArticle != NULL) ? d->itemArticle(item.id) : NULL;
+}
+
+SharedItem Combo_PresentForeignItem(SharedItem item, bool recorded) {
+    if (item.originGame != (uint8_t)GAME_OOT && item.originGame != (uint8_t)GAME_MM) {
+        return item;
+    }
+    const ComboGameDescriber* d = sGameDescribers[item.originGame];
+    if (d == NULL || d->presentItem == NULL) {
+        return item;
+    }
+    // A shelf calls this every frame for every MM item it draws. An id shown as
+    // placed with nothing ahead is shown as placed with anything ahead (the
+    // presentItem contract, foreign_items.h), so only an id that can change
+    // pays for the slot scan below.
+    if (d->presentItem(item.id, 0) == item.id) {
+        return item;
+    }
+    // The origin game redeems in slot order (Combo_RedeemSharedItemsForGame), so
+    // every un-redeemed copy of this id already in the array resolves first. A
+    // crossing pickup writes its slot at once (Combo_RecordSharedItemCrossing),
+    // so this sees every earlier pickup of the session.
+    int ahead = 0;
+    for (int i = 0; i < (int)RSBS_SHARED_ITEM_LOGICAL_CAP; i++) {
+        const SharedItem* slot = Combo_SharedItemSlot(i);
+        if (slot != NULL && slot->originGame == item.originGame && slot->id == item.id &&
+            (slot->flags & RSBS_SHARED_ITEM_REDEEMED) == 0) {
+            ahead++;
+        }
+    }
+    if (recorded && ahead > 0) {
+        ahead--;
+    }
+    SharedItem presented = item;
+    presented.id = d->presentItem(item.id, ahead);
+    return presented;
 }
 
 const char* Combo_GetForeignItemArticle(SharedItem item) {

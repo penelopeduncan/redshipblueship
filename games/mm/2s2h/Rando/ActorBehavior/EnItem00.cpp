@@ -20,8 +20,9 @@ EnItem00* spawnReplacementItem(Vec3f& pos, Rando::StaticData::RandoStaticCheck& 
     if (randoStaticCheck.randoCheckType == RCTYPE_FREESTANDING) {
         itemParams |= CustomItem::ABLE_TO_ZORA_RANG;
     }
-    // The heart piece in the bio baba grotto beehive needs to be tossed to fall to the ground
-    if (randoStaticCheck.randoCheckId == RC_TERMINA_FIELD_BIO_BABA_GROTTO) {
+    // Beehive items (including the heart piece in the bio baba grotto beehive) need to be tossed to fall to the ground
+    if (randoStaticCheck.randoCheckType == RCTYPE_BEEHIVE ||
+        randoStaticCheck.randoCheckId == RC_TERMINA_FIELD_BIO_BABA_GROTTO) {
         itemParams |= CustomItem::TOSS_ON_SPAWN;
     }
 
@@ -112,6 +113,11 @@ void Rando::ActorBehavior::InitEnItem00Behavior() {
         // Prevent the original item from spawning
         *should = false;
 
-        spawnReplacementItem(actor->world.pos, randoStaticCheck);
+        EnItem00* replacementItem = spawnReplacementItem(actor->world.pos, randoStaticCheck);
+
+        // RSBS: CustomItem::Spawn returns NULL when the actor table is full.
+        if (replacementItem != nullptr && randoStaticCheck.randoCheckType == RCTYPE_WONDER_ITEM) {
+            replacementItem->actor.draw = Rando::ActorBehavior::DrawWonderItemSparkle;
+        }
     });
 }

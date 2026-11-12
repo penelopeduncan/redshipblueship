@@ -3,6 +3,7 @@
 #include <array>
 #include <map>
 #include <unordered_map>
+#include <set>
 #include "randomizerTypes.h"
 #include "item.h"
 #include "location.h"
@@ -69,6 +70,7 @@ class StaticData {
     static void RegisterGrassLocations();
     static void RegisterCrateLocations();
     static void RegisterTreeLocations();
+    static void RegisterSilverLocations();
     static void InitHashMaps();
     static std::array<std::pair<RandomizerCheck, RandomizerCheck>, 17> randomizerFishingPondFish;
     static std::unordered_map<int8_t, RandomizerCheck> randomizerGrottoFishMap;
@@ -90,9 +92,12 @@ class StaticData {
     static std::unordered_map<u32, RandomizerHint> stoneParamsToHint;
     static std::unordered_map<u32, RandomizerHint> grottoChestParamsToHint;
     static std::array<HintText, RHT_MAX> hintTextTable;
+    static std::unordered_map<RandomizerGet, RandomizerCheckArea> silverToArea;
+    static std::set<RandomizerGet> constantSilvers;
     static std::vector<RandomizerGet> normalBottles;
     static std::vector<RandomizerGet> beanSouls;
     static std::vector<RandomizerGet> overworldKeys;
+    static std::vector<RandomizerGet> silverRupees;
 
     StaticData();
     ~StaticData();

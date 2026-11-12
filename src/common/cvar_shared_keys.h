@@ -46,8 +46,8 @@
  * Names are not semantics. `kMustStayDistinct` below holds pairs that read as
  * obvious renames and are not — merging them produces a control that silently
  * does nothing, or drops a setting on one side. The canonical example is text
- * speed: OoT's is a 1-5x integer multiplier, MM's is a boolean, and writing
- * MM's `1` into OoT's key means "1x = no speedup". The toggle would appear in
+ * speed: OoT's is a 1-5x integer multiplier (6 = Instant), MM's is a boolean,
+ * and writing MM's `1` into OoT's key means "1x = no speedup". The toggle would appear in
  * the menu, respond to clicks, persist its value, and have no effect.
  */
 
@@ -843,8 +843,9 @@ struct DistinctPair {
  */
 inline constexpr DistinctPair kMustStayDistinct[] = {
     { "P1 text speed", RSBS_CVAR_MM_DIALOGUE_FAST_TEXT, "gEnhancements.TextSpeed",
-      "Units are incompatible: OoT is a 1-5x integer multiplier, MM is a boolean. Merging writes 1 = "
-      "'no speedup', so the control silently does nothing. MM's FastText also bundles hold-B-to-advance, "
+      "Units are incompatible: OoT is a 1-5x integer multiplier, with 6 = Instant (#1414), MM is a boolean. "
+      "Merging writes 1 = 'no speedup', so the control silently does nothing. MM's FastText also bundles "
+      "hold-B-to-advance, "
       "which OoT exposes as the SEPARATE key gEnhancements.SkipText — one control cannot express both "
       "decompositions." },
     { "P2 infinite sword glitch", RSBS_CVAR_MM_RESTORATIONS_TATL_ISG, "gCheats.EasyISG",

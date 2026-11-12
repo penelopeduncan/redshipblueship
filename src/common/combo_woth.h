@@ -129,6 +129,17 @@ int Combo_Woth_Analyze(uint8_t goal, uint16_t triforceRequired, int roundCap, Co
  */
 bool Combo_Woth_DefaultEligible(uint8_t hostGame, const ComboLogicPlacement* placement);
 
+/**
+ * THE PATH-HINT SONG RULE, on the ITEM (#1502; OoTMM locations.ts
+ * isLocationFullyShuffled with `songs: klass === 'path'`): true when `item` is an
+ * MM song-location song and MM's frozen Shuffle Songs is not Anywhere. A shared
+ * pair's row is recorded as its HOST's half (an OoT host holds the pair's OoT
+ * id), so an OoT-origin item that is the `ootId` of one of `pairs` is asked as
+ * that pair's `mmId`: the answer is the item's, whichever game hosts it.
+ * Combo_Woth_DefaultEligible passes the frozen pairs (Combo_SingleBag_SharedPairs).
+ */
+bool Combo_Woth_ItemSkipsPathHint(SharedItem item, const ComboLogicSharedPair* pairs, int pairCount);
+
 /** Forget the resident set (the next fill's analysis replaces it). */
 void Combo_Woth_Clear(void);
 

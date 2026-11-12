@@ -327,8 +327,12 @@ uint32_t MM_Rando_ComputeProfileStamp(void);
  * Majora's Mask's hints shipped on), then those rows Off and Time Progression
  * Random for an unset key while Shuffle Time is on (before it shipped
  * Ascending; every such world predates the hints change too). Each matches
- * only a world frozen with those values and the keys as they were. DEFINED
- * MM-SIDE (games/mm/2s2h/Rando/Foreign.cpp).
+ * only a world frozen with those values and the keys as they were. #1542:
+ * every candidate is also tried at each of MM's three Shuffle Songs values: a
+ * paired world's row follows OoT's Shuffle Songs (combo_song_pool.h), which
+ * OoT's own identity guards, so the MM compare does not depend on it, and a
+ * world frozen before #1542 (MM's own key) keeps matching. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
  */
 int MM_Rando_ProfileStampMatches(uint32_t frozenDigest);
 
@@ -341,6 +345,36 @@ int MM_Rando_ProfileStampMatches(uint32_t frozenDigest);
  * since #1367. DEFINED MM-SIDE (games/mm/2s2h/Rando/Foreign.cpp).
  */
 int MM_Rando_PairedLogicShown(void);
+
+/**
+ * #1542 (D2): MM's Shuffle Songs as a paired creation resolves it right now: the
+ * mapping (Combo_PairSongsMmValue) of OoT's creation capture, else of OoT's key.
+ * Never MM's own key. What OoT_PairedGen_CompleteWorld checks against OoT's
+ * frozen option before MM's half is generated. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
+ */
+int MM_Rando_PairedSongsResolved(void);
+
+/**
+ * #1542 (D2): the value MM's Shuffle Songs row shows. While the profile is
+ * frozen, the world's own: the resident half's frozen option while MM plays this
+ * pair's half, else the MM value whose stamp reproduces the frozen digest (so a
+ * world created before #1542 shows MM's own value; kept per digest, and a miss
+ * only while the search's inputs stand still). Otherwise, and for a frozen
+ * digest neither source names, MM_Rando_PairedSongsResolved. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
+ */
+int MM_Rando_PairedSongsShown(void);
+
+/**
+ * #1542 (review): the Shuffle Songs MM's live save was generated with
+ * (RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS]). Meaningful only while MM's bytes are in
+ * the shared gSaveContext: OoT_PairedGen_CompleteWorld reads it right after
+ * MM_Rando_AuthorHalfAtCreation returns, before OoT's bytes are put back, to check
+ * the authored half against OoT's frozen option. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/Foreign.cpp).
+ */
+int MM_Rando_AuthoredHalfSongs(void);
 
 /**
  * Publish MM's frozen profile as GIVE CAPABILITIES (ADR 0011 O8's

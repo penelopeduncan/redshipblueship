@@ -60,6 +60,8 @@ set(REDSHIP_COMMON_SOURCES
     ${CMAKE_SOURCE_DIR}/src/common/combo_tracker_view.c
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.c
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.cpp
+    # The combined Hint Tracker (#1475 lane H2): both games' hints in SoH's window
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.cpp
     # The unified Item Tracker overlay over combo_item_view (#458 U2)
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.cpp
     # MM randomizer options: the registry + value accessors over the descriptor
@@ -218,11 +220,34 @@ set(REDSHIP_COMMON_SOURCES
     # refusal when the restricted song pass has more songs than spots.
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
+    # #1542 D2: the pair's one songs setting: OoT's Shuffle Songs onto MM's, and
+    # the creation capture MM's paired resolution reads. Game-header-free.
+    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.cpp
+    # #1169 XW6: OoT's Song of Soaring to a Termina owl, the game-neutral half:
+    # the note matcher, the gates, the chooser's answers, MM's owl table and the
+    # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
+    # reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.c
+    # #1169 XW8: the Termina owl map OoT's Song of Soaring opens in its pause,
+    # the game-neutral half: the picker, the route to the map or the fallback
+    # chooser, the pause precondition and MM's page data and resource paths.
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring_map.c
     # #1475 (lane H1): the combined Hint Tracker's view model, Majora's Mask pane:
     # MM's hint sources, the read record in the combo save record and the masked
     # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
     # never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.c
+    # #1169 XW5: Ocarina of Time's six warp songs as Majora's Mask items: how many
+    # copies MM pools under the frozen rules, their names, and the ownership byte
+    # in ComboContext (ADR 0009 claim 21). Game-header-free. APPENDED, never
+    # reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.c
+    # #1169 XW7: those six songs PLAYED in Majora's Mask: the note matcher, the
+    # prompt's gates and texts, the En_Test7 params, the pad table, OoT's frozen
+    # age and the creation's warp-song record (ADR 0009 claim 22).
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -273,6 +298,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/combo_hint_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_item_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboTrackerWindow.h
+    ${CMAKE_SOURCE_DIR}/src/common/ComboHintTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_page.h
@@ -331,6 +357,16 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
+    # Header for combo_song_pool.cpp above (#1542)
+    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.h
+    # Header for warp_song_soaring.c above (#1169 XW6)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
+    # Header for warp_song_soaring_map.c above (#1169 XW8)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring_map.h
+    # Header for warp_songs_mm.c above (#1169 XW5)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
+    # Header for mm_warp_song_play.c above (#1169 XW7)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
 )
 
 # ============================================================================
@@ -897,6 +933,11 @@ if(BUILD_TESTING)
     # an ungated draw path aborts the process).
     redship_add_test(NAME ComboTrackerView COMMAND redship --test combo-tracker-view)
     redship_add_test(NAME ComboTrackerWindow COMMAND redship --test combo-tracker-window)
+    # #1475 (lane H2): the combined Hint Tracker, display-free: registered under SoH's
+    # window name and inert with no ImGui context, SoH's DrawHintList grouping over
+    # synthetic rows, MM's Journal decisions over MM's real descriptor, and the
+    # cross-game Seen plumbing over an authored MM half.
+    redship_add_test(NAME ComboHintTrackerWindow COMMAND redship --test combo-hint-tracker-window)
     # Unified item view (#458 U1a). Display-free: OoT's item adapter reads
     # SaveContext images the OoT TU authors, handed to it as the frozen shadow
     # or a test live source; the shared group reads the resource pool.
@@ -921,6 +962,35 @@ if(BUILD_TESTING)
     # never reaches ImGui.
     redship_add_test(NAME MMRandoOptions COMMAND redship --test mm-rando-options)
     redship_add_test(NAME MMPairedProfile COMMAND redship --test mm-paired-profile)
+    # #1502: MM's Own Dungeon and Song Locations as the single bag's host groups
+    # (the registered MM engine's `hostGroups` against 2Ship's IsItemAllowedAtCheck,
+    # the defaults confining nothing) and the four placement options' fold into
+    # the MM seed and identity strings, pinned. Display-free like the two above.
+    # #1542 extends it with leg (g): MM's paired Shuffle Songs follows OoT's.
+    redship_add_test(NAME MMPlacementConfinement COMMAND redship --test mm-placement-confinement)
+    # #1542 (D2): the pair's one songs setting. PairSongsMapping: OoT's four Shuffle
+    # Songs values onto MM's three, the creation capture (held, rolled back, KEPT by
+    # the file-create invalidation, dropped by DROP) and its call sites from source.
+    # ROM-free, generates nothing (src/common/tests/test_combo_song_pool.c).
+    redship_add_test(NAME PairSongsMapping COMMAND redship --test pair-songs-mapping)
+    # #1542 (S0, armed by S3): the song checks of both games as cross-game hosts,
+    # armed exactly under Song Locations in a paired world (Combo_SongHostsArmed),
+    # and the shared song pool's one predicate (OoT_ComboLogic_SongPoolUnion).
+    # SongCheckTables: both games' song rows against OoTMM's 23 names, the verdict
+    # table, the pure answers and the pool's truth table against literals, both
+    # engines' answers under the override and production with a held Rando
+    # context (the creation capture is no input; MM needs the pair active), both
+    # engines' wide host groups and row masks under the pool, the half-armed pair
+    # refused, every non-song row unmoved, both host tables with the switch off
+    # against the base commit's rule, and the call sites from source.
+    # MMSongHostGuard: CheckQueue consumes a delivered MM song host armed again,
+    # leaves its first delivery, a chest's re-arm and a native re-give alone, and
+    # the real headless three-day reset (Sram_SaveEndOfCycle) re-arms neither
+    # Healing's crossing host nor, through the guard, the New Wave's. Both ROM-free,
+    # generate nothing (src/common/tests/test_song_check_tables.c,
+    # games/mm/2s2h/mm_song_host_guard_test.cpp).
+    redship_add_test(NAME SongCheckTables COMMAND redship --test song-check-tables)
+    redship_add_test(NAME MMSongHostGuard COMMAND redship --test mm-song-host-guard)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
@@ -1136,6 +1206,16 @@ if(BUILD_TESTING)
     redship_add_test(NAME SaveComboLegacyRecord COMMAND redship --test save-combo-legacy-record)
     redship_add_test(NAME SaveComboRecordFixed COMMAND redship --test save-combo-record-fixed)
     redship_add_test(NAME SaveComboOversize COMMAND redship --test save-combo-oversize)
+    # Save format 6 (the clean break, #1510/#1512/#1513/#1514): SaveLayoutPins prints
+    # every sizeof/offsetof pin of src/common/save_layout_pins.h as "[LAYOUT]
+    # <name>=<decimal>" ("[LAYOUT] UNPINNED <name>" while a pin is 0, which passes);
+    # the pins are filled from all three CI legs and then fail the build when a
+    # field moves. SaveFormatV6Fixture loads the committed format-6 .redsave
+    # (tests/fixtures/save-format-6) and reads every field it wrote by name; it
+    # prints "[FIXTURE] absent" and passes until the fixture and its REQUIRED
+    # marker are committed (RSBS_WRITE_SAVE_FORMAT_V6_FIXTURE=1 authors it).
+    redship_add_test(NAME SaveLayoutPins COMMAND redship --test save-layout-pins)
+    redship_add_test(NAME SaveFormatV6Fixture COMMAND redship --test save-format-v6-fixture)
     # Origin-tagged shared items (ADR 0002): the array carved out of reserved[]
     # must round-trip byte-exact, and SaveComboLegacyRecord's crafted "legacy"
     # length is pinned to the pre-carve prefix (RSBS_COMBO_CONTEXT_PRECARVE_SIZE)
@@ -1144,7 +1224,8 @@ if(BUILD_TESTING)
     # The shared-item overflow (operator ruling 2026-10-27; Refs #1222): the outbox is one
     # logical array, the fixed 64 slots then an overflow segment carried as the .redsave
     # Tier-5 block (format v5). Crossings past 64 record and round-trip in order, a v4
-    # file loads with an empty overflow, and room runs out only at the logical capacity.
+    # file is refused as an older version (save format 6), and room runs out only at the
+    # logical capacity.
     redship_add_test(NAME SaveSharedItemOverflowRoundtrip COMMAND redship --test save-shared-item-overflow-roundtrip)
     redship_add_test(NAME SaveSharedItemOverflowLegacy COMMAND redship --test save-shared-item-overflow-legacy)
     # The #785 moon-crash reset restores the overflow segment with the fixed slots (#1264 review N1).
@@ -1187,6 +1268,11 @@ if(BUILD_TESTING)
     # unsigned, so a non-ASCII seed makes the same world on signed- and
     # unsigned-char targets. Pinned vectors; reverting either cast is red on x86.
     redship_add_test(NAME HashBytesUnsigned COMMAND redship --test hash-bytes-unsigned)
+    # Clean save break part 2: placementHash, ootFinalPlacementHash and
+    # mmPlacementHash fold only placed rows (OoT not RG_NONE, MM shuffled), so a
+    # backport's checks behind an off option stop moving the goldens. Each game's
+    # real fold over a synthetic table: unplaced rows leave it, placed rows move it.
+    redship_add_test(NAME PlacementHashPlacedRows COMMAND redship --test placement-hash-placed-rows)
     redship_add_test(NAME ComboSettingsDivergence COMMAND redship --test combo-settings-divergence)
     redship_add_test(NAME ComboSettingsLegacyFreeze COMMAND redship --test combo-settings-legacy-freeze)
     # ADR 0011 increment 2 (+ #668): the six tier-4 gCombo.Rando.* keys and the pane.
@@ -1626,6 +1712,48 @@ if(BUILD_TESTING)
     # state is tolerated. Pure (no display, no ROM); ids looked up by name.
     redship_add_test(NAME MMTreeShuffle COMMAND redship --test mm-tree-shuffle)
     redship_add_test(NAME MMTreeShuffleHooks COMMAND redship --test mm-tree-shuffle-hooks)
+    # Majora's Mask wonder item shuffle (#1406; upstream 2Ship's Wonder Item
+    # shuffle). MMWonderItems: the option defaults off, the page draws a live
+    # checkbox, the 116 wonder items (#1410's three Keaton grass ring rewards
+    # included) are one check type, sit in logic regions
+    # and Randomizer > MM Locations, never host an OoT item, the id runs
+    # WonderItems.cpp indexes (each Hit Tag's base + 1 / + 2, the Termina wall's
+    # base + sRewardDropsIndex[hour] + 0..2) are the checks their names promise,
+    # and the rows enter the pool only with the option on. MMWonderItemsHooks:
+    # WonderItems.cpp's five hooks arm through ActorBehavior::OnFileLoad
+    # (exactly +1 each), a mapped Hit Tag gets its check, VB_ENEMY_DROP_
+    # COLLECTIBLE suppresses its vanilla drop once and latches it, and the gong
+    # and an unshuffled invisible rupee keep vanilla. Pure (no display, no ROM).
+    redship_add_test(NAME MMWonderItems COMMAND redship --test mm-wonder-items)
+    redship_add_test(NAME MMWonderItemsHooks COMMAND redship --test mm-wonder-items-hooks)
+    # Majora's Mask beehive shuffle and the extra / Keaton grass rows (#1410;
+    # upstream 2Ship's Beehive Shuffle and Keaton grass shuffle). MMHiveShuffle:
+    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle
+    # Butterflies (#1407), the 19 hives are the only RCTYPE_BEEHIVE rows, each
+    # in exactly one logic region and Randomizer > MM Locations and never an OoT
+    # host, and they enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
+    # grass rows sit behind the existing Shuffle Grass Drops, the three Keaton
+    # rings own nine contiguous ids each, and the rings' three wonder items
+    # follow Shuffle Wonder Items (#1406) and are hosts.
+    # MMHiveGrassShuffleHooks: ObjComb.cpp's and ObjGrass.cpp's new hooks arm
+    # through ActorBehavior::OnFileLoad (exactly +1 each), hives and a Keaton
+    # ring identify their checks, and grass sprouts get their own draw.
+    # Pure (no display, no ROM); ids looked up by name.
+    redship_add_test(NAME MMHiveShuffle COMMAND redship --test mm-hive-shuffle)
+    redship_add_test(NAME MMExtraGrassShuffle COMMAND redship --test mm-extra-grass-shuffle)
+    redship_add_test(NAME MMHiveGrassShuffleHooks COMMAND redship --test mm-hive-grass-shuffle-hooks)
+    # Majora's Mask butterfly shuffle (#1407; upstream 2Ship's Butterfly Shuffle).
+    # MMButterflyShuffle: the option defaults off, the page draws its row after
+    # Shuffle Tree Drops with a tooltip that says what MM's butterflies do, the 25
+    # butterflies are one check type, sit in logic regions and Randomizer > MM
+    # Locations, never host an OoT item, name their hint area (the 12 grotto ones
+    # the area their grotto opens from), and enter the pool only with the option
+    # on. MMButterflyShuffleHooks: EnButte.cpp's OnActorUpdate[ACTOR_OBJ_MURE] hook
+    # arms through ActorBehavior::OnFileLoad (exactly +1) and gives the Termina
+    # Field group's butterflies their checks only with the option on. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMButterflyShuffle COMMAND redship --test mm-butterfly-shuffle)
+    redship_add_test(NAME MMButterflyShuffleHooks COMMAND redship --test mm-butterfly-shuffle-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle
@@ -1638,6 +1766,17 @@ if(BUILD_TESTING)
     # options looked up by name.
     redship_add_test(NAME MMShopPrices COMMAND redship --test mm-shop-prices)
     redship_add_test(NAME MMShopPricesPool COMMAND redship --test mm-shop-prices-pool)
+    # Majora's Mask's Tingle maps (#1499). MMTingleMapPool: over a real pool
+    # generation with Shuffle Tingle Maps on, each map is in the item pool once
+    # (with Plentiful off and on), none with Starting Maps and Compasses on, the
+    # twelve Tingle checks stay in the check pool and the K9 seam describes the
+    # pool. MMTingleMapDisplay: with Tingle's Clock Town Map on the Bomb Shop's
+    # first slot and owned, the owner's hand, the shelf, its line, the MM Check
+    # Tracker and the Combo Tracker's MM pane all name "Junk" (the map while not
+    # owned); the shelf and a Tingle slot sell that junk once; a paid junk sale
+    # never gives RI_NONE. Pure (no display, no ROM).
+    redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
+    redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside
@@ -1832,7 +1971,10 @@ if(BUILD_TESTING)
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
 
-    redship_add_test(NAME AllTests COMMAND redship --test all)
+    # Every --test row in one process, so its time grows with the table. On the hosted
+    # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
+    redship_add_test(NAME AllTests COMMAND redship --test all
+        TIMEOUT 300)
 
     # Registration-completeness guard (#376). Diffs the dispatch table the
     # binary actually links (`redship --test list`) against the rows registered
@@ -1848,6 +1990,17 @@ if(BUILD_TESTING)
                 -DREDSHIP_EXE=$<TARGET_FILE:redship>
                 -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake)
+    # Its red half (#1465): the same guard over the real manifest plus one
+    # synthetic line per leg must fail, naming the row -- a rando-label row
+    # missing from the `--test all` skip list, a non-generating declaration on a
+    # skipped row, and a stale declaration.
+    redship_add_test(NAME TestRegistrationAllSkipGuardRed
+        COMMAND ${CMAKE_COMMAND}
+                -DREDSHIP_EXE=$<TARGET_FILE:redship>
+                -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
+                -DSCRATCH_DIR=${CMAKE_BINARY_DIR}/test-registration-red
+                -DGUARD=${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistration.cmake
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRegistrationRed.cmake)
 
     # Dispatch-table entries that deliberately have no dedicated CTest row.
     # Both predate this refactor and both still execute inside AllTests, which
@@ -1857,6 +2010,9 @@ if(BUILD_TESTING)
     # a row, so the list cannot rot into a rubber stamp.
     redship_test_exempt(lifecycle "Game lifecycle unit tests — runs inside AllTests only")
     redship_test_exempt(midos-house "Test-entrance (--test-entrance) path — runs inside AllTests only")
+    # AllTests runs both, so the --test all skip-list check (#1465) asks whether they generate: neither does.
+    redship_test_not_generating(lifecycle "TestLifecycle_RunAll only: no InitOTRForMMFirstBoot, no seed")
+    redship_test_not_generating(midos-house "ComboEntrance link lookup only: no InitOTRForMMFirstBoot, no seed")
 
     # ========================================================================
     # Rando seed-generation test (requires a display for the Fast3dWindow
@@ -1972,6 +2128,8 @@ if(BUILD_TESTING)
     # per MM scene. Display-free and ROM-free.
     redship_add_test(NAME MMMirroredWorld COMMAND redship --test mm-mirrored-world
         LABEL rando)
+    # It sets CVars through the shared bring-up and generates nothing, so `--test all` runs it (#1465).
+    redship_test_not_generating(mm-mirrored-world "CVar translator only: no InitOTRForMMFirstBoot, no seed")
 
     # #575 H1: the one shared hint AREA vocabulary (src/common/combo_area.c).
     # Unlike the two rows above it is display-free and ROM-free, so it sits in
@@ -2425,6 +2583,30 @@ if(BUILD_TESTING)
         # host, OoT generated No Logic with All Locations Reachable off).
         "GoldenSeedDigestBeatableOnly|seed-digest-beatable-only|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=2"
         "GoldenSeedDigestNoLogic|seed-digest-no-logic|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gCombo.Rando.Logic=1"
+        # #1502: MM's CONFINED placements, the one golden whose single bag hands the
+        # fill host-group masks: Small Keys, Boss Keys and Stray Fairies at Own
+        # Dungeon (1) and Shuffle Songs at Song Locations (1). Shuffle Songs follows
+        # OoT since #1542 S1; every default-songs golden arms the shared song pool
+        # (#1542 S3); mm-confined differs only in keys, boss keys and stray fairies;
+        # its RO_SHUFFLE_SONGS=1 is a dead key, kept so this row's profile string
+        # does not change.
+        # Same seed and dispatch as seed-digest-default.
+        "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
+        # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
+        # above generates with all of their options OFF, so none pins a world with
+        # their checks in it. This one turns on every one a paired world can use:
+        # MM Shuffle Wonder Items (#1406), Shuffle Hive Drops (#1410), Shuffle Grass
+        # Drops (on main, which #1410 extends with the extra grass rows), MM Shuffle
+        # Butterflies and OoT Shuffle Butterfly Fairies (#1407). OoT Shuffle Silver
+        # Rupees (#1363) is NOT in it: a paired world generates it off (its pin in
+        # Playthrough_Init), so keying it on here would pin nothing; when #1530 lifts
+        # the pin it joins this line and re-pins this file. Same seed and dispatch
+        # as seed-digest-default. Until the orchestrator first generates
+        # tests/golden/seed-digest-new-options.txt (regen-golden-digests), this row
+        # FAILS by design: CheckGoldenDigest.cmake refuses a missing golden with
+        # "A missing golden is a FAILURE, not a free pass" and prints the digest
+        # the run produced.
+        "GoldenSeedDigestNewOptions|seed-digest-new-options|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_SHUFFLE_WONDER_ITEMS=1,gRando.Options.RO_SHUFFLE_HIVE_DROPS=1,gRando.Options.RO_SHUFFLE_GRASS_DROPS=1,gRando.Options.RO_SHUFFLE_BUTTERFLIES=1,gRandoSettings.ShuffleButterflyFairies=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 
@@ -2583,13 +2765,39 @@ if(BUILD_TESTING)
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1542 (review): the pair's one songs setting is the freeze's. OoT's Shuffle
+    # Songs and MM's own key move after Generate and before MM's half is made:
+    # Generate's completion and a file creation's (after z_sram's KEEP
+    # invalidation) both make MM's half at Song Locations, one world between them,
+    # and with the capture gone the completion refuses. Three OoT generations and
+    # two MM halves, hence the timeout.
+    redship_add_test(NAME SongPoolCreationAgrees COMMAND redship --test song-pool-creation-agrees
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1542 S3: the shared song pool's capacity refusal (OoTMM placeSemiShuffled's
+    # "Not enough locations for songs/dungeon rewards") through Generate's
+    # completion: MM's six OoT warp songs make 28 songs for the 23 song checks of
+    # both games, and the Song of Soaring (OoT) with the Crossing Direction OFF 13
+    # home-only OoT songs for 12; both refused before any attempt with the identity
+    # and the capture retracted, and 23 for 23 creates. Three paired generations.
+    # (No leg excludes an OoT song check: SoH keeps song checks out of its exclude
+    # list under Song Locations, so that state cannot be set up.)
+    redship_add_test(NAME SongPoolOverCapacity COMMAND redship --test song-pool-over-capacity
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and
     # packages, with both items in the crossing store on their Mido's House chests.
+    # Shuffle Songs is Anywhere here (#1542): a pinned row must be a placement the
+    # fill itself could make, and under the shipped Song Locations the shared song
+    # pool confines the Sonata to the song checks of both games, so the fill refuses
+    # it on a chest (ComboLogicPlaceForced: "forced row 0 may not be placed").
     redship_add_test(NAME DebugSeedForcedPlacements COMMAND redship --test debug-seed-forced-placements
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRandoSettings.ShuffleSongs=3;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
     # #1286: THE HEAVIEST PROFILE PLAYED SO FAR, AS A MEASUREMENT ROW. The
     # operator's paired seed 16-98-53-79-52 of 2026-10-27 (input seed 5759360843,
     # comboSettingsHash 97CADCA9 at 347ba755): every OoT shuffle they played on
@@ -2818,6 +3026,25 @@ if(BUILD_TESTING)
     # own half, the far half through the crossing gate, and composed from both
     # games' rows into one.
     redship_add_test(NAME ComboLogicSharedPair COMMAND redship --test combo-logic-shared-pair)
+    # THE HOST GROUPS (ABI 9, #1502): a confined row (MM's Own Dungeon and Song
+    # Locations) lands only on its own game's hosts in its group, is drawn first,
+    # drops alone as surplus, and a group with more rows than hosts is refused
+    # before any attempt. Same stub fixture, same `redship` tier.
+    redship_add_test(NAME ComboLogicHostGroups COMMAND redship --test combo-logic-host-groups)
+    # THE COMBO-WIDE GROUPS (ABI 11, #1542): a row confined to a combo-wide group
+    # (the shared song pool's song checks) lands only on that group's hosts of
+    # either game, crosses only where the host accepts foreign items and the row is
+    # not home-only, an exclusive group keeps every unconfined row off those hosts,
+    # capacity is Hall's condition over both games' hosts, a wide shared pair is
+    # legal, and an engine that cannot answer the group is refused. Same stub
+    # fixture, same `redship` tier; generates nothing.
+    redship_add_test(NAME ComboLogicSongPool COMMAND redship --test combo-logic-song-pool)
+    # THE TRAVEL FACTS (ABI 10, #1169 XW9): an MM warp-song fact reaches OoT only
+    # with OoT's crossing open, OoT's Soaring fact reaches MM only with both
+    # crossings open, a chain of facts converges, a vanished fact is non-monotone,
+    # own-direction bits are dropped, and engines that report nothing change no
+    # round or fill. Same stub fixture, same `redship` tier.
+    redship_add_test(NAME ComboLogicTravelFacts COMMAND redship --test combo-logic-travel-facts)
 
     # The OoT ENGINE behind that coordinator (#645, lane K2a). `rando` tier, and
     # for a correctness reason rather than a convenience one: every fact this row
@@ -2960,6 +3187,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the coordinator over the stub engines (the first copy lands on its own
     # game's renewing host; Beatable Only and a renewed world are unchanged).
     redship_add_test(NAME CriticalRenewablesRule COMMAND redship --test critical-renewables-rule)
+    # #1482: a bought shuffled OoT shop shelf sells OoTMM's renewables again.
+    # ROM-free and display-free: the restock list by real id, a real shelf check's
+    # answer on a transient context (also hosting an MM item), and the vanilla
+    # shelves' nothing-to-add refusals on the live save.
+    redship_add_test(NAME OoTShelfRestock COMMAND redship --test oot-shelf-restock)
     # R6, the same rule in two REAL All Locations creations of one seed, MM's
     # shops, cows and Tingle shuffled (the rule acts) and vanilla (it has nothing
     # to do). The golden rows' harness, label and environment.
@@ -3059,6 +3291,20 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1498: an MM enemy drop answered per instance. MMEnemyDropInstances: with a
+    # Kokiri Sword, Mini Baba is in logic, MM's native tracker lists its Beneath the
+    # Well copy out of logic, and the combo pane files it under an area where the
+    # kill is in logic; MMCheckInstancesPerIdUnchanged: the per-instance answer
+    # leaves the per-id answer the fill reads as it was. `rando`: MM's real region
+    # graph (the MMTrackerInLogicArrival reason).
+    redship_add_test(NAME MMEnemyDropInstances COMMAND redship --test mm-enemy-drop-instances
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME MMCheckInstancesPerIdUnchanged COMMAND redship --test mm-check-instances-per-id
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME TrackerFillSuperset COMMAND redship --test tracker-fill-superset
         LABEL rando
         TIMEOUT 600
@@ -3084,6 +3330,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME MMLogicGates COMMAND redship --test mm-logic-gates
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1453: an MM logic edge carries only the half-days its own condition holds
+    # on, in CrawlReachableRegions (paired fills, both trackers) and
+    # FindReachableRegions (the solo glitchless fill): an IS_NIGHT2-only edge with
+    # every slice owned and no stay carries no day slice, a day-gated row behind
+    # it fails, and a time-free edge still carries the whole mask. A synthetic
+    # region map swapped in for the real one; games/mm/2s2h/mm_time_edges_test.cpp.
+    # Same bring-up as MMLogicGates.
+    redship_add_test(NAME MMTimeEdges COMMAND redship --test mm-time-edges
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3241,6 +3498,22 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedSongsOneCopyAnywhere COMMAND redship --test shared-songs-one-copy-anywhere
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the same with MM's Shuffle Songs key at Vanilla. #1542: MM's row follows
+    # OoT's Shuffle Songs (Anywhere here), so the row now proves MM's key is ignored
+    # for a paired world; under OoT Off (the -off row) MM is Vanilla and its copy
+    # must leave its vanilla check to the bag's one shared row.
+    redship_add_test(NAME SharedSongsOneCopyMMVanilla COMMAND redship --test shared-songs-one-copy-mm-vanilla
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1502: the confined golden's profile created for real: every MM key, boss key
+    # and dungeon fairy in its own dungeon, every song-location song on an MM song
+    # check, none crossing into OoT. The golden pins the digest; this row checks
+    # the rule.
+    redship_add_test(NAME MMPlacementConfinedWorld COMMAND redship --test mm-placement-confined-world
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
@@ -3405,7 +3678,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # item pooled only under its hidden second-word rule, and OoTMM's "Not enough
     # locations" refusal when it makes thirteen songs for twelve spots.
     # OoTSoaringTableBounds: appended after the masks in the RG, RHT and RAND_INF
-    # enums, no ItemID added, the 129 saved words, the item row and its textbox
+    # enums, no ItemID added, the 512 saved words, the item row and its textbox
     # icon. OoTSoaringRuleLogic: the pooled-copies rule, OoT's real logic (a child
     # with C-down, C-up and C-left, only under the rule), the flag effect, the
     # wording and the warning. OoTSoaringRulesOffUnchanged: hidden bits refused
@@ -3415,13 +3688,121 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTSoaringTableBounds COMMAND redship --test oot-soaring-table-bounds)
     redship_add_test(NAME OoTSoaringRuleLogic COMMAND redship --test oot-soaring-rule-logic)
     redship_add_test(NAME OoTSoaringRulesOffUnchanged COMMAND redship --test oot-soaring-rules-off-unchanged)
+    # PLAYING IT (#1169 lane XW6): SoaringOwlTable: the ten owls are MM's own,
+    # MM_SlotMeta_Register registers the owl-flag layout, the mask is exactly MM's
+    # frozen half's. OoTSoaringGates: every restriction, an unplayable MM and no
+    # owls refuse with OCARINA_MODE_04, the chooser, and the branches' anchors.
+    # OoTSoaringMatcher: OoT's real free-play checker behind every gate, vanilla
+    # songs unchanged, Pierre's tie. All three ROM-free, generating nothing.
+    # src/common/tests/test_warp_song_soaring.c.
+    redship_add_test(NAME SoaringOwlTable COMMAND redship --test soaring-owl-table)
+    redship_add_test(NAME OoTSoaringGates COMMAND redship --test oot-soaring-gates)
+    # THE OWL MAP (#1169 lane XW8): SoaringMapPicker: the picker offers exactly
+    # the active owls in MM's order with MM's stick repeat, every input's
+    # outcome, the HUD restore and OCARINA_MODE_04 on every close, the route
+    # with XW6's chooser as the fallback, the pause precondition without the
+    # ocarina's own cutscene flag. SoaringMapTables: the quads, cursors, clouds,
+    # names and resource paths are MM's own and curated for OoT. Both ROM-free,
+    # generating nothing; OoTSoaringGates above also anchors the guarded kaleido
+    # arms K1-K4 and the map's wiring. src/common/tests/test_warp_song_soaring_map.c.
+    redship_add_test(NAME SoaringMapPicker COMMAND redship --test soaring-map-picker)
+    redship_add_test(NAME SoaringMapTables COMMAND redship --test soaring-map-tables)
+    redship_add_test(NAME OoTSoaringMatcher COMMAND redship --test oot-soaring-matcher)
     redship_add_test(NAME OoTSoaringPooledOnlyWhenRuleOn COMMAND redship --test oot-soaring-pooled-only-when-rule-on
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # SongLocationsOverflowRefused since #1542 S3: only Dungeon Rewards keeps the
+    # 13-for-12 refusal; under Song Locations the 13 OoT songs share the 23 song
+    # checks of both games (the shared song pool), so those legs finish the pair
+    # (four paired fills, hence the longer timeout).
     redship_add_test(NAME SongLocationsOverflowRefused COMMAND redship --test song-locations-overflow-refused
         LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # THE SHARED SONG POOL (#1542 S3, rulings D1 and D5; OoTMM songLocations) over
+    # real paired worlds, finished as a creation finishes them. SongPoolUnionWorld:
+    # the shipped profile over two seeds, No Logic and Beatable Only; every song of
+    # either game on a song check of either game, every leftover song check junk
+    # from the pools, no MM song check skipped (the starting Song of Healing a
+    # host), Link's Pocket no song. SongPoolAnywhereUnconfined: under Anywhere, with
+    # the song-host override cleared and on, no group, mask or exclusive group of
+    # the pool exists; at Song Locations the override 0 moves the world.
+    redship_add_test(NAME SongPoolUnionWorld COMMAND redship --test song-pool-union-world
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolAnywhereUnconfined COMMAND redship --test song-pool-anywhere-unconfined
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
+    # songMinuetMm .. songPreludeMm, hidden until XW12). MMWarpSongsItems: the
+    # ownership byte carved from the tail of ComboContext's reserved[] (1003,
+    # ADR 0009 claim 21), the six RI ids appended after the masks, their rows and
+    # names, MM's real give and conversion, rule-gated ownership, the copies rule,
+    # MM's real pool, OoTMM's button sets through MM's logic macro, and the
+    # snapshot brackets. MMWarpSongsOwnershipSurvives: a starting song owned after
+    # creation, an MM in-game save, a freeze and the .redsave reloads. Both bring
+    # up the CVar store. MMWarpSongsRulesOffUnchanged: hidden bits refused, a
+    # rules-off world pools and credits nothing, and main's fingerprint, bag seeds
+    # and package record with the byte at 0 or full. All three ROM-free.
+    # MMWarpSongsPooledOnlyWhenRuleOn: `rando`, real paired creations through the
+    # hidden-bit test seam.
+    redship_add_test(NAME MMWarpSongsItems COMMAND redship --test mm-warp-songs-items)
+    redship_add_test(NAME MMWarpSongsOwnershipSurvives COMMAND redship --test mm-warp-songs-ownership)
+    redship_add_test(NAME MMWarpSongsRulesOffUnchanged COMMAND redship --test mm-warp-songs-rules-off-unchanged)
+    redship_add_test(NAME MMWarpSongsPooledOnlyWhenRuleOn COMMAND redship --test mm-warp-songs-pooled-only-when-rule-on
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # PLAYING THEM (#1169 lane XW7). MMWarpSongPlay: the creation's warp-song record
+    # (ADR 0009 claim 22: appended after the save watermark, a creation record),
+    # the pads, OoTMM's buttons, the pure matcher, the gates in order, the texts
+    # (ruling A1: shuffled with hints off is OoT's "a mysterious place"), OoT's frozen age,
+    # the MM-first offer, the latches, and every vendored branch by a
+    # function-scoped source anchor. MMWarpSongMatcher: MM's real free-play checker
+    # and Termina wall behind every gate. MMWarpSongDeparture: the real
+    # EnTest7_WarpCsWarp departs once, every refusal arms nothing. All three
+    # ROM-free, generating nothing, the CVar store brought up.
+    # src/common/tests/test_mm_warp_song_play.c, games/mm/2s2h/mm_warp_song_play_test.cpp.
+    redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
+    redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
+    redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # THE TRAVEL FACTS IN EACH GAME'S LOGIC (#1169 lane XW9). OoTWarpTravelEdges:
+    # OoT's six RR_ROOT_EXITS warp exits over the real region graph open for an MM
+    # warp only for a child at day, in a round, with the song's fact and a
+    # destination play always lands (a grave yes, a grotto pseudo index no); OoT's
+    # Soaring fact is can_play_soaring behind RR_ROOT's child-day access. ROM-free,
+    # generating nothing. MMWarpTravelEdges: MM's root owl landings over MM's real
+    # region graph open for OoT's Soaring fact only for an active owl on Day 1, the
+    # crawl and the reset-time guard agree, and MM's facts are can_play_tp_*.
+    # `rando` (MM's rando graph, mm-logic-gates' bring-up), generating nothing.
+    # src/common/tests/test_warp_travel_facts.c, games/mm/2s2h/mm_warp_travel_test.cpp.
+    redship_add_test(NAME OoTWarpTravelEdges COMMAND redship --test oot-warp-travel-edges)
+    redship_add_test(NAME MMWarpTravelEdges COMMAND redship --test mm-warp-travel-edges
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # ComboWarpTravelRounds: the same facts through Combo_Logic_RunRound over BOTH
+    # real engines on one real paired world (created with the rules off, the frozen
+    # word then set directly, never through Generate): MM's Minuet of Forest reaches
+    # OoT's root exit and OoT's Soaring reaches MM's owl landings, each read by the
+    # next expand, only with their rules on; the rule bits alone change no field of
+    # a round. `rando`, one paired generation (on the --test all skip list).
+    redship_add_test(NAME ComboWarpTravelRounds COMMAND redship --test combo-warp-travel-rounds
+        LABEL rando
         TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # OoTWarpSongRecord: the creation's warp-song record over real paired creations
+    # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
+    # the end of OoT's side of the tail and nowhere before it, every destination what
+    # the real Entrance_Init installs for its pad, every area what OoT's own warp
+    # prompt names, and carried by a package. rando tier: it needs real generations.
+    # games/mm/2s2h/mm_warp_songs_mm_test.cpp.
+    redship_add_test(NAME OoTWarpSongRecord COMMAND redship --test oot-warp-song-record
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # THE PAIRED GAME'S END (#762, OoTMM parity): the frozen goal's predicate over
@@ -3548,6 +3929,25 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1407: Shuffle Butterfly Fairies (Shipwright's butterfly fairy shuffle).
+    # OoTButterflyFairyShuffle: two real generations; with the option off (its
+    # default) the settings fold reads none of the lines it added and no butterfly
+    # check is a location, so default worlds keep their fingerprint; on, every
+    # line folds, all 20 checks are locations and the paired fill gives each an
+    # item (the paired-on leg N; RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN pins the
+    # option off if it fails). OoTButterflyFairyHooks: with it
+    # and Easy Butterfly Fairies off no butterfly hook is registered and both
+    # dispatches keep the vanilla answer; on, each arms once and does its job, and
+    # each butterfly location resolves to its own check through ACTOR_EN_BUTTE.
+    # games/oot/soh/oot_butterfly_fairy_test.cpp.
+    redship_add_test(NAME OoTButterflyFairyShuffle COMMAND redship --test oot-butterfly-fairy-shuffle
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME OoTButterflyFairyHooks COMMAND redship --test oot-butterfly-fairy-hooks
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1434: Time Travel Requires Master Sword (OoTMM's timeTravelSword) ships on;
     # with the sword shuffled the Pedestal of Time's real wait action offers the
     # pull, and OoT's real search sends Link through time, either way, only with
@@ -3556,6 +3956,35 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME OoTTimeTravelSword COMMAND redship --test oot-time-travel-sword
         LABEL rando
         TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1414: Early Granny's Potion Shop (Shipwright#6693): with Shuffle Adult Trade
+    # off and no Claim Check, Granny's real offer (VB_OFFER_BLUE_POTION) and sale
+    # gate both open; off, or under Shuffle Adult Trade, they answer as before and
+    # the settings fold skips the option, so default worlds keep their fingerprint.
+    # games/oot/soh/oot_early_granny_shop_test.cpp.
+    redship_add_test(NAME OoTEarlyGrannyShop COMMAND redship --test oot-early-granny-shop
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1364: Shuffle Treasure Chest Game (SoH 6706b49d1) ships off and greyed out;
+    # two real generations fold none of the lines it added (the default world's
+    # fingerprint is the one it had before), a paired generation pins it off even
+    # when keyed on, and the shopkeeper's real wait action gives his item without
+    # queueing it a second time (SoH 4868b0712). Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
+    redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1363: Shuffle Silver Rupees (SoH b76e303ce): every silver check has its own
+    # RandomizerInf and IdentifySilver finds it, the option ships off and greyed
+    # out, two real generations fold none of the lines it added (a paired one pins
+    # it off even when keyed on, with the default world's fingerprint), and logic
+    # reads each silver item's own LOGIC_* event while it is off. Two generations,
+    # so twice the neighbours' timeout. games/oot/soh/oot_shuffle_silver_test.cpp.
+    redship_add_test(NAME OoTShuffleSilver COMMAND redship --test oot-shuffle-silver
+        LABEL rando
+        TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
@@ -3676,7 +4105,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
                 -DCTEST_EXE=${CMAKE_CTEST_COMMAND}
                 -DBUILD_DIR=${CMAKE_BINARY_DIR}
                 "-DEXEMPT=prism" # libultraship's own row; it runs no redship
-                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake)
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestAudioEnv.cmake
+        # Lists every row through ctest, so its time grows with the table: 48 s and then
+        # a timeout at the 60 s default on the hosted Windows runner (2026-11-11).
+        TIMEOUT 300)
     # #1346 (SFX-23): on Windows main.cpp's setlocale(LC_ALL, ".UTF8") makes the CRT
     # decode narrow paths as UTF-8, and rsbs/windows/redship.manifest (activeCodePage
     # UTF-8, root CMakeLists.txt) makes the OS ANSI code page UTF-8 to match, so an
@@ -4116,14 +4548,89 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
         ENVIRONMENT "RSBS_PFC_FILE_SELECT_SHOT=1" "RSBS_CAPTURE_OUT=${CMAKE_BINARY_DIR}/frame-capture")
+    # #1542 S3: THE SHARED SONG POOL'S CROSSINGS, delivered live. The same paired
+    # creation (the shipped defaults arm the pool, so RSBSSINGLEBAG1's song checks
+    # hold either game's songs) with a longer play window per phase. Decision A's
+    # two hosts are pinned through the debug-seed seam (PfcSongHostPin, the
+    # DebugSeedForcedPlacements row's Combo_Logic_TestSetForcedPlacements), so each
+    # run drives the same host whatever the seed made a crossing.
+    # IntSongHostOoT (RSBS_PFC_SONG_HOST=oot): MM's Sonata of Awakening on OoT's
+    # Song of Time check (a transition trigger); in the first OoT leg its
+    # collection flag is set as its scene sets it; the RC-queue drain's foreign
+    # branch must record exactly one MM-bound item and the check must read
+    # collected, and a second trigger records nothing. IntSongHostMM
+    # (RSBS_PFC_SONG_HOST=mm): OoT's Zelda's Lullaby on MM's starting Song of
+    # Healing (armed at creation); CheckQueue's foreign branch must deliver it
+    # once, and a re-arm (a later cycle, a re-entry) must be consumed by the
+    # delivered-song-host guard with no second record and no get-item event or
+    # textbox (the only thing that tells the guard from its absence: the record is
+    # refused either way). The drive waits for the delivery (the arrival pays out
+    # the Deku Mask's starting check first, so it lands near frame 170), then for
+    # its presentation to end, then arms the check again and watches 60 frames,
+    # hence the 600-frame window. Covered by trace only: the
+    # other 21 song checks' own give paths, each song scene's own cutscene and
+    # progression with a crossing on it, OoT's grant of the Lullaby after the
+    # crossing back, and a live three-day reset (the ROM-free MMSongHostGuard row
+    # drives the real headless one).
+    redship_add_test(NAME IntSongHostOoT
+        COMMAND redship --integration-test int-paired-first-crossing
+        LABEL integration
+        TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
+        ENVIRONMENT "RSBS_PFC_SONG_HOST=oot" "RSBS_GP_FRAMES=500")
+    redship_add_test(NAME IntSongHostMM
+        COMMAND redship --integration-test int-paired-first-crossing
+        LABEL integration
+        TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
+        ENVIRONMENT "RSBS_PFC_SONG_HOST=mm" "RSBS_GP_FRAMES=600")
+    # #1169 XW6: OoT's Song of Soaring crossing to a Termina owl, driven for real.
+    # The paired first crossing with the hidden songSoaringOot rule revealed
+    # through the test seam (Combo_ComboItemRules2RevealForTest, never a stored
+    # setting) and Shuffle Songs set to Anywhere in memory (the row's world was
+    # authored before #1542, when 13 songs did not fit OoT's 12 song spots; under
+    # Song Locations they now share the 23 song checks of both games, and only
+    # Dungeon Rewards keeps the 12-spot limit); both are put back at the verdict. The notes are played
+    # through SoH's emulated buttons (the controller input both the ocarina and
+    # the message system read), so the message system's Soaring arms run for real.
+    # First OoT leg: an adult's notes match nothing, the creation shadow (day 0, no
+    # owl) shows the no-statues text, the Windmill (warp-song restriction 3)
+    # refuses with 0x88C; each refusal ends in OCARINA_MODE_04 with nothing armed.
+    # The MM leg activates the Clock Town and swamp owls, clears Woodfall and makes
+    # the half an owl save with a pause-save entrance. Return leg (#1169 XW8):
+    # XW6's text chooser, now the owl map's fallback, opens with the map's assets
+    # forced absent and is cancelled with B (its only live leg: its crossing path
+    # is covered by XW6's anchors and the shared Depart alone); then the owl map
+    # opens (pause state 0x101, the roll-in, SELECT on Clock Town over exactly the
+    # frozen owls) and B closes it through 0x112, 0x12 and 0x13 with
+    # OCARINA_MODE_04 and the HUD back; then D-right, A, No, B (the HUD again);
+    # then D-right, A, OK soars; MM must land at the CLEARED swamp's owl
+    # (0x0CA0), not the pause-save spot, with the one-shot target spent. The first
+    # OoT leg also checks every asset the map draws is mounted before MM ever
+    # ran. The map legs are driven from the frame start (the map freezes the
+    # world). games/oot/soh/GameExports_SingleExe.cpp (the OoT
+    # legs), games/mm/2s2h/GameExports_SingleExe.cpp (the MM leg and the arrival).
+    # Longer than its siblings: two more scene loads and seven songs. The first OoT
+    # phase holds the paired drive's frames plus three ocarina legs and a Windmill
+    # round trip, so the per-phase watchdog budget is doubled too (ceiling 4 x 120 s,
+    # under the row's TIMEOUT). The world is the paired seed with two settings
+    # moved, so a red on the inherited stone-hint or chest checks is a fixture
+    # failure (its line says "soaring world"), not a Soaring leg. Not locked here:
+    # the cancel arm's own OCARINA_MODE_04 write and the no-statues gate (the
+    # vanilla close and the chooser's fallback do the same), and the day-0 gate
+    # apart from the zero-owl case (the ROM-free SoaringOwlTable row has it).
+    math(EXPR REDSHIP_SOARING_TO_OWL_TIMEOUT "${REDSHIP_GAMEPLAY_TEST_TIMEOUT} * 2")
+    redship_add_test(NAME IntSoaringToOwl
+        COMMAND redship --integration-test int-soaring-to-owl
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity
-        PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntSongHostOoT
+        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

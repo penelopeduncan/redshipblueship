@@ -30,6 +30,7 @@
 #include <cassert>
 #include <filesystem>
 #include <fstream> // #670: the mods/mm first-run marker file
+#include <memory>  // std::make_unique: the save format 6 fixture half
 #include <string>
 #include <vector>
 
@@ -69,6 +70,8 @@
 #include "pairing_refusal_toast.h"
 #include "2s2h/BenGui/Notification.h"
 #include "entrance.h"
+#include "mm_warp_song_play.h" // #1169 XW7: Combo_MMWarpPlay_ResetLatches at every MM file load
+#include "warp_song_soaring.h" // #1169 XW6: the owl table and the owl-flag layout
 #include <ship/resource/ResourceManager.h>
 #include <ship/resource/ResourceLoader.h>
 #include <ship/resource/archive/ArchiveManager.h>
@@ -211,6 +214,196 @@ AudioCollection* AudioCollection::Instance = nullptr;
 static_assert(sizeof(SaveContext) <= MM_SAVE_CONTEXT_SIZE,
               "MM_SAVE_CONTEXT_SIZE (src/common/game.h) is smaller than 2S2H's runtime SaveContext; "
               "raise the capacity or cross-game freeze/restore will truncate save state");
+// Save format 6 grew RandoSaveInfo (inside Save) by about 22 KB. z_sram_NES.c
+// copies a whole Save into each half of the sram buffer (saveBuf[0] and
+// saveBuf[SAVE_BUFFER_SIZE_HALF], `memcpy(..., sizeof(Save))`) and the owl save's
+// offsetof(SaveContext, fileNum) bytes into saveBuf[0]; the buffer is
+// SAVE_BUFFER_SIZE bytes (THA_AllocTailAlign16, and the test rows' static
+// buffers). A Save past the half overruns it silently, so it fails here instead.
+static_assert(sizeof(Save) <= SAVE_BUFFER_SIZE_HALF,
+              "MM's Save outgrew the sram buffer half z_sram_NES.c copies it into: raise SAVE_BUFFER_SIZE or shrink "
+              "a capacity");
+static_assert(offsetof(SaveContext, fileNum) <= SAVE_BUFFER_SIZE, "MM's owl save outgrew the sram buffer");
+
+// ---- Save format 6 (src/common/save.h; context.h's growth rule) --------------
+// THE CAPACITY LOCKS. Every RandoSaveInfo array that upstream sizes by a growing
+// enum has a fixed capacity in z64save.h; the enum must fit it. Outgrowing one is
+// a save format generation, never a silent truncation.
+static_assert((size_t)RC_MAX <= RSBS_MM_SAVE_CHECK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveChecks) == RSBS_MM_SAVE_CHECK_CAP * sizeof(RandoSaveCheck),
+              "MM's RC_MAX outgrew randoSaveChecks' saved capacity: a save format generation");
+static_assert((size_t)RO_MAX <= RSBS_MM_SAVE_OPTION_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveOptions) == RSBS_MM_SAVE_OPTION_CAP * sizeof(u32),
+              "MM's RO_MAX outgrew randoSaveOptions' saved capacity: a save format generation");
+static_assert((size_t)MMRT_MAX <= RSBS_MM_SAVE_TRICK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoSaveTricks) == RSBS_MM_SAVE_TRICK_CAP,
+              "MM's MMRT_MAX outgrew randoSaveTricks' saved capacity: a save format generation");
+static_assert((size_t)RANDO_INF_MAX <= RSBS_MM_RANDO_INF_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoInf) == RSBS_MM_RANDO_INF_CAP / 16 * sizeof(u16),
+              "MM's RANDO_INF_MAX outgrew randoInf's saved capacity: a save format generation");
+static_assert((size_t)RE_MAX <= RSBS_MM_RANDO_EVENT_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->randoEvents) == RSBS_MM_RANDO_EVENT_CAP,
+              "MM's RE_MAX outgrew randoEvents' saved capacity: a save format generation");
+static_assert(sizeof(((RandoSaveInfo*)0)->randoSaveExcludedChecks) * 8 == RSBS_MM_SAVE_CHECK_CAP &&
+                  sizeof(((RandoSaveInfo*)0)->rsbsSpare) == RSBS_MM_RANDO_SPARE_SIZE,
+              "the excluded-check set holds one bit per saved check row, and the spare block is 256 bytes");
+static_assert(sizeof(RandoSaveCheck) == 12, "a saved MM check row is 12 bytes on every compiler");
+static_assert(offsetof(RandoSaveInfo, rsbsSpare) + RSBS_MM_RANDO_SPARE_SIZE <= sizeof(RandoSaveInfo) &&
+                  sizeof(RandoSaveInfo) - (offsetof(RandoSaveInfo, rsbsSpare) + RSBS_MM_RANDO_SPARE_SIZE) <
+                      alignof(RandoSaveInfo),
+              "rsbsSpare is RandoSaveInfo's last member, followed only by tail padding (growth rule 3 carves it)");
+static_assert((size_t)RC_MAX <= 0xFFFFu && (size_t)RO_MAX <= 0xFFFFu && (size_t)MMRT_MAX <= 0xFFFFu &&
+                  (size_t)RANDO_INF_MAX <= 0xFFFFu && (size_t)RE_MAX <= 0xFFFFu,
+              "the save watermark (context.h ComboSaveWatermark) stamps these as u16");
+// THE NAME-TO-NUMBER LOCKS for the existing tails: an id appended in the wrong
+// place (or an enumerator removed) changes the number every save, spoiler and
+// pinned digest knows the last id by, and fails here instead.
+static_assert(RC_ENEMY_DROP_GOMESS == 2310, "MM's last check id at save format 6 is 2310: append after it");
+static_assert(RO_SHUFFLE_SONGS == 53, "MM's last option id at save format 6 is 53: append after it");
+static_assert(MMRT_GBT_BOSS_KEY_ICE == 85, "MM's last trick id at save format 6 is 85: append after it");
+static_assert(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP == 77,
+              "MM's last randomizer-inf flag at save format 6 is 77: append after it");
+static_assert(RE_MAIL_LETTER_TO_KAFEI == 82, "MM's last randomizer event at save format 6 is 82: append after it");
+// Each backport appended after format 6 locks its own ids the same way, so a
+// merge that reorders the appended blocks fails here instead of renumbering
+// saved rows. #1406 (Shuffle Wonder Items): 113 checks and one option.
+static_assert(RC_CLOCK_TOWN_EAST_WONDER_ITEM_01 == 2311 && RC_TERMINA_FIELD_WONDER_ITEM_21 == 2423,
+              "MM's Wonder Item checks (#1406) are ids 2311..2423, appended after RC_ENEMY_DROP_GOMESS");
+static_assert(RO_SHUFFLE_WONDER_ITEMS == 54,
+              "MM's Shuffle Wonder Items option (#1406) is id 54, after RO_SHUFFLE_SONGS");
+// #1410 (Shuffle Hive Drops and the extra / Keaton grass rows): 193 checks (19
+// hives, 171 grass, the 3 Keaton ring rewards) and one option.
+static_assert(RC_GREAT_BAY_COAST_COW_GROTTO_BEEHIVE == 2424 &&
+                  RC_MOUNTAIN_VILLAGE_SPRING_KEATON_GRASS_WONDER_ITEM == 2616,
+              "MM's beehive and extra grass checks (#1410) are ids 2424..2616, appended after #1406's");
+static_assert(RO_SHUFFLE_HIVE_DROPS == 55,
+              "MM's Shuffle Hive Drops option (#1410) is id 55, after RO_SHUFFLE_WONDER_ITEMS");
+// #1407 (Shuffle Butterflies): 25 checks and one option.
+static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 == 2617 &&
+                  RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BUTTERFLY_02 == 2641,
+              "MM's butterfly checks (#1407) are ids 2617..2641, appended after #1410's");
+static_assert(RO_SHUFFLE_BUTTERFLIES == 56,
+              "MM's Shuffle Butterflies option (#1407) is id 56, after RO_SHUFFLE_HIVE_DROPS");
+// #1403 (MM pool options): Skeleton Key, Shuffled Gold Skulltulas, Stray Fairies in Pool.
+static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO_STRAY_FAIRIES_MAX == 59,
+              "MM's #1403 pool options are ids 57..59, after RO_SHUFFLE_BUTTERFLIES");
+// THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_FOREIGN_MASK, offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SPARE, offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_EVENT_INF, offsetof(SaveContext, eventInf));
+
+/** Save format 6: MM's terms of the save watermark (context.h ComboSaveWatermark). */
+extern "C" void MM_SaveLayout_EnumMaxima(uint16_t* outRcMax, uint16_t* outRoMax, uint16_t* outRtMax,
+                                         uint16_t* outRandoInfMax, uint16_t* outReMax) {
+    if (outRcMax != nullptr) {
+        *outRcMax = (uint16_t)RC_MAX;
+    }
+    if (outRoMax != nullptr) {
+        *outRoMax = (uint16_t)RO_MAX;
+    }
+    if (outRtMax != nullptr) {
+        *outRtMax = (uint16_t)MMRT_MAX;
+    }
+    if (outRandoInfMax != nullptr) {
+        *outRandoInfMax = (uint16_t)RANDO_INF_MAX;
+    }
+    if (outReMax != nullptr) {
+        *outReMax = (uint16_t)RE_MAX;
+    }
+}
+
+/** Save format 6: the SaveLayoutPins row's MM lines (save_layout_pins.h); returns
+ *  the number of nonzero pins that differ from the compiled value. */
+extern "C" int MM_SaveLayout_ReportPins(void) {
+    int mismatches = 0;
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_SIZEOF, sizeof(Save), mismatches);
+    printf("[LAYOUT] slack MM Save in the sram buffer half %u\n", (unsigned)(SAVE_BUFFER_SIZE_HALF - sizeof(Save)));
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_SAVE_TYPE, offsetof(SaveContext, save.shipSaveInfo.saveType), mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FINAL_SEED, offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_OPTIONS, offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_FOREIGN_MASK, offsetof(SaveContext, save.shipSaveInfo.rando.foreignMask),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_RANDO_SPARE, offsetof(SaveContext, save.shipSaveInfo.rando.rsbsSpare),
+                           mismatches);
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_MM_EVENT_INF, offsetof(SaveContext, eventInf), mismatches);
+    return mismatches;
+}
+
+/**
+ * Save format 6: THE FIXTURE'S MM HALF (SaveFormatV6Fixture; OoT's twin is
+ * OoT_SaveLayout_FixtureWrite/Check). Set and read BY NAME; indices are LITERALS,
+ * the last ids at save format 6 (option 53, trick 85, check 2310, event 82,
+ * randoInf word 4 holds flag 77), so a later build's growing enums do not move
+ * what the fixture wrote. eventInf is the first SaveContext field after Save: it
+ * moves when anything inside Save grows.
+ */
+extern "C" void MM_SaveLayout_FixtureWrite(uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        return;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memset(sc.get(), 0, sizeof(SaveContext));
+    RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    sc->save.day = 2;
+    sc->save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    rando.finalSeed = 0x6F6F6F6Fu;
+    rando.randoSaveOptions[0] = 3u;
+    rando.randoSaveOptions[53] = 0x00ABCDEFu;
+    rando.randoSaveTricks[0] = 1;
+    rando.randoSaveTricks[85] = 1;
+    rando.randoInf[0] = 0x0F0Fu;
+    rando.randoInf[4] = 0x2000u;
+    rando.randoEvents[82] = 1;
+    rando.randoSaveChecks[2310].randoItemId = (RandoItemId)5;
+    rando.randoSaveChecks[2310].obtained = true;
+    rando.randoSaveChecks[2310].price = 0x1234u;
+    rando.randoSaveExcludedChecks[288] = 0x40u; // check 2310's bit
+    rando.foreignMask = 2;
+    rando.foreignMaskSlotSel[1] = 0x21u;
+    sc->eventInf[0] = 0x5Au;
+    memcpy(blob, sc.get(), sizeof(SaveContext));
+}
+
+extern "C" int MM_SaveLayout_FixtureCheck(const uint8_t* blob, size_t size) {
+    if (blob == nullptr || size < sizeof(SaveContext)) {
+        printf("[FIXTURE] FAIL mm: no half to read (%zu bytes)\n", size);
+        return 1;
+    }
+    auto sc = std::make_unique<SaveContext>();
+    memcpy(sc.get(), blob, sizeof(SaveContext));
+    const RandoSaveInfo& rando = sc->save.shipSaveInfo.rando;
+    int bad = 0;
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.day", sc->save.day, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.save.shipSaveInfo.saveType", sc->save.shipSaveInfo.saveType, SAVETYPE_RANDO, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.finalSeed", rando.finalSeed, 0x6F6F6F6Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[0]", rando.randoSaveOptions[0], 3u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveOptions[53]", rando.randoSaveOptions[53], 0x00ABCDEFu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[0]", rando.randoSaveTricks[0], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveTricks[85]", rando.randoSaveTricks[85], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[0]", rando.randoInf[0], 0x0F0Fu, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoInf[4]", rando.randoInf[4], 0x2000u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoEvents[82]", rando.randoEvents[82], 1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].randoItemId", rando.randoSaveChecks[2310].randoItemId, 5,
+                              bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].obtained", rando.randoSaveChecks[2310].obtained ? 1 : 0,
+                              1, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveChecks[2310].price", rando.randoSaveChecks[2310].price, 0x1234u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.randoSaveExcludedChecks[288]", rando.randoSaveExcludedChecks[288], 0x40u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMask", rando.foreignMask, 2, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.rando.foreignMaskSlotSel[1]", rando.foreignMaskSlotSel[1], 0x21u, bad);
+    RSBS_LAYOUT_FIXTURE_FIELD("mm.eventInf[0]", sc->eventInf[0], 0x5Au, bad);
+    return bad;
+}
 
 // #1176: MM's SkelAnime has no skeletonHeader (SoH appended one to OoT's), and
 // OoT's skeleton patcher is the one both games register with. The
@@ -1767,6 +1960,316 @@ static bool MM_PairedFirstCrossingCheckArrival(int arrival) {
     return true;
 }
 
+// ============================================================================
+// int-soaring-to-owl (#1169 XW6): the MM leg and the Soaring arrival
+// ============================================================================
+//
+// The OoT drive (games/oot/soh/GameExports_SingleExe.cpp) needs MM's frozen half
+// to offer two owls, so the first MM leg activates Clock Town's and the swamp's
+// before the Clock Tower door freezes it. It also clears Woodfall, so the swamp
+// owl's arrival must resolve the CLEARED swamp (MM_Play_Init's 0xFFEF block),
+// and makes the half an owl save with a pause-save entrance, so the arrival
+// must ignore that entrance (MM_Play_ConsumeStartupEntrance's Soaring guard).
+
+static_assert(OWL_WARP_SOUTHERN_SWAMP == 7 && OWL_WARP_CLOCK_TOWN == RSBS_SOARING_OWL_CLOCK_TOWN,
+              "the OoT drive soars to owl 7 after Clock Town's (int-soaring-to-owl, #1169 XW6)");
+
+// A pause-save entrance no Soaring arrival may land on: South Clock Town's
+// crossing entrance, what every non-temple pause save records.
+static const s32 kSoarPauseSaveEntrance = ENTRANCE(SOUTH_CLOCK_TOWN, 0);
+// The owls the MM leg leaves active, exactly: "Next statue" from Clock Town (4)
+// walks 5 and 6 before the swamp (7), so any other active owl would steer it.
+static const u16 kSoarOwlsWanted = (u16)((1u << OWL_WARP_CLOCK_TOWN) | (1u << OWL_WARP_SOUTHERN_SWAMP));
+// A respawn sentinel planted with the pause-save pair. Only the consume's clear
+// (SavingEnhancements_ClearSaveEntranceInfo in MM_Play_ConsumeStartupEntrance)
+// zeroes shipSaveInfo.respawn on this path; MM_Player_Init clears isOwlSave and
+// pauseSaveEntrance on its own, so those two alone cannot show the consume ran.
+static const u32 kSoarRespawnSentinel = 0x50A41169u;
+// games/oot/soh/GameExports_SingleExe.cpp: erases the paired drive's file 3 on a
+// pass, as the paired rows do from OoT (this row's pass is signalled from MM).
+extern "C" void OoT_SoaringTest_ErasePairedFile(void);
+// The leg waits this many frames past its window for MM's clock to reach the
+// first day (a half on day 0 offers no owl: decision 3 of the PR).
+static const int kSoarMMDayBudget = 1800;
+static int sGpMMSoarWrongSceneFrames = 0;
+
+/**
+ * The OoT return leg's precondition, read from MM's FROZEN half (what the
+ * Soaring arrival will consume), not the live save: the swamp and Clock Town
+ * owls, a cleared Woodfall, a day past 0, and the owl-save pair with
+ * kSoarPauseSaveEntrance. Without the pair the "not the pause-save entrance"
+ * assertion at the arrival would be vacuous, so a half that lost it on the
+ * departure fails the run by name instead. 1 when every fact holds; otherwise 0
+ * with the facts in @p why.
+ */
+extern "C" int MM_SoaringTest_FrozenHalfReady(char* why, size_t cap) {
+    if (!Context_HasFrozenState(GAME_MM) || Context_GetMMSaveContext() == nullptr) {
+        snprintf(why, cap, "MM has no frozen half");
+        return 0;
+    }
+    const SaveContext* half = static_cast<const SaveContext*>(Context_GetMMSaveContext());
+    const u16 owls = half->save.saveInfo.playerData.owlActivationFlags;
+    const u32 woodfall = WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE;
+    const bool cleared = (half->save.saveInfo.weekEventReg[woodfall >> 8] & (woodfall & 0xFF)) != 0;
+    const u32 respawn = half->save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags;
+    const bool ready = (owls & RSBS_SOARING_OWL_BITS) == kSoarOwlsWanted && cleared && half->save.day >= 1 &&
+                       half->save.isOwlSave && half->save.shipSaveInfo.pauseSaveEntrance == kSoarPauseSaveEntrance &&
+                       respawn == kSoarRespawnSentinel;
+    snprintf(why, cap,
+             "MM's frozen half: owls 0x%03X (need exactly 0x%03X), Woodfall cleared %d, day %d, isOwlSave %d, "
+             "pauseSaveEntrance %d (need 0x%04X), respawn sentinel 0x%08X (need 0x%08X)",
+             (unsigned)(owls & RSBS_SOARING_OWL_BITS), (unsigned)kSoarOwlsWanted, cleared ? 1 : 0, (int)half->save.day,
+             (int)half->save.isOwlSave, (int)half->save.shipSaveInfo.pauseSaveEntrance,
+             (unsigned)kSoarPauseSaveEntrance, (unsigned)respawn, (unsigned)kSoarRespawnSentinel);
+    return ready ? 1 : 0;
+}
+
+/**
+ * Before the Clock Tower door of the first MM leg. False while MM is still on
+ * day 0 (the leg keeps playing), and after failing the run when it never leaves
+ * it. True once the owls, the cleared swamp and the owl save are in the live
+ * save, which the door's freeze takes.
+ */
+static bool MM_SoaringPrepareDeparture(const GameplayTestConfig* cfg) {
+    static bool sDayFailed = false;
+    if (gSaveContext.save.day < 1) {
+        if (!sDayFailed && sGpMMPlayFrames >= cfg->framesPerPhase + kSoarMMDayBudget) {
+            sDayFailed = true;
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                     "int-soaring-to-owl: MM's first leg never left day 0 (day %d, time 0x%04X after %d frames); a "
+                     "frozen half on day 0 offers no owl to the Song of Soaring",
+                     (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time, sGpMMPlayFrames);
+            IntegrationTest_GameplayFail(msg);
+        }
+        return false;
+    }
+    // Assigned, not ORed: the owl bits are exactly Clock Town's and the swamp's
+    // (bits outside the owl table are kept).
+    u16& owlFlags = gSaveContext.save.saveInfo.playerData.owlActivationFlags;
+    owlFlags = (u16)((owlFlags & ~RSBS_SOARING_OWL_BITS) | kSoarOwlsWanted);
+    WEEKEVENTREG(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE >> 8) |= (u8)(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE & 0xFF);
+    gSaveContext.save.isOwlSave = true;
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance = kSoarPauseSaveEntrance;
+    gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags = kSoarRespawnSentinel;
+    fprintf(stderr,
+            "[PFC] soaring: MM leg on day %d activated owls 0x%03X (Clock Town, Southern Swamp), cleared Woodfall, "
+            "and made the half an owl save with pause-save entrance 0x%04X (and a respawn sentinel), before the Clock "
+            "Tower door\n",
+            (int)gSaveContext.save.day, (unsigned)gSaveContext.save.saveInfo.playerData.owlActivationFlags,
+            (unsigned)kSoarPauseSaveEntrance);
+    fflush(stderr);
+    return true;
+}
+
+/**
+ * The Soaring arrival's verdict, taken once the swamp is stable and the paired
+ * arrival checks passed. Ends the run either way.
+ */
+static void MM_SoaringCheckArrival(int owl) {
+    // A failure taken earlier (OoT's drive, or the fade's watch) has already
+    // requested the exit; the arrival must never turn that run green.
+    if (IntegrationTest_ExitRequested()) {
+        IntegrationTest_SoaringExpectArrival(-1);
+        return;
+    }
+    char msg[512];
+    const s32 cleared = ENTRANCE(SOUTHERN_SWAMP_CLEARED, 10);
+    const s32 entrance = gSaveContext.save.entrance;
+    const char* why = nullptr;
+    if (owl != OWL_WARP_SOUTHERN_SWAMP) {
+        why = "the OoT drive named another owl than the swamp's";
+    } else if (entrance == kSoarPauseSaveEntrance) {
+        why = "the arrival took the half's pause-save entrance, not the owl the player chose";
+    } else if (entrance != cleared || MM_gPlayState->sceneId != SCENE_20SICHITAI2) {
+        why = "the arrival is not the cleared swamp's owl (ENTRANCE(SOUTHERN_SWAMP_CLEARED, 10))";
+    } else if (gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].tempSwitchFlags != 0) {
+        // The consume's clear (SavingEnhancements_ClearSaveEntranceInfo) is the
+        // only writer that zeroes the MM leg's respawn sentinel on this path.
+        why = "the arrival did not clear the half's save-entrance info (the respawn sentinel survived "
+              "MM_Play_ConsumeStartupEntrance)";
+    } else if (gSaveContext.save.isOwlSave || gSaveContext.save.shipSaveInfo.pauseSaveEntrance != -1) {
+        // A sanity check only: MM_Player_Init clears this pair on its own at the
+        // scene load, so it cannot show the consume's clear ran.
+        why = "the unused pause-save pair was not cleared at the arrival";
+    } else if (ComboWarp_IsArmed()) {
+        why = "the one-shot warp target is still armed after the arrival";
+    } else if (!CHECK_WEEKEVENTREG(WEEKEVENTREG_CLEARED_WOODFALL_TEMPLE) ||
+               (gSaveContext.save.saveInfo.playerData.owlActivationFlags & (1u << OWL_WARP_SOUTHERN_SWAMP)) == 0 ||
+               gSaveContext.save.day < 1) {
+        why = "the arriving half is not the one the MM leg froze (no cleared Woodfall, no swamp owl, or day 0)";
+    }
+    if (why != nullptr) {
+        snprintf(msg, sizeof(msg),
+                 "int-soaring-to-owl, leg 'the crossing': %s [scene %d, entrance 0x%04X (cleared swamp owl 0x%04X, "
+                 "pause-save 0x%04X), isOwlSave %d, pauseSaveEntrance %d, warp armed %d, owls 0x%03X, day %d]",
+                 why, (int)MM_gPlayState->sceneId, (unsigned)entrance, (unsigned)cleared,
+                 (unsigned)kSoarPauseSaveEntrance, (int)gSaveContext.save.isOwlSave,
+                 (int)gSaveContext.save.shipSaveInfo.pauseSaveEntrance, ComboWarp_IsArmed() ? 1 : 0,
+                 (unsigned)gSaveContext.save.saveInfo.playerData.owlActivationFlags, (int)gSaveContext.save.day);
+        IntegrationTest_GameplayFail(msg);
+        return;
+    }
+    fprintf(stderr,
+            "[PFC] soaring leg 'the crossing' PASS: MM landed at the cleared swamp's owl (scene %d, entrance 0x%04X), "
+            "not the pause-save entrance 0x%04X; the one-shot target is spent\n",
+            (int)MM_gPlayState->sceneId, (unsigned)entrance, (unsigned)kSoarPauseSaveEntrance);
+    fprintf(stderr, "[PFC] PASS: int-soaring-to-owl (five legs)\n");
+    fflush(stderr);
+    IntegrationTest_SoaringExpectArrival(-1);
+    IntegrationTest_SetGameplayPhase(GP_PHASE_DONE);
+    // A pass leaves no file behind, as the paired rows' OoT pass does (a
+    // failure keeps it for forensics). Before the shutdown, while OoT's
+    // SaveManager is still up.
+    OoT_SoaringTest_ErasePairedFile();
+    IntegrationTest_SignalBootComplete(GAME_MM, "Song of Soaring crossing to an owl complete");
+}
+
+// ---- #1542 S3: an OoT item on an MM SONG CHECK, delivered live ----------------
+// RSBS_PFC_SONG_HOST=mm (CTest IntSongHostMM). Under the shared song pool the
+// paired world's song checks of both games take either game's songs, so an MM
+// song check can hold an OoT song, delivered through CheckQueue's foreign branch.
+// At live MM frame 10 the drive takes the starting Song of Healing, which OoT's
+// PfcSongHostPin made hold OoT's Zelda's Lullaby for this world (armed at file
+// creation: CheckQueue delivers it on the first frames with no drive at all).
+// Frame 150: the host must be delivered (Rando::Foreign::IsDeliveredForeignHost:
+// the once-per-host record) and obtained. Then
+// the host is armed again, as a later cycle or a re-entry re-arms nine of the
+// eleven; frame 260: CheckQueue must have consumed the re-arm (the S0 guard) and
+// added no record. A textbox nobody will press past is closed after 60 frames.
+// Not covered here: a live three-day reset (MMSongHostGuard drives the real
+// headless one), and each song scene's own cutscene (a playtest item).
+static bool GpSongHostMM(void) {
+    const char* env = std::getenv("RSBS_PFC_SONG_HOST");
+    return env != nullptr && std::strcmp(env, "mm") == 0;
+}
+
+/** The MM ids OoT's PfcSongHostPin pins for the song-host rows (#1542 S4): the
+ *  starting Song of Healing check, and the Sonata of Awakening item. */
+extern "C" void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem) {
+    *healingCheck = (uint16_t)RC_STARTING_ITEM_SONG_OF_HEALING;
+    *sonataItem = (uint16_t)RI_SONG_SONATA;
+}
+
+static void GpSongHostMMFrame(int playFrames) {
+    static RandoCheckId sHost = RC_UNKNOWN;
+    static bool sDeliveredAt10 = false;
+    static int sRecordsBefore = -1;
+    static int sRecordsMid = -1;
+    static int sDeliveredFrame = -1;
+    static int sQuietFrames = 0;
+    static int sRearmFrame = -1;
+    static bool sRearmNoise = false;
+    static bool sRearmChecked = false;
+    // The arrival pays out MM's two free starting checks one after the other, the
+    // Deku Mask's first (its get-item cutscene and textbox run about 110 frames),
+    // so the Song of Healing's crossing lands between frames 150 and 200. The
+    // drive waits for it up to kDeliverDeadline instead of reading it at a fixed
+    // frame. The re-arm leg then waits for kQuietNeeded frames with no get-item
+    // event queued and no textbox (the delivery's own must be over, or its
+    // presentation would be taken for the re-arm's), arms the check again, and
+    // for kRearmWatch frames requires that it stays that quiet: without the
+    // delivered-song-host guard CheckQueue queues a get-item event that names an
+    // item it does not give, and nothing else tells the two apart (the record is
+    // refused by `obtained` either way). The three legs fit the row's
+    // RSBS_GP_FRAMES=600 window.
+    static const int kDeliverDeadline = 320;
+    static const int kQuietNeeded = 20;
+    static const int kQuietDeadline = 150;
+    static const int kRearmWatch = 60;
+    static int sTextboxFrames = 0;
+    PlayState* play = MM_gPlayState;
+    if (play != nullptr && play->msgCtx.msgMode != MSGMODE_NONE) {
+        if (++sTextboxFrames >= 60) {
+            MM_Message_CloseTextbox(play);
+            sTextboxFrames = 0;
+        }
+    } else {
+        sTextboxFrames = 0;
+    }
+    if (playFrames == 10) {
+        // Decision A's MM host, pinned by OoT's PfcSongHostPin: the starting Song of
+        // Healing holds OoT's Zelda's Lullaby on every run, armed at creation.
+        const RandoCheckId healing = RC_STARTING_ITEM_SONG_OF_HEALING;
+        if (Combo_Crossings_Lookup(GAME_MM, (uint16_t)healing) == nullptr) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the pinned starting Song of Healing holds no OoT item (the "
+                                         "shared song pool is not armed, or the pin was dropped: a fixture failure)");
+            return;
+        }
+        sHost = healing;
+        const SharedItem* item = Combo_Crossings_Lookup(GAME_MM, (uint16_t)sHost);
+        const char* name = item != nullptr ? Combo_GetForeignItemName(*item) : nullptr;
+        sRecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
+        sDeliveredAt10 = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        fprintf(stderr,
+                "[SONG-HOST] MM song check %d hosts the OoT item %s; the starting Song of Healing, armed at creation; "
+                "OoT-bound records %d, delivered %d\n",
+                (int)sHost, name != nullptr ? name : "?", sRecordsBefore, sDeliveredAt10 ? 1 : 0);
+        fflush(stderr);
+    }
+    if (sHost == RC_UNKNOWN) {
+        return;
+    }
+    if (sDeliveredFrame < 0 && playFrames > 10 &&
+        (Rando::Foreign::IsDeliveredForeignHost(sHost) || playFrames == kDeliverDeadline)) {
+        const int records = Combo_CountSharedItems(GAME_OOT, true);
+        const bool delivered = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        const bool obtained = RANDO_SAVE_CHECKS[sHost].obtained;
+        fprintf(stderr,
+                "[SONG-HOST] frame %d: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
+                playFrames, (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
+        fflush(stderr);
+        // Delivered before frame 10: no record since; after it: exactly one. Not
+        // delivered by the deadline is the same failure.
+        if (!delivered || !obtained || records != sRecordsBefore + (sDeliveredAt10 ? 0 : 1)) {
+            IntegrationTest_GameplayFail("int-song-host-mm: CheckQueue did not deliver the OoT item on the MM song "
+                                         "check exactly once (see [SONG-HOST])");
+            return;
+        }
+        sDeliveredFrame = playFrames;
+        sRecordsMid = records;
+        return;
+    }
+    const bool quiet = MM_GameEvents_Queue().empty() && (play == nullptr || play->msgCtx.msgMode == MSGMODE_NONE);
+    if (sDeliveredFrame >= 0 && sRearmFrame < 0) {
+        sQuietFrames = quiet ? sQuietFrames + 1 : 0;
+        if (sQuietFrames >= kQuietNeeded) {
+            sRearmFrame = playFrames;
+            RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
+            fprintf(stderr, "[SONG-HOST] frame %d: MM song check %d armed again after %d quiet frame(s)\n", playFrames,
+                    (int)sHost, sQuietFrames);
+            fflush(stderr);
+        } else if (playFrames >= sDeliveredFrame + kQuietDeadline) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the delivery's own presentation never ended, so the re-arm "
+                                         "leg could not start (see [SONG-HOST])");
+        }
+        return;
+    }
+    if (sRearmFrame >= 0 && !sRearmChecked) {
+        sRearmNoise = sRearmNoise || !quiet;
+        if (playFrames >= sRearmFrame + kRearmWatch) {
+            const int records = Combo_CountSharedItems(GAME_OOT, true);
+            const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
+            fprintf(stderr,
+                    "[SONG-HOST] frame %d: after the re-arm MM song check %d is eligible %d, OoT-bound records %d "
+                    "(were %d), a get-item event or textbox followed %d\n",
+                    playFrames, (int)sHost, eligible ? 1 : 0, records, sRecordsMid, sRearmNoise ? 1 : 0);
+            fflush(stderr);
+            sRearmChecked = true;
+            if (eligible || records != sRecordsMid || sRearmNoise) {
+                IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its "
+                                             "OoT item was not consumed silently by CheckQueue's guard: it stayed "
+                                             "armed, recorded the item again, or announced an item it does not give");
+            }
+        }
+    }
+    // The re-arm leg must have finished inside the window: a pass that never
+    // reached it would be vacuous.
+    if (playFrames == kDeliverDeadline + kQuietDeadline + kRearmWatch + 1 && !sRearmChecked) {
+        IntegrationTest_GameplayFail("int-song-host-mm: the re-arm leg never finished (see [SONG-HOST])");
+    }
+}
+
 /**
  * Per-frame MM driver for the gameplay round-trip. Called directly from MM's
  * graph loop (games/mm/src/code/graph.c, single-exe only) once per frame —
@@ -1818,10 +2321,27 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         // the tower-exit arrival (0xD800, as if walking out of the Clock
         // Tower), first room's commands ran — plus a few stable frames
         // before the gameplay window starts.
-        if (!MM_SceneLoadComplete() || MM_gPlayState->sceneId != SCENE_CLOCKTOWER) {
+        // int-soaring-to-owl (#1169 XW6): the Soaring arrival lands at the swamp
+        // owl instead, and a stable wrong scene fails by name.
+        const int soaringOwl = IntegrationTest_SoaringToOwl() ? IntegrationTest_SoaringExpectedOwl() : -1;
+        const s16 expectedScene = soaringOwl >= 0 ? (s16)SCENE_20SICHITAI2 : (s16)SCENE_CLOCKTOWER;
+        if (!MM_SceneLoadComplete() || MM_gPlayState->sceneId != expectedScene) {
+            if (soaringOwl >= 0 && MM_SceneLoadComplete() && ++sGpMMSoarWrongSceneFrames >= 10) {
+                char msg[384];
+                snprintf(msg, sizeof(msg),
+                         "int-soaring-to-owl, leg 'the crossing': MM settled in scene %d at entrance 0x%04X, not the "
+                         "cleared swamp (scene %d) the swamp owl leads to%s",
+                         (int)MM_gPlayState->sceneId, (unsigned)gSaveContext.save.entrance, (int)SCENE_20SICHITAI2,
+                         gSaveContext.save.entrance == kSoarPauseSaveEntrance
+                             ? " (that is the frozen half's pause-save entrance: the Soaring guard did not hold)"
+                             : "");
+                IntegrationTest_GameplayFail(msg);
+                IntegrationTest_SoaringExpectArrival(-1);
+            }
             sGpMMStableFrames = 0;
             return;
         }
+        sGpMMSoarWrongSceneFrames = 0;
         sGpMMStableFrames++;
         if (sGpMMStableFrames == 10) {
             sGpMMArrivalCount++;
@@ -1868,6 +2388,12 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
                         sGpMMArrivalCount, actual);
                 fflush(stderr);
             }
+            if (soaringOwl >= 0) {
+                // int-soaring-to-owl: the paired checks above passed for the
+                // Soaring arrival too; its own verdict ends the run.
+                MM_SoaringCheckArrival(soaringOwl);
+                return;
+            }
             fprintf(stderr,
                     "[GP-TEST] MM South Clock Town stable (entrance=0x%04X); "
                     "starting gameplay window\n",
@@ -1883,6 +2409,10 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         return;
     }
     sGpMMPlayFrames++;
+    // #1542 S3 (RSBS_PFC_SONG_HOST=mm): an OoT item on an MM song check, live.
+    if (IntegrationTest_PairedFirstCrossing() && GpSongHostMM()) {
+        GpSongHostMMFrame(sGpMMPlayFrames);
+    }
     // #577 M3 playtest drive (opt-in, RSBS_GP_MM_FOREIGN_MODEL=1): once the
     // player stands in South Clock Town and the arrival's own queued gives have
     // played out, mark one MM check that hosts a drawable OoT item eligible, so
@@ -1895,7 +2425,7 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
     // foreign give CheckQueue's pickup and a shop's purchase make, so the return
     // leg's arrival has an item it could announce a second time.
     if (sGpMMPlayFrames == 30 && IntegrationTest_PairedFirstCrossing() &&
-        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr) {
+        std::getenv("RSBS_GP_MM_FOREIGN_MODEL") == nullptr && !GpSongHostMM()) {
         for (int i = 0; i < Combo_Crossings_Count(GAME_MM); i++) {
             ComboCrossing row;
             if (!Combo_Crossings_At(GAME_MM, i, &row) || row.hostCheck >= RC_MAX ||
@@ -1925,6 +2455,11 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         MM_Shop_PlaytestShopFrame();
     }
     if (sGpMMPlayFrames < cfg->framesPerPhase) {
+        return;
+    }
+    // int-soaring-to-owl (#1169 XW6): the owls the OoT drive soars to, frozen
+    // by this door.
+    if (IntegrationTest_SoaringToOwl() && !MM_SoaringPrepareDeparture(cfg)) {
         return;
     }
     PlayState* play = MM_gPlayState;
@@ -4346,6 +4881,10 @@ extern "C" void GameInteractor_ExecuteOnSaveInit(s16 fileNum) {
 }
 
 extern "C" void GameInteractor_ExecuteOnSaveLoad(s16 fileNum) {
+    // #1169 XW7: an MM file load drops a warp song's pending prompt and departure
+    // latches (RAM only), so nothing a previous file's ocarina session left can
+    // reach this file's Player or En_Test7. A plain call, not a hook: no registrar.
+    Combo_MMWarpPlay_ResetLatches();
     S2H::GameHooks::Execute<GameInteractor::OnSaveLoad>(fileNum);
 }
 
@@ -6785,7 +7324,88 @@ static void MM_SlotMeta_DecodePlayerName(const uint8_t* blob, size_t blobSize, c
     RsbsSave_DecodeN64FilenameName(blob + offset, outName);
 }
 
+// #1169 XW6: OoT's Song of Soaring offers the owls active in this half and lands
+// on their entrances (src/common/warp_song_soaring.c). The table there is MM's own
+// sOwlWarpEntrances (ovl_En_Test7) in OwlWarpId order; pin it here, where
+// ENTRANCE() and OwlWarpId are in scope, so the two cannot drift.
+static_assert(OWL_WARP_CLOCK_TOWN == RSBS_SOARING_OWL_CLOCK_TOWN && OWL_WARP_STONE_TOWER + 1 == RSBS_SOARING_OWL_COUNT,
+              "warp_song_soaring.h's owl indices must be MM's OwlWarpId (#1169 XW6)");
+static_assert(ENTRANCE(GREAT_BAY_COAST, 11) == 0x68B0 && ENTRANCE(ZORA_CAPE, 6) == 0x6A60 &&
+                  ENTRANCE(SNOWHEAD, 3) == 0xB230 && ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8) == 0x9A80 &&
+                  ENTRANCE(SOUTH_CLOCK_TOWN, 9) == 0xD890 && ENTRANCE(MILK_ROAD, 4) == 0x3E40 &&
+                  ENTRANCE(WOODFALL, 4) == 0x8640 && ENTRANCE(SOUTHERN_SWAMP_POISONED, 10) == 0x84A0 &&
+                  ENTRANCE(IKANA_CANYON, 4) == 0x2040 && ENTRANCE(STONE_TOWER, 3) == 0xAA30,
+              "warp_song_soaring.c's owl entrances must be MM's sOwlWarpEntrances (#1169 XW6)");
+static_assert(sizeof(gSaveContext.save.saveInfo.playerData.owlActivationFlags) == sizeof(uint16_t) &&
+                  sizeof(gSaveContext.save.day) == sizeof(int32_t),
+              "the Soaring descriptor reads a u16 owl mask and an s32 day (#1169 XW6)");
+// z_play.c (C, without entrance.h) spells the kind MM_COMBO_SWITCH_KIND_SOARING 2.
+static_assert(COMBO_SWITCH_KIND_SOARING == 2, "z_play.c's MM_COMBO_SWITCH_KIND_SOARING must stay 2 (#1169 XW6)");
+
+/** MM's own owl table for the soaring-owl-table row: ENTRANCE() in MM's TU. */
+extern "C" uint16_t MM_SoaringTest_OwlEntrance(int owl) {
+    static const uint16_t kOwls[RSBS_SOARING_OWL_COUNT] = {
+        ENTRANCE(GREAT_BAY_COAST, 11), ENTRANCE(ZORA_CAPE, 6),
+        ENTRANCE(SNOWHEAD, 3),         ENTRANCE(MOUNTAIN_VILLAGE_WINTER, 8),
+        ENTRANCE(SOUTH_CLOCK_TOWN, 9), ENTRANCE(MILK_ROAD, 4),
+        ENTRANCE(WOODFALL, 4),         ENTRANCE(SOUTHERN_SWAMP_POISONED, 10),
+        ENTRANCE(IKANA_CANYON, 4),     ENTRANCE(STONE_TOWER, 3),
+    };
+    return (owl >= 0 && owl < RSBS_SOARING_OWL_COUNT) ? kOwls[owl] : (uint16_t)0;
+}
+
+/**
+ * For the soaring-owl-table row: freezes MM's own SaveContext as MM's half with
+ * @p owls, @p day and the "ZELDA3" marker (or none), the way a departure does
+ * (Context_FreezeState over the whole struct), then puts the three fields back.
+ */
+extern "C" void MM_SoaringTest_FreezeHalf(uint16_t owls, int32_t day, int marked) {
+    auto& playerData = gSaveContext.save.saveInfo.playerData;
+    const u16 prevOwls = playerData.owlActivationFlags;
+    const s32 prevDay = gSaveContext.save.day;
+    char prevNewf[6];
+    std::memcpy(prevNewf, playerData.newf, sizeof(prevNewf));
+    const char kMarker[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    if (marked != 0) {
+        std::memcpy(playerData.newf, kMarker, sizeof(kMarker));
+    } else {
+        std::memset(playerData.newf, 0, sizeof(playerData.newf));
+    }
+    playerData.owlActivationFlags = owls;
+    gSaveContext.save.day = day;
+    Context_FreezeState(GAME_MM, 0, &gSaveContext, sizeof(gSaveContext));
+    playerData.owlActivationFlags = prevOwls;
+    gSaveContext.save.day = prevDay;
+    std::memcpy(playerData.newf, prevNewf, sizeof(prevNewf));
+}
+
+/** #1169 XW8: MM_SoaringTest_FreezeHalf with @p clouds as the half's
+ *  worldMapCloudVisibility (put back afterwards, like the other fields). */
+extern "C" void MM_SoaringTest_FreezeHalfClouds(uint16_t owls, int32_t day, int marked, uint32_t clouds) {
+    const u32 prevClouds = gSaveContext.save.saveInfo.worldMapCloudVisibility;
+    gSaveContext.save.saveInfo.worldMapCloudVisibility = clouds;
+    MM_SoaringTest_FreezeHalf(owls, day, marked);
+    gSaveContext.save.saveInfo.worldMapCloudVisibility = prevClouds;
+}
+
+static_assert(sizeof(gSaveContext.save.saveInfo.worldMapCloudVisibility) == sizeof(uint32_t),
+              "the owl map reads MM's cloud flags as a u32 (#1169 XW8)");
+
 extern "C" void MM_SlotMeta_Register(void) {
+    // #1169 XW6: the owl flags and the day the Song of Soaring reads from this
+    // half, registered here (not from main.cpp) so the --test rows, which call
+    // MM_SlotMeta_Register themselves, see the same layout production does.
+    ComboSoaringMMDesc soaring{};
+    soaring.owlFlagsOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.owlActivationFlags));
+    soaring.dayOffset = static_cast<uint32_t>(offsetof(SaveContext, save.day));
+    soaring.newfOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.newf));
+    soaring.newfLen = 6;
+    const char kSoaringNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
+    std::memcpy(soaring.newf, kSoaringNewf, sizeof(kSoaringNewf));
+    // #1169 XW8: the clouds OoT's owl map draws over MM's world map.
+    soaring.cloudsOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.worldMapCloudVisibility));
+    Combo_Soaring_RegisterMMDesc(&soaring);
+
     RsbsGameMetaDesc desc{};
     desc.playerNameOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.playerData.playerName));
     desc.playerNameLen = 8;
@@ -7248,6 +7868,8 @@ int MM_Rando_GateCrossGameArrival(void) {
             }
             // A world: this pair's, or another pair's, which is refused.
             uint32_t blobFinalSeed = 0;
+            static_assert((size_t)RO_MAX <= (size_t)RSBS_MM_SAVE_OPTION_CAP,
+                          "MM's RO_MAX outgrew randoSaveOptions' saved capacity: a save format generation");
             uint32_t blobOptions[RO_MAX];
             memcpy(&blobFinalSeed, blob + offsetof(SaveContext, save.shipSaveInfo.rando.finalSeed),
                    sizeof(blobFinalSeed));

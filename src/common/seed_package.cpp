@@ -82,6 +82,11 @@ extern "C" const char* SeedPackage_RefusalWords(int status) {
             return "Seed package from another generator";
         case RSBS_SEEDPKG_ERR_FORMAT:
             return "Seed package from a newer build";
+        case RSBS_SEEDPKG_ERR_LAYOUT:
+            // Save format 6: an MM half of another size, an older package format, or
+            // a combo record with a newer build's bytes is another build's package,
+            // not a damaged one.
+            return "Seed package made by another build";
         case RSBS_SEEDPKG_ERR_IO:
             return "Seed package could not be read";
         case RSBS_SEEDPKG_ERR_APPLY:

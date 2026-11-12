@@ -153,6 +153,23 @@ extern "C" int Randomizer_TestStartingGiveMatchesPlacement(int rc) {
     }
     return -1;
 }
+
+/**
+ * #1484: the adult start's pedestal flag, set after its creation give.
+ * RAND_INF_TOT_MASTER_SWORD is RC_TOT_MASTER_SWORD's own collection flag now
+ * (location_list.cpp). A randomizer flag-set hook still registered from an
+ * earlier load (hook_handlers.cpp, RandomizerOnFlagSetHandler) queues nothing for
+ * the obtained check but re-marks it COLLECTED, so the status the give wrote
+ * (SAVED) is put back.
+ */
+extern "C" void Randomizer_SetPedestalFlagAfterCreationGive(void) {
+    Rando::ItemLocation* pedestal = OTRGlobals::Instance->gRandoContext->GetItemLocation(RC_TOT_MASTER_SWORD);
+    const RandomizerCheckStatus given = pedestal->GetCheckStatus();
+    Flags_SetRandomizerInf(RAND_INF_TOT_MASTER_SWORD);
+    if (pedestal->GetCheckStatus() != given) {
+        pedestal->SetCheckStatus(given);
+    }
+}
 #endif
 
 void StartingItemGive(GetItemEntry getItemEntry, RandomizerCheck randomizerCheck) {
@@ -337,6 +354,12 @@ void SetStartingItems() {
             // MQ Spirit needs 3 keys.
             gSaveContext.inventory.dungeonKeys[SCENE_SPIRIT_TEMPLE] = 3;
             gSaveContext.ship.stats.dungeonKeys[SCENE_SPIRIT_TEMPLE] = 3;
+        }
+    }
+
+    if (Randomizer_GetSettingValue(RSK_SHUFFLE_SILVER) == RO_SHUFFLE_SILVER_STARTWITH) {
+        for (int rg = (int)RG_SHADOW_SILVER_BLADES; rg <= (int)RG_GANONS_CASTLE_MQ_SILVER_SHADOW; rg++) {
+            *Randomizer::SilverFieldFromSaveContext(&gSaveContext, (RandomizerGet)rg) = 10;
         }
     }
 
@@ -549,7 +572,11 @@ extern "C" void Randomizer_InitSaveFile() {
     if (Randomizer_GetSettingValue(RSK_SHUFFLE_MASTER_SWORD) && startingAge == RO_AGE_ADULT) {
         GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheck(RC_TOT_MASTER_SWORD, GI_NONE);
         StartingItemGive(getItemEntry, RC_TOT_MASTER_SWORD);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        Randomizer_SetPedestalFlagAfterCreationGive(); // [RSBS #1484] the check's own flag now
+#else
         Flags_SetRandomizerInf(RAND_INF_TOT_MASTER_SWORD);
+#endif
     }
 
     HIGH_SCORE(HS_POE_POINTS) = 1000 - (100 * Randomizer_GetSettingValue(RSK_BIG_POE_COUNT));

@@ -260,6 +260,19 @@ extern "C" int Combo_MMOptionsPage_RunHeadless(void) {
                 }
                 continue;
             }
+            // #1542: MM's Shuffle Songs follows Ocarina of Time's Shuffle Songs,
+            // read-only with that rule as its reason (not Logic's).
+            if (strcmp(d->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONGS) == 0) {
+                setByCombo++;
+                if (!Combo_MMOptionsPage_OptionSetByCombo(d) || state != COMBO_MM_ROW_SET_BY_COMBO ||
+                    strcmp(reason, COMBO_SONGS_SET_BY_OOT_REASON) != 0) {
+                    printf("[TEST] FAIL: MM's Shuffle Songs row has page state %d with reason \"%s\", expected "
+                           "SET_BY_COMBO with \"%s\" (#1542)\n",
+                           (int)state, reason, COMBO_SONGS_SET_BY_OOT_REASON);
+                    return TEST_FAIL;
+                }
+                continue;
+            }
             CMOP_ASSERT(!Combo_MMOptionsPage_OptionSetByCombo(d));
             if (gated != (state == COMBO_MM_ROW_BLOCKED) || (!gated && state != COMBO_MM_ROW_LIVE)) {
                 printf("[TEST] FAIL: option %s (liveness %u) has page state %d\n", d->name, (unsigned)d->liveness,
@@ -268,7 +281,7 @@ extern "C" int Combo_MMOptionsPage_RunHeadless(void) {
             }
             CMOP_ASSERT(gated ? strcmp(reason, d->disabledReason) == 0 && reason[0] != '\0' : reason[0] == '\0');
         }
-        CMOP_ASSERT(setByCombo == 1);
+        CMOP_ASSERT(setByCombo == 2); // Logic (#1367) and Shuffle Songs (#1542)
         int live = 0;
         int blockedReserved = 0;
         int blockedUnbound = 0;

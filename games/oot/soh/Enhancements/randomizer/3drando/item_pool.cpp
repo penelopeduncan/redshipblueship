@@ -149,11 +149,22 @@ static void PlaceItemsForType(RandomizerCheckType rctype, bool overworldActive =
                 if (currentQuest == RCQUEST_BOTH) {
                     AddFixedItemToPool(loc->GetVanillaItem(), 1, false);
                 } else {
-                    // Check if current item's dungeon is vanilla or MQ, and only add if quest corresponds to it.
+                    // Check if current item's dungeon is vanilla or MQ, and only add if quest corresponds to it
+                    // [RSBS #1363] SoH b76e303ce's fix, carried with Shuffle Silver Rupees and disclosed
+                    // here because it changes worlds whatever that option says. The old test read the
+                    // dungeon by the scene's NUMBER (GetDungeon(itemScene) for scenes 0..11), which
+                    // only lines up for the first ten: Ganon's Tower (scene 10) read Gerudo Training
+                    // Ground's quest, Gerudo Training Ground (11) read Ganon's Castle's, and Inside
+                    // Ganon's Castle (13) was never reached, so its quest-specific items were never
+                    // added. With pots, crates, small crates or freestanding items shuffled in
+                    // dungeons (all off by default), Gerudo Training Ground's and Ganon's Castle's
+                    // pool items change, and so does such a world (generator 5's History line,
+                    // src/common/foreign_items.h).
                     SceneID itemScene = loc->GetScene();
+                    auto dungeon = ctx->GetDungeonFromScene(itemScene);
 
-                    if (itemScene >= SCENE_DEKU_TREE && itemScene <= SCENE_GERUDO_TRAINING_GROUND) {
-                        bool isMQ = ctx->GetDungeon(itemScene)->IsMQ();
+                    if (dungeon != nullptr) {
+                        bool isMQ = dungeon->IsMQ();
 
                         if ((isMQ && currentQuest == RCQUEST_MQ) || (!isMQ && currentQuest == RCQUEST_VANILLA)) {
                             AddFixedItemToPool(loc->GetVanillaItem(), 1, false);
@@ -565,10 +576,12 @@ void GenerateItemPool() {
     }
     AddItemToPool(RG_CLAIM_CHECK, 2, 1, 1, 1);
 
-    if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_CHEST_GAME_SINGLE_KEYS)) {
-        AddItemToPool(RG_TREASURE_GAME_SMALL_KEY, 7, 6, 6, 6);
-    } else if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_CHEST_GAME_PACK)) {
-        AddItemToPool(RG_TREASURE_GAME_KEY_RING, 2, 1, 1, 1);
+    if (ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME)) {
+        if (ctx->GetOption(RSK_KEYRINGS_CHEST_GAME) && ctx->GetOption(RSK_KEYRINGS)) {
+            AddItemToPool(RG_TREASURE_GAME_KEY_RING, 2, 1, 1, 1);
+        } else {
+            AddItemToPool(RG_TREASURE_GAME_SMALL_KEY, 7, 6, 6, 6);
+        }
     }
 
     int tokensToAdd = 0;
@@ -898,6 +911,121 @@ void GenerateItemPool() {
 
             if (dungeon->GetCompass() != RG_NONE) {
                 AddFixedItemToPool(dungeon->GetCompass(), 1, false);
+            }
+        }
+    }
+
+    bool silverActive = ctx->GetOption(RSK_SHUFFLE_SILVER).Get();
+    if (silverActive) {
+        PlaceItemsForType(RCTYPE_SILVER, silverActive, silverActive);
+    }
+
+    if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_ON) ||
+        ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_WALLET)) {
+        ctx->possibleIceTrapModels.insert(RG_SHADOW_SILVER_BLADES); // ice traps reroll this into a random silver rupee
+        auto dungeons = ctx->GetDungeons();
+
+        if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_ON)){
+            AddItemToPool(RG_SHADOW_SILVER_BLADES, 6,5,5,5, false);
+            AddItemToPool(RG_SHADOW_SILVER_PIT, 6,5,5,5, false);
+            AddItemToPool(RG_GTG_SILVER_SLOPE, 6,5,5,5, false);
+            AddItemToPool(RG_GANONS_CASTLE_SILVER_FIRE, 6,5,5,5, false);
+
+            if (dungeons->GetDungeonFromScene(SCENE_DODONGOS_CAVERN)->IsMQ()) {
+                AddItemToPool(RG_DODONGOS_CAVERN_MQ_SILVER, 6,5,5,5, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_SHADOW_TEMPLE)->IsMQ()) {
+                AddItemToPool(RG_SHADOW_MQ_SILVER_INVISIBLE_BLADES, 11,10,10,10, false);
+                AddItemToPool(RG_SHADOW_SILVER_SPIKES, 11,10,10,10, false);
+            } else {
+                AddItemToPool(RG_SHADOW_SILVER_SPIKES, 6,5,5,5, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_SPIRIT_TEMPLE)->IsVanilla()) {
+                AddItemToPool(RG_SPIRIT_SILVER_CHILD, 6,5,5,5, false);
+                AddItemToPool(RG_SPIRIT_SILVER_SUN, 6,5,5,5, false);
+                AddItemToPool(RG_SPIRIT_SILVER_BOULDERS, 6,5,5,5, false);
+            } else {
+                AddItemToPool(RG_SPIRIT_MQ_SILVER_LOBBY, 6,5,5,5, false);
+                AddItemToPool(RG_SPIRIT_MQ_SILVER_BIG_WALL, 6,5,5,5, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL)->IsVanilla()) {
+                AddItemToPool(RG_BOTW_SILVER, 6,5,5,5, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_ICE_CAVERN)->IsVanilla()) {
+                AddItemToPool(RG_ICE_CAVERN_SILVER_BLADES, 6,5,5,5, false);
+                AddItemToPool(RG_ICE_CAVERN_SILVER_BLOCK, 6,5,5,5, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_GERUDO_TRAINING_GROUND)->IsVanilla()) {
+                AddItemToPool(RG_GTG_SILVER_LAVA, 6,5,5,5, false);
+                AddItemToPool(RG_GTG_SILVER_WATER, 6,5,5,5, false);
+            } else {
+                AddItemToPool(RG_GTG_SILVER_LAVA, 7,6,6,6, false);
+                AddItemToPool(RG_GTG_SILVER_WATER, 4,3,3,3, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_INSIDE_GANONS_CASTLE)->IsVanilla()) {
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_LIGHT, 6,5,5,5, false);
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_FOREST, 6,5,5,5, false);
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_SPIRIT, 6,5,5,5, false);
+            } else {
+                AddItemToPool(RG_GANONS_CASTLE_MQ_SILVER_WATER, 6,5,5,5, false);
+                AddItemToPool(RG_GANONS_CASTLE_MQ_SILVER_SHADOW, 6,5,5,5, false);
+            }
+        } else {
+            AddItemToPool(RG_SHADOW_SILVER_BLADES, 2,1,1,1, false);
+            AddItemToPool(RG_SHADOW_SILVER_PIT, 2,1,1,1, false);
+            AddItemToPool(RG_GTG_SILVER_SLOPE, 2,1,1,1, false);
+            AddItemToPool(RG_GANONS_CASTLE_SILVER_FIRE, 2,1,1,1, false);
+
+            if (dungeons->GetDungeonFromScene(SCENE_DODONGOS_CAVERN)->IsMQ()) {
+                AddItemToPool(RG_DODONGOS_CAVERN_MQ_SILVER, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_SHADOW_TEMPLE)->IsMQ()) {
+                AddItemToPool(RG_SHADOW_MQ_SILVER_INVISIBLE_BLADES, 2,1,1,1, false);
+                AddItemToPool(RG_SHADOW_SILVER_SPIKES, 2,1,1,1, false);
+            } else {
+                AddItemToPool(RG_SHADOW_SILVER_SPIKES, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_SPIRIT_TEMPLE)->IsVanilla()) {
+                AddItemToPool(RG_SPIRIT_SILVER_CHILD, 2,1,1,1, false);
+                AddItemToPool(RG_SPIRIT_SILVER_SUN, 2,1,1,1, false);
+                AddItemToPool(RG_SPIRIT_SILVER_BOULDERS, 2,1,1,1, false);
+            } else {
+                AddItemToPool(RG_SPIRIT_MQ_SILVER_LOBBY, 2,1,1,1, false);
+                AddItemToPool(RG_SPIRIT_MQ_SILVER_BIG_WALL, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_BOTTOM_OF_THE_WELL)->IsVanilla()) {
+                AddItemToPool(RG_BOTW_SILVER, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_ICE_CAVERN)->IsVanilla()) {
+                AddItemToPool(RG_ICE_CAVERN_SILVER_BLADES, 2,1,1,1, false);
+                AddItemToPool(RG_ICE_CAVERN_SILVER_BLOCK, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_GERUDO_TRAINING_GROUND)->IsVanilla()) {
+                AddItemToPool(RG_GTG_SILVER_LAVA, 2,1,1,1, false);
+                AddItemToPool(RG_GTG_SILVER_WATER, 2,1,1,1, false);
+            } else {
+                AddItemToPool(RG_GTG_SILVER_LAVA, 2,1,1,1, false);
+                AddItemToPool(RG_GTG_SILVER_WATER, 2,1,1,1, false);
+            }
+
+            if (dungeons->GetDungeonFromScene(SCENE_INSIDE_GANONS_CASTLE)->IsVanilla()) {
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_LIGHT, 2,1,1,1, false);
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_FOREST, 2,1,1,1, false);
+                AddItemToPool(RG_GANONS_CASTLE_SILVER_SPIRIT, 2,1,1,1, false);
+            } else {
+                AddItemToPool(RG_GANONS_CASTLE_MQ_SILVER_WATER, 2,1,1,1, false);
+                AddItemToPool(RG_GANONS_CASTLE_MQ_SILVER_SHADOW, 2,1,1,1, false);
             }
         }
     }

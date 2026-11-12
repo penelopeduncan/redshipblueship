@@ -1176,7 +1176,7 @@ typedef enum {
     // ```
     // #### `args`
     // - `*EnKusa`
-    VB_KUSA_BUSH_DRAW_BE_OVERRIDDEN,
+    VB_KUSA_DRAW_BE_OVERRIDDEN,
 
     // #### `result`
     // ```c
@@ -2272,6 +2272,47 @@ typedef enum {
     // #### `args`
     // - None
     VB_CONSUME_EPONA_CARROT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `ObjDora*`
+    VB_GONG_DROP_COLLECTIBLE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Actor` (ObjComb)
+    VB_BEEHIVE_ALREADY_BROKEN,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Actor` (ObjComb)
+    VB_BEEHIVE_SPAWN_ACTOR,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnKusa2`
+    // - `s32` (index within the patch)
+    VB_KEATON_GRASS_ATTACH_CHILD,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnKusa2`
+    VB_KEATON_GRASS_DRAW,
 } GIVanillaBehavior;
 
 #endif

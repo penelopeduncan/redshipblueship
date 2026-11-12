@@ -338,6 +338,13 @@ std::string ForeignPickupMessage(const char* article, const char* name);
  *  (#800), where a native slot restocks. */
 bool IsDeliveredForeignHost(RandoCheckId randoCheckId);
 
+/** #1542 S0: IsDeliveredForeignHost for one of MM's eleven SONG checks only.
+ *  CheckQueue consumes a re-armed `.eligible` on such a host silently, so a song
+ *  check that already delivered its crossing never replays the get-item textbox
+ *  on a later cycle (OoTMM's once-per-file song flags). Reads no switch: it is
+ *  true only where a placement exists. */
+bool IsDeliveredForeignSongHost(RandoCheckId randoCheckId);
+
 /** THE FULL OUTBOX (#1222). True when the foreign host `randoCheckId` cannot
  *  deliver now because every shared slot holds an item the other game has not
  *  redeemed yet, so its crossing would be refused (src/common/shared_items.c,
@@ -351,6 +358,14 @@ bool ForeignOutboxFullFor(RandoCheckId randoCheckId);
  *  shared row ("Outbox full: cross to Hyrule to send it"). Defined in
  *  MiscBehavior/CheckQueue.cpp (#1222). */
 void NotifyForeignOutboxFull();
+
+/** TEST BRIDGES (#1502, the placement fold lock): the MM seed-derivation string
+ *  (MMOptionsString) and the profile identity string (ProfileIdentityString, with
+ *  an empty trick set, no trap types, no excluded checks and the other terms at
+ *  zero) for an RO_MAX-long option array. Exactly the strings production hashes;
+ *  nothing is recomputed. Defined in Foreign.cpp. */
+std::string TestFoldOptionsString(const uint32_t* values);
+std::string TestFoldIdentityString(const uint32_t* values);
 
 } // namespace Foreign
 } // namespace Rando

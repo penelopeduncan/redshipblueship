@@ -26,9 +26,15 @@
  * warns, and the option is never greyed out. Combo_SongSpotsOverflow is the count
  * and the wording; OoT's restricted song pass asks it after the starting songs
  * left the pool and after the #1085 shared hold-back, the two ways a player makes
- * room (OoTMM's "share or start with at least one song"). Each game fills its own
- * song spots here, not one combined pass as OoTMM does, so only an Ocarina of Time
- * starting song frees one of OoT's spots; the texts therefore say "start with an
+ * room (OoTMM's "share or start with at least one song").
+ *
+ * SINCE #1542 S3 THE LIMIT IS DUNGEON REWARDS' ALONE. Under Song Locations the song
+ * checks of both games are one pool (the shared song pool, rulings D1 and D5, as in
+ * OoTMM's songLocations), placed by the single bag, so the thirteen OoT songs share
+ * the 23 song checks with MM's ten and generate; that pool's own capacity refusal
+ * (Combo_SongPoolCapacityRefusal, combo_song_pool.h) begins with the same sentence.
+ * Under Dungeon Rewards OoT still fills its own twelve spots, so only an Ocarina of
+ * Time starting song frees one of them; the texts therefore say "start with an
  * Ocarina of Time song", a stated divergence from OoTMM's wording.
  *
  * INERT UNTIL XW12. Every RSBS_XITEM2_* bit is hidden (RSBS_XITEM2_HIDDEN): Generate
@@ -56,10 +62,10 @@ extern "C" {
  * song", above). Lane XW12 draws the row; the text is here so the warning ships
  * with the refusal it describes.
  */
-#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                               \
-    "Adds Majora's Mask's Song of Soaring to Ocarina of Time. Usable only as a child. If Shuffle Songs is on Song " \
-    "Locations or Dungeon Rewards, you must share a song or start with an Ocarina of Time song: those twelve "      \
-    "spots cannot hold a thirteenth song, and Generate refuses."
+#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                          \
+    "Adds Majora's Mask's Song of Soaring to Ocarina of Time. Usable only as a child. If Shuffle Songs is on " \
+    "Dungeon Rewards, you must share a song or start with an Ocarina of Time song: those twelve spots cannot " \
+    "hold a thirteenth song, and Generate refuses. On Song Locations it shares the song checks of both games."
 
 /** OoT's restricted Shuffle Songs values (RO_SONG_SHUFFLE_SONG_LOCATIONS and
  *  RO_SONG_SHUFFLE_DUNGEON_REWARDS, randomizerTypes.h), the two passes with a

@@ -13,15 +13,85 @@ extern "C" {
 #include "Rando/Foreign.h" // #1369: ShuffleSwimForWorld / ShuffleOcarinaButtonsForWorld
 #include "ShopPrices.h"    // #1427: the shop and Tingle price modes
 #include "Rando/OoTMasksMM.h" // #980: the OoT masks' frozen rules
+#include "combo_single_bag.h" // #1502: the shared pairs a vanilla song check is released for
+#include "foreign_items.h"    // #1502: Combo_ForeignPairingActive
+#include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' frozen rules
+#include "combo_song_pool.h"   // #1542: the shared song pool's MM half
 // RedShipBlueShip (#645 increment 3, lane K9): where RO_PLENTIFUL_ITEMS' copies
 // sit in the last `itemPool` this function returned — [from, to), both 0 when
 // plentiful added none — and that pool's final size, so a consumer can tell it is
-// marking the pool this record describes. RECORDED where the port decides (its
-// all-or-nothing test and its random half of the lesser rows), never re-derived;
-// read by MM_ComboLogic_MarkPoolRows (ComboLogicEngineSingleExe.cpp).
+// marking the pool this record describes. RECORDED around the step itself, never
+// re-derived; since 2Ship bfcb60476 (#1398) the step has no room test and draws
+// no random number: it appends one copy of every major, mask and key and of
+// every lesser item except maps, compasses and Tingle maps. Read by
+// MM_ComboLogic_MarkPoolRows (ComboLogicEngineSingleExe.cpp).
 size_t gRsbsComboPlentifulFrom = 0;
 size_t gRsbsComboPlentifulTo = 0;
 size_t gRsbsComboPoolSize = 0;
+
+// RedShipBlueShip #1499: the six Tingle maps. Owning one turns every other copy
+// into junk (ConvertItem: its WEEKEVENTREG_TINGLE_MAP_BOUGHT_* flag is set), and
+// the twelve Tingle checks carry each map twice (StaticData/Checks.cpp).
+static bool RsbsIsTingleMap(RandoItemId randoItemId) {
+    switch (randoItemId) {
+        case RI_TINGLE_MAP_CLOCK_TOWN:
+        case RI_TINGLE_MAP_GREAT_BAY:
+        case RI_TINGLE_MAP_ROMANI_RANCH:
+        case RI_TINGLE_MAP_SNOWHEAD:
+        case RI_TINGLE_MAP_STONE_TOWER:
+        case RI_TINGLE_MAP_WOODFALL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// RedShipBlueShip #1502 (the MM mirror of OoT's #1085 RsbsReleaseVanillaSharedSongs,
+// fill.cpp): under Shuffle Songs Vanilla, a song whose shared rule is frozen on in
+// a paired world is the single bag's ONE shared row, so MM's copy must not also
+// stay on its vanilla check. The check stays an ordinary host and the song a pool
+// row, which the composer pairs (and trims when OoT's half is the row).
+static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
+    if (!Combo_ForeignPairingActive()) {
+        return false;
+    }
+    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
+    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    for (int i = 0; i < n; ++i) {
+        if (pairs[i].mmId == (uint16_t)randoItemId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// RedShipBlueShip #1542: the shared song pool for THIS save's options (the one
+// MM_ComboLogic_SongPoolUnionLive reads at the paired creation, where `saveInfo` is
+// the live save OnFileCreate passes): OoT's union and MM's own songs value at
+// Song Locations.
+static bool RsbsSongPoolUnion(const RandoSaveInfo& saveInfo) {
+    return OoT_ComboLogic_SongPoolUnion() &&
+           saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS;
+}
+
+// RedShipBlueShip #1499: one copy of each Tingle map in the pool, and none of a
+// map the file starts with (Starting Maps and Compasses grants all six). Every
+// other copy becomes RI_JUNK in place, so the pool keeps its size and order.
+static void RsbsKeepOneOfEachTingleMap(const std::vector<RandoItemId>& startingItems,
+                                       std::vector<RandoItemId>& itemPool) {
+    std::vector<RandoItemId> kept;
+    for (RandoItemId& item : itemPool) {
+        if (!RsbsIsTingleMap(item)) {
+            continue;
+        }
+        const bool started = std::find(startingItems.begin(), startingItems.end(), item) != startingItems.end();
+        if (started || std::find(kept.begin(), kept.end(), item) != kept.end()) {
+            item = RI_JUNK;
+        } else {
+            kept.push_back(item);
+        }
+    }
+}
 #endif
 
 namespace Rando {
@@ -102,7 +172,14 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
 
             if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // #1502: a frozen-on shared song leaves its vanilla check to the bag.
+                if (!RsbsReleasesVanillaSharedSong(randoStaticCheck.randoItemId)) {
+                    continue;
+                }
+#else
                 continue;
+#endif
             }
 
             if (randoStaticCheck.randoCheckType == RCTYPE_OWL &&
@@ -130,8 +207,18 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 continue;
             }
 
+            if (randoStaticCheck.randoCheckType == RCTYPE_BEEHIVE &&
+                saveInfo.randoSaveOptions[RO_SHUFFLE_HIVE_DROPS] == RO_GENERIC_NO) {
+                continue;
+            }
+
             if (randoStaticCheck.randoCheckType == RCTYPE_TREE &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_TREE_DROPS] == RO_GENERIC_NO) {
+                continue;
+            }
+
+            if (randoStaticCheck.randoCheckType == RCTYPE_BUTTERFLY &&
+                saveInfo.randoSaveOptions[RO_SHUFFLE_BUTTERFLIES] == RO_GENERIC_NO) {
                 continue;
             }
 
@@ -162,6 +249,11 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
 
             if (randoStaticCheck.randoCheckType == RCTYPE_ENEMY_DROP &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_ENEMY_DROPS] == RO_GENERIC_NO) {
+                continue;
+            }
+
+            if (randoStaticCheck.randoCheckType == RCTYPE_WONDER_ITEM &&
+                saveInfo.randoSaveOptions[RO_SHUFFLE_WONDER_ITEMS] == RO_GENERIC_NO) {
                 continue;
             }
 
@@ -310,6 +402,17 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             itemPool.push_back(mask);
         }
     }
+    // RedShipBlueShip #1169 XW5 (OoTMM songMinuetMm .. songPreludeMm): each Ocarina
+    // of Time warp song its frozen rule adds to Majora's Mask, one copy, none under
+    // its shared rule (lane XW10's family, held back). Hidden until XW12 and off by
+    // default, so every world a player can make builds the pool it always did. A
+    // starting copy leaves the pool with the other starting items below.
+    for (RandoItemId song : { RI_SONG_MINUET, RI_SONG_BOLERO, RI_SONG_SERENADE, RI_SONG_REQUIEM, RI_SONG_NOCTURNE,
+                              RI_SONG_PRELUDE }) {
+        for (int copy = 0; copy < MM_WarpSongMM_PooledCopies(song); copy++) {
+            itemPool.push_back(song);
+        }
+    }
 #endif
 
     // Shuffle Triforce Pieces into the Pool
@@ -366,13 +469,13 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
+    // #1499: after the starting items left the pool, before Plentiful reads it.
+    RsbsKeepOneOfEachTingleMap(startingItems, itemPool);
     gRsbsComboPlentifulFrom = itemPool.size();
 #endif
     // Plentiful
     if (saveInfo.randoSaveOptions[RO_PLENTIFUL_ITEMS] == RO_GENERIC_YES) {
-        int replaceableItems = 0;
         std::vector<RandoItemId> plentifulItems;
-        std::vector<RandoItemId> potentialPlentifulItems;
         for (size_t i = 0; i < itemPool.size(); i++) {
             // The user can specify exactly how many pieces they want to shuffle, so skip those
             if (itemPool[i] == RI_TRIFORCE_PIECE) {
@@ -385,6 +488,14 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                 IsSongLocationItem(itemPool[i])) {
                 continue;
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+            // #1542: under the shared song pool OoTMM adds no song copy (transform.ts
+            // gives songs a Plentiful copy only under `anywhere`), the XW5 warp
+            // songs included.
+            if (RsbsSongPoolUnion(saveInfo) && MM_ComboLogic_IsPairSongItem((uint16_t)itemPool[i])) {
+                continue;
+            }
+#endif
 
             switch (Rando::StaticData::Items[itemPool[i]].randoItemType) {
                 case RITYPE_BOSS_KEY:
@@ -394,31 +505,24 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
                     plentifulItems.push_back(itemPool[i]);
                     break;
                 case RITYPE_LESSER:
-                case RITYPE_SKULLTULA_TOKEN:
-                case RITYPE_STRAY_FAIRY:
-                    if (Ship_Random(0, 2) == 1) {
-                        potentialPlentifulItems.push_back(itemPool[i]);
+                    // 2Ship bfcb60476 (#1398): every lesser item gets a copy except the maps and
+                    // compasses. That keeps #1499's rule too: Plentiful never adds a second Tingle
+                    // map, which would be junk once one is owned.
+                    if (Rando::StaticData::Items[itemPool[i]].itemId != ITEM_TINGLE_MAP &&
+                        Rando::StaticData::Items[itemPool[i]].itemId != ITEM_DUNGEON_MAP &&
+                        Rando::StaticData::Items[itemPool[i]].itemId != ITEM_COMPASS) {
+                        plentifulItems.push_back(itemPool[i]);
                     }
                     break;
                 case RITYPE_HEALTH:
                 case RITYPE_JUNK:
                 default:
-                    replaceableItems++;
                     break;
             }
         }
 
-        if (replaceableItems > plentifulItems.size()) {
-            for (RandoItemId plentifulItem : plentifulItems) {
-                itemPool.push_back(plentifulItem);
-            }
-        }
-
-        // Only add potentialPlentifulItems if we think we have enough room (this might not be perfect)
-        if ((replaceableItems - plentifulItems.size() - 10) > potentialPlentifulItems.size()) {
-            for (RandoItemId plentifulItem : potentialPlentifulItems) {
-                itemPool.push_back(plentifulItem);
-            }
+        for (RandoItemId plentifulItem : plentifulItems) {
+            itemPool.push_back(plentifulItem);
         }
     }
 
@@ -434,7 +538,18 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         }
     }
 
-    if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1542 (rulings D1, D5): under the shared song pool the song checks' surplus
+    // is a fact of BOTH games' song checks, so no MM song check is junked or
+    // skipped here and no random number is drawn: OoTMM keeps 'MM Initial Song of
+    // Healing' among its song locations (world/builder.ts loadChecks) and junks
+    // only the song locations still empty after the songs are placed (solve.ts
+    // fillJunk), which MM's own pass does after the single bag.
+    const bool rsbsSongUnion = RsbsSongPoolUnion(saveInfo);
+#else
+    const bool rsbsSongUnion = false;
+#endif
+    if (!rsbsSongUnion && saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS) {
         size_t songItems = std::count_if(itemPool.begin(), itemPool.end(), IsSongLocationItem);
 
         std::vector<RandoCheckId> songChecks;

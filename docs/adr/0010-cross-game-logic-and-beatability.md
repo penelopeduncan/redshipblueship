@@ -1829,6 +1829,12 @@ and `Combo_ComboSettingsFrozen`):
   draws the MM model. The room's other chests (`RCTYPE_CHEST_GAME`) stay
   refused: they are never locations (upstream skips the type and forces "Shuffle
   Chest Minigame" off), and the room clears their flags on every play.
+  *Amended (#1364, SoH's Shuffle Treasure Chest Game):* "Shuffle Chest Minigame"
+  is now a real option, the room keeps its flags under it, and the shopkeeper's
+  paid item is a check (also `RCTYPE_CHEST_GAME`). The rows stay refused for two
+  other reasons: every paired world is generated with the option off (its keys
+  have no confinement, so the single bag could put them in Termina), so they are
+  never locations there; and their give paths are untraced for a crossing.
 - MM's engine grants the fixed contents of reached checks outside the host pool
   during expansion (#737), without which beat-both was unprovable on the
   shipped profile.
@@ -2780,6 +2786,16 @@ golden re-pinned; seed packages written by generator 3 are refused, as designed)
   ever be finished.", or "no seed can finish the goal."). The file-select fallback
   (`OoT_Creation_ReportFailureAtFileSelect`) takes the refusal as its `reason` and
   names the unreachable location or game instead of "try a new seed".
+  Under the Triforce Hunt the goal line reads "the Triforce Goal can never be met."
+  (#1483).
+- **Home capacity (#1483), words only.** When a fill fails and a game's REQUIRED
+  HOME_ONLY rows outnumber that game's empty hosts (counted after the roll-back,
+  `Combo_SingleBag_HomeShortGames`), no seed can place them, so Generate's toast
+  reads "Not generated: too many <game> pieces." when that game holds Triforce
+  Pieces, else "too few checks in <game>." ("either game" when both are short),
+  and the file-select fallback takes `RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY` as its
+  `reason`. The status, the ladder and every placement are unchanged: the
+  creation still fails where it failed before, only with the right words.
 - **Goldens.** Every golden re-pinned for generator 4; `seed-digest-beatable-only`
   and `seed-digest-no-logic` pin the other two rungs; the unread
   `seed-digest-mm-nearly-no-logic.txt` is deleted.
@@ -2821,3 +2837,136 @@ RNG), sits on top of the proved world, and decides no placement.
   wording, the wiring from source) and `Rando_ValidatePairedWorldHints`'s P8
   (rando tier, ComboSingleBag D2: the flags, the record and every WotH hint of a
   generated world).
+
+### 2026-11-11 -- Travel facts: ABI 10 (#1169 XW9)
+
+Epic #1169's warp songs cross between the games: OoT's Song of Soaring (OoTMM
+`songSoaringOot`) lands at an active Termina owl (XW6), and MM's six OoT warp
+songs (`songMinuetMm` .. `songPreludeMm`) land at their frozen OoT destinations
+(XW7). Neither solver can credit that travel alone, because neither knows the
+other game is reachable; only the coordinator routes between engines (ADR 0002).
+So the vtable gains two OPTIONAL trailing entries and the ABI moves to 10:
+
+- **`travelFacts`** reports which songs this game can PLAY in the round's
+  simulated state, in the second rules word's own bit positions: OoT
+  `RSBS_COMBO_TRAVEL_INTO_MM` (0x01; `CanUse(RG_SONG_OF_SOARING_OOT)` as a child
+  at day, behind RR_ROOT's child-day access, which is OoTMM's
+  `can_play_soaring`), MM `RSBS_COMBO_TRAVEL_INTO_OOT` (0x02 << song;
+  `CAN_PLAY_OOT_WARP_SONG`, OoTMM's `can_play_tp_*`). Each engine uses its own
+  predicates, so each game's own buttons and its own frozen rule decide.
+- **`acceptTravelFacts`** hands the other game's gated facts to an engine for the
+  rest of the round; its next `expand` reads them. OoT: the six RR_ROOT_EXITS
+  warp-song exits gain `|| (IsChild && AtDay && OoT_ComboLogic_MMWarpTravel(i))`.
+  MM: the ten RR_MAX owl landings become `(CAN_PLAY_SONG(SOARING) ||
+  CAN_OOT_SOAR_TO_OWL) && CAN_OWL_WARP(owl)`, with `CAN_OOT_SOAR_TO_OWL` =
+  the accepted fact `&& IS_DAY1()`. Both accessors are false outside a round.
+
+**The gates** (`Combo_Logic_TravelGate`). MM's facts reach OoT only while OoT's
+crossing is open (the player must be in MM to play an MM item, and ruling 9 of
+2026-11-04 makes a warp travel after the door, never a first way into Termina).
+OoT's Soaring fact reaches MM only while BOTH crossings are open: it lands on owls
+already active in MM's FROZEN copy, so MM must have been entered and departed.
+OoTMM has neither gate (its world graph treats the door and the warps as plain
+exits); both are stricter divergences forced by the frozen copy (decision D1).
+
+**Termination.** The accepted sets only grow (an OR), reset per round, and are
+derived only from the round's own granted items and placements; facts appear only
+positively in edges; the gates are conjunctions of monotone flags. So the
+composite operator stays monotone on a finite product lattice and the least fixed
+point credits every fact only after a well-founded derivation in play order: a
+fact gated on the crossing cannot help open the crossing circularly. A fact that
+disappears inside a round is reported `ERR_NON_MONOTONE` (the watchdog's fifth and
+sixth observables). At most seven extra alternations per round. No RNG is
+consumed and no copy is assumed from a fact, so the multiplicity contract, the
+proof and the retries are untouched; a withheld host's item yields no fact
+because it is never granted.
+
+**Time.**
+
+- *OoT arrival (D3)*: day only. A door departure leaves OoT frozen at day (the
+  mask shop is day-entered); destinations where time passes still gain night
+  through SoH's `ApplyTimePass`. OoTMM carries the departure's time of day, which
+  is day for a door departure; day only is a subset.
+- *MM arrival (D4)*: RR_MAX's Day 1 slices. Without Clock Shuffle RR_MAX holds
+  only Day 1 06:00 (`InitializeRegionTimeStates`), so the landing is credited at
+  dawn and later slices come only from the landing's own stay expansion, which is
+  OoTMM's model (pathfind.ts ORs `mmTime |= 1` into every OoT -> MM exit, then
+  stays). **Under Clock Shuffle this diverges**: `NarrowEdgeTime` carries every
+  owned Day 1 slice over the edge at once, where OoTMM credits dawn and then
+  stays. It is sound because the player lands at the MM time they last left at,
+  and the tower interior is reached at every RR_MAX slice in the same round
+  (RR_MAX's `true` save-warp exit to South Clock Town and its `true` edges to the
+  interior), so every owned Day 1 slice is one at which the player could have
+  departed. It is the model MM already applies to its own Soaring under Clock
+  Shuffle. The critics' tightening (test the interior's reached Day 1 slices
+  during the crawl) is not adopted: RR_MAX is explored first and never re-entered,
+  so the interior's state does not exist yet in the same crawl.
+
+**What is not credited.**
+
+- *Grotto destinations (D2)*. XW7 refuses an MM warp to a grotto pseudo index
+  (0x0700 and above) unless OoT's grotto tables were loaded in the session, which
+  is session history. The logic credits only destinations play lands in every
+  session (`Combo_MMWarpPlay_DestCreditedByLogic`: nonzero and below 0x0700,
+  graves included), split from XW7's `Combo_MMWarpPlay_DestResolvable` so the two
+  rules cannot drift. The destination is read at `beginQuery` from the entrance
+  graph (a shuffled warp's replacement index, the pad otherwise, with the fake
+  Ganon's Castle blue-warp remap), which holds the shuffle from
+  `ShuffleAllEntrances` on; the record is a projection of the same shuffle, and
+  `oot-warp-song-record` locks the two equal.
+- *An adult frozen OoT half*: no edge. Every route into MM is child-only and OoT's
+  half changes only while OoT runs.
+- *Owl landings from the nook (D7)*: the reset-time guard still prunes them under
+  `!MmCanResetTime`, OoT's Soaring included.
+- *Trackers (D6)*: both check trackers evaluate the same exits outside any round,
+  where the accessors are false, so they under-credit warp reach identically in an
+  MM-first session and after a crossing. XW11 owns giving them frozen-world facts.
+  Way of the Hero and foolish run through `Combo_Logic_RunRound` and see the
+  facts as the fill does.
+
+**Rules off.** With every warp-song rule off (every world a player can create
+until XW12 exposes them; Generate refuses a hidden bit) both `travelFacts` answer
+0 (OoT returns before touching the logic when its rule is off; MM reads one word),
+no accept is made, no alternation is added, and both new disjuncts are false. So
+no placement, fingerprint, hint, spoiler line or tracker result moves, and no
+saved state or generator version changes. Locked by `ComboLogicTravelFacts` (T7:
+silent engines give byte-identical rounds and fills), `OoTWarpTravelEdges`,
+`MMWarpTravelEdges`, the `oot-warp-song-record` graph leg and
+`ComboWarpTravelRounds` (over both real engines on a real paired world: the rule
+bits alone change no field of a round, and with the rules off an assumed song is
+neither credited nor read).
+
+### 2026-11-12 -- Combo-wide song group: ABI 11 (#1542)
+
+Operator rulings 2026-11-10 (D1, D5): under Shuffle Songs: Song Locations the song
+checks of both games form ONE pool, as OoTMM's `songLocations`: a song of either
+game may sit on a song check of either game, a shared song is one row confined to
+the song checks, and over-capacity refuses before anything is placed with OoTMM's
+"Not enough locations for songs/dungeon rewards". The vtable gains one OPTIONAL
+trailing entry, `wideGroups`, and the request a trailing `exclusiveGroups`; the ABI
+moves to 11 so an ABI-10 engine, which never answered the wide range, is refused at
+registration rather than stranding every wide row (combo_logic.h, history entry 11;
+docs/combo-logic-coordinator.md section 4.6).
+
+- **One predicate.** `OoT_ComboLogic_SongPoolUnion()`: a paired, frozen world, OoT's
+  frozen Shuffle Songs at Song Locations, host acceptance armed. MM's half adds its
+  own frozen songs value (`MM_ComboLogic_SongPoolUnionLive`). A pure function of
+  frozen settings: an MM-first and an OoT-first creation of one seed answer alike.
+  Dungeon Rewards, Off and Anywhere never arm it.
+- **The fill.** OoT's own song pass is skipped; its songs stay in the pool, armed
+  (`RSBS_FILL_ARM_SONGS_ROAM`) so they are REQUIRED bag rows, and OoT's restricted
+  passes and Link's Pocket leave the song checks and the songs to the bag. MM's
+  GeneratePools no longer junks and skips its surplus song check (the starting Song
+  of Healing stays a host, as in OoTMM). The bag confines both games' songs (OoT
+  `ITEMTYPE_SONG`, MM's song-check items plus the six XW5 warp songs) to the wide
+  group, the song checks are exclusive, and each game's remainder junks the
+  leftover song checks first, from its own junk rows.
+- **Order divergence, recorded.** OoTMM places songs before everything else
+  (solve.ts); here OoT's own-dungeon and reward passes still run before the bag,
+  which places songs first among its rows. The song checks are reserved from those
+  passes, so no song check is taken before the songs.
+- **Divergence, recorded.** OoTMM's `fillJunk` may also use "nothing"; here a
+  leftover song check never gets `RI_NONE`, because no give path for nothing at a
+  song scene was traced.
+- **Late ABI 9 note.** ABI 9 (#1502, the host groups) had no dated entry here; its
+  contract is combo_logic.h's history entry 9 and the coordinator doc's section 4.6.

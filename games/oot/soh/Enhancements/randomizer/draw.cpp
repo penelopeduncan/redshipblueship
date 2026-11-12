@@ -17,6 +17,7 @@ extern "C" {
 #include "macros.h"
 #include "functions.h"
 #include "variables.h"
+#include "objects/gameplay_keep/gameplay_keep.h"
 #include "objects/object_box/object_box.h"
 #include "objects/object_gi_key/object_gi_key.h"
 #include "objects/object_gi_bosskey/object_gi_bosskey.h"
@@ -24,6 +25,7 @@ extern "C" {
 #include "objects/object_gi_compass/object_gi_compass.h"
 #include "objects/object_gi_map/object_gi_map.h"
 #include "objects/object_gi_hearts/object_gi_hearts.h"
+#include "objects/object_gi_rupy/object_gi_rupy.h"
 #include "objects/object_gi_scale/object_gi_scale.h"
 #include "objects/object_gi_fire/object_gi_fire.h"
 #include "objects/object_fish/object_fish.h"
@@ -1302,6 +1304,45 @@ extern "C" void Randomizer_DrawOpenChest(PlayState* play, GetItemEntry* getItemE
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
+extern "C" void Randomizer_DrawSilverRupee(PlayState* play, GetItemEntry* getItemEntry) {
+    OPEN_DISPS(play->state.gfxCtx);
+    Gfx_SetupDL_25Opa(play->state.gfxCtx);
+    Color_RGB8 defaultColor = { 255, 255, 255 };
+    if (CVarGetInteger("gEnhancements.NewDrops", 0) != 0) {
+        gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, (char*)__FILE__, __LINE__),
+                  G_MTX_MODELVIEW | G_MTX_LOAD);
+        Color_RGB8 silverRupeeColor = CVarGetColor24("gCosmetics.Consumable_SilverRupee.Value", defaultColor);
+        Gfx_SetupDL_25Opa(play->state.gfxCtx);
+        gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, (char*)__FILE__, __LINE__),
+                  G_MTX_MODELVIEW | G_MTX_LOAD);
+        gDPSetPrimColor(POLY_OPA_DISP++, 0, 0x80, silverRupeeColor.r, silverRupeeColor.g, silverRupeeColor.b, 255);
+        gDPSetEnvColor(POLY_OPA_DISP++, silverRupeeColor.r / 5, silverRupeeColor.g / 5, silverRupeeColor.b / 5, 255);
+        gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gGiRupeeInnerDL);
+        Gfx_SetupDL_25Xlu(play->state.gfxCtx);
+        gSPMatrix(POLY_XLU_DISP++, Matrix_NewMtx(play->state.gfxCtx, (char*)__FILE__, __LINE__),
+                  G_MTX_MODELVIEW | G_MTX_LOAD);
+        gDPSetPrimColor(POLY_XLU_DISP++, 0, 0x80, 255, 255, 255, 255);
+        gDPSetEnvColor(POLY_XLU_DISP++, silverRupeeColor.r * 0.75f, silverRupeeColor.g * 0.75f,
+                       silverRupeeColor.b * 0.75f, 255);
+        gSPDisplayList(POLY_XLU_DISP++, (Gfx*)gGiRupeeOuterDL);
+    } else {
+        OoT_Matrix_Scale(0.05f, 0.05f, 0.05f, MTXMODE_APPLY);
+        gSPMatrix(POLY_OPA_DISP++, Matrix_NewMtx(play->state.gfxCtx, (char*)__FILE__, __LINE__),
+                  G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        if (CVarGetInteger("gCosmetics.Consumable_SilverRupee.Changed", 0)) {
+            Color_RGB8 rupeeColor = CVarGetColor24("gCosmetics.Consumable_SilverRupee.Value", defaultColor);
+            gDPSetGrayscaleColor(POLY_OPA_DISP++, rupeeColor.r, rupeeColor.g, rupeeColor.b, 255);
+            gSPGrayscale(POLY_OPA_DISP++, true);
+            gSPSegment(POLY_OPA_DISP++, 0x08, SEGMENTED_TO_VIRTUAL((uintptr_t)gRupeeSilverTex));
+            gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gRupeeDL);
+            gSPGrayscale(POLY_OPA_DISP++, false);
+        } else {
+            gSPSegment(POLY_OPA_DISP++, 0x08, SEGMENTED_TO_VIRTUAL((uintptr_t)gRupeeSilverTex));
+            gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gRupeeDL);
+        }
+    }
+    CLOSE_DISPS(play->state.gfxCtx);
+}
 
 extern "C" void Randomizer_DrawFishingPoleGI(PlayState* play, GetItemEntry* getItemEntry) {
     Vec3f pos;

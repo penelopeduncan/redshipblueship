@@ -1306,9 +1306,12 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  * a fourth term, so a build whose generator changed shows a different
  * fingerprint at file select (#960's surface) for the same seed and settings.
  *
- * BUMP IT in any PR that re-pins a golden for a world-moving reason
- * (docs/determinism-goldens.md, "Re-pinning"). Do not bump it for a re-pin that
- * moved only an input field or a digest writer.
+ * BUMP IT ONCE PER RELEASE WINDOW, in the first PR after a release that makes the
+ * same seed and settings produce a different world than the last released
+ * generator does, whether or not a golden pins that world; later world-moving
+ * changes in the same window ride the unreleased version
+ * (docs/determinism-goldens.md, "Re-pinning", rule 6). Do not bump it for a
+ * re-pin that moved only an input field or a digest writer.
  *
  * IT IS A LABEL, NOT AN ENTROPY INPUT. Nothing is seeded from it: the single
  * bag folds the fingerprint with this term taken off
@@ -1334,8 +1337,40 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     the proof credits a shared tier family's copies to both games' logic (the
  *     shared-quantity credit), which moves every proving rung's placements.
  *     Seed packages written by generator 3 are refused, as designed.
+ * 5 = the worlds v0.5.0-alpha (generator 4) made that this build makes
+ *     differently: with Shuffle Tingle Maps on, the MM pool keeps one copy of
+ *     each of the six Tingle maps (none with Starting Maps and Compasses on)
+ *     and the other copies become junk in place, which moves every such seed
+ *     and, with Plentiful on, its lesser-copy gate (#1499, PR #1507); and MM
+ *     logic carries only the half-days a time-gated path is open on, so with
+ *     Clock Shuffle on reachability and fill can differ (#1453, PR #1504). No
+ *     golden pins either world, so no golden moved for a world-moving reason;
+ *     the bump is for the worlds no golden pins. Seed packages written by
+ *     generator 4 are refused, as designed.
+ *     Also on 5 (the same unreleased window): with MM Shuffle Grass Drops on,
+ *     171 more grass checks (2Ship's extra and Keaton grass) enter MM's pool,
+ *     which moves every such world (#1410, PR #1513). Its new options, Shuffle
+ *     Hive Drops (#1410) and Shuffle Wonder Items (#1406, PR #1510), default
+ *     off and make new worlds only when on. No default world moves; no golden
+ *     turns grass on.
+ *     Also on 5: OoT's PlaceItemsForType (3drando/item_pool.cpp) finds a
+ *     dungeon check's quest by its scene, not by the scene's number (SoH
+ *     b76e303ce, carried by #1363). With pots, crates or freestanding items
+ *     shuffled in dungeons, Gerudo Training Ground's items follow its own
+ *     quest and Inside Ganon's Castle's quest-specific items enter the pool,
+ *     which moves every such world. All three are off by default and no golden
+ *     turns one on.
+ *     Also on 5: #1363 (Shuffle Silver Rupees, SoH b76e303ce) rewrites the OoT
+ *     regions around every silver rupee room (Shadow and Spirit Temples, Bottom
+ *     of the Well, Ice Cavern, Gerudo Training Ground, Ganon's Castle's trials,
+ *     MQ Dodongo's Cavern) into new rooms joined by the silver rupee events, with
+ *     the option OFF too. The rules reviewed equal at the shipped settings, but
+ *     the fill reaches those dungeons' checks in another order, so a DEFAULT
+ *     world can move (OoT placements and what follows from them); #1363's gate
+ *     re-pin records which goldens did. The option itself is generated off in a
+ *     paired world, so it makes no new world yet.
  */
-#define RSBS_GENERATOR_VERSION 4u
+#define RSBS_GENERATOR_VERSION 5u
 
 /**
  * The fingerprint formula at an explicit generator version:
@@ -1429,6 +1464,7 @@ typedef struct ComboCreationRecords {
     uint8_t comboFillWallets;              // #1284: the pair's fill-wallets rule, frozen in the same act
     ComboWothRecord comboWoth;             // #1439: the pair's Way of the Hero, written by the same creation's fill
     ComboItemRules2Record comboItemRules2; // #1169 XW2: the second rules word, frozen with the first
+    ComboOoTWarpRecord comboOoTWarps; // #1169 XW7: the OoT warp songs as MM plays them, written by the same creation
 } ComboCreationRecords;
 
 /** Copy the creation records (every ComboCreationRecords field) out of gComboCtx into @p out. */
@@ -1775,6 +1811,14 @@ typedef struct {
     /** The arrival-toast icon key for `id` IN THIS GAME's own notification
      *  overlay, or NULL for a text-only toast. Optional. */
     const char* (*itemIcon)(uint16_t id);
+    /** #1481: the id a pickup or shop in the OTHER game shows for `id` when
+     *  `ahead` un-redeemed crossings of the same id come before it (a
+     *  Progressive Time shown as the half-day it will grant), or `id` itself to
+     *  show the item as placed. Display only: the crossing record keeps `id`.
+     *  An id answered as itself at `ahead` 0 must be answered as itself at
+     *  every `ahead` (Combo_PresentForeignItem skips its slot scan on that).
+     *  Optional (NULL: always `id`). */
+    uint16_t (*presentItem)(uint16_t id, int ahead);
 } ComboGameDescriber;
 
 /** Register (or, with NULL, un-register) `game`'s describer. A non-game is ignored. */
@@ -1788,6 +1832,18 @@ const char* Combo_DescribeItemName(SharedItem item);
  *  game's describer: what Combo_GetForeignItemArticle gives every item but a pack
  *  named by its count (#1160). NULL as Combo_DescribeItemName. */
 const char* Combo_DescribeItemArticle(SharedItem item);
+
+/**
+ * #1481: the item a pickup, its toast or a shop in the host game shows for
+ * crossing item `item`: what the origin game's presentItem answers, given how
+ * many un-redeemed shared-item slots of the same origin and id come before it.
+ * `recorded` is true when `item`'s own crossing is already in the array (the
+ * drain records before it shows, so that slot is the last one and is not
+ * counted), false for a check not yet collected (a shelf, a shop text). The
+ * result keeps `item`'s origin and flags. `item` unchanged when the origin game
+ * has no presentItem. Display only: nothing is written.
+ */
+SharedItem Combo_PresentForeignItem(SharedItem item, bool recorded);
 
 /** The name of `check` in `hostGame`'s check id-space through that game's
  *  describer, or NULL. */

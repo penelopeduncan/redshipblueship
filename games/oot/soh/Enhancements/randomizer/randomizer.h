@@ -29,6 +29,8 @@ class Randomizer {
     static Sprite* GetSeedTexture(uint8_t index);
     bool SpoilerFileExists(const char* spoilerFileName);
     bool IsTrialRequired(s32 trialFlag);
+    static s8 SilverTotal(RandomizerGet rg);
+    static s8* SilverFieldFromSaveContext(SaveContext* saveContext, RandomizerGet rg);
     u8 GetRandoSettingValue(RandomizerSettingKey randoSettingKey);
     RandomizerCheck GetCheckFromRandomizerInf(RandomizerInf randomizerInf);
     RandomizerInf GetRandomizerInfFromCheck(RandomizerCheck rc);
@@ -36,6 +38,7 @@ class Randomizer {
     ScrubIdentity IdentifyScrub(s32 sceneNum, s32 actorParams, s32 respawnData);
     CheckIdentity IdentifyBeehive(s32 sceneNum, s16 xPosition, s32 respawnData);
     ShopItemIdentity IdentifyShopItem(s32 sceneNum, u8 slotIndex);
+    CheckIdentity IdentifySilver(s32 sceneNum, Vec3f pos);
     CheckIdentity IdentifyCow(s32 sceneNum, s32 posX, s32 posZ);
     CheckIdentity IdentifyPot(s32 sceneNum, s32 posX, s32 posZ);
     CheckIdentity IdentifyFish(s32 sceneNum, s32 actorParams);

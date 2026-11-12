@@ -493,12 +493,18 @@ extern "C" int OoT_MenuMmRandomizerPages_RunHeadless(void) {
                            "frozen: option %s is %s with tooltip \"%s\"", desc->name,
                            IsDisabled(*row->info) ? "disabled" : "LIVE", TooltipShown(*row->info).c_str());
             } else if (Combo_MMOptionsPage_OptionSetByCombo(desc)) {
-                // #1367: MM's Logic follows [Both Games] Logic: SoH's disabled
-                // row with the rule as its reason.
-                MMRP_CHECK(IsDisabled(*row->info) &&
-                               TooltipShown(*row->info) == SohDisabledShape(COMBO_LOGIC_SET_BY_COMBO_REASON),
-                           "option %s is %s with tooltip \"%s\"; [Both Games] Logic sets it (#1367)", desc->name,
-                           IsDisabled(*row->info) ? "disabled" : "LIVE", TooltipShown(*row->info).c_str());
+                // #1367: MM's Logic follows [Both Games] Logic, and #1542 MM's
+                // Shuffle Songs follows Ocarina of Time's: SoH's disabled row
+                // with the row's own rule as its reason (the model's, which
+                // ComboMMOptionsPage leg 3 pins per row).
+                const char* const why = Combo_MMOptionsPage_OptionSetByComboReason(desc);
+                const bool songsRow = strcmp(desc->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONGS) == 0;
+                MMRP_CHECK(!songsRow || strcmp(why, COMBO_SONGS_SET_BY_OOT_REASON) == 0,
+                           "option %s's reason is \"%s\", not Ocarina of Time's Shuffle Songs (#1542)", desc->name,
+                           why);
+                MMRP_CHECK(IsDisabled(*row->info) && TooltipShown(*row->info) == SohDisabledShape(why),
+                           "option %s is %s with tooltip \"%s\"; a [Both Games] rule sets it (#1367, #1542)",
+                           desc->name, IsDisabled(*row->info) ? "disabled" : "LIVE", TooltipShown(*row->info).c_str());
             } else if (blocked) {
                 MMRP_CHECK(IsDisabled(*row->info) && TooltipShown(*row->info) == SohDisabledShape(desc->disabledReason),
                            "blocked option %s is %s with tooltip \"%s\"", desc->name,

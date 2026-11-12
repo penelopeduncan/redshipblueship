@@ -11,7 +11,7 @@
  *   oot-soaring-table-bounds (CTest OoTSoaringTableBounds, redship tier,
  *   ROM-free) -- THE TABLES. RG_SONG_OF_SOARING_OOT, its RHT key and its RAND_INF
  *   flag are each appended right after the Stone Mask's (so no id a world or a
- *   save holds moves), the RAND_INF flags still fit OoT's 129 saved words, no
+ *   save holds moves), the RAND_INF flags fit OoT's 512 saved words (save format 6), no
  *   ItemID was added (OoT_gItemIcons still ends at ITEM_MASK_STONE, so none of the
  *   vanilla-sized ItemID tables is reached), and the item table's row: a song
  *   (the restricted song passes take it), an advancement item, a MOD_RANDOMIZER
@@ -68,7 +68,10 @@
  * Xw4 prefix because every included test file shares one translation unit.
  */
 
+#include "../combo_logic.h"
 #include "../combo_settings_view.h"
+#include "../combo_single_bag.h"
+#include "../combo_song_pool.h"
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
@@ -107,6 +110,14 @@ int OoT_ComboLogic_TestEnsureItemTableTransient(void);
 int Rando_HeadlessSeedTest(const char* seedStr);
 // games/oot/soh/Enhancements/randomizer/ForeignModelOoT.cpp
 const char* OoT_ComboModel_TestItemReason(uint16_t id);
+// #1542: finishing a paired world and reading where its songs went.
+int MM_Rando_HeadlessPairedHalf(void);
+int OoT_Creation_FinishPairedHalf(int writeSpoiler);
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int OoT_ComboLogic_TestIsSongItem(uint16_t id);
+int OoT_ComboLogic_TestLastSongChecksJunked(int* outPadded);
+int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+int MM_ComboLogic_TestLastSongChecksJunked(int* outPadded);
 #ifdef __cplusplus
 }
 #endif
@@ -194,7 +205,7 @@ bool Xw4StartsWith(const char* s, const char* prefix) {
 
 TestResult Test_OoTSoaringTableBounds(void) {
     printf("[TEST] oot-soaring-table-bounds: the Song of Soaring (OoT) is appended after the masks in every OoT "
-           "enum, adds no ItemID, fits the 129 saved RAND_INF words, and its item row is a song with its own flag, "
+           "enum, adds no ItemID, fits the 512 saved RAND_INF words, and its item row is a song with its own flag, "
            "note, text and hint (#1169 XW4)\n");
     sXw4Failures = 0;
     XW4_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available");
@@ -220,8 +231,12 @@ TestResult Test_OoTSoaringTableBounds(void) {
                   "RAND_INF_OBTAINED_SONG_OF_SOARING_OOT is %d (Stone Mask's %d, RAND_INF_MAX %d): flags are saved by "
                   "index, so it must follow the Stone Mask's, appended",
                   flag, stoneFlag, infMax);
-        XW4_CHECK(savedWords == 129 && infMax <= savedWords * 16,
-                  "%d RAND_INF flags in %d saved words: OoT's save keeps 129 words (2064 bits)", infMax, savedWords);
+        // Save format 6: the saved words are a fixed capacity of 8192 flags (512
+        // words, RSBS_OOT_RAND_INF_CAP), and every flag must fit it. Catches the
+        // capacity moved (a format generation) or the array sized by the enum again.
+        XW4_CHECK(savedWords == 512 && infMax <= savedWords * 16,
+                  "%d RAND_INF flags in %d saved words: OoT's save keeps 512 words (8192 flags, save format 6)", infMax,
+                  savedWords);
         const int key = OoT_SoaringTest_Id(7);
         const int stoneKey = OoT_SoaringTest_Id(8);
         const int keyMax = OoT_SoaringTest_Id(9);
@@ -580,6 +595,67 @@ int Xw4Generate(const Xw4Leg& leg, const char* seed) {
     return rc;
 }
 
+/** #1542: what a finished paired world did with its songs (Xw4FinishPair). */
+struct Xw4PairSongs {
+    int finished;         // 1 when the pair finished and the bag proved the goal
+    int soaringOnSongs;   // copies of the Song of Soaring (OoT) on a song check of either game
+    int songsPlaced;      // song rows the bag placed, both origins
+    int songsOffSongs;    // ... of them not on a song check
+    int songChecksJunked; // song checks both remainders junked (the leftovers)
+};
+
+/**
+ * Finish the paired world the last Xw4Generate left at OoT's general pass, the way a
+ * creation does (oot_butterfly_fairy_test.cpp's BfFinishPairAndCountPlaced): MM's
+ * half, whose OnSaveInit chain runs the single bag over both games' hosts, then
+ * OoT's crossings and remainder, then the commit. The songs are read off the
+ * coordinator's tables between the fill and the commit.
+ */
+Xw4PairSongs Xw4FinishPair() {
+    Xw4PairSongs r = { 0, 0, 0, 0, -1 };
+    if (!OoT_ComboLogic_GeneralPassDeferred()) {
+        return r;
+    }
+    const int mmHalf = MM_Rando_HeadlessPairedHalf();
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    const bool proven = mmHalf == 0 && bag->status == RSBS_COMBO_LOGIC_OK && bag->fill.goalProven;
+    if (proven) {
+        const int soaring = OoT_SoaringTest_PoolId();
+        const GameId games[2] = { GAME_OOT, GAME_MM };
+        for (int g = 0; g < 2; ++g) {
+            for (int i = 0; i < Combo_Logic_PlacementCount(games[g]); ++i) {
+                ComboLogicPlacement p;
+                if (!Combo_Logic_PlacementAt(games[g], i, &p)) {
+                    continue;
+                }
+                const bool song = p.item.originGame == (uint8_t)GAME_OOT ? OoT_ComboLogic_TestIsSongItem(p.item.id) != 0
+                                                                         : MM_ComboLogic_IsPairSongItem(p.item.id);
+                if (!song) {
+                    continue;
+                }
+                const bool onSongCheck = games[g] == GAME_OOT ? OoT_ComboLogic_TestSongCheckIndex(p.hostCheck) >= 0
+                                                              : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck) >= 0;
+                r.songsPlaced++;
+                r.songsOffSongs += onSongCheck ? 0 : 1;
+                r.soaringOnSongs +=
+                    (onSongCheck && p.item.originGame == (uint8_t)GAME_OOT && p.item.id == soaring) ? 1 : 0;
+            }
+        }
+    }
+    const int crossings = proven ? OoT_Creation_FinishPairedHalf(0) : -1;
+    if (proven && crossings >= 0) {
+        r.finished = 1;
+        r.songChecksJunked =
+            OoT_ComboLogic_TestLastSongChecksJunked(NULL) + MM_ComboLogic_TestLastSongChecksJunked(NULL);
+    }
+    Combo_SingleBag_Forget();
+    printf("[TEST] the pair: MM half rc %d, bag %s, goal proven %d, crossings %d; %d songs placed (%d off a song "
+           "check), Soaring (OoT) on a song check %d, song checks junked %d\n",
+           mmHalf, Combo_Logic_StatusName(bag->status), bag->fill.goalProven ? 1 : 0, crossings, r.songsPlaced,
+           r.songsOffSongs, r.soaringOnSongs, r.songChecksJunked);
+    return r;
+}
+
 /** Every key a leg may have set is cleared when the row ends, however it ends. */
 struct Xw4Restore {
     ~Xw4Restore() {
@@ -651,29 +727,48 @@ TestResult OoTSoaringPooledOnlyWhenRuleOn_Run(void) {
 
 TestResult SongLocationsOverflowRefused_Run(void) {
     printf("[TEST] song-locations-overflow-refused: a separate Song of Soaring (OoT) makes 13 songs for the 12 spots "
-           "of Song Locations or Dungeon Rewards, and Generate refuses with OoTMM's wording; sharing or starting with "
-           "a song, or Anywhere, generates (#1169 XW4)\n");
+           "of Dungeon Rewards, and Generate refuses with OoTMM's wording; under Song Locations the 13 share the 23 "
+           "song checks of both games (the shared song pool, #1542) and generate; sharing or starting with a song, or "
+           "Anywhere, generates (#1169 XW4)\n");
     sXw4Failures = 0;
     Xw4Restore restore;
 
-    // ---- Refused: 13 on 12 in either restricted mode ---------------------------------------
+    // ---- Refused: 13 on 12 under Dungeon Rewards, OoT's own reward-spot pass ---------
     {
-        const int modes[2] = { kXw4SongLocations, kXw4DungeonRewards };
-        for (int m = 0; m < 2; m++) {
-            const Xw4Leg leg = { modes[m], true, false, false, false };
-            const int rc = Xw4Generate(leg, "RSBSXW4OVERFLOW");
-            const char* refusal = Combo_SongSpotsLastRefusal();
-            printf("[TEST] 13 on 12 (%s): generation %d, refusal '%s'\n", kXw4ShuffleNames[modes[m]], rc, refusal);
-            XW4_CHECK(rc != 0, "13 songs on the 12 spots of %s generated", kXw4ShuffleNames[modes[m]]);
-            XW4_CHECK(Xw4StartsWith(refusal, RSBS_SONG_SPOTS_REFUSAL) &&
-                          strstr(refusal, "13 songs for the 12 spots") != NULL &&
-                          strstr(refusal, kXw4ShuffleNames[modes[m]]) != NULL &&
-                          strstr(refusal, "Song of Soaring (OoT)") != NULL,
-                      "under %s the generation was not refused with OoTMM's wording ('%s')", kXw4ShuffleNames[modes[m]],
-                      refusal);
-            XW4_CHECK(!Combo_ComboSettingsFrozen(),
-                      "the refused creation left a frozen identity behind (no partial identity, #564)");
-        }
+        const Xw4Leg leg = { kXw4DungeonRewards, true, false, false, false };
+        const int rc = Xw4Generate(leg, "RSBSXW4OVERFLOW");
+        const char* refusal = Combo_SongSpotsLastRefusal();
+        printf("[TEST] 13 on 12 (Dungeon Rewards): generation %d, refusal '%s'\n", rc, refusal);
+        XW4_CHECK(rc != 0, "13 songs on the 12 spots of Dungeon Rewards generated");
+        XW4_CHECK(Xw4StartsWith(refusal, RSBS_SONG_SPOTS_REFUSAL) &&
+                      strstr(refusal, "13 songs for the 12 spots") != NULL &&
+                      strstr(refusal, "Dungeon Rewards") != NULL && strstr(refusal, "Song of Soaring (OoT)") != NULL,
+                  "under Dungeon Rewards the generation was not refused with OoTMM's wording ('%s')", refusal);
+        XW4_CHECK(!Combo_ComboSettingsFrozen(),
+                  "the refused creation left a frozen identity behind (no partial identity, #564)");
+    }
+
+    // ---- Song Locations: 13 OoT + 10 MM songs on the 23 song checks of both games ------
+    // OoTMM (solve.ts placeSemiShuffled over songLocations, world/builder.ts): no
+    // refusal; the Soaring copy is on a song check of one game or the other, every
+    // song is, and with zero slack no song check is left to junk.
+    {
+        const Xw4Leg leg = { kXw4SongLocations, true, false, false, false };
+        const int rc = Xw4Generate(leg, "RSBSXW4OVERFLOW");
+        const char* refusal = Combo_SongSpotsLastRefusal();
+        printf("[TEST] 13 + 10 on 23 (Song Locations): OoT generation %d, refusal '%s'\n", rc, refusal);
+        XW4_CHECK(rc == 0 && refusal[0] == '\0',
+                  "under the shared song pool 13 OoT songs were refused ('%s'): they share the 23 song checks",
+                  refusal);
+        const Xw4PairSongs pair = Xw4FinishPair();
+        XW4_CHECK(pair.finished == 1, "the paired world with 23 songs for 23 song checks did not finish");
+        XW4_CHECK(pair.soaringOnSongs == 1, "the Song of Soaring (OoT) is on %d song checks, want 1",
+                  pair.soaringOnSongs);
+        XW4_CHECK(pair.songsPlaced == 23 && pair.songsOffSongs == 0,
+                  "%d songs were placed (%d off a song check), want all 23 on song checks", pair.songsPlaced,
+                  pair.songsOffSongs);
+        XW4_CHECK(pair.songChecksJunked == 0, "%d song checks were left to junk with 23 songs for 23",
+                  pair.songChecksJunked);
     }
 
     // ---- Generated: every way OoTMM's text names, and Anywhere -------------------------------
@@ -681,7 +776,7 @@ TestResult SongLocationsOverflowRefused_Run(void) {
         struct Pass {
             Xw4Leg leg;
             const char* name;
-            int onSongLocations; // copies the song pass placed on a song check, or -1 to skip
+            int onSongChecks; // Soaring copies on a song check of either game after the pair, or -1 to skip
         };
         const Pass passes[] = {
             { { kXw4SongLocations, true, false, false, true }, "Song Locations, starting with Zelda's Lullaby", 1 },
@@ -694,12 +789,14 @@ TestResult SongLocationsOverflowRefused_Run(void) {
         for (const Pass& p : passes) {
             const int rc = Xw4Generate(p.leg, "RSBSXW4OVERFLOW");
             const char* refusal = Combo_SongSpotsLastRefusal();
-            const int onSongs = OoT_SoaringTest_OnSongLocations();
-            printf("[TEST] %s: generation %d, refusal '%s', %d on song checks\n", p.name, rc, refusal, onSongs);
+            printf("[TEST] %s: generation %d, refusal '%s'\n", p.name, rc, refusal);
             XW4_CHECK(rc == 0 && refusal[0] == '\0', "%s did not generate ('%s')", p.name, refusal);
-            if (p.onSongLocations >= 0) {
-                XW4_CHECK(onSongs == p.onSongLocations, "%s put %d copies on song checks, expected %d", p.name, onSongs,
-                          p.onSongLocations);
+            if (p.onSongChecks >= 0) {
+                const Xw4PairSongs pair = Xw4FinishPair();
+                XW4_CHECK(pair.finished == 1, "%s: the paired world did not finish", p.name);
+                XW4_CHECK(pair.soaringOnSongs == p.onSongChecks && pair.songsOffSongs == 0,
+                          "%s put %d Soaring copies on song checks (%d songs off one), expected %d", p.name,
+                          pair.soaringOnSongs, pair.songsOffSongs, p.onSongChecks);
             }
         }
     }

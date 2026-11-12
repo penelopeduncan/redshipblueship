@@ -9,6 +9,7 @@
 
 #include "combo_woth.h"
 
+#include "combo_single_bag.h" // Combo_SingleBag_SharedPairs: a shared song is its MM half
 #include "context.h"
 #include "foreign_items.h" // Combo_ComboLogicClaimsAllowed: No Logic claims nothing
 #include "game.h"
@@ -16,6 +17,13 @@
 
 #include <stdio.h>
 #include <string.h>
+
+/* MM (ComboLogicEngineSingleExe.cpp, #1502): nonzero when MM's frozen song shuffle
+ * keeps MM song `id` out of path hints (OoTMM: songs not shuffled Anywhere). */
+int MM_ComboLogic_PathHintSkipsItem(uint16_t id);
+/* OoT (ComboLogicEngineOoT.cpp, #1542): nonzero when OoT song `id` is kept out of
+ * path hints, which is exactly while the shared song pool is armed. */
+int OoT_ComboLogic_PathHintSkipsItem(uint16_t id);
 
 /* The PRESENT tag: bit 0 of the OoT half (area 0 is COMBO_AREA_NONE). */
 #define WOTH_PRESENT_BIT 0x01u
@@ -78,8 +86,41 @@ bool Combo_Woth_DefaultEligible(uint8_t hostGame, const ComboLogicPlacement* pla
         case RSBS_CHEST_GRADE_FAIRY:
             return false;
         default:
-            return true;
+            break;
     }
+    // OoTMM locations.ts isLocationFullyShuffled with `songs: klass === 'path'`: a
+    // song is never a path hint unless songs are shuffled Anywhere (#1502). Under
+    // the shared song pool (#1542) OoT's songs are bag rows too, so an OoT song
+    // asks OoT's own rule first; outside it OoT's songs under its own restricted
+    // song pass never reach this table, and a shared song is asked as its MM half
+    // on either host.
+    if (placement->item.originGame == (uint8_t)GAME_MM) {
+        return !Combo_Woth_ItemSkipsPathHint(placement->item, NULL, 0);
+    }
+    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
+    const int pairCount = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    return !Combo_Woth_ItemSkipsPathHint(placement->item, pairs, pairCount);
+}
+
+bool Combo_Woth_ItemSkipsPathHint(SharedItem item, const ComboLogicSharedPair* pairs, int pairCount) {
+    if (item.originGame == (uint8_t)GAME_MM) {
+        return MM_ComboLogic_PathHintSkipsItem(item.id) != 0;
+    }
+    if (item.originGame != (uint8_t)GAME_OOT) {
+        return false;
+    }
+    if (OoT_ComboLogic_PathHintSkipsItem(item.id) != 0) {
+        return true;
+    }
+    if (pairs == NULL) {
+        return false;
+    }
+    for (int i = 0; i < pairCount; ++i) {
+        if (pairs[i].ootId == item.id) {
+            return MM_ComboLogic_PathHintSkipsItem(pairs[i].mmId) != 0;
+        }
+    }
+    return false;
 }
 
 /** One round of the frozen goal with `forbidden` (NULL for none) withheld.

@@ -43,6 +43,18 @@
  *   and the GOAL is still proven. (The headless half does not run OoT's junk
  *   remainder, so the check OoT's copy leaves is not inspected here.)
  *
+ *   Since #1542 Majora's Mask's Shuffle Songs follows OoT's (combo_song_pool.h),
+ *   so each row also checks MM's resolved value, and under OoT Off MM's is
+ *   Vanilla: MM's copy of each shared song leaves its vanilla check to the bag's
+ *   one shared row (GeneratePools.cpp RsbsReleasesVanillaSharedSong), counted
+ *   over EVERY MM check, vanilla ones included, so a copy left at home is seen.
+ *
+ *   shared-songs-one-copy-mm-vanilla (CTest SharedSongsOneCopyMMVanilla, rando
+ *   tier, #1502; #1542) -- MM'S KEY IS IGNORED: OoT's songs Anywhere with MAJORA'S
+ *   MASK's own Shuffle Songs key at Vanilla. The pair has one songs setting, so
+ *   MM's half must resolve Anywhere (red if MM's key is read for a paired world),
+ *   and the world still holds one copy of each shared song.
+ *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
  *
@@ -53,6 +65,7 @@
 #include "../combo_logic.h"
 #include "../combo_settings_view.h"
 #include "../combo_single_bag.h"
+#include "../combo_song_pool.h" // Combo_PairSongsMmValue (#1542)
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
@@ -91,6 +104,11 @@ int MM_ComboLogic_TestShuffledItems(uint16_t* outItems, uint16_t* outChecks, int
 int OoT_SharedSongsTest_WorldCopies(int rg);
 int OoT_SharedSongsTest_OtherVanillaSongsAtHome(const int* sharedRgs, int sharedCount);
 int OoT_SharedSongsTest_VanillaSongCount(void);
+// games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): every MM check holding
+// the id, vanilla (unshuffled) checks included.
+int MM_PlacementConfinement_WorldCopies(uint16_t id);
+// The same file (#1542): the live MM save's frozen Shuffle Songs.
+int MM_PlacementConfinement_FrozenSongs(void);
 void OoT_SharedSongsTest_EponaBegin(void);
 void OoT_SharedSongsTest_EponaEnd(void);
 void OoT_SharedSongsTest_SetEponaFile(int rando, int skip);
@@ -760,8 +778,23 @@ std::string SsOneCopyKey(int song) {
 }
 } // namespace
 
-TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
-    const char* shuffleName = (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs] : "?";
+extern "C" {
+// #1542 S3 (ComboLogicEngineOoT.cpp, Rando/Foreign.cpp): the song checks of both games.
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+}
+
+/** MM's Shuffle Songs key (Rando/Menu.cpp) and its Vanilla value (RO_SONG_SHUFFLE_VANILLA). */
+const char* const kSsMmSongShuffleKey = "gRando.Options.RO_SHUFFLE_SONGS";
+const int kSsMmSongShuffleVanilla = 2;
+
+TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
+    // #1542: MM's Shuffle Songs is the mapping of OoT's, whatever MM's key says.
+    const uint32_t mmExpected = Combo_PairSongsMmValue((uint32_t)shuffleSongs);
+    const bool mmVanilla = mmExpected == RSBS_MM_SONGS_VANILLA;
+    const char* shuffleName = mmShuffleSongs == kSsMmSongShuffleVanilla ? "MM key Vanilla, ignored"
+                              : (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs]
+                                                                        : "?";
     printf("[TEST] shared-songs-one-copy (Shuffle Songs %s): with the three shared-song rules on, the paired world "
            "holds exactly ONE copy of each shared song over both games, and the GOAL is still proven (#1085)\n",
            shuffleName);
@@ -773,19 +806,32 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
     }
     const int priorShuffle = CVarGetInteger(kSsSongShuffleKey, -1);
     CVarSetInteger(kSsSongShuffleKey, shuffleSongs);
+    // MM's key is touched only by a row that sets it (the four OoT rows pass -1),
+    // and that row puts back what was there.
+    const int priorMm = CVarGetInteger(kSsMmSongShuffleKey, -1);
+    if (mmShuffleSongs >= 0) {
+        CVarSetInteger(kSsMmSongShuffleKey, mmShuffleSongs);
+    }
     struct Restore {
         int prior;
+        bool setMm;
+        int priorMm;
         ~Restore() {
             if (prior < 0) {
                 CVarClear(kSsSongShuffleKey);
             } else {
                 CVarSetInteger(kSsSongShuffleKey, prior);
             }
+            if (setMm && priorMm < 0) {
+                CVarClear(kSsMmSongShuffleKey);
+            } else if (setMm) {
+                CVarSetInteger(kSsMmSongShuffleKey, priorMm);
+            }
             for (int s = 0; s < 3; s++) {
                 CVarClear(SsOneCopyKey(s).c_str());
             }
         }
-    } restore{ priorShuffle };
+    } restore{ priorShuffle, mmShuffleSongs >= 0, priorMm };
 
     const int gen = Rando_HeadlessSeedTest("RSBSSONGSONECOPY");
     SS_CHECK(gen == 0, "the paired OoT generation failed under Shuffle Songs %s", shuffleName);
@@ -801,6 +847,15 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
         printf("[TEST] shared-songs-one-copy (%s): FAIL\n", shuffleName);
         return TEST_FAIL;
     }
+    // #1542: the pair's one songs setting. MM's half was made with the mapping of
+    // OoT's Shuffle Songs; MM's own key (set by the mm-vanilla row) is not read.
+    const int mmResolved = MM_PlacementConfinement_FrozenSongs();
+    printf("[TEST] shared-songs-one-copy (%s): MM's Shuffle Songs resolved %d (expected %u)\n", shuffleName, mmResolved,
+           (unsigned)mmExpected);
+    SS_CHECK(mmResolved == (int)mmExpected,
+             "MM's half was made with Shuffle Songs %d, not %u, the mapping of OoT's %d: MM's own key was read for a "
+             "paired world (#1542)",
+             mmResolved, (unsigned)mmExpected, shuffleSongs);
     const ComboSingleBagReport bag = *Combo_SingleBag_LastReport();
     printf("[TEST] shared-songs-one-copy (%s): bag %d rows, %d shared pair(s), %d trimmed OoT / %d trimmed MM, goal "
            "proven %d\n",
@@ -831,10 +886,16 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
         // OoT-hosted shared row (a host holds its own game's half of the pair).
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         // MM's world: the bag's MM-hosted shared row, or MM's own copy back in play.
+        // Under MM's Vanilla the copy left at home is an UNSHUFFLED check, so every
+        // check is counted there (#1502).
         int mmCopies = 0;
-        for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
-            if (items[(size_t)i] == mmId) {
-                mmCopies++;
+        if (mmVanilla) {
+            mmCopies = MM_PlacementConfinement_WorldCopies(mmId);
+        } else {
+            for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
+                if (items[(size_t)i] == mmId) {
+                    mmCopies++;
+                }
             }
         }
         printf("[TEST] shared-songs-one-copy (%s): %s held by %d OoT check(s) and %d MM check(s) (expected one in "
@@ -844,6 +905,37 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs) {
                  "under Shuffle Songs %s the paired world holds %d copies of %s (OoT %d, MM %d), expected ONE: "
                  "OoT's own copy is still in the world beside the shared row",
                  shuffleName, ootCopies + mmCopies, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
+        // #1542 S3 (ruling D5): under the shared song pool the pair's one copy is a
+        // bag row confined to the song checks of both games, so the coordinator's
+        // one placement of either half is on a song check of one game or the other.
+        if (shuffleSongs == 1) {
+            int onSongChecks = 0;
+            int placements = 0;
+            for (GameId host : { GAME_OOT, GAME_MM }) {
+                for (int i = 0; i < Combo_Logic_PlacementCount(host); i++) {
+                    ComboLogicPlacement p;
+                    if (!Combo_Logic_PlacementAt(host, i, &p)) {
+                        continue;
+                    }
+                    const bool isPair = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == ootId) ||
+                                        (p.item.originGame == (uint8_t)GAME_MM && p.item.id == mmId);
+                    if (!isPair) {
+                        continue;
+                    }
+                    placements++;
+                    onSongChecks += (host == GAME_OOT ? OoT_ComboLogic_TestSongCheckIndex(p.hostCheck)
+                                                      : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck)) >= 0
+                                        ? 1
+                                        : 0;
+                }
+            }
+            printf("[TEST] shared-songs-one-copy (%s): %s placed %d time(s) by the bag, %d on a song check\n",
+                   shuffleName, kSsOneCopySongs[s].itemName, placements, onSongChecks);
+            SS_CHECK(placements == 1 && onSongChecks == 1,
+                     "under the shared song pool %s was placed %d time(s), %d on a song check: its one copy must be "
+                     "the bag's pair row on a song check of either game",
+                     kSsOneCopySongs[s].itemName, placements, onSongChecks);
+        }
     }
 
     // Off: only the shared songs leave their vanilla checks.

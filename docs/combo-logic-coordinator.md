@@ -354,6 +354,81 @@ PAIR block in `combo_logic.h`; the choices behind it:
 
 Locked by `ComboLogicSharedPair`.
 
+## 4.5 The travel facts (ABI 10, #1169 XW9)
+
+The one place a game's logic reads the other game's state. The contract is THE
+TRAVEL GATES block and the `travelFacts` / `acceptTravelFacts` entries in
+`combo_logic.h`; the decisions and their OoTMM lineage are ADR 0010's 2026-11-11
+entry. In short:
+
+- **After both expands of every alternation** the coordinator reads each
+  engine's `travelFacts`, masks it to its own direction, passes it through
+  `Combo_Logic_TravelGate` (MM's warp songs need OoT's crossing; OoT's Soaring
+  needs both crossings) and calls the other engine's `acceptTravelFacts` only
+  when the accepted set grows, marking the alternation changed. The accepted sets
+  reset per round and are reported as `travelToOoT` / `travelToMM`.
+- **The engines own the edges.** OoT's six RR_ROOT_EXITS warp exits open for a
+  child at day with the song's accepted fact and a destination the logic credits
+  (`Combo_MMWarpPlay_TravelEdgeOpen`); MM's root owl landings open for OoT's
+  accepted Soaring fact on Day 1 (`CAN_OOT_SOAR_TO_OWL`). Both accessors are
+  false outside a round, so OoT's own fill, its entrance validation and both
+  check trackers are unchanged.
+- **Silence is safe.** An engine without the entries (NULL) or one whose facts
+  are all 0 changes no round: no accept, no extra alternation, byte-identical
+  results. That is every world with the warp-song rules off.
+
+Locked by `ComboLogicTravelFacts` (the gates, chains, non-monotone facts,
+own-direction drops, silent engines, a fill whose only route is a fact),
+`OoTWarpTravelEdges` (OoT's real exits and fact), `MMWarpTravelEdges` (MM's real
+landings, the crawl, the guard and MM's facts), the graph leg of
+`oot-warp-song-record` (the logic's destination equals the recorded one) and
+`ComboWarpTravelRounds` (both real engines in a coordinator round over a real
+paired world: each rule credits its own direction, the next expand reads the
+delivered fact at the real exit, and the rule bits alone change no field of a
+round).
+
+## 4.6 Host groups (ABI 9) and combo-wide groups (ABI 11, #1542)
+
+A bag row may carry a CONFINEMENT MASK (`ComboLogicFillRequest.confineMasks`):
+
+- **Local groups (ABI 9, bits 0..23).** A group means something only in the game
+  that defines it (MM's dungeons under Own Dungeon, MM's song checks under its own
+  Song Locations). A locally confined row lands only on its own game's hosts whose
+  `hostGroups` answer meets the mask, and never crosses.
+- **Combo-wide groups (ABI 11, bits 24..31).** One meaning in both games, declared
+  by each engine through `wideGroups`. Today there is one,
+  `RSBS_COMBO_GROUP_SONG_LOCATIONS`: under OoT Shuffle Songs: Song Locations in a
+  paired world (the shared song pool, rulings D1 and D5; OoTMM `songLocations`)
+  every song of either game carries it and every song check of either game
+  answers it. A wide row lands on its own game's hosts in the group, and on the
+  other game's where the row may cross (not HOME_ONLY) and the host accepts
+  foreign items. A shared pair may carry a wide-only mask: its one copy sits on a
+  song check of either game.
+- **Exclusive groups** (`exclusiveGroups`, wide bits only): a host in one takes
+  only rows confined to a group it is in, so under the pool a non-song never sits
+  on a song check. The song checks the songs leave over are junked by each game's
+  own remainder before it deals anything else (OoTMM `fillJunk`).
+- **Capacity** is checked before any attempt: per local group, rows against that
+  game's hosts; per wide group, Hall's condition over five row classes (each
+  game's home-only and roaming rows, shared pairs) and four host classes (each
+  game's accepting and refusing hosts), exact because rows of a class share one
+  neighbourhood. A shortfall is `RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY` with the
+  short set's game (or both), and the songs' refusal is OoTMM's sentence
+  (`Combo_SongPoolCapacityRefusal`).
+- **Refused as BAD_REQUEST:** a mask mixing local and wide bits, a shared pair with
+  a local mask, a host answering both namespaces, and a wide bit (in a mask or in
+  `exclusiveGroups`) that either engine does not declare. The last is the half-armed
+  pair: OoT arming the pool while MM's own songs value is not Song Locations.
+- **Silence is safe:** with no mask and no exclusive group the fill is the ABI-8
+  fill, byte for byte, and neither entry is called.
+
+Locked by `ComboLogicHostGroups` (local groups), `ComboLogicSongPool` (the
+combo-wide predicate, crossing, exclusivity, Hall's check and its words, the wide
+pair, the namespace and declaration refusals, an unmoved local row, a mask-free
+fill that never asks), `SongCheckTables` (both real engines' groups and masks
+under the pool, the half-armed pair refused) and the rando rows
+`SongPoolUnionWorld`, `SongPoolAnywhereUnconfined` and `SongPoolOverCapacity`.
+
 ## 5. Termination, and the two watchdogs
 
 The argument is written at the loop: each engine's expansion is monotone on its
@@ -367,7 +442,7 @@ Two detectors, because they catch different lies:
 
 | Lie | Detector | Status |
 |---|---|---|
-| a monotone observable falls (candidate count, crossing flag) | compared every iteration | `ERR_NON_MONOTONE`, at the iteration it happens |
+| a monotone observable falls (candidate count, crossing flag, a travel fact since ABI 10) | compared every iteration | `ERR_NON_MONOTONE`, at the iteration it happens |
 | `expand` reports change forever with nothing growing | the bound | `ERR_NO_FIXPOINT`, at `RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS` |
 
 Neither is worked around. Assumed fill and each game's trailing junk `FastFill`

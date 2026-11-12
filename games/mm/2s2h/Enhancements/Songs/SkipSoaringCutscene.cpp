@@ -2,6 +2,9 @@
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/ShipUtils.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Rando/WarpSongsMM.h" // #1169 XW7: an OoT warp song's departure
+#endif
 
 extern "C" {
 #include "variables.h"
@@ -19,6 +22,17 @@ static void SkipSoaringCutscene(Actor* actor, bool* should) {
     if (ocarinaMode == ENTEST7_ARRIVE) {
         return;
     }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW7: an OoT warp song (params 0x8000 | song) departs through the same
+    // one-shot as En_Test7's final action, never through the owl table below,
+    // which its params would index past.
+    if (MM_WarpSongMM_IsEnTest7Params(ocarinaMode)) {
+        *should = false;
+        MM_WarpSongMM_Depart(MM_gPlayState, ocarinaMode & 0xFF);
+        return;
+    }
+#endif
 
     *should = false;
 

@@ -36,6 +36,7 @@ static const char* const kRefusalWords[RSBS_REFUSAL_WORDS_COUNT] = {
     [RSBS_REFUSAL_WORDS_SETTINGS_DIFFER] = "Settings differ from its creation",
     [RSBS_REFUSAL_WORDS_NOT_GENERATED] = "Termina could not be generated",
     [RSBS_REFUSAL_WORDS_UNCHECKED] = "File could not be checked",
+    [RSBS_REFUSAL_WORDS_OLDER_VERSION] = "File made by an older version",
 };
 
 const char* Combo_RefusalWords(int which) {

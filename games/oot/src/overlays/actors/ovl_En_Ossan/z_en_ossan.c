@@ -19,6 +19,12 @@
 #include <assert.h>
 #include "soh/OTRGlobals.h"
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1482 (ShopRestockSingleExe.cpp): is a shuffled shelf sold out, given its
+// RandomizerInf? A bought shelf whose item OoTMM restocks is not.
+s32 OoT_Rando_ShopShelfSoldOut(u16 rc, s32 bought);
+#endif
+
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_FRIENDLY | ACTOR_FLAG_UPDATE_CULLING_DISABLED)
 
 void OoT_EnOssan_Init(Actor* thisx, PlayState* play);
@@ -437,7 +443,15 @@ void EnOssan_SpawnItemsOnShelves(EnOssan* this, PlayState* play, ShopItem* shopI
                 if (shopItemIdentity.identity.randomizerCheck != RC_UNKNOWN_CHECK) {
                     itemParams = shopItemIdentity.enGirlAShopItem;
 
-                    if (Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf)) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    // #1482: a bought shelf whose item OoTMM restocks is on sale again.
+                    s32 soldOut =
+                        OoT_Rando_ShopShelfSoldOut(shopItemIdentity.identity.randomizerCheck,
+                                                   Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+#else
+                    s32 soldOut = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
+#endif
+                    if (soldOut) {
                         itemParams = SI_SOLD_OUT;
                     }
                 }

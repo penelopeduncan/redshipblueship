@@ -49,6 +49,9 @@
  *      row (the control, so the door leg is not vacuous).
  *   W5 THE GATES SoH's own load path uses: a vanilla save, and a randomizer save
  *      with Shuffle Entrances off, keep the pad.
+ *   W6-W11 (#1169 XW7) THE FROZEN WARP-SONG RECORD (gComboCtx.comboOoTWarps): the
+ *      creation's writer over this seed, and the arrival preferring the record
+ *      over the live table (see RunRecordLegs). W1-W5 run with no record.
  *
  * Everything the row changes is put back: the options, the override table, the
  * entrance table (Entrance_ResetEntranceTable, or a re-run Entrance_Init if it was
@@ -70,10 +73,14 @@
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/randomizer_entrance.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
+#include "soh/Enhancements/randomizer/hint.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/OTRGlobals.h"
 
-#include "entrance.h" // src/common: COMBO_SWITCH_KIND_*
+#include "combo_area.h"        // src/common: COMBO_AREA_OOT_KAKARIKO_VILLAGE (#1169 XW7)
+#include "context.h"           // src/common: gComboCtx.comboOoTWarps (#1169 XW7)
+#include "entrance.h"          // src/common: COMBO_SWITCH_KIND_*
+#include "mm_warp_song_play.h" // src/common: the creation's warp-song record (#1169 XW7)
 
 #include <cmath>
 #include <cstdint>
@@ -87,6 +94,8 @@ extern "C" PlayState* OoT_gPlayState;
 // games/oot/soh/Enhancements/randomizer/entrance.h declares this inside the
 // header's C++-only region; redeclared here so this TU stays header-light.
 extern "C" EntranceOverride* Randomizer_GetEntranceOverrides();
+// WarpSongRecordOoT.cpp (#1169 XW7): the creation's warp-song record writer.
+extern "C" int OoT_Creation_FreezeWarpSongRecord(void);
 
 namespace {
 
@@ -260,6 +269,125 @@ void RunLegs(Rando::Context& ctx) {
                 (unsigned)(u16)vanilla, (unsigned)(u16)noShuffle);
 }
 
+constexpr RandomizerHint kWarpRecordHints[6] = { RH_MINUET_WARP_LOC,  RH_BOLERO_WARP_LOC,   RH_SERENADE_WARP_LOC,
+                                                 RH_REQUIEM_WARP_LOC, RH_NOCTURNE_WARP_LOC, RH_PRELUDE_WARP_LOC };
+constexpr s16 kWarpRecordPads[6] = { ENTR_SACRED_FOREST_MEADOW_WARP_PAD,
+                                     ENTR_DEATH_MOUNTAIN_CRATER_WARP_PAD,
+                                     ENTR_LAKE_HYLIA_WARP_PAD,
+                                     ENTR_DESERT_COLOSSUS_WARP_PAD,
+                                     ENTR_GRAVEYARD_WARP_PAD,
+                                     ENTR_TEMPLE_OF_TIME_WARP_PAD };
+
+/**
+ * #1169 XW7: THE FROZEN WARP-SONG RECORD.
+ *   W6 THE WRITER over this row's seed: flags SHUFFLED, Minuet's and Serenade's
+ *      destinations the seed's overrides, the rest their pads, and every one what
+ *      Entrance_GetOverride answers after Entrance_Init (the writer is the table);
+ *      with Warp Song Hints on, flags 3 and Minuet's area the hint's.
+ *   W7 THE RECORD WINS over another file's table: with the live override for
+ *      Minuet's pad moved to Lon Lon Ranch, a warp arrival still lands on the
+ *      record's Kakariko front gate.
+ *   W8 A PLAIN DESTINATION NEEDS NO TABLE: before Entrance_Init (not ready) the
+ *      arrival lands on the record's destination, where XW3's body kept the pad.
+ *   W9 A GROTTO DESTINATION through the record, table ready: Serenade lands on the
+ *      tektite grotto's return with respawnFlag 2.
+ *   W10 AN UNSHUFFLED RECORD keeps the pad although the table has an override,
+ *       and marks it discovered (Shuffle Entrances on, table ready) as XW3 does.
+ *   W11 AN UNSET RECORD runs XW3's body (the table's override).
+ */
+void RunRecordLegs(Rando::Context& ctx) {
+    ctx.GetOption(RSK_SHUFFLE_ENTRANCES).Set(RO_GENERIC_ON);
+    ctx.GetOption(RSK_SHUFFLE_WARP_SONGS).Set(RO_GENERIC_ON);
+    ctx.GetOption(RSK_SHUFFLE_OVERWORLD_ENTRANCES).Set(RO_GENERIC_ON);
+    ctx.GetOption(RSK_DECOUPLED_ENTRANCES).Set(RO_GENERIC_ON);
+    ctx.GetOption(RSK_MIX_GROTTO_ENTRANCES).Set(RO_GENERIC_OFF);
+    ctx.GetOption(RSK_WARP_SONG_HINTS).Set(RO_GENERIC_OFF);
+    WriteSeedOverrides(Randomizer_GetEntranceOverrides());
+    Entrance_Init();
+
+    // W6. The writer.
+    const int wrote = OoT_Creation_FreezeWarpSongRecord();
+    bool tableAgrees = true;
+    for (int i = 0; i < 6; i++) {
+        tableAgrees = tableAgrees && (u16)Entrance_GetOverride(kWarpRecordPads[i]) == Combo_OoTWarpRecord_Dest(i);
+    }
+    std::printf("[TEST] rando-warp-arrival W6: writer rc %d, status %d, flags %u, Minuet 0x%04X, Serenade 0x%04X, "
+                "Bolero 0x%04X, table agrees %d\n",
+                wrote, Combo_OoTWarpRecord_Status(), (unsigned)Combo_OoTWarpRecord_Flags(),
+                (unsigned)Combo_OoTWarpRecord_Dest(0), (unsigned)Combo_OoTWarpRecord_Dest(2),
+                (unsigned)Combo_OoTWarpRecord_Dest(1), tableAgrees ? 1 : 0);
+    WA_CHECK(wrote == 0 && Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_PRESENT &&
+                 Combo_OoTWarpRecord_Flags() == RSBS_OOT_WARP_REC_SHUFFLED,
+             "the writer did not freeze a PRESENT shuffled record\n");
+    WA_CHECK(Combo_OoTWarpRecord_Dest(0) == (u16)kMinuetOverride &&
+                 Combo_OoTWarpRecord_Dest(2) == (u16)kSerenadeOverride &&
+                 Combo_OoTWarpRecord_Dest(1) == (u16)ENTR_DEATH_MOUNTAIN_CRATER_WARP_PAD,
+             "the writer's destinations are not the seed's overrides (and the pads without one)\n");
+    WA_CHECK(tableAgrees, "a recorded destination differs from what Entrance_GetOverride answers for its pad\n");
+    {
+        std::vector<Rando::Hint> priorHints;
+        for (RandomizerHint key : kWarpRecordHints) {
+            priorHints.push_back(*ctx.GetHint(key));
+        }
+        ctx.GetOption(RSK_WARP_SONG_HINTS).Set(RO_GENERIC_ON);
+        ctx.AddHint(RH_MINUET_WARP_LOC, Rando::Hint(RH_MINUET_WARP_LOC, HINT_TYPE_AREA, "", { RHT_WARP_SONG }, {},
+                                                    { RA_KAKARIKO_VILLAGE }));
+        const int hinted = OoT_Creation_FreezeWarpSongRecord();
+        std::printf("[TEST] rando-warp-arrival W6: hints on: rc %d, flags %u, Minuet's area %u\n", hinted,
+                    (unsigned)Combo_OoTWarpRecord_Flags(), (unsigned)Combo_OoTWarpRecord_Area(0));
+        WA_CHECK(hinted == 0 && Combo_OoTWarpRecord_Flags() == 3u &&
+                     Combo_OoTWarpRecord_Area(0) == (u8)COMBO_AREA_OOT_KAKARIKO_VILLAGE,
+                 "with Warp Song Hints on the record does not carry flags 3 and the hint's area\n");
+        for (size_t i = 0; i < priorHints.size(); i++) {
+            ctx.AddHint(kWarpRecordHints[i], priorHints[i]);
+        }
+        ctx.GetOption(RSK_WARP_SONG_HINTS).Set(RO_GENERIC_OFF);
+        (void)OoT_Creation_FreezeWarpSongRecord(); // back to the shuffled, unhinted record
+    }
+
+    // W7. The record wins over another file's table.
+    Randomizer_GetEntranceOverrides()[0].override = ENTR_LON_LON_RANCH_ENTRANCE;
+    Entrance_Init();
+    const s16 recordWins = Arrive(true, ENTR_SACRED_FOREST_MEADOW_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    std::printf("[TEST] rando-warp-arrival W7: the table says 0x%04X, the arrival lands on 0x%04X\n",
+                (unsigned)(u16)Entrance_GetOverride(ENTR_SACRED_FOREST_MEADOW_WARP_PAD), (unsigned)(u16)recordWins);
+    WA_CHECK(recordWins == kMinuetOverride, "a live table from another file overrode the frozen record\n");
+    Randomizer_GetEntranceOverrides()[0].override = kMinuetOverride;
+
+    // W8. A plain destination needs no table.
+    Entrance_ResetEntranceTable();
+    const s16 notReady = Arrive(true, ENTR_SACRED_FOREST_MEADOW_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    WA_CHECK(!Entrance_WarpArrivalOverridesReady() && notReady == kMinuetOverride,
+             "before Entrance_Init the arrival did not land on the record's plain destination (0x%04X)\n",
+             (unsigned)(u16)notReady);
+
+    // W9. A grotto destination through the record.
+    Entrance_Init();
+    const s16 grotto = Arrive(true, ENTR_LAKE_HYLIA_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    WA_CHECK(grotto == kTektiteReturnEntrance && gSaveContext.respawnFlag == 2,
+             "a recorded grotto destination did not land on the grotto's return with respawnFlag 2 (0x%04X, %d)\n",
+             (unsigned)(u16)grotto, (int)gSaveContext.respawnFlag);
+
+    // W10. An unshuffled record keeps the pad.
+    (void)Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, false, false, NULL, NULL);
+    const s16 unshuffled = Arrive(true, ENTR_SACRED_FOREST_MEADOW_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    // ArmArrival zeroed the save, so the bit is this arrival's: with another
+    // entrance shuffle on the kept pad is discovered, as XW3's body marks it.
+    const bool unshuffledDiscovered = Entrance_GetIsEntranceDiscovered(ENTR_SACRED_FOREST_MEADOW_WARP_PAD) != 0;
+    WA_CHECK(unshuffled == ENTR_SACRED_FOREST_MEADOW_WARP_PAD, "an unshuffled record did not keep the pad (0x%04X)\n",
+             (unsigned)(u16)unshuffled);
+    WA_CHECK(unshuffledDiscovered, "an unshuffled record's kept pad was not marked discovered with Shuffle Entrances "
+                                   "on\n");
+
+    // W11. An unset record runs XW3's body.
+    Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+    const s16 unset = Arrive(true, ENTR_SACRED_FOREST_MEADOW_WARP_PAD, COMBO_SWITCH_KIND_WARP_SONG);
+    WA_CHECK(unset == kMinuetOverride, "an unset record did not fall back to the table's override (0x%04X)\n",
+             (unsigned)(u16)unset);
+    std::printf("[TEST] rando-warp-arrival W8-W11: not ready 0x%04X, grotto 0x%04X, unshuffled 0x%04X, unset 0x%04X\n",
+                (unsigned)(u16)notReady, (unsigned)(u16)grotto, (unsigned)(u16)unshuffled, (unsigned)(u16)unset);
+}
+
 } // namespace
 
 /**
@@ -274,9 +402,9 @@ extern "C" int OoT_WarpArrivalTest_Run(void) {
         GameInteractor::Instance = new GameInteractor();
     }
     const std::shared_ptr<Rando::Context> ctx = OTRGlobals::Instance->gRandoContext;
-    const RandomizerSettingKey kKeys[] = { RSK_SHUFFLE_ENTRANCES, RSK_SHUFFLE_WARP_SONGS,
+    const RandomizerSettingKey kKeys[] = { RSK_SHUFFLE_ENTRANCES,           RSK_SHUFFLE_WARP_SONGS,
                                            RSK_SHUFFLE_OVERWORLD_ENTRANCES, RSK_DECOUPLED_ENTRANCES,
-                                           RSK_MIX_GROTTO_ENTRANCES };
+                                           RSK_MIX_GROTTO_ENTRANCES,        RSK_WARP_SONG_HINTS };
     uint8_t priorOptions[sizeof(kKeys) / sizeof(kKeys[0])];
     for (size_t i = 0; i < sizeof(kKeys) / sizeof(kKeys[0]); i++) {
         priorOptions[i] = ctx->GetOption(kKeys[i]).Get();
@@ -288,12 +416,20 @@ extern "C" int OoT_WarpArrivalTest_Run(void) {
     std::memcpy(priorSave.get(), &gSaveContext, sizeof(SaveContext));
     PlayState* const priorPlay = OoT_gPlayState;
 
+    // #1169 XW7: XW3's legs run with no warp-song record (an earlier row of the same
+    // process may have left one), the record legs after them; the record is put
+    // back afterwards.
+    const ComboOoTWarpRecord priorRecord = gComboCtx.comboOoTWarps;
+    Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+
     sWarpArrivalFailures = 0;
     OoT_gPlayState = nullptr;
     {
         WarpArrivalHooksAside<GameInteractor::OnRandoEntranceDiscovered> discovered;
         RunLegs(*ctx);
+        RunRecordLegs(*ctx);
     }
+    gComboCtx.comboOoTWarps = priorRecord;
 
     for (size_t i = 0; i < sizeof(kKeys) / sizeof(kKeys[0]); i++) {
         ctx->GetOption(kKeys[i]).Set(priorOptions[i]);

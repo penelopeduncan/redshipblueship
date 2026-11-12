@@ -47,7 +47,7 @@ uint32_t Combo_SongSpotsOverflow(uint32_t songs, uint32_t spots, uint32_t mode, 
     return over;
 }
 
-static char sSongSpotsLastRefusal[256];
+static char sSongSpotsLastRefusal[512];
 
 void Combo_SongSpotsRecordRefusal(const char* msg) {
     if (msg == NULL) {

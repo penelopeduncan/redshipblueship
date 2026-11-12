@@ -125,6 +125,26 @@ void Rando::MiscBehavior::CheckQueue() {
 
         if (randoSaveCheck.eligible) {
 #ifdef RSBS_SINGLE_EXECUTABLE
+            // #1542 S0: a SONG check that already delivered its crossing and is
+            // armed again (nine of MM's eleven re-arm on a later cycle or a
+            // re-entry) gives nothing: the record is refused by `obtained`
+            // (RecordForeignPickup), so the foreign branch below would only
+            // replay "You found the X (OoT)!" for an item not given. Consumed
+            // silently instead, as OoTMM gives each song location once per file
+            // (its gMmExtraFlags song bits: En_Gk.c, En_Jg.c, En_Ma4.c,
+            // En_Knight.c, Dm_Char02.c). Written through the array: the loop's
+            // `randoSaveCheck` is a copy. Before the outbox hold, which answers
+            // false for an obtained host anyway (ForeignOutboxFullFor).
+            if (Rando::Foreign::IsDeliveredForeignSongHost(randoCheckId)) {
+                RANDO_SAVE_CHECKS[randoCheckId].eligible = false;
+                RANDO_SAVE_CHECKS[randoCheckId].cycleObtained = true;
+                fprintf(stderr,
+                        "[MM] foreign song host: MM check %u was armed again after delivering its crossing; "
+                        "consumed, nothing given (#1542)\n",
+                        (unsigned)randoCheckId);
+                fflush(stderr);
+                continue;
+            }
             // #1222: a foreign host whose crossing the full outbox would refuse is
             // HELD, still eligible (durable in the save), and given on the first
             // frame a row is free again: after the next crossing redeems the rows
@@ -260,6 +280,14 @@ void Rando::MiscBehavior::CheckQueue() {
                         auto& randoSaveCheck = RANDO_SAVE_CHECKS[CUSTOM_ITEM_PARAM];
                         RandoItemId randoItemId =
                             Rando::ConvertItem(randoSaveCheck.randoItemId, (RandoCheckId)CUSTOM_ITEM_PARAM);
+#ifdef RSBS_SINGLE_EXECUTABLE
+                        // #1499: a paid check (Tingle, a scrub's sale) never gives
+                        // "literally nothing": re-roll the junk cache before the
+                        // message and the give below read it.
+                        if (randoItemId == RI_JUNK && Rando::IsPaidCheck((RandoCheckId)CUSTOM_ITEM_PARAM)) {
+                            (void)Rando::CurrentPaidJunkItem();
+                        }
+#endif
                         std::string prefix = "You found";
                         std::string message = Rando::StaticData::GetItemName(randoItemId);
 

@@ -60,6 +60,7 @@ void Rando::ActorBehavior::OnFileLoad() {
     Rando::ActorBehavior::InitEnBjtBehavior();
     Rando::ActorBehavior::InitEnBomBowlManBehavior();
     Rando::ActorBehavior::InitEnBoxBehavior();
+    Rando::ActorBehavior::InitEnButteBehavior();
     Rando::ActorBehavior::InitEnCowBehavior();
     Rando::ActorBehavior::InitEnDaiBehavior();
     Rando::ActorBehavior::InitEnDnhBehavior();
@@ -120,6 +121,7 @@ void Rando::ActorBehavior::OnFileLoad() {
     Rando::ActorBehavior::InitEnZowBehavior();
     Rando::ActorBehavior::InitItemBHeartBehavior();
     Rando::ActorBehavior::InitItemGetBehavior();
+    Rando::ActorBehavior::InitObjCombBehavior();
     Rando::ActorBehavior::InitObjKibakoBehavior();
     Rando::ActorBehavior::InitObjGrassBehavior();
     Rando::ActorBehavior::InitObjMoonStoneBehavior();
@@ -131,6 +133,7 @@ void Rando::ActorBehavior::OnFileLoad() {
     Rando::ActorBehavior::InitPlayerBehavior();
     Rando::ActorBehavior::InitSoulsBehavior();
     Rando::ActorBehavior::InitTrapsBehavior();
+    Rando::ActorBehavior::InitWonderItemsBehavior();
 
     COND_HOOK(ShouldVanillaBehavior, IS_RANDO, MiscVanillaBehaviorHandler);
 }
