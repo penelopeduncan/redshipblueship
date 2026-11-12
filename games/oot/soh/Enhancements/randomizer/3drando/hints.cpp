@@ -1051,21 +1051,28 @@ void CreateStaticItemHint(RandomizerHint hintKey, std::vector<RandomizerHintText
                           bool yourPocket = false) {
     // RANDOTODO choose area in case there are multiple
     auto ctx = Rando::Context::GetInstance();
-    std::vector<RandomizerCheck> locations = FindItemsAndMarkHinted(items, hintChecks);
-    std::vector<RandomizerArea> areas = {};
+    std::vector<RandomizerCheck> rawLocations = FindItemsAndMarkHinted(items, hintChecks);
+    std::vector<RandomizerCheck> locations;
+    std::vector<RandomizerArea> areas;
+    locations.reserve(rawLocations.size());
+    areas.reserve(rawLocations.size());
 #ifdef RSBS_SINGLE_EXECUTABLE
     std::vector<uint8_t> foreignAreas = {};
 #endif
-    for (size_t i = 0; i < locations.size(); i++) {
-        if (locations[i] == RC_UNKNOWN_CHECK && HintAreaForItemOutsideHyrule(items[i]) == RA_TERMINA) {
+    for (size_t i = 0; i < rawLocations.size(); i++) {
+        if (rawLocations[i] == RC_UNKNOWN_CHECK) {
+            if (i < items.size() && HintAreaForItemOutsideHyrule(items[i]) == RA_TERMINA) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-            PushTerminaSlot(areas, foreignAreas, items[i]);
+                PushTerminaSlot(areas, foreignAreas, items[i]);
 #else
-            areas.push_back(RA_TERMINA);
+                areas.push_back(RA_TERMINA);
 #endif
+                locations.push_back(rawLocations[i]);
+            }
             continue;
         }
-        areas.push_back(ctx->GetItemLocation(locations[i])->GetRandomArea());
+        locations.push_back(rawLocations[i]);
+        areas.push_back(ctx->GetItemLocation(rawLocations[i])->GetRandomArea());
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
     AddHintWithForeignAreas(hintKey, Hint(hintKey, HINT_TYPE_AREA, hintTextKeys, locations, areas, {}, yourPocket),
