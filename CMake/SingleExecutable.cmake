@@ -1232,6 +1232,11 @@ if(BUILD_TESTING)
     # unsigned, so a non-ASCII seed makes the same world on signed- and
     # unsigned-char targets. Pinned vectors; reverting either cast is red on x86.
     redship_add_test(NAME HashBytesUnsigned COMMAND redship --test hash-bytes-unsigned)
+    # Clean save break part 2: placementHash, ootFinalPlacementHash and
+    # mmPlacementHash fold only placed rows (OoT not RG_NONE, MM shuffled), so a
+    # backport's checks behind an off option stop moving the goldens. Each game's
+    # real fold over a synthetic table: unplaced rows leave it, placed rows move it.
+    redship_add_test(NAME PlacementHashPlacedRows COMMAND redship --test placement-hash-placed-rows)
     redship_add_test(NAME ComboSettingsDivergence COMMAND redship --test combo-settings-divergence)
     redship_add_test(NAME ComboSettingsLegacyFreeze COMMAND redship --test combo-settings-legacy-freeze)
     # ADR 0011 increment 2 (+ #668): the six tier-4 gCombo.Rando.* keys and the pane.
