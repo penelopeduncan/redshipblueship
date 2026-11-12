@@ -892,7 +892,7 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_CHILD_WALLET, "Shuffle Child's Wallet", CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), mOptionDescriptions[RSK_SHUFFLE_CHILD_WALLET], IMFLAG_NONE);
     OPT_CALLBACK(RSK_SHUFFLE_CHILD_WALLET, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), 0)) {
-            CVarSetInteger(CVAR_RANDOMIZER_SETTING("StartingWallet"), 0);
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingWallet"));
             mOptions[RSK_STARTING_WALLET].Disable("Disabled because Shuffle Child's Wallet is on.");
         } else {
             mOptions[RSK_STARTING_WALLET].Enable();
@@ -912,7 +912,7 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_SWIM, "Shuffle Swim", CVAR_RANDOMIZER_SETTING("ShuffleSwim"), mOptionDescriptions[RSK_SHUFFLE_SWIM]);
     OPT_CALLBACK(RSK_SHUFFLE_SWIM, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleSwim"), 0)) {
-            CVarSetInteger(CVAR_RANDOMIZER_SETTING("StartingScale"), 0);
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingScale"));
             mOptions[RSK_STARTING_SCALE].Disable("Disabled because Shuffle Swim is on.");
         } else {
             mOptions[RSK_STARTING_SCALE].Enable();
@@ -921,7 +921,7 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_GRAB, "Shuffle Grab", CVAR_RANDOMIZER_SETTING("ShuffleGrab"), mOptionDescriptions[RSK_SHUFFLE_GRAB]);
     OPT_CALLBACK(RSK_SHUFFLE_GRAB, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleGrab"), 0)) {
-            CVarSetInteger(CVAR_RANDOMIZER_SETTING("StartingStrength"), 0);
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingStrength"));
             mOptions[RSK_STARTING_STRENGTH].Disable("Disabled because Shuffle Grab is on.");
         } else {
             mOptions[RSK_STARTING_STRENGTH].Enable();
