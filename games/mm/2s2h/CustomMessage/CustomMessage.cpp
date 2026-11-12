@@ -115,8 +115,12 @@ void CustomMessage::AddLineBreaks(std::string* msg) {
                         currentLineWidth += sNESFontWidths[(uint8_t)c - 0x20];
                     }
                 }
-                // Add current character's width
-                currentLineWidth += charWidth;
+                // Add current character's width, unless it is the space just
+                // turned into the newline (#1556 QC: upstream counted it, so the
+                // next line could wrap a word early)
+                if (currentChar != ' ') {
+                    currentLineWidth += charWidth;
+                }
 
                 lastSpaceIndex = std::string::npos;
             } else {
