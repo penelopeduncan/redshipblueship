@@ -43,12 +43,17 @@
  *   and the GOAL is still proven. (The headless half does not run OoT's junk
  *   remainder, so the check OoT's copy leaves is not inspected here.)
  *
+ *   Since #1542 Majora's Mask's Shuffle Songs follows OoT's (combo_song_pool.h),
+ *   so each row also checks MM's resolved value, and under OoT Off MM's is
+ *   Vanilla: MM's copy of each shared song leaves its vanilla check to the bag's
+ *   one shared row (GeneratePools.cpp RsbsReleasesVanillaSharedSong), counted
+ *   over EVERY MM check, vanilla ones included, so a copy left at home is seen.
+ *
  *   shared-songs-one-copy-mm-vanilla (CTest SharedSongsOneCopyMMVanilla, rando
- *   tier, #1502) -- the same with OoT's songs Anywhere and MAJORA'S MASK's Shuffle
- *   Songs at Vanilla: MM's copy of each shared song leaves its vanilla check to
- *   the bag's one shared row (GeneratePools.cpp RsbsReleasesVanillaSharedSong),
- *   counted over EVERY MM check, vanilla ones included, so a copy left at home
- *   is seen.
+ *   tier, #1502; #1542) -- MM'S KEY IS IGNORED: OoT's songs Anywhere with MAJORA'S
+ *   MASK's own Shuffle Songs key at Vanilla. The pair has one songs setting, so
+ *   MM's half must resolve Anywhere (red if MM's key is read for a paired world),
+ *   and the world still holds one copy of each shared song.
  *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
@@ -60,6 +65,7 @@
 #include "../combo_logic.h"
 #include "../combo_settings_view.h"
 #include "../combo_single_bag.h"
+#include "../combo_song_pool.h" // Combo_PairSongsMmValue (#1542)
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
@@ -101,6 +107,8 @@ int OoT_SharedSongsTest_VanillaSongCount(void);
 // games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): every MM check holding
 // the id, vanilla (unshuffled) checks included.
 int MM_PlacementConfinement_WorldCopies(uint16_t id);
+// The same file (#1542): the live MM save's frozen Shuffle Songs.
+int MM_PlacementConfinement_FrozenSongs(void);
 void OoT_SharedSongsTest_EponaBegin(void);
 void OoT_SharedSongsTest_EponaEnd(void);
 void OoT_SharedSongsTest_SetEponaFile(int rando, int skip);
@@ -775,8 +783,10 @@ const char* const kSsMmSongShuffleKey = "gRando.Options.RO_SHUFFLE_SONGS";
 const int kSsMmSongShuffleVanilla = 2;
 
 TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
-    const bool mmVanilla = mmShuffleSongs == kSsMmSongShuffleVanilla;
-    const char* shuffleName = mmVanilla                                 ? "MM Vanilla"
+    // #1542: MM's Shuffle Songs is the mapping of OoT's, whatever MM's key says.
+    const uint32_t mmExpected = Combo_PairSongsMmValue((uint32_t)shuffleSongs);
+    const bool mmVanilla = mmExpected == RSBS_MM_SONGS_VANILLA;
+    const char* shuffleName = mmShuffleSongs == kSsMmSongShuffleVanilla ? "MM key Vanilla, ignored"
                               : (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs]
                                                                         : "?";
     printf("[TEST] shared-songs-one-copy (Shuffle Songs %s): with the three shared-song rules on, the paired world "
@@ -831,6 +841,15 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
         printf("[TEST] shared-songs-one-copy (%s): FAIL\n", shuffleName);
         return TEST_FAIL;
     }
+    // #1542: the pair's one songs setting. MM's half was made with the mapping of
+    // OoT's Shuffle Songs; MM's own key (set by the mm-vanilla row) is not read.
+    const int mmResolved = MM_PlacementConfinement_FrozenSongs();
+    printf("[TEST] shared-songs-one-copy (%s): MM's Shuffle Songs resolved %d (expected %u)\n", shuffleName, mmResolved,
+           (unsigned)mmExpected);
+    SS_CHECK(mmResolved == (int)mmExpected,
+             "MM's half was made with Shuffle Songs %d, not %u, the mapping of OoT's %d: MM's own key was read for a "
+             "paired world (#1542)",
+             mmResolved, (unsigned)mmExpected, shuffleSongs);
     const ComboSingleBagReport bag = *Combo_SingleBag_LastReport();
     printf("[TEST] shared-songs-one-copy (%s): bag %d rows, %d shared pair(s), %d trimmed OoT / %d trimmed MM, goal "
            "proven %d\n",
@@ -883,7 +902,7 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     }
 
     // Off: only the shared songs leave their vanilla checks.
-    if (shuffleSongs == 0 && !mmVanilla) {
+    if (shuffleSongs == 0) {
         const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount() - 3;
         const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(sharedRgs, 3);
         printf("[TEST] shared-songs-one-copy (Off): %d of the other vanilla songs at home (expected %d)\n", atHome,

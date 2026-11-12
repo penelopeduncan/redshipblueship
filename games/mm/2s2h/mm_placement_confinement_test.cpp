@@ -52,6 +52,17 @@
  *      the hosted half only); an OoT id no pair names, and an item that is not a
  *      song, are never skipped (red if the rule matches too widely). It does not
  *      cover Combo_Woth_DefaultEligible's call (the frozen pairs it passes).
+ *  (g) THE PAIR'S ONE SONGS SETTING (#1542 D2; OoTMM `songs`). (g1) MM's paired
+ *      Shuffle Songs is the mapping of OoT's key for each of OoT's four values,
+ *      with MM's own key set to a value the mapping does not give (red if MM's
+ *      key is read or the table drifts), and OoT's default when its key is unset;
+ *      (g2) a capture wins over OoT's key (red if the completion could follow a
+ *      key changed after the freeze); (g3) a stamp made under each captured value
+ *      still matches once the capture is gone and OoT's key moved (red if a
+ *      compare depends on the row), the values' stamps differ, and another
+ *      option's change is still refused (red if the candidates accept any
+ *      profile); (g4) unfrozen the row shows OoT's key mapped, frozen the value
+ *      the world's stamp reproduces (red if the frozen row reads the key).
  *
  * ============================================================================
  * mm-placement-confined-world (CTest MMPlacementConfinedWorld, rando tier)
@@ -84,8 +95,11 @@
 
 // src/common — outside any extern "C" block; these headers manage their own.
 #include "combo_logic.h"
+#include "combo_mm_options_view.h" // MM_Rando_PairedSongsResolved / _Shown, the stamp and its compare (#1542)
 #include "combo_single_bag.h"
+#include "combo_song_pool.h" // #1542: the pair's one songs setting
 #include "combo_woth.h"
+#include "context.h" // gComboCtx.mmProfileDigest: the frozen-row leg (#1542)
 
 extern "C" {
 #include "variables.h"
@@ -419,6 +433,216 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         }
     }
 
+    // ---- (g) #1542: the pair's one songs setting ------------------------------
+    {
+        // The two keys, the capture and the frozen digest as the row found them.
+        const char* const ootKey = RSBS_OOT_SHUFFLE_SONGS_CVAR;
+        const char* const mmKey = Rando::StaticData::Options[RO_SHUFFLE_SONGS].cvar;
+        const char* const cowsKey = Rando::StaticData::Options[RO_SHUFFLE_COWS].cvar;
+        struct SongsRestore {
+            const char* oot;
+            const char* mm;
+            const char* cows;
+            bool ootSet;
+            bool mmSet;
+            bool cowsSet;
+            int32_t ootValue;
+            int32_t mmValue;
+            int32_t cowsValue;
+            int16_t capture;
+            uint32_t digest;
+            ~SongsRestore() {
+                Put(oot, ootSet, ootValue);
+                Put(mm, mmSet, mmValue);
+                Put(cows, cowsSet, cowsValue);
+                Combo_PairSongsRestore(capture);
+                gComboCtx.mmProfileDigest = digest;
+            }
+            static void Put(const char* key, bool set, int32_t value) {
+                if (set) {
+                    CVarSetInteger(key, value);
+                } else {
+                    CVarClear(key);
+                }
+            }
+        } songsRestore{ ootKey,
+                        mmKey,
+                        cowsKey,
+                        Combo_CVarIsExplicitInt(ootKey),
+                        Combo_CVarIsExplicitInt(mmKey),
+                        Combo_CVarIsExplicitInt(cowsKey),
+                        CVarGetInteger(ootKey, 0),
+                        CVarGetInteger(mmKey, 0),
+                        CVarGetInteger(cowsKey, 0),
+                        Combo_PairSongsSnapshot(),
+                        gComboCtx.mmProfileDigest };
+        gComboCtx.mmProfileDigest = 0; // unfrozen: the next creation's resolution
+        Combo_PairSongsClear();
+
+        // (g1) THE MAPPING, spelled here independently of combo_song_pool.cpp: OoT
+        // Off, Song Locations, Dungeon Rewards, Anywhere -> MM Vanilla, Song
+        // Locations, Song Locations, Anywhere. MM's own key is set to a value
+        // the mapping does NOT give, so a resolution that reads it is red.
+        static const uint32_t kWant[4] = { RO_SONG_SHUFFLE_VANILLA, RO_SONG_SHUFFLE_SONG_LOCATIONS,
+                                           RO_SONG_SHUFFLE_SONG_LOCATIONS, RO_SONG_SHUFFLE_ANYWHERE };
+        for (uint32_t oot = 0; oot < 4; ++oot) {
+            const uint32_t conflicting = (kWant[oot] + 1u) % 3u;
+            CVarSetInteger(ootKey, (int32_t)oot);
+            CVarSetInteger(mmKey, (int32_t)conflicting);
+            const int resolved = MM_Rando_PairedSongsResolved();
+            printf("[TEST] (g1) OoT Shuffle Songs %u, MM key %u: MM resolves %d (want %u)\n", (unsigned)oot,
+                   (unsigned)conflicting, resolved, (unsigned)kWant[oot]);
+            MPC_CHECK(resolved == (int)kWant[oot] && Combo_PairSongsMmValue(oot) == kWant[oot],
+                      "(g1) OoT Shuffle Songs %u: MM's paired Shuffle Songs is %d, want %u (MM's own key must not be "
+                      "read, and the mapping must be OoTMM's one setting)",
+                      (unsigned)oot, resolved, (unsigned)kWant[oot]);
+        }
+        // An unset OoT key is OoT's shipped default, Song Locations: a default
+        // paired world confines MM's songs to MM's song checks.
+        CVarClear(ootKey);
+        MPC_CHECK(MM_Rando_PairedSongsResolved() == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS,
+                  "(g1) with OoT's key unset MM resolves %d, not Song Locations (OoT's default)",
+                  MM_Rando_PairedSongsResolved());
+
+        // (g2) THE CAPTURE WINS over OoT's key: between the freeze and the
+        // completion MM's half follows OoT's frozen value, never a key changed
+        // since (red if the resolution skips the capture: the F2 hazard).
+        CVarSetInteger(ootKey, (int32_t)RSBS_OOT_SONGS_SONG_LOCATIONS);
+        Combo_PairSongsCapture(RSBS_OOT_SONGS_ANYWHERE);
+        MPC_CHECK(MM_Rando_PairedSongsResolved() == (int)RO_SONG_SHUFFLE_ANYWHERE,
+                  "(g2) with Anywhere captured and OoT's key at Song Locations MM resolves %d, not Anywhere",
+                  MM_Rando_PairedSongsResolved());
+        Combo_PairSongsCapture(RSBS_OOT_SONGS_OFF);
+        MPC_CHECK(MM_Rando_PairedSongsResolved() == (int)RO_SONG_SHUFFLE_VANILLA,
+                  "(g2) with Off captured MM resolves %d, not Vanilla", MM_Rando_PairedSongsResolved());
+
+        // (g3) THE COMPARES DO NOT DEPEND ON THE ROW. A stamp made with each OoT
+        // value captured still matches once the capture is gone and OoT's key
+        // says something else (red if the arrival, the load classification or
+        // the restore's after-check compares one MM Shuffle Songs value only);
+        // the stamps of different MM values differ (the row is in the identity);
+        // and a stamp is still refused for another option's change (red if the
+        // candidates accept any profile).
+        uint32_t stamps[4] = {};
+        for (uint32_t oot = 0; oot < 4; ++oot) {
+            Combo_PairSongsCapture(oot);
+            stamps[oot] = MM_Rando_ComputeProfileStamp();
+            Combo_PairSongsClear();
+            const uint32_t moved = oot == RSBS_OOT_SONGS_ANYWHERE ? RSBS_OOT_SONGS_OFF : RSBS_OOT_SONGS_ANYWHERE;
+            CVarSetInteger(ootKey, (int32_t)moved);
+            MPC_CHECK(MM_Rando_ProfileStampMatches(stamps[oot]) == 1,
+                      "(g3) the stamp %08X made with OoT Shuffle Songs %u captured does not match once OoT's key "
+                      "is %u: the MM compare depends on the songs row",
+                      (unsigned)stamps[oot], (unsigned)oot, (unsigned)moved);
+        }
+        MPC_CHECK(stamps[RSBS_OOT_SONGS_OFF] != stamps[RSBS_OOT_SONGS_SONG_LOCATIONS] &&
+                      stamps[RSBS_OOT_SONGS_SONG_LOCATIONS] != stamps[RSBS_OOT_SONGS_ANYWHERE] &&
+                      stamps[RSBS_OOT_SONGS_OFF] != stamps[RSBS_OOT_SONGS_ANYWHERE],
+                  "(g3) MM's three Shuffle Songs values gave stamps %08X %08X %08X: the row must be in the identity",
+                  (unsigned)stamps[RSBS_OOT_SONGS_OFF], (unsigned)stamps[RSBS_OOT_SONGS_SONG_LOCATIONS],
+                  (unsigned)stamps[RSBS_OOT_SONGS_ANYWHERE]);
+        MPC_CHECK(stamps[RSBS_OOT_SONGS_SONG_LOCATIONS] == stamps[RSBS_OOT_SONGS_DUNGEON_REWARDS],
+                  "(g3) OoT Song Locations and Dungeon Rewards both give MM Song Locations, so one stamp");
+        const int32_t cowsNow = CVarGetInteger(cowsKey, Rando::StaticData::Options[RO_SHUFFLE_COWS].defaultValue);
+        CVarSetInteger(cowsKey, cowsNow != 0 ? 0 : 1);
+        MPC_CHECK(MM_Rando_ProfileStampMatches(stamps[RSBS_OOT_SONGS_SONG_LOCATIONS]) == 0,
+                  "(g3) a stamp matched after Shuffle Cows changed: the songs candidates accept another profile");
+        SongsRestore::Put(cowsKey, songsRestore.cowsSet, songsRestore.cowsValue);
+
+        // (g4) THE ROW SHOWS THE WORLD'S VALUE. Unfrozen it shows the next
+        // creation's (OoT's key mapped); frozen, the value the world's stamp
+        // reproduces, whatever OoT's key says now (red if the frozen row reads
+        // the key).
+        CVarSetInteger(ootKey, (int32_t)RSBS_OOT_SONGS_OFF);
+        MPC_CHECK(MM_Rando_PairedSongsShown() == (int)RO_SONG_SHUFFLE_VANILLA,
+                  "(g4) unfrozen with OoT Off the row shows %d, not Vanilla", MM_Rando_PairedSongsShown());
+        gComboCtx.mmProfileDigest = stamps[RSBS_OOT_SONGS_ANYWHERE];
+        CVarSetInteger(ootKey, (int32_t)RSBS_OOT_SONGS_SONG_LOCATIONS);
+        MPC_CHECK(MM_Rando_PairedSongsShown() == (int)RO_SONG_SHUFFLE_ANYWHERE,
+                  "(g4) a world frozen with MM Anywhere shows %d once OoT's key is Song Locations",
+                  MM_Rando_PairedSongsShown());
+        gComboCtx.mmProfileDigest = 0;
+
+        // (g5) THE FROZEN ROW'S TWO OTHER SOURCES (#1542 review). (g5a) A digest
+        // no candidate reproduces now (stamped with Shuffle Cows flipped) shows
+        // the fallback, and once the key the world was made with is back (as the
+        // load restore puts it back) the next draw finds the world's value: red if
+        // a miss is kept past a change of the inputs the search reads. (g5b) With
+        // MM running this pair's randomizer half, the row shows the half's own
+        // frozen Shuffle Songs although no candidate reproduces the digest: red if
+        // the resident half's option is not read before the fallback, or is read
+        // for a half another pair's seed made.
+        {
+            const int32_t cowsBase = CVarGetInteger(cowsKey, Rando::StaticData::Options[RO_SHUFFLE_COWS].defaultValue);
+            CVarSetInteger(cowsKey, cowsBase != 0 ? 0 : 1);
+            Combo_PairSongsCapture(RSBS_OOT_SONGS_ANYWHERE);
+            const uint32_t flippedStamp = MM_Rando_ComputeProfileStamp();
+            Combo_PairSongsClear();
+            SongsRestore::Put(cowsKey, songsRestore.cowsSet, songsRestore.cowsValue);
+            CVarSetInteger(ootKey, (int32_t)RSBS_OOT_SONGS_SONG_LOCATIONS);
+            gComboCtx.mmProfileDigest = flippedStamp;
+            const int missShown = MM_Rando_PairedSongsShown();
+            const int missAgain = MM_Rando_PairedSongsShown();
+            CVarSetInteger(cowsKey, cowsBase != 0 ? 0 : 1);
+            const int refreshed = MM_Rando_PairedSongsShown();
+            SongsRestore::Put(cowsKey, songsRestore.cowsSet, songsRestore.cowsValue);
+            printf(
+                "[TEST] (g5a) unmatched digest %08X shows %d then %d; with the world's Shuffle Cows back it shows %d "
+                "(want Anywhere %d)\n",
+                (unsigned)flippedStamp, missShown, missAgain, refreshed, (int)RO_SONG_SHUFFLE_ANYWHERE);
+            MPC_CHECK(missShown == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS && missAgain == missShown,
+                      "(g5a) an unmatched frozen digest shows %d then %d, not the fallback (Song Locations) twice",
+                      missShown, missAgain);
+            MPC_CHECK(refreshed == (int)RO_SONG_SHUFFLE_ANYWHERE,
+                      "(g5a) with the world's keys back the frozen row shows %d, not the world's Anywhere: a miss was "
+                      "kept past a change of the search's inputs",
+                      refreshed);
+
+            // (g5b) A placeholder digest no candidate reproduces, and MM's live
+            // save made a randomizer half of this pair with Shuffle Songs Vanilla.
+            const GameId gameBefore = Context_GetCurrentGame();
+            const SaveType typeBefore = gSaveContext.save.shipSaveInfo.saveType;
+            const uint32_t finalBefore = gSaveContext.save.shipSaveInfo.rando.finalSeed;
+            const uint32_t songsBefore = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
+            const uint32_t masterBefore = gComboCtx.sharedRandoSeed;
+            const uint32_t attemptBefore = gComboCtx.mmPairedAttempt;
+            gComboCtx.mmProfileDigest = 0x0BADF00Du;
+            gComboCtx.sharedRandoSeed = 0x1542u;
+            gComboCtx.mmPairedAttempt = 1u; // the recorded rung: attempt 0
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = RO_SONG_SHUFFLE_VANILLA;
+            gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+            gSaveContext.save.shipSaveInfo.rando.finalSeed =
+                Rando::Foreign::MixPairedFinalSeedFromOptions(gComboCtx.sharedRandoSeed, RANDO_SAVE_OPTIONS, 0u);
+            Context_SetCurrentGame(GAME_OOT);
+            const int ootRunning = MM_Rando_PairedSongsShown();
+            Context_SetCurrentGame(GAME_MM);
+            const int resident = MM_Rando_PairedSongsShown();
+            gSaveContext.save.shipSaveInfo.rando.finalSeed ^= 1u;
+            const int otherPair = MM_Rando_PairedSongsShown();
+            printf("[TEST] (g5b) MM half of this pair (Vanilla) resident: shows %d (OoT running %d, another pair's "
+                   "half %d)\n",
+                   resident, ootRunning, otherPair);
+            MPC_CHECK(resident == (int)RO_SONG_SHUFFLE_VANILLA,
+                      "(g5b) with this pair's MM half resident the frozen row shows %d, not the half's Vanilla",
+                      resident);
+            MPC_CHECK(ootRunning == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                          otherPair == (int)RO_SONG_SHUFFLE_SONG_LOCATIONS,
+                      "(g5b) the row read MM's save while OoT runs (%d) or a half another pair made (%d)", ootRunning,
+                      otherPair);
+            Context_SetCurrentGame(gameBefore);
+            gSaveContext.save.shipSaveInfo.saveType = typeBefore;
+            gSaveContext.save.shipSaveInfo.rando.finalSeed = finalBefore;
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = songsBefore;
+            gComboCtx.sharedRandoSeed = masterBefore;
+            gComboCtx.mmPairedAttempt = attemptBefore;
+            gComboCtx.mmProfileDigest = 0;
+        }
+        printf("[TEST] (g) the paired songs row follows OoT's (capture first), the compares try every value, and "
+               "the frozen row shows the world's (stamps Off %08X, Song Locations %08X, Anywhere %08X)\n",
+               (unsigned)stamps[RSBS_OOT_SONGS_OFF], (unsigned)stamps[RSBS_OOT_SONGS_SONG_LOCATIONS],
+               (unsigned)stamps[RSBS_OOT_SONGS_ANYWHERE]);
+    }
+
     printf("[TEST] mm-placement-confinement: %s\n", sFailures == 0 ? "PASS" : "FAIL");
     return sFailures == 0 ? 0 : 1;
 }
@@ -501,4 +725,10 @@ extern "C" int MM_PlacementConfinement_WorldCopies(uint16_t id) {
         copies++;
     }
     return copies;
+}
+
+/** The live MM save's frozen Shuffle Songs (RANDO_SAVE_OPTIONS), what a generated
+ *  half was made with (#1542: the pair's one songs setting). */
+extern "C" int MM_PlacementConfinement_FrozenSongs(void) {
+    return (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS];
 }

@@ -1244,6 +1244,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1542 (D2): the pair's one songs setting: OoT's Shuffle Songs onto MM's and the
+// creation capture MM's half reads, its KEEP/DROP rule and its call sites
+// (pair-songs-mapping, ROM-free, generation-free). FILE SCOPE (compiled as C++).
+#include "tests/test_combo_song_pool.c"
 // #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
 // frozen owl flags (soaring-owl-table), the gates and the chooser
 // (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
@@ -1967,6 +1971,8 @@ extern "C" int MM_Rando_HeadlessPlayerPathDigest(const char* seedStr, const char
 extern "C" int MM_SeedPackage_TestWrite(const char* seed, const char* pkgPath, const char* reportPath);
 extern "C" int MM_SeedPackage_TestLoad(const char* pkgPath, const char* reportPath);
 extern "C" int MM_SeedPackage_TestCVarsFrozen(const char* seed, const char* scratchDir);
+// #1542 (review): MM's Shuffle Songs is the freeze's at both completions.
+extern "C" int MM_SeedPackage_TestSongsFrozenAtCreation(const char* seed, const char* scratchDir);
 extern "C" int MM_SeedPackage_TestGoldenWrite(const char* seed, const char* pkgPath);
 extern "C" int MM_SeedPackage_TestGoldenCreate(const char* pkgPath, const char* outPath);
 // randomizer.cpp (#982): Rando_HeadlessFullInitSeedTest's audio teardown.
@@ -2510,7 +2516,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Re-pinned again by the pedestal child check (#1484; generator 5, was 0x1F6A69EB):
 // with Shuffle Master Sword on the pedestal is reachable as a child, which moves the
 // default world's placements named by the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0xD5F895FFu;
+// Re-pinned again by the one songs setting (#1542 D2; generator 5, was 0xD5F895FF):
+// Majora's Mask's Shuffle Songs follows Ocarina of Time's, so in the default world
+// its songs stay on its own song locations, which moves the placements named by the
+// static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x362833B2u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -3812,6 +3822,19 @@ TestResult Test_SeedPackageCVarsFrozen(void) {
     const std::filesystem::path dir = rsbs::test::ScratchDir("rsbs-seed-package-cvars");
     const int rc = MM_SeedPackage_TestCVarsFrozen("RSBSUNIFIED1", dir.string().c_str());
     printf("[TEST] %s: seed package cvars frozen rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SongPoolCreationAgrees (#1542 review): seed-package-cvars-frozen's bring-up.
+TestResult Test_SongPoolCreationAgrees(void) {
+    printf("[TEST] song-pool-creation-agrees: Majora's Mask's half follows Ocarina of Time's Shuffle Songs as frozen "
+           "at Generate, at Generate's completion and at a file creation's, with both keys moved since (#1542)\n");
+    if (!SeedPackageHeadlessBringUp()) {
+        return TEST_FAIL;
+    }
+    const std::filesystem::path dir = rsbs::test::ScratchDir("rsbs-song-pool-creation");
+    const int rc = MM_SeedPackage_TestSongsFrozenAtCreation("RSBSSONGPOOL1", dir.string().c_str());
+    printf("[TEST] %s: song pool creation agrees rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
     return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -7685,6 +7708,21 @@ TestResult Test_MMPlacementConfinement(void) {
     return MM_PlacementConfinement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1542 (D2): the pair's one songs setting, pure plus source anchors; the KEEP and
+// DROP invalidations need the CVar store, so MM_RandoOptions' bring-up.
+TestResult Test_PairSongsMapping(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return PairSongsMapping_Run();
+}
+
 // Paired MM PROFILE lock (#499 steps 2-4). Drives the real resolver over a
 // zeroed MM SaveContext — no fill, no region graph, no window — which is the
 // whole point of extracting it out of OnFileCreate.
@@ -9263,6 +9301,9 @@ const TestDescriptor gTests[] = {
       Test_SeedPackageLoad },
     { "seed-package-cvars-frozen", "Settings changed between Generate and file creation do not reach the world (#1044)",
       Test_SeedPackageCVarsFrozen },
+    { "song-pool-creation-agrees",
+      "MM's Shuffle Songs is the freeze's at Generate's and a creation's completion, keys moved since (#1542)",
+      Test_SongPoolCreationAgrees },
     { "seed-package-golden-write", "The player's Generate writes the seed package the package golden loads (#1044)",
       Test_SeedPackageGoldenWrite },
     { "seed-package-golden-create", "A file created from a loaded seed package, digested against the golden (#1044)",
@@ -9660,6 +9701,10 @@ const TestDescriptor gTests[] = {
       "MM's Own Dungeon and Song Locations reach the single bag as host groups that agree with 2Ship's rule, the "
       "defaults confine nothing, and the four placement options fold by name only when set (#1502)",
       Test_MMPlacementConfinement },
+    { "pair-songs-mapping",
+      "Majora's Mask's Shuffle Songs follows Ocarina of Time's through one mapping, captured at the freeze, kept "
+      "through the file-create invalidation and cleared once MM's half is made (#1542)",
+      Test_PairSongsMapping },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section
@@ -10547,8 +10592,8 @@ const TestDescriptor gTests[] = {
       "song (#1085)",
       Test_SharedSongsOneCopyAnywhere },
     { "shared-songs-one-copy-mm-vanilla",
-      "With MM's Shuffle Songs at Vanilla, each shared song is still ONE copy over both games: MM's copy leaves its "
-      "vanilla check to the bag's shared row (#1502)",
+      "With MM's own Shuffle Songs key at Vanilla and OoT's at Anywhere, MM's half follows OoT's (Anywhere) and each "
+      "shared song is still ONE copy over both games (#1502, #1542)",
       Test_SharedSongsOneCopyMMVanilla },
     { "mm-placement-confined-world",
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
@@ -11201,6 +11246,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "rando-player-path-digest") == 0 ||
                 strcmp(gTests[i].name, "seed-package-write") == 0 || strcmp(gTests[i].name, "seed-package-load") == 0 ||
                 strcmp(gTests[i].name, "seed-package-cvars-frozen") == 0 ||
+                strcmp(gTests[i].name, "song-pool-creation-agrees") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-write") == 0 ||
                 strcmp(gTests[i].name, "seed-package-golden-create") == 0 ||
                 strcmp(gTests[i].name, "debug-seed-forced-placements") == 0 ||

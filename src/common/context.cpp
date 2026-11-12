@@ -13,6 +13,8 @@
 // than from context.h so the header keeps its no-dependency shape.
 #include "shared_items.h"
 #include "shared_resources.h"
+// #1542: the songs capture follows the stamp policy (Context_InvalidateSessionState).
+#include "combo_song_pool.h"
 // Combo_CountForeignPlacementsOoT() — invalidation reports how much of the
 // generation-authored reverse table each policy kept (#534). Same .cpp-only
 // placement rationale as shared_items.h above.
@@ -546,11 +548,20 @@ void Context_InvalidateSessionState(ComboSeedStampPolicy seedPolicy) {
         // lives outside gComboCtx, so the ComboContext_Init above never touched
         // it. Same author and same moment as the stamp; see
         // ComboSeedStampPolicy.
+        //
+        // #1542: so is OoT's Shuffle Songs capture (combo_song_pool.h), a
+        // creation INPUT with its own KEEP rule, not saved: Playthrough_Init
+        // records it beside the MM profile stamp, and a test process's
+        // completion authors MM's half after this invalidation, so dropping it
+        // here would let MM's half read OoT's live key instead of the frozen
+        // value. The completion clears it once MM's half is authored.
     } else {
         // DROP: a crossing set with no stamp behind it belongs to a dead
         // session. Left resident it would be read by the next session's give
         // path (foreign_items.c falls back to it) for a world nobody created.
         Combo_Crossings_Clear();
+        // #1542: a songs capture with no stamp behind it describes no world.
+        Combo_PairSongsClear();
     }
 
     // The unified save's ACTIVE SLOT is session state too, and it lived outside

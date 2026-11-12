@@ -67,8 +67,10 @@
  *      and asserted both ways (necessary and sufficient).
  *      Under the OoT logic P3 re-pin (#1396, #1397), remains + renewables alone
  *      restored goalMM=1, so kCsbFLoadBearingFixedChecks was empty. Under the MM
- *      logic P3 re-pin (#1398) the world runs through the Bomb Shop's Progressive
- *      Bomb Bag again, so the list names RC_BOMB_SHOP_ITEM_03.
+ *      logic P3 re-pin (#1398) the world ran through the Bomb Shop's Progressive
+ *      Bomb Bag again, so the list named RC_BOMB_SHOP_ITEM_03. Under the one songs
+ *      setting (#1542 D2) remains + renewables alone restore goalMM=1 once more, so
+ *      the list is empty.
  *
  * PR #743 REVIEW LEGS, each with its red half observed when it was written:
  *
@@ -1291,12 +1293,13 @@ TestResult ComboSingleBag_Run(void) {
         // Listed by check name, and required both ways below: sufficient (no OTHER fixed
         // progression content is load-bearing) and necessary (an exception the world
         // stops needing must be dropped here, so the claim stays exact). When a re-pin
-        // moves the world, the single-content probe lines name the candidates. Under
-        // the MM logic P3 re-pin (#1398) the world needs RC_BOMB_SHOP_ITEM_03, the Bomb
-        // Shop's Progressive Bomb Bag, as the D wave 2 worlds did. (It was empty under
-        // the OoT logic P3 re-pin, #1396 and #1397: remains and renewables alone restored
-        // goalMM=1.)
-        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = { "RC_BOMB_SHOP_ITEM_03" };
+        // moves the world, the single-content probe lines name the candidates. Empty
+        // under the one songs setting (#1542 D2): with Majora's Mask's songs on its own
+        // song locations, remains and renewables alone restore goalMM=1, as they did
+        // under the OoT logic P3 re-pin (#1396, #1397). (The MM logic P3 re-pin, #1398,
+        // and the D wave 2 worlds needed RC_BOMB_SHOP_ITEM_03, the Bomb Shop's
+        // Progressive Bomb Bag.)
+        static const std::vector<const char*> kCsbFLoadBearingFixedChecks = {};
         const int namedCount = (int)kCsbFLoadBearingFixedChecks.size();
         std::vector<ComboLogicBagItem> remainsRenewablesAndNamed = remainsAndRenewables;
         int namedFound = 0;

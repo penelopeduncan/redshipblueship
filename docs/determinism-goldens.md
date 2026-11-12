@@ -787,6 +787,47 @@ refused. **This bump is for worlds no golden pins.** In the goldens it moves
 `comboSettingsHash` alone, an INPUT field, in the ten goldens that carry it; no
 placement field moves, because the version is a label (see the list above).
 
+The one songs setting (2026-11-12, PR #1543; issue #1542, ruling D2), still version 5.
+In a paired world Majora's Mask's Shuffle Songs follows Ocarina of Time's (Off to
+Vanilla, Song Locations and Dungeon Rewards to Song Locations, Anywhere to
+Anywhere), and MM's own key is no longer read. Every pinned profile leaves OoT's
+Shuffle Songs at its default, Song Locations, so MM's songs go from Anywhere to
+MM's own song locations in each of them. Twelve goldens moved.
+`seed-digest-mm-confined` did not: its profile already set MM's songs to Song
+Locations, which is now what OoT's default maps to.
+
+Measured against the pins before it:
+
+* INPUT: `comboSettingsHash` in the eleven moved goldens that carry it
+  (`seed-digest-default` `0A424E00` to `C882AB8B`), because MM's profile digest folds
+  `RO_SHUFFLE_SONGS` at Song Locations. `mmFinalSeed` moves with the profile.
+  `seed`, `settingsHash`, `comboSettings` and `ladderMasterSeed` stay.
+* OoT's general pass does not move: `placementHash`, `placedCount`,
+  `ootStartingItems`, `ootPriceCount` and `ootPriceDigest` stay.
+* The bag: `bagHomeOnly` goes from 0 to 10 in `seed-digest-default`, MM's ten
+  confined song rows. `bagRows`, `bagTrimmedOoT`, `bagTrimmedMM` and
+  `bagRequiredPlaced` stay. `bagSeed`, the leftover counts, `coordinatorDigest`,
+  `mmPlacementHash`, `ootFinalPlacementHash`, `crossingDigest`, the crossing counts
+  and every per-slot line move, and so do `ootHintDigest` (`ootHintCount` stays 45),
+  the MM hint count and digest, the foolish areas and `mmFreeStoneDigest`.
+* `seed-digest-armed-caps` moves `comboSettingsHash`, `armedBagDigest` and
+  `armedTrimSeed` only.
+* Rounds: `seed-digest-all-masks` now takes 486 rounds (267 before) and
+  `seed-digest-entrances` 465 (272 before); the others keep their counts.
+
+Why no bump, and the residuals: generator 5 has not shipped. A world whose MM songs
+value changes also changes its MM profile digest and so its fingerprint, so a
+default world made after this change does not share a fingerprint with one made
+before it. The one residual is against unreleased generator-5 builds: a paired
+file made by one of them with OoT's Shuffle Songs at Anywhere and MM's own key set
+to Song Locations or Vanilla, or with OoT's at Off and MM's at Anywhere or Song
+Locations, keeps loading (the load compare tries MM's three values), and the same
+seed and settings now make the world OoT's value maps to, under that world's own
+fingerprint.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
+(`D5F895FF` to `362833B2`, still 17 hints), and `ComboSingleBag`'s
+`kCsbFLoadBearingFixedChecks` is empty again.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned

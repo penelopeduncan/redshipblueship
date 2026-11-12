@@ -58,6 +58,7 @@
 #include "foreign_items.h"
 #include "crossing_store.h"
 #include "combo_single_bag.h"      // OoT_ComboLogic_GeneralPassDeferred
+#include "combo_song_pool.h"       // Combo_PairSongsClear: a package carries no songs capture (#1542)
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX
 #include "rsbs_version.h"
 #include "save.h" // RsbsSave_BuildWatermark / RsbsSave_WatermarkExceedsBuild: identity.json's watermark (format 2)
@@ -661,6 +662,9 @@ void ApplyComboWorld(const ComboContext& rec) {
     records.comboItemRules2 = rec.comboItemRules2;   // #1169 XW2
     records.comboOoTWarps = rec.comboOoTWarps;       // #1169 XW7
     Combo_RestoreCreationRecords(&records);
+    // #1542: a package's MM half already holds the world's Shuffle Songs, so a
+    // songs capture left from another Generate describes no part of it.
+    Combo_PairSongsClear();
 }
 
 /** The combo world, the crossings and the give capabilities of @p p. */

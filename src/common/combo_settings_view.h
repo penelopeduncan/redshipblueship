@@ -375,6 +375,14 @@ uint8_t Combo_ComboSettingsLogicRungShown(void);
  */
 #define COMBO_TRIFORCE_SET_BY_COMBO_REASON "Set by [Both Games] Triforce Hunt"
 
+/**
+ * THE PAIR'S SONGS (#1542, operator ruling 2026-11-10 D2; OoTMM `songs`, one
+ * setting for both games). Majora's Mask's Shuffle Songs follows Ocarina of
+ * Time's (combo_song_pool.h), so MM's row is read-only with this reason. Never
+ * NULL.
+ */
+#define COMBO_SONGS_SET_BY_OOT_REASON "Set by Ocarina of Time's Shuffle Songs"
+
 /** Is the goal the next world freezes, or the resident world's frozen goal,
  *  the triforce hunt? What the per-game Triforce Hunt rows' read-only state
  *  follows (#1389). */
