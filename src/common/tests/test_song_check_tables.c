@@ -972,6 +972,16 @@ void SctCheckAnchors() {
                                         "GetOption(RSK_SHUFFLE_ZELDAS_LETTER)", "ACTOR_EN_BOX" }),
               "(h) Start with Zelda's Letter gives Impa's check at creation, but OoT's host predicate does not refuse "
               "Impa for it (#1404)\n");
+    // #1404 QC: logic credits Talon's return under the legacy Skip Child Zelda
+    // (root.cpp), and a seed package restores that key without FinalizeSettings'
+    // mapping, so the creation must wake Talon under it too.
+    const std::string rootRegion = SctReadSource("games/oot/soh/Enhancements/randomizer/location_access/root.cpp");
+    SCT_CHECK(SctInOrder(init, { "RO_WEIRD_EGG_SKIP_TALON ||", "Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {",
+                                 "EVENTCHKINF_TALON_RETURNED_FROM_CASTLE" }) &&
+                  SctInOrder(rootRegion, { "LOGIC_TALON_RETURNED_FROM_CASTLE", "RO_WEIRD_EGG_SKIP_TALON) ||",
+                                           "GetOption(RSK_SKIP_CHILD_ZELDA)" }),
+              "(h) logic credits Talon's return under the legacy Skip Child Zelda, but the creation no longer wakes "
+              "him under it (#1404)\n");
 
     const std::string model = SctReadSource("games/mm/2s2h/Rando/ForeignModelSingleExe.cpp");
     const std::string icon = SctReadSource("games/mm/2s2h/Rando/ForeignTextboxIconSingleExe.cpp");

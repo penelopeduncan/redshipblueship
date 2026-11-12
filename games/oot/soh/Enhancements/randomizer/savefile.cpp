@@ -742,8 +742,19 @@ extern "C" void Randomizer_InitSaveFile() {
     }
 
     // Skip Waking Talon: the egg already hatched and woke him, Malon/Talon start back at the ranch.
-    if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SKIP_TALON) {
-        OTRGlobals::Instance->gRandoContext->GetItemLocation(RC_HC_MALON_EGG)->SetCheckStatus(RCSHOW_SAVED);
+    // [RSBS #1404 QC] A stored legacy Skip Child Zelda skips him too, as root.cpp's
+    // LOGIC_TALON_RETURNED_FROM_CASTLE / RC_HC_MALON_EGG credit it: a seed package or
+    // spoiler restores its options without FinalizeSettings' mapping to Skip Waking Talon.
+    if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SKIP_TALON ||
+        Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {
+        if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SHUFFLED) {
+            // Only a legacy key reaches here with a shuffled egg: the check holds a
+            // placed item, so give it as main's Skip Child Zelda did.
+            GetItemEntry eggCheckEntry = Randomizer_GetItemFromKnownCheck(RC_HC_MALON_EGG, (GetItemID)RG_WEIRD_EGG);
+            StartingItemGive(eggCheckEntry, RC_HC_MALON_EGG);
+        } else {
+            OTRGlobals::Instance->gRandoContext->GetItemLocation(RC_HC_MALON_EGG)->SetCheckStatus(RCSHOW_SAVED);
+        }
 
         OoT_Flags_SetEventChkInf(EVENTCHKINF_OBTAINED_POCKET_EGG);
         Flags_SetRandomizerInf(RAND_INF_WEIRD_EGG);
