@@ -822,11 +822,28 @@ def _concurrency_of(block, context):
     group names ignoring case."""
     if isinstance(block, str):
         block = {"group": block}
+    unknown = set(block) - {"group", "cancel-in-progress", "queue"}
+    if unknown:
+        raise ValueError(f"the concurrency lock does not know the key(s) {sorted(unknown)}")
     group = _evaluate_field(block["group"], context)
     cancel = _evaluate_field(block.get("cancel-in-progress", False), context)
     if not isinstance(cancel, bool):
         raise ValueError(f"cancel-in-progress {block.get('cancel-in-progress')!r} gave {cancel!r}, not a boolean")
+    _queue_of(block)
     return _text(group).lower(), cancel
+
+
+def _queue_of(block):
+    """How many jobs or runs may wait in the block's group: "single" (GitHub's default: one, and a newer arrival
+    cancels and replaces it) or "max" (up to 100, none replaced). Only a literal is read."""
+    if isinstance(block, str):
+        return "single"
+    queue = block.get("queue", "single")
+    if queue not in ("single", "max"):
+        raise ValueError(f"the concurrency lock does not know queue {queue!r}")
+    if queue == "max" and block.get("cancel-in-progress", False) is not False:
+        raise ValueError("GitHub refuses `queue: max` with cancel-in-progress true; write a literal false beside it")
+    return queue
 
 
 def _filter_regex(pattern):
@@ -933,14 +950,20 @@ def test_generate_builds_still_cancels_a_superseded_pull_request_run():
     assert other[0] != first[0], "two pull requests must never share a group: one would cancel the other's run"
 
 
-def test_generate_builds_queues_main_pushes_and_keeps_dispatches_apart():
+def test_generate_builds_starts_each_main_push_at_once_and_keeps_dispatches_apart():
     first = _generate_builds_concurrency("push", "refs/heads/main", "A")
     newer = _generate_builds_concurrency("push", "refs/heads/main", "B")
-    assert newer == first and newer[1] is False, (
-        "#1377: pushes to main must share one group and never cancel: they queue, so main builds one commit at a "
-        f"time and the run in progress always finishes and saves its caches. Found {first} then {newer}"
+    assert newer[0] != first[0] and first[1] is False and newer[1] is False, (
+        "two pushes to main must not share a run-level group, and neither may cancel: a run stays open until its "
+        "macOS leg ends, which can be hours, and a run-level queue held main's next Linux and Windows builds (and "
+        f"the caches only they save) behind it. Main's builds queue per platform instead. Found {first} then {newer}"
     )
-    pushes = {_generate_builds_concurrency(event, ref)[0] for event, ref in _RUN_KINDS if event == "push"}
+    pushes = {
+        _generate_builds_concurrency(event, ref, copy)[0]
+        for event, ref in _RUN_KINDS
+        if event == "push"
+        for copy in "AB"
+    }
     for event, ref in _RUN_KINDS:
         if event == "workflow_dispatch":
             group = _generate_builds_concurrency(event, ref)[0]
@@ -948,6 +971,395 @@ def test_generate_builds_queues_main_pushes_and_keeps_dispatches_apart():
                 f"#1377: a dispatch on {ref} shares group {group!r} with a push. GitHub keeps one pending run per "
                 "group, so a merge to main could replace a queued release dispatch"
             )
+
+
+@pytest.mark.parametrize(
+    "event, ref", [kind for kind in _RUN_KINDS if kind[0] != "pull_request" and kind != ("push", "refs/heads/main")]
+)
+def test_generate_builds_still_queues_every_run_but_a_main_push(event, ref):
+    first = _generate_builds_concurrency(event, ref, "A")
+    newer = _generate_builds_concurrency(event, ref, "B")
+    assert newer == first and newer[1] is False, (
+        f"#1377: a second {event} on {ref} must queue behind the first, never run beside it or cancel it: "
+        "create-release expects one run per release at a time, and every dispatch reaches create-release. "
+        f"Only pushes to main run side by side. Found {first} then {newer}"
+    )
+    assert _queue_of(_load(GENERATE_BUILDS)["concurrency"]) == "single"
+
+
+# The jobs with a queue of their own on main, which are all the jobs that save a
+# cache. The builds also stop when a newer commit supersedes theirs.
+_MAIN_BUILD_JOBS = ("build-linux", "build-macos", "build-windows", "netplay-relay")
+# Queued without the superseded step: quick, and every run's builds need its archives.
+_MAIN_PREP_JOBS = ("generate-rsbs-otr",)
+_MAIN_QUEUED_JOBS = _MAIN_PREP_JOBS + _MAIN_BUILD_JOBS
+_CACHE_ACTIONS = (
+    "hendrikmuhs/ccache-action",
+    "actions/cache@",
+    "actions/cache/save@",
+    "actions/cache/restore@",
+    "mozilla-actions/sccache-action",
+)
+# Other ways a job writes to the repository's Actions cache.
+_CACHE_WRITE_MARKERS = ("x-gha", "SCCACHE_GHA_ENABLED")
+SUPERSEDED_SCRIPT = REPO_ROOT / ".github" / "scripts" / "stop-superseded-main-build.sh"
+TIP_RUN_SCRIPT = REPO_ROOT / ".github" / "scripts" / "main-tip-build-run.py"
+_MAIN_PUSH = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
+
+
+def _generate_builds_job_concurrency(job_id, event, ref, copy="A"):
+    workflow = _load(GENERATE_BUILDS)
+    block = workflow["jobs"][job_id].get("concurrency")
+    assert block is not None, (
+        f"{job_id} must carry a job-level concurrency block: main's builds queue per job (MAIN'S BUILD QUEUES in "
+        "generate-builds.yml), and without it every merge to main starts another run of this job at once"
+    )
+    run = _sample_run(event, ref, copy)
+    return _concurrency_of(block, _run_context(workflow, GENERATE_BUILDS.name, run))
+
+
+@pytest.mark.parametrize("job_id", _MAIN_QUEUED_JOBS)
+def test_generate_builds_queues_main_pushes_per_job(job_id):
+    first = _generate_builds_job_concurrency(job_id, "push", "refs/heads/main", "A")
+    newer = _generate_builds_job_concurrency(job_id, "push", "refs/heads/main", "B")
+    assert newer == first and newer[1] is False, (
+        f"{job_id}: two pushes to main must share this job's group and never cancel, so main runs this job for one "
+        f"commit at a time and the one in progress always finishes and saves its cache. Found {first} then {newer}"
+    )
+    job = _load(GENERATE_BUILDS)["jobs"][job_id]
+    assert _queue_of(job["concurrency"]) == "max", (
+        f"{job_id}: the main queue must keep every waiting job (`queue: max`). With GitHub's default a newer arrival "
+        "cancels the one pending job, and a job joins its group when the jobs it needs finish, not when its commit "
+        "was pushed: after a burst of merges an older commit could arrive last and replace the build of main's tip"
+    )
+    for event, ref in _RUN_KINDS:
+        if (event, ref) == ("push", "refs/heads/main"):
+            continue
+        one = _generate_builds_job_concurrency(job_id, event, ref, "A")
+        two = _generate_builds_job_concurrency(job_id, event, ref, "B")
+        assert one[1] is False and two[1] is False, f"{job_id}: a job-level group must never cancel ({event} on {ref})"
+        assert len({first[0], one[0], two[0]}) == 3, (
+            f"{job_id}: only pushes to main queue per job. {event} on {ref} must get a group of its own for each "
+            f"run, or it would wait behind main's build (or another run's). Found {one[0]!r} and {two[0]!r} beside "
+            f"main's {first[0]!r}"
+        )
+
+
+@pytest.mark.parametrize("job_id", _MAIN_BUILD_JOBS)
+def test_generate_builds_queued_build_runs_on_every_main_push(job_id):
+    job = _load(GENERATE_BUILDS)["jobs"][job_id]
+    assert "if" not in job, (
+        f"{job_id} has a job-level `if` ({job.get('if')!r}). A queued build that a condition can skip on a push to "
+        "main leaves main's tip without that build and its cache unsaved; nothing else here would notice"
+    )
+
+
+def test_generate_builds_job_queues_are_separate():
+    groups = {
+        job_id: _generate_builds_job_concurrency(job_id, "push", "refs/heads/main")[0] for job_id in _MAIN_QUEUED_JOBS
+    }
+    assert len(set(groups.values())) == len(groups), (
+        f"each job needs a queue of its own on main, found {groups}: with a shared group the Linux and Windows "
+        "builds would wait behind the macOS build again"
+    )
+    run_level = {_generate_builds_concurrency(event, ref, copy)[0] for event, ref in _RUN_KINDS for copy in "AB"}
+    assert not run_level & set(groups.values()), (
+        f"a job queue shares its name with a run-level group: {run_level & set(groups.values())}. Groups are "
+        "repository-wide, so the job would wait behind whole runs"
+    )
+
+
+def test_generate_builds_main_queues_wait_for_nothing_slow():
+    # The queues only help if no build waits for another build's turn, and nothing above the builds is shared
+    # between main's runs except the quick prep job.
+    jobs = _jobs(GENERATE_BUILDS)
+    for job_id in _MAIN_QUEUED_JOBS:
+        above = _ancestors(jobs, job_id)
+        assert not above & set(_MAIN_BUILD_JOBS), (
+            f"{job_id} needs {sorted(above & set(_MAIN_BUILD_JOBS))}: it would wait for another build's turn on "
+            "main, which is the wait the per-job queues removed"
+        )
+        grouped = sorted(need for need in above if "concurrency" in jobs[need] and need not in _MAIN_PREP_JOBS)
+        assert not grouped, (
+            f"{job_id} needs {grouped}, which carry a concurrency block. A group there is shared by main's runs "
+            "before the per-job queue is reached, so one slow run would hold every later build again"
+        )
+    for job_id in _MAIN_PREP_JOBS:
+        runner = str(jobs[job_id].get("runs-on", ""))
+        assert "macos" not in runner, f"{job_id} is queued above every build, so it must not wait for a macOS runner"
+
+
+def _writes_a_cache(job):
+    if any(str(step.get("uses", "")).startswith(_CACHE_ACTIONS) for step in job.get("steps") or []):
+        return True
+    for step in job.get("steps") or []:
+        if str(step.get("uses", "")).startswith("actions/setup-") and "cache" in (step.get("with") or {}):
+            return True
+    text = yaml.safe_dump(job)
+    return any(marker in text for marker in _CACHE_WRITE_MARKERS)
+
+
+def test_generate_builds_queues_every_job_that_uses_a_cache():
+    jobs = _jobs(GENERATE_BUILDS)
+    users = {job_id for job_id, job in jobs.items() if _writes_a_cache(job)}
+    assert set(_MAIN_QUEUED_JOBS) <= users, f"{set(_MAIN_QUEUED_JOBS) - users} no longer use a cache; update the lists"
+    unqueued = users - set(_MAIN_QUEUED_JOBS)
+    assert not unqueued, (
+        f"{sorted(unqueued)} use the Actions cache and have no queue on main. Every push to main starts its own "
+        "run, so a burst of merges would save one cache per push at once and push main's Windows sccache out of the "
+        "10 GB quota (#177). Give the job the per-job main queue (and the superseded step if it is a build)"
+    )
+
+
+@pytest.mark.parametrize("job_id", _MAIN_PREP_JOBS)
+def test_generate_builds_prep_job_never_stops_as_superseded(job_id):
+    steps = _jobs(GENERATE_BUILDS)[job_id]["steps"]
+    assert not any(SUPERSEDED_SCRIPT.name in str(step.get("run", "")) for step in steps), (
+        f"{job_id} must not run {SUPERSEDED_SCRIPT.name}: every run's builds need its archives, and a failed "
+        f"{job_id} skips them, which is the 'newer commit with no build' case the script has to assume away"
+    )
+
+
+@pytest.mark.parametrize("job_id", _MAIN_BUILD_JOBS)
+def test_generate_builds_queued_job_stops_when_superseded(job_id):
+    steps = _jobs(GENERATE_BUILDS)[job_id]["steps"]
+    guards = [i for i, step in enumerate(steps) if SUPERSEDED_SCRIPT.name in str(step.get("run", ""))]
+    assert len(guards) == 1, (
+        f"{job_id} must run {SUPERSEDED_SCRIPT.name} exactly once: with `queue: max` every push to main waits its "
+        "turn, and this step is what stops a build that main has moved past"
+    )
+    guard = steps[guards[0]]
+    assert _expr(guard.get("if", "")) == _MAIN_PUSH, (
+        f"{job_id}: the superseded step must run only on a push to main (`if: {_MAIN_PUSH}`), found "
+        f"{guard.get('if')!r}. On a pull request, a tag or a release branch main's tip says nothing about the build"
+    )
+    assert guard.get("shell") == "bash" and guard["run"].strip() == f"bash .github/scripts/{SUPERSEDED_SCRIPT.name}"
+    assert (guard.get("env") or {}).get("GITHUB_TOKEN") == "${{ github.token }}", (
+        f"{job_id}: the script lists the tip's workflow runs; without a token the call is rate-limited per runner "
+        "address, the script cannot tell, and every superseded build runs to the end"
+    )
+    assert not guard.get("continue-on-error"), f"{job_id}: a superseded build must stop, not carry on"
+    checkouts = [i for i, step in enumerate(steps) if str(step.get("uses", "")).startswith("actions/checkout@")]
+    assert checkouts and checkouts[0] < guards[0], f"{job_id}: the step runs the script from the checkout"
+    for i, step in enumerate(steps):
+        if not str(step.get("uses", "")).startswith(_CACHE_ACTIONS):
+            continue
+        assert i > guards[0], (
+            f"{job_id}: step {step.get('name')!r} comes before the superseded step, so a superseded build would "
+            "restore a cache, and a ccache step there would also save one when the job ends"
+        )
+        condition = str(step.get("if", ""))
+        assert not re.search(r"always\(\)|failure\(\)|cancelled\(\)", condition), (
+            f"{job_id}: cache step {step.get('name')!r} has `if: {condition}`, so it still runs after the "
+            "superseded step has failed the job, and a superseded build would restore or save a cache"
+        )
+
+
+# --- the superseded script, run against real repositories -----------------------------------------
+
+
+def _git(cwd, *args):
+    done = subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 0, f"git {args}: {done.stderr}"
+    return done.stdout.strip()
+
+
+def _superseded_fixture(tmp_path, later_pushes, shallow=False):
+    """An `origin` whose main is `later_pushes` commits ahead of the checkout; each push is {path: text, or None to
+    delete}. Returns (checkout, main's tip). The checkout holds the real scripts."""
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    _git(origin, "init", "-q", "-b", "main")
+    scripts = origin / ".github" / "scripts"
+    scripts.mkdir(parents=True)
+    for script in (SUPERSEDED_SCRIPT, TIP_RUN_SCRIPT, CLASSIFIER):
+        shutil.copy(script, scripts / script.name)
+    (origin / "README.md").write_text("one\n", encoding="utf-8")
+    (origin / "main.c").write_text("int a;\n", encoding="utf-8")
+    _git(origin, "add", "-A")
+    _git(origin, "commit", "-q", "-m", "built commit")
+    work = tmp_path / "work"
+    if shallow:
+        # As actions/checkout leaves it: one commit, no history.
+        _git(tmp_path, "clone", "-q", "--depth=1", origin.as_uri(), str(work))
+    else:
+        _git(tmp_path, "clone", "-q", str(origin), str(work))
+    for number, push in enumerate(later_pushes):
+        for path, text in push.items():
+            target = origin / path
+            if text is None:
+                target.unlink()
+            else:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(text, encoding="utf-8")
+        _git(origin, "add", "-A")
+        _git(origin, "commit", "-q", "-m", f"later push {number}")
+    return work, _git(origin, "rev-parse", "HEAD")
+
+
+def _tip_run(tip, **fields):
+    run = {
+        "id": 7,
+        "head_sha": tip,
+        "event": "push",
+        "path": ".github/workflows/generate-builds.yml",
+        "status": "in_progress",
+        "conclusion": None,
+    }
+    run.update(fields)
+    return run
+
+
+# What GitHub may answer about the tip's runs -> does the tip have a build of its own?
+_TIP_RUNS = {
+    "queued": (lambda tip: [_tip_run(tip, status="queued")], True),
+    "in progress": (lambda tip: [_tip_run(tip)], True),
+    "pending": (lambda tip: [_tip_run(tip, status="pending")], True),
+    "succeeded": (lambda tip: [_tip_run(tip, status="completed", conclusion="success")], True),
+    "failed, then re-pushed and going": (
+        lambda tip: [_tip_run(tip, status="completed", conclusion="failure"), _tip_run(tip, id=8)],
+        True,
+    ),
+    "no run at all": (lambda tip: [], False),
+    "failed": (lambda tip: [_tip_run(tip, status="completed", conclusion="failure")], False),
+    "cancelled": (lambda tip: [_tip_run(tip, status="completed", conclusion="cancelled")], False),
+    "skipped": (lambda tip: [_tip_run(tip, status="completed", conclusion="skipped")], False),
+    "another workflow's run": (lambda tip: [_tip_run(tip, path=".github/workflows/clang-format.yml")], False),
+    "a dispatch, not a push": (lambda tip: [_tip_run(tip, event="workflow_dispatch")], False),
+    "another commit's run": (lambda tip: [_tip_run("0" * 40)], False),
+}
+
+
+def _tip_run_module():
+    spec = importlib.util.spec_from_file_location("main_tip_build_run", TIP_RUN_SCRIPT)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("answer", sorted(_TIP_RUNS))
+def test_tip_run_decisions(answer):
+    runs, has_build = _TIP_RUNS[answer]
+    tip = "a" * 40
+    code, sentence = _tip_run_module().decide({"workflow_runs": runs(tip)}, tip)
+    assert code == (0 if has_build else 1), f"tip's runs: {answer}. Expected {'a' if has_build else 'no'} build run"
+    assert tip in sentence
+
+
+@pytest.mark.parametrize("payload", [None, [], {}, {"workflow_runs": None}, {"message": "Not Found"}])
+def test_tip_run_refuses_an_unexpected_answer(payload):
+    assert _tip_run_module().decide(payload, "a" * 40)[0] == 2, "an answer the script cannot read must not count"
+
+
+def test_tip_run_reports_an_unreachable_api(tmp_path):
+    done = subprocess.run(
+        [sys.executable, str(TIP_RUN_SCRIPT), "a" * 40],
+        env=dict(os.environ, GITHUB_API_URL="http://127.0.0.1:9", GITHUB_REPOSITORY="o/r", GITHUB_TOKEN=""),
+        capture_output=True,
+        text=True,
+    )
+    assert done.returncode == 2, f"an API that cannot be reached is 'could not tell':\n{done.stdout}{done.stderr}"
+
+
+def _run_superseded(bash, work, tmp_path, runs=None, **env):
+    """Run the script in the checkout. `runs` (a list, or text for a broken file) stands in for GitHub's answer."""
+    env = dict(os.environ, **env)
+    if runs is not None:
+        answer = tmp_path / "runs.json"
+        answer.write_text(runs if isinstance(runs, str) else json.dumps({"workflow_runs": runs}), encoding="utf-8")
+        env["SUPERSEDED_RUNS_JSON"] = str(answer)
+    return subprocess.run(
+        [bash, "--noprofile", "--norc", f".github/scripts/{SUPERSEDED_SCRIPT.name}"],
+        cwd=work,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+_CODE = {"main.c": "int b;\n"}
+_DOCS = {"README.md": "two\n"}
+_REVERT = {"main.c": "int a;\n"}
+
+
+@pytest.mark.parametrize(
+    "later_pushes, tip_runs, builds",
+    [
+        # Main has not moved: this commit is the tip.
+        ([], "in progress", True),
+        # Main moved in code and that commit has its own build: this one stops.
+        ([_CODE], "in progress", False),
+        ([_CODE], "queued", False),
+        ([_CODE], "succeeded", False),
+        ([{"src/new.c": "x\n"}], "in progress", False),
+        ([{"docs/guide.md": "x\n", "main.c": "int b;\n"}], "in progress", False),
+        ([{"CMake/x.cmake": "x\n"}], "in progress", False),
+        ([{"main.c": None}], "in progress", False),
+        ([{"src/a b/é.c": "x\n"}], "in progress", False),
+        ([_CODE, _DOCS], "in progress", False),
+        # Main moved in code but that commit has no build coming: this commit is all main has.
+        ([_CODE], "no run at all", True),
+        ([_CODE], "failed", True),
+        ([_CODE], "cancelled", True),
+        ([_CODE], "another workflow's run", True),
+        # Main moved in docs only: that push started no build (paths-ignore), whatever its runs say.
+        ([_DOCS], "in progress", True),
+        ([{"docs/guide.md": "x\n", "notes/CHANGES.md": "x\n"}], "in progress", True),
+        ([_DOCS, {"docs/more.md": "x\n"}], "in progress", True),
+        # Main moved and came back to this tree.
+        ([_CODE, _REVERT], "in progress", True),
+    ],
+)
+@pytest.mark.parametrize("shallow", [False, True])
+def test_superseded_script_decisions(tmp_path, later_pushes, tip_runs, builds, shallow):
+    bash = _bash()
+    work, tip = _superseded_fixture(tmp_path, later_pushes, shallow=shallow)
+    done = _run_superseded(bash, work, tmp_path, runs=_TIP_RUNS[tip_runs][0](tip))
+    assert done.returncode == (0 if builds else 1), (
+        f"main ahead by {later_pushes}, the tip's runs: {tip_runs}, shallow checkout: {shallow}. The build should "
+        f"{'run' if builds else 'STOP'}.\n{done.stdout}{done.stderr}"
+    )
+    assert ("::error::Superseded" in done.stdout) == (not builds), done.stdout
+
+
+def _break_fetch(work, tmp_path):
+    return {"SUPERSEDED_REMOTE": str(tmp_path / "no-such-remote")}
+
+
+def _break_classifier(work, tmp_path):
+    (work / ".github" / "scripts" / CLASSIFIER.name).write_text("import sys\nsys.exit(3)\n", encoding="utf-8")
+    return {}
+
+
+def _break_tip_run_script(work, tmp_path):
+    (work / ".github" / "scripts" / TIP_RUN_SCRIPT.name).write_text("import sys\nsys.exit(7)\n", encoding="utf-8")
+    return {}
+
+
+@pytest.mark.parametrize(
+    "breakage, runs, says",
+    [
+        (_break_fetch, "live", "Could not fetch"),
+        (_break_classifier, "live", "Could not classify"),
+        (_break_tip_run_script, "live", "Could not tell"),
+        (None, "{ not json", "Could not tell"),
+        (None, '{"message": "API rate limit exceeded"}', "Could not tell"),
+    ],
+)
+def test_superseded_script_fails_open(tmp_path, breakage, runs, says):
+    # Main has moved in code and its tip has a build, so only the breakage keeps this build alive.
+    bash = _bash()
+    work, tip = _superseded_fixture(tmp_path, [_CODE])
+    env = breakage(work, tmp_path) if breakage else {}
+    answer = _TIP_RUNS["in progress"][0](tip) if runs == "live" else runs
+    done = _run_superseded(bash, work, tmp_path, runs=answer, **env)
+    assert done.returncode == 0, f"the script must build when it cannot tell:\n{done.stdout}{done.stderr}"
+    assert says in done.stdout, done.stdout
 
 
 # A workflow that runs on everything the lock protects, and on pull requests.
@@ -1050,6 +1462,11 @@ def test_concurrency_lock_evaluates_expressions(expression, value):
         {"group": "${{ github.ref"},
         {"group": "${{ startsWith(github.ref) }}"},
         {"group": "g", "cancel-in-progress": "${{ github.ref }}"},
+        {"group": "g", "queue": "all"},
+        {"group": "g", "queue": "${{ 'max' }}"},
+        {"group": "g", "queue": "max", "cancel-in-progress": True},
+        {"group": "g", "queue": "max", "cancel-in-progress": "${{ github.event_name == 'pull_request' }}"},
+        {"group": "g", "max-parallel": 1},
     ],
 )
 def test_concurrency_lock_refuses_what_it_cannot_read(block):
