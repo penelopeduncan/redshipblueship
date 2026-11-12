@@ -469,13 +469,14 @@ TestResult Test_SharedWarpFamilyStorage(void) {
                   "(8) every family armed: %d pairs (want %d), not the first word's slots in order then the "
                   "second word's",
                   n, expected);
-        ComboLogicSharedPair small[32];
-        memset(small, 0xEE, sizeof(small));
-        const int refused = Combo_SingleBag_SharedPairs(small, 32);
-        SWS_CHECK(refused == -1 && small[0].ootId == 0xEEEEu,
+        // Not named `small`: the Windows headers define that word as a macro.
+        ComboLogicSharedPair tooFew[32];
+        memset(tooFew, 0xEE, sizeof(tooFew));
+        const int refused = Combo_SingleBag_SharedPairs(tooFew, 32);
+        SWS_CHECK(refused == -1 && tooFew[0].ootId == 0xEEEEu,
                   "(8) a 32-pair buffer for %d pairs answered %d (first row %04X); want -1 and nothing written, never "
                   "a silent truncation",
-                  expected, refused, (unsigned)small[0].ootId);
+                  expected, refused, (unsigned)tooFew[0].ootId);
         SwsFreeze(rules1, 0u);
         ComboLogicSharedPair word1Only[RSBS_XFAMILY_SLOT_COUNT];
         const int n1 = Combo_SingleBag_SharedPairs(word1Only, (int)RSBS_XFAMILY_SLOT_COUNT);
