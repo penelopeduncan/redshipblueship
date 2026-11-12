@@ -14,12 +14,12 @@ extern s16 MM_sLastPlayedSong;
 
 static int playedSariasSongState = 0;
 
-std::set<RandoItemId> priorityItems = {
+static std::set<RandoItemId> priorityItems = {
     RI_BOW,       RI_HOOKSHOT,          RI_MASK_BLAST,  RI_BOMB_BAG_20,  RI_MASK_DEKU, RI_MASK_GORON,
     RI_MASK_ZORA, RI_MASK_FIERCE_DEITY, RI_SONG_SONATA, RI_SONG_LULLABY, RI_SONG_NOVA, RI_SONG_SOARING,
 };
 
-RandoCheckId GetProgressiveCheckInLogic() {
+static RandoCheckId GetProgressiveCheckInLogic() {
     std::unordered_map<RandoRegionId, Rando::Logic::RegionTimeState> regionTimeStates =
         Rando::Logic::InitializeRegionTimeStates(RR_MAX);
     std::set<RandoRegionId> reachableRegions = {};
@@ -50,9 +50,10 @@ RandoCheckId GetProgressiveCheckInLogic() {
     }
 
     // First, we try to return a priority check if one is available, in order of the priority items list.
-    // If no priority checks are available, we return a random major/mask check.
+    // If no priority checks are available, we return a random major/mask check
+    // (Ship_Random's upper bound is exclusive, so every candidate can be picked).
     return priorityChecks.empty()
-               ? (otherChecks.empty() ? RC_UNKNOWN : otherChecks[Ship_Random(0, otherChecks.size() - 1)])
+               ? (otherChecks.empty() ? RC_UNKNOWN : otherChecks[Ship_Random(0, (s32)otherChecks.size())])
                : priorityChecks[0];
 }
 
