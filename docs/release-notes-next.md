@@ -48,11 +48,19 @@
   song checks, and Vanilla and Start With behave as in 2Ship. The defaults stay Anywhere, so worlds created with the
   defaults do not change.
 - **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
-  With it on, the 113 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
-  you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee and the song wall's
-  drops. A hidden one sparkles until you collect it. In a paired world the option is set when the file is created, like
-  every other setting, and these checks only ever hold Majora's Mask items, never an Ocarina of Time item. With it off,
-  worlds are made exactly as before.
+  With it on, the 116 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
+  you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee, the song wall's drops and the
+  red rupee you get for cutting a whole ring of Keaton grass. A hidden one sparkles until you collect it. In a paired
+  world the option is set when the file is created, like every other setting, and these checks only ever hold Majora's
+  Mask items, never an Ocarina of Time item. With it off, worlds are made exactly as before.
+- **New option: Shuffle Hive Drops** (issue #1410), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, the item that falls when you break each of Majora's Mask's 19 beehives is a check. In a paired world the
+  option is set when the file is created, and these checks only ever hold Majora's Mask items. With it off, worlds are
+  made exactly as before.
+- **Shuffle Grass Drops covers more grass** (issue #1410), from 2Ship2Harkinian: 171 more patches of Majora's Mask
+  grass are checks, among them the three rings of Keaton grass, each bush its own check. With Shuffle Grass Drops on
+  (it is off by default), a seed makes a different world than before; in a paired world these checks only ever hold
+  Majora's Mask items. With it off, worlds are made exactly as before.
 
 ### Ocarina of Time randomizer
 

@@ -271,6 +271,13 @@ static_assert(RC_CLOCK_TOWN_EAST_WONDER_ITEM_01 == 2311 && RC_TERMINA_FIELD_WOND
               "MM's Wonder Item checks (#1406) are ids 2311..2423, appended after RC_ENEMY_DROP_GOMESS");
 static_assert(RO_SHUFFLE_WONDER_ITEMS == 54,
               "MM's Shuffle Wonder Items option (#1406) is id 54, after RO_SHUFFLE_SONGS");
+// #1410 (Shuffle Hive Drops and the extra / Keaton grass rows): 193 checks (19
+// hives, 171 grass, the 3 Keaton ring rewards) and one option.
+static_assert(RC_GREAT_BAY_COAST_COW_GROTTO_BEEHIVE == 2424 &&
+                  RC_MOUNTAIN_VILLAGE_SPRING_KEATON_GRASS_WONDER_ITEM == 2616,
+              "MM's beehive and extra grass checks (#1410) are ids 2424..2616, appended after #1406's");
+static_assert(RO_SHUFFLE_HIVE_DROPS == 55,
+              "MM's Shuffle Hive Drops option (#1410) is id 55, after RO_SHUFFLE_WONDER_ITEMS");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

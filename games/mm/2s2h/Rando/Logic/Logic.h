@@ -494,6 +494,9 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
     (MM_TRICK(MMRT_SHT_HOT_WATER) && HAS_BOTTLE && CAN_ACCESS(HOT_SPRING_WATER) && \
      CAN_PLAY_SONG(SOARING) && CAN_OWL_WARP(OWL_WARP_SNOWHEAD))
 #define CAN_USE_SWORD (CAN_USE_HUMAN_SWORD || HAS_ITEM(ITEM_SWORD_GREAT_FAIRY) || CAN_BE_DEITY)
+#define CAN_FULLY_CUT_KEATON_GRASS                                                      \
+    (HAS_MAGIC && (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) >= EQUIP_VALUE_SWORD_RAZOR) && \
+     CHECK_WEEKEVENTREG(WEEKEVENTREG_RECEIVED_GREAT_SPIN_ATTACK))
 // Be careful here, as some checks require you to play the song as a specific form
 #define CAN_PLAY_SONG(song)                 \
     (CHECK_QUEST_ITEM(QUEST_SONG_##song) && \
