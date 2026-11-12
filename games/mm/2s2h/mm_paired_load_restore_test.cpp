@@ -61,6 +61,11 @@
  *                -> the MM profile digest matches the file again, both keys hold
  *                   the file's values, a toast names both rows, and the arrival
  *                   gate does not refuse
+ *   leg 2h - #1403: a half whose Shuffled Gold Skulltulas and Stray Fairies in
+ *                Pool slots hold 0 (written before those options existed), with
+ *                Starting Hearts changed
+ *                -> the restore writes and names Starting Hearts alone; the two
+ *                   appended keys stay unset
  *   leg 2b - ONE trick changed, the settable trick with the longest label
  *                -> the toast names that trick (whole, or cut with "..."), never
  *                   a bare count
@@ -977,6 +982,83 @@ int LegMmProfile() {
         return Fail(28, "leg 2: the arrival gate refused a file that loaded");
     }
     return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Leg 2h: #1403. A half written before Shuffled Gold Skulltulas and Stray
+// Fairies in Pool existed holds 0 in their slots, which the fold reads as each
+// row's default (30, 15), so the half still reproduces its stamp. With one
+// unrelated MM option changed (Starting Hearts), the restore must write exactly
+// that one key and name exactly that one row: never the two appended rows as 0.
+// ---------------------------------------------------------------------------
+int LegMmPre1403Half() {
+    const ComboMMOptionDesc* hearts = Combo_MMOptionById((uint16_t)RO_STARTING_HEALTH);
+    const ComboMMOptionDesc* skulltulas = Combo_MMOptionById((uint16_t)RO_SKULLTULA_SHUFFLED);
+    const ComboMMOptionDesc* fairies = Combo_MMOptionById((uint16_t)RO_STRAY_FAIRIES_MAX);
+    if (hearts == nullptr || skulltulas == nullptr || fairies == nullptr) {
+        return Fail(170, "leg 2h setup: no Starting Hearts, Shuffled Gold Skulltulas or Stray Fairies in Pool row");
+    }
+    ClearAuthoredKeys();
+    Combo_MMOptionSetValue(hearts, 5);
+    if (int rc = CreatePairedFile(false, nullptr)) {
+        return rc;
+    }
+    const uint32_t fileDigest = gComboCtx.mmProfileDigest;
+
+    // The file's MM half, with the two #1403 slots zeroed as a half saved before
+    // they existed holds them (spare zero-filled capacity of randoSaveOptions).
+    const std::vector<uint8_t> file = PlrReadAll(rsbs::SaveManager::Instance().SlotPath(kSlot));
+    const size_t mmSize = file.size() > kHdrComboSize + 12 ? PlrU32At(file, kHdrComboSize + 8) : 0;
+    if (mmSize < sizeof(SaveContext) || Tier3Offset(file) + mmSize > file.size()) {
+        return Fail(171, "leg 2h setup: the slot file holds no readable MM half (%zu bytes)", mmSize);
+    }
+    std::vector<uint8_t> half(file.begin() + (std::ptrdiff_t)Tier3Offset(file),
+                              file.begin() + (std::ptrdiff_t)(Tier3Offset(file) + mmSize));
+    const size_t optionsAt = offsetof(SaveContext, save.shipSaveInfo.rando.randoSaveOptions);
+    const uint32_t heldSkulltulas = PlrU32At(half, optionsAt + sizeof(uint32_t) * RO_SKULLTULA_SHUFFLED);
+    const uint32_t heldFairies = PlrU32At(half, optionsAt + sizeof(uint32_t) * RO_STRAY_FAIRIES_MAX);
+    PlrPutU32(half, optionsAt + sizeof(uint32_t) * RO_SKULLTULA_SHUFFLED, 0u);
+    PlrPutU32(half, optionsAt + sizeof(uint32_t) * RO_STRAY_FAIRIES_MAX, 0u);
+
+    Relaunch();
+    Combo_MMOptionSetValue(hearts, 3);
+    const int classified = MM_Rando_ClassifyProfileForLoad(half.data(), half.size(), fileDigest);
+    char names[256] = { 0 };
+    int count = -1;
+    const int restored =
+        MM_Rando_RestoreProfileForLoad(half.data(), half.size(), fileDigest, names, sizeof(names), &count);
+    const int32_t heartsNow = Combo_MMOptionGetValue(hearts);
+    const bool skulltulasSet = Combo_MMOptionIsExplicit(skulltulas);
+    const bool fairiesSet = Combo_MMOptionIsExplicit(fairies);
+    const bool matches = MM_Rando_ProfileStampMatches(fileDigest) != 0;
+    printf("[TEST] leg 2h OBSERVED: created with skulltulas %u fairies %u, zeroed; classify=%d restore=%d count=%d "
+           "names='%s' startingHearts=%d skulltulaKeySet=%d (%d) fairyKeySet=%d (%d) liveMatches=%d\n",
+           (unsigned)heldSkulltulas, (unsigned)heldFairies, classified, restored, count, names, (int)heartsNow,
+           skulltulasSet ? 1 : 0, (int)Combo_MMOptionGetValue(skulltulas), fairiesSet ? 1 : 0,
+           (int)Combo_MMOptionGetValue(fairies), matches ? 1 : 0);
+    int rc = 0;
+    if (heldSkulltulas != (uint32_t)skulltulas->defaultValue || heldFairies != (uint32_t)fairies->defaultValue) {
+        rc = Fail(172, "leg 2h setup: a default creation froze skulltulas %u and fairies %u, not the rows' defaults",
+                  (unsigned)heldSkulltulas, (unsigned)heldFairies);
+    } else if (classified != RSBS_MM_PROFILE_LOAD_RESTORABLE) {
+        rc = Fail(173,
+                  "leg 2h: a half with the #1403 slots at 0 does not reproduce its stamp (classify %d): the "
+                  "fold no longer reads 0 as the default, and every older paired file is refused",
+                  classified);
+    } else if (restored != RSBS_MM_PROFILE_LOAD_RESTORED || !matches || heartsNow != 5) {
+        rc = Fail(174, "leg 2h: the restore did not put Starting Hearts back (rc %d, hearts %d, matches %d)", restored,
+                  (int)heartsNow, matches ? 1 : 0);
+    } else if (skulltulasSet || fairiesSet) {
+        rc = Fail(175,
+                  "leg 2h: the restore wrote a #1403 key the player never changed (skulltulas set %d = %d, fairies "
+                  "set %d = %d): a 0 slot was compared raw against the row's default",
+                  skulltulasSet ? 1 : 0, (int)Combo_MMOptionGetValue(skulltulas), fairiesSet ? 1 : 0,
+                  (int)Combo_MMOptionGetValue(fairies));
+    } else if (count != 1 || std::string(names) != std::string(hearts->label)) {
+        rc = Fail(176, "leg 2h: the restore named %d rows ('%s'), not exactly '%s'", count, names, hearts->label);
+    }
+    ClearAuthoredKeys();
+    return rc;
 }
 
 // ---------------------------------------------------------------------------
@@ -1907,14 +1989,23 @@ extern "C" int MM_PairedLoadRestore_RunHeadless(void) {
     // observed state; the first failure is the row's result.
     int rc = 0;
     int (*const legs[])() = {
-        LegCrossGameRules,     LegLogicRung,
-        LegMmProfile,          LegMmTrickOnly,
-        LegMmManyTricks,       LegMmTrapTypes,
-        LegMmTrapTypesHigh,    LegMmExcludedChecks,
-        LegLegacyMmLogic,      LegLegacyMmLogicAtStagedRung,
-        LegRoundTrip,          LegUnrestorableRule,
-        LegRollback,           LegProbeRefusals,
-        LegProbeAccepts,       LegProbeMmHalfNotThisPairs,
+        LegCrossGameRules,
+        LegLogicRung,
+        LegMmProfile,
+        LegMmPre1403Half,
+        LegMmTrickOnly,
+        LegMmManyTricks,
+        LegMmTrapTypes,
+        LegMmTrapTypesHigh,
+        LegMmExcludedChecks,
+        LegLegacyMmLogic,
+        LegLegacyMmLogicAtStagedRung,
+        LegRoundTrip,
+        LegUnrestorableRule,
+        LegRollback,
+        LegProbeRefusals,
+        LegProbeAccepts,
+        LegProbeMmHalfNotThisPairs,
         LegProbeOtherOoTWorld,
     };
     for (auto leg : legs) {

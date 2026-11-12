@@ -145,6 +145,21 @@ static bool AppendedOptionIsFolded(uint32_t value, uint32_t defaultValue) {
     return value != 0 && value != defaultValue;
 }
 
+/** What an appended option's persisted @p value means: the row's default when
+ *  @p value is 0 and the default is not (a half persisted before the option
+ *  existed holds 0 in its slot, and the fold above reads that as the default),
+ *  else @p value. For COMPARES and DISPLAY only: the load restore's raw compare
+ *  and the profile dump. Never fed to a hashed string: the fold already treats
+ *  both spellings alike, and MMOptionsString's positional part never sees an
+ *  appended option. */
+static uint32_t AppendedOptionCanonical(RandoOptionId randoOptionId, uint32_t value) {
+    if (value != 0 || !IsAppendedOption(randoOptionId)) {
+        return value;
+    }
+    const auto row = Rando::StaticData::Options.find(randoOptionId);
+    return row != Rando::StaticData::Options.end() ? (uint32_t)row->second.defaultValue : value;
+}
+
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
         if (IsAppendedOption(randoOptionId) &&
@@ -1887,6 +1902,13 @@ int ClassifyHalfForLoad(const void* mmHalf, size_t mmHalfSize, uint32_t frozenDi
                 (unsigned)candidate, (unsigned)frozenDigest);
         return RSBS_MM_PROFILE_LOAD_UNRESTORABLE;
     }
+    // #1403: only now, after the digest above hashed the persisted values, does
+    // an appended slot a half written before its option existed holds (0) read
+    // as what it means, the row's default, so the restore neither writes 0 into
+    // the key nor names a row the player never changed.
+    for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
+        fileValues[randoOptionId] = Rando::Foreign::AppendedOptionCanonical(randoOptionId, fileValues[randoOptionId]);
+    }
     return RSBS_MM_PROFILE_LOAD_RESTORABLE;
 }
 
@@ -2086,7 +2108,8 @@ extern "C" int MM_Rando_RestoreProfileForLoad(const void* mmHalf, size_t mmHalfS
                 continue;
             }
             if ((dependent && pass == 0) || written[randoOptionId] ||
-                liveValues[randoOptionId] == fileValues[randoOptionId]) {
+                Rando::Foreign::AppendedOptionCanonical(randoOptionId, liveValues[randoOptionId]) ==
+                    Rando::Foreign::AppendedOptionCanonical(randoOptionId, fileValues[randoOptionId])) {
                 continue;
             }
             written[randoOptionId] = true;
@@ -3272,7 +3295,10 @@ extern "C" int MM_Rando_ProfileDumpFromSave(char* out, size_t cap) {
     nlohmann::ordered_json dump = nlohmann::ordered_json::object();
     nlohmann::ordered_json options = nlohmann::ordered_json::object();
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-        options[randoStaticOption.name] = RANDO_SAVE_OPTIONS[randoOptionId];
+        // #1403: an appended slot a half held before its option existed (0) is
+        // shown as the row's default it means. Display only; nothing hashes it.
+        options[randoStaticOption.name] =
+            Rando::Foreign::AppendedOptionCanonical(randoOptionId, RANDO_SAVE_OPTIONS[randoOptionId]);
     }
     dump["options"] = options;
     nlohmann::ordered_json tricks = nlohmann::ordered_json::array();
