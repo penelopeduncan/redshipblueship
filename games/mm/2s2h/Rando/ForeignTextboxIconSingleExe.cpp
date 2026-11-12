@@ -85,6 +85,8 @@ extern s16 D_801CFE34[];
 // CustomMessage.cpp's file-scope message the OnOpenText hook loads (test bridges
 // read it to see what CheckQueue's give lambda handed the textbox).
 extern CustomMessage::Entry activeCustomMessage;
+// Rando/Foreign.cpp (#1542 S0): an MM check's song-check index, -1 for any other.
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 // src/common. Outside any extern "C" block: each header manages its own linkage.
 #include "foreign_items.h"
@@ -481,6 +483,13 @@ bool RunDecodeChain() {
  * is restored on every exit.
  */
 bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t wantItemId) {
+    // #1542 S0: the `obtained` this drive pre-sets on its host is exactly what
+    // CheckQueue's delivered-song-host guard consumes, so a song check would queue
+    // nothing and this drive would read red for a reason that is not its own.
+    FTI_EXPECT(MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0,
+               "a song-check host cannot drive CheckQueue with obtained pre-set: the delivered-song-host guard "
+               "consumes it (#1542 S0); pass a non-song check (check %u)",
+               (unsigned)mmCheckId);
     struct Restore {
         std::vector<RandoSaveCheck> checks;
         std::vector<GIEvent> queue;

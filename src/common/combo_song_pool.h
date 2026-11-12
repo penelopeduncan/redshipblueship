@@ -102,6 +102,132 @@ void Combo_PairSongsRestore(int16_t snapshot);
  *  apart from the capture. */
 uint32_t Combo_PairSongsOoTValue(uint32_t ootKeyValue);
 
+/* ============================================================================
+ * THE SONG CHECKS AS CROSS-GAME HOSTS (#1542 S0). Game-header-free.
+ *
+ * Under the shared song-location pool (stages S2 to S4 of #1542, OoTMM's
+ * `songLocations`) a song of either game may sit on a song check of either
+ * game, so each song check must be able to deliver the other game's item. This
+ * block is the per-check verdict, traced give path by give path (the S0 pull
+ * request's body), and the ONE switch that arms it.
+ *
+ * HOST ACCEPTANCE IS A PURE FUNCTION of the static location tables AND the
+ * settings frozen at file creation; never of the session's start game or of
+ * session history (one-game semantics). Both engines read the frozen OoT Shuffle
+ * Songs through OoT_Combo_FrozenShuffleSongs (below), the same source in both,
+ * so their answers cannot disagree and do not depend on whether a creation is in
+ * progress. The creation capture (Combo_PairSongsCaptured) is NOT a
+ * host-acceptance input.
+ *
+ * DORMANT IN S0. Combo_SongHostsArmed answers false in production, so every song
+ * check answers what it answered before #1542: refused in both games (OoT's
+ * actor test, MM's tier allowlist). S3 replaces its body with
+ * `frozenOoTSongs == RSBS_OOT_SONGS_SONG_LOCATIONS` (design decision 7: the
+ * union only). S3 PRECONDITION: before arming, verify that the OoT context's
+ * RSK_SHUFFLE_SONGS equals the loaded paired file's frozen value at every reader
+ * of the host class (the coordinator inside Playthrough_Init, the post-generation
+ * sweeps, MM's spoiler-load gate Spoiler/Apply.cpp, the MM test rows), and that
+ * the settings pane cannot write the context option between a load and a reader.
+ * ============================================================================ */
+
+/** The 23 song checks, OoT's 12 then MM's 11, in OoTMM's order. */
+typedef enum RsbsSongCheck {
+    RSBS_SONG_CHECK_OOT_SARIA = 0,         /* RC_SONG_FROM_SARIA */
+    RSBS_SONG_CHECK_OOT_SHEIK_FOREST,      /* RC_SHEIK_IN_FOREST (Minuet) */
+    RSBS_SONG_CHECK_OOT_MALON,             /* RC_SONG_FROM_MALON (Epona's Song) */
+    RSBS_SONG_CHECK_OOT_OCARINA_OF_TIME,   /* RC_SONG_FROM_OCARINA_OF_TIME (Song of Time) */
+    RSBS_SONG_CHECK_OOT_IMPA,              /* RC_SONG_FROM_IMPA (Zelda's Lullaby) */
+    RSBS_SONG_CHECK_OOT_ROYAL_TOMB,        /* RC_SONG_FROM_ROYAL_FAMILYS_TOMB (Sun's Song) */
+    RSBS_SONG_CHECK_OOT_WINDMILL,          /* RC_SONG_FROM_WINDMILL (Song of Storms) */
+    RSBS_SONG_CHECK_OOT_SHEIK_KAKARIKO,    /* RC_SHEIK_IN_KAKARIKO (Nocturne) */
+    RSBS_SONG_CHECK_OOT_SHEIK_CRATER,      /* RC_SHEIK_IN_CRATER (Bolero) */
+    RSBS_SONG_CHECK_OOT_SHEIK_ICE_CAVERN,  /* RC_SHEIK_IN_ICE_CAVERN (Serenade) */
+    RSBS_SONG_CHECK_OOT_SHEIK_COLOSSUS,    /* RC_SHEIK_AT_COLOSSUS (Requiem) */
+    RSBS_SONG_CHECK_OOT_SHEIK_TEMPLE,      /* RC_SHEIK_AT_TEMPLE (Prelude) */
+    RSBS_SONG_CHECK_MM_HEALING,            /* RC_STARTING_ITEM_SONG_OF_HEALING */
+    RSBS_SONG_CHECK_MM_ROOF_TIME,          /* RC_CLOCK_TOWER_ROOF_SONG_OF_TIME */
+    RSBS_SONG_CHECK_MM_ROMANI_EPONA,       /* RC_ROMANI_RANCH_EPONAS_SONG */
+    RSBS_SONG_CHECK_MM_SWAMP_SOARING,      /* RC_SOUTHERN_SWAMP_SONG_OF_SOARING */
+    RSBS_SONG_CHECK_MM_DEKU_PALACE_SONATA, /* RC_DEKU_KINGS_CHAMBER_MONKEY */
+    RSBS_SONG_CHECK_MM_GORON_ELDER,        /* RC_PATH_TO_GORON_VILLAGE_LULLABY_INTRO */
+    RSBS_SONG_CHECK_MM_GORON_BABY,         /* RC_GORON_SHRINE_FULL_LULLABY */
+    RSBS_SONG_CHECK_MM_MARINE_LAB,         /* RC_GREAT_BAY_COAST_NEW_WAVE_BOSSA_NOVA */
+    RSBS_SONG_CHECK_MM_GRAVEYARD_STORMS,   /* RC_BENEATH_THE_GRAVEYARD_SONG_OF_STORMS */
+    RSBS_SONG_CHECK_MM_IKANA_ELEGY,        /* RC_ANCIENT_CASTLE_OF_IKANA_BOSS */
+    RSBS_SONG_CHECK_MM_OATH,               /* RC_GIANTS_CHAMBER_OATH_TO_ORDER */
+    RSBS_SONG_CHECK_COUNT
+} RsbsSongCheck;
+
+#define RSBS_SONG_CHECK_OOT_COUNT 12
+#define RSBS_SONG_CHECK_MM_COUNT 11
+#define RSBS_SONG_CHECK_FIRST_MM RSBS_SONG_CHECK_MM_HEALING
+
+/** Which game a song check belongs to (RsbsSongCheckInfo.game). */
+#define RSBS_SONG_CHECK_GAME_OOT 0u
+#define RSBS_SONG_CHECK_GAME_MM 1u
+
+/** May the check host the other game's item once the switch is armed? */
+typedef enum RsbsSongHostRule {
+    RSBS_SONG_HOST_REFUSE = 0,
+    RSBS_SONG_HOST_ALLOW = 1,
+    /** Impa: refused while the frozen Skip Child Zelda is on, because then the
+     *  check is given at file creation through StartingItemGive (savefile.cpp),
+     *  which has no crossing branch. */
+    RSBS_SONG_HOST_ALLOW_UNLESS_SKIP_CHILD_ZELDA = 2,
+} RsbsSongHostRule;
+
+/** How the game hands the check to its delivery engine (the traces). */
+typedef enum RsbsSongGivePath {
+    /** OoT: an actor or a hook sets the check's collection flag; the flag handler
+     *  queues it and the RC-queue drain's foreign branch delivers it. */
+    RSBS_SONG_GIVE_OOT_ACTOR_FLAG = 0,
+    /** OoT: a transition or entrance trigger sets the collection flag; then as
+     *  above. */
+    RSBS_SONG_GIVE_OOT_TRIGGER_FLAG = 1,
+    /** MM: `.eligible` is armed once per file; CheckQueue's foreign branch. */
+    RSBS_SONG_GIVE_MM_ONCE = 2,
+    /** MM: `.eligible` re-arms on a later cycle or a re-entry; CheckQueue's
+     *  delivered-song-host guard consumes a re-arm once the crossing is
+     *  delivered (OoTMM's once-per-file rule). */
+    RSBS_SONG_GIVE_MM_REARMS = 3,
+    /** MM: armed at file creation (the starting Song of Healing). */
+    RSBS_SONG_GIVE_MM_CREATION = 4,
+} RsbsSongGivePath;
+
+typedef struct RsbsSongCheckInfo {
+    uint8_t game; /* RSBS_SONG_CHECK_GAME_* */
+    uint8_t rule; /* RsbsSongHostRule */
+    uint8_t path; /* RsbsSongGivePath */
+    const char* label;
+} RsbsSongCheckInfo;
+
+/** The verdict table row for @p songCheck, or NULL outside 0..22. */
+const RsbsSongCheckInfo* Combo_SongCheckInfo(int songCheck);
+
+/** THE ONE SWITCH. False in production in S0 (see the block comment); the test
+ *  override, when one is set, wins. @p frozenOoTSongs is OoT's frozen Shuffle
+ *  Songs, which S3's body reads. Pure apart from the override. */
+bool Combo_SongHostsArmed(uint32_t frozenOoTSongs);
+
+/** TEST SEAM: -1 clears the override, 0 forces the switch off, 1 forces it on.
+ *  RAM only, never a CVar (a stored CVar would persist into later processes).
+ *  Every row that sets it restores -1 on every return path. */
+void Combo_SongHostsForceForTest(int value);
+
+/** The override as set (-1 when cleared), for a row's restore check. */
+int Combo_SongHostsTestOverride(void);
+
+/** May song check @p songCheck host the other game's item? The switch, then the
+ *  row's rule. @p frozenSkipChildZelda is OoT's frozen RSK_SKIP_CHILD_ZELDA
+ *  (false for an MM check: Impa is OoT's). False for an index outside 0..22. */
+bool Combo_SongCheckAcceptsForeign(int songCheck, uint32_t frozenOoTSongs, bool frozenSkipChildZelda);
+
+/** OoT's frozen Shuffle Songs (RSK_SHUFFLE_SONGS from OoT's Rando context), or
+ *  RSBS_OOT_SONGS_OFF when there is no context. DEFINED IN OoT
+ *  (ComboLogicEngineOoT.cpp) so src/common stays game-header-free; MM's host
+ *  class reads it through this declaration. */
+uint32_t OoT_Combo_FrozenShuffleSongs(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -973,6 +973,21 @@ if(BUILD_TESTING)
     # the file-create invalidation, dropped by DROP) and its call sites from source.
     # ROM-free, generates nothing (src/common/tests/test_combo_song_pool.c).
     redship_add_test(NAME PairSongsMapping COMMAND redship --test pair-songs-mapping)
+    # #1542 (S0): the song checks of both games as cross-game hosts, dormant behind
+    # one switch (Combo_SongHostsArmed, false in production). SongCheckTables: both
+    # games' song rows against OoTMM's 23 names, the verdict table and the pure
+    # answer against literals, both engines' answers under the test override and a
+    # held Rando context (the creation capture is no input), every non-song row
+    # unmoved by the switch, both host tables with the switch off against the base
+    # commit's rule restated from static facts, and the call sites from source.
+    # MMSongHostGuard: CheckQueue consumes a delivered MM song host armed again,
+    # leaves its first delivery, a chest's re-arm and a native re-give alone, and
+    # the real headless three-day reset (Sram_SaveEndOfCycle) re-arms neither
+    # Healing's crossing host nor, through the guard, the New Wave's. Both ROM-free,
+    # generate nothing (src/common/tests/test_song_check_tables.c,
+    # games/mm/2s2h/mm_song_host_guard_test.cpp).
+    redship_add_test(NAME SongCheckTables COMMAND redship --test song-check-tables)
+    redship_add_test(NAME MMSongHostGuard COMMAND redship --test mm-song-host-guard)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison

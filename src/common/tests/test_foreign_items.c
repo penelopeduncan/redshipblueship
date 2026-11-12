@@ -32,6 +32,7 @@
  * pipeline symbol it drives is C-linkage.
  */
 
+#include "../combo_song_pool.h"
 #include "../context.h"
 #include "../crossing_store.h"
 #include "../foreign_items.h"
@@ -756,6 +757,10 @@ TestResult Test_ForeignItemGiveReverse(void) {
 TestResult Test_ForeignHostEligibility(void) {
     printf("[TEST] foreign-host-eligibility: only game-armed check classes can host a crossing (#488)\n");
 
+    // #1542 S0: production's song-host switch, not a test override, so the song
+    // checks (RCTYPE_SONG) fall among the rejected "other" rows below. When S3
+    // arms the union this restatement gains a song category.
+    FI_ASSERT(Combo_SongHostsTestOverride() == -1);
     const int checkIdMax = MM_Rando_Foreign_TestCheckIdMax();
     FI_ASSERT(checkIdMax > 1);
 

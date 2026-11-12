@@ -273,6 +273,7 @@
 #include "../combo_logic.h"
 #include "../combo_mm_options_view.h"
 #include "../combo_single_bag.h"
+#include "../combo_song_pool.h"
 #include "../context.h"
 #include "../crossing_store.h"
 #include "../foreign_items.h"
@@ -311,6 +312,12 @@ int MM_Rando_Foreign_TestIsForeignHostClass(uint16_t randoCheckId);
 int MM_Rando_PairedGenLastAttempts(void);
 int MM_Rando_PairedGenLastExhausted(void);
 int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts);
+// #1542 S0 (leg E4): the song-check index of an OoT check and OoT's REAL
+// host predicate (ComboLogicEngineOoT.cpp); MM's song-check index (Foreign.cpp).
+int OoT_ComboLogic_TestCheckIdSpace(void);
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int OoT_ComboLogic_TestHostAcceptsForeign(uint16_t rc);
+int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 int OoT_ComboLogic_TestIsShopShelf(uint16_t hostCheck);
 int OoT_ComboLogic_TestIsScrub(uint16_t hostCheck);
 int OoT_ComboLogic_TestIsMerchant(uint16_t hostCheck);
@@ -2109,6 +2116,75 @@ TestResult ComboSingleBag_Run(void) {
                            "write, so the creation event's join and the Randomizer menu treat it as this world's "
                            "spoiler (#564 V23, #1055)");
             }
+        }
+
+        // E4. #1542 S0: Impa's song check never hosts an MM item under the frozen
+        //     Skip Child Zelda, even with the song-host switch forced on. Under
+        //     these settings Impa's check is given at creation through
+        //     StartingItemGive (savefile.cpp), which has no crossing branch, so an
+        //     MM item there would be lost. Shuffle Songs is Anywhere here so Impa
+        //     is a general-pass host the coordinator asks about (under Song
+        //     Locations OoT's own song pass fills it before the coordinator). One
+        //     more generation of these settings; the legs above are untouched.
+        {
+            struct CsbSongHostRestore {
+                int16_t capture;
+                CsbSongHostRestore() : capture(Combo_PairSongsSnapshot()) {
+                }
+                ~CsbSongHostRestore() {
+                    Combo_SongHostsForceForTest(-1);
+                    Combo_PairSongsRestore(capture);
+                }
+            } songHostRestore;
+            Combo_SingleBag_Forget();
+            Combo_Crossings_Clear();
+            Combo_SongHostsForceForTest(1);
+            CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGGIVESSONG") == 0,
+                       "E4: the paired generation under the creation-give settings with the song hosts armed failed");
+            uint16_t impa = 0;
+            uint16_t saria = 0;
+            for (int rc = 1; rc < OoT_ComboLogic_TestCheckIdSpace(); rc++) {
+                const int index = OoT_ComboLogic_TestSongCheckIndex((uint16_t)rc);
+                impa = index == RSBS_SONG_CHECK_OOT_IMPA ? (uint16_t)rc : impa;
+                saria = index == RSBS_SONG_CHECK_OOT_SARIA ? (uint16_t)rc : saria;
+            }
+            CSB_ASSERT(impa != 0 && (int)impa == Randomizer_TestCreationGiveHost(1),
+                       "E4: Impa's song check is not the creation-give host the save file gives from");
+            const int impaAccepts = OoT_ComboLogic_TestHostAcceptsForeign(impa);
+            const int sariaAccepts = OoT_ComboLogic_TestHostAcceptsForeign(saria);
+            CSB_ASSERT(MM_Rando_HeadlessPairedHalf() == 0,
+                       "E4: MM's creation-time half failed with the song hosts armed");
+            const ComboSingleBagReport songBag = *Combo_SingleBag_LastReport();
+            const CsbTables songTables = CsbCopyTables();
+            int impaPlaced = 0;
+            int impaCrossings = 0;
+            int ootSongHostCrossings = 0;
+            int mmSongHostCrossings = 0;
+            for (const ComboLogicPlacement& p : songTables.oot) {
+                impaPlaced += p.hostCheck == impa ? 1 : 0;
+                if (p.item.originGame != (uint8_t)GAME_MM) {
+                    continue;
+                }
+                impaCrossings += p.hostCheck == impa ? 1 : 0;
+                ootSongHostCrossings += OoT_ComboLogic_TestSongCheckIndex(p.hostCheck) >= 0 ? 1 : 0;
+            }
+            for (const ComboLogicPlacement& p : songTables.mm) {
+                if (p.item.originGame == (uint8_t)GAME_OOT && MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck) >= 0) {
+                    mmSongHostCrossings++;
+                }
+            }
+            printf("[TEST] combo-single-bag: E4 (#1542 S0) song hosts armed, Skip Child Zelda on: Impa accepts %d, "
+                   "Saria accepts %d; the bag (%s) placed %d item(s) on Impa, %d of them MM's; MM items on OoT song "
+                   "checks %d, OoT items on MM song checks %d\n",
+                   impaAccepts, sariaAccepts, Combo_Logic_StatusName(songBag.status), impaPlaced, impaCrossings,
+                   ootSongHostCrossings, mmSongHostCrossings);
+            CSB_ASSERT(sariaAccepts == 1,
+                       "E4: with the song hosts armed Saria's song check refuses an MM item, so E4 proves nothing");
+            CSB_ASSERT(impaAccepts == 0, "E4: Impa's song check accepts an MM item under the frozen Skip Child Zelda: "
+                                         "its creation-time give (StartingItemGive) would lose it");
+            CSB_ASSERT(impaCrossings == 0, "E4: the single bag put an MM item on Impa's song check under the frozen "
+                                           "Skip Child Zelda");
+            Combo_SingleBag_Forget();
         }
     }
     Combo_SingleBag_Forget();

@@ -142,6 +142,7 @@
 #include <string>
 
 #include "combo_logic.h"           // src/common — the vtable this file implements
+#include "combo_song_pool.h"       // src/common — #1542 S0: the song checks as cross-game hosts
 #include "context.h"               // src/common — SharedItem, GameId
 #include "critical_renewables.h"   // src/common — OoTMM's critical-renewables rule (OoT's source, OoT's remainder)
 #include "foreign_items.h"         // src/common — the frozen pairing identity and combo record
@@ -1184,6 +1185,41 @@ void OoT_ComboLogic_EndQuery(void* self) {
     }
 }
 
+/** The RsbsSongCheck index (combo_song_pool.h) of an OoT song check, or -1
+ *  (#1542 S0). A switch over the twelve check names, so a renamed or removed row
+ *  fails to compile; the SongCheckTables row proves it is a bijection onto OoT's
+ *  RCTYPE_SONG_LOCATION rows. */
+int OoT_SongCheckIndex(RandomizerCheck rc) {
+    switch (rc) {
+        case RC_SONG_FROM_SARIA:
+            return RSBS_SONG_CHECK_OOT_SARIA;
+        case RC_SHEIK_IN_FOREST:
+            return RSBS_SONG_CHECK_OOT_SHEIK_FOREST;
+        case RC_SONG_FROM_MALON:
+            return RSBS_SONG_CHECK_OOT_MALON;
+        case RC_SONG_FROM_OCARINA_OF_TIME:
+            return RSBS_SONG_CHECK_OOT_OCARINA_OF_TIME;
+        case RC_SONG_FROM_IMPA:
+            return RSBS_SONG_CHECK_OOT_IMPA;
+        case RC_SONG_FROM_ROYAL_FAMILYS_TOMB:
+            return RSBS_SONG_CHECK_OOT_ROYAL_TOMB;
+        case RC_SONG_FROM_WINDMILL:
+            return RSBS_SONG_CHECK_OOT_WINDMILL;
+        case RC_SHEIK_IN_KAKARIKO:
+            return RSBS_SONG_CHECK_OOT_SHEIK_KAKARIKO;
+        case RC_SHEIK_IN_CRATER:
+            return RSBS_SONG_CHECK_OOT_SHEIK_CRATER;
+        case RC_SHEIK_IN_ICE_CAVERN:
+            return RSBS_SONG_CHECK_OOT_SHEIK_ICE_CAVERN;
+        case RC_SHEIK_AT_COLOSSUS:
+            return RSBS_SONG_CHECK_OOT_SHEIK_COLOSSUS;
+        case RC_SHEIK_AT_TEMPLE:
+            return RSBS_SONG_CHECK_OOT_SHEIK_TEMPLE;
+        default:
+            return -1;
+    }
+}
+
 /**
  * May an MM-origin item be placed on this OoT host (combo_logic.h ABI 5)?
  *
@@ -1239,13 +1275,47 @@ void OoT_ComboLogic_EndQuery(void* self) {
  * so it is never offered; "Bean Merchant Only" empties the bean salesman, "All
  * But Beans" the other three, "All" all four.
  *
- * A pure function of the static location table: legal outside a round, no RNG.
+ *  - OoT's TWELVE SONG CHECKS (#1542 S0; OoTMM's `songLocations`): DORMANT. Every
+ *    song row is RCTYPE_SONG_LOCATION with ACTOR_ID_MAX (ShuffleSongs.cpp), so
+ *    the actor test below refuses it, and the song branch first answers through
+ *    Combo_SongCheckAcceptsForeign, which is false until #1542 S3 arms
+ *    Combo_SongHostsArmed. Traced to the same drain as a shelf: under rando each
+ *    song's vanilla give and cutscene are suppressed (VB_GIVE_ITEM_SONG and the
+ *    VB_PLAY_*_CS rows, timesaver_hook_handlers.cpp), and the check's collection
+ *    flag is set by its actor or hook (Saria, Sheik in the Forest, the Crater,
+ *    the Ice Cavern and the Temple, Malon, the Windmill, the Royal Tomb, Impa) or
+ *    by a transition trigger (the Song of Time's entrance cutscene row in
+ *    OoT_Cutscene_HandleEntranceTriggers, Requiem's and Nocturne's conditional
+ *    triggers, z_demo.c and the timesaver's twins); the flag handler queues the
+ *    check and the drain's foreign branch records the crossing before any local
+ *    give. Each scene's progression reads the check's collection flag or the
+ *    song's own learned flag, never the song in the inventory: the randomizer
+ *    already places OoT's non-song items on all twelve. IMPA is refused while the frozen
+ *    RSK_SKIP_CHILD_ZELDA is on: then Randomizer_InitSaveFile gives the check at
+ *    creation through StartingItemGive (savefile.cpp), which has no crossing
+ *    branch, and the MM item would be lost.
+ *
+ * A pure function of the static location table and of settings frozen at file
+ * creation (the song branch reads OoT's frozen Shuffle Songs and Skip Child
+ * Zelda): legal outside a round, no RNG, never session history.
  */
 int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
     (void)self;
     const RandomizerCheck rc = (RandomizerCheck)hostCheck;
     if (!OoTComboLogicIsRealCheck(rc)) {
         return 0;
+    }
+    // #1542 S0: the song checks, before every other class (see above).
+    const int song = OoT_SongCheckIndex(rc);
+    if (song >= 0) {
+        const auto songCtx = Rando::Context::GetInstance();
+        if (songCtx == nullptr) {
+            return 0;
+        }
+        return Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
+                                             songCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0)
+                   ? 1
+                   : 0;
     }
     Rando::Location* loc = Rando::StaticData::GetLocation(rc);
     const RandomizerCheckType checkType = loc->GetRCType();
@@ -1546,6 +1616,16 @@ struct OoTComboDescriberRegistrar {
 const OoTComboDescriberRegistrar gOoTComboDescriberRegistrar;
 
 } // namespace
+
+// #1542 S0 (declared in combo_song_pool.h): OoT's frozen Shuffle Songs, the one
+// value both engines' song-host answers read (Playthrough_Init captures the same
+// option at the freeze). OFF when OoT has no Rando context (a ROM-free process).
+// Before S3 arms the switch it must verify this equals the loaded paired file's
+// frozen value at every reader (combo_song_pool.h, S3 PRECONDITION).
+extern "C" uint32_t OoT_Combo_FrozenShuffleSongs(void) {
+    const auto ctx = Rando::Context::GetInstance();
+    return ctx != nullptr ? (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get() : RSBS_OOT_SONGS_OFF;
+}
 
 // ============================================================================
 // TEST BRIDGES (rando tier; src/common/tests/test_oot_logic_export.c)
@@ -3382,6 +3462,16 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         outCounts[i] = 0;
     }
     int violations = 0;
+    // #1542 S0: the categories below are production's, and [5] rejects the song
+    // checks; a song-host override left set by an earlier row would turn them
+    // into hosts. When S3 arms the union, [5] gains a song category.
+    if (Combo_SongHostsTestOverride() >= 0) {
+        fprintf(stderr,
+                "[OoT/ComboLogic] host-rule sweep: the song-host test override is %d, not cleared; an earlier row "
+                "left Combo_SongHostsForceForTest set (#1542 S0)\n",
+                Combo_SongHostsTestOverride());
+        violations++;
+    }
     for (int c = 1; c < (int)RC_MAX; ++c) {
         const RandomizerCheck rc = (RandomizerCheck)c;
         if (!OoTComboLogicIsRealCheck(rc)) {
@@ -3467,6 +3557,129 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         }
     }
     return violations;
+}
+
+// ---------------------------------------------------------------------------
+// TEST BRIDGES (song-check-tables, #1542 S0; ROM-free). Static facts, the REAL
+// predicate and a scoped Rando context with OoT's two frozen options set, so the
+// row can restate today's host rule from facts the predicate does not share and
+// ask both engines' song-host answers under chosen frozen values.
+// ---------------------------------------------------------------------------
+
+/** The static location table, filled when OoT's bring-up has not run (a ROM-free
+ *  process), as TrackerAdapterSingleExe.cpp fills it. Needs no Rando context.
+ *  @return 0 when the table is ready afterwards, -1 otherwise. */
+extern "C" int OoT_ComboLogic_TestEnsureLocationTable(void) {
+    if (Rando::StaticData::GetLocation(RC_KF_KOKIRI_SWORD_CHEST)->GetName().empty()) {
+        Rando::StaticData::InitLocationTable();
+    }
+    return Rando::StaticData::GetLocation(RC_SONG_FROM_SARIA)->GetRandomizerCheck() == RC_SONG_FROM_SARIA ? 0 : -1;
+}
+
+/** The RsbsSongCheck index of `rc`, or -1 (OoT_SongCheckIndex). */
+extern "C" int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc) {
+    return OoT_SongCheckIndex((RandomizerCheck)rc);
+}
+
+/** The REAL ABI-5 predicate, as the coordinator asks it. */
+extern "C" int OoT_ComboLogic_TestHostAcceptsForeign(uint16_t rc) {
+    return OoT_ComboLogic_HostAcceptsForeign(nullptr, rc);
+}
+
+/**
+ * The static facts today's host rule is written in, for `rc`, read off the
+ * location table and not through the predicate. outFacts[4]:
+ *   [0] type: 1 RCTYPE_SHOP, 2 RCTYPE_SCRUB, 3 RCTYPE_MERCHANT, 4
+ *       RCTYPE_CHEST_GAME, 5 RCTYPE_SONG_LOCATION, 0 any other;
+ *   [1] actor: 1 ACTOR_EN_GIRLA, 2 ACTOR_EN_DNS, 3 ACTOR_EN_BOX, 0 any other;
+ *   [2] Location::IsShop();
+ *   [3] the scene is SCENE_TREASURE_BOX_SHOP.
+ * @return 1 for a real row, 0 otherwise (outFacts untouched).
+ */
+extern "C" int OoT_ComboLogic_TestHostFacts(uint16_t hostCheck, int* outFacts) {
+    const RandomizerCheck rc = (RandomizerCheck)hostCheck;
+    if (!OoTComboLogicIsRealCheck(rc)) {
+        return 0;
+    }
+    Rando::Location* loc = Rando::StaticData::GetLocation(rc);
+    const RandomizerCheckType type = loc->GetRCType();
+    outFacts[0] = type == RCTYPE_SHOP            ? 1
+                  : type == RCTYPE_SCRUB         ? 2
+                  : type == RCTYPE_MERCHANT      ? 3
+                  : type == RCTYPE_CHEST_GAME    ? 4
+                  : type == RCTYPE_SONG_LOCATION ? 5
+                                                 : 0;
+    const ActorID actor = loc->GetActorID();
+    outFacts[1] = actor == ACTOR_EN_GIRLA ? 1 : actor == ACTOR_EN_DNS ? 2 : actor == ACTOR_EN_BOX ? 3 : 0;
+    outFacts[2] = loc->IsShop() ? 1 : 0;
+    outFacts[3] = loc->GetScene() == SCENE_TREASURE_BOX_SHOP ? 1 : 0;
+    return 1;
+}
+
+/** The location's short name as the table holds it (Location::GetShortName,
+ *  the name its row is written with), NULL for a row that is not real. Static
+ *  storage: the table outlives every context. */
+extern "C" const char* OoT_ComboLogic_TestCheckName(uint16_t hostCheck) {
+    const RandomizerCheck rc = (RandomizerCheck)hostCheck;
+    if (!OoTComboLogicIsRealCheck(rc)) {
+        return nullptr;
+    }
+    return Rando::StaticData::GetLocation(rc)->GetShortName().c_str();
+}
+
+namespace {
+// The scoped context of OoT_ComboLogic_TestHoldSongContext: the instance held,
+// whether this bridge created it, and the two options it overwrote.
+std::shared_ptr<Rando::Context> sS0SongHostHeldCtx;
+bool sS0SongHostCreatedCtx = false;
+uint8_t sS0SongHostPriorSongs = 0;
+uint8_t sS0SongHostPriorSkip = 0;
+} // namespace
+
+/** Release what OoT_ComboLogic_TestHoldSongContext holds: the two options put
+ *  back on a context that existed before, or the context it created dropped (its
+ *  Logic back-edge was broken at creation, so the last owner frees it, as
+ *  OoT_ComboLogic_TestEnsureItemTableTransient's instance is freed). Idempotent. */
+extern "C" void OoT_ComboLogic_TestReleaseSongContext(void) {
+    if (sS0SongHostHeldCtx == nullptr) {
+        return;
+    }
+    if (!sS0SongHostCreatedCtx) {
+        sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_SONGS).Set(sS0SongHostPriorSongs);
+        sS0SongHostHeldCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(sS0SongHostPriorSkip);
+    }
+    sS0SongHostHeldCtx.reset();
+    sS0SongHostCreatedCtx = false;
+}
+
+/** Hold a Rando context whose frozen RSK_SHUFFLE_SONGS is `songs` and
+ *  RSK_SKIP_CHILD_ZELDA is `skipChildZelda`, until the release: the live one with
+ *  its two options overwritten, or a transient one when none exists. Releases
+ *  any earlier hold first. @return 0 on success, -1 when no context could be made. */
+extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda) {
+    OoT_ComboLogic_TestReleaseSongContext();
+    std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
+    bool created = false;
+    if (ctx == nullptr) {
+        ctx = Rando::Context::CreateInstance();
+        if (ctx == nullptr) {
+            return -1;
+        }
+        ctx->GetLogic()->SetContext(nullptr);
+        created = true;
+    }
+    sS0SongHostCreatedCtx = created;
+    sS0SongHostPriorSongs = ctx->GetOption(RSK_SHUFFLE_SONGS).Get();
+    sS0SongHostPriorSkip = ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Get();
+    ctx->GetOption(RSK_SHUFFLE_SONGS).Set((uint8_t)songs);
+    ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Set((uint8_t)skipChildZelda);
+    sS0SongHostHeldCtx = ctx;
+    return 0;
+}
+
+/** 1 while a Rando context exists (a ROM-free row checks it leaves none behind). */
+extern "C" int OoT_ComboLogic_TestRandoContextExists(void) {
+    return Rando::Context::GetInstance() != nullptr ? 1 : 0;
 }
 
 /** TEST BRIDGE (combo-single-bag leg G, #800): 1 when `hostCheck` is a plain shop

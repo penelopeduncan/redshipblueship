@@ -1248,6 +1248,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // creation capture MM's half reads, its KEEP/DROP rule and its call sites
 // (pair-songs-mapping, ROM-free, generation-free). FILE SCOPE (compiled as C++).
 #include "tests/test_combo_song_pool.c"
+// #1542 (S0): the song checks of both games as cross-game hosts behind one dormant
+// switch (song-check-tables) and MM's delivered-song-host guard over CheckQueue
+// and the real three-day reset (mm-song-host-guard). Both ROM-free and
+// generation-free. FILE SCOPE (compiled as C++).
+#include "tests/test_song_check_tables.c"
 // #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
 // frozen owl flags (soaring-owl-table), the gates and the chooser
 // (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
@@ -7723,6 +7728,36 @@ TestResult Test_PairSongsMapping(void) {
     return PairSongsMapping_Run();
 }
 
+// #1542 (S0): the song checks as cross-game hosts. Neither row needs a CVar for
+// its own decisions, but OoT's item table (TestNamedItem), the location table and
+// MM's rando registrars (mm-song-host-guard: OnFileLoad and ShipInit::Init) are
+// brought up as pair-songs-mapping and mm-cycle-razor-sword bring them up.
+TestResult Test_SongCheckTables(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return SongCheckTables_Run();
+}
+
+TestResult Test_MMSongHostGuard(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return MMSongHostGuard_Run();
+}
+
 // Paired MM PROFILE lock (#499 steps 2-4). Drives the real resolver over a
 // zeroed MM SaveContext — no fill, no region graph, no window — which is the
 // whole point of extracting it out of OnFileCreate.
@@ -9705,6 +9740,14 @@ const TestDescriptor gTests[] = {
       "Majora's Mask's Shuffle Songs follows Ocarina of Time's through one mapping, captured at the freeze, kept "
       "through the file-create invalidation and cleared once MM's half is made (#1542)",
       Test_PairSongsMapping },
+    { "song-check-tables",
+      "Both games' 23 song checks host the other game's item only behind one switch that is off in production; Impa "
+      "refuses under Skip Child Zelda; with the switch off every host answer is the base commit's (#1542 S0)",
+      Test_SongCheckTables },
+    { "mm-song-host-guard",
+      "A delivered MM song host armed again on a later cycle gives and shows nothing; first deliveries, chests and "
+      "the three-day reset of Healing's crossing host deliver exactly once (#1542 S0)",
+      Test_MMSongHostGuard },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section

@@ -88,6 +88,7 @@ games/mm/2s2h/mm_ocarina_dpad_test.cpp
 games/mm/2s2h/mm_monkey_destroy_sonata_test.cpp
 games/mm/2s2h/mm_woodfall_sonata_trigger_test.cpp
 games/mm/2s2h/mm_song_teacher_hooks_test.cpp
+games/mm/2s2h/mm_song_host_guard_test.cpp
 games/mm/2s2h/mm_tree_shuffle_test.cpp
 games/mm/2s2h/mm_wonder_items_test.cpp
 games/mm/2s2h/mm_hive_grass_shuffle_test.cpp
