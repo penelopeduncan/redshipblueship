@@ -324,11 +324,7 @@ void KaleidoScope_HandleItemCycleExtras(PlayState* play, u8 slot, bool canCycle,
 
 bool CanMaskSelect() {
     if (IS_RANDO) {
-        return ((CVarGetInteger(CVAR_ENHANCEMENT("MaskSelect"), 0) ||
-                 Randomizer_GetSettingValue(RSK_MASK_QUEST) != RO_MASK_QUEST_VANILLA) &&
-                Flags_GetRandomizerInf(RAND_INF_ZELDAS_LETTER) &&
-                OoT_Flags_GetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD)) ||
-               Randomizer_GetSettingValue(RSK_MASK_QUEST) == RO_MASK_QUEST_SHUFFLE;
+        return true;
     }
 
     // only allow mask select when:
@@ -336,8 +332,7 @@ bool CanMaskSelect() {
     // * zelda's letter check: OoT_Flags_GetEventChkInf(EVENTCHKINF_OBTAINED_ZELDAS_LETTER)
     // * kak gate check: OoT_Flags_GetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD)
     // and the mask quest is complete: OoT_Flags_GetEventChkInf(EVENTCHKINF_PAID_BACK_BUNNY_HOOD_FEE)
-    return (CVarGetInteger(CVAR_ENHANCEMENT("MaskSelect"), 0) ||
-            Randomizer_GetSettingValue(RSK_MASK_QUEST) != RO_MASK_QUEST_VANILLA) &&
+    return CVarGetInteger(CVAR_ENHANCEMENT("MaskSelect"), 0) &&
            OoT_Flags_GetEventChkInf(EVENTCHKINF_PAID_BACK_BUNNY_HOOD_FEE) &&
            OoT_Flags_GetEventChkInf(EVENTCHKINF_OBTAINED_ZELDAS_LETTER) &&
            OoT_Flags_GetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD);
@@ -346,7 +341,7 @@ bool CanMaskSelect() {
 void KaleidoScope_HandleItemCycles(PlayState* play) {
     // handle the mask select
     KaleidoScope_HandleItemCycleExtras(
-        play, SLOT_TRADE_CHILD, IS_RANDO || CanMaskSelect(),
+        play, SLOT_TRADE_CHILD, CanMaskSelect(),
         IS_RANDO ? Randomizer_GetPrevChildTradeItem()
                  : (INV_CONTENT(ITEM_TRADE_CHILD) <= ITEM_MASK_KEATON || INV_CONTENT(ITEM_TRADE_CHILD) > ITEM_MASK_TRUTH
                         ? ITEM_MASK_TRUTH
@@ -387,7 +382,7 @@ void KaleidoScope_HandleItemCycles(PlayState* play) {
 void KaleidoScope_DrawItemCycles(PlayState* play) {
     // draw the mask select
     KaleidoScope_DrawItemCycleExtras(
-        play, SLOT_TRADE_CHILD, IS_RANDO || CanMaskSelect(),
+        play, SLOT_TRADE_CHILD, CanMaskSelect(),
         IS_RANDO ? Randomizer_GetPrevChildTradeItem()
                  : (INV_CONTENT(ITEM_TRADE_CHILD) <= ITEM_MASK_KEATON || INV_CONTENT(ITEM_TRADE_CHILD) > ITEM_MASK_TRUTH
                         ? ITEM_MASK_TRUTH

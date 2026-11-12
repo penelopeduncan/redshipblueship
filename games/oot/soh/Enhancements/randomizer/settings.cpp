@@ -1486,7 +1486,14 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_STARTING_ZELDAS_LETTER, "Start with Zelda's Letter", CVAR_RANDOMIZER_SETTING("StartingZeldasLetter"));
     OPT_BOOL(RSK_STARTING_CLAIM_CHECK, "Start with Claim Check", CVAR_RANDOMIZER_SETTING("StartingClaimCheck"));
     OPT_BOOL(RSK_STARTING_GERUDO_CARD, "Start with Gerudo Card", CVAR_RANDOMIZER_SETTING("StartingGerudoCard"));
+    OPT_BOOL(RSK_STARTING_KEATON_MASK, "Start with Keaton Mask", CVAR_RANDOMIZER_SETTING("StartingKeatonMask"));
+    OPT_BOOL(RSK_STARTING_SKULL_MASK, "Start with Skull Mask", CVAR_RANDOMIZER_SETTING("StartingSkullMask"));
+    OPT_BOOL(RSK_STARTING_SPOOKY_MASK, "Start with Spooky Mask", CVAR_RANDOMIZER_SETTING("StartingSpookyMask"));
     OPT_BOOL(RSK_STARTING_BUNNY_HOOD, "Start with Bunny Hood", CVAR_RANDOMIZER_SETTING("StartingBunnyHood"));
+    OPT_BOOL(RSK_STARTING_GORON_MASK, "Start with Goron Mask", CVAR_RANDOMIZER_SETTING("StartingGoronMask"));
+    OPT_BOOL(RSK_STARTING_ZORA_MASK, "Start with Zora Mask", CVAR_RANDOMIZER_SETTING("StartingZoraMask"));
+    OPT_BOOL(RSK_STARTING_GERUDO_MASK, "Start with Gerudo Mask", CVAR_RANDOMIZER_SETTING("StartingGerudoMask"));
+    OPT_BOOL(RSK_STARTING_MASK_OF_TRUTH, "Start with Mask of Truth", CVAR_RANDOMIZER_SETTING("StartingMaskOfTruth"));
     OPT_U8(RSK_STARTING_BIGGORON_SWORD, "Start with Biggoron's Sword", {"Off", "Giant's Knife", "Biggoron's Sword"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBiggoronSword"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_BOOL(RSK_FULL_WALLETS, "Full Wallets", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("FullWallets"), mOptionDescriptions[RSK_FULL_WALLETS], WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_BOOL(RSK_STARTING_ZELDAS_LULLABY, "Start with Zelda's Lullaby", CVAR_RANDOMIZER_SETTING("StartingZeldasLullaby"), "", IMFLAG_NONE);
@@ -2919,7 +2926,10 @@ void Settings::CreateOptions() {
                                          &mOptions[RSK_STARTING_BOTTLE_4],       &mOptions[RSK_STARTING_WEIRD_EGG],
                                          &mOptions[RSK_STARTING_ZELDAS_LETTER],  &mOptions[RSK_STARTING_CLAIM_CHECK],
                                          &mOptions[RSK_STARTING_GERUDO_CARD],    &mOptions[RSK_STARTING_BIGGORON_SWORD],
-                                         &mOptions[RSK_STARTING_BUNNY_HOOD] });
+                                         &mOptions[RSK_STARTING_BUNNY_HOOD],     &mOptions[RSK_STARTING_KEATON_MASK],
+                                         &mOptions[RSK_STARTING_SKULL_MASK],     &mOptions[RSK_STARTING_SPOOKY_MASK],
+                                         &mOptions[RSK_STARTING_GORON_MASK],     &mOptions[RSK_STARTING_ZORA_MASK],
+                                         &mOptions[RSK_STARTING_GERUDO_MASK],    &mOptions[RSK_STARTING_MASK_OF_TRUTH] });
     mOptionGroups[RSG_STARTING_SONGS] =
         OptionGroup::SubGroup("Ocarina Songs", {
                                                    &mOptions[RSK_STARTING_ZELDAS_LULLABY],
