@@ -3434,6 +3434,14 @@ typedef enum {
     RO_SONG_SHUFFLE_VANILLA,
 } RandoOptionMMSongShuffle;
 
+// Preserve 0 = Vanilla (was RO_GENERIC_OFF) and 1 = Anywhere (was RO_GENERIC_ON)
+// so existing saved profiles and option digests stay valid; Own Dungeon is 2.
+typedef enum {
+    RO_REMAINS_SHUFFLE_VANILLA,
+    RO_REMAINS_SHUFFLE_ANYWHERE,
+    RO_REMAINS_SHUFFLE_OWN_DUNGEON,
+} RandoOptionRemainsShuffle;
+
 typedef enum {
     RO_CLOCK_SHUFFLE_RANDOM,
     RO_CLOCK_SHUFFLE_ASCENDING,

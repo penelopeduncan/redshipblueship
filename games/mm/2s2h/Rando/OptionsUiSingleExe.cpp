@@ -245,6 +245,14 @@ const char* const kSongShuffleLabels[] = {
     "Vanilla",        // RO_SONG_SHUFFLE_VANILLA
 };
 
+// Preserves 0 = Vanilla (was RO_GENERIC_OFF) and 1 = Anywhere (was RO_GENERIC_ON)
+// so existing saved profiles and option values stay valid; Own Dungeon is 2.
+const char* const kRemainsShuffleLabels[] = {
+    "Vanilla",     // RO_REMAINS_SHUFFLE_VANILLA
+    "Anywhere",    // RO_REMAINS_SHUFFLE_ANYWHERE
+    "Own Dungeon", // RO_REMAINS_SHUFFLE_OWN_DUNGEON
+};
+
 /**
  * UI metadata for one option. Deliberately does NOT restate the id's cvar
  * string or its default: both are copied from the `Rando::StaticData::Options`
@@ -411,9 +419,15 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_SNOWBALL_DROPS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Snowball Drops", "Adds the item dropped by breaking a snowball to the check pool.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
-    { RO_SHUFFLE_BOSS_REMAINS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
-      "Shuffle Boss Remains", "Shuffles the four Boss Remains into the item pool.",
-      0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_BOSS_REMAINS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
+      "Shuffle Boss Remains",
+      "Where each temple boss's remains may be found.\n\n"
+      "Anywhere - Defeating a boss rewards a shuffled item, and its remains can be found anywhere in "
+      "the world.\n\n"
+      "Own Dungeon - Defeating a boss rewards a shuffled item, and each boss's remains are somewhere "
+      "inside that boss's own temple.\n\n"
+      "Vanilla - Every boss still rewards its own remains, and the boss warps are not checks.",
+      0, 0, kRemainsShuffleLabels, UI_COUNT(kRemainsShuffleLabels), COMBO_MM_LIVENESS_LIVE, "" },
     // LIVE as of #514: the only leg this row was ever missing was the cycle-save
     // restore (AfterEndOfCycleSave copies skullTokenCount back under exactly
     // this option), and that now dispatches.

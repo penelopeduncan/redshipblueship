@@ -43,6 +43,12 @@ std::unordered_map<int32_t, const char*> dungeonItemPlacementOptions = {
     { RO_DUNGEON_ITEM_VANILLA, "Vanilla" },
 };
 
+std::unordered_map<int32_t, const char*> remainsShuffleOptions = {
+    { RO_REMAINS_SHUFFLE_ANYWHERE, "Anywhere" },
+    { RO_REMAINS_SHUFFLE_OWN_DUNGEON, "Own Dungeon" },
+    { RO_REMAINS_SHUFFLE_VANILLA, "Vanilla" },
+};
+
 std::unordered_map<int32_t, const char*> songShuffleOptions = {
     { RO_SONG_SHUFFLE_ANYWHERE, "Anywhere" },
     { RO_SONG_SHUFFLE_SONG_LOCATIONS, "Song Locations" },
@@ -409,7 +415,15 @@ static void DrawShufflesTab() {
     CVarCheckbox("Shuffle Owl Statues", Rando::StaticData::Options[RO_SHUFFLE_OWL_STATUES].cvar);
     CVarCheckbox("Shuffle Shops", Rando::StaticData::Options[RO_SHUFFLE_SHOPS].cvar);
     CVarCheckbox("Shuffle Tingle Maps", Rando::StaticData::Options[RO_SHUFFLE_TINGLE_SHOPS].cvar);
-    CVarCheckbox("Shuffle Boss Remains", Rando::StaticData::Options[RO_SHUFFLE_BOSS_REMAINS].cvar);
+    UIWidgets::CVarCombobox(
+        "Boss Remains", Rando::StaticData::Options[RO_SHUFFLE_BOSS_REMAINS].cvar, &remainsShuffleOptions,
+        UIWidgets::ComboboxOptions().Tooltip(
+            "Where each temple boss's remains may be found.\n\n"
+            "Anywhere - Defeating a boss rewards a shuffled item, and its remains can be found anywhere in "
+            "the world.\n\n"
+            "Own Dungeon - Defeating a boss rewards a shuffled item, and each boss's remains are somewhere "
+            "inside that boss's own temple.\n\n"
+            "Vanilla - Every boss still rewards its own remains, and the boss warps are not checks."));
     CVarCheckbox("Shuffle Cows", Rando::StaticData::Options[RO_SHUFFLE_COWS].cvar);
     CVarCheckbox("Shuffle Gold Skulltula Tokens", Rando::StaticData::Options[RO_SHUFFLE_GOLD_SKULLTULAS].cvar);
     ImGui::BeginDisabled(!CVarGetInteger(Rando::StaticData::Options[RO_SHUFFLE_GOLD_SKULLTULAS].cvar, RO_GENERIC_OFF));
