@@ -1692,10 +1692,10 @@ if(BUILD_TESTING)
     redship_add_test(NAME MMWonderItemsHooks COMMAND redship --test mm-wonder-items-hooks)
     # Majora's Mask beehive shuffle and the extra / Keaton grass rows (#1410;
     # upstream 2Ship's Beehive Shuffle and Keaton grass shuffle). MMHiveShuffle:
-    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle Tree
-    # Drops, the 19 hives are the only RCTYPE_BEEHIVE rows, each in exactly one
-    # logic region and Randomizer > MM Locations and never an OoT host, and they
-    # enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
+    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle
+    # Butterflies (#1407), the 19 hives are the only RCTYPE_BEEHIVE rows, each
+    # in exactly one logic region and Randomizer > MM Locations and never an OoT
+    # host, and they enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
     # grass rows sit behind the existing Shuffle Grass Drops, the three Keaton
     # rings own nine contiguous ids each, and the rings' three wonder items
     # follow Shuffle Wonder Items (#1406) and are hosts.
@@ -1706,6 +1706,18 @@ if(BUILD_TESTING)
     redship_add_test(NAME MMHiveShuffle COMMAND redship --test mm-hive-shuffle)
     redship_add_test(NAME MMExtraGrassShuffle COMMAND redship --test mm-extra-grass-shuffle)
     redship_add_test(NAME MMHiveGrassShuffleHooks COMMAND redship --test mm-hive-grass-shuffle-hooks)
+    # Majora's Mask butterfly shuffle (#1407; upstream 2Ship's Butterfly Shuffle).
+    # MMButterflyShuffle: the option defaults off, the page draws its row after
+    # Shuffle Tree Drops with a tooltip that says what MM's butterflies do, the 25
+    # butterflies are one check type, sit in logic regions and Randomizer > MM
+    # Locations, never host an OoT item, name their hint area (the 12 grotto ones
+    # the area their grotto opens from), and enter the pool only with the option
+    # on. MMButterflyShuffleHooks: EnButte.cpp's OnActorUpdate[ACTOR_OBJ_MURE] hook
+    # arms through ActorBehavior::OnFileLoad (exactly +1) and gives the Termina
+    # Field group's butterflies their checks only with the option on. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMButterflyShuffle COMMAND redship --test mm-butterfly-shuffle)
+    redship_add_test(NAME MMButterflyShuffleHooks COMMAND redship --test mm-butterfly-shuffle-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle
@@ -3763,6 +3775,25 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # rather than &actor (its own local pointer), and VB_SPAWN_GOSSIP_STONE_FAIRY
     # relies on it to suppress a duplicate spawn while the fairy lives.
     redship_add_test(NAME ShuffledFairyExists COMMAND redship --test shuffled-fairy-exists
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1407: Shuffle Butterfly Fairies (Shipwright's butterfly fairy shuffle).
+    # OoTButterflyFairyShuffle: two real generations; with the option off (its
+    # default) the settings fold reads none of the lines it added and no butterfly
+    # check is a location, so default worlds keep their fingerprint; on, every
+    # line folds, all 20 checks are locations and the paired fill gives each an
+    # item (the paired-on leg N; RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN pins the
+    # option off if it fails). OoTButterflyFairyHooks: with it
+    # and Easy Butterfly Fairies off no butterfly hook is registered and both
+    # dispatches keep the vanilla answer; on, each arms once and does its job, and
+    # each butterfly location resolves to its own check through ACTOR_EN_BUTTE.
+    # games/oot/soh/oot_butterfly_fairy_test.cpp.
+    redship_add_test(NAME OoTButterflyFairyShuffle COMMAND redship --test oot-butterfly-fairy-shuffle
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME OoTButterflyFairyHooks COMMAND redship --test oot-butterfly-fairy-hooks
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

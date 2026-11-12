@@ -117,14 +117,14 @@ std::string PairedInputSeedString() {
  *  (#1427) are off at RO_PRICES_VANILLA, their default, the three dungeon
  *  item placements (#1361) at RO_DUNGEON_ITEM_ANYWHERE, theirs, the song
  *  placement (#1362) at RO_SONG_SHUFFLE_ANYWHERE, its own, Shuffle Wonder
- *  Items (#1406) at RO_GENERIC_OFF, and hive drops (#1410) at
- *  RO_GENERIC_OFF, theirs. */
+ *  Items (#1406) at RO_GENERIC_OFF, hive drops (#1410) and butterflies
+ *  (#1407) at RO_GENERIC_OFF, theirs. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
            randoOptionId == RO_PLACEMENT_SMALL_KEYS || randoOptionId == RO_PLACEMENT_STRAY_FAIRIES ||
            randoOptionId == RO_SHUFFLE_SONGS || randoOptionId == RO_SHUFFLE_WONDER_ITEMS ||
-           randoOptionId == RO_SHUFFLE_HIVE_DROPS;
+           randoOptionId == RO_SHUFFLE_HIVE_DROPS || randoOptionId == RO_SHUFFLE_BUTTERFLIES;
 }
 
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {

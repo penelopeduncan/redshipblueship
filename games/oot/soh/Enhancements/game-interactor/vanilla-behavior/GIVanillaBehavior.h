@@ -3112,6 +3112,22 @@ typedef enum {
     // #### `args`
     // - `*EnBox`
     VB_CHEST_CONSIDER_CHEST_OPEN,
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY_EASY,
+
 } GIVanillaBehavior;
 
 #endif

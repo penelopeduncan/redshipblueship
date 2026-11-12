@@ -26,9 +26,11 @@
  *      of the 32 counts is zero;
  *   2. the fold that generation ran contributed exactly that many lines per group
  *      (`OoT_Rando_LastSettingsFold`, recorded inside the fold itself), less, while
- *      Shuffle Chest Minigame is off, the room's RCTYPE_CHEST_GAME rows, which the
- *      fold leaves out then (#1364; oot_chest_game_shuffle_test.cpp locks that
- *      skip), so the groups being right is not enough: the fingerprint has to
+ *      Shuffle Chest Minigame is off, the room's RCTYPE_CHEST_GAME rows (#1364;
+ *      oot_chest_game_shuffle_test.cpp locks that skip), and, while Shuffle
+ *      Butterfly Fairies is off, its RCTYPE_BUTTERFLY_FAIRY rows (#1407;
+ *      oot_butterfly_fairy_test.cpp locks that skip), which the fold leaves out
+ *      then, so the groups being right is not enough: the fingerprint has to
  *      have read them.
  *
  * RED HALF, observed: on a binary without the fix, in a ROM-staged build
@@ -110,10 +112,12 @@ constexpr GroupArea kGroupAreas[kGroups] = {
 // alone: the checks `Context::AddExcludedOptions()` gives an exclude option (it
 // skips the four kinds below, which hold no item), one option per distinct name.
 // `folded` is what the settings fold reads of it: the same, less the room's
-// RCTYPE_CHEST_GAME rows while Shuffle Chest Minigame is off (#1364: the fold
-// leaves them out then, so a world keeps the fingerprint it had before the
-// rows had exclude options).
-void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_INVALID], bool chestGameOff) {
+// RCTYPE_CHEST_GAME rows while Shuffle Chest Minigame is off (#1364) and the
+// RCTYPE_BUTTERFLY_FAIRY rows while Shuffle Butterfly Fairies is off (#1407): the
+// fold leaves them out then, so a world keeps the fingerprint it had before the
+// rows had exclude options.
+void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_INVALID], bool chestGameOff,
+                   bool butterflyOff) {
     std::set<std::string> seen[RCAREA_INVALID];
     std::set<std::string> seenFolded[RCAREA_INVALID];
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
@@ -126,7 +130,8 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_I
             continue;
         }
         seen[area].insert(loc.GetExcludedOption()->GetName());
-        if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME)) {
+        if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
+            !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY)) {
             seenFolded[area].insert(loc.GetExcludedOption()->GetName());
         }
     }
@@ -156,12 +161,14 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
         return 1;
     }
 
-    // The world the fold ran for: its own Shuffle Chest Minigame decides which
-    // exclude rows it read (#1364).
+    // The world the fold ran for: its own Shuffle Chest Minigame and Shuffle
+    // Butterfly Fairies decide which exclude rows it read (#1364, #1407).
     const bool chestGameOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
+    const bool butterflyOff =
+        Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
     size_t expected[RCAREA_INVALID] = {};
     size_t expectedFolded[RCAREA_INVALID] = {};
-    CountExpected(expected, expectedFolded, chestGameOff);
+    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff);
 
     auto settings = Rando::Settings::GetInstance();
     int failures = 0;

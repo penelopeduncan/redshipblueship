@@ -101,7 +101,8 @@ void RegionTable_Init_Kakariko() {
     areaTable[RR_KAK_WATCHTOWER] = Region("Kak Watchtower", SCENE_KAKARIKO_VILLAGE, {}, {
         //Locations
         //exists for when age change is in logic.
-        LOCATION(RC_KAK_GS_WATCHTOWER, logic->IsChild && logic->CanUse(RG_DINS_FIRE) && logic->CanGetNightTimeGS()),
+        LOCATION(RC_KAK_GS_WATCHTOWER,              logic->IsChild && logic->CanUse(RG_DINS_FIRE) && logic->CanGetNightTimeGS()),
+        LOCATION(RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY, logic->IsChild && logic->AtDay && logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_KAKARIKO_VILLAGE, []{return true;}),
@@ -278,6 +279,7 @@ void RegionTable_Init_Kakariko() {
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_2,                logic->CanCutShrubs()),
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_3,                logic->CanCutShrubs()),
         LOCATION(RC_KAK_OPEN_GROTTO_GRASS_4,                logic->CanCutShrubs()),
+        LOCATION(RC_KAK_OPEN_GROTTO_BUTTERFLY_FAIRY,        logic->CanUse(RG_STICKS)),
     }, {
         //Exits
         Entrance(RR_KAK_BACKYARD, []{return true;}),
