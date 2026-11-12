@@ -363,9 +363,52 @@ struct RoundState {
     // copy ever leaves a round".
     int copiesGranted = 0;
     int expands = 0;
+    // THE TRAVEL FACTS (combo_logic.h ABI 10, #1169 XW9): OoT's Song of Soaring
+    // fact (RSBS_COMBO_TRAVEL_INTO_MM) once the coordinator handed it over, read
+    // by the root's owl landings (Logic.cpp, CAN_OOT_SOAR_TO_OWL) through
+    // MM_ComboLogic_OoTSoaringTravel. Cleared by `beginQuery` and `endQuery`.
+    uint32_t travelAccepted = 0u;
 };
 
 RoundState sRound;
+
+/** TEST ONLY (mm-warp-travel-edges): when armed, MM_ComboLogic_OoTSoaringTravel
+ *  answers `sMmTravelTestValue` instead of the round's state, so the row can
+ *  evaluate the real root exits without a coordinator round. Never armed outside
+ *  that row, which disarms it. */
+bool sMmTravelTestArmed = false;
+bool sMmTravelTestValue = false;
+/** TEST ONLY (combo-warp-travel-rounds): how many times a round's crawl found
+ *  OoT's delivered Soaring fact through MM_ComboLogic_OoTSoaringTravel. Read and
+ *  cleared by MM_ComboLogic_TestSoaringTravelHits only; nothing else reads it. */
+int sMmTravelEdgeHits = 0;
+
+/** Ocarina of Time's warp songs as MM items, one travel bit each (0x02 << song). */
+constexpr int kMmTravelSongCount = 6;
+
+/**
+ * MM's travel facts in the save as it stands: RSBS_COMBO_TRAVEL_INTO_OOT bit
+ * 0x02 << song for each OoT warp song MM can PLAY, which is OoTMM's can_play_tp_*
+ * in MM and already CAN_PLAY_OOT_WARP_SONG (Logic.h): the Ocarina of Time, the
+ * song's frozen rule on and the song owned (MM_WarpSongMM_Usable), and its notes'
+ * buttons. It reads the inventory only: the round's arrival, South Clock Town, is
+ * a scene where MM allows the Song of Soaring, the one MM's warp prompt borrows.
+ * With every warp-song rule off it reads one word and nothing else. Pure.
+ */
+uint32_t MmComboTravelFactsNow() {
+    if ((Combo_ComboCrossItemFlags2() & RSBS_COMBO_TRAVEL_INTO_OOT) == 0u) {
+        return 0u;
+    }
+    uint32_t facts = 0u;
+    for (int song = 0; song < kMmTravelSongCount; ++song) {
+        const uint32_t bit = 0x02u << song;
+        const uint16_t ri = MM_WarpSongMM_ItemId(bit);
+        if (ri != (uint16_t)RI_UNKNOWN && CAN_PLAY_OOT_WARP_SONG((RandoItemId)ri)) {
+            facts |= bit;
+        }
+    }
+    return facts;
+}
 
 // The snapshot bracket. Heap, as Logic.cpp's closure argues.
 std::unique_ptr<SaveContext> sSnapshot;
@@ -697,6 +740,7 @@ int BeginQuery(void* self) {
     sRound.withheldHosts.clear();
     sRound.copiesGranted = 0;
     sRound.expands = 0;
+    sRound.travelAccepted = 0u;
     return 1;
 }
 
@@ -1144,6 +1188,7 @@ void EndQuery(void* self) {
     sRound.harvestedHosts.clear();
     sRound.withheldHosts.clear();
     sRound.copiesGranted = 0;
+    sRound.travelAccepted = 0u;
 }
 
 /**
@@ -1159,6 +1204,29 @@ void WithholdHost(void* self, uint16_t hostCheck) {
         return;
     }
     sRound.withheldHosts.insert(hostCheck);
+}
+
+/**
+ * `travelFacts` (combo_logic.h ABI 10, #1169 XW9): MmComboTravelFactsNow over the
+ * round's save, which after `expand` holds every copy the round granted. 0
+ * outside a round.
+ */
+uint32_t TravelFacts(void* self) {
+    (void)self;
+    if (!sRound.inRound) {
+        return 0u;
+    }
+    return MmComboTravelFactsNow();
+}
+
+/** `acceptTravelFacts` (ABI 10): OoT's Soaring fact for the rest of the round; the
+ *  next `expand`'s crawl reads it through the root's owl landings. */
+void AcceptTravelFacts(void* self, uint32_t facts) {
+    (void)self;
+    if (!sRound.inRound) {
+        return;
+    }
+    sRound.travelAccepted |= facts & RSBS_COMBO_TRAVEL_INTO_MM;
 }
 
 // ============================================================================
@@ -1255,6 +1323,8 @@ const ComboLogicEngine kMmEngine = {
     /* withholdHost      */ WithholdHost,
     /* allLocations      */ AllLocations,
     /* hostGroups        */ HostGroups,
+    /* travelFacts       */ TravelFacts,
+    /* acceptTravelFacts */ AcceptTravelFacts,
 };
 
 /**
@@ -1397,6 +1467,46 @@ extern "C" uint32_t MM_ComboLogic_HostGroupsFor(uint16_t check) {
  *  unregistered it). */
 extern "C" const ComboLogicEngine* MM_ComboLogic_TestEngine(void) {
     return &kMmEngine;
+}
+
+/**
+ * Logic.h's CAN_OOT_SOAR_TO_OWL (#1169 XW9): has this coordinator round accepted
+ * OoT's Song of Soaring fact? False outside a round, so MM's own glitchless fill,
+ * its check tracker and every crawl outside the coordinator read the root's owl
+ * landings exactly as before.
+ */
+extern "C" bool MM_ComboLogic_OoTSoaringTravel(void) {
+    if (sMmTravelTestArmed) {
+        return sMmTravelTestValue;
+    }
+    const bool open = sRound.inRound && (sRound.travelAccepted & RSBS_COMBO_TRAVEL_INTO_MM) != 0u;
+    if (open) {
+        sMmTravelEdgeHits++; // never with every warp-song rule off
+    }
+    return open;
+}
+
+/** TEST BRIDGE (combo-warp-travel-rounds): the crawl's reads of a delivered
+ *  Soaring fact since the last reset; @p reset 1 clears the count after reading. */
+extern "C" int MM_ComboLogic_TestSoaringTravelHits(int reset) {
+    const int hits = sMmTravelEdgeHits;
+    if (reset != 0) {
+        sMmTravelEdgeHits = 0;
+    }
+    return hits;
+}
+
+/** TEST BRIDGE (mm-warp-travel-edges): arm (@p armed 1) the accessor to answer
+ *  @p value, or disarm it. */
+extern "C" void MM_ComboLogic_TestSoaringTravelSeam(int armed, int value) {
+    sMmTravelTestArmed = armed != 0;
+    sMmTravelTestValue = value != 0;
+}
+
+/** TEST BRIDGE: MM's `travelFacts` decision (MmComboTravelFactsNow) over the live
+ *  save, inside a round or not. */
+extern "C" uint32_t MM_ComboLogic_TestTravelFactsNow(void) {
+    return MmComboTravelFactsNow();
 }
 
 namespace {

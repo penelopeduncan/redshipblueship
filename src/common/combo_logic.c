@@ -749,6 +749,20 @@ static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged
     return changed;
 }
 
+void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, int crossMM, uint32_t* outToOoT,
+                            uint32_t* outToMM) {
+    // MM's warp songs are played IN MM: the crossing must be open to be there.
+    const uint32_t toOoT = (crossOoT != 0) ? (factsMM & RSBS_COMBO_TRAVEL_INTO_OOT) : 0u;
+    // OoT's Soaring lands on an owl of MM's FROZEN copy: entered, then departed.
+    const uint32_t toMM = (crossOoT != 0 && crossMM != 0) ? (factsOoT & RSBS_COMBO_TRAVEL_INTO_MM) : 0u;
+    if (outToOoT != NULL) {
+        *outToOoT = toOoT;
+    }
+    if (outToMM != NULL) {
+        *outToMM = toMM;
+    }
+}
+
 static void ComboLogicResetRoundResult(ComboLogicRoundResult* res) {
     memset(res, 0, sizeof(*res));
     res->goalExpression = -1;
@@ -1048,6 +1062,14 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
         const ComboLogicEngine* em = sEngines[(uint8_t)GAME_MM];
         int iteration = 0;
         bool converged = false;
+        // THE TRAVEL FACTS (ABI 10): what each engine last reported, masked to its
+        // own direction (the monotone watchdog's fifth and sixth observables), and
+        // what the gates have handed across so far this round (an OR, never reset
+        // inside the round).
+        uint32_t prevFactsOoT = 0u;
+        uint32_t prevFactsMM = 0u;
+        uint32_t acceptedOoT = 0u;
+        uint32_t acceptedMM = 0u;
 
         while (iteration < RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS) {
             int changed = 0;
@@ -1076,6 +1098,47 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
                     }
                 }
             }
+            // --- THE TRAVEL FACTS (ABI 10, #1169 XW9) -------------------------
+            // Read after both expands, masked to each engine's own direction, and
+            // watched like the observables above: a fact that disappears inside a
+            // round is the non-monotone engine ERR_NON_MONOTONE names. What passes
+            // THE TRAVEL GATES is handed across only when the accepted set GROWS,
+            // so with every warp-song rule off (every engine reports 0) no accept
+            // is made and no alternation is added.
+            if (status == RSBS_COMBO_LOGIC_OK) {
+                const uint32_t factsOoT =
+                    ((eo->travelFacts != NULL) ? eo->travelFacts(eo->self) : 0u) & RSBS_COMBO_TRAVEL_INTO_MM;
+                const uint32_t factsMM =
+                    ((em->travelFacts != NULL) ? em->travelFacts(em->self) : 0u) & RSBS_COMBO_TRAVEL_INTO_OOT;
+                if ((prevFactsOoT & ~factsOoT) != 0u || (prevFactsMM & ~factsMM) != 0u) {
+                    fprintf(stderr,
+                            "[ComboLogic] monotonicity violated: a travel fact disappeared inside one round (OoT "
+                            "%02X -> %02X, MM %02X -> %02X)\n",
+                            (unsigned)prevFactsOoT, (unsigned)factsOoT, (unsigned)prevFactsMM, (unsigned)factsMM);
+                    status = RSBS_COMBO_LOGIC_ERR_NON_MONOTONE;
+                } else {
+                    prevFactsOoT = factsOoT;
+                    prevFactsMM = factsMM;
+                    uint32_t toOoT = 0u;
+                    uint32_t toMM = 0u;
+                    Combo_Logic_TravelGate(factsOoT, factsMM, crossOoT, crossMM, &toOoT, &toMM);
+                    // An engine with no `acceptTravelFacts` drops them: nothing is
+                    // delivered, recorded or re-expanded for it.
+                    if (eo->acceptTravelFacts != NULL && (toOoT & ~acceptedOoT) != 0u) {
+                        acceptedOoT |= toOoT;
+                        eo->acceptTravelFacts(eo->self, acceptedOoT);
+                        changed = 1;
+                    }
+                    if (em->acceptTravelFacts != NULL && (toMM & ~acceptedMM) != 0u) {
+                        acceptedMM |= toMM;
+                        em->acceptTravelFacts(em->self, acceptedMM);
+                        changed = 1;
+                    }
+                    res->travelToOoT = acceptedOoT;
+                    res->travelToMM = acceptedMM;
+                }
+            }
+
             memcpy(prevObs, obs, sizeof(prevObs));
             haveObs = true;
             ++iteration;

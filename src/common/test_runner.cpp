@@ -1267,6 +1267,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
 // there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_song_play.c"
+// #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
+// exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
+// ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
+// wrapper below. The coordinator's half is combo-logic-travel-facts
+// (test_combo_logic.c). FILE SCOPE (compiled as C++).
+#include "tests/test_warp_travel_facts.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -8810,6 +8816,33 @@ TestResult Test_OoTMasksMMLogic(void) {
     }
     return MM_OoTMasksLogic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW9: MM's half of the travel-fact locks over MM's real region graph
+// (games/mm/2s2h/mm_warp_travel_test.cpp). Same bring-up as mm-logic-gates;
+// skipped by `--test all` below because it rebinds MM's rando graph.
+extern "C" int MM_WarpTravelEdges_RunHeadless(void);
+TestResult Test_MMWarpTravelEdges(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_WarpTravelEdges_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1169 XW9: the travel facts through Combo_Logic_RunRound over both real engines on
+// one real paired world (games/mm/2s2h/mm_warp_travel_test.cpp, its end).
+// oot-warp-song-record's bring-up (a paired creation); `--test all` skips it.
+extern "C" int MM_WarpTravelRounds_RunHeadless(void);
+TestResult Test_ComboWarpTravelRounds(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw9RoundsArg0[] = "redship";
+    static char* xw9RoundsArgv[] = { xw9RoundsArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw9RoundsArgv);
+
+    return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1428: OoT's goal gates at OoTMM's defaults on one paired creation save, Triforce
 // Hunt's override of Ganon's Boss Key and a stored world's own gates. Same bring-up
 // as the rows above; body in games/oot/soh/oot_goal_gate_defaults_test.cpp.
@@ -10280,6 +10313,11 @@ const TestDescriptor gTests[] = {
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
       Test_ComboLogicHostGroups },
+    { "combo-logic-travel-facts",
+      "An MM warp-song fact reaches OoT only with OoT's crossing open, OoT's Soaring fact reaches MM only with both "
+      "crossings open, chains converge, a vanished fact is non-monotone and silent engines change nothing (ABI 10, "
+      "#1169)",
+      Test_ComboLogicTravelFacts },
     // Increment 3's two §6.3 MEASUREMENTS, over both real engines at once (#645,
     // lane K3). Needs a real OoT generation AND MM's rando graph, hence the
     // `rando` tier and the `--test all` skip below. It asserts no timing: only
@@ -10712,6 +10750,25 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1169 XW9: the travel facts in each game's logic. The first is ROM-free and
+    // generation-free; the second needs MM's rando graph (rando tier, skipped by
+    // `--test all` below) and generates nothing.
+    { "oot-warp-travel-edges",
+      "OoT's warp-song root exits open for an MM warp only for a child at day in a round with the song's fact and a "
+      "destination play always lands, and OoT's Soaring fact is can_play_soaring behind RR_ROOT's child-day access "
+      "(#1169)",
+      Test_OoTWarpTravelEdges },
+    { "mm-warp-travel-edges",
+      "MM's root owl landings open for OoT's Soaring fact only for an active owl on Day 1, MM's own Soaring is "
+      "unchanged, the crawl and the reset-time guard agree, and MM's warp-song facts are can_play_tp_* (#1169)",
+      Test_MMWarpTravelEdges },
+    // ... and through a coordinator round over both real engines on a real paired
+    // world (rando tier, a generation row: on the --test all skip list).
+    { "combo-warp-travel-rounds",
+      "Over a real paired world and both real engines, MM's Minuet of Forest reaches OoT's root exit and OoT's Song "
+      "of Soaring reaches MM's owl landings through a coordinator round only with their frozen rules on, and the "
+      "rule bits alone change no answer (#1169)",
+      Test_ComboWarpTravelRounds },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
     { "oot-warp-song-record",
@@ -11179,6 +11236,8 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
                 strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-warp-travel-edges") == 0 ||
+                strcmp(gTests[i].name, "combo-warp-travel-rounds") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
                 strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||

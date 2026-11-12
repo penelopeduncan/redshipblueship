@@ -2973,6 +2973,12 @@ if(BUILD_TESTING)
     # drops alone as surplus, and a group with more rows than hosts is refused
     # before any attempt. Same stub fixture, same `redship` tier.
     redship_add_test(NAME ComboLogicHostGroups COMMAND redship --test combo-logic-host-groups)
+    # THE TRAVEL FACTS (ABI 10, #1169 XW9): an MM warp-song fact reaches OoT only
+    # with OoT's crossing open, OoT's Soaring fact reaches MM only with both
+    # crossings open, a chain of facts converges, a vanished fact is non-monotone,
+    # own-direction bits are dropped, and engines that report nothing change no
+    # round or fill. Same stub fixture, same `redship` tier.
+    redship_add_test(NAME ComboLogicTravelFacts COMMAND redship --test combo-logic-travel-facts)
 
     # The OoT ENGINE behind that coordinator (#645, lane K2a). `rando` tier, and
     # for a correctness reason rather than a convenience one: every fact this row
@@ -3675,6 +3681,31 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # THE TRAVEL FACTS IN EACH GAME'S LOGIC (#1169 lane XW9). OoTWarpTravelEdges:
+    # OoT's six RR_ROOT_EXITS warp exits over the real region graph open for an MM
+    # warp only for a child at day, in a round, with the song's fact and a
+    # destination play always lands (a grave yes, a grotto pseudo index no); OoT's
+    # Soaring fact is can_play_soaring behind RR_ROOT's child-day access. ROM-free,
+    # generating nothing. MMWarpTravelEdges: MM's root owl landings over MM's real
+    # region graph open for OoT's Soaring fact only for an active owl on Day 1, the
+    # crawl and the reset-time guard agree, and MM's facts are can_play_tp_*.
+    # `rando` (MM's rando graph, mm-logic-gates' bring-up), generating nothing.
+    # src/common/tests/test_warp_travel_facts.c, games/mm/2s2h/mm_warp_travel_test.cpp.
+    redship_add_test(NAME OoTWarpTravelEdges COMMAND redship --test oot-warp-travel-edges)
+    redship_add_test(NAME MMWarpTravelEdges COMMAND redship --test mm-warp-travel-edges
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # ComboWarpTravelRounds: the same facts through Combo_Logic_RunRound over BOTH
+    # real engines on one real paired world (created with the rules off, the frozen
+    # word then set directly, never through Generate): MM's Minuet of Forest reaches
+    # OoT's root exit and OoT's Soaring reaches MM's owl landings, each read by the
+    # next expand, only with their rules on; the rule bits alone change no field of
+    # a round. `rando`, one paired generation (on the --test all skip list).
+    redship_add_test(NAME ComboWarpTravelRounds COMMAND redship --test combo-warp-travel-rounds
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OoTWarpSongRecord: the creation's warp-song record over real paired creations
     # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
     # the end of OoT's side of the tail and nowhere before it, every destination what

@@ -224,6 +224,21 @@ struct ClEngine {
     bool withHostGroups;
     uint32_t hostGroup[kClMaxHosts];
     int hostGroupCalls;
+    /** ABI 10 (#1169 XW9, THE TRAVEL FACTS): install `travelFacts` and (unless
+     *  `noAcceptTravel`) `acceptTravelFacts`. Clear, both entries are NULL, which is
+     *  every world authored before ABI 10. Fact bit b (RSBS_COMBO_TRAVEL_* space) is
+     *  reported while it is in `factEnabled` and `have` covers `factRequires[b]`;
+     *  `factReportExtra` is reported always (the own-direction trap); with
+     *  `factDropAfterFirst`, every call after the first reports nothing (a fact that
+     *  disappears inside a round). Host i is reached only while the ACCEPTED facts
+     *  cover `hostFactRequires[i]` (0 = no fact term). */
+    bool withTravelFacts;
+    bool noAcceptTravel;
+    uint32_t factEnabled;
+    uint32_t factRequires[8];
+    uint32_t factReportExtra;
+    bool factDropAfterFirst;
+    uint32_t hostFactRequires[kClMaxHosts];
     ClFault fault;
 
     // --- live state ------------------------------------------------------
@@ -246,6 +261,13 @@ struct ClEngine {
      *  one-call-per-copy locks count. Never reset by a round. */
     int assumeCalls[kClMaxItems];
     bool inQuery;
+    /** ABI 10: the other game's facts this round accepted (reset by `beginQuery`
+     *  and `endQuery`), the calls since the engine was reset, and the trap for an
+     *  accept that is not a superset of the previous one. */
+    uint32_t accepted;
+    int travelCalls;
+    int acceptCalls;
+    bool sawAcceptShrink;
     /** MODELS OoT'S COUPLING. `beginQuery` sets it (OoT's `Logic::Reset(true)`
      *  re-points `mSaveContext` at a heap copy) and `endQuery` is the only thing
      *  that clears it (`mSaveContext` back to `&gSaveContext`, audit §4.4). An
@@ -324,6 +346,7 @@ bool ClHoldsCopies(const ClEngine* e, uint16_t id, uint8_t count) {
 
 bool ClHostOpen(const ClEngine* e, int i) {
     return (e->hostRequires[i] & e->have) == e->hostRequires[i] &&
+           (e->hostFactRequires[i] & e->accepted) == e->hostFactRequires[i] &&
            ClHoldsCopies(e, e->hostNeedItem[i], e->hostNeedCount[i]);
 }
 
@@ -401,6 +424,7 @@ int ClBeginQuery(void* self) {
     memset(e->haveCount, 0, sizeof(e->haveCount));
     e->harvested = 0u;
     e->withheld = 0u;
+    e->accepted = 0u;
     return 1;
 }
 
@@ -409,6 +433,7 @@ void ClEndQuery(void* self) {
     e->endCalls++;
     e->inQuery = false;
     e->withheld = 0u;
+    e->accepted = 0u;
     // THE INVERSE OF THE DETACH, and the only one there is. Unconditional on
     // purpose: the coordinator may reach here on a round that never opened (a
     // `beginQuery` that refused after detaching), and re-coupling is exactly what
@@ -695,6 +720,39 @@ uint32_t ClHostGroups(void* self, uint16_t hostCheck) {
     return (i >= 0) ? e->hostGroup[i] : 0u;
 }
 
+/** ABI 10: the facts this stub can play now (see `withTravelFacts`). */
+uint32_t ClTravelFacts(void* self) {
+    ClEngine* e = (ClEngine*)self;
+    if (!e->inQuery) {
+        e->sawQueryOutsideRound = true;
+    }
+    e->travelCalls++;
+    if (e->factDropAfterFirst && e->travelCalls > 1) {
+        return 0u;
+    }
+    uint32_t facts = e->factReportExtra;
+    for (int b = 0; b < 8; ++b) {
+        const uint32_t bit = 1u << b;
+        if ((e->factEnabled & bit) != 0u && (e->factRequires[b] & e->have) == e->factRequires[b]) {
+            facts |= bit;
+        }
+    }
+    return facts;
+}
+
+/** ABI 10: the other game's gated facts for the rest of the round. */
+void ClAcceptTravelFacts(void* self, uint32_t facts) {
+    ClEngine* e = (ClEngine*)self;
+    if (!e->inQuery) {
+        e->sawQueryOutsideRound = true;
+    }
+    if ((facts & e->accepted) != e->accepted) {
+        e->sawAcceptShrink = true;
+    }
+    e->acceptCalls++;
+    e->accepted = facts;
+}
+
 void ClFillVtable(ComboLogicEngine* vt, ClEngine* e) {
     memset(vt, 0, sizeof(*vt));
     vt->abiVersion = RSBS_COMBO_LOGIC_ENGINE_ABI;
@@ -716,6 +774,12 @@ void ClFillVtable(ComboLogicEngine* vt, ClEngine* e) {
     }
     if (e->withHostGroups) {
         vt->hostGroups = ClHostGroups;
+    }
+    if (e->withTravelFacts) {
+        vt->travelFacts = ClTravelFacts;
+        if (!e->noAcceptTravel) {
+            vt->acceptTravelFacts = ClAcceptTravelFacts;
+        }
     }
     if (e->withSnapshot) {
         vt->snapshot = ClSnapshot;
@@ -2954,9 +3018,9 @@ void ClCountCrossings(int* intoOoT, int* intoMM, bool* ootForeignOnly41) {
 }
 
 TestResult ClProductionRulesLeg(void) {
-    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 9u,
-              "P0: this build speaks ABI 9 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
-              "hosts; 7: the shared pair; 8: All Locations' allLocations; 9: the host groups)");
+    CL_ASSERT(RSBS_COMBO_LOGIC_ENGINE_ABI == 10u,
+              "P0: this build speaks ABI 10 (5: the production wiring's hostAcceptsForeign; 6: the round's forbidden "
+              "hosts; 7: the shared pair; 8: All Locations' allLocations; 9: the host groups; 10: travel facts)");
     const uint8_t O = (uint8_t)GAME_OOT;
     const uint8_t M = (uint8_t)GAME_MM;
     const uint16_t oItems[4] = { kOotSword, kOotHook, kOotLens, kOotBoots };
@@ -4247,4 +4311,400 @@ TestResult Test_ComboLogicHostGroups(void) {
     ClUninstall();
     printf("[TEST] combo-logic-host-groups: %s\n", sClgFailures == 0 ? "PASS" : "FAIL");
     return sClgFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// combo-logic-travel-facts — THE TRAVEL FACTS (ABI 10, #1169 XW9)
+// ============================================================================
+
+namespace {
+
+/**
+ * THE TRAVEL WORLD. Each game holds one host behind the OTHER game's travel fact:
+ *   OoT host 11 needs MM's Minuet fact (0x02), which MM reports while it holds
+ *   the Ocarina; MM host 21 needs OoT's Soaring fact (0x01), which OoT reports
+ *   while it holds the Boots. OoT's crossing needs the Sword; MM's needs
+ *   `mmCrossing` (0 = always open). OoT host 11 holds OoT's Lens (OoT's goal);
+ *   MM host 21 holds `mm21` (an MM item, MM's own placement).
+ */
+void ClBuildTravelWorld(uint32_t mmCrossingItem, uint16_t mm21, bool withFacts) {
+    ClResetEngine(&gClOoT, (uint8_t)GAME_OOT);
+    ClAddItem(&gClOoT, kOotSword);
+    ClAddItem(&gClOoT, kOotHook);
+    ClAddItem(&gClOoT, kOotLens);
+    ClAddItem(&gClOoT, kOotBoots);
+    ClAddHost(&gClOoT, 10, 0u);
+    ClAddHost(&gClOoT, 11, 0u);
+    ClAddHost(&gClOoT, 12, 0u);
+    gClOoT.hostFactRequires[1] = 0x02u;
+    gClOoT.crossingRequires = ClBit(&gClOoT, kOotSword);
+    gClOoT.goalRequires = ClBit(&gClOoT, kOotLens);
+    gClOoT.withTravelFacts = withFacts;
+    gClOoT.factEnabled = 0x01u;
+    gClOoT.factRequires[0] = ClBit(&gClOoT, kOotBoots);
+    gClOoT.withholdCalls = 0;
+
+    ClResetEngine(&gClMM, (uint8_t)GAME_MM);
+    ClAddItem(&gClMM, kMmOcarina);
+    ClAddItem(&gClMM, kMmBow);
+    ClAddItem(&gClMM, kMmRemains);
+    ClAddItem(&gClMM, kMmMask);
+    ClAddHost(&gClMM, 20, 0u);
+    ClAddHost(&gClMM, 21, 0u);
+    ClAddHost(&gClMM, 22, 0u);
+    gClMM.hostFactRequires[1] = 0x01u;
+    gClMM.crossingRequires = (mmCrossingItem != 0u) ? ClBit(&gClMM, (uint16_t)mmCrossingItem) : 0u;
+    gClMM.goalRequires = ClBit(&gClMM, kMmRemains);
+    gClMM.withTravelFacts = withFacts;
+    gClMM.factEnabled = 0x02u;
+    gClMM.factRequires[1] = ClBit(&gClMM, kMmOcarina);
+    ClInstall();
+    (void)Combo_Logic_Place(GAME_OOT, 11, ClItem((uint8_t)GAME_OOT, kOotLens), RSBS_ITEMCLASS_PROGRESSION);
+    if (mm21 != 0u) {
+        (void)Combo_Logic_Place(GAME_MM, 21, ClItem((uint8_t)GAME_MM, mm21), RSBS_ITEMCLASS_PROGRESSION);
+    }
+}
+
+/** One beat-either round over the travel world with `n` assumed items. */
+int ClTravelRound(const ComboLogicBagItem* assumed, int n, ComboLogicRoundResult* out) {
+    memset(out, 0, sizeof(*out));
+    return ClRunRound((uint8_t)RSBS_COMBO_GOAL_BEAT_EITHER, assumed, n, out);
+}
+
+void ClPrintTravelRound(const char* tag, int rc, const ComboLogicRoundResult& r) {
+    printf("[TEST]   %s: rc=%s iterations=%d cross OoT %d MM %d goal OoT %d MM %d travel toOoT %02X toMM %02X | "
+           "accepts OoT %d MM %d | reached OoT %03X MM %03X\n",
+           tag, Combo_Logic_StatusName(rc), r.iterations, r.crossingOpenOoT, r.crossingOpenMM, r.goalOoT, r.goalMM,
+           (unsigned)r.travelToOoT, (unsigned)r.travelToMM, gClOoT.acceptCalls, gClMM.acceptCalls,
+           (unsigned)gClOoT.reached, (unsigned)gClMM.reached);
+}
+
+} // namespace
+
+// A SOFT check, like CLG_CHECK: every leg runs after one fails.
+static int sCltFailures;
+#define CLT_CHECK(cond, msg)                                                \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            printf("[TEST] FAIL: %s (%s:%d)\n", (msg), __FILE__, __LINE__); \
+            sCltFailures++;                                                 \
+        }                                                                   \
+    } while (0)
+
+TestResult Test_ComboLogicTravelFacts(void) {
+    printf("[TEST] combo-logic-travel-facts: an MM warp-song fact reaches OoT only with OoT's crossing open, OoT's "
+           "Soaring fact reaches MM only with both crossings open, chains converge, a vanished fact is non-monotone, "
+           "own-direction bits are dropped, and silent engines change nothing (ABI 10, #1169 XW9)\n");
+    const uint8_t O = (uint8_t)GAME_OOT;
+    const uint8_t M = (uint8_t)GAME_MM;
+    sCltFailures = 0;
+    ClUninstall();
+    ComboLogicRoundResult r;
+
+    // ---- T1: the trailing entries default to NULL, and the ABI is 10 -----------
+    // Catches: a vtable initialiser that no longer zero-fills the new entries, or
+    // the ABI number not moving with the contract. The mismatch refusal itself is
+    // combo-logic-engine-surface's (ABI + 7).
+    {
+        ComboLogicEngine vt;
+        ClResetEngine(&gClOoT, O);
+        ClFillVtable(&vt, &gClOoT);
+        CLT_CHECK(RSBS_COMBO_LOGIC_ENGINE_ABI == 10u, "T1: this build must speak ABI 10 (travel facts)");
+        CLT_CHECK(vt.travelFacts == NULL && vt.acceptTravelFacts == NULL,
+                  "T1: an ABI-9-shaped stub must leave both travel entries NULL");
+        CLT_CHECK(Combo_Logic_RegisterEngine(GAME_OOT, &vt), "T1: an engine without travel entries must register");
+        CLT_CHECK(Combo_Logic_RegisterEngine(GAME_OOT, NULL), "T1: un-registration");
+    }
+
+    // ---- T0: the gate as a pure function ----------------------------------------
+    // Catches: a gate that forgets a crossing term, or that lets an engine's own
+    // direction through.
+    {
+        uint32_t toOoT = 0xFFu;
+        uint32_t toMM = 0xFFu;
+        Combo_Logic_TravelGate(0x7Fu, 0x7Fu, 1, 1, &toOoT, &toMM);
+        CLT_CHECK(toOoT == 0x7Eu && toMM == 0x01u, "T0: both crossings open must pass each direction, masked");
+        Combo_Logic_TravelGate(0x7Fu, 0x7Fu, 0, 1, &toOoT, &toMM);
+        CLT_CHECK(toOoT == 0u && toMM == 0u, "T0: OoT's crossing closed must pass nothing either way");
+        Combo_Logic_TravelGate(0x7Fu, 0x7Fu, 1, 0, &toOoT, &toMM);
+        CLT_CHECK(toOoT == 0x7Eu && toMM == 0u, "T0: MM's crossing closed must still pass MM's songs, not Soaring");
+        Combo_Logic_TravelGate(0x7Eu, 0x01u, 1, 1, &toOoT, &toMM);
+        CLT_CHECK(toOoT == 0u && toMM == 0u, "T0: an engine's report in its own direction must be dropped");
+        Combo_Logic_TravelGate(0x01u, 0x7Eu, 1, 1, NULL, NULL); // NULL outs are legal
+    }
+
+    // ---- T2: an MM fact reaches OoT only with OoT's crossing open ----------------
+    // Catches: the toOoT gate missing (Sword removed, the Lens still counts), the
+    // fact never delivered (with everything, the Lens does not count), or a fact
+    // credited without its item (Ocarina removed).
+    {
+        const ComboLogicBagItem all[2] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+        ClBuildTravelWorld(0u, 0u, true);
+        int rc = ClTravelRound(all, 2, &r);
+        ClPrintTravelRound("T2 Sword + Ocarina", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == 1 && r.travelToOoT == 0x02u && r.travelToMM == 0u,
+                  "T2: MM's Minuet fact must open OoT host 11 once OoT's crossing is open");
+        CLT_CHECK(gClOoT.acceptCalls == 1 && !gClOoT.sawAcceptShrink && gClMM.acceptCalls == 0,
+                  "T2: OoT must be handed the fact exactly once, MM never");
+
+        ClBuildTravelWorld(0u, 0u, true);
+        rc = ClTravelRound(&all[1], 1, &r);
+        ClPrintTravelRound("T2 Ocarina only (crossing closed)", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == 0 && r.travelToOoT == 0u && gClOoT.acceptCalls == 0,
+                  "T2: with OoT's crossing closed no MM fact may reach OoT (a warp is never a first way in)");
+
+        ClBuildTravelWorld(0u, 0u, true);
+        rc = ClTravelRound(all, 1, &r);
+        ClPrintTravelRound("T2 Sword only", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == 0 && r.travelToOoT == 0u,
+                  "T2: without the Ocarina MM reports no fact and OoT host 11 stays unreached");
+        CLT_CHECK(ClContractClean(), "T2: contract");
+    }
+
+    // ---- T3: the Soaring fact needs both crossings -------------------------------
+    // Catches: the toMM gate missing MM's crossing (Bow removed) or OoT's (Sword
+    // removed), or the fact not delivered at all.
+    {
+        const ComboLogicBagItem all[3] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotBoots, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmBow, RSBS_ITEMCLASS_PROGRESSION) };
+        ClBuildTravelWorld(kMmBow, kMmRemains, true);
+        int rc = ClTravelRound(all, 3, &r);
+        ClPrintTravelRound("T3 Sword + Boots + Bow", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalMM == 1 && r.travelToMM == 0x01u && r.travelToOoT == 0u,
+                  "T3: OoT's Soaring fact must open MM host 21 once both crossings are open");
+
+        ClBuildTravelWorld(kMmBow, kMmRemains, true);
+        rc = ClTravelRound(all, 2, &r);
+        ClPrintTravelRound("T3 no Bow (MM's crossing closed)", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalMM == 0 && r.travelToMM == 0u && gClMM.acceptCalls == 0,
+                  "T3: with MM's crossing closed (never departed) the Soaring fact must not reach MM");
+
+        ClBuildTravelWorld(kMmBow, kMmRemains, true);
+        rc = ClTravelRound(&all[1], 2, &r);
+        ClPrintTravelRound("T3 no Sword (OoT's crossing closed)", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalMM == 0 && r.travelToMM == 0u,
+                  "T3: with OoT's crossing closed the Soaring fact must not reach MM");
+        CLT_CHECK(ClContractClean(), "T3: contract");
+    }
+
+    // ---- T4 + T8: a three-alternation chain, in both item orders -----------------
+    // OoT's Boots -> Soaring fact -> MM host 21 (MM's Ocarina) -> Minuet fact -> OoT
+    // host 11 (the Lens). Catches: facts read only once per round (the chain stops
+    // at MM host 21), an accept that is not a superset or is repeated, facts that
+    // leak between rounds, and an order dependence.
+    {
+        const ComboLogicBagItem fwd[2] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotBoots, RSBS_ITEMCLASS_PROGRESSION) };
+        const ComboLogicBagItem rev[2] = { fwd[1], fwd[0] };
+        ClBuildTravelWorld(0u, kMmOcarina, true);
+        int rc = ClTravelRound(fwd, 2, &r);
+        ClPrintTravelRound("T4 chain", rc, r);
+        const ComboLogicRoundResult first = r;
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == 1 && r.travelToMM == 0x01u && r.travelToOoT == 0x02u,
+                  "T4: the chain OoT fact -> MM item -> MM fact -> OoT host must converge to the Lens");
+        CLT_CHECK(r.iterations >= 4, "T4: the chain needs at least four alternations (three growths and a quiet one)");
+        CLT_CHECK(gClOoT.acceptCalls == 1 && gClMM.acceptCalls == 1 && !gClOoT.sawAcceptShrink &&
+                      !gClMM.sawAcceptShrink,
+                  "T8: each engine must be handed its one fact exactly once, as a superset");
+        CLT_CHECK(gClOoT.accepted == 0u && gClMM.accepted == 0u, "T8: endQuery must forget the accepted facts");
+        rc = ClTravelRound(fwd, 2, &r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == 1 && r.iterations == first.iterations &&
+                      gClOoT.acceptCalls == 2 && gClMM.acceptCalls == 2,
+                  "T8: a second round must start from no facts and hand each across again");
+
+        ClBuildTravelWorld(0u, kMmOcarina, true);
+        rc = ClTravelRound(rev, 2, &r);
+        ClPrintTravelRound("T4 chain, reversed", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.goalOoT == first.goalOoT && r.goalMM == first.goalMM &&
+                      r.travelToOoT == first.travelToOoT && r.travelToMM == first.travelToMM &&
+                      r.iterations == first.iterations,
+                  "T4: the round must not depend on the order of the assumed items");
+        CLT_CHECK(ClContractClean(), "T4: contract");
+    }
+
+    // ---- T9: a withheld host's item yields no fact -------------------------------
+    // Catches: a fact derived from an item the round withholds.
+    {
+        const ComboLogicBagItem fwd[2] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(O, kOotBoots, RSBS_ITEMCLASS_PROGRESSION) };
+        ClBuildTravelWorld(0u, kMmOcarina, true);
+        const ComboLogicHostRef forbid[1] = { ClHostRef(M, 21) };
+        ComboLogicRoundRequest req;
+        memset(&req, 0, sizeof(req));
+        req.assumed = fwd;
+        req.assumedCount = 2;
+        req.goal = (uint8_t)RSBS_COMBO_GOAL_BEAT_EITHER;
+        req.forbidden = forbid;
+        req.forbiddenCount = 1;
+        memset(&r, 0, sizeof(r));
+        const int rc = Combo_Logic_RunRound(&req, &r);
+        ClPrintTravelRound("T9 MM host 21 forbidden", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.travelToMM == 0x01u && r.travelToOoT == 0u && r.goalOoT == 0,
+                  "T9: the withheld Ocarina must produce no Minuet fact");
+    }
+
+    // ---- T5: a fact that disappears is non-monotone -----------------------------
+    {
+        ClBuildTravelWorld(0u, 0u, true);
+        gClMM.factEnabled = 0x02u;
+        gClMM.factRequires[1] = 0u;
+        gClMM.factDropAfterFirst = true;
+        ClInstall();
+        (void)Combo_Logic_Place(GAME_OOT, 11, ClItem(O, kOotLens), RSBS_ITEMCLASS_PROGRESSION);
+        const ComboLogicBagItem sword[1] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION) };
+        const int rc = ClTravelRound(sword, 1, &r);
+        ClPrintTravelRound("T5 vanishing fact", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_ERR_NON_MONOTONE, "T5: a fact that disappears inside a round is NON_MONOTONE");
+    }
+
+    // ---- T6: own-direction bits are dropped -------------------------------------
+    {
+        ClBuildTravelWorld(0u, kMmRemains, true);
+        gClOoT.factEnabled = 0u;
+        gClOoT.factReportExtra = 0x02u; // MM's direction, from OoT
+        gClMM.factEnabled = 0u;
+        gClMM.factReportExtra = 0x01u; // OoT's direction, from MM
+        ClInstall();
+        (void)Combo_Logic_Place(GAME_OOT, 11, ClItem(O, kOotLens), RSBS_ITEMCLASS_PROGRESSION);
+        (void)Combo_Logic_Place(GAME_MM, 21, ClItem(M, kMmRemains), RSBS_ITEMCLASS_PROGRESSION);
+        const ComboLogicBagItem sword[1] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION) };
+        const int rc = ClTravelRound(sword, 1, &r);
+        ClPrintTravelRound("T6 own-direction reports", rc, r);
+        CLT_CHECK(rc == RSBS_COMBO_LOGIC_OK && r.travelToOoT == 0u && r.travelToMM == 0u && r.goalOoT == 0 &&
+                      r.goalMM == 0 && gClOoT.acceptCalls == 0 && gClMM.acceptCalls == 0,
+                  "T6: an engine must never be handed a fact of its own direction");
+    }
+
+    // ---- T7: silent engines change nothing ---------------------------------------
+    // With both entries NULL, and with them installed but reporting 0, a round and
+    // a fill are byte-identical, and nothing is accepted. Catches: an extra
+    // alternation, an accept call or any consumed state when every fact is 0 (the
+    // rules-off world).
+    {
+        const ComboLogicBagItem fwd[2] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                           ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION) };
+        ComboLogicRoundResult silentNull;
+        ComboLogicRoundResult silentZero;
+        ClBuildTravelWorld(0u, kMmRemains, false);
+        int rcNull = ClTravelRound(fwd, 2, &silentNull);
+        ClBuildTravelWorld(0u, kMmRemains, true);
+        gClOoT.factEnabled = 0u;
+        gClMM.factEnabled = 0u;
+        ClInstall();
+        (void)Combo_Logic_Place(GAME_OOT, 11, ClItem(O, kOotLens), RSBS_ITEMCLASS_PROGRESSION);
+        (void)Combo_Logic_Place(GAME_MM, 21, ClItem(M, kMmRemains), RSBS_ITEMCLASS_PROGRESSION);
+        int rcZero = ClTravelRound(fwd, 2, &silentZero);
+        CLT_CHECK(rcNull == RSBS_COMBO_LOGIC_OK && rcZero == RSBS_COMBO_LOGIC_OK &&
+                      memcmp(&silentNull, &silentZero, sizeof(silentNull)) == 0,
+                  "T7: a round with facts all 0 must be byte-identical to one with no travel entries");
+        CLT_CHECK(gClOoT.travelCalls > 0 && gClMM.travelCalls > 0 && gClOoT.acceptCalls == 0 && gClMM.acceptCalls == 0,
+                  "T7: the silent engines were asked (non-vacuity) and handed nothing");
+
+        // The same comparison over a fill (placement digest, rounds, attempts).
+        ComboLogicBagItem bag[3] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                     ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION),
+                                     ClBagItem(O, kOotLens, RSBS_ITEMCLASS_PROGRESSION) };
+        ComboLogicFillResult fNull;
+        ComboLogicFillResult fZero;
+        ClBuildTravelWorld(0u, 0u, false);
+        Combo_Logic_ResetPlacements();
+        rcNull =
+            ClRunFill(bag, 3, (uint8_t)RSBS_COMBO_GOAL_BEAT_EITHER, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x0B0Eu, &fNull);
+        ClBuildTravelWorld(0u, 0u, true);
+        gClOoT.factEnabled = 0u;
+        gClMM.factEnabled = 0u;
+        ClInstall();
+        rcZero =
+            ClRunFill(bag, 3, (uint8_t)RSBS_COMBO_GOAL_BEAT_EITHER, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x0B0Eu, &fZero);
+        printf("[TEST]   T7 fill: NULL rc=%s digest %08X rounds %d | zero rc=%s digest %08X rounds %d\n",
+               Combo_Logic_StatusName(rcNull), (unsigned)fNull.placementDigest, fNull.rounds,
+               Combo_Logic_StatusName(rcZero), (unsigned)fZero.placementDigest, fZero.rounds);
+        CLT_CHECK(rcNull == rcZero && fNull.placementDigest == fZero.placementDigest && fNull.rounds == fZero.rounds &&
+                      fNull.attempts == fZero.attempts && fNull.placed == fZero.placed,
+                  "T7: a fill with facts all 0 must place exactly as one with no travel entries");
+        CLT_CHECK(gClOoT.acceptCalls == 0 && gClMM.acceptCalls == 0, "T7: the fill handed no fact across");
+    }
+
+    // ---- T10: a fill whose only goal route is a fact -------------------------------
+    // OoT's goal (the Lens) is placeable only on OoT host 11 (behind MM's Minuet
+    // fact, which needs MM's Ocarina and OoT's crossing, the Sword) or the two
+    // sphere-zero hosts. Catches: a fact read before it is earned (the Ocarina or
+    // the Sword drawn onto host 11, which only they open), and, with the facts
+    // off, a proof that credits host 11 at all.
+    {
+        // One host per side so every bag row needs host 11 or an honest route.
+        ComboLogicBagItem bag[3] = { ClBagItem(O, kOotSword, RSBS_ITEMCLASS_PROGRESSION),
+                                     ClBagItem(M, kMmOcarina, RSBS_ITEMCLASS_PROGRESSION),
+                                     ClBagItem(O, kOotLens, RSBS_ITEMCLASS_PROGRESSION) };
+        int ok = 0;
+        int lensOn11 = 0;
+        int keyOn11 = 0;
+        const int kSeeds = 16;
+        for (int sd = 0; sd < kSeeds; ++sd) {
+            ClResetEngine(&gClOoT, O);
+            ClAddItem(&gClOoT, kOotSword);
+            ClAddItem(&gClOoT, kOotLens);
+            ClAddHost(&gClOoT, 10, 0u);
+            ClAddHost(&gClOoT, 11, 0u);
+            gClOoT.hostFactRequires[1] = 0x02u;
+            gClOoT.crossingRequires = ClBit(&gClOoT, kOotSword);
+            gClOoT.goalRequires = ClBit(&gClOoT, kOotLens);
+            gClOoT.withTravelFacts = true;
+            ClResetEngine(&gClMM, M);
+            ClAddItem(&gClMM, kMmOcarina);
+            ClAddHost(&gClMM, 20, 0u);
+            gClMM.goalRequires = 0u;
+            gClMM.withTravelFacts = true;
+            gClMM.factEnabled = 0x02u;
+            gClMM.factRequires[1] = ClBit(&gClMM, kMmOcarina);
+            ClInstall();
+            ComboLogicFillResult fr;
+            const int rc = ClRunFill(bag, 3, (uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_BEATABLE,
+                                     0x10A0u + (uint32_t)sd, &fr);
+            if (rc != RSBS_COMBO_LOGIC_OK || !fr.goalProven) {
+                continue;
+            }
+            ok++;
+            for (int i = 0; i < Combo_Logic_PlacementCount(GAME_OOT); ++i) {
+                ComboLogicPlacement p;
+                if (Combo_Logic_PlacementAt(GAME_OOT, i, &p) && p.hostCheck == 11) {
+                    lensOn11 += (p.item.id == kOotLens) ? 1 : 0;
+                    keyOn11 += (p.item.id == kOotSword || p.item.id == kMmOcarina) ? 1 : 0;
+                }
+            }
+        }
+        printf("[TEST]   T10: %d/%d fills proved, the Lens on host 11 %d time(s), a key item on it %d time(s)\n", ok,
+               kSeeds, lensOn11, keyOn11);
+        CLT_CHECK(ok > 0, "T10: no fill proved a goal whose only third host is behind a fact");
+        CLT_CHECK(keyOn11 == 0, "T10: the Sword or the Ocarina was placed behind the fact it opens");
+        CLT_CHECK(lensOn11 == ok, "T10: every proved fill must put the Lens on host 11, the only honest layout");
+
+        // The facts OFF (NULL entries): host 11 is never reached, so the bag cannot
+        // be proved. The control that the proof above used the fact.
+        ClResetEngine(&gClOoT, O);
+        ClAddItem(&gClOoT, kOotSword);
+        ClAddItem(&gClOoT, kOotLens);
+        ClAddHost(&gClOoT, 10, 0u);
+        ClAddHost(&gClOoT, 11, 0u);
+        gClOoT.hostFactRequires[1] = 0x02u;
+        gClOoT.crossingRequires = ClBit(&gClOoT, kOotSword);
+        gClOoT.goalRequires = ClBit(&gClOoT, kOotLens);
+        ClResetEngine(&gClMM, M);
+        ClAddItem(&gClMM, kMmOcarina);
+        ClAddHost(&gClMM, 20, 0u);
+        gClMM.goalRequires = 0u;
+        ClInstall();
+        ComboLogicFillResult fr;
+        const int rcOff =
+            ClRunFill(bag, 3, (uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_BEATABLE, 0x10A0u, &fr);
+        printf("[TEST]   T10 control (no travel entries): rc=%s goalProven %d\n", Combo_Logic_StatusName(rcOff),
+               fr.goalProven ? 1 : 0);
+        CLT_CHECK(rcOff != RSBS_COMBO_LOGIC_OK, "T10: without the facts the same bag must not be provable");
+    }
+
+    ClUninstall();
+    printf("[TEST] combo-logic-travel-facts: %s\n", sCltFailures == 0 ? "PASS" : "FAIL");
+    return sCltFailures == 0 ? TEST_PASS : TEST_FAIL;
 }

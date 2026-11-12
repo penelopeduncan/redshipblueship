@@ -140,8 +140,28 @@ extern "C" {
  *  game whose groups meet its mask (MM's Own Dungeon and Song Locations). An
  *  ABI-8 engine was never asked which group a host is in, so its silence would
  *  be read as "in no group" and every confined row would dead-end; the number
- *  moves so that engine is refused at registration instead. */
-#define RSBS_COMBO_LOGIC_ENGINE_ABI 9u
+ *  moves so that engine is refused at registration instead.
+ *
+ *  10 (2026-11-11, #1169 XW9, THE TRAVEL FACTS): the vtable gains TWO more
+ *  OPTIONAL trailing pointers, `travelFacts` and `acceptTravelFacts`, and
+ *  `expand` gains a second monotone input: the other game's travel facts the
+ *  coordinator handed over (OoT's Song of Soaring into Termina, MM's six OoT warp
+ *  songs into Hyrule; THE TRAVEL FACTS below). An engine's `changed` must now
+ *  answer for them too. An ABI-9 engine's silence would be safe (it would only
+ *  under-credit), but its `expand` was never told it had a second input, so the
+ *  number moves for the contract, as it did at 3 and 7. */
+#define RSBS_COMBO_LOGIC_ENGINE_ABI 10u
+
+/** THE TRAVEL FACTS (ABI 10, #1169 XW9). Game-neutral bits in the frozen second
+ *  rules word's own positions (foreign_items.h, RSBS_XITEM2_*): a bit an engine
+ *  reports means "in this round's simulated state this game can PLAY that song".
+ *  RSBS_COMBO_TRAVEL_INTO_MM is OoT's fact (its Song of Soaring, played as a child,
+ *  lands at an ACTIVE Termina owl); RSBS_COMBO_TRAVEL_INTO_OOT are MM's (the six
+ *  OoT warp songs as MM items, song i = bit 0x02 << i in OoTMM's order Minuet ..
+ *  Prelude). The coordinator masks each engine's report to its own direction, so
+ *  an engine can never hand itself a fact. */
+#define RSBS_COMBO_TRAVEL_INTO_MM 0x00000001u
+#define RSBS_COMBO_TRAVEL_INTO_OOT 0x0000007Eu
 
 // ============================================================================
 // Status codes — DIAGNOSTICS, NOT FORMAT
@@ -399,6 +419,7 @@ const char* Combo_Logic_StatusName(int status);
 //       changed |= exchange OoT-hosted, MM-origin items    // gated, below
 //       changed |= MM.expand()
 //       changed |= exchange MM-hosted, OoT-origin items    // gated, below
+//       changed |= hand across the travel facts            // ABI 10, gated, below
 //   until !changed
 //   read: crossingOpen, goalReached, reachedEmptyHosts, checkReached
 //   for each side S, in reverse:
@@ -459,6 +480,24 @@ const char* Combo_Logic_StatusName(int status);
 //     crossing is open (to get back).
 //   - Either way, never from a host the round's request FORBIDS (ABI 6): that
 //     host's contents are withheld for the whole round.
+//
+// THE TRAVEL GATES (ABI 10, #1169 XW9), the same travel stated for songs. After
+// both expands of every alternation the coordinator reads each engine's
+// `travelFacts`, masks it to its own direction, and hands across what passes:
+//   - MM's warp-song facts reach OoT iff OoT's crossing is open: the player must
+//     be IN MM to play an MM item, and the only first way into Termina is the
+//     crossing (ruling 9 of 2026-11-04: a warp is travel AFTER the door, never a
+//     first way in).
+//   - OoT's Soaring fact reaches MM iff OoT's crossing is open AND MM's crossing
+//     is open: OoT's Soaring lands only on owls already ACTIVE in MM's FROZEN
+//     copy, so the player must have entered MM and departed it again.
+// The accepted sets only grow within a round (an OR), they reset per round, and
+// a fact is never derived from anything but the round's own granted items and
+// placements, so the composite operator stays monotone and the least fixed point
+// credits each fact only after a well-founded derivation in play order: a fact
+// gated on the crossing can never help open the crossing circularly. At most
+// seven extra alternations per round (one per bit), far inside the bound.
+// Combo_Logic_TravelGate is that rule as a pure function.
 //
 // THE ARRIVAL GATE — a coordinator rule the audit did not state, taken here
 // deliberately. The combo's file starts in OoT and MM is reached through the
@@ -982,6 +1021,34 @@ typedef struct ComboLogicEngine {
      * rather than dead-ended. A fill that confines nothing never calls it.
      */
     uint32_t (*hostGroups)(void* self, uint16_t hostCheck);
+
+    /**
+     * OPTIONAL (ABI 10, #1169 XW9, THE TRAVEL FACTS). Which songs this game can
+     * PLAY right now in the round's simulated state, as RSBS_COMBO_TRAVEL_* bits
+     * (OoT: RSBS_COMBO_TRAVEL_INTO_MM; MM: RSBS_COMBO_TRAVEL_INTO_OOT). Only
+     * inside a round, only after this engine's `expand` (the coordinator calls it
+     * once per alternation, after both expands). A PURE READ: consumes no RNG,
+     * grants nothing, leaves every simulated state it reads as it found it.
+     * MONOTONE in the round's items: a bit once reported is reported at every
+     * later call of the round, or the round fails RSBS_COMBO_LOGIC_ERR_NON_MONOTONE.
+     *
+     * Each engine answers with its OWN predicates (its own `CanUse`, its own
+     * buttons, its own frozen rule), so with every warp-song rule off it answers 0
+     * and nothing below ever runs. NULL means 0.
+     */
+    uint32_t (*travelFacts)(void* self);
+
+    /**
+     * OPTIONAL (ABI 10). For the rest of THIS ROUND, the other game's facts that
+     * passed THE TRAVEL GATES (below) are `facts`: always a superset of the
+     * previous call's, never a bit of this engine's own direction. The engine's
+     * NEXT `expand` must read them (OoT: its warp-song root exits; MM: its owl
+     * landings) and report `changed` for what they open. `beginQuery` and
+     * `endQuery` forget them, as they forget withheld hosts. Called only when the
+     * accepted set grows, so a world whose facts are all 0 never calls it. NULL
+     * means the facts are dropped (the engine under-credits, never over-credits).
+     */
+    void (*acceptTravelFacts)(void* self, uint32_t facts);
 } ComboLogicEngine;
 
 /**
@@ -1156,6 +1223,22 @@ uint32_t Combo_Logic_PlacementDigest(void);
 int Combo_Logic_EvaluateGoal(uint8_t goal, int ootGoalReached, int mmGoalReached);
 
 /**
+ * THE TRAVEL GATES (ABI 10, #1169 XW9) as a pure function: the travel facts the
+ * coordinator may hand across in one alternation, given what each engine
+ * reported (`factsOoT`, `factsMM`, unmasked) and the two crossing flags.
+ *
+ *   *outToOoT = crossOoT              ? factsMM & RSBS_COMBO_TRAVEL_INTO_OOT : 0
+ *   *outToMM  = crossOoT && crossMM   ? factsOoT & RSBS_COMBO_TRAVEL_INTO_MM : 0
+ *
+ * MM's warp songs need the player IN MM, which only OoT's crossing opens; OoT's
+ * Soaring lands on owls already active in MM's FROZEN copy, so it needs MM
+ * entered (OoT's crossing) and departed (MM's). An engine's report outside its
+ * own direction is dropped. Either out pointer may be NULL.
+ */
+void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, int crossMM, uint32_t* outToOoT,
+                            uint32_t* outToMM);
+
+/**
  * The triforce-hunt GOAL expression (ADR 0010 answer O10): the ONE shared piece
  * count across both worlds against the frozen combo requirement.
  *
@@ -1295,6 +1378,12 @@ typedef struct {
     /** How many of those locations were NOT reached (0 when not asked); the list is
      *  Combo_Logic_UnreachableLocationAt's. */
     int locationsUnreached;
+    /** ABI 10 (#1169 XW9): the travel facts this round ACCEPTED, as
+     *  RSBS_COMBO_TRAVEL_* bits: MM's warp songs handed to OoT, and OoT's Soaring
+     *  handed to MM, each after THE TRAVEL GATES. 0 in every world with the
+     *  warp-song rules off. Diagnostics and locks, not format. */
+    uint32_t travelToOoT;
+    uint32_t travelToMM;
 } ComboLogicRoundResult;
 
 /**
@@ -2258,6 +2347,12 @@ int Combo_Logic_LeftoverHosts(GameId hostGame, uint16_t* out, int cap);
 //    The production caller passes the frozen requirement since #1389
 //    (combo_single_bag.c), so a paired triforce-hunt world is generated and
 //    proved like any other.
+//  - THE TRAVEL FACTS OUTSIDE A ROUND (ABI 10, #1169 XW9). Both games' check
+//    trackers, OoT's own restricted passes and its entrance validation evaluate
+//    the same warp-song and owl exits outside any round, where the accessors are
+//    false: they under-credit warp travel, identically in an MM-first session and
+//    after a crossing, until XW11 gives the trackers facts from the frozen world.
+//    Way of the Hero and foolish run rounds and see the facts as the fill does.
 //  - THE SPOILER. One artifact for the pair is #564 V23 / audit P11; this
 //    coordinator exposes its tables and stops there (the creation event prints
 //    the crossing store into the one spoiler's combo section).

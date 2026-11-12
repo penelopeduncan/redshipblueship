@@ -312,11 +312,26 @@ void Combo_MMWarpPlay_RegisterOoTReadyProbe(int (*probe)(void)) {
     sMmWpOoTReadyProbe = probe;
 }
 
+bool Combo_MMWarpPlay_DestNeedsOoTReady(uint16_t dest) {
+    return dest >= RSBS_MMWP_GROTTO_PSEUDO_FIRST;
+}
+
+bool Combo_MMWarpPlay_DestCreditedByLogic(uint16_t dest) {
+    return dest != 0u && !Combo_MMWarpPlay_DestNeedsOoTReady(dest);
+}
+
+bool Combo_MMWarpPlay_TravelEdgeOpen(bool inRound, uint32_t accepted, int song, uint16_t dest) {
+    if (!inRound || !MmWpSongInRange(song)) {
+        return false;
+    }
+    return (accepted & (0x02u << song)) != 0u && Combo_MMWarpPlay_DestCreditedByLogic(dest);
+}
+
 bool Combo_MMWarpPlay_DestResolvable(uint16_t dest) {
     if (dest == 0u) {
         return false;
     }
-    if (dest < RSBS_MMWP_GROTTO_PSEUDO_FIRST) {
+    if (!Combo_MMWarpPlay_DestNeedsOoTReady(dest)) {
         return true;
     }
     return sMmWpOoTReadyProbe != NULL && sMmWpOoTReadyProbe() != 0;

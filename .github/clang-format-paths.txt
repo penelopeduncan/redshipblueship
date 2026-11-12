@@ -313,6 +313,7 @@ games/oot/soh/oot_preset_world_test.cpp
 games/mm/2s2h/Rando/WarpSongsMM.h
 games/mm/2s2h/Rando/WarpSongsMM.cpp
 games/mm/2s2h/mm_warp_songs_mm_test.cpp
+games/mm/2s2h/mm_warp_travel_test.cpp
 games/mm/2s2h/mm_warp_song_play_test.cpp
 games/oot/soh/Enhancements/randomizer/WarpSongRecordOoT.cpp
 games/oot/soh/oot_shuffle_silver_test.cpp
