@@ -366,7 +366,7 @@ void SetStartingItems() {
 
     uint8_t startBow = Randomizer_GetSettingValue(RSK_STARTING_BOW);
     if (startBow >= 1)
-        OoT_Item_Give(NULL, ITEM_QUIVER_30);
+        OoT_Item_Give(NULL, ITEM_BOW);
     if (startBow >= 2)
         OoT_Item_Give(NULL, ITEM_QUIVER_40);
     if (startBow >= 3)
