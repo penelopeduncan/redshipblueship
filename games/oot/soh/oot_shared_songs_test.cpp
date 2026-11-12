@@ -250,3 +250,8 @@ extern "C" int OoT_SharedWarpSongsTest_LinksPocket(void) {
     }
     return (int)OoTPlacedAt(ctx, RC_LINKS_POCKET);
 }
+
+/** An OoT song no shared rule names, for the Link's Pocket bridge's negative case. */
+extern "C" int OoT_SharedWarpSongsTest_UnsharedSongId(void) {
+    return (int)RG_ZELDAS_LULLABY;
+}

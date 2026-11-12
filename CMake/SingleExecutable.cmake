@@ -3526,9 +3526,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1169 XW10: ONE copy of each shared warp song (all fourteen warp-song rules on
     # through the hidden-bit test seam), one real paired generation per Shuffle Songs
-    # value; Off and Anywhere with Link's Pocket at Advancement. Edges: three paired
-    # generations and one more to OoT's seam (Dungeon Rewards 12 for 12, the Off arm
-    # twice, a started shared Minuet), hence the longer timeout.
+    # value; Off and Anywhere with Link's Pocket at Advancement. Edges: two paired
+    # generations (Dungeon Rewards 12 for 12, a started shared Minuet with one more
+    # exit round) and two more only to OoT's seam (the Off arm twice), hence the
+    # longer timeout.
     redship_add_test(NAME SharedWarpSongsOneCopyOff COMMAND redship --test shared-warp-songs-one-copy-off
         LABEL rando
         TIMEOUT 600

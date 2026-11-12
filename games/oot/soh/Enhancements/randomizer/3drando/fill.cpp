@@ -124,6 +124,15 @@ static bool RsbsSongHeldForBag(RandomizerGet rg) {
             ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_DUNGEON_REWARDS)) &&
            OoT_ComboLogic_SharedSongHeldBack((uint16_t)rg) != 0;
 }
+
+/** TEST BRIDGE (#1169 XW10): RsbsSongHeldForBag for one id, so a row can lock the
+ *  Link's Pocket exclusion without depending on one seed's random draw. */
+extern "C" int OoT_Fill_TestSongHeldForBag(uint16_t rg) {
+    if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX) {
+        return 0;
+    }
+    return RsbsSongHeldForBag((RandomizerGet)rg) ? 1 : 0;
+}
 #endif
 
 PriceSettingsStruct shopsanityPrices = {

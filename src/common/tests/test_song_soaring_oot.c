@@ -654,8 +654,12 @@ Xw4PairSongs Xw4FinishPair() {
                                                               : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck) >= 0;
                 r.songsPlaced++;
                 r.songsOffSongs += onSongCheck ? 0 : 1;
-                r.soaringOnSongs +=
-                    (onSongCheck && p.item.originGame == (uint8_t)GAME_OOT && p.item.id == soaring) ? 1 : 0;
+                // Either half of the shared Soaring pair (#1169 XW10): an OoT song check
+                // hosts it as the Song of Soaring (OoT), an MM one as MM's own song with
+                // the OoT id as its pair.
+                const bool isSoaring = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == soaring) ||
+                                       (p.pair.originGame == (uint8_t)GAME_OOT && p.pair.id == soaring);
+                r.soaringOnSongs += (onSongCheck && isSoaring) ? 1 : 0;
             }
         }
     }
@@ -794,15 +798,14 @@ TestResult SongLocationsOverflowRefused_Run(void) {
             Xw4Leg leg;
             const char* name;
             // Soaring copies on a song check of either game after the pair, or -1 to
-            // skip. -2: at most one, for the shared Soaring (#1169 XW10): the pair is
-            // ONE row, recorded as the Song of Soaring (OoT) when an OoT song check
-            // hosts it and as MM's own song when an MM one does.
+            // skip. The shared Soaring (#1169 XW10) is ONE pair row, counted from
+            // either half (Xw4FinishPair), so its leg expects exactly one too.
             int onSongChecks;
         };
         const Pass passes[] = {
             { { kXw4SongLocations, true, false, false, true }, "Song Locations, starting with Zelda's Lullaby", 1 },
             { { kXw4SongLocations, true, false, true, false }, "Song Locations, Shared Song of Time", 1 },
-            { { kXw4SongLocations, true, true, false, false }, "Song Locations, Shared Song of Soaring", -2 },
+            { { kXw4SongLocations, true, true, false, false }, "Song Locations, Shared Song of Soaring", 1 },
             { { kXw4DungeonRewards, true, false, false, true }, "Dungeon Rewards, starting with Zelda's Lullaby", -1 },
             { { kXw4Anywhere, true, false, false, false }, "Anywhere", -1 },
             { { kXw4SongLocations, false, false, false, false }, "Song Locations, rule off", 0 },
@@ -812,12 +815,10 @@ TestResult SongLocationsOverflowRefused_Run(void) {
             const char* refusal = Combo_SongSpotsLastRefusal();
             printf("[TEST] %s: generation %d, refusal '%s'\n", p.name, rc, refusal);
             XW4_CHECK(rc == 0 && refusal[0] == '\0', "%s did not generate ('%s')", p.name, refusal);
-            if (p.onSongChecks >= 0 || p.onSongChecks == -2) {
+            if (p.onSongChecks >= 0) {
                 const Xw4PairSongs pair = Xw4FinishPair();
                 XW4_CHECK(pair.finished == 1, "%s: the paired world did not finish", p.name);
-                const bool soaringOk =
-                    p.onSongChecks == -2 ? pair.soaringOnSongs <= 1 : pair.soaringOnSongs == p.onSongChecks;
-                XW4_CHECK(soaringOk && pair.songsOffSongs == 0,
+                XW4_CHECK(pair.soaringOnSongs == p.onSongChecks && pair.songsOffSongs == 0,
                           "%s put %d Soaring copies on song checks (%d songs off one), expected %d", p.name,
                           pair.soaringOnSongs, pair.songsOffSongs, p.onSongChecks);
             }

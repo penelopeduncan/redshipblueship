@@ -95,6 +95,8 @@ void OoT_SharedWarpSongsTest_SetHeld(int song, int held);
 int OoT_SharedWarpSongsTest_Held(int song);
 int OoT_SharedWarpSongsTest_PoolId(int song);
 int OoT_SharedWarpSongsTest_LinksPocket(void);
+int OoT_SharedWarpSongsTest_UnsharedSongId(void);
+int OoT_Fill_TestSongHeldForBag(uint16_t rg); // fill.cpp, RsbsSongHeldForBag
 void MM_SharedWarpSongsTest_SetHeld(int song, int held);
 int MM_SharedWarpSongsTest_Held(int song);
 int MM_SharedWarpSongsTest_PoolId(int song);
@@ -1016,6 +1018,58 @@ SwsPlaced SwsCountPlaced(uint16_t ootId, uint16_t mmId) {
     }
     return r;
 }
+
+/**
+ * The inputs the single bag builds the Song of Soaring (OoT)'s row from, read at
+ * OoT's seam exactly as combo_single_bag.c reads them: the pool row's flags
+ * (OoT_ComboLogic_ExportPool source 0), its confinement mask
+ * (OoT_ComboLogic_PoolRowConfineMasks) and the composer's disposition under OoT's
+ * armed word (ConfinementArmed | Combo_ItemClassArmedFromFrozen). The row's other
+ * flag inputs, the direction's HOME_ONLY and the shared-pair flag, do not depend
+ * on the songs' rules (the Soaring is no pair in either run of leg (2)).
+ */
+struct SwsSoaringOoTRow {
+    int rows;           // pool rows of the Song of Soaring (OoT)
+    uint16_t poolFlags; // RSBS_COMBO_POOL_* of the last one
+    uint32_t confine;   // its confinement mask
+    int disposition;    // RSBS_COMBO_COMPOSE_*; -1 when no row
+};
+
+SwsSoaringOoTRow SwsReadSoaringOoTRow() {
+    SwsSoaringOoTRow r = { 0, 0u, 0u, -1 };
+    uint16_t soaringId = 0;
+    if (!Combo_SharedFamily2MemberId(GAME_OOT, kSwsSharedSoaring, &soaringId)) {
+        return r;
+    }
+    const int total = OoT_ComboLogic_ExportPool(0, nullptr, nullptr, nullptr, 0);
+    if (total <= 0) {
+        return r;
+    }
+    std::vector<uint16_t> items((size_t)total, 0);
+    std::vector<uint16_t> flags((size_t)total, 0);
+    std::vector<uint32_t> confine((size_t)total, 0u);
+    const int got = OoT_ComboLogic_ExportPool(0, items.data(), nullptr, flags.data(), total);
+    const int n = got < total ? got : total;
+    if (n <= 0) {
+        return r;
+    }
+    (void)OoT_ComboLogic_PoolRowConfineMasks(items.data(), n, confine.data());
+    const uint32_t armed = OoT_ComboLogic_ConfinementArmed() | Combo_ItemClassArmedFromFrozen((uint8_t)GAME_OOT);
+    for (int i = 0; i < n; i++) {
+        if (items[(size_t)i] != soaringId) {
+            continue;
+        }
+        SharedItem it;
+        memset(&it, 0, sizeof(it));
+        it.originGame = (uint8_t)GAME_OOT;
+        it.id = soaringId;
+        r.rows++;
+        r.poolFlags = flags[(size_t)i];
+        r.confine = confine[(size_t)i];
+        r.disposition = Combo_Logic_ComposeDisposition(it, flags[(size_t)i], armed);
+    }
+    return r;
+}
 } // namespace
 
 TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
@@ -1050,6 +1104,18 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
     const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
     int sharedRgs[6] = { -1, -1, -1, -1, -1, -1 };
     const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+    // The Link's Pocket exclusion itself (fill.cpp RsbsSongHeldForBag), asked per id
+    // so the lock does not rest on this seed's one draw: every shared warp song's
+    // OoT member is the bag's in EVERY mode, and an unshared song only where the
+    // shared song pool takes every song (Song Locations). Off and Anywhere answer 0
+    // for the seven without the XW10 branch.
+    {
+        const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
+        const int wantUnshared = shuffleSongs == 1 ? 1 : 0;
+        SWS_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == wantUnshared,
+                  "Link's Pocket's song exclusion answers %d for an unshared song under %s; want %d",
+                  OoT_Fill_TestSongHeldForBag((uint16_t)unshared), name, wantUnshared);
+    }
     for (int s = 0; s < 7; s++) {
         uint16_t ootId = 0;
         uint16_t mmId = 0;
@@ -1062,6 +1128,9 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
         if (s >= 1) {
             sharedRgs[s - 1] = (int)ootId;
         }
+        SWS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == 1,
+                  "Link's Pocket may take the shared %s under %s: the exclusion does not name its OoT member",
+                  kSwsSongNames[s], name);
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         int mmCopies = 0;
         if (mmVanilla) {
@@ -1134,10 +1203,13 @@ TestResult SharedWarpSongsEdges_Run(void) {
 
     // ---- (2) Off: the songs family is armed for a lone Soaring (OoT), with or without a shared six ---
     {
+        const SwsSoaringOoTRow none = { 0, 0u, 0u, -1 };
         const int rcAlone = SwsGenerate("RSBSXW10OFF", 0, 0x01u, 0u, false, false);
         const uint32_t armAlone = rcAlone == 0 ? OoT_ComboLogic_ConfinementArmed() : 0u;
+        const SwsSoaringOoTRow rowAlone = rcAlone == 0 ? SwsReadSoaringOoTRow() : none;
         const int rcShared = SwsGenerate("RSBSXW10OFF", 0, 0x03u, 0x02u, false, false);
         const uint32_t armShared = rcShared == 0 ? OoT_ComboLogic_ConfinementArmed() : 0u;
+        const SwsSoaringOoTRow rowShared = rcShared == 0 ? SwsReadSoaringOoTRow() : none;
         printf("[TEST] (2) Off: Soaring (OoT) alone generation %d arm %08X; with a shared Minuet %d arm %08X\n",
                rcAlone, (unsigned)armAlone, rcShared, (unsigned)armShared);
         SWS_CHECK(rcAlone == 0 && rcShared == 0, "(2) an Off generation with the Song of Soaring (OoT) failed");
@@ -1146,6 +1218,26 @@ TestResult SharedWarpSongsEdges_Run(void) {
                   "Soaring (OoT) may leave OoT must not depend on an unrelated shared rule",
                   (armAlone & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0,
                   (armShared & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0);
+        // The arm bit alone cannot tell the two runs apart (a shared six arms it
+        // through the hold-back): the Soaring (OoT)'s own bag-row inputs must be
+        // the same in both, one REQUIRED row with no confinement mask.
+        printf("[TEST] (2) Soaring (OoT) pool row: alone %d row(s) flags %04X mask %08X %s; with a shared Minuet %d "
+               "row(s) flags %04X mask %08X %s\n",
+               rowAlone.rows, (unsigned)rowAlone.poolFlags, (unsigned)rowAlone.confine,
+               Combo_Logic_ComposeDispositionName(rowAlone.disposition), rowShared.rows, (unsigned)rowShared.poolFlags,
+               (unsigned)rowShared.confine, Combo_Logic_ComposeDispositionName(rowShared.disposition));
+        SWS_CHECK(rowAlone.rows == 1 && rowAlone.disposition == RSBS_COMBO_COMPOSE_REQUIRED && rowAlone.confine == 0u,
+                  "(2) under Off a lone Song of Soaring (OoT) is %d pool row(s), %s, mask %08X; want one REQUIRED "
+                  "row with no mask, the bag's to place",
+                  rowAlone.rows, Combo_Logic_ComposeDispositionName(rowAlone.disposition), (unsigned)rowAlone.confine);
+        SWS_CHECK(rowShared.rows == rowAlone.rows && rowShared.poolFlags == rowAlone.poolFlags &&
+                      rowShared.confine == rowAlone.confine && rowShared.disposition == rowAlone.disposition,
+                  "(2) the Song of Soaring (OoT)'s bag row changed with an unrelated shared Minuet (rows %d/%d, "
+                  "flags %04X/%04X, mask %08X/%08X, %s/%s)",
+                  rowAlone.rows, rowShared.rows, (unsigned)rowAlone.poolFlags, (unsigned)rowShared.poolFlags,
+                  (unsigned)rowAlone.confine, (unsigned)rowShared.confine,
+                  Combo_Logic_ComposeDispositionName(rowAlone.disposition),
+                  Combo_Logic_ComposeDispositionName(rowShared.disposition));
     }
 
     // ---- (3) A started shared Minuet: no bag row, nothing placed ------------------------------------
@@ -1169,7 +1261,54 @@ TestResult SharedWarpSongsEdges_Run(void) {
                       "(3) the creation itself owned the family word (%08X); MM receives the started song at its "
                       "first arrival, through OoT's harvest and MM's apply",
                       (unsigned)Combo_SharedFamilies2Owned());
+            // G6, THE KNOWN UNDER-CREDIT (#1552): the created world's exit round over
+            // both real engines. A started shared Minuet is OoT's starting item and no
+            // bag row, so nothing hands MM's engine its copy and MM's logic plays no
+            // Minuet into OoT during generation (OoTMM credits both sides). The
+            // conservative answer is recorded here on purpose: the #1552 fix flips
+            // the Minuet assertion below, and must change it with that fix.
+            ComboLogicRoundRequest req;
+            memset(&req, 0, sizeof(req));
+            req.goal = gComboCtx.comboSettings.goal;
+            ComboLogicRoundResult exitRound;
+            memset(&exitRound, 0, sizeof(exitRound));
+            const int roundStatus = Combo_Logic_RunRound(&req, &exitRound);
+            printf("[TEST] (3) G6 exit round: status %d, goal %d, crossings OoT %d MM %d, travel to OoT %08X, to MM "
+                   "%08X\n",
+                   roundStatus, exitRound.goalExpression, exitRound.crossingOpenOoT, exitRound.crossingOpenMM,
+                   (unsigned)exitRound.travelToOoT, (unsigned)exitRound.travelToMM);
+            SWS_CHECK(roundStatus == RSBS_COMBO_LOGIC_OK && exitRound.goalExpression == 1 &&
+                          exitRound.crossingOpenOoT == 1,
+                      "(3) G6: the started-Minuet world's exit round did not run, prove the goal or open OoT's "
+                      "crossing (status %d, goal %d, crossing %d)",
+                      roundStatus, exitRound.goalExpression, exitRound.crossingOpenOoT);
+            SWS_CHECK((exitRound.travelToOoT & RSBS_XITEM2_SONG_MINUET_MM) == 0u,
+                      "(3) G6: MM's logic credited the started shared Minuet as travel into OoT (%08X). If #1552 "
+                      "landed this is the intended flip: change this assertion with it",
+                      (unsigned)exitRound.travelToOoT);
             (void)OoT_Creation_FinishPairedHalf(0);
+
+            // ... and the started song reaches MM at the first arrival: OoT's suspend
+            // harvest of its starting Minuet (simulated: a ROM-free process creates no
+            // save, so the hook puts the song where the creation's starting inventory
+            // does), then MM's apply, under the world's OWN frozen word.
+            const uint32_t frozen2 = Combo_ComboCrossItemFlags2();
+            SWS_CHECK(frozen2 == (RSBS_XITEM2_SONG_MINUET_MM | RSBS_XITEM2_SHARED_SONG_MINUET),
+                      "(3) G6: the started-Minuet world froze %08X, not the Minuet extension and its shared rule",
+                      (unsigned)frozen2);
+            SwsForgetAll();
+            OoT_SharedSwordTest_ArmLive();
+            OoT_SharedWarpSongsTest_SetHeld(1, 1);
+            OoT_HarvestSharedResources();
+            const uint32_t owned2 = Combo_SharedFamilies2Owned();
+            MM_SharedSwordTest_ArmLive();
+            MM_ApplySharedResources();
+            printf("[TEST] (3) G6 first arrival: family word %08X, MM's ownership byte %02X\n", (unsigned)owned2,
+                   (unsigned)Combo_MMWarpSongsOwned());
+            SWS_CHECK(owned2 == kSwsSharedMinuet && Combo_MMWarpSongsOwned() == 0x01u,
+                      "(3) G6: the started shared Minuet harvested %08X (want 00000100) and MM's apply left the "
+                      "ownership byte %02X (want 01, the Minuet alone)",
+                      (unsigned)owned2, (unsigned)Combo_MMWarpSongsOwned());
         }
     }
 
