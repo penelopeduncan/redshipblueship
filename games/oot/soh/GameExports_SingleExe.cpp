@@ -174,6 +174,12 @@ static_assert(RHT_SILVER_RUPEE_DODONGOS_CAVERN == 1531 && RHT_GANONS_CASTLE_SILV
 static_assert(RG_SHADOW_SILVER_BLADES == 307 && RG_GANONS_CASTLE_MQ_SILVER_SHADOW == 328,
               "OoT's silver rupee items (#1363) are 307..328, appended after RG_NUTS");
 static_assert(RSK_SHUFFLE_SILVER == 235, "OoT's Shuffle Silver Rupees key (#1363) is 235, after #1407's");
+// #1404 (Starting Items + Shuffle Zelda's Letter + Progressive BGS + Starting Masks),
+// after #1363's: 44 setting keys (236..279); RG_PROGRESSIVE_GORONSWORD already existed.
+static_assert(RSK_STARTING_MEGATON_HAMMER == 236 && RSK_STARTING_BUNNY_HOOD == 269 &&
+                  RSK_SHUFFLE_ZELDAS_LETTER == 270 && RSK_PROGRESSIVE_GORON_SWORD == 272 &&
+                  RSK_STARTING_KEATON_MASK == 273 && RSK_STARTING_MASK_OF_TRUTH == 279,
+              "OoT's #1404 setting keys are 236..279, appended after RSK_SHUFFLE_SILVER");
 // #1363's carve (context.h growth rule 2, layout revision 3): the 22 one-byte silver
 // counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
 // 24. Every member is one byte, so these offsets hold on every compiler.
