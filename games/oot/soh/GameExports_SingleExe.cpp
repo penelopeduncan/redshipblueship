@@ -55,6 +55,9 @@
 #include "combo_settings_view.h"
 #include "warp_song_soaring.h"      // int-soaring-to-owl (#1169 XW6): the owls, the text ids, the owl mask
 #include "ComboItemTrackerWindow.h" // ComboItemTrackerFlushLayoutSave: the exit writes an unsettled layout edit (#1349)
+
+// int-soaring-to-owl (#1169 XW8): the owl map's pause states and its prompt text.
+#include "warp_song_soaring_map.h"
 // #750: OoT_RetireAbandonedSession resets the actor DB's clients and drops every
 // per-actor object extension of the session a departure abandons.
 #include "soh/ActorDB.h"
@@ -2302,13 +2305,27 @@ static bool GpPairedCheckReturn(void) {
 //               then 0x88C, OCARINA_MODE_04, nothing armed, control back.
 // The MM leg (games/mm/2s2h/GameExports_SingleExe.cpp) activates the Clock Town
 // and swamp owls before the Clock Tower door. The return leg (Market):
-//   CANCEL      the chooser opens on Clock Town in OCARINA_MODE_01; B closes it
-//               with OCARINA_MODE_04 and nothing armed.
-//   CROSS       the chooser opens, D-down then A on "Next statue" steps it to the
-//               swamp owl, A on "Soar" arms the one-shot target (OoT, this
+//   CHOOSER     XW6's text chooser, the owl map's fallback, kept live: with the
+//               map's assets forced absent (OoT_SoaringMapTest_ForceAssetsAbsent)
+//               the chooser opens on Clock Town in OCARINA_MODE_01; B closes it
+//               with OCARINA_MODE_04 and nothing armed. The chooser's crossing
+//               path is covered only by XW6's anchors and the shared Depart.
+//   MAP CANCEL  #1169 XW8: the owl map opens (pause state 0x101, then the roll-in
+//               to SELECT) on Clock Town over exactly the frozen owls; B closes
+//               it through SOARING_6, vanilla 0x12 and 0x13 with OCARINA_MODE_04,
+//               nothing armed and the HUD back (unk_13EA 0x32).
+//   MAP NO      D-right (DPadOnPause) moves to the swamp, A opens "Soar to
+//               Southern Swamp?", D-down (DpadInText) to No and A go back to
+//               the map; B closes it with the HUD back.
+//   CROSS       D-right, A, A on OK arms the one-shot target (OoT, this
 //               entrance, MM, the swamp owl's uncleared entrance, the Soaring
-//               kind); OoT must not reload any scene before MM takes over, and
-//               MM's arrival check ends the run.
+//               kind) once the map has closed; OoT must not reload any scene
+//               before MM takes over, and MM's arrival check ends the run.
+// The map's states freeze the world, so no OnPlayerUpdate runs while it is
+// open: its legs are driven from the frame start (SoarMainStart), which pumps
+// the emulated buttons while the pause state is not 0. Before any crossing,
+// the first OoT leg checks every asset the map draws is mounted (the OoT-first
+// case: the curated half, before mm.o2r).
 //
 // The adult leg flips gSaveContext.linkAge for the notes only, in a scene loaded
 // as a child: reloading a scene as an adult swaps the age equipment of a file
@@ -2322,11 +2339,17 @@ bool OoT_SoaringOoTOwned(void);
 // games/mm/2s2h/GameExports_SingleExe.cpp: MM's frozen half carries what the
 // MM leg set (owls, cleared Woodfall, the owl-save pair), read in MM's TU.
 int MM_SoaringTest_FrozenHalfReady(char* why, size_t cap);
+// games/oot/soh/Enhancements/randomizer/SoaringMapOoT.c and SongOfSoaringOoT.cpp
+// (#1169 XW8): the owl map's picker as it stands, the probe override, the probe.
+void OoT_SoaringMapTest_Peek(int* phase, int* cursor, uint16_t* mask);
+void OoT_SoaringMapTest_ForceAssetsAbsent(int absent);
+bool OoT_SoaringMap_AssetsPresent(void);
+bool OoT_SoaringMap_IsOpen(void);
 }
 
 namespace {
 
-enum class SoarLeg { Adult, NoStatues, Restricted, Cancel, Cross };
+enum class SoarLeg { Adult, NoStatues, Restricted, ChooserCancel, MapCancel, MapNo, Cross };
 
 enum class SoarStep {
     Prepare, // the leg's setup (the Windmill: its door and the landing)
@@ -2338,7 +2361,9 @@ enum class SoarStep {
 };
 
 const SoarLeg kSoarPreLegs[] = { SoarLeg::Adult, SoarLeg::NoStatues, SoarLeg::Restricted };
-const SoarLeg kSoarReturnLegs[] = { SoarLeg::Cancel, SoarLeg::Cross };
+const SoarLeg kSoarReturnLegs[] = { SoarLeg::ChooserCancel, SoarLeg::MapCancel, SoarLeg::MapNo, SoarLeg::Cross };
+const int kSoarPreLegCount = (int)(sizeof(kSoarPreLegs) / sizeof(kSoarPreLegs[0]));
+const int kSoarReturnLegCount = (int)(sizeof(kSoarReturnLegs) / sizeof(kSoarReturnLegs[0]));
 
 // The song: C-down, C-left, C-up, twice (sOcarinaF4BtnMap, sOcarinaB4BtnMap and
 // sOcarinaD5BtnMap give OoT's note values 5, 11 and 14, the ones
@@ -2370,8 +2395,8 @@ const int kSoarCloseBudget = 300;
 const int kSoarSceneBudget = 400;
 const int kSoarLandBudget = 300;
 const int kSoarCursorBudget = 60;
-const int kSoarReopenBudget = 300;
-const int kSoarArmBudget = 20;
+const int kSoarArmBudget = 60;
+const int kSoarMapOpenBudget = 120;
 const int kSoarDepartBudget = 600;
 const int kSoarAdultStayFrames = 30;
 const int kSoarIdleFrames = 10;
@@ -2398,6 +2423,11 @@ struct SoarState {
     int departFrames = 0;
     u16 held = 0;
     int heldFrames = 0;
+    // #1169 XW8: the owl map's legs (SoarMapFrame).
+    bool mapActive = false;
+    int mapSub = 0;
+    int mapFrames = 0;
+    uint32_t mapSeen = 0;
 };
 SoarState sSoar;
 
@@ -2409,8 +2439,12 @@ const char* SoarLegName(SoarLeg leg) {
             return "no statues";
         case SoarLeg::Restricted:
             return "restriction refused";
-        case SoarLeg::Cancel:
-            return "cancel";
+        case SoarLeg::ChooserCancel:
+            return "chooser cancel (the fallback)";
+        case SoarLeg::MapCancel:
+            return "map cancel";
+        case SoarLeg::MapNo:
+            return "map No then B";
         case SoarLeg::Cross:
             return "the crossing";
     }
@@ -2419,13 +2453,18 @@ const char* SoarLegName(SoarLeg leg) {
 
 SoarLeg SoarCurrentLeg(void) {
     if (sSoar.phase == GP_PHASE_OOT_RETURN) {
-        return kSoarReturnLegs[sSoar.leg < 2 ? sSoar.leg : 1];
+        return kSoarReturnLegs[sSoar.leg < kSoarReturnLegCount ? sSoar.leg : kSoarReturnLegCount - 1];
     }
-    return kSoarPreLegs[sSoar.leg < 3 ? sSoar.leg : 2];
+    return kSoarPreLegs[sSoar.leg < kSoarPreLegCount ? sSoar.leg : kSoarPreLegCount - 1];
 }
 
 int SoarLegCount(void) {
-    return sSoar.phase == GP_PHASE_OOT_RETURN ? 2 : 3;
+    return sSoar.phase == GP_PHASE_OOT_RETURN ? kSoarReturnLegCount : kSoarPreLegCount;
+}
+
+// The legs the owl map runs (#1169 XW8).
+bool SoarIsMapLeg(SoarLeg leg) {
+    return leg == SoarLeg::MapCancel || leg == SoarLeg::MapNo || leg == SoarLeg::Cross;
 }
 
 void SoarFail(const char* why) {
@@ -2434,6 +2473,7 @@ void SoarFail(const char* why) {
     }
     sSoar.failed = true;
     sSoar.awaitArm = false;
+    OoT_SoaringMapTest_ForceAssetsAbsent(0);
     if (sSoar.adultFlipped) {
         gSaveContext.linkAge = LINK_AGE_CHILD;
         sSoar.adultFlipped = false;
@@ -2498,6 +2538,8 @@ void SoarBeginLeg(void) {
 void SoarLegPassed(const char* what) {
     fprintf(stderr, "[PFC] soaring leg '%s' PASS: %s\n", SoarLegName(SoarCurrentLeg()), what);
     fflush(stderr);
+    OoT_SoaringMapTest_ForceAssetsAbsent(0);
+    sSoar.mapActive = false;
     sSoar.leg++;
     if (sSoar.leg < SoarLegCount()) {
         SoarBeginLeg();
@@ -2537,6 +2579,13 @@ bool SoarPreparePhase(PlayState* play, GameplayPhase phase) {
         SoarFail(why);
         return false;
     }
+    // #1169 XW8: before Majora's Mask has ever run, every MM texture the owl
+    // map draws is mounted (the curated half), or the map would fall back.
+    if (phase == GP_PHASE_OOT_PRE && !OoT_SoaringMap_AssetsPresent()) {
+        SoarFail("an owl-map asset is not mounted before the first crossing (the curated half redship-oot.o2r lacks "
+                 "it): an OoT-first session would get the text chooser instead of the map");
+        return false;
+    }
     if (phase == GP_PHASE_OOT_RETURN) {
         // Exactly these two: "Next statue" walks upward from Clock Town, so an
         // extra owl in 5..6 would take the step and the Cross leg would red on
@@ -2561,6 +2610,9 @@ bool SoarPreparePhase(PlayState* play, GameplayPhase phase) {
         // The chooser's cursor moves with the D-pad when this is on (the stick
         // cannot be emulated); in memory for the run, put back at the verdict.
         IntegrationTest_SoaringSetCVarInt(CVAR_SETTING("DpadInText"), 1);
+        // #1169 XW8: the owl map's cursor moves with the D-pad under SoH's
+        // DPadOnPause (the prompt's choice under DpadInText above).
+        IntegrationTest_SoaringSetCVarInt(CVAR_SETTING("DPadOnPause"), 1);
     }
     fprintf(stderr,
             "[PFC] soaring: %s legs on scene %d; song owned, Fairy Ocarina on C-left, rule frozen on, owls offered "
@@ -2621,6 +2673,8 @@ bool SoarQuietWindmillTag(PlayState* play) {
 
 // The leg's setup. Only the Windmill needs one: its door, the scene, a landing.
 void SoarStepPrepare(PlayState* play) {
+    // #1169 XW8: the chooser leg runs the owl map's fallback route.
+    OoT_SoaringMapTest_ForceAssetsAbsent(SoarCurrentLeg() == SoarLeg::ChooserCancel ? 1 : 0);
     if (SoarCurrentLeg() != SoarLeg::Restricted) {
         SoarNext(SoarStep::TakeOut);
         return;
@@ -2693,7 +2747,8 @@ void SoarStepTakeOut(PlayState* play) {
     const u16 id = play->msgCtx.textId;
     if (play->msgCtx.msgMode == MSGMODE_TEXT_DONE && (state == TEXT_STATE_DONE || state == TEXT_STATE_DONE_HAS_NEXT) &&
         id != RSBS_OOT_TEXT_SOARING_PLAYED && id != RSBS_OOT_TEXT_SOARING_NO_STATUES &&
-        id != RSBS_OOT_TEXT_SOARING_CHOOSER && sSoar.heldFrames == 0 && sSoar.stepFrames - sSoar.lastPress >= 15) {
+        id != RSBS_OOT_TEXT_SOARING_CHOOSER && id != RSBS_OOT_TEXT_SOARING_CONFIRM && sSoar.heldFrames == 0 &&
+        sSoar.stepFrames - sSoar.lastPress >= 15) {
         fprintf(stderr, "[PFC] soaring leg '%s': pressing A past text 0x%04X before taking out the ocarina\n",
                 SoarLegName(SoarCurrentLeg()), (unsigned)id);
         fflush(stderr);
@@ -2833,12 +2888,36 @@ void SoarStepAfter(PlayState* play) {
             }
             return;
         }
-        case SoarLeg::Cancel:
-        case SoarLeg::Cross:
+        case SoarLeg::ChooserCancel:
             break;
+        case SoarLeg::MapCancel:
+        case SoarLeg::MapNo:
+        case SoarLeg::Cross:
+            // #1169 XW8: until the map's pause opens (then SoarMainStart drives).
+            if (m->textId == kSoarTextRestricted || m->textId == RSBS_OOT_TEXT_SOARING_NO_STATUES) {
+                snprintf(why, sizeof(why), "the song was refused with text 0x%04X while MM's half offers owls 0x%03X",
+                         (unsigned)m->textId, (unsigned)Combo_SoaringOwlMask());
+                SoarFail(why);
+                return;
+            }
+            if (m->textId == RSBS_OOT_TEXT_SOARING_CHOOSER) {
+                SoarFail("the song opened XW6's text chooser, not the owl map (an asset is not mounted, the pause "
+                         "precondition refused, or the route fell back)");
+                return;
+            }
+            if (SoarNotMatched(play)) {
+                return;
+            }
+            if (sSoar.stepFrames > kSoarTextBudget) {
+                snprintf(why, sizeof(why),
+                         "the owl map never opened after the notes (pause state %u, \"You played\" seen %d)",
+                         (unsigned)play->pauseCtx.state, sSoar.sawPlayed ? 1 : 0);
+                SoarFail(why);
+            }
+            return;
     }
 
-    // The chooser legs.
+    // The fallback chooser leg.
     if (m->textId == kSoarTextRestricted || m->textId == RSBS_OOT_TEXT_SOARING_NO_STATUES) {
         snprintf(why, sizeof(why), "the song was refused with text 0x%04X while MM's half offers owls 0x%03X",
                  (unsigned)m->textId, (unsigned)Combo_SoaringOwlMask());
@@ -2872,72 +2951,217 @@ void SoarStepAfter(PlayState* play) {
         fprintf(stderr, "[PFC] soaring leg '%s': the owl chooser is open in OCARINA_MODE_01, cursor on Soar\n",
                 SoarLegName(leg));
         fflush(stderr);
-        if (leg == SoarLeg::Cancel) {
-            SoarHold(BTN_B, 2);
-            SoarNext(SoarStep::Close);
+        SoarHold(BTN_B, 2);
+        SoarNext(SoarStep::Close);
+        return;
+    }
+}
+
+/**
+ * #1169 XW8: one frame of an owl-map leg, from the frame start (the map's
+ * states freeze the world: no OnPlayerUpdate runs until it closes). Reads the
+ * pause state and the picker (OoT_SoaringMapTest_Peek) the map leaves.
+ */
+uint32_t SoarMapStateBit(uint16_t st) {
+    switch (st) {
+        case RSBS_OOT_PAUSE_SOARING_0:
+            return 1u << 0;
+        case RSBS_OOT_PAUSE_SOARING_1:
+            return 1u << 1;
+        case RSBS_OOT_PAUSE_SOARING_2:
+            return 1u << 2;
+        case RSBS_OOT_PAUSE_SOARING_3:
+            return 1u << 3;
+        case RSBS_OOT_PAUSE_SOARING_SELECT:
+            return 1u << 4;
+        case RSBS_OOT_PAUSE_SOARING_CONFIRM:
+            return 1u << 5;
+        case RSBS_OOT_PAUSE_SOARING_6:
+            return 1u << 6;
+        case RSBS_OOT_PAUSE_UNPAUSE_SETUP:
+            return 1u << 7;
+        case RSBS_OOT_PAUSE_UNPAUSE_CLOSE:
+            return 1u << 8;
+        default:
+            return 0;
+    }
+}
+
+void SoarMapFrame(PlayState* play) {
+    MessageContext* m = &play->msgCtx;
+    const SoarLeg leg = SoarCurrentLeg();
+    const uint16_t st = play->pauseCtx.state;
+    char why[384];
+    if (!sSoar.mapActive) {
+        if (st == 0) {
             return;
         }
-        SoarHold(BTN_DDOWN, 1);
-        sSoar.sub = 1;
-        sSoar.subFrames = 0;
-        return;
-    }
-    if (ComboWarp_IsArmed() && sSoar.sub < 3) {
-        SoarFail("the one-shot warp target was armed before Soar was chosen");
-        return;
-    }
-    if (sSoar.sub == 1) {
-        // Cursor on "Next statue", then A.
-        if (choosing && m->choiceIndex == 1) {
-            SoarHold(BTN_A, 1);
-            sSoar.sub = 2;
-            sSoar.subFrames = 0;
-            sSoar.sawLeave = false;
-        } else if (sSoar.subFrames > kSoarCursorBudget) {
-            SoarFail("D-down never moved the chooser's cursor to \"Next statue\" (choice 1)");
-        }
-        return;
-    }
-    if (sSoar.sub == 2) {
-        // The box must leave TEXT_STATE_CHOICE and come back as the chooser on
-        // the next owl, still in OCARINA_MODE_01.
-        if (!choosing) {
-            sSoar.sawLeave = true;
-            if (sSoar.subFrames > 5 && m->textId != RSBS_OOT_TEXT_SOARING_CHOOSER) {
-                snprintf(why, sizeof(why), "\"Next statue\" closed the chooser (text 0x%04X, ocarinaMode %d)",
-                         (unsigned)m->textId, (int)m->ocarinaMode);
-                SoarFail(why);
-                return;
-            }
-        } else if (sSoar.sawLeave && sSoar.heldFrames == 0) {
-            if (m->ocarinaMode != OCARINA_MODE_01) {
-                snprintf(why, sizeof(why), "the chooser re-opened in ocarinaMode %d, not OCARINA_MODE_01",
-                         (int)m->ocarinaMode);
-                SoarFail(why);
-                return;
-            }
-            if (m->choiceIndex != 0) {
-                SoarHold(BTN_DUP, 1); // back to "Soar"
-                return;
-            }
-            fprintf(stderr, "[PFC] soaring leg 'the crossing': \"Next statue\" re-opened the chooser on the next owl; "
-                            "choosing Soar\n");
-            fflush(stderr);
-            IntegrationTest_PairedMarkCrossing("Majora's Mask");
-            SoarHold(BTN_A, 1);
-            sSoar.sub = 3;
-            sSoar.subFrames = 0;
-            sSoar.awaitArm = true;
-            sSoar.armFrames = 0;
+        sSoar.mapActive = true;
+        sSoar.mapSub = 0;
+        sSoar.mapFrames = 0;
+        sSoar.mapSeen = 0;
+        if (st != RSBS_OOT_PAUSE_SOARING_0) {
+            snprintf(why, sizeof(why),
+                     "the pause opened in state 0x%X, not the owl map's 0x%X (a vanilla pause, or no map)",
+                     (unsigned)st, (unsigned)RSBS_OOT_PAUSE_SOARING_0);
+            SoarFail(why);
             return;
         }
-        if (sSoar.subFrames > kSoarReopenBudget) {
-            SoarFail("the chooser never re-opened on the next owl after \"Next statue\"");
-        }
+        fprintf(stderr, "[PFC] soaring leg '%s': the owl map's pause opened (state 0x%X)\n", SoarLegName(leg),
+                (unsigned)st);
+        fflush(stderr);
+    }
+    sSoar.mapSeen |= SoarMapStateBit(st);
+    sSoar.mapFrames++;
+    int phase = -1;
+    int cursor = -1;
+    uint16_t mask = 0;
+    OoT_SoaringMapTest_Peek(&phase, &cursor, &mask);
+    if (st != 0 && st != RSBS_OOT_PAUSE_UNPAUSE_SETUP && st != RSBS_OOT_PAUSE_UNPAUSE_CLOSE &&
+        !Combo_SoaringMap_IsMapState(st)) {
+        snprintf(why, sizeof(why), "the owl map's pause is in state 0x%X, which is neither the map's nor its close",
+                 (unsigned)st);
+        SoarFail(why);
         return;
     }
-    // sub 3: Soar pressed; SoarMainStart takes the verdict (Link is frozen from
-    // the departure on, and a frozen Player runs no OnPlayerUpdate).
+    if (cursor >= 0 && ((mask >> cursor) & 1u) == 0) {
+        snprintf(why, sizeof(why), "the map's cursor is on owl %d, which mask 0x%03X does not offer", cursor,
+                 (unsigned)mask);
+        SoarFail(why);
+        return;
+    }
+    switch (sSoar.mapSub) {
+        case 0:
+            // The roll-in, to SELECT on Clock Town over exactly the frozen owls.
+            if (st == RSBS_OOT_PAUSE_SOARING_SELECT) {
+                const uint32_t opened =
+                    SoarMapStateBit(RSBS_OOT_PAUSE_SOARING_0) | SoarMapStateBit(RSBS_OOT_PAUSE_SOARING_3);
+                if ((sSoar.mapSeen & opened) != opened || phase != (int)COMBO_SOARING_MAP_SELECT ||
+                    cursor != RSBS_SOARING_OWL_CLOCK_TOWN || mask != kSoarOwlsActivated) {
+                    snprintf(why, sizeof(why),
+                             "the map opened wrong (states seen 0x%03X, phase %d, cursor %d, not Clock Town, mask "
+                             "0x%03X, not 0x%03X)",
+                             (unsigned)sSoar.mapSeen, phase, cursor, (unsigned)mask, (unsigned)kSoarOwlsActivated);
+                    SoarFail(why);
+                    return;
+                }
+                fprintf(stderr, "[PFC] soaring leg '%s': the map is on Clock Town over owls 0x%03X\n", SoarLegName(leg),
+                        (unsigned)mask);
+                fflush(stderr);
+                if (leg == SoarLeg::MapCancel) {
+                    SoarHold(BTN_B, 2);
+                    sSoar.mapSub = 10;
+                } else {
+                    SoarHold(BTN_DRIGHT, 1);
+                    sSoar.mapSub = 1;
+                }
+                sSoar.mapFrames = 0;
+            } else if (sSoar.mapFrames > kSoarMapOpenBudget) {
+                SoarFail("the owl map never reached its cursor state (SOARING_SELECT) after opening");
+            }
+            return;
+        case 1:
+            // D-right: Clock Town (4) -> the swamp (7), the next active owl.
+            if (st == RSBS_OOT_PAUSE_SOARING_SELECT && cursor == kSoarTargetOwl) {
+                SoarHold(BTN_A, 1);
+                sSoar.mapSub = 2;
+                sSoar.mapFrames = 0;
+            } else if (sSoar.mapFrames > kSoarCursorBudget) {
+                SoarFail("D-right (DPadOnPause) never moved the map's cursor to the swamp owl");
+            }
+            return;
+        case 2:
+            // A: "Soar to Southern Swamp?" opens and reaches its choice.
+            if (st == RSBS_OOT_PAUSE_SOARING_CONFIRM && m->textId == RSBS_OOT_TEXT_SOARING_CONFIRM &&
+                OoT_Message_GetState(m) == TEXT_STATE_CHOICE) {
+                if (m->choiceIndex != 0 || m->ocarinaMode == OCARINA_MODE_01 || m->ocarinaMode == OCARINA_MODE_02) {
+                    snprintf(why, sizeof(why),
+                             "the prompt opened on choice %d (not OK) or in ocarinaMode %d (01 or 02 would warp "
+                             "through the vanilla close)",
+                             (int)m->choiceIndex, (int)m->ocarinaMode);
+                    SoarFail(why);
+                    return;
+                }
+                if (leg == SoarLeg::MapNo) {
+                    SoarHold(BTN_DDOWN, 1);
+                    sSoar.mapSub = 3;
+                } else {
+                    fprintf(stderr, "[PFC] soaring leg 'the crossing': the map's prompt is on OK; choosing it\n");
+                    fflush(stderr);
+                    IntegrationTest_PairedMarkCrossing("Majora's Mask");
+                    SoarHold(BTN_A, 1);
+                    sSoar.awaitArm = true;
+                    sSoar.armFrames = 0;
+                    sSoar.mapSub = 20;
+                }
+                sSoar.mapFrames = 0;
+            } else if (sSoar.mapFrames > kSoarTextBudget) {
+                SoarFail("the map's prompt (text 0x9216) never reached its choice after A");
+            }
+            return;
+        case 3:
+            // D-down (DpadInText): No.
+            if (m->choiceIndex == 1) {
+                SoarHold(BTN_A, 1);
+                sSoar.mapSub = 4;
+                sSoar.mapFrames = 0;
+            } else if (sSoar.mapFrames > kSoarCursorBudget) {
+                SoarFail("D-down (DpadInText) never moved the prompt's choice to No");
+            }
+            return;
+        case 4:
+            // A on No: back on the map, the swamp still under the cursor.
+            if (st == RSBS_OOT_PAUSE_SOARING_SELECT && phase == (int)COMBO_SOARING_MAP_SELECT) {
+                if (cursor != kSoarTargetOwl || m->msgLength != 0 || ComboWarp_IsArmed()) {
+                    snprintf(why, sizeof(why), "No went back wrong (cursor %d, prompt length %d, warp armed %d)",
+                             cursor, (int)m->msgLength, ComboWarp_IsArmed() ? 1 : 0);
+                    SoarFail(why);
+                    return;
+                }
+                fprintf(stderr, "[PFC] soaring leg 'map No then B': No went back to the map; pressing B\n");
+                fflush(stderr);
+                SoarHold(BTN_B, 2);
+                sSoar.mapSub = 10;
+                sSoar.mapFrames = 0;
+            } else if (st != RSBS_OOT_PAUSE_SOARING_CONFIRM) {
+                snprintf(why, sizeof(why), "A on No closed the map (pause state 0x%X)", (unsigned)st);
+                SoarFail(why);
+            } else if (sSoar.mapFrames > kSoarCursorBudget) {
+                SoarFail("A on No never went back to the map");
+            }
+            return;
+        case 10:
+            // B: the close, through SOARING_6, vanilla 0x12 and 0x13, to 0.
+            if (st == 0) {
+                const uint32_t closed = SoarMapStateBit(RSBS_OOT_PAUSE_SOARING_6) |
+                                        SoarMapStateBit(RSBS_OOT_PAUSE_UNPAUSE_SETUP) |
+                                        SoarMapStateBit(RSBS_OOT_PAUSE_UNPAUSE_CLOSE);
+                if ((sSoar.mapSeen & closed) != closed || ComboWarp_IsArmed() || m->ocarinaMode != OCARINA_MODE_04 ||
+                    gSaveContext.unk_13EA != RSBS_OOT_HUD_RESTORE_ALL || OoT_SoaringMap_IsOpen()) {
+                    snprintf(why, sizeof(why),
+                             "B closed the map wrong (states seen 0x%03X, want SOARING_6, 0x12 and 0x13; warp armed "
+                             "%d; ocarinaMode %d, not 04; HUD unk_13EA 0x%X, not 0x32; map still open %d)",
+                             (unsigned)sSoar.mapSeen, ComboWarp_IsArmed() ? 1 : 0, (int)m->ocarinaMode,
+                             (unsigned)gSaveContext.unk_13EA, OoT_SoaringMap_IsOpen() ? 1 : 0);
+                    SoarFail(why);
+                    return;
+                }
+                fprintf(stderr,
+                        "[PFC] soaring leg '%s': the map closed through 0x112, 0x12 and 0x13 with OCARINA_MODE_04, "
+                        "nothing armed, the HUD back\n",
+                        SoarLegName(leg));
+                fflush(stderr);
+                sSoar.mapActive = false;
+                sSoar.sawMode04 = true;
+                SoarNext(SoarStep::Close);
+            } else if (sSoar.mapFrames > kSoarCloseBudget) {
+                SoarFail("the owl map never closed after B");
+            }
+            return;
+        default:
+            // 20: OK pressed; the arm watch below takes the verdict.
+            return;
+    }
 }
 
 void SoarStepClose(PlayState* play) {
@@ -2964,7 +3188,8 @@ void SoarStepClose(PlayState* play) {
     const bool refusalBox = (leg == SoarLeg::NoStatues || leg == SoarLeg::Restricted) && state == TEXT_STATE_DONE;
     const bool strayBox = m->msgMode == MSGMODE_TEXT_DONE &&
                           (state == TEXT_STATE_DONE || state == TEXT_STATE_DONE_HAS_NEXT) &&
-                          m->textId != RSBS_OOT_TEXT_SOARING_PLAYED && m->textId != RSBS_OOT_TEXT_SOARING_CHOOSER;
+                          m->textId != RSBS_OOT_TEXT_SOARING_PLAYED && m->textId != RSBS_OOT_TEXT_SOARING_CHOOSER &&
+                          m->textId != RSBS_OOT_TEXT_SOARING_CONFIRM;
     if ((refusalBox || strayBox) && sSoar.heldFrames == 0 && sSoar.stepFrames - sSoar.lastPress >= 15) {
         if (!refusalBox) {
             fprintf(stderr, "[PFC] soaring leg '%s': pressing A past text 0x%04X after the ocarina closed\n",
@@ -2981,12 +3206,17 @@ void SoarStepClose(PlayState* play) {
             SoarFail("control came back but OCARINA_MODE_04 was never seen");
             return;
         }
-        SoarLegPassed(leg == SoarLeg::Adult       ? "nothing matched, the ocarina stayed open until B, then "
-                                                    "OCARINA_MODE_04 and control back, nothing armed"
-                      : leg == SoarLeg::Cancel    ? "B closed the chooser with OCARINA_MODE_04, nothing armed, control "
-                                                    "back"
-                      : leg == SoarLeg::NoStatues ? "the no-statues text, OCARINA_MODE_04, nothing armed, control back"
-                                                  : "0x88C, OCARINA_MODE_04, nothing armed, control back");
+        SoarLegPassed(
+            leg == SoarLeg::Adult           ? "nothing matched, the ocarina stayed open until B, then "
+                                              "OCARINA_MODE_04 and control back, nothing armed"
+            : leg == SoarLeg::ChooserCancel ? "the fallback chooser opened in OCARINA_MODE_01; B closed it with "
+                                              "OCARINA_MODE_04, nothing armed, control back"
+            : leg == SoarLeg::MapCancel     ? "the owl map opened on Clock Town; B closed it with OCARINA_MODE_04, "
+                                              "nothing armed, the HUD and control back"
+            : leg == SoarLeg::MapNo         ? "No went back to the map and B closed it with OCARINA_MODE_04, "
+                                              "nothing armed, the HUD and control back"
+            : leg == SoarLeg::NoStatues     ? "the no-statues text, OCARINA_MODE_04, nothing armed, control back"
+                                            : "0x88C, OCARINA_MODE_04, nothing armed, control back");
         return;
     }
     if (sSoar.stepFrames > kSoarCloseBudget) {
@@ -3085,6 +3315,21 @@ void SoarMainStart(void) {
     if (sSoar.phase != GP_PHASE_DONE && !sSoar.awaitArm && !sSoar.departed && ComboWarp_IsArmed()) {
         SoarFail("the one-shot warp target is armed although Soar was not chosen (an unplanned departure)");
         return;
+    }
+    // #1169 XW8: the owl map's legs. Its states freeze the world (no
+    // OnPlayerUpdate, so no SoarFrame): the buttons are pumped here while the
+    // pause state is not 0, and the legs step here until the map has closed.
+    PlayState* mapPlay = OoT_gPlayState;
+    if (mapPlay != NULL && sSoar.phase == GP_PHASE_OOT_RETURN && sSoar.leg < SoarLegCount() &&
+        SoarIsMapLeg(SoarCurrentLeg()) && sSoar.step == SoarStep::After &&
+        (mapPlay->pauseCtx.state != 0 || sSoar.mapActive)) {
+        if (mapPlay->pauseCtx.state != 0) {
+            SoarPump();
+        }
+        SoarMapFrame(mapPlay);
+        if (sSoar.failed) {
+            return;
+        }
     }
     if (sSoar.awaitArm) {
         sSoar.armFrames++;

@@ -7332,6 +7332,18 @@ extern "C" void MM_SoaringTest_FreezeHalf(uint16_t owls, int32_t day, int marked
     std::memcpy(playerData.newf, prevNewf, sizeof(prevNewf));
 }
 
+/** #1169 XW8: MM_SoaringTest_FreezeHalf with @p clouds as the half's
+ *  worldMapCloudVisibility (put back afterwards, like the other fields). */
+extern "C" void MM_SoaringTest_FreezeHalfClouds(uint16_t owls, int32_t day, int marked, uint32_t clouds) {
+    const u32 prevClouds = gSaveContext.save.saveInfo.worldMapCloudVisibility;
+    gSaveContext.save.saveInfo.worldMapCloudVisibility = clouds;
+    MM_SoaringTest_FreezeHalf(owls, day, marked);
+    gSaveContext.save.saveInfo.worldMapCloudVisibility = prevClouds;
+}
+
+static_assert(sizeof(gSaveContext.save.saveInfo.worldMapCloudVisibility) == sizeof(uint32_t),
+              "the owl map reads MM's cloud flags as a u32 (#1169 XW8)");
+
 extern "C" void MM_SlotMeta_Register(void) {
     // #1169 XW6: the owl flags and the day the Song of Soaring reads from this
     // half, registered here (not from main.cpp) so the --test rows, which call
@@ -7343,6 +7355,8 @@ extern "C" void MM_SlotMeta_Register(void) {
     soaring.newfLen = 6;
     const char kSoaringNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
     std::memcpy(soaring.newf, kSoaringNewf, sizeof(kSoaringNewf));
+    // #1169 XW8: the clouds OoT's owl map draws over MM's world map.
+    soaring.cloudsOffset = static_cast<uint32_t>(offsetof(SaveContext, save.saveInfo.worldMapCloudVisibility));
     Combo_Soaring_RegisterMMDesc(&soaring);
 
     RsbsGameMetaDesc desc{};

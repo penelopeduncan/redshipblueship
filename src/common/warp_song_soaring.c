@@ -5,6 +5,7 @@
  */
 
 #include "warp_song_soaring.h"
+#include "warp_song_soaring_map.h" // Combo_SoaringCloudMaskFromBlob (#1169 XW8)
 
 #include "context.h" // Context_HasFrozenState, Context_GetMMSaveContext
 #include "game.h"    // GAME_MM, MM_SAVE_CONTEXT_SIZE
@@ -198,4 +199,35 @@ uint16_t Combo_SoaringOwlMask(void) {
         return 0;
     }
     return Combo_SoaringOwlMaskFromBlob((const uint8_t*)Context_GetMMSaveContext(), (size_t)MM_SAVE_CONTEXT_SIZE);
+}
+
+// #1169 XW8: the clouds the owl map draws, from the same half under the same
+// guard as the owls (warp_song_soaring_map.h).
+uint16_t Combo_SoaringCloudMaskFromBlob(const uint8_t* blob, size_t size) {
+    const ComboSoaringMMDesc* d = &sComboSoaringMMDesc;
+    if (blob == NULL || !sComboSoaringMMDescRegistered || d->cloudsOffset == 0 ||
+        (size_t)d->cloudsOffset + sizeof(uint32_t) > size) {
+        return 0;
+    }
+    // The owl mask's guard: a half that is unmarked, on day 0 or out of range
+    // offers no owl, so its clouds are never read either.
+    if ((size_t)d->dayOffset + sizeof(int32_t) > size || (size_t)d->newfOffset + d->newfLen > size || d->newfLen == 0 ||
+        memcmp(blob + d->newfOffset, d->newf, d->newfLen) != 0) {
+        return 0;
+    }
+    int32_t day = 0;
+    memcpy(&day, blob + d->dayOffset, sizeof(day));
+    if (day < 1) {
+        return 0;
+    }
+    uint32_t clouds = 0;
+    memcpy(&clouds, blob + d->cloudsOffset, sizeof(clouds));
+    return (uint16_t)(clouds & ((1u << RSBS_SOARING_CLOUD_COUNT) - 1u));
+}
+
+uint16_t Combo_SoaringCloudMask(void) {
+    if (!Context_HasFrozenState(GAME_MM)) {
+        return 0;
+    }
+    return Combo_SoaringCloudMaskFromBlob((const uint8_t*)Context_GetMMSaveContext(), (size_t)MM_SAVE_CONTEXT_SIZE);
 }
