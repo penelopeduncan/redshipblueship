@@ -97,9 +97,14 @@ void DrawSong(RandoItemId randoItemId) {
         case RI_SONG_SUN:
             gDPSetEnvColor(POLY_XLU_DISP++, 237, 231, 62, 255);
             break;
-        case RI_SONG_DOUBLE_TIME:
-        case RI_SONG_INVERTED_TIME:
         case RI_SONG_TIME:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
+            break;
+        // One gDPSetEnvColor per case: ForeignModel's M19 reads each case's colour off this switch.
+        case RI_SONG_DOUBLE_TIME:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
+            break;
+        case RI_SONG_INVERTED_TIME:
             gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
             break;
         case RI_SONG_HEALING:
@@ -108,8 +113,10 @@ void DrawSong(RandoItemId randoItemId) {
         case RI_SONG_STORMS:
             gDPSetEnvColor(POLY_XLU_DISP++, 146, 146, 146, 255);
             break;
-        case RI_SONG_SARIA:
         case RI_SONG_SONATA:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 255, 98, 255);
+            break;
+        case RI_SONG_SARIA:
             gDPSetEnvColor(POLY_XLU_DISP++, 98, 255, 98, 255);
             break;
         case RI_SONG_SOARING:
