@@ -121,6 +121,10 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         }
 
         size_t shuffledCount = saveInfo.randoSaveOptions[RO_SKULLTULA_SHUFFLED];
+        if (shuffledCount == 0) {
+            // A half persisted before #1403 holds 0 here (spare capacity): every token is shuffled.
+            shuffledCount = Rando::StaticData::Options[RO_SKULLTULA_SHUFFLED].defaultValue;
+        }
         for (auto& [sceneId, sceneSkulltulas] : skulltulasByScene) {
             if (shuffledCount >= sceneSkulltulas.size()) {
                 continue;
@@ -458,6 +462,10 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             case RI_SNOWHEAD_STRAY_FAIRY:
             case RI_WOODFALL_STRAY_FAIRY:
                 max = saveInfo.randoSaveOptions[RO_STRAY_FAIRIES_MAX];
+                if (max == 0) {
+                    // A half persisted before #1403 holds 0 here (spare capacity): no fairy is trimmed.
+                    max = Rando::StaticData::Options[RO_STRAY_FAIRIES_MAX].defaultValue;
+                }
                 break;
             default:
                 break;

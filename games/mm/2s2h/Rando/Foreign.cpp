@@ -132,9 +132,23 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
            randoOptionId == RO_SHUFFLE_SONG_SARIA;
 }
 
+/** Whether an appended option's persisted value is folded: never at 0, the
+ *  value every half persisted before the option existed (its slot was spare
+ *  zero-filled capacity of randoSaveOptions), so those halves recompute the
+ *  seed and identity they were stamped with; never at the row's default either,
+ *  so a half created with the option at a non-zero default (#1403's Shuffled
+ *  Gold Skulltulas 30 and Stray Fairies in Pool 15, whose sliders start at 1)
+ *  hashes the same as one created before it. Every other value is folded. An
+ *  appended option with a non-zero default must therefore never offer 0 as a
+ *  choice. */
+static bool AppendedOptionIsFolded(uint32_t value, uint32_t defaultValue) {
+    return value != 0 && value != defaultValue;
+}
+
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-        if (IsAppendedOption(randoOptionId) && values[randoOptionId] != randoStaticOption.defaultValue) {
+        if (IsAppendedOption(randoOptionId) &&
+            AppendedOptionIsFolded(values[randoOptionId], randoStaticOption.defaultValue)) {
             s += '|';
             s += randoStaticOption.name;
             s += ':';

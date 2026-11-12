@@ -137,13 +137,25 @@ const uint32_t kSongBit = 1u << (DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1
 const RandoOptionId kPlacementOptions[4] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_BOSS_KEYS,
                                              RO_PLACEMENT_STRAY_FAIRIES, RO_SHUFFLE_SONGS };
 
-/** Every option Foreign.cpp folds by NAME, only when non-default (IsAppendedOption):
+/** Every option Foreign.cpp folds by NAME, only when neither 0 nor its default (IsAppendedOption):
  *  listed here independently, so dropping one there is a red count below. */
 const RandoOptionId kAppendedOptions[] = {
-    RO_SHUFFLE_TREE_DROPS,       RO_SHOP_PRICES,             RO_TINGLE_PRICES,          RO_PLACEMENT_BOSS_KEYS,
-    RO_PLACEMENT_SMALL_KEYS,     RO_PLACEMENT_STRAY_FAIRIES, RO_SHUFFLE_SONGS,          RO_SHUFFLE_WONDER_ITEMS,
-    RO_SHUFFLE_HIVE_DROPS,       RO_SHUFFLE_BUTTERFLIES,     RO_SHUFFLE_SKELETON_KEY,   RO_SKULLTULA_SHUFFLED,
-    RO_STRAY_FAIRIES_MAX,        RO_SHUFFLE_SONG_DOUBLE_TIME, RO_SHUFFLE_SONG_INVERTED_TIME, RO_SHUFFLE_SONG_SUN,
+    RO_SHUFFLE_TREE_DROPS,
+    RO_SHOP_PRICES,
+    RO_TINGLE_PRICES,
+    RO_PLACEMENT_BOSS_KEYS,
+    RO_PLACEMENT_SMALL_KEYS,
+    RO_PLACEMENT_STRAY_FAIRIES,
+    RO_SHUFFLE_SONGS,
+    RO_SHUFFLE_WONDER_ITEMS,
+    RO_SHUFFLE_HIVE_DROPS,
+    RO_SHUFFLE_BUTTERFLIES,
+    RO_SHUFFLE_SKELETON_KEY,
+    RO_SKULLTULA_SHUFFLED,
+    RO_STRAY_FAIRIES_MAX,
+    RO_SHUFFLE_SONG_DOUBLE_TIME,
+    RO_SHUFFLE_SONG_INVERTED_TIME,
+    RO_SHUFFLE_SONG_SUN,
     RO_SHUFFLE_SONG_SARIA,
 };
 
@@ -353,9 +365,6 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
     // ---- (e) the fold, pinned ------------------------------------------------
     {
         std::vector<uint32_t> zeros(RO_MAX, 0u);
-        for (const RandoOptionId appended : kAppendedOptions) {
-            zeros[appended] = Rando::StaticData::Options[appended].defaultValue;
-        }
         const std::string base = Rando::Foreign::TestFoldOptionsString(zeros.data());
         const std::string baseIdentity = Rando::Foreign::TestFoldIdentityString(zeros.data());
         const int appendedCount = (int)(sizeof(kAppendedOptions) / sizeof(kAppendedOptions[0]));
@@ -363,9 +372,8 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         printf("[TEST] (e) %zu options, %d positional; zero seed string is %zu chars\n",
                Rando::StaticData::Options.size(), positional, base.size());
         MPC_CHECK(base == RepeatZero(positional),
-                  "(e) with every option zero (and appended options at defaults) the seed string is not exactly %d "
-                  "positional zeros: an appended option is folded by position (or a new one was appended without "
-                  "this list)",
+                  "(e) with every option zero the seed string is not exactly %d positional zeros: an appended option "
+                  "is folded by position (or a new one was appended without this list)",
                   positional);
         MPC_CHECK(baseIdentity.compare(0, base.size(), base) == 0,
                   "(e) the identity string must begin with the seed string's option fold");
@@ -373,13 +381,34 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
             MPC_CHECK(Rando::StaticData::Options.find(appended) != Rando::StaticData::Options.end(),
                       "(e) appended option %d has no StaticData row", (int)appended);
         }
+        // #1403: a half persisted before an appended option existed holds 0 in its
+        // slot, one created after holds the row default (30 and 15 for Shuffled Gold
+        // Skulltulas and Stray Fairies in Pool). Both must fold to the same strings,
+        // or every older paired half fails pair membership on load.
+        {
+            std::vector<uint32_t> defaults = zeros;
+            for (const RandoOptionId appended : kAppendedOptions) {
+                defaults[appended] = Rando::StaticData::Options[appended].defaultValue;
+            }
+            MPC_CHECK(Rando::Foreign::TestFoldOptionsString(defaults.data()) == base &&
+                          Rando::Foreign::TestFoldIdentityString(defaults.data()) == baseIdentity,
+                      "(e) appended options at their row defaults must fold exactly as a pre-#1403 half's zeros do");
+            for (const RandoOptionId option : { RO_SKULLTULA_SHUFFLED, RO_STRAY_FAIRIES_MAX }) {
+                std::vector<uint32_t> values = defaults;
+                values[option] = 1;
+                const std::string term = std::string("|") + Rando::StaticData::Options[option].name + ":1";
+                MPC_CHECK(Rando::Foreign::TestFoldOptionsString(values.data()) == base + term,
+                          "(e) %s=1 must add exactly '%s' to the seed string", Rando::StaticData::Options[option].name,
+                          term.c_str());
+            }
+        }
         for (const RandoOptionId option : kPlacementOptions) {
             const auto it = Rando::StaticData::Options.find(option);
             if (it == Rando::StaticData::Options.end()) {
                 continue;
             }
             for (uint32_t value = 1; value <= 2; ++value) {
-                std::vector<uint32_t> values = zeros;
+                std::vector<uint32_t> values(RO_MAX, 0u);
                 values[option] = value;
                 const std::string term = std::string("|") + it->second.name + ":" + std::to_string(value);
                 const std::string seed = Rando::Foreign::TestFoldOptionsString(values.data());
