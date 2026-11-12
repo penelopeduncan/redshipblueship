@@ -246,9 +246,13 @@ TestResult SongPoolAnywhereUnconfined_Run(void) {
     for (int forced = -1; forced <= 1; forced += 2) {
         const SpuWorld w = SpuGenerate("RSBSSONGANYWHERE", (int)RSBS_OOT_SONGS_ANYWHERE, -1, forced, false);
         SPU_CHECK(w.generated, "(i) override %d: the Anywhere world did not generate\n", forced);
-        SPU_CHECK(!w.unionArmed && w.bag.exclusiveGroups == 0u && w.mmWideRows == 0,
-                  "(i) override %d: under Anywhere the union read %d, the exclusive group 0x%08X, %d MM rows wide\n",
-                  forced, w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups, w.mmWideRows);
+        // confinedRows: the shipped profile confines no MM row locally (the keys,
+        // boss keys and fairies GoldenSeedDigestMMConfined places in their dungeons are
+        // not the defaults), so under Anywhere no bag row carries a mask at all.
+        SPU_CHECK(!w.unionArmed && w.bag.exclusiveGroups == 0u && w.mmWideRows == 0 && w.bag.confinedRows == 0,
+                  "(i) override %d: under Anywhere the union read %d, the exclusive group 0x%08X, %d MM rows wide, "
+                  "%d bag rows confined\n",
+                  forced, w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups, w.mmWideRows, w.bag.confinedRows);
         // The engines' answers in that world, still held.
         Combo_SongHostsForceForTest(forced);
         int ootSongs = 0;

@@ -1672,6 +1672,14 @@ extern "C" bool OoT_ComboLogic_SongPoolUnion(void) {
     return Combo_SongPoolUnionRule(OoT_ComboLogic_DeferGeneralPassWanted() != 0, OoT_Combo_FrozenShuffleSongs());
 }
 
+/** SongPoolOverCapacity (d)/(e) (#1542 S4): the RC ids of two OoT song checks the
+ *  row excludes through RSBS_GOLDEN_EXCLUDES (Malon's, then the Windmill's), for
+ *  an MM TU that cannot see OoT's RandomizerCheck. */
+extern "C" void OoT_ComboLogic_TestExcludableSongChecks(uint16_t* first, uint16_t* second) {
+    *first = (uint16_t)RC_SONG_FROM_MALON;
+    *second = (uint16_t)RC_SONG_FROM_WINDMILL;
+}
+
 /** OoT's player-excluded song checks (combo_song_pool.h), for the song pool's
  *  capacity refusal: FillExcludedLocations put OoT junk on each, so each costs a
  *  song check and frees no song. */

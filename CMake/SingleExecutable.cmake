@@ -2780,18 +2780,24 @@ if(BUILD_TESTING)
     # completion: MM's six OoT warp songs make 28 songs for the 23 song checks of
     # both games, and the Song of Soaring (OoT) with the Crossing Direction OFF 13
     # home-only OoT songs for 12; both refused before any attempt with the identity
-    # and the capture retracted, and 23 for 23 creates. Three paired generations.
+    # and the capture retracted, and 23 for 23 creates. Then two OoT song checks
+    # excluded (RSBS_GOLDEN_EXCLUDES, set and removed inside the row): 22 songs for
+    # 21 refused naming both games with the "include an excluded song check"
+    # advice, and with one excluded 22 for 22 creates. Five paired generations.
     redship_add_test(NAME SongPoolOverCapacity COMMAND redship --test song-pool-over-capacity
         LABEL rando
-        TIMEOUT 900
+        TIMEOUT 1500
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and
     # packages, with both items in the crossing store on their Mido's House chests.
+    # Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
+    # confines the Sonata to the song checks of both games, so a pin on a chest is
+    # refused (ComboLogicPlaceForced) as it is in OoTMM.
     redship_add_test(NAME DebugSeedForcedPlacements COMMAND redship --test debug-seed-forced-placements
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRandoSettings.ShuffleSongs=3;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
     # #1286: THE HEAVIEST PROFILE PLAYED SO FAR, AS A MEASUREMENT ROW. The
     # operator's paired seed 16-98-53-79-52 of 2026-10-27 (input seed 5759360843,
     # comboSettingsHash 97CADCA9 at 347ba755): every OoT shuffle they played on
@@ -4544,19 +4550,23 @@ crossing to refuse (#954).")
         ENVIRONMENT "RSBS_PFC_FILE_SELECT_SHOT=1" "RSBS_CAPTURE_OUT=${CMAKE_BINARY_DIR}/frame-capture")
     # #1542 S3: THE SHARED SONG POOL'S CROSSINGS, delivered live. The same paired
     # creation (the shipped defaults arm the pool, so RSBSSINGLEBAG1's song checks
-    # hold either game's songs) with a longer play window per phase.
-    # IntSongHostOoT (RSBS_PFC_SONG_HOST=oot): in the first OoT leg the first OoT
-    # song check holding an MM song, a trigger-flag check preferred, has its
-    # collection flag set as its scene sets it; the RC-queue drain's foreign branch
-    # must record exactly one MM-bound item and the check must read collected, and
-    # a second trigger records nothing. IntSongHostMM (RSBS_PFC_SONG_HOST=mm): in
-    # the MM leg the starting Song of Healing when it holds an OoT song (armed at
-    # creation), else the first MM song check holding one, armed as its scene
-    # arms it; CheckQueue's foreign branch must deliver it once, and a re-arm (a
-    # later cycle, a re-entry) must be consumed by the delivered-song-host guard
-    # with no second record. Covered by trace only: each song scene's own cutscene
-    # and progression with a crossing on it, and a live three-day reset (the
-    # ROM-free MMSongHostGuard row drives the real headless one).
+    # hold either game's songs) with a longer play window per phase. Decision A's
+    # two hosts are pinned through the debug-seed seam (PfcSongHostPin, the
+    # DebugSeedForcedPlacements row's Combo_Logic_TestSetForcedPlacements), so each
+    # run drives the same host whatever the seed made a crossing.
+    # IntSongHostOoT (RSBS_PFC_SONG_HOST=oot): MM's Sonata of Awakening on OoT's
+    # Song of Time check (a transition trigger); in the first OoT leg its
+    # collection flag is set as its scene sets it; the RC-queue drain's foreign
+    # branch must record exactly one MM-bound item and the check must read
+    # collected, and a second trigger records nothing. IntSongHostMM
+    # (RSBS_PFC_SONG_HOST=mm): OoT's Zelda's Lullaby on MM's starting Song of
+    # Healing (armed at creation); CheckQueue's foreign branch must deliver it
+    # once, and a re-arm (a later cycle, a re-entry) must be consumed by the
+    # delivered-song-host guard with no second record. Covered by trace only: the
+    # other 21 song checks' own give paths, each song scene's own cutscene and
+    # progression with a crossing on it, OoT's grant of the Lullaby after the
+    # crossing back, and a live three-day reset (the ROM-free MMSongHostGuard row
+    # drives the real headless one).
     redship_add_test(NAME IntSongHostOoT
         COMMAND redship --integration-test int-paired-first-crossing
         LABEL integration

@@ -892,6 +892,18 @@ void SctCheckAnchors() {
     SCT_CHECK(SctInOrder(mmUnion, { "OoT_ComboLogic_SongPoolUnion()",
                                     "RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS" }),
               "(h) MM's half of the union is not 'OoT's union and MM's own songs at Song Locations'\n");
+    // MM's leftover song checks take junk before the critical-renewables plan, so
+    // under All Locations the junk step must pass over a pending first copy (OoTMM
+    // solve.ts moves those out of the junk pool before fillJunk); column-0 close,
+    // because the body's strings hold braces.
+    SCT_CHECK(SctInOrder(SctTopLevelBody(mmEngine, "int ladderAttempt)"),
+                         { "if (MM_ComboLogic_SongPoolUnionLive()) {",
+                           "const bool critArmed = Combo_CriticalRenewablesArmed(report.rung);",
+                           "Combo_CriticalRenewablesRenewedNow(songRenewed);", "if (!MmIsSongCheck(host)) {",
+                           "if (critArmed && rest[r] != RI_JUNK && Combo_CriticalRenewablePending(row, songRenewed)) {",
+                           "Combo_ItemClassOf(row) == RSBS_FILL_CLASS_RENEWABLE",
+                           "Combo_CriticalRenewablesPlanFirstCopies(" }),
+              "(h) MM's song-check junk step can take a pending critical renewable's first copy before the plan\n");
     const std::string fill = SctReadSource("games/oot/soh/Enhancements/randomizer/3drando/fill.cpp");
     const std::string fillFn = SctFunctionBody(fill, "int Fill()");
     SCT_CHECK(

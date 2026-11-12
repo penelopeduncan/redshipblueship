@@ -1939,16 +1939,31 @@ static int ComboLogicCheckWideCapacity(const ComboLogicFillRequest* req, uint32_
                 nb |= kComboWideNeighbours[c];
             }
             int hosts = 0;
+            unsigned nbLive = 0u; // the neighbour classes that actually have hosts
             for (int k = 0; k < 4; ++k) {
-                hosts += ((nb & (1u << k)) != 0u) ? hostCount[k] : 0;
+                if ((nb & (1u << k)) != 0u && hostCount[k] > 0) {
+                    hosts += hostCount[k];
+                    nbLive |= 1u << k;
+                }
             }
             if (rows <= hosts) {
                 continue;
             }
+            // Name the side from the host classes the set can really use (a class with
+            // no host is no capacity of that game); with none at all, from the rows.
             const unsigned oot = COMBO_WIDE_HOST_OOT_ACCEPT | COMBO_WIDE_HOST_OOT_REFUSE;
             const unsigned mm = COMBO_WIDE_HOST_MM_ACCEPT | COMBO_WIDE_HOST_MM_REFUSE;
-            sGroupShortfall.game =
-                (nb & ~oot) == 0u ? (uint8_t)GAME_OOT : ((nb & ~mm) == 0u ? (uint8_t)GAME_MM : (uint8_t)GAME_NONE);
+            if (nbLive != 0u) {
+                sGroupShortfall.game = (nbLive & ~oot) == 0u
+                                           ? (uint8_t)GAME_OOT
+                                           : ((nbLive & ~mm) == 0u ? (uint8_t)GAME_MM : (uint8_t)GAME_NONE);
+            } else {
+                sGroupShortfall.game =
+                    (rowsMM == 0 && (s & (1 << COMBO_WIDE_ROW_PAIR)) == 0)
+                        ? (uint8_t)GAME_OOT
+                        : ((rowsOoT == 0 && (s & (1 << COMBO_WIDE_ROW_PAIR)) == 0) ? (uint8_t)GAME_MM
+                                                                                   : (uint8_t)GAME_NONE);
+            }
             sGroupShortfall.mask = w;
             sGroupShortfall.rows = rows;
             sGroupShortfall.hosts = hosts;

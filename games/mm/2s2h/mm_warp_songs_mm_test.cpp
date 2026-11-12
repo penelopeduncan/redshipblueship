@@ -47,6 +47,7 @@
 #include "combo_logic.h"         // src/common: the coordinator's placement table
 #include "combo_settings_view.h" // src/common: the warp-song keys
 #include "combo_single_bag.h"    // src/common: the creation's commit (Combo_SingleBag_Forget)
+#include "combo_song_pool.h"     // src/common: OoT's Shuffle Songs key (#1542)
 #include "context.h"             // src/common: gComboCtx, the frozen states
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
 #include "mm_warp_song_play.h"   // src/common: the creation's warp-song record (#1169 XW7)
@@ -279,6 +280,7 @@ void ClearKeys() {
         CVarClear(Combo_ComboSettingKey(kExtensionKeys[i]));
         CVarClear(Combo_ComboSettingKey(kSharedKeys[i]));
     }
+    CVarClear(RSBS_OOT_SHUFFLE_SONGS_CVAR);
     Combo_ComboItemRules2RevealForTest(0);
 }
 
@@ -359,6 +361,13 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
     // THE TEST SEAM: the hidden warp-song rules read as offered, as they will once
     // lane XW12 lands, so Generate (and the half's own compares) take the world.
     Combo_ComboItemRules2RevealForTest(extensions || sharedMinuet ? 1 : 0);
+    // Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
+    // takes the six warp songs too, and 12 OoT + 16 MM songs (27 with the Shared
+    // Minuet) for the 23 song checks of both games refuse by design, OoTMM's
+    // "Not enough locations" (SongPoolOverCapacity (a) locks that refusal). This
+    // row is about MM's pool, so it runs where no song is confined, as
+    // IntSoaringToOwl does for XW4.
+    CVarSetInteger(RSBS_OOT_SHUFFLE_SONGS_CVAR, (int32_t)RSBS_OOT_SONGS_ANYWHERE);
     int rc = Rando_HeadlessSeedTest(seed);
     const uint32_t frozen = Combo_ComboCrossItemFlags2();
     printf("[TEST] mm-warp-songs-pooled-only-when-rule-on: %s: generation %d, frozen second word %08X\n", name, rc,

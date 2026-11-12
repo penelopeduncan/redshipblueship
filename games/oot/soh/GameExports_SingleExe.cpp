@@ -43,6 +43,7 @@
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX: that check's matcher (#836)
 #include "crossing_store.h"        // the paired row's crossing-store check
 #include "combo_song_pool.h"       // #1542: the song checks' give paths (int-song-host-oot)
+#include "combo_logic.h"           // #1542: the song-host rows' pin (ComboLogicForcedPlacement)
 #include "foreign_model.h"         // the #800 S1 shop playtest's model answer
 // The paired row's "shipped defaults" check: every setting the generation
 // reads, per surface (OoT's options/tricks/exclusions, MM's options/tricks, the
@@ -1299,6 +1300,49 @@ static bool PfcForeignSpoilerCheck(char* msg, size_t cap) {
     return true;
 }
 
+// #1542 S4 (IntSongHostOoT / IntSongHostMM): decision A's two hosts, pinned so the
+// rows drive them on every run instead of whichever song check the seed made a
+// crossing. The debug-seed seam (Combo_Logic_TestSetForcedPlacements, the
+// DebugSeedForcedPlacements row's) puts MM's Sonata of Awakening on OoT's Song of
+// Time check (a transition trigger) for `oot`, and OoT's Zelda's Lullaby on MM's
+// starting Song of Healing (armed at creation) for `mm`. Both are song rows of the
+// shared song pool, so the pin is legal only while the pool is armed: the fill
+// refuses it otherwise and the creation fails loudly. Set before the generation,
+// kept through the creation's fill, cleared after it. 1 pinned, 0 not a song-host
+// row, -1 refused.
+extern "C" void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem); // MM GameExports
+
+static int PfcSongHostPin(void) {
+    const char* env = getenv("RSBS_PFC_SONG_HOST");
+    if (env == NULL) {
+        return 0;
+    }
+    ComboLogicForcedPlacement row;
+    memset(&row, 0, sizeof(row));
+    uint16_t healing = 0;
+    uint16_t sonata = 0;
+    MM_IntSongHost_PinIds(&healing, &sonata);
+    if (strcmp(env, "oot") == 0) {
+        row.hostGame = (uint8_t)GAME_OOT;
+        row.hostCheck = (uint16_t)RC_SONG_FROM_OCARINA_OF_TIME;
+        row.item.originGame = (uint8_t)GAME_MM;
+        row.item.id = sonata;
+    } else if (strcmp(env, "mm") == 0) {
+        row.hostGame = (uint8_t)GAME_MM;
+        row.hostCheck = healing;
+        row.item.originGame = (uint8_t)GAME_OOT;
+        row.item.id = (uint16_t)RG_ZELDAS_LULLABY;
+    } else {
+        return 0;
+    }
+    const int pinned = Combo_Logic_TestSetForcedPlacements(&row, 1);
+    fprintf(stderr, "[SONG-HOST] pinned %s item %u on %s song check %u for this world (%d row)\n",
+            Game_ToString((GameId)row.item.originGame), (unsigned)row.item.id, Game_ToString((GameId)row.hostGame),
+            (unsigned)row.hostCheck, pinned);
+    fflush(stderr);
+    return pinned == 1 ? 1 : -1;
+}
+
 /**
  * The paired variant's boot: the production path a player takes, minus the menu
  * clicks. It runs from the REAL file select (FileChoose_Main's OnFileChooseMain,
@@ -1389,6 +1433,11 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(true);
     }
+    const int songHostPin = PfcSongHostPin();
+    if (songHostPin < 0) {
+        IntegrationTest_GameplayFail("int-song-host: the debug-seed seam refused the song-host pin");
+        return;
+    }
     fprintf(stderr, "[PFC] generating the pinned paired world %s on the shipped defaults at %s\n", kPfcSeed, from);
     fflush(stderr);
     if (Rando_HeadlessSeedTest(kPfcSeed) != 0) {
@@ -1437,6 +1486,9 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         return;
     }
     fprintf(stderr, "[PFC] created: \"%s\"\n", line);
+    if (songHostPin > 0) {
+        (void)Combo_Logic_TestSetForcedPlacements(NULL, 0); // the creation's fill took it
+    }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(false);
         PfcShopPlaytestLogShelves(-1, "created");
@@ -1907,9 +1959,9 @@ static void PfcChestPlaytestWarpFrame(PlayState* play, int frame) {
 // ---- #1542 S3: an MM item on an OoT SONG CHECK, delivered live -----------------
 // RSBS_PFC_SONG_HOST=oot (CTest IntSongHostOoT). Under the shared song pool an OoT
 // song check can hold an MM song. At first-leg frame 200 (the leg's chest pickup
-// has played out) the drive picks the first OoT song check holding a crossing,
-// preferring one whose flag a transition trigger sets (the Song of Time, Requiem,
-// Nocturne: RSBS_SONG_GIVE_OOT_TRIGGER_FLAG), and sets that check's collection flag
+// has played out) the drive takes the Song of Time check, a transition trigger
+// (RSBS_SONG_GIVE_OOT_TRIGGER_FLAG), which PfcSongHostPin made hold MM's Sonata of
+// Awakening for this world, and sets that check's collection flag
 // the way its scene does: its EventChkInf flag (ShuffleSongs.cpp) through
 // OoT_Flags_SetEventChkInf, or a RandomizerInf flag through Flags_SetRandomizerInf,
 // whose flag-set hook queues the check for the RC-queue drain; any other collection
@@ -1942,29 +1994,20 @@ static void GpSongHostOoTFrame(PlayState* play, int frame) {
         sTextboxFrames = 0;
     }
     if (frame == 200) {
-        int fallback = -1;
-        for (int i = 0; i < Combo_Crossings_Count(GAME_OOT); i++) {
-            ComboCrossing row;
-            if (!Combo_Crossings_At(GAME_OOT, i, &row)) {
-                continue;
-            }
-            const int index = OoT_ComboLogic_TestSongCheckIndex(row.hostCheck);
-            const RsbsSongCheckInfo* info = Combo_SongCheckInfo(index);
-            if (info == NULL || OoT_Rando_Foreign_HostCollected(row.hostCheck)) {
-                continue;
-            }
-            if (info->path == RSBS_SONG_GIVE_OOT_TRIGGER_FLAG) {
-                sHost = row.hostCheck;
-                break;
-            }
-            fallback = fallback < 0 ? (int)row.hostCheck : fallback;
-        }
-        sHost = sHost >= 0 ? sHost : fallback;
-        if (sHost < 0) {
-            IntegrationTest_GameplayFail("int-song-host-oot: no OoT song check holds an MM item in this world (the "
-                                         "shared song pool is not armed, or the world moved: a fixture failure)");
+        // Decision A's OoT host, pinned by PfcSongHostPin: the Song of Time check
+        // (a transition trigger) holds MM's Sonata of Awakening on every run.
+        const uint16_t pinnedHost = (uint16_t)RC_SONG_FROM_OCARINA_OF_TIME;
+        if (Combo_Crossings_Lookup(GAME_OOT, pinnedHost) == NULL) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the pinned Song of Time check holds no MM item (the "
+                                         "shared song pool is not armed, or the pin was dropped: a fixture failure)");
             return;
         }
+        if (OoT_Rando_Foreign_HostCollected(pinnedHost)) {
+            IntegrationTest_GameplayFail("int-song-host-oot: the pinned Song of Time check was collected before the "
+                                         "drive set its flag (the leg's route moved: a fixture failure)");
+            return;
+        }
+        sHost = (int)pinnedHost;
         const SharedItem* item = Combo_Crossings_Lookup(GAME_OOT, (uint16_t)sHost);
         const char* name = item != NULL ? Combo_GetForeignItemName(*item) : NULL;
         const Rando::SpoilerCollectionCheck cc =

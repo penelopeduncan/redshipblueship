@@ -3397,6 +3397,15 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
     int songPadded = 0;
     int songJunked = 0;
     if (MM_ComboLogic_SongPoolUnionLive()) {
+        // Under All Locations a critical renewable whose kind is not renewed yet
+        // is the planner's below (OoTMM solve.ts moves those copies out of the
+        // junk pool before fillJunk), so a song check never takes one: it would
+        // not renew there and the planner would never see it.
+        const bool critArmed = Combo_CriticalRenewablesArmed(report.rung);
+        uint32_t songRenewed[RSBS_FOREIGN_POOL_ORIGIN_COUNT] = {};
+        if (critArmed) {
+            Combo_CriticalRenewablesRenewedNow(songRenewed);
+        }
         std::vector<uint16_t> keep;
         keep.reserve(leftovers.size());
         for (const uint16_t host : leftovers) {
@@ -3408,6 +3417,9 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
             bool fromPool = false;
             for (size_t r = 0; r < rest.size(); ++r) {
                 const SharedItem row = { (uint8_t)GAME_MM, 0, (uint16_t)rest[r] };
+                if (critArmed && rest[r] != RI_JUNK && Combo_CriticalRenewablePending(row, songRenewed)) {
+                    continue;
+                }
                 if (rest[r] == RI_JUNK || Combo_ItemClassOf(row) == RSBS_FILL_CLASS_RENEWABLE) {
                     junk = rest[r];
                     rest.erase(rest.begin() + static_cast<std::vector<RandoItemId>::difference_type>(r));

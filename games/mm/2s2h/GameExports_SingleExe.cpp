@@ -2126,12 +2126,11 @@ static void MM_SoaringCheckArrival(int owl) {
 // RSBS_PFC_SONG_HOST=mm (CTest IntSongHostMM). Under the shared song pool the
 // paired world's song checks of both games take either game's songs, so an MM
 // song check can hold an OoT song, delivered through CheckQueue's foreign branch.
-// At live MM frame 10 the drive picks its host: the starting Song of Healing when
-// it holds a crossing (armed at file creation: CheckQueue delivers it on the first
-// frames with no drive at all), else the first MM song check holding one, which it
-// arms `.eligible` as reaching the song's scene would. Frame 150: the host must be
-// delivered (Rando::Foreign::IsDeliveredForeignHost: the once-per-host record) and
-// obtained, and an armed host must have added exactly one OoT-bound record. Then
+// At live MM frame 10 the drive takes the starting Song of Healing, which OoT's
+// PfcSongHostPin made hold OoT's Zelda's Lullaby for this world (armed at file
+// creation: CheckQueue delivers it on the first frames with no drive at all).
+// Frame 150: the host must be delivered (Rando::Foreign::IsDeliveredForeignHost:
+// the once-per-host record) and obtained. Then
 // the host is armed again, as a later cycle or a re-entry re-arms nine of the
 // eleven; frame 260: CheckQueue must have consumed the re-arm (the S0 guard) and
 // added no record. A textbox nobody will press past is closed after 60 frames.
@@ -2142,11 +2141,16 @@ static bool GpSongHostMM(void) {
     return env != nullptr && std::strcmp(env, "mm") == 0;
 }
 
-extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+/** The MM ids OoT's PfcSongHostPin pins for the song-host rows (#1542 S4): the
+ *  starting Song of Healing check, and the Sonata of Awakening item. */
+extern "C" void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem) {
+    *healingCheck = (uint16_t)RC_STARTING_ITEM_SONG_OF_HEALING;
+    *sonataItem = (uint16_t)RI_SONG_SONATA;
+}
 
 static void GpSongHostMMFrame(int playFrames) {
     static RandoCheckId sHost = RC_UNKNOWN;
-    static bool sArmed = false;
+    static bool sDeliveredAt10 = false;
     static int sRecordsBefore = -1;
     static int sRecordsMid = -1;
     static int sTextboxFrames = 0;
@@ -2160,34 +2164,24 @@ static void GpSongHostMMFrame(int playFrames) {
         sTextboxFrames = 0;
     }
     if (playFrames == 10) {
+        // Decision A's MM host, pinned by OoT's PfcSongHostPin: the starting Song of
+        // Healing holds OoT's Zelda's Lullaby on every run, armed at creation.
         const RandoCheckId healing = RC_STARTING_ITEM_SONG_OF_HEALING;
-        if (Combo_Crossings_Lookup(GAME_MM, (uint16_t)healing) != nullptr) {
-            sHost = healing;
-        }
-        for (int i = 0; sHost == RC_UNKNOWN && i < Combo_Crossings_Count(GAME_MM); i++) {
-            ComboCrossing row;
-            if (Combo_Crossings_At(GAME_MM, i, &row) && row.hostCheck < RC_MAX &&
-                MM_Rando_Foreign_TestSongCheckIndex(row.hostCheck) >= 0 && !RANDO_SAVE_CHECKS[row.hostCheck].obtained) {
-                sHost = (RandoCheckId)row.hostCheck;
-                sArmed = true;
-            }
-        }
-        if (sHost == RC_UNKNOWN) {
-            IntegrationTest_GameplayFail("int-song-host-mm: no MM song check holds an OoT item in this world (the "
-                                         "shared song pool is not armed, or the world moved: a fixture failure)");
+        if (Combo_Crossings_Lookup(GAME_MM, (uint16_t)healing) == nullptr) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the pinned starting Song of Healing holds no OoT item (the "
+                                         "shared song pool is not armed, or the pin was dropped: a fixture failure)");
             return;
         }
+        sHost = healing;
         const SharedItem* item = Combo_Crossings_Lookup(GAME_MM, (uint16_t)sHost);
         const char* name = item != nullptr ? Combo_GetForeignItemName(*item) : nullptr;
         sRecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
-        fprintf(stderr, "[SONG-HOST] MM song check %d hosts the OoT item %s; %s; OoT-bound records %d, delivered %d\n",
-                (int)sHost, name != nullptr ? name : "?",
-                sArmed ? "arming it as its scene would" : "the starting Song of Healing, armed at creation",
-                sRecordsBefore, Rando::Foreign::IsDeliveredForeignHost(sHost) ? 1 : 0);
+        sDeliveredAt10 = Rando::Foreign::IsDeliveredForeignHost(sHost);
+        fprintf(stderr,
+                "[SONG-HOST] MM song check %d hosts the OoT item %s; the starting Song of Healing, armed at creation; "
+                "OoT-bound records %d, delivered %d\n",
+                (int)sHost, name != nullptr ? name : "?", sRecordsBefore, sDeliveredAt10 ? 1 : 0);
         fflush(stderr);
-        if (sArmed) {
-            RANDO_SAVE_CHECKS[sHost].eligible = true;
-        }
     }
     if (sHost == RC_UNKNOWN) {
         return;
@@ -2200,7 +2194,8 @@ static void GpSongHostMMFrame(int playFrames) {
                 "[SONG-HOST] frame 150: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
                 (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
         fflush(stderr);
-        if (!delivered || !obtained || (sArmed && records != sRecordsBefore + 1)) {
+        // Delivered before frame 10: no record since; after it: exactly one.
+        if (!delivered || !obtained || records != sRecordsBefore + (sDeliveredAt10 ? 0 : 1)) {
             IntegrationTest_GameplayFail("int-song-host-mm: CheckQueue did not deliver the OoT item on the MM song "
                                          "check exactly once (see [SONG-HOST])");
             return;
