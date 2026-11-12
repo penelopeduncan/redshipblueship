@@ -2765,10 +2765,14 @@ if(BUILD_TESTING)
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and
     # packages, with both items in the crossing store on their Mido's House chests.
+    # Shuffle Songs is Anywhere here (#1542): a pinned row must be a placement the
+    # fill itself could make, and since the pair has one songs setting the default
+    # (Song Locations) keeps Majora's Mask's songs on its own song locations, so
+    # the fill refuses the Sonata on a chest ("forced row 0 may not be placed").
     redship_add_test(NAME DebugSeedForcedPlacements COMMAND redship --test debug-seed-forced-placements
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRandoSettings.ShuffleSongs=3;RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask")
     # #1286: THE HEAVIEST PROFILE PLAYED SO FAR, AS A MEASUREMENT ROW. The
     # operator's paired seed 16-98-53-79-52 of 2026-10-27 (input seed 5759360843,
     # comboSettingsHash 97CADCA9 at 347ba755): every OoT shuffle they played on
