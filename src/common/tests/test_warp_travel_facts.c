@@ -12,7 +12,8 @@
  *        song's accepted bit and a credited destination.
  *     D. Each song's destination as the OoT engine reads it from the entrance
  *        graph is its vanilla pad in an unshuffled graph (what XW7's record holds
- *        for an unshuffled world).
+ *        for an unshuffled world), and still is with the exit's index unstamped
+ *        (D2: the pad table, not the index SetAllEntrancesData writes).
  *     E. The six RR_ROOT_EXITS warp exits (location_access/root.cpp), evaluated
  *        with Entrance::ConditionsMet from one age and time each: the MM disjunct
  *        opens for a child at day only, only in a round, only with the song's
@@ -48,6 +49,7 @@ int Rando_InitRegionGraphForTest(void);
 int OoT_ComboLogic_TestEnsureItemTable(void);
 void OoT_ComboLogic_TestTravelSeam(int armed, int inRound, uint32_t accepted, const uint16_t* dest);
 uint16_t OoT_ComboLogic_TestTravelGraphDest(int song);
+uint16_t OoT_ComboLogic_TestTravelGraphDestUnstamped(int song);
 int OoT_ComboLogic_TestRootWarpEdge(int song, int child, int day, int native);
 int OoT_ComboLogic_TestRootAccessAfterReset(int adultStart, int* outChildDay, int* outAdultDay);
 int OoT_ComboLogic_TestTravelFacts(int held, int ocarina, uint32_t buttons, int rootChildDay, int* outRestored);
@@ -175,11 +177,21 @@ TestResult Test_OoTWarpTravelEdges(void) {
 
     // ---- D. destinations from the entrance graph ------------------------------------------
     // Catches: the engine reading the wrong exit, or an unshuffled song resolved
-    // to anything but its pad (XW7's record holds the pad there).
+    // to anything but its pad (XW7's record holds the pad there). The bring-up ran
+    // SetAllEntrancesData, which stamps every warp exit's index with its pad, so D
+    // alone cannot tell the pad-table fallback from exit.GetIndex(); D2 asks again
+    // with the index unstamped (-1, a creation with no entrance shuffle at all) and
+    // catches exactly that replacement.
     for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
         const uint16_t dest = OoT_ComboLogic_TestTravelGraphDest(song);
         XW9_CHECK(dest == Combo_MMWarpPlay_PadEntrance(song), "D: song %d reads %04X from the graph, its pad is %04X",
                   song, (unsigned)dest, (unsigned)Combo_MMWarpPlay_PadEntrance(song));
+        const uint16_t unstamped = OoT_ComboLogic_TestTravelGraphDestUnstamped(song);
+        XW9_CHECK(unstamped == Combo_MMWarpPlay_PadEntrance(song),
+                  "D2: song %d reads %04X with its exit's index unstamped, its pad is %04X (the unshuffled "
+                  "destination must come from the pad table, not the exit's index)",
+                  song, (unsigned)unstamped, (unsigned)Combo_MMWarpPlay_PadEntrance(song));
+        XW9_CHECK(OoT_ComboLogic_TestTravelGraphDest(song) == dest, "D2: song %d's exit index was not put back", song);
     }
 
     // ---- E. the six real root exits ------------------------------------------------------

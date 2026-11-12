@@ -2931,4 +2931,7 @@ no accept is made, no alternation is added, and both new disjuncts are false. So
 no placement, fingerprint, hint, spoiler line or tracker result moves, and no
 saved state or generator version changes. Locked by `ComboLogicTravelFacts` (T7:
 silent engines give byte-identical rounds and fills), `OoTWarpTravelEdges`,
-`MMWarpTravelEdges` and the `oot-warp-song-record` graph leg.
+`MMWarpTravelEdges`, the `oot-warp-song-record` graph leg and
+`ComboWarpTravelRounds` (over both real engines on a real paired world: the rule
+bits alone change no field of a round, and with the rules off an assumed song is
+neither credited nor read).

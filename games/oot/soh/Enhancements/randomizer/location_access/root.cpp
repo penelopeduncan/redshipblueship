@@ -42,8 +42,10 @@ void RegionTable_Init_Root() {
     areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, TIME_DOESNT_PASS, {RA_LINKS_POCKET}, {}, {}, {
         //Exits
         // [RSBS #1169 XW9] each warp song also opens for a CHILD at DAY that Majora's Mask can play it to: OoTMM's
-        // MM WARP_SONGS -> "OOT SONG_TP_*" exits (data/world/mm/overworld/_system.yml), crediting less (the arrival is
-        // forced child; the departure through the mask shop is by day). The disjunct is false outside a round.
+        // MM WARP_SONGS -> "OOT SONG_TP_*" exits (data/world/mm/overworld/_system.yml), crediting less: the arrival is
+        // forced child, and it is credited at day only because OoT resumes at its frozen time and the player can always
+        // depart OoT through the mask shop by day (the fact is gated on OoT's crossing) before playing the song in MM;
+        // a Soaring departure at night only lands later than the logic assumes. The disjunct is false outside a round.
         Entrance(RR_CHILD_SPAWN,             []{return logic->IsChild;}),
         Entrance(RR_ADULT_SPAWN,             []{return logic->IsAdult;}),
         Entrance(RR_MINUET_OF_FOREST_WARP,   []{return logic->CanUse(RG_MINUET_OF_FOREST) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(0));}),

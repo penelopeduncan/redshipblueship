@@ -380,8 +380,12 @@ entry. In short:
 Locked by `ComboLogicTravelFacts` (the gates, chains, non-monotone facts,
 own-direction drops, silent engines, a fill whose only route is a fact),
 `OoTWarpTravelEdges` (OoT's real exits and fact), `MMWarpTravelEdges` (MM's real
-landings, the crawl, the guard and MM's facts) and the graph leg of
-`oot-warp-song-record` (the logic's destination equals the recorded one).
+landings, the crawl, the guard and MM's facts), the graph leg of
+`oot-warp-song-record` (the logic's destination equals the recorded one) and
+`ComboWarpTravelRounds` (both real engines in a coordinator round over a real
+paired world: each rule credits its own direction, the next expand reads the
+delivered fact at the real exit, and the rule bits alone change no field of a
+round).
 
 ## 5. Termination, and the two watchdogs
 

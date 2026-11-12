@@ -378,6 +378,10 @@ RoundState sRound;
  *  that row, which disarms it. */
 bool sMmTravelTestArmed = false;
 bool sMmTravelTestValue = false;
+/** TEST ONLY (combo-warp-travel-rounds): how many times a round's crawl found
+ *  OoT's delivered Soaring fact through MM_ComboLogic_OoTSoaringTravel. Read and
+ *  cleared by MM_ComboLogic_TestSoaringTravelHits only; nothing else reads it. */
+int sMmTravelEdgeHits = 0;
 
 /** Ocarina of Time's warp songs as MM items, one travel bit each (0x02 << song). */
 constexpr int kMmTravelSongCount = 6;
@@ -1475,7 +1479,21 @@ extern "C" bool MM_ComboLogic_OoTSoaringTravel(void) {
     if (sMmTravelTestArmed) {
         return sMmTravelTestValue;
     }
-    return sRound.inRound && (sRound.travelAccepted & RSBS_COMBO_TRAVEL_INTO_MM) != 0u;
+    const bool open = sRound.inRound && (sRound.travelAccepted & RSBS_COMBO_TRAVEL_INTO_MM) != 0u;
+    if (open) {
+        sMmTravelEdgeHits++; // never with every warp-song rule off
+    }
+    return open;
+}
+
+/** TEST BRIDGE (combo-warp-travel-rounds): the crawl's reads of a delivered
+ *  Soaring fact since the last reset; @p reset 1 clears the count after reading. */
+extern "C" int MM_ComboLogic_TestSoaringTravelHits(int reset) {
+    const int hits = sMmTravelEdgeHits;
+    if (reset != 0) {
+        sMmTravelEdgeHits = 0;
+    }
+    return hits;
 }
 
 /** TEST BRIDGE (mm-warp-travel-edges): arm (@p armed 1) the accessor to answer

@@ -256,6 +256,10 @@ bool sOoTTravelTestArmed = false;
 bool sOoTTravelTestInRound = false;
 uint32_t sOoTTravelTestAccepted = 0u;
 uint16_t sOoTTravelTestDest[RSBS_MMWP_SONG_COUNT] = {};
+/** TEST ONLY (combo-warp-travel-rounds): bit i once a round's search found song
+ *  i's root exit open through a delivered fact (OoT_ComboLogic_MMWarpTravel). Read
+ *  and cleared by OoT_ComboLogic_TestTravelEdgeSeen only; nothing else reads it. */
+uint32_t sOoTTravelEdgeSeen = 0u;
 
 /** The six warp regions in OoTMM's song order (Minuet .. Prelude): the order of
  *  RSBS_XITEM2_SONG_MINUET_MM .. PRELUDE_MM and of XW7's pads. */
@@ -3608,7 +3612,82 @@ extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
         return Combo_MMWarpPlay_TravelEdgeOpen(sOoTTravelTestInRound, sOoTTravelTestAccepted, song,
                                                sOoTTravelTestDest[song]);
     }
-    return Combo_MMWarpPlay_TravelEdgeOpen(sInQuery, sOoTTravelAccepted, song, sOoTTravelDest[song]);
+    const bool open = Combo_MMWarpPlay_TravelEdgeOpen(sInQuery, sOoTTravelAccepted, song, sOoTTravelDest[song]);
+    if (open) {
+        // combo-warp-travel-rounds: a round's search evaluated this song's root exit
+        // with a delivered fact. Never true with every warp-song rule off.
+        sOoTTravelEdgeSeen |= 1u << song;
+    }
+    return open;
+}
+
+/** TEST BRIDGE (combo-warp-travel-rounds): the songs (bit i song i) whose root
+ *  exit a round's search found open through a delivered MM fact since the last
+ *  reset; @p reset 1 clears it after reading. */
+extern "C" uint32_t OoT_ComboLogic_TestTravelEdgeSeen(int reset) {
+    const uint32_t seen = sOoTTravelEdgeSeen;
+    if (reset != 0) {
+        sOoTTravelEdgeSeen = 0u;
+    }
+    return seen;
+}
+
+/** TEST BRIDGE (combo-warp-travel-rounds): OoT ids an MM-tree row cannot spell:
+ *  0 the Song of Soaring (OoT), 1 the Minuet of Forest; 0 otherwise. */
+extern "C" uint16_t OoT_ComboLogic_TestTravelItemId(int which) {
+    switch (which) {
+        case 0:
+            return (uint16_t)RG_SONG_OF_SOARING_OOT;
+        case 1:
+            return (uint16_t)RG_MINUET_OF_FOREST;
+        default:
+            return 0u;
+    }
+}
+
+/** TEST BRIDGE (combo-warp-travel-rounds): the OoT locations of the created world
+ *  whose placed item is @p rg, into @p out (up to @p cap); the count, or -1 with no
+ *  context. */
+extern "C" int OoT_ComboLogic_TestHostsHolding(uint16_t rg, uint16_t* out, int cap) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    int n = 0;
+    for (int rc = (int)RC_UNKNOWN_CHECK + 1; rc < (int)RC_MAX; ++rc) {
+        if (!OoTComboLogicIsRealCheck((RandomizerCheck)rc)) {
+            continue;
+        }
+        Rando::ItemLocation* il = ctx->GetItemLocation((RandomizerCheck)rc);
+        if (il == nullptr || il->GetPlacedRandomizerGet() != (RandomizerGet)rg) {
+            continue;
+        }
+        if (out != nullptr && n < cap) {
+            out[n] = (uint16_t)rc;
+        }
+        ++n;
+    }
+    return n;
+}
+
+/** TEST BRIDGE (oot-warp-travel-edges leg D2): OoTComboTravelGraphDest for song
+ *  @p song with the warp exit's index set to -1 for the call, as in a world whose
+ *  creation never ran SetAllEntrancesData (no entrance shuffle at all), then put
+ *  back. 0 with no such exit. */
+extern "C" uint16_t OoT_ComboLogic_TestTravelGraphDestUnstamped(int song) {
+    if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
+        return 0u;
+    }
+    Region* warp = RegionTable(kOoTComboTravelWarpRegions[song]);
+    if (warp == nullptr || warp->exits.empty()) {
+        return 0u;
+    }
+    Rando::Entrance& exit = warp->exits.front();
+    const int16_t stamped = exit.GetIndex();
+    exit.SetIndex(-1);
+    const uint16_t dest = OoTComboTravelGraphDest(song);
+    exit.SetIndex(stamped);
+    return dest;
 }
 
 /** TEST BRIDGE (oot-warp-travel-edges): arm (@p armed 1) or disarm the accessor's

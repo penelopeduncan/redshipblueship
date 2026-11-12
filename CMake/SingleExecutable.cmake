@@ -3652,6 +3652,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # ComboWarpTravelRounds: the same facts through Combo_Logic_RunRound over BOTH
+    # real engines on one real paired world (created with the rules off, the frozen
+    # word then set directly, never through Generate): MM's Minuet of Forest reaches
+    # OoT's root exit and OoT's Soaring reaches MM's owl landings, each read by the
+    # next expand, only with their rules on; the rule bits alone change no field of
+    # a round. `rando`, one paired generation (on the --test all skip list).
+    redship_add_test(NAME ComboWarpTravelRounds COMMAND redship --test combo-warp-travel-rounds
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OoTWarpSongRecord: the creation's warp-song record over real paired creations
     # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
     # the end of OoT's side of the tail and nowhere before it, every destination what

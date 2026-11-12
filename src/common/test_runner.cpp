@@ -8758,6 +8758,23 @@ TestResult Test_MMWarpTravelEdges(void) {
     }
     return MM_WarpTravelEdges_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW9: the travel facts through Combo_Logic_RunRound over both real engines on
+// one real paired world (games/mm/2s2h/mm_warp_travel_test.cpp, its end).
+// oot-warp-song-record's bring-up (a paired creation); `--test all` skips it.
+extern "C" int MM_WarpTravelRounds_RunHeadless(void);
+TestResult Test_ComboWarpTravelRounds(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char xw9RoundsArg0[] = "redship";
+    static char* xw9RoundsArgv[] = { xw9RoundsArg0, nullptr };
+    InitOTRForMMFirstBoot(1, xw9RoundsArgv);
+
+    return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1428: OoT's goal gates at OoTMM's defaults on one paired creation save, Triforce
 // Hunt's override of Ganon's Boss Key and a stored world's own gates. Same bring-up
 // as the rows above; body in games/oot/soh/oot_goal_gate_defaults_test.cpp.
@@ -10659,6 +10676,13 @@ const TestDescriptor gTests[] = {
       "MM's root owl landings open for OoT's Soaring fact only for an active owl on Day 1, MM's own Soaring is "
       "unchanged, the crawl and the reset-time guard agree, and MM's warp-song facts are can_play_tp_* (#1169)",
       Test_MMWarpTravelEdges },
+    // ... and through a coordinator round over both real engines on a real paired
+    // world (rando tier, a generation row: on the --test all skip list).
+    { "combo-warp-travel-rounds",
+      "Over a real paired world and both real engines, MM's Minuet of Forest reaches OoT's root exit and OoT's Song "
+      "of Soaring reaches MM's owl landings through a coordinator round only with their frozen rules on, and the "
+      "rule bits alone change no answer (#1169)",
+      Test_ComboWarpTravelRounds },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
     { "oot-warp-song-record",
@@ -11112,6 +11136,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
                 strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
                 strcmp(gTests[i].name, "mm-warp-travel-edges") == 0 ||
+                strcmp(gTests[i].name, "combo-warp-travel-rounds") == 0 ||
                 strcmp(gTests[i].name, "rando-goal-gate-defaults") == 0 ||
                 strncmp(gTests[i].name, "rando-preset-world-", 19) == 0 ||
                 strcmp(gTests[i].name, "combo-logic-bag-composition") == 0 ||
