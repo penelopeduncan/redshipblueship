@@ -74,10 +74,9 @@ const ComboSettingDesc kComboSettingDescs[COMBO_SETTING_COUNT] = {
     { RSBS_CVAR_COMBO_RANDO_STONE_MASK_OOT, "Stone Mask (OoT)" },
     { RSBS_CVAR_COMBO_RANDO_SHARED_MASK_STONE, "Shared Stone Mask" },
     // #1169 XW2: OoTMM's fourteen warp-song rules, under OoTMM's own names
-    // (data.ts). Since XW12 the Cross-Game Songs rows draw these labels (each
-    // only while its rule is offered: the MM ones once IntMMWarpSongMinuet exists,
-    // the shared ones once XW10 offers them); a load that restores one names it
-    // in its toast.
+    // (data.ts). The Cross-Game Songs rows draw these labels (each only while its
+    // rule is offered: the seven extensions since XW12 and XW13, the shared ones
+    // once XW10 offers them); a load that restores one names it in its toast.
     { RSBS_CVAR_COMBO_RANDO_SONG_SOARING_OOT, "Song of Soaring (OoT)" },
     { RSBS_CVAR_COMBO_RANDO_SONG_MINUET_MM, "Minuet of Forest (MM)" },
     { RSBS_CVAR_COMBO_RANDO_SONG_BOLERO_MM, "Bolero of Fire (MM)" },

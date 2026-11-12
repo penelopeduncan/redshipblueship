@@ -816,9 +816,9 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
         return -1;
     }
     // #1169 XW2: THE HIDDEN RULES' GATE. Since XW12 the Song of Soaring (OoT)
-    // has a row and passes it; the six MM extensions are refused here until the
-    // row IntMMWarpSongMinuet proves their path; the seven SHARED songs have keys but no
-    // row until lane XW10 builds their family, because nothing in this build
+    // has a row and passes it, and since XW13 the six MM extensions do too (the
+    // row IntMMWarpSongMinuet proved their path); the seven SHARED songs have keys
+    // but no row until lane XW10 builds their family, because nothing in this build
     // plays them yet: a world frozen with one on would hold dead song pickups. A
     // shared key set out of band (the console, a hand-made config or preset)
     // together with its extension is refused here by name, before anything is

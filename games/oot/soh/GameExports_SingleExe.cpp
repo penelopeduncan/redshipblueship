@@ -3563,18 +3563,15 @@ static uint16_t MwExpectedArrival(void) {
  * generation: songMinuetMm on through its key, Shuffle Songs on Anywhere (under
  * Song Locations an MM extension joins the shared song pool, whose 23 checks it
  * could overflow; mm_warp_songs_mm_test.cpp does the same). Shuffle Warp Songs
- * stays at its default (off), so the record is PRESENT and unshuffled. While the
- * six MM rules are hidden, generation, the load and each arrival refuse a hidden
- * bit, so the reveal stays on from here to the verdict (the cleanup takes it
- * back, pass or fail).
+ * stays at its default (off), so the record is PRESENT and unshuffled. The rule
+ * is offered by the production mask (since #1169 XW13): no test reveal, so the
+ * generation, the .redsave load and both arrivals take the world as a player's.
  */
 static void MwArmWorld(void) {
-    // REVEAL: remove this line in the unhide commit.
-    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
     IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM), 1);
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
-    fprintf(stderr, "[PFC] mm warp song: songMinuetMm on, Shuffle Songs Anywhere, Shuffle Warp Songs at its default "
-                    "(off)\n");
+    fprintf(stderr, "[PFC] mm warp song: songMinuetMm on (the production mask, no reveal), Shuffle Songs Anywhere, "
+                    "Shuffle Warp Songs at its default (off)\n");
     fflush(stderr);
 }
 

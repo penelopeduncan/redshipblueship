@@ -32,10 +32,10 @@
  * OoT's arrival resolves it through the record (Entrance_OverrideWarpArrival,
  * randomizer_entrance.c).
  *
- * HIDDEN UNTIL IntMMWarpSongMinuet (XW12). The six rules have Cross-Game Songs rows,
- * drawn once that row proves the path end to end; with every one
- * off (the default) no song matches, nothing is armed, and this module changes
- * nothing a player can see or hear.
+ * OFFERED SINCE XW13. The six rules have Cross-Game Songs rows, drawn since the
+ * integration row IntMMWarpSongMinuet played the Minuet in Majora's Mask and
+ * arrived in Ocarina of Time; with every one off (the default) no song matches,
+ * nothing is armed, and this module changes nothing a player can see or hear.
  */
 
 #include <stdbool.h>

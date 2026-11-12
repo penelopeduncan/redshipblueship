@@ -246,25 +246,29 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(RSBS_XITEM2_SONG_SOARING_OOT == kXw2Soaring && RSBS_XITEM2_SHARED_SONG_SOARING == kXw2SharedSoaring &&
                       RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u,
                   "a warp-song bit moved; they are .redsave format, append-only");
-        XW2_CHECK(RSBS_XITEM2_HIDDEN == (RSBS_XITEM2_WARP_SONG_SHARED | 0x7Eu),
-                  "since XW12 exactly the seven shared warp songs (until XW10) and the six MM extensions (until "
-                  "IntMMWarpSongMinuet) are hidden, not %08X",
+        XW2_CHECK(RSBS_XITEM2_HIDDEN == RSBS_XITEM2_WARP_SONG_SHARED,
+                  "since XW13 exactly the seven shared warp songs (until XW10) are hidden, not %08X",
                   (unsigned)RSBS_XITEM2_HIDDEN);
-        // The rows' predicate (Combo_ComboItemRule2Offered): the Song of Soaring
-        // (OoT) alone is offered; no mask of two bits, no unallocated bit and no
-        // zero is "a rule". With the MM seam the six MM extensions are offered too
-        // and the shared songs still are not; with the full seam every allocated
-        // bit is. Catches an MM extension exposed before its end-to-end row, or the
-        // MM seam revealing a shared song.
+        // The rows' predicate (Combo_ComboItemRule2Offered): the seven extensions
+        // are offered (the Song of Soaring (OoT) since XW12, the six MM ones since
+        // XW13, once IntMMWarpSongMinuet proved their path) and the seven shared
+        // songs are not; no mask of two bits, no unallocated bit and no zero is "a
+        // rule"; with the full seam every allocated bit is. Catches an MM extension
+        // hidden again, or a shared song exposed before XW10.
         for (const Xw2Key& k : kXw2Keys) {
-            const bool soaring = k.bit == kXw2Soaring;
-            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == soaring, "%s is %soffered; XW12 offers only %s", k.rule,
-                      Combo_ComboItemRule2Offered(k.bit) ? "" : "not ", "songSoaringOot");
+            const bool extension = (k.bit & RSBS_XITEM2_WARP_SONG_EXTENSIONS) != 0u;
+            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == extension,
+                      "%s is %soffered; since XW13 the seven extensions are offered and the seven shared songs are not",
+                      k.rule, Combo_ComboItemRule2Offered(k.bit) ? "" : "not ");
         }
+        // The MM reveal level is the production mask since XW13: the same answers.
+        // Catches the level drifting from production (a row passing it would then
+        // test a mask no player has).
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         for (const Xw2Key& k : kXw2Keys) {
-            const bool shared = (k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
-            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == !shared, "under the MM seam %s is %soffered", k.rule,
+            const bool extension = (k.bit & RSBS_XITEM2_WARP_SONG_EXTENSIONS) != 0u;
+            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == extension,
+                      "RSBS_XITEM2_REVEAL_MM_SONGS no longer reads the production mask: %s is %soffered", k.rule,
                       Combo_ComboItemRule2Offered(k.bit) ? "" : "not ");
         }
         Combo_ComboItemRules2RevealForTest(0);
@@ -350,29 +354,26 @@ TestResult ComboItemRulesSecondWord_Run(void) {
             const uint32_t word = k.bit | Combo_ComboItemRule2Requires(k.bit);
             const uint32_t refused = Combo_ComboItemRules2Refused(word, names, sizeof(names));
             if ((k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u) {
-                // A shared song with its extension: only the shared bit, by name
-                // (its extension Soaring offered), or both (an MM extension, hidden).
-                const uint32_t want = k.bit | (Combo_ComboItemRule2Requires(k.bit) & RSBS_XITEM2_HIDDEN);
-                XW2_CHECK(refused == want && (want != k.bit || strcmp(names, k.rule) == 0),
-                          "while hidden, %s with its extension refused %08X ('%s'), not %08X", k.rule,
-                          (unsigned)refused, names, (unsigned)want);
-            } else if (k.bit != kXw2Soaring) {
-                // An MM extension, hidden until IntMMWarpSongMinuet: refused by name.
+                // A shared song with its extension: the shared bit alone, by name
+                // (every extension is offered since XW13).
                 XW2_CHECK(refused == k.bit && strcmp(names, k.rule) == 0,
-                          "%s must be refused by name until its end-to-end row exists (refused %08X, '%s')", k.rule,
-                          (unsigned)refused, names);
+                          "while hidden, %s with its extension refused %08X ('%s'), not %08X", k.rule,
+                          (unsigned)refused, names, (unsigned)k.bit);
             } else {
-                XW2_CHECK(refused == 0u && names[0] == '\0', "XW12 offers %s, yet it is refused ('%s')", k.rule, names);
+                // An extension: offered (Soaring since XW12, the six MM ones since
+                // XW13), so Generate takes it.
+                XW2_CHECK(refused == 0u && names[0] == '\0', "since XW13 %s is offered, yet it is refused ('%s')",
+                          k.rule, names);
             }
         }
-        // Under the MM seam: every extension passes, each shared song alone is refused.
+        // The MM reveal level (the production mask since XW13): the same answers.
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         for (const Xw2Key& k : kXw2Keys) {
             const uint32_t word = k.bit | Combo_ComboItemRule2Requires(k.bit);
             const uint32_t refused = Combo_ComboItemRules2Refused(word, names, sizeof(names));
             const bool shared = (k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
             XW2_CHECK(shared ? (refused == k.bit && strcmp(names, k.rule) == 0) : (refused == 0u && names[0] == '\0'),
-                      "under the MM seam %s refused %08X ('%s')", k.rule, (unsigned)refused, names);
+                      "under RSBS_XITEM2_REVEAL_MM_SONGS %s refused %08X ('%s')", k.rule, (unsigned)refused, names);
         }
         Combo_ComboItemRules2RevealForTest(0);
         // The creation's own question, over the session's resolution. (i) The
@@ -806,11 +807,9 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         // quarantined; the same file with a PRESENT record loads. The session's
         // key EQUALS the file's word, so nothing else diverges: the pair tells the
         // guard from its absence (without the check the UNSET file loads too, and
-        // its arrival diff is 0). The six MM extensions stay hidden until
-        // IntMMWarpSongMinuet exists, so the leg runs under the MM seam (what
-        // exposing them does); without it the hidden gate would refuse both files
-        // and the pair could not tell the record guard from its absence.
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+        // its arrival diff is 0). The six MM extensions are offered since XW13, so
+        // the leg runs on the production mask: the PRESENT file loading is what
+        // tells the record guard from the hidden gate (which would refuse both).
         for (int present = 0; present < 2; present++) {
             // The context still holds the world the last leg loaded, and the
             // writer refuses every key while a world is frozen: forget it first.
@@ -863,7 +862,6 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                           "touched it: its logic credits warps that play refuses");
             }
         }
-        Combo_ComboItemRules2RevealForTest(0);
 
         Xw2ClearKeys();
         RsbsSave_ResetSlotSessionState();

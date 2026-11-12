@@ -1665,10 +1665,9 @@ inline constexpr ComboKey kComboKeys[] = {
       "ComboItemRulesRecord.crossItemFlags' RSBS_XITEM_SHARED_SPOOKY bit (#980): the two Spooky Masks are ONE "
       "shared-pair family across both games; frozen only with the Spooky Mask in MM" },
     // #1169 lane XW2: the fourteen warp-song rules, bits of the second rules word.
-    // Song of Soaring (OoT) offered since XW12, the MM ones hidden until
-    // IntMMWarpSongMinuet and the shared ones until XW10 (no
-    // row; Generate refuses one set), IDENTITY all the same: each one decides a
-    // world.
+    // Song of Soaring (OoT) offered since XW12, the six MM ones since XW13, the
+    // shared ones hidden until XW10 (no row; Generate refuses one set), IDENTITY
+    // all the same: each one decides a world.
     { RSBS_CVAR_COMBO_RANDO_SONG_SOARING_OOT, ComboKeyClass::Identity,
       "ComboItemRules2Record's RSBS_XITEM2_SONG_SOARING_OOT bit (#1169): Majora's Mask's Song of Soaring is added to "
       "Ocarina of Time (OoTMM songSoaringOot)" },

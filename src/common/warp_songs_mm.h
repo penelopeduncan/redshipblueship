@@ -22,16 +22,18 @@
  * there and not in MM's half, why it is not in the invalidation KEEP set and why
  * it is not folded into the fingerprint are the field's comment.
  *
- * WHAT OWNING ONE DOES: nothing in play yet. Lane XW7 adds MM's note matcher, the
- * prompt, the En_Test7 departure and the crossing; lane XW9 the logic's travel
- * facts. Here MM's logic only knows how to PLAY each song (Logic.h,
- * CAN_PLAY_OOT_WARP_SONG: OoTMM's can_play_tp_* button sets), and no region uses
- * it.
+ * WHAT OWNING ONE DOES (lane XW7, mm_warp_song_play.h): played on the ocarina in
+ * Termina it is matched, "You played" shows, the warp prompt offers OK, and OK
+ * crosses to Ocarina of Time as a child, landing where the creation's warp-song
+ * record says the song leads (its pad unless the warp songs were shuffled). Both
+ * games' logic know the crossing through lane XW9's travel facts; MM's logic plays
+ * each song with OoTMM's can_play_tp_* button sets (Logic.h,
+ * CAN_PLAY_OOT_WARP_SONG).
  *
- * HIDDEN UNTIL IntMMWarpSongMinuet (XW12). The six rules have Cross-Game Songs rows,
- * drawn once that row exists, off by default.
- * With every one off no world pools one of these items, and the ownership byte
- * stays 0.
+ * OFFERED SINCE XW13. The six rules have Cross-Game Songs rows, off by default,
+ * drawn since the integration row IntMMWarpSongMinuet played the Minuet in
+ * Majora's Mask and arrived in Ocarina of Time. With every one off no world pools
+ * one of these items, and the ownership byte stays 0.
  */
 
 #include <stdbool.h>

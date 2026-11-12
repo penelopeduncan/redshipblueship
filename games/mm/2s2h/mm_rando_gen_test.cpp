@@ -4358,8 +4358,8 @@ void SpoSetOoTSongExcludes(int count) {
 /**
  * One leg: generate @p seed with the second-word warp-song extension rules
  * @p rules2 (RSBS_XITEM2_SONG_SOARING_OOT and the six RSBS_XITEM2_SONG_*_MM, set by
- * their keys, as a player sets them; the six MM ones through the MM seam, since
- * they stay hidden until IntMMWarpSongMinuet, #1169 XW12),
+ * their keys, as a player sets them, on the production mask: every extension is
+ * offered since IntMMWarpSongMinuet, #1169 XW13),
  * the Crossing Direction OFF when @p directionOff, and OoT's Starting Zelda's
  * Lullaby when @p startLullaby; then Generate's completion. @p wantText NULL: the
  * world must create. Otherwise the completion must refuse with the shared song
@@ -4388,15 +4388,13 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
     if (startLullaby) {
         CVarSetInteger(kSpoStartingLullabyKey, 1);
     }
-    // The production mask for the Song of Soaring (OoT); the MM seam for a leg with
-    // a Majora's Mask extension, which stays hidden until IntMMWarpSongMinuet
-    // (#1169 XW12). The shared songs stay hidden either way.
-    Combo_ComboItemRules2RevealForTest((rules2 & RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS) != 0u
-                                           ? RSBS_XITEM2_REVEAL_MM_SONGS
-                                           : RSBS_XITEM2_REVEAL_NONE);
+    // The production mask for every leg: the Song of Soaring (OoT) is offered since
+    // XW12 and the six Majora's Mask extensions since XW13 (IntMMWarpSongMinuet).
+    // The shared songs stay hidden.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
     for (uint32_t b = 0; b < 7u; b++) {
         if ((rules2 & (1u << b)) != 0u && !Combo_ComboItemRule2Offered(1u << b)) {
-            fprintf(stderr, "[SONG-POOL-CAP] FAIL(8): %s: rule bit %u is not offered (under the leg's seam)\n", name,
+            fprintf(stderr, "[SONG-POOL-CAP] FAIL(8): %s: rule bit %u is not offered (on the production mask)\n", name,
                     (unsigned)b);
             SpoClearKeys();
             return 8;
@@ -4505,9 +4503,9 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
  * such a key and Generate refuses the profile ("the menu's parse kept 0"), as the
  * first local run of two such legs showed. No shipped setting reaches that state,
  * and SpoLeg's exclude count stays 0.
- * Every leg sets its rules by their keys: the Song of Soaring (OoT) with the
- * production mask, the MM extensions through the MM seam (hidden until
- * IntMMWarpSongMinuet, #1169 XW12). Seven paired generations.
+ * Every leg sets its rules by their keys on the production mask (the Song of
+ * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13). Seven
+ * paired generations.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
  */
 extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {

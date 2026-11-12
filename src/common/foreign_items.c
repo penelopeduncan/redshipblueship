@@ -517,8 +517,9 @@ bool Combo_ComboCrossItemRule2(uint32_t bit) {
 
 // TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
 // the hidden mask, as it will once lane XW10 builds the shared songs, and
-// RSBS_XITEM2_REVEAL_MM_SONGS takes only the six MM extensions out of it. Never
-// set in production.
+// RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out of it, which since
+// XW13 (the extensions offered) leaves the production mask. Never set in
+// production.
 static int sComboItemRules2RevealLevel = RSBS_XITEM2_REVEAL_NONE;
 
 void Combo_ComboItemRules2RevealForTest(int on) {
@@ -1265,7 +1266,7 @@ uint32_t Combo_ComboSettingsDivergenceForEx2(const ComboSettingsRecord* frozen, 
         // both sides are 0 and nothing is added.
         bits |= Combo_ComboItemRules2DivergenceBetween(frozenRules2, Combo_ResolveComboItemRules2());
         // And a frozen word this build refuses (Combo_ComboItemRules2Refused:
-        // since XW12, an MM or shared warp-song rule on) diverges even when the session's
+        // since XW13, a shared warp-song rule on) diverges even when the session's
         // keys equal it (set from the console, or by a later build's config):
         // the keys alone must not let a world load or arrive that this build
         // has no item, matcher or logic for. The restore probe reports it

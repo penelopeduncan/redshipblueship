@@ -229,9 +229,9 @@ uint32_t Combo_ComboItemRuleKeyedBits(void);
  * The same two for the SECOND rules word (#1169 XW2, RSBS_XITEM2_*): the bits
  * whose keys resolve on now (Combo_ResolveComboItemRules2 reads this and
  * nothing else), and every bit a key authors at all (all fourteen warp-song
- * rules). Since XW12 the extensions have rows, drawn while offered (the MM ones
- * once IntMMWarpSongMinuet exists); the shared songs' rows are drawn once XW10
- * offers them.
+ * rules). The extensions have rows, drawn while offered (the Song of Soaring
+ * (OoT) since XW12, the six MM ones since XW13); the shared songs' rows are drawn
+ * once XW10 offers them.
  */
 uint32_t Combo_ComboItemRules2Authored(void);
 uint32_t Combo_ComboItemRule2KeyedBits(void);
