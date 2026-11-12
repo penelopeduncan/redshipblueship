@@ -37,10 +37,13 @@
  * Time starting song frees one of them; the texts therefore say "start with an
  * Ocarina of Time song", a stated divergence from OoTMM's wording.
  *
- * INERT UNTIL XW12. Every RSBS_XITEM2_* bit is hidden (RSBS_XITEM2_HIDDEN): Generate
- * refuses a world with one set before anything is frozen, and a load refuses one
- * another build froze. So no world a player can make has the bit, the pool never
- * gains the item, and the song pass never holds more than twelve songs.
+ * OFFERED SINCE XW12. The rule has a Cross-Game Songs row (off by default). Under
+ * Song Locations a paired world always arms the shared song pool, so the Song
+ * Locations branch of Combo_SongSpotsOverflow is a BACKSTOP no production world
+ * reaches (Generate refuses an unpaired world, #657): it runs only with the song
+ * hosts forced off for a test (Combo_SongHostsForceForTest(0)), and it begins with
+ * the union's own sentence, so the two cannot disagree. The Dungeon Rewards
+ * branch is reachable, and its refusal reaches the player (Combo_GenRefusal_*).
  */
 
 #include <stdbool.h>
@@ -57,21 +60,33 @@ extern "C" {
 
 /**
  * The Song of Soaring (OoT) row's tooltip (OoTMM data.ts songSoaringOot's
- * description, with Dungeon Rewards named too, since OoT's Shuffle Songs has
- * both restricted modes, and "an Ocarina of Time song" for OoTMM's "at least one
- * song", above). Lane XW12 draws the row; the text is here so the warning ships
- * with the refusal it describes.
+ * description in the page's own verb-first form, with Dungeon Rewards named too,
+ * since OoT's Shuffle Songs has both restricted modes, and "an Ocarina of Time
+ * song" for Dungeon Rewards, above). Under Song Locations the added song is one
+ * more row of the shared song pool (23 checks for 22 songs with the defaults),
+ * so with Crossing Direction Both one added song fits and a second needs a
+ * shared or starting song. When Ocarina of Time's songs stay home (Crossing
+ * Direction Off or MM Items to OoT: Combo_ComboDirectionArms(GAME_OOT) false,
+ * so the single bag confines them, RSBS_SONG_POOL_SHORT_OOT) the Song of Soaring
+ * (OoT) alone already makes 13 Ocarina of Time songs for OoT's 12 song checks,
+ * and only an Ocarina of Time song shared or started with frees one
+ * (SongPoolOverCapacity leg (b)); the text says so. The Cross-Game Songs row
+ * draws it (SohMenuCombo.cpp).
  */
-#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                          \
-    "Adds Majora's Mask's Song of Soaring to Ocarina of Time. Usable only as a child. If Shuffle Songs is on " \
-    "Dungeon Rewards, you must share a song or start with an Ocarina of Time song: those twelve spots cannot " \
-    "hold a thirteenth song, and Generate refuses. On Song Locations it shares the song checks of both games."
+#define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                               \
+    "Adds Majora's Mask's Song of Soaring to Ocarina of Time, usable only as a child. On Shuffle Songs: Song "      \
+    "Locations or Dungeon Rewards, Generate refuses when the songs outnumber the song checks they can use: share "  \
+    "a song or start with one (an Ocarina of Time song, for Dungeon Rewards or when Ocarina of Time items stay in " \
+    "Ocarina of Time)."
 
 /** OoT's restricted Shuffle Songs values (RO_SONG_SHUFFLE_SONG_LOCATIONS and
  *  RO_SONG_SHUFFLE_DUNGEON_REWARDS, randomizerTypes.h), the two passes with a
  *  fixed set of spots. SongOfSoaringOoT.cpp static-asserts both. */
 #define RSBS_SONG_SPOTS_SONG_LOCATIONS 1u
 #define RSBS_SONG_SPOTS_DUNGEON_REWARDS 2u
+/** OoT's Shuffle Songs: Off (RO_SONG_SHUFFLE_OFF): every song at its vanilla
+ *  check, no song pass. SongOfSoaringOoT.cpp static-asserts it. */
+#define RSBS_SONG_SPOTS_OFF 0u
 
 /**
  * How many copies of OoT's separate Song of Soaring a world whose frozen second
@@ -80,6 +95,21 @@ extern "C" {
  * family path, held back, never placed as a separate item). Pure.
  */
 uint32_t Combo_SongSoaringOoTCopies(uint32_t rules2);
+
+/**
+ * THE SONG OF SOARING (OoT)'s DOMAIN UNDER Shuffle Songs: Off (#1169 XW12, D5).
+ * Off places every OoT song at its vanilla check and the separate Song of
+ * Soaring (OoT) has none, so it waits in the pool for the general pass, the
+ * single bag. Before XW12 it could leave Ocarina of Time only when an unrelated
+ * shared song was held back (the #1085 arm), so one setting moved another item's
+ * domain. Now the song's own rule decides: true under Off (@p shuffleSongs is
+ * RSBS_SONG_SPOTS_OFF) whenever OoT pools a copy (Combo_SongSoaringOoTCopies of
+ * @p rules2), and OoT's fill arms its songs to roam, as OoTMM places an added
+ * song anywhere when songs are not on a restricted pass. Under Off no other song
+ * is in the pool, so nothing else moves; with the rule off it is false, so no
+ * rules-off world changes. Pure.
+ */
+bool Combo_SongSoaringOoTRoamsUnderOff(uint32_t shuffleSongs, uint32_t rules2);
 
 /**
  * THE OVERFLOW REFUSAL. @p songs songs for @p spots spots in the restricted song
@@ -98,6 +128,29 @@ void Combo_SongSpotsRecordRefusal(const char* msg);
 
 /** The last recorded refusal, or "" when none. Never NULL. */
 const char* Combo_SongSpotsLastRefusal(void);
+
+/* ---- Why the OoT generation refused, for the player (#1169 XW12, D4) ------
+ *
+ * Two refusals are taken on the generation worker, inside Playthrough_Init,
+ * before any paired world exists: OoT's own song pass under Shuffle Songs:
+ * Dungeon Rewards (Combo_SongSpotsOverflow) and the hidden-rules gate (a shared
+ * warp-song key set with its extension). Before XW12 both were logged only. The
+ * worker NOTES which one ended the generation; the game thread TAKES the note
+ * once, after the worker finished (OoT_SeedPackage_FileSelectTick), and raises
+ * "Not generated:" with Combo_GenRefusal_Line. The worker's last store happens
+ * before the release of its finished flag and the take after its acquire, so a
+ * plain int is enough. */
+#define RSBS_GEN_REFUSAL_NONE 0
+#define RSBS_GEN_REFUSAL_SONG_SPOTS 1  // OoT's own song pass could not hold the songs
+#define RSBS_GEN_REFUSAL_HIDDEN_RULE 2 // a rule this build does not offer yet
+
+/** Note why the generation refused (RSBS_GEN_REFUSAL_NONE clears it). */
+void Combo_GenRefusal_Note(int kind);
+/** The note, cleared as it is read. */
+int Combo_GenRefusal_Take(void);
+/** The toast's line after "Not generated:" for @p kind, or NULL for NONE and any
+ *  unknown kind. Each fits the overlay's one line after the prefix. Pure. */
+const char* Combo_GenRefusal_Line(int kind);
 
 /* ---- The added songs on the trackers (#1169 lane XW11) ---------------------- */
 

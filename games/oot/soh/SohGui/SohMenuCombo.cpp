@@ -79,7 +79,9 @@
 // gSaveContext.
 #include "combo_settings_view.h"
 #include "foreign_items.h"
-#include "triforce_hunt.h" // #1389: the Triforce Hunt rows' bound, defaults and shown counts
+#include "triforce_hunt.h"   // #1389: the Triforce Hunt rows' bound, defaults and shown counts
+#include "warp_song_items.h" // #1169 XW12: RSBS_SONG_SOARING_OOT_TOOLTIP, the Cross-Game Songs warning
+#include "warp_songs_mm.h"   // #1169 XW12: RSBS_MM_WARP_SONG_TOOLTIP_*, the six MM rows' text
 // The status sentences every randomizer page of ours shares (#1101 decision 7).
 #include "combo_mm_options_page.h"
 // #1389: OoT's own Triforce Hunt rows re-run their greying when the goal changes.
@@ -156,6 +158,72 @@ static bool comboRuleSpookyMaskMM;         // #980: the item rules' RSBS_XITEM_S
 static bool comboRuleSharedMaskGerudo;     // #980: the item rules' RSBS_XITEM_SHARED_GERUDO bit
 static bool comboRuleSharedMaskSkull;      // #980: the item rules' RSBS_XITEM_SHARED_SKULL bit
 static bool comboRuleSharedMaskSpooky;     // #980: the item rules' RSBS_XITEM_SHARED_SPOOKY bit
+
+/**
+ * #1169 XW12: the Cross-Game Songs rows, one table (the shape of
+ * SohMenuComboMmEnhancements.cpp's manifest rows). Each row authors one
+ * RSBS_XITEM2_* bit of the second rules word through its key; @c needs is the
+ * extension a SHARED row requires (COMBO_SETTING_COUNT for an extension), and
+ * @c needsOff that row's disabled reason, a literal so it outlives the frame
+ * (WidgetOptions::disabledTooltip is a const char*). @c value is the row's
+ * ValuePointer storage: the table is static, so it outlives the menu.
+ */
+struct ComboWarpSongRow {
+    ComboSettingId id;
+    uint32_t bit;
+    ComboSettingId needs;
+    const char* tooltip;
+    const char* needsOff;
+    bool value;
+};
+
+// OoTMM's order (data.ts, items.extensions.crossGame.songs): songSoaringOot,
+// songMinuetMm .. songPreludeMm, then sharedSongSoaring .. sharedSongPrelude.
+static ComboWarpSongRow sComboWarpSongRows[] = {
+    { COMBO_SETTING_SONG_SOARING_OOT, RSBS_XITEM2_SONG_SOARING_OOT, COMBO_SETTING_COUNT, RSBS_SONG_SOARING_OOT_TOOLTIP,
+      nullptr, false },
+    { COMBO_SETTING_SONG_MINUET_MM, RSBS_XITEM2_SONG_MINUET_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_MINUET,
+      nullptr, false },
+    { COMBO_SETTING_SONG_BOLERO_MM, RSBS_XITEM2_SONG_BOLERO_MM, COMBO_SETTING_COUNT, RSBS_MM_WARP_SONG_TOOLTIP_BOLERO,
+      nullptr, false },
+    { COMBO_SETTING_SONG_SERENADE_MM, RSBS_XITEM2_SONG_SERENADE_MM, COMBO_SETTING_COUNT,
+      RSBS_MM_WARP_SONG_TOOLTIP_SERENADE, nullptr, false },
+    { COMBO_SETTING_SONG_REQUIEM_MM, RSBS_XITEM2_SONG_REQUIEM_MM, COMBO_SETTING_COUNT,
+      RSBS_MM_WARP_SONG_TOOLTIP_REQUIEM, nullptr, false },
+    { COMBO_SETTING_SONG_NOCTURNE_MM, RSBS_XITEM2_SONG_NOCTURNE_MM, COMBO_SETTING_COUNT,
+      RSBS_MM_WARP_SONG_TOOLTIP_NOCTURNE, nullptr, false },
+    { COMBO_SETTING_SONG_PRELUDE_MM, RSBS_XITEM2_SONG_PRELUDE_MM, COMBO_SETTING_COUNT,
+      RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE, nullptr, false },
+    { COMBO_SETTING_SHARED_SONG_SOARING, RSBS_XITEM2_SHARED_SONG_SOARING, COMBO_SETTING_SONG_SOARING_OOT,
+      "Makes the Song of Soaring one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Song of Soaring is shuffled, and both games' logic counts it. Needs Song of Soaring (OoT).",
+      "This setting is disabled because: \n\n- Song of Soaring (OoT) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_MINUET, RSBS_XITEM2_SHARED_SONG_MINUET, COMBO_SETTING_SONG_MINUET_MM,
+      "Makes the Minuet of Forest one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Minuet of Forest is shuffled, and both games' logic counts it. Needs Minuet of Forest (MM).",
+      "This setting is disabled because: \n\n- Minuet of Forest (MM) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_BOLERO, RSBS_XITEM2_SHARED_SONG_BOLERO, COMBO_SETTING_SONG_BOLERO_MM,
+      "Makes the Bolero of Fire one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Bolero of Fire is shuffled, and both games' logic counts it. Needs Bolero of Fire (MM).",
+      "This setting is disabled because: \n\n- Bolero of Fire (MM) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_SERENADE, RSBS_XITEM2_SHARED_SONG_SERENADE, COMBO_SETTING_SONG_SERENADE_MM,
+      "Makes the Serenade of Water one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Serenade of Water is shuffled, and both games' logic counts it. Needs Serenade of Water (MM).",
+      "This setting is disabled because: \n\n- Serenade of Water (MM) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_REQUIEM, RSBS_XITEM2_SHARED_SONG_REQUIEM, COMBO_SETTING_SONG_REQUIEM_MM,
+      "Makes the Requiem of Spirit one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Requiem of Spirit is shuffled, and both games' logic counts it. Needs Requiem of Spirit (MM).",
+      "This setting is disabled because: \n\n- Requiem of Spirit (MM) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_NOCTURNE, COMBO_SETTING_SONG_NOCTURNE_MM,
+      "Makes the Nocturne of Shadow one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Nocturne of Shadow is shuffled, and both games' logic counts it. Needs Nocturne of Shadow "
+      "(MM).",
+      "This setting is disabled because: \n\n- Nocturne of Shadow (MM) Is Off", false },
+    { COMBO_SETTING_SHARED_SONG_PRELUDE, RSBS_XITEM2_SHARED_SONG_PRELUDE, COMBO_SETTING_SONG_PRELUDE_MM,
+      "Makes the Prelude of Light one item across both games: finding it in either game gives it to you in the "
+      "other. Only one Prelude of Light is shuffled, and both games' logic counts it. Needs Prelude of Light (MM).",
+      "This setting is disabled because: \n\n- Prelude of Light (MM) Is Off", false },
+};
 
 // The four pinned RSBS_COMBO_DIR_* enumerators (1..4, static_asserted in
 // foreign_items.h because they are .redsave format). Short Title Case values,
@@ -1318,6 +1386,46 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
                               "Short (~6s): About 6 seconds.\n"
                               "Long (~25s): About 25 seconds.\n"
                               "Very Long (~51s): About 51 seconds."));
+
+    // ---- Cross-Game Songs (#1169 XW12) ---------------------------------------
+    // OoTMM's own section after Cross-Game Masks (items.extensions.crossGame.songs),
+    // in its order: the Song of Soaring added to Ocarina of Time, Ocarina of Time's
+    // six warp songs added to Majora's Mask, then their shared variants. A row is
+    // drawn only while this build OFFERS its rule (Combo_ComboItemRule2Offered):
+    // the six MM rows stay undrawn until the row IntMMWarpSongMinuet exists, and
+    // the seven shared rows until lane XW10 builds their family; each appears when
+    // its bit leaves RSBS_XITEM2_HIDDEN, with no change here. A shared row shows
+    // its dependency as the shared masks do: greyed, with that reason, while its
+    // extension is off (the resolver drops it). No row is greyed because the songs
+    // would not fit the song checks (operator ruling 2026-11-04, decision 2):
+    // Generate refuses, and the tooltips warn.
+    menu.AddWidget(path, "Cross-Game Songs", WIDGET_SEPARATOR_TEXT);
+    for (ComboWarpSongRow& entry : sComboWarpSongRows) {
+        ComboWarpSongRow* const row = &entry;
+        menu.AddWidget(path, ComboRuleRowName(row->id), WIDGET_CHECKBOX)
+            .ValuePointer(&row->value)
+            .PreFunc([row](WidgetInfo& info) {
+                if (!Combo_ComboItemRule2Offered(row->bit)) {
+                    // MenuDrawItem resets isHidden before every draw, and a hidden
+                    // row is kept out of the menu search too.
+                    info.isHidden = true;
+                    return;
+                }
+                const bool decided = Combo_ComboSettingsFrozen();
+                row->value = decided ? Combo_ComboCrossItemRule2(row->bit) : Combo_ComboSettingResolved(row->id) != 0;
+                if (!decided && row->needs != COMBO_SETTING_COUNT && Combo_ComboSettingResolved(row->needs) == 0) {
+                    // Shows off, the value the resolver freezes without the extension
+                    // (Combo_ResolveComboItemRules2 drops the bit); the key keeps its
+                    // value for when the extension comes back on.
+                    row->value = false;
+                    info.options->disabled = true;
+                    info.options->disabledTooltip = row->needsOff;
+                }
+                ComboRuleApplyDecided(info, decided);
+            })
+            .Callback([row](WidgetInfo& info) { Combo_ComboSettingSet(row->id, row->value ? 1 : 0); })
+            .Options(CheckboxOptions().Tooltip(row->tooltip));
+    }
 
     // Reset confirms first, as SoH's destructive buttons do ("Clear Config",
     // SohMenuSettings.cpp); the popup's own Reset button does the work.

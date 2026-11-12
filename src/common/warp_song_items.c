@@ -25,6 +25,10 @@ uint32_t Combo_SongSoaringOoTCopies(uint32_t rules2) {
     return 1u;
 }
 
+bool Combo_SongSoaringOoTRoamsUnderOff(uint32_t shuffleSongs, uint32_t rules2) {
+    return shuffleSongs == (uint32_t)RSBS_SONG_SPOTS_OFF && Combo_SongSoaringOoTCopies(rules2) > 0u;
+}
+
 uint32_t Combo_SongSpotsOverflow(uint32_t songs, uint32_t spots, uint32_t mode, bool soaringOoT, char* msg,
                                  size_t len) {
     const uint32_t over = songs > spots ? songs - spots : 0u;
@@ -60,6 +64,31 @@ void Combo_SongSpotsRecordRefusal(const char* msg) {
 
 const char* Combo_SongSpotsLastRefusal(void) {
     return sSongSpotsLastRefusal;
+}
+
+// #1169 XW12 (D4): why the OoT generation refused, from the worker to the game
+// thread. The ordering argument is in warp_song_items.h.
+static int sGenRefusalNote = RSBS_GEN_REFUSAL_NONE;
+
+void Combo_GenRefusal_Note(int kind) {
+    sGenRefusalNote = kind;
+}
+
+int Combo_GenRefusal_Take(void) {
+    const int kind = sGenRefusalNote;
+    sGenRefusalNote = RSBS_GEN_REFUSAL_NONE;
+    return kind;
+}
+
+const char* Combo_GenRefusal_Line(int kind) {
+    switch (kind) {
+        case RSBS_GEN_REFUSAL_SONG_SPOTS:
+            return "too many songs for the song spots.";
+        case RSBS_GEN_REFUSAL_HIDDEN_RULE:
+            return "a rule needs a later build.";
+        default:
+            return NULL;
+    }
 }
 
 // ---- #1169 XW11: the added songs on the trackers -------------------------------

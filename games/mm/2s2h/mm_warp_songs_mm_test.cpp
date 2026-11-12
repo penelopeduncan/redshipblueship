@@ -49,8 +49,10 @@
 #include "combo_single_bag.h"    // src/common: the creation's commit (Combo_SingleBag_Forget)
 #include "combo_song_pool.h"     // src/common: OoT's Shuffle Songs key (#1542)
 #include "context.h"             // src/common: gComboCtx, the frozen states
+#include "crossing_store.h"      // src/common: the store a refused creation leaves empty (#1169 XW12)
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
 #include "mm_warp_song_play.h"   // src/common: the creation's warp-song record (#1169 XW7)
+#include "seed_package.h"        // src/common: Generate's completion and its statuses (#1169 XW12)
 #include "warp_songs_mm.h"       // src/common: the ownership byte
 
 extern "C" {
@@ -250,6 +252,19 @@ extern "C" int MM_WarpSongsTest_FreezeAndRestore(void) {
     return Context_RestoreState(GAME_MM, &gSaveContext, sizeof(SaveContext)) != 0 ? 1 : 0;
 }
 
+/** #1169 XW12 (D7): the Song of Time's reset, headless: the REAL
+ *  Sram_SaveEndOfCycle over a zeroed stand-in PlayState, as
+ *  mm_cycle_keep_items_test.cpp's PlaySongOfTime runs it. 1 when it ran. */
+extern "C" int MM_WarpSongsTest_EndOfCycle(void) {
+    static PlayState sWarpSongsStandIn;
+    memset(&sWarpSongsStandIn, 0, sizeof(sWarpSongsStandIn));
+    PlayState* const previous = MM_gPlayState;
+    MM_gPlayState = &sWarpSongsStandIn;
+    Sram_SaveEndOfCycle(&sWarpSongsStandIn);
+    MM_gPlayState = previous;
+    return 1;
+}
+
 // ============================================================================
 // mm-warp-songs-pooled-only-when-rule-on (rando tier)
 // ============================================================================
@@ -337,12 +352,12 @@ int PlacedInWorld(RandoItemId id) {
 
 /**
  * One leg: a paired creation with the six extension keys on when `extensions`, the
- * Shared Minuet of Forest too when `sharedMinuet`, through the seam when either is
- * on. Checks the frozen word, MM's pool over the half's own persisted input (one
- * copy of each song whose rule is on and whose shared song is off), the world (every
- * pool copy placed) and the ownership byte (nothing owned: the world starts with no
- * warp song, and the bag's simulated rounds gave none to the player). 1 when the
- * creation ran.
+ * Shared Minuet of Forest too when `sharedMinuet`, through the MM seam (the six
+ * stay hidden until IntMMWarpSongMinuet, #1169 XW12) or the full one. Checks the
+ * frozen word, MM's pool over the half's own persisted input (one copy of each song
+ * whose rule is on and whose shared song is off), the world (every pool copy placed)
+ * and the ownership byte (nothing owned: the world starts with no warp song, and the
+ * bag's simulated rounds gave none to the player). 1 when the creation ran.
  */
 int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinuet) {
     // Before this leg's generation places anything: the previous leg's world is
@@ -358,9 +373,13 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
     if (sharedMinuet) {
         CVarSetInteger(Combo_ComboSettingKey(kSharedKeys[0]), 1);
     }
-    // THE TEST SEAM: the hidden warp-song rules read as offered, as they will once
-    // lane XW12 lands, so Generate (and the half's own compares) take the world.
-    Combo_ComboItemRules2RevealForTest(extensions || sharedMinuet ? 1 : 0);
+    // THE TEST SEAM: the six extensions stay hidden until IntMMWarpSongMinuet
+    // (#1169 XW12), so a leg with them reveals them alone (the shared songs still
+    // refused); the Shared Minuet of Forest stays hidden until XW10, so only that
+    // leg reads the mask empty.
+    Combo_ComboItemRules2RevealForTest(sharedMinuet ? RSBS_XITEM2_REVEAL_ALL
+                                       : extensions ? RSBS_XITEM2_REVEAL_MM_SONGS
+                                                    : RSBS_XITEM2_REVEAL_NONE);
     // Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
     // takes the six warp songs too, and 12 OoT + 16 MM songs (27 with the Shared
     // Minuet) for the 23 song checks of both games refuse by design, OoTMM's
@@ -451,6 +470,12 @@ int OoT_WarpSongRecord_TestHintArea(int song);
 uint16_t OoT_ComboLogic_TestTravelGraphDest(int song);
 // SeedPackageSingleExe.cpp: a package's world-record copy and its apply.
 int OoT_SeedPackage_WorldRecordRoundTripForTest(const ComboContext* live, ComboContext* outRecordBytes);
+// #1169 XW12 (D3): the freeze's malformed-record seam (WarpSongRecordOoT.cpp), the
+// staged generation (ForeignItemsSingleExe.cpp), Generate's completion
+// (seed_package.h) and the crossing store's count (crossing_store.h).
+void OoT_Creation_TestForceWarpRecordInvalid(int on);
+void OoT_Creation_TestStageGeneration(void);
+int OoT_Creation_TestClearPairedSpoiler(void);
 }
 
 namespace {
@@ -490,13 +515,103 @@ void WsrClearKeys() {
     CVarClear(kWsrHintsKey);
 }
 
-/** Both keys cleared and the last world forgotten however the row ends. */
+/** Both keys cleared, the D3 seam and the Minuet key put back, and the last world
+ *  forgotten however the row ends. */
 struct WsrRestore {
     ~WsrRestore() {
         WsrClearKeys();
+        OoT_Creation_TestForceWarpRecordInvalid(0);
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
+        Combo_ComboItemRules2RevealForTest(0);
         ForgetCreatedWorld();
     }
 };
+
+/**
+ * #1169 XW12 (D3): THE RECORD INVARIANT AT CREATION. With the freeze's seam forcing
+ * a malformed record, three real paired creations, the rule set by its key under the
+ * MM seam (the six MM extensions are hidden until IntMMWarpSongMinuet):
+ *   (r1) Minuet of Forest (MM) on, OoT's side of the tail alone: it returns -3, the
+ *        crossing store is empty and the record UNSET;
+ *   (r2) the same through Generate's completion: refused
+ *        (RSBS_SEEDPKG_ERR_GENERATION), the identity retracted and nothing frozen;
+ *   (r3) the rule off, the same seam: the tail succeeds and the record stays UNSET
+ *        (as before XW12, an UNSET record fails nothing when no MM rule is on).
+ * Remove the D3 branch in OoT_Creation_FinishPairedHalf and (r1) returns a crossing
+ * count, (r2) creates; drop its rule test and (r3) fails.
+ */
+void WsrRunRefusalLegs() {
+    const char* const minuetKey = Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM);
+    // The MM seam: the six extensions stay hidden until IntMMWarpSongMinuet
+    // (#1169 XW12), and Generate refuses a hidden rule before the record's tail
+    // runs, so without it (r1) and (r2) could not tell D3 from the hidden gate.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+    if (!Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM)) {
+        WsrCheck(false, "D3", "Minuet of Forest (MM) is not offered under the MM seam");
+        Combo_ComboItemRules2RevealForTest(0);
+        return;
+    }
+    for (int leg = 1; leg <= 3; leg++) {
+        const char* const name = leg == 1   ? "D3 (r1) Minuet, tail"
+                                 : leg == 2 ? "D3 (r2) Minuet, completion"
+                                            : "D3 (r3) rules off, tail";
+        ForgetCreatedWorld();
+        ComboContext_Init();
+        WsrClearKeys();
+        CVarClear(minuetKey);
+        if (leg != 3) {
+            CVarSetInteger(minuetKey, 1);
+        }
+        OoT_Creation_TestForceWarpRecordInvalid(1);
+        int rc = Rando_HeadlessSeedTest("RSBSXW12RECORDD3");
+        if (rc != 0 || !Combo_ForeignPairingActive() || !OoT_ComboLogic_GeneralPassDeferred()) {
+            WsrCheck(false, name, "the paired OoT generation did not leave a paired world at its general pass");
+            OoT_Creation_TestForceWarpRecordInvalid(0);
+            continue;
+        }
+        const bool ruleFrozen = Combo_ComboCrossItemRule2(RSBS_XITEM2_SONG_MINUET_MM);
+        WsrCheck(ruleFrozen == (leg != 3), name, "the frozen word does not hold the Minuet rule as the key says");
+        if (leg == 2) {
+            OoT_Creation_TestClearPairedSpoiler();
+            OoT_Creation_TestStageGeneration();
+            const int completed = OoT_SeedPackage_TestCompleteWorld();
+            const int crossingsLeft = Combo_Crossings_Count(GAME_OOT) + Combo_Crossings_Count(GAME_MM);
+            printf("[TEST] oot-warp-song-record: %s: completion %d (want %d), pairing active %d, frozen %d, "
+                   "crossings left %d, record %d\n",
+                   name, completed, (int)RSBS_SEEDPKG_ERR_GENERATION, Combo_ForeignPairingActive() ? 1 : 0,
+                   Combo_ComboSettingsFrozen() ? 1 : 0, crossingsLeft, Combo_OoTWarpRecord_Status());
+            WsrCheck(completed == RSBS_SEEDPKG_ERR_GENERATION && !Combo_ForeignPairingActive() &&
+                         !Combo_ComboSettingsFrozen() && crossingsLeft == 0 &&
+                         Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_UNSET,
+                     name,
+                     "GENERATE CREATED (or left identity, crossings or a record behind) a world whose Majora's Mask "
+                     "warp song has no recorded destination");
+        } else {
+            rc = MM_Rando_HeadlessPairedHalf();
+            if (rc != 0) {
+                WsrCheck(false, name, "MM's creation-time half did not produce a rando world");
+                OoT_Creation_TestForceWarpRecordInvalid(0);
+                continue;
+            }
+            const int crossings = OoT_Creation_FinishPairedHalf(0);
+            const int crossingsLeft = Combo_Crossings_Count(GAME_OOT) + Combo_Crossings_Count(GAME_MM);
+            printf("[TEST] oot-warp-song-record: %s: tail %d, crossings left %d, record %d\n", name, crossings,
+                   crossingsLeft, Combo_OoTWarpRecord_Status());
+            if (leg == 1) {
+                WsrCheck(crossings == -3 && crossingsLeft == 0 &&
+                             Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_UNSET,
+                         name, "THE TAIL DID NOT FAIL (-3) with the Minuet on and no record, or left crossings behind");
+            } else {
+                WsrCheck(crossings >= 0 && Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_UNSET, name,
+                         "with every MM warp-song rule off an unrecordable world must still create, record UNSET");
+            }
+        }
+        OoT_Creation_TestForceWarpRecordInvalid(0);
+        CVarClear(minuetKey);
+    }
+    Combo_ComboItemRules2RevealForTest(0);
+    ForgetCreatedWorld();
+}
 
 /**
  * One leg: a real paired creation (OoT's Generate, MM's creation-time half, OoT's
@@ -615,6 +730,7 @@ extern "C" int MM_WarpSongRecordWorld_RunHeadless(void) {
     WsrRunLeg("shuffled, hints on", "RSBSXW7RECORD1", true, true);
     WsrRunLeg("shuffled, hints off", "RSBSXW7RECORD2", true, false);
     WsrRunLeg("unshuffled", "RSBSXW7RECORD0", false, false);
+    WsrRunRefusalLegs();
     if (sWsrFailures != 0) {
         printf("[TEST] FAIL: oot-warp-song-record: %d contract(s) broken\n", sWsrFailures);
         return 1;
