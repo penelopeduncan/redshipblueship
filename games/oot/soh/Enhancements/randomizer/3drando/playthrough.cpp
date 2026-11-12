@@ -25,6 +25,7 @@
 #include "combo_goal.h"    // src/common — Combo_GoalKeepsOwnHuntWin (#768)
 #include "gen_budget.h" // src/common — the #582 progress surface (OoT's half)
 #include "shared_resources.h" // src/common — Combo_FreezeFillWalletsAtCreation (#1284)
+#include "combo_song_pool.h" // src/common — the pair's one songs setting (#1542)
 // ComboLogicEngineOoT.cpp: the paired world's general pass, deferred to the
 // single-bag fill at the creation event (ADR 0010 increment 3, lane K11).
 extern "C" void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
@@ -757,7 +758,11 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     Combo_SnapshotCreationRecords(&rsbsPriorCreationRecords);
     const uint32_t rsbsPriorGiveCaps = Combo_ForeignGiveCaps((uint8_t)GAME_MM);
     const bool rsbsPriorGiveCapsPublished = Combo_ForeignGiveCapsPublished((uint8_t)GAME_MM);
+    // #1542: OoT's Shuffle Songs capture, recorded just before the MM profile
+    // stamp below and rolled back with it.
+    const int16_t rsbsPriorSongsCapture = Combo_PairSongsSnapshot();
     auto rsbsRollbackFreeze = [&]() {
+        Combo_PairSongsRestore(rsbsPriorSongsCapture);
         gComboCtx.sourceIsRando = rsbsPriorSourceIsRando;
         gComboCtx.sharedRandoSeed = rsbsPriorSeed;
         gComboCtx.sharedRandoSettingsHash = rsbsPriorSettingsHash;
@@ -852,6 +857,16 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
     // from the CVars through the SAME computation MM's arrival re-runs to
     // compare; a mismatch at arrival is refused through the #533 machinery,
     // never honored. This is its ONLY writer for post-freeze pairs.
+    //
+    // #1542 (operator ruling 2026-11-10, D2; OoTMM `songs`): the pair has ONE
+    // songs setting and Majora's Mask's follows this one. OoT's finalized value
+    // (FoldSettingsString above already folded it, and nothing writes the option
+    // after it) is captured first, so the stamp below and MM's half, which the
+    // completion generates later and possibly after the file-create
+    // invalidation, resolve the same MM value from it and never from a key
+    // (combo_song_pool.h). Both early-return gates are above, so a refused
+    // Generate captures nothing; a later failure rolls it back.
+    Combo_PairSongsCapture((uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get());
     gComboCtx.mmProfileDigest = MM_Rando_ComputeProfileStamp();
     // #1175: MM's Keep Items on Cycle Reset freezes in the same act from the same
     // key the stamp above folds (when on), so the byte play reads and the identity

@@ -1244,6 +1244,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // over real paired OoT generations through the hidden-bit test seam. FILE SCOPE
 // (compiled as C++).
 #include "tests/test_song_soaring_oot.c"
+// #1542 (D2): the pair's one songs setting: OoT's Shuffle Songs onto MM's and the
+// creation capture MM's half reads, its KEEP/DROP rule and its call sites
+// (pair-songs-mapping, ROM-free, generation-free). FILE SCOPE (compiled as C++).
+#include "tests/test_combo_song_pool.c"
 // #1169 lane XW6: OoT's Song of Soaring to a Termina owl: the owls and MM's
 // frozen owl flags (soaring-owl-table), the gates and the chooser
 // (oot-soaring-gates), and OoT's real free-play checker (oot-soaring-matcher).
@@ -7679,6 +7683,21 @@ TestResult Test_MMPlacementConfinement(void) {
     return MM_PlacementConfinement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1542 (D2): the pair's one songs setting, pure plus source anchors; the KEEP and
+// DROP invalidations need the CVar store, so MM_RandoOptions' bring-up.
+TestResult Test_PairSongsMapping(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return PairSongsMapping_Run();
+}
+
 // Paired MM PROFILE lock (#499 steps 2-4). Drives the real resolver over a
 // zeroed MM SaveContext — no fill, no region graph, no window — which is the
 // whole point of extracting it out of OnFileCreate.
@@ -9654,6 +9673,10 @@ const TestDescriptor gTests[] = {
       "MM's Own Dungeon and Song Locations reach the single bag as host groups that agree with 2Ship's rule, the "
       "defaults confine nothing, and the four placement options fold by name only when set (#1502)",
       Test_MMPlacementConfinement },
+    { "pair-songs-mapping",
+      "Majora's Mask's Shuffle Songs follows Ocarina of Time's through one mapping, captured at the freeze, kept "
+      "through the file-create invalidation and cleared once MM's half is made (#1542)",
+      Test_PairSongsMapping },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section
@@ -10541,8 +10564,8 @@ const TestDescriptor gTests[] = {
       "song (#1085)",
       Test_SharedSongsOneCopyAnywhere },
     { "shared-songs-one-copy-mm-vanilla",
-      "With MM's Shuffle Songs at Vanilla, each shared song is still ONE copy over both games: MM's copy leaves its "
-      "vanilla check to the bag's shared row (#1502)",
+      "With MM's own Shuffle Songs key at Vanilla and OoT's at Anywhere, MM's half follows OoT's (Anywhere) and each "
+      "shared song is still ONE copy over both games (#1502, #1542)",
       Test_SharedSongsOneCopyMMVanilla },
     { "mm-placement-confined-world",
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "

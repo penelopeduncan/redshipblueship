@@ -220,6 +220,9 @@ set(REDSHIP_COMMON_SOURCES
     # refusal when the restricted song pass has more songs than spots.
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.c
+    # #1542 D2: the pair's one songs setting: OoT's Shuffle Songs onto MM's, and
+    # the creation capture MM's paired resolution reads. Game-header-free.
+    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.c
     # #1169 XW6: OoT's Song of Soaring to a Termina owl, the game-neutral half:
     # the note matcher, the gates, the chooser's answers, MM's owl table and the
     # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
@@ -349,6 +352,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/critical_renewables.h
     # Header for warp_song_items.c above (#1169 XW4)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
+    # Header for combo_song_pool.c above (#1542)
+    ${CMAKE_SOURCE_DIR}/src/common/combo_song_pool.h
     # Header for warp_song_soaring.c above (#1169 XW6)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
     # Header for warp_songs_mm.c above (#1169 XW5)
@@ -954,7 +959,13 @@ if(BUILD_TESTING)
     # (the registered MM engine's `hostGroups` against 2Ship's IsItemAllowedAtCheck,
     # the defaults confining nothing) and the four placement options' fold into
     # the MM seed and identity strings, pinned. Display-free like the two above.
+    # #1542 extends it with leg (g): MM's paired Shuffle Songs follows OoT's.
     redship_add_test(NAME MMPlacementConfinement COMMAND redship --test mm-placement-confinement)
+    # #1542 (D2): the pair's one songs setting. PairSongsMapping: OoT's four Shuffle
+    # Songs values onto MM's three, the creation capture (held, rolled back, KEPT by
+    # the file-create invalidation, dropped by DROP) and its call sites from source.
+    # ROM-free, generates nothing (src/common/tests/test_combo_song_pool.c).
+    redship_add_test(NAME PairSongsMapping COMMAND redship --test pair-songs-mapping)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
@@ -3428,8 +3439,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
-    # #1502: the same with MM's Shuffle Songs at Vanilla, where MM's copy must leave
-    # its vanilla check to the bag's one shared row (counted over every MM check).
+    # #1502: the same with MM's Shuffle Songs key at Vanilla. #1542: MM's row follows
+    # OoT's Shuffle Songs (Anywhere here), so the row now proves MM's key is ignored
+    # for a paired world; under OoT Off (the -off row) MM is Vanilla and its copy
+    # must leave its vanilla check to the bag's one shared row.
     redship_add_test(NAME SharedSongsOneCopyMMVanilla COMMAND redship --test shared-songs-one-copy-mm-vanilla
         LABEL rando
         TIMEOUT 600

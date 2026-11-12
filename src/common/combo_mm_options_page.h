@@ -166,14 +166,20 @@ typedef enum {
 #define COMBO_MM_OPTION_NAME_TRIFORCE_MAX "RO_TRIFORCE_PIECES_MAX"
 #define COMBO_MM_OPTION_NAME_TRIFORCE_REQUIRED "RO_TRIFORCE_PIECES_REQUIRED"
 
+/** The MM option Ocarina of Time's Shuffle Songs decides in a paired world
+ *  (#1542), by its StaticData name. */
+#define COMBO_MM_OPTION_NAME_SHUFFLE_SONGS "RO_SHUFFLE_SONGS"
+
 /** True for the option row a [Both Games] rule decides (#1367: MM's Logic;
  *  #1389: MM's three Triforce Hunt rows, while the goal the rows show is the
- *  triforce hunt, Combo_ComboSettingsTriforceHuntShown). */
+ *  triforce hunt, Combo_ComboSettingsTriforceHuntShown; #1542: MM's Shuffle
+ *  Songs, which follows Ocarina of Time's). */
 bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc);
 
 /** The reason a row Combo_MMOptionsPage_OptionSetByCombo names is read-only:
- *  COMBO_LOGIC_SET_BY_COMBO_REASON or COMBO_TRIFORCE_SET_BY_COMBO_REASON
- *  (combo_settings_view.h); "" for any other row. Never NULL. */
+ *  COMBO_LOGIC_SET_BY_COMBO_REASON, COMBO_TRIFORCE_SET_BY_COMBO_REASON or
+ *  COMBO_SONGS_SET_BY_OOT_REASON (combo_settings_view.h); "" for any other row.
+ *  Never NULL. */
 const char* Combo_MMOptionsPage_OptionSetByComboReason(const ComboMMOptionDesc* desc);
 
 /**
@@ -188,7 +194,8 @@ ComboMMRowState Combo_MMOptionsPage_OptionState(const ComboMMOptionDesc* desc, c
  * The value an option row shows: Combo_MMOptionGetValue (its key, or its
  * default), except for a row a [Both Games] rule decides, which shows what that
  * rule resolves to (#1367: MM's Logic shows MM_Rando_PairedLogicShown, never a
- * value left in its key). 0 for NULL.
+ * value left in its key; #1542: MM's Shuffle Songs shows MM_Rando_PairedSongsShown).
+ * 0 for NULL.
  */
 int32_t Combo_MMOptionsPage_OptionShownValue(const ComboMMOptionDesc* desc);
 

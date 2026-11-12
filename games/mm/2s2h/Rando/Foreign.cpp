@@ -74,6 +74,7 @@
 #include "combo_mm_options_view.h"
 #include "combo_mm_tricks_view.h" // the trick labels the load-time restore names
 #include "triforce_hunt.h"        // #1389: the [Both Games] Triforce Hunt split MM's half follows
+#include "combo_song_pool.h"      // #1542: the pair's one songs setting MM's half follows
 
 #include <algorithm>
 #include <cstddef>
@@ -273,6 +274,42 @@ static void ApplyPairedTriforce(uint32_t* values) {
     values[RO_TRIFORCE_PIECES_REQUIRED] = on ? (uint32_t)mmHalf.required : (uint32_t)DEFAULT_TRIFORCE_PIECES_MAX;
 }
 
+static_assert(RSBS_MM_SONGS_ANYWHERE == (unsigned)RO_SONG_SHUFFLE_ANYWHERE &&
+                  RSBS_MM_SONGS_SONG_LOCATIONS == (unsigned)RO_SONG_SHUFFLE_SONG_LOCATIONS &&
+                  RSBS_MM_SONGS_VANILLA == (unsigned)RO_SONG_SHUFFLE_VANILLA,
+              "combo_song_pool.h's MM Shuffle Songs values must be Rando/Types.h's");
+
+/** #1542 (operator ruling 2026-11-10, D2; OoTMM `songs`, one setting for both
+ *  games): a paired world's RO_SHUFFLE_SONGS follows OoT's Shuffle Songs, the
+ *  creation capture when one is held (the freeze to the completion), else OoT's
+ *  key (the pane's preview). MM's own key is never read for a paired world. */
+static uint32_t ResolvedPairedSongs() {
+    const int32_t ootKey = CVarGetInteger(RSBS_OOT_SHUFFLE_SONGS_CVAR, RSBS_OOT_SHUFFLE_SONGS_DEFAULT);
+    const uint32_t ootValue =
+        Combo_PairSongsOoTValue(ootKey < 0 ? (uint32_t)RSBS_OOT_SHUFFLE_SONGS_DEFAULT : (uint32_t)ootKey);
+    return Combo_PairSongsMmValue(ootValue);
+}
+
+/** #1542: MM's Shuffle Songs values in the order a compare tries them, @p first
+ *  (the resolved one) first, into @p out (RSBS_MM_SONGS_VALUE_COUNT entries).
+ *  Returns how many were written. A frozen paired world's row is a pure function
+ *  of OoT's setting, which OoT's own identity guards, so every compare of a
+ *  frozen MM profile tries all three: the MM compare must not depend on the row,
+ *  and a world frozen before #1542 (its value from MM's own key) keeps matching. */
+static int PairedSongsCandidates(uint32_t first, uint32_t* out) {
+    static constexpr uint32_t kValues[RSBS_MM_SONGS_VALUE_COUNT] = { RSBS_MM_SONGS_ANYWHERE,
+                                                                     RSBS_MM_SONGS_SONG_LOCATIONS,
+                                                                     RSBS_MM_SONGS_VANILLA };
+    int n = 0;
+    out[n++] = first;
+    for (const uint32_t value : kValues) {
+        if (value != first) {
+            out[n++] = value;
+        }
+    }
+    return n;
+}
+
 /** RO_LOGIC as MM's own row resolved it before #1367: the key's value when the
  *  player set it, else Glitchless (ADR 0010 increment 1.1's default). */
 static uint32_t AuthoredPairedLogic() {
@@ -323,6 +360,12 @@ static void ResolveProfileValues(uint32_t* values, bool paired,
     // (2b) #1389: the pair's Triforce Hunt, before the logic's early return so
     // both logic candidates derive it (it is no part of either's question).
     ApplyPairedTriforce(values);
+
+    // (2c) #1542 (D2): the pair's one songs setting. MM's Shuffle Songs follows
+    // OoT's (combo_song_pool.h's mapping), before the logic's early return for
+    // the same reason as (2b). Derived inside the shared resolution and never
+    // written to MM's key.
+    values[RO_SHUFFLE_SONGS] = ResolvedPairedSongs();
 
     // (3) The paired logic. #1367 (operator ruling 2026-11-02): a paired world's
     // strictness is ONE [Both Games] choice, the combo rung, and MM's own Logic
@@ -764,26 +807,58 @@ uint32_t ResolvePairedProfile(bool paired) {
     uint32_t digest = DigestFromIdentity(
         ProfileIdentityString(values.data(), tricks.data(), trapTypes, moonCrash,
                               gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks, keepItemsReset));
+    // #1542: the Shuffle Songs values a compare tries, the resolved one first
+    // (PairedSongsCandidates). With the creation capture held (the completion,
+    // every world since #1542) the first matches; without it (a legacy arrival
+    // generating a pair with no half) OoT's key decided the value, and the frozen
+    // stamp says which of MM's values the world was made with.
+    uint32_t songsCandidates[RSBS_MM_SONGS_VALUE_COUNT];
+    const int songsCount = PairedSongsCandidates(values[RO_SHUFFLE_SONGS], songsCandidates);
+    if (gComboCtx.mmProfileDigest != 0 && gComboCtx.mmProfileDigest != digest) {
+        for (int s = 1; s < songsCount; s++) {
+            std::vector<uint32_t> candidate(values);
+            candidate[RO_SHUFFLE_SONGS] = songsCandidates[s];
+            const uint32_t candidateDigest = DigestFromIdentity(
+                ProfileIdentityString(candidate.data(), tricks.data(), trapTypes, moonCrash,
+                                      gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks, keepItemsReset));
+            if (candidateDigest != gComboCtx.mmProfileDigest) {
+                continue;
+            }
+            fprintf(stderr,
+                    "[MM] profile: the stamp %08X was made with MM Shuffle Songs %u, not the %u OoT's key gives now; "
+                    "the world's own value is kept (#1542)\n",
+                    (unsigned)candidateDigest, (unsigned)songsCandidates[s], (unsigned)values[RO_SHUFFLE_SONGS]);
+            values[RO_SHUFFLE_SONGS] = songsCandidates[s];
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = songsCandidates[s];
+            digest = candidateDigest;
+            break;
+        }
+    }
     if (gComboCtx.mmProfileDigest != 0 && gComboCtx.mmProfileDigest != digest) {
         // #1367: a world stamped before [Both Games] Logic took RO_LOGIC from MM's
         // own row (PairedLogicSource::Authored). Re-resolved under that rule, the
         // same inputs give that world's own stamp, and its half is resolved with
-        // its own logic; any other mismatch still refuses below.
+        // its own logic; any other mismatch still refuses below. Every such world
+        // predates #1542 too, so each Shuffle Songs value is tried with it.
         const uint32_t authored = AuthoredPairedLogic();
-        if (authored != values[RO_LOGIC]) {
+        for (int s = 0; s < songsCount && authored != values[RO_LOGIC]; s++) {
             std::vector<uint32_t> legacy(values);
             legacy[RO_LOGIC] = authored;
+            legacy[RO_SHUFFLE_SONGS] = songsCandidates[s];
             const uint32_t legacyDigest = DigestFromIdentity(
                 ProfileIdentityString(legacy.data(), tricks.data(), trapTypes, moonCrash,
                                       gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks, keepItemsReset));
             if (legacyDigest == gComboCtx.mmProfileDigest) {
                 fprintf(stderr,
                         "[MM] profile: the stamp %08X is a world created before [Both Games] Logic; its own MM Logic "
-                        "%u is kept (#1367)\n",
-                        (unsigned)legacyDigest, (unsigned)authored);
+                        "%u is kept (#1367; MM Shuffle Songs %u)\n",
+                        (unsigned)legacyDigest, (unsigned)authored, (unsigned)songsCandidates[s]);
                 values[RO_LOGIC] = authored;
                 RANDO_SAVE_OPTIONS[RO_LOGIC] = authored;
+                values[RO_SHUFFLE_SONGS] = songsCandidates[s];
+                RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = songsCandidates[s];
                 digest = legacyDigest;
+                break;
             }
         }
     }
@@ -792,9 +867,9 @@ uint32_t ResolvePairedProfile(bool paired) {
         // shipped default folded the old one: the hint rows Off before Majora's
         // Mask's hints shipped on, and before Time Progression shipped Ascending,
         // with Shuffle Time on, the mode Random as well (ProfileEra). Re-resolved
-        // as that build resolved them (under either paired logic, #1367), the same
-        // inputs give that world's own stamp, and its half is generated with those
-        // values, as it was made.
+        // as that build resolved them (under either paired logic, #1367, and each
+        // Shuffle Songs value, #1542), the same inputs give that world's own
+        // stamp, and its half is generated with those values, as it was made.
         bool adopted = false;
         for (const ProfileEra era : kOlderProfileEras) {
             std::vector<uint32_t> legacy(values);
@@ -804,23 +879,30 @@ uint32_t ResolvePairedProfile(bool paired) {
             const uint32_t logics[2] = { values[RO_LOGIC], AuthoredPairedLogic() };
             for (const uint32_t logicValue : logics) {
                 legacy[RO_LOGIC] = logicValue;
-                const uint32_t legacyDigest = DigestFromIdentity(ProfileIdentityString(
-                    legacy.data(), tricks.data(), trapTypes, moonCrash,
-                    gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks, keepItemsReset));
-                if (legacyDigest != gComboCtx.mmProfileDigest) {
-                    continue;
+                for (int s = 0; s < songsCount; s++) {
+                    legacy[RO_SHUFFLE_SONGS] = songsCandidates[s];
+                    const uint32_t legacyDigest = DigestFromIdentity(ProfileIdentityString(
+                        legacy.data(), tricks.data(), trapTypes, moonCrash,
+                        gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks, keepItemsReset));
+                    if (legacyDigest != gComboCtx.mmProfileDigest) {
+                        continue;
+                    }
+                    fprintf(stderr,
+                            "[MM] profile: the stamp %08X is a world created %s; the values it folded are kept (MM "
+                            "Logic %u, MM Shuffle Songs %u)\n",
+                            (unsigned)legacyDigest, ProfileEraName(era), (unsigned)logicValue,
+                            (unsigned)songsCandidates[s]);
+                    values = legacy;
+                    for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
+                        RANDO_SAVE_OPTIONS[randoOptionId] = legacy[randoOptionId];
+                    }
+                    digest = legacyDigest;
+                    adopted = true;
+                    break;
                 }
-                fprintf(stderr,
-                        "[MM] profile: the stamp %08X is a world created %s; the values it folded are kept (MM "
-                        "Logic %u)\n",
-                        (unsigned)legacyDigest, ProfileEraName(era), (unsigned)logicValue);
-                values = legacy;
-                for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-                    RANDO_SAVE_OPTIONS[randoOptionId] = legacy[randoOptionId];
+                if (adopted) {
+                    break;
                 }
-                digest = legacyDigest;
-                adopted = true;
-                break;
             }
             if (adopted) {
                 break;
@@ -1301,9 +1383,14 @@ namespace {
  *  Rando::Foreign::ApplyProfileEra), or 0, which no digest is, when that is the
  *  next newer era's. */
 uint32_t ComputeProfileStampFor(Rando::Foreign::PairedLogicSource logic,
-                                Rando::Foreign::ProfileEra era = Rando::Foreign::ProfileEra::Current) {
+                                Rando::Foreign::ProfileEra era = Rando::Foreign::ProfileEra::Current, int songs = -1) {
     std::vector<uint32_t> values(RO_MAX, 0);
     Rando::Foreign::ResolveProfileValues(values.data(), /*paired=*/true, logic);
+    // #1542: with @p songs at 0 or above, MM's Shuffle Songs is taken as that
+    // value instead of the resolved one (the compares' candidates).
+    if (songs >= 0) {
+        values[RO_SHUFFLE_SONGS] = (uint32_t)songs;
+    }
     if (!Rando::Foreign::ApplyProfileEra(values.data(), era)) {
         return 0;
     }
@@ -1333,19 +1420,51 @@ bool PairedLogicCandidatesDiffer() {
 
 /** The paired-logic candidates (#1367), with the rows whose default changed
  *  resolved as @p era's build resolved them. */
-bool StampMatchesLogicCandidates(uint32_t frozenDigest, Rando::Foreign::ProfileEra era) {
+bool StampMatchesLogicCandidates(uint32_t frozenDigest, Rando::Foreign::ProfileEra era,
+                                 Rando::Foreign::PairedLogicSource* outLogic = nullptr, uint32_t* outSongs = nullptr) {
     if (frozenDigest == 0) {
         return false;
     }
-    if (ComputeProfileStampFor(Rando::Foreign::PairedLogicSource::ComboRung, era) == frozenDigest) {
-        return true;
+    // #1542: at each of MM's Shuffle Songs values, the resolved one first.
+    uint32_t songs[RSBS_MM_SONGS_VALUE_COUNT];
+    const int songsCount = Rando::Foreign::PairedSongsCandidates(Rando::Foreign::ResolvedPairedSongs(), songs);
+    const bool logicsDiffer = PairedLogicCandidatesDiffer();
+    for (int s = 0; s < songsCount; s++) {
+        Rando::Foreign::PairedLogicSource matched = Rando::Foreign::PairedLogicSource::ComboRung;
+        bool found = ComputeProfileStampFor(matched, era, (int)songs[s]) == frozenDigest;
+        // #1367: a world stamped before [Both Games] Logic took RO_LOGIC from
+        // MM's own row. Every other input is the same in both candidates, so this
+        // one matches only a world whose own logic the key holds (put back by the
+        // load restore when it differed), never a different profile.
+        if (!found && logicsDiffer) {
+            matched = Rando::Foreign::PairedLogicSource::Authored;
+            found = ComputeProfileStampFor(matched, era, (int)songs[s]) == frozenDigest;
+        }
+        if (found) {
+            if (outLogic != nullptr) {
+                *outLogic = matched;
+            }
+            if (outSongs != nullptr) {
+                *outSongs = songs[s];
+            }
+            return true;
+        }
     }
-    // #1367: a world stamped before [Both Games] Logic took RO_LOGIC from MM's
-    // own row. Every other input is the same in both candidates, so this one
-    // matches only a world whose own logic the key holds (put back by the load
-    // restore when it differed), never a different profile.
-    return PairedLogicCandidatesDiffer() &&
-           ComputeProfileStampFor(Rando::Foreign::PairedLogicSource::Authored, era) == frozenDigest;
+    return false;
+}
+
+/** #1542: which candidate reproduces the frozen digest, today's resolution first
+ *  and then each older build's, newest first (the compare's order): its paired
+ *  logic source and its MM Shuffle Songs. False when none does. */
+bool FrozenStampCandidate(Rando::Foreign::PairedLogicSource* outLogic, uint32_t* outSongs) {
+    for (const Rando::Foreign::ProfileEra era :
+         { Rando::Foreign::ProfileEra::Current, Rando::Foreign::ProfileEra::PreHintsOn,
+           Rando::Foreign::ProfileEra::PreAscendingClock }) {
+        if (StampMatchesLogicCandidates(gComboCtx.mmProfileDigest, era, outLogic, outSongs)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** Today's resolution matches @p frozenDigest (either paired logic, #1367). */
@@ -1392,21 +1511,41 @@ extern "C" uint32_t MM_Rando_ComputeLegacyProfileStampForTest(void) {
 extern "C" int MM_Rando_PairedLogicShown(void) {
     if (Combo_MMProfileFrozen() && PairedLogicCandidatesDiffer()) {
         // #1437, #1439: today's resolution first, then each older build's,
-        // newest first (the compare's order).
-        for (const Rando::Foreign::ProfileEra era :
-             { Rando::Foreign::ProfileEra::Current, Rando::Foreign::ProfileEra::PreHintsOn,
-               Rando::Foreign::ProfileEra::PreAscendingClock }) {
-            if (ComputeProfileStampFor(Rando::Foreign::PairedLogicSource::ComboRung, era) ==
-                gComboCtx.mmProfileDigest) {
-                break;
-            }
-            if (ComputeProfileStampFor(Rando::Foreign::PairedLogicSource::Authored, era) == gComboCtx.mmProfileDigest) {
-                // A world created before [Both Games] Logic, with its own MM Logic.
-                return (int)Rando::Foreign::AuthoredPairedLogic();
-            }
+        // newest first (the compare's order), each at every MM Shuffle Songs
+        // value (#1542).
+        Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+        uint32_t songs = 0;
+        if (FrozenStampCandidate(&logic, &songs) && logic == Rando::Foreign::PairedLogicSource::Authored) {
+            // A world created before [Both Games] Logic, with its own MM Logic.
+            return (int)Rando::Foreign::AuthoredPairedLogic();
         }
     }
     return (int)Rando::Foreign::PairedLogicForRung(Rando::Foreign::ResolvedComboRung());
+}
+
+extern "C" int MM_Rando_PairedSongsResolved(void) {
+    return (int)Rando::Foreign::ResolvedPairedSongs();
+}
+
+extern "C" int MM_Rando_PairedSongsShown(void) {
+    if (Combo_MMProfileFrozen()) {
+        // The world's own value: the one its stamp reproduces. A frozen world's
+        // value never changes, so the answer is kept for its digest (the row is
+        // drawn every frame, and the search computes up to eighteen stamps).
+        static uint32_t sShownDigest = 0;
+        static uint32_t sShownSongs = 0;
+        if (sShownDigest != 0 && sShownDigest == gComboCtx.mmProfileDigest) {
+            return (int)sShownSongs;
+        }
+        Rando::Foreign::PairedLogicSource logic = Rando::Foreign::PairedLogicSource::ComboRung;
+        uint32_t songs = 0;
+        if (FrozenStampCandidate(&logic, &songs)) {
+            sShownDigest = gComboCtx.mmProfileDigest;
+            sShownSongs = songs;
+            return (int)songs;
+        }
+    }
+    return (int)Rando::Foreign::ResolvedPairedSongs();
 }
 
 // ============================================================================
@@ -1748,6 +1887,13 @@ extern "C" int MM_Rando_RestoreProfileForLoad(const void* mmHalf, size_t mmHalfS
         }
         for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
             const bool dependent = randoOptionId == RO_CLOCK_SHUFFLE_PROGRESSIVE;
+            // #1542: a paired world's Shuffle Songs follows OoT's (the resolution
+            // never reads MM's key), so writing the file's value into the key
+            // would change nothing but the key, and name a row for nothing. The
+            // compares try each value instead.
+            if (randoOptionId == RO_SHUFFLE_SONGS) {
+                continue;
+            }
             if ((dependent && pass == 0) || written[randoOptionId] ||
                 liveValues[randoOptionId] == fileValues[randoOptionId]) {
                 continue;

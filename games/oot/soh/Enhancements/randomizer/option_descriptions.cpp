@@ -235,7 +235,16 @@ void Settings::CreateOptionDescriptions() {
         "  - Bottom of the Well Lens of Truth location\n"
         "  - Gerudo Training Ground's Ice Arrows location\n"
         "\n"
-        "Anywhere - Songs can appear at any location.";
+        "Anywhere - Songs can appear at any location."
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1542 (D2): the pair has one songs setting, this one (OoTMM's songs
+        // "in both games"); Majora's Mask's row follows it (combo_song_pool.h).
+        "\n"
+        "\n"
+        "In a paired OoT + MM world this also decides Majora's Mask's songs: Song Locations and Dungeon Rewards "
+        "keep them on its song locations, Anywhere shuffles them anywhere, and Off leaves them vanilla."
+#endif
+        ;
     mOptionDescriptions[RSK_SHUFFLE_TOKENS] = "Shuffles Golden Skulltula Tokens into the item pool. This means "
                                               "Golden Skulltulas can contain other items as well.\n"
                                               "\n"

@@ -375,6 +375,8 @@ const OptionUi kOptionUi[] = {
     // ---- Shuffle Items, Shuffle Shops & Merchants --------------------------
     { RO_SHUFFLE_SONGS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Shuffle Songs",
+      "Follows Ocarina of Time's Shuffle Songs: Song Locations under Song Locations and Dungeon Rewards, "
+      "Anywhere under Anywhere, Vanilla under Off.\n\n"
       "Where the songs taught in the world may be found. Extra songs have no location of their own, "
       "so they are always shuffled into the item pool like any other item.\n\n"
       "Anywhere - Song locations are checks, and their songs can be found anywhere in the world.\n\n"
@@ -389,7 +391,9 @@ const OptionUi kOptionUi[] = {
       // Storms, Song of Time) leaves its vanilla check to the bag's one shared
       // row (GeneratePools.cpp RsbsReleasesVanillaSharedSong, the mirror of OoT's
       // fill.cpp RsbsReleaseVanillaSharedSongs). Generation-only: the frozen
-      // value is read at creation.
+      // value is read at creation. #1542 (operator ruling 2026-11-10, D2): a
+      // paired world's value follows OoT's Shuffle Songs (combo_song_pool.h), so
+      // the page draws the row read-only with COMBO_SONGS_SET_BY_OOT_REASON.
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_SHUFFLE_COWS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Cows", "Adds the reward for playing Epona's Song for a cow to the check pool.",
