@@ -4318,12 +4318,18 @@ extern "C" u16 Randomizer_Item_Give(PlayState* play, GetItemEntry giEntry) {
         return Return_Item_Entry(giEntry, RG_NONE);
     } else if (item == RG_WEIRD_EGG) {
         Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_WEIRD_EGG);
+        // Logic::HasItem reads RAND_INF_WEIRD_EGG (logic.cpp randInfTable); OoT_Item_Give set it
+        // while this row was MOD_NONE.
+        Flags_SetRandomizerInf(RAND_INF_WEIRD_EGG);
         if (!ChildTradeSlotOccupied()) {
             INV_CONTENT(ITEM_TRADE_CHILD) = ITEM_WEIRD_EGG;
         }
         return Return_Item_Entry(giEntry, RG_NONE);
     } else if (item == RG_ZELDAS_LETTER) {
         Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
+        // Logic::HasItem reads RAND_INF_ZELDAS_LETTER (logic.cpp randInfTable); OoT_Item_Give set it
+        // while this row was MOD_NONE.
+        Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
         if (!ChildTradeSlotOccupied()) {
             INV_CONTENT(ITEM_TRADE_CHILD) = ITEM_LETTER_ZELDA;
         }
