@@ -13,12 +13,13 @@
  *      gRando.Options.RO_SHUFFLE_WONDER_ITEMS) and defaults OFF.
  *  (2) The MM Randomizer page draws it: a live, default-off checkbox labelled
  *      "Shuffle Wonder Items" under "Shuffle Items".
- *  (3) The check table holds exactly the 113 wonder items, all of one check type
+ *  (3) The check table holds exactly the 116 wonder items (#1406's 113 and
+ *      #1410's three Keaton grass ring rewards), all of one check type
  *      that no other check carries, every one listed by some logic region, none a
  *      cross-game host class, and every one a row of Randomizer > MM
  *      Locations. A check's name is its RC enumerator itself (Checks.cpp's RC()
  *      stringifies the id, PopulateCheckNames converts that spelling and the
- *      locations page falls back to it), so the 113 names resolving to 113
+ *      locations page falls back to it), so the 116 names resolving to 116
  *      distinct ids (code 7) is the name lock; a non-empty-name assertion on
  *      the page row could not fail, so there is none (code 11 is unused).
  *  (4) The id runs WonderItems.cpp indexes exist: each Hit Tag in its location
@@ -131,8 +132,10 @@ constexpr const char* kOptionName = "RO_SHUFFLE_WONDER_ITEMS";
 constexpr const char* kOptionCVar = "gRando.Options.RO_SHUFFLE_WONDER_ITEMS";
 constexpr const char* kRowLabel = "Shuffle Wonder Items";
 
-// Every wonder item check (Types.h, ids 2311..2423 after RC_ENEMY_DROP_GOMESS;
-// GameExports_SingleExe.cpp locks the first and last numbers).
+// Every wonder item check: #1406's 113 (Types.h, ids 2311..2423 after
+// RC_ENEMY_DROP_GOMESS) and #1410's three Keaton grass ring rewards (inside its
+// block 2424..2616). GameExports_SingleExe.cpp locks the first and last numbers
+// of both blocks. RO_SHUFFLE_WONDER_ITEMS governs all 116.
 const char* const kWonderChecks[] = {
     "RC_CLOCK_TOWN_EAST_WONDER_ITEM_01",
     "RC_CLOCK_TOWN_EAST_WONDER_ITEM_02",
@@ -247,6 +250,11 @@ const char* const kWonderChecks[] = {
     "RC_TERMINA_FIELD_WONDER_ITEM_19",
     "RC_TERMINA_FIELD_WONDER_ITEM_20",
     "RC_TERMINA_FIELD_WONDER_ITEM_21",
+    // #1410: each Keaton grass ring's bonus red rupee (ObjGrass.cpp's
+    // keatonGrassMap), spawned only while its check is shuffled.
+    "RC_CLOCK_TOWN_NORTH_KEATON_GRASS_WONDER_ITEM",
+    "RC_MILK_ROAD_KEATON_GRASS_WONDER_ITEM",
+    "RC_MOUNTAIN_VILLAGE_SPRING_KEATON_GRASS_WONDER_ITEM",
 };
 constexpr int kWonderCheckCount = (int)(sizeof(kWonderChecks) / sizeof(kWonderChecks[0]));
 
@@ -705,7 +713,7 @@ Actor* CallocActor(size_t size, s16 id) {
 } // namespace
 
 extern "C" int MM_WonderItems_RunHeadless(void) {
-    printf("[TEST] mm-wonder-items: Shuffle Wonder Items is an MM option, a page row, 113 checks, their id runs and "
+    printf("[TEST] mm-wonder-items: Shuffle Wonder Items is an MM option, a page row, 116 checks, their id runs and "
            "a pool switch (#1406)\n");
     auto ctx = Ship::Context::GetInstance();
     if (ctx == nullptr || ctx->GetConsoleVariables() == nullptr) {

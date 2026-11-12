@@ -1347,6 +1347,12 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     golden pins either world, so no golden moved for a world-moving reason;
  *     the bump is for the worlds no golden pins. Seed packages written by
  *     generator 4 are refused, as designed.
+ *     Also on 5 (the same unreleased window): with MM Shuffle Grass Drops on,
+ *     171 more grass checks (2Ship's extra and Keaton grass) enter MM's pool,
+ *     which moves every such world (#1410, PR #1513). Its new options, Shuffle
+ *     Hive Drops (#1410) and Shuffle Wonder Items (#1406, PR #1510), default
+ *     off and make new worlds only when on. No default world moves; no golden
+ *     turns grass on.
  */
 #define RSBS_GENERATOR_VERSION 5u
 

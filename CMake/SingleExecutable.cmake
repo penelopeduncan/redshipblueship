@@ -1678,7 +1678,8 @@ if(BUILD_TESTING)
     redship_add_test(NAME MMTreeShuffleHooks COMMAND redship --test mm-tree-shuffle-hooks)
     # Majora's Mask wonder item shuffle (#1406; upstream 2Ship's Wonder Item
     # shuffle). MMWonderItems: the option defaults off, the page draws a live
-    # checkbox, the 113 wonder items are one check type, sit in logic regions
+    # checkbox, the 116 wonder items (#1410's three Keaton grass ring rewards
+    # included) are one check type, sit in logic regions
     # and Randomizer > MM Locations, never host an OoT item, the id runs
     # WonderItems.cpp indexes (each Hit Tag's base + 1 / + 2, the Termina wall's
     # base + sRewardDropsIndex[hour] + 0..2) are the checks their names promise,
@@ -1689,6 +1690,22 @@ if(BUILD_TESTING)
     # and an unshuffled invisible rupee keep vanilla. Pure (no display, no ROM).
     redship_add_test(NAME MMWonderItems COMMAND redship --test mm-wonder-items)
     redship_add_test(NAME MMWonderItemsHooks COMMAND redship --test mm-wonder-items-hooks)
+    # Majora's Mask beehive shuffle and the extra / Keaton grass rows (#1410;
+    # upstream 2Ship's Beehive Shuffle and Keaton grass shuffle). MMHiveShuffle:
+    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle Tree
+    # Drops, the 19 hives are the only RCTYPE_BEEHIVE rows, each in exactly one
+    # logic region and Randomizer > MM Locations and never an OoT host, and they
+    # enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
+    # grass rows sit behind the existing Shuffle Grass Drops, the three Keaton
+    # rings own nine contiguous ids each, and the rings' three wonder items
+    # follow Shuffle Wonder Items (#1406) and are hosts.
+    # MMHiveGrassShuffleHooks: ObjComb.cpp's and ObjGrass.cpp's new hooks arm
+    # through ActorBehavior::OnFileLoad (exactly +1 each), hives and a Keaton
+    # ring identify their checks, and grass sprouts get their own draw.
+    # Pure (no display, no ROM); ids looked up by name.
+    redship_add_test(NAME MMHiveShuffle COMMAND redship --test mm-hive-shuffle)
+    redship_add_test(NAME MMExtraGrassShuffle COMMAND redship --test mm-extra-grass-shuffle)
+    redship_add_test(NAME MMHiveGrassShuffleHooks COMMAND redship --test mm-hive-grass-shuffle-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle

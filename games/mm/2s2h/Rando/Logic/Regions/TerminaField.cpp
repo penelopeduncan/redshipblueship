@@ -30,6 +30,8 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_TERMINA_FIELD_BIO_BABA_GROTTO, CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
             CHECK(RC_TERMINA_FIELD_BIO_BABA_GROTTO_GRASS_01, true),
             CHECK(RC_TERMINA_FIELD_BIO_BABA_GROTTO_GRASS_02, true),
+            CHECK(RC_TERMINA_FIELD_BIO_BABA_GROTTO_BEEHIVE_01, CAN_USE_PROJECTILE && CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
+            CHECK(RC_TERMINA_FIELD_BIO_BABA_GROTTO_BEEHIVE_02, CAN_USE_PROJECTILE && CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
             CHECK(RC_ENEMY_DROP_BIO_DEKU_BABA, CanKillEnemy(ACTOR_BOSS_05)),
         },
         .exits = { //     TO                                         FROM
@@ -113,6 +115,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_TERMINA_FIELD_COW_GROTTO_GRASS_71, true),
             CHECK(RC_TERMINA_FIELD_COW_GROTTO_GRASS_72, true),
             CHECK(RC_ENEMY_DROP_GIANT_BEE, CAN_USE_PROJECTILE && CanKillEnemy(ACTOR_EN_BEE)), // In a beehive
+            CHECK(RC_TERMINA_FIELD_COW_GROTTO_BEEHIVE, CAN_USE_PROJECTILE),
         },
         .connections = {
             CONNECTION(RR_TERMINA_FIELD, true), // TODO: Grotto mapping
@@ -156,6 +159,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_GRASS_04, true),
             CHECK(RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_GRASS_05, true),
             CHECK(RC_ENEMY_DROP_GIANT_BEE, CAN_USE_PROJECTILE && CanKillEnemy(ACTOR_EN_BEE)), // In a beehive
+            CHECK(RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BEEHIVE, CAN_USE_PROJECTILE),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(TERMINA_FIELD, 0),                ENTRANCE(GROTTOS, 0), true), // TODO: Grotto mapping

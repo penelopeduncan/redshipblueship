@@ -400,12 +400,21 @@ int MM_OcarinaDpad_RunHeadless(void);
 int MM_TreeShuffle_RunHeadless(void);
 int MM_TreeShuffleHooks_RunHeadless(void);
 // Majora's Mask wonder item shuffle (games/mm/2s2h/mm_wonder_items_test.cpp,
-// #1406): the option, its page row, the 113 wonder item checks, the id runs the
+// #1406): the option, its page row, the 116 wonder item checks, the id runs the
 // hooks index and the pool switch; then the behaviour arming from
 // ActorBehavior::OnFileLoad and running. Both need the display-free shared
 // bring-up first. Return 0 on pass.
 int MM_WonderItems_RunHeadless(void);
 int MM_WonderItemsHooks_RunHeadless(void);
+// Majora's Mask beehive shuffle and the extra / Keaton grass rows
+// (games/mm/2s2h/mm_hive_grass_shuffle_test.cpp, #1410): the hive option, its
+// page row, the 19 hive checks and the pool switch; the 171 grass rows behind
+// Shuffle Grass Drops; then ObjComb.cpp's and ObjGrass.cpp's hooks arming from
+// ActorBehavior::OnFileLoad and identifying their checks. All three need the
+// display-free shared bring-up first. Return 0 on pass.
+int MM_HiveShuffle_RunHeadless(void);
+int MM_ExtraGrassShuffle_RunHeadless(void);
+int MM_HiveGrassShuffleHooks_RunHeadless(void);
 // Majora's Mask's shop and Tingle price modes (games/mm/2s2h/mm_shop_prices_test.cpp,
 // #1427): the options, their page rows and the logic tiers; then the price pass
 // over a real pool generation and its determinism. Both need the display-free
@@ -7240,6 +7249,34 @@ static TestResult Test_MMWonderItemsHooks(void) {
     return MM_WonderItemsHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Beehive shuffle and the extra / Keaton grass rows (#1410). Same display-free
+// bring-up as mm-tree-shuffle.
+static TestResult RunMMHiveGrassRow(int (*run)(void)) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMHiveShuffle(void) {
+    return RunMMHiveGrassRow(MM_HiveShuffle_RunHeadless);
+}
+
+static TestResult Test_MMExtraGrassShuffle(void) {
+    return RunMMHiveGrassRow(MM_ExtraGrassShuffle_RunHeadless);
+}
+
+static TestResult Test_MMHiveGrassShuffleHooks(void) {
+    return RunMMHiveGrassRow(MM_HiveGrassShuffleHooks_RunHeadless);
+}
+
 // The MM price modes (#1427). Same display-free bring-up as mm-tree-shuffle: the
 // option table, the page view model and the region graph are all in the link,
 // and the CVar store must exist.
@@ -9895,11 +9932,22 @@ const TestDescriptor gTests[] = {
     // reason as the tree rows (mm-wonder-items runs MM_Rando_Init). Both
     // restore what they write.
     { "mm-wonder-items",
-      "Shuffle Wonder Items is an MM option, a page row, 113 checks, id runs and a pool switch (#1406)",
+      "Shuffle Wonder Items is an MM option, a page row, 116 checks, id runs and a pool switch (#1406)",
       Test_MMWonderItems },
     { "mm-wonder-items-hooks",
       "The MM wonder item behaviour arms from OnFileLoad and suppresses a Hit Tag's drop (#1406)",
       Test_MMWonderItemsHooks },
+    // Beehive shuffle and the extra / Keaton grass rows (#1410). After
+    // mm-registrar-coverage for the same reason as the tree rows (the table
+    // rows run MM_Rando_Init). All three restore what they write.
+    { "mm-hive-shuffle", "Shuffle Hive Drops is an MM option, a page row, 19 checks and a pool switch (#1410)",
+      Test_MMHiveShuffle },
+    { "mm-extra-grass-shuffle",
+      "MM's 171 new grass checks sit behind Shuffle Grass Drops; ring rewards follow Wonder Items (#1410)",
+      Test_MMExtraGrassShuffle },
+    { "mm-hive-grass-shuffle-hooks",
+      "The MM hive and Keaton grass behaviours arm from OnFileLoad and find their checks (#1410)",
+      Test_MMHiveGrassShuffleHooks },
     // The MM price modes (#1427). After mm-registrar-coverage for the same
     // reason as the tree rows (the pool row runs MM_Rando_Init). Both restore
     // what they write.

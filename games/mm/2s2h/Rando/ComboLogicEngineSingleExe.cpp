@@ -467,6 +467,11 @@ bool sHostPoolSet = false;
  *     two checks mm_majora_goal_test.cpp pins as the lair's whole fill-visible
  *     surface, so offering them as hosts would contradict a live lock.
  *
+ *  `RCTYPE_WONDER_ITEM` rows are NOT here: RO_SHUFFLE_WONDER_ITEMS (#1406)
+ *  governs them at the pool seam, the three Keaton grass wonder items (#1410)
+ *  included. mm-extra-grass-shuffle legs 46-48 lock that they are graph hosts
+ *  and enter the pool exactly when that option is on.
+ *
  *  THAT IS THE WHOLE LIST. Shops and Tingle shops were here and are not
  *  `GeneratePools`-unconditional — see A3's correction in the file header for
  *  what that cost (`place` refusing the two always-shuffled shop checks, and

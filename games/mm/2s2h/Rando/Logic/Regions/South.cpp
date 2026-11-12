@@ -370,6 +370,10 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_SOUTHERN_SWAMP_NORTH] = RandoRegion{ .name = "North Tourist Section", .sceneId = SCENE_20SICHITAI,
         .checks = {
+            CHECK(RC_SOUTHERN_SWAMP_POISON_TOURIST_GRASS_01, true),
+            CHECK(RC_SOUTHERN_SWAMP_POISON_TOURIST_GRASS_02, true),
+            CHECK(RC_SOUTHERN_SWAMP_CLEARED_TOURIST_GRASS_01, RANDO_EVENTS[RE_CLEARED_WOODFALL_TEMPLE]),
+            CHECK(RC_SOUTHERN_SWAMP_CLEARED_TOURIST_GRASS_02, RANDO_EVENTS[RE_CLEARED_WOODFALL_TEMPLE]),
             // #578 part 3 — MMRT_SOUTHERN_SWAMP_SCRUB_HP_GORON ("Use Goron's ground pound in front of
             // the Tourist Center door to land on the roof and reach the heart piece"), DEFAULT OFF.
             // Part 3's first pass kept the Land Title Deed as a conjunct of the trick leg too ("leaving a
@@ -406,6 +410,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_SOUTHERN_SWAMP_POISON_GRASS_10, true),
             CHECK(RC_SOUTHERN_SWAMP_POISON_GRASS_11, true),
             CHECK(RC_SOUTHERN_SWAMP_POISON_GRASS_12, true),
+            CHECK(RC_SOUTHERN_SWAMP_POISON_BEEHIVE, CAN_USE_PROJECTILE && CAN_TRAVERSE_WAIST_DEEP_WATER),
             CHECK(RC_ENEMY_DROP_MINI_BABA, CanKillEnemy(ACTOR_EN_KAREBABA)),
         },
         .exits = { //     TO                                         FROM
@@ -449,6 +454,10 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_SOUTHERN_SWAMP_NEAR_WOODS] = RandoRegion{ .name = "North Woods Section", .sceneId = SCENE_20SICHITAI,
         .checks = {
+            CHECK(RC_SOUTHERN_SWAMP_CLEARED_WOODS_GRASS_01, RANDO_EVENTS[RE_CLEARED_WOODFALL_TEMPLE]),
+            CHECK(RC_SOUTHERN_SWAMP_CLEARED_WOODS_GRASS_02, RANDO_EVENTS[RE_CLEARED_WOODFALL_TEMPLE]),
+            CHECK(RC_SOUTHERN_SWAMP_POISON_WOODS_GRASS_01, true),
+            CHECK(RC_SOUTHERN_SWAMP_POISON_WOODS_GRASS_02, true),
             CHECK(RC_SOUTHERN_SWAMP_POISON_POT_01, true),
             CHECK(RC_SOUTHERN_SWAMP_POISON_POT_02, true),
             CHECK(RC_SOUTHERN_SWAMP_POISON_POT_03, true),

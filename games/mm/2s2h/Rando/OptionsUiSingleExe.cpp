@@ -545,6 +545,14 @@ const OptionUi kOptionUi[] = {
       // are ShouldActorInit and ShouldVanillaBehavior (VB_APPLY_BONK_TO_ACTOR in
       // z_player.c, VB_TREE_DROP_COLLECTIBLE in z_obj_yasi.c and z_en_snowwd.c).
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_HIVE_DROPS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Shuffle Hive Drops", "Adds the item dropped by breaking a beehive to the check pool.",
+      // #1410, upstream 2Ship's Beehive Shuffle (#1773). ObjComb.cpp (2ship_rando,
+      // WHOLE_ARCHIVE, reached from ActorBehavior::OnFileLoad) identifies a hive
+      // through id-keyed OnActorInit on ACTOR_OBJ_COMB and spawns its shuffled
+      // item through VB_BEEHIVE_SPAWN_ACTOR and VB_BEEHIVE_ALREADY_BROKEN in
+      // z_obj_comb.c.
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_WONDER_ITEMS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Wonder Items", "Adds invisible wonder item drops to the check pool.",
       // #1406, upstream 2Ship's Wonder Item shuffle. WonderItems.cpp (2ship_rando,

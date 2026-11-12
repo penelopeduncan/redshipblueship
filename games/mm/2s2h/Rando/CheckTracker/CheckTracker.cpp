@@ -187,6 +187,8 @@ std::vector<const char*> checkTypeIconList = {
     /*RCTYPE_TINGLE_SHOP*/ gItemIconAdultsWalletTex,
     /*RCTYPE_TREE*/ gItemIconDekuStickTex,
     /*RCTYPE_WONDER_ITEM*/ gPauseUnusedCursorTex,
+    // Standalone 2Ship only: CheckTracker.cpp is not linked into the single exe (placeholder icon).
+    /*RCTYPE_BEEHIVE*/ gArcheryScoreIconTex,
 };
 
 static constexpr ImVec4 tintColor = {};
