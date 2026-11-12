@@ -51,8 +51,13 @@
   Shuffle Songs decides both games' songs, and Majora's Mask's row follows it and is read-only ("Set by Ocarina of
   Time's Shuffle Songs"): Song Locations and Dungeon Rewards put Majora's Mask's songs on Majora's Mask's song
   locations, Anywhere leaves them anywhere, and Off leaves them vanilla. With the default (Song Locations), Majora's
-  Mask's songs now stay on its own song locations, so worlds created with the defaults change. A song of one game on
-  the other game's song location is not in yet.
+  Mask's songs follow that setting, so worlds created with the defaults change.
+- **One shared pool of song locations** (issue #1542), as in OoTMM. Under Shuffle Songs: Song Locations the song
+  checks of both games are one pool: a song of either game can be found on a song check of either game, a shared song
+  is one item on one of them, and a song check never holds anything but a song or, for the one left over, junk. The
+  starting Song of Healing check is one of them again, so a new file starts with the Song of Time and whatever that
+  check holds. When there are more songs than song checks they may use, Generate refuses before placing anything and
+  says which side is short. Anywhere, Off and Dungeon Rewards are unchanged.
 - **New option: Shuffle Wonder Items** (issue #1406), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
   With it on, the 116 hidden rewards of Majora's Mask become checks: the invisible rupees, the rupees that fall when
   you hit a hidden spot, the Swordsman's School gong, the Termina Field pillar rupee, the song wall's drops and the
