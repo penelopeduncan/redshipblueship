@@ -98,8 +98,13 @@ void CustomMessage::AddLineBreaks(std::string* msg) {
 
         // Check if adding this character would exceed width
         if (currentLineWidth + charWidth > MAX_TEXTBOX_WIDTH) {
+            // Where the new line goes, kept for the box-break swap below (#1556 QC:
+            // upstream read lastSpaceIndex after clearing it, so a fourth wrap at a
+            // space overwrote the letter before the current one with the box break).
+            size_t breakAt;
             if (lastSpaceIndex != std::string::npos) {
                 // Break at the last space
+                breakAt = lastSpaceIndex;
                 (*msg)[lastSpaceIndex] = 0x11;
 
                 // Recalculate width from after the space to current position
@@ -117,6 +122,7 @@ void CustomMessage::AddLineBreaks(std::string* msg) {
             } else {
                 // No space found, force break before current character
                 msg->insert(i, 1, 0x11);
+                breakAt = i;
                 currentLineWidth = charWidth; // Current char is now first on new line
                 ++i;                          // Skip the inserted newline character
             }
@@ -124,9 +130,8 @@ void CustomMessage::AddLineBreaks(std::string* msg) {
             ++currentLineCount;
 
             if (currentLineCount >= MAX_LINES_PER_PAGE) {
-                // Find the newline we just added and replace it with box break
-                size_t newlinePos = (lastSpaceIndex != std::string::npos) ? lastSpaceIndex : i - 1;
-                (*msg)[newlinePos] = 0x10;
+                // Replace the newline we just added with a box break
+                (*msg)[breakAt] = 0x10;
                 currentLineCount = 0;
                 lastSpaceIndex = std::string::npos;
             }
