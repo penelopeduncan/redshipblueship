@@ -69,20 +69,21 @@ typedef struct SoaringMapOoTState {
     bool open;              // Begin ran, the close's end has not
     bool closing;           // the close handed the pause to vanilla 0x12 / 0x13
     bool buttonSavePending; // the first kaleido update copies buttonStatus
+    bool buttonSaveTaken;   // buttonSave holds that copy (the backstop puts it back)
+    bool soundDucked;       // Begin's func_800F64E0(1) has not met the close's (0)
     s16 frames;             // frames in the current timed state
     f32 roll;               // MM's mapPageRoll: 160 rolled away, 0 facing
     f32 pageOffsetY;        // MM's sPauseMenuVerticalOffset (WREG(2) in OoT)
     s16 alpha;              // MM's pauseCtx->alpha for the page
     s16 owlAlpha;           // MM's R_PAUSE_OWL_WARP_ALPHA (the darkening)
     s16 infoOffsetY;        // MM's infoPanelOffsetY
-    s16 arrowLX;            // MM's sPauseCursorLeftX
-    s16 arrowRX;            // MM's sPauseCursorRightX
     f32 cursorShrink;       // MM's cursorShrinkRate
     s16 cursorPrim[3];
     s16 cursorEnv[3];
     s16 cursorColorTimer;
     s16 cursorColorIndex;
-    uint16_t clouds; // the frozen half's cleared clouds, read at Begin
+    uint16_t clouds;                                       // the frozen half's cleared clouds, read at Begin
+    u8 buttonSave[ARRAY_COUNT(gSaveContext.buttonStatus)]; // K3's button save, for the backstop
 } SoaringMapOoTState;
 
 static SoaringMapOoTState sSoaringMapOoT;
@@ -125,6 +126,7 @@ static void SoaringMapEnterClose(PlayState* play, ComboSoaringMapEvent ev) {
     }
     Interface_SetDoAction(play, DO_ACTION_NONE);
     func_800F64E0(0); // the close sound at the transition, as MM, OoTMM and vanilla play it
+    sSoaringMapOoT.soundDucked = false;
     // After the prompt's re-snapshot: the HUD comes back when vanilla 0x13
     // applies unk_13EE (MM sets prevHudVisibility = HUD_VISIBILITY_ALL).
     gSaveContext.unk_13EE = Combo_SoaringMap_HudRestoreOnEvent(ev); // RSBS_OOT_HUD_RESTORE_ALL
@@ -178,6 +180,14 @@ bool OoT_SoaringMap_OwnsDraw(uint16_t state) {
 bool OoT_SoaringMap_TakeButtonSave(void) {
     const bool take = sSoaringMapOoT.open && sSoaringMapOoT.buttonSavePending;
     sSoaringMapOoT.buttonSavePending = false;
+    if (take) {
+        // The map's own copy of what K3 saves into kaleido's static
+        // sButtonStatusSave: the backstop, which never reaches 0x13, restores it.
+        for (s32 i = 0; i < ARRAY_COUNT(gSaveContext.buttonStatus); i++) {
+            sSoaringMapOoT.buttonSave[i] = gSaveContext.buttonStatus[i];
+        }
+        sSoaringMapOoT.buttonSaveTaken = true;
+    }
     return take;
 }
 
@@ -253,8 +263,6 @@ bool OoT_SoaringMap_Begin(PlayState* play, uint16_t owlMask) {
     sSoaringMapOoT.roll = SOARING_MAP_ROLL_CLOSED;
     sSoaringMapOoT.pageOffsetY = SOARING_MAP_PAGE_HIDDEN_Y;
     sSoaringMapOoT.infoOffsetY = -40; // OoTMM PrepareSoaringScreen
-    sSoaringMapOoT.arrowLX = -175;    // MM OWL_WARP_2 (sPauseCursorLeftX / RightX)
-    sSoaringMapOoT.arrowRX = 155;
     sSoaringMapOoT.cursorColorTimer = 10;
     sSoaringMapOoT.clouds = Combo_SoaringCloudMask();
 
@@ -275,6 +283,7 @@ bool OoT_SoaringMap_Begin(PlayState* play, uint16_t owlMask) {
         ShrinkWindow_SetVal(0);
     }
     func_800F64E0(1);
+    sSoaringMapOoT.soundDucked = true;
     play->pauseCtx.state = RSBS_OOT_PAUSE_SOARING_0;
     fprintf(stderr, "[OoT] Song of Soaring: the owl map opens (owls 0x%03X, cursor on owl %d) (#1169 XW8)\n",
             (unsigned)sSoaringMapOoT.picker.mask, (int)sSoaringMapOoT.picker.cursor);
@@ -374,6 +383,9 @@ static void SoaringMapUpdatePicker(PlayState* play) {
     // would advance it, and never on the frame it opened (A is still pressed).
     if (wasConfirm && picker->phase == COMBO_SOARING_MAP_CONFIRM) {
         OoT_Message_Update(play);
+        // Message_Update's TEXT_STARTING frame sets A to Next (z_message_PAL.c);
+        // MM's and OoTMM's owl prompt keeps Decide. A no-op while A is Decide.
+        Interface_SetDoAction(play, DO_ACTION_DECIDE);
     }
 }
 
@@ -415,8 +427,6 @@ void OoT_SoaringMap_Update(PlayState* play) {
             sSoaringMapOoT.infoOffsetY += 10;
             sSoaringMapOoT.roll -= 40.0f;
             interfaceCtx->startAlpha += 63;
-            sSoaringMapOoT.arrowLX += 10;
-            sSoaringMapOoT.arrowRX -= 10;
             sSoaringMapOoT.alpha += 31;
             if (sSoaringMapOoT.roll <= 0.0f) {
                 sSoaringMapOoT.roll = 0.0f;
@@ -450,8 +460,6 @@ void OoT_SoaringMap_Update(PlayState* play) {
                 if (interfaceCtx->startAlpha < 0) {
                     interfaceCtx->startAlpha = 0;
                 }
-                sSoaringMapOoT.arrowLX -= 10;
-                sSoaringMapOoT.arrowRX += 10;
                 sSoaringMapOoT.alpha -= 63;
                 if (sSoaringMapOoT.alpha < 0 || sSoaringMapOoT.roll >= SOARING_MAP_ROLL_CLOSED) {
                     sSoaringMapOoT.alpha = 0;
@@ -504,7 +512,29 @@ void OoT_SoaringMap_Backstop(PlayState* play) {
         return;
     }
     // Something else closed (or replaced) the pause: Link gets control back.
+    const bool soundDucked = sSoaringMapOoT.soundDucked;
+    const bool buttonSaveTaken = sSoaringMapOoT.buttonSaveTaken;
+    u8 buttonSave[ARRAY_COUNT(gSaveContext.buttonStatus)];
+    memcpy(buttonSave, sSoaringMapOoT.buttonSave, sizeof(buttonSave));
     OoT_SoaringMap_Reset();
+    if (state == 0) {
+        // What vanilla 0x13 undoes (z_kaleido_scope_PAL.c) and this path never
+        // reaches: Begin's update rate and sound duck, the call layer's menu
+        // mode, the labels and the buttons. A vanilla pause that replaced the
+        // map is left alone: its own 0x13 restores them.
+        R_UPDATE_RATE = 3;
+        R_PAUSE_MENU_MODE = 0;
+        if (soundDucked) {
+            func_800F64E0(0);
+        }
+        play->interfaceCtx.unk_1FA = play->interfaceCtx.unk_1FC = 0;
+        Interface_SetDoAction(play, DO_ACTION_NONE);
+        if (buttonSaveTaken) {
+            for (s32 i = 0; i < ARRAY_COUNT(gSaveContext.buttonStatus); i++) {
+                gSaveContext.buttonStatus[i] = buttonSave[i];
+            }
+        }
+    }
     if (play->msgCtx.textId == RSBS_OOT_TEXT_SOARING_CONFIRM) {
         SoaringMapHardClearBox(play);
     }
@@ -707,12 +737,14 @@ static void SoaringMapDrawInfoPanel(PlayState* play) {
     const u8 alpha = SoaringMapAlpha8(sSoaringMapOoT.alpha);
     const s16 y = (s16)(sSoaringMapOoT.infoOffsetY - 76);
 
-    // MM KaleidoScope_DrawOwlWarpInfoPanel: the two panel halves, then the
-    // page arrows in their unselected size (the map has no page to switch to).
+    // MM KaleidoScope_DrawOwlWarpInfoPanel: the two panel halves only. MM's
+    // owl-warp panel draws gItemNamePanelDL and no page arrows (OoT draws its
+    // arrows with gLButtonIconDL / gRButtonIconDL, which this panel never
+    // calls). Vertices 8..15 are zeroed so the 16-vertex load MM and OoT make
+    // reads defined data.
     SoaringMapSetQuad(&vtx[0], -72, y, 72, 24, 72, 24, 200, alpha);
     SoaringMapSetQuad(&vtx[4], 0, y, 72, 24, 72, 24, 200, alpha);
-    SoaringMapSetQuad(&vtx[8], (s16)(sSoaringMapOoT.arrowLX + 3), 7, 18, 26, 24, 32, 200, alpha);
-    SoaringMapSetQuad(&vtx[12], (s16)(sSoaringMapOoT.arrowRX + 3), 7, 18, 26, 24, 32, 200, alpha);
+    memset(&vtx[8], 0, 8 * sizeof(Vtx));
     SoaringMapSetQuad(&vtx[16], -63, (s16)(sSoaringMapOoT.infoOffsetY - 80), 128, 16, 128, 16, 255, 255);
 
     OPEN_DISPS(play->state.gfxCtx);

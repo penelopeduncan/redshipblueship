@@ -389,8 +389,12 @@ TestResult Test_OoTSoaringGates(void) {
                   "K1: the call layer does not hand SOARING_0/_1 to the map before its catch-all");
         // K2: the draw gate.
         const std::string callDraw = Xw6FnBody(call, "void OoT_KaleidoScopeCall_Draw(PlayState* play) {");
-        XW6_CHECK(Xw6Count(callDraw, "if (OoT_SoaringMap_CallLayerDraws(play->pauseCtx.state)) {") == 1,
-                  "K2: the call layer never draws the map's states");
+        const size_t k2 = callDraw.find("if (OoT_SoaringMap_CallLayerDraws(play->pauseCtx.state)) {");
+        const size_t drawGate = callDraw.find("((play->pauseCtx.state >= 11) && (play->pauseCtx.state <= 18))");
+        XW6_CHECK(Xw6Count(callDraw, "if (OoT_SoaringMap_CallLayerDraws(play->pauseCtx.state)) {") == 1 &&
+                      k2 != std::string::npos && drawGate != std::string::npos && k2 < drawGate,
+                  "K2: the call layer does not draw the map's states before its vanilla draw gate (the close's "
+                  "0x12 frame would reach kaleido's page draw)");
         // K3: the update, before the vanilla head block and switch.
         const std::string palUpdate = Xw6FnBody(pal, "void OoT_KaleidoScope_Update(PlayState* play) {");
         const size_t k3 = palUpdate.find("if (OoT_SoaringMap_OwnsUpdate(pauseCtx->state)) {");
@@ -431,6 +435,13 @@ TestResult Test_OoTSoaringGates(void) {
         XW6_CHECK(Xw6Count(mapOoT, "Interface_ChangeAlpha(") == 1 &&
                       Xw6Count(backstop, "Interface_ChangeAlpha(RSBS_OOT_HUD_RESTORE_ALL);") == 1,
                   "the map changes the HUD mode outside its backstop (the close restores it through unk_13EE)");
+        // The backstop never reaches 0x13, so it undoes what 0x13 would.
+        XW6_CHECK(Xw6Count(backstop, "if (state == 0) {") == 1 && Xw6Count(backstop, "R_UPDATE_RATE = 3;") == 1 &&
+                      Xw6Count(backstop, "R_PAUSE_MENU_MODE = 0;") == 1 &&
+                      Xw6Count(backstop, "func_800F64E0(0);") == 1 &&
+                      Xw6Count(backstop, "Interface_SetDoAction(play, DO_ACTION_NONE);") == 1 &&
+                      Xw6Count(backstop, "gSaveContext.buttonStatus[i] = buttonSave[i];") == 1,
+                  "the backstop leaves the pause's update rate, menu mode, sound duck, labels or buttons set");
         const std::string close = Xw6FnBody(mapOoT, "static void SoaringMapEnterClose(PlayState* play, "
                                                     "ComboSoaringMapEvent ev) {");
         XW6_CHECK(Xw6Count(close, "gSaveContext.unk_13EE = Combo_SoaringMap_HudRestoreOnEvent(ev);") == 1 &&
@@ -454,6 +465,10 @@ TestResult Test_OoTSoaringGates(void) {
                       Xw6Count(picker, "if (wasConfirm && picker->phase == COMBO_SOARING_MAP_CONFIRM) {") == 1 &&
                       Xw6Count(mapOoT, "OoT_Message_Update(play);") == 1,
                   "the prompt is not opened by the picker's event, or Message_Update runs outside a kept prompt");
+        const size_t msgUpdate = picker.find("OoT_Message_Update(play);");
+        const size_t keepDecide = picker.find("Interface_SetDoAction(play, DO_ACTION_DECIDE);");
+        XW6_CHECK(msgUpdate != std::string::npos && keepDecide != std::string::npos && msgUpdate < keepDecide,
+                  "the prompt leaves A reading Next (Message_Update's TEXT_STARTING frame) instead of Decide");
         const std::string end = Xw6FnBody(mapOoT, "void OoT_SoaringMap_OnKaleidoscopeUpdate(PlayState* play) {");
         XW6_CHECK(Xw6Count(mapOoT, "OoT_SoaringOoT_Depart(") == 1 &&
                       Xw6Count(end, "OoT_SoaringOoT_Depart(play, owl);") == 1 &&
