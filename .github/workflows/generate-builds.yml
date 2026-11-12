@@ -55,19 +55,18 @@ on:
 # CONCURRENCY (#1377). Only a pull request's run is ever cancelled in progress:
 # a newer push to the PR makes the older head's build worthless. A push to
 # main, to a release/v* branch or of a v* tag, and a dispatch, always run to
-# the end. Main's run is the only one that saves the macOS ccache, the MacPorts
-# tree and the Windows sccache, and a cold macOS build takes about 4.5 hours.
+# the end. Only a build of main saves the macOS ccache, the MacPorts tree and
+# the Windows sccache, and a cold macOS build takes about 4.5 hours.
 # With cancel-in-progress on every event, each merge cancelled the running main
 # build, so those caches were never written and every macOS build started cold.
 #
 # The group names the event as well as the ref:
-#   - pushes to main share one group, so they queue and main builds one pushed
-#     commit at a time. GitHub keeps one PENDING run per group: a newer push
-#     replaces a queued run that has not started yet (it shows as cancelled),
-#     never the run in progress. Builds stay bounded to one main push run at a
-#     time, which keeps macOS minutes and cache saves (see #177 under
-#     build-windows) in check. A dispatch on main has a group of its own, so it
-#     can run beside that push run.
+#   - a push to main gets a group of its own (its run id), so its run starts at
+#     once and waits for no other run. Main's builds are bounded per job
+#     instead: generate-rsbs-otr, build-linux, build-windows, build-macos and
+#     netplay-relay each carry a job-level group that every push to main shares
+#     (MAIN'S BUILD QUEUES, below). A dispatch on main has a group of its own
+#     too, so it can run beside a push run.
 #   - a dispatch (the manual release path) never shares a group with a push,
 #     so a merge can never replace a queued release.
 #   - each pull request, release branch and tag has a ref, and so a group, of
@@ -79,8 +78,60 @@ on:
 # tools/tests/test_required_checks.py evaluates these expressions for every
 # workflow and fails if any run on main, a release branch or a tag could be
 # cancelled in progress.
+#
+# MAIN'S BUILD QUEUES. Until 2026-11-11 every push to main shared ONE group, so
+# main built one whole run at a time. A run is open until its last job ends,
+# and the macOS leg can take hours (a queue for a runner, then up to the
+# 300-minute limit). On 2026-11-11 the run for b30190c1d finished its Linux and
+# Windows builds at 11:36 UTC and was still open after 18:40. Behind it the run
+# for #1535 was replaced while pending (cancelled) and the next one waited, so
+# main's Windows sccache was not rebuilt after #1535 changed headers that
+# nearly every file includes, and every pull request compiled both games from
+# nothing (about 2530 misses, 135 minutes; a warm build is 13).
+#
+# So the queue is per job now. generate-rsbs-otr, build-linux, build-windows,
+# build-macos and netplay-relay (every job that saves a cache from main) each
+# have
+#     concurrency:
+#       group: <workflow>-<job>-main      on a push to main
+#              <workflow>-<job>-<run id>  on everything else (a group of one)
+#       cancel-in-progress: false
+#       queue: max
+# and the last four also run, right after their checkout, the step "Stop if a
+# newer main commit supersedes this one"
+# (.github/scripts/stop-superseded-main-build.sh).
+#   - Among pushes to main, one build of each job runs at a time, and a build
+#     that starts compiling always finishes and saves its cache. Linux and
+#     Windows no longer wait for macOS. generate-rsbs-otr is queued too, but it
+#     takes under a minute when the port-archive cache hits, and queuing it
+#     means a burst of merges that misses that cache generates the archives
+#     once, not once per merge.
+#   - `queue: max` keeps up to 100 waiting jobs per group; past that GitHub
+#     cancels the newest arrival. GitHub's default keeps ONE pending job and
+#     cancels the one it replaces. The default would be wrong here: a job joins
+#     its group when the jobs it needs finish, not when the commit was pushed,
+#     so after a burst of merges an OLDER commit's job could arrive last,
+#     replace the newest commit's job, and leave main's tip with no build.
+#   - The step sheds the backlog instead. When a job's turn comes, it stops
+#     with "Superseded" within a minute or two if main's tip differs from its
+#     commit in something that is not docs AND that tip has a build run of its
+#     own, still going or succeeded. The next job in the queue then takes the
+#     platform. In every other case, and whenever the script cannot tell, the
+#     commit is built. A superseded commit shows a red build job, a red
+#     required-build-* and (for Linux or Windows) a red digest-crossos-diff:
+#     superseded, not broken. Re-running a job of an old main commit ends the
+#     same way.
+#   - Cache saves from pushes to main stay bounded to one at a time per queued
+#     job (see #177 under build-windows). A workflow_dispatch on main is the
+#     exception it always was: it has groups of its own, so it builds and saves
+#     beside the queued push builds.
+#   - What is left: a tip whose run is alive when an older build checks, and
+#     then fails before its own build jobs (or is cancelled). The older builds
+#     have stopped by then, and main has no build until the next push or a
+#     re-run of the tip's failed job.
+# tools/tests/test_required_checks.py locks all of this.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.run_id || 'queue' }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
 
@@ -144,6 +195,13 @@ jobs:
     # it. The required-check jobs at the bottom then pass without a build.
     needs: docs-only
     if: needs.docs-only.outputs.docs_only != 'true'
+    # One at a time on main, every push queued; a group of one everywhere else.
+    # No superseded step: it is quick, and its run's build jobs stop by
+    # themselves when superseded. See MAIN'S BUILD QUEUES at the top.
+    concurrency:
+      group: ${{ github.workflow }}-generate-rsbs-otr-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-22.04
     # Prebuilt CI image with cmake 3.26+, gcc-11, ccache, and SDL2/SDL2_net/
     # tinyxml2/libzip already compiled in (.github/docker/build-base.Dockerfile),
@@ -219,6 +277,12 @@ jobs:
     # build-macos job at the bottom of this file (#1373).
     name: macOS build
     needs: generate-rsbs-otr
+    # One build of this job at a time on main, every push queued; a group of
+    # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
+    concurrency:
+      group: ${{ github.workflow }}-build-macos-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     # Pinned, not macos-latest: the MacPorts installer is built per macOS
     # release (macos-latest moved to macOS 26 and the Sonoma package refused to
     # install), and macos-14's compiler rejected soh_ui_snapshot.cpp (a lambda
@@ -257,12 +321,23 @@ jobs:
         ref: ${{ startsWith(github.ref, 'refs/tags/') && github.sha || '' }}
         fetch-depth: 1
         fetch-tags: true
+    # Main only. See MAIN'S BUILD QUEUES at the top of the file. Before the
+    # cache step on purpose: a superseded build restores and saves nothing.
+    - name: Stop if a newer main commit supersedes this one
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        # Lists the tip's workflow runs. Read-only; the script builds if the
+        # call is refused.
+        GITHUB_TOKEN: ${{ github.token }}
+      run: bash .github/scripts/stop-superseded-main-build.sh
     - name: Configure ccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
         create-symlink: true
-        # Saved on main only, like the Windows sccache (#177). Main's run is
-        # never cancelled (#1377, the concurrency block at the top), so it
+        # Saved on main only, like the Windows sccache (#177). Main's build of
+        # this job is never cancelled in progress (#1377; this job's
+        # concurrency block and MAIN'S BUILD QUEUES at the top), so it
         # writes this cache, and a pull request restores it through the
         # refs/heads/main restore-key below. A per-PR save would add quota
         # churn that can evict main's entries for a gain that shrinks once
@@ -446,6 +521,12 @@ jobs:
     # build-linux job at the bottom of this file (#1373).
     name: Linux build
     needs: generate-rsbs-otr
+    # One build of this job at a time on main, every push queued; a group of
+    # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
+    concurrency:
+      group: ${{ github.workflow }}-build-linux-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-22.04
     # Prebuilt CI image (see generate-rsbs-otr above) — replaces the per-run
     # apt install + deps-folder cache + SDL/SDL_net/tinyxml2/libzip source
@@ -463,6 +544,16 @@ jobs:
         fetch-tags: true
     - name: Configure git safe directory
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+    # Main only. See MAIN'S BUILD QUEUES at the top of the file. Before the
+    # cache step on purpose: a superseded build restores and saves nothing.
+    - name: Stop if a newer main commit supersedes this one
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        # Lists the tip's workflow runs. Read-only; the script builds if the
+        # call is refused.
+        GITHUB_TOKEN: ${{ github.token }}
+      run: bash .github/scripts/stop-superseded-main-build.sh
     # Tools the appimage packaging needs that GitHub's hosted runners ship but
     # the container does not yet:
     #  - imagemagick: consumed at CMake configure time (find_package(ImageMagick))
@@ -722,6 +813,12 @@ jobs:
   # ==========================================================================
   netplay-relay:
     needs: generate-rsbs-otr
+    # One build of this job at a time on main, every push queued; a group of
+    # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
+    concurrency:
+      group: ${{ github.workflow }}-netplay-relay-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/penelopeduncan/redshipblueship-build:latest
@@ -736,6 +833,16 @@ jobs:
         fetch-tags: true
     - name: Configure git safe directory
       run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+    # Main only. See MAIN'S BUILD QUEUES at the top of the file. Before the
+    # cache step on purpose: a superseded build restores and saves nothing.
+    - name: Stop if a newer main commit supersedes this one
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        # Lists the tip's workflow runs. Read-only; the script builds if the
+        # call is refused.
+        GITHUB_TOKEN: ${{ github.token }}
+      run: bash .github/scripts/stop-superseded-main-build.sh
     - name: Install packaging tools
       run: |
         apt-get update
@@ -833,6 +940,12 @@ jobs:
     # build-windows job at the bottom of this file (#1373).
     name: Windows build
     needs: generate-rsbs-otr
+    # One build of this job at a time on main, every push queued; a group of
+    # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
+    concurrency:
+      group: ${{ github.workflow }}-build-windows-${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && 'main' || github.run_id }}
+      cancel-in-progress: false
+      queue: max
     runs-on: windows-latest
     env:
       # vcpkg binary caching via GitHub Actions cache. vcpkg stores prebuilt port
@@ -858,6 +971,16 @@ jobs:
         ref: ${{ startsWith(github.ref, 'refs/tags/') && github.sha || '' }}
         fetch-depth: 1
         fetch-tags: true
+    # Main only. See MAIN'S BUILD QUEUES at the top of the file. Before the
+    # cache step on purpose: a superseded build restores and saves nothing.
+    - name: Stop if a newer main commit supersedes this one
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: bash
+      env:
+        # Lists the tip's workflow runs. Read-only; the script builds if the
+        # call is refused.
+        GITHUB_TOKEN: ${{ github.token }}
+      run: bash .github/scripts/stop-superseded-main-build.sh
     - name: Configure sccache
       uses: hendrikmuhs/ccache-action@v1.2
       with:
