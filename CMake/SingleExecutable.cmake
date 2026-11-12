@@ -225,6 +225,11 @@ set(REDSHIP_COMMON_SOURCES
     # owl-flag read over MM's frozen half. Game-header-free. APPENDED, never
     # reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.c
+    # #1169 XW8: the Termina owl map OoT's Song of Soaring opens in its pause,
+    # the game-neutral half: the picker, the route to the map or the fallback
+    # chooser, the pause precondition and MM's page data and resource paths.
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring_map.c
     # #1475 (lane H1): the combined Hint Tracker's view model, Majora's Mask pane:
     # MM's hint sources, the read record in the combo save record and the masked
     # rows over the MM save the check tracker reads. Game-header-free. APPENDED,
@@ -351,6 +356,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_items.h
     # Header for warp_song_soaring.c above (#1169 XW6)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring.h
+    # Header for warp_song_soaring_map.c above (#1169 XW8)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_soaring_map.h
     # Header for warp_songs_mm.c above (#1169 XW5)
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
     # Header for mm_warp_song_play.c above (#1169 XW7)
@@ -3616,6 +3623,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # src/common/tests/test_warp_song_soaring.c.
     redship_add_test(NAME SoaringOwlTable COMMAND redship --test soaring-owl-table)
     redship_add_test(NAME OoTSoaringGates COMMAND redship --test oot-soaring-gates)
+    # THE OWL MAP (#1169 lane XW8): SoaringMapPicker: the picker offers exactly
+    # the active owls in MM's order with MM's stick repeat, every input's
+    # outcome, the HUD restore and OCARINA_MODE_04 on every close, the route
+    # with XW6's chooser as the fallback, the pause precondition without the
+    # ocarina's own cutscene flag. SoaringMapTables: the quads, cursors, clouds,
+    # names and resource paths are MM's own and curated for OoT. Both ROM-free,
+    # generating nothing; OoTSoaringGates above also anchors the guarded kaleido
+    # arms K1-K4 and the map's wiring. src/common/tests/test_warp_song_soaring_map.c.
+    redship_add_test(NAME SoaringMapPicker COMMAND redship --test soaring-map-picker)
+    redship_add_test(NAME SoaringMapTables COMMAND redship --test soaring-map-tables)
     redship_add_test(NAME OoTSoaringMatcher COMMAND redship --test oot-soaring-matcher)
     redship_add_test(NAME OoTSoaringPooledOnlyWhenRuleOn COMMAND redship --test oot-soaring-pooled-only-when-rule-on
         LABEL rando
@@ -4423,12 +4440,20 @@ crossing to refuse (#954).")
     # owl) shows the no-statues text, the Windmill (warp-song restriction 3)
     # refuses with 0x88C; each refusal ends in OCARINA_MODE_04 with nothing armed.
     # The MM leg activates the Clock Town and swamp owls, clears Woodfall and makes
-    # the half an owl save with a pause-save entrance. Return leg: the chooser is
-    # cancelled with B, then stepped to the second owl and soared to; MM must land
-    # at the CLEARED swamp's owl (0x0CA0), not the pause-save spot, with the
-    # one-shot target spent. games/oot/soh/GameExports_SingleExe.cpp (the OoT
+    # the half an owl save with a pause-save entrance. Return leg (#1169 XW8):
+    # XW6's text chooser, now the owl map's fallback, opens with the map's assets
+    # forced absent and is cancelled with B (its only live leg: its crossing path
+    # is covered by XW6's anchors and the shared Depart alone); then the owl map
+    # opens (pause state 0x101, the roll-in, SELECT on Clock Town over exactly the
+    # frozen owls) and B closes it through 0x112, 0x12 and 0x13 with
+    # OCARINA_MODE_04 and the HUD back; then D-right, A, No, B (the HUD again);
+    # then D-right, A, OK soars; MM must land at the CLEARED swamp's owl
+    # (0x0CA0), not the pause-save spot, with the one-shot target spent. The first
+    # OoT leg also checks every asset the map draws is mounted before MM ever
+    # ran. The map legs are driven from the frame start (the map freezes the
+    # world). games/oot/soh/GameExports_SingleExe.cpp (the OoT
     # legs), games/mm/2s2h/GameExports_SingleExe.cpp (the MM leg and the arrival).
-    # Longer than its siblings: two more scene loads and five songs. The first OoT
+    # Longer than its siblings: two more scene loads and seven songs. The first OoT
     # phase holds the paired drive's frames plus three ocarina legs and a Windmill
     # round trip, so the per-phase watchdog budget is doubled too (ceiling 4 x 120 s,
     # under the row's TIMEOUT). The world is the paired seed with two settings
