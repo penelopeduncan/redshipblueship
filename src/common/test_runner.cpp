@@ -621,6 +621,10 @@ int RandoTest_ScrubTextHintSetting(void);
 // in games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_CustomMessageReplaceTest_Run(void);
 int RandoTest_MapCompassText(void);
+// #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
+// the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
+// Return 0 on pass.
+int MM_CustomMessageLineBreaks_RunHeadless(void);
 // #1164 green pin: SoH's bombchu drop rule under the Bombchu Bag setting. Body in
 // games/oot/soh/oot_shared_bombchu_test.cpp. Return 0 on pass.
 int OoT_BombchuDropRuleTest_Run(void);
@@ -3508,6 +3512,12 @@ TestResult Test_ScrubTextHintSetting(void) {
 // games/oot/soh/oot_custom_message_text_test.cpp.
 TestResult Test_CustomMessageReplace(void) {
     return OoT_CustomMessageReplaceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1556: MM's AddLineBreaks is plain strings and a static width table, so no
+// bring-up either. Assertions in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
+TestResult Test_MMCustomMessageLineBreaks(void) {
+    return MM_CustomMessageLineBreaks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1187: a map's get-item text and the compass rows' text ids. Same bring-up as
@@ -10746,6 +10756,10 @@ const TestDescriptor gTests[] = {
       "CustomMessage::Replace returns when the replacement contains the search string, in both overloads and through "
       "AutoFormat(ItemID) (#1187)",
       Test_CustomMessageReplace },
+    { "mm-custom-message-line-breaks",
+      "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
+      "one, adds no width for an overflowing space, and loses no letter (#1556)",
+      Test_MMCustomMessageLineBreaks },
     { "foreign-model",
       "A foreign item's get-item model is answered by its origin game: every draw row and progression item of both "
       "games classifies to a descriptor of its own display lists, a host-native model or a named no-model, "

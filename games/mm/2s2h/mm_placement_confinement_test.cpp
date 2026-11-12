@@ -31,7 +31,9 @@
  *      one bit and the four dungeons' bits differ; the Clock Town Stray Fairy has
  *      none (2Ship keeps it vanilla there); under Song Locations every
  *      song-location song has the song bit and a song check is in the song group
- *      only, and under Anywhere neither.
+ *      only, and under Anywhere neither. (c2, #1403) Shuffle Boss Remains at Own
+ *      Dungeon confines Goht's remains to Snowhead (group and mask), at Anywhere
+ *      to nothing.
  *  (d) THE CACHE IS READ, NOT THE SAVE. After the pool is handed in, changing the
  *      live save's Shuffle Songs does not change a song check's answer, so a draw
  *      never reads a value that is not the creation's.
@@ -334,6 +336,27 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
               "(c) a dungeon's boss key and fairies share its keys' group");
     MPC_CHECK(MaskOf(RI_CLOCK_TOWN_STRAY_FAIRY) == 0u,
               "(c) the Clock Town Stray Fairy has no dungeon: 2Ship keeps it vanilla under Own Dungeon");
+    // (c2) #1403: Shuffle Boss Remains at Own Dungeon confines each boss's remains
+    // to that boss's dungeon (Goht's to Snowhead), and at Anywhere to nothing. Red
+    // if RandoItemIdToDungeon's remains branch is dropped or reads another value.
+    {
+        const uint32_t savedRemains = RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS];
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = RO_REMAINS_SHUFFLE_OWN_DUNGEON;
+        const int ownGroup = Rando::Logic::RandoItemIdToConfinementGroup(RI_REMAINS_GOHT);
+        const uint32_t ownMask = MaskOf(RI_REMAINS_GOHT);
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = RO_REMAINS_SHUFFLE_ANYWHERE;
+        const int anyGroup = Rando::Logic::RandoItemIdToConfinementGroup(RI_REMAINS_GOHT);
+        const uint32_t anyMask = MaskOf(RI_REMAINS_GOHT);
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = savedRemains;
+        printf("[TEST] (c2) Goht's remains: Own Dungeon group %d mask %08X, Anywhere group %d mask %08X\n", ownGroup,
+               (unsigned)ownMask, anyGroup, (unsigned)anyMask);
+        MPC_CHECK(ownGroup == DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE && ownMask == sh,
+                  "(c2) under Own Dungeon Goht's remains must be confined to Snowhead (group %d, mask %08X)", ownGroup,
+                  (unsigned)ownMask);
+        MPC_CHECK(anyGroup == -1 && anyMask == 0u,
+                  "(c2) under Anywhere Goht's remains must be unconfined (group %d, mask %08X)", anyGroup,
+                  (unsigned)anyMask);
+    }
     int songs = 0;
     int songsWrong = 0;
     for (const uint16_t id : AllItems()) {

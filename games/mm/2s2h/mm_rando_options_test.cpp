@@ -676,6 +676,38 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         return Fail(55, "unpaired resolution stamped a profile digest (%08X)", gComboCtx.mmProfileDigest);
     }
 
+    // ---- #1403: Minimum Stray Fairies is clamped to Stray Fairies in Pool ----
+    // On the unpaired resolution, where Stray Fairies in Pool is not PARTIAL-forced
+    // to its default (a paired one always reads 15, so the clamp cannot fire there):
+    // a Great Fairy asking for 10 with 5 in each dungeon's pool asks for 5. A 0
+    // pool (a half from before the option, read as every fairy) clamps nothing.
+    // RED if ResolveProfileValues' (2-) clamp or its `!= 0` guard is removed.
+    {
+        const char* const maxKey = Rando::StaticData::Options[RO_STRAY_FAIRIES_MAX].cvar;
+        const char* const minKey = Rando::StaticData::Options[RO_MINIMUM_STRAY_FAIRIES].cvar;
+        CVarSetInteger(maxKey, 5);
+        CVarSetInteger(minKey, 10);
+        Rando::Foreign::ResolvePairedProfile(false);
+        const uint32_t clampedMin = RANDO_SAVE_OPTIONS[RO_MINIMUM_STRAY_FAIRIES];
+        const uint32_t clampedMax = RANDO_SAVE_OPTIONS[RO_STRAY_FAIRIES_MAX];
+        CVarSetInteger(maxKey, 0);
+        Rando::Foreign::ResolvePairedProfile(false);
+        const uint32_t zeroPoolMin = RANDO_SAVE_OPTIONS[RO_MINIMUM_STRAY_FAIRIES];
+        CVarClear(maxKey);
+        CVarClear(minKey);
+        printf("[TEST] mm-paired-profile #1403 clamp: pool 5, minimum 10 -> minimum %u (pool %u); pool 0, minimum "
+               "10 -> minimum %u\n",
+               (unsigned)clampedMin, (unsigned)clampedMax, (unsigned)zeroPoolMin);
+        if (clampedMin != 5 || clampedMax != 5) {
+            return Fail(108, "Minimum Stray Fairies 10 with 5 in the pool resolved to %u (pool %u), not 5",
+                        (unsigned)clampedMin, (unsigned)clampedMax);
+        }
+        if (zeroPoolMin != 10) {
+            return Fail(109, "a 0 Stray Fairies in Pool (every fairy) clamped Minimum Stray Fairies 10 to %u",
+                        (unsigned)zeroPoolMin);
+        }
+    }
+
     // Every paired probe below starts from a FRESH, unstamped pairing carrier:
     // under freeze semantics a stamped pair refuses a different profile rather
     // than re-stamping, so digest-motion probes must model what they are — a
