@@ -3210,10 +3210,10 @@ void Settings::UpdateAllOptions() {
 void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocations,
                                const std::set<RandomizerTrick>& enabledTricks) {
     // [RSBS #1404] SoH #6938 split Skip Child Zelda into an unshuffled starting Zelda's Letter and
-    // Shuffle Weird Egg "Skip Waking Talon" (its ConfigVersion7Updater). The legacy key is hidden
-    // but still read, so a stored value is mapped here, as the updater maps the CVars: otherwise
-    // root.cpp would credit Talon's and Malon's return while Randomizer_InitSaveFile, which now
-    // wakes Talon only under Skip Waking Talon, leaves him asleep in the castle.
+    // Shuffle Weird Egg "Skip Waking Talon" (its ConfigVersion7Updater; RSBS config version 11
+    // converts and clears the CVars once). The legacy key is hidden but still read (root.cpp, the
+    // creation, the rows that set it at run time), so a value set here is mapped as the updater
+    // maps the CVars, and the generated world folds the options it actually plays.
     if (mOptions[RSK_SKIP_CHILD_ZELDA]) {
         mOptions[RSK_STARTING_ZELDAS_LETTER].Set(RO_GENERIC_ON);
         mOptions[RSK_SHUFFLE_WEIRD_EGG].Set(RO_WEIRD_EGG_SKIP_TALON);
