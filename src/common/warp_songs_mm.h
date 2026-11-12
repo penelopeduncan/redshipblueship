@@ -69,33 +69,35 @@ extern "C" {
  * Majora's Mask one: SongPoolOverCapacity legs (e2) and (f)), while an added
  * Song of Soaring (OoT) already takes the spare check: the warning
  * says "when", not OoTMM's "must". Under the other modes an MM warp song is a
- * general-pool item and never refused. The Cross-Game Songs rows draw them
- * (SohMenuCombo.cpp).
+ * general-pool item and never refused. The way out names only remedies this
+ * build offers (Shuffle Songs: Anywhere, or a starting song): the Shared rows
+ * stay hidden until XW10, which restores OoTMM's "share a song". The
+ * Cross-Game Songs rows draw them (SohMenuCombo.cpp).
  */
-#define RSBS_MM_WARP_SONG_TOOLTIP_MINUET                                                           \
-    "Adds Ocarina of Time's Minuet of Forest to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "     \
-    "start with one."
-#define RSBS_MM_WARP_SONG_TOOLTIP_BOLERO                                                         \
-    "Adds Ocarina of Time's Bolero of Fire to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "   \
-    "start with one."
+#define RSBS_MM_WARP_SONG_TOOLTIP_MINUET                                                            \
+    "Adds Ocarina of Time's Minuet of Forest to Majora's Mask. On Shuffle Songs: Song Locations, "  \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
+#define RSBS_MM_WARP_SONG_TOOLTIP_BOLERO                                                            \
+    "Adds Ocarina of Time's Bolero of Fire to Majora's Mask. On Shuffle Songs: Song Locations, "    \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_SERENADE                                                          \
     "Adds Ocarina of Time's Serenade of Water to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "      \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_REQUIEM                                                           \
     "Adds Ocarina of Time's Requiem of Spirit to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "      \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_NOCTURNE                                                           \
     "Adds Ocarina of Time's Nocturne of Shadow to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "       \
-    "start with one."
-#define RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE                                                          \
-    "Adds Ocarina of Time's Prelude of Light to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "     \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to "  \
+    "Anywhere or start with a song."
+#define RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE                                                           \
+    "Adds Ocarina of Time's Prelude of Light to Majora's Mask. On Shuffle Songs: Song Locations, "  \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 
 /** The ownership bit of extension rule @p ruleBit (RSBS_XITEM2_SONG_MINUET_MM ..
  *  RSBS_XITEM2_SONG_PRELUDE_MM), or 0 for any other bit or mask. Pure. */

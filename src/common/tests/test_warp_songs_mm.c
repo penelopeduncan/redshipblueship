@@ -370,7 +370,8 @@ TestResult MMWarpSongsItems_Run(void) {
             const char* tip = Combo_MMWarpSongTooltip(s.rule);
             const std::string want = std::string("Adds Ocarina of Time's ") + s.ootName + " to Majora's Mask.";
             WSM_CHECK(tip != NULL && std::string(tip).rfind(want, 0) == 0 && strstr(tip, "Song Locations") != NULL &&
-                          strstr(tip, "share a song or start with one") != NULL,
+                          strstr(tip, "set Shuffle Songs to Anywhere or start with a song") != NULL &&
+                          strstr(tip, "share a song") == NULL,
                       "%s's tooltip is '%s', not '%s' with the Song Locations warning", s.name,
                       tip != NULL ? tip : "(none)", want.c_str());
         }
