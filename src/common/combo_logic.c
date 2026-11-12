@@ -1797,30 +1797,62 @@ static int ComboLogicDrawAndPlace(const ComboLogicBagItem* item, uint32_t* rng, 
     return RSBS_COMBO_LOGIC_OK;
 }
 
+/** May this confined row use hosts of its OWN game only? A local mask is in its
+ *  origin's namespace, and a HOME_ONLY row never crosses; a shared pair, and a
+ *  wide row that may cross, use hosts of both games. */
+static bool ComboLogicConfinedToOwnSide(const ComboLogicBagItem* item) {
+    const uint32_t confine = ComboLogicRowConfine(item);
+    if (confine == 0u || ComboLogicRowIsPair(item)) {
+        return false;
+    }
+    return (confine & ~RSBS_COMBO_GROUP_WIDE_MASK) != 0u || (item->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u;
+}
+
 /** THE HOST GROUPS: confined rows FIRST. A STABLE partition of the attempt's
  *  shuffled order `order[0..n)`, confined rows (in their shuffled order) ahead of
  *  the rest (in theirs), so each confined row is placed with every other REQUIRED
  *  row of the bag assumed: OoTMM's fixDungeon / placeSemiShuffled before its main
  *  fill (solve.ts), SoH's restricted passes before its general one (fill.cpp). It
  *  draws no RNG, and with no confined row it writes nothing, so a mask-free bag's
- *  order is exactly the shuffle's. */
+ *  order is exactly the shuffle's.
+ *
+ *  Among the confined rows, the ones held to their OWN game's hosts go ahead of
+ *  the ones that may use both games' (ABI 11, #1542). A wide group's hosts are
+ *  shared: with one game's songs HOME_ONLY (a one-way direction, or a class set
+ *  without PROGRESSION) and the other's free to cross, the crossing songs drawn
+ *  first took the home-only songs' only hosts, and although the capacity check
+ *  had passed (a full matching exists) every attempt dead-ended. Placed first,
+ *  the own-side rows take hosts on their own side while every one is still empty,
+ *  and the crossing rows keep the other side's hosts and what is left. Which of a
+ *  side's own hosts they take is still the draw's choice, so a group with no slack
+ *  and a host that refuses foreign items can still dead-end an attempt, which the
+ *  batch retry redraws. With rows of only one of the two kinds (every world
+ *  without a wide group; a default Song Locations world, whose songs all cross
+ *  and which confines nothing else) the order is unchanged. */
 static int sConfinedScratch[RSBS_COMBO_LOGIC_BAG_CAP];
 static void ComboLogicConfinedFirst(const ComboLogicFillRequest* req, int* order, int n) {
     if (sConfineMasks == NULL) {
         return;
     }
+    int ownSide = 0;
     int confined = 0;
     for (int i = 0; i < n; ++i) {
-        confined += (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) ? 1 : 0;
+        const ComboLogicBagItem* row = &req->bag[order[i]];
+        confined += (ComboLogicRowConfine(row) != 0u) ? 1 : 0;
+        ownSide += ComboLogicConfinedToOwnSide(row) ? 1 : 0;
     }
-    if (confined == 0 || confined == n) {
+    if (confined == 0 || (confined == n && (ownSide == 0 || ownSide == confined))) {
         return;
     }
     int front = 0;
+    int middle = ownSide;
     int back = confined;
     for (int i = 0; i < n; ++i) {
-        if (ComboLogicRowConfine(&req->bag[order[i]]) != 0u) {
+        const ComboLogicBagItem* row = &req->bag[order[i]];
+        if (ComboLogicConfinedToOwnSide(row)) {
             sConfinedScratch[front++] = order[i];
+        } else if (ComboLogicRowConfine(row) != 0u) {
+            sConfinedScratch[middle++] = order[i];
         } else {
             sConfinedScratch[back++] = order[i];
         }
