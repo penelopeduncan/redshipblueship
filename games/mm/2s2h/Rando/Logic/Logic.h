@@ -20,6 +20,14 @@ extern "C" {
 #include "variables.h"
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// RedShipBlueShip #1169 XW9 (Rando/ComboLogicEngineSingleExe.cpp): inside a
+// coordinator round, has the round handed MM Ocarina of Time's Song of Soaring
+// travel fact (OoT can play it as a child, after the crossing was entered and
+// departed)? False outside a round, so MM's own fill and tracker never read it.
+extern "C" bool MM_ComboLogic_OoTSoaringTravel(void);
+#endif
+
 namespace Rando {
 
 namespace Logic {
@@ -397,13 +405,21 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // can_play_tp_light in MM, for Ocarina of Time's warp songs as MM items
 // (Rando/WarpSongsMM.cpp): the ocarina, the song under its frozen rule and owned,
 // and its notes' buttons (canPlayOoTWarpSong below, which Ocarina Button Shuffle
-// decides as it does MM's own songs). No region reads it yet: the songs' travel
-// facts are lane XW9's.
+// decides as it does MM's own songs). No MM region reads it: it is MM's travel
+// fact for the coordinator (#1169 XW9, ComboLogicEngineSingleExe.cpp), which opens
+// OoT's warp-song exits.
 #define CAN_PLAY_OOT_WARP_SONG(ri) \
     (HAS_ITEM(ITEM_OCARINA_OF_TIME) && MM_WarpSongMM_Usable(ri) && Rando::Logic::canPlayOoTWarpSong(ri))
+// RedShipBlueShip #1169 XW9 (OoTMM data/world/oot/overworld/_system.yml, OoT
+// GLOBAL -> "MM SOARING"; pathfind.ts ORs MM's Day 1 dawn into every OoT -> MM
+// exit): the root's owl landings also open when Ocarina of Time can play its Song
+// of Soaring, on Day 1 only. MM resumes at its frozen time, and the player can
+// leave MM through the tower interior at every Day 1 slice the root holds.
+#define CAN_OOT_SOAR_TO_OWL (MM_ComboLogic_OoTSoaringTravel() && IS_DAY1())
 #else
 #define CAN_PASS_GIBDO HAS_ITEM(ITEM_MASK_GIBDO)
 #define CAN_FOOL_PURPLE_GUARDS HAS_ITEM(ITEM_MASK_STONE)
+#define CAN_OOT_SOAR_TO_OWL false
 #endif
 
 // TODO: This may not stay here

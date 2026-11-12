@@ -437,6 +437,9 @@ int OoT_Creation_FinishPairedHalf(int writeSpoiler);
 // WarpSongRecordOoT.cpp: the created world's own answers, read beside the record.
 int OoT_WarpSongRecord_TestTableDisagreements(void);
 int OoT_WarpSongRecord_TestHintArea(int song);
+// ComboLogicEngineOoT.cpp (#1169 XW9): a song's destination as a round reads it
+// from the entrance graph.
+uint16_t OoT_ComboLogic_TestTravelGraphDest(int song);
 // SeedPackageSingleExe.cpp: a package's world-record copy and its apply.
 int OoT_SeedPackage_WorldRecordRoundTripForTest(const ComboContext* live, ComboContext* outRecordBytes);
 }
@@ -532,6 +535,19 @@ void WsrRunLeg(const char* leg, const char* seed, bool shuffled, bool hints) {
         areaMismatches += area != want ? 1 : 0;
         named += area != 0 ? 1 : 0;
     }
+    // #1169 XW9: the destination the OoT engine reads from the entrance graph at a
+    // round's beginQuery (before any override row exists) is the one this record
+    // froze from the override rows, so the logic's MM-warp credit and XW7's play
+    // judge the same entrance.
+    int graphMismatches = 0;
+    for (int i = 0; i < RSBS_MMWP_SONG_COUNT; i++) {
+        graphMismatches += OoT_ComboLogic_TestTravelGraphDest(i) != Combo_OoTWarpRecord_Dest(i) ? 1 : 0;
+    }
+    printf("[TEST] oot-warp-song-record: %s: graph-derived destinations that differ from the record: %d\n", leg,
+           graphMismatches);
+    WsrCheck(graphMismatches == 0, leg,
+             "the OoT engine's graph-derived warp destination is not the recorded one (XW9's credit would judge "
+             "another entrance than XW7 lands on)");
     const int disagreements = OoT_WarpSongRecord_TestTableDisagreements();
     printf("[TEST] oot-warp-song-record: %s: crossings %d, status before the tail %d, after %d, flags %u (want %u), "
            "pads moved %d, table disagreements %d, areas named %d, area mismatches %d\n",

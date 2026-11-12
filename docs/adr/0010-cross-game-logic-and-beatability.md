@@ -2837,3 +2837,98 @@ RNG), sits on top of the proved world, and decides no placement.
   wording, the wiring from source) and `Rando_ValidatePairedWorldHints`'s P8
   (rando tier, ComboSingleBag D2: the flags, the record and every WotH hint of a
   generated world).
+
+### 2026-11-11 -- Travel facts: ABI 10 (#1169 XW9)
+
+Epic #1169's warp songs cross between the games: OoT's Song of Soaring (OoTMM
+`songSoaringOot`) lands at an active Termina owl (XW6), and MM's six OoT warp
+songs (`songMinuetMm` .. `songPreludeMm`) land at their frozen OoT destinations
+(XW7). Neither solver can credit that travel alone, because neither knows the
+other game is reachable; only the coordinator routes between engines (ADR 0002).
+So the vtable gains two OPTIONAL trailing entries and the ABI moves to 10:
+
+- **`travelFacts`** reports which songs this game can PLAY in the round's
+  simulated state, in the second rules word's own bit positions: OoT
+  `RSBS_COMBO_TRAVEL_INTO_MM` (0x01; `CanUse(RG_SONG_OF_SOARING_OOT)` as a child
+  at day, behind RR_ROOT's child-day access, which is OoTMM's
+  `can_play_soaring`), MM `RSBS_COMBO_TRAVEL_INTO_OOT` (0x02 << song;
+  `CAN_PLAY_OOT_WARP_SONG`, OoTMM's `can_play_tp_*`). Each engine uses its own
+  predicates, so each game's own buttons and its own frozen rule decide.
+- **`acceptTravelFacts`** hands the other game's gated facts to an engine for the
+  rest of the round; its next `expand` reads them. OoT: the six RR_ROOT_EXITS
+  warp-song exits gain `|| (IsChild && AtDay && OoT_ComboLogic_MMWarpTravel(i))`.
+  MM: the ten RR_MAX owl landings become `(CAN_PLAY_SONG(SOARING) ||
+  CAN_OOT_SOAR_TO_OWL) && CAN_OWL_WARP(owl)`, with `CAN_OOT_SOAR_TO_OWL` =
+  the accepted fact `&& IS_DAY1()`. Both accessors are false outside a round.
+
+**The gates** (`Combo_Logic_TravelGate`). MM's facts reach OoT only while OoT's
+crossing is open (the player must be in MM to play an MM item, and ruling 9 of
+2026-11-04 makes a warp travel after the door, never a first way into Termina).
+OoT's Soaring fact reaches MM only while BOTH crossings are open: it lands on owls
+already active in MM's FROZEN copy, so MM must have been entered and departed.
+OoTMM has neither gate (its world graph treats the door and the warps as plain
+exits); both are stricter divergences forced by the frozen copy (decision D1).
+
+**Termination.** The accepted sets only grow (an OR), reset per round, and are
+derived only from the round's own granted items and placements; facts appear only
+positively in edges; the gates are conjunctions of monotone flags. So the
+composite operator stays monotone on a finite product lattice and the least fixed
+point credits every fact only after a well-founded derivation in play order: a
+fact gated on the crossing cannot help open the crossing circularly. A fact that
+disappears inside a round is reported `ERR_NON_MONOTONE` (the watchdog's fifth and
+sixth observables). At most seven extra alternations per round. No RNG is
+consumed and no copy is assumed from a fact, so the multiplicity contract, the
+proof and the retries are untouched; a withheld host's item yields no fact
+because it is never granted.
+
+**Time.**
+
+- *OoT arrival (D3)*: day only. A door departure leaves OoT frozen at day (the
+  mask shop is day-entered); destinations where time passes still gain night
+  through SoH's `ApplyTimePass`. OoTMM carries the departure's time of day, which
+  is day for a door departure; day only is a subset.
+- *MM arrival (D4)*: RR_MAX's Day 1 slices. Without Clock Shuffle RR_MAX holds
+  only Day 1 06:00 (`InitializeRegionTimeStates`), so the landing is credited at
+  dawn and later slices come only from the landing's own stay expansion, which is
+  OoTMM's model (pathfind.ts ORs `mmTime |= 1` into every OoT -> MM exit, then
+  stays). **Under Clock Shuffle this diverges**: `NarrowEdgeTime` carries every
+  owned Day 1 slice over the edge at once, where OoTMM credits dawn and then
+  stays. It is sound because the player lands at the MM time they last left at,
+  and the tower interior is reached at every RR_MAX slice in the same round
+  (RR_MAX's `true` save-warp exit to South Clock Town and its `true` edges to the
+  interior), so every owned Day 1 slice is one at which the player could have
+  departed. It is the model MM already applies to its own Soaring under Clock
+  Shuffle. The critics' tightening (test the interior's reached Day 1 slices
+  during the crawl) is not adopted: RR_MAX is explored first and never re-entered,
+  so the interior's state does not exist yet in the same crawl.
+
+**What is not credited.**
+
+- *Grotto destinations (D2)*. XW7 refuses an MM warp to a grotto pseudo index
+  (0x0700 and above) unless OoT's grotto tables were loaded in the session, which
+  is session history. The logic credits only destinations play lands in every
+  session (`Combo_MMWarpPlay_DestCreditedByLogic`: nonzero and below 0x0700,
+  graves included), split from XW7's `Combo_MMWarpPlay_DestResolvable` so the two
+  rules cannot drift. The destination is read at `beginQuery` from the entrance
+  graph (a shuffled warp's replacement index, the pad otherwise, with the fake
+  Ganon's Castle blue-warp remap), which holds the shuffle from
+  `ShuffleAllEntrances` on; the record is a projection of the same shuffle, and
+  `oot-warp-song-record` locks the two equal.
+- *An adult frozen OoT half*: no edge. Every route into MM is child-only and OoT's
+  half changes only while OoT runs.
+- *Owl landings from the nook (D7)*: the reset-time guard still prunes them under
+  `!MmCanResetTime`, OoT's Soaring included.
+- *Trackers (D6)*: both check trackers evaluate the same exits outside any round,
+  where the accessors are false, so they under-credit warp reach identically in an
+  MM-first session and after a crossing. XW11 owns giving them frozen-world facts.
+  Way of the Hero and foolish run through `Combo_Logic_RunRound` and see the
+  facts as the fill does.
+
+**Rules off.** With every warp-song rule off (every world a player can create
+until XW12 exposes them; Generate refuses a hidden bit) both `travelFacts` answer
+0 (OoT returns before touching the logic when its rule is off; MM reads one word),
+no accept is made, no alternation is added, and both new disjuncts are false. So
+no placement, fingerprint, hint, spoiler line or tracker result moves, and no
+saved state or generator version changes. Locked by `ComboLogicTravelFacts` (T7:
+silent engines give byte-identical rounds and fills), `OoTWarpTravelEdges`,
+`MMWarpTravelEdges` and the `oot-warp-song-record` graph leg.

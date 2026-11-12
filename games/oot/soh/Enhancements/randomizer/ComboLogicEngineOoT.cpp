@@ -122,6 +122,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "soh/OTRGlobals.h"
@@ -144,7 +145,9 @@
 #include "context.h"               // src/common — SharedItem, GameId
 #include "critical_renewables.h"   // src/common — OoTMM's critical-renewables rule (OoT's source, OoT's remainder)
 #include "foreign_items.h"         // src/common — the frozen pairing identity and combo record
+#include "mm_warp_song_play.h"     // src/common — XW7's destination rule, which XW9's warp credit reads
 #include "soh/SohGui/ImGuiUtils.h" // GetTextureForItemId: the describer's arrival-toast icon key
+#include "soh/Enhancements/randomizer/SongOfSoaringOoT.h" // OoT_SongOfSoaringOoTOn: the frozen Soaring rule
 
 extern "C" {
 #include <z64.h>
@@ -234,6 +237,32 @@ int sBeginQueryCount = 0;
  *  leg, which puts it back. */
 bool sTestSuppressRoundClamp = false;
 int sEndQueryCount = 0;
+
+/** THE TRAVEL FACTS (combo_logic.h ABI 10, #1169 XW9). The MM warp-song facts the
+ *  coordinator handed this round (RSBS_COMBO_TRAVEL_INTO_OOT bits), read by the
+ *  six warp-song root exits (location_access/root.cpp) through
+ *  OoT_ComboLogic_MMWarpTravel. Cleared by `beginQuery` and `endQuery`, so it is
+ *  one round's and never reaches OoT's own fill, its tracker or its entrance
+ *  validation, which all run outside any round. */
+uint32_t sOoTTravelAccepted = 0u;
+/** Each song's destination in THIS world's entrance graph, read at `beginQuery`
+ *  (OoTComboTravelGraphDest): what XW7's record will freeze for it, and what
+ *  Combo_MMWarpPlay_DestCreditedByLogic judges. */
+uint16_t sOoTTravelDest[RSBS_MMWP_SONG_COUNT] = {};
+/** TEST ONLY (oot-warp-travel-edges): when armed, the accessor reads these in
+ *  place of the round's state, so the row drives the real root exits without a
+ *  generation. Never set outside that row, which disarms it. */
+bool sOoTTravelTestArmed = false;
+bool sOoTTravelTestInRound = false;
+uint32_t sOoTTravelTestAccepted = 0u;
+uint16_t sOoTTravelTestDest[RSBS_MMWP_SONG_COUNT] = {};
+
+/** The six warp regions in OoTMM's song order (Minuet .. Prelude): the order of
+ *  RSBS_XITEM2_SONG_MINUET_MM .. PRELUDE_MM and of XW7's pads. */
+const RandomizerRegion kOoTComboTravelWarpRegions[RSBS_MMWP_SONG_COUNT] = {
+    RR_MINUET_OF_FOREST_WARP,  RR_BOLERO_OF_FIRE_WARP,     RR_SERENADE_OF_WATER_WARP,
+    RR_REQUIEM_OF_SPIRIT_WARP, RR_NOCTURNE_OF_SHADOW_WARP, RR_PRELUDE_OF_LIGHT_WARP,
+};
 
 // ============================================================================
 // Small helpers
@@ -501,6 +530,81 @@ void OoTComboLogicRestoreLogicVals(const bool* saved) {
 }
 
 // ============================================================================
+// THE TRAVEL FACTS (combo_logic.h ABI 10, #1169 XW9)
+// ============================================================================
+
+/**
+ * Song @p song's destination in the live entrance graph: the exit of its
+ * RR_*_WARP region (location_access/root.cpp), resolved the way
+ * CreateEntranceOverrides will write it (entrance.cpp: a SHUFFLED entrance's row
+ * holds its replacement's index; an unshuffled one has no row and
+ * Entrance_GetOverride answers the pad itself), with Entrance_GetOverride's fake
+ * Ganon's Castle blue-warp remap (WarpSongRecordOoT.cpp, WarpSongRecordOverrideOf).
+ * So it is the destination XW7's record will freeze, read BEFORE the override rows
+ * exist: the graph holds the shuffle from ShuffleAllEntrances on, which runs before
+ * the fill. 0 with no such exit (no logic credits 0); oot-warp-song-record locks the
+ * answer equal to the record over real shuffled and unshuffled creations.
+ */
+uint16_t OoTComboTravelGraphDest(int song) {
+    if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
+        return 0u;
+    }
+    Region* warp = RegionTable(kOoTComboTravelWarpRegions[song]);
+    if (warp == nullptr || warp->exits.empty()) {
+        return 0u;
+    }
+    const Rando::Entrance& exit = warp->exits.front();
+    const Rando::Entrance* replacement = exit.GetReplacement();
+    if (!exit.IsShuffled() || replacement == nullptr) {
+        // No override row: the pad itself. Read from XW7's pad table, not from the
+        // exit's index, which only ShuffleAllEntrances' SetAllEntrancesData stamps
+        // (a world with no entrance shuffle at all never runs it).
+        return Combo_MMWarpPlay_PadEntrance(song);
+    }
+    int16_t index = replacement->GetIndex();
+    if (index == (int16_t)ENTR_OUTSIDE_GANONS_CASTLE_1_2) {
+        index = (int16_t)ENTR_CASTLE_GROUNDS_RAINBOW_BRIDGE_EXIT;
+    }
+    return (uint16_t)index;
+}
+
+/**
+ * OoT's travel fact over logic @p lg: RSBS_COMBO_TRAVEL_INTO_MM when a CHILD at
+ * day can play the Song of Soaring (OoT), which is OoTMM's can_play_soaring
+ * (macros_oot.yml) and already what `CanUse(RG_SONG_OF_SOARING_OOT)` answers (the
+ * frozen rule, the song, an ocarina, C-down, C-up and C-left; logic.cpp), and
+ * @p rootChildDay holds (RR_ROOT has child-day access: the child can save-warp to
+ * the child spawn, an unrestricted scene; under an adult start that holds only
+ * once OoT's own graph has time-travelled). Otherwise 0. Pure: the four age and
+ * time flags it sets are put back, and with the rule off it touches nothing.
+ */
+uint32_t OoTComboTravelFactsOf(Rando::Logic& lg, bool rootChildDay) {
+    if (!OoT_SongOfSoaringOoTOn() || !rootChildDay) {
+        return 0u;
+    }
+    const bool wasChild = lg.IsChild;
+    const bool wasAdult = lg.IsAdult;
+    const bool wasDay = lg.AtDay;
+    const bool wasNight = lg.AtNight;
+    const RandomizerRegion wasRegion = lg.CurrentRegionKey;
+    lg.IsChild = true;
+    lg.IsAdult = false;
+    lg.AtDay = true;
+    lg.AtNight = false;
+    // Asked at the root (scene SCENE_ID_MAX, where ItemUseAllowed restricts
+    // nothing), not in whatever region the search processed last: the scene gates
+    // of play are transient, and the save-warp reaches an unrestricted scene.
+    lg.CurrentRegionKey = RR_ROOT;
+    const bool canSoar = lg.CanUse(RG_SONG_OF_SOARING_OOT);
+    lg.IsChild = wasChild;
+    lg.IsAdult = wasAdult;
+    lg.AtDay = wasDay;
+    lg.AtNight = wasNight;
+    lg.CurrentRegionKey = wasRegion;
+    return canSoar ? RSBS_COMBO_TRAVEL_INTO_MM : 0u;
+}
+
+// ============================================================================
 // The vtable
 // ============================================================================
 
@@ -549,6 +653,12 @@ int OoT_ComboLogic_BeginQuery(void* self) {
     sWithheld.clear();
     sPrevReachedChecks = -1;
     sPrevReachedRegions = -1;
+    // THE TRAVEL FACTS (ABI 10): none accepted yet, and each song's destination
+    // read from the entrance graph, which already holds this world's shuffle.
+    sOoTTravelAccepted = 0u;
+    for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
+        sOoTTravelDest[song] = OoTComboTravelGraphDest(song);
+    }
     sInQuery = true;
     // THE ROUND CLAMP, for exactly the life of the round: every grant from here
     // to `endQuery` — the assumed copies, `expand`'s re-application of them, the
@@ -1041,6 +1151,7 @@ void OoT_ComboLogic_EndQuery(void* self) {
     }
     sInQuery = false;
     sWithheld.clear();
+    sOoTTravelAccepted = 0u;
     ++sEndQueryCount;
     // The clamp is a property of the ROUND. Off again before anything else, so no
     // later OoT evaluation — its own fill, CheckBeatable, gameplay — runs with it.
@@ -1307,6 +1418,31 @@ int OoT_ComboLogic_AllLocations(void* self, uint16_t* out, int cap) {
     return total;
 }
 
+/**
+ * `travelFacts` (ABI 10): OoTComboTravelFactsOf over the round's singleton, which
+ * after `expand` holds the round's whole inventory (`goalReached` relies on the
+ * same), gated on RR_ROOT's child-day access from that same search. 0 outside a
+ * round.
+ */
+uint32_t OoT_ComboLogic_TravelFacts(void* self) {
+    (void)self;
+    if (!sInQuery || !OoTComboLogicReady()) {
+        return 0u;
+    }
+    Region* root = RegionTable(RR_ROOT);
+    return OoTComboTravelFactsOf(*OoTComboLogicSingleton(), root != nullptr && root->childDay);
+}
+
+/** `acceptTravelFacts` (ABI 10): MM's warp-song facts for the rest of the round;
+ *  the next `expand`'s search reads them through the six root exits. */
+void OoT_ComboLogic_AcceptTravelFacts(void* self, uint32_t facts) {
+    (void)self;
+    if (!sInQuery) {
+        return;
+    }
+    sOoTTravelAccepted |= facts & RSBS_COMBO_TRAVEL_INTO_OOT;
+}
+
 const ComboLogicEngine kOoTComboLogicEngine = {
     /* abiVersion        */ RSBS_COMBO_LOGIC_ENGINE_ABI,
     /* self              */ nullptr,
@@ -1327,6 +1463,9 @@ const ComboLogicEngine kOoTComboLogicEngine = {
     /* hostAcceptsForeign*/ OoT_ComboLogic_HostAcceptsForeign,
     /* withholdHost      */ OoT_ComboLogic_WithholdHost,
     /* allLocations      */ OoT_ComboLogic_AllLocations,
+    /* hostGroups        */ nullptr,
+    /* travelFacts       */ OoT_ComboLogic_TravelFacts,
+    /* acceptTravelFacts */ OoT_ComboLogic_AcceptTravelFacts,
 };
 
 struct OoTComboLogicRegistrar {
@@ -3448,6 +3587,206 @@ extern "C" int OoT_ComboLogic_TestFillAdvancement(uint16_t id) {
         return -1;
     }
     return Rando::StaticData::RetrieveItem((RandomizerGet)id).IsAdvancement() ? 1 : 0;
+}
+
+// ============================================================================
+// THE TRAVEL FACTS' root-exit accessor (#1169 XW9) and its test bridges
+// ============================================================================
+
+/**
+ * location_access/root.cpp's MM-warp disjunct for song @p song (0 Minuet .. 5
+ * Prelude, OoTMM's order): Combo_MMWarpPlay_TravelEdgeOpen over this round's state.
+ * False outside a coordinator round, so OoT's own fill, its restricted passes, its
+ * entrance validation and its check tracker, which evaluate the same exits, are
+ * unchanged. The region file adds the child-at-day terms.
+ */
+extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
+    if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
+        return false;
+    }
+    if (sOoTTravelTestArmed) {
+        return Combo_MMWarpPlay_TravelEdgeOpen(sOoTTravelTestInRound, sOoTTravelTestAccepted, song,
+                                               sOoTTravelTestDest[song]);
+    }
+    return Combo_MMWarpPlay_TravelEdgeOpen(sInQuery, sOoTTravelAccepted, song, sOoTTravelDest[song]);
+}
+
+/** TEST BRIDGE (oot-warp-travel-edges): arm (@p armed 1) or disarm the accessor's
+ *  seam: a round open or not, the accepted MM facts, and each song's destination
+ *  (@p dest may be NULL: all 0). */
+extern "C" void OoT_ComboLogic_TestTravelSeam(int armed, int inRound, uint32_t accepted, const uint16_t* dest) {
+    sOoTTravelTestArmed = armed != 0;
+    sOoTTravelTestInRound = inRound != 0;
+    sOoTTravelTestAccepted = accepted;
+    for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
+        sOoTTravelTestDest[song] = dest != nullptr ? dest[song] : (uint16_t)0u;
+    }
+}
+
+/** TEST BRIDGE: song @p song's destination as `beginQuery` reads it from the live
+ *  entrance graph (OoTComboTravelGraphDest). */
+extern "C" uint16_t OoT_ComboLogic_TestTravelGraphDest(int song) {
+    return OoTComboTravelGraphDest(song);
+}
+
+/**
+ * TEST BRIDGE: evaluate the REAL RR_ROOT_EXITS exit into song @p song's warp region
+ * (location_access/root.cpp) with Entrance::ConditionsMet, the search's own call,
+ * from RR_ROOT_EXITS holding exactly one age and time (@p child, @p day). The
+ * logic singleton reads an empty probe save for the call, plus (@p native 1) the
+ * Fairy Ocarina, all five buttons and the native song, the control that the probe
+ * evaluates the real lambda. Every flag, value and the save pointer are put back.
+ * 1 open, 0 closed; -1 with no region graph or no such exit; -2 when the context's
+ * logic rules are not glitchless (Entrance::GetConditionsMet then answers true).
+ */
+extern "C" int OoT_ComboLogic_TestRootWarpEdge(int song, int child, int day, int native) {
+    static const RandomizerGet kSongs[RSBS_MMWP_SONG_COUNT] = {
+        RG_MINUET_OF_FOREST,  RG_BOLERO_OF_FIRE,     RG_SERENADE_OF_WATER,
+        RG_REQUIEM_OF_SPIRIT, RG_NOCTURNE_OF_SHADOW, RG_PRELUDE_OF_LIGHT,
+    };
+    if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
+        return -1;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    Rando::Logic* lg = OoTComboLogicSingleton();
+    if (ctx == nullptr || lg == nullptr) {
+        return -1;
+    }
+    if (!ctx->GetOption(RSK_LOGIC_RULES).Is(RO_LOGIC_GLITCHLESS)) {
+        return -2;
+    }
+    Region* rootExits = RegionTable(RR_ROOT_EXITS);
+    const Rando::Entrance* edge = nullptr;
+    for (const Rando::Entrance& e : rootExits->exits) {
+        if (e.GetConnectedRegionKey() == kOoTComboTravelWarpRegions[song]) {
+            edge = &e;
+            break;
+        }
+    }
+    if (edge == nullptr) {
+        return -1;
+    }
+    auto save = std::make_unique<SaveContext>();
+    std::memset(save.get(), 0, sizeof(SaveContext));
+    // Empty pockets: a zeroed slot holds ITEM_DEKU_STICK (0).
+    std::memset(save->inventory.items, ITEM_NONE, sizeof(save->inventory.items));
+    static bool sTravelEdgeVals[LOGIC_MAX];
+    OoTComboLogicSaveLogicVals(sTravelEdgeVals);
+    SaveContext* prior = lg->GetSaveContext();
+    const bool wasChild = lg->IsChild;
+    const bool wasAdult = lg->IsAdult;
+    const bool wasDay = lg->AtDay;
+    const bool wasNight = lg->AtNight;
+    const bool cd = rootExits->childDay;
+    const bool cn = rootExits->childNight;
+    const bool ad = rootExits->adultDay;
+    const bool an = rootExits->adultNight;
+    lg->SetSaveContext(save.get());
+    if (native != 0) {
+        // The probe save's own fields (OoT_SoaringTest_Logic's shape), then the
+        // song through the logic's own item effect.
+        lg->SetInventory(ITEM_OCARINA_FAIRY, ITEM_OCARINA_FAIRY);
+        lg->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_A, true);
+        lg->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_UP, true);
+        lg->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_DOWN, true);
+        lg->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_LEFT, true);
+        lg->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_RIGHT, true);
+        lg->ApplyItemEffect(Rando::StaticData::RetrieveItem(kSongs[song]), true);
+    }
+    rootExits->childDay = child != 0 && day != 0;
+    rootExits->childNight = child != 0 && day == 0;
+    rootExits->adultDay = child == 0 && day != 0;
+    rootExits->adultNight = child == 0 && day == 0;
+    // The region the search would be processing (ProcessRegion sets it).
+    const RandomizerRegion wasRegion = lg->CurrentRegionKey;
+    lg->CurrentRegionKey = RR_ROOT_EXITS;
+    const bool open = edge->ConditionsMet(false);
+    lg->CurrentRegionKey = wasRegion;
+    rootExits->childDay = cd;
+    rootExits->childNight = cn;
+    rootExits->adultDay = ad;
+    rootExits->adultNight = an;
+    lg->IsChild = wasChild;
+    lg->IsAdult = wasAdult;
+    lg->AtDay = wasDay;
+    lg->AtNight = wasNight;
+    lg->SetSaveContext(prior);
+    OoTComboLogicRestoreLogicVals(sTravelEdgeVals);
+    return open ? 1 : 0;
+}
+
+/**
+ * TEST BRIDGE: RR_ROOT's access as a round's `Regions::AccessReset` seeds it under
+ * the starting age @p adultStart (1 adult, 0 child), into @p outChildDay and
+ * @p outAdultDay. The option and the region bits are put back. 0, or -1 with no
+ * context.
+ */
+extern "C" int OoT_ComboLogic_TestRootAccessAfterReset(int adultStart, int* outChildDay, int* outAdultDay) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    const uint8_t before = ctx->GetOption(RSK_SELECTED_STARTING_AGE).Get();
+    ctx->GetOption(RSK_SELECTED_STARTING_AGE).Set(adultStart != 0 ? RO_AGE_ADULT : RO_AGE_CHILD);
+    Regions::AccessReset();
+    Region* root = RegionTable(RR_ROOT);
+    if (outChildDay != nullptr) {
+        *outChildDay = root->childDay ? 1 : 0;
+    }
+    if (outAdultDay != nullptr) {
+        *outAdultDay = root->adultDay ? 1 : 0;
+    }
+    ctx->GetOption(RSK_SELECTED_STARTING_AGE).Set(before);
+    Regions::AccessReset();
+    return 0;
+}
+
+/**
+ * TEST BRIDGE: OoT's `travelFacts` decision, OoTComboTravelFactsOf, over a private
+ * logic probe on an empty save holding the Song of Soaring (OoT) (@p held), a
+ * Fairy Ocarina (@p ocarina) and the buttons in @p buttons (bit 0 A, 1 C-up,
+ * 2 C-down, 3 C-left, 4 C-right), with RR_ROOT's child-day access @p rootChildDay
+ * (-1: read RegionTable(RR_ROOT)->childDay, as `travelFacts` does). The probe is
+ * an adult at night going in; @p outRestored is 1 when it still is afterwards.
+ * The facts, or -1 with no context.
+ */
+extern "C" int OoT_ComboLogic_TestTravelFacts(int held, int ocarina, uint32_t buttons, int rootChildDay,
+                                              int* outRestored) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    auto save = std::make_unique<SaveContext>();
+    std::memset(save.get(), 0, sizeof(SaveContext));
+    std::memset(save->inventory.items, ITEM_NONE, sizeof(save->inventory.items));
+    auto probe = std::make_unique<Rando::Logic>();
+    probe->SetContext(ctx);
+    probe->SetSaveContext(save.get());
+    probe->Reset(false);
+    if (ocarina != 0) {
+        probe->SetInventory(ITEM_OCARINA_FAIRY, ITEM_OCARINA_FAIRY);
+    }
+    probe->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_A, (buttons & 0x01u) != 0u);
+    probe->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_UP, (buttons & 0x02u) != 0u);
+    probe->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_DOWN, (buttons & 0x04u) != 0u);
+    probe->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_LEFT, (buttons & 0x08u) != 0u);
+    probe->SetRandoInf((uint32_t)RAND_INF_HAS_OCARINA_C_RIGHT, (buttons & 0x10u) != 0u);
+    probe->SetRandoInf((uint32_t)RAND_INF_OBTAINED_SONG_OF_SOARING_OOT, held != 0);
+    probe->IsChild = false;
+    probe->IsAdult = true;
+    probe->AtDay = false;
+    probe->AtNight = true;
+    bool rootChild = rootChildDay != 0;
+    if (rootChildDay < 0) {
+        Region* root = RegionTable(RR_ROOT);
+        rootChild = root != nullptr && root->childDay;
+    }
+    const uint32_t facts = OoTComboTravelFactsOf(*probe, rootChild);
+    if (outRestored != nullptr) {
+        *outRestored = (!probe->IsChild && probe->IsAdult && !probe->AtDay && probe->AtNight) ? 1 : 0;
+    }
+    probe.reset();
+    return (int)facts;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

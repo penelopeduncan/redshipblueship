@@ -199,6 +199,21 @@ void Combo_MMWarpPlay_RegisterOoTReadyProbe(int (*probe)(void));
 /** Whether OoT's arrival can land @p dest: any plain entrance; a grotto pseudo
  *  index only when the probe answers nonzero (an unregistered probe answers 0). */
 bool Combo_MMWarpPlay_DestResolvable(uint16_t dest);
+/** The pure half of Combo_MMWarpPlay_DestResolvable: does an arrival at @p dest
+ *  depend on the session's readiness probe (a grotto pseudo index, at or above
+ *  RSBS_MMWP_GROTTO_PSEUDO_FIRST)? */
+bool Combo_MMWarpPlay_DestNeedsOoTReady(uint16_t dest);
+/** May the LOGIC credit an MM-warp arrival at @p dest (#1169 XW9)? Only where play
+ *  lands in every session, whatever the probe says: a nonzero destination below
+ *  the grotto pseudo indices (graves included: they are real entrances). Pure. */
+bool Combo_MMWarpPlay_DestCreditedByLogic(uint16_t dest);
+/** #1169 XW9: does OoT's logic open song @p song's warp-song root exit for an MM
+ *  arrival? Only inside a coordinator round (@p inRound), only once the round
+ *  handed OoT that song's MM fact (bit 0x02 << song of @p accepted,
+ *  RSBS_COMBO_TRAVEL_INTO_OOT), and only to a destination @p dest the logic may
+ *  credit (Combo_MMWarpPlay_DestCreditedByLogic). The age and time terms (a child
+ *  at day) are the region file's. Pure. */
+bool Combo_MMWarpPlay_TravelEdgeOpen(bool inRound, uint32_t accepted, int song, uint16_t dest);
 
 /* ---- The prompt's decision -------------------------------------------------- */
 

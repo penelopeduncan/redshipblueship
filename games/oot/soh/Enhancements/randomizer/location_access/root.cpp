@@ -3,6 +3,16 @@
 
 using namespace Rando;
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// [RSBS #1169 XW9] ComboLogicEngineOoT.cpp: inside a coordinator round, has the
+// round handed OoT Majora's Mask's travel fact for warp song `song` (0 Minuet ..
+// 5 Prelude), to a destination the logic credits? False outside a round.
+extern "C" bool OoT_ComboLogic_MMWarpTravel(int song);
+#define RSBS_MM_WARP_TRAVEL(song) OoT_ComboLogic_MMWarpTravel(song)
+#else
+#define RSBS_MM_WARP_TRAVEL(song) false
+#endif
+
 void RegionTable_Init_Root() {
     // clang-format off
     areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, TIME_DOESNT_PASS, {RA_LINKS_POCKET}, {
@@ -31,14 +41,17 @@ void RegionTable_Init_Root() {
 
     areaTable[RR_ROOT_EXITS] = Region("Root Exits", SCENE_ID_MAX, TIME_DOESNT_PASS, {RA_LINKS_POCKET}, {}, {}, {
         //Exits
+        // [RSBS #1169 XW9] each warp song also opens for a CHILD at DAY that Majora's Mask can play it to: OoTMM's
+        // MM WARP_SONGS -> "OOT SONG_TP_*" exits (data/world/mm/overworld/_system.yml), crediting less (the arrival is
+        // forced child; the departure through the mask shop is by day). The disjunct is false outside a round.
         Entrance(RR_CHILD_SPAWN,             []{return logic->IsChild;}),
         Entrance(RR_ADULT_SPAWN,             []{return logic->IsAdult;}),
-        Entrance(RR_MINUET_OF_FOREST_WARP,   []{return logic->CanUse(RG_MINUET_OF_FOREST);}),
-        Entrance(RR_BOLERO_OF_FIRE_WARP,     []{return logic->CanUse(RG_BOLERO_OF_FIRE);}),
-        Entrance(RR_SERENADE_OF_WATER_WARP,  []{return logic->CanUse(RG_SERENADE_OF_WATER);}),
-        Entrance(RR_NOCTURNE_OF_SHADOW_WARP, []{return logic->CanUse(RG_NOCTURNE_OF_SHADOW);}),
-        Entrance(RR_REQUIEM_OF_SPIRIT_WARP,  []{return logic->CanUse(RG_REQUIEM_OF_SPIRIT);}),
-        Entrance(RR_PRELUDE_OF_LIGHT_WARP,   []{return logic->CanUse(RG_PRELUDE_OF_LIGHT);}),
+        Entrance(RR_MINUET_OF_FOREST_WARP,   []{return logic->CanUse(RG_MINUET_OF_FOREST) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(0));}),
+        Entrance(RR_BOLERO_OF_FIRE_WARP,     []{return logic->CanUse(RG_BOLERO_OF_FIRE) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(1));}),
+        Entrance(RR_SERENADE_OF_WATER_WARP,  []{return logic->CanUse(RG_SERENADE_OF_WATER) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(2));}),
+        Entrance(RR_NOCTURNE_OF_SHADOW_WARP, []{return logic->CanUse(RG_NOCTURNE_OF_SHADOW) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(4));}),
+        Entrance(RR_REQUIEM_OF_SPIRIT_WARP,  []{return logic->CanUse(RG_REQUIEM_OF_SPIRIT) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(3));}),
+        Entrance(RR_PRELUDE_OF_LIGHT_WARP,   []{return logic->CanUse(RG_PRELUDE_OF_LIGHT) || (logic->IsChild && logic->AtDay && RSBS_MM_WARP_TRAVEL(5));}),
     });
 
     areaTable[RR_CHILD_SPAWN] = Region("Child Spawn", SCENE_ID_MAX, TIME_DOESNT_PASS, {RA_LINKS_POCKET}, {}, {}, {

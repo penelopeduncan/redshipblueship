@@ -50,6 +50,8 @@
  *   - No owl landings from the nook. OoTMM's nook reaches its "GLOBAL" exits,
  *     so a soaring player reaches checks local to an activated owl's landing
  *     without a reset; here the root's soaring exits are not part of the nook.
+ *     That holds for Ocarina of Time's Song of Soaring too (#1169 XW9: the
+ *     root's owl landings it opens are outside the nook, so they are pruned).
  *   - MMRT_MAJORA_LOGIC (OoTMM's "event(MAJORA) && trick(MM_MAJORA_LOGIC)"
  *     disjunct) is left unbound. For MmCanResetTime it is vacuous here: Oath
  *     to Order's buttons include the Song of Time's, and the paired start holds

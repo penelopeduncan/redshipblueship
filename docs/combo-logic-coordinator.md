@@ -354,6 +354,35 @@ PAIR block in `combo_logic.h`; the choices behind it:
 
 Locked by `ComboLogicSharedPair`.
 
+## 4.5 The travel facts (ABI 10, #1169 XW9)
+
+The one place a game's logic reads the other game's state. The contract is THE
+TRAVEL GATES block and the `travelFacts` / `acceptTravelFacts` entries in
+`combo_logic.h`; the decisions and their OoTMM lineage are ADR 0010's 2026-11-11
+entry. In short:
+
+- **After both expands of every alternation** the coordinator reads each
+  engine's `travelFacts`, masks it to its own direction, passes it through
+  `Combo_Logic_TravelGate` (MM's warp songs need OoT's crossing; OoT's Soaring
+  needs both crossings) and calls the other engine's `acceptTravelFacts` only
+  when the accepted set grows, marking the alternation changed. The accepted sets
+  reset per round and are reported as `travelToOoT` / `travelToMM`.
+- **The engines own the edges.** OoT's six RR_ROOT_EXITS warp exits open for a
+  child at day with the song's accepted fact and a destination the logic credits
+  (`Combo_MMWarpPlay_TravelEdgeOpen`); MM's root owl landings open for OoT's
+  accepted Soaring fact on Day 1 (`CAN_OOT_SOAR_TO_OWL`). Both accessors are
+  false outside a round, so OoT's own fill, its entrance validation and both
+  check trackers are unchanged.
+- **Silence is safe.** An engine without the entries (NULL) or one whose facts
+  are all 0 changes no round: no accept, no extra alternation, byte-identical
+  results. That is every world with the warp-song rules off.
+
+Locked by `ComboLogicTravelFacts` (the gates, chains, non-monotone facts,
+own-direction drops, silent engines, a fill whose only route is a fact),
+`OoTWarpTravelEdges` (OoT's real exits and fact), `MMWarpTravelEdges` (MM's real
+landings, the crawl, the guard and MM's facts) and the graph leg of
+`oot-warp-song-record` (the logic's destination equals the recorded one).
+
 ## 5. Termination, and the two watchdogs
 
 The argument is written at the loop: each engine's expansion is monotone on its
@@ -367,7 +396,7 @@ Two detectors, because they catch different lies:
 
 | Lie | Detector | Status |
 |---|---|---|
-| a monotone observable falls (candidate count, crossing flag) | compared every iteration | `ERR_NON_MONOTONE`, at the iteration it happens |
+| a monotone observable falls (candidate count, crossing flag, a travel fact since ABI 10) | compared every iteration | `ERR_NON_MONOTONE`, at the iteration it happens |
 | `expand` reports change forever with nothing growing | the bound | `ERR_NO_FIXPOINT`, at `RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS` |
 
 Neither is worked around. Assumed fill and each game's trailing junk `FastFill`
