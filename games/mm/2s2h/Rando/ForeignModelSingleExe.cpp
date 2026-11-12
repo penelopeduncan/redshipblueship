@@ -139,6 +139,8 @@ void MM_GetItem_DrawSmallRupee(PlayState* play, s16 drawId);
 void MM_GetItem_DrawWallet(PlayState* play, s16 drawId);
 void GetItem_DrawRemains(PlayState* play, s16 drawId);
 }
+// Rando/Foreign.cpp (#1542 S0): an MM check's song-check index, -1 for any other.
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 namespace {
 
@@ -1556,6 +1558,13 @@ bool LayerMatches(const char* name, const LayerRead& read, const ComboModel* wan
  * emits no model list at all.
  */
 bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
+    // #1542 S0: the `obtained` this drive pre-sets on its host is exactly what
+    // CheckQueue's delivered-song-host guard consumes, so a song check would queue
+    // nothing and this drive would read red for a reason that is not its own.
+    FMD_EXPECT(MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0,
+               "a song-check host cannot drive CheckQueue with obtained pre-set: the delivered-song-host guard "
+               "consumes it (#1542 S0); pass a non-song check (check %u)",
+               (unsigned)mmCheckId);
     struct Restore {
         std::vector<RandoSaveCheck> checks;
         std::vector<GIEvent> queue;

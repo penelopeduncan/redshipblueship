@@ -1036,6 +1036,39 @@ void NotePairedGenerationOutcome(int attemptsTried, bool exhausted) {
     sLastPairedGenExhausted = exhausted;
 }
 
+// The RsbsSongCheck index (combo_song_pool.h) of an MM song check, or -1 (#1542
+// S0). A switch over the eleven check ids, so a renamed or removed row fails to
+// compile; the SongCheckTables row proves it is a bijection onto MM's
+// RCTYPE_SONG rows.
+static int MM_SongCheckIndex(RandoCheckId randoCheckId) {
+    switch (randoCheckId) {
+        case RC_STARTING_ITEM_SONG_OF_HEALING:
+            return RSBS_SONG_CHECK_MM_HEALING;
+        case RC_CLOCK_TOWER_ROOF_SONG_OF_TIME:
+            return RSBS_SONG_CHECK_MM_ROOF_TIME;
+        case RC_ROMANI_RANCH_EPONAS_SONG:
+            return RSBS_SONG_CHECK_MM_ROMANI_EPONA;
+        case RC_SOUTHERN_SWAMP_SONG_OF_SOARING:
+            return RSBS_SONG_CHECK_MM_SWAMP_SOARING;
+        case RC_DEKU_KINGS_CHAMBER_MONKEY:
+            return RSBS_SONG_CHECK_MM_DEKU_PALACE_SONATA;
+        case RC_PATH_TO_GORON_VILLAGE_LULLABY_INTRO:
+            return RSBS_SONG_CHECK_MM_GORON_ELDER;
+        case RC_GORON_SHRINE_FULL_LULLABY:
+            return RSBS_SONG_CHECK_MM_GORON_BABY;
+        case RC_GREAT_BAY_COAST_NEW_WAVE_BOSSA_NOVA:
+            return RSBS_SONG_CHECK_MM_MARINE_LAB;
+        case RC_BENEATH_THE_GRAVEYARD_SONG_OF_STORMS:
+            return RSBS_SONG_CHECK_MM_GRAVEYARD_STORMS;
+        case RC_ANCIENT_CASTLE_OF_IKANA_BOSS:
+            return RSBS_SONG_CHECK_MM_IKANA_ELEGY;
+        case RC_GIANTS_CHAMBER_OATH_TO_ORDER:
+            return RSBS_SONG_CHECK_MM_OATH;
+        default:
+            return -1;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Host eligibility (#488).
 //
@@ -1106,7 +1139,48 @@ void NotePairedGenerationOutcome(int attemptsTried, bool exhausted) {
 // only other surface, and it names the OoT item (TingleOfferedItemName). The
 // hooks register under "Shuffle Tingle Maps", the same option without which
 // GeneratePools leaves these rows out of the host pool.
+//
+// TIER SG — the eleven RCTYPE_SONG rows (#1542 S0; OoTMM's `songLocations`,
+// where a song of either game may sit on a song check of either game). DORMANT:
+// Combo_SongCheckAcceptsForeign answers false while Combo_SongHostsArmed is off,
+// which it is in production until #1542 S3, so this tier admits nothing today.
+// Keyed on the check ID (MM_SongCheckIndex), never on the type or the flag, so
+// no other row can fall into it (the Tier B trap). The verdict reads OoT's
+// FROZEN Shuffle Songs through OoT_Combo_FrozenShuffleSongs, the source OoT's
+// own branch reads, never MM's creation capture (Combo_PairSongsCaptured): the
+// answer is then the same inside and outside a creation, for the coordinator,
+// the post-generation sweeps and the spoiler-load gate (Spoiler/Apply.cpp)
+// alike. Skip Child Zelda is passed as false: its rule is Impa's, an OoT check.
+// Every row was traced to CheckQueue's foreign branch, which delivers by check
+// id (GiveForeignCheck: the once-per-host record, then obtained, cycleObtained
+// and !eligible); the arming hook of each:
+//  - Healing: armed at file creation (OnFileCreate.cpp); re-armed at a cycle
+//    reset only when it holds a renewable item (OnCycleSave.cpp IsRenewable),
+//    and a crossing host holds the RI_JUNK cover, so it delivers exactly once.
+//    Under Song Locations GeneratePools junks and skips it first today, so it is
+//    a reachable host only if S2 changes that surplus junking.
+//  - Romani's Epona's Song: VB_GIVE_ITEM_FROM_ROMANI arms it (EnMa4.cpp);
+//    VB_ROMANI_CONSIDER_EPONA_SONG_GIVEN reads `.obtained`, so it never re-arms.
+//  - The nine others re-arm on a later cycle or a re-entry: the roof's Song of
+//    Time (DmStk.cpp, touching DmChar02), the Sonata (EnMnk.cpp), the Elegy
+//    (EnKnight.cpp), the Lullaby intro (EnJg.cpp), the Goron baby's Lullaby
+//    (EnGk.cpp and its WEEKEVENTREG row), Soaring, Storms and Oath (the Skip
+//    Learning hooks, each gated on cycleObtained) and the New Wave Bossa Nova
+//    (WEEKEVENTREG_20_40 through OnFlagSet; the reset clears the flag without
+//    the hook). A re-arm after the crossing was delivered would replay the
+//    get-item textbox for an item it no longer gives (the record is refused by
+//    `obtained`), so CheckQueue consumes it silently (IsDeliveredForeignSongHost):
+//    OoTMM's once-per-file song flags.
+// Each scene's progression reads its own flag or `.obtained`, never the vanilla
+// song in the inventory: the vanilla gives are suppressed under rando, which
+// already places non-song items of MM's own on all eleven.
 static bool IsAllowedHostClass(const Rando::StaticData::RandoStaticCheck& randoStaticCheck) {
+    // Tier SG (#1542 S0): dormant until S3 arms Combo_SongHostsArmed.
+    const int song = MM_SongCheckIndex(randoStaticCheck.randoCheckId);
+    if (song >= 0) {
+        return Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(), false);
+    }
+
     // Tier T.
     if (randoStaticCheck.randoCheckType == RCTYPE_TINGLE_SHOP) {
         return true;
@@ -1334,6 +1408,13 @@ bool IsDeliveredForeignHost(RandoCheckId randoCheckId) {
         return false;
     }
     return IsForeignCheck(randoCheckId) && RANDO_SAVE_CHECKS[randoCheckId].obtained;
+}
+
+bool IsDeliveredForeignSongHost(RandoCheckId randoCheckId) {
+    // No switch and no capture: only a song check that HOLDS a placement and has
+    // delivered it answers true, and with the switch off no placement can exist
+    // on one (the coordinator refuses the host, combo_logic.c).
+    return MM_SongCheckIndex(randoCheckId) >= 0 && IsDeliveredForeignHost(randoCheckId);
 }
 
 bool ForeignOutboxFullFor(RandoCheckId randoCheckId) {
@@ -2970,6 +3051,34 @@ extern "C" int MM_Rando_Foreign_TestGiveForeignCheck(uint16_t randoCheckId, int*
 
 extern "C" int MM_Rando_Foreign_TestQueueHolds(uint16_t randoCheckId) {
     return Rando::Foreign::ForeignOutboxFullFor((RandoCheckId)randoCheckId) ? 1 : 0;
+}
+
+/** TEST BRIDGES (song-check-tables, #1542 S0): an MM check's RsbsSongCheck index
+ *  (-1 for any other id); whether its row is RCTYPE_SONG (1), another real row
+ *  (0) or no row (-1); its row name (the stringified RandoCheckId, NULL for no
+ *  row); and the delivered-song-host guard CheckQueue asks. */
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId) {
+    return Rando::Foreign::MM_SongCheckIndex((RandoCheckId)randoCheckId);
+}
+
+extern "C" int MM_Rando_Foreign_TestIsSongRow(uint16_t randoCheckId) {
+    const auto it = Rando::StaticData::Checks.find((RandoCheckId)randoCheckId);
+    if (it == Rando::StaticData::Checks.end() || it->second.randoCheckId == RC_UNKNOWN) {
+        return -1;
+    }
+    return it->second.randoCheckType == RCTYPE_SONG ? 1 : 0;
+}
+
+extern "C" const char* MM_Rando_Foreign_TestCheckRowName(uint16_t randoCheckId) {
+    const auto it = Rando::StaticData::Checks.find((RandoCheckId)randoCheckId);
+    if (it == Rando::StaticData::Checks.end() || it->second.randoCheckId == RC_UNKNOWN) {
+        return nullptr;
+    }
+    return it->second.name;
+}
+
+extern "C" int MM_Rando_Foreign_TestIsDeliveredForeignSongHost(uint16_t randoCheckId) {
+    return Rando::Foreign::IsDeliveredForeignSongHost((RandoCheckId)randoCheckId) ? 1 : 0;
 }
 
 // ---------------------------------------------------------------------------
