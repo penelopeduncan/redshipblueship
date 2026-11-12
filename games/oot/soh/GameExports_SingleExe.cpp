@@ -58,6 +58,7 @@
 #include "mm_warp_song_play.h"      // int-mm-warp-song-minuet (#1169 XW13): the record, the pads, the latch
 #include "mm_warp_song_drive.h"     // int-mm-warp-song-minuet: the expected arrival
 #include "warp_songs_mm.h"          // int-mm-warp-song-minuet: the ownership byte
+#include "warp_song_items.h"        // int-mm-warp-song-minuet: why a generation refused
 #include "ComboItemTrackerWindow.h" // ComboItemTrackerFlushLayoutSave: the exit writes an unsettled layout edit (#1349)
 
 // int-soaring-to-owl (#1169 XW8): the owl map's pause states and its prompt text.
@@ -1005,7 +1006,8 @@ static void PfcChestPlaytestLogHosts(void);
 static void SoarArmWorld(void);
 // int-mm-warp-song-minuet (#1169 XW13): its world, and the checks on the file it
 // created (defined with the row's OoT half, below).
-static void MwArmWorld(void);
+static bool MwArmWorld(void);
+static void MwGenerationFailed(void);
 static bool MwCheckCreatedWorld(char* msg, size_t cap);
 
 static bool PfcNoRefusalToast(char* msg, size_t cap) {
@@ -1437,8 +1439,8 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     if (IntegrationTest_SoaringToOwl()) {
         SoarArmWorld();
     }
-    if (IntegrationTest_MMWarpSongMinuet()) {
-        MwArmWorld();
+    if (IntegrationTest_MMWarpSongMinuet() && !MwArmWorld()) {
+        return;
     }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(true);
@@ -1451,11 +1453,11 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     fprintf(stderr, "[PFC] generating the pinned paired world %s on the shipped defaults at %s\n", kPfcSeed, from);
     fflush(stderr);
     if (Rando_HeadlessSeedTest(kPfcSeed) != 0) {
-        IntegrationTest_GameplayFail(
-            IntegrationTest_MMWarpSongMinuet()
-                ? "the pinned paired world did not generate with songMinuetMm on and Shuffle Songs Anywhere (the pool "
-                  "gains one Minuet of Forest (MM)): int-mm-warp-song-minuet needs another pinned seed"
-                : "the pinned paired world did not generate");
+        if (IntegrationTest_MMWarpSongMinuet()) {
+            MwGenerationFailed();
+        } else {
+            IntegrationTest_GameplayFail("the pinned paired world did not generate");
+        }
         return;
     }
     OTRGlobals::Instance->gRandoContext->SetSeedGenerated(true);
@@ -3567,12 +3569,61 @@ static uint16_t MwExpectedArrival(void) {
  * is offered by the production mask (since #1169 XW13): no test reveal, so the
  * generation, the .redsave load and both arrivals take the world as a player's.
  */
-static void MwArmWorld(void) {
+static bool MwArmWorld(void) {
     IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM), 1);
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
-    fprintf(stderr, "[PFC] mm warp song: songMinuetMm on (the production mask, no reveal), Shuffle Songs Anywhere, "
-                    "Shuffle Warp Songs at its default (off)\n");
+    // The rule must be offered before the seed is blamed for anything: a mask
+    // that hides songMinuetMm again makes Generate refuse the word by name
+    // (playthrough.cpp's hidden-rules gate), which the generation branch would
+    // otherwise read as a bad pinned seed.
+    const uint32_t word = Combo_ResolveComboItemRules2();
+    char refused[160];
+    const uint32_t refusedBits = Combo_ComboItemRules2Refused(word, refused, sizeof(refused));
+    const bool offered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM);
+    if (!offered || refusedBits != 0u || (word & RSBS_XITEM2_SONG_MINUET_MM) == 0u) {
+        char reason[512];
+        snprintf(reason, sizeof(reason),
+                 "int-mm-warp-song-minuet, the world: this build does not offer songMinuetMm (offered %d), or "
+                 "Generate would refuse the resolved second word 0x%08X (refused 0x%08X: '%s'); the rule's mask or "
+                 "its key regressed, not the pinned seed",
+                 offered ? 1 : 0, (unsigned)word, (unsigned)refusedBits, refused);
+        IntegrationTest_GameplayFail(reason);
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] mm warp song: songMinuetMm on (the production mask, no reveal; resolved second word 0x%08X, "
+            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+            (unsigned)word);
     fflush(stderr);
+    return true;
+}
+
+/** The generation failed: say which of the three causes it was, so the log
+ *  alone tells a refused rule, a song-capacity refusal and a bad pinned seed
+ *  apart (the worker's refusal note, its stderr line, and the song pass's
+ *  recorded refusal, warp_song_items.h). */
+static void MwGenerationFailed(void) {
+    const int refusalKind = Combo_GenRefusal_Take();
+    char refusedLine[256] = "";
+    const bool refusedLogged =
+        IntegrationTest_StderrCaptureLast("[OoT] generation REFUSED", refusedLine, sizeof(refusedLine));
+    const char* songSpots = Combo_SongSpotsLastRefusal();
+    const char* noteLine = Combo_GenRefusal_Line(refusalKind);
+    const char* cause = "no refusal was noted: int-mm-warp-song-minuet needs another pinned seed";
+    if (refusalKind == RSBS_GEN_REFUSAL_HIDDEN_RULE) {
+        cause = "the hidden-rules gate refused the world (a rule this build does not offer)";
+    } else if (refusalKind == RSBS_GEN_REFUSAL_SONG_SPOTS) {
+        cause = "a song-capacity refusal (the songs outnumber the song checks they can use)";
+    } else if (refusedLogged || songSpots[0] != '\0') {
+        cause = "a refusal with no note (read the refused line and the song-spots refusal)";
+    }
+    char reason[1024];
+    snprintf(reason, sizeof(reason),
+             "the pinned paired world did not generate with songMinuetMm on and Shuffle Songs Anywhere: %s "
+             "[refusal note %d (%s), resolved second word 0x%08X, refused line '%s', song-spots refusal '%s']",
+             cause, refusalKind, noteLine != NULL ? noteLine : "none", (unsigned)Combo_ResolveComboItemRules2(),
+             refusedLine, songSpots);
+    IntegrationTest_GameplayFail(reason);
 }
 
 /** The created file: the rule frozen on, the record PRESENT and unshuffled, and

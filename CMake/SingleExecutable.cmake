@@ -4672,7 +4672,7 @@ crossing to refuse (#954).")
     # #1169 XW13: the other direction, driven for real. The paired first crossing
     # with MM's Minuet of Forest rule on through its key and the production mask
     # (no test seam: the row is the proof that exposed the six MM rules) and
-    # Shuffle Songs on Anywhere, both in memory and put back at the verdict. The first OoT leg is the paired one. In
+    # Shuffle Songs on Anywhere, both in memory and put back at the verdict. In
     # South Clock Town the MM drive (games/mm/2s2h/mm_int_warp_song_drive.cpp)
     # waits for the arrival's starting-check payouts to drain, equips the Ocarina
     # of Time on C-down, and plays the Minuet through MM's test input seam

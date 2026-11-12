@@ -179,14 +179,19 @@ EnTest7* MwdrFindEnTest7(PlayState* play) {
     return nullptr;
 }
 
-/** The departure path: the song-warp cutscene id, En_Test7, the skip enhancement. */
+/** The departure path: the song-warp cutscene id, En_Test7, the skip enhancement.
+ *  The label reads both facts, as Player's choice does (z_player.c, the
+ *  RSBS_SINGLE_EXECUTABLE warp-song branch): En_Test7 is spawned only with a
+ *  song-warp cutscene id, and a NULL spawn takes the plain fade too. */
 std::string MwdrDeparturePath(PlayState* play) {
     char buf[256];
     EnTest7* t7 = MwdrFindEnTest7(play);
+    const bool csId = play != nullptr && play->playerCsIds[PLAYER_CS_ID_SONG_WARP] != CS_ID_NONE;
+    const char* label = !csId           ? "Player's plain fade (no song-warp cutscene)"
+                        : t7 != nullptr ? "En_Test7 path"
+                                        : "Player's plain fade (En_Test7 spawn failed)";
     snprintf(buf, sizeof(buf), "playerCsIds[SONG_WARP] %d (%s), En_Test7 %s (timer %d, action %p), skip cutscene %d",
-             play != nullptr ? (int)play->playerCsIds[PLAYER_CS_ID_SONG_WARP] : -2,
-             play != nullptr && play->playerCsIds[PLAYER_CS_ID_SONG_WARP] != CS_ID_NONE ? "En_Test7 path"
-                                                                                        : "Player's plain fade",
+             play != nullptr ? (int)play->playerCsIds[PLAYER_CS_ID_SONG_WARP] : -2, label,
              t7 != nullptr ? "present" : "absent", t7 != nullptr ? (int)t7->timer : -1,
              t7 != nullptr ? (void*)t7->actionFunc : nullptr,
              (int)CVarGetInteger("gEnhancements.Songs.SkipSoaringCutscene", 0));
@@ -285,9 +290,11 @@ void MwdrFail(PlayState* play, const char* why) {
     IntegrationTest_GameplayFail(msg.c_str());
 }
 
-void MwdrNext(MwdrStep step) {
-    fprintf(stderr, "[PFC] mm warp song: step '%s' done after %d frame(s) (drive frame %d)\n", MwdrStepName(sMwdr.step),
-            sMwdr.stepFrames, sMwdr.driveFrames);
+/** Moves to @p step, logging the step it leaves as @p outcome ("done", or
+ *  "abandoned" when the take-out falls back to the payout wait). */
+void MwdrNext(MwdrStep step, const char* outcome = "done") {
+    fprintf(stderr, "[PFC] mm warp song: step '%s' %s after %d frame(s) (drive frame %d)\n", MwdrStepName(sMwdr.step),
+            outcome, sMwdr.stepFrames, sMwdr.driveFrames);
     fflush(stderr);
     sMwdr.step = step;
     sMwdr.stepFrames = 0;
@@ -451,7 +458,8 @@ void MwdrStepTakeOut(PlayState* play, Player* player) {
         sMwdr.quietFrames = 0;
         fprintf(stderr, "[PFC] mm warp song: a get-item event became current during the take-out; waiting for the "
                         "payouts again (once)\n");
-        MwdrNext(MwdrStep::Payouts);
+        fflush(stderr);
+        MwdrNext(MwdrStep::Payouts, "abandoned");
         return;
     }
     if (play->msgCtx.msgMode == MSGMODE_OCARINA_PLAYING) {
