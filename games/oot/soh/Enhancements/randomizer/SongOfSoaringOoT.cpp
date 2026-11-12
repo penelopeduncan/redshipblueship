@@ -39,9 +39,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 
 #include <spdlog/spdlog.h>
+
+#include <ship/Context.h>
+#include <ship/resource/ResourceManager.h>
+#include <ship/resource/archive/ArchiveManager.h>
 
 #include "soh/Enhancements/randomizer/draw.h"
 #include "soh/Enhancements/custom-message/CustomMessageManager.h" // CustomMessage
@@ -49,11 +54,15 @@
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/ShipInit.hpp"
 #include "SongOfSoaringOoT.h"
+#include "SoaringMapOoT.h" // #1169 XW8: the Termina owl map
 
 #include "context.h"           // src/common: SharedItem, GAME_MM, Context_GetCurrentGame, Switch_GetTargetStatus
 #include "foreign_items.h"     // src/common: the second rules word, Combo_GetForeignItemByNameFor
 #include "warp_song_items.h"   // src/common: the copies rule and the overflow refusal
 #include "warp_song_soaring.h" // src/common: the matcher, the gates, the owls (#1169 XW6)
+
+// src/common: the owl map's route, its prompt and its assets (#1169 XW8).
+#include "warp_song_soaring_map.h"
 
 // At file scope first: z64.h includes <memory> under C++, which must not get C
 // linkage. Its include guard makes the nested include below a no-op.
@@ -161,8 +170,14 @@ extern "C" void Randomizer_DrawSongOfSoaringOoT(PlayState* play, GetItemEntry* g
 // OoTMM's no-statues text; every refusal leaves OCARINA_MODE_04, exactly like
 // vanilla's warp refusal.
 //
-// THE INTERIM CHOOSER (lane XW8 replaces OoT_SoaringOoT_BeginChooser with
-// OoTMM's Termina owl map in OoT's pause). "Soar to <owl>?" with Soar / Next
+// THE OWL MAP (#1169 XW8, SoaringMapOoT.c): when the gates offer, the song
+// opens OoTMM's Termina owl map in OoT's pause (Combo_SoaringMap_Route), whose
+// confirm prompt is RSBS_OOT_TEXT_SOARING_CONFIRM and whose OK departs through
+// OoT_SoaringOoT_Depart below.
+//
+// THE FALLBACK CHOOSER (XW6's interim chooser, kept until the map is proven in
+// play): the route takes it when an asset the map draws is not mounted or a
+// pause cannot open. "Soar to <owl>?" with Soar / Next
 // statue / No, opened with OoT_Message_ContinueTextbox from the "You played" box,
 // which keeps ocarinaAction at OCARINA_ACTION_FREE_PLAY_DONE, so the vanilla
 // close turns OCARINA_MODE_01 into 04 (TEXT_CLOSING). A 3-choice box is never
@@ -192,6 +207,8 @@ static_assert(RSBS_OOT_TEXT_SOARING_PLAYED == TEXT_CARPET_SALESMAN_ARMS_DEALER +
                   RSBS_OOT_TEXT_SOARING_NO_STATUES == RSBS_OOT_TEXT_SOARING_PLAYED + 1 &&
                   RSBS_OOT_TEXT_SOARING_CHOOSER == RSBS_OOT_TEXT_SOARING_NO_STATUES + 1,
               "the Soaring texts follow SoH's last custom text id (#1169 XW6)");
+static_assert(RSBS_OOT_TEXT_SOARING_CONFIRM == RSBS_OOT_TEXT_SOARING_CHOOSER + 1,
+              "the owl map's confirm prompt follows the chooser's text id (#1169 XW8)");
 
 namespace {
 
@@ -246,6 +263,43 @@ void SoaringOoTBuildNoStatues(uint16_t* textId, bool* loadFromMessageTable) {
     msg.Format();
     msg.LoadIntoFont();
     *loadFromMessageTable = false;
+}
+
+// The owl map's confirm prompt (OoTMM soaringMessage, in 0x88D's box: the
+// vanilla "Warp to ...?" prompt): OK / No, English in every language (XW6
+// decision 5).
+void SoaringOoTBuildConfirm(uint16_t* textId, bool* loadFromMessageTable) {
+    (void)textId;
+    if (Context_GetCurrentGame() == GAME_MM || OoT_gPlayState == nullptr) {
+        return;
+    }
+    const char* name = Combo_SoaringOwlName(OoT_SoaringMap_CursorOwl());
+    const CustomMessage vanilla = CustomMessage::LoadVanillaMessageTableEntry(0x88D);
+    // MESSAGE_TWO_CHOICE (0x1B) opens the two choice lines.
+    const std::string text =
+        std::string("Soar to %r") + (name != nullptr ? name : "?") + "%w?&&%g" + std::string(1, '\x1B') + "OK&No%w";
+    CustomMessage msg(text, text, text, vanilla.GetTextBoxType(), vanilla.GetTextBoxPosition());
+    msg.Format();
+    msg.LoadIntoFont();
+    *loadFromMessageTable = false;
+}
+
+// The map's assets: every MM resource it draws, mounted (the curated half, or
+// mm.o2r after a crossing), as BlastMaskOoT.cpp probes its own name texture.
+bool sSoaringOoTMapForceAbsent = false;
+bool sSoaringOoTMapMissingLogged = false;
+
+bool SoaringOoTMapPathMounted(const char* path) {
+    static const char kOtr[] = "__OTR__";
+    if (path == nullptr || std::strncmp(path, kOtr, sizeof(kOtr) - 1) != 0) {
+        return false;
+    }
+    auto ctx = Ship::Context::GetInstance();
+    if (ctx == nullptr || ctx->GetResourceManager() == nullptr) {
+        return false;
+    }
+    auto archives = ctx->GetResourceManager()->GetArchiveManager();
+    return archives != nullptr && archives->HasFile(std::string(path + sizeof(kOtr) - 1));
 }
 
 void SoaringOoTBuildChooser(uint16_t* textId, bool* loadFromMessageTable) {
@@ -322,6 +376,30 @@ void SoaringOoTOnLoadGame(int32_t fileNum) {
     sSoaringOoTChooserOpen = false;
     sSoaringOoTChooserOwl = -1;
     sSoaringOoTChooserMask = 0;
+    OoT_SoaringMap_Reset(); // #1169 XW8: no map outlives a load either
+}
+
+// #1169 XW8: the owl map's hooks, behind the #344 shared-hook-storage guard.
+void SoaringOoTMapOnKaleidoscopeUpdate(int16_t inDungeonScene) {
+    (void)inDungeonScene;
+    if (Context_GetCurrentGame() == GAME_MM) {
+        return;
+    }
+    OoT_SoaringMap_OnKaleidoscopeUpdate(OoT_gPlayState);
+}
+
+void SoaringOoTMapBackstop() {
+    if (Context_GetCurrentGame() == GAME_MM) {
+        return;
+    }
+    OoT_SoaringMap_Backstop(OoT_gPlayState);
+}
+
+void SoaringOoTMapOnPlayDestroy() {
+    if (Context_GetCurrentGame() == GAME_MM) {
+        return;
+    }
+    OoT_SoaringMap_Reset();
 }
 
 } // namespace
@@ -355,13 +433,55 @@ extern "C" void OoT_SoaringOoT_OnSongPlayed(PlayState* play) {
     }
     const uint16_t owlMask = Combo_SoaringOwlMask();
     const ComboSoaringGate gate = SoaringOoTGate(play, owlMask);
-    if (gate != COMBO_SOARING_GATE_OFFER) {
-        fprintf(stderr, "[OoT] Song of Soaring refused (gate %d, restriction %u, owls 0x%03X) (#1169)\n", (int)gate,
-                (unsigned)play->interfaceCtx.restrictions.warpSongs, (unsigned)owlMask);
-        SoaringOoTRefuse(play, gate);
-        return;
+    // #1169 XW8: the owl map, XW6's chooser as the fallback, or the refusal.
+    const bool offer = gate == COMBO_SOARING_GATE_OFFER;
+    const bool assets = offer && OoT_SoaringMap_AssetsPresent();
+    const bool pause = offer && OoT_SoaringMap_PauseCanOpen(play);
+    switch (Combo_SoaringMap_Route(gate, assets, pause)) {
+        case COMBO_SOARING_ROUTE_MAP:
+            if (OoT_SoaringMap_Begin(play, owlMask)) {
+                return;
+            }
+            fprintf(stderr, "[OoT] Song of Soaring: the owl map did not open (owls 0x%03X); the text chooser (#1169)\n",
+                    (unsigned)owlMask);
+            OoT_SoaringOoT_BeginChooser(play, owlMask);
+            return;
+        case COMBO_SOARING_ROUTE_CHOOSER:
+            fprintf(stderr,
+                    "[OoT] Song of Soaring: the owl map cannot open (assets mounted %d, pause can open %d); the text "
+                    "chooser (#1169)\n",
+                    assets ? 1 : 0, pause ? 1 : 0);
+            OoT_SoaringOoT_BeginChooser(play, owlMask);
+            return;
+        case COMBO_SOARING_ROUTE_REFUSE:
+        default:
+            fprintf(stderr, "[OoT] Song of Soaring refused (gate %d, restriction %u, owls 0x%03X) (#1169)\n", (int)gate,
+                    (unsigned)play->interfaceCtx.restrictions.warpSongs, (unsigned)owlMask);
+            SoaringOoTRefuse(play, gate);
+            return;
     }
-    OoT_SoaringOoT_BeginChooser(play, owlMask);
+}
+
+extern "C" bool OoT_SoaringMap_AssetsPresent(void) {
+    if (sSoaringOoTMapForceAbsent) {
+        return false;
+    }
+    size_t count = 0;
+    const char* const* paths = Combo_SoaringMap_AssetPaths(&count);
+    for (size_t i = 0; i < count; i++) {
+        if (!SoaringOoTMapPathMounted(paths[i])) {
+            if (!sSoaringOoTMapMissingLogged) {
+                sSoaringOoTMapMissingLogged = true;
+                fprintf(stderr, "[OoT] Song of Soaring: the owl map's %s is not mounted (#1169 XW8)\n", paths[i]);
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+extern "C" void OoT_SoaringMapTest_ForceAssetsAbsent(int absent) {
+    sSoaringOoTMapForceAbsent = absent != 0;
 }
 
 extern "C" void OoT_SoaringOoT_BeginChooser(PlayState* play, uint16_t owlMask) {
@@ -430,6 +550,11 @@ static void RegisterSongOfSoaringOoTPlay() {
     COND_ID_HOOK(OnOpenText, RSBS_OOT_TEXT_SOARING_CHOOSER, true, SoaringOoTBuildChooser);
     COND_HOOK(OnPlayerUpdate, true, SoaringOoTPollChooser);
     COND_HOOK(OnLoadGame, true, SoaringOoTOnLoadGame);
+    // #1169 XW8: the owl map (SoaringMapOoT.c).
+    COND_ID_HOOK(OnOpenText, RSBS_OOT_TEXT_SOARING_CONFIRM, true, SoaringOoTBuildConfirm);
+    COND_HOOK(OnKaleidoscopeUpdate, true, SoaringOoTMapOnKaleidoscopeUpdate);
+    COND_HOOK(OnPlayerUpdate, true, SoaringOoTMapBackstop);
+    COND_HOOK(OnPlayDestroy, true, SoaringOoTMapOnPlayDestroy);
 }
 
 static RegisterShipInitFunc sSoaringOoTPlayInit(RegisterSongOfSoaringOoTPlay);

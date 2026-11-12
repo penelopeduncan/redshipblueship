@@ -1,6 +1,9 @@
 #include "global.h"
 #include "vt.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/randomizer/SoaringMapOoT.h" // #1169 XW8: the Termina owl map (K1, K2)
+#endif
 
 void (*sKaleidoScopeUpdateFunc)(PlayState* play);
 void (*sKaleidoScopeDrawFunc)(PlayState* play);
@@ -87,6 +90,12 @@ void OoT_KaleidoScopeCall_Update(PlayState* play) {
             if (R_PAUSE_MENU_MODE >= 3) {
                 pauseCtx->state++;
             }
+#ifdef RSBS_SINGLE_EXECUTABLE
+        } else if (OoT_SoaringMap_CallLayerOwns(pauseCtx->state)) {
+            // #1169 XW8 (K1): the owl map's states 1 and 2 (the letterbox and
+            // the prerender), without the pause counter.
+            OoT_SoaringMap_CallLayerUpdate(play);
+#endif
         } else if (pauseCtx->state != 0) {
             if (OoT_gKaleidoMgrCurOvl != kaleidoScopeOvl) {
                 if (OoT_gKaleidoMgrCurOvl != NULL) {
@@ -127,6 +136,15 @@ void OoT_KaleidoScopeCall_Draw(PlayState* play) {
     KaleidoMgrOverlay* kaleidoScopeOvl = &OoT_gKaleidoMgrOverlayTable[KALEIDO_OVL_KALEIDO_SCOPE];
 
     if (R_PAUSE_MENU_MODE >= 3) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1169 XW8 (K2): the owl map's drawn states (above every vanilla one).
+        if (OoT_SoaringMap_CallLayerDraws(play->pauseCtx.state)) {
+            if (OoT_gKaleidoMgrCurOvl == kaleidoScopeOvl) {
+                sKaleidoScopeDrawFunc(play);
+            }
+            return;
+        }
+#endif
         if (((play->pauseCtx.state >= 4) && (play->pauseCtx.state <= 7)) ||
             ((play->pauseCtx.state >= 11) && (play->pauseCtx.state <= 18))) {
             if (OoT_gKaleidoMgrCurOvl == kaleidoScopeOvl) {
