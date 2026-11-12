@@ -476,6 +476,7 @@ typedef enum {
     RCTYPE_BEAN_FAIRY,                 // Fairies from Beans
     RCTYPE_SONG_FAIRY,                 // Fairies from Songs
     RCTYPE_GRASS,                      // Grass
+    RCTYPE_BUTTERFLY_FAIRY,            // Fairies from Butterflies
 } RandomizerCheckType;
 
 typedef enum { RCQUEST_VANILLA, RCQUEST_MQ, RCQUEST_BOTH } RandomizerCheckQuest;
@@ -4170,6 +4171,28 @@ typedef enum {
 
     // SoH 6706b49d1 puts this after RC_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other check id moves.
     RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // Butterfly fairies (#1407; SoH's butterfly fairy shuffle). Appended after main's
+    // last check, so no id a world or a save holds moves: 2528..2547.
+    RC_HC_NEAR_WALL_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_STAIRS_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_BOULDER_PATH_BUTTERFLY_FAIRY,
+    RC_HC_NEAR_ARCHWAY_BUTTERFLY_FAIRY,
+    RC_LW_MEADOW_BUTTERFLY_FAIRY,
+    RC_GY_NEAR_HUT_GRAVE_BUTTERFLY_FAIRY,
+    RC_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY,
+    RC_ZR_WATERFALL_BUTTERFLY_FAIRY,
+    RC_ZF_LOG_BUTTERFLY_FAIRY,
+    RC_LH_SCARECROW_BUTTERFLY_FAIRY,
+    RC_KF_STORMS_GROTTO_BUTTERFLY_FAIRY,
+    RC_LW_TUNNEL_GROTTO_BUTTERFLY_FAIRY,
+    RC_DMT_STORMS_GROTTO_BUTTERFLY_FAIRY,
+    RC_DMC_UPPER_BOULDER_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_NEAR_MARKET_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_SOUTHEAST_BOULDER_GROTTO_BUTTERFLY_FAIRY,
+    RC_HF_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_KAK_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_ZR_OPEN_GROTTO_BUTTERFLY_FAIRY,
+    RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY,
 
     RC_MAX
 } RandomizerCheck;
@@ -6410,6 +6433,21 @@ typedef enum {
     RHT_SONG_OF_SOARING_OOT,
     // SoH 6706b49d1 puts this after RHT_MARKET_TREASURE_CHEST_GAME_KEY_5; appended here so no other hint text id moves.
     RHT_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER,
+    // [RSBS #1407] the butterfly fairy hint texts, appended after the shopkeeper's (1517..1530).
+    RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE,
+    RHT_BUTTERFLY_FAIRY_LOST_WOODS,
+    RHT_BUTTERFLY_FAIRY_GRAVEYARD,
+    RHT_BUTTERFLY_FAIRY_ZORAS_RIVER,
+    RHT_BUTTERFLY_FAIRY_ZORAS_FOUNTAIN,
+    RHT_BUTTERFLY_FAIRY_LAKE_HYLIA,
+    RHT_BUTTERFLY_FAIRY_KF_GROTTO,
+    RHT_BUTTERFLY_FAIRY_LW_GROTTO,
+    RHT_BUTTERFLY_FAIRY_DMT_GROTTO,
+    RHT_BUTTERFLY_FAIRY_DMC_GROTTO,
+    RHT_BUTTERFLY_FAIRY_HF_GROTTO,
+    RHT_BUTTERFLY_FAIRY_KAK_GROTTO,
+    RHT_BUTTERFLY_FAIRY_ZR_GROTTO,
+    RHT_BUTTERFLY_FAIRY_KAKARIKO_VILLAGE,
     // MAX
     RHT_MAX,
 } RandomizerHintTextKey;
@@ -6748,8 +6786,18 @@ typedef enum {
     RSK_EARLY_GRANNYS_SHOP,
     // SoH 6706b49d1 puts this after RSK_KEYRINGS_GANONS_CASTLE; appended here so no other setting key moves.
     RSK_KEYRINGS_CHEST_GAME,
+    // [RSBS #1407] SoH's butterfly fairy shuffle, appended after the chest game keyring (234): a
+    // world saved before it reads the missing entry as 0, Off.
+    RSK_SHUFFLE_BUTTERFLY_FAIRIES,
     RSK_MAX
 } RandomizerSettingKey;
+
+// [RSBS #1407] 1 pins Shuffle Butterfly Fairies off in every paired world (every
+// generation in the single exe is one): Playthrough_Init generates it off and the
+// menu greys it out, as #1364 does for Shuffle Chest Minigame. 0 (the default)
+// leaves it usable; set it to 1 if oot-butterfly-fairy-shuffle's paired-on leg N
+// fails at the gate, and that leg then expects the pinned world instead.
+#define RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN 0
 
 // Generic Settings (any binary option can use this)
 //  off/on

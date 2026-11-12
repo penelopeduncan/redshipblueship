@@ -148,6 +148,18 @@ static_assert(RAND_INF_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER == 2063,
               "OoT's last randomizer-inf flag at save format 6 is 2063: append after it, never insert");
 static_assert(RSK_KEYRINGS_CHEST_GAME == 233,
               "OoT's last setting key at save format 6 is 233: append after it, never insert");
+// Each backport appended after format 6 locks its own ids the same way, so a
+// merge that reorders the appended blocks fails here instead of renumbering
+// saved rows. #1407 (Shuffle Butterfly Fairies): 20 checks, their 20 flags, 14
+// hint texts and one setting key.
+static_assert(RC_HC_NEAR_WALL_BUTTERFLY_FAIRY == 2528 && RC_KAK_WATCHTOWER_BUTTERFLY_FAIRY == 2547,
+              "OoT's butterfly fairy checks (#1407) are ids 2528..2547, appended after the shopkeeper's");
+static_assert(RAND_INF_HC_NEAR_WALL_BUTTERFLY_FAIRY == 2064 && RAND_INF_KAK_WATCHTOWER_BUTTERFLY_FAIRY == 2083,
+              "OoT's butterfly fairy flags (#1407) are 2064..2083, appended after the shopkeeper's");
+static_assert(RHT_BUTTERFLY_FAIRY_HYRULE_CASTLE == 1517 && RHT_BUTTERFLY_FAIRY_KAKARIKO_VILLAGE == 1530,
+              "OoT's butterfly fairy hint texts (#1407) are 1517..1530, appended after the shopkeeper's");
+static_assert(RSK_SHUFFLE_BUTTERFLY_FAIRIES == 234,
+              "OoT's Shuffle Butterfly Fairies key (#1407) is 234, after RSK_KEYRINGS_CHEST_GAME");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
