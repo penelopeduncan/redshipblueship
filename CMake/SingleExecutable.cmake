@@ -248,6 +248,10 @@ set(REDSHIP_COMMON_SOURCES
     # age and the creation's warp-song record (ADR 0009 claim 22).
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
+    # #1169 XW13: the pure half of IntMMWarpSongMinuet: MM's test input seam
+    # (Combo_TestPad_Apply), the row's note schedule and its crossing decisions.
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_drive.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -367,6 +371,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
     # Header for mm_warp_song_play.c above (#1169 XW7)
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
+    # Header for mm_warp_song_drive.c above (#1169 XW13)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_drive.h
 )
 
 # ============================================================================
@@ -3779,6 +3785,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # #1169 XW13: the pure half IntMMWarpSongMinuet stands on (MM's test input seam
+    # Combo_TestPad_Apply, the Minuet schedule, the arm proofs, the expected OoT
+    # arrival), the setter's refusal outside an integration run, and the seam's
+    # place in MM's PadMgr_UpdateInputs by a function-scoped anchor. ROM-free,
+    # generating nothing, no bring-up. src/common/tests/test_mm_warp_drive.c.
+    redship_add_test(NAME MMWarpDriveSeam COMMAND redship --test mm-warp-drive-seam)
     # THE TRAVEL FACTS IN EACH GAME'S LOGIC (#1169 lane XW9). OoTWarpTravelEdges:
     # OoT's six RR_ROOT_EXITS warp exits over the real region graph open for an MM
     # warp only for a child at day, in a round, with the song's fact and a

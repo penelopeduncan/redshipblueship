@@ -1281,6 +1281,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
 // there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_song_play.c"
+// #1169 lane XW13: the pure half of IntMMWarpSongMinuet (MM's test input seam, the
+// row's note schedule, its crossing decisions) and the seam's anchors in MM's padmgr
+// (mm-warp-drive-seam, ROM-free, generation-free). Directly after the file above:
+// it reuses that file's source readers. FILE SCOPE (compiled as C++).
+#include "tests/test_mm_warp_drive.c"
 // #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
 // exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
 // ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
@@ -8241,6 +8246,10 @@ static TestResult Test_MMWarpSongDeparture(void) {
     }
     return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW13: no bring-up: the row reads no CVar and no play state.
+static TestResult Test_MMWarpDriveSeam(void) {
+    return MMWarpDriveSeam_Run();
+}
 
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
@@ -10922,6 +10931,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1169 XW13: ROM-free and generation-free.
+    { "mm-warp-drive-seam",
+      "MM's test input seam ORs a latch into controller 1 once and clears it, refuses outside an integration run and "
+      "sits before the D-pad masks and the press edges; the row's Minuet schedule, its arm proofs and its expected OoT "
+      "arrival answer as the drive needs (#1169)",
+      Test_MMWarpDriveSeam },
     // #1169 XW9: the travel facts in each game's logic. The first is ROM-free and
     // generation-free; the second needs MM's rando graph (rando tier, skipped by
     // `--test all` below) and generates nothing.
