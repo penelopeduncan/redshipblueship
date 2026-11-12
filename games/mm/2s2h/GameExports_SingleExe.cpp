@@ -2154,15 +2154,26 @@ static void GpSongHostMMFrame(int playFrames) {
     static int sRecordsBefore = -1;
     static int sRecordsMid = -1;
     static int sDeliveredFrame = -1;
+    static int sQuietFrames = 0;
+    static int sRearmFrame = -1;
+    static bool sRearmNoise = false;
     static bool sRearmChecked = false;
     // The arrival pays out MM's two free starting checks one after the other, the
     // Deku Mask's first (its get-item cutscene and textbox run about 110 frames),
     // so the Song of Healing's crossing lands between frames 150 and 200. The
-    // drive waits for it up to this frame instead of reading it at a fixed one,
-    // and the re-arm leg runs a fixed distance after the delivery. Both fit the
-    // row's RSBS_GP_FRAMES=500 window.
+    // drive waits for it up to kDeliverDeadline instead of reading it at a fixed
+    // frame. The re-arm leg then waits for kQuietNeeded frames with no get-item
+    // event queued and no textbox (the delivery's own must be over, or its
+    // presentation would be taken for the re-arm's), arms the check again, and
+    // for kRearmWatch frames requires that it stays that quiet: without the
+    // delivered-song-host guard CheckQueue queues a get-item event that names an
+    // item it does not give, and nothing else tells the two apart (the record is
+    // refused by `obtained` either way). The three legs fit the row's
+    // RSBS_GP_FRAMES=600 window.
     static const int kDeliverDeadline = 320;
-    static const int kRearmSettle = 100;
+    static const int kQuietNeeded = 20;
+    static const int kQuietDeadline = 150;
+    static const int kRearmWatch = 60;
     static int sTextboxFrames = 0;
     PlayState* play = MM_gPlayState;
     if (play != nullptr && play->msgCtx.msgMode != MSGMODE_NONE) {
@@ -2214,26 +2225,45 @@ static void GpSongHostMMFrame(int playFrames) {
         }
         sDeliveredFrame = playFrames;
         sRecordsMid = records;
-        RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
+        return;
     }
-    if (sDeliveredFrame >= 0 && playFrames == sDeliveredFrame + kRearmSettle) {
-        const int records = Combo_CountSharedItems(GAME_OOT, true);
-        const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
-        fprintf(stderr,
-                "[SONG-HOST] frame %d: after the re-arm MM song check %d is eligible %d, OoT-bound records "
-                "%d (were %d)\n",
-                playFrames, (int)sHost, eligible ? 1 : 0, records, sRecordsMid);
-        fflush(stderr);
-        sRearmChecked = true;
-        if (eligible || records != sRecordsMid) {
-            IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its OoT "
-                                         "item was not consumed by CheckQueue's guard, or recorded the item again");
+    const bool quiet = MM_GameEvents_Queue().empty() && (play == nullptr || play->msgCtx.msgMode == MSGMODE_NONE);
+    if (sDeliveredFrame >= 0 && sRearmFrame < 0) {
+        sQuietFrames = quiet ? sQuietFrames + 1 : 0;
+        if (sQuietFrames >= kQuietNeeded) {
+            sRearmFrame = playFrames;
+            RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
+            fprintf(stderr, "[SONG-HOST] frame %d: MM song check %d armed again after %d quiet frame(s)\n", playFrames,
+                    (int)sHost, sQuietFrames);
+            fflush(stderr);
+        } else if (playFrames >= sDeliveredFrame + kQuietDeadline) {
+            IntegrationTest_GameplayFail("int-song-host-mm: the delivery's own presentation never ended, so the re-arm "
+                                         "leg could not start (see [SONG-HOST])");
+        }
+        return;
+    }
+    if (sRearmFrame >= 0 && !sRearmChecked) {
+        sRearmNoise = sRearmNoise || !quiet;
+        if (playFrames >= sRearmFrame + kRearmWatch) {
+            const int records = Combo_CountSharedItems(GAME_OOT, true);
+            const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
+            fprintf(stderr,
+                    "[SONG-HOST] frame %d: after the re-arm MM song check %d is eligible %d, OoT-bound records %d "
+                    "(were %d), a get-item event or textbox followed %d\n",
+                    playFrames, (int)sHost, eligible ? 1 : 0, records, sRecordsMid, sRearmNoise ? 1 : 0);
+            fflush(stderr);
+            sRearmChecked = true;
+            if (eligible || records != sRecordsMid || sRearmNoise) {
+                IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its "
+                                             "OoT item was not consumed silently by CheckQueue's guard: it stayed "
+                                             "armed, recorded the item again, or announced an item it does not give");
+            }
         }
     }
-    // The re-arm leg must have run inside the window: a pass that never reached it
-    // would be vacuous.
-    if (playFrames == kDeliverDeadline + kRearmSettle + 1 && !sRearmChecked) {
-        IntegrationTest_GameplayFail("int-song-host-mm: the re-arm leg never ran (see [SONG-HOST])");
+    // The re-arm leg must have finished inside the window: a pass that never
+    // reached it would be vacuous.
+    if (playFrames == kDeliverDeadline + kQuietDeadline + kRearmWatch + 1 && !sRearmChecked) {
+        IntegrationTest_GameplayFail("int-song-host-mm: the re-arm leg never finished (see [SONG-HOST])");
     }
 }
 

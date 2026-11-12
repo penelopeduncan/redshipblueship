@@ -4562,10 +4562,12 @@ crossing to refuse (#954).")
     # (RSBS_PFC_SONG_HOST=mm): OoT's Zelda's Lullaby on MM's starting Song of
     # Healing (armed at creation); CheckQueue's foreign branch must deliver it
     # once, and a re-arm (a later cycle, a re-entry) must be consumed by the
-    # delivered-song-host guard with no second record. The drive waits for the
-    # delivery (the arrival pays out the Deku Mask's starting check first, so it
-    # lands near frame 170) and runs the re-arm leg 100 frames after it, hence the
-    # 500-frame window. Covered by trace only: the
+    # delivered-song-host guard with no second record and no get-item event or
+    # textbox (the only thing that tells the guard from its absence: the record is
+    # refused either way). The drive waits for the delivery (the arrival pays out
+    # the Deku Mask's starting check first, so it lands near frame 170), then for
+    # its presentation to end, then arms the check again and watches 60 frames,
+    # hence the 600-frame window. Covered by trace only: the
     # other 21 song checks' own give paths, each song scene's own cutscene and
     # progression with a crossing on it, OoT's grant of the Lullaby after the
     # crossing back, and a live three-day reset (the ROM-free MMSongHostGuard row
@@ -4579,7 +4581,7 @@ crossing to refuse (#954).")
         COMMAND redship --integration-test int-paired-first-crossing
         LABEL integration
         TIMEOUT ${REDSHIP_GAMEPLAY_TEST_TIMEOUT}
-        ENVIRONMENT "RSBS_PFC_SONG_HOST=mm" "RSBS_GP_FRAMES=500")
+        ENVIRONMENT "RSBS_PFC_SONG_HOST=mm" "RSBS_GP_FRAMES=600")
     # #1169 XW6: OoT's Song of Soaring crossing to a Termina owl, driven for real.
     # The paired first crossing with the hidden songSoaringOot rule revealed
     # through the test seam (Combo_ComboItemRules2RevealForTest, never a stored
