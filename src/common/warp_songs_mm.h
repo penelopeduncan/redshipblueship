@@ -11,9 +11,10 @@
  * named as OoTMM names it ("Minuet of Forest (MM)" ...), RI_SONG_MINUET ..
  * RI_SONG_PRELUDE appended before RI_MAX_TRAP (games/mm/2s2h/Rando/Types.h,
  * WarpSongsMM.cpp). Under the shared rule (RSBS_XITEM2_SHARED_SONG_MINUET ...,
- * which requires the extension) OoTMM replaces both games' copies with one shared
- * item named without the suffix ("Minuet of Forest"); that family is lane XW10's,
- * and until it exists the MM copy is HELD BACK, never placed as a separate item.
+ * which requires the extension) OoTMM replaces Ocarina of Time's copy with one
+ * shared item named without the suffix ("Minuet of Forest") and adds no MM copy
+ * (transform.ts), so MM pools none: the host's native copy is the shared row, and
+ * the two songs are the family's two members (lane XW10, warp_song_family.h).
  * Combo_MMWarpSongCopies is that rule, one place, the twin of XW4's
  * Combo_SongSoaringOoTCopies.
  *
@@ -82,7 +83,8 @@ uint32_t Combo_MMWarpSongRuleBit(uint8_t ownedBit);
  * How many copies of the MM song whose extension rule is @p ruleBit a world whose
  * frozen second rules word is @p rules2 puts into Majora's Mask's pool: 1 with the
  * extension on and its shared song off; 0 with the extension off, and 0 with the
- * shared song on (the family path, held back, never placed as a separate item).
+ * shared song on (OoTMM adds no copy under the shared rule; OoT's native copy is
+ * the shared row).
  * 0 for any bit that is not one of the six extensions. Pure.
  */
 uint32_t Combo_MMWarpSongCopies(uint32_t rules2, uint32_t ruleBit);

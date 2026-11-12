@@ -236,8 +236,11 @@ uint32_t Combo_SingleBag_TrimSeed(void);
 
 /** THE SHARED PAIRS the bag composes for this world (ABI 7, #976): every family
  *  slot the FROZEN record arms whose two native copies are both registered, as
- *  (OoT id, MM id), at most @p cap. Exactly what Combo_SingleBag_Run hands the
- *  composer; empty with every rule off. Returns the count. */
+ *  (OoT id, MM id), the first family word's then the second's (#1169 XW10).
+ *  Exactly what Combo_SingleBag_Run hands the composer; empty with every rule off.
+ *  Returns the count, or -1 (loud, nothing written) when the world builds more
+ *  pairs than @p cap: size every buffer RSBS_XFAMILY_SLOT_COUNT (one per family
+ *  slot, foreign_items.h) and never truncate. 0 for a NULL @p out or @p cap <= 0. */
 int Combo_SingleBag_SharedPairs(ComboLogicSharedPair* out, int cap);
 
 /** The pair-level FOOLISH analysis's seed (epic #575 H4: OoTMM's probabilistic

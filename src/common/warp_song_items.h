@@ -11,9 +11,10 @@
  * rule RSBS_XITEM2_SHARED_SONG_SOARING (which requires the extension) OoTMM
  * instead replaces Majora's Mask's copy with one shared item
  * (logic/src/world/transform.ts: `replaceItem(MM_SONG_SOARING,
- * SHARED_SONG_SOARING)` and NO `addItem(OOT_SONG_SOARING)`): that family is lane
- * XW10's, and until it exists OoT's separate copy is HELD BACK, never placed.
- * Combo_SongSoaringOoTCopies is that rule, one place.
+ * SHARED_SONG_SOARING)` and NO `addItem(OOT_SONG_SOARING)`). OoTMM adds no copy
+ * under the shared rule, so OoT pools none: Majora's Mask's native copy is the
+ * shared row, and the two songs are the family's two members (lane XW10,
+ * warp_song_family.h). Combo_SongSoaringOoTCopies is that rule, one place.
  *
  * ONE SPOT SHORT. OoT has twelve song spots under Shuffle Songs: Song Locations
  * (ShuffleSongs.cpp) and twelve under Dungeon Rewards (the eight boss hearts, the
@@ -76,8 +77,8 @@ extern "C" {
 /**
  * How many copies of OoT's separate Song of Soaring a world whose frozen second
  * rules word is @p rules2 puts into OoT's pool: 1 with the extension on and the
- * shared song off; 0 with the rule off, and 0 with the shared song on (the
- * family path, held back, never placed as a separate item). Pure.
+ * shared song off; 0 with the rule off, and 0 with the shared song on (OoTMM adds
+ * no copy under the shared rule; MM's native copy is the shared row). Pure.
  */
 uint32_t Combo_SongSoaringOoTCopies(uint32_t rules2);
 

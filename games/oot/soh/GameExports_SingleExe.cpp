@@ -5249,6 +5249,34 @@ static void OoT_SharedStoneMaskGive(uint16_t nativeId) {
     }
 }
 
+// #1169 XW10: Ocarina of Time's six warp songs as the OoT members of the shared
+// warp songs (OoTMM sharedSongMinuet .. sharedSongPrelude, the second family
+// word). Item_Give(ITEM_SONG_MINUET ..) only sets the song's quest bit, and the
+// ocarina staff builds its playable set from the quest bits alone (z_message_PAL.c,
+// the CHECK_QUEST_ITEM(QUEST_SONG_MINUET + i) loop), as for Epona's Song above.
+// Their own map, NOT OoT_SharedSongQuestBit: that one answers Epona's bit for
+// every id but the Song of Storms, so a warp song there would read and give
+// Epona's Song.
+static uint32_t OoT_SharedWarpSongQuestBit(uint16_t nativeId) {
+    if (nativeId < (uint16_t)RG_MINUET_OF_FOREST || nativeId > (uint16_t)RG_PRELUDE_OF_LIGHT) {
+        return 0u;
+    }
+    return 1u << ((int)QUEST_SONG_MINUET + ((int)nativeId - (int)RG_MINUET_OF_FOREST));
+}
+static bool OoT_SharedWarpSongHeld(uint16_t nativeId) {
+    const uint32_t bit = OoT_SharedWarpSongQuestBit(nativeId);
+    return bit != 0u && (gSaveContext.inventory.questItems & bit) != 0u;
+}
+static void OoT_SharedWarpSongGive(uint16_t nativeId) {
+    const uint32_t bit = OoT_SharedWarpSongQuestBit(nativeId);
+    if (bit != 0u) {
+        gSaveContext.inventory.questItems |= bit;
+    }
+}
+static_assert((int)RG_PRELUDE_OF_LIGHT - (int)RG_MINUET_OF_FOREST == 5 &&
+                  (int)QUEST_SONG_PRELUDE - (int)QUEST_SONG_MINUET == 5,
+              "the six warp songs' RG_* and QUEST_SONG_* ids must stay contiguous and in the same order (#1169 XW10)");
+
 namespace {
 // Static-init registration, the ComboLogicEngine registrars' shape: this TU is
 // always linked (it holds the shims), and the registry is zero-initialised
@@ -5298,6 +5326,18 @@ struct OoTSharedFamilyRegistrar {
         Combo_RegisterSharedFamilyMember(GAME_OOT, RSBS_XITEM_SHARED_SKULL, &maskSkull);
         const ComboSharedFamilyMember maskSpooky = { (uint16_t)RG_SPOOKY_MASK, OoT_SharedMaskHeld, OoT_SharedMaskGive };
         Combo_RegisterSharedFamilyMember(GAME_OOT, RSBS_XITEM_SHARED_SPOOKY, &maskSpooky);
+        // #1169 XW10: the six warp songs, OoT's native copies, each the HOST half
+        // of its shared song (the second family word; OoTMM replaces this copy with
+        // the shared item and adds no MM copy). Always pooled when the song is a
+        // pool item (pooled NULL); MM's half is WarpSongsMM.cpp's.
+        static const uint32_t kSharedWarp[6] = { RSBS_XITEM2_SHARED_SONG_MINUET,   RSBS_XITEM2_SHARED_SONG_BOLERO,
+                                                 RSBS_XITEM2_SHARED_SONG_SERENADE, RSBS_XITEM2_SHARED_SONG_REQUIEM,
+                                                 RSBS_XITEM2_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_PRELUDE };
+        for (int i = 0; i < 6; i++) {
+            const ComboSharedFamilyMember song = { (uint16_t)((int)RG_MINUET_OF_FOREST + i), OoT_SharedWarpSongHeld,
+                                                   OoT_SharedWarpSongGive };
+            Combo_RegisterSharedFamily2Member(GAME_OOT, kSharedWarp[i], &song);
+        }
     }
 };
 const OoTSharedFamilyRegistrar gOoTSharedFamilyRegistrar;
@@ -6537,13 +6577,23 @@ static int OoT_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint
  * keeps every bombchu spent since the arrival out of the re-applied count.
  * A capacity tier (#1120) takes the step path above instead.
  *
+ * #1169 XW10: Majora's Mask's copy of an ARMED second-word shared family (a
+ * shared warp song's surplus copy that crossed) is credited the same way: the
+ * family is owned now and OoT is given its own copy, with no crossing
+ * (Combo_SharedFamilies2CreditFarPickup). With the shared rule off (the extension
+ * alone) it answers 0 and the item crosses as before.
+ *
  * @return 1 when credited; 0 (nothing touched) when @p item is not a counted
- *         pack or a tier, OoT's live save is not a real file, or the kind has
- *         no OoT row.
+ *         pack, a tier or an armed far family member, OoT's live save is not a
+ *         real file, or the kind has no OoT row.
  */
 extern "C" int OoT_CreditSharedPickup(const SharedItem* item) {
     uint8_t kind = 0;
     uint16_t units = 0;
+    if (item != nullptr && OoT_SaveIsLiveFile() &&
+        Combo_SharedFamilies2CreditFarPickup(GAME_OOT, item->originGame, item->id)) {
+        return 1;
+    }
     if (item == nullptr || !Combo_SharedPickupCreditOf(*item, &kind, &units) || !OoT_SaveIsLiveFile()) {
         return 0;
     }

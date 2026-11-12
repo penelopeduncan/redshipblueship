@@ -27,6 +27,7 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
 // #1085: a shared song the single bag places as the pair's one copy
 // (ComboLogicEngineOoT.cpp).
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg);
+extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg); // #1169 XW10
 extern "C" void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
 // #1542 (ComboLogicEngineOoT.cpp; combo_song_pool.h): the shared song pool, and
 // the junk set a leftover song check may take.
@@ -103,13 +104,19 @@ static void RsbsDropReservedSongChecks(std::vector<RandomizerCheck>& locations) 
 }
 
 /** A song the single bag places, so Link's Pocket must not take it: every OoT song
- *  under the shared song pool, and a #1085 held-back shared song under OoT's
- *  restricted song modes (its one copy is the bag's shared pair row). */
+ *  under the shared song pool, a #1085 held-back shared song under OoT's
+ *  restricted song modes (its one copy is the bag's shared pair row), and (#1169
+ *  XW10) a held-back SHARED WARP SONG in every mode: under Off and Anywhere too its
+ *  one copy is the pair row. The first word's songs keep their two modes, so no
+ *  world of theirs moves (their Off / Anywhere case is filed separately). */
 static bool RsbsSongHeldForBag(RandomizerGet rg) {
     if (Rando::StaticData::RetrieveItem(rg).GetItemType() != ITEMTYPE_SONG) {
         return false;
     }
     if (OoT_ComboLogic_SongPoolUnion()) {
+        return true;
+    }
+    if (OoT_ComboLogic_SharedWarpSongHeldBack((uint16_t)rg) != 0) {
         return true;
     }
     auto ctx = Rando::Context::GetInstance();

@@ -51,6 +51,7 @@
 #include "context.h"             // src/common: gComboCtx, the frozen states
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
 #include "mm_warp_song_play.h"   // src/common: the creation's warp-song record (#1169 XW7)
+#include "shared_resources.h"    // src/common: the shared warp songs' family members (#1169 XW10)
 #include "warp_songs_mm.h"       // src/common: the ownership byte
 
 extern "C" {
@@ -406,7 +407,31 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
                                                     "be held back for lane XW10's family"
                                                   : "a song whose rule is on is not in MM's pool exactly once")
                                            : "a song whose rule is off reached MM's pool");
-        WsCheck(placed == copies, "a pool copy of an MM warp song was not placed in the world");
+        if (i == 0 && sharedMinuet) {
+            // #1169 XW10: the shared Minuet is ONE pair row, recorded as MM's song
+            // when an MM check hosts it (and as OoT's Minuet when an OoT one does),
+            // so MM's world holds it at most once though MM pools no copy.
+            WsCheck(placed <= 1, "the shared Minuet of Forest is in MM's world more than once");
+        } else {
+            WsCheck(placed == copies, "a pool copy of an MM warp song was not placed in the world");
+        }
+    }
+    if (sharedMinuet) {
+        // #1169 XW10: the bag pairs OoT's native Minuet with MM's song, the one
+        // shared row. Catches a missing MM member registration and a pooled() that
+        // answers "copies > 0" (0 under the shared rule), either of which leaves
+        // the pair out.
+        ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+        const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        uint16_t ootMinuet = 0;
+        const bool ootRegistered = Combo_SharedFamily2MemberId(GAME_OOT, RSBS_XITEM2_SHARED_SONG_MINUET, &ootMinuet);
+        int found = 0;
+        for (int p = 0; p < n; p++) {
+            found += (pairs[p].mmId == (uint16_t)RI_SONG_MINUET && pairs[p].ootId == ootMinuet) ? 1 : 0;
+        }
+        printf("[TEST]   %s: %d shared pair(s), the Minuet pair %d (OoT member registered %d)\n", name, n, found,
+               ootRegistered ? 1 : 0);
+        WsCheck(ootRegistered && found == 1, "the Shared Minuet of Forest is not the pair (OoT's Minuet, MM's Minuet)");
     }
     const uint8_t owned = Combo_MMWarpSongsOwned();
     printf("[TEST]   %s: ownership byte after the creation %02X (expected 00)\n", name, (unsigned)owned);
