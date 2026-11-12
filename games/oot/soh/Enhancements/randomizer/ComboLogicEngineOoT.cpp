@@ -3751,7 +3751,9 @@ extern "C" int OoT_ComboLogic_TestRootWarpEdge(int song, int child, int day, int
     std::memset(save->inventory.items, ITEM_NONE, sizeof(save->inventory.items));
     static bool sTravelEdgeVals[LOGIC_MAX];
     OoTComboLogicSaveLogicVals(sTravelEdgeVals);
-    SaveContext* prior = lg->GetSaveContext();
+    // The raw pointer, not GetSaveContext(): with none yet (this ROM-free row) that
+    // would allocate one through InitSaveContext, which reads OTRGlobals.
+    SaveContext* prior = lg->mSaveContext;
     const bool wasChild = lg->IsChild;
     const bool wasAdult = lg->IsAdult;
     const bool wasDay = lg->AtDay;
