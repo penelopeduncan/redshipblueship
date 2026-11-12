@@ -1293,9 +1293,10 @@ int OoT_SongCheckIndex(RandomizerCheck rc) {
  *    give. Each scene's progression reads the check's collection flag or the
  *    song's own learned flag, never the song in the inventory: the randomizer
  *    already places OoT's non-song items on all twelve. IMPA is refused while the frozen
- *    RSK_SKIP_CHILD_ZELDA is on: then Randomizer_InitSaveFile gives the check at
- *    creation through StartingItemGive (savefile.cpp), which has no crossing
- *    branch, and the MM item would be lost.
+ *    RSK_SKIP_CHILD_ZELDA is on, or (#1404, SoH #6938) the frozen Start with
+ *    Zelda's Letter is on with Shuffle Zelda's Letter off: then
+ *    Randomizer_InitSaveFile gives the check at creation through StartingItemGive
+ *    (savefile.cpp), which has no crossing branch, and the MM item would be lost.
  *
  * A pure function of the static location table and of settings frozen at file
  * creation (the song branch reads OoT's frozen Shuffle Songs and Skip Child
@@ -1314,8 +1315,12 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
         if (songCtx == nullptr) {
             return 0;
         }
+        // Child Zelda is skipped (Impa given at creation) under the legacy key or an
+        // unshuffled starting letter: the same test as Randomizer_InitSaveFile's.
         return Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
-                                             songCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0)
+                                             songCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0 ||
+                                                 (songCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get() != 0 &&
+                                                  songCtx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER).Get() == 0))
                    ? 1
                    : 0;
     }
@@ -3644,9 +3649,12 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         const std::string& name = loc->GetName();
         if (const int song = OoT_SongCheckIndex(rc); song >= 0) {
             const auto sweepCtx = Rando::Context::GetInstance();
-            const bool want = sweepCtx != nullptr &&
-                              Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
-                                                            sweepCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0);
+            const bool want =
+                sweepCtx != nullptr &&
+                Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
+                                              sweepCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0 ||
+                                                  (sweepCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get() != 0 &&
+                                                   sweepCtx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER).Get() == 0));
             if (accepted != want) {
                 fprintf(stderr,
                         "[OoT/ComboLogic] host-rule sweep: song check '%s' (check %d) is %s, the pure verdict for the "
@@ -3810,6 +3818,7 @@ std::shared_ptr<Rando::Context> sS0SongHostHeldCtx;
 bool sS0SongHostCreatedCtx = false;
 uint8_t sS0SongHostPriorSongs = 0;
 uint8_t sS0SongHostPriorSkip = 0;
+uint8_t sS0SongHostPriorLetter = 0;
 } // namespace
 
 /** Release what OoT_ComboLogic_TestHoldSongContext holds: the two options put
@@ -3823,6 +3832,7 @@ extern "C" void OoT_ComboLogic_TestReleaseSongContext(void) {
     if (!sS0SongHostCreatedCtx) {
         sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_SONGS).Set(sS0SongHostPriorSongs);
         sS0SongHostHeldCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(sS0SongHostPriorSkip);
+        sS0SongHostHeldCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(sS0SongHostPriorLetter);
     }
     sS0SongHostHeldCtx.reset();
     sS0SongHostCreatedCtx = false;
@@ -3847,8 +3857,12 @@ extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda)
     sS0SongHostCreatedCtx = created;
     sS0SongHostPriorSongs = ctx->GetOption(RSK_SHUFFLE_SONGS).Get();
     sS0SongHostPriorSkip = ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Get();
+    sS0SongHostPriorLetter = ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get();
     ctx->GetOption(RSK_SHUFFLE_SONGS).Set((uint8_t)songs);
     ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Set((uint8_t)skipChildZelda);
+    // #1404: an unshuffled starting letter also skips child Zelda (the host rule
+    // above), so the held context starts without one; `skipChildZelda` decides.
+    ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(0);
     sS0SongHostHeldCtx = ctx;
     return 0;
 }
