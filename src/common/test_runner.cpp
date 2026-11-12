@@ -2526,7 +2526,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // Re-pinned again by the pedestal child check (#1484; generator 5, was 0x1F6A69EB):
 // with Shuffle Master Sword on the pedestal is reachable as a child, which moves the
 // default world's placements named by the static hints; the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0xD5F895FFu;
+// Re-pinned again by the one songs setting (#1542 D2; generator 5, was 0xD5F895FF):
+// Majora's Mask's Shuffle Songs follows Ocarina of Time's, so in the default world
+// its songs stay on its own song locations, which moves the placements named by the
+// static hints; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x362833B2u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 

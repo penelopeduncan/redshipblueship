@@ -2791,9 +2791,10 @@ if(BUILD_TESTING)
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and
     # packages, with both items in the crossing store on their Mido's House chests.
-    # Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
-    # confines the Sonata to the song checks of both games, so a pin on a chest is
-    # refused (ComboLogicPlaceForced) as it is in OoTMM.
+    # Shuffle Songs is Anywhere here (#1542): a pinned row must be a placement the
+    # fill itself could make, and under the shipped Song Locations the shared song
+    # pool confines the Sonata to the song checks of both games, so the fill refuses
+    # it on a chest (ComboLogicPlaceForced: "forced row 0 may not be placed").
     redship_add_test(NAME DebugSeedForcedPlacements COMMAND redship --test debug-seed-forced-placements
         LABEL rando
         TIMEOUT 300

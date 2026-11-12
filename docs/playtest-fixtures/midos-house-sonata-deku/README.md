@@ -158,7 +158,7 @@ From a build tree of a build that has `--test debug-seed-forced-placements` (`ma
 ```bat
 set SDL_AUDIODRIVER=dummy
 set RSBS_DISABLE_OTR_INIT=1
-set RSBS_DIAG_CVARS=gRandoSettings.ClosedForest=2,gCombo.Rando.SharedBottles=1
+set RSBS_DIAG_CVARS=gRandoSettings.ClosedForest=2,gCombo.Rando.SharedBottles=1,gRandoSettings.ShuffleSongs=3
 set RSBS_FORCE_PLACEMENTS=oot:KF Mido Top Left Chest=mm:Sonata of Awakening,oot:KF Mido Top Right Chest=mm:Deku Mask,oot:KF Mido Bottom Left Chest=mm:Empty Bottle
 set RSBS_DEBUG_SEED=RSBSMIDOSDEBUG
 set RSBS_SEED_PACKAGE_PATH=%CD%\midos-house-sonata-deku-bottle-v2.rsbs-seed.zip
@@ -173,7 +173,11 @@ proved the seed beatable and all three items sit in the crossing store on their 
 
 Other placements use the same form, comma-separated: `<game>:<check>=<game>:<item>`, where a game is `oot` or `mm`
 and a check or item is its spoiler name or `#<id>`. A name that names nothing lists the checks whose names contain
-it. Up to eight rows; each must be a progression item of the bag on an empty check it may cross to. Without
+it. Up to eight rows; each must be a progression item of the bag on an empty check it may cross to. A pinned row
+must also be a placement the fill itself could make: since #1542 the pair has one Shuffle Songs setting, and at its
+default (Song Locations) Majora's Mask's songs stay on its own song locations, so the Sonata on a chest is refused
+("forced row 0 may not be placed") unless `gRandoSettings.ShuffleSongs=3` (Anywhere) is set as above. The package in
+this folder was made before that, at the default. Without
 `gCombo.Rando.SharedBottles=1` the same rows should make a seed whose bottle is Termina's alone (it crosses like the
 Sonata); that variant was not generated.
 
