@@ -11320,6 +11320,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "second owl from the map: MM must land on the cleared swamp's owl, not the pause-save spot, with the one-shot "
       "target spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
+    { "int-mm-warp-song-minuet",
+      "The paired first crossing with Majora's Mask's Minuet of Forest rule on (#1169 XW13): in South Clock Town, once "
+      "the arrival's starting checks are paid out, Link takes the Ocarina of Time out from C-down and plays the Minuet "
+      "through MM's test input seam; the song is matched, 'You played' shows, the warp prompt offers OK, and OK arms "
+      "the one-shot target (MM, this entrance, OoT, Minuet's pad, the warp-song kind); OoT must then arrive as a "
+      "child at the destination frozen in the creation's warp-song record, restored, with the switch spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -11715,8 +11722,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
-    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
-    // hidden rules are hidden again, pass or fail.
+    // int-soaring-to-owl (#1169 XW6) and int-mm-warp-song-minuet (#1169 XW13): the
+    // keys they set in memory go back, MM's test buttons are cleared and the hidden
+    // rules are hidden again, pass or fail.
     IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.

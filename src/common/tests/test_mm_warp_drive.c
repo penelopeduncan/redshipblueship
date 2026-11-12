@@ -26,7 +26,9 @@
  *        refused (the getter stays 0); 0 is accepted.
  *     W6 source anchors, each searched inside the function it claims: the seam
  *        sits in PadMgr_UpdateInputs after the error switch and before the D-pad
- *        masks and the edge computation; the setter refuses before it writes.
+ *        masks and the edge computation; the setter refuses before it writes;
+ *        the integration row's verdict cleanup clears MM's test buttons before
+ *        its no-keys return (pass or fail).
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++)
  * directly after test_mm_warp_song_play.c, whose anonymous-namespace source
@@ -178,6 +180,12 @@ void MwdCheckAnchors() {
     MWD_CHECK(MwpInOrder(setter, { "(buttons != 0) && !IntegrationTest_IsActive()", "return;",
                                    "sMMTestPadButtons = buttons;" }),
               "W6: MM_PadMgr_SetTestButtons does not refuse outside an integration run before it writes\n");
+    const std::string hooks = MwpReadSource("src/common/integration_test_hooks.cpp");
+    const std::string cleanup = MwpFunctionBody(hooks, "void IntegrationTest_SoaringCleanup(void)");
+    MWD_CHECK(MwpInOrder(cleanup, { "IntegrationTest_MMWarpSongMinuet()", "Combo_ComboItemRules2RevealForTest(0);",
+                                    "MM_PadMgr_SetTestButtons(0);", "if (sSoaringKeys.empty())" }),
+              "W6: int-mm-warp-song-minuet's verdict cleanup does not clear MM's test buttons before its no-keys "
+              "return\n");
 }
 
 } // namespace

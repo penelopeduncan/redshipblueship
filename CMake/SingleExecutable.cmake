@@ -4669,14 +4669,38 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
+    # #1169 XW13: the other direction, driven for real. The paired first crossing
+    # with MM's Minuet of Forest rule on through its key (while the six MM rules
+    # are hidden, the drive reveals them for the run with the test seam, from
+    # before the generation to the verdict) and Shuffle Songs on Anywhere, both in
+    # memory and put back at the verdict. The first OoT leg is the paired one. In
+    # South Clock Town the MM drive (games/mm/2s2h/mm_int_warp_song_drive.cpp)
+    # waits for the arrival's starting-check payouts to drain, equips the Ocarina
+    # of Time on C-down, and plays the Minuet through MM's test input seam
+    # (padmgr.c, MMWarpDriveSeam): MM's real matcher, "You played", the warp
+    # prompt, OK, then En_Test7 (or Player's plain fade) arms the one-shot target
+    # (MM, this entrance, OoT, Minuet's pad, the warp-song kind), seen live. The
+    # return leg is OoT's arrival as a child at the record's destination (the
+    # unshuffled pad 0x0600, Sacred Forest Meadow, derived, never a literal),
+    # restored, with the switch spent and the song still owned, plus every paired
+    # return check but the Market entrance and the door count. Every wait has a
+    # deadline and prints one dump line naming the state. Not covered live: the
+    # adult refusal (MMWarpSongDeparture D5/D6b lock it against OoT's real
+    # layout), a shuffled record, and the other five songs. RSBS_GP_FRAMES=300 so
+    # the payouts are usually over when the drive starts (MM watchdog 4800 frames).
+    redship_add_test(NAME IntMMWarpSongMinuet
+        COMMAND redship --integration-test int-mm-warp-song-minuet
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntSongHostOoT
-        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntMMWarpSongMinuet
+        IntSongHostOoT IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.
