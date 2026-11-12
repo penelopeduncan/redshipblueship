@@ -1061,6 +1061,10 @@ void CreateStaticItemHint(RandomizerHint hintKey, std::vector<RandomizerHintText
     std::vector<uint8_t> foreignAreas = {};
 #endif
     for (size_t i = 0; i < rawLocations.size(); i++) {
+        // One entry per item, as upstream keeps it: the hint text reads its areas by
+        // the item's index (the Ganondorf hint's Master Sword is [[2]]), so an item
+        // found nowhere, such as a starting Light Arrows, still takes its slot.
+        locations.push_back(rawLocations[i]);
         if (rawLocations[i] == RC_UNKNOWN_CHECK) {
             if (i < items.size() && HintAreaForItemOutsideHyrule(items[i]) == RA_TERMINA) {
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -1068,11 +1072,11 @@ void CreateStaticItemHint(RandomizerHint hintKey, std::vector<RandomizerHintText
 #else
                 areas.push_back(RA_TERMINA);
 #endif
-                locations.push_back(rawLocations[i]);
+            } else {
+                areas.push_back(RA_NONE);
             }
             continue;
         }
-        locations.push_back(rawLocations[i]);
         areas.push_back(ctx->GetItemLocation(rawLocations[i])->GetRandomArea());
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -1100,6 +1104,29 @@ extern "C" int Rando_TestCreateStaticItemHint(int hintKey, int hintTextKey, int 
     }
     CreateStaticItemHint((RandomizerHint)hintKey, { (RandomizerHintTextKey)hintTextKey }, { (RandomizerGet)item }, {},
                          true);
+    return 1;
+}
+
+/**
+ * TEST BRIDGE (ComboSingleBag D2, PR #1555 QC): the same builder over a key of
+ * `count` items with `textCount` texts, as the Ganondorf hint builds it when the
+ * Master Sword is shuffled. Builds nothing and returns 0 when either list is
+ * empty, 1 when built.
+ */
+extern "C" int Rando_TestCreateStaticItemHintKey(int hintKey, const int* hintTextKeys, int textCount, const int* items,
+                                                 int count) {
+    if (textCount <= 0 || count <= 0) {
+        return 0;
+    }
+    std::vector<RandomizerHintTextKey> texts = {};
+    for (int i = 0; i < textCount; i++) {
+        texts.push_back((RandomizerHintTextKey)hintTextKeys[i]);
+    }
+    std::vector<RandomizerGet> list = {};
+    for (int i = 0; i < count; i++) {
+        list.push_back((RandomizerGet)items[i]);
+    }
+    CreateStaticItemHint((RandomizerHint)hintKey, texts, list, {}, true);
     return 1;
 }
 
