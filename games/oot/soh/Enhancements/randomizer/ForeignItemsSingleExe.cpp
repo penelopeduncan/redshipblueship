@@ -67,6 +67,7 @@
 #include "combo_song_pool.h"       // src/common — the pair's one songs setting (#1542)
 
 #include "mm_warp_song_play.h" // src/common — the creation's warp-song record (#1169 XW7)
+#include "warp_song_items.h"   // src/common — Combo_GenRefusal_*: the OoT generation's own refusals (#1169 XW12)
 
 // WarpSongRecordOoT.cpp (#1169 XW7): the creation's warp-song record.
 extern "C" int OoT_Creation_FreezeWarpSongRecord(void);
