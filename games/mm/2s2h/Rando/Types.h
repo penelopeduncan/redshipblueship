@@ -2964,6 +2964,9 @@ typedef enum {
     RI_SONG_PRELUDE,
 #endif
     RI_SKELETON_KEY,
+    // Appended for the same reason (#1403): 2Ship's shuffled song items (527b177c0).
+    RI_SONG_DOUBLE_TIME,
+    RI_SONG_INVERTED_TIME,
     RI_MAX_TRAP,
     RI_MAX,
 } RandoItemId;
@@ -3376,6 +3379,10 @@ typedef enum {
     // existing identity strings stay intact.
     RO_SKULLTULA_SHUFFLED,
     RO_STRAY_FAIRIES_MAX,
+    // Appended for the same reason (#1403): 2Ship's additional shuffled songs (527b177c0).
+    RO_SHUFFLE_SONG_DOUBLE_TIME,
+    RO_SHUFFLE_SONG_INVERTED_TIME,
+    RO_SHUFFLE_SONG_SUN,
     RO_MAX,
 } RandoOptionId;
 
@@ -3523,6 +3530,8 @@ typedef enum {
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_RIGHT,
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_LEFT,
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP,
+    RANDO_INF_OBTAINED_SONG_DOUBLE_TIME,
+    RANDO_INF_OBTAINED_SONG_INVERTED_TIME,
     RANDO_INF_MAX,
 } RandoInf;
 

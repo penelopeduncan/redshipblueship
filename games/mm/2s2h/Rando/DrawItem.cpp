@@ -97,6 +97,8 @@ void DrawSong(RandoItemId randoItemId) {
         case RI_SONG_SUN:
             gDPSetEnvColor(POLY_XLU_DISP++, 237, 231, 62, 255);
             break;
+        case RI_SONG_DOUBLE_TIME:
+        case RI_SONG_INVERTED_TIME:
         case RI_SONG_TIME:
             gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
             break;
@@ -685,6 +687,8 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_SONG_OATH:
         case RI_SONG_EPONA:
         case RI_SONG_NOVA:
+        case RI_SONG_DOUBLE_TIME:
+        case RI_SONG_INVERTED_TIME:
             DrawSong(randoItemId);
             break;
         case RI_CLOCK_TOWN_STRAY_FAIRY:

@@ -284,9 +284,12 @@ static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 == 2617 &&
               "MM's butterfly checks (#1407) are ids 2617..2641, appended after #1410's");
 static_assert(RO_SHUFFLE_BUTTERFLIES == 56,
               "MM's Shuffle Butterflies option (#1407) is id 56, after RO_SHUFFLE_HIVE_DROPS");
-// #1403 (MM pool options): Skeleton Key, Shuffled Gold Skulltulas, Stray Fairies in Pool.
-static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO_STRAY_FAIRIES_MAX == 59,
-              "MM's #1403 pool options are ids 57..59, after RO_SHUFFLE_BUTTERFLIES");
+// #1403 (MM pool options): Skeleton Key, Shuffled Gold Skulltulas, Stray Fairies in Pool,
+// Double Time / Inverted Time / Sun's Song.
+static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO_STRAY_FAIRIES_MAX == 59 &&
+                  RO_SHUFFLE_SONG_DOUBLE_TIME == 60 && RO_SHUFFLE_SONG_INVERTED_TIME == 61 &&
+                  RO_SHUFFLE_SONG_SUN == 62,
+              "MM's #1403 pool options are ids 57..62, after RO_SHUFFLE_BUTTERFLIES");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));
