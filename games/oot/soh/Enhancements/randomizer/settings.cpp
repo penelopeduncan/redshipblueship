@@ -889,6 +889,14 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_MASTER_SWORD, "Shuffle Master Sword", CVAR_RANDOMIZER_SETTING("ShuffleMasterSword"), mOptionDescriptions[RSK_SHUFFLE_MASTER_SWORD]);
 #endif
     OPT_BOOL(RSK_SHUFFLE_CHILD_WALLET, "Shuffle Child's Wallet", CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), mOptionDescriptions[RSK_SHUFFLE_CHILD_WALLET], IMFLAG_NONE);
+    OPT_CALLBACK(RSK_SHUFFLE_CHILD_WALLET, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), 0)) {
+            CVarSetInteger(CVAR_RANDOMIZER_SETTING("StartingWallet"), 0);
+            mOptions[RSK_STARTING_WALLET].Disable("Disabled because Shuffle Child's Wallet is on.");
+        } else {
+            mOptions[RSK_STARTING_WALLET].Enable();
+        }
+    });
     OPT_BOOL(RSK_INCLUDE_TYCOON_WALLET, "Include Tycoon Wallet", CVAR_RANDOMIZER_SETTING("IncludeTycoonWallet"), mOptionDescriptions[RSK_INCLUDE_TYCOON_WALLET]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1425: on by default, OoTMM's shuffleOcarinasOot (see Shuffle Master Sword above).
@@ -3292,6 +3300,9 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
     }
     if (mOptions[RSK_SHUFFLE_GRAB]) {
         mOptions[RSK_STARTING_STRENGTH].Set(0);
+    }
+    if (mOptions[RSK_SHUFFLE_CHILD_WALLET]) {
+        mOptions[RSK_STARTING_WALLET].Set(0);
     }
 
     if (mOptions[RSK_ZORAS_FOUNTAIN].IsNot(RO_ZF_OPEN) &&
