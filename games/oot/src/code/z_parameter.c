@@ -2446,6 +2446,7 @@ u8 OoT_Item_Give(PlayState* play, u8 item) {
             if (item >= ITEM_POCKET_EGG) {
                 Flags_SetRandomizerInf(item - ITEM_POCKET_EGG + RAND_INF_ADULT_TRADES_HAS_POCKET_EGG);
             } else if (item == ITEM_LETTER_ZELDA) {
+                Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
                 // don't care about zelda's letter if it's already been shown to the guard
                 if (!OoT_Flags_GetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD)) {
                     Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);

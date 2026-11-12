@@ -340,6 +340,9 @@ typedef enum {
     LOGIC_SHADOW_MQ_EYE_SWITCH_ACROSS_CHASM,
     LOGIC_WAKE_UP_ADULT_TALON,
     LOGIC_KAKARIKO_GATE_OPEN,
+    LOGIC_MET_ZELDA,
+    LOGIC_MALON_RETURNED_FROM_CASTLE,
+    LOGIC_TALON_RETURNED_FROM_CASTLE,
     LOGIC_DELIVER_RUTOS_LETTER,
     LOGIC_KING_ZORA_THAWED,
     LOGIC_LINKS_COW,
@@ -7042,6 +7045,8 @@ typedef enum {
     RSK_STARTING_GERUDO_CARD,
     RSK_STARTING_BIGGORON_SWORD,
     RSK_STARTING_BUNNY_HOOD,
+    RSK_SHUFFLE_ZELDAS_LETTER,
+    RSK_STARTING_ZELDAS_LETTER,
     RSK_MAX
 } RandomizerSettingKey;
 
@@ -7342,6 +7347,13 @@ typedef enum {
     RO_STARTING_OCARINA_FAIRY,
     RO_STARTING_OCARINA_TIME,
 } RandoOptionStartingOcarina;
+
+// Shuffle Weird Egg Settings (vanilla, shuffled, skip waking talon)
+typedef enum {
+    RO_WEIRD_EGG_VANILLA,
+    RO_WEIRD_EGG_SHUFFLED,
+    RO_WEIRD_EGG_SKIP_TALON,
+} RandoOptionShuffleWeirdEgg;
 
 // Starting Bottle Settings (off, empty bottle, bottle with big poe, ruto's letter (bottle 1 only))
 typedef enum {

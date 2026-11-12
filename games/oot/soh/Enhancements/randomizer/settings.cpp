@@ -930,7 +930,8 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_CRAWL, "Shuffle Crawl", CVAR_RANDOMIZER_SETTING("ShuffleCrawl"), mOptionDescriptions[RSK_SHUFFLE_CRAWL]);
     OPT_BOOL(RSK_SHUFFLE_SPEAK, "Shuffle Jabber Nuts", CVAR_RANDOMIZER_SETTING("ShuffleSpeak"), mOptionDescriptions[RSK_SHUFFLE_SPEAK]);
     OPT_BOOL(RSK_SHUFFLE_OPEN_CHEST, "Shuffle Open Chest", CVAR_RANDOMIZER_SETTING("ShuffleOpenChest"), mOptionDescriptions[RSK_SHUFFLE_OPEN_CHEST]);
-    OPT_BOOL(RSK_SHUFFLE_WEIRD_EGG, "Shuffle Weird Egg", CVAR_RANDOMIZER_SETTING("ShuffleWeirdEgg"), mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG]);
+    OPT_U8(RSK_SHUFFLE_WEIRD_EGG, "Shuffle Weird Egg", {"Vanilla", "Shuffled", "Skip Waking Talon"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleWeirdEgg"), mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG], WIDGET_CVAR_COMBOBOX, RO_WEIRD_EGG_VANILLA);
+    OPT_BOOL(RSK_SHUFFLE_ZELDAS_LETTER, "Shuffle Zelda's Letter", CVAR_RANDOMIZER_SETTING("ShuffleZeldasLetter"), mOptionDescriptions[RSK_SHUFFLE_ZELDAS_LETTER]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1425: on by default, OoTMM's shuffleGerudoCard (see Shuffle Master Sword above).
     OPT_BOOL(RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD, "Shuffle Gerudo Membership Card", CVAR_RANDOMIZER_SETTING("ShuffleGerudoToken"), mOptionDescriptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_ON);
@@ -1336,17 +1337,9 @@ void Settings::CreateOptions() {
     //Dummied out due to redundancy with TimeSavers.SkipChildStealth until such a time that logic needs to consider child stealth e.g. because it's freestanding checks are added to freestanding shuffle.
     //To undo this dummying, readd this setting to an OptionGroup so it appears in the UI, then edit the timesaver check hooks to look at this, and the timesaver setting to lock itself as needed.
     OPT_BOOL(RSK_SKIP_CHILD_STEALTH, "Skip Child Stealth", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipChildStealth"), mOptionDescriptions[RSK_SKIP_CHILD_STEALTH], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
+    // Retired from UI by SoH #6938 (split into RSK_STARTING_ZELDAS_LETTER + RSK_SHUFFLE_WEIRD_EGG = RO_WEIRD_EGG_SKIP_TALON);
+    // kept registered so #1542 / paired tests calling ctx->GetOption(RSK_SKIP_CHILD_ZELDA) remain valid.
     OPT_BOOL(RSK_SKIP_CHILD_ZELDA, "Skip Child Zelda", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipChildZelda"), mOptionDescriptions[RSK_SKIP_CHILD_ZELDA], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
-    OPT_CALLBACK(RSK_SKIP_CHILD_ZELDA, {
-        // Shuffle Weird Egg - Disabled when Skip Child Zelda is active
-        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("SkipChildZelda"), RO_GENERIC_DONT_SKIP)) {
-            mOptions[RSK_SHUFFLE_WEIRD_EGG].Disable("This option is disabled because \"Skip Child Zelda\" is enabled.");
-            mOptions[RSK_SKIP_CHILD_STEALTH].Disable("This option is disabled because \"Skip Child Zelda\" is enabled.");
-        } else {
-            mOptions[RSK_SHUFFLE_WEIRD_EGG].Enable();
-            mOptions[RSK_SKIP_CHILD_STEALTH].Enable();
-        }
-    });
     OPT_BOOL(RSK_EARLY_GRANNYS_SHOP, "Early Granny's Potion Shop", CVAR_RANDOMIZER_SETTING("EarlyGrannysShop"), mOptionDescriptions[RSK_EARLY_GRANNYS_SHOP]);
     OPT_BOOL(RSK_SKIP_EPONA_RACE, "Skip Epona Race", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipEponaRace"), mOptionDescriptions[RSK_SKIP_EPONA_RACE], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
     OPT_BOOL(RSK_SKIP_SCARECROWS_SONG, "Skip Scarecrow's Song", CVAR_RANDOMIZER_SETTING("SkipScarecrowsSong"), mOptionDescriptions[RSK_SKIP_SCARECROWS_SONG]);
@@ -1489,6 +1482,7 @@ void Settings::CreateOptions() {
     OPT_U8(RSK_STARTING_BOTTLE_3, "Starting Bottle 3", {"Off", "Empty Bottle", "Bottle with Big Poe"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle3"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_U8(RSK_STARTING_BOTTLE_4, "Starting Bottle 4", {"Off", "Empty Bottle", "Bottle with Big Poe"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle4"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_BOOL(RSK_STARTING_WEIRD_EGG, "Start with Weird Egg", CVAR_RANDOMIZER_SETTING("StartingWeirdEgg"));
+    OPT_BOOL(RSK_STARTING_ZELDAS_LETTER, "Start with Zelda's Letter", CVAR_RANDOMIZER_SETTING("StartingZeldasLetter"));
     OPT_BOOL(RSK_STARTING_CLAIM_CHECK, "Start with Claim Check", CVAR_RANDOMIZER_SETTING("StartingClaimCheck"));
     OPT_BOOL(RSK_STARTING_GERUDO_CARD, "Start with Gerudo Card", CVAR_RANDOMIZER_SETTING("StartingGerudoCard"));
     OPT_BOOL(RSK_STARTING_BUNNY_HOOD, "Start with Bunny Hood", CVAR_RANDOMIZER_SETTING("StartingBunnyHood"));
@@ -2469,7 +2463,6 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_SUNLIGHT_ARROWS],
                                                                       &mOptions[RSK_FULL_WALLETS],
                                                                       &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],
-                                                                      &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                       &mOptions[RSK_MASK_QUEST],
                                                                       &mOptions[RSK_SKIP_CHILD_STEALTH],
                                                                       &mOptions[RSK_EARLY_GRANNYS_SHOP],
@@ -2496,7 +2489,6 @@ void Settings::CreateOptions() {
         OptionGroup::SubGroup("Area Access",
                               {
                                   &mOptions[RSK_FOREST],
-                                  &mOptions[RSK_KAK_GATE],
                                   &mOptions[RSK_DOOR_OF_TIME],
                                   &mOptions[RSK_ZORAS_FOUNTAIN],
                                   &mOptions[RSK_SLEEPING_WATERFALL],
@@ -2599,6 +2591,7 @@ void Settings::CreateOptions() {
 #endif
                                   &mOptions[RSK_SHUFFLE_OCARINA],
                                   &mOptions[RSK_SHUFFLE_WEIRD_EGG],
+                                  &mOptions[RSK_SHUFFLE_ZELDAS_LETTER],
                                   &mOptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD],
                                   &mOptions[RSK_FISHSANITY],
                                   &mOptions[RSK_FISHSANITY_POND_COUNT],
@@ -2744,7 +2737,6 @@ void Settings::CreateOptions() {
                               WidgetContainerType::TABLE);
     mOptionGroups[RSG_OPEN] = OptionGroup("Open Settings", {
                                                                &mOptions[RSK_FOREST],
-                                                               &mOptions[RSK_KAK_GATE],
                                                                &mOptions[RSK_DOOR_OF_TIME],
                                                                &mOptions[RSK_ZORAS_FOUNTAIN],
                                                                &mOptions[RSK_SLEEPING_WATERFALL],
@@ -2848,6 +2840,7 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_SPEAK],
                                             &mOptions[RSK_SHUFFLE_OPEN_CHEST],
                                             &mOptions[RSK_SHUFFLE_WEIRD_EGG],
+                                            &mOptions[RSK_SHUFFLE_ZELDAS_LETTER],
                                             &mOptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD],
                                             &mOptions[RSK_SHUFFLE_MERCHANTS],
                                             &mOptions[RSK_MERCHANT_PRICES],
@@ -2921,8 +2914,9 @@ void Settings::CreateOptions() {
                                          &mOptions[RSK_STARTING_BOMBCHU_BAG],    &mOptions[RSK_STARTING_BOTTLE_1],
                                          &mOptions[RSK_STARTING_BOTTLE_2],       &mOptions[RSK_STARTING_BOTTLE_3],
                                          &mOptions[RSK_STARTING_BOTTLE_4],       &mOptions[RSK_STARTING_WEIRD_EGG],
-                                         &mOptions[RSK_STARTING_CLAIM_CHECK],    &mOptions[RSK_STARTING_GERUDO_CARD],
-                                         &mOptions[RSK_STARTING_BIGGORON_SWORD], &mOptions[RSK_STARTING_BUNNY_HOOD] });
+                                         &mOptions[RSK_STARTING_ZELDAS_LETTER],  &mOptions[RSK_STARTING_CLAIM_CHECK],
+                                         &mOptions[RSK_STARTING_GERUDO_CARD],    &mOptions[RSK_STARTING_BIGGORON_SWORD],
+                                         &mOptions[RSK_STARTING_BUNNY_HOOD] });
     mOptionGroups[RSG_STARTING_SONGS] =
         OptionGroup::SubGroup("Ocarina Songs", {
                                                    &mOptions[RSK_STARTING_ZELDAS_LULLABY],
@@ -2954,7 +2948,6 @@ void Settings::CreateOptions() {
                                                         },
                                                         OptionGroupType::DEFAULT);
     mOptionGroups[RSG_TIMESAVERS] = OptionGroup("Timesaver Settings", {
-                                                                          &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                           &mOptions[RSK_SKIP_EPONA_RACE],
                                                                           &mOptions[RSK_SKIP_SCARECROWS_SONG],
                                                                           &mOptions[RSK_SKIP_PLANTING_BEANS],
@@ -3198,12 +3191,6 @@ void Settings::UpdateAllOptions() {
 
 void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocations,
                                const std::set<RandomizerTrick>& enabledTricks) {
-    // if we skip child zelda, we start with zelda's letter, and malon starts
-    // at the ranch, so we should *not* shuffle the weird egg
-    if (mOptions[RSK_SKIP_CHILD_ZELDA]) {
-        mOptions[RSK_SHUFFLE_WEIRD_EGG].Set(RO_GENERIC_OFF);
-    }
-
     // With certain access settings, the seed is only beatable if Starting Age is set to Child.
     if (mOptions[RSK_LOGIC_RULES].IsNot(RO_LOGIC_NO_LOGIC) &&
         ((mOptions[RSK_DOOR_OF_TIME].Is(RO_DOOROFTIME_CLOSED) && !mOptions[RSK_SHUFFLE_OCARINA]) ||

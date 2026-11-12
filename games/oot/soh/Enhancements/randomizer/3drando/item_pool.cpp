@@ -382,7 +382,9 @@ void GenerateItemPool() {
     }
 
     // Fixed item locations
-    ctx->PlaceItemInLocation(RC_HC_ZELDAS_LETTER, RG_ZELDAS_LETTER);
+    if (!ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) {
+        ctx->PlaceItemInLocation(RC_HC_ZELDAS_LETTER, RG_ZELDAS_LETTER);
+    }
 
     if (!ctx->GetOption(RSK_STARTING_KOKIRI_SWORD)) {
         if (ctx->GetOption(RSK_SHUFFLE_KOKIRI_SWORD)) {
@@ -400,12 +402,16 @@ void GenerateItemPool() {
         }
     }
 
-    if (ctx->GetOption(RSK_SHUFFLE_WEIRD_EGG)) {
+    if (ctx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SHUFFLED)) {
         if (!ctx->GetOption(RSK_STARTING_WEIRD_EGG)) {
             AddItemToPool(RG_WEIRD_EGG, 2, 1, 1, 1);
         }
     } else {
         ctx->PlaceItemInLocation(RC_HC_MALON_EGG, RG_WEIRD_EGG, false, true);
+    }
+
+    if (ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER) && !ctx->GetOption(RSK_STARTING_ZELDAS_LETTER)) {
+        AddItemToPool(RG_ZELDAS_LETTER, 2, 1, 1, 1);
     }
 
     if (ctx->GetOption(RSK_SHUFFLE_OCARINA)) {

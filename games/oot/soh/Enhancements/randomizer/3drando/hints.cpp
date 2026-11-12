@@ -708,7 +708,8 @@ void CreateStoneHints() {
 #endif
 
     // Apply impa's song exclusions when zelda is skipped
-    if (ctx->GetOption(RSK_SKIP_CHILD_ZELDA)) {
+    if ((ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) && !ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) ||
+        ctx->GetOption(RSK_SKIP_CHILD_ZELDA)) {
         ctx->GetItemLocation(RC_SONG_FROM_IMPA)->SetHintAccesible();
     }
     if (ctx->GetOption(RSK_SELECTED_STARTING_AGE).Is(RO_AGE_ADULT) || !ctx->GetOption(RSK_SHUFFLE_MASTER_SWORD)) {

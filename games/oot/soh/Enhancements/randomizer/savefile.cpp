@@ -471,8 +471,13 @@ void SetStartingItems() {
         OoT_Item_Give(NULL, ITEM_BOTTLE);
     }
 
-    if (Randomizer_GetSettingValue(RSK_STARTING_WEIRD_EGG) && Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG)) {
+    if (Randomizer_GetSettingValue(RSK_STARTING_WEIRD_EGG) &&
+        Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SHUFFLED) {
         OoT_Item_Give(NULL, ITEM_WEIRD_EGG);
+    }
+    if (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) &&
+        Randomizer_GetSettingValue(RSK_SHUFFLE_ZELDAS_LETTER)) {
+        OoT_Item_Give(NULL, ITEM_LETTER_ZELDA);
     }
     if (Randomizer_GetSettingValue(RSK_STARTING_CLAIM_CHECK)) {
         OoT_Item_Give(NULL, ITEM_CLAIM_CHECK);
@@ -719,33 +724,40 @@ extern "C" void Randomizer_InitSaveFile() {
         }
     }
 
-    if (Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {
-        GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheck(RC_SONG_FROM_IMPA, (GetItemID)RG_ZELDAS_LULLABY);
-        StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA);
-        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_MALON_EGG, (GetItemID)RG_WEIRD_EGG);
-        StartingItemGive(getItemEntry, RC_HC_MALON_EGG);
-        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_ZELDAS_LETTER, (GetItemID)RG_ZELDAS_LETTER);
-        StartingItemGive(getItemEntry, RC_HC_ZELDAS_LETTER);
+    // Skip Waking Talon: the egg already hatched and woke him, Malon/Talon start back at the ranch.
+    if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SKIP_TALON) {
+        OTRGlobals::Instance->gRandoContext->GetItemLocation(RC_HC_MALON_EGG)->SetCheckStatus(RCSHOW_SAVED);
 
-        // Malon/Talon back at ranch.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_OBTAINED_POCKET_EGG);
         Flags_SetRandomizerInf(RAND_INF_WEIRD_EGG);
         OoT_Flags_SetEventChkInf(EVENTCHKINF_TALON_WOKEN_IN_CASTLE);
         OoT_Flags_SetEventChkInf(EVENTCHKINF_TALON_RETURNED_FROM_CASTLE);
+    }
 
-        // Set "Got Zelda's Letter" flag. Also ensures Saria is back at SFM.
+    // Starting with an unshuffled letter skips child Zelda.
+    // RSK_SKIP_CHILD_ZELDA is kept as a fallback for #1542 paired callers and test_song_check_tables.
+    if (Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA) ||
+        (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) &&
+         !Randomizer_GetSettingValue(RSK_SHUFFLE_ZELDAS_LETTER))) {
+        GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheck(RC_SONG_FROM_IMPA, (GetItemID)RG_ZELDAS_LULLABY);
+        StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA);
+        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_ZELDAS_LETTER, (GetItemID)RG_ZELDAS_LETTER);
+        StartingItemGive(getItemEntry, RC_HC_ZELDAS_LETTER);
+
+        // Set "Met Zelda" flag. Also ensures Saria is back at SFM.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_OBTAINED_ZELDAS_LETTER);
         Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
-        Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
 
         // Got item from Impa.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_LEARNED_ZELDAS_LULLABY);
+    }
 
-        gSaveContext.sceneFlags[SCENE_HYRULE_CASTLE].swch |= (1 << 0x4); // Move milk crates in Hyrule Castle to moat.
-
-        // Set this at the end to ensure we always start with the letter.
-        // This is for the off chance, we got the Weird Egg from Impa (which should never happen).
-        INV_CONTENT(ITEM_LETTER_ZELDA) = ITEM_LETTER_ZELDA;
+    // Starting with the letter opens the Kakariko gate, shuffled or not (RSK_KAK_GATE kept for legacy/test CVars).
+    // The letter then has no use, so drop it from the trade cycle.
+    if (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) ||
+        Randomizer_GetSettingValue(RSK_KAK_GATE) == RO_KAK_GATE_OPEN) {
+        OoT_Flags_SetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD);
+        Flags_UnsetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
     }
 
     if (Randomizer_GetSettingValue(RSK_SHUFFLE_MASTER_SWORD) && startingAge == RO_AGE_ADULT) {
@@ -781,11 +793,6 @@ extern "C" void Randomizer_InitSaveFile() {
         case RO_DOOROFTIME_OPEN:
             OoT_Flags_SetEventChkInf(EVENTCHKINF_OPENED_THE_DOOR_OF_TIME);
             break;
-    }
-
-    if (Randomizer_GetSettingValue(RSK_KAK_GATE) == RO_KAK_GATE_OPEN) {
-        OoT_Flags_SetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD);
-        Flags_UnsetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
     }
 
     if (Randomizer_GetSettingValue(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST ||
