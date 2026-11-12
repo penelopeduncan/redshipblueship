@@ -99,6 +99,53 @@ void Combo_SongSpotsRecordRefusal(const char* msg);
 /** The last recorded refusal, or "" when none. Never NULL. */
 const char* Combo_SongSpotsLastRefusal(void);
 
+/* ---- The added songs on the trackers (#1169 lane XW11) ---------------------- */
+
+/**
+ * One added warp song's tracker row: whether a file shows it, whether the player
+ * holds it, and the shared family it is a copy of.
+ *   - shown: @p extBit is one of the seven extensions (RSBS_XITEM2_WARP_SONG_
+ *     EXTENSIONS) and the frozen word @p rules2 has it on. A file with every rule
+ *     off shows no row, so its tracker is exactly what it was before XW11.
+ *   - have: shown, and Combo_AddedSongHeld.
+ *   - sharedFamily: 0. Lane XW10's shared warp song returns its family slot here
+ *     when the shared bit is on, so the view draws the pair once in the Shared
+ *     group.
+ */
+typedef struct ComboAddedSongRow {
+    uint8_t shown;
+    uint8_t have;
+    uint32_t sharedFamily;
+} ComboAddedSongRow;
+
+/**
+ * THE ONE OWNERSHIP QUESTION for an added warp song ("does the player hold song
+ * @p extBit in the game it was added to"): @p separateOwned (the separate copy's
+ * own record: OoT's RAND_INF_OBTAINED_SONG_OF_SOARING_OOT, MM's
+ * gComboCtx.mmWarpSongsOwned bit), or @p sharedOwned when the frozen word
+ * @p rules2 has the shared song over @p extBit on (extBit <<
+ * RSBS_XITEM2_WARP_SONG_SHARED_SHIFT). Lane XW10 passes its family's owned
+ * query as @p sharedOwned; until then every caller passes false. Every tracker
+ * row and both tracker travel facts (warp_song_tracker.h) ask this. Pure.
+ */
+bool Combo_AddedSongHeld(uint32_t rules2, uint32_t extBit, bool separateOwned, bool sharedOwned);
+
+/** The row for extension @p extBit under frozen word @p rules2 (above). Pure. */
+ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool separateOwned, bool sharedOwned);
+
+/* ---- The other game's tag after an item's name (#1169 lane XW11) ------------ */
+
+/**
+ * The tag a crossed item's name takes after it, for an item of @p originGame
+ * (a GameId: 1 OoT, 2 MM): " (OoT)" or " (MM)", or "" when @p name already ends
+ * with exactly that tag. The seven added warp songs are named with their own
+ * game's tag (OoTMM's option names, "Minuet of Forest (MM)", "Song of Soaring
+ * (OoT)"), so every site that appends the origin's tag printed it twice; the
+ * same holds for #980's "Gerudo Mask (MM)" and its siblings. Any other
+ * @p originGame answers "". NULL @p name answers the tag. Never NULL. Pure.
+ */
+const char* Combo_ForeignGameTag(const char* name, uint8_t originGame);
+
 #ifdef __cplusplus
 }
 #endif

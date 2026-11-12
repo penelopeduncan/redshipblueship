@@ -179,7 +179,11 @@ extern const ComboItemGridStyle kComboItemSohGrid;
 typedef struct ComboItemOps {
     // Number of rows that are always there; fixed for the adapter's lifetime.
     // Rows a save adds on top (see countFor) come after these, so an index below
-    // this answers for every save.
+    // this answers for every save. One exception (#1169 XW11): an added warp song
+    // under its frozen rule is drawn inside its game's songs, so in such a file
+    // the fixed rows after the songs move up by that many. Every row before the
+    // songs (each game's inventory and its shared capacity-tier copies, which
+    // LiveCopyOf walks) keeps its index; a rule-off file is unchanged.
     int (*count)(void);
     // Fill row `index` from `src` (a SaveContext image of this game) and nothing
     // else: never the global save. Leaves `out->freshness` alone. False when

@@ -10,6 +10,7 @@
 #include "2s2h/Rando/HintSources.h" // #1475: the hint tracker's resolver and read hook
 #include "combo_hint_view.h"        // src/common: ComboHintResolution (#1475)
 #include "foreign_items.h"          // src/common: Combo_GetForeignPlacementForCheck (#1475)
+#include "warp_song_items.h"        // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
 #endif
 
 #include <vector>
@@ -116,7 +117,8 @@ static std::string GossipHintItemName(const RandoSaveCheck* checks, RandoCheckId
     // many names exist in both games ("the Lens of Truth"). " (OoT)" is the
     // marker the check trackers use and OoTMM's in-game text uses.
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
-        return std::string(Rando::Foreign::ForeignArticleForCheck(randoCheckId)) + foreignName + " (OoT)";
+        return std::string(Rando::Foreign::ForeignArticleForCheck(randoCheckId)) + foreignName +
+               Combo_ForeignGameTag(foreignName, GAME_OOT);
     }
     return Rando::StaticData::GetItemName(checks[randoCheckId].randoItemId);
 }

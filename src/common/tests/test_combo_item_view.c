@@ -96,6 +96,7 @@
 #include "../save.h" // rsbs::SaveManager, SlotMeta: the new-file row's slot-panel leg (#873)
 #include "../shared_resources.h"
 #include "../test_runner.h"
+#include "../warp_songs_mm.h" // Combo_MMWarpSongsSetOwned: the XW11 leg's ownership byte
 
 #include <cstdio>
 #include <cstring>
@@ -138,6 +139,10 @@ extern "C" void OoT_ItemAdapter_TestOverrideOptions(int enabled, unsigned bits);
 // The adapter's guarded read of an item's inventory slot (SoH 7a7f942b8), -1 when it has none.
 extern "C" int OoT_ItemAdapter_TestInvContent(const void* buf, int item);
 extern "C" int OoT_ItemAdapter_TestItemSlotCount(void);
+// #1169 XW11: the added warp songs' authoring seams (both ItemAdapterSingleExe.cpp files).
+extern "C" int OoT_ItemAdapter_TestAuthorSoaringWorld(void* buf, size_t size, int soaringOwned, int ocarina,
+                                                      int buttons, int linkAge);
+extern "C" int MM_ItemAdapter_TestAuthorWarpSongWorld(void* buf, size_t size, int ocarina, unsigned heldMask);
 
 #define CIV_ASSERT(cond)                                                   \
     do {                                                                   \
@@ -2213,6 +2218,174 @@ static int CivSharedButtonLabelLegs(const ComboItemOps* ops, const ComboItemOps*
     return TEST_PASS;
 }
 
+// ---- #1169 XW11: the added warp songs' rows ------------------------------------------
+//
+// The Song of Soaring (OoT) is OoT's thirteenth note and Ocarina of Time's six warp songs follow MM's Oath to Order,
+// each only in a randomizer file whose frozen second rules word has its extension on.
+//   (a) Rules off (every world a player can make before XW12): both games' counts and every row are what they were,
+//       and no added slot key appears. Catches a row leaking into a rule-off file.
+//   (b) OoT, the Soaring rule on: one row right after "song_prelude", white (SoH's vanilla Sun's Song note), held
+//       through its flag in the buffer, and every later row is the rule-off row one index on. Catches the row in the
+//       wrong place, the wrong ownership source, or a dungeon-table index that does not shift.
+//   (c) A vanilla OoT file with the rule on shows no row. Catches IS_RANDO dropped.
+//   (d) MM, all six on with Minuet, Serenade and Nocturne owned: six rows after "song_oath" in OoTMM's order, named
+//       as MM names them, tinted, held from the ownership byte, and the Quest rows follow; one rule alone shows one
+//       row. Catches the order, the tint, the ownership source, and a shift that skips or repeats a fixed row.
+//   (e) The catalog (the layout editor) is the rule-off catalog in every case: this lane adds no catalog entry.
+static bool CivSlotKeyIs(const ComboItemRow& r, const char* key) {
+    return r.slotKey != NULL && strcmp(r.slotKey, key) == 0;
+}
+
+static std::vector<ComboItemRow> CivRowsOf(const ComboItemOps* ops, const void* buf) {
+    std::vector<ComboItemRow> rows;
+    const int n = ops->countFor(buf);
+    for (int i = 0; i < n; i++) {
+        ComboItemRow r;
+        memset(&r, 0, sizeof(r));
+        if (!ops->rowAt(buf, i, &r)) {
+            break;
+        }
+        rows.push_back(r);
+    }
+    return rows;
+}
+
+static int CivIndexOfKey(const std::vector<ComboItemRow>& rows, const char* key) {
+    for (size_t i = 0; i < rows.size(); i++) {
+        if (CivSlotKeyIs(rows[i], key)) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+static bool CivSameText(const char* x, const char* y) {
+    return (x == NULL && y == NULL) || (x != NULL && y != NULL && strcmp(x, y) == 0);
+}
+
+/** Rows equal by what the overlay draws and keys by (compared field by field). */
+static bool CivSameRow(const ComboItemRow& a, const ComboItemRow& b) {
+    return CivSameText(a.group, b.group) && CivSameText(a.name, b.name) && CivSameText(a.slotKey, b.slotKey) &&
+           CivSameText(a.iconKey, b.iconKey) && a.have == b.have && a.count == b.count && a.max == b.max &&
+           a.sharedFamily == b.sharedFamily && a.iconTint == b.iconTint && a.pad == b.pad;
+}
+
+static void CivFreezeRules2(uint32_t rules2) {
+    ComboContext_Init();
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
+}
+
+static int CivAddedWarpSongLegs(const ComboItemOps* ops, const ComboItemOps* mmOps) {
+    static const char* const kMMKeys[6] = { "song_minuet_mm",  "song_bolero_mm",   "song_serenade_mm",
+                                            "song_requiem_mm", "song_nocturne_mm", "song_prelude_mm" };
+    static const char* const kMMNames[6] = { "Minuet of Forest (MM)",   "Bolero of Fire (MM)",
+                                             "Serenade of Water (MM)",  "Requiem of Spirit (MM)",
+                                             "Nocturne of Shadow (MM)", "Prelude of Light (MM)" };
+    static const uint32_t kMMTints[6] = {
+        0x96FF64FFu, 0xFF5028FFu, 0x6496FFFFu, 0xFFA000FFu, 0xFF64FFFFu, 0xFFF064FFu
+    };
+    std::vector<uint8_t> oot((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> ootOwned((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> ootVanilla((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> mm((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSoaringWorld(oot.data(), oot.size(), 0, 1, 1, 1) == 1);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSoaringWorld(ootOwned.data(), ootOwned.size(), 1, 1, 1, 1) == 1);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSave(ootVanilla.data(), ootVanilla.size(), 0) == 1);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorWarpSongWorld(mm.data(), mm.size(), 1, 0x1Fu) == 1);
+    OoT_ItemAdapter_TestOverrideOptions(1, 0u); // the gated groups read no seed context here
+
+    // (a) rules off.
+    ComboContext_Init();
+    Combo_MMWarpSongsSetOwned(0x3Fu); // owned without the rule: still no row
+    const std::vector<ComboItemRow> ootOff = CivRowsOf(ops, ootOwned.data());
+    const std::vector<ComboItemRow> mmOff = CivRowsOf(mmOps, mm.data());
+    const int ootCatalogOff = ops->catalogCount();
+    const int mmCatalogOff = mmOps->catalogCount();
+    CIV_ASSERT(!ootOff.empty() && !mmOff.empty());
+    CIV_ASSERT((int)ootOff.size() == ops->countFor(ootOwned.data()) && (int)mmOff.size() == mmOps->countFor(mm.data()));
+    CIV_ASSERT(CivIndexOfKey(ootOff, "song_soaring_oot") < 0);
+    for (const char* key : kMMKeys) {
+        CIV_ASSERT(CivIndexOfKey(mmOff, key) < 0);
+    }
+    const int prelude = CivIndexOfKey(ootOff, "song_prelude");
+    const int oath = CivIndexOfKey(mmOff, "song_oath");
+    CIV_ASSERT(prelude >= 0 && oath >= 0);
+
+    // (b) OoT, the Soaring rule on.
+    CivFreezeRules2(RSBS_XITEM2_SONG_SOARING_OOT);
+    const std::vector<ComboItemRow> ootOn = CivRowsOf(ops, ootOwned.data());
+    printf("[TEST] combo-item-view: XW11 OoT rows %zu with the Soaring rule, %zu without\n", ootOn.size(),
+           ootOff.size());
+    CIV_ASSERT(ootOn.size() == ootOff.size() + 1);
+    const ComboItemRow& soaring = ootOn[(size_t)prelude + 1];
+    CIV_ASSERT(CivSlotKeyIs(soaring, "song_soaring_oot") && strcmp(soaring.group, "Songs") == 0 &&
+               strcmp(soaring.name, "Song of Soaring (OoT)") == 0 &&
+               CivSameText(soaring.iconKey, "QUEST_SONG_SUN_Vanilla") &&
+               CivSameText(soaring.iconKeyFaded, "QUEST_SONG_SUN_Vanilla_Faded") && soaring.have &&
+               soaring.iconAspect > 0.6f && soaring.iconAspect < 0.7f && soaring.sharedFamily == 0u);
+    for (size_t i = 0; i < ootOff.size(); i++) {
+        const size_t on = i <= (size_t)prelude ? i : i + 1;
+        if (!CivSameRow(ootOff[i], ootOn[on])) {
+            printf("[TEST] FAIL: OoT row %zu (\"%s\") is not rule-off row %zu with the Soaring rule on\n", on,
+                   ootOn[on].name, i);
+            return TEST_FAIL;
+        }
+    }
+    const std::vector<ComboItemRow> ootNotOwned = CivRowsOf(ops, oot.data());
+    CIV_ASSERT(ootNotOwned.size() == ootOn.size());
+    CIV_ASSERT(CivSlotKeyIs(ootNotOwned[(size_t)prelude + 1], "song_soaring_oot") &&
+               !ootNotOwned[(size_t)prelude + 1].have);
+    // (c) a vanilla file shows none.
+    CIV_ASSERT(CivIndexOfKey(CivRowsOf(ops, ootVanilla.data()), "song_soaring_oot") < 0);
+    // The MM rules are off in this world: MM unchanged.
+    CIV_ASSERT(CivRowsOf(mmOps, mm.data()).size() == mmOff.size());
+
+    // (d) MM, all six on.
+    CivFreezeRules2(RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT);
+    Combo_MMWarpSongsSetOwned(0x15u); // Minuet, Serenade, Nocturne
+    const std::vector<ComboItemRow> mmOn = CivRowsOf(mmOps, mm.data());
+    printf("[TEST] combo-item-view: XW11 MM rows %zu with the six rules, %zu without\n", mmOn.size(), mmOff.size());
+    CIV_ASSERT(mmOn.size() == mmOff.size() + 6);
+    for (int i = 0; i < 6; i++) {
+        const ComboItemRow& r = mmOn[(size_t)oath + 1 + (size_t)i];
+        const bool held = ((0x15u >> i) & 1u) != 0u;
+        if (!CivSlotKeyIs(r, kMMKeys[i]) || strcmp(r.group, "Songs") != 0 || strcmp(r.name, kMMNames[i]) != 0 ||
+            r.iconTint != kMMTints[i] || r.have != held || r.iconKey == NULL) {
+            printf("[TEST] FAIL: MM added song %d reads \"%s\" key %s tint %08X have %d\n", i, r.name,
+                   r.slotKey != NULL ? r.slotKey : "(none)", (unsigned)r.iconTint, (int)r.have);
+            return TEST_FAIL;
+        }
+    }
+    CIV_ASSERT(CivSlotKeyIs(mmOn[(size_t)oath + 7], "remains_odolwa"));
+    for (size_t i = 0; i < mmOff.size(); i++) {
+        const size_t on = i <= (size_t)oath ? i : i + 6;
+        if (!CivSameRow(mmOff[i], mmOn[on])) {
+            printf("[TEST] FAIL: MM row %zu (\"%s\") is not rule-off row %zu with the six rules on\n", on,
+                   mmOn[on].name, i);
+            return TEST_FAIL;
+        }
+    }
+    // OoT's rule is off in this world: OoT unchanged.
+    CIV_ASSERT(CivRowsOf(ops, ootOwned.data()).size() == ootOff.size());
+    // One rule alone, one row.
+    CivFreezeRules2(RSBS_XITEM2_SONG_BOLERO_MM);
+    Combo_MMWarpSongsSetOwned(0x02u);
+    const std::vector<ComboItemRow> mmBolero = CivRowsOf(mmOps, mm.data());
+    CIV_ASSERT(mmBolero.size() == mmOff.size() + 1);
+    CIV_ASSERT(CivSlotKeyIs(mmBolero[(size_t)oath + 1], "song_bolero_mm") && mmBolero[(size_t)oath + 1].have &&
+               CivSlotKeyIs(mmBolero[(size_t)oath + 2], "remains_odolwa"));
+
+    // (e) the catalog does not move.
+    CIV_ASSERT(ops->catalogCount() == ootCatalogOff && mmOps->catalogCount() == mmCatalogOff);
+    printf("[TEST] combo-item-view: XW11 the added warp songs show only under their frozen rules, in place, held "
+           "from their own records (#1169)\n");
+
+    OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+    return TEST_PASS;
+}
+
 extern "C" int Combo_ItemView_RunHeadless(void) {
     printf("[TEST] combo-item-view: per-game item adapters over live/shadow buffers, the shared group (#458 U1)\n");
 
@@ -2322,6 +2495,18 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
 
         // ---- 2 for MM's ocarina buttons (#1072) --------------------------------
         if (CivMMOcarinaButtonLegs(mmOps) != TEST_PASS) {
+            result = TEST_FAIL;
+            break;
+        }
+
+        // ---- 2 for the added warp songs (#1169 XW11) ------------------------------
+        // The leg freezes its own worlds; the legs after it get back the context they had.
+        static ComboContext sXw11CtxBefore;
+        sXw11CtxBefore = gComboCtx;
+        const int warpSongResult = CivAddedWarpSongLegs(ops, mmOps);
+        OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+        gComboCtx = sXw11CtxBefore;
+        if (warpSongResult != TEST_PASS) {
             result = TEST_FAIL;
             break;
         }

@@ -1287,6 +1287,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // wrapper below. The coordinator's half is combo-logic-travel-facts
 // (test_combo_logic.c). FILE SCOPE (compiled as C++).
 #include "tests/test_warp_travel_facts.c"
+// #1169 lane XW11: the added warp songs' tracker rules and names, and the check
+// trackers' travel facts from the frozen world (warp-song-tracker, ROM-free,
+// generation-free, no CVar store). FILE SCOPE (compiled as C++).
+#include "tests/test_warp_song_tracker.c"
 // #755 + #757: the Combo Tracker's and the Cross-Game Spoiler's crossing rows
 // read the crossing store in both directions, named, with found state per host
 // check from each game's save. combo-crossing-views is ROM-free (redship tier);
@@ -10917,6 +10921,13 @@ const TestDescriptor gTests[] = {
       "MM's root owl landings open for OoT's Soaring fact only for an active owl on Day 1, MM's own Soaring is "
       "unchanged, the crawl and the reset-time guard agree, and MM's warp-song facts are can_play_tp_* (#1169)",
       Test_MMWarpTravelEdges },
+    // #1169 XW11: the check trackers' side of the same facts, from the frozen world,
+    // and the added songs' rows and names. ROM-free, generation-free.
+    { "warp-song-tracker",
+      "The added warp songs show only under their frozen rules and carry one game tag; each check tracker credits "
+      "the other game's warp song from that game's frozen save, its own crossing and the frozen record's "
+      "destination, armed for a tracker-scoped second search only (#1169)",
+      Test_WarpSongTracker },
     // ... and through a coordinator round over both real engines on a real paired
     // world (rando tier, a generation row: on the --test all skip list).
     { "combo-warp-travel-rounds",

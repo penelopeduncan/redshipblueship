@@ -21,6 +21,7 @@
 // linkage and pull in context.h, whose <type_traits> include must not be wrapped
 // in C linkage (see context.h's header comment).
 #include "foreign_items.h" // Combo_GetForeignPlacementForOoTCheck, OoT_Rando_Foreign_RecordPickup (#510/#493)
+#include "warp_song_items.h" // Combo_ForeignGameTag: one tag after the item's name (#1169 XW11)
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "soh/Enhancements/randomizer/TimeTravelSword.h"     // the pedestal's rule (#1434)
 #endif
@@ -452,7 +453,8 @@ extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item) {
     Notification::Emit({
         .message = "You found ",
         .suffix = std::string(foreignArticle != nullptr ? foreignArticle : "") +
-                  (foreignName != nullptr ? foreignName : "a foreign item") + " (MM)",
+                  (foreignName != nullptr ? foreignName : "a foreign item") +
+                  Combo_ForeignGameTag(foreignName, GAME_MM),
     });
 }
 

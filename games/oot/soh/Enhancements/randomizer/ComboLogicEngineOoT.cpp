@@ -149,6 +149,7 @@
 #include "shared_items.h"          // src/common — #1542: the class of a row a leftover song check may take
 #include "crossing_store.h"        // src/common — #1542: the song-pool lock reads a song check's crossing
 #include "mm_warp_song_play.h"     // src/common — XW7's destination rule, which XW9's warp credit reads
+#include "warp_song_tracker.h"     // src/common — XW11: the check tracker's facts and their destinations
 #include "soh/SohGui/ImGuiUtils.h" // GetTextureForItemId: the describer's arrival-toast icon key
 #include "soh/Enhancements/randomizer/SongOfSoaringOoT.h" // OoT_SongOfSoaringOoTOn: the frozen Soaring rule
 
@@ -263,6 +264,13 @@ uint16_t sOoTTravelTestDest[RSBS_MMWP_SONG_COUNT] = {};
  *  i's root exit open through a delivered fact (OoT_ComboLogic_MMWarpTravel). Read
  *  and cleared by OoT_ComboLogic_TestTravelEdgeSeen only; nothing else reads it. */
 uint32_t sOoTTravelEdgeSeen = 0u;
+/** THE CHECK TRACKER'S FACTS (#1169 XW11): MM warp-song facts derived from the
+ *  FROZEN world (warp_song_tracker.h), set only around the second search of OoT's
+ *  ComputeAvailableChecks (OoT_ComboLogic_SetTrackerTravel) and cleared before it
+ *  returns, so no fill, hint or engine search sees them. The destinations are the
+ *  frozen warp record's, read when the facts are set. Read only outside a round. */
+uint32_t sOoTTrackerTravel = 0u;
+uint16_t sOoTTrackerDest[RSBS_MMWP_SONG_COUNT] = {};
 
 /** The six warp regions in OoTMM's song order (Minuet .. Prelude): the order of
  *  RSBS_XITEM2_SONG_MINUET_MM .. PRELUDE_MM and of XW7's pads. */
@@ -4074,9 +4082,11 @@ extern "C" int OoT_ComboLogic_TestFillAdvancement(uint16_t id) {
 /**
  * location_access/root.cpp's MM-warp disjunct for song @p song (0 Minuet .. 5
  * Prelude, OoTMM's order): Combo_MMWarpPlay_TravelEdgeOpen over this round's state.
- * False outside a coordinator round, so OoT's own fill, its restricted passes, its
- * entrance validation and its check tracker, which evaluate the same exits, are
- * unchanged. The region file adds the child-at-day terms.
+ * False outside a coordinator round, so OoT's own fill, its restricted passes and
+ * its entrance validation, which evaluate the same exits, are unchanged; the one
+ * exception is the check tracker's second search (#1169 XW11,
+ * OoT_ComboLogic_SetTrackerTravel), armed from the frozen world with the frozen
+ * record's destinations. The region file adds the child-at-day terms.
  */
 extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
     if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
@@ -4086,6 +4096,11 @@ extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
         return Combo_MMWarpPlay_TravelEdgeOpen(sOoTTravelTestInRound, sOoTTravelTestAccepted, song,
                                                sOoTTravelTestDest[song]);
     }
+    if (!sInQuery && sOoTTrackerTravel != 0u) {
+        // #1169 XW11: the check tracker's second search, never a round's. Not an
+        // sOoTTravelEdgeSeen hit: that observable stays a round's.
+        return Combo_MMWarpPlay_TravelEdgeOpen(true, sOoTTrackerTravel, song, sOoTTrackerDest[song]);
+    }
     const bool open = Combo_MMWarpPlay_TravelEdgeOpen(sInQuery, sOoTTravelAccepted, song, sOoTTravelDest[song]);
     if (open) {
         // combo-warp-travel-rounds: a round's search evaluated this song's root exit
@@ -4093,6 +4108,29 @@ extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
         sOoTTravelEdgeSeen |= 1u << song;
     }
     return open;
+}
+
+/**
+ * #1169 XW11: arm the check tracker's MM facts @p facts (RSBS_COMBO_TRAVEL_INTO_OOT
+ * bits, Combo_TrackerTravel_OoTFactsNow's answer) for the search that follows, and
+ * read each song's destination from the frozen warp record
+ * (Combo_TrackerTravel_OoTDest), never from the graph; 0 disarms and zeroes them.
+ * Only OoT's ComputeAvailableChecks calls it, around its second search.
+ */
+extern "C" void OoT_ComboLogic_SetTrackerTravel(uint32_t facts) {
+    sOoTTrackerTravel = facts & RSBS_COMBO_TRAVEL_INTO_OOT;
+    for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
+        sOoTTrackerDest[song] = sOoTTrackerTravel != 0u ? Combo_TrackerTravel_OoTDest(song) : 0u;
+    }
+}
+
+/** TEST BRIDGE (tracker-warp-travel): the armed tracker facts, and song @p song's
+ *  armed destination into @p outDest (may be NULL; 0 out of range). */
+extern "C" uint32_t OoT_ComboLogic_TestTrackerTravel(int song, uint16_t* outDest) {
+    if (outDest != nullptr) {
+        *outDest = (song >= 0 && song < RSBS_MMWP_SONG_COUNT) ? sOoTTrackerDest[song] : 0u;
+    }
+    return sOoTTrackerTravel;
 }
 
 /** TEST BRIDGE (combo-warp-travel-rounds): the songs (bit i song i) whose root

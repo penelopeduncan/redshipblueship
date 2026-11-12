@@ -248,6 +248,10 @@ set(REDSHIP_COMMON_SOURCES
     # age and the creation's warp-song record (ADR 0009 claim 22).
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
+    # #1169 XW11: the check trackers' cross-game warp-song travel facts, read from
+    # the frozen world for a tracker-scoped second search. Game-header-free.
+    # APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -367,6 +371,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
     # Header for mm_warp_song_play.c above (#1169 XW7)
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
+    # Header for warp_song_tracker.c above (#1169 XW11)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.h
 )
 
 # ============================================================================
@@ -3784,6 +3790,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # THE CHECK TRACKERS' SIDE (#1169 lane XW11). WarpSongTracker: the added songs'
+    # row rule and one game tag after their names (pure, plus the combo pane's row
+    # text), each tracker's facts from the other game's FROZEN save through the
+    # readers each item adapter's Register installs, the frozen record's
+    # destination (a grotto pseudo index and an unset record credit nothing), both
+    # engines' tracker arms outside a round, and function-scoped anchors on every
+    # name site and both tracker entry points. ROM-free, generating nothing.
+    # src/common/tests/test_warp_song_tracker.c.
+    redship_add_test(NAME WarpSongTracker COMMAND redship --test warp-song-tracker)
     # ComboWarpTravelRounds: the same facts through Combo_Logic_RunRound over BOTH
     # real engines on one real paired world (created with the rules off, the frozen
     # word then set directly, never through Generate): MM's Minuet of Forest reaches
