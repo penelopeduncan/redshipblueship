@@ -20,7 +20,8 @@
 #define RSBS_OOT_ITEM_TIMESTAMP_CAP 320 // SohStats.itemTimestamp, TIMESTAMP_MAX 240 at format 6
 #define RSBS_OOT_STATS_COUNT_CAP 192    // SohStats.count, COUNT_MAX 106 at format 6
 #define RSBS_OOT_RAND_INF_CAP 8192      // ShipSaveContextData.randomizerInf flags, RAND_INF_MAX 2064 at format 6
-// ShipRandomizerSaveContextData's fixed size: its two counters, then rsbsSpare.
+// ShipRandomizerSaveContextData's fixed size: its counters (triforce, bombchu,
+// #1363's 22 silver counters), then rsbsSpare.
 #define RSBS_OOT_RANDO_QUEST_DATA_SIZE 48
 
 #define FULL_HEART_HEALTH 0x10
@@ -219,13 +220,41 @@ typedef struct {
 typedef struct ShipRandomizerSaveContextData {
     u8 triforcePiecesCollected;
     u8 bombchuUpgradeLevel;
+    // #1363 (Shuffle Silver Rupees), layout revision 3: the 22 per-room silver
+    // rupee counters below are CARVED from the front of rsbsSpare (growth rule 2):
+    // 22 one-byte fields at offsets 2..23, so the struct stays 48 bytes and the
+    // union does not move. Zero means none collected, which is what an earlier
+    // file's zeroed spare bytes read as. Saved by key in OoT's .sav
+    // (SaveManager.cpp, beside triforcePiecesCollected).
+    s8 silverShadowBlades;
+    s8 silverShadowPit;
+    s8 silverShadowSpikes;
+    s8 silverSpiritChild;
+    s8 silverSpiritSun;
+    s8 silverSpiritBoulders;
+    s8 silverBotw;
+    s8 silverIceCavernBlades;
+    s8 silverIceCavernBlock;
+    s8 silverGtgSlope;
+    s8 silverGtgLava;
+    s8 silverGtgWater;
+    s8 silverGanonLight;
+    s8 silverGanonForest;
+    s8 silverGanonFire;
+    s8 silverGanonSpirit;
+    s8 silverMqDodongosCavern;
+    s8 silverMqShadowInvisibleBlades;
+    s8 silverMqSpiritLobby;
+    s8 silverMqSpiritBigWall;
+    s8 silverMqGanonWater;
+    s8 silverMqGanonShadow;
     // RedShipBlueShip save format 6 (context.h's growth rule 2): a new per-file
     // OoT randomizer field is CARVED from the FRONT of this block (and
     // RSBS_SAVE_LAYOUT_REVISION rises), so the union, and everything after it in
     // `ship`, never moves. All bytes, no padding: the struct stays exactly
     // RSBS_OOT_RANDO_QUEST_DATA_SIZE (48) on every compiler
     // (GameExports_SingleExe.cpp static_asserts it). Zero means unset.
-    u8 rsbsSpare[RSBS_OOT_RANDO_QUEST_DATA_SIZE - 2];
+    u8 rsbsSpare[RSBS_OOT_RANDO_QUEST_DATA_SIZE - 2 - 22];
 } ShipRandomizerSaveContextData;
 
 typedef struct ShipBossRushSaveContextData {

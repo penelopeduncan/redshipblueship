@@ -2553,6 +2553,21 @@ if(BUILD_TESTING)
         # leaves all four at Anywhere, which folds nothing and confines nothing.
         # Same seed and dispatch as seed-digest-default.
         "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
+        # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
+        # above generates with all of their options OFF, so none pins a world with
+        # their checks in it. This one turns on every one a paired world can use:
+        # MM Shuffle Wonder Items (#1406), Shuffle Hive Drops (#1410), Shuffle Grass
+        # Drops (on main, which #1410 extends with the extra grass rows), MM Shuffle
+        # Butterflies and OoT Shuffle Butterfly Fairies (#1407). OoT Shuffle Silver
+        # Rupees (#1363) is NOT in it: a paired world generates it off (its pin in
+        # Playthrough_Init), so keying it on here would pin nothing; when #1530 lifts
+        # the pin it joins this line and re-pins this file. Same seed and dispatch
+        # as seed-digest-default. Until the orchestrator first generates
+        # tests/golden/seed-digest-new-options.txt (regen-golden-digests), this row
+        # FAILS by design: CheckGoldenDigest.cmake refuses a missing golden with
+        # "A missing golden is a FAILURE, not a free pass" and prints the digest
+        # the run produced.
+        "GoldenSeedDigestNewOptions|seed-digest-new-options|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_SHUFFLE_WONDER_ITEMS=1,gRando.Options.RO_SHUFFLE_HIVE_DROPS=1,gRando.Options.RO_SHUFFLE_GRASS_DROPS=1,gRando.Options.RO_SHUFFLE_BUTTERFLIES=1,gRandoSettings.ShuffleButterflyFairies=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 
@@ -3822,6 +3837,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # queueing it a second time (SoH 4868b0712). Two generations, so twice the
     # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
     redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1363: Shuffle Silver Rupees (SoH b76e303ce): every silver check has its own
+    # RandomizerInf and IdentifySilver finds it, the option ships off and greyed
+    # out, two real generations fold none of the lines it added (a paired one pins
+    # it off even when keyed on, with the default world's fingerprint), and logic
+    # reads each silver item's own LOGIC_* event while it is off. Two generations,
+    # so twice the neighbours' timeout. games/oot/soh/oot_shuffle_silver_test.cpp.
+    redship_add_test(NAME OoTShuffleSilver COMMAND redship --test oot-shuffle-silver
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

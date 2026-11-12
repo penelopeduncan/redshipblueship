@@ -76,6 +76,18 @@
   Ocarina of Time items. With it off, worlds are made exactly as before. The new Easy Butterfly Fairies enhancement
   turns a butterfly into its fairy as soon as you hold a Deku Stick near it; it is always on while Shuffle Butterfly
   Fairies is.
+- **New option: Shuffle Silver Rupees** (issue #1363), from Ship of Harkinian. It is off by default, and in this
+  build it stays off: every world here is a paired world, and the option is greyed out ("the cross-game randomizer
+  does not support Silver Rupees yet") and generated off, because its silver rupees cannot yet be kept in their own
+  dungeons in a paired world (issue #1530). It comes with Ship of Harkinian's newer logic for the silver rupee rooms
+  of the Shadow and Spirit Temples, Bottom of the Well, the Ice Cavern, Gerudo Training Ground, Ganon's Castle and
+  Master Quest Dodongo's Cavern, which applies with the option off too, so the same seed and settings can make a
+  different world than before.
+- **Shuffled pots, crates and freestanding items in Gerudo Training Ground and Ganon's Castle follow the right
+  dungeon** (from Ship of Harkinian, with issue #1363). With any of those shuffles on in dungeons (they are off by
+  default), Gerudo Training Ground's items now follow its own Master Quest setting instead of Ganon's Castle's, and
+  the Master Quest or vanilla items inside Ganon's Castle are now in the item pool. A seed made with one of those
+  shuffles on makes a different world than before.
 - **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
   Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
   open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold

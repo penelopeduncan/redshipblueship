@@ -97,7 +97,7 @@
  *     needs CanClimbLadder (Climb, or Hookshot under RT_HOOKSHOT_LADDERS;
  *     closed on Hookshot with the trick off).
  *  S. Bottom of the Well (60ec65592): both the vanilla basement ladder
- *     (RR_BOTW_B3_OOZE -> RR_BOTW_HIDDEN_POTS) and the MQ basement ladder
+ *     (RR_BOTW_B3_OOZE -> RR_BOTW_LADDER_DOOR) and the MQ basement ladder
  *     (RR_BOTW_MQ_B3 -> RR_BOTW_MQ_PERIMETER) are CanClimbHighLadder (Climb, or
  *     Longshot under RT_HOOKSHOT_LADDERS; closed on Longshot with the trick off
  *     and on short Hookshot with the trick on).
@@ -883,19 +883,20 @@ void RunHookshotLaddersLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     // ---- S: Bottom of the Well ladders (SoH 60ec65592) ---------------------
     ResetClimbLogic();
     GiveHookshot(true);
-    ExpectExit("S1 BotW B3 ooze to hidden pots, adult with Longshot, trick off, no Climb", RR_BOTW_B3_OOZE,
-               RR_BOTW_HIDDEN_POTS, true, false,
+    ExpectExit("S1 BotW B3 ooze to the ladder door, adult with Longshot, trick off, no Climb", RR_BOTW_B3_OOZE,
+               RR_BOTW_LADDER_DOOR, true, false,
                "the Longshot climbs the BotW basement high ladder with RT_HOOKSHOT_LADDERS off (#1300)");
     ExpectExit("S2 BotW MQ B3 to MQ perimeter, adult with Longshot, trick off, no Climb", RR_BOTW_MQ_B3,
                RR_BOTW_MQ_PERIMETER, true, false,
                "the Longshot climbs the BotW MQ basement high ladder with RT_HOOKSHOT_LADDERS off (#1300)");
     SetHookshotLadders(randoCtx, 1);
     GiveHookshot(false);
-    ExpectExit("S3 BotW B3 ooze to hidden pots, adult with Hookshot, RT_HOOKSHOT_LADDERS on, no Climb", RR_BOTW_B3_OOZE,
-               RR_BOTW_HIDDEN_POTS, true, false, "the short Hookshot climbs the BotW basement high ladder (#1300)");
+    ExpectExit("S3 BotW B3 ooze to the ladder door, adult with Hookshot, RT_HOOKSHOT_LADDERS on, no Climb",
+               RR_BOTW_B3_OOZE, RR_BOTW_LADDER_DOOR, true, false,
+               "the short Hookshot climbs the BotW basement high ladder (#1300)");
     GiveHookshot(true);
-    ExpectExit("S4 BotW B3 ooze to hidden pots, adult with Longshot, RT_HOOKSHOT_LADDERS on, no Climb", RR_BOTW_B3_OOZE,
-               RR_BOTW_HIDDEN_POTS, true, true,
+    ExpectExit("S4 BotW B3 ooze to the ladder door, adult with Longshot, RT_HOOKSHOT_LADDERS on, no Climb",
+               RR_BOTW_B3_OOZE, RR_BOTW_LADDER_DOOR, true, true,
                "the Longshot with RT_HOOKSHOT_LADDERS does not climb the BotW basement high ladder (#1300)");
     ExpectExit("S5 BotW MQ B3 to MQ perimeter, adult with Longshot, RT_HOOKSHOT_LADDERS on, no Climb", RR_BOTW_MQ_B3,
                RR_BOTW_MQ_PERIMETER, true, true,

@@ -255,6 +255,14 @@ void RegisterImGuiItemIcons() {
             entry.second.nameFaded, entry.second.texturePath, ImVec4(1, 1, 1, 0.3f));
     }
 
+    ImVec4 silver = ImVec4(0.7f, 0.7f, 0.7f, 1.0f);
+    ImVec4 silverFaded = silver;
+    silverFaded.w = 0.3f;
+    Ship::Context::GetInstance()->GetWindow()->GetGui()->LoadGuiTexture("ITEM_RUPEE_SILVER", gRupeeCounterIconTex,
+                                                                        silver);
+    Ship::Context::GetInstance()->GetWindow()->GetGui()->LoadGuiTexture("ITEM_RUPEE_SILVER_Faded", gRupeeCounterIconTex,
+                                                                        silverFaded);
+
     for (const auto& entry : questMapping) {
         Ship::Context::GetInstance()->GetWindow()->GetGui()->LoadGuiTexture(entry.second.name, entry.second.texturePath,
                                                                             ImVec4(1, 1, 1, 1));

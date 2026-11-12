@@ -90,6 +90,7 @@ class Context {
     std::shared_ptr<Dungeons> GetDungeons();
     std::shared_ptr<Fishsanity> GetFishsanity();
     DungeonInfo* GetDungeon(size_t key) const;
+    DungeonInfo* GetDungeonFromScene(uint16_t scene) const;
     std::shared_ptr<Logic> GetLogic();
     std::shared_ptr<Trials> GetTrials();
     std::shared_ptr<Kaleido> GetKaleido();
@@ -116,7 +117,8 @@ class Context {
      */
     void LACSCondition(RandoOptionLACSCondition lacsCondition);
 
-    GetItemEntry GetFinalGIEntry(RandomizerCheck rc, bool checkObtainability = true, GetItemID ogItemId = GI_NONE);
+    GetItemEntry GetFinalGIEntry(RandomizerCheck rc, bool checkObtainability = true, GetItemID ogItemId = GI_NONE,
+                                 bool spoilAreas = false);
     void ParseSpoiler(const char* spoilerFileName);
     void ParseHashIconIndexesJson(nlohmann::json spoilerFileJson);
     void ParseItemLocationsJson(nlohmann::json spoilerFileJson);

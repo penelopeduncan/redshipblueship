@@ -801,6 +801,34 @@ void SaveManager::LoadRandomizer() {
     SaveManager::Instance->LoadData("triforcePiecesCollected",
                                     gSaveContext.ship.quest.data.randomizer.triforcePiecesCollected);
     SaveManager::Instance->LoadData("bombchuUpgradeLevel", gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel);
+    SaveManager::Instance->LoadData("silverShadowBlades", gSaveContext.ship.quest.data.randomizer.silverShadowBlades);
+    SaveManager::Instance->LoadData("silverShadowPit", gSaveContext.ship.quest.data.randomizer.silverShadowPit);
+    SaveManager::Instance->LoadData("silverShadowSpikes", gSaveContext.ship.quest.data.randomizer.silverShadowSpikes);
+    SaveManager::Instance->LoadData("silverSpiritChild", gSaveContext.ship.quest.data.randomizer.silverSpiritChild);
+    SaveManager::Instance->LoadData("silverSpiritSun", gSaveContext.ship.quest.data.randomizer.silverSpiritSun);
+    SaveManager::Instance->LoadData("silverSpiritBoulders",
+                                    gSaveContext.ship.quest.data.randomizer.silverSpiritBoulders);
+    SaveManager::Instance->LoadData("silverBotw", gSaveContext.ship.quest.data.randomizer.silverBotw);
+    SaveManager::Instance->LoadData("silverIceCavernBlades",
+                                    gSaveContext.ship.quest.data.randomizer.silverIceCavernBlades);
+    SaveManager::Instance->LoadData("silverIceCavernBlock",
+                                    gSaveContext.ship.quest.data.randomizer.silverIceCavernBlock);
+    SaveManager::Instance->LoadData("silverGtgSlope", gSaveContext.ship.quest.data.randomizer.silverGtgSlope);
+    SaveManager::Instance->LoadData("silverGtgLava", gSaveContext.ship.quest.data.randomizer.silverGtgLava);
+    SaveManager::Instance->LoadData("silverGtgWater", gSaveContext.ship.quest.data.randomizer.silverGtgWater);
+    SaveManager::Instance->LoadData("silverGanonLight", gSaveContext.ship.quest.data.randomizer.silverGanonLight);
+    SaveManager::Instance->LoadData("silverGanonForest", gSaveContext.ship.quest.data.randomizer.silverGanonForest);
+    SaveManager::Instance->LoadData("silverGanonFire", gSaveContext.ship.quest.data.randomizer.silverGanonFire);
+    SaveManager::Instance->LoadData("silverGanonSpirit", gSaveContext.ship.quest.data.randomizer.silverGanonSpirit);
+    SaveManager::Instance->LoadData("silverMqDodongosCavern",
+                                    gSaveContext.ship.quest.data.randomizer.silverMqDodongosCavern);
+    SaveManager::Instance->LoadData("silverMqShadowInvisibleBlades",
+                                    gSaveContext.ship.quest.data.randomizer.silverMqShadowInvisibleBlades);
+    SaveManager::Instance->LoadData("silverMqSpiritLobby", gSaveContext.ship.quest.data.randomizer.silverMqSpiritLobby);
+    SaveManager::Instance->LoadData("silverMqSpiritBigWall",
+                                    gSaveContext.ship.quest.data.randomizer.silverMqSpiritBigWall);
+    SaveManager::Instance->LoadData("silverMqGanonWater", gSaveContext.ship.quest.data.randomizer.silverMqGanonWater);
+    SaveManager::Instance->LoadData("silverMqGanonShadow", gSaveContext.ship.quest.data.randomizer.silverMqGanonShadow);
 
     SaveManager::Instance->LoadData("pendingIceTrapCount", gSaveContext.ship.pendingIceTrapCount);
 
@@ -980,6 +1008,34 @@ void SaveManager::SaveRandomizer(SaveContext* saveContext, int sectionID, bool f
     SaveManager::Instance->SaveData("triforcePiecesCollected",
                                     saveContext->ship.quest.data.randomizer.triforcePiecesCollected);
     SaveManager::Instance->SaveData("bombchuUpgradeLevel", saveContext->ship.quest.data.randomizer.bombchuUpgradeLevel);
+    SaveManager::Instance->SaveData("silverShadowBlades", saveContext->ship.quest.data.randomizer.silverShadowBlades);
+    SaveManager::Instance->SaveData("silverShadowPit", saveContext->ship.quest.data.randomizer.silverShadowPit);
+    SaveManager::Instance->SaveData("silverShadowSpikes", saveContext->ship.quest.data.randomizer.silverShadowSpikes);
+    SaveManager::Instance->SaveData("silverSpiritChild", saveContext->ship.quest.data.randomizer.silverSpiritChild);
+    SaveManager::Instance->SaveData("silverSpiritSun", saveContext->ship.quest.data.randomizer.silverSpiritSun);
+    SaveManager::Instance->SaveData("silverSpiritBoulders",
+                                    saveContext->ship.quest.data.randomizer.silverSpiritBoulders);
+    SaveManager::Instance->SaveData("silverBotw", saveContext->ship.quest.data.randomizer.silverBotw);
+    SaveManager::Instance->SaveData("silverIceCavernBlades",
+                                    saveContext->ship.quest.data.randomizer.silverIceCavernBlades);
+    SaveManager::Instance->SaveData("silverIceCavernBlock",
+                                    saveContext->ship.quest.data.randomizer.silverIceCavernBlock);
+    SaveManager::Instance->SaveData("silverGtgSlope", saveContext->ship.quest.data.randomizer.silverGtgSlope);
+    SaveManager::Instance->SaveData("silverGtgLava", saveContext->ship.quest.data.randomizer.silverGtgLava);
+    SaveManager::Instance->SaveData("silverGtgWater", saveContext->ship.quest.data.randomizer.silverGtgWater);
+    SaveManager::Instance->SaveData("silverGanonLight", saveContext->ship.quest.data.randomizer.silverGanonLight);
+    SaveManager::Instance->SaveData("silverGanonForest", saveContext->ship.quest.data.randomizer.silverGanonForest);
+    SaveManager::Instance->SaveData("silverGanonFire", saveContext->ship.quest.data.randomizer.silverGanonFire);
+    SaveManager::Instance->SaveData("silverGanonSpirit", saveContext->ship.quest.data.randomizer.silverGanonSpirit);
+    SaveManager::Instance->SaveData("silverMqDodongosCavern",
+                                    saveContext->ship.quest.data.randomizer.silverMqDodongosCavern);
+    SaveManager::Instance->SaveData("silverMqShadowInvisibleBlades",
+                                    saveContext->ship.quest.data.randomizer.silverMqShadowInvisibleBlades);
+    SaveManager::Instance->SaveData("silverMqSpiritLobby", saveContext->ship.quest.data.randomizer.silverMqSpiritLobby);
+    SaveManager::Instance->SaveData("silverMqSpiritBigWall",
+                                    saveContext->ship.quest.data.randomizer.silverMqSpiritBigWall);
+    SaveManager::Instance->SaveData("silverMqGanonWater", saveContext->ship.quest.data.randomizer.silverMqGanonWater);
+    SaveManager::Instance->SaveData("silverMqGanonShadow", saveContext->ship.quest.data.randomizer.silverMqGanonShadow);
 
     SaveManager::Instance->SaveData("pendingIceTrapCount", saveContext->ship.pendingIceTrapCount);
 
@@ -3862,16 +3918,17 @@ extern "C" void Rando_TestRoundTripRandomizerSection(int* outResetCleared, int* 
 namespace {
 // What SaveRandomizer and LoadRandomizer read or write in gSaveContext besides the
 // context: the quest they are gated on, the language the hint areas are named in,
-// and the three counters LoadRandomizer restores. A seed package is serialized and
-// loaded at file select (or in a lock), where those bytes are not a file's, so they
-// are set for the duration and put back after.
+// and the counters LoadRandomizer restores (the randomizer arm, whole, and the
+// pending ice traps). A seed package is serialized and loaded at file select (or
+// in a lock), where those bytes are not a file's, so they are set for the
+// duration and put back after.
 struct SeedPackageSaveFieldsGuard {
     decltype(gSaveContext.ship.quest.id) questId = gSaveContext.ship.quest.id;
     decltype(gSaveContext.language) language = gSaveContext.language;
-    decltype(gSaveContext.ship.quest.data.randomizer.triforcePiecesCollected) triforcePieces =
-        gSaveContext.ship.quest.data.randomizer.triforcePiecesCollected;
-    decltype(gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel) bombchuLevel =
-        gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel;
+    // Every per-file counter LoadRandomizer restores from the randomizer arm (the
+    // triforce pieces, the bombchu upgrade level, #1363's 22 silver rupee counters),
+    // snapshotted whole so a counter added there later is covered too.
+    decltype(gSaveContext.ship.quest.data.randomizer) randomizerData = gSaveContext.ship.quest.data.randomizer;
     decltype(gSaveContext.ship.pendingIceTrapCount) pendingIceTraps = gSaveContext.ship.pendingIceTrapCount;
     SeedPackageSaveFieldsGuard() {
         gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
@@ -3880,8 +3937,7 @@ struct SeedPackageSaveFieldsGuard {
     ~SeedPackageSaveFieldsGuard() {
         gSaveContext.ship.quest.id = questId;
         gSaveContext.language = language;
-        gSaveContext.ship.quest.data.randomizer.triforcePiecesCollected = triforcePieces;
-        gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = bombchuLevel;
+        gSaveContext.ship.quest.data.randomizer = randomizerData;
         gSaveContext.ship.pendingIceTrapCount = pendingIceTraps;
     }
 };

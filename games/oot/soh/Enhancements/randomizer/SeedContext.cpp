@@ -15,6 +15,7 @@
 #include "soh/util.h"
 #include "../kaleido.h"
 #include "soh/Enhancements/randomizer/randomizer.h"
+#include "soh/Enhancements/randomizer/randomizer_check_tracker.h"
 
 #include <fstream>
 #include <spdlog/spdlog.h>
@@ -203,6 +204,7 @@ void Context::GenerateLocationPool() {
             (location.GetRCType() == RCTYPE_BUSH && !mOptions[RSK_SHUFFLE_BUSHES]) ||
             (location.GetRCType() == RCTYPE_FREESTANDING &&
              mOptions[RSK_SHUFFLE_FREESTANDING].Is(RO_SHUFFLE_FREESTANDING_OFF)) ||
+            (location.GetRCType() == RCTYPE_SILVER && !mOptions[RSK_SHUFFLE_SILVER]) ||
             (location.GetRCType() == RCTYPE_BEEHIVE && !mOptions[RSK_SHUFFLE_BEEHIVES])) {
             continue;
         }
@@ -341,6 +343,9 @@ void Context::CreateItemOverrides() {
             if (trickModel == RG_DEATH_MOUNTAIN_CRATER_BEAN_SOUL) {
                 trickModel = RandomElement(StaticData::beanSouls);
             }
+            if (trickModel == RG_SHADOW_SILVER_BLADES) {
+                trickModel = RandomElement(StaticData::silverRupees);
+            }
             ItemOverride val(locKey, trickModel);
             iceTrapModels[locKey] = val.LooksLike();
             val.SetTrickName(GetIceTrapName(val.LooksLike()));
@@ -373,7 +378,7 @@ void Context::SetSpoilerLoaded(const bool spoilerLoaded) {
 }
 
 GetItemEntry Context::GetFinalGIEntry(const RandomizerCheck rc, const bool checkObtainability,
-                                      const GetItemID ogItemId) {
+                                      const GetItemID ogItemId, const bool spoilAreas) {
     const auto itemLoc = GetItemLocation(rc);
     if (itemLoc->GetPlacedRandomizerGet() == RG_NONE) {
         if (ogItemId != GI_NONE) {
@@ -384,6 +389,9 @@ GetItemEntry Context::GetFinalGIEntry(const RandomizerCheck rc, const bool check
     }
     if (checkObtainability && OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet(
                                   itemLoc->GetPlacedRandomizerGet()) != CAN_OBTAIN) {
+        if (spoilAreas) {
+            CheckTracker::SpoilAreaFromCantObtain(itemLoc->GetPlacedRandomizerGet());
+        }
         return ItemTableManager::Instance->RetrieveItemEntry(MOD_NONE, GI_RUPEE_BLUE);
     }
     GetItemEntry giEntry = itemLoc->GetPlacedItem().GetGIEntry_Copy();
@@ -598,6 +606,10 @@ std::shared_ptr<Fishsanity> Context::GetFishsanity() {
 
 DungeonInfo* Context::GetDungeon(size_t key) const {
     return mDungeons->GetDungeon(static_cast<DungeonKey>(key));
+}
+
+DungeonInfo* Context::GetDungeonFromScene(uint16_t scene) const {
+    return mDungeons->GetDungeonFromScene(scene);
 }
 
 std::shared_ptr<Logic> Context::GetLogic() {

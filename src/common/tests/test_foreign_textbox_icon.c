@@ -314,6 +314,8 @@ TestResult Test_ForeignTextboxIcon(void) {
         { "Piece of Heart", COMBO_TEXTBOX_ICON_QUEST, "/gQuestIconHeartPieceTex", 255, 255, 255 },
         { "Forest Temple Small Key", COMBO_TEXTBOX_ICON_QUEST, "/gQuestIconSmallKeyTex", 255, 255, 255 },
         { "Gohma's Soul", COMBO_TEXTBOX_ICON_ITEM, "/gBossSoul", 255, 255, 255 },
+        // #1363: a silver rupee, SoH's tracker's silver-tinted rupee counter icon.
+        { "Shadow Silver: Blades", COMBO_TEXTBOX_ICON_RUPEE, "/gRupeeCounterIconTex", 179, 179, 179 },
     };
     for (const Pin& pin : pins) {
         if (FtiPin(pin.name, pin.shape, pin.tail, pin.r, pin.g, pin.b) != TEST_PASS) {

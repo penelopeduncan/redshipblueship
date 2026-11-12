@@ -35,6 +35,7 @@ tests/golden/seed-digest-direction-forward.txt   # --test rando-determinism, RSB
 tests/golden/seed-digest-all-masks.txt           # --test rando-determinism, every mask option on: the five shared masks (#978), the Blast and Stone Masks in OoT and their shared variants (#979), the Gerudo, Skull and Spooky Masks in MM and their shared variants (#980)
 tests/golden/seed-digest-beatable-only.txt       # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=2 (#1367 R5)
 tests/golden/seed-digest-no-logic.txt            # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=1 (#1367 R5)
+tests/golden/seed-digest-new-options.txt         # --test rando-determinism, the clean save break's options on: MM Wonder Items, Hive Drops, Grass Drops, Butterflies; OoT Butterfly Fairies (#1406, #1410, #1407; generated at #1363's gate)
 ```
 
 Every golden without `gCombo.Rando.Logic` in its profile is an **All Locations**
@@ -196,6 +197,7 @@ capabilities. Four more profiles, on the same seed and dispatch as
 | `seed-digest-direction-forward` | combo direction FORWARD (OoT items into MM checks only) | a one-way bag: `crossingsInOoT=0`, `bagHomeOnly` non-zero |
 | `seed-digest-beatable-only` (#1367 R5) | `[Both Games] Logic` Beatable Only | the rung without the All Locations pre-flight and every-location exit term (`comboSettings=.../r2`) |
 | `seed-digest-no-logic` (#1367 R5) | `[Both Games] Logic` No Logic | the base rung: no round (`bagRounds=0`), every row drawn from every empty host, OoT generated No Logic with All Locations Reachable off (`comboSettings=.../r1`) |
+| `seed-digest-new-options` (#1363's gate) | MM Shuffle Wonder Items, Shuffle Hive Drops, Shuffle Grass Drops and Shuffle Butterflies, OoT Shuffle Butterfly Fairies, all on | a world holding the checks the clean save break's backports added (#1406, #1410, #1407). OoT Shuffle Silver Rupees is not in it: a paired world generates it off until #1530 lifts that pin, and then it joins the profile and re-pins the file |
 
 **How a profile names its sets.** The harness (`Rando_HeadlessSeedTest`,
 `ReadGoldenProfileSets` in `3drando/menu.cpp`) reads three variables:

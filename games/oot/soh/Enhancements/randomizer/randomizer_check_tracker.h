@@ -62,6 +62,7 @@ void UpdateAllOrdering();
 void UpdateAllAreas();
 void RecalculateAllAreaTotals();
 void SpoilAreaFromCheck(RandomizerCheck rc);
+void SpoilAreaFromCantObtain(RandomizerGet rg);
 void RecalculateAvailableChecks(RandomizerRegion startingRegion = RR_ROOT, RandoAgeTime startingAgeTime = RAT_NONE);
 #ifdef RSBS_SINGLE_EXECUTABLE
 // Schedule a recalculation for the next draw (#990); see the definition.
@@ -70,4 +71,5 @@ void ArmAvailableChecksRecalc();
 void DeferAllOrdering();
 #endif
 void LoadFromPreset(nlohmann::json info);
+bool AreAllSilversSpoiled();
 } // namespace CheckTracker

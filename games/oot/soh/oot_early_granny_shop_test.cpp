@@ -105,9 +105,9 @@ constexpr int kTouchedCount = (int)(sizeof(kTouched) / sizeof(kTouched[0]));
  * from the option groups: every Setting-category option with option texts in a
  * non-subgroup group, less the Hookshot Ladders trick while it is off and the
  * #1434 term while it cannot block (the fold's own skips, which this row does not
- * test), less the Shuffle Chest Minigame (#1364) and Shuffle Butterfly Fairies
- * (#1407) lines while those options are off, and less Early Granny's Potion Shop
- * unless `grannyFolds`.
+ * test), less the Shuffle Chest Minigame (#1364), Shuffle Butterfly Fairies
+ * (#1407) and Shuffle Silver Rupees (#1363) lines while those options are off,
+ * and less Early Granny's Potion Shop unless `grannyFolds`.
  */
 int CountFoldLines(Rando::Context& world, bool grannyFolds) {
     auto settings = Rando::Settings::GetInstance();
@@ -125,6 +125,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
         // #1407: with Shuffle Butterfly Fairies off it leaves out that option's lines too
         // (RsbsFoldIsButterflyFairyLine): its checks' exclude rows and its own two rows.
         const bool butterflyOff = world.GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
+        // #1363: and with Shuffle Silver Rupees off, that option's (RsbsFoldIsSilverLine): the
+        // RCTYPE_SILVER exclude rows and its own rows.
+        const bool silverOff = world.GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
         for (const Rando::Option* option : group.GetOptions()) {
             if (!option->IsCategory(Rando::OptionCategory::Setting) || option->GetOptionCount() == 0) {
                 continue;
@@ -142,6 +145,15 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 }
             }
             if (butterflyOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_BUTTERFLY_FAIRIES) {
+                continue;
+            }
+            if (silverOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SILVER) {
+                    continue;
+                }
+            }
+            if (silverOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_SILVER) {
                 continue;
             }
             if (chestGameOff && !excludes && g != RSG_TRICKS &&

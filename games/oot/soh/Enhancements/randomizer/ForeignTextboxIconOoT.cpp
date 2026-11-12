@@ -26,7 +26,8 @@
  *    (ImGuiUtils.cpp customItemsMapping); the jabber nuts show the Deku Nut, as
  *    SoH's jabbernutMapping does; bean souls show the Magic Bean; the ocarina
  *    buttons show the Fairy Ocarina; overworld keys and the skeleton key show the
- *    small key; Greg shows the rupee counter icon in SoH's Greg green. The
+ *    small key; Greg shows the rupee counter icon in SoH's Greg green, and the
+ *    silver rupees (#1363) show it in the silver SoH's tracker tints it. The
  *    action-shuffle abilities (Climb, Crawl, Open Chests) have no OoT icon and
  *    keep the icon-less textbox.
  *
@@ -359,6 +360,12 @@ extern "C" int OoT_ComboTextboxIcon(uint16_t id, ComboTextboxIcon* out) {
             return IconForItemId(ITEM_COMPASS, out);
         case ITEMTYPE_TOKEN:
             return IconForItemId(ITEM_SKULL_TOKEN, out);
+        case ITEMTYPE_SILVER:
+            // #1363: SoH's tracker draws every silver rupee as the rupee counter
+            // icon tinted 0.7 grey (ImGuiUtils.cpp, ITEM_RUPEE_SILVER), as Greg's
+            // is tinted green above.
+            *out = { kOoTRupeeCounterIconTex, (uint8_t)COMBO_TEXTBOX_ICON_RUPEE, 179, 179, 179 };
+            return 1;
         default:
             break;
     }

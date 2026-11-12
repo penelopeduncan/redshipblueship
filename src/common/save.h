@@ -123,7 +123,10 @@
 //   2  #1169 XW7 appends ComboContext.comboOoTWarps (ComboOoTWarpRecord, 20
 //      bytes) after the watermark (ADR 0009 claim 22); a revision-1 record
 //      zero-extends to UNSET there.
-#define RSBS_SAVE_LAYOUT_REVISION 2u
+//   3  #1363 (Shuffle Silver Rupees): 22 s8 silver rupee counters carved from
+//      the front of OoT's ShipRandomizerSaveContextData::rsbsSpare (offsets
+//      2..23 of the 48-byte struct; rsbsSpare 46 -> 24 bytes, now at offset 24).
+#define RSBS_SAVE_LAYOUT_REVISION 3u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

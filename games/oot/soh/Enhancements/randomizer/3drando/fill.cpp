@@ -467,7 +467,7 @@ bool AddCheckToLogic(LocationAccess& locPair, GetAccessibleLocationsStruct& gals
 
 #ifndef NDEBUG
     RandomizerCheckQuest quest = Rando::StaticData::GetLocation(loc)->GetQuest();
-    auto dungeon = ctx->GetDungeons()->GetDungeonFromScene(parentRegion->scene);
+    auto dungeon = ctx->GetDungeonFromScene(parentRegion->scene);
     assert(quest == RCQUEST_BOTH ||
            (dungeon != nullptr && quest == RCQUEST_VANILLA && dungeon->IsVanilla()) ||
            (dungeon != nullptr && quest == RCQUEST_MQ && dungeon->IsMQ()));
