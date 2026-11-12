@@ -2744,8 +2744,12 @@ void Settings::CreateOptions() {
                                   &mOptionGroups[RSG_MENU_COLUMN_STATIC_HINTS],
                               },
                               WidgetContainerType::TABLE);
+    // [RSBS #1404] RSK_KAK_GATE and RSK_SKIP_CHILD_ZELDA left the menus with SoH #6938 but stay
+    // live (root.cpp, savefile.cpp, hints.cpp, the #1542 coordinator), so they stay in the folded
+    // groups: a stored legacy value still changes the settings fingerprint of the world it changes.
     mOptionGroups[RSG_OPEN] = OptionGroup("Open Settings", {
                                                                &mOptions[RSK_FOREST],
+                                                               &mOptions[RSK_KAK_GATE],
                                                                &mOptions[RSK_DOOR_OF_TIME],
                                                                &mOptions[RSK_ZORAS_FOUNTAIN],
                                                                &mOptions[RSK_SLEEPING_WATERFALL],
@@ -2961,6 +2965,7 @@ void Settings::CreateOptions() {
                                                         },
                                                         OptionGroupType::DEFAULT);
     mOptionGroups[RSG_TIMESAVERS] = OptionGroup("Timesaver Settings", {
+                                                                          &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                           &mOptions[RSK_SKIP_EPONA_RACE],
                                                                           &mOptions[RSK_SKIP_SCARECROWS_SONG],
                                                                           &mOptions[RSK_SKIP_PLANTING_BEANS],
@@ -3204,6 +3209,16 @@ void Settings::UpdateAllOptions() {
 
 void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocations,
                                const std::set<RandomizerTrick>& enabledTricks) {
+    // [RSBS #1404] SoH #6938 split Skip Child Zelda into an unshuffled starting Zelda's Letter and
+    // Shuffle Weird Egg "Skip Waking Talon" (its ConfigVersion7Updater). The legacy key is hidden
+    // but still read, so a stored value is mapped here, as the updater maps the CVars: otherwise
+    // root.cpp would credit Talon's and Malon's return while Randomizer_InitSaveFile, which now
+    // wakes Talon only under Skip Waking Talon, leaves him asleep in the castle.
+    if (mOptions[RSK_SKIP_CHILD_ZELDA]) {
+        mOptions[RSK_STARTING_ZELDAS_LETTER].Set(RO_GENERIC_ON);
+        mOptions[RSK_SHUFFLE_WEIRD_EGG].Set(RO_WEIRD_EGG_SKIP_TALON);
+    }
+
     // With certain access settings, the seed is only beatable if Starting Age is set to Child.
     if (mOptions[RSK_LOGIC_RULES].IsNot(RO_LOGIC_NO_LOGIC) &&
         ((mOptions[RSK_DOOR_OF_TIME].Is(RO_DOOROFTIME_CLOSED) && !mOptions[RSK_SHUFFLE_OCARINA]) ||
