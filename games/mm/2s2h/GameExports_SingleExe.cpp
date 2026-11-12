@@ -2153,6 +2153,16 @@ static void GpSongHostMMFrame(int playFrames) {
     static bool sDeliveredAt10 = false;
     static int sRecordsBefore = -1;
     static int sRecordsMid = -1;
+    static int sDeliveredFrame = -1;
+    static bool sRearmChecked = false;
+    // The arrival pays out MM's two free starting checks one after the other, the
+    // Deku Mask's first (its get-item cutscene and textbox run about 110 frames),
+    // so the Song of Healing's crossing lands between frames 150 and 200. The
+    // drive waits for it up to this frame instead of reading it at a fixed one,
+    // and the re-arm leg runs a fixed distance after the delivery. Both fit the
+    // row's RSBS_GP_FRAMES=500 window.
+    static const int kDeliverDeadline = 320;
+    static const int kRearmSettle = 100;
     static int sTextboxFrames = 0;
     PlayState* play = MM_gPlayState;
     if (play != nullptr && play->msgCtx.msgMode != MSGMODE_NONE) {
@@ -2186,35 +2196,44 @@ static void GpSongHostMMFrame(int playFrames) {
     if (sHost == RC_UNKNOWN) {
         return;
     }
-    if (playFrames == 150) {
+    if (sDeliveredFrame < 0 && playFrames > 10 &&
+        (Rando::Foreign::IsDeliveredForeignHost(sHost) || playFrames == kDeliverDeadline)) {
         const int records = Combo_CountSharedItems(GAME_OOT, true);
         const bool delivered = Rando::Foreign::IsDeliveredForeignHost(sHost);
         const bool obtained = RANDO_SAVE_CHECKS[sHost].obtained;
         fprintf(stderr,
-                "[SONG-HOST] frame 150: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
-                (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
+                "[SONG-HOST] frame %d: MM song check %d delivered %d, obtained %d, OoT-bound records %d -> %d\n",
+                playFrames, (int)sHost, delivered ? 1 : 0, obtained ? 1 : 0, sRecordsBefore, records);
         fflush(stderr);
-        // Delivered before frame 10: no record since; after it: exactly one.
+        // Delivered before frame 10: no record since; after it: exactly one. Not
+        // delivered by the deadline is the same failure.
         if (!delivered || !obtained || records != sRecordsBefore + (sDeliveredAt10 ? 0 : 1)) {
             IntegrationTest_GameplayFail("int-song-host-mm: CheckQueue did not deliver the OoT item on the MM song "
                                          "check exactly once (see [SONG-HOST])");
             return;
         }
+        sDeliveredFrame = playFrames;
         sRecordsMid = records;
         RANDO_SAVE_CHECKS[sHost].eligible = true; // a later cycle's or a re-entry's re-arm
     }
-    if (playFrames == 260) {
+    if (sDeliveredFrame >= 0 && playFrames == sDeliveredFrame + kRearmSettle) {
         const int records = Combo_CountSharedItems(GAME_OOT, true);
         const bool eligible = RANDO_SAVE_CHECKS[sHost].eligible;
         fprintf(stderr,
-                "[SONG-HOST] frame 260: after the re-arm MM song check %d is eligible %d, OoT-bound records "
+                "[SONG-HOST] frame %d: after the re-arm MM song check %d is eligible %d, OoT-bound records "
                 "%d (were %d)\n",
-                (int)sHost, eligible ? 1 : 0, records, sRecordsMid);
+                playFrames, (int)sHost, eligible ? 1 : 0, records, sRecordsMid);
         fflush(stderr);
+        sRearmChecked = true;
         if (eligible || records != sRecordsMid) {
             IntegrationTest_GameplayFail("int-song-host-mm: a re-armed MM song check that already delivered its OoT "
                                          "item was not consumed by CheckQueue's guard, or recorded the item again");
         }
+    }
+    // The re-arm leg must have run inside the window: a pass that never reached it
+    // would be vacuous.
+    if (playFrames == kDeliverDeadline + kRearmSettle + 1 && !sRearmChecked) {
+        IntegrationTest_GameplayFail("int-song-host-mm: the re-arm leg never ran (see [SONG-HOST])");
     }
 }
 
