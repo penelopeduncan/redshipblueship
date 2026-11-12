@@ -3811,8 +3811,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # rule ON through its key (asserted offered: the production mask for the Song
     # of Soaring (OoT), the MM test seam for the Minuet, hidden until
     # IntMMWarpSongMinuet): Minuet of Forest (MM) and the Song of Soaring (OoT) under Song
-    # Locations each place exactly one copy and the created world's exit round
-    # proves the goal, reaches every location and credits the song's travel; the
+    # Locations each place exactly one copy, the creation's fill reports every
+    # location reached, and the created world's exit round proves the goal and
+    # credits the song's travel (for Soaring, a second round with MM's own Song of
+    # Soaring forbidden shows MM's crawl reading the fact at the owl landings); the
     # Minuet world freezes a PRESENT warp-song record; under Shuffle Songs Off the
     # Song of Soaring (OoT) arms OoT's songs to roam (D5). Not asserted: where the
     # fill needed the song (seed-specific) and the row's bag disposition.

@@ -812,6 +812,9 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         // and the pair could not tell the record guard from its absence.
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         for (int present = 0; present < 2; present++) {
+            // The context still holds the world the last leg loaded, and the
+            // writer refuses every key while a world is frozen: forget it first.
+            ComboContext_Init();
             Xw2ClearKeys();
             XW2_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SONG_MINUET_MM, 1) == 1,
                       "the writer refused Minuet of Forest (MM)");
