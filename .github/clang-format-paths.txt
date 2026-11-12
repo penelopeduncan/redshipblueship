@@ -91,6 +91,7 @@ games/mm/2s2h/mm_song_teacher_hooks_test.cpp
 games/mm/2s2h/mm_tree_shuffle_test.cpp
 games/mm/2s2h/mm_wonder_items_test.cpp
 games/mm/2s2h/mm_hive_grass_shuffle_test.cpp
+games/mm/2s2h/mm_butterfly_shuffle_test.cpp
 games/mm/2s2h/mm_framebuffer_effects.c
 games/mm/2s2h/mm_gi_shim_test.cpp
 games/mm/2s2h/mm_audio_editor_test.cpp
@@ -163,6 +164,7 @@ games/oot/soh/oot_scene_flag_freeze_test.cpp
 games/oot/soh/oot_check_state_load_test.cpp
 games/oot/soh/oot_deku_theater_prize_test.cpp
 games/oot/soh/oot_shuffled_fairy_test.cpp
+games/oot/soh/oot_butterfly_fairy_test.cpp
 games/oot/soh/oot_mask_shop_night_door_test.cpp
 games/oot/soh/oot_room_bg_cam_guard_test.cpp
 games/oot/soh/oot_xml_skeleton_empty_limb_test.cpp
@@ -312,3 +314,4 @@ games/mm/2s2h/mm_warp_songs_mm_test.cpp
 games/mm/2s2h/mm_warp_travel_test.cpp
 games/mm/2s2h/mm_warp_song_play_test.cpp
 games/oot/soh/Enhancements/randomizer/WarpSongRecordOoT.cpp
+games/oot/soh/oot_shuffle_silver_test.cpp

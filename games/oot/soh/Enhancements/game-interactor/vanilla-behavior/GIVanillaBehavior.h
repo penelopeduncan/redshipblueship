@@ -3112,6 +3112,46 @@ typedef enum {
     // #### `args`
     // - `*EnBox`
     VB_CHEST_CONSIDER_CHEST_OPEN,
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnButte`
+    VB_SPAWN_BUTTERFLY_FAIRY_EASY,
+
+    // #### `result`
+    // ```c
+    // this->actor.xyzDistToPlayerSq < 900.0f
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_COLLECT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_COUNT_CHECK,
+
+    // #### `result`
+    // ```c
+    // Flags_GetSwitch(play, this->switchFlag)
+    // ```
+    // #### `args`
+    // - *EnGSwitch
+    VB_SILVER_DESPAWN,
+
 } GIVanillaBehavior;
 
 #endif

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "soh/OTRGlobals.h"
+#include "randomizer.h"
 #include "dungeon.h"
 #include "SeedContext.h"
 #include "macros.h"
@@ -527,6 +528,39 @@ bool Logic::HasItem(RandomizerGet itemName) {
             return CheckRandoInf(RAND_INF_CAN_CRAWL);
         case RG_OPEN_CHEST:
             return CheckRandoInf(RAND_INF_CAN_OPEN_CHEST);
+            // Silver Rupees
+        case RG_SHADOW_SILVER_BLADES:
+        case RG_SHADOW_SILVER_PIT:
+        case RG_SHADOW_SILVER_SPIKES:
+        case RG_SPIRIT_SILVER_CHILD:
+        case RG_SPIRIT_SILVER_SUN:
+        case RG_SPIRIT_SILVER_BOULDERS:
+        case RG_BOTW_SILVER:
+        case RG_ICE_CAVERN_SILVER_BLADES:
+        case RG_ICE_CAVERN_SILVER_BLOCK:
+        case RG_GTG_SILVER_SLOPE:
+        case RG_GTG_SILVER_LAVA:
+        case RG_GTG_SILVER_WATER:
+        case RG_GANONS_CASTLE_SILVER_LIGHT:
+        case RG_GANONS_CASTLE_SILVER_FOREST:
+        case RG_GANONS_CASTLE_SILVER_FIRE:
+        case RG_GANONS_CASTLE_SILVER_SPIRIT:
+        case RG_DODONGOS_CAVERN_MQ_SILVER:
+        case RG_SHADOW_MQ_SILVER_INVISIBLE_BLADES:
+        case RG_SPIRIT_MQ_SILVER_LOBBY:
+        case RG_SPIRIT_MQ_SILVER_BIG_WALL:
+        case RG_GANONS_CASTLE_MQ_SILVER_WATER:
+        case RG_GANONS_CASTLE_MQ_SILVER_SHADOW: {
+            if (!ctx->GetOption(RSK_SHUFFLE_SILVER)) {
+                return Get((LogicVal)(LOGIC_SHADOW_SILVER_BLADES + (itemName - RG_SHADOW_SILVER_BLADES)));
+            } else if (ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_STARTWITH)) {
+                return true;
+            } else {
+                s8 field = *Randomizer::SilverFieldFromSaveContext(mSaveContext, itemName);
+                return field >= Randomizer::SilverTotal(itemName);
+            }
+        }
+            // Trade Items
         case RG_POCKET_EGG:
             return CheckRandoInf(RAND_INF_ADULT_TRADES_HAS_POCKET_EGG) ||
                    CheckRandoInf(RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO);
@@ -2702,6 +2736,25 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
         case ITEMTYPE_BOSSKEY:
             SetDungeonItem(DUNGEON_KEY_BOSS, RandoGetToDungeonScene[randoGet], state);
             break;
+        case ITEMTYPE_SILVER: {
+            auto randoGet = item.GetRandomizerGet();
+            s8* field = Randomizer::SilverFieldFromSaveContext(mSaveContext, randoGet);
+            bool isWallet = ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_WALLET);
+            if (!state) {
+                if (isWallet) {
+                    *field = 0;
+                } else {
+                    *field -= 1;
+                }
+            } else {
+                if (isWallet) {
+                    *field = 10;
+                } else {
+                    *field += 1;
+                }
+            }
+            break;
+        }
         case ITEMTYPE_FORTRESS_SMALLKEY:
         case ITEMTYPE_SMALLKEY: {
             auto randoGet = item.GetRandomizerGet();
@@ -2906,7 +2959,7 @@ void Logic::InitSaveContext() {
     mSaveContext->horseData.angle = -0x6AD9;
     mSaveContext->magicLevel = 0;
     mSaveContext->infTable[29] = 1;
-    mSaveContext->sceneFlags[5].swch = 0x40000000;
+    mSaveContext->sceneFlags[SCENE_WATER_TEMPLE].swch = 0x40000000;
 
     // SoH specific
     mSaveContext->ship.backupFW = mSaveContext->fw;
@@ -3082,7 +3135,7 @@ bool Logic::SpiritSunBlockSouthLedge() {
     return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) /*|| BunnyHovers()*/ ||
            (CanUse(RG_HOOKSHOT) &&
             (HasFireSource() ||
-             (Get(LOGIC_SPIRIT_SUN_BLOCK_TORCH) &&
+             (HasItem(RG_SPIRIT_SILVER_SUN) &&
               (CanUse(RG_STICKS) || (ctx->GetTrickOption(RT_SPIRIT_SUN_CHEST) && CanUse(RG_FAIRY_BOW))))));
 }
 

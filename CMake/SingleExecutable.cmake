@@ -1692,10 +1692,10 @@ if(BUILD_TESTING)
     redship_add_test(NAME MMWonderItemsHooks COMMAND redship --test mm-wonder-items-hooks)
     # Majora's Mask beehive shuffle and the extra / Keaton grass rows (#1410;
     # upstream 2Ship's Beehive Shuffle and Keaton grass shuffle). MMHiveShuffle:
-    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle Tree
-    # Drops, the 19 hives are the only RCTYPE_BEEHIVE rows, each in exactly one
-    # logic region and Randomizer > MM Locations and never an OoT host, and they
-    # enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
+    # Shuffle Hive Drops defaults off, the page draws its row after Shuffle
+    # Butterflies (#1407), the 19 hives are the only RCTYPE_BEEHIVE rows, each
+    # in exactly one logic region and Randomizer > MM Locations and never an OoT
+    # host, and they enter the pool only with the option on. MMExtraGrassShuffle: the 171 new
     # grass rows sit behind the existing Shuffle Grass Drops, the three Keaton
     # rings own nine contiguous ids each, and the rings' three wonder items
     # follow Shuffle Wonder Items (#1406) and are hosts.
@@ -1706,6 +1706,18 @@ if(BUILD_TESTING)
     redship_add_test(NAME MMHiveShuffle COMMAND redship --test mm-hive-shuffle)
     redship_add_test(NAME MMExtraGrassShuffle COMMAND redship --test mm-extra-grass-shuffle)
     redship_add_test(NAME MMHiveGrassShuffleHooks COMMAND redship --test mm-hive-grass-shuffle-hooks)
+    # Majora's Mask butterfly shuffle (#1407; upstream 2Ship's Butterfly Shuffle).
+    # MMButterflyShuffle: the option defaults off, the page draws its row after
+    # Shuffle Tree Drops with a tooltip that says what MM's butterflies do, the 25
+    # butterflies are one check type, sit in logic regions and Randomizer > MM
+    # Locations, never host an OoT item, name their hint area (the 12 grotto ones
+    # the area their grotto opens from), and enter the pool only with the option
+    # on. MMButterflyShuffleHooks: EnButte.cpp's OnActorUpdate[ACTOR_OBJ_MURE] hook
+    # arms through ActorBehavior::OnFileLoad (exactly +1) and gives the Termina
+    # Field group's butterflies their checks only with the option on. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMButterflyShuffle COMMAND redship --test mm-butterfly-shuffle)
+    redship_add_test(NAME MMButterflyShuffleHooks COMMAND redship --test mm-butterfly-shuffle-hooks)
     # Majora's Mask's shop and Tingle price modes (#1427; OoTMM's priceMmShops
     # and priceMmTingle). MMShopPrices: both options default to Vanilla, the page
     # draws each as a four-value combo box after its shuffle, the price oracle
@@ -2541,6 +2553,21 @@ if(BUILD_TESTING)
         # leaves all four at Anywhere, which folds nothing and confines nothing.
         # Same seed and dispatch as seed-digest-default.
         "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
+        # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
+        # above generates with all of their options OFF, so none pins a world with
+        # their checks in it. This one turns on every one a paired world can use:
+        # MM Shuffle Wonder Items (#1406), Shuffle Hive Drops (#1410), Shuffle Grass
+        # Drops (on main, which #1410 extends with the extra grass rows), MM Shuffle
+        # Butterflies and OoT Shuffle Butterfly Fairies (#1407). OoT Shuffle Silver
+        # Rupees (#1363) is NOT in it: a paired world generates it off (its pin in
+        # Playthrough_Init), so keying it on here would pin nothing; when #1530 lifts
+        # the pin it joins this line and re-pins this file. Same seed and dispatch
+        # as seed-digest-default. Until the orchestrator first generates
+        # tests/golden/seed-digest-new-options.txt (regen-golden-digests), this row
+        # FAILS by design: CheckGoldenDigest.cmake refuses a missing golden with
+        # "A missing golden is a FAILURE, not a free pass" and prints the digest
+        # the run produced.
+        "GoldenSeedDigestNewOptions|seed-digest-new-options|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_SHUFFLE_WONDER_ITEMS=1,gRando.Options.RO_SHUFFLE_HIVE_DROPS=1,gRando.Options.RO_SHUFFLE_GRASS_DROPS=1,gRando.Options.RO_SHUFFLE_BUTTERFLIES=1,gRandoSettings.ShuffleButterflyFairies=1"
     )
     set(REDSHIP_GOLDEN_DIR "${CMAKE_SOURCE_DIR}/tests/golden")
 
@@ -3797,6 +3824,25 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1407: Shuffle Butterfly Fairies (Shipwright's butterfly fairy shuffle).
+    # OoTButterflyFairyShuffle: two real generations; with the option off (its
+    # default) the settings fold reads none of the lines it added and no butterfly
+    # check is a location, so default worlds keep their fingerprint; on, every
+    # line folds, all 20 checks are locations and the paired fill gives each an
+    # item (the paired-on leg N; RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN pins the
+    # option off if it fails). OoTButterflyFairyHooks: with it
+    # and Easy Butterfly Fairies off no butterfly hook is registered and both
+    # dispatches keep the vanilla answer; on, each arms once and does its job, and
+    # each butterfly location resolves to its own check through ACTOR_EN_BUTTE.
+    # games/oot/soh/oot_butterfly_fairy_test.cpp.
+    redship_add_test(NAME OoTButterflyFairyShuffle COMMAND redship --test oot-butterfly-fairy-shuffle
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME OoTButterflyFairyHooks COMMAND redship --test oot-butterfly-fairy-hooks
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1434: Time Travel Requires Master Sword (OoTMM's timeTravelSword) ships on;
     # with the sword shuffled the Pedestal of Time's real wait action offers the
     # pull, and OoT's real search sends Link through time, either way, only with
@@ -3822,6 +3868,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # queueing it a second time (SoH 4868b0712). Two generations, so twice the
     # neighbours' timeout. games/oot/soh/oot_chest_game_shuffle_test.cpp.
     redship_add_test(NAME OoTChestGameShuffle COMMAND redship --test oot-chest-game-shuffle
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1363: Shuffle Silver Rupees (SoH b76e303ce): every silver check has its own
+    # RandomizerInf and IdentifySilver finds it, the option ships off and greyed
+    # out, two real generations fold none of the lines it added (a paired one pins
+    # it off even when keyed on, with the default world's fingerprint), and logic
+    # reads each silver item's own LOGIC_* event while it is off. Two generations,
+    # so twice the neighbours' timeout. games/oot/soh/oot_shuffle_silver_test.cpp.
+    redship_add_test(NAME OoTShuffleSilver COMMAND redship --test oot-shuffle-silver
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")

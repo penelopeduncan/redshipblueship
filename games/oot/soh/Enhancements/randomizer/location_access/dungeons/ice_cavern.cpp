@@ -27,7 +27,10 @@ void RegionTable_Init_IceCavern() {
         Entrance(RR_ICE_CAVERN_ABOVE_BEGINNING, []{return false;}),
     });
 
-    areaTable[RR_ICE_CAVERN_HUB] = Region("Ice Cavern Hub", SCENE_ICE_CAVERN, {}, {
+    areaTable[RR_ICE_CAVERN_HUB] = Region("Ice Cavern Hub", SCENE_ICE_CAVERN, {
+        //Events
+        EventAccess(LOGIC_ICE_CAVERN_SILVER_BLADES, []{return (logic->IsAdult /*|| (ctx->GetTrickOption(RT_GROUND_JUMP_HARD) && logic->CanGroundJump())*/) && logic->CanClearStalagmite();}),
+    }, {
         //Locations
         LOCATION(RC_ICE_CAVERN_GS_SPINNING_SCYTHE_ROOM, logic->HookshotOrBoomerang()),
         LOCATION(RC_ICE_CAVERN_HALL_POT_1,              logic->CanBreakPots()),
@@ -35,11 +38,16 @@ void RegionTable_Init_IceCavern() {
         LOCATION(RC_ICE_CAVERN_SPINNING_BLADE_POT_1,    logic->CanBreakPots()),
         LOCATION(RC_ICE_CAVERN_SPINNING_BLADE_POT_2,    logic->CanBreakPots()),
         LOCATION(RC_ICE_CAVERN_SPINNING_BLADE_POT_3,    logic->CanBreakPots()),
+        LOCATION(RC_ICE_CAVERN_ICICLES_BLADE_SILVER,    logic->CanClearStalagmite()),
+        LOCATION(RC_ICE_CAVERN_W_INNER_BLADE_SILVER,    true),
+        LOCATION(RC_ICE_CAVERN_OUTER_BLADE_SILVER,      true),
+        LOCATION(RC_ICE_CAVERN_E_INNER_BLADE_SILVER,    true),
+        LOCATION(RC_ICE_CAVERN_AIRBORNE_BLADE_SILVER,   logic->IsAdult /*|| (ctx->GetTrickOption(RT_GROUND_JUMP_HARD) && logic->CanGroundJump())*/),
     }, {
         //Exits
         Entrance(RR_ICE_CAVERN_BEGINNING,    []{return true;}),
         //child can make this with a ground jump for the first step, and a glitchless jump for the second, but it's a separate trick
-        Entrance(RR_ICE_CAVERN_MAP_ROOM,     []{return (logic->IsAdult /*|| logic->CanGroundJump()*/) && logic->CanClearStalagmite();}),
+        Entrance(RR_ICE_CAVERN_MAP_ROOM,     []{return (logic->IsAdult /*|| logic->CanGroundJump()*/) && logic->HasItem(RG_ICE_CAVERN_SILVER_BLADES);}),
         Entrance(RR_ICE_CAVERN_COMPASS_ROOM, []{return AnyAgeTime([]{return logic->BlueFire();});}),
         Entrance(RR_ICE_CAVERN_BLOCK_ROOM,   []{return AnyAgeTime([]{return logic->BlueFire();}) && (logic->CanClearStalagmite() || ctx->GetTrickOption(RT_ICE_STALAGMITE_CLIP));}),
     });
@@ -83,21 +91,28 @@ void RegionTable_Init_IceCavern() {
         LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_1, logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_2, logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_3, logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_ICE_CAVERN_LOWER_BLOCK_SILVER,    true),
+        LOCATION(RC_ICE_CAVERN_NEAR_BLOCK_SILVER,     logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)),
+        LOCATION(RC_ICE_CAVERN_NEAR_GS_BLOCK_SILVER,  logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)),
     }, {
         //Exits
-        Entrance(RR_ICE_CAVERN_HUB,                  []{return logic->CanClearStalagmite() || ctx->GetTrickOption(RT_ICE_STALAGMITE_CLIP);}),
-        Entrance(RR_ICE_CAVERN_BLOCK_ROOM_BLUE_FIRE, []{return logic->HasItem(RG_POWER_BRACELET) || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)));}),
-        Entrance(RR_ICE_CAVERN_BEFORE_FINAL_ROOM,    []{return (logic->HasItem(RG_POWER_BRACELET) || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)))) && AnyAgeTime([]{return logic->BlueFire();});}),
+        Entrance(RR_ICE_CAVERN_HUB,               []{return logic->CanClearStalagmite() || ctx->GetTrickOption(RT_ICE_STALAGMITE_CLIP);}),
+        Entrance(RR_ICE_CAVERN_BLOCK_ROOM_NOOKS,  []{return logic->HasItem(RG_POWER_BRACELET) || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)));}),
+        Entrance(RR_ICE_CAVERN_BEFORE_FINAL_ROOM, []{return (logic->HasItem(RG_POWER_BRACELET) || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)))) && logic->HasItem(RG_ICE_CAVERN_SILVER_BLOCK);}),
     });
 
-    areaTable[RR_ICE_CAVERN_BLOCK_ROOM_BLUE_FIRE] = Region("Ice Cavern Block Room Blue Fire", SCENE_ICE_CAVERN, {
+    areaTable[RR_ICE_CAVERN_BLOCK_ROOM_NOOKS] = Region("Ice Cavern Block Room Nooks", SCENE_ICE_CAVERN, {
         //Events
-        EventAccess(LOGIC_BLUE_FIRE_ACCESS, []{return true;}),
+        EventAccess(LOGIC_BLUE_FIRE_ACCESS,        []{return true;}),
+        EventAccess(LOGIC_ICE_CAVERN_SILVER_BLOCK, []{return (logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)) &&
+                                                             (logic->BlueFire() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanJumpslash()));}),
     }, {
         //Locations
-        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_1, logic->CanUse(RG_SONG_OF_TIME)),
-        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_2, logic->CanUse(RG_SONG_OF_TIME)),
-        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_3, logic->CanUse(RG_SONG_OF_TIME)),
+        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_1,  logic->CanUse(RG_SONG_OF_TIME)),
+        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_2,  logic->CanUse(RG_SONG_OF_TIME)),
+        LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_3,  logic->CanUse(RG_SONG_OF_TIME)),
+        LOCATION(RC_ICE_CAVERN_NEAR_FIRE_BLOCK_SILVER, true),
+        LOCATION(RC_ICE_CAVERN_FROZEN_BLOCK_SILVER,    logic->BlueFire() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanJumpslash())),
     }, {
         //Exits
         Entrance(RR_ICE_CAVERN_BLOCK_ROOM, []{return true;}),

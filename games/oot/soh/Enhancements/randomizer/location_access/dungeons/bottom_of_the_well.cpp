@@ -203,14 +203,31 @@ void RegionTable_Init_BottomOfTheWell() {
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_1,   logic->CanCutShrubs()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_2,   logic->CanCutShrubs()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_3,   logic->CanCutShrubs()),
+        LOCATION(RC_BOTW_B2_LADDER_SILVER,                 logic->CanClimbLadder()),
+        LOCATION(RC_BOTW_B3_LADDER_SILVER,                 true),
+        LOCATION(RC_BOTW_NW_OOZE_SILVER,                   true),
+        LOCATION(RC_BOTW_SE_OOZE_SILVER,                   true),
     }, {
         //Exits
-        Entrance(RR_BOTW_HIDDEN_POTS,      []{return logic->CanClimbHighLadder();}),
+        Entrance(RR_BOTW_LADDER_DOOR,      []{return logic->CanClimbHighLadder();}),
         //It's possible to abuse boulder's limited range of collision detection to detonate the flowers through the boulder with bow, but this is a glitch
         //the exact range is just past the furthest away plank in the green goo section
         Entrance(RR_BOTW_B3_BOMB_FLOWERS,  []{return AnyAgeTime([]{return logic->BlastOrSmash() || logic->CanUse(RG_DINS_FIRE) || (ctx->GetTrickOption(RT_BOTW_BASEMENT) && logic->CanUse(RG_STICKS)) || (ctx->GetTrickOption(RT_BOULDER_COLLISION) && logic->CanUse(RG_FAIRY_BOW));});}),
         Entrance(RR_BOTW_B3_BLOCKED_GRASS, []{return AnyAgeTime([]{return logic->BlastOrSmash();});}),
         Entrance(RR_BOTW_B3_CHEST_AREA,    []{return AnyAgeTime([]{return logic->BlastOrSmash();});}),
+    });
+
+    areaTable[RR_BOTW_LADDER_DOOR] = Region("Bottom of the Well Ladder Door", SCENE_BOTTOM_OF_THE_WELL, {
+        // Events
+        EventAccess(LOGIC_BOTW_SILVER, []{return true;}),
+    }, {
+        //Locations
+        LOCATION(RC_BOTW_B1_LADDER_SILVER, true),
+        LOCATION(RC_BOTW_B2_LADDER_SILVER, true),
+    }, {
+        //Exits
+        Entrance(RR_BOTW_B3_OOZE,     []{return true;}),
+        Entrance(RR_BOTW_HIDDEN_POTS, []{return logic->HasItem(RG_BOTW_SILVER);}),
     });
 
     areaTable[RR_BOTW_B3_BOMB_FLOWERS] = Region("Bottom of the Well B3 Bomb Flowers", SCENE_BOTTOM_OF_THE_WELL, {}, {}, {

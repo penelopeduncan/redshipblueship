@@ -415,6 +415,13 @@ int MM_WonderItemsHooks_RunHeadless(void);
 int MM_HiveShuffle_RunHeadless(void);
 int MM_ExtraGrassShuffle_RunHeadless(void);
 int MM_HiveGrassShuffleHooks_RunHeadless(void);
+// Majora's Mask butterfly shuffle (games/mm/2s2h/mm_butterfly_shuffle_test.cpp,
+// #1407): the option, its page row, the 25 butterfly checks, their hint areas
+// and the pool switch; then the butterfly behaviour arming from
+// ActorBehavior::OnFileLoad and running. Same bring-up as the tree rows.
+// Return 0 on pass.
+int MM_ButterflyShuffle_RunHeadless(void);
+int MM_ButterflyShuffleHooks_RunHeadless(void);
 // Majora's Mask's shop and Tingle price modes (games/mm/2s2h/mm_shop_prices_test.cpp,
 // #1427): the options, their page rows and the logic tiers; then the price pass
 // over a real pool generation and its determinism. Both need the display-free
@@ -633,6 +640,11 @@ int OoT_WarpArrivalTest_Run(void);
 int OoT_ShuffledFairyNoHealTest_Run(void);
 int OoT_ShuffledFairyBottleGuardTest_Run(void);
 int OoT_ShuffledFairyExistsTest_Run(void);
+// #1407: Shuffle Butterfly Fairies stays out of the settings fold while off and
+// its checks out of the pool; its hooks and Easy Butterfly Fairies' change nothing
+// while off. Bodies in games/oot/soh/oot_butterfly_fairy_test.cpp. Return 0 on pass.
+int OoT_ButterflyFairyShuffleTest_Run(void);
+int OoT_ButterflyFairyHooksTest_Run(void);
 // VB-affinity regression: MM's GameInteractor_* calls resolve to OoT's
 // extern "C" wrappers in single-exe builds, and the two games' vanilla-
 // behavior ordinals alias each other. The wrappers gate on the active game;
@@ -3577,6 +3589,16 @@ TestResult Test_ShuffledFairyBottleGuard(void) {
 
 TestResult Test_ShuffledFairyExists(void) {
     return RunShuffledFairyRow(OoT_ShuffledFairyExistsTest_Run, "shuffled fairy exists");
+}
+
+// #1407: the same bring-up (OTRGlobals' randomizer context). Assertions in
+// games/oot/soh/oot_butterfly_fairy_test.cpp.
+TestResult Test_OoTButterflyFairyShuffle(void) {
+    return RunShuffledFairyRow(OoT_ButterflyFairyShuffleTest_Run, "butterfly fairy shuffle");
+}
+
+TestResult Test_OoTButterflyFairyHooks(void) {
+    return RunShuffledFairyRow(OoT_ButterflyFairyHooksTest_Run, "butterfly fairy hooks");
 }
 
 // Lane B unified-seed lock. Single run: bring up OoT, generate one pinned seed,
@@ -7277,6 +7299,35 @@ static TestResult Test_MMHiveGrassShuffleHooks(void) {
     return RunMMHiveGrassRow(MM_HiveGrassShuffleHooks_RunHeadless);
 }
 
+// Butterfly shuffle (#1407). The tree rows' bring-up.
+static TestResult Test_MMButterflyShuffle(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_ButterflyShuffle_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMButterflyShuffleHooks(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_ButterflyShuffleHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // The MM price modes (#1427). Same display-free bring-up as mm-tree-shuffle: the
 // option table, the page view model and the region graph are all in the link,
 // and the CVar store must exist.
@@ -8681,6 +8732,17 @@ TestResult Test_OoTChestGameShuffle(void) {
     }
     return OoT_ChestGameShuffleTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1363: Shuffle Silver Rupees (SoH b76e303ce): the silver checks' flag map, the
+// option, the settings fold over two real generations, the paired pin, and the
+// option-off logic fallback. Same bring-up as the row above; body in
+// games/oot/soh/oot_shuffle_silver_test.cpp.
+extern "C" int OoT_ShuffleSilverTest_Run(void);
+TestResult Test_OoTShuffleSilver(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ShuffleSilverTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -9965,6 +10027,14 @@ const TestDescriptor gTests[] = {
     { "mm-hive-grass-shuffle-hooks",
       "The MM hive and Keaton grass behaviours arm from OnFileLoad and find their checks (#1410)",
       Test_MMHiveGrassShuffleHooks },
+    // Butterfly shuffle (#1407). After mm-registrar-coverage for the same reason
+    // as the tree rows (the first runs MM_Rando_Init). Both restore what they write.
+    { "mm-butterfly-shuffle",
+      "Shuffle Butterflies is an MM option, a page row, 25 checks with hint areas and a pool switch (#1407)",
+      Test_MMButterflyShuffle },
+    { "mm-butterfly-shuffle-hooks",
+      "The MM butterfly behaviour arms from OnFileLoad and gives a butterfly group its checks only when on (#1407)",
+      Test_MMButterflyShuffleHooks },
     // The MM price modes (#1427). After mm-registrar-coverage for the same
     // reason as the tree rows (the pool row runs MM_Rando_Init). Both restore
     // what they write.
@@ -10751,6 +10821,14 @@ const TestDescriptor gTests[] = {
       "ShuffleFairies_FairyExists inspects the actor in ACTORCAT_ITEMACTION rather than the address of its own local "
       "pointer, and the gossip-stone hook suppresses duplicate fairy spawns while the check's fairy lives (#1296)",
       Test_ShuffledFairyExists },
+    { "oot-butterfly-fairy-shuffle",
+      "Shuffle Butterfly Fairies ships off, and while off the settings fold reads none of its lines and none of "
+      "its 20 checks is a location; on, every line folds and every check is a location (#1407)",
+      Test_OoTButterflyFairyShuffle },
+    { "oot-butterfly-fairy-hooks",
+      "With Shuffle Butterfly Fairies and Easy Butterfly Fairies off no butterfly hook is registered and both "
+      "dispatches keep the vanilla answer; on, each arms once and a butterfly resolves to its own check (#1407)",
+      Test_OoTButterflyFairyHooks },
     // #1434. Replaces the randomizer context in its last leg; skipped by `--test all`
     // below like its siblings.
     { "oot-time-travel-sword",
@@ -10769,6 +10847,12 @@ const TestDescriptor gTests[] = {
       "added, a paired generation pins it off even when keyed on, and the chest game's shopkeeper gives his item "
       "without queueing it a second time (SoH 4868b0712) (#1364)",
       Test_OoTChestGameShuffle },
+    // #1363. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-shuffle-silver",
+      "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and greyed out, a default world's "
+      "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
+      "logic reads each silver rupee item's own event while it is off (#1363)",
+      Test_OoTShuffleSilver },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -11166,9 +11250,12 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shuffled-fairy-no-heal") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
+                strcmp(gTests[i].name, "oot-butterfly-fairy-shuffle") == 0 ||
+                strcmp(gTests[i].name, "oot-butterfly-fairy-hooks") == 0 ||
                 strcmp(gTests[i].name, "oot-time-travel-sword") == 0 ||
                 strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
                 strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
+                strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

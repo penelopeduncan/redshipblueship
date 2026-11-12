@@ -61,9 +61,33 @@
   grass are checks, among them the three rings of Keaton grass, each bush its own check. With Shuffle Grass Drops on
   (it is off by default), a seed makes a different world than before; in a paired world these checks only ever hold
   Majora's Mask items. With it off, worlds are made exactly as before.
+- **New option: Shuffle Butterflies** (issue #1407), from 2Ship2Harkinian, under Shuffle Items. It is off by default.
+  With it on, 25 of Majora's Mask's butterflies (in Termina Field, Great Bay Coast, Mountain Village in spring and
+  four grottos) each carry a check: hold out a Deku Stick near one and it flies to the stick and gives you the item.
+  In a paired world the option is set when the file is created, and these checks only ever hold Majora's Mask items.
+  With it off, worlds are made exactly as before.
 
 ### Ocarina of Time randomizer
 
+- **New option: Shuffle Butterfly Fairies** (issue #1407), from Ship of Harkinian, under the fairy shuffles. It is off
+  by default. With it on, the fairy that 20 of Ocarina of Time's butterflies turn into when you hold a Deku Stick near
+  them is a check (in Hyrule Castle, the Lost Woods, the Graveyard, Zora's River and Fountain, Lake Hylia, Kakariko and
+  nine grottos). In a paired world the option is set when the file is created, and these checks only ever hold
+  Ocarina of Time items. With it off, worlds are made exactly as before. The new Easy Butterfly Fairies enhancement
+  turns a butterfly into its fairy as soon as you hold a Deku Stick near it; it is always on while Shuffle Butterfly
+  Fairies is.
+- **New option: Shuffle Silver Rupees** (issue #1363), from Ship of Harkinian. It is off by default, and in this
+  build it stays off: every world here is a paired world, and the option is greyed out ("the cross-game randomizer
+  does not support Silver Rupees yet") and generated off, because its silver rupees cannot yet be kept in their own
+  dungeons in a paired world (issue #1530). It comes with Ship of Harkinian's newer logic for the silver rupee rooms
+  of the Shadow and Spirit Temples, Bottom of the Well, the Ice Cavern, Gerudo Training Ground, Ganon's Castle and
+  Master Quest Dodongo's Cavern, which applies with the option off too, so the same seed and settings can make a
+  different world than before.
+- **Shuffled pots, crates and freestanding items in Gerudo Training Ground and Ganon's Castle follow the right
+  dungeon** (from Ship of Harkinian, with issue #1363). With any of those shuffles on in dungeons (they are off by
+  default), Gerudo Training Ground's items now follow its own Master Quest setting instead of Ganon's Castle's, and
+  the Master Quest or vanilla items inside Ganon's Castle are now in the item pool. A seed made with one of those
+  shuffles on makes a different world than before.
 - **The Master Sword pedestal is a child check while the sword is shuffled** (issue #1484), as it is in OoTMM. With
   Shuffle Master Sword on, the pedestal hands over its item as child Link walks up to it, once the Door of Time is
   open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold

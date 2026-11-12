@@ -2,6 +2,7 @@
 #include "randomizer_entrance_tracker.h"
 #include "randomizer_item_tracker.h"
 #include "randomizerTypes.h"
+#include "soh/Enhancements/randomizer/static_data.h"
 #include "soh/OTRGlobals.h"
 #include "soh/cvar_prefixes.h"
 #include "soh/SaveManager.h"
@@ -84,6 +85,7 @@ bool showBeehives;
 bool showCows;
 bool showOverworldFreestanding;
 bool showDungeonFreestanding;
+bool showSilver;
 bool showAdultTrade;
 bool showKokiriSword;
 bool showMasterSword;
@@ -103,6 +105,7 @@ bool showFountainFairies;
 bool showStoneFairies;
 bool showBeanFairies;
 bool showSongFairies;
+bool showButterflyFairies;
 bool showStartingMapsCompasses;
 bool showKeysanity;
 bool showGerudoFortressKeys;
@@ -368,6 +371,9 @@ std::map<RandomizerGet, RandomizerCheckArea> MapRGtoRandomizerCheckArea = {
     { RG_ICE_CAVERN_MAP, RCAREA_ICE_CAVERN }
 };
 
+// In the case that we get an excess key or silver rupee, it spoils the MQ status
+// because it is not turned into a blue rupee as excess.
+// For keyrings, we can count the keys on the viewmodel
 void SpoilAreaFromCheck(RandomizerCheck rc) {
     Rando::Location* loc = Rando::StaticData::GetLocation(rc);
     Rando::ItemLocation* itemLoc = Rando::Context::GetInstance()->GetItemLocation(rc);
@@ -377,8 +383,174 @@ void SpoilAreaFromCheck(RandomizerCheck rc) {
             SetAreaSpoiled(area);
         }
     }
+    if (itemLoc->GetPlacedItem().GetItemType() == ItemType::ITEMTYPE_SILVER) {
+        if (!Rando::StaticData::constantSilvers.contains(itemLoc->GetPlacedRandomizerGet()) &&
+            !IsAreaSpoiled(Rando::StaticData::silverToArea[itemLoc->GetPlacedRandomizerGet()])) {
+            SetAreaSpoiled(Rando::StaticData::silverToArea[itemLoc->GetPlacedRandomizerGet()]);
+        } else if (OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SILVER) ==
+                   RO_SHUFFLE_SILVER_ON) {
+            switch (itemLoc->GetPlacedRandomizerGet()) {
+                case RG_SHADOW_SILVER_SPIKES:
+                    if (*Randomizer::SilverFieldFromSaveContext(&gSaveContext, itemLoc->GetPlacedRandomizerGet()) >=
+                        6) {
+                        SetAreaSpoiled(RCAREA_SHADOW_TEMPLE);
+                    }
+                    break;
+                case RG_GTG_SILVER_LAVA:
+                    if (*Randomizer::SilverFieldFromSaveContext(&gSaveContext, itemLoc->GetPlacedRandomizerGet()) >=
+                        6) {
+                        SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+                    }
+                    break;
+                case RG_GTG_SILVER_WATER:
+                    if (*Randomizer::SilverFieldFromSaveContext(&gSaveContext, itemLoc->GetPlacedRandomizerGet()) >=
+                        4) {
+                        SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    } else if (itemLoc->GetPlacedItem().GetItemType() == ItemType::ITEMTYPE_SMALLKEY) {
+        switch (itemLoc->GetPlacedRandomizerGet()) {
+            case RG_FOREST_TEMPLE_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::FOREST_TEMPLE)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 6) {
+                    SetAreaSpoiled(RCAREA_FOREST_TEMPLE);
+                }
+                break;
+            case RG_FIRE_TEMPLE_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::FIRE_TEMPLE)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 6) {
+                    SetAreaSpoiled(RCAREA_FIRE_TEMPLE);
+                }
+                break;
+            case RG_WATER_TEMPLE_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::WATER_TEMPLE)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 3) {
+                    SetAreaSpoiled(RCAREA_WATER_TEMPLE);
+                }
+                break;
+            case RG_SPIRIT_TEMPLE_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::SPIRIT_TEMPLE)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 6) {
+                    SetAreaSpoiled(RCAREA_SPIRIT_TEMPLE);
+                }
+                break;
+            case RG_SHADOW_TEMPLE_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::SHADOW_TEMPLE)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 6) {
+                    SetAreaSpoiled(RCAREA_SHADOW_TEMPLE);
+                }
+                break;
+            case RG_BOTTOM_OF_THE_WELL_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::BOTTOM_OF_THE_WELL)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 3) {
+                    SetAreaSpoiled(RCAREA_BOTTOM_OF_THE_WELL);
+                }
+                break;
+            case RG_GERUDO_TRAINING_GROUND_SMALL_KEY:
+                if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::GERUDO_TRAINING_GROUND)
+                        ->GetTotalSmallKeys(&gSaveContext) >= 4) {
+                    SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+                }
+                break;
+            case RG_FOREST_TEMPLE_KEY_RING:
+                SetAreaSpoiled(RCAREA_FOREST_TEMPLE);
+                break;
+            case RG_FIRE_TEMPLE_KEY_RING:
+                SetAreaSpoiled(RCAREA_FIRE_TEMPLE);
+                break;
+            case RG_WATER_TEMPLE_KEY_RING:
+                SetAreaSpoiled(RCAREA_WATER_TEMPLE);
+                break;
+            case RG_SPIRIT_TEMPLE_KEY_RING:
+                SetAreaSpoiled(RCAREA_SPIRIT_TEMPLE);
+                break;
+            case RG_SHADOW_TEMPLE_KEY_RING:
+                SetAreaSpoiled(RCAREA_SHADOW_TEMPLE);
+                break;
+            case RG_BOTTOM_OF_THE_WELL_KEY_RING:
+                SetAreaSpoiled(RCAREA_BOTTOM_OF_THE_WELL);
+                break;
+            case RG_GERUDO_TRAINING_GROUND_KEY_RING:
+                SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+                break;
+            default:
+                break;
+        }
+    }
     if (!IsAreaSpoiled(loc->GetArea())) {
         SetAreaSpoiled(loc->GetArea());
+    }
+}
+
+void SpoilAreaFromCantObtain(RandomizerGet rg) {
+    // only spoil if it wouldn't transform anyway, in case someone manages to glitch this value
+    switch (rg) {
+        case RG_FOREST_TEMPLE_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::FOREST_TEMPLE)
+                    ->GetTotalSmallKeys(&gSaveContext) < 6) {
+                SetAreaSpoiled(RCAREA_FOREST_TEMPLE);
+            }
+            break;
+        case RG_FIRE_TEMPLE_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::FIRE_TEMPLE)->GetTotalSmallKeys(&gSaveContext) <
+                8) {
+                SetAreaSpoiled(RCAREA_FIRE_TEMPLE);
+            }
+            break;
+        case RG_WATER_TEMPLE_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::WATER_TEMPLE)->GetTotalSmallKeys(&gSaveContext) <
+                6) {
+                SetAreaSpoiled(RCAREA_WATER_TEMPLE);
+            }
+            break;
+        case RG_SPIRIT_TEMPLE_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::SPIRIT_TEMPLE)
+                    ->GetTotalSmallKeys(&gSaveContext) < 7) {
+                SetAreaSpoiled(RCAREA_SPIRIT_TEMPLE);
+            }
+            break;
+        case RG_SHADOW_TEMPLE_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::SHADOW_TEMPLE)
+                    ->GetTotalSmallKeys(&gSaveContext) < 6) {
+                SetAreaSpoiled(RCAREA_SHADOW_TEMPLE);
+            }
+            break;
+        case RG_BOTTOM_OF_THE_WELL_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::BOTTOM_OF_THE_WELL)
+                    ->GetTotalSmallKeys(&gSaveContext) < 3) {
+                SetAreaSpoiled(RCAREA_BOTTOM_OF_THE_WELL);
+            }
+            break;
+        case RG_GERUDO_TRAINING_GROUND_SMALL_KEY:
+            if (OTRGlobals::Instance->gRandoContext->GetDungeon(Rando::GERUDO_TRAINING_GROUND)
+                    ->GetTotalSmallKeys(&gSaveContext) < 9) {
+                SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+            }
+            break;
+        case RG_SHADOW_SILVER_SPIKES:
+            if (OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SILVER) == RO_SHUFFLE_SILVER_ON &&
+                *Randomizer::SilverFieldFromSaveContext(&gSaveContext, rg) < 10) {
+                SetAreaSpoiled(RCAREA_SHADOW_TEMPLE);
+            }
+            break;
+        case RG_GTG_SILVER_LAVA:
+            if (OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SILVER) == RO_SHUFFLE_SILVER_ON &&
+                *Randomizer::SilverFieldFromSaveContext(&gSaveContext, rg) < 6) {
+                SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+            }
+            break;
+        case RG_GTG_SILVER_WATER:
+            if (OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SILVER) == RO_SHUFFLE_SILVER_ON &&
+                *Randomizer::SilverFieldFromSaveContext(&gSaveContext, rg) < 5) {
+                SetAreaSpoiled(RCAREA_GERUDO_TRAINING_GROUND);
+            }
+            break;
+        default:
+            return;
     }
 }
 
@@ -1005,11 +1177,10 @@ void CheckTrackerFlagSet(int16_t flagType, int32_t flag) {
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
         if ((!IS_RANDO && ((loc.GetQuest() == RCQUEST_MQ && !IS_MASTER_QUEST) ||
                            (loc.GetQuest() == RCQUEST_VANILLA && IS_MASTER_QUEST))) ||
-            (IS_RANDO &&
-             !(OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(loc.GetScene()) == nullptr) &&
-             ((OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(loc.GetScene())->IsMQ() &&
+            (IS_RANDO && !(OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(loc.GetScene()) == nullptr) &&
+             ((OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(loc.GetScene())->IsMQ() &&
                loc.GetQuest() == RCQUEST_VANILLA) ||
-              OTRGlobals::Instance->gRandoContext->GetDungeons()->GetDungeonFromScene(loc.GetScene())->IsVanilla() &&
+              OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(loc.GetScene())->IsVanilla() &&
                   loc.GetQuest() == RCQUEST_MQ))) {
             continue;
         }
@@ -1308,6 +1479,15 @@ bool IsAreaSpoiled(RandomizerCheckArea rcArea) {
     return areasSpoiled & (1 << rcArea);
 }
 
+// we don't care how many silvers for this check, only that all possible silver items are known
+// [RSBS #1363] SoH's Silver Rupee Tracker window reads this; this port keeps main's
+// item tracker (the #1328 layout editor) and has no silver section yet.
+bool AreAllSilversSpoiled() {
+    return IsAreaSpoiled(RCAREA_DODONGOS_CAVERN) && IsAreaSpoiled(RCAREA_BOTTOM_OF_THE_WELL) &&
+           IsAreaSpoiled(RCAREA_GANONS_CASTLE) && IsAreaSpoiled(RCAREA_SHADOW_TEMPLE) &&
+           IsAreaSpoiled(RCAREA_SPIRIT_TEMPLE) && IsAreaSpoiled(RCAREA_ICE_CAVERN);
+}
+
 void SetAreaSpoiled(RandomizerCheckArea rcArea) {
     areasSpoiled |= (1 << rcArea);
     SaveManager::Instance->SaveSection(gSaveContext.fileNum, sectionId, true);
@@ -1585,8 +1765,7 @@ void CheckTrackerWindow::DrawElement() {
                 areaTotalsTooltipSS << "Checked / Total";
 
                 if (showVOrMQ && RandomizerCheckObjects::AreaIsDungeon(rcArea)) {
-                    if (OTRGlobals::Instance->gRandoContext->GetDungeons()
-                            ->GetDungeonFromScene(DungeonSceneLookupByArea(rcArea))
+                    if (OTRGlobals::Instance->gRandoContext->GetDungeonFromScene(DungeonSceneLookupByArea(rcArea))
                             ->IsMQ()) {
                         areaTotalsSS << " - MQ";
                     } else {
@@ -1718,6 +1897,8 @@ void LoadSettings() {
         IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_BEAN_FAIRIES) == RO_GENERIC_YES;
     showSongFairies =
         IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SONG_FAIRIES) == RO_GENERIC_YES;
+    showButterflyFairies = IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(
+                                           RSK_SHUFFLE_BUTTERFLY_FAIRIES) == RO_GENERIC_YES;
     showStartingMapsCompasses = IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(
                                                 RSK_SHUFFLE_MAPANDCOMPASS) != RO_DUNGEON_ITEM_LOC_VANILLA;
     showKeysanity =
@@ -1873,6 +2054,8 @@ void LoadSettings() {
                 showDungeonFreestanding = false;
                 break;
         }
+
+        showSilver = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_SILVER);
     } else { // Vanilla
         showOverworldFreestanding = false;
         showDungeonFreestanding = true;
@@ -1955,6 +2138,7 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_FREESTANDING ||
                 (showOverworldFreestanding && RandomizerCheckObjects::AreaIsOverworld(loc->GetArea())) ||
                 (showDungeonFreestanding && RandomizerCheckObjects::AreaIsDungeon(loc->GetArea()))) &&
+               (loc->GetRCType() != RCTYPE_SILVER || showSilver) &&
                (loc->GetRCType() != RCTYPE_ADULT_TRADE || showAdultTrade ||
                 rc == RC_KAK_ANJU_AS_ADULT ||  // adult trade checks that are always shuffled
                 rc == RC_DMT_TRADE_CLAIM_CHECK // even when shuffle adult trade is off
@@ -1967,6 +2151,7 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_STONE_FAIRY || showStoneFairies) &&
                (loc->GetRCType() != RCTYPE_BEAN_FAIRY || showBeanFairies) &&
                (loc->GetRCType() != RCTYPE_SONG_FAIRY || showSongFairies) &&
+               (loc->GetRCType() != RCTYPE_BUTTERFLY_FAIRY || showButterflyFairies) &&
                (loc->GetRCType() != RCTYPE_SMALL_KEY || showKeysanity) &&
                (loc->GetRCType() != RCTYPE_BOSS_KEY || showBossKeysanity) &&
                (loc->GetRCType() != RCTYPE_GANON_BOSS_KEY || showGanonBossKey) &&

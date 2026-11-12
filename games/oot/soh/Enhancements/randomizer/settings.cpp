@@ -1131,6 +1131,13 @@ void Settings::CreateOptions() {
         }
     });
     OPT_U8(RSK_SHUFFLE_FREESTANDING, "Shuffle Freestanding Items", {"Off", "Dungeons", "Overworld", "All Items"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleFreestanding"), mOptionDescriptions[RSK_SHUFFLE_FREESTANDING], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_FREESTANDING_OFF);
+    OPT_U8(RSK_SHUFFLE_SILVER, "Shuffle Silver Rupees", {"Off", "On", "Wallet", "Start With"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleSilver"), mOptionDescriptions[RSK_SHUFFLE_SILVER], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_SILVER_OFF);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1363: every world is generated with it off (Playthrough_Init) until the
+    // cross-game generator supports silver rupees, so the menu says so.
+    mOptions[RSK_SHUFFLE_SILVER].Disable("Disabled because the cross-game randomizer does not support\n"
+                                         "Silver Rupees yet.");
+#endif
     OPT_U8(RSK_FISHSANITY, "Fishsanity", {"Off", "Shuffle only Hyrule Loach", "Shuffle Fishing Pond", "Shuffle Overworld Fish", "Shuffle Both"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Fishsanity"), mOptionDescriptions[RSK_FISHSANITY], WIDGET_CVAR_COMBOBOX, RO_FISHSANITY_OFF);
     OPT_CALLBACK(RSK_FISHSANITY, {
         // Hide fishing pond settings if we aren't shuffling the fishing pond
@@ -1158,6 +1165,12 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_STONE_FAIRIES, "Shuffle Gossip Stone Fairies", CVAR_RANDOMIZER_SETTING("ShuffleStoneFairies"), mOptionDescriptions[RSK_SHUFFLE_STONE_FAIRIES]);
     OPT_BOOL(RSK_SHUFFLE_BEAN_FAIRIES, "Shuffle Bean Fairies", CVAR_RANDOMIZER_SETTING("ShuffleBeanFairies"), mOptionDescriptions[RSK_SHUFFLE_BEAN_FAIRIES]);
     OPT_BOOL(RSK_SHUFFLE_SONG_FAIRIES, "Shuffle Fairy Spots", CVAR_RANDOMIZER_SETTING("ShuffleFairySpots"), mOptionDescriptions[RSK_SHUFFLE_SONG_FAIRIES]);
+    OPT_BOOL(RSK_SHUFFLE_BUTTERFLY_FAIRIES, "Shuffle Butterfly Fairies", CVAR_RANDOMIZER_SETTING("ShuffleButterflyFairies"), mOptionDescriptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES]);
+#if defined(RSBS_SINGLE_EXECUTABLE) && RSBS_OOT_BUTTERFLY_FAIRIES_PAIRED_PIN
+    // #1407: pinned off in paired worlds (randomizerTypes.h), so the menu says so.
+    mOptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES].Disable("Disabled because the cross-game randomizer does not support\n"
+                                                    "butterfly fairies yet.");
+#endif
     OPT_U8(RSK_SHUFFLE_MAPANDCOMPASS, "Maps/Compasses", {"Start With", "Vanilla", "Own Dungeon", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingMapsCompasses"), mOptionDescriptions[RSK_SHUFFLE_MAPANDCOMPASS], WIDGET_CVAR_COMBOBOX, RO_DUNGEON_ITEM_LOC_OWN_DUNGEON);
     OPT_U8(RSK_KEYSANITY, "Small Key Shuffle", {"Start With", "Vanilla", "Own Dungeon", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Keysanity"), mOptionDescriptions[RSK_KEYSANITY], WIDGET_CVAR_COMBOBOX, RO_DUNGEON_ITEM_LOC_OWN_DUNGEON);
     OPT_U8(RSK_GERUDO_KEYS, "Gerudo Fortress Keys", {"Vanilla", "Any Dungeon", "Overworld", "Anywhere"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("GerudoKeys"), mOptionDescriptions[RSK_GERUDO_KEYS], WIDGET_CVAR_COMBOBOX, RO_GERUDO_KEYS_VANILLA);
@@ -2533,6 +2546,7 @@ void Settings::CreateOptions() {
                                   &mOptions[RSK_FISHSANITY_POND_COUNT],
                                   &mOptions[RSK_FISHSANITY_AGE_SPLIT],
                                   &mOptions[RSK_SHUFFLE_FREESTANDING],
+                                  &mOptions[RSK_SHUFFLE_SILVER],
                                   &mOptions[RSK_SHUFFLE_BEEHIVES],
                                   &mOptions[RSK_SHUFFLE_COWS],
                                   &mOptions[RSK_SHUFFLE_POTS],
@@ -2548,6 +2562,7 @@ void Settings::CreateOptions() {
                                   &mOptions[RSK_SHUFFLE_STONE_FAIRIES],
                                   &mOptions[RSK_SHUFFLE_BEAN_FAIRIES],
                                   &mOptions[RSK_SHUFFLE_SONG_FAIRIES],
+                                  &mOptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES],
                               },
                               WidgetContainerType::SECTION);
     mOptionGroups[RSG_MENU_COLUMN_BASIC_SHUFFLES] =
@@ -2853,10 +2868,12 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_DEKU_STICK_BAG],
                                             &mOptions[RSK_SHUFFLE_DEKU_NUT_BAG],
                                             &mOptions[RSK_SHUFFLE_FREESTANDING],
+                                            &mOptions[RSK_SHUFFLE_SILVER],
                                             &mOptions[RSK_SHUFFLE_FOUNTAIN_FAIRIES],
                                             &mOptions[RSK_SHUFFLE_STONE_FAIRIES],
                                             &mOptions[RSK_SHUFFLE_BEAN_FAIRIES],
                                             &mOptions[RSK_SHUFFLE_SONG_FAIRIES],
+                                            &mOptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES],
                                         });
     mOptionGroups[RSG_SHUFFLE_DUNGEON_ITEMS] =
         OptionGroup("Shuffle Dungeon Items", {

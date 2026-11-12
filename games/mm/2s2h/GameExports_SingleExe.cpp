@@ -278,6 +278,12 @@ static_assert(RC_GREAT_BAY_COAST_COW_GROTTO_BEEHIVE == 2424 &&
               "MM's beehive and extra grass checks (#1410) are ids 2424..2616, appended after #1406's");
 static_assert(RO_SHUFFLE_HIVE_DROPS == 55,
               "MM's Shuffle Hive Drops option (#1410) is id 55, after RO_SHUFFLE_WONDER_ITEMS");
+// #1407 (Shuffle Butterflies): 25 checks and one option.
+static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 == 2617 &&
+                  RC_TERMINA_FIELD_GOSSIP_STONE_GROTTO_3_BUTTERFLY_02 == 2641,
+              "MM's butterfly checks (#1407) are ids 2617..2641, appended after #1410's");
+static_assert(RO_SHUFFLE_BUTTERFLIES == 56,
+              "MM's Shuffle Butterflies option (#1407) is id 56, after RO_SHUFFLE_HIVE_DROPS");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

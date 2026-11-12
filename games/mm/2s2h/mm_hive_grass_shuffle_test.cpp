@@ -12,8 +12,8 @@
  *  (1) The option exists under its upstream key (RO_SHUFFLE_HIVE_DROPS, CVar
  *      gRando.Options.RO_SHUFFLE_HIVE_DROPS) and defaults OFF.
  *  (2) The MM Randomizer page draws it: a live, default-off checkbox labelled
- *      "Shuffle Hive Drops" under "Shuffle Items", right after "Shuffle Tree
- *      Drops".
+ *      "Shuffle Hive Drops" under "Shuffle Items", right after "Shuffle
+ *      Butterflies" (#1407), which follows "Shuffle Tree Drops".
  *  (3) The check table holds exactly the 19 hives as the only RCTYPE_BEEHIVE
  *      rows; each has a name, sits in EXACTLY one logic region, is not a
  *      cross-game host class, and is a row of Randomizer > MM Locations.
@@ -629,21 +629,24 @@ int RunHiveOptionAndPool() {
         strcmp(Combo_MMOptionGroupName(row->group), "Shuffle Items") != 0) {
         return Fail(6, "the %s row is not a live, default-off checkbox under Shuffle Items", kHiveOptionName);
     }
-    int treeAt = -1;
+    // Upstream's menu order is Tree Drops, Butterflies, Frogs, Hive Drops; Frogs has
+    // no row on this page, so the hive row follows Shuffle Butterflies (#1407), which
+    // follows Shuffle Tree Drops (mm-butterfly-shuffle leg 7).
+    int butterflyAt = -1;
     int hiveAt = -1;
     for (int i = 0; i < Combo_MMOptionCount(); i++) {
         const ComboMMOptionDesc* desc = Combo_MMOptionAt(i);
-        if (desc->id == (uint16_t)RO_SHUFFLE_TREE_DROPS) {
-            treeAt = i;
+        if (desc->id == (uint16_t)RO_SHUFFLE_BUTTERFLIES) {
+            butterflyAt = i;
         } else if (desc->id == (uint16_t)hiveOption) {
             hiveAt = i;
         }
     }
-    if (treeAt < 0 || hiveAt != treeAt + 1) {
+    if (butterflyAt < 0 || hiveAt != butterflyAt + 1) {
         return Fail(7,
-                    "Shuffle Hive Drops is row %d, Shuffle Tree Drops row %d: the hive row belongs right after "
-                    "the tree row",
-                    hiveAt, treeAt);
+                    "Shuffle Hive Drops is row %d, Shuffle Butterflies row %d: the hive row belongs right after "
+                    "the butterfly row (upstream's menu order)",
+                    hiveAt, butterflyAt);
     }
 
     // ---- (3) the check table ------------------------------------------------

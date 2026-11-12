@@ -124,6 +124,18 @@ static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_NO;
 static constexpr bool kChestGameRowsShown = true;
 #endif
 
+// #1363: whether the silver rupee checks get Exclude Locations rows. Every generation in
+// the single executable is paired, and Playthrough_Init pins Shuffle Silver Rupees off in
+// a paired world (the option is greyed out in settings.cpp), so a stored On from an older
+// build or a preset must not unhide 154 rows the fold leaves out.
+static bool RsbsSilverExcludeRowsVisible() {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    return false;
+#else
+    return CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleSilver"), RO_GENERIC_NO) != 0;
+#endif
+}
+
 void RandomizerCheckObjects::UpdateImGuiVisibility() {
     auto ctx = Rando::Context::GetInstance();
     // SoH #6447 (#1420): under Triforce Hunt the boss key is never placed, so the
@@ -206,6 +218,7 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
              ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleFreestanding"), RO_SHUFFLE_FREESTANDING_OFF) ==
                RO_SHUFFLE_FREESTANDING_DUNGEONS) &&
               RandomizerCheckObjects::AreaIsDungeon(location.GetArea()))) &&
+            (location.GetRCType() != RCTYPE_SILVER || RsbsSilverExcludeRowsVisible()) &&
             (location.GetRCType() != RCTYPE_BEEHIVE ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBeehives"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_COW ||
@@ -246,6 +259,8 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBeanFairies"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_SONG_FAIRY ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleFairySpots"), RO_GENERIC_NO)) &&
+            (location.GetRCType() != RCTYPE_BUTTERFLY_FAIRY ||
+             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleButterflyFairies"), RO_GENERIC_NO)) &&
             ((location.GetRCType() != RCTYPE_MAP && location.GetRCType() != RCTYPE_COMPASS) ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("StartingMapsCompasses"), RO_DUNGEON_ITEM_LOC_OWN_DUNGEON) !=
                  RO_DUNGEON_ITEM_LOC_VANILLA) &&

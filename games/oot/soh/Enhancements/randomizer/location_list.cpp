@@ -1057,6 +1057,11 @@ void Rando::StaticData::InitLocationTable() {
     RegisterGrassLocations();
     RegisterCrateLocations();
     RegisterTreeLocations();
+    // #1363: Shuffle Silver Rupees (SoH b76e303ce) registers its checks through
+    // ShipInit as upstream does, but OTRGlobals builds CheckFromActorMultimap
+    // (InitHashMaps) and the exclude options before ShipInit::InitAll runs, so the
+    // silver checks are registered here too (the registrar runs once).
+    RegisterSilverLocations();
 }
 
 void Rando::StaticData::InitHashMaps() {
