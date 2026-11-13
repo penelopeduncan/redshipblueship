@@ -6746,12 +6746,28 @@ TestResult Test_MMDevViewersGate(void) {
         printf("[TEST] FAIL: cannot read SohMenuHostedMmDevTools.cpp under RSBS_SOURCE_DIR\n");
         return TEST_FAIL;
     }
-    if (hostedMenu.find("\"Popout Event Log\"") == std::string::npos ||
-        hostedMenu.find("WIDGET_WINDOW_BUTTON") == std::string::npos ||
-        hostedMenu.find("RSBS_CVAR_MM_WINDOW_EVENT_LOG") == std::string::npos ||
-        hostedMenu.find(".WindowName(\"MM Event Log\")") == std::string::npos ||
-        hostedMenu.find("DISABLE_FOR_MM_NOT_IN_GAMEPLAY") == std::string::npos) {
-        printf("[TEST] FAIL: SohMenuHostedMmDevTools.cpp missing expected Popout Event Log row wiring\n");
+    // Scoped to the row's own statement inside AddMmDevToolsBlock: the warp-point
+    // rows carry their own DISABLE_FOR_MM_NOT_IN_GAMEPLAY, so a whole-file scan
+    // would stay green with this row's PreFunc deleted.
+    const size_t blockStart = hostedMenu.find("void AddMmDevToolsBlock(");
+    const size_t blockEnd = blockStart == std::string::npos ? std::string::npos : hostedMenu.find("\n}", blockStart);
+    const size_t rowStart =
+        blockStart == std::string::npos ? std::string::npos : hostedMenu.find("\"Popout Event Log\"", blockStart);
+    if (blockEnd == std::string::npos || rowStart == std::string::npos || rowStart > blockEnd) {
+        printf("[TEST] FAIL: Popout Event Log row is not in AddMmDevToolsBlock (SohMenuHostedMmDevTools.cpp)\n");
+        return TEST_FAIL;
+    }
+    const size_t nextRow = hostedMenu.find("AddHostedMmWidget(", rowStart);
+    const size_t rowEnd = (nextRow != std::string::npos && nextRow < blockEnd) ? nextRow : blockEnd;
+    const std::string eventLogRow = hostedMenu.substr(rowStart, rowEnd - rowStart);
+    if (eventLogRow.find("WIDGET_WINDOW_BUTTON") == std::string::npos ||
+        eventLogRow.find(".CVar(RSBS_CVAR_MM_WINDOW_EVENT_LOG)") == std::string::npos ||
+        eventLogRow.find(".WindowName(\"MM Event Log\")") == std::string::npos ||
+        eventLogRow.find("!MM_DevTools_WarpPointAvailable()") == std::string::npos ||
+        eventLogRow.find("DISABLE_FOR_MM_NOT_IN_GAMEPLAY") == std::string::npos ||
+        eventLogRow.find("Tooltip(\"Enables the Event Log window. Majora's Mask only.\")") == std::string::npos) {
+        printf("[TEST] FAIL: SohMenuHostedMmDevTools.cpp Popout Event Log row is missing its window button, CVar, "
+               "window name, gameplay disable or tooltip\n");
         return TEST_FAIL;
     }
     printf("[TEST] leg (e): Dev Tools > General Popout Event Log row and availability gate verified\n");
