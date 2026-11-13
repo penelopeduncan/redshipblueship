@@ -24,10 +24,12 @@
 
 #include "2s2h/DeveloperTools/EventLog.h"
 #include "2s2h/GameInteractor/GameInteractor.h"
+#include "MmActiveGated.h"
 #include "TrackersGuiSingleExe.h"
 #include "context.h"
 #include "include/mm_game_hooks.h"
 #include "mm_dev_tools_bridge.h"
+#include "variables.h"
 
 namespace S2H {
 namespace DevToolsGui {
@@ -66,6 +68,41 @@ class StandinViewerWindow final : public Ship::GuiWindow {
     void DrawElement() override {
     }
     void UpdateElement() override {
+    }
+};
+
+class UpdateSpy final : public Ship::GuiWindow {
+  public:
+    using GuiWindow::GuiWindow;
+
+    int draws = 0;
+    int drawElements = 0;
+    int updateElements = 0;
+
+    void InitElement() override {
+    }
+    void Draw() override {
+        draws++;
+    }
+    void DrawElement() override {
+        drawElements++;
+    }
+
+  protected:
+    void UpdateElement() override {
+        updateElements++;
+    }
+};
+
+struct StandInPlayStateGuard {
+    GameId prevGame;
+    explicit StandInPlayStateGuard(GameId runAs) : prevGame(Context_GetCurrentGame()) {
+        Context_SetCurrentGame(runAs);
+        MM_DevTools_SetStandInPlayState(1);
+    }
+    ~StandInPlayStateGuard() {
+        MM_DevTools_SetStandInPlayState(0);
+        Context_SetCurrentGame(prevGame);
     }
 };
 
@@ -116,19 +153,37 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
     printf("[TEST] leg (a): MM Event Log registers de-collided beside \"%s\" and is idempotent\n",
            kEventLogSohTwinName);
 
-    // ---- (c) Active-game gate (Draw, DrawElement, Update) without ImGui context ----
+    // ---- (c) Active-game gate (Draw, DrawElement, Update/UpdateElement) without ImGui context ----
     // Force gWindows.EventLog=1 so any ungated Draw() or DrawElement() reaches ImGui and aborts.
+    // Also exercise MMActiveGated<UpdateSpy> across non-MM and MM because EventLogWindow::UpdateElement() is empty.
     DVG_ASSERT(ImGui::GetCurrentContext() == nullptr, "unexpected ImGui context before leg (c)");
+    auto spy = std::make_shared<S2H::MMActiveGated<UpdateSpy>>("", "MMDevViewersGateSpy");
+    std::shared_ptr<Ship::GuiWindow> spyWindow = spy;
     CVarSetInteger(kEventLogVisibilityCVar, 1);
     for (GameId nonMm : { GAME_OOT, GAME_NONE }) {
         Context_SetCurrentGame(nonMm);
         eventLog->Draw();
         eventLog->DrawElement();
         eventLog->Update();
+        spyWindow->Draw();
+        spyWindow->DrawElement();
+        spyWindow->Update();
+        if (spy->draws != 0 || spy->drawElements != 0 || spy->updateElements != 0) {
+            CVarClear(kEventLogVisibilityCVar);
+            Context_SetCurrentGame(savedGame);
+            ResetEventLogHooksAndState();
+            DVG_ASSERT(false, "MMActiveGated forwarded Draw/DrawElement/UpdateElement off GAME_MM");
+        }
     }
     CVarClear(kEventLogVisibilityCVar);
+    Context_SetCurrentGame(GAME_MM);
+    spyWindow->Draw();
+    spyWindow->DrawElement();
+    spyWindow->Update();
     Context_SetCurrentGame(savedGame);
-    printf("[TEST] leg (c): Draw, DrawElement, and Update are no-ops off GAME_MM\n");
+    DVG_ASSERT(spy->draws == 1 && spy->drawElements == 1 && spy->updateElements == 1,
+               "MMActiveGated failed to forward Draw/DrawElement/UpdateElement under GAME_MM");
+    printf("[TEST] leg (c): Draw, DrawElement, and UpdateElement are gated off GAME_MM and active under GAME_MM\n");
 
     // ---- (b) gWindows.EventLog visibility toggle & right-click Close ----
     {
@@ -254,6 +309,23 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
         MM_GameHooks_ExecuteOnSceneFlagUnset(0, FLAG_CYCL_SCENE_SWITCH, 1);
         DVG_ASSERT(MM_EventLog_DrainEntryCountForTest() == 4,
                    "flag Set/Unset dispatches did not produce 4 EventLog entries");
+
+        // Drive z_actor.c's MM_Flags_SetSwitch / MM_Flags_UnsetSwitch call sites end-to-end.
+        {
+            StandInPlayStateGuard playGuard(GAME_MM);
+            if (MM_gPlayState == nullptr) {
+                ResetEventLogHooksAndState();
+                DVG_ASSERT(false, "MM_DevTools_SetStandInPlayState(1) left MM_gPlayState null");
+            }
+            MM_Flags_SetSwitch(MM_gPlayState, 1);
+            const size_t setCount = MM_EventLog_DrainEntryCountForTest();
+            MM_Flags_UnsetSwitch(MM_gPlayState, 1);
+            const size_t unsetCount = MM_EventLog_DrainEntryCountForTest();
+            if (setCount != 1 || unsetCount != 1) {
+                ResetEventLogHooksAndState();
+                DVG_ASSERT(false, "MM_Flags_SetSwitch / MM_Flags_UnsetSwitch did not log through EventLog");
+            }
+        }
 
         // Disable EventLog: queued unregistrations flush before next Execute runs, logging 0 entries.
         CVarSetInteger(kEventLogEnabledCVar, 0);
