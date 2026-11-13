@@ -55,8 +55,8 @@ static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
     if (!Combo_ForeignPairingActive()) {
         return false;
     }
-    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
-    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT); // < 0: the bag refuses
     for (int i = 0; i < n; ++i) {
         if (pairs[i].mmId == (uint16_t)randoItemId) {
             return true;
@@ -371,8 +371,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     }
     // RedShipBlueShip #1169 XW5 (OoTMM songMinuetMm .. songPreludeMm): each Ocarina
     // of Time warp song its frozen rule adds to Majora's Mask, one copy, none under
-    // its shared rule (lane XW10's family, held back). Offered since #1169 XW13 and
-    // off by default, so a world with the rules off builds the pool it always did. A
+    // its shared rule (OoTMM adds no copy; OoT's native copy is the shared row,
+    // #1169 XW10). Offered since #1169 XW13 and off by default, so a world with the
+    // rules off builds the pool it always did. A
     // starting copy leaves the pool with the other starting items below.
     for (RandoItemId song : { RI_SONG_MINUET, RI_SONG_BOLERO, RI_SONG_SERENADE, RI_SONG_REQUIEM, RI_SONG_NOCTURNE,
                               RI_SONG_PRELUDE }) {

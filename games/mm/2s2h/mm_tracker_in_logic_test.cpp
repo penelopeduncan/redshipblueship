@@ -26,6 +26,11 @@
  *      row follows; the departure capture MM_Game_Suspend makes at B2 holds the
  *      chest.
  *
+ * MM_TrackerSoaringTravel_Run (row MMTrackerInLogicArrival, after the arrival
+ * legs; #1169 XW11): Ocarina of Time's Song of Soaring, read from OoT's frozen
+ * world, opens the root's owl landings for the REAL ComputeChecksInLogic (legs
+ * W1-W4, at the function).
+ *
  * MM_TrackerFillSuperset_RunMM (row TrackerFillSuperset, MM half): over the
  * MM half the paired creation armed in the shadow, at the arrival entrance:
  * MM's fill engine (Combo_Logic_GetEngine(GAME_MM), one round, nothing assumed)
@@ -51,6 +56,9 @@ extern "C" int MM_TrackerInLogic_RunArrival(void) {
 extern "C" int MM_TrackerFillSuperset_RunMM(void) {
     return 0;
 }
+extern "C" int MM_TrackerSoaringTravel_Run(void) {
+    return 0;
+}
 #else
 
 #include "2s2h/Rando/Rando.h"
@@ -61,6 +69,7 @@ extern "C" int MM_TrackerFillSuperset_RunMM(void) {
 #include "combo_logic.h"
 #include "combo_mm_options_view.h" // RSBS_MM_MOON_CRASH_CYCLE (the arrival save's moon crash)
 #include "context.h"
+#include "foreign_items.h" // #1169 XW11: RSBS_XITEM2_SONG_SOARING_OOT
 #include "shared_resources.h"
 #include "combo_tracker_view.h" // #1129: the combo tracker's MM panel
 
@@ -69,6 +78,12 @@ extern "C" int MM_TrackerFillSuperset_RunMM(void) {
 // TrackerAdapterSingleExe.cpp (#1129): MM's play state stood in, and the cached set dropped.
 extern "C" void MM_TrackerAdapter_TestLiveSeam(int live);
 extern "C" int MM_TrackerAdapter_TestInLogicSeam(int authored, const uint16_t* ids, int count);
+// src/common/tests/test_warp_song_tracker.c (#1169 XW11): the frozen world the tracker's
+// Soaring fact reads, set and put back there; ComboLogicEngineSingleExe.cpp: the tracker arm.
+extern "C" int Combo_Xw11TestTrackerWorldBegin(int freshWorld, uint32_t rules2);
+extern "C" uint32_t Combo_Xw11TestTrackerOoTHalf(int soaringOwned, int child);
+extern "C" void Combo_Xw11TestTrackerWorldEnd(void);
+extern "C" int MM_ComboLogic_TestTrackerSoaring(void);
 
 extern "C" {
 #include "z64save.h"
@@ -359,6 +374,104 @@ extern "C" int MM_TrackerFillSuperset_RunMM(void) {
                             "same save");
     if (sFailures == 0) {
         printf("[TEST] PASS: tracker-fill-superset (MM)\n");
+    }
+    return sFailures;
+}
+
+/**
+ * #1169 XW11 (the design's T11, MM twin): MM_TrackerSoaringTravel_Run (row
+ * MMTrackerInLogicArrival, after the arrival legs). Over an MM live save as an
+ * arrival leaves it (nothing held, a New Cycle moon crash so the reset-time guard
+ * keeps the owl landings) with the Woodfall owl activated, Ocarina of Time's Song
+ * of Soaring rule frozen on in a paired world, the REAL ComputeChecksInLogic:
+ *   W1 an OoT frozen child half without the song: no fact, and the Woodfall owl
+ *      platform's pot (reached no other way by a human with nothing) is out of
+ *      logic, while the platform heart piece (the crawl reached the arrival) is in.
+ *   W2 the child half owns the song: the fact is given, the pot comes into logic
+ *      through the root's owl landing, and the arm is clear afterwards. With the
+ *      second crawl's result dropped, or its arm cleared before the crawl, W2
+ *      reads W1's set.
+ *   W3 an adult OoT half owning the song (crossing is child-only): W1's set.
+ *   W4 the owl not activated, the fact given: the landing still needs MM's own
+ *      owl flag, so the pot stays out.
+ * The crossing-closed case (the tower interior unreached) is not driven here: the
+ * interior is part of the arrival nook. Combo_TrackerTravel_MMFactNow(0) is
+ * warp-song-tracker E12, and the crossing's source is its S4 anchor.
+ */
+extern "C" int MM_TrackerSoaringTravel_Run(void) {
+    printf("[TEST] mm-tracker-soaring-travel: the MM Check Tracker's in-logic set credits Ocarina of Time's Song of "
+           "Soaring from OoT's frozen world (#1169 XW11)\n");
+    sFailures = 0;
+
+    MM_Rando_InitCore();
+    if (Rando::Logic::Regions.empty()) {
+        printf("[TEST] FAIL: Rando::Logic::Regions is empty after MM_Rando_InitCore, so every leg would be vacuous\n");
+        return 1;
+    }
+
+    TilSaveGuard guard;
+    memset(&gSaveContext, 0, sizeof(SaveContext));
+    gSaveContext.fileNum = 0xFF;
+    gSaveContext.gameMode = GAMEMODE_NORMAL;
+    gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
+    gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE, sizeof(gSaveContext.save.saveInfo.inventory.items));
+    gSaveContext.save.entrance = kArrivalEntrance;
+    gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = RSBS_MM_MOON_CRASH_CYCLE;
+    memcpy(gSaveContext.save.saveInfo.playerData.newf, "ZELDA3", 6);
+    gSaveContext.save.saveInfo.playerData.owlActivationFlags = (u16)(1 << OWL_WARP_WOODFALL);
+    RANDO_SAVE_CHECKS[RC_WOODFALL_POT_01].shuffled = true;
+    RANDO_SAVE_CHECKS[RC_CLOCK_TOWN_SOUTH_PLATFORM_PIECE_OF_HEART].shuffled = true;
+
+    const bool begun = Combo_Xw11TestTrackerWorldBegin(1, RSBS_XITEM2_SONG_SOARING_OOT) == 1;
+    TIL_CHECK(begun, "W: the Soaring rule, the paired identity or the PRESENT record did not freeze");
+    if (begun) {
+        bool unchanged = false;
+        const uint32_t factOff = Combo_Xw11TestTrackerOoTHalf(0, 1);
+        const std::set<RandoCheckId> off = TilInLogic(&unchanged);
+        const bool potOff = off.count(RC_WOODFALL_POT_01) != 0;
+        const bool heartOff = off.count(RC_CLOCK_TOWN_SOUTH_PLATFORM_PIECE_OF_HEART) != 0;
+        printf("[TEST] W1 (OoT does not own the song): fact %08X, pot %d, heart piece %d, in logic %d, arm %d\n",
+               (unsigned)factOff, potOff ? 1 : 0, heartOff ? 1 : 0, (int)off.size(),
+               MM_ComboLogic_TestTrackerSoaring());
+        TIL_CHECK(factOff == 0u && heartOff && !potOff,
+                  "W1: without the song a fact was given, the arrival was not reached, or the owl platform's pot is in "
+                  "logic (every leg after this one would be vacuous)");
+
+        const uint32_t factOn = Combo_Xw11TestTrackerOoTHalf(1, 1);
+        const std::set<RandoCheckId> on = TilInLogic(&unchanged);
+        const bool potOn = on.count(RC_WOODFALL_POT_01) != 0;
+        int lost = 0;
+        for (RandoCheckId id : off) {
+            lost += on.count(id) == 0 ? 1 : 0;
+        }
+        const int armAfter = MM_ComboLogic_TestTrackerSoaring();
+        printf("[TEST] W2 (an OoT child owns the song): fact %08X, pot %d, in logic %d (lost %d), arm %d\n",
+               (unsigned)factOn, potOn ? 1 : 0, (int)on.size(), lost, armAfter);
+        TIL_CHECK(factOn == RSBS_COMBO_TRAVEL_INTO_MM, "W2: the frozen OoT child owning the song gave no fact");
+        TIL_CHECK(potOn && lost == 0,
+                  "W2: the real in-logic computation did not reach the Woodfall owl landing, or dropped a check");
+        TIL_CHECK(armAfter == 0, "W2: the tracker arm was left set after the computation");
+
+        const uint32_t factAdult = Combo_Xw11TestTrackerOoTHalf(1, 0);
+        const std::set<RandoCheckId> adult = TilInLogic(&unchanged);
+        printf("[TEST] W3 (an OoT adult owns the song): fact %08X, pot %d\n", (unsigned)factAdult,
+               adult.count(RC_WOODFALL_POT_01) != 0 ? 1 : 0);
+        TIL_CHECK(factAdult == 0u && adult == off, "W3: an adult OoT half credited the Song of Soaring");
+
+        (void)Combo_Xw11TestTrackerOoTHalf(1, 1);
+        gSaveContext.save.saveInfo.playerData.owlActivationFlags = 0;
+        const std::set<RandoCheckId> noOwl = TilInLogic(&unchanged);
+        printf("[TEST] W4 (the owl not activated): pot %d\n", noOwl.count(RC_WOODFALL_POT_01) != 0 ? 1 : 0);
+        TIL_CHECK(noOwl.count(RC_WOODFALL_POT_01) == 0, "W4: the landing opened without MM's owl activation");
+        TIL_CHECK(MM_ComboLogic_TestTrackerSoaring() == 0, "W4: the tracker arm was left set");
+    }
+    Combo_Xw11TestTrackerWorldEnd(); // the live save, the shuffled flags included, is the guard's
+
+    if (sFailures != 0) {
+        printf("[TEST] FAIL: mm-tracker-soaring-travel: %d check(s) failed\n", sFailures);
+    } else {
+        printf("[TEST] PASS: mm-tracker-soaring-travel\n");
     }
     return sFailures;
 }

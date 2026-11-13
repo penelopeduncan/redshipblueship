@@ -786,10 +786,41 @@ TestResult Test_SaveComboLegacyRecord(void) {
     SAVE_ASSERT(gComboCtx.saveWatermark.layoutRevision == 1u,
                 "the watermark just ahead of the warp-song record did not load from the short v6 record");
 
+    // #1169 XW10 (layout revision 4): a revision-3 record ends at
+    // offsetof(ComboContext, sharedFamilyOwned2). It loads the second family word
+    // as 0, nothing owned, whatever the live context held, while comboOoTWarps just
+    // ahead of it still lands. Catches the word not zero-extending (the scribble
+    // survives) and a member inserted ahead of it (the warp record's byte moves).
+    SaveTestSeed(tag);
+    gComboCtx.saveWatermark.layoutRevision = 3u; // what a revision-3 build stamped
+    gComboCtx.comboOoTWarps.formatVersion = 0x5Bu;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_MIN,
+                                         (uint32_t)offsetof(ComboContext, sharedFamilyOwned2)),
+                "could not write the short v6 slot file that ends before the second family word");
+    gComboCtx.sharedFamilyOwned2 = 0x5A5A5A5Au;
+    gComboCtx.comboOoTWarps.formatVersion = 0u;
+    SAVE_ASSERT(mgr.Load(0), "Load refused a v6 Tier-1 record written before the second family word");
+    SAVE_ASSERT(gComboCtx.sharedFamilyOwned2 == 0u,
+                "a v6 Tier-1 record written before the second family word did not load it as 0 (nothing owned)");
+    SAVE_ASSERT(gComboCtx.comboOoTWarps.formatVersion == 0x5Bu,
+                "the warp-song record just ahead of the second family word did not load from the short v6 record");
+
+    // ... and a full-length record carries it: every family bit the word holds
+    // today reads back. Catches the word not being written.
+    SaveTestSeed(tag);
+    gComboCtx.sharedFamilyOwned2 = 0x00003F80u;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION, (uint32_t)sizeof(ComboContext)),
+                "could not write the full-length v6 slot file with the second family word");
+    gComboCtx.sharedFamilyOwned2 = 0u;
+    SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v6 Tier-1 record with the second family word");
+    SAVE_ASSERT(gComboCtx.sharedFamilyOwned2 == 0x00003F80u, "the second family word did not read back 00003F80");
+
     mgr.DeleteSave(0);
     printf("[TEST] PASS: pre-headroom Tier-1 loads, added fields read as zero, "
-           "bytes 672/676/736/824/880/884 still land in their carves, and a v6 record that ends before the "
-           "warp-song record loads it UNSET\n");
+           "bytes 672/676/736/824/880/884 still land in their carves, a v6 record that ends before the "
+           "warp-song record loads it UNSET, and one that ends before the second family word loads it 0\n");
     return TEST_PASS;
 }
 

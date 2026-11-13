@@ -13,6 +13,8 @@
 #include "2s2h/Rando/ForeignModel.h"       // #577 M3: the origin game's get-item model
 #include "shared_items.h"                  // #1222: Combo_SharedItemCrossingHasRoom
 #include "triforce_hunt.h"                 // #1389: the paired hunt's requirement, for the piece text
+#include "warp_song_items.h"               // #1169 XW11: Combo_ForeignGameTag, one tag after the name
+#include "game.h"                          // GAME_OOT
 #include <set>
 // Lane 6 (#502): drain of the deferred cross-game give (ForeignItemsSingleExe.cpp).
 extern "C" int MM_ForeignItem_FlushPending(void);
@@ -68,7 +70,7 @@ bool Rando::Foreign::GiveForeignCheck(RandoCheckId randoCheckId) {
 // both games use, so the player learns one convention.
 std::string Rando::Foreign::ForeignPickupMessage(const char* article, const char* name) {
     return std::string("You found ") + (article != nullptr ? article : "") +
-           (name != nullptr ? name : "a foreign item") + " (OoT)!";
+           (name != nullptr ? name : "a foreign item") + Combo_ForeignGameTag(name, GAME_OOT) + "!";
 }
 
 // THE FULL-OUTBOX TOAST (#1222; declared in Rando/Foreign.h): what the player is

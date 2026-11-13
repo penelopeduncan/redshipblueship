@@ -227,37 +227,69 @@ static void SingleBagWothProgress(void* ctx, int tested, int candidates) {
  * gives from, so the bag row and the item the far game receives are the same
  * pair by construction. With every rule off (the shipped default) this is empty
  * and the compose is exactly the one before shared pairs existed.
+ *
+ * #1169 XW10: the SECOND family word's pairs (the shared warp songs) follow the
+ * first word's, so a world with no second-word pair has the same pairs in the same
+ * order (and its placement digest does not move). Writes at most @p cap pairs when
+ * @p out is not NULL; returns how many pairs this world BUILDS, whatever @p cap.
  */
-static int SingleBagSharedPairs(ComboLogicSharedPair* out, int cap) {
-    const uint32_t armed = Combo_SharedFamiliesArmed();
+static int SingleBagBuildSharedPairs(ComboLogicSharedPair* out, int cap) {
     int n = 0;
-    for (uint32_t b = 0; b < RSBS_XITEM_BIT_COUNT && n < cap; ++b) {
-        const uint32_t bit = 1u << b;
-        if ((armed & bit) == 0u) {
-            continue;
+    for (int word = 0; word < 2; ++word) {
+        const uint32_t armed = word == 0 ? Combo_SharedFamiliesArmed() : Combo_SharedFamilies2Armed();
+        for (uint32_t b = 0; b < RSBS_XITEM_BIT_COUNT; ++b) {
+            const uint32_t bit = 1u << b;
+            if ((armed & bit) == 0u) {
+                continue;
+            }
+            uint16_t ootId = 0;
+            uint16_t mmId = 0;
+            const bool registered = word == 0 ? (Combo_SharedFamilyMemberId(GAME_OOT, bit, &ootId) &&
+                                                 Combo_SharedFamilyMemberId(GAME_MM, bit, &mmId))
+                                              : (Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId) &&
+                                                 Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId));
+            if (!registered) {
+                // A rule this build froze on with no item behind it on one side: the
+                // pair cannot be built, and the row stays each game's own item. Loud,
+                // because only a build that registers half a family can reach it.
+                if (out != NULL) {
+                    fprintf(stderr,
+                            "[SingleBag] shared family %s is armed but not registered in both games; not paired\n",
+                            word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit));
+                }
+                continue;
+            }
+            const bool pooled =
+                word == 0
+                    ? (Combo_SharedFamilyMemberPooled(GAME_OOT, bit) && Combo_SharedFamilyMemberPooled(GAME_MM, bit))
+                    : (Combo_SharedFamily2MemberPooled(GAME_OOT, bit) && Combo_SharedFamily2MemberPooled(GAME_MM, bit));
+            if (!pooled) {
+                // One game's own settings do not shuffle its copy (#1067: a game
+                // without the ocarina-button shuffle). A shared row may be hosted in
+                // either game, and that game could not hand the item on, so no pair:
+                // each pooled copy stays its own game's item.
+                continue;
+            }
+            if (out != NULL && n < cap) {
+                out[n].ootId = ootId;
+                out[n].mmId = mmId;
+            }
+            n++;
         }
-        uint16_t ootId = 0;
-        uint16_t mmId = 0;
-        if (!Combo_SharedFamilyMemberId(GAME_OOT, bit, &ootId) || !Combo_SharedFamilyMemberId(GAME_MM, bit, &mmId)) {
-            // A rule this build froze on with no item behind it on one side: the
-            // pair cannot be built, and the row stays each game's own item. Loud,
-            // because only a build that registers half a family can reach it.
-            fprintf(stderr, "[SingleBag] shared family %s is armed but not registered in both games; not paired\n",
-                    Combo_SharedFamilySlotName(bit));
-            continue;
-        }
-        if (!Combo_SharedFamilyMemberPooled(GAME_OOT, bit) || !Combo_SharedFamilyMemberPooled(GAME_MM, bit)) {
-            // One game's own settings do not shuffle its copy (#1067: a game
-            // without the ocarina-button shuffle). A shared row may be hosted in
-            // either game, and that game could not hand the item on, so no pair:
-            // each pooled copy stays its own game's item.
-            continue;
-        }
-        out[n].ootId = ootId;
-        out[n].mmId = mmId;
-        n++;
     }
     return n;
+}
+
+/** The pairs into @p out, or -1 (loud, nothing written) when this world builds
+ *  more pairs than @p cap holds: a silently dropped pair would leave its family's
+ *  two copies unpaired, and every buffer is RSBS_XFAMILY_SLOT_COUNT, one per slot. */
+static int SingleBagSharedPairs(ComboLogicSharedPair* out, int cap) {
+    const int buildable = SingleBagBuildSharedPairs(NULL, 0);
+    if (buildable > cap) {
+        fprintf(stderr, "[SingleBag] shared pairs: %d buildable, buffer holds %d; refusing\n", buildable, cap);
+        return -1;
+    }
+    return SingleBagBuildSharedPairs(out, cap);
 }
 
 int Combo_SingleBag_SharedPairs(ComboLogicSharedPair* out, int cap) {
@@ -406,8 +438,17 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         creq.startingHealthMM = MM_ComboLogic_StartingHealth();
         creq.quantityFlags = 0u;
         // THE SHARED PAIR (ABI 7, #976): empty unless a frozen rule arms one.
-        static ComboLogicSharedPair sPairs[RSBS_XITEM_BIT_COUNT];
-        creq.sharedPairCount = SingleBagSharedPairs(sPairs, (int)RSBS_XITEM_BIT_COUNT);
+        static ComboLogicSharedPair sPairs[RSBS_XFAMILY_SLOT_COUNT];
+        const int pairCount = SingleBagSharedPairs(sPairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        if (pairCount < 0) {
+            // #1169 XW10: more pairs than the buffer holds (SingleBagSharedPairs said
+            // so); never compose with a family silently unpaired.
+            status = RSBS_COMBO_LOGIC_ERR_CAPACITY;
+            fprintf(stderr, "[SingleBag] the bag could not be composed: %s (shared pairs)\n",
+                    Combo_Logic_StatusName(status));
+            goto finish;
+        }
+        creq.sharedPairCount = pairCount;
         creq.sharedPairs = (creq.sharedPairCount > 0) ? sPairs : NULL;
         sReport.trimSeed = creq.trimSeed;
         sReport.startingHealthOoT = creq.startingHealthOoT;

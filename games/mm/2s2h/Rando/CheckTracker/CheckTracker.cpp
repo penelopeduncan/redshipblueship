@@ -13,6 +13,11 @@
 #include <vector>
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "2s2h/Rando/Foreign.h" // ForeignNameForCheck: the item a crossing host yields (#796)
+#include "game.h"               // src/common: GAME_OOT
+#include "warp_song_items.h"    // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
+#include "warp_song_tracker.h"  // src/common: OoT's Song of Soaring from the frozen world (#1169 XW11)
+// ComboLogicEngineSingleExe.cpp: the tracker-scoped arm of the root owl landings (#1169 XW11).
+extern "C" void MM_ComboLogic_SetTrackerSoaring(int on);
 #endif
 
 // Image Icons
@@ -41,7 +46,7 @@ static std::string ObtainedItemTrackerName(RandoCheckId randoCheckId, const Rand
     // give never rewrites it (CheckQueue.cpp). What the player found is the OoT
     // item the give's textbox named, from the same lookup.
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
-        return std::string(foreignName) + " (OoT)";
+        return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
     }
     return Rando::StaticData::Items[randoSaveCheck.randoItemId].name;
 }
@@ -74,7 +79,7 @@ extern "C" int MM_CheckTracker_TestItemName(const void* mmSave, uint16_t randoCh
 // (Rando::UncollectedNamedItem, over MM's live save).
 static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSaveCheck& randoSaveCheck) {
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
-        return std::string(foreignName) + " (OoT)";
+        return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
     }
     return Rando::StaticData::Items[Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId)].name;
 }
@@ -687,6 +692,19 @@ std::set<RandoCheckId> ComputeChecksInLogic(s32 startEntrance, std::set<Rando::L
 
     std::set<RandoCheckId> inLogic;
     Rando::Logic::ReachabilityCrawl crawl = Rando::Logic::CrawlReachableRegions(startEntrance);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW11: Ocarina of Time's Song of Soaring, read from OoT's FROZEN world (warp_song_tracker.h), also
+    // opens the root's owl landings. MM's crossing is this first crawl's tower interior; the fact is armed for the
+    // second crawl alone, which re-fires the events from scratch. A file with the rule off reads one word here.
+    {
+        const int crossMM = crawl.reachableRegions.count(RR_CLOCK_TOWER_INTERIOR) != 0 ? 1 : 0;
+        if (Combo_TrackerTravel_MMFactNow(crossMM) != 0u) {
+            MM_ComboLogic_SetTrackerSoaring(1);
+            crawl = Rando::Logic::CrawlReachableRegions(startEntrance);
+            MM_ComboLogic_SetTrackerSoaring(0);
+        }
+    }
+#endif
     std::set<RandoCheckId> reached = Rando::Logic::EvaluateReachableChecks(crawl);
     // ADR 0010 answer O2: the reset-time guard, the same function the combo fill's engine applies to the same crawl
     // (Rando/Logic/ResetTimeGuard.h), so a check the fill does not count on before a reset is not listed in logic.

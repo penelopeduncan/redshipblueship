@@ -413,8 +413,13 @@ int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::str
             { "logicRung", r.logicRung },
             { "comboFlags", r.comboFlags },
         };
+        // #1169 XW11: the second rules word and MM's starting warp songs, the two world
+        // fields the binary record carries (above) that identity.json did not name.
+        // Additive: Validate reads the record, never this object.
         combo["itemRules"] = { { "crossItemFlags", gComboCtx.comboItemRules.crossItemFlags },
-                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown } };
+                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown },
+                               { "crossItemFlags2", Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) },
+                               { "mmWarpSongsStarting", gComboCtx.mmWarpSongsOwned } };
         combo["triforce"] = { { "totalOoT", gComboCtx.comboTriforce.totalOoT },
                               { "requiredOoT", gComboCtx.comboTriforce.requiredOoT },
                               { "totalMM", gComboCtx.comboTriforce.totalMM },

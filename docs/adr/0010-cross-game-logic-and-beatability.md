@@ -2918,11 +2918,21 @@ because it is never granted.
   half changes only while OoT runs.
 - *Owl landings from the nook (D7)*: the reset-time guard still prunes them under
   `!MmCanResetTime`, OoT's Soaring included.
-- *Trackers (D6)*: both check trackers evaluate the same exits outside any round,
-  where the accessors are false, so they under-credit warp reach identically in an
-  MM-first session and after a crossing. XW11 owns giving them frozen-world facts.
-  Way of the Hero and foolish run through `Combo_Logic_RunRound` and see the
-  facts as the fill does.
+- *Trackers (D6, closed by XW11)*: both check trackers evaluate the same exits
+  outside any round, where the round accessors are false. Since XW11 each tracker
+  derives the other game's facts from FROZEN state (`src/common/warp_song_tracker.h`):
+  OoT's reads MM's frozen save (the Ocarina of Time and the song's buttons), the
+  shared ownership byte, the pairing and the frozen warp record's destination
+  (never the tracker's graph, which on a loaded file carries no replacements);
+  MM's reads OoT's frozen save (the song and an ocarina with its buttons) and OoT's
+  frozen age (child only). Each crossing is the tracker's own first search (OoT's
+  mask-shop child access, MM's tower interior), and the facts pass
+  `Combo_Logic_TravelGate`. They are armed for a SECOND, tracker-scoped search
+  (OoT's `ComputeAvailableChecks`, MM's `ComputeChecksInLogic`) that runs only when
+  a fact is nonzero, so generation, hints and engine searches still never see
+  them. A fact that cannot be derived is 0, which credits what the tracker
+  credited before. Way of the Hero and foolish run through `Combo_Logic_RunRound`
+  and see the facts as the fill does.
 
 **Rules off.** With every warp-song rule off (every world a player could create
 until XW12 exposed them; 2026-11-12, XW12: the Song of Soaring (OoT) is offered now and

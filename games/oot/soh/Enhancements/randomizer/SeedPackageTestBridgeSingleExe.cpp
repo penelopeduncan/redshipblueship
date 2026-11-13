@@ -194,6 +194,8 @@ const char* const kComboTerms[] = {
     "combo/record/comboFlags",
     "combo/itemRules/crossItemFlags",
     "combo/itemRules/blastMaskCooldown",
+    "combo/itemRules/crossItemFlags2",     // #1169 XW11
+    "combo/itemRules/mmWarpSongsStarting", // #1169 XW11
     "combo/triforce/totalOoT",
     "combo/triforce/requiredOoT",
     "combo/triforce/totalMM",
@@ -295,6 +297,8 @@ int LiveTerms(Terms& t, std::string& why) {
     id["combo"]["record"]["comboFlags"] = r.comboFlags;
     id["combo"]["itemRules"]["crossItemFlags"] = gComboCtx.comboItemRules.crossItemFlags;
     id["combo"]["itemRules"]["blastMaskCooldown"] = gComboCtx.comboItemRules.blastMaskCooldown;
+    id["combo"]["itemRules"]["crossItemFlags2"] = Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2);
+    id["combo"]["itemRules"]["mmWarpSongsStarting"] = gComboCtx.mmWarpSongsOwned;
     id["combo"]["triforce"]["totalOoT"] = gComboCtx.comboTriforce.totalOoT;
     id["combo"]["triforce"]["requiredOoT"] = gComboCtx.comboTriforce.requiredOoT;
     id["combo"]["triforce"]["totalMM"] = gComboCtx.comboTriforce.totalMM;
