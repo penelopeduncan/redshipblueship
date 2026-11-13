@@ -851,6 +851,11 @@ bool MMItemDeriveAddedSong(const SaveContext* src, int index, ComboItemRow* out)
             out->group = "Songs";
             out->slotKey = kMMItemAddedSongs[i].slotKey;
             MMItemFillRando(out, kMMItemAddedSongs[i].rando);
+            // #1169 XW14: under its shared rule the song is named without "(MM)".
+            if (const char* shared =
+                    Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)kMMItemAddedSongs[i].rando)) {
+                out->name = shared;
+            }
             out->iconAspect = 32.0f / 46.0f; // as MMItemDerive gives every song
             out->iconTint = kMMItemAddedSongs[i].tint;
             out->have = song.have != 0u;

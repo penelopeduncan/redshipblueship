@@ -1066,7 +1066,10 @@ int OoTItemSoaringRows(const SaveContext* src) {
 void OoTItemFillSoaring(const ComboAddedSongRow& song, ComboItemRow* out) {
     out->group = "Songs";
     out->slotKey = "song_soaring_oot";
-    out->name = "Song of Soaring (OoT)"; // the item table's name (item_list.cpp)
+    // The item table's name (item_list.cpp); under the shared Song of Soaring the song is one item of both games
+    // and drops its "(OoT)" (#1169 XW14, OoTMM's isItemAmbiguous).
+    const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)RG_SONG_OF_SOARING_OOT);
+    out->name = shared != nullptr ? shared : "Song of Soaring (OoT)";
     out->iconKey = "QUEST_SONG_SUN_Vanilla";
     out->iconKeyFaded = "QUEST_SONG_SUN_Vanilla_Faded";
     out->iconAspect = 1.0f / 1.5f; // DrawSong: a note iconSize / 1.5 wide, as the other songs

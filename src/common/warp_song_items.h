@@ -206,6 +206,23 @@ ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool sepa
  */
 const char* Combo_ForeignGameTag(const char* name, uint8_t originGame);
 
+/* ---- A shared warp song's name (#1169 lane XW14) ----------------------------- */
+
+/**
+ * The name a shared warp song's copy is shown by, with no game tag: under its
+ * frozen shared rule the song is ONE item of both games, and OoTMM names it
+ * without "(OoT)" / "(MM)" (generator text.c isItemAmbiguous: a song is ambiguous,
+ * so tagged, only while `!CFG_SHARED_SONG_X && CFG_<ext>`). Returns "Song of
+ * Soaring" or the Ocarina of Time song's own name (Combo_MMWarpSongOoTName,
+ * "Minuet of Forest" ...) when @p nativeId is @p game's (a GameId: 1 OoT, 2 MM)
+ * REGISTERED member of a second-word family the frozen word ARMS
+ * (shared_resources.h); NULL for anything else, so a caller keeps its own name
+ * and tag. A display name only: never a lookup key (the item tables' names and
+ * the foreign-name lookups stay what they are). A site that shows the result
+ * appends no game tag after it. Never touches a member's callbacks.
+ */
+const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId);
+
 #ifdef __cplusplus
 }
 #endif

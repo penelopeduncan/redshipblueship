@@ -760,6 +760,42 @@ TestResult Test_WarpSongTracker(void) {
                        Xw11Count(Xw11Body(mmExports, "static int MM_SharedFamilyLiveProbe(void) {"),
                                  "Context_GetCurrentGame() == GAME_MM && MM_Combo_DepartureIsLiveFile() != 0") == 1,
                    "S13: a live probe does not test its own game running and its own live-file gate");
+        // #1169 XW14: every display site of an item's own name asks the shared
+        // song's plain name first, inside the function that builds the name
+        // (SharedWarpSongsMerge (10) proves the helper and MM's text name).
+        const std::string mmItems = src(kM, "StaticData/Items.cpp");
+        const std::string ootTrackerAdapter = src(kO, "TrackerAdapterSingleExe.cpp");
+        const std::string mmTrackerAdapter = src(kM, "TrackerAdapterSingleExe.cpp");
+        struct NameSite {
+            const std::string* text;
+            const char* head;
+            const char* call;
+        };
+        const NameSite nameSites[] = {
+            { &mmItems, "std::string GetItemName(RandoItemId randoItemId, bool includeArticle) {",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId)" },
+            { &mmTracker, "static std::string ObtainedItemTrackerName(",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)" },
+            { &mmTracker, "static std::string SeenItemTrackerName(",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
+            { &mmTrackerAdapter, "const char* MMTrackerPlacedItemName(const void* save",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
+            { &mmAdapter, "bool MMItemDeriveAddedSong(const SaveContext* src, int index, ComboItemRow* out) {",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)kMMItemAddedSongs[i].rando)" },
+            { &tracker, "static std::string PlacedItemTrackerName(",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT," },
+            { &ootTrackerAdapter, "const char* OoTPlacedItemName(Rando::ItemLocation* loc",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)loc->GetPlacedRandomizerGet())" },
+            { &ootAdapter, "void OoTItemFillSoaring(const ComboAddedSongRow& song, ComboItemRow* out) {",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)RG_SONG_OF_SOARING_OOT)" },
+            { &msgs, "void BuildCustomItemMessage(Player* player, CustomMessage& msg) {",
+              "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
+        };
+        for (const NameSite& n : nameSites) {
+            const std::string body = Xw11Body(*n.text, n.head);
+            XW11_CHECK(!body.empty() && Xw11Count(body, n.call) == 1,
+                       "S14: %s does not ask the shared warp song's plain name once (%s)", n.head, n.call);
+        }
     }
 
     // Put back what this row touched.

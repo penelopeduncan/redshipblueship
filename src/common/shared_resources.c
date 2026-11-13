@@ -19,8 +19,10 @@
 // retired that rule and the kind is never armed now. foreign_items.h is
 // game-header-free too, so this TU stays compilable in the ROM-free harness.
 #include "foreign_items.h"
-#include "triforce_hunt.h" // Combo_TriforceHuntArmed: the O10 kind's arming gate
-#include "shared_items.h"  // #1061: a pack's kind and size, from the item class owner
+#include "triforce_hunt.h"   // Combo_TriforceHuntArmed: the O10 kind's arming gate
+#include "shared_items.h"    // #1061: a pack's kind and size, from the item class owner
+#include "warp_song_items.h" // #1169 XW14: Combo_SharedFamily2DisplayName is declared there
+#include "warp_songs_mm.h"   // #1169 XW14: Combo_MMWarpSongOoTName, a shared song's plain name
 #include <stdio.h>
 #include <string.h>
 
@@ -902,6 +904,27 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
 
 uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game) {
     return IsRealGame(game) ? sFamilies2GivenAtLastApply[game] : 0u;
+}
+
+const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
+    const GameId g = (GameId)game;
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (!IsRealGame(g) || armed2 == 0u) {
+        return NULL; // every world with no shared rule frozen: the names stay
+    }
+    for (int b = 0; b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        const int slot = (int)RSBS_XITEM_BIT_COUNT + b;
+        if ((armed2 & bit) == 0u || !sFamilyMemberSet[g][slot] || sFamilyMembers[g][slot].nativeId != nativeId) {
+            continue;
+        }
+        const uint32_t ext = Combo_ComboItemRule2Requires(bit);
+        if (ext == (uint32_t)RSBS_XITEM2_SONG_SOARING_OOT) {
+            return "Song of Soaring";
+        }
+        return Combo_MMWarpSongOoTName(ext); // NULL for a family that is no warp song
+    }
+    return NULL;
 }
 
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {

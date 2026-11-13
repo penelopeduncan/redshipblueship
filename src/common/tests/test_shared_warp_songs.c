@@ -116,6 +116,10 @@ int OoT_SharedSongsTest_VanillaSongCount(void);
 int MM_PlacementConfinement_WorldCopies(uint16_t id);
 int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp: MM's Items row name (the lookup key) and
+// the name MM's texts and hints show (Rando::StaticData::GetItemName, with article).
+const char* MM_WarpSongsTest_Name(uint16_t ri);
+const char* MM_WarpSongsTest_TextName(uint16_t ri);
 #ifdef __cplusplus
 }
 #endif
@@ -1058,6 +1062,66 @@ TestResult Test_SharedWarpSongsMerge(void) {
         Combo_RegisterSharedLiveProbe(GAME_MM, mmProbe);
         SwsFakeReset();
         SwsRestoreMembers(&saved);
+    }
+
+    // ---- (10) #1169 XW14: a shared song is named without its game -------------------------------
+    // Over both games' REAL registered members. Each leg would fail if the helper
+    // named a song whose shared rule is off (the extension's own "(MM)" / "(OoT)"
+    // name must stay), named the wrong song, or if MM's text name ignored it; and
+    // the Items row's name, a lookup key, must never change.
+    {
+        SwsFreeze(0u, kSwsAll);
+        int wrong = 0;
+        for (int s = 0; s < 7; s++) {
+            const char* oot =
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(s));
+            const char* mm =
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(s));
+            if (oot == NULL || mm == NULL || strcmp(oot, kSwsSongNames[s]) != 0 || strcmp(mm, kSwsSongNames[s]) != 0) {
+                wrong++;
+                printf("[TEST]   (10) the shared %s is named '%s' in OoT and '%s' in MM\n", kSwsSongNames[s],
+                       oot != NULL ? oot : "(null)", mm != NULL ? mm : "(null)");
+            }
+        }
+        SWS_CHECK(wrong == 0, "(10) %d of the seven shared songs are not named by their plain name in both games",
+                  wrong);
+        const uint16_t minuetMM = (uint16_t)MM_SharedWarpSongsTest_PoolId(1);
+        const char* text = MM_WarpSongsTest_TextName(minuetMM);
+        const std::string sharedText = text != NULL ? text : "";
+        SWS_CHECK(
+            sharedText.find("Minuet of Forest") != std::string::npos && sharedText.find("(MM)") == std::string::npos,
+            "(10) under the shared Minuet MM's text name is '%s'; want the song without '(MM)'", sharedText.c_str());
+        const char* key = MM_WarpSongsTest_Name(minuetMM);
+        SWS_CHECK(key != NULL && strcmp(key, "Minuet of Forest (MM)") == 0,
+                  "(10) MM's Items row name moved to '%s': it is a lookup key and must stay 'Minuet of Forest (MM)'",
+                  key != NULL ? key : "(null)");
+        SWS_CHECK(Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, 0x7777u) == NULL &&
+                      Combo_SharedFamily2DisplayName((uint8_t)GAME_NONE, minuetMM) == NULL,
+                  "(10) an id that is no member, or no game, got a shared name");
+
+        SwsFreeze(0u, kSwsExtensions);
+        int named = 0;
+        for (int s = 0; s < 7; s++) {
+            named +=
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(s)) != NULL
+                    ? 1
+                    : 0;
+            named +=
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(s)) != NULL
+                    ? 1
+                    : 0;
+        }
+        const char* extText = MM_WarpSongsTest_TextName(minuetMM);
+        const std::string extensionText = extText != NULL ? extText : "";
+        SWS_CHECK(named == 0 && extensionText.find("Minuet of Forest (MM)") != std::string::npos,
+                  "(10) with the shared rules off %d copies got a shared name, or MM's text name '%s' lost its '(MM)'",
+                  named, extensionText.c_str());
+
+        SwsFreeze(0u, 0x02u | 0x04u | kSwsSharedMinuet);
+        SWS_CHECK(
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(1)) != NULL &&
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(2)) == NULL,
+            "(10) the shared Minuet alone named the Bolero (MM) too, or not the Minuet");
     }
 
     SwsFreeze(0u, 0u);
