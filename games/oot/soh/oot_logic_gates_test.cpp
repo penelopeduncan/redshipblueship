@@ -16,12 +16,26 @@
  * The world is Shuffle Speak ON and Shuffle Grab ON (forced here, restored on
  * exit), so Logic::Reset grants neither ability and each leg says what it holds.
  *
- *  A. Song from Malon (RC_SONG_FROM_MALON): a child with Zelda's Letter and the
- *     Fairy Ocarina, by day, but no Hylian jabber nut, must NOT reach it; with
- *     the nut it must. (SoH c906c71f7.)
- *  B. Talon's chickens (RC_LLR_TALONS_CHICKENS): wallet, nut and letter by day
- *     but no Power Bracelet (Shuffle Grab's grab ability) must NOT reach it; with
- *     the bracelet it must. (SoH 63597ec63, logic half.)
+ *  A. Song from Malon (RC_SONG_FROM_MALON) needs Malon home from the castle
+ *     (LOGIC_MALON_RETURNED_FROM_CASTLE; #1404 / SoH #6938, which replaced the
+ *     Zelda's Letter proxy) and the Hylian jabber nut: a child by day with the
+ *     Fairy Ocarina, the nut and Zelda's Letter but Malon not home must NOT reach
+ *     it; with Malon home and the ocarina but no nut must NOT (SoH c906c71f7);
+ *     with the nut too it must, holding no letter.
+ *  B. Talon's chickens (RC_LLR_TALONS_CHICKENS) need Talon home
+ *     (LOGIC_TALON_RETURNED_FROM_CASTLE, #1404) and the Power Bracelet (Shuffle
+ *     Grab's grab ability): wallet, nut, bracelet and letter by day but Talon not
+ *     home must NOT reach it; Talon home with wallet and nut but no bracelet must
+ *     NOT (SoH 63597ec63, logic half); with the bracelet it must, holding no
+ *     letter. Reaches fires only the probed region's events, so A and B set the
+ *     castle events by hand after the reset.
+ *  HC/RT. Where those two events come from (#1404): in the castle moat a child
+ *     with the Weird Egg and the nut wakes Talon (not without the egg, not
+ *     without the nut, not as an adult), and at the castle gate Talon's return
+ *     plus the nut sends Malon home (neither alone); the moat's drain ledge needs
+ *     Talon's return and the bracelet. At the root, Skip Waking Talon or the
+ *     legacy Skip Child Zelda key sets both events with no egg and no letter;
+ *     Vanilla or Shuffled with the legacy key off sets neither.
  *  C. The four Thieves' Hideout carpenters: a fighter without the nut must NOT
  *     reach a carpenter's check; with the nut the cell's own "could free" event
  *     fires and the check is reached. (SoH 1413ceb33, logic half.)
@@ -256,6 +270,43 @@ int Reaches(RandomizerRegion regionKey, RandomizerCheck rc, bool adult) {
     region->adultDay = saved[2];
     region->adultNight = saved[3];
     return met ? 1 : 0;
+}
+
+/**
+ * One region's own events fired to a fixpoint for one age (day and night), the
+ * way ProcessRegion fires them, with the region current (Logic::ItemUseAllowed
+ * reads its scene). The events that fire stay set in logic for the caller to
+ * read; the region's access is restored.
+ */
+void FireEvents(RandomizerRegion regionKey, bool adult) {
+    Region* region = RegionTable(regionKey);
+    const bool saved[4] = { region->childDay, region->childNight, region->adultDay, region->adultNight };
+    const RandomizerRegion savedRegionKey = logic->CurrentRegionKey;
+    region->childDay = !adult;
+    region->childNight = !adult;
+    region->adultDay = adult;
+    region->adultNight = adult;
+    logic->CurrentRegionKey = regionKey;
+    while (region->UpdateEvents()) {}
+    logic->CurrentRegionKey = savedRegionKey;
+    region->childDay = saved[0];
+    region->childNight = saved[1];
+    region->adultDay = saved[2];
+    region->adultNight = saved[3];
+}
+
+void ExpectEvent(const char* leg, LogicVal event, bool expected, const char* why) {
+    const bool got = logic->Get(event);
+    if (got != expected) {
+        GateFail("%s: %s (expected %s, got %s)", leg, why, expected ? "set" : "unset", got ? "set" : "unset");
+        return;
+    }
+    printf("[TEST]   ok: %s: %s\n", leg, expected ? "set" : "unset");
+}
+
+/** The Weird Egg, the way the search grants it (RAND_INF_WEIRD_EGG). */
+void GiveWeirdEgg() {
+    Give(RG_WEIRD_EGG);
 }
 
 void ExpectAs(bool adult, const char* leg, RandomizerRegion regionKey, RandomizerCheck rc, bool expected,
@@ -1096,11 +1147,120 @@ void RunHealthLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_DMT_SHIELDLESS_CLIMB).Set(savedShieldless);
 }
 
+// ---- #1404: LOGIC_TALON/MALON_RETURNED_FROM_CASTLE, the events A and B read --
+// Each leg fires one region's own events (FireEvents) and reads the event; a
+// "not set" leg holds everything its line asks but the one term it locks.
+void RunReturnedFromCastleLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedWeirdEgg = randoCtx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Get();
+    const uint8_t savedSkipChildZelda = randoCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get();
+    const uint8_t savedDamageBoost = randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Get();
+    // The drain ledge's other way in (castle_grounds.cpp:106) must not be what
+    // opens it; no leg grants explosives either.
+    randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(0);
+
+    // ---- HC: the castle moat wakes Talon (castle_grounds.cpp:96) ------------
+    ResetLogic();
+    GiveWeirdEgg();
+    GiveNut();
+    if (!logic->HasItem(RG_WEIRD_EGG)) {
+        GateFail("HC1 setup: Give(RG_WEIRD_EGG) left HasItem(RG_WEIRD_EGG) false, so the egg legs are vacuous");
+    }
+    FireEvents(RR_HC_MOAT, false);
+    ExpectEvent("HC1 castle moat, child with the Weird Egg and the nut", LOGIC_TALON_RETURNED_FROM_CASTLE, true,
+                "a child who hatches the egg and talks to Talon does not wake him, so the ranch's Talon and Malon "
+                "checks never enter logic");
+    // ---- the castle gate sends Malon home after Talon (castle_grounds.cpp:28)
+    FireEvents(RR_HC_GATE, false);
+    ExpectEvent("HC2 castle gate after HC1, child with the nut", LOGIC_MALON_RETURNED_FROM_CASTLE, true,
+                "Talon woken and the nut do not send Malon home, so Song from Malon never enters logic");
+
+    ResetLogic();
+    GiveNut();
+    FireEvents(RR_HC_MOAT, false);
+    ExpectEvent("HC3 castle moat, child with the nut, no Weird Egg", LOGIC_TALON_RETURNED_FROM_CASTLE, false,
+                "Talon wakes with no egg to hatch a cucco");
+    ResetLogic();
+    GiveWeirdEgg();
+    FireEvents(RR_HC_MOAT, false);
+    ExpectEvent("HC4 castle moat, child with the Weird Egg, no nut", LOGIC_TALON_RETURNED_FROM_CASTLE, false,
+                "Talon goes home for a child who cannot talk to him");
+    ResetLogic();
+    GiveWeirdEgg();
+    GiveNut();
+    FireEvents(RR_HC_MOAT, true);
+    ExpectEvent("HC5 castle moat, adult with the Weird Egg and the nut", LOGIC_TALON_RETURNED_FROM_CASTLE, false,
+                "an adult wakes Talon with the child-only Weird Egg (CanUse(RG_WEIRD_EGG) lost its age term)");
+
+    ResetLogic();
+    logic->Set(LOGIC_TALON_RETURNED_FROM_CASTLE, true);
+    FireEvents(RR_HC_GATE, false);
+    ExpectEvent("HC6 castle gate, child, Talon home, no nut", LOGIC_MALON_RETURNED_FROM_CASTLE, false,
+                "Malon goes home for a child who cannot talk to her");
+    ResetLogic();
+    GiveWeirdEgg();
+    GiveNut();
+    FireEvents(RR_HC_GATE, false);
+    ExpectEvent("HC7 castle gate, child with the egg and the nut, Talon not woken", LOGIC_MALON_RETURNED_FROM_CASTLE,
+                false, "Malon goes home before Talon is woken");
+
+    // ---- the moat's drain ledge needs Talon woken and the bracelet (:106) ---
+    ResetLogic();
+    GiveGrab();
+    ExpectExit("HC8 castle moat to drain ledge, child with the bracelet, Talon not woken", RR_HC_MOAT,
+               RR_HC_DRAIN_LEDGE, false, false,
+               "the drain ledge opens while Talon still sleeps on the crates (damage-boost trick off)");
+    ResetLogic();
+    logic->Set(LOGIC_TALON_RETURNED_FROM_CASTLE, true);
+    ExpectExit("HC9 castle moat to drain ledge, child, Talon woken, no bracelet", RR_HC_MOAT, RR_HC_DRAIN_LEDGE, false,
+               false, "the drain ledge opens for a child who cannot push the milk crates");
+    GiveGrab();
+    ExpectExit("HC10 castle moat to drain ledge, child, Talon woken, bracelet", RR_HC_MOAT, RR_HC_DRAIN_LEDGE, false,
+               true, "a child with Talon woken and the bracelet cannot reach the drain ledge on the way to Zelda");
+
+    // ---- RT: the root's starting events (root.cpp:29 Malon, :30 Talon) -----
+    struct RootCase {
+        const char* name;
+        uint8_t weirdEgg;
+        uint8_t skipChildZelda;
+        bool expected;
+        const char* why;
+    };
+    const RootCase rootCases[] = {
+        { "RT1 root, Skip Waking Talon, Skip Child Zelda off, no egg, no letter", RO_WEIRD_EGG_SKIP_TALON, 0, true,
+          "Skip Waking Talon does not start the file with Talon and Malon home" },
+        { "RT2 root, Weird Egg Vanilla, Skip Child Zelda off", RO_WEIRD_EGG_VANILLA, 0, false,
+          "Talon and Malon start home on a file that must wake Talon" },
+        { "RT3 root, Weird Egg Shuffled, Skip Child Zelda off", RO_WEIRD_EGG_SHUFFLED, 0, false,
+          "Talon and Malon start home on a file with the egg shuffled" },
+        { "RT4 root, Weird Egg Vanilla, legacy Skip Child Zelda on", RO_WEIRD_EGG_VANILLA, 1, true,
+          "the legacy Skip Child Zelda key (whose creation wakes Talon) no longer starts Talon and Malon home" },
+    };
+    for (const RootCase& rootCase : rootCases) {
+        char leg[128];
+        randoCtx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Set(rootCase.weirdEgg);
+        randoCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(rootCase.skipChildZelda);
+        ResetLogic();
+        if (logic->HasItem(RG_WEIRD_EGG) || logic->HasItem(RG_ZELDAS_LETTER)) {
+            GateFail("%s setup: Logic::Reset granted the egg or the letter", rootCase.name);
+        }
+        FireEvents(RR_ROOT, false);
+        snprintf(leg, sizeof(leg), "%s: Talon", rootCase.name);
+        ExpectEvent(leg, LOGIC_TALON_RETURNED_FROM_CASTLE, rootCase.expected, rootCase.why);
+        snprintf(leg, sizeof(leg), "%s: Malon", rootCase.name);
+        ExpectEvent(leg, LOGIC_MALON_RETURNED_FROM_CASTLE, rootCase.expected, rootCase.why);
+    }
+
+    randoCtx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Set(savedWeirdEgg);
+    randoCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(savedSkipChildZelda);
+    randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(savedDamageBoost);
+}
+
 } // namespace
 
 extern "C" int OoT_LogicGates_RunHeadless(void) {
     printf("[TEST] oot-logic-gates: Song from Malon, Talon's chickens, the Thieves' Hideout carpenters and the carpet "
-           "merchant need what the game needs (#1168)\n");
+           "merchant need what the game needs, and Talon and Malon come home from the castle the way the game sends "
+           "them (#1168, #1404)\n");
     sFailures = 0;
 
     // The same fallback Rando_HeadlessSeedTest uses when the bring-up did not
@@ -1137,26 +1297,49 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     const bool savedDay = logic->AtDay;
     const bool savedNight = logic->AtNight;
 
-    // ---- A: Song from Malon needs the Hylian jabber nut (SoH c906c71f7) ----
+    // ---- A: Song from Malon needs Malon home (#1404, SoH #6938) and the Hylian
+    // jabber nut (SoH c906c71f7), lon_lon_ranch.cpp's RC_SONG_FROM_MALON row.
+    // Reaches fires only the ranch's own events, so the castle event is set by
+    // hand, after the reset (Logic::Reset clears every event).
     ResetLogic();
-    GiveZeldasLetter();
     GiveFairyOcarina();
-    Expect("A1 Song from Malon, no jabber nut", RR_LON_LON_RANCH, RC_SONG_FROM_MALON, false,
+    GiveNut();
+    GiveZeldasLetter();
+    Expect("A0 Song from Malon, ocarina, nut and Zelda's Letter, Malon not home", RR_LON_LON_RANCH, RC_SONG_FROM_MALON,
+           false,
+           "Malon teaches her song at the ranch while she is still at the castle: the letter alone opens it (#1404)");
+    ResetLogic();
+    logic->Set(LOGIC_MALON_RETURNED_FROM_CASTLE, true);
+    GiveFairyOcarina();
+    Expect("A1 Song from Malon, Malon home, ocarina, no jabber nut", RR_LON_LON_RANCH, RC_SONG_FROM_MALON, false,
            "Malon teaches her song to a child who cannot talk to her (#1168)");
     GiveNut();
-    Expect("A2 Song from Malon, with the jabber nut", RR_LON_LON_RANCH, RC_SONG_FROM_MALON, true,
-           "a child with the letter, the ocarina and the nut cannot get Malon's song");
+    Expect("A2 Song from Malon, Malon home, ocarina and nut, no letter", RR_LON_LON_RANCH, RC_SONG_FROM_MALON, true,
+           "a child with Malon home, the ocarina and the nut cannot get Malon's song");
 
-    // ---- B: Talon's chickens need the Power Bracelet (SoH 63597ec63) -------
+    // ---- B: Talon's chickens need Talon home (#1404) and the Power Bracelet
+    // (SoH 63597ec63), lon_lon_ranch.cpp's RC_LLR_TALONS_CHICKENS row --------
     ResetLogic();
     GiveChildWallet();
     GiveNut();
-    GiveZeldasLetter();
-    Expect("B1 Talon's chickens, no Power Bracelet", RR_LLR_TALONS_HOUSE, RC_LLR_TALONS_CHICKENS, false,
-           "the cucco game is in logic for a child who cannot pick up a cucco");
     GiveGrab();
-    Expect("B2 Talon's chickens, with the Power Bracelet", RR_LLR_TALONS_HOUSE, RC_LLR_TALONS_CHICKENS, true,
-           "a child with wallet, nut, letter and bracelet cannot play the cucco game");
+    GiveZeldasLetter();
+    Expect("B0 Talon's chickens, wallet, nut, bracelet and Zelda's Letter, Talon not home", RR_LLR_TALONS_HOUSE,
+           RC_LLR_TALONS_CHICKENS, false,
+           "the cucco game is in logic while Talon is still asleep at the castle: the letter alone opens it (#1404)");
+    ResetLogic();
+    logic->Set(LOGIC_TALON_RETURNED_FROM_CASTLE, true);
+    GiveChildWallet();
+    GiveNut();
+    Expect("B1 Talon's chickens, Talon home, wallet and nut, no Power Bracelet", RR_LLR_TALONS_HOUSE,
+           RC_LLR_TALONS_CHICKENS, false, "the cucco game is in logic for a child who cannot pick up a cucco");
+    GiveGrab();
+    Expect("B2 Talon's chickens, Talon home, wallet, nut and bracelet, no letter", RR_LLR_TALONS_HOUSE,
+           RC_LLR_TALONS_CHICKENS, true,
+           "a child with Talon home, wallet, nut and bracelet cannot play the cucco game");
+
+    // ---- HC/RT: where Malon's and Talon's returns come from (#1404) ---------
+    RunReturnedFromCastleLegs(randoCtx);
 
     // ---- C: each carpenter needs the cell's "could free" event (SoH 1413ceb33)
     for (const Carpenter& carpenter : kCarpenters) {
