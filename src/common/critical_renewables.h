@@ -133,7 +133,8 @@ extern "C" {
  *   hostRenews       1 when check @p hostCheck, holding one of THIS game's items,
  *                    gives it again when the player comes back; 0 otherwise. For
  *                    a host whose answer depends on what it holds (an OoT shelf
- *                    renews only its vanilla stock), the answer is about what it
+ *                    renews its vanilla stock or an item OoTMM restocks, never
+ *                    a Majora's Mask item it hosts), the answer is about what it
  *                    holds NOW, and an empty host answers for a shuffled item.
  *   kindsRenewedNow  the kinds (bit k = kind k) this game ALREADY renews from
  *                    what stands in its world: vanilla renewable checks the fill

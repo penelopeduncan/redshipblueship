@@ -3593,7 +3593,7 @@ int CritRenewCreate(const char* ootSeed, bool shuffled) {
     if (OoT_ComboLogic_CriticalRenewablesWorld(&ootPresent, &ootRenewed, &shelves) != 0) {
         return 31;
     }
-    fprintf(stderr, "[MM-CRIT-RENEW] %s world: OoT kinds present %02X, renewed %02X by %d vanilla shelves\n", tag,
+    fprintf(stderr, "[MM-CRIT-RENEW] %s world: OoT kinds present %02X, renewed %02X by %d renewing shelves\n", tag,
             (unsigned)ootPresent, (unsigned)ootRenewed, shelves);
     if (ootRenewed != kCritOoTAll || shelves <= 0) {
         fprintf(stderr,

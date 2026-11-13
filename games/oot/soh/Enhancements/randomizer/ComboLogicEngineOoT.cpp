@@ -3004,9 +3004,10 @@ extern "C" int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint
 /**
  * OoT'S REMAINDER HALF of the rule (All Locations only): before the traps and the
  * junk are dealt, the first copy of each OoT kind not yet renewed goes on an empty
- * OoT host that renews it. In every world SoH can build there is no such kind
- * (both shields are on vanilla shelves, see the source above) and no empty host
- * renews, so this places nothing and draws nothing; it is here so the rule holds
+ * OoT host that renews it (since #1547 an empty OoT shop shelf does, unless it
+ * hosts a Majora's Mask item). In every world SoH can build there is no such
+ * kind (both shields are on vanilla shelves, see the source above), so this
+ * places nothing and draws nothing; it is here so the rule holds
  * in OoT's pass by construction and not only by that fact, and it says so loudly
  * if the fact ever stops holding.
  * @return the number of copies placed.

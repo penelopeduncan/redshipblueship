@@ -22,7 +22,8 @@
  *      nothing and is sold out once bought, whatever the OoT table holds there
  *      (the crossing store delivers once). Catches the restock predicate losing
  *      its foreign-host guard.
- *   B/C, THE SALE (steps 6 to 14, both modes). The shelf's CanBuy decision
+ *   B/C, THE SALE (steps 6 to 20, both modes; 15-20 are the #1547 bottle
+ *      shelves, see ShopRestockSaleLeg). The shelf's CanBuy decision
  *      (OoT_Rando_ShopRestockBuyState, which EnGirlA_CanBuy_Randomizer asks) and
  *      the sale itself (OoT_Rando_ShopRestockSell, which
  *      EnGirlA_ItemGive_Randomizer asks), on the live save, put back byte for
@@ -38,6 +39,16 @@
  *   D. NOTHING TO ADD. Deku Nuts at capacity, a Recovery Heart at full health and
  *      Bombchus at 50 refuse a restocked sale, one short they do not, and a
  *      shield never does. Catches a restocked sale charging for nothing.
+ *   E. THE OFFER TEXT (#1547). A restocking shelf's offer omits "ONE LEFT!", a
+ *      sell-out or foreign-hosted shelf keeps it (Mysterious Shuffle keeps it
+ *      until bought), a bought potion or milk bottle shelf names the refill, and
+ *      BuildShopMessage's own text id path reads the shelf's bought flag from
+ *      the live save.
+ *   F. THE FILL AND LOGIC CREDIT (#1482 section 2, #1547). OoTCritHostRenews
+ *      renews an empty shelf, a vanilla row or a restocking item, never a chest,
+ *      RG_SOLD_OUT or a shelf hosting a Majora's Mask item (run in both modes);
+ *      Logic::ApplyItemEffect credits a renewable only on a shop shelf, and
+ *      GetAccessibleLocationsStruct::InitLoop keys each location it applies.
  *
  * What this row does NOT drive: the actors themselves (they need a PlayState and
  * a loaded shop scene). Each actor call site is one call into the functions
