@@ -1252,8 +1252,8 @@ static bool SyncFileToDisk(FILE* fp) {
 #endif
 }
 
-static bool WriteFileSafely(const std::filesystem::path& filePath, const std::filesystem::path& tempFilePath,
-                            const std::string& content) {
+bool SaveManager::WriteFileSafely(const std::filesystem::path& filePath, const std::filesystem::path& tempFilePath,
+                                  const std::string& content) {
     std::error_code ec;
     if (std::filesystem::exists(tempFilePath, ec)) {
         std::filesystem::remove(tempFilePath, ec);
