@@ -6664,6 +6664,17 @@ static TestResult Test_PresetsSkipNonJson(void) {
     return Soh_PresetsSkipNonJson_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/soh_write_file_safely_test.cpp (#1467 item 2):
+// SaveManager::WriteFileSafely, Presets_WriteFile and
+// Plandomizer_WriteSpoilerFile write atomically via <target>.tmp and leave the
+// target intact when the temp path cannot be opened. No bring-up: the helpers
+// read no CVars or Ship::Context.
+extern "C" int Soh_WriteFileSafelyWriters_RunHeadless(void);
+
+static TestResult Test_WriteFileSafelyWriters(void) {
+    return Soh_WriteFileSafelyWriters_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's presentation half. Same display-free shared bring-up as the row above,
 // for the same reason: AddMenuCombo registers rows whose PreFuncs and option
 // defaults read the Ship::Context singleton's ConsoleVariables, and this row also
@@ -10423,6 +10434,9 @@ const TestDescriptor gTests[] = {
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
+    { "write-file-safely-writers",
+      "WriteFileSafely, Presets and Plandomizer write via temp+rename and keep target on failure (#1467)",
+      Test_WriteFileSafelyWriters },
     { "rando-presets-follow-defaults",
       "The shipped Standard and Beginner presets pin no option whose default the D wave moved to OoTMM's, and "
       "reset the paired profile (operator ruling 2026-11-05)",

@@ -193,6 +193,7 @@ games/oot/soh/SohGui/HostedMm/
 games/oot/soh/soh_menu_capability_test.cpp
 games/oot/soh/soh_menu_combo_section_test.cpp
 games/oot/soh/soh_presets_folder_test.cpp
+games/oot/soh/soh_write_file_safely_test.cpp
 games/oot/soh/oot_windows_gate_test.cpp
 games/oot/soh/SohGui/OoTActiveGated.h
 games/oot/soh/SohGui/SohRetiredWindow.h
