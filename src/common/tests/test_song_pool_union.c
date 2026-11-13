@@ -50,14 +50,17 @@
  * like its neighbours. Helpers carry the Spu prefix.
  */
 
+#include "../combo_hint_view.h"
 #include "../combo_logic.h"
 #include "../combo_settings_view.h"
 #include "../combo_single_bag.h"
 #include "../combo_song_pool.h"
 #include "../context.h"
+#include "../critical_renewables.h"
 #include "../crossing_store.h"
 #include "../foreign_items.h"
 #include "../test_runner.h"
+#include "test_named_items.h"
 
 #include <cstdio>
 #include <cstring>
@@ -84,6 +87,16 @@ void MM_ComboLogic_TestSongCheckContents(int* outSongs, int* outCrossedSongs, in
                                          int* outSkipped, int* outNotShuffled);
 void MM_ComboLogic_TestSongGroupCensus(int* outSongItems, int* outWideItems, int* outMixed, int* outWideSongChecks,
                                        int* outWideOtherChecks);
+int OoT_SharedSongsTest_WorldCopies(int rg);
+int MM_PlacementConfinement_WorldCopies(uint16_t id);
+int OoT_SharedWarpSongsTest_LinksPocket(void);
+int OoT_Fill_TestSongHeldForBag(uint16_t rg);
+int OoT_SharedWarpSongsTest_UnsharedSongId(void);
+void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem);
+int OoT_Combo_SetHintingSuspendedWorld(int on);
+int Rando_TestCheckLoadedCrossingHostHints(int* outProbes, int* outStones);
+int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap);
+int MM_HintArea_TestItemLocationText(uint16_t randoItemId, const char* tmpl, const char* key, char* out, int cap);
 }
 
 namespace {
@@ -105,6 +118,9 @@ struct SpuKeys {
     ~SpuKeys() {
         CVarClear(RSBS_OOT_SHUFFLE_SONGS_CVAR);
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_LOGIC));
+        CVarClear("gRandoSettings.LinksPocket");
+        Combo_Logic_TestSetForcedPlacements(nullptr, 0);
+        OoT_Combo_SetHintingSuspendedWorld(0);
         Combo_SongHostsForceForTest(-1);
         Combo_SingleBag_Forget();
         ComboContext_Init();
@@ -181,6 +197,66 @@ SpuWorld SpuGenerate(const char* seed, int songs, int rung, int forced, bool fin
                w.mmOther, w.mmSkipped, w.mmNotShuffled, w.ootJunked, w.ootPadded, w.mmJunked, w.mmPadded);
     }
     return w;
+}
+
+/**
+ * Census of all 22 distinct songs of the profile across both games: asserts every
+ * OoT song (12) and every MM song (10) has exactly one placed copy total over
+ * both games' checks and the crossing store. Returns 22 on success, or a negative
+ * code on failure.
+ */
+int SpuCensusPlacedSongs(void) {
+    int ootSongCount = 0;
+    for (uint16_t id = 1; id < 5000; ++id) {
+        if (OoT_ComboLogic_TestIsSongItem(id) == 0) {
+            continue;
+        }
+        ootSongCount++;
+        int copies = OoT_SharedSongsTest_WorldCopies((int)id);
+        for (int i = 0; i < Combo_Crossings_Count(GAME_MM); ++i) {
+            ComboCrossing c;
+            if (Combo_Crossings_At(GAME_MM, i, &c) && c.item.originGame == (uint8_t)GAME_OOT && c.item.id == id) {
+                copies++;
+            }
+        }
+        if (copies != 1) {
+            printf("[TEST]   OoT song %u has %d copies across both games\n", (unsigned)id, copies);
+            return -1;
+        }
+    }
+    if (ootSongCount != 12) {
+        printf("[TEST]   found %d OoT songs in item table, want 12\n", ootSongCount);
+        return -2;
+    }
+
+    int mmSongCount = 0;
+    for (uint16_t id = 1; id < 5000; ++id) {
+        if (!MM_ComboLogic_IsPairSongItem(id)) {
+            continue;
+        }
+        const int mmCopies = MM_PlacementConfinement_WorldCopies(id);
+        int ootCrossCopies = 0;
+        for (int i = 0; i < Combo_Crossings_Count(GAME_OOT); ++i) {
+            ComboCrossing c;
+            if (Combo_Crossings_At(GAME_OOT, i, &c) && c.item.originGame == (uint8_t)GAME_MM && c.item.id == id) {
+                ootCrossCopies++;
+            }
+        }
+        const int total = mmCopies + ootCrossCopies;
+        if (total > 0) {
+            mmSongCount++;
+            if (total != 1) {
+                printf("[TEST]   MM song %u has %d copies across both games (%d MM, %d OoT crossing)\n", (unsigned)id,
+                       total, mmCopies, ootCrossCopies);
+                return -3;
+            }
+        }
+    }
+    if (mmSongCount != 10) {
+        printf("[TEST]   found %d placed MM songs, want 10\n", mmSongCount);
+        return -4;
+    }
+    return 22;
 }
 
 } // namespace
@@ -291,5 +367,208 @@ TestResult SongPoolAnywhereUnconfined_Run(void) {
               on.unionArmed ? 1 : 0, off.unionArmed ? 1 : 0, (unsigned)on.bag.exclusiveGroups,
               (unsigned)off.bag.exclusiveGroups, (unsigned)on.placementDigest, (unsigned)off.placementDigest);
     printf("[TEST] song-pool-anywhere-unconfined: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
+    return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+TestResult SongPoolCrossesBothWays_Run(void) {
+    printf("[TEST] song-pool-crosses-both-ways: under Song Locations crossings occur in both directions across seeds, "
+           "and every song is placed exactly once (#1549 owed from #1546)\n");
+    sSpuFailures = 0;
+    SpuKeys keys;
+    const char* seeds[] = {
+        "RSBSSONGPOOLCBW1",
+        "RSBSSONGPOOLCBW2",
+        "RSBSSONGPOOLCBW3",
+    };
+    int totalCrossedOoT = 0;
+    int totalCrossedMM = 0;
+    for (const char* seed : seeds) {
+        const SpuWorld w = SpuGenerate(seed, -1, -1, -1, true);
+        SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+        if (!w.generated) {
+            continue;
+        }
+        SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
+                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
+        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
+                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
+                  w.bag.fill.goalProven ? 1 : 0);
+        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
+                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+        const int junk = w.ootJunk + w.mmJunk;
+        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
+                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+        SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
+        const int census = SpuCensusPlacedSongs();
+        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+        totalCrossedOoT += w.ootCrossed;
+        totalCrossedMM += w.mmCrossed;
+    }
+    SPU_CHECK(totalCrossedOoT > 0, "no seed placed an MM song on an OoT song check (total %d)\n", totalCrossedOoT);
+    SPU_CHECK(totalCrossedMM > 0, "no seed placed an OoT song on an MM song check (total %d)\n", totalCrossedMM);
+    printf("[TEST] song-pool-crosses-both-ways: %d crossed into OoT, %d crossed into MM; %s\n",
+           totalCrossedOoT, totalCrossedMM, sSpuFailures == 0 ? "PASS" : "FAIL");
+    return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+TestResult SongPoolPocketAdvancement_Run(void) {
+    printf("[TEST] song-pool-pocket-advancement: with Link's Pocket set to Advancement, songs are held for the bag, "
+           "pocket holds no song, and row/host counts still agree (#1549 owed from #1546)\n");
+    sSpuFailures = 0;
+    SpuKeys keys;
+    CVarSetInteger("gRandoSettings.LinksPocket", 1);
+    const char* seed = "RSBSSONGPOCKETADV";
+    const SpuWorld w = SpuGenerate(seed, -1, -1, -1, true);
+    SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+    if (w.generated) {
+        SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
+                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
+        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
+                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
+                  w.bag.fill.goalProven ? 1 : 0);
+        SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
+        const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+        SPU_CHECK(pocketItem > 0 && OoT_ComboLogic_TestIsSongItem((uint16_t)pocketItem) == 0,
+                  "%s: Link's Pocket item %d is not an advancement item or is a song\n", seed, pocketItem);
+        const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
+        SPU_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == 1,
+                  "Link's Pocket song exclusion did not hold unshared song %d for bag\n", unshared);
+        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
+                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+        const int junk = w.ootJunk + w.mmJunk;
+        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
+                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+        SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
+                  "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
+                  w.ootPadded, w.mmPadded);
+        const int census = SpuCensusPlacedSongs();
+        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+    }
+    printf("[TEST] song-pool-pocket-advancement: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
+    return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+TestResult SongPoolAllLocations_Run(void) {
+    printf("[TEST] song-pool-all-locations: under All Locations critical renewables rule is armed, and the leftover "
+           "song check never holds a pending critical renewable first copy (#1549 owed from #1546)\n");
+    sSpuFailures = 0;
+    SpuKeys keys;
+    const char* seed = "RSBSSONGALR1";
+    const SpuWorld w = SpuGenerate(seed, -1, (int)RSBS_COMBO_RUNG_ALL_REACHABLE, -1, true);
+    SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+    if (w.generated) {
+        SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
+                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
+        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
+                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
+                  w.bag.fill.goalProven ? 1 : 0);
+        SPU_CHECK(Combo_CriticalRenewablesArmed((uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE),
+                  "critical renewables rule was not armed under All Locations\n");
+        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
+                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+        const int junk = w.ootJunk + w.mmJunk;
+        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
+                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+        SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
+                  "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
+                  w.ootPadded, w.mmPadded);
+        const int census = SpuCensusPlacedSongs();
+        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+    }
+    printf("[TEST] song-pool-all-locations: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
+    return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+TestResult SongPoolCrossedHints_Run(void) {
+    printf("[TEST] song-pool-crossed-hints: hint text for a crossed song names the right game's check, and Song of "
+           "Time reveal text names the crossed song (#1549 owed from #1546)\n");
+    sSpuFailures = 0;
+    SpuKeys keys;
+    SPU_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available\n");
+
+    uint16_t rcSongOfTime = 0;
+    uint16_t rcSheikForest = 0;
+    for (int rc = 1; rc < OoT_ComboLogic_TestCheckIdSpace(); ++rc) {
+        const int idx = OoT_ComboLogic_TestSongCheckIndex((uint16_t)rc);
+        if (idx == RSBS_SONG_CHECK_OOT_OCARINA_OF_TIME) {
+            rcSongOfTime = (uint16_t)rc;
+        } else if (idx == RSBS_SONG_CHECK_OOT_SHEIK_FOREST) {
+            rcSheikForest = (uint16_t)rc;
+        }
+    }
+    SPU_CHECK(rcSongOfTime != 0 && rcSheikForest != 0, "could not find OoT song check IDs\n");
+
+    SharedItem mmSonata;
+    SharedItem mmOath;
+    SharedItem ootLullaby;
+    SPU_CHECK(TestNamedItem((uint8_t)GAME_MM, "Sonata of Awakening", &mmSonata), "MM Sonata of Awakening not found\n");
+    SPU_CHECK(TestNamedItem((uint8_t)GAME_MM, "Oath to Order", &mmOath), "MM Oath to Order not found\n");
+    SPU_CHECK(TestNamedItem((uint8_t)GAME_OOT, "Zelda's Lullaby", &ootLullaby), "OoT Zelda's Lullaby not found\n");
+
+    uint16_t mmHealingCheck = 0;
+    uint16_t mmSonataId = 0;
+    MM_IntSongHost_PinIds(&mmHealingCheck, &mmSonataId);
+
+    ComboLogicForcedPlacement forced[3];
+    std::memset(forced, 0, sizeof(forced));
+    // 0: Sonata of Awakening on OoT's Song of Time check
+    forced[0].hostGame = (uint8_t)GAME_OOT;
+    forced[0].hostCheck = rcSongOfTime;
+    forced[0].item.originGame = (uint8_t)GAME_MM;
+    forced[0].item.id = mmSonata.id;
+    // 1: Oath to Order on OoT's Sacred Forest Meadow check
+    forced[1].hostGame = (uint8_t)GAME_OOT;
+    forced[1].hostCheck = rcSheikForest;
+    forced[1].item.originGame = (uint8_t)GAME_MM;
+    forced[1].item.id = mmOath.id;
+    // 2: Zelda's Lullaby on MM's starting Song of Healing check
+    forced[2].hostGame = (uint8_t)GAME_MM;
+    forced[2].hostCheck = mmHealingCheck;
+    forced[2].item.originGame = (uint8_t)GAME_OOT;
+    forced[2].item.id = ootLullaby.id;
+
+    SPU_CHECK(Combo_Logic_TestSetForcedPlacements(forced, 3) == 3, "failed to set forced placements\n");
+
+    const char* seed = "RSBSSONGHINTS1";
+    const SpuWorld w = SpuGenerate(seed, -1, -1, -1, true);
+    SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+    if (w.generated) {
+        // Arm the loaded-file hinting gate for the completed world
+        const int wasSuspended = OoT_Combo_SetHintingSuspendedWorld(1);
+
+        // (a) OoT crossing host hints: gossip stones and loaded hints (including Song of Time)
+        int probes = 0;
+        int stones = 0;
+        const int hintFailures = Rando_TestCheckLoadedCrossingHostHints(&probes, &stones);
+        SPU_CHECK(hintFailures == 0 && probes > 0 && stones > 0,
+                  "OoT crossing host hints failed: %d failures, %d probes, %d loaded hints\n", hintFailures, probes,
+                  stones);
+
+        // (b) MM Skull Kid Oath to Order hint names OoT's Sacred Forest Meadow area
+        char oathBuf[512];
+        std::memset(oathBuf, 0, sizeof(oathBuf));
+        const int oathLen = MM_HintSources_TestLegacyFixedText(RSBS_MM_HINT_SRC_OATH, oathBuf, (int)sizeof(oathBuf));
+        SPU_CHECK(oathLen > 0, "MM Oath hint returned length %d\n", oathLen);
+        SPU_CHECK(std::strstr(oathBuf, "Sacred Forest Meadow") != nullptr,
+                  "MM Oath hint text does not name Sacred Forest Meadow: \"%s\"\n", oathBuf);
+
+        // (c) MM HintArea location text helper names Sacred Forest Meadow for Oath to Order
+        char areaBuf[256];
+        std::memset(areaBuf, 0, sizeof(areaBuf));
+        const int areaLen = MM_HintArea_TestItemLocationText(mmOath.id, "Giants at {{location}}", "{{location}}",
+                                                            areaBuf, (int)sizeof(areaBuf));
+        SPU_CHECK(areaLen > 0 && std::strstr(areaBuf, "Sacred Forest Meadow") != nullptr,
+                  "MM HintArea did not name Sacred Forest Meadow for crossed Oath: \"%s\"\n", areaBuf);
+
+        OoT_Combo_SetHintingSuspendedWorld(wasSuspended);
+    }
+    Combo_Logic_TestSetForcedPlacements(nullptr, 0);
+    printf("[TEST] song-pool-crossed-hints: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
     return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
 }

@@ -3793,6 +3793,22 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolCrossesBothWays COMMAND redship --test song-pool-crosses-both-ways
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolPocketAdvancement COMMAND redship --test song-pool-pocket-advancement
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolAllLocations COMMAND redship --test song-pool-all-locations
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolCrossedHints COMMAND redship --test song-pool-crossed-hints
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
     # songMinuetMm .. songPreludeMm, hidden until IntMMWarpSongMinuet, XW12). MMWarpSongsItems: the
     # ownership byte carved from the tail of ComboContext's reserved[] (1003,
