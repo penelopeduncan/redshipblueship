@@ -735,6 +735,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
         OoT_SharedWarpSongsTest_SetHeld(s, 1);
         OoT_HarvestSharedResources();
         const uint32_t afterOoT = Combo_SharedFamilies2Owned();
+        // OoT's give record belongs to OoT's last apply (an earlier song's leg):
+        // MM's apply must leave it exactly as it was.
+        const uint32_t ootGivenBefore = Combo_SharedFamilies2GivenAtLastApply(GAME_OOT);
         MM_SharedSwordTest_ArmLive();
         MM_ApplySharedResources();
         printf("[TEST] (1) %s OoT -> MM: pool %08X, MM holds %d of 7 (this one %d)\n", kSwsSongNames[s],
@@ -745,17 +748,20 @@ TestResult Test_SharedWarpSongsMerge(void) {
         SWS_CHECK(MM_SharedWarpSongsTest_Held(s) == 1 && SwsHeldCount(true) == 1,
                   "(1) MM's apply did not give MM the %s alone", kSwsSongNames[s]);
         // #1169 XW14: the apply's give record (IntMMWarpSongMinuetShared reads it).
-        // Catches a record that is never written, or written for a family not given.
+        // Catches a record that is never written, written for a family not given, or
+        // written to the other game's record.
         SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == SwsSharedBitOf(s) &&
-                      Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == 0u,
+                      Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == ootGivenBefore,
                   "(1) after MM's arrival apply gave the %s the give record reads MM %08X, OoT %08X; want MM %08X "
-                  "alone",
+                  "and OoT's left at %08X",
                   kSwsSongNames[s], (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM),
-                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s));
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s),
+                  (unsigned)ootGivenBefore);
         // A second apply owes nothing: the record is cleared at the top of every
         // apply. Catches a record that only accumulates (a stale bit would let the
-        // integration row pass on an earlier arrival's give).
-        MM_SharedSwordTest_ArmLive();
+        // integration row pass on an earlier arrival's give). MM's save is NOT
+        // re-armed here: arming zeroes it, which would take MM's own Song of
+        // Soaring away again and make this apply owe it a second time.
         MM_ApplySharedResources();
         SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u,
                   "(1) an MM apply that gave nothing left the give record at %08X (not cleared per call)",
