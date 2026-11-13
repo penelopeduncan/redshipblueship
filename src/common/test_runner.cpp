@@ -11061,7 +11061,7 @@ const TestDescriptor gTests[] = {
     { "combo-warp-song-world",
       "A real paired creation with one warp-song rule on through its key places exactly one copy, proves the world "
       "beatable with its travel credited and freezes the warp-song record; under Shuffle Songs Off the Song of "
-      "Soaring (OoT) roams (#1169)",
+      "Soaring (OoT) roams and the shared Song of Soaring stays on its own check, credited to both games (#1169)",
       Test_ComboWarpSongWorld },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).

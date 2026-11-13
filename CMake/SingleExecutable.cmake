@@ -3897,13 +3897,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # credits the song's travel (for Soaring, a second round with MM's own Song of
     # Soaring forbidden shows MM's crawl reading the fact at the owl landings); the
     # Minuet world freezes a PRESENT warp-song record; under Shuffle Songs Off the
-    # Song of Soaring (OoT) arms OoT's songs to roam (D5). Not asserted: where the
-    # fill needed the song (seed-specific) and the row's bag disposition.
-    # `rando`, three paired generations (on the --test all skip list).
+    # Song of Soaring (OoT) arms OoT's songs to roam (D5); and (#1169 XW15, F4) under
+    # Off the SHARED Song of Soaring stays on MM's own swamp check, no row carries
+    # it, and the exit round credits it to OoT through the fixed shared credit. Not
+    # asserted: where the fill needed the song (seed-specific) and the row's bag
+    # disposition. `rando`, four paired generations (on the --test all skip list).
     # games/mm/2s2h/mm_warp_travel_test.cpp.
     redship_add_test(NAME ComboWarpSongWorld COMMAND redship --test combo-warp-song-world
         LABEL rando
-        TIMEOUT 900
+        TIMEOUT 1200
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OoTWarpSongRecord: the creation's warp-song record over real paired creations
     # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at
