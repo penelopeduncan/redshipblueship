@@ -2065,6 +2065,60 @@ TestResult Test_ComboLogicFill(void) {
         CL_ASSERT(
             rcSurplus != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
             "discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not fail with HOME_CAPACITY (surplus may drop)");
+
+        // Discriminating (the HOME_ONLY filter): H MM HOME_ONLY rows plus one MM
+        // REQUIRED row that may cross, on H MM hosts with OoT roomy. The crossable
+        // row can land in OoT, so MM is not short; counting it would refuse a world
+        // that fills. An attempt must run (attempts 1 under `none`).
+        {
+            ComboLogicBagItem crossBag[4];
+            for (int i = 0; i < H; ++i) {
+                crossBag[i] = bag[i];
+                crossBag[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            crossBag[H] = ClBagItem((uint8_t)GAME_MM, kMmMask, RSBS_ITEMCLASS_PROGRESSION); // not HOME_ONLY
+            ClBuildWideHostWorld(4, H);
+            memset(&res, 0, sizeof(res));
+            const int rcCross =
+                ClRunFill(crossBag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcCross != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.attempts == 1,
+                      "discriminating: a REQUIRED row that may cross is never counted against its origin's hosts");
+        }
+
+        // Discriminating (the origin filter): OoT's HOME_ONLY rows exactly fill
+        // OoT's hosts while MM's exactly fill MM's. Charging one game's rows to the
+        // other refuses this world, which fills.
+        {
+            ComboLogicBagItem both[5];
+            both[0] = ClBagItem((uint8_t)GAME_OOT, kOotHook, RSBS_ITEMCLASS_PROGRESSION);
+            both[1] = ClBagItem((uint8_t)GAME_OOT, kOotLens, RSBS_ITEMCLASS_PROGRESSION);
+            both[0].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            both[1].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            for (int i = 0; i < H; ++i) {
+                both[2 + i] = bag[i];
+                both[2 + i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            ClBuildWideHostWorld(2, H);
+            memset(&res, 0, sizeof(res));
+            const int rcBoth =
+                ClRunFill(both, 2 + H, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcBoth != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.attempts == 1,
+                      "discriminating: each game's HOME_ONLY rows are counted against its own hosts only");
+
+            // ... and on the refusal side: H+1 MM rows with OoT holding only H
+            // hosts name MM alone (OoT has no HOME_ONLY row, so it is never short).
+            for (int i = 0; i < H + 1; ++i) {
+                both[i] = ClBagItem((uint8_t)GAME_MM, (uint16_t)(kMmOcarina + i), RSBS_ITEMCLASS_PROGRESSION);
+                both[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            ClBuildWideHostWorld(H, H);
+            memset(&res, 0, sizeof(res));
+            const int rcMM =
+                ClRunFill(both, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcMM == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.homeShortGame == (uint8_t)GAME_MM &&
+                          res.homeRequiredRows == H + 1 && res.homeHosts == H,
+                      "MM's rows are never charged to OoT: only MM is named short");
+        }
         CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
     }
 
