@@ -86,7 +86,9 @@ TestResult Test_OoTShelfRestock(void) {
     if (shelves != 0) {
         printf("[TEST] FAIL: the shelf's restock answer is wrong (step %d: 1 no item table, 2 no item location, 3 "
                "the restock item, 4 sold out once bought, 5 sold out before it is bought, 6-8 the CanBuy decision, "
-               "9-13 the restocked sale's give, charge and flags, 14 a Piece of Heart shelf's sale)\n",
+               "9-13 the restocked sale's give, charge and flags, 14 a Piece of Heart shelf's sale, 15-17 a red "
+               "potion bottle shelf's obtainability, entry and refill sale, 18 a milk bottle shelf, 19 a fairy "
+               "bottle shelf sells out, 20 the obtainability decision asks for the refill)\n",
                shelves);
         ComboContext_Init();
         return TEST_FAIL;
@@ -107,7 +109,8 @@ TestResult Test_OoTShelfRestock(void) {
     ComboContext_Init();
     if (foreign != 0) {
         printf("[TEST] FAIL: a shelf hosting a Majora's Mask item restocks, or is not sold out once bought (step "
-               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-19 the sale gives or charges)\n",
+               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-19 the sale gives or charges, 20 the obtainability "
+               "decision asks by check)\n",
                foreign);
         return TEST_FAIL;
     }

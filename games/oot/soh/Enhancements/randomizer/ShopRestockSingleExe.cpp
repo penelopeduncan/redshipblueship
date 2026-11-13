@@ -293,34 +293,62 @@ extern "C" GetItemEntry OoT_Rando_ShopShelfGetItemEntry(uint16_t rc, uint16_t og
     return GetItemEntry{};
 }
 
+namespace {
+
+using ShopObtainabilityForGet = ItemObtainability (*)(RandomizerGet);
+using ShopObtainabilityForCheck = ItemObtainability (*)(RandomizerCheck);
+
+/** The shelf obtainability decision, with the randomizer's two lookups passed
+ *  in so the row can see which one is asked and for what: a bought shelf that
+ *  restocks asks for its restock item (the refill, not the bottle that was
+ *  placed: #1547), anything else asks by check (the placed item, or a foreign
+ *  host's own rule). */
+ItemObtainability ShopShelfObtainabilityWith(uint16_t rc, int bought, ShopObtainabilityForGet forGet,
+                                             ShopObtainabilityForCheck forCheck) {
+    if (bought != 0) {
+        const uint16_t restock = OoT_Rando_ShopRestockItem(rc);
+        if (restock != (uint16_t)RG_NONE) {
+            return forGet((RandomizerGet)restock);
+        }
+    }
+    return forCheck((RandomizerCheck)rc);
+}
+
+ItemObtainability ShopObtainabilityFromRandomizerGet(RandomizerGet rg) {
+    if (OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandomizer != nullptr) {
+        return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet(rg);
+    }
+    // No randomizer (only the ROM-free redship tier): bottle contents need an
+    // empty bottle, everything else on the list can be held.
+    switch (rg) {
+        case RG_MILK:
+        case RG_FISH:
+        case RG_RED_POTION_REFILL:
+        case RG_GREEN_POTION_REFILL:
+        case RG_BLUE_POTION_REFILL:
+            return OoT_Inventory_HasEmptyBottle() ? CAN_OBTAIN : CANT_OBTAIN_NEED_EMPTY_BOTTLE;
+        default:
+            return CAN_OBTAIN;
+    }
+}
+
+ItemObtainability ShopObtainabilityFromRandomizerCheck(RandomizerCheck rc) {
+    if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr) {
+        return CAN_OBTAIN;
+    }
+    return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck(rc);
+}
+
+} // namespace
+
 /** Obtainability for shelf @p rc: before first purchase, checks the placed item
  *  (e.g. empty bottle slot for a new bottle); once @p bought and restocking,
  *  checks the restock item (e.g. OoT_Inventory_HasEmptyBottle for potion/milk
  *  refills) so a full bottle refuses as NEED_BOTTLE and 4 bottles with a free
  *  empty bottle succeeds. */
 extern "C" ItemObtainability OoT_Rando_ShopShelfObtainability(uint16_t rc, int bought) {
-    if (bought != 0) {
-        const uint16_t restock = OoT_Rando_ShopRestockItem(rc);
-        if (restock != (uint16_t)RG_NONE) {
-            if (OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandomizer != nullptr) {
-                return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet((RandomizerGet)restock);
-            }
-            switch ((RandomizerGet)restock) {
-                case RG_MILK:
-                case RG_FISH:
-                case RG_RED_POTION_REFILL:
-                case RG_GREEN_POTION_REFILL:
-                case RG_BLUE_POTION_REFILL:
-                    return OoT_Inventory_HasEmptyBottle() ? CAN_OBTAIN : CANT_OBTAIN_NEED_EMPTY_BOTTLE;
-                default:
-                    return CAN_OBTAIN;
-            }
-        }
-    }
-    if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr) {
-        return CAN_OBTAIN;
-    }
-    return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck((RandomizerCheck)rc);
+    return ShopShelfObtainabilityWith(rc, bought, ShopObtainabilityFromRandomizerGet,
+                                      ShopObtainabilityFromRandomizerCheck);
 }
 
 /** A restocked sale on shuffled shelf @p rc: give the item it sells again,
@@ -503,6 +531,18 @@ int ShopRestockPurse(void) {
     return (int)gSaveContext.rupees + (int)gSaveContext.rupeeAccumulator;
 }
 
+// Recording stand-ins for the randomizer's obtainability lookups (step 20).
+RandomizerGet sAskedGet = RG_NONE;
+RandomizerCheck sAskedCheck = RC_UNKNOWN_CHECK;
+ItemObtainability RecordObtainabilityForGet(RandomizerGet rg) {
+    sAskedGet = rg;
+    return CANT_OBTAIN_NEED_EMPTY_BOTTLE;
+}
+ItemObtainability RecordObtainabilityForCheck(RandomizerCheck rc) {
+    sAskedCheck = rc;
+    return CAN_OBTAIN;
+}
+
 /**
  * The CanBuy decision and the sale itself, on the test shelf @p il / @p rc, on
  * the live save, which is put back byte for byte. The vanilla quest is set for
@@ -525,6 +565,15 @@ int ShopRestockPurse(void) {
  *  13  it leaves every RandomizerInf as it was (the check stays as it is).
  *  14  bought, holding a Piece of Heart: sold out (1), and its sale gives and
  *      charges nothing.
+ *  15  bought, a red potion bottle shelf with no empty bottle: refused for the
+ *      bottle (the no-randomizer stand-in), and it draws the refill's entry.
+ *  16  with an empty bottle: on sale.
+ *  17  the restocked sale fills the empty bottle with red potion and charges.
+ *  18  a bottled milk shelf draws and gives milk.
+ *  19  a bottled fairy shelf is sold out once bought.
+ *  20  the production obtainability decision asks the randomizer for the refill
+ *      (not the bottle) when bought, and by check when unbought or foreign.
+ *  With a foreign host, 15-18 give and charge nothing.
  */
 int ShopRestockSaleLeg(Rando::ItemLocation* il, RandomizerCheck rc, int foreignHosted) {
     std::unique_ptr<SaveContext> savedSave = std::make_unique<SaveContext>();
@@ -671,6 +720,32 @@ int ShopRestockSaleLeg(Rando::ItemLocation* il, RandomizerCheck rc, int foreignH
                 step = 19;
             }
         }
+        if (step == 0) {
+            // The production decision (the redship tier has no randomizer, so
+            // steps 15-16 reach only the no-randomizer stand-in): a bought
+            // red potion shelf asks for the refill, never the bottle; unbought,
+            // or with a foreign host, it asks by check.
+            il->SetPlacedItem(RG_BOTTLE_WITH_RED_POTION);
+            sAskedGet = RG_NONE;
+            sAskedCheck = RC_UNKNOWN_CHECK;
+            const ItemObtainability bought = ShopShelfObtainabilityWith(
+                (uint16_t)rc, 1, RecordObtainabilityForGet, RecordObtainabilityForCheck);
+            const bool boughtOk = foreign ? (bought == CAN_OBTAIN && sAskedGet == RG_NONE && sAskedCheck == rc)
+                                          : (bought == CANT_OBTAIN_NEED_EMPTY_BOTTLE &&
+                                             sAskedGet == RG_RED_POTION_REFILL && sAskedCheck == RC_UNKNOWN_CHECK);
+            sAskedGet = RG_NONE;
+            sAskedCheck = RC_UNKNOWN_CHECK;
+            const ItemObtainability unbought = ShopShelfObtainabilityWith(
+                (uint16_t)rc, 0, RecordObtainabilityForGet, RecordObtainabilityForCheck);
+            const bool unboughtOk = unbought == CAN_OBTAIN && sAskedGet == RG_NONE && sAskedCheck == rc;
+            if (!boughtOk || !unboughtOk) {
+                fprintf(stderr,
+                        "[OoT ShopRestock] bottle shelf obtainability (foreign %d) asked get %d / check %d, "
+                        "expected the refill when bought and the check otherwise\n",
+                        foreignHosted, (int)sAskedGet, (int)sAskedCheck);
+                step = 20;
+            }
+        }
     }
 
     ItemTableManager::Instance = savedItemTables;
@@ -688,7 +763,7 @@ int ShopRestockSaleLeg(Rando::ItemLocation* il, RandomizerCheck rc, int foreignH
  * @p foreignHosted the caller has made the shelf host a Majora's Mask item
  * (Combo_SetForeignPlacementOoT), and then nothing restocks and a bought shelf
  * is sold out whatever the OoT table holds there. Then the CanBuy decision and
- * the sale itself (ShopRestockSaleLeg, steps 6 to 14).
+ * the sale itself (ShopRestockSaleLeg, steps 6 to 20).
  *
  * Uses the live Rando::Context when there is one and puts the shelf's
  * ItemLocation back exactly; otherwise creates one and releases it again
