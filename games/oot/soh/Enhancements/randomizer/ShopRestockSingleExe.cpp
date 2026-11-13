@@ -735,15 +735,15 @@ int ShopRestockSaleLeg(Rando::ItemLocation* il, RandomizerCheck rc, int foreignH
             il->SetPlacedItem(RG_BOTTLE_WITH_RED_POTION);
             sAskedGet = RG_NONE;
             sAskedCheck = RC_UNKNOWN_CHECK;
-            const ItemObtainability bought = ShopShelfObtainabilityWith(
-                (uint16_t)rc, 1, RecordObtainabilityForGet, RecordObtainabilityForCheck);
+            const ItemObtainability bought =
+                ShopShelfObtainabilityWith((uint16_t)rc, 1, RecordObtainabilityForGet, RecordObtainabilityForCheck);
             const bool boughtOk = foreign ? (bought == CAN_OBTAIN && sAskedGet == RG_NONE && sAskedCheck == rc)
                                           : (bought == CANT_OBTAIN_NEED_EMPTY_BOTTLE &&
                                              sAskedGet == RG_RED_POTION_REFILL && sAskedCheck == RC_UNKNOWN_CHECK);
             sAskedGet = RG_NONE;
             sAskedCheck = RC_UNKNOWN_CHECK;
-            const ItemObtainability unbought = ShopShelfObtainabilityWith(
-                (uint16_t)rc, 0, RecordObtainabilityForGet, RecordObtainabilityForCheck);
+            const ItemObtainability unbought =
+                ShopShelfObtainabilityWith((uint16_t)rc, 0, RecordObtainabilityForGet, RecordObtainabilityForCheck);
             const bool unboughtOk = unbought == CAN_OBTAIN && sAskedGet == RG_NONE && sAskedCheck == rc;
             if (!boughtOk || !unboughtOk) {
                 fprintf(stderr,
@@ -1037,8 +1037,8 @@ extern "C" int OoT_Rando_ShopRestockTestMessages(int foreignHosted) {
                          std::strstr(buf, "Red Potion Refill") == nullptr || std::strstr(buf, "Buy") == nullptr)) {
                         step = 14;
                     }
-                    if (step == 0 &&
-                        OoT_Rando_ShopOfferTextForTextId((uint16_t)TEXT_NONE, (uint16_t)rc, 0, buf, sizeof(buf)) != -1) {
+                    if (step == 0 && OoT_Rando_ShopOfferTextForTextId((uint16_t)TEXT_NONE, (uint16_t)rc, 0, buf,
+                                                                      sizeof(buf)) != -1) {
                         step = 14;
                     }
                     if (step != 0) {
@@ -1130,8 +1130,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(int foreignHosted) {
                     ilShop->SetPlacedItem(c.item);
                     const int want = foreignHosted != 0 ? 0 : c.renews;
                     if (src->hostRenews((uint16_t)shopRc) != want) {
-                        fprintf(stderr, "[OoT ShopRestock] shelf holding RG %d (foreign %d) renews %d, expected %d
-",
+                        fprintf(stderr, "[OoT ShopRestock] shelf holding RG %d (foreign %d) renews %d, expected %d\n",
                                 (int)c.item, foreignHosted, src->hostRenews((uint16_t)shopRc), want);
                         step = 4;
                         break;
@@ -1216,8 +1215,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(int foreignHosted) {
                 gals.newItemLocations.push_back(ilShop);
                 gals.InitLoop();
                 if (!logic->Get(LOGIC_NUT_ACCESS) || logic->CurrentCheckKey != RC_UNKNOWN_CHECK) {
-                    fprintf(stderr, "[OoT ShopRestock] InitLoop: nut access %d, key %d after the loop
-",
+                    fprintf(stderr, "[OoT ShopRestock] InitLoop: nut access %d, key %d after the loop\n",
                             (int)logic->Get(LOGIC_NUT_ACCESS), (int)logic->CurrentCheckKey);
                     step = 9;
                 }
