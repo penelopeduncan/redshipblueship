@@ -276,7 +276,10 @@ extern "C" GetItemEntry OoT_Rando_ShopShelfGetItemEntry(uint16_t rc, uint16_t og
             }
         }
     }
-    return Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck((RandomizerCheck)rc, (GetItemID)ogId);
+    if (OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandomizer != nullptr) {
+        return OTRGlobals::Instance->gRandomizer->GetItemFromKnownCheck((RandomizerCheck)rc, (GetItemID)ogId, false);
+    }
+    return GetItemEntry{};
 }
 
 /** Obtainability for shelf @p rc: before first purchase, checks the placed item
@@ -306,7 +309,7 @@ extern "C" ItemObtainability OoT_Rando_ShopShelfObtainability(uint16_t rc, int b
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr) {
         return CAN_OBTAIN;
     }
-    return Randomizer_GetItemObtainabilityFromRandomizerCheck((RandomizerCheck)rc);
+    return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck((RandomizerCheck)rc);
 }
 
 /** A restocked sale on shuffled shelf @p rc: give the item it sells again,
@@ -717,7 +720,7 @@ extern "C" int OoT_Rando_ShopRestockTestShelves(int foreignHosted) {
                 { RG_BOTTLE_WITH_BLUE_FIRE, RG_NONE },
                 { RG_BOTTLE_WITH_FISH, RG_NONE },
                 { RG_BOTTLE_WITH_BUGS, RG_NONE },
-                { RG_BOTTLE_EMPTY, RG_NONE },
+                { RG_EMPTY_BOTTLE, RG_NONE },
                 { RG_RUTOS_LETTER, RG_NONE },
                 { RG_PROGRESSIVE_HOOKSHOT, RG_NONE },
             };
