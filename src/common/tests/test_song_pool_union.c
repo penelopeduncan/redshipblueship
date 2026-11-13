@@ -83,6 +83,7 @@ void OoT_ComboLogic_TestSongCheckContents(int* outSongs, int* outCrossedSongs, i
 int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 int MM_ComboLogic_TestLastSongChecksJunked(int* outPadded);
 int MM_ComboLogic_TestLastPoolConfinement(uint16_t* outItems, uint32_t* outMasks, int cap);
+int MM_ComboLogic_TestShuffledItems(uint16_t* outItems, uint16_t* outChecks, int cap);
 void MM_ComboLogic_TestSongCheckContents(int* outSongs, int* outCrossedSongs, int* outJunk, int* outOther,
                                          int* outSkipped, int* outNotShuffled);
 void MM_ComboLogic_TestSongGroupCensus(int* outSongItems, int* outWideItems, int* outMixed, int* outWideSongChecks,
@@ -118,7 +119,10 @@ struct SpuKeys {
     ~SpuKeys() {
         CVarClear(RSBS_OOT_SHUFFLE_SONGS_CVAR);
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_LOGIC));
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
         CVarClear("gRandoSettings.LinksPocket");
+        CVarClear("gRando.Options.RO_SHUFFLE_SHOPS");
+        CVarClear("gRando.ExcludedChecks");
         Combo_Logic_TestSetForcedPlacements(nullptr, 0);
         OoT_Combo_SetHintingSuspendedWorld(0);
         Combo_SongHostsForceForTest(-1);
@@ -457,30 +461,122 @@ TestResult SongPoolAllLocations_Run(void) {
            "song check never holds a pending critical renewable first copy (#1549 owed from #1546)\n");
     sSpuFailures = 0;
     SpuKeys keys;
-    const char* seed = "RSBSSONGALR1";
-    const SpuWorld w = SpuGenerate(seed, -1, (int)RSBS_COMBO_RUNG_ALL_REACHABLE, -1, true);
-    SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
-    if (w.generated) {
-        SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
-                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
-                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
-        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
-                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
-                  w.bag.fill.goalProven ? 1 : 0);
-        SPU_CHECK(Combo_CriticalRenewablesArmed((uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE),
-                  "critical renewables rule was not armed under All Locations\n");
-        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
-                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
-        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
-        const int junk = w.ootJunk + w.mmJunk;
-        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
-                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
-        SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
-                  "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
-                  w.ootPadded, w.mmPadded);
-        const int census = SpuCensusPlacedSongs();
-        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+
+    // Leg (a) — Shipped profile under All Locations (RSBSSONGALR1):
+    // Real paired world under RSBS_COMBO_RUNG_ALL_REACHABLE with default settings.
+    {
+        const char* seed = "RSBSSONGALR1";
+        const SpuWorld w = SpuGenerate(seed, -1, (int)RSBS_COMBO_RUNG_ALL_REACHABLE, -1, true);
+        SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+        if (w.generated) {
+            SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+                      "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
+                      w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
+            SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
+                      "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
+                      w.bag.fill.goalProven ? 1 : 0);
+            SPU_CHECK(Combo_CriticalRenewablesArmed((uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE),
+                      "critical renewables rule was not armed under All Locations\n");
+            SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
+                      "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+            const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+            const int junk = w.ootJunk + w.mmJunk;
+            SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
+                      "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+            SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
+                      "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
+                      w.ootPadded, w.mmPadded);
+            const int census = SpuCensusPlacedSongs();
+            SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+        }
     }
+
+    // Leg (b) — Pending MM critical renewable first-copy guard (RSBSSONGALR2):
+    // With Shuffle Shops on, crossings off (guaranteeing MM has the leftover song check),
+    // and pre-Bomb-Shop RITYPE_JUNK checks 4, 5, 10, 12, 13 excluded, 10 Bombchus from
+    // Bomb Shop check 14 is the first RENEWABLE item in rest. Line 3441 must skip it so
+    // that Combo_CriticalRenewablesPlanFirstCopies places it on a renewing host.
+    {
+        SPU_CHECK(Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 13) &&
+                      Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 14) &&
+                      !Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 15),
+                  "Bomb Shop check renewable predicates do not match Types.h\n");
+
+        CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION), (int32_t)RSBS_COMBO_DIR_OFF);
+        CVarSetInteger("gRando.Options.RO_SHUFFLE_SHOPS", 1);
+        CVarSetString("gRando.ExcludedChecks", "4,5,10,12,13,");
+
+        const char* seed = "RSBSSONGALR2";
+        const SpuWorld w = SpuGenerate(seed, -1, (int)RSBS_COMBO_RUNG_ALL_REACHABLE, -1, true);
+
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
+        CVarClear("gRando.Options.RO_SHUFFLE_SHOPS");
+        CVarClear("gRando.ExcludedChecks");
+
+        SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
+        if (w.generated) {
+            SPU_CHECK(w.unionArmed, "%s: shared song pool was not armed\n", seed);
+            SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
+                      "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
+                      w.bag.fill.goalProven ? 1 : 0);
+            SPU_CHECK(w.ootJunked == 0 && w.mmJunked == 1 && w.mmPadded == 0,
+                      "%s: expected 0 OoT and 1 MM junked song checks (got %d + %d, padded %d + %d)\n", seed,
+                      w.ootJunked, w.mmJunked, w.ootPadded, w.mmPadded);
+            SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
+                      "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+            const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+            const int junk = w.ootJunk + w.mmJunk;
+            SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
+                      "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+            const int census = SpuCensusPlacedSongs();
+            SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+
+            uint32_t songRenewed[RSBS_FOREIGN_POOL_ORIGIN_COUNT] = {};
+            Combo_CriticalRenewablesRenewedNow(songRenewed);
+            SPU_CHECK((songRenewed[GAME_MM] & (1u << RSBS_CRIT_MM_BOMBCHU_10)) == 0u,
+                      "%s: 10 Bombchus were renewed before remainder fill\n", seed);
+
+            const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
+            std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
+            std::vector<uint16_t> checks((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
+            const int count = MM_ComboLogic_TestShuffledItems(items.data(), checks.data(), (int)items.size());
+
+            int mmLeftoversChecked = 0;
+            int bombchuOnRenewing = 0;
+            for (int i = 0; i < count; ++i) {
+                const uint16_t rc = checks[(size_t)i];
+                const uint16_t itemId = items[(size_t)i];
+                const SharedItem itemRow = { (uint8_t)GAME_MM, 0, itemId };
+
+                if (Combo_CriticalRenewableKind(itemRow) == RSBS_CRIT_MM_BOMBCHU_10 &&
+                    Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, rc)) {
+                    bombchuOnRenewing++;
+                }
+
+                if (MM_Rando_Foreign_TestSongCheckIndex(rc) < 0) {
+                    continue;
+                }
+                const SharedItem* crossing = Combo_Crossings_Lookup(GAME_MM, rc);
+                if (crossing != nullptr) {
+                    continue;
+                }
+                if (MM_ComboLogic_IsPairSongItem(itemId)) {
+                    continue;
+                }
+
+                mmLeftoversChecked++;
+                SPU_CHECK(!Combo_CriticalRenewablePending(itemRow, songRenewed) && Combo_CriticalRenewableKind(itemRow) < 0,
+                          "%s: MM leftover song check %u holds critical renewable %s (%u)\n", seed, (unsigned)rc,
+                          Combo_CriticalRenewableKindName(GAME_MM, Combo_CriticalRenewableKind(itemRow)),
+                          (unsigned)itemId);
+            }
+            SPU_CHECK(mmLeftoversChecked == 1, "%s: inspected %d MM leftover song checks, want 1\n", seed,
+                      mmLeftoversChecked);
+            SPU_CHECK(bombchuOnRenewing > 0,
+                      "%s: 10 Bombchus has %d copies on a renewing MM host, want >= 1\n", seed, bombchuOnRenewing);
+        }
+    }
+
     printf("[TEST] song-pool-all-locations: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
     return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
 }
