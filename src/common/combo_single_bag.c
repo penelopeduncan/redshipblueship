@@ -787,6 +787,8 @@ void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r) {
 void Combo_SingleBag_Forget(void) {
     // Tables first (no engine call), then each engine's own record.
     (void)Combo_Logic_HydrateTables(NULL, 0, NULL, 0);
+    // #1169 XW15: the fixed shared credits are the forgotten world's, too.
+    (void)Combo_Logic_SetFixedCredits(NULL, 0);
     OoT_ComboLogic_ForgetPlacements();
     MM_ComboLogic_ForgetPlacements();
 }

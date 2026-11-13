@@ -3064,6 +3064,11 @@ if(BUILD_TESTING)
     # own half, the far half through the crossing gate, and composed from both
     # games' rows into one.
     redship_add_test(NAME ComboLogicSharedPair COMMAND redship --test combo-logic-shared-pair)
+    # THE FIXED SHARED CREDIT (#1169 XW15): a shared item fixed on its own game's
+    # check (a shared warp song under Shuffle Songs Off) credits the other engine
+    # once per round when reached, through the gate, never from a forbidden host.
+    # Same stub fixture, same `redship` tier; it generates nothing.
+    redship_add_test(NAME ComboLogicFixedCredit COMMAND redship --test combo-logic-fixed-credit)
     # THE HOST GROUPS (ABI 9, #1502): a confined row (MM's Own Dungeon and Song
     # Locations) lands only on its own game's hosts in its group, is drawn first,
     # drops alone as surplus, and a group with more rows than hosts is refused

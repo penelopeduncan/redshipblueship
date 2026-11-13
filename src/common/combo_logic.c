@@ -164,6 +164,12 @@ static uint8_t sExchanged[RSBS_FOREIGN_POOL_ORIGIN_COUNT][RSBS_COMBO_LOGIC_PLACE
  *  own list says which), so a round never pays for clearing 16 KB it did not
  *  touch, and no bit outlives its round. */
 static uint8_t sForbidden[RSBS_FOREIGN_POOL_ORIGIN_COUNT][COMBO_LOGIC_OCCUPANCY_BYTES];
+/** THE FIXED SHARED CREDITS (#1169 XW15, Combo_Logic_SetFixedCredits): an input of
+ *  the world, so Combo_Logic_ResetPlacements leaves them. `sFixedDelivered` is the
+ *  per-round delivered bit, one per credit, cleared beside sExchanged. */
+static ComboLogicFixedCredit sFixedCredits[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP];
+static int sFixedCreditCount;
+static uint8_t sFixedDelivered[(RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP + 7) / 8];
 /** The SURPLUS rows the last fill attempt dropped, as bag indices, in the order
  *  they were dropped (bag order — THE BAG MODEL, shape 3). Reset with the tables,
  *  because a drop is a fact about the attempt that built them. */
@@ -696,6 +702,10 @@ int Combo_Logic_LeftoverHosts(GameId hostGame, uint16_t* out, int cap) {
  * that carries a `credit`, own-origin or crossing, also hands that far copy of its
  * family to the far engine, under the same gate and the same delivered bit.
  *
+ * THE FIXED SHARED CREDITS (#1169 XW15, Combo_Logic_SetFixedCredits) follow the
+ * table: a reached, unforbidden host of this game named by a credit hands the
+ * credit's far item to the far engine, under the same gate, once per round.
+ *
  * @return nonzero if anything was granted (the round must iterate again).
  */
 static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged) {
@@ -746,7 +756,68 @@ static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged
         }
         changed = 1;
     }
+
+    // THE FIXED SHARED CREDITS (#1169 XW15; assumeOwnItem's source 3b): a host of
+    // this game holding the other game's shared item as its own fixed content. The
+    // host engine harvests its own half; the far half crosses here, once per round,
+    // never from a forbidden host, through the gate above.
+    for (int c = 0; c < sFixedCreditCount; ++c) {
+        const ComboLogicFixedCredit* fc = &sFixedCredits[c];
+        if (fc->hostGame != hostGame || ComboLogicBitGet(sFixedDelivered, c) ||
+            ComboLogicBitGet(sForbidden[hostGame], fc->hostCheck) || !host->checkReached(host->self, fc->hostCheck)) {
+            continue;
+        }
+        const ComboLogicEngine* farOwner = ComboLogicEngineFor(fc->farItem.originGame);
+        if (farOwner == NULL) {
+            continue;
+        }
+        farOwner->assumeOwnItem(farOwner->self, fc->farItem.id);
+        ComboLogicBitSet(sFixedDelivered, c);
+        if (exchanged != NULL) {
+            (*exchanged)++;
+        }
+        changed = 1;
+    }
     return changed;
+}
+
+int Combo_Logic_SetFixedCredits(const ComboLogicFixedCredit* rows, int count) {
+    if (count < 0 || count > RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP || (count > 0 && rows == NULL)) {
+        return -1;
+    }
+    for (int i = 0; i < count; ++i) {
+        const uint8_t hg = rows[i].hostGame;
+        const uint8_t fg = rows[i].farItem.originGame;
+        if (!ComboLogicIsGame(hg) || !ComboLogicIsGame(fg) || fg == hg) {
+            return -1;
+        }
+    }
+    for (int i = 0; i < count; ++i) {
+        sFixedCredits[i] = rows[i];
+    }
+    sFixedCreditCount = count;
+    memset(sFixedDelivered, 0, sizeof(sFixedDelivered));
+    return sFixedCreditCount;
+}
+
+int Combo_Logic_FixedCreditCount(void) {
+    return sFixedCreditCount;
+}
+
+bool Combo_Logic_FixedCreditAt(int index, ComboLogicFixedCredit* out) {
+    if (out == NULL || index < 0 || index >= sFixedCreditCount) {
+        return false;
+    }
+    *out = sFixedCredits[index];
+    return true;
+}
+
+int Combo_Logic_FixedCreditDeliveredCount(void) {
+    int n = 0;
+    for (int c = 0; c < sFixedCreditCount; ++c) {
+        n += ComboLogicBitGet(sFixedDelivered, c) ? 1 : 0;
+    }
+    return n;
 }
 
 // TEST PROBE (Combo_Logic_TestLastTravelFacts): the facts the gates last judged.
@@ -967,6 +1038,7 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
     sCandidates[(uint8_t)GAME_OOT].count = 0;
     sCandidates[(uint8_t)GAME_MM].count = 0;
     memset(sExchanged, 0, sizeof(sExchanged));
+    memset(sFixedDelivered, 0, sizeof(sFixedDelivered)); // #1169 XW15: a fixed credit is delivered per round
 
     if (ComboLogicEngineFor((uint8_t)GAME_OOT) == NULL || ComboLogicEngineFor((uint8_t)GAME_MM) == NULL) {
         res->status = RSBS_COMBO_LOGIC_ERR_NO_ENGINE;

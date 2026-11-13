@@ -10541,6 +10541,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-fixed-credit",
+      "A shared item fixed on its own game's check credits the other engine once per round when that check is "
+      "reached, through the crossing gate, never from a forbidden host, and the credits outlive a reset (#1169 XW15)",
+      Test_ComboLogicFixedCredit },
     { "combo-logic-host-groups",
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
