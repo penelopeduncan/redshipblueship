@@ -984,9 +984,9 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboOoTWarpRecord, flags) == 1 && offsetof(Comb
  *
  * ZERO MEANS EVERY SECOND-WORD RULE OFF, which is what every world written
  * before this carve holds (a zero-extended record) and what every world this
- * build creates freezes unless a Cross-Game Songs row is on (the Song of
- * Soaring (OoT), offered since lane XW12); Generate refuses a hidden (MM or shared) bit
- * (Combo_ComboItemRules2Refused). An all-clear word is not folded into the
+ * build creates freezes unless a Cross-Game Songs row is on (all fourteen are
+ * offered since lane XW14); Generate refuses an unallocated bit, and a shared
+ * song without its extension (Combo_ComboItemRules2Refused). An all-clear word is not folded into the
  * fingerprint, so no golden, fingerprint or bag seed moves.
  */
 typedef struct {

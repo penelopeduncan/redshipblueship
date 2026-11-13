@@ -464,7 +464,20 @@ void SctCheckPureAnswer() {
         uint32_t excluded;
         const char* want;
     };
-    static const Wording kWordings[] = {
+    // #1169 XW14: the shared rows are offered on the production mask, so the
+    // home-side texts advise sharing a song. Pinned literally below; this check
+    // catches a gate that stops reading the shared bits as offered (the OoT and
+    // MM home texts would then also lose "Share a song").
+    SCT_CHECK(Combo_SongPoolShareOffered(), "(c) the shared warp-song rules do not read as offered\n");
+    const char* const kOoTHome =
+        "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they "
+        "may use (Crossing Direction keeps them in Ocarina of Time). Share a song, start with an Ocarina of "
+        "Time song, change the Crossing Direction, or shuffle songs Anywhere";
+    const char* const kMMHome =
+        "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they "
+        "may use (Crossing Direction keeps them in Majora's Mask). Share a song, start with a Majora's Mask "
+        "song, change the Crossing Direction, or shuffle songs Anywhere";
+    const Wording kWordings[] = {
         { RSBS_SONG_POOL_SHORT_BOTH, 0u,
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
           "Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },
@@ -472,14 +485,8 @@ void SctCheckPureAnswer() {
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
           "Songs: Song Locations). Share a song or start with a song, or include an excluded song check, or shuffle "
           "songs Anywhere" },
-        { RSBS_SONG_POOL_SHORT_OOT, 0u,
-          "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they may "
-          "use (Crossing Direction keeps them in Ocarina of Time). Start with an Ocarina of Time song, change the "
-          "Crossing Direction, or shuffle songs Anywhere" },
-        { RSBS_SONG_POOL_SHORT_MM, 0u,
-          "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they may use "
-          "(Crossing Direction keeps them in Majora's Mask). Start with a Majora's Mask song, change the Crossing "
-          "Direction, or shuffle songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_OOT, 0u, kOoTHome },
+        { RSBS_SONG_POOL_SHORT_MM, 0u, kMMHome },
         { RSBS_SONG_POOL_SHORT_SOME, 0u,
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks that can hold them "
           "(Shuffle Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },

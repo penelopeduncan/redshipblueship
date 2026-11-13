@@ -403,8 +403,19 @@ void BuildCustomItemMessage(Player* player, CustomMessage& msg) {
         default:
             break;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    const char* sharedName = Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)rgid);
+    CustomMessage name =
+        sharedName != nullptr
+            ? CustomMessage(std::string(sharedName), std::string(sharedName), std::string(sharedName),
+                            TEXTBOX_TYPE_BLUE) // one name in every language, as item_list.cpp spells the song
+            : CustomMessage(Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rgid)).GetName(),
+                            TEXTBOX_TYPE_BLUE);
+#else
     CustomMessage name =
         CustomMessage(Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rgid)).GetName(), TEXTBOX_TYPE_BLUE);
+#endif
     CustomMessage article = CustomMessage(
         Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rgid)).GetArticle(), TEXTBOX_TYPE_BLUE);
     msg.Replace("[[article]]", article);

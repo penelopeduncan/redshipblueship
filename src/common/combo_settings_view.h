@@ -175,9 +175,9 @@ typedef enum {
     // WORD (gComboCtx.comboItemRules2, RSBS_XITEM2_*), assembled by
     // Combo_ResolveComboItemRules2 (Combo_ComboItemRules2Authored). 0 or 1, default
     // 0 each; a shared song is dropped by the resolver while its extension is off
-    // (OoTMM's `cond`). Since lane XW12 the seven extensions have Cross-Game
-    // Songs rows; the seven shared songs stay HIDDEN until XW10: no row is drawn
-    // and Generate refuses a world with one on (Combo_ComboItemRules2Refused).
+    // (OoTMM's `cond`). Each has a Cross-Game Songs row, drawn while its bit is
+    // outside RSBS_XITEM2_HIDDEN; inside it no row is drawn and Generate refuses a
+    // world with it on (Combo_ComboItemRules2Refused).
     // The seven extensions, OoTMM's order:
     COMBO_SETTING_SONG_SOARING_OOT, // gCombo.Rando.SongSoaringOoT -> RSBS_XITEM2_SONG_SOARING_OOT
     COMBO_SETTING_SONG_MINUET_MM,   // gCombo.Rando.SongMinuetMM -> RSBS_XITEM2_SONG_MINUET_MM
@@ -229,9 +229,9 @@ uint32_t Combo_ComboItemRuleKeyedBits(void);
  * The same two for the SECOND rules word (#1169 XW2, RSBS_XITEM2_*): the bits
  * whose keys resolve on now (Combo_ResolveComboItemRules2 reads this and
  * nothing else), and every bit a key authors at all (all fourteen warp-song
- * rules). Since XW12 the extensions have rows, drawn while offered (the MM ones
- * once IntMMWarpSongMinuet exists); the shared songs' rows are drawn once XW10
- * offers them.
+ * rules). The extensions have rows, drawn while offered (the Song of Soaring
+ * (OoT) since XW12, the six MM ones since XW13); the shared songs' rows are drawn
+ * once XW10 offers them.
  */
 uint32_t Combo_ComboItemRules2Authored(void);
 uint32_t Combo_ComboItemRule2KeyedBits(void);

@@ -2963,6 +2963,10 @@ typedef enum {
     RI_SONG_NOCTURNE,
     RI_SONG_PRELUDE,
 #endif
+    RI_SKELETON_KEY,
+    // Appended for the same reason (#1403): 2Ship's shuffled song items (527b177c0).
+    RI_SONG_DOUBLE_TIME,
+    RI_SONG_INVERTED_TIME,
     RI_MAX_TRAP,
     RI_MAX,
 } RandoItemId;
@@ -3367,6 +3371,19 @@ typedef enum {
     // Appended for the same reason (#1407): 2Ship's butterfly shuffle (b690db6fd).
     // The identity strings fold it only when it is not off (0, the default).
     RO_SHUFFLE_BUTTERFLIES,
+    // Appended for the same reason (#1403): 2Ship's Skeleton Key option (b3cc36628).
+    RO_SHUFFLE_SKELETON_KEY,
+    // Appended for the same reason (#1403): 2Ship's skulltula & stray fairy pool
+    // configuration options (977544284, 918e5f44e), while keeping
+    // RO_MINIMUM_SKULLTULA_TOKENS and RO_MINIMUM_STRAY_FAIRIES in place so
+    // existing identity strings stay intact.
+    RO_SKULLTULA_SHUFFLED,
+    RO_STRAY_FAIRIES_MAX,
+    // Appended for the same reason (#1403): 2Ship's additional shuffled songs (527b177c0).
+    RO_SHUFFLE_SONG_DOUBLE_TIME,
+    RO_SHUFFLE_SONG_INVERTED_TIME,
+    RO_SHUFFLE_SONG_SUN,
+    RO_SHUFFLE_SONG_SARIA,
     RO_MAX,
 } RandoOptionId;
 
@@ -3400,6 +3417,8 @@ typedef enum {
     RO_ACCESS_TRIALS_REMAINS,
     RO_ACCESS_TRIALS_FORMS,
     RO_ACCESS_TRIALS_OPEN,
+    // Appended (#1403, b011f16bc) to preserve 0..3 enum slots and RO_ACCESS_TRIALS_20_MASKS default.
+    RO_ACCESS_TRIALS_VANILLA,
 } RandoOptionAccessTrials;
 
 typedef enum {
@@ -3416,6 +3435,14 @@ typedef enum {
     RO_SONG_SHUFFLE_SONG_LOCATIONS,
     RO_SONG_SHUFFLE_VANILLA,
 } RandoOptionMMSongShuffle;
+
+// Preserve 0 = Vanilla (was RO_GENERIC_OFF) and 1 = Anywhere (was RO_GENERIC_ON)
+// so existing saved profiles and option digests stay valid; Own Dungeon is 2.
+typedef enum {
+    RO_REMAINS_SHUFFLE_VANILLA,
+    RO_REMAINS_SHUFFLE_ANYWHERE,
+    RO_REMAINS_SHUFFLE_OWN_DUNGEON,
+} RandoOptionRemainsShuffle;
 
 typedef enum {
     RO_CLOCK_SHUFFLE_RANDOM,
@@ -3514,6 +3541,8 @@ typedef enum {
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_RIGHT,
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_LEFT,
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP,
+    RANDO_INF_OBTAINED_SONG_DOUBLE_TIME,
+    RANDO_INF_OBTAINED_SONG_INVERTED_TIME,
     RANDO_INF_MAX,
 } RandoInf;
 
