@@ -327,9 +327,25 @@ extern "C" int OoT_Rando_ShopOfferText(uint16_t rc, int bought, int confirm, int
     if (out == nullptr || cap == 0 || MerchantRandoContext() == nullptr) {
         return -1;
     }
-    const std::string text =
+    const std::string raw =
         BuildShopOfferMessage(static_cast<RandomizerCheck>(rc), bought != 0, confirm != 0, mysterious != 0)
-            .GetEnglish();
+            .GetEnglish(MF_RAW);
+    // Strip OoT control codes (importantly 0x05 + QM_WHITE '\0', which would
+    // terminate a C string before "ONE LEFT!" / "Buy") so out is printable.
+    std::string text;
+    text.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); i++) {
+        const unsigned char c = static_cast<unsigned char>(raw[i]);
+        if (c == 0x05 || c == 0x13) {
+            if (i + 1 < raw.size()) {
+                i++;
+            }
+        } else if (c == 0x01 || c == 0x04) {
+            text.push_back('\n');
+        } else if (c >= 0x20 && c < 0x7F) {
+            text.push_back(static_cast<char>(c));
+        }
+    }
     std::snprintf(out, cap, "%s", text.c_str());
     return static_cast<int>(text.size());
 }
