@@ -173,6 +173,13 @@ TestResult Test_OoTHostMMMasksModel(void) {
         }
         maskModels[idx] = got;
 
+        // An OoT-origin item carrying MM's registered id is not MM's copy: the
+        // originGame guard must refuse it even with the archive mounted.
+        ComboModel ootOrigin;
+        const int answeredOoTOrigin = OoT_ForeignModel_TestHostModelFor((uint8_t)GAME_OOT, mmId, &ootOrigin);
+        OHMM_CHECK(answeredOoTOrigin == 0 && OhmmModelZeroed(ootOrigin),
+                   "OoT-origin item with MM's %s id (%u) is rejected when mounted", info->name, (unsigned)mmId);
+
         OoT_ForeignModel_TestSetMountOverride(0);
         ComboModel unmounted;
         const int answeredUnmounted = OoT_ForeignModel_TestHostModelFor((uint8_t)GAME_MM, mmId, &unmounted);
@@ -209,7 +216,9 @@ TestResult Test_OoTHostMMMasksModel(void) {
 
     // Native OoT item passed to the MM-host query still answers false.
     SharedItem ootSpooky;
-    if (TestNamedItem((uint8_t)GAME_OOT, "Spooky Mask", &ootSpooky)) {
+    const bool namedOoTSpooky = TestNamedItem((uint8_t)GAME_OOT, "Spooky Mask", &ootSpooky);
+    OHMM_CHECK(namedOoTSpooky, "OoT control item Spooky Mask found");
+    if (namedOoTSpooky) {
         OoT_ForeignModel_TestSetMountOverride(1);
         ComboModel ootRejected;
         const int rejected = OoT_ForeignModel_TestHostModelFor((uint8_t)GAME_OOT, ootSpooky.id, &ootRejected);
