@@ -3372,7 +3372,8 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
             why += " - no seed can finish the goal under these settings (Ocarina of Time half " +
                    std::to_string(report.fill.goalOoT) + ", Majora's Mask half " + std::to_string(report.fill.goalMM) +
                    " with every required item assumed)";
-        } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u) {
+        } else if (status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY ||
+                   (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u)) {
             // #1483: one game's own items outnumber its own checks, whatever the
             // other game has free.
             why += " - " + SingleBagHomeShortText(report);

@@ -853,8 +853,9 @@ int CompleteAndStage(bool fromGenerate) {
             } else if (last->status != RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE ||
                        OoT_Creation_EmitUnreachableToast() <= 0) {
                 // #1483: a game whose own items cannot fit its checks is a fact of
-                // the settings too; the generic line stays for real seed dead ends
-                // and budget stops.
+                // the settings too (the early RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY
+                // refusal lands here as well); the generic line stays for real seed
+                // dead ends and budget stops.
                 if (OoT_Creation_EmitHomeCapacityToast(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT,
                                                        last->triforcePiecesMM) == 0) {
                     Notification::Emit(

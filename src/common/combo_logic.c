@@ -134,6 +134,8 @@ const char* Combo_Logic_StatusName(int status) {
             return "goal-unreachable";
         case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
             return "group-capacity";
+        case RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY:
+            return "home-capacity";
         default:
             return "(unknown)";
     }
@@ -2440,6 +2442,71 @@ static int ComboLogicClaimForced(const ComboLogicFillRequest* req) {
 }
 
 /**
+ * HOME CAPACITY (#1483): a game whose HOME_ONLY REQUIRED rows (including forced
+ * rows) outnumber its own empty hosts cannot be filled by any seed. Reached empty
+ * hosts are a subset of all empty hosts, so this is a necessary condition on every
+ * rung. Refused at once, before any attempt, with attempts 0 and rounds 0.
+ */
+static int ComboLogicCheckHomeCapacity(const ComboLogicFillRequest* req, ComboLogicFillResult* res) {
+    Combo_Logic_ResetPlacements();
+    int reqRows[2] = { 0, 0 };
+    int hostCounts[2] = { 0, 0 };
+    bool shortSide[2] = { false, false };
+    const uint8_t games[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+
+    for (int gi = 0; gi < 2; ++gi) {
+        const uint8_t game = games[gi];
+        int rows = 0;
+        for (int i = 0; i < sRequiredCount; ++i) {
+            const ComboLogicBagItem* item = &req->bag[sRequiredIdx[i]];
+            if (item->item.originGame == game && (item->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u) {
+                rows++;
+            }
+        }
+        for (int f = 0; f < sForcedCount; ++f) {
+            if (sForced[f].hostGame == game) {
+                rows++;
+            }
+        }
+        const int st = ComboLogicCollectFrom(game, false);
+        if (st != RSBS_COMBO_LOGIC_OK) {
+            return st;
+        }
+        reqRows[gi] = rows;
+        hostCounts[gi] = sCandidates[game].count;
+        if (reqRows[gi] > hostCounts[gi]) {
+            shortSide[gi] = true;
+        }
+    }
+
+    if (!shortSide[0] && !shortSide[1]) {
+        return RSBS_COMBO_LOGIC_OK;
+    }
+
+    if (shortSide[0] && shortSide[1]) {
+        res->homeShortGame = (uint8_t)GAME_NONE;
+        res->homeRequiredRows = reqRows[0] + reqRows[1];
+        res->homeHosts = hostCounts[0] + hostCounts[1];
+        fprintf(stderr,
+                "[ComboLogic] fill refused: home capacity exceeded in both games: OoT %d required row(s) for %d "
+                "check(s); MM %d required row(s) for %d check(s) (a fact of the settings, not of the seed)\n",
+                reqRows[0], hostCounts[0], reqRows[1], hostCounts[1]);
+    } else {
+        const int gi = shortSide[0] ? 0 : 1;
+        res->homeShortGame = games[gi];
+        res->homeRequiredRows = reqRows[gi];
+        res->homeHosts = hostCounts[gi];
+        fprintf(
+            stderr,
+            "[ComboLogic] fill refused: %d required row(s) confined to %s for %d empty host(s) there (a fact of the "
+            "settings, not of the seed)\n",
+            reqRows[gi], Game_ToString((GameId)games[gi]), hostCounts[gi]);
+    }
+
+    return RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY;
+}
+
+/**
  * DEBUG SEEDS: put every claimed row on its host, right after an attempt's reset.
  * The host must be one of its engine's EMPTY hosts (`allEmptyHosts`, legal outside
  * a round) and the row must be allowed there (its own side, or a crossing its
@@ -2896,8 +2963,8 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
 
     // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined
     // or a group is exclusive, so a mask-free request (NULL, or every mask 0, and
-    // no exclusive group) runs exactly the ABI-8 fill: no reset here, no capacity
-    // count, no partition.
+    // no exclusive group) runs no group capacity count here. The home-capacity
+    // count below (#1483) runs on every fill.
     if (anyConfined || req->exclusiveGroups != 0u) {
         sConfineMasks = anyConfined ? req->confineMasks : NULL;
         sConfineBag = anyConfined ? req->bag : NULL;
@@ -2918,6 +2985,10 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
         if (status != RSBS_COMBO_LOGIC_OK) {
             goto finish;
         }
+    }
+    status = ComboLogicCheckHomeCapacity(req, &res);
+    if (status != RSBS_COMBO_LOGIC_OK) {
+        goto finish;
     }
     res.droppedDigest = 2166136261u; // FNV-1a offset basis: "nothing dropped"
     sMaxCrossingsPerSide = (int)req->maxCrossingsPerSide;

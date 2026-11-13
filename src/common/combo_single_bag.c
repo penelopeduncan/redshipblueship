@@ -765,9 +765,9 @@ finish:
         // this, and the next attempt must see its general pass empty.
         Combo_Logic_ResetPlacements();
     }
-    if (fillRan && status != RSBS_COMBO_LOGIC_OK && sReport.fill.attempts > 0) {
-        // #1483: after the roll-back, so each game's leftover hosts are all of its
-        // empty hosts.
+    if (Combo_SingleBag_FailureCountsHomeCapacity(fillRan, status, sReport.fill.attempts)) {
+        // #1483: after the roll-back (or an early pre-attempt capacity refusal),
+        // so each game's leftover hosts are all of its empty hosts.
         Combo_SingleBag_CountHomeCapacity(sBag, sReport.bagCount, &sReport);
     }
     sReport.status = status;
@@ -794,6 +794,10 @@ finish:
     return status;
 }
 
+bool Combo_SingleBag_FailureCountsHomeCapacity(bool fillRan, int status, int attempts) {
+    return fillRan && status != RSBS_COMBO_LOGIC_OK && (attempts > 0 || status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY);
+}
+
 bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
     switch (status) {
         // Under a PROVING rung a dead end is a fact of the order this seed drew. Under
@@ -811,6 +815,8 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
         case RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED:
         case RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE:
         case RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE:
+        case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
+        case RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY:
         default:
             return false;
     }
