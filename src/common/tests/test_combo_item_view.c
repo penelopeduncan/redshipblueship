@@ -2359,6 +2359,97 @@ static void CivFreezeRules2(uint32_t rules2) {
     Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
 }
 
+/** One row's have bit by its slot key; -1 when the row is not drawn. */
+static int CivHaveOfKey(const std::vector<ComboItemRow>& rows, const char* key) {
+    const int i = CivIndexOfKey(rows, key);
+    return i < 0 ? -1 : (rows[(size_t)i].have ? 1 : 0);
+}
+
+/** XW14 leg (f) of CivAddedWarpSongLegs: the rows read the shared warp-song
+ *  family. `oot` holds no OoT song and no Soaring (OoT) flag, `mm` no Song of
+ *  Soaring; the probes are put back on every path. */
+static int CivSharedWarpSongRowLegs(const ComboItemOps* ops, const ComboItemOps* mmOps, const uint8_t* oot,
+                                    const uint8_t* mm) {
+    const ComboSharedLiveProbeFn ootProbe = Combo_SharedLiveProbeFor(GAME_OOT);
+    const ComboSharedLiveProbeFn mmProbe = Combo_SharedLiveProbeFor(GAME_MM);
+    Combo_RegisterSharedLiveProbe(GAME_OOT, NULL);
+    Combo_RegisterSharedLiveProbe(GAME_MM, NULL);
+    int result = TEST_PASS;
+    do {
+        // The shared Minuet with its extension; nothing owned anywhere.
+        CivFreezeRules2(RSBS_XITEM2_SONG_MINUET_MM | RSBS_XITEM2_SHARED_SONG_MINUET);
+        Combo_MMWarpSongsSetOwned(0u);
+        const std::vector<ComboItemRow> mmNone = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootNone = CivRowsOf(ops, oot);
+        if (CivHaveOfKey(mmNone, "song_minuet_mm") != 0 || CivHaveOfKey(ootNone, "song_minuet") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Minuet reads held with nothing owned (MM %d, OoT %d)\n",
+                   CivHaveOfKey(mmNone, "song_minuet_mm"), CivHaveOfKey(ootNone, "song_minuet"));
+            result = TEST_FAIL;
+            break;
+        }
+        // The family word alone holds it.
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_MINUET;
+        const std::vector<ComboItemRow> mmFam = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootFam = CivRowsOf(ops, oot);
+        const int mmMinuet = CivIndexOfKey(mmFam, "song_minuet_mm");
+        if (mmMinuet < 0 || !mmFam[(size_t)mmMinuet].have ||
+            strcmp(mmFam[(size_t)mmMinuet].name, "Minuet of Forest") != 0 || CivHaveOfKey(ootFam, "song_minuet") != 1 ||
+            CivHaveOfKey(ootFam, "song_bolero") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Minuet owned by the family: MM row %d named \"%s\", OoT's Minuet %d, "
+                   "OoT's Bolero %d (want held, \"Minuet of Forest\", 1, 0)\n",
+                   mmMinuet < 0 ? -1 : (mmFam[(size_t)mmMinuet].have ? 1 : 0),
+                   mmMinuet < 0 ? "(none)" : mmFam[(size_t)mmMinuet].name, CivHaveOfKey(ootFam, "song_minuet"),
+                   CivHaveOfKey(ootFam, "song_bolero"));
+            result = TEST_FAIL;
+            break;
+        }
+        // The extension alone: the family word reads nothing.
+        CivFreezeRules2(RSBS_XITEM2_SONG_MINUET_MM);
+        Combo_MMWarpSongsSetOwned(0u);
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_MINUET;
+        const std::vector<ComboItemRow> mmOff = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootOff = CivRowsOf(ops, oot);
+        const int mmOffMinuet = CivIndexOfKey(mmOff, "song_minuet_mm");
+        if (mmOffMinuet < 0 || mmOff[(size_t)mmOffMinuet].have ||
+            strcmp(mmOff[(size_t)mmOffMinuet].name, "Minuet of Forest (MM)") != 0 ||
+            CivHaveOfKey(ootOff, "song_minuet") != 0) {
+            printf("[TEST] FAIL: XW14 with the shared Minuet off the family word made a Minuet row held, or MM's row "
+                   "lost its \"(MM)\"\n");
+            result = TEST_FAIL;
+            break;
+        }
+        // The shared Song of Soaring with its extension.
+        CivFreezeRules2(RSBS_XITEM2_SONG_SOARING_OOT | RSBS_XITEM2_SHARED_SONG_SOARING);
+        const std::vector<ComboItemRow> ootSoarNone = CivRowsOf(ops, oot);
+        const std::vector<ComboItemRow> mmSoarNone = CivRowsOf(mmOps, mm);
+        if (CivHaveOfKey(ootSoarNone, "song_soaring_oot") != 0 || CivHaveOfKey(mmSoarNone, "song_soaring") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Soaring reads held with nothing owned (OoT %d, MM %d)\n",
+                   CivHaveOfKey(ootSoarNone, "song_soaring_oot"), CivHaveOfKey(mmSoarNone, "song_soaring"));
+            result = TEST_FAIL;
+            break;
+        }
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_SOARING;
+        const std::vector<ComboItemRow> ootSoar = CivRowsOf(ops, oot);
+        const std::vector<ComboItemRow> mmSoar = CivRowsOf(mmOps, mm);
+        const int ootSoaring = CivIndexOfKey(ootSoar, "song_soaring_oot");
+        if (ootSoaring < 0 || !ootSoar[(size_t)ootSoaring].have ||
+            strcmp(ootSoar[(size_t)ootSoaring].name, "Song of Soaring") != 0 ||
+            CivHaveOfKey(mmSoar, "song_soaring") != 1) {
+            printf("[TEST] FAIL: XW14 the shared Soaring owned by the family: OoT row %d named \"%s\", MM's own %d "
+                   "(want held, \"Song of Soaring\", 1)\n",
+                   ootSoaring < 0 ? -1 : (ootSoar[(size_t)ootSoaring].have ? 1 : 0),
+                   ootSoaring < 0 ? "(none)" : ootSoar[(size_t)ootSoaring].name, CivHaveOfKey(mmSoar, "song_soaring"));
+            result = TEST_FAIL;
+            break;
+        }
+        printf("[TEST] combo-item-view: XW14 under a shared warp-song rule both games' rows of the song read the "
+               "family held now, the added copy named without its game (#1169)\n");
+    } while (false);
+    Combo_RegisterSharedLiveProbe(GAME_OOT, ootProbe);
+    Combo_RegisterSharedLiveProbe(GAME_MM, mmProbe);
+    return result;
+}
+
 static int CivAddedWarpSongLegs(const ComboItemOps* ops, const ComboItemOps* mmOps) {
     static const char* const kMMKeys[6] = { "song_minuet_mm",  "song_bolero_mm",   "song_serenade_mm",
                                             "song_requiem_mm", "song_nocturne_mm", "song_prelude_mm" };
@@ -2463,6 +2554,19 @@ static int CivAddedWarpSongLegs(const ComboItemOps* ops, const ComboItemOps* mmO
     CIV_ASSERT(mmBolero.size() == mmOff.size() + 1);
     CIV_ASSERT(CivSlotKeyIs(mmBolero[(size_t)oath + 1], "song_bolero_mm") && mmBolero[(size_t)oath + 1].have &&
                CivSlotKeyIs(mmBolero[(size_t)oath + 2], "remains_odolwa"));
+
+    // (f) #1169 XW14: the shared rules, through both REAL adapters. No game is
+    // live (both probes NULL, put back below), so the family held now is the
+    // family word alone: no own copy anywhere, the word set, and every row of
+    // the song reads held in BOTH games, the added copy named without its tag.
+    // Catches an added row that ignores the family (MM's Minuet, OoT's Soaring),
+    // a game's own row that ignores it (OoT's Minuet, MM's Song of Soaring: the
+    // own row would catch up only at the next arrival), a wrong song mapped
+    // (OoT's Bolero must stay not held), and a row that reads the word with the
+    // shared rule off.
+    if (CivSharedWarpSongRowLegs(ops, mmOps, oot.data(), mm.data()) != TEST_PASS) {
+        return TEST_FAIL;
+    }
 
     // (e) the catalog does not move.
     CIV_ASSERT(ops->catalogCount() == ootCatalogOff && mmOps->catalogCount() == mmCatalogOff);

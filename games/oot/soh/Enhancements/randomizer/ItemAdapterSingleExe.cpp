@@ -551,6 +551,15 @@ bool Derive(const SaveContext* src, const RowDef& def, ComboItemRow* out) {
             if (std::strcmp(def.group, "Songs") == 0) {
                 out->iconAspect = 1.0f / 1.5f; // DrawSong: a note iconSize / 1.5 wide, centred
             }
+            // #1169 XW14: under its shared rule OoT's own Minuet .. Prelude is held when the family is held now
+            // (Combo_SharedFamilies2HeldNow), as the added song's row in Majora's Mask is, so a song found in Termina
+            // shows held here before the next arrival gives OoT its copy. 0 with no shared rule frozen: unchanged.
+            if (def.kind == RK_QUEST && def.data >= (uint32_t)QUEST_SONG_MINUET &&
+                def.data <= (uint32_t)QUEST_SONG_PRELUDE &&
+                (Combo_SharedFamilies2HeldNow() &
+                 ((uint32_t)RSBS_XITEM2_SHARED_SONG_MINUET << (def.data - (uint32_t)QUEST_SONG_MINUET))) != 0u) {
+                out->have = true;
+            }
             if (def.kind == RK_TOKENS) {
                 out->count = gSaveContext.inventory.gsTokens;
                 out->max = 100;
@@ -1046,7 +1055,13 @@ bool OoTItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
 // through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running game's own live copy
 // under that game's own live-file probe, so a row drawn from OoT's shadow while Majora's Mask runs never asks OoT's
 // member). The view still draws the row here, in OoT's own Songs run (sharedFamily stays 0: the Shared group is
-// first-word only), so under the shared rule both games show the song held, as OoTMM shows it in both menus.
+// first-word only), and Majora's Mask's own Song of Soaring row reads the same answer, so under the shared rule both
+// games show the song held, as OoTMM shows it in both menus. OoT's own six warp songs do the same in Derive.
+
+static_assert((uint32_t)RSBS_XITEM2_SHARED_SONG_PRELUDE ==
+                  ((uint32_t)RSBS_XITEM2_SHARED_SONG_MINUET
+                   << ((uint32_t)QUEST_SONG_PRELUDE - (uint32_t)QUEST_SONG_MINUET)),
+              "the own warp-song rows map QUEST_SONG_MINUET .. PRELUDE onto the six shared bits in order");
 
 /** The row's display and ownership for the buffer's file. */
 ComboAddedSongRow OoTItemSoaringRow(const SaveContext* src) {

@@ -514,6 +514,13 @@ bool MMItemDerive(const SaveContext* src, const MMItemRowDef& def, ComboItemRow*
         case MMRK_QUEST:
             MMItemFillRando(out, def.rando);
             out->have = CHECK_QUEST_ITEM(def.data) != 0;
+            // #1169 XW14: under the shared Song of Soaring MM's own song is held when the family is held now
+            // (Combo_SharedFamilies2HeldNow), as the Song of Soaring (OoT) row is, so a song found in Hyrule shows
+            // held here before the next arrival gives MM its copy. 0 with no shared rule frozen: unchanged.
+            if (def.data == (uint32_t)QUEST_SONG_SOARING &&
+                (Combo_SharedFamilies2HeldNow() & (uint32_t)RSBS_XITEM2_SHARED_SONG_SOARING) != 0u) {
+                out->have = true;
+            }
             return true;
         case MMRK_LULLABY: {
             // Progressive (RI_PROGRESSIVE_LULLABY): the row names the tier held.
@@ -799,7 +806,8 @@ bool MMItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
 // (Combo_MMWarpSongOwned), the authoritative record whichever buffer the view hands over, or, under the song's shared
 // rule (#1169 XW14), through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running
 // game's own live copy under that game's own live-file probe). Each game keeps its own row (sharedFamily stays 0: the
-// Shared group is first-word only), so under the shared rule both games show the song held, as OoTMM does.
+// Shared group is first-word only), and Ocarina of Time's own Minuet .. Prelude rows read the same answer, so under the
+// shared rule both games show the song held, as OoTMM does. MM's own Song of Soaring does the same in MMItemDerive.
 struct MMItemAddedSongDef {
     uint32_t rule;
     RandoItemId rando;
