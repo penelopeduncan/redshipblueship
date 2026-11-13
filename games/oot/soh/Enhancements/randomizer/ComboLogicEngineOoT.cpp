@@ -3085,11 +3085,14 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  *
  * #1169 XW15 (operator ruling: a shared song is at its default location when the
  * songs are not shuffled): under Shuffle Songs Off a SHARED WARP SONG is never held
- * back (Combo_SharedWarpSongFixedAtHome). It stays on the Sheik check item_pool.cpp
- * put it on, so fill.cpp's release leaves it there, Link's Pocket never sees it,
- * and the songs family is not armed for it; the coordinator credits Majora's Mask
- * with it when that check is reached (OoT_ComboLogic_FixedSharedSongHost). The
- * first word's shared songs keep the release.
+ * back (Combo_SharedWarpSongFixedAtHome). The six stay on the Sheik checks
+ * item_pool.cpp put them on, so fill.cpp's release leaves them there, Link's Pocket
+ * never sees them, and the songs family is not armed for them; the coordinator
+ * credits Majora's Mask with each when its check is reached
+ * (OoT_ComboLogic_FixedSharedSongHost). The shared Song of Soaring stays on Majora's
+ * Mask's swamp check and OoT pools no copy of it. The only song in OoT's pool under
+ * Off is an unshared Song of Soaring (OoT), which roams and which Link's Pocket may
+ * take. The first word's shared songs keep the release.
  */
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX ||

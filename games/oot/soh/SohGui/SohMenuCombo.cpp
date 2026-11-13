@@ -196,32 +196,38 @@ static ComboWarpSongRow sComboWarpSongRows[] = {
       RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE, nullptr, false },
     { COMBO_SETTING_SHARED_SONG_SOARING, RSBS_XITEM2_SHARED_SONG_SOARING, COMBO_SETTING_SONG_SOARING_OOT,
       "Makes the Song of Soaring one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Song of Soaring is shuffled, and both games' logic counts it. Needs Song of Soaring (OoT).",
+      "other. Only one Song of Soaring is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Song of Soaring (OoT).",
       "This setting is disabled because: \n\n- Song of Soaring (OoT) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_MINUET, RSBS_XITEM2_SHARED_SONG_MINUET, COMBO_SETTING_SONG_MINUET_MM,
       "Makes the Minuet of Forest one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Minuet of Forest is shuffled, and both games' logic counts it. Needs Minuet of Forest (MM).",
+      "other. Only one Minuet of Forest is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Minuet of Forest (MM).",
       "This setting is disabled because: \n\n- Minuet of Forest (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_BOLERO, RSBS_XITEM2_SHARED_SONG_BOLERO, COMBO_SETTING_SONG_BOLERO_MM,
       "Makes the Bolero of Fire one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Bolero of Fire is shuffled, and both games' logic counts it. Needs Bolero of Fire (MM).",
+      "other. Only one Bolero of Fire is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Bolero of Fire (MM).",
       "This setting is disabled because: \n\n- Bolero of Fire (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_SERENADE, RSBS_XITEM2_SHARED_SONG_SERENADE, COMBO_SETTING_SONG_SERENADE_MM,
       "Makes the Serenade of Water one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Serenade of Water is shuffled, and both games' logic counts it. Needs Serenade of Water (MM).",
+      "other. Only one Serenade of Water is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Serenade of Water (MM).",
       "This setting is disabled because: \n\n- Serenade of Water (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_REQUIEM, RSBS_XITEM2_SHARED_SONG_REQUIEM, COMBO_SETTING_SONG_REQUIEM_MM,
       "Makes the Requiem of Spirit one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Requiem of Spirit is shuffled, and both games' logic counts it. Needs Requiem of Spirit (MM).",
+      "other. Only one Requiem of Spirit is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Requiem of Spirit (MM).",
       "This setting is disabled because: \n\n- Requiem of Spirit (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_NOCTURNE, COMBO_SETTING_SONG_NOCTURNE_MM,
-      "Makes the Nocturne of Shadow one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Nocturne of Shadow is shuffled, and both games' logic counts it. Needs Nocturne of Shadow "
-      "(MM).",
+      "Makes the Nocturne of Shadow one item across both games: finding it in either game gives it to you in "
+      "the other. Only one Nocturne of Shadow is shuffled (with Shuffle Songs Off it stays at its usual check), "
+      "and both games' logic counts it. Needs Nocturne of Shadow (MM).",
       "This setting is disabled because: \n\n- Nocturne of Shadow (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_PRELUDE, RSBS_XITEM2_SHARED_SONG_PRELUDE, COMBO_SETTING_SONG_PRELUDE_MM,
       "Makes the Prelude of Light one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Prelude of Light is shuffled, and both games' logic counts it. Needs Prelude of Light (MM).",
+      "other. Only one Prelude of Light is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Prelude of Light (MM).",
       "This setting is disabled because: \n\n- Prelude of Light (MM) Is Off", false },
 };
 

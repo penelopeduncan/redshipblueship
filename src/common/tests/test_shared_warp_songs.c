@@ -1322,7 +1322,9 @@ int SwsExitRound(const ComboLogicHostRef* forbidden, int forbiddenCount, ComboLo
  * Majora's Mask holds the Minuet of Forest (MM) once Sheik in Forest is reached
  * (MM's travel fact into OoT), Ocarina of Time the Song of Soaring (OoT) once the
  * Southern Swamp check is reached (OoT's travel fact into MM). Forbidding either
- * host takes exactly that credit away (the forbidden-host skip).
+ * host takes that credit away (the forbidden-host skip): its travel fact is gone
+ * and fewer credits are delivered. The count is not asserted exactly, because a
+ * forbidden host can also cut off other hosts.
  */
 void SwsOffExitRounds() {
     ComboLogicRoundResult base;
