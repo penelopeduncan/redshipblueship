@@ -2191,6 +2191,11 @@ void StaticData::HintTable_Init_Exclude_Overworld() {
     hintTextTable[RHT_BUTTERFLY_FAIRY_ZR_GROTTO] = HintText(CustomMessage("They say that a #butterfly underground near a river# reveals #[[1]]#.",
                                             /*german*/ "Man erzählt sich, daß ein #Schmetterling unterirdisch in der Nähe eines Flusses# #[[1]]# enthülle.",
                                             /*french*/ "Selon moi, #un papillon sous terre près d'une rivière# révèle #[[1]]#.", {QM_RED, QM_GREEN}));
+
+    hintTextTable[RHT_RED_ICE_ZORAS_DOMAIN] = HintText(CustomMessage("They say that #melting red ice in Zora's Domain# gives #[[1]]#.",
+                                                        /*german*/ "Man erzählt sich, daß das #Schmelzen von rotem Eis in Zoras Reich# #[[1]]# gäbe.",
+                                                        /*french*/ "Selon moi, #faire fondre la glace rouge dans le Domaine Zora# donne #[[1]]#.", {QM_RED, QM_GREEN}));
+
     // clang-format on
 }
 } // namespace Rando

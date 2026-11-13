@@ -1062,6 +1062,8 @@ void Rando::StaticData::InitLocationTable() {
     // (InitHashMaps) and the exclude options before ShipInit::InitAll runs, so the
     // silver checks are registered here too (the registrar runs once).
     RegisterSilverLocations();
+    RegisterIcicleLocations();
+    RegisterRedIceLocations();
 }
 
 void Rando::StaticData::InitHashMaps() {

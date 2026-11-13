@@ -115,11 +115,12 @@ constexpr GroupArea kGroupAreas[kGroups] = {
 // `folded` is what the settings fold reads of it: the same, less the room's
 // RCTYPE_CHEST_GAME rows while Shuffle Chest Minigame is off (#1364) and the
 // RCTYPE_BUTTERFLY_FAIRY rows while Shuffle Butterfly Fairies is off (#1407) and
-// the RCTYPE_SILVER rows while Shuffle Silver Rupees is off (#1363): the fold
-// leaves them out then, so a world keeps the fingerprint it had before the rows had
-// exclude options.
+// the RCTYPE_SILVER rows while Shuffle Silver Rupees is off (#1363) and the
+// RCTYPE_ICICLE rows while Shuffle Icicles is off (#1408) and the RCTYPE_RED_ICE
+// rows while Shuffle Red Ice is off (#1408): the fold leaves them out then, so a
+// world keeps the fingerprint it had before the rows had exclude options.
 void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_INVALID], bool chestGameOff,
-                   bool butterflyOff, bool silverOff) {
+                   bool butterflyOff, bool silverOff, bool iciclesOff, bool redIceOff) {
     std::set<std::string> seen[RCAREA_INVALID];
     std::set<std::string> seenFolded[RCAREA_INVALID];
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
@@ -134,7 +135,9 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_I
         seen[area].insert(loc.GetExcludedOption()->GetName());
         if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
             !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY) &&
-            !(silverOff && loc.GetRCType() == RCTYPE_SILVER)) {
+            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) &&
+            !(iciclesOff && loc.GetRCType() == RCTYPE_ICICLE) &&
+            !(redIceOff && loc.GetRCType() == RCTYPE_RED_ICE)) {
             seenFolded[area].insert(loc.GetExcludedOption()->GetName());
         }
     }
@@ -165,15 +168,17 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
     }
 
     // The world the fold ran for: its own Shuffle Chest Minigame, Shuffle
-    // Butterfly Fairies and Shuffle Silver Rupees decide which exclude rows it read
-    // (#1364, #1407, #1363).
+    // Butterfly Fairies, Shuffle Silver Rupees, Shuffle Icicles and Shuffle Red
+    // Ice decide which exclude rows it read (#1364, #1407, #1363, #1408).
     const bool chestGameOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
     const bool butterflyOff =
         Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
     const bool silverOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
+    const bool iciclesOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_ICICLES).Is(RO_GENERIC_OFF);
+    const bool redIceOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_RED_ICE).Is(RO_GENERIC_OFF);
     size_t expected[RCAREA_INVALID] = {};
     size_t expectedFolded[RCAREA_INVALID] = {};
-    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff);
+    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff, iciclesOff, redIceOff);
 
     auto settings = Rando::Settings::GetInstance();
     int failures = 0;

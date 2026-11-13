@@ -100,6 +100,8 @@ bool showOverworldCrates;
 bool showDungeonCrates;
 bool showTrees;
 bool showBushes;
+bool showIcicles;
+bool showRedIce;
 bool showFrogSongRupees;
 bool showFountainFairies;
 bool showStoneFairies;
@@ -2003,6 +2005,8 @@ void LoadSettings() {
         }
         showTrees = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_TREES);
         showBushes = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_BUSHES);
+        showIcicles = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_ICICLES);
+        showRedIce = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_RED_ICE);
     } else { // Vanilla
         showOverworldTokens = true;
         showDungeonTokens = true;
@@ -2014,6 +2018,8 @@ void LoadSettings() {
         showDungeonCrates = false;
         showTrees = false;
         showBushes = false;
+        showIcicles = false;
+        showRedIce = false;
     }
 
     fortressFast = false;
@@ -2132,7 +2138,10 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_NLTREE ||
                 (showTrees &&
                  OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_LOGIC_RULES) == RO_LOGIC_NO_LOGIC)) &&
-               (loc->GetRCType() != RCTYPE_BUSH || showBushes) && (loc->GetRCType() != RCTYPE_COW || showCows) &&
+               (loc->GetRCType() != RCTYPE_BUSH || showBushes) &&
+               (loc->GetRCType() != RCTYPE_ICICLE || showIcicles) &&
+               (loc->GetRCType() != RCTYPE_RED_ICE || showRedIce) &&
+               (loc->GetRCType() != RCTYPE_COW || showCows) &&
                (loc->GetRCType() != RCTYPE_FISH ||
                 OTRGlobals::Instance->gRandoContext->GetFishsanity()->GetFishLocationIncluded(loc)) &&
                (loc->GetRCType() != RCTYPE_FREESTANDING ||

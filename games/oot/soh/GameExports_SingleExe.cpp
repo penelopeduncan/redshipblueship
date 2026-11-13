@@ -182,6 +182,18 @@ static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &
                   offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
                   sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
               "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
+// #1408 (Shuffle Icicles and Red Ice), after #1363's: 191 checks, their 191 flags, 7
+// hint texts and two setting keys.
+static_assert(RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2702 &&
+                  RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 2892,
+              "OoT's icicle and red ice checks (#1408) are ids 2702..2892, appended after the silver rupees'");
+static_assert(RAND_INF_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2238 &&
+                  RAND_INF_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 2428,
+              "OoT's icicle and red ice flags (#1408) are 2238..2428, appended after the silver rupees'");
+static_assert(RHT_ICE_CAVERN_ICICLE == 1545 && RHT_GANONS_CASTLE_RED_ICE == 1551,
+              "OoT's icicle and red ice hint texts (#1408) are 1545..1551, appended after the silver rupees'");
+static_assert(RSK_SHUFFLE_ICICLES == 236 && RSK_SHUFFLE_RED_ICE == 237,
+              "OoT's Shuffle Icicles and Red Ice keys (#1408) are 236 and 237, after #1363's");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));

@@ -340,6 +340,12 @@ void Settings::CreateOptionDescriptions() {
         "only shuffle with No Logic.";
     mOptionDescriptions[RSK_SHUFFLE_BUSHES] =
         "Bushes in Hyrule Field & Zora's Fountain will contain randomized items when first walked through.";
+    mOptionDescriptions[RSK_SHUFFLE_ICICLES] =
+        "Stalagmites and stalactites in Ice Cavern and Ganon's Castle will contain randomized items when broken.\n"
+        "Icicles will have a halo around them when carrying randomized items.";
+    mOptionDescriptions[RSK_SHUFFLE_RED_ICE] =
+        "Red Ice will give randomized items when melted.\n"
+        "Red Ice will have a particle effect inside it when it holds a randomized item";
     mOptionDescriptions[RSK_SHUFFLE_FISHING_POLE] = "Shuffles the fishing pole into the item pool.\n"
                                                     "\n"
                                                     "The fishing pole is required to play the fishing pond minigame.";
