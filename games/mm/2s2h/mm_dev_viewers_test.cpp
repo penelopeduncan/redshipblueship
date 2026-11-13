@@ -124,6 +124,35 @@ void ResetEventLogHooksAndState() {
     S2H::GameHooks::ResetForTest<GameInteractor::OnItemGive>();
 }
 
+// True when the log holds exactly one entry and it is of `expectedType`
+// (eventLogEntryTypeNames spelling). Always drains the log.
+bool DrainExactlyOneEntryOfType(const char* expectedType) {
+    const char* newest = MM_EventLog_NewestEntryTypeNameForTest();
+    const bool typeMatches = newest != nullptr && std::strcmp(newest, expectedType) == 0;
+    const size_t count = MM_EventLog_DrainEntryCountForTest();
+    if (count != 1 || !typeMatches) {
+        printf("[TEST] expected one %s entry, got %zu (newest %s)\n", expectedType, count,
+               newest != nullptr ? newest : "<none>");
+        return false;
+    }
+    return true;
+}
+
+// Flush the queued removals of every hook type the log registers, so a
+// CountForTest read sees them (S2H::GameHooks::Unregister only queues).
+void FlushEventLogHookUnregistrations() {
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnFlagSet>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnFlagUnset>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnSceneFlagSet>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnSceneFlagUnset>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnActorInit>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnActorKill>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnSceneInit>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnRoomInit>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnOpenText>();
+    S2H::GameHooks::FlushPendingUnregistrations<GameInteractor::OnItemGive>();
+}
+
 } // namespace
 
 extern "C" int MM_DevViewersGate_RunHeadless(void) {
@@ -308,13 +337,20 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnOpenText>() == 1, "OnOpenText hook missing");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnItemGive>() == 1, "OnItemGive hook missing");
 
+        // Each dispatcher on its own: exactly one entry, of its own type (an Unset
+        // dispatcher that ran the Set registry would log a FlagSet entry instead).
         MM_EventLog_DrainEntryCountForTest();
         MM_GameHooks_ExecuteOnFlagSet(FLAG_WEEK_EVENT_REG, 0x0102);
+        DVG_ASSERT(DrainExactlyOneEntryOfType("FlagSet"), "MM_GameHooks_ExecuteOnFlagSet did not log one FlagSet");
         MM_GameHooks_ExecuteOnFlagUnset(FLAG_WEEK_EVENT_REG, 0x0102);
+        DVG_ASSERT(DrainExactlyOneEntryOfType("FlagUnset"),
+                   "MM_GameHooks_ExecuteOnFlagUnset did not log one FlagUnset");
         MM_GameHooks_ExecuteOnSceneFlagSet(0, FLAG_CYCL_SCENE_SWITCH, 1);
+        DVG_ASSERT(DrainExactlyOneEntryOfType("SceneFlagSet"),
+                   "MM_GameHooks_ExecuteOnSceneFlagSet did not log one SceneFlagSet");
         MM_GameHooks_ExecuteOnSceneFlagUnset(0, FLAG_CYCL_SCENE_SWITCH, 1);
-        DVG_ASSERT(MM_EventLog_DrainEntryCountForTest() == 4,
-                   "flag Set/Unset dispatches did not produce 4 EventLog entries");
+        DVG_ASSERT(DrainExactlyOneEntryOfType("SceneFlagUnset"),
+                   "MM_GameHooks_ExecuteOnSceneFlagUnset did not log one SceneFlagUnset");
 
         // Drive z_actor.c's MM_Flags_SetSwitch / MM_Flags_UnsetSwitch call sites end-to-end.
         {
@@ -324,10 +360,10 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
                 DVG_ASSERT(false, "MM_DevTools_SetStandInPlayState(1) left MM_gPlayState null");
             }
             MM_Flags_SetSwitch(MM_gPlayState, 1);
-            const size_t setCount = MM_EventLog_DrainEntryCountForTest();
+            const bool setLogged = DrainExactlyOneEntryOfType("SceneFlagSet");
             MM_Flags_UnsetSwitch(MM_gPlayState, 1);
-            const size_t unsetCount = MM_EventLog_DrainEntryCountForTest();
-            if (setCount != 1 || unsetCount != 1) {
+            const bool unsetLogged = DrainExactlyOneEntryOfType("SceneFlagUnset");
+            if (!setLogged || !unsetLogged) {
                 ResetEventLogHooksAndState();
                 DVG_ASSERT(false, "MM_Flags_SetSwitch / MM_Flags_UnsetSwitch did not log through EventLog");
             }
@@ -345,6 +381,9 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
         MM_GameHooks_ExecuteOnSceneFlagUnset(0, FLAG_CYCL_SCENE_SWITCH, 1);
         DVG_ASSERT(MM_EventLog_DrainEntryCountForTest() == 0,
                    "EventLog still logged entries after gEventLog.Enabled=0");
+        // The other six types were never executed above, so their queued removals
+        // are flushed directly (no dispatch: the actor hooks would need an Actor*).
+        FlushEventLogHookUnregistrations();
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagSet>() == 0,
                    "OnFlagSet hook remained registered after disable+flush");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagUnset>() == 0,
@@ -353,6 +392,18 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
                    "OnSceneFlagSet hook remained registered after disable+flush");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnSceneFlagUnset>() == 0,
                    "OnSceneFlagUnset hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnActorInit>() == 0,
+                   "OnActorInit hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnActorKill>() == 0,
+                   "OnActorKill hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnSceneInit>() == 0,
+                   "OnSceneInit hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnRoomInit>() == 0,
+                   "OnRoomInit hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnOpenText>() == 0,
+                   "OnOpenText hook remained registered after disable+flush");
+        DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnItemGive>() == 0,
+                   "OnItemGive hook remained registered after disable+flush");
         printf("[TEST] leg (d): EventLog registers all 10 hooks, logs FlagSet/FlagUnset/SceneFlagSet/SceneFlagUnset, "
                "and unregisters cleanly on disable\n");
     }

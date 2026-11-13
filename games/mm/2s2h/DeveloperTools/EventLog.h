@@ -18,4 +18,11 @@ class EventLogWindow : public Ship::GuiWindow {
  * Exposed for MMDevViewersGate unit tests.
  */
 size_t MM_EventLog_DrainEntryCountForTest();
+
+/**
+ * Returns the type name ("FlagUnset", "SceneFlagUnset", ...) of the newest
+ * buffered event log entry, or nullptr when the log is empty. Does not clear.
+ * Exposed for MMDevViewersGate unit tests.
+ */
+const char* MM_EventLog_NewestEntryTypeNameForTest();
 #endif

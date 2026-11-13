@@ -336,4 +336,8 @@ size_t MM_EventLog_DrainEntryCountForTest() {
     eventLogEntries.clear();
     return count;
 }
+
+const char* MM_EventLog_NewestEntryTypeNameForTest() {
+    return eventLogEntries.empty() ? nullptr : eventLogEntryTypeNames[eventLogEntries.front().type];
+}
 #endif
