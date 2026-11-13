@@ -216,8 +216,9 @@ typedef struct {
      *  list that skins across limbs loads its neighbours' matrices from it). */
     uint8_t jointSegment;
     /** Non-NULL: "__OTR__..." path of a keyframe animation (AnimationHeader)
-     *  the host samples by frame to replace `joints[i].rot` while keeping
-     *  `joints[i].pos` and `parent` (#1165). NULL keeps the static `joints`. */
+     *  the host samples by frame to replace each joint's `rot` and the root
+     *  joint's `pos` (root translation), while keeping `parent` and non-root
+     *  positions (#1165). NULL keeps the static `joints`. */
     const char* animation;
 } ComboModel;
 

@@ -1272,6 +1272,7 @@ TestResult FmCustomDrawModels(void) {
         Combo_ClearForeignPlacementsOoT();
         const int placed = Combo_SetForeignPlacementOoT(shelf, woodfall);
         OoT_ForeignModel_TestSetMountOverride(1);
+        OoT_ForeignModel_TestSetAnimMountOverride(0);
         printf("[TEST]   M17 Woodfall Stray Fairy on an OoT shelf, archive mounted:\n");
         const int drawFairy = OoT_ForeignModel_TestShelfDraw(shelf, &a.model);
         uint8_t bound[16] = {};
@@ -1295,6 +1296,7 @@ TestResult FmCustomDrawModels(void) {
                at[0][0], at[0][1], at[0][2], at[2][0], at[2][1], at[2][2], at[3][0], at[3][1], at[3][2]);
         printf("[TEST]   M17 Woodfall Stray Fairy on an OoT check, the get-item cutscene:\n");
         const int show = OoT_ForeignModel_TestShowOnlyGetItem(shelf, 1, &a.model, "Woodfall Stray Fairy");
+        OoT_ForeignModel_TestSetAnimMountOverride(-1);
         OoT_ForeignModel_TestSetMountOverride(-1);
         std::memcpy(gComboCtx.foreignPlacementsOoT, saved, sizeof(saved));
 
@@ -1357,8 +1359,9 @@ static bool FmVec3Close(const float a[3], const float b[3]) {
 /**
  * M24 (#1165): MM's stray fairy carries gStrayFairyFlyingAnim, curated in
  * manifest.txt and collision-free in gameplay_keep; pure frame wrapping and
- * frame-table posing preserve parent/pos while replacing rotations; OoT's host
- * draw poses per draw on both the shop shelf and ShowOnlyDraw without mutating
+ * frame-table posing replace each joint's rot and the root joint's pos (root
+ * translation) while keeping parents and non-root positions; OoT's host draw
+ * poses per draw on both the shop shelf and ShowOnlyDraw without mutating
  * sShowOnly.model, keeping sHostAnimMountOverride separate from sHostMountOverride.
  */
 TestResult FmStrayFairyAnim(void) {
@@ -1504,11 +1507,16 @@ TestResult FmStrayFairyAnim(void) {
         const int placed = Combo_SetForeignPlacementOoT(shelf, woodfall);
         FM_ASSERT(placed >= 0, "M24 placement accepted");
 
-        // sHostMountOverride == 1 must never make HostAnimMounted return true in ROM-free runs.
+        // sHostMountOverride == 1 never forces HostAnimMounted true regardless of which archives are mounted.
         OoT_ForeignModel_TestSetMountOverride(1);
-        FM_ASSERT(OoT_ForeignModel_TestAnimMountedReal(wfAnswer.model.animation) == 0,
-                  "M24 sHostAnimMountOverride stays separate from sHostMountOverride");
+        const int missingAnimReal =
+            OoT_ForeignModel_TestAnimMountedReal("__OTR__objects/rsbs_no_such_object/gRsbsNoSuchAnim");
+        const int fairyAnimReal = OoT_ForeignModel_TestAnimMountedReal(wfAnswer.model.animation);
+        const int fairyPathReal = OoT_ForeignModel_TestPathMountedReal(wfAnswer.model.animation);
         OoT_ForeignModel_TestSetMountOverride(-1);
+        FM_ASSERT(missingAnimReal == 0, "M24 sHostAnimMountOverride stays separate from sHostMountOverride");
+        FM_ASSERT(fairyAnimReal == fairyPathReal,
+                  "M24 HostAnimMounted matches real archive state even when sHostMountOverride is 1");
 
         const int16_t tableA[10][3] = {
             { 0, 0, 0 },           { 0, 0, 0x4000 }, // joint 0 (root): rotates wings/glow/torso children
