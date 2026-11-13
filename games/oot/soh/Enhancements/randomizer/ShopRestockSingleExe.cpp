@@ -36,6 +36,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
@@ -1004,12 +1005,22 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 RG_ARROWS_5,    RG_BOMBS_5,       RG_DEKU_SEEDS_30, RG_RED_POTION_REFILL, RG_FISH,
             };
 
+            SaveContext* const savedSaveCtx = logic->mSaveContext;
+            auto scratchSave = std::make_unique<SaveContext>();
+            auto resetScratch = [&]() {
+                std::memset(scratchSave.get(), 0, sizeof(SaveContext));
+                std::memset(scratchSave->inventory.items, ITEM_NONE, sizeof(scratchSave->inventory.items));
+                logic->SetSaveContext(scratchSave.get());
+                logic->Reset(false);
+                logic->SetUpgrade(UPG_BOMB_BAG, 1);
+            };
+
             if (step == 0) {
                 ctx->GetOption(RSK_BOMBCHU_BAG).Set(RO_BOMBCHU_BAG_NONE);
                 ctx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(RO_AMMO_DROPS_OFF);
                 logic->IsChild = true;
 
-                logic->Reset(true);
+                resetScratch();
                 logic->CurrentCheckKey = chestRc;
                 for (RandomizerGet rg : kLogicItems) {
                     Rando::StaticData::RetrieveItem(rg).ApplyEffect();
@@ -1023,7 +1034,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
             }
 
             if (step == 0) {
-                logic->Reset(true);
+                resetScratch();
                 logic->CurrentCheckKey = shopRc;
                 for (RandomizerGet rg : kLogicItems) {
                     Rando::StaticData::RetrieveItem(rg).ApplyEffect();
@@ -1038,13 +1049,13 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
             }
 
             if (step == 0) {
-                logic->Reset(true);
+                resetScratch();
                 logic->CurrentCheckKey = chestRc;
                 Rando::StaticData::RetrieveItem(RG_BOTTLE_WITH_RED_POTION).ApplyEffect();
                 if (logic->Get(LOGIC_BUY_MAGIC_POTION)) {
                     step = 7;
                 } else {
-                    logic->Reset(true);
+                    resetScratch();
                     logic->CurrentCheckKey = shopRc;
                     Rando::StaticData::RetrieveItem(RG_BOTTLE_WITH_RED_POTION).ApplyEffect();
                     if (!logic->Get(LOGIC_BUY_MAGIC_POTION)) {
@@ -1053,7 +1064,8 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 }
             }
 
-            logic->Reset(true);
+            logic->SetSaveContext(savedSaveCtx);
+            logic->Reset(false);
             logic->IsChild = savedIsChild;
             logic->CurrentCheckKey = savedCheckKey;
             ctx->GetOption(RSK_BOMBCHU_BAG).Set(savedChuBag);
