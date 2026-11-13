@@ -478,8 +478,8 @@ TestResult SongPoolPocketAdvancement_Run(void) {
     // only with them elsewhere: Any Dungeon (2) keeps them in OoT's own dungeon pass.
     CVarSetInteger("gRandoSettings.ShuffleDungeonReward", 2); // RO_DUNGEON_REWARDS_ANY_DUNGEON
     CVarSetInteger("gRandoSettings.LinksPocket", 1);          // RO_LINKS_POCKET_ADVANCEMENT
-    SharedItem kokiriEmerald;
-    SharedItem lightMedallion;
+    SharedItem kokiriEmerald = {};
+    SharedItem lightMedallion = {};
     SPU_CHECK(TestNamedItem((uint8_t)GAME_OOT, "Kokiri's Emerald", &kokiriEmerald) &&
                   TestNamedItem((uint8_t)GAME_OOT, "Light Medallion", &lightMedallion),
               "OoT's dungeon rewards are not named\n");
