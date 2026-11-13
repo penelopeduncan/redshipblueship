@@ -167,12 +167,6 @@ struct Held {
 };
 Held sHeld = {};
 
-/** OoTMM's Player_IsNightTime: 18:00 to 06:00. */
-int IsNightNow() {
-    const u16 time = gSaveContext.save.time;
-    return (time >= CLOCK_TIME(18, 0) || time < CLOCK_TIME(6, 0)) ? 1 : 0;
-}
-
 Player* LivePlayer() {
     return (Context_GetCurrentGame() == GAME_MM && MM_gPlayState != nullptr) ? GET_PLAYER(MM_gPlayState) : nullptr;
 }
@@ -262,6 +256,11 @@ extern "C" int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, 
         *formOut = form;
     }
     return (mask != 0xFF || form != 0xFF) ? 1 : 0;
+}
+
+extern "C" int MM_OoTMasks_IsNightNow(void) {
+    const u16 time = gSaveContext.save.time;
+    return (time >= CLOCK_TIME(18, 0) || time < CLOCK_TIME(6, 0)) ? 1 : 0;
 }
 
 extern "C" int MM_OoTMasks_BeforeActorUpdate(Player* player, int16_t actorId, int updates, int isNight) {
@@ -370,7 +369,7 @@ void BeforeListedUpdate(Actor* actor, bool* should) {
     if (player == nullptr || actor == nullptr) {
         return;
     }
-    MM_OoTMasks_BeforeActorUpdate(player, actor->id, (should == nullptr || *should) ? 1 : 0, IsNightNow());
+    MM_OoTMasks_BeforeActorUpdate(player, actor->id, (should == nullptr || *should) ? 1 : 0, MM_OoTMasks_IsNightNow());
 }
 
 void AfterListedUpdate(Actor* actor) {

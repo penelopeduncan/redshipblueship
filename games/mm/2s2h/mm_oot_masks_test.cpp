@@ -43,6 +43,7 @@ extern "C" {
 }
 
 extern "C" void MM_Rando_InitCore(void);
+extern "C" void func_808345C8(void);
 
 namespace {
 
@@ -93,6 +94,10 @@ extern "C" uint16_t MM_OoTMasksTest_Time(void) {
 
 extern "C" void MM_OoTMasksTest_SetTime(uint16_t time) {
     gSaveContext.save.time = time;
+}
+
+extern "C" uint16_t MM_OoTMasksTest_ClockTime(int hr, int min) {
+    return (uint16_t)CLOCK_TIME(hr, min);
 }
 
 /** PLAYER_MASK_STONE (0), PLAYER_MASK_GIBDO (1), PLAYER_FORM_DEKU (2),
@@ -205,8 +210,25 @@ extern "C" int MM_OoTMasksTest_Before(int16_t actorId, int updates, int isNight)
     return MM_OoTMasks_BeforeActorUpdate(OmPlayer(), actorId, updates, isNight);
 }
 
+extern "C" int MM_OoTMasksTest_BeforeAtSaveTime(int16_t actorId, int updates) {
+    return MM_OoTMasks_BeforeActorUpdate(OmPlayer(), actorId, updates, MM_OoTMasks_IsNightNow());
+}
+
 extern "C" void MM_OoTMasksTest_PutBack(void) {
     MM_OoTMasks_PutBack(OmPlayer());
+}
+
+extern "C" int MM_OoTMasksTest_EquippedMask(void) {
+    return (int)gSaveContext.save.equippedMask;
+}
+
+extern "C" void MM_OoTMasksTest_SetEquippedMask(uint8_t mask) {
+    gSaveContext.save.equippedMask = mask;
+}
+
+extern "C" void MM_OoTMasksTest_VoidOutRespawn(int hasDekuMask) {
+    INV_CONTENT(ITEM_MASK_DEKU) = hasDekuMask ? (u8)ITEM_MASK_DEKU : (u8)ITEM_NONE;
+    func_808345C8();
 }
 
 namespace {

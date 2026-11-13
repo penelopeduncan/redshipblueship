@@ -65,6 +65,7 @@ int MM_OoTMasksTest_ActorId(int which);
 int MM_OoTMasksTest_ActorIdMax(void);
 uint16_t MM_OoTMasksTest_Time(void);
 void MM_OoTMasksTest_SetTime(uint16_t time);
+uint16_t MM_OoTMasksTest_ClockTime(int hr, int min);
 int MM_OoTMasksTest_Const(int which);
 void MM_OoTMasksTest_ArmLive(void);
 void MM_OoTMasksTest_Give(uint16_t ri);
@@ -82,7 +83,11 @@ int MM_OoTMasksTest_PlayerForm(void);
 int MM_OoTMasksTest_Use(uint8_t mask);
 int MM_OoTMasksTest_EquipNative(int maskId);
 int MM_OoTMasksTest_Before(int16_t actorId, int updates, int isNight);
+int MM_OoTMasksTest_BeforeAtSaveTime(int16_t actorId, int updates);
 void MM_OoTMasksTest_PutBack(void);
+int MM_OoTMasksTest_EquippedMask(void);
+void MM_OoTMasksTest_SetEquippedMask(uint8_t mask);
+void MM_OoTMasksTest_VoidOutRespawn(int hasDekuMask);
 // games/mm/2s2h/Rando/OoTMasksMM.cpp
 uint8_t MM_OoTMask_ForeignId(uint16_t riId);
 uint16_t MM_OoTMask_ItemId(uint8_t foreignMask);
@@ -758,6 +763,40 @@ TestResult Test_OoTMasksMMItems(void) {
             MM_OoTMasksTest_PutBack();
             OMM_CHECK(MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
                       "#1452 EnHgo did not put back currentMask after update");
+
+            // Night/day boundary via the hook path's [18:00, 06:00) check on gSaveContext.save.time.
+            static const struct {
+                int hr;
+                int min;
+                int expectHit;
+            } kOmmTimeBoundaries[4] = {
+                { 17, 59, 0 },
+                { 18, 0, 1 },
+                { 5, 59, 1 },
+                { 6, 0, 0 },
+            };
+            for (int i = 0; i < 4; i++) {
+                const uint16_t t = MM_OoTMasksTest_ClockTime(kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min);
+                MM_OoTMasksTest_SetTime(t);
+                OMM_CHECK(MM_OoTMasksTest_Time() == t, "#1452 SetTime(%02d:%02d) did not stick",
+                          kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min);
+                const int hit = MM_OoTMasksTest_BeforeAtSaveTime(enHgo, 1);
+                if (kOmmTimeBoundaries[i].expectHit) {
+                    OMM_CHECK(hit == 1 && MM_OoTMasksTest_PlayerMask() == maskGibdo &&
+                                  MM_OoTMasksTest_PlayerForm() == formHuman,
+                              "#1452 EnHgo at %02d:%02d (night) gave hit=%d mask=%d, expected PLAYER_MASK_GIBDO",
+                              kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min, hit, MM_OoTMasksTest_PlayerMask());
+                    MM_OoTMasksTest_PutBack();
+                    OMM_CHECK(MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
+                              "#1452 EnHgo at %02d:%02d did not put back currentMask", kOmmTimeBoundaries[i].hr,
+                              kOmmTimeBoundaries[i].min);
+                } else {
+                    OMM_CHECK(hit == 0 && MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
+                              "#1452 EnHgo at %02d:%02d (day) spoofed mask=%d", kOmmTimeBoundaries[i].hr,
+                              kOmmTimeBoundaries[i].min, MM_OoTMasksTest_PlayerMask());
+                }
+            }
+
             MM_OoTMasks_Forget();
             ComboContext_Init();
         }
@@ -855,6 +894,72 @@ TestResult Test_OoTMasksMMItems(void) {
             OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 0 && MM_OoTMasksTest_PlayerMask() == maskNone,
                       "#1452 after MM_OoTMasks_OnNativeMaskCleared, EnGe2 still saw a spoofed mask (%d)",
                       MM_OoTMasksTest_PlayerMask());
+            MM_OoTMasks_Forget();
+            ComboContext_Init();
+        }
+
+        // (d) z_player.c func_808345C8 void-out respawn clears a worn Gerudo Mask only with the Deku Mask owned,
+        // and leaves owned bits intact.
+        {
+            const int maskStone = MM_OoTMasksTest_Const(0);
+            const int maskNone = MM_OoTMasksTest_Const(4);
+            const int16_t ge2 = (int16_t)MM_OoTMasksTest_ActorId(0);
+            OmmFreezeWorld(kOmmExtensions);
+            MM_OoTMasksTest_ArmLive();
+            MM_OoTMasks_Forget();
+            MM_OoTMasksTest_Give(gerudo);
+            MM_OoTMasksTest_Give(skull);
+            MM_OoTMasksTest_Give(spooky);
+            MM_ForeignMask_SetSlotSelRaw(
+                COMBO_FOREIGN_MASK_SLOT_MM_STONE,
+                Combo_ForeignMask_SlotByteWithSelection(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE),
+                                                        COMBO_FOREIGN_MASK_OOT_GERUDO));
+            MM_OoTMasksTest_SetPlayer(1, (uint8_t)maskNone);
+            OMM_CHECK(MM_OoTMasksTest_Use(COMBO_FOREIGN_MASK_OOT_GERUDO) == 1 &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1452 void-out setup: failed to wear Gerudo Mask in foreignMask");
+            const uint8_t stoneSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+            const uint8_t gibdoSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+
+            MM_OoTMasksTest_VoidOutRespawn(0);
+            OMM_CHECK(MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_OoTMasksTest_EquippedMask() == maskNone,
+                      "#1452 func_808345C8 without Deku Mask cleared worn Gerudo Mask (stored=%u, worn=%u, eq=%d)",
+                      (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn(),
+                      MM_OoTMasksTest_EquippedMask());
+            OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 1 && MM_OoTMasksTest_PlayerMask() == maskStone,
+                      "#1452 after func_808345C8 without Deku Mask, EnGe2 no longer saw Stone Mask");
+            MM_OoTMasksTest_PutBack();
+
+            MM_OoTMasksTest_VoidOutRespawn(1);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_NONE,
+                      "#1452 func_808345C8 with Deku Mask did not clear worn Gerudo Mask (stored=%u, worn=%u, eq=%d)",
+                      (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn(),
+                      MM_OoTMasksTest_EquippedMask());
+            OMM_CHECK(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == stoneSlotBefore &&
+                          MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO) == gibdoSlotBefore &&
+                          MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky),
+                      "#1452 func_808345C8 altered foreignMaskSlotSel owned bits (stone=%02X/%02X, gibdo=%02X/%02X)",
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE), (unsigned)stoneSlotBefore,
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO), (unsigned)gibdoSlotBefore);
+            OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 0 && MM_OoTMasksTest_PlayerMask() == maskNone,
+                      "#1452 after func_808345C8 with Deku Mask, EnGe2 still saw a spoofed mask (%d)",
+                      MM_OoTMasksTest_PlayerMask());
+
+            MM_OoTMasksTest_SetEquippedMask((uint8_t)maskStone);
+            MM_OoTMasksTest_VoidOutRespawn(0);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskStone,
+                      "#1452 func_808345C8 without Deku Mask cleared native equippedMask (%d)",
+                      MM_OoTMasksTest_EquippedMask());
+            MM_OoTMasksTest_VoidOutRespawn(1);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone,
+                      "#1452 func_808345C8 with Deku Mask did not clear native equippedMask (%d)",
+                      MM_OoTMasksTest_EquippedMask());
+
             MM_OoTMasks_Forget();
             ComboContext_Init();
         }
