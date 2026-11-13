@@ -2817,9 +2817,13 @@ if(BUILD_TESTING)
     # TIMEOUT is raised from 900 for the four added legs.
     # (No leg excludes an OoT song check: SoH keeps song checks out of its exclude
     # list under Song Locations, so that state cannot be set up.)
+    # #1169 XW14 adds three shared-song legs (a shared song frees one check: 24
+    # refused, 23 created, and leg (b)'s Direction Off world created once its Song
+    # of Soaring is shared), ten paired generations, so the TIMEOUT is scaled from
+    # 1800 by 10/7; the real cost is only known by running.
     redship_add_test(NAME SongPoolOverCapacity COMMAND redship --test song-pool-over-capacity
         LABEL rando
-        TIMEOUT 1800
+        TIMEOUT 2600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1231: a DEBUG SEED with pinned placements (the #1070 Woodfall repro: the
     # Sonata and the Deku Mask in Mido's House) generates, proves the GOAL and
@@ -4750,6 +4754,23 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
+    # #1169 XW14: the same row with the Shared Minuet of Forest on too, through
+    # its key (and, while the shared rules are hidden, the test reveal in OoT's
+    # MwArmWorld, which the commit that offers them deletes). OoT is given its own
+    # Minuet before the Happy Mask Shop door through its registered family member,
+    # and the MM drive gives MM nothing: at PREPARE it requires the Minuet in MM's
+    # arrival apply's give record (Combo_SharedFamilies2GivenAtLastApply), which no
+    # starting-check payout writes, then in the family word and MM's ownership
+    # byte. Everything after is the unshared row's, plus OoT's own Minuet still
+    # held at the arrival. The same budget: one give fewer. A watchdog exit or a
+    # crash skips the verdict-time cleanup, so the config keeps this row's keys
+    # (now gCombo.Rando.SharedSongMinuet too) and the next paired row refuses it at
+    # its shipped-defaults check; clear them from the staged config by hand.
+    redship_add_test(NAME IntMMWarpSongMinuetShared
+        COMMAND redship --integration-test int-mm-warp-song-minuet-shared
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
@@ -4757,7 +4778,7 @@ crossing to refuse (#954).")
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
         IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntMMWarpSongMinuet
-        IntSongHostOoT IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

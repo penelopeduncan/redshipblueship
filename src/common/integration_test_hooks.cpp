@@ -854,7 +854,7 @@ void IntegrationTest_GameplayFail(const char* reason) {
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
     if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL ||
-        variant == GP_VARIANT_MM_WARP_SONG_MINUET) {
+        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -866,9 +866,13 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
         if (variant == GP_VARIANT_SOARING_TO_OWL) {
             fprintf(stderr, "[PFC] variant: Song of Soaring to an owl (#1169 XW6), riding the paired first crossing\n");
         }
-        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET) {
+        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
             fprintf(stderr, "[PFC] variant: Minuet of Forest played in Majora's Mask, crossing to Ocarina of Time "
                             "(#1169 XW13), riding the paired first crossing\n");
+        }
+        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+            fprintf(stderr, "[PFC] variant: the SHARED Minuet of Forest (#1169 XW14): learnt in Ocarina of Time "
+                            "only, carried to Majora's Mask by the shared family, then played there\n");
         }
         fflush(stderr);
     }
@@ -881,7 +885,8 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void) {
 bool IntegrationTest_PairedFirstCrossing(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP &&
            (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL ||
-            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET);
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
 }
 
 bool IntegrationTest_SoaringToOwl(void) {
@@ -889,7 +894,12 @@ bool IntegrationTest_SoaringToOwl(void) {
 }
 
 bool IntegrationTest_MMWarpSongMinuet(void) {
-    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET;
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && (sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+                                                        sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
+}
+
+bool IntegrationTest_MMWarpSongMinuetShared(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED;
 }
 
 bool IntegrationTest_PairedSkipCreation(void) {

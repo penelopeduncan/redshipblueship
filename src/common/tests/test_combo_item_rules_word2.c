@@ -728,6 +728,10 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         Xw2SeedShadows(0x69u);
         Xw2FreezeWorld(kXw2SoaringPair);
         Xw2SeedShadows(0x69u);
+        // #1169 XW14: the shared Song of Soaring's family owned, so the revealed
+        // loads below prove gComboCtx.sharedFamilyOwned2 rides the .redsave (every
+        // load starts from ComboContext_Init, which zeroes it).
+        gComboCtx.sharedFamilyOwned2 = kXw2SharedSoaring;
         XW2_CHECK(mgr.Save(0), "Save(0) failed for the Soaring file");
         RsbsSave_ResetSlotSessionState();
         ComboContext_Init();
@@ -770,6 +774,12 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "THE .redsave ROUND TRIP: loaded %d, word %08X, fingerprint %08X", keyedLoaded ? 1 : 0,
                   (unsigned)Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2),
                   (unsigned)gComboCtx.comboSettingsHash);
+        // #1169 XW14: the second family word round-trips with the world. Catches a
+        // load that drops or zero-extends it, which would make a shared warp song
+        // learnt before the save unknown in the other game after the load.
+        XW2_CHECK(keyedLoaded && gComboCtx.sharedFamilyOwned2 == kXw2SharedSoaring,
+                  "THE SHARED FAMILY WORD did not survive Save/Load: owned2 %08X after the load, want %08X",
+                  (unsigned)gComboCtx.sharedFamilyOwned2, (unsigned)kXw2SharedSoaring);
 
         // Revealed, the session's keys unset: frozen wins at load, the keys come back.
         Xw2ClearKeys();

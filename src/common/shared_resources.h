@@ -759,6 +759,18 @@ uint32_t Combo_SharedFamilies2Owed(GameId game, uint32_t heldBits);
  */
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id);
 
+/**
+ * THE APPLY'S GIVE RECORD (#1169 XW14): the second-word family bits the most
+ * recent Combo_SharedFamiliesApplyLive(@p game) GAVE @p game (a member's give()
+ * called), 0 when that call gave none or @p game was never applied, and 0 for a
+ * game that is not OoT or MM. Cleared at the top of every apply for a real game,
+ * before its early returns. Nothing else writes it: a far-pickup credit or a
+ * starting-check payout leaves it as it was, so an integration row can tell the
+ * family's arrival apply from any other give of the same song. Session state
+ * only, never saved.
+ */
+uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game);
+
 #ifdef __cplusplus
 }
 #endif

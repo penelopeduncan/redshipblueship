@@ -726,6 +726,22 @@ TestResult Test_SharedWarpSongsMerge(void) {
                   (unsigned)afterOoT, kSwsSongNames[s]);
         SWS_CHECK(MM_SharedWarpSongsTest_Held(s) == 1 && SwsHeldCount(true) == 1,
                   "(1) MM's apply did not give MM the %s alone", kSwsSongNames[s]);
+        // #1169 XW14: the apply's give record (IntMMWarpSongMinuetShared reads it).
+        // Catches a record that is never written, or written for a family not given.
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == SwsSharedBitOf(s) &&
+                      Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == 0u,
+                  "(1) after MM's arrival apply gave the %s the give record reads MM %08X, OoT %08X; want MM %08X "
+                  "alone",
+                  kSwsSongNames[s], (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM),
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s));
+        // A second apply owes nothing: the record is cleared at the top of every
+        // apply. Catches a record that only accumulates (a stale bit would let the
+        // integration row pass on an earlier arrival's give).
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u,
+                  "(1) an MM apply that gave nothing left the give record at %08X (not cleared per call)",
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
         SwsFreeze(0u, kSwsAll);
         SwsForgetAll();
@@ -739,6 +755,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
         SWS_CHECK(Combo_SharedFamilies2Owned() == SwsSharedBitOf(s) && OoT_SharedWarpSongsTest_Held(s) == 1 &&
                       SwsHeldCount(false) == 1,
                   "(2) MM's %s did not reach OoT alone through the shims", kSwsSongNames[s]);
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == SwsSharedBitOf(s),
+                  "(2) after OoT's apply gave the %s the give record reads %08X, want %08X", kSwsSongNames[s],
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s));
 
         // The .redsave load seam (#1163): OoT's half applied before its own save opens.
         OoT_SharedSwordTest_ArmLive();
@@ -760,6 +779,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
     SWS_CHECK(Combo_SharedFamilies2Owned() == 0u && SwsHeldCount(true) == 0,
               "(4) with the shared rules off OoT's songs reached Termina (pool %08X, MM holds %d)",
               (unsigned)Combo_SharedFamilies2Owned(), SwsHeldCount(true));
+    SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u,
+              "(4) with the shared rules off MM's apply left the give record at %08X",
+              (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
     // ---- (5) MM's title screen harvests nothing (the harvest's gameMode gate) -----------------------
     SwsFreeze(0u, kSwsAll);
@@ -886,10 +908,19 @@ TestResult Test_SharedWarpSongsMerge(void) {
         MM_SharedSwordTest_ArmLive();
         item.originGame = (uint8_t)GAME_OOT;
         item.id = minuetOoT;
+        // #1169 XW14: the credit gives MM its copy directly, never through the
+        // apply, so the apply's give record is left as it was (leg (6)'s MM apply
+        // left the Minuet there). Catches a credit that writes or clears it, which
+        // would let IntMMWarpSongMinuetShared read a pickup as the arrival's apply.
+        const uint32_t recordBefore = Combo_SharedFamilies2GivenAtLastApply(GAME_MM);
         SWS_CHECK(MM_CreditSharedPickup(&item) == 1 && MM_SharedWarpSongsTest_Held(1) == 1 &&
                       Combo_MMWarpSongsOwned() == 0x01u,
                   "(8) OoT's Minuet found in Termina was not credited with MM's own Minuet (ownership byte %02X)",
                   (unsigned)Combo_MMWarpSongsOwned());
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == recordBefore && recordBefore == kSwsSharedMinuet,
+                  "(8) the far-pickup credit moved the apply's give record (%08X before, %08X after; want leg (6)'s "
+                  "00000100 kept)",
+                  (unsigned)recordBefore, (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
         SwsFreeze(0u, kSwsExtensions);
         SwsForgetAll();

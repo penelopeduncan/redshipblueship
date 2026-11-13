@@ -791,6 +791,11 @@ static uint32_t FamiliesHeldLive(GameId game, int word, uint32_t armed) {
     return held;
 }
 
+/** #1169 XW14: the second-word families Combo_SharedFamiliesApplyLive GAVE each game
+ *  on its most recent call (Combo_SharedFamilies2GivenAtLastApply). Session state,
+ *  file-static: never ComboContext, never saved. */
+static uint32_t sFamilies2GivenAtLastApply[3];
+
 /** Give @p game its own copy of every family of word @p word in @p owed. */
 static int FamiliesGiveOwed(GameId game, int word, uint32_t owed) {
     int given = 0;
@@ -803,6 +808,9 @@ static int FamiliesGiveOwed(GameId game, int word, uint32_t owed) {
         const ComboSharedFamilyMember* m = &sFamilyMembers[game][slot];
         m->give(m->nativeId);
         given++;
+        if (word == 1) {
+            sFamilies2GivenAtLastApply[game] |= bit;
+        }
         fprintf(stderr, "[combo] shared family %s: %s given its own copy (id %u) at arrival\n",
                 word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit), Game_ToString(game),
                 (unsigned)m->nativeId);
@@ -835,6 +843,9 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
     if (!IsRealGame(game)) {
         return 0;
     }
+    // #1169 XW14: this call's give record starts empty, before any early return, so
+    // an apply that owes nothing reads 0 afterwards.
+    sFamilies2GivenAtLastApply[game] = 0u;
     // #1169 XW10: a family word is applied when it arms a family and the pool holds
     // one of it; the first word exactly as before, then the second.
     const uint32_t armed = Combo_SharedFamiliesArmed();
@@ -852,6 +863,10 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
         given += FamiliesGiveOwed(game, 1, Combo_SharedFamilies2Owed(game, FamiliesHeldLive(game, 1, armed2)));
     }
     return given;
+}
+
+uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game) {
+    return IsRealGame(game) ? sFamilies2GivenAtLastApply[game] : 0u;
 }
 
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {

@@ -11421,6 +11421,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "the one-shot target (MM, this entrance, OoT, Minuet's pad, the warp-song kind); OoT must then arrive as a "
       "child at the destination frozen in the creation's warp-song record, restored, with the switch spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET },
+    { "int-mm-warp-song-minuet-shared",
+      "int-mm-warp-song-minuet with the Shared Minuet of Forest on too (#1169 XW14): OoT is given its own Minuet "
+      "before the Happy Mask Shop door and the MM drive gives nothing; at PREPARE MM's arrival apply must have given "
+      "MM its Minuet through the shared family (the apply's give record, not a starting-check payout), and the "
+      "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
+      "Minuet still held at the arrival",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "

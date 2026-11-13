@@ -145,12 +145,20 @@ typedef struct {
  *       the destination frozen in the creation's warp-song record, where the run
  *       ends (games/mm/2s2h/mm_int_warp_song_drive.cpp, and OoT's verdict in
  *       games/oot/soh/GameExports_SingleExe.cpp).
+ *   GP_VARIANT_MM_WARP_SONG_MINUET_SHARED (int-mm-warp-song-minuet-shared;
+ *       #1169 XW14): the Minuet variant with the Shared Minuet of Forest on too.
+ *       IntegrationTest_PairedFirstCrossing() and IntegrationTest_MMWarpSongMinuet()
+ *       are true for it. OoT is given its own Minuet before the Happy Mask Shop
+ *       door and MM is given nothing by the drive: MM must hold the song through
+ *       the family (OoT's harvest at suspend, MM's apply at arrival, read back
+ *       through Combo_SharedFamilies2GivenAtLastApply) before it plays it.
  */
 typedef enum {
     GP_VARIANT_ROUNDTRIP = 0,
     GP_VARIANT_PAIRED_FIRST_CROSSING = 1,
     GP_VARIANT_SOARING_TO_OWL = 2,
-    GP_VARIANT_MM_WARP_SONG_MINUET = 3
+    GP_VARIANT_MM_WARP_SONG_MINUET = 3,
+    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 4
 } GameplayVariant;
 
 /**
@@ -169,14 +177,19 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant);
 GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
 /** True when the running test is int-paired-first-crossing, or
- *  int-soaring-to-owl or int-mm-warp-song-minuet (which ride it). */
+ *  int-soaring-to-owl, int-mm-warp-song-minuet or int-mm-warp-song-minuet-shared
+ *  (which ride it). */
 bool IntegrationTest_PairedFirstCrossing(void);
 
 /** True when the running test is int-soaring-to-owl (#1169 XW6). */
 bool IntegrationTest_SoaringToOwl(void);
 
-/** True when the running test is int-mm-warp-song-minuet (#1169 XW13). */
+/** True when the running test is int-mm-warp-song-minuet (#1169 XW13), or
+ *  int-mm-warp-song-minuet-shared (#1169 XW14), which rides it. */
 bool IntegrationTest_MMWarpSongMinuet(void);
+
+/** True when the running test is int-mm-warp-song-minuet-shared (#1169 XW14). */
+bool IntegrationTest_MMWarpSongMinuetShared(void);
 
 /**
  * int-soaring-to-owl and int-mm-warp-song-minuet: set the integer CVar @p key to

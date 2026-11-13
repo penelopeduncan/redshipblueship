@@ -3572,6 +3572,16 @@ static uint16_t MwExpectedArrival(void) {
 static bool MwArmWorld(void) {
     IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM), 1);
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
+    // int-mm-warp-song-minuet-shared (#1169 XW14): the Shared Minuet of Forest on
+    // too, through its key (put back at the verdict like the others).
+    const bool shared = IntegrationTest_MMWarpSongMinuetShared();
+    if (shared) {
+        IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_MINUET), 1);
+        // While the shared songs are hidden the row reads them as offered; the
+        // commit that offers them deletes this line (IntegrationTest_SoaringCleanup
+        // hides them again, pass or fail).
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+    }
     // The rule must be offered before the seed is blamed for anything: a mask
     // that hides songMinuetMm again makes Generate refuse the word by name
     // (playthrough.cpp's hidden-rules gate), which the generation branch would
@@ -3580,19 +3590,25 @@ static bool MwArmWorld(void) {
     char refused[160];
     const uint32_t refusedBits = Combo_ComboItemRules2Refused(word, refused, sizeof(refused));
     const bool offered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM);
-    if (!offered || refusedBits != 0u || (word & RSBS_XITEM2_SONG_MINUET_MM) == 0u) {
-        char reason[512];
+    const bool sharedOffered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SHARED_SONG_MINUET);
+    const bool sharedResolved = (word & RSBS_XITEM2_SHARED_SONG_MINUET) != 0u;
+    if (!offered || refusedBits != 0u || (word & RSBS_XITEM2_SONG_MINUET_MM) == 0u ||
+        (shared && (!sharedOffered || !sharedResolved)) || (!shared && sharedResolved)) {
+        char reason[640];
         snprintf(reason, sizeof(reason),
-                 "int-mm-warp-song-minuet, the world: this build does not offer songMinuetMm (offered %d), or "
-                 "Generate would refuse the resolved second word 0x%08X (refused 0x%08X: '%s'); the rule's mask or "
-                 "its key regressed, not the pinned seed",
-                 offered ? 1 : 0, (unsigned)word, (unsigned)refusedBits, refused);
+                 "int-mm-warp-song-minuet%s, the world: this build does not offer songMinuetMm (offered %d) or "
+                 "sharedSongMinuet (offered %d, resolved %d, wanted %d), or Generate would refuse the resolved second "
+                 "word 0x%08X (refused 0x%08X: '%s'); the rule's mask or its key regressed, not the pinned seed",
+                 shared ? "-shared" : "", offered ? 1 : 0, sharedOffered ? 1 : 0, sharedResolved ? 1 : 0,
+                 shared ? 1 : 0, (unsigned)word, (unsigned)refusedBits, refused);
         IntegrationTest_GameplayFail(reason);
         return false;
     }
     fprintf(stderr,
-            "[PFC] mm warp song: songMinuetMm on (the production mask, no reveal; resolved second word 0x%08X, "
-            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+            "[PFC] mm warp song: songMinuetMm on%s (resolved second word 0x%08X, none refused), Shuffle Songs "
+            "Anywhere, Shuffle Warp Songs at its default (off)\n",
+            shared ? " with sharedSongMinuet on (shared rules offered or read offered through the test reveal)"
+                   : " (the production mask, no reveal)",
             (unsigned)word);
     fflush(stderr);
     return true;
@@ -3626,8 +3642,14 @@ static void MwGenerationFailed(void) {
     IntegrationTest_GameplayFail(reason);
 }
 
+// games/oot/soh/oot_shared_songs_test.cpp (#1169 XW10): how many of the generated
+// world's OoT checks hold an RG_* id, or -1 with no seed context.
+extern "C" int OoT_SharedSongsTest_WorldCopies(int rg);
+
 /** The created file: the rule frozen on, the record PRESENT and unshuffled, and
- *  Minuet's destination its vanilla pad in a scene OoT's table names. */
+ *  Minuet's destination its vanilla pad in a scene OoT's table names. Under the
+ *  shared variant (#1169 XW14) also the shared Minuet frozen on and nothing owned
+ *  yet, so the drive's later reads can only come from this run's play. */
 static bool MwCheckCreatedWorld(char* msg, size_t cap) {
     const int status = Combo_OoTWarpRecord_Status();
     const uint8_t flags = Combo_OoTWarpRecord_Flags();
@@ -3645,19 +3667,86 @@ static bool MwCheckCreatedWorld(char* msg, size_t cap) {
         why = "an unshuffled record's Minuet destination is not its pad";
     } else if (expected == 0u || expected >= ENTR_MAX) {
         why = "Minuet's destination is outside OoT's entrance table";
+    } else if (IntegrationTest_MMWarpSongMinuetShared() && !Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_MINUET)) {
+        why = "the creation did not freeze sharedSongMinuet on";
+    } else if (IntegrationTest_MMWarpSongMinuetShared() &&
+               (Combo_SharedFamilies2Owned() != 0u || Combo_MMWarpSongsOwned() != 0u)) {
+        why = "the created file already owns a shared warp song or an MM warp song (the drive could not tell the "
+              "family's carry from a leftover)";
     }
     snprintf(msg, cap,
-             "int-mm-warp-song-minuet, the created world: %s [rule2 0x%08X, record status %d flags 0x%02X Minuet dest "
-             "0x%04X, pad 0x%04X, expected 0x%04X]",
-             why != NULL ? why : "ok", (unsigned)Combo_ComboCrossItemFlags2(), status, (unsigned)flags, (unsigned)dest,
-             (unsigned)pad, (unsigned)expected);
+             "int-mm-warp-song-minuet%s, the created world: %s [rule2 0x%08X, record status %d flags 0x%02X Minuet "
+             "dest 0x%04X, pad 0x%04X, expected 0x%04X, family owned2 0x%08X, MM ownership byte 0x%02X]",
+             IntegrationTest_MMWarpSongMinuetShared() ? "-shared" : "", why != NULL ? why : "ok",
+             (unsigned)Combo_ComboCrossItemFlags2(), status, (unsigned)flags, (unsigned)dest, (unsigned)pad,
+             (unsigned)expected, (unsigned)Combo_SharedFamilies2Owned(), (unsigned)Combo_MMWarpSongsOwned());
     if (why != NULL) {
         return false;
+    }
+    if (IntegrationTest_MMWarpSongMinuetShared()) {
+        // Diagnostic only: which game's check holds the pair's one copy (a pair row
+        // places the hosting game's own member). The row proves the family's apply
+        // whichever it is: an MM-side copy paid out at the start is MM's own give,
+        // which never writes the apply's give record that PREPARE reads.
+        fprintf(stderr,
+                "[PFC] mm warp song (shared): OoT checks holding OoT's Minuet of Forest: %d (0 means the pair's copy "
+                "is on a Majora's Mask check)\n",
+                OoT_SharedSongsTest_WorldCopies((int)RG_MINUET_OF_FOREST));
     }
     fprintf(stderr,
             "[PFC] mm warp song: created with songMinuetMm frozen on and an unshuffled record; Minuet lands at "
             "0x%04X (scene %d)\n",
             (unsigned)expected, (int)gEntranceTable[expected].scene);
+    fflush(stderr);
+    return true;
+}
+
+/** int-mm-warp-song-minuet-shared (#1169 XW14): does OoT's live save hold its own
+ *  Minuet of Forest, asked through OoT's registered member of the shared Minuet
+ *  (the family's own question)? False when no member is registered. */
+static bool MwOoTMinuetHeld(void) {
+    ComboSharedFamilyMember m;
+    return Combo_SharedFamily2MemberGet(GAME_OOT, RSBS_XITEM2_SHARED_SONG_MINUET, &m) && m.held != NULL &&
+           m.held(m.nativeId);
+}
+
+/**
+ * int-mm-warp-song-minuet-shared, the first OoT leg before the Happy Mask Shop
+ * door: OoT is given its OWN Minuet of Forest through its registered family member
+ * (never MM's copy), so the only way Majora's Mask can hold the song at PREPARE is
+ * the family: OoT's harvest at the door's suspend, then MM's apply at its arrival.
+ * MM's ownership byte must still be 0 after the give.
+ */
+static bool MwSharedGiveOoTMinuet(void) {
+    ComboSharedFamilyMember m;
+    char msg[512];
+    if (!Combo_SharedFamily2MemberGet(GAME_OOT, RSBS_XITEM2_SHARED_SONG_MINUET, &m) || m.held == NULL ||
+        m.give == NULL) {
+        IntegrationTest_GameplayFail("int-mm-warp-song-minuet-shared, OoT's leg: OoT registers no member of the "
+                                     "shared Minuet of Forest (GameExports' OoTSharedFamilyRegistrar)");
+        return false;
+    }
+    const bool before = m.held(m.nativeId);
+    if (!before) {
+        m.give(m.nativeId); // the member's contract: give() only when held() is false
+    }
+    const bool after = m.held(m.nativeId);
+    const uint32_t owned2 = Combo_SharedFamilies2Owned();
+    const uint8_t mmOwned = Combo_MMWarpSongsOwned();
+    if (!after || mmOwned != 0u) {
+        snprintf(
+            msg, sizeof(msg),
+            "int-mm-warp-song-minuet-shared, OoT's leg: OoT's own Minuet (id %u) %s after its give, MM's ownership "
+            "byte 0x%02X (want held and 0x00), family owned2 0x%08X, quest items 0x%08X",
+            (unsigned)m.nativeId, after ? "held" : "NOT held", (unsigned)mmOwned, (unsigned)owned2,
+            (unsigned)gSaveContext.inventory.questItems);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] mm warp song (shared): OoT given its own Minuet of Forest before the door (id %u, held before %d, "
+            "now 1); MM's ownership byte 0x00, family owned2 0x%08X (OoT's harvest at the door's suspend owns it)\n",
+            (unsigned)m.nativeId, before ? 1 : 0, (unsigned)owned2);
     fflush(stderr);
     return true;
 }
@@ -3669,15 +3758,17 @@ static void MwDescribeArrival(char* out, size_t cap, int16_t sceneNum, uint16_t 
     ComboWarp_Peek(&t);
     snprintf(out, cap,
              "scene %d, entrance 0x%04X, expected 0x%04X (scene %d), record status %d flags 0x%02X dest 0x%04X, pad "
-             "0x%04X, linkAge %d, owned 0x%02X, switch pending %d, switch requested %d; context: warp armed %d "
-             "(source %d marker 0x%04X target %d 0x%04X kind %u), pending song %d, startup kind %d",
+             "0x%04X, linkAge %d, owned 0x%02X (family owned2 0x%08X, OoT's own Minuet %d), switch pending %d, switch "
+             "requested %d; context: warp armed %d (source %d marker 0x%04X target %d 0x%04X kind %u), pending song "
+             "%d, startup kind %d",
              (int)sceneNum, (unsigned)entrance, (unsigned)expected,
              expected < ENTR_MAX ? (int)gEntranceTable[expected].scene : -1, Combo_OoTWarpRecord_Status(),
              (unsigned)Combo_OoTWarpRecord_Flags(), (unsigned)Combo_OoTWarpRecord_Dest(0),
              (unsigned)Combo_MMWarpPlay_PadEntrance(0), (int)gSaveContext.linkAge, (unsigned)Combo_MMWarpSongsOwned(),
-             Combo_IsCrossGameSwitch() ? 1 : 0, Combo_IsGameSwitchRequested() ? 1 : 0, t.armed ? 1 : 0,
-             (int)t.sourceGame, (unsigned)t.marker, (int)t.targetGame, (unsigned)t.targetEntrance, (unsigned)t.kind,
-             Combo_MMWarpPlay_PendingSong(), Combo_GetStartupEntranceKindForGame("oot"));
+             (unsigned)Combo_SharedFamilies2Owned(), MwOoTMinuetHeld() ? 1 : 0, Combo_IsCrossGameSwitch() ? 1 : 0,
+             Combo_IsGameSwitchRequested() ? 1 : 0, t.armed ? 1 : 0, (int)t.sourceGame, (unsigned)t.marker,
+             (int)t.targetGame, (unsigned)t.targetEntrance, (unsigned)t.kind, Combo_MMWarpPlay_PendingSong(),
+             Combo_GetStartupEntranceKindForGame("oot"));
 }
 
 /**
@@ -3702,10 +3793,13 @@ static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
         why = "the cross-game switch is still pending after the arrival";
     } else if ((Combo_MMWarpSongsOwned() & RSBS_MM_WARP_SONG_OWNED_MINUET) == 0u) {
         why = "Minuet of Forest (MM) is no longer owned after the crossing";
+    } else if (IntegrationTest_MMWarpSongMinuetShared() && !MwOoTMinuetHeld()) {
+        why = "OoT's own Minuet of Forest is no longer held after the round trip (the shared family took it away)";
     }
     if (why != NULL) {
         char msg[1024];
-        snprintf(msg, sizeof(msg), "int-mm-warp-song-minuet, the arrival: %s [%s]", why, state);
+        snprintf(msg, sizeof(msg), "int-mm-warp-song-minuet%s, the arrival: %s [%s]",
+                 IntegrationTest_MMWarpSongMinuetShared() ? "-shared" : "", why, state);
         IntegrationTest_GameplayFail(msg);
         return false;
     }
@@ -4410,6 +4504,11 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             }
             switch (phase) {
                 case GP_PHASE_OOT_PRE:
+                    // int-mm-warp-song-minuet-shared (#1169 XW14): OoT learns its
+                    // own Minuet before the door; MM must then hold it by the family.
+                    if (IntegrationTest_MMWarpSongMinuetShared() && !MwSharedGiveOoTMinuet()) {
+                        return;
+                    }
                     if (IntegrationTest_PairedFirstCrossing()) {
                         // Frozen with the live save by the door's cross-game switch.
                         gSaveContext.deaths = kPfcDeathsSentinel;
