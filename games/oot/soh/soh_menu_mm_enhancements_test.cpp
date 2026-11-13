@@ -1388,14 +1388,6 @@ extern "C" int OoT_MenuMmEnhancementRows_RunHeadless(void) {
                 keptOut = keptOut || familyOf(h.key) == k.family;
             }
             const PresetSection block = Presets_BlockForCVar(h.key);
-            // MM's window-open keys (gWindows) are not settings: by ruling (#1585) no preset block carries them, even
-            // though SoH's own gOpenWindows rides Settings, so there is no SoH-twin control for this family.
-            if (familyOf(h.key) == "gWindows") {
-                MME_CHECK(block == PRESET_SECTION_MAX,
-                          "hosted MM row \"%s\" (%s) rides a preset block, but a window's visibility is not a setting",
-                          h.name.c_str(), h.key);
-                continue;
-            }
             if (keptOut) {
                 MME_CHECK(block == PRESET_SECTION_MAX,
                           "hosted MM row \"%s\" (%s) rides a preset block though SoH keeps its twin family out",
