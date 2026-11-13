@@ -2287,6 +2287,23 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   stays as a test level that now reads the production mask. No format, layout,
   fingerprint or generator version changes: the bits were allocated and frozen by
   XW2, and a world with every rule off is the same world.
+- **2026-11-12, XW14.** The shared songs' owed proof and their readers, then the
+  unhide, as its own last commit. The integration row IntMMWarpSongMinuetShared
+  is IntMMWarpSongMinuet with `sharedSongMinuet` on: Ocarina of Time is given its
+  own Minuet before the Happy Mask Shop door, the Majora's Mask drive gives
+  nothing, and before the song is played Majora's Mask's arrival apply must have
+  given the Minuet (`Combo_SharedFamilies2GivenAtLastApply`, a session record no
+  starting-check payout writes). `gComboCtx.sharedFamilyOwned2` is locked across
+  a real `.redsave` Save and Load. Every player-facing reader of a shared song's
+  ownership asks `Combo_SharedFamilies2HeldNow` (the family word, plus the
+  running game's own live copy under that game's own registered live-file
+  probe), so a game's rows drawn from its frozen shadow never ask its members
+  about the other game's live save. Under a shared rule the song is named
+  without "(OoT)" / "(MM)" (OoTMM's `isItemAmbiguous`) through
+  `Combo_SharedFamily2DisplayName`, a display name only. The unhide sets
+  `RSBS_XITEM2_HIDDEN` to 0; the test reveal stays, harmless, for the rules OoTMM
+  still has beyond these fourteen. No format, layout, fingerprint or generator
+  version changes, and a world with every rule off is the same world.
 
 Capacity spent: four format bytes (ADR 0009 claim 19), fourteen
 `ComboSettingId`s, appended after #979's two Stone Mask ids, and identity keys
