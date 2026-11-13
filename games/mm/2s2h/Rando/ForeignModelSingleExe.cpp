@@ -406,7 +406,8 @@ bool IsCustomDrawn(RandoItemId ri) {
 // matrices bound to segment 0xD) at the running frame of gStrayFairyFlyingAnim,
 // limb 0 (the right-facing head) dropped by StrayFairyOverrideLimbDraw. The
 // descriptor carries the skeleton (posed at frame 0 as the still fallback), the
-// colour tracks frozen at their first key frame, and `animation =
+// colour tracks frozen at their first key frame (their TexAnim key frames are
+// ROM data not in the tree, and OoT has no TextureAnimation reader), and `animation =
 // gStrayFairyFlyingAnim` (#1165) so a host that has the animation mounted samples
 // each frame on its own draw clock. The eight lists and the animation live in
 // gameplay_keep, a directory both games carry, under names only MM's tree has;

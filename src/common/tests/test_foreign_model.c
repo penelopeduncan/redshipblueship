@@ -103,7 +103,8 @@
  *     DESCRIPTOR in OoT, not the stand-in. The five stray fairies carry
  *     DrawStrayFairy's shape: gStrayFairySkel's eight drawn limb lists, each
  *     under its own joint, the skeleton posed at gStrayFairyFlyingAnim's first
- *     frame with its matrices bound to segment 0xD, scale 0.03, camera-facing,
+ *     frame (the still fallback when the animation is unmounted, M24) with its
+ *     matrices bound to segment 0xD, scale 0.03, camera-facing,
  *     and the area's body and glow colours bound to segments 8 and 9; their
  *     gameplay_keep lists are collision-free because only MM's tree names them.
  *     The bottled fairy carries GetItem_DrawFairyContainer's shape with its
@@ -144,6 +145,17 @@
  *     text and model follow it. With every half-day owned, an unmarked half or
  *     another item, the item is shown as placed. The shop text and the pickup
  *     toast call the same presenter, but no row drives those two call sites.
+ *  M24 MM'S STRAY FAIRY ANIMATES IN OoT (#1165): every stray fairy's descriptor
+ *     names gStrayFairyFlyingAnim, MM-only in the asset trees, curated in
+ *     manifest.txt and collision-free; a frame clock wraps by the animation's
+ *     length; a synthetic SkelAnime frame table sets the root joint's position
+ *     from entry 0 and each joint's rotation from entry i + 1; the shelf's real
+ *     draw and the get-item cutscene pose two different tables differently and
+ *     identically to each other without mutating the shown model; with the
+ *     animation unmounted the host draws M17's still pose; and the archive mount
+ *     override never stands in for the animation mount. ROM-free: the real
+ *     animation load and its frame data are not driven. The colour tracks stay
+ *     at key frame 0 (their key frames are ROM data; OoT has no reader).
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++);
  * every symbol it drives is C-linkage.
