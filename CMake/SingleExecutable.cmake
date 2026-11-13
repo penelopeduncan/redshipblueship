@@ -1862,6 +1862,12 @@ if(BUILD_TESTING)
     # and names each bad file in one log line. Display-free and ROM-free.
     # games/oot/soh/soh_presets_folder_test.cpp.
     redship_add_test(NAME PresetsSkipNonJson COMMAND redship --test presets-skip-non-json)
+    # #1467 (item 2): SaveManager::WriteFileSafely is public and Presets_WriteFile /
+    # Plandomizer_WriteSpoilerFile write via <target>.tmp + rename instead of
+    # truncating in place. Fresh write, overwrite, stale temp and non-empty temp
+    # directory failure legs. Display-free and ROM-free.
+    # games/oot/soh/soh_write_file_safely_test.cpp.
+    redship_add_test(NAME WriteFileSafelyWriters COMMAND redship --test write-file-safely-writers)
     # Operator ruling 2026-11-05: the shipped "Rando Seed Settings - Standard" and
     # "- Beginner" presets pin no gRandoSettings key whose default the D wave moved
     # to OoTMM's (#1425, #1428, #1434, #1367), carry a null pairedProfile (#1368's
