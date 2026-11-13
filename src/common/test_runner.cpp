@@ -1221,6 +1221,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // progression item of both games classifies, descriptors round-trip, and the
 // collision table matches the asset trees. FILE SCOPE (compiled as C++).
 #include "tests/test_foreign_model.c"
+// OoT hosting MM's copies of OoT's Gerudo, Skull and Spooky Masks (#1452 item 3,
+// #1568): MM's registered ids draw OoT's own mask rows under the mount check.
+// FILE SCOPE (compiled as C++).
+#include "tests/test_oot_host_mm_masks.c"
 // Wearing the other game's masks (#977): the worn-mask table and its curated
 // models, both games' equip rules, the fields' persistence, and OoT's list-based
 // child trade cycle. FILE SCOPE (compiled as C++).
@@ -10932,6 +10936,10 @@ const TestDescriptor gTests[] = {
       "games classifies to a descriptor of its own display lists, a host-native model or a named no-model, "
       "descriptors round-trip, and the collision table matches both asset trees (#577 M2)",
       Test_ForeignModel },
+    { "oot-host-mm-masks-model",
+      "MM's registered copies of OoT's Gerudo, Skull and Spooky Masks draw OoT's own mask rows in OoT under the mount "
+      "check, while other MM items answer as before (#1452 item 3, #1568)",
+      Test_OoTHostMMMasksModel },
     { "foreign-mask-table",
       "Each game wears three of the other's masks: every mask is hosted by the other game, its worn list and icon are "
       "curated in the host's half, its rule bits are the item rules record's, it is wearable only under its frozen "
