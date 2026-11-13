@@ -159,12 +159,23 @@ uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r);
  * no engine), and prints a stderr line with the counts and the remedy for each
  * game that is short (the Triforce Pieces clause only when @p r says that game
  * holds pieces). Combo_SingleBag_Run calls it for a fill that ran an attempt and
- * failed, AFTER Combo_Logic_ResetPlacements, so the leftover hosts are all of each
- * game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
+ * failed, AFTER Combo_Logic_ResetPlacements, and for the early home-capacity
+ * refusal (Combo_SingleBag_FailureCountsHomeCapacity), so the leftover hosts are
+ * all of each game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
  * round): no draw, no placement, no status. A shared pair is never HOME_ONLY, so
  * it is never counted. Exported for the ROM-free lock (ComboLogicBagModel).
  */
 void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r);
+
+/**
+ * #1483: does Combo_SingleBag_Run's finish call Combo_SingleBag_CountHomeCapacity?
+ * For a failed fill that ran an attempt (after its roll-back), and for the early
+ * RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY refusal, which runs none but leaves the tables
+ * empty, so the refusal carries #1522's words. Not for a refusal before any attempt
+ * otherwise: its tables may still hold an earlier fill's placements. Pure.
+ * Exported for the ROM-free lock (ComboLogicBagModel).
+ */
+bool Combo_SingleBag_FailureCountsHomeCapacity(bool fillRan, int status, int attempts);
 
 /** A creation-failure REASON (OoT_Creation_ReportFailureAtFileSelect's `reason`),
  *  never a fill status: the creation's own fill failed and

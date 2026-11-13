@@ -3230,12 +3230,23 @@ TestResult ClProductionRulesLeg(void) {
         // Catches: the origin tests swapped (OoT 4), a row that is not HOME_ONLY
         // counted (OoT 1), the hosts read from the wrong game (MM 4). That
         // Combo_SingleBag_Run calls the counter AFTER its roll-back needs both real
-        // engines and is not locked here.
+        // engines and is not locked here; WHEN it calls it is
+        // Combo_SingleBag_FailureCountsHomeCapacity, locked below.
         CL_ASSERT(r.homeRequiredMM == 4 && r.homeRequiredOoT == 0,
                   "P1b: the counter counts the HOME_ONLY REQUIRED rows by origin, and only those");
         CL_ASSERT(r.hostsMM == 3 && r.hostsOoT == 4, "P1b: after the roll-back every empty host of each game counts");
         CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == RSBS_COMBO_HALF_MM,
                   "P1b: MM, and only MM, is named short (OoT has room)");
+        // WHEN Combo_SingleBag_Run counts: the early refusal above ran no attempt,
+        // and still gets #1522's words.
+        CL_ASSERT(Combo_SingleBag_FailureCountsHomeCapacity(true, rc, res.attempts),
+                  "P1b: the early HOME_CAPACITY refusal (0 attempts) is counted, so it names its game");
+        CL_ASSERT(Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE, 3),
+                  "P1b: a failed fill that ran attempts is counted");
+        CL_ASSERT(!Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_ERR_BAD_REQUEST, 0) &&
+                      !Combo_SingleBag_FailureCountsHomeCapacity(false, RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY, 0) &&
+                      !Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_OK, 1),
+                  "P1b: no count for another refusal before any attempt, a fill that never ran, or a success");
 
         ClBuildOpenWorld(4, 3);
         memset(&r, 0, sizeof(r));
