@@ -2094,9 +2094,8 @@ void func_80075B44(PlayState* play) {
                 gSaveContext.bgsDayCount++;
                 gSaveContext.dogIsLost = true;
                 Sfx_PlaySfxCentered(NA_SE_EV_CHICKEN_CRY_M);
-                if ((OoT_Inventory_ReplaceItem(play, ITEM_WEIRD_EGG, ITEM_CHICKEN) || Inventory_HatchPocketCucco(play)) &&
+                if ((Inventory_HatchWeirdEgg(play) || Inventory_HatchPocketCucco(play)) &&
                     play->csCtx.state == 0 && !OoT_Player_InCsMode(play)) {
-                    GameInteractor_ExecuteOnCuccoOrChickenHatch();
                     OoT_Message_StartTextbox(play, 0x3066, NULL);
                 }
                 play->envCtx.unk_E0++;

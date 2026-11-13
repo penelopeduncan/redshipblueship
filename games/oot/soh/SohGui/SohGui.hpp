@@ -46,6 +46,7 @@ void ShowRandomizerSettingsMenu();
 void ShowEscMenu();
 UIWidgets::Colors GetMenuThemeColor();
 std::shared_ptr<SohMenu> GetSohMenu();
+void DrawStartingItemsMenu(WidgetInfo& info);
 } // namespace SohGui
 
 #define THEME_COLOR SohGui::GetMenuThemeColor()

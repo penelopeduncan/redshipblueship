@@ -2553,7 +2553,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // both, Ocarina of Time's songs are placed by the single bag, and the song check left
 // over holds junk, which moves the placements named by the static hints; the count
 // stays 17.
-static const uint32_t kStaticHintTextDigest = 0xEF3042B8u;
+// Re-pinned again by the starting-items backport (packet #1404, PR #1555; generator
+// 5, was 0xEF3042B8): the backport changes the text of Ocarina of Time's settings
+// fold, so settingsHash moves in every golden and each pinned seed is a different
+// world (docs/determinism-goldens.md has the fields); the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0xD78AAD4Fu;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 

@@ -310,6 +310,20 @@ bool SctInOrder(const std::string& hay, std::initializer_list<const char*> needl
     return true;
 }
 
+/** The one source line holding @p anchor, without its line break, so needles
+ *  searched in it cannot run on into a later line; "" when @p anchor is absent
+ *  or occurs more than once. */
+std::string SctLine(const std::string& src, const char* anchor) {
+    const size_t f = src.find(anchor);
+    if (f == std::string::npos || src.find(anchor, f + strlen(anchor)) != std::string::npos) {
+        return std::string();
+    }
+    const size_t nl = src.rfind('\n', f);
+    const size_t begin = nl == std::string::npos ? 0 : nl + 1;
+    const size_t end = src.find('\n', f);
+    return src.substr(begin, (end == std::string::npos ? src.size() : end) - begin);
+}
+
 /** OoT's check for each RsbsSongCheck 0..11 and MM's for 12..22, found by (a)
  *  and (b); 0 when not found. */
 uint16_t sSctHost[RSBS_SONG_CHECK_COUNT];
@@ -971,6 +985,32 @@ void SctCheckAnchors() {
                                  "StartingItemGive(getItemEntry, "
                                  "RC_SONG_FROM_IMPA)" }),
               "(h) Skip Child Zelda no longer gives Impa's check at creation through StartingItemGive\n");
+    // #1404 (SoH #6938): an unshuffled starting letter skips child Zelda too, so the
+    // creation give and OoT's host predicate must both read it.
+    SCT_CHECK(SctInOrder(init, { "RSK_STARTING_ZELDAS_LETTER", "RSK_SHUFFLE_ZELDAS_LETTER",
+                                 "StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA)" }) &&
+                  SctInOrder(ootHost, { "GetOption(RSK_SKIP_CHILD_ZELDA)", "GetOption(RSK_STARTING_ZELDAS_LETTER)",
+                                        "GetOption(RSK_SHUFFLE_ZELDAS_LETTER)", "ACTOR_EN_BOX" }),
+              "(h) Start with Zelda's Letter gives Impa's check at creation, but OoT's host predicate does not refuse "
+              "Impa for it (#1404)\n");
+    // #1404 QC: logic credits Talon's and Malon's return under the legacy Skip
+    // Child Zelda (root.cpp), and a seed package restores that key without
+    // FinalizeSettings' mapping, so the creation must wake Talon under it too.
+    // Each root event is searched on its OWN line: a search over the whole file
+    // would find both terms again on the RC_HC_MALON_EGG line below them.
+    const std::string rootRegion = SctReadSource("games/oot/soh/Enhancements/randomizer/location_access/root.cpp");
+    const std::string rootTalon = SctLine(rootRegion, "EventAccess(LOGIC_TALON_RETURNED_FROM_CASTLE,");
+    const std::string rootMalon = SctLine(rootRegion, "EventAccess(LOGIC_MALON_RETURNED_FROM_CASTLE,");
+    SCT_CHECK(SctInOrder(init, { "RO_WEIRD_EGG_SKIP_TALON ||", "Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {",
+                                 "EVENTCHKINF_TALON_RETURNED_FROM_CASTLE" }) &&
+                  SctInOrder(rootTalon, { "GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SKIP_TALON) ||",
+                                          "GetOption(RSK_SKIP_CHILD_ZELDA)" }),
+              "(h) logic credits Talon's return under the legacy Skip Child Zelda, but the creation no longer wakes "
+              "him under it, or root.cpp's Talon event lost a term (#1404)\n");
+    SCT_CHECK(SctInOrder(rootMalon, { "GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SKIP_TALON) ||",
+                                      "GetOption(RSK_SKIP_CHILD_ZELDA)" }),
+              "(h) root.cpp's Malon event no longer reads both Skip Waking Talon and the legacy Skip Child Zelda, "
+              "so Malon's song leaves logic on a file whose creation sent her home (#1404)\n");
 
     const std::string model = SctReadSource("games/mm/2s2h/Rando/ForeignModelSingleExe.cpp");
     const std::string icon = SctReadSource("games/mm/2s2h/Rando/ForeignTextboxIconSingleExe.cpp");

@@ -212,6 +212,8 @@ extern "C" int Rando_HintAreaFromCrossingStore(int item);
 extern "C" int Rando_HintForeignAreaFromCrossingStore(int item);
 extern "C" int Rando_HintForeignAreaForItem(int item);
 extern "C" int Rando_TestCreateStaticItemHint(int hintKey, int hintTextKey, int item);
+extern "C" int Rando_TestCreateStaticItemHintKey(int hintKey, const int* hintTextKeys, int textCount, const int* items,
+                                                 int count);
 extern "C" int Rando_TestCreateAltarHint(int hintKey, const int* rewards, int count);
 extern "C" int Rando_TestCreateStaticHintFromData(int hintKey, const int* items, int count);
 extern "C" void OoT_ComboLogic_TestSetHintingPairedRemainder(int on);
@@ -608,6 +610,88 @@ static ForeignAreaProbeResult ProbeMultiSlotForeignAreaHints() {
         fprintf(stderr, "[rando-hints] %s: \"%s\"\n", label.c_str(), live.c_str());
         ctx->AddHint(b.key, saved);
     }
+    return result;
+}
+
+/**
+ * (P6, PR #1555 QC) The static item hint keeps one area per item. Build, under
+ * the remainder's gate, the Ganondorf hint's two-item key as production builds it
+ * when the Master Sword is shuffled, over {an item no OoT location holds and the
+ * store does not host in MM (as a starting Light Arrows is), an item in Hyrule}.
+ * The unplaced item must still take slot 1 (RA_NONE), so the Hyrule item's area is
+ * slot 2 and the Master Sword text's [[2]] is filled. The world's own hint is put
+ * back.
+ */
+static ForeignAreaProbeResult ProbeUnplacedFirstStaticItemHint() {
+    ForeignAreaProbeResult result;
+    auto ctx = Rando::Context::GetInstance();
+    std::set<uint16_t> inHyrule;
+    RandomizerGet hyruleItem = RG_NONE;
+    RandomizerArea hyruleArea = RA_NONE;
+    std::set<RandomizerGet> firstHolders;
+    for (const RandomizerCheck loc : ctx->allLocations) {
+        const auto* itemLoc = ctx->GetItemLocation(loc);
+        const RandomizerGet item = itemLoc->GetPlacedRandomizerGet();
+        inHyrule.insert((uint16_t)item);
+        if (hyruleItem != RG_NONE || !firstHolders.insert(item).second || item == RG_NONE) {
+            continue; // FindItemsAndMarkHinted names an item's first holder only
+        }
+        if (itemLoc->IsAHintAccessible() && itemLoc->GetAreas().size() == 1) {
+            hyruleItem = item;
+            hyruleArea = *itemLoc->GetAreas().begin();
+        }
+    }
+    RandomizerGet unplaced = RG_NONE;
+    for (int id = (int)RG_NONE + 1; id < (int)RG_MAX; id++) {
+        if (inHyrule.count((uint16_t)id) == 0 && Rando_HintAreaFromCrossingStore(id) != (int)RA_TERMINA) {
+            unplaced = (RandomizerGet)id;
+            break;
+        }
+    }
+    if (hyruleItem == RG_NONE || unplaced == RG_NONE) {
+        fprintf(stderr,
+                "[rando-hints] FAIL: the unplaced-first static item hint probe is vacuous: unplaced item %u, Hyrule "
+                "item %u (P6)\n",
+                (unsigned)unplaced, (unsigned)hyruleItem);
+        result.failures++;
+        return result;
+    }
+    const RandomizerHint key = RH_GANONDORF_HINT;
+    const Rando::Hint saved = *ctx->GetHint(key);
+    const int texts[3] = { (int)RHT_GANONDORF_HINT_LA_ONLY, (int)RHT_GANONDORF_HINT_MS_ONLY,
+                           (int)RHT_GANONDORF_HINT_LA_AND_MS };
+    const int list[2] = { (int)unplaced, (int)hyruleItem };
+    OoT_ComboLogic_TestSetHintingPairedRemainder(1);
+    const int built = Rando_TestCreateStaticItemHintKey((int)key, texts, 3, list, 2);
+    OoT_ComboLogic_TestSetHintingPairedRemainder(0);
+    if (built == 0) {
+        fprintf(stderr, "[rando-hints] FAIL probe unplaced-first: the builder built nothing (P6)\n");
+        result.failures++;
+        ctx->AddHint(key, saved);
+        return result;
+    }
+    result.probes++;
+    const Rando::Hint* probe = ctx->GetHint(key);
+    const std::vector<RandomizerArea> areas = probe->GetHintedAreas();
+    const std::vector<RandomizerCheck> locations = probe->GetHintedLocations();
+    const std::string live = JoinMessages(probe->GetAllMessageStrings(MF_CLEAN));
+    const std::vector<RandomizerArea> expectedAreas = { RA_NONE, hyruleArea };
+    if (areas != expectedAreas || locations.size() != 2) {
+        fprintf(stderr,
+                "[rando-hints] FAIL probe unplaced-first {OoT item %u at no location, OoT item %u in area %d}: %zu "
+                "area slot(s) and %zu location(s), not none / area %d (P6)\n",
+                (unsigned)unplaced, (unsigned)hyruleItem, (int)hyruleArea, areas.size(), locations.size(),
+                (int)hyruleArea);
+        result.failures++;
+    }
+    if (live.find("[[") != std::string::npos) {
+        fprintf(stderr, "[rando-hints] FAIL probe unplaced-first: a placeholder is left unfilled: \"%s\" (P6)\n",
+                live.c_str());
+        result.failures++;
+    }
+    fprintf(stderr, "[rando-hints] probe unplaced-first {OoT item %u, OoT item %u}: \"%s\"\n", (unsigned)unplaced,
+            (unsigned)hyruleItem, live.c_str());
+    ctx->AddHint(key, saved);
     return result;
 }
 
@@ -1309,6 +1393,8 @@ static int ValidateGeneratedHints(bool pairedWorld, StoneCheckResult* stonesOut 
         failures += probe.failures;
         const ForeignAreaProbeResult multiProbe = ProbeMultiSlotForeignAreaHints();
         failures += multiProbe.failures;
+        const ForeignAreaProbeResult unplacedProbe = ProbeUnplacedFirstStaticItemHint();
+        failures += unplacedProbe.failures;
         const CrossingHostProbeResult hostProbe = ProbeCrossingHostHints();
         failures += hostProbe.failures;
         const FoolishCheckResult foolishCheck = CheckPairedFoolish(ctx);
@@ -1350,8 +1436,8 @@ static int ValidateGeneratedHints(bool pairedWorld, StoneCheckResult* stonesOut 
         }
         fprintf(stderr,
                 "[rando-hints] paired world: %zu generated Termina slot(s) checked for their own item's MM area, %d "
-                "static item hint probe(s), %d altar / static-from-data probe(s) (P6)\n",
-                terminaSlots, probe.probes, multiProbe.probes);
+                "static item hint probe(s), %d altar / static-from-data probe(s), %d unplaced-first probe(s) (P6)\n",
+                terminaSlots, probe.probes, multiProbe.probes, unplacedProbe.probes);
         if (crossingHosts == 0 || ootItemsInMM == 0) {
             fprintf(stderr, "[rando-hints] the paired world crossed nothing in one direction; P2/P4 are vacuous\n");
             return 7;

@@ -1,6 +1,8 @@
 #include "savefile.h"
+#include <cassert>
 #include <cstdio>
 #include <cstring>
+#include <spdlog/spdlog.h>
 #include "soh/OTRGlobals.h"
 #include "soh/ResourceManagerHelpers.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
@@ -262,6 +264,38 @@ void SetStartingItems() {
         OoT_Item_Give(NULL, ITEM_SWORD_KOKIRI);
     if (Randomizer_GetSettingValue(RSK_STARTING_DEKU_SHIELD))
         OoT_Item_Give(NULL, ITEM_SHIELD_DEKU);
+    if (Randomizer_GetSettingValue(RSK_STARTING_HYLIAN_SHIELD))
+        OoT_Item_Give(NULL, ITEM_SHIELD_HYLIAN);
+    if (Randomizer_GetSettingValue(RSK_STARTING_MIRROR_SHIELD))
+        OoT_Item_Give(NULL, ITEM_SHIELD_MIRROR);
+    if (Randomizer_GetSettingValue(RSK_STARTING_GORON_TUNIC))
+        OoT_Item_Give(NULL, ITEM_TUNIC_GORON);
+    if (Randomizer_GetSettingValue(RSK_STARTING_ZORA_TUNIC))
+        OoT_Item_Give(NULL, ITEM_TUNIC_ZORA);
+    if (Randomizer_GetSettingValue(RSK_STARTING_IRON_BOOTS))
+        OoT_Item_Give(NULL, ITEM_BOOTS_IRON);
+    if (Randomizer_GetSettingValue(RSK_STARTING_HOVER_BOOTS))
+        OoT_Item_Give(NULL, ITEM_BOOTS_HOVER);
+    if (Randomizer_GetSettingValue(RSK_STARTING_MEGATON_HAMMER))
+        OoT_Item_Give(NULL, ITEM_HAMMER);
+    if (Randomizer_GetSettingValue(RSK_STARTING_BOOMERANG))
+        OoT_Item_Give(NULL, ITEM_BOOMERANG);
+    if (Randomizer_GetSettingValue(RSK_STARTING_LENS_OF_TRUTH))
+        OoT_Item_Give(NULL, ITEM_LENS);
+    if (Randomizer_GetSettingValue(RSK_STARTING_DINS_FIRE))
+        OoT_Item_Give(NULL, ITEM_DINS_FIRE);
+    if (Randomizer_GetSettingValue(RSK_STARTING_FARORES_WIND))
+        OoT_Item_Give(NULL, ITEM_FARORES_WIND);
+    if (Randomizer_GetSettingValue(RSK_STARTING_NAYRUS_LOVE))
+        OoT_Item_Give(NULL, ITEM_NAYRUS_LOVE);
+    if (Randomizer_GetSettingValue(RSK_STARTING_FIRE_ARROWS))
+        OoT_Item_Give(NULL, ITEM_ARROW_FIRE);
+    if (Randomizer_GetSettingValue(RSK_STARTING_ICE_ARROWS))
+        OoT_Item_Give(NULL, ITEM_ARROW_ICE);
+    if (Randomizer_GetSettingValue(RSK_STARTING_LIGHT_ARROWS))
+        OoT_Item_Give(NULL, ITEM_ARROW_LIGHT);
+    if (Randomizer_GetSettingValue(RSK_STARTING_STONE_OF_AGONY))
+        OoT_Item_Give(NULL, ITEM_STONE_OF_AGONY);
 
     // Songs
     if (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LULLABY))
@@ -317,6 +351,173 @@ void SetStartingItems() {
         } else {
             gSaveContext.inventory.equipment |= 1 << 1;
         }
+    }
+
+    // Tiered/progressive starting items. The upgrade items are given cumulatively where OoT_Item_Give
+    // only sets the base inventory content on the first tier.
+    switch (Randomizer_GetSettingValue(RSK_STARTING_HOOKSHOT)) {
+        case 2:
+            OoT_Item_Give(NULL, ITEM_LONGSHOT);
+            break;
+        case 1:
+            OoT_Item_Give(NULL, ITEM_HOOKSHOT);
+            break;
+    }
+
+    uint8_t startBow = Randomizer_GetSettingValue(RSK_STARTING_BOW);
+    if (startBow >= 1)
+        OoT_Item_Give(NULL, ITEM_BOW);
+    if (startBow >= 2)
+        OoT_Item_Give(NULL, ITEM_QUIVER_40);
+    if (startBow >= 3)
+        OoT_Item_Give(NULL, ITEM_QUIVER_50);
+
+    uint8_t startSlingshot = Randomizer_GetSettingValue(RSK_STARTING_SLINGSHOT);
+    if (startSlingshot >= 1)
+        OoT_Item_Give(NULL, ITEM_SLINGSHOT);
+    if (startSlingshot >= 2)
+        OoT_Item_Give(NULL, ITEM_BULLET_BAG_40);
+    if (startSlingshot >= 3)
+        OoT_Item_Give(NULL, ITEM_BULLET_BAG_50);
+
+    uint8_t startBombBag = Randomizer_GetSettingValue(RSK_STARTING_BOMB_BAG);
+    if (startBombBag >= 1)
+        OoT_Item_Give(NULL, ITEM_BOMB_BAG_20);
+    if (startBombBag >= 2)
+        OoT_Item_Give(NULL, ITEM_BOMB_BAG_30);
+    if (startBombBag >= 3)
+        OoT_Item_Give(NULL, ITEM_BOMB_BAG_40);
+
+    switch (Randomizer_GetSettingValue(RSK_STARTING_STRENGTH)) {
+        case 3:
+            OoT_Item_Give(NULL, ITEM_GAUNTLETS_GOLD);
+            break;
+        case 2:
+            OoT_Item_Give(NULL, ITEM_GAUNTLETS_SILVER);
+            break;
+        case 1:
+            OoT_Item_Give(NULL, ITEM_BRACELET);
+            break;
+    }
+
+    switch (Randomizer_GetSettingValue(RSK_STARTING_SCALE)) {
+        case 2:
+            OoT_Item_Give(NULL, ITEM_SCALE_GOLDEN);
+            break;
+        case 1:
+            OoT_Item_Give(NULL, ITEM_SCALE_SILVER);
+            break;
+    }
+
+    switch (Randomizer_GetSettingValue(RSK_STARTING_WALLET)) {
+        case 2:
+            OoT_Item_Give(NULL, ITEM_WALLET_GIANT);
+            break;
+        case 1:
+            OoT_Item_Give(NULL, ITEM_WALLET_ADULT);
+            break;
+    }
+
+    uint8_t startMagic = Randomizer_GetSettingValue(RSK_STARTING_MAGIC_METER);
+    if (startMagic > 0) {
+        gSaveContext.isMagicAcquired = true;
+        gSaveContext.isDoubleMagicAcquired = startMagic >= 2;
+        gSaveContext.magicLevel = startMagic;
+        gSaveContext.magicCapacity = startMagic * MAGIC_NORMAL_METER;
+        gSaveContext.magic = gSaveContext.magicCapacity;
+    }
+
+    uint8_t startBombchu = Randomizer_GetSettingValue(RSK_STARTING_BOMBCHU_BAG);
+    if (startBombchu > 0) {
+        uint8_t bombchuMode = Randomizer_GetSettingValue(RSK_BOMBCHU_BAG);
+        if (bombchuMode == RO_BOMBCHU_BAG_SINGLE) {
+            INV_CONTENT(ITEM_BOMBCHU) = ITEM_BOMBCHU;
+            AMMO(ITEM_BOMBCHU) = 20;
+        } else if (bombchuMode == RO_BOMBCHU_BAG_PROGRESSIVE) {
+            static const uint8_t bombchuCapacities[] = { 0, 20, 30, 50 };
+            gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = startBombchu;
+            INV_CONTENT(ITEM_BOMBCHU) = ITEM_BOMBCHU;
+            AMMO(ITEM_BOMBCHU) = bombchuCapacities[startBombchu];
+        }
+    }
+
+    // Big poe bottles first: OoT_Item_Give for a bottled content fills the first empty-bottle
+    // slot, so each poe is paired with the bottle given right before it. Ruto's Letter fills
+    // an empty inventory slot on its own. The remaining plain empty bottles follow.
+    uint8_t emptyBottles = 0;
+    for (RandomizerSettingKey bottleKey :
+         { RSK_STARTING_BOTTLE_1, RSK_STARTING_BOTTLE_2, RSK_STARTING_BOTTLE_3, RSK_STARTING_BOTTLE_4 }) {
+        uint8_t bottle = Randomizer_GetSettingValue(bottleKey);
+        switch (bottle) {
+            case RO_STARTING_BOTTLE_OFF:
+                break;
+            case RO_STARTING_BOTTLE_EMPTY:
+                emptyBottles++;
+                break;
+            case RO_STARTING_BOTTLE_BIG_POE:
+                OoT_Item_Give(NULL, ITEM_BOTTLE);
+                OoT_Item_Give(NULL, ITEM_BIG_POE);
+                break;
+            case RO_STARTING_BOTTLE_RUTOS_LETTER:
+                OoT_Item_Give(NULL, ITEM_LETTER_RUTO);
+                break;
+            default:
+                SPDLOG_ERROR("[SetStartingItems] Unhandled value for bottleKey {}: {}", (int)bottleKey, bottle);
+                assert(false);
+                break;
+        }
+    }
+    for (uint8_t i = 0; i < emptyBottles; i++) {
+        OoT_Item_Give(NULL, ITEM_BOTTLE);
+    }
+
+    if (Randomizer_GetSettingValue(RSK_STARTING_WEIRD_EGG) &&
+        Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SHUFFLED) {
+        OoT_Item_Give(NULL, ITEM_WEIRD_EGG);
+    }
+    if (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) &&
+        Randomizer_GetSettingValue(RSK_SHUFFLE_ZELDAS_LETTER)) {
+        OoT_Item_Give(NULL, ITEM_LETTER_ZELDA);
+    }
+    if (Randomizer_GetSettingValue(RSK_STARTING_CLAIM_CHECK)) {
+        OoT_Item_Give(NULL, ITEM_CLAIM_CHECK);
+    }
+    if (Randomizer_GetSettingValue(RSK_STARTING_GERUDO_CARD)) {
+        OoT_Item_Give(NULL, ITEM_GERUDO_CARD);
+    }
+
+    struct StartingMask {
+        RandomizerSettingKey setting;
+        RandomizerInf randInf;
+        uint8_t item;
+    };
+    static const StartingMask startingMasks[] = {
+        { RSK_STARTING_KEATON_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_KEATON, ITEM_MASK_KEATON },
+        { RSK_STARTING_SKULL_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_SKULL, ITEM_MASK_SKULL },
+        { RSK_STARTING_SPOOKY_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_SPOOKY, ITEM_MASK_SPOOKY },
+        { RSK_STARTING_BUNNY_HOOD, RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, ITEM_MASK_BUNNY },
+        { RSK_STARTING_GORON_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_GORON, ITEM_MASK_GORON },
+        { RSK_STARTING_ZORA_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_ZORA, ITEM_MASK_ZORA },
+        { RSK_STARTING_GERUDO_MASK, RAND_INF_CHILD_TRADES_HAS_MASK_GERUDO, ITEM_MASK_GERUDO },
+        { RSK_STARTING_MASK_OF_TRUTH, RAND_INF_CHILD_TRADES_HAS_MASK_TRUTH, ITEM_MASK_TRUTH },
+    };
+    for (const auto& mask : startingMasks) {
+        if (Randomizer_GetSettingValue(mask.setting)) {
+            Flags_SetRandomizerInf(mask.randInf);
+            if (INV_CONTENT(ITEM_TRADE_CHILD) == ITEM_NONE) {
+                INV_CONTENT(ITEM_TRADE_CHILD) = mask.item;
+            }
+        }
+    }
+
+    // Giant's Knife and Biggoron's Sword share an item slot, bgsFlag marks unbreakable
+    switch (Randomizer_GetSettingValue(RSK_STARTING_BIGGORON_SWORD)) {
+        case RO_STARTING_BGS_BIGGORON_SWORD:
+            gSaveContext.bgsFlag = true;
+            [[fallthrough]];
+        case RO_STARTING_BGS_GIANTS_KNIFE:
+            OoT_Item_Give(NULL, ITEM_SWORD_BGS);
+            break;
     }
 
     if (Randomizer_GetSettingValue(RSK_SHUFFLE_MAPANDCOMPASS) == RO_DUNGEON_ITEM_LOC_STARTWITH) {
@@ -540,33 +741,51 @@ extern "C" void Randomizer_InitSaveFile() {
         }
     }
 
-    if (Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {
-        GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheck(RC_SONG_FROM_IMPA, (GetItemID)RG_ZELDAS_LULLABY);
-        StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA);
-        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_MALON_EGG, (GetItemID)RG_WEIRD_EGG);
-        StartingItemGive(getItemEntry, RC_HC_MALON_EGG);
-        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_ZELDAS_LETTER, (GetItemID)RG_ZELDAS_LETTER);
-        StartingItemGive(getItemEntry, RC_HC_ZELDAS_LETTER);
+    // Skip Waking Talon: the egg already hatched and woke him, Malon/Talon start back at the ranch.
+    // [RSBS #1404 QC] A stored legacy Skip Child Zelda skips him too, as root.cpp's
+    // LOGIC_TALON_RETURNED_FROM_CASTLE / RC_HC_MALON_EGG credit it: a seed package or
+    // spoiler restores its options without FinalizeSettings' mapping to Skip Waking Talon.
+    if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SKIP_TALON ||
+        Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA)) {
+        if (Randomizer_GetSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_WEIRD_EGG_SHUFFLED) {
+            // Only a legacy key reaches here with a shuffled egg: the check holds a
+            // placed item, so give it as main's Skip Child Zelda did.
+            GetItemEntry eggCheckEntry = Randomizer_GetItemFromKnownCheck(RC_HC_MALON_EGG, (GetItemID)RG_WEIRD_EGG);
+            StartingItemGive(eggCheckEntry, RC_HC_MALON_EGG);
+        } else {
+            OTRGlobals::Instance->gRandoContext->GetItemLocation(RC_HC_MALON_EGG)->SetCheckStatus(RCSHOW_SAVED);
+        }
 
-        // Malon/Talon back at ranch.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_OBTAINED_POCKET_EGG);
         Flags_SetRandomizerInf(RAND_INF_WEIRD_EGG);
         OoT_Flags_SetEventChkInf(EVENTCHKINF_TALON_WOKEN_IN_CASTLE);
         OoT_Flags_SetEventChkInf(EVENTCHKINF_TALON_RETURNED_FROM_CASTLE);
+    }
 
-        // Set "Got Zelda's Letter" flag. Also ensures Saria is back at SFM.
+    // Starting with an unshuffled letter skips child Zelda.
+    // RSK_SKIP_CHILD_ZELDA is kept as a fallback for #1542 paired callers and test_song_check_tables.
+    if (Randomizer_GetSettingValue(RSK_SKIP_CHILD_ZELDA) ||
+        (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) &&
+         !Randomizer_GetSettingValue(RSK_SHUFFLE_ZELDAS_LETTER))) {
+        GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheck(RC_SONG_FROM_IMPA, (GetItemID)RG_ZELDAS_LULLABY);
+        StartingItemGive(getItemEntry, RC_SONG_FROM_IMPA);
+        getItemEntry = Randomizer_GetItemFromKnownCheck(RC_HC_ZELDAS_LETTER, (GetItemID)RG_ZELDAS_LETTER);
+        StartingItemGive(getItemEntry, RC_HC_ZELDAS_LETTER);
+
+        // Set "Met Zelda" flag. Also ensures Saria is back at SFM.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_OBTAINED_ZELDAS_LETTER);
         Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
-        Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
 
         // Got item from Impa.
         OoT_Flags_SetEventChkInf(EVENTCHKINF_LEARNED_ZELDAS_LULLABY);
+    }
 
-        gSaveContext.sceneFlags[SCENE_HYRULE_CASTLE].swch |= (1 << 0x4); // Move milk crates in Hyrule Castle to moat.
-
-        // Set this at the end to ensure we always start with the letter.
-        // This is for the off chance, we got the Weird Egg from Impa (which should never happen).
-        INV_CONTENT(ITEM_LETTER_ZELDA) = ITEM_LETTER_ZELDA;
+    // Starting with the letter opens the Kakariko gate, shuffled or not (RSK_KAK_GATE kept for legacy/test CVars).
+    // The letter then has no use, so drop it from the trade cycle.
+    if (Randomizer_GetSettingValue(RSK_STARTING_ZELDAS_LETTER) ||
+        Randomizer_GetSettingValue(RSK_KAK_GATE) == RO_KAK_GATE_OPEN) {
+        OoT_Flags_SetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD);
+        Flags_UnsetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
     }
 
     if (Randomizer_GetSettingValue(RSK_SHUFFLE_MASTER_SWORD) && startingAge == RO_AGE_ADULT) {
@@ -602,11 +821,6 @@ extern "C" void Randomizer_InitSaveFile() {
         case RO_DOOROFTIME_OPEN:
             OoT_Flags_SetEventChkInf(EVENTCHKINF_OPENED_THE_DOOR_OF_TIME);
             break;
-    }
-
-    if (Randomizer_GetSettingValue(RSK_KAK_GATE) == RO_KAK_GATE_OPEN) {
-        OoT_Flags_SetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD);
-        Flags_UnsetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
     }
 
     if (Randomizer_GetSettingValue(RSK_GERUDO_FORTRESS) == RO_GF_CARPENTERS_FAST ||

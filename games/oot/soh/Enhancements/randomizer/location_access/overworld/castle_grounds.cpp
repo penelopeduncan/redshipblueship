@@ -25,6 +25,7 @@ void RegionTable_Init_CastleGrounds() {
         //Events
         EventAccess(LOGIC_FAIRY_ACCESS, []{return logic->CallGossipFairy() || logic->CanUse(RG_STICKS);}),
         EventAccess(LOGIC_BUG_ACCESS,   []{return logic->HasItem(RG_POWER_BRACELET);}),
+        EventAccess(LOGIC_MALON_RETURNED_FROM_CASTLE, []{return logic->Get(LOGIC_TALON_RETURNED_FROM_CASTLE) && logic->HasItem(RG_SPEAK_HYLIAN);}),
     }, {
         //Locations
         LOCATION(RC_HC_MALON_EGG,      logic->HasItem(RG_SPEAK_HYLIAN)),
@@ -90,7 +91,10 @@ void RegionTable_Init_CastleGrounds() {
         Entrance(RR_HC_MOAT,      []{return true;}),
     });
 
-    areaTable[RR_HC_MOAT] = Region("Hyrule Castle Grounds", SCENE_HYRULE_CASTLE, {}, {
+    areaTable[RR_HC_MOAT] = Region("Hyrule Castle Grounds", SCENE_HYRULE_CASTLE, {
+        //Events
+        EventAccess(LOGIC_TALON_RETURNED_FROM_CASTLE, []{return logic->CanUse(RG_WEIRD_EGG) && logic->HasItem(RG_SPEAK_HYLIAN);}),
+    }, {
         //Locations
         LOCATION(RC_HC_GRASS_1,     logic->CanCutShrubs()),
         LOCATION(RC_HC_GRASS_2,     logic->CanCutShrubs()),
@@ -99,7 +103,7 @@ void RegionTable_Init_CastleGrounds() {
         //Exits
         Entrance(RR_HC_GATE,          []{return true;}),
         Entrance(RR_HC_STORMS_GROTTO, []{return logic->CanOpenStormsGrotto();}),
-        Entrance(RR_HC_DRAIN_LEDGE,   []{return (logic->CanUse(RG_WEIRD_EGG) && logic->HasItem(RG_POWER_BRACELET) && logic->HasItem(RG_SPEAK_HYLIAN)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->TakeDamage() && logic->HasExplosives() && logic->CanJumpslash());}),
+        Entrance(RR_HC_DRAIN_LEDGE,   []{return (logic->Get(LOGIC_TALON_RETURNED_FROM_CASTLE) && logic->HasItem(RG_POWER_BRACELET)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->TakeDamage() && logic->HasExplosives() && logic->CanJumpslash());}),
     });
 
     areaTable[RR_HC_DRAIN_LEDGE] = Region("Hyrule Castle Drain Ledge", SCENE_HYRULE_CASTLE, {}, {}, {
@@ -108,10 +112,13 @@ void RegionTable_Init_CastleGrounds() {
         Entrance(RR_HC_GARDEN, []{return logic->CanUse(RG_CRAWL);}),
     });
 
-    areaTable[RR_HC_GARDEN] = Region("HC Garden", SCENE_CASTLE_COURTYARD_ZELDA, {}, {
+    areaTable[RR_HC_GARDEN] = Region("HC Garden", SCENE_CASTLE_COURTYARD_ZELDA, {
+        //Events
+        EventAccess(LOGIC_MET_ZELDA, []{return logic->HasItem(RG_SPEAK_HYLIAN);}),
+    }, {
         //Locations
-        LOCATION(RC_HC_ZELDAS_LETTER, logic->HasItem(RG_SPEAK_HYLIAN)),
-        LOCATION(RC_SONG_FROM_IMPA,   logic->HasItem(RG_SPEAK_HYLIAN)),
+        LOCATION(RC_HC_ZELDAS_LETTER, logic->Get(LOGIC_MET_ZELDA)),
+        LOCATION(RC_SONG_FROM_IMPA,   logic->Get(LOGIC_MET_ZELDA)),
     }, {
         //Exits
         Entrance(RR_HC_DRAIN_LEDGE, []{return true;}), // if this ever gets shuffled leaving garden area should come out crawlspace
