@@ -9,8 +9,10 @@
 
 #include <fstream>
 #include <filesystem>
+#include <spdlog/spdlog.h>
 
 #include "soh/OTRGlobals.h"
+#include "soh/SaveManager.h"
 #include "soh/SohGui/ImGuiUtils.h"
 #include "soh/Enhancements/randomizer/logic.h"
 #include "soh/Enhancements/randomizer/randomizer_check_objects.h"
@@ -518,6 +520,10 @@ void PlandomizerAddToItemList(Rando::Item randoItem) {
     PlandomizerSortDrawnItems();
 }
 
+bool Plandomizer_WriteSpoilerFile(const std::filesystem::path& target, const nlohmann::json& spoilerSave) {
+    return SaveManager::WriteFileSafely(target, target.string() + ".tmp", spoilerSave.dump(4));
+}
+
 void PlandomizerSaveSpoilerLog() {
     nlohmann::json spoilerSave;
     std::string filename = lastLoadedSpoiler;
@@ -551,10 +557,8 @@ void PlandomizerSaveSpoilerLog() {
         }
     }
 
-    std::ofstream outputFile(filename);
-    if (outputFile.is_open()) {
-        outputFile << spoilerSave.dump(4);
-        outputFile.close();
+    if (!Plandomizer_WriteSpoilerFile(filename, spoilerSave)) {
+        SPDLOG_ERROR("PlandomizerSaveSpoilerLog: failed to write spoiler file '{}'", filename);
     }
 }
 
