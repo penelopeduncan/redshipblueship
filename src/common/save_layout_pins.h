@@ -120,8 +120,13 @@
 // watermark, by hand 2676 + 20 = 2696 (no padding: the watermark ends on a
 // multiple of 4 and the record has alignment 1); sizeof 2696 + 20 = 2716, a
 // multiple of the struct's alignment 4, so no tail padding. The gate re-measures.
-#define RSBS_PIN_COMBO_OOT_WARPS 2696u      // offsetof(ComboContext, comboOoTWarps)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2716u // sizeof(ComboContext)
+#define RSBS_PIN_COMBO_OOT_WARPS 2696u // offsetof(ComboContext, comboOoTWarps)
+// Layout revision 4 (#1169 XW10): sharedFamilyOwned2 appended directly after
+// comboOoTWarps, by hand 2696 + 20 = 2716 (a multiple of 4, the u32's alignment,
+// so no padding); sizeof 2716 + 4 = 2720, a multiple of the struct's alignment 4,
+// so no tail padding. The gate re-measures.
+#define RSBS_PIN_COMBO_FAMILY_OWNED2 2716u  // offsetof(ComboContext, sharedFamilyOwned2)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2720u // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset

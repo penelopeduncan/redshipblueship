@@ -795,8 +795,12 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // RSBS_XITEM2_HIDDEN, as a seed package's validation and a .redsave load do for
 // a world another build made with one on (Combo_ComboItemRules2Refused).
 //
-// No family slots here: a shared song's family is the second family word lane
-// XW10 carves (decision 6), not a bit of gComboCtx.sharedFamilyOwned.
+// THE SECOND FAMILY WORD (lane XW10, decision 6): a shared song's family is not a
+// bit of gComboCtx.sharedFamilyOwned but of gComboCtx.sharedFamilyOwned2, which is
+// APPENDED at the end of ComboContext (growth rule 1, context.h), and its family
+// bit IS its rule bit, as in the first word: RSBS_XITEM2_FAMILY_MASK below. Every
+// second-word family bit is a second-word rule bit, so the u32 holds every family
+// this word can ever declare (the nine later shared songs of the plan included).
 
 // The seven EXTENSIONS: a copy of the other game's warp song added to this game.
 #define RSBS_XITEM2_SONG_SOARING_OOT 0x00000001u // OoTMM songSoaringOot: MM's Song of Soaring in OoT (child only)
@@ -834,10 +838,20 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
  *  is not ready. XW12 exposed the Song of Soaring (OoT) (operator ruling
  *  2026-11-04, decision 7). */
 #define RSBS_XITEM2_HIDDEN (RSBS_XITEM2_WARP_SONG_SHARED | RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS)
+/** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
+ *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
+ *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. */
+#define RSBS_XITEM2_FAMILY_MASK RSBS_XITEM2_WARP_SONG_SHARED
 /** What ships: every second-word rule off (OoTMM's defaults). */
 #define RSBS_XITEM2_DEFAULTS 0u
 /** How many bit positions the word has. */
 #define RSBS_XITEM2_BIT_COUNT 32u
+/** THE FAMILY SLOTS of both family words (#1169 XW10): slot = word * 32 + bit,
+ *  slots 0-31 the first word (gComboCtx.sharedFamilyOwned, RSBS_XFAMILY_SLOTS_ALL),
+ *  32-63 the second (gComboCtx.sharedFamilyOwned2, RSBS_XITEM2_FAMILY_MASK). Every
+ *  buffer handed to Combo_SingleBag_SharedPairs is this size: it holds one pair per
+ *  slot, so no armed pair can ever be dropped for room. */
+#define RSBS_XFAMILY_SLOT_COUNT 64u
 
 RSBS_CTX_STATIC_ASSERT(
     RSBS_XITEM2_SONG_SOARING_OOT == 0x1u && RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u &&
@@ -848,6 +862,14 @@ RSBS_CTX_STATIC_ASSERT(
         (RSBS_XITEM2_HIDDEN & ~RSBS_XITEM2_ALL_V1) == 0u && RSBS_XITEM2_DEFAULTS == 0u,
     "RSBS_XITEM2_* bit positions are .redsave and seed-package format: pinned, append-only, allocate the next free bit "
     "and never re-point an allocated one; the defaults stay 0 so an all-clear word is today's world (#1169 XW2)");
+RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_FAMILY_MASK == 0x00003F80u &&
+                           (RSBS_XITEM2_FAMILY_MASK & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u &&
+                           (RSBS_XITEM2_FAMILY_MASK & ~RSBS_XITEM2_ALL_V1) == 0u,
+                       "RSBS_XITEM2_FAMILY_MASK bits are gComboCtx.sharedFamilyOwned2 bits, .redsave format: pinned, "
+                       "append-only, never an extension rule (#1169 XW10)");
+RSBS_CTX_STATIC_ASSERT(RSBS_XFAMILY_SLOT_COUNT == RSBS_XITEM_BIT_COUNT + RSBS_XITEM2_BIT_COUNT,
+                       "a shared-pair buffer holds one pair per family slot of both words, so it is at least "
+                       "popcount(RSBS_XFAMILY_SLOTS_ALL) + popcount(RSBS_XITEM2_FAMILY_MASK) (#1169 XW10)");
 
 /** The value of the word @p rec stores (little-endian, a byte at a time). NULL
  *  is 0, every rule off. */

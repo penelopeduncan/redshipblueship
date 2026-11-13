@@ -186,3 +186,72 @@ extern "C" int OoT_SharedSongsTest_OtherVanillaSongsAtHome(const int* sharedRgs,
 extern "C" int OoT_SharedSongsTest_VanillaSongCount(void) {
     return (int)(sizeof(kOoTVanillaSongs) / sizeof(kOoTVanillaSongs[0]));
 }
+
+// ---- #1169 XW10: the shared warp songs' OoT members ---------------------------
+//
+// `song` is the warp song's index (src/common/warp_song_family.h): 0 the Song of
+// Soaring (OoT), owned through RAND_INF_OBTAINED_SONG_OF_SOARING_OOT; 1 .. 6 the
+// Minuet of Forest .. the Prelude of Light, owned through their quest bits. The
+// flag is written straight into the saved words, as z_actor.c's
+// Flags_SetRandomizerInf stores it, without its flag-set hook (a ROM-free row).
+
+namespace {
+bool OoTWarpSongIndexOk(int song) {
+    return song >= 0 && song <= 6;
+}
+} // namespace
+
+extern "C" void OoT_SharedWarpSongsTest_SetHeld(int song, int held) {
+    if (!OoTWarpSongIndexOk(song)) {
+        return;
+    }
+    if (song == 0) {
+        const int flag = (int)RAND_INF_OBTAINED_SONG_OF_SOARING_OOT;
+        const u16 bit = (u16)(1u << (flag & 0xF));
+        if (held != 0) {
+            gSaveContext.ship.randomizerInf[flag >> 4] |= bit;
+        } else {
+            gSaveContext.ship.randomizerInf[flag >> 4] &= (u16)~bit;
+        }
+        return;
+    }
+    const uint32_t bit = 1u << ((int)QUEST_SONG_MINUET + song - 1);
+    if (held != 0) {
+        gSaveContext.inventory.questItems |= bit;
+    } else {
+        gSaveContext.inventory.questItems &= ~bit;
+    }
+}
+
+extern "C" int OoT_SharedWarpSongsTest_Held(int song) {
+    if (!OoTWarpSongIndexOk(song)) {
+        return -1;
+    }
+    if (song == 0) {
+        const int flag = (int)RAND_INF_OBTAINED_SONG_OF_SOARING_OOT;
+        return (gSaveContext.ship.randomizerInf[flag >> 4] & (1u << (flag & 0xF))) != 0 ? 1 : 0;
+    }
+    return CHECK_QUEST_ITEM((int)QUEST_SONG_MINUET + song - 1) ? 1 : 0;
+}
+
+/** OoT's id for the song: the RG_* its pool places (or would place) it as. */
+extern "C" int OoT_SharedWarpSongsTest_PoolId(int song) {
+    if (!OoTWarpSongIndexOk(song)) {
+        return -1;
+    }
+    return song == 0 ? (int)RG_SONG_OF_SOARING_OOT : (int)RG_MINUET_OF_FOREST + song - 1;
+}
+
+/** The item the generated world puts in Link's Pocket, or -1 with no seed context. */
+extern "C" int OoT_SharedWarpSongsTest_LinksPocket(void) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    return (int)OoTPlacedAt(ctx, RC_LINKS_POCKET);
+}
+
+/** An OoT song no shared rule names, for the Link's Pocket bridge's negative case. */
+extern "C" int OoT_SharedWarpSongsTest_UnsharedSongId(void) {
+    return (int)RG_ZELDAS_LULLABY;
+}

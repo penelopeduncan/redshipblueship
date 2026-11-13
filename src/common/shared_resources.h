@@ -690,6 +690,75 @@ uint32_t Combo_SharedFamiliesHarvestLive(GameId game);
  *  owed. Returns how many copies were given. */
 int Combo_SharedFamiliesApplyLive(GameId game);
 
+/*
+ * ---------------------------------------------------------------------------
+ * THE SECOND FAMILY WORD (#1169 lane XW10; scoping decision 6)
+ * ---------------------------------------------------------------------------
+ * The shared families of the SECOND rules word (foreign_items.h,
+ * RSBS_XITEM2_FAMILY_MASK: today the seven shared warp songs) are owned in
+ * gComboCtx.sharedFamilyOwned2, one bit per family at its own rule bit, under the
+ * SAME OR discipline, direction rule and arming rule as the first word (above):
+ * armed from the FROZEN second word only, harvest `owned2 |= held & armed2`,
+ * apply gives `owned2 & armed2 & ~held`, never a bit cleared.
+ *
+ * ONE REGISTRY, TWO WORDS. A member registers at a family SLOT, word * 32 + bit
+ * (RSBS_XFAMILY_SLOT_COUNT): the first word's API keeps slots 0-31 exactly as
+ * before, and the *2 calls below address slots 32-63. Combo_SharedFamiliesHarvestLive
+ * and Combo_SharedFamiliesApplyLive (above) run BOTH words, each only when it arms
+ * a family, so every shim that calls them carries the second word unedited, and a
+ * world that arms only second-word families is harvested and applied too.
+ * Combo_ClearSharedFamilyMembers clears both. Combo_SingleBag_SharedPairs builds
+ * the second word's pairs after the first word's.
+ *
+ * AT PICKUP. A far game's copy of an armed second-word family found in the running
+ * game (a surplus copy that crossed) is credited there and then
+ * (Combo_SharedFamilies2CreditFarPickup), the #1061 / #1120 rule: never a round trip.
+ */
+
+/** Register (or, with NULL @p member, unregister) @p game's copy of the
+ *  second-word family at @p family2Bit. Refused (false) for a game that is not OoT
+ *  or MM, a bit that is not exactly one RSBS_XITEM2_FAMILY_MASK bit, or a member
+ *  with a NULL callback. Never touches a first-word slot. */
+bool Combo_RegisterSharedFamily2Member(GameId game, uint32_t family2Bit, const ComboSharedFamilyMember* member);
+
+/** The second word's twins of Combo_SharedFamilyMemberId / _MemberPooled /
+ *  _MemberGet, at @p family2Bit. */
+bool Combo_SharedFamily2MemberId(GameId game, uint32_t family2Bit, uint16_t* outId);
+bool Combo_SharedFamily2MemberPooled(GameId game, uint32_t family2Bit);
+bool Combo_SharedFamily2MemberGet(GameId game, uint32_t family2Bit, ComboSharedFamilyMember* out);
+
+/** A short name for one second-word family, for logs: its rule's OoTMM key
+ *  (Combo_ComboItemRule2Name). Never NULL. */
+const char* Combo_SharedFamily2SlotName(uint32_t family2Bit);
+
+/** The second-word families the FROZEN second word arms (its
+ *  RSBS_XITEM2_FAMILY_MASK bits), 0 while nothing is frozen. Never a CVar. */
+uint32_t Combo_SharedFamilies2Armed(void);
+
+/** The second-word pool: the families the player holds in either game. */
+uint32_t Combo_SharedFamilies2Owned(void);
+
+/** HARVEST for the second word: `owned2 |= heldBits & armed2`. Never clears a
+ *  bit. No-op for a game that is not OoT or MM. Returns the pool afterwards. */
+uint32_t Combo_SharedFamilies2Harvest(GameId game, uint32_t heldBits);
+
+/** APPLY for the second word: the families @p game must be GIVEN, owned, armed
+ *  and not in @p heldBits. Pure. */
+uint32_t Combo_SharedFamilies2Owed(GameId game, uint32_t heldBits);
+
+/**
+ * CREDIT AT PICKUP for the second word (#1169 XW10; the #1061 / #1120 rule): the
+ * item (@p originGame, @p id) was found in @p running, the other game. When it is
+ * @p originGame's registered copy of a second-word family the frozen word ARMS,
+ * the family is owned now (`owned2 |= bit`, armed bits only), @p running is given
+ * its own copy unless it holds it, and the answer is true: the pickup is credited
+ * and must NOT cross (the origin game gets its copy at its next arrival, through
+ * the apply). False, touching nothing, for anything else: a disarmed family (the
+ * extension alone: the item is an ordinary crossing), an unregistered id, an item
+ * of the running game. The CALLER gates it on its live-file test (gameMode).
+ */
+bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id);
+
 #ifdef __cplusplus
 }
 #endif

@@ -252,6 +252,10 @@ set(REDSHIP_COMMON_SOURCES
     # the frozen world for a tracker-scoped second search. Game-header-free.
     # APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.c
+    # #1169 XW10: the seven SHARED warp songs: each song's host game and whether
+    # Link holds a song in a game under its shared rule (the players' readers).
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_family.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -373,6 +377,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
     # Header for warp_song_tracker.c above (#1169 XW11)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.h
+    # Header for warp_song_family.c above (#1169 XW10)
+    ${CMAKE_SOURCE_DIR}/src/common/warp_song_family.h
 )
 
 # ============================================================================
@@ -901,6 +907,15 @@ if(BUILD_TESTING)
     # carried by the real harvest/apply shims, each rule only its own song. ROM-free.
     redship_add_test(NAME SharedSongsRule COMMAND redship --test shared-songs-rule)
     redship_add_test(NAME SharedSongsMerge COMMAND redship --test shared-songs-merge)
+    # #1169 XW10: the seven SHARED warp songs (OoTMM sharedSongSoaring ..
+    # sharedSongPrelude) on the second family word: the appended word, its registry
+    # and pairs (word 1 first, never truncated, no narrow buffer left), the held
+    # question, and both games' members carried by the real shims with every
+    # first-word rule off, the matchers widened and a far copy credited at pickup.
+    # ROM-free, the rules frozen directly (no Generate, so nothing to reveal).
+    redship_add_test(NAME SharedWarpFamilyStorage COMMAND redship --test shared-warp-family-storage)
+    redship_add_test(NAME WarpSongHeld COMMAND redship --test warp-song-held)
+    redship_add_test(NAME SharedWarpSongsMerge COMMAND redship --test shared-warp-songs-merge)
     # #1067: the Shared Ocarina Buttons rule (OoTMM sharedOcarinaButtons): five
     # pairs behind one bit, registered by both games and composed into one shared
     # row each, and a button found in one game owned in the other on arrival.
@@ -3521,6 +3536,34 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME SharedSongsOneCopyMMVanilla COMMAND redship --test shared-songs-one-copy-mm-vanilla
         LABEL rando
         TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1169 XW10: ONE copy of each shared warp song (all fourteen warp-song rules on
+    # through the hidden-bit test seam), one real paired generation per Shuffle Songs
+    # value; Off and Anywhere with Link's Pocket at Advancement. Edges: two paired
+    # generations (Dungeon Rewards 12 for 12, a started shared Minuet with one more
+    # exit round) and two more only to OoT's seam (the Off arm twice), hence the
+    # longer timeout.
+    redship_add_test(NAME SharedWarpSongsOneCopyOff COMMAND redship --test shared-warp-songs-one-copy-off
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedWarpSongsOneCopySongLocations
+        COMMAND redship --test shared-warp-songs-one-copy-song-locations
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedWarpSongsOneCopyDungeonRewards
+        COMMAND redship --test shared-warp-songs-one-copy-dungeon-rewards
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedWarpSongsOneCopyAnywhere COMMAND redship --test shared-warp-songs-one-copy-anywhere
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedWarpSongsEdges COMMAND redship --test shared-warp-songs-edges
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1502: the confined golden's profile created for real: every MM key, boss key
     # and dungeon fairy in its own dungeon, every song-location song on an MM song

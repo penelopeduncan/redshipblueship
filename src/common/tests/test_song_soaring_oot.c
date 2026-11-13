@@ -347,8 +347,8 @@ TestResult Test_OoTSoaringRuleLogic(void) {
         XW4_CHECK(Combo_SongSoaringOoTCopies(0u) == 0u, "no rule pooled a copy");
         XW4_CHECK(Combo_SongSoaringOoTCopies(kXw4Soaring) == 1u, "songSoaringOot alone did not pool one copy");
         XW4_CHECK(Combo_SongSoaringOoTCopies(kXw4Soaring | kXw4SharedSoaring) == 0u,
-                  "with sharedSongSoaring the separate copy was pooled: the shared song is the family (XW10), held "
-                  "back, never placed as a separate item");
+                  "with sharedSongSoaring the separate copy was pooled: OoTMM adds no copy under the shared rule "
+                  "(transform.ts), MM's native copy is the shared row (XW10)");
         XW4_CHECK(Combo_SongSoaringOoTCopies(kXw4SharedSoaring) == 0u, "the shared bit alone pooled a copy");
         XW4_CHECK(Combo_SongSoaringOoTCopies(0x3FFFu & ~kXw4SharedSoaring) == 1u,
                   "the other warp-song bits changed the Soaring count");
@@ -362,6 +362,23 @@ TestResult Test_OoTSoaringRuleLogic(void) {
         Xw4FreezeWorld(kXw4Soaring | kXw4SharedSoaring);
         XW4_CHECK(OoT_SongOfSoaringOoTPooledCopies() == 0,
                   "a world frozen with the shared Soaring pools a separate OoT copy");
+        // #1169 XW10: ... and the bag pairs the Song of Soaring (OoT) with MM's own
+        // song, so MM's native copy is the one shared row. Catches a missing OoT
+        // member registration and a pooled() that answers "copies > 0" (0 here).
+        {
+            ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+            const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+            uint16_t mmSoaring = 0;
+            const bool mmRegistered = Combo_SharedFamily2MemberId(GAME_MM, RSBS_XITEM2_SHARED_SONG_SOARING, &mmSoaring);
+            int found = 0;
+            for (int i = 0; i < n; i++) {
+                found += (pairs[i].ootId == (uint16_t)OoT_SoaringTest_PoolId() && pairs[i].mmId == mmSoaring) ? 1 : 0;
+            }
+            XW4_CHECK(mmRegistered && found == 1,
+                      "the shared Soaring world pairs %d famil(ies), %d of them (Song of Soaring (OoT), MM's Song of "
+                      "Soaring); want that pair exactly once (MM member registered %d)",
+                      n, found, mmRegistered ? 1 : 0);
+        }
     }
 
     // ---- (2) OoT's REAL logic --------------------------------------------------------
@@ -645,8 +662,12 @@ Xw4PairSongs Xw4FinishPair() {
                                                               : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck) >= 0;
                 r.songsPlaced++;
                 r.songsOffSongs += onSongCheck ? 0 : 1;
-                r.soaringOnSongs +=
-                    (onSongCheck && p.item.originGame == (uint8_t)GAME_OOT && p.item.id == soaring) ? 1 : 0;
+                // Either half of the shared Soaring pair (#1169 XW10): an OoT song check
+                // hosts it as the Song of Soaring (OoT), an MM one as MM's own song with
+                // the OoT id as its pair.
+                const bool isSoaring = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == soaring) ||
+                                       (p.pair.originGame == (uint8_t)GAME_OOT && p.pair.id == soaring);
+                r.soaringOnSongs += (onSongCheck && isSoaring) ? 1 : 0;
             }
         }
     }
@@ -784,12 +805,15 @@ TestResult SongLocationsOverflowRefused_Run(void) {
         struct Pass {
             Xw4Leg leg;
             const char* name;
-            int onSongChecks; // Soaring copies on a song check of either game after the pair, or -1 to skip
+            // Soaring copies on a song check of either game after the pair, or -1 to
+            // skip. The shared Soaring (#1169 XW10) is ONE pair row, counted from
+            // either half (Xw4FinishPair), so its leg expects exactly one too.
+            int onSongChecks;
         };
         const Pass passes[] = {
             { { kXw4SongLocations, true, false, false, true }, "Song Locations, starting with Zelda's Lullaby", 1 },
             { { kXw4SongLocations, true, false, true, false }, "Song Locations, Shared Song of Time", 1 },
-            { { kXw4SongLocations, true, true, false, false }, "Song Locations, Shared Song of Soaring", 0 },
+            { { kXw4SongLocations, true, true, false, false }, "Song Locations, Shared Song of Soaring", 1 },
             { { kXw4DungeonRewards, true, false, false, true }, "Dungeon Rewards, starting with Zelda's Lullaby", -1 },
             { { kXw4Anywhere, true, false, false, false }, "Anywhere", -1 },
             { { kXw4SongLocations, false, false, false, false }, "Song Locations, rule off", 0 },

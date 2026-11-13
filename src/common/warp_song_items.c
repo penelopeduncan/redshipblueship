@@ -18,8 +18,8 @@ uint32_t Combo_SongSoaringOoTCopies(uint32_t rules2) {
     }
     if ((rules2 & (uint32_t)RSBS_XITEM2_SHARED_SONG_SOARING) != 0u) {
         // OoTMM sharedSongSoaring: Majora's Mask's copy becomes the one shared
-        // item (transform.ts adds no OoT copy). The family is lane XW10's; OoT's
-        // separate copy is held back, never placed.
+        // item and OoTMM adds no OoT copy (transform.ts); the host's native copy
+        // is the shared row (#1169 XW10).
         return 0u;
     }
     return 1u;

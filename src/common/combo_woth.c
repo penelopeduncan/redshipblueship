@@ -97,9 +97,10 @@ bool Combo_Woth_DefaultEligible(uint8_t hostGame, const ComboLogicPlacement* pla
     if (placement->item.originGame == (uint8_t)GAME_MM) {
         return !Combo_Woth_ItemSkipsPathHint(placement->item, NULL, 0);
     }
-    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
-    const int pairCount = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
-    return !Combo_Woth_ItemSkipsPathHint(placement->item, pairs, pairCount);
+    ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+    const int pairCount = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+    // -1 (more pairs than the buffer, #1169 XW10) reports no pair: the bag refused.
+    return !Combo_Woth_ItemSkipsPathHint(placement->item, pairs, pairCount > 0 ? pairCount : 0);
 }
 
 bool Combo_Woth_ItemSkipsPathHint(SharedItem item, const ComboLogicSharedPair* pairs, int pairCount) {
