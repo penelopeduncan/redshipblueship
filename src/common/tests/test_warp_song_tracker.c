@@ -526,6 +526,44 @@ TestResult Test_WarpSongTracker(void) {
         XW11_CHECK(Combo_TrackerTravel_MMFactNow(1) == RSBS_COMBO_TRAVEL_INTO_MM,
                    "E16: OoT_ItemAdapter_Register did not register OoT's reader");
 
+        // #1169 XW14: the facts NOW read the shared family held now, in behaviour and
+        // not only by S11's source text (C17-C22 lock the Ex functions alone). A song
+        // the other game holds through the pair's family is a fact before this game
+        // owns its own copy. The world of E10-E16 is put back afterwards.
+        {
+            const uint32_t minuetShared = kXw11Minuet << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
+            Xw11FreezeWorld(kXw11Minuet | minuetShared);
+            Xw11Pair(true);
+            Combo_MMWarpSongsSetOwned(0u);
+            XW11_CHECK(Combo_TrackerTravel_OoTFactsNow(1) == 0u,
+                       "E16b: a shared Minuet nobody holds gave OoT's tracker a fact: read %08X",
+                       (unsigned)Combo_TrackerTravel_OoTFactsNow(1));
+            gComboCtx.sharedFamilyOwned2 = minuetShared;
+            XW11_CHECK(Combo_TrackerTravel_OoTFactsNow(1) == kXw11Minuet,
+                       "E16c: the family holds the shared Minuet, MM's own byte is clear: OoT's facts now read %08X "
+                       "(want the Minuet)",
+                       (unsigned)Combo_TrackerTravel_OoTFactsNow(1));
+
+            Xw11FreezeWorld(RSBS_XITEM2_SONG_SOARING_OOT | RSBS_XITEM2_SHARED_SONG_SOARING);
+            Xw11Pair(true);
+            Context_ClearFrozenState(GAME_OOT);
+            (void)OoT_ItemAdapter_TestAuthorSoaringWorld(oot.data(), oot.size(), 0, 1, 1, 1);
+            Context_FreezeState(GAME_OOT, 0, oot.data(), oot.size());
+            XW11_CHECK(Combo_TrackerTravel_MMFactNow(1) == 0u,
+                       "E16d: a shared Song of Soaring nobody holds gave MM's tracker the fact");
+            gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_SOARING;
+            XW11_CHECK(Combo_TrackerTravel_MMFactNow(1) == RSBS_COMBO_TRAVEL_INTO_MM,
+                       "E16e: the family holds the shared Song of Soaring, OoT's own flag is clear: MM's fact now "
+                       "reads %08X",
+                       (unsigned)Combo_TrackerTravel_MMFactNow(1));
+
+            Xw11FreezeWorld(RSBS_XITEM2_SONG_SOARING_OOT);
+            Xw11Pair(true);
+            Context_ClearFrozenState(GAME_OOT);
+            (void)OoT_ItemAdapter_TestAuthorSoaringWorld(oot.data(), oot.size(), 1, 1, 1, 1);
+            Context_FreezeState(GAME_OOT, 0, oot.data(), oot.size());
+        }
+
         // The destination: the frozen record's, 0 without a PRESENT one.
         Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
         XW11_CHECK(Combo_TrackerTravel_OoTDest(0) == 0u, "E17: an unset record gave a destination");
