@@ -284,6 +284,17 @@ static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 == 2617 &&
               "MM's butterfly checks (#1407) are ids 2617..2641, appended after #1410's");
 static_assert(RO_SHUFFLE_BUTTERFLIES == 56,
               "MM's Shuffle Butterflies option (#1407) is id 56, after RO_SHUFFLE_HIVE_DROPS");
+// #1403 (MM pool options): Skeleton Key, Shuffled Gold Skulltulas, Stray Fairies in Pool,
+// Double Time / Inverted Time / Sun's Song / Saria's Song.
+static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO_STRAY_FAIRIES_MAX == 59 &&
+                  RO_SHUFFLE_SONG_DOUBLE_TIME == 60 && RO_SHUFFLE_SONG_INVERTED_TIME == 61 &&
+                  RO_SHUFFLE_SONG_SUN == 62 && RO_SHUFFLE_SONG_SARIA == 63,
+              "MM's #1403 pool options are ids 57..63, after RO_SHUFFLE_BUTTERFLIES");
+static_assert(RI_SKELETON_KEY == RI_SONG_PRELUDE + 1 && RI_SONG_DOUBLE_TIME == RI_SONG_PRELUDE + 2 &&
+                  RI_SONG_INVERTED_TIME == RI_SONG_PRELUDE + 3 && RI_MAX_TRAP == RI_SONG_PRELUDE + 4,
+              "MM's #1403 items follow the #1485 warp songs: saved checks store RandoItemId");
+static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
+              "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

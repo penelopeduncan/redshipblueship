@@ -90,7 +90,8 @@ TrackerImageObject GetImageObject(TrackerItemType itemType, u32 itemId) {
                 Rando::StaticData::GetIconTexturePath(randoItemId));
             if (randoItemId >= RI_OWL_CLOCK_TOWN_SOUTH && randoItemId <= RI_OWL_ZORA_CAPE) {
                 trackerImageObject.textureDimensions.y = 24.0f;
-            } else if (randoItemId >= RI_SONG_ELEGY && randoItemId <= RI_SONG_TIME) {
+            } else if ((randoItemId >= RI_SONG_ELEGY && randoItemId <= RI_SONG_TIME) ||
+                       randoItemId == RI_SONG_DOUBLE_TIME || randoItemId == RI_SONG_INVERTED_TIME) {
                 trackerImageObject.textureDimensions.x = 32.0f;
             }
         } break;

@@ -3689,6 +3689,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # on a two-page text) never returned. Plain strings under a watchdog: default
     # tier. games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME CustomMessageReplace COMMAND redship --test custom-message-replace)
+    # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
+    # newlines and box breaks land, the count restarting at an explicit box break,
+    # and no width for an overflowing space. Plain strings and MM's static font
+    # width table: default tier. games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
+    redship_add_test(NAME MMCustomMessageLineBreaks COMMAND redship --test mm-custom-message-line-breaks)
     # A FOREIGN ITEM'S GET-ITEM MODEL (#577 M2): every draw row of both games'
     # get-item tables and every progression item classifies to a descriptor of
     # its own lists, a host-native answer or a named "no model"; descriptors

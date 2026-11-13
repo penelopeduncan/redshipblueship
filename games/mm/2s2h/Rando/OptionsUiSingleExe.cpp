@@ -214,6 +214,7 @@ const char* const kTrialsAccessLabels[] = {
     "Matching Remains",        // RO_ACCESS_TRIALS_REMAINS
     "Matching Transformation", // RO_ACCESS_TRIALS_FORMS
     "Open",                    // RO_ACCESS_TRIALS_OPEN
+    "Vanilla",                 // RO_ACCESS_TRIALS_VANILLA
 };
 
 const char* const kClockProgressiveLabels[] = {
@@ -243,6 +244,14 @@ const char* const kSongShuffleLabels[] = {
     "Anywhere",       // RO_SONG_SHUFFLE_ANYWHERE
     "Song Locations", // RO_SONG_SHUFFLE_SONG_LOCATIONS
     "Vanilla",        // RO_SONG_SHUFFLE_VANILLA
+};
+
+// Preserves 0 = Vanilla (was RO_GENERIC_OFF) and 1 = Anywhere (was RO_GENERIC_ON)
+// so existing saved profiles and option values stay valid; Own Dungeon is 2.
+const char* const kRemainsShuffleLabels[] = {
+    "Vanilla",     // RO_REMAINS_SHUFFLE_VANILLA
+    "Anywhere",    // RO_REMAINS_SHUFFLE_ANYWHERE
+    "Own Dungeon", // RO_REMAINS_SHUFFLE_OWN_DUNGEON
 };
 
 /**
@@ -287,6 +296,7 @@ struct OptionUi {
 // GeneratePools and StartingItems as in 2Ship, and each non-default value folds
 // into the MM seed and the frozen identity by name (Foreign.cpp
 // IsAppendedOption), so the defaults move no world.
+const char* const kReasonPairedPlacement = "Not Yet Supported in Paired Worlds";
 
 // clang-format off
 const OptionUi kOptionUi[] = {
@@ -306,19 +316,21 @@ const OptionUi kOptionUi[] = {
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_ACCESS_TRIALS, COMBO_MM_GROUP_AREA_ACCESS, COMBO_MM_WIDGET_COMBO,
       "Trials Access",
-      "What the Moon trials require. Mask counts, the matching remains, the matching transformation, or open.",
+      "What the Moon trials require. 2-6-12-20 masks, the matching remains, the matching transformation, open, or "
+      "vanilla mask handoff (1, 2, 3, and 4 masks).",
       0, 0, kTrialsAccessLabels, UI_COUNT(kTrialsAccessLabels),
       // Was PARTIAL on "trials read as Open regardless", which was true while
       // the gate was dead: EnJs.cpp's VB_JS_OVERRIDE_MASK_CHECK reports jsType
-      // 1-4 unlocked unconditionally, so the ONLY thing enforcing a trial
-      // requirement is the text leg. That leg is OverrideSubJsText on
-      // OnOpenText[0x2215], which dispatches (#512) — it reads
-      // RO_ACCESS_TRIALS and, when the requirement is unmet, swaps in the
-      // refusal message and routes to 0x2216, which ends the conversation
-      // without starting the trial. All three modes (20_MASKS, REMAINS, FORMS)
-      // are handled there; OPEN falls through by design. Both legs are
-      // dispatched hook types, EnJs.cpp is in the link, so the gate this row
-      // sets is the gate the player gets.
+      // 1-4 unlocked unconditionally when != RO_ACCESS_TRIALS_VANILLA, so the
+      // ONLY thing enforcing a non-vanilla trial requirement is the text leg.
+      // That leg is OverrideSubJsText on OnOpenText[0x2215], which dispatches
+      // (#512) — it reads RO_ACCESS_TRIALS and, when the requirement is unmet,
+      // swaps in the refusal message and routes to 0x2216, which ends the
+      // conversation without starting the trial. 20_MASKS, REMAINS, and FORMS
+      // are handled there; OPEN falls through by design; VANILLA leaves both
+      // VB_JS_OVERRIDE_MASK_CHECK and 0x2215/0x2216 unhooked so vanilla handoff
+      // runs. Both legs are dispatched hook types, EnJs.cpp is in the link, so
+      // the gate this row sets is the gate the player gets.
       COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_TRIFORCE_PIECES, COMBO_MM_GROUP_WIN_CONDITION, COMBO_MM_WIDGET_CHECKBOX,
       "Triforce Hunt", "Scatters Triforce Pieces through the pool; collecting enough of them wins the seed.",
@@ -411,9 +423,15 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_SNOWBALL_DROPS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Snowball Drops", "Adds the item dropped by breaking a snowball to the check pool.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
-    { RO_SHUFFLE_BOSS_REMAINS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
-      "Shuffle Boss Remains", "Shuffles the four Boss Remains into the item pool.",
-      0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_BOSS_REMAINS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
+      "Shuffle Boss Remains",
+      "Where each temple boss's remains may be found.\n\n"
+      "Anywhere - Defeating a boss rewards a shuffled item, and its remains can be found anywhere in "
+      "the world.\n\n"
+      "Own Dungeon - Defeating a boss rewards a shuffled item, and each boss's remains are somewhere "
+      "inside that boss's own temple.\n\n"
+      "Vanilla - Every boss still rewards its own remains, and the boss warps are not checks.",
+      0, 0, kRemainsShuffleLabels, UI_COUNT(kRemainsShuffleLabels), COMBO_MM_LIVENESS_LIVE, "" },
     // LIVE as of #514: the only leg this row was ever missing was the cycle-save
     // restore (AfterEndOfCycleSave copies skullTokenCount back under exactly
     // this option), and that now dispatches.
@@ -424,6 +442,11 @@ const OptionUi kOptionUi[] = {
       "Minimum Skulltula Tokens",
       "Tokens needed for the Spider House reward. Forced to the vanilla value when tokens are not shuffled.",
       1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SKULLTULA_SHUFFLED, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
+      "Shuffled Gold Skulltulas",
+      "How many Gold Skulltulas in each Spider House are randomized checks. The rest contain their associated token. "
+      "The spiders are chosen at random each seed.",
+      1, SPIDER_HOUSE_TOKENS_REQUIRED, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_PLACEMENT_SMALL_KEYS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
       "Small Keys",
       "Where each dungeon's small keys may be placed: anywhere in the world, only within that dungeon, on their "
@@ -455,6 +478,10 @@ const OptionUi kOptionUi[] = {
       // reward one. That hook type dispatches (#512, ExecuteForID leg present)
       // and z_actor.c's call site is live. Its other legs are VB.
       COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_STRAY_FAIRIES_MAX, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,
+      "Stray Fairies in Pool",
+      "Maximum Stray Fairies that can appear in the item pool.",
+      1, STRAY_FAIRY_SCATTERED_TOTAL, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_SHUFFLE_FROGS, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Frogs", "Adds the Frog Choir frogs to the check pool.",
       0, 0, nullptr, 0,
@@ -613,6 +640,29 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_OCARINA_BUTTONS, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Ocarina Buttons", "Ocarina buttons become items; a song is unplayable until its notes are found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    { RO_SHUFFLE_SKELETON_KEY, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Skeleton Key",
+      "Adds the Skeleton Key to the item pool. Collecting it immediately grants the maximum number of Small Keys for "
+      "every dungeon.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+    { RO_SHUFFLE_SONG_DOUBLE_TIME, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Song of Double Time",
+      "The Song of Double Time becomes an item; it cannot be played until it is found.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+    { RO_SHUFFLE_SONG_INVERTED_TIME, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Inverted Song of Time",
+      "The Inverted Song of Time becomes an item; it cannot be played until it is found.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+    { RO_SHUFFLE_SONG_SUN, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Sun's Song",
+      "Adds the Sun's Song to the item pool; it cannot be played until it is found.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
+    { RO_SHUFFLE_SONG_SARIA, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Saria's Song",
+      "Adds Saria's Song to the item pool, playing it will give you a hint to a progressive item that is reachable "
+      "in logic, weighted towards things like bow, bomb, and transformation masks. The song is one time use, you will "
+      "lose it after using it.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_PARTIAL, kReasonPairedPlacement },
     { RO_SHUFFLE_SWIM, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Swim", "Swimming becomes an item; deep water respawns Link until it is found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
@@ -938,6 +988,17 @@ extern "C" void MM_RandoOptionsUi_Register(void) {
     if (!traps.empty()) {
         Combo_RegisterMMTrapTypeTable(traps.data(), (int)traps.size());
     }
+}
+
+/** Whether @p id's row is PARTIAL, read from kOptionUi itself (the pane's own
+ *  liveness), so it answers before and without registration. */
+extern "C" int MM_RandoOptionsUi_RowIsPartial(uint16_t id) {
+    for (const OptionUi& ui : kOptionUi) {
+        if ((uint16_t)ui.id == id) {
+            return ui.liveness == COMBO_MM_LIVENESS_PARTIAL ? 1 : 0;
+        }
+    }
+    return 0;
 }
 
 // ============================================================================
