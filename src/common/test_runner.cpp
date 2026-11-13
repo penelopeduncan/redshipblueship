@@ -11050,12 +11050,12 @@ const TestDescriptor gTests[] = {
       "on a song check (#1549)",
       Test_SongPoolCrossesBothWays },
     { "song-pool-pocket-advancement",
-      "With Link's Pocket set to Advancement, songs are held for the bag, pocket holds no song, and row/host counts "
-      "still agree (#1549)",
+      "With Link's Pocket set to Advancement (dungeon rewards Any Dungeon), the pocket holds an advancement item and "
+      "no song, songs are held for the bag, and row/host counts still agree (#1549)",
       Test_SongPoolPocketAdvancement },
     { "song-pool-all-locations",
-      "Under All Locations the critical renewables rule is armed and the leftover song check holds junk, never a "
-      "pending critical renewable first copy (#1549)",
+      "Under All Locations the fill freezes that rung, and MM's leftover song check never takes a pending critical "
+      "renewable first copy (#1549)",
       Test_SongPoolAllLocations },
     { "song-pool-crossed-hints",
       "Hint text for a crossed song names the right game's check, and the Song of Time reveal text names the crossed "

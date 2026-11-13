@@ -46,6 +46,43 @@
  *      the placements (the positive control: the switch moves something, so (i)'s
  *      zeros are not vacuous).
  *
+ * ============================================================================
+ * The rows #1546 owed (#1549), each generating and finishing real paired worlds
+ * (rando label). SpuCensusPlacedSongs, shared by the first three: every placed
+ * song item of either game (its own copies plus its crossings in the other game)
+ * has exactly one copy, and exactly 12 OoT and 10 MM songs are placed (red on a
+ * song dropped or doubled anywhere, not only on the song checks).
+ * ============================================================================
+ *
+ * song-pool-crosses-both-ways (SongPoolCrossesBothWays, three worlds): per seed
+ *  the pool shape of song-pool-union-world plus the census; over the three seeds
+ *  at least one MM song lands on an OoT song check and one OoT song on an MM song
+ *  check (red if the shared pool stops crossing in either direction).
+ *
+ * song-pool-pocket-advancement (SongPoolPocketAdvancement, one world): Link's
+ *  Pocket = Advancement, with dungeon rewards at Any Dungeon (FinalizeSettings
+ *  resets the pocket to Dungeon Reward under End of Dungeons). The pocket holds an
+ *  advancement item that is neither a dungeon reward nor a song; fill.cpp's
+ *  RsbsSongHeldForBag answers 1 for an unshared song; the pool shape, the
+ *  remainders and the census hold (red if the pocket draws a song the bag places).
+ *
+ * song-pool-all-locations (SongPoolAllLocations, two worlds): (a) the default
+ *  world with All Locations set explicitly: the fill froze that rung, and the pool
+ *  shape and census hold under it; (b) Crossings Off, Shuffle Shops on and five
+ *  checks excluded, so MM keeps the leftover song check while 10 Bombchus is
+ *  pending: the leftover holds no pending critical renewable (printed), exactly one
+ *  MM leftover is inspected, and a 10 Bombchus copy sits on a renewing MM host.
+ *  Whether (b) goes red without the guard depends on GeneratePools' order (see the
+ *  leg's comment).
+ *
+ * song-pool-crossed-hints (SongPoolCrossedHints, one world): the OoT hint on and
+ *  three forced crossings (MM's Sonata on OoT's Song of Time check, MM's Oath on
+ *  Sacred Forest Meadow's, OoT's Lullaby on MM's Song of Healing check), each
+ *  asserted in the store; every OoT hint naming a crossing host names the MM item
+ *  (H3b's loaded bridge); the Song of Time reveal names "the Sonata of Awakening
+ *  (MM)" and not the cover; MM's Oath hint and HintArea text name Sacred Forest
+ *  Meadow.
+ *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours. Helpers carry the Spu prefix.
  */
@@ -99,8 +136,8 @@ int OoT_Combo_SetHintingSuspendedWorld(int on);
 int Rando_TestCheckLoadedCrossingHostHints(int* outProbes, int* outStones);
 int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap);
 int MM_HintArea_TestItemLocationText(uint16_t randoItemId, const char* tmpl, const char* key, char* out, int cap);
-int Rando_TestOoTHintRevealText(char* outText, int textCap, char* outExpected, int expectedCap,
-                                int* outNamesSongCheck, int* outCoverNamed);
+int Rando_TestOoTHintRevealText(char* outText, int textCap, char* outExpected, int expectedCap, int* outNamesSongCheck,
+                                int* outCoverNamed);
 }
 
 namespace {
@@ -408,17 +445,16 @@ TestResult SongPoolCrossesBothWays_Run(void) {
             continue;
         }
         SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
-                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
-                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
-        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
-                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
-                  w.bag.fill.goalProven ? 1 : 0);
-        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
-                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed, w.unionArmed ? 1 : 0,
+                  (unsigned)w.bag.exclusiveGroups);
+        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven, "%s: bag status %s, goalProven %d\n",
+                  seed, Combo_Logic_StatusName(w.bag.status), w.bag.fill.goalProven ? 1 : 0);
+        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0, "%s: %d OoT and %d MM song checks hold neither a song nor junk\n",
+                  seed, w.ootOther, w.mmOther);
         const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
         const int junk = w.ootJunk + w.mmJunk;
-        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
-                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+        SPU_CHECK(songsOnSongChecks == 22 && junk == 1, "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n",
+                  seed, songsOnSongChecks, junk);
         SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
         const int census = SpuCensusPlacedSongs();
         SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
@@ -427,8 +463,8 @@ TestResult SongPoolCrossesBothWays_Run(void) {
     }
     SPU_CHECK(totalCrossedOoT > 0, "no seed placed an MM song on an OoT song check (total %d)\n", totalCrossedOoT);
     SPU_CHECK(totalCrossedMM > 0, "no seed placed an OoT song on an MM song check (total %d)\n", totalCrossedMM);
-    printf("[TEST] song-pool-crosses-both-ways: %d crossed into OoT, %d crossed into MM; %s\n",
-           totalCrossedOoT, totalCrossedMM, sSpuFailures == 0 ? "PASS" : "FAIL");
+    printf("[TEST] song-pool-crosses-both-ways: %d crossed into OoT, %d crossed into MM; %s\n", totalCrossedOoT,
+           totalCrossedMM, sSpuFailures == 0 ? "PASS" : "FAIL");
     return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -452,11 +488,10 @@ TestResult SongPoolPocketAdvancement_Run(void) {
     SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
     if (w.generated) {
         SPU_CHECK(w.unionArmed && w.bag.exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
-                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed,
-                  w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups);
-        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
-                  "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
-                  w.bag.fill.goalProven ? 1 : 0);
+                  "%s: the shared song pool was not armed (union %d, exclusive 0x%08X)\n", seed, w.unionArmed ? 1 : 0,
+                  (unsigned)w.bag.exclusiveGroups);
+        SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven, "%s: bag status %s, goalProven %d\n",
+                  seed, Combo_Logic_StatusName(w.bag.status), w.bag.fill.goalProven ? 1 : 0);
         SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
         const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
         // Advancement took effect: the pocket holds an advancement item that is no
@@ -475,12 +510,12 @@ TestResult SongPoolPocketAdvancement_Run(void) {
         const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
         SPU_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == 1,
                   "Link's Pocket song exclusion did not hold unshared song %d for bag\n", unshared);
-        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
-                  "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
+        SPU_CHECK(w.ootOther == 0 && w.mmOther == 0, "%s: %d OoT and %d MM song checks hold neither a song nor junk\n",
+                  seed, w.ootOther, w.mmOther);
         const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
         const int junk = w.ootJunk + w.mmJunk;
-        SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
-                  "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
+        SPU_CHECK(songsOnSongChecks == 22 && junk == 1, "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n",
+                  seed, songsOnSongChecks, junk);
         SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
                   "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
                   w.ootPadded, w.mmPadded);
@@ -625,14 +660,13 @@ TestResult SongPoolAllLocations_Run(void) {
                 // Production's rule: the leftover takes no kind still PENDING (a
                 // renewed kind, such as milk the cows give again, may sit there).
                 SPU_CHECK(!Combo_CriticalRenewablePending(itemRow, songRenewed),
-                          "%s: MM leftover song check %u holds the pending first copy of %s (%u)\n", seed,
-                          (unsigned)rc, Combo_CriticalRenewableKindName((uint8_t)GAME_MM, leftoverKind),
-                          (unsigned)itemId);
+                          "%s: MM leftover song check %u holds the pending first copy of %s (%u)\n", seed, (unsigned)rc,
+                          Combo_CriticalRenewableKindName((uint8_t)GAME_MM, leftoverKind), (unsigned)itemId);
             }
             SPU_CHECK(mmLeftoversChecked == 1, "%s: inspected %d MM leftover song checks, want 1\n", seed,
                       mmLeftoversChecked);
-            SPU_CHECK(bombchuOnRenewing > 0,
-                      "%s: 10 Bombchus has %d copies on a renewing MM host, want >= 1\n", seed, bombchuOnRenewing);
+            SPU_CHECK(bombchuOnRenewing > 0, "%s: 10 Bombchus has %d copies on a renewing MM host, want >= 1\n", seed,
+                      bombchuOnRenewing);
         }
     }
 
@@ -701,10 +735,9 @@ TestResult SongPoolCrossedHints_Run(void) {
         const SharedItem* onSongOfTime = Combo_Crossings_Lookup(GAME_OOT, rcSongOfTime);
         const SharedItem* onSheikForest = Combo_Crossings_Lookup(GAME_OOT, rcSheikForest);
         const SharedItem* onHealing = Combo_Crossings_Lookup(GAME_MM, mmHealingCheck);
-        SPU_CHECK(onSongOfTime != nullptr && onSongOfTime->originGame == (uint8_t)GAME_MM &&
-                      onSongOfTime->id == mmSonata.id,
-                  "%s: OoT's Song of Time check %u does not host MM's Sonata of Awakening\n", seed,
-                  (unsigned)rcSongOfTime);
+        SPU_CHECK(
+            onSongOfTime != nullptr && onSongOfTime->originGame == (uint8_t)GAME_MM && onSongOfTime->id == mmSonata.id,
+            "%s: OoT's Song of Time check %u does not host MM's Sonata of Awakening\n", seed, (unsigned)rcSongOfTime);
         SPU_CHECK(onSheikForest != nullptr && onSheikForest->originGame == (uint8_t)GAME_MM &&
                       onSheikForest->id == mmOath.id,
                   "%s: OoT's Sacred Forest Meadow song check %u does not host MM's Oath to Order\n", seed,
@@ -733,8 +766,8 @@ TestResult SongPoolCrossedHints_Run(void) {
         const int revealEnabled =
             Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
                                         &revealNamesSongCheck, &revealCoverNamed);
-        printf("[TEST] song-pool: %s: Song of Time reveal (enabled %d): \"%s\", expected \"%s\"\n", seed,
-               revealEnabled, revealBuf, revealExpected);
+        printf("[TEST] song-pool: %s: Song of Time reveal (enabled %d): \"%s\", expected \"%s\"\n", seed, revealEnabled,
+               revealBuf, revealExpected);
         SPU_CHECK(revealEnabled == 1 && revealNamesSongCheck == 1,
                   "%s: the Song of Time reveal is not enabled (%d) or does not hint the Song of Time check (%d)\n",
                   seed, revealEnabled, revealNamesSongCheck);
@@ -755,7 +788,7 @@ TestResult SongPoolCrossedHints_Run(void) {
         char areaBuf[256];
         std::memset(areaBuf, 0, sizeof(areaBuf));
         const int areaLen = MM_HintArea_TestItemLocationText(mmOath.id, "Giants at {{location}}", "{{location}}",
-                                                            areaBuf, (int)sizeof(areaBuf));
+                                                             areaBuf, (int)sizeof(areaBuf));
         SPU_CHECK(areaLen > 0 && std::strstr(areaBuf, "Sacred Forest Meadow") != nullptr,
                   "MM HintArea did not name Sacred Forest Meadow for crossed Oath: \"%s\"\n", areaBuf);
 

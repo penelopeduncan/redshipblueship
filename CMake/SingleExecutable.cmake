@@ -3815,6 +3815,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # The rows #1546 owed (#1549), each generating and finishing paired worlds like
+    # the two above (about 15-25 s per world on CI): SongPoolCrossesBothWays, three
+    # seeds, crossings both ways and one copy of every placed song;
+    # SongPoolPocketAdvancement, one world with Link's Pocket = Advancement (dungeon
+    # rewards Any Dungeon), the pocket no song; SongPoolAllLocations, two worlds,
+    # the leftover song check never a pending critical renewable;
+    # SongPoolCrossedHints, one world with three forced crossings and the OoT hint
+    # on, the hints naming the crossed songs.
     redship_add_test(NAME SongPoolCrossesBothWays COMMAND redship --test song-pool-crosses-both-ways
         LABEL rando
         TIMEOUT 900
