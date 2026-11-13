@@ -204,10 +204,14 @@ SpuWorld SpuGenerate(const char* seed, int songs, int rung, int forced, bool fin
 }
 
 /**
- * Census of all 22 distinct songs of the profile across both games: asserts every
- * OoT song (12) and every MM song (10) has exactly one placed copy total over
- * both games' checks and the crossing store. Returns 22 on success, or a negative
- * code on failure.
+ * Census of the 22 distinct songs of the profile across both games: every OoT
+ * song item (ITEMTYPE_SONG) and every MM pair song item that is placed at all
+ * (its copies in its own game plus its crossings hosted in the other game) has
+ * exactly one copy, and exactly 12 OoT and 10 MM songs are placed. An item with
+ * no copy anywhere is not part of the profile (OoT's separate Song of Soaring and
+ * MM's six OoT warp songs, pooled only under their hidden rules) and is skipped,
+ * so a song the fill drops shows as 11 placed OoT songs or 9 MM songs, and a song
+ * placed twice as a total of 2. Returns 22 on success, or a negative code.
  */
 int SpuCensusPlacedSongs(void) {
     int ootSongCount = 0;
@@ -215,21 +219,27 @@ int SpuCensusPlacedSongs(void) {
         if (OoT_ComboLogic_TestIsSongItem(id) == 0) {
             continue;
         }
-        ootSongCount++;
-        int copies = OoT_SharedSongsTest_WorldCopies((int)id);
+        const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)id);
+        int mmCrossCopies = 0;
         for (int i = 0; i < Combo_Crossings_Count(GAME_MM); ++i) {
             ComboCrossing c;
             if (Combo_Crossings_At(GAME_MM, i, &c) && c.item.originGame == (uint8_t)GAME_OOT && c.item.id == id) {
-                copies++;
+                mmCrossCopies++;
             }
         }
-        if (copies != 1) {
-            printf("[TEST]   OoT song %u has %d copies across both games\n", (unsigned)id, copies);
+        const int total = ootCopies + mmCrossCopies;
+        if (total == 0) {
+            continue;
+        }
+        ootSongCount++;
+        if (total != 1) {
+            printf("[TEST]   OoT song %u has %d copies across both games (%d OoT, %d MM crossing)\n", (unsigned)id,
+                   total, ootCopies, mmCrossCopies);
             return -1;
         }
     }
     if (ootSongCount != 12) {
-        printf("[TEST]   found %d OoT songs in item table, want 12\n", ootSongCount);
+        printf("[TEST]   found %d placed OoT songs, want 12\n", ootSongCount);
         return -2;
     }
 
