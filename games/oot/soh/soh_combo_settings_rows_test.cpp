@@ -946,27 +946,22 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             if (s.needs == COMBO_SETTING_COUNT) {
                 const std::string tip = row->options->tooltip != nullptr ? row->options->tooltip : "";
                 const uint32_t bit = Combo_ComboItemRule2BitFor(s.id);
-                const char* shareTip = Combo_WarpSongExtensionTooltip(bit, true);
-                ROWS_CHECK(!row->isHidden && shareTip != nullptr && tip == shareTip &&
+                const char* shareHelperTip = Combo_WarpSongExtensionTooltip(bit, true);
+                ROWS_CHECK(!row->isHidden && shareHelperTip != nullptr && tip == shareHelperTip &&
                                tip.find("share a song, start with a song") != std::string::npos,
                            "the extension row '%s' is hidden (%d) or its tooltip '%s' is not the shared-row advice",
                            row->name.c_str(), row->isHidden ? 1 : 0, tip.c_str());
                 const char* ownTip = Combo_WarpSongExtensionTooltip(bit, false);
                 ROWS_CHECK(ownTip != nullptr && std::string(ownTip) == s.tooltip,
                            "the extension row '%s''s own text is not its macro", row->name.c_str());
-                // #1169 XW14: with its shared row offered (revealed here) the row's
-                // tooltip names sharing a song as a way out; hidden again, the
-                // macro's text comes back. Catches a PreFunc that never re-picks it.
-                Combo_ComboItemRules2RevealForTest(1);
+                // #1169 XW14: on the production mask (no reveal) the shared rows are
+                // offered, so the drawn tooltip above is the share variant. A second
+                // PreFunc run must draw the same text: catches a PreFunc that picks
+                // the variant from state it changes on the first run.
                 RunPreFunc(*row);
-                const std::string shareTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
-                Combo_ComboItemRules2RevealForTest(0);
-                RunPreFunc(*row);
-                const std::string backTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
-                ROWS_CHECK(shareTip.find("share a song, start with a song") != std::string::npos && backTip == shareTip,
-                           "the extension row '%s' revealed reads '%s', and on the production mask '%s' (want the "
-                           "same: the shared rows are offered since XW14)",
-                           row->name.c_str(), shareTip.c_str(), backTip.c_str());
+                const std::string againTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                ROWS_CHECK(againTip == tip, "the extension row '%s' reads '%s' on a second draw, '%s' on the first",
+                           row->name.c_str(), againTip.c_str(), tip.c_str());
             } else {
                 ROWS_CHECK(!row->isHidden, "the shared row '%s' is hidden on the production mask (offered since XW14)",
                            row->name.c_str());
