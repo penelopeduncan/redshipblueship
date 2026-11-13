@@ -702,9 +702,10 @@ finish:
         // this, and the next attempt must see its general pass empty.
         Combo_Logic_ResetPlacements();
     }
-    if (fillRan && status != RSBS_COMBO_LOGIC_OK && sReport.fill.attempts > 0) {
-        // #1483: after the roll-back, so each game's leftover hosts are all of its
-        // empty hosts.
+    if (fillRan && status != RSBS_COMBO_LOGIC_OK &&
+        (sReport.fill.attempts > 0 || status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY)) {
+        // #1483: after the roll-back (or an early pre-attempt capacity refusal),
+        // so each game's leftover hosts are all of its empty hosts.
         Combo_SingleBag_CountHomeCapacity(sBag, sReport.bagCount, &sReport);
     }
     sReport.status = status;
@@ -748,6 +749,8 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
         case RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED:
         case RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE:
         case RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE:
+        case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
+        case RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY:
         default:
             return false;
     }

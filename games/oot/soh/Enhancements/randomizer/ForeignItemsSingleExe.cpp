@@ -1047,7 +1047,10 @@ static int CreationFailureReasonFromOwnFill(void) {
     if (Combo_SingleBag_SongCapacityShort(last)) {
         return RSBS_SINGLE_BAG_FAILURE_SONG_CAPACITY; // #1542
     }
-    return Combo_SingleBag_HomeShortGames(last) != 0u ? RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY : 0;
+    if (status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY || Combo_SingleBag_HomeShortGames(last) != 0u) {
+        return RSBS_SINGLE_BAG_FAILURE_HOME_CAPACITY;
+    }
+    return 0;
 }
 
 /**

@@ -2012,6 +2012,55 @@ TestResult Test_ComboLogicFill(void) {
         CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
     }
 
+    // --- HOME CAPACITY (#1483): an early pre-rung refusal ----------------
+    // A game whose HOME_ONLY REQUIRED rows outnumber its empty hosts can never
+    // be filled by any seed. Refused at once, before any attempt, on all three
+    // rungs (it is a necessary condition on every rung).
+    {
+        const int H = 3;
+        ComboLogicBagItem bag[4];
+        for (int i = 0; i < H + 1; ++i) {
+            bag[i] = ClBagItem((uint8_t)GAME_MM, (uint16_t)(kMmOcarina + i), RSBS_ITEMCLASS_PROGRESSION);
+            bag[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+        }
+        // OoT has 4 hosts and no home-only rows; MM has H (3) hosts.
+        const uint8_t rungs[3] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE,
+                                   (uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE };
+        for (int ri = 0; ri < 3; ++ri) {
+            const uint8_t rung = rungs[ri];
+            ClBuildWideHostWorld(4, H);
+            memset(&res, 0, sizeof(res));
+            const int rc = ClRunFill(bag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, rung, 0x1483u, &res);
+            CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                      "H+1 MM HOME_ONLY REQUIRED rows on H hosts must fail with HOME_CAPACITY on every rung");
+            CL_ASSERT(res.attempts == 0 && res.rounds == 0 && res.placed == 0,
+                      "refused AT ONCE: 0 attempts, 0 rounds, nothing placed");
+            CL_ASSERT(res.homeShortGame == (uint8_t)GAME_MM && res.homeRequiredRows == H + 1 && res.homeHosts == H,
+                      "the result names MM, H+1 required rows and H hosts");
+            CL_ASSERT(!Combo_SingleBag_StatusIsWorldDeadEnd(rc, rung),
+                      "HOME_CAPACITY is never a world dead end: no ladder re-seed fixes a capacity fact");
+            CL_ASSERT(strcmp(Combo_Logic_StatusName(rc), "home-capacity") == 0,
+                      "its status name is 'home-capacity'");
+        }
+
+        // Discriminating: H rows fit and do not return HOME_CAPACITY.
+        ClBuildWideHostWorld(4, H);
+        memset(&res, 0, sizeof(res));
+        const int rcFit = ClRunFill(bag, H, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+        CL_ASSERT(rcFit != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                  "discriminating: H rows on H hosts do not fail with HOME_CAPACITY");
+
+        // Discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not return HOME_CAPACITY.
+        bag[H].bagFlags = (uint16_t)(RSBS_COMBO_BAG_HOME_ONLY | RSBS_COMBO_BAG_SURPLUS);
+        ClBuildWideHostWorld(4, H);
+        memset(&res, 0, sizeof(res));
+        const int rcSurplus =
+            ClRunFill(bag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+        CL_ASSERT(rcSurplus != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                  "discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not fail with HOME_CAPACITY (surplus may drop)");
+        CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
+    }
+
     // --- THE SHARED-QUANTITY CREDIT (#1367 R5; combo_logic.h) -----------------
     // ClBuildCreditWorld: one copy of a shared tier family per game, and a location
     // in each game that wants the family's second tier. Credited, every copy counts
@@ -3109,7 +3158,9 @@ TestResult ClProductionRulesLeg(void) {
         ClBuildOpenWorld(4, 3);
         ComboLogicFillResult res;
         const int rc = ClRunFill(bag, 5, RSBS_COMBO_GOAL_BEAT_EITHER, RSBS_COMBO_RUNG_NONE, 1u, &res);
-        CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE, "P1b: 4 MM HOME_ONLY rows on 3 MM hosts cannot fill");
+        CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                  "P1b: 4 MM HOME_ONLY rows on 3 MM hosts fail early with HOME_CAPACITY");
+        CL_ASSERT(res.attempts == 0 && res.rounds == 0 && res.placed == 0, "P1b: 0 attempts, 0 rounds, 0 placed");
         Combo_Logic_ResetPlacements();
         ComboSingleBagReport r;
         memset(&r, 0, sizeof(r));
