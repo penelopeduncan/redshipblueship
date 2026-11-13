@@ -1374,11 +1374,12 @@ TestResult FmStrayFairyAnim(void) {
                   "M24 every stray fairy names gStrayFairyFlyingAnim");
     }
 
-    // 3. Pure Combo_ModelPoseFromFrameTable: table[0] is root translation (skipped),
-    // table[i + 1] replaces joint i's rot while preserving parent and pos.
+    // 3. Pure Combo_ModelPoseFromFrameTable: table[0] is the root translation (the
+    // root joint's pos, as MM's SkelAnime_DrawFlex draws it), table[i + 1] replaces
+    // joint i's rot; parents and the non-root positions are preserved.
     {
         const int16_t frameTable[10][3] = {
-            { 999, -888, 777 },     // table[0]: root translation, not joint 0
+            { 999, -888, 777 },     // table[0]: root translation (joint 0's pos)
             { 111, 222, 0x4000 },   // joint 0
             { 0x2000, -333, 444 },  // joint 1
             { -555, 666, -0x2000 }, // joint 2
@@ -1391,15 +1392,18 @@ TestResult FmStrayFairyAnim(void) {
         };
         ComboModelJoint posed[COMBO_MODEL_MAX_JOINTS] = {};
         Combo_ModelPoseFromFrameTable(&wfAnswer.model, frameTable, 10, posed);
-        bool poseOk = true;
+        bool poseOk = wfAnswer.model.jointCount >= 2 && wfAnswer.model.joints[0].parent == -1 &&
+                      posed[0].pos[0] == frameTable[0][0] && posed[0].pos[1] == frameTable[0][1] &&
+                      posed[0].pos[2] == frameTable[0][2];
         for (int i = 0; i < (int)wfAnswer.model.jointCount; i++) {
             const ComboModelJoint& orig = wfAnswer.model.joints[i];
             poseOk = poseOk && posed[i].parent == orig.parent &&
-                     std::memcmp(posed[i].pos, orig.pos, sizeof(orig.pos)) == 0 &&
+                     (i == 0 || std::memcmp(posed[i].pos, orig.pos, sizeof(orig.pos)) == 0) &&
                      posed[i].rot[0] == frameTable[i + 1][0] && posed[i].rot[1] == frameTable[i + 1][1] &&
                      posed[i].rot[2] == frameTable[i + 1][2];
         }
-        FM_ASSERT(poseOk, "M24 Combo_ModelPoseFromFrameTable applies table[i + 1] rot and keeps parent/pos");
+        FM_ASSERT(poseOk, "M24 Combo_ModelPoseFromFrameTable sets the root pos from table[0], joint i's rot from "
+                          "table[i + 1], and keeps parents and the non-root positions");
 
         // Partial table and nullptr table fall back to model.joints[i].rot.
         ComboModelJoint partial[COMBO_MODEL_MAX_JOINTS] = {};
@@ -1413,8 +1417,9 @@ TestResult FmStrayFairyAnim(void) {
         Combo_ModelPoseFromFrameTable(&wfAnswer.model, nullptr, 0, fallback);
         bool fallbackOk = true;
         for (int i = 0; i < (int)wfAnswer.model.jointCount; i++) {
-            fallbackOk =
-                fallbackOk && std::memcmp(fallback[i].rot, wfAnswer.model.joints[i].rot, sizeof(fallback[i].rot)) == 0;
+            fallbackOk = fallbackOk &&
+                         std::memcmp(fallback[i].rot, wfAnswer.model.joints[i].rot, sizeof(fallback[i].rot)) == 0 &&
+                         std::memcmp(fallback[i].pos, wfAnswer.model.joints[i].pos, sizeof(fallback[i].pos)) == 0;
         }
         FM_ASSERT(partialOk && fallbackOk,
                   "M24 partial or NULL frame table falls back to static joints[i].rot for missing entries");

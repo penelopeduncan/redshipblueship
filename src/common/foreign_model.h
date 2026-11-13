@@ -313,10 +313,11 @@ int Combo_ModelIsWellFormed(const ComboModel* model);
 int Combo_ModelAnimFrame(uint32_t frames, int16_t frameCount);
 
 /** Pose `out[0 .. model->jointCount - 1]` from a SkelAnime frame table (#1165):
- *  preserves each joint's `parent` and `pos` and overwrites `rot` with
- *  `table[i + 1]` when `table != NULL && i + 1 < count` (keeping `joints[i].rot`
- *  otherwise). `table[0]` is SkelAnime's root translation, unused here. No-op
- *  when `model == NULL || out == NULL`. */
+ *  copies `model->joints`, sets the root joint's `pos` from `table[0]` (SkelAnime's
+ *  root translation) when `table != NULL && count >= 1`, and overwrites joint i's
+ *  `rot` with `table[i + 1]` when `table != NULL && i + 1 < count` (keeping
+ *  `joints[i].rot` otherwise). Parents and the non-root positions are unchanged.
+ *  No-op when `model == NULL || out == NULL`. */
 void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*table)[3], int count, ComboModelJoint* out);
 
 /** 1 when an object directory of that name exists in BOTH games' archives

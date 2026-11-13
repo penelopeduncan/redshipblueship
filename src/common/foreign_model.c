@@ -498,6 +498,14 @@ void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*tabl
     }
     for (int i = 0; i < (int)model->jointCount && i < COMBO_MODEL_MAX_JOINTS; i++) {
         out[i] = model->joints[i];
+        // SkelAnime's jointTable: entry 0 is the root translation (the root
+        // limb's position, what MM's SkelAnime_DrawFlex draws it at), entry
+        // i + 1 limb i's rotation.
+        if (i == 0 && table != NULL && count >= 1) {
+            out[0].pos[0] = table[0][0];
+            out[0].pos[1] = table[0][1];
+            out[0].pos[2] = table[0][2];
+        }
         if (table != NULL && i + 1 < count) {
             out[i].rot[0] = table[i + 1][0];
             out[i].rot[1] = table[i + 1][1];
