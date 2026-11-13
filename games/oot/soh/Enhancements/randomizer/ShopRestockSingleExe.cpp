@@ -65,6 +65,9 @@ int OoT_Rando_Foreign_HostCollected(uint16_t rc);
 // ComboLogicEngineOoT.cpp: the item table, for a process that never ran the OTR
 // bring-up (the redship tier); idempotent, leaves no Rando::Context behind.
 int OoT_ComboLogic_TestEnsureItemTableTransient(void);
+// ComboLogicEngineOoT.cpp: the static location table (RCTYPE_SHOP etc.) for a
+// ROM-free process; needs no Rando::Context.
+int OoT_ComboLogic_TestEnsureLocationTable(void);
 // Messages/MerchantMessages.cpp: shop offer English text for tests (#1547).
 int OoT_Rando_ShopOfferText(uint16_t rc, int bought, int confirm, int mysterious, char* out, size_t cap);
 }
@@ -939,7 +942,7 @@ extern "C" int OoT_Rando_ShopRestockTestMessages(int foreignHosted) {
  * shelf.
  */
 extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
-    if (OoT_ComboLogic_TestEnsureItemTableTransient() != 0) {
+    if (OoT_ComboLogic_TestEnsureItemTableTransient() != 0 || OoT_ComboLogic_TestEnsureLocationTable() != 0) {
         return 1;
     }
     const ComboCriticalRenewableSource* src = Combo_GetCriticalRenewableSource(GAME_OOT);
