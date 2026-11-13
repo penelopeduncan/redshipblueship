@@ -3,10 +3,16 @@
 #include "soh/ResourceManagerHelpers.h"
 #include "soh/ObjectExtension/ObjectExtension.h"
 #include "soh/ObjectExtension/ActorListIndex.h"
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/ShipInit.hpp"
+#include "soh/Enhancements/randomizer/randomizer.h"
+#include "static_data.h"
+#include "SeedContext.h"
 #include "item_category_adj.h"
 #include "particle_cmc.h"
 
 extern "C" {
+#include "variables.h"
 #include "overlays/actors/ovl_En_Wonder_Item/z_en_wonder_item.h"
 #include "overlays/actors/ovl_En_Heishi1/z_en_heishi1.h"
 extern PlayState* OoT_gPlayState;
@@ -116,9 +122,9 @@ uint8_t EnWonderItem_RandomizerHoldsItem(EnWonderItem* wonderActor, PlayState* p
     }
     RandomizerCheck rc = wonderIdentity->randomizerCheck;
     uint8_t isDungeon = Rando::StaticData::GetLocation(rc)->IsDungeon();
-    auto wonderSetting = RAND_GET_OPTION(RSK_SHUFFLE_WONDER_ITEMS);
-    if (!IS_RANDO || (wonderSetting.Is(RO_SHUFFLE_WONDER_ITEMS_OVERWORLD) && isDungeon) ||
-        (wonderSetting.Is(RO_SHUFFLE_WONDER_ITEMS_DUNGEONS) && !isDungeon) ||
+    uint8_t wonderSetting = RAND_GET_OPTION(RSK_SHUFFLE_WONDER_ITEMS);
+    if (!IS_RANDO || (wonderSetting == RO_SHUFFLE_WONDER_ITEMS_OVERWORLD && isDungeon) ||
+        (wonderSetting == RO_SHUFFLE_WONDER_ITEMS_DUNGEONS && !isDungeon) ||
         Flags_GetRandomizerInf(wonderIdentity->randomizerInf) || wonderIdentity->randomizerCheck == RC_UNKNOWN_CHECK) {
         return false;
     } else {
@@ -263,9 +269,10 @@ void RegisterShuffleWonderItems() {
             isNtscUs1011 = true;
         }
     }
-    bool shouldRegisterOverworld = RAND_GET_OPTION(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_ALL) ||
-                                   RAND_GET_OPTION(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OVERWORLD);
-    bool shouldRegisterNTSC1011 = shouldRegister && isNtscUs1011 && shouldRegisterOverworld;
+    uint8_t wonderSetting = RAND_GET_OPTION(RSK_SHUFFLE_WONDER_ITEMS);
+    bool shouldRegisterOverworld = shouldRegister && (wonderSetting == RO_SHUFFLE_WONDER_ITEMS_ALL ||
+                                                      wonderSetting == RO_SHUFFLE_WONDER_ITEMS_OVERWORLD);
+    bool shouldRegisterNTSC1011 = isNtscUs1011 && shouldRegisterOverworld;
 
     // Draw particle effect in wonder item spot to indicate a randomized item
     COND_ID_HOOK(OnActorUpdate, ACTOR_EN_WONDER_ITEM, shouldRegister, EnWonderItem_RandomizerDrawSetup);
