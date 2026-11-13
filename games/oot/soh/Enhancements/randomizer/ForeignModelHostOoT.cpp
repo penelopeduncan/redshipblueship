@@ -72,9 +72,11 @@ extern MtxF* OoT_sCurrentMatrix;
 GetItemEntry GetItemMystery();
 }
 
-#include "context.h"       // src/common — GameId
-#include "foreign_items.h" // src/common — Combo_GetForeignPlacementForOoTCheck
-#include "foreign_model.h" // src/common — the registry
+#include "context.h"          // src/common — GameId
+#include "foreign_items.h"    // src/common — Combo_GetForeignPlacementForOoTCheck
+#include "foreign_masks.h"    // src/common — Combo_ForeignMask_Info
+#include "foreign_model.h"    // src/common — the registry
+#include "shared_resources.h" // src/common — Combo_SharedFamilyMemberId
 
 // ForeignModelOoT.cpp: OoT's own draw row for a HOST_NATIVE answer, as a
 // descriptor of the lists OoT's own recipe draws for it.
@@ -116,14 +118,50 @@ bool HostModelMounted(const ComboModel& model) {
     return model.partCount > 0;
 }
 
+int OoTMaskDrawId(uint8_t foreignMaskId) {
+    switch (foreignMaskId) {
+        case COMBO_FOREIGN_MASK_OOT_GERUDO:
+            return GID_MASK_GERUDO;
+        case COMBO_FOREIGN_MASK_OOT_SKULL:
+            return GID_MASK_SKULL;
+        case COMBO_FOREIGN_MASK_OOT_SPOOKY:
+            return GID_MASK_SPOOKY;
+        default:
+            return -1;
+    }
+}
+
+bool HostModelForMMOoTMask(const SharedItem& item, ComboModel* model) {
+    if (item.originGame != (uint8_t)GAME_MM) {
+        return false;
+    }
+    for (uint8_t mask = COMBO_FOREIGN_MASK_OOT_GERUDO; mask <= COMBO_FOREIGN_MASK_OOT_SPOOKY; mask++) {
+        const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(mask);
+        uint16_t mmId = 0;
+        if (info != nullptr && Combo_SharedFamilyMemberId(GAME_MM, info->sharedRuleBit, &mmId) && mmId == item.id) {
+            const int drawId = OoTMaskDrawId(mask);
+            return drawId >= 0 && OoT_ComboModel_DrawRowModel(drawId, model) == 1;
+        }
+    }
+    return false;
+}
+
 /** The model OoT draws, as the host, for MM item `item`: MM's DESCRIPTOR, or for
  *  a colliding MM model OoT's host-native table maps (#577 M7), OoT's OWN row as
- *  OoT's own recipe draws it (#832); either way only when a mounted archive holds
- *  every path. 0 and a zeroed *out otherwise (the caller's stand-in). */
+ *  OoT's own recipe draws it (#832), or OoT's own mask row for MM's copy of an
+ *  OoT mask (#1568); either way only when a mounted archive holds every path.
+ *  0 and a zeroed *out otherwise (the caller's stand-in). */
 bool HostModelForItem(const SharedItem& item, ComboModel* out) {
     Combo_ModelInit(out);
     ComboModelAnswer answer;
     ComboModel model;
+    if (HostModelForMMOoTMask(item, &model)) {
+        if (!HostModelMounted(model)) {
+            return false;
+        }
+        *out = model;
+        return true;
+    }
     const uint8_t kind = Combo_GetForeignItemModel((uint8_t)GAME_OOT, item, &answer);
     if (kind == COMBO_MODEL_ANSWER_DESCRIPTOR) {
         model = answer.model;
@@ -495,6 +533,20 @@ extern "C" int OoT_ForeignModel_TestShowOnlyModel(ComboModel* out) {
         *out = sShowOnly.model;
     }
     return 1;
+}
+
+extern "C" int OoT_ForeignModel_TestHostModelFor(uint8_t originGame, uint16_t id, ComboModel* out) {
+    SharedItem item;
+    item.originGame = originGame;
+    item.flags = 0;
+    item.id = id;
+    ComboModel scratch;
+    ComboModel* model = out != nullptr ? out : &scratch;
+    return HostModelForItem(item, model) ? 1 : 0;
+}
+
+extern "C" int OoT_ForeignModel_TestForeignMaskDrawId(uint8_t foreignMaskId) {
+    return OoTMaskDrawId(foreignMaskId);
 }
 
 extern "C" void OoT_ForeignModel_TestSetMountOverride(int value) {

@@ -3701,6 +3701,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # trees' intersection; the registry includes no game header. Static tables
     # and the checkout (RSBS_SOURCE_DIR): ROM-free, default tier.
     redship_add_test(NAME ForeignModel COMMAND redship --test foreign-model)
+    # MM'S COPIES OF OOT'S MASKS IN OOT (#1452 item 3, #1568): MM's registered
+    # Gerudo, Skull and Spooky Mask ids draw OoT's own mask row in OoT under the
+    # mount check, while other MM items answer as before. ROM-free.
+    redship_add_test(NAME OoTHostMMMasksModel COMMAND redship --test oot-host-mm-masks-model)
     # WEARING THE OTHER GAME'S MASKS (#977, epic #975 P3): the worn-mask table and
     # its curated models (checked against the embedded manifest), both games' equip
     # rules on a heap Player (the worn field never reaches currentMask), the
