@@ -490,6 +490,11 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
         }
     }
     int onTables = 0;
+    // OoT's Minuet where the single-bag fill put it on the coordinator's tables: in
+    // either game, since a native song may cross (it does in this row's world since
+    // #1404's settings moved it). OoT's own table of locations
+    // (OoT_ComboLogic_TestHostsHolding) answers 0 for a copy that crossed.
+    int ootMinuetOnTables = 0;
     ComboLogicPlacement p;
     for (int g = 0; g < 2; ++g) {
         const GameId host = g == 0 ? GAME_OOT : GAME_MM;
@@ -502,6 +507,7 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
             if (nativeMinuet || nativeSoaring) {
                 forbid.insert({ (uint8_t)host, p.hostCheck });
                 onTables++;
+                ootMinuetOnTables += nativeMinuet ? 1 : 0;
                 mmSoaringHosts += (nativeSoaring && host == GAME_OOT) ? 1 : 0;
             }
         }
@@ -513,14 +519,19 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
         ref.hostCheck = h.second;
         forbidden.push_back(ref);
     }
-    printf("[TEST] combo-warp-travel-rounds: forbidding %d host(s): OoT's Minuet of Forest on %d OoT location(s), "
-           "MM's Song of Soaring on %d host(s), %d native song placement(s) on the coordinator's tables\n",
-           (int)forbidden.size(), ootMinuetHosts, mmSoaringHosts, onTables);
+    printf("[TEST] combo-warp-travel-rounds: forbidding %d host(s): OoT's Minuet of Forest on %d OoT location(s) and "
+           "%d coordinator placement(s), MM's Song of Soaring on %d host(s), %d native song placement(s) on the "
+           "coordinator's tables\n",
+           (int)forbidden.size(), ootMinuetHosts, ootMinuetOnTables, mmSoaringHosts, onTables);
     // Vacuity guards: a song the player STARTS with cannot be withheld, and then
-    // the native disjunct short-circuits the edge this row probes.
+    // the native disjunct short-circuits the edge this row probes. Where the fill
+    // put the song is the seed's business: an OoT location, or a host in either game
+    // on the coordinator's tables; every one of them is forbidden above.
     MwrCheck(ootSoaring != 0u && ootMinuet != 0u, "S3 the OoT bridge names both songs", "an OoT item id is 0");
-    MwrCheck(ootMinuetHosts >= 1, "S3 OoT's Minuet of Forest is on a location (not a starting item)",
-             "OoT's Minuet of Forest is on no location, so its native disjunct cannot be withheld");
+    MwrCheck(ootMinuetHosts + ootMinuetOnTables >= 1,
+             "S3 OoT's Minuet of Forest is on a host in one of the games (not a starting item)",
+             "OoT's Minuet of Forest is on no OoT location and no coordinator placement, so its native disjunct "
+             "cannot be withheld");
     MwrCheck(mmSoaringHosts >= 1 && !CHECK_QUEST_ITEM(QUEST_SONG_SOARING),
              "S3 MM's Song of Soaring is on a host and not in the starting save",
              "MM's Song of Soaring is a starting item or on no host, so MM's own Soaring short-circuits the landing");
