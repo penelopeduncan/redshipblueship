@@ -2963,8 +2963,8 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
 
     // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined
     // or a group is exclusive, so a mask-free request (NULL, or every mask 0, and
-    // no exclusive group) runs exactly the ABI-8 fill: no reset here, no capacity
-    // count, no partition.
+    // no exclusive group) runs no group capacity count here. The home-capacity
+    // count below (#1483) runs on every fill.
     if (anyConfined || req->exclusiveGroups != 0u) {
         sConfineMasks = anyConfined ? req->confineMasks : NULL;
         sConfineBag = anyConfined ? req->bag : NULL;

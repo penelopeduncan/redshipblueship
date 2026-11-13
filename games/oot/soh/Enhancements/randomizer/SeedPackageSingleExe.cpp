@@ -850,19 +850,12 @@ int CompleteAndStage(bool fromGenerate) {
                 OoT_Creation_EmitGoalUnreachableToast(last->goal, last->fill.goalOoT, last->fill.goalMM);
             } else if (OoT_Creation_EmitSongCapacityToast(last) != 0) {
                 // #1542: more songs than the song checks of both games they may use.
-            } else if (last->status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY) {
-                // #1483: a game whose own items cannot fit its checks is a fact of
-                // the settings too.
-                if (OoT_Creation_EmitHomeCapacityToast(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT,
-                                                       last->triforcePiecesMM) == 0) {
-                    Notification::Emit(
-                        { .prefix = "Not generated:", .message = "try a new seed or other options.", .mute = true });
-                }
             } else if (last->status != RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE ||
                        OoT_Creation_EmitUnreachableToast() <= 0) {
                 // #1483: a game whose own items cannot fit its checks is a fact of
-                // the settings too; the generic line stays for real seed dead ends
-                // and budget stops.
+                // the settings too (the early RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY
+                // refusal lands here as well); the generic line stays for real seed
+                // dead ends and budget stops.
                 if (OoT_Creation_EmitHomeCapacityToast(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT,
                                                        last->triforcePiecesMM) == 0) {
                     Notification::Emit(
