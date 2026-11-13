@@ -20,6 +20,10 @@ void RegionTable_Init_ZoraRiver() {
         LOCATION(RC_ZR_GRASS_10, logic->CanCutShrubs()),
         LOCATION(RC_ZR_GRASS_11, logic->CanCutShrubs()),
         LOCATION(RC_ZR_GRASS_12, logic->CanCutShrubs()),
+        LOCATION(RC_ZR_BOULDER_1,            logic->IsChild && logic->BlastOrSmash()),
+        LOCATION(RC_ZR_BOULDER_2,            logic->IsChild && logic->BlastOrSmash()),
+        LOCATION(RC_ZR_BOULDER_3,            logic->IsChild && logic->BlastOrSmash()),
+        LOCATION(RC_ZR_BOULDER_4,            logic->IsChild && logic->BlastOrSmash()),
         LOCATION(RC_ZR_TREE,     logic->IsChild && logic->CanBonkTrees()),
     }, {
         //Exits
@@ -54,6 +58,23 @@ void RegionTable_Init_ZoraRiver() {
         LOCATION(RC_ZR_BENEATH_WATERFALL_MIDDLE_LEFT_RUPEE,  logic->IsAdult && (logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_IRON_BOOTS) || logic->CanUse(RG_BOOMERANG))),
         LOCATION(RC_ZR_BENEATH_WATERFALL_MIDDLE_RIGHT_RUPEE, logic->IsAdult && (logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_IRON_BOOTS) || logic->CanUse(RG_BOOMERANG))),
         LOCATION(RC_ZR_BENEATH_WATERFALL_RIGHT_RUPEE,        logic->IsAdult && (logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_IRON_BOOTS) || logic->CanUse(RG_BOOMERANG))),
+        LOCATION(RC_ZR_CIRCLE_ROCK_1,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_2,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_3,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_4,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_5,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_6,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_7,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_CIRCLE_ROCK_8,                        logic->CanBreakRocks()),
+        LOCATION(RC_ZR_ROCK,                                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UNDERWATER_ROCK_1,                    (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) && 
+                                                             (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || ctx->GetTrickOption(RT_VOIDOUT_COLLECTION))),
+        LOCATION(RC_ZR_UNDERWATER_ROCK_2,                    (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) && 
+                                                             (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || ctx->GetTrickOption(RT_VOIDOUT_COLLECTION))),
+        LOCATION(RC_ZR_UNDERWATER_ROCK_3,                    (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) && 
+                                                             (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || ctx->GetTrickOption(RT_VOIDOUT_COLLECTION))),
+        LOCATION(RC_ZR_UNDERWATER_ROCK_4,                    (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) && 
+                                                             (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || ctx->GetTrickOption(RT_VOIDOUT_COLLECTION))),
         LOCATION(RC_ZR_NEAR_DOMAIN_GOSSIP_STONE,             true),
         LOCATION(RC_ZR_NEAR_FREESTANDING_POH_GRASS,          logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_ZR_NEAR_ROCK_CIRCLE_BUTTERFLY_FAIRY,     logic->IsChild && logic->CanUse(RG_STICKS)),
@@ -76,6 +97,15 @@ void RegionTable_Init_ZoraRiver() {
         LOCATION(RC_ZR_GS_NEAR_RAISED_GROTTOS,              logic->IsAdult && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG) && logic->CanGetNightTimeGS()),
         LOCATION(RC_ZR_NEAR_GROTTOS_GOSSIP_STONE_FAIRY,     logic->CallGossipFairy()),
         LOCATION(RC_ZR_NEAR_GROTTOS_GOSSIP_STONE_FAIRY_BIG, logic->CanUse(RG_SONG_OF_STORMS)),
+        LOCATION(RC_ZR_UPPER_CIRCLE_BOULDER,                logic->BlastOrSmash()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_1,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_2,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_3,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_4,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_5,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_6,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_7,                 logic->CanBreakRocks()),
+        LOCATION(RC_ZR_UPPER_CIRCLE_ROCK_8,                 logic->CanBreakRocks()),
         LOCATION(RC_ZR_NEAR_GROTTOS_GOSSIP_STONE,           true),
     }, {
         //Exits

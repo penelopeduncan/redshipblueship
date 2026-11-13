@@ -140,6 +140,10 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
                                                      /*german*/ "Man erzählt sich, daß eine #Kiste im Deku-Baum# #[[1]]# enthielte.",
                                                      /*french*/ "Selon moi, une #caisse dans l'Arbre Mojo# contient #[[1]]#.", {QM_RED, QM_GREEN}));
 
+    hintTextTable[RHT_DEKU_BOULDER] = HintText(CustomMessage("They say that a #boulder in the Deku Tree# contains #[[1]]#.",
+                                                                       /*german*/ TODO_TRANSLATE,
+                                                                       /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
+
   /*--------------------------
   |     DODONGOS CAVERN      |
   ---------------------------*/
@@ -322,6 +326,10 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
                                                      /*german*/ "Man erzählt sich, daß eine #Kiste in Dodongos Höhle# #[[1]]# enthielte.",
                                                      /*french*/ "Selon moi, une #caisse dans la Caverne Dodongo# contient #[[1]]#.", {QM_RED, QM_GREEN}));
 
+    hintTextTable[RHT_DODONGOS_BOULDER] = HintText(CustomMessage("They say that a #boulder in Dodongo's Cavern# contains #[[1]]#.",
+                                                                       /*german*/ TODO_TRANSLATE,
+                                                                       /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
+
   /*--------------------------
   |     JABU JABUS BELLY     |
   ---------------------------*/
@@ -488,6 +496,10 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
     hintTextTable[RHT_CRATE_JABU_JABU] = HintText(CustomMessage("They say that a #crate in Jabu Jabu's Belly# contains #[[1]]#.",
                                                      /*german*/ "Man erzählt sich, daß eine #Kiste in Jabu-Jabus Bauch# #[[1]]# enthielte.",
                                                      /*french*/ "Selon moi, une #caisse dans le Ventre de Jabu-Jabu# contient #[[1]]#.", {QM_RED, QM_GREEN}));
+
+    hintTextTable[RHT_JABU_BOULDER] = HintText(CustomMessage("They say that a #boulder in Jabu Jabu's Belly# contains #[[1]]#.",
+                                                                       /*german*/ TODO_TRANSLATE,
+                                                                       /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
 
   /*--------------------------
   |      FOREST TEMPLE       |
@@ -1331,6 +1343,10 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
                                                      /*german*/ "Man erzählt sich, daß eine #Kiste im Geistertempel# #[[1]]# enthielte.",
                                                      /*french*/ "Selon moi, une #caisse dans le Temple de l'Esprit# contient #[[1]]#.", {QM_RED, QM_GREEN}));
 
+    hintTextTable[RHT_SPIRIT_TEMPLE_BOULDER] = HintText(CustomMessage("They say that a #boulder in the Spirit Temple# contains #[[1]]#.",
+                                                                       /*german*/ TODO_TRANSLATE,
+                                                                       /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
+
   /*--------------------------
   |      SHADOW TEMPLE       |
   ---------------------------*/
@@ -1743,6 +1759,10 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
     hintTextTable[RHT_BOTTOM_OF_THE_WELL_GRASS] = HintText(CustomMessage("They say that some #grass in the Bottom of the Well# hides #[[1]]#.",
                                                      /*german*/ "Man erzählt sich, daß etwas #Gras auf dem Grund des Brunnens# #[[1]]# verstecke.",
                                                      /*french*/ "Selon moi, de l'#herbe dans le Puits# cache #[[1]]#.", {QM_RED, QM_GREEN}));
+
+    hintTextTable[RHT_BOTW_BOULDER] = HintText(CustomMessage("They say that a #boulder in Bottom of the Well# contains #[[1]]#.",
+                                                                       /*german*/ TODO_TRANSLATE,
+                                                                       /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
 
 
   /*--------------------------

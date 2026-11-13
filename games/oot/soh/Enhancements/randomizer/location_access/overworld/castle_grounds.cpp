@@ -28,6 +28,9 @@ void RegionTable_Init_CastleGrounds() {
     }, {
         //Locations
         LOCATION(RC_HC_MALON_EGG,      logic->HasItem(RG_SPEAK_HYLIAN)),
+        LOCATION(RC_HC_ROCK_1,         logic->CanBreakRocks()),
+        LOCATION(RC_HC_ROCK_2,         logic->CanBreakRocks()),
+        LOCATION(RC_HC_ROCK_3,         logic->CanBreakRocks()),
         LOCATION(RC_HC_GS_TREE,        logic->CanBonkTrees() && logic->CanKillEnemy(RE_GOLD_SKULLTULA, ED_CLOSE)),
         LOCATION(RC_HC_SKULLTULA_TREE, logic->CanBonkTrees()),
     }, {
@@ -56,6 +59,7 @@ void RegionTable_Init_CastleGrounds() {
         EventAccess(LOGIC_FAIRY_ACCESS, []{return logic->CanUse(RG_STICKS);}),
     }, {
         //Locations
+        LOCATION(RC_HC_BOULDER,                           logic->BlastOrSmash()),
         LOCATION(RC_HC_NEAR_GUARDS_TREE_1,                logic->CanBonkTrees()),
         LOCATION(RC_HC_NEAR_GUARDS_TREE_2,                logic->CanBonkTrees()),
         LOCATION(RC_HC_NEAR_GUARDS_TREE_3,                logic->CanBonkTrees()),
@@ -149,6 +153,14 @@ void RegionTable_Init_CastleGrounds() {
         LOCATION(RC_HC_STORMS_GROTTO_POT_2,                  logic->CanBreakPots()),
         LOCATION(RC_HC_STORMS_GROTTO_POT_3,                  logic->CanBreakPots()),
         LOCATION(RC_HC_STORMS_GROTTO_POT_4,                  logic->CanBreakPots()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_1,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_2,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_3,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_4,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_5,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_6,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_7,                 logic->CanBreakRocks()),
+        LOCATION(RC_HC_STORMS_GROTTO_ROCK_8,                 logic->CanBreakRocks()),
     }, {
         //Exits
         Entrance(RR_HC_STORMS_GROTTO, []{return true;}),
@@ -164,7 +176,14 @@ void RegionTable_Init_CastleGrounds() {
         EventAccess(LOGIC_BUILD_RAINBOW_BRIDGE, []{return logic->CanBuildRainbowBridge();}),
     }, {
         //Locations
-        LOCATION(RC_OGC_GS, logic->CanJumpslashExceptHammer() || logic->CanUseProjectile() || (logic->CanShield() && logic->CanUse(RG_MEGATON_HAMMER)) || logic->CanUse(RG_DINS_FIRE)),
+        LOCATION(RC_OGC_GS,               logic->CanJumpslashExceptHammer() || logic->CanUseProjectile() || (logic->CanShield() && logic->CanUse(RG_MEGATON_HAMMER)) || logic->CanUse(RG_DINS_FIRE)),
+        LOCATION(RC_OGC_BRONZE_BOULDER_1, logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_OGC_BRONZE_BOULDER_2, logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_OGC_BRONZE_BOULDER_3, logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_OGC_SILVER_BOULDER_1, logic->CanUse(RG_SILVER_GAUNTLETS)),
+        LOCATION(RC_OGC_SILVER_BOULDER_2, logic->CanUse(RG_SILVER_GAUNTLETS)),
+        LOCATION(RC_OGC_SILVER_BOULDER_3, logic->CanUse(RG_SILVER_GAUNTLETS)),
+        LOCATION(RC_OGC_SILVER_BOULDER_4, logic->CanUse(RG_SILVER_GAUNTLETS)),
     }, {
         //Exits
         Entrance(RR_CASTLE_GROUNDS,           []{return logic->AtNight;}),

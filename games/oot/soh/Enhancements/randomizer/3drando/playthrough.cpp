@@ -142,6 +142,48 @@ bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
     }
     return option->GetKey() == RSK_SHUFFLE_SILVER;
 }
+
+// #1409: the Shuffle Rocks lines the last fold read and the ones it left out.
+uint32_t sRsbsFoldRocksLines = 0;
+uint32_t sRsbsFoldRocksSkipped = 0;
+
+/**
+ * #1409: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Rocks, and so is left out while the option is off: the option's own rows
+ * (Basic Shuffles menu section and Shuffle Settings) and the exclude rows of the
+ * RCTYPE_ROCK checks.
+ */
+bool RsbsFoldIsRockLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_ROCK;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_ROCKS;
+}
+
+// #1409: the Shuffle Boulders lines the last fold read and the ones it left out.
+uint32_t sRsbsFoldBouldersLines = 0;
+uint32_t sRsbsFoldBouldersSkipped = 0;
+
+/**
+ * #1409: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Boulders, and so is left out while the option is off: the option's own rows
+ * (Basic Shuffles menu section and Shuffle Settings) and the exclude rows of the
+ * RCTYPE_BOULDER checks.
+ */
+bool RsbsFoldIsBoulderLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_BOULDER;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_BOULDERS;
+}
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
 // derivation in Playthrough_Init, #1367).
@@ -211,6 +253,26 @@ extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* o
     }
     if (outPinned != nullptr) {
         *outPinned = sRsbsSilverPinned;
+    }
+    return sRsbsFoldRuns;
+}
+
+extern "C" int OoT_Rando_LastSettingsFoldRocks(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldRocksLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldRocksSkipped;
+    }
+    return sRsbsFoldRuns;
+}
+
+extern "C" int OoT_Rando_LastSettingsFoldBoulders(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldBouldersLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldBouldersSkipped;
     }
     return sRsbsFoldRuns;
 }
@@ -296,6 +358,19 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
     const bool rsbsSilverOff = ctx->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
     sRsbsFoldSilverLines = 0;
     sRsbsFoldSilverSkipped = 0;
+    // [RSBS #1409] While Shuffle Rocks is off its lines cannot change the world (its
+    // checks are not locations and their vanilla drops are not randomized), so they
+    // are left out and a world keeps the fingerprint it had before the option existed;
+    // with it on they fold.
+    const bool rsbsRocksOff = ctx->GetOption(RSK_SHUFFLE_ROCKS).Is(RO_GENERIC_OFF);
+    sRsbsFoldRocksLines = 0;
+    sRsbsFoldRocksSkipped = 0;
+    // [RSBS #1409] While Shuffle Boulders is off its lines cannot change the world
+    // (its checks are not locations), so they are left out and a world keeps the
+    // fingerprint it had before the option existed; with it on they fold.
+    const bool rsbsBouldersOff = ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
+    sRsbsFoldBouldersLines = 0;
+    sRsbsFoldBouldersSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -321,6 +396,16 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     const bool rsbsSilverLine = RsbsFoldIsSilverLine(i, option);
                     if (rsbsSilverLine && rsbsSilverOff) {
                         sRsbsFoldSilverSkipped++;
+                        continue;
+                    }
+                    const bool rsbsRockLine = RsbsFoldIsRockLine(i, option);
+                    if (rsbsRockLine && rsbsRocksOff) {
+                        sRsbsFoldRocksSkipped++;
+                        continue;
+                    }
+                    const bool rsbsBoulderLine = RsbsFoldIsBoulderLine(i, option);
+                    if (rsbsBoulderLine && rsbsBouldersOff) {
+                        sRsbsFoldBouldersSkipped++;
                         continue;
                     }
 #endif
@@ -365,6 +450,12 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     if (rsbsSilverLine) {
                         sRsbsFoldSilverLines++;
                     }
+                    if (rsbsRockLine) {
+                        sRsbsFoldRocksLines++;
+                    }
+                    if (rsbsBoulderLine) {
+                        sRsbsFoldBouldersLines++;
+                    }
 #endif
                 }
             }
@@ -394,6 +485,10 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     const uint32_t savedButterflySkipped = sRsbsFoldButterflySkipped;
     const uint32_t savedSilverLines = sRsbsFoldSilverLines;
     const uint32_t savedSilverSkipped = sRsbsFoldSilverSkipped;
+    const uint32_t savedRocksLines = sRsbsFoldRocksLines;
+    const uint32_t savedRocksSkipped = sRsbsFoldRocksSkipped;
+    const uint32_t savedBouldersLines = sRsbsFoldBouldersLines;
+    const uint32_t savedBouldersSkipped = sRsbsFoldBouldersSkipped;
     FoldSettingsString(ctx);
     const int lines = (int)sRsbsFoldTotalLines;
     sRsbsFoldTotalLines = savedTotal;
@@ -403,6 +498,10 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     sRsbsFoldButterflySkipped = savedButterflySkipped;
     sRsbsFoldSilverLines = savedSilverLines;
     sRsbsFoldSilverSkipped = savedSilverSkipped;
+    sRsbsFoldRocksLines = savedRocksLines;
+    sRsbsFoldRocksSkipped = savedRocksSkipped;
+    sRsbsFoldBouldersLines = savedBouldersLines;
+    sRsbsFoldBouldersSkipped = savedBouldersSkipped;
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         sRsbsFoldExcludeLines[i] = savedExclude[i];
     }

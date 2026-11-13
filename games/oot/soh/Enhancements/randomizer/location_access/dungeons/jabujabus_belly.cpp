@@ -272,6 +272,7 @@ void RegionTable_Init_JabuJabusBelly() {
         LOCATION(RC_JABU_JABUS_BELLY_MQ_ENTRANCE_POT_2,        logic->CanBreakPots()),
         LOCATION(RC_JABU_JABUS_BELLY_MQ_FIRST_GRASS_1,         logic->CanCutShrubs()),
         LOCATION(RC_JABU_JABUS_BELLY_MQ_FIRST_GRASS_2,         logic->CanCutShrubs()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_ENTRANCE_BOULDER,       logic->BlastOrSmash()),
     }, {
         //Exits
         Entrance(RR_JABU_JABUS_BELLY_ENTRYWAY,     []{return true;}),
@@ -320,8 +321,13 @@ void RegionTable_Init_JabuJabusBelly() {
         EventAccess(LOGIC_JABU_MQ_FORKED_ROOM_DOOR, []{return (logic->HasExplosives() || ctx->GetTrickOption(RT_BOULDER_COLLISION)) && logic->CanUse(RG_FAIRY_SLINGSHOT);}),
     }, {
         //Locations
-        LOCATION(RC_JABU_JABUS_BELLY_MQ_PIT_GRASS_1, logic->CanCutShrubs() && logic->HasExplosives()),
-        LOCATION(RC_JABU_JABUS_BELLY_MQ_PIT_GRASS_2, logic->CanCutShrubs() && logic->HasExplosives()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_PIT_GRASS_1,               logic->CanCutShrubs() && logic->HasExplosives()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_PIT_GRASS_2,               logic->CanCutShrubs() && logic->HasExplosives()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_HOLES_ROOM_BOULDER_1,      logic->BlastOrSmash()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_HOLES_ROOM_BOULDER_2,      logic->BlastOrSmash()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_HOLES_ROOM_WALL_BOULDER_1, logic->HasExplosives()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_HOLES_ROOM_WALL_BOULDER_2, logic->HasExplosives()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_HOLES_ROOM_WALL_BOULDER_3, logic->HasExplosives()),
     }, {
         //Exits
         Entrance(RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM,              []{return true;}),
@@ -377,7 +383,11 @@ void RegionTable_Init_JabuJabusBelly() {
         Entrance(RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM,         []{return true;}),
     });
 
-    areaTable[RR_JABU_JABUS_BELLY_MQ_FORKED_CORRIDOR] = Region("Jabu Jabus Belly MQ Forked Corridor", SCENE_JABU_JABU, {}, {}, {
+    areaTable[RR_JABU_JABUS_BELLY_MQ_FORKED_CORRIDOR] = Region("Jabu Jabus Belly MQ Forked Corridor", SCENE_JABU_JABU, {}, {
+        //Locations
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_FORKED_CORRIDOR_BOULDER_1, logic->BlastOrSmash()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_FORKED_CORRIDOR_BOULDER_2, logic->BlastOrSmash()),
+    }, {
         //Exits
         Entrance(RR_JABU_JABUS_BELLY_MQ_HOLES_ROOM,         []{return logic->CanUse(RG_BOOMERANG);}),
         //If some mode lets an age use sticks and not sling, and other use sling and not sticks, this needs changing
@@ -412,7 +422,9 @@ void RegionTable_Init_JabuJabusBelly() {
 
     areaTable[RR_JABU_JABUS_BELLY_MQ_FORK_NORTH_WEST] = Region("Jabu Jabus Belly MQ Fork North West", SCENE_JABU_JABU, {}, {
         //Locations
-        LOCATION(RC_JABU_JABUS_BELLY_MQ_GS_TAILPASARAN_ROOM, logic->HasExplosives() && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG)),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_GS_TAILPASARAN_ROOM,      logic->BlastOrSmash() && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG)),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_TAILPASARAN_BOULDER,      logic->BlastOrSmash()),
+        LOCATION(RC_JABU_JABUS_BELLY_MQ_TAILPASARAN_WALL_BOULDER, logic->BlastOrSmash()),
     }, {
         //Exits
         Entrance(RR_JABU_JABUS_BELLY_MQ_TO_FORK_NORTH_WEST, []{return true;}),

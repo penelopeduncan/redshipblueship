@@ -520,6 +520,17 @@ void GenerateItemPool() {
                       ctx->GetOption(RSK_LOGIC_RULES).Is(RO_LOGIC_NO_LOGIC) && dungeonCratesActive);
     PlaceItemsForType(RCTYPE_SMALL_CRATE, overworldCratesActive, dungeonCratesActive);
 
+    // Shuffle Rocks
+    bool rocksActive = ctx->GetOption(RSK_SHUFFLE_ROCKS).Get();
+    PlaceItemsForType(RCTYPE_ROCK, rocksActive, rocksActive);
+
+    // Shuffle Boulders
+    bool overworldBouldersActive = ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OVERWORLD) ||
+                                   ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_ALL);
+    bool dungeonBouldersActive = ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_DUNGEONS) ||
+                                 ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_ALL);
+    PlaceItemsForType(RCTYPE_BOULDER, overworldBouldersActive, dungeonBouldersActive);
+
     if (ctx->GetOption(RSK_FISHSANITY).Is(RO_FISHSANITY_HYRULE_LOACH)) {
         AddFixedItemToPool(RG_PURPLE_RUPEE, 1);
     } else {

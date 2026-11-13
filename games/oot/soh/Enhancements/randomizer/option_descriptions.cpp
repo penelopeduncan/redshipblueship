@@ -333,6 +333,18 @@ void Settings::CreateOptionDescriptions() {
         "Overworld - Only shuffle crates that are outside of dungeons.\n"
         "\n"
         "All Crates - Shuffle all crates.";
+    mOptionDescriptions[RSK_SHUFFLE_ROCKS] =
+        "Small rocks will drop a randomized item the first time they're lifted or destroyed.";
+    mOptionDescriptions[RSK_SHUFFLE_BOULDERS] =
+        "Boulders will drop a randomized item the first time they're destroyed.\n"
+        "\n"
+        "Off - Boulders will not be shuffled.\n"
+        "\n"
+        "Dungeons - Only shuffle boulders that are within dungeons.\n"
+        "\n"
+        "Overworld - Only shuffle boulders that are outside of dungeons.\n"
+        "\n"
+        "All Boulders - Shuffle all boulders.";
     mOptionDescriptions[RSK_SHUFFLE_TREES] =
         "Trees will contain randomized items which are dropped the first time the player rolls into one.\n"
         "Trees will have a special appearance when carrying randomized items.\n"

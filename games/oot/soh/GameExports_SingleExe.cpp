@@ -182,6 +182,16 @@ static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &
                   offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
                   sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
               "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
+// #1409 (Shuffle Rocks and Boulders), after #1363's: 285 checks, their 285 flags,
+// 41 hint texts and two setting keys.
+static_assert(RC_KF_CIRCLE_ROCK_1 == 2702 && RC_BOTW_MQ_BOULDER_3 == 2986,
+              "OoT's rock and boulder checks (#1409) are ids 2702..2986, appended after the silver rupees'");
+static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2238 && RAND_INF_BOTW_MQ_BOULDER_3 == 2522,
+              "OoT's rock and boulder flags (#1409) are 2238..2522, appended after the silver rupees'");
+static_assert(RHT_KF_ROCK == 1545 && RHT_SPIRIT_TEMPLE_BOULDER == 1585,
+              "OoT's rock and boulder hint texts (#1409) are 1545..1585, appended after the silver rupees'");
+static_assert(RSK_SHUFFLE_ROCKS == 236 && RSK_SHUFFLE_BOULDERS == 237,
+              "OoT's Shuffle Rocks and Shuffle Boulders keys (#1409) are 236 and 237, after #1363's");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));

@@ -589,6 +589,10 @@ void RegionTable_Init_SpiritTemple() {
         LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_POT_2,             logic->CanBreakPots()),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_POT_3,             logic->CanBreakPots()),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_POT_4,             logic->CanBreakPots()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_BOULDER_1,         logic->BlastOrSmash()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_BOULDER_2,         logic->BlastOrSmash()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_EYE_BOULDER,       logic->BlastOrSmash()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_ENTRANCE_CEILING_BOULDER,   logic->CanUse(RG_BOMBCHU_5)),
         LOCATION(RC_SPIRIT_MQ_E_BOULDER_LOBBY_SILVER,            logic->BlastOrSmash()),
         LOCATION(RC_SPIRIT_MQ_W_BOULDER_LOBBY_SILVER,            logic->BlastOrSmash()),
     }, {
@@ -611,6 +615,7 @@ void RegionTable_Init_SpiritTemple() {
                                                                 (ctx->GetTrickOption(RT_FIRE_RINGS) && ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->TakeDamage() && logic->CanJumpslash())),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_CHILD_RIGHT_HEART,         logic->CanHitEyeTargets() || logic->CanUse(RG_BOOMERANG) ||
                                                                 (ctx->GetTrickOption(RT_FIRE_RINGS) && ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->TakeDamage() && logic->CanJumpslash())),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_CRAWLSPACE_BOULDER,        logic->Get(LOGIC_SPIRIT_MQ_CRAWL_BOULDER) && logic->CanUse(RG_CRAWL)),
     }, {
         //Exits
         //Nabooru's legs are technically visible one way collision here, but I'm not sure if this counts
@@ -625,7 +630,11 @@ void RegionTable_Init_SpiritTemple() {
         EventAccess(LOGIC_SPIRIT_MQ_GIBDOS_CLEARED, []{return logic->HasItem(RG_POWER_BRACELET) && // possible to trigger switch without pulling grave, but too precise for RT_VISIBLE_COLLISION
                                                              ((logic->CanUse(RG_BOMBCHU_5) && logic->CanHitEyeTargets()) || logic->CanUse(RG_HOVER_BOOTS)/* || (IsAdult && CanBunnyJump())*/)
                                                              && logic->CanKillEnemy(RE_GIBDO, ED_CLOSE, true, 3);}),
-    }, {}, {
+    }, {
+        //Location
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_GIBDO_BOULDER_HIGH, logic->BlastOrSmash()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_GIBDO_BOULDER_LOW,  logic->BlastOrSmash()),
+    }, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_MQ_CHILD_SIDE_HUB, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_GIBDO_POTS,     []{return logic->HasItem(RG_POWER_BRACELET) && // possible to trigger switch without pulling grave, but too precise for RT_VISIBLE_COLLISION
@@ -637,6 +646,7 @@ void RegionTable_Init_SpiritTemple() {
         //Locations
         LOCATION(RC_SPIRIT_TEMPLE_MQ_CHILD_GIBDO_POT_1, logic->CanBreakPots()),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_CHILD_GIBDO_POT_2, logic->CanBreakPots()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_GIBDO_BOULDER,     logic->BlastOrSmash()),
     }, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_MQ_TURNTABLE, []{return logic->Get(LOGIC_SPIRIT_MQ_GIBDOS_CLEARED);}),
@@ -951,8 +961,9 @@ void RegionTable_Init_SpiritTemple() {
         EventAccess(LOGIC_SPIRIT_MQ_SILVER_LOBBY, []{return logic->CanUse(RG_MEGATON_HAMMER);}),
     }, {
         //Locations
-        LOCATION(RC_SPIRIT_TEMPLE_MQ_EARLY_ADULT_POT_1, logic->CanBreakPots()),
-        LOCATION(RC_SPIRIT_TEMPLE_MQ_EARLY_ADULT_POT_2, logic->CanBreakPots()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_EARLY_ADULT_POT_1,   logic->CanBreakPots()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_EARLY_ADULT_POT_2,   logic->CanBreakPots()),
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_EARLY_ADULT_BOULDER, logic->BlastOrSmash()),
         LOCATION(RC_SPIRIT_MQ_STAIRS_LOBBY_SILVER,      true),
         LOCATION(RC_SPIRIT_MQ_CORNER_LOBBY_SILVER,      true),
         LOCATION(RC_SPIRIT_MQ_JET_LOBBY_SILVER,         logic->CanUse(RG_MEGATON_HAMMER)),
