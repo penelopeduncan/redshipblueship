@@ -62,9 +62,9 @@ bool OhmmScrollEqual(const ComboModelScroll& a, const ComboModelScroll& b) {
 
 bool OhmmModelEqual(const ComboModel& a, const ComboModel& b) {
     if (a.partCount != b.partCount || a.opaSetupDl != b.opaSetupDl || a.xluSetupDl != b.xluSetupDl ||
-        a.opaSetupList != b.opaSetupList || a.xluSetupList != b.xluSetupList || !OhmmColorEqual(a.opaColor, b.opaColor) ||
-        !OhmmColorEqual(a.xluColor, b.xluColor) || a.grayscale != b.grayscale ||
-        std::memcmp(a.grayscaleRgb, b.grayscaleRgb, 3) != 0 || a.scale != b.scale) {
+        a.opaSetupList != b.opaSetupList || a.xluSetupList != b.xluSetupList ||
+        !OhmmColorEqual(a.opaColor, b.opaColor) || !OhmmColorEqual(a.xluColor, b.xluColor) ||
+        a.grayscale != b.grayscale || std::memcmp(a.grayscaleRgb, b.grayscaleRgb, 3) != 0 || a.scale != b.scale) {
         return false;
     }
     for (int i = 0; i < 3; i++) {
