@@ -693,15 +693,15 @@ TestResult MMWarpSongsOwnership_Run(void) {
 // ============================================================================
 
 TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
-    printf("[TEST] mm-warp-songs-rules-off-unchanged: the six MM warp-song rules are offered and their shared "
-           "songs hidden; with the rules off no world pools or credits an MM warp song, and owning one moves no "
-           "fingerprint, bag seed or package record (#1169 XW5, XW12, XW13)\n");
+    printf("[TEST] mm-warp-songs-rules-off-unchanged: the six MM warp-song rules and their shared songs are "
+           "offered; with the rules off no world pools or credits an MM warp song, and owning one moves no "
+           "fingerprint, bag seed or package record (#1169 XW5, XW12, XW13, XW14)\n");
     sWsmFailures = 0;
     Combo_ComboItemRules2RevealForTest(0);
 
-    // ---- (1) Offered since IntMMWarpSongMinuet (#1169 XW13), on the production mask:
-    //      each extension passes Generate and is offered; with its shared song the
-    //      shared song alone is refused by name (lane XW10's) ------------------------
+    // ---- (1) Offered on the production mask: each extension since
+    //      IntMMWarpSongMinuet (#1169 XW13) and its shared song since
+    //      IntMMWarpSongMinuetShared (#1169 XW14) pass Generate and are offered -------
     {
         char names[192];
         for (const WsmSong& s : kWsmSongs) {
@@ -709,10 +709,13 @@ TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
                           Combo_ComboItemRule2Offered(s.rule),
                       "%s is refused ('%s') or not offered: it is offered since its end-to-end row", s.ootmmKey, names);
             const uint32_t refused = Combo_ComboItemRules2Refused(s.rule | s.shared, names, sizeof(names));
-            WSM_CHECK(refused == s.shared && strcmp(names, Combo_ComboItemRule2Name(s.shared)) == 0 &&
-                          !Combo_ComboItemRule2Offered(s.shared),
-                      "%s with its shared song refused %08X ('%s'), not the shared song alone by name", s.ootmmKey,
-                      (unsigned)refused, names);
+            WSM_CHECK(refused == 0u && names[0] == '\0' && Combo_ComboItemRule2Offered(s.shared),
+                      "%s with its shared song refused %08X ('%s') or the shared song is not offered: both are "
+                      "offered since XW14",
+                      s.ootmmKey, (unsigned)refused, names);
+            // A shared song without its extension is still no world.
+            WSM_CHECK(Combo_ComboItemRules2Refused(s.shared, names, sizeof(names)) == s.shared,
+                      "%s's shared song without its extension was not refused ('%s')", s.ootmmKey, names);
         }
     }
 

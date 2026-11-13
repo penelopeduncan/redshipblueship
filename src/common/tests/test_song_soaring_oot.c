@@ -42,9 +42,8 @@
  *   oot-soaring-pooled-only-when-rule-on (CTest OoTSoaringPooledOnlyWhenRuleOn,
  *   rando tier) -- THE POOL, over real paired OoT generations. Rule off: no copy
  *   anywhere in OoT's world. Rule on (offered since XW12, no seam): exactly one
- *   copy, under Shuffle Songs Anywhere and Off. Rule and shared rule on, the
- *   shared one through the TEST SEAM (Combo_ComboItemRules2RevealForTest;
- *   production never calls it): none (the family path, held back). Then its hint text names it and OoT's REAL give sets
+ *   copy, under Shuffle Songs Anywhere and Off. Rule and shared rule on (offered
+ *   since XW14, no seam): none (the family path, held back). Then its hint text names it and OoT's REAL give sets
  *   its flag and nothing else.
  *
  *   song-locations-overflow-refused (CTest SongLocationsOverflowRefused, rando
@@ -497,21 +496,23 @@ TestResult Test_OoTSoaringRuleLogic(void) {
 // ============================================================================
 
 TestResult Test_OoTSoaringRulesOffUnchanged(void) {
-    printf("[TEST] oot-soaring-rules-off-unchanged: the Song of Soaring (OoT) is offered and its shared song is not; "
+    printf("[TEST] oot-soaring-rules-off-unchanged: the Song of Soaring (OoT) and its shared song are offered; "
            "with the rule off no world pools the song, credits it or meets the refusal, and every id before it is "
-           "main's (#1169 XW4, XW12)\n");
+           "main's (#1169 XW4, XW12, XW14)\n");
     sXw4Failures = 0;
     Combo_ComboItemRules2RevealForTest(0);
     XW4_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available");
 
-    // ---- (1) Offered since XW12: the extension passes the gate; the shared song is
-    //      still refused (XW10's), and Generate refuses it before anything freezes --
+    // ---- (1) Offered: the extension since XW12 and the shared song since XW14 pass
+    //      the gate; a shared song without its extension is still refused, and
+    //      Generate asks the gate before anything freezes ------------------------------
     {
         XW4_CHECK(Combo_ComboItemRules2Refused(kXw4Soaring, NULL, 0) == 0u &&
-                      Combo_ComboItemRules2Refused(kXw4Soaring | kXw4SharedSoaring, NULL, 0) == kXw4SharedSoaring &&
-                      Combo_ComboItemRule2Offered(kXw4Soaring) && !Combo_ComboItemRule2Offered(kXw4SharedSoaring),
-                  "the Song of Soaring (OoT) is not offered, or the shared Song of Soaring is (XW12: extensions "
-                  "offered, shared songs hidden)");
+                      Combo_ComboItemRules2Refused(kXw4Soaring | kXw4SharedSoaring, NULL, 0) == 0u &&
+                      Combo_ComboItemRules2Refused(kXw4SharedSoaring, NULL, 0) == kXw4SharedSoaring &&
+                      Combo_ComboItemRule2Offered(kXw4Soaring) && Combo_ComboItemRule2Offered(kXw4SharedSoaring),
+                  "the Song of Soaring (OoT) or the shared Song of Soaring is not offered, or the shared song alone "
+                  "is not refused (XW14: both offered)");
         XW4_CHECK(Combo_ResolveComboItemRules2() == 0u || !Combo_ComboSettingStoreAvailable(),
                   "the session resolves a second-word rule with no key set");
         const std::string play = Xw4ReadSource("games/oot/soh/Enhancements/randomizer/3drando/playthrough.cpp");
@@ -639,13 +640,9 @@ int Xw4Generate(const Xw4Leg& leg, const char* seed) {
     if (leg.sharedTime) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_TIME), 1);
     }
-    // THE TEST SEAM, for the shared song only: since XW12 the Song of Soaring
-    // (OoT) is offered as production offers it; the shared Song of Soaring stays
-    // hidden until XW10, so only a leg with it reads the mask empty.
-    Combo_ComboItemRules2RevealForTest(leg.sharedSoaring ? 1 : 0);
-    const int rc = Rando_HeadlessSeedTest(seed);
-    Combo_ComboItemRules2RevealForTest(0);
-    return rc;
+    // The production mask: the Song of Soaring (OoT) is offered since XW12 and the
+    // shared Song of Soaring since XW14, so no leg needs the test seam.
+    return Rando_HeadlessSeedTest(seed);
 }
 
 /** #1542: what a finished paired world did with its songs (Xw4FinishPair). */

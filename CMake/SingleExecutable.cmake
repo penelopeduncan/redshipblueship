@@ -3548,7 +3548,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1169 XW10: ONE copy of each shared warp song (all fourteen warp-song rules on
-    # through the hidden-bit test seam), one real paired generation per Shuffle Songs
+    # through their keys, offered since XW14), one real paired generation per Shuffle Songs
     # value; Off and Anywhere with Link's Pocket at Advancement. Edges: two paired
     # generations (Dungeon Rewards 12 for 12, a started shared Minuet with one more
     # exit round) and two more only to OoT's seam (the Off arm twice), hence the
@@ -3747,11 +3747,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # enums, no ItemID added, the 512 saved words, the item row and its textbox
     # icon. OoTSoaringRuleLogic: the pooled-copies rule, OoT's real logic (a child
     # with C-down, C-up and C-left, only under the rule), the flag effect, the
-    # wording and the warning. OoTSoaringRulesOffUnchanged: the shared bit refused
-    # (the extension offered since XW12) before the fill, a rules-off world pools
-    # and credits nothing, today's song pass is never refused, main's ids. All
-    # three ROM-free. The last two are `rando`: real paired OoT generations, the
-    # shared-song legs through the hidden-bit test seam.
+    # wording and the warning. OoTSoaringRulesOffUnchanged: the extension (XW12)
+    # and the shared song (XW14) offered, the shared song alone refused, a
+    # rules-off world pools and credits nothing, today's song pass is never
+    # refused, main's ids. All three ROM-free. The last two are `rando`: real
+    # paired OoT generations, every leg on the production mask.
     redship_add_test(NAME OoTSoaringTableBounds COMMAND redship --test oot-soaring-table-bounds)
     redship_add_test(NAME OoTSoaringRuleLogic COMMAND redship --test oot-soaring-rule-logic)
     redship_add_test(NAME OoTSoaringRulesOffUnchanged COMMAND redship --test oot-soaring-rules-off-unchanged)
@@ -3812,12 +3812,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # snapshot brackets. MMWarpSongsOwnershipSurvives: a starting song owned after
     # creation, an MM in-game save, a freeze, the .redsave reloads and the Song of
     # Time's real reset (XW12). Both bring up the CVar store.
-    # MMWarpSongsRulesOffUnchanged: every MM extension offered and each shared
-    # bit with it refused alone by name, a
+    # MMWarpSongsRulesOffUnchanged: every MM extension and its shared song
+    # offered (XW13, XW14), a shared song alone refused, a
     # rules-off world pools and credits nothing, and main's fingerprint, bag seeds
     # and package record with the byte at 0 or full. All three ROM-free.
-    # MMWarpSongsPooledOnlyWhenRuleOn: `rando`, real paired creations, the shared
-    # Minuet leg through the hidden-bit test seam.
+    # MMWarpSongsPooledOnlyWhenRuleOn: `rando`, real paired creations, every leg
+    # on the production mask.
     redship_add_test(NAME MMWarpSongsItems COMMAND redship --test mm-warp-songs-items)
     redship_add_test(NAME MMWarpSongsOwnershipSurvives COMMAND redship --test mm-warp-songs-ownership)
     redship_add_test(NAME MMWarpSongsRulesOffUnchanged COMMAND redship --test mm-warp-songs-rules-off-unchanged)
@@ -4755,8 +4755,8 @@ crossing to refuse (#954).")
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1169 XW14: the same row with the Shared Minuet of Forest on too, through
-    # its key (and, while the shared rules are hidden, the test reveal in OoT's
-    # MwArmWorld, which the commit that offers them deletes). OoT is given its own
+    # its key and the production mask (no test seam: the row is the proof that
+    # offered the seven shared rules). OoT is given its own
     # Minuet before the Happy Mask Shop door through its registered family member,
     # and the MM drive gives MM nothing: at PREPARE it requires the Minuet in MM's
     # arrival apply's give record (Combo_SharedFamilies2GivenAtLastApply), which no

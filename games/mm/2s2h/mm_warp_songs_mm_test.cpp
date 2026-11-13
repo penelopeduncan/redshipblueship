@@ -15,8 +15,7 @@
  * MM_WarpSongsPooled_RunHeadless): real paired generations (OoT's Generate, then
  * MM's creation-time half through the real OnSaveInit chain, mm-paired-start's
  * shape) with the rules off, on through their keys (offered since #1169 XW13) and
- * with the shared rules on too, through the hidden-bit test seam
- * (Combo_ComboItemRules2RevealForTest, XW2's; production never calls it).
+ * with the shared rules on too (offered since #1169 XW14).
  *
  * THE RECORD ROW (`oot-warp-song-record`, MM_WarpSongRecordWorld_RunHeadless,
  * #1169 XW7): the same creations followed by OoT's side of the tail, under Shuffle
@@ -375,11 +374,10 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
     if (sharedMinuet) {
         CVarSetInteger(Combo_ComboSettingKey(kSharedKeys[0]), 1);
     }
-    // THE TEST SEAM, for the shared leg only: the Shared Minuet of Forest stays
-    // hidden until XW10, so only that leg reads the mask empty. The six extensions
-    // are offered since IntMMWarpSongMinuet (#1169 XW13): their leg runs on the
-    // production mask.
-    Combo_ComboItemRules2RevealForTest(sharedMinuet ? RSBS_XITEM2_REVEAL_ALL : RSBS_XITEM2_REVEAL_NONE);
+    // The production mask for every leg: the six extensions are offered since
+    // IntMMWarpSongMinuet (#1169 XW13) and the Shared Minuet of Forest since
+    // IntMMWarpSongMinuetShared (#1169 XW14).
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
     // Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
     // takes the six warp songs too, and 12 OoT + 16 MM songs (27 with the Shared
     // Minuet) for the 23 song checks of both games refuse by design, OoTMM's

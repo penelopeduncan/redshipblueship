@@ -1192,12 +1192,8 @@ int SwsGenerate(const char* seed, int shuffleSongs, uint32_t extensions, uint32_
     if (startMinuet) {
         CVarSetInteger(kSwsStartMinuetKey, 1);
     }
-    // THE TEST SEAM: any warp-song rule still inside RSBS_XITEM2_HIDDEN reads as
-    // offered (a no-op once the mask is 0). Production never calls it.
-    Combo_ComboItemRules2RevealForTest(1);
-    const int rc = Rando_HeadlessSeedTest(seed);
-    Combo_ComboItemRules2RevealForTest(0);
-    return rc;
+    // Every rule is offered by the production mask since #1169 XW14: no test seam.
+    return Rando_HeadlessSeedTest(seed);
 }
 
 /** A shared song's placements by the coordinator, of either half on either host. */

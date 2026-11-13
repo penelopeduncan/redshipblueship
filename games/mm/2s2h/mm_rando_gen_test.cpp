@@ -4403,13 +4403,9 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
         CVarSetInteger(kSpoStartingLullabyKey, 1);
     }
     // The production mask for every leg: the Song of Soaring (OoT) is offered since
-    // XW12 and the six Majora's Mask extensions since XW13 (IntMMWarpSongMinuet).
+    // XW12, the six Majora's Mask extensions since XW13 (IntMMWarpSongMinuet) and
+    // the seven shared songs since XW14 (IntMMWarpSongMinuetShared).
     Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
-    // #1169 XW14: a leg holding a shared song (g, h, i) reads the shared rules as
-    // offered while they are hidden; the commit that offers them deletes this.
-    if ((rules2 & RSBS_XITEM2_WARP_SONG_SHARED) != 0u) {
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
-    }
     for (uint32_t b = 0; b < 14u; b++) {
         if ((rules2 & (1u << b)) != 0u && !Combo_ComboItemRule2Offered(1u << b)) {
             fprintf(stderr, "[SONG-POOL-CAP] FAIL(8): %s: rule bit %u is not offered (on the production mask)\n", name,
@@ -4531,7 +4527,7 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
  * Every leg sets its rules by their keys on the production mask (the Song of
  * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13; the
  * shared songs' legs read them offered through the test seam while they are
- * hidden). Ten paired generations.
+ * hidden, before XW14 offered them). Ten paired generations.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
  */
 extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {

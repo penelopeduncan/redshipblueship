@@ -3574,13 +3574,10 @@ static bool MwArmWorld(void) {
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
     // int-mm-warp-song-minuet-shared (#1169 XW14): the Shared Minuet of Forest on
     // too, through its key (put back at the verdict like the others).
+    // The rule is offered by the production mask (since #1169 XW14): no test reveal.
     const bool shared = IntegrationTest_MMWarpSongMinuetShared();
     if (shared) {
         IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_MINUET), 1);
-        // While the shared songs are hidden the row reads them as offered; the
-        // commit that offers them deletes this line (IntegrationTest_SoaringCleanup
-        // hides them again, pass or fail).
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
     }
     // The rule must be offered before the seed is blamed for anything: a mask
     // that hides songMinuetMm again makes Generate refuse the word by name
@@ -3605,11 +3602,9 @@ static bool MwArmWorld(void) {
         return false;
     }
     fprintf(stderr,
-            "[PFC] mm warp song: songMinuetMm on%s (resolved second word 0x%08X, none refused), Shuffle Songs "
-            "Anywhere, Shuffle Warp Songs at its default (off)\n",
-            shared ? " with sharedSongMinuet on (shared rules offered or read offered through the test reveal)"
-                   : " (the production mask, no reveal)",
-            (unsigned)word);
+            "[PFC] mm warp song: songMinuetMm on%s (the production mask, no reveal; resolved second word 0x%08X, "
+            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+            shared ? " with sharedSongMinuet on" : "", (unsigned)word);
     fflush(stderr);
     return true;
 }

@@ -5171,7 +5171,7 @@ TestResult Test_MMPairedStartSharedSongTime(void) {
 }
 
 // #1169 XW5: Ocarina of Time's warp songs as MM items over real paired creations,
-// rules off, on through the hidden-bit test seam, and shared. Body in
+// rules off, on through their keys, and shared. Body in
 // games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
 // skips it.
 extern "C" int MM_WarpSongsPooled_RunHeadless(void);
@@ -10787,8 +10787,8 @@ const TestDescriptor gTests[] = {
       "With MM's own Shuffle Songs key at Vanilla and OoT's at Anywhere, MM's half follows OoT's (Anywhere) and each "
       "shared song is still ONE copy over both games (#1502, #1542)",
       Test_SharedSongsOneCopyMMVanilla },
-    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (the
-    // hidden-bit test seam), one real paired generation per Shuffle Songs value.
+    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (their
+    // keys, offered since XW14), one real paired generation per Shuffle Songs value.
     { "shared-warp-songs-one-copy-off",
       "With every warp-song rule on and Shuffle Songs Off, each shared warp song is one bag pair row over both worlds, "
       "never Link's Pocket, and the other songs stay vanilla (#1169 XW10)",
@@ -10935,8 +10935,8 @@ const TestDescriptor gTests[] = {
       "and warning are worded (#1169)",
       Test_OoTSoaringRuleLogic },
     { "oot-soaring-rules-off-unchanged",
-      "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
-      "meets the song-spot refusal, and every id before it is main's (#1169)",
+      "With the warp-song rules off no world a player can make pools the Song of Soaring (OoT), credits it or meets "
+      "the song-spot refusal, and every id before it is main's; the rule and its shared song are offered (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
     // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
     // generate nothing.
@@ -10994,8 +10994,8 @@ const TestDescriptor gTests[] = {
       "after a freeze, the crossing's commit and a reload; the fingerprint never moves (#1169)",
       Test_MMWarpSongsOwnership },
     { "mm-warp-songs-rules-off-unchanged",
-      "While the warp-song rules are hidden no world pools or credits an MM warp song, and owning one moves no "
-      "fingerprint, bag seed or package record (#1169)",
+      "With the warp-song rules off no world pools or credits an MM warp song, and owning one moves no "
+      "fingerprint, bag seed or package record; the rules and their shared songs are offered (#1169)",
       Test_MMWarpSongsRulesOffUnchanged },
     { "mm-warp-songs-pooled-only-when-rule-on",
       "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "

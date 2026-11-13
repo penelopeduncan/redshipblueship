@@ -831,12 +831,14 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 #define RSBS_XITEM2_ALL_V1 (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_WARP_SONG_SHARED)
 /** The six Majora's Mask extensions (songMinuetMm .. songPreludeMm). */
 #define RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS 0x0000007Eu
-/** The allocated bits no world of this build may hold yet: the seven shared
- *  warp songs, until lane XW10 builds their family. XW12 exposed the Song of
- *  Soaring (OoT) (operator ruling 2026-11-04, decision 7), and XW13 the six
- *  Majora's Mask extensions, once IntMMWarpSongMinuet played the Minuet in
- *  Majora's Mask, departed and arrived in Ocarina of Time as a child. */
-#define RSBS_XITEM2_HIDDEN RSBS_XITEM2_WARP_SONG_SHARED
+/** The allocated bits no world of this build may hold yet: none. XW12 exposed
+ *  the Song of Soaring (OoT) (operator ruling 2026-11-04, decision 7), XW13 the
+ *  six Majora's Mask extensions once IntMMWarpSongMinuet played the Minuet in
+ *  Majora's Mask and arrived in Ocarina of Time as a child, and XW14 the seven
+ *  shared warp songs once IntMMWarpSongMinuetShared played a Minuet learnt only in
+ *  Ocarina of Time in Majora's Mask, through the shared family. A rule allocated
+ *  later and not yet playable goes here until its own proof is written. */
+#define RSBS_XITEM2_HIDDEN 0u
 /** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
  *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
  *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. */
