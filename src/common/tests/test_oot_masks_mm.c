@@ -934,8 +934,7 @@ TestResult Test_OoTMasksMMItems(void) {
             MM_OoTMasksTest_PutBack();
 
             MM_OoTMasksTest_VoidOutRespawn(1);
-            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone &&
-                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE &&
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone && MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE &&
                           MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_NONE,
                       "#1452 func_808345C8 with Deku Mask did not clear worn Gerudo Mask (stored=%u, worn=%u, eq=%d)",
                       (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn(),
