@@ -2342,6 +2342,9 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_GTG_LAVA_JUMP, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
               "Gerudo Training Grounds Itemless Lava Room Jump",
               "A precise rolling jump can be used to jump between all but the furthest platforms in the lava room.");
+    OPT_TRICK(RT_GTG_STATUE_JUMP, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
+              "Gerudo Training Grounds Statue Room Jump",
+              "A precise rolling jump or a jump and jumpslash can be used to jump from the upper ledge to one of the pillars in the eye statue room.");
     OPT_TRICK(RT_LENS_GTG_MQ, RCQUEST_MQ, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::NOVICE },
               "Gerudo Training Ground MQ without Lens of Truth",
               "Removes the requirements for the Lens of Truth in Gerudo Training Ground MQ.");

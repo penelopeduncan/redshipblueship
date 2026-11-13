@@ -184,6 +184,8 @@ static_assert(RAND_INF_KF_WONDER_TRAINING_1 == 2238 &&
 static_assert(RHT_WONDER_ITEM_KOKIRI_FOREST == 1545 && RHT_GANONS_CASTLE_WONDER_ITEM == 1570,
               "OoT's wonder item hint texts (#1405) are 1545..1570, appended after the silver rupees'");
 static_assert(RSK_SHUFFLE_WONDER_ITEMS == 236, "OoT's Shuffle Wonder Items key (#1405) is 236, after #1363's");
+static_assert(RT_GTG_STATUE_JUMP == RT_DMT_SHIELDLESS_CLIMB + 1,
+              "OoT's RT_GTG_STATUE_JUMP (#1405) is appended after RT_DMT_SHIELDLESS_CLIMB");
 // #1363's carve (context.h growth rule 2, layout revision 3): the 22 one-byte silver
 // counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
 // 24. Every member is one byte, so these offsets hold on every compiler.

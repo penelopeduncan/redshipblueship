@@ -381,6 +381,10 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                             ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
                             continue;
                         }
+                        if (trickOption->GetKey() == RT_GTG_STATUE_JUMP &&
+                            ctx->GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
+                            continue;
+                        }
                         settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
                     } else {
 #ifdef RSBS_SINGLE_EXECUTABLE

@@ -178,6 +178,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 if (trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
                     continue;
                 }
+                if (trick->GetKey() == RT_GTG_STATUE_JUMP && world.GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
+                    continue;
+                }
             } else if (!excludes) {
                 if (option->GetKey() == RSK_TIME_TRAVEL_REQUIRES_MASTER_SWORD && !OoT_TimeTravelSword_RuleCanBlock()) {
                     continue;
