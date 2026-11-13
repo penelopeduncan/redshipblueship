@@ -1221,6 +1221,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // progression item of both games classifies, descriptors round-trip, and the
 // collision table matches the asset trees. FILE SCOPE (compiled as C++).
 #include "tests/test_foreign_model.c"
+// OoT hosting MM's copies of OoT's Gerudo, Skull and Spooky Masks (#1452 item 3,
+// #1568): MM's registered ids draw OoT's own mask rows under the mount check.
+// FILE SCOPE (compiled as C++).
+#include "tests/test_oot_host_mm_masks.c"
 // Wearing the other game's masks (#977): the worn-mask table and its curated
 // models, both games' equip rules, the fields' persistence, and OoT's list-based
 // child trade cycle. FILE SCOPE (compiled as C++).
@@ -1242,6 +1246,7 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // rule-gated ownership, the shared pairs, the wear path and the actor seam
 // (oot-masks-mm-items). FILE SCOPE (compiled as C++), after the Stone Mask's.
 #include "tests/test_oot_masks_mm.c"
+#include "tests/test_oot_masks_mm_pool.c"
 // #1169 lane XW2: the second cross-game rules word and its fourteen hidden
 // warp-song keys (combo-item-rules-second-word, needs the CVar store), and the
 // rules-off world staying main's byte for byte (rules-off-goldens-unchanged).
@@ -6660,6 +6665,17 @@ static TestResult Test_PresetsSkipNonJson(void) {
     return Soh_PresetsSkipNonJson_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/soh_write_file_safely_test.cpp (#1467 item 2):
+// SaveManager::WriteFileSafely, Presets_WriteFile and
+// Plandomizer_WriteSpoilerFile write atomically via <target>.tmp and leave the
+// target intact when the temp path cannot be opened. No bring-up: the helpers
+// read no CVars or Ship::Context.
+extern "C" int Soh_WriteFileSafelyWriters_RunHeadless(void);
+
+static TestResult Test_WriteFileSafelyWriters(void) {
+    return Soh_WriteFileSafelyWriters_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's presentation half. Same display-free shared bring-up as the row above,
 // for the same reason: AddMenuCombo registers rows whose PreFuncs and option
 // defaults read the Ship::Context singleton's ConsoleVariables, and this row also
@@ -9055,6 +9071,20 @@ TestResult Test_OoTMasksMMLogic(void) {
     }
     return MM_OoTMasksLogic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1569: MM pool counts for OoT's masks under frozen rules (tests/test_oot_masks_mm_pool.c),
+// using Test_RandoArmedCapsDigest's bring-up (InitOTRForMMFirstBoot + MM_Rando_InitCore).
+TestResult Test_OoTMasksMMPool(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+    MM_Rando_InitCore();
+    return OmmpRunPoolChecks();
+}
 // #1169 XW9: MM's half of the travel-fact locks over MM's real region graph
 // (games/mm/2s2h/mm_warp_travel_test.cpp). Same bring-up as mm-logic-gates;
 // skipped by `--test all` below because it rebinds MM's rando graph.
@@ -10419,6 +10449,9 @@ const TestDescriptor gTests[] = {
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
+    { "write-file-safely-writers",
+      "WriteFileSafely, Presets and Plandomizer write via temp+rename and keep target on failure (#1467)",
+      Test_WriteFileSafelyWriters },
     { "rando-presets-follow-defaults",
       "The shipped Standard and Beginner presets pin no option whose default the D wave moved to OoTMM's, and "
       "reset the paired profile (operator ruling 2026-11-05)",
@@ -10776,6 +10809,11 @@ const TestDescriptor gTests[] = {
       "Under their frozen rules the Skull Mask opens the Deku Palace, the Gerudo Mask gets past the purple guard, "
       "and the Spooky Mask passes the Gibdos at night only, in MM's real logic (#980)",
       Test_OoTMasksMMLogic },
+    // #1569. Needs InitOTRForMMFirstBoot + MM_Rando_InitCore; skipped by `--test all` like oot-masks-mm-logic.
+    { "oot-masks-mm-pool",
+      "MM's pool adds RI_MASK_GERUDO/SKULL/SPOOKY only under their frozen OoT-mask rules and keeps one copy under "
+      "each shared rule (#1569)",
+      Test_OoTMasksMMPool },
     // #1428. Needs a paired creation; skipped by `--test all` below like its siblings.
     { "rando-goal-gate-defaults",
       "OoT's Rainbow Bridge and Ganon's Boss Key ship at OoTMM's defaults (Medallions, all six; Start With) on a "
@@ -10932,6 +10970,10 @@ const TestDescriptor gTests[] = {
       "games classifies to a descriptor of its own display lists, a host-native model or a named no-model, "
       "descriptors round-trip, and the collision table matches both asset trees (#577 M2)",
       Test_ForeignModel },
+    { "oot-host-mm-masks-model",
+      "MM's registered copies of OoT's Gerudo, Skull and Spooky Masks draw OoT's own mask rows in OoT under the mount "
+      "check, while other MM items answer as before (#1452 item 3, #1568)",
+      Test_OoTHostMMMasksModel },
     { "foreign-mask-table",
       "Each game wears three of the other's masks: every mask is hosted by the other game, its worn list and icon are "
       "curated in the host's half, its rule bits are the item rules record's, it is wearable only under its frozen "
@@ -10979,6 +11021,10 @@ const TestDescriptor gTests[] = {
       "frozen rule, pair into one bag row under the shared rule, are worn from a cell whose own mask is not owned, "
       "and OoTMM's actors read them for exactly their update (#980)",
       Test_OoTMasksMMItems },
+    // #1569. Reads C++ static-init OwnedSource before ShipInit/OnSaveLoad; skipped by `--test all` below.
+    { "oot-masks-mm-owned-source",
+      "MM's static-init registrar sets OwnedSource before ShipInit, MM_Rando_InitCore, or OnSaveLoad runs (#1569)",
+      Test_OoTMasksMMOwnedSource },
     // #1169 XW2: the second cross-game rules word. The first needs the CVar store
     // (its wrapper brings it up); the second is ROM-free and store-free.
     { "combo-item-rules-second-word",
@@ -11624,6 +11670,10 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
                 strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "oot-masks-mm-pool") == 0 ||
+                // #1569: each CTest row is its own process, so the first thing it reads is the static-init state;
+                // under `--test all`, FmResetAll clears sOwnedSources[GAME_MM] in-process.
+                strcmp(gTests[i].name, "oot-masks-mm-owned-source") == 0 ||
                 strcmp(gTests[i].name, "mm-warp-travel-edges") == 0 ||
                 strcmp(gTests[i].name, "combo-warp-travel-rounds") == 0 ||
                 strcmp(gTests[i].name, "combo-warp-song-world") == 0 ||

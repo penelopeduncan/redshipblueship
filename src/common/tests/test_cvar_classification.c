@@ -460,6 +460,336 @@ std::vector<std::string> CvarClassTwoShipUnlisted(const std::vector<CvarClassMmD
     return unlisted;
 }
 
+// ---- (3f-6) helpers: every converged, translated and shared-intent key has a SoH row writer (#1272, #966) ----
+
+/// One `#define RSBS_CVAR_<NAME> "<key>"` in src/common/cvar_shared_keys.h whose value is one string literal.
+struct CvarClassRowWritesDefine {
+    std::string name;
+    std::string key;
+};
+
+/// Collects every `#define RSBS_CVAR_* "<key>"` in @p keysText (comments stripped) whose value is one literal.
+std::vector<CvarClassRowWritesDefine> CvarClassRowWritesRsbsDefines(const std::string& keysText) {
+    std::vector<CvarClassRowWritesDefine> defines;
+    const std::string code = CvarClassStripComments(keysText);
+    const std::string marker = "#define RSBS_CVAR_";
+    for (std::size_t p = code.find(marker); p != std::string::npos; p = code.find(marker, p + 1)) {
+        if (p > 0 && code[p - 1] != '\n') {
+            std::size_t ls = p;
+            while (ls > 0 && (code[ls - 1] == ' ' || code[ls - 1] == '\t')) {
+                ls--;
+            }
+            if (ls > 0 && code[ls - 1] != '\n') {
+                continue;
+            }
+        }
+        std::size_t nameEnd = p + std::strlen("#define ");
+        while (nameEnd < code.size() && CvarClassIsIdentChar(code[nameEnd])) {
+            nameEnd++;
+        }
+        const std::string name = code.substr(p + std::strlen("#define "), nameEnd - p - std::strlen("#define "));
+        const std::size_t lineEnd = code.find('\n', nameEnd);
+        std::string value = code.substr(nameEnd, lineEnd == std::string::npos ? std::string::npos : lineEnd - nameEnd);
+        const std::size_t first = value.find_first_not_of(" \t\r");
+        const std::size_t last = value.find_last_not_of(" \t\r");
+        value = first == std::string::npos ? std::string() : value.substr(first, last - first + 1);
+        if (value.size() >= 2 && value.front() == '"' && value.back() == '"' &&
+            value.find('"', 1) == value.size() - 1) {
+            defines.push_back({ name, value.substr(1, value.size() - 2) });
+        }
+    }
+    return defines;
+}
+
+std::size_t CvarClassRowWritesSkipSpace(const std::string& code, std::size_t pos) {
+    while (pos < code.size() && (code[pos] == ' ' || code[pos] == '\t' || code[pos] == '\r' || code[pos] == '\n')) {
+        pos++;
+    }
+    return pos;
+}
+
+std::size_t CvarClassRowWritesReadStringLiteral(const std::string& code, std::size_t openQuote, std::string& out) {
+    out.clear();
+    for (std::size_t i = openQuote + 1; i < code.size(); i++) {
+        if (code[i] == '\\' && i + 1 < code.size()) {
+            out.push_back(code[i]);
+            out.push_back(code[i + 1]);
+            i++;
+        } else if (code[i] == '"') {
+            return i + 1;
+        } else {
+            out.push_back(code[i]);
+        }
+    }
+    return std::string::npos;
+}
+
+std::size_t CvarClassRowWritesMatchingParen(const std::string& code, std::size_t open) {
+    int depth = 0;
+    for (std::size_t r = open; r < code.size(); r++) {
+        const char c = code[r];
+        if (c == '"' || c == '\'') {
+            for (r++; r < code.size() && code[r] != c; r++) {
+                if (code[r] == '\\') {
+                    r++;
+                }
+            }
+        } else if (c == '(') {
+            depth++;
+        } else if (c == ')' && --depth == 0) {
+            return r;
+        }
+    }
+    return std::string::npos;
+}
+
+struct CvarClassRowWritesMacro {
+    std::string macro;
+    std::string suffix;
+};
+
+CvarClassRowWritesMacro CvarClassRowWritesPrefixMacro(const std::string& key) {
+    struct PrefixMacro {
+        const char* prefix;
+        const char* macro;
+    };
+    static constexpr PrefixMacro kMacros[] = {
+        { "gEnhancements.", "CVAR_ENHANCEMENT" },
+        { "gSettings.", "CVAR_SETTING" },
+        { "gCheats.", "CVAR_CHEAT" },
+        { "gDeveloperTools.", "CVAR_DEVELOPER_TOOLS" },
+        { "gAudioEditor.", "CVAR_AUDIO" },
+        { "gRandoEnhancements.", "CVAR_RANDOMIZER_ENHANCEMENT" },
+    };
+    for (const PrefixMacro& m : kMacros) {
+        const std::size_t len = std::strlen(m.prefix);
+        if (key.compare(0, len, m.prefix) == 0) {
+            return { m.macro, key.substr(len) };
+        }
+    }
+    return { "", "" };
+}
+
+std::string CvarClassRowWritesCosmeticLeaf(const std::string& key) {
+    const char* const kPrefix = "gCosmetics.";
+    const char* const kSuffix = ".Value";
+    const std::size_t prefixLen = std::strlen(kPrefix);
+    const std::size_t suffixLen = std::strlen(kSuffix);
+    if (key.size() > prefixLen + suffixLen && key.compare(0, prefixLen, kPrefix) == 0 &&
+        key.compare(key.size() - suffixLen, suffixLen, kSuffix) == 0) {
+        return key.substr(prefixLen, key.size() - prefixLen - suffixLen);
+    }
+    return "";
+}
+
+std::vector<std::string> CvarClassRowWritesDefineNames(const std::string& key,
+                                                       const std::vector<CvarClassRowWritesDefine>& defines) {
+    std::vector<std::string> names;
+    for (const CvarClassRowWritesDefine& d : defines) {
+        if (d.key == key) {
+            names.push_back(d.name);
+        }
+    }
+    return names;
+}
+
+std::string CvarClassRowWritesDescribeForms(const std::string& key,
+                                            const std::vector<CvarClassRowWritesDefine>& defines) {
+    std::string out = "\"" + key + "\"";
+    const CvarClassRowWritesMacro pm = CvarClassRowWritesPrefixMacro(key);
+    if (!pm.macro.empty()) {
+        out += ", " + pm.macro + "(\"" + pm.suffix + "\")";
+    }
+    for (const std::string& name : CvarClassRowWritesDefineNames(key, defines)) {
+        out += ", " + name;
+    }
+    const std::string leaf = CvarClassRowWritesCosmeticLeaf(key);
+    if (!leaf.empty()) {
+        out += ", COSMETIC_OPTION(\"" + leaf + "\", ...)";
+    }
+    return out;
+}
+
+bool CvarClassRowWritesArgListMatches(const std::string& code, std::size_t open, std::size_t close,
+                                      const std::string& key, const CvarClassRowWritesMacro& pm,
+                                      const std::vector<std::string>& defineNames) {
+    std::size_t i = open + 1;
+    std::string lit;
+    while (i < close) {
+        const char c = code[i];
+        if (c == '"') {
+            const std::size_t next = CvarClassRowWritesReadStringLiteral(code, i, lit);
+            if (next == std::string::npos) {
+                break;
+            }
+            if (lit == key) {
+                return true;
+            }
+            i = next;
+        } else if (c == '\'') {
+            for (i++; i < close && code[i] != '\''; i++) {
+                if (code[i] == '\\') {
+                    i++;
+                }
+            }
+            i++;
+        } else if (CvarClassIsIdentChar(c) && (c < '0' || c > '9')) {
+            std::size_t end = i + 1;
+            while (end < close && CvarClassIsIdentChar(code[end])) {
+                end++;
+            }
+            const std::string ident = code.substr(i, end - i);
+            for (const std::string& def : defineNames) {
+                if (ident == def) {
+                    return true;
+                }
+            }
+            if (!pm.macro.empty() && ident == pm.macro) {
+                const std::size_t pOpen = CvarClassRowWritesSkipSpace(code, end);
+                if (pOpen < close && code[pOpen] == '(') {
+                    const std::size_t qStart = CvarClassRowWritesSkipSpace(code, pOpen + 1);
+                    if (qStart < close && code[qStart] == '"') {
+                        const std::size_t qEnd = CvarClassRowWritesReadStringLiteral(code, qStart, lit);
+                        if (qEnd != std::string::npos && qEnd < close && lit == pm.suffix) {
+                            const std::size_t pClose = CvarClassRowWritesSkipSpace(code, qEnd);
+                            if (pClose < close && code[pClose] == ')') {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+            i = end;
+        } else {
+            i++;
+        }
+    }
+    return false;
+}
+
+/// Brackets the second top-level argument of the call whose parentheses sit at @p open / @p close: on success
+/// @p argOpen is the comma before it and @p argClose the comma or `)` after it, the exclusive bounds
+/// CvarClassRowWritesArgListMatches reads. Returns false when the call has fewer than two arguments.
+bool CvarClassRowWritesSecondArg(const std::string& code, std::size_t open, std::size_t close, std::size_t& argOpen,
+                                 std::size_t& argClose) {
+    int depth = 0;
+    int commas = 0;
+    for (std::size_t r = open + 1; r < close; r++) {
+        const char c = code[r];
+        if (c == '"' || c == '\'') {
+            for (r++; r < close && code[r] != c; r++) {
+                if (code[r] == '\\') {
+                    r++;
+                }
+            }
+        } else if (c == '(' || c == '[' || c == '{') {
+            depth++;
+        } else if (c == ')' || c == ']' || c == '}') {
+            depth--;
+        } else if (c == ',' && depth == 0) {
+            commas++;
+            if (commas == 1) {
+                argOpen = r;
+            } else {
+                argClose = r;
+                return true;
+            }
+        }
+    }
+    if (commas == 1) {
+        argClose = close;
+        return true;
+    }
+    return false;
+}
+
+/// Does comment-stripped @p code bind @p key through `.CVar(<form>)` (including member calls), or through
+/// `UIWidgets::CVar*(...)` / bare `CVarCheckbox(` / `CVarSlider*(` / `CVarCombobox(` with `<form>` as the second
+/// (cvarName) argument, or `COSMETIC_OPTION("<leaf>", ...)`?
+bool CvarClassRowWritesKeyInCode(const std::string& code, const std::string& key,
+                                 const std::vector<CvarClassRowWritesDefine>& defines) {
+    const CvarClassRowWritesMacro pm = CvarClassRowWritesPrefixMacro(key);
+    const std::vector<std::string> defineNames = CvarClassRowWritesDefineNames(key, defines);
+
+    for (std::size_t p = code.find("CVar"); p != std::string::npos; p = code.find("CVar", p + 1)) {
+        const bool isUiWidgets =
+            p >= 11 && code.compare(p - 11, 11, "UIWidgets::") == 0 && (p == 11 || !CvarClassIsIdentChar(code[p - 12]));
+        if (!isUiWidgets && p > 0 && CvarClassIsIdentChar(code[p - 1])) {
+            continue;
+        }
+        std::size_t q = p + 4;
+        while (q < code.size() && CvarClassIsIdentChar(code[q])) {
+            q++;
+        }
+        const std::string name = code.substr(p, q - p);
+        const bool isPageDot =
+            name == "CVar" && ((p > 0 && code[p - 1] == '.') || (p >= 2 && code[p - 2] == '-' && code[p - 1] == '>'));
+        const bool isBareWidget =
+            name == "CVarCheckbox" || name == "CVarCombobox" || name.compare(0, 10, "CVarSlider") == 0;
+        if (!isUiWidgets && !isPageDot && !isBareWidget) {
+            continue;
+        }
+        const std::size_t open = CvarClassRowWritesSkipSpace(code, q);
+        if (open >= code.size() || code[open] != '(') {
+            continue;
+        }
+        const std::size_t close = CvarClassRowWritesMatchingParen(code, open);
+        if (close == std::string::npos) {
+            continue;
+        }
+        // `.CVar(<form>)` takes the key as its only argument. Every UIWidgets CVar widget takes it as its second
+        // (label, cvarName, ...), so only that argument counts: a key merely READ inside another widget's options
+        // (`.Disabled(CVarGetInteger(<form>, 0))`, a callback) is not a writer.
+        std::size_t argOpen = open;
+        std::size_t argClose = close;
+        if (!isPageDot && !CvarClassRowWritesSecondArg(code, open, close, argOpen, argClose)) {
+            continue;
+        }
+        if (CvarClassRowWritesArgListMatches(code, argOpen, argClose, key, pm, defineNames)) {
+            return true;
+        }
+    }
+
+    const std::string leaf = CvarClassRowWritesCosmeticLeaf(key);
+    if (!leaf.empty()) {
+        const char* const kCosmeticMacro = "COSMETIC_OPTION";
+        const std::size_t macroLen = std::strlen(kCosmeticMacro);
+        std::string lit;
+        for (std::size_t p = code.find(kCosmeticMacro); p != std::string::npos; p = code.find(kCosmeticMacro, p + 1)) {
+            if ((p > 0 && CvarClassIsIdentChar(code[p - 1])) ||
+                (p + macroLen < code.size() && CvarClassIsIdentChar(code[p + macroLen]))) {
+                continue;
+            }
+            const std::size_t open = CvarClassRowWritesSkipSpace(code, p + macroLen);
+            if (open >= code.size() || code[open] != '(') {
+                continue;
+            }
+            const std::size_t qStart = CvarClassRowWritesSkipSpace(code, open + 1);
+            if (qStart >= code.size() || code[qStart] != '"') {
+                continue;
+            }
+            const std::size_t qEnd = CvarClassRowWritesReadStringLiteral(code, qStart, lit);
+            if (qEnd != std::string::npos && lit == leaf) {
+                const std::size_t after = CvarClassRowWritesSkipSpace(code, qEnd);
+                if (after < code.size() && code[after] == ',') {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+bool CvarClassRowWritesKeyInTree(const std::vector<std::string>& ootMenuCode, const std::string& key,
+                                 const std::vector<CvarClassRowWritesDefine>& defines) {
+    for (const std::string& code : ootMenuCode) {
+        if (CvarClassRowWritesKeyInCode(code, key, defines)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 #endif // RSBS_SOURCE_DIR
 
@@ -2471,6 +2801,188 @@ TestResult Test_CVarClassification(void) {
                     return TEST_FAIL;
                 }
             }
+        }
+
+        // (3f-6) #966 class lock slice 1 (#1272): EVERY converged key (kConvergedKeys[].canonical), distinct translated
+        // key (kTranslatedKeys[].ootKey) and shared-intent key (kSharedIntentKeys[]) must have a production writer row
+        // under games/oot/soh, unless listed in kCvarClassRowWriterExceptions with its actual writer (or "none") and
+        // reason. Tests (*_test.*) and soh_ui_snapshot.cpp are excluded; comments are stripped first.
+        {
+            bool sohOk = false;
+            const std::vector<CvarClassSourceFile> sohFiles =
+                CvarClassSlurpTreeWithPaths(sourceRoot / "games" / "oot" / "soh", sohOk);
+            CVARCLASS_CHECK(sohOk && !sohFiles.empty(), "(3f-6) could not scan games/oot/soh for SoH row writers");
+            std::vector<std::string> ootMenuCode;
+            for (const CvarClassSourceFile& f : sohFiles) {
+                const std::string& p = f.relPath;
+                if (p.find("_test.") == std::string::npos && p.find("soh_ui_snapshot.cpp") == std::string::npos) {
+                    ootMenuCode.push_back(CvarClassStripComments(f.text));
+                }
+            }
+            std::ifstream keysFile(sourceRoot / "src" / "common" / "cvar_shared_keys.h", std::ios::binary);
+            CVARCLASS_CHECK(keysFile.is_open(), "(3f-6) could not open src/common/cvar_shared_keys.h");
+            const std::string keysText((std::istreambuf_iterator<char>(keysFile)), std::istreambuf_iterator<char>());
+            const std::vector<CvarClassRowWritesDefine> rsbsDefines = CvarClassRowWritesRsbsDefines(keysText);
+            CVARCLASS_CHECK(!rsbsDefines.empty(), "(3f-6) found no RSBS_CVAR_* literal defines in cvar_shared_keys.h");
+
+            struct WalkedRowKey {
+                const char* table;
+                const char* key;
+            };
+            auto formatMissing = [&](const char* table, const char* key) {
+                return std::string("table ") + table + ": key \"" + key + "\" has no SoH row writer (tried " +
+                       CvarClassRowWritesDescribeForms(key, rsbsDefines) + ")";
+            };
+
+            // The control, observed on every run: a synthetic unbound key in a comment is reported (naming the key,
+            // its table and the forms tried), and so is a key only READ inside another widget's options; while a
+            // synthetic .CVar(CVAR_ENHANCEMENT("RsbsWriterControl")) binding, a synthetic
+            // COSMETIC_OPTION("RsbsWriterControl", ...) binding and a bare CVarCheckbox(label, <key>, ...) binding
+            // are not.
+            {
+                const std::vector<std::string> controlMenu = { CvarClassStripComments(
+                    "void Draw() {\n"
+                    "    menu.AddWidget(path, \"Bound\", WIDGET_CVAR_CHECKBOX)\n"
+                    "        .CVar(CVAR_ENHANCEMENT(\"RsbsWriterControl\"));\n"
+                    "    COSMETIC_OPTION(\"RsbsWriterControl\", \"Control\", GROUP, ColorRGBA8(0, 0, 0, 255), "
+                    "false, false, false),\n"
+                    "    CVarCheckbox(\"Bare\", CVAR_ENHANCEMENT(\"RsbsWriterBare\"),\n"
+                    "                 CheckboxOptions({ { .disabled = CVarGetInteger(CVAR_ENHANCEMENT("
+                    "\"RsbsWriterReadOnly\"), 0) } }));\n"
+                    "    // menu.AddWidget(path, \"Commented\", WIDGET_CVAR_CHECKBOX)"
+                    ".CVar(CVAR_ENHANCEMENT(\"RsbsWriterUnbound\"));\n"
+                    "}\n") };
+                static constexpr WalkedRowKey kControlRows[] = {
+                    { "control", "gEnhancements.RsbsWriterUnbound" },
+                    { "control", "gEnhancements.RsbsWriterControl" },
+                    { "control", "gCosmetics.RsbsWriterControl.Value" },
+                    { "control", "gEnhancements.RsbsWriterBare" },
+                    { "control", "gEnhancements.RsbsWriterReadOnly" },
+                };
+                std::vector<std::string> controlBreaches;
+                for (const WalkedRowKey& row : kControlRows) {
+                    if (!CvarClassRowWritesKeyInTree(controlMenu, row.key, rsbsDefines)) {
+                        controlBreaches.push_back(formatMissing(row.table, row.key));
+                    }
+                }
+                const bool controlOk =
+                    controlBreaches.size() == 2 &&
+                    controlBreaches[0].find("gEnhancements.RsbsWriterUnbound") != std::string::npos &&
+                    controlBreaches[0].find("control") != std::string::npos &&
+                    controlBreaches[0].find("CVAR_ENHANCEMENT(\"RsbsWriterUnbound\")") != std::string::npos &&
+                    controlBreaches[1].find("gEnhancements.RsbsWriterReadOnly") != std::string::npos;
+                CVARCLASS_CHECK(controlOk,
+                                "(3f-6) control: synthetic writer check did not report exactly the unbound and the "
+                                "read-only key with their table and tried forms, so this leg's green would prove "
+                                "nothing");
+            }
+
+            struct CvarClassRowWriterException {
+                const char* key;
+                const char* writer;
+                const char* reason;
+            };
+            static constexpr CvarClassRowWriterException kCvarClassRowWriterExceptions[] = {
+                { "gDeveloperTools.FrameAdvanceTick", "SohGui/SohMenuDevTools.cpp",
+                  "Advance 1 / Advance (Hold) button callbacks write it via CVarSetInteger; no widget CVar binding" },
+                { "gSettings.DisableChanges", "none",
+                  "race-lockout CVar read by menus and windows; set externally or via console/config, no UI row "
+                  "writes it" },
+                { "gSettings.Menu.PoppedWidth", "SohGui/Menu.cpp",
+                  "menu-shell geometry written directly by CVarSetFloat on resize/popout, not a menu row" },
+                { "gSettings.Menu.PoppedHeight", "SohGui/Menu.cpp",
+                  "menu-shell geometry written directly by CVarSetFloat on resize/popout, not a menu row" },
+                { "gSettings.Menu.PoppedPos.x", "SohGui/Menu.cpp",
+                  "menu-shell geometry written directly by CVarSetFloat on popout, not a menu row" },
+                { "gSettings.Menu.PoppedPos.y", "SohGui/Menu.cpp",
+                  "menu-shell geometry written directly by CVarSetFloat on popout, not a menu row" },
+                { "gInputViewer.", "Enhancements/controls/InputViewer.cpp",
+                  "shared CVAR_INPUT_VIEWER macro prefix, not a scalar key; individual keys are bound in "
+                  "InputViewer.cpp" },
+            };
+
+            std::vector<WalkedRowKey> walkedKeys;
+            for (std::size_t i = 0; i < RSBS::kConvergedKeyCount; i++) {
+                walkedKeys.push_back({ "RSBS::kConvergedKeys", RSBS::kConvergedKeys[i].canonical });
+            }
+            std::vector<std::string> distinctTranslated;
+            for (std::size_t i = 0; i < RSBS::kTranslatedKeyCount; i++) {
+                const char* const ootKey = RSBS::kTranslatedKeys[i].ootKey;
+                if (std::find(distinctTranslated.begin(), distinctTranslated.end(), ootKey) ==
+                    distinctTranslated.end()) {
+                    distinctTranslated.push_back(ootKey);
+                    walkedKeys.push_back({ "RSBS::kTranslatedKeys", ootKey });
+                }
+            }
+            for (std::size_t i = 0; i < RSBS::kSharedIntentKeyCount; i++) {
+                walkedKeys.push_back({ "RSBS::kSharedIntentKeys", RSBS::kSharedIntentKeys[i] });
+            }
+
+            std::vector<std::string> seenExceptions;
+            for (const CvarClassRowWriterException& ex : kCvarClassRowWriterExceptions) {
+                CVARCLASS_CHECK(ex.key != nullptr && ex.key[0] != '\0' && ex.writer != nullptr &&
+                                    ex.writer[0] != '\0' && ex.reason != nullptr && ex.reason[0] != '\0',
+                                "(3f-6) a kCvarClassRowWriterExceptions entry has an empty key, writer, or reason");
+                if (std::find(seenExceptions.begin(), seenExceptions.end(), ex.key) != seenExceptions.end()) {
+                    printf("[TEST] FAIL: (3f-6) duplicate kCvarClassRowWriterExceptions entry for \"%s\".\n", ex.key);
+                    return TEST_FAIL;
+                }
+                seenExceptions.push_back(ex.key);
+                bool inTables = false;
+                for (const WalkedRowKey& row : walkedKeys) {
+                    if (std::strcmp(row.key, ex.key) == 0) {
+                        inTables = true;
+                        break;
+                    }
+                }
+                if (!inTables) {
+                    printf("[TEST] FAIL: (3f-6) stale/unknown exception \"%s\" in kCvarClassRowWriterExceptions: "
+                           "present in none of RSBS::kConvergedKeys, RSBS::kTranslatedKeys, or "
+                           "RSBS::kSharedIntentKeys.\n",
+                           ex.key);
+                    return TEST_FAIL;
+                }
+                if (CvarClassRowWritesKeyInTree(ootMenuCode, ex.key, rsbsDefines)) {
+                    printf("[TEST] FAIL: (3f-6) stale exception \"%s\" in kCvarClassRowWriterExceptions: a "
+                           "production row under games/oot/soh now binds it; remove the exception row.\n",
+                           ex.key);
+                    return TEST_FAIL;
+                }
+            }
+
+            std::size_t boundCount = 0;
+            std::size_t exceptedCount = 0;
+            std::vector<std::string> writerBreaches;
+            for (const WalkedRowKey& row : walkedKeys) {
+                bool excepted = false;
+                for (const CvarClassRowWriterException& ex : kCvarClassRowWriterExceptions) {
+                    if (std::strcmp(row.key, ex.key) == 0) {
+                        excepted = true;
+                        break;
+                    }
+                }
+                if (excepted) {
+                    exceptedCount++;
+                    continue;
+                }
+                if (CvarClassRowWritesKeyInTree(ootMenuCode, row.key, rsbsDefines)) {
+                    boundCount++;
+                } else {
+                    writerBreaches.push_back(formatMissing(row.table, row.key));
+                }
+            }
+            for (const std::string& b : writerBreaches) {
+                printf("[TEST] FAIL: (3f-6) %s.\n", b.c_str());
+            }
+            if (!writerBreaches.empty()) {
+                printf("[TEST]       Every converged, translated, and shared-intent key must have a production row "
+                       "writer under games/oot/soh or an entry in kCvarClassRowWriterExceptions (#966, #1272).\n");
+                return TEST_FAIL;
+            }
+            printf("[TEST]   (3f-6) SoH row writers: walked %zu converged + %zu translated + %zu shared-intent "
+                   "key(s); %zu bound, %zu excepted\n",
+                   RSBS::kConvergedKeyCount, distinctTranslated.size(), RSBS::kSharedIntentKeyCount, boundCount,
+                   exceptedCount);
         }
 
         // (3g) The tier-4 namespace is CLASSIFIED (ADR 0004 §6's scope note;
