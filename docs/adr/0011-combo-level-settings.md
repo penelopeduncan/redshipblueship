@@ -2288,7 +2288,7 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   fingerprint or generator version changes: the bits were allocated and frozen by
   XW2, and a world with every rule off is the same world.
 - **2026-11-12, XW14.** The shared songs' owed proof and their readers, then the
-  unhide, as its own last commit. The integration row IntMMWarpSongMinuetShared
+  unhide as its own commit (0c1bdaddf), followed by four review fixes. The integration row IntMMWarpSongMinuetShared
   is IntMMWarpSongMinuet with `sharedSongMinuet` on: Ocarina of Time is given its
   own Minuet before the Happy Mask Shop door, the Majora's Mask drive gives
   nothing, and before the song is played Majora's Mask's arrival apply must have

@@ -119,8 +119,9 @@
   in Termina, OK on the prompt takes you to the song's place in Hyrule. Both games' logic counts the warp.
 - **Shared Cross-Game Songs** (issue #1169). Seven more rows, Shared Song of Soaring to Shared Prelude of Light, off by
   default; each is greyed until its song is added. Under one of them the song is one item for both games: it is placed
-  once, learning it in either game teaches it in both, both games' trackers show it held, and the added copy is named
-  without "(OoT)" or "(MM)". Sharing a song frees one song check under Shuffle Songs: Song Locations and Dungeon
+  once, learning it in either game teaches it in both, both games' trackers show it held, and in item messages and
+  the trackers the added copy is named without "(OoT)" or "(MM)" (hints and spoiler logs still show the tag, issue
+  #1560). Sharing a song frees one song check under Shuffle Songs: Song Locations and Dungeon
   Rewards. With Shuffle Songs: Off a shared song stays at its usual place (Sheik's songs at Sheik, the Song of Soaring
   in the Southern Swamp) and both games' logic counts it from there.
 

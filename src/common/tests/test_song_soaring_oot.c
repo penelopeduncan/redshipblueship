@@ -43,7 +43,8 @@
  *   rando tier) -- THE POOL, over real paired OoT generations. Rule off: no copy
  *   anywhere in OoT's world. Rule on (offered since XW12, no seam): exactly one
  *   copy, under Shuffle Songs Anywhere and Off. Rule and shared rule on (offered
- *   since XW14, no seam): none (the family path, held back). Then its hint text names it and OoT's REAL give sets
+ *   since XW14, no seam): none (OoT pools no copy under the shared rule:
+ *   Combo_SongSoaringOoTCopies). Then its hint text names it and OoT's REAL give sets
  *   its flag and nothing else.
  *
  *   song-locations-overflow-refused (CTest SongLocationsOverflowRefused, rando

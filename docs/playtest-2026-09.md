@@ -336,7 +336,7 @@ None of this has been played by hand. The rule lives under Randomizer > Cross-Ga
 4. **Dungeon Rewards.** Set Shuffle Songs to Dungeon Rewards with Song of Soaring (OoT) on: Generate should refuse with "Not generated: too many songs for the song spots." Turn on a Shared song or start with an Ocarina of Time song and it should create.
 5. **Save and reload.** Save during play, quit, relaunch and load: the rule should come back exactly as it was (a toast names it if it was restored), and the song should still play.
 
-Report: a song that plays but does nothing, a wrong destination, arriving as an adult, a seed the logic says needs a warp you could not make, and anything the trackers or pause screens get wrong beyond the expected gap (no rows for these songs in the Combo Tracker, the Combo Item Tracker or either pause screen until lane XW11).
+Report: a song that plays but does nothing, a wrong destination, arriving as an adult, a seed the logic says needs a warp you could not make, and anything the trackers or pause screens get wrong beyond the expected gaps (neither pause screen has a row for an added song; hints and spoiler logs still show a shared song's "(OoT)" / "(MM)" tag). Do report a Combo Item Tracker row that shows a shared song as not held in one game while the other game holds it.
 
 ## 4. What to report, and how
 

@@ -3090,9 +3090,10 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * never sees them, and the songs family is not armed for them; the coordinator
  * credits Majora's Mask with each when its check is reached
  * (OoT_ComboLogic_FixedSharedSongHost). The shared Song of Soaring stays on Majora's
- * Mask's swamp check and OoT pools no copy of it. The only song in OoT's pool under
- * Off is an unshared Song of Soaring (OoT), which roams and which Link's Pocket may
- * take. The first word's shared songs keep the release.
+ * Mask's swamp check and OoT pools no copy of it. The only WARP song in OoT's pool
+ * under Off is an unshared Song of Soaring (OoT), which roams and which Link's
+ * Pocket may take. The first word's shared songs keep the release, so one of them
+ * is in the pool under Off too (#1552, #1561).
  */
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX ||
