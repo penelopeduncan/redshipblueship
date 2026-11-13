@@ -155,6 +155,9 @@
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
+ * A0 and B0 are the exception in form: they hold everything but the event, and
+ * the sibling that proves the location reachable (A2, B2) sets the event and
+ * drops the letter, which is the point of those two legs.
  * Each probe sets logic->CurrentRegionKey to its region, as ProcessRegion does.
  */
 
