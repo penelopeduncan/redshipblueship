@@ -28,6 +28,9 @@
  *        notes (never an OoT song) and none lets a usable song complete before
  *        its last note; with the rules off the generator still produces OoT-song
  *        walls (the alternation is untouched).
+ *     M10 IntMMWarpSongMinuet's schedule (src/common/mm_warp_song_drive.h): its
+ *        pad bits are MM's BTN_* values, and Minuet played with the row's hold and
+ *        gap answers nothing on notes 1-5 and 0x80 on note 6 (#1169 XW13).
  *
  *   mm-warp-song-departure (CTest MMWarpSongDeparture, redship tier, same bring-up)
  *   over a private PlayState and a zeroed En_Test7 driven through the REAL
@@ -82,6 +85,7 @@ extern "C" int MM_WarpSongPlay_DepartureRunHeadless(void) {
 #include "context.h"
 #include "entrance.h"
 #include "foreign_items.h"
+#include "mm_warp_song_drive.h" // #1169 XW13: M10, the integration row's schedule
 #include "mm_warp_song_play.h"
 #include "warp_songs_mm.h"
 #include "2s2h/Rando/WarpSongsMM.h"
@@ -425,6 +429,42 @@ void WspMatcherLegs(PlayState* play) {
         WSP_CHECK(tag, sixth == kWspNoSong, "M8: the 6th note of the scarecrow's song answered 0x%02X\n", sixth);
         WSP_CHECK(tag, last == OCARINA_SONG_SCARECROW_SPAWN,
                   "M8: the scarecrow's song lost its 8th-note tie to a warp song (0x%02X)\n", last);
+    }
+
+    // M10. IntMMWarpSongMinuet's schedule (#1169 XW13): the drive presses MM's pad
+    // through padmgr's seam with these bits, each note held RSBS_MWD_NOTE_HOLD
+    // frames and released RSBS_MWD_NOTE_GAP. A gap under two frames would lose a
+    // note to MM_sOcarinaDropInputTimer; a wrong bit would play another note.
+    {
+        WSP_CHECK(tag,
+                  Combo_MMWarpDrive_PadButton(OCARINA_BTN_A) == BTN_A &&
+                      Combo_MMWarpDrive_PadButton(OCARINA_BTN_C_DOWN) == BTN_CDOWN &&
+                      Combo_MMWarpDrive_PadButton(OCARINA_BTN_C_RIGHT) == BTN_CRIGHT &&
+                      Combo_MMWarpDrive_PadButton(OCARINA_BTN_C_LEFT) == BTN_CLEFT &&
+                      Combo_MMWarpDrive_PadButton(OCARINA_BTN_C_UP) == BTN_CUP,
+                  "M10: the drive's pad bits are not MM's BTN_* values\n");
+        WspStartFreePlay(0);
+        const int n = Combo_MMWarpDrive_NoteCount(0);
+        int early = 0;
+        u8 last = kWspNoSong;
+        for (int i = 0; i < n; i++) {
+            const u16 pad = Combo_MMWarpDrive_NotePad(0, i);
+            WspFrame(pad);
+            const u8 state = MM_sPlayingStaff.state;
+            for (int f = 1; f < RSBS_MWD_NOTE_HOLD; f++) {
+                WspFrame(pad);
+            }
+            for (int f = 0; f < RSBS_MWD_NOTE_GAP; f++) {
+                WspFrame(0);
+            }
+            early += (i < n - 1 && state != kWspNoSong) ? 1 : 0;
+            last = state;
+        }
+        printf("[TEST] %s M10: Minuet at hold %d / gap %d -> last note 0x%02X, %d earlier answer(s)\n", tag,
+               RSBS_MWD_NOTE_HOLD, RSBS_MWD_NOTE_GAP, last, early);
+        WSP_CHECK(tag, n == 6 && early == 0 && last == Combo_MMWarpPlay_StaffState(0),
+                  "M10: the row's Minuet schedule does not answer 0x80 on its sixth note alone (0x%02X, %d early)\n",
+                  last, early);
     }
 
     // M9. The Termina wall.

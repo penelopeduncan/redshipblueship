@@ -256,6 +256,10 @@ set(REDSHIP_COMMON_SOURCES
     # Link holds a song in a game under its shared rule (the players' readers).
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_family.c
+    # #1169 XW13: the pure half of IntMMWarpSongMinuet: MM's test input seam
+    # (Combo_TestPad_Apply), the row's note schedule and its crossing decisions.
+    # Game-header-free. APPENDED, never reordered.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_drive.c
 )
 
 # Windows-specific: import thunks for libultraship compatibility
@@ -379,6 +383,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.h
     # Header for warp_song_family.c above (#1169 XW10)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_family.h
+    # Header for mm_warp_song_drive.c above (#1169 XW13)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_drive.h
 )
 
 # ============================================================================
@@ -2806,8 +2812,8 @@ if(BUILD_TESTING)
     # under Direction Off make 24 for 23 (both games named: the whole pool is
     # checked first), the same two with an OoT starting song refuse on MM's own 11
     # song checks, and one MM song under Off creates. Seven paired generations,
-    # every rule set by its key (the MM ones through the MM test seam: they stay
-    # hidden until IntMMWarpSongMinuet), so the
+    # every rule set by its key on the production mask (the MM ones offered since
+    # XW13), so the
     # TIMEOUT is raised from 900 for the four added legs.
     # (No leg excludes an OoT song check: SoH keeps song checks out of its exclude
     # list under Song Locations, so that state cannot be set up.)
@@ -3794,7 +3800,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
-    # songMinuetMm .. songPreludeMm, hidden until IntMMWarpSongMinuet, XW12). MMWarpSongsItems: the
+    # songMinuetMm .. songPreludeMm, offered since XW13). MMWarpSongsItems: the
     # ownership byte carved from the tail of ComboContext's reserved[] (1003,
     # ADR 0009 claim 21), the six RI ids appended after the masks, their rows and
     # names, MM's real give and conversion, rule-gated ownership, the copies rule,
@@ -3802,8 +3808,8 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # snapshot brackets. MMWarpSongsOwnershipSurvives: a starting song owned after
     # creation, an MM in-game save, a freeze, the .redsave reloads and the Song of
     # Time's real reset (XW12). Both bring up the CVar store.
-    # MMWarpSongsRulesOffUnchanged: every MM bit refused by name (the MM seam
-    # offers the extensions and still refuses the shared bits), a
+    # MMWarpSongsRulesOffUnchanged: every MM extension offered and each shared
+    # bit with it refused alone by name, a
     # rules-off world pools and credits nothing, and main's fingerprint, bag seeds
     # and package record with the byte at 0 or full. All three ROM-free.
     # MMWarpSongsPooledOnlyWhenRuleOn: `rando`, real paired creations, the shared
@@ -3828,6 +3834,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # #1169 XW13: the pure half IntMMWarpSongMinuet stands on (MM's test input seam
+    # Combo_TestPad_Apply, the Minuet schedule, the arm proofs, the expected OoT
+    # arrival), the setter's refusal outside an integration run, and the seam's
+    # place in MM's PadMgr_UpdateInputs by a function-scoped anchor. ROM-free,
+    # generating nothing, no bring-up. src/common/tests/test_mm_warp_drive.c.
+    redship_add_test(NAME MMWarpDriveSeam COMMAND redship --test mm-warp-drive-seam)
     # THE TRAVEL FACTS IN EACH GAME'S LOGIC (#1169 lane XW9). OoTWarpTravelEdges:
     # OoT's six RR_ROOT_EXITS warp exits over the real region graph open for an MM
     # warp only for a child at day, in a round, with the song's fact and a
@@ -3866,9 +3878,9 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # ComboWarpSongWorld (#1169 XW12): three real paired creations with one warp-song
-    # rule ON through its key (asserted offered: the production mask for the Song
-    # of Soaring (OoT), the MM test seam for the Minuet, hidden until
-    # IntMMWarpSongMinuet): Minuet of Forest (MM) and the Song of Soaring (OoT) under Song
+    # rule ON through its key (asserted offered by the production mask: the Song
+    # of Soaring (OoT) since XW12, the Minuet since XW13): Minuet of Forest (MM) and
+    # the Song of Soaring (OoT) under Song
     # Locations each place exactly one copy, the creation's fill reports every
     # location reached, and the created world's exit round proves the goal and
     # credits the song's travel (for Soaring, a second round with MM's own Song of
@@ -4715,14 +4727,37 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
+    # #1169 XW13: the other direction, driven for real. The paired first crossing
+    # with MM's Minuet of Forest rule on through its key and the production mask
+    # (no test seam: the row is the proof that exposed the six MM rules) and
+    # Shuffle Songs on Anywhere, both in memory and put back at the verdict. In
+    # South Clock Town the MM drive (games/mm/2s2h/mm_int_warp_song_drive.cpp)
+    # waits for the arrival's starting-check payouts to drain, equips the Ocarina
+    # of Time on C-down, and plays the Minuet through MM's test input seam
+    # (padmgr.c, MMWarpDriveSeam): MM's real matcher, "You played", the warp
+    # prompt, OK, then En_Test7 (or Player's plain fade) arms the one-shot target
+    # (MM, this entrance, OoT, Minuet's pad, the warp-song kind), seen live. The
+    # return leg is OoT's arrival as a child at the record's destination (the
+    # unshuffled pad 0x0600, Sacred Forest Meadow, derived, never a literal),
+    # restored, with the switch spent and the song still owned, plus every paired
+    # return check but the Market entrance and the door count. Every wait has a
+    # deadline and prints one dump line naming the state. Not covered live: the
+    # adult refusal (MMWarpSongDeparture D5/D6b lock it against OoT's real
+    # layout), a shuffled record, and the other five songs. RSBS_GP_FRAMES=300 so
+    # the payouts are usually over when the drive starts (MM watchdog 4800 frames).
+    redship_add_test(NAME IntMMWarpSongMinuet
+        COMMAND redship --integration-test int-mm-warp-song-minuet
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntSongHostOoT
-        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntMMWarpSongMinuet
+        IntSongHostOoT IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

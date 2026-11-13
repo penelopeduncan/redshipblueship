@@ -783,17 +783,17 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // mask rule reaches this word only once the first word's three free bits are
 // gone.
 //
-// THE SONG OF SOARING (OoT) IS OFFERED SINCE XW12 (operator ruling 2026-11-04,
-// decision 7: the rows stay hidden until the note matchers XW6/XW7 and the
-// logic edges XW9 exist, and XW12 exposes them). It has a row under
-// Cross-Game Rules > Cross-Game Songs. The six Majora's Mask extensions stay
-// HIDDEN until the integration row IntMMWarpSongMinuet exists (the lane's owed
-// proof (c); their rows are registered and appear when their bits leave the
-// mask), and the seven SHARED songs stay HIDDEN until lane XW10 builds their
-// family: their keys exist and their rows are not drawn
-// (Combo_ComboItemRule2Offered), and Generate REFUSES a word holding a bit of
-// RSBS_XITEM2_HIDDEN, as a seed package's validation and a .redsave load do for
-// a world another build made with one on (Combo_ComboItemRules2Refused).
+// THE SEVEN EXTENSIONS ARE OFFERED (operator ruling 2026-11-04, decision 7: the
+// rows stay hidden until the note matchers XW6/XW7 and the logic edges XW9
+// exist). XW12 exposed the Song of Soaring (OoT); XW13 exposed the six Majora's
+// Mask extensions once the integration row IntMMWarpSongMinuet played the
+// Minuet in Majora's Mask and arrived in Ocarina of Time (the lane's owed proof
+// (c)). Each has a row under Cross-Game Rules > Cross-Game Songs. The seven
+// SHARED songs stay HIDDEN until lane XW10 builds their family: their keys exist
+// and their rows are not drawn (Combo_ComboItemRule2Offered), and Generate
+// REFUSES a word holding a bit of RSBS_XITEM2_HIDDEN, as a seed package's
+// validation and a .redsave load do for a world another build made with one on
+// (Combo_ComboItemRules2Refused).
 //
 // THE SECOND FAMILY WORD (lane XW10, decision 6): a shared song's family is not a
 // bit of gComboCtx.sharedFamilyOwned but of gComboCtx.sharedFamilyOwned2, which is
@@ -831,13 +831,11 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 /** The six Majora's Mask extensions (songMinuetMm .. songPreludeMm). */
 #define RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS 0x0000007Eu
 /** The allocated bits no world of this build may hold yet: the seven shared
- *  warp songs, until lane XW10 builds their family, and the six Majora's Mask
- *  extensions, until the integration row IntMMWarpSongMinuet (play the song in
- *  Majora's Mask, depart, arrive in Ocarina of Time as a child) proves their
- *  path end to end: the lane's owed proof (c), and the design's fallback when it
- *  is not ready. XW12 exposed the Song of Soaring (OoT) (operator ruling
- *  2026-11-04, decision 7). */
-#define RSBS_XITEM2_HIDDEN (RSBS_XITEM2_WARP_SONG_SHARED | RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS)
+ *  warp songs, until lane XW10 builds their family. XW12 exposed the Song of
+ *  Soaring (OoT) (operator ruling 2026-11-04, decision 7), and XW13 the six
+ *  Majora's Mask extensions, once IntMMWarpSongMinuet played the Minuet in
+ *  Majora's Mask, departed and arrived in Ocarina of Time as a child. */
+#define RSBS_XITEM2_HIDDEN RSBS_XITEM2_WARP_SONG_SHARED
 /** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
  *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
  *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. */
@@ -921,7 +919,7 @@ bool Combo_ComboCrossItemRule2(uint32_t bit);
  * @p word this build refuses to freeze at Generate, to take from a seed
  * package, or to load from a .redsave: an unallocated bit, a shared song
  * without its extension, and every hidden bit (RSBS_XITEM2_HIDDEN: the seven
- * shared songs until XW10, the six MM extensions until IntMMWarpSongMinuet).
+ * shared songs, until XW10).
  * 0 means the word may be created; 0 is always.
  *
  * @p names (may be NULL) receives the refused rules' OoTMM keys, comma
@@ -940,9 +938,12 @@ uint32_t Combo_ComboItemRules2Refused(uint32_t word, char* names, size_t len);
 bool Combo_ComboItemRule2Offered(uint32_t bit);
 
 /** The test reveal's levels (Combo_ComboItemRules2RevealForTest). */
-#define RSBS_XITEM2_REVEAL_NONE 0     // the production mask
-#define RSBS_XITEM2_REVEAL_ALL 1      // the hidden mask reads empty
-#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // the six MM extensions read offered; the shared songs stay hidden
+#define RSBS_XITEM2_REVEAL_NONE 0 // the production mask
+#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty
+// Since XW13 the six MM extensions are offered in production, so this level
+// reads exactly the production mask: an alias of RSBS_XITEM2_REVEAL_NONE, kept
+// so a row that names it still compiles and means what it meant.
+#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // the six MM extensions read offered (as in production); shared stay hidden
 
 /**
  * TEST ONLY: with @p on RSBS_XITEM2_REVEAL_ALL (any nonzero value but
@@ -950,9 +951,8 @@ bool Combo_ComboItemRule2Offered(uint32_t bit);
  * XW10 builds the shared songs, so a row can drive a world with a shared
  * warp-song rule on through the real freeze, .redsave load and restore. With
  * RSBS_XITEM2_REVEAL_MM_SONGS only the six Majora's Mask extensions leave the
- * mask (what exposing them will do), so a row drives them with the shared songs
- * still refused. RSBS_XITEM2_REVEAL_NONE (0) is the production mask. Production
- * never calls it.
+ * mask, which since XW13 is the production mask itself. RSBS_XITEM2_REVEAL_NONE
+ * (0) is the production mask. Production never calls it.
  */
 void Combo_ComboItemRules2RevealForTest(int on);
 

@@ -635,7 +635,7 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         return RSBS_SEEDPKG_ERR_GENERATOR_VERSION;
     }
     // #1169 XW2: a world whose second rules word holds a rule this build does not
-    // offer yet (since XW12, an MM or shared warp-song rule; or a bit no build
+    // offer yet (since XW13, a shared warp-song rule; or a bit no build
     // allocates) is another build's world, refused by name as Generate refuses
     // it, before anything is applied.
     char refusedRules[160];

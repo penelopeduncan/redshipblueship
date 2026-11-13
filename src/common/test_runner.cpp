@@ -1286,6 +1286,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
 // there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_song_play.c"
+// #1169 lane XW13: the pure half of IntMMWarpSongMinuet (MM's test input seam, the
+// row's note schedule, its crossing decisions) and the seam's anchors in MM's padmgr
+// (mm-warp-drive-seam, ROM-free, generation-free). Directly after the file above:
+// it reuses that file's source readers. FILE SCOPE (compiled as C++).
+#include "tests/test_mm_warp_drive.c"
 // #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
 // exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
 // ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
@@ -8250,6 +8255,10 @@ static TestResult Test_MMWarpSongDeparture(void) {
     }
     return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW13: no bring-up: the row reads no CVar and no play state.
+static TestResult Test_MMWarpDriveSeam(void) {
+    return MMWarpDriveSeam_Run();
+}
 
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
@@ -9016,7 +9025,7 @@ TestResult Test_ComboWarpTravelRounds(void) {
     return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 // #1169 XW12: real paired creations with one warp-song rule ON through its key (the
-// MM seam for the Minuet) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
+// production mask since XW13) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
 // bring-up as combo-warp-travel-rounds; `--test all` skips it (a generation row).
 extern "C" int MM_WarpSongWorld_RunHeadless(void);
 TestResult Test_ComboWarpSongWorld(void) {
@@ -11009,6 +11018,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1169 XW13: ROM-free and generation-free.
+    { "mm-warp-drive-seam",
+      "MM's test input seam ORs a latch into controller 1 once and clears it, refuses outside an integration run and "
+      "sits before the D-pad masks and the press edges; the row's Minuet schedule, its arm proofs and its expected OoT "
+      "arrival answer as the drive needs (#1169)",
+      Test_MMWarpDriveSeam },
     // #1169 XW9: the travel facts in each game's logic. The first is ROM-free and
     // generation-free; the second needs MM's rando graph (rando tier, skipped by
     // `--test all` below) and generates nothing.
@@ -11399,6 +11414,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "second owl from the map: MM must land on the cleared swamp's owl, not the pause-save spot, with the one-shot "
       "target spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
+    { "int-mm-warp-song-minuet",
+      "The paired first crossing with Majora's Mask's Minuet of Forest rule on (#1169 XW13): in South Clock Town, once "
+      "the arrival's starting checks are paid out, Link takes the Ocarina of Time out from C-down and plays the Minuet "
+      "through MM's test input seam; the song is matched, 'You played' shows, the warp prompt offers OK, and OK arms "
+      "the one-shot target (MM, this entrance, OoT, Minuet's pad, the warp-song kind); OoT must then arrive as a "
+      "child at the destination frozen in the creation's warp-song record, restored, with the switch spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -11796,8 +11818,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
-    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
-    // hidden rules are hidden again, pass or fail.
+    // int-soaring-to-owl (#1169 XW6) and int-mm-warp-song-minuet (#1169 XW13): the
+    // keys they set in memory go back, MM's test buttons are cleared and the hidden
+    // rules are hidden again, pass or fail.
     IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.

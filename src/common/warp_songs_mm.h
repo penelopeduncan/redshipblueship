@@ -23,16 +23,18 @@
  * there and not in MM's half, why it is not in the invalidation KEEP set and why
  * it is not folded into the fingerprint are the field's comment.
  *
- * WHAT OWNING ONE DOES: nothing in play yet. Lane XW7 adds MM's note matcher, the
- * prompt, the En_Test7 departure and the crossing; lane XW9 the logic's travel
- * facts. Here MM's logic only knows how to PLAY each song (Logic.h,
- * CAN_PLAY_OOT_WARP_SONG: OoTMM's can_play_tp_* button sets), and no region uses
- * it.
+ * WHAT OWNING ONE DOES (lane XW7, mm_warp_song_play.h): played on the ocarina in
+ * Termina it is matched, "You played" shows, the warp prompt offers OK, and OK
+ * crosses to Ocarina of Time as a child, landing where the creation's warp-song
+ * record says the song leads (its pad unless the warp songs were shuffled). Both
+ * games' logic know the crossing through lane XW9's travel facts; MM's logic plays
+ * each song with OoTMM's can_play_tp_* button sets (Logic.h,
+ * CAN_PLAY_OOT_WARP_SONG).
  *
- * HIDDEN UNTIL IntMMWarpSongMinuet (XW12). The six rules have Cross-Game Songs rows,
- * drawn once that row exists, off by default.
- * With every one off no world pools one of these items, and the ownership byte
- * stays 0.
+ * OFFERED SINCE XW13. The six rules have Cross-Game Songs rows, off by default,
+ * drawn since the integration row IntMMWarpSongMinuet played the Minuet in
+ * Majora's Mask and arrived in Ocarina of Time. With every one off no world pools
+ * one of these items, and the ownership byte stays 0.
  */
 
 #include <stdbool.h>
@@ -68,33 +70,35 @@ extern "C" {
  * Majora's Mask one: SongPoolOverCapacity legs (e2) and (f)), while an added
  * Song of Soaring (OoT) already takes the spare check: the warning
  * says "when", not OoTMM's "must". Under the other modes an MM warp song is a
- * general-pool item and never refused. The Cross-Game Songs rows draw them
- * (SohMenuCombo.cpp).
+ * general-pool item and never refused. The way out names only remedies this
+ * build offers (Shuffle Songs: Anywhere, or a starting song): the Shared rows
+ * stay hidden until XW10, which restores OoTMM's "share a song". The
+ * Cross-Game Songs rows draw them (SohMenuCombo.cpp).
  */
-#define RSBS_MM_WARP_SONG_TOOLTIP_MINUET                                                           \
-    "Adds Ocarina of Time's Minuet of Forest to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "     \
-    "start with one."
-#define RSBS_MM_WARP_SONG_TOOLTIP_BOLERO                                                         \
-    "Adds Ocarina of Time's Bolero of Fire to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "   \
-    "start with one."
+#define RSBS_MM_WARP_SONG_TOOLTIP_MINUET                                                            \
+    "Adds Ocarina of Time's Minuet of Forest to Majora's Mask. On Shuffle Songs: Song Locations, "  \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
+#define RSBS_MM_WARP_SONG_TOOLTIP_BOLERO                                                            \
+    "Adds Ocarina of Time's Bolero of Fire to Majora's Mask. On Shuffle Songs: Song Locations, "    \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_SERENADE                                                          \
     "Adds Ocarina of Time's Serenade of Water to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "      \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_REQUIEM                                                           \
     "Adds Ocarina of Time's Requiem of Spirit to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "      \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 #define RSBS_MM_WARP_SONG_TOOLTIP_NOCTURNE                                                           \
     "Adds Ocarina of Time's Nocturne of Shadow to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "       \
-    "start with one."
-#define RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE                                                          \
-    "Adds Ocarina of Time's Prelude of Light to Majora's Mask. On Shuffle Songs: Song Locations, " \
-    "Generate refuses when the songs outnumber the song checks they can use: share a song or "     \
-    "start with one."
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to "  \
+    "Anywhere or start with a song."
+#define RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE                                                           \
+    "Adds Ocarina of Time's Prelude of Light to Majora's Mask. On Shuffle Songs: Song Locations, "  \
+    "Generate refuses when the songs outnumber the song checks they can use: set Shuffle Songs to " \
+    "Anywhere or start with a song."
 
 /** The ownership bit of extension rule @p ruleBit (RSBS_XITEM2_SONG_MINUET_MM ..
  *  RSBS_XITEM2_SONG_PRELUDE_MM), or 0 for any other bit or mask. Pure. */

@@ -403,9 +403,11 @@ jobs:
     # spoiler at the seed's name first; the creation's goes beside it.
     # IntSoaringToOwl (#1169 XW6) rides the same creation with the hidden Song of
     # Soaring (OoT) rule revealed for the test, and crosses by playing the song.
+    # IntMMWarpSongMinuet (#1169 XW13) rides it the other way: MM plays the
+    # Minuet of Forest and OoT must land at the record's destination.
     - name: Integration Test - Paired First Crossing
       if: steps.check-archives.outputs.has_oot == 'true' && steps.check-archives.outputs.has_mm == 'true'
-      run: ctest --test-dir build-cmake --output-on-failure -R "^(IntPairedFirstCrossing(Diverged|TwoCycles|ForeignSpoiler)?|IntPairedFileSelectIdentity|IntSoaringToOwl)$" --no-tests=error
+      run: ctest --test-dir build-cmake --output-on-failure -R "^(IntPairedFirstCrossing(Diverged|TwoCycles|ForeignSpoiler)?|IntPairedFileSelectIdentity|IntSoaringToOwl|IntMMWarpSongMinuet)$" --no-tests=error
       env:
         DISPLAY: :99
 

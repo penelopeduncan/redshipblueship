@@ -35,10 +35,10 @@
  *   Song of Time's real reset (XW12); the fingerprint never moves with it.
  *
  *   mm-warp-songs-rules-off-unchanged (CTest MMWarpSongsRulesOffUnchanged,
- *   redship tier, ROM-free, no CVar store) -- RULES OFF. Every MM warp-song bit
- *   is refused at Generate by name while hidden (until IntMMWarpSongMinuet,
- *   #1169 XW12); under the MM seam each extension passes and its shared song is
- *   refused by name (hidden until XW10); a rules-off world pools no copy and credits
+ *   redship tier, ROM-free, no CVar store) -- RULES OFF. Every MM warp-song
+ *   extension is offered and passes Generate (since IntMMWarpSongMinuet, #1169
+ *   XW13), and with its shared song the shared song alone is refused by name
+ *   (hidden until XW10); a rules-off world pools no copy and credits
  *   none; with every rule off and the byte at 0 or at every song owned, the
  *   fingerprint, the world hash, the bag's seeds and a seed package's record are
  *   main's (XW2's vectors); from source, the pool adds a song only through the
@@ -46,8 +46,8 @@
  *
  *   mm-warp-songs-pooled-only-when-rule-on (CTest MMWarpSongsPooledOnlyWhenRuleOn,
  *   rando tier) -- THE POOL over real paired creations: rules off, all six on
- *   through the MM seam, and the Shared Minuet of Forest too through the full
- *   test seam (held back).
+ *   through their keys on the production mask, and the Shared Minuet of Forest
+ *   too through the full test seam (held back).
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the Wsm
@@ -370,7 +370,8 @@ TestResult MMWarpSongsItems_Run(void) {
             const char* tip = Combo_MMWarpSongTooltip(s.rule);
             const std::string want = std::string("Adds Ocarina of Time's ") + s.ootName + " to Majora's Mask.";
             WSM_CHECK(tip != NULL && std::string(tip).rfind(want, 0) == 0 && strstr(tip, "Song Locations") != NULL &&
-                          strstr(tip, "share a song or start with one") != NULL,
+                          strstr(tip, "set Shuffle Songs to Anywhere or start with a song") != NULL &&
+                          strstr(tip, "share a song") == NULL,
                       "%s's tooltip is '%s', not '%s' with the Song Locations warning", s.name,
                       tip != NULL ? tip : "(none)", want.c_str());
         }
@@ -603,11 +604,9 @@ TestResult MMWarpSongsOwnership_Run(void) {
         RsbsSave_SetActiveSlot(0);
         mgr.DeleteSave(0);
         WSM_CHECK(RsbsSave_LoadSlot(0) == RSBS_LOAD_ABSENT, "an empty slot must open as ABSENT and arm");
-        // The world, its keys (the session plays it) and the MM seam: the six
-        // rules stay hidden until IntMMWarpSongMinuet exists (#1169 XW12), and a
-        // load refuses them otherwise. The seam reveals them alone, as exposing
-        // them will; the shared songs stay refused.
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+        // The world and its keys (the session plays it), on the production mask:
+        // the six rules are offered since IntMMWarpSongMinuet (#1169 XW13), so the
+        // load takes them as a player's; the shared songs stay refused.
         for (const WsmSong& s : kWsmSongs) {
             CVarSetInteger(Combo_ComboSettingKey(s.key), 1);
         }
@@ -683,38 +682,27 @@ TestResult MMWarpSongsOwnership_Run(void) {
 // ============================================================================
 
 TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
-    printf("[TEST] mm-warp-songs-rules-off-unchanged: the six MM warp-song rules and their shared songs are hidden "
-           "(the MM seam reveals the six alone); with the rules off no world pools or credits an MM warp song, and "
-           "owning one moves no fingerprint, bag seed or package record (#1169 XW5, XW12)\n");
+    printf("[TEST] mm-warp-songs-rules-off-unchanged: the six MM warp-song rules are offered and their shared "
+           "songs hidden; with the rules off no world pools or credits an MM warp song, and owning one moves no "
+           "fingerprint, bag seed or package record (#1169 XW5, XW12, XW13)\n");
     sWsmFailures = 0;
     Combo_ComboItemRules2RevealForTest(0);
 
-    // ---- (1) Hidden until IntMMWarpSongMinuet (#1169 XW12): Generate refuses every
-    //      MM warp-song bit by OoTMM's name; under the MM seam each extension passes
-    //      and its shared song is still refused alone (lane XW10's) ------------------
+    // ---- (1) Offered since IntMMWarpSongMinuet (#1169 XW13), on the production mask:
+    //      each extension passes Generate and is offered; with its shared song the
+    //      shared song alone is refused by name (lane XW10's) ------------------------
     {
         char names[192];
         for (const WsmSong& s : kWsmSongs) {
-            WSM_CHECK(Combo_ComboItemRules2Refused(s.rule, names, sizeof(names)) == s.rule &&
-                          strcmp(names, s.ootmmKey) == 0 && !Combo_ComboItemRule2Offered(s.rule),
-                      "%s is offered or not refused by name ('%s'): it stays hidden until its end-to-end row",
-                      s.ootmmKey, names);
-            WSM_CHECK((Combo_ComboItemRules2Refused(s.rule | s.shared, NULL, 0) & (s.rule | s.shared)) ==
-                          (s.rule | s.shared),
-                      "while hidden, %s and its shared song are not both refused", s.ootmmKey);
-        }
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
-        for (const WsmSong& s : kWsmSongs) {
             WSM_CHECK(Combo_ComboItemRules2Refused(s.rule, names, sizeof(names)) == 0u && names[0] == '\0' &&
                           Combo_ComboItemRule2Offered(s.rule),
-                      "under the MM seam %s is refused ('%s') or not offered", s.ootmmKey, names);
+                      "%s is refused ('%s') or not offered: it is offered since its end-to-end row", s.ootmmKey, names);
             const uint32_t refused = Combo_ComboItemRules2Refused(s.rule | s.shared, names, sizeof(names));
             WSM_CHECK(refused == s.shared && strcmp(names, Combo_ComboItemRule2Name(s.shared)) == 0 &&
                           !Combo_ComboItemRule2Offered(s.shared),
                       "%s with its shared song refused %08X ('%s'), not the shared song alone by name", s.ootmmKey,
                       (unsigned)refused, names);
         }
-        Combo_ComboItemRules2RevealForTest(0);
     }
 
     // ---- (2) A rules-off world: no copy, no credit, whatever the byte says -------------

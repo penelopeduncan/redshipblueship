@@ -862,13 +862,12 @@ int MwwCreate(const char* leg, const char* seed, ComboSettingId key, uint32_t bi
     if (shuffleSongs >= 0) {
         CVarSetInteger("gRandoSettings.ShuffleSongs", shuffleSongs);
     }
-    // The production mask for the Song of Soaring (OoT); the MM seam for a Majora's
-    // Mask extension, hidden until IntMMWarpSongMinuet (#1169 XW12).
-    const bool mmRule = (bit & RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS) != 0u;
-    Combo_ComboItemRules2RevealForTest(mmRule ? RSBS_XITEM2_REVEAL_MM_SONGS : RSBS_XITEM2_REVEAL_NONE);
+    // The production mask for every rule: the Song of Soaring (OoT) is offered
+    // since XW12, the Majora's Mask extensions since XW13 (IntMMWarpSongMinuet).
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
     MwwCheck(Combo_ComboItemRule2Offered(bit), leg,
-             mmRule ? "the MM rule is not offered under the MM seam"
-                    : "the rule is not offered by the production mask (XW12 offers it)");
+             "the rule is not offered by the production mask (XW12 offers the Song of Soaring (OoT), XW13 the "
+             "Majora's Mask extensions)");
     if (Rando_HeadlessSeedTest(seed) != 0 || !Combo_ForeignPairingActive() || !Combo_ComboSettingsFrozen() ||
         !OoT_ComboLogic_GeneralPassDeferred()) {
         MwwCheck(false, leg, "the paired OoT generation did not leave a frozen paired world at its general pass");
@@ -908,7 +907,7 @@ int MwwExitRound(ComboLogicRoundResult* out) {
 
 extern "C" int MM_WarpSongWorld_RunHeadless(void) {
     printf("[TEST] combo-warp-song-world: real paired creations with one warp-song rule on through its key (the "
-           "production mask; the MM seam for the Minuet) place exactly one copy, prove the world beatable with its "
+           "production mask) place exactly one copy, prove the world beatable with its "
            "travel credited, and freeze the warp-song record (#1169 XW12)\n");
     sMwwFailures = 0;
     MwwRestore restore;

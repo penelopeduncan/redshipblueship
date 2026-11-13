@@ -55,6 +55,10 @@
 #include "combo_mm_tricks_view.h"
 #include "combo_settings_view.h"
 #include "warp_song_soaring.h"      // int-soaring-to-owl (#1169 XW6): the owls, the text ids, the owl mask
+#include "mm_warp_song_play.h"      // int-mm-warp-song-minuet (#1169 XW13): the record, the pads, the latch
+#include "mm_warp_song_drive.h"     // int-mm-warp-song-minuet: the expected arrival
+#include "warp_songs_mm.h"          // int-mm-warp-song-minuet: the ownership byte
+#include "warp_song_items.h"        // int-mm-warp-song-minuet: why a generation refused
 #include "ComboItemTrackerWindow.h" // ComboItemTrackerFlushLayoutSave: the exit writes an unsettled layout edit (#1349)
 
 // int-soaring-to-owl (#1169 XW8): the owl map's pause states and its prompt text.
@@ -1000,6 +1004,11 @@ static void PfcChestPlaytestLogHosts(void);
 // int-soaring-to-owl (#1169 XW6): the world's settings for the drive (defined
 // with the drive, below).
 static void SoarArmWorld(void);
+// int-mm-warp-song-minuet (#1169 XW13): its world, and the checks on the file it
+// created (defined with the row's OoT half, below).
+static bool MwArmWorld(void);
+static void MwGenerationFailed(void);
+static bool MwCheckCreatedWorld(char* msg, size_t cap);
 
 static bool PfcNoRefusalToast(char* msg, size_t cap) {
     const int toasts = OoT_Notification_EmittedCountForTest();
@@ -1430,6 +1439,9 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     if (IntegrationTest_SoaringToOwl()) {
         SoarArmWorld();
     }
+    if (IntegrationTest_MMWarpSongMinuet() && !MwArmWorld()) {
+        return;
+    }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(true);
     }
@@ -1441,7 +1453,11 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     fprintf(stderr, "[PFC] generating the pinned paired world %s on the shipped defaults at %s\n", kPfcSeed, from);
     fflush(stderr);
     if (Rando_HeadlessSeedTest(kPfcSeed) != 0) {
-        IntegrationTest_GameplayFail("the pinned paired world did not generate");
+        if (IntegrationTest_MMWarpSongMinuet()) {
+            MwGenerationFailed();
+        } else {
+            IntegrationTest_GameplayFail("the pinned paired world did not generate");
+        }
         return;
     }
     OTRGlobals::Instance->gRandoContext->SetSeedGenerated(true);
@@ -1517,6 +1533,10 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         return;
     }
     IntegrationTest_PairedIdentityRecord();
+    if (IntegrationTest_MMWarpSongMinuet() && !MwCheckCreatedWorld(msg, sizeof(msg))) {
+        IntegrationTest_GameplayFail(msg);
+        return;
+    }
     if (PfcPlantForeignSpoiler()) {
         if (!PfcForeignSpoilerCheck(msg, sizeof(msg))) {
             IntegrationTest_GameplayFail(msg);
@@ -1725,7 +1745,7 @@ static void GpPairedCheckStoneHints(const char* leg) {
             leg, probes, stones, failures);
     fflush(stderr);
     if (failures != 0 || probes == 0) {
-        char msg[384];
+        char msg[512];
         // int-soaring-to-owl generates the same seed with two settings moved
         // (songSoaringOot on, Shuffle Songs Anywhere), so its world is not the
         // one these checks were proven on: say so, or the red reads as Soaring's.
@@ -1733,9 +1753,13 @@ static void GpPairedCheckStoneHints(const char* leg) {
                  "%s: an OoT stone hint for a crossing host does not name the MM item it yields in play (%d "
                  "failure(s), %d host(s) probed; see [H3B])%s",
                  leg, failures, probes,
-                 IntegrationTest_SoaringToOwl() ? " [PFC] soaring world: songSoaringOot on, Shuffle Songs Anywhere; a "
-                                                  "fixture failure of the paired checks, not a Soaring leg"
-                                                : "");
+                 IntegrationTest_SoaringToOwl()
+                     ? " [PFC] soaring world: songSoaringOot on, Shuffle Songs Anywhere; a fixture failure of the "
+                       "paired checks, not a Soaring leg"
+                 : IntegrationTest_MMWarpSongMinuet()
+                     ? " [PFC] warp-song world: songMinuetMm on, Shuffle Songs Anywhere; a fixture failure of the "
+                       "paired checks, not the Minuet's crossing"
+                     : "");
         IntegrationTest_GameplayFail(msg);
     }
 }
@@ -1773,6 +1797,11 @@ static void GpPairedTrackerPlaytest(int frame) {
         if (sHost < 0 && IntegrationTest_SoaringToOwl()) {
             fprintf(stderr, "[PFC] soaring world: no OoT crossing row is hosted at a chest, so this leg carries no "
                             "pickup (the paired checks' fixture, not a Soaring leg)\n");
+            fflush(stderr);
+        }
+        if (sHost < 0 && IntegrationTest_MMWarpSongMinuet()) {
+            fprintf(stderr, "[PFC] warp-song world: no OoT crossing row is hosted at a chest, so this leg carries no "
+                            "pickup (the paired checks' fixture, not the Minuet's crossing)\n");
             fflush(stderr);
         }
     }
@@ -3504,6 +3533,247 @@ static void SoarArmWorld(void) {
 }
 
 // ============================================================================
+// int-mm-warp-song-minuet (#1169 XW13): OoT's half
+// ============================================================================
+//
+// The paired first crossing with songMinuetMm on. The first OoT leg is the
+// paired one (Market, the chest, the Happy Mask Shop door). The MM leg is
+// games/mm/2s2h/mm_int_warp_song_drive.cpp: it plays the Minuet in South Clock
+// Town, answers the prompt OK, sees the one-shot target armed and hands the phase
+// to OoT (GP_PHASE_OOT_RETURN) instead of firing the Clock Tower door. OoT's half
+// here: the world (before the generation), the created file's record, the
+// arrival at OoT scene init (the record's destination, derived, never a literal)
+// and the verdict once Link stands idle there.
+
+extern "C" EntranceInfo gEntranceTable[ENTR_MAX]; // games/oot/include/variables.h
+
+namespace {
+int16_t sMwArrivalScene = -1;
+int32_t sMwArrivalEntrance = -1;
+int sMwIdleFrames = 0;
+bool sMwDone = false;
+} // namespace
+
+/** Where Minuet must land: the frozen record's destination (the pad when the
+ *  record says unshuffled). */
+static uint16_t MwExpectedArrival(void) {
+    return Combo_MMWarpDrive_ExpectedArrival(0, Combo_OoTWarpRecord_Flags(), Combo_OoTWarpRecord_Dest(0));
+}
+
+/**
+ * The world, set right after the shipped-defaults check and before the
+ * generation: songMinuetMm on through its key, Shuffle Songs on Anywhere (under
+ * Song Locations an MM extension joins the shared song pool, whose 23 checks it
+ * could overflow; mm_warp_songs_mm_test.cpp does the same). Shuffle Warp Songs
+ * stays at its default (off), so the record is PRESENT and unshuffled. The rule
+ * is offered by the production mask (since #1169 XW13): no test reveal, so the
+ * generation, the .redsave load and both arrivals take the world as a player's.
+ */
+static bool MwArmWorld(void) {
+    IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM), 1);
+    IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
+    // The rule must be offered before the seed is blamed for anything: a mask
+    // that hides songMinuetMm again makes Generate refuse the word by name
+    // (playthrough.cpp's hidden-rules gate), which the generation branch would
+    // otherwise read as a bad pinned seed.
+    const uint32_t word = Combo_ResolveComboItemRules2();
+    char refused[160];
+    const uint32_t refusedBits = Combo_ComboItemRules2Refused(word, refused, sizeof(refused));
+    const bool offered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM);
+    if (!offered || refusedBits != 0u || (word & RSBS_XITEM2_SONG_MINUET_MM) == 0u) {
+        char reason[512];
+        snprintf(reason, sizeof(reason),
+                 "int-mm-warp-song-minuet, the world: this build does not offer songMinuetMm (offered %d), or "
+                 "Generate would refuse the resolved second word 0x%08X (refused 0x%08X: '%s'); the rule's mask or "
+                 "its key regressed, not the pinned seed",
+                 offered ? 1 : 0, (unsigned)word, (unsigned)refusedBits, refused);
+        IntegrationTest_GameplayFail(reason);
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] mm warp song: songMinuetMm on (the production mask, no reveal; resolved second word 0x%08X, "
+            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+            (unsigned)word);
+    fflush(stderr);
+    return true;
+}
+
+/** The generation failed: say which of the three causes it was, so the log
+ *  alone tells a refused rule, a song-capacity refusal and a bad pinned seed
+ *  apart (the worker's refusal note, its stderr line, and the song pass's
+ *  recorded refusal, warp_song_items.h). */
+static void MwGenerationFailed(void) {
+    const int refusalKind = Combo_GenRefusal_Take();
+    char refusedLine[256] = "";
+    const bool refusedLogged =
+        IntegrationTest_StderrCaptureLast("[OoT] generation REFUSED", refusedLine, sizeof(refusedLine));
+    const char* songSpots = Combo_SongSpotsLastRefusal();
+    const char* noteLine = Combo_GenRefusal_Line(refusalKind);
+    const char* cause = "no refusal was noted: int-mm-warp-song-minuet needs another pinned seed";
+    if (refusalKind == RSBS_GEN_REFUSAL_HIDDEN_RULE) {
+        cause = "the hidden-rules gate refused the world (a rule this build does not offer)";
+    } else if (refusalKind == RSBS_GEN_REFUSAL_SONG_SPOTS) {
+        cause = "a song-capacity refusal (the songs outnumber the song checks they can use)";
+    } else if (refusedLogged || songSpots[0] != '\0') {
+        cause = "a refusal with no note (read the refused line and the song-spots refusal)";
+    }
+    char reason[1024];
+    snprintf(reason, sizeof(reason),
+             "the pinned paired world did not generate with songMinuetMm on and Shuffle Songs Anywhere: %s "
+             "[refusal note %d (%s), resolved second word 0x%08X, refused line '%s', song-spots refusal '%s']",
+             cause, refusalKind, noteLine != NULL ? noteLine : "none", (unsigned)Combo_ResolveComboItemRules2(),
+             refusedLine, songSpots);
+    IntegrationTest_GameplayFail(reason);
+}
+
+/** The created file: the rule frozen on, the record PRESENT and unshuffled, and
+ *  Minuet's destination its vanilla pad in a scene OoT's table names. */
+static bool MwCheckCreatedWorld(char* msg, size_t cap) {
+    const int status = Combo_OoTWarpRecord_Status();
+    const uint8_t flags = Combo_OoTWarpRecord_Flags();
+    const uint16_t dest = Combo_OoTWarpRecord_Dest(0);
+    const uint16_t pad = Combo_MMWarpPlay_PadEntrance(0);
+    const uint16_t expected = MwExpectedArrival();
+    const char* why = NULL;
+    if (!Combo_ComboCrossItemRule2(RSBS_XITEM2_SONG_MINUET_MM)) {
+        why = "the creation did not freeze songMinuetMm on";
+    } else if (status != COMBO_OOT_WARP_REC_PRESENT) {
+        why = "the creation's warp-song record is not PRESENT";
+    } else if ((flags & RSBS_OOT_WARP_REC_SHUFFLED) != 0u) {
+        why = "the record says shuffled, but Shuffle Warp Songs was left at its default (off)";
+    } else if (expected != dest || expected != pad) {
+        why = "an unshuffled record's Minuet destination is not its pad";
+    } else if (expected == 0u || expected >= ENTR_MAX) {
+        why = "Minuet's destination is outside OoT's entrance table";
+    }
+    snprintf(msg, cap,
+             "int-mm-warp-song-minuet, the created world: %s [rule2 0x%08X, record status %d flags 0x%02X Minuet dest "
+             "0x%04X, pad 0x%04X, expected 0x%04X]",
+             why != NULL ? why : "ok", (unsigned)Combo_ComboCrossItemFlags2(), status, (unsigned)flags, (unsigned)dest,
+             (unsigned)pad, (unsigned)expected);
+    if (why != NULL) {
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] mm warp song: created with songMinuetMm frozen on and an unshuffled record; Minuet lands at "
+            "0x%04X (scene %d)\n",
+            (unsigned)expected, (int)gEntranceTable[expected].scene);
+    fflush(stderr);
+    return true;
+}
+
+/** Every value the arrival is judged by, on one line. */
+static void MwDescribeArrival(char* out, size_t cap, int16_t sceneNum, uint16_t entrance) {
+    const uint16_t expected = MwExpectedArrival();
+    ComboWarpTarget t;
+    ComboWarp_Peek(&t);
+    snprintf(out, cap,
+             "scene %d, entrance 0x%04X, expected 0x%04X (scene %d), record status %d flags 0x%02X dest 0x%04X, pad "
+             "0x%04X, linkAge %d, owned 0x%02X, switch pending %d, switch requested %d; context: warp armed %d "
+             "(source %d marker 0x%04X target %d 0x%04X kind %u), pending song %d, startup kind %d",
+             (int)sceneNum, (unsigned)entrance, (unsigned)expected,
+             expected < ENTR_MAX ? (int)gEntranceTable[expected].scene : -1, Combo_OoTWarpRecord_Status(),
+             (unsigned)Combo_OoTWarpRecord_Flags(), (unsigned)Combo_OoTWarpRecord_Dest(0),
+             (unsigned)Combo_MMWarpPlay_PadEntrance(0), (int)gSaveContext.linkAge, (unsigned)Combo_MMWarpSongsOwned(),
+             Combo_IsCrossGameSwitch() ? 1 : 0, Combo_IsGameSwitchRequested() ? 1 : 0, t.armed ? 1 : 0,
+             (int)t.sourceGame, (unsigned)t.marker, (int)t.targetGame, (unsigned)t.targetEntrance, (unsigned)t.kind,
+             Combo_MMWarpPlay_PendingSong(), Combo_GetStartupEntranceKindForGame("oot"));
+}
+
+/**
+ * OoT scene init in GP_PHASE_OOT_RETURN: the warp-song arrival. Each check can
+ * fail on its own regression: the entrance and its scene (the record ignored, or
+ * MM's pad not resolved), the pending switch (a launcher that forgot
+ * Entrance_ClearPendingSwitch), and the song still owned (a combo-context reinit
+ * across the switch). The warp target and the pending latch are printed only:
+ * every spend clears the target twice over, and every departure has already
+ * taken the latch, so no single-line regression could make them fail here.
+ */
+static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
+    char state[768];
+    MwDescribeArrival(state, sizeof(state), sceneNum, entrance);
+    const uint16_t expected = MwExpectedArrival();
+    const char* why = NULL;
+    if (entrance != expected) {
+        why = "OoT did not arrive at the record's destination";
+    } else if (expected >= ENTR_MAX || sceneNum != gEntranceTable[expected].scene) {
+        why = "OoT arrived at the destination's entrance in another scene";
+    } else if (Combo_IsCrossGameSwitch()) {
+        why = "the cross-game switch is still pending after the arrival";
+    } else if ((Combo_MMWarpSongsOwned() & RSBS_MM_WARP_SONG_OWNED_MINUET) == 0u) {
+        why = "Minuet of Forest (MM) is no longer owned after the crossing";
+    }
+    if (why != NULL) {
+        char msg[1024];
+        snprintf(msg, sizeof(msg), "int-mm-warp-song-minuet, the arrival: %s [%s]", why, state);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    sMwArrivalScene = sceneNum;
+    sMwArrivalEntrance = entrance;
+    sMwIdleFrames = 0;
+    fprintf(stderr, "[PFC] mm warp song 'the arrival': OoT landed at the record's destination [%s]\n", state);
+    fflush(stderr);
+    return true;
+}
+
+/**
+ * Once the paired drive's frames of the return phase are done: Link must stand
+ * idle, in the arrival's scene at its entrance, for 10 frames in a row, within
+ * kMwVerdictBudget frames. Then the pass: the file is erased and the run ends.
+ */
+static void MwVerdict(PlayState* play, int frame) {
+    static const int kMwVerdictBudget = 600;
+    static const int kMwIdleNeeded = 10;
+    if (sMwDone) {
+        return;
+    }
+    char state[768];
+    char msg[1024];
+    const uint16_t entrance = (uint16_t)gSaveContext.entranceIndex;
+    if (play->sceneNum != sMwArrivalScene || (int32_t)entrance != sMwArrivalEntrance) {
+        sMwDone = true;
+        MwDescribeArrival(state, sizeof(state), play->sceneNum, entrance);
+        snprintf(msg, sizeof(msg),
+                 "int-mm-warp-song-minuet, the verdict: Link left the arrival (scene %d, entrance 0x%04X at the "
+                 "arrival) [%s]",
+                 (int)sMwArrivalScene, (unsigned)sMwArrivalEntrance, state);
+        IntegrationTest_GameplayFail(msg);
+        return;
+    }
+    const bool idle = play->msgCtx.msgMode == MSGMODE_NONE && play->transitionTrigger == TRANS_TRIGGER_OFF &&
+                      play->transitionMode == TRANS_MODE_OFF && play->csCtx.state == CS_STATE_IDLE &&
+                      gSaveContext.gameMode == GAMEMODE_NORMAL;
+    sMwIdleFrames = idle ? sMwIdleFrames + 1 : 0;
+    if (sMwIdleFrames < kMwIdleNeeded) {
+        if (frame >= kMwVerdictBudget) {
+            sMwDone = true;
+            MwDescribeArrival(state, sizeof(state), play->sceneNum, entrance);
+            snprintf(msg, sizeof(msg),
+                     "int-mm-warp-song-minuet, the verdict: Link never stood idle for %d frames within %d frames of "
+                     "the return phase's window [msgMode %d, transition %d/%d, cutscene state %d, gameMode %d; %s]",
+                     kMwIdleNeeded, kMwVerdictBudget, (int)play->msgCtx.msgMode, (int)play->transitionTrigger,
+                     (int)play->transitionMode, (int)play->csCtx.state, (int)gSaveContext.gameMode, state);
+            IntegrationTest_GameplayFail(msg);
+        }
+        return;
+    }
+    sMwDone = true;
+    fprintf(stderr,
+            "[PFC] PASS: int-mm-warp-song-minuet: Minuet of Forest played in Majora's Mask crossed to Ocarina of "
+            "Time as a child at the record's destination (scene %d, entrance 0x%04X), restored, the switch spent\n",
+            (int)play->sceneNum, (unsigned)entrance);
+    fflush(stderr);
+    IntegrationTest_SetGameplayPhase(GP_PHASE_DONE);
+    // A pass leaves no file behind (a failure keeps it for forensics; the next
+    // paired run erases it by its name).
+    Save_DeleteFile(kPfcSlot);
+    fprintf(stderr, "[PFC] PASS: the Minuet of Forest crossing; erased file %d\n", kPfcSlot + 1);
+    fflush(stderr);
+    IntegrationTest_SignalBootComplete(GAME_OOT, "Minuet of Forest crossing from Majora's Mask complete");
+}
+
+// ============================================================================
 // Integration Test Hooks
 // ============================================================================
 
@@ -3872,8 +4142,11 @@ static void OoT_RegisterIntegrationTestHooks(void) {
                     what = "boot";
                     break;
                 case GP_PHASE_OOT_RETURN:
-                    expected = OOT_ENTR_MARKET_FROM_MASK_SHOP;
-                    what = "return leg";
+                    // int-mm-warp-song-minuet (#1169 XW13): the warp-song arrival,
+                    // at the record's destination instead of the Market.
+                    expected =
+                        IntegrationTest_MMWarpSongMinuet() ? MwExpectedArrival() : OOT_ENTR_MARKET_FROM_MASK_SHOP;
+                    what = IntegrationTest_MMWarpSongMinuet() ? "warp-song arrival" : "return leg";
                     break;
                 case GP_PHASE_OOT_WARP:
                     expected = cfg->warpEntrance;
@@ -3889,6 +4162,10 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             fprintf(stderr, "[GP-TEST] OoT scene init #%d: scene %d, entrance 0x%04X (%s)\n", sGpSceneInits, sceneNum,
                     entrance, what);
             fflush(stderr);
+            if (phase == GP_PHASE_OOT_RETURN && IntegrationTest_MMWarpSongMinuet() &&
+                !MwArrivalChecks(sceneNum, entrance)) {
+                return;
+            }
             if (entrance != expected) {
                 char msg[160];
                 snprintf(msg, sizeof(msg), "%s arrived at entrance 0x%04X, expected 0x%04X — entrance corruption?",
@@ -4111,6 +4388,14 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             if (IntegrationTest_SoaringToOwl() && (phase == GP_PHASE_OOT_PRE || phase == GP_PHASE_OOT_RETURN)) {
                 if (sGpFramesInPhase >= cfg->framesPerPhase) {
                     SoarFrame(play, phase);
+                }
+                return;
+            }
+            // int-mm-warp-song-minuet (#1169 XW13): the warp-song arrival ends the
+            // run (no record cycle, no debug warp, no exit door).
+            if (IntegrationTest_MMWarpSongMinuet() && phase == GP_PHASE_OOT_RETURN) {
+                if (sGpFramesInPhase >= cfg->framesPerPhase) {
+                    MwVerdict(play, sGpFramesInPhase - cfg->framesPerPhase);
                 }
                 return;
             }

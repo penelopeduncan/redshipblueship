@@ -1392,9 +1392,9 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
     // in its order: the Song of Soaring added to Ocarina of Time, Ocarina of Time's
     // six warp songs added to Majora's Mask, then their shared variants. A row is
     // drawn only while this build OFFERS its rule (Combo_ComboItemRule2Offered):
-    // the six MM rows stay undrawn until the row IntMMWarpSongMinuet exists, and
-    // the seven shared rows until lane XW10 builds their family; each appears when
-    // its bit leaves RSBS_XITEM2_HIDDEN, with no change here. A shared row shows
+    // the six MM rows since XW13 (the row IntMMWarpSongMinuet proved their path),
+    // and the seven shared rows once lane XW10 builds their family; each appears
+    // when its bit leaves RSBS_XITEM2_HIDDEN, with no change here. A shared row shows
     // its dependency as the shared masks do: greyed, with that reason, while its
     // extension is off (the resolver drops it). No row is greyed because the songs
     // would not fit the song checks (operator ruling 2026-11-04, decision 2):

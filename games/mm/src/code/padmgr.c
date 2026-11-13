@@ -439,6 +439,38 @@ void PadMgr_AdjustInput(Input* input) {
     input->rel.stick_y = newY * 60.5f;
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "mm_warp_song_drive.h" // src/common: Combo_TestPad_Apply (#1169 XW13)
+
+// src/common/integration_test_hooks.cpp
+extern bool IntegrationTest_IsActive(void);
+
+// RSBS test input seam (#1169 XW13, IntMMWarpSongMinuet): MM has no emulated
+// buttons, so an integration drive presses through this latch, which
+// PadMgr_UpdateInputs ORs into controller 1 and zeroes (Combo_TestPad_Apply).
+// 0 is the default and the only value production ever sees: the setter refuses
+// anything else outside an integration run, and its only caller is that row.
+static uint16_t sMMTestPadButtons = 0;
+
+void MM_PadMgr_SetTestButtons(u16 buttons) {
+    static s32 sRefusalLogged = false;
+
+    if ((buttons != 0) && !IntegrationTest_IsActive()) {
+        if (!sRefusalLogged) {
+            sRefusalLogged = true;
+            fprintf(stderr, "[MM] padmgr: test buttons 0x%04X refused outside an integration run (#1169 XW13)\n",
+                    (unsigned)buttons);
+        }
+        return;
+    }
+    sMMTestPadButtons = buttons;
+}
+
+u16 MM_PadMgr_GetTestButtons(void) {
+    return sMMTestPadButtons;
+}
+#endif
+
 /**
  * Updates `sPadMgrInstance->inputs` based on the error response of each controller
  */
@@ -490,6 +522,14 @@ void PadMgr_UpdateInputs(void) {
             input->cur.stick_y = 0;
             input->cur.err_no = pad->err_no;
         }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1169 XW13: an integration drive's buttons, controller 1 only, after the
+        // error switch so a no-response pad cannot drop them.
+        if (i == 0) {
+            input->cur.button = Combo_TestPad_Apply(input->cur.button, &sMMTestPadButtons);
+        }
+#endif
 
         // If opposed directions on the D-Pad are pressed at the same time, mask both out
         if ((input->cur.button & (BTN_DDOWN | BTN_DUP)) == (BTN_DDOWN | BTN_DUP)) {

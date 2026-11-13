@@ -454,7 +454,8 @@ TestResult Test_OoTSoaringRuleLogic(void) {
                       tooltip.find("only as a child") != std::string::npos &&
                       tooltip.find("Song Locations") != std::string::npos &&
                       tooltip.find("Dungeon Rewards") != std::string::npos &&
-                      tooltip.find("share a song or start with") != std::string::npos &&
+                      tooltip.find("set Shuffle Songs to Anywhere or start with a song") != std::string::npos &&
+                      tooltip.find("share a song") == std::string::npos &&
                       tooltip.find("Ocarina of Time song") != std::string::npos,
                   "the option text does not warn as OoTMM's does: '%s'", tooltip.c_str());
     }
