@@ -62,6 +62,8 @@ uint16_t OoT_Rando_ShopRestockTestShelfCheck(void);
 int OoT_Rando_ShopRestockTestTable(void);
 int OoT_Rando_ShopRestockTestShelves(int foreignHosted);
 int OoT_Rando_ShopRestockTestFull(void);
+int OoT_Rando_ShopRestockTestMessages(int foreignHosted);
+int OoT_Rando_ShopRestockTestLogic(void);
 #ifdef __cplusplus
 }
 #endif
@@ -101,11 +103,16 @@ TestResult Test_OoTShelfRestock(void) {
         return TEST_FAIL;
     }
     const int foreign = OoT_Rando_ShopRestockTestShelves(1);
+    const int foreignMsgs = foreign == 0 ? OoT_Rando_ShopRestockTestMessages(1) : 0;
     ComboContext_Init();
     if (foreign != 0) {
         printf("[TEST] FAIL: a shelf hosting a Majora's Mask item restocks, or is not sold out once bought (step "
-               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-14 the sale gives or charges)\n",
+               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-19 the sale gives or charges)\n",
                foreign);
+        return TEST_FAIL;
+    }
+    if (foreignMsgs != 0) {
+        printf("[TEST] FAIL: a foreign-hosted shelf's offer text dropped ONE LEFT! (step %d)\n", foreignMsgs);
         return TEST_FAIL;
     }
 
@@ -115,6 +122,20 @@ TestResult Test_OoTShelfRestock(void) {
         printf("[TEST] FAIL: a restocked sale's nothing-to-add refusal is wrong (step %d: 1 no nut capacity, 2/3 "
                "nuts, 4/5 heart, 6/7 bombchus, 8 a shield)\n",
                full);
+        return TEST_FAIL;
+    }
+
+    // E. Offer text, ONE LEFT!, and post-buy bottle->refill naming (#1547).
+    const int msgs = OoT_Rando_ShopRestockTestMessages(0);
+    if (msgs != 0) {
+        printf("[TEST] FAIL: shop offer text / ONE LEFT! rule is wrong (step %d)\n", msgs);
+        return TEST_FAIL;
+    }
+
+    // F. Fill credit (OoTCritHostRenews) and logic reachability (ApplyItemEffect) (#1482 §2 / #1547).
+    const int logic = OoT_Rando_ShopRestockTestLogic();
+    if (logic != 0) {
+        printf("[TEST] FAIL: fill/logic credit for restocking shelves is wrong (step %d)\n", logic);
         return TEST_FAIL;
     }
 

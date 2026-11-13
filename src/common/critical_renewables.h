@@ -43,19 +43,15 @@
  * this port actually does when the player comes back, and the PR that added this
  * file cites the runtime line for every exclusion:
  *
- *   OoT. Since #1482 a bought shuffled shop shelf sells its item again when
- *        OoTMM restocks it (ShopRestockSingleExe.cpp: OoTMM's OoT list, the
- *        items that restock as themselves, both shields among them) and is
- *        sold out otherwise; the predicate here does NOT credit that yet, so it
- *        assumes less than the runtime gives (sound, and no world moved). Cows,
- *        scrubs and merchants give a shuffled item once (RAND_INF_COWS_MILKED_*,
- *        VB_BUSINESS_SCRUB_DESPAWN, the merchants' sold-out hooks). What the
- *        predicate counts as renewing is a shelf that keeps its
- *        VANILLA stock (an ITEMTYPE_SHOP `RG_BUY_*` row): SoH caps the shop count
- *        at seven (settings.cpp RSK_SHOPSANITY_COUNT 0..7, shops.cpp's minimum
- *        list puts both shields first), so both shields are always on a vanilla
- *        shelf. OoT's two kinds are therefore renewed before any fill runs, which
- *        is exactly OoTMM with vanilla shops (fixed placements through `place`).
+ *   OoT. Since #1482/#1547 a shop shelf (RCTYPE_SHOP) sells its item again when
+ *        OoTMM restocks it (ShopRestockSingleExe.cpp: OoTMM's OoT list, both
+ *        shields and bottled potion/milk refills included), and an empty shelf
+ *        renews an OoT critical renewable placed onto it (matching OoTMM's
+ *        RENEWABLE_LOCATIONS for OoT shops); a shelf hosting a foreign MM item
+ *        sells once and is excluded. Cows, scrubs and merchants give a shuffled
+ *        item once (RAND_INF_COWS_MILKED_*, VB_BUSINESS_SCRUB_DESPAWN, the
+ *        merchants' sold-out hooks). Vanilla ITEMTYPE_SHOP shelves also keep
+ *        renewing both shields (`RG_BUY_DEKU_SHIELD`, `RG_BUY_HYLIAN_SHIELD`).
  *   MM.  A shuffled shop shelf restocks whatever is still obtainable
  *        (EnGirlA_RandoRestock, ShopShelfSlotSold), a counter slot (milk bar,
  *        Gorman) and a cow give their item again every cycle (cycleObtained),
