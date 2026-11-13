@@ -280,6 +280,12 @@ extern "C" {
  *  no round run), never a ladder rung. Combo_Logic_LastGroupShortfall names the
  *  group. */
 #define RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY 14
+/** HOME CAPACITY (#1483): a game whose HOME_ONLY REQUIRED rows (including forced
+ *  rows) outnumber its own empty hosts cannot be filled by any seed. Reached empty
+ *  hosts are a subset of all empty hosts, so this is a necessary condition on every
+ *  rung. Refused BEFORE any attempt (`attempts` 0, `rounds` 0, nothing placed),
+ *  never a ladder rung. */
+#define RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY 15
 
 /** Its name ("ok", "no-engine", ...), or "(unknown)". Never NULL. */
 const char* Combo_Logic_StatusName(int status);
@@ -2189,6 +2195,10 @@ typedef struct {
     bool allLocationsReached; // the exit condition's every-location term held
     int locationsChecked;     // locations the pre-flight captured, both games together
     int locationsUnreachable; // locations the pre-flight (or the failing proof round) did not reach
+    // --- HOME CAPACITY (#1483). Set on RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY; 0 otherwise. ---
+    uint8_t homeShortGame; // GAME_OOT, GAME_MM, or GAME_NONE (both)
+    int homeRequiredRows;  // HOME_ONLY REQUIRED rows (including forced rows) that must land there
+    int homeHosts;         // empty hosts available on that game
 } ComboLogicFillResult;
 
 /**
