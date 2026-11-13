@@ -193,6 +193,9 @@ TrackerWindowSlot* FindTrackerSlot(const char* windowName) {
 } // namespace
 
 namespace S2H {
+namespace DevToolsGui {
+void RegisterWindows(std::shared_ptr<Ship::Gui> gui);
+} // namespace DevToolsGui
 namespace TrackersGui {
 
 void RegisterWindows(std::shared_ptr<Ship::Gui> gui) {
@@ -219,6 +222,10 @@ void RegisterWindows(std::shared_ptr<Ship::Gui> gui) {
     // W6-TIMERS (#1235, #1239): MM's In-Game Timer and Time Splits list, from
     // the same excluded BenGui.cpp, ride this registration (idempotent).
     S2H::TimersGui::RegisterWindows(gui);
+
+    // W6-DEV (#1238 slice 3): MM's developer-tool viewers register beside
+    // the timers (idempotent).
+    S2H::DevToolsGui::RegisterWindows(gui);
 
     // Idempotence: MM_Rando_Init is once-only guarded, but the headless
     // harness may drive registration directly more than once.
