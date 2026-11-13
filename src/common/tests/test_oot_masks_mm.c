@@ -99,6 +99,7 @@ uint8_t MM_ForeignMask_Worn(void);
 uint8_t MM_ForeignMask_SlotSelection(uint8_t slot);
 uint8_t MM_ForeignMask_SlotSelRaw(uint8_t slot);
 void MM_ForeignMask_SetSlotSelRaw(uint8_t slot, uint8_t value);
+uint8_t MM_ForeignMask_StoredRaw(void);
 void MM_ForeignMask_SetStoredRaw(uint8_t value);
 uint8_t MM_ForeignMask_PageCellItem(int maskSlot, uint8_t stored);
 const char* MM_ForeignMask_PageIcon(int maskSlot, const char* nativeIcon);
@@ -704,7 +705,8 @@ TestResult Test_OoTMasksMMItems(void) {
         const uint8_t ommSavedStoneSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
         const uint8_t ommSavedGibdoSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
 
-        // (a) Spooky Mask on EnHgo, EnPamera, EnSob1, EnOsn: PLAYER_MASK_GIBDO at night only; nothing under Gerudo/Skull.
+        // (a) Spooky Mask on EnHgo, EnPamera, EnSob1, EnOsn: PLAYER_MASK_GIBDO at night only; nothing under
+        // Gerudo/Skull.
         {
             static const struct {
                 int idx;
@@ -723,21 +725,22 @@ TestResult Test_OoTMasksMMItems(void) {
                 uint8_t mask = 0;
                 uint8_t form = 0;
                 int hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SPOOKY, actor, 1, &mask, &form);
-                OMM_CHECK(hit == 1 && (int)mask == maskGibdo && form == 0xFF,
-                          "#1452 %s (actor %d): Spooky Mask at night gave hit=%d mask=%u form=%u, expected PLAYER_MASK_GIBDO",
-                          kOmmGibdoActors[i].name, (int)actor, hit, (unsigned)mask, (unsigned)form);
+                OMM_CHECK(
+                    hit == 1 && (int)mask == maskGibdo && form == 0xFF,
+                    "#1452 %s (actor %d): Spooky Mask at night gave hit=%d mask=%u form=%u, expected PLAYER_MASK_GIBDO",
+                    kOmmGibdoActors[i].name, (int)actor, hit, (unsigned)mask, (unsigned)form);
                 hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SPOOKY, actor, 0, &mask, &form);
                 OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
-                          "#1452 %s (actor %d): Spooky Mask by day spoofed mask=%u form=%u",
-                          kOmmGibdoActors[i].name, (int)actor, (unsigned)mask, (unsigned)form);
+                          "#1452 %s (actor %d): Spooky Mask by day spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
                 hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_GERUDO, actor, 1, &mask, &form);
                 OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
-                          "#1452 %s (actor %d): Gerudo Mask spoofed mask=%u form=%u",
-                          kOmmGibdoActors[i].name, (int)actor, (unsigned)mask, (unsigned)form);
+                          "#1452 %s (actor %d): Gerudo Mask spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
                 hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SKULL, actor, 1, &mask, &form);
                 OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
-                          "#1452 %s (actor %d): Skull Mask spoofed mask=%u form=%u",
-                          kOmmGibdoActors[i].name, (int)actor, (unsigned)mask, (unsigned)form);
+                          "#1452 %s (actor %d): Skull Mask spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
             }
             const int16_t enHgo = (int16_t)MM_OoTMasksTest_ActorId(13);
             OmmFreezeWorld(kOmmExtensions);
@@ -788,8 +791,8 @@ TestResult Test_OoTMasksMMItems(void) {
                     }
                 }
                 OMM_CHECK(answered,
-                          "#1452 kListedActors[%d] (actor id %d) never gets an answer from MM_OoTMasks_SpoofFor",
-                          i, id);
+                          "#1452 kListedActors[%d] (actor id %d) never gets an answer from MM_OoTMasks_SpoofFor", i,
+                          id);
             }
             for (int actorId = 0; actorId < actorIdMax; actorId++) {
                 for (uint8_t worn = 1; worn < COMBO_FOREIGN_MASK_COUNT; worn++) {

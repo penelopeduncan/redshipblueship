@@ -359,9 +359,9 @@ namespace {
 
 // The actors that read a worn OoT mask (MM_OoTMasks_SpoofFor).
 const int16_t kListedActors[] = {
-    ACTOR_EN_GE2,        ACTOR_EN_LOOK_NUTS,  ACTOR_EN_FIREFLY,    ACTOR_EN_CROW,       ACTOR_EN_BAT,
-    ACTOR_EN_GUARD_NUTS, ACTOR_EN_DNS,        ACTOR_EN_RAILGIBUD,  ACTOR_EN_TALK_GIBUD, ACTOR_EN_RD,
-    ACTOR_EN_GB2,        ACTOR_EN_HGO,        ACTOR_EN_PAMERA,     ACTOR_EN_SOB1,       ACTOR_EN_OSN,
+    ACTOR_EN_GE2,        ACTOR_EN_LOOK_NUTS, ACTOR_EN_FIREFLY,   ACTOR_EN_CROW,       ACTOR_EN_BAT,
+    ACTOR_EN_GUARD_NUTS, ACTOR_EN_DNS,       ACTOR_EN_RAILGIBUD, ACTOR_EN_TALK_GIBUD, ACTOR_EN_RD,
+    ACTOR_EN_GB2,        ACTOR_EN_HGO,       ACTOR_EN_PAMERA,    ACTOR_EN_SOB1,       ACTOR_EN_OSN,
 };
 constexpr size_t kListedCount = sizeof(kListedActors) / sizeof(kListedActors[0]);
 
