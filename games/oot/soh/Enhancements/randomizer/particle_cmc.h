@@ -1,6 +1,8 @@
 #pragma once
 
 #include "soh/OTRGlobals.h"
+#include <libultraship/color.h>
+#include "../item-tables/ItemTableTypes.h"
 
 #ifndef PARTICLE_CMC_H
 #define PARTICLE_CMC_H
