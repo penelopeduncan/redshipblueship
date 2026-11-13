@@ -473,7 +473,9 @@ void GenerateItemPool() {
     // #1169 XW4: OoTMM's songSoaringOot adds one Song of Soaring (OoT) under the
     // FROZEN rule, with the songs' counts above (a plentiful second copy and an
     // ice-trap model only when songs are Anywhere); under any other Shuffle Songs
-    // value it is still pooled, having no vanilla spot. A shared Soaring adds none.
+    // value it is still pooled, having no vanilla spot. A shared Soaring adds none:
+    // OoTMM adds no copy under the shared rule (transform.ts); MM's native copy is
+    // the shared row (#1169 XW10).
     if (OoT_SongOfSoaringOoTPooledCopies() > 0) {
         const bool soaringAnywhere = ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_ANYWHERE);
         AddItemToPool(RG_SONG_OF_SOARING_OOT, soaringAnywhere ? 2 : 1, 1, 1, 1, soaringAnywhere);

@@ -215,9 +215,11 @@ triforce count ([#740](https://github.com/penelopeduncan/redshipblueship/pull/74
   "[Both Games] Shared Kokiri Sword" on, MM's game-over prompt
   ([#694](https://github.com/penelopeduncan/redshipblueship/issues/694)), OoT's icon in MM's get-item textbox ([#607](https://github.com/penelopeduncan/redshipblueship/issues/607)), and OpenGL compared with DirectX 11.
   Everything else above comes from tests, measurements and UI captures. Cross-game warp songs (OoTMM's Song of
-  Soaring played in Hyrule, Ocarina of Time's warp songs played in Termina) are not built: no code implements
-  them, and [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169) scopes them. Earlier revisions
-  of this document listed them as untested, as if they existed. The operator played
+  Soaring played in Hyrule, Ocarina of Time's warp songs played in Termina) are built since lane XW12 of
+  [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169). The Song of Soaring (OoT) and, since lane XW13, Ocarina of Time's six warp songs in Termina are offered, off by default, and tested by rows (IntSoaringToOwl and IntMMWarpSongMinuet among them);
+  the seven shared variants stay hidden. Nobody has played them by
+  hand yet. Revisions of this document from before the warp-song lanes listed them as untested while no code
+  implemented them. The operator played
   an earlier build on 2026-10-09 (which build was
   not recorded); its two findings are fixed: a crossing toasted an item a second time
   ([#878](https://github.com/penelopeduncan/redshipblueship/issues/878), PR [#887](https://github.com/penelopeduncan/redshipblueship/pull/887)), and
@@ -414,7 +416,7 @@ names. (Refreshed 2026-11-09 at `bc09231c`, the code of `v0.5.0-alpha` plus PRs 
 - No issue ([#1170](https://github.com/penelopeduncan/redshipblueship/issues/1170) closed, by design): Link's House Cow shows available once everything needed to win Malon's race is held, as SoH's own Check Tracker shows it: the logic assumes the race can be won (PR [#1178](https://github.com/penelopeduncan/redshipblueship/pull/1178) checked it against upstream).
 - [#1157](https://github.com/penelopeduncan/redshipblueship/issues/1157) (after the alpha): Shuffle Jabber Nuts applies to Ocarina of Time only; Majora's Mask has no talking gate of its own.
 - [#1165](https://github.com/penelopeduncan/redshipblueship/issues/1165) (minor): stray fairies on Ocarina of Time's shelves and in its get-item cutscene are still figures (see the first line of this list).
-- [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169) (in progress): cross-game warp songs, as in OoTMM (the Song of Soaring in Hyrule, Ocarina of Time's warp songs in Termina). The groundwork is in (PRs [#1448](https://github.com/penelopeduncan/redshipblueship/pull/1448), [#1449](https://github.com/penelopeduncan/redshipblueship/pull/1449) and [#1455](https://github.com/penelopeduncan/redshipblueship/pull/1455): the warp target, the rule's keys and the Song of Soaring item for Ocarina of Time) behind a hidden rule, so nothing changes in play yet.
+- [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169) (in progress): cross-game warp songs, as in OoTMM. In this build seven are offered, off by default, under Randomizer > Cross-Game > Cross-Game Songs: Song of Soaring (OoT), played in Hyrule as a child, and Minuet of Forest (MM) to Prelude of Light (MM), played in Termina, which take a child Link to the song's place in Hyrule (its warp pad, or where Shuffle Warp Songs sent it when the file was created); both games' logic count them. A warp song played in Termina is refused ("You can't use that song here") while Ocarina of Time's half is an adult, in a scene that forbids the Song of Soaring, or for a shuffled grotto destination before Ocarina of Time's tables are ready. The integration row IntMMWarpSongMinuet plays the Minuet in Majora's Mask and arrives in Hyrule; the other five songs and a shuffled destination are covered by ROM-free rows only. Not built yet: the seven shared variants (lane XW10; their rows stay hidden), and rows for these songs in the Combo Tracker, the Combo Item Tracker and both pause screens (lane XW11; until then an owned Majora's Mask warp song shows nowhere in Majora's Mask, and the trackers under-count warp reach the same way in both games). Under Shuffle Songs: Song Locations the Song of Soaring (OoT) fits with Crossing Direction Both; with Crossing Direction set to Off or MM Items to OoT, the Song of Soaring (OoT) alone already needs an Ocarina of Time song shared or started, under Song Locations too, and under Dungeon Rewards it always does. Otherwise Generate refuses ("Not generated: too many songs for the song checks." or "... for the song spots.").
 - No issue ([#1172](https://github.com/penelopeduncan/redshipblueship/issues/1172) closed, PR [#1213](https://github.com/penelopeduncan/redshipblueship/pull/1213)): Termina's dungeon key models are in `2ship.o2r`; the GitHub Actions builds carry them, and a locally staged tree needs the `Generate2ShipOtr` target run again, until when the keys keep their tinted vanilla model. A Majora's Mask key drawn in Hyrule keeps its current look. Nobody has seen the mask and fairy chests or the key models on screen.
 - No issue ([#1173](https://github.com/penelopeduncan/redshipblueship/issues/1173) closed, PR [#1212](https://github.com/penelopeduncan/redshipblueship/pull/1212)): a customised Non-Hookshotable Reticle colour (Cosmetics Editor) applies to Hyrule's Bow reticle but not to Termina's, which stays red; a follow-up. Nobody has seen the Termina hookshot reticle on screen.
 - No issue ([#1191](https://github.com/penelopeduncan/redshipblueship/issues/1191) closed, PR [#1205](https://github.com/penelopeduncan/redshipblueship/pull/1205)): a file in progress that freed exactly one of the Double Cell and Steep Slope carpenters' cells before updating loses an item ("A file in progress that freed one of the Double Cell and Steep Slope cells loses an item" under "Save loss and corruption").
@@ -796,8 +798,8 @@ before #895 are refused (see "Back up your saves").
 - The creation-time sample (10 real paired creations against the 30 s budget) was not re-run.
 - Not tested by anyone, by a row or by hand: networking, and a
   crossing made after quitting and relaunching the game, or after a save made during play.
-  (This line once also named "the cross-game warp songs"; there are none to test: no code
-  implements them, see [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169).)
+  (This line once also named "the cross-game warp songs"; at this commit none were built. They are
+  since lane XW12, see [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169).)
   (A crossing after the file is created, saved and loaded back from disk in the same session
   is tested: `IntPairedFirstCrossing` does exactly that.)
 
@@ -891,7 +893,7 @@ crossing after a save made during play, "[Both Games] Shared Kokiri
 Sword" on, MM's game-over prompt ([#694](https://github.com/penelopeduncan/redshipblueship/issues/694)), OoT's icon in MM's get-item textbox ([#607](https://github.com/penelopeduncan/redshipblueship/issues/607)),
 OpenGL compared with DirectX 11, and networking. On DirectX 11 F10 does not switch games
 ([#955](https://github.com/penelopeduncan/redshipblueship/issues/955)). (This list once also named "the cross-game
-warp songs"; no code implements them, see [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169).)
+warp songs"; at this commit none were built. They are since lane XW12, see [#1169](https://github.com/penelopeduncan/redshipblueship/issues/1169).)
 
 ---
 

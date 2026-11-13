@@ -15,6 +15,8 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "triforce_hunt.h" // src/common — #1389: the paired hunt's requirement, for the piece text
+#include "warp_song_items.h" // src/common — #1169 XW11: Combo_ForeignGameTag, one tag after the name
+#include "game.h"            // src/common — GAME_MM
 #endif
 
 extern "C" {
@@ -422,9 +424,11 @@ void BuildCustomItemMessage(Player* player, CustomMessage& msg) {
 // with its game, " (MM)", the way OoT's check tracker marks it: many names exist
 // in both games.
 static CustomMessage BuildForeignItemText(const char* article, const char* name) {
-    CustomMessage msg = CustomMessage("You found [[article]]%g[[name]]%w (MM)!", TEXTBOX_TYPE_BLUE);
+    CustomMessage msg = CustomMessage("You found [[article]]%g[[name]]%w[[tag]]!", TEXTBOX_TYPE_BLUE);
     msg.Replace("[[article]]", std::string(article != nullptr ? article : ""));
     msg.Replace("[[name]]", std::string(name != nullptr ? name : ""));
+    // #1169 XW11: no second tag after a name that already carries it ("Minuet of Forest (MM)").
+    msg.Replace("[[tag]]", std::string(Combo_ForeignGameTag(name, GAME_MM)));
     return msg;
 }
 

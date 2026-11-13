@@ -74,8 +74,9 @@ const ComboSettingDesc kComboSettingDescs[COMBO_SETTING_COUNT] = {
     { RSBS_CVAR_COMBO_RANDO_STONE_MASK_OOT, "Stone Mask (OoT)" },
     { RSBS_CVAR_COMBO_RANDO_SHARED_MASK_STONE, "Shared Stone Mask" },
     // #1169 XW2: OoTMM's fourteen warp-song rules, under OoTMM's own names
-    // (data.ts). Hidden until XW12: no row draws these labels yet; a load that
-    // restores one names it in its toast.
+    // (data.ts). The Cross-Game Songs rows draw these labels (each only while its
+    // rule is offered: the seven extensions since XW12 and XW13, the shared ones
+    // once XW10 offers them); a load that restores one names it in its toast.
     { RSBS_CVAR_COMBO_RANDO_SONG_SOARING_OOT, "Song of Soaring (OoT)" },
     { RSBS_CVAR_COMBO_RANDO_SONG_MINUET_MM, "Minuet of Forest (MM)" },
     { RSBS_CVAR_COMBO_RANDO_SONG_BOLERO_MM, "Bolero of Fire (MM)" },
@@ -595,8 +596,9 @@ const Restorable kRestorable[] = {
     // #1169 XW2: the second rules word's fourteen keys, under the same bitset bit
     // as the first word's (one divergence bit for both words), in OoTMM's order.
     // Restorable only when every differing bit has a key and the file's word holds
-    // nothing this build refuses (ItemRulesKeyedDiff): while the rules are hidden,
-    // only a session's stray key against a file's "off" is put back.
+    // nothing this build refuses (ItemRulesKeyedDiff): since XW12 the Song of Soaring
+    // (OoT) is restored; while the MM and shared songs are hidden, a file with one on is refused
+    // and only a session's stray key against a file's "off" is put back.
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SONG_SOARING_OOT },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SONG_MINUET_MM },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SONG_BOLERO_MM },
@@ -617,8 +619,9 @@ const Restorable kRestorable[] = {
  *  differs from the session's resolution has a key; a rule only another build
  *  authors (an extension mask, say) cannot be restored, and the load refuses it by
  *  name. #1169 XW2: the same for the second word, which also may not hold a bit
- *  this build refuses (Combo_ComboItemRules2Refused: until XW12, any warp-song
- *  rule on), so a later build's warp-song world is refused as another build's. */
+ *  this build refuses (Combo_ComboItemRules2Refused: since XW12, an MM or shared
+ *  warp-song rule on), so a later build's such world is refused as
+ *  another build's. */
 bool ItemRulesKeyedDiff(const ComboItemRulesRecord* frozenRules, uint32_t frozenRules2) {
     ComboItemRulesRecord live;
     Combo_ResolveComboItemRules(&live);

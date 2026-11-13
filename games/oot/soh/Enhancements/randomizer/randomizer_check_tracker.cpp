@@ -37,6 +37,10 @@
 // src/common, outside the extern "C" block below: it manages its own linkage.
 #include "foreign_items.h" // Combo_GetForeignPlacementForOoTCheck, Combo_GetForeignItemName (#796)
 #include "cvar_shared_keys.h" // RSBS_CVAR_COMBO_CHECKS_ONLY_CURRENT_AREA_TOGGLE_VISIBLE (#1287)
+#include "warp_song_tracker.h" // #1169 XW11: MM's warp-song travel from the frozen world
+#include "warp_song_items.h"   // #1169 XW11: Combo_ForeignGameTag, one tag after a crossed item's name
+// ComboLogicEngineOoT.cpp: the tracker-scoped arm of the root warp exits (#1169 XW11).
+extern "C" void OoT_ComboLogic_SetTrackerTravel(uint32_t facts);
 #endif
 
 extern "C" {
@@ -1318,7 +1322,7 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
     if (Combo_ForeignPairingActive()) {
         if (const SharedItem* crossed = Combo_GetForeignPlacementForOoTCheck((uint16_t)rc)) {
             if (const char* name = Combo_GetForeignItemName(*crossed)) {
-                return std::string(name) + " (MM)";
+                return std::string(name) + Combo_ForeignGameTag(name, GAME_MM);
             }
         }
     }
@@ -2863,6 +2867,23 @@ static void ComputeAvailableChecks(RandomizerRegion startingRegion, RandoAgeTime
 
     std::vector<RandomizerCheck> availableChecks =
         ReachabilitySearch(targetLocations, RG_NONE, true, startingRegion, startingAgeTime);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW11: a Majora's Mask warp song the player can play there also opens its
+    // root warp exit, read from MM's FROZEN world (warp_song_tracker.h). OoT's crossing
+    // is this first search's mask-shop access, held before the second search runs; the
+    // facts are armed for that search alone. A file with every warp-song rule off reads
+    // one word here and never searches twice.
+    {
+        const Region* maskShop = RegionTable(RR_MARKET_MASK_SHOP);
+        const int crossOoT = (maskShop != nullptr && maskShop->Child()) ? 1 : 0;
+        const uint32_t travelFacts = Combo_TrackerTravel_OoTFactsNow(crossOoT);
+        if (travelFacts != 0u) {
+            OoT_ComboLogic_SetTrackerTravel(travelFacts);
+            availableChecks = ReachabilitySearch(targetLocations, RG_NONE, true, startingRegion, startingAgeTime);
+            OoT_ComboLogic_SetTrackerTravel(0u);
+        }
+    }
+#endif
     for (auto& rc : availableChecks) {
         const auto& itemLocation = ctx->GetItemLocation(rc);
         itemLocation->SetAvailable(true);

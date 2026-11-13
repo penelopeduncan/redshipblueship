@@ -749,6 +749,19 @@ static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged
     return changed;
 }
 
+// TEST PROBE (Combo_Logic_TestLastTravelFacts): the facts the gates last judged.
+static uint32_t sComboLogicProbeFactsOoT = 0u;
+static uint32_t sComboLogicProbeFactsMM = 0u;
+
+void Combo_Logic_TestLastTravelFacts(uint32_t* outOoT, uint32_t* outMM) {
+    if (outOoT != NULL) {
+        *outOoT = sComboLogicProbeFactsOoT;
+    }
+    if (outMM != NULL) {
+        *outMM = sComboLogicProbeFactsMM;
+    }
+}
+
 void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, int crossMM, uint32_t* outToOoT,
                             uint32_t* outToMM) {
     // MM's warp songs are played IN MM: the crossing must be open to be there.
@@ -1070,6 +1083,8 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
         uint32_t prevFactsMM = 0u;
         uint32_t acceptedOoT = 0u;
         uint32_t acceptedMM = 0u;
+        sComboLogicProbeFactsOoT = 0u; // the test probe describes this round only
+        sComboLogicProbeFactsMM = 0u;
 
         while (iteration < RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS) {
             int changed = 0;
@@ -1121,6 +1136,8 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
                     prevFactsMM = factsMM;
                     uint32_t toOoT = 0u;
                     uint32_t toMM = 0u;
+                    sComboLogicProbeFactsOoT = factsOoT;
+                    sComboLogicProbeFactsMM = factsMM;
                     Combo_Logic_TravelGate(factsOoT, factsMM, crossOoT, crossMM, &toOoT, &toMM);
                     // An engine with no `acceptTravelFacts` drops them: nothing is
                     // delivered, recorded or re-expanded for it.

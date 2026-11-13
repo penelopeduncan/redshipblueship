@@ -166,6 +166,11 @@ typedef struct ComboItemGridStyle {
     // line, and the group after it does too (SoH pads each of its optional sections onto a fresh line of
     // its main window). NULL, or false for a group: it flows on, as SoH's main sections do.
     bool (*groupOwnLine)(const char* group);
+    // Optional (#1169 XW11): true for a group that starts a fresh line in a flowing grid while the group
+    // after it flows on (unlike groupOwnLine). SoH's dungeon tables follow its 66 fixed rows, which fill
+    // eleven whole lines, so they already start a line; this keeps them there when an added warp song
+    // follows the songs. NULL, or false for a group: no effect.
+    bool (*groupStartsLine)(const char* group);
 } ComboItemGridStyle;
 
 /** SoH's main Item Tracker grid (randomizer_item_tracker.cpp DrawItemsInRows: six 36 px icons a line,
@@ -179,7 +184,15 @@ extern const ComboItemGridStyle kComboItemSohGrid;
 typedef struct ComboItemOps {
     // Number of rows that are always there; fixed for the adapter's lifetime.
     // Rows a save adds on top (see countFor) come after these, so an index below
-    // this answers for every save.
+    // this answers for every save. One exception (#1169 XW11): an added warp song
+    // under its frozen rule is drawn inside its game's songs, so in such a file
+    // every row after the songs moves down by the number of added songs (one in
+    // OoT, up to six in MM), and the last fixed rows land at or past count(). That
+    // includes MM's Kokiri Sword shared copy (Quest group, after the songs).
+    // LiveCopyOf walks the first count() rows for a shared-kind copy, so it still
+    // finds each one only while that copy's shifted index stays below count()
+    // (MM's sword moves from about 55 to about 61, of 84). A rule-off file is
+    // unchanged.
     int (*count)(void);
     // Fill row `index` from `src` (a SaveContext image of this game) and nothing
     // else: never the global save. Leaves `out->freshness` alone. False when

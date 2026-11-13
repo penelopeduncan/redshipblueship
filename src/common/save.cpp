@@ -19,6 +19,7 @@
 // runs over the record it just read (ADR 0011 decision 4).
 #include "foreign_items.h"
 #include "game.h"
+#include "mm_warp_song_play.h"     // Combo_MMWarpSongRecordBroken: the load half of the XW12 invariant
 #include "notification_bridge.h"   // the load's player-visible surface (#781): stderr is not one
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX and the refused file's words (#836)
 #include "shared_resources.h"
@@ -1297,6 +1298,24 @@ void SaveManager::EvaluateSlot(int slot, uint32_t ootSavGeneration, int openKind
     // load restores from the file's triforce record.
     // #1169 XW2: the second rules word too (0 in every file written before it).
     const uint32_t comboRules2 = Combo_ComboItemRules2Word(&combo.comboItemRules2);
+    // #1169 XW12: THE WARP-SONG RECORD INVARIANT, over the record just read. A
+    // file with a Majora's Mask warp-song rule on and no PRESENT record has logic
+    // that credits warps play refuses; no key can restore a record, so it is
+    // refused before the compare, as another build's file: intact, untouched,
+    // not quarantined. Every file written before XW12 holds those rules off.
+    if (Combo_MMWarpSongRecordBroken(comboRules2, &combo.comboOoTWarps)) {
+        std::fprintf(stderr,
+                     "[RsbsSave] slot %d REFUSED: COMBO SETTINGS IDENTITY — the file turns on Ocarina of Time warp "
+                     "songs in Majora's Mask but records no warp-song destinations (#1169). The on-disk .redsave is "
+                     "intact and untouched.\n",
+                     slot);
+        v.outcome = RSBS_LOAD_REFUSED;
+        v.reason = RSBS_REFUSE_IDENTITY;
+        v.quarantine = false;
+        v.identityToast = RSBS_LOAD_TOAST_REFUSED_OTHER_BUILD;
+        v.words = RsbsSave_LoadToastRefusalMessage(v.identityToast);
+        return;
+    }
     uint32_t comboDiverged = Combo_ComboSettingsDivergenceForEx2(&combo.comboSettings, &combo.comboItemRules,
                                                                  comboRules2, combo.comboSettingsHash,
                                                                  combo.sharedRandoSettingsHash, combo.mmProfileDigest) |

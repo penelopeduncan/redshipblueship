@@ -64,7 +64,8 @@ struct PlayState;
 
 /** The usable songs right now, bit i = song i in OoTMM's order: 0 unless one of
  *  the six rules is frozen on and the world is paired; then the songs whose rule
- *  is on and which are owned (MM_WarpSongMM_Usable). */
+ *  is on and which Link holds in MM (Combo_WarpSongHeld, #1169 XW10: MM's own copy,
+ *  or under the song's shared rule the family owned). */
 uint8_t MM_WarpSongMM_UsableMask(void);
 /**
  * The free-play matcher (code_8019AF00.c, AudioOcarina_CheckSongsWithoutMusicStaff,

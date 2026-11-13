@@ -1273,6 +1273,16 @@ void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, i
                             uint32_t* outToMM);
 
 /**
+ * TEST PROBE (#1169 XW12, combo-warp-travel-rounds T5/T6): the MASKED travel
+ * facts each engine reported at the last alternation the gates judged in the
+ * last Combo_Logic_RunRound (0 and 0 before any, and for a round that gated
+ * none). The facts are monotone inside a round, so this is the round's whole
+ * report. A closed-crossing leg reads it to prove the fact it expects the gate to
+ * drop was really there. Either pointer may be NULL. Production never reads it.
+ */
+void Combo_Logic_TestLastTravelFacts(uint32_t* outOoT, uint32_t* outMM);
+
+/**
  * The triforce-hunt GOAL expression (ADR 0010 answer O10): the ONE shared piece
  * count across both worlds against the frozen combo requirement.
  *
@@ -2408,12 +2418,13 @@ int Combo_Logic_LeftoverHosts(GameId hostGame, uint16_t* out, int cap);
 //    The production caller passes the frozen requirement since #1389
 //    (combo_single_bag.c), so a paired triforce-hunt world is generated and
 //    proved like any other.
-//  - THE TRAVEL FACTS OUTSIDE A ROUND (ABI 10, #1169 XW9). Both games' check
-//    trackers, OoT's own restricted passes and its entrance validation evaluate
-//    the same warp-song and owl exits outside any round, where the accessors are
-//    false: they under-credit warp travel, identically in an MM-first session and
-//    after a crossing, until XW11 gives the trackers facts from the frozen world.
-//    Way of the Hero and foolish run rounds and see the facts as the fill does.
+//  - THE TRAVEL FACTS OUTSIDE A ROUND (ABI 10, #1169 XW9). OoT's own restricted
+//    passes and its entrance validation evaluate the same warp-song and owl exits
+//    outside any round, where the accessors are false, and under-credit warp
+//    travel. Both check trackers credit it since XW11, from FROZEN state through a
+//    tracker-scoped second search (warp_song_tracker.h); generation still never
+//    sees those facts. Way of the Hero and foolish run rounds and see the facts as
+//    the fill does.
 //  - THE SPOILER. One artifact for the pair is #564 V23 / audit P11; this
 //    coordinator exposes its tables and stops there (the creation event prints
 //    the crossing store into the one spoiler's combo section).

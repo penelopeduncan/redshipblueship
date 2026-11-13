@@ -15,6 +15,7 @@
 #include "combo_settings_view.h" // the tier-4 authoring surface the resolver reads (increment 2)
 #include "triforce_hunt.h"       // the O10 record joins the arrival refusal (Combo_ComboSettingsDivergence)
 #include "shared_items.h"        // Combo_ItemClassSharedKind / _Units: a counted pack's name (#1160)
+#include "mm_warp_song_play.h"   // Combo_MMWarpSongRecordBroken: the arrival half of the XW12 invariant
 #include <stdio.h>
 #include <string.h>
 
@@ -514,19 +515,43 @@ bool Combo_ComboCrossItemRule2(uint32_t bit) {
     return bit != 0u && (Combo_ComboCrossItemFlags2() & bit) == bit;
 }
 
-// TEST ONLY (Combo_ComboItemRules2RevealForTest): the hidden mask reads empty, as
-// it will once lane XW12 lands. Never set in production.
-static bool sComboItemRules2Revealed = false;
+// TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
+// the hidden mask, as it will once lane XW10 builds the shared songs, and
+// RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out of it, which since
+// XW13 (the extensions offered) leaves the production mask. Never set in
+// production.
+static int sComboItemRules2RevealLevel = RSBS_XITEM2_REVEAL_NONE;
 
 void Combo_ComboItemRules2RevealForTest(int on) {
-    sComboItemRules2Revealed = on != 0;
+    sComboItemRules2RevealLevel = on == RSBS_XITEM2_REVEAL_MM_SONGS ? RSBS_XITEM2_REVEAL_MM_SONGS
+                                  : on != 0                         ? RSBS_XITEM2_REVEAL_ALL
+                                                                    : RSBS_XITEM2_REVEAL_NONE;
+}
+
+static uint32_t Combo_ComboItemRules2HiddenMask(void) {
+    if (sComboItemRules2RevealLevel == RSBS_XITEM2_REVEAL_ALL) {
+        return 0u;
+    }
+    if (sComboItemRules2RevealLevel == RSBS_XITEM2_REVEAL_MM_SONGS) {
+        return (uint32_t)RSBS_XITEM2_HIDDEN & ~(uint32_t)RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS;
+    }
+    return (uint32_t)RSBS_XITEM2_HIDDEN;
+}
+
+bool Combo_ComboItemRule2Offered(uint32_t bit) {
+    // Exactly one allocated bit, and not hidden (#1169 XW12): the predicate the
+    // Cross-Game Rules rows read, over the same mask the refusal reads.
+    if (bit == 0u || (bit & (bit - 1u)) != 0u || (bit & ~(uint32_t)RSBS_XITEM2_ALL_V1) != 0u) {
+        return false;
+    }
+    return (bit & Combo_ComboItemRules2HiddenMask()) == 0u;
 }
 
 uint32_t Combo_ComboItemRules2Refused(uint32_t word, char* names, size_t len) {
     if (names != NULL && len > 0) {
         names[0] = '\0';
     }
-    const uint32_t hidden = sComboItemRules2Revealed ? 0u : (uint32_t)RSBS_XITEM2_HIDDEN;
+    const uint32_t hidden = Combo_ComboItemRules2HiddenMask();
     uint32_t refused = (word & ~(uint32_t)RSBS_XITEM2_ALL_V1) | (word & hidden);
     for (uint32_t b = 0; b < RSBS_XITEM2_BIT_COUNT; ++b) {
         const uint32_t bit = 1u << b;
@@ -1241,7 +1266,7 @@ uint32_t Combo_ComboSettingsDivergenceForEx2(const ComboSettingsRecord* frozen, 
         // both sides are 0 and nothing is added.
         bits |= Combo_ComboItemRules2DivergenceBetween(frozenRules2, Combo_ResolveComboItemRules2());
         // And a frozen word this build refuses (Combo_ComboItemRules2Refused:
-        // until XW12, any warp-song rule on) diverges even when the session's
+        // since XW13, a shared warp-song rule on) diverges even when the session's
         // keys equal it (set from the console, or by a later build's config):
         // the keys alone must not let a world load or arrive that this build
         // has no item, matcher or logic for. The restore probe reports it
@@ -1273,11 +1298,20 @@ uint32_t Combo_ComboSettingsDivergence(void) {
     // The triforce record (ADR 0010 O10) rides the same arrival refusal: the
     // record and the goal it serves are one identity, so a resident pair whose
     // triforce record contradicts its combo record is refused by name here.
+    //
+    // #1169 XW12: and the warp-song record invariant. A resident pair with a
+    // Majora's Mask warp-song rule on and no PRESENT record has logic that
+    // credits warps play refuses; it is refused by name like a rules
+    // difference. Only with nothing frozen is it exempt (the word reads 0).
+    const uint32_t rules2 = Combo_ComboSettingsFrozen() ? Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) : 0u;
+    const uint32_t record = Combo_MMWarpSongRecordBroken(rules2, &gComboCtx.comboOoTWarps)
+                                ? (uint32_t)RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS
+                                : 0u;
     return Combo_ComboSettingsDivergenceForEx2(&gComboCtx.comboSettings, &gComboCtx.comboItemRules,
                                                Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2),
                                                gComboCtx.comboSettingsHash, gComboCtx.sharedRandoSettingsHash,
                                                gComboCtx.mmProfileDigest) |
-           Combo_TriforceRecordDivergence(&gComboCtx.comboSettings, &gComboCtx.comboTriforce);
+           Combo_TriforceRecordDivergence(&gComboCtx.comboSettings, &gComboCtx.comboTriforce) | record;
 }
 
 const char* Combo_ComboSettingsDivergenceFieldName(uint32_t bit) {

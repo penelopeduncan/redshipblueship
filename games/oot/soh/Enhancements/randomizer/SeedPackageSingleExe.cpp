@@ -27,8 +27,9 @@
  * this build's layout; the crossing block validates; the combo record names the
  * identity identity.json names, and its fingerprint is the one this generator's
  * formula gives (Combo_ComboSettingsHashGeneratorVersionEx2, over both item-rule
- * words); and its second rules word holds nothing this build refuses to create
- * (Combo_ComboItemRules2Refused, #1169 XW2).
+ * words); its second rules word holds nothing this build refuses to create
+ * (Combo_ComboItemRules2Refused, #1169 XW2); and a Majora's Mask warp-song rule
+ * comes with a PRESENT warp-song record (Combo_MMWarpSongRecordBroken, XW12).
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -59,6 +60,8 @@
 #include "crossing_store.h"
 #include "combo_single_bag.h"      // OoT_ComboLogic_GeneralPassDeferred
 #include "combo_song_pool.h"       // Combo_PairSongsClear: a package carries no songs capture (#1542)
+#include "mm_warp_song_play.h"     // Combo_MMWarpSongRecordBroken: the import half of the XW12 invariant
+#include "warp_song_items.h"       // Combo_GenRefusal_*: why the OoT generation refused (#1169 XW12)
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX
 #include "rsbs_version.h"
 #include "save.h" // RsbsSave_BuildWatermark / RsbsSave_WatermarkExceedsBuild: identity.json's watermark (format 2)
@@ -83,6 +86,8 @@ void OoT_Creation_EmitGoalUnreachableToast(unsigned goal, int goalOoT, int goalM
 int OoT_Creation_EmitHomeCapacityToast(uint32_t shortGames, unsigned piecesOoT, unsigned piecesMM);
 // #1542: the shared song pool's capacity refusal.
 int OoT_Creation_EmitSongCapacityToast(const ComboSingleBagReport* r);
+// #1169 XW12 (D4): the OoT generation's own refusals (Combo_GenRefusal_*).
+int OoT_Creation_EmitGenRefusalToast(void);
 // ComboLogicEngineOoT.cpp.
 void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
 // games/mm/2s2h/GameExports_SingleExe.cpp: the bytes of MM's half.
@@ -408,8 +413,13 @@ int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::str
             { "logicRung", r.logicRung },
             { "comboFlags", r.comboFlags },
         };
+        // #1169 XW11: the second rules word and MM's starting warp songs, the two world
+        // fields the binary record carries (above) that identity.json did not name.
+        // Additive: Validate reads the record, never this object.
         combo["itemRules"] = { { "crossItemFlags", gComboCtx.comboItemRules.crossItemFlags },
-                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown } };
+                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown },
+                               { "crossItemFlags2", Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) },
+                               { "mmWarpSongsStarting", gComboCtx.mmWarpSongsOwned } };
         combo["triforce"] = { { "totalOoT", gComboCtx.comboTriforce.totalOoT },
                               { "requiredOoT", gComboCtx.comboTriforce.requiredOoT },
                               { "totalMM", gComboCtx.comboTriforce.totalMM },
@@ -625,12 +635,20 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         return RSBS_SEEDPKG_ERR_GENERATOR_VERSION;
     }
     // #1169 XW2: a world whose second rules word holds a rule this build does not
-    // offer yet (until XW12, any warp-song rule; or a bit no build allocates) is
-    // another build's world, refused by name as Generate refuses it, before
-    // anything is applied.
+    // offer yet (since XW13, a shared warp-song rule; or a bit no build
+    // allocates) is another build's world, refused by name as Generate refuses
+    // it, before anything is applied.
     char refusedRules[160];
     if (Combo_ComboItemRules2Refused(rules2, refusedRules, sizeof(refusedRules)) != 0u) {
         why = std::string("the pair turns on cross-game rules this build does not offer (") + refusedRules + ")";
+        return RSBS_SEEDPKG_ERR_FORMAT;
+    }
+    // #1169 XW12: the warp-song record invariant (Combo_MMWarpSongRecordBroken).
+    // A Majora's Mask warp-song rule with no PRESENT record would be a world whose
+    // logic credits warps that play refuses; ApplyComboWorld copies the record as
+    // it is, so it is refused here.
+    if (Combo_MMWarpSongRecordBroken(rules2, &rec.comboOoTWarps)) {
+        why = "the pair turns on Ocarina of Time warp songs in Majora's Mask but records no warp-song destinations";
         return RSBS_SEEDPKG_ERR_FORMAT;
     }
     return RSBS_SEEDPKG_OK;
@@ -958,6 +976,11 @@ extern "C" int OoT_SeedPackage_FileSelectTick(void) {
     }
     // The worker has finished its last statement; reap it before running on.
     JoinRandoGenerationThread();
+    // #1169 XW12 (D4): a refusal OoT's generation took on the worker (Dungeon
+    // Rewards cannot hold the songs; a rule this build does not offer) made no
+    // world, so the completion below returns 0 and raises nothing: say why here,
+    // once, in the other "Not generated:" toasts' shape.
+    OoT_Creation_EmitGenRefusalToast();
     return OoT_SeedPackage_CompletePendingGeneration();
 }
 

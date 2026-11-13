@@ -40,6 +40,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <set>
 #include <utility>
@@ -51,10 +52,15 @@
 #include "Rando/Logic/ResetTimeGuard.h"
 #include "Rando/WarpSongsMM.h"
 
-#include "combo_logic.h"      // src/common: Combo_Logic_RunRound and the placement tables
-#include "combo_single_bag.h" // src/common: the creation's commit (Combo_SingleBag_Forget)
-#include "context.h"          // src/common: ComboContext_Init
-#include "foreign_items.h"    // src/common: the second rules word and its freeze
+#include <libultraship/bridge/consolevariablebridge.h>
+
+#include "combo_logic.h"         // src/common: Combo_Logic_RunRound and the placement tables
+#include "combo_single_bag.h"    // src/common: the creation's commit (Combo_SingleBag_Forget)
+#include "context.h"             // src/common: ComboContext_Init
+#include "foreign_items.h"       // src/common: the second rules word and its freeze
+#include "combo_settings_view.h" // src/common: the warp-song keys (#1169 XW12, combo-warp-song-world)
+#include "mm_warp_song_play.h"   // src/common: the creation's warp-song record
+#include "shared_items.h"        // src/common: RSBS_FILL_ARM_SONGS_ROAM (D5)
 
 extern "C" {
 #include "variables.h"
@@ -74,6 +80,13 @@ int MM_Rando_HeadlessPairedHalf(void);
 uint32_t OoT_ComboLogic_TestTravelEdgeSeen(int reset);
 uint16_t OoT_ComboLogic_TestTravelItemId(int which);
 int OoT_ComboLogic_TestHostsHolding(uint16_t rg, uint16_t* out, int cap);
+// #1169 XW12 (T6): close OoT's crossing for the rounds that follow (ComboLogicEngineOoT.cpp).
+int OoT_ComboLogic_TestCloseCrossing(int on);
+// #1169 XW12 (combo-warp-song-world): OoT's side of the creation tail
+// (ForeignItemsSingleExe.cpp) and the confinement bits OoT's settings arm
+// (ComboLogicEngineOoT.cpp).
+int OoT_Creation_FinishPairedHalf(int writeSpoiler);
+uint32_t OoT_ComboLogic_ConfinementArmed(void);
 }
 
 namespace {
@@ -366,9 +379,23 @@ extern "C" int MM_WarpTravelEdges_RunHeadless(void) {
 //      every result field equal and nothing credited. Catches the rule bits alone
 //      costing an alternation or moving any answer.
 //
-// NOT covered here: a round whose crossing is CLOSED over the real engines (this
-// world opens both from nothing assumed); THE TRAVEL GATES' closed-crossing
-// behaviour is combo-logic-travel-facts' stub legs T2 and T3.
+//   T5 (#1169 XW12) MM's crossing CLOSED (graph surgery: the one authored edge
+//      into the Clock Tower's interior removed), both rules on, both songs
+//      assumed: OoT's crossing open, MM's closed; Minuet still reaches OoT
+//      (only OoT's crossing gates it) and Soaring does not reach MM. Vacuity:
+//      OoT's raw Soaring fact WAS reported (Combo_Logic_TestLastTravelFacts), so
+//      the gate, not a missing fact, dropped it. Catches the crossMM term dropped
+//      from the Soaring gate (combo_logic.c, Combo_Logic_TravelGate).
+//   T6 (#1169 XW12) OoT's crossing CLOSED (the Market's exit to the Happy Mask
+//      Shop held false, OoT_ComboLogic_TestCloseCrossing), the same assumptions:
+//      nothing credited in either direction, no edge read. Vacuity: both raw
+//      facts were reported and MM's crossing stayed open, so T6 alone catches
+//      the crossOoT term dropped from EITHER gate.
+//   T5b, T6b the same closures with the rules off: nothing credited (a closure
+//      that changes the rules-off answer is caught).
+//
+// THE TRAVEL GATES' closed-crossing behaviour is also combo-logic-travel-facts'
+// stub legs T2 and T3; T5 and T6 are the same claims over the two real engines.
 
 namespace {
 
@@ -421,16 +448,31 @@ void MwrPrint(const char* leg, const ComboLogicRoundResult& r) {
            (unsigned)OoT_ComboLogic_TestTravelEdgeSeen(0), MM_ComboLogic_TestSoaringTravelHits(0));
 }
 
-/** The frozen word put back, the probes cleared and the created world forgotten
- *  however the row ends. */
+/** The frozen word put back, the probes cleared, OoT's crossing reopened and the
+ *  created world forgotten however the row ends. */
 struct MwrRestore {
     uint32_t word = 0u;
     ~MwrRestore() {
         Combo_ComboItemRules2Store(&gComboCtx.comboItemRules2, word);
         (void)OoT_ComboLogic_TestTravelEdgeSeen(1);
         (void)MM_ComboLogic_TestSoaringTravelHits(1);
+        (void)OoT_ComboLogic_TestCloseCrossing(0);
         Combo_SingleBag_Forget();
     }
+};
+
+/** T5's surgery (#1169 XW12): one MM region's exits, put back however the scope is
+ *  left (mm_combo_logic_engine_test.cpp's RegionExitsGuard, under this row's name). */
+struct MwrRegionExitsGuard {
+    RandoRegionId regionId;
+    std::map<s32, Rando::Logic::RandoRegionExit> saved;
+    explicit MwrRegionExitsGuard(RandoRegionId id) : regionId(id), saved(Rando::Logic::Regions[id].exits) {
+    }
+    ~MwrRegionExitsGuard() {
+        Rando::Logic::Regions[regionId].exits = saved;
+    }
+    MwrRegionExitsGuard(const MwrRegionExitsGuard&) = delete;
+    MwrRegionExitsGuard& operator=(const MwrRegionExitsGuard&) = delete;
 };
 
 } // namespace
@@ -610,8 +652,377 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
              "T4 the rule bits alone change no field of the round",
              "with no song to play, freezing the rules on changed the round's answer or cost");
 
+    // ---- T5: MM's crossing closed (#1169 XW12) -----------------------------------
+    {
+        MwrRegionExitsGuard southGuard(RR_CLOCK_TOWN_SOUTH);
+        const size_t erased = Rando::Logic::Regions[RR_CLOCK_TOWN_SOUTH].exits.erase(ENTRANCE(CLOCK_TOWER_INTERIOR, 1));
+        MwrCheck(erased == 1, "T5 the surgery removed MM's one crossing edge",
+                 "RR_CLOCK_TOWN_SOUTH carries no EXIT to ENTRANCE(CLOCK_TOWER_INTERIOR, 1), so T5 cannot close MM's "
+                 "crossing");
+        (void)OoT_ComboLogic_TestTravelEdgeSeen(1);
+        (void)MM_ComboLogic_TestSoaringTravelHits(1);
+        ComboLogicRoundResult r5;
+        const int s5 = MwrRound(both, created, songs, forbidden, &r5);
+        MwrPrint("T5 MM's crossing closed, both rules on, both songs assumed", r5);
+        uint32_t factsOoT5 = 0u;
+        uint32_t factsMM5 = 0u;
+        Combo_Logic_TestLastTravelFacts(&factsOoT5, &factsMM5);
+        const uint32_t seen5 = OoT_ComboLogic_TestTravelEdgeSeen(1);
+        const int hits5 = MM_ComboLogic_TestSoaringTravelHits(1);
+        printf("[TEST] combo-warp-travel-rounds: T5 raw facts OoT %02X MM %02X\n", (unsigned)factsOoT5,
+               (unsigned)factsMM5);
+        MwrCheck(s5 == RSBS_COMBO_LOGIC_OK && r5.crossingOpenMM == 0 && r5.crossingOpenOoT == 1,
+                 "T5 the round ran with OoT's crossing open and MM's closed",
+                 "the round failed, or the surgery did not close MM's crossing alone");
+        MwrCheck((factsOoT5 & RSBS_COMBO_TRAVEL_INTO_MM) != 0u, "T5 OoT reported its Soaring fact (vacuity guard)",
+                 "OoT's raw Soaring fact was 0, so T5 cannot tell the closed gate from a missing fact");
+        MwrCheck(r5.travelToMM == 0u && hits5 == 0, "T5 Soaring does not reach MM with MM's crossing closed",
+                 "THE SOARING GATE IGNORED MM'S CROSSING: OoT's Soaring was handed to MM, or MM's crawl read it");
+        MwrCheck(r5.travelToOoT == RSBS_XITEM2_SONG_MINUET_MM && seen5 == 0x01u,
+                 "T5 Minuet still reaches OoT (only OoT's crossing gates it)",
+                 "MM's Minuet was not credited, or OoT's search did not open its root exit, with OoT's crossing open");
+        ComboLogicRoundResult r5b;
+        const int s5b = MwrRound(0u, created, songs, forbidden, &r5b);
+        MwrPrint("T5b MM's crossing closed, rules off", r5b);
+        const uint32_t seen5b = OoT_ComboLogic_TestTravelEdgeSeen(1);
+        const int hits5b = MM_ComboLogic_TestSoaringTravelHits(1);
+        MwrCheck(s5b == RSBS_COMBO_LOGIC_OK && r5b.travelToOoT == 0u && r5b.travelToMM == 0u && seen5b == 0u &&
+                     hits5b == 0,
+                 "T5b rules off with MM's crossing closed: nothing credited",
+                 "a closed MM crossing credited travel with every warp-song rule off");
+    }
+
+    // ---- T6: OoT's crossing closed (#1169 XW12) ----------------------------------
+    {
+        MwrCheck(OoT_ComboLogic_TestCloseCrossing(1) == 1, "T6 the Market's exit to the Happy Mask Shop is held false",
+                 "OoT's RR_THE_MARKET has no exit to RR_MARKET_MASK_SHOP, so T6 cannot close OoT's crossing");
+        (void)OoT_ComboLogic_TestTravelEdgeSeen(1);
+        (void)MM_ComboLogic_TestSoaringTravelHits(1);
+        ComboLogicRoundResult r6;
+        const int s6 = MwrRound(both, created, songs, forbidden, &r6);
+        MwrPrint("T6 OoT's crossing closed, both rules on, both songs assumed", r6);
+        uint32_t factsOoT6 = 0u;
+        uint32_t factsMM6 = 0u;
+        Combo_Logic_TestLastTravelFacts(&factsOoT6, &factsMM6);
+        const uint32_t seen6 = OoT_ComboLogic_TestTravelEdgeSeen(1);
+        const int hits6 = MM_ComboLogic_TestSoaringTravelHits(1);
+        printf("[TEST] combo-warp-travel-rounds: T6 raw facts OoT %02X MM %02X\n", (unsigned)factsOoT6,
+               (unsigned)factsMM6);
+        MwrCheck(s6 == RSBS_COMBO_LOGIC_OK && r6.crossingOpenOoT == 0 && r6.crossingOpenMM == 1,
+                 "T6 the round ran with OoT's crossing closed and MM's open",
+                 "the round failed, or holding the Mask Shop exit false did not close OoT's crossing alone");
+        MwrCheck((factsMM6 & RSBS_XITEM2_SONG_MINUET_MM) != 0u && (factsOoT6 & RSBS_COMBO_TRAVEL_INTO_MM) != 0u,
+                 "T6 both engines reported their raw facts (vacuity guard)",
+                 "a raw travel fact was 0 with OoT's crossing closed, so T6 cannot claim both gates' crossOoT term");
+        MwrCheck(r6.travelToOoT == 0u && r6.travelToMM == 0u && seen6 == 0u && hits6 == 0,
+                 "T6 nothing crosses with OoT's crossing closed",
+                 "A GATE IGNORED OoT'S CROSSING: a warp fact was handed across, or an engine read one, while the "
+                 "player could never enter Termina");
+        ComboLogicRoundResult r6b;
+        const int s6b = MwrRound(0u, created, songs, forbidden, &r6b);
+        MwrPrint("T6b OoT's crossing closed, rules off", r6b);
+        const uint32_t seen6b = OoT_ComboLogic_TestTravelEdgeSeen(1);
+        const int hits6b = MM_ComboLogic_TestSoaringTravelHits(1);
+        MwrCheck(s6b == RSBS_COMBO_LOGIC_OK && r6b.travelToOoT == 0u && r6b.travelToMM == 0u && seen6b == 0u &&
+                     hits6b == 0,
+                 "T6b rules off with OoT's crossing closed: nothing credited",
+                 "a closed OoT crossing credited travel with every warp-song rule off");
+        (void)OoT_ComboLogic_TestCloseCrossing(0);
+    }
+    // And both crossings are back: the surgeries did not leak into the world.
+    {
+        ComboLogicRoundResult back;
+        const int sBack = MwrRound(0u, created, none, nothingForbidden, &back);
+        MwrCheck(sBack == RSBS_COMBO_LOGIC_OK && back.crossingOpenOoT == 1 && back.crossingOpenMM == 1,
+                 "T7 both crossings reopen after the surgeries",
+                 "a crossing stayed closed after T5's guard and T6's reopen");
+    }
+
     printf("[TEST] %s: combo-warp-travel-rounds (%d failure(s))\n", sMwrFailures == 0 ? "PASS" : "FAIL", sMwrFailures);
     return sMwrFailures;
+}
+
+// ============================================================================
+// combo-warp-song-world (rando tier, #1169 XW12)
+// ============================================================================
+//
+// A REAL paired creation with one warp-song rule ON, set by its key with the
+// PRODUCTION mask (the rule is asserted offered with the test seam closed), and
+// a world the logic proves beatable with the song in it:
+//
+//   F1 Minuet of Forest (MM), Shuffle Songs: Song Locations (the shared song pool),
+//      Crossing Direction Both: the frozen word is exactly the Minuet's bit; the
+//      world holds exactly one Minuet of Forest (MM) on an MM check or crossed
+//      onto an OoT host; the creation's own fill held its every-location term
+//      (All Locations, the default since #1367; read from the fill's report,
+//      because a plain round is never asked that term); the created world's exit
+//      round, nothing assumed, proves the goal and credits the Minuet's travel to
+//      OoT; OoT's side of the tail freezes a PRESENT warp-song record (D3's
+//      refusal not taken).
+//   F2 Song of Soaring (OoT), the same settings: exactly one copy in the world,
+//      the fill held its every-location term, and the exit round credits Soaring
+//      into MM. A second round with every host of MM's own Song of Soaring
+//      forbidden shows MM's crawl READING the delivered fact at the root's owl
+//      landings: with MM's own song in reach the landing's native disjunct
+//      short-circuits the read, so the plain exit round cannot show it.
+//   F3 Song of Soaring (OoT), Shuffle Songs: Off, no shared song (D5): the world
+//      creates, OoT arms its songs to roam (RSBS_FILL_ARM_SONGS_ROAM) and holds
+//      exactly one copy.
+//
+// Catches: a pool missing the song or holding two copies, a rule bit the fill's
+// proof never turns into travel, a world the logic cannot finish with the rule on,
+// a Majora's Mask rule frozen with no record, and D5's arm missing.
+//
+// LIMITS, stated: "placed where the fill needs it" cannot be asserted without
+// pinning a seed-specific route, so this row proves the song is a placed,
+// proof-credited row and the proof is beatable with it; need-based placement is
+// the coordinator's own business, locked by combo-logic-travel-facts. The song
+// is not asserted to be on a SONG check when it crossed onto an OoT host (the
+// OoT check's type is not visible from this MM TU), and its bag disposition
+// (REQUIRED vs surplus) is not read: no bridge exposes a placed row's disposition.
+
+namespace {
+
+int sMwwFailures = 0;
+
+void MwwCheck(bool ok, const char* leg, const char* why) {
+    if (!ok) {
+        sMwwFailures++;
+        fprintf(stderr, "[COMBO-WARP-SONG-WORLD] FAIL: %s: %s\n", leg, why);
+        return;
+    }
+    printf("[TEST]   ok: %s\n", leg);
+}
+
+/** Every key a leg set cleared and the last world forgotten however the row ends. */
+struct MwwRestore {
+    ~MwwRestore() {
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+        CVarClear("gRandoSettings.ShuffleSongs");
+        Combo_ComboItemRules2RevealForTest(0);
+        Combo_SingleBag_Forget();
+    }
+};
+
+/** MM's eleven song checks (combo_song_pool.h's RSBS_SONG_CHECK_MM_*). */
+bool MwwIsMMSongCheck(int rc) {
+    static const int kMMSongChecks[] = {
+        RC_STARTING_ITEM_SONG_OF_HEALING,
+        RC_CLOCK_TOWER_ROOF_SONG_OF_TIME,
+        RC_ROMANI_RANCH_EPONAS_SONG,
+        RC_SOUTHERN_SWAMP_SONG_OF_SOARING,
+        RC_DEKU_KINGS_CHAMBER_MONKEY,
+        RC_PATH_TO_GORON_VILLAGE_LULLABY_INTRO,
+        RC_GORON_SHRINE_FULL_LULLABY,
+        RC_GREAT_BAY_COAST_NEW_WAVE_BOSSA_NOVA,
+        RC_BENEATH_THE_GRAVEYARD_SONG_OF_STORMS,
+        RC_ANCIENT_CASTLE_OF_IKANA_BOSS,
+        RC_GIANTS_CHAMBER_OATH_TO_ORDER,
+    };
+    for (int c : kMMSongChecks) {
+        if (c == rc) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Copies of item (@p origin, @p id) in the created world: on an MM check (MM's
+ *  own save for an MM item), on an OoT location (OoT's world, for an OoT item), or
+ *  on the coordinator's tables of the other game. @p onMMSongCheck counts the MM
+ *  hosts among them that are song checks. */
+int MwwPlaced(uint8_t origin, uint16_t id, int* onMMSongCheck) {
+    int placed = 0;
+    int songChecks = 0;
+    if (origin == (uint8_t)GAME_MM) {
+        for (int rc = (int)RC_UNKNOWN + 1; rc < (int)RC_MAX; ++rc) {
+            const RandoSaveCheck& check = RANDO_SAVE_CHECKS[rc];
+            if (check.shuffled && !check.skipped && check.randoItemId == (RandoItemId)id) {
+                placed++;
+                songChecks += MwwIsMMSongCheck(rc) ? 1 : 0;
+            }
+        }
+    } else {
+        uint16_t hosts[64];
+        placed += OoT_ComboLogic_TestHostsHolding(id, hosts, 64);
+    }
+    const GameId other = origin == (uint8_t)GAME_MM ? GAME_OOT : GAME_MM;
+    ComboLogicPlacement p;
+    for (int i = 0; i < Combo_Logic_PlacementCount(other); ++i) {
+        if (Combo_Logic_PlacementAt(other, i, &p) && p.item.originGame == origin && p.item.id == id) {
+            placed++;
+            songChecks += (other == GAME_MM && MwwIsMMSongCheck((int)p.hostCheck)) ? 1 : 0;
+        }
+    }
+    if (onMMSongCheck != nullptr) {
+        *onMMSongCheck = songChecks;
+    }
+    return placed;
+}
+
+/** One leg: a real paired creation with @p key on and Shuffle Songs @p shuffleSongs
+ *  (-1: OoT's shipped default), up to MM's half. 1 when the world exists. */
+int MwwCreate(const char* leg, const char* seed, ComboSettingId key, uint32_t bit, int shuffleSongs) {
+    Combo_SingleBag_Forget();
+    ComboContext_Init();
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+    CVarClear("gRandoSettings.ShuffleSongs");
+    CVarSetInteger(Combo_ComboSettingKey(key), 1);
+    if (shuffleSongs >= 0) {
+        CVarSetInteger("gRandoSettings.ShuffleSongs", shuffleSongs);
+    }
+    // The production mask for every rule: the Song of Soaring (OoT) is offered
+    // since XW12, the Majora's Mask extensions since XW13 (IntMMWarpSongMinuet).
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+    MwwCheck(Combo_ComboItemRule2Offered(bit), leg,
+             "the rule is not offered by the production mask (XW12 offers the Song of Soaring (OoT), XW13 the "
+             "Majora's Mask extensions)");
+    if (Rando_HeadlessSeedTest(seed) != 0 || !Combo_ForeignPairingActive() || !Combo_ComboSettingsFrozen() ||
+        !OoT_ComboLogic_GeneralPassDeferred()) {
+        MwwCheck(false, leg, "the paired OoT generation did not leave a frozen paired world at its general pass");
+        return 0;
+    }
+    MwwCheck(Combo_ComboCrossItemFlags2() == bit, leg, "the frozen second word is not exactly the leg's rule");
+    if (MM_Rando_HeadlessPairedHalf() != 0) {
+        MwwCheck(false, leg, "MM's creation-time half did not produce a rando world");
+        return 0;
+    }
+    return 1;
+}
+
+/** Did the creation's own fill hold its every-location term? Combo_Logic_RunRound
+ *  is never asked that term (allLocationsReached stays -1), so the verdict is the
+ *  fill report's. */
+bool MwwFillReachedEveryLocation() {
+    const ComboSingleBagReport* rep = Combo_SingleBag_LastReport();
+    printf("[TEST] combo-warp-song-world: fill report %s, status %d, rung %d, every location %d (%d checked, %d not "
+           "reached)\n",
+           rep != nullptr ? "present" : "ABSENT", rep != nullptr ? rep->status : -1,
+           rep != nullptr ? (int)rep->rung : -1, (rep != nullptr && rep->fill.allLocationsReached) ? 1 : 0,
+           rep != nullptr ? rep->fill.locationsChecked : 0, rep != nullptr ? rep->fill.locationsUnreachable : 0);
+    return rep != nullptr && rep->status == RSBS_COMBO_LOGIC_OK && rep->fill.allLocationsReached &&
+           rep->fill.locationsChecked > 0 && rep->fill.locationsUnreachable == 0;
+}
+
+/** The created world's exit round, nothing assumed, nothing forbidden. */
+int MwwExitRound(ComboLogicRoundResult* out) {
+    const std::vector<ComboLogicBagItem> none;
+    const std::vector<ComboLogicHostRef> nothing;
+    const uint32_t word = Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2);
+    return MwrRound(word, word, none, nothing, out);
+}
+
+} // namespace
+
+extern "C" int MM_WarpSongWorld_RunHeadless(void) {
+    printf("[TEST] combo-warp-song-world: real paired creations with one warp-song rule on through its key (the "
+           "production mask) place exactly one copy, prove the world beatable with its "
+           "travel credited, and freeze the warp-song record (#1169 XW12)\n");
+    sMwwFailures = 0;
+    MwwRestore restore;
+    (void)OoT_ComboLogic_TestTravelEdgeSeen(1);
+    (void)MM_ComboLogic_TestSoaringTravelHits(1);
+
+    // ---- F1: Minuet of Forest (MM), Song Locations ----------------------------------
+    if (MwwCreate("F1 Minuet of Forest (MM)", "RSBSXW12MINUET", COMBO_SETTING_SONG_MINUET_MM,
+                  RSBS_XITEM2_SONG_MINUET_MM, -1) != 0) {
+        int onSongCheck = 0;
+        const int placed = MwwPlaced((uint8_t)GAME_MM, (uint16_t)RI_SONG_MINUET, &onSongCheck);
+        const bool everyLocation = MwwFillReachedEveryLocation();
+        ComboLogicRoundResult r;
+        const int s = MwwExitRound(&r);
+        MwrPrint("F1 exit round", r);
+        printf("[TEST] combo-warp-song-world: F1 copies placed %d (%d on an MM song check)\n", placed, onSongCheck);
+        MwwCheck(placed == 1, "F1 exactly one Minuet of Forest (MM) in the world",
+                 "the world holds no copy or more than one");
+        MwwCheck(everyLocation, "F1 the creation's fill reached every location",
+                 "the fill's report is absent, failed, or did not hold its every-location term with the Minuet on");
+        MwwCheck(s == RSBS_COMBO_LOGIC_OK && r.goalExpression == 1, "F1 the created world's exit round proves the goal",
+                 "the exit round did not prove the goal with the Minuet on");
+        MwwCheck(r.travelToOoT == RSBS_XITEM2_SONG_MINUET_MM, "F1 the exit round credits the Minuet's travel to OoT",
+                 "the placed Minuet never became a travel fact in the proof");
+        const int crossings = OoT_Creation_FinishPairedHalf(0);
+        MwwCheck(crossings >= 0 && Combo_OoTWarpRecord_Status() == COMBO_OOT_WARP_REC_PRESENT,
+                 "F1 OoT's tail froze a PRESENT warp-song record",
+                 "the tail failed (D3's -3) or left the record unset with the Minuet on");
+    }
+    Combo_SingleBag_Forget();
+    (void)OoT_ComboLogic_TestTravelEdgeSeen(1);
+    (void)MM_ComboLogic_TestSoaringTravelHits(1);
+
+    // ---- F2: Song of Soaring (OoT), Song Locations ----------------------------------
+    const uint16_t ootSoaring = OoT_ComboLogic_TestTravelItemId(0);
+    if (MwwCreate("F2 Song of Soaring (OoT)", "RSBSXW12SOARING", COMBO_SETTING_SONG_SOARING_OOT,
+                  RSBS_XITEM2_SONG_SOARING_OOT, -1) != 0) {
+        const int placed = MwwPlaced((uint8_t)GAME_OOT, ootSoaring, nullptr);
+        const bool everyLocation = MwwFillReachedEveryLocation();
+        (void)MM_ComboLogic_TestSoaringTravelHits(1);
+        ComboLogicRoundResult r;
+        const int s = MwwExitRound(&r);
+        MwrPrint("F2 exit round", r);
+        (void)MM_ComboLogic_TestSoaringTravelHits(1);
+        MwwCheck(placed == 1, "F2 exactly one Song of Soaring (OoT) in the world",
+                 "the world holds no copy or more than one");
+        MwwCheck(everyLocation, "F2 the creation's fill reached every location",
+                 "the fill's report is absent, failed, or did not hold its every-location term with Soaring on");
+        MwwCheck(s == RSBS_COMBO_LOGIC_OK && r.goalExpression == 1, "F2 the created world's exit round proves the goal",
+                 "the exit round did not prove the goal with Soaring on");
+        MwwCheck(r.travelToMM == RSBS_COMBO_TRAVEL_INTO_MM, "F2 the exit round credits Soaring into MM",
+                 "the placed Song of Soaring (OoT) never became a travel fact handed to MM");
+
+        // MM's crawl reads the fact: only visible with MM's own Song of Soaring
+        // out of reach, or the landing's native disjunct answers first.
+        std::vector<ComboLogicHostRef> noMMSoaring;
+        for (int rc = (int)RC_UNKNOWN + 1; rc < (int)RC_MAX; ++rc) {
+            if (RANDO_SAVE_CHECKS[rc].randoItemId == RI_SONG_SOARING) {
+                ComboLogicHostRef ref;
+                ref.hostGame = (uint8_t)GAME_MM;
+                ref.hostCheck = (uint16_t)rc;
+                noMMSoaring.push_back(ref);
+            }
+        }
+        ComboLogicPlacement p;
+        for (int i = 0; i < Combo_Logic_PlacementCount(GAME_OOT); ++i) {
+            if (Combo_Logic_PlacementAt(GAME_OOT, i, &p) && p.item.originGame == (uint8_t)GAME_MM &&
+                p.item.id == (uint16_t)RI_SONG_SOARING) {
+                ComboLogicHostRef ref;
+                ref.hostGame = (uint8_t)GAME_OOT;
+                ref.hostCheck = p.hostCheck;
+                noMMSoaring.push_back(ref);
+            }
+        }
+        MwwCheck(!noMMSoaring.empty() && !CHECK_QUEST_ITEM(QUEST_SONG_SOARING),
+                 "F2 MM's own Song of Soaring is on a host and not in the starting save (vacuity guard)",
+                 "MM's own Song of Soaring cannot be withheld, so the landing's native disjunct always answers first");
+        const std::vector<ComboLogicBagItem> none;
+        const uint32_t word = Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2);
+        ComboLogicRoundResult rb;
+        const int sb = MwrRound(word, word, none, noMMSoaring, &rb);
+        MwrPrint("F2 MM's own Song of Soaring forbidden", rb);
+        const int hits = MM_ComboLogic_TestSoaringTravelHits(1);
+        MwwCheck(sb == RSBS_COMBO_LOGIC_OK && rb.travelToMM == RSBS_COMBO_TRAVEL_INTO_MM && hits > 0,
+                 "F2 with MM's own song out of reach, MM's crawl reads the delivered Soaring fact",
+                 "the placed Song of Soaring (OoT) never became a travel fact MM's crawl read at the owl landings");
+    }
+    Combo_SingleBag_Forget();
+
+    // ---- F3: Song of Soaring (OoT), Shuffle Songs Off (D5) --------------------------
+    if (MwwCreate("F3 Song of Soaring (OoT), Shuffle Songs Off", "RSBSXW12SOAROFF", COMBO_SETTING_SONG_SOARING_OOT,
+                  RSBS_XITEM2_SONG_SOARING_OOT, 0) != 0) {
+        const uint32_t armed = OoT_ComboLogic_ConfinementArmed();
+        const int placed = MwwPlaced((uint8_t)GAME_OOT, ootSoaring, nullptr);
+        printf("[TEST] combo-warp-song-world: F3 OoT arm word %08X, copies placed %d\n", (unsigned)armed, placed);
+        MwwCheck((armed & RSBS_FILL_ARM_SONGS_ROAM) != 0u,
+                 "F3 under Off the Song of Soaring (OoT) arms OoT's songs to roam (D5)",
+                 "the arm word lacks SONGS_ROAM: the song's domain still depends on an unrelated held-back song");
+        MwwCheck(placed == 1, "F3 exactly one Song of Soaring (OoT) in the world", "no copy or more than one");
+    }
+    Combo_SingleBag_Forget();
+
+    printf("[TEST] %s: combo-warp-song-world (%d failure(s))\n", sMwwFailures == 0 ? "PASS" : "FAIL", sMwwFailures);
+    return sMwwFailures;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

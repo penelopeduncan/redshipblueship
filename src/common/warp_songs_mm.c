@@ -70,9 +70,9 @@ uint32_t Combo_MMWarpSongCopies(uint32_t rules2, uint32_t ruleBit) {
         return 0u; // not one of the six, or OoTMM's songMinuetMm .. off: MM never gains it
     }
     if ((rules2 & (ruleBit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT)) != 0u) {
-        // OoTMM's sharedSongMinuet ..: the added copy and OoT's own are one shared
-        // item. The family is lane XW10's; MM's separate copy is held back, never
-        // placed.
+        // OoTMM's sharedSongMinuet ..: OoT's own copy becomes the one shared item
+        // and OoTMM adds no MM copy (transform.ts); the host's native copy is the
+        // shared row (#1169 XW10).
         return 0u;
     }
     return 1u;
