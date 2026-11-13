@@ -1,9 +1,18 @@
 #include "soh/OTRGlobals.h"
+#include "soh/cvar_prefixes.h"
+#include "soh/ShipInit.hpp"
 #include "soh/ObjectExtension/ObjectExtension.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include <libultraship/libultra.h>
+#include "global.h"
+#include "static_data.h"
+#include "SeedContext.h"
+#include "soh/Enhancements/randomizer/randomizer.h"
 #include "item_category_adj.h"
 #include "particle_cmc.h"
 
 extern "C" {
+#include "variables.h"
 #include "functions.h"
 #include "overlays/actors/ovl_Bg_Ice_Turara/z_bg_ice_turara.h"
 #include "objects/object_ice_objects/object_ice_objects.h"
