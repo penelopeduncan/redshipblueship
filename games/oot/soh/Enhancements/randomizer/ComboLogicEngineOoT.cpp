@@ -3082,12 +3082,27 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * with MM's copy: ONE row, both solvers credit it, MM's copy is trimmed. The
  * song check it would have taken is an ordinary empty host. With every rule off
  * (the shipped default) nothing is held back and no world moves.
+ *
+ * #1169 XW15 (operator ruling: a shared song is at its default location when the
+ * songs are not shuffled): under Shuffle Songs Off a SHARED WARP SONG is never held
+ * back (Combo_SharedWarpSongFixedAtHome). It stays on the Sheik check item_pool.cpp
+ * put it on, so fill.cpp's release leaves it there, Link's Pocket never sees it,
+ * and the songs family is not armed for it; the coordinator credits Majora's Mask
+ * with it when that check is reached (OoT_ComboLogic_FixedSharedSongHost). The
+ * first word's shared songs keep the release.
  */
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX ||
         Rando::StaticData::RetrieveItem((RandomizerGet)rg).GetItemType() != ITEMTYPE_SONG ||
         !OoT_ComboLogic_DeferGeneralPassWanted()) {
         return 0;
+    }
+    {
+        auto ctx = Rando::Context::GetInstance();
+        if (ctx != nullptr &&
+            Combo_SharedWarpSongFixedAtHome(GAME_OOT, rg, (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get())) {
+            return 0;
+        }
     }
     ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
     const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
@@ -3105,20 +3120,39 @@ extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
  * #1169 XW10: is @p rg the OoT member of a SHARED WARP SONG (a second-word family
  * the frozen word arms) that this world holds back (above)? The six warp songs'
  * natives and the Song of Soaring (OoT). Link's Pocket must never take one: its
- * one copy is the bag's shared row in every Shuffle Songs mode (fill.cpp,
- * RsbsSongHeldForBag). Off by default (RSBS_XITEM2_DEFAULTS 0), so a world with
- * every rule off has none.
+ * one copy is the bag's shared row under Song Locations, Dungeon Rewards and
+ * Anywhere (fill.cpp, RsbsSongHeldForBag); under Off it is held back nowhere
+ * (#1169 XW15) and sits on its own check. Off by default (RSBS_XITEM2_DEFAULTS
+ * 0), so a world with every rule off has none.
  */
 extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
-    const uint32_t armed2 = Combo_SharedFamilies2Armed();
-    for (uint32_t b = 0; armed2 != 0u && b < RSBS_XITEM2_BIT_COUNT; ++b) {
-        const uint32_t bit = 1u << b;
-        uint16_t ootId = 0;
-        if ((armed2 & bit) != 0u && Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId) && ootId == rg) {
-            return OoT_ComboLogic_SharedSongHeldBack(rg);
+    const uint32_t bit = Combo_SharedFamily2ArmedBitOf(GAME_OOT, rg);
+    return bit != 0u ? OoT_ComboLogic_SharedSongHeldBack(rg) : 0;
+}
+
+/**
+ * #1169 XW15: the OoT check that holds shared warp song @p rg as its FIXED content
+ * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song
+ * location item_pool.cpp placed it on, its Sheik check. -1 in every other world,
+ * for an id with no such check (the Song of Soaring (OoT), whose default check is
+ * Majora's Mask's), and with no seed context. combo_single_bag.c names the answer
+ * as a fixed credit, so Majora's Mask's logic holds the song once the check is
+ * reached.
+ */
+extern "C" int OoT_ComboLogic_FixedSharedSongHost(uint16_t rg) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr ||
+        !Combo_SharedWarpSongFixedAtHome(GAME_OOT, rg, (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get())) {
+        return -1;
+    }
+    for (const RandomizerCheck rc : ctx->allLocations) {
+        Rando::ItemLocation* il = ctx->GetItemLocation(rc);
+        if (il != nullptr && Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SONG_LOCATION &&
+            il->GetPlacedRandomizerGet() == (RandomizerGet)rg && il->IsHidden()) {
+            return (int)rc;
         }
     }
-    return 0;
+    return -1;
 }
 
 /** Does this world hold back any OoT song for the single bag (above)? */
@@ -3175,9 +3209,10 @@ extern "C" uint32_t OoT_ComboLogic_ConfinementArmed(void) {
     // direction's and the PROGRESSION class's question alone, as for Majora's
     // Mask's six added songs, never an unrelated shared rule's. Under the shared
     // Song of Soaring OoT pools no copy (Combo_SongSoaringOoTCopies answers 0), so
-    // this disjunct is false and the hold-back alone arms the family: a shared
-    // Soaring pair answers yes for RG_SONG_OF_SOARING_OOT, an ITEMTYPE_SONG, which
-    // moves nothing, since no other OoT song is in the pool at the seam.
+    // this disjunct is false; and since #1169 XW15 the hold-back is false under Off
+    // for every shared warp song too (it stays on its own default check), so a
+    // shared warp song arms nothing under Off. Under the other values a shared
+    // Soaring pair answers yes for RG_SONG_OF_SOARING_OOT, an ITEMTYPE_SONG.
     if (OoTComboLogicHoldsBackASong() ||
         (OoT_ComboLogic_DeferGeneralPassWanted() &&
          Combo_SongSoaringOoTRoamsUnderOff((uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get(),

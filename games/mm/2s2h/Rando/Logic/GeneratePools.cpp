@@ -17,6 +17,8 @@ extern "C" {
 #include "foreign_items.h"    // #1502: Combo_ForeignPairingActive
 #include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' frozen rules
 #include "combo_song_pool.h"   // #1542: the shared song pool's MM half
+#include "shared_resources.h"  // #1169 XW15: Combo_SharedWarpSongFixedAtHome
+#include "warp_song_items.h"   // #1169 XW15: RSBS_SONG_SPOTS_OFF
 // RedShipBlueShip (#645 increment 3, lane K9): where RO_PLENTIFUL_ITEMS' copies
 // sit in the last `itemPool` this function returned — [from, to), both 0 when
 // plentiful added none — and that pool's final size, so a consumer can tell it is
@@ -51,8 +53,20 @@ static bool RsbsIsTingleMap(RandoItemId randoItemId) {
 // a paired world is the single bag's ONE shared row, so MM's copy must not also
 // stay on its vanilla check. The check stays an ordinary host and the song a pool
 // row, which the composer pairs (and trims when OoT's half is the row).
+//
+// #1169 XW15 (operator ruling: a shared song is at its default location when the
+// songs are not shuffled): a SHARED WARP SONG is never released. Only MM's Song of
+// Soaring can be one here (the six OoT warp songs have no MM check), and it stays
+// on the Southern Swamp check; the coordinator credits OoT with it when that check
+// is reached (MM_ComboLogic_FixedSharedSongHost). This function runs only under
+// MM's Vanilla value, which a paired world reaches only from OoT's Off
+// (Combo_PairSongsMmValue), hence RSBS_SONG_SPOTS_OFF. The first word's shared
+// songs keep #1502's release.
 static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
     if (!Combo_ForeignPairingActive()) {
+        return false;
+    }
+    if (Combo_SharedWarpSongFixedAtHome(GAME_MM, (uint16_t)randoItemId, RSBS_SONG_SPOTS_OFF)) {
         return false;
     }
     ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
@@ -145,7 +159,8 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-                // #1502: a frozen-on shared song leaves its vanilla check to the bag.
+                // #1502: a frozen-on shared song leaves its vanilla check to the bag
+                // (never a shared warp song, #1169 XW15: it stays).
                 if (!RsbsReleasesVanillaSharedSong(randoStaticCheck.randoItemId)) {
                     continue;
                 }

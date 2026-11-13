@@ -35,16 +35,22 @@
  *
  *   shared-warp-songs-one-copy-{song-locations,dungeon-rewards,anywhere,off}
  *   (rando) -- ONE COPY per shared warp song over a real paired world per Shuffle
- *   Songs value, all fourteen rules on: one placement over both worlds, the bag's
- *   SHARED_PAIR row, no orphan copy of either half, on a song check of either
- *   game under Song Locations, Link's Pocket (Advancement under Off and Anywhere)
- *   never a shared warp song, the other songs vanilla under Off, the goal proven,
- *   nothing owned after the creation.
+ *   Songs value, all fourteen rules on: one placement over both worlds, no orphan
+ *   copy of either half, Link's Pocket (Advancement under Off and Anywhere) never a
+ *   shared warp song, the goal proven, nothing owned after the creation. Under
+ *   Song Locations, Dungeon Rewards and Anywhere that placement is the bag's
+ *   SHARED_PAIR row (on a song check of either game under Song Locations). Under
+ *   Off (#1169 XW15, the operator's ruling) each one stays on its own default
+ *   check: no pair, every OoT song vanilla, MM's Song of Soaring on its unshuffled
+ *   Southern Swamp check, seven fixed shared credits, and the exit round credits
+ *   the other game (MM plays the Minuet into OoT, OoT the Soaring into MM) until
+ *   that check is forbidden.
  *
  *   shared-warp-songs-edges (rando) -- the Song of Soaring (OoT) beside one shared
  *   six generates under Dungeon Rewards (12 for 12); under Off the songs family is
- *   armed for a lone Soaring (OoT) with or without a shared six; a started shared
- *   Minuet is no bag row and nothing is placed for it.
+ *   armed for a lone Soaring (OoT) with or without a shared six, and (#1169 XW15)
+ *   never for a shared warp song alone; a started shared Minuet is no bag row and
+ *   nothing is placed for it.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Every file-local
@@ -117,6 +123,11 @@ int OoT_SharedSongsTest_VanillaSongCount(void);
 int MM_PlacementConfinement_WorldCopies(uint16_t id);
 int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+// #1169 XW15: the fixed shared songs' hosts (ComboLogicEngineOoT.cpp,
+// ComboLogicEngineSingleExe.cpp).
+int OoT_ComboLogic_TestHostsHolding(uint16_t rg, uint16_t* out, int cap);
+int MM_ComboLogic_TestFixedCheckItem(uint16_t rc);
+int MM_ComboLogic_TestSwampSoaringCheck(void);
 // games/mm/2s2h/mm_warp_songs_mm_test.cpp: MM's Items row name (the lookup key) and
 // the name MM's texts and hints show (Rando::StaticData::GetItemName, with article).
 const char* MM_WarpSongsTest_Name(uint16_t ri);
@@ -1287,6 +1298,98 @@ SwsSoaringOoTRow SwsReadSoaringOoTRow() {
     }
     return r;
 }
+
+/** One exit round over the created world (both real engines, nothing assumed),
+ *  with @p forbidden (may be NULL) withheld; the fixed credits it delivered go to
+ *  @p outDelivered. */
+int SwsExitRound(const ComboLogicHostRef* forbidden, int forbiddenCount, ComboLogicRoundResult* out,
+                 int* outDelivered) {
+    ComboLogicRoundRequest req;
+    memset(&req, 0, sizeof(req));
+    req.goal = gComboCtx.comboSettings.goal;
+    req.forbidden = forbidden;
+    req.forbiddenCount = forbiddenCount;
+    memset(out, 0, sizeof(*out));
+    const int status = Combo_Logic_RunRound(&req, out);
+    *outDelivered = Combo_Logic_FixedCreditDeliveredCount();
+    return status;
+}
+
+/**
+ * #1169 XW15, Off only (shared-warp-songs-one-copy-off): THE FIXED SHARED CREDITS in
+ * the created world's exit round. Every shared warp song sits on its own check and
+ * no bag row carries it, so only the credits make the other game's logic hold it:
+ * Majora's Mask holds the Minuet of Forest (MM) once Sheik in Forest is reached
+ * (MM's travel fact into OoT), Ocarina of Time the Song of Soaring (OoT) once the
+ * Southern Swamp check is reached (OoT's travel fact into MM). Forbidding either
+ * host takes exactly that credit away (the forbidden-host skip).
+ */
+void SwsOffExitRounds() {
+    ComboLogicRoundResult base;
+    int baseDelivered = -1;
+    const int st = SwsExitRound(nullptr, 0, &base, &baseDelivered);
+    printf("[TEST] (Off) exit round: status %d, goal %d, travel to OoT %08X, to MM %08X, fixed credits delivered %d "
+           "of %d\n",
+           st, base.goalExpression, (unsigned)base.travelToOoT, (unsigned)base.travelToMM, baseDelivered,
+           Combo_Logic_FixedCreditCount());
+    SWS_CHECK(st == RSBS_COMBO_LOGIC_OK && base.goalExpression == 1,
+              "(Off) the created world's exit round did not run or did not prove the goal (status %d, goal %d)", st,
+              base.goalExpression);
+    SWS_CHECK(baseDelivered == 7,
+              "(Off) the exit round delivered %d of the seven fixed shared credits: a default check of a shared "
+              "warp song was unreached in the proved world, or a credit was not delivered",
+              baseDelivered);
+    SWS_CHECK((base.travelToOoT & RSBS_XITEM2_SONG_MINUET_MM) != 0u,
+              "(Off) MM's logic never played the Minuet of Forest into OoT (%08X): the Minuet fixed at Sheik in Forest "
+              "was not credited to Majora's Mask",
+              (unsigned)base.travelToOoT);
+    SWS_CHECK(base.travelToMM == RSBS_COMBO_TRAVEL_INTO_MM,
+              "(Off) OoT's logic never played the Song of Soaring into MM (%08X): the Soaring fixed in the Southern "
+              "Swamp was not credited to Ocarina of Time",
+              (unsigned)base.travelToMM);
+
+    uint16_t minuetMM = 0;
+    (void)Combo_SharedFamily2MemberId(GAME_MM, kSwsSharedMinuet, &minuetMM);
+    ComboLogicHostRef minuetHost;
+    memset(&minuetHost, 0, sizeof(minuetHost));
+    for (int c = 0; c < Combo_Logic_FixedCreditCount(); c++) {
+        ComboLogicFixedCredit credit;
+        if (Combo_Logic_FixedCreditAt(c, &credit) && credit.hostGame == (uint8_t)GAME_OOT &&
+            credit.farItem.id == minuetMM) {
+            minuetHost.hostGame = credit.hostGame;
+            minuetHost.hostCheck = credit.hostCheck;
+        }
+    }
+    SWS_CHECK(minuetHost.hostGame == (uint8_t)GAME_OOT, "(Off) no fixed credit names the Minuet of Forest's host");
+    if (minuetHost.hostGame == (uint8_t)GAME_OOT) {
+        ComboLogicRoundResult r;
+        int delivered = -1;
+        const int s = SwsExitRound(&minuetHost, 1, &r, &delivered);
+        printf("[TEST] (Off) Sheik's Minuet check %u forbidden: status %d, travel to OoT %08X, delivered %d\n",
+               (unsigned)minuetHost.hostCheck, s, (unsigned)r.travelToOoT, delivered);
+        SWS_CHECK(s == RSBS_COMBO_LOGIC_OK && (r.travelToOoT & RSBS_XITEM2_SONG_MINUET_MM) == 0u &&
+                      delivered < baseDelivered,
+                  "(Off) with the Minuet's own check forbidden MM still held the Minuet (travel %08X, delivered %d "
+                  "of %d): a forbidden host's credit crossed",
+                  (unsigned)r.travelToOoT, delivered, baseDelivered);
+    }
+    {
+        ComboLogicHostRef swamp;
+        memset(&swamp, 0, sizeof(swamp));
+        swamp.hostGame = (uint8_t)GAME_MM;
+        swamp.hostCheck = (uint16_t)MM_ComboLogic_TestSwampSoaringCheck();
+        ComboLogicRoundResult r;
+        int delivered = -1;
+        const int s = SwsExitRound(&swamp, 1, &r, &delivered);
+        printf("[TEST] (Off) the Southern Swamp's Soaring check forbidden: status %d, travel to MM %08X, delivered "
+               "%d\n",
+               s, (unsigned)r.travelToMM, delivered);
+        SWS_CHECK(s == RSBS_COMBO_LOGIC_OK && r.travelToMM == 0u && delivered < baseDelivered,
+                  "(Off) with the Soaring's own check forbidden OoT still held the Song of Soaring (travel %08X, "
+                  "delivered %d of %d)",
+                  (unsigned)r.travelToMM, delivered, baseDelivered);
+    }
+}
 } // namespace
 
 TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
@@ -1312,20 +1415,36 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
     printf("[TEST] shared-warp-songs-one-copy (%s): bag %d rows, %d shared pair(s), goal proven %d\n", name,
            bag.bagCount, bag.compose.sharedPairs, bag.fill.goalProven ? 1 : 0);
     SWS_CHECK(bag.status == RSBS_COMBO_LOGIC_OK && bag.fill.goalProven, "the single-bag fill did not prove the GOAL");
-    SWS_CHECK(bag.compose.sharedPairs >= 7, "the composer made %d shared pair(s), fewer than the seven songs",
-              bag.compose.sharedPairs);
+    // #1169 XW15: under Off every shared warp song stays on its own default check,
+    // so neither pool holds a copy and the composer pairs nothing (combo_logic.c
+    // pass 2b, "neither pool holds the family"); every other value pairs all seven.
+    const bool off = shuffleSongs == 0;
+    if (off) {
+        SWS_CHECK(bag.compose.sharedPairs == 0,
+                  "under Off the composer made %d shared pair(s): a shared warp song left its default check for the "
+                  "bag",
+                  bag.compose.sharedPairs);
+    } else {
+        SWS_CHECK(bag.compose.sharedPairs >= 7, "the composer made %d shared pair(s), fewer than the seven songs",
+                  bag.compose.sharedPairs);
+    }
+    // THE FIXED SHARED CREDITS: one per shared warp song under Off (each finder's
+    // answer, Combo_SingleBag_Run's wiring), none in any other mode.
+    SWS_CHECK(Combo_Logic_FixedCreditCount() == (off ? 7 : 0),
+              "the creation left %d fixed shared credit(s) under %s; want %d", Combo_Logic_FixedCreditCount(), name,
+              off ? 7 : 0);
 
     const bool mmVanilla = Combo_PairSongsMmValue((uint32_t)shuffleSongs) == RSBS_MM_SONGS_VANILLA;
     const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
     std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
     const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
-    int sharedRgs[6] = { -1, -1, -1, -1, -1, -1 };
     const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
     // The Link's Pocket exclusion itself (fill.cpp RsbsSongHeldForBag), asked per id
     // so the lock does not rest on this seed's one draw: every shared warp song's
-    // OoT member is the bag's in EVERY mode, and an unshared song only where the
-    // shared song pool takes every song (Song Locations). Off and Anywhere answer 0
-    // for the seven without the XW10 branch.
+    // OoT member is the bag's under Song Locations, Dungeon Rewards and Anywhere
+    // (under Off it stays on its own check, #1169 XW15), and an unshared song only
+    // where the shared song pool takes every song (Song Locations). Anywhere
+    // answers 0 for the seven without the XW10 branch.
     {
         const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
         const int wantUnshared = shuffleSongs == 1 ? 1 : 0;
@@ -1342,12 +1461,13 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
         if (!registered) {
             continue;
         }
-        if (s >= 1) {
-            sharedRgs[s - 1] = (int)ootId;
-        }
-        SWS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == 1,
-                  "Link's Pocket may take the shared %s under %s: the exclusion does not name its OoT member",
-                  kSwsSongNames[s], name);
+        // Under Off (#1169 XW15) no shared warp song is held back, so the bridge
+        // answers 0 (and no song is in the pool for Link's Pocket anyway).
+        const int wantHeld = off ? 0 : 1;
+        SWS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == wantHeld,
+                  "Link's Pocket's exclusion answers %d for the shared %s under %s; want %d (held back for the bag "
+                  "except under Off, where it stays on its own check)",
+                  OoT_Fill_TestSongHeldForBag(ootId), kSwsSongNames[s], name, wantHeld);
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         int mmCopies = 0;
         if (mmVanilla) {
@@ -1364,10 +1484,47 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
                   "the %s is held by %d OoT and %d MM checks; want ONE over both worlds (the pair's one placement, as "
                   "the hosting game's half)",
                   kSwsSongNames[s], ootCopies, mmCopies);
-        SWS_CHECK(placed.pairRows == 1 && placed.orphanRows == 0,
-                  "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it; want one "
-                  "pair row and no orphan copy of either half",
-                  kSwsSongNames[s], placed.pairRows, placed.orphanRows);
+        const int wantPairRows = off ? 0 : 1;
+        SWS_CHECK(placed.pairRows == wantPairRows && placed.orphanRows == 0,
+                  "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it; want %d "
+                  "pair row(s) and no orphan copy of either half",
+                  kSwsSongNames[s], placed.pairRows, placed.orphanRows, wantPairRows);
+        if (off) {
+            // THE DEFAULT CHECK: the six in OoT (their Sheik checks), the Song of
+            // Soaring in MM (the Southern Swamp check), and no copy in the other game.
+            const int wantOoT = s >= 1 ? 1 : 0;
+            SWS_CHECK(ootCopies == wantOoT && mmCopies == 1 - wantOoT,
+                      "under Off the %s is held by %d OoT and %d MM checks; want it on its own default check in %s "
+                      "only",
+                      kSwsSongNames[s], ootCopies, mmCopies, s >= 1 ? "Ocarina of Time" : "Majora's Mask");
+            ComboLogicFixedCredit credit;
+            bool found = false;
+            for (int c = 0; c < Combo_Logic_FixedCreditCount() && !found; c++) {
+                found = Combo_Logic_FixedCreditAt(c, &credit) &&
+                        ((credit.hostGame == (uint8_t)GAME_OOT && credit.farItem.originGame == (uint8_t)GAME_MM &&
+                          credit.farItem.id == mmId) ||
+                         (credit.hostGame == (uint8_t)GAME_MM && credit.farItem.originGame == (uint8_t)GAME_OOT &&
+                          credit.farItem.id == ootId));
+            }
+            bool hostRight = false;
+            if (found && s >= 1) {
+                uint16_t hosts[4] = { 0, 0, 0, 0 };
+                hostRight = credit.hostGame == (uint8_t)GAME_OOT &&
+                            OoT_ComboLogic_TestHostsHolding(ootId, hosts, 4) == 1 && hosts[0] == credit.hostCheck &&
+                            OoT_ComboLogic_TestSongCheckIndex(credit.hostCheck) >= 0;
+            } else if (found) {
+                hostRight = credit.hostGame == (uint8_t)GAME_MM &&
+                            (int)credit.hostCheck == MM_ComboLogic_TestSwampSoaringCheck() &&
+                            MM_ComboLogic_TestFixedCheckItem(credit.hostCheck) == (int)mmId;
+            }
+            printf("[TEST]   %s: fixed credit %s, host %s %u\n", kSwsSongNames[s], found ? "found" : "MISSING",
+                   found ? (credit.hostGame == (uint8_t)GAME_OOT ? "OoT" : "MM") : "-",
+                   found ? (unsigned)credit.hostCheck : 0u);
+            SWS_CHECK(found && hostRight,
+                      "under Off the %s has no fixed credit naming its own default check (%s) and the other game's "
+                      "member",
+                      kSwsSongNames[s], s >= 1 ? "its Sheik check" : "the Southern Swamp song check, unshuffled");
+        }
         if (shuffleSongs == 1) {
             SWS_CHECK(placed.onSongCheck == 1,
                       "under Song Locations the %s's one copy is not on a song check of "
@@ -1377,11 +1534,14 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
         SWS_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s: its one copy is the bag's row",
                   kSwsSongNames[s]);
     }
-    if (shuffleSongs == 0) {
-        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount() - 6;
-        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(sharedRgs, 6);
-        SWS_CHECK(atHome == expectAtHome, "under Off %d of the %d unshared OoT songs are at their vanilla checks",
-                  atHome, expectAtHome);
+    if (off) {
+        // #1169 XW15: every one of OoT's twelve songs is at its vanilla check, the
+        // six shared warp songs on their Sheik checks included.
+        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount();
+        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(nullptr, 0);
+        SWS_CHECK(atHome == expectAtHome, "under Off %d of OoT's %d songs are at their vanilla checks", atHome,
+                  expectAtHome);
+        SwsOffExitRounds();
     }
     SWS_CHECK(Combo_SharedFamilies2Owned() == 0u && Combo_MMWarpSongsOwned() == 0u,
               "the creation left the family word %08X and MM's ownership byte %02X: a simulated pickup leaked",
@@ -1394,8 +1554,8 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
 
 TestResult SharedWarpSongsEdges_Run(void) {
     printf("[TEST] shared-warp-songs-edges: the Song of Soaring (OoT) beside a shared six fits Dungeon Rewards; under "
-           "Off the songs family is armed for a lone Soaring (OoT) whatever the shared rules; a started shared "
-           "Minuet is no bag row (#1169 XW10)\n");
+           "Off the songs family is armed for a lone Soaring (OoT) whatever the shared rules and never for a shared "
+           "warp song alone (XW15); a started shared Minuet is no bag row (#1169 XW10)\n");
     sSwsFailures = 0;
     SwsRestoreKeys restore;
 
@@ -1435,9 +1595,10 @@ TestResult SharedWarpSongsEdges_Run(void) {
                   "Soaring (OoT) may leave OoT must not depend on an unrelated shared rule",
                   (armAlone & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0,
                   (armShared & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0);
-        // The arm bit alone cannot tell the two runs apart (a shared six arms it
-        // through the hold-back): the Soaring (OoT)'s own bag-row inputs must be
-        // the same in both, one REQUIRED row with no confinement mask.
+        // The arm bit alone does not show the two runs agree for the right reason
+        // (before #1169 XW15 a shared six armed it through the hold-back; now only
+        // the Soaring (OoT)'s own rule does, leg (2b)): the Soaring (OoT)'s own
+        // bag-row inputs must be the same in both, one REQUIRED row with no mask.
         printf("[TEST] (2) Soaring (OoT) pool row: alone %d row(s) flags %04X mask %08X %s; with a shared Minuet %d "
                "row(s) flags %04X mask %08X %s\n",
                rowAlone.rows, (unsigned)rowAlone.poolFlags, (unsigned)rowAlone.confine,
@@ -1455,6 +1616,22 @@ TestResult SharedWarpSongsEdges_Run(void) {
                   (unsigned)rowAlone.confine, (unsigned)rowShared.confine,
                   Combo_Logic_ComposeDispositionName(rowAlone.disposition),
                   Combo_Logic_ComposeDispositionName(rowShared.disposition));
+    }
+
+    // ---- (2b) Off, #1169 XW15: a shared warp song alone arms nothing (it stays on its own check) ----
+    {
+        const int rcMinuet = SwsGenerate("RSBSXW15OFF", 0, 0x02u, 0x02u, false, false);
+        const uint32_t armMinuet = rcMinuet == 0 ? OoT_ComboLogic_ConfinementArmed() : 0xFFFFFFFFu;
+        const int rcSoaring = SwsGenerate("RSBSXW15OFF", 0, 0x01u, 0x01u, false, false);
+        const uint32_t armSoaring = rcSoaring == 0 ? OoT_ComboLogic_ConfinementArmed() : 0xFFFFFFFFu;
+        printf("[TEST] (2b) Off: shared Minuet alone generation %d arm %08X; shared Soaring alone %d arm %08X\n",
+               rcMinuet, (unsigned)armMinuet, rcSoaring, (unsigned)armSoaring);
+        SWS_CHECK(rcMinuet == 0 && rcSoaring == 0, "(2b) an Off generation with one shared warp song failed");
+        SWS_CHECK((armMinuet & RSBS_FILL_ARM_SONGS_ROAM) == 0u && (armSoaring & RSBS_FILL_ARM_SONGS_ROAM) == 0u,
+                  "(2b) under Off a shared warp song armed OoT's songs to roam (Minuet %d, Soaring %d): it stays on "
+                  "its own default check, so nothing of it reaches the bag",
+                  (armMinuet & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0,
+                  (armSoaring & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0);
     }
 
     // ---- (3) A started shared Minuet: no bag row, nothing placed ------------------------------------

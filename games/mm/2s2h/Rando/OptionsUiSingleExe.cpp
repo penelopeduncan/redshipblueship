@@ -390,7 +390,8 @@ const OptionUi kOptionUi[] = {
       // Locations. Under Vanilla a frozen-on shared song (Epona's Song, Song of
       // Storms, Song of Time) leaves its vanilla check to the bag's one shared
       // row (GeneratePools.cpp RsbsReleasesVanillaSharedSong, the mirror of OoT's
-      // fill.cpp RsbsReleaseVanillaSharedSongs). Generation-only: the frozen
+      // fill.cpp RsbsReleaseVanillaSharedSongs); a shared Song of Soaring stays
+      // on its own check (#1169 XW15). Generation-only: the frozen
       // value is read at creation. #1542 (operator ruling 2026-11-10, D2): a
       // paired world's value follows OoT's Shuffle Songs (combo_song_pool.h), so
       // the page draws the row read-only with COMBO_SONGS_SET_BY_OOT_REASON.

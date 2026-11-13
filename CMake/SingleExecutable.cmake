@@ -3554,10 +3554,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1169 XW10: ONE copy of each shared warp song (all fourteen warp-song rules on
     # through their keys, offered since XW14), one real paired generation per Shuffle Songs
-    # value; Off and Anywhere with Link's Pocket at Advancement. Edges: two paired
+    # value; Off and Anywhere with Link's Pocket at Advancement. #1169 XW15: under
+    # Off each shared warp song stays on its own check, and the -off row adds three
+    # exit rounds (baseline, each default check forbidden). Edges: two paired
     # generations (Dungeon Rewards 12 for 12, a started shared Minuet with one more
-    # exit round) and two more only to OoT's seam (the Off arm twice), hence the
-    # longer timeout.
+    # exit round) and four more only to OoT's seam (the Off arm twice, and XW15's
+    # leg (2b): a shared warp song alone arms nothing), hence the longer timeout.
     redship_add_test(NAME SharedWarpSongsOneCopyOff COMMAND redship --test shared-warp-songs-one-copy-off
         LABEL rando
         TIMEOUT 600
@@ -3578,7 +3580,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedWarpSongsEdges COMMAND redship --test shared-warp-songs-edges
         LABEL rando
-        TIMEOUT 900
+        TIMEOUT 1200
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1502: the confined golden's profile created for real: every MM key, boss key
     # and dungeon fairy in its own dungeon, every song-location song on an MM song
