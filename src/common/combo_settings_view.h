@@ -175,9 +175,9 @@ typedef enum {
     // WORD (gComboCtx.comboItemRules2, RSBS_XITEM2_*), assembled by
     // Combo_ResolveComboItemRules2 (Combo_ComboItemRules2Authored). 0 or 1, default
     // 0 each; a shared song is dropped by the resolver while its extension is off
-    // (OoTMM's `cond`). Since lane XW12 the seven extensions have Cross-Game
-    // Songs rows; the seven shared songs stay HIDDEN until XW10: no row is drawn
-    // and Generate refuses a world with one on (Combo_ComboItemRules2Refused).
+    // (OoTMM's `cond`). Each has a Cross-Game Songs row, drawn while its bit is
+    // outside RSBS_XITEM2_HIDDEN; inside it no row is drawn and Generate refuses a
+    // world with it on (Combo_ComboItemRules2Refused).
     // The seven extensions, OoTMM's order:
     COMBO_SETTING_SONG_SOARING_OOT, // gCombo.Rando.SongSoaringOoT -> RSBS_XITEM2_SONG_SOARING_OOT
     COMBO_SETTING_SONG_MINUET_MM,   // gCombo.Rando.SongMinuetMM -> RSBS_XITEM2_SONG_MINUET_MM

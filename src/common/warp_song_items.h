@@ -72,9 +72,10 @@ extern "C" {
  * (OoT) alone already makes 13 Ocarina of Time songs for OoT's 12 song checks,
  * and only an Ocarina of Time song shared or started with frees one
  * (SongPoolOverCapacity leg (b)); the text says so. The way out names only
- * remedies this build offers (Shuffle Songs: Anywhere, or a starting song):
- * the Shared rows stay hidden until XW10, which restores OoTMM's "share a
- * song". The Cross-Game Songs row draws it (SohMenuCombo.cpp).
+ * remedies a build without shared rows offers (Shuffle Songs: Anywhere, or a
+ * starting song); once a shared row is offered the row shows
+ * Combo_WarpSongExtensionTooltip's text instead, which restores OoTMM's "share a
+ * song" (#1169 XW14). The Cross-Game Songs row draws it (SohMenuCombo.cpp).
  */
 #define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                            \
     "Adds Majora's Mask's Song of Soaring to Ocarina of Time, usable only as a child. On Shuffle Songs: Song "   \
@@ -136,8 +137,9 @@ const char* Combo_SongSpotsLastRefusal(void);
  *
  * Two refusals are taken on the generation worker, inside Playthrough_Init,
  * before any paired world exists: OoT's own song pass under Shuffle Songs:
- * Dungeon Rewards (Combo_SongSpotsOverflow) and the hidden-rules gate (a shared
- * warp-song key set with its extension). Before XW12 both were logged only. The
+ * Dungeon Rewards (Combo_SongSpotsOverflow) and the hidden-rules gate (a rule
+ * inside RSBS_XITEM2_HIDDEN, or another build's bit). Before XW12 both were
+ * logged only. The
  * worker NOTES which one ended the generation; the game thread TAKES the note
  * once, after the worker finished (OoT_SeedPackage_FileSelectTick), and raises
  * "Not generated:" with Combo_GenRefusal_Line. The worker's last store happens
@@ -164,9 +166,12 @@ const char* Combo_GenRefusal_Line(int kind);
  *     EXTENSIONS) and the frozen word @p rules2 has it on. A file with every rule
  *     off shows no row, so its tracker is exactly what it was before XW11.
  *   - have: shown, and Combo_AddedSongHeld.
- *   - sharedFamily: 0. Lane XW10's shared warp song returns its family slot here
- *     when the shared bit is on, so the view draws the pair once in the Shared
- *     group.
+ *   - sharedFamily: always 0, under the shared rule too (#1169 XW14). The item
+ *     view's Shared group reads the FIRST family word only (combo_item_view.c,
+ *     SharedFamiliesDrawnShared and RowLeftOut), and a second-word family's bit
+ *     would collide with a first-word slot there. So each game keeps its own
+ *     row, and under the shared rule both show the song held (OoTMM shows the
+ *     song in both games' menus).
  */
 typedef struct ComboAddedSongRow {
     uint8_t shown;
@@ -180,9 +185,10 @@ typedef struct ComboAddedSongRow {
  * own record: OoT's RAND_INF_OBTAINED_SONG_OF_SOARING_OOT, MM's
  * gComboCtx.mmWarpSongsOwned bit), or @p sharedOwned when the frozen word
  * @p rules2 has the shared song over @p extBit on (extBit <<
- * RSBS_XITEM2_WARP_SONG_SHARED_SHIFT). Lane XW10 passes its family's owned
- * query as @p sharedOwned; until then every caller passes false. Every tracker
- * row and both tracker travel facts (warp_song_tracker.h) ask this. Pure.
+ * RSBS_XITEM2_WARP_SONG_SHARED_SHIFT). Every caller passes the family's
+ * held-now answer as @p sharedOwned (Combo_SharedFamilies2HeldNow, #1169 XW14).
+ * Every tracker row and both tracker travel facts (warp_song_tracker.h) ask
+ * this. Pure.
  */
 bool Combo_AddedSongHeld(uint32_t rules2, uint32_t extBit, bool separateOwned, bool sharedOwned);
 
@@ -201,6 +207,39 @@ ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool sepa
  * @p originGame answers "". NULL @p name answers the tag. Never NULL. Pure.
  */
 const char* Combo_ForeignGameTag(const char* name, uint8_t originGame);
+
+/**
+ * THE EXTENSION ROWS' TOOLTIP (#1169 lane XW14): the Cross-Game Songs row of
+ * extension @p extBit (one of RSBS_XITEM2_WARP_SONG_EXTENSIONS) shows its own
+ * text (RSBS_SONG_SOARING_OOT_TOOLTIP, Combo_MMWarpSongTooltip), which names only
+ * the remedies a build without shared rows offers, while @p shareOffered is
+ * false; once a shared row is offered it shows OoTMM's advice, "share a song,
+ * start with a song", as the way out. The row's PreFunc passes
+ * Combo_ComboItemRule2Offered(extBit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT), so
+ * offering the shared rows flips the text with no UI change. NULL for any other
+ * bit. Pure.
+ */
+const char* Combo_WarpSongExtensionTooltip(uint32_t extBit, bool shareOffered);
+
+/* ---- A shared warp song's name (#1169 lane XW14) ----------------------------- */
+
+/**
+ * The name a shared warp song's copy is shown by, with no game tag: under its
+ * frozen shared rule the song is ONE item of both games, and OoTMM names it
+ * without "(OoT)" / "(MM)" (generator text.c isItemAmbiguous: a song is ambiguous,
+ * so tagged, only while `!CFG_SHARED_SONG_X && CFG_<ext>`). Returns "Song of
+ * Soaring" or the Ocarina of Time song's own name (Combo_MMWarpSongOoTName,
+ * "Minuet of Forest" ...) when @p nativeId is @p game's (a GameId: 1 OoT, 2 MM)
+ * REGISTERED member of a second-word family the frozen word ARMS
+ * (shared_resources.h) AND that member is the game's ADDED copy, the one whose
+ * own name carries the tag: OoT's Song of Soaring (OoT), MM's six "(MM)" warp
+ * songs. NULL for anything else, a game's own song included (OoT's six warp
+ * songs keep their localized names, MM's Song of Soaring its own), so a caller
+ * keeps its own name and tag. A display name only: never a lookup key (the item tables' names and
+ * the foreign-name lookups stay what they are). A site that shows the result
+ * appends no game tag after it. Never touches a member's callbacks.
+ */
+const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId);
 
 #ifdef __cplusplus
 }

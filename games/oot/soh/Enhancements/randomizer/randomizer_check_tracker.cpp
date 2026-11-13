@@ -1325,6 +1325,11 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
             }
         }
     }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared =
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)itemLoc->GetPlacedRandomizerGet())) {
+        return shared;
+    }
     return itemLoc->GetPlacedItem().GetName().GetForLanguage(gSaveContext.language);
 }
 

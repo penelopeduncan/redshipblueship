@@ -2287,6 +2287,33 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   stays as a test level that now reads the production mask. No format, layout,
   fingerprint or generator version changes: the bits were allocated and frozen by
   XW2, and a world with every rule off is the same world.
+- **2026-11-12, XW14.** The shared songs' owed proof and their readers, then the
+  unhide as its own commit (0c1bdaddf), followed by four review fixes. The integration row IntMMWarpSongMinuetShared
+  is IntMMWarpSongMinuet with `sharedSongMinuet` on: Ocarina of Time is given its
+  own Minuet before the Happy Mask Shop door, the Majora's Mask drive gives
+  nothing, and before the song is played Majora's Mask's arrival apply must have
+  given the Minuet (`Combo_SharedFamilies2GivenAtLastApply`, a session record no
+  starting-check payout writes). `gComboCtx.sharedFamilyOwned2` is locked across
+  a real `.redsave` Save and Load. Every player-facing reader of a shared song's
+  ownership asks `Combo_SharedFamilies2HeldNow` (the family word, plus the
+  running game's own live copy under that game's own registered live-file
+  probe), so a game's rows drawn from its frozen shadow never ask its members
+  about the other game's live save. Under a shared rule the song is named
+  without "(OoT)" / "(MM)" (OoTMM's `isItemAmbiguous`) through
+  `Combo_SharedFamily2DisplayName`, a display name only. The unhide sets
+  `RSBS_XITEM2_HIDDEN` to 0; the test reveal stays, harmless, for the rules OoTMM
+  still has beyond these fourteen. No format, layout, fingerprint or generator
+  version changes, and a world with every rule off is the same world.
+- **2026-11-12, XW15.** Operator ruling: "a shared song should be at its default
+  location if the songs aren't shuffled." Under Shuffle Songs Off each shared
+  warp song now stays on its one default check (the six on their Sheik checks,
+  the Song of Soaring on Majora's Mask's Southern Swamp check) instead of roaming
+  as the bag's pair row; the other game holds no copy and is credited in the
+  coordinator's proof through a fixed shared credit at that check
+  (combo-logic-coordinator.md §4.4). The first word's shared songs (Epona's Song,
+  Song of Storms, Song of Time) are unchanged, their junk rule still open. No
+  format, layout, ABI or generator version changes: the credits are recomputed at
+  creation, and no player world had a shared warp song before XW14.
 
 Capacity spent: four format bytes (ADR 0009 claim 19), fourteen
 `ComboSettingId`s, appended after #979's two Stone Mask ids, and identity keys

@@ -28,7 +28,10 @@
  *             nobody pressed past after 90 (fixture work). 900 frames.
  *   PREPARE   once: Link is human, MM holds the Ocarina of Time (the MM-start
  *             ruling, asserted, never repaired), it goes on C-down, the Ocarina
- *             Button Shuffle buttons when that shuffle is on, the Minuet given,
+ *             Button Shuffle buttons when that shuffle is on, the Minuet given
+ *             (in int-mm-warp-song-minuet-shared, #1169 XW14, NOT given: it must
+ *             already be in MM's arrival apply's give record, the family word
+ *             and MM's ownership byte),
  *             two ocarina CVars forced to 0 in memory, the scene unrestricted, and
  *             the prompt's own decision OFFER before a note is played.
  *   TAKE_OUT  C-down while Link is free, retried every 30 frames, until the
@@ -65,6 +68,7 @@
 #include "integration_test_hooks.h"
 #include "mm_warp_song_drive.h"
 #include "mm_warp_song_play.h"
+#include "shared_resources.h" // #1169 XW14: the apply's give record, the family word
 #include "warp_songs_mm.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/GameInteractor/GameInteractor.h"
@@ -236,10 +240,12 @@ std::string MwdrDump(PlayState* play) {
     const ComboMMWarpPlayGate gate = Combo_MMWarpPlay_Decide(&in);
     snprintf(buf, sizeof(buf),
              "; gate: %s (paired %u ootPlayable %u switchPending %u restricted %u ootAge %d record %u resolvable %u); "
-             "world: usable 0x%02X owned 0x%02X rule2 0x%08X record status %d flags 0x%02X dest 0x%04X",
+             "world: usable 0x%02X owned 0x%02X (family owned2 0x%08X, apply give record 0x%08X) rule2 0x%08X record "
+             "status %d flags 0x%02X dest 0x%04X",
              Combo_MMWarpPlay_GateName(gate), (unsigned)in.paired, (unsigned)in.ootPlayable, (unsigned)in.switchPending,
              (unsigned)in.soaringRestricted, (int)in.ootAge, (unsigned)in.recordStatus, (unsigned)in.destResolvable,
              (unsigned)MM_WarpSongMM_UsableMask(), (unsigned)Combo_MMWarpSongsOwned(),
+             (unsigned)Combo_SharedFamilies2Owned(), (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM),
              (unsigned)Combo_ComboCrossItemFlags2(), Combo_OoTWarpRecord_Status(),
              (unsigned)Combo_OoTWarpRecord_Flags(), (unsigned)Combo_OoTWarpRecord_Dest(kMwdrSong));
     out += buf;
@@ -414,7 +420,42 @@ void MwdrStepPrepare(PlayState* play, Player* player) {
         Flags_SetRandoInf(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_LEFT);
         Flags_SetRandoInf(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP);
     }
-    MM_WarpSongMM_Give(RI_SONG_MINUET);
+    if (IntegrationTest_MMWarpSongMinuetShared()) {
+        // #1169 XW14: nothing is given here. OoT learnt its own Minuet before the
+        // Happy Mask Shop door; MM must hold it through the shared family. The
+        // apply's give record says MM's ARRIVAL APPLY gave it: a starting-check
+        // payout (after the apply, through MM_WarpSongMM_Give) never writes it, so
+        // this cannot pass on a pinned seed that puts the pair's MM half on a
+        // starting check while the apply is broken.
+        const uint32_t given = Combo_SharedFamilies2GivenAtLastApply(GAME_MM);
+        const uint32_t owned2 = Combo_SharedFamilies2Owned();
+        const uint8_t owned = Combo_MMWarpSongsOwned();
+        if ((given & RSBS_XITEM2_SHARED_SONG_MINUET) == 0u) {
+            char why[256];
+            snprintf(why, sizeof(why),
+                     "the family did not give Majora's Mask its Minuet at arrival (OoT's harvest at suspend or MM's "
+                     "apply): apply give record 0x%08X, family owned2 0x%08X, ownership byte 0x%02X",
+                     (unsigned)given, (unsigned)owned2, (unsigned)owned);
+            MwdrFail(play, why);
+            return;
+        }
+        if ((owned2 & RSBS_XITEM2_SHARED_SONG_MINUET) == 0u || (owned & RSBS_MM_WARP_SONG_OWNED_MINUET) == 0u) {
+            char why[256];
+            snprintf(why, sizeof(why),
+                     "the apply gave the Minuet but the family word or MM's ownership byte does not hold it: family "
+                     "owned2 0x%08X, ownership byte 0x%02X",
+                     (unsigned)owned2, (unsigned)owned);
+            MwdrFail(play, why);
+            return;
+        }
+        fprintf(stderr,
+                "[PFC] mm warp song (shared): MM holds the Minuet through the family (apply give record 0x%08X, "
+                "owned2 0x%08X, ownership byte 0x%02X); the drive gives nothing\n",
+                (unsigned)given, (unsigned)owned2, (unsigned)owned);
+        fflush(stderr);
+    } else {
+        MM_WarpSongMM_Give(RI_SONG_MINUET);
+    }
     if ((MM_WarpSongMM_UsableMask() & 0x01u) == 0u) {
         MwdrFail(play, "the Minuet of Forest (MM) is not usable after it was given (rule, pairing or ownership)");
         return;

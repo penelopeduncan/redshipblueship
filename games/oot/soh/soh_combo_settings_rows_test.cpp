@@ -714,13 +714,11 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                    "and their shared variants (#980), and the fourteen Cross-Game Songs rows (#1169), after #879 "
                    "retired the Shared Ocarina",
                    checkboxes);
-        // #1169 XW12/XW13: DRAWN, after each row's PreFunc: the seven shared warp
-        // songs are registered but hidden while their bits are
-        // (Combo_ComboItemRule2Offered), so 34 are drawn (the seven extensions
-        // offered: the Song of Soaring (OoT) since XW12, the six MM ones since
-        // XW13); the MM reveal level is the production mask (34), the full seam
-        // draws every one. Catches an MM row hidden again, a shared row drawn before
-        // XW10 builds it, or the Song of Soaring (OoT) row hidden.
+        // #1169 XW12/XW13/XW14: DRAWN, after each row's PreFunc: all fourteen
+        // Cross-Game Songs rows are offered (Combo_ComboItemRule2Offered: the Song of
+        // Soaring (OoT) since XW12, the six MM ones since XW13, the seven shared
+        // songs since XW14), so all 41 are drawn at every reveal level. Catches any
+        // Cross-Game Songs row hidden again.
         auto drawnCheckboxes = [&]() {
             int drawn = 0;
             for (PageRow& pageRow : rows) {
@@ -740,13 +738,12 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
         Combo_ComboItemRules2RevealForTest(1);
         const int drawnRevealed = drawnCheckboxes();
         Combo_ComboItemRules2RevealForTest(0);
-        ROWS_CHECK(drawn == 34 && drawnMM == 34 && drawnRevealed == 41,
+        ROWS_CHECK(drawn == 41 && drawnMM == 41 && drawnRevealed == 41,
                    "%d checkbox row(s) are drawn (%d at the MM reveal level, %d with every rule revealed); "
-                   "expected 34 (the seven shared warp songs hidden until XW10; the six MM extensions offered since "
-                   "XW13), 34 and 41",
+                   "expected 41 at each (every Cross-Game Songs row offered since XW14)",
                    drawn, drawnMM, drawnRevealed);
         printf("[TEST] leg 1e: %d \"Shared Ocarina\" row(s) and %d checkbox(es) on the page, %d drawn (%d at the MM "
-               "reveal level, %d revealed), expected 0, 41, 34, 34 and 41 (#879, #886, #1068, #1065, #1066, #1067, "
+               "reveal level, %d revealed), expected 0, 41, 41, 41 and 41 (#879, #886, #1068, #1065, #1066, #1067, "
                "#1069, #968, #970, #978, #1369, #979, #980, #1169)\n",
                ocarinaRows, checkboxes, drawn, drawnMM, drawnRevealed);
     }
@@ -894,15 +891,15 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                got.c_str(), sharedRows);
     }
 
-    // ---- Leg 1g: the Cross-Game Songs rows (#1169 XW12, XW13) ----------------
-    // Every extension row is drawn with the production mask (the Song of Soaring
-    // (OoT) since XW12, the six MM ones since XW13), each with the tooltip macro
-    // that ships with its item (the Song of Soaring (OoT)'s says "only as a
-    // child"). Each shared row is HIDDEN while its bit is hidden, the MM reveal
-    // level included; revealed by the full seam it is drawn, and while its
+    // ---- Leg 1g: the Cross-Game Songs rows (#1169 XW12, XW13, XW14) ----------
+    // Every row is drawn with the production mask. An extension row shows OoTMM's
+    // "share a song" advice (Combo_WarpSongExtensionTooltip), since its shared row
+    // is offered; its item's own macro is the text a build without shared rows
+    // drew (the Song of Soaring (OoT)'s says "only as a child"). Each shared row is
+    // DRAWN on the production mask and at the MM reveal level, and while its
     // extension key is off it is greyed with that extension's reason, as the shared
-    // masks are. Catches an MM row hidden again, a shared row drawn early, a
-    // dependency not shown, and a tooltip that drifted from its macro.
+    // masks are. Catches a row hidden again, a dependency not shown, and a tooltip
+    // that drifted from its helper.
     {
         static const struct {
             ComboSettingId id;
@@ -948,21 +945,34 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
             RunPreFunc(*row);
             if (s.needs == COMBO_SETTING_COUNT) {
                 const std::string tip = row->options->tooltip != nullptr ? row->options->tooltip : "";
-                ROWS_CHECK(!row->isHidden && tip == s.tooltip,
-                           "the extension row '%s' is hidden (%d) or its tooltip '%s' is not its macro's",
+                const uint32_t bit = Combo_ComboItemRule2BitFor(s.id);
+                const char* shareHelperTip = Combo_WarpSongExtensionTooltip(bit, true);
+                ROWS_CHECK(!row->isHidden && shareHelperTip != nullptr && tip == shareHelperTip &&
+                               tip.find("share a song, start with a song") != std::string::npos,
+                           "the extension row '%s' is hidden (%d) or its tooltip '%s' is not the shared-row advice",
                            row->name.c_str(), row->isHidden ? 1 : 0, tip.c_str());
+                const char* ownTip = Combo_WarpSongExtensionTooltip(bit, false);
+                ROWS_CHECK(ownTip != nullptr && std::string(ownTip) == s.tooltip,
+                           "the extension row '%s''s own text is not its macro", row->name.c_str());
+                // #1169 XW14: on the production mask (no reveal) the shared rows are
+                // offered, so the drawn tooltip above is the share variant. A second
+                // PreFunc run must draw the same text: catches a PreFunc that picks
+                // the variant from state it changes on the first run.
+                RunPreFunc(*row);
+                const std::string againTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                ROWS_CHECK(againTip == tip, "the extension row '%s' reads '%s' on a second draw, '%s' on the first",
+                           row->name.c_str(), againTip.c_str(), tip.c_str());
             } else {
-                ROWS_CHECK(row->isHidden, "the shared row '%s' is drawn while its rule is hidden (lane XW10's)",
+                ROWS_CHECK(!row->isHidden, "the shared row '%s' is hidden on the production mask (offered since XW14)",
                            row->name.c_str());
                 Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
                 RunPreFunc(*row);
-                ROWS_CHECK(row->isHidden, "the MM reveal level draws the shared row '%s' (lane XW10's)",
-                           row->name.c_str());
-                Combo_ComboItemRules2RevealForTest(1);
+                ROWS_CHECK(!row->isHidden, "the MM reveal level hides the shared row '%s'", row->name.c_str());
+                Combo_ComboItemRules2RevealForTest(0);
                 RunPreFunc(*row);
                 const std::string tip = row->options->disabledTooltip != nullptr ? row->options->disabledTooltip : "";
                 ROWS_CHECK(!row->isHidden && row->options->disabled && tip == s.reason && StagedBool(*row) == 0,
-                           "revealed, the shared row '%s' with its extension off: hidden %d, disabled %d, staged %d, "
+                           "the shared row '%s' with its extension off: hidden %d, disabled %d, staged %d, "
                            "reason '%s' (expected drawn, greyed, off, '%s')",
                            row->name.c_str(), row->isHidden ? 1 : 0, row->options->disabled ? 1 : 0, StagedBool(*row),
                            tip.c_str(), s.reason);
@@ -975,8 +985,8 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                    "the Song of Soaring (OoT) row does not say it is usable only as a child: '%s'", soaring.c_str());
         Combo_ComboItemRules2RevealForTest(0);
         printf("[TEST] leg 1g: %d Cross-Game Songs row(s): the seven extension rows drawn on the production "
-               "mask, each with its item's tooltip; the seven shared rows hidden, and revealed greyed with their "
-               "extension's reason\n",
+               "mask, each with OoTMM's share-a-song advice; the seven shared rows drawn, greyed with their "
+               "extension's reason while it is off\n",
                checked);
     }
 

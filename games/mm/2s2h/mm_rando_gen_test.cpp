@@ -4310,11 +4310,20 @@ namespace {
 const ComboSettingId kSpoWarpSongKeys[6] = { COMBO_SETTING_SONG_MINUET_MM,   COMBO_SETTING_SONG_BOLERO_MM,
                                              COMBO_SETTING_SONG_SERENADE_MM, COMBO_SETTING_SONG_REQUIEM_MM,
                                              COMBO_SETTING_SONG_NOCTURNE_MM, COMBO_SETTING_SONG_PRELUDE_MM };
+/** #1169 XW14: the seven shared warp songs' keys, bit (7 + i) of the second word
+ *  (sharedSongSoaring, then sharedSongMinuet .. sharedSongPrelude). */
+const ComboSettingId kSpoSharedSongKeys[7] = { COMBO_SETTING_SHARED_SONG_SOARING,  COMBO_SETTING_SHARED_SONG_MINUET,
+                                               COMBO_SETTING_SHARED_SONG_BOLERO,   COMBO_SETTING_SHARED_SONG_SERENADE,
+                                               COMBO_SETTING_SHARED_SONG_REQUIEM,  COMBO_SETTING_SHARED_SONG_NOCTURNE,
+                                               COMBO_SETTING_SHARED_SONG_PRELUDE };
 /** #1169 XW12: OoT's Starting Zelda's Lullaby, an OoT starting song (leg (e2)). */
 const char* const kSpoStartingLullabyKey = "gRandoSettings.StartingZeldasLullaby";
 
 void SpoClearKeys() {
     for (const ComboSettingId key : kSpoWarpSongKeys) {
+        CVarClear(Combo_ComboSettingKey(key));
+    }
+    for (const ComboSettingId key : kSpoSharedSongKeys) {
         CVarClear(Combo_ComboSettingKey(key));
     }
     CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
@@ -4382,6 +4391,11 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
     if ((rules2 & RSBS_XITEM2_SONG_SOARING_OOT) != 0u) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT), 1);
     }
+    for (int i = 0; i < 7; i++) {
+        if ((rules2 & (RSBS_XITEM2_SHARED_SONG_SOARING << i)) != 0u) {
+            CVarSetInteger(Combo_ComboSettingKey(kSpoSharedSongKeys[i]), 1);
+        }
+    }
     if (directionOff) {
         CVarSetInteger(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION), (int32_t)RSBS_COMBO_DIR_OFF);
     }
@@ -4389,10 +4403,10 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
         CVarSetInteger(kSpoStartingLullabyKey, 1);
     }
     // The production mask for every leg: the Song of Soaring (OoT) is offered since
-    // XW12 and the six Majora's Mask extensions since XW13 (IntMMWarpSongMinuet).
-    // The shared songs stay hidden.
+    // XW12, the six Majora's Mask extensions since XW13 (IntMMWarpSongMinuet) and
+    // the seven shared songs since XW14 (IntMMWarpSongMinuetShared).
     Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
-    for (uint32_t b = 0; b < 7u; b++) {
+    for (uint32_t b = 0; b < 14u; b++) {
         if ((rules2 & (1u << b)) != 0u && !Combo_ComboItemRule2Offered(1u << b)) {
             fprintf(stderr, "[SONG-POOL-CAP] FAIL(8): %s: rule bit %u is not offered (on the production mask)\n", name,
                     (unsigned)b);
@@ -4498,14 +4512,21 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
  *       pool, so MM's own 11 song checks refuse its 12 songs, naming MM. A
  *       starting song that did not leave the pool reads 24 and fails (e2) by name.
  *   (f) Control: Minuet (MM) alone, Direction Off: 12/12 and 11/11, created.
+ *   #1169 XW14, the shared songs (each removes the added copy and makes the host's
+ *   native copy one pair row, never home-only):
+ *   (g) Soaring (OoT), Minuet and Bolero (MM), shared Minuet, Both: 22 + 3 - 1 = 24
+ *       for 23, refused naming both games.
+ *   (h) The same with shared Bolero too: 23 for 23, created.
+ *   (i) Soaring (OoT) and shared Soaring, Direction Off: (b)'s world, now 12 OoT
+ *       songs home for 12, created.
  * No leg excludes an OoT song check: SoH keeps song checks out of its exclude list
  * under Song Locations (randomizer_check_objects.cpp), so the profile parse drops
  * such a key and Generate refuses the profile ("the menu's parse kept 0"), as the
  * first local run of two such legs showed. No shipped setting reaches that state,
  * and SpoLeg's exclude count stays 0.
  * Every leg sets its rules by their keys on the production mask (the Song of
- * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13). Seven
- * paired generations.
+ * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13, the
+ * shared songs since XW14): no leg uses the test seam. Ten paired generations.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
  */
 extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
@@ -4544,8 +4565,30 @@ extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
     if (rc != 0) {
         return 70 + rc;
     }
+    // #1169 XW14: a shared song removes the added copy and turns the host's native
+    // copy into one pair row, so it frees one check in the total (and one in a
+    // home class) and never adds a refusal.
+    const uint32_t soaring = RSBS_XITEM2_SONG_SOARING_OOT;
+    const uint32_t sharedMinuet = RSBS_XITEM2_SHARED_SONG_MINUET;
+    const uint32_t sharedBolero = RSBS_XITEM2_SHARED_SONG_BOLERO;
+    rc = SpoLeg("(g) Soaring (OoT), Minuet + Bolero (MM), shared Minuet, Both", seed,
+                soaring | minuet | bolero | sharedMinuet, false, "24 songs for the 23 song checks of both games");
+    if (rc != 0) {
+        return 80 + rc;
+    }
+    rc = SpoLeg("(h) the same with shared Bolero too, Both", seed, soaring | minuet | bolero | sharedMinuet | sharedBolero,
+                false, nullptr);
+    if (rc != 0) {
+        return 90 + rc;
+    }
+    rc = SpoLeg("(i) Soaring (OoT) + shared Soaring, Crossing Direction Off", seed,
+                soaring | RSBS_XITEM2_SHARED_SONG_SOARING, true, nullptr);
+    if (rc != 0) {
+        return 100 + rc;
+    }
     fprintf(stderr, "[SONG-POOL-CAP] PASS: 28 and 24 songs for 23, 13 home-only OoT songs for 12 and 12 home-only MM "
-                    "songs for 11 are refused before any attempt with OoTMM's sentence, and 23 for 23 creates\n");
+                    "songs for 11 are refused before any attempt with OoTMM's sentence, and 23 for 23 creates; a "
+                    "shared song frees one check (24 refused, 23 created, (b)'s world created once shared)\n");
     return 0;
 }
 

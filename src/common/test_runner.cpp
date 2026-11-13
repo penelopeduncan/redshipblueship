@@ -5171,7 +5171,7 @@ TestResult Test_MMPairedStartSharedSongTime(void) {
 }
 
 // #1169 XW5: Ocarina of Time's warp songs as MM items over real paired creations,
-// rules off, on through the hidden-bit test seam, and shared. Body in
+// rules off, on through their keys, and shared. Body in
 // games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
 // skips it.
 extern "C" int MM_WarpSongsPooled_RunHeadless(void);
@@ -10541,6 +10541,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-fixed-credit",
+      "A shared item fixed on its own game's check credits the other engine once per round when that check is "
+      "reached, through the crossing gate, never from a forbidden host, and the credits outlive a reset (#1169 XW15)",
+      Test_ComboLogicFixedCredit },
     { "combo-logic-host-groups",
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
@@ -10787,11 +10791,12 @@ const TestDescriptor gTests[] = {
       "With MM's own Shuffle Songs key at Vanilla and OoT's at Anywhere, MM's half follows OoT's (Anywhere) and each "
       "shared song is still ONE copy over both games (#1502, #1542)",
       Test_SharedSongsOneCopyMMVanilla },
-    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (the
-    // hidden-bit test seam), one real paired generation per Shuffle Songs value.
+    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (their
+    // keys, offered since XW14), one real paired generation per Shuffle Songs value.
     { "shared-warp-songs-one-copy-off",
-      "With every warp-song rule on and Shuffle Songs Off, each shared warp song is one bag pair row over both worlds, "
-      "never Link's Pocket, and the other songs stay vanilla (#1169 XW10)",
+      "With every warp-song rule on and Shuffle Songs Off, each shared warp song stays on its own default check (no "
+      "bag row, never Link's Pocket, every OoT song vanilla, MM's Song of Soaring on its unshuffled check) and the "
+      "other game's logic is credited there (#1169 XW10, XW15)",
       Test_SharedWarpSongsOneCopyOff },
     { "shared-warp-songs-one-copy-song-locations",
       "With every warp-song rule on and Shuffle Songs at Song Locations, each shared warp song is one bag pair row on "
@@ -10807,7 +10812,8 @@ const TestDescriptor gTests[] = {
       Test_SharedWarpSongsOneCopyAnywhere },
     { "shared-warp-songs-edges",
       "The Song of Soaring (OoT) beside a shared Minuet fits Dungeon Rewards, under Off the songs family is armed for "
-      "a lone Soaring (OoT) whatever the shared rules, and a started shared Minuet is no bag row (#1169 XW10)",
+      "a lone Soaring (OoT) whatever the shared rules and never for a shared warp song alone, and a started shared "
+      "Minuet is no bag row (#1169 XW10, XW15)",
       Test_SharedWarpSongsEdges },
     { "mm-placement-confined-world",
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
@@ -10935,8 +10941,8 @@ const TestDescriptor gTests[] = {
       "and warning are worded (#1169)",
       Test_OoTSoaringRuleLogic },
     { "oot-soaring-rules-off-unchanged",
-      "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
-      "meets the song-spot refusal, and every id before it is main's (#1169)",
+      "With the warp-song rules off no world a player can make pools the Song of Soaring (OoT), credits it or meets "
+      "the song-spot refusal, and every id before it is main's; the rule and its shared song are offered (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
     // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
     // generate nothing.
@@ -10994,8 +11000,8 @@ const TestDescriptor gTests[] = {
       "after a freeze, the crossing's commit and a reload; the fingerprint never moves (#1169)",
       Test_MMWarpSongsOwnership },
     { "mm-warp-songs-rules-off-unchanged",
-      "While the warp-song rules are hidden no world pools or credits an MM warp song, and owning one moves no "
-      "fingerprint, bag seed or package record (#1169)",
+      "With the warp-song rules off no world pools or credits an MM warp song, and owning one moves no "
+      "fingerprint, bag seed or package record; the rules and their shared songs are offered (#1169)",
       Test_MMWarpSongsRulesOffUnchanged },
     { "mm-warp-songs-pooled-only-when-rule-on",
       "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
@@ -11055,7 +11061,7 @@ const TestDescriptor gTests[] = {
     { "combo-warp-song-world",
       "A real paired creation with one warp-song rule on through its key places exactly one copy, proves the world "
       "beatable with its travel credited and freezes the warp-song record; under Shuffle Songs Off the Song of "
-      "Soaring (OoT) roams (#1169)",
+      "Soaring (OoT) roams and the shared Song of Soaring stays on its own check, credited to both games (#1169)",
       Test_ComboWarpSongWorld },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
@@ -11421,6 +11427,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "the one-shot target (MM, this entrance, OoT, Minuet's pad, the warp-song kind); OoT must then arrive as a "
       "child at the destination frozen in the creation's warp-song record, restored, with the switch spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET },
+    { "int-mm-warp-song-minuet-shared",
+      "int-mm-warp-song-minuet with the Shared Minuet of Forest on too (#1169 XW14): OoT is given its own Minuet "
+      "before the Happy Mask Shop door and the MM drive gives nothing; at PREPARE MM's arrival apply must have given "
+      "MM its Minuet through the shared family (the apply's give record, not a starting-check payout), and the "
+      "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
+      "Minuet still held at the arrival",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "

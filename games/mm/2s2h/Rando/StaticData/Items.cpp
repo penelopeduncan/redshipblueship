@@ -6,6 +6,8 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "2s2h/Rando/OoTMasksMM.h" // #980: the OoT masks' icons
 #include "2s2h/Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' icon
+#include "game.h"                   // GAME_MM: the shared warp songs' names (#1169 XW14)
+#include "warp_song_items.h"        // Combo_SharedFamily2DisplayName (#1169 XW14)
 #endif
 
 extern "C" {
@@ -608,7 +610,17 @@ std::string GetItemName(RandoItemId randoItemId, bool includeArticle) {
         result += " ";
     }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW14: under its frozen shared rule an added warp song is one item of
+    // both games, named without its "(MM)" (OoTMM's isItemAmbiguous).
+    if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId)) {
+        result += shared;
+    } else {
+        result += Rando::StaticData::Items[randoItemId].name;
+    }
+#else
     result += Rando::StaticData::Items[randoItemId].name;
+#endif
 
     if (randoItemId == RI_JUNK) {
         result += std::string(" (") + Rando::StaticData::Items[Rando::CurrentJunkItem()].name + ")";
