@@ -187,7 +187,8 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
             }
             if (g == RSG_TRICKS) {
                 const auto* trick = static_cast<const Rando::TrickOption*>(option);
-                if (trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
+                if ((trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) ||
+                    (trick->GetKey() == RT_BOMB_DETONATION && world.GetTrickOption(RT_BOMB_DETONATION).Get() == 0)) {
                     continue;
                 }
             } else if (!excludes) {

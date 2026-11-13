@@ -414,8 +414,10 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         settingsStr += option->GetOptionText(ctx->GetLocationOption(locationOption->GetKey()).Get());
                     } else if (i == RSG_TRICKS) {
                         auto trickOption = static_cast<Rando::TrickOption*>(option);
-                        if (trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
-                            ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
+                        if ((trickOption->GetKey() == RT_HOOKSHOT_LADDERS &&
+                             ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) ||
+                            (trickOption->GetKey() == RT_BOMB_DETONATION &&
+                             ctx->GetTrickOption(RT_BOMB_DETONATION).Get() == 0)) {
                             continue;
                         }
                         settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
