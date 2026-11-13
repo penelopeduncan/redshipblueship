@@ -731,6 +731,27 @@ bool Combo_SharedFamily2MemberGet(GameId game, uint32_t family2Bit, ComboSharedF
  *  (Combo_ComboItemRule2Name). Never NULL. */
 const char* Combo_SharedFamily2SlotName(uint32_t family2Bit);
 
+/** #1169 XW15: the ARMED second-word family bit whose registered @p game member is
+ *  @p nativeId, else 0 (an unarmed family, an unregistered id, a game that is not
+ *  OoT or MM). The one bit-to-member scan every caller shares. */
+uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId);
+
+/**
+ * #1169 XW15 (operator ruling: "a shared song should be at its default location if
+ * the songs aren't shuffled"): is @p nativeId, @p game's member of an armed SHARED
+ * WARP SONG (RSBS_XITEM2_WARP_SONG_SHARED), a song that stays on its own default
+ * check in this world? True exactly when OoT's Shuffle Songs value
+ * @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF, warp_song_items.h) and
+ * Combo_SharedFamily2ArmedBitOf answers a shared warp song's bit. Each such song
+ * has ONE default check: OoT's six warp songs their Sheik checks, the Song of
+ * Soaring MM's Southern Swamp check. Neither game pools a copy, no bag row is
+ * made, and the coordinator credits the other game when that check is reached
+ * (Combo_Logic_SetFixedCredits). The first word's shared songs (Epona's Song,
+ * Song of Storms, Song of Time) are not covered: their bits are in the first word.
+ * False for every world with no shared warp song frozen on.
+ */
+bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs);
+
 /** The second-word families the FROZEN second word arms (its
  *  RSBS_XITEM2_FAMILY_MASK bits), 0 while nothing is frozen. Never a CVar. */
 uint32_t Combo_SharedFamilies2Armed(void);

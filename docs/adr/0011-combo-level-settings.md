@@ -2304,6 +2304,16 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   `RSBS_XITEM2_HIDDEN` to 0; the test reveal stays, harmless, for the rules OoTMM
   still has beyond these fourteen. No format, layout, fingerprint or generator
   version changes, and a world with every rule off is the same world.
+- **2026-11-12, XW15.** Operator ruling: "a shared song should be at its default
+  location if the songs aren't shuffled." Under Shuffle Songs Off each shared
+  warp song now stays on its one default check (the six on their Sheik checks,
+  the Song of Soaring on Majora's Mask's Southern Swamp check) instead of roaming
+  as the bag's pair row; the other game holds no copy and is credited in the
+  coordinator's proof through a fixed shared credit at that check
+  (combo-logic-coordinator.md §4.4). The first word's shared songs (Epona's Song,
+  Song of Storms, Song of Time) are unchanged, their junk rule still open. No
+  format, layout, ABI or generator version changes: the credits are recomputed at
+  creation, and no player world had a shared warp song before XW14.
 
 Capacity spent: four format bytes (ADR 0009 claim 19), fourteen
 `ComboSettingId`s, appended after #979's two Stone Mask ids, and identity keys

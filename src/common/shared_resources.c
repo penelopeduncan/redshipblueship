@@ -934,6 +934,28 @@ const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
     return NULL;
 }
 
+uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId) {
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (!IsRealGame(game)) {
+        return 0u;
+    }
+    for (int b = 0; armed2 != 0u && b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        uint16_t id = 0;
+        if ((armed2 & bit) != 0u && Combo_SharedFamily2MemberId(game, bit, &id) && id == nativeId) {
+            return bit;
+        }
+    }
+    return 0u;
+}
+
+bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs) {
+    if (ootShuffleSongs != RSBS_SONG_SPOTS_OFF) {
+        return false;
+    }
+    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
+}
+
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {
     const GameId origin = (GameId)originGame;
     if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {

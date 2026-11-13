@@ -3064,6 +3064,11 @@ if(BUILD_TESTING)
     # own half, the far half through the crossing gate, and composed from both
     # games' rows into one.
     redship_add_test(NAME ComboLogicSharedPair COMMAND redship --test combo-logic-shared-pair)
+    # THE FIXED SHARED CREDIT (#1169 XW15): a shared item fixed on its own game's
+    # check (a shared warp song under Shuffle Songs Off) credits the other engine
+    # once per round when reached, through the gate, never from a forbidden host.
+    # Same stub fixture, same `redship` tier; it generates nothing.
+    redship_add_test(NAME ComboLogicFixedCredit COMMAND redship --test combo-logic-fixed-credit)
     # THE HOST GROUPS (ABI 9, #1502): a confined row (MM's Own Dungeon and Song
     # Locations) lands only on its own game's hosts in its group, is drawn first,
     # drops alone as surplus, and a group with more rows than hosts is refused
@@ -3549,10 +3554,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1169 XW10: ONE copy of each shared warp song (all fourteen warp-song rules on
     # through their keys, offered since XW14), one real paired generation per Shuffle Songs
-    # value; Off and Anywhere with Link's Pocket at Advancement. Edges: two paired
+    # value; Off and Anywhere with Link's Pocket at Advancement. #1169 XW15: under
+    # Off each shared warp song stays on its own check, and the -off row adds three
+    # exit rounds (baseline, each default check forbidden). Edges: two paired
     # generations (Dungeon Rewards 12 for 12, a started shared Minuet with one more
-    # exit round) and two more only to OoT's seam (the Off arm twice), hence the
-    # longer timeout.
+    # exit round) and four more only to OoT's seam (the Off arm twice, and XW15's
+    # leg (2b): a shared warp song alone arms nothing), hence the longer timeout.
     redship_add_test(NAME SharedWarpSongsOneCopyOff COMMAND redship --test shared-warp-songs-one-copy-off
         LABEL rando
         TIMEOUT 600
@@ -3573,7 +3580,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedWarpSongsEdges COMMAND redship --test shared-warp-songs-edges
         LABEL rando
-        TIMEOUT 900
+        TIMEOUT 1200
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1502: the confined golden's profile created for real: every MM key, boss key
     # and dungeon fairy in its own dungeon, every song-location song on an MM song
@@ -3890,13 +3897,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # credits the song's travel (for Soaring, a second round with MM's own Song of
     # Soaring forbidden shows MM's crawl reading the fact at the owl landings); the
     # Minuet world freezes a PRESENT warp-song record; under Shuffle Songs Off the
-    # Song of Soaring (OoT) arms OoT's songs to roam (D5). Not asserted: where the
-    # fill needed the song (seed-specific) and the row's bag disposition.
-    # `rando`, three paired generations (on the --test all skip list).
+    # Song of Soaring (OoT) arms OoT's songs to roam (D5); and (#1169 XW15, F4) under
+    # Off the SHARED Song of Soaring stays on MM's own swamp check, no row carries
+    # it, and the exit round credits it to OoT through the fixed shared credit. Not
+    # asserted: where the fill needed the song (seed-specific) and the row's bag
+    # disposition. `rando`, four paired generations (on the --test all skip list).
     # games/mm/2s2h/mm_warp_travel_test.cpp.
     redship_add_test(NAME ComboWarpSongWorld COMMAND redship --test combo-warp-song-world
         LABEL rando
-        TIMEOUT 900
+        TIMEOUT 1200
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OoTWarpSongRecord: the creation's warp-song record over real paired creations
     # (Shuffle Warp Songs with Warp Song Hints on and off, and unshuffled): written at

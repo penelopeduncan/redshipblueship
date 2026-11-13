@@ -10541,6 +10541,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-fixed-credit",
+      "A shared item fixed on its own game's check credits the other engine once per round when that check is "
+      "reached, through the crossing gate, never from a forbidden host, and the credits outlive a reset (#1169 XW15)",
+      Test_ComboLogicFixedCredit },
     { "combo-logic-host-groups",
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
@@ -10790,8 +10794,9 @@ const TestDescriptor gTests[] = {
     // #1169 XW10: one copy of each shared warp song, all fourteen rules on (their
     // keys, offered since XW14), one real paired generation per Shuffle Songs value.
     { "shared-warp-songs-one-copy-off",
-      "With every warp-song rule on and Shuffle Songs Off, each shared warp song is one bag pair row over both worlds, "
-      "never Link's Pocket, and the other songs stay vanilla (#1169 XW10)",
+      "With every warp-song rule on and Shuffle Songs Off, each shared warp song stays on its own default check (no "
+      "bag row, never Link's Pocket, every OoT song vanilla, MM's Song of Soaring on its unshuffled check) and the "
+      "other game's logic is credited there (#1169 XW10, XW15)",
       Test_SharedWarpSongsOneCopyOff },
     { "shared-warp-songs-one-copy-song-locations",
       "With every warp-song rule on and Shuffle Songs at Song Locations, each shared warp song is one bag pair row on "
@@ -10807,7 +10812,8 @@ const TestDescriptor gTests[] = {
       Test_SharedWarpSongsOneCopyAnywhere },
     { "shared-warp-songs-edges",
       "The Song of Soaring (OoT) beside a shared Minuet fits Dungeon Rewards, under Off the songs family is armed for "
-      "a lone Soaring (OoT) whatever the shared rules, and a started shared Minuet is no bag row (#1169 XW10)",
+      "a lone Soaring (OoT) whatever the shared rules and never for a shared warp song alone, and a started shared "
+      "Minuet is no bag row (#1169 XW10, XW15)",
       Test_SharedWarpSongsEdges },
     { "mm-placement-confined-world",
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
@@ -11055,7 +11061,7 @@ const TestDescriptor gTests[] = {
     { "combo-warp-song-world",
       "A real paired creation with one warp-song rule on through its key places exactly one copy, proves the world "
       "beatable with its travel credited and freezes the warp-song record; under Shuffle Songs Off the Song of "
-      "Soaring (OoT) roams (#1169)",
+      "Soaring (OoT) roams and the shared Song of Soaring stays on its own check, credited to both games (#1169)",
       Test_ComboWarpSongWorld },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
