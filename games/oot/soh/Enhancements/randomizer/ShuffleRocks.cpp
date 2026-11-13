@@ -1,6 +1,11 @@
 #include "ShuffleRocks.h"
+#include "soh_assets.h"
 #include "static_data.h"
 #include "soh/ObjectExtension/ObjectExtension.h"
+#include "soh/Enhancements/enhancementTypes.h"
+#include "soh/Enhancements/randomizer/randomizer.h"
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/ShipInit.hpp"
 #include "item_category_adj.h"
 #include "particle_cmc.h"
 #include "soh/frame_interpolation.h"
@@ -51,7 +56,7 @@ static void Sparkles(PlayState* play, Actor* actor, bool boulder, CheckIdentity 
     } else {
         OoT_Matrix_Translate(actor->world.pos.x + xOffset, actor->world.pos.y + yOffset, actor->world.pos.z + zOffset,
                              MTXMODE_NEW);
-        OoT_Matrix_RotateZ(-M_PI / 2, MTXMODE_APPLY);
+        Matrix_RotateZ(-M_PI / 2, MTXMODE_APPLY);
         if (boulder) {
             OoT_Matrix_Scale(0.04f, 0.04f, 0.04f, MTXMODE_APPLY);
         } else {
