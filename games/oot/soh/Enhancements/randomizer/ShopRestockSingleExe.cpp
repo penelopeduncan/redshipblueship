@@ -13,13 +13,17 @@
  * at spawn), so every shuffled OoT shelf sold once. That is upstream SoH's own
  * behaviour, inherited.
  *
- * THE LIST is OoTMM's OoT list (progressive.c), including the bottled potion and
- * milk conversions (#1547): red/green/blue potion bottles restock as
- * RG_*_POTION_REFILL and bottled milk restocks as RG_MILK (giving the refill,
- * naming it, drawing its entry, and checking an empty bottle). Bottled fairy,
- * poe, blue fire, fish, bugs and big poe, rupees, traps and everything else
- * not on the list sell out, and so does a shelf hosting a Majora's Mask item:
- * the crossing store delivers once.
+ * THE LIST is OoTMM's OoT list (progressive.c comboRenewable), including the
+ * bottled potion and milk conversions (#1547): red/green/blue potion bottles
+ * restock as RG_*_POTION_REFILL and bottled milk restocks as RG_MILK (giving the
+ * refill, naming it, drawing its entry, and checking an empty bottle).
+ * A KNOWN DIVERGENCE: comboRenewable also converts a bottled fairy, poe, big poe
+ * and blue fire to their contents, and restocks a plain fairy, bugs, blue fire
+ * and poe. This port does not: #1547 asked only for potion and milk, and SoH has
+ * no plain RandomizerGet for those contents (only RG_BUY_* shelf rows), so those
+ * bottles sell out here. Bottled fish and bugs (which comboRenewable does not
+ * convert), rupees, traps and everything else not on the list sell out, and so
+ * does a shelf hosting a Majora's Mask item: the crossing store delivers once.
  *
  * THE SECOND SALE. The first sale sets the RandomizerInf and the check queue
  * gives the placed item once (Flags_SetRandomizerInf fires OnFlagSet only on a
@@ -254,9 +258,12 @@ extern "C" uint16_t OoT_Rando_ShopShelfDisplayedItem(uint16_t rc, int bought) {
 }
 
 /** Should shelf @p rc's description box say "Special deal! ONE LEFT!"?
- *  Shelves that restock omit it (matching OoTMM's item+price display); shelves
- *  that sell out (including foreign-hosted shelves) keep it. Mysterious Shuffle
- *  preserves it until bought so the first buy does not spoil restocking. */
+ *  OoTMM never prints it on any shelf (text.c comboTextHijackItemShop writes the
+ *  item name and the price only). This port keeps SoH's line where it is true,
+ *  per #1547: shelves that restock omit it, shelves that sell out (including
+ *  foreign-hosted shelves) keep it. The Mysterious Shuffle rule (kept until
+ *  bought, so the first look does not reveal that a shelf restocks) is a local
+ *  choice with no OoTMM counterpart. */
 extern "C" int OoT_Rando_ShopMessageIncludesOneLeft(uint16_t rc, int bought, int mysterious) {
     if (mysterious != 0 && bought == 0) {
         return 1;
