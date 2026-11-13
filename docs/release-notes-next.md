@@ -104,6 +104,38 @@
   open; the item no longer waits behind the sword. The pedestal still sends you forward in time only once you hold
   the Master Sword (with Time Travel Requires Master Sword on). With the sword unshuffled nothing changes: pulling
   the sword is the check.
+- **Starting Items is one page of icons** (issue #1404), from Ship of Harkinian. Randomizer > Starting Items shows
+  what you can start with as icons you click, as in the Save Editor: swords (the Kokiri Sword, the Master Sword, the
+  Giant's Knife or Biggoron's Sword), shields, tunics, boots, the Stone of Agony, the Gerudo Card, strength upgrades,
+  scales, magic and wallets; Deku Sticks and Nuts, the Bomb Bag, Bow and Slingshot at any size, the three magic
+  arrows and three spells, the Ocarina, the Hookshot or Longshot, the Boomerang, the Lens of Truth, Magic Beans, the
+  Megaton Hammer, up to four bottles (the first can hold Ruto's Letter), the Claim Check, Zelda's Letter and the
+  eight Happy Mask Shop masks; the songs; and Link's Pocket, Skulltula tokens and hearts. The Weird Egg can be picked
+  only with Shuffle Weird Egg on Shuffled, and the Bombchu Bag only with the Bombchu Bag setting on. An item you
+  start with is not also placed in the world. The starting wallet, scale and strength upgrade are greyed out while
+  Shuffle Child's Wallet, Shuffle Swim or Shuffle Grab is on. With Zora's Fountain not Open (it is Closed by
+  default), a fourth starting bottle is dropped unless the first bottle holds Ruto's Letter.
+- **New option: Shuffle Zelda's Letter** (issue #1404), under Shuffle Items, off by default. With it on, Zelda's Letter
+  can be anywhere, and Zelda's check holds a shuffled item. Start with Zelda's Letter, on the Starting Items page,
+  opens the Kakariko gate. If the letter is not shuffled, it also skips meeting child Zelda: you start with what her
+  check and Impa's song check hold.
+- **Shuffle Weird Egg has three choices** (issue #1404): Vanilla (Malon gives it), Shuffled, and Skip Waking Talon,
+  where Talon and Malon are already back at the ranch and Malon's egg check counts as done (you do not get the egg).
+- **New option: Progressive Goron Sword** (issue #1404), under Additional Items, off by default. With it on, the first
+  one you find is the Giant's Knife and the next is Biggoron's Sword. With merchants unshuffled, Medigoron only
+  replaces a broken knife.
+- **Kakariko Gate and Skip Child Zelda are gone from the menus** (issue #1404), as in Ship of Harkinian. The first time
+  this version starts, a saved Skip Child Zelda becomes Start with Zelda's Letter plus Shuffle Weird Egg: Skip Waking
+  Talon. A saved Kakariko Gate setting is dropped: to open the gate, start with Zelda's Letter. The Beginner, Standard
+  and Advanced presets now start with Zelda's Letter and use Skip Waking Talon in place of both. Hell Mode no longer
+  opens the gate and shuffles Zelda's Letter instead.
+- **Malon's song and Talon's chickens follow Talon** (issue #1404). In logic they open once the Weird Egg has woken
+  Talon at the castle (or with Skip Waking Talon), not once you hold Zelda's Letter.
+- **Weird Egg fix** from Ship of Harkinian (issue #1404). In a randomizer file the egg hatches only for child Link, and
+  only if you have it.
+- **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
+  settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
+  older development build is a different world for them, so both of you need a build with this change.
 
 ### Cross-game songs
 
