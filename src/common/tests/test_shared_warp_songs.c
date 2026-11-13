@@ -1069,7 +1069,10 @@ TestResult Test_SharedWarpSongsMerge(void) {
     // Over both games' REAL registered members. Each leg would fail if the helper
     // named a song whose shared rule is off (the extension's own "(MM)" / "(OoT)"
     // name must stay), named the wrong song, or if MM's text name ignored it; and
-    // the Items row's name, a lookup key, must never change.
+    // the Items row's name, a lookup key, must never change. Only the ADDED copy
+    // (the tagged one) is renamed: OoT's Song of Soaring (OoT) and MM's six "(MM)"
+    // songs. A game's own song gets NULL, so OoT's six keep their localized
+    // names: catches a helper that hands OoT's Minuet the English text.
     {
         SwsFreeze(0u, kSwsAll);
         int wrong = 0;
@@ -1078,13 +1081,17 @@ TestResult Test_SharedWarpSongsMerge(void) {
                 Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(s));
             const char* mm =
                 Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(s));
-            if (oot == NULL || mm == NULL || strcmp(oot, kSwsSongNames[s]) != 0 || strcmp(mm, kSwsSongNames[s]) != 0) {
+            const char* added = s == 0 ? oot : mm; // the tagged copy: OoT's for Soaring, MM's for the six
+            const char* own = s == 0 ? mm : oot;   // the game's own song, already untagged
+            if (added == NULL || strcmp(added, kSwsSongNames[s]) != 0 || own != NULL) {
                 wrong++;
                 printf("[TEST]   (10) the shared %s is named '%s' in OoT and '%s' in MM\n", kSwsSongNames[s],
                        oot != NULL ? oot : "(null)", mm != NULL ? mm : "(null)");
             }
         }
-        SWS_CHECK(wrong == 0, "(10) %d of the seven shared songs are not named by their plain name in both games",
+        SWS_CHECK(wrong == 0,
+                  "(10) %d of the seven shared songs: the added copy is not named by the plain name, or the game's "
+                  "own copy is renamed",
                   wrong);
         const uint16_t minuetMM = (uint16_t)MM_SharedWarpSongsTest_PoolId(1);
         const char* text = MM_WarpSongsTest_TextName(minuetMM);

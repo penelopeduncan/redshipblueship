@@ -231,8 +231,11 @@ const char* Combo_WarpSongExtensionTooltip(uint32_t extBit, bool shareOffered);
  * Soaring" or the Ocarina of Time song's own name (Combo_MMWarpSongOoTName,
  * "Minuet of Forest" ...) when @p nativeId is @p game's (a GameId: 1 OoT, 2 MM)
  * REGISTERED member of a second-word family the frozen word ARMS
- * (shared_resources.h); NULL for anything else, so a caller keeps its own name
- * and tag. A display name only: never a lookup key (the item tables' names and
+ * (shared_resources.h) AND that member is the game's ADDED copy, the one whose
+ * own name carries the tag: OoT's Song of Soaring (OoT), MM's six "(MM)" warp
+ * songs. NULL for anything else, a game's own song included (OoT's six warp
+ * songs keep their localized names, MM's Song of Soaring its own), so a caller
+ * keeps its own name and tag. A display name only: never a lookup key (the item tables' names and
  * the foreign-name lookups stay what they are). A site that shows the result
  * appends no game tag after it. Never touches a member's callbacks.
  */

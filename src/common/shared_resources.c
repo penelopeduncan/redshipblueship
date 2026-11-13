@@ -919,6 +919,13 @@ const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
             continue;
         }
         const uint32_t ext = Combo_ComboItemRule2Requires(bit);
+        // Only the ADDED copy carries a game tag: OoT's Song of Soaring (OoT) and
+        // MM's six "(MM)" warp songs. A game's own song (OoT's Minuet, MM's Song
+        // of Soaring) is already named without one, and OoT's own name is
+        // localized: keep it (NULL), never swap in the English text.
+        if ((g == GAME_OOT) != (ext == (uint32_t)RSBS_XITEM2_SONG_SOARING_OOT)) {
+            return NULL;
+        }
         if (ext == (uint32_t)RSBS_XITEM2_SONG_SOARING_OOT) {
             return "Song of Soaring";
         }
