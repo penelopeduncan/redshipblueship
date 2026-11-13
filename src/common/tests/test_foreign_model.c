@@ -233,8 +233,7 @@ int OoT_ForeignModel_TestShowOnlyModel(ComboModel* out);
 void OoT_ForeignModel_TestSetAnimMountOverride(int value);
 void OoT_ForeignModel_TestSetAnimFrameTable(const int16_t (*table)[3], int count);
 int OoT_ForeignModel_TestAnimMountedReal(const char* anim);
-int OoT_ForeignModel_TestDrawXluPose(uint16_t rc, int showOnly, float translation[][3], float row0[][3],
-                                     int maxParts);
+int OoT_ForeignModel_TestDrawXluPose(uint16_t rc, int showOnly, float translation[][3], float row0[][3], int maxParts);
 }
 
 #define FM_ASSERT(cond, msg)                                                \
@@ -1379,16 +1378,16 @@ TestResult FmStrayFairyAnim(void) {
     // table[i + 1] replaces joint i's rot while preserving parent and pos.
     {
         const int16_t frameTable[10][3] = {
-            { 999, -888, 777 },      // table[0]: root translation, not joint 0
-            { 111, 222, 0x4000 },    // joint 0
-            { 0x2000, -333, 444 },   // joint 1
-            { -555, 666, -0x2000 },  // joint 2
-            { 100, 200, 300 },       // joint 3
-            { 400, 0x3000, 600 },    // joint 4
-            { -100, -200, -300 },    // joint 5
-            { 700, 800, 900 },       // joint 6
-            { -700, -800, -900 },    // joint 7
-            { 1234, -2345, 3456 },   // joint 8
+            { 999, -888, 777 },     // table[0]: root translation, not joint 0
+            { 111, 222, 0x4000 },   // joint 0
+            { 0x2000, -333, 444 },  // joint 1
+            { -555, 666, -0x2000 }, // joint 2
+            { 100, 200, 300 },      // joint 3
+            { 400, 0x3000, 600 },   // joint 4
+            { -100, -200, -300 },   // joint 5
+            { 700, 800, 900 },      // joint 6
+            { -700, -800, -900 },   // joint 7
+            { 1234, -2345, 3456 },  // joint 8
         };
         ComboModelJoint posed[COMBO_MODEL_MAX_JOINTS] = {};
         Combo_ModelPoseFromFrameTable(&wfAnswer.model, frameTable, 10, posed);
@@ -1407,15 +1406,15 @@ TestResult FmStrayFairyAnim(void) {
         Combo_ModelPoseFromFrameTable(&wfAnswer.model, frameTable, 3, partial);
         bool partialOk = partial[0].rot[2] == frameTable[1][2] && partial[1].rot[0] == frameTable[2][0];
         for (int i = 2; i < (int)wfAnswer.model.jointCount; i++) {
-            partialOk = partialOk &&
-                        std::memcmp(partial[i].rot, wfAnswer.model.joints[i].rot, sizeof(partial[i].rot)) == 0;
+            partialOk =
+                partialOk && std::memcmp(partial[i].rot, wfAnswer.model.joints[i].rot, sizeof(partial[i].rot)) == 0;
         }
         ComboModelJoint fallback[COMBO_MODEL_MAX_JOINTS] = {};
         Combo_ModelPoseFromFrameTable(&wfAnswer.model, nullptr, 0, fallback);
         bool fallbackOk = true;
         for (int i = 0; i < (int)wfAnswer.model.jointCount; i++) {
-            fallbackOk = fallbackOk &&
-                         std::memcmp(fallback[i].rot, wfAnswer.model.joints[i].rot, sizeof(fallback[i].rot)) == 0;
+            fallbackOk =
+                fallbackOk && std::memcmp(fallback[i].rot, wfAnswer.model.joints[i].rot, sizeof(fallback[i].rot)) == 0;
         }
         FM_ASSERT(partialOk && fallbackOk,
                   "M24 partial or NULL frame table falls back to static joints[i].rot for missing entries");
@@ -1446,8 +1445,7 @@ TestResult FmStrayFairyAnim(void) {
         SharedItem tear;
         FM_ASSERT(TestNamedItem((uint8_t)GAME_MM, "Moon's Tear", &tear), "M24 named Moon's Tear");
         ComboModelAnswer tearA;
-        FM_ASSERT(Combo_GetForeignItemModel((uint8_t)GAME_OOT, tear, &tearA) == kDesc &&
-                      tearA.model.jointCount == 0,
+        FM_ASSERT(Combo_GetForeignItemModel((uint8_t)GAME_OOT, tear, &tearA) == kDesc && tearA.model.jointCount == 0,
                   "M24 jointless reference model");
         ComboModel zeroJointAnim = tearA.model;
         zeroJointAnim.animation = "__OTR__objects/gameplay_keep/gStrayFairyFlyingAnim";
@@ -1466,12 +1464,11 @@ TestResult FmStrayFairyAnim(void) {
 
     // 5. Asset trees + crossgame manifest agree on gStrayFairyFlyingAnim.
     {
-        const int inMm =
-            FmFileContains("games/mm/assets/objects/gameplay_keep/gameplay_keep.h", "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
-        const int inOoT =
-            FmFileContains("games/oot/assets/objects/gameplay_keep/gameplay_keep.h", "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
-        const int inOoTCustom =
-            FmDirHasStem("games/oot/assets/custom/objects/gameplay_keep", "gStrayFairyFlyingAnim");
+        const int inMm = FmFileContains("games/mm/assets/objects/gameplay_keep/gameplay_keep.h",
+                                        "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
+        const int inOoT = FmFileContains("games/oot/assets/objects/gameplay_keep/gameplay_keep.h",
+                                         "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
+        const int inOoTCustom = FmDirHasStem("games/oot/assets/custom/objects/gameplay_keep", "gStrayFairyFlyingAnim");
         const int inManifest =
             FmFileContains("assets/crossgame/manifest.txt", "mm->oot objects/gameplay_keep/gStrayFairyFlyingAnim");
         printf("[TEST]   M24 gStrayFairyFlyingAnim: MM %d, OoT %d, OoT custom %d, manifest %d\n", inMm, inOoT,
@@ -1497,27 +1494,17 @@ TestResult FmStrayFairyAnim(void) {
         OoT_ForeignModel_TestSetMountOverride(-1);
 
         const int16_t tableA[10][3] = {
-            { 0, 0, 0 },
-            { 0, 0, 0x4000 },       // joint 0 (root): rotates wings/glow/torso children
-            { 0x2000, 0, 0x2000 },  // joint 1 (left wing): rotates wing row0
-            { 0, 0, 0 },            // joint 2
-            { 0, 0, 0 },            // joint 3 (glow)
-            { 0, 0x4000, 0 },       // joint 4 (torso): rotates arms/legs children
-            { 0, 0, 0 },
-            { 0, 0, 0 },
-            { 0, 0, 0 },
-            { 0, 0, 0 },
+            { 0, 0, 0 },           { 0, 0, 0x4000 }, // joint 0 (root): rotates wings/glow/torso children
+            { 0x2000, 0, 0x2000 },                   // joint 1 (left wing): rotates wing row0
+            { 0, 0, 0 },                             // joint 2
+            { 0, 0, 0 },                             // joint 3 (glow)
+            { 0, 0x4000, 0 },                        // joint 4 (torso): rotates arms/legs children
+            { 0, 0, 0 },           { 0, 0, 0 },      { 0, 0, 0 }, { 0, 0, 0 },
         };
         const int16_t tableB[10][3] = {
-            { 0, 0, 0 },
-            { 0, 0, -0x4000 },
-            { -0x2000, 0x1000, 0 },
-            { 0, 0, 0 },
-            { 0, 0, 0 },
-            { 0, -0x4000, 0 },
-            { 0, 0, 0 },
-            { 0, 0, 0 },
-            { 0, 0, 0 },
+            { 0, 0, 0 }, { 0, 0, -0x4000 }, { -0x2000, 0x1000, 0 },
+            { 0, 0, 0 }, { 0, 0, 0 },       { 0, -0x4000, 0 },
+            { 0, 0, 0 }, { 0, 0, 0 },       { 0, 0, 0 },
             { 0, 0, 0 },
         };
 
@@ -1567,20 +1554,15 @@ TestResult FmStrayFairyAnim(void) {
         bool differsAFromStill = false;
         bool differsBFromA = false;
         for (int p = 0; p < 8; p++) {
-            unmountedMatchesStill = unmountedMatchesStill &&
-                                    FmVec3Close(unmountedTrans[p], stillTrans[p]) &&
+            unmountedMatchesStill = unmountedMatchesStill && FmVec3Close(unmountedTrans[p], stillTrans[p]) &&
                                     FmVec3Close(unmountedRow0[p], stillRow0[p]);
-            showMatchesShelfA = showMatchesShelfA &&
-                                FmVec3Close(showATrans[p], shelfATrans[p]) &&
+            showMatchesShelfA = showMatchesShelfA && FmVec3Close(showATrans[p], shelfATrans[p]) &&
                                 FmVec3Close(showARow0[p], shelfARow0[p]);
-            showMatchesShelfB = showMatchesShelfB &&
-                                FmVec3Close(showBTrans[p], shelfBTrans[p]) &&
+            showMatchesShelfB = showMatchesShelfB && FmVec3Close(showBTrans[p], shelfBTrans[p]) &&
                                 FmVec3Close(showBRow0[p], shelfBRow0[p]);
-            differsAFromStill = differsAFromStill ||
-                                !FmVec3Close(shelfATrans[p], stillTrans[p]) ||
+            differsAFromStill = differsAFromStill || !FmVec3Close(shelfATrans[p], stillTrans[p]) ||
                                 !FmVec3Close(shelfARow0[p], stillRow0[p]);
-            differsBFromA = differsBFromA ||
-                            !FmVec3Close(shelfBTrans[p], shelfATrans[p]) ||
+            differsBFromA = differsBFromA || !FmVec3Close(shelfBTrans[p], shelfATrans[p]) ||
                             !FmVec3Close(shelfBRow0[p], shelfARow0[p]);
         }
         FM_ASSERT(unmountedMatchesStill,

@@ -183,8 +183,7 @@ void HostEmitPart(Gfx* pkt, const char* dl) {
  *  joint), each its parent's (the current matrix for a root) times
  *  Matrix_TranslateRotateZYX of its own position and rotation: SkelAnime's
  *  walk, so frame interpolation records it the same way (#964). */
-static void OoTHostModel_PoseJoints(const ComboModel& model, const ComboModelJoint* posedJoints, int parent,
-                                    Mtx* out) {
+static void OoTHostModel_PoseJoints(const ComboModel& model, const ComboModelJoint* posedJoints, int parent, Mtx* out) {
     for (int i = parent + 1; i < (int)model.jointCount; i++) {
         const ComboModelJoint& joint = posedJoints[i];
         if (joint.parent != parent) {

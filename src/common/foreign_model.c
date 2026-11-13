@@ -265,10 +265,10 @@ int Combo_ForeignModel_ObjectDirCollides(const char* objectDir) {
 // by strcmp. The ForeignModel row (M17, M24) checks the stray fairy's against
 // both asset trees; an entry for another model needs the same check.
 static const char* const kCollisionFreePaths[] = {
-    "gameplay_keep/gStrayFairyFlyingAnim",       "gameplay_keep/gStrayFairyGlowDL",
-    "gameplay_keep/gStrayFairyLeftArmDL",        "gameplay_keep/gStrayFairyLeftFacingHeadDL",
-    "gameplay_keep/gStrayFairyLeftWingDL",       "gameplay_keep/gStrayFairyPelvisAndLegsDL",
-    "gameplay_keep/gStrayFairyRightArmDL",       "gameplay_keep/gStrayFairyRightWingDL",
+    "gameplay_keep/gStrayFairyFlyingAnim", "gameplay_keep/gStrayFairyGlowDL",
+    "gameplay_keep/gStrayFairyLeftArmDL",  "gameplay_keep/gStrayFairyLeftFacingHeadDL",
+    "gameplay_keep/gStrayFairyLeftWingDL", "gameplay_keep/gStrayFairyPelvisAndLegsDL",
+    "gameplay_keep/gStrayFairyRightArmDL", "gameplay_keep/gStrayFairyRightWingDL",
     "gameplay_keep/gStrayFairyTorsoDL",
 };
 

@@ -317,8 +317,7 @@ int Combo_ModelAnimFrame(uint32_t frames, int16_t frameCount);
  *  `table[i + 1]` when `table != NULL && i + 1 < count` (keeping `joints[i].rot`
  *  otherwise). `table[0]` is SkelAnime's root translation, unused here. No-op
  *  when `model == NULL || out == NULL`. */
-void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*table)[3], int count,
-                                   ComboModelJoint* out);
+void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*table)[3], int count, ComboModelJoint* out);
 
 /** 1 when an object directory of that name exists in BOTH games' archives
  *  (vanilla and the ports' custom assets), so a path under it resolves to
