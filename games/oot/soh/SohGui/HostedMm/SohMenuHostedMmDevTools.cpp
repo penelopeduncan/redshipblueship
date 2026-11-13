@@ -75,9 +75,7 @@ void AddMmDevToolsBlock(SohMenu& menu, WidgetPath& path) {
                 info.activeDisables.push_back(DISABLE_FOR_MM_NOT_IN_GAMEPLAY);
             }
         })
-        .Options(WindowButtonOptions()
-                     .Tooltip("Enables the Event Log window. Majora's Mask only.")
-                     .EmbedWindow(false));
+        .Options(WindowButtonOptions().Tooltip("Enables the Event Log window. Majora's Mask only.").EmbedWindow(false));
 }
 
 // Warping, right after SoH's Better Debug Warp Screen.
