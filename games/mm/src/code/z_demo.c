@@ -15,6 +15,7 @@
 // (#1278) Where a paired file lands after the moon crash; defined in
 // games/mm/2s2h/GameExports_SingleExe.cpp.
 u16 MM_Play_MoonCrashArrivalEntrance(u16 entrance);
+#include "2s2h/Rando/OoTMasksMM.h"
 #endif
 
 s16 sCutsceneQuakeIndex;
@@ -335,6 +336,9 @@ void CutsceneCmd_Misc(PlayState* play, CutsceneContext* csCtx, CsCmdMisc* cmd) {
             sCutsceneStoredPlayerForm = GET_PLAYER_FORM;
             gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
             gSaveContext.save.equippedMask = PLAYER_MASK_NONE;
+#ifdef RSBS_SINGLE_EXECUTABLE
+            MM_OoTMasks_OnNativeMaskCleared();
+#endif
             break;
 
         case CS_MISC_EARTHQUAKE_STRONG:

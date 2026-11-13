@@ -58,9 +58,18 @@ bool MM_OoTMask_Usable(uint16_t riId);
  *    the palace's entrance and throne-room guards (EnGuardNuts, EnDns) read a
  *    Deku;
  *  - the Spooky Mask, at night only (`isNight`): the Gibdos (EnRailgibud,
- *    EnTalkGibud, EnRd) and the Poe collector (EnGb2) read the Gibdo Mask.
+ *    EnTalkGibud, EnRd), the Poe collector (EnGb2), Pamela's father (EnHgo),
+ *    Pamela (EnPamera), the Bomb Shop (EnSob1) and the Happy Mask Salesman
+ *    (EnOsn) read the Gibdo Mask.
  */
 int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, uint8_t* maskOut, uint8_t* formOut);
+
+/** Clear any worn OoT mask when MM clears its own (`z_demo.c`
+ *  `CS_MISC_PLAYER_FORM_HUMAN`, `z_game_over.c` respawn). */
+void MM_OoTMasks_OnNativeMaskCleared(void);
+
+/** Test bridge: `kListedActors[i]`, or -1 when `i` is out of range. */
+int MM_OoTMasksTest_ListedActorAt(int i);
 
 /**
  * Before listed actor `actorId`'s update (its ShouldActorUpdate, `updates` the
