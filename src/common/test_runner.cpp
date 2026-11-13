@@ -468,6 +468,10 @@ int MM_EntranceRegionCache_RunHeadless(void);
 // bring-up first (ConsoleVariables/Config/Console). Returns 0 on pass,
 // non-zero on fail.
 int MM_TrackersGui_RunHeadless(void);
+// W6-DEV (#1238 slice 3, games/mm/2s2h/mm_dev_viewers_test.cpp): MM's Event Log
+// window registers de-collided, gates on GAME_MM, toggles/closes cleanly, and
+// wires OnFlagUnset / OnSceneFlagUnset hooks.
+int MM_DevViewersGate_RunHeadless(void);
 // OoT's twin (games/oot/soh/oot_windows_gate_test.cpp, #797): the eight SoH
 // windows that read or write OoT save/play state must run no Draw, Update or
 // menu-embed DrawElement body unless OoT is the running game. Same bring-up.
@@ -6717,6 +6721,43 @@ TestResult Test_MMTrackersGui(void) {
     return MM_TrackersGui_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+TestResult Test_MMDevViewersGate(void) {
+    printf("[TEST] mm-dev-viewers-gate: MM Event Log registration, gating, hooks, and Popout Event Log row (#1238)\n");
+
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    if (MM_DevViewersGate_RunHeadless() != 0) {
+        return TEST_FAIL;
+    }
+
+    // Leg (e) hosted-menu binding check: Dev Tools > General holds Popout Event Log
+    // bound to RSBS_CVAR_MM_WINDOW_EVENT_LOG, WindowName "MM Event Log", and
+    // disabled outside MM gameplay.
+    const std::string hostedMenu = DigestOut_ReadSource("games/oot/soh/SohGui/HostedMm/SohMenuHostedMmDevTools.cpp");
+    if (hostedMenu.empty()) {
+        printf("[TEST] FAIL: cannot read SohMenuHostedMmDevTools.cpp under RSBS_SOURCE_DIR\n");
+        return TEST_FAIL;
+    }
+    if (hostedMenu.find("\"Popout Event Log\"") == std::string::npos ||
+        hostedMenu.find("WIDGET_WINDOW_BUTTON") == std::string::npos ||
+        hostedMenu.find("RSBS_CVAR_MM_WINDOW_EVENT_LOG") == std::string::npos ||
+        hostedMenu.find(".WindowName(\"MM Event Log\")") == std::string::npos ||
+        hostedMenu.find("DISABLE_FOR_MM_NOT_IN_GAMEPLAY") == std::string::npos) {
+        printf("[TEST] FAIL: SohMenuHostedMmDevTools.cpp missing expected Popout Event Log row wiring\n");
+        return TEST_FAIL;
+    }
+    printf("[TEST] leg (e): Dev Tools > General Popout Event Log row and availability gate verified\n");
+    return TEST_PASS;
+}
+
 // #797, the source half of the OoTWindowsGate lock. The runtime half proves the
 // wrapper gates; this proves production uses it: SohGui::SetupGuiElements must
 // construct exactly the nine save/play-state windows through OoTActiveGated<>
@@ -10210,6 +10251,9 @@ const TestDescriptor gTests[] = {
       Test_MMPlaytimeSeed },
     { "mm-trackers-gui", "MM tracker windows register de-collided on the shared Gui + gate on the active game (#392)",
       Test_MMTrackersGui },
+    { "mm-dev-viewers-gate",
+      "MM Event Log window registration, GAME_MM gate, OnFlagUnset/OnSceneFlagUnset hooks, and Dev Tools row (#1238)",
+      Test_MMDevViewersGate },
     // #797: OoT's eight save/play-state windows (and the Port Menu's embeds of
     // them) run only while OoT is the running game; source scan + ROM-free
     // tripwire. Pure (no display, no ROM). #798 extends it to OoT's console
