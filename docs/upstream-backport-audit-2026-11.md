@@ -164,7 +164,7 @@ Each entry was re-read against the not-applicable rule above.
 |---|---|---|---|---|---|
 | `e3ff1530` | `#7379` | Pin latest libultraship's port-maintenance branch | pre-xref (`#7423`) | `skip` | Changes only upstream SoH's `libultraship` gitlink (to `b374560b`, before our libultraship cutoff `da6daf1a`). Our gitlink points at this repository's libultraship fork and is bumped on its own; the libultraship commits themselves are audited in the libultraship section. |
 | `62ddf348` | `#7416` | push latest LUS to dewey | pre-xref (`#7423`) | `skip` | Same as `e3ff1530` (gitlink to `da6daf1a`, our libultraship cutoff). |
-| `b55a687f` | `#7418` | Fix readme links | pre-xref (`#7423`) | `skip` | Changes upstream's README nightly-build links; our `README.md` has no such links (`git grep nightly.link`: no hits). |
+| `b55a687f` | `#7418` | Fix readme links | pre-xref (`#7423`) | `skip` | Changes upstream's README nightly-build links; our `README.md` has no such links (`git grep nightly.link -- README.md`: no hits). |
 | `a28c6969` | `#7478` | Update Mac CI Runner | post-xref (`#7479`) | `skip` | Upstream CI (`.github/workflows/generate-builds.yml`). Our workflow is our own and already runs `macos-15` (`.github/workflows/generate-builds.yml:294`). |
 
 ### 2Ship2Harkinian — 5 commits
