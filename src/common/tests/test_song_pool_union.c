@@ -48,32 +48,40 @@
  *
  * ============================================================================
  * The rows #1546 owed (#1549), each generating and finishing real paired worlds
- * (rando label). SpuCensusPlacedSongs, shared by the first three: every placed
- * song item of either game (its own copies plus its crossings in the other game)
- * has exactly one copy, and exactly 12 OoT and 10 MM songs are placed (red on a
- * song dropped or doubled anywhere, not only on the song checks).
+ * (rando label). SpuCensusPlacedSongs, shared by the first three, checks the
+ * finished world against the two pools the generation handed the single bag:
+ * every OoT song and every MM pair song is placed (its own game's copies plus its
+ * crossings in the other game) exactly as many times as its game's pool holds it
+ * (MM's pool holds the progressive Goron Lullaby twice), every placed copy is on
+ * a song check, and the pools have the profile's shape (OoT 12 copies of 12
+ * songs, MM 10 copies of 9). Red on a song dropped, doubled past its pool count
+ * or placed off the song checks; each mismatch names the game, song id and name,
+ * copies found and copies wanted. SpuCheckLeftoverJunk: the song checks left to
+ * junk are the song checks less the pooled song copies, and the two remainders
+ * junked exactly those from their pools.
  * ============================================================================
  *
  * song-pool-crosses-both-ways (SongPoolCrossesBothWays, three worlds): per seed
- *  the pool shape of song-pool-union-world plus the census; over the three seeds
- *  at least one MM song lands on an OoT song check and one OoT song on an MM song
- *  check (red if the shared pool stops crossing in either direction).
+ *  the pool shape of song-pool-union-world (armed, no non-song on a song check, no
+ *  song in Link's Pocket) plus the census and the leftover junk; over the three
+ *  seeds at least one MM song lands on an OoT song check and one OoT song on an
+ *  MM song check (red if the shared pool stops crossing in either direction).
  *
  * song-pool-pocket-advancement (SongPoolPocketAdvancement, one world): Link's
  *  Pocket = Advancement, with dungeon rewards at Any Dungeon (FinalizeSettings
  *  resets the pocket to Dungeon Reward under End of Dungeons). The pocket holds an
  *  advancement item that is neither a dungeon reward nor a song; fill.cpp's
- *  RsbsSongHeldForBag answers 1 for an unshared song; the pool shape, the
- *  remainders and the census hold (red if the pocket draws a song the bag places).
+ *  RsbsSongHeldForBag answers 1 for an unshared song; the pool shape, the census
+ *  and the leftover junk hold (red if the pocket draws a song the bag places).
  *
  * song-pool-all-locations (SongPoolAllLocations, two worlds): (a) the default
  *  world with All Locations set explicitly: the fill froze that rung, and the pool
- *  shape and census hold under it; (b) Crossings Off, Shuffle Shops on and five
- *  checks excluded, so MM keeps the leftover song check while 10 Bombchus is
- *  pending: the leftover holds no pending critical renewable (printed), exactly one
- *  MM leftover is inspected, and a 10 Bombchus copy sits on a renewing MM host.
- *  Whether (b) goes red without the guard depends on GeneratePools' order (see the
- *  leg's comment).
+ *  shape, census and leftover junk hold under it; (b) Crossings Off, Shuffle Shops
+ *  on and five junk checks excluded: nothing crosses, each game's remainder junks
+ *  its own leftover song checks (OoT none, MM exactly one), the census holds, the
+ *  one MM leftover holds no critical renewable still pending (printed), and a 10
+ *  Bombchus copy sits on a renewing MM host. (b) asserts those outcomes; it is not
+ *  shown to lock the leftover step's pending-kind skip (see the leg's comment).
  *
  * song-pool-crossed-hints (SongPoolCrossedHints, one world): the OoT hint on and
  *  three forced crossings (MM's Sonata on OoT's Song of Time check, MM's Oath on
@@ -173,6 +181,15 @@ struct SpuKeys {
     }
 };
 
+/** One song id and how many copies of it a pool holds. */
+struct SpuSongCopies {
+    uint16_t id;
+    int copies;
+};
+
+/** Room for every song id of one game (OoT has 13 song items, MM 16 pair songs). */
+#define SPU_SONG_ID_CAP 48
+
 /** What one finished world did with its songs. */
 struct SpuWorld {
     bool generated;
@@ -183,7 +200,53 @@ struct SpuWorld {
     int mmSongs, mmCrossed, mmJunk, mmOther, mmSkipped, mmNotShuffled;
     int ootJunked, ootPadded, mmJunked, mmPadded;
     int mmWideRows;
+    // The song multisets of the two pools this generation handed the single bag
+    // (Combo_SingleBag_Run's inputs): OoT's general-pass pool
+    // (OoT_ComboLogic_ExportPool source 0, read before MM's half runs the bag) and
+    // MM's GeneratePools pool (MM_ComboLogic_TestLastPoolConfinement). Rows -1
+    // when the pool could not be read.
+    int ootPoolRows, mmPoolRows;
+    int ootPoolSongIds, mmPoolSongIds;
+    SpuSongCopies ootPoolSongs[SPU_SONG_ID_CAP];
+    SpuSongCopies mmPoolSongs[SPU_SONG_ID_CAP];
 };
+
+/** Count one more copy of @p id in @p t (@p n entries). False when full. */
+bool SpuTallySong(SpuSongCopies* t, int* n, uint16_t id) {
+    for (int i = 0; i < *n; ++i) {
+        if (t[i].id == id) {
+            t[i].copies++;
+            return true;
+        }
+    }
+    if (*n >= SPU_SONG_ID_CAP) {
+        return false;
+    }
+    t[*n].id = id;
+    t[*n].copies = 1;
+    (*n)++;
+    return true;
+}
+
+/** How many copies of @p id the tally holds (0 when none). */
+int SpuPoolCopies(const SpuSongCopies* t, int n, uint16_t id) {
+    for (int i = 0; i < n; ++i) {
+        if (t[i].id == id) {
+            return t[i].copies;
+        }
+    }
+    return 0;
+}
+
+/** The describer's name for @p id of @p game, "?" when it has none. */
+const char* SpuSongName(GameId game, uint16_t id) {
+    SharedItem item;
+    std::memset(&item, 0, sizeof(item));
+    item.originGame = (uint8_t)game;
+    item.id = id;
+    const char* name = Combo_GetForeignItemName(item);
+    return name != nullptr ? name : "?";
+}
 
 /**
  * Generate @p seed with OoT Shuffle Songs @p songs (-1: the default) under the
@@ -207,16 +270,46 @@ SpuWorld SpuGenerate(const char* seed, int songs, int rung, int forced, bool fin
     Combo_SongHostsForceForTest(forced);
     const int gen = Rando_HeadlessSeedTest(seed);
     w.unionArmed = gen == 0 && OoT_ComboLogic_SongPoolUnion();
+    w.ootPoolRows = -1;
+    w.mmPoolRows = -1;
+    if (gen == 0) {
+        // OoT waits at its general pass: `itemPool` is exactly what the bag exports.
+        const int total = OoT_ComboLogic_ExportPool(0, nullptr, nullptr, nullptr, 0);
+        if (total >= 0) {
+            std::vector<uint16_t> rows((size_t)(total > 0 ? total : 1), 0);
+            const int got = OoT_ComboLogic_ExportPool(0, rows.data(), nullptr, nullptr, total);
+            w.ootPoolRows = got < total ? got : total;
+            for (int i = 0; i < w.ootPoolRows; ++i) {
+                if (OoT_ComboLogic_TestIsSongItem(rows[(size_t)i]) != 0 &&
+                    !SpuTallySong(w.ootPoolSongs, &w.ootPoolSongIds, rows[(size_t)i])) {
+                    w.ootPoolRows = -1;
+                    break;
+                }
+            }
+        }
+    }
     const int mmHalf = gen == 0 ? MM_Rando_HeadlessPairedHalf() : -1;
     w.bag = *Combo_SingleBag_LastReport();
     w.placementDigest = w.bag.fill.placementDigest;
     w.generated = gen == 0 && mmHalf == 0 && w.bag.status == RSBS_COMBO_LOGIC_OK;
     {
         const int total = MM_ComboLogic_TestLastPoolConfinement(nullptr, nullptr, 0);
+        std::vector<uint16_t> items((size_t)(total > 0 ? total : 1), 0);
         std::vector<uint32_t> masks((size_t)(total > 0 ? total : 1), 0u);
-        MM_ComboLogic_TestLastPoolConfinement(nullptr, masks.data(), total);
+        MM_ComboLogic_TestLastPoolConfinement(items.data(), masks.data(), total);
         for (int i = 0; i < total; ++i) {
             w.mmWideRows += (masks[(size_t)i] & RSBS_COMBO_GROUP_WIDE_MASK) != 0u ? 1 : 0;
+        }
+        // The last fill's pool is this world's only when MM's half ran.
+        if (mmHalf == 0) {
+            w.mmPoolRows = total;
+            for (int i = 0; i < total; ++i) {
+                if (MM_ComboLogic_IsPairSongItem(items[(size_t)i]) &&
+                    !SpuTallySong(w.mmPoolSongs, &w.mmPoolSongIds, items[(size_t)i])) {
+                    w.mmPoolRows = -1;
+                    break;
+                }
+            }
         }
     }
     if (w.generated && finish) {
@@ -245,74 +338,149 @@ SpuWorld SpuGenerate(const char* seed, int songs, int rung, int forced, bool fin
     return w;
 }
 
+/** What the census found: its failures and the two pools' song copies. */
+struct SpuCensus {
+    int failures;
+    int ootPoolCopies; // song copies in OoT's general-pass pool
+    int mmPoolCopies;  // ... and in MM's pool
+};
+
 /**
- * Census of the 22 distinct songs of the profile across both games: every OoT
- * song item (ITEMTYPE_SONG) and every MM pair song item that is placed at all
- * (its copies in its own game plus its crossings hosted in the other game) has
- * exactly one copy, and exactly 12 OoT and 10 MM songs are placed. An item with
- * no copy anywhere is not part of the profile (OoT's separate Song of Soaring and
- * MM's six OoT warp songs, pooled only under their hidden rules) and is skipped,
- * so a song the fill drops shows as 11 placed OoT songs or 9 MM songs, and a song
- * placed twice as a total of 2. Returns 22 on success, or a negative code.
+ * THE CENSUS OF PLACED SONGS, against the pools this generation built. For every
+ * OoT song item (OoT_ComboLogic_TestIsSongItem) and every MM pair song item
+ * (MM_ComboLogic_IsPairSongItem), the copies placed in the finished world (its
+ * own game's checks plus its crossings hosted in the other game) must equal the
+ * copies of it in its game's pool (SpuWorld's tallies): red on a song dropped, or
+ * placed more often than its pool holds it. MM's pool holds the progressive Goron
+ * Lullaby twice (both Lullaby song checks have it as their vanilla item,
+ * GeneratePools pushes each), so a copy count, not "one copy per id", is the
+ * rule. Every placed song copy must also be on a song check of either game (the
+ * songs the four song-check counters see): red on a song placed off the song
+ * checks the shared pool confines it to.
+ *
+ * The pools are the derived truth, so the census cannot see a song missing from
+ * a pool. The profile's pools are therefore also asserted against their known
+ * shape, with the pool's songs printed so a red run says what moved: OoT's 12
+ * song checks' songs once each (12 copies of 12 songs; the separate Song of
+ * Soaring (OoT) is pooled only under its hidden rule), and MM's 11 song checks'
+ * songs less the starting Song of Time (10 copies of 9 songs; the six "(MM)" warp
+ * songs are pooled only under their off-by-default rules).
+ *
+ * Every mismatch is its own FAIL line naming the seed, the game's half, the song
+ * id and name, the copies found (split by where) and the copies expected.
  */
-int SpuCensusPlacedSongs(void) {
-    int ootSongCount = 0;
+SpuCensus SpuCensusPlacedSongs(const SpuWorld& w, const char* seed) {
+    SpuCensus c = { 0, 0, 0 };
+    const int before = sSpuFailures;
+    SPU_CHECK(w.ootPoolRows > 0 && w.mmPoolRows > 0,
+              "%s: census: the pools the bag took could not be read (OoT %d rows, MM %d rows)\n", seed, w.ootPoolRows,
+              w.mmPoolRows);
+    if (w.ootPoolRows <= 0 || w.mmPoolRows <= 0) {
+        c.failures = sSpuFailures - before;
+        return c;
+    }
+
+    // OoT's half: each OoT song, on OoT's checks plus crossed onto MM hosts.
+    int ootPlaced = 0;
+    std::string ootPool;
     for (uint16_t id = 1; id < 5000; ++id) {
         if (OoT_ComboLogic_TestIsSongItem(id) == 0) {
             continue;
         }
-        const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)id);
-        int mmCrossCopies = 0;
+        const int pool = SpuPoolCopies(w.ootPoolSongs, w.ootPoolSongIds, id);
+        const int onOoT = OoT_SharedSongsTest_WorldCopies((int)id);
+        int crossedIntoMM = 0;
         for (int i = 0; i < Combo_Crossings_Count(GAME_MM); ++i) {
-            ComboCrossing c;
-            if (Combo_Crossings_At(GAME_MM, i, &c) && c.item.originGame == (uint8_t)GAME_OOT && c.item.id == id) {
-                mmCrossCopies++;
+            ComboCrossing x;
+            if (Combo_Crossings_At(GAME_MM, i, &x) && x.item.originGame == (uint8_t)GAME_OOT && x.item.id == id) {
+                crossedIntoMM++;
             }
         }
-        const int total = ootCopies + mmCrossCopies;
-        if (total == 0) {
-            continue;
+        const int placed = (onOoT > 0 ? onOoT : 0) + crossedIntoMM;
+        ootPlaced += placed;
+        c.ootPoolCopies += pool;
+        if (pool > 0) {
+            ootPool += " " + std::to_string((unsigned)id) + "x" + std::to_string(pool);
         }
-        ootSongCount++;
-        if (total != 1) {
-            printf("[TEST]   OoT song %u has %d copies across both games (%d OoT, %d MM crossing)\n", (unsigned)id,
-                   total, ootCopies, mmCrossCopies);
-            return -1;
-        }
-    }
-    if (ootSongCount != 12) {
-        printf("[TEST]   found %d placed OoT songs, want 12\n", ootSongCount);
-        return -2;
+        SPU_CHECK(onOoT >= 0 && placed == pool,
+                  "%s: census OoT half: OoT song %u (%s) has %d copies placed (%d on OoT checks, %d crossed into MM), "
+                  "want %d (OoT's pool)\n",
+                  seed, (unsigned)id, SpuSongName(GAME_OOT, id), placed, onOoT, crossedIntoMM, pool);
     }
 
-    int mmSongCount = 0;
+    // MM's half: each MM pair song, on MM's checks plus crossed onto OoT hosts.
+    int mmPlaced = 0;
+    std::string mmPool;
     for (uint16_t id = 1; id < 5000; ++id) {
         if (!MM_ComboLogic_IsPairSongItem(id)) {
             continue;
         }
-        const int mmCopies = MM_PlacementConfinement_WorldCopies(id);
-        int ootCrossCopies = 0;
+        const int pool = SpuPoolCopies(w.mmPoolSongs, w.mmPoolSongIds, id);
+        const int onMM = MM_PlacementConfinement_WorldCopies(id);
+        int crossedIntoOoT = 0;
         for (int i = 0; i < Combo_Crossings_Count(GAME_OOT); ++i) {
-            ComboCrossing c;
-            if (Combo_Crossings_At(GAME_OOT, i, &c) && c.item.originGame == (uint8_t)GAME_MM && c.item.id == id) {
-                ootCrossCopies++;
+            ComboCrossing x;
+            if (Combo_Crossings_At(GAME_OOT, i, &x) && x.item.originGame == (uint8_t)GAME_MM && x.item.id == id) {
+                crossedIntoOoT++;
             }
         }
-        const int total = mmCopies + ootCrossCopies;
-        if (total > 0) {
-            mmSongCount++;
-            if (total != 1) {
-                printf("[TEST]   MM song %u has %d copies across both games (%d MM, %d OoT crossing)\n", (unsigned)id,
-                       total, mmCopies, ootCrossCopies);
-                return -3;
-            }
+        const int placed = onMM + crossedIntoOoT;
+        mmPlaced += placed;
+        c.mmPoolCopies += pool;
+        if (pool > 0) {
+            mmPool += " " + std::to_string((unsigned)id) + "x" + std::to_string(pool);
         }
+        SPU_CHECK(placed == pool,
+                  "%s: census MM half: MM song %u (%s) has %d copies placed (%d on MM checks, %d crossed into OoT), "
+                  "want %d (MM's pool)\n",
+                  seed, (unsigned)id, SpuSongName(GAME_MM, id), placed, onMM, crossedIntoOoT, pool);
     }
-    if (mmSongCount != 10) {
-        printf("[TEST]   found %d placed MM songs, want 10\n", mmSongCount);
-        return -4;
-    }
-    return 22;
+
+    const int onSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
+    printf("[TEST] song-pool: %s: census: OoT pool %d song copies of %d songs [%s ], MM pool %d copies of %d songs "
+           "[%s ]; placed %d + %d, %d on song checks\n",
+           seed, c.ootPoolCopies, w.ootPoolSongIds, ootPool.c_str(), c.mmPoolCopies, w.mmPoolSongIds, mmPool.c_str(),
+           ootPlaced, mmPlaced, onSongChecks);
+    SPU_CHECK(ootPlaced + mmPlaced == onSongChecks,
+              "%s: census: %d song copies placed in both games (OoT %d, MM %d) but %d on song checks: a song sits off "
+              "the song checks the shared pool confines it to\n",
+              seed, ootPlaced + mmPlaced, ootPlaced, mmPlaced, onSongChecks);
+    SPU_CHECK(c.ootPoolCopies == 12 && w.ootPoolSongIds == 12,
+              "%s: census OoT half: OoT's pool holds %d song copies of %d songs [%s ], the profile's holds 12 of 12 "
+              "(its 12 song checks' songs): the pool moved\n",
+              seed, c.ootPoolCopies, w.ootPoolSongIds, ootPool.c_str());
+    SPU_CHECK(c.mmPoolCopies == 10 && w.mmPoolSongIds == 9,
+              "%s: census MM half: MM's pool holds %d song copies of %d songs [%s ], the profile's holds 10 of 9 (its "
+              "11 song checks' songs less the starting Song of Time, the Goron Lullaby twice): the pool moved\n",
+              seed, c.mmPoolCopies, w.mmPoolSongIds, mmPool.c_str());
+    c.failures = sSpuFailures - before;
+    return c;
+}
+
+/** OoT's song checks (all twelve, whatever they hold) and MM's eleven, from the
+ *  song-check counters. */
+int SpuOoTSongChecks(const SpuWorld& w) {
+    return w.ootSongs + w.ootCrossed + w.ootJunk + w.ootOther;
+}
+int SpuMMSongChecks(const SpuWorld& w) {
+    return w.mmSongs + w.mmCrossed + w.mmJunk + w.mmOther + w.mmNotShuffled;
+}
+
+/**
+ * The leftover song checks, derived: the song checks of both games less the song
+ * copies the two pools hold are the ones left to junk (OoTMM fillJunk), and the
+ * two remainders' junk steps junked exactly those, from the pools (no fresh pad).
+ */
+void SpuCheckLeftoverJunk(const SpuWorld& w, const SpuCensus& c, const char* seed) {
+    const int songChecks = SpuOoTSongChecks(w) + SpuMMSongChecks(w);
+    const int leftover = songChecks - (c.ootPoolCopies + c.mmPoolCopies);
+    const int junk = w.ootJunk + w.mmJunk;
+    SPU_CHECK(junk == leftover,
+              "%s: %d song checks hold junk, want %d (%d song checks less %d + %d pooled song copies)\n", seed, junk,
+              leftover, songChecks, c.ootPoolCopies, c.mmPoolCopies);
+    SPU_CHECK(w.ootJunked + w.mmJunked == junk && w.ootPadded == 0 && w.mmPadded == 0,
+              "%s: the remainders junked %d + %d song checks (padded %d + %d), the checks hold %d junk\n", seed,
+              w.ootJunked, w.mmJunked, w.ootPadded, w.mmPadded, junk);
 }
 
 } // namespace
@@ -428,7 +596,7 @@ TestResult SongPoolAnywhereUnconfined_Run(void) {
 
 TestResult SongPoolCrossesBothWays_Run(void) {
     printf("[TEST] song-pool-crosses-both-ways: under Song Locations crossings occur in both directions across seeds, "
-           "and every song is placed exactly once (#1549 owed from #1546)\n");
+           "and every pooled song copy is placed once, on a song check (#1549 owed from #1546)\n");
     sSpuFailures = 0;
     SpuKeys keys;
     const char* seeds[] = {
@@ -451,13 +619,9 @@ TestResult SongPoolCrossesBothWays_Run(void) {
                   seed, Combo_Logic_StatusName(w.bag.status), w.bag.fill.goalProven ? 1 : 0);
         SPU_CHECK(w.ootOther == 0 && w.mmOther == 0, "%s: %d OoT and %d MM song checks hold neither a song nor junk\n",
                   seed, w.ootOther, w.mmOther);
-        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
-        const int junk = w.ootJunk + w.mmJunk;
-        SPU_CHECK(songsOnSongChecks == 22 && junk == 1, "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n",
-                  seed, songsOnSongChecks, junk);
         SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
-        const int census = SpuCensusPlacedSongs();
-        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+        const SpuCensus census = SpuCensusPlacedSongs(w, seed);
+        SpuCheckLeftoverJunk(w, census, seed);
         totalCrossedOoT += w.ootCrossed;
         totalCrossedMM += w.mmCrossed;
     }
@@ -512,15 +676,8 @@ TestResult SongPoolPocketAdvancement_Run(void) {
                   "Link's Pocket song exclusion did not hold unshared song %d for bag\n", unshared);
         SPU_CHECK(w.ootOther == 0 && w.mmOther == 0, "%s: %d OoT and %d MM song checks hold neither a song nor junk\n",
                   seed, w.ootOther, w.mmOther);
-        const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
-        const int junk = w.ootJunk + w.mmJunk;
-        SPU_CHECK(songsOnSongChecks == 22 && junk == 1, "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n",
-                  seed, songsOnSongChecks, junk);
-        SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
-                  "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
-                  w.ootPadded, w.mmPadded);
-        const int census = SpuCensusPlacedSongs();
-        SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+        const SpuCensus census = SpuCensusPlacedSongs(w, seed);
+        SpuCheckLeftoverJunk(w, census, seed);
     }
     printf("[TEST] song-pool-pocket-advancement: %s\n", sSpuFailures == 0 ? "PASS" : "FAIL");
     return sSpuFailures == 0 ? TEST_PASS : TEST_FAIL;
@@ -554,30 +711,31 @@ TestResult SongPoolAllLocations_Run(void) {
                       (unsigned)w.bag.rung);
             SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
                       "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
-            const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
-            const int junk = w.ootJunk + w.mmJunk;
-            SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
-                      "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
-            SPU_CHECK(w.ootJunked + w.mmJunked == 1 && w.ootPadded == 0 && w.mmPadded == 0,
-                      "%s: remainders junked %d + %d song checks (padded %d + %d)\n", seed, w.ootJunked, w.mmJunked,
-                      w.ootPadded, w.mmPadded);
-            const int census = SpuCensusPlacedSongs();
-            SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+            const SpuCensus census = SpuCensusPlacedSongs(w, seed);
+            SpuCheckLeftoverJunk(w, census, seed);
         }
     }
 
-    // Leg (b): the pending MM critical-renewable guard of MM's leftover song check
-    // (RSBSSONGALR2). Crossings Off puts every song in its own game, so OoT's 12
-    // songs fill its 12 song checks and MM's 10 leave one of its 11 to the leftover
-    // step (ComboLogicEngineSingleExe.cpp, the `critArmed && rest[r] != RI_JUNK &&
-    // Combo_CriticalRenewablePending(row, songRenewed)` skip). Shuffle Shops on
-    // pools the Bomb Shop, so no vanilla shelf renews 10 Bombchus and its first copy
-    // is pending when that step runs. The step takes the first junk or renewable row
-    // of `rest`, which is in GeneratePools' region-major order, not check-id order;
-    // the excluded checks (4, 5, 10, 12, 13) only thin out the rows ahead of the
-    // Bomb Shop's. Whether the guard's removal puts a pending kind on the leftover
-    // therefore depends on that order: the leftover's item is printed on every run,
-    // and the mutation must be observed red before this leg is counted as its lock.
+    // Leg (b): MM's leftover song check under Crossings Off (RSBSSONGALR2).
+    // Crossings Off keeps every song in its own game, so OoT's 12 songs fill its 12
+    // song checks and MM's 10 copies leave one of its 11 to MM's leftover step
+    // (ComboLogicEngineSingleExe.cpp, THE SHARED SONG POOL'S LEFTOVER SONG CHECKS).
+    // Shuffle Shops on pools the Bomb Shop, so no vanilla shelf renews 10 Bombchus
+    // and its first copy is pending when that step runs. The leg asserts the
+    // outcome: the leftover holds no kind still pending, and a 10 Bombchus copy
+    // sits on a renewing host.
+    //
+    // What it does NOT lock: the step's pending-kind skip (`if (critArmed &&
+    // rest[r] != RI_JUNK && Combo_CriticalRenewablePending(row, songRenewed)) {`).
+    // The step takes the first RI_JUNK or RENEWABLE-class row of `rest`, the rows
+    // the bag left to MM's own pass in GeneratePools' region-major pool order
+    // (trimmed rows as RI_JUNK in place). Without the skip the result moves only
+    // if a pending kind's row comes before the first eligible row the skip lets
+    // through, and which rows the bag leaves, which rows the trim turns to junk and
+    // so that order are not readable from the code. On the first observed run the
+    // leftover held RI_JUNK. The excluded checks (4, 5, 10, 12: rupee chests; 13:
+    // the Bomb Shop's 10 Bombs) are junk-vanilla, so they stay vanilla and leave the
+    // pool; 13 also renews bombs, which the precondition below reads.
     {
         SPU_CHECK(Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 13) &&
                       Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 14) &&
@@ -601,17 +759,21 @@ TestResult SongPoolAllLocations_Run(void) {
             SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
                       "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
                       w.bag.fill.goalProven ? 1 : 0);
-            SPU_CHECK(w.ootJunked == 0 && w.mmJunked == 1 && w.mmPadded == 0,
-                      "%s: expected 0 OoT and 1 MM junked song checks (got %d + %d, padded %d + %d)\n", seed,
-                      w.ootJunked, w.mmJunked, w.ootPadded, w.mmPadded);
             SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
                       "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
-            const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
-            const int junk = w.ootJunk + w.mmJunk;
-            SPU_CHECK(songsOnSongChecks == 22 && junk == 1,
-                      "%s: %d songs on 23 song checks and %d junk, want 22 and 1\n", seed, songsOnSongChecks, junk);
-            const int census = SpuCensusPlacedSongs();
-            SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
+            const SpuCensus census = SpuCensusPlacedSongs(w, seed);
+            SpuCheckLeftoverJunk(w, census, seed);
+            // Crossings Off: every song stays in its own game, so each game's
+            // leftover song checks are its song checks less its own pool's songs
+            // (OoT 12 - 12 = 0, MM 11 - 10 = 1 on the profile), each junked by its
+            // own remainder.
+            const int ootLeftover = SpuOoTSongChecks(w) - census.ootPoolCopies;
+            const int mmLeftover = SpuMMSongChecks(w) - census.mmPoolCopies;
+            SPU_CHECK(w.ootCrossed == 0 && w.mmCrossed == 0 && w.ootJunked == ootLeftover && w.mmJunked == mmLeftover &&
+                          mmLeftover == 1,
+                      "%s: Crossings Off: %d + %d songs crossed, the remainders junked OoT %d / MM %d song checks, "
+                      "want %d / %d (MM must keep exactly one leftover song check for this leg)\n",
+                      seed, w.ootCrossed, w.mmCrossed, w.ootJunked, w.mmJunked, ootLeftover, mmLeftover);
 
             // The kinds MM renews without the fill: vanilla shelves and counters
             // outside the host pool, cows and the three business scrubs. MM's
@@ -663,8 +825,8 @@ TestResult SongPoolAllLocations_Run(void) {
                           "%s: MM leftover song check %u holds the pending first copy of %s (%u)\n", seed, (unsigned)rc,
                           Combo_CriticalRenewableKindName((uint8_t)GAME_MM, leftoverKind), (unsigned)itemId);
             }
-            SPU_CHECK(mmLeftoversChecked == 1, "%s: inspected %d MM leftover song checks, want 1\n", seed,
-                      mmLeftoversChecked);
+            SPU_CHECK(mmLeftoversChecked == mmLeftover, "%s: inspected %d MM leftover song checks, want %d\n", seed,
+                      mmLeftoversChecked, mmLeftover);
             SPU_CHECK(bombchuOnRenewing > 0, "%s: 10 Bombchus has %d copies on a renewing MM host, want >= 1\n", seed,
                       bombchuOnRenewing);
         }

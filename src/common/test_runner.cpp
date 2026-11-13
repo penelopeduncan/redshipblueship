@@ -11050,8 +11050,8 @@ const TestDescriptor gTests[] = {
       "Song Locations the switch moves the world (#1542)",
       Test_SongPoolAnywhereUnconfined },
     { "song-pool-crosses-both-ways",
-      "Under Song Locations crossings occur in both directions across seeds, and every song is placed exactly once "
-      "on a song check (#1549)",
+      "Under Song Locations crossings occur in both directions across seeds, and every song is placed as many times "
+      "as its game's pool holds it, on a song check (#1549)",
       Test_SongPoolCrossesBothWays },
     { "song-pool-pocket-advancement",
       "With Link's Pocket set to Advancement (dungeon rewards Any Dungeon), the pocket holds an advancement item and "

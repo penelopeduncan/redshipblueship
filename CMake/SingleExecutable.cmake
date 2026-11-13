@@ -3817,7 +3817,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # The rows #1546 owed (#1549), each generating and finishing paired worlds like
     # the two above (about 15-25 s per world on CI): SongPoolCrossesBothWays, three
-    # seeds, crossings both ways and one copy of every placed song;
+    # seeds, crossings both ways and every song placed as often as its pool holds it;
     # SongPoolPocketAdvancement, one world with Link's Pocket = Advancement (dungeon
     # rewards Any Dungeon), the pocket no song; SongPoolAllLocations, two worlds,
     # the leftover song check never a pending critical renewable;
