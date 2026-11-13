@@ -942,12 +942,12 @@ bool Combo_ComboItemRule2Offered(uint32_t bit);
 
 /** The test reveal's levels (Combo_ComboItemRules2RevealForTest). */
 #define RSBS_XITEM2_REVEAL_NONE 0 // the production mask
-#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty
+#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty (it is empty since XW14)
 // Since XW13 the six MM extensions are offered in production, so this level
 // reads exactly the production mask: an alias of RSBS_XITEM2_REVEAL_NONE, kept
 // so a row that names it still compiles and means what it meant. With
 // RSBS_XITEM2_HIDDEN 0 every level reads the empty mask.
-#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // the six MM extensions read offered (as in production); shared stay hidden
+#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // reads the production mask (empty since XW14): every allocated bit offered
 
 /**
  * TEST ONLY: with @p on RSBS_XITEM2_REVEAL_ALL (any nonzero value but
@@ -1497,8 +1497,9 @@ uint32_t Combo_FreezeComboSettingsEx(const ComboSettingsRecord* rec, const Combo
  * fingerprint over all three. Combo_FreezeComboSettingsEx is this with 0 (every
  * second-word rule off). The creation event calls this one with
  * Combo_ResolveComboItemRules2, after refusing any word
- * Combo_ComboItemRules2Refused names, so it freezes no hidden (shared) bit: 0
- * unless a Cross-Game Songs extension row is on (#1169 XW12).
+ * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (none is
+ * hidden since #1169 XW14) and no unallocated one: 0 unless a Cross-Game Songs
+ * row is on.
  */
 uint32_t Combo_FreezeComboSettingsEx2(const ComboSettingsRecord* rec, const ComboItemRulesRecord* rules,
                                       uint32_t rules2);

@@ -7,9 +7,9 @@
  *
  * The shared rules are offered while their bits are outside RSBS_XITEM2_HIDDEN
  * (lane XW14). The ROM-free rows
- * freeze the second word directly (Combo_FreezeComboSettingsEx2, no Generate, so
- * no refusal to reveal); the generating rows reveal the hidden rules through
- * Combo_ComboItemRules2RevealForTest and put it back.
+ * freeze the second word directly (Combo_FreezeComboSettingsEx2, no Generate);
+ * the generating rows set the rules by their keys on the production mask, with
+ * no test seam.
  *
  *   shared-warp-family-storage (redship) -- THE STORAGE AND THE REGISTRY.
  *   gComboCtx.sharedFamilyOwned2 is appended at 2716 (sizeof 2720, layout revision

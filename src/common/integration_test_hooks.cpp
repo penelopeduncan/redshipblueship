@@ -1459,7 +1459,7 @@ void IntegrationTest_SoaringCleanup(void) {
     }
     sSoaringKeys.clear();
     CVarSave();
-    fprintf(stderr, "[PFC] row key cleanup: the hidden rules are hidden again and the config is saved\n");
+    fprintf(stderr, "[PFC] row key cleanup: the test reveal is cleared and the config is saved\n");
     fflush(stderr);
 }
 

@@ -4525,9 +4525,8 @@ int SpoLeg(const char* name, const char* seed, uint32_t rules2, bool directionOf
  * first local run of two such legs showed. No shipped setting reaches that state,
  * and SpoLeg's exclude count stays 0.
  * Every leg sets its rules by their keys on the production mask (the Song of
- * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13; the
- * shared songs' legs read them offered through the test seam while they are
- * hidden, before XW14 offered them). Ten paired generations.
+ * Soaring (OoT) offered since #1169 XW12, the MM extensions since XW13, the
+ * shared songs since XW14): no leg uses the test seam. Ten paired generations.
  * @return 0, or a distinct nonzero step code (leg * 10 + the leg's step).
  */
 extern "C" int MM_SeedPackage_TestSongPoolOverCapacity(const char* seed) {
