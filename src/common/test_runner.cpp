@@ -8635,6 +8635,50 @@ TestResult Test_SongPoolAnywhereUnconfined(void) {
     InitOTRForMMFirstBoot(1, spuAnyArgv);
     return SongPoolAnywhereUnconfined_Run();
 }
+TestResult Test_SongPoolCrossesBothWays(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuCbwArg0[] = "redship";
+    static char* spuCbwArgv[] = { spuCbwArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuCbwArgv);
+    return SongPoolCrossesBothWays_Run();
+}
+TestResult Test_SongPoolPocketAdvancement(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuAdvArg0[] = "redship";
+    static char* spuAdvArgv[] = { spuAdvArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuAdvArgv);
+    return SongPoolPocketAdvancement_Run();
+}
+TestResult Test_SongPoolAllLocations(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuAlrArg0[] = "redship";
+    static char* spuAlrArgv[] = { spuAlrArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuAlrArgv);
+    return SongPoolAllLocations_Run();
+}
+TestResult Test_SongPoolCrossedHints(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char spuHntArg0[] = "redship";
+    static char* spuHntArgv[] = { spuHntArg0, nullptr };
+    InitOTRForMMFirstBoot(1, spuHntArgv);
+    return SongPoolCrossedHints_Run();
+}
 
 // #968: the shared arrows' bag rows over a real generation, shared-lens-bag's
 // bring-up.
@@ -11005,6 +11049,22 @@ const TestDescriptor gTests[] = {
       "Under Shuffle Songs Anywhere nothing of the shared song pool runs, the song-host override included, and at "
       "Song Locations the switch moves the world (#1542)",
       Test_SongPoolAnywhereUnconfined },
+    { "song-pool-crosses-both-ways",
+      "Under Song Locations crossings occur in both directions across seeds, and every song is placed as many times "
+      "as its game's pool holds it, on a song check (#1549)",
+      Test_SongPoolCrossesBothWays },
+    { "song-pool-pocket-advancement",
+      "With Link's Pocket set to Advancement (dungeon rewards Any Dungeon), the pocket holds an advancement item and "
+      "no song, songs are held for the bag, and row/host counts still agree (#1549)",
+      Test_SongPoolPocketAdvancement },
+    { "song-pool-all-locations",
+      "Under All Locations the fill freezes that rung, and MM's leftover song check never takes a pending critical "
+      "renewable first copy (#1549)",
+      Test_SongPoolAllLocations },
+    { "song-pool-crossed-hints",
+      "Hint text for a crossed song names the right game's check, and the Song of Time reveal text names the crossed "
+      "song behind it (#1549)",
+      Test_SongPoolCrossedHints },
     // #1169 XW5: Ocarina of Time's warp songs as MM items. The first two need the
     // CVar store (their wrappers bring it up); the third is ROM-free and
     // store-free; the fourth runs real paired creations (rando tier).
@@ -11616,6 +11676,10 @@ int TestRunner_Run(const char* testName) {
                 // #1542 S3's two generation rows, for the same reason.
                 strcmp(gTests[i].name, "song-pool-union-world") == 0 ||
                 strcmp(gTests[i].name, "song-pool-anywhere-unconfined") == 0 ||
+                strcmp(gTests[i].name, "song-pool-crosses-both-ways") == 0 ||
+                strcmp(gTests[i].name, "song-pool-pocket-advancement") == 0 ||
+                strcmp(gTests[i].name, "song-pool-all-locations") == 0 ||
+                strcmp(gTests[i].name, "song-pool-crossed-hints") == 0 ||
                 // #1169 XW5's generation row: like every row above, a real
                 // generation leaves its world alive for the rest of the process.
                 strcmp(gTests[i].name, "mm-warp-songs-pooled-only-when-rule-on") == 0 ||

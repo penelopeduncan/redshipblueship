@@ -3815,6 +3815,30 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # The rows #1546 owed (#1549), each generating and finishing paired worlds like
+    # the two above (about 15-25 s per world on CI): SongPoolCrossesBothWays, three
+    # seeds, crossings both ways and every song placed as often as its pool holds it;
+    # SongPoolPocketAdvancement, one world with Link's Pocket = Advancement (dungeon
+    # rewards Any Dungeon), the pocket no song; SongPoolAllLocations, two worlds,
+    # the leftover song check never a pending critical renewable;
+    # SongPoolCrossedHints, one world with three forced crossings and the OoT hint
+    # on, the hints naming the crossed songs.
+    redship_add_test(NAME SongPoolCrossesBothWays COMMAND redship --test song-pool-crosses-both-ways
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolPocketAdvancement COMMAND redship --test song-pool-pocket-advancement
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolAllLocations COMMAND redship --test song-pool-all-locations
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SongPoolCrossedHints COMMAND redship --test song-pool-crossed-hints
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # OCARINA OF TIME'S WARP SONGS IN MAJORA'S MASK (#1169 lane XW5; OoTMM
     # songMinuetMm .. songPreludeMm, offered since XW13). MMWarpSongsItems: the
     # ownership byte carved from the tail of ComboContext's reserved[] (1003,
