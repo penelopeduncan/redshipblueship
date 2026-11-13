@@ -667,9 +667,45 @@ bool CvarClassRowWritesArgListMatches(const std::string& code, std::size_t open,
     return false;
 }
 
-/// Does comment-stripped @p code bind @p key through `.CVar(<form>)` (including member calls), `UIWidgets::CVar*(...)`
-/// / bare `CVarCheckbox(` / `CVarSlider*(` / `CVarCombobox(` with `<form>` in its argument list, or
-/// `COSMETIC_OPTION("<leaf>", ...)`?
+/// Brackets the second top-level argument of the call whose parentheses sit at @p open / @p close: on success
+/// @p argOpen is the comma before it and @p argClose the comma or `)` after it, the exclusive bounds
+/// CvarClassRowWritesArgListMatches reads. Returns false when the call has fewer than two arguments.
+bool CvarClassRowWritesSecondArg(const std::string& code, std::size_t open, std::size_t close, std::size_t& argOpen,
+                                 std::size_t& argClose) {
+    int depth = 0;
+    int commas = 0;
+    for (std::size_t r = open + 1; r < close; r++) {
+        const char c = code[r];
+        if (c == '"' || c == '\'') {
+            for (r++; r < close && code[r] != c; r++) {
+                if (code[r] == '\\') {
+                    r++;
+                }
+            }
+        } else if (c == '(' || c == '[' || c == '{') {
+            depth++;
+        } else if (c == ')' || c == ']' || c == '}') {
+            depth--;
+        } else if (c == ',' && depth == 0) {
+            commas++;
+            if (commas == 1) {
+                argOpen = r;
+            } else {
+                argClose = r;
+                return true;
+            }
+        }
+    }
+    if (commas == 1) {
+        argClose = close;
+        return true;
+    }
+    return false;
+}
+
+/// Does comment-stripped @p code bind @p key through `.CVar(<form>)` (including member calls), or through
+/// `UIWidgets::CVar*(...)` / bare `CVarCheckbox(` / `CVarSlider*(` / `CVarCombobox(` with `<form>` as the second
+/// (cvarName) argument, or `COSMETIC_OPTION("<leaf>", ...)`?
 bool CvarClassRowWritesKeyInCode(const std::string& code, const std::string& key,
                                  const std::vector<CvarClassRowWritesDefine>& defines) {
     const CvarClassRowWritesMacro pm = CvarClassRowWritesPrefixMacro(key);
@@ -698,7 +734,18 @@ bool CvarClassRowWritesKeyInCode(const std::string& code, const std::string& key
             continue;
         }
         const std::size_t close = CvarClassRowWritesMatchingParen(code, open);
-        if (close != std::string::npos && CvarClassRowWritesArgListMatches(code, open, close, key, pm, defineNames)) {
+        if (close == std::string::npos) {
+            continue;
+        }
+        // `.CVar(<form>)` takes the key as its only argument. Every UIWidgets CVar widget takes it as its second
+        // (label, cvarName, ...), so only that argument counts: a key merely READ inside another widget's options
+        // (`.Disabled(CVarGetInteger(<form>, 0))`, a callback) is not a writer.
+        std::size_t argOpen = open;
+        std::size_t argClose = close;
+        if (!isPageDot && !CvarClassRowWritesSecondArg(code, open, close, argOpen, argClose)) {
+            continue;
+        }
+        if (CvarClassRowWritesArgListMatches(code, argOpen, argClose, key, pm, defineNames)) {
             return true;
         }
     }
@@ -2788,8 +2835,10 @@ TestResult Test_CVarClassification(void) {
             };
 
             // The control, observed on every run: a synthetic unbound key in a comment is reported (naming the key,
-            // its table and the forms tried), while a synthetic .CVar(CVAR_ENHANCEMENT("RsbsWriterControl")) binding
-            // and a synthetic COSMETIC_OPTION("RsbsWriterControl", ...) binding are not.
+            // its table and the forms tried), and so is a key only READ inside another widget's options; while a
+            // synthetic .CVar(CVAR_ENHANCEMENT("RsbsWriterControl")) binding, a synthetic
+            // COSMETIC_OPTION("RsbsWriterControl", ...) binding and a bare CVarCheckbox(label, <key>, ...) binding
+            // are not.
             {
                 const std::vector<std::string> controlMenu = { CvarClassStripComments(
                     "void Draw() {\n"
@@ -2797,6 +2846,9 @@ TestResult Test_CVarClassification(void) {
                     "        .CVar(CVAR_ENHANCEMENT(\"RsbsWriterControl\"));\n"
                     "    COSMETIC_OPTION(\"RsbsWriterControl\", \"Control\", GROUP, ColorRGBA8(0, 0, 0, 255), "
                     "false, false, false),\n"
+                    "    CVarCheckbox(\"Bare\", CVAR_ENHANCEMENT(\"RsbsWriterBare\"),\n"
+                    "                 CheckboxOptions({ { .disabled = CVarGetInteger(CVAR_ENHANCEMENT("
+                    "\"RsbsWriterReadOnly\"), 0) } }));\n"
                     "    // menu.AddWidget(path, \"Commented\", WIDGET_CVAR_CHECKBOX)"
                     ".CVar(CVAR_ENHANCEMENT(\"RsbsWriterUnbound\"));\n"
                     "}\n") };
@@ -2804,6 +2856,8 @@ TestResult Test_CVarClassification(void) {
                     { "control", "gEnhancements.RsbsWriterUnbound" },
                     { "control", "gEnhancements.RsbsWriterControl" },
                     { "control", "gCosmetics.RsbsWriterControl.Value" },
+                    { "control", "gEnhancements.RsbsWriterBare" },
+                    { "control", "gEnhancements.RsbsWriterReadOnly" },
                 };
                 std::vector<std::string> controlBreaches;
                 for (const WalkedRowKey& row : kControlRows) {
@@ -2812,13 +2866,15 @@ TestResult Test_CVarClassification(void) {
                     }
                 }
                 const bool controlOk =
-                    controlBreaches.size() == 1 &&
+                    controlBreaches.size() == 2 &&
                     controlBreaches[0].find("gEnhancements.RsbsWriterUnbound") != std::string::npos &&
                     controlBreaches[0].find("control") != std::string::npos &&
-                    controlBreaches[0].find("CVAR_ENHANCEMENT(\"RsbsWriterUnbound\")") != std::string::npos;
+                    controlBreaches[0].find("CVAR_ENHANCEMENT(\"RsbsWriterUnbound\")") != std::string::npos &&
+                    controlBreaches[1].find("gEnhancements.RsbsWriterReadOnly") != std::string::npos;
                 CVARCLASS_CHECK(controlOk,
-                                "(3f-6) control: synthetic writer check did not report exactly the unbound key with "
-                                "its table and tried forms, so this leg's green would prove nothing");
+                                "(3f-6) control: synthetic writer check did not report exactly the unbound and the "
+                                "read-only key with their table and tried forms, so this leg's green would prove "
+                                "nothing");
             }
 
             struct CvarClassRowWriterException {
