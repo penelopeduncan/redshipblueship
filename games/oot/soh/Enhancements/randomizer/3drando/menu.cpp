@@ -1933,6 +1933,61 @@ extern "C" int Rando_TestCheckLoadedCrossingHostHints(int* outProbes, int* outSt
             *outProbes, *outStones, failures);
     return failures;
 }
+
+/**
+ * TEST BRIDGE (#1549, SongPoolCrossedHints): the Song of Time reveal of the loaded
+ * world (RH_OOT_HINT, Sheik in the Temple of Time, armed by RSK_OOT_HINT), read as
+ * it renders (MF_CLEAN) under whatever hint gate the caller opened.
+ * @param outText      the hint's text ("" when it is disabled).
+ * @param outExpected  what it must call the item RC_SONG_FROM_OCARINA_OF_TIME
+ *                     yields when that check hosts an MM crossing (article, name and
+ *                     " (MM)"), read from the crossing store; "" otherwise.
+ * @param outNamesSongCheck  1 when the hint's locations include that check.
+ * @param outCoverNamed      1 when the text names the cover that check physically
+ *                           holds and no other hinted location holds an item of
+ *                           that name.
+ * @return 1 when the hint is enabled, 0 when it is not, -1 with no seed context.
+ */
+extern "C" int Rando_TestOoTHintRevealText(char* outText, int textCap, char* outExpected, int expectedCap,
+                                           int* outNamesSongCheck, int* outCoverNamed) {
+    if (outText != nullptr && textCap > 0) {
+        outText[0] = '\0';
+    }
+    if (outExpected != nullptr && expectedCap > 0) {
+        outExpected[0] = '\0';
+    }
+    *outNamesSongCheck = 0;
+    *outCoverNamed = 0;
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    const std::string expected = ExpectedCrossedItemName((uint16_t)RC_SONG_FROM_OCARINA_OF_TIME, true);
+    if (outExpected != nullptr && expectedCap > 0) {
+        snprintf(outExpected, (size_t)expectedCap, "%s", expected.c_str());
+    }
+    Rando::Hint* hint = ctx->GetHint(RH_OOT_HINT);
+    if (hint == nullptr || !hint->IsEnabled()) {
+        return 0;
+    }
+    const std::string text = JoinMessages(hint->GetAllMessageStrings(MF_CLEAN));
+    if (outText != nullptr && textCap > 0) {
+        snprintf(outText, (size_t)textCap, "%s", text.c_str());
+    }
+    const std::string cover = PlacedItemEnglishName(RC_SONG_FROM_OCARINA_OF_TIME);
+    bool coverElsewhere = false;
+    for (const RandomizerCheck rc : hint->GetHintedLocations()) {
+        if (rc == RC_SONG_FROM_OCARINA_OF_TIME) {
+            *outNamesSongCheck = 1;
+        } else if (PlacedItemEnglishName(rc) == cover) {
+            coverElsewhere = true;
+        }
+    }
+    *outCoverNamed = (!cover.empty() && !coverElsewhere && text.find(cover) != std::string::npos) ? 1 : 0;
+    fprintf(stderr, "[H3B] Song of Time reveal: \"%s\" (expected \"%s\", cover \"%s\")\n", text.c_str(),
+            expected.c_str(), cover.c_str());
+    return 1;
+}
 #endif
 
 /**

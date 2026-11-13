@@ -99,6 +99,8 @@ int OoT_Combo_SetHintingSuspendedWorld(int on);
 int Rando_TestCheckLoadedCrossingHostHints(int* outProbes, int* outStones);
 int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, int cap);
 int MM_HintArea_TestItemLocationText(uint16_t randoItemId, const char* tmpl, const char* key, char* out, int cap);
+int Rando_TestOoTHintRevealText(char* outText, int textCap, char* outExpected, int expectedCap,
+                                int* outNamesSongCheck, int* outCoverNamed);
 }
 
 namespace {
@@ -688,10 +690,29 @@ TestResult SongPoolCrossedHints_Run(void) {
 
     SPU_CHECK(Combo_Logic_TestSetForcedPlacements(forced, 3) == 3, "failed to set forced placements\n");
 
+    // The Song of Time reveal (RH_OOT_HINT, Sheik in the Temple of Time) exists only
+    // under RSK_OOT_HINT, which is off by default.
+    CVarSetInteger("gRandoSettings.OoTHint", 1);
     const char* seed = "RSBSSONGHINTS1";
     const SpuWorld w = SpuGenerate(seed, -1, -1, -1, true);
     SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
     if (w.generated) {
+        // The forced placements held: each song is a crossing on its check.
+        const SharedItem* onSongOfTime = Combo_Crossings_Lookup(GAME_OOT, rcSongOfTime);
+        const SharedItem* onSheikForest = Combo_Crossings_Lookup(GAME_OOT, rcSheikForest);
+        const SharedItem* onHealing = Combo_Crossings_Lookup(GAME_MM, mmHealingCheck);
+        SPU_CHECK(onSongOfTime != nullptr && onSongOfTime->originGame == (uint8_t)GAME_MM &&
+                      onSongOfTime->id == mmSonata.id,
+                  "%s: OoT's Song of Time check %u does not host MM's Sonata of Awakening\n", seed,
+                  (unsigned)rcSongOfTime);
+        SPU_CHECK(onSheikForest != nullptr && onSheikForest->originGame == (uint8_t)GAME_MM &&
+                      onSheikForest->id == mmOath.id,
+                  "%s: OoT's Sacred Forest Meadow song check %u does not host MM's Oath to Order\n", seed,
+                  (unsigned)rcSheikForest);
+        SPU_CHECK(onHealing != nullptr && onHealing->originGame == (uint8_t)GAME_OOT && onHealing->id == ootLullaby.id,
+                  "%s: MM's Song of Healing check %u does not host OoT's Zelda's Lullaby\n", seed,
+                  (unsigned)mmHealingCheck);
+
         // Arm the loaded-file hinting gate for the completed world
         const int wasSuspended = OoT_Combo_SetHintingSuspendedWorld(1);
 
@@ -702,6 +723,25 @@ TestResult SongPoolCrossedHints_Run(void) {
         SPU_CHECK(hintFailures == 0 && probes > 0 && stones > 0,
                   "OoT crossing host hints failed: %d failures, %d probes, %d loaded hints\n", hintFailures, probes,
                   stones);
+
+        // (a2) The Song of Time reveal names the crossed Sonata of Awakening, with its
+        // article and " (MM)", and never the cover the check physically holds.
+        char revealBuf[1024];
+        char revealExpected[256];
+        int revealNamesSongCheck = 0;
+        int revealCoverNamed = 0;
+        const int revealEnabled =
+            Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
+                                        &revealNamesSongCheck, &revealCoverNamed);
+        printf("[TEST] song-pool: %s: Song of Time reveal (enabled %d): \"%s\", expected \"%s\"\n", seed,
+               revealEnabled, revealBuf, revealExpected);
+        SPU_CHECK(revealEnabled == 1 && revealNamesSongCheck == 1,
+                  "%s: the Song of Time reveal is not enabled (%d) or does not hint the Song of Time check (%d)\n",
+                  seed, revealEnabled, revealNamesSongCheck);
+        SPU_CHECK(revealExpected[0] != '\0' && std::strstr(revealExpected, "Sonata of Awakening") != nullptr &&
+                      std::strstr(revealBuf, revealExpected) != nullptr && revealCoverNamed == 0,
+                  "%s: the Song of Time reveal reads \"%s\", not \"%s\" (cover named %d)\n", seed, revealBuf,
+                  revealExpected, revealCoverNamed);
 
         // (b) MM Skull Kid Oath to Order hint names OoT's Sacred Forest Meadow area
         char oathBuf[512];
