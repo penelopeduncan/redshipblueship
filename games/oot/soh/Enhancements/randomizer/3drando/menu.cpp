@@ -30,6 +30,7 @@
 #include "combo_logic.h"   // src/common — the coordinator's placements a foolish area may not hold (#575 H5a)
 #include "combo_woth.h"    // src/common — the pair's Way of the Hero a WotH hint must name (#1439)
 #include "foreign_items.h" // src/common — the crossed item's name and article (#575 H3b)
+#include "warp_song_items.h" // src/common — Combo_ForeignGameTag, one tag after the name (#1169 XW11)
 #include "shared_items.h"  // src/common — MM's grade of a crossed item (#575 H3b)
 #include <set>
 #endif
@@ -621,7 +622,7 @@ static std::string ExpectedCrossedItemName(uint16_t host, bool withArticle) {
         return "";
     }
     const char* article = withArticle ? Combo_DescribeItemArticle(*item) : nullptr;
-    return std::string(article != nullptr ? article : "") + name + " (MM)";
+    return std::string(article != nullptr ? article : "") + name + Combo_ForeignGameTag(name, GAME_MM);
 }
 
 /** The English name OoT's own item table gives the item OoT check `rc` physically holds. */
