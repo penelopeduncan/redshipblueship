@@ -458,6 +458,33 @@ TestResult Test_OoTSoaringRuleLogic(void) {
                       tooltip.find("share a song") == std::string::npos &&
                       tooltip.find("Ocarina of Time song") != std::string::npos,
                   "the option text does not warn as OoTMM's does: '%s'", tooltip.c_str());
+        // #1169 XW14: the row's text once a shared song is offered names OoTMM's
+        // "share a song" first; while none is, the base text above. Catches a
+        // helper that ignores the flag, or a share text that drops the Dungeon
+        // Rewards qualifier. The source lock below proves the row asks it.
+        const char* plain = Combo_WarpSongExtensionTooltip(kXw4Soaring, false);
+        const char* share = Combo_WarpSongExtensionTooltip(kXw4Soaring, true);
+        const std::string shareText = share != NULL ? share : "";
+        XW4_CHECK(plain != NULL && tooltip == plain &&
+                      shareText.rfind("Adds Majora's Mask's Song of Soaring to Ocarina of Time", 0) == 0 &&
+                      shareText.find("share a song, start with a song (an Ocarina of Time song") != std::string::npos &&
+                      shareText.find("Dungeon Rewards") != std::string::npos &&
+                      shareText.find("set Shuffle Songs to Anywhere") != std::string::npos &&
+                      Combo_WarpSongExtensionTooltip(kXw4SharedSoaring, true) == NULL &&
+                      Combo_WarpSongExtensionTooltip(0u, false) == NULL,
+                  "the extension row's tooltip helper reads plain '%s', share '%s'", plain != NULL ? plain : "(null)",
+                  shareText.c_str());
+        const std::string menu = Xw4ReadSource("games/oot/soh/SohGui/SohMenuCombo.cpp");
+        const size_t loopAt = menu.find("for (ComboWarpSongRow& entry : sComboWarpSongRows) {");
+        const size_t loopEnd = loopAt == std::string::npos ? std::string::npos : menu.find("Reset Combo Rules", loopAt);
+        const std::string loop = loopAt == std::string::npos || loopEnd == std::string::npos
+                                     ? std::string()
+                                     : menu.substr(loopAt, loopEnd - loopAt);
+        XW4_CHECK(loop.find("Combo_WarpSongExtensionTooltip(") != std::string::npos &&
+                      loop.find("Combo_ComboItemRule2Offered(row->bit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT)") !=
+                          std::string::npos &&
+                      loop.find("info.options->tooltip =") != std::string::npos,
+                  "the Cross-Game Songs loop does not pick each extension row's tooltip from its shared row's offer");
     }
 
     ComboContext_Init();

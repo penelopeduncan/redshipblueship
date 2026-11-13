@@ -72,9 +72,10 @@ extern "C" {
  * (OoT) alone already makes 13 Ocarina of Time songs for OoT's 12 song checks,
  * and only an Ocarina of Time song shared or started with frees one
  * (SongPoolOverCapacity leg (b)); the text says so. The way out names only
- * remedies this build offers (Shuffle Songs: Anywhere, or a starting song):
- * the Shared rows stay hidden until XW10, which restores OoTMM's "share a
- * song". The Cross-Game Songs row draws it (SohMenuCombo.cpp).
+ * remedies a build without shared rows offers (Shuffle Songs: Anywhere, or a
+ * starting song); once a shared row is offered the row shows
+ * Combo_WarpSongExtensionTooltip's text instead, which restores OoTMM's "share a
+ * song" (#1169 XW14). The Cross-Game Songs row draws it (SohMenuCombo.cpp).
  */
 #define RSBS_SONG_SOARING_OOT_TOOLTIP                                                                            \
     "Adds Majora's Mask's Song of Soaring to Ocarina of Time, usable only as a child. On Shuffle Songs: Song "   \
@@ -136,8 +137,9 @@ const char* Combo_SongSpotsLastRefusal(void);
  *
  * Two refusals are taken on the generation worker, inside Playthrough_Init,
  * before any paired world exists: OoT's own song pass under Shuffle Songs:
- * Dungeon Rewards (Combo_SongSpotsOverflow) and the hidden-rules gate (a shared
- * warp-song key set with its extension). Before XW12 both were logged only. The
+ * Dungeon Rewards (Combo_SongSpotsOverflow) and the hidden-rules gate (a rule
+ * inside RSBS_XITEM2_HIDDEN, or another build's bit). Before XW12 both were
+ * logged only. The
  * worker NOTES which one ended the generation; the game thread TAKES the note
  * once, after the worker finished (OoT_SeedPackage_FileSelectTick), and raises
  * "Not generated:" with Combo_GenRefusal_Line. The worker's last store happens
@@ -205,6 +207,19 @@ ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool sepa
  * @p originGame answers "". NULL @p name answers the tag. Never NULL. Pure.
  */
 const char* Combo_ForeignGameTag(const char* name, uint8_t originGame);
+
+/**
+ * THE EXTENSION ROWS' TOOLTIP (#1169 lane XW14): the Cross-Game Songs row of
+ * extension @p extBit (one of RSBS_XITEM2_WARP_SONG_EXTENSIONS) shows its own
+ * text (RSBS_SONG_SOARING_OOT_TOOLTIP, Combo_MMWarpSongTooltip), which names only
+ * the remedies a build without shared rows offers, while @p shareOffered is
+ * false; once a shared row is offered it shows OoTMM's advice, "share a song,
+ * start with a song", as the way out. The row's PreFunc passes
+ * Combo_ComboItemRule2Offered(extBit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT), so
+ * offering the shared rows flips the text with no UI change. NULL for any other
+ * bit. Pure.
+ */
+const char* Combo_WarpSongExtensionTooltip(uint32_t extBit, bool shareOffered);
 
 /* ---- A shared warp song's name (#1169 lane XW14) ----------------------------- */
 

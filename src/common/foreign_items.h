@@ -789,11 +789,12 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // Mask extensions once the integration row IntMMWarpSongMinuet played the
 // Minuet in Majora's Mask and arrived in Ocarina of Time (the lane's owed proof
 // (c)). Each has a row under Cross-Game Rules > Cross-Game Songs. The seven
-// SHARED songs stay HIDDEN until lane XW10 builds their family: their keys exist
-// and their rows are not drawn (Combo_ComboItemRule2Offered), and Generate
-// REFUSES a word holding a bit of RSBS_XITEM2_HIDDEN, as a seed package's
-// validation and a .redsave load do for a world another build made with one on
-// (Combo_ComboItemRules2Refused).
+// SHARED songs (lane XW10's family) have rows too, offered while their bits are
+// outside RSBS_XITEM2_HIDDEN (lane XW14, once IntMMWarpSongMinuetShared played a
+// Minuet learnt only in Ocarina of Time in Majora's Mask). A bit inside the mask
+// has a key but no drawn row (Combo_ComboItemRule2Offered), and Generate REFUSES a
+// word holding it, as a seed package's validation and a .redsave load do for a
+// world another build made with one on (Combo_ComboItemRules2Refused).
 //
 // THE SECOND FAMILY WORD (lane XW10, decision 6): a shared song's family is not a
 // bit of gComboCtx.sharedFamilyOwned but of gComboCtx.sharedFamilyOwned2, which is
@@ -918,8 +919,8 @@ bool Combo_ComboCrossItemRule2(uint32_t bit);
  * THE GATE ON A WORLD THIS BUILD CREATES OR ADOPTS (#1169 XW2). The bits of
  * @p word this build refuses to freeze at Generate, to take from a seed
  * package, or to load from a .redsave: an unallocated bit, a shared song
- * without its extension, and every hidden bit (RSBS_XITEM2_HIDDEN: the seven
- * shared songs, until XW10).
+ * without its extension, and every bit of RSBS_XITEM2_HIDDEN (a rule this build
+ * does not offer yet; 0 once every allocated rule is offered).
  * 0 means the word may be created; 0 is always.
  *
  * @p names (may be NULL) receives the refused rules' OoTMM keys, comma
@@ -932,8 +933,8 @@ uint32_t Combo_ComboItemRules2Refused(uint32_t word, char* names, size_t len);
  * Does this build OFFER the single RSBS_XITEM2_* rule @p bit (#1169 XW12)? True
  * iff @p bit is exactly one allocated bit outside the hidden mask, read the way
  * Combo_ComboItemRules2Refused reads it (so the test reveal empties it). The
- * Cross-Game Rules page draws a row only while this is true: when XW10 clears
- * the shared bits from RSBS_XITEM2_HIDDEN their rows appear with no UI change.
+ * Cross-Game Rules page draws a row only while this is true: a bit leaving
+ * RSBS_XITEM2_HIDDEN shows its row with no UI change.
  */
 bool Combo_ComboItemRule2Offered(uint32_t bit);
 
@@ -942,14 +943,16 @@ bool Combo_ComboItemRule2Offered(uint32_t bit);
 #define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty
 // Since XW13 the six MM extensions are offered in production, so this level
 // reads exactly the production mask: an alias of RSBS_XITEM2_REVEAL_NONE, kept
-// so a row that names it still compiles and means what it meant.
+// so a row that names it still compiles and means what it meant. With
+// RSBS_XITEM2_HIDDEN 0 every level reads the empty mask.
 #define RSBS_XITEM2_REVEAL_MM_SONGS 2 // the six MM extensions read offered (as in production); shared stay hidden
 
 /**
  * TEST ONLY: with @p on RSBS_XITEM2_REVEAL_ALL (any nonzero value but
- * RSBS_XITEM2_REVEAL_MM_SONGS) the hidden mask reads empty, as it will once lane
- * XW10 builds the shared songs, so a row can drive a world with a shared
- * warp-song rule on through the real freeze, .redsave load and restore. With
+ * RSBS_XITEM2_REVEAL_MM_SONGS) the hidden mask reads empty, so a row can drive a
+ * world with a hidden rule on through the real freeze, .redsave load and
+ * restore. Kept, harmless, once the mask is 0: the rules OoTMM still has after
+ * these fourteen (bits 14-31, above) will need the same gate. With
  * RSBS_XITEM2_REVEAL_MM_SONGS only the six Majora's Mask extensions leave the
  * mask, which since XW13 is the production mask itself. RSBS_XITEM2_REVEAL_NONE
  * (0) is the production mask. Production never calls it.

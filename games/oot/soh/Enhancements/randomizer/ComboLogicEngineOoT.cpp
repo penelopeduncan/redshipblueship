@@ -3106,7 +3106,8 @@ extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
  * the frozen word arms) that this world holds back (above)? The six warp songs'
  * natives and the Song of Soaring (OoT). Link's Pocket must never take one: its
  * one copy is the bag's shared row in every Shuffle Songs mode (fill.cpp,
- * RsbsSongHeldForBag). Hidden until XW12, so no world a player can make has one.
+ * RsbsSongHeldForBag). Off by default (RSBS_XITEM2_DEFAULTS 0), so a world with
+ * every rule off has none.
  */
 extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
     const uint32_t armed2 = Combo_SharedFamilies2Armed();

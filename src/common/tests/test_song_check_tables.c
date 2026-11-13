@@ -94,6 +94,7 @@
 #include "../combo_logic.h"
 #include "../combo_song_pool.h"
 #include "../context.h"
+#include "../foreign_items.h" // #1169 XW14: the test reveal of the shared warp-song rows
 #include "../test_runner.h"
 #include "test_named_items.h"
 
@@ -464,7 +465,24 @@ void SctCheckPureAnswer() {
         uint32_t excluded;
         const char* want;
     };
-    static const Wording kWordings[] = {
+    // #1169 XW14: the home-side texts advise sharing a song once the shared rows
+    // are offered (Combo_SongPoolShareOffered); the leg below reveals them.
+    const bool share = Combo_SongPoolShareOffered();
+    const char* const kOoTHome =
+        share ? "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they "
+                "may use (Crossing Direction keeps them in Ocarina of Time). Share a song, start with an Ocarina of "
+                "Time song, change the Crossing Direction, or shuffle songs Anywhere"
+              : "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they "
+                "may use (Crossing Direction keeps them in Ocarina of Time). Start with an Ocarina of Time song, "
+                "change the Crossing Direction, or shuffle songs Anywhere";
+    const char* const kMMHome =
+        share ? "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they "
+                "may use (Crossing Direction keeps them in Majora's Mask). Share a song, start with a Majora's Mask "
+                "song, change the Crossing Direction, or shuffle songs Anywhere"
+              : "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they "
+                "may use (Crossing Direction keeps them in Majora's Mask). Start with a Majora's Mask song, change "
+                "the Crossing Direction, or shuffle songs Anywhere";
+    const Wording kWordings[] = {
         { RSBS_SONG_POOL_SHORT_BOTH, 0u,
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
           "Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },
@@ -472,14 +490,8 @@ void SctCheckPureAnswer() {
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks of both games (Shuffle "
           "Songs: Song Locations). Share a song or start with a song, or include an excluded song check, or shuffle "
           "songs Anywhere" },
-        { RSBS_SONG_POOL_SHORT_OOT, 0u,
-          "Not enough locations for songs/dungeon rewards: 13 Ocarina of Time songs for the 23 song checks they may "
-          "use (Crossing Direction keeps them in Ocarina of Time). Start with an Ocarina of Time song, change the "
-          "Crossing Direction, or shuffle songs Anywhere" },
-        { RSBS_SONG_POOL_SHORT_MM, 0u,
-          "Not enough locations for songs/dungeon rewards: 16 Majora's Mask songs for the 23 song checks they may use "
-          "(Crossing Direction keeps them in Majora's Mask). Start with a Majora's Mask song, change the Crossing "
-          "Direction, or shuffle songs Anywhere" },
+        { RSBS_SONG_POOL_SHORT_OOT, 0u, kOoTHome },
+        { RSBS_SONG_POOL_SHORT_MM, 0u, kMMHome },
         { RSBS_SONG_POOL_SHORT_SOME, 0u,
           "Not enough locations for songs/dungeon rewards: 28 songs for the 23 song checks that can hold them "
           "(Shuffle Songs: Song Locations). Share a song or start with a song, or shuffle songs Anywhere" },
@@ -490,6 +502,23 @@ void SctCheckPureAnswer() {
         (void)Combo_SongPoolCapacityRefusal(w.side, 28u, 23u, 13u, 16u, w.excluded, msg, sizeof(msg));
         SCT_CHECK(std::strcmp(msg, w.want) == 0, "(c) the song pool refusal for side %u (excluded %u) reads '%s'\n",
                   (unsigned)w.side, (unsigned)w.excluded, msg);
+    }
+    // #1169 XW14: with the shared rows offered (revealed here while they are
+    // hidden) both home-side texts name sharing a song first; hidden again,
+    // neither does. Catches a gate that never opens, or one that ignores the mask.
+    {
+        char msg[512];
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+        const bool revealed = Combo_SongPoolShareOffered();
+        (void)Combo_SongPoolCapacityRefusal(RSBS_SONG_POOL_SHORT_OOT, 28u, 23u, 13u, 16u, 0u, msg, sizeof(msg));
+        const bool ootShares = std::strstr(msg, "). Share a song, start with an Ocarina of Time song,") != NULL;
+        (void)Combo_SongPoolCapacityRefusal(RSBS_SONG_POOL_SHORT_MM, 28u, 23u, 13u, 16u, 0u, msg, sizeof(msg));
+        const bool mmShares = std::strstr(msg, "). Share a song, start with a Majora's Mask song,") != NULL;
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+        SCT_CHECK(revealed && ootShares && mmShares,
+                  "(c) with the shared rows offered the home-side refusals do not advise sharing a song (offered %d, "
+                  "OoT %d, MM %d)\n",
+                  revealed ? 1 : 0, ootShares ? 1 : 0, mmShares ? 1 : 0);
     }
     char tiny[8];
     std::memset(tiny, 'x', sizeof(tiny));

@@ -70,10 +70,11 @@ extern "C" {
  * Majora's Mask one: SongPoolOverCapacity legs (e2) and (f)), while an added
  * Song of Soaring (OoT) already takes the spare check: the warning
  * says "when", not OoTMM's "must". Under the other modes an MM warp song is a
- * general-pool item and never refused. The way out names only remedies this
- * build offers (Shuffle Songs: Anywhere, or a starting song): the Shared rows
- * stay hidden until XW10, which restores OoTMM's "share a song". The
- * Cross-Game Songs rows draw them (SohMenuCombo.cpp).
+ * general-pool item and never refused. The way out names only remedies a build
+ * without shared rows offers (Shuffle Songs: Anywhere, or a starting song); once
+ * a shared row is offered each row shows Combo_WarpSongExtensionTooltip's text
+ * instead, which restores OoTMM's "share a song" (#1169 XW14). The Cross-Game
+ * Songs rows draw them (SohMenuCombo.cpp).
  */
 #define RSBS_MM_WARP_SONG_TOOLTIP_MINUET                                                            \
     "Adds Ocarina of Time's Minuet of Forest to Majora's Mask. On Shuffle Songs: Song Locations, "  \

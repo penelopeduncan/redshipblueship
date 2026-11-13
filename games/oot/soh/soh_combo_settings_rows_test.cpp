@@ -951,6 +951,19 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                 ROWS_CHECK(!row->isHidden && tip == s.tooltip,
                            "the extension row '%s' is hidden (%d) or its tooltip '%s' is not its macro's",
                            row->name.c_str(), row->isHidden ? 1 : 0, tip.c_str());
+                // #1169 XW14: with its shared row offered (revealed here) the row's
+                // tooltip names sharing a song as a way out; hidden again, the
+                // macro's text comes back. Catches a PreFunc that never re-picks it.
+                Combo_ComboItemRules2RevealForTest(1);
+                RunPreFunc(*row);
+                const std::string shareTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                Combo_ComboItemRules2RevealForTest(0);
+                RunPreFunc(*row);
+                const std::string backTip = row->options->tooltip != nullptr ? row->options->tooltip : "";
+                ROWS_CHECK(shareTip.find("share a song, start with a song") != std::string::npos &&
+                               backTip == s.tooltip,
+                           "the extension row '%s' with its shared row offered reads '%s', and hidden again '%s'",
+                           row->name.c_str(), shareTip.c_str(), backTip.c_str());
             } else {
                 ROWS_CHECK(row->isHidden, "the shared row '%s' is drawn while its rule is hidden (lane XW10's)",
                            row->name.c_str());

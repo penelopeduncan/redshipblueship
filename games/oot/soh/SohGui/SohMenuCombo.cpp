@@ -1392,9 +1392,11 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
     // in its order: the Song of Soaring added to Ocarina of Time, Ocarina of Time's
     // six warp songs added to Majora's Mask, then their shared variants. A row is
     // drawn only while this build OFFERS its rule (Combo_ComboItemRule2Offered):
-    // the six MM rows since XW13 (the row IntMMWarpSongMinuet proved their path),
-    // and the seven shared rows once lane XW10 builds their family; each appears
-    // when its bit leaves RSBS_XITEM2_HIDDEN, with no change here. A shared row shows
+    // each appears when its bit leaves RSBS_XITEM2_HIDDEN, with no change here
+    // (the six MM rows since IntMMWarpSongMinuet proved their path, the seven
+    // shared rows since IntMMWarpSongMinuetShared proved theirs, #1169 XW14). An
+    // extension row's tooltip names sharing a song as a way out once its shared
+    // row is offered (Combo_WarpSongExtensionTooltip). A shared row shows
     // its dependency as the shared masks do: greyed, with that reason, while its
     // extension is off (the resolver drops it). No row is greyed because the songs
     // would not fit the song checks (operator ruling 2026-11-04, decision 2):
@@ -1410,6 +1412,13 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
                     // row is kept out of the menu search too.
                     info.isHidden = true;
                     return;
+                }
+                if (row->needs == COMBO_SETTING_COUNT) {
+                    // #1169 XW14: an extension row advises sharing a song once its
+                    // shared row is offered (OoTMM's "share or start with a song").
+                    const char* tip = Combo_WarpSongExtensionTooltip(
+                        row->bit, Combo_ComboItemRule2Offered(row->bit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT));
+                    info.options->tooltip = tip != nullptr ? tip : row->tooltip;
                 }
                 const bool decided = Combo_ComboSettingsFrozen();
                 row->value = decided ? Combo_ComboCrossItemRule2(row->bit) : Combo_ComboSettingResolved(row->id) != 0;

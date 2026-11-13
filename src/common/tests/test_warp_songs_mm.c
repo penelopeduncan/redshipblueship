@@ -66,6 +66,7 @@
 #include "../test_runner.h"
 #include "../test_scratch.h"
 #include "../mm_warp_song_play.h" // Combo_OoTWarpRecord_Build: a rule-on world holds its record (#1169 XW12)
+#include "../warp_song_items.h"   // Combo_WarpSongExtensionTooltip (#1169 XW14)
 #include "../warp_songs_mm.h"
 #include "test_named_items.h"
 
@@ -374,6 +375,16 @@ TestResult MMWarpSongsItems_Run(void) {
                           strstr(tip, "share a song") == NULL,
                       "%s's tooltip is '%s', not '%s' with the Song Locations warning", s.name,
                       tip != NULL ? tip : "(none)", want.c_str());
+            // #1169 XW14: once a shared song is offered the row shows OoTMM's
+            // advice, sharing a song first (Combo_WarpSongExtensionTooltip); while
+            // none is, the text above. Catches a helper that ignores the flag or
+            // maps a song to another song's text.
+            const char* plain = Combo_WarpSongExtensionTooltip(s.rule, false);
+            const char* share = Combo_WarpSongExtensionTooltip(s.rule, true);
+            WSM_CHECK(plain == tip && share != NULL && std::string(share).rfind(want, 0) == 0 &&
+                          strstr(share, "share a song, start with a song, or set Shuffle Songs to Anywhere") != NULL,
+                      "%s's row tooltip once a shared song is offered is '%s'", s.name,
+                      share != NULL ? share : "(none)");
         }
         WSM_CHECK(Combo_MMWarpSongName(0x0001u) == NULL && Combo_MMWarpSongTooltip(0x0100u) == NULL,
                   "the Song of Soaring (OoT) or a shared song has an MM song's name");

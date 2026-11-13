@@ -5,7 +5,8 @@
  *        family word, its registry and pairs, the players' "held" question, the
  *        runtime merge through both games' real shims, and the one-copy worlds.
  *
- * Every rule stays hidden (RSBS_XITEM2_HIDDEN) until lane XW12. The ROM-free rows
+ * The shared rules are offered while their bits are outside RSBS_XITEM2_HIDDEN
+ * (lane XW14). The ROM-free rows
  * freeze the second word directly (Combo_FreezeComboSettingsEx2, no Generate, so
  * no refusal to reveal); the generating rows reveal the hidden rules through
  * Combo_ComboItemRules2RevealForTest and put it back.
@@ -1191,8 +1192,8 @@ int SwsGenerate(const char* seed, int shuffleSongs, uint32_t extensions, uint32_
     if (startMinuet) {
         CVarSetInteger(kSwsStartMinuetKey, 1);
     }
-    // THE TEST SEAM: the hidden warp-song rules read as offered, as they will once
-    // lane XW12 lands. Production never calls it.
+    // THE TEST SEAM: any warp-song rule still inside RSBS_XITEM2_HIDDEN reads as
+    // offered (a no-op once the mask is 0). Production never calls it.
     Combo_ComboItemRules2RevealForTest(1);
     const int rc = Rando_HeadlessSeedTest(seed);
     Combo_ComboItemRules2RevealForTest(0);
