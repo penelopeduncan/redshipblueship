@@ -215,6 +215,10 @@ typedef struct {
      *  segment as one array, the way a flex skeleton binds segment 0xD (a limb
      *  list that skins across limbs loads its neighbours' matrices from it). */
     uint8_t jointSegment;
+    /** Non-NULL: "__OTR__..." path of a keyframe animation (AnimationHeader)
+     *  the host samples by frame to replace `joints[i].rot` while keeping
+     *  `joints[i].pos` and `parent` (#1165). NULL keeps the static `joints`. */
+    const char* animation;
 } ComboModel;
 
 typedef struct {
@@ -296,10 +300,25 @@ int Combo_ModelAddPart(ComboModel* model, const char* dl, uint8_t layer, uint8_t
  *  part a known layer with an "__OTR__objects/<dir>/<name>" path, a setup list
  *  (index and the origin's list) for exactly the layers in use, well-formed
  *  scrolls, a finite positive scale;
- *  and (#964) joints whose parents come first and that some part uses, parts
+ *  (#964) joints whose parents come first and that some part uses, parts
  *  naming only existing joints, and segment colours and a joint segment in the
- *  actor segments (8-0xD) that no scroll or other binding already fills. */
+ *  actor segments (8-0xD) that no scroll or other binding already fills;
+ *  and (#1165) when `animation` is non-NULL, an "__OTR__" path with
+ *  `jointCount > 0`. */
 int Combo_ModelIsWellFormed(const ComboModel* model);
+
+/** Looping frame index for a host draw clock `frames` over an animation of
+ *  `frameCount` frames: `(int)(frames % (uint32_t)frameCount)`, or 0 when
+ *  `frameCount <= 0` (#1165). */
+int Combo_ModelAnimFrame(uint32_t frames, int16_t frameCount);
+
+/** Pose `out[0 .. model->jointCount - 1]` from a SkelAnime frame table (#1165):
+ *  preserves each joint's `parent` and `pos` and overwrites `rot` with
+ *  `table[i + 1]` when `table != NULL && i + 1 < count` (keeping `joints[i].rot`
+ *  otherwise). `table[0]` is SkelAnime's root translation, unused here. No-op
+ *  when `model == NULL || out == NULL`. */
+void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*table)[3], int count,
+                                   ComboModelJoint* out);
 
 /** 1 when an object directory of that name exists in BOTH games' archives
  *  (vanilla and the ports' custom assets), so a path under it resolves to

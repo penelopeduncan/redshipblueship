@@ -254,21 +254,22 @@ int Combo_ForeignModel_ObjectDirCollides(const char* objectDir) {
                : 0;
 }
 
-// ---- Collision-free paths in colliding directories (#964) --------------------
+// ---- Collision-free paths in colliding directories (#964, #1165) -------------
 //
 // A directory both trees carry collides as a whole (the table above), but a
 // resource NAME only one game's tree carries is not shadowed by the other game:
 // the curated half carries it as a single-path manifest entry (both generators
 // refuse a path any of the host's base archives carries), so it resolves to the
 // origin's one copy whichever archive was added last. These are the display
-// lists such entries let a host draw, as "<dir>/<name>", sorted by strcmp. The
-// ForeignModel row (M17) checks the stray fairy's against both asset trees; an
-// entry for another model needs the same check.
+// lists and animations such entries let a host draw, as "<dir>/<name>", sorted
+// by strcmp. The ForeignModel row (M17, M24) checks the stray fairy's against
+// both asset trees; an entry for another model needs the same check.
 static const char* const kCollisionFreePaths[] = {
-    "gameplay_keep/gStrayFairyGlowDL",           "gameplay_keep/gStrayFairyLeftArmDL",
-    "gameplay_keep/gStrayFairyLeftFacingHeadDL", "gameplay_keep/gStrayFairyLeftWingDL",
-    "gameplay_keep/gStrayFairyPelvisAndLegsDL",  "gameplay_keep/gStrayFairyRightArmDL",
-    "gameplay_keep/gStrayFairyRightWingDL",      "gameplay_keep/gStrayFairyTorsoDL",
+    "gameplay_keep/gStrayFairyFlyingAnim",       "gameplay_keep/gStrayFairyGlowDL",
+    "gameplay_keep/gStrayFairyLeftArmDL",        "gameplay_keep/gStrayFairyLeftFacingHeadDL",
+    "gameplay_keep/gStrayFairyLeftWingDL",       "gameplay_keep/gStrayFairyPelvisAndLegsDL",
+    "gameplay_keep/gStrayFairyRightArmDL",       "gameplay_keep/gStrayFairyRightWingDL",
+    "gameplay_keep/gStrayFairyTorsoDL",
 };
 
 int Combo_ForeignModel_PathCollides(const char* dl) {
@@ -475,7 +476,34 @@ int Combo_ModelIsWellFormed(const ComboModel* model) {
             return 0;
         }
     }
+    if (model->animation != NULL) {
+        if (model->jointCount == 0 || strncmp(model->animation, kOtrPrefix, sizeof(kOtrPrefix) - 1) != 0) {
+            return 0;
+        }
+    }
     return PoseWellFormed(model, hasOpa, hasXlu);
+}
+
+int Combo_ModelAnimFrame(uint32_t frames, int16_t frameCount) {
+    if (frameCount <= 0) {
+        return 0;
+    }
+    return (int)(frames % (uint32_t)frameCount);
+}
+
+void Combo_ModelPoseFromFrameTable(const ComboModel* model, const int16_t (*table)[3], int count,
+                                   ComboModelJoint* out) {
+    if (model == NULL || out == NULL) {
+        return;
+    }
+    for (int i = 0; i < (int)model->jointCount && i < COMBO_MODEL_MAX_JOINTS; i++) {
+        out[i] = model->joints[i];
+        if (table != NULL && i + 1 < count) {
+            out[i].rot[0] = table[i + 1][0];
+            out[i].rot[1] = table[i + 1][1];
+            out[i].rot[2] = table[i + 1][2];
+        }
+    }
 }
 
 // ---- Host-native tables (#577 M7) -------------------------------------------
@@ -539,6 +567,9 @@ uint8_t Combo_ClassifyForeignModel(uint8_t hostGame, const ComboModel* model, Co
     int collides = 0;
     for (uint8_t i = 0; i < model->partCount; i++) {
         collides |= Combo_ForeignModel_PathCollides(model->parts[i].dl);
+    }
+    if (model->animation != NULL) {
+        collides |= Combo_ForeignModel_PathCollides(model->animation);
     }
     if (!collides) {
         if (out != NULL) {

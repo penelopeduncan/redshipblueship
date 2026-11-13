@@ -229,6 +229,12 @@ int OoT_ForeignModel_TestShelfXluNote(uint16_t rc, const char** xluParts, int ma
 // and the model OoT's get-item cutscene holds up (ForeignModelHostOoT.cpp).
 int MM_ForeignItem_TestAuthorClockSave(void* buf, size_t size, int mode, uint8_t owned, int marked);
 int OoT_ForeignModel_TestShowOnlyModel(ComboModel* out);
+// #1165: stray fairy wing animation pose and mount test bridges (ForeignModelHostOoT.cpp).
+void OoT_ForeignModel_TestSetAnimMountOverride(int value);
+void OoT_ForeignModel_TestSetAnimFrameTable(const int16_t (*table)[3], int count);
+int OoT_ForeignModel_TestAnimMountedReal(const char* anim);
+int OoT_ForeignModel_TestDrawXluPose(uint16_t rc, int showOnly, float translation[][3], float row0[][3],
+                                     int maxParts);
 }
 
 #define FM_ASSERT(cond, msg)                                                \
@@ -261,8 +267,15 @@ bool FmScrollEqual(const ComboModelScroll& a, const ComboModelScroll& b) {
            a.w2 == b.w2 && a.h2 == b.h2;
 }
 
-/** Field-by-field (struct padding is not part of a model). Paths compare by
- *  pointer: a round-trip hands the host the origin's own static string. */
+static bool FmStrEqualOrBothNull(const char* a, const char* b) {
+    if (a == nullptr || b == nullptr) {
+        return a == b;
+    }
+    return a == b || std::strcmp(a, b) == 0;
+}
+
+/** Field-by-field (struct padding is not part of a model). Display-list paths
+ *  compare by pointer: a round-trip hands the host the origin's own static string. */
 bool FmModelEqual(const ComboModel& a, const ComboModel& b) {
     if (a.partCount != b.partCount || a.opaSetupDl != b.opaSetupDl || a.xluSetupDl != b.xluSetupDl ||
         a.opaSetupList != b.opaSetupList || a.xluSetupList != b.xluSetupList || !FmColorEqual(a.opaColor, b.opaColor) ||
@@ -290,7 +303,8 @@ bool FmModelEqual(const ComboModel& a, const ComboModel& b) {
             return false;
         }
     }
-    if (a.jointCount != b.jointCount || a.jointSegment != b.jointSegment) {
+    if (a.jointCount != b.jointCount || a.jointSegment != b.jointSegment ||
+        !FmStrEqualOrBothNull(a.animation, b.animation)) {
         return false;
     }
     for (int i = 0; i < a.jointCount && i < COMBO_MODEL_MAX_JOINTS; i++) {
@@ -1083,9 +1097,9 @@ bool FmSegColorIs(const ComboModelSegmentColor* c, uint8_t layer, const uint8_t 
            std::memcmp(c->env, env, 4) == 0;
 }
 
-/** A model that needs the #964 descriptor fields (segment colours or joints). */
+/** A model that needs the #964 / #1165 descriptor fields (segment colours, joints, or animation). */
 bool FmCarriesPose(const ComboModel& m) {
-    bool any = m.jointCount != 0 || m.jointSegment != 0;
+    bool any = m.jointCount != 0 || m.jointSegment != 0 || m.animation != nullptr;
     for (const ComboModelSegmentColor& c : m.segmentColors) {
         any |= c.segment != 0;
     }
@@ -1322,6 +1336,263 @@ TestResult FmCustomDrawModels(void) {
         FM_ASSERT(carrying == 0, "M17 MM as a host is never handed segment colours or joints (see the M17 lines "
                                  "above)");
     }
+    return TEST_PASS;
+}
+
+static bool FmVec3Close(const float a[3], const float b[3]) {
+    return FmNear(a, b[0], b[1], b[2]);
+}
+
+/**
+ * M24 (#1165): MM's stray fairy carries gStrayFairyFlyingAnim, curated in
+ * manifest.txt and collision-free in gameplay_keep; pure frame wrapping and
+ * frame-table posing preserve parent/pos while replacing rotations; OoT's host
+ * draw poses per draw on both the shop shelf and ShowOnlyDraw without mutating
+ * sShowOnly.model, keeping sHostAnimMountOverride separate from sHostMountOverride.
+ */
+TestResult FmStrayFairyAnim(void) {
+    const uint8_t kDesc = COMBO_MODEL_ANSWER_DESCRIPTOR;
+    const uint8_t kNone = COMBO_MODEL_ANSWER_NONE;
+
+    // 1. Pure frame wrap.
+    FM_ASSERT(Combo_ModelAnimFrame(0, 16) == 0 && Combo_ModelAnimFrame(7, 16) == 7 &&
+                  Combo_ModelAnimFrame(16, 16) == 0 && Combo_ModelAnimFrame(23, 16) == 7 &&
+                  Combo_ModelAnimFrame(5, 0) == 0 && Combo_ModelAnimFrame(5, -3) == 0,
+              "M24 Combo_ModelAnimFrame wraps by frameCount and returns 0 when frameCount <= 0");
+
+    // 2. Every stray fairy carries gStrayFairyFlyingAnim as a DESCRIPTOR in OoT.
+    SharedItem woodfall;
+    FM_ASSERT(TestNamedItem((uint8_t)GAME_MM, "Woodfall Stray Fairy", &woodfall), "M24 named item");
+    ComboModelAnswer wfAnswer;
+    FM_ASSERT(Combo_GetForeignItemModel((uint8_t)GAME_OOT, woodfall, &wfAnswer) == kDesc,
+              "M24 Woodfall Stray Fairy is a DESCRIPTOR in OoT");
+    for (const FmStrayFairy& f : kFmStrayFairies) {
+        SharedItem item;
+        FM_ASSERT(TestNamedItem((uint8_t)GAME_MM, f.name, &item), "M24 named stray fairy");
+        ComboModelAnswer a;
+        FM_ASSERT(Combo_GetForeignItemModel((uint8_t)GAME_OOT, item, &a) == kDesc && a.model.animation != nullptr &&
+                      FmTailIs(a.model.animation, "/gameplay_keep/gStrayFairyFlyingAnim"),
+                  "M24 every stray fairy names gStrayFairyFlyingAnim");
+    }
+
+    // 3. Pure Combo_ModelPoseFromFrameTable: table[0] is root translation (skipped),
+    // table[i + 1] replaces joint i's rot while preserving parent and pos.
+    {
+        const int16_t frameTable[10][3] = {
+            { 999, -888, 777 },      // table[0]: root translation, not joint 0
+            { 111, 222, 0x4000 },    // joint 0
+            { 0x2000, -333, 444 },   // joint 1
+            { -555, 666, -0x2000 },  // joint 2
+            { 100, 200, 300 },       // joint 3
+            { 400, 0x3000, 600 },    // joint 4
+            { -100, -200, -300 },    // joint 5
+            { 700, 800, 900 },       // joint 6
+            { -700, -800, -900 },    // joint 7
+            { 1234, -2345, 3456 },   // joint 8
+        };
+        ComboModelJoint posed[COMBO_MODEL_MAX_JOINTS] = {};
+        Combo_ModelPoseFromFrameTable(&wfAnswer.model, frameTable, 10, posed);
+        bool poseOk = true;
+        for (int i = 0; i < (int)wfAnswer.model.jointCount; i++) {
+            const ComboModelJoint& orig = wfAnswer.model.joints[i];
+            poseOk = poseOk && posed[i].parent == orig.parent &&
+                     std::memcmp(posed[i].pos, orig.pos, sizeof(orig.pos)) == 0 &&
+                     posed[i].rot[0] == frameTable[i + 1][0] && posed[i].rot[1] == frameTable[i + 1][1] &&
+                     posed[i].rot[2] == frameTable[i + 1][2];
+        }
+        FM_ASSERT(poseOk, "M24 Combo_ModelPoseFromFrameTable applies table[i + 1] rot and keeps parent/pos");
+
+        // Partial table and nullptr table fall back to model.joints[i].rot.
+        ComboModelJoint partial[COMBO_MODEL_MAX_JOINTS] = {};
+        Combo_ModelPoseFromFrameTable(&wfAnswer.model, frameTable, 3, partial);
+        bool partialOk = partial[0].rot[2] == frameTable[1][2] && partial[1].rot[0] == frameTable[2][0];
+        for (int i = 2; i < (int)wfAnswer.model.jointCount; i++) {
+            partialOk = partialOk &&
+                        std::memcmp(partial[i].rot, wfAnswer.model.joints[i].rot, sizeof(partial[i].rot)) == 0;
+        }
+        ComboModelJoint fallback[COMBO_MODEL_MAX_JOINTS] = {};
+        Combo_ModelPoseFromFrameTable(&wfAnswer.model, nullptr, 0, fallback);
+        bool fallbackOk = true;
+        for (int i = 0; i < (int)wfAnswer.model.jointCount; i++) {
+            fallbackOk = fallbackOk &&
+                         std::memcmp(fallback[i].rot, wfAnswer.model.joints[i].rot, sizeof(fallback[i].rot)) == 0;
+        }
+        FM_ASSERT(partialOk && fallbackOk,
+                  "M24 partial or NULL frame table falls back to static joints[i].rot for missing entries");
+    }
+
+    // 4. ComboModel well-formedness, FmModelEqual, collision exemption, and classification.
+    {
+        ComboModel zeroed;
+        Combo_ModelInit(&zeroed);
+        FM_ASSERT(zeroed.animation == nullptr, "M24 Combo_ModelInit zeroes animation");
+
+        char animCopy[] = "__OTR__objects/gameplay_keep/gStrayFairyFlyingAnim";
+        ComboModel sameText = wfAnswer.model;
+        sameText.animation = animCopy;
+        ComboModel diffAnim = wfAnswer.model;
+        diffAnim.animation = "__OTR__objects/gameplay_keep/gOtherAnim";
+        ComboModel noAnim = wfAnswer.model;
+        noAnim.animation = nullptr;
+        FM_ASSERT(FmModelEqual(wfAnswer.model, sameText) && !FmModelEqual(wfAnswer.model, diffAnim) &&
+                      !FmModelEqual(wfAnswer.model, noAnim),
+                  "M24 FmModelEqual compares animation (both NULL or equal strings)");
+
+        ComboModel badPrefix = wfAnswer.model;
+        badPrefix.animation = "objects/gameplay_keep/gStrayFairyFlyingAnim";
+        FM_ASSERT(Combo_ModelIsWellFormed(&wfAnswer.model) == 1 && Combo_ModelIsWellFormed(&badPrefix) == 0,
+                  "M24 Combo_ModelIsWellFormed requires __OTR__ prefix on non-NULL animation");
+
+        SharedItem tear;
+        FM_ASSERT(TestNamedItem((uint8_t)GAME_MM, "Moon's Tear", &tear), "M24 named Moon's Tear");
+        ComboModelAnswer tearA;
+        FM_ASSERT(Combo_GetForeignItemModel((uint8_t)GAME_OOT, tear, &tearA) == kDesc &&
+                      tearA.model.jointCount == 0,
+                  "M24 jointless reference model");
+        ComboModel zeroJointAnim = tearA.model;
+        zeroJointAnim.animation = "__OTR__objects/gameplay_keep/gStrayFairyFlyingAnim";
+        FM_ASSERT(Combo_ModelIsWellFormed(&zeroJointAnim) == 0,
+                  "M24 Combo_ModelIsWellFormed refuses non-NULL animation when jointCount == 0");
+
+        FM_ASSERT(Combo_ForeignModel_PathCollides(wfAnswer.model.animation) == 0 &&
+                      Combo_ForeignModel_PathCollides("__OTR__objects/object_box/gSomeAnim") == 1,
+                  "M24 gStrayFairyFlyingAnim is collision-free while a colliding-dir animation collides");
+        ComboModel collidingAnim = wfAnswer.model;
+        collidingAnim.animation = "__OTR__objects/object_box/gSomeAnim";
+        FM_ASSERT(Combo_ClassifyForeignModel((uint8_t)GAME_OOT, &wfAnswer.model, nullptr) == kDesc &&
+                      Combo_ClassifyForeignModel((uint8_t)GAME_OOT, &collidingAnim, nullptr) == kNone,
+                  "M24 Combo_ClassifyForeignModel ORs animation collision into collides");
+    }
+
+    // 5. Asset trees + crossgame manifest agree on gStrayFairyFlyingAnim.
+    {
+        const int inMm =
+            FmFileContains("games/mm/assets/objects/gameplay_keep/gameplay_keep.h", "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
+        const int inOoT =
+            FmFileContains("games/oot/assets/objects/gameplay_keep/gameplay_keep.h", "objects/gameplay_keep/gStrayFairyFlyingAnim\"");
+        const int inOoTCustom =
+            FmDirHasStem("games/oot/assets/custom/objects/gameplay_keep", "gStrayFairyFlyingAnim");
+        const int inManifest =
+            FmFileContains("assets/crossgame/manifest.txt", "mm->oot objects/gameplay_keep/gStrayFairyFlyingAnim");
+        printf("[TEST]   M24 gStrayFairyFlyingAnim: MM %d, OoT %d, OoT custom %d, manifest %d\n", inMm, inOoT,
+               inOoTCustom, inManifest);
+        FM_ASSERT(inMm == 1 && inOoT == 0 && inOoTCustom == 0 && inManifest == 1,
+                  "M24 gStrayFairyFlyingAnim is MM-only in asset trees and curated in manifest.txt");
+    }
+
+    // 6. OoT host draw: mount separation, shelf & ShowOnlyDraw pose cleanly per draw
+    // without mutating sShowOnly.model, and unmounted animation falls back to still pose.
+    {
+        ComboForeignPlacement saved[RSBS_FOREIGN_PLACEMENT_CAP];
+        std::memcpy(saved, gComboCtx.foreignPlacementsOoT, sizeof(saved));
+        const uint16_t shelf = 0x0126;
+        Combo_ClearForeignPlacementsOoT();
+        const int placed = Combo_SetForeignPlacementOoT(shelf, woodfall);
+        FM_ASSERT(placed >= 0, "M24 placement accepted");
+
+        // sHostMountOverride == 1 must never make HostAnimMounted return true in ROM-free runs.
+        OoT_ForeignModel_TestSetMountOverride(1);
+        FM_ASSERT(OoT_ForeignModel_TestAnimMountedReal(wfAnswer.model.animation) == 0,
+                  "M24 sHostAnimMountOverride stays separate from sHostMountOverride");
+        OoT_ForeignModel_TestSetMountOverride(-1);
+
+        const int16_t tableA[10][3] = {
+            { 0, 0, 0 },
+            { 0, 0, 0x4000 },       // joint 0 (root): rotates wings/glow/torso children
+            { 0x2000, 0, 0x2000 },  // joint 1 (left wing): rotates wing row0
+            { 0, 0, 0 },            // joint 2
+            { 0, 0, 0 },            // joint 3 (glow)
+            { 0, 0x4000, 0 },       // joint 4 (torso): rotates arms/legs children
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        };
+        const int16_t tableB[10][3] = {
+            { 0, 0, 0 },
+            { 0, 0, -0x4000 },
+            { -0x2000, 0x1000, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, -0x4000, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+            { 0, 0, 0 },
+        };
+
+        float stillTrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float stillRow0[COMBO_MODEL_MAX_PARTS][3] = {};
+        float unmountedTrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float unmountedRow0[COMBO_MODEL_MAX_PARTS][3] = {};
+        float shelfATrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float shelfARow0[COMBO_MODEL_MAX_PARTS][3] = {};
+        float showATrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float showARow0[COMBO_MODEL_MAX_PARTS][3] = {};
+        float shelfBTrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float shelfBRow0[COMBO_MODEL_MAX_PARTS][3] = {};
+        float showBTrans[COMBO_MODEL_MAX_PARTS][3] = {};
+        float showBRow0[COMBO_MODEL_MAX_PARTS][3] = {};
+
+        OoT_ForeignModel_TestSetAnimMountOverride(0);
+        OoT_ForeignModel_TestSetAnimFrameTable(nullptr, 0);
+        const int nStill = OoT_ForeignModel_TestDrawXluPose(shelf, 0, stillTrans, stillRow0, COMBO_MODEL_MAX_PARTS);
+
+        // With anim mount == 0, even with a table override set, host draws the still pose.
+        OoT_ForeignModel_TestSetAnimFrameTable(tableA, 10);
+        const int nUnmounted =
+            OoT_ForeignModel_TestDrawXluPose(shelf, 0, unmountedTrans, unmountedRow0, COMBO_MODEL_MAX_PARTS);
+
+        // With anim mount == 1, table A animates both shelf and ShowOnlyDraw identically.
+        OoT_ForeignModel_TestSetAnimMountOverride(1);
+        const int nShelfA = OoT_ForeignModel_TestDrawXluPose(shelf, 0, shelfATrans, shelfARow0, COMBO_MODEL_MAX_PARTS);
+        const int nShowA = OoT_ForeignModel_TestDrawXluPose(shelf, 1, showATrans, showARow0, COMBO_MODEL_MAX_PARTS);
+
+        ComboModel afterShowOnly;
+        const int hasShowModel = OoT_ForeignModel_TestShowOnlyModel(&afterShowOnly);
+
+        // Different frame table B changes the posed matrices on both shelf and ShowOnlyDraw.
+        OoT_ForeignModel_TestSetAnimFrameTable(tableB, 10);
+        const int nShelfB = OoT_ForeignModel_TestDrawXluPose(shelf, 0, shelfBTrans, shelfBRow0, COMBO_MODEL_MAX_PARTS);
+        const int nShowB = OoT_ForeignModel_TestDrawXluPose(shelf, 1, showBTrans, showBRow0, COMBO_MODEL_MAX_PARTS);
+
+        OoT_ForeignModel_TestSetAnimFrameTable(nullptr, 0);
+        OoT_ForeignModel_TestSetAnimMountOverride(-1);
+        OoT_ForeignModel_TestSetMountOverride(-1);
+        std::memcpy(gComboCtx.foreignPlacementsOoT, saved, sizeof(saved));
+
+        bool unmountedMatchesStill = nStill == 8 && nUnmounted == 8;
+        bool showMatchesShelfA = nShelfA == 8 && nShowA == 8;
+        bool showMatchesShelfB = nShelfB == 8 && nShowB == 8;
+        bool differsAFromStill = false;
+        bool differsBFromA = false;
+        for (int p = 0; p < 8; p++) {
+            unmountedMatchesStill = unmountedMatchesStill &&
+                                    FmVec3Close(unmountedTrans[p], stillTrans[p]) &&
+                                    FmVec3Close(unmountedRow0[p], stillRow0[p]);
+            showMatchesShelfA = showMatchesShelfA &&
+                                FmVec3Close(showATrans[p], shelfATrans[p]) &&
+                                FmVec3Close(showARow0[p], shelfARow0[p]);
+            showMatchesShelfB = showMatchesShelfB &&
+                                FmVec3Close(showBTrans[p], shelfBTrans[p]) &&
+                                FmVec3Close(showBRow0[p], shelfBRow0[p]);
+            differsAFromStill = differsAFromStill ||
+                                !FmVec3Close(shelfATrans[p], stillTrans[p]) ||
+                                !FmVec3Close(shelfARow0[p], stillRow0[p]);
+            differsBFromA = differsBFromA ||
+                            !FmVec3Close(shelfBTrans[p], shelfATrans[p]) ||
+                            !FmVec3Close(shelfBRow0[p], shelfARow0[p]);
+        }
+        FM_ASSERT(unmountedMatchesStill,
+                  "M24 unmounted animation falls back to the still pose even when a table override is present");
+        FM_ASSERT(differsAFromStill && differsBFromA,
+                  "M24 different animation frame tables produce distinct joint poses");
+        FM_ASSERT(showMatchesShelfA && showMatchesShelfB,
+                  "M24 ShowOnlyDraw (get-item cutscene) and the shop shelf animate identically");
+        FM_ASSERT(hasShowModel == 1 && FmModelEqual(afterShowOnly, wfAnswer.model),
+                  "M24 ShowOnlyDraw poses into scratch and never mutates sShowOnly.model");
+    }
+
     return TEST_PASS;
 }
 
@@ -2691,6 +2962,11 @@ TestResult Test_ForeignModel(void) {
 
     // ---- M23 (#1481) ------------------------------------------------------------
     if (FmClockPresentation() != TEST_PASS) {
+        return TEST_FAIL;
+    }
+
+    // ---- M24 (#1165) ------------------------------------------------------------
+    if (FmStrayFairyAnim() != TEST_PASS) {
         return TEST_FAIL;
     }
 

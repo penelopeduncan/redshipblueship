@@ -49,6 +49,7 @@
 #include <ship/resource/archive/ArchiveManager.h>
 
 #include "soh/OTRGlobals.h"
+#include "soh/ResourceManagerHelpers.h"
 #include "soh/frame_interpolation.h"
 #include "soh/Enhancements/custom-message/CustomMessageTypes.h" // TEXT_RANDOMIZER_CUSTOM_ITEM
 #include "soh/Enhancements/randomizer/randomizerTypes.h"        // MOD_RANDOMIZER, RG_BLUE_RUPEE
@@ -70,6 +71,8 @@ extern MtxF* OoT_sMatrixStack;
 extern MtxF* OoT_sCurrentMatrix;
 // OTRGlobals.cpp; OTRGlobals.h declares it for C translation units only.
 GetItemEntry GetItemMystery();
+// z_skelanime.c (no header declares it).
+void OoT_SkelAnime_GetFrameData(AnimationHeader* animation, s32 frame, s32 limbCount, Vec3s* frameTable);
 }
 
 #include "context.h"       // src/common — GameId
@@ -87,16 +90,21 @@ constexpr uint8_t kHostXlu = (uint8_t)COMBO_MODEL_LAYER_XLU;
 
 // TEST ONLY: -1 = ask the archive manager; 0 / 1 = answer that.
 int sHostMountOverride = -1;
+// TEST ONLY: separate mount override for animations (-1 = ask the archive
+// manager, never sHostMountOverride), so M17/M12 forcing sHostMountOverride = 1
+// never load animations (#1165).
+int sHostAnimMountOverride = -1;
+// TEST ONLY: synthetic SkelAnime frame-table override, replacing animation load
+// when an animation is mounted (#1165).
+const int16_t (*sHostAnimTableOverride)[3] = nullptr;
+int sHostAnimTableCount = 0;
 // TEST ONLY: emit each part's path as the display-list pointer without loading
 // it, so a ROM-free row can read the emitted lists back.
 bool sHostEmitUnresolved = false;
 
-bool HostPathMounted(const char* dl) {
-    if (sHostMountOverride >= 0) {
-        return sHostMountOverride == 1;
-    }
+bool HostPathInArchives(const char* path) {
     static const char kOtr[] = "__OTR__";
-    if (dl == nullptr || std::strncmp(dl, kOtr, sizeof(kOtr) - 1) != 0) {
+    if (path == nullptr || std::strncmp(path, kOtr, sizeof(kOtr) - 1) != 0) {
         return false;
     }
     auto ctx = Ship::Context::GetInstance();
@@ -104,7 +112,21 @@ bool HostPathMounted(const char* dl) {
         return false;
     }
     auto archives = ctx->GetResourceManager()->GetArchiveManager();
-    return archives != nullptr && archives->HasFile(std::string(dl + sizeof(kOtr) - 1));
+    return archives != nullptr && archives->HasFile(std::string(path + sizeof(kOtr) - 1));
+}
+
+bool HostPathMounted(const char* dl) {
+    if (sHostMountOverride >= 0) {
+        return sHostMountOverride == 1;
+    }
+    return HostPathInArchives(dl);
+}
+
+bool HostAnimMounted(const char* anim) {
+    if (sHostAnimMountOverride >= 0) {
+        return sHostAnimMountOverride == 1;
+    }
+    return HostPathInArchives(anim);
 }
 
 bool HostModelMounted(const ComboModel& model) {
@@ -161,9 +183,10 @@ void HostEmitPart(Gfx* pkt, const char* dl) {
  *  joint), each its parent's (the current matrix for a root) times
  *  Matrix_TranslateRotateZYX of its own position and rotation: SkelAnime's
  *  walk, so frame interpolation records it the same way (#964). */
-static void OoTHostModel_PoseJoints(const ComboModel& model, int parent, Mtx* out) {
+static void OoTHostModel_PoseJoints(const ComboModel& model, const ComboModelJoint* posedJoints, int parent,
+                                    Mtx* out) {
     for (int i = parent + 1; i < (int)model.jointCount; i++) {
-        const ComboModelJoint& joint = model.joints[i];
+        const ComboModelJoint& joint = posedJoints[i];
         if (joint.parent != parent) {
             continue;
         }
@@ -172,7 +195,7 @@ static void OoTHostModel_PoseJoints(const ComboModel& model, int parent, Mtx* ou
         OoT_Matrix_Push();
         OoT_Matrix_TranslateRotateZYX(&pos, &rot);
         OoT_Matrix_ToMtx(&out[i], const_cast<char*>(__FILE__), __LINE__);
-        OoTHostModel_PoseJoints(model, i, out);
+        OoTHostModel_PoseJoints(model, posedJoints, i, out);
         OoT_Matrix_Pop();
     }
 }
@@ -181,8 +204,8 @@ static void OoTHostModel_PoseJoints(const ComboModel& model, int parent, Mtx* ou
  *  (already loaded) or, for a part that names a joint, that joint's matrix,
  *  posed from the current matrix; the joint array is bound to the joint
  *  segment first, as a flex skeleton binds segment 0xD (#964). */
-static void OoTHostModel_EmitParts(GraphicsContext* gfxCtx, const ComboModel& model, uint8_t layer, bool billboard,
-                                   Mtx* base, Gfx*& disp) {
+static void OoTHostModel_EmitParts(GraphicsContext* gfxCtx, const ComboModel& model, const ComboModelJoint* posedJoints,
+                                   uint8_t layer, bool billboard, Mtx* base, Gfx*& disp) {
     bool jointed = false;
     for (uint8_t i = 0; i < model.partCount; i++) {
         const ComboModelPart& part = model.parts[i];
@@ -191,7 +214,7 @@ static void OoTHostModel_EmitParts(GraphicsContext* gfxCtx, const ComboModel& mo
     Mtx* joints = nullptr;
     if (jointed) {
         joints = (Mtx*)Graph_Alloc(gfxCtx, model.jointCount * sizeof(Mtx));
-        OoTHostModel_PoseJoints(model, -1, joints);
+        OoTHostModel_PoseJoints(model, posedJoints, -1, joints);
         if (model.jointSegment != 0) {
             gSPSegment(disp++, model.jointSegment, (uintptr_t)joints);
         }
@@ -214,7 +237,8 @@ static void OoTHostModel_EmitParts(GraphicsContext* gfxCtx, const ComboModel& mo
 }
 
 /** One layer of the descriptor (see the file header for the order). */
-static void OoTHostModel_DrawLayer(PlayState* play, const ComboModel& model, uint8_t layer) {
+static void OoTHostModel_DrawLayer(PlayState* play, const ComboModel& model, const ComboModelJoint* posedJoints,
+                                   uint8_t layer) {
     const uint8_t setup = layer == kHostOpa ? model.opaSetupDl : model.xluSetupDl;
     const void* setupList = layer == kHostOpa ? model.opaSetupList : model.xluSetupList;
     if (setup == 0 || setupList == nullptr) {
@@ -266,7 +290,7 @@ static void OoTHostModel_DrawLayer(PlayState* play, const ComboModel& model, uin
 
     Mtx* base = MATRIX_NEWMTX(gfxCtx);
     gSPMatrix(disp++, base, G_MTX_MODELVIEW | G_MTX_LOAD);
-    OoTHostModel_EmitParts(gfxCtx, model, layer, false, base, disp);
+    OoTHostModel_EmitParts(gfxCtx, model, posedJoints, layer, false, base, disp);
     bool anyBillboard = false;
     for (uint8_t i = 0; i < model.partCount; i++) {
         anyBillboard |= model.parts[i].layer == layer && model.parts[i].billboard != 0;
@@ -278,7 +302,7 @@ static void OoTHostModel_DrawLayer(PlayState* play, const ComboModel& model, uin
         OoT_Matrix_ReplaceRotation(&play->billboardMtxF);
         Mtx* facing = MATRIX_NEWMTX(gfxCtx);
         gSPMatrix(disp++, facing, G_MTX_MODELVIEW | G_MTX_LOAD);
-        OoTHostModel_EmitParts(gfxCtx, model, layer, true, facing, disp);
+        OoTHostModel_EmitParts(gfxCtx, model, posedJoints, layer, true, facing, disp);
         OoT_Matrix_Pop();
     }
     if (model.grayscale) {
@@ -288,9 +312,41 @@ static void OoTHostModel_DrawLayer(PlayState* play, const ComboModel& model, uin
     CLOSE_DISPS(gfxCtx);
 }
 
+/** Pose `model.joints` for `play->state.frames` when `model.animation` is set
+ *  and mounted, into `scratch` (without mutating `model` or `sShowOnly`); else
+ *  return the still `model.joints` fallback (#1165). */
+static const ComboModelJoint* OoTHostModel_PoseForFrame(const PlayState* play, const ComboModel& model,
+                                                        ComboModelJoint* scratch) {
+    if (model.animation == nullptr || model.jointCount == 0 || !HostAnimMounted(model.animation)) {
+        return model.joints;
+    }
+    if (sHostAnimTableOverride != nullptr) {
+        Combo_ModelPoseFromFrameTable(&model, sHostAnimTableOverride, sHostAnimTableCount, scratch);
+        return scratch;
+    }
+    AnimationHeaderCommon* anim = ResourceMgr_LoadAnimByName(model.animation);
+    if (anim == nullptr) {
+        return model.joints;
+    }
+    const int16_t length = OoT_Animation_GetLength(anim);
+    const int frame = Combo_ModelAnimFrame((uint32_t)play->state.frames, length);
+    Vec3s table[COMBO_MODEL_MAX_JOINTS + 1] = {};
+    OoT_SkelAnime_GetFrameData(reinterpret_cast<AnimationHeader*>(anim), frame, (s32)model.jointCount + 1, table);
+    int16_t rawTable[COMBO_MODEL_MAX_JOINTS + 1][3] = {};
+    for (int i = 0; i < (int)model.jointCount + 1 && i < COMBO_MODEL_MAX_JOINTS + 1; i++) {
+        rawTable[i][0] = table[i].x;
+        rawTable[i][1] = table[i].y;
+        rawTable[i][2] = table[i].z;
+    }
+    Combo_ModelPoseFromFrameTable(&model, rawTable, (int)model.jointCount + 1, scratch);
+    return scratch;
+}
+
 /** The descriptor under the current matrix: its own scale, then its rotation
  *  (foreign_model.h), then both layers. */
 static void OoTHostModel_Draw(PlayState* play, const ComboModel& model) {
+    ComboModelJoint posedScratch[COMBO_MODEL_MAX_JOINTS];
+    const ComboModelJoint* posedJoints = OoTHostModel_PoseForFrame(play, model, posedScratch);
     OoT_Matrix_Push();
     if (model.scale != 1.0f) {
         OoT_Matrix_Scale(model.scale, model.scale, model.scale, MTXMODE_APPLY);
@@ -298,8 +354,8 @@ static void OoTHostModel_Draw(PlayState* play, const ComboModel& model) {
     if (model.rotation[0] != 0 || model.rotation[1] != 0 || model.rotation[2] != 0) {
         OoT_Matrix_RotateZYX(model.rotation[0], model.rotation[1], model.rotation[2], MTXMODE_APPLY);
     }
-    OoTHostModel_DrawLayer(play, model, kHostOpa);
-    OoTHostModel_DrawLayer(play, model, kHostXlu);
+    OoTHostModel_DrawLayer(play, model, posedJoints, kHostOpa);
+    OoTHostModel_DrawLayer(play, model, posedJoints, kHostXlu);
     OoT_Matrix_Pop();
 }
 
@@ -510,6 +566,25 @@ extern "C" int OoT_ForeignModel_TestPathMountedReal(const char* dl) {
     return mounted ? 1 : 0;
 }
 
+extern "C" void OoT_ForeignModel_TestSetAnimMountOverride(int value) {
+    sHostAnimMountOverride = value;
+}
+
+extern "C" void OoT_ForeignModel_TestSetAnimFrameTable(const int16_t (*table)[3], int count) {
+    sHostAnimTableOverride = table;
+    sHostAnimTableCount = count;
+}
+
+/** HostAnimMounted with the anim override cleared (independent of
+ *  sHostMountOverride). */
+extern "C" int OoT_ForeignModel_TestAnimMountedReal(const char* anim) {
+    const int saved = sHostAnimMountOverride;
+    sHostAnimMountOverride = -1;
+    const bool mounted = HostAnimMounted(anim);
+    sHostAnimMountOverride = saved;
+    return mounted ? 1 : 0;
+}
+
 namespace {
 
 /** A PlayState with a real GraphicsContext (three arenas) and a real matrix
@@ -707,6 +782,64 @@ extern "C" int OoT_ForeignModel_TestShelfXlu(uint16_t rc, uint8_t bound[16], uin
                 translation[parts][0] = mf.xw;
                 translation[parts][1] = mf.yw;
                 translation[parts][2] = mf.zw;
+            }
+            parts++;
+        }
+    }
+    return parts;
+}
+
+/**
+ * TEST BRIDGE (ForeignModel row M24, #1165): OoT check `rc` drawn on the shelf
+ * (`showOnly == 0`) or via `ShowOnlyDraw` (`showOnly != 0`), with all part DLs
+ * mounted (test override) and animation following `sHostAnimMountOverride` /
+ * `sHostAnimTableOverride`. Records each XLU part's translation and row-0 basis
+ * vector. Returns XLU part count or -1 on failure / unbalanced matrix stack.
+ */
+extern "C" int OoT_ForeignModel_TestDrawXluPose(uint16_t rc, int showOnly, float translation[][3], float row0[][3],
+                                                int maxParts) {
+    OoTFakeDrawPlay fake;
+    const int savedMount = sHostMountOverride;
+    sHostMountOverride = 1;
+    sHostEmitUnresolved = true;
+    if (showOnly != 0) {
+        GetItemEntry entry = {};
+        if (OoT_Rando_Foreign_BuildShowOnlyGetItem(rc, &entry) != 1 || entry.drawFunc == nullptr) {
+            sHostEmitUnresolved = false;
+            sHostMountOverride = savedMount;
+            return -1;
+        }
+        entry.drawFunc(fake.play, &entry);
+    } else {
+        OoT_ForeignModel_DrawForOoTCheck(fake.play, rc);
+    }
+    sHostEmitUnresolved = false;
+    sHostMountOverride = savedMount;
+    if (OoT_sCurrentMatrix != fake.stack) {
+        return -1;
+    }
+    int parts = 0;
+    Mtx* current = nullptr;
+    for (const Gfx* g = fake.xlu.data(); g < fake.gfxCtx->polyXlu.p; g++) {
+        const uint32_t w0 = (uint32_t)g->words.w0;
+        const uintptr_t w1 = (uintptr_t)g->words.w1;
+        const uint32_t op = (w0 >> 24) & 0xFF;
+        if (op == (uint32_t)(uint8_t)G_MTX) {
+            current = (Mtx*)w1;
+        } else if (op == (uint32_t)(uint8_t)G_DL && w1 != 0 && std::memcmp((const void*)w1, "__OTR__", 7) == 0) {
+            if (parts < maxParts && current != nullptr) {
+                MtxF mf;
+                OoT_Matrix_MtxToMtxF(current, &mf);
+                if (translation != nullptr) {
+                    translation[parts][0] = mf.xw;
+                    translation[parts][1] = mf.yw;
+                    translation[parts][2] = mf.zw;
+                }
+                if (row0 != nullptr) {
+                    row0[parts][0] = mf.mf[0][0];
+                    row0[parts][1] = mf.mf[0][1];
+                    row0[parts][2] = mf.mf[0][2];
+                }
             }
             parts++;
         }
