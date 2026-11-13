@@ -3402,6 +3402,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1569: MM pool counts for RI_MASK_GERUDO/SKULL/SPOOKY under frozen rules
+    # (InitOTRForMMFirstBoot + MM_Rando_InitCore + MM_ComboLogic_TestPairedPool).
+    # On `--test all` skip list like OoTMasksMMLogic (CheckTestRegistration.cmake
+    # rejects redship_test_not_generating on any row in the `--test all` skip list).
+    redship_add_test(NAME OoTMasksMMPool COMMAND redship --test oot-masks-mm-pool
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1428 (operator ruling 2026-11-03): OoT's goal gates ship at OoTMM's defaults,
     # Rainbow Bridge Medallions (all six) and Ganon's Boss Key Start With (OoTMM's
     # "removed" in play). On one paired creation save (TrackerOoTPanelList's seed):
@@ -3750,6 +3758,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # Spooky Mask's night, the value put back after the update). ROM-free.
     redship_add_test(NAME OoTMasksMMRule COMMAND redship --test oot-masks-mm-rule)
     redship_add_test(NAME OoTMasksMMItems COMMAND redship --test oot-masks-mm-items)
+    redship_add_test(NAME OoTMasksMMOwnedSource COMMAND redship --test oot-masks-mm-owned-source)
     # THE SECOND CROSS-GAME RULES WORD (#1169 lane XW2): a full 32-bit world field
     # carved at 925, after #1439's Way of the Hero record, for OoTMM's fourteen
     # warp-song rules. ComboItemRulesSecondWord:
