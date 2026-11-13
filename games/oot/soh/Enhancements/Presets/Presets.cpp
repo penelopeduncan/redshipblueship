@@ -7,7 +7,9 @@
 #include <libultraship/libultraship.h>
 #include <ship/resource/type/Json.h>
 #include "soh/OTRGlobals.h"
+#include "soh/SaveManager.h"
 #include "soh/util.h"
+#include <spdlog/spdlog.h>
 #include "soh/SohGui/MenuTypes.h"
 #include "soh/SohGui/SohMenu.h"
 #include "soh/SohGui/SohGui.hpp"
@@ -355,16 +357,21 @@ std::vector<std::string> Presets_LoadFolderForTest(const std::string& folder) {
 }
 #endif
 
+bool Presets_WriteFile(const std::filesystem::path& target, const nlohmann::json& values) {
+    return SaveManager::WriteFileSafely(target, target.string() + ".tmp", values.dump(4));
+}
+
 void SavePreset(std::string& presetName) {
     if (!fs::exists(presetFolder)) {
         fs::create_directory(presetFolder);
     }
     presets[presetName].presetValues["presetName"] = presetName;
     presets[presetName].presetValues["fileType"] = FILE_TYPE_PRESET;
-    std::ofstream file(
-        fmt::format("{}/{}.json", Ship::Context::GetInstance()->LocateFileAcrossAppDirs("presets"), presetName));
-    file << presets[presetName].presetValues.dump(4);
-    file.close();
+    const std::filesystem::path target =
+        fmt::format("{}/{}.json", Ship::Context::GetInstance()->LocateFileAcrossAppDirs("presets"), presetName);
+    if (!Presets_WriteFile(target, presets[presetName].presetValues)) {
+        SPDLOG_ERROR("SavePreset: failed to write preset file '{}'", target.string());
+    }
     LoadPresets();
 }
 
