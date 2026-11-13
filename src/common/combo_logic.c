@@ -2496,10 +2496,11 @@ static int ComboLogicCheckHomeCapacity(const ComboLogicFillRequest* req, ComboLo
         res->homeShortGame = games[gi];
         res->homeRequiredRows = reqRows[gi];
         res->homeHosts = hostCounts[gi];
-        fprintf(stderr,
-                "[ComboLogic] fill refused: %d required row(s) confined to %s for %d empty host(s) there (a fact of the "
-                "settings, not of the seed)\n",
-                reqRows[gi], Game_ToString((GameId)games[gi]), hostCounts[gi]);
+        fprintf(
+            stderr,
+            "[ComboLogic] fill refused: %d required row(s) confined to %s for %d empty host(s) there (a fact of the "
+            "settings, not of the seed)\n",
+            reqRows[gi], Game_ToString((GameId)games[gi]), hostCounts[gi]);
     }
 
     return RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY;

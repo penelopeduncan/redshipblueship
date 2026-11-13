@@ -2196,9 +2196,9 @@ typedef struct {
     int locationsChecked;     // locations the pre-flight captured, both games together
     int locationsUnreachable; // locations the pre-flight (or the failing proof round) did not reach
     // --- HOME CAPACITY (#1483). Set on RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY; 0 otherwise. ---
-    uint8_t homeShortGame;   // GAME_OOT, GAME_MM, or GAME_NONE (both)
-    int homeRequiredRows;    // HOME_ONLY REQUIRED rows (including forced rows) that must land there
-    int homeHosts;           // empty hosts available on that game
+    uint8_t homeShortGame; // GAME_OOT, GAME_MM, or GAME_NONE (both)
+    int homeRequiredRows;  // HOME_ONLY REQUIRED rows (including forced rows) that must land there
+    int homeHosts;         // empty hosts available on that game
 } ComboLogicFillResult;
 
 /**

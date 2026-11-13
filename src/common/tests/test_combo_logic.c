@@ -2046,8 +2046,7 @@ TestResult Test_ComboLogicFill(void) {
                       "the result names MM, H+1 required rows and H hosts");
             CL_ASSERT(!Combo_SingleBag_StatusIsWorldDeadEnd(rc, rung),
                       "HOME_CAPACITY is never a world dead end: no ladder re-seed fixes a capacity fact");
-            CL_ASSERT(strcmp(Combo_Logic_StatusName(rc), "home-capacity") == 0,
-                      "its status name is 'home-capacity'");
+            CL_ASSERT(strcmp(Combo_Logic_StatusName(rc), "home-capacity") == 0, "its status name is 'home-capacity'");
         }
 
         // Discriminating: H rows fit and do not return HOME_CAPACITY.
@@ -2063,8 +2062,9 @@ TestResult Test_ComboLogicFill(void) {
         memset(&res, 0, sizeof(res));
         const int rcSurplus =
             ClRunFill(bag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
-        CL_ASSERT(rcSurplus != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
-                  "discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not fail with HOME_CAPACITY (surplus may drop)");
+        CL_ASSERT(
+            rcSurplus != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+            "discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not fail with HOME_CAPACITY (surplus may drop)");
         CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
     }
 
