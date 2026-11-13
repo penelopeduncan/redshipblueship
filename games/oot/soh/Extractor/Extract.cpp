@@ -330,6 +330,18 @@ bool Extractor::GetRomPathFromBox() {
     }
     mCurrentRomPath = nameBuffer;
 #else
+    if (!pfd::settings::available()) {
+        std::string msg =
+            "No file picker was found on your system. RedShipBlueShip needs one of these to select a ROM:\n\n"
+            "  - GNOME, Xfce, Cinnamon and other GTK desktops: install \"zenity\"\n"
+            "  - KDE Plasma: install \"kdialog\"\n\n"
+            "On other distributions or window managers, search your package manager.\n\n"
+            "Alternatively, place your ROM in:\n" +
+            mSearchPath + "\nand restart.";
+        ShowErrorBox("File Picker Unavailable", msg.c_str());
+        return false;
+    }
+
     auto selection =
         pfd::open_file("Select an Ocarina of Time ROM", mSearchPath, { "N64 Roms", "*.z64 *.n64 *.v64" }).result();
 
