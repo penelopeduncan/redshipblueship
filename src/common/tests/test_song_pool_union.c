@@ -93,6 +93,7 @@ int MM_PlacementConfinement_WorldCopies(uint16_t id);
 int OoT_SharedWarpSongsTest_LinksPocket(void);
 int OoT_Fill_TestSongHeldForBag(uint16_t rg);
 int OoT_SharedWarpSongsTest_UnsharedSongId(void);
+int OoT_ComboLogic_TestFillAdvancement(uint16_t id);
 void MM_IntSongHost_PinIds(uint16_t* healingCheck, uint16_t* sonataItem);
 int OoT_Combo_SetHintingSuspendedWorld(int on);
 int Rando_TestCheckLoadedCrossingHostHints(int* outProbes, int* outStones);
@@ -121,6 +122,8 @@ struct SpuKeys {
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_LOGIC));
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
         CVarClear("gRandoSettings.LinksPocket");
+        CVarClear("gRandoSettings.ShuffleDungeonReward");
+        CVarClear("gRandoSettings.OoTHint");
         CVarClear("gRando.Options.RO_SHUFFLE_SHOPS");
         CVarClear("gRando.ExcludedChecks");
         Combo_Logic_TestSetForcedPlacements(nullptr, 0);
@@ -432,7 +435,16 @@ TestResult SongPoolPocketAdvancement_Run(void) {
            "pocket holds no song, and row/host counts still agree (#1549 owed from #1546)\n");
     sSpuFailures = 0;
     SpuKeys keys;
-    CVarSetInteger("gRandoSettings.LinksPocket", 1);
+    // Context::FinalizeSettings forces Link's Pocket back to Dungeon Reward while
+    // dungeon rewards are End of Dungeons (the default), so Advancement takes effect
+    // only with them elsewhere: Any Dungeon (2) keeps them in OoT's own dungeon pass.
+    CVarSetInteger("gRandoSettings.ShuffleDungeonReward", 2); // RO_DUNGEON_REWARDS_ANY_DUNGEON
+    CVarSetInteger("gRandoSettings.LinksPocket", 1);          // RO_LINKS_POCKET_ADVANCEMENT
+    SharedItem kokiriEmerald;
+    SharedItem lightMedallion;
+    SPU_CHECK(TestNamedItem((uint8_t)GAME_OOT, "Kokiri's Emerald", &kokiriEmerald) &&
+                  TestNamedItem((uint8_t)GAME_OOT, "Light Medallion", &lightMedallion),
+              "OoT's dungeon rewards are not named\n");
     const char* seed = "RSBSSONGPOCKETADV";
     const SpuWorld w = SpuGenerate(seed, -1, -1, -1, true);
     SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);
@@ -445,8 +457,19 @@ TestResult SongPoolPocketAdvancement_Run(void) {
                   w.bag.fill.goalProven ? 1 : 0);
         SPU_CHECK(w.pocketSong == 0, "%s: Link's Pocket holds a song\n", seed);
         const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+        // Advancement took effect: the pocket holds an advancement item that is no
+        // dungeon reward (under Dungeon Reward it would hold one of the nine,
+        // RG_KOKIRI_EMERALD .. RG_LIGHT_MEDALLION, contiguous) and no song.
+        const bool pocketReward = pocketItem >= (int)kokiriEmerald.id && pocketItem <= (int)lightMedallion.id;
+        printf("[TEST] song-pool: %s: Link's Pocket holds OoT item %d (advancement %d, dungeon reward %d)\n", seed,
+               pocketItem, pocketItem > 0 ? OoT_ComboLogic_TestFillAdvancement((uint16_t)pocketItem) : -1,
+               pocketReward ? 1 : 0);
+        SPU_CHECK(pocketItem > 0 && OoT_ComboLogic_TestFillAdvancement((uint16_t)pocketItem) == 1 && !pocketReward,
+                  "%s: Link's Pocket item %d is not an advancement item other than a dungeon reward: Advancement "
+                  "did not take effect\n",
+                  seed, pocketItem);
         SPU_CHECK(pocketItem > 0 && OoT_ComboLogic_TestIsSongItem((uint16_t)pocketItem) == 0,
-                  "%s: Link's Pocket item %d is not an advancement item or is a song\n", seed, pocketItem);
+                  "%s: Link's Pocket item %d is a song\n", seed, pocketItem);
         const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
         SPU_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == 1,
                   "Link's Pocket song exclusion did not hold unshared song %d for bag\n", unshared);
