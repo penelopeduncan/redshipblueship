@@ -114,8 +114,15 @@
   of its own and is placed like any other item.
 - **Too many songs for the song checks is refused with a toast.** When the songs you added outnumber the song checks
   they may use, Generate says "Not generated: too many songs for the song spots." and makes no world.
-- **Not in yet:** Ocarina of Time's six warp songs in Majora's Mask and the shared versions of these songs. Both are
-  built and stay off the menu until their end-to-end checks pass.
+- **Ocarina of Time's six warp songs in Majora's Mask** (issue #1169). Six more Cross-Game Songs rows, Minuet of Forest
+  (MM) to Prelude of Light (MM), off by default. Each adds that song to Majora's Mask as its own item. Played as a child
+  in Termina, OK on the prompt takes you to the song's place in Hyrule. Both games' logic counts the warp.
+- **Shared Cross-Game Songs** (issue #1169). Seven more rows, Shared Song of Soaring to Shared Prelude of Light, off by
+  default; each is greyed until its song is added. Under one of them the song is one item for both games: it is placed
+  once, learning it in either game teaches it in both, both games' trackers show it held, and the added copy is named
+  without "(OoT)" or "(MM)". Sharing a song frees one song check under Shuffle Songs: Song Locations and Dungeon
+  Rewards. With Shuffle Songs: Off a shared song stays at its usual place (Sheik's songs at Sheik, the Song of Soaring
+  in the Southern Swamp) and both games' logic counts it from there.
 
 ### Fixes
 
@@ -1305,8 +1312,10 @@ Nobody has played any of it: every change below is locked by test rows.
   ordinary item (#1122).
 - With Shared Kokiri Sword on, Ocarina of Time's Kokiri Sword found in Termina still crosses and arrives at Ocarina
   of Time's next arrival, instead of stepping the shared sword at the pickup (issue #1145).
-- With a shared song rule on and Shuffle Songs Off, the song's vanilla check holds a shuffled item, but Ocarina of
-  Time's Check Tracker hides song checks under Off, so it is not listed there (#1111).
+- With Shared Epona's Song, Shared Song of Storms or Shared Song of Time on and Shuffle Songs Off, the song's vanilla
+  check holds a shuffled item, but Ocarina of Time's Check Tracker hides song checks under Off, so it is not listed
+  there (#1111). The shared warp songs do not do this: they stay at their usual check (issue #1561 tracks the same for
+  these three).
 - Skip Song Cutscenes, Quick Boss Deaths and Exclude Glitch-Aiding Cutscenes are Ocarina of Time only. Majora's
   Mask's song-teacher cutscenes follow Skip Story Cutscenes, and its boss blue-warp cutscenes follow Skip Boss
   Introductions. Skip First Cycle has no row: the crossing already starts Majora's Mask past its first cycle. Tatl's
