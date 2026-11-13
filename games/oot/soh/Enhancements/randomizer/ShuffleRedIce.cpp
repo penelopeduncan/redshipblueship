@@ -118,6 +118,12 @@ void BgIceShelter_RandomizerSpawnCollectible(Actor* actor) {
     }
 }
 
+void BgIceShelter_KingZoraSpawnCollectible(void* actor) {
+    if (!Flags_GetRandomizerInf(RAND_INF_ZD_KING_ZORA_RED_ICE) && OoT_Flags_GetInfTable(INFTABLE_138)) {
+        Flags_SetRandomizerInf(RAND_INF_ZD_KING_ZORA_RED_ICE);
+    }
+}
+
 void RegisterShuffleRedIce() {
     bool shouldRegister = IS_RANDO && Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_RED_ICE).Get();
 
@@ -149,6 +155,9 @@ void RegisterShuffleRedIce() {
             }
         }
     });
+
+    // Give King Zora red ice item if ice was removed with glitch
+    COND_ID_HOOK(OnActorInit, ACTOR_EN_KZ, shouldRegister, BgIceShelter_KingZoraSpawnCollectible);
 }
 
 void Rando::StaticData::RegisterRedIceLocations() {
