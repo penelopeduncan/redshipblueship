@@ -34,9 +34,11 @@ namespace S2H {
 
 /**
  * Drive `window`'s visibility to whatever its visibility CVar currently says
- * (#489 cause 1). Safe without a real Ship::Window: assignment always moves
- * visibility TO the stored CVar value, so GuiWindow::SetVisibility's
- * `shouldSave` stays false.
+ * (#489 cause 1). See the SyncVisibilityFromCVars doc comment in
+ * TrackersGuiSingleExe.h for why this is safe without a real Ship::Window: the
+ * assignment always moves visibility TO the stored CVar value, so
+ * GuiWindow::SetVisibility's `shouldSave` is always false and its
+ * Context::GetWindow()->GetGui() deref is never reached.
  */
 inline void MM_ActiveGated_SyncVisibilityFromCVar(Ship::GuiWindow& window, const char* cvar) {
     if (cvar == nullptr || cvar[0] == '\0') {
@@ -54,8 +56,9 @@ inline void MM_ActiveGated_SyncVisibilityFromCVar(Ship::GuiWindow& window, const
 }
 
 /**
- * Return the ImGui begin order the next window begun this frame will get, or -1
- * with no ImGui context.
+ * The ImGui begin order the next window begun this frame will get, or -1 with
+ * no ImGui context. MMActiveGated::Draw reads it before the wrapped Draw() so
+ * MM_ActiveGated_DrawCloseMenu can tell which windows that Draw() began.
  */
 inline int MM_ActiveGated_NextImGuiBeginOrder(void) {
     const ImGuiContext* g = ImGui::GetCurrentContext();
@@ -63,8 +66,15 @@ inline int MM_ActiveGated_NextImGuiBeginOrder(void) {
 }
 
 /**
- * In-game close menu for an MM window (#897). Re-enters every top-level
- * window that Draw() began this frame and gives it a right-click Close popup.
+ * In-game close for an MM window (#897). The vendored trackers pass a null
+ * p_open to ImGui::Begin (CheckTracker.cpp, ItemTracker.cpp), so ImGui gives
+ * them no close button, and the Item Tracker's default window type has no
+ * title bar at all. After the wrapped Draw() has run, this re-enters each
+ * top-level window that Draw() began this frame (ImGui appends to a window
+ * begun twice in one frame) and gives it a right-click menu with one item,
+ * Close. Covering every window the Draw() began, rather than one hard-coded
+ * ImGui name, is what reaches the Item Tracker's split-group windows too, and
+ * a window an old imgui.ini left docked is covered as well.
  * Returns true when the player chose Close.
  */
 inline bool MM_ActiveGated_DrawCloseMenu(int firstBeginOrder) {
@@ -73,6 +83,7 @@ inline bool MM_ActiveGated_DrawCloseMenu(int firstBeginOrder) {
         return false;
     }
 
+    // Collected first: the popup below creates a window, which grows g->Windows.
     ImVector<ImGuiWindow*> began;
     for (ImGuiWindow* window : g->Windows) {
         if (window->LastFrameActive != g->FrameCount || window->BeginOrderWithinContext < firstBeginOrder) {
@@ -81,6 +92,9 @@ inline bool MM_ActiveGated_DrawCloseMenu(int firstBeginOrder) {
         if ((window->Flags & (ImGuiWindowFlags_Popup | ImGuiWindowFlags_Tooltip)) != 0) {
             continue;
         }
+        // A docked window carries ImGuiWindowFlags_ChildWindow too (BeginDocked
+        // sets it), and its dock host was begun before Draw(), so a docked
+        // window is still collected here; real child windows are not.
         if ((window->Flags & ImGuiWindowFlags_ChildWindow) != 0 && !window->DockIsActive) {
             continue;
         }
@@ -106,6 +120,31 @@ inline bool MM_ActiveGated_DrawCloseMenu(int firstBeginOrder) {
     return close;
 }
 
+/**
+ * Active-game gate. Draw() covers the per-frame ImGui path (both the base
+ * GuiWindow::Draw used by the settings windows and the full Draw overrides in
+ * CheckTracker.cpp / ItemTracker.cpp); DrawElement() covers a caller that runs
+ * the body directly; UpdateElement() covers Gui's unconditional per-frame
+ * Update(). The bases' bodies run only while MM is the active game. The
+ * mm-trackers-gui and mm-dev-viewers-gate locks call these with OoT active and
+ * no ImGui context, so an ungated path aborts the test process.
+ *
+ * The gate is also where the per-frame CVar->visibility re-sync lives (#489
+ * cause 1). libultraship never re-reads a window's visibility CVar after the
+ * ctor, and the single exe has no BenMenu to call Show(), so without this the
+ * settings windows, which reach ImGui through the base GuiWindow::Draw and its
+ * `if (!IsVisible()) return;`, would be permanently stuck at whatever the
+ * config held on MM's first boot. Deliberately INSIDE the active-game gate:
+ * syncing while OoT is active would be wasted work every frame, and the
+ * ROM-free locks drive Draw() with OoT active specifically to prove nothing
+ * below the gate runs then.
+ *
+ * Draw() also hosts the in-game close (#897, MM_ActiveGated_DrawCloseMenu
+ * above): Close clears the visibility CVar BEFORE hiding, so the re-sync above
+ * keeps the window shut and GuiWindow::SetVisibility sees no CVar change to
+ * save (its save path dereferences the real Ship::Window, which the ROM-free
+ * harness lacks); the config is saved here instead, when there is a window.
+ */
 template <typename BaseWindow> class MMActiveGated final : public BaseWindow {
   public:
     template <typename... Args>
@@ -152,6 +191,8 @@ template <typename BaseWindow> class MMActiveGated final : public BaseWindow {
                     mVisibilityCVar);
     }
 
+    // GuiWindow keeps mVisibilityConsoleVariable private, so the wrapper holds
+    // its own copy of the same string it passed to the base ctor.
     std::string mVisibilityCVar;
 };
 
