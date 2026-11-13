@@ -472,8 +472,12 @@ TestResult SongPoolAllLocations_Run(void) {
     sSpuFailures = 0;
     SpuKeys keys;
 
-    // Leg (a) — Shipped profile under All Locations (RSBSSONGALR1):
-    // Real paired world under RSBS_COMBO_RUNG_ALL_REACHABLE with default settings.
+    // Leg (a): the shipped profile with All Locations Reachable set explicitly
+    // (RSBSSONGALR1). All Locations is already the default rung, so this is the
+    // default world; it asserts the generation froze that rung (so the critical-
+    // renewables rule was armed for its fill) and the song-pool shape under it. The
+    // critical-renewables guard itself is leg (b)'s: here the leftover song check
+    // can fall on either game.
     {
         const char* seed = "RSBSSONGALR1";
         const SpuWorld w = SpuGenerate(seed, -1, (int)RSBS_COMBO_RUNG_ALL_REACHABLE, -1, true);
@@ -485,8 +489,9 @@ TestResult SongPoolAllLocations_Run(void) {
             SPU_CHECK(w.bag.status == RSBS_COMBO_LOGIC_OK && w.bag.fill.goalProven,
                       "%s: bag status %s, goalProven %d\n", seed, Combo_Logic_StatusName(w.bag.status),
                       w.bag.fill.goalProven ? 1 : 0);
-            SPU_CHECK(Combo_CriticalRenewablesArmed((uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE),
-                      "critical renewables rule was not armed under All Locations\n");
+            SPU_CHECK(w.bag.rung == (uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE && Combo_CriticalRenewablesArmed(w.bag.rung),
+                      "%s: the fill froze rung %u, not All Locations, so critical renewables were not armed\n", seed,
+                      (unsigned)w.bag.rung);
             SPU_CHECK(w.ootOther == 0 && w.mmOther == 0,
                       "%s: %d OoT and %d MM song checks hold neither a song nor junk\n", seed, w.ootOther, w.mmOther);
             const int songsOnSongChecks = w.ootSongs + w.ootCrossed + w.mmSongs + w.mmCrossed;
@@ -501,11 +506,18 @@ TestResult SongPoolAllLocations_Run(void) {
         }
     }
 
-    // Leg (b) — Pending MM critical renewable first-copy guard (RSBSSONGALR2):
-    // With Shuffle Shops on, crossings off (guaranteeing MM has the leftover song check),
-    // and pre-Bomb-Shop RITYPE_JUNK checks 4, 5, 10, 12, 13 excluded, 10 Bombchus from
-    // Bomb Shop check 14 is the first RENEWABLE item in rest. Line 3441 must skip it so
-    // that Combo_CriticalRenewablesPlanFirstCopies places it on a renewing host.
+    // Leg (b): the pending MM critical-renewable guard of MM's leftover song check
+    // (RSBSSONGALR2). Crossings Off puts every song in its own game, so OoT's 12
+    // songs fill its 12 song checks and MM's 10 leave one of its 11 to the leftover
+    // step (ComboLogicEngineSingleExe.cpp, the `critArmed && rest[r] != RI_JUNK &&
+    // Combo_CriticalRenewablePending(row, songRenewed)` skip). Shuffle Shops on
+    // pools the Bomb Shop, so no vanilla shelf renews 10 Bombchus and its first copy
+    // is pending when that step runs. The step takes the first junk or renewable row
+    // of `rest`, which is in GeneratePools' region-major order, not check-id order;
+    // the excluded checks (4, 5, 10, 12, 13) only thin out the rows ahead of the
+    // Bomb Shop's. Whether the guard's removal puts a pending kind on the leftover
+    // therefore depends on that order: the leftover's item is printed on every run,
+    // and the mutation must be observed red before this leg is counted as its lock.
     {
         SPU_CHECK(Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 13) &&
                       Combo_CriticalRenewableHostRenews((uint8_t)GAME_MM, 14) &&
@@ -541,10 +553,16 @@ TestResult SongPoolAllLocations_Run(void) {
             const int census = SpuCensusPlacedSongs();
             SPU_CHECK(census == 22, "%s: census of placed songs returned %d, want 22 distinct songs\n", seed, census);
 
+            // The kinds MM renews without the fill: vanilla shelves and counters
+            // outside the host pool, cows and the three business scrubs. MM's
+            // junk-class critical rows (10 Bombchus, potions, milk) are never the
+            // bag's, so for them this is what the leftover step saw. A setup
+            // precondition, not the guard: with shops pooled, 10 Bombchus is pending.
             uint32_t songRenewed[RSBS_FOREIGN_POOL_ORIGIN_COUNT] = {};
             Combo_CriticalRenewablesRenewedNow(songRenewed);
             SPU_CHECK((songRenewed[GAME_MM] & (1u << RSBS_CRIT_MM_BOMBCHU_10)) == 0u,
-                      "%s: 10 Bombchus were renewed before remainder fill\n", seed);
+                      "%s: setup: 10 Bombchus is renewed outside the fill, so its first copy was never pending\n",
+                      seed);
 
             const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
             std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
@@ -575,9 +593,15 @@ TestResult SongPoolAllLocations_Run(void) {
                 }
 
                 mmLeftoversChecked++;
-                SPU_CHECK(!Combo_CriticalRenewablePending(itemRow, songRenewed) && Combo_CriticalRenewableKind(itemRow) < 0,
-                          "%s: MM leftover song check %u holds critical renewable %s (%u)\n", seed, (unsigned)rc,
-                          Combo_CriticalRenewableKindName(GAME_MM, Combo_CriticalRenewableKind(itemRow)),
+                const int leftoverKind = Combo_CriticalRenewableKind(itemRow);
+                printf("[TEST] song-pool: %s: MM leftover song check %u holds MM item %u (critical kind %d%s%s)\n",
+                       seed, (unsigned)rc, (unsigned)itemId, leftoverKind, leftoverKind >= 0 ? ", " : "",
+                       leftoverKind >= 0 ? Combo_CriticalRenewableKindName((uint8_t)GAME_MM, leftoverKind) : "");
+                // Production's rule: the leftover takes no kind still PENDING (a
+                // renewed kind, such as milk the cows give again, may sit there).
+                SPU_CHECK(!Combo_CriticalRenewablePending(itemRow, songRenewed),
+                          "%s: MM leftover song check %u holds the pending first copy of %s (%u)\n", seed,
+                          (unsigned)rc, Combo_CriticalRenewableKindName((uint8_t)GAME_MM, leftoverKind),
                           (unsigned)itemId);
             }
             SPU_CHECK(mmLeftoversChecked == 1, "%s: inspected %d MM leftover song checks, want 1\n", seed,
