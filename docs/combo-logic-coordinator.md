@@ -354,6 +354,24 @@ PAIR block in `combo_logic.h`; the choices behind it:
 
 Locked by `ComboLogicSharedPair`.
 
+**The fixed shared credit (#1169 XW15).** A shared family half can also sit on
+its own game's check as that game's FIXED native content, in no table: under
+Shuffle Songs Off a shared warp song stays on its default check (the operator's
+ruling; `Combo_SharedWarpSongFixedAtHome`), the six OoT warp songs at Sheik and
+the Song of Soaring in the Southern Swamp. No bag row carries it, so the host
+engine harvests it natively and nothing else would credit the other game.
+`Combo_Logic_SetFixedCredits` names such hosts (host game, host check, far item);
+`ComboLogicExchangeFrom` hands each far item to its engine once per round (its own
+delivered bit, cleared with `sExchanged`) when the host is reached, under the
+same gate a crossing from that host uses and never from a forbidden host. It is
+`assumeOwnItem`'s source 3b. The list is an input of the world, not of an
+attempt: `Combo_Logic_ResetPlacements` keeps it, `Combo_SingleBag_Run` sets it
+before the fill from the two games' finders (`OoT_ComboLogic_FixedSharedSongHost`,
+`MM_ComboLogic_FixedSharedSongHost`), and `Combo_SingleBag_Forget` clears it. It
+is in no table, digest, crossing store or WotH candidate list and is never saved;
+no ABI number or struct changed. Locked by `ComboLogicFixedCredit` and
+`SharedWarpSongsOneCopyOff`.
+
 ## 4.5 The travel facts (ABI 10, #1169 XW9)
 
 The one place a game's logic reads the other game's state. The contract is THE

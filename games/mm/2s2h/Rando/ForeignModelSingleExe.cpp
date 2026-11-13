@@ -377,6 +377,7 @@ bool IsCustomDrawn(RandoItemId ri) {
         case RI_OCARINA_BUTTON_C_LEFT:
         case RI_OCARINA_BUTTON_C_RIGHT:
         case RI_OCARINA_BUTTON_C_UP:
+        case RI_SKELETON_KEY:
         // #980: Ocarina of Time's masks in MM draw OoT's own model
         // (OoTMasksMM.cpp, MM_OoTMask_DrawGetItem), which MM does not re-express.
         case RI_MASK_GERUDO:

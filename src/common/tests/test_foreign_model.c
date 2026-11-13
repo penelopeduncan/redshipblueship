@@ -1465,8 +1465,13 @@ bool FmDrawSongColours(std::map<std::string, std::array<int, 3>>* out) {
  */
 TestResult FmMMSongsInOoT(void) {
     std::map<std::string, std::array<int, 3>> drawSong;
-    FM_ASSERT(FmDrawSongColours(&drawSong) && drawSong.size() == 12,
-              "M19 DrawSong's twelve env colours read off games/mm/2s2h/Rando/DrawItem.cpp");
+    // Fifteen cases: MM's twelve songs and #1403's Double Time, Inverted Time and
+    // Saria's Song. Those three never cross: their pool options are PARTIAL, and a
+    // paired profile resolves every PARTIAL row to its default, off, whatever its
+    // key holds (Foreign.cpp ResolveProfileValues (1a)), so no paired pool holds
+    // them. They are therefore not in M19's song walk.
+    FM_ASSERT(FmDrawSongColours(&drawSong) && drawSong.size() == 15,
+              "M19 DrawSong's fifteen env colours read off games/mm/2s2h/Rando/DrawItem.cpp");
     struct OoTHas {
         const char* drawCase;
         uint8_t tint[3]; // GetItem_DrawGenericMusicNote's colour for OoT's own row

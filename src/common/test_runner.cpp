@@ -621,6 +621,10 @@ int RandoTest_ScrubTextHintSetting(void);
 // in games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_CustomMessageReplaceTest_Run(void);
 int RandoTest_MapCompassText(void);
+// #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
+// the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
+// Return 0 on pass.
+int MM_CustomMessageLineBreaks_RunHeadless(void);
 // #1164 green pin: SoH's bombchu drop rule under the Bombchu Bag setting. Body in
 // games/oot/soh/oot_shared_bombchu_test.cpp. Return 0 on pass.
 int OoT_BombchuDropRuleTest_Run(void);
@@ -1286,6 +1290,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // MM rows' entry points (mm-warp-song-matcher, mm-warp-song-departure) are declared
 // there. All three ROM-free and generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_song_play.c"
+// #1169 lane XW13: the pure half of IntMMWarpSongMinuet (MM's test input seam, the
+// row's note schedule, its crossing decisions) and the seam's anchors in MM's padmgr
+// (mm-warp-drive-seam, ROM-free, generation-free). Directly after the file above:
+// it reuses that file's source readers. FILE SCOPE (compiled as C++).
+#include "tests/test_mm_warp_drive.c"
 // #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
 // exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
 // ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
@@ -3519,6 +3528,12 @@ TestResult Test_CustomMessageReplace(void) {
     return OoT_CustomMessageReplaceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1556: MM's AddLineBreaks is plain strings and a static width table, so no
+// bring-up either. Assertions in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
+TestResult Test_MMCustomMessageLineBreaks(void) {
+    return MM_CustomMessageLineBreaks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1187: a map's get-item text and the compass rows' text ids. Same bring-up as
 // the row above it (BuildMapMessage reads the generated context's options).
 TestResult Test_MapCompassText(void) {
@@ -5166,7 +5181,7 @@ TestResult Test_MMPairedStartSharedSongTime(void) {
 }
 
 // #1169 XW5: Ocarina of Time's warp songs as MM items over real paired creations,
-// rules off, on through the hidden-bit test seam, and shared. Body in
+// rules off, on through their keys, and shared. Body in
 // games/mm/2s2h/mm_warp_songs_mm_test.cpp; mm-paired-start's bring-up; `--test all`
 // skips it.
 extern "C" int MM_WarpSongsPooled_RunHeadless(void);
@@ -8250,6 +8265,10 @@ static TestResult Test_MMWarpSongDeparture(void) {
     }
     return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1169 XW13: no bring-up: the row reads no CVar and no play state.
+static TestResult Test_MMWarpDriveSeam(void) {
+    return MMWarpDriveSeam_Run();
+}
 
 // The combo settings pane's window (ADR 0011 increment 2). Same bring-up as
 // the Gui bridges above and for the same reason.
@@ -9060,7 +9079,7 @@ TestResult Test_ComboWarpTravelRounds(void) {
     return MM_WarpTravelRounds_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 // #1169 XW12: real paired creations with one warp-song rule ON through its key (the
-// MM seam for the Minuet) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
+// production mask since XW13) (games/mm/2s2h/mm_warp_travel_test.cpp, its end). The same
 // bring-up as combo-warp-travel-rounds; `--test all` skips it (a generation row).
 extern "C" int MM_WarpSongWorld_RunHeadless(void);
 TestResult Test_ComboWarpSongWorld(void) {
@@ -10576,6 +10595,10 @@ const TestDescriptor gTests[] = {
       "One shared-pair bag row is credited by both engines, its far half goes through the crossing gate, and the "
       "composer replaces both games' rows with one (ABI 7, #976)",
       Test_ComboLogicSharedPair },
+    { "combo-logic-fixed-credit",
+      "A shared item fixed on its own game's check credits the other engine once per round when that check is "
+      "reached, through the crossing gate, never from a forbidden host, and the credits outlive a reset (#1169 XW15)",
+      Test_ComboLogicFixedCredit },
     { "combo-logic-host-groups",
       "A confined bag row lands only on its own game's hosts in its group, is drawn first, drops alone as surplus, "
       "and a group with more rows than hosts is refused before any attempt (ABI 9, #1502)",
@@ -10822,11 +10845,12 @@ const TestDescriptor gTests[] = {
       "With MM's own Shuffle Songs key at Vanilla and OoT's at Anywhere, MM's half follows OoT's (Anywhere) and each "
       "shared song is still ONE copy over both games (#1502, #1542)",
       Test_SharedSongsOneCopyMMVanilla },
-    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (the
-    // hidden-bit test seam), one real paired generation per Shuffle Songs value.
+    // #1169 XW10: one copy of each shared warp song, all fourteen rules on (their
+    // keys, offered since XW14), one real paired generation per Shuffle Songs value.
     { "shared-warp-songs-one-copy-off",
-      "With every warp-song rule on and Shuffle Songs Off, each shared warp song is one bag pair row over both worlds, "
-      "never Link's Pocket, and the other songs stay vanilla (#1169 XW10)",
+      "With every warp-song rule on and Shuffle Songs Off, each shared warp song stays on its own default check (no "
+      "bag row, never Link's Pocket, every OoT song vanilla, MM's Song of Soaring on its unshuffled check) and the "
+      "other game's logic is credited there (#1169 XW10, XW15)",
       Test_SharedWarpSongsOneCopyOff },
     { "shared-warp-songs-one-copy-song-locations",
       "With every warp-song rule on and Shuffle Songs at Song Locations, each shared warp song is one bag pair row on "
@@ -10842,7 +10866,8 @@ const TestDescriptor gTests[] = {
       Test_SharedWarpSongsOneCopyAnywhere },
     { "shared-warp-songs-edges",
       "The Song of Soaring (OoT) beside a shared Minuet fits Dungeon Rewards, under Off the songs family is armed for "
-      "a lone Soaring (OoT) whatever the shared rules, and a started shared Minuet is no bag row (#1169 XW10)",
+      "a lone Soaring (OoT) whatever the shared rules and never for a shared warp song alone, and a started shared "
+      "Minuet is no bag row (#1169 XW10, XW15)",
       Test_SharedWarpSongsEdges },
     { "mm-placement-confined-world",
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
@@ -10894,6 +10919,10 @@ const TestDescriptor gTests[] = {
       "CustomMessage::Replace returns when the replacement contains the search string, in both overloads and through "
       "AutoFormat(ItemID) (#1187)",
       Test_CustomMessageReplace },
+    { "mm-custom-message-line-breaks",
+      "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
+      "one, adds no width for an overflowing space, and loses no letter (#1556)",
+      Test_MMCustomMessageLineBreaks },
     { "foreign-model",
       "A foreign item's get-item model is answered by its origin game: every draw row and progression item of both "
       "games classifies to a descriptor of its own display lists, a host-native model or a named no-model, "
@@ -10970,8 +10999,8 @@ const TestDescriptor gTests[] = {
       "and warning are worded (#1169)",
       Test_OoTSoaringRuleLogic },
     { "oot-soaring-rules-off-unchanged",
-      "While the warp-song rules are hidden no world a player can make pools the Song of Soaring (OoT), credits it or "
-      "meets the song-spot refusal, and every id before it is main's (#1169)",
+      "With the warp-song rules off no world a player can make pools the Song of Soaring (OoT), credits it or meets "
+      "the song-spot refusal, and every id before it is main's; the rule and its shared song are offered (#1169)",
       Test_OoTSoaringRulesOffUnchanged },
     // #1169 XW6: playing the Song of Soaring (OoT). Three ROM-free rows that
     // generate nothing.
@@ -11045,8 +11074,8 @@ const TestDescriptor gTests[] = {
       "after a freeze, the crossing's commit and a reload; the fingerprint never moves (#1169)",
       Test_MMWarpSongsOwnership },
     { "mm-warp-songs-rules-off-unchanged",
-      "While the warp-song rules are hidden no world pools or credits an MM warp song, and owning one moves no "
-      "fingerprint, bag seed or package record (#1169)",
+      "With the warp-song rules off no world pools or credits an MM warp song, and owning one moves no "
+      "fingerprint, bag seed or package record; the rules and their shared songs are offered (#1169)",
       Test_MMWarpSongsRulesOffUnchanged },
     { "mm-warp-songs-pooled-only-when-rule-on",
       "Real paired creations pool no MM warp song with the rules off, one of each with them on through the test seam, "
@@ -11069,6 +11098,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1169 XW13: ROM-free and generation-free.
+    { "mm-warp-drive-seam",
+      "MM's test input seam ORs a latch into controller 1 once and clears it, refuses outside an integration run and "
+      "sits before the D-pad masks and the press edges; the row's Minuet schedule, its arm proofs and its expected OoT "
+      "arrival answer as the drive needs (#1169)",
+      Test_MMWarpDriveSeam },
     // #1169 XW9: the travel facts in each game's logic. The first is ROM-free and
     // generation-free; the second needs MM's rando graph (rando tier, skipped by
     // `--test all` below) and generates nothing.
@@ -11100,7 +11135,7 @@ const TestDescriptor gTests[] = {
     { "combo-warp-song-world",
       "A real paired creation with one warp-song rule on through its key places exactly one copy, proves the world "
       "beatable with its travel credited and freezes the warp-song record; under Shuffle Songs Off the Song of "
-      "Soaring (OoT) roams (#1169)",
+      "Soaring (OoT) roams and the shared Song of Soaring stays on its own check, credited to both games (#1169)",
       Test_ComboWarpSongWorld },
     // #1169 XW7: the creation's warp-song record over real paired creations
     // (rando tier, a generation row: on the --test all skip list).
@@ -11459,6 +11494,20 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "second owl from the map: MM must land on the cleared swamp's owl, not the pause-save spot, with the one-shot "
       "target spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
+    { "int-mm-warp-song-minuet",
+      "The paired first crossing with Majora's Mask's Minuet of Forest rule on (#1169 XW13): in South Clock Town, once "
+      "the arrival's starting checks are paid out, Link takes the Ocarina of Time out from C-down and plays the Minuet "
+      "through MM's test input seam; the song is matched, 'You played' shows, the warp prompt offers OK, and OK arms "
+      "the one-shot target (MM, this entrance, OoT, Minuet's pad, the warp-song kind); OoT must then arrive as a "
+      "child at the destination frozen in the creation's warp-song record, restored, with the switch spent",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET },
+    { "int-mm-warp-song-minuet-shared",
+      "int-mm-warp-song-minuet with the Shared Minuet of Forest on too (#1169 XW14): OoT is given its own Minuet "
+      "before the Happy Mask Shop door and the MM drive gives nothing; at PREPARE MM's arrival apply must have given "
+      "MM its Minuet through the shared family (the apply's give record, not a starting-check payout), and the "
+      "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
+      "Minuet still held at the arrival",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "
@@ -11860,8 +11909,9 @@ int TestRunner_GetIntegrationTestResult(void) {
     // RSBS_PFC_DIVERGE=1 (#804): put the three keys it moved back to unset, pass
     // or fail, so the config stays as the shipped-defaults check found it.
     IntegrationTest_PairedDivergeCleanup();
-    // int-soaring-to-owl (#1169 XW6): the keys it set in memory go back and the
-    // hidden rules are hidden again, pass or fail.
+    // int-soaring-to-owl (#1169 XW6) and int-mm-warp-song-minuet (#1169 XW13): the
+    // keys they set in memory go back, MM's test buttons are cleared and the hidden
+    // rules are hidden again, pass or fail.
     IntegrationTest_SoaringCleanup();
     // The paired row's stderr tee (a no-op for every other row): drain it and
     // put fd 2 back before the process _Exit()s, so no line is lost in the pipe.

@@ -635,9 +635,9 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         return RSBS_SEEDPKG_ERR_GENERATOR_VERSION;
     }
     // #1169 XW2: a world whose second rules word holds a rule this build does not
-    // offer yet (since XW12, an MM or shared warp-song rule; or a bit no build
-    // allocates) is another build's world, refused by name as Generate refuses
-    // it, before anything is applied.
+    // offer (a bit inside RSBS_XITEM2_HIDDEN, or one this build does not allocate)
+    // is another build's world, refused by name as Generate refuses it, before
+    // anything is applied.
     char refusedRules[160];
     if (Combo_ComboItemRules2Refused(rules2, refusedRules, sizeof(refusedRules)) != 0u) {
         why = std::string("the pair turns on cross-game rules this build does not offer (") + refusedRules + ")";

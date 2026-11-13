@@ -265,10 +265,17 @@ uint32_t OoT_ComboLogic_ExcludedSongChecks(void);
  *  solve.ts placeSemiShuffled) followed by the counts and the ways out, for the
  *  short side @p side (RSBS_SONG_POOL_SHORT_*): @p rows songs (@p rowsOoT of
  *  OoT, @p rowsMM of MM) for @p hosts song checks. @p excludedSongChecks > 0 adds
- *  "include an excluded song check" to the advice. Writes at most @p len bytes,
- *  NUL-terminated; returns the length snprintf reports. Pure. */
+ *  "include an excluded song check" to the advice. The home-side texts (SHORT_OOT,
+ *  SHORT_MM) advise "Share a song" too while Combo_SongPoolShareOffered (#1169
+ *  XW14); the whole-pool texts always do. Writes at most @p len bytes,
+ *  NUL-terminated; returns the length snprintf reports. Pure but for that read. */
 uint32_t Combo_SongPoolCapacityRefusal(uint8_t side, uint32_t rows, uint32_t hosts, uint32_t rowsOoT, uint32_t rowsMM,
                                        uint32_t excludedSongChecks, char* msg, size_t len);
+
+/** Does this build offer a shared warp-song row (any RSBS_XITEM2_WARP_SONG_SHARED
+ *  bit through Combo_ComboItemRule2Offered, #1169 XW14)? A shared song frees one
+ *  song check of its home class, so the home-side refusals name it only then. */
+bool Combo_SongPoolShareOffered(void);
 
 /** TEST SEAM: -1 clears the override, 0 forces the switch off, 1 forces it on.
  *  RAM only, never a CVar (a stored CVar would persist into later processes).

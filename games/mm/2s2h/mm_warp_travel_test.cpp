@@ -757,6 +757,11 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
 //   F3 Song of Soaring (OoT), Shuffle Songs: Off, no shared song (D5): the world
 //      creates, OoT arms its songs to roam (RSBS_FILL_ARM_SONGS_ROAM) and holds
 //      exactly one copy.
+//   F4 (#1169 XW15) the SHARED Song of Soaring with its extension, Shuffle Songs:
+//      Off: the song stays on MM's own Southern Swamp check (unshuffled), no
+//      coordinator row carries it, one fixed shared credit names that check, OoT
+//      arms nothing for it, and the exit round credits Soaring into MM through
+//      that credit alone.
 //
 // Catches: a pool missing the song or holding two copies, a rule bit the fill's
 // proof never turns into travel, a world the logic cannot finish with the rule on,
@@ -788,6 +793,7 @@ struct MwwRestore {
     ~MwwRestore() {
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+        CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SOARING)); // F4 (#1169 XW15)
         CVarClear("gRandoSettings.ShuffleSongs");
         Combo_ComboItemRules2RevealForTest(0);
         Combo_SingleBag_Forget();
@@ -850,25 +856,37 @@ int MwwPlaced(uint8_t origin, uint16_t id, int* onMMSongCheck) {
     return placed;
 }
 
-/** One leg: a real paired creation with @p key on and Shuffle Songs @p shuffleSongs
- *  (-1: OoT's shipped default), up to MM's half. 1 when the world exists. */
-int MwwCreate(const char* leg, const char* seed, ComboSettingId key, uint32_t bit, int shuffleSongs) {
+/** One leg: a real paired creation with @p key on (and @p key2, when not NULL) and
+ *  Shuffle Songs @p shuffleSongs (-1: OoT's shipped default), up to MM's half; @p bit
+ *  is the frozen second word the keys must give. 1 when the world exists. */
+int MwwCreate(const char* leg, const char* seed, ComboSettingId key, uint32_t bit, int shuffleSongs,
+              const ComboSettingId* key2 = nullptr) {
     Combo_SingleBag_Forget();
     ComboContext_Init();
     CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM));
     CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SONG_SOARING_OOT));
+    CVarClear(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SOARING));
     CVarClear("gRandoSettings.ShuffleSongs");
     CVarSetInteger(Combo_ComboSettingKey(key), 1);
+    if (key2 != nullptr) {
+        CVarSetInteger(Combo_ComboSettingKey(*key2), 1);
+    }
     if (shuffleSongs >= 0) {
         CVarSetInteger("gRandoSettings.ShuffleSongs", shuffleSongs);
     }
-    // The production mask for the Song of Soaring (OoT); the MM seam for a Majora's
-    // Mask extension, hidden until IntMMWarpSongMinuet (#1169 XW12).
-    const bool mmRule = (bit & RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS) != 0u;
-    Combo_ComboItemRules2RevealForTest(mmRule ? RSBS_XITEM2_REVEAL_MM_SONGS : RSBS_XITEM2_REVEAL_NONE);
-    MwwCheck(Combo_ComboItemRule2Offered(bit), leg,
-             mmRule ? "the MM rule is not offered under the MM seam"
-                    : "the rule is not offered by the production mask (XW12 offers it)");
+    // The production mask for every rule: the Song of Soaring (OoT) is offered
+    // since XW12, the Majora's Mask extensions since XW13 (IntMMWarpSongMinuet),
+    // the shared songs since XW14.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+    bool offered = bit != 0u;
+    for (uint32_t b = 0; b < 32u; ++b) {
+        if ((bit & (1u << b)) != 0u && !Combo_ComboItemRule2Offered(1u << b)) {
+            offered = false;
+        }
+    }
+    MwwCheck(offered, leg,
+             "a rule is not offered by the production mask (XW12 offers the Song of Soaring (OoT), XW13 the "
+             "Majora's Mask extensions, XW14 the shared songs)");
     if (Rando_HeadlessSeedTest(seed) != 0 || !Combo_ForeignPairingActive() || !Combo_ComboSettingsFrozen() ||
         !OoT_ComboLogic_GeneralPassDeferred()) {
         MwwCheck(false, leg, "the paired OoT generation did not leave a frozen paired world at its general pass");
@@ -908,7 +926,7 @@ int MwwExitRound(ComboLogicRoundResult* out) {
 
 extern "C" int MM_WarpSongWorld_RunHeadless(void) {
     printf("[TEST] combo-warp-song-world: real paired creations with one warp-song rule on through its key (the "
-           "production mask; the MM seam for the Minuet) place exactly one copy, prove the world beatable with its "
+           "production mask) place exactly one copy, prove the world beatable with its "
            "travel credited, and freeze the warp-song record (#1169 XW12)\n");
     sMwwFailures = 0;
     MwwRestore restore;
@@ -1008,6 +1026,62 @@ extern "C" int MM_WarpSongWorld_RunHeadless(void) {
                  "F3 under Off the Song of Soaring (OoT) arms OoT's songs to roam (D5)",
                  "the arm word lacks SONGS_ROAM: the song's domain still depends on an unrelated held-back song");
         MwwCheck(placed == 1, "F3 exactly one Song of Soaring (OoT) in the world", "no copy or more than one");
+    }
+    Combo_SingleBag_Forget();
+
+    // ---- F4: the SHARED Song of Soaring, Shuffle Songs Off (#1169 XW15) -------------
+    // The operator's ruling: a shared song is at its default location when the songs
+    // are not shuffled. The Soaring stays on MM's own Southern Swamp check, no bag row
+    // carries it, and OoT's logic holds it through the fixed shared credit there.
+    const ComboSettingId sharedSoaringKey = COMBO_SETTING_SHARED_SONG_SOARING;
+    if (MwwCreate("F4 shared Song of Soaring, Shuffle Songs Off", "RSBSXW15SOAROFF", COMBO_SETTING_SONG_SOARING_OOT,
+                  RSBS_XITEM2_SONG_SOARING_OOT | RSBS_XITEM2_SHARED_SONG_SOARING, 0, &sharedSoaringKey) != 0) {
+        const RandoSaveCheck& swamp = RANDO_SAVE_CHECKS[RC_SOUTHERN_SWAMP_SONG_OF_SOARING];
+        int pairRows = 0;
+        for (GameId host : { GAME_OOT, GAME_MM }) {
+            ComboLogicPlacement p;
+            for (int i = 0; i < Combo_Logic_PlacementCount(host); ++i) {
+                if (Combo_Logic_PlacementAt(host, i, &p) &&
+                    ((p.item.originGame == (uint8_t)GAME_MM && p.item.id == (uint16_t)RI_SONG_SOARING) ||
+                     (p.pair.originGame == (uint8_t)GAME_MM && p.pair.id == (uint16_t)RI_SONG_SOARING))) {
+                    pairRows++;
+                }
+            }
+        }
+        ComboLogicFixedCredit credit;
+        std::memset(&credit, 0, sizeof(credit));
+        const int credits = Combo_Logic_FixedCreditCount();
+        const bool creditRead = credits == 1 && Combo_Logic_FixedCreditAt(0, &credit);
+        const uint32_t armed = OoT_ComboLogic_ConfinementArmed();
+        const bool everyLocation = MwwFillReachedEveryLocation();
+        ComboLogicRoundResult r;
+        const int s = MwwExitRound(&r);
+        const int delivered = Combo_Logic_FixedCreditDeliveredCount();
+        MwrPrint("F4 exit round", r);
+        printf("[TEST] combo-warp-song-world: F4 swamp check item %d shuffled %d; table rows with MM's Soaring %d; "
+               "fixed credits %d (host %u/%u, far %u/%u), delivered %d; OoT arm word %08X\n",
+               (int)swamp.randoItemId, swamp.shuffled ? 1 : 0, pairRows, credits, (unsigned)credit.hostGame,
+               (unsigned)credit.hostCheck, (unsigned)credit.farItem.originGame, (unsigned)credit.farItem.id, delivered,
+               (unsigned)armed);
+        MwwCheck(swamp.randoItemId == RI_SONG_SOARING && !swamp.shuffled && !swamp.skipped,
+                 "F4 the Song of Soaring stays on its own Southern Swamp check, unshuffled",
+                 "the swamp check was released to the bag (GeneratePools RsbsReleasesVanillaSharedSong)");
+        MwwCheck(pairRows == 0, "F4 no coordinator row carries MM's Song of Soaring",
+                 "the shared Soaring is still a roaming bag row");
+        MwwCheck(creditRead && credit.hostGame == (uint8_t)GAME_MM &&
+                     credit.hostCheck == (uint16_t)RC_SOUTHERN_SWAMP_SONG_OF_SOARING &&
+                     credit.farItem.originGame == (uint8_t)GAME_OOT && credit.farItem.id == ootSoaring,
+                 "F4 one fixed shared credit: the swamp check hands OoT its Song of Soaring (OoT)",
+                 "the creation set no credit, more than one, or the wrong host or item");
+        MwwCheck((armed & RSBS_FILL_ARM_SONGS_ROAM) == 0u,
+                 "F4 under Off the shared Soaring does not arm OoT's songs to roam",
+                 "the arm word has SONGS_ROAM: the shared Soaring is still held back for the bag");
+        MwwCheck(everyLocation, "F4 the creation's fill reached every location",
+                 "the fill's report is absent, failed, or did not hold its every-location term");
+        MwwCheck(s == RSBS_COMBO_LOGIC_OK && r.goalExpression == 1 && r.travelToMM == RSBS_COMBO_TRAVEL_INTO_MM &&
+                     delivered == 1,
+                 "F4 the exit round proves the goal and credits the fixed Soaring into MM",
+                 "the Soaring on MM's own check never became OoT's travel fact into MM");
     }
     Combo_SingleBag_Forget();
 

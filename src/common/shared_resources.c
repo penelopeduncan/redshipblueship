@@ -19,8 +19,10 @@
 // retired that rule and the kind is never armed now. foreign_items.h is
 // game-header-free too, so this TU stays compilable in the ROM-free harness.
 #include "foreign_items.h"
-#include "triforce_hunt.h" // Combo_TriforceHuntArmed: the O10 kind's arming gate
-#include "shared_items.h"  // #1061: a pack's kind and size, from the item class owner
+#include "triforce_hunt.h"   // Combo_TriforceHuntArmed: the O10 kind's arming gate
+#include "shared_items.h"    // #1061: a pack's kind and size, from the item class owner
+#include "warp_song_items.h" // #1169 XW14: Combo_SharedFamily2DisplayName is declared there
+#include "warp_songs_mm.h"   // #1169 XW14: Combo_MMWarpSongOoTName, a shared song's plain name
 #include <stdio.h>
 #include <string.h>
 
@@ -791,6 +793,46 @@ static uint32_t FamiliesHeldLive(GameId game, int word, uint32_t armed) {
     return held;
 }
 
+// #1169 XW14: each game's live-file probe (Combo_RegisterSharedLiveProbe).
+// Zero-initialised storage, written by static registrars: safe whatever the
+// static-init order.
+static ComboSharedLiveProbeFn sSharedLiveProbes[3];
+
+void Combo_RegisterSharedLiveProbe(GameId game, ComboSharedLiveProbeFn probe) {
+    if (IsRealGame(game)) {
+        sSharedLiveProbes[game] = probe;
+    }
+}
+
+ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game) {
+    return IsRealGame(game) ? sSharedLiveProbes[game] : NULL;
+}
+
+uint32_t Combo_SharedFamilies2HeldNow(void) {
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (armed2 == 0u) {
+        return 0u; // every world with no shared rule frozen: no callback runs
+    }
+    // owned2 holds every copy harvested at a suspend or a .redsave capture; the
+    // running game's own live copy is the only one it can be missing (OoTMM's
+    // has(SHARED_SONG_X)). A member is asked only under its own game's probe, so
+    // never for the other game's shadow, a title screen or a file select.
+    uint32_t held = gComboCtx.sharedFamilyOwned2 & armed2;
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int i = 0; i < 2; ++i) {
+        const ComboSharedLiveProbeFn probe = sSharedLiveProbes[games[i]];
+        if (probe != NULL && probe() != 0) {
+            held |= FamiliesHeldLive(games[i], 1, armed2);
+        }
+    }
+    return held;
+}
+
+/** #1169 XW14: the second-word families Combo_SharedFamiliesApplyLive GAVE each game
+ *  on its most recent call (Combo_SharedFamilies2GivenAtLastApply). Session state,
+ *  file-static: never ComboContext, never saved. */
+static uint32_t sFamilies2GivenAtLastApply[3];
+
 /** Give @p game its own copy of every family of word @p word in @p owed. */
 static int FamiliesGiveOwed(GameId game, int word, uint32_t owed) {
     int given = 0;
@@ -803,6 +845,9 @@ static int FamiliesGiveOwed(GameId game, int word, uint32_t owed) {
         const ComboSharedFamilyMember* m = &sFamilyMembers[game][slot];
         m->give(m->nativeId);
         given++;
+        if (word == 1) {
+            sFamilies2GivenAtLastApply[game] |= bit;
+        }
         fprintf(stderr, "[combo] shared family %s: %s given its own copy (id %u) at arrival\n",
                 word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit), Game_ToString(game),
                 (unsigned)m->nativeId);
@@ -835,6 +880,9 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
     if (!IsRealGame(game)) {
         return 0;
     }
+    // #1169 XW14: this call's give record starts empty, before any early return, so
+    // an apply that owes nothing reads 0 afterwards.
+    sFamilies2GivenAtLastApply[game] = 0u;
     // #1169 XW10: a family word is applied when it arms a family and the pool holds
     // one of it; the first word exactly as before, then the second.
     const uint32_t armed = Combo_SharedFamiliesArmed();
@@ -852,6 +900,60 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
         given += FamiliesGiveOwed(game, 1, Combo_SharedFamilies2Owed(game, FamiliesHeldLive(game, 1, armed2)));
     }
     return given;
+}
+
+uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game) {
+    return IsRealGame(game) ? sFamilies2GivenAtLastApply[game] : 0u;
+}
+
+const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
+    const GameId g = (GameId)game;
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (!IsRealGame(g) || armed2 == 0u) {
+        return NULL; // every world with no shared rule frozen: the names stay
+    }
+    for (int b = 0; b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        const int slot = (int)RSBS_XITEM_BIT_COUNT + b;
+        if ((armed2 & bit) == 0u || !sFamilyMemberSet[g][slot] || sFamilyMembers[g][slot].nativeId != nativeId) {
+            continue;
+        }
+        const uint32_t ext = Combo_ComboItemRule2Requires(bit);
+        // Only the ADDED copy carries a game tag: OoT's Song of Soaring (OoT) and
+        // MM's six "(MM)" warp songs. A game's own song (OoT's Minuet, MM's Song
+        // of Soaring) is already named without one, and OoT's own name is
+        // localized: keep it (NULL), never swap in the English text.
+        if ((g == GAME_OOT) != (ext == (uint32_t)RSBS_XITEM2_SONG_SOARING_OOT)) {
+            return NULL;
+        }
+        if (ext == (uint32_t)RSBS_XITEM2_SONG_SOARING_OOT) {
+            return "Song of Soaring";
+        }
+        return Combo_MMWarpSongOoTName(ext); // NULL for a family that is no warp song
+    }
+    return NULL;
+}
+
+uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId) {
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (!IsRealGame(game)) {
+        return 0u;
+    }
+    for (int b = 0; armed2 != 0u && b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        uint16_t id = 0;
+        if ((armed2 & bit) != 0u && Combo_SharedFamily2MemberId(game, bit, &id) && id == nativeId) {
+            return bit;
+        }
+    }
+    return 0u;
+}
+
+bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs) {
+    if (ootShuffleSongs != RSBS_SONG_SPOTS_OFF) {
+        return false;
+    }
+    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
 }
 
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {

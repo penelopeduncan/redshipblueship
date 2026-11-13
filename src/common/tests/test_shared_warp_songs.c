@@ -5,10 +5,11 @@
  *        family word, its registry and pairs, the players' "held" question, the
  *        runtime merge through both games' real shims, and the one-copy worlds.
  *
- * Every rule stays hidden (RSBS_XITEM2_HIDDEN) until lane XW12. The ROM-free rows
- * freeze the second word directly (Combo_FreezeComboSettingsEx2, no Generate, so
- * no refusal to reveal); the generating rows reveal the hidden rules through
- * Combo_ComboItemRules2RevealForTest and put it back.
+ * The shared rules are offered while their bits are outside RSBS_XITEM2_HIDDEN
+ * (lane XW14). The ROM-free rows
+ * freeze the second word directly (Combo_FreezeComboSettingsEx2, no Generate);
+ * the generating rows set the rules by their keys on the production mask, with
+ * no test seam.
  *
  *   shared-warp-family-storage (redship) -- THE STORAGE AND THE REGISTRY.
  *   gComboCtx.sharedFamilyOwned2 is appended at 2716 (sizeof 2720, layout revision
@@ -34,16 +35,22 @@
  *
  *   shared-warp-songs-one-copy-{song-locations,dungeon-rewards,anywhere,off}
  *   (rando) -- ONE COPY per shared warp song over a real paired world per Shuffle
- *   Songs value, all fourteen rules on: one placement over both worlds, the bag's
- *   SHARED_PAIR row, no orphan copy of either half, on a song check of either
- *   game under Song Locations, Link's Pocket (Advancement under Off and Anywhere)
- *   never a shared warp song, the other songs vanilla under Off, the goal proven,
- *   nothing owned after the creation.
+ *   Songs value, all fourteen rules on: one placement over both worlds, no orphan
+ *   copy of either half, Link's Pocket (Advancement under Off and Anywhere) never a
+ *   shared warp song, the goal proven, nothing owned after the creation. Under
+ *   Song Locations, Dungeon Rewards and Anywhere that placement is the bag's
+ *   SHARED_PAIR row (on a song check of either game under Song Locations). Under
+ *   Off (#1169 XW15, the operator's ruling) each one stays on its own default
+ *   check: no pair, every OoT song vanilla, MM's Song of Soaring on its unshuffled
+ *   Southern Swamp check, seven fixed shared credits, and the exit round credits
+ *   the other game (MM plays the Minuet into OoT, OoT the Soaring into MM) until
+ *   that check is forbidden.
  *
  *   shared-warp-songs-edges (rando) -- the Song of Soaring (OoT) beside one shared
  *   six generates under Dungeon Rewards (12 for 12); under Off the songs family is
- *   armed for a lone Soaring (OoT) with or without a shared six; a started shared
- *   Minuet is no bag row and nothing is placed for it.
+ *   armed for a lone Soaring (OoT) with or without a shared six, and (#1169 XW15)
+ *   never for a shared warp song alone; a started shared Minuet is no bag row and
+ *   nothing is placed for it.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Every file-local
@@ -116,6 +123,15 @@ int OoT_SharedSongsTest_VanillaSongCount(void);
 int MM_PlacementConfinement_WorldCopies(uint16_t id);
 int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
+// #1169 XW15: the fixed shared songs' hosts (ComboLogicEngineOoT.cpp,
+// ComboLogicEngineSingleExe.cpp).
+int OoT_ComboLogic_TestHostsHolding(uint16_t rg, uint16_t* out, int cap);
+int MM_ComboLogic_TestFixedCheckItem(uint16_t rc);
+int MM_ComboLogic_TestSwampSoaringCheck(void);
+// games/mm/2s2h/mm_warp_songs_mm_test.cpp: MM's Items row name (the lookup key) and
+// the name MM's texts and hints show (Rando::StaticData::GetItemName, with article).
+const char* MM_WarpSongsTest_Name(uint16_t ri);
+const char* MM_WarpSongsTest_TextName(uint16_t ri);
 #ifdef __cplusplus
 }
 #endif
@@ -667,6 +683,19 @@ void SwsForgetAll() {
     MM_SharedSongsTest_SetHeld(0, 0);
 }
 
+// #1169 XW14: stub live probes for Combo_SharedFamilies2HeldNow (leg (9)).
+int sSwsProbeAnswer[3];
+int SwsProbeOoT(void) {
+    return sSwsProbeAnswer[GAME_OOT];
+}
+int SwsProbeMM(void) {
+    return sSwsProbeAnswer[GAME_MM];
+}
+void SwsSetProbes(int oot, int mm) {
+    sSwsProbeAnswer[GAME_OOT] = oot;
+    sSwsProbeAnswer[GAME_MM] = mm;
+}
+
 int SwsHeldCount(bool mm) {
     int n = 0;
     for (int s = 0; s < 7; s++) {
@@ -717,6 +746,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
         OoT_SharedWarpSongsTest_SetHeld(s, 1);
         OoT_HarvestSharedResources();
         const uint32_t afterOoT = Combo_SharedFamilies2Owned();
+        // OoT's give record belongs to OoT's last apply (an earlier song's leg):
+        // MM's apply must leave it exactly as it was.
+        const uint32_t ootGivenBefore = Combo_SharedFamilies2GivenAtLastApply(GAME_OOT);
         MM_SharedSwordTest_ArmLive();
         MM_ApplySharedResources();
         printf("[TEST] (1) %s OoT -> MM: pool %08X, MM holds %d of 7 (this one %d)\n", kSwsSongNames[s],
@@ -726,6 +758,25 @@ TestResult Test_SharedWarpSongsMerge(void) {
                   (unsigned)afterOoT, kSwsSongNames[s]);
         SWS_CHECK(MM_SharedWarpSongsTest_Held(s) == 1 && SwsHeldCount(true) == 1,
                   "(1) MM's apply did not give MM the %s alone", kSwsSongNames[s]);
+        // #1169 XW14: the apply's give record (IntMMWarpSongMinuetShared reads it).
+        // Catches a record that is never written, written for a family not given, or
+        // written to the other game's record.
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == SwsSharedBitOf(s) &&
+                      Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == ootGivenBefore,
+                  "(1) after MM's arrival apply gave the %s the give record reads MM %08X, OoT %08X; want MM %08X "
+                  "and OoT's left at %08X",
+                  kSwsSongNames[s], (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM),
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s),
+                  (unsigned)ootGivenBefore);
+        // A second apply owes nothing: the record is cleared at the top of every
+        // apply. Catches a record that only accumulates (a stale bit would let the
+        // integration row pass on an earlier arrival's give). MM's save is NOT
+        // re-armed here: arming zeroes it, which would take MM's own Song of
+        // Soaring away again and make this apply owe it a second time.
+        MM_ApplySharedResources();
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u,
+                  "(1) an MM apply that gave nothing left the give record at %08X (not cleared per call)",
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
         SwsFreeze(0u, kSwsAll);
         SwsForgetAll();
@@ -739,6 +790,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
         SWS_CHECK(Combo_SharedFamilies2Owned() == SwsSharedBitOf(s) && OoT_SharedWarpSongsTest_Held(s) == 1 &&
                       SwsHeldCount(false) == 1,
                   "(2) MM's %s did not reach OoT alone through the shims", kSwsSongNames[s]);
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == SwsSharedBitOf(s),
+                  "(2) after OoT's apply gave the %s the give record reads %08X, want %08X", kSwsSongNames[s],
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), (unsigned)SwsSharedBitOf(s));
 
         // The .redsave load seam (#1163): OoT's half applied before its own save opens.
         OoT_SharedSwordTest_ArmLive();
@@ -760,6 +814,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
     SWS_CHECK(Combo_SharedFamilies2Owned() == 0u && SwsHeldCount(true) == 0,
               "(4) with the shared rules off OoT's songs reached Termina (pool %08X, MM holds %d)",
               (unsigned)Combo_SharedFamilies2Owned(), SwsHeldCount(true));
+    SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u,
+              "(4) with the shared rules off MM's apply left the give record at %08X",
+              (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
     // ---- (5) MM's title screen harvests nothing (the harvest's gameMode gate) -----------------------
     SwsFreeze(0u, kSwsAll);
@@ -886,10 +943,19 @@ TestResult Test_SharedWarpSongsMerge(void) {
         MM_SharedSwordTest_ArmLive();
         item.originGame = (uint8_t)GAME_OOT;
         item.id = minuetOoT;
+        // #1169 XW14: the credit gives MM its copy directly, never through the
+        // apply, so the apply's give record is left as it was (leg (6)'s MM apply
+        // left the Minuet there). Catches a credit that writes or clears it, which
+        // would let IntMMWarpSongMinuetShared read a pickup as the arrival's apply.
+        const uint32_t recordBefore = Combo_SharedFamilies2GivenAtLastApply(GAME_MM);
         SWS_CHECK(MM_CreditSharedPickup(&item) == 1 && MM_SharedWarpSongsTest_Held(1) == 1 &&
                       Combo_MMWarpSongsOwned() == 0x01u,
                   "(8) OoT's Minuet found in Termina was not credited with MM's own Minuet (ownership byte %02X)",
                   (unsigned)Combo_MMWarpSongsOwned());
+        SWS_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == recordBefore && recordBefore == kSwsSharedMinuet,
+                  "(8) the far-pickup credit moved the apply's give record (%08X before, %08X after; want leg (6)'s "
+                  "00000100 kept)",
+                  (unsigned)recordBefore, (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
 
         SwsFreeze(0u, kSwsExtensions);
         SwsForgetAll();
@@ -910,6 +976,177 @@ TestResult Test_SharedWarpSongsMerge(void) {
         item.id = minuetOoT;
         SWS_CHECK(MM_CreditSharedPickup(&item) == 0 && Combo_SharedFamilies2Owned() == 0u,
                   "(8) MM's title-screen bootstrap save took a pickup credit");
+    }
+
+    // ---- (9) #1169 XW14: held here, now (Combo_SharedFamilies2HeldNow) -------------------------
+    // Fakes at every second-word slot and stub probes, so each leg sets exactly
+    // which game is "running live". The games' own members and probes are put back.
+    {
+        SwsSavedMembers saved;
+        SwsSaveMembers(&saved);
+        const ComboSharedLiveProbeFn ootProbe = Combo_SharedLiveProbeFor(GAME_OOT);
+        const ComboSharedLiveProbeFn mmProbe = Combo_SharedLiveProbeFor(GAME_MM);
+        SWS_CHECK(ootProbe != NULL && mmProbe != NULL,
+                  "(9) a game registers no live probe (OoT %d, MM %d): every reader would answer from the family word "
+                  "alone and miss the running game's own copy",
+                  ootProbe != NULL ? 1 : 0, mmProbe != NULL ? 1 : 0);
+        SwsRegisterFakes(false);
+        Combo_RegisterSharedLiveProbe(GAME_OOT, SwsProbeOoT);
+        Combo_RegisterSharedLiveProbe(GAME_MM, SwsProbeMM);
+        const uint64_t ootMinuet = (uint64_t)1u << (32 + 8);
+        const uint64_t mmMinuet = (uint64_t)1u << (32 + 8);
+
+        // (a) The rule off, or the extension alone: 0 whatever is owned or held.
+        // Catches a helper that skips the arming gate.
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_OOT] = ootMinuet;
+        sSwsFakeHeld[GAME_MM] = mmMinuet;
+        SwsSetProbes(1, 1);
+        SwsFreeze(0u, 0x02u);
+        gComboCtx.sharedFamilyOwned2 = kSwsShared;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9a) with the Minuet extension alone the helper answered %08X: a family must be armed",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        SwsFreeze(0u, 0u);
+        gComboCtx.sharedFamilyOwned2 = kSwsShared;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u, "(9a) with every rule off the helper answered %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+
+        // (b) Armed, the family word only, no game live: the word. Catches a helper
+        // that reads only the live copies.
+        SwsFakeReset();
+        SwsSetProbes(0, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        gComboCtx.sharedFamilyOwned2 = kSwsSharedMinuet;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9b) armed with the family word owned the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        Combo_RegisterSharedLiveProbe(GAME_OOT, NULL);
+        Combo_RegisterSharedLiveProbe(GAME_MM, NULL);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9b) with no probe registered the helper answered %08X, want the family word 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        Combo_RegisterSharedLiveProbe(GAME_OOT, SwsProbeOoT);
+        Combo_RegisterSharedLiveProbe(GAME_MM, SwsProbeMM);
+
+        // (c) Armed, the word 0, OoT live and OoT's member holding it: the bit,
+        // before any harvest. Catches a helper that reads the word alone.
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_OOT] = ootMinuet;
+        SwsSetProbes(1, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet && Combo_SharedFamilies2Owned() == 0u,
+                  "(9c) OoT live holding its Minuet: the helper answered %08X (want 00000100) and the word %08X "
+                  "(want 0: the helper must not harvest)",
+                  (unsigned)Combo_SharedFamilies2HeldNow(), (unsigned)Combo_SharedFamilies2Owned());
+
+        // (d) CRITIC [1]'s CASE: MM is the running game at its title screen (MM's
+        // probe 0), OoT is not running (OoT's probe 0), MM's member holds the song
+        // and the word is 0: 0. An OoT row drawn from OoT's shadow while MM runs
+        // answers from the word only. Catches a helper that asks a member without
+        // its own game's probe (MM's bootstrap save would read as held).
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_MM] = mmMinuet;
+        SwsSetProbes(0, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9d) MM's member holds the Minuet but MM is not a live file and OoT is not running: the helper "
+                  "answered %08X, want 0",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // The other probe live does not open MM's member either.
+        SwsSetProbes(1, 0);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9d) OoT live (its member not holding) made MM's held member count: %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // (e) As (d) with the word set: the bit, from the word.
+        SwsSetProbes(0, 0);
+        gComboCtx.sharedFamilyOwned2 = kSwsSharedMinuet;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) as (9d) with the family word owned the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // MM live and holding: the bit (the probe's own game is asked).
+        gComboCtx.sharedFamilyOwned2 = 0u;
+        SwsSetProbes(0, 1);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) MM live holding its Minuet: the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // Only an armed family's member is asked: the Bolero is held but not armed.
+        sSwsFakeHeld[GAME_MM] = mmMinuet | ((uint64_t)1u << (32 + 9));
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) an unarmed family (the Bolero) was answered held: %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+
+        Combo_RegisterSharedLiveProbe(GAME_OOT, ootProbe);
+        Combo_RegisterSharedLiveProbe(GAME_MM, mmProbe);
+        SwsFakeReset();
+        SwsRestoreMembers(&saved);
+    }
+
+    // ---- (10) #1169 XW14: a shared song is named without its game -------------------------------
+    // Over both games' REAL registered members. Each leg would fail if the helper
+    // named a song whose shared rule is off (the extension's own "(MM)" / "(OoT)"
+    // name must stay), named the wrong song, or if MM's text name ignored it; and
+    // the Items row's name, a lookup key, must never change. Only the ADDED copy
+    // (the tagged one) is renamed: OoT's Song of Soaring (OoT) and MM's six "(MM)"
+    // songs. A game's own song gets NULL, so OoT's six keep their localized
+    // names: catches a helper that hands OoT's Minuet the English text.
+    {
+        SwsFreeze(0u, kSwsAll);
+        int wrong = 0;
+        for (int s = 0; s < 7; s++) {
+            const char* oot =
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(s));
+            const char* mm =
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(s));
+            const char* added = s == 0 ? oot : mm; // the tagged copy: OoT's for Soaring, MM's for the six
+            const char* own = s == 0 ? mm : oot;   // the game's own song, already untagged
+            if (added == NULL || strcmp(added, kSwsSongNames[s]) != 0 || own != NULL) {
+                wrong++;
+                printf("[TEST]   (10) the shared %s is named '%s' in OoT and '%s' in MM\n", kSwsSongNames[s],
+                       oot != NULL ? oot : "(null)", mm != NULL ? mm : "(null)");
+            }
+        }
+        SWS_CHECK(wrong == 0,
+                  "(10) %d of the seven shared songs: the added copy is not named by the plain name, or the game's "
+                  "own copy is renamed",
+                  wrong);
+        const uint16_t minuetMM = (uint16_t)MM_SharedWarpSongsTest_PoolId(1);
+        const char* text = MM_WarpSongsTest_TextName(minuetMM);
+        const std::string sharedText = text != NULL ? text : "";
+        SWS_CHECK(
+            sharedText.find("Minuet of Forest") != std::string::npos && sharedText.find("(MM)") == std::string::npos,
+            "(10) under the shared Minuet MM's text name is '%s'; want the song without '(MM)'", sharedText.c_str());
+        const char* key = MM_WarpSongsTest_Name(minuetMM);
+        SWS_CHECK(key != NULL && strcmp(key, "Minuet of Forest (MM)") == 0,
+                  "(10) MM's Items row name moved to '%s': it is a lookup key and must stay 'Minuet of Forest (MM)'",
+                  key != NULL ? key : "(null)");
+        SWS_CHECK(Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, 0x7777u) == NULL &&
+                      Combo_SharedFamily2DisplayName((uint8_t)GAME_NONE, minuetMM) == NULL,
+                  "(10) an id that is no member, or no game, got a shared name");
+
+        SwsFreeze(0u, kSwsExtensions);
+        int named = 0;
+        for (int s = 0; s < 7; s++) {
+            named +=
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(s)) != NULL
+                    ? 1
+                    : 0;
+            named +=
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(s)) != NULL
+                    ? 1
+                    : 0;
+        }
+        const char* extText = MM_WarpSongsTest_TextName(minuetMM);
+        const std::string extensionText = extText != NULL ? extText : "";
+        SWS_CHECK(named == 0 && extensionText.find("Minuet of Forest (MM)") != std::string::npos,
+                  "(10) with the shared rules off %d copies got a shared name, or MM's text name '%s' lost its '(MM)'",
+                  named, extensionText.c_str());
+
+        SwsFreeze(0u, 0x02u | 0x04u | kSwsSharedMinuet);
+        SWS_CHECK(
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(1)) != NULL &&
+                Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(2)) == NULL,
+            "(10) the shared Minuet alone named the Bolero (MM) too, or not the Minuet");
     }
 
     SwsFreeze(0u, 0u);
@@ -979,12 +1216,8 @@ int SwsGenerate(const char* seed, int shuffleSongs, uint32_t extensions, uint32_
     if (startMinuet) {
         CVarSetInteger(kSwsStartMinuetKey, 1);
     }
-    // THE TEST SEAM: the hidden warp-song rules read as offered, as they will once
-    // lane XW12 lands. Production never calls it.
-    Combo_ComboItemRules2RevealForTest(1);
-    const int rc = Rando_HeadlessSeedTest(seed);
-    Combo_ComboItemRules2RevealForTest(0);
-    return rc;
+    // Every rule is offered by the production mask since #1169 XW14: no test seam.
+    return Rando_HeadlessSeedTest(seed);
 }
 
 /** A shared song's placements by the coordinator, of either half on either host. */
@@ -1071,6 +1304,100 @@ SwsSoaringOoTRow SwsReadSoaringOoTRow() {
     }
     return r;
 }
+
+/** One exit round over the created world (both real engines, nothing assumed),
+ *  with @p forbidden (may be NULL) withheld; the fixed credits it delivered go to
+ *  @p outDelivered. */
+int SwsExitRound(const ComboLogicHostRef* forbidden, int forbiddenCount, ComboLogicRoundResult* out,
+                 int* outDelivered) {
+    ComboLogicRoundRequest req;
+    memset(&req, 0, sizeof(req));
+    req.goal = gComboCtx.comboSettings.goal;
+    req.forbidden = forbidden;
+    req.forbiddenCount = forbiddenCount;
+    memset(out, 0, sizeof(*out));
+    const int status = Combo_Logic_RunRound(&req, out);
+    *outDelivered = Combo_Logic_FixedCreditDeliveredCount();
+    return status;
+}
+
+/**
+ * #1169 XW15, Off only (shared-warp-songs-one-copy-off): THE FIXED SHARED CREDITS in
+ * the created world's exit round. Every shared warp song sits on its own check and
+ * no bag row carries it, so only the credits make the other game's logic hold it:
+ * Majora's Mask holds the Minuet of Forest (MM) once Sheik in Forest is reached
+ * (MM's travel fact into OoT), Ocarina of Time the Song of Soaring (OoT) once the
+ * Southern Swamp check is reached (OoT's travel fact into MM). Forbidding either
+ * host takes that credit away (the forbidden-host skip): its travel fact is gone
+ * and fewer credits are delivered. The count is not asserted exactly, because a
+ * forbidden host can also cut off other hosts.
+ */
+void SwsOffExitRounds() {
+    ComboLogicRoundResult base;
+    int baseDelivered = -1;
+    const int st = SwsExitRound(nullptr, 0, &base, &baseDelivered);
+    printf("[TEST] (Off) exit round: status %d, goal %d, travel to OoT %08X, to MM %08X, fixed credits delivered %d "
+           "of %d\n",
+           st, base.goalExpression, (unsigned)base.travelToOoT, (unsigned)base.travelToMM, baseDelivered,
+           Combo_Logic_FixedCreditCount());
+    SWS_CHECK(st == RSBS_COMBO_LOGIC_OK && base.goalExpression == 1,
+              "(Off) the created world's exit round did not run or did not prove the goal (status %d, goal %d)", st,
+              base.goalExpression);
+    SWS_CHECK(baseDelivered == 7,
+              "(Off) the exit round delivered %d of the seven fixed shared credits: a default check of a shared "
+              "warp song was unreached in the proved world, or a credit was not delivered",
+              baseDelivered);
+    SWS_CHECK((base.travelToOoT & RSBS_XITEM2_SONG_MINUET_MM) != 0u,
+              "(Off) MM's logic never played the Minuet of Forest into OoT (%08X): the Minuet fixed at Sheik in Forest "
+              "was not credited to Majora's Mask",
+              (unsigned)base.travelToOoT);
+    SWS_CHECK(base.travelToMM == RSBS_COMBO_TRAVEL_INTO_MM,
+              "(Off) OoT's logic never played the Song of Soaring into MM (%08X): the Soaring fixed in the Southern "
+              "Swamp was not credited to Ocarina of Time",
+              (unsigned)base.travelToMM);
+
+    uint16_t minuetMM = 0;
+    (void)Combo_SharedFamily2MemberId(GAME_MM, kSwsSharedMinuet, &minuetMM);
+    ComboLogicHostRef minuetHost;
+    memset(&minuetHost, 0, sizeof(minuetHost));
+    for (int c = 0; c < Combo_Logic_FixedCreditCount(); c++) {
+        ComboLogicFixedCredit credit;
+        if (Combo_Logic_FixedCreditAt(c, &credit) && credit.hostGame == (uint8_t)GAME_OOT &&
+            credit.farItem.id == minuetMM) {
+            minuetHost.hostGame = credit.hostGame;
+            minuetHost.hostCheck = credit.hostCheck;
+        }
+    }
+    SWS_CHECK(minuetHost.hostGame == (uint8_t)GAME_OOT, "(Off) no fixed credit names the Minuet of Forest's host");
+    if (minuetHost.hostGame == (uint8_t)GAME_OOT) {
+        ComboLogicRoundResult r;
+        int delivered = -1;
+        const int s = SwsExitRound(&minuetHost, 1, &r, &delivered);
+        printf("[TEST] (Off) Sheik's Minuet check %u forbidden: status %d, travel to OoT %08X, delivered %d\n",
+               (unsigned)minuetHost.hostCheck, s, (unsigned)r.travelToOoT, delivered);
+        SWS_CHECK(s == RSBS_COMBO_LOGIC_OK && (r.travelToOoT & RSBS_XITEM2_SONG_MINUET_MM) == 0u &&
+                      delivered < baseDelivered,
+                  "(Off) with the Minuet's own check forbidden MM still held the Minuet (travel %08X, delivered %d "
+                  "of %d): a forbidden host's credit crossed",
+                  (unsigned)r.travelToOoT, delivered, baseDelivered);
+    }
+    {
+        ComboLogicHostRef swamp;
+        memset(&swamp, 0, sizeof(swamp));
+        swamp.hostGame = (uint8_t)GAME_MM;
+        swamp.hostCheck = (uint16_t)MM_ComboLogic_TestSwampSoaringCheck();
+        ComboLogicRoundResult r;
+        int delivered = -1;
+        const int s = SwsExitRound(&swamp, 1, &r, &delivered);
+        printf("[TEST] (Off) the Southern Swamp's Soaring check forbidden: status %d, travel to MM %08X, delivered "
+               "%d\n",
+               s, (unsigned)r.travelToMM, delivered);
+        SWS_CHECK(s == RSBS_COMBO_LOGIC_OK && r.travelToMM == 0u && delivered < baseDelivered,
+                  "(Off) with the Soaring's own check forbidden OoT still held the Song of Soaring (travel %08X, "
+                  "delivered %d of %d)",
+                  (unsigned)r.travelToMM, delivered, baseDelivered);
+    }
+}
 } // namespace
 
 TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
@@ -1096,20 +1423,36 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
     printf("[TEST] shared-warp-songs-one-copy (%s): bag %d rows, %d shared pair(s), goal proven %d\n", name,
            bag.bagCount, bag.compose.sharedPairs, bag.fill.goalProven ? 1 : 0);
     SWS_CHECK(bag.status == RSBS_COMBO_LOGIC_OK && bag.fill.goalProven, "the single-bag fill did not prove the GOAL");
-    SWS_CHECK(bag.compose.sharedPairs >= 7, "the composer made %d shared pair(s), fewer than the seven songs",
-              bag.compose.sharedPairs);
+    // #1169 XW15: under Off every shared warp song stays on its own default check,
+    // so neither pool holds a copy and the composer pairs nothing (combo_logic.c
+    // pass 2b, "neither pool holds the family"); every other value pairs all seven.
+    const bool off = shuffleSongs == 0;
+    if (off) {
+        SWS_CHECK(bag.compose.sharedPairs == 0,
+                  "under Off the composer made %d shared pair(s): a shared warp song left its default check for the "
+                  "bag",
+                  bag.compose.sharedPairs);
+    } else {
+        SWS_CHECK(bag.compose.sharedPairs >= 7, "the composer made %d shared pair(s), fewer than the seven songs",
+                  bag.compose.sharedPairs);
+    }
+    // THE FIXED SHARED CREDITS: one per shared warp song under Off (each finder's
+    // answer, Combo_SingleBag_Run's wiring), none in any other mode.
+    SWS_CHECK(Combo_Logic_FixedCreditCount() == (off ? 7 : 0),
+              "the creation left %d fixed shared credit(s) under %s; want %d", Combo_Logic_FixedCreditCount(), name,
+              off ? 7 : 0);
 
     const bool mmVanilla = Combo_PairSongsMmValue((uint32_t)shuffleSongs) == RSBS_MM_SONGS_VANILLA;
     const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
     std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
     const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
-    int sharedRgs[6] = { -1, -1, -1, -1, -1, -1 };
     const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
     // The Link's Pocket exclusion itself (fill.cpp RsbsSongHeldForBag), asked per id
     // so the lock does not rest on this seed's one draw: every shared warp song's
-    // OoT member is the bag's in EVERY mode, and an unshared song only where the
-    // shared song pool takes every song (Song Locations). Off and Anywhere answer 0
-    // for the seven without the XW10 branch.
+    // OoT member is the bag's under Song Locations, Dungeon Rewards and Anywhere
+    // (under Off it stays on its own check, #1169 XW15), and an unshared song only
+    // where the shared song pool takes every song (Song Locations). Anywhere
+    // answers 0 for the seven without the XW10 branch.
     {
         const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
         const int wantUnshared = shuffleSongs == 1 ? 1 : 0;
@@ -1126,12 +1469,13 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
         if (!registered) {
             continue;
         }
-        if (s >= 1) {
-            sharedRgs[s - 1] = (int)ootId;
-        }
-        SWS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == 1,
-                  "Link's Pocket may take the shared %s under %s: the exclusion does not name its OoT member",
-                  kSwsSongNames[s], name);
+        // Under Off (#1169 XW15) no shared warp song is held back, so the bridge
+        // answers 0 (and no song is in the pool for Link's Pocket anyway).
+        const int wantHeld = off ? 0 : 1;
+        SWS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == wantHeld,
+                  "Link's Pocket's exclusion answers %d for the shared %s under %s; want %d (held back for the bag "
+                  "except under Off, where it stays on its own check)",
+                  OoT_Fill_TestSongHeldForBag(ootId), kSwsSongNames[s], name, wantHeld);
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         int mmCopies = 0;
         if (mmVanilla) {
@@ -1148,10 +1492,47 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
                   "the %s is held by %d OoT and %d MM checks; want ONE over both worlds (the pair's one placement, as "
                   "the hosting game's half)",
                   kSwsSongNames[s], ootCopies, mmCopies);
-        SWS_CHECK(placed.pairRows == 1 && placed.orphanRows == 0,
-                  "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it; want one "
-                  "pair row and no orphan copy of either half",
-                  kSwsSongNames[s], placed.pairRows, placed.orphanRows);
+        const int wantPairRows = off ? 0 : 1;
+        SWS_CHECK(placed.pairRows == wantPairRows && placed.orphanRows == 0,
+                  "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it; want %d "
+                  "pair row(s) and no orphan copy of either half",
+                  kSwsSongNames[s], placed.pairRows, placed.orphanRows, wantPairRows);
+        if (off) {
+            // THE DEFAULT CHECK: the six in OoT (their Sheik checks), the Song of
+            // Soaring in MM (the Southern Swamp check), and no copy in the other game.
+            const int wantOoT = s >= 1 ? 1 : 0;
+            SWS_CHECK(ootCopies == wantOoT && mmCopies == 1 - wantOoT,
+                      "under Off the %s is held by %d OoT and %d MM checks; want it on its own default check in %s "
+                      "only",
+                      kSwsSongNames[s], ootCopies, mmCopies, s >= 1 ? "Ocarina of Time" : "Majora's Mask");
+            ComboLogicFixedCredit credit;
+            bool found = false;
+            for (int c = 0; c < Combo_Logic_FixedCreditCount() && !found; c++) {
+                found = Combo_Logic_FixedCreditAt(c, &credit) &&
+                        ((credit.hostGame == (uint8_t)GAME_OOT && credit.farItem.originGame == (uint8_t)GAME_MM &&
+                          credit.farItem.id == mmId) ||
+                         (credit.hostGame == (uint8_t)GAME_MM && credit.farItem.originGame == (uint8_t)GAME_OOT &&
+                          credit.farItem.id == ootId));
+            }
+            bool hostRight = false;
+            if (found && s >= 1) {
+                uint16_t hosts[4] = { 0, 0, 0, 0 };
+                hostRight = credit.hostGame == (uint8_t)GAME_OOT &&
+                            OoT_ComboLogic_TestHostsHolding(ootId, hosts, 4) == 1 && hosts[0] == credit.hostCheck &&
+                            OoT_ComboLogic_TestSongCheckIndex(credit.hostCheck) >= 0;
+            } else if (found) {
+                hostRight = credit.hostGame == (uint8_t)GAME_MM &&
+                            (int)credit.hostCheck == MM_ComboLogic_TestSwampSoaringCheck() &&
+                            MM_ComboLogic_TestFixedCheckItem(credit.hostCheck) == (int)mmId;
+            }
+            printf("[TEST]   %s: fixed credit %s, host %s %u\n", kSwsSongNames[s], found ? "found" : "MISSING",
+                   found ? (credit.hostGame == (uint8_t)GAME_OOT ? "OoT" : "MM") : "-",
+                   found ? (unsigned)credit.hostCheck : 0u);
+            SWS_CHECK(found && hostRight,
+                      "under Off the %s has no fixed credit naming its own default check (%s) and the other game's "
+                      "member",
+                      kSwsSongNames[s], s >= 1 ? "its Sheik check" : "the Southern Swamp song check, unshuffled");
+        }
         if (shuffleSongs == 1) {
             SWS_CHECK(placed.onSongCheck == 1,
                       "under Song Locations the %s's one copy is not on a song check of "
@@ -1161,11 +1542,14 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
         SWS_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s: its one copy is the bag's row",
                   kSwsSongNames[s]);
     }
-    if (shuffleSongs == 0) {
-        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount() - 6;
-        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(sharedRgs, 6);
-        SWS_CHECK(atHome == expectAtHome, "under Off %d of the %d unshared OoT songs are at their vanilla checks",
-                  atHome, expectAtHome);
+    if (off) {
+        // #1169 XW15: every one of OoT's twelve songs is at its vanilla check, the
+        // six shared warp songs on their Sheik checks included.
+        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount();
+        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(nullptr, 0);
+        SWS_CHECK(atHome == expectAtHome, "under Off %d of OoT's %d songs are at their vanilla checks", atHome,
+                  expectAtHome);
+        SwsOffExitRounds();
     }
     SWS_CHECK(Combo_SharedFamilies2Owned() == 0u && Combo_MMWarpSongsOwned() == 0u,
               "the creation left the family word %08X and MM's ownership byte %02X: a simulated pickup leaked",
@@ -1178,8 +1562,8 @@ TestResult SharedWarpSongsOneCopy_Run(int shuffleSongs) {
 
 TestResult SharedWarpSongsEdges_Run(void) {
     printf("[TEST] shared-warp-songs-edges: the Song of Soaring (OoT) beside a shared six fits Dungeon Rewards; under "
-           "Off the songs family is armed for a lone Soaring (OoT) whatever the shared rules; a started shared "
-           "Minuet is no bag row (#1169 XW10)\n");
+           "Off the songs family is armed for a lone Soaring (OoT) whatever the shared rules and never for a shared "
+           "warp song alone (XW15); a started shared Minuet is no bag row (#1169 XW10)\n");
     sSwsFailures = 0;
     SwsRestoreKeys restore;
 
@@ -1219,9 +1603,10 @@ TestResult SharedWarpSongsEdges_Run(void) {
                   "Soaring (OoT) may leave OoT must not depend on an unrelated shared rule",
                   (armAlone & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0,
                   (armShared & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0);
-        // The arm bit alone cannot tell the two runs apart (a shared six arms it
-        // through the hold-back): the Soaring (OoT)'s own bag-row inputs must be
-        // the same in both, one REQUIRED row with no confinement mask.
+        // The arm bit alone does not show the two runs agree for the right reason
+        // (before #1169 XW15 a shared six armed it through the hold-back; now only
+        // the Soaring (OoT)'s own rule does, leg (2b)): the Soaring (OoT)'s own
+        // bag-row inputs must be the same in both, one REQUIRED row with no mask.
         printf("[TEST] (2) Soaring (OoT) pool row: alone %d row(s) flags %04X mask %08X %s; with a shared Minuet %d "
                "row(s) flags %04X mask %08X %s\n",
                rowAlone.rows, (unsigned)rowAlone.poolFlags, (unsigned)rowAlone.confine,
@@ -1239,6 +1624,22 @@ TestResult SharedWarpSongsEdges_Run(void) {
                   (unsigned)rowAlone.confine, (unsigned)rowShared.confine,
                   Combo_Logic_ComposeDispositionName(rowAlone.disposition),
                   Combo_Logic_ComposeDispositionName(rowShared.disposition));
+    }
+
+    // ---- (2b) Off, #1169 XW15: a shared warp song alone arms nothing (it stays on its own check) ----
+    {
+        const int rcMinuet = SwsGenerate("RSBSXW15OFF", 0, 0x02u, 0x02u, false, false);
+        const uint32_t armMinuet = rcMinuet == 0 ? OoT_ComboLogic_ConfinementArmed() : 0xFFFFFFFFu;
+        const int rcSoaring = SwsGenerate("RSBSXW15OFF", 0, 0x01u, 0x01u, false, false);
+        const uint32_t armSoaring = rcSoaring == 0 ? OoT_ComboLogic_ConfinementArmed() : 0xFFFFFFFFu;
+        printf("[TEST] (2b) Off: shared Minuet alone generation %d arm %08X; shared Soaring alone %d arm %08X\n",
+               rcMinuet, (unsigned)armMinuet, rcSoaring, (unsigned)armSoaring);
+        SWS_CHECK(rcMinuet == 0 && rcSoaring == 0, "(2b) an Off generation with one shared warp song failed");
+        SWS_CHECK((armMinuet & RSBS_FILL_ARM_SONGS_ROAM) == 0u && (armSoaring & RSBS_FILL_ARM_SONGS_ROAM) == 0u,
+                  "(2b) under Off a shared warp song armed OoT's songs to roam (Minuet %d, Soaring %d): it stays on "
+                  "its own default check, so nothing of it reaches the bag",
+                  (armMinuet & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0,
+                  (armSoaring & RSBS_FILL_ARM_SONGS_ROAM) != 0u ? 1 : 0);
     }
 
     // ---- (3) A started shared Minuet: no bag row, nothing placed ------------------------------------

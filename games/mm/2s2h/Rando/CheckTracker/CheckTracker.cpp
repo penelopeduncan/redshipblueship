@@ -48,6 +48,10 @@ static std::string ObtainedItemTrackerName(RandoCheckId randoCheckId, const Rand
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
         return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
     }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)) {
+        return shared;
+    }
     return Rando::StaticData::Items[randoSaveCheck.randoItemId].name;
 }
 
@@ -81,7 +85,12 @@ static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSav
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
         return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
     }
-    return Rando::StaticData::Items[Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId)].name;
+    const RandoItemId named = Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId);
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
+        return shared;
+    }
+    return Rando::StaticData::Items[named].name;
 }
 
 // TEST BRIDGE (#1499): the name the row for MM check `randoCheckId` prints while

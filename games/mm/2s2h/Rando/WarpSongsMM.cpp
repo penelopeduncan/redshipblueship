@@ -6,7 +6,7 @@
  *        Soaring (OoT), on the item pipeline masks P5 built (OoTMasksMM.cpp).
  *
  * THE ITEMS. Under its frozen second-word rule (RSBS_XITEM2_SONG_MINUET_MM ...,
- * hidden until IntMMWarpSongMinuet (lane XW12), off by default) MM's pool gains one copy of that song
+ * offered since lane XW13, off by default) MM's pool gains one copy of that song
  * (Logic/GeneratePools.cpp, MM_WarpSongMM_PooledCopies), ids APPENDED before
  * RI_MAX_TRAP after the masks (Types.h). Each is named as OoTMM names it
  * ("Minuet of Forest (MM)", StaticData/Items.cpp), a RITYPE_MAJOR row, so MM's
