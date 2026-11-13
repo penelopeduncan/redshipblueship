@@ -853,7 +853,8 @@ void IntegrationTest_GameplayFail(const char* reason) {
 
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
-    if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL) {
+    if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL ||
+        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -865,6 +866,14 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
         if (variant == GP_VARIANT_SOARING_TO_OWL) {
             fprintf(stderr, "[PFC] variant: Song of Soaring to an owl (#1169 XW6), riding the paired first crossing\n");
         }
+        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+            fprintf(stderr, "[PFC] variant: Minuet of Forest played in Majora's Mask, crossing to Ocarina of Time "
+                            "(#1169 XW13), riding the paired first crossing\n");
+        }
+        if (variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+            fprintf(stderr, "[PFC] variant: the SHARED Minuet of Forest (#1169 XW14): learnt in Ocarina of Time "
+                            "only, carried to Majora's Mask by the shared family, then played there\n");
+        }
         fflush(stderr);
     }
 }
@@ -875,11 +884,22 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void) {
 
 bool IntegrationTest_PairedFirstCrossing(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP &&
-           (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL);
+           (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL ||
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
 }
 
 bool IntegrationTest_SoaringToOwl(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_SOARING_TO_OWL;
+}
+
+bool IntegrationTest_MMWarpSongMinuet(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && (sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+                                                        sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
+}
+
+bool IntegrationTest_MMWarpSongMinuetShared(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED;
 }
 
 bool IntegrationTest_PairedSkipCreation(void) {
@@ -1390,6 +1410,10 @@ std::atomic<int> sSoaringExpectedOwl{ -1 };
 
 extern "C" {
 
+// games/mm/src/code/padmgr.c (#1169 XW13). Declared here, not through MM's
+// padmgr.h: OoT has a header of the same name on this TU's include path.
+void MM_PadMgr_SetTestButtons(uint16_t buttons);
+
 void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value) {
     if (key == nullptr || key[0] == '\0') {
         return;
@@ -1398,21 +1422,29 @@ void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value) {
     for (const SoaringSetKey& k : sSoaringKeys) {
         known = known || k.key == key;
     }
+    char before[32] = "unset";
+    if (Combo_CVarIsExplicitInt(key)) {
+        snprintf(before, sizeof(before), "%d", (int)CVarGetInteger(key, 0));
+    }
     if (!known) {
         const bool wasExplicit = Combo_CVarIsExplicitInt(key);
         sSoaringKeys.push_back({ key, wasExplicit, wasExplicit ? CVarGetInteger(key, 0) : 0 });
     }
     // In memory only: nothing here saves the config.
     CVarSetInteger(key, value);
-    fprintf(stderr, "[PFC] soaring: %s = %d for this run (in memory; put back at the verdict)\n", key, (int)value);
+    fprintf(stderr, "[PFC] row key: %s = %d for this run (was %s; in memory; put back at the verdict)\n", key,
+            (int)value, before);
     fflush(stderr);
 }
 
 void IntegrationTest_SoaringCleanup(void) {
-    if (!IntegrationTest_SoaringToOwl()) {
+    if (!IntegrationTest_SoaringToOwl() && !IntegrationTest_MMWarpSongMinuet()) {
         return;
     }
     Combo_ComboItemRules2RevealForTest(0);
+    // int-mm-warp-song-minuet's drive presses through MM's seam; nothing it held
+    // may outlive the run, pass or fail (before the no-keys return below).
+    MM_PadMgr_SetTestButtons(0);
     sSoaringExpectedOwl = -1;
     if (sSoaringKeys.empty()) {
         return;
@@ -1423,11 +1455,11 @@ void IntegrationTest_SoaringCleanup(void) {
         } else {
             CVarClear(it->key.c_str());
         }
-        fprintf(stderr, "[PFC] soaring cleanup: %s %s\n", it->key.c_str(), it->wasExplicit ? "restored" : "cleared");
+        fprintf(stderr, "[PFC] row key cleanup: %s %s\n", it->key.c_str(), it->wasExplicit ? "restored" : "cleared");
     }
     sSoaringKeys.clear();
     CVarSave();
-    fprintf(stderr, "[PFC] soaring cleanup: the hidden rules are hidden again and the config is saved\n");
+    fprintf(stderr, "[PFC] row key cleanup: the test reveal is cleared and the config is saved\n");
     fflush(stderr);
 }
 

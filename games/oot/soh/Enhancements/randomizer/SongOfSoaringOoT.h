@@ -27,8 +27,10 @@ bool OoT_SongOfSoaringOoTOn(void);
  *  the rule on and the shared song off, else 0. */
 int OoT_SongOfSoaringOoTPooledCopies(void);
 
-/** Does Link hold the Song of Soaring (OoT)? Its RAND_INF flag; lane XW10 widens
- *  this one predicate for the shared song. */
+/** Does Link hold the Song of Soaring in OoT? Its RAND_INF flag under the
+ *  extension, or under the shared Song of Soaring the family owned
+ *  (Combo_WarpSongHeld, #1169 XW10). The players' readers ask this; OoT's logic
+ *  reads its own simulated save's flag, never this. */
 bool OoT_SoaringOoTOwned(void);
 
 /* #1169 lane XW6: playing it (the gates are src/common/warp_song_soaring.h). */

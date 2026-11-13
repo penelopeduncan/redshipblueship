@@ -1,6 +1,6 @@
 /**
  * @file test_combo_item_rules_word2.c
- * @brief Locks for the SECOND cross-game rules word and its fourteen hidden keys
+ * @brief Locks for the SECOND cross-game rules word and its fourteen keys
  *        (#1169 lane XW2; ADR 0011's 2026-11-04 amendment, ADR 0009 claim 19).
  *
  * Two rows, split by what each one needs:
@@ -14,19 +14,20 @@
  *   pinned bit space (OoTMM's seven warp-song extensions at bits 0-6, the seven
  *   shared songs at 7-13, each requiring its extension); the fourteen keys
  *   (OoTMM's names, off by default, exactly 0 or 1) and the resolver (a shared
- *   song without its extension resolves off); THE HIDDEN GATE: every allocated
- *   bit, an unallocated bit and a shared song alone are refused by the one
+ *   song without its extension resolves off); THE GATE: an unallocated bit and a
+ *   shared song alone (every allocated rule is offered since #1169 XW14) are refused by the one
  *   predicate Generate, a seed package's validation and a .redsave load ask, and
  *   from source, Generate asks it before the freeze and the package validation
  *   asks it; the fingerprint (folded only when set, pinned vectors computed
  *   outside the build, every bit moves it); the freeze, the KEEP invalidation,
  *   the creation rollback and retraction; divergence (a frozen word the session
- *   cannot author is named, refused as another build's while hidden, even under
- *   session keys equal to it, and restored through the keys once revealed; a
+ *   cannot author is named and restored through the keys, a word with a bit this
+ *   build does not allocate is refused as another build's; a
  *   session's stray key is put back to a file's "off"); and THE ROUND TRIPS:
  *   the seed package's world record (WorldRecordBytes -> ApplyComboWorld) and a
- *   real .redsave Save/Load carry the word, a hidden word is refused at load
- *   (with the session's keys unset or equal to it) and not quarantined.
+ *   real .redsave Save/Load carry the word and the second family word, an
+ *   offered word loads (with the session's keys unset or equal to it), and another
+ *   build's word is refused at load and not quarantined.
  *
  *   rules-off-goldens-unchanged (CTest RulesOffGoldensUnchanged, redship tier,
  *   ROM-free, no CVar store needed) -- INERT. With every second-word rule off
@@ -102,6 +103,7 @@ const uint32_t kXw2Soaring = 0x00000001u;       // songSoaringOot
 const uint32_t kXw2SharedSoaring = 0x00000080u; // sharedSongSoaring
 const uint32_t kXw2SoaringPair = kXw2Soaring | kXw2SharedSoaring;
 const uint32_t kXw2Minuet = 0x00000002u; // songMinuetMm (#1169 XW12's invariant legs)
+const uint32_t kXw2Later = 0x00004000u;  // bit 14: no rule of this build (#1169 XW14's another-build legs)
 
 /** The fourteen keys, in OoTMM's order, with OoTMM's key and option name. */
 struct Xw2Key {
@@ -185,7 +187,7 @@ std::string Xw2ReadSource(const char* rel) {
 
 TestResult ComboItemRulesSecondWord_Run(void) {
     printf("[TEST] combo-item-rules-second-word: the second cross-game rules word is a frozen world field folded "
-           "into the fingerprint only when set, its fourteen warp-song keys exist and are hidden, and the record, "
+           "into the fingerprint only when set, its fourteen warp-song keys exist and are offered, and the record, "
            "a .redsave and a seed package carry it (#1169 XW2)\n");
     sXw2Failures = 0;
     XW2_CHECK(Combo_ComboSettingStoreAvailable(), "no CVar store: every key leg below would pass on the defaults");
@@ -246,26 +248,25 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(RSBS_XITEM2_SONG_SOARING_OOT == kXw2Soaring && RSBS_XITEM2_SHARED_SONG_SOARING == kXw2SharedSoaring &&
                       RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u,
                   "a warp-song bit moved; they are .redsave format, append-only");
-        XW2_CHECK(RSBS_XITEM2_HIDDEN == (RSBS_XITEM2_WARP_SONG_SHARED | 0x7Eu),
-                  "since XW12 exactly the seven shared warp songs (until XW10) and the six MM extensions (until "
-                  "IntMMWarpSongMinuet) are hidden, not %08X",
+        XW2_CHECK(RSBS_XITEM2_HIDDEN == 0u,
+                  "since XW14 no allocated rule is hidden (the seven shared warp songs are offered), not %08X",
                   (unsigned)RSBS_XITEM2_HIDDEN);
-        // The rows' predicate (Combo_ComboItemRule2Offered): the Song of Soaring
-        // (OoT) alone is offered; no mask of two bits, no unallocated bit and no
-        // zero is "a rule". With the MM seam the six MM extensions are offered too
-        // and the shared songs still are not; with the full seam every allocated
-        // bit is. Catches an MM extension exposed before its end-to-end row, or the
-        // MM seam revealing a shared song.
+        // The rows' predicate (Combo_ComboItemRule2Offered): every one of the
+        // fourteen is offered (the Song of Soaring (OoT) since XW12, the six MM
+        // ones since XW13, the seven shared songs since XW14, each once its
+        // integration row proved its path); no mask of two bits, no unallocated
+        // bit and no zero is "a rule". Catches any of the fourteen hidden again.
         for (const Xw2Key& k : kXw2Keys) {
-            const bool soaring = k.bit == kXw2Soaring;
-            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == soaring, "%s is %soffered; XW12 offers only %s", k.rule,
-                      Combo_ComboItemRule2Offered(k.bit) ? "" : "not ", "songSoaringOot");
+            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit), "%s is not offered; since XW14 every allocated rule is",
+                      k.rule);
         }
+        // The MM reveal level reads the production mask: the same answers. Catches
+        // the level drifting from production (a row passing it would then test a
+        // mask no player has).
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         for (const Xw2Key& k : kXw2Keys) {
-            const bool shared = (k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
-            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit) == !shared, "under the MM seam %s is %soffered", k.rule,
-                      Combo_ComboItemRule2Offered(k.bit) ? "" : "not ");
+            XW2_CHECK(Combo_ComboItemRule2Offered(k.bit),
+                      "RSBS_XITEM2_REVEAL_MM_SONGS no longer reads the production mask: %s is not offered", k.rule);
         }
         Combo_ComboItemRules2RevealForTest(0);
         XW2_CHECK(!Combo_ComboItemRule2Offered(0u) && !Combo_ComboItemRule2Offered(0x4000u) &&
@@ -341,7 +342,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         Xw2ClearKeys();
     }
 
-    // ---- (4) THE HIDDEN GATE: Generate refuses a hidden (shared) bit -----------------
+    // ---- (4) THE GATE: Generate refuses only a bit this build does not know -----------
     {
         char names[192];
         XW2_CHECK(Combo_ComboItemRules2Refused(0u, names, sizeof(names)) == 0u && names[0] == '\0',
@@ -349,30 +350,18 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         for (const Xw2Key& k : kXw2Keys) {
             const uint32_t word = k.bit | Combo_ComboItemRule2Requires(k.bit);
             const uint32_t refused = Combo_ComboItemRules2Refused(word, names, sizeof(names));
-            if ((k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u) {
-                // A shared song with its extension: only the shared bit, by name
-                // (its extension Soaring offered), or both (an MM extension, hidden).
-                const uint32_t want = k.bit | (Combo_ComboItemRule2Requires(k.bit) & RSBS_XITEM2_HIDDEN);
-                XW2_CHECK(refused == want && (want != k.bit || strcmp(names, k.rule) == 0),
-                          "while hidden, %s with its extension refused %08X ('%s'), not %08X", k.rule,
-                          (unsigned)refused, names, (unsigned)want);
-            } else if (k.bit != kXw2Soaring) {
-                // An MM extension, hidden until IntMMWarpSongMinuet: refused by name.
-                XW2_CHECK(refused == k.bit && strcmp(names, k.rule) == 0,
-                          "%s must be refused by name until its end-to-end row exists (refused %08X, '%s')", k.rule,
-                          (unsigned)refused, names);
-            } else {
-                XW2_CHECK(refused == 0u && names[0] == '\0', "XW12 offers %s, yet it is refused ('%s')", k.rule, names);
-            }
+            // Every rule with its requirement is offered since XW14, so Generate
+            // takes it (a shared song with its extension included).
+            XW2_CHECK(refused == 0u && names[0] == '\0', "since XW14 %s is offered, yet it is refused ('%s')", k.rule,
+                      names);
         }
-        // Under the MM seam: every extension passes, each shared song alone is refused.
+        // The MM reveal level (the production mask): the same answers.
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         for (const Xw2Key& k : kXw2Keys) {
             const uint32_t word = k.bit | Combo_ComboItemRule2Requires(k.bit);
             const uint32_t refused = Combo_ComboItemRules2Refused(word, names, sizeof(names));
-            const bool shared = (k.bit & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
-            XW2_CHECK(shared ? (refused == k.bit && strcmp(names, k.rule) == 0) : (refused == 0u && names[0] == '\0'),
-                      "under the MM seam %s refused %08X ('%s')", k.rule, (unsigned)refused, names);
+            XW2_CHECK(refused == 0u && names[0] == '\0', "under RSBS_XITEM2_REVEAL_MM_SONGS %s refused %08X ('%s')",
+                      k.rule, (unsigned)refused, names);
         }
         Combo_ComboItemRules2RevealForTest(0);
         // The creation's own question, over the session's resolution. (i) The
@@ -391,18 +380,17 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(Combo_ResolveComboItemRules2() == 0u && refused == 0u,
                   "a stray shared key without its extension resolved %08X and refused %08X; OoTMM's cond drops it",
                   (unsigned)Combo_ResolveComboItemRules2(), (unsigned)refused);
-        // (iii) The shared key with its extension: Generate refuses the shared rule
-        // alone, by name (and the player hears "a rule needs a later build.").
+        // (iii) The shared key with its extension: offered since XW14, so Generate
+        // takes both Soaring rules.
         XW2_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SONG_SOARING_OOT, 1) == 1, "the writer refused the key");
         refused = Combo_ComboItemRules2Refused(Combo_ResolveComboItemRules2(), names, sizeof(names));
         printf("[TEST] (4) Generate with both Soaring keys set: refused %08X (%s)\n", (unsigned)refused, names);
-        XW2_CHECK(Combo_ResolveComboItemRules2() == kXw2SoaringPair && refused == kXw2SharedSoaring &&
-                      strcmp(names, "sharedSongSoaring") == 0,
-                  "GENERATE MUST REFUSE A HIDDEN SHARED RULE BY NAME: resolved %08X, refused %08X ('%s')",
+        XW2_CHECK(Combo_ResolveComboItemRules2() == kXw2SoaringPair && refused == 0u && names[0] == '\0',
+                  "GENERATE MUST TAKE THE OFFERED SHARED SONG OF SOARING: resolved %08X, refused %08X ('%s')",
                   (unsigned)Combo_ResolveComboItemRules2(), (unsigned)refused, names);
         Xw2ClearKeys();
 
-        // Revealed (what XW12 does): the allocated rules pass, validity still holds.
+        // Revealed (a no-op since XW14): the allocated rules pass, validity still holds.
         Combo_ComboItemRules2RevealForTest(1);
         XW2_CHECK(Combo_ComboItemRules2Refused(kXw2SoaringPair, names, sizeof(names)) == 0u,
                   "once revealed, a valid word must be creatable ('%s')", names);
@@ -583,13 +571,13 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "the session diff is %08X; a frozen word this session would not freeze is named, not damage",
                   (unsigned)bits);
         const uint32_t frozen2 = Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2);
-        // Hidden: another build's world, refused, nothing written.
-        XW2_CHECK(Combo_ComboSettingsUnrestorableBitsEx2(&gComboCtx.comboItemRules, frozen2, bits) ==
-                          RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS &&
+        // Offered since XW14: the Soaring pair is restorable on the production mask.
+        XW2_CHECK(Combo_ComboSettingsUnrestorableBitsEx2(&gComboCtx.comboItemRules, frozen2, bits) == 0u &&
                       Combo_ComboSettingsCanRestoreLiveEx2(&gComboCtx.comboSettings, &gComboCtx.comboItemRules, frozen2,
-                                                           &gComboCtx.comboTriforce, bits) == 0,
-                  "while hidden, a file with a warp-song rule on must be refused as another build's");
-        // Revealed: the keys put the file's word back, by name, in OoTMM's order.
+                                                           &gComboCtx.comboTriforce, bits) == 1,
+                  "since XW14 a file with both Soaring rules on must be restorable, not refused as another build's");
+        // The keys put the file's word back, by name, in OoTMM's order (the seam
+        // is a no-op since XW14).
         Combo_ComboItemRules2RevealForTest(1);
         char names[192];
         ComboSettingsKeyUndo undo;
@@ -630,9 +618,8 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                       Combo_ComboSettingsDivergence() == 0u,
                   "the stray key was not put back to the file's off (%d, '%s')", back, names);
 
-        // Hidden, the session's keys EQUAL to the file's word (set from the
-        // console, or by a later build's config): the arrival still refuses it
-        // as another build's. The keys alone must not admit a hidden-rule world.
+        // The session's keys EQUAL to the file's word: since XW14 no divergence
+        // at all (the arrival and the load take it).
         Xw2ClearKeys();
         ComboContext_Init();
         XW2_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SONG_SOARING_OOT, 1) == 1 &&
@@ -643,13 +630,10 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "the session resolves %08X, not the file's word: the leg below would not test equal keys",
                   (unsigned)Combo_ResolveComboItemRules2());
         const uint32_t keyed = Combo_ComboSettingsDivergence();
-        printf("[TEST] (7) a Soaring world under the same keys, hidden: %08X\n", (unsigned)keyed);
-        XW2_CHECK(keyed == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS &&
-                      Combo_ComboSettingsUnrestorableBitsEx2(&gComboCtx.comboItemRules,
-                                                             Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2),
-                                                             keyed) == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS,
-                  "HIDDEN UNDER EQUAL KEYS: the arrival diff is %08X; a hidden-rule world must be refused as another "
-                  "build's even when the session's keys match it",
+        printf("[TEST] (7) a Soaring world under the same keys: %08X\n", (unsigned)keyed);
+        XW2_CHECK(keyed == 0u,
+                  "OFFERED UNDER EQUAL KEYS: the arrival diff is %08X; a Soaring-pair world under its own keys must "
+                  "not diverge",
                   (unsigned)keyed);
         // Revealed, the same keys and the same world: no divergence at all.
         Combo_ComboItemRules2RevealForTest(1);
@@ -684,6 +668,21 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   (unsigned)Combo_ComboSettingsDivergence());
         Xw2ClearKeys();
         ComboContext_Init();
+
+        // (7c) #1169 XW14: ANOTHER BUILD'S WORLD (a bit this build does not
+        // allocate) still diverges at the arrival and is unrestorable. Catches a
+        // refusal that disappeared with the hidden mask.
+        Xw2FreezeWorld(kXw2Later);
+        const uint32_t later = Combo_ComboSettingsDivergence();
+        XW2_CHECK(later == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS &&
+                      Combo_ComboSettingsUnrestorableBitsEx2(&gComboCtx.comboItemRules, kXw2Later, later) ==
+                          RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS &&
+                      Combo_ComboSettingsCanRestoreLiveEx2(&gComboCtx.comboSettings, &gComboCtx.comboItemRules,
+                                                           kXw2Later, &gComboCtx.comboTriforce, later) == 0,
+                  "another build's word %08X diverges %08X and is not refused as unrestorable", (unsigned)kXw2Later,
+                  (unsigned)later);
+        Xw2ClearKeys();
+        ComboContext_Init();
     }
 
     // ---- (8) THE SEED PACKAGE: the world record carries the word ---------------------
@@ -713,13 +712,13 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         ComboContext_Init();
     }
 
-    // ---- (9) THE .redsave: carried, refused while hidden, restored once revealed ----
+    // ---- (9) THE .redsave: carried, loaded and restored, another build's refused --
     {
         rsbs::SaveManager& mgr = rsbs::SaveManager::Instance();
         const std::string priorSaveDir = std::filesystem::path(mgr.SlotPath(0)).parent_path().string();
         mgr.SetSaveDirectory(rsbs::test::ScratchDir(kXw2LoadDir).string());
 
-        // Hidden: a later build's warp-song world is refused, not quarantined.
+        // Offered since XW14, the keys unset: the Soaring-pair world loads.
         Xw2ClearKeys();
         RsbsSave_ResetSlotSessionState();
         mgr.DeleteSave(0);
@@ -727,36 +726,41 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         Xw2SeedShadows(0x69u);
         Xw2FreezeWorld(kXw2SoaringPair);
         Xw2SeedShadows(0x69u);
+        // #1169 XW14: the shared Song of Soaring's family owned, so the revealed
+        // loads below prove gComboCtx.sharedFamilyOwned2 rides the .redsave (every
+        // load starts from ComboContext_Init, which zeroes it).
+        gComboCtx.sharedFamilyOwned2 = kXw2SharedSoaring;
         XW2_CHECK(mgr.Save(0), "Save(0) failed for the Soaring file");
         RsbsSave_ResetSlotSessionState();
         ComboContext_Init();
         const bool hiddenLoaded = mgr.Load(0);
-        printf("[TEST] (9) hidden: loaded %d, quarantine %d, file present %d (expected 0, 0, 1)\n",
+        printf("[TEST] (9) offered, keys unset: loaded %d, quarantine %d, file present %d (expected 1, 0, 1)\n",
                hiddenLoaded ? 1 : 0, RsbsSave_HasQuarantine(0), RsbsSave_HasSave(0));
-        XW2_CHECK(!hiddenLoaded, "a file with a hidden warp-song rule on LOADED: this build cannot play it");
-        XW2_CHECK(RsbsSave_HasQuarantine(0) == 0 && RsbsSave_HasSave(0) == 1,
-                  "a rule this build does not offer is not damage: the .redsave must stay where it is");
+        XW2_CHECK(hiddenLoaded && Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == kXw2SoaringPair,
+                  "since XW14 a file with both Soaring rules on did not load on the production mask");
+        XW2_CHECK(RsbsSave_HasQuarantine(0) == 0 && RsbsSave_HasSave(0) == 1, "the loaded .redsave moved");
+        Xw2ClearKeys();
+        ComboContext_Init(); // the writer refuses a key while the loaded world is frozen
 
-        // Hidden, the session's keys the file's (the console, or a later build's
-        // config): still refused as another build's, not quarantined, and the
-        // word never becomes resident.
+        // The session's keys the file's: it loads, the word resident.
         XW2_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SONG_SOARING_OOT, 1) == 1 &&
                       Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SOARING, 1) == 1,
-                  "the writers refused the keys before the hidden keyed load");
+                  "the writers refused the keys before the keyed load");
         RsbsSave_ResetSlotSessionState();
         ComboContext_Init();
         const bool hiddenKeyedLoaded = mgr.Load(0);
-        printf("[TEST] (9) hidden, keys equal to the file's: loaded %d, quarantine %d, file present %d, resident word "
-               "%08X (expected 0, 0, 1, 00000000)\n",
+        printf("[TEST] (9) offered, keys equal to the file's: loaded %d, quarantine %d, file present %d, resident "
+               "word %08X (expected 1, 0, 1, 00000081)\n",
                hiddenKeyedLoaded ? 1 : 0, RsbsSave_HasQuarantine(0), RsbsSave_HasSave(0),
                (unsigned)Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2));
-        XW2_CHECK(!hiddenKeyedLoaded && Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == 0u,
-                  "a file with a hidden warp-song rule on LOADED under keys equal to it: the keys alone must not "
-                  "admit a world this build cannot play");
-        XW2_CHECK(RsbsSave_HasQuarantine(0) == 0 && RsbsSave_HasSave(0) == 1,
-                  "a hidden rule under equal keys is not damage: the .redsave must stay where it is");
+        XW2_CHECK(hiddenKeyedLoaded && Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) == kXw2SoaringPair,
+                  "since XW14 a file with both Soaring rules on did not load under keys equal to it");
+        XW2_CHECK(RsbsSave_HasQuarantine(0) == 0 && RsbsSave_HasSave(0) == 1, "the loaded .redsave moved");
+        Xw2ClearKeys();
+        ComboContext_Init(); // the writer refuses a key while the loaded world is frozen
 
-        // Revealed, the session's keys the file's: the word round-trips exactly.
+        // The session's keys the file's (the seam a no-op since XW14): the word
+        // round-trips exactly.
         Combo_ComboItemRules2RevealForTest(1);
         XW2_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SONG_SOARING_OOT, 1) == 1 &&
                       Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SOARING, 1) == 1,
@@ -769,8 +773,14 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "THE .redsave ROUND TRIP: loaded %d, word %08X, fingerprint %08X", keyedLoaded ? 1 : 0,
                   (unsigned)Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2),
                   (unsigned)gComboCtx.comboSettingsHash);
+        // #1169 XW14: the second family word round-trips with the world. Catches a
+        // load that drops or zero-extends it, which would make a shared warp song
+        // learnt before the save unknown in the other game after the load.
+        XW2_CHECK(keyedLoaded && gComboCtx.sharedFamilyOwned2 == kXw2SharedSoaring,
+                  "THE SHARED FAMILY WORD did not survive Save/Load: owned2 %08X after the load, want %08X",
+                  (unsigned)gComboCtx.sharedFamilyOwned2, (unsigned)kXw2SharedSoaring);
 
-        // Revealed, the session's keys unset: frozen wins at load, the keys come back.
+        // The session's keys unset: frozen wins at load, the keys come back.
         Xw2ClearKeys();
         RsbsSave_ResetSlotSessionState();
         ComboContext_Init();
@@ -806,11 +816,9 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         // quarantined; the same file with a PRESENT record loads. The session's
         // key EQUALS the file's word, so nothing else diverges: the pair tells the
         // guard from its absence (without the check the UNSET file loads too, and
-        // its arrival diff is 0). The six MM extensions stay hidden until
-        // IntMMWarpSongMinuet exists, so the leg runs under the MM seam (what
-        // exposing them does); without it the hidden gate would refuse both files
-        // and the pair could not tell the record guard from its absence.
-        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+        // its arrival diff is 0). The six MM extensions are offered since XW13, so
+        // the leg runs on the production mask: the PRESENT file loading is what
+        // tells the record guard from the hidden gate (which would refuse both).
         for (int present = 0; present < 2; present++) {
             // The context still holds the world the last leg loaded, and the
             // writer refuses every key while a world is frozen: forget it first.
@@ -863,7 +871,25 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                           "touched it: its logic credits warps that play refuses");
             }
         }
-        Combo_ComboItemRules2RevealForTest(0);
+
+        // (11) #1169 XW14: ANOTHER BUILD'S WORLD (a bit this build does not
+        // allocate) is refused at load, intact, not quarantined. Catches a load
+        // refusal that disappeared with the hidden mask.
+        Xw2ClearKeys();
+        RsbsSave_ResetSlotSessionState();
+        mgr.DeleteSave(0);
+        ComboContext_Init();
+        Xw2SeedShadows(0x69u);
+        Xw2FreezeWorld(kXw2Later);
+        Xw2SeedShadows(0x69u);
+        XW2_CHECK(mgr.Save(0), "Save(0) failed for another build's file");
+        RsbsSave_ResetSlotSessionState();
+        ComboContext_Init();
+        const bool laterLoaded = mgr.Load(0);
+        printf("[TEST] (11) another build's word: loaded %d, quarantine %d, file present %d (expected 0, 0, 1)\n",
+               laterLoaded ? 1 : 0, RsbsSave_HasQuarantine(0), RsbsSave_HasSave(0));
+        XW2_CHECK(!laterLoaded && RsbsSave_HasQuarantine(0) == 0 && RsbsSave_HasSave(0) == 1,
+                  "a file holding a rule bit this build does not allocate LOADED, or was quarantined or removed");
 
         Xw2ClearKeys();
         RsbsSave_ResetSlotSessionState();

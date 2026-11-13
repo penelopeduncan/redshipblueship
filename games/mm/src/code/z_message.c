@@ -5896,8 +5896,10 @@ void MM_Message_Update(PlayState* play) {
                         break;
                 }
 
-                if ((msgCtx->textboxEndType == TEXTBOX_ENDTYPE_TWO_CHOICE) &&
-                    (play->msgCtx.ocarinaMode == OCARINA_MODE_ACTIVE)) {
+                if (GameInteractor_Should(VB_MSG_CAPTURE_MSGMODE_TEXT_DONE, false)) {
+                    // no-op
+                } else if ((msgCtx->textboxEndType == TEXTBOX_ENDTYPE_TWO_CHOICE) &&
+                           (play->msgCtx.ocarinaMode == OCARINA_MODE_ACTIVE)) {
                     if (MM_Message_ShouldAdvance(play)) {
                         if (msgCtx->choiceIndex == 0) {
                             play->msgCtx.ocarinaMode = OCARINA_MODE_WARP;
@@ -6131,7 +6133,9 @@ void MM_Message_Update(PlayState* play) {
             if (msgCtx->ocarinaAction != OCARINA_ACTION_CHECK_NOTIME_DONE) {
                 s16 pad;
 
-                if (MM_sLastPlayedSong == OCARINA_SONG_TIME) {
+                if (GameInteractor_Should(VB_MSG_CAPTURE_MSGMODE_TEXT_CLOSING_OCARINA_ACTION, false)) {
+                    // no-op
+                } else if (MM_sLastPlayedSong == OCARINA_SONG_TIME) {
                     if (interfaceCtx->restrictions.songOfTime == 0) {
                         MM_Message_StartTextbox(play, 0x1B8A, NULL);
                         play->msgCtx.ocarinaMode = OCARINA_MODE_PROCESS_SOT;

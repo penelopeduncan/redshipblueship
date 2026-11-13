@@ -280,10 +280,13 @@ bool Logic::HasItem(RandomizerGet itemName) {
         case RG_IRON_BOOTS:
         case RG_HOVER_BOOTS:
             return CheckEquipment(RandoGetToEquipFlag[itemName]);
+        case RG_PROGRESSIVE_GORONSWORD:
         case RG_GIANTS_KNIFE:
-            return CheckEquipment(RandoGetToEquipFlag[itemName]) || Get(LOGIC_MEDIGORON);
+            // progressive leaves Medigoron replacing broken knives, so the first one has to be found
+            return CheckEquipment(EQUIP_FLAG_SWORD_BGS) ||
+                   (!ctx->GetOption(RSK_PROGRESSIVE_GORON_SWORD) && Get(LOGIC_MEDIGORON));
         case RG_BIGGORON_SWORD:
-            return CheckEquipment(RandoGetToEquipFlag[itemName]) && mSaveContext->bgsFlag;
+            return CheckEquipment(EQUIP_FLAG_SWORD_BGS) && mSaveContext->bgsFlag;
         case RG_POWER_BRACELET:
             return CheckRandoInf(RAND_INF_CAN_GRAB);
         case RG_GORONS_BRACELET:
@@ -332,7 +335,7 @@ bool Logic::HasItem(RandomizerGet itemName) {
                 case RO_MASK_QUEST_VANILLA:
                     return Get(LOGIC_BORROW_SKULL_MASK);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_SKULL);
                 default:
@@ -344,7 +347,7 @@ bool Logic::HasItem(RandomizerGet itemName) {
                 case RO_MASK_QUEST_VANILLA:
                     return Get(LOGIC_BORROW_RIGHT_MASKS);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_TRUTH);
                 default:
@@ -359,9 +362,9 @@ bool Logic::HasItem(RandomizerGet itemName) {
         case RG_KEATON_MASK:
             switch (ctx->GetOption(RSK_MASK_QUEST).Get()) {
                 case RO_MASK_QUEST_VANILLA:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_KEATON);
                 default:
@@ -373,7 +376,7 @@ bool Logic::HasItem(RandomizerGet itemName) {
                 case RO_MASK_QUEST_VANILLA:
                     return Get(LOGIC_BORROW_BUNNY_HOOD);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY);
                 default:
@@ -385,7 +388,7 @@ bool Logic::HasItem(RandomizerGet itemName) {
                 case RO_MASK_QUEST_VANILLA:
                     return Get(LOGIC_BORROW_RIGHT_MASKS);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_GORON);
                 default:
@@ -397,7 +400,7 @@ bool Logic::HasItem(RandomizerGet itemName) {
                 case RO_MASK_QUEST_VANILLA:
                     return Get(LOGIC_BORROW_RIGHT_MASKS);
                 case RO_MASK_QUEST_COMPLETED:
-                    return HasItem(RG_ZELDAS_LETTER) && Get(LOGIC_KAKARIKO_GATE_OPEN);
+                    return Get(LOGIC_KAKARIKO_GATE_OPEN);
                 case RO_MASK_QUEST_SHUFFLE:
                     return CheckRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_ZORA);
                 default:
@@ -656,6 +659,7 @@ bool Logic::ItemUseAllowed(RandomizerGet itemName) {
     switch (itemName) {
         case RG_KOKIRI_SWORD:
         case RG_MASTER_SWORD:
+        case RG_PROGRESSIVE_GORONSWORD:
         case RG_GIANTS_KNIFE:
         case RG_BIGGORON_SWORD:
             return BAllowed();
@@ -906,6 +910,7 @@ bool Logic::CanUse(RandomizerGet itemName) {
             return IsAdult; // || MirrorShieldAsChild;
         case RG_MASTER_SWORD:
             return IsAdult; // || MasterSwordAsChild;
+        case RG_PROGRESSIVE_GORONSWORD:
         case RG_GIANTS_KNIFE:
         case RG_BIGGORON_SWORD:
             return IsAdult; // || BiggoronSwordAsChild;
@@ -2699,6 +2704,15 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
                         SetInventory(ITEM_BOMBCHU, (!state ? ITEM_NONE : ITEM_BOMBCHU));
                     }
                     break;
+                case RG_PROGRESSIVE_GORONSWORD:
+                    if (state ? CheckEquipment(EQUIP_FLAG_SWORD_BGS) : mSaveContext->bgsFlag) {
+                        mSaveContext->bgsFlag = state;
+                    } else if (state) {
+                        mSaveContext->inventory.equipment |= EQUIP_FLAG_SWORD_BGS;
+                    } else {
+                        mSaveContext->inventory.equipment &= ~EQUIP_FLAG_SWORD_BGS;
+                    }
+                    break;
                 default:
                     break;
             }
@@ -2815,6 +2829,15 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
                 case RG_BUY_BOMBCHUS_20:
                     if (ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_NONE)) {
                         SetInventory(ITEM_BOMBCHU, (!state ? ITEM_NONE : ITEM_BOMBCHU));
+                    }
+                    break;
+                case RG_PROGRESSIVE_GORONSWORD:
+                    if (state ? CheckEquipment(EQUIP_FLAG_SWORD_BGS) : mSaveContext->bgsFlag) {
+                        mSaveContext->bgsFlag = state;
+                    } else if (state) {
+                        mSaveContext->inventory.equipment |= EQUIP_FLAG_SWORD_BGS;
+                    } else {
+                        mSaveContext->inventory.equipment &= ~EQUIP_FLAG_SWORD_BGS;
                     }
                     break;
                 default:

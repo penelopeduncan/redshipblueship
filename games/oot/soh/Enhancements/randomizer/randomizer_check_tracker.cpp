@@ -95,6 +95,7 @@ bool showKokiriSword;
 bool showMasterSword;
 bool showHyruleLoach;
 bool showWeirdEgg;
+bool showZeldasLetter;
 bool showGerudoCard;
 bool showOverworldPots;
 bool showDungeonPots;
@@ -1328,6 +1329,11 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
             }
         }
     }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared =
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)itemLoc->GetPlacedRandomizerGet())) {
+        return shared;
+    }
     return itemLoc->GetPlacedItem().GetName().GetForLanguage(gSaveContext.language);
 }
 
@@ -1888,8 +1894,10 @@ void LoadSettings() {
                           RO_GENERIC_YES;
     showHyruleLoach =
         IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_FISHSANITY) == RO_FISHSANITY_HYRULE_LOACH;
-    showWeirdEgg =
-        !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_GENERIC_YES;
+    showWeirdEgg = !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_WEIRD_EGG) ==
+                                    RO_WEIRD_EGG_SHUFFLED;
+    showZeldasLetter =
+        !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_ZELDAS_LETTER) == RO_GENERIC_YES;
     showGerudoCard = !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(
                                       RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD) == RO_GENERIC_YES;
     showFrogSongRupees =
@@ -2123,8 +2131,7 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_GOSSIP_STONE) && // TODO: Don't show hints until tracker supports them
                (loc->GetRCType() != RCTYPE_STATIC_HINT) &&  // TODO: Don't show hints until tracker supports them
                (loc->GetRCType() != RCTYPE_CHEST_GAME || showChestMinigame) &&
-               (rc != RC_HC_ZELDAS_LETTER) &&               // don't show zeldas letter until we support shuffling it
-               (rc != RC_LINKS_POCKET || showLinksPocket) &&
+               (rc != RC_HC_ZELDAS_LETTER || showZeldasLetter) && (rc != RC_LINKS_POCKET || showLinksPocket) &&
                OTRGlobals::Instance->gRandoContext->IsQuestOfLocationActive(rc) &&
                (loc->GetRCType() != RCTYPE_SHOP ||
                 (showShops &&

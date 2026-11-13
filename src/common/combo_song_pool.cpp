@@ -4,6 +4,7 @@
  */
 
 #include "combo_song_pool.h"
+#include "foreign_items.h"   // #1169 XW14: Combo_ComboItemRule2Offered, the shared warp songs' rows
 #include "warp_song_items.h" // RSBS_SONG_SPOTS_REFUSAL, OoTMM's wording
 
 #include <atomic>
@@ -138,19 +139,25 @@ extern "C" uint32_t Combo_SongPoolCapacityRefusal(uint8_t side, uint32_t rows, u
         return 0u;
     }
     const char* excluded = excludedSongChecks > 0u ? ", or include an excluded song check" : "";
+    // #1169 XW14: a shared warp song frees one row of its home class too (the
+    // added copy is gone and the host's native copy is a pair row, never
+    // home-only), so the home-side texts offer it once the shared rows are offered.
+    const bool share = Combo_SongPoolShareOffered();
     int n = 0;
     if (side == RSBS_SONG_POOL_SHORT_OOT) {
         n = std::snprintf(msg, len,
                           "%s: %u Ocarina of Time songs for the %u song checks they may use (Crossing Direction "
-                          "keeps them in Ocarina of Time). Start with an Ocarina of Time song, change the Crossing "
+                          "keeps them in Ocarina of Time). %san Ocarina of Time song, change the Crossing "
                           "Direction%s, or shuffle songs Anywhere",
-                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsOoT, (unsigned)hosts, excluded);
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsOoT, (unsigned)hosts,
+                          share ? "Share a song, start with " : "Start with ", excluded);
     } else if (side == RSBS_SONG_POOL_SHORT_MM) {
         n = std::snprintf(msg, len,
                           "%s: %u Majora's Mask songs for the %u song checks they may use (Crossing Direction "
-                          "keeps them in Majora's Mask). Start with a Majora's Mask song, change the Crossing "
+                          "keeps them in Majora's Mask). %sa Majora's Mask song, change the Crossing "
                           "Direction%s, or shuffle songs Anywhere",
-                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsMM, (unsigned)hosts, excluded);
+                          RSBS_SONG_SPOTS_REFUSAL, (unsigned)rowsMM, (unsigned)hosts,
+                          share ? "Share a song, start with " : "Start with ", excluded);
     } else if (side == RSBS_SONG_POOL_SHORT_SOME) {
         n = std::snprintf(msg, len,
                           "%s: %u songs for the %u song checks that can hold them (Shuffle Songs: Song Locations). "
@@ -163,6 +170,17 @@ extern "C" uint32_t Combo_SongPoolCapacityRefusal(uint8_t side, uint32_t rows, u
                           RSBS_SONG_SPOTS_REFUSAL, (unsigned)rows, (unsigned)hosts, excluded);
     }
     return n < 0 ? 0u : (uint32_t)n;
+}
+
+extern "C" bool Combo_SongPoolShareOffered(void) {
+    // Any of the seven: they leave RSBS_XITEM2_HIDDEN together.
+    for (uint32_t b = 0; b < 32u; ++b) {
+        const uint32_t bit = 1u << b;
+        if ((bit & (uint32_t)RSBS_XITEM2_WARP_SONG_SHARED) != 0u && Combo_ComboItemRule2Offered(bit)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 extern "C" void Combo_SongHostsForceForTest(int value) {

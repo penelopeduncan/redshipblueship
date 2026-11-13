@@ -294,15 +294,20 @@ void Settings::CreateOptionDescriptions() {
         "Shuffle ability to speak to NPCs. 6 jabbernuts will be shuffled:\nDeku, Gerudo, Goron, Hylian, Kokiri, "
         "Zora\nKaepora Gaebora speaks any language.";
     mOptionDescriptions[RSK_SHUFFLE_OPEN_CHEST] = "Shuffles the ability to open chests into the item pool.";
-    mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG] = "Shuffles the Weird Egg from Malon in to the item pool. Enabling "
-                                                 "\"Skip Child Zelda\" disables this feature.\n"
-                                                 "\n"
-                                                 "The Weird Egg is required to unlock several events:\n"
-                                                 "  - Zelda's Lullaby from Impa\n"
-                                                 "  - Saria's Song in Sacred Forest Meadow\n"
-                                                 "  - Epona's Song and chicken minigame at Lon Lon Ranch\n"
-                                                 "  - Zelda's Letter for Kakariko gate (if set to closed)\n"
-                                                 "  - Happy Mask Shop sidequest\n";
+    mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG] =
+        "Vanilla: Malon gives the Weird Egg at Hyrule Castle.\n"
+        "\n"
+        "Shuffled: shuffles Weird Egg into item pool.\n"
+        "\n"
+        "Skip Waking Talon: Talon already woken and back at Lon Lon Ranch with Malon.";
+    mOptionDescriptions[RSK_SHUFFLE_ZELDAS_LETTER] =
+        "Shuffles Zelda's Letter into the item pool, meeting Zelda gives a random item instead.\n"
+        "\n"
+        "Required to open Kakariko gate and Happy Mask Shop. Starting with letter starts with gate opened.\n"
+        "\n"
+        "Meeting Zelda still triggers Saria at Sacred Forest Meadow.\n"
+        "\n"
+        "When disabled, \"Start with Zelda's Letter\" skips child Zelda: you also get item Impa would give.";
     mOptionDescriptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD] =
         "Shuffles the Gerudo Membership Card into the item pool.\n"
         "\n"
@@ -851,6 +856,12 @@ void Settings::CreateOptionDescriptions() {
                                                     "\n"
                                                     "If you have Bombchu Bag disabled, you will need a Bomb Bag "
                                                     "and existing Bombchus for Bombchus to drop.";
+    mOptionDescriptions[RSK_PROGRESSIVE_GORON_SWORD] =
+        "Giant's Knife and Biggoron's Sword are shuffled as one progressive item: the first copy is the "
+        "breakable Giant's Knife, the second is Biggoron's Sword.\n"
+        "\n"
+        "Starting with Biggoron's Sword still starts you with both.\n"
+        "Medigoron only repairs broken Giant's Knife.";
     mOptionDescriptions[RSK_BLUE_FIRE_ARROWS] =
         "Ice Arrows act like Blue Fire, making them able to melt red ice. "
         "Item placement logic will respect this option, so it might be required to use this to progress.";

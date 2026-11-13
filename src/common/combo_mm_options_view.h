@@ -175,6 +175,17 @@ void Combo_RegisterMMOptionTable(const ComboMMOptionDesc* table, int count);
  */
 void MM_RandoOptionsUi_Register(void);
 
+/**
+ * 1 when the option row `id` (a RandoOptionId) is COMBO_MM_LIVENESS_PARTIAL in
+ * MM's own table, else 0 (and 0 for an id with no row). Read straight from the
+ * table the descriptors are built from, so it needs no registration. A paired
+ * profile resolves every PARTIAL row to its default (Foreign.cpp
+ * ResolveProfileValues): the pane greys those rows and presets refuse them, and
+ * this keeps a hand-set key from reaching a paired pool too. DEFINED MM-SIDE
+ * (games/mm/2s2h/Rando/OptionsUiSingleExe.cpp).
+ */
+int MM_RandoOptionsUi_RowIsPartial(uint16_t id);
+
 /** Number of registered descriptors; 0 when the MM table did not link. */
 int Combo_MMOptionCount(void);
 

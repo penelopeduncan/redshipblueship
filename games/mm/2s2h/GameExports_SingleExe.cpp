@@ -284,6 +284,17 @@ static_assert(RC_DEKU_PALACE_BEAN_SALESMAN_GROTTO_BUTTERFLY_01 == 2617 &&
               "MM's butterfly checks (#1407) are ids 2617..2641, appended after #1410's");
 static_assert(RO_SHUFFLE_BUTTERFLIES == 56,
               "MM's Shuffle Butterflies option (#1407) is id 56, after RO_SHUFFLE_HIVE_DROPS");
+// #1403 (MM pool options): Skeleton Key, Shuffled Gold Skulltulas, Stray Fairies in Pool,
+// Double Time / Inverted Time / Sun's Song / Saria's Song.
+static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO_STRAY_FAIRIES_MAX == 59 &&
+                  RO_SHUFFLE_SONG_DOUBLE_TIME == 60 && RO_SHUFFLE_SONG_INVERTED_TIME == 61 &&
+                  RO_SHUFFLE_SONG_SUN == 62 && RO_SHUFFLE_SONG_SARIA == 63,
+              "MM's #1403 pool options are ids 57..63, after RO_SHUFFLE_BUTTERFLIES");
+static_assert(RI_SKELETON_KEY == RI_SONG_PRELUDE + 1 && RI_SONG_DOUBLE_TIME == RI_SONG_PRELUDE + 2 &&
+                  RI_SONG_INVERTED_TIME == RI_SONG_PRELUDE + 3 && RI_MAX_TRAP == RI_SONG_PRELUDE + 4,
+              "MM's #1403 items follow the #1485 warp songs: saved checks store RandoItemId");
+static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
+              "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));
@@ -2267,6 +2278,11 @@ static void GpSongHostMMFrame(int playFrames) {
     }
 }
 
+// int-mm-warp-song-minuet (#1169 XW13): the Minuet drive and its post-departure
+// watch (games/mm/2s2h/mm_int_warp_song_drive.cpp).
+extern "C" void MM_IntMwDrive_Frame(PlayState* play);
+extern "C" void MM_IntMwDrive_WatchDeparture(void);
+
 /**
  * Per-frame MM driver for the gameplay round-trip. Called directly from MM's
  * graph loop (games/mm/src/code/graph.c, single-exe only) once per frame —
@@ -2285,6 +2301,11 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
     }
     if (Context_GetCurrentGame() != GAME_MM) {
         return; // switch in flight; only count MM-owned frames
+    }
+    // int-mm-warp-song-minuet: after the drive handed the phase to OoT, MM must
+    // switch within its budget (above the phase filter: the phase is OoT's now).
+    if (IntegrationTest_MMWarpSongMinuet()) {
+        MM_IntMwDrive_WatchDeparture();
     }
     GameplayPhase phase = IntegrationTest_GetGameplayPhase();
     if (phase != GP_PHASE_MM_STABILIZE && phase != GP_PHASE_MM_PLAY) {
@@ -2452,6 +2473,12 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
         MM_Shop_PlaytestShopFrame();
     }
     if (sGpMMPlayFrames < cfg->framesPerPhase) {
+        return;
+    }
+    // int-mm-warp-song-minuet (#1169 XW13): the Minuet crosses instead of the
+    // Clock Tower door; the drive marks the departure and hands the phase to OoT.
+    if (IntegrationTest_MMWarpSongMinuet()) {
+        MM_IntMwDrive_Frame(MM_gPlayState);
         return;
     }
     // int-soaring-to-owl (#1169 XW6): the owls the OoT drive soars to, frozen
@@ -5764,11 +5791,39 @@ static void MM_SharedMaskGive(uint16_t nativeId) {
     INV_CONTENT(item) = item;
 }
 
+// #1169 XW10: Majora's Mask's own Song of Soaring, the MM member (and the HOST
+// half) of the shared Song of Soaring (OoTMM sharedSongSoaring, the second family
+// word). Item_Give(ITEM_SONG_SOARING) only sets the quest bit, free play builds the
+// playable set from the quest bits alone (the #1070 finding), and songs survive
+// the Song of Time. Its own helpers, NOT MM_SharedSongQuestBit: that one answers
+// Epona's bit for every id but the Song of Storms.
+static bool MM_SharedSoaringHeld(uint16_t nativeId) {
+    return nativeId == (uint16_t)RI_SONG_SOARING &&
+           (gSaveContext.save.saveInfo.inventory.questItems & (1u << QUEST_SONG_SOARING)) != 0u;
+}
+static void MM_SharedSoaringGive(uint16_t nativeId) {
+    if (nativeId == (uint16_t)RI_SONG_SOARING) {
+        gSaveContext.save.saveInfo.inventory.questItems |= (1u << QUEST_SONG_SOARING);
+    }
+}
+
+// #837: defined below, beside MM_SaveIsLiveFile (the harvest's gate).
+extern "C" int MM_Combo_DepartureIsLiveFile(void);
+
+/** #1169 XW14: MM's live probe for Combo_SharedFamilies2HeldNow: nonzero only while
+ *  MM is the running game and its gSaveContext is a live file (the harvest's own
+ *  gameMode gate, which refuses MM's title-screen bootstrap save), so MM's members
+ *  are never asked about another game's save. */
+static int MM_SharedFamilyLiveProbe(void) {
+    return (Context_GetCurrentGame() == GAME_MM && MM_Combo_DepartureIsLiveFile() != 0) ? 1 : 0;
+}
+
 namespace {
 // Static-init registration (the ComboLogicEngine registrars' shape): this TU is
 // always linked, and the registry is zero-initialised storage.
 struct MMSharedFamilyRegistrar {
     MMSharedFamilyRegistrar() {
+        Combo_RegisterSharedLiveProbe(GAME_MM, MM_SharedFamilyLiveProbe); // #1169 XW14
         const ComboSharedFamilyMember lens = { (uint16_t)RI_LENS, MM_SharedLensHeld, MM_SharedLensGive };
         Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XITEM_SHARED_LENS, &lens);
         const ComboSharedFamilyMember epona = { (uint16_t)RI_SONG_EPONA, MM_SharedSongHeld, MM_SharedSongGive };
@@ -5802,6 +5857,12 @@ struct MMSharedFamilyRegistrar {
         // paired with the one OoT gains under the Stone Mask (OoT) rule.
         const ComboSharedFamilyMember maskStone = { (uint16_t)RI_MASK_STONE, MM_SharedMaskHeld, MM_SharedMaskGive };
         Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XITEM_SHARED_STONE, &maskStone);
+        // #1169 XW10: the shared Song of Soaring's MM member, MM's native song (the
+        // pair's host half; OoTMM replaces this copy with the shared item), paired
+        // with the Song of Soaring (OoT) SongOfSoaringOoT.cpp registers.
+        const ComboSharedFamilyMember soaring = { (uint16_t)RI_SONG_SOARING, MM_SharedSoaringHeld,
+                                                  MM_SharedSoaringGive };
+        Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SOARING, &soaring);
     }
 };
 const MMSharedFamilyRegistrar gMMSharedFamilyRegistrar;
@@ -6736,6 +6797,14 @@ static int MM_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint1
 extern "C" int MM_CreditSharedPickup(const SharedItem* item) {
     uint8_t kind = 0;
     uint16_t units = 0;
+    // #1169 XW10: Ocarina of Time's copy of an ARMED second-word shared family (a
+    // shared warp song's surplus copy that crossed) is owned now and MM is given its
+    // own copy, with no crossing (Combo_SharedFamilies2CreditFarPickup); with the
+    // shared rule off it answers false and the item crosses as before.
+    if (item != nullptr && MM_SaveIsLiveFile() &&
+        Combo_SharedFamilies2CreditFarPickup(GAME_MM, item->originGame, item->id)) {
+        return 1;
+    }
     if (item == nullptr || !Combo_SharedPickupCreditOf(*item, &kind, &units) || !MM_SaveIsLiveFile()) {
         return 0;
     }

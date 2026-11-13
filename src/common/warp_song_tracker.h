@@ -63,6 +63,16 @@ uint32_t Combo_TrackerTravel_IntoOoT(uint32_t rules2, uint8_t mmOwned, uint32_t 
                                      int crossOoT);
 
 /**
+ * Combo_TrackerTravel_IntoOoT with the shared songs (#1169 XW14): song i also
+ * counts as MM's when @p families2Held (Combo_SharedFamilies2HeldNow's bits) has
+ * its shared bit, (0x02 << i) << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT, and the frozen
+ * @p rules2 has that shared rule on (Combo_AddedSongHeld's fourth argument).
+ * Combo_TrackerTravel_IntoOoT is this with 0. Pure.
+ */
+uint32_t Combo_TrackerTravel_IntoOoTEx(uint32_t rules2, uint8_t mmOwned, uint32_t mmPlayableMask, int paired,
+                                       int crossOoT, uint32_t families2Held);
+
+/**
  * The fact INTO MM MM's check tracker may credit (RSBS_COMBO_TRAVEL_INTO_MM or
  * 0): the frozen rule RSBS_XITEM2_SONG_SOARING_OOT on, Combo_AddedSongHeld over
  * @p soaringOwned, @p soaringPlayable, @p ootAge == RSBS_MMWP_AGE_CHILD,
@@ -71,6 +81,15 @@ uint32_t Combo_TrackerTravel_IntoOoT(uint32_t rules2, uint8_t mmOwned, uint32_t 
  */
 uint32_t Combo_TrackerTravel_IntoMM(uint32_t rules2, bool soaringOwned, bool soaringPlayable, int ootAge, int paired,
                                     int crossMM);
+
+/**
+ * Combo_TrackerTravel_IntoMM with the shared Song of Soaring (#1169 XW14): OoT's
+ * copy also counts as owned when @p families2Held has
+ * RSBS_XITEM2_SHARED_SONG_SOARING and the frozen @p rules2 has that rule on.
+ * Combo_TrackerTravel_IntoMM is this with 0. Pure.
+ */
+uint32_t Combo_TrackerTravel_IntoMMEx(uint32_t rules2, bool soaringOwned, bool soaringPlayable, int ootAge, int paired,
+                                      int crossMM, uint32_t families2Held);
 
 /* ---- The frozen copies' readers, registered by each game's TU --------------- */
 
@@ -93,16 +112,18 @@ void Combo_TrackerTravel_RegisterOoTReader(ComboTrackerOoTSoaringFn fn);
 /* ---- The facts now, from the frozen world ------------------------------------ */
 
 /**
- * OoT's tracker's facts now: Combo_TrackerTravel_IntoOoT over the frozen second
- * word, the ownership byte, the pairing, and MM's FROZEN save through MM's reader
+ * OoT's tracker's facts now: Combo_TrackerTravel_IntoOoTEx over the frozen second
+ * word, the ownership byte, the shared songs held now (Combo_SharedFamilies2HeldNow,
+ * #1169 XW14), the pairing, and MM's FROZEN save through MM's reader
  * (0 when MM has no frozen copy, or one frozen as not a live file, or no reader).
  * With every MM warp-song rule off it reads the word and returns 0.
  */
 uint32_t Combo_TrackerTravel_OoTFactsNow(int crossOoT);
 
 /**
- * MM's tracker's fact now: Combo_TrackerTravel_IntoMM over the frozen second
- * word, OoT's FROZEN save through OoT's reader, Combo_MMWarpPlay_OoTFrozenAge and
+ * MM's tracker's fact now: Combo_TrackerTravel_IntoMMEx over the frozen second
+ * word, OoT's FROZEN save through OoT's reader, the shared songs held now
+ * (Combo_SharedFamilies2HeldNow, #1169 XW14), Combo_MMWarpPlay_OoTFrozenAge and
  * the pairing (0 when OoT has no frozen copy, or one frozen as not a live file,
  * or no reader). With the Soaring rule off it reads the word and returns 0.
  */

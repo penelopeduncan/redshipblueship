@@ -690,6 +690,141 @@ uint32_t Combo_SharedFamiliesHarvestLive(GameId game);
  *  owed. Returns how many copies were given. */
 int Combo_SharedFamiliesApplyLive(GameId game);
 
+/*
+ * ---------------------------------------------------------------------------
+ * THE SECOND FAMILY WORD (#1169 lane XW10; scoping decision 6)
+ * ---------------------------------------------------------------------------
+ * The shared families of the SECOND rules word (foreign_items.h,
+ * RSBS_XITEM2_FAMILY_MASK: today the seven shared warp songs) are owned in
+ * gComboCtx.sharedFamilyOwned2, one bit per family at its own rule bit, under the
+ * SAME OR discipline, direction rule and arming rule as the first word (above):
+ * armed from the FROZEN second word only, harvest `owned2 |= held & armed2`,
+ * apply gives `owned2 & armed2 & ~held`, never a bit cleared.
+ *
+ * ONE REGISTRY, TWO WORDS. A member registers at a family SLOT, word * 32 + bit
+ * (RSBS_XFAMILY_SLOT_COUNT): the first word's API keeps slots 0-31 exactly as
+ * before, and the *2 calls below address slots 32-63. Combo_SharedFamiliesHarvestLive
+ * and Combo_SharedFamiliesApplyLive (above) run BOTH words, each only when it arms
+ * a family, so every shim that calls them carries the second word unedited, and a
+ * world that arms only second-word families is harvested and applied too.
+ * Combo_ClearSharedFamilyMembers clears both. Combo_SingleBag_SharedPairs builds
+ * the second word's pairs after the first word's.
+ *
+ * AT PICKUP. A far game's copy of an armed second-word family found in the running
+ * game (a surplus copy that crossed) is credited there and then
+ * (Combo_SharedFamilies2CreditFarPickup), the #1061 / #1120 rule: never a round trip.
+ */
+
+/** Register (or, with NULL @p member, unregister) @p game's copy of the
+ *  second-word family at @p family2Bit. Refused (false) for a game that is not OoT
+ *  or MM, a bit that is not exactly one RSBS_XITEM2_FAMILY_MASK bit, or a member
+ *  with a NULL callback. Never touches a first-word slot. */
+bool Combo_RegisterSharedFamily2Member(GameId game, uint32_t family2Bit, const ComboSharedFamilyMember* member);
+
+/** The second word's twins of Combo_SharedFamilyMemberId / _MemberPooled /
+ *  _MemberGet, at @p family2Bit. */
+bool Combo_SharedFamily2MemberId(GameId game, uint32_t family2Bit, uint16_t* outId);
+bool Combo_SharedFamily2MemberPooled(GameId game, uint32_t family2Bit);
+bool Combo_SharedFamily2MemberGet(GameId game, uint32_t family2Bit, ComboSharedFamilyMember* out);
+
+/** A short name for one second-word family, for logs: its rule's OoTMM key
+ *  (Combo_ComboItemRule2Name). Never NULL. */
+const char* Combo_SharedFamily2SlotName(uint32_t family2Bit);
+
+/** #1169 XW15: the ARMED second-word family bit whose registered @p game member is
+ *  @p nativeId, else 0 (an unarmed family, an unregistered id, a game that is not
+ *  OoT or MM). The one bit-to-member scan every caller shares. */
+uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId);
+
+/**
+ * #1169 XW15 (operator ruling: "a shared song should be at its default location if
+ * the songs aren't shuffled"): is @p nativeId, @p game's member of an armed SHARED
+ * WARP SONG (RSBS_XITEM2_WARP_SONG_SHARED), a song that stays on its own default
+ * check in this world? True exactly when OoT's Shuffle Songs value
+ * @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF, warp_song_items.h) and
+ * Combo_SharedFamily2ArmedBitOf answers a shared warp song's bit. Each such song
+ * has ONE default check: OoT's six warp songs their Sheik checks, the Song of
+ * Soaring MM's Southern Swamp check. Neither game pools a copy, no bag row is
+ * made, and the coordinator credits the other game when that check is reached
+ * (Combo_Logic_SetFixedCredits). The first word's shared songs (Epona's Song,
+ * Song of Storms, Song of Time) are not covered: their bits are in the first word.
+ * False for every world with no shared warp song frozen on.
+ */
+bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs);
+
+/** The second-word families the FROZEN second word arms (its
+ *  RSBS_XITEM2_FAMILY_MASK bits), 0 while nothing is frozen. Never a CVar. */
+uint32_t Combo_SharedFamilies2Armed(void);
+
+/** The second-word pool: the families the player holds in either game. */
+uint32_t Combo_SharedFamilies2Owned(void);
+
+/** HARVEST for the second word: `owned2 |= heldBits & armed2`. Never clears a
+ *  bit. No-op for a game that is not OoT or MM. Returns the pool afterwards. */
+uint32_t Combo_SharedFamilies2Harvest(GameId game, uint32_t heldBits);
+
+/** APPLY for the second word: the families @p game must be GIVEN, owned, armed
+ *  and not in @p heldBits. Pure. */
+uint32_t Combo_SharedFamilies2Owed(GameId game, uint32_t heldBits);
+
+/**
+ * CREDIT AT PICKUP for the second word (#1169 XW10; the #1061 / #1120 rule): the
+ * item (@p originGame, @p id) was found in @p running, the other game. When it is
+ * @p originGame's registered copy of a second-word family the frozen word ARMS,
+ * the family is owned now (`owned2 |= bit`, armed bits only), @p running is given
+ * its own copy unless it holds it, and the answer is true: the pickup is credited
+ * and must NOT cross (the origin game gets its copy at its next arrival, through
+ * the apply). False, touching nothing, for anything else: a disarmed family (the
+ * extension alone: the item is an ordinary crossing), an unregistered id, an item
+ * of the running game. The CALLER gates it on its live-file test (gameMode).
+ */
+bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id);
+
+/**
+ * THE APPLY'S GIVE RECORD (#1169 XW14): the second-word family bits the most
+ * recent Combo_SharedFamiliesApplyLive(@p game) GAVE @p game (a member's give()
+ * called), 0 when that call gave none or @p game was never applied, and 0 for a
+ * game that is not OoT or MM. Cleared at the top of every apply for a real game,
+ * before its early returns. Nothing else writes it: a far-pickup credit or a
+ * starting-check payout leaves it as it was, so an integration row can tell the
+ * family's arrival apply from any other give of the same song. Session state
+ * only, never saved.
+ */
+uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game);
+
+/*
+ * HELD HERE, NOW (#1169 XW14): the one ownership answer every player-facing reader
+ * of a second-word family asks (both item adapters' added-song rows and both
+ * check trackers' travel facts), OoTMM's has(SHARED_SONG_X).
+ *
+ * A reader may run while the OTHER game is live (the item view draws a game's
+ * rows from its frozen shadow, combo_item_view.c PickSource), so no reader may
+ * call a member's held() itself: that callback reads the live save of whichever
+ * game is running. Instead each game registers a LIVE PROBE in the TU that owns
+ * its save: nonzero only while that game is the running game AND its save is a
+ * live file (Combo_SaveIsLiveFile on its own gameMode, the harvest's own gate).
+ * At most one probe answers nonzero at a time.
+ */
+typedef int (*ComboSharedLiveProbeFn)(void);
+
+/** Register @p game's live probe (NULL unregisters). Ignored for a game that is
+ *  not OoT or MM. Not cleared by Combo_ClearSharedFamilyMembers: the probes come
+ *  from static registrars that never run again. */
+void Combo_RegisterSharedLiveProbe(GameId game, ComboSharedLiveProbeFn probe);
+
+/** @p game's registered probe, or NULL (a row saves and puts it back). */
+ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game);
+
+/**
+ * The armed second-word families held right now: `owned2 & armed2`, OR'd with,
+ * for each game whose probe answers nonzero, the families that game's registered
+ * members say its live save holds (armed ones only). Without a probe, or while
+ * every probe answers 0 (a title screen, a file select, no game running), the
+ * answer is the family word alone. 0 whenever Combo_SharedFamilies2Armed() is 0,
+ * so a world with no shared rule frozen calls nothing.
+ */
+uint32_t Combo_SharedFamilies2HeldNow(void);
+
 #ifdef __cplusplus
 }
 #endif

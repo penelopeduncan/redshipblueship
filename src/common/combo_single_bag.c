@@ -227,37 +227,69 @@ static void SingleBagWothProgress(void* ctx, int tested, int candidates) {
  * gives from, so the bag row and the item the far game receives are the same
  * pair by construction. With every rule off (the shipped default) this is empty
  * and the compose is exactly the one before shared pairs existed.
+ *
+ * #1169 XW10: the SECOND family word's pairs (the shared warp songs) follow the
+ * first word's, so a world with no second-word pair has the same pairs in the same
+ * order (and its placement digest does not move). Writes at most @p cap pairs when
+ * @p out is not NULL; returns how many pairs this world BUILDS, whatever @p cap.
  */
-static int SingleBagSharedPairs(ComboLogicSharedPair* out, int cap) {
-    const uint32_t armed = Combo_SharedFamiliesArmed();
+static int SingleBagBuildSharedPairs(ComboLogicSharedPair* out, int cap) {
     int n = 0;
-    for (uint32_t b = 0; b < RSBS_XITEM_BIT_COUNT && n < cap; ++b) {
-        const uint32_t bit = 1u << b;
-        if ((armed & bit) == 0u) {
-            continue;
+    for (int word = 0; word < 2; ++word) {
+        const uint32_t armed = word == 0 ? Combo_SharedFamiliesArmed() : Combo_SharedFamilies2Armed();
+        for (uint32_t b = 0; b < RSBS_XITEM_BIT_COUNT; ++b) {
+            const uint32_t bit = 1u << b;
+            if ((armed & bit) == 0u) {
+                continue;
+            }
+            uint16_t ootId = 0;
+            uint16_t mmId = 0;
+            const bool registered = word == 0 ? (Combo_SharedFamilyMemberId(GAME_OOT, bit, &ootId) &&
+                                                 Combo_SharedFamilyMemberId(GAME_MM, bit, &mmId))
+                                              : (Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId) &&
+                                                 Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId));
+            if (!registered) {
+                // A rule this build froze on with no item behind it on one side: the
+                // pair cannot be built, and the row stays each game's own item. Loud,
+                // because only a build that registers half a family can reach it.
+                if (out != NULL) {
+                    fprintf(stderr,
+                            "[SingleBag] shared family %s is armed but not registered in both games; not paired\n",
+                            word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit));
+                }
+                continue;
+            }
+            const bool pooled =
+                word == 0
+                    ? (Combo_SharedFamilyMemberPooled(GAME_OOT, bit) && Combo_SharedFamilyMemberPooled(GAME_MM, bit))
+                    : (Combo_SharedFamily2MemberPooled(GAME_OOT, bit) && Combo_SharedFamily2MemberPooled(GAME_MM, bit));
+            if (!pooled) {
+                // One game's own settings do not shuffle its copy (#1067: a game
+                // without the ocarina-button shuffle). A shared row may be hosted in
+                // either game, and that game could not hand the item on, so no pair:
+                // each pooled copy stays its own game's item.
+                continue;
+            }
+            if (out != NULL && n < cap) {
+                out[n].ootId = ootId;
+                out[n].mmId = mmId;
+            }
+            n++;
         }
-        uint16_t ootId = 0;
-        uint16_t mmId = 0;
-        if (!Combo_SharedFamilyMemberId(GAME_OOT, bit, &ootId) || !Combo_SharedFamilyMemberId(GAME_MM, bit, &mmId)) {
-            // A rule this build froze on with no item behind it on one side: the
-            // pair cannot be built, and the row stays each game's own item. Loud,
-            // because only a build that registers half a family can reach it.
-            fprintf(stderr, "[SingleBag] shared family %s is armed but not registered in both games; not paired\n",
-                    Combo_SharedFamilySlotName(bit));
-            continue;
-        }
-        if (!Combo_SharedFamilyMemberPooled(GAME_OOT, bit) || !Combo_SharedFamilyMemberPooled(GAME_MM, bit)) {
-            // One game's own settings do not shuffle its copy (#1067: a game
-            // without the ocarina-button shuffle). A shared row may be hosted in
-            // either game, and that game could not hand the item on, so no pair:
-            // each pooled copy stays its own game's item.
-            continue;
-        }
-        out[n].ootId = ootId;
-        out[n].mmId = mmId;
-        n++;
     }
     return n;
+}
+
+/** The pairs into @p out, or -1 (loud, nothing written) when this world builds
+ *  more pairs than @p cap holds: a silently dropped pair would leave its family's
+ *  two copies unpaired, and every buffer is RSBS_XFAMILY_SLOT_COUNT, one per slot. */
+static int SingleBagSharedPairs(ComboLogicSharedPair* out, int cap) {
+    const int buildable = SingleBagBuildSharedPairs(NULL, 0);
+    if (buildable > cap) {
+        fprintf(stderr, "[SingleBag] shared pairs: %d buildable, buffer holds %d; refusing\n", buildable, cap);
+        return -1;
+    }
+    return SingleBagBuildSharedPairs(out, cap);
 }
 
 int Combo_SingleBag_SharedPairs(ComboLogicSharedPair* out, int cap) {
@@ -314,6 +346,56 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
     }
 }
 
+/**
+ * #1169 XW15, THE FIXED SHARED SONGS: under Shuffle Songs Off each armed SHARED WARP
+ * SONG stays on its own default check (Combo_SharedWarpSongFixedAtHome), placed by
+ * its own game and in no table, so the coordinator is told to credit the other game
+ * when that check is reached (Combo_Logic_SetFixedCredits). One credit per family:
+ * an OoT host hands MM its member, an MM host hands OoT its member. A family with a
+ * host in both games would be two copies of one item, so it is refused
+ * (ERR_BAD_REQUEST); with no host in either (a started song OoT did not place, a
+ * mode other than Off) it adds nothing. Returns RSBS_COMBO_LOGIC_OK otherwise. Every
+ * world without a shared warp song frozen on sets no credit.
+ */
+static int SingleBagSetFixedSharedSongCredits(void) {
+    ComboLogicFixedCredit credits[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP];
+    int count = 0;
+    const uint32_t shared = Combo_SharedFamilies2Armed() & RSBS_XITEM2_WARP_SONG_SHARED;
+    for (uint32_t b = 0; shared != 0u && b < RSBS_XITEM2_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        uint16_t ootId = 0;
+        uint16_t mmId = 0;
+        if ((shared & bit) == 0u || !Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId) ||
+            !Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId)) {
+            continue;
+        }
+        const int ootHost = OoT_ComboLogic_FixedSharedSongHost(ootId);
+        const int mmHost = MM_ComboLogic_FixedSharedSongHost(mmId);
+        if (ootHost >= 0 && mmHost >= 0) {
+            fprintf(stderr, "[SingleBag] shared family %s sits on a fixed check in both games (OoT %d, MM %d)\n",
+                    Combo_SharedFamily2SlotName(bit), ootHost, mmHost);
+            return RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+        }
+        if (ootHost < 0 && mmHost < 0) {
+            continue;
+        }
+        if (count >= RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP) {
+            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+        }
+        ComboLogicFixedCredit* c = &credits[count++];
+        memset(c, 0, sizeof(*c));
+        c->hostGame = (uint8_t)(ootHost >= 0 ? GAME_OOT : GAME_MM);
+        c->hostCheck = (uint16_t)(ootHost >= 0 ? ootHost : mmHost);
+        c->farItem.originGame = (uint8_t)(ootHost >= 0 ? GAME_MM : GAME_OOT);
+        c->farItem.id = ootHost >= 0 ? mmId : ootId;
+        fprintf(stderr, "[SingleBag] shared family %s stays on its own %s check %u; %s's logic is credited there\n",
+                Combo_SharedFamily2SlotName(bit), ootHost >= 0 ? "OoT" : "MM", (unsigned)c->hostCheck,
+                ootHost >= 0 ? "MM" : "OoT");
+    }
+    return Combo_Logic_SetFixedCredits(count > 0 ? credits : NULL, count) < 0 ? RSBS_COMBO_LOGIC_ERR_BAD_REQUEST
+                                                                              : RSBS_COMBO_LOGIC_OK;
+}
+
 int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const uint32_t* mmConfine, int mmCount,
                         int ladderAttempt, uint32_t roundBudget, uint8_t* outMmInBag, ComboSingleBagReport* out) {
     const uint32_t t0 = Combo_GenBudget_NowMs();
@@ -330,6 +412,9 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
     // failed attempt never leaves an earlier one's behind.
     Combo_Woth_Clear();
     Combo_WothRecord_Clear(&gComboCtx.comboWoth);
+    // #1169 XW15: a fixed shared credit is a fact of the world this attempt fills,
+    // so none survives from an earlier one.
+    (void)Combo_Logic_SetFixedCredits(NULL, 0);
 
     if (mmCount < 0 || (mmCount > 0 && (mmItems == NULL || mmFlags == NULL))) {
         status = RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
@@ -406,9 +491,28 @@ int Combo_SingleBag_Run(const uint16_t* mmItems, const uint16_t* mmFlags, const 
         creq.startingHealthMM = MM_ComboLogic_StartingHealth();
         creq.quantityFlags = 0u;
         // THE SHARED PAIR (ABI 7, #976): empty unless a frozen rule arms one.
-        static ComboLogicSharedPair sPairs[RSBS_XITEM_BIT_COUNT];
-        creq.sharedPairCount = SingleBagSharedPairs(sPairs, (int)RSBS_XITEM_BIT_COUNT);
+        static ComboLogicSharedPair sPairs[RSBS_XFAMILY_SLOT_COUNT];
+        const int pairCount = SingleBagSharedPairs(sPairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        if (pairCount < 0) {
+            // #1169 XW10: more pairs than the buffer holds (SingleBagSharedPairs said
+            // so); never compose with a family silently unpaired.
+            status = RSBS_COMBO_LOGIC_ERR_CAPACITY;
+            fprintf(stderr, "[SingleBag] the bag could not be composed: %s (shared pairs)\n",
+                    Combo_Logic_StatusName(status));
+            goto finish;
+        }
+        creq.sharedPairCount = pairCount;
         creq.sharedPairs = (creq.sharedPairCount > 0) ? sPairs : NULL;
+        // #1169 XW15: the shared warp songs that stay on their own check under Off
+        // make no bag row (neither pool holds a copy); the coordinator credits the
+        // other game where each one sits. Set before the fill, kept for its WotH
+        // rounds and every exit round until Combo_SingleBag_Forget.
+        status = SingleBagSetFixedSharedSongCredits();
+        if (status != RSBS_COMBO_LOGIC_OK) {
+            fprintf(stderr, "[SingleBag] the bag could not be composed: %s (fixed shared songs)\n",
+                    Combo_Logic_StatusName(status));
+            goto finish;
+        }
         sReport.trimSeed = creq.trimSeed;
         sReport.startingHealthOoT = creq.startingHealthOoT;
         sReport.startingHealthMM = creq.startingHealthMM;
@@ -661,9 +765,9 @@ finish:
         // this, and the next attempt must see its general pass empty.
         Combo_Logic_ResetPlacements();
     }
-    if (fillRan && status != RSBS_COMBO_LOGIC_OK && sReport.fill.attempts > 0) {
-        // #1483: after the roll-back, so each game's leftover hosts are all of its
-        // empty hosts.
+    if (Combo_SingleBag_FailureCountsHomeCapacity(fillRan, status, sReport.fill.attempts)) {
+        // #1483: after the roll-back (or an early pre-attempt capacity refusal),
+        // so each game's leftover hosts are all of its empty hosts.
         Combo_SingleBag_CountHomeCapacity(sBag, sReport.bagCount, &sReport);
     }
     sReport.status = status;
@@ -690,6 +794,10 @@ finish:
     return status;
 }
 
+bool Combo_SingleBag_FailureCountsHomeCapacity(bool fillRan, int status, int attempts) {
+    return fillRan && status != RSBS_COMBO_LOGIC_OK && (attempts > 0 || status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY);
+}
+
 bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
     switch (status) {
         // Under a PROVING rung a dead end is a fact of the order this seed drew. Under
@@ -707,6 +815,8 @@ bool Combo_SingleBag_StatusIsWorldDeadEnd(int status, uint8_t rung) {
         case RSBS_COMBO_LOGIC_ERR_NOT_ALL_REACHED:
         case RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE:
         case RSBS_COMBO_LOGIC_ERR_GOAL_UNREACHABLE:
+        case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
+        case RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY:
         default:
             return false;
     }
@@ -746,6 +856,8 @@ void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r) {
 void Combo_SingleBag_Forget(void) {
     // Tables first (no engine call), then each engine's own record.
     (void)Combo_Logic_HydrateTables(NULL, 0, NULL, 0);
+    // #1169 XW15: the fixed shared credits are the forgotten world's, too.
+    (void)Combo_Logic_SetFixedCredits(NULL, 0);
     OoT_ComboLogic_ForgetPlacements();
     MM_ComboLogic_ForgetPlacements();
 }

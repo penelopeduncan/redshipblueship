@@ -159,12 +159,23 @@ uint32_t Combo_SingleBag_HomeShortGames(const ComboSingleBagReport* r);
  * no engine), and prints a stderr line with the counts and the remedy for each
  * game that is short (the Triforce Pieces clause only when @p r says that game
  * holds pieces). Combo_SingleBag_Run calls it for a fill that ran an attempt and
- * failed, AFTER Combo_Logic_ResetPlacements, so the leftover hosts are all of each
- * game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
+ * failed, AFTER Combo_Logic_ResetPlacements, and for the early home-capacity
+ * refusal (Combo_SingleBag_FailureCountsHomeCapacity), so the leftover hosts are
+ * all of each game's empty hosts. Pure reads (the bag, and `allEmptyHosts`, legal outside a
  * round): no draw, no placement, no status. A shared pair is never HOME_ONLY, so
  * it is never counted. Exported for the ROM-free lock (ComboLogicBagModel).
  */
 void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCount, ComboSingleBagReport* r);
+
+/**
+ * #1483: does Combo_SingleBag_Run's finish call Combo_SingleBag_CountHomeCapacity?
+ * For a failed fill that ran an attempt (after its roll-back), and for the early
+ * RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY refusal, which runs none but leaves the tables
+ * empty, so the refusal carries #1522's words. Not for a refusal before any attempt
+ * otherwise: its tables may still hold an earlier fill's placements. Pure.
+ * Exported for the ROM-free lock (ComboLogicBagModel).
+ */
+bool Combo_SingleBag_FailureCountsHomeCapacity(bool fillRan, int status, int attempts);
 
 /** A creation-failure REASON (OoT_Creation_ReportFailureAtFileSelect's `reason`),
  *  never a fill status: the creation's own fill failed and
@@ -236,8 +247,11 @@ uint32_t Combo_SingleBag_TrimSeed(void);
 
 /** THE SHARED PAIRS the bag composes for this world (ABI 7, #976): every family
  *  slot the FROZEN record arms whose two native copies are both registered, as
- *  (OoT id, MM id), at most @p cap. Exactly what Combo_SingleBag_Run hands the
- *  composer; empty with every rule off. Returns the count. */
+ *  (OoT id, MM id), the first family word's then the second's (#1169 XW10).
+ *  Exactly what Combo_SingleBag_Run hands the composer; empty with every rule off.
+ *  Returns the count, or -1 (loud, nothing written) when the world builds more
+ *  pairs than @p cap: size every buffer RSBS_XFAMILY_SLOT_COUNT (one per family
+ *  slot, foreign_items.h) and never truncate. 0 for a NULL @p out or @p cap <= 0. */
 int Combo_SingleBag_SharedPairs(ComboLogicSharedPair* out, int cap);
 
 /** The pair-level FOOLISH analysis's seed (epic #575 H4: OoTMM's probabilistic
@@ -311,6 +325,14 @@ void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
 int OoT_ComboLogic_ExportPool(int source, uint16_t* outItems, uint16_t* outHosts, uint16_t* outFlags, int cap);
 /** OoT: the confinement bits its frozen settings arm. */
 uint32_t OoT_ComboLogic_ConfinementArmed(void);
+/** #1169 XW15, THE FIXED SHARED SONG's hosts: the check of each game that holds
+ *  shared warp song @p id (that game's own id) as its FIXED content under Shuffle
+ *  Songs Off (Combo_SharedWarpSongFixedAtHome), or -1. OoT (ComboLogicEngineOoT.cpp):
+ *  the Sheik check of one of its six warp songs. MM (ComboLogicEngineSingleExe.cpp):
+ *  the Southern Swamp check of its Song of Soaring. Combo_SingleBag_Run turns each
+ *  answer into a fixed credit (Combo_Logic_SetFixedCredits). */
+int OoT_ComboLogic_FixedSharedSongHost(uint16_t rg);
+int MM_ComboLogic_FixedSharedSongHost(uint16_t ri);
 /** OoT (#1542): each pool row's confinement mask, @p count rows of @p items (OoT
  *  item ids, the export's order) into @p out: RSBS_COMBO_GROUP_SONG_LOCATIONS for
  *  a song while the shared song pool is armed (OoT_ComboLogic_SongPoolUnion),

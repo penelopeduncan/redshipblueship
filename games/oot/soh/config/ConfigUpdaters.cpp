@@ -1,6 +1,7 @@
 #include "ConfigUpdaters.h"
 #include "ConfigMigrators.h"
 #include "soh/Enhancements/audio/AudioCollection.h"
+#include "soh/Enhancements/randomizer/randomizerTypes.h"
 
 // src/common — the cross-game CVar classification manifest (ADR 0003 / the
 // enhancement-classification inventory). Version 7's convergence rows and the
@@ -27,6 +28,8 @@ ConfigVersion8Updater::ConfigVersion8Updater() : ConfigVersionUpdater(8) {
 ConfigVersion9Updater::ConfigVersion9Updater() : ConfigVersionUpdater(9) {
 }
 ConfigVersion10Updater::ConfigVersion10Updater() : ConfigVersionUpdater(10) {
+}
+ConfigVersion11Updater::ConfigVersion11Updater() : ConfigVersionUpdater(11) {
 }
 
 void ConfigVersion1Updater::Update(Ship::Config* conf) {
@@ -293,5 +296,24 @@ void ConfigVersion10Updater::Update(Ship::Config* conf) {
         }
         CVarClear(migration.from.c_str());
     }
+}
+
+// ============================================================================
+// Version 11 — #1404 (SoH #6938): Skip Child Zelda and Kakariko Gate retired
+// ============================================================================
+
+/**
+ * Upstream's conversion (its version 7 updater), run once: Skip Child Zelda splits into starting with an
+ * unshuffled Zelda's Letter and Skip Waking Talon; the Kakariko Gate setting is dropped (the gate now opens when
+ * Link starts with the letter). Both legacy keys are cleared either way, so a re-run is a no-op and a hidden key
+ * can no longer override the visible starting-item choices.
+ */
+void ConfigVersion11Updater::Update(Ship::Config* conf) {
+    if (CVarGetInteger("gRandoSettings.SkipChildZelda", 0)) {
+        CVarSetInteger("gRandoSettings.StartingZeldasLetter", 1);
+        CVarSetInteger("gRandoSettings.ShuffleWeirdEgg", RO_WEIRD_EGG_SKIP_TALON);
+    }
+    CVarClear("gRandoSettings.SkipChildZelda");
+    CVarClear("gRandoSettings.KakarikoGate");
 }
 } // namespace SOH

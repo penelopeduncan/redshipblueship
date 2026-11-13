@@ -11,6 +11,7 @@
 #include "foreign_items.h"     // RSBS_XITEM2_*, Combo_ComboCrossItemFlags2, Combo_ForeignPairingActive
 #include "game.h"              // GAME_OOT, GAME_MM, the halves' capacities
 #include "mm_warp_song_play.h" // the frozen record, OoT's frozen age, RSBS_MMWP_SONG_COUNT
+#include "shared_resources.h"  // Combo_SharedFamilies2HeldNow: the shared songs held now (#1169 XW14)
 #include "warp_song_items.h"   // Combo_AddedSongHeld: the one ownership question
 #include "warp_songs_mm.h"     // Combo_MMWarpSongsOwned
 
@@ -26,6 +27,11 @@ RSBS_CTX_STATIC_ASSERT((RSBS_XITEM2_SONG_MINUET_MM << 5) == RSBS_XITEM2_SONG_PRE
 
 uint32_t Combo_TrackerTravel_IntoOoT(uint32_t rules2, uint8_t mmOwned, uint32_t mmPlayableMask, int paired,
                                      int crossOoT) {
+    return Combo_TrackerTravel_IntoOoTEx(rules2, mmOwned, mmPlayableMask, paired, crossOoT, 0u);
+}
+
+uint32_t Combo_TrackerTravel_IntoOoTEx(uint32_t rules2, uint8_t mmOwned, uint32_t mmPlayableMask, int paired,
+                                       int crossOoT, uint32_t families2Held) {
     if (paired == 0) {
         return 0u;
     }
@@ -36,8 +42,9 @@ uint32_t Combo_TrackerTravel_IntoOoT(uint32_t rules2, uint8_t mmOwned, uint32_t 
             continue;
         }
         const bool separateOwned = (mmOwned & (1u << song)) != 0u;
-        if (!Combo_AddedSongHeld(rules2, extBit, separateOwned, false)) {
-            continue; // lane XW10: its shared family's ownership is the fourth argument
+        const bool sharedOwned = (families2Held & (extBit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT)) != 0u;
+        if (!Combo_AddedSongHeld(rules2, extBit, separateOwned, sharedOwned)) {
+            continue; // neither MM's own copy nor, under its shared rule, the family
         }
         if ((mmPlayableMask & (1u << song)) == 0u) {
             continue;
@@ -51,12 +58,18 @@ uint32_t Combo_TrackerTravel_IntoOoT(uint32_t rules2, uint8_t mmOwned, uint32_t 
 
 uint32_t Combo_TrackerTravel_IntoMM(uint32_t rules2, bool soaringOwned, bool soaringPlayable, int ootAge, int paired,
                                     int crossMM) {
+    return Combo_TrackerTravel_IntoMMEx(rules2, soaringOwned, soaringPlayable, ootAge, paired, crossMM, 0u);
+}
+
+uint32_t Combo_TrackerTravel_IntoMMEx(uint32_t rules2, bool soaringOwned, bool soaringPlayable, int ootAge, int paired,
+                                      int crossMM, uint32_t families2Held) {
     if (paired == 0 || (rules2 & RSBS_XITEM2_SONG_SOARING_OOT) == 0u || ootAge != RSBS_MMWP_AGE_CHILD ||
         !soaringPlayable) {
         return 0u;
     }
-    if (!Combo_AddedSongHeld(rules2, RSBS_XITEM2_SONG_SOARING_OOT, soaringOwned, false)) {
-        return 0u; // lane XW10: its shared family's ownership is the fourth argument
+    const bool sharedOwned = (families2Held & RSBS_XITEM2_SHARED_SONG_SOARING) != 0u;
+    if (!Combo_AddedSongHeld(rules2, RSBS_XITEM2_SONG_SOARING_OOT, soaringOwned, sharedOwned)) {
+        return 0u; // neither OoT's own copy nor, under the shared rule, the family
     }
     uint32_t toMM = 0u;
     // OoT's crossing is open: MM's tracker runs while the player is in MM.
@@ -88,8 +101,9 @@ uint32_t Combo_TrackerTravel_OoTFactsNow(int crossOoT) {
             playable = sTrackerTravelMMReader(mm, (size_t)MM_SAVE_CONTEXT_SIZE);
         }
     }
-    return Combo_TrackerTravel_IntoOoT(rules2, Combo_MMWarpSongsOwned(), playable, Combo_ForeignPairingActive() ? 1 : 0,
-                                       crossOoT);
+    return Combo_TrackerTravel_IntoOoTEx(rules2, Combo_MMWarpSongsOwned(), playable,
+                                         Combo_ForeignPairingActive() ? 1 : 0, crossOoT,
+                                         Combo_SharedFamilies2HeldNow());
 }
 
 uint32_t Combo_TrackerTravel_MMFactNow(int crossMM) {
@@ -107,8 +121,8 @@ uint32_t Combo_TrackerTravel_MMFactNow(int crossMM) {
             playable = 0u;
         }
     }
-    return Combo_TrackerTravel_IntoMM(rules2, owned != 0u, playable != 0u, Combo_MMWarpPlay_OoTFrozenAge(),
-                                      Combo_ForeignPairingActive() ? 1 : 0, crossMM);
+    return Combo_TrackerTravel_IntoMMEx(rules2, owned != 0u, playable != 0u, Combo_MMWarpPlay_OoTFrozenAge(),
+                                        Combo_ForeignPairingActive() ? 1 : 0, crossMM, Combo_SharedFamilies2HeldNow());
 }
 
 uint16_t Combo_TrackerTravel_OoTDest(int song) {

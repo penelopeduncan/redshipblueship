@@ -100,6 +100,13 @@ void DrawSong(RandoItemId randoItemId) {
         case RI_SONG_TIME:
             gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
             break;
+        // One gDPSetEnvColor per case: ForeignModel's M19 reads each case's colour off this switch.
+        case RI_SONG_DOUBLE_TIME:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
+            break;
+        case RI_SONG_INVERTED_TIME:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 177, 211, 255);
+            break;
         case RI_SONG_HEALING:
             gDPSetEnvColor(POLY_XLU_DISP++, 255, 150, 230, 255);
             break;
@@ -107,6 +114,9 @@ void DrawSong(RandoItemId randoItemId) {
             gDPSetEnvColor(POLY_XLU_DISP++, 146, 146, 146, 255);
             break;
         case RI_SONG_SONATA:
+            gDPSetEnvColor(POLY_XLU_DISP++, 98, 255, 98, 255);
+            break;
+        case RI_SONG_SARIA:
             gDPSetEnvColor(POLY_XLU_DISP++, 98, 255, 98, 255);
             break;
         case RI_SONG_SOARING:
@@ -378,6 +388,19 @@ void DrawBossKey(RandoItemId randoItemId) {
 
     MATRIX_FINALIZE_AND_LOAD(POLY_XLU_DISP++, MM_gPlayState->state.gfxCtx);
     MM_gSPDisplayList(POLY_XLU_DISP++, (Gfx*)gGiBossKeyGemDL);
+
+    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+}
+
+void DrawSkeletonKey() {
+    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
+
+    Gfx_SetupDL25_Opa(MM_gPlayState->state.gfxCtx);
+    MM_Matrix_Scale(0.8f, 0.8f, 0.8f, MTXMODE_APPLY);
+
+    MATRIX_FINALIZE_AND_LOAD(POLY_OPA_DISP++, MM_gPlayState->state.gfxCtx);
+    gDPSetEnvColor(POLY_OPA_DISP++, 255, 255, 170, 255);
+    MM_gSPDisplayList(POLY_OPA_DISP++, (Gfx*)gSkeletonKeyDL);
 
     CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
 }
@@ -664,6 +687,7 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_SONG_STORMS:
         case RI_SONG_SUN:
         case RI_SONG_HEALING:
+        case RI_SONG_SARIA:
         case RI_SONG_SOARING:
         case RI_SONG_SONATA:
         case RI_SONG_ELEGY:
@@ -672,6 +696,8 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_SONG_OATH:
         case RI_SONG_EPONA:
         case RI_SONG_NOVA:
+        case RI_SONG_DOUBLE_TIME:
+        case RI_SONG_INVERTED_TIME:
             DrawSong(randoItemId);
             break;
         case RI_CLOCK_TOWN_STRAY_FAIRY:
@@ -809,6 +835,9 @@ void Rando::DrawItem(RandoItemId randoItemId, Actor* actor) {
         case RI_OCARINA_BUTTON_C_RIGHT:
         case RI_OCARINA_BUTTON_C_UP:
             DrawOcarinaButtonItem(randoItemId, actor);
+            break;
+        case RI_SKELETON_KEY:
+            DrawSkeletonKey();
             break;
 #ifdef RSBS_SINGLE_EXECUTABLE
         // #980: Ocarina of Time's own mask model from the co-mounted archives

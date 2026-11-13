@@ -17,7 +17,7 @@ void RegionTable_Init_Root() {
     // clang-format off
     areaTable[RR_ROOT] = Region("Root", SCENE_ID_MAX, TIME_DOESNT_PASS, {RA_LINKS_POCKET}, {
         //Events
-        EventAccess(LOGIC_KAKARIKO_GATE_OPEN,                  []{return ctx->GetOption(RSK_KAK_GATE).Is(RO_KAK_GATE_OPEN);}),
+        EventAccess(LOGIC_KAKARIKO_GATE_OPEN,                  []{return (bool)ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) || ctx->GetOption(RSK_KAK_GATE).Is(RO_KAK_GATE_OPEN);}),
         EventAccess(LOGIC_TH_COULD_FREE_1_TORCH_CARPENTER,     []{return ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FREE);}),
         EventAccess(LOGIC_TH_COULD_FREE_DOUBLE_CELL_CARPENTER, []{return ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FREE) || ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FAST);}),
         EventAccess(LOGIC_TH_COULD_FREE_DEAD_END_CARPENTER,    []{return ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FREE) || ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FAST);}),
@@ -25,14 +25,17 @@ void RegionTable_Init_Root() {
         EventAccess(LOGIC_TH_RESCUED_ALL_CARPENTERS,           []{return ctx->GetOption(RSK_GERUDO_FORTRESS).Is(RO_GF_CARPENTERS_FREE);}),
         EventAccess(LOGIC_FREED_EPONA,                         []{return (bool)ctx->GetOption(RSK_SKIP_EPONA_RACE);}),
         EventAccess(LOGIC_SHOWED_MIDO_SWORD_AND_SHIELD,        []{return ctx->GetOption(RSK_FOREST).Is(RO_CLOSED_FOREST_OFF);}),
+        EventAccess(LOGIC_MET_ZELDA,                           []{return (ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) && !ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA);}),
+        EventAccess(LOGIC_MALON_RETURNED_FROM_CASTLE,          []{return ctx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SKIP_TALON) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA);}),
+        EventAccess(LOGIC_TALON_RETURNED_FROM_CASTLE,          []{return ctx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SKIP_TALON) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA);}),
     }, {
         //Locations
         LOCATION(RC_LINKS_POCKET,       true),
         LOCATION(RC_TRIFORCE_COMPLETED, logic->GetSaveContext()->ship.quest.data.randomizer.triforcePiecesCollected >= ctx->GetOption(RSK_TRIFORCE_HUNT_PIECES_REQUIRED).Get() + 1;),
         LOCATION(RC_SARIA_SONG_HINT,    logic->CanUse(RG_SARIAS_SONG)),
-        LOCATION(RC_SONG_FROM_IMPA,     (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
-        LOCATION(RC_HC_MALON_EGG,       (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
-        LOCATION(RC_HC_ZELDAS_LETTER,   (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
+        LOCATION(RC_SONG_FROM_IMPA,     (ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) && !ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
+        LOCATION(RC_HC_MALON_EGG,       ctx->GetOption(RSK_SHUFFLE_WEIRD_EGG).Is(RO_WEIRD_EGG_SKIP_TALON) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
+        LOCATION(RC_HC_ZELDAS_LETTER,   (ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) && !ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) || (bool)ctx->GetOption(RSK_SKIP_CHILD_ZELDA)),
         LOCATION(RC_TOT_MASTER_SWORD,   (bool)ctx->GetOption(RSK_SELECTED_STARTING_AGE).Is(RO_AGE_ADULT)),
     }, {
         //Exits

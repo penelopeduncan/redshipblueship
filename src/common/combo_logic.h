@@ -280,6 +280,12 @@ extern "C" {
  *  no round run), never a ladder rung. Combo_Logic_LastGroupShortfall names the
  *  group. */
 #define RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY 14
+/** HOME CAPACITY (#1483): a game whose HOME_ONLY REQUIRED rows (including forced
+ *  rows) outnumber its own empty hosts cannot be filled by any seed. Reached empty
+ *  hosts are a subset of all empty hosts, so this is a necessary condition on every
+ *  rung. Refused BEFORE any attempt (`attempts` 0, `rounds` 0, nothing placed),
+ *  never a ladder rung. */
+#define RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY 15
 
 /** Its name ("ok", "no-engine", ...), or "(unknown)". Never NULL. */
 const char* Combo_Logic_StatusName(int status);
@@ -647,6 +653,12 @@ typedef struct ComboLogicEngine {
      *      bit. The host engine harvests its own half itself (`expand`), so a
      *      shared-pair row gives exactly ONE copy to EACH engine, and a seeded
      *      (assumed) shared-pair row is one call per engine through source 1.
+     *   3b. A FIXED SHARED CREDIT (#1169 XW15, Combo_Logic_SetFixedCredits) —
+     *      once per credit whose host (a check holding the other game's fixed,
+     *      native item, never a table row) became reachable through the same gate
+     *      a crossing from that host uses, under a per-round delivered bit of its
+     *      own. The host engine harvests its own fixed item itself, so the credit
+     *      gives exactly ONE copy to the far engine, like source 3's far half.
      *
      * A row is either assumed or placed, never both, so no copy reaches this
      * call twice. The same ID reaching it twice therefore means TWO COPIES —
@@ -739,7 +751,8 @@ typedef struct ComboLogicEngine {
     /**
      * Is `hostCheck` — an id in THIS engine's own check id-space — reached
      * right now? Pure read. The coordinator asks only about hosts this engine
-     * itself reported or was given via `place`.
+     * itself reported or was given via `place`, or a fixed-credit host its caller
+     * named (Combo_Logic_SetFixedCredits, a check of this engine's own world).
      */
     int (*checkReached)(void* self, uint16_t hostCheck);
 
@@ -1488,6 +1501,54 @@ typedef struct {
  */
 int Combo_Logic_TestSetForcedPlacements(const ComboLogicForcedPlacement* rows, int count);
 
+/** One FIXED SHARED CREDIT (#1169 XW15): check `hostCheck` of `hostGame` holds a
+ *  fixed, native item (never a table row) that is one half of a shared family, and
+ *  `farItem` is the other game's half. See Combo_Logic_SetFixedCredits. The field
+ *  is not called `far`: minwindef.h defines that word away. */
+typedef struct {
+    uint8_t hostGame;
+    uint16_t hostCheck;
+    SharedItem farItem;
+} ComboLogicFixedCredit;
+
+/** The most fixed shared credits in force at once (the seven shared warp songs fit). */
+#define RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP 8
+
+/**
+ * THE FIXED SHARED CREDIT (#1169 XW15; assumeOwnItem's source 3b). Under Shuffle
+ * Songs Off a shared warp song stays on its own default check
+ * (Combo_SharedWarpSongFixedAtHome), placed natively by the host game, so it is in
+ * neither table and no bag row carries it; without this the other game's logic
+ * would never hold it. Each credit makes every round hand `farItem` to its own
+ * game's engine (one `assumeOwnItem`, once per round) when the host is reached,
+ * through the same gate and the same forbidden-host skip as a crossing from that
+ * host (ComboLogicExchangeFrom). The host engine harvests its own item itself.
+ *
+ * The list is an input of the world, not of an attempt: Combo_Logic_ResetPlacements
+ * keeps it, so the fill's retries, the WotH rounds and a test's exit rounds all see
+ * it. It is in no table, digest, crossing store or WotH candidate list, and nothing
+ * of it is saved; Combo_SingleBag_Run sets it from the world at the creation and
+ * Combo_SingleBag_Forget clears it. With no credit set (every world without a
+ * shared warp song under Off) every round is exactly today's.
+ *
+ * @param rows  the credits to copy, or NULL with count 0 to clear
+ * @return the number of credits now in force, or -1 (nothing changed) on a NULL
+ *         with a positive count, a negative count, more than
+ *         RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP rows, a host game that is not OoT or MM,
+ *         or a far item whose game is not the other one
+ */
+int Combo_Logic_SetFixedCredits(const ComboLogicFixedCredit* rows, int count);
+
+/** The fixed shared credits in force (Combo_Logic_SetFixedCredits). */
+int Combo_Logic_FixedCreditCount(void);
+
+/** Credit @p index into @p out; false (nothing written) out of range or on NULL. */
+bool Combo_Logic_FixedCreditAt(int index, ComboLogicFixedCredit* out);
+
+/** How many fixed shared credits the LAST round delivered (each at most once per
+ *  round). Diagnostics for the locks; never format. */
+int Combo_Logic_FixedCreditDeliveredCount(void);
+
 // ============================================================================
 // THE BAG MODEL — copies, surplus, filler and traps (operator ruling 2026-09-26)
 // ============================================================================
@@ -2134,6 +2195,10 @@ typedef struct {
     bool allLocationsReached; // the exit condition's every-location term held
     int locationsChecked;     // locations the pre-flight captured, both games together
     int locationsUnreachable; // locations the pre-flight (or the failing proof round) did not reach
+    // --- HOME CAPACITY (#1483). Set on RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY; 0 otherwise. ---
+    uint8_t homeShortGame; // GAME_OOT, GAME_MM, or GAME_NONE (both)
+    int homeRequiredRows;  // HOME_ONLY REQUIRED rows (including forced rows) that must land there
+    int homeHosts;         // empty hosts available on that game
 } ComboLogicFillResult;
 
 /**
