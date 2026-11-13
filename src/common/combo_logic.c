@@ -134,6 +134,8 @@ const char* Combo_Logic_StatusName(int status) {
             return "goal-unreachable";
         case RSBS_COMBO_LOGIC_ERR_GROUP_CAPACITY:
             return "group-capacity";
+        case RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY:
+            return "home-capacity";
         default:
             return "(unknown)";
     }
@@ -164,6 +166,12 @@ static uint8_t sExchanged[RSBS_FOREIGN_POOL_ORIGIN_COUNT][RSBS_COMBO_LOGIC_PLACE
  *  own list says which), so a round never pays for clearing 16 KB it did not
  *  touch, and no bit outlives its round. */
 static uint8_t sForbidden[RSBS_FOREIGN_POOL_ORIGIN_COUNT][COMBO_LOGIC_OCCUPANCY_BYTES];
+/** THE FIXED SHARED CREDITS (#1169 XW15, Combo_Logic_SetFixedCredits): an input of
+ *  the world, so Combo_Logic_ResetPlacements leaves them. `sFixedDelivered` is the
+ *  per-round delivered bit, one per credit, cleared beside sExchanged. */
+static ComboLogicFixedCredit sFixedCredits[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP];
+static int sFixedCreditCount;
+static uint8_t sFixedDelivered[(RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP + 7) / 8];
 /** The SURPLUS rows the last fill attempt dropped, as bag indices, in the order
  *  they were dropped (bag order — THE BAG MODEL, shape 3). Reset with the tables,
  *  because a drop is a fact about the attempt that built them. */
@@ -696,6 +704,10 @@ int Combo_Logic_LeftoverHosts(GameId hostGame, uint16_t* out, int cap) {
  * that carries a `credit`, own-origin or crossing, also hands that far copy of its
  * family to the far engine, under the same gate and the same delivered bit.
  *
+ * THE FIXED SHARED CREDITS (#1169 XW15, Combo_Logic_SetFixedCredits) follow the
+ * table: a reached, unforbidden host of this game named by a credit hands the
+ * credit's far item to the far engine, under the same gate, once per round.
+ *
  * @return nonzero if anything was granted (the round must iterate again).
  */
 static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged) {
@@ -746,7 +758,81 @@ static int ComboLogicExchangeFrom(uint8_t hostGame, int gateOpen, int* exchanged
         }
         changed = 1;
     }
+
+    // THE FIXED SHARED CREDITS (#1169 XW15; assumeOwnItem's source 3b): a host of
+    // this game holding the other game's shared item as its own fixed content. The
+    // host engine harvests its own half; the far half crosses here, once per round,
+    // never from a forbidden host, through the gate above.
+    for (int c = 0; c < sFixedCreditCount; ++c) {
+        const ComboLogicFixedCredit* fc = &sFixedCredits[c];
+        if (fc->hostGame != hostGame || ComboLogicBitGet(sFixedDelivered, c) ||
+            ComboLogicBitGet(sForbidden[hostGame], fc->hostCheck) || !host->checkReached(host->self, fc->hostCheck)) {
+            continue;
+        }
+        const ComboLogicEngine* farOwner = ComboLogicEngineFor(fc->farItem.originGame);
+        if (farOwner == NULL) {
+            continue;
+        }
+        farOwner->assumeOwnItem(farOwner->self, fc->farItem.id);
+        ComboLogicBitSet(sFixedDelivered, c);
+        if (exchanged != NULL) {
+            (*exchanged)++;
+        }
+        changed = 1;
+    }
     return changed;
+}
+
+int Combo_Logic_SetFixedCredits(const ComboLogicFixedCredit* rows, int count) {
+    if (count < 0 || count > RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP || (count > 0 && rows == NULL)) {
+        return -1;
+    }
+    for (int i = 0; i < count; ++i) {
+        const uint8_t hg = rows[i].hostGame;
+        const uint8_t fg = rows[i].farItem.originGame;
+        if (!ComboLogicIsGame(hg) || !ComboLogicIsGame(fg) || fg == hg) {
+            return -1;
+        }
+    }
+    for (int i = 0; i < count; ++i) {
+        sFixedCredits[i] = rows[i];
+    }
+    sFixedCreditCount = count;
+    memset(sFixedDelivered, 0, sizeof(sFixedDelivered));
+    return sFixedCreditCount;
+}
+
+int Combo_Logic_FixedCreditCount(void) {
+    return sFixedCreditCount;
+}
+
+bool Combo_Logic_FixedCreditAt(int index, ComboLogicFixedCredit* out) {
+    if (out == NULL || index < 0 || index >= sFixedCreditCount) {
+        return false;
+    }
+    *out = sFixedCredits[index];
+    return true;
+}
+
+int Combo_Logic_FixedCreditDeliveredCount(void) {
+    int n = 0;
+    for (int c = 0; c < sFixedCreditCount; ++c) {
+        n += ComboLogicBitGet(sFixedDelivered, c) ? 1 : 0;
+    }
+    return n;
+}
+
+// TEST PROBE (Combo_Logic_TestLastTravelFacts): the facts the gates last judged.
+static uint32_t sComboLogicProbeFactsOoT = 0u;
+static uint32_t sComboLogicProbeFactsMM = 0u;
+
+void Combo_Logic_TestLastTravelFacts(uint32_t* outOoT, uint32_t* outMM) {
+    if (outOoT != NULL) {
+        *outOoT = sComboLogicProbeFactsOoT;
+    }
+    if (outMM != NULL) {
+        *outMM = sComboLogicProbeFactsMM;
+    }
 }
 
 void Combo_Logic_TravelGate(uint32_t factsOoT, uint32_t factsMM, int crossOoT, int crossMM, uint32_t* outToOoT,
@@ -954,6 +1040,7 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
     sCandidates[(uint8_t)GAME_OOT].count = 0;
     sCandidates[(uint8_t)GAME_MM].count = 0;
     memset(sExchanged, 0, sizeof(sExchanged));
+    memset(sFixedDelivered, 0, sizeof(sFixedDelivered)); // #1169 XW15: a fixed credit is delivered per round
 
     if (ComboLogicEngineFor((uint8_t)GAME_OOT) == NULL || ComboLogicEngineFor((uint8_t)GAME_MM) == NULL) {
         res->status = RSBS_COMBO_LOGIC_ERR_NO_ENGINE;
@@ -1070,6 +1157,8 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
         uint32_t prevFactsMM = 0u;
         uint32_t acceptedOoT = 0u;
         uint32_t acceptedMM = 0u;
+        sComboLogicProbeFactsOoT = 0u; // the test probe describes this round only
+        sComboLogicProbeFactsMM = 0u;
 
         while (iteration < RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS) {
             int changed = 0;
@@ -1121,6 +1210,8 @@ static int ComboLogicRoundRun(const ComboLogicBagItem* assumed, int assumedCount
                     prevFactsMM = factsMM;
                     uint32_t toOoT = 0u;
                     uint32_t toMM = 0u;
+                    sComboLogicProbeFactsOoT = factsOoT;
+                    sComboLogicProbeFactsMM = factsMM;
                     Combo_Logic_TravelGate(factsOoT, factsMM, crossOoT, crossMM, &toOoT, &toMM);
                     // An engine with no `acceptTravelFacts` drops them: nothing is
                     // delivered, recorded or re-expanded for it.
@@ -2351,6 +2442,71 @@ static int ComboLogicClaimForced(const ComboLogicFillRequest* req) {
 }
 
 /**
+ * HOME CAPACITY (#1483): a game whose HOME_ONLY REQUIRED rows (including forced
+ * rows) outnumber its own empty hosts cannot be filled by any seed. Reached empty
+ * hosts are a subset of all empty hosts, so this is a necessary condition on every
+ * rung. Refused at once, before any attempt, with attempts 0 and rounds 0.
+ */
+static int ComboLogicCheckHomeCapacity(const ComboLogicFillRequest* req, ComboLogicFillResult* res) {
+    Combo_Logic_ResetPlacements();
+    int reqRows[2] = { 0, 0 };
+    int hostCounts[2] = { 0, 0 };
+    bool shortSide[2] = { false, false };
+    const uint8_t games[2] = { (uint8_t)GAME_OOT, (uint8_t)GAME_MM };
+
+    for (int gi = 0; gi < 2; ++gi) {
+        const uint8_t game = games[gi];
+        int rows = 0;
+        for (int i = 0; i < sRequiredCount; ++i) {
+            const ComboLogicBagItem* item = &req->bag[sRequiredIdx[i]];
+            if (item->item.originGame == game && (item->bagFlags & RSBS_COMBO_BAG_HOME_ONLY) != 0u) {
+                rows++;
+            }
+        }
+        for (int f = 0; f < sForcedCount; ++f) {
+            if (sForced[f].hostGame == game) {
+                rows++;
+            }
+        }
+        const int st = ComboLogicCollectFrom(game, false);
+        if (st != RSBS_COMBO_LOGIC_OK) {
+            return st;
+        }
+        reqRows[gi] = rows;
+        hostCounts[gi] = sCandidates[game].count;
+        if (reqRows[gi] > hostCounts[gi]) {
+            shortSide[gi] = true;
+        }
+    }
+
+    if (!shortSide[0] && !shortSide[1]) {
+        return RSBS_COMBO_LOGIC_OK;
+    }
+
+    if (shortSide[0] && shortSide[1]) {
+        res->homeShortGame = (uint8_t)GAME_NONE;
+        res->homeRequiredRows = reqRows[0] + reqRows[1];
+        res->homeHosts = hostCounts[0] + hostCounts[1];
+        fprintf(stderr,
+                "[ComboLogic] fill refused: home capacity exceeded in both games: OoT %d required row(s) for %d "
+                "check(s); MM %d required row(s) for %d check(s) (a fact of the settings, not of the seed)\n",
+                reqRows[0], hostCounts[0], reqRows[1], hostCounts[1]);
+    } else {
+        const int gi = shortSide[0] ? 0 : 1;
+        res->homeShortGame = games[gi];
+        res->homeRequiredRows = reqRows[gi];
+        res->homeHosts = hostCounts[gi];
+        fprintf(
+            stderr,
+            "[ComboLogic] fill refused: %d required row(s) confined to %s for %d empty host(s) there (a fact of the "
+            "settings, not of the seed)\n",
+            reqRows[gi], Game_ToString((GameId)games[gi]), hostCounts[gi]);
+    }
+
+    return RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY;
+}
+
+/**
  * DEBUG SEEDS: put every claimed row on its host, right after an attempt's reset.
  * The host must be one of its engine's EMPTY hosts (`allEmptyHosts`, legal outside
  * a round) and the row must be allowed there (its own side, or a crossing its
@@ -2807,8 +2963,8 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
 
     // THE HOST GROUPS (ABI 9): armed for this fill only when some row is confined
     // or a group is exclusive, so a mask-free request (NULL, or every mask 0, and
-    // no exclusive group) runs exactly the ABI-8 fill: no reset here, no capacity
-    // count, no partition.
+    // no exclusive group) runs no group capacity count here. The home-capacity
+    // count below (#1483) runs on every fill.
     if (anyConfined || req->exclusiveGroups != 0u) {
         sConfineMasks = anyConfined ? req->confineMasks : NULL;
         sConfineBag = anyConfined ? req->bag : NULL;
@@ -2829,6 +2985,10 @@ int Combo_Logic_RunFill(const ComboLogicFillRequest* req, ComboLogicFillResult* 
         if (status != RSBS_COMBO_LOGIC_OK) {
             goto finish;
         }
+    }
+    status = ComboLogicCheckHomeCapacity(req, &res);
+    if (status != RSBS_COMBO_LOGIC_OK) {
+        goto finish;
     }
     res.droppedDigest = 2166136261u; // FNV-1a offset basis: "nothing dropped"
     sMaxCrossingsPerSide = (int)req->maxCrossingsPerSide;

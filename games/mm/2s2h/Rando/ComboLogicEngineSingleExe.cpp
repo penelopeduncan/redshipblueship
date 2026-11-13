@@ -320,6 +320,7 @@ void MM_Sram_InitNewSave(void);
 #include "shared_items.h"        // src/common — the O8 class of a pool row (traps stay home)
 #include "warp_song_items.h"     // src/common — the song refusal's record (#1542)
 #include "crossing_store.h"      // src/common — the song-pool lock reads a song check's crossing (#1542)
+#include "shared_resources.h"    // src/common — #1169 XW15: Combo_SharedWarpSongFixedAtHome
 
 // ForeignItemsSingleExe.cpp: the id an MM item found in Ocarina of Time is shown as (#1481).
 extern "C" uint16_t MM_ForeignItem_PresentItem(uint16_t riId, int ahead);
@@ -385,6 +386,11 @@ bool sMmTravelTestValue = false;
  *  OoT's delivered Soaring fact through MM_ComboLogic_OoTSoaringTravel. Read and
  *  cleared by MM_ComboLogic_TestSoaringTravelHits only; nothing else reads it. */
 int sMmTravelEdgeHits = 0;
+/** THE CHECK TRACKER'S FACT (#1169 XW11): OoT's Song of Soaring derived from the
+ *  FROZEN world (warp_song_tracker.h), set only around the second crawl of MM's
+ *  ComputeChecksInLogic (MM_ComboLogic_SetTrackerSoaring) and cleared before it
+ *  returns, so generation's crawls never see it. Read only outside a round. */
+bool sMmTrackerSoaring = false;
 
 /** Ocarina of Time's warp songs as MM items, one travel bit each (0x02 << song). */
 constexpr int kMmTravelSongCount = 6;
@@ -1505,19 +1511,35 @@ extern "C" const ComboLogicEngine* MM_ComboLogic_TestEngine(void) {
 
 /**
  * Logic.h's CAN_OOT_SOAR_TO_OWL (#1169 XW9): has this coordinator round accepted
- * OoT's Song of Soaring fact? False outside a round, so MM's own glitchless fill,
- * its check tracker and every crawl outside the coordinator read the root's owl
- * landings exactly as before.
+ * OoT's Song of Soaring fact? False outside a round, so MM's own glitchless fill
+ * and every crawl outside the coordinator read the root's owl landings exactly as
+ * before; the one exception is the check tracker's second crawl (#1169 XW11,
+ * MM_ComboLogic_SetTrackerSoaring), armed from the frozen world.
  */
 extern "C" bool MM_ComboLogic_OoTSoaringTravel(void) {
     if (sMmTravelTestArmed) {
         return sMmTravelTestValue;
+    }
+    if (!sRound.inRound && sMmTrackerSoaring) {
+        return true; // #1169 XW11: the check tracker's second crawl, never a round's (no edge hit)
     }
     const bool open = sRound.inRound && (sRound.travelAccepted & RSBS_COMBO_TRAVEL_INTO_MM) != 0u;
     if (open) {
         sMmTravelEdgeHits++; // never with every warp-song rule off
     }
     return open;
+}
+
+/** #1169 XW11: arm (@p on nonzero) or disarm the check tracker's Soaring fact for
+ *  the crawl that follows. Only MM's ComputeChecksInLogic calls it, around its
+ *  second crawl. */
+extern "C" void MM_ComboLogic_SetTrackerSoaring(int on) {
+    sMmTrackerSoaring = on != 0;
+}
+
+/** TEST BRIDGE (tracker-warp-travel): whether the tracker's Soaring fact is armed. */
+extern "C" int MM_ComboLogic_TestTrackerSoaring(void) {
+    return sMmTrackerSoaring ? 1 : 0;
 }
 
 /** TEST BRIDGE (combo-warp-travel-rounds): the crawl's reads of a delivered
@@ -1623,6 +1645,56 @@ extern "C" bool MM_ComboLogic_IsPairSongItem(uint16_t id) {
         default:
             return Rando::Logic::IsSongLocationItem((RandoItemId)id);
     }
+}
+
+/**
+ * #1169 XW15: the MM check that holds shared warp song @p ri as its FIXED content.
+ * Under MM's Shuffle Songs Vanilla (in a paired world only OoT's Off gives it,
+ * Combo_PairSongsMmValue, hence RSBS_SONG_SPOTS_OFF, as GeneratePools asks) with
+ * the shared Song of Soaring frozen on (Combo_SharedWarpSongFixedAtHome), that is
+ * the Southern Swamp song check, which GeneratePools left out of the check pool
+ * with its vanilla item (RsbsReleasesVanillaSharedSong): a song check holding @p ri
+ * that is neither shuffled, skipped nor in the host pool. -1 in every other world
+ * and for an id with no such check (MM's six "(MM)" warp songs have none).
+ * combo_single_bag.c names the answer as a fixed credit, so OoT's logic holds the
+ * song once MM's logic reaches the check. Read at the creation, where the live save
+ * is the one GeneratePools just built.
+ */
+extern "C" int MM_ComboLogic_FixedSharedSongHost(uint16_t ri) {
+    if (ri >= (uint16_t)RI_MAX || RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] != RO_SONG_SHUFFLE_VANILLA ||
+        !Combo_SharedWarpSongFixedAtHome(GAME_MM, ri, RSBS_SONG_SPOTS_OFF)) {
+        return -1;
+    }
+    for (const auto& [randoCheckId, randoStaticCheck] : Rando::StaticData::Checks) {
+        if (randoStaticCheck.randoCheckType != RCTYPE_SONG || randoCheckId == RC_UNKNOWN) {
+            continue;
+        }
+        const RandoSaveCheck& check = RANDO_SAVE_CHECKS[randoCheckId];
+        if (check.shuffled || check.skipped || (uint16_t)check.randoItemId != ri) {
+            continue;
+        }
+        if (sHostPoolSet && std::binary_search(sHostPool.begin(), sHostPool.end(), (uint16_t)randoCheckId)) {
+            continue;
+        }
+        return (int)randoCheckId;
+    }
+    return -1;
+}
+
+/** TEST BRIDGE (#1169 XW15): MM check @p rc's item when the check is fixed (neither
+ *  shuffled nor skipped), else -1: a vanilla check holding its own item. */
+extern "C" int MM_ComboLogic_TestFixedCheckItem(uint16_t rc) {
+    if (rc == (uint16_t)RC_UNKNOWN || rc >= (uint16_t)RC_MAX) {
+        return -1;
+    }
+    const RandoSaveCheck& check = RANDO_SAVE_CHECKS[rc];
+    return (check.shuffled || check.skipped) ? -1 : (int)check.randoItemId;
+}
+
+/** TEST BRIDGE (#1169 XW15): MM's Song of Soaring check, RC_SOUTHERN_SWAMP_SONG_OF_SOARING,
+ *  for rows that cannot name MM's enums. */
+extern "C" int MM_ComboLogic_TestSwampSoaringCheck(void) {
+    return (int)RC_SOUTHERN_SWAMP_SONG_OF_SOARING;
 }
 
 extern "C" uint32_t MM_ComboLogic_ExcludedSongChecks(void) {
@@ -3300,7 +3372,8 @@ void Rando::Foreign::RunPairedSingleBagFill(std::vector<RandoCheckId>& checkPool
             why += " - no seed can finish the goal under these settings (Ocarina of Time half " +
                    std::to_string(report.fill.goalOoT) + ", Majora's Mask half " + std::to_string(report.fill.goalMM) +
                    " with every required item assumed)";
-        } else if (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u) {
+        } else if (status == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY ||
+                   (status == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE && Combo_SingleBag_HomeShortGames(&report) != 0u)) {
             // #1483: one game's own items outnumber its own checks, whatever the
             // other game has free.
             why += " - " + SingleBagHomeShortText(report);

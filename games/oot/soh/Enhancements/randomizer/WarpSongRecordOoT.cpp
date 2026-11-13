@@ -76,7 +76,17 @@ uint16_t WarpSongRecordOverrideOf(const EntranceOverride* rows, uint16_t pad) {
     return (uint16_t)resolved;
 }
 
+// TEST ONLY (OoT_Creation_TestForceWarpRecordInvalid, #1169 XW12): the freeze
+// treats the record it built as malformed. Never set in production.
+int sWarpSongRecordForceInvalid = 0;
+
 } // namespace
+
+/** TEST BRIDGE (oot-warp-song-record, #1169 XW12 D3): with @p on nonzero the next
+ *  freezes refuse the record they build, as a malformed one would be refused. */
+extern "C" void OoT_Creation_TestForceWarpRecordInvalid(int on) {
+    sWarpSongRecordForceInvalid = on != 0 ? 1 : 0;
+}
 
 /**
  * Write gComboCtx.comboOoTWarps from the world being created. Returns 0 when the
@@ -104,7 +114,10 @@ extern "C" int OoT_Creation_FreezeWarpSongRecord(void) {
             area[song] = a == COMBO_AREA_POCKET ? (uint8_t)0 : a; // a pad never leads to Link's Pocket
         }
     }
-    const int status = Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, shuffled, hints, dest, area);
+    int status = Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, shuffled, hints, dest, area);
+    if (sWarpSongRecordForceInvalid != 0) {
+        status = COMBO_OOT_WARP_REC_INVALID; // the test seam above
+    }
     if (status != COMBO_OOT_WARP_REC_PRESENT) {
         fprintf(stderr, "[OoT] creation: the warp-song record is malformed (status %d); left unset (#1169 XW7)\n",
                 status);

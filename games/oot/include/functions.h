@@ -1123,6 +1123,7 @@ bool Inventory_HasEmptyBottleSlot(void);
 s32 Inventory_HasSpecificBottle(u8 bottleItem);
 void OoT_Inventory_UpdateBottleItem(PlayState* play, u8 item, u8 cButton);
 s32 OoT_Inventory_ConsumeFairy(PlayState* play);
+bool Inventory_HatchWeirdEgg(PlayState* play);
 bool Inventory_HatchPocketCucco(PlayState* play);
 void Interface_SetDoAction(PlayState* play, u16 action);
 void Interface_SetNaviCall(PlayState* play, u16 naviCallState);

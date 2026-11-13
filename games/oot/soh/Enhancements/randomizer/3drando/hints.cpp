@@ -708,7 +708,8 @@ void CreateStoneHints() {
 #endif
 
     // Apply impa's song exclusions when zelda is skipped
-    if (ctx->GetOption(RSK_SKIP_CHILD_ZELDA)) {
+    if ((ctx->GetOption(RSK_STARTING_ZELDAS_LETTER) && !ctx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER)) ||
+        ctx->GetOption(RSK_SKIP_CHILD_ZELDA)) {
         ctx->GetItemLocation(RC_SONG_FROM_IMPA)->SetHintAccesible();
     }
     if (ctx->GetOption(RSK_SELECTED_STARTING_AGE).Is(RO_AGE_ADULT) || !ctx->GetOption(RSK_SHUFFLE_MASTER_SWORD)) {
@@ -1051,21 +1052,32 @@ void CreateStaticItemHint(RandomizerHint hintKey, std::vector<RandomizerHintText
                           bool yourPocket = false) {
     // RANDOTODO choose area in case there are multiple
     auto ctx = Rando::Context::GetInstance();
-    std::vector<RandomizerCheck> locations = FindItemsAndMarkHinted(items, hintChecks);
-    std::vector<RandomizerArea> areas = {};
+    std::vector<RandomizerCheck> rawLocations = FindItemsAndMarkHinted(items, hintChecks);
+    std::vector<RandomizerCheck> locations;
+    std::vector<RandomizerArea> areas;
+    locations.reserve(rawLocations.size());
+    areas.reserve(rawLocations.size());
 #ifdef RSBS_SINGLE_EXECUTABLE
     std::vector<uint8_t> foreignAreas = {};
 #endif
-    for (size_t i = 0; i < locations.size(); i++) {
-        if (locations[i] == RC_UNKNOWN_CHECK && HintAreaForItemOutsideHyrule(items[i]) == RA_TERMINA) {
+    for (size_t i = 0; i < rawLocations.size(); i++) {
+        // One entry per item, as upstream keeps it: the hint text reads its areas by
+        // the item's index (the Ganondorf hint's Master Sword is [[2]]), so an item
+        // found nowhere, such as a starting Light Arrows, still takes its slot.
+        locations.push_back(rawLocations[i]);
+        if (rawLocations[i] == RC_UNKNOWN_CHECK) {
+            if (i < items.size() && HintAreaForItemOutsideHyrule(items[i]) == RA_TERMINA) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-            PushTerminaSlot(areas, foreignAreas, items[i]);
+                PushTerminaSlot(areas, foreignAreas, items[i]);
 #else
-            areas.push_back(RA_TERMINA);
+                areas.push_back(RA_TERMINA);
 #endif
+            } else {
+                areas.push_back(RA_NONE);
+            }
             continue;
         }
-        areas.push_back(ctx->GetItemLocation(locations[i])->GetRandomArea());
+        areas.push_back(ctx->GetItemLocation(rawLocations[i])->GetRandomArea());
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
     AddHintWithForeignAreas(hintKey, Hint(hintKey, HINT_TYPE_AREA, hintTextKeys, locations, areas, {}, yourPocket),
@@ -1092,6 +1104,29 @@ extern "C" int Rando_TestCreateStaticItemHint(int hintKey, int hintTextKey, int 
     }
     CreateStaticItemHint((RandomizerHint)hintKey, { (RandomizerHintTextKey)hintTextKey }, { (RandomizerGet)item }, {},
                          true);
+    return 1;
+}
+
+/**
+ * TEST BRIDGE (ComboSingleBag D2, PR #1555 QC): the same builder over a key of
+ * `count` items with `textCount` texts, as the Ganondorf hint builds it when the
+ * Master Sword is shuffled. Builds nothing and returns 0 when either list is
+ * empty, 1 when built.
+ */
+extern "C" int Rando_TestCreateStaticItemHintKey(int hintKey, const int* hintTextKeys, int textCount, const int* items,
+                                                 int count) {
+    if (textCount <= 0 || count <= 0) {
+        return 0;
+    }
+    std::vector<RandomizerHintTextKey> texts = {};
+    for (int i = 0; i < textCount; i++) {
+        texts.push_back((RandomizerHintTextKey)hintTextKeys[i]);
+    }
+    std::vector<RandomizerGet> list = {};
+    for (int i = 0; i < count; i++) {
+        list.push_back((RandomizerGet)items[i]);
+    }
+    CreateStaticItemHint((RandomizerHint)hintKey, texts, list, {}, true);
     return 1;
 }
 

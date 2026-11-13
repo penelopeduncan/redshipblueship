@@ -37,6 +37,10 @@
 // src/common, outside the extern "C" block below: it manages its own linkage.
 #include "foreign_items.h" // Combo_GetForeignPlacementForOoTCheck, Combo_GetForeignItemName (#796)
 #include "cvar_shared_keys.h" // RSBS_CVAR_COMBO_CHECKS_ONLY_CURRENT_AREA_TOGGLE_VISIBLE (#1287)
+#include "warp_song_tracker.h" // #1169 XW11: MM's warp-song travel from the frozen world
+#include "warp_song_items.h"   // #1169 XW11: Combo_ForeignGameTag, one tag after a crossed item's name
+// ComboLogicEngineOoT.cpp: the tracker-scoped arm of the root warp exits (#1169 XW11).
+extern "C" void OoT_ComboLogic_SetTrackerTravel(uint32_t facts);
 #endif
 
 extern "C" {
@@ -91,6 +95,7 @@ bool showKokiriSword;
 bool showMasterSword;
 bool showHyruleLoach;
 bool showWeirdEgg;
+bool showZeldasLetter;
 bool showGerudoCard;
 bool showOverworldPots;
 bool showDungeonPots;
@@ -1319,9 +1324,14 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
     if (Combo_ForeignPairingActive()) {
         if (const SharedItem* crossed = Combo_GetForeignPlacementForOoTCheck((uint16_t)rc)) {
             if (const char* name = Combo_GetForeignItemName(*crossed)) {
-                return std::string(name) + " (MM)";
+                return std::string(name) + Combo_ForeignGameTag(name, GAME_MM);
             }
         }
+    }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared =
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)itemLoc->GetPlacedRandomizerGet())) {
+        return shared;
     }
     return itemLoc->GetPlacedItem().GetName().GetForLanguage(gSaveContext.language);
 }
@@ -1883,8 +1893,10 @@ void LoadSettings() {
                           RO_GENERIC_YES;
     showHyruleLoach =
         IS_RANDO && OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_FISHSANITY) == RO_FISHSANITY_HYRULE_LOACH;
-    showWeirdEgg =
-        !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_WEIRD_EGG) == RO_GENERIC_YES;
+    showWeirdEgg = !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_WEIRD_EGG) ==
+                                    RO_WEIRD_EGG_SHUFFLED;
+    showZeldasLetter =
+        !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_ZELDAS_LETTER) == RO_GENERIC_YES;
     showGerudoCard = !IS_RANDO || OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(
                                       RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD) == RO_GENERIC_YES;
     showFrogSongRupees =
@@ -2116,8 +2128,7 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_GOSSIP_STONE) && // TODO: Don't show hints until tracker supports them
                (loc->GetRCType() != RCTYPE_STATIC_HINT) &&  // TODO: Don't show hints until tracker supports them
                (loc->GetRCType() != RCTYPE_CHEST_GAME || showChestMinigame) &&
-               (rc != RC_HC_ZELDAS_LETTER) &&               // don't show zeldas letter until we support shuffling it
-               (rc != RC_LINKS_POCKET || showLinksPocket) &&
+               (rc != RC_HC_ZELDAS_LETTER || showZeldasLetter) && (rc != RC_LINKS_POCKET || showLinksPocket) &&
                OTRGlobals::Instance->gRandoContext->IsQuestOfLocationActive(rc) &&
                (loc->GetRCType() != RCTYPE_SHOP ||
                 (showShops &&
@@ -2888,6 +2899,23 @@ static void ComputeAvailableChecks(RandomizerRegion startingRegion, RandoAgeTime
 
     std::vector<RandomizerCheck> availableChecks =
         ReachabilitySearch(targetLocations, RG_NONE, true, startingRegion, startingAgeTime);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1169 XW11: a Majora's Mask warp song the player can play there also opens its
+    // root warp exit, read from MM's FROZEN world (warp_song_tracker.h). OoT's crossing
+    // is this first search's mask-shop access, held before the second search runs; the
+    // facts are armed for that search alone. A file with every warp-song rule off reads
+    // one word here and never searches twice.
+    {
+        const Region* maskShop = RegionTable(RR_MARKET_MASK_SHOP);
+        const int crossOoT = (maskShop != nullptr && maskShop->Child()) ? 1 : 0;
+        const uint32_t travelFacts = Combo_TrackerTravel_OoTFactsNow(crossOoT);
+        if (travelFacts != 0u) {
+            OoT_ComboLogic_SetTrackerTravel(travelFacts);
+            availableChecks = ReachabilitySearch(targetLocations, RG_NONE, true, startingRegion, startingAgeTime);
+            OoT_ComboLogic_SetTrackerTravel(0u);
+        }
+    }
+#endif
     for (auto& rc : availableChecks) {
         const auto& itemLocation = ctx->GetItemLocation(rc);
         itemLocation->SetAvailable(true);

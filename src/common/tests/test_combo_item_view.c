@@ -96,6 +96,7 @@
 #include "../save.h" // rsbs::SaveManager, SlotMeta: the new-file row's slot-panel leg (#873)
 #include "../shared_resources.h"
 #include "../test_runner.h"
+#include "../warp_songs_mm.h" // Combo_MMWarpSongsSetOwned: the XW11 leg's ownership byte
 
 #include <cstdio>
 #include <cstring>
@@ -138,6 +139,10 @@ extern "C" void OoT_ItemAdapter_TestOverrideOptions(int enabled, unsigned bits);
 // The adapter's guarded read of an item's inventory slot (SoH 7a7f942b8), -1 when it has none.
 extern "C" int OoT_ItemAdapter_TestInvContent(const void* buf, int item);
 extern "C" int OoT_ItemAdapter_TestItemSlotCount(void);
+// #1169 XW11: the added warp songs' authoring seams (both ItemAdapterSingleExe.cpp files).
+extern "C" int OoT_ItemAdapter_TestAuthorSoaringWorld(void* buf, size_t size, int soaringOwned, int ocarina,
+                                                      int buttons, int linkAge);
+extern "C" int MM_ItemAdapter_TestAuthorWarpSongWorld(void* buf, size_t size, int ocarina, unsigned heldMask);
 
 #define CIV_ASSERT(cond)                                                   \
     do {                                                                   \
@@ -1692,6 +1697,11 @@ static int CivOoTTrackerGroupLegs(const ComboItemOps* ops) {
     for (const char* flow : { "Inventory", "Songs", "Dungeon Items", "Dungeon Keys" }) {
         CIV_ASSERT(!grid->groupOwnLine(flow));
     }
+    // #1169 XW11: the dungeon tables start a line (the 66 fixed rows fill whole lines, so this is SoH's flow
+    // without an added song); the abilities after them still flow on.
+    CIV_ASSERT(grid->groupStartsLine != NULL && grid->groupStartsLine("Dungeon Items") &&
+               grid->groupStartsLine("Dungeon Keys") && !grid->groupStartsLine("Abilities") &&
+               !grid->groupStartsLine("Songs") && !grid->groupStartsLine("Inventory"));
 
     // ---- D. SoH's DisplayType keys govern them in the overlay, hidden by SoH's default -------------------
     static const struct {
@@ -2213,6 +2223,360 @@ static int CivSharedButtonLabelLegs(const ComboItemOps* ops, const ComboItemOps*
     return TEST_PASS;
 }
 
+// ---- #1169 XW11: the added warp songs' rows ------------------------------------------
+//
+// The Song of Soaring (OoT) is OoT's thirteenth note and Ocarina of Time's six warp songs follow MM's Oath to Order,
+// each only in a randomizer file whose frozen second rules word has its extension on.
+//   (a) Rules off (every world a player can make before XW12): both games' counts and every row are what they were,
+//       and no added slot key appears. Catches a row leaking into a rule-off file.
+//   (b) OoT, the Soaring rule on: one row right after "song_prelude", white (SoH's vanilla Sun's Song note), held
+//       through its flag in the buffer, and every later row is the rule-off row one index on. Catches the row in the
+//       wrong place, the wrong ownership source, or a dungeon-table index that does not shift.
+//   (c) A vanilla OoT file with the rule on shows no row. Catches IS_RANDO dropped.
+//   (d) MM, all six on with Minuet, Serenade and Nocturne owned: six rows after "song_oath" in OoTMM's order, named
+//       as MM names them, tinted, held from the ownership byte, and the Quest rows follow; one rule alone shows one
+//       row. Catches the order, the tint, the ownership source, and a shift that skips or repeats a fixed row.
+//   (e) The catalog (the layout editor) is the rule-off catalog in every case: this lane adds no catalog entry.
+static bool CivSlotKeyIs(const ComboItemRow& r, const char* key) {
+    return r.slotKey != NULL && strcmp(r.slotKey, key) == 0;
+}
+
+static std::vector<ComboItemRow> CivRowsOf(const ComboItemOps* ops, const void* buf) {
+    std::vector<ComboItemRow> rows;
+    const int n = ops->countFor(buf);
+    for (int i = 0; i < n; i++) {
+        ComboItemRow r;
+        memset(&r, 0, sizeof(r));
+        if (!ops->rowAt(buf, i, &r)) {
+            break;
+        }
+        rows.push_back(r);
+    }
+    return rows;
+}
+
+static int CivIndexOfKey(const std::vector<ComboItemRow>& rows, const char* key) {
+    for (size_t i = 0; i < rows.size(); i++) {
+        if (CivSlotKeyIs(rows[i], key)) {
+            return (int)i;
+        }
+    }
+    return -1;
+}
+
+static bool CivSameText(const char* x, const char* y) {
+    return (x == NULL && y == NULL) || (x != NULL && y != NULL && strcmp(x, y) == 0);
+}
+
+/** Rows equal by what the overlay draws and keys by (compared field by field). */
+static bool CivSameRow(const ComboItemRow& a, const ComboItemRow& b) {
+    return CivSameText(a.group, b.group) && CivSameText(a.name, b.name) && CivSameText(a.slotKey, b.slotKey) &&
+           CivSameText(a.iconKey, b.iconKey) && a.have == b.have && a.count == b.count && a.max == b.max &&
+           a.sharedFamily == b.sharedFamily && a.iconTint == b.iconTint && a.pad == b.pad;
+}
+
+/** One of SoH's two dungeon views of `rows` as the overlay draws them (DungeonItems.DisplayMaps on: the table
+ *  with maps, no keys-only table; off: the keys-only table), with one "Abilities" cell after it, as SoH flows
+ *  its ability rows on from the dungeon table. */
+static std::vector<ComboItemRow> CivXw11DungeonView(const std::vector<ComboItemRow>& rows, bool maps) {
+    std::vector<ComboItemRow> out;
+    for (const ComboItemRow& r : rows) {
+        if (r.group != NULL && strcmp(r.group, maps ? "Dungeon Keys" : "Dungeon Items") == 0) {
+            continue;
+        }
+        out.push_back(r);
+    }
+    if (!out.empty()) {
+        ComboItemRow ability = out.back();
+        ability.group = "Abilities";
+        out.push_back(ability);
+    }
+    return out;
+}
+
+/** `rows` laid out on `grid`, or on `grid` without its groupStartsLine (`withStarts` false). */
+static std::vector<ComboGui::ComboItemGridCell> CivXw11Layout(const std::vector<ComboItemRow>& rows,
+                                                              const ComboItemGridStyle& grid, bool withStarts) {
+    ComboItemGridStyle style = grid;
+    if (!withStarts) {
+        style.groupStartsLine = NULL;
+    }
+    std::vector<ComboGui::ComboItemGridCell> cells;
+    ComboGui::ComboItemIconLayout(rows, style, cells);
+    return cells;
+}
+
+/**
+ * #1169 XW11 review: SoH's grid with the Song of Soaring (OoT) row. Without it (`off`) each view lays out as it
+ * did before groupStartsLine existed (catches a dungeon or ability group moved in a rule-off file); with it
+ * (`on`, the row at `prelude + 1`) the note sits alone at the start of the line after the songs and every later
+ * cell is its rule-off cell one line down, same column (catches the dungeon table shifted one column right).
+ */
+static int CivXw11SoaringLayout(const ComboItemGridStyle& grid, const std::vector<ComboItemRow>& off,
+                                const std::vector<ComboItemRow>& on, int prelude) {
+    for (bool maps : { true, false }) {
+        const std::vector<ComboItemRow> offView = CivXw11DungeonView(off, maps);
+        const std::vector<ComboItemRow> onView = CivXw11DungeonView(on, maps);
+        const std::vector<ComboGui::ComboItemGridCell> offCells = CivXw11Layout(offView, grid, true);
+        const std::vector<ComboGui::ComboItemGridCell> offBefore = CivXw11Layout(offView, grid, false);
+        const std::vector<ComboGui::ComboItemGridCell> onCells = CivXw11Layout(onView, grid, true);
+        CIV_ASSERT(offCells.size() == offView.size() && offBefore.size() == offView.size() &&
+                   onCells.size() == onView.size() && onView.size() == offView.size() + 1 &&
+                   (size_t)prelude + 1 < onView.size());
+        for (size_t i = 0; i < offCells.size(); i++) {
+            if (offCells[i].line != offBefore[i].line || offCells[i].column != offBefore[i].column) {
+                printf("[TEST] FAIL: rule-off OoT cell %zu (%s) moved to line %d column %d from line %d column %d "
+                       "(maps %d)\n",
+                       i, offView[i].group, offCells[i].line, offCells[i].column, offBefore[i].line,
+                       offBefore[i].column, (int)maps);
+                return TEST_FAIL;
+            }
+        }
+        const ComboGui::ComboItemGridCell soaringCell = onCells[(size_t)prelude + 1];
+        CIV_ASSERT(soaringCell.column == 0 && soaringCell.line == offCells[(size_t)prelude].line + 1);
+        for (size_t i = 0; i < offCells.size(); i++) {
+            const size_t at = i <= (size_t)prelude ? i : i + 1;
+            const int wantLine = i <= (size_t)prelude ? offCells[i].line : offCells[i].line + 1;
+            if (onCells[at].line != wantLine || onCells[at].column != offCells[i].column) {
+                printf("[TEST] FAIL: rule-on OoT cell %zu (%s) at line %d column %d, want line %d column %d "
+                       "(maps %d)\n",
+                       at, onView[at].group, onCells[at].line, onCells[at].column, wantLine, offCells[i].column,
+                       (int)maps);
+                return TEST_FAIL;
+            }
+        }
+        const size_t firstDungeon = (size_t)prelude + 2;
+        CIV_ASSERT(strcmp(onView[firstDungeon].group, maps ? "Dungeon Items" : "Dungeon Keys") == 0 &&
+                   onCells[firstDungeon].column == 0);
+    }
+    return TEST_PASS;
+}
+
+static void CivFreezeRules2(uint32_t rules2) {
+    ComboContext_Init();
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
+}
+
+/** One row's have bit by its slot key; -1 when the row is not drawn. */
+static int CivHaveOfKey(const std::vector<ComboItemRow>& rows, const char* key) {
+    const int i = CivIndexOfKey(rows, key);
+    return i < 0 ? -1 : (rows[(size_t)i].have ? 1 : 0);
+}
+
+/** XW14 leg (f) of CivAddedWarpSongLegs: the rows read the shared warp-song
+ *  family. `oot` holds no OoT song and no Soaring (OoT) flag, `mm` no Song of
+ *  Soaring; the probes are put back on every path. */
+static int CivSharedWarpSongRowLegs(const ComboItemOps* ops, const ComboItemOps* mmOps, const uint8_t* oot,
+                                    const uint8_t* mm) {
+    const ComboSharedLiveProbeFn ootProbe = Combo_SharedLiveProbeFor(GAME_OOT);
+    const ComboSharedLiveProbeFn mmProbe = Combo_SharedLiveProbeFor(GAME_MM);
+    Combo_RegisterSharedLiveProbe(GAME_OOT, NULL);
+    Combo_RegisterSharedLiveProbe(GAME_MM, NULL);
+    int result = TEST_PASS;
+    do {
+        // The shared Minuet with its extension; nothing owned anywhere.
+        CivFreezeRules2(RSBS_XITEM2_SONG_MINUET_MM | RSBS_XITEM2_SHARED_SONG_MINUET);
+        Combo_MMWarpSongsSetOwned(0u);
+        const std::vector<ComboItemRow> mmNone = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootNone = CivRowsOf(ops, oot);
+        if (CivHaveOfKey(mmNone, "song_minuet_mm") != 0 || CivHaveOfKey(ootNone, "song_minuet") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Minuet reads held with nothing owned (MM %d, OoT %d)\n",
+                   CivHaveOfKey(mmNone, "song_minuet_mm"), CivHaveOfKey(ootNone, "song_minuet"));
+            result = TEST_FAIL;
+            break;
+        }
+        // The family word alone holds it.
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_MINUET;
+        const std::vector<ComboItemRow> mmFam = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootFam = CivRowsOf(ops, oot);
+        const int mmMinuet = CivIndexOfKey(mmFam, "song_minuet_mm");
+        if (mmMinuet < 0 || !mmFam[(size_t)mmMinuet].have ||
+            strcmp(mmFam[(size_t)mmMinuet].name, "Minuet of Forest") != 0 || CivHaveOfKey(ootFam, "song_minuet") != 1 ||
+            CivHaveOfKey(ootFam, "song_bolero") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Minuet owned by the family: MM row %d named \"%s\", OoT's Minuet %d, "
+                   "OoT's Bolero %d (want held, \"Minuet of Forest\", 1, 0)\n",
+                   mmMinuet < 0 ? -1 : (mmFam[(size_t)mmMinuet].have ? 1 : 0),
+                   mmMinuet < 0 ? "(none)" : mmFam[(size_t)mmMinuet].name, CivHaveOfKey(ootFam, "song_minuet"),
+                   CivHaveOfKey(ootFam, "song_bolero"));
+            result = TEST_FAIL;
+            break;
+        }
+        // The extension alone: the family word reads nothing.
+        CivFreezeRules2(RSBS_XITEM2_SONG_MINUET_MM);
+        Combo_MMWarpSongsSetOwned(0u);
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_MINUET;
+        const std::vector<ComboItemRow> mmOff = CivRowsOf(mmOps, mm);
+        const std::vector<ComboItemRow> ootOff = CivRowsOf(ops, oot);
+        const int mmOffMinuet = CivIndexOfKey(mmOff, "song_minuet_mm");
+        if (mmOffMinuet < 0 || mmOff[(size_t)mmOffMinuet].have ||
+            strcmp(mmOff[(size_t)mmOffMinuet].name, "Minuet of Forest (MM)") != 0 ||
+            CivHaveOfKey(ootOff, "song_minuet") != 0) {
+            printf("[TEST] FAIL: XW14 with the shared Minuet off the family word made a Minuet row held, or MM's row "
+                   "lost its \"(MM)\"\n");
+            result = TEST_FAIL;
+            break;
+        }
+        // The shared Song of Soaring with its extension.
+        CivFreezeRules2(RSBS_XITEM2_SONG_SOARING_OOT | RSBS_XITEM2_SHARED_SONG_SOARING);
+        const std::vector<ComboItemRow> ootSoarNone = CivRowsOf(ops, oot);
+        const std::vector<ComboItemRow> mmSoarNone = CivRowsOf(mmOps, mm);
+        if (CivHaveOfKey(ootSoarNone, "song_soaring_oot") != 0 || CivHaveOfKey(mmSoarNone, "song_soaring") != 0) {
+            printf("[TEST] FAIL: XW14 the shared Soaring reads held with nothing owned (OoT %d, MM %d)\n",
+                   CivHaveOfKey(ootSoarNone, "song_soaring_oot"), CivHaveOfKey(mmSoarNone, "song_soaring"));
+            result = TEST_FAIL;
+            break;
+        }
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_SHARED_SONG_SOARING;
+        const std::vector<ComboItemRow> ootSoar = CivRowsOf(ops, oot);
+        const std::vector<ComboItemRow> mmSoar = CivRowsOf(mmOps, mm);
+        const int ootSoaring = CivIndexOfKey(ootSoar, "song_soaring_oot");
+        if (ootSoaring < 0 || !ootSoar[(size_t)ootSoaring].have ||
+            strcmp(ootSoar[(size_t)ootSoaring].name, "Song of Soaring") != 0 ||
+            CivHaveOfKey(mmSoar, "song_soaring") != 1) {
+            printf("[TEST] FAIL: XW14 the shared Soaring owned by the family: OoT row %d named \"%s\", MM's own %d "
+                   "(want held, \"Song of Soaring\", 1)\n",
+                   ootSoaring < 0 ? -1 : (ootSoar[(size_t)ootSoaring].have ? 1 : 0),
+                   ootSoaring < 0 ? "(none)" : ootSoar[(size_t)ootSoaring].name, CivHaveOfKey(mmSoar, "song_soaring"));
+            result = TEST_FAIL;
+            break;
+        }
+        printf("[TEST] combo-item-view: XW14 under a shared warp-song rule both games' rows of the song read the "
+               "family held now, the added copy named without its game (#1169)\n");
+    } while (false);
+    Combo_RegisterSharedLiveProbe(GAME_OOT, ootProbe);
+    Combo_RegisterSharedLiveProbe(GAME_MM, mmProbe);
+    return result;
+}
+
+static int CivAddedWarpSongLegs(const ComboItemOps* ops, const ComboItemOps* mmOps) {
+    static const char* const kMMKeys[6] = { "song_minuet_mm",  "song_bolero_mm",   "song_serenade_mm",
+                                            "song_requiem_mm", "song_nocturne_mm", "song_prelude_mm" };
+    static const char* const kMMNames[6] = { "Minuet of Forest (MM)",   "Bolero of Fire (MM)",
+                                             "Serenade of Water (MM)",  "Requiem of Spirit (MM)",
+                                             "Nocturne of Shadow (MM)", "Prelude of Light (MM)" };
+    static const uint32_t kMMTints[6] = {
+        0x96FF64FFu, 0xFF5028FFu, 0x6496FFFFu, 0xFFA000FFu, 0xFF64FFFFu, 0xFFF064FFu
+    };
+    std::vector<uint8_t> oot((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> ootOwned((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> ootVanilla((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> mm((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSoaringWorld(oot.data(), oot.size(), 0, 1, 1, 1) == 1);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSoaringWorld(ootOwned.data(), ootOwned.size(), 1, 1, 1, 1) == 1);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSave(ootVanilla.data(), ootVanilla.size(), 0) == 1);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorWarpSongWorld(mm.data(), mm.size(), 1, 0x1Fu) == 1);
+    OoT_ItemAdapter_TestOverrideOptions(1, 0u); // the gated groups read no seed context here
+
+    // (a) rules off.
+    ComboContext_Init();
+    Combo_MMWarpSongsSetOwned(0x3Fu); // owned without the rule: still no row
+    const std::vector<ComboItemRow> ootOff = CivRowsOf(ops, ootOwned.data());
+    const std::vector<ComboItemRow> mmOff = CivRowsOf(mmOps, mm.data());
+    const int ootCatalogOff = ops->catalogCount();
+    const int mmCatalogOff = mmOps->catalogCount();
+    CIV_ASSERT(!ootOff.empty() && !mmOff.empty());
+    CIV_ASSERT((int)ootOff.size() == ops->countFor(ootOwned.data()) && (int)mmOff.size() == mmOps->countFor(mm.data()));
+    CIV_ASSERT(CivIndexOfKey(ootOff, "song_soaring_oot") < 0);
+    for (const char* key : kMMKeys) {
+        CIV_ASSERT(CivIndexOfKey(mmOff, key) < 0);
+    }
+    const int prelude = CivIndexOfKey(ootOff, "song_prelude");
+    const int oath = CivIndexOfKey(mmOff, "song_oath");
+    CIV_ASSERT(prelude >= 0 && oath >= 0);
+
+    // (b) OoT, the Soaring rule on.
+    CivFreezeRules2(RSBS_XITEM2_SONG_SOARING_OOT);
+    const std::vector<ComboItemRow> ootOn = CivRowsOf(ops, ootOwned.data());
+    printf("[TEST] combo-item-view: XW11 OoT rows %zu with the Soaring rule, %zu without\n", ootOn.size(),
+           ootOff.size());
+    CIV_ASSERT(ootOn.size() == ootOff.size() + 1);
+    const ComboItemRow& soaring = ootOn[(size_t)prelude + 1];
+    CIV_ASSERT(CivSlotKeyIs(soaring, "song_soaring_oot") && strcmp(soaring.group, "Songs") == 0 &&
+               strcmp(soaring.name, "Song of Soaring (OoT)") == 0 &&
+               CivSameText(soaring.iconKey, "QUEST_SONG_SUN_Vanilla") &&
+               CivSameText(soaring.iconKeyFaded, "QUEST_SONG_SUN_Vanilla_Faded") && soaring.have &&
+               soaring.iconAspect > 0.6f && soaring.iconAspect < 0.7f && soaring.sharedFamily == 0u);
+    for (size_t i = 0; i < ootOff.size(); i++) {
+        const size_t on = i <= (size_t)prelude ? i : i + 1;
+        if (!CivSameRow(ootOff[i], ootOn[on])) {
+            printf("[TEST] FAIL: OoT row %zu (\"%s\") is not rule-off row %zu with the Soaring rule on\n", on,
+                   ootOn[on].name, i);
+            return TEST_FAIL;
+        }
+    }
+    const std::vector<ComboItemRow> ootNotOwned = CivRowsOf(ops, oot.data());
+    CIV_ASSERT(ootNotOwned.size() == ootOn.size());
+    CIV_ASSERT(CivSlotKeyIs(ootNotOwned[(size_t)prelude + 1], "song_soaring_oot") &&
+               !ootNotOwned[(size_t)prelude + 1].have);
+    // SoH's grid: the note alone on the line after the songs, both dungeon tables still from column 0.
+    CIV_ASSERT(ops->grid != NULL);
+    if (CivXw11SoaringLayout(*ops->grid, ootOff, ootOn, prelude) != TEST_PASS) {
+        return TEST_FAIL;
+    }
+    // (c) a vanilla file shows none.
+    CIV_ASSERT(CivIndexOfKey(CivRowsOf(ops, ootVanilla.data()), "song_soaring_oot") < 0);
+    // The MM rules are off in this world: MM unchanged.
+    CIV_ASSERT(CivRowsOf(mmOps, mm.data()).size() == mmOff.size());
+
+    // (d) MM, all six on.
+    CivFreezeRules2(RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT);
+    Combo_MMWarpSongsSetOwned(0x15u); // Minuet, Serenade, Nocturne
+    const std::vector<ComboItemRow> mmOn = CivRowsOf(mmOps, mm.data());
+    printf("[TEST] combo-item-view: XW11 MM rows %zu with the six rules, %zu without\n", mmOn.size(), mmOff.size());
+    CIV_ASSERT(mmOn.size() == mmOff.size() + 6);
+    for (int i = 0; i < 6; i++) {
+        const ComboItemRow& r = mmOn[(size_t)oath + 1 + (size_t)i];
+        const bool held = ((0x15u >> i) & 1u) != 0u;
+        if (!CivSlotKeyIs(r, kMMKeys[i]) || strcmp(r.group, "Songs") != 0 || strcmp(r.name, kMMNames[i]) != 0 ||
+            r.iconTint != kMMTints[i] || r.have != held || r.iconKey == NULL) {
+            printf("[TEST] FAIL: MM added song %d reads \"%s\" key %s tint %08X have %d\n", i, r.name,
+                   r.slotKey != NULL ? r.slotKey : "(none)", (unsigned)r.iconTint, (int)r.have);
+            return TEST_FAIL;
+        }
+    }
+    CIV_ASSERT(CivSlotKeyIs(mmOn[(size_t)oath + 7], "remains_odolwa"));
+    for (size_t i = 0; i < mmOff.size(); i++) {
+        const size_t on = i <= (size_t)oath ? i : i + 6;
+        if (!CivSameRow(mmOff[i], mmOn[on])) {
+            printf("[TEST] FAIL: MM row %zu (\"%s\") is not rule-off row %zu with the six rules on\n", on,
+                   mmOn[on].name, i);
+            return TEST_FAIL;
+        }
+    }
+    // OoT's rule is off in this world: OoT unchanged.
+    CIV_ASSERT(CivRowsOf(ops, ootOwned.data()).size() == ootOff.size());
+    // One rule alone, one row.
+    CivFreezeRules2(RSBS_XITEM2_SONG_BOLERO_MM);
+    Combo_MMWarpSongsSetOwned(0x02u);
+    const std::vector<ComboItemRow> mmBolero = CivRowsOf(mmOps, mm.data());
+    CIV_ASSERT(mmBolero.size() == mmOff.size() + 1);
+    CIV_ASSERT(CivSlotKeyIs(mmBolero[(size_t)oath + 1], "song_bolero_mm") && mmBolero[(size_t)oath + 1].have &&
+               CivSlotKeyIs(mmBolero[(size_t)oath + 2], "remains_odolwa"));
+
+    // (f) #1169 XW14: the shared rules, through both REAL adapters. No game is
+    // live (both probes NULL, put back below), so the family held now is the
+    // family word alone: no own copy anywhere, the word set, and every row of
+    // the song reads held in BOTH games, the added copy named without its tag.
+    // Catches an added row that ignores the family (MM's Minuet, OoT's Soaring),
+    // a game's own row that ignores it (OoT's Minuet, MM's Song of Soaring: the
+    // own row would catch up only at the next arrival), a wrong song mapped
+    // (OoT's Bolero must stay not held), and a row that reads the word with the
+    // shared rule off.
+    if (CivSharedWarpSongRowLegs(ops, mmOps, oot.data(), mm.data()) != TEST_PASS) {
+        return TEST_FAIL;
+    }
+
+    // (e) the catalog does not move.
+    CIV_ASSERT(ops->catalogCount() == ootCatalogOff && mmOps->catalogCount() == mmCatalogOff);
+    printf("[TEST] combo-item-view: XW11 the added warp songs show only under their frozen rules, in place, held "
+           "from their own records (#1169)\n");
+
+    OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+    return TEST_PASS;
+}
+
 extern "C" int Combo_ItemView_RunHeadless(void) {
     printf("[TEST] combo-item-view: per-game item adapters over live/shadow buffers, the shared group (#458 U1)\n");
 
@@ -2322,6 +2686,18 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
 
         // ---- 2 for MM's ocarina buttons (#1072) --------------------------------
         if (CivMMOcarinaButtonLegs(mmOps) != TEST_PASS) {
+            result = TEST_FAIL;
+            break;
+        }
+
+        // ---- 2 for the added warp songs (#1169 XW11) ------------------------------
+        // The leg freezes its own worlds; the legs after it get back the context they had.
+        static ComboContext sXw11CtxBefore;
+        sXw11CtxBefore = gComboCtx;
+        const int warpSongResult = CivAddedWarpSongLegs(ops, mmOps);
+        OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+        gComboCtx = sXw11CtxBefore;
+        if (warpSongResult != TEST_PASS) {
             result = TEST_FAIL;
             break;
         }

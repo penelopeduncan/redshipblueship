@@ -80,9 +80,11 @@ extern "C" int OoT_SaveBlobIsStarted(const uint8_t* blob, size_t blobSize);
 // src/common. Included outside any extern "C" block: the headers manage their
 // own linkage (matching TrackerAdapterSingleExe.cpp).
 #include "combo_item_view.h"
-#include "foreign_items.h"    // RSBS_XITEM_*: the shared families a row is OoT's copy of (#1065)
-#include "game.h"             // OOT_SAVE_CONTEXT_SIZE
-#include "shared_resources.h" // Combo_SaveIsLiveFile, Combo_MakeHealthQuarters (the Shared column's live view, #971)
+#include "foreign_items.h"     // RSBS_XITEM_*: the shared families a row is OoT's copy of (#1065)
+#include "game.h"              // OOT_SAVE_CONTEXT_SIZE
+#include "shared_resources.h"  // Combo_SaveIsLiveFile, Combo_MakeHealthQuarters (the Shared column's live view, #971)
+#include "warp_song_items.h"   // Combo_AddedSongRow: the Song of Soaring (OoT)'s row (#1169 XW11)
+#include "warp_song_tracker.h" // Combo_TrackerTravel_RegisterOoTReader: OoT's frozen Soaring (#1169 XW11)
 
 // The view hands this TU either the unified live storage (unified_save.c,
 // alignas(16)) or OoT's shadow, a std::vector<uint8_t> buffer (context.cpp),
@@ -548,6 +550,15 @@ bool Derive(const SaveContext* src, const RowDef& def, ComboItemRow* out) {
             out->have = CHECK_QUEST_ITEM(def.data) != 0;
             if (std::strcmp(def.group, "Songs") == 0) {
                 out->iconAspect = 1.0f / 1.5f; // DrawSong: a note iconSize / 1.5 wide, centred
+            }
+            // #1169 XW14: under its shared rule OoT's own Minuet .. Prelude is held when the family is held now
+            // (Combo_SharedFamilies2HeldNow), as the added song's row in Majora's Mask is, so a song found in Termina
+            // shows held here before the next arrival gives OoT its copy. 0 with no shared rule frozen: unchanged.
+            if (def.kind == RK_QUEST && def.data >= (uint32_t)QUEST_SONG_MINUET &&
+                def.data <= (uint32_t)QUEST_SONG_PRELUDE &&
+                (Combo_SharedFamilies2HeldNow() &
+                 ((uint32_t)RSBS_XITEM2_SHARED_SONG_MINUET << (def.data - (uint32_t)QUEST_SONG_MINUET))) != 0u) {
+                out->have = true;
             }
             if (def.kind == RK_TOKENS) {
                 out->count = gSaveContext.inventory.gsTokens;
@@ -1034,6 +1045,53 @@ bool OoTItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
     return false;
 }
 
+// ---- #1169 XW11: the Song of Soaring (OoT) -----------------------------------------
+//
+// One row, right after SoH's twelve notes, so it is the thirteenth note of the "Songs" run (OoTMM draws an added
+// song after the vanilla notes). Only in a randomizer file whose frozen second rules word has
+// RSBS_XITEM2_SONG_SOARING_OOT on (Combo_AddedSongRow): a file with every rule off has exactly the rows and indices
+// it had before. White, as OoTMM draws it, in SoH's own note: the vanilla Sun's Song key ImGuiUtils.cpp loads.
+// Held through its ownership flag (RandInfOf over the buffer), or, under the shared Song of Soaring (#1169 XW14),
+// through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running game's own live copy
+// under that game's own live-file probe, so a row drawn from OoT's shadow while Majora's Mask runs never asks OoT's
+// member). The view still draws the row here, in OoT's own Songs run (sharedFamily stays 0: the Shared group is
+// first-word only), and Majora's Mask's own Song of Soaring row reads the same answer, so under the shared rule both
+// games show the song held, as OoTMM shows it in both menus. OoT's own six warp songs do the same in Derive.
+
+static_assert((uint32_t)RSBS_XITEM2_SHARED_SONG_PRELUDE ==
+                  ((uint32_t)RSBS_XITEM2_SHARED_SONG_MINUET
+                   << ((uint32_t)QUEST_SONG_PRELUDE - (uint32_t)QUEST_SONG_MINUET)),
+              "the own warp-song rows map QUEST_SONG_MINUET .. PRELUDE onto the six shared bits in order");
+
+/** The row's display and ownership for the buffer's file. */
+ComboAddedSongRow OoTItemSoaringRow(const SaveContext* src) {
+    if (!IS_RANDO) {
+        return ComboAddedSongRow{};
+    }
+    return Combo_AddedSongRow(Combo_ComboCrossItemFlags2(), RSBS_XITEM2_SONG_SOARING_OOT,
+                              RandInfOf(src, RAND_INF_OBTAINED_SONG_OF_SOARING_OOT),
+                              (Combo_SharedFamilies2HeldNow() & RSBS_XITEM2_SHARED_SONG_SOARING) != 0u);
+}
+
+/** 1 when the buffer's file shows the row, else 0. */
+int OoTItemSoaringRows(const SaveContext* src) {
+    return OoTItemSoaringRow(src).shown != 0u ? 1 : 0;
+}
+
+void OoTItemFillSoaring(const ComboAddedSongRow& song, ComboItemRow* out) {
+    out->group = "Songs";
+    out->slotKey = "song_soaring_oot";
+    // The item table's name (item_list.cpp); under the shared Song of Soaring the song is one item of both games
+    // and drops its "(OoT)" (#1169 XW14, OoTMM's isItemAmbiguous).
+    const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)RG_SONG_OF_SOARING_OOT);
+    out->name = shared != nullptr ? shared : "Song of Soaring (OoT)";
+    out->iconKey = "QUEST_SONG_SUN_Vanilla";
+    out->iconKeyFaded = "QUEST_SONG_SUN_Vanilla_Faded";
+    out->iconAspect = 1.0f / 1.5f; // DrawSong: a note iconSize / 1.5 wide, as the other songs
+    out->have = song.have != 0u;
+    out->sharedFamily = song.sharedFamily;
+}
+
 /** SoH pads each optional section onto a fresh line of its main window (UpdateVectors); the dungeon tables
  *  follow the songs. */
 bool OoTItemGroupOwnLine(const char* group) {
@@ -1048,6 +1106,14 @@ bool OoTItemGroupOwnLine(const char* group) {
     return false;
 }
 
+/** #1169 XW11: each dungeon table starts a line, and the abilities after it still flow on. The 66 fixed rows
+ *  fill eleven whole lines, so a file with every rule off lays out exactly as before; in a file whose Song of
+ *  Soaring (OoT) rule is on, the added note after the songs sits alone on its line instead of shifting every
+ *  dungeon column by one. */
+bool OoTItemGroupStartsLine(const char* group) {
+    return group != nullptr && (std::strcmp(group, "Dungeon Items") == 0 || std::strcmp(group, "Dungeon Keys") == 0);
+}
+
 // ---- the vtable ----------------------------------------------------------------
 
 int OoTItemCount(void) {
@@ -1058,7 +1124,8 @@ int OoTItemCountFor(const void* buf) {
     if (!Aligned(buf)) {
         return kFixedRowCount;
     }
-    return kFixedRowCount + OoTItemGatedRows(static_cast<const SaveContext*>(buf));
+    const SaveContext* src = static_cast<const SaveContext*>(buf);
+    return kFixedRowCount + OoTItemSoaringRows(src) + OoTItemGatedRows(src);
 }
 
 /** A created OoT file is in `buf`: the test the .redsave slot panel registers
@@ -1111,6 +1178,15 @@ bool OoTItemRowAt(const void* buf, int index, ComboItemRow* out) {
         return true;
     }
     index -= kRowCount;
+    // #1169 XW11: the Song of Soaring (OoT) after the twelve notes, only where the frozen rule is on.
+    const ComboAddedSongRow soaring = OoTItemSoaringRow(src);
+    if (soaring.shown != 0u) {
+        if (index == 0) {
+            OoTItemFillSoaring(soaring, out);
+            return true;
+        }
+        index--;
+    }
     if (index < kDungeonWithMapsCount) {
         DeriveDungeonCell(src, kDungeonWithMaps[index], "Dungeon Items", out);
         return true;
@@ -1424,9 +1500,43 @@ bool OoTItemSharedLive(const void* srcv, uint8_t kind, uint16_t* out) {
     }
 }
 
+/**
+ * #1169 XW11: OoT's reader for MM's check tracker (warp_song_tracker.h), over OoT's
+ * FROZEN save: whether it owns the Song of Soaring (OoT) (its ownership flag) and
+ * can play it, which is logic.cpp's CanUse(RG_SONG_OF_SOARING_OOT) read from the
+ * save alone (an ocarina in its slot and the C-down, C-up and C-left buttons; an
+ * unshuffled world's buttons are stamped at creation, savefile.cpp). The child term
+ * is MM's tracker's own (Combo_MMWarpPlay_OoTFrozenAge). 0 for a blob that is not a
+ * created file.
+ */
+int OoTItemTrackerSoaring(const void* buf, size_t size, uint8_t* owned, uint8_t* playable) {
+    if (owned != nullptr) {
+        *owned = 0u;
+    }
+    if (playable != nullptr) {
+        *playable = 0u;
+    }
+    if (owned == nullptr || playable == nullptr || size < sizeof(SaveContext) || !OoTItemHasSave(buf)) {
+        return 0;
+    }
+    const SaveContext* src = static_cast<const SaveContext*>(buf);
+    const uint8_t ocarina = InvContentOf(src, ITEM_OCARINA_FAIRY);
+    const bool hasOcarina = ocarina == ITEM_OCARINA_FAIRY || ocarina == ITEM_OCARINA_TIME;
+    const bool hasButtons = RandInfOf(src, RAND_INF_HAS_OCARINA_C_DOWN) && RandInfOf(src, RAND_INF_HAS_OCARINA_C_UP) &&
+                            RandInfOf(src, RAND_INF_HAS_OCARINA_C_LEFT);
+    *owned = RandInfOf(src, RAND_INF_OBTAINED_SONG_OF_SOARING_OOT) ? 1u : 0u;
+    *playable = (hasOcarina && hasButtons) ? 1u : 0u;
+    return 1;
+}
+
 #undef gSaveContext
 
 } // namespace
+
+/** TEST BRIDGE (tracker-warp-travel): OoT's reader above, over @p buf. */
+extern "C" int OoT_ItemAdapter_TestTrackerSoaring(const void* buf, size_t size, uint8_t* owned, uint8_t* playable) {
+    return OoTItemTrackerSoaring(buf, size, owned, playable);
+}
 
 extern "C" void OoT_ItemAdapter_Register(void) {
     // SoH's main window grid (kComboItemSohGrid's metrics): the 66 rows flow six
@@ -1437,12 +1547,15 @@ extern "C" void OoT_ItemAdapter_Register(void) {
         kComboItemSohGrid.columns,      kComboItemSohGrid.groupLines,
         kComboItemSohGrid.groupColumns, kComboItemSohGrid.countStyle,
         kComboItemSohGrid.lineGapPx,    OoTItemGroupOwnLine,
+        OoTItemGroupStartsLine,
     };
     static const ComboItemOps kOps = {
         OoTItemCount,      OoTItemRowAt,    OoTItemHasSave,    OoTItemLiveSave,     OoTItemPaused,       &kOoTItemGrid,
         OoTItemSharedIcon, OoTItemCountFor, OoTItemSharedLive, OoTItemCatalogCount, OoTItemCatalogRowAt,
     };
     Combo_Item_RegisterOps((uint8_t)GAME_OOT, &kOps);
+    // #1169 XW11: MM's check tracker reads OoT's frozen Song of Soaring through this TU.
+    Combo_TrackerTravel_RegisterOoTReader(OoTItemTrackerSoaring);
 }
 
 // ============================================================================
@@ -1559,6 +1672,40 @@ extern "C" int OoT_ItemAdapter_TestAuthorTrackerWorld(void* buf, size_t size, in
            RAND_INF_FISHING_HOLE_KEY_OBTAINED, RAND_INF_FISHING_POLE_FOUND, RAND_INF_GREG_FOUND, RAND_INF_CAN_SWIM,
            RAND_INF_CAN_CLIMB }) {
         s->ship.randomizerInf[flag >> 4] |= (u16)(1u << (flag & 0xF));
+    }
+    return 1;
+}
+
+/**
+ * #1169 XW11 (tracker-warp-travel, combo-item-view): a started randomizer save in
+ * `buf` (zeroed first) for the Song of Soaring (OoT): its ownership flag when
+ * `soaringOwned`, the Fairy Ocarina when `ocarina`, the C-down, C-up and C-left
+ * buttons' flags when `buttons`, and `linkAge`. Returns 1, or 0 when `size` cannot
+ * hold a SaveContext or `buf` is misaligned.
+ */
+extern "C" int OoT_ItemAdapter_TestAuthorSoaringWorld(void* buf, size_t size, int soaringOwned, int ocarina,
+                                                      int buttons, int linkAge) {
+    if (buf == nullptr || size < sizeof(SaveContext) || !Aligned(buf)) {
+        return 0;
+    }
+    std::memset(buf, 0, size);
+    SaveContext* s = static_cast<SaveContext*>(buf);
+    s->healthCapacity = 0x30;
+    s->health = 0x30;
+    s->linkAge = linkAge;
+    std::memset(s->inventory.items, ITEM_NONE, sizeof(s->inventory.items));
+    s->ship.quest.id = QUEST_RANDOMIZER;
+    if (ocarina) {
+        s->inventory.items[SLOT_OCARINA] = ITEM_OCARINA_FAIRY;
+    }
+    const auto set = [s](RandomizerInf flag) { s->ship.randomizerInf[flag >> 4] |= (u16)(1u << (flag & 0xF)); };
+    if (soaringOwned) {
+        set(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
+    }
+    if (buttons) {
+        set(RAND_INF_HAS_OCARINA_C_DOWN);
+        set(RAND_INF_HAS_OCARINA_C_UP);
+        set(RAND_INF_HAS_OCARINA_C_LEFT);
     }
     return 1;
 }

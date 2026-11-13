@@ -783,16 +783,25 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // mask rule reaches this word only once the first word's three free bits are
 // gone.
 //
-// HIDDEN UNTIL XW12 (operator ruling 2026-11-04, decision 7). The keys exist
-// (combo_settings_view.h) and nothing exposes them: no Cross-Game Rules row, and
-// Generate REFUSES a word holding any bit of RSBS_XITEM2_HIDDEN, as a seed
-// package's validation and a .redsave load do for a world another build made
-// with one on (Combo_ComboItemRules2Refused). XW12 clears the mask once the
-// note matchers (XW6, XW7) and the logic edges (XW9) exist: before then a world
-// frozen with a warp rule on would hold dead song pickups.
+// THE SEVEN EXTENSIONS ARE OFFERED (operator ruling 2026-11-04, decision 7: the
+// rows stay hidden until the note matchers XW6/XW7 and the logic edges XW9
+// exist). XW12 exposed the Song of Soaring (OoT); XW13 exposed the six Majora's
+// Mask extensions once the integration row IntMMWarpSongMinuet played the
+// Minuet in Majora's Mask and arrived in Ocarina of Time (the lane's owed proof
+// (c)). Each has a row under Cross-Game Rules > Cross-Game Songs. The seven
+// SHARED songs (lane XW10's family) have rows too, offered while their bits are
+// outside RSBS_XITEM2_HIDDEN (lane XW14, once IntMMWarpSongMinuetShared played a
+// Minuet learnt only in Ocarina of Time in Majora's Mask). A bit inside the mask
+// has a key but no drawn row (Combo_ComboItemRule2Offered), and Generate REFUSES a
+// word holding it, as a seed package's validation and a .redsave load do for a
+// world another build made with one on (Combo_ComboItemRules2Refused).
 //
-// No family slots here: a shared song's family is the second family word lane
-// XW10 carves (decision 6), not a bit of gComboCtx.sharedFamilyOwned.
+// THE SECOND FAMILY WORD (lane XW10, decision 6): a shared song's family is not a
+// bit of gComboCtx.sharedFamilyOwned but of gComboCtx.sharedFamilyOwned2, which is
+// APPENDED at the end of ComboContext (growth rule 1, context.h), and its family
+// bit IS its rule bit, as in the first word: RSBS_XITEM2_FAMILY_MASK below. Every
+// second-word family bit is a second-word rule bit, so the u32 holds every family
+// this word can ever declare (the nine later shared songs of the plan included).
 
 // The seven EXTENSIONS: a copy of the other game's warp song added to this game.
 #define RSBS_XITEM2_SONG_SOARING_OOT 0x00000001u // OoTMM songSoaringOot: MM's Song of Soaring in OoT (child only)
@@ -820,22 +829,48 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 /** Every RSBS_XITEM2_* bit ALLOCATED by this build. A frozen word holding any
  *  other bit was written by a later build. */
 #define RSBS_XITEM2_ALL_V1 (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_WARP_SONG_SHARED)
-/** The allocated bits no world of this build may hold yet: every one until
- *  lane XW12 exposes the rows (operator ruling 2026-11-04, decision 7). */
-#define RSBS_XITEM2_HIDDEN RSBS_XITEM2_ALL_V1
+/** The six Majora's Mask extensions (songMinuetMm .. songPreludeMm). */
+#define RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS 0x0000007Eu
+/** The allocated bits no world of this build may hold yet: none. XW12 exposed
+ *  the Song of Soaring (OoT) (operator ruling 2026-11-04, decision 7), XW13 the
+ *  six Majora's Mask extensions once IntMMWarpSongMinuet played the Minuet in
+ *  Majora's Mask and arrived in Ocarina of Time as a child, and XW14 the seven
+ *  shared warp songs once IntMMWarpSongMinuetShared played a Minuet learnt only in
+ *  Ocarina of Time in Majora's Mask, through the shared family. A rule allocated
+ *  later and not yet playable goes here until its own proof is written. */
+#define RSBS_XITEM2_HIDDEN 0u
+/** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
+ *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
+ *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. */
+#define RSBS_XITEM2_FAMILY_MASK RSBS_XITEM2_WARP_SONG_SHARED
 /** What ships: every second-word rule off (OoTMM's defaults). */
 #define RSBS_XITEM2_DEFAULTS 0u
 /** How many bit positions the word has. */
 #define RSBS_XITEM2_BIT_COUNT 32u
+/** THE FAMILY SLOTS of both family words (#1169 XW10): slot = word * 32 + bit,
+ *  slots 0-31 the first word (gComboCtx.sharedFamilyOwned, RSBS_XFAMILY_SLOTS_ALL),
+ *  32-63 the second (gComboCtx.sharedFamilyOwned2, RSBS_XITEM2_FAMILY_MASK). Every
+ *  buffer handed to Combo_SingleBag_SharedPairs is this size: it holds one pair per
+ *  slot, so no armed pair can ever be dropped for room. */
+#define RSBS_XFAMILY_SLOT_COUNT 64u
 
 RSBS_CTX_STATIC_ASSERT(
     RSBS_XITEM2_SONG_SOARING_OOT == 0x1u && RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u &&
         RSBS_XITEM2_SHARED_SONG_SOARING == 0x80u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u &&
         RSBS_XITEM2_ALL_V1 == 0x00003FFFu &&
         (RSBS_XITEM2_WARP_SONG_EXTENSIONS << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT) == RSBS_XITEM2_WARP_SONG_SHARED &&
+        RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS == (RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT) &&
         (RSBS_XITEM2_HIDDEN & ~RSBS_XITEM2_ALL_V1) == 0u && RSBS_XITEM2_DEFAULTS == 0u,
     "RSBS_XITEM2_* bit positions are .redsave and seed-package format: pinned, append-only, allocate the next free bit "
     "and never re-point an allocated one; the defaults stay 0 so an all-clear word is today's world (#1169 XW2)");
+RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_FAMILY_MASK == 0x00003F80u &&
+                           (RSBS_XITEM2_FAMILY_MASK & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u &&
+                           (RSBS_XITEM2_FAMILY_MASK & ~RSBS_XITEM2_ALL_V1) == 0u,
+                       "RSBS_XITEM2_FAMILY_MASK bits are gComboCtx.sharedFamilyOwned2 bits, .redsave format: pinned, "
+                       "append-only, never an extension rule (#1169 XW10)");
+RSBS_CTX_STATIC_ASSERT(RSBS_XFAMILY_SLOT_COUNT == RSBS_XITEM_BIT_COUNT + RSBS_XITEM2_BIT_COUNT,
+                       "a shared-pair buffer holds one pair per family slot of both words, so it is at least "
+                       "popcount(RSBS_XFAMILY_SLOTS_ALL) + popcount(RSBS_XITEM2_FAMILY_MASK) (#1169 XW10)");
 
 /** The value of the word @p rec stores (little-endian, a byte at a time). NULL
  *  is 0, every rule off. */
@@ -886,8 +921,9 @@ bool Combo_ComboCrossItemRule2(uint32_t bit);
  * THE GATE ON A WORLD THIS BUILD CREATES OR ADOPTS (#1169 XW2). The bits of
  * @p word this build refuses to freeze at Generate, to take from a seed
  * package, or to load from a .redsave: an unallocated bit, a shared song
- * without its extension, and every hidden bit (RSBS_XITEM2_HIDDEN: all fourteen
- * until XW12). 0 means the word may be created; 0 is always.
+ * without its extension, and every bit of RSBS_XITEM2_HIDDEN (a rule this build
+ * does not offer yet; 0 once every allocated rule is offered).
+ * 0 means the word may be created; 0 is always.
  *
  * @p names (may be NULL) receives the refused rules' OoTMM keys, comma
  * separated ("songSoaringOot, sharedSongSoaring"), an unallocated bit as
@@ -896,9 +932,32 @@ bool Combo_ComboCrossItemRule2(uint32_t bit);
 uint32_t Combo_ComboItemRules2Refused(uint32_t word, char* names, size_t len);
 
 /**
- * TEST ONLY: with @p on nonzero the hidden mask reads empty, as it will once
- * lane XW12 lands, so a row can drive a world with a second-word rule on
- * through the real freeze, .redsave load and restore. Production never calls it.
+ * Does this build OFFER the single RSBS_XITEM2_* rule @p bit (#1169 XW12)? True
+ * iff @p bit is exactly one allocated bit outside the hidden mask, read the way
+ * Combo_ComboItemRules2Refused reads it (so the test reveal empties it). The
+ * Cross-Game Rules page draws a row only while this is true: a bit leaving
+ * RSBS_XITEM2_HIDDEN shows its row with no UI change.
+ */
+bool Combo_ComboItemRule2Offered(uint32_t bit);
+
+/** The test reveal's levels (Combo_ComboItemRules2RevealForTest). */
+#define RSBS_XITEM2_REVEAL_NONE 0 // the production mask
+#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty (it is empty since XW14)
+// Since XW13 the six MM extensions are offered in production, so this level
+// reads exactly the production mask: an alias of RSBS_XITEM2_REVEAL_NONE, kept
+// so a row that names it still compiles and means what it meant. With
+// RSBS_XITEM2_HIDDEN 0 every level reads the empty mask.
+#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // reads the production mask (empty since XW14): every allocated bit offered
+
+/**
+ * TEST ONLY: with @p on RSBS_XITEM2_REVEAL_ALL (any nonzero value but
+ * RSBS_XITEM2_REVEAL_MM_SONGS) the hidden mask reads empty, so a row can drive a
+ * world with a hidden rule on through the real freeze, .redsave load and
+ * restore. Kept, harmless, once the mask is 0: the rules OoTMM still has after
+ * these fourteen (bits 14-31, above) will need the same gate. With
+ * RSBS_XITEM2_REVEAL_MM_SONGS only the six Majora's Mask extensions leave the
+ * mask, which since XW13 is the production mask itself. RSBS_XITEM2_REVEAL_NONE
+ * (0) is the production mask. Production never calls it.
  */
 void Combo_ComboItemRules2RevealForTest(int on);
 
@@ -1438,8 +1497,9 @@ uint32_t Combo_FreezeComboSettingsEx(const ComboSettingsRecord* rec, const Combo
  * fingerprint over all three. Combo_FreezeComboSettingsEx is this with 0 (every
  * second-word rule off). The creation event calls this one with
  * Combo_ResolveComboItemRules2, after refusing any word
- * Combo_ComboItemRules2Refused names, so while the rules are hidden it always
- * freezes 0.
+ * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (none is
+ * hidden since #1169 XW14) and no unallocated one: 0 unless a Cross-Game Songs
+ * row is on.
  */
 uint32_t Combo_FreezeComboSettingsEx2(const ComboSettingsRecord* rec, const ComboItemRulesRecord* rules,
                                       uint32_t rules2);
@@ -1656,6 +1716,9 @@ uint32_t Combo_ComboSettingsDivergenceForEx2(const ComboSettingsRecord* frozen, 
 /**
  * The session-level diff the arrival refusal calls: Combo_ComboSettingsDivergenceFor
  * over the RESIDENT gComboCtx identity. 0 when nothing is frozen (exempt).
+ * Since #1169 XW12 it also sets RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS for a pair
+ * that breaks the warp-song record invariant (Combo_MMWarpSongRecordBroken):
+ * a Majora's Mask warp-song rule on with no PRESENT record.
  */
 uint32_t Combo_ComboSettingsDivergence(void);
 

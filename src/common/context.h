@@ -171,10 +171,10 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * amendment of the same date). A lane that adds saved state follows it without
  * asking; anything it does not cover is a save format generation.
  *
- *   1. ComboContext. APPEND after the last member (today comboOoTWarps, below).
+ *   1. ComboContext. APPEND after the last member (today sharedFamilyOwned2, below).
  *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Move
  *      the LAST-MEMBER assert below (`sizeof(ComboContext) == offsetof(ComboContext,
- *      <last>) + sizeof(<it>)`, today written against comboOoTWarps) to the new
+ *      <last>) + sizeof(<it>)`, today written against sharedFamilyOwned2) to the new
  *      member, and tie the new member to the one before it by a contiguity assert
  *      (mind its alignment: say where any padding falls); the members before it
  *      keep theirs. Update RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h)
@@ -938,8 +938,9 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboWothRecord, oot) == 0 && offsetof(ComboWoth
  * ZERO MEANS UNSET (formatVersion 0): every save-format-6 file written before
  * layout revision 2 (save.h), whose shorter record zero-extends here, and every
  * seed package whose combo record ends before this member. MM refuses every warp
- * song of such a file (mm_warp_song_play.h, NOT_RECORDED), which costs nothing: a
- * song can only play under a frozen rule Generate refuses until lane XW12. An
+ * song of such a file (mm_warp_song_play.h, NOT_RECORDED). Since lane XW12 no
+ * world with a Majora's Mask warp-song rule on can hold one: it is refused at
+ * creation, package import, load and arrival (Combo_MMWarpSongRecordBroken). An
  * unset record carries no flags, so it never reads as "shuffled" or "unshuffled":
  * the prompt text is never chosen for it. Bytes only, no alignment (alignment 1):
  * destinations are u16 little-endian.
@@ -983,9 +984,10 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboOoTWarpRecord, flags) == 1 && offsetof(Comb
  *
  * ZERO MEANS EVERY SECOND-WORD RULE OFF, which is what every world written
  * before this carve holds (a zero-extended record) and what every world this
- * build creates freezes: the rules are hidden until lane XW12, and Generate
- * refuses a set bit (Combo_ComboItemRules2Refused). An all-clear word is not
- * folded into the fingerprint, so no golden, fingerprint or bag seed moves.
+ * build creates freezes unless a Cross-Game Songs row is on (all fourteen are
+ * offered since lane XW14); Generate refuses an unallocated bit, and a shared
+ * song without its extension (Combo_ComboItemRules2Refused). An all-clear word is not folded into the
+ * fingerprint, so no golden, fingerprint or bag seed moves.
  */
 typedef struct {
     uint8_t crossItemFlags2[4]; // RSBS_XITEM2_* bitset, little-endian; all zero = every rule off
@@ -1566,9 +1568,26 @@ typedef struct {
     // padding precedes it, and its 20 bytes end on a multiple of 4 (2716), so none
     // follows it either. Inside RSBS_COMBO_CONTEXT_RECORD_SIZE, so neither the
     // record size nor RSBS_SAVE_VERSION moves: a format-6 .redsave written before
-    // it, and a format-2 seed package, zero-extend to UNSET. THE LAST MEMBER: the
-    // next field is appended after it.
+    // it, and a format-2 seed package, zero-extend to UNSET.
     ComboOoTWarpRecord comboOoTWarps;
+
+    // #1169 lane XW10 (ADR 0009 claim 23; scoping decision 6): THE SECOND FAMILY
+    // WORD, the shared families of the second rules word the player holds, one bit
+    // per family at the family's own RSBS_XITEM2_* rule bit (RSBS_XITEM2_FAMILY_MASK:
+    // today the seven shared warp songs). The twin of sharedFamilyOwned above and
+    // the same OR discipline (shared_resources.h): only the family harvest and a far
+    // game's pickup credit write it, only bits the frozen second word arms, and it
+    // only ever gains bits. Session state like sharedFamilyOwned: NOT in the
+    // invalidation KEEP set, NOT a world field (a seed package's world record does
+    // not copy it), NOT folded into comboSettingsHash. Every commit carries it in
+    // Tier-1, and a moon crash's last-commit restore takes it back with the rest.
+    // APPENDED after comboOoTWarps (growth rule 1; RSBS_SAVE_LAYOUT_REVISION 4) at
+    // offset 2716: comboOoTWarps ends on a multiple of 4, so no padding precedes
+    // it, and sizeof becomes 2720, a multiple of the struct's alignment, so none
+    // follows it. ZERO MEANS NOTHING OWNED: a revision-3 record zero-extends to 0,
+    // which is every world before XW10 (no shared warp song could be frozen on).
+    // THE LAST MEMBER: the next field is appended after it.
+    uint32_t sharedFamilyOwned2;
 } ComboContext;
 
 /**
@@ -1861,12 +1880,19 @@ RSBS_CTX_STATIC_ASSERT(sizeof(ComboSaveWatermark) == 20u &&
                        "field ahead of it moved");
 // #1169 XW7's append (layout revision 2): directly after the watermark, with no
 // padding between (the watermark ends on a multiple of 4; the record is bytes
-// only, alignment 1), and THE LAST MEMBER, so sizeof is its end: 2696 + 20 = 2716,
-// already a multiple of the struct's 4-byte alignment, so no tail padding.
+// only, alignment 1). It was the last member until #1169 XW10's append below; it
+// ends at 2696 + 20 = 2716, a multiple of 4.
 RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, comboOoTWarps) ==
-                               offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark) &&
-                           sizeof(ComboContext) == offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord),
-                       "comboOoTWarps (#1169 XW7, ADR 0009 claim 22) is appended directly after the save watermark "
+                           offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark),
+                       "comboOoTWarps (#1169 XW7, ADR 0009 claim 22) is appended directly after the save watermark");
+// #1169 XW10's append (layout revision 4): directly after comboOoTWarps, with no
+// padding between (comboOoTWarps ends at 2716, a multiple of 4, the u32's
+// alignment), and THE LAST MEMBER, so sizeof is its end: 2716 + 4 = 2720, already
+// a multiple of the struct's 4-byte alignment, so no tail padding.
+RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, sharedFamilyOwned2) ==
+                               offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord) &&
+                           sizeof(ComboContext) == offsetof(ComboContext, sharedFamilyOwned2) + sizeof(uint32_t),
+                       "sharedFamilyOwned2 (#1169 XW10, ADR 0009 claim 23) is appended directly after comboOoTWarps "
                        "and is ComboContext's last member: the next append moves this last-member term to the new "
                        "member, raises RSBS_SAVE_LAYOUT_REVISION and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF "
                        "(growth rule 1)");
@@ -1875,6 +1901,7 @@ RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT, offsetof(ComboContext,
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL, offsetof(ComboContext, trackerSkipJournalOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SAVE_WATERMARK, offsetof(ComboContext, saveWatermark));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_OOT_WARPS, offsetof(ComboContext, comboOoTWarps));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_FAMILY_OWNED2, offsetof(ComboContext, sharedFamilyOwned2));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext));
 RSBS_CTX_STATIC_ASSERT(RSBS_TRACKER_AVAIL_OOT_CAP % 64u == 0 && RSBS_TRACKER_AVAIL_MM_CAP % 64u == 0 &&
                            RSBS_TRACKER_AVAIL_OOT_CAP <= 0xFFFFu && RSBS_TRACKER_AVAIL_MM_CAP <= 0xFFFFu,

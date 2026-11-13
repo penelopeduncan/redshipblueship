@@ -55,6 +55,8 @@
 #include "soh/Enhancements/randomizer/draw.h"                   // Randomizer_DrawRocsFeather (the M13 refusal)
 #include "soh/Enhancements/randomizer/static_data.h"            // RetrieveItem (the chest-game prize bridge)
 #include "ForeignModelHostOoT.h"
+#include "game.h"            // src/common: GAME_MM
+#include "warp_song_items.h" // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
 
 extern "C" {
 #include <z64.h>
@@ -939,7 +941,8 @@ extern "C" int OoT_ForeignModel_TestShowOnlyGetItem(uint16_t rc, int wantEntry, 
     // the item's game marked the way OoT's check tracker marks it.
     char text[256] = "";
     const int textLen = OoT_Rando_Foreign_TestShowOnlyMessage(&entry, text, (int)sizeof(text));
-    const std::string wantText = std::string("You found ") + (article != nullptr ? article : "") + wantName + " (MM)!";
+    const std::string wantText = std::string("You found ") + (article != nullptr ? article : "") + wantName +
+                                 Combo_ForeignGameTag(wantName, GAME_MM) + "!";
     std::printf("[TEST]   M13 textbox: %s\n", text);
     if (textLen < 0 || wantText != text) {
         std::printf("[TEST]   M13 the get-item textbox reads \"%s\", want \"%s\"\n", text, wantText.c_str());

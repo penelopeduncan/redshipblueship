@@ -61,6 +61,7 @@ extern "C" {
 // own linkage (matching ForeignItemsSingleExe.cpp).
 #include "combo_hint_view.h" // #1475 lane H2: Combo_HintReadHostChecks, the departure's name capture
 #include "combo_tracker_view.h"
+#include "warp_song_items.h" // #1169 XW14: Combo_SharedFamily2DisplayName, a shared warp song's name
 
 // randomizer_check_tracker.cpp (#1126): whether SoH's Check Tracker has loaded its
 // settings for the file being played.
@@ -385,6 +386,12 @@ const char* OoTPlacedItemName(Rando::ItemLocation* loc, RandomizerCheck rc, uint
                 return name;
             }
         }
+    }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared =
+            Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)loc->GetPlacedRandomizerGet())) {
+        *outGame = (uint8_t)GAME_OOT;
+        return shared;
     }
     const std::string& name = loc->GetPlacedItem().GetName().GetForLanguage(OoTTrackerLanguage());
     if (name.empty()) {

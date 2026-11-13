@@ -809,13 +809,14 @@ void DrawItemCount(ItemTrackerItem item, bool hideMax) {
 }
 
 void DrawEquip(ItemTrackerItem item) {
-    bool hasEquip = HasEquipment(item);
+    bool hasEquip = HasEquipment(item) && IsValidSaveFile();
+    bool giantsKnife = item.id == ITEM_SWORD_BGS && hasEquip && !gSaveContext.bgsFlag;
+    std::string iconName = giantsKnife ? "ITEM_SWORD_KNIFE" : hasEquip ? item.name : item.nameFaded;
     float iconSize = static_cast<float>(CVarGetInteger(CVAR_TRACKER_ITEM("IconSize"), 36));
-    ImGui::Image(Ship::Context::GetInstance()->GetWindow()->GetGui()->GetTextureByName(
-                     hasEquip && IsValidSaveFile() ? item.name : item.nameFaded),
+    ImGui::Image(Ship::Context::GetInstance()->GetWindow()->GetGui()->GetTextureByName(iconName),
                  ImVec2(iconSize, iconSize), ImVec2(0.0f, 0.0f), ImVec2(1, 1));
 
-    Tooltip(SohUtils::GetItemName(item.id).c_str());
+    Tooltip(giantsKnife ? "Giant's Knife" : SohUtils::GetItemName(item.id).c_str());
 }
 
 void DrawQuest(ItemTrackerItem item) {

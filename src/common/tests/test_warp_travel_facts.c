@@ -19,6 +19,9 @@
  *        opens for a child at day only, only in a round, only with the song's
  *        accepted fact and a credited destination; the native song opens it for
  *        an adult (the control that the probe evaluates the real lambda).
+ *     K. (#1169 XW11) The check tracker's arm over the same exits: a child at day
+ *        only, the frozen record's destination (a grotto pseudo index there is not
+ *        credited although the graph answers the pad), nothing without a record.
  *     T. OoT's `travelFacts` decision: the Soaring fact exactly for the rule, the
  *        song, an ocarina and C-down, C-up and C-left with RR_ROOT child-day
  *        access, the four age and time flags put back.
@@ -53,6 +56,8 @@ uint16_t OoT_ComboLogic_TestTravelGraphDestUnstamped(int song);
 int OoT_ComboLogic_TestRootWarpEdge(int song, int child, int day, int native);
 int OoT_ComboLogic_TestRootAccessAfterReset(int adultStart, int* outChildDay, int* outAdultDay);
 int OoT_ComboLogic_TestTravelFacts(int held, int ocarina, uint32_t buttons, int rootChildDay, int* outRestored);
+// #1169 XW11: the check tracker's arm (ComboLogicEngineOoT.cpp).
+void OoT_ComboLogic_SetTrackerTravel(uint32_t facts);
 }
 
 namespace {
@@ -240,6 +245,45 @@ TestResult Test_OoTWarpTravelEdges(void) {
         XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(5, 1, 1, 0) == 0, "E10: Prelude to destination 0 was credited");
     }
     OoT_ComboLogic_TestTravelSeam(0, 0, 0u, NULL);
+
+    // ---- K. the check tracker's arm over the real root exits (#1169 XW11) ------------------
+    // With no round and the test seam off, OoT_ComboLogic_SetTrackerTravel opens each
+    // armed song's exit for a child at day only, to the FROZEN record's destination.
+    // The record sends Requiem to a grotto pseudo index while this unshuffled graph
+    // answers its pad: K2 catches the arm reading the graph (OoTComboTravelGraphDest)
+    // or the pad instead of the record; K4 catches crediting a file with no record
+    // (UNSET, created before XW7); K5 the arm left set.
+    {
+        uint16_t rec[RSBS_MMWP_SONG_COUNT];
+        Xw9Pads(rec);
+        rec[3] = kXw9Grotto;
+        OoT_ComboLogic_TestTravelSeam(0, 0, 0u, NULL);
+        (void)Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, true, false, rec, NULL);
+        OoT_ComboLogic_SetTrackerTravel(0x7Eu);
+        for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
+            if (song == 3) {
+                continue;
+            }
+            XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(song, 1, 1, 0) == 1,
+                      "K1 song %d: the tracker's armed fact did not open the exit for a child at day", song);
+            XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(song, 0, 1, 0) == 0 &&
+                          OoT_ComboLogic_TestRootWarpEdge(song, 1, 0, 0) == 0,
+                      "K1 song %d: the tracker's fact opened the exit for an adult or at night", song);
+        }
+        XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(3, 1, 1, 0) == 0,
+                  "K2: Requiem's record sends it to a grotto pseudo index and the tracker credited it");
+        OoT_ComboLogic_SetTrackerTravel(0x02u);
+        XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(0, 1, 1, 0) == 1 && OoT_ComboLogic_TestRootWarpEdge(1, 1, 1, 0) == 0,
+                  "K3: the tracker's Minuet fact opened another song's exit");
+        Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+        OoT_ComboLogic_SetTrackerTravel(0x7Eu);
+        XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(0, 1, 1, 0) == 0, "K4: a file with no warp-song record was credited");
+        Xw9Pads(rec);
+        (void)Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, true, false, rec, NULL);
+        OoT_ComboLogic_SetTrackerTravel(0u);
+        XW9_CHECK(OoT_ComboLogic_TestRootWarpEdge(0, 1, 1, 0) == 0, "K5: disarmed, the exit stayed open");
+        Combo_OoTWarpRecord_Clear(&gComboCtx.comboOoTWarps);
+    }
 
     // ---- T. OoT's travel facts -------------------------------------------------------------
     // Catches: the fact without its rule, the song, the ocarina or one of Soaring's

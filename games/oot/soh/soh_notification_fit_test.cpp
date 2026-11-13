@@ -124,8 +124,9 @@
 #include "foreign_items.h"       // Combo_ComboSettingsDivergenceDescribe / FieldName, RSBS_COMBO_DIVERGE_*
 #include "notification_bridge.h"
 #include "pairing_refusal_toast.h"
-#include "save.h"         // RsbsSave_EmitLoadToast, RsbsSave_EmitFileSelectRefusalToast
-#include "shared_items.h" // ComboItemClassRow, RSBS_FILL_CLASS_PROGRESSION (#865's pickup toasts)
+#include "save.h"            // RsbsSave_EmitLoadToast, RsbsSave_EmitFileSelectRefusalToast
+#include "shared_items.h"    // ComboItemClassRow, RSBS_FILL_CLASS_PROGRESSION (#865's pickup toasts)
+#include "warp_song_items.h" // Combo_ForeignGameTag: one tag after the name (#1169 XW11)
 
 #include <cctype>
 #include <utility>
@@ -414,7 +415,7 @@ int CheckPickupToasts(FitRun& run, float scale) {
         const Measured m = DrawAndMeasure(*run.overlay);
         OoT_Notification_ClearForTest();
         const std::string text = m.prefix + m.message + m.suffix;
-        const std::string want = std::string("You found ") + article + name + " (MM)";
+        const std::string want = std::string("You found ") + article + name + Combo_ForeignGameTag(name, GAME_MM);
         if (text != want) {
             failures += Fail("the pickup toast for MM item %d reads '%s', want '%s'", id, text.c_str(), want.c_str());
             continue;

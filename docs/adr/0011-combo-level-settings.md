@@ -2179,7 +2179,8 @@ P4 mask still without a key. Locked by `StoneMaskOoTRule`, `StoneMaskOoTItems`,
 
 Operator ruling 2026-11-04 on #1169 (cross-game warp songs), decisions 1 and 7:
 per-song rules in a second full 32-bit rules word carried as a world field, and
-the rows hidden until lane XW12. OoTMM's warp songs are fourteen off-by-default
+the rows hidden until lane XW12 (XW12 exposed the Song of Soaring (OoT), XW13 the
+six Majora's Mask extensions; the shared songs wait for XW10). OoTMM's warp songs are fourteen off-by-default
 rules: `songSoaringOot` (Majora's Mask's Song of Soaring in Ocarina of Time) and
 `songMinuetMm` .. `songPreludeMm` (OoT's six warp songs in Majora's Mask), the
 extensions, and one `sharedSong*` per song, each requiring its extension
@@ -2262,6 +2263,57 @@ Stone Mask took the bits #976 had already reserved), so they cannot go there.
   (OoTMM's `cond`), so it sets no bit and Generate proceeds. XW12 empties
   `RSBS_XITEM2_HIDDEN` once the matchers (XW6, XW7) and the logic edges (XW9)
   exist.
+- **2026-11-12, XW12.** XW12 did not empty the mask: it narrowed it.
+  `RSBS_XITEM2_HIDDEN` is now `RSBS_XITEM2_WARP_SONG_SHARED |
+  RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS` (`0x3FFE`), so the Song of Soaring (OoT) has
+  a row under Randomizer > Cross-Game > Cross-Game Songs and passes the predicate,
+  while the six Majora's Mask extensions keep every refusal above until the
+  integration row IntMMWarpSongMinuet proves their path (the design's fallback
+  for that owed proof), and the shared ones until lane XW10 builds their family.
+  All fourteen rows are registered; a row is drawn only while
+  `Combo_ComboItemRule2Offered` is true, so clearing bits from the mask draws
+  their rows with no UI change. Rows reach the hidden MM extensions alone through
+  the test seam's `RSBS_XITEM2_REVEAL_MM_SONGS` level. XW12 also adds one invariant at every
+  entry, `Combo_MMWarpSongRecordBroken`: a word with a Majora's Mask warp-song rule
+  on and no PRESENT warp-song record fails the creation, and is refused at seed
+  package import, `.redsave` load and arrival.
+- **2026-11-12, XW13.** The integration row IntMMWarpSongMinuet plays the Minuet
+  of Forest on the ocarina in a running Majora's Mask (through MM's new test input
+  seam), departs, and arrives in Ocarina of Time as a child at the destination
+  frozen in the creation's warp-song record. With that proof written,
+  `RSBS_XITEM2_HIDDEN` is `RSBS_XITEM2_WARP_SONG_SHARED` (`0x3F80`): the six
+  Majora's Mask extensions have their rows and pass the predicate, and only the
+  shared songs keep every refusal above until XW10. `RSBS_XITEM2_REVEAL_MM_SONGS`
+  stays as a test level that now reads the production mask. No format, layout,
+  fingerprint or generator version changes: the bits were allocated and frozen by
+  XW2, and a world with every rule off is the same world.
+- **2026-11-12, XW14.** The shared songs' owed proof and their readers, then the
+  unhide as its own commit (0c1bdaddf), followed by four review fixes. The integration row IntMMWarpSongMinuetShared
+  is IntMMWarpSongMinuet with `sharedSongMinuet` on: Ocarina of Time is given its
+  own Minuet before the Happy Mask Shop door, the Majora's Mask drive gives
+  nothing, and before the song is played Majora's Mask's arrival apply must have
+  given the Minuet (`Combo_SharedFamilies2GivenAtLastApply`, a session record no
+  starting-check payout writes). `gComboCtx.sharedFamilyOwned2` is locked across
+  a real `.redsave` Save and Load. Every player-facing reader of a shared song's
+  ownership asks `Combo_SharedFamilies2HeldNow` (the family word, plus the
+  running game's own live copy under that game's own registered live-file
+  probe), so a game's rows drawn from its frozen shadow never ask its members
+  about the other game's live save. Under a shared rule the song is named
+  without "(OoT)" / "(MM)" (OoTMM's `isItemAmbiguous`) through
+  `Combo_SharedFamily2DisplayName`, a display name only. The unhide sets
+  `RSBS_XITEM2_HIDDEN` to 0; the test reveal stays, harmless, for the rules OoTMM
+  still has beyond these fourteen. No format, layout, fingerprint or generator
+  version changes, and a world with every rule off is the same world.
+- **2026-11-12, XW15.** Operator ruling: "a shared song should be at its default
+  location if the songs aren't shuffled." Under Shuffle Songs Off each shared
+  warp song now stays on its one default check (the six on their Sheik checks,
+  the Song of Soaring on Majora's Mask's Southern Swamp check) instead of roaming
+  as the bag's pair row; the other game holds no copy and is credited in the
+  coordinator's proof through a fixed shared credit at that check
+  (combo-logic-coordinator.md §4.4). The first word's shared songs (Epona's Song,
+  Song of Storms, Song of Time) are unchanged, their junk rule still open. No
+  format, layout, ABI or generator version changes: the credits are recomputed at
+  creation, and no player world had a shared warp song before XW14.
 
 Capacity spent: four format bytes (ADR 0009 claim 19), fourteen
 `ComboSettingId`s, appended after #979's two Stone Mask ids, and identity keys
@@ -2369,8 +2421,8 @@ player can make pools the song, credits it or meets the refusal. Locked by
 ### 2026-11-04 -- Ocarina of Time's six warp songs as Majora's Mask items, hidden (#1169 lane XW5)
 
 The items behind XW2's `songMinuetMm` .. `songPreludeMm` bits, still hidden
-(every `RSBS_XITEM2_*` bit is refused at Generate until XW12), so no world a
-player can make changes and no golden moves.
+(every `RSBS_XITEM2_*` bit is refused at Generate until XW12; the six were
+offered from XW13), so no world a player can make changes and no golden moves.
 
 - **The items.** `RI_SONG_MINUET` .. `RI_SONG_PRELUDE`, appended after masks P5's
   ids and before the draw-only `RI_MAX_TRAP` (238-243; no saved id moves), named

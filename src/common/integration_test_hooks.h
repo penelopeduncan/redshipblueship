@@ -129,20 +129,36 @@ typedef struct {
  *       creation and boots the debug save instead (the red half: the arrival
  *       must then fail on the skipped-because-no-paired-oot-world leg).
  *   GP_VARIANT_SOARING_TO_OWL (int-soaring-to-owl; #1169 XW6): the paired
- *       variant with OoT's Song of Soaring rule on (the hidden rule revealed
- *       through Combo_ComboItemRules2RevealForTest, never through a stored
- *       setting). IntegrationTest_PairedFirstCrossing() is true for it too, so
- *       every paired check above runs unchanged. On top of them the first OoT
- *       leg plays the song as an adult, in the creation shadow (no statues) and
- *       in the Windmill (warp-song restriction 3); the MM leg activates two
+ *       variant with OoT's Song of Soaring rule on (through its key with the
+ *       production mask since #1169 XW12, never through a stored setting). IntegrationTest_PairedFirstCrossing() is
+ * true for it too, so every paired check above runs unchanged. On top of them the first OoT leg plays the song as an
+ * adult, in the creation shadow (no statues) and in the Windmill (warp-song restriction 3); the MM leg activates two
  *       owls before the Clock Tower door; the return leg cancels the owl
  *       chooser once and then soars to the second owl offered. The run ends on
  *       that MM arrival (IntegrationTest_SoaringExpectedOwl).
+ *   GP_VARIANT_MM_WARP_SONG_MINUET (int-mm-warp-song-minuet; #1169 XW13): the
+ *       paired variant with Majora's Mask's Minuet of Forest rule on (through its
+ *       key, never a stored setting). IntegrationTest_PairedFirstCrossing() is
+ *       true for it too. Instead of the Clock Tower door, the MM leg plays the
+ *       Minuet on the ocarina through MM's test input seam, answers the warp
+ *       prompt OK and departs; the return leg is OoT's arrival as a child at
+ *       the destination frozen in the creation's warp-song record, where the run
+ *       ends (games/mm/2s2h/mm_int_warp_song_drive.cpp, and OoT's verdict in
+ *       games/oot/soh/GameExports_SingleExe.cpp).
+ *   GP_VARIANT_MM_WARP_SONG_MINUET_SHARED (int-mm-warp-song-minuet-shared;
+ *       #1169 XW14): the Minuet variant with the Shared Minuet of Forest on too.
+ *       IntegrationTest_PairedFirstCrossing() and IntegrationTest_MMWarpSongMinuet()
+ *       are true for it. OoT is given its own Minuet before the Happy Mask Shop
+ *       door and MM is given nothing by the drive: MM must hold the song through
+ *       the family (OoT's harvest at suspend, MM's apply at arrival, read back
+ *       through Combo_SharedFamilies2GivenAtLastApply) before it plays it.
  */
 typedef enum {
     GP_VARIANT_ROUNDTRIP = 0,
     GP_VARIANT_PAIRED_FIRST_CROSSING = 1,
-    GP_VARIANT_SOARING_TO_OWL = 2
+    GP_VARIANT_SOARING_TO_OWL = 2,
+    GP_VARIANT_MM_WARP_SONG_MINUET = 3,
+    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 4
 } GameplayVariant;
 
 /**
@@ -161,25 +177,34 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant);
 GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
 /** True when the running test is int-paired-first-crossing, or
- *  int-soaring-to-owl (which rides it). */
+ *  int-soaring-to-owl, int-mm-warp-song-minuet or int-mm-warp-song-minuet-shared
+ *  (which ride it). */
 bool IntegrationTest_PairedFirstCrossing(void);
 
 /** True when the running test is int-soaring-to-owl (#1169 XW6). */
 bool IntegrationTest_SoaringToOwl(void);
 
+/** True when the running test is int-mm-warp-song-minuet (#1169 XW13), or
+ *  int-mm-warp-song-minuet-shared (#1169 XW14), which rides it. */
+bool IntegrationTest_MMWarpSongMinuet(void);
+
+/** True when the running test is int-mm-warp-song-minuet-shared (#1169 XW14). */
+bool IntegrationTest_MMWarpSongMinuetShared(void);
+
 /**
- * int-soaring-to-owl: set the integer CVar @p key to @p value IN MEMORY for the
- * run (this call never saves). The value the key had, or that it was unset, is
- * recorded on its first set, and IntegrationTest_SoaringCleanup puts it back.
+ * int-soaring-to-owl and int-mm-warp-song-minuet: set the integer CVar @p key to
+ * @p value IN MEMORY for the run (this call never saves). The value the key had,
+ * or that it was unset, is recorded on its first set and logged, and
+ * IntegrationTest_SoaringCleanup puts it back.
  */
 void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value);
 
 /**
- * int-soaring-to-owl's verdict-time cleanup, pass or fail: every key
- * IntegrationTest_SoaringSetCVarInt set goes back to what it was, the config is
- * saved (the #804 cleanup's discipline: whatever reached the file mid-run is
- * taken back out), and the hidden second-word rules are hidden again. A no-op
- * on every other run.
+ * The verdict-time cleanup of int-soaring-to-owl and int-mm-warp-song-minuet,
+ * pass or fail: the hidden second-word rules are hidden again, MM's test buttons
+ * are cleared, every key IntegrationTest_SoaringSetCVarInt set goes back to what
+ * it was, and the config is saved (the #804 cleanup's discipline: whatever
+ * reached the file mid-run is taken back out). A no-op on every other run.
  */
 void IntegrationTest_SoaringCleanup(void);
 

@@ -6,14 +6,16 @@
  *        Soaring (OoT), on the item pipeline masks P5 built (OoTMasksMM.cpp).
  *
  * THE ITEMS. Under its frozen second-word rule (RSBS_XITEM2_SONG_MINUET_MM ...,
- * hidden until lane XW12) MM's pool gains one copy of that song
+ * offered since lane XW13, off by default) MM's pool gains one copy of that song
  * (Logic/GeneratePools.cpp, MM_WarpSongMM_PooledCopies), ids APPENDED before
  * RI_MAX_TRAP after the masks (Types.h). Each is named as OoTMM names it
  * ("Minuet of Forest (MM)", StaticData/Items.cpp), a RITYPE_MAJOR row, so MM's
  * fill and the bag treat it as progression. Its give sets an OWNED BIT
  * (GiveItem.cpp), and a second copy converts to junk (ConvertItem.cpp). Under the
- * shared rule the MM copy is held back (warp_songs_mm.h): the shared family is
- * lane XW10's.
+ * shared rule MM pools no copy: OoTMM adds no copy under the shared rule
+ * (transform.ts, the six warp songs' `replaceItem(OOT_SONG_TP_*, SHARED_SONG_TP_*)`),
+ * so Ocarina of Time's native copy is the shared row, and each MM song is the MM
+ * member of its shared family (lane XW10, registered below).
  *
  * WHERE OWNERSHIP IS STORED. In gComboCtx.mmWarpSongsOwned (context.h, ADR 0009
  * claim 21), one bit per song, not in MM's half: RandoSaveInfo has no padding and
@@ -62,6 +64,8 @@
 #include "foreign_items.h"     // src/common: the second rules word, Combo_GetForeignItemByNameFor
 #include "mm_warp_song_play.h" // src/common: the matcher, the gates, the texts, the latches (#1169 XW7)
 #include "warp_songs_mm.h"     // src/common: the copies rule, the names, the ownership byte
+#include "warp_song_family.h"  // src/common: whether Link holds a song under its shared rule (#1169 XW10)
+#include "shared_resources.h"  // src/common: the shared warp songs' family members (#1169 XW10)
 
 extern "C" {
 #include "variables.h"
@@ -158,8 +162,31 @@ extern "C" void MM_WarpSongMM_Give(uint16_t riId) {
 }
 
 extern "C" bool MM_WarpSongMM_Usable(uint16_t riId) {
+    // OWN COPY ONLY, on purpose (#1169 XW10): MM's logic reads this (Logic.h), and a
+    // logic engine must never read the family word, which at Generate may still
+    // hold an earlier file's values. The players' readers go through
+    // Combo_WarpSongHeld (MM_WarpSongMM_UsableMask below).
     return MM_WarpSongMM_RuleOn(riId) && MM_WarpSongMM_Owned(riId);
 }
+
+namespace {
+// #1169 XW10: each MM song is the MM member of its shared warp song (OoTMM
+// sharedSongMinuet .. sharedSongPrelude; the second family word), paired with
+// Ocarina of Time's native song (GameExports_SingleExe.cpp registers that half).
+// Held and given through the ownership byte; pooled answers "the extension is
+// frozen on" (MM_WarpSongMM_RuleOn), not "MM pools a copy": under the shared rule MM
+// pools none (OoTMM's pool), and a pair needs both members pooled.
+struct MMWarpSongFamilyRegistrar {
+    MMWarpSongFamilyRegistrar() {
+        for (const WarpSong& song : kWarpSongs) {
+            const ComboSharedFamilyMember member = { (uint16_t)song.ri, MM_WarpSongMM_Owned, MM_WarpSongMM_Give,
+                                                     MM_WarpSongMM_RuleOn };
+            Combo_RegisterSharedFamily2Member(GAME_MM, song.ruleBit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT, &member);
+        }
+    }
+};
+const MMWarpSongFamilyRegistrar gMMWarpSongFamilyRegistrar;
+} // namespace
 
 extern "C" uint8_t MM_WarpSongsMM_SnapshotOwned(void) {
     return Combo_MMWarpSongsOwned();
@@ -313,9 +340,17 @@ extern "C" uint8_t MM_WarpSongMM_UsableMask(void) {
     if ((Combo_ComboCrossItemFlags2() & RSBS_MMWP_RULE_MASK) == 0u || !Combo_ForeignPairingActive()) {
         return 0;
     }
+    // #1169 XW10: Combo_WarpSongHeld, so under a song's shared rule the family owned
+    // (or Ocarina of Time's copy) makes it playable here. Song i + 1 of the helper
+    // (0 is the Song of Soaring) is bit i of this mask (Minuet .. Prelude).
+    ComboWarpSongHoldings h;
+    h.rules2 = Combo_ComboCrossItemFlags2();
+    h.owned2 = Combo_SharedFamilies2Owned();
+    h.heldOoT = 0u; // OoT's save is not readable while MM runs
+    h.heldMM = Combo_WarpSongHeldMMBits(Combo_MMWarpSongsOwned(), CHECK_QUEST_ITEM(QUEST_SONG_SOARING) != 0);
     uint8_t mask = 0;
     for (int i = 0; i < (int)RSBS_MM_WARP_SONG_COUNT; i++) {
-        if (MM_WarpSongMM_Usable((uint16_t)kWarpSongs[i].ri)) {
+        if (MM_WarpSongMM_RuleOn((uint16_t)kWarpSongs[i].ri) && Combo_WarpSongHeld(&h, (int)GAME_MM, i + 1)) {
             mask = (uint8_t)(mask | (1u << i));
         }
     }

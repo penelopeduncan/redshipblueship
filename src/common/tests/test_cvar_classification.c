@@ -2588,8 +2588,8 @@ TestResult Test_CVarClassification(void) {
             // of the sibling frozen item rules, and #979's Blast Mask Cooldown,
             // that record's cooldown byte, and #979's Stone Mask (OoT) and Shared
             // Stone Mask, two more bits, #1169 XW2's fourteen warp-song rules,
-            // bits of the second rules word (hidden until XW12, identity all the
-            // same), and #980's Gerudo, Skull and Spooky Masks (MM) and their
+            // bits of the second rules word (identity whether or not a bit is still
+            // inside RSBS_XITEM2_HIDDEN), and #980's Gerudo, Skull and Spooky Masks (MM) and their
             // shared variants, six more. #668's shared ocarina was a third until
             // #879 retired it.
             std::size_t identityKeys = 0;

@@ -31,12 +31,14 @@
  *   invalidation (the trap) and put back by the creation's bind of the seed
  *   package's world record; it survives an MM in-game save (the production
  *   capture funnel) and the .redsave load after it; a pickup after that survives
- *   a departure's freeze and restore, the crossing's commit and a reload; the
- *   fingerprint never moves with it.
+ *   a departure's freeze and restore, the crossing's commit and a reload, and the
+ *   Song of Time's real reset (XW12); the fingerprint never moves with it.
  *
  *   mm-warp-songs-rules-off-unchanged (CTest MMWarpSongsRulesOffUnchanged,
- *   redship tier, ROM-free, no CVar store) -- INERT. Every MM warp-song bit is
- *   refused at Generate while hidden; a rules-off world pools no copy and credits
+ *   redship tier, ROM-free, no CVar store) -- RULES OFF. Every MM warp-song
+ *   extension is offered and passes Generate (since IntMMWarpSongMinuet, #1169
+ *   XW13), and with its shared song the shared song alone is refused by name
+ *   (hidden until XW10); a rules-off world pools no copy and credits
  *   none; with every rule off and the byte at 0 or at every song owned, the
  *   fingerprint, the world hash, the bag's seeds and a seed package's record are
  *   main's (XW2's vectors); from source, the pool adds a song only through the
@@ -44,7 +46,8 @@
  *
  *   mm-warp-songs-pooled-only-when-rule-on (CTest MMWarpSongsPooledOnlyWhenRuleOn,
  *   rando tier) -- THE POOL over real paired creations: rules off, all six on
- *   through the test seam, and the Shared Minuet of Forest too (held back).
+ *   through their keys on the production mask, and the Shared Minuet of Forest
+ *   too through the full test seam (held back).
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the Wsm
@@ -62,6 +65,8 @@
 #include "../shared_resources.h"
 #include "../test_runner.h"
 #include "../test_scratch.h"
+#include "../mm_warp_song_play.h" // Combo_OoTWarpRecord_Build: a rule-on world holds its record (#1169 XW12)
+#include "../warp_song_items.h"   // Combo_WarpSongExtensionTooltip (#1169 XW14)
 #include "../warp_songs_mm.h"
 #include "test_named_items.h"
 
@@ -91,6 +96,7 @@ int MM_WarpSongsTest_CanPlay(uint16_t ri, int ocarina, uint32_t buttons);
 int MM_WarpSongsTest_PoolCopies(uint16_t ri, uint16_t startingItem);
 int MM_WarpSongsTest_StartingGrant(uint16_t ri);
 int MM_WarpSongsTest_FreezeAndRestore(void);
+int MM_WarpSongsTest_EndOfCycle(void);
 // games/mm/2s2h/Rando/WarpSongsMM.cpp
 uint32_t MM_WarpSongMM_RuleBit(uint16_t riId);
 uint16_t MM_WarpSongMM_ItemId(uint32_t ruleBit);
@@ -183,6 +189,13 @@ void WsmFreezeWorld(uint32_t rules2) {
     ComboSettingsRecord rec;
     Combo_ComboSettingsDefaults(&rec);
     Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
+    // #1169 XW12: a world with a Majora's Mask warp-song rule on holds a PRESENT
+    // warp-song record (the creation fails otherwise, and a load refuses one
+    // without it): the unshuffled record, every song to its vanilla pad. A
+    // rules-off world keeps the record UNSET, so its package bytes stay main's.
+    if ((rules2 & (uint32_t)RSBS_MMWP_RULE_MASK) != 0u) {
+        (void)Combo_OoTWarpRecord_Build(&gComboCtx.comboOoTWarps, false, false, NULL, NULL);
+    }
 }
 
 /** WsmFreezeWorld keeping the ownership byte as it was. */
@@ -352,11 +365,26 @@ TestResult MMWarpSongsItems_Run(void) {
                       "MM does not draw OoT's %s as its own note (answer kind %u): the song's get-item model would "
                       "fall back to the generic note",
                       s.ootName, (unsigned)kind);
-            // The tooltip: OoTMM's first sentence, the Song Locations one dropped.
+            // The tooltip (#1169 XW12): OoTMM's text in the page's verb-first form,
+            // and its Song Locations warning, true since the shared song pool
+            // (#1542) made an added MM song one more row of it.
             const char* tip = Combo_MMWarpSongTooltip(s.rule);
-            const std::string want = std::string("Add the ") + s.ootName + " in Majora's Mask.";
-            WSM_CHECK(tip != NULL && want == tip && strstr(tip, "Song Locations") == NULL,
-                      "%s's tooltip is '%s', not '%s'", s.name, tip != NULL ? tip : "(none)", want.c_str());
+            const std::string want = std::string("Adds Ocarina of Time's ") + s.ootName + " to Majora's Mask.";
+            WSM_CHECK(tip != NULL && std::string(tip).rfind(want, 0) == 0 && strstr(tip, "Song Locations") != NULL &&
+                          strstr(tip, "set Shuffle Songs to Anywhere or start with a song") != NULL &&
+                          strstr(tip, "share a song") == NULL,
+                      "%s's tooltip is '%s', not '%s' with the Song Locations warning", s.name,
+                      tip != NULL ? tip : "(none)", want.c_str());
+            // #1169 XW14: once a shared song is offered the row shows OoTMM's
+            // advice, sharing a song first (Combo_WarpSongExtensionTooltip); while
+            // none is, the text above. Catches a helper that ignores the flag or
+            // maps a song to another song's text.
+            const char* plain = Combo_WarpSongExtensionTooltip(s.rule, false);
+            const char* share = Combo_WarpSongExtensionTooltip(s.rule, true);
+            WSM_CHECK(plain == tip && share != NULL && std::string(share).rfind(want, 0) == 0 &&
+                          strstr(share, "share a song, start with a song, or set Shuffle Songs to Anywhere") != NULL,
+                      "%s's row tooltip once a shared song is offered is '%s'", s.name,
+                      share != NULL ? share : "(none)");
         }
         WSM_CHECK(Combo_MMWarpSongName(0x0001u) == NULL && Combo_MMWarpSongTooltip(0x0100u) == NULL,
                   "the Song of Soaring (OoT) or a shared song has an MM song's name");
@@ -587,9 +615,9 @@ TestResult MMWarpSongsOwnership_Run(void) {
         RsbsSave_SetActiveSlot(0);
         mgr.DeleteSave(0);
         WSM_CHECK(RsbsSave_LoadSlot(0) == RSBS_LOAD_ABSENT, "an empty slot must open as ABSENT and arm");
-        // The world, its keys (the session plays it) and the seam (the rules are
-        // hidden until XW12; a load refuses them otherwise).
-        Combo_ComboItemRules2RevealForTest(1);
+        // The world and its keys (the session plays it), on the production mask:
+        // the six rules are offered since IntMMWarpSongMinuet (#1169 XW13), so the
+        // load takes them as a player's; the shared songs stay refused.
         for (const WsmSong& s : kWsmSongs) {
             CVarSetInteger(Combo_ComboSettingKey(s.key), 1);
         }
@@ -634,6 +662,20 @@ TestResult MMWarpSongsOwnership_Run(void) {
                   "FINGERPRINT damage)");
     }
 
+    // ---- (E) The Song of Time's reset (#1169 XW12, D7) ----------------------------------
+    // The byte lives in the combo record, not in MM's save, so the REAL
+    // Sram_SaveEndOfCycle (which rewrites MM's gSaveContext) keeps every song. A
+    // byte moved into MM's save, or a cycle hook that clears it, reads 00 here.
+    {
+        const uint8_t before = Combo_MMWarpSongsOwned();
+        const int ran = MM_WarpSongsTest_EndOfCycle();
+        printf("[TEST] (E) the Song of Time's reset ran %d; byte %02X -> %02X (expected 1, 23 -> 23)\n", ran,
+               (unsigned)before, (unsigned)Combo_MMWarpSongsOwned());
+        WSM_CHECK(ran == 1 && before == 0x23u && Combo_MMWarpSongsOwned() == before && MM_WarpSongMM_Usable(bolero) &&
+                      MM_WarpSongMM_Usable(minuet) && MM_WarpSongMM_Usable(prelude),
+                  "THE SONG OF TIME'S RESET moved the ownership byte: the three-day cycle would take the songs");
+    }
+
     Combo_ComboItemRules2RevealForTest(0);
     WsmClearKeys();
     RsbsSave_ResetSlotSessionState();
@@ -651,24 +693,29 @@ TestResult MMWarpSongsOwnership_Run(void) {
 // ============================================================================
 
 TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
-    printf("[TEST] mm-warp-songs-rules-off-unchanged: while the warp-song rules are hidden no world a player can make "
-           "pools or credits an MM warp song, and owning one moves no fingerprint, bag seed or package record "
-           "(#1169 XW5)\n");
+    printf("[TEST] mm-warp-songs-rules-off-unchanged: the six MM warp-song rules and their shared songs are "
+           "offered; with the rules off no world pools or credits an MM warp song, and owning one moves no "
+           "fingerprint, bag seed or package record (#1169 XW5, XW12, XW13, XW14)\n");
     sWsmFailures = 0;
     Combo_ComboItemRules2RevealForTest(0);
 
-    // ---- (1) Hidden: Generate refuses every MM warp-song bit, by OoTMM's name ---------
+    // ---- (1) Offered on the production mask: each extension since
+    //      IntMMWarpSongMinuet (#1169 XW13) and its shared song since
+    //      IntMMWarpSongMinuetShared (#1169 XW14) pass Generate and are offered -------
     {
         char names[192];
         for (const WsmSong& s : kWsmSongs) {
-            const uint32_t refused = Combo_ComboItemRules2Refused(s.rule, names, sizeof(names));
-            WSM_CHECK(refused == s.rule && strcmp(names, s.ootmmKey) == 0,
-                      "while hidden, %s is not refused by name "
-                      "('%s')",
-                      s.ootmmKey, names);
-            WSM_CHECK((Combo_ComboItemRules2Refused(s.rule | s.shared, NULL, 0) & (s.rule | s.shared)) ==
-                          (s.rule | s.shared),
-                      "while hidden, %s and its shared song are not both refused", s.ootmmKey);
+            WSM_CHECK(Combo_ComboItemRules2Refused(s.rule, names, sizeof(names)) == 0u && names[0] == '\0' &&
+                          Combo_ComboItemRule2Offered(s.rule),
+                      "%s is refused ('%s') or not offered: it is offered since its end-to-end row", s.ootmmKey, names);
+            const uint32_t refused = Combo_ComboItemRules2Refused(s.rule | s.shared, names, sizeof(names));
+            WSM_CHECK(refused == 0u && names[0] == '\0' && Combo_ComboItemRule2Offered(s.shared),
+                      "%s with its shared song refused %08X ('%s') or the shared song is not offered: both are "
+                      "offered since XW14",
+                      s.ootmmKey, (unsigned)refused, names);
+            // A shared song without its extension is still no world.
+            WSM_CHECK(Combo_ComboItemRules2Refused(s.shared, names, sizeof(names)) == s.shared,
+                      "%s's shared song without its extension was not refused ('%s')", s.ootmmKey, names);
         }
     }
 

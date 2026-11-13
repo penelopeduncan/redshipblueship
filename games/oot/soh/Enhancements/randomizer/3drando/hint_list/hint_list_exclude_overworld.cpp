@@ -2240,7 +2240,7 @@ void StaticData::HintTable_Init_Exclude_Overworld() {
                                                      /*german*/ "Man erzählt sich, daß sich ein #Wunder-Gegenstand in einem Fluss# #[[1]]# verstecke.",
                                                      /*french*/ "Selon moi, un #objet merveilleux dans une rivière# cache #[[1]]#.", {QM_RED, QM_GREEN}));
 
-    hintTextTable[RHT_WONDER_ITEM_ZORAS_RIVER] = HintText(CustomMessage("They say that a #wonder item in Zora's Fountain# hides #[[1]]#.",
+    hintTextTable[RHT_WONDER_ITEM_ZORAS_FOUNTAIN] = HintText(CustomMessage("They say that a #wonder item in Zora's Fountain# hides #[[1]]#.",
                                                      /*german*/ "Man erzählt sich, daß sich ein #Wunder-Gegenstand in Zoras Quelle# #[[1]]# verstecke.",
                                                      /*french*/ "Selon moi, un #objet merveilleux dans la Fontaine Zora# cache #[[1]]#.", {QM_RED, QM_GREEN}));
 

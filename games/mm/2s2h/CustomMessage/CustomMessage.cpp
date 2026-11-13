@@ -69,37 +69,79 @@ void CustomMessage::AddLineBreaks(std::string* msg) {
     for (size_t i = 0; i < msg->size(); ++i) {
         char currentChar = (*msg)[i];
 
-        if ((uint8_t)currentChar >= 0x20 && (uint8_t)currentChar < 0x20 + ARRAY_COUNTU(sNESFontWidths)) {
-            currentLineWidth += sNESFontWidths[(uint8_t)currentChar - 0x20];
-        }
-
-        // Increment for existing new liens
+        // Handle existing newlines
         if (currentChar == 0x11) {
             currentLineWidth = 0.0f;
             lastSpaceIndex = std::string::npos;
             ++currentLineCount;
+            continue;
         }
 
+        // Handle existing box breaks
+        if (currentChar == 0x10) {
+            currentLineWidth = 0.0f;
+            lastSpaceIndex = std::string::npos;
+            currentLineCount = 0;
+            continue;
+        }
+
+        // Track spaces for word wrapping
         if (currentChar == ' ') {
             lastSpaceIndex = i;
         }
-        if (currentLineWidth > MAX_TEXTBOX_WIDTH) {
+
+        // Calculate width for printable characters
+        float charWidth = 0.0f;
+        if ((uint8_t)currentChar >= 0x20 && (uint8_t)currentChar < 0x20 + ARRAY_COUNTU(sNESFontWidths)) {
+            charWidth = sNESFontWidths[(uint8_t)currentChar - 0x20];
+        }
+
+        // Check if adding this character would exceed width
+        if (currentLineWidth + charWidth > MAX_TEXTBOX_WIDTH) {
+            // Where the new line goes, kept for the box-break swap below (#1556 QC:
+            // upstream read lastSpaceIndex after clearing it, so a fourth wrap at a
+            // space overwrote the letter before the current one with the box break).
+            size_t breakAt;
             if (lastSpaceIndex != std::string::npos) {
+                // Break at the last space
+                breakAt = lastSpaceIndex;
                 (*msg)[lastSpaceIndex] = 0x11;
-                i = lastSpaceIndex;
+
+                // Recalculate width from after the space to current position
+                currentLineWidth = 0.0f;
+                for (size_t j = lastSpaceIndex + 1; j < i; ++j) {
+                    char c = (*msg)[j];
+                    if ((uint8_t)c >= 0x20 && (uint8_t)c < 0x20 + ARRAY_COUNTU(sNESFontWidths)) {
+                        currentLineWidth += sNESFontWidths[(uint8_t)c - 0x20];
+                    }
+                }
+                // Add current character's width, unless it is the space just
+                // turned into the newline (#1556 QC: upstream counted it, so the
+                // next line could wrap a word early)
+                if (currentChar != ' ') {
+                    currentLineWidth += charWidth;
+                }
+
+                lastSpaceIndex = std::string::npos;
             } else {
+                // No space found, force break before current character
                 msg->insert(i, 1, 0x11);
+                breakAt = i;
+                currentLineWidth = charWidth; // Current char is now first on new line
+                ++i;                          // Skip the inserted newline character
             }
 
-            currentLineWidth = 0.0f;
-            lastSpaceIndex = std::string::npos;
             ++currentLineCount;
 
             if (currentLineCount >= MAX_LINES_PER_PAGE) {
-                // Replace the added new line for a box break instead
-                (*msg)[i] = 0x10;
+                // Replace the newline we just added with a box break
+                (*msg)[breakAt] = 0x10;
                 currentLineCount = 0;
+                lastSpaceIndex = std::string::npos;
             }
+        } else {
+            // Character fits on current line
+            currentLineWidth += charWidth;
         }
     }
 }

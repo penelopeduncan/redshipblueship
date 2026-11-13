@@ -162,16 +162,18 @@ int MwpProbeNotReady(void) {
 // ---- P1 ---------------------------------------------------------------------------
 void MwpCheckRecordLayoutAndValidator() {
     // Save format 6's growth rule 1: appended directly after the save watermark (no
-    // padding: the watermark ends 4-aligned, the record is bytes only), the last
-    // member, at its pin; reserved[64] untouched at 939.
+    // padding: the watermark ends 4-aligned, the record is bytes only), followed
+    // directly by XW10's sharedFamilyOwned2 (the next append), at its pin;
+    // reserved[64] untouched at 939.
     MWP_CHECK(offsetof(ComboContext, comboOoTWarps) ==
                       offsetof(ComboContext, saveWatermark) + sizeof(ComboSaveWatermark) &&
                   sizeof(ComboOoTWarpRecord) == 20u &&
-                  sizeof(ComboContext) == offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord) &&
+                  offsetof(ComboContext, sharedFamilyOwned2) ==
+                      offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord) &&
                   offsetof(ComboContext, comboOoTWarps) == RSBS_PIN_COMBO_OOT_WARPS &&
                   offsetof(ComboContext, reserved) == 939u && sizeof(((ComboContext*)0)->reserved) == 64u,
               "P1: the record is %u bytes at %u (sizeof %u, reserved[] %u at %u); want 20 directly after the "
-              "watermark at the pin %u, the last member, 64 at 939\n",
+              "watermark at the pin %u, followed by the next append, 64 at 939\n",
               (unsigned)sizeof(ComboOoTWarpRecord), (unsigned)offsetof(ComboContext, comboOoTWarps),
               (unsigned)sizeof(ComboContext), (unsigned)sizeof(((ComboContext*)0)->reserved),
               (unsigned)offsetof(ComboContext, reserved), (unsigned)RSBS_PIN_COMBO_OOT_WARPS);

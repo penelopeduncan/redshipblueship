@@ -31,7 +31,9 @@
  *      one bit and the four dungeons' bits differ; the Clock Town Stray Fairy has
  *      none (2Ship keeps it vanilla there); under Song Locations every
  *      song-location song has the song bit and a song check is in the song group
- *      only, and under Anywhere neither.
+ *      only, and under Anywhere neither. (c2, #1403) Shuffle Boss Remains at Own
+ *      Dungeon confines Goht's remains to Snowhead (group and mask), at Anywhere
+ *      to nothing.
  *  (d) THE CACHE IS READ, NOT THE SAVE. After the pool is handed in, changing the
  *      live save's Shuffle Songs does not change a song check's answer, so a draw
  *      never reads a value that is not the creation's.
@@ -137,12 +139,27 @@ const uint32_t kSongBit = 1u << (DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1
 const RandoOptionId kPlacementOptions[4] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_BOSS_KEYS,
                                              RO_PLACEMENT_STRAY_FAIRIES, RO_SHUFFLE_SONGS };
 
-/** Every option Foreign.cpp folds by NAME, only when non-zero (IsAppendedOption):
+/** Every option Foreign.cpp folds by NAME, only when neither 0 nor its default (IsAppendedOption):
  *  listed here independently, so dropping one there is a red count below. */
-const RandoOptionId kAppendedOptions[] = { RO_SHUFFLE_TREE_DROPS,  RO_SHOP_PRICES,          RO_TINGLE_PRICES,
-                                           RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
-                                           RO_SHUFFLE_SONGS,       RO_SHUFFLE_WONDER_ITEMS, RO_SHUFFLE_HIVE_DROPS,
-                                           RO_SHUFFLE_BUTTERFLIES };
+const RandoOptionId kAppendedOptions[] = {
+    RO_SHUFFLE_TREE_DROPS,
+    RO_SHOP_PRICES,
+    RO_TINGLE_PRICES,
+    RO_PLACEMENT_BOSS_KEYS,
+    RO_PLACEMENT_SMALL_KEYS,
+    RO_PLACEMENT_STRAY_FAIRIES,
+    RO_SHUFFLE_SONGS,
+    RO_SHUFFLE_WONDER_ITEMS,
+    RO_SHUFFLE_HIVE_DROPS,
+    RO_SHUFFLE_BUTTERFLIES,
+    RO_SHUFFLE_SKELETON_KEY,
+    RO_SKULLTULA_SHUFFLED,
+    RO_STRAY_FAIRIES_MAX,
+    RO_SHUFFLE_SONG_DOUBLE_TIME,
+    RO_SHUFFLE_SONG_INVERTED_TIME,
+    RO_SHUFFLE_SONG_SUN,
+    RO_SHUFFLE_SONG_SARIA,
+};
 
 /** The four options and MM's host pool (with its cached groups) as the row found
  *  them; the legs replace the pool, so it is put back verbatim, not cleared. */
@@ -319,6 +336,27 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
               "(c) a dungeon's boss key and fairies share its keys' group");
     MPC_CHECK(MaskOf(RI_CLOCK_TOWN_STRAY_FAIRY) == 0u,
               "(c) the Clock Town Stray Fairy has no dungeon: 2Ship keeps it vanilla under Own Dungeon");
+    // (c2) #1403: Shuffle Boss Remains at Own Dungeon confines each boss's remains
+    // to that boss's dungeon (Goht's to Snowhead), and at Anywhere to nothing. Red
+    // if RandoItemIdToDungeon's remains branch is dropped or reads another value.
+    {
+        const uint32_t savedRemains = RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS];
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = RO_REMAINS_SHUFFLE_OWN_DUNGEON;
+        const int ownGroup = Rando::Logic::RandoItemIdToConfinementGroup(RI_REMAINS_GOHT);
+        const uint32_t ownMask = MaskOf(RI_REMAINS_GOHT);
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = RO_REMAINS_SHUFFLE_ANYWHERE;
+        const int anyGroup = Rando::Logic::RandoItemIdToConfinementGroup(RI_REMAINS_GOHT);
+        const uint32_t anyMask = MaskOf(RI_REMAINS_GOHT);
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_REMAINS] = savedRemains;
+        printf("[TEST] (c2) Goht's remains: Own Dungeon group %d mask %08X, Anywhere group %d mask %08X\n", ownGroup,
+               (unsigned)ownMask, anyGroup, (unsigned)anyMask);
+        MPC_CHECK(ownGroup == DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE && ownMask == sh,
+                  "(c2) under Own Dungeon Goht's remains must be confined to Snowhead (group %d, mask %08X)", ownGroup,
+                  (unsigned)ownMask);
+        MPC_CHECK(anyGroup == -1 && anyMask == 0u,
+                  "(c2) under Anywhere Goht's remains must be unconfined (group %d, mask %08X)", anyGroup,
+                  (unsigned)anyMask);
+    }
     int songs = 0;
     int songsWrong = 0;
     for (const uint16_t id : AllItems()) {
@@ -365,6 +403,27 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         for (const RandoOptionId appended : kAppendedOptions) {
             MPC_CHECK(Rando::StaticData::Options.find(appended) != Rando::StaticData::Options.end(),
                       "(e) appended option %d has no StaticData row", (int)appended);
+        }
+        // #1403: a half persisted before an appended option existed holds 0 in its
+        // slot, one created after holds the row default (30 and 15 for Shuffled Gold
+        // Skulltulas and Stray Fairies in Pool). Both must fold to the same strings,
+        // or every older paired half fails pair membership on load.
+        {
+            std::vector<uint32_t> defaults = zeros;
+            for (const RandoOptionId appended : kAppendedOptions) {
+                defaults[appended] = Rando::StaticData::Options[appended].defaultValue;
+            }
+            MPC_CHECK(Rando::Foreign::TestFoldOptionsString(defaults.data()) == base &&
+                          Rando::Foreign::TestFoldIdentityString(defaults.data()) == baseIdentity,
+                      "(e) appended options at their row defaults must fold exactly as a pre-#1403 half's zeros do");
+            for (const RandoOptionId option : { RO_SKULLTULA_SHUFFLED, RO_STRAY_FAIRIES_MAX }) {
+                std::vector<uint32_t> values = defaults;
+                values[option] = 1;
+                const std::string term = std::string("|") + Rando::StaticData::Options[option].name + ":1";
+                MPC_CHECK(Rando::Foreign::TestFoldOptionsString(values.data()) == base + term,
+                          "(e) %s=1 must add exactly '%s' to the seed string", Rando::StaticData::Options[option].name,
+                          term.c_str());
+            }
         }
         for (const RandoOptionId option : kPlacementOptions) {
             const auto it = Rando::StaticData::Options.find(option);
