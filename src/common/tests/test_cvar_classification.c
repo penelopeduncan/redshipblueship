@@ -502,8 +502,7 @@ std::vector<CvarClassRowWritesDefine> CvarClassRowWritesRsbsDefines(const std::s
 }
 
 std::size_t CvarClassRowWritesSkipSpace(const std::string& code, std::size_t pos) {
-    while (pos < code.size() &&
-           (code[pos] == ' ' || code[pos] == '\t' || code[pos] == '\r' || code[pos] == '\n')) {
+    while (pos < code.size() && (code[pos] == ' ' || code[pos] == '\t' || code[pos] == '\r' || code[pos] == '\n')) {
         pos++;
     }
     return pos;
@@ -689,8 +688,8 @@ bool CvarClassRowWritesKeyInCode(const std::string& code, const std::string& key
         const std::string name = code.substr(p, q - p);
         const bool isPageDot =
             name == "CVar" && ((p > 0 && code[p - 1] == '.') || (p >= 2 && code[p - 2] == '-' && code[p - 1] == '>'));
-        const bool isBareWidget = name == "CVarCheckbox" || name == "CVarCombobox" ||
-                                  name.compare(0, 10, "CVarSlider") == 0;
+        const bool isBareWidget =
+            name == "CVarCheckbox" || name == "CVarCombobox" || name.compare(0, 10, "CVarSlider") == 0;
         if (!isUiWidgets && !isPageDot && !isBareWidget) {
             continue;
         }
