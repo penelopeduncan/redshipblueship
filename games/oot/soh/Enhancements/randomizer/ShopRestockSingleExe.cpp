@@ -49,6 +49,8 @@
 #include "soh/Enhancements/randomizer/item_location.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/logic.h"
+#include "soh/Enhancements/randomizer/location_access.h"
+#include "3drando/fill.hpp" // GetAccessibleLocationsStruct::InitLoop (the logic leg)
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/randomizer/randomizer.h"
 
@@ -74,7 +76,12 @@ int OoT_ComboLogic_TestEnsureItemTableTransient(void);
 int OoT_ComboLogic_TestEnsureLocationTable(void);
 // Messages/MerchantMessages.cpp: shop offer English text for tests (#1547).
 int OoT_Rando_ShopOfferText(uint16_t rc, int bought, int confirm, int mysterious, char* out, size_t cap);
+// Messages/MerchantMessages.cpp: the same offer through BuildShopMessage's own
+// text id and RandomizerInf read.
+int OoT_Rando_ShopOfferTextForTextId(uint16_t textId, uint16_t rc, int mysterious, char* out, size_t cap);
 }
+
+#include "soh/Enhancements/custom-message/CustomMessageTypes.h" // TEXT_SHOP_ITEM_RANDOM
 
 // The sale lock's give runs OoT_Item_Give ROM-free (oot_load_reconcile_test.cpp's
 // recipe): its hooks set aside, an empty MOD_NONE item table standing in.
@@ -1005,6 +1012,40 @@ extern "C" int OoT_Rando_ShopRestockTestMessages(int foreignHosted) {
                         step = 13;
                     }
                 }
+
+                // 14: BuildShopMessage's own path. The text id names the shelf's
+                // RandomizerInf and the offer reads it from the live save, so a
+                // bought red potion shelf names the refill and an unbought one
+                // the bottle (catches the bought argument dropped or fixed).
+                if (step == 0) {
+                    il->SetPlacedItem(RG_BOTTLE_WITH_RED_POTION);
+                    decltype(gSaveContext.ship.randomizerInf) infSaved;
+                    memcpy(infSaved, gSaveContext.ship.randomizerInf, sizeof(infSaved));
+                    const int inf = (int)RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1;
+                    const uint16_t offerId = (uint16_t)TEXT_SHOP_ITEM_RANDOM;
+                    const uint16_t confirmId = (uint16_t)(TEXT_SHOP_ITEM_RANDOM + NUM_SHOP_ITEMS);
+                    gSaveContext.ship.randomizerInf[inf >> 4] &= (u16) ~(1 << (inf & 0xF));
+                    if (OoT_Rando_ShopOfferTextForTextId(offerId, (uint16_t)rc, 0, buf, sizeof(buf)) <= 0 ||
+                        std::strstr(buf, "Bottle with Red Potion") == nullptr) {
+                        step = 14;
+                    }
+                    gSaveContext.ship.randomizerInf[inf >> 4] |= (u16)(1 << (inf & 0xF));
+                    if (step == 0 &&
+                        (OoT_Rando_ShopOfferTextForTextId(offerId, (uint16_t)rc, 0, buf, sizeof(buf)) <= 0 ||
+                         std::strstr(buf, "Red Potion Refill") == nullptr || std::strstr(buf, "Bottle") != nullptr ||
+                         OoT_Rando_ShopOfferTextForTextId(confirmId, (uint16_t)rc, 0, buf, sizeof(buf)) <= 0 ||
+                         std::strstr(buf, "Red Potion Refill") == nullptr || std::strstr(buf, "Buy") == nullptr)) {
+                        step = 14;
+                    }
+                    if (step == 0 &&
+                        OoT_Rando_ShopOfferTextForTextId((uint16_t)TEXT_NONE, (uint16_t)rc, 0, buf, sizeof(buf)) != -1) {
+                        step = 14;
+                    }
+                    if (step != 0) {
+                        fprintf(stderr, "[OoT ShopRestock] BuildShopMessage path offer: \"%s\"\n", buf);
+                    }
+                    memcpy(gSaveContext.ship.randomizerInf, infSaved, sizeof(infSaved));
+                }
             }
 
             *il = saved;
@@ -1022,8 +1063,16 @@ extern "C" int OoT_Rando_ShopRestockTestMessages(int foreignHosted) {
  * Logic::ApplyItemEffect grants repeatable access for shop-hosted refills,
  * Bombchus, Deku Nuts/Sticks, shields, and fish only when placed on a shop
  * shelf.
+ *
+ *   3  a chest holding a Deku Shield does not renew.
+ *   4  the shelf renews per kRenewCases; with @p foreignHosted (the caller made
+ *      the shelf host a Majora's Mask item) it renews nothing, empty or filled.
+ *   5-8 (not foreign) the logic credit is keyed on a shop shelf.
+ *   9  (not foreign) GetAccessibleLocationsStruct::InitLoop, the playthrough's
+ *      deferred-item path, keys each location before applying its item, so a
+ *      Deku Nuts shelf grants nut access, and resets the key afterwards.
  */
-extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
+extern "C" int OoT_Rando_ShopRestockTestLogic(int foreignHosted) {
     if (OoT_ComboLogic_TestEnsureItemTableTransient() != 0 || OoT_ComboLogic_TestEnsureLocationTable() != 0) {
         return 1;
     }
@@ -1065,6 +1114,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 } kRenewCases[] = {
                     { RG_NONE, 1 },
                     { RG_DEKU_SHIELD, 1 },
+                    { RG_BUY_DEKU_SHIELD, 1 },
                     { RG_BOMBCHU_5, 1 },
                     { RG_BOTTLE_WITH_RED_POTION, 1 },
                     { RG_BOTTLE_WITH_GREEN_POTION, 1 },
@@ -1078,7 +1128,11 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 };
                 for (const auto& c : kRenewCases) {
                     ilShop->SetPlacedItem(c.item);
-                    if (src->hostRenews((uint16_t)shopRc) != c.renews) {
+                    const int want = foreignHosted != 0 ? 0 : c.renews;
+                    if (src->hostRenews((uint16_t)shopRc) != want) {
+                        fprintf(stderr, "[OoT ShopRestock] shelf holding RG %d (foreign %d) renews %d, expected %d
+",
+                                (int)c.item, foreignHosted, src->hostRenews((uint16_t)shopRc), want);
                         step = 4;
                         break;
                     }
@@ -1100,7 +1154,8 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 logic->SetUpgrade(UPG_BOMB_BAG, 1);
             };
 
-            if (step == 0) {
+            const bool logicLegs = foreignHosted == 0;
+            if (step == 0 && logicLegs) {
                 ctx->GetOption(RSK_BOMBCHU_BAG).Set(RO_BOMBCHU_BAG_NONE);
                 ctx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(RO_AMMO_DROPS_OFF);
                 logic->IsChild = true;
@@ -1118,7 +1173,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 }
             }
 
-            if (step == 0) {
+            if (step == 0 && logicLegs) {
                 resetScratch();
                 logic->CurrentCheckKey = shopRc;
                 for (RandomizerGet rg : kLogicItems) {
@@ -1133,7 +1188,7 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                 }
             }
 
-            if (step == 0) {
+            if (step == 0 && logicLegs) {
                 resetScratch();
                 logic->CurrentCheckKey = chestRc;
                 Rando::StaticData::RetrieveItem(RG_BOTTLE_WITH_RED_POTION).ApplyEffect();
@@ -1147,6 +1202,26 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
                         step = 8;
                     }
                 }
+            }
+
+            if (step == 0 && logicLegs) {
+                // InitLoop reads the global search logic; point it at this
+                // context's logic for the leg and put it back.
+                const std::shared_ptr<Rando::Logic> savedSearchLogic = ::logic;
+                ::logic = logic;
+                resetScratch();
+                logic->CurrentCheckKey = RC_UNKNOWN_CHECK;
+                ilShop->SetPlacedItem(RG_DEKU_NUTS_5);
+                GetAccessibleLocationsStruct gals(0);
+                gals.newItemLocations.push_back(ilShop);
+                gals.InitLoop();
+                if (!logic->Get(LOGIC_NUT_ACCESS) || logic->CurrentCheckKey != RC_UNKNOWN_CHECK) {
+                    fprintf(stderr, "[OoT ShopRestock] InitLoop: nut access %d, key %d after the loop
+",
+                            (int)logic->Get(LOGIC_NUT_ACCESS), (int)logic->CurrentCheckKey);
+                    step = 9;
+                }
+                ::logic = savedSearchLogic;
             }
 
             logic->SetSaveContext(savedSaveCtx);

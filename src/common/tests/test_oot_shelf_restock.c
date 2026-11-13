@@ -63,7 +63,7 @@ int OoT_Rando_ShopRestockTestTable(void);
 int OoT_Rando_ShopRestockTestShelves(int foreignHosted);
 int OoT_Rando_ShopRestockTestFull(void);
 int OoT_Rando_ShopRestockTestMessages(int foreignHosted);
-int OoT_Rando_ShopRestockTestLogic(void);
+int OoT_Rando_ShopRestockTestLogic(int foreignHosted);
 #ifdef __cplusplus
 }
 #endif
@@ -106,6 +106,7 @@ TestResult Test_OoTShelfRestock(void) {
     }
     const int foreign = OoT_Rando_ShopRestockTestShelves(1);
     const int foreignMsgs = foreign == 0 ? OoT_Rando_ShopRestockTestMessages(1) : 0;
+    const int foreignLogic = foreign == 0 && foreignMsgs == 0 ? OoT_Rando_ShopRestockTestLogic(1) : 0;
     ComboContext_Init();
     if (foreign != 0) {
         printf("[TEST] FAIL: a shelf hosting a Majora's Mask item restocks, or is not sold out once bought (step "
@@ -116,6 +117,12 @@ TestResult Test_OoTShelfRestock(void) {
     }
     if (foreignMsgs != 0) {
         printf("[TEST] FAIL: a foreign-hosted shelf's offer text dropped ONE LEFT! (step %d)\n", foreignMsgs);
+        return TEST_FAIL;
+    }
+    if (foreignLogic != 0) {
+        printf("[TEST] FAIL: a shelf hosting a Majora's Mask item counts as a renewing host for the fill (step %d: "
+               "4 empty or filled, it must renew nothing: the crossing store delivers once)\n",
+               foreignLogic);
         return TEST_FAIL;
     }
 
@@ -131,14 +138,20 @@ TestResult Test_OoTShelfRestock(void) {
     // E. Offer text, ONE LEFT!, and post-buy bottle->refill naming (#1547).
     const int msgs = OoT_Rando_ShopRestockTestMessages(0);
     if (msgs != 0) {
-        printf("[TEST] FAIL: shop offer text / ONE LEFT! rule is wrong (step %d)\n", msgs);
+        printf("[TEST] FAIL: shop offer text / ONE LEFT! rule is wrong (step %d: 3-4 a foreign-hosted shelf, 5-6 "
+               "the ONE LEFT rule, 7-13 the offer text, 14 BuildShopMessage's own text id path ignores the shelf's "
+               "bought flag)\n",
+               msgs);
         return TEST_FAIL;
     }
 
     // F. Fill credit (OoTCritHostRenews) and logic reachability (ApplyItemEffect) (#1482 §2 / #1547).
-    const int logic = OoT_Rando_ShopRestockTestLogic();
+    const int logic = OoT_Rando_ShopRestockTestLogic(0);
     if (logic != 0) {
-        printf("[TEST] FAIL: fill/logic credit for restocking shelves is wrong (step %d)\n", logic);
+        printf("[TEST] FAIL: fill/logic credit for restocking shelves is wrong (step %d: 3 a chest renews, 4 a "
+               "shelf's renew answer, 5-8 the logic credit is not keyed on a shop shelf, 9 InitLoop does not key "
+               "the location it applies)\n",
+               logic);
         return TEST_FAIL;
     }
 
