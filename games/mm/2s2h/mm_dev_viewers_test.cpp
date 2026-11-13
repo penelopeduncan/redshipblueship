@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <cstring>
 #include <memory>
+#include <string>
 
 #include <imgui.h>
 #include <imgui_internal.h>
@@ -71,16 +72,15 @@ class StandinViewerWindow final : public Ship::GuiWindow {
     }
 };
 
-class UpdateSpy final : public Ship::GuiWindow {
+class UpdateSpy : public Ship::GuiWindow {
   public:
-    using GuiWindow::GuiWindow;
+    UpdateSpy(const std::string& consoleVariable, const std::string& name) : Ship::GuiWindow(consoleVariable, name) {
+    }
 
     int draws = 0;
     int drawElements = 0;
     int updateElements = 0;
 
-    void InitElement() override {
-    }
     void Draw() override {
         draws++;
     }
@@ -89,6 +89,8 @@ class UpdateSpy final : public Ship::GuiWindow {
     }
 
   protected:
+    void InitElement() override {
+    }
     void UpdateElement() override {
         updateElements++;
     }
@@ -276,8 +278,10 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
     {
         ResetEventLogHooksAndState();
 
-        // Disabled by default: InitElement registers no hooks.
-        eventLog->InitElement();
+        // Disabled by default: Init() on a fresh uninitialized instance registers no hooks.
+        auto disabledEventLog = std::make_shared<S2H::MMActiveGated<EventLogWindow>>(
+            kEventLogVisibilityCVar, kEventLogWindowName, ImVec2(520, 600));
+        disabledEventLog->Init();
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagSet>() == 0,
                    "OnFlagSet hook registered when gEventLog.Enabled=0");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagUnset>() == 0,
@@ -287,9 +291,11 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnSceneFlagUnset>() == 0,
                    "OnSceneFlagUnset hook registered when gEventLog.Enabled=0");
 
-        // Enable EventLog: all 10 S2H::GameHooks entries must register and fire.
+        // Enable EventLog: Init() on a fresh instance registers all 10 S2H::GameHooks entries.
         CVarSetInteger(kEventLogEnabledCVar, 1);
-        eventLog->InitElement();
+        auto enabledEventLog = std::make_shared<S2H::MMActiveGated<EventLogWindow>>(
+            kEventLogVisibilityCVar, kEventLogWindowName, ImVec2(520, 600));
+        enabledEventLog->Init();
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagSet>() == 1, "OnFlagSet hook missing");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnFlagUnset>() == 1, "OnFlagUnset hook missing");
         DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnSceneFlagSet>() == 1, "OnSceneFlagSet hook missing");
@@ -327,9 +333,12 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
             }
         }
 
-        // Disable EventLog: queued unregistrations flush before next Execute runs, logging 0 entries.
+        // Disable EventLog: Init() on a fresh instance queues unregistrations that flush before next Execute runs,
+        // logging 0 entries.
         CVarSetInteger(kEventLogEnabledCVar, 0);
-        eventLog->InitElement();
+        auto disabledAfterEnableEventLog = std::make_shared<S2H::MMActiveGated<EventLogWindow>>(
+            kEventLogVisibilityCVar, kEventLogWindowName, ImVec2(520, 600));
+        disabledAfterEnableEventLog->Init();
         MM_GameHooks_ExecuteOnFlagSet(FLAG_WEEK_EVENT_REG, 0x0102);
         MM_GameHooks_ExecuteOnFlagUnset(FLAG_WEEK_EVENT_REG, 0x0102);
         MM_GameHooks_ExecuteOnSceneFlagSet(0, FLAG_CYCL_SCENE_SWITCH, 1);
