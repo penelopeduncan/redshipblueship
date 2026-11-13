@@ -289,8 +289,7 @@ extern "C" ItemObtainability OoT_Rando_ShopShelfObtainability(uint16_t rc, int b
         const uint16_t restock = OoT_Rando_ShopRestockItem(rc);
         if (restock != (uint16_t)RG_NONE) {
             if (OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandomizer != nullptr) {
-                return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet(
-                    (RandomizerGet)restock);
+                return OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerGet((RandomizerGet)restock);
             }
             switch ((RandomizerGet)restock) {
                 case RG_MILK:
@@ -746,8 +745,7 @@ extern "C" int OoT_Rando_ShopRestockTestShelves(int foreignHosted) {
                     break;
                 }
                 if (OoT_Rando_ShopShelfDisplayedItem((uint16_t)rc, 0) != (uint16_t)c.placed ||
-                    OoT_Rando_ShopShelfDisplayedItem((uint16_t)rc, 1) !=
-                        (uint16_t)(restocks ? c.restock : c.placed)) {
+                    OoT_Rando_ShopShelfDisplayedItem((uint16_t)rc, 1) != (uint16_t)(restocks ? c.restock : c.placed)) {
                     step = 5;
                     break;
                 }
@@ -999,8 +997,8 @@ extern "C" int OoT_Rando_ShopRestockTestLogic(void) {
             }
 
             const RandomizerGet kLogicItems[] = {
-                RG_DEKU_SHIELD, RG_HYLIAN_SHIELD, RG_BOMBCHU_5, RG_DEKU_NUTS_5, RG_DEKU_STICK_1,
-                RG_ARROWS_5, RG_BOMBS_5, RG_DEKU_SEEDS_30, RG_RED_POTION_REFILL, RG_FISH,
+                RG_DEKU_SHIELD, RG_HYLIAN_SHIELD, RG_BOMBCHU_5,     RG_DEKU_NUTS_5,       RG_DEKU_STICK_1,
+                RG_ARROWS_5,    RG_BOMBS_5,       RG_DEKU_SEEDS_30, RG_RED_POTION_REFILL, RG_FISH,
             };
 
             if (step == 0) {
