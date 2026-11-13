@@ -325,6 +325,11 @@ extern "C" int OoT_ComboTextboxIcon(uint16_t id, ComboTextboxIcon* out) {
             return IconForItemId(ITEM_MASK_GERUDO, out);
         case RG_MASK_OF_TRUTH:
             return IconForItemId(ITEM_MASK_TRUTH, out);
+        // #1404 (SoH #6938): the egg and the letter became MOD_RANDOMIZER rows.
+        case RG_WEIRD_EGG:
+            return IconForItemId(ITEM_WEIRD_EGG, out);
+        case RG_ZELDAS_LETTER:
+            return IconForItemId(ITEM_LETTER_ZELDA, out);
         // The action-shuffle abilities have no OoT icon at all (SoH's tracker
         // draws them over a blank button background): the icon-less textbox.
         case RG_CLIMB:

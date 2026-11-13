@@ -86,4 +86,11 @@ void MM_PadMgr_RumbleSetSingle(s32 port, s32 enable);
 void MM_PadMgr_RumbleSet(u8 enable[MAXCONTROLLERS]);
 s32 PadMgr_ControllerHasRumblePak(s32 port);
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// RSBS test input seam (#1169 XW13, padmgr.c): controller 1's buttons for the next
+// pad update, ORed in once and cleared; refused outside an integration run.
+void MM_PadMgr_SetTestButtons(u16 buttons);
+u16 MM_PadMgr_GetTestButtons(void);
+#endif
+
 #endif

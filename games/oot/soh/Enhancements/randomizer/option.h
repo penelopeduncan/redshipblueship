@@ -226,6 +226,13 @@ class Option {
     uint8_t GetOptionIndex() const;
 
     /**
+     * @brief Get the default menu index for this Option.
+     *
+     * @return uint8_t
+     */
+    uint8_t GetMenuOptionDefault() const;
+
+    /**
      * @brief Set the delayedOption to the currently selected index so it can be restored later.
      */
     void SetDelayedOption();

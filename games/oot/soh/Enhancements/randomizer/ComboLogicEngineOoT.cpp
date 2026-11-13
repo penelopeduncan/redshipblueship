@@ -146,10 +146,12 @@
 #include "context.h"               // src/common — SharedItem, GameId
 #include "critical_renewables.h"   // src/common — OoTMM's critical-renewables rule (OoT's source, OoT's remainder)
 #include "foreign_items.h"         // src/common — the frozen pairing identity and combo record
+#include "shared_resources.h"      // src/common - #1169 XW10: the second family word
 #include "shared_items.h"          // src/common — #1542: the class of a row a leftover song check may take
 #include "crossing_store.h"        // src/common — #1542: the song-pool lock reads a song check's crossing
 #include "mm_warp_song_play.h"     // src/common — XW7's destination rule, which XW9's warp credit reads
 #include "warp_song_items.h"       // src/common — #1169 XW12 D5: the Soaring (OoT) roam rule under Off
+#include "warp_song_tracker.h"     // src/common — XW11: the check tracker's facts and their destinations
 #include "soh/SohGui/ImGuiUtils.h" // GetTextureForItemId: the describer's arrival-toast icon key
 #include "soh/Enhancements/randomizer/SongOfSoaringOoT.h" // OoT_SongOfSoaringOoTOn: the frozen Soaring rule
 
@@ -264,6 +266,13 @@ uint16_t sOoTTravelTestDest[RSBS_MMWP_SONG_COUNT] = {};
  *  i's root exit open through a delivered fact (OoT_ComboLogic_MMWarpTravel). Read
  *  and cleared by OoT_ComboLogic_TestTravelEdgeSeen only; nothing else reads it. */
 uint32_t sOoTTravelEdgeSeen = 0u;
+/** THE CHECK TRACKER'S FACTS (#1169 XW11): MM warp-song facts derived from the
+ *  FROZEN world (warp_song_tracker.h), set only around the second search of OoT's
+ *  ComputeAvailableChecks (OoT_ComboLogic_SetTrackerTravel) and cleared before it
+ *  returns, so no fill, hint or engine search sees them. The destinations are the
+ *  frozen warp record's, read when the facts are set. Read only outside a round. */
+uint32_t sOoTTrackerTravel = 0u;
+uint16_t sOoTTrackerDest[RSBS_MMWP_SONG_COUNT] = {};
 
 /** The six warp regions in OoTMM's song order (Minuet .. Prelude): the order of
  *  RSBS_XITEM2_SONG_MINUET_MM .. PRELUDE_MM and of XW7's pads. */
@@ -1294,9 +1303,10 @@ int OoT_SongCheckIndex(RandomizerCheck rc) {
  *    give. Each scene's progression reads the check's collection flag or the
  *    song's own learned flag, never the song in the inventory: the randomizer
  *    already places OoT's non-song items on all twelve. IMPA is refused while the frozen
- *    RSK_SKIP_CHILD_ZELDA is on: then Randomizer_InitSaveFile gives the check at
- *    creation through StartingItemGive (savefile.cpp), which has no crossing
- *    branch, and the MM item would be lost.
+ *    RSK_SKIP_CHILD_ZELDA is on, or (#1404, SoH #6938) the frozen Start with
+ *    Zelda's Letter is on with Shuffle Zelda's Letter off: then
+ *    Randomizer_InitSaveFile gives the check at creation through StartingItemGive
+ *    (savefile.cpp), which has no crossing branch, and the MM item would be lost.
  *
  * A pure function of the static location table and of settings frozen at file
  * creation (the song branch reads OoT's frozen Shuffle Songs and Skip Child
@@ -1315,8 +1325,12 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
         if (songCtx == nullptr) {
             return 0;
         }
+        // Child Zelda is skipped (Impa given at creation) under the legacy key or an
+        // unshuffled starting letter: the same test as Randomizer_InitSaveFile's.
         return Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
-                                             songCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0)
+                                             songCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0 ||
+                                                 (songCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get() != 0 &&
+                                                  songCtx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER).Get() == 0))
                    ? 1
                    : 0;
     }
@@ -3073,6 +3087,18 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * with MM's copy: ONE row, both solvers credit it, MM's copy is trimmed. The
  * song check it would have taken is an ordinary empty host. With every rule off
  * (the shipped default) nothing is held back and no world moves.
+ *
+ * #1169 XW15 (operator ruling: a shared song is at its default location when the
+ * songs are not shuffled): under Shuffle Songs Off a SHARED WARP SONG is never held
+ * back (Combo_SharedWarpSongFixedAtHome). The six stay on the Sheik checks
+ * item_pool.cpp put them on, so fill.cpp's release leaves them there, Link's Pocket
+ * never sees them, and the songs family is not armed for them; the coordinator
+ * credits Majora's Mask with each when its check is reached
+ * (OoT_ComboLogic_FixedSharedSongHost). The shared Song of Soaring stays on Majora's
+ * Mask's swamp check and OoT pools no copy of it. The only WARP song in OoT's pool
+ * under Off is an unshared Song of Soaring (OoT), which roams and which Link's
+ * Pocket may take. The first word's shared songs keep the release, so one of them
+ * is in the pool under Off too (#1552, #1561).
  */
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX ||
@@ -3080,8 +3106,17 @@ extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
         !OoT_ComboLogic_DeferGeneralPassWanted()) {
         return 0;
     }
-    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
-    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    {
+        auto ctx = Rando::Context::GetInstance();
+        if (ctx != nullptr &&
+            Combo_SharedWarpSongFixedAtHome(GAME_OOT, rg, (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get())) {
+            return 0;
+        }
+    }
+    ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+    // n < 0: more pairs than the buffer (#1169 XW10); the bag refuses the compose and
+    // the loop below holds nothing back.
     for (int i = 0; i < n; ++i) {
         if (pairs[i].ootId == rg) {
             return 1;
@@ -3090,13 +3125,52 @@ extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     return 0;
 }
 
+/**
+ * #1169 XW10: is @p rg the OoT member of a SHARED WARP SONG (a second-word family
+ * the frozen word arms) that this world holds back (above)? The six warp songs'
+ * natives and the Song of Soaring (OoT). Link's Pocket must never take one: its
+ * one copy is the bag's shared row under Song Locations, Dungeon Rewards and
+ * Anywhere (fill.cpp, RsbsSongHeldForBag); under Off it is held back nowhere
+ * (#1169 XW15) and sits on its own check. Off by default (RSBS_XITEM2_DEFAULTS
+ * 0), so a world with every rule off has none.
+ */
+extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
+    const uint32_t bit = Combo_SharedFamily2ArmedBitOf(GAME_OOT, rg);
+    return bit != 0u ? OoT_ComboLogic_SharedSongHeldBack(rg) : 0;
+}
+
+/**
+ * #1169 XW15: the OoT check that holds shared warp song @p rg as its FIXED content
+ * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song
+ * location item_pool.cpp placed it on, its Sheik check. -1 in every other world,
+ * for an id with no such check (the Song of Soaring (OoT), whose default check is
+ * Majora's Mask's), and with no seed context. combo_single_bag.c names the answer
+ * as a fixed credit, so Majora's Mask's logic holds the song once the check is
+ * reached.
+ */
+extern "C" int OoT_ComboLogic_FixedSharedSongHost(uint16_t rg) {
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr ||
+        !Combo_SharedWarpSongFixedAtHome(GAME_OOT, rg, (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get())) {
+        return -1;
+    }
+    for (const RandomizerCheck rc : ctx->allLocations) {
+        Rando::ItemLocation* il = ctx->GetItemLocation(rc);
+        if (il != nullptr && Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_SONG_LOCATION &&
+            il->GetPlacedRandomizerGet() == (RandomizerGet)rg && il->IsHidden()) {
+            return (int)rc;
+        }
+    }
+    return -1;
+}
+
 /** Does this world hold back any OoT song for the single bag (above)? */
 static bool OoTComboLogicHoldsBackASong() {
     if (!OoT_ComboLogic_DeferGeneralPassWanted()) {
         return false;
     }
-    ComboLogicSharedPair pairs[RSBS_XITEM_BIT_COUNT];
-    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XITEM_BIT_COUNT);
+    ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+    const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
     for (int i = 0; i < n; ++i) {
         if (OoT_ComboLogic_SharedSongHeldBack(pairs[i].ootId)) {
             return true;
@@ -3135,10 +3209,19 @@ extern "C" uint32_t OoT_ComboLogic_ConfinementArmed(void) {
     // #1085: a shared song held back from the restricted song placement is handed
     // to the general pass, the bag. It is the only song left in the pool at the
     // seam (the restricted pass took every other one, and Off placed them), so
-    // arming the family moves no other song. Under Off a Song of Soaring (OoT)
-    // has no vanilla check and waits in the pool (#1169 XW4); since XW12 its own
-    // rule arms it to roam (Combo_SongSoaringOoTRoamsUnderOff, D5), so whether it
-    // may leave OoT no longer depends on an unrelated held-back song.
+    // arming the family moves no other song.
+    //
+    // #1169 XW10 / XW12 (OoTMM: an added song with no fixed location is an ordinary
+    // pool item): under Off a separate Song of Soaring (OoT) has no vanilla check
+    // and waits in the pool (#1169 XW4), so its own rule arms the family for it
+    // (Combo_SongSoaringOoTRoamsUnderOff, D5), and whether it leaves OoT is the
+    // direction's and the PROGRESSION class's question alone, as for Majora's
+    // Mask's six added songs, never an unrelated shared rule's. Under the shared
+    // Song of Soaring OoT pools no copy (Combo_SongSoaringOoTCopies answers 0), so
+    // this disjunct is false; and since #1169 XW15 the hold-back is false under Off
+    // for every shared warp song too (it stays on its own default check), so a
+    // shared warp song arms nothing under Off. Under the other values a shared
+    // Soaring pair answers yes for RG_SONG_OF_SOARING_OOT, an ITEMTYPE_SONG.
     if (OoTComboLogicHoldsBackASong() ||
         (OoT_ComboLogic_DeferGeneralPassWanted() &&
          Combo_SongSoaringOoTRoamsUnderOff((uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get(),
@@ -3647,9 +3730,12 @@ extern "C" int OoT_ComboLogic_TestSweepForeignHostRule(int* outCounts) {
         const std::string& name = loc->GetName();
         if (const int song = OoT_SongCheckIndex(rc); song >= 0) {
             const auto sweepCtx = Rando::Context::GetInstance();
-            const bool want = sweepCtx != nullptr &&
-                              Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
-                                                            sweepCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0);
+            const bool want =
+                sweepCtx != nullptr &&
+                Combo_SongCheckAcceptsForeign(song, OoT_Combo_FrozenShuffleSongs(),
+                                              sweepCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Get() != 0 ||
+                                                  (sweepCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get() != 0 &&
+                                                   sweepCtx->GetOption(RSK_SHUFFLE_ZELDAS_LETTER).Get() == 0));
             if (accepted != want) {
                 fprintf(stderr,
                         "[OoT/ComboLogic] host-rule sweep: song check '%s' (check %d) is %s, the pure verdict for the "
@@ -3813,6 +3899,7 @@ std::shared_ptr<Rando::Context> sS0SongHostHeldCtx;
 bool sS0SongHostCreatedCtx = false;
 uint8_t sS0SongHostPriorSongs = 0;
 uint8_t sS0SongHostPriorSkip = 0;
+uint8_t sS0SongHostPriorLetter = 0;
 } // namespace
 
 /** Release what OoT_ComboLogic_TestHoldSongContext holds: the two options put
@@ -3826,6 +3913,7 @@ extern "C" void OoT_ComboLogic_TestReleaseSongContext(void) {
     if (!sS0SongHostCreatedCtx) {
         sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_SONGS).Set(sS0SongHostPriorSongs);
         sS0SongHostHeldCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(sS0SongHostPriorSkip);
+        sS0SongHostHeldCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(sS0SongHostPriorLetter);
     }
     sS0SongHostHeldCtx.reset();
     sS0SongHostCreatedCtx = false;
@@ -3850,8 +3938,12 @@ extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda)
     sS0SongHostCreatedCtx = created;
     sS0SongHostPriorSongs = ctx->GetOption(RSK_SHUFFLE_SONGS).Get();
     sS0SongHostPriorSkip = ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Get();
+    sS0SongHostPriorLetter = ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get();
     ctx->GetOption(RSK_SHUFFLE_SONGS).Set((uint8_t)songs);
     ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Set((uint8_t)skipChildZelda);
+    // #1404: an unshuffled starting letter also skips child Zelda (the host rule
+    // above), so the held context starts without one; `skipChildZelda` decides.
+    ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(0);
     sS0SongHostHeldCtx = ctx;
     return 0;
 }
@@ -4077,9 +4169,11 @@ extern "C" int OoT_ComboLogic_TestFillAdvancement(uint16_t id) {
 /**
  * location_access/root.cpp's MM-warp disjunct for song @p song (0 Minuet .. 5
  * Prelude, OoTMM's order): Combo_MMWarpPlay_TravelEdgeOpen over this round's state.
- * False outside a coordinator round, so OoT's own fill, its restricted passes, its
- * entrance validation and its check tracker, which evaluate the same exits, are
- * unchanged. The region file adds the child-at-day terms.
+ * False outside a coordinator round, so OoT's own fill, its restricted passes and
+ * its entrance validation, which evaluate the same exits, are unchanged; the one
+ * exception is the check tracker's second search (#1169 XW11,
+ * OoT_ComboLogic_SetTrackerTravel), armed from the frozen world with the frozen
+ * record's destinations. The region file adds the child-at-day terms.
  */
 extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
     if (song < 0 || song >= RSBS_MMWP_SONG_COUNT) {
@@ -4089,6 +4183,11 @@ extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
         return Combo_MMWarpPlay_TravelEdgeOpen(sOoTTravelTestInRound, sOoTTravelTestAccepted, song,
                                                sOoTTravelTestDest[song]);
     }
+    if (!sInQuery && sOoTTrackerTravel != 0u) {
+        // #1169 XW11: the check tracker's second search, never a round's. Not an
+        // sOoTTravelEdgeSeen hit: that observable stays a round's.
+        return Combo_MMWarpPlay_TravelEdgeOpen(true, sOoTTrackerTravel, song, sOoTTrackerDest[song]);
+    }
     const bool open = Combo_MMWarpPlay_TravelEdgeOpen(sInQuery, sOoTTravelAccepted, song, sOoTTravelDest[song]);
     if (open) {
         // combo-warp-travel-rounds: a round's search evaluated this song's root exit
@@ -4096,6 +4195,29 @@ extern "C" bool OoT_ComboLogic_MMWarpTravel(int song) {
         sOoTTravelEdgeSeen |= 1u << song;
     }
     return open;
+}
+
+/**
+ * #1169 XW11: arm the check tracker's MM facts @p facts (RSBS_COMBO_TRAVEL_INTO_OOT
+ * bits, Combo_TrackerTravel_OoTFactsNow's answer) for the search that follows, and
+ * read each song's destination from the frozen warp record
+ * (Combo_TrackerTravel_OoTDest), never from the graph; 0 disarms and zeroes them.
+ * Only OoT's ComputeAvailableChecks calls it, around its second search.
+ */
+extern "C" void OoT_ComboLogic_SetTrackerTravel(uint32_t facts) {
+    sOoTTrackerTravel = facts & RSBS_COMBO_TRAVEL_INTO_OOT;
+    for (int song = 0; song < RSBS_MMWP_SONG_COUNT; ++song) {
+        sOoTTrackerDest[song] = sOoTTrackerTravel != 0u ? Combo_TrackerTravel_OoTDest(song) : 0u;
+    }
+}
+
+/** TEST BRIDGE (tracker-warp-travel): the armed tracker facts, and song @p song's
+ *  armed destination into @p outDest (may be NULL; 0 out of range). */
+extern "C" uint32_t OoT_ComboLogic_TestTrackerTravel(int song, uint16_t* outDest) {
+    if (outDest != nullptr) {
+        *outDest = (song >= 0 && song < RSBS_MMWP_SONG_COUNT) ? sOoTTrackerDest[song] : 0u;
+    }
+    return sOoTTrackerTravel;
 }
 
 /** TEST BRIDGE (combo-warp-travel-rounds): the songs (bit i song i) whose root

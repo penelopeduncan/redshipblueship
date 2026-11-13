@@ -2446,6 +2446,7 @@ u8 OoT_Item_Give(PlayState* play, u8 item) {
             if (item >= ITEM_POCKET_EGG) {
                 Flags_SetRandomizerInf(item - ITEM_POCKET_EGG + RAND_INF_ADULT_TRADES_HAS_POCKET_EGG);
             } else if (item == ITEM_LETTER_ZELDA) {
+                Flags_SetRandomizerInf(RAND_INF_ZELDAS_LETTER);
                 // don't care about zelda's letter if it's already been shown to the guard
                 if (!OoT_Flags_GetInfTable(INFTABLE_SHOWED_ZELDAS_LETTER_TO_GATE_GUARD)) {
                     Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_LETTER_ZELDA);
@@ -2759,6 +2760,23 @@ s32 OoT_Inventory_ConsumeFairy(PlayState* play) {
     return 0;
 }
 
+// SOH helper
+bool Inventory_HatchWeirdEgg(PlayState* play) {
+    if (!IS_RANDO) {
+        return OoT_Inventory_ReplaceItem(play, ITEM_WEIRD_EGG, ITEM_CHICKEN);
+    }
+
+    if (!LINK_IS_CHILD || !Flags_GetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_WEIRD_EGG)) {
+        return 0;
+    }
+
+    Flags_UnsetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_WEIRD_EGG);
+    Flags_SetRandomizerInf(RAND_INF_CHILD_TRADES_HAS_CHICKEN);
+    OoT_Inventory_ReplaceItem(play, ITEM_WEIRD_EGG, ITEM_CHICKEN);
+    return 1;
+}
+
+// SOH helper
 bool Inventory_HatchPocketCucco(PlayState* play) {
     if (!IS_RANDO) {
         return OoT_Inventory_ReplaceItem(play, ITEM_POCKET_EGG, ITEM_POCKET_CUCCO);

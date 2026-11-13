@@ -873,6 +873,80 @@ move.
 (`362833B2` to `EF3042B8`, still 17 hints). `ComboSingleBag`'s
 `kCsbFLoadBearingFixedChecks` stays empty and leg G keeps its seed.
 
+The starting-items backport (2026-11-12, PR #1555; issue #1404), still version 5.
+Ship of Harkinian's Starting Items page comes to Ocarina of Time: most items,
+upgrades and bottles and the eight Happy Mask Shop masks can be starting choices.
+It brings Shuffle Zelda's Letter, Start with Zelda's Letter, a three-way Shuffle
+Weird Egg (Vanilla, Shuffled, Skip Waking Talon) and Progressive Goron Sword.
+Kakariko Gate and Skip Child Zelda leave the menus but still fold in `RSG_OPEN`
+and `RSG_TIMESAVERS`. Malon's song and Talon's chickens now wait on
+`LOGIC_MALON_RETURNED_FROM_CASTLE` and `LOGIC_TALON_RETURNED_FROM_CASTLE`
+instead of Zelda's Letter. Every new option is off by default, but the settings
+fold (`FoldSettingsString`) takes every Setting option of every group that holds
+options, menu sections included, and no new option takes the skip for an inert
+option at its default (the rule that #1363, #1364, #1407, #1414 and #1434 use). So
+in a default world the fold text changes:
+
+* It loses 25 lines: the four old Starting Items menu sections (22 lines), Skip
+  Child Zelda's line in the Logic section, Kakariko Gate's in Area Access, and the
+  duplicate Song of Time in `RSG_STARTING_SONGS`.
+* It gains 47 lines: Shuffle Zelda's Letter and Progressive Goron Sword twice each,
+  and 43 lines in `RSG_STARTING_ITEMS` (Start with Master Sword, moved from the old
+  Equips section, and the 42 new starting options, each `Off`).
+* Shuffle Weird Egg's two lines read `Vanilla` where they read `Off`.
+
+The skip alone would not have kept the old text: the removed sections and the Weird
+Egg text change it. All thirteen goldens moved: the twelve seed digests and
+`paired-attempt-digest`.
+
+Measured against the pins before it (`seed-digest-default` unless named):
+
+* INPUT: `settingsHash` moves in all twelve seed digests (`87ACBBCC` to `45C1BE08` in
+  the six that share it, `seed-digest-default` among them). `comboSettingsHash` moves
+  with it in all twelve (`C882AB8B` to `3BD3C897`), because the fingerprint folds
+  OoT's settings hash. `seed`, `comboSettings`, `mmFinalSeed` and `ladderMasterSeed`
+  stay: neither MM's profile nor the combo record changed.
+* OoT's general pass: `placementHash` moves (`C1C72F31` to `07BCF862`), because the
+  fill's stream is seeded from the seed and the fold text together. `placedCount`
+  (260) and `ootStartingItems` stay. The prices stay too, except in
+  `seed-digest-shopsanity`, where `ootPriceCount` goes from 114 to 113 and
+  `ootPriceDigest` moves.
+* The bag: `bagRows`, `bagTrimmedOoT`, `bagTrimmedMM`, `bagRequiredPlaced` and
+  `bagHomeOnly` stay. `bagSeed` moves (`540ECF17` to `0B2533DF`), because the bag's
+  identity folds the settings hash and the fingerprint. In `seed-digest-armed-caps`,
+  `armedBagDigest` and `armedTrimSeed` move and its row counts stay.
+* After that: the leftover counts (75 and 116 to 76 and 115), `coordinatorDigest`,
+  `mmPlacementHash`, `ootFinalPlacementHash` (`ootFinalPlacedCount` stays 490),
+  `crossingDigest`, the crossing counts (54 and 32 to 57 and 36) and every per-slot
+  line. Also `ootHintDigest` (`ootHintCount` stays 45), the MM hint count (216 to 220)
+  and digest, the foolish areas and `mmFreeStoneDigest`. In `seed-digest-entrances`,
+  `entranceDigest` moves too (`entranceCount` stays 132).
+* `paired-attempt-digest` moves `bagSeed`, `mmPlacementHash`,
+  `ootFinalPlacementHash`, `crossingDigest`, the crossing counts (54 and 32 to 50
+  and 31), every per-slot line, `ootHintDigest`, the MM hint count (215 to 212)
+  and digest, the foolish areas and `mmFreeStoneDigest`. It keeps
+  `ladderMasterSeed`, `mmFinalSeed`, `winningAttempt`, `mmPairedAttempt` (2),
+  `bagRows` and `bagRounds`.
+* Rounds: `seed-digest-direction-forward` now takes three batch attempts (284 rounds
+  to 316) and `seed-digest-excludes-tricks` one (533 to 284). The others keep their
+  counts, and `mmPairedAttempt` stays 1 in every seed digest.
+
+Why no bump, and the residuals: generator 5 has not shipped. Unlike the change
+before it, this one moves an input. With every new option off, a world's
+`settingsHash`, and so its fingerprint, differ before and after this change. A
+player who shares a seed and settings with someone on a generator-5 build from
+before it gets a different world under a different fingerprint, so both players
+need a build from after this change. Released builds are not affected:
+`v0.5.0-alpha` is generator 4, and its seed packages are already refused. A
+stored Skip Child Zelda is converted to Start with Zelda's Letter and Skip Waking
+Talon, and both it and a stored Kakariko Gate are cleared, once at boot (config
+version 11). The two keys stay registered and folded, so a value that still
+reaches them (a spoiler or seed package that restores them, a test row) changes
+the fingerprint. `FinalizeSettings` maps a Skip Child Zelda it sees at generation
+the same way, and the file's creation still honours either key.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
+(`EF3042B8` to `D78AAD4F`, still 17 hints), and `ComboSingleBag` needed no pin change.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned

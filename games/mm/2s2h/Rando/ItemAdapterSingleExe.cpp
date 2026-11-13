@@ -84,7 +84,10 @@ extern "C" {
 #include "combo_item_view.h"
 #include "foreign_items.h" // RSBS_XITEM_* / RSBS_XFAMILY_SLOT_*: shared families a row is MM's copy of (#1065, #1067)
 #include "game.h"          // MM_SAVE_CONTEXT_SIZE
-#include "shared_resources.h" // Combo_SaveIsLiveFile, Combo_MakeHealthQuarters (the Shared column's live view, #971)
+#include "shared_resources.h"  // Combo_SaveIsLiveFile, Combo_MakeHealthQuarters (the Shared column's live view, #971)
+#include "warp_song_items.h"   // Combo_AddedSongRow: the added warp songs' rows (#1169 XW11)
+#include "warp_song_tracker.h" // Combo_TrackerTravel_RegisterMMReader: MM's frozen warp songs (#1169 XW11)
+#include "warp_songs_mm.h"     // Combo_MMWarpSongOwned: their ownership byte (#1169 XW11)
 
 // The view hands this TU either the unified live storage (unified_save.c,
 // alignas(16)) or MM's shadow, a std::vector<uint8_t> buffer (context.cpp),
@@ -511,6 +514,13 @@ bool MMItemDerive(const SaveContext* src, const MMItemRowDef& def, ComboItemRow*
         case MMRK_QUEST:
             MMItemFillRando(out, def.rando);
             out->have = CHECK_QUEST_ITEM(def.data) != 0;
+            // #1169 XW14: under the shared Song of Soaring MM's own song is held when the family is held now
+            // (Combo_SharedFamilies2HeldNow), as the Song of Soaring (OoT) row is, so a song found in Hyrule shows
+            // held here before the next arrival gives MM its copy. 0 with no shared rule frozen: unchanged.
+            if (def.data == (uint32_t)QUEST_SONG_SOARING &&
+                (Combo_SharedFamilies2HeldNow() & (uint32_t)RSBS_XITEM2_SHARED_SONG_SOARING) != 0u) {
+                out->have = true;
+            }
             return true;
         case MMRK_LULLABY: {
             // Progressive (RI_PROGRESSIVE_LULLABY): the row names the tier held.
@@ -786,6 +796,98 @@ bool MMItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
     return false;
 }
 
+// ---- #1169 XW11: Ocarina of Time's warp songs added to Majora's Mask ----------------
+//
+// Zero to six rows right after the Oath to Order, in OoTMM's order (WarpSongsMM.cpp kWarpSongs), each only in a
+// randomizer file whose frozen second rules word has its extension on (Combo_AddedSongRow): a file with every rule
+// off has exactly the rows and indices it had before. Each is MM's own item (its name and MM's note, Items.cpp and
+// MM_WarpSongMM_IconPath), tinted in the colour both trackers give the OoT song (SoH's songMapping, ImGuiUtils.cpp)
+// so the six notes can be told apart, and held through the ownership byte in the combo context
+// (Combo_MMWarpSongOwned), the authoritative record whichever buffer the view hands over, or, under the song's shared
+// rule (#1169 XW14), through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running
+// game's own live copy under that game's own live-file probe). Each game keeps its own row (sharedFamily stays 0: the
+// Shared group is first-word only), and Ocarina of Time's own Minuet .. Prelude rows read the same answer, so under the
+// shared rule both games show the song held, as OoTMM does. MM's own Song of Soaring does the same in MMItemDerive.
+struct MMItemAddedSongDef {
+    uint32_t rule;
+    RandoItemId rando;
+    const char* slotKey;
+    uint32_t tint;
+};
+const MMItemAddedSongDef kMMItemAddedSongs[] = {
+    { RSBS_XITEM2_SONG_MINUET_MM, RI_SONG_MINUET, "song_minuet_mm", 0x96FF64FFu },
+    { RSBS_XITEM2_SONG_BOLERO_MM, RI_SONG_BOLERO, "song_bolero_mm", 0xFF5028FFu },
+    { RSBS_XITEM2_SONG_SERENADE_MM, RI_SONG_SERENADE, "song_serenade_mm", 0x6496FFFFu },
+    { RSBS_XITEM2_SONG_REQUIEM_MM, RI_SONG_REQUIEM, "song_requiem_mm", 0xFFA000FFu },
+    { RSBS_XITEM2_SONG_NOCTURNE_MM, RI_SONG_NOCTURNE, "song_nocturne_mm", 0xFF64FFFFu },
+    { RSBS_XITEM2_SONG_PRELUDE_MM, RI_SONG_PRELUDE, "song_prelude_mm", 0xFFF064FFu },
+};
+constexpr int kMMItemAddedSongCount = (int)(sizeof(kMMItemAddedSongs) / sizeof(kMMItemAddedSongs[0]));
+static_assert(kMMItemAddedSongCount == (int)RSBS_MM_WARP_SONG_COUNT, "the six songs of XW5, in OoTMM's order");
+
+/** Song `i`'s row for the buffer's file (nothing shown in a file that is not a randomizer file). */
+ComboAddedSongRow MMItemAddedSongRow(const SaveContext* src, int i) {
+    if (!IS_RANDO) {
+        return ComboAddedSongRow{};
+    }
+    const MMItemAddedSongDef& def = kMMItemAddedSongs[i];
+    const uint32_t sharedBit = def.rule << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
+    return Combo_AddedSongRow(Combo_ComboCrossItemFlags2(), def.rule, Combo_MMWarpSongOwned(def.rule),
+                              (Combo_SharedFamilies2HeldNow() & sharedBit) != 0u);
+}
+
+/** How many added songs the buffer's file shows. */
+int MMItemAddedSongRows(const SaveContext* src) {
+    if ((Combo_ComboCrossItemFlags2() & (RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT)) == 0u) {
+        return 0; // every rule off: one read
+    }
+    int n = 0;
+    for (int i = 0; i < kMMItemAddedSongCount; i++) {
+        n += MMItemAddedSongRow(src, i).shown != 0u ? 1 : 0;
+    }
+    return n;
+}
+
+/** Added song row `index` (0-based over the rows shown), or false past the last. */
+bool MMItemDeriveAddedSong(const SaveContext* src, int index, ComboItemRow* out) {
+    for (int i = 0; i < kMMItemAddedSongCount; i++) {
+        const ComboAddedSongRow song = MMItemAddedSongRow(src, i);
+        if (song.shown == 0u) {
+            continue;
+        }
+        if (index == 0) {
+            out->group = "Songs";
+            out->slotKey = kMMItemAddedSongs[i].slotKey;
+            MMItemFillRando(out, kMMItemAddedSongs[i].rando);
+            // #1169 XW14: under its shared rule the song is named without "(MM)".
+            if (const char* shared =
+                    Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)kMMItemAddedSongs[i].rando)) {
+                out->name = shared;
+            }
+            out->iconAspect = 32.0f / 46.0f; // as MMItemDerive gives every song
+            out->iconTint = kMMItemAddedSongs[i].tint;
+            out->have = song.have != 0u;
+            out->sharedFamily = song.sharedFamily;
+            return true;
+        }
+        index--;
+    }
+    return false;
+}
+
+/** The fixed-row index the added songs are inserted at: right after the Oath to Order. */
+int MMItemSongsEnd(void) {
+    static const int sEnd = [] {
+        for (int i = 0; i < kMMItemRowCount; i++) {
+            if (std::strcmp(kMMItemRows[i].slotKey, "song_oath") == 0) {
+                return i + 1;
+            }
+        }
+        return kMMItemRowCount;
+    }();
+    return sEnd;
+}
+
 // ---- the vtable ----------------------------------------------------------------
 
 int MMItemCount(void) {
@@ -799,7 +901,7 @@ int MMItemCountFor(const void* buf) {
         return kMMItemRowCount;
     }
     const SaveContext* src = static_cast<const SaveContext*>(buf);
-    return kMMItemRowCount + MMItemGatedRowCount(src);
+    return kMMItemRowCount + MMItemAddedSongRows(src) + MMItemGatedRowCount(src);
 }
 
 bool MMItemHasSave(const void* buf) {
@@ -811,6 +913,49 @@ bool MMItemHasSave(const void* buf) {
     // tracker's descriptor): an all-zero shadow is "no data", not empty pockets.
     static const char kNewf[6] = { 'Z', 'E', 'L', 'D', 'A', '3' };
     return std::memcmp(gSaveContext.save.saveInfo.playerData.newf, kNewf, sizeof(kNewf)) == 0;
+}
+
+/**
+ * #1169 XW11: MM's reader for OoT's check tracker (warp_song_tracker.h), over MM's
+ * FROZEN save: the OoT warp songs (bit i song i, OoTMM's order) whose notes MM can
+ * play there, which is CAN_PLAY_OOT_WARP_SONG's inventory half (Logic.h): the
+ * Ocarina of Time in its slot and canPlayOoTWarpSong's buttons, read straight from
+ * the save's randoInf (MMItemButtonHeld). The button flags exist in every world: an
+ * unshuffled one starts with all five (StartingItems.cpp, GiveItem.cpp), so this
+ * never goes through the shuffle-gated button rows. Ownership and the rules are the
+ * caller's. 0 for a blob that is not a created file.
+ */
+uint32_t MMItemTrackerPlayable(const void* buf, size_t size) {
+    if (size < sizeof(SaveContext) || !MMItemHasSave(buf)) {
+        return 0u;
+    }
+    const SaveContext* src = static_cast<const SaveContext*>(buf);
+    if (INV_CONTENT(ITEM_OCARINA_OF_TIME) != ITEM_OCARINA_OF_TIME) {
+        return 0u;
+    }
+    // canPlayOoTWarpSong's sets (Logic.h, OoTMM can_play_tp_*), bit n = button n of A, C-Down, C-Right,
+    // C-Left, C-Up (RANDO_INF_OBTAINED_OCARINA_BUTTON_A + n).
+    static const uint8_t kSongButtons[RSBS_TRACKER_TRAVEL_SONG_COUNT] = {
+        0x1D, // Minuet: A, C-Up, C-Right, C-Left
+        0x07, // Bolero: A, C-Right, C-Down
+        0x0F, // Serenade: A, C-Right, C-Down, C-Left
+        0x07, // Requiem: A, C-Right, C-Down
+        0x0F, // Nocturne: A, C-Right, C-Down, C-Left
+        0x1C, // Prelude: C-Up, C-Right, C-Left
+    };
+    uint8_t held = 0u;
+    for (int button = 0; button < kMMButtonRowCount; button++) {
+        if (MMItemButtonHeld(src, button)) {
+            held = (uint8_t)(held | (1u << button));
+        }
+    }
+    uint32_t mask = 0u;
+    for (int song = 0; song < RSBS_TRACKER_TRAVEL_SONG_COUNT; song++) {
+        if ((held & kSongButtons[song]) == kSongButtons[song]) {
+            mask |= 1u << song;
+        }
+    }
+    return mask;
 }
 
 /** The shared family (foreign_items.h) a slot row's item is MM's own copy of,
@@ -863,6 +1008,15 @@ bool MMItemRowAt(const void* buf, int index, ComboItemRow* out) {
     const uint8_t freshness = out->freshness; // the view's field; left alone
     std::memset(out, 0, sizeof(*out));
     out->freshness = freshness;
+    // #1169 XW11: the added warp songs after the Oath to Order, only where their frozen rules are on.
+    const int songsEnd = MMItemSongsEnd();
+    if (index >= songsEnd) {
+        const int added = MMItemAddedSongRows(src);
+        if (index - songsEnd < added) {
+            return MMItemDeriveAddedSong(src, index - songsEnd, out);
+        }
+        index -= added;
+    }
     if (index >= kMMItemRowCount) {
         return MMItemDeriveGated(src, index - kMMItemRowCount, out);
     }
@@ -1207,6 +1361,13 @@ extern "C" void MM_ItemAdapter_Register(void) {
         MMItemSharedIcon, MMItemCountFor, MMItemSharedLive, MMItemCatalogCount, MMItemCatalogRowAt,
     };
     Combo_Item_RegisterOps((uint8_t)GAME_MM, &kOps);
+    // #1169 XW11: OoT's check tracker reads MM's frozen warp songs through this TU.
+    Combo_TrackerTravel_RegisterMMReader(MMItemTrackerPlayable);
+}
+
+/** TEST BRIDGE (tracker-warp-travel): MM's reader above, over @p buf. */
+extern "C" uint32_t MM_ItemAdapter_TestTrackerPlayable(const void* buf, size_t size) {
+    return MMItemTrackerPlayable(buf, size);
 }
 
 // ============================================================================
@@ -1309,6 +1470,22 @@ extern "C" int MM_ItemAdapter_TestAuthorOcarinaButtons(void* buf, size_t size, i
             s->save.shipSaveInfo.rando.randoInf[flag >> 4] |= (u16)(1u << (flag & 0xF));
         }
     }
+    return 1;
+}
+
+/**
+ * #1169 XW11 (tracker-warp-travel, combo-item-view): the mode-0 save above (a
+ * randomizer file that does not shuffle the buttons, whose button flags are the
+ * starting grant's) holding the buttons of `heldMask` (bit i: A, C-Down, C-Right,
+ * C-Left, C-Up), with the Ocarina of Time in its slot when `ocarina`. Returns 1,
+ * or 0 as MM_ItemAdapter_TestAuthorSave.
+ */
+extern "C" int MM_ItemAdapter_TestAuthorWarpSongWorld(void* buf, size_t size, int ocarina, unsigned heldMask) {
+    if (MM_ItemAdapter_TestAuthorOcarinaButtons(buf, size, 0, heldMask) != 1) {
+        return 0;
+    }
+    SaveContext* s = static_cast<SaveContext*>(buf);
+    s->save.saveInfo.inventory.items[SLOT_OCARINA] = ocarina ? ITEM_OCARINA_OF_TIME : ITEM_NONE;
     return 1;
 }
 

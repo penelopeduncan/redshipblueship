@@ -71,6 +71,7 @@ extern std::unordered_map<RandoCheckId, std::string> accessLogicFuncs;
 #include "combo_mm_locations_view.h" // Randomizer > MM Locations' check table (#1101 lane R3)
 #include "combo_mm_options_view.h"   // MM_Rando_PairedLogicShown: the resolved MM Logic (#1367)
 #include "game.h"                    // MM_SAVE_CONTEXT_SIZE
+#include "warp_song_items.h"         // Combo_SharedFamily2DisplayName: a shared warp song's name (#1169 XW14)
 
 // The reader in combo_tracker_view.c walks the row's flag bytes as u8 and the
 // header fields as u32; these pin the assumptions to the real types.
@@ -329,6 +330,10 @@ const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t*
     }
     if (outGame != nullptr) {
         *outGame = (uint8_t)GAME_MM;
+    }
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
+        return shared;
     }
     return item->second.name;
 }

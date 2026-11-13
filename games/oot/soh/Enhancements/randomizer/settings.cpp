@@ -482,6 +482,7 @@ void Settings::CreateOptions() {
     });
     OPT_U8(RSK_BOMBCHU_BAG, "Bombchu Bag", {"None", "Single Bag", "Progressive Bags"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("BombchuBag"), mOptionDescriptions[RSK_BOMBCHU_BAG], WIDGET_CVAR_COMBOBOX, RO_BOMBCHU_BAG_NONE);
     OPT_U8(RSK_ENABLE_BOMBCHU_DROPS, "Bombchu Drops", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("EnableBombchuDrops"), mOptionDescriptions[RSK_ENABLE_BOMBCHU_DROPS], WIDGET_CVAR_COMBOBOX, RO_AMMO_DROPS_ON);
+    OPT_BOOL(RSK_PROGRESSIVE_GORON_SWORD, "Progressive Goron Sword", CVAR_RANDOMIZER_SETTING("ProgressiveGoronSword"), mOptionDescriptions[RSK_PROGRESSIVE_GORON_SWORD]);
     // TODO: AmmoDrops and/or HeartDropRefill, combine with/separate Ammo Drops from Bombchu Drops?
     OPT_U8(RSK_TRIFORCE_HUNT, "Triforce Hunt", {"Off", "Win", "Ganon's Boss Key"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("TriforceHunt"), mOptionDescriptions[RSK_TRIFORCE_HUNT]);
     OPT_CALLBACK(RSK_TRIFORCE_HUNT, {
@@ -889,6 +890,14 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_MASTER_SWORD, "Shuffle Master Sword", CVAR_RANDOMIZER_SETTING("ShuffleMasterSword"), mOptionDescriptions[RSK_SHUFFLE_MASTER_SWORD]);
 #endif
     OPT_BOOL(RSK_SHUFFLE_CHILD_WALLET, "Shuffle Child's Wallet", CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), mOptionDescriptions[RSK_SHUFFLE_CHILD_WALLET], IMFLAG_NONE);
+    OPT_CALLBACK(RSK_SHUFFLE_CHILD_WALLET, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChildWallet"), 0)) {
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingWallet"));
+            mOptions[RSK_STARTING_WALLET].Disable("Disabled because Shuffle Child's Wallet is on.");
+        } else {
+            mOptions[RSK_STARTING_WALLET].Enable();
+        }
+    });
     OPT_BOOL(RSK_INCLUDE_TYCOON_WALLET, "Include Tycoon Wallet", CVAR_RANDOMIZER_SETTING("IncludeTycoonWallet"), mOptionDescriptions[RSK_INCLUDE_TYCOON_WALLET]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1425: on by default, OoTMM's shuffleOcarinasOot (see Shuffle Master Sword above).
@@ -901,12 +910,29 @@ void Settings::CreateOptions() {
     });
     OPT_BOOL(RSK_SHUFFLE_OCARINA_BUTTONS, "Shuffle Ocarina Buttons", CVAR_RANDOMIZER_SETTING("ShuffleOcarinaButtons"), mOptionDescriptions[RSK_SHUFFLE_OCARINA_BUTTONS]);
     OPT_BOOL(RSK_SHUFFLE_SWIM, "Shuffle Swim", CVAR_RANDOMIZER_SETTING("ShuffleSwim"), mOptionDescriptions[RSK_SHUFFLE_SWIM]);
+    OPT_CALLBACK(RSK_SHUFFLE_SWIM, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleSwim"), 0)) {
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingScale"));
+            mOptions[RSK_STARTING_SCALE].Disable("Disabled because Shuffle Swim is on.");
+        } else {
+            mOptions[RSK_STARTING_SCALE].Enable();
+        }
+    });
     OPT_BOOL(RSK_SHUFFLE_GRAB, "Shuffle Grab", CVAR_RANDOMIZER_SETTING("ShuffleGrab"), mOptionDescriptions[RSK_SHUFFLE_GRAB]);
+    OPT_CALLBACK(RSK_SHUFFLE_GRAB, {
+        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleGrab"), 0)) {
+            CVarClear(CVAR_RANDOMIZER_SETTING("StartingStrength"));
+            mOptions[RSK_STARTING_STRENGTH].Disable("Disabled because Shuffle Grab is on.");
+        } else {
+            mOptions[RSK_STARTING_STRENGTH].Enable();
+        }
+    });
     OPT_BOOL(RSK_SHUFFLE_CLIMB, "Shuffle Climb", CVAR_RANDOMIZER_SETTING("ShuffleClimb"), mOptionDescriptions[RSK_SHUFFLE_CLIMB]);
     OPT_BOOL(RSK_SHUFFLE_CRAWL, "Shuffle Crawl", CVAR_RANDOMIZER_SETTING("ShuffleCrawl"), mOptionDescriptions[RSK_SHUFFLE_CRAWL]);
     OPT_BOOL(RSK_SHUFFLE_SPEAK, "Shuffle Jabber Nuts", CVAR_RANDOMIZER_SETTING("ShuffleSpeak"), mOptionDescriptions[RSK_SHUFFLE_SPEAK]);
     OPT_BOOL(RSK_SHUFFLE_OPEN_CHEST, "Shuffle Open Chest", CVAR_RANDOMIZER_SETTING("ShuffleOpenChest"), mOptionDescriptions[RSK_SHUFFLE_OPEN_CHEST]);
-    OPT_BOOL(RSK_SHUFFLE_WEIRD_EGG, "Shuffle Weird Egg", CVAR_RANDOMIZER_SETTING("ShuffleWeirdEgg"), mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG]);
+    OPT_U8(RSK_SHUFFLE_WEIRD_EGG, "Shuffle Weird Egg", {"Vanilla", "Shuffled", "Skip Waking Talon"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleWeirdEgg"), mOptionDescriptions[RSK_SHUFFLE_WEIRD_EGG], WIDGET_CVAR_COMBOBOX, RO_WEIRD_EGG_VANILLA);
+    OPT_BOOL(RSK_SHUFFLE_ZELDAS_LETTER, "Shuffle Zelda's Letter", CVAR_RANDOMIZER_SETTING("ShuffleZeldasLetter"), mOptionDescriptions[RSK_SHUFFLE_ZELDAS_LETTER]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1425: on by default, OoTMM's shuffleGerudoCard (see Shuffle Master Sword above).
     OPT_BOOL(RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD, "Shuffle Gerudo Membership Card", CVAR_RANDOMIZER_SETTING("ShuffleGerudoToken"), mOptionDescriptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_ON);
@@ -1314,17 +1340,9 @@ void Settings::CreateOptions() {
     //Dummied out due to redundancy with TimeSavers.SkipChildStealth until such a time that logic needs to consider child stealth e.g. because it's freestanding checks are added to freestanding shuffle.
     //To undo this dummying, readd this setting to an OptionGroup so it appears in the UI, then edit the timesaver check hooks to look at this, and the timesaver setting to lock itself as needed.
     OPT_BOOL(RSK_SKIP_CHILD_STEALTH, "Skip Child Stealth", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipChildStealth"), mOptionDescriptions[RSK_SKIP_CHILD_STEALTH], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
+    // Retired from UI by SoH #6938 (split into RSK_STARTING_ZELDAS_LETTER + RSK_SHUFFLE_WEIRD_EGG = RO_WEIRD_EGG_SKIP_TALON);
+    // kept registered so #1542 / paired tests calling ctx->GetOption(RSK_SKIP_CHILD_ZELDA) remain valid.
     OPT_BOOL(RSK_SKIP_CHILD_ZELDA, "Skip Child Zelda", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipChildZelda"), mOptionDescriptions[RSK_SKIP_CHILD_ZELDA], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
-    OPT_CALLBACK(RSK_SKIP_CHILD_ZELDA, {
-        // Shuffle Weird Egg - Disabled when Skip Child Zelda is active
-        if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("SkipChildZelda"), RO_GENERIC_DONT_SKIP)) {
-            mOptions[RSK_SHUFFLE_WEIRD_EGG].Disable("This option is disabled because \"Skip Child Zelda\" is enabled.");
-            mOptions[RSK_SKIP_CHILD_STEALTH].Disable("This option is disabled because \"Skip Child Zelda\" is enabled.");
-        } else {
-            mOptions[RSK_SHUFFLE_WEIRD_EGG].Enable();
-            mOptions[RSK_SKIP_CHILD_STEALTH].Enable();
-        }
-    });
     OPT_BOOL(RSK_EARLY_GRANNYS_SHOP, "Early Granny's Potion Shop", CVAR_RANDOMIZER_SETTING("EarlyGrannysShop"), mOptionDescriptions[RSK_EARLY_GRANNYS_SHOP]);
     OPT_BOOL(RSK_SKIP_EPONA_RACE, "Skip Epona Race", {"Don't Skip", "Skip"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("SkipEponaRace"), mOptionDescriptions[RSK_SKIP_EPONA_RACE], WIDGET_CVAR_CHECKBOX, RO_GENERIC_DONT_SKIP);
     OPT_BOOL(RSK_SKIP_SCARECROWS_SONG, "Skip Scarecrow's Song", CVAR_RANDOMIZER_SETTING("SkipScarecrowsSong"), mOptionDescriptions[RSK_SKIP_SCARECROWS_SONG]);
@@ -1437,6 +1455,48 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_STARTING_STICKS, "Start with Stick Ammo", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingSticks"), "", WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_BOOL(RSK_STARTING_NUTS, "Start with Nut Ammo", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingNuts"), "", WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_BOOL(RSK_STARTING_BEANS, "Start with Magic Beans", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBeans"), "", WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
+    OPT_BOOL(RSK_STARTING_MEGATON_HAMMER, "Start with Megaton Hammer", CVAR_RANDOMIZER_SETTING("StartingMegatonHammer"));
+    OPT_BOOL(RSK_STARTING_BOOMERANG, "Start with Boomerang", CVAR_RANDOMIZER_SETTING("StartingBoomerang"));
+    OPT_BOOL(RSK_STARTING_LENS_OF_TRUTH, "Start with Lens of Truth", CVAR_RANDOMIZER_SETTING("StartingLensOfTruth"));
+    OPT_BOOL(RSK_STARTING_DINS_FIRE, "Start with Din's Fire", CVAR_RANDOMIZER_SETTING("StartingDinsFire"));
+    OPT_BOOL(RSK_STARTING_FARORES_WIND, "Start with Farore's Wind", CVAR_RANDOMIZER_SETTING("StartingFaroresWind"));
+    OPT_BOOL(RSK_STARTING_NAYRUS_LOVE, "Start with Nayru's Love", CVAR_RANDOMIZER_SETTING("StartingNayrusLove"));
+    OPT_BOOL(RSK_STARTING_FIRE_ARROWS, "Start with Fire Arrows", CVAR_RANDOMIZER_SETTING("StartingFireArrows"));
+    OPT_BOOL(RSK_STARTING_ICE_ARROWS, "Start with Ice Arrows", CVAR_RANDOMIZER_SETTING("StartingIceArrows"));
+    OPT_BOOL(RSK_STARTING_LIGHT_ARROWS, "Start with Light Arrows", CVAR_RANDOMIZER_SETTING("StartingLightArrows"));
+    OPT_BOOL(RSK_STARTING_IRON_BOOTS, "Start with Iron Boots", CVAR_RANDOMIZER_SETTING("StartingIronBoots"));
+    OPT_BOOL(RSK_STARTING_HOVER_BOOTS, "Start with Hover Boots", CVAR_RANDOMIZER_SETTING("StartingHoverBoots"));
+    OPT_BOOL(RSK_STARTING_HYLIAN_SHIELD, "Start with Hylian Shield", CVAR_RANDOMIZER_SETTING("StartingHylianShield"));
+    OPT_BOOL(RSK_STARTING_MIRROR_SHIELD, "Start with Mirror Shield", CVAR_RANDOMIZER_SETTING("StartingMirrorShield"));
+    OPT_BOOL(RSK_STARTING_GORON_TUNIC, "Start with Goron Tunic", CVAR_RANDOMIZER_SETTING("StartingGoronTunic"));
+    OPT_BOOL(RSK_STARTING_ZORA_TUNIC, "Start with Zora Tunic", CVAR_RANDOMIZER_SETTING("StartingZoraTunic"));
+    OPT_BOOL(RSK_STARTING_STONE_OF_AGONY, "Start with Stone of Agony", CVAR_RANDOMIZER_SETTING("StartingStoneOfAgony"));
+    OPT_U8(RSK_STARTING_HOOKSHOT, "Start with Hookshot", {"Off", "Hookshot", "Longshot"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingHookshot"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOW, "Start with Bow", {"Off", "Bow (Quiver 30)", "Bow (Quiver 40)", "Bow (Quiver 50)"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBow"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_SLINGSHOT, "Start with Slingshot", {"Off", "Slingshot (30)", "Slingshot (40)", "Slingshot (50)"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingSlingshot"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOMB_BAG, "Start with Bomb Bag", {"Off", "Bomb Bag (20)", "Bomb Bag (30)", "Bomb Bag (40)"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBombBag"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_STRENGTH, "Start with Strength Upgrade", {"Off", "Goron's Bracelet", "Silver Gauntlets", "Golden Gauntlets"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingStrength"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_SCALE, "Start with Diving Scale", {"Off", "Silver Scale", "Golden Scale"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingScale"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_WALLET, "Start with Wallet Upgrade", {"Off", "Adult's Wallet", "Giant's Wallet"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingWallet"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_MAGIC_METER, "Start with Magic Meter", {"Off", "Single Magic", "Double Magic"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingMagicMeter"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOMBCHU_BAG, "Start with Bombchu Bag", {"Off", "Bombchu Bag (20)", "Bombchu Bag (30)", "Bombchu Bag (50)"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBombchuBag"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOTTLE_1, "Starting Bottle 1", {"Off", "Empty Bottle", "Bottle with Big Poe", "Ruto's Letter"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle1"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOTTLE_2, "Starting Bottle 2", {"Off", "Empty Bottle", "Bottle with Big Poe"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle2"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOTTLE_3, "Starting Bottle 3", {"Off", "Empty Bottle", "Bottle with Big Poe"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle3"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_U8(RSK_STARTING_BOTTLE_4, "Starting Bottle 4", {"Off", "Empty Bottle", "Bottle with Big Poe"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBottle4"), "", WIDGET_CVAR_COMBOBOX, 0);
+    OPT_BOOL(RSK_STARTING_WEIRD_EGG, "Start with Weird Egg", CVAR_RANDOMIZER_SETTING("StartingWeirdEgg"));
+    OPT_BOOL(RSK_STARTING_ZELDAS_LETTER, "Start with Zelda's Letter", CVAR_RANDOMIZER_SETTING("StartingZeldasLetter"));
+    OPT_BOOL(RSK_STARTING_CLAIM_CHECK, "Start with Claim Check", CVAR_RANDOMIZER_SETTING("StartingClaimCheck"));
+    OPT_BOOL(RSK_STARTING_GERUDO_CARD, "Start with Gerudo Card", CVAR_RANDOMIZER_SETTING("StartingGerudoCard"));
+    OPT_BOOL(RSK_STARTING_KEATON_MASK, "Start with Keaton Mask", CVAR_RANDOMIZER_SETTING("StartingKeatonMask"));
+    OPT_BOOL(RSK_STARTING_SKULL_MASK, "Start with Skull Mask", CVAR_RANDOMIZER_SETTING("StartingSkullMask"));
+    OPT_BOOL(RSK_STARTING_SPOOKY_MASK, "Start with Spooky Mask", CVAR_RANDOMIZER_SETTING("StartingSpookyMask"));
+    OPT_BOOL(RSK_STARTING_BUNNY_HOOD, "Start with Bunny Hood", CVAR_RANDOMIZER_SETTING("StartingBunnyHood"));
+    OPT_BOOL(RSK_STARTING_GORON_MASK, "Start with Goron Mask", CVAR_RANDOMIZER_SETTING("StartingGoronMask"));
+    OPT_BOOL(RSK_STARTING_ZORA_MASK, "Start with Zora Mask", CVAR_RANDOMIZER_SETTING("StartingZoraMask"));
+    OPT_BOOL(RSK_STARTING_GERUDO_MASK, "Start with Gerudo Mask", CVAR_RANDOMIZER_SETTING("StartingGerudoMask"));
+    OPT_BOOL(RSK_STARTING_MASK_OF_TRUTH, "Start with Mask of Truth", CVAR_RANDOMIZER_SETTING("StartingMaskOfTruth"));
+    OPT_U8(RSK_STARTING_BIGGORON_SWORD, "Start with Biggoron's Sword", {"Off", "Giant's Knife", "Biggoron's Sword"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("StartingBiggoronSword"), "", WIDGET_CVAR_COMBOBOX, 0);
     OPT_BOOL(RSK_FULL_WALLETS, "Full Wallets", {"No", "Yes"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("FullWallets"), mOptionDescriptions[RSK_FULL_WALLETS], WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_BOOL(RSK_STARTING_ZELDAS_LULLABY, "Start with Zelda's Lullaby", CVAR_RANDOMIZER_SETTING("StartingZeldasLullaby"), "", IMFLAG_NONE);
     OPT_BOOL(RSK_STARTING_EPONAS_SONG, "Start with Epona's Song", CVAR_RANDOMIZER_SETTING("StartingEponasSong"), "", IMFLAG_NONE);
@@ -2413,7 +2473,6 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_SUNLIGHT_ARROWS],
                                                                       &mOptions[RSK_FULL_WALLETS],
                                                                       &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],
-                                                                      &mOptions[RSK_SKIP_CHILD_ZELDA],
                                                                       &mOptions[RSK_MASK_QUEST],
                                                                       &mOptions[RSK_SKIP_CHILD_STEALTH],
                                                                       &mOptions[RSK_EARLY_GRANNYS_SHOP],
@@ -2440,7 +2499,6 @@ void Settings::CreateOptions() {
         OptionGroup::SubGroup("Area Access",
                               {
                                   &mOptions[RSK_FOREST],
-                                  &mOptions[RSK_KAK_GATE],
                                   &mOptions[RSK_DOOR_OF_TIME],
                                   &mOptions[RSK_ZORAS_FOUNTAIN],
                                   &mOptions[RSK_SLEEPING_WATERFALL],
@@ -2543,6 +2601,7 @@ void Settings::CreateOptions() {
 #endif
                                   &mOptions[RSK_SHUFFLE_OCARINA],
                                   &mOptions[RSK_SHUFFLE_WEIRD_EGG],
+                                  &mOptions[RSK_SHUFFLE_ZELDAS_LETTER],
                                   &mOptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD],
                                   &mOptions[RSK_FISHSANITY],
                                   &mOptions[RSK_FISHSANITY_POND_COUNT],
@@ -2630,6 +2689,7 @@ void Settings::CreateOptions() {
                                                                                  &mOptions[RSK_ROCS_FEATHER],
                                                                                  &mOptions[RSK_BOMBCHU_BAG],
                                                                                  &mOptions[RSK_ENABLE_BOMBCHU_DROPS],
+                                                                                 &mOptions[RSK_PROGRESSIVE_GORON_SWORD],
                                                                                  &mOptions[RSK_INFINITE_UPGRADES],
                                                                                  &mOptions[RSK_SKELETON_KEY],
                                                                              },
@@ -2688,62 +2748,9 @@ void Settings::CreateOptions() {
                                   &mOptionGroups[RSG_MENU_COLUMN_STATIC_HINTS],
                               },
                               WidgetContainerType::TABLE);
-    mOptionGroups[RSG_MENU_SECTION_STARTING_EQUIPS] =
-        OptionGroup::SubGroup("Equips",
-                              { &mOptions[RSK_LINKS_POCKET], &mOptions[RSK_STARTING_KOKIRI_SWORD],
-                                &mOptions[RSK_STARTING_MASTER_SWORD], &mOptions[RSK_STARTING_DEKU_SHIELD] },
-                              WidgetContainerType::SECTION);
-    mOptionGroups[RSG_MENU_SECTION_STARTING_ITEMS] = OptionGroup::SubGroup("Items",
-                                                                           {
-                                                                               &mOptions[RSK_STARTING_OCARINA],
-                                                                               &mOptions[RSK_STARTING_STICKS],
-                                                                               &mOptions[RSK_STARTING_NUTS],
-                                                                               &mOptions[RSK_STARTING_BEANS],
-                                                                               &mOptions[RSK_STARTING_SKULLTULA_TOKEN],
-                                                                               &mOptions[RSK_STARTING_HEARTS],
-                                                                           },
-                                                                           WidgetContainerType::SECTION);
-    mOptionGroups[RSG_MENU_COLUMN_STARTING_EQUIPMENT] =
-        OptionGroup::SubGroup("",
-                              std::initializer_list<OptionGroup*>{
-                                  &mOptionGroups[RSG_MENU_SECTION_STARTING_EQUIPS],
-                                  &mOptionGroups[RSG_MENU_SECTION_STARTING_ITEMS],
-                              },
-                              WidgetContainerType::COLUMN);
-    mOptionGroups[RSG_MENU_SECTION_NORMAL_SONGS] = OptionGroup::SubGroup("Normal Songs",
-                                                                         {
-                                                                             &mOptions[RSK_STARTING_ZELDAS_LULLABY],
-                                                                             &mOptions[RSK_STARTING_EPONAS_SONG],
-                                                                             &mOptions[RSK_STARTING_SARIAS_SONG],
-                                                                             &mOptions[RSK_STARTING_SUNS_SONG],
-                                                                             &mOptions[RSK_STARTING_SONG_OF_TIME],
-                                                                             &mOptions[RSK_STARTING_SONG_OF_STORMS],
-                                                                         },
-                                                                         WidgetContainerType::SECTION);
-    mOptionGroups[RSG_MENU_SECTION_WARP_SONGS] = OptionGroup::SubGroup("Warp Songs",
-                                                                       {
-                                                                           &mOptions[RSK_STARTING_MINUET_OF_FOREST],
-                                                                           &mOptions[RSK_STARTING_BOLERO_OF_FIRE],
-                                                                           &mOptions[RSK_STARTING_SERENADE_OF_WATER],
-                                                                           &mOptions[RSK_STARTING_REQUIEM_OF_SPIRIT],
-                                                                           &mOptions[RSK_STARTING_NOCTURNE_OF_SHADOW],
-                                                                           &mOptions[RSK_STARTING_PRELUDE_OF_LIGHT],
-                                                                       },
-                                                                       WidgetContainerType::SECTION);
-    mOptionGroups[RSG_MENU_COLUMN_STARTING_SONGS] =
-        OptionGroup::SubGroup("",
-                              std::initializer_list<OptionGroup*>{
-                                  &mOptionGroups[RSG_MENU_SECTION_NORMAL_SONGS],
-                                  &mOptionGroups[RSG_MENU_SECTION_WARP_SONGS],
-                              },
-                              WidgetContainerType::COLUMN);
-    mOptionGroups[RSG_MENU_SIDEBAR_STARTING_ITEMS] =
-        OptionGroup::SubGroup("Starting Items",
-                              std::initializer_list<OptionGroup*>{
-                                  &mOptionGroups[RSG_MENU_COLUMN_STARTING_EQUIPMENT],
-                                  &mOptionGroups[RSG_MENU_COLUMN_STARTING_SONGS],
-                              },
-                              WidgetContainerType::TABLE);
+    // [RSBS #1404] RSK_KAK_GATE and RSK_SKIP_CHILD_ZELDA left the menus with SoH #6938 but stay
+    // live (root.cpp, savefile.cpp, hints.cpp, the #1542 coordinator), so they stay in the folded
+    // groups: a stored legacy value still changes the settings fingerprint of the world it changes.
     mOptionGroups[RSG_OPEN] = OptionGroup("Open Settings", {
                                                                &mOptions[RSK_FOREST],
                                                                &mOptions[RSK_KAK_GATE],
@@ -2852,6 +2859,7 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_SPEAK],
                                             &mOptions[RSK_SHUFFLE_OPEN_CHEST],
                                             &mOptions[RSK_SHUFFLE_WEIRD_EGG],
+                                            &mOptions[RSK_SHUFFLE_ZELDAS_LETTER],
                                             &mOptions[RSK_SHUFFLE_GERUDO_MEMBERSHIP_CARD],
                                             &mOptions[RSK_SHUFFLE_MERCHANTS],
                                             &mOptions[RSK_MERCHANT_PRICES],
@@ -2870,6 +2878,7 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_100_GS_REWARD],
                                             &mOptions[RSK_SHUFFLE_BEAN_SOULS],
                                             &mOptions[RSK_ROCS_FEATHER],
+                                            &mOptions[RSK_PROGRESSIVE_GORON_SWORD],
                                             &mOptions[RSK_SHUFFLE_BOSS_SOULS],
                                             &mOptions[RSK_SHUFFLE_DEKU_STICK_BAG],
                                             &mOptions[RSK_SHUFFLE_DEKU_NUT_BAG],
@@ -2908,8 +2917,29 @@ void Settings::CreateOptions() {
                                                  &mOptions[RSK_KEYRINGS_CHEST_GAME],
                                              });
     mOptionGroups[RSG_STARTING_ITEMS] =
-        OptionGroup::SubGroup("Items", { &mOptions[RSK_STARTING_OCARINA], &mOptions[RSK_STARTING_KOKIRI_SWORD],
-                                         &mOptions[RSK_STARTING_DEKU_SHIELD] });
+        OptionGroup::SubGroup("Items", { &mOptions[RSK_STARTING_OCARINA],        &mOptions[RSK_STARTING_KOKIRI_SWORD],
+                                         &mOptions[RSK_STARTING_MASTER_SWORD],   &mOptions[RSK_STARTING_DEKU_SHIELD],
+                                         &mOptions[RSK_STARTING_HYLIAN_SHIELD],  &mOptions[RSK_STARTING_MIRROR_SHIELD],
+                                         &mOptions[RSK_STARTING_GORON_TUNIC],    &mOptions[RSK_STARTING_ZORA_TUNIC],
+                                         &mOptions[RSK_STARTING_IRON_BOOTS],     &mOptions[RSK_STARTING_HOVER_BOOTS],
+                                         &mOptions[RSK_STARTING_MEGATON_HAMMER], &mOptions[RSK_STARTING_BOOMERANG],
+                                         &mOptions[RSK_STARTING_LENS_OF_TRUTH],  &mOptions[RSK_STARTING_DINS_FIRE],
+                                         &mOptions[RSK_STARTING_FARORES_WIND],   &mOptions[RSK_STARTING_NAYRUS_LOVE],
+                                         &mOptions[RSK_STARTING_FIRE_ARROWS],    &mOptions[RSK_STARTING_ICE_ARROWS],
+                                         &mOptions[RSK_STARTING_LIGHT_ARROWS],   &mOptions[RSK_STARTING_STONE_OF_AGONY],
+                                         &mOptions[RSK_STARTING_HOOKSHOT],       &mOptions[RSK_STARTING_BOW],
+                                         &mOptions[RSK_STARTING_SLINGSHOT],      &mOptions[RSK_STARTING_BOMB_BAG],
+                                         &mOptions[RSK_STARTING_STRENGTH],       &mOptions[RSK_STARTING_SCALE],
+                                         &mOptions[RSK_STARTING_WALLET],         &mOptions[RSK_STARTING_MAGIC_METER],
+                                         &mOptions[RSK_STARTING_BOMBCHU_BAG],    &mOptions[RSK_STARTING_BOTTLE_1],
+                                         &mOptions[RSK_STARTING_BOTTLE_2],       &mOptions[RSK_STARTING_BOTTLE_3],
+                                         &mOptions[RSK_STARTING_BOTTLE_4],       &mOptions[RSK_STARTING_WEIRD_EGG],
+                                         &mOptions[RSK_STARTING_ZELDAS_LETTER],  &mOptions[RSK_STARTING_CLAIM_CHECK],
+                                         &mOptions[RSK_STARTING_GERUDO_CARD],    &mOptions[RSK_STARTING_BIGGORON_SWORD],
+                                         &mOptions[RSK_STARTING_BUNNY_HOOD],     &mOptions[RSK_STARTING_KEATON_MASK],
+                                         &mOptions[RSK_STARTING_SKULL_MASK],     &mOptions[RSK_STARTING_SPOOKY_MASK],
+                                         &mOptions[RSK_STARTING_GORON_MASK],     &mOptions[RSK_STARTING_ZORA_MASK],
+                                         &mOptions[RSK_STARTING_GERUDO_MASK],    &mOptions[RSK_STARTING_MASK_OF_TRUTH] });
     mOptionGroups[RSG_STARTING_SONGS] =
         OptionGroup::SubGroup("Ocarina Songs", {
                                                    &mOptions[RSK_STARTING_ZELDAS_LULLABY],
@@ -2918,7 +2948,6 @@ void Settings::CreateOptions() {
                                                    &mOptions[RSK_STARTING_SUNS_SONG],
                                                    &mOptions[RSK_STARTING_SONG_OF_TIME],
                                                    &mOptions[RSK_STARTING_SONG_OF_STORMS],
-                                                   &mOptions[RSK_STARTING_SONG_OF_TIME],
                                                    &mOptions[RSK_STARTING_MINUET_OF_FOREST],
                                                    &mOptions[RSK_STARTING_BOLERO_OF_FIRE],
                                                    &mOptions[RSK_STARTING_SERENADE_OF_WATER],
@@ -3186,10 +3215,14 @@ void Settings::UpdateAllOptions() {
 
 void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocations,
                                const std::set<RandomizerTrick>& enabledTricks) {
-    // if we skip child zelda, we start with zelda's letter, and malon starts
-    // at the ranch, so we should *not* shuffle the weird egg
+    // [RSBS #1404] SoH #6938 split Skip Child Zelda into an unshuffled starting Zelda's Letter and
+    // Shuffle Weird Egg "Skip Waking Talon" (its ConfigVersion7Updater; RSBS config version 11
+    // converts and clears the CVars once). The legacy key is hidden but still read (root.cpp, the
+    // creation, the rows that set it at run time), so a value set here is mapped as the updater
+    // maps the CVars, and the generated world folds the options it actually plays.
     if (mOptions[RSK_SKIP_CHILD_ZELDA]) {
-        mOptions[RSK_SHUFFLE_WEIRD_EGG].Set(RO_GENERIC_OFF);
+        mOptions[RSK_STARTING_ZELDAS_LETTER].Set(RO_GENERIC_ON);
+        mOptions[RSK_SHUFFLE_WEIRD_EGG].Set(RO_WEIRD_EGG_SKIP_TALON);
     }
 
     // With certain access settings, the seed is only beatable if Starting Age is set to Child.
@@ -3282,6 +3315,20 @@ void Context::FinalizeSettings(const std::set<RandomizerCheck>& excludedLocation
     }
     if (mOptions[RSK_SHUFFLE_DEKU_NUT_BAG]) {
         mOptions[RSK_STARTING_NUTS].Set(false);
+    }
+    if (mOptions[RSK_SHUFFLE_SWIM]) {
+        mOptions[RSK_STARTING_SCALE].Set(0);
+    }
+    if (mOptions[RSK_SHUFFLE_GRAB]) {
+        mOptions[RSK_STARTING_STRENGTH].Set(0);
+    }
+    if (mOptions[RSK_SHUFFLE_CHILD_WALLET]) {
+        mOptions[RSK_STARTING_WALLET].Set(0);
+    }
+
+    if (mOptions[RSK_ZORAS_FOUNTAIN].IsNot(RO_ZF_OPEN) &&
+        mOptions[RSK_STARTING_BOTTLE_1].IsNot(RO_STARTING_BOTTLE_RUTOS_LETTER)) {
+        mOptions[RSK_STARTING_BOTTLE_4].Set(RO_STARTING_BOTTLE_OFF);
     }
 
     // TODO: RandomizeAllSettings(true) when implementing the ability to randomize the options themselves.

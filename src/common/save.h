@@ -126,7 +126,11 @@
 //   3  #1363 (Shuffle Silver Rupees): 22 s8 silver rupee counters carved from
 //      the front of OoT's ShipRandomizerSaveContextData::rsbsSpare (offsets
 //      2..23 of the 48-byte struct; rsbsSpare 46 -> 24 bytes, now at offset 24).
-#define RSBS_SAVE_LAYOUT_REVISION 3u
+//   4  #1169 XW10 appends ComboContext.sharedFamilyOwned2 (u32, the second
+//      family word) after comboOoTWarps at offset 2716 (ADR 0009 claim 23);
+//      sizeof(ComboContext) 2716 -> 2720; a revision-3 record zero-extends to 0,
+//      nothing owned.
+#define RSBS_SAVE_LAYOUT_REVISION 4u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

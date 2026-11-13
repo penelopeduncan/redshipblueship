@@ -413,8 +413,13 @@ int BuildEntries(std::vector<std::pair<std::string, std::string>>& out, std::str
             { "logicRung", r.logicRung },
             { "comboFlags", r.comboFlags },
         };
+        // #1169 XW11: the second rules word and MM's starting warp songs, the two world
+        // fields the binary record carries (above) that identity.json did not name.
+        // Additive: Validate reads the record, never this object.
         combo["itemRules"] = { { "crossItemFlags", gComboCtx.comboItemRules.crossItemFlags },
-                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown } };
+                               { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown },
+                               { "crossItemFlags2", Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2) },
+                               { "mmWarpSongsStarting", gComboCtx.mmWarpSongsOwned } };
         combo["triforce"] = { { "totalOoT", gComboCtx.comboTriforce.totalOoT },
                               { "requiredOoT", gComboCtx.comboTriforce.requiredOoT },
                               { "totalMM", gComboCtx.comboTriforce.totalMM },
@@ -630,9 +635,9 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         return RSBS_SEEDPKG_ERR_GENERATOR_VERSION;
     }
     // #1169 XW2: a world whose second rules word holds a rule this build does not
-    // offer yet (since XW12, an MM or shared warp-song rule; or a bit no build
-    // allocates) is another build's world, refused by name as Generate refuses
-    // it, before anything is applied.
+    // offer (a bit inside RSBS_XITEM2_HIDDEN, or one this build does not allocate)
+    // is another build's world, refused by name as Generate refuses it, before
+    // anything is applied.
     char refusedRules[160];
     if (Combo_ComboItemRules2Refused(rules2, refusedRules, sizeof(refusedRules)) != 0u) {
         why = std::string("the pair turns on cross-game rules this build does not offer (") + refusedRules + ")";
@@ -848,8 +853,9 @@ int CompleteAndStage(bool fromGenerate) {
             } else if (last->status != RSBS_COMBO_LOGIC_ERR_LOCATIONS_UNREACHABLE ||
                        OoT_Creation_EmitUnreachableToast() <= 0) {
                 // #1483: a game whose own items cannot fit its checks is a fact of
-                // the settings too; the generic line stays for real seed dead ends
-                // and budget stops.
+                // the settings too (the early RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY
+                // refusal lands here as well); the generic line stays for real seed
+                // dead ends and budget stops.
                 if (OoT_Creation_EmitHomeCapacityToast(Combo_SingleBag_HomeShortGames(last), last->triforcePiecesOoT,
                                                        last->triforcePiecesMM) == 0) {
                     Notification::Emit(

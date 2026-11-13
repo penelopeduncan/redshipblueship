@@ -125,12 +125,45 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
            randoOptionId == RO_PLACEMENT_SMALL_KEYS || randoOptionId == RO_PLACEMENT_STRAY_FAIRIES ||
            randoOptionId == RO_SHUFFLE_SONGS || randoOptionId == RO_SHUFFLE_WONDER_ITEMS ||
-           randoOptionId == RO_SHUFFLE_HIVE_DROPS || randoOptionId == RO_SHUFFLE_BUTTERFLIES;
+           randoOptionId == RO_SHUFFLE_HIVE_DROPS || randoOptionId == RO_SHUFFLE_BUTTERFLIES ||
+           randoOptionId == RO_SHUFFLE_SKELETON_KEY || randoOptionId == RO_SKULLTULA_SHUFFLED ||
+           randoOptionId == RO_STRAY_FAIRIES_MAX || randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME ||
+           randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME || randoOptionId == RO_SHUFFLE_SONG_SUN ||
+           randoOptionId == RO_SHUFFLE_SONG_SARIA;
+}
+
+/** Whether an appended option's persisted value is folded: never at 0, the
+ *  value every half persisted before the option existed (its slot was spare
+ *  zero-filled capacity of randoSaveOptions), so those halves recompute the
+ *  seed and identity they were stamped with; never at the row's default either,
+ *  so a half created with the option at a non-zero default (#1403's Shuffled
+ *  Gold Skulltulas 30 and Stray Fairies in Pool 15, whose sliders start at 1)
+ *  hashes the same as one created before it. Every other value is folded. An
+ *  appended option with a non-zero default must therefore never offer 0 as a
+ *  choice. */
+static bool AppendedOptionIsFolded(uint32_t value, uint32_t defaultValue) {
+    return value != 0 && value != defaultValue;
+}
+
+/** What an appended option's persisted @p value means: the row's default when
+ *  @p value is 0 and the default is not (a half persisted before the option
+ *  existed holds 0 in its slot, and the fold above reads that as the default),
+ *  else @p value. For COMPARES and DISPLAY only: the load restore's raw compare
+ *  and the profile dump. Never fed to a hashed string: the fold already treats
+ *  both spellings alike, and MMOptionsString's positional part never sees an
+ *  appended option. */
+static uint32_t AppendedOptionCanonical(RandoOptionId randoOptionId, uint32_t value) {
+    if (value != 0 || !IsAppendedOption(randoOptionId)) {
+        return value;
+    }
+    const auto row = Rando::StaticData::Options.find(randoOptionId);
+    return row != Rando::StaticData::Options.end() ? (uint32_t)row->second.defaultValue : value;
 }
 
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-        if (IsAppendedOption(randoOptionId) && values[randoOptionId] != 0) {
+        if (IsAppendedOption(randoOptionId) &&
+            AppendedOptionIsFolded(values[randoOptionId], randoStaticOption.defaultValue)) {
             s += '|';
             s += randoStaticOption.name;
             s += ':';
@@ -333,11 +366,35 @@ static void ResolveProfileValues(uint32_t* values, bool paired,
         values[randoOptionId] = (uint32_t)CVarGetInteger(randoStaticOption.cvar, randoStaticOption.defaultValue);
     }
 
+    // (1a) #1403 review: a PARTIAL row (the pane's own liveness, read from MM's
+    // option table) is not yet supported in a paired world: the pane greys it and
+    // presets refuse it, and a hand-set key must not reach the pool either (the
+    // songs and the Skeleton Key have no Ocarina of Time model, name or note row
+    // if they cross). So a paired profile resolves each to its default, on
+    // creation, arrival and load alike. A default is never folded
+    // (AppendedOptionIsFolded), so no identity or seed moves. Before the
+    // corrections below, which then read the default.
+    if (paired) {
+        for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
+            if (MM_RandoOptionsUi_RowIsPartial((uint16_t)randoOptionId) != 0) {
+                values[randoOptionId] = randoStaticOption.defaultValue;
+            }
+        }
+    }
+
     // (2) Derived correction: with skulltulas unshuffled the token requirement
     // is the vanilla one, whatever the slider says. Runs for solo and paired
     // files alike, as it always has.
     if (!values[RO_SHUFFLE_GOLD_SKULLTULAS]) {
         values[RO_MINIMUM_SKULLTULA_TOKENS] = SPIDER_HOUSE_TOKENS_REQUIRED;
+    }
+
+    // (2-) #1403 (2Ship 977544284 clamps it in its menu): a Great Fairy cannot ask
+    // for more Stray Fairies than Stray Fairies in Pool leaves in each dungeon's
+    // pool. With the pool at its default (every fairy) this never fires, so no
+    // world created before the option existed resolves differently.
+    if (values[RO_STRAY_FAIRIES_MAX] != 0 && values[RO_MINIMUM_STRAY_FAIRIES] > values[RO_STRAY_FAIRIES_MAX]) {
+        values[RO_MINIMUM_STRAY_FAIRIES] = values[RO_STRAY_FAIRIES_MAX];
     }
 
     // (2a) #1437: Time Progression ships Ascending (OoTMM's progressiveClocks),
@@ -1861,6 +1918,13 @@ int ClassifyHalfForLoad(const void* mmHalf, size_t mmHalfSize, uint32_t frozenDi
                 (unsigned)candidate, (unsigned)frozenDigest);
         return RSBS_MM_PROFILE_LOAD_UNRESTORABLE;
     }
+    // #1403: only now, after the digest above hashed the persisted values, does
+    // an appended slot a half written before its option existed holds (0) read
+    // as what it means, the row's default, so the restore neither writes 0 into
+    // the key nor names a row the player never changed.
+    for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
+        fileValues[randoOptionId] = Rando::Foreign::AppendedOptionCanonical(randoOptionId, fileValues[randoOptionId]);
+    }
     return RSBS_MM_PROFILE_LOAD_RESTORABLE;
 }
 
@@ -2060,7 +2124,8 @@ extern "C" int MM_Rando_RestoreProfileForLoad(const void* mmHalf, size_t mmHalfS
                 continue;
             }
             if ((dependent && pass == 0) || written[randoOptionId] ||
-                liveValues[randoOptionId] == fileValues[randoOptionId]) {
+                Rando::Foreign::AppendedOptionCanonical(randoOptionId, liveValues[randoOptionId]) ==
+                    Rando::Foreign::AppendedOptionCanonical(randoOptionId, fileValues[randoOptionId])) {
                 continue;
             }
             written[randoOptionId] = true;
@@ -3246,7 +3311,10 @@ extern "C" int MM_Rando_ProfileDumpFromSave(char* out, size_t cap) {
     nlohmann::ordered_json dump = nlohmann::ordered_json::object();
     nlohmann::ordered_json options = nlohmann::ordered_json::object();
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
-        options[randoStaticOption.name] = RANDO_SAVE_OPTIONS[randoOptionId];
+        // #1403: an appended slot a half held before its option existed (0) is
+        // shown as the row's default it means. Display only; nothing hashes it.
+        options[randoStaticOption.name] =
+            Rando::Foreign::AppendedOptionCanonical(randoOptionId, RANDO_SAVE_OPTIONS[randoOptionId]);
     }
     dump["options"] = options;
     nlohmann::ordered_json tricks = nlohmann::ordered_json::array();

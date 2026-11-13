@@ -2313,6 +2313,22 @@ typedef enum {
     // #### `args`
     // - `*EnKusa2`
     VB_KEATON_GRASS_DRAW,
+
+    // #### `result`
+    // ```c
+    // false
+    // ```
+    // #### `args`
+    // - None
+    VB_MSG_CAPTURE_MSGMODE_TEXT_DONE,
+
+    // #### `result`
+    // ```c
+    // false
+    // ```
+    // #### `args`
+    // - None
+    VB_MSG_CAPTURE_MSGMODE_TEXT_CLOSING_OCARINA_ACTION,
 } GIVanillaBehavior;
 
 #endif

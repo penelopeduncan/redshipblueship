@@ -249,6 +249,11 @@ struct ClEngine {
     uint32_t factReportExtra;
     bool factDropAfterFirst;
     uint32_t hostFactRequires[kClMaxHosts];
+    /** #1169 XW15 (THE FIXED SHARED CREDIT): authored host i's FIXED own content,
+     *  the engine's native item there (never a table row), harvested like an own
+     *  placement while the host has none. 0 = no fixed content, which is every
+     *  world authored before XW15. */
+    uint16_t fixedItem[kClMaxHosts];
     ClFault fault;
 
     // --- live state ------------------------------------------------------
@@ -381,10 +386,12 @@ void ClRecompute(ClEngine* e) {
                 continue;
             }
             const int p = ClOwnPlacementIndex(e, e->hostId[i]);
-            if (p < 0 || e->placedIsCover[p]) {
+            // An own placement first; with none, the host's FIXED content (XW15).
+            const uint16_t own = (p >= 0) ? (e->placedIsCover[p] ? (uint16_t)0 : e->placedItem[p].id) : e->fixedItem[i];
+            if (own == 0) {
                 continue;
             }
-            const int k = ClBitIndex(e, e->placedItem[p].id);
+            const int k = ClBitIndex(e, own);
             if (k >= 0) {
                 e->have |= (1u << k);
                 if (e->haveCount[k] < 255) {
@@ -2012,6 +2019,109 @@ TestResult Test_ComboLogicFill(void) {
         CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
     }
 
+    // --- HOME CAPACITY (#1483): an early pre-rung refusal ----------------
+    // A game whose HOME_ONLY REQUIRED rows outnumber its empty hosts can never
+    // be filled by any seed. Refused at once, before any attempt, on all three
+    // rungs (it is a necessary condition on every rung).
+    {
+        const int H = 3;
+        ComboLogicBagItem bag[4];
+        for (int i = 0; i < H + 1; ++i) {
+            bag[i] = ClBagItem((uint8_t)GAME_MM, (uint16_t)(kMmOcarina + i), RSBS_ITEMCLASS_PROGRESSION);
+            bag[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+        }
+        // OoT has 4 hosts and no home-only rows; MM has H (3) hosts.
+        const uint8_t rungs[3] = { (uint8_t)RSBS_COMBO_RUNG_NONE, (uint8_t)RSBS_COMBO_RUNG_BEATABLE,
+                                   (uint8_t)RSBS_COMBO_RUNG_ALL_REACHABLE };
+        for (int ri = 0; ri < 3; ++ri) {
+            const uint8_t rung = rungs[ri];
+            ClBuildWideHostWorld(4, H);
+            memset(&res, 0, sizeof(res));
+            const int rc = ClRunFill(bag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, rung, 0x1483u, &res);
+            CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                      "H+1 MM HOME_ONLY REQUIRED rows on H hosts must fail with HOME_CAPACITY on every rung");
+            CL_ASSERT(res.attempts == 0 && res.rounds == 0 && res.placed == 0,
+                      "refused AT ONCE: 0 attempts, 0 rounds, nothing placed");
+            CL_ASSERT(res.homeShortGame == (uint8_t)GAME_MM && res.homeRequiredRows == H + 1 && res.homeHosts == H,
+                      "the result names MM, H+1 required rows and H hosts");
+            CL_ASSERT(!Combo_SingleBag_StatusIsWorldDeadEnd(rc, rung),
+                      "HOME_CAPACITY is never a world dead end: no ladder re-seed fixes a capacity fact");
+            CL_ASSERT(strcmp(Combo_Logic_StatusName(rc), "home-capacity") == 0, "its status name is 'home-capacity'");
+        }
+
+        // Discriminating: H rows fit and do not return HOME_CAPACITY.
+        ClBuildWideHostWorld(4, H);
+        memset(&res, 0, sizeof(res));
+        const int rcFit = ClRunFill(bag, H, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+        CL_ASSERT(rcFit != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                  "discriminating: H rows on H hosts do not fail with HOME_CAPACITY");
+
+        // Discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not return HOME_CAPACITY.
+        bag[H].bagFlags = (uint16_t)(RSBS_COMBO_BAG_HOME_ONLY | RSBS_COMBO_BAG_SURPLUS);
+        ClBuildWideHostWorld(4, H);
+        memset(&res, 0, sizeof(res));
+        const int rcSurplus =
+            ClRunFill(bag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+        CL_ASSERT(
+            rcSurplus != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+            "discriminating: H rows plus 1 SURPLUS HOME_ONLY row do not fail with HOME_CAPACITY (surplus may drop)");
+
+        // Discriminating (the HOME_ONLY filter): H MM HOME_ONLY rows plus one MM
+        // REQUIRED row that may cross, on H MM hosts with OoT roomy. The crossable
+        // row can land in OoT, so MM is not short; counting it would refuse a world
+        // that fills. An attempt must run (attempts 1 under `none`).
+        {
+            ComboLogicBagItem crossBag[4];
+            for (int i = 0; i < H; ++i) {
+                crossBag[i] = bag[i];
+                crossBag[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            crossBag[H] = ClBagItem((uint8_t)GAME_MM, kMmMask, RSBS_ITEMCLASS_PROGRESSION); // not HOME_ONLY
+            ClBuildWideHostWorld(4, H);
+            memset(&res, 0, sizeof(res));
+            const int rcCross =
+                ClRunFill(crossBag, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcCross != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.attempts == 1,
+                      "discriminating: a REQUIRED row that may cross is never counted against its origin's hosts");
+        }
+
+        // Discriminating (the origin filter): OoT's HOME_ONLY rows exactly fill
+        // OoT's hosts while MM's exactly fill MM's. Charging one game's rows to the
+        // other refuses this world, which fills.
+        {
+            ComboLogicBagItem both[5];
+            both[0] = ClBagItem((uint8_t)GAME_OOT, kOotHook, RSBS_ITEMCLASS_PROGRESSION);
+            both[1] = ClBagItem((uint8_t)GAME_OOT, kOotLens, RSBS_ITEMCLASS_PROGRESSION);
+            both[0].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            both[1].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            for (int i = 0; i < H; ++i) {
+                both[2 + i] = bag[i];
+                both[2 + i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            ClBuildWideHostWorld(2, H);
+            memset(&res, 0, sizeof(res));
+            const int rcBoth =
+                ClRunFill(both, 2 + H, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcBoth != RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.attempts == 1,
+                      "discriminating: each game's HOME_ONLY rows are counted against its own hosts only");
+
+            // ... and on the refusal side: H+1 MM rows with OoT holding only H
+            // hosts name MM alone (OoT has no HOME_ONLY row, so it is never short).
+            for (int i = 0; i < H + 1; ++i) {
+                both[i] = ClBagItem((uint8_t)GAME_MM, (uint16_t)(kMmOcarina + i), RSBS_ITEMCLASS_PROGRESSION);
+                both[i].bagFlags = RSBS_COMBO_BAG_HOME_ONLY;
+            }
+            ClBuildWideHostWorld(H, H);
+            memset(&res, 0, sizeof(res));
+            const int rcMM =
+                ClRunFill(both, H + 1, RSBS_COMBO_GOAL_BEAT_BOTH, (uint8_t)RSBS_COMBO_RUNG_NONE, 0x1483u, &res);
+            CL_ASSERT(rcMM == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY && res.homeShortGame == (uint8_t)GAME_MM &&
+                          res.homeRequiredRows == H + 1 && res.homeHosts == H,
+                      "MM's rows are never charged to OoT: only MM is named short");
+        }
+        CL_ASSERT(ClContractClean(), "the contract traps must stay clear");
+    }
+
     // --- THE SHARED-QUANTITY CREDIT (#1367 R5; combo_logic.h) -----------------
     // ClBuildCreditWorld: one copy of a shared tier family per game, and a location
     // in each game that wants the family's second tier. Credited, every copy counts
@@ -3109,7 +3219,9 @@ TestResult ClProductionRulesLeg(void) {
         ClBuildOpenWorld(4, 3);
         ComboLogicFillResult res;
         const int rc = ClRunFill(bag, 5, RSBS_COMBO_GOAL_BEAT_EITHER, RSBS_COMBO_RUNG_NONE, 1u, &res);
-        CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE, "P1b: 4 MM HOME_ONLY rows on 3 MM hosts cannot fill");
+        CL_ASSERT(rc == RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY,
+                  "P1b: 4 MM HOME_ONLY rows on 3 MM hosts fail early with HOME_CAPACITY");
+        CL_ASSERT(res.attempts == 0 && res.rounds == 0 && res.placed == 0, "P1b: 0 attempts, 0 rounds, 0 placed");
         Combo_Logic_ResetPlacements();
         ComboSingleBagReport r;
         memset(&r, 0, sizeof(r));
@@ -3118,12 +3230,23 @@ TestResult ClProductionRulesLeg(void) {
         // Catches: the origin tests swapped (OoT 4), a row that is not HOME_ONLY
         // counted (OoT 1), the hosts read from the wrong game (MM 4). That
         // Combo_SingleBag_Run calls the counter AFTER its roll-back needs both real
-        // engines and is not locked here.
+        // engines and is not locked here; WHEN it calls it is
+        // Combo_SingleBag_FailureCountsHomeCapacity, locked below.
         CL_ASSERT(r.homeRequiredMM == 4 && r.homeRequiredOoT == 0,
                   "P1b: the counter counts the HOME_ONLY REQUIRED rows by origin, and only those");
         CL_ASSERT(r.hostsMM == 3 && r.hostsOoT == 4, "P1b: after the roll-back every empty host of each game counts");
         CL_ASSERT(Combo_SingleBag_HomeShortGames(&r) == RSBS_COMBO_HALF_MM,
                   "P1b: MM, and only MM, is named short (OoT has room)");
+        // WHEN Combo_SingleBag_Run counts: the early refusal above ran no attempt,
+        // and still gets #1522's words.
+        CL_ASSERT(Combo_SingleBag_FailureCountsHomeCapacity(true, rc, res.attempts),
+                  "P1b: the early HOME_CAPACITY refusal (0 attempts) is counted, so it names its game");
+        CL_ASSERT(Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_ERR_NO_CANDIDATE, 3),
+                  "P1b: a failed fill that ran attempts is counted");
+        CL_ASSERT(!Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_ERR_BAD_REQUEST, 0) &&
+                      !Combo_SingleBag_FailureCountsHomeCapacity(false, RSBS_COMBO_LOGIC_ERR_HOME_CAPACITY, 0) &&
+                      !Combo_SingleBag_FailureCountsHomeCapacity(true, RSBS_COMBO_LOGIC_OK, 1),
+                  "P1b: no count for another refusal before any attempt, a fill that never ran, or a success");
 
         ClBuildOpenWorld(4, 3);
         memset(&r, 0, sizeof(r));
@@ -3956,6 +4079,266 @@ TestResult Test_ComboLogicSharedPair(void) {
 
     printf("[TEST] combo-logic-shared-pair: %s\n", sClpFailures == 0 ? "PASS" : "FAIL");
     return sClpFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// combo-logic-fixed-credit — THE FIXED SHARED CREDIT (#1169 XW15)
+// ============================================================================
+//
+// A shared family half that sits on its own game's check as FIXED native content
+// (a shared warp song under Shuffle Songs Off) is in no table, so only a fixed
+// credit hands the other game's half to the other engine. Each leg names the line
+// of combo_logic.c's ComboLogicExchangeFrom credit step it would catch removed.
+
+namespace {
+
+const uint16_t kOotFixedSong = 106;
+const uint16_t kMmFixedSong = 206;
+
+/** OoT host 10 holds OoT's half as fixed content; MM host 20 holds MM's half only
+ *  with @p mmFixed (a leg whose MM goal reads the credit must have no other MM
+ *  source). Neither is a table row. Each host is open; MM's goal needs MM's half. */
+void ClBuildFixedCreditWorld(bool mmFixed) {
+    ClResetEngine(&gClOoT, (uint8_t)GAME_OOT);
+    ClAddItem(&gClOoT, kOotFixedSong);
+    ClAddItem(&gClOoT, kOotSword);
+    ClAddHost(&gClOoT, 10, 0u);
+    gClOoT.fixedItem[0] = kOotFixedSong;
+    gClOoT.crossingRequires = 0u;
+    gClOoT.goalRequires = 0u;
+
+    ClResetEngine(&gClMM, (uint8_t)GAME_MM);
+    ClAddItem(&gClMM, kMmFixedSong);
+    ClAddItem(&gClMM, kMmOcarina);
+    ClAddHost(&gClMM, 20, 0u);
+    gClMM.fixedItem[0] = mmFixed ? kMmFixedSong : (uint16_t)0;
+    gClMM.crossingRequires = 0u;
+    gClMM.goalRequires = ClBit(&gClMM, kMmFixedSong);
+    ClInstall();
+}
+
+ComboLogicFixedCredit ClFixedCredit(uint8_t hostGame, uint16_t hostCheck, uint8_t farGame, uint16_t farId) {
+    ComboLogicFixedCredit c;
+    memset(&c, 0, sizeof(c));
+    c.hostGame = hostGame;
+    c.hostCheck = hostCheck;
+    c.farItem = ClItem(farGame, farId);
+    return c;
+}
+
+/** One beat-both round with every assume count zeroed first. */
+int ClFixedCreditRound(ComboLogicRoundResult* r) {
+    memset(gClOoT.assumeCalls, 0, sizeof(gClOoT.assumeCalls));
+    memset(gClMM.assumeCalls, 0, sizeof(gClMM.assumeCalls));
+    memset(r, 0, sizeof(*r));
+    return ClRunRound((uint8_t)RSBS_COMBO_GOAL_BEAT_BOTH, NULL, 0, r);
+}
+
+/** Clears the credits and the stubs on every exit of the row, early ones too. */
+struct ClFixedCreditGuard {
+    ~ClFixedCreditGuard() {
+        (void)Combo_Logic_SetFixedCredits(NULL, 0);
+        ClUninstall();
+    }
+};
+
+} // namespace
+
+static int sClfFailures;
+#define CLF_CHECK(cond, msg)                                                \
+    do {                                                                    \
+        if (!(cond)) {                                                      \
+            printf("[TEST] FAIL: %s (%s:%d)\n", (msg), __FILE__, __LINE__); \
+            sClfFailures++;                                                 \
+        }                                                                   \
+    } while (0)
+
+TestResult Test_ComboLogicFixedCredit(void) {
+    printf("[TEST] combo-logic-fixed-credit: a shared item fixed on its own game's check credits the other engine "
+           "once per round when that check is reached, through the crossing gate, never from a forbidden host "
+           "(#1169 XW15)\n");
+    const uint8_t O = (uint8_t)GAME_OOT;
+    const uint8_t M = (uint8_t)GAME_MM;
+    sClfFailures = 0;
+    ClFixedCreditGuard guard;
+    ClUninstall();
+    (void)Combo_Logic_SetFixedCredits(NULL, 0);
+    const ComboLogicFixedCredit ootHosted = ClFixedCredit(O, 10, M, kMmFixedSong);
+    const ComboLogicFixedCredit mmHosted = ClFixedCredit(M, 20, O, kOotFixedSong);
+
+    // ---- (1) THE HOST NOT REACHED: no grant (the checkReached term) ----------
+    {
+        ClBuildFixedCreditWorld(false);
+        gClOoT.hostRequires[0] = ClBit(&gClOoT, kOotSword); // no source of the sword
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(1) one credit is set");
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        printf("[TEST] (1) host unreached: rc %d, MM assumes %d, delivered %d, goalMM %d (expected 0, 0, 0, 0)\n", rc,
+               ClPairAssumeCalls(&gClMM, kMmFixedSong), Combo_Logic_FixedCreditDeliveredCount(), r.goalMM);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK, "(1) the round runs");
+        CLF_CHECK(ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 && Combo_Logic_FixedCreditDeliveredCount() == 0,
+                  "(1) the credit was delivered from a host the round never reached");
+        CLF_CHECK(r.goalMM == 0, "(1) MM's half was held although its only source was never reached");
+    }
+
+    // ---- (2) REACHED, GATE OPEN: exactly one copy over every alternation -------
+    {
+        ClBuildFixedCreditWorld(false);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(2) one credit is set");
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        printf("[TEST] (2) reached: rc %d, MM assumes %d, OoT assumes %d, OoT copies %d, delivered %d, iterations %d, "
+               "goal %d/%d expr %d (expected 0, 1, 0, 1, 1, >=2, 1/1 1)\n",
+               rc, ClPairAssumeCalls(&gClMM, kMmFixedSong), ClPairAssumeCalls(&gClOoT, kOotFixedSong),
+               ClPairCopies(&gClOoT, kOotFixedSong), Combo_Logic_FixedCreditDeliveredCount(), r.iterations, r.goalOoT,
+               r.goalMM, r.goalExpression);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK, "(2) the round runs (a credit re-delivered every alternation never "
+                                             "converges)");
+        CLF_CHECK(ClPairAssumeCalls(&gClMM, kMmFixedSong) == 1 && r.iterations >= 2,
+                  "(2) MM's engine was not handed exactly ONE copy over a round of several alternations");
+        CLF_CHECK(Combo_Logic_FixedCreditDeliveredCount() == 1, "(2) the delivered probe does not read one credit");
+        CLF_CHECK(ClPairAssumeCalls(&gClOoT, kOotFixedSong) == 0 && ClPairCopies(&gClOoT, kOotFixedSong) == 1,
+                  "(2) the host engine must harvest its own fixed half itself, never be assumed it");
+        CLF_CHECK(r.goalMM == 1 && r.goalExpression == 1, "(2) the credit did not prove MM's half");
+        CLF_CHECK(ClContractClean(), "(2) no engine saw the other game's id");
+    }
+
+    // ---- (3) THE GATE: OoT's crossing closed, nothing crosses from OoT ---------
+    {
+        ClBuildFixedCreditWorld(false);
+        gClOoT.crossingRequires = kClNeverBit;
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(3) one credit is set");
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        printf("[TEST] (3) OoT crossing closed: rc %d, MM assumes %d, delivered %d (expected 0, 0, 0)\n", rc,
+               ClPairAssumeCalls(&gClMM, kMmFixedSong), Combo_Logic_FixedCreditDeliveredCount());
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 &&
+                      Combo_Logic_FixedCreditDeliveredCount() == 0,
+                  "(3) the credit crossed while OoT's crossing was closed: it must wait for the gate");
+
+        // An MM host needs BOTH crossings: MM's closed, OoT's open. OoT's host
+        // holds nothing here, so OoT's goal reads the credit alone.
+        ClBuildFixedCreditWorld(true);
+        gClOoT.fixedItem[0] = 0;
+        gClOoT.goalRequires = ClBit(&gClOoT, kOotFixedSong);
+        gClMM.goalRequires = 0u;
+        gClMM.crossingRequires = kClNeverBit;
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&mmHosted, 1) == 1, "(3) the MM-hosted credit is set");
+        const int rcClosed = ClFixedCreditRound(&r);
+        const int closedAssumes = ClPairAssumeCalls(&gClOoT, kOotFixedSong);
+        gClMM.crossingRequires = 0u;
+        ClInstall();
+        const int rcOpen = ClFixedCreditRound(&r);
+        printf("[TEST] (3) MM host: MM crossing closed rc %d OoT assumes %d; open rc %d OoT assumes %d goalOoT %d "
+               "(expected 0 0; 0 1 1)\n",
+               rcClosed, closedAssumes, rcOpen, ClPairAssumeCalls(&gClOoT, kOotFixedSong), r.goalOoT);
+        CLF_CHECK(rcClosed == RSBS_COMBO_LOGIC_OK && closedAssumes == 0,
+                  "(3) OoT's half crossed from an MM host with MM's crossing closed: it needs both crossings");
+        CLF_CHECK(rcOpen == RSBS_COMBO_LOGIC_OK && ClPairAssumeCalls(&gClOoT, kOotFixedSong) == 1 && r.goalOoT == 1,
+                  "(3) with both crossings open the MM-hosted credit did not reach OoT's engine exactly once");
+    }
+
+    // ---- (4) A FORBIDDEN HOST: no credit (the sForbidden skip) ---------------
+    {
+        ClBuildFixedCreditWorld(false);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(4) one credit is set");
+        memset(gClMM.assumeCalls, 0, sizeof(gClMM.assumeCalls));
+        const ComboLogicHostRef forbid[1] = { ClHostRef(O, 10) };
+        ComboLogicRoundResult r;
+        const int rc = ClRunForbidden(forbid, 1, &r);
+        printf("[TEST] (4) host forbidden: rc %d, MM assumes %d, delivered %d, goalMM %d (expected 0, 0, 0, 0)\n", rc,
+               ClPairAssumeCalls(&gClMM, kMmFixedSong), Combo_Logic_FixedCreditDeliveredCount(), r.goalMM);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 &&
+                      Combo_Logic_FixedCreditDeliveredCount() == 0 && r.goalMM == 0,
+                  "(4) a forbidden host's fixed credit crossed: the round was asked about a world where it is empty");
+    }
+
+    // ---- (5) A CYCLE THROUGH THE CREDITS: the least fixpoint grants nothing ----
+    {
+        ClBuildFixedCreditWorld(true);
+        gClOoT.hostRequires[0] = ClBit(&gClOoT, kOotFixedSong); // only from the MM-hosted credit
+        gClMM.hostRequires[0] = ClBit(&gClMM, kMmFixedSong);    // only from the OoT-hosted credit
+        gClOoT.goalRequires = ClBit(&gClOoT, kOotFixedSong);
+        ClInstall();
+        const ComboLogicFixedCredit both[2] = { ootHosted, mmHosted };
+        CLF_CHECK(Combo_Logic_SetFixedCredits(both, 2) == 2, "(5) two credits are set");
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        printf("[TEST] (5) cycle: rc %d, assumes OoT %d MM %d, delivered %d, expr %d (expected 0, 0 0, 0, 0)\n", rc,
+               ClPairAssumeCalls(&gClOoT, kOotFixedSong), ClPairAssumeCalls(&gClMM, kMmFixedSong),
+               Combo_Logic_FixedCreditDeliveredCount(), r.goalExpression);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 0 &&
+                      ClPairAssumeCalls(&gClOoT, kOotFixedSong) == 0 && ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 &&
+                      r.goalExpression == 0,
+                  "(5) a host reachable only through its own credit was credited: a credit must never be assumed");
+        // Control: open OoT's host and both credits flow, each once.
+        gClOoT.hostRequires[0] = 0u;
+        ClInstall();
+        const int rcOpen = ClFixedCreditRound(&r);
+        printf("[TEST] (5) cycle broken: rc %d, delivered %d, expr %d (expected 0, 2, 1)\n", rcOpen,
+               Combo_Logic_FixedCreditDeliveredCount(), r.goalExpression);
+        CLF_CHECK(rcOpen == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 2 &&
+                      r.goalExpression == 1,
+                  "(5) with OoT's host open both credits must be delivered and the goal proven");
+    }
+
+    // ---- (6) CLEARED: nothing is credited -------------------------------------
+    {
+        ClBuildFixedCreditWorld(false);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(6) one credit is set");
+        CLF_CHECK(Combo_Logic_SetFixedCredits(NULL, 0) == 0 && Combo_Logic_FixedCreditCount() == 0,
+                  "(6) NULL with 0 must clear the credits");
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 && r.goalMM == 0,
+                  "(6) a cleared credit still crossed");
+    }
+
+    // ---- (7) REFUSALS: nothing changes ------------------------------------------
+    {
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(7) one credit is set");
+        ComboLogicFixedCredit many[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP + 1];
+        for (int i = 0; i < RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP + 1; ++i) {
+            many[i] = ootHosted;
+        }
+        CLF_CHECK(Combo_Logic_SetFixedCredits(many, RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP + 1) == -1,
+                  "(7) more credits than the cap must be refused");
+        CLF_CHECK(Combo_Logic_SetFixedCredits(NULL, 1) == -1, "(7) NULL with a positive count must be refused");
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, -1) == -1, "(7) a negative count must be refused");
+        const ComboLogicFixedCredit noGame = ClFixedCredit((uint8_t)GAME_NONE, 10, M, kMmFixedSong);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&noGame, 1) == -1, "(7) a host game that is no game must be refused");
+        const ComboLogicFixedCredit sameGame = ClFixedCredit(O, 10, O, kOotFixedSong);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&sameGame, 1) == -1,
+                  "(7) a far item of the host's own game must be refused");
+        ComboLogicFixedCredit got;
+        memset(&got, 0, sizeof(got));
+        CLF_CHECK(Combo_Logic_FixedCreditCount() == 1 && Combo_Logic_FixedCreditAt(0, &got) && got.hostGame == O &&
+                      got.hostCheck == 10 && got.farItem.originGame == M && got.farItem.id == kMmFixedSong,
+                  "(7) a refused call changed the credits in force");
+        CLF_CHECK(!Combo_Logic_FixedCreditAt(1, &got) && !Combo_Logic_FixedCreditAt(-1, &got) &&
+                      !Combo_Logic_FixedCreditAt(0, NULL),
+                  "(7) an out-of-range or NULL read must answer false");
+    }
+
+    // ---- (8) AN INPUT OF THE WORLD: kept by the reset, cleared by the forget -----
+    {
+        ClBuildFixedCreditWorld(false);
+        CLF_CHECK(Combo_Logic_SetFixedCredits(&ootHosted, 1) == 1, "(8) one credit is set");
+        Combo_Logic_ResetPlacements();
+        ComboLogicRoundResult r;
+        const int rc = ClFixedCreditRound(&r);
+        printf("[TEST] (8) after the reset: count %d, rc %d, delivered %d (expected 1, 0, 1)\n",
+               Combo_Logic_FixedCreditCount(), rc, Combo_Logic_FixedCreditDeliveredCount());
+        CLF_CHECK(Combo_Logic_FixedCreditCount() == 1 && rc == RSBS_COMBO_LOGIC_OK &&
+                      Combo_Logic_FixedCreditDeliveredCount() == 1,
+                  "(8) Combo_Logic_ResetPlacements dropped a credit: a fill retry would lose the other game's song");
+        Combo_SingleBag_Forget();
+        CLF_CHECK(Combo_Logic_FixedCreditCount() == 0,
+                  "(8) Combo_SingleBag_Forget left the credits in force for the next world");
+    }
+
+    printf("[TEST] combo-logic-fixed-credit: %s\n", sClfFailures == 0 ? "PASS" : "FAIL");
+    return sClfFailures == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // ============================================================================

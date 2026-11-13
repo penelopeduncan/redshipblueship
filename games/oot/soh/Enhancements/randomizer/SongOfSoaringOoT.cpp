@@ -12,7 +12,10 @@
  * (logic.cpp: HasItem, and ApplyItemEffect's song branch, which would otherwise
  * set quest bit 0, the Forest Medallion). Under the shared rule
  * RSBS_XITEM2_SHARED_SONG_SOARING the pool gains nothing
- * (Combo_SongSoaringOoTCopies): the shared song is the family lane XW10 builds.
+ * (Combo_SongSoaringOoTCopies): OoTMM adds no copy under the shared rule
+ * (transform.ts, `replaceItem(MM_SONG_SOARING, SHARED_SONG_SOARING)` and no
+ * `addItem(OOT_SONG_SOARING)`); Majora's Mask's native copy is the shared row, and
+ * this song is that family's OoT member (lane XW10, registered below).
  *
  * NO NEW ItemID. The song has no inventory slot, pause row or C-button use, so
  * it adds nothing past ITEM_MASK_STONE and reaches none of the vanilla-sized
@@ -59,6 +62,8 @@
 #include "foreign_items.h"     // src/common: the second rules word, Combo_GetForeignItemByNameFor
 #include "warp_song_items.h"   // src/common: the copies rule and the overflow refusal
 #include "warp_song_soaring.h" // src/common: the matcher, the gates, the owls (#1169 XW6)
+#include "warp_song_family.h"  // src/common: whether Link holds the song under the shared rule (#1169 XW10)
+#include "shared_resources.h"  // src/common: the shared Soaring's family member (#1169 XW10)
 
 // src/common: the owl map's route, its prompt and its assets (#1169 XW8).
 #include "warp_song_soaring_map.h"
@@ -111,8 +116,46 @@ extern "C" int OoT_SongOfSoaringOoTPooledCopies(void) {
 }
 
 extern "C" bool OoT_SoaringOoTOwned(void) {
+    // #1169 XW10 (Combo_WarpSongHeld): OoT's own copy, its flag, or under the shared
+    // Song of Soaring the family owned. MM's own copy is MM's save, which OoT
+    // cannot read while it runs; the family word rides Tier-1, so the answer holds
+    // in a session that booted Majora's Mask first and after a reload.
+    ComboWarpSongHoldings h;
+    h.rules2 = Combo_ComboCrossItemFlags2();
+    h.owned2 = Combo_SharedFamilies2Owned();
+    h.heldOoT = Flags_GetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT) != 0 ? (uint8_t)1u : (uint8_t)0u;
+    h.heldMM = 0u;
+    return Combo_WarpSongHeld(&h, (int)GAME_OOT, (int)RSBS_WARP_SONG_SOARING);
+}
+
+namespace {
+// #1169 XW10: the Song of Soaring (OoT) is the OoT member of the shared Song of
+// Soaring (OoTMM sharedSongSoaring; the second family word). Its own copy is its
+// flag (randomizer.cpp's give sets it); pooled answers "the extension is frozen
+// on", not "OoT pools a copy": under the shared rule OoT pools none (OoTMM's pool),
+// and a pair needs both members pooled. MM's native Song of Soaring is the other
+// member (MM's GameExports_SingleExe.cpp).
+bool OoT_SoaringOoTFamilyHeld(uint16_t nativeId) {
+    (void)nativeId;
     return Flags_GetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT) != 0;
 }
+void OoT_SoaringOoTFamilyGive(uint16_t nativeId) {
+    (void)nativeId;
+    Flags_SetRandomizerInf(RAND_INF_OBTAINED_SONG_OF_SOARING_OOT);
+}
+bool OoT_SoaringOoTFamilyPooled(uint16_t nativeId) {
+    (void)nativeId;
+    return OoT_SongOfSoaringOoTOn();
+}
+struct OoTSoaringOoTFamilyRegistrar {
+    OoTSoaringOoTFamilyRegistrar() {
+        const ComboSharedFamilyMember soaring = { (uint16_t)RG_SONG_OF_SOARING_OOT, OoT_SoaringOoTFamilyHeld,
+                                                  OoT_SoaringOoTFamilyGive, OoT_SoaringOoTFamilyPooled };
+        Combo_RegisterSharedFamily2Member(GAME_OOT, RSBS_XITEM2_SHARED_SONG_SOARING, &soaring);
+    }
+};
+const OoTSoaringOoTFamilyRegistrar gOoTSoaringOoTFamilyRegistrar;
+} // namespace
 
 int OoT_SongSpots_RefuseOverflow(const std::vector<RandomizerGet>& songs, size_t spots, uint8_t shuffleSongs) {
     const bool soaringOoT = std::find(songs.begin(), songs.end(), RG_SONG_OF_SOARING_OOT) != songs.end();

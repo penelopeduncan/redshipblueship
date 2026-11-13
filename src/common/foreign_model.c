@@ -173,6 +173,7 @@ static const char* const kCollidingObjectDirs[] = {
     "object_js",
     "object_ka",
     "object_kanban",
+    "object_key",
     "object_kibako",
     "object_kibako2",
     "object_kusa",

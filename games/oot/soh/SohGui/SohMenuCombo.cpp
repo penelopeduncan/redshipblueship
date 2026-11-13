@@ -196,32 +196,38 @@ static ComboWarpSongRow sComboWarpSongRows[] = {
       RSBS_MM_WARP_SONG_TOOLTIP_PRELUDE, nullptr, false },
     { COMBO_SETTING_SHARED_SONG_SOARING, RSBS_XITEM2_SHARED_SONG_SOARING, COMBO_SETTING_SONG_SOARING_OOT,
       "Makes the Song of Soaring one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Song of Soaring is shuffled, and both games' logic counts it. Needs Song of Soaring (OoT).",
+      "other. Only one Song of Soaring is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Song of Soaring (OoT).",
       "This setting is disabled because: \n\n- Song of Soaring (OoT) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_MINUET, RSBS_XITEM2_SHARED_SONG_MINUET, COMBO_SETTING_SONG_MINUET_MM,
       "Makes the Minuet of Forest one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Minuet of Forest is shuffled, and both games' logic counts it. Needs Minuet of Forest (MM).",
+      "other. Only one Minuet of Forest is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Minuet of Forest (MM).",
       "This setting is disabled because: \n\n- Minuet of Forest (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_BOLERO, RSBS_XITEM2_SHARED_SONG_BOLERO, COMBO_SETTING_SONG_BOLERO_MM,
       "Makes the Bolero of Fire one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Bolero of Fire is shuffled, and both games' logic counts it. Needs Bolero of Fire (MM).",
+      "other. Only one Bolero of Fire is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Bolero of Fire (MM).",
       "This setting is disabled because: \n\n- Bolero of Fire (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_SERENADE, RSBS_XITEM2_SHARED_SONG_SERENADE, COMBO_SETTING_SONG_SERENADE_MM,
       "Makes the Serenade of Water one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Serenade of Water is shuffled, and both games' logic counts it. Needs Serenade of Water (MM).",
+      "other. Only one Serenade of Water is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Serenade of Water (MM).",
       "This setting is disabled because: \n\n- Serenade of Water (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_REQUIEM, RSBS_XITEM2_SHARED_SONG_REQUIEM, COMBO_SETTING_SONG_REQUIEM_MM,
       "Makes the Requiem of Spirit one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Requiem of Spirit is shuffled, and both games' logic counts it. Needs Requiem of Spirit (MM).",
+      "other. Only one Requiem of Spirit is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Requiem of Spirit (MM).",
       "This setting is disabled because: \n\n- Requiem of Spirit (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_NOCTURNE, COMBO_SETTING_SONG_NOCTURNE_MM,
-      "Makes the Nocturne of Shadow one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Nocturne of Shadow is shuffled, and both games' logic counts it. Needs Nocturne of Shadow "
-      "(MM).",
+      "Makes the Nocturne of Shadow one item across both games: finding it in either game gives it to you in "
+      "the other. Only one Nocturne of Shadow is shuffled (with Shuffle Songs Off it stays at its usual check), "
+      "and both games' logic counts it. Needs Nocturne of Shadow (MM).",
       "This setting is disabled because: \n\n- Nocturne of Shadow (MM) Is Off", false },
     { COMBO_SETTING_SHARED_SONG_PRELUDE, RSBS_XITEM2_SHARED_SONG_PRELUDE, COMBO_SETTING_SONG_PRELUDE_MM,
       "Makes the Prelude of Light one item across both games: finding it in either game gives it to you in the "
-      "other. Only one Prelude of Light is shuffled, and both games' logic counts it. Needs Prelude of Light (MM).",
+      "other. Only one Prelude of Light is shuffled (with Shuffle Songs Off it stays at its usual check), and "
+      "both games' logic counts it. Needs Prelude of Light (MM).",
       "This setting is disabled because: \n\n- Prelude of Light (MM) Is Off", false },
 };
 
@@ -1392,9 +1398,11 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
     // in its order: the Song of Soaring added to Ocarina of Time, Ocarina of Time's
     // six warp songs added to Majora's Mask, then their shared variants. A row is
     // drawn only while this build OFFERS its rule (Combo_ComboItemRule2Offered):
-    // the six MM rows stay undrawn until the row IntMMWarpSongMinuet exists, and
-    // the seven shared rows until lane XW10 builds their family; each appears when
-    // its bit leaves RSBS_XITEM2_HIDDEN, with no change here. A shared row shows
+    // each appears when its bit leaves RSBS_XITEM2_HIDDEN, with no change here
+    // (the six MM rows since IntMMWarpSongMinuet proved their path, the seven
+    // shared rows since IntMMWarpSongMinuetShared proved theirs, #1169 XW14). An
+    // extension row's tooltip names sharing a song as a way out once its shared
+    // row is offered (Combo_WarpSongExtensionTooltip). A shared row shows
     // its dependency as the shared masks do: greyed, with that reason, while its
     // extension is off (the resolver drops it). No row is greyed because the songs
     // would not fit the song checks (operator ruling 2026-11-04, decision 2):
@@ -1410,6 +1418,13 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
                     // row is kept out of the menu search too.
                     info.isHidden = true;
                     return;
+                }
+                if (row->needs == COMBO_SETTING_COUNT) {
+                    // #1169 XW14: an extension row advises sharing a song once its
+                    // shared row is offered (OoTMM's "share or start with a song").
+                    const char* tip = Combo_WarpSongExtensionTooltip(
+                        row->bit, Combo_ComboItemRule2Offered(row->bit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT));
+                    info.options->tooltip = tip != nullptr ? tip : row->tooltip;
                 }
                 const bool decided = Combo_ComboSettingsFrozen();
                 row->value = decided ? Combo_ComboCrossItemRule2(row->bit) : Combo_ComboSettingResolved(row->id) != 0;

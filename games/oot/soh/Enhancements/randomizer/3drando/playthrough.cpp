@@ -921,24 +921,22 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
                      (unsigned)Combo_ComboDirection());
         return -1;
     }
-    // #1169 XW2: THE HIDDEN RULES' GATE. Since XW12 the Song of Soaring (OoT)
-    // has a row and passes it; the six MM extensions are refused here until the
-    // row IntMMWarpSongMinuet proves their path; the seven SHARED songs have keys but no
-    // row until lane XW10 builds their family, because nothing in this build
-    // plays them yet: a world frozen with one on would hold dead song pickups. A
-    // shared key set out of band (the console, a hand-made config or preset)
-    // together with its extension is refused here by name, before anything is
-    // frozen, so the refusal is the same plain early return as the gate above
-    // (without its extension the resolver drops it, OoTMM's `cond`). The player
-    // hears it as "Not generated: a rule needs a later build." (D4).
+    // #1169 XW2: THE HIDDEN RULES' GATE. A rule is refused here by name, before
+    // anything is frozen, while its bit is inside RSBS_XITEM2_HIDDEN (a rule this
+    // build does not offer yet: a world frozen with it would hold pickups nothing
+    // plays), so the refusal is the same plain early return as the gate above. The
+    // resolver assembles only keyed, allocated bits and drops a shared song whose
+    // extension is off (OoTMM's `cond`), so once every allocated rule is offered
+    // this gate is a BACKSTOP no resolved word reaches. The player hears it as "Not
+    // generated: a rule needs a later build." (D4).
     const uint32_t rsbsItemRules2 = Combo_ResolveComboItemRules2();
     {
         char rsbsRefusedRules[160];
         if (Combo_ComboItemRules2Refused(rsbsItemRules2, rsbsRefusedRules, sizeof(rsbsRefusedRules)) != 0u) {
-            SPDLOG_ERROR("Paired identity: the cross-game rules {} are not offered by this build yet (the shared "
-                         "warp songs are not built); refusing to generate (#1169)",
+            SPDLOG_ERROR("Paired identity: the cross-game rules {} are rules this build does not know or does not "
+                         "offer; refusing to generate (#1169)",
                          rsbsRefusedRules);
-            fprintf(stderr, "[OoT] generation REFUSED: cross-game rules not offered yet: %s (#1169)\n",
+            fprintf(stderr, "[OoT] generation REFUSED: cross-game rules this build does not know: %s (#1169)\n",
                     rsbsRefusedRules);
             Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_HIDDEN_RULE);
             return -1;
@@ -1024,8 +1022,8 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
             Combo_ComboItemRulesApplyCreationShuffles(&comboSettings, &comboItemRules, rsbsShuffled);
         }
         // #1169 XW2: the second rules word freezes in the same act. The gate above
-        // refused any word it names, so this holds no hidden (shared) bit: it is
-        // 0, and the freeze and its fingerprint exactly the Ex form's, unless a
+        // refused any word it names, so this holds no bit of RSBS_XITEM2_HIDDEN: it
+        // is 0, and the freeze and its fingerprint exactly the Ex form's, unless a
         // Cross-Game Songs row is on (XW12).
         Combo_FreezeComboSettingsEx2(&comboSettings, &comboItemRules, rsbsItemRules2);
         // #1369: publish MM's give capabilities again, now that the record they

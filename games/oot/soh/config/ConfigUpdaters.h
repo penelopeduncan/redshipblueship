@@ -95,6 +95,17 @@ class ConfigVersion10Updater final : public Ship::ConfigVersionUpdater {
 };
 
 /**
+ * RSBS version 11 — #1404 (SoH #6938): the randomizer's Skip Child Zelda and Kakariko Gate settings left the
+ * menus. A stored Skip Child Zelda becomes Start with Zelda's Letter + Shuffle Weird Egg "Skip Waking Talon";
+ * both legacy keys are then cleared, as upstream's version 7 updater does.
+ */
+class ConfigVersion11Updater final : public Ship::ConfigVersionUpdater {
+  public:
+    ConfigVersion11Updater();
+    void Update(Ship::Config* conf);
+};
+
+/**
  * @brief The ADR 0003 §6.3 conflict rule, as a pure predicate.
  *
  * A config can legitimately hold BOTH spellings of a converged setting: the

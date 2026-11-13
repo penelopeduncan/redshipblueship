@@ -78,6 +78,7 @@ games/oot/soh/Enhancements/cosmetics/CosmeticsEditorMmHud.h
 games/mm/2s2h/mm_flash_filenum_test.cpp
 games/mm/2s2h/mm_hook_dispatch_test.cpp
 games/mm/2s2h/mm_paired_load_restore_test.cpp
+games/mm/2s2h/mm_custom_message_line_breaks_test.cpp
 games/mm/2s2h/mm_playtime_seed_test.cpp
 games/mm/2s2h/mm_mirrored_world_test.cpp
 games/mm/2s2h/Enhancements/Modes/MirroredWorld.cpp
@@ -316,5 +317,6 @@ games/mm/2s2h/Rando/WarpSongsMM.cpp
 games/mm/2s2h/mm_warp_songs_mm_test.cpp
 games/mm/2s2h/mm_warp_travel_test.cpp
 games/mm/2s2h/mm_warp_song_play_test.cpp
+games/mm/2s2h/mm_int_warp_song_drive.cpp
 games/oot/soh/Enhancements/randomizer/WarpSongRecordOoT.cpp
 games/oot/soh/oot_shuffle_silver_test.cpp

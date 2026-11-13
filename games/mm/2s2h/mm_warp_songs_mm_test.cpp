@@ -14,9 +14,8 @@
  * THE RANDO ROW (`mm-warp-songs-pooled-only-when-rule-on`,
  * MM_WarpSongsPooled_RunHeadless): real paired generations (OoT's Generate, then
  * MM's creation-time half through the real OnSaveInit chain, mm-paired-start's
- * shape) with the rules off, on through the hidden-bit test seam
- * (Combo_ComboItemRules2RevealForTest, XW2's; production never calls it) and with
- * the shared rules on too.
+ * shape) with the rules off, on through their keys (offered since #1169 XW13) and
+ * with the shared rules on too (offered since #1169 XW14).
  *
  * THE RECORD ROW (`oot-warp-song-record`, MM_WarpSongRecordWorld_RunHeadless,
  * #1169 XW7): the same creations followed by OoT's side of the tail, under Shuffle
@@ -53,6 +52,7 @@
 #include "foreign_items.h"       // src/common: the second rules word and its test seam
 #include "mm_warp_song_play.h"   // src/common: the creation's warp-song record (#1169 XW7)
 #include "seed_package.h"        // src/common: Generate's completion and its statuses (#1169 XW12)
+#include "shared_resources.h"    // src/common: the shared warp songs' family members (#1169 XW10)
 #include "warp_songs_mm.h"       // src/common: the ownership byte
 
 extern "C" {
@@ -352,8 +352,9 @@ int PlacedInWorld(RandoItemId id) {
 
 /**
  * One leg: a paired creation with the six extension keys on when `extensions`, the
- * Shared Minuet of Forest too when `sharedMinuet`, through the MM seam (the six
- * stay hidden until IntMMWarpSongMinuet, #1169 XW12) or the full one. Checks the
+ * Shared Minuet of Forest too when `sharedMinuet` (through the full test seam:
+ * the shared songs stay hidden until XW10; the six are offered since #1169 XW13,
+ * so their leg runs on the production mask). Checks the
  * frozen word, MM's pool over the half's own persisted input (one copy of each song
  * whose rule is on and whose shared song is off), the world (every pool copy placed)
  * and the ownership byte (nothing owned: the world starts with no warp song, and the
@@ -373,13 +374,10 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
     if (sharedMinuet) {
         CVarSetInteger(Combo_ComboSettingKey(kSharedKeys[0]), 1);
     }
-    // THE TEST SEAM: the six extensions stay hidden until IntMMWarpSongMinuet
-    // (#1169 XW12), so a leg with them reveals them alone (the shared songs still
-    // refused); the Shared Minuet of Forest stays hidden until XW10, so only that
-    // leg reads the mask empty.
-    Combo_ComboItemRules2RevealForTest(sharedMinuet ? RSBS_XITEM2_REVEAL_ALL
-                                       : extensions ? RSBS_XITEM2_REVEAL_MM_SONGS
-                                                    : RSBS_XITEM2_REVEAL_NONE);
+    // The production mask for every leg: the six extensions are offered since
+    // IntMMWarpSongMinuet (#1169 XW13) and the Shared Minuet of Forest since
+    // IntMMWarpSongMinuetShared (#1169 XW14).
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
     // Songs Anywhere (#1542): under the shipped Song Locations the shared song pool
     // takes the six warp songs too, and 12 OoT + 16 MM songs (27 with the Shared
     // Minuet) for the 23 song checks of both games refuse by design, OoTMM's
@@ -425,7 +423,31 @@ int RunLeg(const char* name, const char* seed, bool extensions, bool sharedMinue
                                                     "be held back for lane XW10's family"
                                                   : "a song whose rule is on is not in MM's pool exactly once")
                                            : "a song whose rule is off reached MM's pool");
-        WsCheck(placed == copies, "a pool copy of an MM warp song was not placed in the world");
+        if (i == 0 && sharedMinuet) {
+            // #1169 XW10: the shared Minuet is ONE pair row, recorded as MM's song
+            // when an MM check hosts it (and as OoT's Minuet when an OoT one does),
+            // so MM's world holds it at most once though MM pools no copy.
+            WsCheck(placed <= 1, "the shared Minuet of Forest is in MM's world more than once");
+        } else {
+            WsCheck(placed == copies, "a pool copy of an MM warp song was not placed in the world");
+        }
+    }
+    if (sharedMinuet) {
+        // #1169 XW10: the bag pairs OoT's native Minuet with MM's song, the one
+        // shared row. Catches a missing MM member registration and a pooled() that
+        // answers "copies > 0" (0 under the shared rule), either of which leaves
+        // the pair out.
+        ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+        const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        uint16_t ootMinuet = 0;
+        const bool ootRegistered = Combo_SharedFamily2MemberId(GAME_OOT, RSBS_XITEM2_SHARED_SONG_MINUET, &ootMinuet);
+        int found = 0;
+        for (int p = 0; p < n; p++) {
+            found += (pairs[p].mmId == (uint16_t)RI_SONG_MINUET && pairs[p].ootId == ootMinuet) ? 1 : 0;
+        }
+        printf("[TEST]   %s: %d shared pair(s), the Minuet pair %d (OoT member registered %d)\n", name, n, found,
+               ootRegistered ? 1 : 0);
+        WsCheck(ootRegistered && found == 1, "the Shared Minuet of Forest is not the pair (OoT's Minuet, MM's Minuet)");
     }
     const uint8_t owned = Combo_MMWarpSongsOwned();
     printf("[TEST]   %s: ownership byte after the creation %02X (expected 00)\n", name, (unsigned)owned);
@@ -529,8 +551,8 @@ struct WsrRestore {
 
 /**
  * #1169 XW12 (D3): THE RECORD INVARIANT AT CREATION. With the freeze's seam forcing
- * a malformed record, three real paired creations, the rule set by its key under the
- * MM seam (the six MM extensions are hidden until IntMMWarpSongMinuet):
+ * a malformed record, three real paired creations, the rule set by its key on the
+ * production mask (the six MM extensions are offered since #1169 XW13):
  *   (r1) Minuet of Forest (MM) on, OoT's side of the tail alone: it returns -3, the
  *        crossing store is empty and the record UNSET;
  *   (r2) the same through Generate's completion: refused
@@ -542,13 +564,12 @@ struct WsrRestore {
  */
 void WsrRunRefusalLegs() {
     const char* const minuetKey = Combo_ComboSettingKey(COMBO_SETTING_SONG_MINUET_MM);
-    // The MM seam: the six extensions stay hidden until IntMMWarpSongMinuet
-    // (#1169 XW12), and Generate refuses a hidden rule before the record's tail
-    // runs, so without it (r1) and (r2) could not tell D3 from the hidden gate.
-    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
+    // The production mask: the six extensions are offered since #1169 XW13. Were
+    // the Minuet hidden, Generate would refuse it before the record's tail runs and
+    // (r1) and (r2) could not tell D3 from the hidden gate, so say so by name.
+    Combo_ComboItemRules2RevealForTest(0);
     if (!Combo_ComboItemRule2Offered(RSBS_XITEM2_SONG_MINUET_MM)) {
-        WsrCheck(false, "D3", "Minuet of Forest (MM) is not offered under the MM seam");
-        Combo_ComboItemRules2RevealForTest(0);
+        WsrCheck(false, "D3", "Minuet of Forest (MM) is not offered on the production mask");
         return;
     }
     for (int leg = 1; leg <= 3; leg++) {
