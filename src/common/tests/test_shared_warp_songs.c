@@ -667,6 +667,19 @@ void SwsForgetAll() {
     MM_SharedSongsTest_SetHeld(0, 0);
 }
 
+// #1169 XW14: stub live probes for Combo_SharedFamilies2HeldNow (leg (9)).
+int sSwsProbeAnswer[3];
+int SwsProbeOoT(void) {
+    return sSwsProbeAnswer[GAME_OOT];
+}
+int SwsProbeMM(void) {
+    return sSwsProbeAnswer[GAME_MM];
+}
+void SwsSetProbes(int oot, int mm) {
+    sSwsProbeAnswer[GAME_OOT] = oot;
+    sSwsProbeAnswer[GAME_MM] = mm;
+}
+
 int SwsHeldCount(bool mm) {
     int n = 0;
     for (int s = 0; s < 7; s++) {
@@ -941,6 +954,110 @@ TestResult Test_SharedWarpSongsMerge(void) {
         item.id = minuetOoT;
         SWS_CHECK(MM_CreditSharedPickup(&item) == 0 && Combo_SharedFamilies2Owned() == 0u,
                   "(8) MM's title-screen bootstrap save took a pickup credit");
+    }
+
+    // ---- (9) #1169 XW14: held here, now (Combo_SharedFamilies2HeldNow) -------------------------
+    // Fakes at every second-word slot and stub probes, so each leg sets exactly
+    // which game is "running live". The games' own members and probes are put back.
+    {
+        SwsSavedMembers saved;
+        SwsSaveMembers(&saved);
+        const ComboSharedLiveProbeFn ootProbe = Combo_SharedLiveProbeFor(GAME_OOT);
+        const ComboSharedLiveProbeFn mmProbe = Combo_SharedLiveProbeFor(GAME_MM);
+        SWS_CHECK(ootProbe != NULL && mmProbe != NULL,
+                  "(9) a game registers no live probe (OoT %d, MM %d): every reader would answer from the family word "
+                  "alone and miss the running game's own copy",
+                  ootProbe != NULL ? 1 : 0, mmProbe != NULL ? 1 : 0);
+        SwsRegisterFakes(false);
+        Combo_RegisterSharedLiveProbe(GAME_OOT, SwsProbeOoT);
+        Combo_RegisterSharedLiveProbe(GAME_MM, SwsProbeMM);
+        const uint64_t ootMinuet = (uint64_t)1u << (32 + 8);
+        const uint64_t mmMinuet = (uint64_t)1u << (32 + 8);
+
+        // (a) The rule off, or the extension alone: 0 whatever is owned or held.
+        // Catches a helper that skips the arming gate.
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_OOT] = ootMinuet;
+        sSwsFakeHeld[GAME_MM] = mmMinuet;
+        SwsSetProbes(1, 1);
+        SwsFreeze(0u, 0x02u);
+        gComboCtx.sharedFamilyOwned2 = kSwsShared;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9a) with the Minuet extension alone the helper answered %08X: a family must be armed",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        SwsFreeze(0u, 0u);
+        gComboCtx.sharedFamilyOwned2 = kSwsShared;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u, "(9a) with every rule off the helper answered %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+
+        // (b) Armed, the family word only, no game live: the word. Catches a helper
+        // that reads only the live copies.
+        SwsFakeReset();
+        SwsSetProbes(0, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        gComboCtx.sharedFamilyOwned2 = kSwsSharedMinuet;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9b) armed with the family word owned the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        Combo_RegisterSharedLiveProbe(GAME_OOT, NULL);
+        Combo_RegisterSharedLiveProbe(GAME_MM, NULL);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9b) with no probe registered the helper answered %08X, want the family word 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        Combo_RegisterSharedLiveProbe(GAME_OOT, SwsProbeOoT);
+        Combo_RegisterSharedLiveProbe(GAME_MM, SwsProbeMM);
+
+        // (c) Armed, the word 0, OoT live and OoT's member holding it: the bit,
+        // before any harvest. Catches a helper that reads the word alone.
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_OOT] = ootMinuet;
+        SwsSetProbes(1, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet && Combo_SharedFamilies2Owned() == 0u,
+                  "(9c) OoT live holding its Minuet: the helper answered %08X (want 00000100) and the word %08X "
+                  "(want 0: the helper must not harvest)",
+                  (unsigned)Combo_SharedFamilies2HeldNow(), (unsigned)Combo_SharedFamilies2Owned());
+
+        // (d) CRITIC [1]'s CASE: MM is the running game at its title screen (MM's
+        // probe 0), OoT is not running (OoT's probe 0), MM's member holds the song
+        // and the word is 0: 0. An OoT row drawn from OoT's shadow while MM runs
+        // answers from the word only. Catches a helper that asks a member without
+        // its own game's probe (MM's bootstrap save would read as held).
+        SwsFakeReset();
+        sSwsFakeHeld[GAME_MM] = mmMinuet;
+        SwsSetProbes(0, 0);
+        SwsFreeze(0u, 0x02u | kSwsSharedMinuet);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9d) MM's member holds the Minuet but MM is not a live file and OoT is not running: the helper "
+                  "answered %08X, want 0",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // The other probe live does not open MM's member either.
+        SwsSetProbes(1, 0);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == 0u,
+                  "(9d) OoT live (its member not holding) made MM's held member count: %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // (e) As (d) with the word set: the bit, from the word.
+        SwsSetProbes(0, 0);
+        gComboCtx.sharedFamilyOwned2 = kSwsSharedMinuet;
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) as (9d) with the family word owned the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // MM live and holding: the bit (the probe's own game is asked).
+        gComboCtx.sharedFamilyOwned2 = 0u;
+        SwsSetProbes(0, 1);
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) MM live holding its Minuet: the helper answered %08X, want 00000100",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+        // Only an armed family's member is asked: the Bolero is held but not armed.
+        sSwsFakeHeld[GAME_MM] = mmMinuet | ((uint64_t)1u << (32 + 9));
+        SWS_CHECK(Combo_SharedFamilies2HeldNow() == kSwsSharedMinuet,
+                  "(9e) an unarmed family (the Bolero) was answered held: %08X",
+                  (unsigned)Combo_SharedFamilies2HeldNow());
+
+        Combo_RegisterSharedLiveProbe(GAME_OOT, ootProbe);
+        Combo_RegisterSharedLiveProbe(GAME_MM, mmProbe);
+        SwsFakeReset();
+        SwsRestoreMembers(&saved);
     }
 
     SwsFreeze(0u, 0u);

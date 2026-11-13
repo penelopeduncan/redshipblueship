@@ -379,6 +379,38 @@ TestResult Test_WarpSongTracker(void) {
     XW11_CHECK(Combo_TrackerTravel_IntoMM(soar, true, true, RSBS_MMWP_AGE_CHILD, 0, 1) == 0u, "C15: unpaired");
     XW11_CHECK(Combo_TrackerTravel_IntoMM(soar, true, true, RSBS_MMWP_AGE_CHILD, 1, 0) == 0u,
                "C16: MM's crossing closed");
+    // #1169 XW14: the shared songs' held-now bits (Combo_SharedFamilies2HeldNow) as the
+    // fourth term. Each leg would fail if the Ex function ignored the bits (C17, C20),
+    // honoured them without the frozen shared rule (C18, C21), or let one song's
+    // shared bit stand for another (C19).
+    for (int song = 0; song < RSBS_TRACKER_TRAVEL_SONG_COUNT; song++) {
+        const uint32_t bit = 0x02u << song;
+        const uint32_t shared = bit << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
+        const uint32_t play = 1u << song;
+        XW11_CHECK(Combo_TrackerTravel_IntoOoTEx(bit | shared, 0u, play, 1, 1, shared) == bit,
+                   "C17 song %d: under its shared rule the family held now did not count as MM's copy", song);
+        XW11_CHECK(Combo_TrackerTravel_IntoOoTEx(bit, 0u, play, 1, 1, shared) == 0u,
+                   "C18 song %d: the family counted with the shared rule off", song);
+        const uint32_t otherShared = (song == 0 ? 0x04u : 0x02u) << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
+        XW11_CHECK(Combo_TrackerTravel_IntoOoTEx(kXw11MMSongs | (kXw11MMSongs << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT),
+                                                 0u, play, 1, 1, otherShared) == 0u,
+                   "C19 song %d: another song's family bit credited this song", song);
+        XW11_CHECK(Combo_TrackerTravel_IntoOoTEx(bit, (uint8_t)(1u << song), play, 1, 1, 0u) ==
+                       Combo_TrackerTravel_IntoOoT(bit, (uint8_t)(1u << song), play, 1, 1),
+                   "C19b song %d: the Ex function with no family bits is not the plain one", song);
+    }
+    {
+        const uint32_t soarShared = soar | RSBS_XITEM2_SHARED_SONG_SOARING;
+        XW11_CHECK(Combo_TrackerTravel_IntoMMEx(soarShared, false, true, RSBS_MMWP_AGE_CHILD, 1, 1,
+                                                RSBS_XITEM2_SHARED_SONG_SOARING) == RSBS_COMBO_TRAVEL_INTO_MM,
+                   "C20: under the shared Soaring the family held now did not count as OoT's copy");
+        XW11_CHECK(Combo_TrackerTravel_IntoMMEx(soar, false, true, RSBS_MMWP_AGE_CHILD, 1, 1,
+                                                RSBS_XITEM2_SHARED_SONG_SOARING) == 0u,
+                   "C21: the family counted with the shared Soaring off");
+        XW11_CHECK(Combo_TrackerTravel_IntoMMEx(soarShared, false, true, RSBS_MMWP_AGE_ADULT, 1, 1,
+                                                RSBS_XITEM2_SHARED_SONG_SOARING) == 0u,
+                   "C22: the family made an adult OoT's Soaring a crossing");
+    }
 
     // ---- D. the readers over each game's own layout ------------------------------------------
     std::vector<uint8_t> oot((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
@@ -685,6 +717,49 @@ TestResult Test_WarpSongTracker(void) {
                        Xw11Count(Xw11Body(mmAdapter, "extern \"C\" void MM_ItemAdapter_Register(void) {"),
                                  "Combo_TrackerTravel_RegisterMMReader(MMItemTrackerPlayable);") == 1,
                    "S8: an item adapter's Register does not register its tracker reader");
+        // #1169 XW14: every player-facing reader passes the family held now, inside
+        // the function that builds the row or the fact, never a literal false.
+        const std::string ootRow =
+            Xw11Body(ootAdapter, "ComboAddedSongRow OoTItemSoaringRow(const SaveContext* src) {");
+        const std::string mmRow =
+            Xw11Body(mmAdapter, "ComboAddedSongRow MMItemAddedSongRow(const SaveContext* src, int i) {");
+        XW11_CHECK(Xw11Count(ootRow, "(Combo_SharedFamilies2HeldNow() & RSBS_XITEM2_SHARED_SONG_SOARING) != 0u") == 1 &&
+                       Xw11Count(ootRow, ", false)") == 0,
+                   "S9: OoT's Song of Soaring (OoT) row does not pass the shared family held now as its fourth "
+                   "argument");
+        XW11_CHECK(Xw11Count(mmRow, "const uint32_t sharedBit = def.rule << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;") ==
+                           1 &&
+                       Xw11Count(mmRow, "(Combo_SharedFamilies2HeldNow() & sharedBit) != 0u") == 1 &&
+                       Xw11Count(mmRow, ", false)") == 0,
+                   "S10: MM's added-song row does not pass its shared family held now as its fourth argument");
+        const std::string travel = Xw11ReadSource("src/common/warp_song_tracker.c");
+        XW11_CHECK(Xw11Count(Xw11Body(travel, "uint32_t Combo_TrackerTravel_OoTFactsNow(int crossOoT) {"),
+                             "Combo_SharedFamilies2HeldNow()") == 1 &&
+                       Xw11Count(Xw11Body(travel, "uint32_t Combo_TrackerTravel_MMFactNow(int crossMM) {"),
+                                 "Combo_SharedFamilies2HeldNow()") == 1 &&
+                       Xw11Count(travel, "Combo_AddedSongHeld(rules2, extBit, separateOwned, false)") == 0 &&
+                       Xw11Count(travel, "soaringOwned, false)") == 0,
+                   "S11: a tracker travel fact does not read the shared family held now, or still passes false");
+        // Each game registers its live probe in the TU that owns its save, inside
+        // its family registrar's constructor (the probe is what keeps a member from
+        // being asked about the other game's shadow).
+        const std::string ootExports = Xw11ReadSource("games/oot/soh/GameExports_SingleExe.cpp");
+        const std::string mmExports = Xw11ReadSource("games/mm/2s2h/GameExports_SingleExe.cpp");
+        const auto registrar = [](const std::string& text, const char* head) {
+            const size_t at = text.find(head);
+            const size_t end = at == std::string::npos ? std::string::npos : text.find("\n};\n", at);
+            return at == std::string::npos ? std::string() : text.substr(at, end == std::string::npos ? 0 : end - at);
+        };
+        XW11_CHECK(Xw11Count(registrar(ootExports, "struct OoTSharedFamilyRegistrar {"),
+                             "Combo_RegisterSharedLiveProbe(GAME_OOT, OoT_SharedFamilyLiveProbe);") == 1 &&
+                       Xw11Count(registrar(mmExports, "struct MMSharedFamilyRegistrar {"),
+                                 "Combo_RegisterSharedLiveProbe(GAME_MM, MM_SharedFamilyLiveProbe);") == 1,
+                   "S12: a game's family registrar does not register its live probe");
+        XW11_CHECK(Xw11Count(Xw11Body(ootExports, "static int OoT_SharedFamilyLiveProbe(void) {"),
+                             "Context_GetCurrentGame() == GAME_OOT && OoT_Combo_DepartureIsLiveFile() != 0") == 1 &&
+                       Xw11Count(Xw11Body(mmExports, "static int MM_SharedFamilyLiveProbe(void) {"),
+                                 "Context_GetCurrentGame() == GAME_MM && MM_Combo_DepartureIsLiveFile() != 0") == 1,
+                   "S13: a live probe does not test its own game running and its own live-file gate");
     }
 
     // Put back what this row touched.

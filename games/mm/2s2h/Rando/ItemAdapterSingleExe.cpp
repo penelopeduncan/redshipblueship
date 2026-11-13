@@ -796,8 +796,10 @@ bool MMItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
 // off has exactly the rows and indices it had before. Each is MM's own item (its name and MM's note, Items.cpp and
 // MM_WarpSongMM_IconPath), tinted in the colour both trackers give the OoT song (SoH's songMapping, ImGuiUtils.cpp)
 // so the six notes can be told apart, and held through the ownership byte in the combo context
-// (Combo_MMWarpSongOwned), the authoritative record whichever buffer the view hands over. Combo_AddedSongHeld's
-// fourth argument is lane XW10's shared song.
+// (Combo_MMWarpSongOwned), the authoritative record whichever buffer the view hands over, or, under the song's shared
+// rule (#1169 XW14), through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running
+// game's own live copy under that game's own live-file probe). Each game keeps its own row (sharedFamily stays 0: the
+// Shared group is first-word only), so under the shared rule both games show the song held, as OoTMM does.
 struct MMItemAddedSongDef {
     uint32_t rule;
     RandoItemId rando;
@@ -821,7 +823,9 @@ ComboAddedSongRow MMItemAddedSongRow(const SaveContext* src, int i) {
         return ComboAddedSongRow{};
     }
     const MMItemAddedSongDef& def = kMMItemAddedSongs[i];
-    return Combo_AddedSongRow(Combo_ComboCrossItemFlags2(), def.rule, Combo_MMWarpSongOwned(def.rule), false);
+    const uint32_t sharedBit = def.rule << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
+    return Combo_AddedSongRow(Combo_ComboCrossItemFlags2(), def.rule, Combo_MMWarpSongOwned(def.rule),
+                              (Combo_SharedFamilies2HeldNow() & sharedBit) != 0u);
 }
 
 /** How many added songs the buffer's file shows. */

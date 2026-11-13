@@ -164,9 +164,12 @@ const char* Combo_GenRefusal_Line(int kind);
  *     EXTENSIONS) and the frozen word @p rules2 has it on. A file with every rule
  *     off shows no row, so its tracker is exactly what it was before XW11.
  *   - have: shown, and Combo_AddedSongHeld.
- *   - sharedFamily: 0. Lane XW10's shared warp song returns its family slot here
- *     when the shared bit is on, so the view draws the pair once in the Shared
- *     group.
+ *   - sharedFamily: always 0, under the shared rule too (#1169 XW14). The item
+ *     view's Shared group reads the FIRST family word only (combo_item_view.c,
+ *     SharedFamiliesDrawnShared and RowLeftOut), and a second-word family's bit
+ *     would collide with a first-word slot there. So each game keeps its own
+ *     row, and under the shared rule both show the song held (OoTMM shows the
+ *     song in both games' menus).
  */
 typedef struct ComboAddedSongRow {
     uint8_t shown;
@@ -180,9 +183,10 @@ typedef struct ComboAddedSongRow {
  * own record: OoT's RAND_INF_OBTAINED_SONG_OF_SOARING_OOT, MM's
  * gComboCtx.mmWarpSongsOwned bit), or @p sharedOwned when the frozen word
  * @p rules2 has the shared song over @p extBit on (extBit <<
- * RSBS_XITEM2_WARP_SONG_SHARED_SHIFT). Lane XW10 passes its family's owned
- * query as @p sharedOwned; until then every caller passes false. Every tracker
- * row and both tracker travel facts (warp_song_tracker.h) ask this. Pure.
+ * RSBS_XITEM2_WARP_SONG_SHARED_SHIFT). Every caller passes the family's
+ * held-now answer as @p sharedOwned (Combo_SharedFamilies2HeldNow, #1169 XW14).
+ * Every tracker row and both tracker travel facts (warp_song_tracker.h) ask
+ * this. Pure.
  */
 bool Combo_AddedSongHeld(uint32_t rules2, uint32_t extBit, bool separateOwned, bool sharedOwned);
 

@@ -1042,8 +1042,11 @@ bool OoTItemDeriveGated(const SaveContext* src, int index, ComboItemRow* out) {
 // song after the vanilla notes). Only in a randomizer file whose frozen second rules word has
 // RSBS_XITEM2_SONG_SOARING_OOT on (Combo_AddedSongRow): a file with every rule off has exactly the rows and indices
 // it had before. White, as OoTMM draws it, in SoH's own note: the vanilla Sun's Song key ImGuiUtils.cpp loads.
-// Held through its ownership flag (RandInfOf over the buffer), passed through Combo_AddedSongHeld so lane XW10's
-// shared song plugs in as that call's fourth argument.
+// Held through its ownership flag (RandInfOf over the buffer), or, under the shared Song of Soaring (#1169 XW14),
+// through the family held now (Combo_SharedFamilies2HeldNow: the family word, plus the running game's own live copy
+// under that game's own live-file probe, so a row drawn from OoT's shadow while Majora's Mask runs never asks OoT's
+// member). The view still draws the row here, in OoT's own Songs run (sharedFamily stays 0: the Shared group is
+// first-word only), so under the shared rule both games show the song held, as OoTMM shows it in both menus.
 
 /** The row's display and ownership for the buffer's file. */
 ComboAddedSongRow OoTItemSoaringRow(const SaveContext* src) {
@@ -1051,7 +1054,8 @@ ComboAddedSongRow OoTItemSoaringRow(const SaveContext* src) {
         return ComboAddedSongRow{};
     }
     return Combo_AddedSongRow(Combo_ComboCrossItemFlags2(), RSBS_XITEM2_SONG_SOARING_OOT,
-                              RandInfOf(src, RAND_INF_OBTAINED_SONG_OF_SOARING_OOT), false);
+                              RandInfOf(src, RAND_INF_OBTAINED_SONG_OF_SOARING_OOT),
+                              (Combo_SharedFamilies2HeldNow() & RSBS_XITEM2_SHARED_SONG_SOARING) != 0u);
 }
 
 /** 1 when the buffer's file shows the row, else 0. */

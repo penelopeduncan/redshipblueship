@@ -5659,6 +5659,16 @@ static_assert((int)RG_PRELUDE_OF_LIGHT - (int)RG_MINUET_OF_FOREST == 5 &&
                   (int)QUEST_SONG_PRELUDE - (int)QUEST_SONG_MINUET == 5,
               "the six warp songs' RG_* and QUEST_SONG_* ids must stay contiguous and in the same order (#1169 XW10)");
 
+// #837: defined below, beside OoT_SaveIsLiveFile (the harvest's gate).
+extern "C" int OoT_Combo_DepartureIsLiveFile(void);
+
+/** #1169 XW14: OoT's live probe for Combo_SharedFamilies2HeldNow: nonzero only while
+ *  OoT is the running game and its gSaveContext is a live file (the harvest's own
+ *  gameMode gate), so OoT's members are never asked about another game's save. */
+static int OoT_SharedFamilyLiveProbe(void) {
+    return (Context_GetCurrentGame() == GAME_OOT && OoT_Combo_DepartureIsLiveFile() != 0) ? 1 : 0;
+}
+
 namespace {
 // Static-init registration, the ComboLogicEngine registrars' shape: this TU is
 // always linked (it holds the shims), and the registry is zero-initialised
@@ -5666,6 +5676,7 @@ namespace {
 // bag reads it at the creation event and the shims at every crossing.
 struct OoTSharedFamilyRegistrar {
     OoTSharedFamilyRegistrar() {
+        Combo_RegisterSharedLiveProbe(GAME_OOT, OoT_SharedFamilyLiveProbe); // #1169 XW14
         const ComboSharedFamilyMember lens = { (uint16_t)RG_LENS_OF_TRUTH, OoT_SharedLensHeld, OoT_SharedLensGive };
         Combo_RegisterSharedFamilyMember(GAME_OOT, RSBS_XITEM_SHARED_LENS, &lens);
         const ComboSharedFamilyMember epona = { (uint16_t)RG_EPONAS_SONG, OoT_SharedSongHeld, OoT_SharedSongGive };

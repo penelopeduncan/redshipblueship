@@ -771,6 +771,39 @@ bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, ui
  */
 uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game);
 
+/*
+ * HELD HERE, NOW (#1169 XW14): the one ownership answer every player-facing reader
+ * of a second-word family asks (both item adapters' added-song rows and both
+ * check trackers' travel facts), OoTMM's has(SHARED_SONG_X).
+ *
+ * A reader may run while the OTHER game is live (the item view draws a game's
+ * rows from its frozen shadow, combo_item_view.c PickSource), so no reader may
+ * call a member's held() itself: that callback reads the live save of whichever
+ * game is running. Instead each game registers a LIVE PROBE in the TU that owns
+ * its save: nonzero only while that game is the running game AND its save is a
+ * live file (Combo_SaveIsLiveFile on its own gameMode, the harvest's own gate).
+ * At most one probe answers nonzero at a time.
+ */
+typedef int (*ComboSharedLiveProbeFn)(void);
+
+/** Register @p game's live probe (NULL unregisters). Ignored for a game that is
+ *  not OoT or MM. Not cleared by Combo_ClearSharedFamilyMembers: the probes come
+ *  from static registrars that never run again. */
+void Combo_RegisterSharedLiveProbe(GameId game, ComboSharedLiveProbeFn probe);
+
+/** @p game's registered probe, or NULL (a row saves and puts it back). */
+ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game);
+
+/**
+ * The armed second-word families held right now: `owned2 & armed2`, OR'd with,
+ * for each game whose probe answers nonzero, the families that game's registered
+ * members say its live save holds (armed ones only). Without a probe, or while
+ * every probe answers 0 (a title screen, a file select, no game running), the
+ * answer is the family word alone. 0 whenever Combo_SharedFamilies2Armed() is 0,
+ * so a world with no shared rule frozen calls nothing.
+ */
+uint32_t Combo_SharedFamilies2HeldNow(void);
+
 #ifdef __cplusplus
 }
 #endif

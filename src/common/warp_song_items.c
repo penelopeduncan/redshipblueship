@@ -115,7 +115,7 @@ ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool sepa
     ComboAddedSongRow row;
     row.shown = 0u;
     row.have = 0u;
-    row.sharedFamily = 0u; // lane XW10: the shared song's family slot, when its bit is on
+    row.sharedFamily = 0u; // always: the view's Shared group is first-word only (warp_song_items.h)
     if (!WarpSongItemsIsExtension(extBit) || (rules2 & extBit) == 0u) {
         return row;
     }

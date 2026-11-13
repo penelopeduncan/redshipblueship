@@ -5796,11 +5796,23 @@ static void MM_SharedSoaringGive(uint16_t nativeId) {
     }
 }
 
+// #837: defined below, beside MM_SaveIsLiveFile (the harvest's gate).
+extern "C" int MM_Combo_DepartureIsLiveFile(void);
+
+/** #1169 XW14: MM's live probe for Combo_SharedFamilies2HeldNow: nonzero only while
+ *  MM is the running game and its gSaveContext is a live file (the harvest's own
+ *  gameMode gate, which refuses MM's title-screen bootstrap save), so MM's members
+ *  are never asked about another game's save. */
+static int MM_SharedFamilyLiveProbe(void) {
+    return (Context_GetCurrentGame() == GAME_MM && MM_Combo_DepartureIsLiveFile() != 0) ? 1 : 0;
+}
+
 namespace {
 // Static-init registration (the ComboLogicEngine registrars' shape): this TU is
 // always linked, and the registry is zero-initialised storage.
 struct MMSharedFamilyRegistrar {
     MMSharedFamilyRegistrar() {
+        Combo_RegisterSharedLiveProbe(GAME_MM, MM_SharedFamilyLiveProbe); // #1169 XW14
         const ComboSharedFamilyMember lens = { (uint16_t)RI_LENS, MM_SharedLensHeld, MM_SharedLensGive };
         Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XITEM_SHARED_LENS, &lens);
         const ComboSharedFamilyMember epona = { (uint16_t)RI_SONG_EPONA, MM_SharedSongHeld, MM_SharedSongGive };

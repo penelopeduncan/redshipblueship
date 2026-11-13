@@ -791,6 +791,41 @@ static uint32_t FamiliesHeldLive(GameId game, int word, uint32_t armed) {
     return held;
 }
 
+// #1169 XW14: each game's live-file probe (Combo_RegisterSharedLiveProbe).
+// Zero-initialised storage, written by static registrars: safe whatever the
+// static-init order.
+static ComboSharedLiveProbeFn sSharedLiveProbes[3];
+
+void Combo_RegisterSharedLiveProbe(GameId game, ComboSharedLiveProbeFn probe) {
+    if (IsRealGame(game)) {
+        sSharedLiveProbes[game] = probe;
+    }
+}
+
+ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game) {
+    return IsRealGame(game) ? sSharedLiveProbes[game] : NULL;
+}
+
+uint32_t Combo_SharedFamilies2HeldNow(void) {
+    const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    if (armed2 == 0u) {
+        return 0u; // every world with no shared rule frozen: no callback runs
+    }
+    // owned2 holds every copy harvested at a suspend or a .redsave capture; the
+    // running game's own live copy is the only one it can be missing (OoTMM's
+    // has(SHARED_SONG_X)). A member is asked only under its own game's probe, so
+    // never for the other game's shadow, a title screen or a file select.
+    uint32_t held = gComboCtx.sharedFamilyOwned2 & armed2;
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int i = 0; i < 2; ++i) {
+        const ComboSharedLiveProbeFn probe = sSharedLiveProbes[games[i]];
+        if (probe != NULL && probe() != 0) {
+            held |= FamiliesHeldLive(games[i], 1, armed2);
+        }
+    }
+    return held;
+}
+
 /** #1169 XW14: the second-word families Combo_SharedFamiliesApplyLive GAVE each game
  *  on its most recent call (Combo_SharedFamilies2GivenAtLastApply). Session state,
  *  file-static: never ComboContext, never saved. */
