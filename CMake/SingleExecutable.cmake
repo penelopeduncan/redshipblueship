@@ -2625,9 +2625,13 @@ if(BUILD_TESTING)
         # OoT since #1542 S1; every default-songs golden arms the shared song pool
         # (#1542 S3); mm-confined differs only in keys, boss keys and stray fairies;
         # its RO_SHUFFLE_SONGS=1 is a dead key, kept so this row's profile string
-        # does not change.
+        # does not change. #1548 made keys, boss keys and chest fairies Own Dungeon
+        # by default and split the freestanding and Clock Town fairies into their
+        # own row (default Vanilla), so this row also sets that row to Own Dungeon:
+        # it stays "every dungeon item Own Dungeon", as before the split, and not a
+        # copy of seed-digest-default.
         # Same seed and dispatch as seed-digest-default.
-        "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_SHUFFLE_SONGS=1"
+        "GoldenSeedDigestMMConfined|seed-digest-mm-confined|rando-determinism|RSBS_SEED_DIGEST_OUT|ON|RSBS_DIAG_CVARS=gRando.Options.RO_PLACEMENT_SMALL_KEYS=1,gRando.Options.RO_PLACEMENT_BOSS_KEYS=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES=1,gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER=1,gRando.Options.RO_SHUFFLE_SONGS=1"
         # The clean save break's backports (#1406, #1410, #1407, #1363): every golden
         # above generates with all of their options OFF, so none pins a world with
         # their checks in it. This one turns on every one a paired world can use:
