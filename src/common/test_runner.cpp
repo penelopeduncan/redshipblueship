@@ -9146,6 +9146,59 @@ TestResult Test_OoTShuffleSilver(void) {
     }
     return OoT_ShuffleSilverTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1405: Shuffle Wonder Items (SoH 412e9e262): the wonder item checks' flag map and
+// IdentifyWonderItem, the option, the settings fold at default settings, and a
+// paired generation with the option on. Same bring-up as the row above; body in
+// games/oot/soh/oot_shuffle_wonder_items_test.cpp.
+extern "C" int OoT_ShuffleWonderItemsTest_Run(void);
+TestResult Test_OoTShuffleWonderItems(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ShuffleWonderItemsTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// QC #1558 (operator ruling: Shuffle Wonder Items stays live in paired worlds, with
+// tests): one seed finished as a paired creation with the option off and on. The
+// song-pool rows' bring-up (they finish paired worlds too); body in
+// games/oot/soh/oot_wonder_items_paired_test.cpp.
+extern "C" int OoT_WonderItemsPairedTest_Run(void);
+TestResult Test_OoTWonderItemsPaired(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char wipArg0[] = "redship";
+    static char* wipArgv[] = { wipArg0, nullptr };
+    InitOTRForMMFirstBoot(1, wipArgv);
+    return OoT_WonderItemsPairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1408: Shuffle Icicles and Shuffle Red Ice (SoH 49e740b6f, 68d4c6049): the checks'
+// flag map, the options (shipped off and enabled), the settings fold over two real
+// generations, and exact quest-matched selection with both on. Same bring-up as the
+// row above; body in games/oot/soh/oot_shuffle_ice_test.cpp.
+extern "C" int OoT_ShuffleIceTest_Run(void);
+TestResult Test_OoTShuffleIce(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ShuffleIceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1408 / #1562 (operator ruling: both stay live in paired worlds, with tests): one
+// seed finished as a paired creation with both options off and on. Same bring-up as
+// oot-wonder-items-paired; body in games/oot/soh/oot_ice_paired_test.cpp.
+extern "C" int OoT_IcePairedTest_Run(void);
+TestResult Test_OoTIcePaired(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char wipArg0[] = "redship";
+    static char* wipArgv[] = { wipArg0, nullptr };
+    InitOTRForMMFirstBoot(1, wipArgv);
+    return OoT_IcePairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -11442,6 +11495,28 @@ const TestDescriptor gTests[] = {
       "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
       "logic reads each silver rupee item's own event while it is off (#1363)",
       Test_OoTShuffleSilver },
+    // #1405. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-shuffle-wonder-items",
+      "Every wonder item check has its own flag and IdentifyWonderItem finds it from its key, Shuffle Wonder Items "
+      "ships off, a default world's settings fold reads none of the lines it added, and a paired world with it on "
+      "keeps it on and makes every wonder check its quests select a location (#1405)",
+      Test_OoTShuffleWonderItems },
+    // QC #1558. Two finished paired worlds; skipped by `--test all` below like its siblings.
+    { "oot-wonder-items-paired",
+      "A paired world with Shuffle Wonder Items on places and mixes every wonder check it selects, crosses no MM "
+      "item onto one and leaves MM's own option alone; with it off no wonder check is a location (QC #1558)",
+      Test_OoTWonderItemsPaired },
+    // #1408. Two real generations; skipped by `--test all` below like its siblings.
+    { "oot-shuffle-ice",
+      "Every icicle and red ice check has its own flag, Shuffle Icicles and Shuffle Red Ice ship off and enabled, "
+      "a default world's settings fold reads none of the lines they added, and a paired world with both on keeps "
+      "both on and makes every quest-selected check a location (#1408)",
+      Test_OoTShuffleIce },
+    // #1408 / #1562. Two finished paired worlds; skipped by `--test all` below like its siblings.
+    { "oot-ice-paired",
+      "A paired world with Shuffle Icicles and Shuffle Red Ice on places and mixes every check they select, crosses "
+      "no MM item onto one and leaves MM's own options alone; with both off none is a location (#1408, #1562)",
+      Test_OoTIcePaired },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -11871,6 +11946,9 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
                 strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
+                strcmp(gTests[i].name, "oot-shuffle-wonder-items") == 0 ||
+                strcmp(gTests[i].name, "oot-wonder-items-paired") == 0 ||
+                strcmp(gTests[i].name, "oot-shuffle-ice") == 0 || strcmp(gTests[i].name, "oot-ice-paired") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

@@ -944,6 +944,8 @@ void Settings::CreateOptions() {
     OPT_U8(RSK_SHUFFLE_CRATES, "Shuffle Crates", {"Off", "Dungeons", "Overworld", "All Crates"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleCrates"), mOptionDescriptions[RSK_SHUFFLE_CRATES], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_CRATES_OFF);
     OPT_BOOL(RSK_SHUFFLE_TREES, "Shuffle Trees", CVAR_RANDOMIZER_SETTING("ShuffleTrees"), mOptionDescriptions[RSK_SHUFFLE_TREES]);
     OPT_BOOL(RSK_SHUFFLE_BUSHES, "Shuffle Bushes", CVAR_RANDOMIZER_SETTING("ShuffleBushes"), mOptionDescriptions[RSK_SHUFFLE_BUSHES]);
+    OPT_BOOL(RSK_SHUFFLE_ICICLES, "Shuffle Icicles", CVAR_RANDOMIZER_SETTING("ShuffleIcicles"), mOptionDescriptions[RSK_SHUFFLE_ICICLES]);
+    OPT_BOOL(RSK_SHUFFLE_RED_ICE, "Shuffle Red Ice", CVAR_RANDOMIZER_SETTING("ShuffleRedIce"), mOptionDescriptions[RSK_SHUFFLE_RED_ICE]);
     OPT_BOOL(RSK_SHUFFLE_FISHING_POLE, "Shuffle Fishing Pole", CVAR_RANDOMIZER_SETTING("ShuffleFishingPole"), mOptionDescriptions[RSK_SHUFFLE_FISHING_POLE]);
     OPT_CALLBACK(RSK_SHUFFLE_FISHING_POLE, {
         // Disable fishing pole hint if the fishing pole is not shuffled
@@ -1164,6 +1166,7 @@ void Settings::CreateOptions() {
     mOptions[RSK_SHUFFLE_SILVER].Disable("Disabled because the cross-game randomizer does not support\n"
                                          "Silver Rupees yet.");
 #endif
+    OPT_U8(RSK_SHUFFLE_WONDER_ITEMS, "Shuffle Wonder Items", {"Off", "Dungeons", "Overworld", "All Items"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleWonderItems"), mOptionDescriptions[RSK_SHUFFLE_WONDER_ITEMS], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_WONDER_ITEMS_OFF);
     OPT_U8(RSK_FISHSANITY, "Fishsanity", {"Off", "Shuffle only Hyrule Loach", "Shuffle Fishing Pond", "Shuffle Overworld Fish", "Shuffle Both"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Fishsanity"), mOptionDescriptions[RSK_FISHSANITY], WIDGET_CVAR_COMBOBOX, RO_FISHSANITY_OFF);
     OPT_CALLBACK(RSK_FISHSANITY, {
         // Hide fishing pond settings if we aren't shuffling the fishing pond
@@ -2401,6 +2404,9 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_GTG_LAVA_JUMP, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
               "Gerudo Training Grounds Itemless Lava Room Jump",
               "A precise rolling jump can be used to jump between all but the furthest platforms in the lava room.");
+    OPT_TRICK(RT_GTG_STATUE_JUMP, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
+              "Gerudo Training Grounds Statue Room Jump",
+              "A precise rolling jump or a jump and jumpslash can be used to jump from the upper ledge to one of the pillars in the eye statue room.");
     OPT_TRICK(RT_LENS_GTG_MQ, RCQUEST_MQ, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::NOVICE },
               "Gerudo Training Ground MQ without Lens of Truth",
               "Removes the requirements for the Lens of Truth in Gerudo Training Ground MQ.");
@@ -2606,6 +2612,7 @@ void Settings::CreateOptions() {
                                   &mOptions[RSK_FISHSANITY_AGE_SPLIT],
                                   &mOptions[RSK_SHUFFLE_FREESTANDING],
                                   &mOptions[RSK_SHUFFLE_SILVER],
+                                  &mOptions[RSK_SHUFFLE_WONDER_ITEMS],
                                   &mOptions[RSK_SHUFFLE_BEEHIVES],
                                   &mOptions[RSK_SHUFFLE_COWS],
                                   &mOptions[RSK_SHUFFLE_POTS],
@@ -2613,6 +2620,8 @@ void Settings::CreateOptions() {
                                   &mOptions[RSK_SHUFFLE_CRATES],
                                   &mOptions[RSK_SHUFFLE_TREES],
                                   &mOptions[RSK_SHUFFLE_BUSHES],
+                                  &mOptions[RSK_SHUFFLE_ICICLES],
+                                  &mOptions[RSK_SHUFFLE_RED_ICE],
                                   &mOptions[RSK_SHUFFLE_FROG_SONG_RUPEES],
                                   &mOptions[RSK_SHUFFLE_ADULT_TRADE],
                                   &mOptions[RSK_SHUFFLE_CHEST_MINIGAME],
@@ -2843,6 +2852,8 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_CRATES],
                                             &mOptions[RSK_SHUFFLE_TREES],
                                             &mOptions[RSK_SHUFFLE_BUSHES],
+                                            &mOptions[RSK_SHUFFLE_ICICLES],
+                                            &mOptions[RSK_SHUFFLE_RED_ICE],
                                             &mOptions[RSK_SHUFFLE_KOKIRI_SWORD],
                                             &mOptions[RSK_SHUFFLE_OCARINA],
                                             &mOptions[RSK_SHUFFLE_OCARINA_BUTTONS],
@@ -2878,6 +2889,7 @@ void Settings::CreateOptions() {
                                             &mOptions[RSK_SHUFFLE_DEKU_NUT_BAG],
                                             &mOptions[RSK_SHUFFLE_FREESTANDING],
                                             &mOptions[RSK_SHUFFLE_SILVER],
+                                            &mOptions[RSK_SHUFFLE_WONDER_ITEMS],
                                             &mOptions[RSK_SHUFFLE_FOUNTAIN_FAIRIES],
                                             &mOptions[RSK_SHUFFLE_STONE_FAIRIES],
                                             &mOptions[RSK_SHUFFLE_BEAN_FAIRIES],
