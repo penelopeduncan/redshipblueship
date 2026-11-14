@@ -59,6 +59,7 @@
 #include <cstring>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <libultraship/bridge.h>
@@ -471,6 +472,37 @@ void CheckLogicFallback(Rando::Context& world) {
     SR_CHECK(wrong == 0, "L: %d HasItem answer(s) read a silver rupee item's wrong LOGIC_* event", wrong);
 }
 
+// ---- N: Spirit Temple boulder silver rupee names (#1589) -------------------------------
+
+void CheckBoulderSilverNames() {
+    if (Rando::StaticData::CheckFromActorMultimap.empty()) {
+        Rando::StaticData::InitHashMaps();
+    }
+    struct ExpectedSilverName {
+        RandomizerCheck rc;
+        const char* shortName;
+        const char* spoilerName;
+    };
+    const ExpectedSilverName expected[] = {
+        { RC_SPIRIT_SE_BOULDER_SILVER, "Southeast Boulder Silver", "Spirit Temple Southeast Boulder Silver" },
+        { RC_SPIRIT_NE_BOULDER_SILVER, "Northeast Boulder Silver", "Spirit Temple Northeast Boulder Silver" },
+    };
+    for (const ExpectedSilverName& entry : expected) {
+        Rando::Location* loc = Rando::StaticData::GetLocation(entry.rc);
+        const std::string& gotShortName = loc->GetShortName();
+        SR_CHECK(gotShortName == entry.shortName, "N: check %d has shortName '%s', expected '%s'", (int)entry.rc,
+                 gotShortName.c_str(), entry.shortName);
+        const std::string& gotName = loc->GetName();
+        SR_CHECK(gotName == entry.spoilerName, "N: check %d has name '%s', expected '%s'", (int)entry.rc,
+                 gotName.c_str(), entry.spoilerName);
+        const auto it = Rando::StaticData::locationNameToEnum.find(gotName);
+        SR_CHECK(it != Rando::StaticData::locationNameToEnum.end() && it->second == entry.rc,
+                 "N: locationNameToEnum['%s'] returned %d, expected %d", gotName.c_str(),
+                 it != Rando::StaticData::locationNameToEnum.end() ? (int)it->second : -1, (int)entry.rc);
+    }
+    printf("[TEST] N: verified Spirit boulder silver short/spoiler names and locationNameToEnum round-trip\n");
+}
+
 } // namespace
 
 /**
@@ -499,6 +531,7 @@ extern "C" int OoT_ShuffleSilverTest_Run(void) {
     } else {
         SrFail("L: no generated world to read the logic of");
     }
+    CheckBoulderSilverNames();
 
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
     Context_SetCurrentGame(prevGame);
