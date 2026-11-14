@@ -1539,6 +1539,9 @@ if(BUILD_TESTING)
     # gSaveContext storage means an ungated MM tracker reads OoT bytes through
     # MM's SaveContext layout.
     redship_add_test(NAME MMTrackersGui COMMAND redship --test mm-trackers-gui)
+    # W6-DEV (#1238 slice 3): MM's Event Log window registers de-collided, toggles/closes via
+    # gWindows.EventLog, gates on GAME_MM, and dispatches OnFlagUnset/OnSceneFlagUnset.
+    redship_add_test(NAME MMDevViewersGate COMMAND redship --test mm-dev-viewers-gate)
     # OoT's twin (#797): the eight SoH windows that read or write OoT save/play
     # state (Save Editor, Value/Message Viewer, Gameplay Stats, the three
     # trackers, Time Splits) are built through OoTActiveGated<>, so their Draw,
