@@ -4151,6 +4151,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1405: Shuffle Wonder Items (SoH 412e9e262): every wonder item check has its
+    # own RandomizerInf and IdentifyWonderItem finds it from its (room, index) or
+    # (x, z) key, the option ships off, a default world folds none of the lines it
+    # added, and a paired world with it on keeps it on, folds every line and places
+    # every wonder check. Two generations, so twice the neighbours' timeout.
+    # games/oot/soh/oot_shuffle_wonder_items_test.cpp.
+    redship_add_test(NAME OoTShuffleWonderItems COMMAND redship --test oot-shuffle-wonder-items
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and
