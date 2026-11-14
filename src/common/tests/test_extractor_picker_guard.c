@@ -273,6 +273,23 @@ void EpgCheckOotExtractFailureWiring(void) {
     EPG_CHECK(wiredCalls == 4, "%s: expected 4 extractFailed = !extract.CallZapd( sites in RunExtract, found %zu\n",
               relPath, wiredCalls);
 
+    // PS_SECOND keeps asking until the player says No (upstream 5c6006ee): a
+    // cancelled or failed pick loops back to the popup, so the only moves to
+    // ES_VERIFY are a successful second rom (in the task) and the No button.
+    const char* secondHead = "case PS_SECOND: {";
+    const size_t secondPos = norm.find(secondHead);
+    EPG_CHECK(secondPos != std::string::npos, "%s: missing case PS_SECOND in RunExtract\n", relPath);
+    if (secondPos != std::string::npos) {
+        const std::string secondBlock = EpgMatchBraceBlock(norm, secondPos + strlen(secondHead) - 1);
+        const size_t verifyMoves = EpgCountOccurrences(secondBlock, "extractStep = ES_VERIFY;");
+        EPG_CHECK(verifyMoves == 2,
+                  "%s: PS_SECOND must move to ES_VERIFY only after a good second rom and on No, found %zu moves\n",
+                  relPath, verifyMoves);
+        EPG_CHECK(EpgInOrder(secondBlock, { "if (!extractFailed && generatedFirst) {", "extractStep = ES_VERIFY;",
+                                            "[&]() { extractStep = ES_VERIFY; }" }),
+                  "%s: PS_SECOND ES_VERIFY moves are not the good-second-rom and No paths\n", relPath);
+    }
+
     const char* popupGate = "if (extractFailed)";
     const size_t getPos = norm.find("extractionTask->get();");
     EPG_CHECK(getPos != std::string::npos, "%s: missing extractionTask->get(); in RunExtract\n", relPath);

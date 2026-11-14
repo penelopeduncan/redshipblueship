@@ -990,8 +990,6 @@ void OTRGlobals::RunExtract(int argc, char* argv[]) {
                                         extractCount = 0;
                                         totalExtract = 0;
                                     });
-                                } else {
-                                    extractStep = ES_VERIFY;
                                 }
                             },
                             [&]() { extractStep = ES_VERIFY; });
