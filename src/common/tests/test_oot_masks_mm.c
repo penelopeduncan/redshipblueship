@@ -976,7 +976,8 @@ TestResult Test_OoTMasksMMItems(void) {
             const uint16_t swim = (uint16_t)MM_OoTMasksTest_Id(7);
             const uint16_t stoneMask = (uint16_t)MM_OoTMasksTest_Id(6);
             OmmFreezeWorld(kOmmExtensions);
-            // OmmFreezeWorld resets gCurrentGame to GAME_NONE; Flags_Set/ClearRandoInf require GAME_MM.
+            // Run the give and remove as a live MM session would: MM current, so MM's flag hooks (OnFlagSet /
+            // OnFlagUnset) dispatch as they do in play. The flag writes themselves do not check the game.
             Context_SetCurrentGame(GAME_MM);
             MM_OoTMasksTest_ArmLive();
             MM_OoTMasks_Forget();
