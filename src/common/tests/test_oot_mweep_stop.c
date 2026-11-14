@@ -208,17 +208,114 @@ std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr
     return std::string();
 }
 
-bool OmsContainsInOrder(const std::string& hay, const char* const* needles, size_t count) {
-    if (hay.empty()) {
+/** Copy @p src with every comment replaced by one space and every string/char literal emptied. */
+std::string OmsStripCommentsAndStrings(const std::string& src) {
+    std::string out;
+    out.reserve(src.size());
+    for (size_t pos = 0; pos < src.size(); pos++) {
+        const char c = src[pos];
+        if (c == '/' && pos + 1 < src.size() && src[pos + 1] == '/') {
+            const size_t eol = src.find('\n', pos + 2);
+            out.push_back(' ');
+            if (eol == std::string::npos) {
+                break;
+            }
+            pos = eol - 1; // the loop's pos++ lands on the newline, which is kept
+            continue;
+        }
+        if (c == '/' && pos + 1 < src.size() && src[pos + 1] == '*') {
+            const size_t end = src.find("*/", pos + 2);
+            out.push_back(' ');
+            if (end == std::string::npos) {
+                break;
+            }
+            pos = end + 1;
+            continue;
+        }
+        if (c == '"' || c == '\'') {
+            const char quote = c;
+            out.push_back(quote);
+            pos++;
+            while (pos < src.size() && src[pos] != quote) {
+                pos += (src[pos] == '\\') ? 2 : 1;
+            }
+            out.push_back(quote);
+            continue;
+        }
+        out.push_back(c);
+    }
+    return out;
+}
+
+/**
+ * True when @p block (a comment- and string-stripped `{ ... }`) runs every needle, in order, as a
+ * statement of its own at the block's top level: brace depth 1 (not nested in an inner `{ }` such as
+ * `if (0) { ... }`) and preceded only by whitespace after `{`, `;` or `}` (not the body of an
+ * unbraced `if (0) call;`).
+ */
+bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const* needles, size_t count) {
+    if (block.empty() || block[0] != '{') {
         return false;
     }
     size_t at = 0;
     for (size_t i = 0; i < count; i++) {
-        const size_t found = hay.find(needles[i], at);
-        if (found == std::string::npos) {
+        bool matched = false;
+        size_t found = at;
+        while ((found = block.find(needles[i], found)) != std::string::npos) {
+            int depth = 0;
+            for (size_t k = 0; k < found; k++) {
+                if (block[k] == '{') {
+                    depth++;
+                } else if (block[k] == '}') {
+                    depth--;
+                }
+            }
+            size_t prev = found;
+            while (prev > 0 && (block[prev - 1] == ' ' || block[prev - 1] == '\t' || block[prev - 1] == '\n')) {
+                prev--;
+            }
+            const char before = (prev > 0) ? block[prev - 1] : '\0';
+            if (depth == 1 && (before == '{' || before == ';' || before == '}')) {
+                matched = true;
+                break;
+            }
+            found++;
+        }
+        if (!matched) {
             return false;
         }
         at = found + std::strlen(needles[i]);
+    }
+    return true;
+}
+
+/** Feed the matcher synthetic guard blocks it must reject, and one it must accept. */
+bool OmsMatcherSelfCheck(const char* const* needles, size_t count, const char** whyOut) {
+    if (count != 3) {
+        *whyOut = "self-check expects exactly three restore calls";
+        return false;
+    }
+    const std::string a = needles[0];
+    const std::string b = needles[1];
+    const std::string c = needles[2];
+    const std::string good = "{\n    " + a + "\n    " + b + "\n    " + c + "\n}";
+    if (!OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(good), needles, count)) {
+        *whyOut = "rejected a correct guard block";
+        return false;
+    }
+    const std::string bad[] = {
+        "{\n    " + a + "\n    // " + b + "\n    " + c + "\n}",
+        "{\n    " + a + "\n    /* " + b + " */\n    " + c + "\n}",
+        "{\n    " + a + "\n    if (0) {\n        " + b + "\n    }\n    " + c + "\n}",
+        "{\n    " + a + "\n    if (0)\n        " + b + "\n    " + c + "\n}",
+        "{\n    " + a + "\n    puts(\"" + b + "\");\n    " + c + "\n}",
+        "{\n    " + b + "\n    " + a + "\n    " + c + "\n}",
+    };
+    for (const std::string& body : bad) {
+        if (OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(body), needles, count)) {
+            *whyOut = "accepted a guard block whose restore call is commented out, dead-coded, quoted or misordered";
+            return false;
+        }
     }
     return true;
 }
@@ -241,7 +338,8 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_StopMweep not found\n");
         return TEST_FAIL;
     }
-    if (stopBody.find("VB_PLAY_MWEEP_CS") != std::string::npos) {
+    const std::string stopCode = OmsStripCommentsAndStrings(stopBody);
+    if (stopCode.find("VB_PLAY_MWEEP_CS") != std::string::npos) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_StopMweep still checks VB_PLAY_MWEEP_CS\n");
         return TEST_FAIL;
     }
@@ -258,11 +356,16 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
         "OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);",
     };
     const size_t kRestoreCallCount = sizeof(kRestoreCalls) / sizeof(kRestoreCalls[0]);
-    if (!OmsContainsInOrder(guardBlock, kRestoreCalls, kRestoreCallCount)) {
+    const char* why = nullptr;
+    if (!OmsMatcherSelfCheck(kRestoreCalls, kRestoreCallCount, &why)) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): matcher self-check: %s\n", why);
+        return TEST_FAIL;
+    }
+    if (!OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(guardBlock), kRestoreCalls, kRestoreCallCount)) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): restore calls missing or misordered\n");
         return TEST_FAIL;
     }
-    if (stopBody.find("this->actionFunc = EnKz_Wait;") == std::string::npos) {
+    if (stopCode.find("this->actionFunc = EnKz_Wait;") == std::string::npos) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_StopMweep missing actionFunc reset\n");
         return TEST_FAIL;
     }
@@ -272,11 +375,12 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_SetupMweep not found\n");
         return TEST_FAIL;
     }
-    if (setupBody.find("VB_PLAY_MWEEP_CS") == std::string::npos) {
+    const std::string setupCode = OmsStripCommentsAndStrings(setupBody);
+    if (setupCode.find("VB_PLAY_MWEEP_CS") == std::string::npos) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_SetupMweep lost VB_PLAY_MWEEP_CS\n");
         return TEST_FAIL;
     }
-    if (setupBody.find("OoT_Play_CreateSubCamera(play)") == std::string::npos) {
+    if (setupCode.find("OoT_Play_CreateSubCamera(play)") == std::string::npos) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_SetupMweep missing CreateSubCamera\n");
         return TEST_FAIL;
     }
