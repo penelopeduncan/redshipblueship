@@ -220,6 +220,19 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
                RO_SHUFFLE_FREESTANDING_DUNGEONS) &&
               RandomizerCheckObjects::AreaIsDungeon(location.GetArea()))) &&
             (location.GetRCType() != RCTYPE_SILVER || RsbsSilverExcludeRowsVisible()) &&
+            // [RSBS #1409] adaptation (upstream always shows these rows): rock and boulder
+            // exclude rows are shown only while their shuffle can place them.
+            (location.GetRCType() != RCTYPE_ROCK ||
+             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleRocks"), RO_GENERIC_OFF)) &&
+            (location.GetRCType() != RCTYPE_BOULDER ||
+             (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBoulders"), RO_SHUFFLE_BOULDERS_OFF) ==
+              RO_SHUFFLE_BOULDERS_ALL) ||
+             ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBoulders"), RO_SHUFFLE_BOULDERS_OFF) ==
+               RO_SHUFFLE_BOULDERS_OVERWORLD) &&
+              RandomizerCheckObjects::AreaIsOverworld(location.GetArea())) ||
+             ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBoulders"), RO_SHUFFLE_BOULDERS_OFF) ==
+               RO_SHUFFLE_BOULDERS_DUNGEONS) &&
+              RandomizerCheckObjects::AreaIsDungeon(location.GetArea()))) &&
             (location.GetRCType() != RCTYPE_BEEHIVE ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleBeehives"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_COW ||
