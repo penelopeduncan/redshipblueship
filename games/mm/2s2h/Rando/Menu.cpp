@@ -235,6 +235,7 @@ static RegisterShipInitFunc refreshMetricsInit(RefreshMetrics, {
                                                                    "gRando.Options.RO_HINTS_OATH_TO_ORDER",
                                                                    "gRando.Options.RO_HINTS_PURCHASEABLE",
                                                                    "gRando.Options.RO_HINTS_SPIDER_HOUSES",
+                                                                   "gRando.Options.RO_HOOKSHOT_ANYWHERE",
                                                                    "gRando.Options.RO_TRAP_AMOUNT",
                                                                    "gRando.Options.RO_LOGIC",
                                                                    "gRando.Options.RO_MINIMUM_SKULLTULA_TOKENS",

@@ -133,6 +133,7 @@ std::map<RandoOptionId, RandoStaticOption> Options = {
     RO(RO_SHUFFLE_WONDER_ITEMS,        RO_GENERIC_OFF),
     RO(RO_SHUFFLE_HIVE_DROPS,          RO_GENERIC_OFF),
     RO(RO_SHUFFLE_BUTTERFLIES,         RO_GENERIC_OFF),
+    RO(RO_HOOKSHOT_ANYWHERE,           RO_HOOKSHOT_ANYWHERE_OFF), // OoTMM hookshotAnywhereMm's default (#1574)
 };
 // clang-format on
 

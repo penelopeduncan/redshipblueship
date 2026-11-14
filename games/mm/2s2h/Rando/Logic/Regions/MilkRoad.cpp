@@ -5,15 +5,17 @@
 
 using namespace Rando::Logic;
 
-// Ports 2S2H 9b699dee1 (#1506). The crawl hands Romani Ranch every time slice Milk Road
-// has as soon as its exit opens, and the exit opens on Day 3 by itself, so without these
-// the ranch's Day 1 and Night 1 checks were in logic with the boulder never broken. Upstream
-// calls this a temporary fix: it does not hold for entrance rando.
-#define BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_DAY                                                          \
-    ((BETWEEN(TIME_DAY1_AM_06_00, TIME_NIGHT1_PM_06_00) && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)) || \
+// Ports 2S2H 9b699dee1 (#1506), widened by #1574 for OoTMM milk_road.yml:9 ("Milk Road" -> "Near Romani
+// Ranch", `event(OPEN_MILK_ROAD) || after(DAY3_AM_06_00) || (short_hook_anywhere && trick(MM_OOB_MOVEMENT))`;
+// :45 is subsumed by `true` on RR_ROMANI_RANCH's exit). Bypassing the boulder before Day 3 gives Romani Ranch
+// the same Day 1 / Night 1 reach as breaking it, while RE_DESTROY_MILK_ROAD_BOULDER stays Keg-only.
+#define CAN_PASS_MILK_ROAD_BOULDER \
+    ((CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_OOB_MOVEMENT)))
+#define BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_DAY                                            \
+    ((BETWEEN(TIME_DAY1_AM_06_00, TIME_NIGHT1_PM_06_00) && CAN_PASS_MILK_ROAD_BOULDER) ||  \
      RANDO_EVENTS[RE_COWS_FROM_ALIENS])
-#define BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_NIGHT                                                          \
-    ((BETWEEN(TIME_NIGHT1_PM_06_00, TIME_NIGHT1_AM_02_30) && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)) || \
+#define BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_NIGHT                                           \
+    ((BETWEEN(TIME_NIGHT1_PM_06_00, TIME_NIGHT1_AM_02_30) && CAN_PASS_MILK_ROAD_BOULDER) || \
      RANDO_EVENTS[RE_COWS_FROM_ALIENS])
 
 // clang-format off
@@ -149,7 +151,7 @@ static RegisterShipInitFunc initFunc([]() {
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(TERMINA_FIELD, 5),                ENTRANCE(MILK_ROAD, 0), true),
-            EXIT(ENTRANCE(ROMANI_RANCH, 0),                 ENTRANCE(MILK_ROAD, 1), AFTER(TIME_DAY3_AM_06_00) || RANDO_EVENTS[RE_DESTROY_MILK_ROAD_BOULDER]),
+            EXIT(ENTRANCE(ROMANI_RANCH, 0),                 ENTRANCE(MILK_ROAD, 1), AFTER(TIME_DAY3_AM_06_00) || RANDO_EVENTS[RE_DESTROY_MILK_ROAD_BOULDER] || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_OOB_MOVEMENT))),
             EXIT(ENTRANCE(GORMAN_TRACK, 0),                 ENTRANCE(MILK_ROAD, 3), true),
         },
         .connections = {
@@ -217,8 +219,8 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_ROMANI_RANCH] = RandoRegion{ .sceneId = SCENE_F01,
         .checks = {
-            CHECK(RC_ROMANI_RANCH_ALIENS, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)),
-            CHECK(RC_ROMANI_RANCH_EPONAS_SONG, BEFORE(TIME_NIGHT1_PM_06_00) && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)),
+            CHECK(RC_ROMANI_RANCH_ALIENS, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_PASS_MILK_ROAD_BOULDER),
+            CHECK(RC_ROMANI_RANCH_EPONAS_SONG, BEFORE(TIME_NIGHT1_PM_06_00) && CAN_PASS_MILK_ROAD_BOULDER),
             CHECK(RC_ROMANI_RANCH_FIELD_COW_ENTRANCE, CAN_PLAY_SONG(EPONA) && BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_DAY),
             CHECK(RC_ROMANI_RANCH_FIELD_COW_NEAR_HOUSE_BACK, CAN_PLAY_SONG(EPONA) && BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_DAY),
             CHECK(RC_ROMANI_RANCH_FIELD_COW_NEAR_HOUSE_FRONT, CAN_PLAY_SONG(EPONA) && BREAK_BOULDER_BEFORE_OR_BEAT_ALIENS_DAY),
@@ -294,7 +296,7 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_ROMANI_RANCH_WONDER_ITEM_04, true),
             CHECK(RC_ROMANI_RANCH_WONDER_ITEM_05, true),
             CHECK(RC_ROMANI_RANCH_WONDER_ITEM_06, true),
-            CHECK(RC_ENEMY_DROP_ALIEN, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)), // Night 1 only
+            CHECK(RC_ENEMY_DROP_ALIEN, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_PASS_MILK_ROAD_BOULDER), // Night 1 only
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(MILK_ROAD, 1),                    ENTRANCE(ROMANI_RANCH, 0), true),
@@ -304,7 +306,7 @@ static RegisterShipInitFunc initFunc([]() {
             EXIT(ENTRANCE(DOGGY_RACETRACK, 0),              ENTRANCE(ROMANI_RANCH, 5), BETWEEN(TIME_DAY1_AM_06_00, TIME_NIGHT1_PM_08_00) || BETWEEN(TIME_DAY2_AM_06_00, TIME_NIGHT2_PM_08_00) || BETWEEN(TIME_DAY3_AM_06_00, TIME_NIGHT3_PM_08_00)),
         },
         .events = {
-            EVENT(RE_COWS_FROM_ALIENS, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_BE_GORON && HAS_ITEM(ITEM_POWDER_KEG)),
+            EVENT(RE_COWS_FROM_ALIENS, CanKillEnemy(ACTOR_EN_INVADEPOH) && IS_NIGHT1() && CAN_PASS_MILK_ROAD_BOULDER),
         },
     };
 }, {});

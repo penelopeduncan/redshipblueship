@@ -112,6 +112,7 @@
 // src/common — outside any extern "C" block; the header manages its own linkage
 // (matching mm_trick_table_test.cpp).
 #include "combo_mm_tricks_view.h"
+#include "foreign_items.h"
 
 extern "C" {
 #include "variables.h"
@@ -611,6 +612,110 @@ void InvBomberCode() {
     RANDO_EVENTS[RE_BOMBER_CODE] = 1;
 }
 
+// ---- #1574: Hookshot Anywhere (MM) Logical + short_hook_anywhere ---------
+
+void ArmHookshotAnywhereLogical() {
+    RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
+    Give(ITEM_HOOKSHOT);
+}
+
+void InvLogicalNoHookshot() {
+    RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
+}
+
+void InvLogicalHookshotDeku() {
+    ArmHookshotAnywhereLogical();
+    Give(ITEM_MASK_DEKU);
+}
+
+void InvLogicalDekuNoHookshot() {
+    InvLogicalNoHookshot();
+    Give(ITEM_MASK_DEKU);
+}
+
+void InvLogicalHookshotSwim() {
+    ArmHookshotAnywhereLogical();
+    InvSwimAbility();
+}
+
+void InvLogicalSwimNoHookshot() {
+    InvLogicalNoHookshot();
+    InvSwimAbility();
+}
+
+void InvLogicalHookshotGoron() {
+    ArmHookshotAnywhereLogical();
+    Give(ITEM_MASK_GORON);
+}
+
+void InvLogicalGoronNoHookshot() {
+    InvLogicalNoHookshot();
+    Give(ITEM_MASK_GORON);
+}
+
+void InvLogicalHookshotChuSwim() {
+    ArmHookshotAnywhereLogical();
+    Give(ITEM_BOMBCHU);
+    InvSwimAbility();
+}
+
+void InvLogicalHookshotChuNoSwim() {
+    ArmHookshotAnywhereLogical();
+    Give(ITEM_BOMBCHU);
+}
+
+void InvLogicalChuSwimNoHookshot() {
+    InvLogicalNoHookshot();
+    Give(ITEM_BOMBCHU);
+    InvSwimAbility();
+}
+
+void InvLogicalHookshotBow() {
+    ArmHookshotAnywhereLogical();
+    Give(ITEM_BOW);
+}
+
+void InvLogicalBowNoHookshot() {
+    InvLogicalNoHookshot();
+    Give(ITEM_BOW);
+}
+
+void InvSnowheadClearedNoGoron() {
+    ArmHookshotAnywhereLogical();
+    RANDO_EVENTS[RE_CLEARED_SNOWHEAD_TEMPLE] = 1;
+}
+
+void SetupPrincessReturned() {
+    RANDO_EVENTS[RE_RETURN_DEKU_PRINCESS] = 1;
+}
+
+void SetupSkullMaskRuleAndOwned() {
+    gComboCtx.comboSettings.formatVersion = 1;
+    gComboCtx.comboItemRules.crossItemFlags = RSBS_XITEM_SKULL_MASK_MM;
+    MM_OoTMask_Give(RI_MASK_SKULL);
+}
+
+void SetupSkullMaskOwnedRuleOff() {
+    gComboCtx.comboSettings.formatVersion = 1;
+    gComboCtx.comboItemRules.crossItemFlags = 0u;
+    MM_OoTMask_Give(RI_MASK_SKULL);
+}
+
+void SetupSkullMaskRuleOnNotOwned() {
+    gComboCtx.comboSettings.formatVersion = 1;
+    gComboCtx.comboItemRules.crossItemFlags = RSBS_XITEM_SKULL_MASK_MM;
+}
+
+void SetupChuSwim() {
+    Give(ITEM_BOMBCHU);
+    InvSwimAbility();
+}
+
+void SetupEponasSong() {
+    GiveOcarinaAndButtons();
+    SET_QUEST_ITEM(QUEST_SONG_EPONA);
+}
+
 const Probe kProbes[] = {
     // MMRT_LENS. Empty inventory and no magic, so the only way in is the trick.
     { MMRT_LENS, "Lone Peak Shrine's invisible chest without Lens of Truth", EDGE_CHECK, RR_LONE_PEAK_SHRINE,
@@ -1077,6 +1182,50 @@ const Probe kProbes[] = {
     // requires the code).
     { MMRT_BOMBER_BACKFLIP, "East Clock Town's Bombers' hideout door by backflipping over the Bomber", EDGE_EXIT,
       RR_CLOCK_TOWN_EAST, (int32_t)ENTRANCE(ASTRAL_OBSERVATORY, 0), kAllTime, InvEmpty, NULL },
+
+    // ---- #1574: short_hook_anywhere trick bindings (RO_HOOKSHOT_ANYWHERE_LOGICAL) ----
+    { MMRT_ZORA_HALL_DOORS, "Zora Hall's door to Lulu's room with Hookshot Anywhere", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 2), kAllTime, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_ZORA_HALL_DOORS, "Zora Hall's door to Evan's room with Hookshot Anywhere", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 3), kAllTime, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_ZORA_HALL_DOORS, "Zora Hall's door to Japas's room with Hookshot Anywhere", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 1), kAllTime, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_ZORA_HALL_DOORS, "Zora Hall's door to Mikau's room with Hookshot Anywhere", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 0), kAllTime, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_ESCAPE_CAGE, "Deku Palace's monkey cage to the throne room with Hookshot Anywhere", EDGE_CONNECTION,
+      RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, (int32_t)RR_DEKU_KINGS_CHAMBER, kAllTime, InvLogicalHookshotDeku,
+      InvLogicalDekuNoHookshot },
+    { MMRT_ESCAPE_CAGE, "Deku Palace's monkey cage to the throne room, Deku still required", EDGE_CONNECTION,
+      RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, (int32_t)RR_DEKU_KINGS_CHAMBER, kAllTime, InvLogicalHookshotDeku,
+      ArmHookshotAnywhereLogical },
+    { MMRT_GBT_FAIRY2_HOOK, "Great Bay Temple's water-wheel platform fairy with Hookshot Anywhere", EDGE_CHECK,
+      RR_GREAT_BAY_TEMPLE_WATER_WHEEL_ROOM, (int32_t)RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM, kAllTime,
+      InvLogicalHookshotSwim, InvLogicalSwimNoHookshot },
+    { MMRT_GBT_FAIRY2_HOOK, "Great Bay Temple's water-wheel platform fairy, swim still required", EDGE_CHECK,
+      RR_GREAT_BAY_TEMPLE_WATER_WHEEL_ROOM, (int32_t)RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM, kAllTime,
+      InvLogicalHookshotSwim, ArmHookshotAnywhereLogical },
+    { MMRT_KEG_TRIAL_HEATLESS, "Goron Village's large crate without thawing ice", EDGE_CHECK, RR_GORON_VILLAGE,
+      (int32_t)RC_GORON_VILLAGE_LARGE_CRATE, kAllTime, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_KEG_TRIAL_HEATLESS, "Goron Village's Medigoron without thawing ice", EDGE_CHECK, RR_GORON_VILLAGE,
+      (int32_t)RC_GORON_VILLAGE_MEDIGORON, kAllTime, InvLogicalHookshotGoron, InvLogicalGoronNoHookshot },
+    { MMRT_GBT_BABA_ENTRY_BOMBCHU, "Great Bay Temple's Bio Baba room with Bombchu and Hookshot", EDGE_CONNECTION,
+      RR_GREAT_BAY_TEMPLE_MAP_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, InvLogicalHookshotChuSwim,
+      InvLogicalChuSwimNoHookshot },
+    { MMRT_GBT_BABA_ENTRY_BOMBCHU, "Great Bay Temple's Bio Baba room, Bombchu still required", EDGE_CONNECTION,
+      RR_GREAT_BAY_TEMPLE_MAP_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, InvLogicalHookshotChuSwim,
+      InvLogicalHookshotSwim },
+    { MMRT_GBT_BABA_ENTRY_BOMBCHU, "Great Bay Temple's Bio Baba room, swim still required", EDGE_CONNECTION,
+      RR_GREAT_BAY_TEMPLE_MAP_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, InvLogicalHookshotChuSwim,
+      InvLogicalHookshotChuNoSwim },
+    { MMRT_OOB_MOVEMENT, "Milk Road past the boulder on Day 1 with Hookshot Anywhere", EDGE_EXIT, RR_MILK_ROAD,
+      (int32_t)ENTRANCE(ROMANI_RANCH, 0), kDay1Only, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_OOB_MOVEMENT, "Romani Ranch's Epona's Song on Day 1 with Hookshot Anywhere", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ROMANI_RANCH_EPONAS_SONG, kDay1Only, ArmHookshotAnywhereLogical, InvLogicalNoHookshot },
+    { MMRT_OOB_MOVEMENT, "Romani Ranch's aliens on Night 1 with Hookshot Anywhere", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ROMANI_RANCH_ALIENS, kNight1Only, InvLogicalHookshotBow, InvLogicalBowNoHookshot },
+    { MMRT_OOB_MOVEMENT, "Stone Tower Temple's door from the Top out of bounds with Hookshot Anywhere", EDGE_EXIT,
+      RR_STONE_TOWER_TOP, (int32_t)ENTRANCE(STONE_TOWER_TEMPLE, 0), kAllTime, ArmHookshotAnywhereLogical,
+      InvLogicalNoHookshot },
 };
 
 /**
@@ -1165,6 +1314,9 @@ const SurvivorProbe kSurvivorProbes[] = {
     { MMRT_GBT_CENTRAL_GEYSER, "Great Bay Temple's pre-boss room stays shut before the flow is reversed",
       EDGE_CONNECTION, RR_GREAT_BAY_TEMPLE_CENTRAL_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_PRE_BOSS_ROOM, kAllTime,
       InvZoraSwimNoFlow },
+    // #1574: (FIRE || CLEARED || (SHORT_HOOK_ANYWHERE && KEG_TRIAL_HEATLESS)) && CAN_BE_GORON.
+    { MMRT_KEG_TRIAL_HEATLESS, "Goron Village's Medigoron check stays shut without the Goron Mask", EDGE_CHECK,
+      RR_GORON_VILLAGE, (int32_t)RC_GORON_VILLAGE_MEDIGORON, kAllTime, InvSnowheadClearedNoGoron },
 };
 
 /**
@@ -1236,6 +1388,76 @@ const TricksOffRouteProbe kTricksOffRouteProbes[] = {
     { MMRT_BOMBER_BACKFLIP,
       "East Clock Town's Bombers' hideout door with the Bombers' code, tricks off (a Bow alone is not enough)",
       EDGE_EXIT, RR_CLOCK_TOWN_EAST, (int32_t)ENTRANCE(ASTRAL_OBSERVATORY, 0), kAllTime, InvBomberCode, InvBow },
+};
+
+/**
+ * Leg (h) (#1574). Every non-trick and trick-gated `short_hook_anywhere` edge:
+ * shut at Off (0), shut at On (1, surfaces hookable in gameplay but not in logic),
+ * shut at Logical (2) without the Hookshot, open at Logical (2) with the Hookshot,
+ * and shut at Logical (2) when `missingExtra` withholds a surviving conjunct.
+ */
+struct HookshotAnywhereProbe {
+    const char* what;
+    EdgeKind kind;
+    RandoRegionId region;
+    int32_t target;
+    uint64_t time;
+    MMRandoTrickId trick;
+    void (*setup)();
+    void (*missingExtra)();
+};
+
+const HookshotAnywhereProbe kHookshotAnywhereProbes[] = {
+    { "Ikana Castle's outer roof to inner roof", EDGE_CONNECTION, RR_IKANA_CASTLE_OUTER_ROOF,
+      (int32_t)RR_IKANA_CASTLE_INNER_ROOF, kAllTime, MMRT_MAX, InvEmpty, NULL },
+    { "Deku Palace throne to cage after returning princess", EDGE_CONNECTION, RR_DEKU_KINGS_CHAMBER,
+      (int32_t)RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, kAllTime, MMRT_MAX, SetupPrincessReturned, InvEmpty },
+    { "Deku Palace throne to cage with Skull Mask (rule on)", EDGE_CONNECTION, RR_DEKU_KINGS_CHAMBER,
+      (int32_t)RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, kAllTime, MMRT_MAX, SetupSkullMaskRuleAndOwned,
+      SetupSkullMaskOwnedRuleOff },
+    { "Deku Palace throne to cage with Skull Mask (owned)", EDGE_CONNECTION, RR_DEKU_KINGS_CHAMBER,
+      (int32_t)RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, kAllTime, MMRT_MAX, SetupSkullMaskRuleAndOwned,
+      SetupSkullMaskRuleOnNotOwned },
+    { "Pirates' Fortress plaza to Lone Guard exit", EDGE_CONNECTION, RR_PIRATES_FORTRESS_PLAZA,
+      (int32_t)RR_PIRATES_FORTRESS_PLAZA_LEFT_EXIT, kAllTime, MMRT_MAX, InvEmpty, NULL },
+    { "Pirates' Fortress plaza to Barrel Maze exit", EDGE_CONNECTION, RR_PIRATES_FORTRESS_PLAZA,
+      (int32_t)RR_PIRATES_FORTRESS_PLAZA_RIGHT_EXIT, kAllTime, MMRT_MAX, InvEmpty, NULL },
+    { "Pirates' Fortress plaza to Treasure Room exit", EDGE_CONNECTION, RR_PIRATES_FORTRESS_PLAZA,
+      (int32_t)RR_PIRATES_FORTRESS_LEFT_PLATFORM, kAllTime, MMRT_MAX, InvEmpty, NULL },
+    { "Zora Hall's back door to Lulu's room (On vs Logical)", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 2), kAllTime, MMRT_ZORA_HALL_DOORS, InvEmpty, NULL },
+    { "Zora Hall's back door to Evan's room (On vs Logical)", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 3), kAllTime, MMRT_ZORA_HALL_DOORS, InvEmpty, NULL },
+    { "Zora Hall's back door to Japas's room (On vs Logical)", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 1), kAllTime, MMRT_ZORA_HALL_DOORS, InvEmpty, NULL },
+    { "Zora Hall's back door to Mikau's room (On vs Logical)", EDGE_EXIT, RR_ZORA_HALL,
+      (int32_t)ENTRANCE(ZORA_HALL_ROOMS, 0), kAllTime, MMRT_ZORA_HALL_DOORS, InvEmpty, NULL },
+    { "Deku Palace cage to throne (On vs Logical)", EDGE_CONNECTION, RR_DEKU_KINGS_CHAMBER_HOLDING_CELL,
+      (int32_t)RR_DEKU_KINGS_CHAMBER, kAllTime, MMRT_ESCAPE_CAGE, InvDekuOnly, NULL },
+    { "GBT water-wheel platform fairy (On vs Logical)", EDGE_CHECK, RR_GREAT_BAY_TEMPLE_WATER_WHEEL_ROOM,
+      (int32_t)RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM, kAllTime, MMRT_GBT_FAIRY2_HOOK, InvSwimAbility, NULL },
+    { "Goron Village's large crate check (On vs Logical)", EDGE_CHECK, RR_GORON_VILLAGE,
+      (int32_t)RC_GORON_VILLAGE_LARGE_CRATE, kAllTime, MMRT_KEG_TRIAL_HEATLESS, InvEmpty, NULL },
+    { "Goron Village's Medigoron trial check (On vs Logical)", EDGE_CHECK, RR_GORON_VILLAGE,
+      (int32_t)RC_GORON_VILLAGE_MEDIGORON, kAllTime, MMRT_KEG_TRIAL_HEATLESS, InvGoronOnly, NULL },
+    { "GBT map room to Bio Baba room (On vs Logical)", EDGE_CONNECTION, RR_GREAT_BAY_TEMPLE_MAP_ROOM,
+      (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, MMRT_GBT_BABA_ENTRY_BOMBCHU, SetupChuSwim, NULL },
+    { "Milk Road boulder exit to ranch on Day 1 (On vs Logical)", EDGE_EXIT, RR_MILK_ROAD,
+      (int32_t)ENTRANCE(ROMANI_RANCH, 0), kDay1Only, MMRT_OOB_MOVEMENT, InvEmpty, NULL },
+    { "Romani Ranch Epona's Song on Day 1 (On vs Logical)", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ROMANI_RANCH_EPONAS_SONG, kDay1Only, MMRT_OOB_MOVEMENT, InvEmpty, NULL },
+    { "Romani Ranch's aliens check on Night 1 (On vs Logical)", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ROMANI_RANCH_ALIENS, kNight1Only, MMRT_OOB_MOVEMENT, InvBow, NULL },
+    { "Romani Ranch's alien enemy drop on Night 1 (On vs Logical)", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ENEMY_DROP_ALIEN, kNight1Only, MMRT_OOB_MOVEMENT, InvBow, NULL },
+    { "Romani Ranch cows-from-aliens event on Night 1 (On vs Logical)", EDGE_EVENT, RR_ROMANI_RANCH,
+      (int32_t)RE_COWS_FROM_ALIENS, kNight1Only, MMRT_OOB_MOVEMENT, InvBow, NULL },
+    { "Romani Ranch entrance cow on Day 1 (On vs Logical)", EDGE_CHECK, RR_ROMANI_RANCH,
+      (int32_t)RC_ROMANI_RANCH_FIELD_COW_ENTRANCE, kDay1Only, MMRT_OOB_MOVEMENT, SetupEponasSong, NULL },
+    { "Romani Ranch barn left cow on Night 1 (On vs Logical)", EDGE_CHECK, RR_RANCH_BARN,
+      (int32_t)RC_ROMANI_RANCH_BARN_COW_LEFT, kNight1Only, MMRT_OOB_MOVEMENT, SetupEponasSong, NULL },
+    { "Stone Tower Temple door from the Top (On vs Logical)", EDGE_EXIT, RR_STONE_TOWER_TOP,
+      (int32_t)ENTRANCE(STONE_TOWER_TEMPLE, 0), kAllTime, MMRT_OOB_MOVEMENT, InvEmpty, NULL },
 };
 
 /** Keys whose red/green pairs live in their own rows (part 1's two, and #719's
@@ -1463,6 +1685,73 @@ extern "C" int MM_TrickBindings_RunHeadless(void) {
                probe.without != NULL ? " + term-still-required control" : "");
     }
 
+    // ---- (h): #1574 Off vs On vs Logical + Hookshot requirement -----------
+    {
+        const ComboContext savedCombo = gComboCtx;
+        for (const HookshotAnywhereProbe& probe : kHookshotAnywhereProbes) {
+            const char* why = "";
+            const std::function<bool()>* condition = FindCondition(probe.kind, probe.region, probe.target, &why);
+            if (condition == NULL) {
+                rc = BindFail(17, "%s: %s — the Hookshot Anywhere edge is gone", probe.what, why);
+                continue;
+            }
+            auto armForMode = [&](int mode, bool giveHookshot, void (*fn)()) {
+                gComboCtx = savedCombo;
+                ArmSave(probe.time, fn);
+                RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = mode;
+                if (giveHookshot) {
+                    Give(ITEM_HOOKSHOT);
+                }
+                if (probe.trick != MMRT_MAX) {
+                    SetFrozenTrick(probe.trick, true);
+                }
+            };
+            armForMode(RO_HOOKSHOT_ANYWHERE_OFF, true, probe.setup);
+            if ((*condition)()) {
+                rc = BindFail(18, "%s: OPEN at RO_HOOKSHOT_ANYWHERE_OFF", probe.what);
+                continue;
+            }
+            armForMode(RO_HOOKSHOT_ANYWHERE_ON, true, probe.setup);
+            if ((*condition)()) {
+                rc = BindFail(19, "%s: OPEN at RO_HOOKSHOT_ANYWHERE_ON (non-logical mode leaked into logic)",
+                              probe.what);
+                continue;
+            }
+            armForMode(RO_HOOKSHOT_ANYWHERE_LOGICAL, false, probe.setup);
+            if ((*condition)()) {
+                rc = BindFail(20, "%s: OPEN at Logical without ITEM_HOOKSHOT", probe.what);
+                continue;
+            }
+            armForMode(RO_HOOKSHOT_ANYWHERE_LOGICAL, true, probe.setup);
+            if (!(*condition)()) {
+                rc = BindFail(21, "%s: SHUT at RO_HOOKSHOT_ANYWHERE_LOGICAL with ITEM_HOOKSHOT", probe.what);
+                continue;
+            }
+            if (probe.missingExtra != NULL) {
+                armForMode(RO_HOOKSHOT_ANYWHERE_LOGICAL, true, probe.missingExtra);
+                if ((*condition)()) {
+                    rc = BindFail(22, "%s: OPEN at Logical with surviving conjunct cleared", probe.what);
+                    continue;
+                }
+            }
+        }
+        // RE_DESTROY_MILK_ROAD_BOULDER stays Keg-only even with Logical + MMRT_OOB_MOVEMENT.
+        const char* boulderWhy = "";
+        const std::function<bool()>* destroyBoulder =
+            FindCondition(EDGE_EVENT, RR_MILK_ROAD, (int32_t)RE_DESTROY_MILK_ROAD_BOULDER, &boulderWhy);
+        if (destroyBoulder == NULL) {
+            rc = BindFail(23, "RE_DESTROY_MILK_ROAD_BOULDER: %s", boulderWhy);
+        } else {
+            gComboCtx = savedCombo;
+            ArmSave(kAllTime, ArmHookshotAnywhereLogical);
+            SetFrozenTrick(MMRT_OOB_MOVEMENT, true);
+            if ((*destroyBoulder)()) {
+                rc = BindFail(24, "RE_DESTROY_MILK_ROAD_BOULDER fired from OOB bypass without Goron + Keg");
+            }
+        }
+        gComboCtx = savedCombo;
+    }
+
     // ---- (c): coverage, measured against the SHIPPED bound flag -----------
     if (rc == 0) {
         int boundCount = 0;
@@ -1579,6 +1868,35 @@ extern "C" int MM_TrickBindings_RunHeadless(void) {
         if (tricksOff.empty()) {
             rc = BindFail(10, "the tricks-off reachable check set is EMPTY, so every subset comparison below would "
                               "pass vacuously");
+        }
+        if (rc == 0) {
+            RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_ON;
+            const std::set<RandoCheckId> onNonLogical = measure(MMRT_MAX);
+            RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
+            const std::set<RandoCheckId> logicalOff = measure(MMRT_MAX);
+            if (onNonLogical != tricksOff) {
+                rc = BindFail(25, "RO_HOOKSHOT_ANYWHERE_ON changed reachable checks (%d vs %d)",
+                              (int)onNonLogical.size(), (int)tricksOff.size());
+            } else if (!std::includes(logicalOff.begin(), logicalOff.end(), tricksOff.begin(), tricksOff.end())) {
+                rc = BindFail(26, "RO_HOOKSHOT_ANYWHERE_LOGICAL made some check unreachable");
+            }
+            std::set<MMRandoTrickId> logicalTricks;
+            for (const HookshotAnywhereProbe& probe : kHookshotAnywhereProbes) {
+                if (probe.trick != MMRT_MAX) {
+                    logicalTricks.insert(probe.trick);
+                }
+            }
+            for (MMRandoTrickId trick : logicalTricks) {
+                if (rc != 0) {
+                    break;
+                }
+                const std::set<RandoCheckId> on = measure(trick);
+                if (!std::includes(on.begin(), on.end(), logicalOff.begin(), logicalOff.end())) {
+                    rc = BindFail(27, "turning '%s' ON at Logical made some check unreachable", TrickName(trick));
+                    break;
+                }
+            }
+            RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
         }
         for (MMRandoTrickId trick : probedKeys) {
             if (rc != 0) {

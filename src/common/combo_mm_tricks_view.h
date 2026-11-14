@@ -87,11 +87,10 @@ typedef enum {
      *  not map yet. */
     COMBO_MM_TRICK_UNBOUND_UNMAPPED_AREA,
     /** Every leg is OoTMM's short_hook_anywhere (`can_hookshot_short &&
-     *  setting(hookshotAnywhereMm, logical)`, macros_mm.yml:424): it needs the
-     *  "Hookshot Anywhere (MM)" logic setting (data.ts:1696), which MM's logic
-     *  does not have (it never expects Hookshot Anywhere). MM's own Hookshot
-     *  already satisfies can_hookshot_short, so no Ocarina of Time item is the
-     *  blocker. */
+     *  setting(hookshotAnywhereMm, logical)`, macros_mm.yml:466): it needs the
+     *  "Hookshot Anywhere (MM)" logic setting (data.ts:1696). #1574 added
+     *  RO_HOOKSHOT_ANYWHERE and bound all four keys in this class; the slot
+     *  stays in the enum at count 0 per the append-only rule above. */
     COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE,
     COMBO_MM_TRICK_UNBOUND_CLASS_COUNT
 } ComboMMTrickUnboundClass;

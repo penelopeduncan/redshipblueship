@@ -162,6 +162,7 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_SONG_SUN,
     RO_SHUFFLE_SONG_SARIA,
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
+    RO_HOOKSHOT_ANYWHERE,
 };
 
 /** The five options and MM's host pool (with its cached groups) as the row found
@@ -577,6 +578,19 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
                           "(e) %s=%u must add exactly '%s' to the identity string", it->second.name, (unsigned)value,
                           term.c_str());
             }
+        }
+        // #1574: RO_HOOKSHOT_ANYWHERE folds On (1) and Logical (2), never Off (0).
+        for (const uint32_t value : { (uint32_t)RO_HOOKSHOT_ANYWHERE_ON, (uint32_t)RO_HOOKSHOT_ANYWHERE_LOGICAL }) {
+            std::vector<uint32_t> values(RO_MAX, 0u);
+            values[RO_HOOKSHOT_ANYWHERE] = value;
+            const char* name = Rando::StaticData::Options[RO_HOOKSHOT_ANYWHERE].name;
+            const std::string term = std::string("|") + name + ":" + std::to_string(value);
+            const std::string seed = Rando::Foreign::TestFoldOptionsString(values.data());
+            const std::string identity = Rando::Foreign::TestFoldIdentityString(values.data());
+            MPC_CHECK(seed == base + term, "(e) %s=%u must add '%s' to the seed string", name, (unsigned)value,
+                      term.c_str());
+            MPC_CHECK(identity == base + term + baseIdentity.substr(base.size()),
+                      "(e) %s=%u must add '%s' to the identity string", name, (unsigned)value, term.c_str());
         }
     }
 
