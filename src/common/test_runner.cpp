@@ -6800,7 +6800,7 @@ TestResult Test_MMDevViewersGate(void) {
 
 // #797, the source half of the OoTWindowsGate lock. The runtime half proves the
 // wrapper gates; this proves production uses it: SohGui::SetupGuiElements must
-// construct exactly the nine save/play-state windows through OoTActiveGated<>
+// construct exactly the ten save/play-state windows through OoTActiveGated<>
 // and every other window it constructs must be on the exempt list, so a window
 // added upstream later has to be classified here before this row passes.
 static bool OoTWindowsGate_ScanSetupGuiElements(void) {
@@ -6821,6 +6821,7 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
         "SaveEditorWindow",
         "ValueViewerWindow",
         "MessageViewer",
+        "ColViewerWindow",
         "GameplayStatsWindow",
         "CheckTracker::CheckTrackerWindow",
         "EntranceTracker::EntranceTrackerWindow",
@@ -6831,8 +6832,8 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     // #797's census: no save/play-state reads (console, debuggers, input
     // viewer, mod menu, plandomizer, notifications, the four tracker settings
     // windows, which draw CVar rows only), already guarded (Additional Timers,
-    // Actor Viewer, Collision Viewer, Anchor Room), or reading fileCreatedAt
-    // only on a user action (Audio Editor, Cosmetics Editor).
+    // Actor Viewer, Anchor Room), or reading fileCreatedAt only on a user action
+    // (Audio Editor, Cosmetics Editor).
     static const char* const kExempt[] = {
         "SohConsoleWindow",
         "SohGfxDebuggerWindow",
@@ -6843,7 +6844,6 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
         "InputViewerSettingsWindow",
         "CosmeticsEditorWindow",
         "ActorViewerWindow",
-        "ColViewerWindow",
         "HookDebuggerWindow",
         "DLViewerWindow",
         "CheckTracker::CheckTrackerSettingsWindow",
@@ -6872,12 +6872,13 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
 
     static const std::string kOpen = "std::make_shared<";
     static const std::string kWrap = "OoTActiveGated<";
-    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits and
-    // Message Viewer windows use it.
+    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits,
+    // Message Viewer and Collision Viewer windows use it.
     static const std::string kHostingWrap = "OoTGatedHostingMm<";
     static const char* const kHosted[] = {
         "TimeSplitWindow",
         "MessageViewer",
+        "ColViewerWindow",
     };
     int hostedSeen[sizeof(kHosted) / sizeof(kHosted[0])] = {};
     for (size_t at = body.find(kOpen); at != std::string::npos; at = body.find(kOpen, at + kOpen.size())) {
@@ -6908,8 +6909,8 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                     }
                 }
                 if (!hostedKnown) {
-                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits "
-                           "and Message Viewer windows host an MM body\n",
+                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits, "
+                           "Message Viewer and Collision Viewer windows host an MM body\n",
                            inner.c_str());
                     ok = false;
                 }
@@ -6986,7 +6987,7 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
         if (hostedSeen[i] != 1) {
             printf("[TEST] FAIL: oot-windows-gate: %s is constructed through OoTGatedHostingMm<> %d times in "
-                   "SetupGuiElements, want exactly 1 (Time Splits and Message Viewer)\n",
+                   "SetupGuiElements, want exactly 1 (Time Splits, Message Viewer and Collision Viewer)\n",
                    kHosted[i], hostedSeen[i]);
             ok = false;
         }
@@ -7014,10 +7015,18 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                "MM_TimeSplits_HostedActive, MM_TimeSplits_DrawHostedElement) with two pointers (#1238)\n");
         ok = false;
     }
+    static const char* const kHostMmCollisionViewerCall =
+        "colViewerWindow->HostMm(MM_CollisionViewer_HostedActive,MM_CollisionViewer_DrawHostedElement,"
+        "MM_CollisionViewer_UpdateHostedElement);";
+    if (compactBody.find(kHostMmCollisionViewerCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements wraps ColViewerWindow in OoTGatedHostingMm<> "
+               "without wiring HostMm()\n");
+        ok = false;
+    }
     const int expectedSites = (int)(sizeof(kGated) / sizeof(kGated[0]) + sizeof(kExempt) / sizeof(kExempt[0]));
-    if (wrapped != 9 || sites != expectedSites) {
+    if (wrapped != 10 || sites != expectedSites) {
         printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements has %d make_shared sites (%d OoTActiveGated<>), want "
-               "%d (9)\n",
+               "%d (10)\n",
                sites, wrapped, expectedSites);
         ok = false;
     }
