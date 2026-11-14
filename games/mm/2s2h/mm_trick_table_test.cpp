@@ -532,20 +532,20 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
                             (unsigned)desc->unboundClass, reason.c_str());
             }
         }
-        // #697's third pass, less MMRT_BOMBER_BACKFLIP (bound by #1306), with
-        // the Stone of Agony and the tunics moved from "no such term" to the
-        // item class under the follow-OoTMM ruling (stoneAgonyMm, tunic*Mm),
-        // and the four keys whose only leg is short_hook_anywhere in their own
-        // class (their blocker is OoTMM's hookshotAnywhereMm setting: MM's own
-        // Hookshot already satisfies can_hookshot_short).
+        // #697's third pass, less MMRT_BOMBER_BACKFLIP (#1306) and the five keys
+        // bound by #1574 (MMRT_ZORA_HALL_DOORS, MMRT_ESCAPE_CAGE,
+        // MMRT_GBT_FAIRY2_HOOK, MMRT_KEG_TRIAL_HEATLESS, and
+        // MMRT_GBT_BABA_ENTRY_BOMBCHU on its short_hook_anywhere leg), with the
+        // Stone of Agony and the tunics in the item class under the follow-OoTMM
+        // ruling (stoneAgonyMm, tunic*Mm).
         static const int kExpectedPerClass[COMBO_MM_TRICK_UNBOUND_CLASS_COUNT] = {
             0, // NONE (not counted)
-            9, // OOT_ITEM: Stone of Agony, tunics, 2 short hookshot, 2 scales, Golden Gauntlets, 2 Zora Tunic legs
+            8, // OOT_ITEM: Stone of Agony, tunics, 2 short hookshot, 2 scales, Golden Gauntlets, Zora Tunic leg
             2, // ENTRANCE_RANDO: Clock Tower wait, Snowhead stick run
             4, // COVERED: red boulder keg, two Ikana pillar routes, ISTT Chuchu-less
             1, // NO_SUCH_TERM: Majora as a time reset
             8, // UNMAPPED_AREA: five regions, three grottos
-            4, // HOOKSHOT_ANYWHERE: Zora Hall doors, monkey cage, GBT fairy 2, keg trial heatless
+            0, // HOOKSHOT_ANYWHERE: all four bound by #1574
         };
         for (int c = 1; c < (int)COMBO_MM_TRICK_UNBOUND_CLASS_COUNT; c++) {
             if (perClass[c] != kExpectedPerClass[c]) {
@@ -556,7 +556,8 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
             }
         }
         // The keys OoTMM opens with an "X in MM" item are in the item class and
-        // name it (not hidden), and one key per other class reads that class.
+        // name it (not hidden), and one key per remaining non-empty class reads
+        // that class.
         struct ReasonPin {
             MMRandoTrickId id;
             ComboMMTrickUnboundClass unboundClass;
@@ -571,12 +572,6 @@ extern "C" int MM_TrickTable_RunHeadless(void) {
             // zora_cape.yml:20 has no scale leg: the Iron Boots AND the Zora Tunic.
             { MMRT_CAPE_LIKE_LIKE_BOMBCHU, COMBO_MM_TRICK_UNBOUND_OOT_ITEM,
               "Needs Iron Boots and Zora Tunic From Ocarina of Time" },
-            { MMRT_GBT_BABA_ENTRY_BOMBCHU, COMBO_MM_TRICK_UNBOUND_OOT_ITEM,
-              "Needs Zora Tunic With Iron Boots or Golden Scale From Ocarina of Time" },
-            // Only short_hook_anywhere: a logic setting, not an item.
-            { MMRT_ZORA_HALL_DOORS, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE, COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
-            { MMRT_KEG_TRIAL_HEATLESS, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE,
-              COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
             { MMRT_CLOCK_TOWER_WAIT, COMBO_MM_TRICK_UNBOUND_ENTRANCE_RANDO, COMBO_MM_TRICK_REASON_ENTRANCE_RANDO },
             { MMRT_KEG_RED_BOULDER, COMBO_MM_TRICK_UNBOUND_COVERED, COMBO_MM_TRICK_REASON_COVERED },
             { MMRT_MAJORA_LOGIC, COMBO_MM_TRICK_UNBOUND_NO_SUCH_TERM, COMBO_MM_TRICK_REASON_NO_SUCH_TERM },

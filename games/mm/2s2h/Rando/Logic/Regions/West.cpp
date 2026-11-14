@@ -439,10 +439,12 @@ static RegisterShipInitFunc initFunc([]() {
             // shuffled item here (RO_SHUFFLE_SWIM; StartingItems.cpp grants it up front when the
             // shuffle is off), so a trick whose whole content is "swim as Human" must ask for it —
             // otherwise the trick would silently substitute for the shuffled ability.
-            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 2),              ENTRANCE(ZORA_HALL, 3), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM))), // To Lulu's Room
-            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 3),              ENTRANCE(ZORA_HALL, 4), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM))), // To Evan's Room
-            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 1),              ENTRANCE(ZORA_HALL, 5), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM))), // To Japas's Room
-            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 0),              ENTRANCE(ZORA_HALL, 6), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM))), // To Mikaus's Room
+            // #1574: OoTMM macros_mm.yml:367 (`can_enter_zora_door`, zora_hall.yml:14-17) also opens all four
+            // doors on `short_hook_anywhere && trick(MM_ZORA_HALL_DOORS)`.
+            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 2),              ENTRANCE(ZORA_HALL, 3), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_ZORA_HALL_DOORS))), // To Lulu's Room
+            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 3),              ENTRANCE(ZORA_HALL, 4), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_ZORA_HALL_DOORS))), // To Evan's Room
+            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 1),              ENTRANCE(ZORA_HALL, 5), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_ZORA_HALL_DOORS))), // To Japas's Room
+            EXIT(ENTRANCE(ZORA_HALL_ROOMS, 0),              ENTRANCE(ZORA_HALL, 6), CAN_BE_ZORA || (MM_TRICK(MMRT_ZORA_HALL_HUMAN) && CAN_USE_ABILITY(SWIM)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_ZORA_HALL_DOORS))), // To Mikaus's Room
         },
     };
 }, {});
