@@ -107,6 +107,8 @@ bool showTrees;
 bool showBushes;
 bool showOverworldWonderItems;
 bool showDungeonWonderItems;
+bool showIcicles;
+bool showRedIce;
 bool showFrogSongRupees;
 bool showFountainFairies;
 bool showStoneFairies;
@@ -2017,7 +2019,6 @@ void LoadSettings() {
         }
         showTrees = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_TREES);
         showBushes = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_BUSHES);
-
         switch (OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_WONDER_ITEMS)) {
             case RO_SHUFFLE_WONDER_ITEMS_ALL:
                 showOverworldWonderItems = true;
@@ -2036,6 +2037,8 @@ void LoadSettings() {
                 showDungeonWonderItems = false;
                 break;
         }
+        showIcicles = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_ICICLES);
+        showRedIce = OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_SHUFFLE_RED_ICE);
     } else { // Vanilla
         showOverworldTokens = true;
         showDungeonTokens = true;
@@ -2049,6 +2052,8 @@ void LoadSettings() {
         showBushes = false;
         showOverworldWonderItems = false;
         showDungeonWonderItems = false;
+        showIcicles = false;
+        showRedIce = false;
     }
 
     fortressFast = false;
@@ -2170,7 +2175,8 @@ bool IsCheckShuffled(RandomizerCheck rc) {
                (loc->GetRCType() != RCTYPE_WONDER_ITEM ||
                 (showOverworldWonderItems && RandomizerCheckObjects::AreaIsOverworld(loc->GetArea())) ||
                 (showDungeonWonderItems && RandomizerCheckObjects::AreaIsDungeon(loc->GetArea()))) &&
-               (loc->GetRCType() != RCTYPE_COW || showCows) &&
+               (loc->GetRCType() != RCTYPE_ICICLE || showIcicles) &&
+               (loc->GetRCType() != RCTYPE_RED_ICE || showRedIce) && (loc->GetRCType() != RCTYPE_COW || showCows) &&
                (loc->GetRCType() != RCTYPE_FISH ||
                 OTRGlobals::Instance->gRandoContext->GetFishsanity()->GetFishLocationIncluded(loc)) &&
                (loc->GetRCType() != RCTYPE_FREESTANDING ||

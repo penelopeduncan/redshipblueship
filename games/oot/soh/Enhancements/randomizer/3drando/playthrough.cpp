@@ -142,7 +142,6 @@ bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
     }
     return option->GetKey() == RSK_SHUFFLE_SILVER;
 }
-
 // #1405: the Shuffle Wonder Items lines the last fold read and the ones it left out.
 uint32_t sRsbsFoldWonderItemLines = 0;
 uint32_t sRsbsFoldWonderItemSkipped = 0;
@@ -165,6 +164,52 @@ bool RsbsFoldIsWonderItemLine(size_t group, Rando::Option* option) {
         return false;
     }
     return option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS;
+}
+
+// #1408: the Shuffle Icicles lines the last fold read and the ones it left out
+// (oot_shuffle_ice_test.cpp), counted as #1363's are.
+uint32_t sRsbsFoldIciclesLines = 0;
+uint32_t sRsbsFoldIciclesSkipped = 0;
+
+/**
+ * #1408: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Icicles, and so is left out while the option is off: the option's own
+ * rows (Basic Shuffles menu section and Shuffle Settings) and the exclude rows
+ * of the RCTYPE_ICICLE checks. None of these lines existed before #1408, so with
+ * the option off the settings string is the one a world had before (#1434's rule).
+ */
+bool RsbsFoldIsIciclesLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_ICICLE;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_ICICLES;
+}
+
+// #1408: the Shuffle Red Ice lines the last fold read and the ones it left out
+// (oot_shuffle_ice_test.cpp).
+uint32_t sRsbsFoldRedIceLines = 0;
+uint32_t sRsbsFoldRedIceSkipped = 0;
+
+/**
+ * #1408: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Red Ice, and so is left out while the option is off: the option's own
+ * rows (Basic Shuffles menu section and Shuffle Settings) and the exclude rows
+ * of the RCTYPE_RED_ICE checks. None of these lines existed before #1408, so with
+ * the option off the settings string is the one a world had before (#1434's rule).
+ */
+bool RsbsFoldIsRedIceLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_RED_ICE;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_RED_ICE;
 }
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
@@ -252,6 +297,31 @@ extern "C" int OoT_Rando_LastSettingsFoldWonderItem(uint32_t* outFolded, uint32_
     return sRsbsFoldRuns;
 }
 
+// #1408: of the last fold, the lines that belong to Shuffle Icicles (the
+// option's rows, the RCTYPE_ICICLE exclude rows) as folded and as left out.
+// Returns how many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldIcicles(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldIciclesLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldIciclesSkipped;
+    }
+    return sRsbsFoldRuns;
+}
+
+// #1408: of the last fold, the lines that belong to Shuffle Red Ice (the
+// option's rows, the RCTYPE_RED_ICE exclude rows) as folded and as left out.
+// Returns how many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldRedIce(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldRedIceLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldRedIceSkipped;
+    }
+    return sRsbsFoldRuns;
+}
 // #1389: OoT's share of the [Both Games] Triforce Goal is not bounded by the
 // player's own Triforce Hunt Total Pieces, but SoH's Total Pieces callback
 // (settings.cpp) shrinks the Required Pieces option's list to that own total,
@@ -340,6 +410,20 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
     const bool rsbsWonderItemOff = ctx->GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
     sRsbsFoldWonderItemLines = 0;
     sRsbsFoldWonderItemSkipped = 0;
+    // [RSBS #1408] While Shuffle Icicles is off its lines cannot change the world
+    // (its checks are not locations, Context::GenerateLocationPool), so they are left
+    // out and a world keeps the fingerprint it had before the option existed; with
+    // it on they fold.
+    const bool rsbsIciclesOff = ctx->GetOption(RSK_SHUFFLE_ICICLES).Is(RO_GENERIC_OFF);
+    sRsbsFoldIciclesLines = 0;
+    sRsbsFoldIciclesSkipped = 0;
+    // [RSBS #1408] While Shuffle Red Ice is off its lines cannot change the world
+    // (its checks are not locations, Context::GenerateLocationPool), so they are left
+    // out and a world keeps the fingerprint it had before the option existed; with
+    // it on they fold.
+    const bool rsbsRedIceOff = ctx->GetOption(RSK_SHUFFLE_RED_ICE).Is(RO_GENERIC_OFF);
+    sRsbsFoldRedIceLines = 0;
+    sRsbsFoldRedIceSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -370,6 +454,16 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     const bool rsbsWonderItemLine = RsbsFoldIsWonderItemLine(i, option);
                     if (rsbsWonderItemLine && rsbsWonderItemOff) {
                         sRsbsFoldWonderItemSkipped++;
+                        continue;
+                    }
+                    const bool rsbsIciclesLine = RsbsFoldIsIciclesLine(i, option);
+                    if (rsbsIciclesLine && rsbsIciclesOff) {
+                        sRsbsFoldIciclesSkipped++;
+                        continue;
+                    }
+                    const bool rsbsRedIceLine = RsbsFoldIsRedIceLine(i, option);
+                    if (rsbsRedIceLine && rsbsRedIceOff) {
+                        sRsbsFoldRedIceSkipped++;
                         continue;
                     }
 #endif
@@ -421,6 +515,12 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     if (rsbsWonderItemLine) {
                         sRsbsFoldWonderItemLines++;
                     }
+                    if (rsbsIciclesLine) {
+                        sRsbsFoldIciclesLines++;
+                    }
+                    if (rsbsRedIceLine) {
+                        sRsbsFoldRedIceLines++;
+                    }
 #endif
                 }
             }
@@ -452,6 +552,10 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     const uint32_t savedSilverSkipped = sRsbsFoldSilverSkipped;
     const uint32_t savedWonderItemLines = sRsbsFoldWonderItemLines;
     const uint32_t savedWonderItemSkipped = sRsbsFoldWonderItemSkipped;
+    const uint32_t savedIciclesLines = sRsbsFoldIciclesLines;
+    const uint32_t savedIciclesSkipped = sRsbsFoldIciclesSkipped;
+    const uint32_t savedRedIceLines = sRsbsFoldRedIceLines;
+    const uint32_t savedRedIceSkipped = sRsbsFoldRedIceSkipped;
     FoldSettingsString(ctx);
     const int lines = (int)sRsbsFoldTotalLines;
     sRsbsFoldTotalLines = savedTotal;
@@ -463,6 +567,10 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     sRsbsFoldSilverSkipped = savedSilverSkipped;
     sRsbsFoldWonderItemLines = savedWonderItemLines;
     sRsbsFoldWonderItemSkipped = savedWonderItemSkipped;
+    sRsbsFoldIciclesLines = savedIciclesLines;
+    sRsbsFoldIciclesSkipped = savedIciclesSkipped;
+    sRsbsFoldRedIceLines = savedRedIceLines;
+    sRsbsFoldRedIceSkipped = savedRedIceSkipped;
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         sRsbsFoldExcludeLines[i] = savedExclude[i];
     }

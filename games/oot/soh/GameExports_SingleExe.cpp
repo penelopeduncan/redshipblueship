@@ -205,6 +205,22 @@ static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &
                   offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
                   sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
               "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
+// #1408 (Shuffle Icicles and Red Ice), after #1405's checks/flags/hints/types and
+// #1405's setting key: 191 checks, their 191 flags, 7 hint texts, 2 check types
+// and 2 setting keys.
+static_assert(RCTYPE_ICICLE == RCTYPE_WONDER_ITEM + 1 && RCTYPE_ICICLE == 40 && RCTYPE_RED_ICE == 41,
+              "OoT's RCTYPE_ICICLE and RCTYPE_RED_ICE (#1408) are 40 and 41, after #1405's RCTYPE_WONDER_ITEM");
+static_assert(RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2903 &&
+                  RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 3093 && RC_MAX == 3094,
+              "OoT's icicle and red ice checks (#1408) are ids 2903..3093 (RC_MAX == 3094), appended after #1405's");
+static_assert(RAND_INF_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2439 &&
+                  RAND_INF_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 2629 && RAND_INF_MAX == 2630,
+              "OoT's icicle and red ice flags (#1408) are 2439..2629 (RAND_INF_MAX == 2630), appended after #1405's");
+static_assert(RHT_ICE_CAVERN_ICICLE == 1571 && RHT_GANONS_CASTLE_RED_ICE == 1577 && RHT_MAX == 1578,
+              "OoT's icicle and red ice hint texts (#1408) are 1571..1577 (RHT_MAX == 1578), appended after #1405's");
+static_assert(RSK_SHUFFLE_ICICLES == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_ICICLES == 281 &&
+                  RSK_SHUFFLE_RED_ICE == 282 && RSK_MAX == 283,
+              "OoT's Shuffle Icicles and Red Ice keys (#1408) are 281 and 282 (RSK_MAX == 283), after #1405's");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));

@@ -1064,6 +1064,8 @@ void Rando::StaticData::InitLocationTable() {
     RegisterSilverLocations();
     // #1405: Wonder Item checks must also be registered before InitHashMaps/exclude options run.
     RegisterWonderItemLocations();
+    RegisterIcicleLocations();
+    RegisterRedIceLocations();
 }
 
 void Rando::StaticData::InitHashMaps() {
