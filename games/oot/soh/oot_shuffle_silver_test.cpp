@@ -475,28 +475,32 @@ void CheckLogicFallback(Rando::Context& world) {
 // ---- N: Spirit Temple boulder silver rupee names (#1589) -------------------------------
 
 void CheckBoulderSilverNames() {
-    if (Rando::StaticData::locationNameToEnum.empty()) {
+    if (Rando::StaticData::CheckFromActorMultimap.empty()) {
         Rando::StaticData::InitHashMaps();
     }
     struct ExpectedSilverName {
         RandomizerCheck rc;
-        const char* name;
+        const char* shortName;
+        const char* spoilerName;
     };
     const ExpectedSilverName expected[] = {
-        { RC_SPIRIT_SE_BOULDER_SILVER, "Southeast Boulder Silver" },
-        { RC_SPIRIT_NE_BOULDER_SILVER, "Northeast Boulder Silver" },
+        { RC_SPIRIT_SE_BOULDER_SILVER, "Southeast Boulder Silver", "Spirit Temple Southeast Boulder Silver" },
+        { RC_SPIRIT_NE_BOULDER_SILVER, "Northeast Boulder Silver", "Spirit Temple Northeast Boulder Silver" },
     };
     for (const ExpectedSilverName& entry : expected) {
         Rando::Location* loc = Rando::StaticData::GetLocation(entry.rc);
+        const std::string& gotShortName = loc->GetShortName();
+        SR_CHECK(gotShortName == entry.shortName, "N: check %d has shortName '%s', expected '%s'", (int)entry.rc,
+                 gotShortName.c_str(), entry.shortName);
         const std::string& gotName = loc->GetName();
-        SR_CHECK(gotName == entry.name, "N: check %d has name '%s', expected '%s'", (int)entry.rc, gotName.c_str(),
-                 entry.name);
+        SR_CHECK(gotName == entry.spoilerName, "N: check %d has name '%s', expected '%s'", (int)entry.rc,
+                 gotName.c_str(), entry.spoilerName);
         const auto it = Rando::StaticData::locationNameToEnum.find(gotName);
         SR_CHECK(it != Rando::StaticData::locationNameToEnum.end() && it->second == entry.rc,
                  "N: locationNameToEnum['%s'] returned %d, expected %d", gotName.c_str(),
                  it != Rando::StaticData::locationNameToEnum.end() ? (int)it->second : -1, (int)entry.rc);
     }
-    printf("[TEST] N: verified Spirit boulder silver names and locationNameToEnum round-trip\n");
+    printf("[TEST] N: verified Spirit boulder silver short/spoiler names and locationNameToEnum round-trip\n");
 }
 
 } // namespace
