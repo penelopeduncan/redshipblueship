@@ -1,26 +1,34 @@
 /**
  * @file mm_song_host_guard_test.cpp
- * Majora's Mask's song checks as cross-game hosts: CheckQueue's
- * delivered-song-host guard and the three-day reset (#1542 S0).
+ * Majora's Mask's delivered foreign host consume and the three-day reset
+ * (#1542 S0, #1600).
  *
  *   mm-song-host-guard (redship tier, ROM-free, generates nothing). Every leg
  *   drives the REAL Rando::MiscBehavior::CheckQueue over the live save's check
  *   table, with one host planted through the pinned placement table
  *   (Combo_SetForeignPlacement), and reads the GIEvent queue it leaves. Nothing
- *   here reads the song-host switch: the guard does not either.
+ *   here reads the song-host switch or any host-class predicate for the consume.
  *     (g1) A planted song host (the New Wave Bossa Nova) that is obtained and
  *          eligible again queues NOTHING, ends !eligible and cycleObtained, and
- *          records nothing. Red without the guard (the foreign branch queues
- *          its event) or with a guard that forgets to write through the array.
+ *          records nothing. Red without the consume (the foreign branch queues
+ *          its event) or with a consume that forgets to write through the array.
  *     (g2) RED HALF: the same host NOT yet obtained queues exactly one event,
  *          the foreign branch's (param = the check, get-item cutscene on). Red on
- *          a guard that eats the first delivery.
- *     (g3) A planted, obtained, eligible Tier A chest still queues its event: the
- *          guard is the song checks' only (red on a guard keyed on anything but
- *          the song-check id).
+ *          a consume that eats the first delivery.
+ *     (g3) A planted, obtained, eligible Tier A chest also queues NOTHING, ends
+ *          !eligible and cycleObtained, and records nothing (#1600): the
+ *          consume is generic over all delivered foreign hosts, not song-only.
  *     (g4) A song check holding NO placement, obtained and eligible (a native MM
- *          item delivered on an earlier cycle) is no delivered song host: a
- *          guard that ignored the placement would swallow 2Ship's own re-give.
+ *          item delivered on an earlier cycle) is no delivered foreign host: a
+ *          consume that ignored the placement would swallow 2Ship's own re-give.
+ *     (g5) A non-song, non-chest class (RCTYPE_FREESTANDING), planted, obtained
+ *          and eligible: queues NOTHING, ends !eligible and cycleObtained, and
+ *          records nothing (#1600): the consume is not keyed on a host class.
+ *     (g5b) RED HALF for (g5): the same freestanding check, planted and
+ *          eligible, NOT yet obtained, queues one foreign-branch event.
+ *     (g6) A Tier A chest holding NO placement, obtained and eligible:
+ *          !IsForeignCheck and !IsDeliveredForeignHost (native re-give left
+ *          alone).
  *   mm-song-host-guard's reset legs run the Song of Time's reset headless: the
  *   REAL Sram_SaveEndOfCycle over a zeroed stand-in PlayState with the rando's
  *   Before/AfterEndOfCycleSave registered the way a rando load registers them
@@ -37,7 +45,13 @@
  *          WEEKEVENTREG_20_40 without the hook; setting it again through MM's
  *          real flag hook (Rando::MiscBehavior::OnFlagSet, the function the
  *          rando's COND_HOOK registers) re-arms the check, and CheckQueue then
- *          consumes it: no event, !eligible, no record. Red without the guard.
+ *          consumes it: no event, !eligible, no record. Red without the consume.
+ *     (r3) A TIER A CHEST CLOSED BY THE RESET (#1600): find a chest whose flag
+ *          Sram_SaveEndOfCycle clears, deliver its crossing via
+ *          GiveForeignCheck, run Sram_SaveEndOfCycle (keeps obtained, clears
+ *          cycleObtained and the chest flag), re-arm via the real scene-flag
+ *          hook (Rando::MiscBehavior::OnSceneFlagSet), and verify CheckQueue
+ *          consumes it silently and a second GiveForeignCheck records nothing.
  *   Every piece of state touched (the whole MM SaveContext, the combo record,
  *   the placement table, the crossing store and the shared outbox, the event
  *   queue, CheckQueue's latch, the rando registrars) is restored or cleared
@@ -69,6 +83,8 @@ extern "C" int MM_SongHostGuard_Run(uint8_t, uint16_t) {
 #include "crossing_store.h"
 #include "foreign_items.h"
 #include "shared_items.h"
+
+extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 namespace {
 
@@ -189,6 +205,16 @@ RandoCheckId SongGuardFirstChest() {
     return RC_UNKNOWN;
 }
 
+/** The first row of `type` (skipping RC_UNKNOWN), or RC_UNKNOWN if none. */
+RandoCheckId SongGuardFirstOfType(RandoCheckType type) {
+    for (auto& [id, row] : Rando::StaticData::Checks) {
+        if (id != RC_UNKNOWN && row.randoCheckType == type) {
+            return id;
+        }
+    }
+    return RC_UNKNOWN;
+}
+
 int SongGuardQueueLegs(SharedItem item) {
     const RandoCheckId song = RC_GREAT_BAY_COAST_NEW_WAVE_BOSSA_NOVA;
     const RandoCheckId chest = SongGuardFirstChest();
@@ -222,14 +248,23 @@ int SongGuardQueueLegs(SharedItem item) {
                "check, cutscene on): the guard eats a first delivery");
     SHG_ASSERT(RANDO_SAVE_CHECKS[song].eligible, "(g2) the first delivery's host was disarmed before its give ran");
 
-    // (g3) Tier A chest, delivered and armed again: untouched by the guard.
+    // (g3) Tier A chest, delivered and armed again: consumed silently (#1600).
     SongGuardArmSave();
     SHG_ASSERT(SongGuardPlant(chest, item), "(g3) the chest host could not be planted");
     SongGuardSetBits(chest, true, false, true);
+    SHG_ASSERT(Rando::Foreign::IsDeliveredForeignHost(chest),
+               "(g3) the planted, obtained chest host does not read as a delivered foreign host");
+    const int g3RecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
     const size_t g3 = SongGuardTick();
-    printf("[TEST] %s: (g3) delivered Tier A chest %u armed again: %zu event(s)\n", kSongGuardRow, (unsigned)chest, g3);
-    SHG_ASSERT(g3 == 1 && SongGuardQueuedForeignGiveFor(chest),
-               "(g3) the guard swallowed a chest's re-arm: it must touch the song checks only");
+    printf("[TEST] %s: (g3) delivered Tier A chest %u armed again: %zu event(s), eligible %d, cycleObtained %d\n",
+           kSongGuardRow, (unsigned)chest, g3, RANDO_SAVE_CHECKS[chest].eligible ? 1 : 0,
+           RANDO_SAVE_CHECKS[chest].cycleObtained ? 1 : 0);
+    SHG_ASSERT(g3 == 0,
+               "(g3) a delivered chest host armed again queued a get-item event: the consume is still song-only");
+    SHG_ASSERT(!RANDO_SAVE_CHECKS[chest].eligible && RANDO_SAVE_CHECKS[chest].cycleObtained,
+               "(g3) the consume did not clear eligible and set cycleObtained through the save's check table");
+    SHG_ASSERT(Combo_CountSharedItems(GAME_OOT, true) == g3RecordsBefore,
+               "(g3) the consumed chest re-arm recorded a crossing");
 
     // (g4) a song check holding MM's own item, delivered on an earlier cycle: not
     // a delivered SONG HOST, so 2Ship's own re-give runs as before. Asked of the
@@ -244,6 +279,60 @@ int SongGuardQueueLegs(SharedItem item) {
                "(g4) a song check with no placement reads as a delivered song host: the guard would swallow "
                "2Ship's own re-give");
     RANDO_SAVE_CHECKS[song].eligible = false;
+
+    // (g5) non-song, non-chest class (freestanding): CheckQueue's consume is not
+    // keyed on a class (#1600). Do not ask IsForeignHostClass: freestanding rows
+    // open later in #1600.
+    const RandoCheckId freestanding = SongGuardFirstOfType(RCTYPE_FREESTANDING);
+    SHG_ASSERT(freestanding != RC_UNKNOWN, "(g5) MM has no freestanding check row");
+    SHG_ASSERT(MM_Rando_Foreign_TestSongCheckIndex((uint16_t)freestanding) < 0,
+               "(g5) the freestanding row read as a song check");
+    SongGuardArmSave();
+    SHG_ASSERT(SongGuardPlant(freestanding, item), "(g5) the freestanding host could not be planted");
+    SongGuardSetBits(freestanding, true, false, true);
+    SHG_ASSERT(Rando::Foreign::IsDeliveredForeignHost(freestanding),
+               "(g5) the planted, obtained freestanding host does not read as a delivered foreign host");
+    const int g5RecordsBefore = Combo_CountSharedItems(GAME_OOT, true);
+    const size_t g5 = SongGuardTick();
+    printf("[TEST] %s: (g5) delivered freestanding host %u armed again: %zu event(s), eligible %d, cycleObtained %d\n",
+           kSongGuardRow, (unsigned)freestanding, g5, RANDO_SAVE_CHECKS[freestanding].eligible ? 1 : 0,
+           RANDO_SAVE_CHECKS[freestanding].cycleObtained ? 1 : 0);
+    SHG_ASSERT(
+        g5 == 0,
+        "(g5) a delivered freestanding host armed again queued an event: the consume is keyed on a class (#1600)");
+    SHG_ASSERT(!RANDO_SAVE_CHECKS[freestanding].eligible && RANDO_SAVE_CHECKS[freestanding].cycleObtained,
+               "(g5) the consume did not clear eligible and set cycleObtained for the freestanding host (#1600)");
+    SHG_ASSERT(Combo_CountSharedItems(GAME_OOT, true) == g5RecordsBefore,
+               "(g5) the consumed freestanding re-arm recorded a crossing");
+
+    // (g5b) RED HALF for (g5): the same freestanding row, planted, NOT yet
+    // obtained, eligible -> queues one foreign-branch event.
+    SongGuardArmSave();
+    SHG_ASSERT(SongGuardPlant(freestanding, item), "(g5b) the freestanding host could not be planted");
+    SongGuardSetBits(freestanding, false, false, true);
+    SHG_ASSERT(!Rando::Foreign::IsDeliveredForeignHost(freestanding),
+               "(g5b) an undelivered freestanding host reads as delivered");
+    const size_t g5b = SongGuardTick();
+    printf("[TEST] %s: (g5b) undelivered freestanding host %u: %zu event(s)\n", kSongGuardRow, (unsigned)freestanding,
+           g5b);
+    SHG_ASSERT(g5b == 1 && SongGuardQueuedForeignGiveFor(freestanding),
+               "(g5b) the first delivery of a freestanding host did not queue exactly one foreign-branch event");
+    SHG_ASSERT(RANDO_SAVE_CHECKS[freestanding].eligible,
+               "(g5b) the first delivery's host was disarmed before its give ran");
+    SongGuardSetBits(freestanding, false, false, false);
+
+    // (g6) a Tier A chest holding MM's own item, delivered on an earlier cycle:
+    // not a delivered foreign host, so 2Ship's own re-give runs as before. Asked
+    // of the predicate, not through CheckQueue, for the same reason as (g4).
+    SongGuardArmSave();
+    RANDO_SAVE_CHECKS[chest].randoItemId = RI_JUNK;
+    RANDO_SAVE_CHECKS[chest].shuffled = true;
+    SongGuardSetBits(chest, true, false, true);
+    SHG_ASSERT(!Rando::Foreign::IsForeignCheck(chest), "(g6) the chest check holds a placement");
+    SHG_ASSERT(!Rando::Foreign::IsDeliveredForeignHost(chest),
+               "(g6) a chest check with no placement reads as a delivered foreign host: the consume would swallow "
+               "2Ship's own re-give");
+    RANDO_SAVE_CHECKS[chest].eligible = false;
     return 0;
 }
 
@@ -306,6 +395,84 @@ int SongGuardResetLegs(SharedItem item) {
                "(r2) a delivered song host re-armed on a later cycle queued a get-item event (the guard is missing)");
     SHG_ASSERT(Combo_CountSharedItems(GAME_OOT, true) == recordsBefore, "(r2) the consumed re-arm recorded a "
                                                                         "crossing");
+
+    // (r3) Tier A chest closed by the end-of-cycle reset, delivered, reset,
+    // re-armed by the real OnSceneFlagSet hook, consumed silently (#1600).
+    // Step 1: arm save + live pairing.
+    SongGuardArmSave();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSettingsHash = 0x16000000u;
+    printf("[TEST] %s: (r3.1) save armed with live pairing 0x%08X\n", kSongGuardRow, gComboCtx.sharedRandoSettingsHash);
+
+    // Step 2: find a Tier A chest closed by Sram_SaveEndOfCycle.
+    for (const auto& [id, candidate] : Rando::StaticData::Checks) {
+        if (candidate.randoCheckType == RCTYPE_CHEST && candidate.flagType == FLAG_CYCL_SCENE_CHEST) {
+            gSaveContext.cycleSceneFlags[candidate.sceneId].chest |= (1u << ((u32)candidate.flag & 0x1Fu));
+        }
+    }
+    SongGuardPlaySongOfTime();
+    RandoCheckId chest = RC_UNKNOWN;
+    for (const auto& [id, candidate] : Rando::StaticData::Checks) {
+        if (candidate.randoCheckType == RCTYPE_CHEST && candidate.flagType == FLAG_CYCL_SCENE_CHEST &&
+            (gSaveContext.cycleSceneFlags[candidate.sceneId].chest & (1u << ((u32)candidate.flag & 0x1Fu))) == 0) {
+            chest = id;
+            break;
+        }
+    }
+    printf("[TEST] %s: (r3.2) first Tier A chest closed by Sram_SaveEndOfCycle: %u\n", kSongGuardRow, (unsigned)chest);
+    SHG_ASSERT(chest != RC_UNKNOWN, "no Tier A chest is closed by the end-of-cycle clear; r3 would be vacuous");
+    const auto& row = Rando::StaticData::Checks.at(chest);
+
+    // Step 3: arm save + live pairing again, plant chest, deliver via GiveForeignCheck.
+    SongGuardArmSave();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSettingsHash = 0x16000000u;
+    SHG_ASSERT(SongGuardPlant(chest, item), "(r3) the chest could not be planted");
+    SongGuardSetBits(chest, false, false, true);
+    const int r3Before = Combo_CountSharedItems(GAME_OOT, true);
+    const bool r3Crossed = Rando::Foreign::GiveForeignCheck(chest);
+    const int r3AfterGive = Combo_CountSharedItems(GAME_OOT, true);
+    printf("[TEST] %s: (r3.3) chest %u foreign give: crossed %d, records %d -> %d, obtained %d eligible %d\n",
+           kSongGuardRow, (unsigned)chest, r3Crossed ? 1 : 0, r3Before, r3AfterGive,
+           RANDO_SAVE_CHECKS[chest].obtained ? 1 : 0, RANDO_SAVE_CHECKS[chest].eligible ? 1 : 0);
+    SHG_ASSERT(r3Crossed && r3AfterGive == r3Before + 1,
+               "(r3) the chest's foreign give did not record exactly one crossing");
+    SHG_ASSERT(RANDO_SAVE_CHECKS[chest].obtained && !RANDO_SAVE_CHECKS[chest].eligible,
+               "(r3) the chest's foreign give did not mark the host delivered");
+
+    // Step 4: three-day reset keeps `obtained` and clears `cycleObtained` (and the chest bit).
+    gSaveContext.cycleSceneFlags[row.sceneId].chest |= (1u << ((u32)row.flag & 0x1Fu));
+    SongGuardPlaySongOfTime();
+    printf("[TEST] %s: (r3.4) after reset: chest bit %d, obtained %d, cycleObtained %d\n", kSongGuardRow,
+           (gSaveContext.cycleSceneFlags[row.sceneId].chest & (1u << ((u32)row.flag & 0x1Fu))) ? 1 : 0,
+           RANDO_SAVE_CHECKS[chest].obtained ? 1 : 0, RANDO_SAVE_CHECKS[chest].cycleObtained ? 1 : 0);
+    SHG_ASSERT(RANDO_SAVE_CHECKS[chest].obtained && !RANDO_SAVE_CHECKS[chest].cycleObtained,
+               "(r3) the reset did not keep obtained and clear cycleObtained");
+    SHG_ASSERT((gSaveContext.cycleSceneFlags[row.sceneId].chest & (1u << ((u32)row.flag & 0x1Fu))) == 0,
+               "(r3) the reset did not clear the chosen Tier A chest flag");
+
+    // Step 5: re-arm through the real OnSceneFlagSet hook.
+    Rando::MiscBehavior::OnSceneFlagSet(row.sceneId, FLAG_CYCL_SCENE_CHEST, (u32)row.flag);
+    printf("[TEST] %s: (r3.5) re-armed via OnSceneFlagSet(%d, FLAG_CYCL_SCENE_CHEST, %d): eligible %d\n", kSongGuardRow,
+           (int)row.sceneId, (int)row.flag, RANDO_SAVE_CHECKS[chest].eligible ? 1 : 0);
+    SHG_ASSERT(RANDO_SAVE_CHECKS[chest].eligible, "(r3) OnSceneFlagSet did not re-arm the chest check");
+
+    // Step 6: CheckQueue consumes the re-arm silently.
+    const size_t r3 = SongGuardTick();
+    printf("[TEST] %s: (r3.6) re-armed chest %u tick: %zu event(s), eligible %d, records %d\n", kSongGuardRow,
+           (unsigned)chest, r3, RANDO_SAVE_CHECKS[chest].eligible ? 1 : 0, Combo_CountSharedItems(GAME_OOT, true));
+    SHG_ASSERT(r3 == 0 && !RANDO_SAVE_CHECKS[chest].eligible,
+               "(r3) a delivered chest host re-armed on a later cycle queued a get-item event (#1600)");
+    SHG_ASSERT(Combo_CountSharedItems(GAME_OOT, true) == r3AfterGive,
+               "(r3) the consumed chest re-arm recorded a crossing");
+
+    // Step 7: second GiveForeignCheck refuses and records nothing.
+    const bool r3SecondGive = Rando::Foreign::GiveForeignCheck(chest);
+    const int r3AfterSecond = Combo_CountSharedItems(GAME_OOT, true);
+    printf("[TEST] %s: (r3.7) second GiveForeignCheck(%u): crossed %d, records %d\n", kSongGuardRow, (unsigned)chest,
+           r3SecondGive ? 1 : 0, r3AfterSecond);
+    SHG_ASSERT(!r3SecondGive && r3AfterSecond == r3AfterGive,
+               "(r3) a second foreign give of the chest recorded a second crossing");
     return 0;
 }
 
@@ -318,9 +485,10 @@ int SongGuardResetLegs(SharedItem item) {
  * @return 0 when every leg holds.
  */
 extern "C" int MM_SongHostGuard_Run(uint8_t ootOrigin, uint16_t ootItemId) {
-    printf("[TEST] %s: a delivered MM song host armed again gives nothing and shows nothing; its first delivery, "
-           "a chest's re-arm and a native song check's re-give are untouched; Healing's crossing host is delivered "
-           "once across a three-day reset (#1542 S0)\n",
+    printf("[TEST] %s: CheckQueue consumes any delivered MM foreign host armed again (songs, chests, any class; "
+           "#1542 S0, #1600), leaves its first delivery and a native re-give alone, and the real headless three-day "
+           "reset (Sram_SaveEndOfCycle) re-arms neither Healing's crossing host nor, through the consume, the New "
+           "Wave's or a closed chest's\n",
            kSongGuardRow);
     SharedItem item;
     memset(&item, 0, sizeof(item));

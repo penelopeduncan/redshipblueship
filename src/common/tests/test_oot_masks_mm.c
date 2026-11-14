@@ -69,6 +69,10 @@ uint16_t MM_OoTMasksTest_ClockTime(int hr, int min);
 int MM_OoTMasksTest_Const(int which);
 void MM_OoTMasksTest_ArmLive(void);
 void MM_OoTMasksTest_Give(uint16_t ri);
+void MM_OoTMasksTest_Remove(uint16_t ri);
+int MM_OoTMasksTest_SwimOwned(void);
+uint16_t MM_OoTMasksTest_SwimWordRaw(void);
+void MM_OoTMasksTest_SetSwimWordRaw(uint16_t word);
 int MM_OoTMasksTest_Convert(uint16_t ri);
 int MM_OoTMasksTest_IsMaskType(uint16_t ri);
 const char* MM_OoTMasksTest_Name(uint16_t ri);
@@ -92,6 +96,7 @@ void MM_OoTMasksTest_VoidOutRespawn(int hasDekuMask);
 uint8_t MM_OoTMask_ForeignId(uint16_t riId);
 uint16_t MM_OoTMask_ItemId(uint8_t foreignMask);
 bool MM_OoTMask_Owned(uint16_t riId);
+void MM_OoTMask_Take(uint16_t riId);
 bool MM_OoTMask_Usable(uint16_t riId);
 int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, uint8_t* maskOut, uint8_t* formOut);
 void MM_OoTMasks_OnNativeMaskCleared(void);
@@ -703,12 +708,14 @@ TestResult Test_OoTMasksMMItems(void) {
         ComboContext_Init();
     }
 
-    // ---- (5a)-(5c) #1452: four new Spooky actors, SpoofFor/kListedActors agreement, and native-mask clear ----
+    // ---- (5a)-(5e) #1452/#1571: Spooky actors, SpoofFor agreement, native-mask clear, and RemoveItem ----
     {
         const uint16_t ommSavedTime = MM_OoTMasksTest_Time();
         const uint8_t ommSavedWorn = MM_ForeignMask_StoredRaw();
         const uint8_t ommSavedStoneSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
         const uint8_t ommSavedGibdoSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+        const uint16_t ommSavedSwimWord = MM_OoTMasksTest_SwimWordRaw();
+        const GameId ommSavedGame = Context_GetCurrentGame();
 
         // (a) Spooky Mask on EnHgo, EnPamera, EnSob1, EnOsn: PLAYER_MASK_GIBDO at night only; nothing under
         // Gerudo/Skull.
@@ -963,10 +970,92 @@ TestResult Test_OoTMasksMMItems(void) {
             ComboContext_Init();
         }
 
+        // (e) #1571: Rando::RemoveItem undoes the OoT masks (clearing owned bits and worn mask) and Swim.
+        {
+            const int maskNone = MM_OoTMasksTest_Const(4);
+            const uint16_t swim = (uint16_t)MM_OoTMasksTest_Id(7);
+            const uint16_t stoneMask = (uint16_t)MM_OoTMasksTest_Id(6);
+            OmmFreezeWorld(kOmmExtensions);
+            // Run the give and remove as a live MM session would: MM current, so MM's flag hooks (OnFlagSet /
+            // OnFlagUnset) dispatch as they do in play. The flag writes themselves do not check the game.
+            Context_SetCurrentGame(GAME_MM);
+            MM_OoTMasksTest_ArmLive();
+            MM_OoTMasks_Forget();
+
+            MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE, COMBO_FOREIGN_MASK_OOT_SKULL);
+            MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, COMBO_FOREIGN_MASK_OOT_SPOOKY);
+            MM_OoTMasksTest_Give(gerudo);
+            MM_OoTMasksTest_Give(skull);
+            MM_OoTMasksTest_Give(spooky);
+            OMM_CHECK(MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky),
+                      "#1571 RemoveItem setup: expected all three OoT masks owned");
+
+            MM_OoTMasksTest_Remove(gerudo);
+            const uint8_t stoneAfterGerudo = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+            OMM_CHECK(!MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky) &&
+                          Combo_ForeignMask_SlotByteSelection(stoneAfterGerudo) == COMBO_FOREIGN_MASK_OOT_SKULL,
+                      "#1571 RemoveItem(Gerudo) did not clear only Gerudo or moved Stone slot choice (%02X)",
+                      (unsigned)stoneAfterGerudo);
+
+            MM_OoTMasksTest_Remove(skull);
+            const uint8_t stoneAfterSkull = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+            OMM_CHECK(!MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky) &&
+                          stoneAfterSkull == COMBO_FOREIGN_MASK_OOT_SKULL,
+                      "#1571 RemoveItem(Skull) did not clear Skull or altered Stone slot choice (%02X)",
+                      (unsigned)stoneAfterSkull);
+
+            MM_OoTMasksTest_Remove(spooky);
+            const uint8_t gibdoAfterSpooky = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+            OMM_CHECK(!MM_OoTMask_Owned(spooky) && gibdoAfterSpooky == COMBO_FOREIGN_MASK_OOT_SPOOKY,
+                      "#1571 RemoveItem(Spooky) did not clear Spooky or altered Gibdo slot choice (%02X)",
+                      (unsigned)gibdoAfterSpooky);
+
+            // Removing a worn mask takes it off; removing another mask or calling Take on a non-OoT id does not.
+            MM_OoTMasksTest_Give(gerudo);
+            MM_OoTMasksTest_Give(skull);
+            MM_OoTMasksTest_SetPlayer(1, (uint8_t)maskNone);
+            OMM_CHECK(MM_OoTMasksTest_Use(COMBO_FOREIGN_MASK_OOT_GERUDO) == 1 &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1571 RemoveItem worn setup: failed to wear Gerudo Mask");
+            MM_OoTMask_Take(stoneMask);
+            OMM_CHECK(MM_OoTMask_Owned(gerudo) && MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1571 MM_OoTMask_Take(RI_MASK_STONE) altered Gerudo ownership or worn mask");
+            MM_OoTMasksTest_Remove(skull);
+            OMM_CHECK(!MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(gerudo) &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1571 RemoveItem(Skull) took off worn Gerudo Mask (worn=%u, stored=%u)",
+                      (unsigned)MM_ForeignMask_Worn(), (unsigned)MM_ForeignMask_StoredRaw());
+            MM_OoTMasksTest_Remove(gerudo);
+            OMM_CHECK(!MM_OoTMask_Owned(gerudo) && MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_NONE,
+                      "#1571 RemoveItem(Gerudo) left worn Gerudo Mask on (worn=%u, stored=%u)",
+                      (unsigned)MM_ForeignMask_Worn(), (unsigned)MM_ForeignMask_StoredRaw());
+
+            // Swim (RI_ABILITY_SWIM) give -> remove.
+            OMM_CHECK(MM_OoTMasksTest_SwimOwned() == 0,
+                      "#1571 Swim (RANDO_INF_OBTAINED_SWIM) was already owned before GiveItem");
+            MM_OoTMasksTest_Give(swim);
+            OMM_CHECK(MM_OoTMasksTest_SwimOwned() == 1,
+                      "#1571 GiveItem(RI_ABILITY_SWIM) did not set RANDO_INF_OBTAINED_SWIM");
+            MM_OoTMasksTest_Remove(swim);
+            OMM_CHECK(MM_OoTMasksTest_SwimOwned() == 0,
+                      "#1571 RemoveItem(RI_ABILITY_SWIM) did not clear RANDO_INF_OBTAINED_SWIM");
+
+            MM_OoTMasks_Forget();
+            ComboContext_Init();
+            MM_OoTMasksTest_SetSwimWordRaw(ommSavedSwimWord);
+            Context_SetCurrentGame(ommSavedGame);
+        }
+
         MM_ForeignMask_SetStoredRaw(ommSavedWorn);
         MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE, ommSavedStoneSlot);
         MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, ommSavedGibdoSlot);
+        MM_OoTMasksTest_SetSwimWordRaw(ommSavedSwimWord);
         MM_OoTMasksTest_SetTime(ommSavedTime);
+        Context_SetCurrentGame(ommSavedGame);
     }
 
     MM_OoTMasks_RegisterRuntime();

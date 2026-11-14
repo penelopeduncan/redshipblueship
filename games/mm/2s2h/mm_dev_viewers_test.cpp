@@ -30,6 +30,7 @@
 #include "context.h"
 #include "include/mm_game_hooks.h"
 #include "mm_dev_tools_bridge.h"
+#include "mm_dev_viewers_bridge.h"
 #include "variables.h"
 
 namespace S2H {
@@ -414,6 +415,48 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
         DVG_ASSERT(MM_DevTools_WarpPointAvailable() == 0,
                    "MM_DevTools_WarpPointAvailable returned non-zero without MM gameplay state");
     }
+
+    // ---- (f) Hosted Message Viewer (#1238 slice 1) ----
+    // Always restore the process-wide current game even if an assertion returns early.
+    struct CurrentGameRestoreGuard {
+        GameId game;
+        explicit CurrentGameRestoreGuard(GameId g) : game(g) {
+        }
+        ~CurrentGameRestoreGuard() {
+            Context_SetCurrentGame(game);
+        }
+    } restoreGameGuard(savedGame);
+
+    // (a) Precondition: hosted MM Message Viewer body must start uninitialized (never init on read).
+    DVG_ASSERT(!MM_MessageViewer_HostedInitializedForTest(),
+               "MM_MessageViewer_HostedInitializedForTest() returned true before first GAME_MM update");
+
+    // (b) HostedActive tracks only GAME_MM.
+    Context_SetCurrentGame(GAME_OOT);
+    DVG_ASSERT(!MM_MessageViewer_HostedActive(), "MM_MessageViewer_HostedActive() returned true under GAME_OOT");
+    Context_SetCurrentGame(GAME_MM);
+    DVG_ASSERT(MM_MessageViewer_HostedActive(), "MM_MessageViewer_HostedActive() returned false under GAME_MM");
+    Context_SetCurrentGame(GAME_NONE);
+    DVG_ASSERT(!MM_MessageViewer_HostedActive(), "MM_MessageViewer_HostedActive() returned true under GAME_NONE");
+
+    // (c) Non-MM UpdateHostedElement calls must not initialize MM's body.
+    Context_SetCurrentGame(GAME_OOT);
+    MM_MessageViewer_UpdateHostedElement();
+    DVG_ASSERT(!MM_MessageViewer_HostedInitializedForTest(),
+               "MM_MessageViewer_UpdateHostedElement() initialized MM body under GAME_OOT");
+    Context_SetCurrentGame(GAME_NONE);
+    MM_MessageViewer_UpdateHostedElement();
+    DVG_ASSERT(!MM_MessageViewer_HostedInitializedForTest(),
+               "MM_MessageViewer_UpdateHostedElement() initialized MM body under GAME_NONE");
+
+    // (d) First GAME_MM UpdateHostedElement call initializes the body; a second call stays safe and initialized.
+    Context_SetCurrentGame(GAME_MM);
+    MM_MessageViewer_UpdateHostedElement();
+    DVG_ASSERT(MM_MessageViewer_HostedInitializedForTest(),
+               "MM_MessageViewer_UpdateHostedElement() failed to initialize MM body under GAME_MM");
+    MM_MessageViewer_UpdateHostedElement();
+    DVG_ASSERT(MM_MessageViewer_HostedInitializedForTest(),
+               "second MM_MessageViewer_UpdateHostedElement() call left MM body uninitialized");
 
     Context_SetCurrentGame(savedGame);
     ResetEventLogHooksAndState();

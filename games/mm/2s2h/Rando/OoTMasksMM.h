@@ -40,6 +40,10 @@ bool MM_OoTMask_Owned(uint16_t riId);
 /** Give `riId` to MM's live save (set its owned bit). No-op for any other id. */
 void MM_OoTMask_Give(uint16_t riId);
 
+/** Take `riId` from MM's live save (clear its owned bit, leaving the slot's
+ *  chosen variant untouched, and take it off when worn). No-op for any other id. */
+void MM_OoTMask_Take(uint16_t riId);
+
 /** OoTMM's has_mask_gerudo / has_mask_skull / has_mask_spooky in MM: the frozen
  *  rule holds the extension and the live save owns the mask. What MM's logic
  *  reads (Logic.h). */

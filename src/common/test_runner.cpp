@@ -1352,12 +1352,20 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // scan and validation, the ROM search dirs and the tools check, ROM-free; plus
 // the staged MM ROM when OTRExporter/mm.z64 exists. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_extract.c"
+// #1590: ROM-free source lock for the non-Windows file-picker availability
+// guard in OoT and MM Extract.cpp and the OoT extractFailed/popup wiring in
+// OTRGlobals.cpp::RunExtract. FILE SCOPE (compiled as C++).
+#include "tests/test_extractor_picker_guard.c"
 // #1475 (lane H1): the combined Hint Tracker's Majora's Mask side: MM's hint
 // sources, the resolver, the read record and its round trips, the pane and the
 // hooks' wiring (mm-hint-sources, ROM-free), and the same over a real paired world
 // (mm-hint-sources-world, rando tier). FILE SCOPE (compiled as C++): it drives
 // rsbs::SaveManager, after test_crossing_commit.c and test_combo_crossing_views.c.
 #include "tests/test_mm_hint_sources.c"
+
+// #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
+// behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
+#include "tests/test_oot_mweep_stop.c"
 
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
@@ -6866,9 +6874,14 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
 
     static const std::string kOpen = "std::make_shared<";
     static const std::string kWrap = "OoTActiveGated<";
-    // W6-TIMERS (#1237): the gate that also hosts MM's Time Splits body under MM; only SoH's Time Splits window uses
-    // it.
+    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits and
+    // Message Viewer windows use it.
     static const std::string kHostingWrap = "OoTGatedHostingMm<";
+    static const char* const kHosted[] = {
+        "TimeSplitWindow",
+        "MessageViewer",
+    };
+    int hostedSeen[sizeof(kHosted) / sizeof(kHosted[0])] = {};
     for (size_t at = body.find(kOpen); at != std::string::npos; at = body.find(kOpen, at + kOpen.size())) {
         const size_t typeBegin = at + kOpen.size();
         const size_t typeEnd = body.find(">(", typeBegin);
@@ -6888,11 +6901,20 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
             wrapped++;
             const size_t wrapLen = hosting ? kHostingWrap.size() : kWrap.size();
             std::string inner = type.substr(wrapLen, type.size() - wrapLen - 1);
-            if (hosting && inner != "TimeSplitWindow") {
-                printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits window "
-                       "hosts an MM body (W6-TIMERS)\n",
-                       inner.c_str());
-                ok = false;
+            if (hosting) {
+                bool hostedKnown = false;
+                for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
+                    if (inner == kHosted[i]) {
+                        hostedSeen[i]++;
+                        hostedKnown = true;
+                    }
+                }
+                if (!hostedKnown) {
+                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits "
+                           "and Message Viewer windows host an MM body\n",
+                           inner.c_str());
+                    ok = false;
+                }
             }
             // #1132 (ruling D1): SoH's Check Tracker and Item Tracker are retired,
             // registered for their hooks and never drawn (SohRetiredWindow.h).
@@ -6962,6 +6984,37 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                    kRetired[i], retiredSeen[i]);
             ok = false;
         }
+    }
+    for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
+        if (hostedSeen[i] != 1) {
+            printf("[TEST] FAIL: oot-windows-gate: %s is constructed through OoTGatedHostingMm<> %d times in "
+                   "SetupGuiElements, want exactly 1 (Time Splits and Message Viewer)\n",
+                   kHosted[i], hostedSeen[i]);
+            ok = false;
+        }
+    }
+    std::string compactBody;
+    compactBody.reserve(body.size());
+    for (char c : body) {
+        if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
+            compactBody.push_back(c);
+        }
+    }
+    static const char* const kHostMmMessageViewerCall =
+        "messageViewerWindow->HostMm(MM_MessageViewer_HostedActive,MM_MessageViewer_DrawHostedElement,"
+        "MM_MessageViewer_UpdateHostedElement);";
+    if (compactBody.find(kHostMmMessageViewerCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire messageViewerWindow->HostMm("
+               "MM_MessageViewer_HostedActive, MM_MessageViewer_DrawHostedElement, "
+               "MM_MessageViewer_UpdateHostedElement) (#1238)\n");
+        ok = false;
+    }
+    static const char* const kHostMmTimeSplitsCall =
+        "timeSplitWindow->HostMm(MM_TimeSplits_HostedActive,MM_TimeSplits_DrawHostedElement);";
+    if (compactBody.find(kHostMmTimeSplitsCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire timeSplitWindow->HostMm("
+               "MM_TimeSplits_HostedActive, MM_TimeSplits_DrawHostedElement) with two pointers (#1238)\n");
+        ok = false;
     }
     const int expectedSites = (int)(sizeof(kGated) / sizeof(kGated[0]) + sizeof(kExempt) / sizeof(kExempt[0]));
     if (wrapped != 9 || sites != expectedSites) {
@@ -10719,6 +10772,12 @@ const TestDescriptor gTests[] = {
       "func_80096A74 short-circuits via VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when "
       "camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages (#1336)",
       Test_OoTRoomBgCamGuard },
+    // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
+    // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
+    { "oot-mweep-stop-restores-camera",
+      "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
+      "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
+      Test_OoTMweepStopRestoresCamera },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
@@ -11709,6 +11768,10 @@ const TestDescriptor gTests[] = {
     { "mm-extract",
       "In-app Majora's Mask extraction seams: silent ROM scan and validation, search dirs, tools check (#944)",
       Test_MmExtract },
+    { "extractor-picker-guard",
+      "Source lock: non-Windows file-picker guard in OoT and MM Extract.cpp and OoT extractFailed/popup wiring in "
+      "RunExtract (#1590)",
+      Test_ExtractorPickerGuard },
     // R6: OoTMM's critical renewables under All Locations. ROM-free: both games'
     // registered sources by real id, the predicates, the remainders' plan and the
     // coordinator over the stub engines.

@@ -127,22 +127,24 @@ void Rando::MiscBehavior::CheckQueue() {
 
         if (randoSaveCheck.eligible) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-            // #1542 S0: a SONG check that already delivered its crossing and is
-            // armed again (nine of MM's eleven re-arm on a later cycle or a
-            // re-entry) gives nothing: the record is refused by `obtained`
-            // (RecordForeignPickup), so the foreign branch below would only
-            // replay "You found the X (OoT)!" for an item not given. Consumed
-            // silently instead, as OoTMM gives each song location once per file
-            // (its gMmExtraFlags song bits: En_Gk.c, En_Jg.c, En_Ma4.c,
-            // En_Knight.c, Dm_Char02.c). Written through the array: the loop's
-            // `randoSaveCheck` is a copy. Before the outbox hold, which answers
-            // false for an obtained host anyway (ForeignOutboxFullFor).
-            if (Rando::Foreign::IsDeliveredForeignSongHost(randoCheckId)) {
+            // #1600 (superseding #1542 S0's song-only check): any check holding
+            // a foreign placement whose crossing was delivered (`obtained`, which
+            // survives the three-day reset) and is armed again gives nothing
+            // and shows nothing: RecordForeignPickup refuses a second record,
+            // so the foreign branch would only replay the get-item cutscene.
+            // Known re-arm sources: the end-of-cycle chest clear
+            // (z_sram_NES.c:540-565, minus sPersistentCycleSceneFlags), the
+            // nine song checks (#1542 S0), cows and boss warps
+            // (DoorWarp1.cpp:63), and any cycle-reset flag. Written through the
+            // array (`randoSaveCheck` is a copy). OoTMM's once-per-file rule:
+            // a held host is not `obtained` so never consumed, and a native
+            // check answers false so 2Ship's own re-give is unchanged.
+            if (Rando::Foreign::IsDeliveredForeignHost(randoCheckId)) {
                 RANDO_SAVE_CHECKS[randoCheckId].eligible = false;
                 RANDO_SAVE_CHECKS[randoCheckId].cycleObtained = true;
                 fprintf(stderr,
-                        "[MM] foreign song host: MM check %u was armed again after delivering its crossing; "
-                        "consumed, nothing given (#1542)\n",
+                        "[MM] foreign host: MM check %u was armed again after delivering its crossing; "
+                        "consumed, nothing given (#1600)\n",
                         (unsigned)randoCheckId);
                 fflush(stderr);
                 continue;

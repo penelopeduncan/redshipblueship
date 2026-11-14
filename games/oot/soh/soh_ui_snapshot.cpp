@@ -2232,6 +2232,8 @@ std::string PickBodyText(Ship::Menu& m, const std::string& header, const std::st
 
 // W6-TIMERS (#1237): SoH's Time Splits window while Majora's Mask runs (BuildPageList, EnterState, LeaveState).
 constexpr const char* kSohTimeSplitsMmReference = "window/Time Splits (Majora's Mask)";
+// W6-DEV (#1238 slice 1): SoH's Message Viewer window while Majora's Mask runs (BuildPageList, EnterState).
+constexpr const char* kSohMessageViewerMmReference = "window/Message Viewer (Majora's Mask)";
 // W6-DEV (#1238 slice 3): MM's Event Log window, registered under "MM Event Log" and gated on GAME_MM.
 constexpr const char* kMmEventLogSnapshotPage = "window/MM Event Log";
 
@@ -2291,6 +2293,20 @@ void Session::BuildPageList() {
         p.window = "Time Splits";
         p.states = { "mm" };
         p.expectText = { "Time Splits", "List Options", "Split Entries" };
+        p.needsRom = true;
+        pages.push_back(p);
+    }
+    {
+        // W6-DEV (#1238 slice 1): SoH's Message Viewer window while Majora's Mask runs, when it hosts 2Ship's
+        // MessageViewerWindow body (OoTGatedHostingMm): renders the Vanilla Message Viewer and Custom Message Builder
+        // sections. Uses Origin::SOH_REFERENCE because Message Viewer is an SoH GuiWindow opened via Show()/Hide().
+        PageSpec p;
+        p.id = kSohMessageViewerMmReference;
+        p.origin = Origin::SOH_REFERENCE;
+        p.kind = Kind::WINDOW;
+        p.window = "Message Viewer";
+        p.states = { "mm" };
+        p.expectText = { "Vanilla Message Viewer", "Custom Message Builder" };
         p.needsRom = true;
         pages.push_back(p);
     }
@@ -3702,6 +3718,9 @@ void Session::EnterState(const PageSpec& p, const std::string& state) {
         Context_SetCurrentGame(GAME_MM);
         MM_TimeSplits_SetDataPathForTest(
             (rsbs::test::ScratchDir("ui-snapshot-time-splits") / "2S2HTimeSplitData.json").string().c_str());
+    } else if (p.id == kSohMessageViewerMmReference) {
+        // MM running so OoTGatedHostingMm<MessageViewer> hosts 2Ship's MessageViewerWindow body (LeaveState restores).
+        Context_SetCurrentGame(GAME_MM);
     } else if (p.id == kMmEventLogSnapshotPage) {
         // MM running so MMActiveGated<EventLogWindow> passes MM_TrackersGui_ShouldDraw() (LeaveState restores).
         Context_SetCurrentGame(GAME_MM);

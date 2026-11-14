@@ -218,6 +218,18 @@ extern "C" void MM_OoTMask_Give(uint16_t riId) {
     }
 }
 
+extern "C" void MM_OoTMask_Take(uint16_t riId) {
+    const uint8_t foreignId = MM_OoTMask_ForeignId(riId);
+    uint8_t* state = SlotState(riId);
+    const uint8_t bit = Combo_ForeignMask_SlotOwnedBit(foreignId);
+    if (state != nullptr && bit != 0u) {
+        *state = (uint8_t)(*state & ~bit);
+    }
+    if (foreignId != COMBO_FOREIGN_MASK_NONE && MM_ForeignMask_Worn() == foreignId) {
+        MM_ForeignMask_SetStoredRaw(COMBO_FOREIGN_MASK_NONE);
+    }
+}
+
 extern "C" bool MM_OoTMask_Usable(uint16_t riId) {
     return MM_OoTMask_RuleOn(riId) && MM_OoTMask_Owned(riId);
 }

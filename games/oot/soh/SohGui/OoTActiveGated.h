@@ -75,24 +75,30 @@ template <typename BaseWindow> class OoTActiveGated final : public BaseWindow {
 };
 
 /**
- * OoTActiveGated<B> for an SoH window that also HOSTS a Majora's Mask body (W6-TIMERS, #1237: SoH's Time Splits window,
- * whose body is 2Ship's Time Splits popout while MM runs, so the player has one Time Splits surface, not two).
+ * OoTActiveGated<B> for an SoH window that also HOSTS a Majora's Mask body (W6-TIMERS, #1237: SoH's Time Splits window;
+ * W6-DEV, #1238: SoH's Message Viewer, so the player has one surface per tool while MM runs, not two).
  *
  * Under OoT it is exactly OoTActiveGated<B>. While HostMm's @c active() says MM's body is live, Draw() runs B's Draw(),
  * which must only frame the window (B's title, size, visibility key and colours; TimeSplitWindow::Draw pushes its
  * background colour and calls GuiWindow::Draw), and DrawElement() draws MM's body through @c drawElement() instead of
  * B's, so B's body never reads OoT state under MM. The page embed reaches DrawElement() directly, so it hosts too.
- * UpdateElement() stays OoT-only. Before HostMm is called it gates exactly as OoTActiveGated<B> does.
+ * UpdateElement() stays OoT-only unless a third pointer (@c updateElement) is given, in which case it runs
+ * @c updateElement() while @c MmHosted() (#1238 Message Viewer; Time Splits passes two pointers and stays unchanged).
+ * Before HostMm is called it gates exactly as OoTActiveGated<B> does.
  */
 template <typename BaseWindow> class OoTGatedHostingMm final : public BaseWindow {
   public:
     template <typename... Args> explicit OoTGatedHostingMm(Args&&... args) : BaseWindow(std::forward<Args>(args)...) {
     }
 
-    /** Host MM's body: @p active says whether it is live (MM running), @p drawElement draws it. */
-    void HostMm(bool (*active)(void), void (*drawElement)(void)) {
+    /**
+     * Host MM's body: @p active says whether it is live (MM running), @p drawElement draws it, and optional
+     * @p updateElement updates it while live.
+     */
+    void HostMm(bool (*active)(void), void (*drawElement)(void), void (*updateElement)(void) = nullptr) {
         mMmActive = active;
         mMmDrawElement = drawElement;
+        mMmUpdateElement = updateElement;
     }
 
     void Draw() override {
@@ -111,10 +117,11 @@ template <typename BaseWindow> class OoTGatedHostingMm final : public BaseWindow
 
   protected:
     void UpdateElement() override {
-        if (!OoT_Gui_ShouldDraw()) {
-            return;
+        if (OoT_Gui_ShouldDraw()) {
+            BaseWindow::UpdateElement();
+        } else if (MmHosted() && mMmUpdateElement != nullptr) {
+            mMmUpdateElement();
         }
-        BaseWindow::UpdateElement();
     }
 
   private:
@@ -124,6 +131,7 @@ template <typename BaseWindow> class OoTGatedHostingMm final : public BaseWindow
 
     bool (*mMmActive)(void) = nullptr;
     void (*mMmDrawElement)(void) = nullptr;
+    void (*mMmUpdateElement)(void) = nullptr;
 };
 #endif // __cplusplus
 

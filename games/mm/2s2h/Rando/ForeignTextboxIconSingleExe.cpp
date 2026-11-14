@@ -87,8 +87,6 @@ extern s16 D_801CFE34[];
 // CustomMessage.cpp's file-scope message the OnOpenText hook loads (test bridges
 // read it to see what CheckQueue's give lambda handed the textbox).
 extern CustomMessage::Entry activeCustomMessage;
-// Rando/Foreign.cpp (#1542 S0): an MM check's song-check index, -1 for any other.
-extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 // src/common. Outside any extern "C" block: each header manages its own linkage.
 #include "foreign_items.h"
@@ -479,27 +477,23 @@ bool RunDecodeChain() {
  * real header decode, must put wantTexture in the icon segment. With wantTexture
  * null the expectation is the icon-less pre-#607 textbox.
  *
- * `obtained` is pre-set on the host so RecordForeignPickup authors no durable
- * shared-item record whatever the pairing state; every piece of state touched
- * (the save-check table, the MM event queue and current event, activeCustomMessage)
- * is restored on every exit.
+ * The pairing is suspended for the drive (`sourceIsRando` cleared) so
+ * RecordForeignPickup authors no durable shared-item record, and `obtained` on
+ * `mmCheckId` is cleared so CheckQueue's delivered-host consume cannot take it
+ * whatever the caller's save holds; every piece of state touched (the save-check table,
+ * the MM event queue and current event, activeCustomMessage, `sourceIsRando`) is
+ * restored on every exit.
  */
 bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t wantItemId) {
-    // #1542 S0: the `obtained` this drive pre-sets on its host is exactly what
-    // CheckQueue's delivered-song-host guard consumes, so a song check would queue
-    // nothing and this drive would read red for a reason that is not its own.
-    FTI_EXPECT(MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0,
-               "a song-check host cannot drive CheckQueue with obtained pre-set: the delivered-song-host guard "
-               "consumes it (#1542 S0); pass a non-song check (check %u)",
-               (unsigned)mmCheckId);
     struct Restore {
         std::vector<RandoSaveCheck> checks;
         std::vector<GIEvent> queue;
         GIEvent current;
         CustomMessage::Entry active;
+        bool sourceIsRando;
         Restore()
             : checks(std::begin(RANDO_SAVE_CHECKS), std::end(RANDO_SAVE_CHECKS)), queue(MM_GameEvents_Queue()),
-              current(MM_GameEvents_Current()), active(activeCustomMessage) {
+              current(MM_GameEvents_Current()), active(activeCustomMessage), sourceIsRando(gComboCtx.sourceIsRando) {
         }
         ~Restore() {
             Rando::MiscBehavior::CheckQueueReset();
@@ -507,14 +501,18 @@ bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t want
             MM_GameEvents_Queue() = queue;
             MM_GameEvents_Current() = current;
             activeCustomMessage = active;
+            gComboCtx.sourceIsRando = sourceIsRando;
         }
     } restore;
 
+    // The pairing is off for the drive, so RecordForeignPickup authors no record (#610) and the outbox never holds
+    // it; `obtained` is cleared, so CheckQueue's delivered-host consume (#1600) does not take the host.
+    gComboCtx.sourceIsRando = false;
     for (RandoSaveCheck& check : RANDO_SAVE_CHECKS) {
         check.eligible = false;
     }
     RANDO_SAVE_CHECKS[mmCheckId].eligible = true;
-    RANDO_SAVE_CHECKS[mmCheckId].obtained = true;
+    RANDO_SAVE_CHECKS[mmCheckId].obtained = false;
     Rando::MiscBehavior::CheckQueueReset();
     // A sentinel Entry, so an untouched activeCustomMessage cannot pass.
     activeCustomMessage = CustomMessage::Entry{};

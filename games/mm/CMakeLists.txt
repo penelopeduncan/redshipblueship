@@ -586,6 +586,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         # (DebugConsole_Init's twin) stays out.
         "2s2h/DeveloperTools/DeveloperTools.cpp"
         "2s2h/DeveloperTools/EventLog.cpp"
+        # Hosted in SoH's Message Viewer, mm_dev_viewers_bridge.h
+        "2s2h/DeveloperTools/MessageViewer.cpp"
         "2s2h/DeveloperTools/ObjectDependency.cpp"
         "2s2h/DeveloperTools/WarpPoint.cpp"
         # #1032: the 25 Skip Misc Interactions TUs, all keyed on gEnhancements.TimeSavers.SkipMiscInteractions

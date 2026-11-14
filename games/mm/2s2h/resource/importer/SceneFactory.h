@@ -8,7 +8,7 @@
 #include <unordered_map>
 
 namespace S2H {
-class ResourceFactoryBinarySceneV0 : public Ship::ResourceFactoryBinary {
+class ResourceFactoryBinarySceneV0 final : public Ship::ResourceFactoryBinary {
   public:
     ResourceFactoryBinarySceneV0();
 

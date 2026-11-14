@@ -1209,6 +1209,8 @@ extern void DrawMinifrog(RandoItemId randoItemId, Actor* actor) {
         case RI_FROG_WHITE:
             envColor = { 190, 190, 190, 255 };
             break;
+        default: // Keeps the FROG_YELLOW default above.
+            break;
     }
 
     gDPSetEnvColor(POLY_OPA_DISP++, envColor.r, envColor.g, envColor.b, envColor.a);
@@ -1250,6 +1252,8 @@ extern void DrawClock(RandoItemId randoItemId, Actor* actor) {
         case RI_TIME_PROGRESSIVE:
             clockFaceRotation = gSaveContext.save.isNight ? 0 : 0xC000;
             sunMoonPanelRotation = gSaveContext.save.isNight ? 0x8000 : 0;
+            break;
+        default: // Leaves the rotations at whatever the clock actor last set them to.
             break;
     }
 

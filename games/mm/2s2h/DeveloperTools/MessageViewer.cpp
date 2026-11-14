@@ -13,6 +13,19 @@ extern "C" {
 #include "variables.h"
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include <iomanip>
+#include "TrackersGuiSingleExe.h"
+#include "mm_dev_viewers_bridge.h"
+
+// BenGui::GetMenuThemeColor() lives in the excluded BenGui.cpp; match Menu.cpp:146 so THEME_COLOR compiles and respects
+// 2Ship's theme CVar in single-executable builds.
+#undef THEME_COLOR
+#define THEME_COLOR static_cast<UIWidgets::Colors>(CVarGetInteger("gSettings.Menu.Theme", UIWidgets::Colors::LightBlue))
+
+namespace S2H {
+#endif
+
 using namespace UIWidgets;
 
 static std::string ParseEscapeSequences(const std::string& input) {
@@ -300,3 +313,42 @@ void MessageDebug_DisplayCustomMessage(const char* customMessage) {
     // Set the active custom message and display it
     CustomMessage::StartTextbox(entry.msg, entry);
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+} // namespace S2H
+
+namespace {
+S2H::MessageViewerWindow* sHostedMessageViewerBody = nullptr;
+
+S2H::MessageViewerWindow& MmHostedMessageViewerBody() {
+    static S2H::MessageViewerWindow sBody("", "MM Message Viewer");
+    sHostedMessageViewerBody = &sBody;
+    if (!sBody.IsInitialized()) {
+        sBody.Init();
+    }
+    return sBody;
+}
+} // namespace
+
+extern "C" bool MM_MessageViewer_HostedActive(void) {
+    return MM_TrackersGui_ShouldDraw();
+}
+
+extern "C" void MM_MessageViewer_DrawHostedElement(void) {
+    if (!MM_MessageViewer_HostedActive()) {
+        return;
+    }
+    MmHostedMessageViewerBody().DrawElement();
+}
+
+extern "C" void MM_MessageViewer_UpdateHostedElement(void) {
+    if (!MM_MessageViewer_HostedActive()) {
+        return;
+    }
+    MmHostedMessageViewerBody().Update();
+}
+
+extern "C" bool MM_MessageViewer_HostedInitializedForTest(void) {
+    return sHostedMessageViewerBody != nullptr && sHostedMessageViewerBody->IsInitialized();
+}
+#endif

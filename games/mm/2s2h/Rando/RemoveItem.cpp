@@ -1,6 +1,9 @@
 #include "Rando/Rando.h"
 #include "Rando/ActorBehavior/Souls.h"
 #include "Rando/MiscBehavior/ClockShuffle.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "Rando/OoTMasksMM.h" // #980 / #1571: the OoT masks' owned bits
+#endif
 
 extern "C" {
 #include "variables.h"
@@ -457,6 +460,17 @@ void Rando::RemoveItem(RandoItemId randoItemId) {
         case RI_OCARINA_BUTTON_C_UP:
             Flags_ClearRandoInf(RANDO_INF_OBTAINED_OCARINA_BUTTON_A + (randoItemId - RI_OCARINA_BUTTON_A));
             break;
+        case RI_ABILITY_SWIM:
+            Flags_ClearRandoInf(RANDO_INF_OBTAINED_SWIM);
+            break;
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #980 / #1571: Ocarina of Time's Gerudo, Skull and Spooky Masks (OoTMasksMM.cpp).
+        case RI_MASK_GERUDO:
+        case RI_MASK_SKULL:
+        case RI_MASK_SPOOKY:
+            MM_OoTMask_Take(randoItemId);
+            break;
+#endif
         // Ignore Ammo
         case RI_BOMBCHU:
         case RI_DEKU_STICK:

@@ -1273,7 +1273,7 @@ static int MM_SongCheckIndex(RandoCheckId randoCheckId) {
 //    (WEEKEVENTREG_20_40 through OnFlagSet; the reset clears the flag without
 //    the hook). A re-arm after the crossing was delivered would replay the
 //    get-item textbox for an item it no longer gives (the record is refused by
-//    `obtained`), so CheckQueue consumes it silently (IsDeliveredForeignSongHost):
+//    `obtained`), so CheckQueue consumes it silently (IsDeliveredForeignHost, every class since #1600):
 //    OoTMM's once-per-file song flags.
 // Each scene's progression reads its own flag or `.obtained`, never the vanilla
 // song in the inventory: the vanilla gives are suppressed under rando, which
