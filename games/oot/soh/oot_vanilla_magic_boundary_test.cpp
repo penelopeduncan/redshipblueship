@@ -55,7 +55,7 @@ const char* kMagicInfValueCvar = CVAR_COSMETIC("Consumable_MagicInfinite.Value")
 
 int sFailures = 0;
 
-void VmbFail(const char* fmt, ...) {
+static void VmbFail(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     printf("[TEST] oot-vanilla-magic-boundary: FAIL: ");
@@ -65,7 +65,7 @@ void VmbFail(const char* fmt, ...) {
     sFailures++;
 }
 
-void VmbCheck(bool cond, const char* msg) {
+static void VmbCheck(bool cond, const char* msg) {
     if (!cond) {
         VmbFail("%s", msg);
     }
@@ -82,7 +82,7 @@ struct VmbSavedCVar {
     Color_RGB8 color24 = {};
 };
 
-VmbSavedCVar SaveCVar(const char* name) {
+static VmbSavedCVar VmbSaveCVar(const char* name) {
     VmbSavedCVar saved;
     saved.name = name;
     const std::shared_ptr<Ship::CVar> cvar = CVarGet(name);
@@ -113,7 +113,7 @@ VmbSavedCVar SaveCVar(const char* name) {
     return saved;
 }
 
-void RestoreCVar(const VmbSavedCVar& saved) {
+static void VmbRestoreCVar(const VmbSavedCVar& saved) {
     if (!saved.existed) {
         CVarClear(saved.name.c_str());
         return;
@@ -137,7 +137,7 @@ void RestoreCVar(const VmbSavedCVar& saved) {
     }
 }
 
-std::string ReadSourceNormalized(const char* sourceDir, const char* relPath) {
+static std::string VmbReadSourceNormalized(const char* sourceDir, const char* relPath) {
     if (sourceDir == nullptr || sourceDir[0] == '\0') {
         return std::string();
     }
@@ -158,7 +158,7 @@ std::string ReadSourceNormalized(const char* sourceDir, const char* relPath) {
 }
 
 // Replace C and C++ comments with spaces while keeping string and character literals intact.
-std::string StripCommentsKeepStrings(const std::string& src) {
+static std::string VmbStripCommentsKeepStrings(const std::string& src) {
     std::string out;
     out.reserve(src.size());
     for (size_t pos = 0; pos < src.size(); pos++) {
@@ -205,7 +205,7 @@ std::string StripCommentsKeepStrings(const std::string& src) {
     return out;
 }
 
-std::string CollapseWhitespace(const std::string& src) {
+static std::string VmbCollapseWhitespace(const std::string& src) {
     std::string out;
     out.reserve(src.size());
     bool inSpace = false;
@@ -223,14 +223,14 @@ std::string CollapseWhitespace(const std::string& src) {
     return out;
 }
 
-size_t SkipSpace(const std::string& src, size_t pos) {
+static size_t VmbSkipSpace(const std::string& src, size_t pos) {
     while (pos < src.size() && (src[pos] == ' ' || src[pos] == '\t' || src[pos] == '\n')) {
         pos++;
     }
     return pos;
 }
 
-std::string ExtractBraceBlock(const std::string& strippedSrc, size_t openBracePos) {
+static std::string VmbExtractBraceBlock(const std::string& strippedSrc, size_t openBracePos) {
     if (openBracePos >= strippedSrc.size() || strippedSrc[openBracePos] != '{') {
         return std::string();
     }
@@ -267,7 +267,7 @@ std::string ExtractBraceBlock(const std::string& strippedSrc, size_t openBracePo
     return std::string();
 }
 
-std::string ExtractFunctionBody(const std::string& strippedSrc, const char* signature) {
+static std::string VmbExtractFunctionBody(const std::string& strippedSrc, const char* signature) {
     const size_t sigLen = std::strlen(signature);
     size_t at = 0;
     while ((at = strippedSrc.find(signature, at)) != std::string::npos) {
@@ -275,79 +275,80 @@ std::string ExtractFunctionBody(const std::string& strippedSrc, const char* sign
             at += sigLen;
             continue;
         }
-        const size_t openBrace = SkipSpace(strippedSrc, at + sigLen);
+        const size_t openBrace = VmbSkipSpace(strippedSrc, at + sigLen);
         if (openBrace < strippedSrc.size() && strippedSrc[openBrace] == '{') {
-            return ExtractBraceBlock(strippedSrc, openBrace);
+            return VmbExtractBraceBlock(strippedSrc, openBrace);
         }
         at = openBrace;
     }
     return std::string();
 }
 
-bool Contains(const std::string& haystack, const std::string& needle) {
+static bool VmbContains(const std::string& haystack, const std::string& needle) {
     return haystack.find(needle) != std::string::npos;
 }
 
-void RunSourceLeg(const char* sourceDir) {
+static void VmbRunSourceLeg(const char* sourceDir) {
     std::string sample = "void Sample(int x);\nvoid Sample(int x) {\n";
     sample += "    // HIDDEN_LINE_TOKEN\n";
     sample += "    /* HIDDEN_BLOCK_TOKEN */\n";
     sample += "    const char* s = \"LITERAL_TOKEN\";\n";
     sample += "    if (Call(x)) {\n        Use(s);\n    }\n}\n";
-    const std::string sampleStripped = StripCommentsKeepStrings(sample);
-    const std::string sampleBody = CollapseWhitespace(ExtractFunctionBody(sampleStripped, "void Sample(int x)"));
-    VmbCheck(!Contains(sampleStripped, "HIDDEN_LINE_TOKEN"), "self-check failed to strip // comment");
-    VmbCheck(!Contains(sampleStripped, "HIDDEN_BLOCK_TOKEN"), "self-check failed to strip /* */ comment");
-    VmbCheck(Contains(sampleStripped, "LITERAL_TOKEN"), "self-check dropped string literal content");
-    VmbCheck(Contains(sampleBody, "if (Call(x)) { Use(s); }"), "self-check failed to extract function body");
+    const std::string sampleStripped = VmbStripCommentsKeepStrings(sample);
+    const std::string sampleRawBody = VmbExtractFunctionBody(sampleStripped, "void Sample(int x)");
+    const std::string sampleBody = VmbCollapseWhitespace(sampleRawBody);
+    VmbCheck(!VmbContains(sampleStripped, "HIDDEN_LINE_TOKEN"), "self-check failed to strip // comment");
+    VmbCheck(!VmbContains(sampleStripped, "HIDDEN_BLOCK_TOKEN"), "self-check failed to strip /* */ comment");
+    VmbCheck(VmbContains(sampleStripped, "LITERAL_TOKEN"), "self-check dropped string literal content");
+    VmbCheck(VmbContains(sampleBody, "if (Call(x)) { Use(s); }"), "self-check failed to extract function body");
 
-    const std::string paramRaw = ReadSourceNormalized(sourceDir, "games/oot/src/code/z_parameter.c");
+    const std::string paramRaw = VmbReadSourceNormalized(sourceDir, "games/oot/src/code/z_parameter.c");
     VmbCheck(!paramRaw.empty(), "could not read games/oot/src/code/z_parameter.c");
     if (!paramRaw.empty()) {
-        const std::string p = StripCommentsKeepStrings(paramRaw);
-        VmbCheck(!Contains(p, "RAND_INF_HAS_INFINITE_MAGIC_METER"), "z_parameter.c reads infinite-magic flag");
-        VmbCheck(!Contains(p, "magicbar_blue"), "z_parameter.c still declares or uses magicbar_blue");
-        VmbCheck(!Contains(p, "Consumable_MagicInfinite"), "z_parameter.c reads Consumable_MagicInfinite CVar");
+        const std::string p = VmbStripCommentsKeepStrings(paramRaw);
+        VmbCheck(!VmbContains(p, "RAND_INF_HAS_INFINITE_MAGIC_METER"), "z_parameter.c reads infinite-magic flag");
+        VmbCheck(!VmbContains(p, "magicbar_blue"), "z_parameter.c still declares or uses magicbar_blue");
+        VmbCheck(!VmbContains(p, "Consumable_MagicInfinite"), "z_parameter.c reads Consumable_MagicInfinite CVar");
 
         const char* kUpdateSig = "void Interface_UpdateMagicBar(PlayState* play)";
-        const std::string updateBody = CollapseWhitespace(ExtractFunctionBody(p, kUpdateSig));
+        const std::string updateBody = VmbCollapseWhitespace(VmbExtractFunctionBody(p, kUpdateSig));
         VmbCheck(!updateBody.empty(), "Interface_UpdateMagicBar body not found in z_parameter.c");
         std::string depleteNeedle = "case MAGIC_STATE_CONSUME: ";
         depleteNeedle += "if (GameInteractor_Should(VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING, true)) {";
-        VmbCheck(Contains(updateBody, depleteNeedle), "MAGIC_STATE_CONSUME missing deplete VB call");
+        VmbCheck(VmbContains(updateBody, depleteNeedle), "MAGIC_STATE_CONSUME missing deplete VB call");
 
         const char* kDrawSig = "void Interface_DrawMagicBar(PlayState* play)";
-        const std::string drawBody = CollapseWhitespace(ExtractFunctionBody(p, kDrawSig));
+        const std::string drawBody = VmbCollapseWhitespace(VmbExtractFunctionBody(p, kDrawSig));
         VmbCheck(!drawBody.empty(), "Interface_DrawMagicBar body not found in z_parameter.c");
         const char* kColorNeedle = "GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &magicbar_green);";
-        VmbCheck(Contains(drawBody, kColorNeedle), "Interface_DrawMagicBar missing fill-color VB call");
+        VmbCheck(VmbContains(drawBody, kColorNeedle), "Interface_DrawMagicBar missing fill-color VB call");
     }
 
     const char* kBossVaPath = "games/oot/src/overlays/actors/ovl_Boss_Va/z_boss_va.c";
-    const std::string bossVaRaw = ReadSourceNormalized(sourceDir, kBossVaPath);
+    const std::string bossVaRaw = VmbReadSourceNormalized(sourceDir, kBossVaPath);
     VmbCheck(!bossVaRaw.empty(), "could not read games/oot/src/overlays/actors/ovl_Boss_Va/z_boss_va.c");
     if (!bossVaRaw.empty()) {
-        const std::string b = StripCommentsKeepStrings(bossVaRaw);
-        VmbCheck(!Contains(b, "RSK_SHUFFLE_BOSS_SOULS"), "z_boss_va.c still reads RSK_SHUFFLE_BOSS_SOULS");
-        VmbCheck(!Contains(b, "RAND_INF_BARINADE_SOUL"), "z_boss_va.c still reads RAND_INF_BARINADE_SOUL");
-        VmbCheck(!Contains(b, "Randomizer_GetSettingValue"), "z_boss_va.c calls Randomizer_GetSettingValue");
+        const std::string b = VmbStripCommentsKeepStrings(bossVaRaw);
+        VmbCheck(!VmbContains(b, "RSK_SHUFFLE_BOSS_SOULS"), "z_boss_va.c still reads RSK_SHUFFLE_BOSS_SOULS");
+        VmbCheck(!VmbContains(b, "RAND_INF_BARINADE_SOUL"), "z_boss_va.c still reads RAND_INF_BARINADE_SOUL");
+        VmbCheck(!VmbContains(b, "Randomizer_GetSettingValue"), "z_boss_va.c calls Randomizer_GetSettingValue");
 
         const char* kBossInitSig = "void BossVa_Init(Actor* thisx, PlayState* play2)";
-        const std::string initBody = CollapseWhitespace(ExtractFunctionBody(b, kBossInitSig));
+        const std::string initBody = VmbCollapseWhitespace(VmbExtractFunctionBody(b, kBossInitSig));
         VmbCheck(!initBody.empty(), "BossVa_Init body not found in z_boss_va.c");
         std::string barinadeNeedle = "if (GameInteractor_Should(VB_BARINADE_PLAY_REMATCH_INTRO, ";
         barinadeNeedle += "OoT_Flags_GetEventChkInf(EVENTCHKINF_BEGAN_BARINA_BATTLE), this)) {";
-        VmbCheck(Contains(initBody, barinadeNeedle), "BossVa_Init missing Barinade rematch VB call");
+        VmbCheck(VmbContains(initBody, barinadeNeedle), "BossVa_Init missing Barinade rematch VB call");
         const char* kElseNeedle = "} else { sCsState = INTRO_START; sDoorState = 5; }";
-        VmbCheck(Contains(initBody, kElseNeedle), "BossVa_Init else branch missing INTRO_START");
+        VmbCheck(VmbContains(initBody, kElseNeedle), "BossVa_Init else branch missing INTRO_START");
     }
 }
 
-bool SameRgb8(Color_RGB8 a, Color_RGB8 b) {
+static bool VmbSameRgb8(Color_RGB8 a, Color_RGB8 b) {
     return a.r == b.r && a.g == b.g && a.b == b.b;
 }
 
-void RunHandlerLeg(Rando::Context& randoCtx) {
+static void VmbRunHandlerLeg(Rando::Context& randoCtx) {
     using OnVb = GameInteractor::OnVanillaBehavior;
     const Color_RGB8 kVanillaGreen = { 0, 200, 0 };
     const Color_RGB8 kDefaultInfBlue = { 0, 0, 200 };
@@ -364,7 +365,7 @@ void RunHandlerLeg(Rando::Context& randoCtx) {
     Color_RGB8 vanillaFill = kVanillaGreen;
     const bool vanillaColorShould = GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &vanillaFill);
     VmbCheck(vanillaColorShould, "vanilla control: VB_APPLY_MAGIC_METER_FILL_COLOR altered should");
-    VmbCheck(SameRgb8(vanillaFill, kVanillaGreen), "vanilla control: stale infinite-magic flag recolored bar");
+    VmbCheck(VmbSameRgb8(vanillaFill, kVanillaGreen), "vanilla control: stale infinite-magic flag recolored bar");
 
     randoCtx.GetOption(RSK_SHUFFLE_BOSS_SOULS).Set(RO_BOSS_SOULS_ON);
     Flags_UnsetRandomizerInf(RAND_INF_BARINADE_SOUL);
@@ -385,7 +386,7 @@ void RunHandlerLeg(Rando::Context& randoCtx) {
     VmbCheck(clearPreservesFalse, "rando handler: VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING ignored false input");
     Color_RGB8 randoClearFill = kVanillaGreen;
     GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &randoClearFill);
-    VmbCheck(SameRgb8(randoClearFill, kVanillaGreen), "rando handler: recolored magic bar with flag clear");
+    VmbCheck(VmbSameRgb8(randoClearFill, kVanillaGreen), "rando handler: recolored magic bar with flag clear");
 
     // Flag set, cosmetic unchanged: magic does not deplete and fill becomes { 0, 0, 200 }.
     Flags_SetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER);
@@ -393,14 +394,16 @@ void RunHandlerLeg(Rando::Context& randoCtx) {
     VmbCheck(!setDepletes, "rando handler: magic still depleted with infinite-magic flag set");
     Color_RGB8 randoDefaultInfFill = kVanillaGreen;
     GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &randoDefaultInfFill);
-    VmbCheck(SameRgb8(randoDefaultInfFill, kDefaultInfBlue), "rando handler: missing default { 0, 0, 200 } color");
+    const bool isDefaultBlue = VmbSameRgb8(randoDefaultInfFill, kDefaultInfBlue);
+    VmbCheck(isDefaultBlue, "rando handler: missing default { 0, 0, 200 } color");
 
     // Flag set, cosmetic customized: fill takes Consumable_MagicInfinite.Value.
     CVarSetInteger(kMagicInfChangedCvar, 1);
     CVarSetColor24(kMagicInfValueCvar, kCustomInfColor);
     Color_RGB8 randoCustomInfFill = kVanillaGreen;
     GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &randoCustomInfFill);
-    VmbCheck(SameRgb8(randoCustomInfFill, kCustomInfColor), "rando handler: missing custom infinite-magic color");
+    const bool isCustomColor = VmbSameRgb8(randoCustomInfFill, kCustomInfColor);
+    VmbCheck(isCustomColor, "rando handler: missing custom infinite-magic color");
 
     // Barinade rematch intro under boss-soul shuffle off vs on (missing vs obtained soul).
     randoCtx.GetOption(RSK_SHUFFLE_BOSS_SOULS).Set(RO_BOSS_SOULS_OFF);
@@ -442,7 +445,7 @@ extern "C" int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir) {
     printf("[TEST] oot-vanilla-magic-boundary: infinite magic and Barinade rematch VB boundary (#1588)\n");
     sFailures = 0;
 
-    RunSourceLeg(sourceDir);
+    VmbRunSourceLeg(sourceDir);
 
     if (GameInteractor::Instance == nullptr) {
         GameInteractor::Instance = new GameInteractor();
@@ -459,8 +462,8 @@ extern "C" int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir) {
     memcpy(savedSave, &gSaveContext, sizeof(SaveContext));
     memset(&gSaveContext, 0, sizeof(SaveContext));
 
-    const VmbSavedCVar savedChanged = SaveCVar(kMagicInfChangedCvar);
-    const VmbSavedCVar savedValue = SaveCVar(kMagicInfValueCvar);
+    const VmbSavedCVar savedChanged = VmbSaveCVar(kMagicInfChangedCvar);
+    const VmbSavedCVar savedValue = VmbSaveCVar(kMagicInfValueCvar);
 
     std::shared_ptr<Rando::Context> prevRandoCtx = Rando::Context::GetInstance();
     std::shared_ptr<Rando::Context> createdRandoCtx;
@@ -476,7 +479,7 @@ extern "C" int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir) {
     if (activeRandoCtx == nullptr) {
         VmbFail("could not acquire Rando::Context instance");
     } else {
-        RunHandlerLeg(*activeRandoCtx);
+        VmbRunHandlerLeg(*activeRandoCtx);
     }
 
     if (createdRandoCtx != nullptr) {
@@ -486,8 +489,8 @@ extern "C" int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir) {
         prevRandoCtx->GetOption(RSK_SHUFFLE_BOSS_SOULS).Set(prevBossSouls);
     }
 
-    RestoreCVar(savedChanged);
-    RestoreCVar(savedValue);
+    VmbRestoreCVar(savedChanged);
+    VmbRestoreCVar(savedValue);
     memcpy(&gSaveContext, savedSave, sizeof(SaveContext));
     free(savedSave);
     Context_SetCurrentGame(prevGame);
