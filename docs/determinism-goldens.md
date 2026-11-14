@@ -947,6 +947,34 @@ the same way, and the file's creation still honours either key.
 `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same re-pin
 (`EF3042B8` to `D78AAD4F`, still 17 hints), and `ComboSingleBag` needed no pin change.
 
+OoTMM's placement defaults for Majora's Mask (2026-11-14, PR #1604; issue #1548,
+rulings D3 and D4), still version 5. Majora's Mask's Small Keys and Boss Keys
+default to Own Dungeon, and its single Stray Fairies row is split in two:
+Dungeon Chest Fairies (default Own Dungeon) and Freestanding Fairies (default
+Vanilla). Songs were already at Song Locations. The new row is
+`RO_PLACEMENT_STRAY_FAIRIES_OTHER` (id 64, appended last). Majora's Mask's
+frozen identity folds each of the four placement values that is not 0, so every
+world created with the defaults has a new `comboSettingsHash`. A profile with
+all four rows explicitly at Anywhere (0) folds nothing and keeps the identity it
+had before. In a default world the 29 freestanding dungeon fairies and the Clock
+Town fairy stay at their vanilla checks and leave the pool (`bagRows` 282 to 252
+in `seed-digest-default`), and 44 rows are confined to their own dungeon and
+never cross: 9 small keys, 4 boss keys and 31 chest fairies (`bagHomeOnly` 0 to
+44). Ocarina of Time's `settingsHash` and the `comboSettings` string moved in no
+golden. All 13 golden files were regenerated. `seed-digest-mm-confined` has a
+new profile: it also sets the freestanding row to Own Dungeon, because its old
+profile had become the default world. `RandoStaticHintOrder`'s hand pin
+`kStaticHintTextDigest` moved (`D78AAD4F` to `8F5935FF`, still 17 hints). Two
+rows choose their seed for a property of the world instead of pinning a digest,
+and both needed a new seed: `ComboSingleBag` leg G is on `RSBSSINGLEBAGSHOPS11`
+(seeds 5 to 10 lack a crossing Majora's Mask item on a shelf, a scrub or a
+merchant), and `ComboWarpTravelRounds` T5 and T6 are on `RSBSXW9TRAVEL4` (seeds
+1 to 3 give no raw Soaring fact). `kCsbFLoadBearingFixedChecks` stays empty. A
+player who shares a seed and settings with someone on a generator-5 build from
+before this change gets a different world under a different fingerprint, so both
+players need a build from after it. Released builds are not affected:
+`v0.5.0-alpha` is generator 4.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned

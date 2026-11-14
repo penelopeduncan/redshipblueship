@@ -46,7 +46,14 @@
 - **Majora's Mask dungeon item and song placement work in paired worlds** (issue #1502). Majora's Mask's Small Keys,
   Boss Keys, Stray Fairies and Shuffle Songs rows are no longer marked Not Yet Supported in Paired Worlds. Own Dungeon
   keeps each item in its own dungeon in Majora's Mask, Song Locations puts Majora's Mask's songs on Majora's Mask's
-  song checks, and Vanilla and Start With behave as in 2Ship. The key, boss key and fairy defaults stay Anywhere.
+  song checks, and Vanilla and Start With behave as in 2Ship.
+- **Majora's Mask takes OoTMM's dungeon item defaults, and Stray Fairies is two settings** (issue #1548). Small Keys and
+  Boss Keys now default to Own Dungeon. The Stray Fairies placement row is split as in OoTMM: Dungeon Chest Fairies
+  (default Own Dungeon) and Freestanding Fairies (default Vanilla, which also covers the Clock Town fairy). With the
+  defaults, each dungeon's keys and chest fairies are found inside that dungeon and are never sent to Ocarina of Time,
+  and the freestanding fairies sit where they do in the original game. Set the rows back to Anywhere for the old
+  behaviour. Worlds created with the defaults change. A spoiler file written before this change loads with both fairy
+  rows at the value its single row had.
 - **One Shuffle Songs setting for both games** (issue #1542), as OoTMM has. In a paired world Ocarina of Time's
   Shuffle Songs decides both games' songs, and Majora's Mask's row follows it and is read-only ("Set by Ocarina of
   Time's Shuffle Songs"): Song Locations and Dungeon Rewards put Majora's Mask's songs on Majora's Mask's song
