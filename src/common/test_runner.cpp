@@ -6991,12 +6991,19 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
         }
     }
     static const char* const kHostMmMessageViewerCall =
-        "HostMm(MM_MessageViewer_HostedActive,MM_MessageViewer_DrawHostedElement,"
-        "MM_MessageViewer_UpdateHostedElement)";
+        "messageViewerWindow->HostMm(MM_MessageViewer_HostedActive,MM_MessageViewer_DrawHostedElement,"
+        "MM_MessageViewer_UpdateHostedElement);";
     if (compactBody.find(kHostMmMessageViewerCall) == std::string::npos) {
-        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire Message Viewer's HostMm("
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire messageViewerWindow->HostMm("
                "MM_MessageViewer_HostedActive, MM_MessageViewer_DrawHostedElement, "
                "MM_MessageViewer_UpdateHostedElement) (#1238)\n");
+        ok = false;
+    }
+    static const char* const kHostMmTimeSplitsCall =
+        "timeSplitWindow->HostMm(MM_TimeSplits_HostedActive,MM_TimeSplits_DrawHostedElement);";
+    if (compactBody.find(kHostMmTimeSplitsCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire timeSplitWindow->HostMm("
+               "MM_TimeSplits_HostedActive, MM_TimeSplits_DrawHostedElement) with two pointers (#1238)\n");
         ok = false;
     }
     const int expectedSites = (int)(sizeof(kGated) / sizeof(kGated[0]) + sizeof(kExempt) / sizeof(kExempt[0]));
