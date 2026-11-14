@@ -1,15 +1,17 @@
 /**
  * @file test_oot_mweep_stop.c
- * @brief ROM-free source regression check for #1591 (`oot-mweep-stop-restores-camera`).
+ * @brief ROM-free source regression check for #1591 and #1610 (`oot-mweep-stop-restores-camera`).
  *
  * Included at file scope by `src/common/test_runner.cpp` (compiled as C++).
  *
  * Upstream SoH #7349 (`2f9e96c7`) restores the camera if `Skip Story Cutscenes`
  * toggles on while King Zora is still mid-Mweep. In RSBS, `VB_PLAY_MWEEP_CS`
  * gates whether a cutscene camera was created in `EnKz_SetupMweep` rather than
- * using an intercept hook; `EnKz_StopMweep` therefore must guard the camera
- * and Link cutscene-action restore behind `this->cutsceneCamera != CAM_ID_MAIN`
- * instead of re-querying `GameInteractor_Should(VB_PLAY_MWEEP_CS, true)`.
+ * using an intercept hook; both `EnKz_Mweep` (when `VB_PLAY_MWEEP_CS` turns
+ * false mid-walk) and `EnKz_StopMweep` guard the camera and Link cutscene-action
+ * restore behind `this->cutsceneCamera != CAM_ID_MAIN` and reset
+ * `this->cutsceneCamera = CAM_ID_MAIN` so the subcamera is cleared at most once
+ * and `CAM_ID_MAIN` is never hijacked or cleared.
  */
 
 #include "../test_runner.h"
@@ -23,7 +25,7 @@
 
 namespace {
 
-std::string OmsReadSource(const char* relPath) {
+static std::string OmsReadSource(const char* relPath) {
 #ifdef RSBS_SOURCE_DIR
     std::ifstream in(std::string(RSBS_SOURCE_DIR) + "/" + relPath, std::ios::binary);
     if (!in.good()) {
@@ -45,11 +47,11 @@ std::string OmsReadSource(const char* relPath) {
 #endif
 }
 
-bool OmsIsIdentChar(char c) {
+static bool OmsIsIdentChar(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
+static size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
     while (pos < src.size()) {
         const char c = src[pos];
         if (c == ' ' || c == '\t' || c == '\n') {
@@ -71,7 +73,7 @@ size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
     return pos;
 }
 
-std::string OmsExtractBraceBlock(const std::string& src, size_t openBracePos) {
+static std::string OmsExtractBraceBlock(const std::string& src, size_t openBracePos) {
     if (openBracePos >= src.size() || src[openBracePos] != '{') {
         return std::string();
     }
@@ -125,7 +127,7 @@ std::string OmsExtractBraceBlock(const std::string& src, size_t openBracePos) {
 }
 
 /** Return the `{ ... }` body of the definition starting with @p signature (skipping prototypes). */
-std::string OmsExtractFunctionBody(const std::string& src, const char* signature) {
+static std::string OmsExtractFunctionBody(const std::string& src, const char* signature) {
     const size_t sigLen = std::strlen(signature);
     size_t at = 0;
     while ((at = src.find(signature, at)) != std::string::npos) {
@@ -143,7 +145,7 @@ std::string OmsExtractFunctionBody(const std::string& src, const char* signature
 }
 
 /** Return the `{ ... }` body of an `if (<conditionExpr>) { ... }` statement outside comments/strings. */
-std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr) {
+static std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr, size_t* afterBlockOut) {
     const size_t condLen = std::strlen(conditionExpr);
     for (size_t pos = 0; pos < body.size(); pos++) {
         const char c = body[pos];
@@ -201,15 +203,46 @@ std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr
             }
             cur = OmsSkipSpaceAndComments(body, cur + 1);
             if (cur < body.size() && body[cur] == '{') {
-                return OmsExtractBraceBlock(body, cur);
+                const std::string block = OmsExtractBraceBlock(body, cur);
+                if (!block.empty() && afterBlockOut != nullptr) {
+                    *afterBlockOut = cur + block.size();
+                }
+                return block;
             }
         }
     }
     return std::string();
 }
 
+/** Return the `{ ... }` body when @p s starts (after whitespace/comments) with `if (<conditionExpr>) { ... }`. */
+static std::string OmsExtractLeadingIfBlock(const std::string& s, const char* conditionExpr) {
+    const size_t condLen = std::strlen(conditionExpr);
+    const size_t pos = OmsSkipSpaceAndComments(s, 0);
+    const bool nextOk = (pos + 2 >= s.size()) || !OmsIsIdentChar(s[pos + 2]);
+    if (pos + 2 > s.size() || s.compare(pos, 2, "if") != 0 || !nextOk) {
+        return std::string();
+    }
+    size_t cur = OmsSkipSpaceAndComments(s, pos + 2);
+    if (cur >= s.size() || s[cur] != '(') {
+        return std::string();
+    }
+    cur = OmsSkipSpaceAndComments(s, cur + 1);
+    if (cur + condLen > s.size() || s.compare(cur, condLen, conditionExpr) != 0) {
+        return std::string();
+    }
+    cur = OmsSkipSpaceAndComments(s, cur + condLen);
+    if (cur >= s.size() || s[cur] != ')') {
+        return std::string();
+    }
+    cur = OmsSkipSpaceAndComments(s, cur + 1);
+    if (cur >= s.size() || s[cur] != '{') {
+        return std::string();
+    }
+    return OmsExtractBraceBlock(s, cur);
+}
+
 /** Copy @p src with every comment replaced by one space and every string/char literal emptied. */
-std::string OmsStripCommentsAndStrings(const std::string& src) {
+static std::string OmsStripCommentsAndStrings(const std::string& src) {
     std::string out;
     out.reserve(src.size());
     for (size_t pos = 0; pos < src.size(); pos++) {
@@ -247,13 +280,27 @@ std::string OmsStripCommentsAndStrings(const std::string& src) {
     return out;
 }
 
+static size_t OmsCountSubstr(const std::string& haystack, const char* needle) {
+    const size_t len = std::strlen(needle);
+    if (len == 0) {
+        return 0;
+    }
+    size_t count = 0;
+    size_t pos = 0;
+    while ((pos = haystack.find(needle, pos)) != std::string::npos) {
+        count++;
+        pos += len;
+    }
+    return count;
+}
+
 /**
  * True when @p block (a comment- and string-stripped `{ ... }`) runs every needle, in order, as a
  * statement of its own at the block's top level: brace depth 1 (not nested in an inner `{ }` such as
  * `if (0) { ... }`) and preceded only by whitespace after `{`, `;` or `}` (not the body of an
  * unbraced `if (0) call;`).
  */
-bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const* needles, size_t count) {
+static bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const* needles, size_t count) {
     if (block.empty() || block[0] != '{') {
         return false;
     }
@@ -290,26 +337,27 @@ bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const
 }
 
 /** Feed the matcher synthetic guard blocks it must reject, and one it must accept. */
-bool OmsMatcherSelfCheck(const char* const* needles, size_t count, const char** whyOut) {
-    if (count != 3) {
-        *whyOut = "self-check expects exactly three restore calls";
+static bool OmsMatcherSelfCheck(const char* const* needles, size_t count, const char** whyOut) {
+    if (count != 4) {
+        *whyOut = "self-check expects exactly four restore statements";
         return false;
     }
     const std::string a = needles[0];
     const std::string b = needles[1];
     const std::string c = needles[2];
-    const std::string good = "{\n    " + a + "\n    " + b + "\n    " + c + "\n}";
+    const std::string d = needles[3];
+    const std::string good = "{\n    " + a + "\n    " + b + "\n    " + c + "\n    " + d + "\n}";
     if (!OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(good), needles, count)) {
         *whyOut = "rejected a correct guard block";
         return false;
     }
     const std::string bad[] = {
-        "{\n    " + a + "\n    // " + b + "\n    " + c + "\n}",
-        "{\n    " + a + "\n    /* " + b + " */\n    " + c + "\n}",
-        "{\n    " + a + "\n    if (0) {\n        " + b + "\n    }\n    " + c + "\n}",
-        "{\n    " + a + "\n    if (0)\n        " + b + "\n    " + c + "\n}",
-        "{\n    " + a + "\n    puts(\"" + b + "\");\n    " + c + "\n}",
-        "{\n    " + b + "\n    " + a + "\n    " + c + "\n}",
+        "{\n    " + a + "\n    // " + b + "\n    " + c + "\n    " + d + "\n}",
+        "{\n    " + a + "\n    " + b + "\n    /* " + c + " */\n    " + d + "\n}",
+        "{\n    " + a + "\n    if (0) {\n        " + b + "\n    }\n    " + c + "\n    " + d + "\n}",
+        "{\n    " + a + "\n    " + b + "\n    if (0)\n        " + c + "\n    " + d + "\n}",
+        "{\n    " + a + "\n    puts(\"" + b + "\");\n    " + c + "\n    " + d + "\n}",
+        "{\n    " + a + "\n    " + c + "\n    " + b + "\n    " + d + "\n}",
     };
     for (const std::string& body : bad) {
         if (OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(body), needles, count)) {
@@ -333,6 +381,19 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
         return TEST_FAIL;
     }
 
+    static const char* const kRestoreCalls[] = {
+        "OoT_Play_ChangeCameraStatus(play, this->gameplayCamera, CAM_STAT_ACTIVE);",
+        "OoT_Play_ClearCamera(play, this->cutsceneCamera);",
+        "this->cutsceneCamera = CAM_ID_MAIN;",
+        "OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);",
+    };
+    const size_t kRestoreCallCount = sizeof(kRestoreCalls) / sizeof(kRestoreCalls[0]);
+    const char* why = nullptr;
+    if (!OmsMatcherSelfCheck(kRestoreCalls, kRestoreCallCount, &why)) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): matcher self-check: %s\n", why);
+        return TEST_FAIL;
+    }
+
     const std::string stopBody = OmsExtractFunctionBody(src, "void EnKz_StopMweep(EnKz* this, PlayState* play)");
     if (stopBody.empty()) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_StopMweep not found\n");
@@ -344,21 +405,9 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
         return TEST_FAIL;
     }
 
-    const std::string guardBlock = OmsExtractIfBlock(stopBody, "this->cutsceneCamera != CAM_ID_MAIN");
+    const std::string guardBlock = OmsExtractIfBlock(stopBody, "this->cutsceneCamera != CAM_ID_MAIN", nullptr);
     if (guardBlock.empty()) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): missing cutsceneCamera != CAM_ID_MAIN guard\n");
-        return TEST_FAIL;
-    }
-
-    static const char* const kRestoreCalls[] = {
-        "OoT_Play_ChangeCameraStatus(play, this->gameplayCamera, CAM_STAT_ACTIVE);",
-        "OoT_Play_ClearCamera(play, this->cutsceneCamera);",
-        "OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);",
-    };
-    const size_t kRestoreCallCount = sizeof(kRestoreCalls) / sizeof(kRestoreCalls[0]);
-    const char* why = nullptr;
-    if (!OmsMatcherSelfCheck(kRestoreCalls, kRestoreCallCount, &why)) {
-        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): matcher self-check: %s\n", why);
         return TEST_FAIL;
     }
     if (!OmsHasTopLevelStatementsInOrder(OmsStripCommentsAndStrings(guardBlock), kRestoreCalls, kRestoreCallCount)) {
@@ -367,6 +416,50 @@ TestResult Test_OoTMweepStopRestoresCamera(void) {
     }
     if (stopCode.find("this->actionFunc = EnKz_Wait;") == std::string::npos) {
         printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_StopMweep missing actionFunc reset\n");
+        return TEST_FAIL;
+    }
+
+    const std::string mweepBody = OmsExtractFunctionBody(src, "void EnKz_Mweep(EnKz* this, PlayState* play)");
+    if (mweepBody.empty()) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep not found\n");
+        return TEST_FAIL;
+    }
+    const std::string mweepCode = OmsStripCommentsAndStrings(mweepBody);
+    size_t afterPlayIf = 0;
+    const std::string playCsBlock =
+        OmsExtractIfBlock(mweepBody, "GameInteractor_Should(VB_PLAY_MWEEP_CS, true)", &afterPlayIf);
+    if (playCsBlock.empty()) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep missing VB_PLAY_MWEEP_CS branch\n");
+        return TEST_FAIL;
+    }
+    const std::string setEyeGuard = OmsExtractIfBlock(playCsBlock, "this->cutsceneCamera != CAM_ID_MAIN", nullptr);
+    static const char* const kSetEyeCalls[] = {
+        "Play_CameraSetAtEye(play, this->cutsceneCamera, &pos, &initPos);",
+    };
+    const std::string setEyeCode = OmsStripCommentsAndStrings(setEyeGuard);
+    if (setEyeGuard.empty() || !OmsHasTopLevelStatementsInOrder(setEyeCode, kSetEyeCalls, 1)) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep Play_CameraSetAtEye guard missing\n");
+        return TEST_FAIL;
+    }
+    if (OmsCountSubstr(mweepCode, "Play_CameraSetAtEye") != 1) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep has unguarded Play_CameraSetAtEye\n");
+        return TEST_FAIL;
+    }
+    const size_t elsePos = OmsSkipSpaceAndComments(mweepBody, afterPlayIf);
+    const bool elseNextOk = (elsePos + 4 >= mweepBody.size()) || !OmsIsIdentChar(mweepBody[elsePos + 4]);
+    if (elsePos + 4 > mweepBody.size() || mweepBody.compare(elsePos, 4, "else") != 0 || !elseNextOk) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep missing mid-walk else branch\n");
+        return TEST_FAIL;
+    }
+    const std::string midGuard =
+        OmsExtractLeadingIfBlock(mweepBody.substr(elsePos + 4), "this->cutsceneCamera != CAM_ID_MAIN");
+    const std::string midCode = OmsStripCommentsAndStrings(midGuard);
+    if (midGuard.empty() || !OmsHasTopLevelStatementsInOrder(midCode, kRestoreCalls, kRestoreCallCount)) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep mid-walk camera restore missing\n");
+        return TEST_FAIL;
+    }
+    if (OmsCountSubstr(mweepCode, "OoT_Play_ClearCamera") != 1) {
+        printf("[TEST] FAIL (oot-mweep-stop-restores-camera): EnKz_Mweep has extra OoT_Play_ClearCamera\n");
         return TEST_FAIL;
     }
 

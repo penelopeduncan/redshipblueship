@@ -49,7 +49,7 @@
   song checks, and Vanilla and Start With behave as in 2Ship.
 - **Majora's Mask takes OoTMM's dungeon item defaults, and Stray Fairies is two settings** (issue #1548). Small Keys and
   Boss Keys now default to Own Dungeon. The Stray Fairies placement row is split as in OoTMM: Dungeon Chest Fairies
-  (default Own Dungeon) and Freestanding Fairies (default Vanilla, which also covers the Clock Town fairy). With the
+  (default Own Dungeon) and Dungeon Freestanding Fairies (default Vanilla, which also covers the Clock Town fairy). With the
   defaults, each dungeon's keys and chest fairies are found inside that dungeon and are never sent to Ocarina of Time,
   and the freestanding fairies sit where they do in the original game. Set the rows back to Anywhere for the old
   behaviour. Worlds created with the defaults change. A spoiler file written before this change loads with both fairy
