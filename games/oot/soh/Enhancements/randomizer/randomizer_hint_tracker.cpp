@@ -18,8 +18,9 @@
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 // src/common, outside the extern "C" block below: it manages its own linkage.
-#include "combo_hint_view.h" // the combined Hint Tracker's OoT adapter (#1475 lane H2)
-#include "foreign_items.h"   // SharedItem
+#include "combo_hint_view.h"  // the combined Hint Tracker's OoT adapter (#1475 lane H2)
+#include "foreign_items.h"    // SharedItem
+#include "shared_resources.h" // #1561: Combo_SharedSongOffGiveBecomesJunk / Combo_SharedFamiliesHeldNow
 #endif
 
 extern "C" {
@@ -110,6 +111,28 @@ static bool doAreaScroll = false;
 // when the game language changes. Only touched from the draw thread.
 static std::unordered_map<RandomizerHint, std::string> hintTextCache;
 static uint8_t cachedLanguage = 0xFF;
+#ifdef RSBS_SINGLE_EXECUTABLE
+static uint32_t sCachedSharedSongsHeld = 0xFFFFFFFFu;
+
+static void OoTHintTrackerRefreshSharedSongCache(bool live) {
+    uint32_t held = Combo_SharedFamiliesHeldNow() & RSBS_XITEM_SHARED_SONGS_MASK;
+    if (live) {
+        if (CHECK_QUEST_ITEM(QUEST_SONG_EPONA) != 0) {
+            held |= RSBS_XITEM_SHARED_SONG_EPONA;
+        }
+        if (CHECK_QUEST_ITEM(QUEST_SONG_STORMS) != 0) {
+            held |= RSBS_XITEM_SHARED_SONG_STORMS;
+        }
+        if (CHECK_QUEST_ITEM(QUEST_SONG_TIME) != 0) {
+            held |= RSBS_XITEM_SHARED_SONG_TIME;
+        }
+    }
+    if (held != sCachedSharedSongsHeld) {
+        hintTextCache.clear();
+        sCachedSharedSongsHeld = held;
+    }
+}
+#endif
 
 static WidgetInfo backgroundColorWidget;
 static WidgetInfo windowTypeWidget;
@@ -200,6 +223,9 @@ void InitHintTrackerData(bool isDebug) {
         readHints.clear();
     }
     hintTextCache.clear();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    sCachedSharedSongsHeld = 0xFFFFFFFFu;
+#endif
 }
 
 void SaveHintTrackerData(SaveContext* saveContext, int sectionID, bool fullSave) {
@@ -411,6 +437,19 @@ static int HintedCheckRank(const std::shared_ptr<Rando::Context>& ctx, Randomize
         return ItemCategoryRank(static_cast<GetItemCategory>(
             OoT_Rando_Foreign_ChestCategory(static_cast<uint16_t>(rc), static_cast<int>(ITEM_CATEGORY_JUNK))));
     }
+    // #1561: an uncollected Off vanilla shared-song check that will now give a Blue
+    // Rupee ranks as junk, matching Hint::GetItemHintText.
+    if (!ctx->GetItemLocation(rc)->HasObtained()) {
+        const RandomizerGet rg = ctx->GetItemLocation(rc)->GetPlacedRandomizerGet();
+        const bool ootOwns = live && ((rg == RG_EPONAS_SONG && CHECK_QUEST_ITEM(QUEST_SONG_EPONA) != 0) ||
+                                      (rg == RG_SONG_OF_TIME && CHECK_QUEST_ITEM(QUEST_SONG_TIME) != 0) ||
+                                      (rg == RG_SONG_OF_STORMS && CHECK_QUEST_ITEM(QUEST_SONG_STORMS) != 0));
+        if (Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, static_cast<uint16_t>(rg),
+                                               static_cast<uint32_t>(ctx->GetOption(RSK_SHUFFLE_SONGS).Get()),
+                                               ootOwns)) {
+            return ItemCategoryRank(ITEM_CATEGORY_JUNK);
+        }
+    }
 #endif
     // Pass checkObtainability = false: we want the true placed item's value,
     // otherwise a genuine major item that isn't reachable yet (e.g. Anju's Lens of
@@ -615,6 +654,9 @@ static void DrawHintList() {
         hintTextCache.clear();
         cachedLanguage = gSaveContext.language;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    OoTHintTrackerRefreshSharedSongCache(true);
+#endif
 
     const std::string otherHintsName = otherHintsLabel.GetForCurrentLanguage(MF_CLEAN);
     bool journalView = viewMode == HINT_TRACKER_VIEW_JOURNAL;
@@ -1132,6 +1174,7 @@ uint8_t PaneCollect(int* outCount) {
         hintTextCache.clear();
         cachedLanguage = language;
     }
+    OoTHintTrackerRefreshSharedSongCache(live);
     if (live) {
         sPanePlayerName = GetPlayerName();
     }
