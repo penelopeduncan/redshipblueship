@@ -9015,6 +9015,23 @@ TestResult Test_OoTShuffleWonderItems(void) {
     }
     return OoT_ShuffleWonderItemsTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// QC #1558 (operator ruling: Shuffle Wonder Items stays live in paired worlds, with
+// tests): one seed finished as a paired creation with the option off and on. The
+// song-pool rows' bring-up (they finish paired worlds too); body in
+// games/oot/soh/oot_wonder_items_paired_test.cpp.
+extern "C" int OoT_WonderItemsPairedTest_Run(void);
+TestResult Test_OoTWonderItemsPaired(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    static char wipArg0[] = "redship";
+    static char* wipArgv[] = { wipArg0, nullptr };
+    InitOTRForMMFirstBoot(1, wipArgv);
+    return OoT_WonderItemsPairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -11304,6 +11321,11 @@ const TestDescriptor gTests[] = {
       "ships off, a default world's settings fold reads none of the lines it added, and a paired world with it on "
       "keeps it on and places every wonder check (#1405)",
       Test_OoTShuffleWonderItems },
+    // QC #1558. Two finished paired worlds; skipped by `--test all` below like its siblings.
+    { "oot-wonder-items-paired",
+      "A paired world with Shuffle Wonder Items on places and mixes every wonder check it selects, crosses no MM "
+      "item onto one and leaves MM's own option alone; with it off no wonder check is a location (QC #1558)",
+      Test_OoTWonderItemsPaired },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -11732,6 +11754,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-wonder-items") == 0 ||
+                strcmp(gTests[i].name, "oot-wonder-items-paired") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process
