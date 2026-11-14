@@ -943,11 +943,15 @@ extern "C" int MM_PlacementDefaultWorld_Check(void) {
         }
     }
     const ComboSingleBagReport* report = Combo_SingleBag_LastReport();
-    printf("[TEST] mm-placement-default-world: %d locally confined MM pool rows, %d bag rows confined\n", localConfined,
-           report->confinedRows);
-    MPC_CHECK(localConfined == 44 && report->confinedRows == 44,
-              "expected 44 locally confined MM rows (9 keys + 4 boss keys + 31 chest fairies), got pool=%d bag=%d",
-              localConfined, report->confinedRows);
+    printf("[TEST] mm-placement-default-world: %d locally confined MM pool rows, %d bag home-only rows, %d bag rows "
+           "confined\n",
+           localConfined, report->homeOnlyRows, report->confinedRows);
+    MPC_CHECK(localConfined == 44 && report->homeOnlyRows == 44 && report->confinedRows == 66 &&
+                  report->exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+              "expected 44 MM local home-only rows (9 keys + 4 boss keys + 31 chest fairies) + 22 shared-song wide "
+              "rows (12 OoT + 10 MM) = 66 total confinedRows under RSBS_COMBO_GROUP_SONG_LOCATIONS, got pool=%d "
+              "homeOnly=%d bag=%d exclusive=0x%08X",
+              localConfined, report->homeOnlyRows, report->confinedRows, (unsigned)report->exclusiveGroups);
 
     int keys = 0;
     int chestFairies = 0;
