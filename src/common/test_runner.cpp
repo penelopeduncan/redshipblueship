@@ -1350,6 +1350,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // scan and validation, the ROM search dirs and the tools check, ROM-free; plus
 // the staged MM ROM when OTRExporter/mm.z64 exists. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_extract.c"
+// #1590: ROM-free source lock for the non-Windows file-picker availability
+// guard in OoT and MM Extract.cpp and the OoT extractFailed/popup wiring in
+// OTRGlobals.cpp::RunExtract. FILE SCOPE (compiled as C++).
+#include "tests/test_extractor_picker_guard.c"
 // #1475 (lane H1): the combined Hint Tracker's Majora's Mask side: MM's hint
 // sources, the resolver, the read record and its round trips, the pane and the
 // hooks' wiring (mm-hint-sources, ROM-free), and the same over a real paired world
@@ -11666,6 +11670,10 @@ const TestDescriptor gTests[] = {
     { "mm-extract",
       "In-app Majora's Mask extraction seams: silent ROM scan and validation, search dirs, tools check (#944)",
       Test_MmExtract },
+    { "extractor-picker-guard",
+      "Source lock: non-Windows file-picker guard in OoT and MM Extract.cpp and OoT extractFailed/popup wiring in "
+      "RunExtract (#1590)",
+      Test_ExtractorPickerGuard },
     // R6: OoTMM's critical renewables under All Locations. ROM-free: both games'
     // registered sources by real id, the predicates, the remainders' plan and the
     // coordinator over the stub engines.
