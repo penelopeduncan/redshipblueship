@@ -8,7 +8,10 @@ void RegionTable_Init_SacredForestMeadow() {
     areaTable[RR_SFM_ENTRYWAY] = Region("SFM Entryway", SCENE_SACRED_FOREST_MEADOW, {
         //Events
         EventAccess(LOGIC_OPEN_SFM_GATE, []{return logic->IsChild && logic->CanKillEnemy(RE_WOLFOS);}),
-    }, {}, {
+    }, {
+        //Locations
+        LOCATION(RC_SFM_WONDER_ENTRANCE,    true),
+    }, {
         //Exits
         Entrance(RR_LW_BEYOND_MIDO,       []{return true;}),
         Entrance(RR_SACRED_FOREST_MEADOW, []{return logic->IsAdult || logic->Get(LOGIC_OPEN_SFM_GATE);}),
@@ -44,6 +47,11 @@ void RegionTable_Init_SacredForestMeadow() {
         LOCATION(RC_SFM_SARIA_GOSSIP_STONE_FAIRY,     logic->CallGossipFairyExceptSuns()),
         LOCATION(RC_SFM_SARIA_GOSSIP_STONE_FAIRY_BIG, logic->CanUse(RG_SONG_OF_STORMS)),
         LOCATION(RC_SFM_SARIA_GOSSIP_STONE,           true),
+        LOCATION(RC_SFM_WONDER_MAZE_1,                true),
+        LOCATION(RC_SFM_WONDER_MAZE_2,                true),
+        LOCATION(RC_SFM_WONDER_MAZE_3,                true),
+        LOCATION(RC_SFM_WONDER_MAZE_4,                true),
+        LOCATION(RC_SFM_WONDER_MAZE_5,                true),
     }, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_ENTRYWAY, []{return logic->CanUse(RG_HOOKSHOT);}),

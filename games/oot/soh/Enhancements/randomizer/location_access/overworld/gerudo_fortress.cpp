@@ -11,6 +11,7 @@ void RegionTable_Init_GerudoFortress() {
         //Locations
         LOCATION(RC_GF_OUTSKIRTS_NE_CRATE, (logic->IsChild || logic->CanPassEnemy(RE_GERUDO_GUARD)) && logic->CanBreakCrates()),
         LOCATION(RC_GF_OUTSKIRTS_NW_CRATE, (logic->IsChild || logic->CanPassEnemy(RE_GERUDO_GUARD)) && logic->CanBreakCrates()),
+        LOCATION(RC_GF_WONDER_ENTRANCE_SIGN, logic->CanUse(RG_HOOKSHOT)),
     }, {
         //Exits
         Entrance(RR_GV_FORTRESS_SIDE, []{return true;}),
@@ -202,11 +203,11 @@ void RegionTable_Init_GerudoFortress() {
         //Exits
         //you don't take fall damage if you land on the rock with the flag on for some reason
         //there's a trick to reach RR_GF_LONG_ROOF
-        Entrance(RR_GF_OUTSKIRTS,           []{return ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Get() != 0;}),
-        Entrance(RR_GF_NEAR_CHEST,          []{return logic->CanUse(RG_LONGSHOT);}),
-        Entrance(RR_GF_BELOW_CHEST,         []{return logic->TakeDamage();}),
-        Entrance(RR_GF_JAIL_WINDOW,         []{return logic->CanUse(RG_HOOKSHOT);}),
-        Entrance(RR_TH_BREAK_ROOM_CORRIDOR, []{return true;}),
+        Entrance(RR_GF_OUTSKIRTS,                 []{return ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || logic->TakeDamage();}),
+        Entrance(RR_GF_NEAR_CHEST,                []{return logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GF_BELOW_CHEST,               []{return logic->TakeDamage();}),
+        Entrance(RR_GF_JAIL_WINDOW,               []{return logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_TH_BREAK_ROOM_UPPER_CORRIDOR, []{return true;}),
         Entrance(RR_GF_TOWER,               []{return ctx->GetTrickOption(RT_GF_ADULT_SKIP_WASTELAND_GATE) && logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS) && logic->CanJumpslash() && logic->HasItem(RG_GERUDO_MEMBERSHIP_CARD);}),
         Entrance(RR_GF_OUTSIDE_GATE,        []{return ctx->GetTrickOption(RT_GF_ADULT_SKIP_WASTELAND_GATE) && logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS) && logic->CanJumpslash();}),
     });
@@ -239,6 +240,7 @@ void RegionTable_Init_GerudoFortress() {
         LOCATION(RC_GF_NORTH_TARGET_CHILD_CRATE, logic->IsChild && logic->BlastOrSmash()),
         LOCATION(RC_GF_SOUTH_TARGET_EAST_CRATE,  logic->CanBreakCrates()),
         LOCATION(RC_GF_SOUTH_TARGET_WEST_CRATE,  logic->CanBreakCrates()),
+        LOCATION(RC_GF_WONDER_ARCHERY_SIGN,      logic->CanUse(RG_HOOKSHOT)),
     }, {
         //Exits
         Entrance(RR_GF_OUTSIDE_GTG, []{return logic->IsChild || logic->HasItem(RG_GERUDO_MEMBERSHIP_CARD);}),
