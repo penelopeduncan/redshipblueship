@@ -3152,6 +3152,42 @@ typedef enum {
     // - *EnGSwitch
     VB_SILVER_DESPAWN,
 
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnWonderItem`
+    VB_WONDER_DROP_ITEM,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - 'Vec3f' pos
+    // - 'f32' rotY
+    VB_WONDER_HEISHI_ITEM,
+
+    // #### `result`
+    // ```c
+    // (gSaveContext.dayTime < 0xB888 || IS_DAY) && ((!IS_RANDO &&
+    // !Flags_GetEventChkInf(EVENTCHKINF_ZELDA_FLED_HYRULE_CASTLE)) || (IS_RANDO && !metZelda))
+    // (gSaveContext.dayTime >= 0xB889) || !IS_DAY || (!IS_RANDO &&
+    // Flags_GetEventChkInf(EVENTCHKINF_ZELDA_FLED_HYRULE_CASTLE)) || (IS_RANDO && metZelda)
+    // ```
+    // #### `args`
+    // - EnHeishi1*
+    VB_WONDER_HEISHI_PATROLLING,
+
+    // #### `result`
+    // ```c
+    // (this->switchFlag >= 0) && Flags_GetSwitch(play, this->switchFlag)
+    // ```
+    // #### `args`
+    // - `None`
+    VB_WONDER_SPAWN,
+
 } GIVanillaBehavior;
 
 #endif

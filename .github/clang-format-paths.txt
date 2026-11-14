@@ -322,3 +322,5 @@ games/mm/2s2h/mm_warp_song_play_test.cpp
 games/mm/2s2h/mm_int_warp_song_drive.cpp
 games/oot/soh/Enhancements/randomizer/WarpSongRecordOoT.cpp
 games/oot/soh/oot_shuffle_silver_test.cpp
+games/oot/soh/oot_shuffle_wonder_items_test.cpp
+games/oot/soh/oot_wonder_items_paired_test.cpp
