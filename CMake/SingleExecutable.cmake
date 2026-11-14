@@ -1539,6 +1539,9 @@ if(BUILD_TESTING)
     # gSaveContext storage means an ungated MM tracker reads OoT bytes through
     # MM's SaveContext layout.
     redship_add_test(NAME MMTrackersGui COMMAND redship --test mm-trackers-gui)
+    # W6-DEV (#1238 slice 3): MM's Event Log window registers de-collided, toggles/closes via
+    # gWindows.EventLog, gates on GAME_MM, and dispatches OnFlagUnset/OnSceneFlagUnset.
+    redship_add_test(NAME MMDevViewersGate COMMAND redship --test mm-dev-viewers-gate)
     # OoT's twin (#797): the eight SoH windows that read or write OoT save/play
     # state (Save Editor, Value/Message Viewer, Gameplay Stats, the three
     # trackers, Time Splits) are built through OoTActiveGated<>, so their Draw,
@@ -4151,15 +4154,47 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1405: Shuffle Wonder Items (SoH 412e9e262): every wonder item check has its
+    # own RandomizerInf and IdentifyWonderItem finds it from its (room, index) or
+    # (x, z) key, the option ships off, a default world folds none of the lines it
+    # added, and a paired world with it on keeps it on, folds every line and places
+    # every wonder check. Two generations, so twice the neighbours' timeout.
+    # games/oot/soh/oot_shuffle_wonder_items_test.cpp.
+    redship_add_test(NAME OoTShuffleWonderItems COMMAND redship --test oot-shuffle-wonder-items
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # QC #1558 (operator ruling: the option stays live in paired worlds, with tests):
+    # one seed finished as a paired creation twice. On, every wonder check the
+    # world selects is a location the bag fills or a restricted pass filled, none
+    # is empty, at least one is mixed, none takes an MM item, and the world is the
+    # off world plus exactly those checks; off, none is a location; MM's own Shuffle
+    # Wonder Items stays at its default in both. Two finished paired worlds, the
+    # song-pool rows' timeout. games/oot/soh/oot_wonder_items_paired_test.cpp.
+    redship_add_test(NAME OoTWonderItemsPaired COMMAND redship --test oot-wonder-items-paired
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1408: Shuffle Icicles and Shuffle Red Ice (SoH 49e740b6f, 68d4c6049): every
     # icicle and red ice check has its own RandomizerInf, both options ship off and
-    # greyed out, and two real generations fold none of the lines they added (a
-    # paired one pins them off even when keyed on, with the default world's
-    # fingerprint). Two generations, so twice the neighbours' timeout.
-    # games/oot/soh/oot_shuffle_ice_test.cpp.
+    # enabled, a default world folds none of the lines they added, and a paired
+    # world with both on keeps both on, folds all of their lines and selects every
+    # quest-matching check into the pool. Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_shuffle_ice_test.cpp.
     redship_add_test(NAME OoTShuffleIce COMMAND redship --test oot-shuffle-ice
         LABEL rando
         TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1408 / #1562 (operator ruling: both stay live in paired worlds, with tests):
+    # one seed finished as a paired creation twice. On, every quest-selected icicle
+    # and red ice check is a location the bag fills or a restricted pass filled, none
+    # is empty, at least one holds a non-vanilla item, none accepts or receives an
+    # MM item, and the ON world is OFF plus exactly those checks; off, none is a
+    # location; MM's own options stay untouched. Two finished paired worlds, the
+    # song-pool rows' timeout. games/oot/soh/oot_ice_paired_test.cpp.
+    redship_add_test(NAME OoTIcePaired COMMAND redship --test oot-ice-paired
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own

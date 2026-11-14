@@ -797,6 +797,7 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_PREVENT_ACTOR_DRAW "gDeveloperTools.PreventActorDraw"
 #define RSBS_CVAR_MM_PREVENT_ACTOR_INIT "gDeveloperTools.PreventActorInit"
 #define RSBS_CVAR_MM_DISABLE_OBJECT_DEPENDENCY "gDeveloperTools.DisableObjectDependency"
+#define RSBS_CVAR_MM_WINDOW_EVENT_LOG "gWindows.EventLog"
 
 /**
  * MM's damage multiplier key (#1037). Held apart from SoH's gEnhancements.DamageMult (kMustStayDistinct below), so MM's
@@ -1254,6 +1255,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_PREVENT_ACTOR_DRAW)                               \
     X(RSBS_CVAR_MM_PREVENT_ACTOR_INIT)                               \
     X(RSBS_CVAR_MM_DISABLE_OBJECT_DEPENDENCY)                        \
+    X(RSBS_CVAR_MM_WINDOW_EVENT_LOG)                                 \
     /* #1037: MM's own Damage Multiplier, with 2Ship's value list */ \
     X(RSBS_CVAR_MM_DAMAGE_MULTIPLIER)                                \
     /* L7 (#1133): the curated hosted rows */                        \

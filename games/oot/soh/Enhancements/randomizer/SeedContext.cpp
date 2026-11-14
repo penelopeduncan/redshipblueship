@@ -202,6 +202,8 @@ void Context::GenerateLocationPool() {
             (location.GetRCType() == RCTYPE_NLTREE &&
              (!mOptions[RSK_SHUFFLE_TREES] || mOptions[RSK_LOGIC_RULES].IsNot(RO_LOGIC_NO_LOGIC))) ||
             (location.GetRCType() == RCTYPE_BUSH && !mOptions[RSK_SHUFFLE_BUSHES]) ||
+            (location.GetRCType() == RCTYPE_WONDER_ITEM &&
+             mOptions[RSK_SHUFFLE_WONDER_ITEMS].Is(RO_SHUFFLE_WONDER_ITEMS_OFF)) ||
             (location.GetRCType() == RCTYPE_ICICLE && !mOptions[RSK_SHUFFLE_ICICLES]) ||
             (location.GetRCType() == RCTYPE_RED_ICE && !mOptions[RSK_SHUFFLE_RED_ICE]) ||
             (location.GetRCType() == RCTYPE_FREESTANDING &&
@@ -217,6 +219,8 @@ void Context::GenerateLocationPool() {
                  mOptions[RSK_SHUFFLE_FREESTANDING].Is(RO_SHUFFLE_FREESTANDING_DUNGEONS)) ||
                 (location.GetRCType() == RCTYPE_POT && mOptions[RSK_SHUFFLE_POTS].Is(RO_SHUFFLE_POTS_DUNGEONS)) ||
                 (location.GetRCType() == RCTYPE_GRASS && mOptions[RSK_SHUFFLE_GRASS].Is(RO_SHUFFLE_GRASS_DUNGEONS)) ||
+                (location.GetRCType() == RCTYPE_WONDER_ITEM &&
+                 mOptions[RSK_SHUFFLE_WONDER_ITEMS].Is(RO_SHUFFLE_WONDER_ITEMS_DUNGEONS)) ||
                 (location.GetRCType() == RCTYPE_CRATE && mOptions[RSK_SHUFFLE_CRATES].Is(RO_SHUFFLE_CRATES_DUNGEONS)) ||
                 (location.GetRCType() == RCTYPE_NLCRATE &&
                  mOptions[RSK_SHUFFLE_CRATES].Is(RO_SHUFFLE_CRATES_DUNGEONS) &&
@@ -237,6 +241,8 @@ void Context::GenerateLocationPool() {
                     (location.GetRCType() == RCTYPE_POT && mOptions[RSK_SHUFFLE_POTS].Is(RO_SHUFFLE_POTS_OVERWORLD)) ||
                     (location.GetRCType() == RCTYPE_GRASS &&
                      mOptions[RSK_SHUFFLE_GRASS].Is(RO_SHUFFLE_GRASS_OVERWORLD)) ||
+                    (location.GetRCType() == RCTYPE_WONDER_ITEM &&
+                     mOptions[RSK_SHUFFLE_WONDER_ITEMS].Is(RO_SHUFFLE_WONDER_ITEMS_OVERWORLD)) ||
                     (location.GetRCType() == RCTYPE_CRATE &&
                      mOptions[RSK_SHUFFLE_CRATES].Is(RO_SHUFFLE_CRATES_OVERWORLD)) ||
                     (location.GetRCType() == RCTYPE_NLCRATE &&

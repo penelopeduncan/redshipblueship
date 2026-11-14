@@ -14,9 +14,9 @@
  *     with one of the two types, has a RandomizerInf of its own in rcToRandomizerInf
  *     (not RAND_INF_MAX, not shared, the flag its spoiler collection check names), and
  *     that flag maps back to it.
- *  D  THE OPTIONS. Both ship off with their keys cleared and are greyed out with a
- *     reason (every world here is a paired creation, which generates them off: leg
- *     P), and a stored On does not list their checks under Exclude Locations.
+ *  D  THE OPTIONS. Both ship off with their keys cleared, are enabled (not greyed out:
+ *     the operator ruled both stay live in paired worlds), and Exclude Locations hides
+ *     their non-MQ checks when their keys are Off and shows them when On.
  *  F  THE FOLD AT DEFAULT SETTINGS. A real generation with both keys cleared: the
  *     settings fold reads none of the lines #1408 added (each option's own rows, its
  *     checks' exclude rows) and leaves out exactly as many as the option groups hold,
@@ -24,17 +24,18 @@
  *     counts are taken inside the fold loop at the line itself (playthrough.cpp), so
  *     a skip deleted at the call site shows up as a folded line. No icicle or red
  *     ice check is a location.
- *  P  A PAIRED WORLD GENERATES THEM OFF. The same generation with both keyed On: the
- *     generation pins each off, the fold again reads none of their lines, and the
- *     settings fingerprint and fold length are leg F's.
+ *  O  THE OPTIONS ON IN A PAIRED WORLD. Neither option is pinned off in a paired
+ *     world: the same generation with both keyed On succeeds, keeps both On, folds
+ *     every one of their lines and leaves none out (so its fingerprint differs from
+ *     leg F's), and selects the exact quest-matching icicle and red ice checks into
+ *     the world's location pool.
  *
- * RED HALVES, derived, not run (this pass had no build): with the fold's skip removed
- * at its call site F and P fail (lines folded); with a classifier returning false F's
- * and P's left-out count is 0; without the paired pin P fails (pinned 0, the option
- * on, icicle or red ice locations in the pool, a different fingerprint); with the
- * menu greying removed D fails; with the exclude list reading the stored key again
- * (randomizer_check_objects.cpp) D fails; with a row dropped from rcToRandomizerInf
- * M fails.
+ * RED HALVES, derived, not run (this pass had no build): with a row dropped from
+ * rcToRandomizerInf M fails; with the menu greying restored D fails; with the exclude
+ * list visibility broken (always false or always true) D fails; with the fold's skip
+ * removed at its call site F fails (lines folded); with a classifier returning false
+ * F's left-out count is 0; with a paired pin in Playthrough_Init O fails (option Off,
+ * checks absent, fingerprint unchanged).
  *
  * Every key a leg changes is put back (in memory: nothing here writes a config file).
  */
@@ -57,6 +58,7 @@
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/item_location.h"
+#include "soh/Enhancements/randomizer/dungeon.h"
 #include "soh/Enhancements/randomizer/randomizer_check_objects.h"
 
 #include "context.h" // src/common: gComboCtx, Context_GetCurrentGame, Context_SetCurrentGame
@@ -71,13 +73,23 @@ extern SaveContext gSaveContext;
 // 3drando/menu.cpp: the headless generation bridge every rando row uses.
 extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
 // 3drando/playthrough.cpp: what the last settings fold folded, in total and of each
-// option's lines, and whether that generation pinned the option off.
+// option's lines.
 extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* outExcludeLines, int groupCap);
-extern "C" int OoT_Rando_LastSettingsFoldIcicles(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned);
-extern "C" int OoT_Rando_LastSettingsFoldRedIce(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned);
+extern "C" int OoT_Rando_LastSettingsFoldIcicles(uint32_t* outFolded, uint32_t* outSkipped);
+extern "C" int OoT_Rando_LastSettingsFoldRedIce(uint32_t* outFolded, uint32_t* outSkipped);
 
+// THE APPEND-ONLY LOCKS: each id #1408 adds sits after #1405's last id, so no id a
+// world or a save already holds moves. The numbers themselves are locked in
+// GameExports_SingleExe.cpp.
+static_assert(RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL + 1,
+              "the icicle and red ice checks are appended after #1405's wonder item checks (#1408)");
 static_assert(RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 - RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE + 1 == 191,
               "SoH 49e740b6f adds 191 icicle and red ice checks, contiguous (#1408)");
+static_assert(RAND_INF_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL + 1,
+              "the icicle and red ice flags are appended after #1405's wonder item flags (#1408)");
+static_assert(RSK_SHUFFLE_ICICLES == RSK_SHUFFLE_WONDER_ITEMS + 1 &&
+                  RSK_SHUFFLE_RED_ICE == RSK_SHUFFLE_ICICLES + 1,
+              "RSK_SHUFFLE_ICICLES and RSK_SHUFFLE_RED_ICE are appended after #1405's key (#1408)");
 static_assert(RO_GENERIC_OFF == 0, "#1408: a world saved before the options reads their missing entries as 0, Off");
 
 namespace {
@@ -196,6 +208,23 @@ void CheckFlagMap() {
 
 // ---- D: the options -------------------------------------------------------------------
 
+void CountExcludeVisibility(int (&counted)[2], int (&listed)[2]) {
+    counted[0] = counted[1] = 0;
+    listed[0] = listed[1] = 0;
+    RandomizerCheckObjects::UpdateImGuiVisibility();
+    for (auto& loc : Rando::StaticData::GetLocationTable()) {
+        if ((loc.GetRCType() != RCTYPE_ICICLE && loc.GetRCType() != RCTYPE_RED_ICE) ||
+            loc.GetQuest() == RCQUEST_MQ) {
+            continue;
+        }
+        const int idx = loc.GetRCType() == RCTYPE_ICICLE ? 0 : 1;
+        counted[idx]++;
+        if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
+            listed[idx]++;
+        }
+    }
+}
+
 void CheckOptions() {
     auto settings = Rando::Settings::GetInstance();
     settings->CreateOptions(); // idempotent; what Rando_HeadlessSeedTest calls first
@@ -207,46 +236,67 @@ void CheckOptions() {
     for (int o = 0; o < 2; o++) {
         Rando::Option& option = settings->GetOption(kOptions[o].key);
         const int shipped = option.GetOptionIndex();
-        printf("[TEST] D: '%s' (key %s): %d with no key stored; greyed %d ('%s')\n", option.GetName().c_str(),
-               option.GetCVarName().c_str(), shipped, option.IsDisabled() ? 1 : 0, option.GetDisabledText().c_str());
+        printf("[TEST] D: '%s' (key %s): %d with no key stored, %zu choice(s); greyed %d\n",
+               option.GetName().c_str(), option.GetCVarName().c_str(), shipped, (size_t)option.GetOptionCount(),
+               option.IsDisabled() ? 1 : 0);
         ICE_CHECK(option.GetName() == kOptions[o].name, "D: the option is named '%s', want '%s'",
                   option.GetName().c_str(), kOptions[o].name);
         ICE_CHECK(option.GetCVarName() == kOptions[o].cvar, "D: %s is not keyed %s", kOptions[o].name,
                   kOptions[o].cvar);
         ICE_CHECK(shipped == RO_GENERIC_OFF, "D: %s's shipped default is %d, not Off", kOptions[o].name, shipped);
-        ICE_CHECK(option.IsDisabled() && !option.GetDisabledText().empty(),
-                  "D: %s is not greyed out with a reason, though every world here generates it off", kOptions[o].name);
+        ICE_CHECK(option.GetOptionCount() == (size_t)RO_GENERIC_ON + 1, "D: %s has %zu choice(s), want %d",
+                  kOptions[o].name, (size_t)option.GetOptionCount(), (int)RO_GENERIC_ON + 1);
+        ICE_CHECK(!option.IsDisabled(), "D: %s is greyed out ('%s'), though paired worlds keep it live",
+                  kOptions[o].name, option.GetDisabledText().c_str());
     }
 
-    // A stored On (a preset) must not list the checks under Exclude Locations: the
-    // world is generated with the options off (leg P) and the fold leaves those rows
-    // out (leg F). Vanilla-quest and both-quest checks are counted, so the default MQ
+    // Exclude Locations hides non-MQ icicle/red ice rows when their CVar is Off and
+    // shows them independently when On. Non-MQ checks are counted so the default MQ
     // setting (none) does not hide them for another reason.
-    for (int o = 0; o < 2; o++) {
-        CVarSetInteger(kOptions[o].cvar, RO_GENERIC_ON);
-    }
-    RandomizerCheckObjects::UpdateImGuiVisibility();
-    int counted = 0;
-    int listed = 0;
-    for (auto& loc : Rando::StaticData::GetLocationTable()) {
-        if ((loc.GetRCType() != RCTYPE_ICICLE && loc.GetRCType() != RCTYPE_RED_ICE) || loc.GetQuest() == RCQUEST_MQ) {
-            continue;
-        }
-        counted++;
-        if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
-            listed++;
-        }
-    }
-    printf("[TEST] D: keyed On, the exclude list shows %d of %d non-MQ icicle and red ice checks\n", listed, counted);
-    ICE_CHECK(counted > 0, "D: the location table holds no non-MQ icicle or red ice check to look at");
-    ICE_CHECK(listed == 0, "D: keyed On, the exclude list shows %d checks of a world generated off", listed);
+    int counted[2] = {};
+    int listedOff[2] = {};
+    CountExcludeVisibility(counted, listedOff);
+    printf("[TEST] D: cleared, exclude list shows %d/%d non-MQ icicle and %d/%d red ice checks\n", listedOff[0],
+           counted[0], listedOff[1], counted[1]);
+    ICE_CHECK(counted[0] > 0 && counted[1] > 0, "D: missing non-MQ icicle (%d) or red ice (%d) checks", counted[0],
+              counted[1]);
+    ICE_CHECK(listedOff[0] == 0 && listedOff[1] == 0,
+              "D: cleared, exclude list shows %d icicle and %d red ice check(s), want none", listedOff[0],
+              listedOff[1]);
+
+    CVarSetInteger(kOptions[0].cvar, RO_GENERIC_ON);
+    CVarClear(kOptions[1].cvar);
+    int listedIcicleOnly[2] = {};
+    CountExcludeVisibility(counted, listedIcicleOnly);
+    ICE_CHECK(listedIcicleOnly[0] == counted[0] && listedIcicleOnly[1] == 0,
+              "D: Shuffle Icicles On only: visible %d/%d icicles, %d/%d red ice", listedIcicleOnly[0], counted[0],
+              listedIcicleOnly[1], counted[1]);
+
+    CVarClear(kOptions[0].cvar);
+    CVarSetInteger(kOptions[1].cvar, RO_GENERIC_ON);
+    int listedRedIceOnly[2] = {};
+    CountExcludeVisibility(counted, listedRedIceOnly);
+    ICE_CHECK(listedRedIceOnly[0] == 0 && listedRedIceOnly[1] == counted[1],
+              "D: Shuffle Red Ice On only: visible %d/%d icicles, %d/%d red ice", listedRedIceOnly[0], counted[0],
+              listedRedIceOnly[1], counted[1]);
+
+    CVarSetInteger(kOptions[0].cvar, RO_GENERIC_ON);
+    CVarSetInteger(kOptions[1].cvar, RO_GENERIC_ON);
+    int listedOn[2] = {};
+    CountExcludeVisibility(counted, listedOn);
+    printf("[TEST] D: both keyed On, exclude list shows %d/%d non-MQ icicle and %d/%d red ice checks\n", listedOn[0],
+           counted[0], listedOn[1], counted[1]);
+    ICE_CHECK(listedOn[0] == counted[0] && listedOn[1] == counted[1],
+              "D: both On, exclude list shows %d/%d icicle and %d/%d red ice checks", listedOn[0], counted[0],
+              listedOn[1], counted[1]);
+
     for (int o = 0; o < 2; o++) {
         saved[o].Restore();
     }
     RandomizerCheckObjects::UpdateImGuiVisibility();
 }
 
-// ---- F and P: the fold -------------------------------------------------------------------
+// ---- F and O: the fold -------------------------------------------------------------------
 
 /** The fold lines #1408 added for option @p o, counted from the option groups by
  *  pointer: what the fold must leave out while the option is off. Same walk as the
@@ -282,7 +332,7 @@ uint32_t CountLines(int o) {
            "option itself\n",
            (unsigned)(excludes + optionRows), kOptions[o].name, (unsigned)excludes, excludeRows.size(),
            (unsigned)optionRows);
-    // If either is 0, F and P below would be asserting nothing about it.
+    // If either is 0, F and O below would be asserting nothing about it.
     ICE_CHECK(excludes > 0, "the exclude groups hold none of %s's checks' rows", kOptions[o].name);
     ICE_CHECK(optionRows > 0, "no folded group holds %s's own row", kOptions[o].name);
     return excludes + optionRows;
@@ -294,11 +344,11 @@ struct FoldRecord {
     uint32_t total;
     uint32_t folded[2];
     uint32_t skipped[2];
-    int pinned[2];
     uint8_t option[2];
     uint32_t settingsHash;
     size_t locations;
-    size_t iceLocations[2];
+    std::set<RandomizerCheck> actual[2];
+    std::set<RandomizerCheck> expected[2];
 };
 
 FoldRecord IceGenerate(const char* leg) {
@@ -306,8 +356,8 @@ FoldRecord IceGenerate(const char* leg) {
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
     r.runs = OoT_Rando_LastSettingsFold(&r.total, nullptr, 0);
-    (void)OoT_Rando_LastSettingsFoldIcicles(&r.folded[0], &r.skipped[0], &r.pinned[0]);
-    (void)OoT_Rando_LastSettingsFoldRedIce(&r.folded[1], &r.skipped[1], &r.pinned[1]);
+    (void)OoT_Rando_LastSettingsFoldIcicles(&r.folded[0], &r.skipped[0]);
+    (void)OoT_Rando_LastSettingsFoldRedIce(&r.folded[1], &r.skipped[1]);
     r.settingsHash = gComboCtx.sharedRandoSettingsHash;
     auto world = Rando::Context::GetInstance();
     if (world != nullptr) {
@@ -318,37 +368,35 @@ FoldRecord IceGenerate(const char* leg) {
         for (RandomizerCheck check : world->allLocations) {
             const RandomizerCheckType type = Rando::StaticData::GetLocation(check)->GetRCType();
             if (type == RCTYPE_ICICLE) {
-                r.iceLocations[0]++;
+                r.actual[0].insert(check);
             } else if (type == RCTYPE_RED_ICE) {
-                r.iceLocations[1]++;
+                r.actual[1].insert(check);
+            }
+        }
+        // What the world's dungeon quests select under On (Context::GenerateLocationPool's rule).
+        for (int c = RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE;
+             c <= RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5; c++) {
+            Rando::Location* loc = Rando::StaticData::GetLocation((RandomizerCheck)c);
+            const int o = loc->GetRCType() == RCTYPE_ICICLE ? 0 : 1;
+            if (loc->IsOverworld()) {
+                r.expected[o].insert((RandomizerCheck)c);
+                continue;
+            }
+            auto* dungeon = world->GetDungeon(loc->GetArea() - RCAREA_DEKU_TREE);
+            if (dungeon != nullptr &&
+                (loc->GetQuest() == RCQUEST_BOTH || (loc->GetQuest() == RCQUEST_MQ) == dungeon->IsMQ())) {
+                r.expected[o].insert((RandomizerCheck)c);
             }
         }
     }
     printf("[TEST] %s: generation rc %d, fold run %d: %u line(s), settingsHash %08X, %zu location(s)\n", leg, rc,
            r.runs, (unsigned)r.total, (unsigned)r.settingsHash, r.locations);
     for (int o = 0; o < 2; o++) {
-        printf("[TEST] %s:   %s: lines folded %u / left out %u, pinned %d, option %u, %zu of the locations\n", leg,
-               kOptions[o].name, (unsigned)r.folded[o], (unsigned)r.skipped[o], r.pinned[o], (unsigned)r.option[o],
-               r.iceLocations[o]);
+        printf("[TEST] %s:   %s: lines folded %u / left out %u, option %u, %zu of %zu selected location(s)\n", leg,
+               kOptions[o].name, (unsigned)r.folded[o], (unsigned)r.skipped[o], (unsigned)r.option[o],
+               r.actual[o].size(), r.expected[o].size());
     }
     return r;
-}
-
-void CheckOffWorld(const char* leg, const FoldRecord& r, const uint32_t (&expectedSkipped)[2]) {
-    ICE_CHECK(r.generated && r.runs > 0, "%s: the generation failed or ran no settings fold", leg);
-    ICE_CHECK(r.locations > 0, "%s: the world has no locations to look at", leg);
-    for (int o = 0; o < 2; o++) {
-        ICE_CHECK(r.folded[o] == 0,
-                  "%s: the settings fold read %u line(s) %s added while the option is off: every default world's "
-                  "fingerprint, and so every placement, moves",
-                  leg, (unsigned)r.folded[o], kOptions[o].name);
-        ICE_CHECK(r.skipped[o] == expectedSkipped[o], "%s: the fold left out %u %s line(s), the option groups hold %u",
-                  leg, (unsigned)r.skipped[o], kOptions[o].name, (unsigned)expectedSkipped[o]);
-        ICE_CHECK(r.option[o] == RO_GENERIC_OFF, "%s: the world was generated with %s %u", leg, kOptions[o].name,
-                  (unsigned)r.option[o]);
-        ICE_CHECK(r.iceLocations[o] == 0, "%s: %zu of the world's locations are %s checks", leg, r.iceLocations[o],
-                  kOptions[o].name);
-    }
 }
 
 void CheckFold() {
@@ -358,30 +406,46 @@ void CheckFold() {
         CVarClear(kOptions[o].cvar);
     }
     const FoldRecord f = IceGenerate("F");
-    const uint32_t expectedF[2] = { CountLines(0), CountLines(1) };
-    CheckOffWorld("F", f, expectedF);
+    const uint32_t expected[2] = { CountLines(0), CountLines(1) };
+    ICE_CHECK(f.generated && f.runs > 0, "F: the generation failed or ran no settings fold");
+    ICE_CHECK(f.locations > 0, "F: the world has no locations to look at");
     for (int o = 0; o < 2; o++) {
-        ICE_CHECK(f.pinned[o] == 0, "F: the generation reports pinning %s, which was already off", kOptions[o].name);
+        ICE_CHECK(f.folded[o] == 0,
+                  "F: the settings fold read %u line(s) %s added while the option is off: every default world's "
+                  "fingerprint, and so every placement, moves",
+                  (unsigned)f.folded[o], kOptions[o].name);
+        ICE_CHECK(f.skipped[o] == expected[o], "F: the fold left out %u %s line(s), the option groups hold %u",
+                  (unsigned)f.skipped[o], kOptions[o].name, (unsigned)expected[o]);
+        ICE_CHECK(f.option[o] == RO_GENERIC_OFF, "F: the world was generated with %s %u", kOptions[o].name,
+                  (unsigned)f.option[o]);
+        ICE_CHECK(f.actual[o].empty(), "F: %zu of the world's locations are %s checks", f.actual[o].size(),
+                  kOptions[o].name);
     }
 
     // Never stored: a stored rando key poisons later rows (Restore below).
     for (int o = 0; o < 2; o++) {
         CVarSetInteger(kOptions[o].cvar, RO_GENERIC_ON);
     }
-    const FoldRecord p = IceGenerate("P");
+    const FoldRecord on = IceGenerate("O");
     for (int o = 0; o < 2; o++) {
         saved[o].Restore();
     }
-    const uint32_t expectedP[2] = { CountLines(0), CountLines(1) };
-    CheckOffWorld("P", p, expectedP);
+    ICE_CHECK(on.generated && on.runs > f.runs, "O: the paired generation with both options on failed");
     for (int o = 0; o < 2; o++) {
-        ICE_CHECK(p.pinned[o] == 1, "P: a paired generation with %s keyed On did not pin it off", kOptions[o].name);
+        ICE_CHECK(on.option[o] == RO_GENERIC_ON, "O: a paired world keyed On generated %s as %u (pinned off?)",
+                  kOptions[o].name, (unsigned)on.option[o]);
+        ICE_CHECK(on.folded[o] == expected[o] && on.skipped[o] == 0,
+                  "O: with %s on the fold read %u and left out %u of %u line(s)", kOptions[o].name,
+                  (unsigned)on.folded[o], (unsigned)on.skipped[o], (unsigned)expected[o]);
+        ICE_CHECK(!on.expected[o].empty() && on.actual[o] == on.expected[o],
+                  "O: %s added %zu location(s), the world's quests select %zu", kOptions[o].name,
+                  on.actual[o].size(), on.expected[o].size());
     }
-    ICE_CHECK(f.generated && p.generated && p.settingsHash == f.settingsHash,
-              "P: the pinned world's settings fingerprint %08X is not the default world's %08X",
-              (unsigned)p.settingsHash, (unsigned)f.settingsHash);
-    ICE_CHECK(p.total == f.total, "P: the pinned world folded %u line(s), the default world %u", (unsigned)p.total,
-              (unsigned)f.total);
+    ICE_CHECK(on.settingsHash != f.settingsHash,
+              "O: the world with both options on has the default world's fingerprint %08X", (unsigned)f.settingsHash);
+    // Not asserted here: a paired generation stops at OoT's general pass, before the single bag places
+    // anything, so the icicle/red ice checks are still empty here. That the finished world holds an item on
+    // every one of them is OoTIcePaired's leg B.
 }
 
 } // namespace
@@ -391,7 +455,8 @@ void CheckFold() {
  */
 extern "C" int OoT_ShuffleIceTest_Run(void) {
     printf("[TEST] oot-shuffle-ice: every icicle and red ice check has its own flag, both options ship off and "
-           "greyed out, default worlds fold none of their lines, and a paired world generates them off (#1408)\n");
+           "enabled, default worlds fold none of their lines, and a paired world with both on keeps them on and "
+           "selects every quest-matching check (#1408)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-shuffle-ice needs OTRGlobals' randomizer context\n");
         return 1;

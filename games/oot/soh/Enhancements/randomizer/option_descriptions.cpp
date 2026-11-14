@@ -345,6 +345,17 @@ void Settings::CreateOptionDescriptions() {
         "only shuffle with No Logic.";
     mOptionDescriptions[RSK_SHUFFLE_BUSHES] =
         "Bushes in Hyrule Field & Zora's Fountain will contain randomized items when first walked through.";
+    mOptionDescriptions[RSK_SHUFFLE_WONDER_ITEMS] =
+        "Wonder items will drop a randomized item the first time they're collected. "
+        "Wonder items will be marked with swirling particles.\n"
+        "\n"
+        "Off - Wonder items will not be shuffled.\n"
+        "\n"
+        "Dungeons - Only shuffle wonder items that are within dungeons.\n"
+        "\n"
+        "Overworld - Only shuffle wonder items that are outside of dungeons.\n"
+        "\n"
+        "All Items - Shuffle all wonder items.";
     mOptionDescriptions[RSK_SHUFFLE_ICICLES] =
         "Stalagmites and stalactites in Ice Cavern and Ganon's Castle will contain randomized items when broken.\n"
         "Icicles will have a halo around them when carrying randomized items.";

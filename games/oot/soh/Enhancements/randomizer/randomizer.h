@@ -46,6 +46,7 @@ class Randomizer {
     CheckIdentity IdentifyCrate(s32 sceneNum, s32 posX, s32 posZ);
     CheckIdentity IdentifySmallCrate(s32 sceneNum, s32 posX, s32 posZ);
     CheckIdentity IdentifyTree(s32 sceneNum, s32 posX, s32 posZ);
+    CheckIdentity IdentifyWonderItem(s32 sceneNum, s32 par1, s32 par2);
     CheckIdentity IdentifyIcicle(s32 sceneNum, s32 posX, s32 posZ);
     CheckIdentity IdentifyRedIce(s32 sceneNum, s32 posX, s32 posZ);
     GetItemEntry GetItemFromKnownCheck(RandomizerCheck randomizerCheck, GetItemID ogItemId,

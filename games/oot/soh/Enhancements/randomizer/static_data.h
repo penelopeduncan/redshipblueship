@@ -71,6 +71,7 @@ class StaticData {
     static void RegisterCrateLocations();
     static void RegisterTreeLocations();
     static void RegisterSilverLocations();
+    static void RegisterWonderItemLocations();
     static void RegisterIcicleLocations();
     static void RegisterRedIceLocations();
     static void InitHashMaps();
