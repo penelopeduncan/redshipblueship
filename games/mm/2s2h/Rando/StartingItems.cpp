@@ -1,5 +1,7 @@
 #include "Rando.h"
+#include "2s2h/Rando/Logic/Logic.h"
 #include "2s2h/Rando/StaticData/StaticData.h"
+#include <utility>
 #include "2s2h/ShipUtils.h"
 #include <libultraship/libultraship.h>
 #include <libultraship/bridge/consolevariablebridge.h>
@@ -60,19 +62,31 @@ std::vector<RandoItemId> GetComputedStartingItems(RandoSaveInfo& randoSaveInfo) 
         startingItems.push_back(RI_STONE_TOWER_BOSS_KEY);
     }
 
-    if (randoSaveInfo.randoSaveOptions[RO_PLACEMENT_STRAY_FAIRIES] == RO_DUNGEON_ITEM_START_WITH) {
-        std::vector<RandoItemId> strayFairies = {
-            RI_WOODFALL_STRAY_FAIRY,
-            RI_SNOWHEAD_STRAY_FAIRY,
-            RI_GREAT_BAY_STRAY_FAIRY,
-            RI_STONE_TOWER_STRAY_FAIRY,
+    const bool startChestFairies =
+        randoSaveInfo.randoSaveOptions[RO_PLACEMENT_STRAY_FAIRIES] == RO_DUNGEON_ITEM_START_WITH;
+    const bool startOtherFairies =
+        randoSaveInfo.randoSaveOptions[RO_PLACEMENT_STRAY_FAIRIES_OTHER] == RO_DUNGEON_ITEM_START_WITH;
+    if (startChestFairies || startOtherFairies) {
+        const std::pair<DungeonSceneIndex, RandoItemId> strayFairies[] = {
+            { DUNGEON_SCENE_INDEX_WOODFALL_TEMPLE, RI_WOODFALL_STRAY_FAIRY },
+            { DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE, RI_SNOWHEAD_STRAY_FAIRY },
+            { DUNGEON_SCENE_INDEX_GREAT_BAY_TEMPLE, RI_GREAT_BAY_STRAY_FAIRY },
+            { DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE, RI_STONE_TOWER_STRAY_FAIRY },
         };
 
-        for (RandoItemId itemId : strayFairies) {
-            startingItems.insert(startingItems.end(), STRAY_FAIRY_SCATTERED_TOTAL, itemId);
+        for (const auto& [dungeonIndex, itemId] : strayFairies) {
+            int chestCount = 0;
+            int otherCount = 0;
+            Logic::GetStrayFairyCheckCounts(dungeonIndex, &chestCount, &otherCount);
+            const int grantCount = (startChestFairies ? chestCount : 0) + (startOtherFairies ? otherCount : 0);
+            if (grantCount > 0) {
+                startingItems.insert(startingItems.end(), (size_t)grantCount, itemId);
+            }
         }
 
-        startingItems.push_back(RI_CLOCK_TOWN_STRAY_FAIRY);
+        if (startOtherFairies) {
+            startingItems.push_back(RI_CLOCK_TOWN_STRAY_FAIRY);
+        }
     }
 
     if (!RsbsWorldShuffles(randoSaveInfo, RO_SHUFFLE_SWIM)) {

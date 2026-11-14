@@ -1062,6 +1062,94 @@ int LegMmPre1403Half() {
 }
 
 // ---------------------------------------------------------------------------
+// Leg 2i - #1548: RO_PLACEMENT_STRAY_FAIRIES_OTHER allows 0 (Anywhere) while
+// defaulting to 3 (Vanilla) — unlike #1403's sliders whose 0 means default —
+// and a legacy pre-#1548 half with all four placement slots at 0 restores all
+// four explicitly to Anywhere (0).
+// ---------------------------------------------------------------------------
+int LegMmPlacementAnywhereAndLegacyHalf() {
+    const ComboMMOptionDesc* smallKeys = Combo_MMOptionById((uint16_t)RO_PLACEMENT_SMALL_KEYS);
+    const ComboMMOptionDesc* bossKeys = Combo_MMOptionById((uint16_t)RO_PLACEMENT_BOSS_KEYS);
+    const ComboMMOptionDesc* chestFairies = Combo_MMOptionById((uint16_t)RO_PLACEMENT_STRAY_FAIRIES);
+    const ComboMMOptionDesc* otherFairies = Combo_MMOptionById((uint16_t)RO_PLACEMENT_STRAY_FAIRIES_OTHER);
+    if (smallKeys == nullptr || bossKeys == nullptr || chestFairies == nullptr || otherFairies == nullptr) {
+        return Fail(177, "leg 2i setup: missing MM placement option descriptors");
+    }
+
+    // (i) Modern half with only Freestanding Fairies explicitly set to 0 (Anywhere).
+    ClearAuthoredKeys();
+    Combo_MMOptionSetValue(otherFairies, (int32_t)RO_DUNGEON_ITEM_ANYWHERE);
+    if (int rc = CreatePairedFile(false, nullptr)) {
+        return rc;
+    }
+    const uint32_t anyDigest = gComboCtx.mmProfileDigest;
+    const std::vector<uint8_t> file = PlrReadAll(rsbs::SaveManager::Instance().SlotPath(kSlot));
+    const size_t mmSize = file.size() > kHdrComboSize + 12 ? PlrU32At(file, kHdrComboSize + 8) : 0;
+    if (mmSize < sizeof(SaveContext) || Tier3Offset(file) + mmSize > file.size()) {
+        return Fail(178, "leg 2i setup: slot file holds no readable MM half (%zu bytes)", mmSize);
+    }
+    std::vector<uint8_t> half(file.begin() + (std::ptrdiff_t)Tier3Offset(file),
+                              file.begin() + (std::ptrdiff_t)(Tier3Offset(file) + mmSize));
+
+    ClearAuthoredKeys();
+    const int classifiedAny = MM_Rando_ClassifyProfileForLoad(half.data(), half.size(), anyDigest);
+    char names[256] = { 0 };
+    int count = -1;
+    const int restoredAny =
+        MM_Rando_RestoreProfileForLoad(half.data(), half.size(), anyDigest, names, sizeof(names), &count);
+    const bool matchesAny = MM_Rando_ProfileStampMatches(anyDigest) != 0;
+    const int32_t otherVal = Combo_MMOptionGetValue(otherFairies);
+    const bool otherSet = Combo_MMOptionIsExplicit(otherFairies);
+    int rc = 0;
+    if (classifiedAny != RSBS_MM_PROFILE_LOAD_RESTORABLE || restoredAny != RSBS_MM_PROFILE_LOAD_RESTORED ||
+        count != 1 || otherVal != (int32_t)RO_DUNGEON_ITEM_ANYWHERE || !otherSet || !matchesAny ||
+        std::string(names) != std::string(otherFairies->label)) {
+        rc = Fail(179, "leg 2i (Anywhere 0): classify=%d restore=%d count=%d names='%s' val=%d set=%d matches=%d",
+                  classifiedAny, restoredAny, count, names, (int)otherVal, otherSet ? 1 : 0, matchesAny ? 1 : 0);
+    }
+
+    // (ii) Legacy half created before #1548 with all four placement rows at 0.
+    ClearAuthoredKeys();
+    const ComboMMOptionDesc* const rows[4] = { smallKeys, bossKeys, chestFairies, otherFairies };
+    for (const ComboMMOptionDesc* r : rows) {
+        Combo_MMOptionSetValue(r, (int32_t)RO_DUNGEON_ITEM_ANYWHERE);
+    }
+    if (rc == 0) {
+        rc = CreatePairedFile(false, nullptr);
+    }
+    if (rc == 0) {
+        const uint32_t legacyDigest = gComboCtx.mmProfileDigest;
+        const std::vector<uint8_t> legacyFile = PlrReadAll(rsbs::SaveManager::Instance().SlotPath(kSlot));
+        const size_t legacyMmSize =
+            legacyFile.size() > kHdrComboSize + 12 ? PlrU32At(legacyFile, kHdrComboSize + 8) : 0;
+        std::vector<uint8_t> legacyHalf(legacyFile.begin() + (std::ptrdiff_t)Tier3Offset(legacyFile),
+                                        legacyFile.begin() + (std::ptrdiff_t)(Tier3Offset(legacyFile) + legacyMmSize));
+        ClearAuthoredKeys();
+        const int clsLegacy = MM_Rando_ClassifyProfileForLoad(legacyHalf.data(), legacyHalf.size(), legacyDigest);
+        names[0] = '\0';
+        count = -1;
+        const int rstLegacy = MM_Rando_RestoreProfileForLoad(legacyHalf.data(), legacyHalf.size(), legacyDigest, names,
+                                                             sizeof(names), &count);
+        const bool matchesLegacy = MM_Rando_ProfileStampMatches(legacyDigest) != 0;
+        const int clsNoHalf = MM_Rando_ClassifyProfileForLoad(nullptr, 0, legacyDigest);
+        bool allRestoredZero = true;
+        for (const ComboMMOptionDesc* r : rows) {
+            if (!Combo_MMOptionIsExplicit(r) || Combo_MMOptionGetValue(r) != (int32_t)RO_DUNGEON_ITEM_ANYWHERE) {
+                allRestoredZero = false;
+            }
+        }
+        if (clsLegacy != RSBS_MM_PROFILE_LOAD_RESTORABLE || rstLegacy != RSBS_MM_PROFILE_LOAD_RESTORED || count != 4 ||
+            !allRestoredZero || !matchesLegacy || clsNoHalf != RSBS_MM_PROFILE_LOAD_MATCHES) {
+            rc = Fail(180, "leg 2i (legacy 4x Anywhere): cls=%d rst=%d count=%d allZero=%d matches=%d noHalf=%d",
+                      clsLegacy, rstLegacy, count, allRestoredZero ? 1 : 0, matchesLegacy ? 1 : 0, clsNoHalf);
+        }
+    }
+
+    ClearAuthoredKeys();
+    return rc;
+}
+
+// ---------------------------------------------------------------------------
 // Leg 2b: ONE trick changed, the one with the longest label.
 // ---------------------------------------------------------------------------
 int LegMmTrickOnly() {
@@ -1993,6 +2081,7 @@ extern "C" int MM_PairedLoadRestore_RunHeadless(void) {
         LegLogicRung,
         LegMmProfile,
         LegMmPre1403Half,
+        LegMmPlacementAnywhereAndLegacyHalf,
         LegMmTrickOnly,
         LegMmManyTricks,
         LegMmTrapTypes,

@@ -1608,13 +1608,29 @@ extern "C" int MM_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int coun
     // sit on a song check of either game. Read once: a pure function of the
     // frozen settings.
     const bool songUnion = MM_ComboLogic_SongPoolUnionLive();
+    constexpr int kDungeonCount = DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE + 1;
+    int fairyQuota[kDungeonCount];
+    for (int d = 0; d < kDungeonCount; ++d) {
+        fairyQuota[d] = Rando::Logic::OwnDungeonStrayFairyQuota(d);
+    }
     for (int i = 0; i < count && items != nullptr && outMasks != nullptr; ++i) {
         uint32_t mask = 0u;
         const RandoItemId ri = (RandoItemId)items[i];
         if (items[i] < (uint16_t)RI_MAX && Rando::StaticData::Items.find(ri) != Rando::StaticData::Items.end()) {
-            mask = (songUnion && MM_ComboLogic_IsPairSongItem(items[i]))
-                       ? RSBS_COMBO_GROUP_SONG_LOCATIONS
-                       : MmConfinementBit(Rando::Logic::RandoItemIdToConfinementGroup(ri));
+            if (songUnion && MM_ComboLogic_IsPairSongItem(items[i])) {
+                mask = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+            } else {
+                const int group = Rando::Logic::RandoItemIdToConfinementGroup(ri);
+                if (group >= 0 && group < kDungeonCount &&
+                    Rando::StaticData::Items[ri].randoItemType == RITYPE_STRAY_FAIRY) {
+                    if (fairyQuota[group] > 0) {
+                        --fairyQuota[group];
+                        mask = MmConfinementBit(group);
+                    }
+                } else {
+                    mask = MmConfinementBit(group);
+                }
+            }
         }
         outMasks[i] = mask;
         confined += (mask != 0u) ? 1 : 0;

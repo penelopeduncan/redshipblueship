@@ -510,6 +510,8 @@ int MM_PairedProfile_RunHeadless(void);
 // world check runs after a real paired generation. Return 0 on pass.
 int MM_PlacementConfinement_RunHeadless(void);
 int MM_PlacementConfinedWorld_Check(void);
+int MM_PlacementDefaultWorld_Check(void);
+int MM_PlacementAnywhereWorld_Check(void);
 // games/mm/2s2h/mm_trick_table_test.cpp (#578 part 1): MM's per-trick
 // vocabulary. MM-side for the same reason as the two above — they drive
 // Rando::StaticData::Tricks, Rando::Logic::CanKillEnemy and
@@ -8659,6 +8661,89 @@ TestResult Test_MMPlacementConfinedWorld(void) {
     return MM_PlacementConfinedWorld_Check() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1548: shipped defaults (Small Keys, Boss Keys and Dungeon Chest Fairies Own
+// Dungeon; Freestanding Fairies Vanilla; Songs Song Locations) generated for real.
+TestResult Test_MMPlacementDefaultWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char mpdArg0[] = "redship";
+    static char* mpdArgv[] = { mpdArg0, nullptr };
+    InitOTRForMMFirstBoot(1, mpdArgv);
+    ComboContext_Init();
+    static const char* const kClearKeys[6] = {
+        "gRando.Options.RO_PLACEMENT_SMALL_KEYS",    "gRando.Options.RO_PLACEMENT_BOSS_KEYS",
+        "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES", "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER",
+        "gRando.Options.RO_SHUFFLE_SONGS",           RSBS_OOT_SHUFFLE_SONGS_CVAR,
+    };
+    struct Restore {
+        ~Restore() {
+            for (const char* key : kClearKeys) {
+                CVarClear(key);
+            }
+        }
+    } restore;
+    for (const char* key : kClearKeys) {
+        CVarClear(key);
+    }
+    const int gen = Rando_HeadlessSeedTest("RSBSMMDEFAULT1");
+    const int mmHalf = (gen == 0) ? MM_Rando_HeadlessPairedHalf() : -1;
+    if (gen != 0 || mmHalf != 0) {
+        printf("[TEST] FAIL: default paired generation failed (OoT %d, MM %d)\n", gen, mmHalf);
+        return TEST_FAIL;
+    }
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    if (bag->status != RSBS_COMBO_LOGIC_OK || !bag->fill.goalProven) {
+        printf("[TEST] FAIL: default single-bag fill failed (%s)\n", Combo_Logic_StatusName(bag->status));
+        return TEST_FAIL;
+    }
+    return MM_PlacementDefaultWorld_Check() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1548: explicit all-Anywhere paired generation (pre-#1548 placement mode).
+TestResult Test_MMPlacementAnywhereWorld(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char mpaArg0[] = "redship";
+    static char* mpaArgv[] = { mpaArg0, nullptr };
+    InitOTRForMMFirstBoot(1, mpaArgv);
+    ComboContext_Init();
+    static const char* const kKeys[5] = {
+        "gRando.Options.RO_PLACEMENT_SMALL_KEYS",    "gRando.Options.RO_PLACEMENT_BOSS_KEYS",
+        "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES", "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER",
+        "gRando.Options.RO_SHUFFLE_SONGS",
+    };
+    struct Restore {
+        ~Restore() {
+            for (const char* key : kKeys) {
+                CVarClear(key);
+            }
+            CVarClear(RSBS_OOT_SHUFFLE_SONGS_CVAR);
+        }
+    } restore;
+    for (const char* key : kKeys) {
+        CVarSetInteger(key, 0); // RO_DUNGEON_ITEM_ANYWHERE / RO_SONG_SHUFFLE_ANYWHERE
+    }
+    CVarSetInteger(RSBS_OOT_SHUFFLE_SONGS_CVAR, (int)RSBS_OOT_SONGS_ANYWHERE);
+    const int gen = Rando_HeadlessSeedTest("RSBSMMANYWHERE1");
+    const int mmHalf = (gen == 0) ? MM_Rando_HeadlessPairedHalf() : -1;
+    if (gen != 0 || mmHalf != 0) {
+        printf("[TEST] FAIL: Anywhere paired generation failed (OoT %d, MM %d)\n", gen, mmHalf);
+        return TEST_FAIL;
+    }
+    const ComboSingleBagReport* bag = Combo_SingleBag_LastReport();
+    if (bag->status != RSBS_COMBO_LOGIC_OK || !bag->fill.goalProven) {
+        printf("[TEST] FAIL: Anywhere single-bag fill failed (%s)\n", Combo_Logic_StatusName(bag->status));
+        return TEST_FAIL;
+    }
+    return MM_PlacementAnywhereWorld_Check() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1169 XW4: the Song of Soaring (OoT)'s pool and OoTMM's overflow refusal over
 // real paired OoT generations, shared-songs-one-copy's bring-up.
 TestResult Test_OoTSoaringPooledOnlyWhenRuleOn(void) {
@@ -10975,6 +11060,16 @@ const TestDescriptor gTests[] = {
       "A real paired generation with MM's keys, boss keys and fairies at Own Dungeon and its songs at Song Locations: "
       "every confined MM item lands in its group and none crosses into Ocarina of Time (#1502)",
       Test_MMPlacementConfinedWorld },
+    { "mm-placement-default-world",
+      "A real paired generation under shipped #1548 defaults (Small/Boss/Chest Fairies Own Dungeon, Freestanding "
+      "Fairies "
+      "Vanilla, Songs Song Locations): 44 locally confined rows stay in-dungeon and all 30 freestanding/CT fairies "
+      "stay vanilla",
+      Test_MMPlacementDefaultWorld },
+    { "mm-placement-anywhere-world",
+      "A real paired generation with MM keys, boss keys, chest/freestanding fairies and songs set to Anywhere (#1548): "
+      "zero confinement masks and all 61 fairies plus 13 keys conserved across the pair",
+      Test_MMPlacementAnywhereWorld },
     { "shared-arrows-bag",
       "With all three shared-arrow rules on, the single bag holds one row per arrow both solvers credit, each placed "
       "once over both games, and the GOAL is still proven (#968)",
@@ -11748,6 +11843,8 @@ int TestRunner_Run(const char* testName) {
                 strncmp(gTests[i].name, "shared-warp-songs-one-copy-", 27) == 0 ||
                 strcmp(gTests[i].name, "shared-warp-songs-edges") == 0 ||
                 strcmp(gTests[i].name, "mm-placement-confined-world") == 0 ||
+                strcmp(gTests[i].name, "mm-placement-default-world") == 0 ||
+                strcmp(gTests[i].name, "mm-placement-anywhere-world") == 0 ||
                 strcmp(gTests[i].name, "combo-crossing-views-world") == 0 ||
                 strcmp(gTests[i].name, "combo-item-view-new-file") == 0 ||
                 strcmp(gTests[i].name, "mm-creation-new-file-world") == 0 ||

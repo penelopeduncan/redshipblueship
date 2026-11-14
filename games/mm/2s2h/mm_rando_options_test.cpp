@@ -573,6 +573,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             { RO_PLACEMENT_SMALL_KEYS, "Shuffle Items" },
             { RO_PLACEMENT_BOSS_KEYS, "Shuffle Items" },
             { RO_PLACEMENT_STRAY_FAIRIES, "Shuffle Items" },
+            { RO_PLACEMENT_STRAY_FAIRIES_OTHER, "Shuffle Items" },
             { RO_MINIMUM_STRAY_FAIRIES, "Shuffle Items" },
             { RO_STRAY_FAIRIES_MAX, "Shuffle Items" },
             { RO_SHUFFLE_FROGS, "Shuffle Items" },
@@ -1176,17 +1177,55 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         return true;
     };
 
+    // MM's placement defaults (#1548): Small Keys, Boss Keys and Dungeon Chest
+    // Fairies shipped at Own Dungeon (1) and Freestanding Fairies at Vanilla (3),
+    // where every pre-#1548 world defaulted all four to Anywhere (0).
+    static const RandoOptionId kPlacementRows[] = {
+        RO_PLACEMENT_SMALL_KEYS,
+        RO_PLACEMENT_BOSS_KEYS,
+        RO_PLACEMENT_STRAY_FAIRIES,
+        RO_PLACEMENT_STRAY_FAIRIES_OTHER,
+    };
+    auto setPlacementRows = [](int32_t value) {
+        for (const RandoOptionId id : kPlacementRows) {
+            CVarSetInteger(Rando::StaticData::Options[id].cvar, value);
+        }
+    };
+    auto clearPlacementRows = []() {
+        for (const RandoOptionId id : kPlacementRows) {
+            CVarClear(Rando::StaticData::Options[id].cvar);
+        }
+    };
+    auto placementKeysUnset = []() {
+        for (const RandoOptionId id : kPlacementRows) {
+            if (Combo_CVarIsExplicitInt(Rando::StaticData::Options[id].cvar)) {
+                return false;
+            }
+        }
+        return true;
+    };
+    auto placementRowsAnywhere = [](const uint32_t* options) {
+        for (const RandoOptionId id : kPlacementRows) {
+            if (options[id] != RO_DUNGEON_ITEM_ANYWHERE) {
+                return false;
+            }
+        }
+        return true;
+    };
+
     // ---- #1437: a world made before Ascending shipped loads where it did ------
     // Created with Shuffle Time on and Time Progression never touched, so its
-    // stamp folds the old row default, Random, and (#1439) the hint rows' old
-    // default, Off. Its half cannot always say so: a pair created before K11 has
-    // none, and a half written before #1101 reads later SaveContext fields where
-    // the excluded-check set now sits, so its candidate misses. With the keys as
+    // stamp folds the old row default, Random, (#1439) the hint rows' old
+    // default, Off, and (#1548) the placement rows' old default, Anywhere. Its
+    // half cannot always say so: a pair created before K11 has none, and a half
+    // written before #1101 reads later SaveContext fields where the
+    // excluded-check set now sits, so its candidate misses. With the keys as
     // the player left them the load matched on main and must still match, and a
-    // generation against the stamp keeps Random and the hint rows Off. RED without
-    // the pre-#1437 candidate: both classify UNRESTORABLE (the file select refuses
-    // the slot) and the re-resolution throws; and RED as well with a candidate that
-    // resolves the hint rows as today (on), which no world made before #1437 has.
+    // generation against the stamp keeps Random, the hint rows Off and the
+    // placement rows Anywhere. RED without the pre-#1437 candidate: both
+    // classify UNRESTORABLE (the file select refuses the slot) and the
+    // re-resolution throws; and RED as well with a candidate that resolves the
+    // hint or placement rows as today, which no world made before #1437 has.
     {
         ClearAllOptionCVars();
         CVarSetInteger(Rando::StaticData::Options[RO_CLOCK_SHUFFLE].cvar, RO_GENERIC_ON);
@@ -1194,6 +1233,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         // to compute it: the identity folds values, not whether a key was set.
         CVarSetInteger(modeRow.cvar, RO_CLOCK_SHUFFLE_RANDOM);
         setHintRows(RO_GENERIC_OFF);
+        setPlacementRows(RO_DUNGEON_ITEM_ANYWHERE);
         restampUnfrozenCarrier();
         const uint32_t frozen = MM_Rando_ComputeProfileStamp();
         // The half that world's creation wrote, then aged into one written before
@@ -1207,6 +1247,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         memcpy(oldHalf.data(), &gSaveContext, sizeof(SaveContext));
         CVarClear(modeRow.cvar); // the keys as the player left them
         clearHintRows();
+        clearPlacementRows();
         const uint32_t today = MM_Rando_ComputeProfileStamp();
         const bool matches = MM_Rando_ProfileStampMatches(frozen) != 0;
         const int classifiedNone = MM_Rando_ClassifyProfileForLoad(nullptr, 0, frozen);
@@ -1215,7 +1256,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         int count = -1;
         const int restored =
             MM_Rando_RestoreProfileForLoad(oldHalf.data(), oldHalf.size(), frozen, names, sizeof(names), &count);
-        const bool keyUnset = !Combo_CVarIsExplicitInt(modeRow.cvar) && hintKeysUnset();
+        const bool keyUnset = !Combo_CVarIsExplicitInt(modeRow.cvar) && hintKeysUnset() && placementKeysUnset();
         // The arrival of a pair with no half: its generation re-resolves the keys
         // against the stamp (ResolvePairedProfile's compare-or-stamp).
         memset(&gSaveContext, 0, sizeof(gSaveContext));
@@ -1228,11 +1269,13 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         }
         const uint32_t resolvedMode = RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE_PROGRESSIVE];
         const bool resolvedHintsOff = hintRowsOff(RANDO_SAVE_OPTIONS);
+        const bool resolvedPlacementAny = placementRowsAnywhere(RANDO_SAVE_OPTIONS);
         printf("[TEST] mm-paired-profile #1437 legacy: stamp %08X (today's keys %08X) matches %d; no half %d, old half "
-               "%d, restore %d (%d key(s), mode and hint keys unset %d); re-resolved %08X mode %u hints off %d (threw "
-               "%d)\n",
+               "%d, restore %d (%d key(s), mode/hint/placement keys unset %d); re-resolved %08X mode %u hints off %d "
+               "placement any %d (threw %d)\n",
                (unsigned)frozen, (unsigned)today, matches ? 1 : 0, classifiedNone, classifiedOld, restored, count,
-               keyUnset ? 1 : 0, (unsigned)resolved, (unsigned)resolvedMode, resolvedHintsOff ? 1 : 0, threw ? 1 : 0);
+               keyUnset ? 1 : 0, (unsigned)resolved, (unsigned)resolvedMode, resolvedHintsOff ? 1 : 0,
+               resolvedPlacementAny ? 1 : 0, threw ? 1 : 0);
         if (today == frozen || !matches || classifiedNone != RSBS_MM_PROFILE_LOAD_MATCHES ||
             classifiedOld != RSBS_MM_PROFILE_LOAD_MATCHES || restored != RSBS_MM_PROFILE_LOAD_MATCHES || count != 0 ||
             !keyUnset) {
@@ -1242,12 +1285,14 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
                         "restore %d)",
                         matches ? 1 : 0, classifiedNone, classifiedOld, restored);
         }
-        if (threw || resolved != frozen || resolvedMode != RO_CLOCK_SHUFFLE_RANDOM || !resolvedHintsOff) {
+        if (threw || resolved != frozen || resolvedMode != RO_CLOCK_SHUFFLE_RANDOM || !resolvedHintsOff ||
+            !resolvedPlacementAny) {
             return Fail(102,
-                        "a pair created before #1437 with no half re-resolved mode %u, hint rows off %d (digest %08X "
-                        "vs %08X, threw %d); its generation must keep Random and the hint rows Off",
-                        (unsigned)resolvedMode, resolvedHintsOff ? 1 : 0, (unsigned)resolved, (unsigned)frozen,
-                        threw ? 1 : 0);
+                        "a pair created before #1437 with no half re-resolved mode %u, hint rows off %d, placement any "
+                        "%d (digest %08X vs %08X, threw %d); its generation must keep Random, hints Off and placement "
+                        "Anywhere",
+                        (unsigned)resolvedMode, resolvedHintsOff ? 1 : 0, resolvedPlacementAny ? 1 : 0,
+                        (unsigned)resolved, (unsigned)frozen, threw ? 1 : 0);
         }
 
         // Guards: the candidate is the unset key's old value and nothing else. An
@@ -1319,6 +1364,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         // The stamp a creation before #1439 made from unset keys, spelled out only
         // to compute it.
         setHintRows(RO_GENERIC_OFF);
+        setPlacementRows(RO_DUNGEON_ITEM_ANYWHERE);
         restampUnfrozenCarrier();
         const uint32_t frozen = MM_Rando_ComputeProfileStamp();
         gComboCtx.mmProfileDigest = frozen;
@@ -1332,6 +1378,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         std::vector<uint8_t> oldHalf(sizeof(SaveContext));
         memcpy(oldHalf.data(), &gSaveContext, sizeof(SaveContext));
         clearHintRows(); // the keys as the player left them
+        clearPlacementRows();
         const uint32_t today = MM_Rando_ComputeProfileStamp();
         const bool matches = MM_Rando_ProfileStampMatches(frozen) != 0;
         const int classifiedNone = MM_Rando_ClassifyProfileForLoad(nullptr, 0, frozen);
@@ -1340,7 +1387,7 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         int count = -1;
         const int restoredOld =
             MM_Rando_RestoreProfileForLoad(oldHalf.data(), oldHalf.size(), frozen, names, sizeof(names), &count);
-        const bool keysUnset = hintKeysUnset();
+        const bool keysUnset = hintKeysUnset() && placementKeysUnset();
         // The arrival of a pair with no half: its generation re-resolves the keys
         // against the stamp (ResolvePairedProfile's compare-or-stamp).
         memset(&gSaveContext, 0, sizeof(gSaveContext));
@@ -1352,10 +1399,12 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
             threw = true;
         }
         const bool resolvedHintsOff = hintRowsOff(RANDO_SAVE_OPTIONS);
+        const bool resolvedPlacementAny = placementRowsAnywhere(RANDO_SAVE_OPTIONS);
         printf("[TEST] mm-paired-profile #1439 legacy: stamp %08X (today's keys %08X) matches %d; no half %d, old half "
-               "%d, restore %d (%d key(s), hint keys unset %d); re-resolved %08X hints off %d (threw %d)\n",
+               "%d, restore %d (%d key(s), keys unset %d); re-resolved %08X hints off %d placement any %d (threw %d)\n",
                (unsigned)frozen, (unsigned)today, matches ? 1 : 0, classifiedNone, classifiedOld, restoredOld, count,
-               keysUnset ? 1 : 0, (unsigned)resolved, resolvedHintsOff ? 1 : 0, threw ? 1 : 0);
+               keysUnset ? 1 : 0, (unsigned)resolved, resolvedHintsOff ? 1 : 0, resolvedPlacementAny ? 1 : 0,
+               threw ? 1 : 0);
         if (today == frozen || !matches || classifiedNone != RSBS_MM_PROFILE_LOAD_MATCHES ||
             classifiedOld != RSBS_MM_PROFILE_LOAD_MATCHES || restoredOld != RSBS_MM_PROFILE_LOAD_MATCHES ||
             count != 0 || !keysUnset) {
@@ -1364,11 +1413,12 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
                         "it (today's stamp moved %d, matches %d, no half %d, old half %d, restore %d)",
                         today != frozen ? 1 : 0, matches ? 1 : 0, classifiedNone, classifiedOld, restoredOld);
         }
-        if (threw || resolved != frozen || !resolvedHintsOff) {
+        if (threw || resolved != frozen || !resolvedHintsOff || !resolvedPlacementAny) {
             return Fail(105,
-                        "a pair created before #1439 with no half re-resolved hint rows off %d (digest %08X vs %08X, "
-                        "threw %d); its generation must keep them Off",
-                        resolvedHintsOff ? 1 : 0, (unsigned)resolved, (unsigned)frozen, threw ? 1 : 0);
+                        "a pair created before #1439 with no half re-resolved hint rows off %d, placement any %d "
+                        "(digest %08X vs %08X, threw %d); its generation must keep hints Off and placement Anywhere",
+                        resolvedHintsOff ? 1 : 0, resolvedPlacementAny ? 1 : 0, (unsigned)resolved, (unsigned)frozen,
+                        threw ? 1 : 0);
         }
 
         // Guards: the candidate is the unset keys' old value and nothing else. An
@@ -1390,10 +1440,12 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
         }
 
         // A half that can say so is restored, not matched: the candidate is asked
-        // only when the half cannot. The five rows that resolve on today are
-        // written Off, Purchaseable Gossip Hints (Off in both) is not, and the
-        // stamp then matches today's rules. RED if the candidate ran first: the
-        // load would match, write nothing and leave the rows showing On.
+        // only when the half cannot. The five hint rows that resolve on today are
+        // written Off, Purchaseable Gossip Hints (Off in both) is not, the four
+        // placement rows that resolve Own Dungeon / Vanilla today are written
+        // Anywhere, and the stamp then matches today's rules. RED if the candidate
+        // ran first: the load would match, write nothing and leave the rows at
+        // today's defaults.
         const int classifiedNew = MM_Rando_ClassifyProfileForLoad(half.data(), half.size(), frozen);
         names[0] = '\0';
         count = -1;
@@ -1408,18 +1460,124 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
                 rowsWrittenOff = false;
             }
         }
+        bool placementWrittenAnywhere = true;
+        for (const RandoOptionId id : kPlacementRows) {
+            const auto& row = Rando::StaticData::Options[id];
+            if (!Combo_CVarIsExplicitInt(row.cvar) ||
+                CVarGetInteger(row.cvar, RO_DUNGEON_ITEM_VANILLA) != RO_DUNGEON_ITEM_ANYWHERE) {
+                placementWrittenAnywhere = false;
+            }
+        }
         const uint32_t after = MM_Rando_ComputeProfileStamp();
         printf("[TEST] mm-paired-profile #1439: restorable half: classified %d, restore %d (%d key(s): %s), rows "
-               "written Off %d, stamp %08X vs frozen %08X\n",
-               classifiedNew, restoredNew, count, names, rowsWrittenOff ? 1 : 0, (unsigned)after, (unsigned)frozen);
+               "written Off %d, placement written Anywhere %d, stamp %08X vs frozen %08X\n",
+               classifiedNew, restoredNew, count, names, rowsWrittenOff ? 1 : 0, placementWrittenAnywhere ? 1 : 0,
+               (unsigned)after, (unsigned)frozen);
         if (classifiedNew != RSBS_MM_PROFILE_LOAD_RESTORABLE || restoredNew != RSBS_MM_PROFILE_LOAD_RESTORED ||
-            count != 5 || !rowsWrittenOff || after != frozen) {
+            count != 9 || !rowsWrittenOff || !placementWrittenAnywhere || after != frozen) {
             return Fail(107,
                         "a world created before MM's hints shipped on, with a half that records them, was not "
                         "restored (classified %d, restore %d, %d key(s): %s; stamp %08X vs %08X)",
                         classifiedNew, restoredNew, count, names, (unsigned)after, (unsigned)frozen);
         }
         clearHintRows();
+        clearPlacementRows();
+        gComboCtx.mmProfileDigest = 0;
+    }
+
+    // ---- #1548: a world made after #1439 and before #1548 loads where it did ---
+    {
+        ClearAllOptionCVars();
+        setPlacementRows(RO_DUNGEON_ITEM_ANYWHERE);
+        restampUnfrozenCarrier();
+        const uint32_t frozen = MM_Rando_ComputeProfileStamp();
+        gComboCtx.mmProfileDigest = frozen;
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+        Rando::Foreign::ResolvePairedProfile(true);
+        std::vector<uint8_t> half(sizeof(SaveContext));
+        memcpy(half.data(), &gSaveContext, sizeof(SaveContext));
+        gSaveContext.save.shipSaveInfo.rando.randoSaveExcludedChecks[4] = 0xFF;
+        std::vector<uint8_t> oldHalf(sizeof(SaveContext));
+        memcpy(oldHalf.data(), &gSaveContext, sizeof(SaveContext));
+        clearPlacementRows();
+        const uint32_t today = MM_Rando_ComputeProfileStamp();
+        const bool matches = MM_Rando_ProfileStampMatches(frozen) != 0;
+        const int classifiedNone = MM_Rando_ClassifyProfileForLoad(nullptr, 0, frozen);
+        const int classifiedOld = MM_Rando_ClassifyProfileForLoad(oldHalf.data(), oldHalf.size(), frozen);
+        char names[256] = { 0 };
+        int count = -1;
+        const int restoredOld =
+            MM_Rando_RestoreProfileForLoad(oldHalf.data(), oldHalf.size(), frozen, names, sizeof(names), &count);
+        const bool keysUnset = placementKeysUnset();
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        bool threw = false;
+        uint32_t resolved = 0;
+        try {
+            resolved = Rando::Foreign::ResolvePairedProfile(true);
+        } catch (const std::exception&) {
+            threw = true;
+        }
+        const bool resolvedPlacementAny = placementRowsAnywhere(RANDO_SAVE_OPTIONS);
+        printf("[TEST] mm-paired-profile #1548 legacy: stamp %08X (today's keys %08X) matches %d; no half %d, old half "
+               "%d, restore %d (%d key(s), keys unset %d); re-resolved %08X placement any %d (threw %d)\n",
+               (unsigned)frozen, (unsigned)today, matches ? 1 : 0, classifiedNone, classifiedOld, restoredOld, count,
+               keysUnset ? 1 : 0, (unsigned)resolved, resolvedPlacementAny ? 1 : 0, threw ? 1 : 0);
+        if (today == frozen || !matches || classifiedNone != RSBS_MM_PROFILE_LOAD_MATCHES ||
+            classifiedOld != RSBS_MM_PROFILE_LOAD_MATCHES || restoredOld != RSBS_MM_PROFILE_LOAD_MATCHES ||
+            count != 0 || !keysUnset) {
+            return Fail(110,
+                        "a world created before #1548's placement defaults no longer loads from a half that cannot "
+                        "restore it (today's stamp moved %d, matches %d, no half %d, old half %d, restore %d)",
+                        today != frozen ? 1 : 0, matches ? 1 : 0, classifiedNone, classifiedOld, restoredOld);
+        }
+        if (threw || resolved != frozen || !resolvedPlacementAny) {
+            return Fail(110,
+                        "a pair created before #1548 with no half re-resolved placement any %d (digest %08X vs %08X, "
+                        "threw %d); its generation must keep all four Anywhere",
+                        resolvedPlacementAny ? 1 : 0, (unsigned)resolved, (unsigned)frozen, threw ? 1 : 0);
+        }
+
+        // Guards: explicit non-Anywhere placement is a different world, and a
+        // stamp with Small Keys Vanilla (not legacy all-Anywhere) does not match
+        // unset keys.
+        CVarSetInteger(Rando::StaticData::Options[RO_PLACEMENT_BOSS_KEYS].cvar, RO_DUNGEON_ITEM_OWN_DUNGEON);
+        const int explicitBossOwn = MM_Rando_ClassifyProfileForLoad(nullptr, 0, frozen);
+        setPlacementRows(RO_DUNGEON_ITEM_ANYWHERE);
+        CVarSetInteger(Rando::StaticData::Options[RO_PLACEMENT_SMALL_KEYS].cvar, RO_DUNGEON_ITEM_VANILLA);
+        const uint32_t smallVanilla = MM_Rando_ComputeProfileStamp();
+        clearPlacementRows();
+        const int smallVanillaUnset = MM_Rando_ClassifyProfileForLoad(nullptr, 0, smallVanilla);
+        if (explicitBossOwn != RSBS_MM_PROFILE_LOAD_UNRESTORABLE ||
+            smallVanillaUnset != RSBS_MM_PROFILE_LOAD_UNRESTORABLE) {
+            return Fail(111,
+                        "the pre-#1548 candidate matched a different world (explicit Boss Own: %d; Small Keys Vanilla "
+                        "unset: %d)",
+                        explicitBossOwn, smallVanillaUnset);
+        }
+
+        const int classifiedNew = MM_Rando_ClassifyProfileForLoad(half.data(), half.size(), frozen);
+        names[0] = '\0';
+        count = -1;
+        const int restoredNew =
+            MM_Rando_RestoreProfileForLoad(half.data(), half.size(), frozen, names, sizeof(names), &count);
+        bool placementWrittenAnywhere = true;
+        for (const RandoOptionId id : kPlacementRows) {
+            const auto& row = Rando::StaticData::Options[id];
+            if (!Combo_CVarIsExplicitInt(row.cvar) ||
+                CVarGetInteger(row.cvar, RO_DUNGEON_ITEM_VANILLA) != RO_DUNGEON_ITEM_ANYWHERE) {
+                placementWrittenAnywhere = false;
+            }
+        }
+        const uint32_t after = MM_Rando_ComputeProfileStamp();
+        if (classifiedNew != RSBS_MM_PROFILE_LOAD_RESTORABLE || restoredNew != RSBS_MM_PROFILE_LOAD_RESTORED ||
+            count != 4 || !placementWrittenAnywhere || after != frozen) {
+            return Fail(112,
+                        "a pre-#1548 world with a restorable half was not restored (classified %d, restore %d, %d "
+                        "key(s): %s; stamp %08X vs %08X)",
+                        classifiedNew, restoredNew, count, names, (unsigned)after, (unsigned)frozen);
+        }
+        clearPlacementRows();
         gComboCtx.mmProfileDigest = 0;
     }
 

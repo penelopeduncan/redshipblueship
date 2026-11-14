@@ -124,36 +124,45 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
            randoOptionId == RO_PLACEMENT_SMALL_KEYS || randoOptionId == RO_PLACEMENT_STRAY_FAIRIES ||
-           randoOptionId == RO_SHUFFLE_SONGS || randoOptionId == RO_SHUFFLE_WONDER_ITEMS ||
-           randoOptionId == RO_SHUFFLE_HIVE_DROPS || randoOptionId == RO_SHUFFLE_BUTTERFLIES ||
-           randoOptionId == RO_SHUFFLE_SKELETON_KEY || randoOptionId == RO_SKULLTULA_SHUFFLED ||
-           randoOptionId == RO_STRAY_FAIRIES_MAX || randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME ||
-           randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME || randoOptionId == RO_SHUFFLE_SONG_SUN ||
-           randoOptionId == RO_SHUFFLE_SONG_SARIA;
+           randoOptionId == RO_PLACEMENT_STRAY_FAIRIES_OTHER || randoOptionId == RO_SHUFFLE_SONGS ||
+           randoOptionId == RO_SHUFFLE_WONDER_ITEMS || randoOptionId == RO_SHUFFLE_HIVE_DROPS ||
+           randoOptionId == RO_SHUFFLE_BUTTERFLIES || randoOptionId == RO_SHUFFLE_SKELETON_KEY ||
+           randoOptionId == RO_SKULLTULA_SHUFFLED || randoOptionId == RO_STRAY_FAIRIES_MAX ||
+           randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME || randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME ||
+           randoOptionId == RO_SHUFFLE_SONG_SUN || randoOptionId == RO_SHUFFLE_SONG_SARIA;
+}
+
+/** #1403/#1548: whether 0 in an appended option's persisted slot means "not yet
+ *  added when that save was created" (i.e. its non-zero row default) rather
+ *  than a real choice. Only #1403's two sliders (1..30 and 1..15) never offer
+ *  0; #1548's four placement rows allow 0 (Anywhere) while defaulting to
+ *  Own Dungeon (1) or Vanilla (3), so 0 stays distinct from those defaults and
+ *  legacy pre-#1548 saves (0) still leave the slot unfolded and restore to 0. */
+static bool AppendedOptionZeroMeansDefault(RandoOptionId randoOptionId) {
+    return randoOptionId == RO_SKULLTULA_SHUFFLED || randoOptionId == RO_STRAY_FAIRIES_MAX;
 }
 
 /** Whether an appended option's persisted value is folded: never at 0, the
  *  value every half persisted before the option existed (its slot was spare
  *  zero-filled capacity of randoSaveOptions), so those halves recompute the
- *  seed and identity they were stamped with; never at the row's default either,
- *  so a half created with the option at a non-zero default (#1403's Shuffled
- *  Gold Skulltulas 30 and Stray Fairies in Pool 15, whose sliders start at 1)
- *  hashes the same as one created before it. Every other value is folded. An
- *  appended option with a non-zero default must therefore never offer 0 as a
- *  choice. */
-static bool AppendedOptionIsFolded(uint32_t value, uint32_t defaultValue) {
-    return value != 0 && value != defaultValue;
+ *  seed and identity they were stamped with; for sliders where 0 cannot be
+ *  chosen (#1403), never at the row's default either so a default half hashes
+ *  the same as one created before it. Every other non-zero value is folded. */
+static bool AppendedOptionIsFolded(RandoOptionId randoOptionId, uint32_t value, uint32_t defaultValue) {
+    if (AppendedOptionZeroMeansDefault(randoOptionId)) {
+        return value != 0 && value != defaultValue;
+    }
+    return value != 0;
 }
 
 /** What an appended option's persisted @p value means: the row's default when
- *  @p value is 0 and the default is not (a half persisted before the option
- *  existed holds 0 in its slot, and the fold above reads that as the default),
+ *  @p value is 0 and 0 cannot be chosen (AppendedOptionZeroMeansDefault),
  *  else @p value. For COMPARES and DISPLAY only: the load restore's raw compare
  *  and the profile dump. Never fed to a hashed string: the fold already treats
  *  both spellings alike, and MMOptionsString's positional part never sees an
  *  appended option. */
 static uint32_t AppendedOptionCanonical(RandoOptionId randoOptionId, uint32_t value) {
-    if (value != 0 || !IsAppendedOption(randoOptionId)) {
+    if (value != 0 || !AppendedOptionZeroMeansDefault(randoOptionId)) {
         return value;
     }
     const auto row = Rando::StaticData::Options.find(randoOptionId);
@@ -163,7 +172,7 @@ static uint32_t AppendedOptionCanonical(RandoOptionId randoOptionId, uint32_t va
 static void FoldAppendedOptions(std::string& s, const uint32_t* values) {
     for (auto& [randoOptionId, randoStaticOption] : Rando::StaticData::Options) {
         if (IsAppendedOption(randoOptionId) &&
-            AppendedOptionIsFolded(values[randoOptionId], randoStaticOption.defaultValue)) {
+            AppendedOptionIsFolded(randoOptionId, values[randoOptionId], randoStaticOption.defaultValue)) {
             s += '|';
             s += randoStaticOption.name;
             s += ':';
@@ -498,27 +507,63 @@ static bool ApplyPreHintsOnDefaults(uint32_t* values) {
  *  change and every newer one's: a world made before #1437 was made before #1439
  *  too. Each candidate differs from today's only in rows the player left unset,
  *  so it reproduces a frozen digest only for a world frozen with those values. */
+/** #1548: MM's dungeon-item placement rows as their unset keys resolved
+ *  before Own Dungeon / Vanilla shipped as defaults (Anywhere = 0 for all four,
+ *  matching a legacy world stamped before RO_PLACEMENT_STRAY_FAIRIES_OTHER
+ *  existed). Puts Anywhere into each unset row of @p values whose value differs
+ *  and returns true if at least one changed. */
+static bool ApplyPrePlacementDefaults(uint32_t* values) {
+    static const RandoOptionId kPlacementRows[] = {
+        RO_PLACEMENT_BOSS_KEYS,
+        RO_PLACEMENT_SMALL_KEYS,
+        RO_PLACEMENT_STRAY_FAIRIES,
+        RO_PLACEMENT_STRAY_FAIRIES_OTHER,
+    };
+    bool changed = false;
+    for (const RandoOptionId randoOptionId : kPlacementRows) {
+        if (values[randoOptionId] == RO_DUNGEON_ITEM_ANYWHERE ||
+            Combo_CVarIsExplicitInt(Rando::StaticData::Options[randoOptionId].cvar)) {
+            continue;
+        }
+        values[randoOptionId] = RO_DUNGEON_ITEM_ANYWHERE;
+        changed = true;
+    }
+    return changed;
+}
+
 enum class ProfileEra {
     /** Today's resolution. */
     Current,
-    /** Before Majora's Mask's hints shipped on (#1439): the hint rows Off. */
+    /** Before Majora's Mask's placement defaults and stray-fairy split (#1548):
+     *  the four dungeon-item placement rows resolved to Anywhere (0). */
+    PrePlacementDefaults,
+    /** Before Majora's Mask's hints shipped on (#1439): the hint rows Off and
+     *  placement rows Anywhere. */
     PreHintsOn,
-    /** Before Time Progression shipped Ascending (#1437): the hint rows Off and,
-     *  with Shuffle Time on, the mode Random. */
+    /** Before Time Progression shipped Ascending (#1437): placement rows
+     *  Anywhere, the hint rows Off, and with Shuffle Time on, the mode Random. */
     PreAscendingClock,
 };
 
 /** The eras before today's, newest first: the order every compare tries them. */
-static constexpr ProfileEra kOlderProfileEras[] = { ProfileEra::PreHintsOn, ProfileEra::PreAscendingClock };
+static constexpr ProfileEra kOlderProfileEras[] = {
+    ProfileEra::PrePlacementDefaults,
+    ProfileEra::PreHintsOn,
+    ProfileEra::PreAscendingClock,
+};
 
 /** Resolve @p values (from ResolveProfileValues) as @p era's build did. Returns
  *  false when the era's own change leaves them as the next newer era's, a
  *  candidate tried already; @p values is then not a candidate and is discarded. */
 static bool ApplyProfileEra(uint32_t* values, ProfileEra era) {
     switch (era) {
+        case ProfileEra::PrePlacementDefaults:
+            return ApplyPrePlacementDefaults(values);
         case ProfileEra::PreHintsOn:
+            ApplyPrePlacementDefaults(values);
             return ApplyPreHintsOnDefaults(values);
         case ProfileEra::PreAscendingClock:
+            ApplyPrePlacementDefaults(values);
             ApplyPreHintsOnDefaults(values);
             return ApplyPreAscendingClockMode(values);
         default:
@@ -529,6 +574,8 @@ static bool ApplyProfileEra(uint32_t* values, ProfileEra era) {
 /** When a world of @p era was made, for the logs. */
 static const char* ProfileEraName(ProfileEra era) {
     switch (era) {
+        case ProfileEra::PrePlacementDefaults:
+            return "before Majora's Mask's placement defaults and stray-fairy split (#1548)";
         case ProfileEra::PreHintsOn:
             return "before Majora's Mask's hints defaulted on (#1439)";
         case ProfileEra::PreAscendingClock:
@@ -1598,9 +1645,11 @@ bool StampMatchesLogicCandidates(uint32_t frozenDigest, Rando::Foreign::ProfileE
  *  and then each older build's, newest first (the compare's order): its paired
  *  logic source and its MM Shuffle Songs. False when none does. */
 bool FrozenStampCandidate(Rando::Foreign::PairedLogicSource* outLogic, uint32_t* outSongs) {
-    for (const Rando::Foreign::ProfileEra era :
-         { Rando::Foreign::ProfileEra::Current, Rando::Foreign::ProfileEra::PreHintsOn,
-           Rando::Foreign::ProfileEra::PreAscendingClock }) {
+    if (StampMatchesLogicCandidates(gComboCtx.mmProfileDigest, Rando::Foreign::ProfileEra::Current, outLogic,
+                                    outSongs)) {
+        return true;
+    }
+    for (const Rando::Foreign::ProfileEra era : Rando::Foreign::kOlderProfileEras) {
         if (StampMatchesLogicCandidates(gComboCtx.mmProfileDigest, era, outLogic, outSongs)) {
             return true;
         }

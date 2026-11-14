@@ -338,9 +338,12 @@ extern unsigned int gRsbsGlitchlessTimeoutMsOverride;
 void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
 void ApplyNearlyNoLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
 void ApplyNoLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std::vector<RandoItemId>& itemPool);
-bool StaysAtVanillaCheck(RandoItemId itemId, const RandoSaveInfo& saveInfo);
+bool StaysAtVanillaCheck(RandoCheckId checkId, RandoItemId itemId, const RandoSaveInfo& saveInfo);
+void GetStrayFairyCheckCounts(int dungeonIndex, int* outChestCount, int* outOtherCount);
+int OwnDungeonStrayFairyQuota(int dungeonIndex);
 bool IsSongLocationItem(RandoItemId itemId);
 bool IsItemAllowedAtCheck(RandoItemId itemId, RandoCheckId checkId);
+bool CanPlaceItemAtCheck(RandoItemId itemId, RandoCheckId checkId, const std::vector<RandoItemId>& itemPool);
 #ifdef RSBS_SINGLE_EXECUTABLE
 // #1502: PlacementConstraints.cpp's two group functions, which the paired fill's
 // host groups are built from (ComboLogicEngineSingleExe.cpp). -1 = no group.

@@ -3607,6 +3607,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1548: shipped defaults (keys, boss keys, chest fairies Own Dungeon;
+    # freestanding/CT fairies Vanilla; songs Song Locations) and explicit
+    # all-Anywhere override generated end-to-end.
+    redship_add_test(NAME MMPlacementDefaultWorld COMMAND redship --test mm-placement-default-world
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME MMPlacementAnywhereWorld COMMAND redship --test mm-placement-anywhere-world
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #968: each shared arrow's ONE bag row over a real paired generation: one
     # copy per arrow, both solvers credit it (OoT's logic and MM's Snowhead, Great
     # Bay and Stone Tower logic), MM's world holds no second copy, the GOAL proven.
