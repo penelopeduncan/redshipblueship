@@ -477,9 +477,10 @@ bool RunDecodeChain() {
  * real header decode, must put wantTexture in the icon segment. With wantTexture
  * null the expectation is the icon-less pre-#607 textbox.
  *
- * The pairing is suspended for the drive (`gComboCtx.sourceIsRando = false;`) so
- * RecordForeignPickup authors no durable shared-item record and `obtained` stays
- * clear through CheckQueue; every piece of state touched (the save-check table,
+ * The pairing is suspended for the drive (`sourceIsRando` cleared) so
+ * RecordForeignPickup authors no durable shared-item record, and `obtained` on
+ * `mmCheckId` is cleared so CheckQueue's delivered-host consume cannot take it
+ * whatever the caller's save holds; every piece of state touched (the save-check table,
  * the MM event queue and current event, activeCustomMessage, `sourceIsRando`) is
  * restored on every exit.
  */
@@ -505,12 +506,13 @@ bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t want
     } restore;
 
     // The pairing is off for the drive, so RecordForeignPickup authors no record (#610) and the outbox never holds
-    // it; `obtained` stays clear, so CheckQueue's delivered-host consume (#1600) does not take the host.
+    // it; `obtained` is cleared, so CheckQueue's delivered-host consume (#1600) does not take the host.
     gComboCtx.sourceIsRando = false;
     for (RandoSaveCheck& check : RANDO_SAVE_CHECKS) {
         check.eligible = false;
     }
     RANDO_SAVE_CHECKS[mmCheckId].eligible = true;
+    RANDO_SAVE_CHECKS[mmCheckId].obtained = false;
     Rando::MiscBehavior::CheckQueueReset();
     // A sentinel Entry, so an untouched activeCustomMessage cannot pass.
     activeCustomMessage = CustomMessage::Entry{};

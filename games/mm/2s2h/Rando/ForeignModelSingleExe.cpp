@@ -1553,15 +1553,13 @@ bool LayerMatches(const char* name, const LayerRead& read, const ComboModel* wan
 }
 
 /**
- * CheckQueue's REAL foreign give-and-draw. Suspends the pairing
- * (`gComboCtx.sourceIsRando = false;`) so RecordForeignPickup authors no
- * record and `obtained` stays clear through CheckQueue, marks `mmCheckId`
- * eligible, lets Rando::MiscBehavior::CheckQueue() queue its GIEventGiveItem,
- * runs the event's giveItem against a fake item00 actor exactly as CustomItem
- * does (the give fires before the item is shown), then the event's drawItem
- * into a real MM GraphicsContext, and reads both layers back. `want` null: the
- * stand-in, which emits no model list at all. Every piece of state touched is
- * restored on every exit.
+ * CheckQueue's REAL foreign give-and-draw. Suspends the pairing (clears
+ * `sourceIsRando`) so RecordForeignPickup authors no record, clears
+ * `obtained` on `mmCheckId` so CheckQueue's delivered-host consume cannot take
+ * it whatever the caller's save holds, marks `mmCheckId` eligible, lets Rando::MiscBehavior::CheckQueue() queue its
+ * GIEventGiveItem, runs the event's giveItem against a fake item00 actor exactly as CustomItem does (the give fires
+ * before the item is shown), then the event's drawItem into a real MM GraphicsContext, and reads both layers back.
+ * `want` null: the stand-in, which emits no model list at all. Every piece of state touched is restored on every exit.
  */
 bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
     struct Restore {
@@ -1586,12 +1584,13 @@ bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
     } restore;
 
     // The pairing is off for the drive, so RecordForeignPickup authors no record (#610) and the outbox never holds
-    // it; `obtained` stays clear, so CheckQueue's delivered-host consume (#1600) does not take the host.
+    // it; `obtained` is cleared, so CheckQueue's delivered-host consume (#1600) does not take the host.
     gComboCtx.sourceIsRando = false;
     for (RandoSaveCheck& check : RANDO_SAVE_CHECKS) {
         check.eligible = false;
     }
     RANDO_SAVE_CHECKS[mmCheckId].eligible = true;
+    RANDO_SAVE_CHECKS[mmCheckId].obtained = false;
     Rando::MiscBehavior::CheckQueueReset();
 
     Rando::MiscBehavior::CheckQueue();
