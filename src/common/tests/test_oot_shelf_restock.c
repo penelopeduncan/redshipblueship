@@ -22,7 +22,8 @@
  *      nothing and is sold out once bought, whatever the OoT table holds there
  *      (the crossing store delivers once). Catches the restock predicate losing
  *      its foreign-host guard.
- *   B/C, THE SALE (steps 6 to 14, both modes). The shelf's CanBuy decision
+ *   B/C, THE SALE (steps 6 to 20, both modes; 15-20 are the #1547 bottle
+ *      shelves, see ShopRestockSaleLeg). The shelf's CanBuy decision
  *      (OoT_Rando_ShopRestockBuyState, which EnGirlA_CanBuy_Randomizer asks) and
  *      the sale itself (OoT_Rando_ShopRestockSell, which
  *      EnGirlA_ItemGive_Randomizer asks), on the live save, put back byte for
@@ -38,6 +39,16 @@
  *   D. NOTHING TO ADD. Deku Nuts at capacity, a Recovery Heart at full health and
  *      Bombchus at 50 refuse a restocked sale, one short they do not, and a
  *      shield never does. Catches a restocked sale charging for nothing.
+ *   E. THE OFFER TEXT (#1547). A restocking shelf's offer omits "ONE LEFT!", a
+ *      sell-out or foreign-hosted shelf keeps it (Mysterious Shuffle keeps it
+ *      until bought), a bought potion or milk bottle shelf names the refill, and
+ *      BuildShopMessage's own text id path reads the shelf's bought flag from
+ *      the live save.
+ *   F. THE FILL AND LOGIC CREDIT (#1482 section 2, #1547). OoTCritHostRenews
+ *      renews an empty shelf, a vanilla row or a restocking item, never a chest,
+ *      RG_SOLD_OUT or a shelf hosting a Majora's Mask item (run in both modes);
+ *      Logic::ApplyItemEffect credits a renewable only on a shop shelf, and
+ *      GetAccessibleLocationsStruct::InitLoop keys each location it applies.
  *
  * What this row does NOT drive: the actors themselves (they need a PlayState and
  * a loaded shop scene). Each actor call site is one call into the functions
@@ -62,6 +73,8 @@ uint16_t OoT_Rando_ShopRestockTestShelfCheck(void);
 int OoT_Rando_ShopRestockTestTable(void);
 int OoT_Rando_ShopRestockTestShelves(int foreignHosted);
 int OoT_Rando_ShopRestockTestFull(void);
+int OoT_Rando_ShopRestockTestMessages(int foreignHosted);
+int OoT_Rando_ShopRestockTestLogic(int foreignHosted);
 #ifdef __cplusplus
 }
 #endif
@@ -84,7 +97,9 @@ TestResult Test_OoTShelfRestock(void) {
     if (shelves != 0) {
         printf("[TEST] FAIL: the shelf's restock answer is wrong (step %d: 1 no item table, 2 no item location, 3 "
                "the restock item, 4 sold out once bought, 5 sold out before it is bought, 6-8 the CanBuy decision, "
-               "9-13 the restocked sale's give, charge and flags, 14 a Piece of Heart shelf's sale)\n",
+               "9-13 the restocked sale's give, charge and flags, 14 a Piece of Heart shelf's sale, 15-17 a red "
+               "potion bottle shelf's obtainability, entry and refill sale, 18 a milk bottle shelf, 19 a fairy "
+               "bottle shelf sells out, 20 the obtainability decision asks for the refill)\n",
                shelves);
         ComboContext_Init();
         return TEST_FAIL;
@@ -101,11 +116,24 @@ TestResult Test_OoTShelfRestock(void) {
         return TEST_FAIL;
     }
     const int foreign = OoT_Rando_ShopRestockTestShelves(1);
+    const int foreignMsgs = foreign == 0 ? OoT_Rando_ShopRestockTestMessages(1) : 0;
+    const int foreignLogic = foreign == 0 && foreignMsgs == 0 ? OoT_Rando_ShopRestockTestLogic(1) : 0;
     ComboContext_Init();
     if (foreign != 0) {
         printf("[TEST] FAIL: a shelf hosting a Majora's Mask item restocks, or is not sold out once bought (step "
-               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-14 the sale gives or charges)\n",
+               "%d: 3-5 the shelf, 6-8 the CanBuy decision, 9-19 the sale gives or charges, 20 the obtainability "
+               "decision asks by check)\n",
                foreign);
+        return TEST_FAIL;
+    }
+    if (foreignMsgs != 0) {
+        printf("[TEST] FAIL: a foreign-hosted shelf's offer text dropped ONE LEFT! (step %d)\n", foreignMsgs);
+        return TEST_FAIL;
+    }
+    if (foreignLogic != 0) {
+        printf("[TEST] FAIL: a shelf hosting a Majora's Mask item counts as a renewing host for the fill (step %d: "
+               "4 empty or filled, it must renew nothing: the crossing store delivers once)\n",
+               foreignLogic);
         return TEST_FAIL;
     }
 
@@ -115,6 +143,26 @@ TestResult Test_OoTShelfRestock(void) {
         printf("[TEST] FAIL: a restocked sale's nothing-to-add refusal is wrong (step %d: 1 no nut capacity, 2/3 "
                "nuts, 4/5 heart, 6/7 bombchus, 8 a shield)\n",
                full);
+        return TEST_FAIL;
+    }
+
+    // E. Offer text, ONE LEFT!, and post-buy bottle->refill naming (#1547).
+    const int msgs = OoT_Rando_ShopRestockTestMessages(0);
+    if (msgs != 0) {
+        printf("[TEST] FAIL: shop offer text / ONE LEFT! rule is wrong (step %d: 3-4 a foreign-hosted shelf, 5-6 "
+               "the ONE LEFT rule, 7-13 the offer text, 14 BuildShopMessage's own text id path ignores the shelf's "
+               "bought flag)\n",
+               msgs);
+        return TEST_FAIL;
+    }
+
+    // F. Fill credit (OoTCritHostRenews) and logic reachability (ApplyItemEffect) (#1482 §2 / #1547).
+    const int logic = OoT_Rando_ShopRestockTestLogic(0);
+    if (logic != 0) {
+        printf("[TEST] FAIL: fill/logic credit for restocking shelves is wrong (step %d: 3 a chest renews, 4 a "
+               "shelf's renew answer, 5-8 the logic credit is not keyed on a shop shelf, 9 InitLoop does not key "
+               "the location it applies)\n",
+               logic);
         return TEST_FAIL;
     }
 

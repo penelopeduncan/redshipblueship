@@ -193,6 +193,7 @@ games/oot/soh/SohGui/HostedMm/
 games/oot/soh/soh_menu_capability_test.cpp
 games/oot/soh/soh_menu_combo_section_test.cpp
 games/oot/soh/soh_presets_folder_test.cpp
+games/oot/soh/soh_write_file_safely_test.cpp
 games/oot/soh/oot_windows_gate_test.cpp
 games/oot/soh/SohGui/OoTActiveGated.h
 games/oot/soh/SohGui/SohRetiredWindow.h
@@ -305,6 +306,7 @@ games/mm/2s2h/mm_trap_parity_test.cpp
 games/mm/2s2h/Rando/OoTMasksMM.h
 games/mm/2s2h/Rando/OoTMasksMM.cpp
 games/mm/2s2h/mm_oot_masks_test.cpp
+games/mm/2s2h/mm_oot_masks_pool_test.cpp
 games/oot/soh/Enhancements/randomizer/SongOfSoaringOoT.h
 games/oot/soh/Enhancements/randomizer/SongOfSoaringOoT.cpp
 games/oot/soh/Enhancements/randomizer/SoaringMapOoT.h
