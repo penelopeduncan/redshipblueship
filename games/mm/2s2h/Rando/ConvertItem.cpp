@@ -6,6 +6,8 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "Rando/OoTMasksMM.h" // #980: the OoT masks' owned bits
 #include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' owned bits
+#include "shared_resources.h"  // src/common — #1561: Combo_SharedSongOffGiveBecomesJunk
+#include "warp_song_items.h"   // src/common — #1561: RSBS_SONG_SPOTS_*
 #endif
 
 // Copied from z_player.c, we could instead move this to a header file, idk
@@ -95,6 +97,16 @@ static u32 sLastChosenAt = 0;
 extern "C" void MM_Rando_TestColdJunkCache(void) {
     sLastJunkItem = RI_UNKNOWN;
     sLastChosenAt = 0;
+}
+
+static bool MMSongObtainable(RandoItemId randoItemId, bool owned) {
+    const uint32_t ootShuffleSongs = (RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA)
+                                         ? RSBS_SONG_SPOTS_OFF
+                                         : RSBS_SONG_SPOTS_SONG_LOCATIONS;
+    if (Combo_SharedSongOffGiveBecomesJunk(GAME_MM, (uint16_t)randoItemId, ootShuffleSongs, owned)) {
+        return false;
+    }
+    return !owned;
 }
 #endif
 
@@ -414,7 +426,11 @@ bool Rando::IsItemObtainable(RandoItemId randoItemId, RandoCheckId randoCheckId)
         case RI_SONG_ELEGY:
             return !CHECK_QUEST_ITEM(QUEST_SONG_ELEGY);
         case RI_SONG_EPONA:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return MMSongObtainable(randoItemId, CHECK_QUEST_ITEM(QUEST_SONG_EPONA) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_EPONA);
+#endif
         case RI_SONG_HEALING:
             return !CHECK_QUEST_ITEM(QUEST_SONG_HEALING);
         case RI_SONG_INVERTED_TIME:
@@ -432,11 +448,19 @@ bool Rando::IsItemObtainable(RandoItemId randoItemId, RandoCheckId randoCheckId)
         case RI_SONG_SONATA:
             return !CHECK_QUEST_ITEM(QUEST_SONG_SONATA);
         case RI_SONG_STORMS:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return MMSongObtainable(randoItemId, CHECK_QUEST_ITEM(QUEST_SONG_STORMS) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_STORMS);
+#endif
         case RI_SONG_SUN:
             return !CHECK_QUEST_ITEM(QUEST_SONG_SUN);
         case RI_SONG_TIME:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return MMSongObtainable(randoItemId, CHECK_QUEST_ITEM(QUEST_SONG_TIME) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_TIME);
+#endif
         case RI_TINGLE_MAP_CLOCK_TOWN:
             return !CHECK_WEEKEVENTREG(WEEKEVENTREG_TINGLE_MAP_BOUGHT_CLOCK_TOWN);
         case RI_TINGLE_MAP_WOODFALL:

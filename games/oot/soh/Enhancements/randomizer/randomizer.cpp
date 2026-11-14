@@ -49,8 +49,10 @@ extern void func_80B8FE00(ObjBean*); // trigger planting
 }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
-#include "seed_package.h"  // src/common — #1044: the file select completes what this worker generated
-#include "triforce_hunt.h" // src/common — ADR 0010 O10: the combo requirement a paired hunt ends on
+#include "seed_package.h"     // src/common — #1044: the file select completes what this worker generated
+#include "shared_resources.h" // src/common — #1561: Combo_SharedSongOffGiveBecomesJunk
+#include "triforce_hunt.h"    // src/common — ADR 0010 O10: the combo requirement a paired hunt ends on
+#include "warp_song_items.h"  // src/common — #1561: RSBS_SONG_SPOTS_*
 // soh/Enhancements/randomizer/ComboGoalEndingOoT.cpp — #768: may the triforce
 // piece's win arm end OoT under the frozen combo goal?
 extern "C" int OoT_ComboGoal_TriforceHuntEnds(int ownModeIsWin);
@@ -320,6 +322,18 @@ GetItemEntry Randomizer::GetItemFromActor(s16 actorId, s16 sceneNum, s16 actorPa
     return Rando::Context::GetInstance()->GetFinalGIEntry(GetCheckFromActor(actorId, sceneNum, actorParams),
                                                           checkObtainability, ogItemId);
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+static ItemObtainability OoTSongObtainability(RandomizerGet randoGet, bool owned) {
+    auto ctx = Rando::Context::GetInstance();
+    const uint32_t shuffleSongs =
+        (ctx != nullptr) ? (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get() : RSBS_SONG_SPOTS_SONG_LOCATIONS;
+    if (Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, (uint16_t)randoGet, shuffleSongs, owned)) {
+        return CANT_OBTAIN_ALREADY_HAVE;
+    }
+    return !owned ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
+}
+#endif
 
 ItemObtainability Randomizer::GetItemObtainabilityFromRandomizerCheck(RandomizerCheck randomizerCheck) {
     return GetItemObtainabilityFromRandomizerGet(
@@ -605,15 +619,27 @@ ItemObtainability Randomizer::GetItemObtainabilityFromRandomizerGet(RandomizerGe
         case RG_ZELDAS_LULLABY:
             return !CHECK_QUEST_ITEM(QUEST_SONG_LULLABY) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
         case RG_EPONAS_SONG:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return OoTSongObtainability(randoGet, CHECK_QUEST_ITEM(QUEST_SONG_EPONA) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_EPONA) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
+#endif
         case RG_SARIAS_SONG:
             return !CHECK_QUEST_ITEM(QUEST_SONG_SARIA) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
         case RG_SUNS_SONG:
             return !CHECK_QUEST_ITEM(QUEST_SONG_SUN) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
         case RG_SONG_OF_TIME:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return OoTSongObtainability(randoGet, CHECK_QUEST_ITEM(QUEST_SONG_TIME) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_TIME) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
+#endif
         case RG_SONG_OF_STORMS:
+#ifdef RSBS_SINGLE_EXECUTABLE
+            return OoTSongObtainability(randoGet, CHECK_QUEST_ITEM(QUEST_SONG_STORMS) != 0);
+#else
             return !CHECK_QUEST_ITEM(QUEST_SONG_STORMS) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
+#endif
         case RG_MINUET_OF_FOREST:
             return !CHECK_QUEST_ITEM(QUEST_SONG_MINUET) ? CAN_OBTAIN : CANT_OBTAIN_ALREADY_HAVE;
         case RG_BOLERO_OF_FIRE:

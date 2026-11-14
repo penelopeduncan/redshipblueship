@@ -3096,17 +3096,17 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * song check it would have taken is an ordinary empty host. With every rule off
  * (the shipped default) nothing is held back and no world moves.
  *
- * #1169 XW15 (operator ruling: a shared song is at its default location when the
- * songs are not shuffled): under Shuffle Songs Off a SHARED WARP SONG is never held
- * back (Combo_SharedWarpSongFixedAtHome). The six stay on the Sheik checks
- * item_pool.cpp put them on, so fill.cpp's release leaves them there, Link's Pocket
- * never sees them, and the songs family is not armed for them; the coordinator
- * credits Majora's Mask with each when its check is reached
- * (OoT_ComboLogic_FixedSharedSongHost). The shared Song of Soaring stays on Majora's
- * Mask's swamp check and OoT pools no copy of it. The only WARP song in OoT's pool
- * under Off is an unshared Song of Soaring (OoT), which roams and which Link's
- * Pocket may take. The first word's shared songs keep the release, so one of them
- * is in the pool under Off too (#1552, #1561).
+ * #1169 XW15 / #1561 (operator ruling: a shared song is at its default location when
+ * the songs are not shuffled): under Shuffle Songs Off NO shared song is held back
+ * (Combo_SharedWarpSongFixedAtHome). OoT's six warp songs stay on their Sheik checks
+ * and Epona's Song, Song of Storms, and Song of Time stay on Malon, Windmill, and
+ * Ocarina of Time (while MM's vanilla checks keep their copies too); fill.cpp's
+ * release leaves them there, Link's Pocket never sees them, and the songs family is
+ * not armed for them; the coordinator credits the other game from each fixed host
+ * (OoT_ComboLogic_FixedSharedSongHost, MM_ComboLogic_FixedSharedSongHost). The shared
+ * Song of Soaring stays on Majora's Mask's swamp check and OoT pools no copy of it.
+ * The only song in OoT's pool under Off is an unshared Song of Soaring (OoT), which
+ * roams and which Link's Pocket may take.
  */
 extern "C" int OoT_ComboLogic_SharedSongHeldBack(uint16_t rg) {
     if (rg == (uint16_t)RG_NONE || rg >= (uint16_t)RG_MAX ||
@@ -3148,13 +3148,13 @@ extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
 }
 
 /**
- * #1169 XW15: the OoT check that holds shared warp song @p rg as its FIXED content
- * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song
- * location item_pool.cpp placed it on, its Sheik check. -1 in every other world,
- * for an id with no such check (the Song of Soaring (OoT), whose default check is
- * Majora's Mask's), and with no seed context. combo_single_bag.c names the answer
- * as a fixed credit, so Majora's Mask's logic holds the song once the check is
- * reached.
+ * #1169 XW15 / #1561: the OoT check that holds shared song @p rg as its FIXED content
+ * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song location
+ * item_pool.cpp placed it on (its Sheik check, or Malon / Windmill / Ocarina of Time
+ * for the three first-word shared songs). -1 in every other world, for an id with no
+ * such check (the Song of Soaring (OoT), whose default check is Majora's Mask's), and
+ * with no seed context. combo_single_bag.c names the answer as a fixed credit, so
+ * Majora's Mask's logic holds the song once the check is reached.
  */
 extern "C" int OoT_ComboLogic_FixedSharedSongHost(uint16_t rg) {
     auto ctx = Rando::Context::GetInstance();

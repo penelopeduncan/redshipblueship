@@ -64,8 +64,9 @@ static void RsbsHoldBackSharedSongs(std::vector<RandomizerGet>& songs) {
 }
 
 /** Off: empty a held-back song's vanilla check (item_pool.cpp placed it) and put
- *  the song back into the pool. The first word's shared songs only: a shared warp
- *  song is never held back under Off (#1169 XW15), so its Sheik check keeps it. */
+ *  the song back into the pool. Under #1169 XW15 / #1561 no shared song is held back
+ *  under Off (Combo_SharedWarpSongFixedAtHome), so every vanilla song check keeps its
+ *  song. */
 static void RsbsReleaseVanillaSharedSongs() {
     auto ctx = Rando::Context::GetInstance();
     for (const RandomizerCheck rc : ctx->allLocations) {
@@ -108,14 +109,11 @@ static void RsbsDropReservedSongChecks(std::vector<RandomizerCheck>& locations) 
  *  under the shared song pool, a #1085 held-back shared song under OoT's
  *  restricted song modes (its one copy is the bag's shared pair row), and (#1169
  *  XW10) a held-back SHARED WARP SONG in every mode that holds it back: under
- *  Anywhere too its one copy is the pair row. Under Off (#1169 XW15) no shared warp
- *  song is held back: the six stay on their Sheik checks and the shared Song of
- *  Soaring on Majora's Mask's swamp check. The only WARP song in OoT's pool under
- *  Off is an unshared Song of Soaring (OoT), which is no shared song and which
- *  Link's Pocket may take, as it may today; a first-word shared song is still
- *  released into the pool under Off (#1552, #1561). The
- *  first word's songs keep their two modes, so no world of theirs moves (their
- *  Off / Anywhere case is filed separately). */
+ *  Anywhere too its one copy is the pair row. Under Off (#1169 XW15 / #1561) no
+ *  shared song is held back: OoT's six warp songs stay on their Sheik checks, the
+ *  shared Song of Soaring on Majora's Mask's swamp check, and the three first-word
+ *  shared songs on both games' vanilla checks. The only song in OoT's pool under
+ *  Off is an unshared Song of Soaring (OoT), which Link's Pocket may take. */
 static bool RsbsSongHeldForBag(RandomizerGet rg) {
     if (Rando::StaticData::RetrieveItem(rg).GetItemType() != ITEMTYPE_SONG) {
         return false;

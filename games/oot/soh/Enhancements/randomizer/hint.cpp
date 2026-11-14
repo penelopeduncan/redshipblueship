@@ -6,10 +6,11 @@
 #include "static_data.h"
 #include "3drando/random.hpp"
 #ifdef RSBS_SINGLE_EXECUTABLE
-#include "combo_area.h" // src/common: the MM area a Termina slot names (#575 H3a)
-#include "game.h"       // src/common: GAME_MM
-#include "foreign_items.h" // src/common: the crossed item's name and article (#575 H3b)
-#include "warp_song_items.h" // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
+#include "combo_area.h"       // src/common: the MM area a Termina slot names (#575 H3a)
+#include "game.h"             // src/common: GAME_MM
+#include "foreign_items.h"    // src/common: the crossed item's name and article (#575 H3b)
+#include "shared_resources.h" // src/common: Combo_SharedSongOffGiveBecomesJunk (#1561)
+#include "warp_song_items.h"  // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
 // ForeignItemsSingleExe.cpp (#575 H3b): the MM item OoT check `rc` yields, when the
 // crossing store describes the world whose hint is rendered; else NULL.
 extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc);
@@ -616,6 +617,18 @@ const HintText Hint::GetItemHintText(uint8_t slot, bool mysterious) const {
         }
     }
 #endif
+    const Item* shownItem = &ctx->GetItemLocation(hintedCheck)->GetPlacedItem();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1561: when an uncollected Off vanilla shared song check will now give junk
+    // because the player already learned the song (e.g. RH_OOT_HINT targeting
+    // RC_SONG_FROM_OCARINA_OF_TIME after learning Song of Time in MM), name the Blue
+    // Rupee it will actually give rather than promising the song.
+    if (!mysterious && !ctx->GetItemLocation(hintedCheck)->HasObtained() &&
+        Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, (uint16_t)targetRG,
+                                           (uint32_t)ctx->GetOption(RSK_SHUFFLE_SONGS).Get(), false)) {
+        shownItem = &StaticData::RetrieveItem(RG_BLUE_RUPEE);
+    }
+#endif
     CustomMessage msg;
     if (mysterious) {
         return StaticData::hintTextTable[RHT_MYSTERIOUS_ITEM];
@@ -623,9 +636,9 @@ const HintText Hint::GetItemHintText(uint8_t slot, bool mysterious) const {
                targetRG == RG_ICE_TRAP) { // RANDOTODO store in item hint instead of item
         msg = CustomMessage({ ctx->overrides[hintedCheck].GetTrickName() });
     } else {
-        msg = ctx->GetItemLocation(hintedCheck)->GetPlacedItem().GetName();
+        msg = shownItem->GetName();
     }
-    msg = CustomMessage(ctx->GetItemLocation(hintedCheck)->GetPlacedItem().GetArticle()) + msg;
+    msg = CustomMessage(shownItem->GetArticle()) + msg;
     return HintText(msg);
 }
 

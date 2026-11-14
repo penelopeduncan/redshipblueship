@@ -54,14 +54,13 @@ static bool RsbsIsTingleMap(RandoItemId randoItemId) {
 // stay on its vanilla check. The check stays an ordinary host and the song a pool
 // row, which the composer pairs (and trims when OoT's half is the row).
 //
-// #1169 XW15 (operator ruling: a shared song is at its default location when the
-// songs are not shuffled): a SHARED WARP SONG is never released. Only MM's Song of
-// Soaring can be one here (the six OoT warp songs have no MM check), and it stays
-// on the Southern Swamp check; the coordinator credits OoT with it when that check
-// is reached (MM_ComboLogic_FixedSharedSongHost). This function runs only under
-// MM's Vanilla value, which a paired world reaches only from OoT's Off
-// (Combo_PairSongsMmValue), hence RSBS_SONG_SPOTS_OFF. The first word's shared
-// songs keep #1502's release.
+// #1169 XW15 / #1561 (operator ruling: a shared song is at its default location when
+// the songs are not shuffled): under Vanilla (which a paired world reaches only from
+// OoT's Off, Combo_PairSongsMmValue, hence RSBS_SONG_SPOTS_OFF), Combo_SharedWarpSongFixedAtHome
+// keeps both MM's shared Song of Soaring (Southern Swamp) and the three first-word
+// shared songs (Romani Ranch, Beneath the Graveyard, Clock Tower Roof) on their
+// vanilla checks instead of releasing them to the bag; the coordinator credits OoT
+// from each fixed host (MM_ComboLogic_FixedSharedSongHost).
 static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
     if (!Combo_ForeignPairingActive()) {
         return false;
@@ -191,8 +190,7 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             if (randoStaticCheck.randoCheckType == RCTYPE_SONG &&
                 saveInfo.randoSaveOptions[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_VANILLA) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-                // #1502: a frozen-on shared song leaves its vanilla check to the bag
-                // (never a shared warp song, #1169 XW15: it stays).
+                // #1502 / #1169 XW15 / #1561: a shared song fixed at home under Off stays on its vanilla check.
                 if (!RsbsReleasesVanillaSharedSong(randoStaticCheck.randoItemId)) {
                     continue;
                 }
