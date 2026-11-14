@@ -3918,8 +3918,15 @@ CheckIdentity Randomizer::IdentifyRock(s32 sceneNum, s32 posX, s32 posZ) {
     Rando::Location* location = GetCheckObjectFromActor(ACTOR_EN_ISHI, sceneNum, TWO_ACTOR_PARAMS(posX, posZ));
 
     if (location->GetRandomizerCheck() != RC_UNKNOWN_CHECK) {
-        rockIdentity.randomizerInf = rcToRandomizerInf[location->GetRandomizerCheck()];
-        rockIdentity.randomizerCheck = location->GetRandomizerCheck();
+        // find(), not operator[], as in IdentifySilver: a missing row must stay
+        // RAND_INF_MAX and RC_UNKNOWN_CHECK rather than default-insert flag 0.
+        auto infIt = rcToRandomizerInf.find(location->GetRandomizerCheck());
+        if (infIt != rcToRandomizerInf.end()) {
+            rockIdentity.randomizerInf = infIt->second;
+            rockIdentity.randomizerCheck = location->GetRandomizerCheck();
+        } else {
+            LUSLOG_WARN("IdentifyRock found no RAND_INF for check %d.", (int)location->GetRandomizerCheck());
+        }
     } else {
         LUSLOG_WARN("IdentifyRock did not receive a valid RC value %d,%d.", posX, posZ);
     }
