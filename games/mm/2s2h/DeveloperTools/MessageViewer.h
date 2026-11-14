@@ -6,8 +6,17 @@
 #include <ship/window/gui/GuiWindow.h>
 #include <unordered_map>
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// Single-executable builds compile both OoT and MM into one binary; SoH's
+// games/oot/soh/Enhancements/debugger/MessageViewer.h already declares
+// extern "C" MessageDebug_StartTextBox / MessageDebug_DisplayCustomMessage
+// and class ::MessageViewer, so isolate MM's declarations in namespace S2H
+// with C++ linkage to prevent C linkage / ODR collisions.
+namespace S2H {
+#else
 extern "C" {
-#endif
+#endif // RSBS_SINGLE_EXECUTABLE
+#endif // __cplusplus
 
 /**
  * \brief Displays a vanilla message in a text box on screen.
@@ -24,7 +33,9 @@ void MessageDebug_StartTextBox(const char* tableId, uint16_t textId, uint8_t lan
 void MessageDebug_DisplayCustomMessage(const char* customMessage);
 
 #ifdef __cplusplus
+#ifndef RSBS_SINGLE_EXECUTABLE
 }
+#endif
 
 class MessageViewerWindow : public Ship::GuiWindow {
   public:
@@ -55,5 +66,9 @@ class MessageViewerWindow : public Ship::GuiWindow {
     bool mDisplayCustomMessageClicked = false;
     bool mLoadMessageClicked = false;
 };
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+} // namespace S2H
+#endif
 
 #endif // __cplusplus
