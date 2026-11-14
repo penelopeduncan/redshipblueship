@@ -1010,10 +1010,11 @@ if(BUILD_TESTING)
     # engines' wide host groups and row masks under the pool, the half-armed pair
     # refused, every non-song row unmoved, both host tables with the switch off
     # against the base commit's rule, and the call sites from source.
-    # MMSongHostGuard: CheckQueue consumes a delivered MM song host armed again,
-    # leaves its first delivery, a chest's re-arm and a native re-give alone, and
-    # the real headless three-day reset (Sram_SaveEndOfCycle) re-arms neither
-    # Healing's crossing host nor, through the guard, the New Wave's. Both ROM-free,
+    # MMSongHostGuard: CheckQueue consumes any delivered MM foreign host armed
+    # again (songs, chests, any class; #1542 S0, #1600), leaves its first
+    # delivery and a native re-give alone, and the real headless three-day
+    # reset (Sram_SaveEndOfCycle) re-arms neither Healing's crossing host nor,
+    # through the consume, the New Wave's or a closed chest's. Both ROM-free,
     # generate nothing (src/common/tests/test_song_check_tables.c,
     # games/mm/2s2h/mm_song_host_guard_test.cpp).
     redship_add_test(NAME SongCheckTables COMMAND redship --test song-check-tables)
