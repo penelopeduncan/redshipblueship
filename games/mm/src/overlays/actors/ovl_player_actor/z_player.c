@@ -52,6 +52,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 // #1169 XW7: Ocarina of Time's warp songs played in Termina (2s2h/Rando/WarpSongsMM.cpp).
 #include "2s2h/Rando/WarpSongsMM.h"
+#include "2s2h/Rando/OoTMasksMM.h"
 #endif
 
 void MM_Player_Init(Actor* thisx, PlayState* play);
@@ -6159,6 +6160,9 @@ void func_808345C8(void) {
     if (INV_CONTENT(ITEM_MASK_DEKU) == ITEM_MASK_DEKU) {
         gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
         gSaveContext.save.equippedMask = PLAYER_MASK_NONE;
+#ifdef RSBS_SINGLE_EXECUTABLE
+        MM_OoTMasks_OnNativeMaskCleared();
+#endif
     }
 }
 

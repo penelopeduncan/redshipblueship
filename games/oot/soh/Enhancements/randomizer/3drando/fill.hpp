@@ -47,8 +47,10 @@ struct GetAccessibleLocationsStruct {
     void InitLoop() {
         logicUpdated = false;
         for (Rando::ItemLocation* location : newItemLocations) {
+            logic->CurrentCheckKey = location->GetRandomizerCheck();
             location->ApplyPlacedItemEffect();
         }
+        logic->CurrentCheckKey = RC_UNKNOWN_CHECK;
         newItemLocations.clear();
         itemSphere.clear();
         entranceSphere.clear();

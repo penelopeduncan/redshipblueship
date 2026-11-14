@@ -79,14 +79,17 @@ mm->oot objects/object_mask_truth/
 # on a raw segment-6 operand, which is what keeps that true.
 mm->oot objects/object_bsmask/
 #
-# The stray fairy (#964).  MM draws it with custom code (DrawStrayFairy, a flex
-# skeleton in gameplay_keep); OoT draws it as a still posed model of the same
-# eight limb lists, binding the colour lists (segments 8 and 9) and the joint
-# matrices (segment 0xD) the lists jump into.  gameplay_keep is a directory both
-# games carry, so these are single-path entries: the lists, their four textures
-# and their eight vertex arrays, none of which any OoT base archive names (the
-# collision guard checks each).  The skeleton, animation and colour tracks are
-# not curated: the descriptor carries the pose and the colours as data.
+# The stray fairy (#964, #1165).  MM draws it with custom code (DrawStrayFairy,
+# a flex skeleton in gameplay_keep); OoT draws it as a posed model of the same
+# eight limb lists animated by gStrayFairyFlyingAnim (with frame 0 in the
+# descriptor as the still fallback), binding the colour lists (segments 8 and 9)
+# and the joint matrices (segment 0xD) the lists jump into.  gameplay_keep is a
+# directory both games carry, so these are single-path entries: the lists, the
+# flying animation, their four textures and their eight vertex arrays, none of
+# which any OoT base archive names (the collision guard checks each).  The
+# skeleton and colour tracks are not curated: the descriptor carries the rest
+# pose and the colours as data.
+mm->oot objects/gameplay_keep/gStrayFairyFlyingAnim
 mm->oot objects/gameplay_keep/gStrayFairyLeftWingDL
 mm->oot objects/gameplay_keep/gStrayFairyRightWingDL
 mm->oot objects/gameplay_keep/gStrayFairyGlowDL
