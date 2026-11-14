@@ -136,6 +136,25 @@ extern "C" void MM_OoTMasksTest_Give(uint16_t ri) {
     Rando::GiveItem((RandoItemId)ri);
 }
 
+/** MM's REAL remove (Rando::RemoveItem) of item `ri`. */
+extern "C" void MM_OoTMasksTest_Remove(uint16_t ri) {
+    Rando::RemoveItem((RandoItemId)ri);
+}
+
+/** Does MM's live save hold RANDO_INF_OBTAINED_SWIM? */
+extern "C" int MM_OoTMasksTest_SwimOwned(void) {
+    return Flags_GetRandoInf(RANDO_INF_OBTAINED_SWIM) ? 1 : 0;
+}
+
+/** Raw randoInf word holding RANDO_INF_OBTAINED_SWIM, for hook-free test save/restore. */
+extern "C" uint16_t MM_OoTMasksTest_SwimWordRaw(void) {
+    return gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_SWIM >> 4];
+}
+
+extern "C" void MM_OoTMasksTest_SetSwimWordRaw(uint16_t word) {
+    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_SWIM >> 4] = word;
+}
+
 /** MM's REAL conversion (Rando::ConvertItem) of item `ri`, no check. */
 extern "C" int MM_OoTMasksTest_Convert(uint16_t ri) {
     return (int)Rando::ConvertItem((RandoItemId)ri);
