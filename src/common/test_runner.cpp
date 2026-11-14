@@ -9080,8 +9080,7 @@ extern "C" int OoT_WonderItemsPairedTest_Run(void);
 TestResult Test_OoTWonderItemsPaired(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
-        printf("[TEST] FAIL: could not create Ship::Context singleton
-");
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
         return TEST_FAIL;
     }
     static char wipArg0[] = "redship";
