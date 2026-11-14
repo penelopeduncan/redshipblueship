@@ -1866,7 +1866,7 @@ void StaticData::HintTable_Init_Exclude_Dungeon() {
     hintTextTable[RHT_ICE_CAVERN_ICICLE] = HintText(CustomMessage("They say that #breaking an icicle in a frozen cavern# reveals #[[1]]#.",
                                                               /*german*/ "Man erzählt sich, daß das #Zerschlagen eines Eiszapfens in einer gefrorenen Kaverne# #[[1]]# enthülle.",
                                                               /*french*/ "Selon moi, #briser un stalactite de glace dans la Caverne Polaire# révèle #[[1]]#.", {QM_RED, QM_GREEN}));
-    
+
     hintTextTable[RHT_ICE_CAVERN_RED_ICE] = HintText(CustomMessage("They say that #melting red ice in a frozen cavern# gives #[[1]]#.",
                                                         /*german*/ "Man erzählt sich, daß das #Schmelzen von rotem Eis in einer gefrorenen Kaverne# #[[1]]# gäbe.",
                                                         /*french*/ "Selon moi, #faire fondre la glace rouge dans la Caverne Polaire# donne #[[1]]#.", {QM_RED, QM_GREEN}));

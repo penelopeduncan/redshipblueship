@@ -199,8 +199,8 @@ IpRun IpGenerate(const char* leg, bool on) {
             r.locations.insert(rc);
         }
         // What Context::GenerateLocationPool selects under On (its quest rule).
-        for (int c = RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE;
-             c <= RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5; c++) {
+        for (int c = RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE; c <= RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5;
+             c++) {
             Rando::Location* loc = Rando::StaticData::GetLocation((RandomizerCheck)c);
             const bool isIcicle = loc->GetRCType() == RCTYPE_ICICLE;
             bool selected = loc->IsOverworld();

@@ -11851,8 +11851,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-wonder-items") == 0 ||
                 strcmp(gTests[i].name, "oot-wonder-items-paired") == 0 ||
-                strcmp(gTests[i].name, "oot-shuffle-ice") == 0 ||
-                strcmp(gTests[i].name, "oot-ice-paired") == 0 ||
+                strcmp(gTests[i].name, "oot-shuffle-ice") == 0 || strcmp(gTests[i].name, "oot-ice-paired") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

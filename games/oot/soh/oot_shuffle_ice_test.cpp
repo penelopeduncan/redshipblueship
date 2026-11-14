@@ -87,8 +87,7 @@ static_assert(RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 - RC_ICE_CAV
               "SoH 49e740b6f adds 191 icicle and red ice checks, contiguous (#1408)");
 static_assert(RAND_INF_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL + 1,
               "the icicle and red ice flags are appended after #1405's wonder item flags (#1408)");
-static_assert(RSK_SHUFFLE_ICICLES == RSK_SHUFFLE_WONDER_ITEMS + 1 &&
-                  RSK_SHUFFLE_RED_ICE == RSK_SHUFFLE_ICICLES + 1,
+static_assert(RSK_SHUFFLE_ICICLES == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_RED_ICE == RSK_SHUFFLE_ICICLES + 1,
               "RSK_SHUFFLE_ICICLES and RSK_SHUFFLE_RED_ICE are appended after #1405's key (#1408)");
 static_assert(RO_GENERIC_OFF == 0, "#1408: a world saved before the options reads their missing entries as 0, Off");
 
@@ -213,8 +212,7 @@ void CountExcludeVisibility(int (&counted)[2], int (&listed)[2]) {
     listed[0] = listed[1] = 0;
     RandomizerCheckObjects::UpdateImGuiVisibility();
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
-        if ((loc.GetRCType() != RCTYPE_ICICLE && loc.GetRCType() != RCTYPE_RED_ICE) ||
-            loc.GetQuest() == RCQUEST_MQ) {
+        if ((loc.GetRCType() != RCTYPE_ICICLE && loc.GetRCType() != RCTYPE_RED_ICE) || loc.GetQuest() == RCQUEST_MQ) {
             continue;
         }
         const int idx = loc.GetRCType() == RCTYPE_ICICLE ? 0 : 1;
@@ -236,9 +234,8 @@ void CheckOptions() {
     for (int o = 0; o < 2; o++) {
         Rando::Option& option = settings->GetOption(kOptions[o].key);
         const int shipped = option.GetOptionIndex();
-        printf("[TEST] D: '%s' (key %s): %d with no key stored, %zu choice(s); greyed %d\n",
-               option.GetName().c_str(), option.GetCVarName().c_str(), shipped, (size_t)option.GetOptionCount(),
-               option.IsDisabled() ? 1 : 0);
+        printf("[TEST] D: '%s' (key %s): %d with no key stored, %zu choice(s); greyed %d\n", option.GetName().c_str(),
+               option.GetCVarName().c_str(), shipped, (size_t)option.GetOptionCount(), option.IsDisabled() ? 1 : 0);
         ICE_CHECK(option.GetName() == kOptions[o].name, "D: the option is named '%s', want '%s'",
                   option.GetName().c_str(), kOptions[o].name);
         ICE_CHECK(option.GetCVarName() == kOptions[o].cvar, "D: %s is not keyed %s", kOptions[o].name,
@@ -374,8 +371,8 @@ FoldRecord IceGenerate(const char* leg) {
             }
         }
         // What the world's dungeon quests select under On (Context::GenerateLocationPool's rule).
-        for (int c = RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE;
-             c <= RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5; c++) {
+        for (int c = RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE; c <= RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5;
+             c++) {
             Rando::Location* loc = Rando::StaticData::GetLocation((RandomizerCheck)c);
             const int o = loc->GetRCType() == RCTYPE_ICICLE ? 0 : 1;
             if (loc->IsOverworld()) {
@@ -438,8 +435,8 @@ void CheckFold() {
                   "O: with %s on the fold read %u and left out %u of %u line(s)", kOptions[o].name,
                   (unsigned)on.folded[o], (unsigned)on.skipped[o], (unsigned)expected[o]);
         ICE_CHECK(!on.expected[o].empty() && on.actual[o] == on.expected[o],
-                  "O: %s added %zu location(s), the world's quests select %zu", kOptions[o].name,
-                  on.actual[o].size(), on.expected[o].size());
+                  "O: %s added %zu location(s), the world's quests select %zu", kOptions[o].name, on.actual[o].size(),
+                  on.expected[o].size());
     }
     ICE_CHECK(on.settingsHash != f.settingsHash,
               "O: the world with both options on has the default world's fingerprint %08X", (unsigned)f.settingsHash);
