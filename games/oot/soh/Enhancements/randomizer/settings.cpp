@@ -2033,8 +2033,7 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_FOREST_FIRST_GS, RCQUEST_VANILLA, RA_FOREST_TEMPLE, { Tricks::Tag::NOVICE },
               "Forest Temple First Room GS with Difficult-to-Use Weapons",
               "Allows killing this Skulltula with Sword or Sticks by jump slashing it as you let go from the vines. "
-              "You can avoid taking fall damage by recoiling onto the tree. Also allows killing it as Child with a "
-              "Bomb throw. It's much more difficult to use a Bomb as child due to Child Link's shorter height.");
+              "You can avoid taking fall damage by recoiling onto the tree.");
     OPT_TRICK(RT_FOREST_COURTYARD_EAST_GS, RCQUEST_VANILLA, RA_FOREST_TEMPLE, { Tricks::Tag::NOVICE },
               "Forest Temple East Courtyard GS with Boomerang",
               "Precise Boomerang throws can allow child to kill the Skulltula and collect the token.");
