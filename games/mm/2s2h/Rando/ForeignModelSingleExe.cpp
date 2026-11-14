@@ -397,7 +397,7 @@ bool IsCustomDrawn(RandoItemId ri) {
     }
 }
 
-// ---- Stray fairies (#964) -----------------------------------------------------
+// ---- Stray fairies (#964, #1165) ----------------------------------------------
 //
 // DrawStrayFairy (DrawItem.cpp) is custom code: setup 25 on XLU, the area's
 // colour track (gStrayFairy<Area>TexAnim: AnimatedMat segment 1, +7 = 8, the
@@ -405,12 +405,14 @@ bool IsCustomDrawn(RandoItemId ri) {
 // MM_Matrix_Scale(0.03), then gStrayFairySkel through SkelAnime_DrawFlex (its
 // matrices bound to segment 0xD) at the running frame of gStrayFairyFlyingAnim,
 // limb 0 (the right-facing head) dropped by StrayFairyOverrideLimbDraw. The
-// descriptor is that draw held still: the skeleton at the animation's first
-// frame and each colour track at its first key frame, read off mm.o2r's
-// resources. The eight lists live in gameplay_keep, a directory both games
-// carry, under names only MM's tree has; the curated half carries them by path
-// (assets/crossgame/manifest.txt) and foreign_model.c lists them as
-// collision-free.
+// descriptor carries the skeleton (posed at frame 0 as the still fallback), the
+// colour tracks frozen at their first key frame (their TexAnim key frames are
+// ROM data not in the tree, and OoT has no TextureAnimation reader), and `animation =
+// gStrayFairyFlyingAnim` (#1165) so a host that has the animation mounted samples
+// each frame on its own draw clock. The eight lists and the animation live in
+// gameplay_keep, a directory both games carry, under names only MM's tree has;
+// the curated half carries them by path (assets/crossgame/manifest.txt) and
+// foreign_model.c lists them as collision-free.
 
 // gStrayFairySkel's nine limbs: the parent from each limb's child and sibling
 // index, the position from its joint position (the root's from
@@ -485,7 +487,8 @@ ComboModelSegmentColor StrayFairySegmentColor(uint8_t segment, const uint8_t pri
     return c;
 }
 
-/** A stray fairy's still model: 1 and *out; 0 and *reason (NULL: not a stray fairy). */
+/** A stray fairy's animated model (still pose as fallback): 1 and *out; 0 and
+ *  *reason (NULL: not a stray fairy). */
 int ModelForStrayFairy(RandoItemId ri, ComboModel* out, const char** reason) {
     *reason = nullptr;
     const StrayFairyColors* colors = nullptr;
@@ -509,6 +512,7 @@ int ModelForStrayFairy(RandoItemId ri, ComboModel* out, const char** reason) {
     out->jointCount = (uint8_t)(sizeof(kStrayFairyJoints) / sizeof(kStrayFairyJoints[0]));
     std::memcpy(out->joints, kStrayFairyJoints, sizeof(kStrayFairyJoints));
     out->jointSegment = 0x0D;
+    out->animation = gStrayFairyFlyingAnim;
     out->segmentColors[0] = StrayFairySegmentColor(8, colors->bodyPrim, colors->bodyEnv);
     out->segmentColors[1] = StrayFairySegmentColor(9, colors->glowPrim, colors->glowEnv);
     DefaultSetups(out);

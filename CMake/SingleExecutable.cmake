@@ -1862,6 +1862,12 @@ if(BUILD_TESTING)
     # and names each bad file in one log line. Display-free and ROM-free.
     # games/oot/soh/soh_presets_folder_test.cpp.
     redship_add_test(NAME PresetsSkipNonJson COMMAND redship --test presets-skip-non-json)
+    # #1467 (item 2): SaveManager::WriteFileSafely is public and Presets_WriteFile /
+    # Plandomizer_WriteSpoilerFile write via <target>.tmp + rename instead of
+    # truncating in place. Fresh write, overwrite, stale temp and non-empty temp
+    # directory failure legs. Display-free and ROM-free.
+    # games/oot/soh/soh_write_file_safely_test.cpp.
+    redship_add_test(NAME WriteFileSafelyWriters COMMAND redship --test write-file-safely-writers)
     # Operator ruling 2026-11-05: the shipped "Rando Seed Settings - Standard" and
     # "- Beginner" presets pin no gRandoSettings key whose default the D wave moved
     # to OoTMM's (#1425, #1428, #1434, #1367), carry a null pairedProfile (#1368's
@@ -3396,6 +3402,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1569: MM pool counts for RI_MASK_GERUDO/SKULL/SPOOKY under frozen rules
+    # (InitOTRForMMFirstBoot + MM_Rando_InitCore + MM_ComboLogic_TestPairedPool).
+    # On `--test all` skip list like OoTMasksMMLogic (CheckTestRegistration.cmake
+    # rejects redship_test_not_generating on any row in the `--test all` skip list).
+    redship_add_test(NAME OoTMasksMMPool COMMAND redship --test oot-masks-mm-pool
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1428 (operator ruling 2026-11-03): OoT's goal gates ship at OoTMM's defaults,
     # Rainbow Bridge Medallions (all six) and Ganon's Boss Key Start With (OoTMM's
     # "removed" in play). On one paired creation save (TrackerOoTPanelList's seed):
@@ -3701,6 +3715,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # trees' intersection; the registry includes no game header. Static tables
     # and the checkout (RSBS_SOURCE_DIR): ROM-free, default tier.
     redship_add_test(NAME ForeignModel COMMAND redship --test foreign-model)
+    # MM'S COPIES OF OOT'S MASKS IN OOT (#1452 item 3, #1568): MM's registered
+    # Gerudo, Skull and Spooky Mask ids draw OoT's own mask row in OoT under the
+    # mount check, while other MM items answer as before. ROM-free.
+    redship_add_test(NAME OoTHostMMMasksModel COMMAND redship --test oot-host-mm-masks-model)
     # WEARING THE OTHER GAME'S MASKS (#977, epic #975 P3): the worn-mask table and
     # its curated models (checked against the embedded manifest), both games' equip
     # rules on a heap Player (the worn field never reaches currentMask), the
@@ -3740,6 +3758,7 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # Spooky Mask's night, the value put back after the update). ROM-free.
     redship_add_test(NAME OoTMasksMMRule COMMAND redship --test oot-masks-mm-rule)
     redship_add_test(NAME OoTMasksMMItems COMMAND redship --test oot-masks-mm-items)
+    redship_add_test(NAME OoTMasksMMOwnedSource COMMAND redship --test oot-masks-mm-owned-source)
     # THE SECOND CROSS-GAME RULES WORD (#1169 lane XW2): a full 32-bit world field
     # carved at 925, after #1439's Way of the Hero record, for OoTMM's fourteen
     # warp-song rules. ComboItemRulesSecondWord:
