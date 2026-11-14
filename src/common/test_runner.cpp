@@ -8632,9 +8632,12 @@ TestResult Test_MMPlacementConfinedWorld(void) {
     printf("[TEST] mm-placement-confined-world: with MM's keys, boss keys and fairies at Own Dungeon and its songs at "
            "Song Locations, every confined MM item lands in its group and none crosses (#1502)\n");
     ComboContext_Init();
-    static const char* const kKeys[4] = { "gRando.Options.RO_PLACEMENT_SMALL_KEYS",
+    // #1548 split the fairy row: both halves are set, so the freestanding fairies are confined too (with only the
+    // chest row at Own Dungeon this profile would be the default world, which MMPlacementDefaultWorld already pins).
+    static const char* const kKeys[5] = { "gRando.Options.RO_PLACEMENT_SMALL_KEYS",
                                           "gRando.Options.RO_PLACEMENT_BOSS_KEYS",
                                           "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES",
+                                          "gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER",
                                           "gRando.Options.RO_SHUFFLE_SONGS" };
     struct Restore {
         ~Restore() {
