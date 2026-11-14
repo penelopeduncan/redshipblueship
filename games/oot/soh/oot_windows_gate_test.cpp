@@ -1095,7 +1095,9 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
     // ---- 2b. OoTGatedHostingMm<> (W6-TIMERS, #1237 / W6-DEV, #1238): under OoT only SoH's bodies run (the Draw frame
     // reaches SoH's DrawElement); under Majora's Mask the Draw frame runs and only MM's hosted body does, through the
     // embed and the frame, while UpdateElement delegates only when a third pointer is given; with no game, or with
-    // nothing hosted outside OoT, nothing runs.
+    // nothing hosted outside OoT, nothing runs. In the two-pointer rows (Time Splits' shape) no update spy is passed,
+    // so their hosted-update count of 0 holds by construction: "MM's update never runs" is carried there by the SoH
+    // UpdateElement count (0 under MM) and the MM body count (exactly 2), not by sHostedUpdates.
     int hostFailures = 0;
     hostFailures += RunHostingSpy(GAME_OOT, true, false, 2, 1, 1, 0, 0);
     hostFailures += RunHostingSpy(GAME_MM, true, false, 0, 0, 1, 2, 0);
