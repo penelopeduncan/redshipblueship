@@ -315,7 +315,7 @@ const OptionUi kOptionUi[] = {
       "Follows [Both Games] Logic: Glitchless under All Locations and Beatable Only, No Logic under No Logic.",
       0, 0, kLogicLabels, UI_COUNT(kLogicLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
-    // #1574: OoTMM's Hookshot Anywhere (MM) (hookshotAnywhereMm, data.ts:1695-1707),
+    // #1574: OoTMM's Hookshot Anywhere (MM) (hookshotAnywhereMm, data.ts:1690-1702),
     // frozen per file in randoSaveOptions and enforced by HookshotAnywhere.cpp
     // (VB_BE_HOOKSHOT_SURFACE, dispatched in z_bgcheck.c via MM_GameHooks_ExecuteVBShould).
     { RO_HOOKSHOT_ANYWHERE, COMBO_MM_GROUP_LOGIC, COMBO_MM_WIDGET_COMBO,

@@ -1,7 +1,7 @@
 /**
  * @file combo_mm_hookshot_anywhere.h
  * @brief Pure helpers for Majora's Mask's frozen Hookshot Anywhere randomizer
- *        option (#1574; OoTMM packages/core/src/settings/data.ts:1695-1707,
+ *        option (#1574; OoTMM packages/core/src/settings/data.ts:1690-1702,
  *        hookshotAnywhereMm).
  *
  * The per-install cheat (gCheats.HookshotEverything) toggles both games live

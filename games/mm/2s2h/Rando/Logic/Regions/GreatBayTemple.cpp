@@ -280,9 +280,9 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_ENEMY_DROP_SKULLFISH, CanKillEnemy(ACTOR_EN_PR2)),
         },
         .connections = {
-            // #1574: OoTMM great_bay_temple.yml:90,112 ("Map Room Underwater" -> "Baba Room Underwater" ->
-            // "Baba Room Surface"): `has_bombchu && trick(MM_GBT_BABA_ENTRY_BOMBCHU) && short_hook_anywhere &&
-            // can_swim` (Iron Boots / Zora Tunic / Scale legs omitted without those OoT items in MM).
+            // #1574: OoTMM great_bay_temple.yml:90,112 ("Great Bay Temple Map Room Surface" ->
+            // "Baba Room Underwater" -> "Baba Room Surface"): `has_bombchu && trick(MM_GBT_BABA_ENTRY_BOMBCHU) &&
+            // short_hook_anywhere && can_swim` (OoT item legs omitted without those OoT items in MM).
             CONNECTION(RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM,         CAN_BE_ZORA || (HAS_ITEM(ITEM_BOMBCHU) && MM_TRICK(MMRT_GBT_BABA_ENTRY_BOMBCHU) && SHORT_HOOK_ANYWHERE && CAN_USE_ABILITY(SWIM))),
             CONNECTION(RR_GREAT_BAY_TEMPLE_CENTRAL_ROOM,            CAN_BE_ZORA && GBT_CAN_REVERSE_WATER_FLOW),
             CONNECTION(RR_GREAT_BAY_TEMPLE_RED_PIPE_SWITCH_ROOM,    CAN_USE_MAGIC_ARROW(ICE)),

@@ -420,7 +420,7 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // of Soaring, on Day 1 only. MM resumes at its frozen time, and the player can
 // leave MM through the tower interior at every Day 1 slice the root holds.
 #define CAN_OOT_SOAR_TO_OWL (MM_ComboLogic_OoTSoaringTravel() && IS_DAY1())
-// RedShipBlueShip #1574 (OoTMM macros_mm.yml:471, short_hook_anywhere):
+// RedShipBlueShip #1574 (OoTMM macros_mm.yml:466, short_hook_anywhere):
 // can_hookshot_short && setting(hookshotAnywhereMm, logical), read from the
 // file's frozen randoSaveOptions (never live CVars). MM's single Hookshot
 // satisfies can_hookshot_short.

@@ -3388,7 +3388,7 @@ typedef enum {
     // Clock Town stray fairies out from dungeon chest stray fairies.
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
     // Appended for the same reason (#1574): OoTMM's Hookshot Anywhere (MM)
-    // (hookshotAnywhereMm, data.ts:1695-1707), RandoOptionHookshotAnywhere values.
+    // (hookshotAnywhereMm, data.ts:1690-1702), RandoOptionHookshotAnywhere values.
     // The identity strings fold it only when it is not Off (0, the default).
     RO_HOOKSHOT_ANYWHERE,
     RO_MAX,

@@ -1874,13 +1874,29 @@ extern "C" int MM_TrickBindings_RunHeadless(void) {
             const std::set<RandoCheckId> onNonLogical = measure(MMRT_MAX);
             RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
             const std::set<RandoCheckId> logicalOff = measure(MMRT_MAX);
-            RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
             if (onNonLogical != tricksOff) {
                 rc = BindFail(25, "RO_HOOKSHOT_ANYWHERE_ON changed reachable checks (%d vs %d)",
                               (int)onNonLogical.size(), (int)tricksOff.size());
             } else if (!std::includes(logicalOff.begin(), logicalOff.end(), tricksOff.begin(), tricksOff.end())) {
                 rc = BindFail(26, "RO_HOOKSHOT_ANYWHERE_LOGICAL made some check unreachable");
             }
+            std::set<MMRandoTrickId> logicalTricks;
+            for (const HookshotAnywhereProbe& probe : kHookshotAnywhereProbes) {
+                if (probe.trick != MMRT_MAX) {
+                    logicalTricks.insert(probe.trick);
+                }
+            }
+            for (MMRandoTrickId trick : logicalTricks) {
+                if (rc != 0) {
+                    break;
+                }
+                const std::set<RandoCheckId> on = measure(trick);
+                if (!std::includes(on.begin(), on.end(), logicalOff.begin(), logicalOff.end())) {
+                    rc = BindFail(27, "turning '%s' ON at Logical made some check unreachable", TrickName(trick));
+                    break;
+                }
+            }
+            RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
         }
         for (MMRandoTrickId trick : probedKeys) {
             if (rc != 0) {
