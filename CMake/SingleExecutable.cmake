@@ -4445,6 +4445,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # OTRExporter/mm.z64 is staged and prints its own SKIP line otherwise, so the
     # row never skips as a whole. src/common/tests/test_mm_extract.c.
     redship_add_test(NAME MmExtract COMMAND redship --test mm-extract)
+    # #1590: ROM-free source lock for the non-Windows file-picker availability
+    # guard in both extractors and the OoT CallZapd extractFailed wiring and
+    # "Extraction Failed" popup in OTRGlobals.cpp::RunExtract. Default redship
+    # tier; src/common/tests/test_extractor_picker_guard.c.
+    redship_add_test(NAME ExtractorPickerGuard COMMAND redship --test extractor-picker-guard)
 
     # ========================================================================
     # Integration tests (requires display - use Xvfb in CI)
