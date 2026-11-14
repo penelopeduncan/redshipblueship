@@ -384,7 +384,9 @@ void CheckFold() {
     WI_CHECK(o.wonderExpected > 0 && o.wonderLocations == o.wonderExpected,
              "O: %zu wonder check(s) are locations, the world's dungeon quests select %zu", o.wonderLocations,
              o.wonderExpected);
-    WI_CHECK(o.wonderEmpty == 0, "O: %d wonder location(s) hold no item after the fill", o.wonderEmpty);
+    // Not asserted here: a paired generation stops at OoT's general pass, before the single bag places
+    // anything, so the wonder checks are still empty at this point (the count is printed above). That the
+    // finished world holds an item on every one of them is OoTWonderItemsPaired's leg B.
 }
 
 } // namespace
@@ -394,8 +396,8 @@ void CheckFold() {
  */
 extern "C" int OoT_ShuffleWonderItemsTest_Run(void) {
     printf("[TEST] oot-shuffle-wonder-items: every wonder item check has its own flag and is identified from its key, "
-           "the option ships off, default worlds fold none of its lines, and a paired world with it on places every "
-           "wonder check (#1405)\n");
+           "the option ships off, default worlds fold none of its lines, and a paired world with it on makes "
+           "every wonder check its quests select a location (#1405)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-shuffle-wonder-items needs OTRGlobals' randomizer context\n");
         return 1;

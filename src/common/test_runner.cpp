@@ -11378,7 +11378,7 @@ const TestDescriptor gTests[] = {
     { "oot-shuffle-wonder-items",
       "Every wonder item check has its own flag and IdentifyWonderItem finds it from its key, Shuffle Wonder Items "
       "ships off, a default world's settings fold reads none of the lines it added, and a paired world with it on "
-      "keeps it on and places every wonder check (#1405)",
+      "keeps it on and makes every wonder check its quests select a location (#1405)",
       Test_OoTShuffleWonderItems },
     // QC #1558. Two finished paired worlds; skipped by `--test all` below like its siblings.
     { "oot-wonder-items-paired",
