@@ -950,8 +950,8 @@ the same way, and the file's creation still honours either key.
 OoTMM's placement defaults for Majora's Mask (2026-11-14, PR #1604; issue #1548,
 rulings D3 and D4), still version 5. Majora's Mask's Small Keys and Boss Keys
 default to Own Dungeon, and its single Stray Fairies row is split in two:
-Dungeon Chest Fairies (default Own Dungeon) and Freestanding Fairies (default
-Vanilla). Songs were already at Song Locations. The new row is
+Dungeon Chest Fairies (default Own Dungeon) and Dungeon Freestanding Fairies
+(default Vanilla). Songs were already at Song Locations. The new row is
 `RO_PLACEMENT_STRAY_FAIRIES_OTHER` (id 64, appended last). Majora's Mask's
 frozen identity folds each of the four placement values that is not 0, so every
 world created with the defaults has a new `comboSettingsHash`. A profile with

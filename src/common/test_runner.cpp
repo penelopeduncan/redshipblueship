@@ -8718,7 +8718,7 @@ TestResult Test_MMPlacementConfinedWorld(void) {
 }
 
 // #1548: shipped defaults (Small Keys, Boss Keys and Dungeon Chest Fairies Own
-// Dungeon; Freestanding Fairies Vanilla; Songs Song Locations) generated for real.
+// Dungeon; Dungeon Freestanding Fairies Vanilla; Songs Song Locations) generated for real.
 TestResult Test_MMPlacementDefaultWorld(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {

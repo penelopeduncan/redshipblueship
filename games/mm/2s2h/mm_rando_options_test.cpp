@@ -470,6 +470,16 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
         }
     }
 
+    // #1610: RO_PLACEMENT_STRAY_FAIRIES_OTHER is named "Dungeon Freestanding Fairies".
+    {
+        const ComboMMOptionDesc* otherFairies = Combo_MMOptionById((uint16_t)RO_PLACEMENT_STRAY_FAIRIES_OTHER);
+        if (otherFairies == NULL || otherFairies->label == NULL ||
+            strcmp(otherFairies->label, "Dungeon Freestanding Fairies") != 0) {
+            return Fail(81, "RO_PLACEMENT_STRAY_FAIRIES_OTHER label is '%s', expected 'Dungeon Freestanding Fairies'",
+                        (otherFairies && otherFairies->label) ? otherFairies->label : "(null)");
+        }
+    }
+
     // ---- (f) the value accessors actually reach the CVar store ------------
     {
         const ComboMMOptionDesc* logic = Combo_MMOptionById((uint16_t)RO_LOGIC);
@@ -1178,8 +1188,8 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
     };
 
     // MM's placement defaults (#1548): Small Keys, Boss Keys and Dungeon Chest
-    // Fairies shipped at Own Dungeon (1) and Freestanding Fairies at Vanilla (3),
-    // where every pre-#1548 world defaulted all four to Anywhere (0).
+    // Fairies shipped at Own Dungeon (1) and Dungeon Freestanding Fairies at
+    // Vanilla (3), where every pre-#1548 world defaulted all four to Anywhere (0).
     static const RandoOptionId kPlacementRows[] = {
         RO_PLACEMENT_SMALL_KEYS,
         RO_PLACEMENT_BOSS_KEYS,
