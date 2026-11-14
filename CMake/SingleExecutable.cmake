@@ -4151,6 +4151,16 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1408: Shuffle Icicles and Shuffle Red Ice (SoH 49e740b6f, 68d4c6049): every
+    # icicle and red ice check has its own RandomizerInf, both options ship off and
+    # greyed out, and two real generations fold none of the lines they added (a
+    # paired one pins them off even when keyed on, with the default world's
+    # fingerprint). Two generations, so twice the neighbours' timeout.
+    # games/oot/soh/oot_shuffle_ice_test.cpp.
+    redship_add_test(NAME OoTShuffleIce COMMAND redship --test oot-shuffle-ice
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and
