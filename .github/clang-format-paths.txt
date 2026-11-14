@@ -327,3 +327,4 @@ games/oot/soh/oot_wonder_items_paired_test.cpp
 games/oot/soh/oot_shuffle_ice_test.cpp
 games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp
+games/oot/soh/oot_vanilla_magic_boundary_test.cpp
