@@ -462,9 +462,15 @@ const OptionUi kOptionUi[] = {
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_PLACEMENT_STRAY_FAIRIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
-      "Stray Fairies",
-      "Where each dungeon's Stray Fairies may be placed: anywhere in the world (with the Clock Town Stray Fairy), only "
-      "within that dungeon (Clock Town Stray Fairy vanilla), on their vanilla checks, or start with every Stray Fairy.",
+      "Dungeon Chest Fairies",
+      "Where each dungeon's chest Stray Fairies may be placed: anywhere in the world, only within that dungeon, left "
+      "vanilla, or granted at start.",
+      0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
+      COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
+    { RO_PLACEMENT_STRAY_FAIRIES_OTHER, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
+      "Freestanding Fairies",
+      "Where freestanding dungeon and Clock Town Stray Fairies may be placed: anywhere in the world, own dungeon with "
+      "Clock Town vanilla, left vanilla, or granted at start.",
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_MINIMUM_STRAY_FAIRIES, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_SLIDER,

@@ -3384,6 +3384,9 @@ typedef enum {
     RO_SHUFFLE_SONG_INVERTED_TIME,
     RO_SHUFFLE_SONG_SUN,
     RO_SHUFFLE_SONG_SARIA,
+    // Appended for the same reason (#1548): split dungeon freestanding +
+    // Clock Town stray fairies out from dungeon chest stray fairies.
+    RO_PLACEMENT_STRAY_FAIRIES_OTHER,
     RO_MAX,
 } RandoOptionId;
 

@@ -172,7 +172,7 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
             }
 
             // dungeon items
-            if (StaysAtVanillaCheck(randoStaticCheck.randoItemId, saveInfo)) {
+            if (StaysAtVanillaCheck(randoCheckId, randoStaticCheck.randoItemId, saveInfo)) {
                 saveInfo.randoSaveChecks[randoCheckId].shuffled = true;
                 continue;
             }

@@ -82,6 +82,7 @@
  * Linkage: every entry point is extern "C" and declared in test_runner.cpp.
  */
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -135,12 +136,13 @@ int sFailures = 0;
 /** 2Ship's song group (PlacementConstraints.cpp CONFINEMENT_GROUP_SONGS). */
 const uint32_t kSongBit = 1u << (DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE_BOSS + 1);
 
-/** The four options this lock is about, in the order the profiles set them. */
-const RandoOptionId kPlacementOptions[4] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_BOSS_KEYS,
-                                             RO_PLACEMENT_STRAY_FAIRIES, RO_SHUFFLE_SONGS };
+/** The five placement options this lock is about, in the order the profiles set them. */
+const RandoOptionId kPlacementOptions[5] = { RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_BOSS_KEYS,
+                                             RO_PLACEMENT_STRAY_FAIRIES, RO_PLACEMENT_STRAY_FAIRIES_OTHER,
+                                             RO_SHUFFLE_SONGS };
 
-/** Every option Foreign.cpp folds by NAME, only when neither 0 nor its default (IsAppendedOption):
- *  listed here independently, so dropping one there is a red count below. */
+/** Every option Foreign.cpp folds by NAME (IsAppendedOption): listed here
+ *  independently, so dropping one there is a red count below. */
 const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_TREE_DROPS,
     RO_SHOP_PRICES,
@@ -159,30 +161,32 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_SONG_INVERTED_TIME,
     RO_SHUFFLE_SONG_SUN,
     RO_SHUFFLE_SONG_SARIA,
+    RO_PLACEMENT_STRAY_FAIRIES_OTHER,
 };
 
-/** The four options and MM's host pool (with its cached groups) as the row found
+/** The five options and MM's host pool (with its cached groups) as the row found
  *  them; the legs replace the pool, so it is put back verbatim, not cleared. */
 struct SavedOptions {
-    uint32_t values[4];
+    uint32_t values[5];
     SavedOptions() {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             values[i] = RANDO_SAVE_OPTIONS[kPlacementOptions[i]];
         }
         MM_ComboLogic_TestSaveHostPool();
     }
     ~SavedOptions() {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             RANDO_SAVE_OPTIONS[kPlacementOptions[i]] = values[i];
         }
         MM_ComboLogic_TestRestoreHostPool();
     }
 };
 
-void SetPlacement(uint32_t smallKeys, uint32_t bossKeys, uint32_t fairies, uint32_t songs) {
+void SetPlacement(uint32_t smallKeys, uint32_t bossKeys, uint32_t chestFairies, uint32_t otherFairies, uint32_t songs) {
     RANDO_SAVE_OPTIONS[RO_PLACEMENT_SMALL_KEYS] = smallKeys;
     RANDO_SAVE_OPTIONS[RO_PLACEMENT_BOSS_KEYS] = bossKeys;
-    RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] = fairies;
+    RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] = chestFairies;
+    RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES_OTHER] = otherFairies;
     RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] = songs;
 }
 
@@ -302,25 +306,25 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
     const SavedOptions restore;
 
     // ---- (a) + (b): every profile, against 2Ship's own rule ------------------
-    SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE,
+    SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE,
                  RO_SONG_SHUFFLE_ANYWHERE);
-    const int confinedDefault = CheckDifferential("defaults", engine);
-    MPC_CHECK(confinedDefault == 0, "(b) the defaults confine %d item ids; default worlds would move", confinedDefault);
+    const int confinedDefault = CheckDifferential("all anywhere", engine);
+    MPC_CHECK(confinedDefault == 0, "(b) Anywhere confines %d item ids", confinedDefault);
 
     SetPlacement(RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON,
-                 RO_SONG_SHUFFLE_SONG_LOCATIONS);
+                 RO_DUNGEON_ITEM_OWN_DUNGEON, RO_SONG_SHUFFLE_SONG_LOCATIONS);
     const int confinedAll = CheckDifferential("own dungeon + song locations", engine);
     MPC_CHECK(confinedAll > 0, "(a) the confined profile confines nothing");
 
     SetPlacement(RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_VANILLA,
-                 RO_SONG_SHUFFLE_ANYWHERE);
+                 RO_DUNGEON_ITEM_VANILLA, RO_SONG_SHUFFLE_ANYWHERE);
     (void)CheckDifferential("small keys own dungeon only", engine);
     MPC_CHECK(MaskOf(RI_WOODFALL_BOSS_KEY) == 0u && MaskOf(RI_WOODFALL_STRAY_FAIRY) == 0u,
               "(c) only the option set to Own Dungeon may confine its class");
 
     // ---- (c) the shape -------------------------------------------------------
     SetPlacement(RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON,
-                 RO_SONG_SHUFFLE_SONG_LOCATIONS);
+                 RO_DUNGEON_ITEM_OWN_DUNGEON, RO_SONG_SHUFFLE_SONG_LOCATIONS);
     const uint32_t wf = MaskOf(RI_WOODFALL_SMALL_KEY);
     const uint32_t sh = MaskOf(RI_SNOWHEAD_SMALL_KEY);
     const uint32_t gb = MaskOf(RI_GREAT_BAY_SMALL_KEY);
@@ -336,6 +340,134 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
               "(c) a dungeon's boss key and fairies share its keys' group");
     MPC_CHECK(MaskOf(RI_CLOCK_TOWN_STRAY_FAIRY) == 0u,
               "(c) the Clock Town Stray Fairy has no dungeon: 2Ship keeps it vanilla under Own Dungeon");
+    // (c1) #1548: chest vs freestanding stray-fairy split, quotas, Clock Town fairy, and Start With.
+    {
+        int wfChest = 0, wfOther = 0, shChest = 0, shOther = 0, gbChest = 0, gbOther = 0, stChest = 0, stOther = 0;
+        Rando::Logic::GetStrayFairyCheckCounts(DUNGEON_SCENE_INDEX_WOODFALL_TEMPLE, &wfChest, &wfOther);
+        Rando::Logic::GetStrayFairyCheckCounts(DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE, &shChest, &shOther);
+        Rando::Logic::GetStrayFairyCheckCounts(DUNGEON_SCENE_INDEX_GREAT_BAY_TEMPLE, &gbChest, &gbOther);
+        Rando::Logic::GetStrayFairyCheckCounts(DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE, &stChest, &stOther);
+        MPC_CHECK(wfChest == 3 && wfOther == 12 && shChest == 7 && shOther == 8 && gbChest == 6 && gbOther == 9 &&
+                      stChest == 15 && stOther == 0,
+                  "(c1) stray fairy counts mismatch: WF %d/%d SH %d/%d GB %d/%d ST %d/%d", wfChest, wfOther, shChest,
+                  shOther, gbChest, gbOther, stChest, stOther);
+
+        // Chest = Own Dungeon, Other = Vanilla (shipped defaults).
+        SetPlacement(RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON,
+                     RO_DUNGEON_ITEM_VANILLA, RO_SONG_SHUFFLE_ANYWHERE);
+        MPC_CHECK(Rando::Logic::OwnDungeonStrayFairyQuota(DUNGEON_SCENE_INDEX_WOODFALL_TEMPLE) == 3 &&
+                      Rando::Logic::OwnDungeonStrayFairyQuota(DUNGEON_SCENE_INDEX_SNOWHEAD_TEMPLE) == 7 &&
+                      Rando::Logic::OwnDungeonStrayFairyQuota(DUNGEON_SCENE_INDEX_GREAT_BAY_TEMPLE) == 6 &&
+                      Rando::Logic::OwnDungeonStrayFairyQuota(DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE) == 15,
+                  "(c1) default chest Own Dungeon quota mismatch");
+        MPC_CHECK(!Rando::Logic::StaysAtVanillaCheck(RC_WOODFALL_TEMPLE_CENTER_CHEST, RI_WOODFALL_STRAY_FAIRY,
+                                                     gSaveContext.save.shipSaveInfo.rando) &&
+                      Rando::Logic::StaysAtVanillaCheck(RC_WOODFALL_TEMPLE_SF_ENTRANCE, RI_WOODFALL_STRAY_FAIRY,
+                                                        gSaveContext.save.shipSaveInfo.rando) &&
+                      Rando::Logic::StaysAtVanillaCheck(RC_CLOCK_TOWN_STRAY_FAIRY, RI_CLOCK_TOWN_STRAY_FAIRY,
+                                                        gSaveContext.save.shipSaveInfo.rando),
+                  "(c1) StaysAtVanillaCheck failed for Chest=Own Other=Vanilla");
+
+        // Mixed: Chest = Own Dungeon, Other = Anywhere.
+        SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_OWN_DUNGEON,
+                     RO_DUNGEON_ITEM_ANYWHERE, RO_SONG_SHUFFLE_ANYWHERE);
+        MPC_CHECK(!Rando::Logic::StaysAtVanillaCheck(RC_CLOCK_TOWN_STRAY_FAIRY, RI_CLOCK_TOWN_STRAY_FAIRY,
+                                                     gSaveContext.save.shipSaveInfo.rando),
+                  "(c1) Clock Town fairy must leave vanilla when Other=Anywhere");
+        std::vector<uint16_t> fairyBag;
+        for (int i = 0; i < STRAY_FAIRY_SCATTERED_TOTAL; ++i) {
+            fairyBag.push_back((uint16_t)RI_WOODFALL_STRAY_FAIRY);
+            fairyBag.push_back((uint16_t)RI_SNOWHEAD_STRAY_FAIRY);
+            fairyBag.push_back((uint16_t)RI_GREAT_BAY_STRAY_FAIRY);
+            fairyBag.push_back((uint16_t)RI_STONE_TOWER_STRAY_FAIRY);
+        }
+        fairyBag.push_back((uint16_t)RI_CLOCK_TOWN_STRAY_FAIRY);
+        std::vector<uint32_t> fairyMasks(fairyBag.size(), 0u);
+        const int confinedFairies =
+            MM_ComboLogic_PoolRowConfineMasks(fairyBag.data(), (int)fairyBag.size(), fairyMasks.data());
+        int wfConf = 0, shConf = 0, gbConf = 0, stConf = 0;
+        for (size_t i = 0; i < fairyBag.size(); ++i) {
+            if (fairyMasks[i] == wf)
+                wfConf++;
+            else if (fairyMasks[i] == sh)
+                shConf++;
+            else if (fairyMasks[i] == gb)
+                gbConf++;
+            else if (fairyMasks[i] == st)
+                stConf++;
+        }
+        MPC_CHECK(confinedFairies == 31 && wfConf == 3 && shConf == 7 && gbConf == 6 && stConf == 15 &&
+                      fairyMasks.back() == 0u,
+                  "(c1) Chest=Own Other=Anywhere pool confinement expected 3/7/6/15 (31), got %d/%d/%d/%d (%d)", wfConf,
+                  shConf, gbConf, stConf, confinedFairies);
+
+        // Mixed: Chest = Anywhere, Other = Own Dungeon (Stone Tower has 0 freestanding -> ST stays unconfined).
+        SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE,
+                     RO_DUNGEON_ITEM_OWN_DUNGEON, RO_SONG_SHUFFLE_ANYWHERE);
+        MPC_CHECK(Rando::Logic::OwnDungeonStrayFairyQuota(DUNGEON_SCENE_INDEX_STONE_TOWER_TEMPLE) == 0 &&
+                      Rando::Logic::RandoItemIdToConfinementGroup(RI_STONE_TOWER_STRAY_FAIRY) == -1 &&
+                      MaskOf(RI_STONE_TOWER_STRAY_FAIRY) == 0u &&
+                      Rando::Logic::StaysAtVanillaCheck(RC_CLOCK_TOWN_STRAY_FAIRY, RI_CLOCK_TOWN_STRAY_FAIRY,
+                                                        gSaveContext.save.shipSaveInfo.rando),
+                  "(c1) Chest=Anywhere Other=Own must leave Stone Tower fairies unconfined and Clock Town vanilla");
+        std::fill(fairyMasks.begin(), fairyMasks.end(), 0u);
+        const int otherConfined =
+            MM_ComboLogic_PoolRowConfineMasks(fairyBag.data(), (int)fairyBag.size(), fairyMasks.data());
+        wfConf = shConf = gbConf = stConf = 0;
+        for (size_t i = 0; i < fairyBag.size(); ++i) {
+            if (fairyMasks[i] == wf)
+                wfConf++;
+            else if (fairyMasks[i] == sh)
+                shConf++;
+            else if (fairyMasks[i] == gb)
+                gbConf++;
+            else if (fairyMasks[i] == st)
+                stConf++;
+        }
+        MPC_CHECK(otherConfined == 29 && wfConf == 12 && shConf == 8 && gbConf == 9 && stConf == 0,
+                  "(c1) Chest=Anywhere Other=Own pool confinement expected 12/8/9/0 (29), got %d/%d/%d/%d (%d)", wfConf,
+                  shConf, gbConf, stConf, otherConfined);
+
+        // Verify CanPlaceItemAtCheck / SelectItemForCheck / PreplaceConfinedItems mixed quota enforcement.
+        auto savedChecks = std::make_unique<RandoSaveCheck[]>(RC_MAX);
+        memcpy(savedChecks.get(), RANDO_SAVE_CHECKS, sizeof(RandoSaveCheck) * (size_t)RC_MAX);
+        memset(RANDO_SAVE_CHECKS, 0, sizeof(RandoSaveCheck) * (size_t)RC_MAX);
+        std::vector<RandoItemId> synthItems(15, RI_WOODFALL_STRAY_FAIRY); // WF quota = 12, 3 extra
+        MPC_CHECK(Rando::Logic::CanPlaceItemAtCheck(RI_WOODFALL_STRAY_FAIRY, RC_CLOCK_TOWN_POSTBOX, synthItems),
+                  "(c1) 15 WF fairies with quota 12 allows leaving WF");
+        std::vector<RandoItemId> tightItems(12, RI_WOODFALL_STRAY_FAIRY); // exact remaining quota = 12
+        MPC_CHECK(!Rando::Logic::CanPlaceItemAtCheck(RI_WOODFALL_STRAY_FAIRY, RC_CLOCK_TOWN_POSTBOX, tightItems),
+                  "(c1) 12 WF fairies with quota 12 forbids leaving WF");
+        std::vector<RandoCheckId> synthChecks;
+        for (const auto& [rcId, sc] : Rando::StaticData::Checks) {
+            if (rcId != RC_UNKNOWN && sc.sceneId == SCENE_MITURIN) {
+                synthChecks.push_back(rcId);
+            }
+        }
+        Rando::Logic::PreplaceConfinedItems(synthChecks, synthItems);
+        MPC_CHECK(synthItems.size() == 3, "(c1) PreplaceConfinedItems confined 12 WF fairies, leaving %zu excess",
+                  synthItems.size());
+        memcpy(RANDO_SAVE_CHECKS, savedChecks.get(), sizeof(RandoSaveCheck) * (size_t)RC_MAX);
+
+        // Verify Start With split in GetComputedStartingItems.
+        SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_START_WITH,
+                     RO_DUNGEON_ITEM_VANILLA, RO_SONG_SHUFFLE_ANYWHERE);
+        auto chestStart = Rando::GetComputedStartingItems(gSaveContext.save.shipSaveInfo.rando);
+        MPC_CHECK(std::count(chestStart.begin(), chestStart.end(), RI_WOODFALL_STRAY_FAIRY) == 3 &&
+                      std::count(chestStart.begin(), chestStart.end(), RI_STONE_TOWER_STRAY_FAIRY) == 15 &&
+                      std::count(chestStart.begin(), chestStart.end(), RI_CLOCK_TOWN_STRAY_FAIRY) == 0,
+                  "(c1) Chest=StartWith Other=Vanilla granted wrong starting fairies");
+        SetPlacement(RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE, RO_DUNGEON_ITEM_ANYWHERE,
+                     RO_DUNGEON_ITEM_START_WITH, RO_SONG_SHUFFLE_ANYWHERE);
+        auto otherStart = Rando::GetComputedStartingItems(gSaveContext.save.shipSaveInfo.rando);
+        MPC_CHECK(std::count(otherStart.begin(), otherStart.end(), RI_WOODFALL_STRAY_FAIRY) == 12 &&
+                      std::count(otherStart.begin(), otherStart.end(), RI_STONE_TOWER_STRAY_FAIRY) == 0 &&
+                      std::count(otherStart.begin(), otherStart.end(), RI_CLOCK_TOWN_STRAY_FAIRY) == 1,
+                  "(c1) Chest=Anywhere Other=StartWith granted wrong starting fairies");
+
+        SetPlacement(RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON, RO_DUNGEON_ITEM_OWN_DUNGEON,
+                     RO_DUNGEON_ITEM_OWN_DUNGEON, RO_SONG_SHUFFLE_SONG_LOCATIONS);
+    }
     // (c2) #1403: Shuffle Boss Remains at Own Dungeon confines each boss's remains
     // to that boss's dungeon (Goht's to Snowhead), and at Anywhere to nothing. Red
     // if RandoItemIdToDungeon's remains branch is dropped or reads another value.
@@ -410,12 +542,12 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
         // or every older paired half fails pair membership on load.
         {
             std::vector<uint32_t> defaults = zeros;
-            for (const RandoOptionId appended : kAppendedOptions) {
-                defaults[appended] = Rando::StaticData::Options[appended].defaultValue;
+            for (const RandoOptionId option : { RO_SKULLTULA_SHUFFLED, RO_STRAY_FAIRIES_MAX }) {
+                defaults[option] = Rando::StaticData::Options[option].defaultValue;
             }
             MPC_CHECK(Rando::Foreign::TestFoldOptionsString(defaults.data()) == base &&
                           Rando::Foreign::TestFoldIdentityString(defaults.data()) == baseIdentity,
-                      "(e) appended options at their row defaults must fold exactly as a pre-#1403 half's zeros do");
+                      "(e) #1403 appended options at their row defaults must fold as a pre-#1403 half's zeros do");
             for (const RandoOptionId option : { RO_SKULLTULA_SHUFFLED, RO_STRAY_FAIRIES_MAX }) {
                 std::vector<uint32_t> values = defaults;
                 values[option] = 1;
@@ -425,12 +557,15 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
                           term.c_str());
             }
         }
+        // #1548: 0 means Anywhere and must NOT fold to defaultValue (unlike #1403's
+        // sliders); non-zero values (1..3 for placement, 1..2 for songs) always fold.
         for (const RandoOptionId option : kPlacementOptions) {
             const auto it = Rando::StaticData::Options.find(option);
             if (it == Rando::StaticData::Options.end()) {
                 continue;
             }
-            for (uint32_t value = 1; value <= 2; ++value) {
+            const uint32_t maxVal = (option == RO_SHUFFLE_SONGS) ? 2u : 3u;
+            for (uint32_t value = 1; value <= maxVal; ++value) {
                 std::vector<uint32_t> values(RO_MAX, 0u);
                 values[option] = value;
                 const std::string term = std::string("|") + it->second.name + ":" + std::to_string(value);
@@ -785,6 +920,172 @@ extern "C" int MM_PlacementConfinedWorld_Check(void) {
     MPC_CHECK(songsOffSongChecks == 0, "%d MM song(s) crossed onto an OoT check that is no song check",
               songsOffSongChecks);
     printf("[TEST] mm-placement-confined-world: %s\n", sFailures == 0 ? "PASS" : "FAIL");
+    return sFailures == 0 ? 0 : 1;
+}
+
+extern "C" int MM_PlacementDefaultWorld_Check(void) {
+    sFailures = 0;
+    MPC_CHECK(RANDO_SAVE_OPTIONS[RO_PLACEMENT_SMALL_KEYS] == RO_DUNGEON_ITEM_OWN_DUNGEON &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_BOSS_KEYS] == RO_DUNGEON_ITEM_OWN_DUNGEON &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] == RO_DUNGEON_ITEM_OWN_DUNGEON &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES_OTHER] == RO_DUNGEON_ITEM_VANILLA &&
+                  RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_SONG_LOCATIONS,
+              "default paired generation froze wrong MM placement/songs options");
+
+    const int total = MM_ComboLogic_TestLastPoolConfinement(nullptr, nullptr, 0);
+    std::vector<uint16_t> items((size_t)(total > 0 ? total : 1), 0);
+    std::vector<uint32_t> masks((size_t)(total > 0 ? total : 1), 0u);
+    MM_ComboLogic_TestLastPoolConfinement(items.data(), masks.data(), total);
+    int localConfined = 0;
+    for (int i = 0; i < total; ++i) {
+        if ((masks[(size_t)i] != 0u) && (masks[(size_t)i] & RSBS_COMBO_GROUP_WIDE_MASK) == 0u) {
+            localConfined++;
+        }
+    }
+    const ComboSingleBagReport* report = Combo_SingleBag_LastReport();
+    printf("[TEST] mm-placement-default-world: %d locally confined MM pool rows, %d bag home-only rows, %d bag rows "
+           "confined\n",
+           localConfined, report->homeOnlyRows, report->confinedRows);
+    MPC_CHECK(localConfined == 44 && report->homeOnlyRows == 44 && report->confinedRows == 66 &&
+                  report->exclusiveGroups == RSBS_COMBO_GROUP_SONG_LOCATIONS,
+              "expected 44 MM local home-only rows (9 keys + 4 boss keys + 31 chest fairies) + 22 shared-song wide "
+              "rows (12 OoT + 10 MM) = 66 total confinedRows under RSBS_COMBO_GROUP_SONG_LOCATIONS, got pool=%d "
+              "homeOnly=%d bag=%d exclusive=0x%08X",
+              localConfined, report->homeOnlyRows, report->confinedRows, (unsigned)report->exclusiveGroups);
+
+    int keys = 0;
+    int chestFairies = 0;
+    int vanillaOtherFairies = 0;
+    int wrong = 0;
+    for (int rc = 1; rc < (int)RC_MAX; ++rc) {
+        const auto scIt = Rando::StaticData::Checks.find((RandoCheckId)rc);
+        if (scIt == Rando::StaticData::Checks.end()) {
+            continue;
+        }
+        const auto& staticCheck = scIt->second;
+        const RandoSaveCheck& check = RANDO_SAVE_CHECKS[rc];
+        if (staticCheck.randoCheckType == RCTYPE_STRAY_FAIRY) {
+            MPC_CHECK(
+                check.shuffled && !check.skipped && check.randoItemId == staticCheck.randoItemId,
+                "freestanding/CT fairy check %d did not stay vanilla under defaults (shuffled=%d skipped=%d item=%u)",
+                rc, check.shuffled ? 1 : 0, check.skipped ? 1 : 0, (unsigned)check.randoItemId);
+            vanillaOtherFairies++;
+        }
+        if (!check.shuffled || check.skipped) {
+            continue;
+        }
+        const RandoItemType type = Rando::StaticData::Items[check.randoItemId].randoItemType;
+        if (type == RITYPE_SMALL_KEY || type == RITYPE_BOSS_KEY) {
+            keys++;
+            if (Rando::Logic::CheckIdToConfinementGroup((RandoCheckId)rc) !=
+                Rando::Logic::RandoItemIdToConfinementGroup(check.randoItemId)) {
+                wrong++;
+            }
+        } else if (type == RITYPE_STRAY_FAIRY && staticCheck.randoCheckType != RCTYPE_STRAY_FAIRY) {
+            chestFairies++;
+            if (Rando::Logic::CheckIdToConfinementGroup((RandoCheckId)rc) !=
+                Rando::Logic::RandoItemIdToConfinementGroup(check.randoItemId)) {
+                wrong++;
+            }
+        }
+    }
+    int crossedLocal = 0;
+    for (int i = 0; i < Combo_Logic_PlacementCount(GAME_OOT); ++i) {
+        ComboLogicPlacement p;
+        if (!Combo_Logic_PlacementAt(GAME_OOT, i, &p) || p.item.originGame != (uint8_t)GAME_MM) {
+            continue;
+        }
+        uint32_t mask = 0u;
+        MM_ComboLogic_PoolRowConfineMasks(&p.item.id, 1, &mask);
+        if ((mask != 0u) && (mask & RSBS_COMBO_GROUP_WIDE_MASK) == 0u) {
+            crossedLocal++;
+        }
+    }
+    MPC_CHECK(keys == 13 && chestFairies == 31 && vanillaOtherFairies == 30 && wrong == 0 && crossedLocal == 0,
+              "default world placement mismatch (keys=%d chestFairies=%d vanillaOther=%d wrong=%d crossed=%d)", keys,
+              chestFairies, vanillaOtherFairies, wrong, crossedLocal);
+    printf("[TEST] mm-placement-default-world: %s\n", sFailures == 0 ? "PASS" : "FAIL");
+    return sFailures == 0 ? 0 : 1;
+}
+
+extern "C" int MM_PlacementAnywhereWorld_Check(void) {
+    sFailures = 0;
+    MPC_CHECK(RANDO_SAVE_OPTIONS[RO_PLACEMENT_SMALL_KEYS] == RO_DUNGEON_ITEM_ANYWHERE &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_BOSS_KEYS] == RO_DUNGEON_ITEM_ANYWHERE &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] == RO_DUNGEON_ITEM_ANYWHERE &&
+                  RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES_OTHER] == RO_DUNGEON_ITEM_ANYWHERE &&
+                  RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] == RO_SONG_SHUFFLE_ANYWHERE,
+              "Anywhere paired generation did not freeze all options at Anywhere");
+
+    const int total = MM_ComboLogic_TestLastPoolConfinement(nullptr, nullptr, 0);
+    std::vector<uint16_t> items((size_t)(total > 0 ? total : 1), 0);
+    std::vector<uint32_t> masks((size_t)(total > 0 ? total : 1), 0u);
+    MM_ComboLogic_TestLastPoolConfinement(items.data(), masks.data(), total);
+    int anyConfined = 0;
+    for (int i = 0; i < total; ++i) {
+        anyConfined += (masks[(size_t)i] != 0u) ? 1 : 0;
+    }
+    const ComboSingleBagReport* report = Combo_SingleBag_LastReport();
+    MPC_CHECK(anyConfined == 0 && report->confinedRows == 0 && report->exclusiveGroups == 0u,
+              "Anywhere world must carry 0 confinement masks (pool=%d bag=%d exclusive=0x%08X)", anyConfined,
+              report->confinedRows, (unsigned)report->exclusiveGroups);
+
+    int smallKeys = 0, bossKeys = 0, dungeonFairies = 0, ctFairies = 0;
+    auto tally = [&](RandoItemId id) {
+        if (id == RI_CLOCK_TOWN_STRAY_FAIRY) {
+            ctFairies++;
+            return;
+        }
+        const RandoItemType type = Rando::StaticData::Items[id].randoItemType;
+        if (type == RITYPE_SMALL_KEY) {
+            smallKeys++;
+        } else if (type == RITYPE_BOSS_KEY) {
+            bossKeys++;
+        } else if (type == RITYPE_STRAY_FAIRY) {
+            dungeonFairies++;
+        }
+    };
+    for (int rc = 1; rc < (int)RC_MAX; ++rc) {
+        const RandoSaveCheck& check = RANDO_SAVE_CHECKS[rc];
+        if (!check.shuffled || check.skipped) {
+            continue;
+        }
+        tally(check.randoItemId);
+    }
+    for (int i = 0; i < Combo_Logic_PlacementCount(GAME_OOT); ++i) {
+        ComboLogicPlacement p;
+        if (Combo_Logic_PlacementAt(GAME_OOT, i, &p) && p.item.originGame == (uint8_t)GAME_MM) {
+            tally((RandoItemId)p.item.id);
+        }
+    }
+    printf("[TEST] mm-placement-anywhere-world: keys=%d boss=%d dungeonFairies=%d ctFairy=%d\n", smallKeys, bossKeys,
+           dungeonFairies, ctFairies);
+    MPC_CHECK(smallKeys == 9 && bossKeys == 4 && dungeonFairies == 60 && ctFairies == 1,
+              "Anywhere world item conservation failed (keys=%d boss=%d fairies=%d ct=%d)", smallKeys, bossKeys,
+              dungeonFairies, ctFairies);
+
+    // The conservation tally above also counts an item StaysAtVanillaCheck kept
+    // at its vanilla check (shuffled with its vanilla item, no mask), so it holds
+    // under Vanilla too. Anywhere means every one of them ENTERED the pool the
+    // paired fill was handed: count them among MM's pool rows.
+    smallKeys = 0;
+    bossKeys = 0;
+    dungeonFairies = 0;
+    ctFairies = 0;
+    for (int i = 0; i < total; ++i) {
+        const RandoItemId id = (RandoItemId)items[(size_t)i];
+        if (items[(size_t)i] < (uint16_t)RI_MAX &&
+            Rando::StaticData::Items.find(id) != Rando::StaticData::Items.end()) {
+            tally(id);
+        }
+    }
+    printf("[TEST] mm-placement-anywhere-world: pool rows keys=%d boss=%d dungeonFairies=%d ctFairy=%d\n", smallKeys,
+           bossKeys, dungeonFairies, ctFairies);
+    MPC_CHECK(smallKeys == 9 && bossKeys == 4 && dungeonFairies == 60 && ctFairies == 1,
+              "Anywhere world left dungeon items out of the pool (keys=%d boss=%d fairies=%d ct=%d): they stayed at "
+              "their vanilla checks",
+              smallKeys, bossKeys, dungeonFairies, ctFairies);
+    printf("[TEST] mm-placement-anywhere-world: %s\n", sFailures == 0 ? "PASS" : "FAIL");
     return sFailures == 0 ? 0 : 1;
 }
 
