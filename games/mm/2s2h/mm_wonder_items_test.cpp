@@ -75,6 +75,15 @@ extern "C" int MM_WonderItems_RunHeadless(void) {
 extern "C" int MM_WonderItemsHooks_RunHeadless(void) {
     return 0;
 }
+extern "C" int MM_WonderItemsTest_LiveShuffled(int* outOption, int* outTable) {
+    if (outOption != nullptr) {
+        *outOption = -1;
+    }
+    if (outTable != nullptr) {
+        *outTable = 0;
+    }
+    return 0;
+}
 #else
 
 #include <algorithm>
@@ -711,6 +720,36 @@ Actor* CallocActor(size_t size, s16 id) {
 }
 
 } // namespace
+
+/**
+ * TEST BRIDGE (oot-wonder-items-paired, QC #1558; read-only): Majora's Mask's side
+ * of a finished paired world, for the Ocarina of Time row that checks OoT's Shuffle
+ * Wonder Items leaves MM's own option alone. Reads the live save, as
+ * MM_ComboLogic_TestShuffledItems does after a headless paired creation.
+ * @param outOption RANDO_SAVE_OPTIONS[RO_SHUFFLE_WONDER_ITEMS] (may be NULL)
+ * @param outTable  the RCTYPE_WONDER_ITEM checks in MM's table (may be NULL)
+ * @return how many of those checks the live save shuffles
+ */
+extern "C" int MM_WonderItemsTest_LiveShuffled(int* outOption, int* outTable) {
+    int table = 0;
+    int shuffled = 0;
+    for (const auto& [randoCheckId, check] : Rando::StaticData::Checks) {
+        if (check.randoCheckType != RCTYPE_WONDER_ITEM) {
+            continue;
+        }
+        table++;
+        if (randoCheckId > RC_UNKNOWN && randoCheckId < RC_MAX && RANDO_SAVE_CHECKS[randoCheckId].shuffled) {
+            shuffled++;
+        }
+    }
+    if (outOption != nullptr) {
+        *outOption = (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_WONDER_ITEMS];
+    }
+    if (outTable != nullptr) {
+        *outTable = table;
+    }
+    return shuffled;
+}
 
 extern "C" int MM_WonderItems_RunHeadless(void) {
     printf("[TEST] mm-wonder-items: Shuffle Wonder Items is an MM option, a page row, 116 checks, their id runs and "

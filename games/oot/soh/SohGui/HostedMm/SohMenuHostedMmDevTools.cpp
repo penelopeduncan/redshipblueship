@@ -66,6 +66,16 @@ void AddMmDevToolsBlock(SohMenu& menu, WidgetPath& path) {
         .PreFunc(DisableWithoutDebugMode)
         .Options(CheckboxOptions().Tooltip(
             "Disables dependencies when loading objects. Needs Debug Mode. Majora's Mask only."));
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Popout Event Log", WIDGET_WINDOW_BUTTON)
+        .CVar(RSBS_CVAR_MM_WINDOW_EVENT_LOG)
+        .WindowName("MM Event Log")
+        .HideInSearch(true)
+        .PreFunc([](WidgetInfo& info) {
+            if (!MM_DevTools_WarpPointAvailable()) {
+                info.activeDisables.push_back(DISABLE_FOR_MM_NOT_IN_GAMEPLAY);
+            }
+        })
+        .Options(WindowButtonOptions().Tooltip("Enables the Event Log window. Majora's Mask only.").EmbedWindow(false));
 }
 
 // Warping, right after SoH's Better Debug Warp Screen.
