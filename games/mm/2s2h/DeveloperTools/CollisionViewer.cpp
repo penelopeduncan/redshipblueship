@@ -17,6 +17,10 @@ extern PlayState* MM_gPlayState;
 
 extern "C" WallType SurfaceType_GetWallType(CollisionContext* colCtx, CollisionPoly* poly, s32 bgId);
 
+// File-scope helper outside namespace S2H: OPEN_DISPS / CLOSE_DISPS emit block-scope FrameInterpolation
+// declarations that must bind to the extern "C" globals rather than S2H::* (see WarpSongsMM.cpp).
+static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu);
+
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "TrackersGuiSingleExe.h"
 #include "mm_dev_viewers_bridge.h"
@@ -710,27 +714,9 @@ void DrawCollisionViewer() {
         return;
     }
 
-    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
-
-    uint8_t mirroredWorld = CVarGetInteger("gMirroredWorld", 0);
-    // Col viewer needs inverted culling in mirror mode for both OPA and XLU buffers
-    if (mirroredWorld) {
-        gSPSetExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
-        gSPSetExtraGeometryMode(POLY_XLU_DISP++, G_EX_INVERT_CULLING);
-    }
-
     opaDl.push_back(gsSPEndDisplayList());
-    MM_gSPDisplayList(POLY_OPA_DISP++, opaDl.data());
-
     xluDl.push_back(gsSPEndDisplayList());
-    MM_gSPDisplayList(POLY_XLU_DISP++, xluDl.data());
-
-    if (mirroredWorld) {
-        gSPClearExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
-        gSPClearExtraGeometryMode(POLY_XLU_DISP++, G_EX_INVERT_CULLING);
-    }
-
-    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+    ::DrawCollisionViewerDisplayLists(opaDl.data(), xluDl.data());
 }
 
 void CollisionViewerWindow::InitElement() {
@@ -746,15 +732,38 @@ void CollisionViewerWindow::InitElement() {
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 } // namespace S2H
+#endif
 
+static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu) {
+    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
+
+    uint8_t mirroredWorld = CVarGetInteger("gMirroredWorld", 0);
+    // Col viewer needs inverted culling in mirror mode for both OPA and XLU buffers
+    if (mirroredWorld) {
+        gSPSetExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
+        gSPSetExtraGeometryMode(POLY_XLU_DISP++, G_EX_INVERT_CULLING);
+    }
+
+    MM_gSPDisplayList(POLY_OPA_DISP++, opa);
+    MM_gSPDisplayList(POLY_XLU_DISP++, xlu);
+
+    if (mirroredWorld) {
+        gSPClearExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
+        gSPClearExtraGeometryMode(POLY_XLU_DISP++, G_EX_INVERT_CULLING);
+    }
+
+    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
 static S2H::CollisionViewerWindow* sHostedCollisionViewerBody = nullptr;
 
 static S2H::CollisionViewerWindow& MmHostedCollisionViewerBody() {
     static S2H::CollisionViewerWindow sHostedCollisionViewer("", "MM Collision Viewer");
+    sHostedCollisionViewerBody = &sHostedCollisionViewer;
     if (!sHostedCollisionViewer.IsInitialized()) {
         sHostedCollisionViewer.Init();
     }
-    sHostedCollisionViewerBody = &sHostedCollisionViewer;
     return sHostedCollisionViewer;
 }
 
@@ -765,7 +774,7 @@ bool MM_CollisionViewer_HostedActive(void) {
 }
 
 void MM_CollisionViewer_DrawHostedElement(void) {
-    if (!MM_TrackersGui_ShouldDraw()) {
+    if (!MM_CollisionViewer_HostedActive()) {
         return;
     }
     MmHostedCollisionViewerBody().DrawElement();
@@ -777,10 +786,10 @@ void MM_CollisionViewer_DrawHostedElement(void) {
  * SoH's Collision Viewer window is open or not.
  */
 void MM_CollisionViewer_UpdateHostedElement(void) {
-    if (!MM_TrackersGui_ShouldDraw()) {
+    if (!MM_CollisionViewer_HostedActive()) {
         return;
     }
-    MmHostedCollisionViewerBody().UpdateElement();
+    MmHostedCollisionViewerBody().Update();
 }
 
 bool MM_CollisionViewer_HostedInitializedForTest(void) {
