@@ -2232,6 +2232,8 @@ std::string PickBodyText(Ship::Menu& m, const std::string& header, const std::st
 
 // W6-TIMERS (#1237): SoH's Time Splits window while Majora's Mask runs (BuildPageList, EnterState, LeaveState).
 constexpr const char* kSohTimeSplitsMmReference = "window/Time Splits (Majora's Mask)";
+// W6-DEV (#1238 slice 3): MM's Event Log window, registered under "MM Event Log" and gated on GAME_MM.
+constexpr const char* kMmEventLogSnapshotPage = "window/MM Event Log";
 
 void Session::BuildPageList() {
     auto menuPage = [this](const std::string& header, const std::string& sidebar, Origin origin) {
@@ -2290,6 +2292,19 @@ void Session::BuildPageList() {
         p.states = { "mm" };
         p.expectText = { "Time Splits", "List Options", "Split Entries" };
         p.needsRom = true;
+        pages.push_back(p);
+    }
+    {
+        // W6-DEV (#1238 slice 3): MM's Event Log window while Majora's Mask runs. Registered ROM-free via
+        // MM_TrackersGui_Init -> S2H::DevToolsGui::RegisterWindows; EnterState sets GAME_MM so
+        // MMActiveGated<EventLogWindow>::Draw() runs and LeaveState restores gSavedGame.
+        PageSpec p;
+        p.id = kMmEventLogSnapshotPage;
+        p.kind = Kind::WINDOW;
+        p.window = "MM Event Log";
+        p.compareWith = kSohPaneReference;
+        p.states = { "mm" };
+        p.expectText = { "MM Event Log", "Enable", "Filters", "Clear", "Timestamp", "Type", "Meta" };
         pages.push_back(p);
     }
     for (const auto& [h, s] : std::vector<std::pair<std::string, std::string>>{
@@ -3687,6 +3702,9 @@ void Session::EnterState(const PageSpec& p, const std::string& state) {
         Context_SetCurrentGame(GAME_MM);
         MM_TimeSplits_SetDataPathForTest(
             (rsbs::test::ScratchDir("ui-snapshot-time-splits") / "2S2HTimeSplitData.json").string().c_str());
+    } else if (p.id == kMmEventLogSnapshotPage) {
+        // MM running so MMActiveGated<EventLogWindow> passes MM_TrackersGui_ShouldDraw() (LeaveState restores).
+        Context_SetCurrentGame(GAME_MM);
     } else if (p.kind == Kind::WINDOW) {
         if (p.window == ComboGui::kComboHintTrackerWindowName && IsHintTrackerState(state)) {
             // #1475 (lane H2): OoT is played, so OoT's pane is live; see kSnapshotHintStates.
@@ -4599,6 +4617,9 @@ const char* PaneCvar(const std::string& window) {
     }
     if (window == ComboGui::kComboHintTrackerWindowName) {
         return ComboGui::kComboHintTrackerVisibilityCVar;
+    }
+    if (window == "MM Event Log") {
+        return RSBS_CVAR_MM_WINDOW_EVENT_LOG;
     }
     return nullptr;
 }

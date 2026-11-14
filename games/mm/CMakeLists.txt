@@ -585,6 +585,7 @@ if(SINGLE_EXECUTABLE_BUILD)
         # drawing are fenced out; its Warp() serves MmDevToolsSingleExe.cpp. No twin in games/oot; DebugConsole.cpp
         # (DebugConsole_Init's twin) stays out.
         "2s2h/DeveloperTools/DeveloperTools.cpp"
+        "2s2h/DeveloperTools/EventLog.cpp"
         "2s2h/DeveloperTools/ObjectDependency.cpp"
         "2s2h/DeveloperTools/WarpPoint.cpp"
         # #1032: the 25 Skip Misc Interactions TUs, all keyed on gEnhancements.TimeSavers.SkipMiscInteractions

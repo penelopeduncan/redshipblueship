@@ -43,6 +43,7 @@ extern "C" {
 }
 
 extern "C" void MM_Rando_InitCore(void);
+extern "C" void func_808345C8(void);
 
 namespace {
 
@@ -69,16 +70,34 @@ extern "C" int MM_OoTMasksTest_Id(int which) {
     return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
 }
 
-/** MM actor ids by index: the eleven listed actors in MM_OoTMasks_SpoofFor's order
- *  (EnGe2, EnLookNuts, EnFirefly, EnCrow, EnBat, EnGuardNuts, EnDns, EnRailgibud,
- *  EnTalkGibud, EnRd, EnGb2), then two that are NOT listed: 11 EnGe3 (Aveil) and
- *  12 EnKaizoku; -1 past the table. */
+/** MM actor ids by index: 0..10 the original eleven listed actors in
+ *  MM_OoTMasks_SpoofFor's order (EnGe2, EnLookNuts, EnFirefly, EnCrow, EnBat,
+ *  EnGuardNuts, EnDns, EnRailgibud, EnTalkGibud, EnRd, EnGb2), 11..12 two that
+ *  are NOT listed (EnGe3 Aveil, EnKaizoku), and 13..16 the four Gibdo-mask
+ *  readers added for #1452 (EnHgo, EnPamera, EnSob1, EnOsn); -1 past the table. */
 extern "C" int MM_OoTMasksTest_ActorId(int which) {
     static const int kIds[] = { ACTOR_EN_GE2,        ACTOR_EN_LOOK_NUTS,  ACTOR_EN_FIREFLY, ACTOR_EN_CROW,
                                 ACTOR_EN_BAT,        ACTOR_EN_GUARD_NUTS, ACTOR_EN_DNS,     ACTOR_EN_RAILGIBUD,
                                 ACTOR_EN_TALK_GIBUD, ACTOR_EN_RD,         ACTOR_EN_GB2,     ACTOR_EN_GE3,
-                                ACTOR_EN_KAIZOKU };
+                                ACTOR_EN_KAIZOKU,    ACTOR_EN_HGO,        ACTOR_EN_PAMERA,  ACTOR_EN_SOB1,
+                                ACTOR_EN_OSN };
     return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
+}
+
+extern "C" int MM_OoTMasksTest_ActorIdMax(void) {
+    return ACTOR_ID_MAX;
+}
+
+extern "C" uint16_t MM_OoTMasksTest_Time(void) {
+    return gSaveContext.save.time;
+}
+
+extern "C" void MM_OoTMasksTest_SetTime(uint16_t time) {
+    gSaveContext.save.time = time;
+}
+
+extern "C" uint16_t MM_OoTMasksTest_ClockTime(int hr, int min) {
+    return (uint16_t)CLOCK_TIME(hr, min);
 }
 
 /** PLAYER_MASK_STONE (0), PLAYER_MASK_GIBDO (1), PLAYER_FORM_DEKU (2),
@@ -191,8 +210,25 @@ extern "C" int MM_OoTMasksTest_Before(int16_t actorId, int updates, int isNight)
     return MM_OoTMasks_BeforeActorUpdate(OmPlayer(), actorId, updates, isNight);
 }
 
+extern "C" int MM_OoTMasksTest_BeforeAtSaveTime(int16_t actorId, int updates) {
+    return MM_OoTMasks_BeforeActorUpdate(OmPlayer(), actorId, updates, MM_OoTMasks_IsNightNow());
+}
+
 extern "C" void MM_OoTMasksTest_PutBack(void) {
     MM_OoTMasks_PutBack(OmPlayer());
+}
+
+extern "C" int MM_OoTMasksTest_EquippedMask(void) {
+    return (int)gSaveContext.save.equippedMask;
+}
+
+extern "C" void MM_OoTMasksTest_SetEquippedMask(uint8_t mask) {
+    gSaveContext.save.equippedMask = mask;
+}
+
+extern "C" void MM_OoTMasksTest_VoidOutRespawn(int hasDekuMask) {
+    INV_CONTENT(ITEM_MASK_DEKU) = hasDekuMask ? (u8)ITEM_MASK_DEKU : (u8)ITEM_NONE;
+    func_808345C8();
 }
 
 namespace {

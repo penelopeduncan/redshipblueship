@@ -5077,8 +5077,16 @@ extern "C" void MM_GameHooks_ExecuteOnFlagSet(FlagType flagType, u32 flag) {
     S2H::GameHooks::Execute<GameInteractor::OnFlagSet>(flagType, flag);
 }
 
+extern "C" void MM_GameHooks_ExecuteOnFlagUnset(FlagType flagType, u32 flag) {
+    S2H::GameHooks::Execute<GameInteractor::OnFlagUnset>(flagType, flag);
+}
+
 extern "C" void MM_GameHooks_ExecuteOnSceneFlagSet(s16 sceneId, FlagType flagType, u32 flag) {
     S2H::GameHooks::Execute<GameInteractor::OnSceneFlagSet>(sceneId, flagType, flag);
+}
+
+extern "C" void MM_GameHooks_ExecuteOnSceneFlagUnset(s16 sceneId, FlagType flagType, u32 flag) {
+    S2H::GameHooks::Execute<GameInteractor::OnSceneFlagUnset>(sceneId, flagType, flag);
 }
 
 /**

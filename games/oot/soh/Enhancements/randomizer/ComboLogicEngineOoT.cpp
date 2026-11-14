@@ -158,6 +158,7 @@
 extern "C" {
 #include <z64.h>
 #include "variables.h"
+uint16_t OoT_Rando_ShopRestockItemFor(uint16_t rg);
 }
 
 namespace Rando {
@@ -2839,21 +2840,15 @@ const OoTItemClassRegistrar gOoTItemClassRegistrar;
 // THE KINDS: OoTMM's OOT_SHIELD_DEKU and OOT_SHIELD_HYLIAN. A vanilla shelf's
 // RG_BUY_* row gives the same shield, so it answers the same kind.
 //
-// THE HOSTS: a shop shelf that keeps its VANILLA stock (an ITEMTYPE_SHOP row),
-// and nothing else:
-//   - a SHUFFLED shelf is SI_RANDOMIZED_ITEM; since #1482 it sells its item
-//     again when OoTMM restocks it (ShopRestockSingleExe.cpp), both shields
-//     included, but this source does not credit that yet: it assumes less than
-//     the runtime gives, which is sound, and leaves every world as it was;
-//   - a shuffled cow gives once (randomizer.cpp's RAND_INF_COWS_MILKED_* table),
-//     a shuffled scrub despawns once bought (hook_handlers.cpp
-//     VB_BUSINESS_SCRUB_DESPAWN), a merchant is sold out after one sale.
-// So no EMPTY OoT host renews, and OoT's two kinds are renewed by its vanilla
-// shelves alone: SoH caps the shop count at seven (settings.cpp
-// RSK_SHOPSANITY_COUNT 0..7; shops.cpp calls eight "unreachable due to logic
-// limitations") and GetMinVanillaShopItems puts RG_BUY_DEKU_SHIELD and
-// RG_BUY_HYLIAN_SHIELD first, so both are on a vanilla shelf in every world.
-// That is OoTMM with vanilla shops: `place` marks a shop's fixed shield renewed.
+// THE HOSTS (#1482/#1547): OoT shop shelves (`RCTYPE_SHOP`), matching OoTMM's
+// `RENEWABLE_LOCATIONS` intersected with what this port restocks:
+//   - an empty `RCTYPE_SHOP` shelf (`RG_NONE`) renews an OoT critical renewable
+//     placed on it, because `ShopRestockSingleExe.cpp` restocks both shields;
+//   - a filled `RCTYPE_SHOP` shelf renews when it holds vanilla `ITEMTYPE_SHOP`
+//     stock or a restocking OoT item (`OoT_Rando_ShopRestockItemFor`), never for
+//     `RG_SOLD_OUT` or a foreign MM placement (which delivers once);
+//   - cows, scrubs and merchants give a shuffled item once (`RAND_INF_COWS_MILKED_*`,
+//     `VB_BUSINESS_SCRUB_DESPAWN`, merchants' sold-out hooks) and stay `0`.
 
 // fill.cpp: the empty-host walk OoT's remainder deals onto (declared again below).
 std::vector<RandomizerCheck> GetAllEmptyLocations();
@@ -2882,15 +2877,27 @@ int OoTCritHostRenews(uint16_t hostCheck) {
     if (ctx == nullptr || loc == nullptr || loc->GetRCType() != RCTYPE_SHOP) {
         return 0;
     }
+    if (Combo_GetForeignPlacementForOoTCheck(hostCheck) != nullptr) {
+        return 0;
+    }
     Rando::ItemLocation* il = ctx->GetItemLocation((RandomizerCheck)hostCheck);
     if (il == nullptr) {
         return 0;
     }
     const RandomizerGet placed = il->GetPlacedRandomizerGet();
-    if (placed == RG_NONE || placed == RG_SOLD_OUT || placed >= RG_MAX || !OoTComboLogicIsRealItem(placed)) {
+    if (placed == RG_SOLD_OUT) {
         return 0;
     }
-    return Rando::StaticData::RetrieveItem(placed).GetItemType() == ITEMTYPE_SHOP ? 1 : 0;
+    if (placed == RG_NONE) {
+        return 1;
+    }
+    if (placed >= RG_MAX || !OoTComboLogicIsRealItem(placed)) {
+        return 0;
+    }
+    if (Rando::StaticData::RetrieveItem(placed).GetItemType() == ITEMTYPE_SHOP) {
+        return 1;
+    }
+    return OoT_Rando_ShopRestockItemFor((uint16_t)placed) != (uint16_t)RG_NONE ? 1 : 0;
 }
 
 uint32_t OoTCritKindsRenewedNow() {
@@ -2997,9 +3004,10 @@ extern "C" int OoT_ComboLogic_CriticalRenewablesWorld(uint32_t* outPresent, uint
 /**
  * OoT'S REMAINDER HALF of the rule (All Locations only): before the traps and the
  * junk are dealt, the first copy of each OoT kind not yet renewed goes on an empty
- * OoT host that renews it. In every world SoH can build there is no such kind
- * (both shields are on vanilla shelves, see the source above) and no empty host
- * renews, so this places nothing and draws nothing; it is here so the rule holds
+ * OoT host that renews it (since #1547 an empty OoT shop shelf does, unless it
+ * hosts a Majora's Mask item). In every world SoH can build there is no such
+ * kind (both shields are on vanilla shelves, see the source above), so this
+ * places nothing and draws nothing; it is here so the rule holds
  * in OoT's pass by construction and not only by that fact, and it says so loudly
  * if the fact ever stops holding.
  * @return the number of copies placed.
