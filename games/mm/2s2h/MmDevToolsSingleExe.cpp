@@ -19,6 +19,10 @@
 #include <ship/window/gui/Gui.h>
 
 #include "2s2h/DeveloperTools/DeveloperTools.h" // WARP_POINT_CVAR
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/DeveloperTools/EventLog.h"
+#include "2s2h/MmActiveGated.h"
+#endif
 
 #include "context.h"             // src/common: Context_GetCurrentGame
 #include "mm_dev_tools_bridge.h" // src/common
@@ -146,3 +150,21 @@ extern "C" void MM_DevTools_ClearWarpPoint(void) {
     CVarClear(WARP_POINT_CVAR "Saved");
     SaveConsoleVariablesNextFrame();
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+namespace S2H {
+namespace DevToolsGui {
+
+void RegisterWindows(std::shared_ptr<Ship::Gui> gui) {
+    if (gui == nullptr || gui->GetGuiWindow("MM Event Log") != nullptr) {
+        return;
+    }
+
+    auto eventLogWindow =
+        std::make_shared<MMActiveGated<EventLogWindow>>("gWindows.EventLog", "MM Event Log", ImVec2(520, 600));
+    gui->AddGuiWindow(eventLogWindow);
+}
+
+} // namespace DevToolsGui
+} // namespace S2H
+#endif

@@ -14,6 +14,8 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "foreign_items.h" // src/common — Combo_GetForeignPlacementForOoTCheck, Combo_GetForeignItemName (#800)
 extern "C" int OoT_Rando_Foreign_HostCollected(uint16_t rc); // ForeignItemsSingleExe.cpp (#800)
+extern "C" uint16_t OoT_Rando_ShopShelfDisplayedItem(uint16_t rc, int bought); // ShopRestockSingleExe.cpp (#1547)
+extern "C" int OoT_Rando_ShopMessageIncludesOneLeft(uint16_t rc, int bought, int mysterious);
 static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc);
 #endif
 
@@ -32,7 +34,15 @@ extern PlayState* OoT_gPlayState;
     (RAND_GET_OPTION(RSK_SHUFFLE_MERCHANTS).Is(RO_SHUFFLE_MERCHANTS_ALL_BUT_BEANS) || \
      RAND_GET_OPTION(RSK_SHUFFLE_MERCHANTS).Is(RO_SHUFFLE_MERCHANTS_ALL))
 
-void BuildMerchantMessage(CustomMessage& msg, RandomizerCheck rc, bool mysterious = true) {
+static Rando::Context* MerchantRandoContext() {
+    if (OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandoContext != nullptr) {
+        return OTRGlobals::Instance->gRandoContext.get();
+    }
+    return Rando::Context::GetInstance().get();
+}
+
+void BuildMerchantMessage(CustomMessage& msg, RandomizerCheck rc, bool mysterious = true,
+                          RandomizerGet displayedOverride = RG_NONE) {
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #800 pass 2: a merchant (the bean salesman, Medigoron, Granny, the carpet
     // salesman) hosting an MM item names that item where it would name its own
@@ -42,16 +52,18 @@ void BuildMerchantMessage(CustomMessage& msg, RandomizerCheck rc, bool mysteriou
         return;
     }
 #endif
-    RandomizerGet rgid = RAND_GET_ITEM(rc)->GetPlacedRandomizerGet();
-    uint16_t price = RAND_GET_ITEM(rc)->GetPrice();
+    Rando::Context* ctx = MerchantRandoContext();
+    RandomizerGet rgid =
+        displayedOverride != RG_NONE ? displayedOverride : ctx->GetItemLocation(rc)->GetPlacedRandomizerGet();
+    uint16_t price = ctx->GetItemLocation(rc)->GetPrice();
     CustomMessage itemName;
     std::string color = Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rgid)).GetColor();
     if (mysterious) {
         itemName = Rando::StaticData::hintTextTable[RHT_MYSTERIOUS_ITEM_CAPITAL].GetHintMessage();
         color = "%g";
     } else if (rgid == RG_ICE_TRAP) {
-        rgid = RAND_GET_OVERRIDE(rc).LooksLike();
-        itemName = CustomMessage(RAND_GET_OVERRIDE(rc).GetTrickName());
+        rgid = ctx->overrides[rc].LooksLike();
+        itemName = CustomMessage(ctx->overrides[rc].GetTrickName());
         color = "%g";
     } else {
         itemName = CustomMessage(Rando::StaticData::RetrieveItem(rgid).GetName());
@@ -80,7 +92,7 @@ static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc) {
     const char* foreignName = Combo_GetForeignItemName(Combo_PresentForeignItem(*foreignItem, false));
     msg.Replace("[[color]]", "%g");
     msg.InsertNames({ CustomMessage(std::string(foreignName != nullptr ? foreignName : "Majora's Mask item")),
-                      CustomMessage(std::to_string(RAND_GET_ITEM(rc)->GetPrice())) });
+                      CustomMessage(std::to_string(MerchantRandoContext()->GetItemLocation(rc)->GetPrice())) });
     return true;
 }
 #endif
@@ -269,39 +281,135 @@ void BuildScrubMessage(uint16_t* textId, bool* loadFromMessageTable) {
     *loadFromMessageTable = false;
 }
 
-void BuildShopMessage(uint16_t* textId, bool* loadFromMessageTable) {
+static CustomMessage BuildShopOfferMessage(RandomizerCheck rc, bool bought, bool confirm, bool mysterious) {
     CustomMessage msg;
-    RandomizerCheck rc;
-    // Shop items each have two message entries, second one offset by NUM_SHOP_ITEMS
-    // textId: TEXT_SHOP_ITEM_RANDOM + (randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1)
-    // textId: TEXT_SHOP_ITEM_RANDOM + ((randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1) + NUM_SHOP_ITEMS)
-    if (*textId >= TEXT_SHOP_ITEM_RANDOM && *textId < TEXT_SHOP_ITEM_RANDOM_CONFIRM) {
-        rc = OTRGlobals::Instance->gRandomizer->GetCheckFromRandomizerInf(
-            static_cast<RandomizerInf>((*textId - TEXT_SHOP_ITEM_RANDOM) + RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1));
-        msg =
-            CustomMessage("\x08[[color]][[1]]%w  %y[[2]]_Rupees%w&Special deal! %rONE LEFT%w!\x0A\x02",
-                          "\x08[[color]][[1]]%w  %y[[2]]_Rubine%w&Sonderangebot! %rNUR NOCH EINES VERFÜGBAR%w!\x0A\x02",
-                          "\x08[[color]][[1]]%w  %y[[2]]_Rubis%w&Offre spéciale! %rDERNIER EN STOCK%w!\x0A\x02");
-    } else if (*textId >= TEXT_SHOP_ITEM_RANDOM_CONFIRM && *textId <= TEXT_SHOP_ITEM_RANDOM_CONFIRM_END) {
-        rc = OTRGlobals::Instance->gRandomizer->GetCheckFromRandomizerInf(
-            static_cast<RandomizerInf>((*textId - TEXT_SHOP_ITEM_RANDOM_CONFIRM) + RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1));
+    if (confirm) {
         msg = CustomMessage("\x08[[color]][[1]]%w  %y[[2]]_Rupees%w\x09\x1B%gBuy&Don't buy%w\x09\x02",
                             "\x08[[color]][[1]]%w  %y[[2]]_Rubine%w\x09\x1B%gKaufen&Nicht kaufen%w\x09\x02",
                             "\x08[[color]][[1]]%w  %y[[2]]_Rubis%w\x09\x1B%gAcheter&Ne pas acheter%w\x09\x02");
     } else {
-        return;
+        bool includeOneLeft = true;
+#ifdef RSBS_SINGLE_EXECUTABLE
+        includeOneLeft =
+            OoT_Rando_ShopMessageIncludesOneLeft(static_cast<uint16_t>(rc), bought ? 1 : 0, mysterious ? 1 : 0) != 0;
+#endif
+        if (includeOneLeft) {
+            msg = CustomMessage(
+                "\x08[[color]][[1]]%w  %y[[2]]_Rupees%w&Special deal! %rONE LEFT%w!\x0A\x02",
+                "\x08[[color]][[1]]%w  %y[[2]]_Rubine%w&Sonderangebot! %rNUR NOCH EINES VERFÜGBAR%w!\x0A\x02",
+                "\x08[[color]][[1]]%w  %y[[2]]_Rubis%w&Offre spéciale! %rDERNIER EN STOCK%w!\x0A\x02");
+        } else {
+            msg = CustomMessage("\x08[[color]][[1]]%w  %y[[2]]_Rupees%w\x0A\x02",
+                                "\x08[[color]][[1]]%w  %y[[2]]_Rubine%w\x0A\x02",
+                                "\x08[[color]][[1]]%w  %y[[2]]_Rubis%w\x0A\x02");
+        }
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #800 S1: a shelf hosting a Majora's Mask item names that item.
-    if (!CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0) && BuildForeignHostMessage(msg, rc)) {
+    if (!mysterious && BuildForeignHostMessage(msg, rc)) {
         msg.AutoFormat();
-        msg.LoadIntoFont();
-        *loadFromMessageTable = false;
-        return;
+        return msg;
     }
 #endif
-    BuildMerchantMessage(msg, rc, CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0));
+    RandomizerGet displayed = RG_NONE;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (bought) {
+        displayed = static_cast<RandomizerGet>(OoT_Rando_ShopShelfDisplayedItem(static_cast<uint16_t>(rc), 1));
+    }
+#endif
+    BuildMerchantMessage(msg, rc, mysterious, displayed);
     msg.AutoFormat();
+    return msg;
+}
+
+/** The shop offer for message @p textId: which shelf (its RandomizerInf, the
+ *  shelf check @p checkForInf maps it to), whether it is the confirm box, and
+ *  whether the shelf is bought (its RandomizerInf, read here). @return false
+ *  when @p textId is not a shop offer. */
+static bool BuildShopMessageFor(uint16_t textId, RandomizerCheck (*checkForInf)(RandomizerInf), bool mysterious,
+                                CustomMessage& out) {
+    RandomizerInf shopInf;
+    bool confirm = false;
+    // Shop items each have two message entries, second one offset by NUM_SHOP_ITEMS
+    // textId: TEXT_SHOP_ITEM_RANDOM + (randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1)
+    // textId: TEXT_SHOP_ITEM_RANDOM + ((randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1) + NUM_SHOP_ITEMS)
+    if (textId >= TEXT_SHOP_ITEM_RANDOM && textId < TEXT_SHOP_ITEM_RANDOM_CONFIRM) {
+        shopInf = static_cast<RandomizerInf>((textId - TEXT_SHOP_ITEM_RANDOM) + RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1);
+    } else if (textId >= TEXT_SHOP_ITEM_RANDOM_CONFIRM && textId <= TEXT_SHOP_ITEM_RANDOM_CONFIRM_END) {
+        shopInf =
+            static_cast<RandomizerInf>((textId - TEXT_SHOP_ITEM_RANDOM_CONFIRM) + RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1);
+        confirm = true;
+    } else {
+        return false;
+    }
+    const RandomizerCheck rc = checkForInf(shopInf);
+    out = BuildShopOfferMessage(rc, Flags_GetRandomizerInf(shopInf) != 0, confirm, mysterious);
+    return true;
+}
+
+static RandomizerCheck ShopCheckFromRandomizerInf(RandomizerInf shopInf) {
+    return OTRGlobals::Instance->gRandomizer->GetCheckFromRandomizerInf(shopInf);
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+/** English text of @p msg with OoT control codes stripped into @p out. */
+static int ShopOfferPlainText(const CustomMessage& msg, char* out, size_t cap) {
+    const std::string raw = msg.GetEnglish(MF_RAW);
+    // Strip OoT control codes (importantly 0x05 + QM_WHITE '\0', which would
+    // terminate a C string before "ONE LEFT!" / "Buy") so out is printable.
+    std::string text;
+    text.reserve(raw.size());
+    for (size_t i = 0; i < raw.size(); i++) {
+        const unsigned char c = static_cast<unsigned char>(raw[i]);
+        if (c == 0x05 || c == 0x13) {
+            if (i + 1 < raw.size()) {
+                i++;
+            }
+        } else if (c == 0x01 || c == 0x04) {
+            text.push_back('\n');
+        } else if (c >= 0x20 && c < 0x7F) {
+            text.push_back(static_cast<char>(c));
+        }
+    }
+    std::snprintf(out, cap, "%s", text.c_str());
+    return static_cast<int>(text.size());
+}
+
+/** Test bridge: the offer for shelf @p rc with @p bought given directly. */
+extern "C" int OoT_Rando_ShopOfferText(uint16_t rc, int bought, int confirm, int mysterious, char* out, size_t cap) {
+    if (out == nullptr || cap == 0 || MerchantRandoContext() == nullptr) {
+        return -1;
+    }
+    return ShopOfferPlainText(
+        BuildShopOfferMessage(static_cast<RandomizerCheck>(rc), bought != 0, confirm != 0, mysterious != 0), out, cap);
+}
+
+static RandomizerCheck sShopOfferTestCheck = RC_UNKNOWN_CHECK;
+
+/** Test bridge: the offer for message @p textId through BuildShopMessageFor,
+ *  the production path, which reads the shelf's RandomizerInf from the live save
+ *  itself; @p rc stands in for the randomizer's RandomizerInf -> check map.
+ *  @return -1 when @p textId is not a shop offer. */
+extern "C" int OoT_Rando_ShopOfferTextForTextId(uint16_t textId, uint16_t rc, int mysterious, char* out, size_t cap) {
+    if (out == nullptr || cap == 0 || MerchantRandoContext() == nullptr) {
+        return -1;
+    }
+    sShopOfferTestCheck = static_cast<RandomizerCheck>(rc);
+    CustomMessage msg;
+    if (!BuildShopMessageFor(
+            textId, [](RandomizerInf) { return sShopOfferTestCheck; }, mysterious != 0, msg)) {
+        return -1;
+    }
+    return ShopOfferPlainText(msg, out, cap);
+}
+#endif
+
+void BuildShopMessage(uint16_t* textId, bool* loadFromMessageTable) {
+    CustomMessage msg;
+    if (!BuildShopMessageFor(*textId, ShopCheckFromRandomizerInf,
+                             CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0) != 0, msg)) {
+        return;
+    }
     msg.LoadIntoFont();
     *loadFromMessageTable = false;
 }

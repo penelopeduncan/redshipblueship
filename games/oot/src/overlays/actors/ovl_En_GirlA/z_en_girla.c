@@ -20,11 +20,14 @@
 s32 OoT_Rando_Foreign_HostsForeign(u16 rc);
 s32 OoT_Rando_Foreign_HostCollected(u16 rc);
 s32 OoT_ForeignModel_DrawForOoTCheck(PlayState* play, u16 rc);
-// #1482: a bought shuffled shelf sells its item again when OoTMM restocks it
-// (ShopRestockSingleExe.cpp).
+// #1482 / #1547: a bought shuffled shelf sells its item again when OoTMM restocks
+// it (ShopRestockSingleExe.cpp), and bottled potion/milk shelves restock as
+// their refill.
 s32 OoT_Rando_ShopShelfSoldOut(u16 rc, s32 bought);
 s32 OoT_Rando_ShopRestockBuyState(u16 rc, s32 bought);
 s32 OoT_Rando_ShopRestockSell(PlayState* play, u16 rc, s32 bought, s16 price);
+GetItemEntry OoT_Rando_ShopShelfGetItemEntry(u16 rc, u16 ogId, s32 bought);
+ItemObtainability OoT_Rando_ShopShelfObtainability(u16 rc, s32 bought);
 #endif
 
 void OoT_EnGirlA_Init(Actor* thisx, PlayState* play);
@@ -870,10 +873,14 @@ s32 EnGirlA_CanBuy_Fairy(PlayState* play, EnGirlA* this) {
 
 s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {
     ShopItemIdentity shopItemIdentity = Randomizer_IdentifyShopItem(play->sceneNum, this->randoSlotIndex);
-    GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
-        shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    s32 infBought = Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf);
+    ItemObtainability itemObtainability =
+        OoT_Rando_ShopShelfObtainability(shopItemIdentity.identity.randomizerCheck, infBought);
+#else
     ItemObtainability itemObtainability =
         Randomizer_GetItemObtainabilityFromRandomizerCheck(shopItemIdentity.identity.randomizerCheck);
+#endif
 
     if (itemObtainability == CANT_OBTAIN_NEED_EMPTY_BOTTLE) {
         return CANBUY_RESULT_NEED_BOTTLE;
@@ -888,8 +895,7 @@ s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {
     // The refusals around this one are asked of that item (it is the placed
     // item), and a sale that would add nothing (state 2: ammo at capacity, health
     // full) is refused as a vanilla shelf refuses it.
-    s32 bought = OoT_Rando_ShopRestockBuyState(shopItemIdentity.identity.randomizerCheck,
-                                               Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+    s32 bought = OoT_Rando_ShopRestockBuyState(shopItemIdentity.identity.randomizerCheck, infBought);
     if (bought == 2) {
         return CANBUY_RESULT_CANT_GET_NOW;
     }
@@ -1268,12 +1274,18 @@ void EnGirlA_UpdateStockedItem(PlayState* play, EnGirlA* this) {
             this->isInvisible = false;
             this->actor.draw = OoT_EnGirlA_Draw;
 #ifdef RSBS_SINGLE_EXECUTABLE
-            // #1482: EnGirlA_SetItemOutOfStock gave this randomized shelf the
-            // sold-out text; restocked, it names its item again.
+            // #1482/#1547: EnGirlA_SetItemOutOfStock gave this randomized shelf the
+            // sold-out text; restocked, it names and draws its restock item (refill
+            // for bottled potions/milk).
             if (this->actor.params == SI_RANDOMIZED_ITEM) {
                 ShopItemIdentity shopItemIdentity = Randomizer_IdentifyShopItem(play->sceneNum, this->randoSlotIndex);
+                GetItemEntry getItemEntry = OoT_Rando_ShopShelfGetItemEntry(
+                    shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId,
+                    Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
                 this->actor.textId =
                     0x9100 + (shopItemIdentity.identity.randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1);
+                this->getItemId = getItemEntry.getItemId;
+                this->giDrawId = getItemEntry.gid;
             }
 #endif
         }
@@ -1409,8 +1421,14 @@ void EnGirlA_WaitForObject(EnGirlA* this, PlayState* play) {
 
             if (params == SI_RANDOMIZED_ITEM) {
                 ShopItemIdentity shopItemIdentity = Randomizer_IdentifyShopItem(play->sceneNum, this->randoSlotIndex);
+#ifdef RSBS_SINGLE_EXECUTABLE
+                GetItemEntry getItemEntry = OoT_Rando_ShopShelfGetItemEntry(
+                    shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId,
+                    Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+#else
                 GetItemEntry getItemEntry = Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
                     shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
+#endif
                 this->actor.textId =
                     0x9100 + (shopItemIdentity.identity.randomizerInf - RAND_INF_SHOP_ITEMS_KF_SHOP_ITEM_1);
                 this->itemBuyPromptTextId =
@@ -1517,11 +1535,18 @@ void OoT_EnGirlA_Draw(Actor* thisx, PlayState* play) {
             return;
         }
 #endif
-        GetItemEntry getItemEntry = (CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0) &&
-                                     this->actor.params == SI_RANDOMIZED_ITEM)
-                                        ? GetItemMystery()
-                                        : Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
-                                              shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
+        GetItemEntry getItemEntry =
+            (CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"), 0) &&
+             this->actor.params == SI_RANDOMIZED_ITEM)
+                ? GetItemMystery()
+#ifdef RSBS_SINGLE_EXECUTABLE
+                : OoT_Rando_ShopShelfGetItemEntry(
+                      shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId,
+                      Flags_GetRandomizerInf(shopItemIdentity.identity.randomizerInf));
+#else
+                : Randomizer_GetItemFromKnownCheckWithoutObtainabilityCheck(
+                      shopItemIdentity.identity.randomizerCheck, shopItemIdentity.ogItemId);
+#endif
 
         EnItem00_CustomItemsParticles(&this->actor, play, getItemEntry);
         GetItemEntry_Draw(play, getItemEntry);

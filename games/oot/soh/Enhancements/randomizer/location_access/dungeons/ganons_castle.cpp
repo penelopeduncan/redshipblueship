@@ -597,6 +597,7 @@ void RegionTable_Init_GanonsCastle() {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_BOMB_FLOWER_SHADOW_SILVER,     true),
         LOCATION(RC_GANONS_CASTLE_MQ_MOVING_PLATFORM_SHADOW_SILVER, true),
+        LOCATION(RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL, (logic->CanDetonateBombFlowers() || (ctx->GetTrickOption(RT_BLUE_FIRE_MUD_WALLS) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE))) && (logic->TakeDamage() || logic->CanUse(RG_NAYRUS_LOVE))),
     }, {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS);}),
