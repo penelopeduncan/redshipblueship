@@ -143,9 +143,12 @@ bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
     return option->GetKey() == RSK_SHUFFLE_SILVER;
 }
 
-// #1408: the Shuffle Icicles lines the last fold read and the ones it left out.
+// #1408: the Shuffle Icicles lines the last fold read and the ones it left out
+// (oot_shuffle_ice_test.cpp), counted as #1363's are. And 1 while the last
+// generation pinned the option off.
 uint32_t sRsbsFoldIciclesLines = 0;
 uint32_t sRsbsFoldIciclesSkipped = 0;
+int sRsbsIciclesPinned = 0;
 
 /**
  * #1408: whether the fold line @p option makes in option group @p group belongs to
@@ -165,9 +168,11 @@ bool RsbsFoldIsIciclesLine(size_t group, Rando::Option* option) {
     return option->GetKey() == RSK_SHUFFLE_ICICLES;
 }
 
-// #1408: the Shuffle Red Ice lines the last fold read and the ones it left out.
+// #1408: the Shuffle Red Ice lines the last fold read and the ones it left out
+// (oot_shuffle_ice_test.cpp). And 1 while the last generation pinned the option off.
 uint32_t sRsbsFoldRedIceLines = 0;
 uint32_t sRsbsFoldRedIceSkipped = 0;
+int sRsbsRedIcePinned = 0;
 
 /**
  * #1408: whether the fold line @p option makes in option group @p group belongs to
@@ -260,25 +265,35 @@ extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* o
 }
 
 // #1408: of the last fold, the lines that belong to Shuffle Icicles (the
-// option's rows, the RCTYPE_ICICLE exclude rows) as folded and as left out.
-extern "C" int OoT_Rando_LastSettingsFoldIcicles(uint32_t* outFolded, uint32_t* outSkipped) {
+// option's rows, the RCTYPE_ICICLE exclude rows) as folded and as left out, and
+// whether that generation pinned the option off in a paired world. Returns how
+// many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldIcicles(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned) {
     if (outFolded != nullptr) {
         *outFolded = sRsbsFoldIciclesLines;
     }
     if (outSkipped != nullptr) {
         *outSkipped = sRsbsFoldIciclesSkipped;
     }
+    if (outPinned != nullptr) {
+        *outPinned = sRsbsIciclesPinned;
+    }
     return sRsbsFoldRuns;
 }
 
 // #1408: of the last fold, the lines that belong to Shuffle Red Ice (the
-// option's rows, the RCTYPE_RED_ICE exclude rows) as folded and as left out.
-extern "C" int OoT_Rando_LastSettingsFoldRedIce(uint32_t* outFolded, uint32_t* outSkipped) {
+// option's rows, the RCTYPE_RED_ICE exclude rows) as folded and as left out, and
+// whether that generation pinned the option off in a paired world. Returns how
+// many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldRedIce(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned) {
     if (outFolded != nullptr) {
         *outFolded = sRsbsFoldRedIceLines;
     }
     if (outSkipped != nullptr) {
         *outSkipped = sRsbsFoldRedIceSkipped;
+    }
+    if (outPinned != nullptr) {
+        *outPinned = sRsbsRedIcePinned;
     }
     return sRsbsFoldRuns;
 }
@@ -658,6 +673,33 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
         fprintf(stderr, "[OoT] Shuffle Silver Rupees: generated off in a paired world (#1363)\n");
         ctx->GetOption(RSK_SHUFFLE_SILVER).Set(RO_SHUFFLE_SILVER_OFF);
         sRsbsSilverPinned = 1;
+    }
+    // #1408: Shuffle Icicles and Shuffle Red Ice (SoH 49e740b6f, 68d4c6049) are
+    // generated OFF in a paired world until the paired generator is integrated with
+    // them, as #1363 above. With either on, its checks join OoT's location pool and
+    // the single-bag fill can put a Majora's Mask item on an icicle or a block of red
+    // ice, and nobody has traced that EnItem00 drop (or King Zora's red ice, whose
+    // item is given directly) delivering a foreign item, nor the combo proof over
+    // OoT's own blue fire. Every generation in this build is a paired creation, so
+    // the options only take effect once this pin is lifted; the menu greys them out
+    // with the same reason (settings.cpp). Decided before FinalizeSettings; settings
+    // only, no RNG, and the settings fold below leaves their lines out while they are
+    // off, so the string is the one a world had before the options existed.
+    sRsbsIciclesPinned = 0;
+    if (ctx->GetOption(RSK_SHUFFLE_ICICLES).IsNot(RO_GENERIC_OFF)) {
+        SPDLOG_WARN("Paired world: Shuffle Icicles is generated off: its checks would join the paired item bag "
+                    "before the paired generator supports them (#1408)");
+        fprintf(stderr, "[OoT] Shuffle Icicles: generated off in a paired world (#1408)\n");
+        ctx->GetOption(RSK_SHUFFLE_ICICLES).Set(RO_GENERIC_OFF);
+        sRsbsIciclesPinned = 1;
+    }
+    sRsbsRedIcePinned = 0;
+    if (ctx->GetOption(RSK_SHUFFLE_RED_ICE).IsNot(RO_GENERIC_OFF)) {
+        SPDLOG_WARN("Paired world: Shuffle Red Ice is generated off: its checks would join the paired item bag "
+                    "before the paired generator supports them (#1408)");
+        fprintf(stderr, "[OoT] Shuffle Red Ice: generated off in a paired world (#1408)\n");
+        ctx->GetOption(RSK_SHUFFLE_RED_ICE).Set(RO_GENERIC_OFF);
+        sRsbsRedIcePinned = 1;
     }
 #endif
     ctx->FinalizeSettings(excludedLocations, enabledTricks);

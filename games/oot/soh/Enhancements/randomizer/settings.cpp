@@ -946,6 +946,14 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_SHUFFLE_BUSHES, "Shuffle Bushes", CVAR_RANDOMIZER_SETTING("ShuffleBushes"), mOptionDescriptions[RSK_SHUFFLE_BUSHES]);
     OPT_BOOL(RSK_SHUFFLE_ICICLES, "Shuffle Icicles", CVAR_RANDOMIZER_SETTING("ShuffleIcicles"), mOptionDescriptions[RSK_SHUFFLE_ICICLES]);
     OPT_BOOL(RSK_SHUFFLE_RED_ICE, "Shuffle Red Ice", CVAR_RANDOMIZER_SETTING("ShuffleRedIce"), mOptionDescriptions[RSK_SHUFFLE_RED_ICE]);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1408: every world is generated with both off (Playthrough_Init) until the
+    // cross-game generator supports their checks, so the menu says so.
+    mOptions[RSK_SHUFFLE_ICICLES].Disable("Disabled because the cross-game randomizer does not support\n"
+                                          "icicles yet.");
+    mOptions[RSK_SHUFFLE_RED_ICE].Disable("Disabled because the cross-game randomizer does not support\n"
+                                          "red ice yet.");
+#endif
     OPT_BOOL(RSK_SHUFFLE_FISHING_POLE, "Shuffle Fishing Pole", CVAR_RANDOMIZER_SETTING("ShuffleFishingPole"), mOptionDescriptions[RSK_SHUFFLE_FISHING_POLE]);
     OPT_CALLBACK(RSK_SHUFFLE_FISHING_POLE, {
         // Disable fishing pole hint if the fishing pole is not shuffled

@@ -118,10 +118,14 @@ static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_YES;
 // pins it), so the Treasure Chest Game's checks are never locations and are not
 // offered for exclusion, whatever the stored CVar says.
 static constexpr bool kChestGameRowsShown = false;
+// #1408: likewise Shuffle Icicles and Shuffle Red Ice (Playthrough_Init pins both off),
+// so a stored On from a preset must not unhide 191 rows the fold leaves out.
+static constexpr bool kIceRowsShown = false;
 #else
 static constexpr int kShuffleOcarinasDefault = RO_GENERIC_NO;
 static constexpr int kShuffleGerudoCardDefault = RO_GENERIC_NO;
 static constexpr bool kChestGameRowsShown = true;
+static constexpr bool kIceRowsShown = true;
 #endif
 
 // #1363: whether the silver rupee checks get Exclude Locations rows. Every generation in
@@ -239,9 +243,9 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
             (location.GetRCType() != RCTYPE_NLTREE ||
              CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleTrees"), RO_GENERIC_NO)) &&
             (location.GetRCType() != RCTYPE_ICICLE ||
-             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleIcicles"), RO_GENERIC_NO)) &&
+             (kIceRowsShown && CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleIcicles"), RO_GENERIC_NO))) &&
             (location.GetRCType() != RCTYPE_RED_ICE ||
-             CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleRedIce"), RO_GENERIC_NO)) &&
+             (kIceRowsShown && CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleRedIce"), RO_GENERIC_NO))) &&
             (location.GetRCType() != RCTYPE_FISH ||
              ctx->GetFishsanity()->GetFishLocationIncluded(&location, FSO_SOURCE_CVARS)) &&
             (location.GetRCType() != RCTYPE_ADULT_TRADE ||
