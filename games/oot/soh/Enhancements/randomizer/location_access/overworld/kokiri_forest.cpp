@@ -65,6 +65,12 @@ void RegionTable_Init_KokiriForest() {
         LOCATION(RC_KF_ADULT_GRASS_18,          logic->IsAdult && logic->CanCutShrubs()),
         LOCATION(RC_KF_ADULT_GRASS_19,          logic->IsAdult && logic->CanCutShrubs()),
         LOCATION(RC_KF_ADULT_GRASS_20,          logic->IsAdult && logic->CanCutShrubs()),
+        LOCATION(RC_KF_WONDER_TRAINING_1,       logic->IsChild),
+        LOCATION(RC_KF_WONDER_TRAINING_2,       logic->IsChild),
+        LOCATION(RC_KF_WONDER_TRAINING_3,       logic->IsChild),
+        LOCATION(RC_KF_WONDER_SIGN,             logic->IsChild && logic->CanJumpslashExceptHammer()),
+        LOCATION(RC_KF_WONDER_PLATFORMS_1,      logic->IsChild),
+        LOCATION(RC_KF_WONDER_PLATFORMS_2,      logic->IsChild),
     }, {
         //Exits
         Entrance(RR_KF_BOULDER_LOOP,       []{return logic->CanUse(RG_CRAWL);}),
@@ -90,6 +96,8 @@ void RegionTable_Init_KokiriForest() {
         LOCATION(RC_KF_CHILD_GRASS_MAZE_1, logic->IsChild && logic->CanCutShrubs()),
         LOCATION(RC_KF_CHILD_GRASS_MAZE_2, logic->IsChild && logic->CanCutShrubs()),
         LOCATION(RC_KF_CHILD_GRASS_MAZE_3, logic->IsChild && logic->CanCutShrubs()),
+        LOCATION(RC_KF_WONDER_CRAWL_GRASS_1, logic->IsChild),
+        LOCATION(RC_KF_WONDER_CRAWL_GRASS_2, logic->IsChild),
     }, {
         //Exits
         Entrance(RR_KOKIRI_FOREST, []{return logic->CanUse(RG_CRAWL);}),
@@ -180,6 +188,7 @@ void RegionTable_Init_KokiriForest() {
         LOCATION(RC_KF_SHOP_ITEM_6, logic->HasItem(RG_SPEAK_KOKIRI) && GetCheckPrice() <= GetWalletCapacity()),
         LOCATION(RC_KF_SHOP_ITEM_7, logic->HasItem(RG_SPEAK_KOKIRI) && GetCheckPrice() <= GetWalletCapacity()),
         LOCATION(RC_KF_SHOP_ITEM_8, logic->HasItem(RG_SPEAK_KOKIRI) && GetCheckPrice() <= GetWalletCapacity()),
+        LOCATION(RC_KF_WONDER_SHOP, true),
     }, {
         //Exits
         Entrance(RR_KOKIRI_FOREST, []{return true;}),

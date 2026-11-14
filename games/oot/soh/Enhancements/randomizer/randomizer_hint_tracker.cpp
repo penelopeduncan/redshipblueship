@@ -1,3 +1,4 @@
+#include "item_category_adj.h"
 #include "randomizer_hint_tracker.h"
 #include "soh/OTRGlobals.h"
 #include "soh/SaveManager.h"
@@ -65,7 +66,7 @@ using namespace UIWidgets;
 char z2ASCII(int code);
 std::string decodeNTSCPlayerNameChar(int code);
 
-static GetItemCategory Randomizer_AdjustItemCategory(GetItemEntry item) {
+extern "C" GetItemCategory Randomizer_AdjustItemCategory(GetItemEntry item) {
     GetItemCategory category = item.getItemCategory;
 
     // Downgrade bombchus to lesser if the player already has bombchus
