@@ -4218,6 +4218,19 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
+    # #1409 (operator ruling, 2026-11-13: Shuffle Rocks and Shuffle Boulders stay
+    # live in paired worlds, with tests): one seed finished as a paired creation
+    # twice. On (ShuffleRocks On, ShuffleBoulders All), every rock and boulder check
+    # the world selects is a location the bag fills or a restricted pass filled, none
+    # is empty, at least one is mixed, none takes an MM item, and the world is the
+    # off world plus exactly those checks; off, none is a location; MM's own options
+    # stay untouched in both. Two finished paired worlds, the wonder-items paired
+    # row's timeout. games/oot/soh/oot_rocks_paired_test.cpp.
+    redship_add_test(NAME OoTRocksPaired COMMAND redship --test oot-rocks-paired
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+
     # #765: the paired creation event authors MM's half the way MM's own
     # file-select new-file path would -- the 'ZELDA3' marker, the checksum, and
     # the cross-game session's fileNum 0xFF / flashSaveAvailable -- so the Combo

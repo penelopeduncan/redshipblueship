@@ -11,6 +11,19 @@ void RegionTable_Init_GerudoValley() {
     }, {
         //Locations
         LOCATION(RC_GV_GS_SMALL_BRIDGE,            logic->IsChild && logic->HookshotOrBoomerang() && logic->CanGetNightTimeGS()),
+        LOCATION(RC_GV_ROCK_1,                logic->CanBreakRocks()),
+        LOCATION(RC_GV_ROCK_2,                logic->CanBreakRocks()),
+        LOCATION(RC_GV_ROCK_3,                logic->CanBreakRocks()),
+        LOCATION(RC_GV_UNDERWATER_ROCK_1,     (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) &&
+                                              (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG))),
+        LOCATION(RC_GV_UNDERWATER_ROCK_2,     (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) &&
+                                              (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG))),
+        LOCATION(RC_GV_UNDERWATER_ROCK_3,     (logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && ctx->GetTrickOption(RT_BOMB_DETONATION)) || (logic->IsAdult && logic->HasItem(RG_POWER_BRACELET))) &&
+                                              (logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG))),
+        LOCATION(RC_GV_BOULDER_1,             logic->IsAdult && logic->BlastOrSmash()),
+        LOCATION(RC_GV_BOULDER_2,             logic->IsAdult && logic->BlastOrSmash()),
+        LOCATION(RC_GV_BRONZE_BOULDER_1,      logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_2,      logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
     }, {
         //Exits
         Entrance(RR_HYRULE_FIELD,          []{return true;}),
@@ -69,7 +82,10 @@ void RegionTable_Init_GerudoValley() {
         Entrance(RR_GV_UPPER_STREAM_WATER, []{return true;}),
     });
 
-    areaTable[RR_GV_GROTTO_LEDGE] = Region("GV Grotto Ledge", SCENE_GERUDO_VALLEY, {}, {}, {
+    areaTable[RR_GV_GROTTO_LEDGE] = Region("GV Grotto Ledge", SCENE_GERUDO_VALLEY, {}, {
+        //Locations
+        LOCATION(RC_GV_SILVER_BOULDER, logic->CanUse(RG_SILVER_GAUNTLETS)),
+    }, {
         //Exits
         Entrance(RR_GV_UPPER_STREAM,   []{return ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->HasExplosives() && logic->TakeDamage();}),
         Entrance(RR_GV_LOWER_STREAM,   []{return logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_IRON_BOOTS);}),
@@ -97,6 +113,17 @@ void RegionTable_Init_GerudoValley() {
         LOCATION(RC_GV_CRATE_BRIDGE_2, logic->IsChild && logic->CanBreakCrates()),
         LOCATION(RC_GV_CRATE_BRIDGE_3, logic->IsChild && logic->CanBreakCrates()),
         LOCATION(RC_GV_CRATE_BRIDGE_4, logic->IsChild && logic->CanBreakCrates()),
+        LOCATION(RC_GV_ROCK_ACROSS_BRIDGE_1,           logic->IsAdult),
+        LOCATION(RC_GV_ROCK_ACROSS_BRIDGE_2,           logic->IsAdult),
+        LOCATION(RC_GV_ROCK_ACROSS_BRIDGE_3,           logic->IsAdult),
+        LOCATION(RC_GV_ROCK_ACROSS_BRIDGE_4,           logic->IsAdult),
+        LOCATION(RC_GV_BOULDER_ACROSS_BRIDGE,          logic->IsAdult && logic->BlastOrSmash()),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_1, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_2, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_3, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_4, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_5, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
+        LOCATION(RC_GV_BRONZE_BOULDER_ACROSS_BRIDGE_6, logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER)),
     }, {
         //Exits
         Entrance(RR_GF_OUTSKIRTS,          []{return true;}),

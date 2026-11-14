@@ -203,6 +203,13 @@ void RegionTable_Init_BottomOfTheWell() {
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_1,   logic->CanCutShrubs()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_2,   logic->CanCutShrubs()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_BASEMENT_GRASS_3,   logic->CanCutShrubs()),
+        LOCATION(RC_BOTW_BOULDER_1,                        logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_BOULDER_2,                        logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_BOULDER_3,                        logic->BlastOrSmash() || logic->CanUse(RG_DINS_FIRE) || (logic->CanUse(RG_STICKS) && ctx->GetTrickOption(RT_BOTW_BASEMENT)) ||
+                                                           (ctx->GetTrickOption(RT_BOULDER_COLLISION) && logic->CanUse(RG_FAIRY_BOW))),
+        LOCATION(RC_BOTW_BOULDER_4,                        logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_BOULDER_5,                        logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_BOULDER_6,                        logic->BlastOrSmash()),
         LOCATION(RC_BOTW_B2_LADDER_SILVER,                 logic->CanClimbLadder()),
         LOCATION(RC_BOTW_B3_LADDER_SILVER,                 true),
         LOCATION(RC_BOTW_NW_OOZE_SILVER,                   true),
@@ -230,7 +237,15 @@ void RegionTable_Init_BottomOfTheWell() {
         Entrance(RR_BOTW_HIDDEN_POTS, []{return logic->HasItem(RG_BOTW_SILVER);}),
     });
 
-    areaTable[RR_BOTW_B3_BOMB_FLOWERS] = Region("Bottom of the Well B3 Bomb Flowers", SCENE_BOTTOM_OF_THE_WELL, {}, {}, {
+    areaTable[RR_BOTW_B3_BOMB_FLOWERS] = Region("Bottom of the Well B3 Bomb Flowers", SCENE_BOTTOM_OF_THE_WELL, {}, {
+        //Locations
+        LOCATION(RC_BOTW_BOULDER_1, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_BOTW_BOULDER_2, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_BOTW_BOULDER_3, logic->CanDetonateUprightBombFlower()),
+        LOCATION(RC_BOTW_BOULDER_4, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_BOTW_BOULDER_5, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_BOTW_BOULDER_6, logic->HasItem(RG_GORONS_BRACELET)),
+    }, {
         //Exits
         Entrance(RR_BOTW_B3_OOZE,          []{return logic->CanDetonateUprightBombFlower();}),
         Entrance(RR_BOTW_B3_BLOCKED_GRASS, []{return logic->HasItem(RG_GORONS_BRACELET);}),
@@ -301,6 +316,9 @@ void RegionTable_Init_BottomOfTheWell() {
                                                             (ctx->GetTrickOption(RT_BOULDER_COLLISION) && logic->IsChild ? logic->CanHitEyeTargets() : logic->CanUse(RG_FAIRY_SLINGSHOT))),
         LOCATION(RC_BOTTOM_OF_THE_WELL_MQ_BOMB_LEFT_HEART,  logic->HasExplosives()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_MQ_BOMB_RIGHT_HEART, logic->HasExplosives()),
+        LOCATION(RC_BOTW_MQ_BOULDER_1,                      logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_MQ_BOULDER_2,                      logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_MQ_BOULDER_3,                      logic->BlastOrSmash()),
         LOCATION(RC_BOTTOM_OF_THE_WELL_MQ_WONDER_MAIN_ROOM_LEFT_1,  logic->CanUse(RG_FAIRY_SLINGSHOT)),
         LOCATION(RC_BOTTOM_OF_THE_WELL_MQ_WONDER_MAIN_ROOM_LEFT_2,  logic->CanUse(RG_FAIRY_SLINGSHOT)),
         LOCATION(RC_BOTTOM_OF_THE_WELL_MQ_WONDER_MAIN_ROOM_LEFT_3,  logic->CanUse(RG_FAIRY_SLINGSHOT)),
@@ -379,7 +397,11 @@ void RegionTable_Init_BottomOfTheWell() {
     areaTable[RR_BOTW_MQ_PIT_CAGE] = Region("Bottom of the Well MQ Pit Cage", SCENE_BOTTOM_OF_THE_WELL, {
         //Events
         EventAccess(LOGIC_BOTW_MQ_OPENED_WEST_ROOM, []{return true;}),
-    }, {}, {
+    }, {
+        //Locations
+        LOCATION(RC_BOTW_MQ_BOULDER_2, logic->BlastOrSmash()),
+        LOCATION(RC_BOTW_MQ_BOULDER_3, logic->BlastOrSmash()),
+    }, {
         //Exits
         Entrance(RR_BOTW_MQ_PERIMETER, []{return logic->BlastOrSmash() && (logic->CanPassEnemy(RE_BIG_SKULLTULA) || ctx->GetTrickOption(RT_BOTW_PITS) || logic->CanUse(RG_HOVER_BOOTS));}),
         Entrance(RR_BOTW_MQ_MIDDLE,    []{return ctx->GetTrickOption(RT_BOTW_PITS) || logic->CanUse(RG_HOVER_BOOTS);}),

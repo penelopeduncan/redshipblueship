@@ -9255,6 +9255,22 @@ TestResult Test_OoTIcePaired(void) {
     InitOTRForMMFirstBoot(1, wipArgv);
     return OoT_IcePairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1409 (operator ruling, 2026-11-13: Shuffle Rocks and Shuffle Boulders stay live
+// in paired worlds, with tests): one seed finished as a paired creation with both
+// options off and on (widest setting: On / All Boulders). The song-pool and
+// wonder-items paired rows' bring-up; body in games/oot/soh/oot_rocks_paired_test.cpp.
+extern "C" int OoT_RocksPairedTest_Run(void);
+TestResult Test_OoTRocksPaired(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    static char rpArg0[] = "redship";
+    static char* rpArgv[] = { rpArg0, nullptr };
+    InitOTRForMMFirstBoot(1, rpArgv);
+    return OoT_RocksPairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
 TestResult Test_TrackerFillSuperset(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
@@ -11579,6 +11595,12 @@ const TestDescriptor gTests[] = {
       "A paired world with Shuffle Icicles and Shuffle Red Ice on places and mixes every check they select, crosses "
       "no MM item onto one and leaves MM's own options alone; with both off none is a location (#1408, #1562)",
       Test_OoTIcePaired },
+    // #1409. Two finished paired worlds; skipped by `--test all` below like its siblings.
+    { "oot-rocks-paired",
+      "A paired world with Shuffle Rocks and Shuffle Boulders on (All) places and mixes every rock and boulder check "
+      "it selects, crosses no MM item onto one and leaves MM's options alone; with both off none is a location "
+      "(#1409)",
+      Test_OoTRocksPaired },
     { "mm-creation-new-file",
       "A creation-authored MM half carries what MM's own new-file path stamps (OoT's typed name in MM's charset, the "
       "'ZELDA3' marker, the checksum, fileNum 0xFF, flashSaveAvailable): the tracker reads it present by the marker "
@@ -12015,6 +12037,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-shuffle-wonder-items") == 0 ||
                 strcmp(gTests[i].name, "oot-wonder-items-paired") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-ice") == 0 || strcmp(gTests[i].name, "oot-ice-paired") == 0 ||
+                strcmp(gTests[i].name, "oot-rocks-paired") == 0 ||
                 strcmp(gTests[i].name, "critical-renewables-world") == 0 ||
                 // #1169 XW4's two generation rows. Like every row above, a real
                 // generation leaves its world alive for the rest of the process

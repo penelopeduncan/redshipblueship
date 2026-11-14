@@ -1066,6 +1066,7 @@ void Rando::StaticData::InitLocationTable() {
     RegisterWonderItemLocations();
     RegisterIcicleLocations();
     RegisterRedIceLocations();
+    RegisterRockLocations();
 }
 
 void Rando::StaticData::InitHashMaps() {
