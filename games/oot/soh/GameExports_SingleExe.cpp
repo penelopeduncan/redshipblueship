@@ -188,9 +188,10 @@ static_assert(RSK_STARTING_MEGATON_HAMMER == 236 && RSK_STARTING_BUNNY_HOOD == 2
 // 201 checks, their 201 flags, 26 hint texts and one setting key.
 static_assert(RC_KF_WONDER_TRAINING_1 == 2702 && RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2902,
               "OoT's wonder item checks (#1405) are ids 2702..2902, appended after the silver rupees'");
-static_assert(RAND_INF_KF_WONDER_TRAINING_1 == 2238 &&
-                  RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2438,
+static_assert(RAND_INF_KF_WONDER_TRAINING_1 == 2238 && RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2438,
               "OoT's wonder item flags (#1405) are 2238..2438, appended after the silver rupees'");
+static_assert(RCTYPE_WONDER_ITEM == RCTYPE_SILVER + 1,
+              "OoT's RCTYPE_WONDER_ITEM (#1405) is appended after #1363's RCTYPE_SILVER, the last check type");
 static_assert(RHT_WONDER_ITEM_KOKIRI_FOREST == 1545 && RHT_GANONS_CASTLE_WONDER_ITEM == 1570,
               "OoT's wonder item hint texts (#1405) are 1545..1570, appended after the silver rupees'");
 static_assert(RSK_SHUFFLE_WONDER_ITEMS == 280, "OoT's Shuffle Wonder Items key (#1405) is 280, after #1404's");
