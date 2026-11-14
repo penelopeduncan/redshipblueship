@@ -17,6 +17,19 @@ extern PlayState* MM_gPlayState;
 
 extern "C" WallType SurfaceType_GetWallType(CollisionContext* colCtx, CollisionPoly* poly, s32 bgId);
 
+// File-scope helper outside namespace S2H: OPEN_DISPS / CLOSE_DISPS emit block-scope FrameInterpolation
+// declarations that must bind to the extern "C" globals rather than S2H::* (see WarpSongsMM.cpp).
+static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu);
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h"
+#include "TrackersGuiSingleExe.h"
+#include "mm_dev_viewers_bridge.h"
+#include "mm_game_hooks.h"
+
+namespace S2H {
+#endif
+
 enum class ColRenderSetting { Disabled, Solid, Transparent };
 
 static const char* ColRenderSettingNames[] = {
@@ -663,7 +676,10 @@ template <typename T> size_t ResetVector(T& vec) {
     return vec.capacity();
 }
 
-extern "C" void DrawCollisionViewer() {
+#ifndef RSBS_SINGLE_EXECUTABLE
+extern "C"
+#endif
+void DrawCollisionViewer() {
     if (MM_gPlayState == nullptr || !CVarGetInteger("gCollisionViewer.Enabled", 0)) {
         return;
     }
@@ -699,6 +715,27 @@ extern "C" void DrawCollisionViewer() {
         return;
     }
 
+    opaDl.push_back(gsSPEndDisplayList());
+    xluDl.push_back(gsSPEndDisplayList());
+    ::DrawCollisionViewerDisplayLists(opaDl.data(), xluDl.data());
+}
+
+void CollisionViewerWindow::InitElement() {
+    CreateCylinderData();
+    CreateSphereData();
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    S2H::GameHooks::Register<GameInteractor::OnPlayDrawWorldEnd>(DrawCollisionViewer);
+#else
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayDrawWorldEnd>(DrawCollisionViewer);
+#endif
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+} // namespace S2H
+#endif
+
+static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu) {
     OPEN_DISPS(MM_gPlayState->state.gfxCtx);
 
     uint8_t mirroredWorld = CVarGetInteger("gMirroredWorld", 0);
@@ -708,11 +745,8 @@ extern "C" void DrawCollisionViewer() {
         gSPSetExtraGeometryMode(POLY_XLU_DISP++, G_EX_INVERT_CULLING);
     }
 
-    opaDl.push_back(gsSPEndDisplayList());
-    MM_gSPDisplayList(POLY_OPA_DISP++, opaDl.data());
-
-    xluDl.push_back(gsSPEndDisplayList());
-    MM_gSPDisplayList(POLY_XLU_DISP++, xluDl.data());
+    MM_gSPDisplayList(POLY_OPA_DISP++, opa);
+    MM_gSPDisplayList(POLY_XLU_DISP++, xlu);
 
     if (mirroredWorld) {
         gSPClearExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
@@ -722,9 +756,46 @@ extern "C" void DrawCollisionViewer() {
     CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
 }
 
-void CollisionViewerWindow::InitElement() {
-    CreateCylinderData();
-    CreateSphereData();
+#ifdef RSBS_SINGLE_EXECUTABLE
+static S2H::CollisionViewerWindow* sHostedCollisionViewerBody = nullptr;
 
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayDrawWorldEnd>(DrawCollisionViewer);
+static S2H::CollisionViewerWindow& MmHostedCollisionViewerBody() {
+    static S2H::CollisionViewerWindow sHostedCollisionViewer("", "MM Collision Viewer");
+    sHostedCollisionViewerBody = &sHostedCollisionViewer;
+    if (!sHostedCollisionViewer.IsInitialized()) {
+        sHostedCollisionViewer.Init();
+    }
+    return sHostedCollisionViewer;
 }
+
+extern "C" {
+
+bool MM_CollisionViewer_HostedActive(void) {
+    return MM_TrackersGui_ShouldDraw();
+}
+
+void MM_CollisionViewer_DrawHostedElement(void) {
+    if (!MM_CollisionViewer_HostedActive()) {
+        return;
+    }
+    MmHostedCollisionViewerBody().DrawElement();
+}
+
+/*
+ * CollisionViewerWindow::UpdateElement() is a no-op, so the hosted update's job is Init(): building the
+ * cylinder/sphere shape data and arming GameInteractor::OnPlayDrawWorldEnd on the first MM frame whether
+ * SoH's Collision Viewer window is open or not.
+ */
+void MM_CollisionViewer_UpdateHostedElement(void) {
+    if (!MM_CollisionViewer_HostedActive()) {
+        return;
+    }
+    MmHostedCollisionViewerBody().Update();
+}
+
+bool MM_CollisionViewer_HostedInitializedForTest(void) {
+    return sHostedCollisionViewerBody != nullptr && sHostedCollisionViewerBody->IsInitialized();
+}
+
+} // extern "C"
+#endif

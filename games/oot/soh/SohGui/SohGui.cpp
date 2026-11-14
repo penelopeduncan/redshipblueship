@@ -39,7 +39,7 @@
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "context.h" // src/common/context.h via redship_common's public include dir
-#include "mm_dev_viewers_bridge.h" // src/common: MM's Message Viewer body, hosted in SoH's window (W6-DEV, #1238)
+#include "mm_dev_viewers_bridge.h" // src/common: MM's Message & Collision Viewer bodies, hosted in SoH (W6-DEV, #1238)
 #include "mm_time_splits_bridge.h" // src/common: MM's Time Splits body, hosted in SoH's window (W6-TIMERS)
 
 // #1132: set only by the UI snapshot harness, to capture a retired SoH window as a reference.
@@ -172,8 +172,14 @@ void SetupGuiElements() {
     mActorViewerWindow =
         std::make_shared<ActorViewerWindow>(CVAR_WINDOW("ActorViewer"), "Actor Viewer", ImVec2(520, 600));
     gui->AddGuiWindow(mActorViewerWindow);
-    mColViewerWindow =
-        std::make_shared<ColViewerWindow>(CVAR_WINDOW("CollisionViewer"), "Collision Viewer", ImVec2(520, 600));
+    auto colViewerWindow =
+        std::make_shared<OoTGatedHostingMm<ColViewerWindow>>(CVAR_WINDOW("CollisionViewer"), "Collision Viewer",
+                                                             ImVec2(520, 600));
+#ifdef RSBS_SINGLE_EXECUTABLE
+    colViewerWindow->HostMm(MM_CollisionViewer_HostedActive, MM_CollisionViewer_DrawHostedElement,
+                            MM_CollisionViewer_UpdateHostedElement);
+#endif
+    mColViewerWindow = colViewerWindow;
     gui->AddGuiWindow(mColViewerWindow);
     mSaveEditorWindow =
         std::make_shared<OoTActiveGated<SaveEditorWindow>>(CVAR_WINDOW("SaveEditor"), "Save Editor", ImVec2(520, 600));
