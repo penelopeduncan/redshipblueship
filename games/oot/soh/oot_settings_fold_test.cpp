@@ -135,8 +135,7 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_I
         seen[area].insert(loc.GetExcludedOption()->GetName());
         if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
             !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY) &&
-            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) &&
-            !(rocksOff && loc.GetRCType() == RCTYPE_ROCK) &&
+            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) && !(rocksOff && loc.GetRCType() == RCTYPE_ROCK) &&
             !(bouldersOff && loc.GetRCType() == RCTYPE_BOULDER)) {
             seenFolded[area].insert(loc.GetExcludedOption()->GetName());
         }
@@ -175,8 +174,7 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
         Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
     const bool silverOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
     const bool rocksOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_ROCKS).Is(RO_GENERIC_OFF);
-    const bool bouldersOff =
-        Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
+    const bool bouldersOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
     size_t expected[RCAREA_INVALID] = {};
     size_t expectedFolded[RCAREA_INVALID] = {};
     CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff, rocksOff, bouldersOff);
