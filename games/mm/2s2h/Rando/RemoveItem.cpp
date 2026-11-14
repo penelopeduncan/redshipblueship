@@ -460,10 +460,10 @@ void Rando::RemoveItem(RandoItemId randoItemId) {
         case RI_OCARINA_BUTTON_C_UP:
             Flags_ClearRandoInf(RANDO_INF_OBTAINED_OCARINA_BUTTON_A + (randoItemId - RI_OCARINA_BUTTON_A));
             break;
-#ifdef RSBS_SINGLE_EXECUTABLE
         case RI_ABILITY_SWIM:
             Flags_ClearRandoInf(RANDO_INF_OBTAINED_SWIM);
             break;
+#ifdef RSBS_SINGLE_EXECUTABLE
         // #980 / #1571: Ocarina of Time's Gerudo, Skull and Spooky Masks (OoTMasksMM.cpp).
         case RI_MASK_GERUDO:
         case RI_MASK_SKULL:
