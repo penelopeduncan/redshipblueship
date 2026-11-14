@@ -268,6 +268,7 @@ class HostSpy : public GateSpy {
 };
 
 int sHostedBodies = 0;
+int sHostedUpdates = 0;
 
 // Stands in for MM_TimeSplits_HostedActive: MM's body is live only while Majora's Mask is the running game.
 bool HostSpyMmActive(void) {
@@ -278,25 +279,36 @@ void HostSpyMmDrawElement(void) {
     sHostedBodies++;
 }
 
+void HostSpyMmUpdateElement(void) {
+    sHostedUpdates++;
+}
+
 // Drives DrawElement() (the menu embed), Update() and Draw() through OoTGatedHostingMm<HostSpy> under one game and
 // counts the failures against the expected body counts: SoH's DrawElement body, its UpdateElement body, the framing
-// Draw, and MM's hosted body. With @p hosted false HostMm is never called, so the wrapper must gate exactly as
-// OoTActiveGated<> does.
-int RunHostingSpy(GameId game, bool hosted, int wantBaseElements, int wantUpdates, int wantFrames, int wantHosted) {
+// Draw, MM's hosted DrawElement body, and MM's hosted UpdateElement body. With @p hostUpdates false HostMm uses the
+// two-pointer overload (Time Splits, UpdateElement stays OoT-only); with @p hosted false HostMm is never called, so the
+// wrapper must gate exactly as OoTActiveGated<> does.
+int RunHostingSpy(GameId game, bool hosted, bool hostUpdates, int wantBaseElements, int wantUpdates, int wantFrames,
+                  int wantHosted, int wantHostedUpdates) {
     auto spy = std::make_shared<OoTGatedHostingMm<HostSpy>>(OWG_SPY_CVAR, "OoTWindowsGate hosting spy");
     if (hosted) {
-        spy->HostMm(HostSpyMmActive, HostSpyMmDrawElement);
+        if (hostUpdates) {
+            spy->HostMm(HostSpyMmActive, HostSpyMmDrawElement, HostSpyMmUpdateElement);
+        } else {
+            spy->HostMm(HostSpyMmActive, HostSpyMmDrawElement);
+        }
     }
     std::shared_ptr<Ship::GuiWindow> asWindow = spy;
     sHostedBodies = 0;
+    sHostedUpdates = 0;
     Context_SetCurrentGame(game);
     asWindow->DrawElement();
     asWindow->Update();
     asWindow->Draw();
-    const char* label = hosted ? "hosting" : "not hosting";
+    const char* label = hosted ? (hostUpdates ? "hosting+update" : "hosting") : "not hosting";
     printf("[TEST] oot-windows-gate: hosting spy (%s), %s running: SoH DrawElement body ran %d, UpdateElement body ran "
-           "%d, Draw frame ran %d, MM body ran %d\n",
-           label, GameName(game), spy->drawElements, spy->updateElements, spy->draws, sHostedBodies);
+           "%d, Draw frame ran %d, MM body ran %d, MM UpdateElement ran %d\n",
+           label, GameName(game), spy->drawElements, spy->updateElements, spy->draws, sHostedBodies, sHostedUpdates);
     int failures = 0;
     if (spy->drawElements != wantBaseElements) {
         printf("[TEST] FAIL: oot-windows-gate: OoTGatedHostingMm (%s), %s running: SoH's DrawElement body ran %d "
@@ -320,6 +332,12 @@ int RunHostingSpy(GameId game, bool hosted, int wantBaseElements, int wantUpdate
         printf("[TEST] FAIL: oot-windows-gate: OoTGatedHostingMm (%s), %s running: MM's hosted body ran %d time(s), "
                "want %d\n",
                label, GameName(game), sHostedBodies, wantHosted);
+        failures++;
+    }
+    if (sHostedUpdates != wantHostedUpdates) {
+        printf("[TEST] FAIL: oot-windows-gate: OoTGatedHostingMm (%s), %s running: MM's hosted UpdateElement ran %d "
+               "time(s), want %d\n",
+               label, GameName(game), sHostedUpdates, wantHostedUpdates);
         failures++;
     }
     fflush(stdout);
@@ -1023,7 +1041,7 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
     {
         // Leaked on purpose (see the file comment): the holder is never deleted, so ~MessageViewer never frees the
         // buffers InitElement never allocated.
-        auto* leaked = new std::shared_ptr<Ship::GuiWindow>(std::make_shared<OoTActiveGated<MessageViewer>>(
+        auto* leaked = new std::shared_ptr<Ship::GuiWindow>(std::make_shared<OoTGatedHostingMm<MessageViewer>>(
             windows[2].visibilityCVar, windows[2].name, ImVec2(520, 600)));
         windows[2].window = *leaked;
     }
@@ -1074,16 +1092,20 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
     OWG_ASSERT(spyFailures == 0,
                "OoTActiveGated<> lets a body run under a non-OoT game or blocks one under OoT (above)");
 
-    // ---- 2b. OoTGatedHostingMm<> (W6-TIMERS, #1237): under OoT only SoH's bodies run (the Draw frame reaches SoH's
-    // DrawElement); under Majora's Mask the Draw frame runs and only MM's hosted body does, through the embed and the
-    // frame, and SoH's UpdateElement never; with no game, or with nothing hosted outside OoT, nothing runs.
+    // ---- 2b. OoTGatedHostingMm<> (W6-TIMERS, #1237 / W6-DEV, #1238): under OoT only SoH's bodies run (the Draw frame
+    // reaches SoH's DrawElement); under Majora's Mask the Draw frame runs and only MM's hosted body does, through the
+    // embed and the frame, while UpdateElement delegates only when a third pointer is given; with no game, or with
+    // nothing hosted outside OoT, nothing runs.
     int hostFailures = 0;
-    hostFailures += RunHostingSpy(GAME_OOT, true, 2, 1, 1, 0);
-    hostFailures += RunHostingSpy(GAME_MM, true, 0, 0, 1, 2);
-    hostFailures += RunHostingSpy(GAME_NONE, true, 0, 0, 0, 0);
-    hostFailures += RunHostingSpy(GAME_OOT, false, 2, 1, 1, 0);
-    hostFailures += RunHostingSpy(GAME_MM, false, 0, 0, 0, 0);
-    hostFailures += RunHostingSpy(GAME_NONE, false, 0, 0, 0, 0);
+    hostFailures += RunHostingSpy(GAME_OOT, true, false, 2, 1, 1, 0, 0);
+    hostFailures += RunHostingSpy(GAME_MM, true, false, 0, 0, 1, 2, 0);
+    hostFailures += RunHostingSpy(GAME_NONE, true, false, 0, 0, 0, 0, 0);
+    hostFailures += RunHostingSpy(GAME_OOT, true, true, 2, 1, 1, 0, 0);
+    hostFailures += RunHostingSpy(GAME_MM, true, true, 0, 0, 1, 2, 1);
+    hostFailures += RunHostingSpy(GAME_NONE, true, true, 0, 0, 0, 0, 0);
+    hostFailures += RunHostingSpy(GAME_OOT, false, false, 2, 1, 1, 0, 0);
+    hostFailures += RunHostingSpy(GAME_MM, false, false, 0, 0, 0, 0, 0);
+    hostFailures += RunHostingSpy(GAME_NONE, false, false, 0, 0, 0, 0, 0);
     Context_SetCurrentGame(prevGame);
     CVarClear(OWG_SPY_CVAR);
     OWG_ASSERT(hostFailures == 0, "OoTGatedHostingMm<> runs SoH's body outside OoT, MM's body outside Majora's Mask, "

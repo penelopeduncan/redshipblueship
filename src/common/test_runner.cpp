@@ -6864,9 +6864,14 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
 
     static const std::string kOpen = "std::make_shared<";
     static const std::string kWrap = "OoTActiveGated<";
-    // W6-TIMERS (#1237): the gate that also hosts MM's Time Splits body under MM; only SoH's Time Splits window uses
-    // it.
+    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits and
+    // Message Viewer windows use it.
     static const std::string kHostingWrap = "OoTGatedHostingMm<";
+    static const char* const kHosted[] = {
+        "TimeSplitWindow",
+        "MessageViewer",
+    };
+    int hostedSeen[sizeof(kHosted) / sizeof(kHosted[0])] = {};
     for (size_t at = body.find(kOpen); at != std::string::npos; at = body.find(kOpen, at + kOpen.size())) {
         const size_t typeBegin = at + kOpen.size();
         const size_t typeEnd = body.find(">(", typeBegin);
@@ -6886,11 +6891,20 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
             wrapped++;
             const size_t wrapLen = hosting ? kHostingWrap.size() : kWrap.size();
             std::string inner = type.substr(wrapLen, type.size() - wrapLen - 1);
-            if (hosting && inner != "TimeSplitWindow") {
-                printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits window "
-                       "hosts an MM body (W6-TIMERS)\n",
-                       inner.c_str());
-                ok = false;
+            if (hosting) {
+                bool hostedKnown = false;
+                for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
+                    if (inner == kHosted[i]) {
+                        hostedSeen[i]++;
+                        hostedKnown = true;
+                    }
+                }
+                if (!hostedKnown) {
+                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits "
+                           "and Message Viewer windows host an MM body\n",
+                           inner.c_str());
+                    ok = false;
+                }
             }
             // #1132 (ruling D1): SoH's Check Tracker and Item Tracker are retired,
             // registered for their hooks and never drawn (SohRetiredWindow.h).
@@ -6960,6 +6974,30 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                    kRetired[i], retiredSeen[i]);
             ok = false;
         }
+    }
+    for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
+        if (hostedSeen[i] != 1) {
+            printf("[TEST] FAIL: oot-windows-gate: %s is constructed through OoTGatedHostingMm<> %d times in "
+                   "SetupGuiElements, want exactly 1 (Time Splits and Message Viewer)\n",
+                   kHosted[i], hostedSeen[i]);
+            ok = false;
+        }
+    }
+    std::string compactBody;
+    compactBody.reserve(body.size());
+    for (char c : body) {
+        if (c != ' ' && c != '\n' && c != '\r' && c != '\t') {
+            compactBody.push_back(c);
+        }
+    }
+    static const char* const kHostMmMessageViewerCall =
+        "HostMm(MM_MessageViewer_HostedActive,MM_MessageViewer_DrawHostedElement,"
+        "MM_MessageViewer_UpdateHostedElement)";
+    if (compactBody.find(kHostMmMessageViewerCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements does not wire Message Viewer's HostMm("
+               "MM_MessageViewer_HostedActive, MM_MessageViewer_DrawHostedElement, "
+               "MM_MessageViewer_UpdateHostedElement) (#1238)\n");
+        ok = false;
     }
     const int expectedSites = (int)(sizeof(kGated) / sizeof(kGated[0]) + sizeof(kExempt) / sizeof(kExempt[0]));
     if (wrapped != 9 || sites != expectedSites) {

@@ -39,6 +39,7 @@
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "context.h" // src/common/context.h via redship_common's public include dir
+#include "mm_dev_viewers_bridge.h" // src/common: MM's Message Viewer body, hosted in SoH's window (W6-DEV, #1238)
 #include "mm_time_splits_bridge.h" // src/common: MM's Time Splits body, hosted in SoH's window (W6-TIMERS)
 
 // #1132: set only by the UI snapshot harness, to capture a retired SoH window as a reference.
@@ -186,8 +187,16 @@ void SetupGuiElements() {
     mValueViewerWindow = std::make_shared<OoTActiveGated<ValueViewerWindow>>(CVAR_WINDOW("ValueViewer"), "Value Viewer",
                                                                              ImVec2(520, 600));
     gui->AddGuiWindow(mValueViewerWindow);
-    mMessageViewerWindow = std::make_shared<OoTActiveGated<MessageViewer>>(CVAR_WINDOW("MessageViewer"),
-                                                                           "Message Viewer", ImVec2(520, 600));
+    // W6-DEV (#1238 slice 1): one Message Viewer surface for both games — OoTGatedHostingMm runs SoH's body only while
+    // OoT runs, delegates DrawElement() and UpdateElement() to 2Ship's MessageViewerWindow while MM runs, and runs
+    // neither under no game.
+    auto messageViewerWindow = std::make_shared<OoTGatedHostingMm<MessageViewer>>(CVAR_WINDOW("MessageViewer"),
+                                                                               "Message Viewer", ImVec2(520, 600));
+#ifdef RSBS_SINGLE_EXECUTABLE
+    messageViewerWindow->HostMm(MM_MessageViewer_HostedActive, MM_MessageViewer_DrawHostedElement,
+                                MM_MessageViewer_UpdateHostedElement);
+#endif
+    mMessageViewerWindow = messageViewerWindow;
     gui->AddGuiWindow(mMessageViewerWindow);
     mGameplayStatsWindow = std::make_shared<OoTActiveGated<GameplayStatsWindow>>(CVAR_WINDOW("GameplayStats"),
                                                                                  "Gameplay Stats", ImVec2(480, 550));

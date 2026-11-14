@@ -743,7 +743,7 @@ SoH's own rows cover two more MM behaviours with no MM row: Frame Advance, Advan
 RUNNING game's `frameAdvCtx` (SohMenu.cpp's `RunningFrameAdvanceEnabled`; `gDeveloperTools.FrameAdvanceTick` was
 already shared and MM honours it in `z_pause.c`), and Debug Save File Mode drives MM through the one shared key (§3.3
 BUG 2). MM's `RegisterDebugMode`, linked with the rest, clears the four switches and MM's frame advance when Debug Mode
-goes off, as in 2Ship, clearing rather than storing the keys.
+goes off, as in 2Ship, clearing rather than storing the keys. SoH's Message Viewer hosts 2Ship's body while MM runs (one surface, ruled 2026-11-12), and 2Ship's `gWindows.MessageViewer` is not used.
 
 **W6-MODES-DIFF (#1236, #1240) — MM's Modes, Difficulty and 'Other' keys, linked and given rows or a ruling.** None of
 2Ship's Modes reached MM: Mirrored World was read (`gModes.MirroredWorld.State`, some thirty read sites) but only the
