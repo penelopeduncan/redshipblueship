@@ -22,6 +22,7 @@ extern "C" WallType SurfaceType_GetWallType(CollisionContext* colCtx, CollisionP
 static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu);
 
 #ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h"
 #include "TrackersGuiSingleExe.h"
 #include "mm_dev_viewers_bridge.h"
 #include "mm_game_hooks.h"
