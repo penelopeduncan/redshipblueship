@@ -1816,8 +1816,14 @@ static void GpPairedTrackerPlaytest(int frame) {
             if (cc.type != SPOILER_CHK_CHEST) {
                 continue;
             }
-            sHost = row.hostCheck;
             const char* item = Combo_GetForeignItemName(row.item);
+            // Not a sword or a shield: the first arrival asserts that Link holds neither (#879, the paired
+            // start), and a chest this leg opened itself would hand him one. The world re-pinned for #1548
+            // put Majora's Mask's Progressive Sword on the first chest host.
+            if (item != NULL && (strstr(item, "Sword") != NULL || strstr(item, "Shield") != NULL)) {
+                continue;
+            }
+            sHost = row.hostCheck;
             sItemName = item != NULL ? item : "";
             sSharedBefore = Combo_CountSharedItems(GAME_MM, true);
             fprintf(stderr,
