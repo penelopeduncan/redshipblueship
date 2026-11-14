@@ -325,12 +325,15 @@ void Combo_SingleBag_TestSetLastReport(const ComboSingleBagReport* r);
 int OoT_ComboLogic_ExportPool(int source, uint16_t* outItems, uint16_t* outHosts, uint16_t* outFlags, int cap);
 /** OoT: the confinement bits its frozen settings arm. */
 uint32_t OoT_ComboLogic_ConfinementArmed(void);
-/** #1169 XW15, THE FIXED SHARED SONG's hosts: the check of each game that holds
- *  shared warp song @p id (that game's own id) as its FIXED content under Shuffle
+/** #1169 XW15 / #1561, THE FIXED SHARED SONG's hosts: the check of each game that
+ *  holds shared song @p id (that game's own id) as its FIXED content under Shuffle
  *  Songs Off (Combo_SharedWarpSongFixedAtHome), or -1. OoT (ComboLogicEngineOoT.cpp):
- *  the Sheik check of one of its six warp songs. MM (ComboLogicEngineSingleExe.cpp):
- *  the Southern Swamp check of its Song of Soaring. Combo_SingleBag_Run turns each
- *  answer into a fixed credit (Combo_Logic_SetFixedCredits). */
+ *  the Sheik check of one of its six warp songs, or Malon / Windmill / Ocarina of
+ *  Time for Epona's Song / Song of Storms / Song of Time. MM
+ *  (ComboLogicEngineSingleExe.cpp): the Southern Swamp check of its Song of Soaring,
+ *  or Romani Ranch / Beneath the Graveyard / Clock Tower Roof for Epona's Song /
+ *  Song of Storms / Song of Time. Combo_SingleBag_Run turns each answer into a fixed
+ *  credit (Combo_Logic_SetFixedCredits). */
 int OoT_ComboLogic_FixedSharedSongHost(uint16_t rg);
 int MM_ComboLogic_FixedSharedSongHost(uint16_t ri);
 /** OoT (#1542): each pool row's confinement mask, @p count rows of @p items (OoT

@@ -1511,13 +1511,14 @@ typedef struct {
     SharedItem farItem;
 } ComboLogicFixedCredit;
 
-/** The most fixed shared credits in force at once (the seven shared warp songs fit). */
-#define RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP 8
+/** The most fixed shared credits in force at once (seven shared warp songs at one
+ *  host each + three first-word shared songs at two hosts each = 13 <= 16; #1561). */
+#define RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP 16
 
 /**
- * THE FIXED SHARED CREDIT (#1169 XW15; assumeOwnItem's source 3b). Under Shuffle
- * Songs Off a shared warp song stays on its own default check
- * (Combo_SharedWarpSongFixedAtHome), placed natively by the host game, so it is in
+ * THE FIXED SHARED CREDIT (#1169 XW15 / #1561; assumeOwnItem's source 3b). Under
+ * Shuffle Songs Off a shared song stays on its default check(s)
+ * (Combo_SharedWarpSongFixedAtHome), placed natively by each host game, so it is in
  * neither table and no bag row carries it; without this the other game's logic
  * would never hold it. Each credit makes every round hand `farItem` to its own
  * game's engine (one `assumeOwnItem`, once per round) when the host is reached,
@@ -1529,7 +1530,7 @@ typedef struct {
  * it. It is in no table, digest, crossing store or WotH candidate list, and nothing
  * of it is saved; Combo_SingleBag_Run sets it from the world at the creation and
  * Combo_SingleBag_Forget clears it. With no credit set (every world without a
- * shared warp song under Off) every round is exactly today's.
+ * shared song under Off) every round is exactly today's.
  *
  * @param rows  the credits to copy, or NULL with count 0 to clear
  * @return the number of credits now in force, or -1 (nothing changed) on a NULL

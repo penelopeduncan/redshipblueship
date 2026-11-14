@@ -731,26 +731,49 @@ bool Combo_SharedFamily2MemberGet(GameId game, uint32_t family2Bit, ComboSharedF
  *  (Combo_ComboItemRule2Name). Never NULL. */
 const char* Combo_SharedFamily2SlotName(uint32_t family2Bit);
 
+/** #1561: the three first-word shared songs (Epona's Song, Song of Storms, Song of
+ *  Time; foreign_items.h), whose default checks exist in both games. */
+#define RSBS_XITEM_SHARED_SONGS_MASK \
+    (RSBS_XITEM_SHARED_SONG_EPONA | RSBS_XITEM_SHARED_SONG_STORMS | RSBS_XITEM_SHARED_SONG_TIME)
+
+/** #1561: the ARMED first-word family bit whose registered @p game member is
+ *  @p nativeId, else 0 (an unarmed family, an unregistered id, a game that is not
+ *  OoT or MM). First-word twin of Combo_SharedFamily2ArmedBitOf. */
+uint32_t Combo_SharedFamilyArmedBitOf(GameId game, uint16_t nativeId);
+
 /** #1169 XW15: the ARMED second-word family bit whose registered @p game member is
  *  @p nativeId, else 0 (an unarmed family, an unregistered id, a game that is not
  *  OoT or MM). The one bit-to-member scan every caller shares. */
 uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId);
 
 /**
- * #1169 XW15 (operator ruling: "a shared song should be at its default location if
- * the songs aren't shuffled"): is @p nativeId, @p game's member of an armed SHARED
- * WARP SONG (RSBS_XITEM2_WARP_SONG_SHARED), a song that stays on its own default
- * check in this world? True exactly when OoT's Shuffle Songs value
- * @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF, warp_song_items.h) and
- * Combo_SharedFamily2ArmedBitOf answers a shared warp song's bit. Each such song
- * has ONE default check: OoT's six warp songs their Sheik checks, the Song of
- * Soaring MM's Southern Swamp check. Neither game pools a copy, no bag row is
- * made, and the coordinator credits the other game when that check is reached
- * (Combo_Logic_SetFixedCredits). The first word's shared songs (Epona's Song,
- * Song of Storms, Song of Time) are not covered: their bits are in the first word.
- * False for every world with no shared warp song frozen on.
+ * #1169 XW15 / #1561 (operator ruling: "a shared song should be at its default
+ * location if the songs aren't shuffled"): is @p nativeId, @p game's member of an
+ * armed shared song (RSBS_XITEM2_WARP_SONG_SHARED or RSBS_XITEM_SHARED_SONGS_MASK),
+ * a song that stays on its own default check in this world? True exactly when OoT's
+ * Shuffle Songs value @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF,
+ * warp_song_items.h) and Combo_SharedFamily2ArmedBitOf or
+ * Combo_SharedFamilyArmedBitOf answers one of those song bits. Each shared warp song
+ * has ONE default check (OoT's six Sheik checks, MM's Southern Swamp check); each
+ * first-word shared song has TWO (one vanilla check in each game). Neither game
+ * pools a copy, no bag row is made, and the coordinator credits the other game from
+ * each fixed host (Combo_Logic_SetFixedCredits). False for every other Shuffle Songs
+ * mode and for every world with no shared song frozen on.
  */
 bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs);
+
+/**
+ * #1561: under Shuffle Songs Off, both games keep a first-word shared song at its
+ * vanilla check, so the SECOND check reached must convert its give to junk instead
+ * of granting the song again. True iff @p ootShuffleSongs is RSBS_SONG_SPOTS_OFF,
+ * @p nativeId is @p game's member of an armed RSBS_XITEM_SHARED_SONGS_MASK family,
+ * and the player already holds that family (@p runningGameOwnsCopy, the harvested
+ * Combo_SharedFamiliesOwned() bitset, or an active live probe via
+ * Combo_SharedFamiliesHeldNow()). False for all other Shuffle Songs modes, unshared
+ * songs, rules-off worlds, second-word warp songs, and non-song families.
+ */
+bool Combo_SharedSongOffGiveBecomesJunk(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs,
+                                        bool runningGameOwnsCopy);
 
 /** The second-word families the FROZEN second word arms (its
  *  RSBS_XITEM2_FAMILY_MASK bits), 0 while nothing is frozen. Never a CVar. */
@@ -814,6 +837,14 @@ void Combo_RegisterSharedLiveProbe(GameId game, ComboSharedLiveProbeFn probe);
 
 /** @p game's registered probe, or NULL (a row saves and puts it back). */
 ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game);
+
+/**
+ * #1561: first-word twin of Combo_SharedFamilies2HeldNow: `owned & armed`, OR'd
+ * with, for each game whose live probe answers nonzero, the armed first-word
+ * families that game's registered members say its live save holds. 0 whenever
+ * Combo_SharedFamiliesArmed() is 0.
+ */
+uint32_t Combo_SharedFamiliesHeldNow(void);
 
 /**
  * The armed second-word families held right now: `owned2 & armed2`, OR'd with,
