@@ -134,6 +134,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
         // #1409: and with Shuffle Boulders off, that option's (RsbsFoldIsBoulderLine): the
         // RCTYPE_BOULDER exclude rows and its own rows.
         const bool bouldersOff = world.GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
+        // #1405: and with Shuffle Wonder Items off, that option's (RsbsFoldIsWonderItemLine): the
+        // RCTYPE_WONDER_ITEM exclude rows and its own rows.
+        const bool wonderItemOff = world.GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
         for (const Rando::Option* option : group.GetOptions()) {
             if (!option->IsCategory(Rando::OptionCategory::Setting) || option->GetOptionCount() == 0) {
                 continue;
@@ -180,6 +183,15 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
             if (bouldersOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_BOULDERS) {
                 continue;
             }
+            if (wonderItemOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_WONDER_ITEM) {
+                    continue;
+                }
+            }
+            if (wonderItemOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS) {
+                continue;
+            }
             if (chestGameOff && !excludes && g != RSG_TRICKS &&
                 (option->GetKey() == RSK_KEYRINGS_CHEST_GAME ||
                  (option->GetKey() == RSK_SHUFFLE_CHEST_MINIGAME && g == RSG_MENU_SECTION_BASIC_SHUFFLES))) {
@@ -189,6 +201,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 const auto* trick = static_cast<const Rando::TrickOption*>(option);
                 if ((trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) ||
                     (trick->GetKey() == RT_BOMB_DETONATION && world.GetTrickOption(RT_BOMB_DETONATION).Get() == 0)) {
+                    continue;
+                }
+                if (trick->GetKey() == RT_GTG_STATUE_JUMP && world.GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
                     continue;
                 }
             } else if (!excludes) {

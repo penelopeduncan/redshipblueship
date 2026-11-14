@@ -184,6 +184,19 @@ static_assert(RSK_STARTING_MEGATON_HAMMER == 236 && RSK_STARTING_BUNNY_HOOD == 2
                   RSK_SHUFFLE_ZELDAS_LETTER == 270 && RSK_PROGRESSIVE_GORON_SWORD == 272 &&
                   RSK_STARTING_KEATON_MASK == 273 && RSK_STARTING_MASK_OF_TRUTH == 279,
               "OoT's #1404 setting keys are 236..279, appended after RSK_SHUFFLE_SILVER");
+// #1405 (Shuffle Wonder Items), after #1363's checks/flags/hints and #1404's setting keys:
+// 201 checks, their 201 flags, 26 hint texts and one setting key.
+static_assert(RC_KF_WONDER_TRAINING_1 == 2702 && RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2902,
+              "OoT's wonder item checks (#1405) are ids 2702..2902, appended after the silver rupees'");
+static_assert(RAND_INF_KF_WONDER_TRAINING_1 == 2238 && RAND_INF_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL == 2438,
+              "OoT's wonder item flags (#1405) are 2238..2438, appended after the silver rupees'");
+static_assert(RCTYPE_WONDER_ITEM == RCTYPE_SILVER + 1,
+              "OoT's RCTYPE_WONDER_ITEM (#1405) is appended after #1363's RCTYPE_SILVER, the last check type");
+static_assert(RHT_WONDER_ITEM_KOKIRI_FOREST == 1545 && RHT_GANONS_CASTLE_WONDER_ITEM == 1570,
+              "OoT's wonder item hint texts (#1405) are 1545..1570, appended after the silver rupees'");
+static_assert(RSK_SHUFFLE_WONDER_ITEMS == 280, "OoT's Shuffle Wonder Items key (#1405) is 280, after #1404's");
+static_assert(RT_GTG_STATUE_JUMP == RT_DMT_SHIELDLESS_CLIMB + 1,
+              "OoT's RT_GTG_STATUE_JUMP (#1405) is appended after RT_DMT_SHIELDLESS_CLIMB");
 // #1363's carve (context.h growth rule 2, layout revision 3): the 22 one-byte silver
 // counters take bytes 2..23 of the 48-byte randomizer arm, and rsbsSpare starts at
 // 24. Every member is one byte, so these offsets hold on every compiler.
@@ -192,16 +205,21 @@ static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &
                   offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
                   sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
               "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
-// #1409 (Shuffle Rocks and Boulders), after #1404's: 285 checks, their 285 flags,
-// 41 hint texts and two setting keys.
-static_assert(RC_KF_CIRCLE_ROCK_1 == 2702 && RC_BOTW_MQ_BOULDER_3 == 2986,
-              "OoT's rock and boulder checks (#1409) are ids 2702..2986, appended after the silver rupees'");
-static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2238 && RAND_INF_BOTW_MQ_BOULDER_3 == 2522,
-              "OoT's rock and boulder flags (#1409) are 2238..2522, appended after the silver rupees'");
-static_assert(RHT_KF_ROCK == 1545 && RHT_SPIRIT_TEMPLE_BOULDER == 1585,
-              "OoT's rock and boulder hint texts (#1409) are 1545..1585, appended after the silver rupees'");
-static_assert(RSK_SHUFFLE_ROCKS == 280 && RSK_SHUFFLE_BOULDERS == 281,
-              "OoT's Shuffle Rocks and Shuffle Boulders keys (#1409) are 280 and 281, after #1404's");
+// #1409 (Shuffle Rocks and Boulders), after #1405's: 285 checks, their 285 flags,
+// 41 hint texts, two check types, two setting keys, and one trick.
+static_assert(RC_KF_CIRCLE_ROCK_1 == 2903 && RC_BOTW_MQ_BOULDER_3 == 3187,
+              "OoT's rock and boulder checks (#1409) are ids 2903..3187, appended after #1405's");
+static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2439 && RAND_INF_BOTW_MQ_BOULDER_3 == 2723,
+              "OoT's rock and boulder flags (#1409) are 2439..2723, appended after #1405's");
+static_assert(RCTYPE_ROCK == RCTYPE_WONDER_ITEM + 1 && RCTYPE_ROCK == 40 && RCTYPE_BOULDER == 41,
+              "OoT's RCTYPE_ROCK and RCTYPE_BOULDER (#1409) are 40 and 41, appended after #1405's RCTYPE_WONDER_ITEM");
+static_assert(RHT_KF_ROCK == 1571 && RHT_SPIRIT_TEMPLE_BOULDER == 1611,
+              "OoT's rock and boulder hint texts (#1409) are 1571..1611, appended after #1405's");
+static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_ROCKS == 281 &&
+              RSK_SHUFFLE_BOULDERS == 282,
+              "OoT's Shuffle Rocks and Shuffle Boulders keys (#1409) are 281 and 282, after #1405's");
+static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
+              "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));

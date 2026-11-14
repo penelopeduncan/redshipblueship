@@ -44,7 +44,9 @@
 // S2H::GameHooks registries with MM's own types; each call below sits beside
 // the upstream call at the exact point upstream 2S2H dispatched that hook.
 void MM_GameHooks_ExecuteOnFlagSet(FlagType flagType, u32 flag);
+void MM_GameHooks_ExecuteOnFlagUnset(FlagType flagType, u32 flag);
 void MM_GameHooks_ExecuteOnSceneFlagSet(s16 sceneId, FlagType flagType, u32 flag);
+void MM_GameHooks_ExecuteOnSceneFlagUnset(s16 sceneId, FlagType flagType, u32 flag);
 void MM_GameHooks_ExecuteOnActorUpdate(Actor* actor);
 // OnActorInit and OnActorDraw are NOT declared here: unlike the three above,
 // they keep their upstream spelling at the call site and are redirected by the
@@ -860,6 +862,9 @@ void MM_Flags_UnsetSwitch(PlayState* play, s32 flag) {
         play->actorCtx.sceneFlags.switches[(flag & ~0x1F) >> 5] &= ~(1 << (flag & 0x1F));
         if (previouslyOn) {
             GameInteractor_ExecuteOnSceneFlagUnset(play->sceneId, FLAG_CYCL_SCENE_SWITCH, flag);
+#ifdef RSBS_SINGLE_EXECUTABLE
+            MM_GameHooks_ExecuteOnSceneFlagUnset(play->sceneId, FLAG_CYCL_SCENE_SWITCH, flag);
+#endif
         }
     }
 }
@@ -928,6 +933,9 @@ void MM_Flags_UnsetClear(PlayState* play, s32 roomNumber) {
     play->actorCtx.sceneFlags.clearedRoom &= ~(1 << roomNumber);
     if (previouslyOn) {
         GameInteractor_ExecuteOnSceneFlagUnset(play->sceneId, FLAG_CYCL_SCENE_CLEARED_ROOM, roomNumber);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        MM_GameHooks_ExecuteOnSceneFlagUnset(play->sceneId, FLAG_CYCL_SCENE_CLEARED_ROOM, roomNumber);
+#endif
     }
 }
 
@@ -996,6 +1004,9 @@ void Flags_ClearWeekEventReg(s32 flag) {
     WEEKEVENTREG((flag) >> 8) = GET_WEEKEVENTREG((flag) >> 8) & (u8) ~((flag)&0xFF);
     if (previouslyOn) {
         GameInteractor_ExecuteOnFlagUnset(FLAG_WEEK_EVENT_REG, flag);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        MM_GameHooks_ExecuteOnFlagUnset(FLAG_WEEK_EVENT_REG, flag);
+#endif
     }
 }
 
@@ -1027,6 +1038,9 @@ void Flags_ClearEventInf(s32 flag) {
     gSaveContext.eventInf[(flag) >> 4] &= (u8) ~(1 << ((flag)&0xF));
     if (previouslyOn) {
         GameInteractor_ExecuteOnFlagUnset(FLAG_EVENT_INF, flag);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        MM_GameHooks_ExecuteOnFlagUnset(FLAG_EVENT_INF, flag);
+#endif
     }
 }
 // #endregion
@@ -1052,6 +1066,9 @@ void Flags_ClearRandoInf(s32 flag) {
     gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] &= ~(1 << (flag & 0xF));
     if (previouslyOn) {
         GameInteractor_ExecuteOnFlagUnset(FLAG_RANDO_INF, flag);
+#ifdef RSBS_SINGLE_EXECUTABLE
+        MM_GameHooks_ExecuteOnFlagUnset(FLAG_RANDO_INF, flag);
+#endif
     }
 }
 // #endregion

@@ -115,12 +115,13 @@ constexpr GroupArea kGroupAreas[kGroups] = {
 // `folded` is what the settings fold reads of it: the same, less the room's
 // RCTYPE_CHEST_GAME rows while Shuffle Chest Minigame is off (#1364) and the
 // RCTYPE_BUTTERFLY_FAIRY rows while Shuffle Butterfly Fairies is off (#1407) and
-// the RCTYPE_SILVER rows while Shuffle Silver Rupees is off (#1363) and the
+// the RCTYPE_SILVER rows while Shuffle Silver Rupees is off (#1363), the
+// RCTYPE_WONDER_ITEM rows while Shuffle Wonder Items is off (#1405), and the
 // RCTYPE_ROCK / RCTYPE_BOULDER rows while those shuffles are off (#1409): the fold
 // leaves them out then, so a world keeps the fingerprint it had before the rows had
 // exclude options.
 void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_INVALID], bool chestGameOff,
-                   bool butterflyOff, bool silverOff, bool rocksOff, bool bouldersOff) {
+                   bool butterflyOff, bool silverOff, bool wonderItemOff, bool rocksOff, bool bouldersOff) {
     std::set<std::string> seen[RCAREA_INVALID];
     std::set<std::string> seenFolded[RCAREA_INVALID];
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
@@ -135,8 +136,9 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_I
         seen[area].insert(loc.GetExcludedOption()->GetName());
         if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
             !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY) &&
-            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) && !(rocksOff && loc.GetRCType() == RCTYPE_ROCK) &&
-            !(bouldersOff && loc.GetRCType() == RCTYPE_BOULDER)) {
+            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) &&
+            !(wonderItemOff && loc.GetRCType() == RCTYPE_WONDER_ITEM) &&
+            !(rocksOff && loc.GetRCType() == RCTYPE_ROCK) && !(bouldersOff && loc.GetRCType() == RCTYPE_BOULDER)) {
             seenFolded[area].insert(loc.GetExcludedOption()->GetName());
         }
     }
@@ -167,17 +169,21 @@ extern "C" int RandoTest_SettingsFoldExcludes(void) {
     }
 
     // The world the fold ran for: its own Shuffle Chest Minigame, Shuffle
-    // Butterfly Fairies, Shuffle Silver Rupees, Shuffle Rocks and Shuffle Boulders
-    // decide which exclude rows it read (#1364, #1407, #1363, #1409).
+    // Butterfly Fairies, Shuffle Silver Rupees, Shuffle Wonder Items, Shuffle Rocks
+    // and Shuffle Boulders decide which exclude rows it read (#1364, #1407, #1363,
+    // #1405, #1409).
     const bool chestGameOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Is(RO_GENERIC_OFF);
     const bool butterflyOff =
         Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BUTTERFLY_FAIRIES).Is(RO_GENERIC_OFF);
     const bool silverOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
+    const bool wonderItemOff =
+        Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
     const bool rocksOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_ROCKS).Is(RO_GENERIC_OFF);
     const bool bouldersOff = Rando::Context::GetInstance()->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
     size_t expected[RCAREA_INVALID] = {};
     size_t expectedFolded[RCAREA_INVALID] = {};
-    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff, rocksOff, bouldersOff);
+    CountExpected(expected, expectedFolded, chestGameOff, butterflyOff, silverOff, wonderItemOff, rocksOff,
+                  bouldersOff);
 
     auto settings = Rando::Settings::GetInstance();
     int failures = 0;

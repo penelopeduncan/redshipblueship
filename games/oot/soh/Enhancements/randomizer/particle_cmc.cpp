@@ -34,6 +34,20 @@ static Color_RGBA8 flareColors[7] = {
 };
 
 Color_RGBA8 Randomizer_GetParticleCMCColor(GetItemCategory colorIndex, ParticleCMCColorType colorType) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // RSBS (#1405): the tables hold OoT's seven classes. Majora's Mask's two extra
+    // classes (ItemTableTypes.h, #1172) rank as randomizer_hint_tracker.cpp ranks
+    // them: a mask is major, a stray fairy lesser. Anything else out of range reads
+    // as major, never past the tables.
+    if (colorIndex == ITEM_CATEGORY_MM_MASK) {
+        colorIndex = ITEM_CATEGORY_MAJOR;
+    } else if (colorIndex == ITEM_CATEGORY_MM_STRAY_FAIRY) {
+        colorIndex = ITEM_CATEGORY_LESSER;
+    }
+#endif
+    if ((int)colorIndex < 0 || (int)colorIndex >= (int)(sizeof(mainColors) / sizeof(mainColors[0]))) {
+        colorIndex = ITEM_CATEGORY_MAJOR;
+    }
     switch (colorType) {
         case COLOR_PRIMARY:
             return mainColors[colorIndex];

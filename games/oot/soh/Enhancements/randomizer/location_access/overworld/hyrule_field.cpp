@@ -184,6 +184,9 @@ void RegionTable_Init_HyruleField() {
         LOCATION(RC_HF_CHILD_SOUTHERN_BUSH_10, logic->IsChild),
         LOCATION(RC_HF_CHILD_SOUTHERN_BUSH_11, logic->IsChild),
         LOCATION(RC_HF_CHILD_SOUTHERN_BUSH_12, logic->IsChild),
+        LOCATION(RC_HF_WONDER_BRIDGE_1,        logic->IsChild),
+        LOCATION(RC_HF_WONDER_BRIDGE_2,        logic->IsChild),
+        LOCATION(RC_HF_WONDER_BRIDGE_3,        logic->IsChild),
     }, {
         //Exits
         Entrance(RR_LW_BRIDGE,              []{return true;}),

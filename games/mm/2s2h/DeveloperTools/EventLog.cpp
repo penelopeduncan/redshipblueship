@@ -4,14 +4,25 @@
 #include <iomanip>
 #include <ctime>
 #include <sstream>
+#include <utility>
+
+#include <imgui.h>
+#include <imgui_internal.h>
+#include <spdlog/fmt/fmt.h>
 
 #include "2s2h/BenGui/UIWidgets.hpp"
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipUtils.h"
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "include/mm_game_hooks.h"
+#endif
+
 extern "C" {
 #include <z64.h>
 }
+
+namespace {
 
 typedef enum {
     EVENT_LOG_ENTRY_TYPE_FLAG_SET,
@@ -83,178 +94,114 @@ void TrimEventLog() {
     }
 }
 
+void PushEventLogEntry(EventLogEntryType type, std::string meta) {
+    eventLogEntries.insert(eventLogEntries.begin(), {
+                                                          .timestamp = CurrentTime(),
+                                                          .type = type,
+                                                          .meta = std::move(meta),
+                                                      });
+    TrimEventLog();
+}
+
+template <typename H> void UnregisterEventLogHook(HOOK_ID& hookId) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    S2H::GameHooks::Unregister<H>(hookId);
+#else
+    GameInteractor::Instance->UnregisterGameHook<H>(hookId);
+#endif
+    hookId = 0;
+}
+
+template <typename H> HOOK_ID RegisterEventLogHook(typename H::fn handler) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    return S2H::GameHooks::Register<H>(std::move(handler));
+#else
+    return GameInteractor::Instance->RegisterGameHook<H>(std::move(handler));
+#endif
+}
+
 void RegisterEventLogHooks() {
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnFlagSet>(onFlagSetHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnFlagUnset>(onFlagUnsetHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnSceneFlagSet>(onSceneFlagSetHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnSceneFlagUnset>(onSceneFlagUnsetHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnActorInit>(onActorInitHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnActorKill>(onActorKillHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnSceneInit>(onSceneInitHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnRoomInit>(onRoomInitHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnOpenText>(onOpenTextHookId);
-    GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnItemGive>(onItemGiveHookId);
-    onFlagSetHookId = 0;
-    onFlagUnsetHookId = 0;
-    onSceneFlagSetHookId = 0;
-    onSceneFlagUnsetHookId = 0;
-    onActorInitHookId = 0;
-    onActorKillHookId = 0;
-    onSceneInitHookId = 0;
-    onRoomInitHookId = 0;
-    onOpenTextHookId = 0;
-    onItemGiveHookId = 0;
+    UnregisterEventLogHook<GameInteractor::OnFlagSet>(onFlagSetHookId);
+    UnregisterEventLogHook<GameInteractor::OnFlagUnset>(onFlagUnsetHookId);
+    UnregisterEventLogHook<GameInteractor::OnSceneFlagSet>(onSceneFlagSetHookId);
+    UnregisterEventLogHook<GameInteractor::OnSceneFlagUnset>(onSceneFlagUnsetHookId);
+    UnregisterEventLogHook<GameInteractor::OnActorInit>(onActorInitHookId);
+    UnregisterEventLogHook<GameInteractor::OnActorKill>(onActorKillHookId);
+    UnregisterEventLogHook<GameInteractor::OnSceneInit>(onSceneInitHookId);
+    UnregisterEventLogHook<GameInteractor::OnRoomInit>(onRoomInitHookId);
+    UnregisterEventLogHook<GameInteractor::OnOpenText>(onOpenTextHookId);
+    UnregisterEventLogHook<GameInteractor::OnItemGive>(onItemGiveHookId);
 
     if (!CVarGetInteger("gEventLog.Enabled", 0)) {
         return;
     }
 
-    onFlagSetHookId =
-        GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFlagSet>([](FlagType type, u32 flag) {
-            if (type == FlagType::FLAG_WEEK_EVENT_REG) {
-                eventLogEntries.insert(eventLogEntries.begin(),
-                                       {
-                                           .timestamp = CurrentTime(),
-                                           .type = EVENT_LOG_ENTRY_TYPE_FLAG_SET,
-                                           .meta = fmt::format("WEEKEVENTREG_{:02d}_{:02x}", flag >> 8, flag & 0xFF),
-                                       });
-            } else if (type == FlagType::FLAG_EVENT_INF) {
-                eventLogEntries.insert(eventLogEntries.begin(), {
-                                                                    .timestamp = CurrentTime(),
-                                                                    .type = EVENT_LOG_ENTRY_TYPE_FLAG_SET,
-                                                                    .meta = fmt::format("EVENTINF_{:02x}", flag),
-                                                                });
-            } else if (type == FlagType::FLAG_WEEK_EVENT_REG_HORSE_RACE) {
-                eventLogEntries.insert(eventLogEntries.begin(),
-                                       {
-                                           .timestamp = CurrentTime(),
-                                           .type = EVENT_LOG_ENTRY_TYPE_FLAG_SET,
-                                           .meta = fmt::format("WEEKEVENTREG_HORSE_RACE_STATE {:03b}", flag),
-                                       });
-            } else {
-                eventLogEntries.insert(
-                    eventLogEntries.begin(),
-                    {
-                        .timestamp = CurrentTime(),
-                        .type = EVENT_LOG_ENTRY_TYPE_FLAG_SET,
-                        .meta = fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF),
-                    });
-            }
-            TrimEventLog();
-        });
-
-    onFlagUnsetHookId =
-        GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFlagUnset>([](FlagType type, u32 flag) {
-            if (type == FlagType::FLAG_WEEK_EVENT_REG) {
-                eventLogEntries.insert(eventLogEntries.begin(),
-                                       {
-                                           .timestamp = CurrentTime(),
-                                           .type = EVENT_LOG_ENTRY_TYPE_FLAG_UNSET,
-                                           .meta = fmt::format("WEEKEVENTREG_{:02d}_{:02x}", flag >> 8, flag & 0xFF),
-                                       });
-            } else if (type == FlagType::FLAG_EVENT_INF) {
-                eventLogEntries.insert(eventLogEntries.begin(), {
-                                                                    .timestamp = CurrentTime(),
-                                                                    .type = EVENT_LOG_ENTRY_TYPE_FLAG_UNSET,
-                                                                    .meta = fmt::format("EVENTINF_{:02x}", flag),
-                                                                });
-            } else {
-                eventLogEntries.insert(
-                    eventLogEntries.begin(),
-                    {
-                        .timestamp = CurrentTime(),
-                        .type = EVENT_LOG_ENTRY_TYPE_FLAG_UNSET,
-                        .meta = fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF),
-                    });
-            }
-            TrimEventLog();
-        });
-
-    onSceneFlagSetHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagSet>(
-        [](s16 sceneId, FlagType type, u32 flag) {
-            eventLogEntries.insert(
-                eventLogEntries.begin(),
-                {
-                    .timestamp = CurrentTime(),
-                    .type = EVENT_LOG_ENTRY_TYPE_SCENE_FLAG_SET,
-                    .meta = fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF),
-                });
-            TrimEventLog();
-        });
-
-    onSceneFlagUnsetHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneFlagUnset>(
-        [](s16 sceneId, FlagType type, u32 flag) {
-            eventLogEntries.insert(
-                eventLogEntries.begin(),
-                {
-                    .timestamp = CurrentTime(),
-                    .type = EVENT_LOG_ENTRY_TYPE_SCENE_FLAG_UNSET,
-                    .meta = fmt::format("{}[{:02d}] {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF),
-                });
-            TrimEventLog();
-        });
-
-    onActorInitHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnActorInit>([](Actor* actor) {
-        eventLogEntries.insert(eventLogEntries.begin(),
-                               {
-                                   .timestamp = CurrentTime(),
-                                   .type = EVENT_LOG_ENTRY_TYPE_ACTOR_INIT,
-                                   .meta = fmt::format("{} {}", actorNames[actor->id], actor->params),
-                               });
-        TrimEventLog();
+    onFlagSetHookId = RegisterEventLogHook<GameInteractor::OnFlagSet>([](FlagType type, u32 flag) {
+        if (type == FlagType::FLAG_WEEK_EVENT_REG) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_SET,
+                              fmt::format("WEEKEVENTREG_{:02d}_{:02x}", flag >> 8, flag & 0xFF));
+        } else if (type == FlagType::FLAG_EVENT_INF) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_SET, fmt::format("EVENTINF_{:02x}", flag));
+        } else if (type == FlagType::FLAG_WEEK_EVENT_REG_HORSE_RACE) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_SET,
+                              fmt::format("WEEKEVENTREG_HORSE_RACE_STATE {:03b}", flag));
+        } else {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_SET,
+                              fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF));
+        }
     });
 
-    onActorKillHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnActorKill>([](Actor* actor) {
-        eventLogEntries.insert(eventLogEntries.begin(),
-                               {
-                                   .timestamp = CurrentTime(),
-                                   .type = EVENT_LOG_ENTRY_TYPE_ACTOR_KILL,
-                                   .meta = fmt::format("{} {}", actorNames[actor->id], actor->params),
-                               });
-        TrimEventLog();
+    onFlagUnsetHookId = RegisterEventLogHook<GameInteractor::OnFlagUnset>([](FlagType type, u32 flag) {
+        if (type == FlagType::FLAG_WEEK_EVENT_REG) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_UNSET,
+                              fmt::format("WEEKEVENTREG_{:02d}_{:02x}", flag >> 8, flag & 0xFF));
+        } else if (type == FlagType::FLAG_EVENT_INF) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_UNSET, fmt::format("EVENTINF_{:02x}", flag));
+        } else {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_FLAG_UNSET,
+                              fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF));
+        }
     });
 
-    onSceneInitHookId =
-        GameInteractor::Instance->RegisterGameHook<GameInteractor::OnSceneInit>([](s16 sceneId, s8 spawnNum) {
-            eventLogEntries.insert(eventLogEntries.begin(),
-                                   {
-                                       .timestamp = CurrentTime(),
-                                       .type = EVENT_LOG_ENTRY_TYPE_SCENE_INIT,
-                                       .meta = fmt::format("{} {}", Ship_GetSceneName(sceneId), spawnNum),
-                                   });
-            TrimEventLog();
+    onSceneFlagSetHookId =
+        RegisterEventLogHook<GameInteractor::OnSceneFlagSet>([](s16 sceneId, FlagType type, u32 flag) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_SCENE_FLAG_SET,
+                              fmt::format("{}({:02d}) {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF));
         });
 
-    onRoomInitHookId =
-        GameInteractor::Instance->RegisterGameHook<GameInteractor::OnRoomInit>([](s16 sceneId, s8 roomId) {
-            eventLogEntries.insert(eventLogEntries.begin(),
-                                   {
-                                       .timestamp = CurrentTime(),
-                                       .type = EVENT_LOG_ENTRY_TYPE_ROOM_INIT,
-                                       .meta = fmt::format("{} {}", Ship_GetSceneName(sceneId), roomId),
-                                   });
-            TrimEventLog();
+    onSceneFlagUnsetHookId =
+        RegisterEventLogHook<GameInteractor::OnSceneFlagUnset>([](s16 sceneId, FlagType type, u32 flag) {
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_SCENE_FLAG_UNSET,
+                              fmt::format("{}[{:02d}] {:02x}", flagTypeNames[type], flag >> 8, flag & 0xFF));
         });
 
-    onOpenTextHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnOpenText>(
+    onActorInitHookId = RegisterEventLogHook<GameInteractor::OnActorInit>([](Actor* actor) {
+        PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_ACTOR_INIT, fmt::format("{} {}", actorNames[actor->id], actor->params));
+    });
+
+    onActorKillHookId = RegisterEventLogHook<GameInteractor::OnActorKill>([](Actor* actor) {
+        PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_ACTOR_KILL, fmt::format("{} {}", actorNames[actor->id], actor->params));
+    });
+
+    onSceneInitHookId = RegisterEventLogHook<GameInteractor::OnSceneInit>([](s16 sceneId, s8 spawnNum) {
+        PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_SCENE_INIT, fmt::format("{} {}", Ship_GetSceneName(sceneId), spawnNum));
+    });
+
+    onRoomInitHookId = RegisterEventLogHook<GameInteractor::OnRoomInit>([](s16 sceneId, s8 roomId) {
+        PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_ROOM_INIT, fmt::format("{} {}", Ship_GetSceneName(sceneId), roomId));
+    });
+
+    onOpenTextHookId = RegisterEventLogHook<GameInteractor::OnOpenText>(
         [](u16* textId, bool* loadFromMessageTable) {
-            eventLogEntries.insert(eventLogEntries.begin(), {
-                                                                .timestamp = CurrentTime(),
-                                                                .type = EVENT_LOG_ENTRY_TYPE_OPEN_TEXT,
-                                                                .meta = fmt::format("0x{:02x}", *textId),
-                                                            });
-            TrimEventLog();
+            PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_OPEN_TEXT, fmt::format("0x{:02x}", *textId));
         });
 
-    onItemGiveHookId = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnItemGive>([](u8 item) {
-        eventLogEntries.insert(eventLogEntries.begin(), {
-                                                            .timestamp = CurrentTime(),
-                                                            .type = EVENT_LOG_ENTRY_TYPE_ITEM_GIVE,
-                                                            .meta = fmt::format("0x{:02x}", item),
-                                                        });
-        TrimEventLog();
+    onItemGiveHookId = RegisterEventLogHook<GameInteractor::OnItemGive>([](u8 item) {
+        PushEventLogEntry(EVENT_LOG_ENTRY_TYPE_ITEM_GIVE, fmt::format("0x{:02x}", item));
     });
 }
+
+} // namespace
 
 void EventLogWindow::DrawElement() {
     if (UIWidgets::CVarCheckbox("Enable", "gEventLog.Enabled")) {
@@ -382,3 +329,15 @@ void EventLogWindow::DrawElement() {
 void EventLogWindow::InitElement() {
     RegisterEventLogHooks();
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+size_t MM_EventLog_DrainEntryCountForTest() {
+    const size_t count = eventLogEntries.size();
+    eventLogEntries.clear();
+    return count;
+}
+
+const char* MM_EventLog_NewestEntryTypeNameForTest() {
+    return eventLogEntries.empty() ? nullptr : eventLogEntryTypeNames[eventLogEntries.front().type];
+}
+#endif

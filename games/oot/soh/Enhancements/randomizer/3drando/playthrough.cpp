@@ -142,7 +142,6 @@ bool RsbsFoldIsSilverLine(size_t group, Rando::Option* option) {
     }
     return option->GetKey() == RSK_SHUFFLE_SILVER;
 }
-
 // #1409: the Shuffle Rocks lines the last fold read and the ones it left out.
 uint32_t sRsbsFoldRocksLines = 0;
 uint32_t sRsbsFoldRocksSkipped = 0;
@@ -183,6 +182,30 @@ bool RsbsFoldIsBoulderLine(size_t group, Rando::Option* option) {
         return false;
     }
     return option->GetKey() == RSK_SHUFFLE_BOULDERS;
+}
+
+// #1405: the Shuffle Wonder Items lines the last fold read and the ones it left out.
+uint32_t sRsbsFoldWonderItemLines = 0;
+uint32_t sRsbsFoldWonderItemSkipped = 0;
+
+/**
+ * #1405: whether the fold line @p option makes in option group @p group belongs to
+ * Shuffle Wonder Items, and so is left out while the option is off: the option's
+ * own rows (Basic Shuffles menu section and Shuffle Settings) and the exclude rows
+ * of the RCTYPE_WONDER_ITEM checks. None of these lines existed before #1405, so
+ * with the option off the settings string is the one a world had before (#1434's rule).
+ * Trick rows are never one: a trick's key is a RandomizerTrick, which could equal
+ * a setting key's number.
+ */
+bool RsbsFoldIsWonderItemLine(size_t group, Rando::Option* option) {
+    if (group >= RSG_EXCLUDES_KOKIRI_FOREST && group <= RSG_EXCLUDES_GANONS_CASTLE) {
+        const RandomizerCheck rc = static_cast<Rando::LocationOption*>(option)->GetKey();
+        return Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_WONDER_ITEM;
+    }
+    if (group == RSG_TRICKS) {
+        return false;
+    }
+    return option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS;
 }
 // #1350: 1 while the last generation began with OoT's Logic authored as anything
 // but Glitchless and generated it Glitchless under a proving combo rung (the
@@ -277,6 +300,18 @@ extern "C" int OoT_Rando_LastSettingsFoldBoulders(uint32_t* outFolded, uint32_t*
     return sRsbsFoldRuns;
 }
 
+// #1405: of the last fold, the lines that belong to Shuffle Wonder Items (the
+// option's rows, the RCTYPE_WONDER_ITEM exclude rows) as folded and as left out.
+// Returns how many folds have run, as above.
+extern "C" int OoT_Rando_LastSettingsFoldWonderItem(uint32_t* outFolded, uint32_t* outSkipped) {
+    if (outFolded != nullptr) {
+        *outFolded = sRsbsFoldWonderItemLines;
+    }
+    if (outSkipped != nullptr) {
+        *outSkipped = sRsbsFoldWonderItemSkipped;
+    }
+    return sRsbsFoldRuns;
+}
 // #1389: OoT's share of the [Both Games] Triforce Goal is not bounded by the
 // player's own Triforce Hunt Total Pieces, but SoH's Total Pieces callback
 // (settings.cpp) shrinks the Required Pieces option's list to that own total,
@@ -371,6 +406,13 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
     const bool rsbsBouldersOff = ctx->GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
     sRsbsFoldBouldersLines = 0;
     sRsbsFoldBouldersSkipped = 0;
+    // [RSBS #1405] While Shuffle Wonder Items is off its lines cannot change the
+    // world (the wonder item checks are not locations, Context::GenerateLocationPool),
+    // so they are left out and a world keeps the fingerprint it had before the option
+    // existed; with it on they fold.
+    const bool rsbsWonderItemOff = ctx->GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
+    sRsbsFoldWonderItemLines = 0;
+    sRsbsFoldWonderItemSkipped = 0;
 #endif
     for (size_t i = 0; i < RSG_MAX; i++) {
         auto& optionGroup = optionGroups[i];
@@ -408,6 +450,11 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         sRsbsFoldBouldersSkipped++;
                         continue;
                     }
+                    const bool rsbsWonderItemLine = RsbsFoldIsWonderItemLine(i, option);
+                    if (rsbsWonderItemLine && rsbsWonderItemOff) {
+                        sRsbsFoldWonderItemSkipped++;
+                        continue;
+                    }
 #endif
                     if (i >= RSG_EXCLUDES_KOKIRI_FOREST && i <= RSG_EXCLUDES_GANONS_CASTLE) {
                         auto locationOption = static_cast<Rando::LocationOption*>(option);
@@ -418,6 +465,10 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                              ctx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) ||
                             (trickOption->GetKey() == RT_BOMB_DETONATION &&
                              ctx->GetTrickOption(RT_BOMB_DETONATION).Get() == 0)) {
+                            continue;
+                        }
+                        if (trickOption->GetKey() == RT_GTG_STATUE_JUMP &&
+                            ctx->GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
                             continue;
                         }
                         settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
@@ -458,6 +509,9 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                     if (rsbsBoulderLine) {
                         sRsbsFoldBouldersLines++;
                     }
+                    if (rsbsWonderItemLine) {
+                        sRsbsFoldWonderItemLines++;
+                    }
 #endif
                 }
             }
@@ -491,6 +545,8 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     const uint32_t savedRocksSkipped = sRsbsFoldRocksSkipped;
     const uint32_t savedBouldersLines = sRsbsFoldBouldersLines;
     const uint32_t savedBouldersSkipped = sRsbsFoldBouldersSkipped;
+    const uint32_t savedWonderItemLines = sRsbsFoldWonderItemLines;
+    const uint32_t savedWonderItemSkipped = sRsbsFoldWonderItemSkipped;
     FoldSettingsString(ctx);
     const int lines = (int)sRsbsFoldTotalLines;
     sRsbsFoldTotalLines = savedTotal;
@@ -504,6 +560,8 @@ extern "C" int OoT_Rando_TestFoldLines(void) {
     sRsbsFoldRocksSkipped = savedRocksSkipped;
     sRsbsFoldBouldersLines = savedBouldersLines;
     sRsbsFoldBouldersSkipped = savedBouldersSkipped;
+    sRsbsFoldWonderItemLines = savedWonderItemLines;
+    sRsbsFoldWonderItemSkipped = savedWonderItemSkipped;
     for (int i = 0; i < kRsbsFoldExcludeGroups; i++) {
         sRsbsFoldExcludeLines[i] = savedExclude[i];
     }
