@@ -886,12 +886,14 @@ void SctCheckAnchors() {
     const std::string queueFn = SctTopLevelBody(queue, "void Rando::MiscBehavior::CheckQueue()");
     SCT_CHECK(!queueFn.empty() && queueFn.find("void Rando::MiscBehavior::CheckQueueReset()") == std::string::npos,
               "(h) CheckQueue's body could not be read (signature changed, or the read ran past it)\n");
-    SCT_CHECK(SctInOrder(queueFn, { "if (randoSaveCheck.eligible) {", "IsDeliveredForeignSongHost(randoCheckId)",
+    SCT_CHECK(SctInOrder(queueFn, { "if (randoSaveCheck.eligible) {", "IsDeliveredForeignHost(randoCheckId)",
                                     "RANDO_SAVE_CHECKS[randoCheckId].eligible = false;",
                                     "RANDO_SAVE_CHECKS[randoCheckId].cycleObtained = true;", "continue;",
                                     "ForeignOutboxFullFor(randoCheckId)", "queued = true;" }),
-              "(h) CheckQueue does not consume a delivered song host inside `eligible`, through the array, before "
-              "the outbox hold and the queue\n");
+              "(h) CheckQueue does not consume a delivered foreign host inside `eligible`, through the array, "
+              "before the outbox hold and the queue\n");
+    SCT_CHECK(queueFn.find("IsDeliveredForeignSongHost(") == std::string::npos,
+              "(h) CheckQueue's consume is still the song-only guard (#1600)\n");
 
     const std::string pool = SctReadSource("src/common/combo_song_pool.cpp");
     const std::string armed = SctFunctionBody(pool, "bool Combo_SongHostsArmed(uint32_t frozenOoTSongs)");
@@ -1014,12 +1016,16 @@ void SctCheckAnchors() {
 
     const std::string model = SctReadSource("games/mm/2s2h/Rando/ForeignModelSingleExe.cpp");
     const std::string icon = SctReadSource("games/mm/2s2h/Rando/ForeignTextboxIconSingleExe.cpp");
-    SCT_CHECK(SctInOrder(SctFunctionBody(model, "bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want)"),
-                         { "MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0", ".obtained = true;" }) &&
-                  SctInOrder(SctFunctionBody(icon, "bool RunCheckQueueGive(uint16_t mmCheckId, const char* "
-                                                   "wantTexture, uint8_t wantItemId)"),
-                             { "MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0", ".obtained = true;" }),
-              "(h) a CheckQueue drive that pre-sets `obtained` does not refuse a song check first\n");
+    const std::string drawDrive =
+        SctFunctionBody(model, "bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want)");
+    const std::string giveDrive = SctFunctionBody(
+        icon, "bool RunCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t wantItemId)");
+    SCT_CHECK(!drawDrive.empty() && drawDrive.find("gComboCtx.sourceIsRando = false;") != std::string::npos &&
+                  drawDrive.find("].obtained = true;") == std::string::npos && !giveDrive.empty() &&
+                  giveDrive.find("gComboCtx.sourceIsRando = false;") != std::string::npos &&
+                  giveDrive.find("].obtained = true;") == std::string::npos,
+              "(h) a CheckQueue drive pre-sets `obtained` (the delivered-host consume would take its host) or does "
+              "not suspend the pairing (#1600)\n");
 #endif
 }
 

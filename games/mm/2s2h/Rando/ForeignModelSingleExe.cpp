@@ -139,8 +139,6 @@ void MM_GetItem_DrawSmallRupee(PlayState* play, s16 drawId);
 void MM_GetItem_DrawWallet(PlayState* play, s16 drawId);
 void GetItem_DrawRemains(PlayState* play, s16 drawId);
 }
-// Rando/Foreign.cpp (#1542 S0): an MM check's song-check index, -1 for any other.
-extern "C" int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 namespace {
 
@@ -1555,29 +1553,24 @@ bool LayerMatches(const char* name, const LayerRead& read, const ComboModel* wan
 }
 
 /**
- * CheckQueue's REAL foreign give-and-draw. Marks `mmCheckId` eligible, lets
- * Rando::MiscBehavior::CheckQueue() queue its GIEventGiveItem, runs the event's
- * giveItem against a fake item00 actor exactly as CustomItem does (the give
- * fires before the item is shown), then the event's drawItem into a real MM
- * GraphicsContext, and reads both layers back. `want` null: the stand-in, which
- * emits no model list at all.
+ * CheckQueue's REAL foreign give-and-draw. Suspends the pairing (clears
+ * `sourceIsRando`) so RecordForeignPickup authors no record, clears
+ * `obtained` on `mmCheckId` so CheckQueue's delivered-host consume cannot take
+ * it whatever the caller's save holds, marks `mmCheckId` eligible, lets Rando::MiscBehavior::CheckQueue() queue its
+ * GIEventGiveItem, runs the event's giveItem against a fake item00 actor exactly as CustomItem does (the give fires
+ * before the item is shown), then the event's drawItem into a real MM GraphicsContext, and reads both layers back.
+ * `want` null: the stand-in, which emits no model list at all. Every piece of state touched is restored on every exit.
  */
 bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
-    // #1542 S0: the `obtained` this drive pre-sets on its host is exactly what
-    // CheckQueue's delivered-song-host guard consumes, so a song check would queue
-    // nothing and this drive would read red for a reason that is not its own.
-    FMD_EXPECT(MM_Rando_Foreign_TestSongCheckIndex(mmCheckId) < 0,
-               "a song-check host cannot drive CheckQueue with obtained pre-set: the delivered-song-host guard "
-               "consumes it (#1542 S0); pass a non-song check (check %u)",
-               (unsigned)mmCheckId);
     struct Restore {
         std::vector<RandoSaveCheck> checks;
         std::vector<GIEvent> queue;
         GIEvent current;
         CustomMessage::Entry active;
+        bool sourceIsRando;
         Restore()
             : checks(std::begin(RANDO_SAVE_CHECKS), std::end(RANDO_SAVE_CHECKS)), queue(MM_GameEvents_Queue()),
-              current(MM_GameEvents_Current()), active(activeCustomMessage) {
+              current(MM_GameEvents_Current()), active(activeCustomMessage), sourceIsRando(gComboCtx.sourceIsRando) {
         }
         ~Restore() {
             Rando::MiscBehavior::CheckQueueReset();
@@ -1585,16 +1578,19 @@ bool RunCheckQueueDraw(uint16_t mmCheckId, const ComboModel* want) {
             MM_GameEvents_Queue() = queue;
             MM_GameEvents_Current() = current;
             activeCustomMessage = active;
+            gComboCtx.sourceIsRando = sourceIsRando;
             sModelEmitUnresolved = false;
         }
     } restore;
 
+    // The pairing is off for the drive, so RecordForeignPickup authors no record (#610) and the outbox never holds
+    // it; `obtained` is cleared, so CheckQueue's delivered-host consume (#1600) does not take the host.
+    gComboCtx.sourceIsRando = false;
     for (RandoSaveCheck& check : RANDO_SAVE_CHECKS) {
         check.eligible = false;
     }
     RANDO_SAVE_CHECKS[mmCheckId].eligible = true;
-    // Pre-set on the host so RecordForeignPickup authors no durable record.
-    RANDO_SAVE_CHECKS[mmCheckId].obtained = true;
+    RANDO_SAVE_CHECKS[mmCheckId].obtained = false;
     Rando::MiscBehavior::CheckQueueReset();
 
     Rando::MiscBehavior::CheckQueue();

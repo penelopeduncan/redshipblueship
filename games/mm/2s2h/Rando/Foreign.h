@@ -335,13 +335,13 @@ std::string ForeignPickupMessage(const char* article, const char* name);
 /** A check hosting a foreign item whose crossing was already delivered: its
  *  `obtained` bit, which survives the three-day reset (RecordForeignPickup's
  *  once-per-host gate). A shop slot like this is sold for the rest of the game
- *  (#800), where a native slot restocks. */
+ *  (#800), where a native slot restocks; CheckQueue consumes such a host
+ *  silently when it is armed again (#1600). */
 bool IsDeliveredForeignHost(RandoCheckId randoCheckId);
 
 /** #1542 S0: IsDeliveredForeignHost for one of MM's eleven SONG checks only.
- *  CheckQueue consumes a re-armed `.eligible` on such a host silently, so a song
- *  check that already delivered its crossing never replays the get-item textbox
- *  on a later cycle (OoTMM's once-per-file song flags). Reads no switch: it is
+ *  Kept for the song-check rows and their bridge; CheckQueue's consume uses
+ *  IsDeliveredForeignHost for every class since #1600. Reads no switch: it is
  *  true only where a placement exists. */
 bool IsDeliveredForeignSongHost(RandoCheckId randoCheckId);
 
