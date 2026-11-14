@@ -1969,6 +1969,10 @@ if(BUILD_TESTING)
     # Display-free and ROM-free.
     redship_add_test(NAME OoTMweepStopRestoresCamera COMMAND redship --test oot-mweep-stop-restores-camera)
 
+    # #1588: OoT infinite-magic and Barinade rematch-intro VB boundary (source leg +
+    # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
+    redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
+
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
     #
