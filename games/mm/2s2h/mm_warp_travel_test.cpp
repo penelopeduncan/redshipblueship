@@ -487,7 +487,7 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
     // never rolled back over this one (mm-warp-songs-pooled-only-when-rule-on).
     Combo_SingleBag_Forget();
     ComboContext_Init();
-    if (Rando_HeadlessSeedTest("RSBSXW9TRAVEL1") != 0 || !Combo_ForeignPairingActive() ||
+    if (Rando_HeadlessSeedTest("RSBSXW9TRAVEL4") != 0 || !Combo_ForeignPairingActive() ||
         !Combo_ComboSettingsFrozen() || !OoT_ComboLogic_GeneralPassDeferred()) {
         fprintf(stderr, "[COMBO-WARP-TRAVEL-ROUNDS] FAIL: the paired OoT generation did not leave a frozen paired "
                         "world at its general pass\n");
