@@ -1063,6 +1063,28 @@ extern "C" int MM_PlacementAnywhereWorld_Check(void) {
     MPC_CHECK(smallKeys == 9 && bossKeys == 4 && dungeonFairies == 60 && ctFairies == 1,
               "Anywhere world item conservation failed (keys=%d boss=%d fairies=%d ct=%d)", smallKeys, bossKeys,
               dungeonFairies, ctFairies);
+
+    // The conservation tally above also counts an item StaysAtVanillaCheck kept
+    // at its vanilla check (shuffled with its vanilla item, no mask), so it holds
+    // under Vanilla too. Anywhere means every one of them ENTERED the pool the
+    // paired fill was handed: count them among MM's pool rows.
+    smallKeys = 0;
+    bossKeys = 0;
+    dungeonFairies = 0;
+    ctFairies = 0;
+    for (int i = 0; i < total; ++i) {
+        const RandoItemId id = (RandoItemId)items[(size_t)i];
+        if (items[(size_t)i] < (uint16_t)RI_MAX &&
+            Rando::StaticData::Items.find(id) != Rando::StaticData::Items.end()) {
+            tally(id);
+        }
+    }
+    printf("[TEST] mm-placement-anywhere-world: pool rows keys=%d boss=%d dungeonFairies=%d ctFairy=%d\n", smallKeys,
+           bossKeys, dungeonFairies, ctFairies);
+    MPC_CHECK(smallKeys == 9 && bossKeys == 4 && dungeonFairies == 60 && ctFairies == 1,
+              "Anywhere world left dungeon items out of the pool (keys=%d boss=%d fairies=%d ct=%d): they stayed at "
+              "their vanilla checks",
+              smallKeys, bossKeys, dungeonFairies, ctFairies);
     printf("[TEST] mm-placement-anywhere-world: %s\n", sFailures == 0 ? "PASS" : "FAIL");
     return sFailures == 0 ? 0 : 1;
 }

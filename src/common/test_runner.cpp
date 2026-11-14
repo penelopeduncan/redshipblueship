@@ -11121,7 +11121,7 @@ const TestDescriptor gTests[] = {
       Test_MMPlacementDefaultWorld },
     { "mm-placement-anywhere-world",
       "A real paired generation with MM keys, boss keys, chest/freestanding fairies and songs set to Anywhere (#1548): "
-      "zero confinement masks and all 61 fairies plus 13 keys conserved across the pair",
+      "zero confinement masks, and all 61 fairies plus 13 keys entered MM's pool and are conserved across the pair",
       Test_MMPlacementAnywhereWorld },
     { "shared-arrows-bag",
       "With all three shared-arrow rules on, the single bag holds one row per arrow both solvers credit, each placed "
