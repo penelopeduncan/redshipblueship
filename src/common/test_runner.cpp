@@ -1353,6 +1353,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // rsbs::SaveManager, after test_crossing_commit.c and test_combo_crossing_views.c.
 #include "tests/test_mm_hint_sources.c"
 
+// #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
+// behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
+#include "tests/test_oot_mweep_stop.c"
+
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
 // — which lives in an MM TU (games/mm/2s2h/mm_scene_execute_test.cpp) to keep
@@ -10518,6 +10522,12 @@ const TestDescriptor gTests[] = {
       "func_80096A74 short-circuits via VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when "
       "camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages (#1336)",
       Test_OoTRoomBgCamGuard },
+    // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
+    // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
+    { "oot-mweep-stop-restores-camera",
+      "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
+      "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
+      Test_OoTMweepStopRestoresCamera },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
