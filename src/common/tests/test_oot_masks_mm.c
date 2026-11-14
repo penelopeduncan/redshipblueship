@@ -62,6 +62,10 @@ extern "C" {
 // games/mm/2s2h/mm_oot_masks_test.cpp
 int MM_OoTMasksTest_Id(int which);
 int MM_OoTMasksTest_ActorId(int which);
+int MM_OoTMasksTest_ActorIdMax(void);
+uint16_t MM_OoTMasksTest_Time(void);
+void MM_OoTMasksTest_SetTime(uint16_t time);
+uint16_t MM_OoTMasksTest_ClockTime(int hr, int min);
 int MM_OoTMasksTest_Const(int which);
 void MM_OoTMasksTest_ArmLive(void);
 void MM_OoTMasksTest_Give(uint16_t ri);
@@ -79,13 +83,19 @@ int MM_OoTMasksTest_PlayerForm(void);
 int MM_OoTMasksTest_Use(uint8_t mask);
 int MM_OoTMasksTest_EquipNative(int maskId);
 int MM_OoTMasksTest_Before(int16_t actorId, int updates, int isNight);
+int MM_OoTMasksTest_BeforeAtSaveTime(int16_t actorId, int updates);
 void MM_OoTMasksTest_PutBack(void);
+int MM_OoTMasksTest_EquippedMask(void);
+void MM_OoTMasksTest_SetEquippedMask(uint8_t mask);
+void MM_OoTMasksTest_VoidOutRespawn(int hasDekuMask);
 // games/mm/2s2h/Rando/OoTMasksMM.cpp
 uint8_t MM_OoTMask_ForeignId(uint16_t riId);
 uint16_t MM_OoTMask_ItemId(uint8_t foreignMask);
 bool MM_OoTMask_Owned(uint16_t riId);
 bool MM_OoTMask_Usable(uint16_t riId);
 int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, uint8_t* maskOut, uint8_t* formOut);
+void MM_OoTMasks_OnNativeMaskCleared(void);
+int MM_OoTMasksTest_ListedActorAt(int i);
 void MM_OoTMasks_RegisterRuntime(void);
 void MM_OoTMasks_Forget(void);
 int MM_OoTMasks_Holding(void);
@@ -94,6 +104,7 @@ uint8_t MM_ForeignMask_Worn(void);
 uint8_t MM_ForeignMask_SlotSelection(uint8_t slot);
 uint8_t MM_ForeignMask_SlotSelRaw(uint8_t slot);
 void MM_ForeignMask_SetSlotSelRaw(uint8_t slot, uint8_t value);
+uint8_t MM_ForeignMask_StoredRaw(void);
 void MM_ForeignMask_SetStoredRaw(uint8_t value);
 uint8_t MM_ForeignMask_PageCellItem(int maskSlot, uint8_t stored);
 const char* MM_ForeignMask_PageIcon(int maskSlot, const char* nativeIcon);
@@ -690,6 +701,272 @@ TestResult Test_OoTMasksMMItems(void) {
                   "a Gerudo Mask whose rule is off fooled the purple guard");
         MM_OoTMasks_Forget();
         ComboContext_Init();
+    }
+
+    // ---- (5a)-(5c) #1452: four new Spooky actors, SpoofFor/kListedActors agreement, and native-mask clear ----
+    {
+        const uint16_t ommSavedTime = MM_OoTMasksTest_Time();
+        const uint8_t ommSavedWorn = MM_ForeignMask_StoredRaw();
+        const uint8_t ommSavedStoneSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+        const uint8_t ommSavedGibdoSlot = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+
+        // (a) Spooky Mask on EnHgo, EnPamera, EnSob1, EnOsn: PLAYER_MASK_GIBDO at night only; nothing under
+        // Gerudo/Skull.
+        {
+            static const struct {
+                int idx;
+                const char* name;
+            } kOmmGibdoActors[4] = {
+                { 13, "EnHgo" },
+                { 14, "EnPamera" },
+                { 15, "EnSob1" },
+                { 16, "EnOsn" },
+            };
+            const int maskGibdo = MM_OoTMasksTest_Const(1);
+            const int formHuman = MM_OoTMasksTest_Const(3);
+            const int maskNone = MM_OoTMasksTest_Const(4);
+            for (int i = 0; i < 4; i++) {
+                const int16_t actor = (int16_t)MM_OoTMasksTest_ActorId(kOmmGibdoActors[i].idx);
+                uint8_t mask = 0;
+                uint8_t form = 0;
+                int hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SPOOKY, actor, 1, &mask, &form);
+                OMM_CHECK(
+                    hit == 1 && (int)mask == maskGibdo && form == 0xFF,
+                    "#1452 %s (actor %d): Spooky Mask at night gave hit=%d mask=%u form=%u, expected PLAYER_MASK_GIBDO",
+                    kOmmGibdoActors[i].name, (int)actor, hit, (unsigned)mask, (unsigned)form);
+                hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SPOOKY, actor, 0, &mask, &form);
+                OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
+                          "#1452 %s (actor %d): Spooky Mask by day spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
+                hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_GERUDO, actor, 1, &mask, &form);
+                OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
+                          "#1452 %s (actor %d): Gerudo Mask spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
+                hit = MM_OoTMasks_SpoofFor(COMBO_FOREIGN_MASK_OOT_SKULL, actor, 1, &mask, &form);
+                OMM_CHECK(hit == 0 && mask == 0xFF && form == 0xFF,
+                          "#1452 %s (actor %d): Skull Mask spoofed mask=%u form=%u", kOmmGibdoActors[i].name,
+                          (int)actor, (unsigned)mask, (unsigned)form);
+            }
+            const int16_t enHgo = (int16_t)MM_OoTMasksTest_ActorId(13);
+            OmmFreezeWorld(kOmmExtensions);
+            MM_OoTMasksTest_ArmLive();
+            MM_OoTMasks_Forget();
+            MM_OoTMasksTest_Give(spooky);
+            MM_OoTMasksTest_SetPlayer(1, (uint8_t)maskNone);
+            OMM_CHECK(MM_OoTMasksTest_Use(COMBO_FOREIGN_MASK_OOT_SPOOKY) == 1,
+                      "#1452 EnHgo seam: human Link could not wear Spooky Mask");
+            OMM_CHECK(MM_OoTMasksTest_Before(enHgo, 1, 0) == 0 && MM_OoTMasksTest_PlayerMask() == maskNone,
+                      "#1452 EnHgo read Spooky Mask by day");
+            OMM_CHECK(MM_OoTMasksTest_Before(enHgo, 1, 1) == 1 && MM_OoTMasksTest_PlayerMask() == maskGibdo &&
+                          MM_OoTMasksTest_PlayerForm() == formHuman,
+                      "#1452 EnHgo did not read PLAYER_MASK_GIBDO at night");
+            MM_OoTMasksTest_PutBack();
+            OMM_CHECK(MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
+                      "#1452 EnHgo did not put back currentMask after update");
+
+            // Night/day boundary via the hook path's [18:00, 06:00) check on gSaveContext.save.time.
+            static const struct {
+                int hr;
+                int min;
+                int expectHit;
+            } kOmmTimeBoundaries[4] = {
+                { 17, 59, 0 },
+                { 18, 0, 1 },
+                { 5, 59, 1 },
+                { 6, 0, 0 },
+            };
+            for (int i = 0; i < 4; i++) {
+                const uint16_t t = MM_OoTMasksTest_ClockTime(kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min);
+                MM_OoTMasksTest_SetTime(t);
+                OMM_CHECK(MM_OoTMasksTest_Time() == t, "#1452 SetTime(%02d:%02d) did not stick",
+                          kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min);
+                const int hit = MM_OoTMasksTest_BeforeAtSaveTime(enHgo, 1);
+                if (kOmmTimeBoundaries[i].expectHit) {
+                    OMM_CHECK(hit == 1 && MM_OoTMasksTest_PlayerMask() == maskGibdo &&
+                                  MM_OoTMasksTest_PlayerForm() == formHuman,
+                              "#1452 EnHgo at %02d:%02d (night) gave hit=%d mask=%d, expected PLAYER_MASK_GIBDO",
+                              kOmmTimeBoundaries[i].hr, kOmmTimeBoundaries[i].min, hit, MM_OoTMasksTest_PlayerMask());
+                    MM_OoTMasksTest_PutBack();
+                    OMM_CHECK(MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
+                              "#1452 EnHgo at %02d:%02d did not put back currentMask", kOmmTimeBoundaries[i].hr,
+                              kOmmTimeBoundaries[i].min);
+                } else {
+                    OMM_CHECK(hit == 0 && MM_OoTMasksTest_PlayerMask() == maskNone && !MM_OoTMasks_Holding(),
+                              "#1452 EnHgo at %02d:%02d (day) spoofed mask=%d", kOmmTimeBoundaries[i].hr,
+                              kOmmTimeBoundaries[i].min, MM_OoTMasksTest_PlayerMask());
+                }
+            }
+
+            MM_OoTMasks_Forget();
+            ComboContext_Init();
+        }
+
+        // (b) Agreement: every id SpoofFor answers for is in kListedActors, and every listed id gets an answer.
+        {
+            const int actorIdMax = MM_OoTMasksTest_ActorIdMax();
+            int listedCount = 0;
+            while (MM_OoTMasksTest_ListedActorAt(listedCount) >= 0) {
+                listedCount++;
+            }
+            OMM_CHECK(listedCount > 0, "#1452 kListedActors is empty");
+            for (int i = 0; i < listedCount; i++) {
+                const int id = MM_OoTMasksTest_ListedActorAt(i);
+                bool dup = false;
+                for (int j = 0; j < i; j++) {
+                    if (MM_OoTMasksTest_ListedActorAt(j) == id) {
+                        dup = true;
+                        break;
+                    }
+                }
+                OMM_CHECK(!dup, "#1452 kListedActors[%d] duplicates actor id %d", i, id);
+                bool answered = false;
+                for (uint8_t worn = 1; worn < COMBO_FOREIGN_MASK_COUNT && !answered; worn++) {
+                    for (int night = 0; night <= 1 && !answered; night++) {
+                        uint8_t mask = 0;
+                        uint8_t form = 0;
+                        if (MM_OoTMasks_SpoofFor(worn, (int16_t)id, night, &mask, &form)) {
+                            answered = true;
+                        }
+                    }
+                }
+                OMM_CHECK(answered,
+                          "#1452 kListedActors[%d] (actor id %d) never gets an answer from MM_OoTMasks_SpoofFor", i,
+                          id);
+            }
+            for (int actorId = 0; actorId < actorIdMax; actorId++) {
+                for (uint8_t worn = 1; worn < COMBO_FOREIGN_MASK_COUNT; worn++) {
+                    for (int night = 0; night <= 1; night++) {
+                        uint8_t mask = 0;
+                        uint8_t form = 0;
+                        if (MM_OoTMasks_SpoofFor(worn, (int16_t)actorId, night, &mask, &form)) {
+                            bool inListed = false;
+                            for (int i = 0; i < listedCount; i++) {
+                                if (MM_OoTMasksTest_ListedActorAt(i) == actorId) {
+                                    inListed = true;
+                                    break;
+                                }
+                            }
+                            OMM_CHECK(inListed,
+                                      "#1452 MM_OoTMasks_SpoofFor answers for actor id %d (worn %u, night %d) missing "
+                                      "from kListedActors",
+                                      actorId, (unsigned)worn, night);
+                        }
+                    }
+                }
+            }
+        }
+
+        // (c) MM_OoTMasks_OnNativeMaskCleared clears a worn Gerudo Mask and leaves owned bits intact.
+        {
+            const int maskNone = MM_OoTMasksTest_Const(4);
+            const int16_t ge2 = (int16_t)MM_OoTMasksTest_ActorId(0);
+            OmmFreezeWorld(kOmmExtensions);
+            MM_OoTMasksTest_ArmLive();
+            MM_OoTMasks_Forget();
+            MM_OoTMasksTest_Give(gerudo);
+            MM_OoTMasksTest_Give(skull);
+            MM_OoTMasksTest_Give(spooky);
+            MM_ForeignMask_SetSlotSelRaw(
+                COMBO_FOREIGN_MASK_SLOT_MM_STONE,
+                Combo_ForeignMask_SlotByteWithSelection(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE),
+                                                        COMBO_FOREIGN_MASK_OOT_GERUDO));
+            MM_OoTMasksTest_SetPlayer(1, (uint8_t)maskNone);
+            OMM_CHECK(MM_OoTMasksTest_Use(COMBO_FOREIGN_MASK_OOT_GERUDO) == 1 &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1452 OnNativeMaskCleared setup: failed to wear Gerudo Mask in foreignMask");
+            const uint8_t stoneSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+            const uint8_t gibdoSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+
+            MM_OoTMasks_OnNativeMaskCleared();
+
+            OMM_CHECK(MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_NONE &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE,
+                      "#1452 MM_OoTMasks_OnNativeMaskCleared did not clear foreignMask (stored=%u, worn=%u)",
+                      (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn());
+            OMM_CHECK(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == stoneSlotBefore &&
+                          MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO) == gibdoSlotBefore &&
+                          MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky),
+                      "#1452 MM_OoTMasks_OnNativeMaskCleared altered foreignMaskSlotSel owned bits (stone=%02X/%02X, "
+                      "gibdo=%02X/%02X)",
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE), (unsigned)stoneSlotBefore,
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO), (unsigned)gibdoSlotBefore);
+            OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 0 && MM_OoTMasksTest_PlayerMask() == maskNone,
+                      "#1452 after MM_OoTMasks_OnNativeMaskCleared, EnGe2 still saw a spoofed mask (%d)",
+                      MM_OoTMasksTest_PlayerMask());
+            MM_OoTMasks_Forget();
+            ComboContext_Init();
+        }
+
+        // (d) z_player.c func_808345C8 void-out respawn clears a worn Gerudo Mask only with the Deku Mask owned,
+        // and leaves owned bits intact.
+        {
+            const int maskStone = MM_OoTMasksTest_Const(0);
+            const int maskNone = MM_OoTMasksTest_Const(4);
+            const int16_t ge2 = (int16_t)MM_OoTMasksTest_ActorId(0);
+            OmmFreezeWorld(kOmmExtensions);
+            MM_OoTMasksTest_ArmLive();
+            MM_OoTMasks_Forget();
+            MM_OoTMasksTest_Give(gerudo);
+            MM_OoTMasksTest_Give(skull);
+            MM_OoTMasksTest_Give(spooky);
+            MM_ForeignMask_SetSlotSelRaw(
+                COMBO_FOREIGN_MASK_SLOT_MM_STONE,
+                Combo_ForeignMask_SlotByteWithSelection(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE),
+                                                        COMBO_FOREIGN_MASK_OOT_GERUDO));
+            MM_OoTMasksTest_SetPlayer(1, (uint8_t)maskNone);
+            OMM_CHECK(MM_OoTMasksTest_Use(COMBO_FOREIGN_MASK_OOT_GERUDO) == 1 &&
+                          MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO,
+                      "#1452 void-out setup: failed to wear Gerudo Mask in foreignMask");
+            const uint8_t stoneSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE);
+            const uint8_t gibdoSlotBefore = MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO);
+
+            MM_OoTMasksTest_VoidOutRespawn(0);
+            OMM_CHECK(MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_OOT_GERUDO &&
+                          MM_OoTMasksTest_EquippedMask() == maskNone,
+                      "#1452 func_808345C8 without Deku Mask cleared worn Gerudo Mask (stored=%u, worn=%u, eq=%d)",
+                      (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn(),
+                      MM_OoTMasksTest_EquippedMask());
+            OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 1 && MM_OoTMasksTest_PlayerMask() == maskStone,
+                      "#1452 after func_808345C8 without Deku Mask, EnGe2 no longer saw Stone Mask");
+            MM_OoTMasksTest_PutBack();
+
+            MM_OoTMasksTest_VoidOutRespawn(1);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone && MM_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE &&
+                          MM_ForeignMask_StoredRaw() == COMBO_FOREIGN_MASK_NONE,
+                      "#1452 func_808345C8 with Deku Mask did not clear worn Gerudo Mask (stored=%u, worn=%u, eq=%d)",
+                      (unsigned)MM_ForeignMask_StoredRaw(), (unsigned)MM_ForeignMask_Worn(),
+                      MM_OoTMasksTest_EquippedMask());
+            OMM_CHECK(MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE) == stoneSlotBefore &&
+                          MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO) == gibdoSlotBefore &&
+                          MM_OoTMask_Owned(gerudo) && MM_OoTMask_Owned(skull) && MM_OoTMask_Owned(spooky),
+                      "#1452 func_808345C8 altered foreignMaskSlotSel owned bits (stone=%02X/%02X, gibdo=%02X/%02X)",
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE), (unsigned)stoneSlotBefore,
+                      (unsigned)MM_ForeignMask_SlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO), (unsigned)gibdoSlotBefore);
+            OMM_CHECK(MM_OoTMasksTest_Before(ge2, 1, 0) == 0 && MM_OoTMasksTest_PlayerMask() == maskNone,
+                      "#1452 after func_808345C8 with Deku Mask, EnGe2 still saw a spoofed mask (%d)",
+                      MM_OoTMasksTest_PlayerMask());
+
+            MM_OoTMasksTest_SetEquippedMask((uint8_t)maskStone);
+            MM_OoTMasksTest_VoidOutRespawn(0);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskStone,
+                      "#1452 func_808345C8 without Deku Mask cleared native equippedMask (%d)",
+                      MM_OoTMasksTest_EquippedMask());
+            MM_OoTMasksTest_VoidOutRespawn(1);
+            OMM_CHECK(MM_OoTMasksTest_EquippedMask() == maskNone,
+                      "#1452 func_808345C8 with Deku Mask did not clear native equippedMask (%d)",
+                      MM_OoTMasksTest_EquippedMask());
+
+            MM_OoTMasks_Forget();
+            ComboContext_Init();
+        }
+
+        MM_ForeignMask_SetStoredRaw(ommSavedWorn);
+        MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_STONE, ommSavedStoneSlot);
+        MM_ForeignMask_SetSlotSelRaw(COMBO_FOREIGN_MASK_SLOT_MM_GIBDO, ommSavedGibdoSlot);
+        MM_OoTMasksTest_SetTime(ommSavedTime);
     }
 
     MM_OoTMasks_RegisterRuntime();

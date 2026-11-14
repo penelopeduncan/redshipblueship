@@ -670,7 +670,7 @@ default (off).
 | HUD Editor preset | 0 | (O), no key: the section's "HUD Preset" row (Vanilla (4:3) / Hidden / Widescreen) writes every element's Mode (all nineteen since W6-HUD-B) and clears its position and scale, as 2Ship's preset did |
 | `gColors.<element>.{Color, Changed}` | 0 rows | INTENTIONAL, no row: 2Ship's HUD editor colour keys are read only by its window, never by a draw, so a row would write a key nothing in MM reads. MM's HUD colours are W6-COS-A's `gCosmetic.*` |
 | `gCollisionViewer.*` | 18 | MM collision viewer |
-| `gEventLog.*` | 13 | MM event log — no OoT counterpart |
+| `gEventLog.*` | 13 | (O) MM event log — no OoT counterpart; `MM Event Log` window linked and gated with `Popout Event Log` under W6-DEV |
 | `gNotifications.*` | 4 | MM notification system |
 | `gDisplayOverlay.*` | 3 | (O) MM's In-Game Timer overlay; rows on Enhancements > Timers since W6-TIMERS, see the table below |
 | `gRando.*` | 72 | MM randomizer — see ADR 0004 §3 |
@@ -737,6 +737,7 @@ individual-setting scope (§2), so these rows are listed here rather than in a c
 | `gDeveloperTools.PreventActorInit` | off | Prevent Actor Init (likewise) | (O) MM-only; likewise. Link is never prevented (2Ship's SActorNotPlayer filter, moved into the hook body) |
 | `gDeveloperTools.DisableObjectDependency` | off | Disable Object Dependency (likewise) | (O) MM-only; MM's Debug Mode switch clears it, so the row is disabled while Debug Mode is off |
 | `gDeveloperTools.WarpPoint.*` (7 keys) | unset | MM Set Warp Point / MM Warp to Warp Point / MM Clear Warp Point (Dev Tools > General > Warping, after SoH's Warp Points) | (O) MM-only. SoH's Warp Points widget stores OoT entrances in its own `WarpPoints` config block and warps OoT's play state, so it is left OoT's and MM gets rows of its own: they set, warp to and clear 2Ship's single point through `src/common/mm_dev_tools_bridge.h`, only while MM is in gameplay. `BootToWarpPoint` has no row and no reader: 2Ship's boot hook is fenced out of the single exe, since it would author a new save over the world MM was booting |
+| `gWindows.EventLog`, `gEventLog.*` (13 keys, see :673) | off (`gWindows.EventLog`, `gEventLog.Enabled`) | Popout Event Log (Dev Tools > General, Majora's Mask block) | (O) MM-only; opens `"MM Event Log"` (`MMActiveGated<EventLogWindow>`), disabled when MM is not in gameplay (`DISABLE_FOR_MM_NOT_IN_GAMEPLAY`). `DeveloperTools/EventLog.cpp` is linked into `ship__Enh_registrars`, migrated to `S2H::GameHooks`, and receives `OnFlagUnset` / `OnSceneFlagUnset` from `z_actor.c` |
 
 SoH's own rows cover two more MM behaviours with no MM row: Frame Advance, Advance 1 and Advance (Hold) now bind the
 RUNNING game's `frameAdvCtx` (SohMenu.cpp's `RunningFrameAdvanceEnabled`; `gDeveloperTools.FrameAdvanceTick` was

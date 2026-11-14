@@ -47,9 +47,10 @@
  *    (En_Dns.c) treat him as a Deku.
  *  - Spooky Mask: the Gibdo Mask, at night only (Player.c,
  *    Player_GetCustomEffectiveMask). OoTMM spoofs currentMask for the whole frame;
- *    here only the actors whose behaviour the Gibdo Mask changes and the logic
- *    reads see it: the Gibdos (En_Railgibud, En_Talk_Gibud, En_Rd) and the Poe
- *    collector (En_Gb2).
+ *    here the listed actors whose behaviour the Gibdo Mask changes see it: the
+ *    Gibdos (En_Railgibud, En_Talk_Gibud, En_Rd), the Poe collector (En_Gb2),
+ *    Pamela's father (En_Hgo), Pamela (En_Pamera), the Bomb Shop (En_Sob1) and
+ *    the Happy Mask Salesman (En_Osn).
  * Each actor's update runs with Link's currentMask (or transformation) replaced
  * by what it reads, put back as soon as the update returns: replaced in the
  * actor's own ShouldActorUpdate, put back in its OnActorUpdate. A hook that keeps
@@ -166,12 +167,6 @@ struct Held {
 };
 Held sHeld = {};
 
-/** OoTMM's Player_IsNightTime: 18:00 to 06:00. */
-int IsNightNow() {
-    const u16 time = gSaveContext.save.time;
-    return (time >= CLOCK_TIME(18, 0) || time < CLOCK_TIME(6, 0)) ? 1 : 0;
-}
-
 Player* LivePlayer() {
     return (Context_GetCurrentGame() == GAME_MM && MM_gPlayState != nullptr) ? GET_PLAYER(MM_gPlayState) : nullptr;
 }
@@ -246,7 +241,8 @@ extern "C" int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, 
             break;
         case COMBO_FOREIGN_MASK_OOT_SPOOKY:
             if (isNight && (actorId == ACTOR_EN_RAILGIBUD || actorId == ACTOR_EN_TALK_GIBUD || actorId == ACTOR_EN_RD ||
-                            actorId == ACTOR_EN_GB2)) {
+                            actorId == ACTOR_EN_GB2 || actorId == ACTOR_EN_HGO || actorId == ACTOR_EN_PAMERA ||
+                            actorId == ACTOR_EN_SOB1 || actorId == ACTOR_EN_OSN)) {
                 mask = PLAYER_MASK_GIBDO;
             }
             break;
@@ -260,6 +256,11 @@ extern "C" int MM_OoTMasks_SpoofFor(uint8_t worn, int16_t actorId, int isNight, 
         *formOut = form;
     }
     return (mask != 0xFF || form != 0xFF) ? 1 : 0;
+}
+
+extern "C" int MM_OoTMasks_IsNightNow(void) {
+    const u16 time = gSaveContext.save.time;
+    return (time >= CLOCK_TIME(18, 0) || time < CLOCK_TIME(6, 0)) ? 1 : 0;
 }
 
 extern "C" int MM_OoTMasks_BeforeActorUpdate(Player* player, int16_t actorId, int updates, int isNight) {
@@ -305,6 +306,10 @@ extern "C" void MM_OoTMasks_Forget(void) {
 
 extern "C" int MM_OoTMasks_Holding(void) {
     return sHeld.player != nullptr ? 1 : 0;
+}
+
+extern "C" void MM_OoTMasks_OnNativeMaskCleared(void) {
+    MM_ForeignMask_SetStoredRaw(COMBO_FOREIGN_MASK_NONE);
 }
 
 extern "C" void MM_OoTMasks_RegisterRuntime(void) {
@@ -353,8 +358,9 @@ namespace {
 
 // The actors that read a worn OoT mask (MM_OoTMasks_SpoofFor).
 const int16_t kListedActors[] = {
-    ACTOR_EN_GE2, ACTOR_EN_LOOK_NUTS, ACTOR_EN_FIREFLY,    ACTOR_EN_CROW, ACTOR_EN_BAT, ACTOR_EN_GUARD_NUTS,
-    ACTOR_EN_DNS, ACTOR_EN_RAILGIBUD, ACTOR_EN_TALK_GIBUD, ACTOR_EN_RD,   ACTOR_EN_GB2,
+    ACTOR_EN_GE2,        ACTOR_EN_LOOK_NUTS, ACTOR_EN_FIREFLY,   ACTOR_EN_CROW,       ACTOR_EN_BAT,
+    ACTOR_EN_GUARD_NUTS, ACTOR_EN_DNS,       ACTOR_EN_RAILGIBUD, ACTOR_EN_TALK_GIBUD, ACTOR_EN_RD,
+    ACTOR_EN_GB2,        ACTOR_EN_HGO,       ACTOR_EN_PAMERA,    ACTOR_EN_SOB1,       ACTOR_EN_OSN,
 };
 constexpr size_t kListedCount = sizeof(kListedActors) / sizeof(kListedActors[0]);
 
@@ -363,7 +369,7 @@ void BeforeListedUpdate(Actor* actor, bool* should) {
     if (player == nullptr || actor == nullptr) {
         return;
     }
-    MM_OoTMasks_BeforeActorUpdate(player, actor->id, (should == nullptr || *should) ? 1 : 0, IsNightNow());
+    MM_OoTMasks_BeforeActorUpdate(player, actor->id, (should == nullptr || *should) ? 1 : 0, MM_OoTMasks_IsNightNow());
 }
 
 void AfterListedUpdate(Actor* actor) {
@@ -424,5 +430,9 @@ const OoTMasksMMRegistrar gOoTMasksMMRegistrar;
 // Always registered: every hook acts only on a worn OoT mask, which nothing but a
 // frozen extension rule and an owned item put on.
 static RegisterShipInitFunc initFunc(RegisterOoTMasksMM, {});
+
+extern "C" int MM_OoTMasksTest_ListedActorAt(int i) {
+    return (i >= 0 && i < (int)kListedCount) ? (int)kListedActors[i] : -1;
+}
 
 #endif // RSBS_SINGLE_EXECUTABLE
