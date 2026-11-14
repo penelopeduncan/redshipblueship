@@ -458,7 +458,7 @@ void EnKz_Mweep(EnKz* this, PlayState* play) {
 }
 
 void EnKz_StopMweep(EnKz* this, PlayState* play) {
-    if (GameInteractor_Should(VB_PLAY_MWEEP_CS, true)) {
+    if (this->cutsceneCamera != CAM_ID_MAIN) {
         OoT_Play_ChangeCameraStatus(play, this->gameplayCamera, CAM_STAT_ACTIVE);
         OoT_Play_ClearCamera(play, this->cutsceneCamera);
         OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);

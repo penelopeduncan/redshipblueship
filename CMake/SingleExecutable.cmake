@@ -1964,6 +1964,11 @@ if(BUILD_TESTING)
     # ShipInit's IS_RANDO map. Display-free and ROM-free.
     redship_add_test(NAME OoTRoomBgCamGuard COMMAND redship --test oot-room-bg-cam-guard)
 
+    # #1591: EnKz_StopMweep restores gameplayCamera and Link cs action behind
+    # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTMweepStopRestoresCamera COMMAND redship --test oot-mweep-stop-restores-camera)
+
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
     #
