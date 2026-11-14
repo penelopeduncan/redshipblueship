@@ -216,7 +216,7 @@ static_assert(RCTYPE_ROCK == RCTYPE_WONDER_ITEM + 1 && RCTYPE_ROCK == 40 && RCTY
 static_assert(RHT_KF_ROCK == 1571 && RHT_SPIRIT_TEMPLE_BOULDER == 1611,
               "OoT's rock and boulder hint texts (#1409) are 1571..1611, appended after #1405's");
 static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_ROCKS == 281 &&
-              RSK_SHUFFLE_BOULDERS == 282,
+                  RSK_SHUFFLE_BOULDERS == 282,
               "OoT's Shuffle Rocks and Shuffle Boulders keys (#1409) are 281 and 282, after #1405's");
 static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
               "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");

@@ -2182,7 +2182,7 @@ void StaticData::HintTable_Init_Exclude_Overworld() {
     hintTextTable[RHT_ZF_BOULDER] = HintText(CustomMessage("They say that a #boulder in Zora's Fountain# contains #[[1]]#.",
                                                        /*german*/ TODO_TRANSLATE,
                                                        /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
-                                                       
+
     hintTextTable[RHT_ZF_SILVER_BOULDER] = HintText(CustomMessage("They say that a #silver boulder in Zora's Fountain# contains #[[1]]#.",
                                                        /*german*/ TODO_TRANSLATE,
                                                        /*french*/ TODO_TRANSLATE, {QM_RED, QM_GREEN}));
