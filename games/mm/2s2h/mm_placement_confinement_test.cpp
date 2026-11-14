@@ -958,7 +958,7 @@ extern "C" int MM_PlacementDefaultWorld_Check(void) {
         if (scIt == Rando::StaticData::Checks.end()) {
             continue;
         }
-        const RandoStaticCheck& staticCheck = scIt->second;
+        const auto& staticCheck = scIt->second;
         const RandoSaveCheck& check = RANDO_SAVE_CHECKS[rc];
         if (staticCheck.randoCheckType == RCTYPE_STRAY_FAIRY) {
             MPC_CHECK(
