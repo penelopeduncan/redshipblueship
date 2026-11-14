@@ -10139,6 +10139,10 @@ const TestDescriptor gTests[] = {
       "Both games register Epona's Song and the Song of Storms as shared families, and a song learnt in either game "
       "is known in the other at arrival through the real shims (#1066)",
       Test_SharedSongsMerge },
+    { "shared-songs-off-junk-give",
+      "Under Shuffle Songs Off, armed first-word shared songs stay fixed at home and convert only the second-reached "
+      "default check to junk in either pickup order (#1561)",
+      Test_SharedSongsOffJunkGive },
     // #1169 XW10: the seven shared warp songs on the second family word. ROM-free.
     { "shared-warp-family-storage",
       "The second family word is appended at 2716 (layout revision 4), its members register at the shared warp-song "
@@ -11144,8 +11148,8 @@ const TestDescriptor gTests[] = {
       "over both games, and the GOAL is still proven (#1066)",
       Test_SharedSongsBag },
     { "shared-songs-one-copy-off",
-      "With the three shared-song rules on and Shuffle Songs Off, the paired world holds one copy of each shared song "
-      "and the other songs stay vanilla (#1085)",
+      "With the three shared-song rules on and Shuffle Songs Off, each shared song stays on both games' default "
+      "checks with two-way fixed credits and second-check junk (#1085, #1561)",
       Test_SharedSongsOneCopyOff },
     { "shared-songs-one-copy-song-locations",
       "With the three shared-song rules on and Shuffle Songs at Song Locations, the paired world holds one copy of "

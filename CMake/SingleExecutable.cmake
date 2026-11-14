@@ -913,6 +913,10 @@ if(BUILD_TESTING)
     # carried by the real harvest/apply shims, each rule only its own song. ROM-free.
     redship_add_test(NAME SharedSongsRule COMMAND redship --test shared-songs-rule)
     redship_add_test(NAME SharedSongsMerge COMMAND redship --test shared-songs-merge)
+    # #1561: under Shuffle Songs Off, armed first-word shared songs stay fixed at
+    # both games' default checks and convert whichever default check is reached
+    # second into junk. ROM-free.
+    redship_add_test(NAME SharedSongsOffJunkGive COMMAND redship --test shared-songs-off-junk-give)
     # #1169 XW10: the seven SHARED warp songs (OoTMM sharedSongSoaring ..
     # sharedSongPrelude) on the second family word: the appended word, its registry
     # and pairs (word 1 first, never truncated, no narrow buffer left), the held

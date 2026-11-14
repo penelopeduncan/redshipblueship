@@ -32,6 +32,8 @@
 #include <z64.h>
 #include "variables.h"
 #include "macros.h"
+#include "soh/OTRGlobals.h"
+#include "soh/Enhancements/randomizer/randomizer.h"
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/logic.h"
@@ -254,4 +256,154 @@ extern "C" int OoT_SharedWarpSongsTest_LinksPocket(void) {
 /** An OoT song no shared rule names, for the Link's Pocket bridge's negative case. */
 extern "C" int OoT_SharedWarpSongsTest_UnsharedSongId(void) {
     return (int)RG_ZELDAS_LULLABY;
+}
+
+// ---- #1561: Shuffle Songs Off vanilla checks, reachability, and junk give -------
+//
+// `song` is 0 for Epona's Song, 1 for the Song of Storms, and 2 for the Song of Time.
+
+extern "C" {
+int RandoTest_HintTrackerCategorySlot(int category);
+int RandoTest_HintTrackerSetRead(int hintKey, int read);
+int RandoTest_HintTrackerPaneRow(int hintKey, int* outCount, uint32_t* outJournalKey, char* outText, int textCap);
+uint32_t RandoTest_HintTrackerItemGroupKey(void);
+}
+
+namespace {
+static bool OoTSharedSongsOffValid(int song) {
+    return song >= 0 && song <= 2;
+}
+
+static RandomizerCheck OoTSharedSongsOffCheck(int song) {
+    if (song == 0) {
+        return RC_SONG_FROM_MALON;
+    }
+    if (song == 1) {
+        return RC_SONG_FROM_WINDMILL;
+    }
+    return RC_SONG_FROM_OCARINA_OF_TIME;
+}
+
+static RandomizerGet OoTSharedSongsOffGet(int song) {
+    if (song == 0) {
+        return RG_EPONAS_SONG;
+    }
+    if (song == 1) {
+        return RG_SONG_OF_STORMS;
+    }
+    return RG_SONG_OF_TIME;
+}
+
+static RandomizerCheck OoTSharedSongsOffGatedCheck(int song) {
+    return (song == 1) ? RC_ZR_FROGS_IN_THE_RAIN : RC_ZR_FROGS_OCARINA_GAME;
+}
+} // namespace
+
+/** OoT's default check id for @p song (0 Epona, 1 Storms, 2 Time), or -1. */
+extern "C" int OoT_SharedSongsTest_OffVanillaCheckId(int song) {
+    if (!OoTSharedSongsOffValid(song)) {
+        return -1;
+    }
+    return (int)OoTSharedSongsOffCheck(song);
+}
+
+/** 1 when @p song sits hidden on its OoT vanilla check in the generated world. */
+extern "C" int OoT_SharedSongsTest_OffVanillaAtHome(int song) {
+    if (!OoTSharedSongsOffValid(song)) {
+        return -1;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    Rando::ItemLocation* il = ctx->GetItemLocation(OoTSharedSongsOffCheck(song));
+    if (il == nullptr) {
+        return -1;
+    }
+    return (il->GetPlacedRandomizerGet() == OoTSharedSongsOffGet(song) && il->IsHidden()) ? 1 : 0;
+}
+
+/** 1 when the latest Combo_Logic_RunRound reached OoT's check gated on @p song. */
+extern "C" int OoT_SharedSongsTest_OffLastRoundReached(int song) {
+    if (!OoTSharedSongsOffValid(song)) {
+        return -1;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    Rando::ItemLocation* il = ctx->GetItemLocation(OoTSharedSongsOffGatedCheck(song));
+    if (il == nullptr) {
+        return -1;
+    }
+    return il->IsAddedToPool() ? 1 : 0;
+}
+
+/** 1 when @p song's OoT vanilla check resolves to CANT_OBTAIN_ALREADY_HAVE + Blue
+ *  Rupee, 0 when it resolves to CAN_OBTAIN + the song, -1 on mismatch/missing ctx. */
+extern "C" int OoT_SharedSongsTest_OffGiveIsJunk(int song) {
+    if (!OoTSharedSongsOffValid(song)) {
+        return -1;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr || OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr) {
+        return -1;
+    }
+    const RandomizerCheck rc = OoTSharedSongsOffCheck(song);
+    const ItemObtainability obt = OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck(rc);
+    const GetItemEntry gi = ctx->GetFinalGIEntry(rc, true, GI_NONE, false);
+    if (obt == CANT_OBTAIN_ALREADY_HAVE && gi.itemId == GI_RUPEE_BLUE) {
+        return 1;
+    }
+    if (obt == CAN_OBTAIN && gi.itemId != GI_RUPEE_BLUE) {
+        return 0;
+    }
+    return -1;
+}
+
+/** RH_OOT_HINT's integer key for Hint Tracker test bridges. */
+extern "C" int OoT_SharedSongsTest_OoTHintKey(void) {
+    return (int)RH_OOT_HINT;
+}
+
+/** Journal group slot (0 Major .. 6 Junk) for a single-location item hint naming
+ *  @p song's OoT vanilla check on the combined Hint Tracker's OoT pane. */
+extern "C" int OoT_SharedSongsTest_OffHintProbeSlot(int song) {
+    if (!OoTSharedSongsOffValid(song)) {
+        return -1;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    if (ctx == nullptr) {
+        return -1;
+    }
+    const RandomizerHint key = RH_KF_DEKU_TREE_LEFT_GOSSIP_STONE;
+    Rando::Hint* existing = ctx->GetHint(key);
+    if (existing == nullptr) {
+        return -1;
+    }
+    const Rando::Hint prior = *existing;
+    const RandomizerCheck host = OoTSharedSongsOffCheck(song);
+    Rando::ItemLocation* il = ctx->GetItemLocation(host);
+    if (il == nullptr) {
+        return -1;
+    }
+    const RandomizerArea area = il->GetAreas().empty() ? RA_NONE : il->GetFirstArea();
+    ctx->AddHint(key, Rando::Hint(key, HINT_TYPE_ITEM, "off shared song probe", {}, { host }, { area }, {}));
+    const int wasRead = RandoTest_HintTrackerSetRead((int)key, 1);
+    uint32_t journalKey = 0xFFFFFFFFu;
+    (void)RandoTest_HintTrackerPaneRow((int)key, nullptr, &journalKey, nullptr, 0);
+    (void)RandoTest_HintTrackerSetRead((int)key, wasRead == 1 ? 1 : 0);
+    ctx->AddHint(key, prior);
+    if (journalKey == 0xFFFFFFFFu) {
+        return -1;
+    }
+    return (int)(journalKey - RandoTest_HintTrackerItemGroupKey());
+}
+
+extern "C" int OoT_SharedSongsTest_MajorCategorySlot(void) {
+    return RandoTest_HintTrackerCategorySlot((int)ITEM_CATEGORY_MAJOR);
+}
+
+extern "C" int OoT_SharedSongsTest_JunkCategorySlot(void) {
+    return RandoTest_HintTrackerCategorySlot((int)ITEM_CATEGORY_JUNK);
 }

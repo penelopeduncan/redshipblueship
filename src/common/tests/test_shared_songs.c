@@ -34,20 +34,22 @@
  *   and the GOAL is still proven.
  *
  *   shared-songs-one-copy-off / -song-locations / -dungeon-rewards / -anywhere
- *   (CTest SharedSongsOneCopy*, rando tier, #1085) -- ONE COPY WHATEVER SHUFFLE
- *   SONGS SAYS. A real paired generation per Shuffle Songs value with all three
- *   shared-song rules on (Epona's Song, the Song of Storms, the Song of Time):
- *   each song is held by exactly one check over both games' generated worlds
- *   (OoT's own copy is not also left at a song check, a dungeon reward or its
- *   vanilla check), under Off the other nine songs stay at their vanilla checks,
- *   and the GOAL is still proven. (The headless half does not run OoT's junk
- *   remainder, so the check OoT's copy leaves is not inspected here.)
+ *   (CTest SharedSongsOneCopy*, rando tier, #1085; Off revised by #1561) --
+ *   Under Song Locations, Dungeon Rewards and Anywhere, each armed shared song
+ *   (Epona's Song, the Song of Storms, the Song of Time) is one single-bag pair
+ *   row held by exactly one check over both games' generated worlds. Under Off
+ *   (#1561), each armed shared song stays fixed at BOTH games' default checks
+ *   (Malon, Windmill, Ocarina of Time in OoT; Romani, Beneath the Graveyard,
+ *   Clock Tower Roof in MM), registers TWO fixed credits (OoT->MM and MM->OoT)
+ *   so either check alone credits both solvers, and converts whichever check is
+ *   reached second into junk at pickup time without promising the song in hints.
  *
- *   Since #1542 Majora's Mask's Shuffle Songs follows OoT's (combo_song_pool.h),
- *   so each row also checks MM's resolved value, and under OoT Off MM's is
- *   Vanilla: MM's copy of each shared song leaves its vanilla check to the bag's
- *   one shared row (GeneratePools.cpp RsbsReleasesVanillaSharedSong), counted
- *   over EVERY MM check, vanilla ones included, so a copy left at home is seen.
+ *   shared-songs-off-junk-give (CTest SharedSongsOffJunkGive, redship tier,
+ *   #1561) -- ROM-free lock on Combo_SharedWarpSongFixedAtHome and
+ *   Combo_SharedSongOffGiveBecomesJunk across all three first-word shared songs,
+ *   both games, both pickup orders, live probeHeld vs title screen, unshared
+ *   songs, warp songs, non-song families, non-Off Shuffle Songs values, and MM's
+ *   real ConvertItem + UncollectedNamedItem.
  *
  *   shared-songs-one-copy-mm-vanilla (CTest SharedSongsOneCopyMMVanilla, rando
  *   tier, #1502; #1542) -- MM'S KEY IS IGNORED: OoT's songs Anywhere with MAJORA'S
@@ -115,6 +117,35 @@ void OoT_SharedSongsTest_SetEponaFile(int rando, int skip);
 int OoT_SharedSongsTest_EponaObtained(void);
 void OoT_ConsumeSharedItems(void);
 void OoT_ApplySharedResourcesAtFileLoad(void);
+void OoT_SharedSongOfTimeTest_SetHeld(int held);
+int OoT_SharedSongOfTimeTest_Held(void);
+void MM_SharedSongOfTimeTest_SetHeld(int held);
+int MM_SharedSongOfTimeTest_Held(void);
+int OoT_SharedWarpSongsTest_PoolId(int song);
+int OoT_SharedWarpSongsTest_LinksPocket(void);
+int OoT_SharedWarpSongsTest_UnsharedSongId(void);
+int MM_SharedWarpSongsTest_PoolId(int song);
+void MM_SharedWarpSongsTest_SetTitleScreen(void);
+int OoT_SharedSongsTest_OffVanillaCheckId(int song);
+int OoT_SharedSongsTest_OffVanillaAtHome(int song);
+int OoT_SharedSongsTest_OffLastRoundReached(int song);
+int OoT_SharedSongsTest_OffGiveIsJunk(int song);
+int OoT_SharedSongsTest_OoTHintKey(void);
+int OoT_SharedSongsTest_OffHintProbeSlot(int song);
+int OoT_SharedSongsTest_MajorCategorySlot(void);
+int OoT_SharedSongsTest_JunkCategorySlot(void);
+int MM_SharedSongsTest_OffVanillaCheckId(int song);
+int MM_SharedSongsTest_OffConvertSong(int song, int mmShuffleSongs);
+uint16_t MM_SharedSongsTest_UnsharedSongId(void);
+int MM_ComboLogic_TestFixedCheckItem(uint16_t rc);
+int OoT_Fill_TestSongHeldForBag(uint16_t rg);
+int OoT_Creation_FinishPairedHalf(int writeSpoiler);
+int OoT_Combo_SetHintingSuspendedWorld(int on);
+int OoT_TrackerAdapter_TestSetDeparted(int rando);
+int Rando_TestOoTHintRevealText(char* outText, int textCap, char* outExpected, int expectedCap, int* outNamesSongCheck,
+                                int* outCoverNamed);
+int RandoTest_HintTrackerSetRead(int hintKey, int read);
+int RandoTest_HintTrackerPaneRow(int hintKey, int* outCount, uint32_t* outJournalKey, char* outText, int textCap);
 #ifdef __cplusplus
 }
 #endif
@@ -773,10 +804,369 @@ const SsOneCopySong kSsOneCopySongs[3] = {
     { 0x00800000u, "SharedSongStorms", "Song of Storms" },
     { 0x04000000u, "SharedSongTime", "Song of Time" },
 };
-std::string SsOneCopyKey(int song) {
+const uint32_t kSsAllThreeSongsMask = 0x04C00000u;
+
+static std::string SsOneCopyKey(int song) {
     return std::string(RSBS::kComboIdentityKeyPrefix) + kSsOneCopySongs[song].keySuffix;
 }
+
+static void SsSetThreeSongHeldOoT(int song, int held) {
+    if (song == 2) {
+        OoT_SharedSongOfTimeTest_SetHeld(held);
+    } else {
+        OoT_SharedSongsTest_SetHeld(song, held);
+    }
+}
+
+static void SsSetThreeSongHeldMM(int song, int held) {
+    if (song == 2) {
+        MM_SharedSongOfTimeTest_SetHeld(held);
+    } else {
+        MM_SharedSongsTest_SetHeld(song, held);
+    }
+}
+
+static void SsResetAllThreeSongsHeld(void) {
+    OoT_SharedSwordTest_ArmLive();
+    MM_SharedSwordTest_ArmLive();
+    for (int s = 0; s < 3; s++) {
+        SsSetThreeSongHeldOoT(s, 0);
+        SsSetThreeSongHeldMM(s, 0);
+    }
+    gComboCtx.sharedFamilyOwned = 0u;
+    gComboCtx.sharedFamilyOwned2 = 0u;
+}
+
+static int SsOffRunRound(const ComboLogicHostRef* forbidden, int forbiddenCount, ComboLogicRoundResult* out,
+                         int* outDelivered) {
+    ComboLogicRoundRequest req;
+    memset(&req, 0, sizeof(req));
+    req.goal = gComboCtx.comboSettings.goal;
+    req.forbidden = forbidden;
+    req.forbiddenCount = forbiddenCount;
+    memset(out, 0, sizeof(*out));
+    const int st = Combo_Logic_RunRound(&req, out);
+    *outDelivered = Combo_Logic_FixedCreditDeliveredCount();
+    return st;
+}
+
+/** #1561: On the created Off world (with sPlacements intact), verify that every
+ *  armed shared song's TWO fixed credits let either default check alone satisfy
+ *  both games' logic, while forbidding BOTH default checks cuts off song-gated
+ *  checks in BOTH games. */
+static void SsOffVerifyExitRounds(const uint16_t ootHosts[3], const uint16_t mmHosts[3]) {
+    ComboLogicRoundResult base;
+    int baseDelivered = -1;
+    const int st = SsOffRunRound(nullptr, 0, &base, &baseDelivered);
+    printf("[TEST] (Off) exit round: status %d, goal %d, allHostsReached %d, delivered %d of %d\n", st,
+           base.goalExpression, base.allHostsReached, baseDelivered, Combo_Logic_FixedCreditCount());
+    SS_CHECK(st == RSBS_COMBO_LOGIC_OK && base.goalExpression == 1 && base.allHostsReached == 1 && baseDelivered == 6,
+             "(Off) baseline exit round failed (status %d, goal %d, allHosts %d, delivered %d; want 0, 1, 1, 6)", st,
+             base.goalExpression, base.allHostsReached, baseDelivered);
+    for (int s = 0; s < 3; s++) {
+        SS_CHECK(OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
+                 "(Off) baseline exit round did not reach OoT's gated check for %s", kSsOneCopySongs[s].itemName);
+
+        const ComboLogicHostRef forbidOoT[1] = { { (uint8_t)GAME_OOT, ootHosts[s] } };
+        ComboLogicRoundResult rOoT;
+        int delOoT = -1;
+        const int stOoT = SsOffRunRound(forbidOoT, 1, &rOoT, &delOoT);
+        SS_CHECK(stOoT == RSBS_COMBO_LOGIC_OK && delOoT == 5 && rOoT.goalExpression == 1 && rOoT.allHostsReached == 1 &&
+                     OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
+                 "(Off) forbidding OoT's default check %u for %s broke reachability (status %d, delivered %d, goal %d, "
+                 "allHosts %d, OoT gated %d): MM's fixed credit did not satisfy OoT",
+                 (unsigned)ootHosts[s], kSsOneCopySongs[s].itemName, stOoT, delOoT, rOoT.goalExpression,
+                 rOoT.allHostsReached, OoT_SharedSongsTest_OffLastRoundReached(s));
+
+        const ComboLogicHostRef forbidMM[1] = { { (uint8_t)GAME_MM, mmHosts[s] } };
+        ComboLogicRoundResult rMM;
+        int delMM = -1;
+        const int stMM = SsOffRunRound(forbidMM, 1, &rMM, &delMM);
+        SS_CHECK(stMM == RSBS_COMBO_LOGIC_OK && delMM == 5 && rMM.goalExpression == 1 && rMM.allHostsReached == 1 &&
+                     OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
+                 "(Off) forbidding MM's default check %u for %s broke reachability (status %d, delivered %d, goal %d, "
+                 "allHosts %d, OoT gated %d): OoT's fixed credit did not satisfy MM",
+                 (unsigned)mmHosts[s], kSsOneCopySongs[s].itemName, stMM, delMM, rMM.goalExpression,
+                 rMM.allHostsReached, OoT_SharedSongsTest_OffLastRoundReached(s));
+
+        const ComboLogicHostRef forbidBoth[2] = {
+            { (uint8_t)GAME_OOT, ootHosts[s] },
+            { (uint8_t)GAME_MM, mmHosts[s] },
+        };
+        ComboLogicRoundResult rBoth;
+        int delBoth = -1;
+        const int stBoth = SsOffRunRound(forbidBoth, 2, &rBoth, &delBoth);
+        const int ootGatedBoth = OoT_SharedSongsTest_OffLastRoundReached(s);
+        printf("[TEST] (Off) %s both default checks (%u, %u) forbidden: status %d, delivered %d, allHosts %d, OoT "
+               "gated %d\n",
+               kSsOneCopySongs[s].itemName, (unsigned)ootHosts[s], (unsigned)mmHosts[s], stBoth, delBoth,
+               rBoth.allHostsReached, ootGatedBoth);
+        SS_CHECK(stBoth == RSBS_COMBO_LOGIC_OK && delBoth <= 4 && ootGatedBoth == 0 && rBoth.allHostsReached == 0,
+                 "(Off) forbidding BOTH default checks for %s still reached song-gated checks (delivered %d, OoT "
+                 "gated %d, allHosts %d)",
+                 kSsOneCopySongs[s].itemName, delBoth, ootGatedBoth, rBoth.allHostsReached);
+    }
+}
+
+/** #1561: After OoT_Creation_FinishPairedHalf(0) builds hints on the Off world,
+ *  verify runtime junk conversion in BOTH pickup orders and verify that neither
+ *  RH_OOT_HINT nor the Hint Tracker promises a song once the other game owns it. */
+static void SsOffVerifyRuntimeGiveAndHints(void) {
+    const GameId priorGame = Context_GetCurrentGame();
+    for (int s = 0; s < 3; s++) {
+        SsResetAllThreeSongsHeld();
+        Context_SetCurrentGame(GAME_NONE);
+        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 0 && MM_SharedSongsTest_OffConvertSong(s, -1) == 0,
+                 "(Off) %s converted to junk before either game learned it", kSsOneCopySongs[s].itemName);
+
+        // Order A: learned in Hyrule first -> Termina's default check converts to junk.
+        OoT_SharedSwordTest_ArmLive();
+        SsSetThreeSongHeldOoT(s, 1);
+        OoT_HarvestSharedResources();
+        MM_SharedSwordTest_ArmLive();
+        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, -1) == 1 && OoT_SharedSongsTest_OffGiveIsJunk(s) == 1,
+                 "(Off) %s learned in OoT did not convert MM's default check to junk", kSsOneCopySongs[s].itemName);
+
+        // Order B: learned in Termina first -> Hyrule's default check converts to junk.
+        SsResetAllThreeSongsHeld();
+        MM_SharedSwordTest_ArmLive();
+        SsSetThreeSongHeldMM(s, 1);
+        MM_HarvestSharedResources();
+        OoT_SharedSwordTest_ArmLive();
+        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 1 && MM_SharedSongsTest_OffConvertSong(s, -1) == 1,
+                 "(Off) %s learned in MM did not convert OoT's default check to junk", kSsOneCopySongs[s].itemName);
+    }
+
+    // Hint & Hint Tracker lock on RC_SONG_FROM_OCARINA_OF_TIME (RH_OOT_HINT).
+    SsResetAllThreeSongsHeld();
+    const int ootHintKey = OoT_SharedSongsTest_OoTHintKey();
+    const int wasSuspended = OoT_Combo_SetHintingSuspendedWorld(1);
+    (void)OoT_TrackerAdapter_TestSetDeparted(1);
+    const int wasRead = RandoTest_HintTrackerSetRead(ootHintKey, 1);
+    Context_SetCurrentGame(GAME_MM);
+
+    char revealBuf[1024] = { 0 };
+    char revealExpected[256] = { 0 };
+    int namesSongCheck = 0;
+    int coverNamed = 0;
+    const int enabledBefore =
+        Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
+                                    &namesSongCheck, &coverNamed);
+    int count = 0;
+    uint32_t paneKey = 0;
+    char pane[1024] = { 0 };
+    const int paneBefore = RandoTest_HintTrackerPaneRow(ootHintKey, &count, &paneKey, pane, (int)sizeof(pane));
+    const int slotBefore = OoT_SharedSongsTest_OffHintProbeSlot(2);
+    const int majorSlot = OoT_SharedSongsTest_MajorCategorySlot();
+    const int junkSlot = OoT_SharedSongsTest_JunkCategorySlot();
+    SS_CHECK(enabledBefore == 1 && namesSongCheck == 1 && strstr(revealBuf, "Song of Time") != NULL,
+             "(Off) RH_OOT_HINT before learning Song of Time did not name Song of Time ('%s')", revealBuf);
+    SS_CHECK(paneBefore == 2 && strstr(pane, "Song of Time") != NULL && slotBefore == majorSlot,
+             "(Off) Hint Tracker before learning Song of Time gave state %d, slot %d (want %d), text '%s'", paneBefore,
+             slotBefore, majorSlot, pane);
+
+    // Learn Song of Time in MM: RH_OOT_HINT and the cached Hint Tracker row must
+    // stop promising Song of Time, name Blue Rupee, and rank as Junk Items.
+    MM_SharedSwordTest_ArmLive();
+    MM_SharedSongOfTimeTest_SetHeld(1);
+    MM_HarvestSharedResources();
+    const int enabledAfter =
+        Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
+                                    &namesSongCheck, &coverNamed);
+    const int paneAfter = RandoTest_HintTrackerPaneRow(ootHintKey, &count, &paneKey, pane, (int)sizeof(pane));
+    const int slotAfter = OoT_SharedSongsTest_OffHintProbeSlot(2);
+    printf("[TEST] (Off) RH_OOT_HINT after MM learns Song of Time: '%s'; pane '%s'; slot %d -> %d\n", revealBuf, pane,
+           slotBefore, slotAfter);
+    SS_CHECK(enabledAfter == 1 && strstr(revealBuf, "Blue Rupee") != NULL && strstr(revealBuf, "Song of Time") == NULL,
+             "(Off) RH_OOT_HINT still promised Song of Time after MM learned it: '%s'", revealBuf);
+    SS_CHECK(paneAfter == 2 && strstr(pane, "Blue Rupee") != NULL && strstr(pane, "Song of Time") == NULL &&
+                 slotAfter == junkSlot,
+             "(Off) Hint Tracker cache/rank stale after MM learned Song of Time: state %d, slot %d (want %d), '%s'",
+             paneAfter, slotAfter, junkSlot, pane);
+
+    (void)RandoTest_HintTrackerSetRead(ootHintKey, wasRead == 1 ? 1 : 0);
+    (void)OoT_TrackerAdapter_TestSetDeparted(-1);
+    OoT_Combo_SetHintingSuspendedWorld(wasSuspended);
+    Context_SetCurrentGame(priorGame);
+    SsResetAllThreeSongsHeld();
+}
 } // namespace
+
+// ============================================================================
+// shared-songs-off-junk-give: ROM-free lock on fixed-at-home and second-check junk
+// ============================================================================
+
+TestResult Test_SharedSongsOffJunkGive(void) {
+    printf("[TEST] shared-songs-off-junk-give: under Shuffle Songs Off, Combo_SharedWarpSongFixedAtHome covers all "
+           "armed shared songs and Combo_SharedSongOffGiveBecomesJunk converts only the second-reached default check "
+           "of an armed first-word shared song to junk (#1561)\n");
+    sSsFailures = 0;
+    const GameId priorGame = Context_GetCurrentGame();
+
+    // ---- (1) Combo_SharedWarpSongFixedAtHome -----------------------------------
+    uint16_t ootLens = 0;
+    uint16_t mmLens = 0;
+    SS_CHECK(Combo_SharedFamilyMemberId(GAME_OOT, RSBS_XITEM_SHARED_LENS, &ootLens) &&
+                 Combo_SharedFamilyMemberId(GAME_MM, RSBS_XITEM_SHARED_LENS, &mmLens),
+             "(1) Shared Lens registered in both games");
+    const uint16_t ootMinuet = (uint16_t)OoT_SharedWarpSongsTest_PoolId(1);
+    const uint16_t mmMinuet = (uint16_t)MM_SharedWarpSongsTest_PoolId(1);
+    const uint16_t ootUnshared = (uint16_t)OoT_SharedWarpSongsTest_UnsharedSongId();
+    const uint16_t mmUnshared = MM_SharedSongsTest_UnsharedSongId();
+
+    for (int s = 0; s < 3; s++) {
+        uint16_t ootId = 0;
+        uint16_t mmId = 0;
+        SS_CHECK(Combo_SharedFamilyMemberId(GAME_OOT, kSsOneCopySongs[s].bit, &ootId) &&
+                     Combo_SharedFamilyMemberId(GAME_MM, kSsOneCopySongs[s].bit, &mmId),
+                 "(1) %s registered in both games", kSsOneCopySongs[s].itemName);
+
+        ComboContext_Init();
+        SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF) &&
+                     !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF),
+                 "(1) rules-off world must not arm fixed-at-home for %s under Off", kSsOneCopySongs[s].itemName);
+
+        const ComboItemRulesRecord oneSong = SsRules(kSsOneCopySongs[s].bit);
+        SsFreezeWorld(&oneSong);
+        SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF) &&
+                     Combo_SharedWarpSongFixedAtHome(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF),
+                 "(1) %s on must arm fixed-at-home in both games under Shuffle Songs Off",
+                 kSsOneCopySongs[s].itemName);
+        SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootUnshared, RSBS_SONG_SPOTS_OFF) &&
+                     !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmUnshared, RSBS_SONG_SPOTS_OFF),
+                 "(1) unshared song must not match fixed-at-home under Off");
+        for (uint32_t mode = 1u; mode <= 3u; mode++) {
+            SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootId, mode) &&
+                         !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmId, mode),
+                     "(1) %s on must NOT arm fixed-at-home under Shuffle Songs %u", kSsOneCopySongs[s].itemName,
+                     (unsigned)mode);
+        }
+    }
+    {
+        const ComboItemRulesRecord lensOnly = SsRules(RSBS_XITEM_SHARED_LENS);
+        SsFreezeWorld(&lensOnly);
+        SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootLens, RSBS_SONG_SPOTS_OFF) &&
+                     !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmLens, RSBS_SONG_SPOTS_OFF),
+                 "(1) a non-song shared family (Lens) must not arm fixed-at-home under Off");
+    }
+    {
+        ComboItemRulesRecord warpRule = SsRules(0u);
+        warpRule.crossItemFlags2 = 0x00000080u; // RSBS_XITEM2_SONG_MINUET_SHARED
+        SsFreezeWorld(&warpRule);
+        SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootMinuet, RSBS_SONG_SPOTS_OFF) &&
+                     Combo_SharedWarpSongFixedAtHome(GAME_MM, mmMinuet, RSBS_SONG_SPOTS_OFF) &&
+                     !Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootMinuet, 1u),
+                 "(1) second-word shared warp song still arms fixed-at-home under Off only");
+    }
+
+    // ---- (2) Combo_SharedSongOffGiveBecomesJunk & MM ConvertItem ---------------
+    const ComboItemRulesRecord allThree = SsRules(kSsAllThreeSongsMask);
+    for (int s = 0; s < 3; s++) {
+        uint16_t ootId = 0;
+        uint16_t mmId = 0;
+        SS_CHECK(Combo_SharedFamilyMemberId(GAME_OOT, kSsOneCopySongs[s].bit, &ootId) &&
+                     Combo_SharedFamilyMemberId(GAME_MM, kSsOneCopySongs[s].bit, &mmId),
+                 "(2) %s registered in both games", kSsOneCopySongs[s].itemName);
+
+        SsFreezeWorld(&allThree);
+        SsResetAllThreeSongsHeld();
+        Context_SetCurrentGame(GAME_NONE);
+
+        // Unowned in both games -> neither gives junk.
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false) &&
+                     !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, false),
+                 "(2) unowned %s became junk under Off", kSsOneCopySongs[s].itemName);
+        MM_SharedSwordTest_ArmLive();
+        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, (int)RSBS_MM_SONGS_VANILLA) == 0,
+                 "(2) MM ConvertItem converted unowned %s under Vanilla", kSsOneCopySongs[s].itemName);
+
+        // Running game already owns its own copy -> junk under Off only.
+        SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, true) &&
+                     Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, true),
+                 "(2) runningGameOwnsCopy did not convert %s to junk under Off", kSsOneCopySongs[s].itemName);
+        for (uint32_t mode = 1u; mode <= 3u; mode++) {
+            SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, mode, true) &&
+                         !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, mode, true),
+                     "(2) %s converted to junk via helper under non-Off mode %u", kSsOneCopySongs[s].itemName,
+                     (unsigned)mode);
+        }
+
+        // Harvested from OoT -> MM gives junk (both pure helper and real ConvertItem/UncollectedNamedItem).
+        OoT_SharedSwordTest_ArmLive();
+        SsSetThreeSongHeldOoT(s, 1);
+        OoT_HarvestSharedResources();
+        SsSetThreeSongHeldOoT(s, 0);
+        MM_SharedSwordTest_ArmLive();
+        Context_SetCurrentGame(GAME_MM);
+        SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, false) &&
+                     MM_SharedSongsTest_OffConvertSong(s, (int)RSBS_MM_SONGS_VANILLA) == 1,
+                 "(2) %s harvested from OoT did not convert MM's default check to junk", kSsOneCopySongs[s].itemName);
+        // Non-Vanilla MM Shuffle Songs (Song Locations = 0, Anywhere = 3) leaves single-bag song gives intact.
+        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, 0) == 0 && MM_SharedSongsTest_OffConvertSong(s, 3) == 0,
+                 "(2) MM ConvertItem converted harvested %s outside Vanilla song shuffle", kSsOneCopySongs[s].itemName);
+
+        // Harvested from MM -> OoT gives junk.
+        SsFreezeWorld(&allThree);
+        SsResetAllThreeSongsHeld();
+        MM_SharedSwordTest_ArmLive();
+        SsSetThreeSongHeldMM(s, 1);
+        MM_HarvestSharedResources();
+        SsSetThreeSongHeldMM(s, 0);
+        Context_SetCurrentGame(GAME_OOT);
+        SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false),
+                 "(2) %s harvested from MM did not convert OoT's default check to junk", kSsOneCopySongs[s].itemName);
+
+        // Live probeHeld BEFORE harvest: active game holding the song counts; MM title screen does not.
+        SsFreezeWorld(&allThree);
+        SsResetAllThreeSongsHeld();
+        MM_SharedSwordTest_ArmLive();
+        SsSetThreeSongHeldMM(s, 1);
+        Context_SetCurrentGame(GAME_MM);
+        SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false),
+                 "(2) live MM probeHeld before harvest was not seen by Combo_SharedSongOffGiveBecomesJunk");
+        MM_SharedWarpSongsTest_SetTitleScreen();
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false),
+                 "(2) MM title-screen bootstrap save falsely triggered Combo_SharedSongOffGiveBecomesJunk");
+
+        // Disarmed rule -> never becomes junk via helper even when runningGameOwnsCopy is true.
+        const ComboItemRulesRecord otherTwo = SsRules(kSsAllThreeSongsMask & ~kSsOneCopySongs[s].bit);
+        SsFreezeWorld(&otherTwo);
+        SsResetAllThreeSongsHeld();
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, true) &&
+                     !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, true),
+                 "(2) disarmed %s still converted via Combo_SharedSongOffGiveBecomesJunk", kSsOneCopySongs[s].itemName);
+    }
+
+    // ---- (3) Negative guards: unshared songs, warp songs, non-song families ----
+    {
+        ComboItemRulesRecord everything = SsRules(kSsAllThreeSongsMask | RSBS_XITEM_SHARED_LENS);
+        everything.crossItemFlags2 = 0x00003F80u;
+        SsFreezeWorld(&everything);
+        SsResetAllThreeSongsHeld();
+        gComboCtx.sharedFamilyOwned = kSsAllThreeSongsMask | RSBS_XITEM_SHARED_LENS;
+        gComboCtx.sharedFamilyOwned2 = 0x00003F80u;
+        Context_SetCurrentGame(GAME_NONE);
+
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootUnshared, RSBS_SONG_SPOTS_OFF, true) &&
+                     !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmUnshared, RSBS_SONG_SPOTS_OFF, true),
+                 "(3) unshared song matched Combo_SharedSongOffGiveBecomesJunk");
+
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootMinuet, RSBS_SONG_SPOTS_OFF, true) &&
+                     !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmMinuet, RSBS_SONG_SPOTS_OFF, true),
+                 "(3) second-word shared warp song matched Combo_SharedSongOffGiveBecomesJunk");
+
+        SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootLens, RSBS_SONG_SPOTS_OFF, true) &&
+                     !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmLens, RSBS_SONG_SPOTS_OFF, true),
+                 "(3) non-song first-word family (Lens) matched Combo_SharedSongOffGiveBecomesJunk");
+    }
+
+    SsResetAllThreeSongsHeld();
+    Context_SetCurrentGame(priorGame);
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    printf("[TEST] shared-songs-off-junk-give: %s\n", sSsFailures == 0 ? "PASS" : "FAIL");
+    return sSsFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
 
 extern "C" {
 // #1542 S3 (ComboLogicEngineOoT.cpp, Rando/Foreign.cpp): the song checks of both games.
@@ -786,18 +1176,22 @@ int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 
 /** MM's Shuffle Songs key (Rando/Menu.cpp) and its Vanilla value (RO_SONG_SHUFFLE_VANILLA). */
 const char* const kSsMmSongShuffleKey = "gRando.Options.RO_SHUFFLE_SONGS";
+const char* const kSsOoTHintKey = "gRandoSettings.OoTHint";
 const int kSsMmSongShuffleVanilla = 2;
 
 TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     // #1542: MM's Shuffle Songs is the mapping of OoT's, whatever MM's key says.
     const uint32_t mmExpected = Combo_PairSongsMmValue((uint32_t)shuffleSongs);
     const bool mmVanilla = mmExpected == RSBS_MM_SONGS_VANILLA;
+    const bool off = shuffleSongs == 0;
     const char* shuffleName = mmShuffleSongs == kSsMmSongShuffleVanilla ? "MM key Vanilla, ignored"
                               : (shuffleSongs >= 0 && shuffleSongs < 4) ? kSsShuffleNames[shuffleSongs]
                                                                         : "?";
-    printf("[TEST] shared-songs-one-copy (Shuffle Songs %s): with the three shared-song rules on, the paired world "
-           "holds exactly ONE copy of each shared song over both games, and the GOAL is still proven (#1085)\n",
-           shuffleName);
+    printf("[TEST] shared-songs-one-copy (Shuffle Songs %s): with the three shared-song rules on, %s, and the GOAL is "
+           "still proven (#1085, #1561)\n",
+           shuffleName,
+           off ? "both games keep their vanilla copies with two-way fixed credits and second-check junk"
+               : "the paired world holds exactly ONE copy of each shared song over both games");
     sSsFailures = 0;
     ComboContext_Init();
     SsClearAllKeys();
@@ -806,6 +1200,10 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     }
     const int priorShuffle = CVarGetInteger(kSsSongShuffleKey, -1);
     CVarSetInteger(kSsSongShuffleKey, shuffleSongs);
+    const int priorOoTHint = CVarGetInteger(kSsOoTHintKey, -1);
+    if (off) {
+        CVarSetInteger(kSsOoTHintKey, 1);
+    }
     // MM's key is touched only by a row that sets it (the four OoT rows pass -1),
     // and that row puts back what was there.
     const int priorMm = CVarGetInteger(kSsMmSongShuffleKey, -1);
@@ -814,6 +1212,8 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     }
     struct Restore {
         int prior;
+        bool setOoTHint;
+        int priorOoTHint;
         bool setMm;
         int priorMm;
         ~Restore() {
@@ -821,6 +1221,11 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
                 CVarClear(kSsSongShuffleKey);
             } else {
                 CVarSetInteger(kSsSongShuffleKey, prior);
+            }
+            if (setOoTHint && priorOoTHint < 0) {
+                CVarClear(kSsOoTHintKey);
+            } else if (setOoTHint) {
+                CVarSetInteger(kSsOoTHintKey, priorOoTHint);
             }
             if (setMm && priorMm < 0) {
                 CVarClear(kSsMmSongShuffleKey);
@@ -831,7 +1236,7 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
                 CVarClear(SsOneCopyKey(s).c_str());
             }
         }
-    } restore{ priorShuffle, mmShuffleSongs >= 0, priorMm };
+    } restore{ priorShuffle, off, priorOoTHint, mmShuffleSongs >= 0, priorMm };
 
     const int gen = Rando_HeadlessSeedTest("RSBSSONGSONECOPY");
     SS_CHECK(gen == 0, "the paired OoT generation failed under Shuffle Songs %s", shuffleName);
@@ -857,21 +1262,44 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
              "paired world (#1542)",
              mmResolved, (unsigned)mmExpected, shuffleSongs);
     const ComboSingleBagReport bag = *Combo_SingleBag_LastReport();
-    printf("[TEST] shared-songs-one-copy (%s): bag %d rows, %d shared pair(s), %d trimmed OoT / %d trimmed MM, goal "
-           "proven %d\n",
-           shuffleName, bag.bagCount, bag.compose.sharedPairs, bag.trimmedOoT, bag.trimmedMM,
-           bag.fill.goalProven ? 1 : 0);
+    printf("[TEST] shared-songs-one-copy (%s): bag %d rows, %d shared pair(s), fixed credits %d, %d trimmed OoT / %d "
+           "trimmed MM, goal proven %d\n",
+           shuffleName, bag.bagCount, bag.compose.sharedPairs, Combo_Logic_FixedCreditCount(), bag.trimmedOoT,
+           bag.trimmedMM, bag.fill.goalProven ? 1 : 0);
     SS_CHECK(bag.status == RSBS_COMBO_LOGIC_OK && bag.fill.goalProven,
              "the single-bag fill did not prove the GOAL with the shared songs under Shuffle Songs %s", shuffleName);
-    SS_CHECK(bag.compose.sharedPairs == 3, "the composer made %d shared pair(s), expected the three songs",
-             bag.compose.sharedPairs);
+    const int wantSharedPairs = off ? 0 : 3;
+    const int wantFixedCredits = off ? 6 : 0;
+    SS_CHECK(bag.compose.sharedPairs == wantSharedPairs,
+             "under Shuffle Songs %s the composer made %d shared pair(s), expected %d", shuffleName,
+             bag.compose.sharedPairs, wantSharedPairs);
+    SS_CHECK(Combo_Logic_FixedCreditCount() == wantFixedCredits,
+             "under Shuffle Songs %s the creation set %d fixed shared credit(s), expected %d", shuffleName,
+             Combo_Logic_FixedCreditCount(), wantFixedCredits);
+    if (off) {
+        // #1069 + #1561: with Shared Song of Time frozen on, MM's starting save does
+        // not hold QUEST_SONG_TIME; RC_CLOCK_TOWER_ROOF_SONG_OF_TIME holds MM's copy.
+        SS_CHECK(MM_SharedSongOfTimeTest_Held() == 0,
+                 "under Off with Shared Song of Time on, MM's starting save already holds Song of Time");
+    }
 
     const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
     std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
     const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
     SS_CHECK(shuffled > 0, "MM's generated world lists no shuffled items");
 
+    const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+    {
+        const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
+        const int wantUnshared = shuffleSongs == 1 ? 1 : 0;
+        SS_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == wantUnshared,
+                 "Link's Pocket song exclusion answered %d for an unshared song under %s; expected %d",
+                 OoT_Fill_TestSongHeldForBag((uint16_t)unshared), shuffleName, wantUnshared);
+    }
+
     int sharedRgs[3] = { -1, -1, -1 };
+    uint16_t offOoTHosts[3] = { 0, 0, 0 };
+    uint16_t offMMHosts[3] = { 0, 0, 0 };
     for (int s = 0; s < 3; s++) {
         uint16_t ootId = 0;
         uint16_t mmId = 0;
@@ -882,12 +1310,13 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
             continue;
         }
         sharedRgs[s] = (int)ootId;
-        // OoT's world: its restricted song pass, a vanilla placement, or the bag's
-        // OoT-hosted shared row (a host holds its own game's half of the pair).
+        const int wantHeldForBag = off ? 0 : 1;
+        SS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == wantHeldForBag,
+                 "Link's Pocket song exclusion answered %d for %s under %s; expected %d",
+                 OoT_Fill_TestSongHeldForBag(ootId), kSsOneCopySongs[s].itemName, shuffleName, wantHeldForBag);
+        SS_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s", kSsOneCopySongs[s].itemName);
+
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
-        // MM's world: the bag's MM-hosted shared row, or MM's own copy back in play.
-        // Under MM's Vanilla the copy left at home is an UNSHUFFLED check, so every
-        // check is counted there (#1502).
         int mmCopies = 0;
         if (mmVanilla) {
             mmCopies = MM_PlacementConfinement_WorldCopies(mmId);
@@ -898,55 +1327,101 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
                 }
             }
         }
-        printf("[TEST] shared-songs-one-copy (%s): %s held by %d OoT check(s) and %d MM check(s) (expected one in "
-               "all)\n",
-               shuffleName, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
-        SS_CHECK(ootCopies >= 0 && ootCopies + mmCopies == 1,
-                 "under Shuffle Songs %s the paired world holds %d copies of %s (OoT %d, MM %d), expected ONE: "
-                 "OoT's own copy is still in the world beside the shared row",
-                 shuffleName, ootCopies + mmCopies, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
-        // #1542 S3 (ruling D5): under the shared song pool the pair's one copy is a
-        // bag row confined to the song checks of both games, so the coordinator's
-        // one placement of either half is on a song check of one game or the other.
-        if (shuffleSongs == 1) {
-            int onSongChecks = 0;
-            int placements = 0;
-            for (GameId host : { GAME_OOT, GAME_MM }) {
-                for (int i = 0; i < Combo_Logic_PlacementCount(host); i++) {
-                    ComboLogicPlacement p;
-                    if (!Combo_Logic_PlacementAt(host, i, &p)) {
-                        continue;
-                    }
-                    const bool isPair = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == ootId) ||
-                                        (p.item.originGame == (uint8_t)GAME_MM && p.item.id == mmId);
-                    if (!isPair) {
-                        continue;
-                    }
-                    placements++;
-                    onSongChecks += (host == GAME_OOT ? OoT_ComboLogic_TestSongCheckIndex(p.hostCheck)
-                                                      : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck)) >= 0
-                                        ? 1
-                                        : 0;
+        int placements = 0;
+        int onSongChecks = 0;
+        for (GameId host : { GAME_OOT, GAME_MM }) {
+            for (int i = 0; i < Combo_Logic_PlacementCount(host); i++) {
+                ComboLogicPlacement p;
+                if (!Combo_Logic_PlacementAt(host, i, &p)) {
+                    continue;
+                }
+                const bool isPair = (p.item.originGame == (uint8_t)GAME_OOT && p.item.id == ootId) ||
+                                    (p.item.originGame == (uint8_t)GAME_MM && p.item.id == mmId);
+                if (!isPair) {
+                    continue;
+                }
+                placements++;
+                onSongChecks += (host == GAME_OOT ? OoT_ComboLogic_TestSongCheckIndex(p.hostCheck)
+                                                  : MM_Rando_Foreign_TestSongCheckIndex(p.hostCheck)) >= 0
+                                    ? 1
+                                    : 0;
+            }
+        }
+
+        if (off) {
+            printf("[TEST] shared-songs-one-copy (Off): %s held by %d OoT and %d MM check(s), bag placements %d "
+                   "(expected 1, 1, 0)\n",
+                   kSsOneCopySongs[s].itemName, ootCopies, mmCopies, placements);
+            SS_CHECK(ootCopies == 1 && mmCopies == 1 && placements == 0,
+                     "under Off %s is held by %d OoT and %d MM check(s) with %d bag placement(s); expected 1 at each "
+                     "game's default check and 0 bag rows",
+                     kSsOneCopySongs[s].itemName, ootCopies, mmCopies, placements);
+            const int ootCheck = OoT_SharedSongsTest_OffVanillaCheckId(s);
+            const int mmCheck = MM_SharedSongsTest_OffVanillaCheckId(s);
+            offOoTHosts[s] = (uint16_t)ootCheck;
+            offMMHosts[s] = (uint16_t)mmCheck;
+            SS_CHECK(OoT_SharedSongsTest_OffVanillaAtHome(s) == 1,
+                     "under Off %s is not fixed hidden on its OoT vanilla check (%d)", kSsOneCopySongs[s].itemName,
+                     ootCheck);
+            SS_CHECK(mmCheck >= 0 && MM_ComboLogic_TestFixedCheckItem((uint16_t)mmCheck) == (int)mmId,
+                     "under Off %s is not fixed unshuffled on its MM vanilla check (%d)", kSsOneCopySongs[s].itemName,
+                     mmCheck);
+
+            bool foundOoTCredit = false;
+            bool foundMMCredit = false;
+            for (int c = 0; c < Combo_Logic_FixedCreditCount(); c++) {
+                ComboLogicFixedCredit credit;
+                if (!Combo_Logic_FixedCreditAt(c, &credit)) {
+                    continue;
+                }
+                if (credit.hostGame == (uint8_t)GAME_OOT && (int)credit.hostCheck == ootCheck &&
+                    credit.farItem.originGame == (uint8_t)GAME_MM && credit.farItem.id == mmId) {
+                    foundOoTCredit = true;
+                }
+                if (credit.hostGame == (uint8_t)GAME_MM && (int)credit.hostCheck == mmCheck &&
+                    credit.farItem.originGame == (uint8_t)GAME_OOT && credit.farItem.id == ootId) {
+                    foundMMCredit = true;
                 }
             }
-            printf("[TEST] shared-songs-one-copy (%s): %s placed %d time(s) by the bag, %d on a song check\n",
-                   shuffleName, kSsOneCopySongs[s].itemName, placements, onSongChecks);
-            SS_CHECK(placements == 1 && onSongChecks == 1,
-                     "under the shared song pool %s was placed %d time(s), %d on a song check: its one copy must be "
-                     "the bag's pair row on a song check of either game",
-                     kSsOneCopySongs[s].itemName, placements, onSongChecks);
+            SS_CHECK(foundOoTCredit && foundMMCredit,
+                     "under Off %s is missing a fixed credit (OoT->MM %d at %d, MM->OoT %d at %d)",
+                     kSsOneCopySongs[s].itemName, foundOoTCredit ? 1 : 0, ootCheck, foundMMCredit ? 1 : 0, mmCheck);
+        } else {
+            printf("[TEST] shared-songs-one-copy (%s): %s held by %d OoT check(s) and %d MM check(s) (expected one in "
+                   "all)\n",
+                   shuffleName, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
+            SS_CHECK(ootCopies >= 0 && ootCopies + mmCopies == 1,
+                     "under Shuffle Songs %s the paired world holds %d copies of %s (OoT %d, MM %d), expected ONE: "
+                     "OoT's own copy is still in the world beside the shared row",
+                     shuffleName, ootCopies + mmCopies, kSsOneCopySongs[s].itemName, ootCopies, mmCopies);
+            if (shuffleSongs == 1) {
+                printf("[TEST] shared-songs-one-copy (%s): %s placed %d time(s) by the bag, %d on a song check\n",
+                       shuffleName, kSsOneCopySongs[s].itemName, placements, onSongChecks);
+                SS_CHECK(placements == 1 && onSongChecks == 1,
+                         "under the shared song pool %s was placed %d time(s), %d on a song check: its one copy must "
+                         "be the bag's pair row on a song check of either game",
+                         kSsOneCopySongs[s].itemName, placements, onSongChecks);
+            }
         }
     }
 
-    // Off: only the shared songs leave their vanilla checks.
-    if (shuffleSongs == 0) {
-        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount() - 3;
-        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(sharedRgs, 3);
-        printf("[TEST] shared-songs-one-copy (Off): %d of the other vanilla songs at home (expected %d)\n", atHome,
-               expectAtHome);
+    if (off) {
+        // #1561: all twelve OoT songs stay at their vanilla checks under Off, the
+        // three shared songs included.
+        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount();
+        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(nullptr, 0);
+        printf("[TEST] shared-songs-one-copy (Off): %d of %d OoT vanilla songs at home\n", atHome, expectAtHome);
         SS_CHECK(atHome == expectAtHome,
-                 "under Shuffle Songs Off %d of the %d unshared songs are at their vanilla checks, expected all",
+                 "under Shuffle Songs Off %d of OoT's %d vanilla songs are at their vanilla checks, expected all",
                  atHome, expectAtHome);
+        SsOffVerifyExitRounds(offOoTHosts, offMMHosts);
+        const int crossings = OoT_Creation_FinishPairedHalf(0);
+        SS_CHECK(crossings >= 0, "OoT_Creation_FinishPairedHalf failed under Shuffle Songs Off (%d)", crossings);
+        if (crossings >= 0) {
+            SsOffVerifyRuntimeGiveAndHints();
+        }
+        SS_CHECK(Combo_SharedFamiliesOwned() == 0u, "Off runtime checks leaked sharedFamilyOwned %08X",
+                 (unsigned)Combo_SharedFamiliesOwned());
     }
 
     printf("[TEST] shared-songs-one-copy (%s): %s\n", shuffleName, sSsFailures == 0 ? "PASS" : "FAIL");

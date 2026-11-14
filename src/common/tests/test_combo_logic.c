@@ -4142,6 +4142,17 @@ struct ClFixedCreditGuard {
     }
 };
 
+static bool ClFixedCreditCandidateHas(GameId g, uint16_t check) {
+    uint16_t hosts[16] = { 0 };
+    const int n = Combo_Logic_TestLastCandidates(g, hosts, 16);
+    for (int i = 0; i < n && i < 16; ++i) {
+        if (hosts[i] == check) {
+            return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 static int sClfFailures;
@@ -4335,6 +4346,72 @@ TestResult Test_ComboLogicFixedCredit(void) {
         Combo_SingleBag_Forget();
         CLF_CHECK(Combo_Logic_FixedCreditCount() == 0,
                   "(8) Combo_SingleBag_Forget left the credits in force for the next world");
+    }
+
+    // ---- (9) TWO-HOST SHARED SONG & CAPACITY (#1561) ----------------------------
+    // Under Shuffle Songs Off, an armed first-word shared song stays fixed at BOTH
+    // games' default checks and registers TWO fixed credits (OoT->MM and MM->OoT).
+    // Reaching either default check alone opens song-gated hosts in BOTH games;
+    // forbidding both default checks leaves song-gated hosts unreached in BOTH.
+    {
+        ClBuildFixedCreditWorld(true);
+        ClAddHost(&gClOoT, 11, ClBit(&gClOoT, kOotFixedSong));
+        ClAddHost(&gClMM, 21, ClBit(&gClMM, kMmFixedSong));
+        gClOoT.goalRequires = ClBit(&gClOoT, kOotFixedSong);
+        gClMM.goalRequires = ClBit(&gClMM, kMmFixedSong);
+        ClInstall();
+        const ComboLogicFixedCredit both[2] = { ootHosted, mmHosted };
+        CLF_CHECK(Combo_Logic_SetFixedCredits(both, 2) == 2, "(9) two-host shared song sets two credits");
+
+        ComboLogicRoundResult r;
+        int rc = ClFixedCreditRound(&r);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 2 && r.goalExpression == 1 &&
+                      ClFixedCreditCandidateHas(GAME_OOT, 11) && ClFixedCreditCandidateHas(GAME_MM, 21),
+                  "(9a) with neither default check forbidden both credits deliver and both gated hosts open");
+
+        memset(gClOoT.assumeCalls, 0, sizeof(gClOoT.assumeCalls));
+        memset(gClMM.assumeCalls, 0, sizeof(gClMM.assumeCalls));
+        const ComboLogicHostRef forbidOoT[1] = { ClHostRef(O, 10) };
+        rc = ClRunForbidden(forbidOoT, 1, &r);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 1 &&
+                      ClPairAssumeCalls(&gClOoT, kOotFixedSong) == 1 && ClPairAssumeCalls(&gClMM, kMmFixedSong) == 0 &&
+                      r.goalExpression == 1 && ClFixedCreditCandidateHas(GAME_OOT, 11) &&
+                      ClFixedCreditCandidateHas(GAME_MM, 21),
+                  "(9b) forbidding OoT's default check alone still opens OoT's gated host via MM's fixed credit");
+
+        memset(gClOoT.assumeCalls, 0, sizeof(gClOoT.assumeCalls));
+        memset(gClMM.assumeCalls, 0, sizeof(gClMM.assumeCalls));
+        const ComboLogicHostRef forbidMM[1] = { ClHostRef(M, 20) };
+        rc = ClRunForbidden(forbidMM, 1, &r);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 1 &&
+                      ClPairAssumeCalls(&gClMM, kMmFixedSong) == 1 && ClPairAssumeCalls(&gClOoT, kOotFixedSong) == 0 &&
+                      r.goalExpression == 1 && ClFixedCreditCandidateHas(GAME_OOT, 11) &&
+                      ClFixedCreditCandidateHas(GAME_MM, 21),
+                  "(9c) forbidding MM's default check alone still opens MM's gated host via OoT's fixed credit");
+
+        memset(gClOoT.assumeCalls, 0, sizeof(gClOoT.assumeCalls));
+        memset(gClMM.assumeCalls, 0, sizeof(gClMM.assumeCalls));
+        const ComboLogicHostRef forbidBoth[2] = { ClHostRef(O, 10), ClHostRef(M, 20) };
+        rc = ClRunForbidden(forbidBoth, 2, &r);
+        CLF_CHECK(rc == RSBS_COMBO_LOGIC_OK && Combo_Logic_FixedCreditDeliveredCount() == 0 && r.goalOoT == 0 &&
+                      r.goalMM == 0 && r.goalExpression == 0 && !ClFixedCreditCandidateHas(GAME_OOT, 11) &&
+                      !ClFixedCreditCandidateHas(GAME_MM, 21),
+                  "(9d) forbidding both default checks leaves song-gated hosts unreached in both games");
+
+        // Capacity pin: 7 shared warp songs + 3 two-host shared songs = 13 <= CAP (16).
+        CLF_CHECK(RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP >= 16, "(9e) fixed-credit cap must fit 7 warp + 6 two-host songs");
+        ComboLogicFixedCredit thirteen[13];
+        for (int i = 0; i < 7; ++i) {
+            thirteen[i] = ClFixedCredit(O, (uint16_t)(10 + i), M, kMmFixedSong);
+        }
+        for (int i = 0; i < 3; ++i) {
+            thirteen[7 + 2 * i] = ClFixedCredit(O, (uint16_t)(30 + i), M, kMmFixedSong);
+            thirteen[7 + 2 * i + 1] = ClFixedCredit(M, (uint16_t)(40 + i), O, kOotFixedSong);
+        }
+        CLF_CHECK(Combo_Logic_SetFixedCredits(thirteen, 13) == 13 && Combo_Logic_FixedCreditCount() == 13,
+                  "(9e) all 10 shared song rules on together under Off (13 credits) must be accepted");
+        Combo_SingleBag_Forget();
+        CLF_CHECK(Combo_Logic_FixedCreditCount() == 0, "(9e) Combo_SingleBag_Forget cleared the 13 credits");
     }
 
     printf("[TEST] combo-logic-fixed-credit: %s\n", sClfFailures == 0 ? "PASS" : "FAIL");
