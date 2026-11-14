@@ -11,6 +11,7 @@
 #include "randomizer.h"
 #include "dungeon.h"
 #include "SeedContext.h"
+#include "static_data.h"
 #include "macros.h"
 #include "variables.h"
 #include <spdlog/spdlog.h>
@@ -24,7 +25,6 @@
 #include <set>
 
 #ifdef RSBS_SINGLE_EXECUTABLE
-#include "static_data.h" // ComboLogicCounterMax reads the static location table
 // #1369 (GameExports_SingleExe.cpp): under the frozen Shared Swim rule the bronze
 // tier is its own pool row (RG_BRONZE_SCALE), so Progressive Scale starts at silver.
 extern "C" bool OoT_SharedSwimSplitsScale(void);
@@ -2350,8 +2350,17 @@ std::map<uint32_t, uint32_t> BottleRandomizerGetToItemID = {
 uint32_t HookshotLookup[3] = { ITEM_NONE, ITEM_HOOKSHOT, ITEM_LONGSHOT };
 uint32_t OcarinaLookup[3] = { ITEM_NONE, ITEM_OCARINA_FAIRY, ITEM_OCARINA_TIME };
 
+static bool IsShopShelfCheck(RandomizerCheck rc) {
+    if (rc == RC_UNKNOWN_CHECK || rc >= RC_MAX) {
+        return false;
+    }
+    const Rando::Location* loc = Rando::StaticData::GetLocation(rc);
+    return loc != nullptr && loc->GetRCType() == RCTYPE_SHOP;
+}
+
 void Logic::ApplyItemEffect(Item& item, bool state) {
     auto randoGet = item.GetRandomizerGet();
+    const bool onShopShelf = IsShopShelfCheck(CurrentCheckKey);
     const uint16_t objectId = item.GetGIEntry()->objectId;
     if (objectId == OBJECT_GI_STICK) {
         SetInventory(ITEM_STICK, (!state ? ITEM_NONE : ITEM_STICK));
@@ -2601,6 +2610,11 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
                 case RG_BOTTLE_WITH_BUGS:
                 case RG_BOTTLE_WITH_POE:
                 case RG_BOTTLE_WITH_BIG_POE: {
+                    if (onShopShelf &&
+                        (randoGet == RG_BOTTLE_WITH_RED_POTION || randoGet == RG_BOTTLE_WITH_GREEN_POTION ||
+                         randoGet == RG_BOTTLE_WITH_BLUE_POTION)) {
+                        Set(LOGIC_BUY_MAGIC_POTION, state);
+                    }
                     uint8_t slot = SLOT_BOTTLE_1;
                     while (slot != SLOT_BOTTLE_4) {
                         if (mSaveContext->inventory.items[slot] == ITEM_NONE) {
@@ -2688,6 +2702,11 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
                 case RG_STONE_MASK: // [RSBS #979]
                     SetRandoInf(RandoGetToRandInf[randoGet], state);
                     break;
+                case RG_FISH:
+                    if (onShopShelf) {
+                        Set(LOGIC_FISH_ACCESS, state);
+                    }
+                    break;
                 case RG_TRIFORCE_PIECE:
                     mSaveContext->ship.quest.data.randomizer.triforcePiecesCollected = RSBS_COMBO_CLAMP_COUNT(
                         RG_TRIFORCE_PIECE, mSaveContext->ship.quest.data.randomizer.triforcePiecesCollected,
@@ -2715,7 +2734,7 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
         } break;
         case ITEMTYPE_EQUIP: {
             RandomizerGet itemRG = item.GetRandomizerGet();
-            if (itemRG == RG_DEKU_SHIELD || itemRG == RG_HYLIAN_SHIELD) {
+            if ((itemRG == RG_DEKU_SHIELD || itemRG == RG_HYLIAN_SHIELD) && !onShopShelf) {
                 return;
             }
             uint32_t equipId = RandoGetToEquipFlag[itemRG];
@@ -2813,18 +2832,62 @@ void Logic::ApplyItemEffect(Item& item, bool state) {
             switch (itemRG) {
                 case RG_DEKU_NUTS_5:
                 case RG_DEKU_NUTS_10:
+                    if (onShopShelf) {
+                        Set(LOGIC_NUT_ACCESS, state);
+                    }
+                    [[fallthrough]];
                 case RG_BUY_DEKU_NUTS_5:
                 case RG_BUY_DEKU_NUTS_10:
                     SetInventory(ITEM_NUT, (!state ? ITEM_NONE : ITEM_NUT));
                     break;
                 case RG_DEKU_STICK_1:
+                    if (onShopShelf) {
+                        Set(LOGIC_STICK_ACCESS, state);
+                    }
+                    [[fallthrough]];
                 case RG_BUY_DEKU_STICK_1:
                     SetInventory(ITEM_STICK, (!state ? ITEM_NONE : ITEM_STICK));
+                    break;
+                case RG_BOMBCHU_5:
+                case RG_BOMBCHU_10:
+                case RG_BOMBCHU_20:
+                    if (onShopShelf) {
+                        Set(LOGIC_BUY_BOMBCHUS, state);
+                        if (ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_NONE)) {
+                            SetInventory(ITEM_BOMBCHU, (!state ? ITEM_NONE : ITEM_BOMBCHU));
+                        }
+                    }
                     break;
                 case RG_BUY_BOMBCHUS_10:
                 case RG_BUY_BOMBCHUS_20:
                     if (ctx->GetOption(RSK_BOMBCHU_BAG).Is(RO_BOMBCHU_BAG_NONE)) {
                         SetInventory(ITEM_BOMBCHU, (!state ? ITEM_NONE : ITEM_BOMBCHU));
+                    }
+                    break;
+                case RG_ARROWS_5:
+                case RG_ARROWS_10:
+                case RG_ARROWS_30:
+                    if (onShopShelf) {
+                        Set(LOGIC_BUY_ARROW, state);
+                    }
+                    break;
+                case RG_BOMBS_5:
+                case RG_BOMBS_10:
+                case RG_BOMBS_20:
+                    if (onShopShelf) {
+                        Set(LOGIC_BUY_BOMB, state);
+                    }
+                    break;
+                case RG_DEKU_SEEDS_30:
+                    if (onShopShelf) {
+                        Set(LOGIC_BUY_SEED, state);
+                    }
+                    break;
+                case RG_RED_POTION_REFILL:
+                case RG_GREEN_POTION_REFILL:
+                case RG_BLUE_POTION_REFILL:
+                    if (onShopShelf) {
+                        Set(LOGIC_BUY_MAGIC_POTION, state);
                     }
                     break;
                 case RG_PROGRESSIVE_GORONSWORD:
