@@ -3387,8 +3387,18 @@ typedef enum {
     // Appended for the same reason (#1548): split dungeon freestanding +
     // Clock Town stray fairies out from dungeon chest stray fairies.
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
+    // Appended for the same reason (#1574): OoTMM's Hookshot Anywhere (MM)
+    // (hookshotAnywhereMm, data.ts:1695-1707), RandoOptionHookshotAnywhere values.
+    // The identity strings fold it only when it is not Off (0, the default).
+    RO_HOOKSHOT_ANYWHERE,
     RO_MAX,
 } RandoOptionId;
+
+typedef enum {
+    RO_HOOKSHOT_ANYWHERE_OFF,
+    RO_HOOKSHOT_ANYWHERE_ON,
+    RO_HOOKSHOT_ANYWHERE_LOGICAL,
+} RandoOptionHookshotAnywhere;
 
 typedef enum {
     RO_GENERIC_OFF,

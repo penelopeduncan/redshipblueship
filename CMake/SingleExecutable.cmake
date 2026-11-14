@@ -314,6 +314,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_page.h
+    ${CMAKE_SOURCE_DIR}/src/common/combo_mm_hookshot_anywhere.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_settings_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboSettingsWindow.h
     # Header for combo_logic.c above — it also carries the ENGINE CONTRACT the
@@ -1020,6 +1021,7 @@ if(BUILD_TESTING)
     redship_add_test(NAME SongCheckTables COMMAND redship --test song-check-tables)
     redship_add_test(NAME MMSongHostGuard COMMAND redship --test mm-song-host-guard)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
+    redship_add_test(NAME MMHookshotAnywhere COMMAND redship --test mm-hookshot-anywhere)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
     # against the #570 identity terms, and the pickup that followed authored a

@@ -799,6 +799,9 @@ extern "C" {
 // like the window lock it replaces.
 #include "tests/test_combo_mm_options_page.c"
 
+// Pure helpers for MM's frozen Hookshot Anywhere option (#1574).
+#include "tests/test_mm_hookshot_anywhere.c"
+
 // Operator ruling 2026-11-05: the shipped Standard and Beginner presets pin no
 // option whose default the D wave moved to OoTMM's, and reset the paired profile.
 // ROM-free: it reads the checkout only. FILE SCOPE (compiled as C++); its
@@ -10268,6 +10271,8 @@ const TestDescriptor gTests[] = {
     { "combo-mm-options-page",
       "The MM options pages' model: columns, row states and reasons, notes, and the freeze gate (#497)",
       Test_ComboMMOptionsPage },
+    { "mm-hookshot-anywhere", "Hookshot Anywhere (MM) pure surface and logical helpers (#1574)",
+      Test_MMHookshotAnywhere },
     // Netplay 1a (ADR 0005, #460): the sourced-grant model, transport-free.
     { "grant-idempotency", "Retransmit delivers once; a second gift of the same item delivers twice (ADR 0005)",
       Test_GrantIdempotency },

@@ -318,6 +318,7 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
+#include "2s2h/Rando/Rando.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/ShipUtils.h"
 #include "mm_game_hooks.h"
@@ -2186,6 +2187,52 @@ int RunRandoGateLegs() {
               "the Oceanside reward is lost for the cycle (#1221)");
     RC_ASSERT(rando.movedInWithReward, 20,
               "a rando file did not move the squatter in once the reward was collected (#1221)");
+
+    // ---- #1574: frozen RO_HOOKSHOT_ANYWHERE arms VB_BE_HOOKSHOT_SURFACE under rando ----
+    // Cheat is off (ResetCheatKeys). Under a rando save, Off (0) leaves VB_BE_HOOKSHOT_SURFACE
+    // disarmed (even if the live gRando.Options CVar is non-zero), while On and Logical arm it
+    // once; under a vanilla save, a non-zero slot arms nothing.
+    {
+        auto surfaceCount = []() {
+            return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_BE_HOOKSHOT_SURFACE);
+        };
+        CVarSetInteger("gCheats.HookshotEverything", 0);
+        CVarSetInteger("gRando.Options.RO_HOOKSHOT_ANYWHERE", RO_HOOKSHOT_ANYWHERE_LOGICAL);
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
+        DriveRandoArm(true);
+        const size_t hookOff = surfaceCount();
+        const bool ansOff = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+        CVarClear("gRando.Options.RO_HOOKSHOT_ANYWHERE");
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_ON;
+        ShipInit::Init("IS_RANDO");
+        ShipInit::Init("IS_RANDO");
+        const size_t hookOn = surfaceCount();
+        const bool ansOn = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
+        ShipInit::Init("IS_RANDO");
+        const size_t hookLogical = surfaceCount();
+        const bool ansLogical = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        DriveRandoArm(false);
+        const size_t hookVanilla = surfaceCount();
+        const bool ansVanilla = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
+        DriveRandoArm(false);
+        const size_t hookRestored = surfaceCount();
+
+        printf("[TEST] mm-registrar-coverage: (#1574) RO_HOOKSHOT_ANYWHERE: off=%zu/%d, on=%zu/%d, logical=%zu/%d, "
+               "vanilla=%zu/%d, restored=%zu\n",
+               hookOff, ansOff ? 1 : 0, hookOn, ansOn ? 1 : 0, hookLogical, ansLogical ? 1 : 0, hookVanilla,
+               ansVanilla ? 1 : 0, hookRestored);
+        RC_ASSERT(hookOff == 0 && !ansOff, 23, "RO_HOOKSHOT_ANYWHERE Off armed VB_BE_HOOKSHOT_SURFACE (#1574)");
+        RC_ASSERT(hookOn == 1 && ansOn, 23, "RO_HOOKSHOT_ANYWHERE On did not arm VB_BE_HOOKSHOT_SURFACE (#1574)");
+        RC_ASSERT(hookLogical == 1 && ansLogical, 23, "RO_HOOKSHOT_ANYWHERE Logical did not arm surface hook (#1574)");
+        RC_ASSERT(hookVanilla == 0 && !ansVanilla, 23, "RO_HOOKSHOT_ANYWHERE leaked onto a vanilla save (#1574)");
+        RC_ASSERT(hookRestored == 0, 23, "RO_HOOKSHOT_ANYWHERE left VB_BE_HOOKSHOT_SURFACE armed after restore");
+    }
     return 0;
 }
 

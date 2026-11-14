@@ -543,6 +543,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
         };
         static const Placement kPlacement[] = {
             { RO_LOGIC, "Logic" },
+            { RO_HOOKSHOT_ANYWHERE, "Logic" },
             { RO_SHUFFLE_TRIFORCE_PIECES, "Win Condition" },
             { RO_TRIFORCE_PIECES_MAX, "Win Condition" },
             { RO_TRIFORCE_PIECES_REQUIRED, "Win Condition" },
@@ -633,6 +634,19 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
         }
         if (firstWin < 0 || Combo_MMOptionAt(firstWin)->id != (uint16_t)RO_SHUFFLE_TRIFORCE_PIECES) {
             return Fail(78, "Win Condition does not open with Triforce Hunt, as SoH's does");
+        }
+        // #1574: Hookshot Anywhere (MM) is registered with default 0 (Off), a
+        // 3-value combobox (Off / On / Logical), and LIVE liveness.
+        const ComboMMOptionDesc* hookshotAnywhere = Combo_MMOptionById((uint16_t)RO_HOOKSHOT_ANYWHERE);
+        if (hookshotAnywhere == NULL || hookshotAnywhere->defaultValue != 0 ||
+            Rando::StaticData::Options.at(RO_HOOKSHOT_ANYWHERE).defaultValue != RO_HOOKSHOT_ANYWHERE_OFF ||
+            hookshotAnywhere->widget != (uint8_t)COMBO_MM_WIDGET_COMBO || hookshotAnywhere->valueCount != 3 ||
+            hookshotAnywhere->valueLabels == NULL || strcmp(hookshotAnywhere->valueLabels[0], "Off") != 0 ||
+            strcmp(hookshotAnywhere->valueLabels[1], "On") != 0 ||
+            strcmp(hookshotAnywhere->valueLabels[2], "Logical") != 0 ||
+            strcmp(hookshotAnywhere->label, "Hookshot Anywhere") != 0 ||
+            hookshotAnywhere->liveness != (uint8_t)COMBO_MM_LIVENESS_LIVE) {
+            return Fail(80, "RO_HOOKSHOT_ANYWHERE is not registered with default 0, Off/On/Logical combo, LIVE");
         }
     }
 

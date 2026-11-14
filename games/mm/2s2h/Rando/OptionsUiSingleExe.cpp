@@ -201,6 +201,12 @@ const char* const kLogicLabels[] = {
     "Vanilla",         // RO_LOGIC_VANILLA
 };
 
+const char* const kHookshotAnywhereLabels[] = {
+    "Off",     // RO_HOOKSHOT_ANYWHERE_OFF
+    "On",      // RO_HOOKSHOT_ANYWHERE_ON
+    "Logical", // RO_HOOKSHOT_ANYWHERE_LOGICAL
+};
+
 const char* const kDungeonAccessLabels[] = {
     "Transformation & Song",  // RO_ACCESS_DUNGEONS_FORM_AND_SONG
     "Transformation or Song", // RO_ACCESS_DUNGEONS_FORM_OR_SONG
@@ -309,6 +315,15 @@ const OptionUi kOptionUi[] = {
       "Follows [Both Games] Logic: Glitchless under All Locations and Beatable Only, No Logic under No Logic.",
       0, 0, kLogicLabels, UI_COUNT(kLogicLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
+    // #1574: OoTMM's Hookshot Anywhere (MM) (hookshotAnywhereMm, data.ts:1695-1707),
+    // frozen per file in randoSaveOptions and enforced by HookshotAnywhere.cpp
+    // (VB_BE_HOOKSHOT_SURFACE, dispatched in z_bgcheck.c via MM_GameHooks_ExecuteVBShould).
+    { RO_HOOKSHOT_ANYWHERE, COMBO_MM_GROUP_LOGIC, COMBO_MM_WIDGET_COMBO,
+      "Hookshot Anywhere",
+      "Allows the Hookshot to latch onto most surfaces in Majora's Mask for this file: On enables the surfaces only, "
+      "while Logical also lets logic expect it. Majora's Mask only.",
+      0, 0, kHookshotAnywhereLabels, UI_COUNT(kHookshotAnywhereLabels),
+      COMBO_MM_LIVENESS_LIVE, "" },
     { RO_ACCESS_DUNGEONS, COMBO_MM_GROUP_AREA_ACCESS, COMBO_MM_WIDGET_COMBO,
       "Dungeon Access",
       "What a dungeon entrance requires: form and song, form or song, form only, song only, or nothing.",

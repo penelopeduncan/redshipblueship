@@ -8,6 +8,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "Rando/OoTMasksMM.h" // #980: HAS_OOT_MASK
 #include "Rando/WarpSongsMM.h" // #1169 XW5: CAN_PLAY_OOT_WARP_SONG
+#include "combo_mm_hookshot_anywhere.h" // #1574: SHORT_HOOK_ANYWHERE
 #endif
 
 #include <functional>
@@ -419,10 +420,17 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 // of Soaring, on Day 1 only. MM resumes at its frozen time, and the player can
 // leave MM through the tower interior at every Day 1 slice the root holds.
 #define CAN_OOT_SOAR_TO_OWL (MM_ComboLogic_OoTSoaringTravel() && IS_DAY1())
+// RedShipBlueShip #1574 (OoTMM macros_mm.yml:471, short_hook_anywhere):
+// can_hookshot_short && setting(hookshotAnywhereMm, logical), read from the
+// file's frozen randoSaveOptions (never live CVars). MM's single Hookshot
+// satisfies can_hookshot_short.
+#define SHORT_HOOK_ANYWHERE \
+    (Combo_MMHookshotAnywhereLogical(RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE]) && HAS_ITEM(ITEM_HOOKSHOT))
 #else
 #define CAN_PASS_GIBDO HAS_ITEM(ITEM_MASK_GIBDO)
 #define CAN_FOOL_PURPLE_GUARDS HAS_ITEM(ITEM_MASK_STONE)
 #define CAN_OOT_SOAR_TO_OWL false
+#define SHORT_HOOK_ANYWHERE false
 #endif
 
 // TODO: This may not stay here
