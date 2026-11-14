@@ -205,19 +205,36 @@ static_assert(offsetof(ShipRandomizerSaveContextData, silverShadowBlades) == 2 &
                   offsetof(ShipRandomizerSaveContextData, rsbsSpare) == 24 &&
                   sizeof(((ShipRandomizerSaveContextData*)0)->rsbsSpare) == RSBS_OOT_RANDO_QUEST_DATA_SIZE - 24,
               "#1363's silver counters are carved from the front of rsbsSpare: bytes 2..23, the spare from 24");
-// #1409 (Shuffle Rocks and Boulders), after #1405's: 285 checks, their 285 flags,
-// 41 hint texts, two check types, two setting keys, and one trick.
-static_assert(RC_KF_CIRCLE_ROCK_1 == 2903 && RC_BOTW_MQ_BOULDER_3 == 3187,
-              "OoT's rock and boulder checks (#1409) are ids 2903..3187, appended after #1405's");
-static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2439 && RAND_INF_BOTW_MQ_BOULDER_3 == 2723,
-              "OoT's rock and boulder flags (#1409) are 2439..2723, appended after #1405's");
-static_assert(RCTYPE_ROCK == RCTYPE_WONDER_ITEM + 1 && RCTYPE_ROCK == 40 && RCTYPE_BOULDER == 41,
-              "OoT's RCTYPE_ROCK and RCTYPE_BOULDER (#1409) are 40 and 41, appended after #1405's RCTYPE_WONDER_ITEM");
-static_assert(RHT_KF_ROCK == 1571 && RHT_SPIRIT_TEMPLE_BOULDER == 1611,
-              "OoT's rock and boulder hint texts (#1409) are 1571..1611, appended after #1405's");
-static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_ROCKS == 281 &&
-                  RSK_SHUFFLE_BOULDERS == 282,
-              "OoT's Shuffle Rocks and Shuffle Boulders keys (#1409) are 281 and 282, after #1405's");
+// #1408 (Shuffle Icicles and Red Ice), after #1405's checks/flags/hints/types and
+// #1405's setting key: 191 checks, their 191 flags, 7 hint texts, 2 check types
+// and 2 setting keys.
+static_assert(RCTYPE_ICICLE == RCTYPE_WONDER_ITEM + 1 && RCTYPE_ICICLE == 40 && RCTYPE_RED_ICE == 41,
+              "OoT's RCTYPE_ICICLE and RCTYPE_RED_ICE (#1408) are 40 and 41, after #1405's RCTYPE_WONDER_ITEM");
+static_assert(RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2903 &&
+                  RC_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 3093,
+              "OoT's icicle and red ice checks (#1408) are ids 2903..3093, appended after #1405's");
+static_assert(RAND_INF_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE == 2439 &&
+                  RAND_INF_GANONS_CASTLE_MQ_WATER_TRIAL_SECOND_DOOR_RED_ICE_5 == 2629,
+              "OoT's icicle and red ice flags (#1408) are 2439..2629, appended after #1405's");
+static_assert(RHT_ICE_CAVERN_ICICLE == 1571 && RHT_GANONS_CASTLE_RED_ICE == 1577,
+              "OoT's icicle and red ice hint texts (#1408) are 1571..1577, appended after #1405's");
+static_assert(RSK_SHUFFLE_ICICLES == RSK_SHUFFLE_WONDER_ITEMS + 1 && RSK_SHUFFLE_ICICLES == 281 &&
+                  RSK_SHUFFLE_RED_ICE == 282,
+              "OoT's Shuffle Icicles and Red Ice keys (#1408) are 281 and 282, after #1405's");
+// #1409 (Shuffle Rocks and Boulders), after #1408's checks/flags/hints/types/settings
+// and #1405's trick: 285 checks, their 285 flags, 41 hint texts, two check types,
+// two setting keys, and one trick.
+static_assert(RC_KF_CIRCLE_ROCK_1 == 3094 && RC_BOTW_MQ_BOULDER_3 == 3378 && RC_MAX == 3379,
+              "OoT's rock and boulder checks (#1409) are ids 3094..3378 (RC_MAX == 3379), after #1408's");
+static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2630 && RAND_INF_BOTW_MQ_BOULDER_3 == 2914 && RAND_INF_MAX == 2915,
+              "OoT's rock and boulder flags (#1409) are 2630..2914 (RAND_INF_MAX == 2915), after #1408's");
+static_assert(RCTYPE_ROCK == RCTYPE_RED_ICE + 1 && RCTYPE_ROCK == 42 && RCTYPE_BOULDER == 43,
+              "OoT's RCTYPE_ROCK and RCTYPE_BOULDER (#1409) are 42 and 43, after #1408's RCTYPE_RED_ICE");
+static_assert(RHT_KF_ROCK == 1578 && RHT_SPIRIT_TEMPLE_BOULDER == 1618 && RHT_MAX == 1619,
+              "OoT's rock and boulder hint texts (#1409) are 1578..1618 (RHT_MAX == 1619), after #1408's");
+static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_RED_ICE + 1 && RSK_SHUFFLE_ROCKS == 283 && RSK_SHUFFLE_BOULDERS == 284,
+              "OoT's Shuffle Rocks and Boulders keys (#1409) are 283 and 284, after #1408's");
+static_assert(RSK_MAX == 285, "OoT's RSK_MAX (#1409) is 285 after Shuffle Rocks and Boulders");
 static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
               "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.

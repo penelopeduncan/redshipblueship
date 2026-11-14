@@ -1057,7 +1057,6 @@ void Rando::StaticData::InitLocationTable() {
     RegisterGrassLocations();
     RegisterCrateLocations();
     RegisterTreeLocations();
-    RegisterRockLocations();
     // #1363: Shuffle Silver Rupees (SoH b76e303ce) registers its checks through
     // ShipInit as upstream does, but OTRGlobals builds CheckFromActorMultimap
     // (InitHashMaps) and the exclude options before ShipInit::InitAll runs, so the
@@ -1065,6 +1064,9 @@ void Rando::StaticData::InitLocationTable() {
     RegisterSilverLocations();
     // #1405: Wonder Item checks must also be registered before InitHashMaps/exclude options run.
     RegisterWonderItemLocations();
+    RegisterIcicleLocations();
+    RegisterRedIceLocations();
+    RegisterRockLocations();
 }
 
 void Rando::StaticData::InitHashMaps() {

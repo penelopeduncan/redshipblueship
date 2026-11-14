@@ -137,6 +137,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
         // #1405: and with Shuffle Wonder Items off, that option's (RsbsFoldIsWonderItemLine): the
         // RCTYPE_WONDER_ITEM exclude rows and its own rows.
         const bool wonderItemOff = world.GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
+        // #1408: and with Shuffle Icicles / Red Ice off, their exclude and option rows.
+        const bool iciclesOff = world.GetOption(RSK_SHUFFLE_ICICLES).Is(RO_GENERIC_OFF);
+        const bool redIceOff = world.GetOption(RSK_SHUFFLE_RED_ICE).Is(RO_GENERIC_OFF);
         for (const Rando::Option* option : group.GetOptions()) {
             if (!option->IsCategory(Rando::OptionCategory::Setting) || option->GetOptionCount() == 0) {
                 continue;
@@ -190,6 +193,24 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 }
             }
             if (wonderItemOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_WONDER_ITEMS) {
+                continue;
+            }
+            if (iciclesOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_ICICLE) {
+                    continue;
+                }
+            }
+            if (iciclesOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_ICICLES) {
+                continue;
+            }
+            if (redIceOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_RED_ICE) {
+                    continue;
+                }
+            }
+            if (redIceOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_RED_ICE) {
                 continue;
             }
             if (chestGameOff && !excludes && g != RSG_TRICKS &&

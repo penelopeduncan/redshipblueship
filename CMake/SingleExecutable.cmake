@@ -4175,6 +4175,27 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1408: Shuffle Icicles and Shuffle Red Ice (SoH 49e740b6f, 68d4c6049): every
+    # icicle and red ice check has its own RandomizerInf, both options ship off and
+    # enabled, a default world folds none of the lines they added, and a paired
+    # world with both on keeps both on, folds all of their lines and selects every
+    # quest-matching check into the pool. Two generations, so twice the
+    # neighbours' timeout. games/oot/soh/oot_shuffle_ice_test.cpp.
+    redship_add_test(NAME OoTShuffleIce COMMAND redship --test oot-shuffle-ice
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1408 / #1562 (operator ruling: both stay live in paired worlds, with tests):
+    # one seed finished as a paired creation twice. On, every quest-selected icicle
+    # and red ice check is a location the bag fills or a restricted pass filled, none
+    # is empty, at least one holds a non-vanilla item, none accepts or receives an
+    # MM item, and the ON world is OFF plus exactly those checks; off, none is a
+    # location; MM's own options stay untouched. Two finished paired worlds, the
+    # song-pool rows' timeout. games/oot/soh/oot_ice_paired_test.cpp.
+    redship_add_test(NAME OoTIcePaired COMMAND redship --test oot-ice-paired
+        LABEL rando
+        TIMEOUT 900
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
 
     # #1409 (operator ruling, 2026-11-13: Shuffle Rocks and Shuffle Boulders stay
     # live in paired worlds, with tests): one seed finished as a paired creation

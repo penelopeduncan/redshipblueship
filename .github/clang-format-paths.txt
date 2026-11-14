@@ -324,4 +324,6 @@ games/oot/soh/Enhancements/randomizer/WarpSongRecordOoT.cpp
 games/oot/soh/oot_shuffle_silver_test.cpp
 games/oot/soh/oot_shuffle_wonder_items_test.cpp
 games/oot/soh/oot_wonder_items_paired_test.cpp
+games/oot/soh/oot_shuffle_ice_test.cpp
+games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp

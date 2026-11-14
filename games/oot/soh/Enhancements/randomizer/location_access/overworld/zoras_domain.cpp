@@ -35,6 +35,8 @@ void RegionTable_Init_ZorasDomain() {
         LOCATION(RC_ZD_NEAR_SHOP_POT_3,                     logic->CanBreakPots()),
         LOCATION(RC_ZD_NEAR_SHOP_POT_4,                     logic->CanBreakPots()),
         LOCATION(RC_ZD_NEAR_SHOP_POT_5,                     logic->CanBreakPots()),
+        LOCATION(RC_ZD_KING_ZORA_RED_ICE,                   logic->IsAdult && logic->Get(LOGIC_KING_ZORA_THAWED)),
+        LOCATION(RC_ZD_ZORA_SHOP_RED_ICE,                   logic->IsAdult && logic->BlueFire()),
         LOCATION(RC_ZD_CIRCLE_ROCK_1,                       logic->CanBreakRocks()),
         LOCATION(RC_ZD_CIRCLE_ROCK_2,                       logic->CanBreakRocks()),
         LOCATION(RC_ZD_CIRCLE_ROCK_3,                       logic->CanBreakRocks()),
@@ -64,6 +66,7 @@ void RegionTable_Init_ZorasDomain() {
     }, {
         //Locations
         LOCATION(RC_ZD_BEHIND_KING_ZORA_BEEHIVE, logic->IsChild && logic->CanBreakUpperBeehives()),
+        LOCATION(RC_ZD_KING_ZORA_RED_ICE,        logic->IsAdult && logic->Get(LOGIC_KING_ZORA_THAWED)),
     }, {
         //Exits
         Entrance(RR_ZORAS_DOMAIN,   []{return logic->Get(LOGIC_DELIVER_RUTOS_LETTER) || ctx->GetOption(RSK_ZORAS_FOUNTAIN).Is(RO_ZF_OPEN) || (ctx->GetOption(RSK_ZORAS_FOUNTAIN).Is(RO_ZF_CLOSED_CHILD) && logic->IsAdult);}),
