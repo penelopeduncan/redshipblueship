@@ -135,8 +135,7 @@ void CountExpected(size_t (&expected)[RCAREA_INVALID], size_t (&folded)[RCAREA_I
         seen[area].insert(loc.GetExcludedOption()->GetName());
         if (!(chestGameOff && loc.GetRCType() == RCTYPE_CHEST_GAME) &&
             !(butterflyOff && loc.GetRCType() == RCTYPE_BUTTERFLY_FAIRY) &&
-            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) &&
-            !(iciclesOff && loc.GetRCType() == RCTYPE_ICICLE) &&
+            !(silverOff && loc.GetRCType() == RCTYPE_SILVER) && !(iciclesOff && loc.GetRCType() == RCTYPE_ICICLE) &&
             !(redIceOff && loc.GetRCType() == RCTYPE_RED_ICE)) {
             seenFolded[area].insert(loc.GetExcludedOption()->GetName());
         }
