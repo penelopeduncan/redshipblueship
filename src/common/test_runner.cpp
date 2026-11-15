@@ -1708,8 +1708,7 @@ extern "C" int OoT_DarkLinkFixes_RunHeadless(void);
 static TestResult Test_OoTDarkLinkFixes(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
-        printf("[TEST] FAIL: the display-free shared Context bring-up failed
-");
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
         return TEST_FAIL;
     }
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
