@@ -234,6 +234,9 @@
 - **A Majora's Mask chest that held an Ocarina of Time item no longer replays its message** (issue #1601). After a cycle
   reset such a chest could be opened again: it showed the item and "You found" and gave nothing. It now opens empty,
   with no message.
+- **Ocarina of Time: Jabu-Jabu's Big Octo platform keeps its cutscene** (SoH #7158), from Ship of Harkinian. With Skip
+  One Point Cutscenes on (the default in the randomizer), you were given control while the platform was still going up
+  and down, and could get behind the Big Octo before its fight. That short cutscene now always plays.
 - **Cross-Game Masks: an Ocarina of Time mask comes off where Majora's Mask takes its own masks off** (issue #1452):
   when a cutscene turns Link human again, on a game over, and when he respawns after falling into a void. At night the
   Spooky Mask now also stands in for the Gibdo Mask with Pamela, her father, the Bomb Shop and the Happy Mask Salesman.
