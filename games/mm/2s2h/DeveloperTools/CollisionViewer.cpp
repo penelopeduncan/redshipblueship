@@ -738,7 +738,13 @@ void CollisionViewerWindow::InitElement() {
 static void DrawCollisionViewerDisplayLists(Gfx* opa, Gfx* xlu) {
     OPEN_DISPS(MM_gPlayState->state.gfxCtx);
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // MM's mirror state is gModes.MirroredWorld.State (Enhancements/Modes/MirroredWorld.cpp writes it, z_view.c
+    // reads it); nothing in this tree writes the imported "gMirroredWorld" key.
+    uint8_t mirroredWorld = CVarGetInteger("gModes.MirroredWorld.State", 0);
+#else
     uint8_t mirroredWorld = CVarGetInteger("gMirroredWorld", 0);
+#endif
     // Col viewer needs inverted culling in mirror mode for both OPA and XLU buffers
     if (mirroredWorld) {
         gSPSetExtraGeometryMode(POLY_OPA_DISP++, G_EX_INVERT_CULLING);
