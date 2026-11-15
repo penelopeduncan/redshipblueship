@@ -107,6 +107,13 @@ class SaveManager {
     // versions.
     void AddPostFunction(const std::string& name, PostFunc func);
 
+    // Test seam (row OoTOlderSaveMeta, games/oot/soh/oot_older_save_meta_test.cpp): the file-select
+    // meta read StartupCheckAndInitMeta runs on a parsed fileN.sav, without its quarantine (whose
+    // popup needs the GUI). A save the read cannot make sense of throws out of this call.
+    void ReadMetaForTest(int fileNum, nlohmann::json& metaSaveBlock) {
+        StartupCheckAndInitMetaImpl(fileNum, metaSaveBlock);
+    }
+
     void CopyZeldaFile(int from, int to);
     void DeleteZeldaFile(int fileNum);
     bool IsRandoFile();

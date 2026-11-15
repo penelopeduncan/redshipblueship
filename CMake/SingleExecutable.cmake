@@ -4288,6 +4288,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # session), and the item queue logged every offer of a give the player could
     # not take yet. Display-free and ROM-free. games/oot/soh/oot_log_noise_test.cpp.
     redship_add_test(NAME OoTLogNoise COMMAND redship --test oot-log-noise)
+    # SoH #7434: the file select's meta read (SaveManager::StartupCheckAndInitMetaImpl)
+    # takes an older OoT save, with magicAcquired/doubleMagic, a numeric or absent
+    # isMasterQuest, or no sohStats section, instead of throwing a json type_error
+    # that quarantined the readable file. Display-free and ROM-free.
+    # games/oot/soh/oot_older_save_meta_test.cpp.
+    redship_add_test(NAME OoTOlderSaveMeta COMMAND redship --test oot-older-save-meta)
     # #837 (decision 16, ruled 2026-10-01): every cross-game crossing is a
     # whole-file commit, taken by GameRunner_SwitchTo between the departing
     # suspend and the target's resume/init (Switch_CommitCrossing). The real

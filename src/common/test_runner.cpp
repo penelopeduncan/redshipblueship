@@ -9758,6 +9758,15 @@ static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/oot_older_save_meta_test.cpp (SoH #7434): the file select's
+// meta read takes older OoT saves (old magic names, numeric or absent
+// isMasterQuest, no sohStats) instead of throwing.
+extern "C" int OoT_OlderSaveMeta_RunHeadless(void);
+
+static TestResult Test_OoTOlderSaveMeta(void) {
+    return OoT_OlderSaveMeta_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 TestResult Test_PairedLoadRestore(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -11695,6 +11704,10 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-older-save-meta",
+      "The file select reads an older OoT save (magicAcquired/doubleMagic, a numeric or absent isMasterQuest, no "
+      "sohStats) instead of throwing and quarantining it (SoH #7434)",
+      Test_OoTOlderSaveMeta },
     { "crossing-commit",
       "Every cross-game crossing is a whole-file commit taken between the departing suspend and the target's "
       "resume: a kill after the crossing reloads it; a latched, slot-less, freeze-less or not-live departure "
