@@ -949,9 +949,8 @@ static void SsOffVerifyRuntimeGiveAndHints(void) {
     char revealExpected[256] = { 0 };
     int namesSongCheck = 0;
     int coverNamed = 0;
-    const int enabledBefore =
-        Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
-                                    &namesSongCheck, &coverNamed);
+    const int enabledBefore = Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected,
+                                                          (int)sizeof(revealExpected), &namesSongCheck, &coverNamed);
     int count = 0;
     uint32_t paneKey = 0;
     char pane[1024] = { 0 };
@@ -970,9 +969,8 @@ static void SsOffVerifyRuntimeGiveAndHints(void) {
     MM_SharedSwordTest_ArmLive();
     MM_SharedSongOfTimeTest_SetHeld(1);
     MM_HarvestSharedResources();
-    const int enabledAfter =
-        Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected, (int)sizeof(revealExpected),
-                                    &namesSongCheck, &coverNamed);
+    const int enabledAfter = Rando_TestOoTHintRevealText(revealBuf, (int)sizeof(revealBuf), revealExpected,
+                                                         (int)sizeof(revealExpected), &namesSongCheck, &coverNamed);
     const int paneAfter = RandoTest_HintTrackerPaneRow(ootHintKey, &count, &paneKey, pane, (int)sizeof(pane));
     const int slotAfter = OoT_SharedSongsTest_OffHintProbeSlot(2);
     printf("[TEST] (Off) RH_OOT_HINT after MM learns Song of Time: '%s'; pane '%s'; slot %d -> %d\n", revealBuf, pane,
@@ -1030,8 +1028,7 @@ TestResult Test_SharedSongsOffJunkGive(void) {
         SsFreezeWorld(&oneSong);
         SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF) &&
                      Combo_SharedWarpSongFixedAtHome(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF),
-                 "(1) %s on must arm fixed-at-home in both games under Shuffle Songs Off",
-                 kSsOneCopySongs[s].itemName);
+                 "(1) %s on must arm fixed-at-home in both games under Shuffle Songs Off", kSsOneCopySongs[s].itemName);
         SS_CHECK(!Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootUnshared, RSBS_SONG_SPOTS_OFF) &&
                      !Combo_SharedWarpSongFixedAtHome(GAME_MM, mmUnshared, RSBS_SONG_SPOTS_OFF),
                  "(1) unshared song must not match fixed-at-home under Off");
