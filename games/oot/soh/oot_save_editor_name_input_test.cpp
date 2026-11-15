@@ -43,13 +43,13 @@
 
 namespace {
 
-struct Language {
+struct NameInputLanguage {
     const char* name;
     uint8_t id;
     bool pal;
 };
 
-const Language kLanguages[] = {
+const NameInputLanguage kLanguages[] = {
     { "PAL", NAME_LANGUAGE_PAL, true },
     { "NTSC JPN", NAME_LANGUAGE_NTSC_JPN, false },
     { "NTSC ENG", NAME_LANGUAGE_NTSC_ENG, false },
@@ -87,7 +87,7 @@ extern "C" int OoTTest_SaveEditorNameInput(void) {
            "the game's encoding (SoH #6474, #7383)\n");
 
     // Leg 1: typing into the box. The buffer after the NUL still holds "XY" from earlier text, as ImGui leaves it.
-    for (const Language& lang : kLanguages) {
+    for (const NameInputLanguage& lang : kLanguages) {
         char input[9] = { 'Z', 'e', 'l', 'd', 'a', '\0', 'X', 'Y', '\0' };
         const char expected[8] = { 'Z', 'e', 'l', 'd', 'a', ' ', ' ', ' ' };
         uint8_t name[8];
@@ -110,7 +110,7 @@ extern "C" int OoTTest_SaveEditorNameInput(void) {
     printf("[TEST]   leg 1: a typed name stores the language's codes, padded with spaces after the NUL\n");
 
     // Leg 2: a stored name shows in the box.
-    for (const Language& lang : kLanguages) {
+    for (const NameInputLanguage& lang : kLanguages) {
         const char text[9] = "Link -.0";
         uint8_t name[8];
         for (int i = 0; i < 8; i++) {
@@ -127,7 +127,7 @@ extern "C" int OoTTest_SaveEditorNameInput(void) {
     // Leg 3: store then show, for every covered character, eight at a time.
     const int coveredCount = (int)(sizeof(kCovered) - 1);
     int names = 0;
-    for (const Language& lang : kLanguages) {
+    for (const NameInputLanguage& lang : kLanguages) {
         for (int start = 0; start < coveredCount; start += 8) {
             char text[9];
             for (int i = 0; i < 8; i++) {
