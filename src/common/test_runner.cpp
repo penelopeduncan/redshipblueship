@@ -1694,9 +1694,24 @@ static TestResult Test_MMHudEditorReader(void) {
 
 // MM text mods (2Ship #2000, see the extern decl beside mm-hud-editor-reader). The display-free shared bring-up, for
 // the ResourceManager the row mounts its two scratch folders into.
+//
+// SKIP (not FAIL) when soh.o2r is unresolvable, the same policy as zip-contention: with no archive mounted at the
+// bring-up libultraship pauses the resource thread pool, so the row's synchronous table load would never return and
+// the netplay-relay job's archive-less control run of this label would burn the row's timeout (and AllTests').
 static TestResult Test_MMTextMods(void) {
     auto ctx = CreateHarnessStyleContext();
-    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    const std::string sohArchive = Ship::Context::LocateFileAcrossAppDirs("soh.o2r");
+    if (!std::filesystem::exists(sohArchive)) {
+        printf("[TEST] SKIP: no soh.o2r resolvable (tried '%s'): the archive-less redship control run keeps this row "
+               "skipped by design (#562)\n",
+               sohArchive.c_str());
+        return TEST_SKIP;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
         printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
         return TEST_FAIL;
     }
