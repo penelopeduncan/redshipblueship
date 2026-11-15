@@ -579,6 +579,10 @@ int MM_PauseSaveReload_RunHeadless(void);
 // #1217: under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item
 // and no vanilla capacity upgrade; games/oot/soh/oot_deku_theater_prize_test.cpp.
 int OoT_DekuTheaterPrize_RunHeadless(void);
+// Backport bundle O6 (SoH #6795, #6798, #7183): HasItem's folded boss-soul and
+// overworld-door answers, and the shuffled-drop despawn exemption;
+// games/oot/soh/oot_has_item_fold_test.cpp.
+int OoT_HasItemFold_RunHeadless(void);
 // #1163 / #1159: loading a paired file reconciles OoT's live save with the
 // shared pool before anything is earned or spent. Drives OoT's OnLoadFile seam
 // over a real .redsave; games/oot/soh/oot_load_reconcile_test.cpp.
@@ -7765,6 +7769,24 @@ TestResult Test_OoTDekuTheaterPrize(void) {
     return OoT_DekuTheaterPrize_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport bundle O6: HasItem's folded boss souls and overworld door keys, and the
+// shuffled-drop despawn exemption. The same display-free bring-up as the row
+// above: the row authors a real Rando::Context.
+TestResult Test_OoTHasItemFold(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure
+");
+        return TEST_FAIL;
+    }
+    return OoT_HasItemFold_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // The load reconciles OoT with the shared pool (#1163, #1159). The same
 // display-free bring-up as the row above: the seam it drives is the same one.
 TestResult Test_SharedPoolLoadReconcile(void) {
@@ -11666,6 +11688,10 @@ const TestDescriptor gTests[] = {
       "Under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item for the Skull Mask and Mask of Truth "
       "checks and no vanilla Deku Stick or Nut capacity upgrade; a vanilla file still gets the upgrade (#1217)",
       Test_OoTDekuTheaterPrize },
+    { "oot-has-item-fold",
+      "Logic::HasItem answers boss souls under Shuffle Boss Souls and overworld door keys under Lock Overworld Doors, "
+      "and a shuffled key or heart drop's despawn timer is stopped (SoH #6795, #6798, #7183)",
+      Test_OoTHasItemFold },
     { "combo-player-name",
       "The paired world has one name: OoT's typed name, in each OoT filename charset, translates into MM's charset "
       "as OoTMM's copyName does (no-glyph bytes to MM's space), every typable character prints in MM as in OoT, "
