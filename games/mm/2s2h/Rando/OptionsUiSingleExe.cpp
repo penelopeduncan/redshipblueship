@@ -468,7 +468,7 @@ const OptionUi kOptionUi[] = {
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
     { RO_PLACEMENT_STRAY_FAIRIES_OTHER, COMBO_MM_GROUP_SHUFFLE_ITEMS, COMBO_MM_WIDGET_COMBO,
-      "Freestanding Fairies",
+      "Dungeon Freestanding Fairies",
       "Where freestanding dungeon and Clock Town Stray Fairies may be placed: anywhere in the world, own dungeon with "
       "Clock Town vanilla, left vanilla, or granted at start.",
       0, 0, kDungeonItemPlacementLabels, UI_COUNT(kDungeonItemPlacementLabels),
