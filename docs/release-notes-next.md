@@ -42,6 +42,25 @@
   - Logic uses the Song of Soaring warp to Woodfall's owl statue.
   - The Clock Town postbox is listed under East Clock Town, and a duplicate Bad Bat drop in the upper graveyard is
     gone.
+- **More Majora's Mask logic fixes from 2Ship2Harkinian** (2Ship #1954, #1984, #2006, #2017, #2018). These change
+  where items can land, so the same seed and settings can make a different world than before, with the default
+  settings too:
+  - Freeing the Deku Princess in Woodfall Temple needs a sword.
+  - Pinnacle Rock's first chest needs the Deep Python beaten, as its other chests do.
+  - Stone Tower Temple's inverted upper east chest needs the underwater switch in the deep pool (Zora Mask and Swim),
+    and the lava chest in the Armos room needs the Armos beaten.
+  - The Grandma's two stories in the Stock Pot Inn had each other's time rules; they are swapped back.
+  - Kafei's Sun's Mask, the Wolfos drop and the later pots in Sakon's hideout need a way past the Deku Babas.
+  - The Clock Town stray fairy can be caught with the Great Fairy's Mask, and the Curiosity Shop is in logic from
+    22:00 to 5:00 each night.
+  - The Moon's Zora trial Heart Piece needs Swim. Woodfall Temple's maze bubble fairy needs Swim, or the Great Fairy's
+    Mask and a way to pop the bubble, and its entrance pot needs nothing.
+  - After the first day the Magic Hags' Potion Shop sells once Kotake has been met in the Woods of Mystery.
+  - The Twin Islands snowballs and tree on the far ledge need the Goron Mask or the Hookshot with the Scarecrow.
+  - The Termina Field wall's night-only wonder items are the right three, and three more Termina Field wonder items
+    are easier to reach.
+  - The Beneath the Well grass in the four-spikes room needs the room lit (Fire Arrows, or a Deku Stick lit from the
+    Big Poe room).
 - **Plentiful Items adds one extra copy of every major item, mask, key and lesser item** (issue #1398), as 2Ship now
   does, where it used to add a random selection. Maps, compasses and Tingle maps get no extra copy.
 - **Majora's Mask dungeon item and song placement work in paired worlds** (issue #1502). Majora's Mask's Small Keys,

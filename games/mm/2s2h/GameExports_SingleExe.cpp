@@ -264,6 +264,10 @@ static_assert(MMRT_GBT_BOSS_KEY_ICE == 85, "MM's last trick id at save format 6 
 static_assert(RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP == 77,
               "MM's last randomizer-inf flag at save format 6 is 77: append after it");
 static_assert(RE_MAIL_LETTER_TO_KAFEI == 82, "MM's last randomizer event at save format 6 is 82: append after it");
+// 2Ship #2006 / #2017 (MM logic batch M3): the Stone Tower Temple underwater
+// switch and meeting Kotake in the Woods of Mystery, appended after it.
+static_assert(RE_STONE_TOWER_TEMPLE_DEEP_POOL_UNDERWATER_SWITCH == 83 && RE_MEET_KOTAKE_WOODS == 84,
+              "MM's M3 logic events are ids 83 and 84, after RE_MAIL_LETTER_TO_KAFEI");
 // Each backport appended after format 6 locks its own ids the same way, so a
 // merge that reorders the appended blocks fails here instead of renumbering
 // saved rows. #1406 (Shuffle Wonder Items): 113 checks and one option.

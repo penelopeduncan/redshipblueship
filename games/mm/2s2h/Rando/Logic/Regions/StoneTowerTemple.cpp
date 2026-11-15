@@ -68,7 +68,7 @@ static RegisterShipInitFunc initFunc([]() {
     Regions[RR_STONE_TOWER_TEMPLE_ARMOS_ROOM] = RandoRegion{ .name = "Armos Room", .sceneId = SCENE_INISIE_N,
         .checks = {
             CHECK(RC_STONE_TOWER_TEMPLE_UNDER_WEST_GARDEN_LEDGE_CHEST, HAS_ITEM(ITEM_HOOKSHOT)),
-            CHECK(RC_STONE_TOWER_TEMPLE_UNDER_WEST_GARDEN_LAVA_CHEST, CAN_BE_GORON && ((CAN_USE_EXPLOSIVE && (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) >= EQUIP_VALUE_SHIELD_MIRROR)) || CAN_USE_MAGIC_ARROW(LIGHT))),
+            CHECK(RC_STONE_TOWER_TEMPLE_UNDER_WEST_GARDEN_LAVA_CHEST, CAN_BE_GORON && CanKillEnemy(ACTOR_EN_AM) && ((CAN_USE_EXPLOSIVE && (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) >= EQUIP_VALUE_SHIELD_MIRROR)) || CAN_USE_MAGIC_ARROW(LIGHT))),
             CHECK(RC_STONE_TOWER_TEMPLE_LAVA_ROOM_POT_01, true),
             CHECK(RC_STONE_TOWER_TEMPLE_LAVA_ROOM_POT_02, true),
             CHECK(RC_STONE_TOWER_TEMPLE_LAVA_ROOM_POT_03, true),
@@ -132,6 +132,10 @@ static RegisterShipInitFunc initFunc([]() {
         .connections = {
             CONNECTION(RR_STONE_TOWER_TEMPLE_SHALLOW_POOL_ROOM, CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
             CONNECTION(RR_STONE_TOWER_TEMPLE_DEEP_POOL_ROOM, CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
+        },
+        .events = {
+            // Requires Zora and Swim, needed for an Inverted Check
+            EVENT(RE_STONE_TOWER_TEMPLE_DEEP_POOL_UNDERWATER_SWITCH, CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
         },
     };
     Regions[RR_STONE_TOWER_TEMPLE_MIRROR_PILLAR_ROOM] = RandoRegion{ .name = "Mirror Pillar Room", .sceneId = SCENE_INISIE_N,
@@ -247,7 +251,7 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_STONE_TOWER_TEMPLE_INVERTED_WIND_ROOM] = RandoRegion{ .name = "Wind Room", .sceneId = SCENE_INISIE_R,
         .checks = {
-            CHECK(RC_STONE_TOWER_TEMPLE_INVERTED_EAST_UPPER_CHEST, CAN_BE_DEKU && CAN_PLAY_SONG(ELEGY)),
+            CHECK(RC_STONE_TOWER_TEMPLE_INVERTED_EAST_UPPER_CHEST, CAN_BE_DEKU && CAN_PLAY_SONG(ELEGY) && RANDO_EVENTS[RE_STONE_TOWER_TEMPLE_DEEP_POOL_UNDERWATER_SWITCH]),
             CHECK(RC_STONE_TOWER_TEMPLE_INVERTED_EAST_MIDDLE_CHEST, CAN_BE_DEKU),
             CHECK(RC_STONE_TOWER_TEMPLE_INVERTED_EAST_LOWER_CHEST, CAN_BE_DEKU && CAN_USE_MAGIC_ARROW(FIRE)),
             // #578 part 3 (second pass) — MMRT_ST_UPDRAFTS ("Stone Tower Updrafts without Deku Mask —
@@ -275,7 +279,8 @@ static RegisterShipInitFunc initFunc([]() {
             // with its own evidence).
             //
             // NOT widened, all three of them, and recorded on #697 as judgements still owed:
-            //   RC_STONE_TOWER_TEMPLE_INVERTED_EAST_UPPER_CHEST  (CAN_BE_DEKU && CAN_PLAY_SONG(ELEGY))
+            //   RC_STONE_TOWER_TEMPLE_INVERTED_EAST_UPPER_CHEST  (CAN_BE_DEKU && CAN_PLAY_SONG(ELEGY), and the
+            //                                                    deep pool's underwater switch, 2Ship #2006)
             //   RC_STONE_TOWER_TEMPLE_INVERTED_EAST_MIDDLE_CHEST (bare CAN_BE_DEKU)
             //   RC_STONE_TOWER_TEMPLE_INVERTED_EAST_LOWER_CHEST  (CAN_BE_DEKU && CAN_USE_MAGIC_ARROW(FIRE))
             // — the three rows immediately above. They are DESTINATIONS at particular heights on the

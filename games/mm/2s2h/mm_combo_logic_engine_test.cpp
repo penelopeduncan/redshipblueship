@@ -390,6 +390,15 @@ void SetResetKit(bool song, unsigned buttons) {
     }
 }
 
+/** Swim, written straight into randoInf as SetResetKit writes the buttons. The
+ *  Moon's Zora trial Heart Piece needs it since 2Ship #2006, and legs 12 and 16
+ *  use that row as the host a Moon trial edge gains or loses. The caller's
+ *  SaveGuard puts the word back. */
+void GrantSwimForMoonZoraTrial() {
+    const int flag = RANDO_INF_OBTAINED_SWIM;
+    gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] |= (u16)(1u << (flag & 0xF));
+}
+
 constexpr unsigned kAllOcarinaButtons = 0x1Fu;
 // The Song of Time's notes (Logic.h, canPlaySong): A, C-Down, C-Right.
 constexpr unsigned kSongOfTimeButtons = 0x07u;
@@ -1130,8 +1139,8 @@ int RunLegs() {
                 Rando::Logic::RandoRegionExit{ ONE_WAY_EXIT, [] { return HAS_MAGIC; },
                                                std::string("synthetic (mm-combo-logic-engine leg 12)") };
             // A SECOND synthetic edge on the same gate, to RR_MOON_ZORA_TRIAL,
-            // whose RC_MOON_TRIAL_ZORA_PIECE_OF_HEART is CHECK(..., true) and is
-            // not one of the unconditionally excluded rows. 12c needs it: the
+            // whose RC_MOON_TRIAL_ZORA_PIECE_OF_HEART needs only Swim (2Ship #2006;
+            // granted below) and is not one of the unconditionally excluded rows. 12c needs it: the
             // lair's own two pots are SCENE_LAST_BS and therefore NOT hosts, so a
             // shrink that loses only the lair moves no HOST count — and the host
             // count (with the crossing flag) is the only observable
@@ -1142,6 +1151,7 @@ int RunLegs() {
             Rando::Logic::Regions[RR_CLOCK_TOWN_SOUTH].exits[ENTRANCE(MOON_ZORA_TRIAL, 0)] =
                 Rando::Logic::RandoRegionExit{ ONE_WAY_EXIT, [] { return HAS_MAGIC; },
                                                std::string("synthetic (mm-combo-logic-engine leg 12)") };
+            GrantSwimForMoonZoraTrial(); // leg12Save puts it back
             CE_ASSERT(Rando::Logic::GetRegionIdFromEntrance(ENTRANCE(MAJORAS_LAIR, 0)) == RR_MOON_MAJORAS_LAIR, 12,
                       "ENTRANCE(MAJORAS_LAIR, 0) no longer resolves to RR_MOON_MAJORAS_LAIR - 12b's synthetic edge "
                       "would lead somewhere else and prove nothing");
@@ -1710,6 +1720,8 @@ int RunLegs() {
             Rando::Logic::Regions[RR_CLOCK_TOWN_SOUTH].exits[ENTRANCE(MAJORAS_LAIR, 0)] =
                 Rando::Logic::RandoRegionExit{ ONE_WAY_EXIT, [] { return true; },
                                                std::string("synthetic (mm-combo-logic-engine leg 16)") };
+            // The trial's Heart Piece needs Swim (2Ship #2006); leg16Save puts it back.
+            GrantSwimForMoonZoraTrial();
 
             const GuardObservation noSong = GuardRound({});
             CE_ASSERT(noSong.beganOk != 0 && noSong.crossingOpen == 1 && noSong.hosts.count(roofPot) != 0, 16,
