@@ -318,6 +318,9 @@
   window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
 - **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
   2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
+- **Majora's Mask: new option Mayor Argues Until Moonfall** (2Ship2Harkinian #1972). Under Enhancements > Quality of
+  Life > Time of Day, it keeps the mayor's meeting going on the night of the Final Day, so you can still show him the
+  Couple's Mask for his Piece of Heart. It is off by default.
 - **Majora's Mask: new option Hot Water Never Cools** (2Ship2Harkinian #1989). Under Enhancements > Items, it keeps
   Hot Spring Water in a bottle from cooling down into Spring Water. It is off by default.
 - **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's

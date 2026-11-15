@@ -85,15 +85,16 @@ brief, plus everything in the collision set:
 | `Songs` | 7 | ✅ all since W6-MASKS-SONGS (#1236) and L7 (#1133): five (O) rows in §6.1, and Better Song of Double Time and Skip Song of Time Cutscenes hosted by L7 (§5.3's #1133 table) |
 | `Minigames` | 18 | ✅ all since W6-MINIGAMES (#1236): eighteen (O) rows in §6.1 |
 | `DifficultyOptions` | 15 | ✅ all: Hyper Enemies and Permanent Heart Loss converged (§5.3), Damage Multiplier held apart and hosted (§5.3, #1037), Goron Race with the minigames (§6.1), and since W6-MODES-DIFF (#1236) seven (O) rows and Delete File on Death (INTENTIONAL) in §6.1. #1412 added three: No Heart Drops and Drops Don't Despawn converged (§5.3), and No Random Drops held apart ((P), hosted, in §6.1's W6-MODES-DIFF table) |
-| `Cycle` | 8 | ✅ all since W6-CYCLE-CHEATS (#1236): six (O) rows and Do Not Reset Rupees / Consumables (INTENTIONAL) in §6.1 |
-| **Subtotal** | **199** | |
+| `Cycle` | 9 | ✅ all since W6-CYCLE-CHEATS (#1236): six (O) rows and Do Not Reset Rupees / Consumables (INTENTIONAL) in §6.1. 2Ship #1972 added Mayor Argues Until Moonfall ((O), §6.1) |
+| **Subtotal** | **200** | |
 
 **NOT classified at individual-setting level:** none since the W6 lanes. Until then 55 MM keys in five categories
 (`Minigames`, `DifficultyOptions`, `Masks`, `Cycle`, `Songs`) were classified **(O) MM-only at the category level** on
 the strength of their contents, with the rows inside them that have OoT counterparts pulled out (§5). Each category now
 has a row per key (table above), and `Masks` counts 9 keys, not 10, so the total in scope was 184; #1411's three keys
 (two `A11y`, one `Player`) made it 187, and #1412's eleven 2Ship keys (ten converged, §5.3, and No Random Drops held
-apart, §6.1) made it 198, and 2Ship #1989's Hot Water Never Cools (§6.1) makes it 199.
+apart, §6.1) made it 198, 2Ship #1989's Hot Water Never Cools (§6.1) made it 199, and 2Ship #1972's Mayor Argues
+Until Moonfall (§6.1) makes it 200.
 
 Also not covered: OoT's 1570 `gCosmetics.*` keys (overwhelmingly auto-generated per-actor
 colour entries with no MM counterpart — MM has 3, all in the collision set and all
@@ -602,6 +603,7 @@ default (off).
 | `Cycle.DoNotResetRupees` | 1 | INTENTIONAL, no row. The combo keeps the SHARED rupees through every cycle reset in every world (`MM_RegisterSharedResourceCycleHooks`, #525), so the switch would do nothing; EndOfCycle.cpp holds its restore off in the single exe so a hand-set key cannot restore a second, unsettled count over the combo's |
 | `Cycle.DoNotResetConsumables` | 1 | INTENTIONAL, no row. The five shared ammo counts survive every reset (#525), and the Powder Keg and the Magic Beans follow the world's FROZEN Keep Items on Cycle Reset (#1175, `gComboCtx.mmKeepItemsReset`); a live per-player switch may not overrule a setting frozen at file creation (one-game semantics). Held off in EndOfCycle.cpp |
 | `Cycle.KeepExpressMail` | 1 | (O). Row "Keep Express Mail", same block; `Cycle/KeepExpressMail.cpp` linked (play-state guard added) |
+| `Cycle.MayorArguesUntilMoonfall` | 1 | (O). Row "Mayor Argues Until Moonfall", same block, after Keep Express Mail (2Ship #1972, backported from 2Ship a0e14e87; 2Ship draws it in the excluded `BenMenu.cpp`); bound through `RSBS_CVAR_MM_CYCLE_MAYOR_ARGUES_UNTIL_MOONFALL`, on `RSBS_TWOSHIP_IMPORT_KEYS`. `Cycle/MayorArguesUntilMoonfall.cpp` linked (carved into `ship__Enh_registrars`, play-state guard added); it rides `VB_MAYOR_MEETING_END_ON_FINAL_NIGHT`, appended to `GIVanillaBehavior` and dispatched from the En_Baisen, En_Daiku, En_Dt, En_Heishi and En_Muto overlays, and `OnActorEntryHalfDaysBits` (#1618, z_actor.c). A player preference: it keeps the mayoral meeting going through the Final Night, so the Couple's Mask heart piece can still be had then; it is off by default, not generation or combo identity, and no logic rule reads it. MMRegistrarCoverage's key-gap table and FAIL 24 leg lock it |
 | `Cycle.StopOceansideSpiderHouseSquatter` | 1 | (O). Row "Stop Oceanside Spider House Squatter", same block; forced on for rando (`CVAR \|\| IS_RANDO`, #1221), `Cycle/OceansideSpiderHouseSquatter.cpp` linked and #1224's port retired |
 | `Cycle.OceansideWalletAnyDay` | 1 | (O). Row "Oceanside Wallet Any Day", same block; forced on for rando (#1221), `Cycle/OceansideWalletAnyDay.cpp` linked and #1224's port retired |
 | `gCheats.{LongerFlowerGlide, ElegyAnywhere, TempleTimeStop, UnbreakableRazorSword}` | 4 | (O) MM-only cheats. Rows "Longer Deku Flower Glide", "Elegy of Emptiness Anywhere", "Stop Time in Dungeons" and "Unbreakable Razor Sword" under a Majora's Mask block at the end of Enhancements > Cheats (W6-CYCLE-CHEATS, #1240); their four TUs linked. Unbreakable Razor Sword is forced on for rando (#1215) |
@@ -895,7 +897,7 @@ before the menu exists. CvarClassification leg (2b) and the TwoShipImportMmKeys 
 Scoped to the enhancement/cheat/cosmetic surface classified at **individual-setting level**
 (MM's 185 `gEnhancements.*` + `gCheats.*` keys, and their OoT counterparts). These counts are the original inventory's
 (2026-07-21) and are not re-derived per row: since then the W6 lanes classified every key per row (§2, where the total
-read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 199 since #1411, #1412 and 2Ship #1989), and the #966 rows,
+read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 200 since #1411, #1412, 2Ship #1989 and 2Ship #1972), and the #966 rows,
 #1239, #1272 and #1412 converged more keys than the 26 below.
 
 | Class | Rows | Notes |

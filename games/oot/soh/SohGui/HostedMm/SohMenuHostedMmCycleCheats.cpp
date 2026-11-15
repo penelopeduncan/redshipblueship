@@ -100,6 +100,12 @@ void AddMmTimeCycleBlock(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_CYCLE_KEEP_EXPRESS_MAIL)
         .Options(CheckboxOptions().Tooltip("Keeps the Express Mail to Mama after its first delivery, so both "
                                            "deliveries can be made in one cycle. Majora's Mask only."));
+    // 2Ship #1972: after Keep Express Mail, as in 2Ship's Cycle section.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Mayor Argues Until Moonfall", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_CYCLE_MAYOR_ARGUES_UNTIL_MOONFALL)
+        .Options(CheckboxOptions().Tooltip("The mayoral meeting normally breaks up on the night of the Final Day. This "
+                                           "keeps it going until the moon falls, so the Couple's Mask can still be "
+                                           "shown to Mayor Dotour for his Piece of Heart. Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Stop Oceanside Spider House Squatter", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_CYCLE_STOP_OCEANSIDE_SPIDER_HOUSE_SQUATTER)
         .Options(CheckboxOptions().Tooltip("The Oceanside Spider House squatter does not move in until you have "

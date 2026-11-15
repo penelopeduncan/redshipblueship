@@ -615,6 +615,9 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_CYCLE_DO_NOT_RESET_RAZOR_SWORD "gEnhancements.Cycle.DoNotResetRazorSword"
 #define RSBS_CVAR_MM_CYCLE_DO_NOT_RESET_TIME_SPEED "gEnhancements.Cycle.DoNotResetTimeSpeed"
 #define RSBS_CVAR_MM_CYCLE_KEEP_EXPRESS_MAIL "gEnhancements.Cycle.KeepExpressMail"
+// 2Ship #1972: Mayor Argues Until Moonfall, a Cycle row in 2Ship (after Keep Express Mail), hosted in the same Quality
+// of Life > Time of Day "Majora's Mask" block. No SoH twin (Ocarina of Time has no mayoral meeting).
+#define RSBS_CVAR_MM_CYCLE_MAYOR_ARGUES_UNTIL_MOONFALL "gEnhancements.Cycle.MayorArguesUntilMoonfall"
 #define RSBS_CVAR_MM_CYCLE_STOP_OCEANSIDE_SPIDER_HOUSE_SQUATTER "gEnhancements.Cycle.StopOceansideSpiderHouseSquatter"
 #define RSBS_CVAR_MM_CYCLE_OCEANSIDE_WALLET_ANY_DAY "gEnhancements.Cycle.OceansideWalletAnyDay"
 // W6-PLAYER
@@ -1132,6 +1135,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_CYCLE_DO_NOT_RESET_RAZOR_SWORD)                   \
     X(RSBS_CVAR_MM_CYCLE_DO_NOT_RESET_TIME_SPEED)                    \
     X(RSBS_CVAR_MM_CYCLE_KEEP_EXPRESS_MAIL)                          \
+    X(RSBS_CVAR_MM_CYCLE_MAYOR_ARGUES_UNTIL_MOONFALL)                \
     X(RSBS_CVAR_MM_CYCLE_STOP_OCEANSIDE_SPIDER_HOUSE_SQUATTER)       \
     X(RSBS_CVAR_MM_CYCLE_OCEANSIDE_WALLET_ANY_DAY)                   \
     /* W6-PLAYER */                                                  \
