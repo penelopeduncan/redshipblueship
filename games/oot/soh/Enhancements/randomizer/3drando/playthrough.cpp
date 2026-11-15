@@ -582,6 +582,13 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && OoT_Rando_EarlyGrannyFolds() == 0) {
                             continue;
                         }
+                        // [RSBS] SoH eca767dcb's Bunny Hood Effect changes the world only while
+                        // on (Logic::BunnyHood is false while it is off), so while off it folds
+                        // nothing and a world keeps the fingerprint it had before the option
+                        // existed; on, it folds.
+                        if (option->GetKey() == RSK_BUNNY_HOOD && ctx->GetOption(RSK_BUNNY_HOOD).Is(RO_GENERIC_OFF)) {
+                            continue;
+                        }
 #endif
                         settingsStr += option->GetOptionText(ctx->GetOption(option->GetKey()).Get());
                     }

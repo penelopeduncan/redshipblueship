@@ -2071,6 +2071,11 @@ bool Logic::SunlightArrows() {
     return ctx->GetOption(RSK_SUNLIGHT_ARROWS) && CanUse(RG_LIGHT_ARROWS);
 }
 
+// Bunny Hood grants the Majora's Mask run speed and jump distance boost
+bool Logic::BunnyHood() {
+    return ctx->GetOption(RSK_BUNNY_HOOD) && CanUse(RG_BUNNY_HOOD);
+}
+
 bool Logic::CanStandingShield() {
     return CanUse(RG_MIRROR_SHIELD) || (IsAdult && HasItem(RG_HYLIAN_SHIELD)) || CanUse(RG_DEKU_SHIELD);
 }

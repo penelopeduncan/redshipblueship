@@ -107,6 +107,7 @@ constexpr int kTouchedCount = (int)(sizeof(kTouched) / sizeof(kTouched[0]));
  * #1434 term while it cannot block (the fold's own skips, which this row does not
  * test), less the Shuffle Chest Minigame (#1364), Shuffle Butterfly Fairies
  * (#1407) and Shuffle Silver Rupees (#1363) lines while those options are off,
+ * less the Bunny Hood Effect seed setting while it is off (SoH eca767dcb),
  * and less Early Granny's Potion Shop unless `grannyFolds`.
  */
 int CountFoldLines(Rando::Context& world, bool grannyFolds) {
@@ -232,6 +233,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                     continue;
                 }
                 if (option->GetKey() == RSK_EARLY_GRANNYS_SHOP && !grannyFolds) {
+                    continue;
+                }
+                if (option->GetKey() == RSK_BUNNY_HOOD && world.GetOption(RSK_BUNNY_HOOD).Is(RO_GENERIC_OFF)) {
                     continue;
                 }
             }

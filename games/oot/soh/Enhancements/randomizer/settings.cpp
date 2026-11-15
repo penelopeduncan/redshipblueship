@@ -1428,6 +1428,7 @@ void Settings::CreateOptions() {
     // TODO: Compasses show rewards/woth, maps show dungeon mode
     OPT_BOOL(RSK_BLUE_FIRE_ARROWS, "Blue Fire Arrows", CVAR_RANDOMIZER_SETTING("BlueFireArrows"), mOptionDescriptions[RSK_BLUE_FIRE_ARROWS]);
     OPT_BOOL(RSK_SUNLIGHT_ARROWS, "Sunlight Arrows", CVAR_RANDOMIZER_SETTING("SunlightArrows"), mOptionDescriptions[RSK_SUNLIGHT_ARROWS]);
+    OPT_BOOL(RSK_BUNNY_HOOD, "Bunny Hood Effect", CVAR_RANDOMIZER_SETTING("BunnyHood"), mOptionDescriptions[RSK_BUNNY_HOOD]);
     OPT_BOOL(RSK_ROCS_FEATHER, "Roc's Feather", CVAR_RANDOMIZER_SETTING("RocsFeather"), mOptionDescriptions[RSK_ROCS_FEATHER]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // [RSBS #1434] OoTMM's timeTravelSword, on by default as there (data.ts). Drawn
@@ -2480,6 +2481,7 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_BIG_POE_COUNT],
                                                                       &mOptions[RSK_BLUE_FIRE_ARROWS],
                                                                       &mOptions[RSK_SUNLIGHT_ARROWS],
+                                                                      &mOptions[RSK_BUNNY_HOOD],
                                                                       &mOptions[RSK_FULL_WALLETS],
                                                                       &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],
                                                                       &mOptions[RSK_MASK_QUEST],
@@ -3028,6 +3030,7 @@ void Settings::CreateOptions() {
                                               &mOptions[RSK_DAMAGE_MULTIPLIER],
                                               &mOptions[RSK_BLUE_FIRE_ARROWS],
                                               &mOptions[RSK_SUNLIGHT_ARROWS],
+                                              &mOptions[RSK_BUNNY_HOOD],
                                               &mOptions[RSK_INFINITE_UPGRADES],
                                               &mOptions[RSK_SKELETON_KEY],
                                               &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],
