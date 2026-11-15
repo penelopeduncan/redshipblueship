@@ -260,6 +260,10 @@
   default, and a seed made with it off makes the same world as before.
 - **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
   instead of queueing behind it.
+- **Ocarina of Time Audio Editor: the missing music, and None** (upstream #5685, #7372). A new Ending tab holds the
+  Ocarina of Time ending piece and End Credits I to IV, Hyrule Field Morning Theme and Seal of Six Sages are fanfares
+  you can replace, and the two pieces that were named the wrong way round now carry their right names. A Background
+  Music, Sound Effects or Voices row can be set to None, which plays nothing there.
 - **Developer Tools: an Event Log for Majora's Mask** (issue #1572), from 2Ship2Harkinian. Popout Event Log opens a
   window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
 - **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
@@ -268,10 +272,6 @@
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
   generated with it off. The same seed and settings make the same world as before.
-- **Ocarina of Time Audio Editor: the missing music, and None** (upstream #5685, #7372). A new Ending tab holds the
-  Ocarina of Time ending piece and End Credits I to IV, Hyrule Field Morning Theme and Seal of Six Sages are fanfares
-  you can replace, and the two pieces that were named the wrong way round now carry their right names. A Background
-  Music, Sound Effects or Voices row can be set to None, which plays nothing there.
 
 ---
 
