@@ -4997,6 +4997,33 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
+    # #1635 step 7: a foreign hold survives a REAL quit, in one running process.
+    # The ROM-free rows ForeignHoldSurvivesQuitOoT/MM call the product's functions
+    # by hand; this row proves the wiring. The paired first crossing with MM's Lens
+    # of Truth and Pictograph Box pinned on Mido's two chests (the debug-seed seam,
+    # because the world's own placements are not predictable). After the first
+    # leg's frames the first chest's flag is set where leaving Mido's House leaves
+    # it and the real scene-flag hook queues it; in the same frame the player quits
+    # through the console's `reset` (the Menu's Reset button and Ctrl+R): OnExitGame
+    # stages the exit snapshot and commits. The title skips to the file select with
+    # the product's Boot Sequence function, and A on file 3, A on Yes loads it
+    # through FileChoose_LoadGame: OnLoadGame's queue reset must hand the host back
+    # (OoT_Rando_Foreign_RestoreHolds), still pending, and the real drain must give
+    # it once and clear the bit. Then the second chest is opened in Mido's House
+    # (live flag only), recorded, and the player quits there without saving; after
+    # the second reload it must come back open, nothing is pending or handed back,
+    # and nothing is recorded again. Back in the Market, the stock crossing and
+    # return run; Majora's Mask must have redeemed each item exactly once. Shortcuts
+    # (no chest animation, the pin, the queue window instead of a full-outbox hold)
+    # are named in games/oot/soh/oot_int_foreign_hold_quit_drive.cpp with the
+    # mutation that turns each check red. Every stage prints one [FHQ] line and
+    # has a frame budget; the title and file-select legs make no OoT gameplay
+    # frames, so they sit under the doubled per-phase watchdog like Soaring's legs.
+    redship_add_test(NAME IntForeignHoldQuit
+        COMMAND redship --integration-test int-foreign-hold-quit
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120")
     # #1169 XW13: the other direction, driven for real. The paired first crossing
     # with MM's Minuet of Forest rule on through its key and the production mask
     # (no test seam: the row is the proof that exposed the six MM rules) and
@@ -5043,8 +5070,9 @@ crossing to refuse (#954).")
     # and its creation; they also all create save slot 3. One lock, so a
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
-        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntMMWarpSongMinuet
-        IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntForeignHoldQuit
+        IntMMWarpSongMinuet IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM
+        PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.

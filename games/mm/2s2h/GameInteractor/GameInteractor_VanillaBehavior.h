@@ -2339,6 +2339,17 @@ typedef enum {
     // 2Ship #1989 (Hot Water Never Cools). Appended rather than sorted in as upstream placed it, so no existing id
     // moves.
     VB_COOL_HOT_WATER,
+
+    // Whether the mayoral meeting has broken up for the night of the Final Day.
+    // #### `result`
+    // ```c
+    // (gSaveContext.save.day == 3) && gSaveContext.save.isNight
+    // ```
+    // #### `args`
+    // - None
+    // 2Ship #1972 (Mayor Argues Until Moonfall). Appended rather than sorted in after VB_MAGIC_SPIN_ATTACK_CHECK_FORM
+    // as upstream placed it, so no existing id moves.
+    VB_MAYOR_MEETING_END_ON_FINAL_NIGHT,
 } GIVanillaBehavior;
 
 #endif
