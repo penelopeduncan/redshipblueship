@@ -2417,7 +2417,7 @@ void Settings::CreateOptions() {
               "Removes the requirements for the Lens of Truth in Gerudo Training Ground MQ.");
     OPT_TRICK(RT_GTG_MQ_WITH_HOOKSHOT, RCQUEST_MQ, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::NOVICE },
               "Gerudo Training Ground MQ Left Side Silver Rupees with Hookshot",
-              "The highest Silver Rupee can be obtained by hookshooting the target and then immediately jump slashing "
+              "The highest Silver Rupee can be obtained by hookshotting the target and then immediately jump slashing "
               "toward the Rupee.");
     OPT_TRICK(RT_GTG_MQ_WITHOUT_HOOKSHOT, RCQUEST_MQ, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
               "Gerudo Training Ground MQ Left Side Silver Rupees without Hookshot",
