@@ -17,11 +17,12 @@
  * `MMRT_`, and verified string-for-string against `master` on 2026-09-20 (see
  * TrickIds.h's ATTRIBUTION for what "verified" covered, including the two
  * upstream `\s` escapes transcribed as JavaScript renders them).
- * THREE tooltips carry one appended, parenthesised sentence of OURS (#697):
- * `MMRT_GORON_BOMB_JUMP`, `MMRT_OOB_MOVEMENT` and `MMRT_GBT_FIRELESS`. OoTMM's
+ * EIGHT tooltips carry one appended, parenthesised sentence of OURS (#697,
+ * #1574): `MMRT_GORON_BOMB_JUMP`, `MMRT_OOB_MOVEMENT`, `MMRT_GBT_FIRELESS`,
+ * `MMRT_ZORA_HALL_DOORS`, `MMRT_ESCAPE_CAGE`, `MMRT_GBT_FAIRY2_HOOK`,
+ * `MMRT_KEG_TRIAL_HEATLESS` and `MMRT_GBT_BABA_ENTRY_BOMBCHU`. OoTMM's
  * sentence is kept verbatim in front of it; the addition says what THIS
- * dialect's logic expects where it differs from the OoTMM text (fences want
- * bombs, no Short Hookshot Anywhere, no Adult Link).
+ * dialect's logic expects where it differs from or qualifies the OoTMM text.
  * `MMRT_GBT_BOSS_KEY_ICE` at the end is OURS and its strings are original.
  *
  * EXPLICIT NON-SOURCE: **mm-rando (GPL-3.0)**. Nothing in this file came from
@@ -178,7 +179,8 @@ std::map<MMRandoTrickId, RandoStaticTrick> Tricks = {
          "As either Goron or Zora Link, jump up to the heart piece. Linked playlist has both versions.", NULL),
     MMRT(ZORA_HALL_DOORS, MMRTA_ZORA_HALL, MMRTT_INTERMEDIATE, false,
          "Access the doors in Zora Hall using Short Hookshot Anywhere",
-         "Using Hookshot Anywhere, it is possible to hookshot the bottom of the door through the Zora standing in front, and mash A to open the door. It is somewhat precise but works with all doors.", NULL),
+         "Using Hookshot Anywhere, it is possible to hookshot the bottom of the door through the Zora standing in front, and mash A to open the door. It is somewhat precise but works with all doors."
+         " (Requires Hookshot Anywhere set to Logical.)", NULL),
     MMRT(IKANA_ROOF_PARKOUR, MMRTA_IKANA_CASTLE, MMRTT_NOVICE, false,
          "Jump from Ikana Castle's Roof Interior to Exterior",
          "Jump off of a piece of rubble to a sloped wall, walk up, and jump across the block to the outside of the fence. Walk around the edge to get to the other side.", NULL),
@@ -206,16 +208,18 @@ std::map<MMRandoTrickId, RandoStaticTrick> Tricks = {
     MMRT(OOB_MOVEMENT, MMRTA_GENERAL, MMRTT_NOVICE, false,
          "Walk Along Surfaces Out of Bounds",
          "With this trick enabled, logic may expect you to use Short Hookshot Anywhere to reach normally inaccessible surfaces to get behind the Milk Road Boulder and (with 3 elegy statues) climb Stone Tower."
-         " (In this randomizer, logic never expects Short Hookshot Anywhere. The one place this trick is used is the Pirates' Fortress plaza upper chest, reached as Goron without the Hookshot.)", NULL),
+         " (In this randomizer, the Milk Road boulder and Stone Tower temple routes require Hookshot Anywhere set to Logical; the Pirates' Fortress plaza upper chest is reached as Goron without it.)", NULL),
     MMRT(ST_UPDRAFTS, MMRTA_STONE_TOWER, MMRTT_NOVICE, false,
          "Stone Tower Updrafts without Deku Mask",
          "This room can be traversed using Recoil Flips or Goron Mask instead of Deku Mask.", NULL),
     MMRT(ESCAPE_CAGE, MMRTA_DEKU_PALACE, MMRTT_NOVICE, false,
          "Escape the Monkey Cage with Hookshot Anywhere",
-         "For Interior ER, it is possible to hookshot over the fence and land in a spot where Deku Mask can then be used to leave out the front entrance.", NULL),
+         "For Interior ER, it is possible to hookshot over the fence and land in a spot where Deku Mask can then be used to leave out the front entrance."
+         " (Requires Hookshot Anywhere set to Logical.)", NULL),
     MMRT(GBT_FAIRY2_HOOK, MMRTA_GREAT_BAY_TEMPLE, MMRTT_ADVANCED, false,
          "GBT First Underwater Fairy with Short Hookshot Anywhere",
-         "The first Stray Fairy in a bubble can be obtained with a precise Hookshot angle.", NULL),
+         "The first Stray Fairy in a bubble can be obtained with a precise Hookshot angle."
+         " (Requires Hookshot Anywhere set to Logical.)", NULL),
     MMRT(GBT_CENTRAL_GEYSER, MMRTA_GREAT_BAY_TEMPLE, MMRTT_NOVICE, false,
          "GBT Central Room without Zora using Fire & Ice Arrows or an OoT Magic Spell",
          "Using Fire and Ice Arrows on the water stream above the ladder or an OoT Spell while on the spinning platform, it is possible to sink down during the cutscene, then swim into one of the tunnels.", NULL),
@@ -312,7 +316,8 @@ std::map<MMRandoTrickId, RandoStaticTrick> Tricks = {
          "After beating Great Bay Temple, the door to Evan's Room will no longer be blocked. Use Farore's Wind inside the empty room, reset time so that Evan reappears in his room, and warp back.", "Needs Farore's Wind From Ocarina of Time"),
     MMRT(KEG_TRIAL_HEATLESS, MMRTA_MOUNTAIN_VILLAGE, MMRTT_NOVICE, false,
          "Powder Keg Trial without Thawing Ice using Hookshot Anywhere",
-         "With Hookshot Anywhere, it is possible to hookshot through the little gap in the left bottom corner.", NULL),
+         "With Hookshot Anywhere, it is possible to hookshot through the little gap in the left bottom corner."
+         " (Requires Hookshot Anywhere set to Logical.)", NULL),
     MMRT(KEG_HOOKBUNNY, MMRTA_MILK_ROAD, MMRTT_NOVICE, false,
          "Powder Keg Trial with only Long Hookshot and Bunny Hood",
          "With the Strength 3 for MM and Keg usable by Human Settings enabled; you can carry the keg from Medigoron to the Racetrack Boulder with Long Hookshot via the scarecrows in both areas and throwing the keg up the slopes.", NULL),
@@ -336,7 +341,8 @@ std::map<MMRandoTrickId, RandoStaticTrick> Tricks = {
          "Use a Powder Keg to break Red Boulders. Only relevant with Strengths in MM", NULL),
     MMRT(GBT_BABA_ENTRY_BOMBCHU, MMRTA_GREAT_BAY_TEMPLE, MMRTT_ADVANCED, false,
          "Enter the Bio Baba room by using a precise Bombchu launch.",
-         "By standing next to the Stray Fairy pot, it is possible to get an angle for the Bombchu to crawl along and blow up the Dexihands blocking access.", NULL),
+         "By standing next to the Stray Fairy pot, it is possible to get an angle for the Bombchu to crawl along and blow up the Dexihands blocking access."
+         " (Requires Hookshot Anywhere set to Logical; the Zora Tunic underwater routes are not used yet.)", NULL),
     MMRT(CAPE_LIKE_LIKE_BOMBCHU, MMRTA_ZORA_CAPE, MMRTT_ADVANCED, false,
          "Defeat the waterfall Like Like in Zora Cape by using a precise Bombchu launch.",
          "It is possible to get a precise angle for the Bombchu to crawl along and blow up the Like Like for the Piece of Heart.", NULL),
