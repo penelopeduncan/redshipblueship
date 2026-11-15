@@ -95,6 +95,13 @@ static void RegisterSpeedModifiers() {
         *speedTarget *= GetBunnyHoodRunFactor(player) * GetSpeedModifierFactor(true);
     });
 
+    // Faster running can reach a grotto before scene fade-in ends, breaking entrance. Wait for fade to finish.
+    COND_VB_SHOULD(VB_DOOR_ANA_GRAB_PLAYER, bunnyHoodActive, {
+        if (OoT_gPlayState->transitionTrigger != TRANS_TRIGGER_OFF) {
+            *should = false;
+        }
+    });
+
     // Swim speed multiplied in place. Called per speed z_player scales; bunny hood does not apply underwater.
     COND_VB_SHOULD(VB_PLAYER_MODIFY_SWIM_SPEED, speedModifierActive, {
         [[maybe_unused]] Player* player = va_arg(args, Player*);
