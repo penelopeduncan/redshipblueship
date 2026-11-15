@@ -7451,6 +7451,10 @@ typedef enum {
     RHT_DODONGOS_BOULDER,
     RHT_JABU_BOULDER,
     RHT_SPIRIT_TEMPLE_BOULDER,
+    // rsbs (SoH #7341, adapted): the adult altar's win-condition line under the
+    // frozen combo goal (Hint::GetWinconText). Appended, not at upstream's place.
+    RHT_WINCON_DEFEAT_GANON_HINT,
+    RHT_WINCON_TRIFORCE_PIECES_HINT,
     // MAX
     RHT_MAX,
 } RandomizerHintTextKey;
