@@ -216,6 +216,12 @@
 - **Cross-Game Masks: an Ocarina of Time mask comes off where Majora's Mask takes its own masks off** (issue #1452):
   when a cutscene turns Link human again, on a game over, and when he respawns after falling into a void. At night the
   Spooky Mask now also stands in for the Gibdo Mask with Pamela, her father, the Bomb Shop and the Happy Mask Salesman.
+- **Ocarina of Time grottos with entrances shuffled** (upstream #6529, #6721, #6854, #6888, #7271, #7276), from Ship
+  of Harkinian. Without Swim, voiding out in a grotto's water reloads the grotto, and voiding out in water near a
+  grotto no longer puts Link on the wrong side of its boulder. With grottos shuffled but not mixed or decoupled, a
+  void-out after leaving a grotto returns to the last entrance, not the grotto's exit. Running in the Bunny Hood no
+  longer breaks a grotto reached before the fade-in ends. With Decoupled Entrances on, the Entrance Tracker lists blue
+  warps, and it pairs Ganon's Tower's two entrances as it does other dungeon entrances.
 - **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
 - **A Majora's Mask stray fairy found in Ocarina of Time is animated** (issue #1165). It was drawn frozen in one pose.
@@ -227,12 +233,6 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
-- **Ocarina of Time grottos with entrances shuffled** (upstream #6529, #6721, #6854, #6888, #7271, #7276), from Ship
-  of Harkinian. Without Swim, voiding out in a grotto's water reloads the grotto, and voiding out in water near a
-  grotto no longer puts Link on the wrong side of its boulder. With grottos shuffled but not mixed or decoupled, a
-  void-out after leaving a grotto returns to the last entrance, not the grotto's exit. Running in the Bunny Hood no
-  longer breaks a grotto reached before the fade-in ends. With Decoupled Entrances on, the Entrance Tracker lists blue
-  warps, and it pairs Ganon's Tower's two entrances as it does other dungeon entrances.
 
 ### Trackers
 
