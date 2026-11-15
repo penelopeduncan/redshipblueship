@@ -595,7 +595,7 @@ void RegionTable_Init_WaterTemple() {
     }, {
         //Exits
         //Child can enter the water without jumping to have just enough time to make it with just swim, but it's a trick
-        Entrance(RR_WATER_TEMPLE_ABOVE_DRAGON, []{return logic->CanHitEyeTargets() && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_HOOKSHOT));}),
+        Entrance(RR_WATER_TEMPLE_ABOVE_DRAGON, []{return logic->CanHitEyeTargets() && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_HOOKSHOT) || logic->BunnyHood());}),
         Entrance(RR_WATER_TEMPLE_RIVER,        []{return logic->CanUse(RG_IRON_BOOTS) && logic->HasItem(RG_BRONZE_SCALE);}),
     });
 
@@ -739,7 +739,7 @@ void RegionTable_Init_WaterTemple() {
         //Exits
         Entrance(RR_WATER_TEMPLE_MQ_2F_CENTRAL_A,     []{return true;}),
         Entrance(RR_WATER_TEMPLE_MQ_PILLAR_2F,        []{return true;}),
-        Entrance(RR_WATER_TEMPLE_MQ_HIDDEN_SWITCH_2F, []{return (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS)) && logic->CanUse(RG_HOOKSHOT) && logic->HasItem(RG_POWER_BRACELET);}),
+        Entrance(RR_WATER_TEMPLE_MQ_HIDDEN_SWITCH_2F, []{return (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && logic->CanUse(RG_HOOKSHOT) && logic->HasItem(RG_POWER_BRACELET);}),
         Entrance(RR_WATER_TEMPLE_MQ_LIZALFOS_LOOP_LM, []{return logic->CanUse(RG_HOVER_BOOTS);}),
     });
 

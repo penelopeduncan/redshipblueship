@@ -185,7 +185,10 @@
  *     heart, Fire SoT cage, Forest block-push alcove and Ganon's Shadow Trial with
  *     a sword, GTG MQ platforms, Ice Cavern block room, Jabu MQ lift room under
  *     RT_UNINTUITIVE_JUMPS, Shadow MQ spikes, Spirit GS ledge, Water Like Like
- *     spikes, and MQSpiritStatueToSunBlock with the bracelet).
+ *     spikes, MQSpiritStatueToSunBlock with the bracelet, the Deku MQ compass-room
+ *     boulder with Boomerang and bombs, the DC MQ lobby's lower-right mud wall with
+ *     Goron's Bracelet and its bomb-flower ground jump, and Water's river pots to
+ *     above the dragon with the slingshot).
  *  OW. The same pairs in Kakariko (backyard), the graveyard (Dampe's race), Death
  *     Mountain Trail (chest with Goron's Bracelet), Zora's Domain (island exit with
  *     Climb, closed without it) and Zora's River (ladder top to pillar); the Lake
@@ -1322,6 +1325,22 @@ void BhlAs(bool adult, RandomizerRegion region) {
     logic->CurrentRegionKey = region;
 }
 
+/** BhlExitOffOn for an exit whose lambda asks AnyAgeTime: the region holds the child's access for the probe. */
+void BhlExitOffOnAsChild(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                         RandomizerRegion from, RandomizerRegion to) {
+    Region* region = RegionTable(from);
+    const bool saved[4] = { region->childDay, region->childNight, region->adultDay, region->adultNight };
+    region->childDay = true;
+    region->childNight = true;
+    region->adultDay = false;
+    region->adultNight = false;
+    BhlExitOffOn(randoCtx, legOff, legOn, from, to);
+    region->childDay = saved[0];
+    region->childNight = saved[1];
+    region->adultDay = saved[2];
+    region->adultNight = saved[3];
+}
+
 void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     uint8_t savedTricks[sizeof(kBhlForcedTricks) / sizeof(kBhlForcedTricks[0])];
     for (size_t i = 0; i < sizeof(kBhlForcedTricks) / sizeof(kBhlForcedTricks[0]); i++) {
@@ -1390,6 +1409,37 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectFlag("BL28 MQSpiritStatueToSunBlock, child with bracelet and hood, no ocarina, setting on",
                logic->MQSpiritStatueToSunBlock(), true, "the child's hood jump to the sun block is not in logic");
     logic->CurrentRegionKey = RR_NONE;
+    // Deku MQ compass-room boulder: Boomerang and bombs, the hood in place of the Song of Time. Bombchu drops
+    // are held off so the bomb bag cannot answer through bombchus.
+    const uint8_t savedChuDrops = randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Get();
+    randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(RO_AMMO_DROPS_OFF);
+    ResetLogicWithBunnyHood();
+    Give(RG_BOOMERANG);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    BhlCheckOffOn(randoCtx, "BL29 Deku MQ compass room boulder, child with Boomerang, bombs and hood, setting off",
+                  "BL30 Deku MQ compass room boulder, child with Boomerang, bombs and hood, setting on",
+                  RR_DEKU_TREE_MQ_COMPASS_ROOM, RC_DEKU_TREE_MQ_BOULDER_1);
+    randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(savedChuDrops);
+    // DC MQ lobby: Goron's Bracelet and the hood past the lower-right mud wall (an AnyAgeTime exit).
+    ResetLogicWithBunnyHood();
+    GiveGoronsBracelet();
+    BhlExitOffOnAsChild(randoCtx,
+                        "BL31 DC MQ lobby to lower right side, child with Goron's Bracelet and hood, setting off",
+                        "BL32 DC MQ lobby to lower right side, child with Goron's Bracelet and hood, setting on",
+                        RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_LOWER_RIGHT_SIDE);
+    // DC MQ lobby: the bomb-flower ground jump the hood stands in for RT_GROUND_JUMP_HARD in.
+    Give(RG_DEKU_SHIELD);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(1);
+    BhlExitOffOn(randoCtx, "BL33 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, off",
+                 "BL34 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, on",
+                 RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(0);
+    // Water river pots to above the dragon: the slingshot and the hood.
+    ResetLogicWithBunnyHood();
+    GiveSlingshot();
+    BhlExitOffOn(randoCtx, "BL35 Water river pots to above the dragon, child with slingshot and hood, setting off",
+                 "BL36 Water river pots to above the dragon, child with slingshot and hood, setting on",
+                 RR_WATER_TEMPLE_RIVER_POTS, RR_WATER_TEMPLE_ABOVE_DRAGON);
 
     // ---- OW: the overworld terms -----------------------------------------------
     ResetLogicWithBunnyHood();
@@ -1401,7 +1451,8 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                   "OW4 Dampe race Piece of Heart, child with the hood and nut, setting on", RR_GRAVEYARD_DAMPES_GRAVE,
                   RC_GRAVEYARD_DAMPE_RACE_FREESTANDING_POH);
     ResetLogicWithBunnyHood();
-    Give(RG_PROGRESSIVE_STRENGTH);
+    // The first Progressive Strength is the grab (ResetLogic withholds it), the second Goron's Bracelet.
+    GiveGoronsBracelet();
     logic->SetRandoInf(RAND_INF_CAN_OPEN_CHEST, true);
     BhlCheckOffOn(randoCtx, "OW5 DMT chest, child with Goron's Bracelet and the hood, no trick, setting off",
                   "OW6 DMT chest, child with Goron's Bracelet and the hood, no trick, setting on",

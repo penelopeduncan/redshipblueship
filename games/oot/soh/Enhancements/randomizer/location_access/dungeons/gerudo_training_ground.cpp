@@ -165,13 +165,13 @@ void RegionTable_Init_GerudoTrainingGround() {
         //Locations
         LOCATION(RC_GTG_NEAR_SWITCH_LAVA_SILVER,      true),
         LOCATION(RC_GTG_NEAR_BARRED_DOOR_LAVA_SILVER, true),
-        LOCATION(RC_GTG_FIRE_RING_LAVA_SILVER,        logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild),
-        LOCATION(RC_GTG_UNDER_LEDGE_LAVA_SILVER,      logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild),
+        LOCATION(RC_GTG_FIRE_RING_LAVA_SILVER,        logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild),
+        LOCATION(RC_GTG_UNDER_LEDGE_LAVA_SILVER,      logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild),
     }, {
         //Exits
         Entrance(RR_GERUDO_TRAINING_GROUND_DINALFOS,              []{return true;}),
         Entrance(RR_GERUDO_TRAINING_GROUND_CENTRAL_MAZE_RIGHT,    []{return logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild;}),
-        Entrance(RR_GERUDO_TRAINING_GROUND_LAVA_ROOM_UPPER_LEDGE, []{return logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOOKSHOT) && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild || (logic->IsAdult && ctx->GetTrickOption(RT_GTG_LAVA_JUMP)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->CanUse(RG_BOMB_BAG) && logic->TakeDamage())));}),
+        Entrance(RR_GERUDO_TRAINING_GROUND_LAVA_ROOM_UPPER_LEDGE, []{return logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOOKSHOT) && (logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild || (logic->IsAdult && ctx->GetTrickOption(RT_GTG_LAVA_JUMP)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->CanUse(RG_BOMB_BAG) && logic->TakeDamage())));}),
         Entrance(RR_GERUDO_TRAINING_GROUND_UNDERWATER,            []{return logic->HasItem(RG_GTG_SILVER_LAVA);}),
     });
 
@@ -181,7 +181,7 @@ void RegionTable_Init_GerudoTrainingGround() {
         LOCATION(RC_GTG_UNDER_LEDGE_LAVA_SILVER, true),
     }, {
         //Exits
-        Entrance(RR_GERUDO_TRAINING_GROUND_LAVA_ROOM,   []{return logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild || (logic->IsAdult && ctx->GetTrickOption(RT_GTG_LAVA_JUMP)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->CanUse(RG_BOMB_BAG) && logic->TakeDamage());}),
+        Entrance(RR_GERUDO_TRAINING_GROUND_LAVA_ROOM,   []{return logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild || (logic->IsAdult && ctx->GetTrickOption(RT_GTG_LAVA_JUMP)) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->CanUse(RG_BOMB_BAG) && logic->TakeDamage());}),
         Entrance(RR_GERUDO_TRAINING_GROUND_HAMMER_ROOM, []{return true;}),
     });
 

@@ -299,11 +299,11 @@ void RegionTable_Init_DodongosCavern() {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_BEGINNING,         []{return true;}),
         Entrance(RR_DODONGOS_CAVERN_MQ_GOSSIP_STONE,      []{return AnyAgeTime([]{return logic->CanBreakMudWalls() || logic->HasItem(RG_GORONS_BRACELET);});}),
-        Entrance(RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanGroundJump(!!ctx->GetTrickOption(RT_GROUND_JUMP_HARD));}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanGroundJump((ctx->GetTrickOption(RT_GROUND_JUMP_HARD) || logic->BunnyHood()));}),
         Entrance(RR_DODONGOS_CAVERN_MQ_MOUTH_SIDE_BRIDGE, []{return AnyAgeTime([]{return logic->BlastOrSmash() || logic->HasItem(RG_GORONS_BRACELET);});}),
         Entrance(RR_DODONGOS_CAVERN_MQ_STAIRS_LOWER,      []{return AnyAgeTime([]{return logic->BlastOrSmash() || logic->HasItem(RG_GORONS_BRACELET);});}),
         //We can skip bunny here as adult, but it's tight, should probably be a trick
-        Entrance(RR_DODONGOS_CAVERN_MQ_LOWER_RIGHT_SIDE,  []{return AnyAgeTime([]{return logic->CanBreakMudWalls();});}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_LOWER_RIGHT_SIDE,  []{return AnyAgeTime([]{return logic->CanBreakMudWalls() || (logic->HasItem(RG_GORONS_BRACELET) && logic->BunnyHood());});}),
         Entrance(RR_DODONGOS_CAVERN_MQ_BEHIND_MOUTH,      []{return logic->Get(LOGIC_DC_EYES_LIT);}),
     });
 
