@@ -3761,6 +3761,8 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the mask as a child's explosive only under the rule. ROM-free.
     redship_add_test(NAME BlastMaskOoTRule COMMAND redship --test blast-mask-oot-rule)
     redship_add_test(NAME BlastMaskOoTItems COMMAND redship --test blast-mask-oot-items)
+    redship_add_test(NAME BlastMaskOoTSpawn COMMAND redship --test blast-mask-oot-spawn)
+    redship_add_test(NAME BlastMaskOoTShrubGuardHouse COMMAND redship --test blast-mask-oot-shrub-guardhouse)
     # THE STONE MASK IN OCARINA OF TIME (#979, epic #975 P4's second mask; OoTMM
     # stoneMaskOot, sharedMaskStone): the two Cross-Game Rules keys (off by
     # default, the shared one only with its extension, restored at load in OoTMM's
