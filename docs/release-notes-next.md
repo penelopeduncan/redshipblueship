@@ -174,6 +174,10 @@
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.
+- **The Temple of Time altar names the goal** (Ship of Harkinian #7341). As an adult, the altar's text now ends with
+  the goal of a world whose goal is Beat Ocarina of Time ("the Triforce will be granted once the evil one is
+  defeated") or Triforce Hunt (how many Triforce Pieces both games together need). With any other goal the altar
+  reads as before.
 
 ### Cross-game songs
 

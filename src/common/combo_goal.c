@@ -167,3 +167,26 @@ int Combo_GoalOnTriforceHuntCompleted(GameId game, int liveTriforcePieces) {
             (unsigned)gComboCtx.comboSettings.goal, Combo_GoalEndingName(ending));
     return ending;
 }
+
+int Combo_GoalAltarLine(uint16_t* outRequired) {
+    if (outRequired != NULL) {
+        *outRequired = 0u;
+    }
+    if (!Combo_GoalArmed()) {
+        return RSBS_GOAL_ALTAR_LINE_NONE;
+    }
+    switch (gComboCtx.comboSettings.goal) {
+        case RSBS_COMBO_GOAL_BEAT_OOT:
+            return RSBS_GOAL_ALTAR_LINE_DEFEAT_GANON;
+        case RSBS_COMBO_GOAL_TRIFORCE_HUNT:
+            if (!Combo_TriforceHuntArmed()) {
+                return RSBS_GOAL_ALTAR_LINE_NONE;
+            }
+            if (outRequired != NULL) {
+                *outRequired = Combo_TriforceHuntRequired();
+            }
+            return RSBS_GOAL_ALTAR_LINE_TRIFORCE_PIECES;
+        default:
+            return RSBS_GOAL_ALTAR_LINE_NONE;
+    }
+}
