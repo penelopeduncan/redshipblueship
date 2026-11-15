@@ -160,6 +160,10 @@
   as in OoTMM. A shuffled Ocarina of Time shelf that will sell its item again drops the "Special deal! ONE LEFT!" line,
   and a shelf that sells out keeps it. A shelf that sold a bottle of red, green or blue potion or of milk sells the
   refill afterwards. Logic counts a restocking shelf as a place to buy that item again.
+- **Ocarina of Time logic fixes from Ship of Harkinian** (SoH #7417, #7396). With Shuffle Grass on, an adult riding
+  Epona can cut the Lake Hylia grass. With Shuffle Rocks on, the rocks across the Gerudo Valley bridge need something
+  that breaks or lifts them. In Master Quest Ganon's Castle, the Fire Trial's last room leads back to the barred-door
+  side of the lava. Worlds made with the defaults do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.
