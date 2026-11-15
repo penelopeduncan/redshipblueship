@@ -595,6 +595,10 @@ int RandoTest_EntrancePinGenerated(void);
 // either slider order. ROM-free and display-free; body in
 // games/oot/soh/oot_price_range_test.cpp. Return 0 on pass.
 int OoTTest_PriceRangeMinimum(void);
+// SoH #7383 (backport O35): the Save Editor's player-name encode and decode round-trip every
+// character and code the PAL and NTSC tables cover, and a language change keeps the name. ROM-free and
+// display-free; body in games/oot/soh/oot_save_editor_name_test.cpp. Return 0 on pass.
+int OoTTest_SaveEditorNameEncoding(void);
 // #1420: Ship of Harkinian's tracker fixes in the unified tracker's OoT pane (the
 // tower chest under Triforce Hunt, where Available Checks starts, the credits item
 // pane, entrance names, the pause screen's list). ROM-free; the display-free shared
@@ -1605,6 +1609,12 @@ static TestResult Test_OoTEntrancePin(void) {
 // games/oot/soh/oot_price_range_test.cpp. Display-free and ROM-free.
 static TestResult Test_OoTPriceRangeMinimum(void) {
     return OoTTest_PriceRangeMinimum() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH #7383 (see the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_save_editor_name_test.cpp. Display-free and ROM-free.
+static TestResult Test_OoTSaveEditorNameEncoding(void) {
+    return OoTTest_SaveEditorNameEncoding() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #948 (see the extern decl above). Thin wrapper over the C entry point in
@@ -10768,6 +10778,11 @@ const TestDescriptor gTests[] = {
     { "oot-price-range-minimum",
       "A Range price setting's tracker minimum is min(range 1, range 2) * 5 in either slider order (#999)",
       Test_OoTPriceRangeMinimum },
+    // SoH #7383: display-free and ROM-free; calls two pure functions and touches no state.
+    { "oot-save-editor-name-encoding",
+      "The Save Editor's player-name encoding round-trips the PAL and NTSC tables and keeps a name across a "
+      "language change (SoH #7383)",
+      Test_OoTSaveEditorNameEncoding },
     // #1420: ROM-free over a heap rando Context and the region graph; puts back every
     // key, option and save field it changes.
     { "oot-tracker-soh-fixes",

@@ -227,6 +227,9 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **Ocarina of Time's Save Editor keeps the player name when you change Player Name Language** (SoH #7383), from Ship
+  of Harkinian. The name used to turn into other characters because only the language changed; now each letter,
+  digit, space, hyphen and full stop is rewritten in the new encoding. Japanese characters become spaces.
 
 ### Trackers
 

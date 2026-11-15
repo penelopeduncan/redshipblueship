@@ -1935,6 +1935,14 @@ if(BUILD_TESTING)
     # only the rando Context.
     redship_add_test(NAME OoTPriceRangeMinimum COMMAND redship --test oot-price-range-minimum)
 
+    # SoH #7383 (backport O35): the Save Editor's player name is eight characters in
+    # the game's PAL or NTSC encoding. The row round-trips every character and code
+    # the two tables cover through decodePlayerNameChar / encodePlayerNameChar
+    # (debugSaveEditor.cpp) and holds the Player Name Language change, which now
+    # re-encodes the name instead of leaving its bytes to read as other characters.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorNameEncoding COMMAND redship --test oot-save-editor-name-encoding)
+
     # #1420 (SFX-26): Ship of Harkinian's tracker fixes, which reach the unified
     # Check Tracker through its OoT pane. The Locations exclusion list offers the
     # Ganon's Tower boss key chest under Triforce Hunt (OoT's own or the [Both
