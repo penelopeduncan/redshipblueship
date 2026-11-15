@@ -1349,6 +1349,10 @@ if(BUILD_TESTING)
     # MM sequence replacement (W6-AUDIO-SEQ, #1239): MM's lookup answers from MM's namespaced replacement keys, a
     # colliding sfxKey under SoH's spelling leaves MM alone, and SoH's randomize combobox reaches MM's hooks. ROM-free.
     redship_add_test(NAME MMAudioEditorReplacement COMMAND redship --test mm-audio-editor-replacement)
+    # SoH Audio Editor backport O12 (SoH #5685, #6608, #7372): the missing music rows (Seal of Six Sages, the
+    # Ending group, Hyrule Field Morning), the Ending group's authentic count, and a row set to "None" answering
+    # NA_BGM_DISABLED from the replacement lookup. ROM-free.
+    redship_add_test(NAME OoTAudioEditorEntries COMMAND redship --test oot-audio-editor-entries)
     # OoT pause-menu item age table bounds (#983). OoT_Play_Init writes
     # gItemAgeReqs[ITEM_ROCS_FEATHER] (0x9C) and the pause menu reads it, but
     # the table held the 86 vanilla entries. Asserts the count the defining TU

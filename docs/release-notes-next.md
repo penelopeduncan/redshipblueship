@@ -268,6 +268,10 @@
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
   generated with it off. The same seed and settings make the same world as before.
+- **Ocarina of Time Audio Editor: the missing music, and None** (upstream #5685, #7372). A new Ending tab holds the
+  Ocarina of Time ending piece and End Credits I to IV, Hyrule Field Morning Theme and Seal of Six Sages are fanfares
+  you can replace, and the two pieces that were named the wrong way round now carry their right names. A Background
+  Music, Sound Effects or Voices row can be set to None, which plays nothing there.
 
 ---
 
