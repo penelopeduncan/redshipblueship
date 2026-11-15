@@ -11603,7 +11603,8 @@ const TestDescriptor gTests[] = {
     { "oot-shuffle-silver",
       "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and greyed out, a default world's "
       "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
-      "logic reads each silver rupee item's own event while it is off (#1363)",
+      "logic reads each silver rupee item's own event while it is off (#1363), and the Spirit boulder silver checks "
+      "carry their corrected names (#1589)",
       Test_OoTShuffleSilver },
     // #1405. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-shuffle-wonder-items",

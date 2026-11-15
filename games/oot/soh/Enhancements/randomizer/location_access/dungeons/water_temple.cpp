@@ -253,7 +253,7 @@ void RegionTable_Init_WaterTemple() {
     }, {
         //Locations                                           //we can always get the pots by shooting them from afar and diving for the item...
         LOCATION(RC_WATER_TEMPLE_BASEMENT_BLOCK_PUZZLE_POT_1, (logic->CanBreakPots(ED_LONGSHOT, true, true) && logic->HasItem(RG_BRONZE_SCALE)) ||
-                                                              //or we can use irons and hookshot the pot, hookshoting to the target door if needed to cross the gap
+                                                              //or we can use irons and hookshot the pot, hookshotting to the target door if needed to cross the gap
                                                               (logic->CanUse(RG_IRON_BOOTS) && logic->CanUse(RG_HOOKSHOT) && logic->WaterTimer() >= 8)),
         LOCATION(RC_WATER_TEMPLE_BASEMENT_BLOCK_PUZZLE_POT_2, (logic->CanBreakPots(ED_LONGSHOT, true, true) && logic->HasItem(RG_BRONZE_SCALE)) ||
                                                               (logic->CanUse(RG_IRON_BOOTS) && logic->CanUse(RG_HOOKSHOT) && logic->WaterTimer() >= 8)),

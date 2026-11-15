@@ -703,7 +703,7 @@ void RegionTable_Init_ForestTemple() {
         LOCATION(RC_FOREST_TEMPLE_MQ_RAISED_ISLAND_COURTYARD_LOWER_CHEST, logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
-        //Skipping swim here is non-trival, needs a roll-jump. If a swim lock is added it's probably wise to copy deku baba events here
+        //Skipping swim here is non-trivial, needs a roll-jump. If a swim lock is added it's probably wise to copy deku baba events here
         Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD,                    []{return true;}),
         Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD_LEDGE_ABOVE_ISLAND, []{return logic->CanUse(RG_SONG_OF_TIME);}),
     });
