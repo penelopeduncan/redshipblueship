@@ -76,6 +76,13 @@
  * process with no Randomizer (the ROM-free rows) a RandomizerInf flag resolves
  * to nothing. Display only: a vanilla file gives nothing through these
  * statuses.
+ *
+ * A PENDING CROSSING HOST IS NEVER PROMOTED TO FOUND (#1635). An OoT host of an
+ * MM item that the newest commit marks pending (gComboCtx.crossingPendingOoT:
+ * queued or held, its outbox row never written) has its flag set and its item
+ * not delivered. Reading it SAVED would tell the drain it was delivered; the
+ * load restore (OoT_Rando_Foreign_RestoreHolds, from OnLoadGame) queues it
+ * instead.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -87,6 +94,8 @@
 #include "soh/Enhancements/randomizer/static_data.h"
 #include "soh/Enhancements/randomizer/location.h"
 #include "soh/Enhancements/randomizer/item_location.h"
+
+#include "foreign_items.h" // src/common: the crossing pending set (#1635)
 
 extern "C" {
 #include <z64.h>
@@ -242,6 +251,9 @@ extern "C" int OoT_Combo_ReconcileCheckStateToLoadedHalf(const SaveContext* desc
                 isSet == itemLoc->HasObtained() || !(rando ? HooksResolveTo(rc, f) : TrackerResolvesTo(rc, f))) {
                 continue;
             }
+            if (isSet && rando && Combo_CrossingPendingOoT_Test((uint16_t)rc)) {
+                continue; // #1635: pending, so not delivered (see the file comment)
+            }
             if (isSet) {
                 itemLoc->SetCheckStatus(RCSHOW_SAVED);
                 found++;
@@ -263,6 +275,29 @@ extern "C" int OoT_Combo_ReconcileCheckStateToLoadedHalf(const SaveContext* desc
         *outNotFound = notFound;
     }
     return found + notFound;
+}
+
+/**
+ * #1635: whether OoT check `rc`'s own collection flag (the one its flag-set hook
+ * queues it by, CollectionFlagIn above) is set in `save`: 1 set, 0 unset, -1
+ * when no save half holds that flag (a temporary collectible flag, a check with
+ * no flag) or `rc` is not a location. The load restore reads the live save with
+ * it (ForeignItemsSingleExe.cpp, OoT_Rando_Foreign_RestoreHolds).
+ */
+extern "C" int OoT_Combo_CollectionFlagSetIn(const SaveContext* save, uint16_t rc) {
+    if (save == nullptr || rc == 0 || rc >= (uint16_t)RC_MAX) {
+        return -1;
+    }
+    const Rando::Location* loc = Rando::StaticData::GetLocation((RandomizerCheck)rc);
+    if (loc == nullptr) {
+        return -1;
+    }
+    CollectionFlag f{};
+    bool set = false;
+    if (!CollectionFlagIn(*save, *loc, save->ship.quest.id == QUEST_RANDOMIZER, &f, &set)) {
+        return -1;
+    }
+    return set ? 1 : 0;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

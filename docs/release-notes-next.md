@@ -278,6 +278,10 @@
   camera places Link and turns him with it again, so the crawlspace glitch behaves as it does on the original game.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **A Majora's Mask item found in Ocarina of Time is not lost if you quit before it is sent** (issue #1635). An item
+  waiting for the item queue (while Link carries something or a cutscene plays) or held for a full outbox is sent after
+  you reload. Quitting without saving also keeps the chests and pickups taken in the current scene, as it already kept
+  everything else, so such a chest is no longer opened a second time.
 - **Ocarina of Time's Save Editor keeps the player name when you change Player Name Language** (SoH #7383), from Ship
   of Harkinian. The name used to turn into other characters because only the language changed; now each letter,
   digit, space, hyphen and full stop is rewritten in the new encoding. Japanese characters become spaces.

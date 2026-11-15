@@ -169,6 +169,7 @@ games/oot/soh/soh_twoship_import_test.cpp
 games/oot/soh/z_scene_otr.cpp
 games/oot/soh/oot_scene_flag_freeze_test.cpp
 games/oot/soh/oot_check_state_load_test.cpp
+games/oot/soh/oot_foreign_hold_quit_test.cpp
 games/oot/soh/oot_deku_theater_prize_test.cpp
 games/oot/soh/oot_has_item_fold_test.cpp
 games/oot/soh/oot_shuffled_fairy_test.cpp
@@ -289,6 +290,7 @@ games/oot/soh/oot_abandoned_session_test.cpp
 games/oot/soh/oot_settings_fold_test.cpp
 games/oot/soh/oot_scrub_text_hint_test.cpp
 games/mm/2s2h/mm_creation_new_file_test.cpp
+games/mm/2s2h/mm_foreign_hold_quit_test.cpp
 games/oot/soh/SohGui/SohMenuComboMmRandomizer.cpp
 games/oot/soh/soh_menu_mm_randomizer_pages_test.cpp
 games/oot/soh/soh_notification_fit_test.cpp

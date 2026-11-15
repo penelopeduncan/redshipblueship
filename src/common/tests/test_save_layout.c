@@ -102,6 +102,8 @@ TestResult Test_SaveLayoutPins(void) {
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_OOT_WARPS, offsetof(ComboContext, comboOoTWarps), mismatches); // XW7
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_FAMILY_OWNED2, offsetof(ComboContext, sharedFamilyOwned2),
                            mismatches); // XW10
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_CROSSING_PENDING_OOT, offsetof(ComboContext, crossingPendingOoT),
+                           mismatches); // #1635
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext), mismatches);
     // Tiers 2 and 3: the games' own TUs.
     mismatches += OoT_SaveLayout_ReportPins();

@@ -318,6 +318,11 @@ void RandomizerOnFlagSetHandler(int16_t flagType, int16_t flag) {
 
     SPDLOG_INFO("Queuing RC: {}", static_cast<uint32_t>(rc));
     randomizerQueuedChecks.push(rc);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1635: the host's flag is in the save from now on; a host of an MM item
+    // is pending until its outbox row is written, so a quit keeps it.
+    (void)OoT_Rando_Foreign_NotePending((uint16_t)rc); // flag hook
+#endif
 }
 
 void RandomizerOnSceneFlagSetHandler(int16_t sceneNum, int16_t flagType, int16_t flag) {
@@ -386,6 +391,12 @@ void RandomizerOnSceneFlagSetHandler(int16_t sceneNum, int16_t flagType, int16_t
 
     SPDLOG_INFO("Queuing RC: {}", static_cast<uint32_t>(rc));
     randomizerQueuedChecks.push(rc);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1635: as RandomizerOnFlagSetHandler above. A chest's flag reaches the save
+    // at the next scene change, save or crossing, and the quit snapshot flushes
+    // it too (SaveManager.cpp, OoT_Combo_StageExitSnapshot).
+    (void)OoT_Rando_Foreign_NotePending((uint16_t)rc); // scene-flag hook
+#endif
 }
 
 static Vec3f spawnPos = { 0.0f, -999.0f, 0.0f };
@@ -546,6 +557,30 @@ extern "C" int OoT_Rando_Foreign_PlaytestQueueCheck(uint16_t rc) {
     return 1;
 }
 
+// #1635: what OnLoadGame does to the drain's queues. The previous file's queue,
+// give slot and RAM holds are dropped, then the loaded file's pending crossing
+// hosts whose own flag the loaded save holds go back on the queue
+// (OoT_Rando_Foreign_RestoreHolds), so a host held or queued at a quit is given
+// after the reload. Returns how many it queued.
+static int RandomizerResetQueuesForLoad() {
+    randomizerQueuedChecks = std::queue<RandomizerCheck>();
+    randomizerQueuedCheck = RC_UNKNOWN_CHECK;
+    randomizerQueuedItemEntry = GET_ITEM_NONE;
+    sGiveAttemptsCheck = RC_UNKNOWN_CHECK; // #1204: a new file starts its own count
+    sGiveAttempts = 0;
+    static uint16_t sRestored[RSBS_CROSSING_PENDING_OOT_CAP];
+    const int restored = OoT_Rando_Foreign_RestoreHolds(sRestored, (int)RSBS_CROSSING_PENDING_OOT_CAP);
+    for (int i = 0; i < restored; i++) {
+        randomizerQueuedChecks.push((RandomizerCheck)sRestored[i]);
+    }
+    return restored;
+}
+
+// TEST BRIDGE (foreign-hold-survives-quit-oot, #1635): OnLoadGame's queue reset.
+extern "C" int OoT_Rando_TestResetQueuesForLoad(void) {
+    return RandomizerResetQueuesForLoad();
+}
+
 // TEST BRIDGE (oot-check-state-load, #849/#803): empty the queue the flag-set
 // hooks above feed, writing up to `cap` of its checks to `out` in queue order.
 // Returns how many were queued.
@@ -674,6 +709,9 @@ void RandomizerOnPlayerUpdateForRCQueueHandler() {
         SPDLOG_INFO("Foreign (MM) item recorded from RC {}", static_cast<uint32_t>(rc));
         randomizerQueuedChecks.pop();
         return;
+    }
+    if (foreignItem != nullptr && loc->HasObtained()) {
+        Combo_CrossingPendingOoT_Clear((uint16_t)rc); // #1635: delivered already, nothing pending
     }
 #endif
 
@@ -3328,13 +3366,14 @@ static void RandomizerRegisterHooks() {
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnLoadGame>([](int32_t fileNum) {
         ShipInit::Init("IS_RANDO");
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1204, #1222, #1635: the previous file's queues go, the loaded file's
+        // pending crossing hosts come back.
+        (void)RandomizerResetQueuesForLoad();
+#else
         randomizerQueuedChecks = std::queue<RandomizerCheck>();
         randomizerQueuedCheck = RC_UNKNOWN_CHECK;
         randomizerQueuedItemEntry = GET_ITEM_NONE;
-#ifdef RSBS_SINGLE_EXECUTABLE
-        sGiveAttemptsCheck = RC_UNKNOWN_CHECK; // #1204: a new file starts its own count
-        sGiveAttempts = 0;
-        OoT_Rando_Foreign_ClearHolds(); // #1222: a check held in one file is not the next file's
 #endif
 
         GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnFlagSet>(onFlagSetHook);

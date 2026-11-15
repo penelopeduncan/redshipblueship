@@ -43,9 +43,11 @@
  *  W while the rows stay full nothing is handed back;
  *  R with one row redeemed the held check is handed back once
  *    (OoT_Rando_Foreign_TakeReleasedHolds) and its record then succeeds.
- *  C A FILE LOAD FORGETS THE HOLDS (OoT_Rando_Foreign_ClearHolds, called where
- *    OnLoadGame resets the drain's queue): a check held in one file is never
- *    handed to the next file's drain once that file has room.
+ *  C A FILE LOAD FORGETS THE HOLDS (OoT_Rando_Foreign_RestoreHolds, called where
+ *    OnLoadGame resets the drain's queue, #1635): a check held in one file is
+ *    never handed to the next file's drain once that file has room. (What a
+ *    load hands back is the loaded file's own pending set, which this row's
+ *    pinned-table hosts never enter; foreign-hold-survives-quit-oot locks it.)
  *
  * The MM row is wrapped in test_runner.cpp (Test_ForeignOutboxFullMM): the shop
  * leg's toast reaches the overlay's Emit, which reads the CVar store, so the row
@@ -303,7 +305,7 @@ TestResult Test_ForeignOutboxFullOoT(void) {
     // ---- C: a file load forgets the holds ----------------------------------------
     // The record above took the freed row, so every row is un-redeemed again.
     const int heldOther = OoT_Rando_Foreign_HoldPickup(kOoTOtherHost);
-    OoT_Rando_Foreign_ClearHolds(); // OnLoadGame: the player left for file select and loaded a file
+    (void)OoT_Rando_Foreign_RestoreHolds(nullptr, 0); // OnLoadGame: the player left for file select and loaded a file
     gComboCtx.sharedItemsTagged[1].flags |= RSBS_SHARED_ITEM_REDEEMED; // the loaded file has room
     std::memset(released, 0, sizeof(released));
     const int releasedAfterLoad = OoT_Rando_Foreign_TakeReleasedHolds(released, 4);

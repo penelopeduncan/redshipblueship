@@ -817,10 +817,49 @@ TestResult Test_SaveComboLegacyRecord(void) {
     SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v6 Tier-1 record with the second family word");
     SAVE_ASSERT(gComboCtx.sharedFamilyOwned2 == 0x00003F80u, "the second family word did not read back 00003F80");
 
+    // #1635 (layout revision 5): a revision-4 record ends at
+    // offsetof(ComboContext, crossingPendingOoT). It loads the pending set empty,
+    // nothing pending, whatever the live context held, while the second family
+    // word just ahead of it still lands. Catches the set not zero-extending (the
+    // scribble survives) and a member inserted ahead of it (the word moves).
+    SaveTestSeed(tag);
+    gComboCtx.saveWatermark.layoutRevision = 4u; // what a revision-4 build stamped
+    gComboCtx.sharedFamilyOwned2 = 0x00001F80u;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_MIN,
+                                         (uint32_t)offsetof(ComboContext, crossingPendingOoT)),
+                "could not write the short v6 slot file that ends before the crossing pending set");
+    std::memset(gComboCtx.crossingPendingOoT, 0xA5, sizeof(gComboCtx.crossingPendingOoT));
+    gComboCtx.sharedFamilyOwned2 = 0u;
+    SAVE_ASSERT(mgr.Load(0), "Load refused a v6 Tier-1 record written before the crossing pending set");
+    bool pendingEmpty = true;
+    for (size_t i = 0; i < sizeof(gComboCtx.crossingPendingOoT); i++) {
+        pendingEmpty = pendingEmpty && gComboCtx.crossingPendingOoT[i] == 0u;
+    }
+    SAVE_ASSERT(pendingEmpty,
+                "a v6 Tier-1 record written before the crossing pending set did not load it empty (nothing pending)");
+    SAVE_ASSERT(gComboCtx.sharedFamilyOwned2 == 0x00001F80u,
+                "the second family word just ahead of the crossing pending set did not load from the short v6 record");
+
+    // ... and a full-length record carries it: its first and last bytes read
+    // back. Catches the set not being written.
+    SaveTestSeed(tag);
+    gComboCtx.crossingPendingOoT[0] = 0x81u;
+    gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] = 0x42u;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION, (uint32_t)sizeof(ComboContext)),
+                "could not write the full-length v6 slot file with the crossing pending set");
+    std::memset(gComboCtx.crossingPendingOoT, 0, sizeof(gComboCtx.crossingPendingOoT));
+    SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v6 Tier-1 record with the crossing pending set");
+    SAVE_ASSERT(gComboCtx.crossingPendingOoT[0] == 0x81u &&
+                    gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] == 0x42u,
+                "the crossing pending set did not read back (first byte 81, last byte 42)");
+
     mgr.DeleteSave(0);
     printf("[TEST] PASS: pre-headroom Tier-1 loads, added fields read as zero, "
            "bytes 672/676/736/824/880/884 still land in their carves, a v6 record that ends before the "
-           "warp-song record loads it UNSET, and one that ends before the second family word loads it 0\n");
+           "warp-song record loads it UNSET, one that ends before the second family word loads it 0, and one that "
+           "ends before the crossing pending set loads it empty\n");
     return TEST_PASS;
 }
 
@@ -1535,6 +1574,8 @@ TestResult Test_SaveSharedItemOverflowResetRestore(void) {
     SaveTestAwardLog preCommit;
     SAVE_ASSERT(Combo_RedeemSharedItemsForGame(GAME_MM, SaveTestAward, &preCommit) > 0,
                 "nothing to redeem before the commit");
+    // #1635: an OoT host pending at the commit (row 28 of the crossing store).
+    gComboCtx.crossingPendingOoT[3] = 0x10u;
     SAVE_ASSERT(SaveTestStagedCommit(0), "the staged commit failed");
     const std::vector<SharedItem> atCommit = SaveTestSnapshotOutbox();
     const int overflowAtCommit = Combo_SharedItemOverflowUsed();
@@ -1548,6 +1589,8 @@ TestResult Test_SaveSharedItemOverflowResetRestore(void) {
     for (int k = 0; k < liveOnly; k++) {
         SAVE_ASSERT(Combo_RecordSharedItemCrossing(GAME_OOT, kLiveOnlyId) >= 0, "a post-commit crossing was refused");
     }
+    // ... and its record after the commit cleared its pending bit (#1635).
+    gComboCtx.crossingPendingOoT[3] = 0u;
     int firstLiveWrong = -1;
     const int liveWrong = SaveTestOutboxMismatches(atCommit, &firstLiveWrong);
     printf("[TEST]   before the reset: %d slots differ from the commit (first %d), overflow rows %d (commit %d)\n",
@@ -1566,6 +1609,11 @@ TestResult Test_SaveSharedItemOverflowResetRestore(void) {
     SAVE_ASSERT(wrong == 0, "the reset left the logical outbox other than the commit's (count, order or flags)");
     SAVE_ASSERT(Combo_SharedItemOverflowUsed() == overflowAtCommit, "the overflow row count is not the commit's");
     SAVE_ASSERT(liveOnlyLeft == 0, "a crossing recorded after the commit survived the reset");
+    // #1635: the pending set goes back with the outbox it describes, so the host
+    // whose post-commit record the reset dropped is owed again (and only once:
+    // the record is gone with it).
+    SAVE_ASSERT(gComboCtx.crossingPendingOoT[3] == 0x10u,
+                "the reset did not restore the commit's crossing pending set with its outbox");
 
     // What the restored array redeems is exactly the commit's un-redeemed OoT
     // crossings, in pickup order, each once: nothing awarded twice or dropped.

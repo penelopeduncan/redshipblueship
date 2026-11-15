@@ -296,11 +296,15 @@ TestResult Test_SharedWarpFamilyStorage(void) {
     SwsSaveMembers(&saved);
 
     // ---- (1) The layout and the mask ----------------------------------------------
-    SWS_CHECK(offsetof(ComboContext, sharedFamilyOwned2) == 2716u && sizeof(ComboContext) == 2720u &&
-                  RSBS_PIN_COMBO_FAMILY_OWNED2 == 2716u && RSBS_PIN_COMBO_CONTEXT_SIZEOF == 2720u,
-              "(1) the second family word is at %u (sizeof %u); want 2716 and 2720, appended after comboOoTWarps",
-              (unsigned)offsetof(ComboContext, sharedFamilyOwned2), (unsigned)sizeof(ComboContext));
-    SWS_CHECK(RSBS_SAVE_LAYOUT_REVISION == 4u, "(1) the layout revision is %u, want 4 (one append)",
+    // #1635 appended crossingPendingOoT after it (layout revision 5), so the word
+    // ends where that append begins.
+    SWS_CHECK(
+        offsetof(ComboContext, sharedFamilyOwned2) == 2716u && offsetof(ComboContext, crossingPendingOoT) == 2720u &&
+            RSBS_PIN_COMBO_FAMILY_OWNED2 == 2716u && RSBS_PIN_COMBO_CROSSING_PENDING_OOT == 2720u,
+        "(1) the second family word is at %u (the next append at %u); want 2716 and 2720, appended after "
+        "comboOoTWarps",
+        (unsigned)offsetof(ComboContext, sharedFamilyOwned2), (unsigned)offsetof(ComboContext, crossingPendingOoT));
+    SWS_CHECK(RSBS_SAVE_LAYOUT_REVISION >= 4u, "(1) the layout revision is %u, want 4 or later (one append)",
               (unsigned)RSBS_SAVE_LAYOUT_REVISION);
     SWS_CHECK(RSBS_XITEM2_FAMILY_MASK == kSwsShared && RSBS_XFAMILY_SLOT_COUNT == 64u,
               "(1) the second-word family mask is %08X (want 00003F80), the slot count %u (want 64)",

@@ -195,6 +195,9 @@ static bool OoT_Foreign_RecordPickupImpl(uint16_t rc) {
                 "there is no paired world it could belong to (#610/#493)\n",
                 (unsigned)rc, gComboCtx.sourceIsRando ? 1 : 0, gComboCtx.sharedRandoSettingsHash);
         fflush(stderr);
+        // #1635: the drain degrades the host to its junk cover, so it is no
+        // longer pending.
+        Combo_CrossingPendingOoT_Clear(rc);
         return false;
     }
 
@@ -204,6 +207,7 @@ static bool OoT_Foreign_RecordPickupImpl(uint16_t rc) {
     auto ctx = Rando::Context::GetInstance();
     Rando::ItemLocation* il = (ctx != nullptr) ? ctx->GetItemLocation((RandomizerCheck)rc) : nullptr;
     if (il != nullptr && il->HasObtained()) {
+        Combo_CrossingPendingOoT_Clear(rc); // #1635: delivered already, nothing pending
         return false;
     }
 
@@ -219,6 +223,7 @@ static bool OoT_Foreign_RecordPickupImpl(uint16_t rc) {
     // give, MM's harvest, OoT's next arrival apply). A kind the frozen rules
     // disarm (bottles with Shared Bottles off) answers 0 and crosses as before.
     if (OoT_CreditSharedPickup(item) != 0) {
+        Combo_CrossingPendingOoT_Clear(rc); // #1635: in the same call as the credit
         return true;
     }
 
@@ -227,7 +232,16 @@ static bool OoT_Foreign_RecordPickupImpl(uint16_t rc) {
     // see shared_items.h). ONE COPY PER PICKUP (ADR 0010 increment 3): under the
     // single bag two OoT hosts may hold two copies of one MM id, and both must
     // reach MM, so the record is never content-merged (RSBS_SHARED_ITEM_CROSSING).
-    return Combo_RecordSharedItemCrossing((GameId)item->originGame, item->id) >= 0;
+    //
+    // #1635: the pending bit is cleared here, in the same call that writes the
+    // row, so no commit carries both the row and the bit (the bit is Tier-1, the
+    // row Tier-1 or Tier-5, and every commit snapshots them together). A refused
+    // record leaves the bit set: no row exists, and the host is still owed.
+    if (Combo_RecordSharedItemCrossing((GameId)item->originGame, item->id) < 0) {
+        return false;
+    }
+    Combo_CrossingPendingOoT_Clear(rc); // in the same call as the record
+    return true;
 }
 
 /**
@@ -254,11 +268,12 @@ extern "C" int OoT_Rando_Foreign_RecordPickup(uint16_t rc) {
 // given, nothing counted. The drain hands it back to its queue on the first frame
 // a row is free (after a crossing to Termina redeems the rows MM was waiting on).
 //
-// RAM only, like the drain's own queue: it survives a crossing, which is what
-// frees the rows, but not a quit, and a file load forgets it with the drain's
-// queue (OoT_Rando_Foreign_ClearHolds, from OnLoadGame), so a check held in one
-// file is never handed to the next. A check held at a quit or a file load keeps
-// its flag and its item is not given (#1222's PR names this as the open limit).
+// The list is RAM, like the drain's own queue: it survives a crossing, which is
+// what frees the rows. What survives a quit is the durable pending set
+// (gComboCtx.crossingPendingOoT, #1635): every held host is marked there, and the
+// next file load hands it back to the drain (OoT_Rando_Foreign_RestoreHolds, from
+// OnLoadGame), which also forgets this list, so a check held in one file is never
+// handed to the next.
 static std::vector<uint16_t> sOutboxHeldChecks;
 
 extern "C" int OoT_Rando_Foreign_HoldPickup(uint16_t rc) {
@@ -271,6 +286,8 @@ extern "C" int OoT_Rando_Foreign_HoldPickup(uint16_t rc) {
     if (il != nullptr && il->HasObtained()) {
         return 0; // delivered: the record's once-per-host gate answers, as before
     }
+    // #1635: held means pending; the bit is what a quit keeps.
+    (void)Combo_CrossingPendingOoT_Set(rc);
     if (std::find(sOutboxHeldChecks.begin(), sOutboxHeldChecks.end(), rc) == sOutboxHeldChecks.end()) {
         sOutboxHeldChecks.push_back(rc);
         fprintf(stderr,
@@ -296,6 +313,101 @@ extern "C" int OoT_Rando_Foreign_TakeReleasedHolds(uint16_t* out, int cap) {
 
 extern "C" void OoT_Rando_Foreign_ClearHolds(void) {
     sOutboxHeldChecks.clear();
+}
+
+// #1635 (foreign_items.h): the flag-set hooks' half of the pending set.
+extern "C" int OoT_Rando_Foreign_NotePending(uint16_t rc) {
+    if (Combo_GetForeignPlacementForOoTCheck(rc) == nullptr) {
+        return 0;
+    }
+    return Combo_CrossingPendingOoT_Set(rc);
+}
+
+// CheckStateLoadSingleExe.cpp: whether OoT check `rc`'s own collection flag is
+// set in `save` (1), unset (0), or held by no save half (-1).
+extern "C" int OoT_Combo_CollectionFlagSetIn(const SaveContext* save, uint16_t rc);
+
+// #1635 (foreign_items.h): THE LOAD RESTORE. Runs from OnLoadGame, after the
+// seam (OoT_Sram_OpenSave) has loaded the file's .redsave (Tier-1's pending set,
+// Tier-4's crossing rows) and its OoT half into gSaveContext, and after the
+// drain's queue was reset.
+//
+// THE TWO RULES (the issue's reading of the save path):
+//  - A pending bit beats the tracker status. A bit set in the newest commit
+//    proves no commit holds that host's outbox row (the bit is cleared in the
+//    call that writes the row), so a host that reads found is still owed.
+//  - Without a live pairing the restore leaves the bits alone: there is no
+//    paired world to receive the item, and the bits belong to the file.
+// A host is handed back only when its own collection flag is set in the loaded
+// save: that is the player's pickup. A host whose flag is unset (a chest the
+// loaded half has closed) is opened again, which queues it again through its
+// flag hook; handing it back as well would deliver it twice.
+extern "C" int OoT_Rando_Foreign_RestoreHolds(uint16_t* out, int cap) {
+    sOutboxHeldChecks.clear(); // the previous file's RAM holds are never this file's
+    const int pending = Combo_CrossingPendingOoT_Count();
+    if (pending == 0) {
+        return 0;
+    }
+    if (!Combo_ForeignPairingActive()) {
+        fprintf(stderr,
+                "[OoT] foreign pending: %d OoT host(s) pending, but this session has no live cross-game pairing; "
+                "nothing is restored and the set is left as the file has it (#1635)\n",
+                pending);
+        fflush(stderr);
+        return 0;
+    }
+    auto ctx = Rando::Context::GetInstance();
+    int handed = 0;
+    int dropped = 0;
+    int reset = 0;
+    for (int row = 0; row < (int)RSBS_CROSSING_PENDING_OOT_CAP; row++) {
+        if (!Combo_CrossingPendingOoT_TestRow(row)) {
+            continue;
+        }
+        ComboCrossing crossing;
+        if (!Combo_Crossings_At(GAME_OOT, row, &crossing)) {
+            Combo_CrossingPendingOoT_ClearRow(row); // no such row in this world
+            dropped++;
+            continue;
+        }
+        const uint16_t rc = crossing.hostCheck;
+        const int flag = OoT_Combo_CollectionFlagSetIn(&gSaveContext, rc);
+        if (flag != 1) {
+            // Unset: the player collects it again and its hook re-arms it.
+            // Unreadable (no save half holds that flag): nothing tells a pickup
+            // from none, and the hook still re-arms it on collection.
+            Combo_CrossingPendingOoT_ClearRow(row);
+            dropped++;
+            fprintf(stderr,
+                    "[OoT] foreign pending: OoT check %u was pending, but its own flag is %s in the loaded save; it "
+                    "is no longer pending and is given when collected again (#1635)\n",
+                    (unsigned)rc, flag == 0 ? "unset" : "held by no save half");
+            continue;
+        }
+        Rando::ItemLocation* il = (ctx != nullptr) ? ctx->GetItemLocation((RandomizerCheck)rc) : nullptr;
+        if (il != nullptr && il->HasObtained()) {
+            // Pending wins (see above).
+            fprintf(stderr,
+                    "[OoT] foreign pending: OoT check %u reads FOUND in the tracker, but the newest commit has it "
+                    "pending with no outbox row; its status is reset and its MM item is given (#1635)\n",
+                    (unsigned)rc);
+            il->SetCheckStatus(RCSHOW_UNCHECKED);
+            reset++;
+        }
+        if (out == nullptr || handed >= cap) {
+            // Left pending: the next load hands it back.
+            fprintf(stderr, "[OoT] foreign pending: OoT check %u stays pending, the restore's buffer is full\n",
+                    (unsigned)rc);
+            continue;
+        }
+        out[handed++] = rc;
+    }
+    fprintf(stderr,
+            "[OoT] foreign pending: the loaded file had %d OoT host(s) pending; %d handed back to the drain (%d of "
+            "them read found and were reset), %d no longer pending (#1635)\n",
+            pending, handed, reset, dropped);
+    fflush(stderr);
+    return handed;
 }
 
 /**

@@ -814,6 +814,16 @@ if(BUILD_TESTING)
     # on a refused record, marking the check collected. Drives the drain's hold
     # and hand-back seams over the same full outbox.
     redship_add_test(NAME ForeignOutboxFullOoT COMMAND redship --test foreign-outbox-full-oot)
+    # #1635: a host held for a full outbox or queued for the drain lived only in
+    # RAM, so a quit lost its item once its flag reached the save. Drives both
+    # flag hooks, the hold, two real commits, the real OnLoadFile seam and
+    # OnLoadGame's queue reset; a second save and load proves one row per host.
+    # ROM-free. games/oot/soh/oot_foreign_hold_quit_test.cpp.
+    redship_add_test(NAME ForeignHoldSurvivesQuitOoT COMMAND redship --test foreign-hold-survives-quit-oot)
+    # #1635, MM: a held host stays eligible through the owl commit, the real moon
+    # crash, the real Song of Time and a load. ROM-free.
+    # games/mm/2s2h/mm_foreign_hold_quit_test.cpp.
+    redship_add_test(NAME ForeignHoldSurvivesQuitMM COMMAND redship --test foreign-hold-survives-quit-mm)
     # #878: "duplicate toasts when you cross over". Each pickup of a cross-game
     # item is announced at the pickup; the arrival used to toast it again. Drives
     # both legs' real arrival consumers (MM's through its first-frame drain over a

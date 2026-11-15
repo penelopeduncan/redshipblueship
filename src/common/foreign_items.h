@@ -1851,6 +1851,31 @@ int Combo_SetForeignPlacementOoT(uint16_t ootCheckId, SharedItem item);
  */
 const SharedItem* Combo_GetForeignPlacementForOoTCheck(uint16_t ootCheckId);
 
+/**
+ * THE OoT CROSSING PENDING SET (#1635; gComboCtx.crossingPendingOoT, context.h).
+ * One bit per OoT-hosted crossing row (Combo_Crossings_HostRow): the host was
+ * handed to the RC-queue drain (queued by a flag-set hook, or held for a full
+ * outbox) and its outbox row is not written yet. The durable twin of the
+ * drain's RAM queue and hold list, as MM's RANDO_SAVE_CHECKS[rc].eligible is of
+ * CheckQueue's.
+ *
+ *  - Set: 1 when the bit is set (or already was), 0 when the host has no
+ *    crossing row (none at all, or only a pinned reverse-table placement,
+ *    which is logged: such a host keeps the RAM-only behaviour).
+ *  - Clear: OoT_Rando_Foreign_RecordPickup clears it in the same call that
+ *    writes the outbox row, credits the pool, or degrades the host with no
+ *    pairing; the load restore clears a bit whose host flag is unset.
+ *  - Test / Count: the reconcile never promotes a pending host to found, and
+ *    the load restore queues every pending host whose flag is set.
+ * The Row forms take the row index directly (the load restore walks rows).
+ */
+int Combo_CrossingPendingOoT_Set(uint16_t ootCheckId);
+void Combo_CrossingPendingOoT_Clear(uint16_t ootCheckId);
+bool Combo_CrossingPendingOoT_Test(uint16_t ootCheckId);
+int Combo_CrossingPendingOoT_Count(void);
+bool Combo_CrossingPendingOoT_TestRow(int row);
+void Combo_CrossingPendingOoT_ClearRow(int row);
+
 // ============================================================================
 // Names for ANY item and check (ADR 0010 O7)
 // ============================================================================
@@ -1969,17 +1994,38 @@ int OoT_Rando_Foreign_RecordPickup(uint16_t rc);
  * pairing is live, it has not delivered, and every shared row holds an item MM
  * has not redeemed (Combo_SharedItemCrossingHasRoom is false): the record would
  * be refused, so the RC-queue drain HOLDS the check (not collected, nothing
- * given) and this remembers it; 0 otherwise (the drain records as before).
+ * given) and this remembers it, and marks it pending (#1635); 0 otherwise (the
+ * drain records as before).
  * OoT_Rando_Foreign_TakeReleasedHolds hands the held checks back, up to @p cap
  * into @p out, once a row is free again (after a crossing to Termina), and
- * forgets them; it returns how many it handed back.
+ * forgets them; it returns how many it handed back. They stay pending until
+ * their record.
  * OoT_Rando_Foreign_ClearHolds forgets every held check without handing any
- * back: the RC-queue drain calls it where a file load resets its own queue, so a
- * check held in one file is never handed to the next file loaded.
+ * back and leaves the pending set alone.
+ *
+ * THE HOLDS SURVIVE A QUIT (#1635). The hold list is RAM, but every held or
+ * queued host is also in the durable pending set above, which every commit
+ * carries. OoT_Rando_Foreign_RestoreHolds runs where a file load resets the
+ * drain's queue (OnLoadGame): it forgets the RAM holds of the previous file and,
+ * with a live pairing, walks the loaded file's pending set. A pending host whose
+ * own collection flag is set in the loaded save is handed back (up to @p cap
+ * into @p out) for the drain's queue, and a found tracker status it carries is
+ * reset to unchecked first (pending wins: the newest commit holds no outbox row
+ * for it). A pending host whose flag is unset loses its bit: the player opens it
+ * again and its flag hook queues it again. With no live pairing nothing is
+ * handed back and no bit moves. Returns how many it handed back.
  */
 int OoT_Rando_Foreign_HoldPickup(uint16_t rc);
 int OoT_Rando_Foreign_TakeReleasedHolds(uint16_t* out, int cap);
 void OoT_Rando_Foreign_ClearHolds(void);
+int OoT_Rando_Foreign_RestoreHolds(uint16_t* out, int cap);
+
+/**
+ * #1635: the flag-set hooks' half of the pending set. Called where a hook
+ * queues OoT check @p rc for the RC-queue drain: when the check hosts an MM
+ * item, its pending bit is set. Returns 1 when a bit is set, 0 otherwise.
+ */
+int OoT_Rando_Foreign_NotePending(uint16_t rc);
 
 // ============================================================================
 // THE VALUES-PUBLISHING SURFACE (ADR 0011 O8; solver-inventory P1/P5;
