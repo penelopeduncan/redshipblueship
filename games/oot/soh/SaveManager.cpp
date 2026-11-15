@@ -1304,6 +1304,18 @@ bool SaveManager::WriteFileSafely(const std::filesystem::path& filePath, const s
     return true;
 }
 
+// SoH #7434: sohStats didn't exist in older saves, so a file without the section (or with a
+// "data" that is not an object) reads as an empty stats block, and every key below takes its
+// default. Indexing a missing section with operator[] instead inserted nulls, and assigning a
+// null to the s16 build version threw.
+static nlohmann::json SaveMeta_StatsBlock(nlohmann::json& sections) {
+    if (sections.contains("sohStats") && sections["sohStats"].contains("data") &&
+        sections["sohStats"]["data"].is_object()) {
+        return sections["sohStats"]["data"];
+    }
+    return nlohmann::json::object();
+}
+
 void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaSaveBlock) {
     std::filesystem::path fileName = GetFileName(fileNum);
     if (!metaSaveBlock.contains("version")) {
@@ -1336,9 +1348,10 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
             std::filesystem::path tempFile = GetFileTempName(fileNum);
             WriteFileSafely(fileName, tempFile, serialized);
         }
-        s16 major = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionMajor"];
-        s16 minor = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionMinor"];
-        s16 patch = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionPatch"];
+        const nlohmann::json statsBlock = SaveMeta_StatsBlock(metaSaveBlock["sections"]);
+        s16 major = statsBlock.value("buildVersionMajor", 0);
+        s16 minor = statsBlock.value("buildVersionMinor", 0);
+        s16 patch = statsBlock.value("buildVersionPatch", 0);
         // block loading outdated rando save
         if (!(major == OoT_gBuildVersionMajor && minor == OoT_gBuildVersionMinor && patch == OoT_gBuildVersionPatch)) {
             std::string newFileName = SavDirectory() + ("/file" + std::to_string(fileNum + 1) + "-" +
@@ -1373,8 +1386,10 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
     }
     fileMetaInfo[fileNum].equipment = baseBlock["inventory"]["equipment"];
     fileMetaInfo[fileNum].upgrades = baseBlock["inventory"]["upgrades"];
-    fileMetaInfo[fileNum].isMagicAcquired = baseBlock["isMagicAcquired"];
-    fileMetaInfo[fileNum].isDoubleMagicAcquired = baseBlock["isDoubleMagicAcquired"];
+    // saves before 5.1.0 called these magicAcquired and doubleMagic
+    fileMetaInfo[fileNum].isMagicAcquired = baseBlock.value("isMagicAcquired", baseBlock.value("magicAcquired", 0));
+    fileMetaInfo[fileNum].isDoubleMagicAcquired =
+        baseBlock.value("isDoubleMagicAcquired", baseBlock.value("doubleMagic", 0));
     fileMetaInfo[fileNum].rupees = baseBlock["rupees"];
     fileMetaInfo[fileNum].gsTokens = baseBlock["inventory"]["gsTokens"];
     fileMetaInfo[fileNum].isDoubleDefenseAcquired = baseBlock["isDoubleDefenseAcquired"];
@@ -1388,8 +1403,11 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
     fileMetaInfo[fileNum].defense = baseBlock["inventory"]["defenseHearts"];
     fileMetaInfo[fileNum].health = baseBlock["health"];
 
-    fileMetaInfo[fileNum].requiresOriginal = !baseBlock["isMasterQuest"];
-    fileMetaInfo[fileNum].requiresMasterQuest = baseBlock["isMasterQuest"];
+    // isMasterQuest arrived in base version 2
+    // older saves store this as a number rather than a bool
+    bool isMasterQuest = baseBlock.value("isMasterQuest", 0) != 0;
+    fileMetaInfo[fileNum].requiresOriginal = !isMasterQuest;
+    fileMetaInfo[fileNum].requiresMasterQuest = isMasterQuest;
 
     fileMetaInfo[fileNum].randoSave = isRando;
     if (isRando) {
@@ -1417,11 +1435,12 @@ void SaveManager::StartupCheckAndInitMetaImpl(int fileNum, nlohmann::json& metaS
         fileMetaInfo[fileNum].requiresOriginal = randoBlock["masterQuestDungeonCount"] < 12;
     }
 
-    fileMetaInfo[fileNum].buildVersionMajor = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionMajor"];
-    fileMetaInfo[fileNum].buildVersionMinor = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionMinor"];
-    fileMetaInfo[fileNum].buildVersionPatch = metaSaveBlock["sections"]["sohStats"]["data"]["buildVersionPatch"];
-    SohUtils::CopyStringToCharArray(fileMetaInfo[fileNum].buildVersion,
-                                    metaSaveBlock["sections"]["sohStats"]["data"]["buildVersion"],
+    // sohStats didn't exist in older saves
+    const nlohmann::json statsBlock = SaveMeta_StatsBlock(metaSaveBlock["sections"]);
+    fileMetaInfo[fileNum].buildVersionMajor = statsBlock.value("buildVersionMajor", 0);
+    fileMetaInfo[fileNum].buildVersionMinor = statsBlock.value("buildVersionMinor", 0);
+    fileMetaInfo[fileNum].buildVersionPatch = statsBlock.value("buildVersionPatch", 0);
+    SohUtils::CopyStringToCharArray(fileMetaInfo[fileNum].buildVersion, statsBlock.value("buildVersion", ""s),
                                     ARRAY_COUNT(fileMetaInfo[fileNum].buildVersion));
 }
 
