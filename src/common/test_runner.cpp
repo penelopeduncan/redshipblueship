@@ -643,6 +643,10 @@ int OoT_MasterSwordRespawnTest_Run(void);
 // the vanilla pad stands. Body in games/oot/soh/oot_warp_arrival_test.cpp. Return 0
 // on pass.
 int OoT_WarpArrivalTest_Run(void);
+// SoH backport bundle O7: grotto void-outs and exits, a grotto hole under the
+// Bunny Hood speed-up, the tracker's Ganon's Tower rows. Body in
+// games/oot/soh/oot_grotto_void_test.cpp. Return 0 on pass.
+int OoT_GrottoVoidTest_Run(void);
 // #1289: a shuffled fairy is an item pickup, not a heal; #6405: only an EnElf takes
 // the shuffled fairy's bottle path; #1296: ShuffleFairies_FairyExists checks the
 // actor, not the address of its own local pointer. Bodies in
@@ -3633,6 +3637,27 @@ TestResult Test_RandoWarpArrival(void) {
 
     int rc = OoT_WarpArrivalTest_Run();
     printf("[TEST] %s: warp arrival rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH backport bundle O7 (849928689, 69681e608, d1d6a564e, aa25eb4d5, 9eafd15fe):
+// grotto exits and swim void-outs through the real grotto override and the
+// randomizer's OnPlayerUpdate handler, the tracker's Ganon's Tower rows, and the
+// Door_Ana grab under the Bunny Hood. Same bring-up as the row above. Assertions
+// in games/oot/soh/oot_grotto_void_test.cpp.
+TestResult Test_RandoGrottoVoid(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+
+    int rc = OoT_GrottoVoidTest_Run();
+    printf("[TEST] %s: grotto void rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
     return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -11529,6 +11554,11 @@ const TestDescriptor gTests[] = {
       "respawn after the arrival's neutralisation), keeps the vanilla pad before Entrance_Init, and a door arrival "
       "with overworld ER runs no override (#1169 XW3)",
       Test_RandoWarpArrival },
+    { "rando-grotto-void",
+      "With grottos shuffled but not mixed or decoupled a grotto exit keeps the pre-grotto respawn; a swim void-out "
+      "in a grotto reloads it, none fires mid-transition, one after a grotto return lands on the grotto's point; the "
+      "tracker's Ganon's Tower rows are oneExit; a grotto hole waits for the fade-in under the Bunny Hood (SoH O7)",
+      Test_RandoGrottoVoid },
     { "shuffled-fairy-no-heal",
       "A randomized fairy (gossip stone, fountain, fairy spot, bean) gives its item on touch and no heal, and a "
       "randomized big fairy no magic refill; a fairy with no check still heals and the big one refills magic (#1289)",
@@ -12024,7 +12054,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "scrub-text-hint-setting") == 0 ||
                 strcmp(gTests[i].name, "map-compass-text") == 0 || strcmp(gTests[i].name, "bombchu-drop-rule") == 0 ||
                 strcmp(gTests[i].name, "master-sword-respawn") == 0 ||
-                strcmp(gTests[i].name, "rando-warp-arrival") == 0 ||
+                strcmp(gTests[i].name, "rando-warp-arrival") == 0 || strcmp(gTests[i].name, "rando-grotto-void") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-no-heal") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||
