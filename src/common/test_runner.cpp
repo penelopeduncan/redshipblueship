@@ -1697,8 +1697,7 @@ static TestResult Test_MMHudEditorReader(void) {
 static TestResult Test_MMTextMods(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
-        printf("[TEST] FAIL: the display-free shared Context bring-up failed
-");
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
         return TEST_FAIL;
     }
     return MM_TextMods_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
