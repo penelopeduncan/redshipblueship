@@ -37,6 +37,9 @@ Everything below passed the automated gates. None of it has been checked by a pe
   picker or with a failing extraction.
 - A file made with a development build between `v0.5.0-alpha` and this release is not supported and
   may be refused or read wrongly. Files from `v0.5.0-alpha` and earlier are refused by name.
+- Found while playing this release: with the Blast Mask (OoT) rule on, the mask's blast does not cut shrubs, although logic
+  expects it to, and in the Market guard house the blast appears in one fixed place (issue #1615). Rocks and
+  pots break as they should. Until it is fixed, do not rely on the Blast Mask for a check behind a shrub.
 
 ## Read this before you play
 
