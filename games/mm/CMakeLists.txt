@@ -743,6 +743,12 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Timesavers/FasterBottles.cpp"
         "2s2h/Enhancements/Graphics/DisableBombBillboarding.cpp"
         "2s2h/Enhancements/Graphics/DisableGrottoRotation.cpp"
+        # Backport M8 (2Ship #1842, #1847): the always-on ocarina-dive restoration. It has no CVar and no menu row: it
+        # registers through a file-scope RegisterShipInitFunc on "*" only, with a `true` COND_HOOK on
+        # OnGameStateMainStart, which game.c dispatches through MM_GameHooks_ExecuteOnGameStateMainStart (the S2H leg).
+        # The body reads MM_gPlayState and is guarded (null play state, null Player). No stub in mm_stubs.c; no twin of
+        # RegisterOcarinaDive in games/oot. MMOcarinaDive attributes it by registry content.
+        "2s2h/Enhancements/Restorations/OcarinaDive.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
