@@ -227,9 +227,9 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
-- **Majora's Mask: the ocarina dive works again** (2Ship2Harkinian #1842, #1847, #1853). While hovering, the second
-  ocarina press now has two extra frames to land, as console lag gave it, and Faster Song Playback no longer shortens a
-  song played while falling. Nothing changes when you are not hovering.
+- **Majora's Mask: the ocarina dive can be done** (2Ship2Harkinian #1842, #1847, #1853). While hovering, the second
+  ocarina press now has two extra frames to land, as console lag gave it. Faster Song Playback no longer shortens a
+  song played while falling.
 
 ### Trackers
 
