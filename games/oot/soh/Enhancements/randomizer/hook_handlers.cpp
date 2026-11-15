@@ -390,6 +390,52 @@ void RandomizerOnSceneFlagSetHandler(int16_t sceneNum, int16_t flagType, int16_t
 
 static Vec3f spawnPos = { 0.0f, -999.0f, 0.0f };
 
+// The Colossus transition the Silver Gauntlets chest arms (RandomizerOnCheckReceived):
+// the OnPlayerUpdate hook's id while armed, 0 when none is.
+static uint32_t sColossusWarpHook = 0;
+
+// THE CHECK-KEYED PART OF A RECEIVE (#1602, #1600 step 2). What OoT does because
+// check `rc` gave its item, whatever that item is. Upstream runs it inline in
+// RandomizerOnItemReceiveHandler, which only a NATIVE item reaches; a check that
+// hosts a Majora's Mask item gives no native item, so it runs here, from both:
+//   - the receive handler, for a native item (unchanged);
+//   - the RC-queue drain's foreign branch, for an MM item: at the get-item
+//     cutscene's give point (Randomizer_ReleaseQueuedShowOnly), the moment a
+//     native item would have been received, or at the record itself when no
+//     cutscene shows the item.
+// Exactly once per host either way: the drain records a check once (a collected
+// check is never recorded again), and the show-only slot is released once.
+// The ROM-free row OoTCheckReceiveEffects lists every check this tests as a
+// literal and fails when the receive handler tests a check itself.
+static void RandomizerOnCheckReceived(RandomizerCheck rc) {
+    if (rc == RC_SPIRIT_TEMPLE_SILVER_GAUNTLETS_CHEST) {
+        if (!CVarGetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), IS_RANDO)) {
+            // Waits for the get-item cutscene and any textbox to end, as the
+            // native receive does: the give point runs inside that cutscene.
+            sColossusWarpHook = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
+                Player* player = GET_PLAYER(OoT_gPlayState);
+                if (player == NULL || OoT_Player_InBlockingCsMode(OoT_gPlayState, player) ||
+                    player->stateFlags1 & PLAYER_STATE1_IN_ITEM_CS ||
+                    player->stateFlags1 & PLAYER_STATE1_GETTING_ITEM ||
+                    player->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) {
+                    return;
+                }
+
+                OoT_gPlayState->nextEntranceIndex = ENTR_DESERT_COLOSSUS_EAST_EXIT;
+                OoT_gPlayState->transitionTrigger = TRANS_TRIGGER_START;
+                gSaveContext.nextCutsceneIndex = 0xFFF1;
+                OoT_gPlayState->transitionType = TRANS_TYPE_SANDSTORM_END;
+                GET_PLAYER(OoT_gPlayState)->stateFlags1 &= ~PLAYER_STATE1_IN_CUTSCENE;
+                OoT_Player_TryCsAction(OoT_gPlayState, NULL, 8);
+                GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnPlayerUpdate>(sColossusWarpHook);
+                sColossusWarpHook = 0;
+            });
+        } else {
+            OoT_Flags_SetEventChkInf(EVENTCHKINF_NABOORU_CAPTURED_BY_TWINROVA);
+        }
+    }
+}
+
 #ifdef RSBS_SINGLE_EXECUTABLE
 // The four checks whose native give never skips its animation (the drain below):
 // each needs its textbox closed to finish.
@@ -425,12 +471,14 @@ static bool RandomizerQueueForeignShowOnly(RandomizerCheck rc) {
 
 // The receive hook's slot release (RandomizerOnItemReceiveHandler) for a
 // show-only entry, which is never given and so never reaches that hook. Called by
-// its take (ForeignModelHostOoT.cpp).
+// its take (ForeignModelHostOoT.cpp). The take is the give point, so this also
+// runs the check-keyed part of the receive (#1602), once: the slot is freed here.
 void Randomizer_ReleaseQueuedShowOnly(uint16_t rc) {
     if (randomizerQueuedCheck == (RandomizerCheck)rc) {
         RandomizerLogGiveAttemptsDone();
         randomizerQueuedCheck = RC_UNKNOWN_CHECK;
         randomizerQueuedItemEntry = GET_ITEM_NONE;
+        RandomizerOnCheckReceived((RandomizerCheck)rc);
     }
 }
 
@@ -512,6 +560,18 @@ extern "C" int OoT_Rando_TestTakeQueuedChecks(uint16_t* out, int cap) {
     }
     return n;
 }
+
+// TEST BRIDGE (OoTCheckReceiveEffects, #1602): is the Silver Gauntlets chest's
+// Colossus transition armed (1) or not (0)? `disarm` 1 also unregisters it, so
+// no armed hook outlives the row.
+extern "C" int OoT_Rando_TestColossusWarpArmed(int disarm) {
+    const int armed = sColossusWarpHook != 0 ? 1 : 0;
+    if (armed && disarm) {
+        GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnPlayerUpdate>(sColossusWarpHook);
+        sColossusWarpHook = 0;
+    }
+    return armed;
+}
 #endif
 
 void RandomizerOnPlayerUpdateForRCQueueHandler() {
@@ -592,6 +652,11 @@ void RandomizerOnPlayerUpdateForRCQueueHandler() {
         if (RandomizerSkipForeignGetItemAnimation(rc) || !RandomizerQueueForeignShowOnly(rc)) {
             // #1481: named as it will be granted (a Progressive Time as its half-day).
             OoT_Rando_Foreign_EmitPickupToast(Combo_PresentForeignItem(*foreignItem, true));
+            // #1602: no cutscene shows the item, so this record is its receive.
+            // A queued show-only entry runs it at its give point instead
+            // (Randomizer_ReleaseQueuedShowOnly), inside the cutscene, as a
+            // native item does.
+            RandomizerOnCheckReceived(rc);
         }
 
         // RCSHOW_COLLECTED is what HasObtained() reads (status == RCSHOW_COLLECTED
@@ -691,6 +756,10 @@ void RandomizerOnItemReceiveHandler(GetItemEntry receivedItemEntry) {
         return;
 
     auto loc = Rando::Context::GetInstance()->GetItemLocation(randomizerQueuedCheck);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1602: read before the match below can free the slot.
+    const bool isShowOnlySlot = OoT_Rando_Foreign_IsShowOnlyGetItem(&randomizerQueuedItemEntry) != 0;
+#endif
     if (randomizerQueuedItemEntry.modIndex == receivedItemEntry.modIndex &&
         randomizerQueuedItemEntry.itemId == receivedItemEntry.itemId) {
         SPDLOG_INFO("Item received mod {} item {} from RC {}", receivedItemEntry.modIndex, receivedItemEntry.itemId,
@@ -722,30 +791,15 @@ void RandomizerOnItemReceiveHandler(GetItemEntry receivedItemEntry) {
         }
     }
 
-    if (loc->GetRandomizerCheck() == RC_SPIRIT_TEMPLE_SILVER_GAUNTLETS_CHEST) {
-        if (!CVarGetInteger(CVAR_ENHANCEMENT("TimeSavers.SkipCutscene.Story"), IS_RANDO)) {
-            static uint32_t updateHook;
-            updateHook = GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayerUpdate>([]() {
-                Player* player = GET_PLAYER(OoT_gPlayState);
-                if (player == NULL || OoT_Player_InBlockingCsMode(OoT_gPlayState, player) ||
-                    player->stateFlags1 & PLAYER_STATE1_IN_ITEM_CS ||
-                    player->stateFlags1 & PLAYER_STATE1_GETTING_ITEM ||
-                    player->stateFlags1 & PLAYER_STATE1_CARRYING_ACTOR) {
-                    return;
-                }
-
-                OoT_gPlayState->nextEntranceIndex = ENTR_DESERT_COLOSSUS_EAST_EXIT;
-                OoT_gPlayState->transitionTrigger = TRANS_TRIGGER_START;
-                gSaveContext.nextCutsceneIndex = 0xFFF1;
-                OoT_gPlayState->transitionType = TRANS_TYPE_SANDSTORM_END;
-                GET_PLAYER(OoT_gPlayState)->stateFlags1 &= ~PLAYER_STATE1_IN_CUTSCENE;
-                OoT_Player_TryCsAction(OoT_gPlayState, NULL, 8);
-                GameInteractor::Instance->UnregisterGameHook<GameInteractor::OnPlayerUpdate>(updateHook);
-            });
-        } else {
-            OoT_Flags_SetEventChkInf(EVENTCHKINF_NABOORU_CAPTURED_BY_TWINROVA);
-        }
+    // #1602: the check-keyed part, shared with a foreign host (RandomizerOnCheckReceived).
+    // A show-only slot is a foreign host's: its give point runs that part itself.
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (!isShowOnlySlot) {
+        RandomizerOnCheckReceived(loc->GetRandomizerCheck());
     }
+#else
+    RandomizerOnCheckReceived(loc->GetRandomizerCheck());
+#endif
 }
 
 void EnExItem_DrawRandomizedItem(EnExItem* enExItem, PlayState* play) {
@@ -1301,6 +1355,24 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
         case VB_CRAWL:
             *should = *should && Flags_GetRandomizerInf(RAND_INF_CAN_CRAWL);
             break;
+        case VB_BARINADE_PLAY_REMATCH_INTRO:
+            *should =
+                *should && (!RAND_GET_OPTION(RSK_SHUFFLE_BOSS_SOULS) || Flags_GetRandomizerInf(RAND_INF_BARINADE_SOUL));
+            break;
+        case VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING:
+            *should = *should && !Flags_GetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER);
+            break;
+        case VB_APPLY_MAGIC_METER_FILL_COLOR: {
+            Color_RGB8* color = va_arg(args, Color_RGB8*);
+
+            if (Flags_GetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER)) {
+                *color = { 0, 0, 200 };
+                if (CVarGetInteger(CVAR_COSMETIC("Consumable_MagicInfinite.Changed"), 0)) {
+                    *color = CVarGetColor24(CVAR_COSMETIC("Consumable_MagicInfinite.Value"), *color);
+                }
+            }
+            break;
+        }
         case VB_ALLOW_ENTRANCE_CS_FOR_EITHER_AGE: {
             s32 entranceIndex = va_arg(args, s32);
 
@@ -1467,6 +1539,16 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
                 GetItemEntry itemEntry = randomizerQueuedItemEntry;
                 item00->itemEntry = itemEntry;
                 item00->actor.draw = (ActorFunc)EnItem00_DrawRandomizedItem;
+            }
+            break;
+        }
+        case VB_ITEM00_TIMER_TICK: {
+            EnItem00* item00 = va_arg(args, EnItem00*);
+            uint8_t ogType = item00->ogParams & 0xFF;
+            // Shuffled keys and heart pieces become ITEM00_SOH_DUMMY, no longer matching checks preventing despawning
+            if (item00->actor.params == ITEM00_SOH_DUMMY &&
+                (ogType == ITEM00_SMALL_KEY || ogType == ITEM00_HEART_PIECE || ogType == ITEM00_HEART_CONTAINER)) {
+                *should = false;
             }
             break;
         }
@@ -3105,7 +3187,8 @@ f32 triforcePieceScale;
 
 void RandomizerOnPlayerUpdateHandler() {
     if ((GET_PLAYER(OoT_gPlayState)->stateFlags1 & PLAYER_STATE1_IN_WATER) && !Flags_GetRandomizerInf(RAND_INF_CAN_SWIM) &&
-        CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_IRON) {
+        CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_IRON &&
+        OoT_gPlayState->transitionTrigger == TRANS_TRIGGER_OFF) {
         // if you void out in water temple without swim you get instantly kicked out to prevent softlocks
         if (OoT_gPlayState->sceneNum == SCENE_WATER_TEMPLE) {
             GameInteractor::RawAction::TeleportPlayer(
@@ -3119,7 +3202,17 @@ void RandomizerOnPlayerUpdateHandler() {
                 gSaveContext.respawn[RESPAWN_MODE_DOWN].yaw = respawnInfo->yaw;
             }
 
-            Play_TriggerVoidOut(OoT_gPlayState);
+            if (OoT_gPlayState->sceneNum == SCENE_GROTTOS) {
+                // RESPAWN_MODE_DOWN isn't refreshed on grotto entry, reload grotto instead
+                OoT_gPlayState->nextEntranceIndex = gSaveContext.entranceIndex;
+                OoT_gPlayState->transitionTrigger = TRANS_TRIGGER_START;
+                OoT_gPlayState->transitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.respawnFlag = 0;
+            } else {
+                Play_TriggerVoidOut(OoT_gPlayState);
+                Grotto_ForceGrottoReturnOnSpecialEntrance();
+            }
         }
     }
 

@@ -100,6 +100,10 @@ int CosmeticGfxStub_RunHeadless(void);
 // shared menu's gHudEditor.* keys and its presets write them. It reads and writes CVars, so its wrapper
 // (Test_MMHudEditorReader, after CreateHarnessStyleContext) runs the display-free shared bring-up first. 0 on pass.
 int MM_HudEditorReader_RunHeadless(void);
+// MM text mods (2Ship #2000; games/mm/2s2h/mm_text_mods_test.cpp): a TextMM XML under override/<a message table's
+// folder>/ replaces or adds that table's entries, the highest-priority archive winning. Its wrapper (Test_MMTextMods)
+// runs the display-free shared bring-up for the ResourceManager. 0 on pass.
+int MM_TextMods_RunHeadless(void);
 // MM resume-path cold-boot contracts (games/mm/2s2h/mm_resume_state_test.cpp):
 // (a) mm-resume-arena — MM_ResumeColdBootPrep must make an exhausted system
 //     arena allocatable again (the cycle-2 re-entry crash class: the retired
@@ -434,6 +438,11 @@ int MM_ShopPricesPool_RunHeadless(void);
 // need the display-free shared bring-up first. Return 0 on pass.
 int MM_TingleMapPool_RunHeadless(void);
 int MM_TingleMapDisplay_RunHeadless(void);
+// Backport M8 (games/mm/2s2h/mm_ocarina_dive_test.cpp, 2Ship #1842/#1847/#1853): the
+// always-on ocarina-dive registrant is linked and gives a hover exactly two grace
+// frames, and Faster Song Playback leaves a falling song alone. Needs the
+// display-free shared bring-up first (it runs MM_Rando_Init). Return 0 on pass.
+int MM_OcarinaDive_RunHeadless(void);
 // The curated MM enhancement keys' liveness evidence
 // (games/mm/2s2h/mm_enhancement_toggles_test.cpp, #682): the EVIDENCE half of the
 // pair above, MM-side because the registries are. Per key: exactly one
@@ -533,6 +542,10 @@ int MM_TrickBindings_RunHeadless(void);
 // Rando::Foreign::RecordForeignPickup. Return 0 on pass.
 int MM_SpoilerIdentity_RunHeadless(void);
 int MM_ForeignPickupGate_RunHeadless(void);
+// games/mm/2s2h/mm_rando_polish_test.cpp (2Ship backport M4): the Check
+// Tracker's plain scene names and the spoiler-load unknown-item refusal.
+// Return 0 on pass.
+int MM_RandoPolish_RunHeadless(void);
 // #1055: where a paired spoiler goes when its seed-named file is another
 // identity's (same file, MM_Rando_ChoosePairedSpoilerName). Return 0 on pass.
 int MM_PairedSpoilerName_RunHeadless(void);
@@ -579,6 +592,10 @@ int MM_PauseSaveReload_RunHeadless(void);
 // #1217: under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item
 // and no vanilla capacity upgrade; games/oot/soh/oot_deku_theater_prize_test.cpp.
 int OoT_DekuTheaterPrize_RunHeadless(void);
+// Backport bundle O6 (SoH #6795, #6798, #7183): HasItem's folded boss-soul and
+// overworld-door answers, and the shuffled-drop despawn exemption;
+// games/oot/soh/oot_has_item_fold_test.cpp.
+int OoT_HasItemFold_RunHeadless(void);
 // #1163 / #1159: loading a paired file reconciles OoT's live save with the
 // shared pool before anything is earned or spent. Drives OoT's OnLoadFile seam
 // over a real .redsave; games/oot/soh/oot_load_reconcile_test.cpp.
@@ -599,6 +616,10 @@ int OoTTest_SaveEditorNameInput(void);
 // either slider order. ROM-free and display-free; body in
 // games/oot/soh/oot_price_range_test.cpp. Return 0 on pass.
 int OoTTest_PriceRangeMinimum(void);
+// SoH #7383 (backport O35): the Save Editor's player-name encode and decode round-trip every
+// character and code the PAL and NTSC tables cover, and a language change keeps the name. ROM-free and
+// display-free; body in games/oot/soh/oot_save_editor_name_test.cpp. Return 0 on pass.
+int OoTTest_SaveEditorNameEncoding(void);
 // #1420: Ship of Harkinian's tracker fixes in the unified tracker's OoT pane (the
 // tower chest under Triforce Hunt, where Available Checks starts, the credits item
 // pane, entrance names, the pause screen's list). ROM-free; the display-free shared
@@ -614,6 +635,9 @@ int OoT_MaskShopNightDoor_RunHeadless(void);
 // Goron.cpp registers RegisterGoronMessages in ShipInit ("IS_RANDO"). ROM-free
 // and display-free; body in games/oot/soh/oot_room_bg_cam_guard_test.cpp.
 int OoT_RoomBgCamGuard_RunHeadless(void);
+// #1588: z_parameter.c and z_boss_va.c query VB hooks instead of randomizer state directly,
+// RandomizerOnVanillaBehaviorHandler answers them, and RemoveAllQueuedHooks drains queued hooks.
+int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir);
 // #702: the per-area exclude-location groups reach OoT's settings fingerprint at
 // their shipped sizes, whichever archives are mounted. Body in
 // games/oot/soh/oot_settings_fold_test.cpp. Runs a real generation, so it needs
@@ -647,6 +671,10 @@ int OoT_MasterSwordRespawnTest_Run(void);
 // the vanilla pad stands. Body in games/oot/soh/oot_warp_arrival_test.cpp. Return 0
 // on pass.
 int OoT_WarpArrivalTest_Run(void);
+// SoH backport bundle O7: grotto void-outs and exits, a grotto hole under the
+// Bunny Hood speed-up, the tracker's Ganon's Tower rows. Body in
+// games/oot/soh/oot_grotto_void_test.cpp. Return 0 on pass.
+int OoT_GrottoVoidTest_Run(void);
 // #1289: a shuffled fairy is an item pickup, not a heal; #6405: only an EnElf takes
 // the shuffled fairy's bottle path; #1296: ShuffleFairies_FairyExists checks the
 // actor, not the address of its own local pointer. Bodies in
@@ -777,6 +805,7 @@ extern "C" {
 #include "tests/test_mm_get_item_presentation.c"
 #include "tests/test_mm_unique_key_models.c"    // #1172: MM's dungeon keys draw 2S2H's dungeon key models
 #include "tests/test_hookshot_reticle_colour.c" // #1173: the hookshot reticle turns green on a hookshot surface
+#include "tests/test_map_compass_colour.c"      // SoH #6351: maps and compasses draw in their dungeon's colour
 #include "tests/test_foreign_shop_mm.c"
 #include "tests/test_foreign_award.c"
 #include "tests/test_foreign_outbox_full.c"
@@ -802,6 +831,9 @@ extern "C" {
 // combo_ui seam the trick rows still draw through. FILE SCOPE, compiled as C++,
 // like the window lock it replaces.
 #include "tests/test_combo_mm_options_page.c"
+
+// Pure helpers for MM's frozen Hookshot Anywhere option (#1574).
+#include "tests/test_mm_hookshot_anywhere.c"
 
 // Operator ruling 2026-11-05: the shipped Standard and Beginner presets pin no
 // option whose default the D wave moved to OoTMM's, and reset the paired profile.
@@ -957,6 +989,11 @@ extern "C" {
 // replacement keys, never SoH's, and SoH's randomize combobox reaches MM. C entry point in
 // games/mm/2s2h/mm_audio_editor_test.cpp; returns 0 on pass, non-zero on fail. Wrapper: beside mm-hud-editor-reader.
 extern "C" int MM_AudioEditorReplacement_RunHeadless(void);
+
+// SoH Audio Editor backport O12 (SoH #5685, #6608, #7372): the missing music rows, the Ending group's count and the
+// "None" replacement. C entry point in games/oot/soh/oot_audio_editor_entries_test.cpp; returns 0 on pass.
+// Wrapper: Test_OoTAudioEditorEntries, beside mm-audio-editor-replacement.
+extern "C" int OoT_AudioEditorEntries_RunHeadless(void);
 
 // OoT pause-menu item age table bounds (#983). Included at FILE SCOPE: it reads
 // the entry count z_kaleido_scope_PAL.c exports for it, declared in its own
@@ -1277,6 +1314,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // and the real three-day reset (mm-song-host-guard). Both ROM-free and
 // generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_song_check_tables.c"
+// #1602 (#1600 step 2): OoT's check-keyed receive effects run for a check hosting
+// a Majora's Mask item too; the literal list of every check the receive path
+// tests, from source, and the behaviour legs in
+// games/oot/soh/oot_check_receive_effects_test.cpp (oot-check-receive-effects,
+// ROM-free). FILE SCOPE (compiled as C++).
+#include "tests/test_oot_check_receive_effects.c"
 // #1542 (S3): the shared song-location pool over real paired generations: every
 // song of either game on a song check of either game, leftovers junked, Healing a
 // host, and nothing of it under Anywhere (song-pool-union-world,
@@ -1367,9 +1410,17 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // rsbs::SaveManager, after test_crossing_commit.c and test_combo_crossing_views.c.
 #include "tests/test_mm_hint_sources.c"
 
+// SoH #6709: ROM-free: Camera_Subj4 (the crawlspace camera) writes Link's world
+// position and shape yaw as console does, from source.
+#include "tests/test_oot_camera_subj4.c"
+
 // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
 #include "tests/test_oot_mweep_stop.c"
+
+// SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
+// cutscene alone, and the child Ruto skip keeps camera setting 2 whatever that CVar says.
+#include "tests/test_oot_big_octo_cs.c"
 
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
@@ -1617,6 +1668,12 @@ static TestResult Test_OoTPriceRangeMinimum(void) {
     return OoTTest_PriceRangeMinimum() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH #7383 (see the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_save_editor_name_test.cpp. Display-free and ROM-free.
+static TestResult Test_OoTSaveEditorNameEncoding(void) {
+    return OoTTest_SaveEditorNameEncoding() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #948 (see the extern decl above). Thin wrapper over the C entry point in
 // games/oot/soh/oot_mask_shop_night_door_test.cpp.
 static TestResult Test_OoTMaskShopNightDoor(void) {
@@ -1698,6 +1755,32 @@ static TestResult Test_MMHudEditorReader(void) {
     return MM_HudEditorReader_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// MM text mods (2Ship #2000, see the extern decl beside mm-hud-editor-reader). The display-free shared bring-up, for
+// the ResourceManager the row mounts its two scratch folders into.
+//
+// SKIP (not FAIL) when soh.o2r is unresolvable, the same policy as zip-contention: with no archive mounted at the
+// bring-up libultraship pauses the resource thread pool, so the row's synchronous table load would never return and
+// the netplay-relay job's archive-less control run of this label would burn the row's timeout (and AllTests').
+static TestResult Test_MMTextMods(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    const std::string sohArchive = Ship::Context::LocateFileAcrossAppDirs("soh.o2r");
+    if (!std::filesystem::exists(sohArchive)) {
+        printf("[TEST] SKIP: no soh.o2r resolvable (tried '%s'): the archive-less redship control run keeps this row "
+               "skipped by design (#562)\n",
+               sohArchive.c_str());
+        return TEST_SKIP;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_TextMods_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // MM sequence replacement (W6-AUDIO-SEQ, see the extern decl beside seq-map-bounds). The display-free shared
 // bring-up, because the row writes and clears MM's and SoH's gAudioEditor.* keys.
 static TestResult Test_MMAudioEditorReplacement(void) {
@@ -1707,6 +1790,17 @@ static TestResult Test_MMAudioEditorReplacement(void) {
         return TEST_FAIL;
     }
     return MM_AudioEditorReplacement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH Audio Editor backport O12 (see the extern decl beside mm-audio-editor-replacement). The display-free shared
+// bring-up, because leg 3 writes and puts back one gAudioEditor.ReplacedSequences.* key.
+static TestResult Test_OoTAudioEditorEntries(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_AudioEditorEntries_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // 2Ship config import (W6-IMPORT, see the extern decl beside cvar-classification). The display-free shared bring-up,
@@ -1720,6 +1814,21 @@ static TestResult Test_TwoShipImportMmKeys(void) {
     return OoT_TwoShipImport_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport O16 (SoH 0cf2b3701, faed544b2): the Dark Link guards arm under the
+// enemy randomizer, Crowd Control or Sail, and the GELDB labels read "Gerudo
+// Thief". Body in games/oot/soh/oot_dark_link_fixes_test.cpp; return 0 on
+// pass. The display-free shared bring-up, because the row writes and clears
+// the three trigger CVars.
+extern "C" int OoT_DarkLinkFixes_RunHeadless(void);
+static TestResult Test_OoTDarkLinkFixes(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -1729,6 +1838,22 @@ static TestResult Test_OoTTrackerSohFixes(void) {
         return TEST_FAIL;
     }
     return OoTTest_TrackerSohFixes() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1588 (see the extern decl beside oot-room-bg-cam-guard). The display-free shared bring-up, because the handler
+// leg reads and restores Consumable_MagicInfinite.* in the CVar store (in memory only).
+static TestResult Test_OoTVanillaMagicBoundary(void) {
+#ifndef RSBS_SOURCE_DIR
+    printf("[TEST] FAIL (oot-vanilla-magic-boundary): RSBS_SOURCE_DIR is undefined\n");
+    return TEST_FAIL;
+#else
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_VanillaMagicBoundary_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
+#endif
 }
 
 // MM new-save session guard (#564 V21; see the extern decl above). The display-free shared bring-up, because leg 7
@@ -3643,6 +3768,27 @@ TestResult Test_RandoWarpArrival(void) {
 
     int rc = OoT_WarpArrivalTest_Run();
     printf("[TEST] %s: warp arrival rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH backport bundle O7 (849928689, 69681e608, d1d6a564e, aa25eb4d5, 9eafd15fe):
+// grotto exits and swim void-outs through the real grotto override and the
+// randomizer's OnPlayerUpdate handler, the tracker's Ganon's Tower rows, and the
+// Door_Ana grab under the Bunny Hood. Same bring-up as the row above. Assertions
+// in games/oot/soh/oot_grotto_void_test.cpp.
+TestResult Test_RandoGrottoVoid(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+
+    int rc = OoT_GrottoVoidTest_Run();
+    printf("[TEST] %s: grotto void rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
     return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
@@ -6812,7 +6958,7 @@ TestResult Test_MMDevViewersGate(void) {
 
 // #797, the source half of the OoTWindowsGate lock. The runtime half proves the
 // wrapper gates; this proves production uses it: SohGui::SetupGuiElements must
-// construct exactly the nine save/play-state windows through OoTActiveGated<>
+// construct exactly the ten save/play-state windows through OoTActiveGated<>
 // and every other window it constructs must be on the exempt list, so a window
 // added upstream later has to be classified here before this row passes.
 static bool OoTWindowsGate_ScanSetupGuiElements(void) {
@@ -6833,6 +6979,7 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
         "SaveEditorWindow",
         "ValueViewerWindow",
         "MessageViewer",
+        "ColViewerWindow",
         "GameplayStatsWindow",
         "CheckTracker::CheckTrackerWindow",
         "EntranceTracker::EntranceTrackerWindow",
@@ -6843,8 +6990,8 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     // #797's census: no save/play-state reads (console, debuggers, input
     // viewer, mod menu, plandomizer, notifications, the four tracker settings
     // windows, which draw CVar rows only), already guarded (Additional Timers,
-    // Actor Viewer, Collision Viewer, Anchor Room), or reading fileCreatedAt
-    // only on a user action (Audio Editor, Cosmetics Editor).
+    // Actor Viewer, Anchor Room), or reading fileCreatedAt only on a user action
+    // (Audio Editor, Cosmetics Editor).
     static const char* const kExempt[] = {
         "SohConsoleWindow",
         "SohGfxDebuggerWindow",
@@ -6855,7 +7002,6 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
         "InputViewerSettingsWindow",
         "CosmeticsEditorWindow",
         "ActorViewerWindow",
-        "ColViewerWindow",
         "HookDebuggerWindow",
         "DLViewerWindow",
         "CheckTracker::CheckTrackerSettingsWindow",
@@ -6884,12 +7030,13 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
 
     static const std::string kOpen = "std::make_shared<";
     static const std::string kWrap = "OoTActiveGated<";
-    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits and
-    // Message Viewer windows use it.
+    // W6-TIMERS (#1237) / W6-DEV (#1238): the gate that also hosts MM's body under MM; only SoH's Time Splits,
+    // Message Viewer and Collision Viewer windows use it.
     static const std::string kHostingWrap = "OoTGatedHostingMm<";
     static const char* const kHosted[] = {
         "TimeSplitWindow",
         "MessageViewer",
+        "ColViewerWindow",
     };
     int hostedSeen[sizeof(kHosted) / sizeof(kHosted[0])] = {};
     for (size_t at = body.find(kOpen); at != std::string::npos; at = body.find(kOpen, at + kOpen.size())) {
@@ -6920,8 +7067,8 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                     }
                 }
                 if (!hostedKnown) {
-                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits "
-                           "and Message Viewer windows host an MM body\n",
+                    printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements hosts MM in %s; only SoH's Time Splits, "
+                           "Message Viewer and Collision Viewer windows host an MM body\n",
                            inner.c_str());
                     ok = false;
                 }
@@ -6998,7 +7145,7 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
     for (size_t i = 0; i < sizeof(kHosted) / sizeof(kHosted[0]); i++) {
         if (hostedSeen[i] != 1) {
             printf("[TEST] FAIL: oot-windows-gate: %s is constructed through OoTGatedHostingMm<> %d times in "
-                   "SetupGuiElements, want exactly 1 (Time Splits and Message Viewer)\n",
+                   "SetupGuiElements, want exactly 1 (Time Splits, Message Viewer and Collision Viewer)\n",
                    kHosted[i], hostedSeen[i]);
             ok = false;
         }
@@ -7026,10 +7173,18 @@ static bool OoTWindowsGate_ScanSetupGuiElements(void) {
                "MM_TimeSplits_HostedActive, MM_TimeSplits_DrawHostedElement) with two pointers (#1238)\n");
         ok = false;
     }
+    static const char* const kHostMmCollisionViewerCall =
+        "colViewerWindow->HostMm(MM_CollisionViewer_HostedActive,MM_CollisionViewer_DrawHostedElement,"
+        "MM_CollisionViewer_UpdateHostedElement);";
+    if (compactBody.find(kHostMmCollisionViewerCall) == std::string::npos) {
+        printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements wraps ColViewerWindow in OoTGatedHostingMm<> "
+               "without wiring HostMm()\n");
+        ok = false;
+    }
     const int expectedSites = (int)(sizeof(kGated) / sizeof(kGated[0]) + sizeof(kExempt) / sizeof(kExempt[0]));
-    if (wrapped != 9 || sites != expectedSites) {
+    if (wrapped != 10 || sites != expectedSites) {
         printf("[TEST] FAIL: oot-windows-gate: SetupGuiElements has %d make_shared sites (%d OoTActiveGated<>), want "
-               "%d (9)\n",
+               "%d (10)\n",
                sites, wrapped, expectedSites);
         ok = false;
     }
@@ -7063,6 +7218,69 @@ TestResult Test_OoTWindowsGate(void) {
     }
 
     return OoT_WindowsGate_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// Backport M2, 2Ship c74ad0e38 (#1753): ImGui::BeginChild must ALWAYS be paired with
+// ImGui::EndChild, whatever BeginChild returned. The mod menu called EndChild only
+// inside `if (BeginChild(...))`, so a frame on which the child is clipped (BeginChild
+// returns false: the Mod Menu window collapsed or sized so the child has no visible
+// area) left the child window on ImGui's stack, which trips ImGui's stack-mismatch
+// assert at the next End(). Our MM mod list (SohMenuComboMmMods.cpp) has no child; the
+// hunk applies to OoT's mod_menu.cpp, the same code. The window cannot be drawn in the
+// harness (it needs SohGui's menu), so this is a source scan scoped to the live
+// "Enabled Mods" child: no EndChild inside its `if` body, and EndChild is the first
+// statement after that body.
+static TestResult Test_ModMenuChildScope(void) {
+    printf("[TEST] mod-menu-child-scope: the mod menu's Enabled Mods child ends outside its BeginChild branch "
+           "(2Ship #1753)\n");
+    const std::string src = DigestOut_ReadSource("games/oot/soh/Enhancements/mod_menu.cpp");
+    if (src.empty()) {
+        printf("[TEST] FAIL: cannot read games/oot/soh/Enhancements/mod_menu.cpp under RSBS_SOURCE_DIR\n");
+        return TEST_FAIL;
+    }
+    // The two needles are assembled from pieces: ui-parity-lint's S0 rule takes any file under src/common/ holding the
+    // text of an ImGui call for a file that draws, and this row only reads another file's source.
+    const std::string ns = "ImGui";
+    const std::string opener = "if (" + ns + "::BeginChild(\"Enabled Mods\"";
+    const std::string closer = ns + "::EndChild();";
+    const size_t at = src.find(opener);
+    if (at == std::string::npos || src.find(opener, at + 1) != std::string::npos) {
+        printf("[TEST] FAIL: expected exactly one live `%s` in mod_menu.cpp\n", opener.c_str());
+        return TEST_FAIL;
+    }
+    // The `if` body: from its opening brace to the matching closing brace.
+    const size_t open = src.find('{', at);
+    if (open == std::string::npos) {
+        printf("[TEST] FAIL: the Enabled Mods `if` has no body\n");
+        return TEST_FAIL;
+    }
+    int depth = 0;
+    size_t close = std::string::npos;
+    for (size_t i = open; i < src.size(); i++) {
+        if (src[i] == '{') {
+            depth++;
+        } else if (src[i] == '}' && --depth == 0) {
+            close = i;
+            break;
+        }
+    }
+    if (close == std::string::npos) {
+        printf("[TEST] FAIL: the Enabled Mods `if` body is unterminated\n");
+        return TEST_FAIL;
+    }
+    const std::string body = src.substr(open, close - open);
+    if (body.find("EndChild") != std::string::npos) {
+        printf("[TEST] FAIL: EndChild is inside the `if (BeginChild(\"Enabled Mods\"))` body: a clipped child "
+               "(BeginChild false) is never ended\n");
+        return TEST_FAIL;
+    }
+    const size_t next = src.find_first_not_of(" \t\r\n", close + 1);
+    if (next == std::string::npos || src.compare(next, closer.size(), closer) != 0) {
+        printf("[TEST] FAIL: the first statement after the Enabled Mods `if` body is not `%s`\n", closer.c_str());
+        return TEST_FAIL;
+    }
+    printf("[TEST] mod-menu-child-scope: Enabled Mods child is ended unconditionally\n");
+    return TEST_PASS;
 }
 
 // #935: libultraship's own `set` command (ConsoleWindow::SetCommand, registered by the Console window directly through
@@ -7612,6 +7830,21 @@ static TestResult Test_MMTingleMapDisplay(void) {
     return MM_TingleMapDisplay_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport M8: the ocarina-dive trio. Same display-free bring-up as mm-tingle-map-pool.
+static TestResult Test_MMOcarinaDive(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_OcarinaDive_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's evidence half. Same display-free shared bring-up and the same reason as
 // mm-clock-shuffle-songs: it drives MM's registrars through CVarSetInteger +
 // MM_ShipInit_OnCVarChanged, and reads the Ship::Context singleton's
@@ -7773,6 +8006,22 @@ TestResult Test_OoTDekuTheaterPrize(void) {
         return TEST_FAIL;
     }
     return OoT_DekuTheaterPrize_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// Backport bundle O6: HasItem's folded boss souls and overworld door keys, and the
+// shuffled-drop despawn exemption. The same display-free bring-up as the row
+// above: the row authors a real Rando::Context.
+TestResult Test_OoTHasItemFold(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoT_HasItemFold_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // The load reconciles OoT with the shared pool (#1163, #1159). The same
@@ -8091,6 +8340,24 @@ TestResult Test_MMSpoilerIdentity(void) {
     return MM_SpoilerIdentity_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// 2Ship backport M4 (#1775, #1478): the Check Tracker heads five scenes with
+// their plain names and the Combo Tracker's MM pane says the same words, and
+// ApplyToSaveContext refuses a spoiler naming an unknown item but keeps a
+// cross-game host's label. Same bring-up as mm-spoiler-identity.
+TestResult Test_MMRandoPolish(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_RandoPolish_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Foreign-pickup durable-record gate (#610), the defense-in-depth half: a
 // populated placement table with no live pairing must author no shared-item
 // record. Same bring-up as its sibling for consistency; the gate itself reads
@@ -8290,6 +8557,21 @@ TestResult Test_BlastMaskOoTRule(void) {
         return TEST_FAIL;
     }
     return BlastMaskOoTRule_Run();
+}
+
+// #1615: headless OoT Blast Mask shrub-cutting + Market guard house world.pos
+// lock, with display-free CVar store bring-up.
+TestResult Test_BlastMaskOoTShrubGuardHouse(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return BlastMaskOoTShrubGuardHouse_Run();
 }
 
 // #979: the Stone Mask's Cross-Game Rules rows, the Blast Mask's bring-up.
@@ -8728,7 +9010,7 @@ TestResult Test_MMPlacementConfinedWorld(void) {
 }
 
 // #1548: shipped defaults (Small Keys, Boss Keys and Dungeon Chest Fairies Own
-// Dungeon; Freestanding Fairies Vanilla; Songs Song Locations) generated for real.
+// Dungeon; Dungeon Freestanding Fairies Vanilla; Songs Song Locations) generated for real.
 TestResult Test_MMPlacementDefaultWorld(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -9706,6 +9988,17 @@ TestResult Test_PairingRefusalToastFit(void) {
 // Needs the shared bring-up: the rules and the MM profile are CVars.
 extern "C" int MM_PairedLoadRestore_RunHeadless(void);
 
+// #1602: the display-free shared bring-up, because the row sets aside and puts
+// back SoH's Skip Story Cutscenes key.
+static TestResult Test_OoTCheckReceiveEffects(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoTCheckReceiveEffects_Run();
+}
+
 // games/oot/soh/oot_file_select_refusal_test.cpp (#836): the file select's gate
 // and the backstop, through the hooks a fresh SoH SaveManager registers.
 extern "C" int OoT_FileSelectRefusal_RunHeadless(void);
@@ -9714,12 +10007,30 @@ static TestResult Test_OoTFileSelectRefusal(void) {
     return OoT_FileSelectRefusal_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/oot_gameplay_stats_test.cpp (SoH #7385, #7404): the stats
+// section saves and loads gameComplete, and a finished triforce hunt's time
+// outranks Ganon's in the RTA total.
+extern "C" int OoT_GameplayStats_RunHeadless(void);
+
+static TestResult Test_OoTGameplayStats(void) {
+    return OoT_GameplayStats_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // games/oot/soh/oot_log_noise_test.cpp (#1204): the interval autosave's slot
 // probe and the item queue's give retries log once, not once per frame.
 extern "C" int OoT_LogNoise_RunHeadless(void);
 
 static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// games/oot/soh/oot_older_save_meta_test.cpp (SoH #7434): the file select's
+// meta read takes older OoT saves (old magic names, numeric or absent
+// isMasterQuest, no sohStats) instead of throwing.
+extern "C" int OoT_OlderSaveMeta_RunHeadless(void);
+
+static TestResult Test_OoTOlderSaveMeta(void) {
+    return OoT_OlderSaveMeta_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 TestResult Test_PairedLoadRestore(void) {
@@ -9944,6 +10255,8 @@ const TestDescriptor gTests[] = {
     { "cosmetic-gfx-stub", "MM HUD gfx wrappers write commands and advance the display list", Test_CosmeticGfxStub },
     { "mm-hud-editor-reader", "MM's HUD draws honour the shared menu's HUD placement keys and presets (#1239)",
       Test_MMHudEditorReader },
+    { "mm-text-mods", "MM text mods replace and add message table entries, highest priority first (2Ship #2000)",
+      Test_MMTextMods },
     { "roundtrip", "Full round-trip with state verification", Test_Roundtrip },
     { "roundtrip-integrity", "OoT SaveContext byte-identical across OoT->MM->OoT (issue #262)",
       Test_RoundtripIntegrity },
@@ -10005,6 +10318,9 @@ const TestDescriptor gTests[] = {
       Test_OotHookshotReticleColour },
     { "mm-hookshot-reticle-colour", "Termina's hookshot reticle turns green on a hookshot surface (#1173)",
       Test_MmHookshotReticleColour },
+    // SoH #6351: every dungeon map and compass draws in its dungeon's colour.
+    { "oot-map-compass-colours", "Every dungeon map and compass draws in its dungeon's colour (SoH #6351)",
+      Test_OoTMapCompassColours },
     // #575 H2: MM's own hints name the shared area (H1), never the scene.
     { "mm-hint-area-text", "MM's hints name the shared area, not the scene (#575 H2)", Test_MmHintAreaText },
     // #575 H3c: MM's hints name the OoT area of an MM item hosted in OoT.
@@ -10264,6 +10580,9 @@ const TestDescriptor gTests[] = {
     // the live pairing; divergence refuses through the #533 surface.
     { "mm-spoiler-identity", "A spoiler's foreign section commits only when its identity names the live pairing (#610)",
       Test_MMSpoilerIdentity },
+    { "mm-rando-polish",
+      "Plain Check Tracker scene names in both trackers and a refused unknown spoiler item (2Ship #1775, #1478)",
+      Test_MMRandoPolish },
     { "mm-foreign-pickup-gate", "An unpaired session authors no durable shared-item record on a foreign pickup (#610)",
       Test_MMForeignPickupGate },
     { "mm-paired-spoiler-name", "A paired spoiler whose seed name is another identity's goes to <seed>-<fp> (#1055)",
@@ -10278,6 +10597,8 @@ const TestDescriptor gTests[] = {
     { "combo-mm-options-page",
       "The MM options pages' model: columns, row states and reasons, notes, and the freeze gate (#497)",
       Test_ComboMMOptionsPage },
+    { "mm-hookshot-anywhere", "Hookshot Anywhere (MM) pure surface and logical helpers (#1574)",
+      Test_MMHookshotAnywhere },
     // Netplay 1a (ADR 0005, #460): the sourced-grant model, transport-free.
     { "grant-idempotency", "Retransmit delivers once; a second gift of the same item delivers twice (ADR 0005)",
       Test_GrantIdempotency },
@@ -10412,6 +10733,9 @@ const TestDescriptor gTests[] = {
     { "mm-audio-editor-replacement",
       "MM's sequence lookup answers from MM's own replacement keys, and SoH's randomize mode reaches MM (#1239)",
       Test_MMAudioEditorReplacement },
+    { "oot-audio-editor-entries",
+      "SoH's Audio Editor shows its missing music rows, randomizes Ending, and keeps None silent (O12)",
+      Test_OoTAudioEditorEntries },
     { "item-age-reqs-bounds", "OoT's gItemAgeReqs covers ITEM_ROCS_FEATHER and every u8 ItemID (#983)",
       Test_ItemAgeReqsBounds },
     { "item-actions-bounds", "OoT sItemActions covers ITEM_ROCS_FEATHER and every u8 ItemID (#984)",
@@ -10528,6 +10852,10 @@ const TestDescriptor gTests[] = {
       "OoT save/play-state windows, menu embeds, console commands and the Giant's Knife toggle gate on the active game "
       "(#797, #798)",
       Test_OoTWindowsGate },
+    // Backport M2 (2Ship #1753): the mod menu's Enabled Mods child is ended whatever
+    // BeginChild returned. Source scan; display-free, ROM-free.
+    { "mod-menu-child-scope", "Mod menu Enabled Mods child ends outside its BeginChild branch (2Ship #1753)",
+      Test_ModMenuChildScope },
     // #935: libultraship's own `set` command fails on a value it cannot parse instead of ending the process.
     // Display-free, ROM-free.
     { "console-set-parse-guard",
@@ -10655,6 +10983,11 @@ const TestDescriptor gTests[] = {
       Test_MMTingleMapPool },
     { "mm-tingle-map-display", "A shop slot holding an owned Tingle map is named and sold as junk, once (#1499)",
       Test_MMTingleMapDisplay },
+    // Backport M8. After mm-registrar-coverage for the same reason as the Tingle
+    // rows (it runs MM_Rando_Init); restores what it writes.
+    { "mm-ocarina-dive",
+      "MM's ocarina dive: two grace frames while hovering, no faster song while falling (2Ship #1842)",
+      Test_MMOcarinaDive },
     // The two MM resume-contract tests below mutate process-global state
     // (mm-resume-arena re-inits the MM system arena + heaps; mm-startup-restore
     // scribbles and re-zeroes the unified gSaveContext). Both clean up after
@@ -10783,6 +11116,11 @@ const TestDescriptor gTests[] = {
     { "oot-price-range-minimum",
       "A Range price setting's tracker minimum is min(range 1, range 2) * 5 in either slider order (#999)",
       Test_OoTPriceRangeMinimum },
+    // SoH #7383: display-free and ROM-free; calls two pure functions and touches no state.
+    { "oot-save-editor-name-encoding",
+      "The Save Editor's player-name encoding round-trips the PAL and NTSC tables and keeps a name across a "
+      "language change (SoH #7383)",
+      Test_OoTSaveEditorNameEncoding },
     // #1420: ROM-free over a heap rando Context and the region graph; puts back every
     // key, option and save field it changes.
     { "oot-tracker-soh-fixes",
@@ -10790,12 +11128,23 @@ const TestDescriptor gTests[] = {
       "the saved entrance and Link's age and time, the credits item pane is live, the fortress grotto and owl rows, "
       "and the pause screen's new entries (#1420)",
       Test_OoTTrackerSohFixes },
+    // SoH #6709: ROM-free: Camera_Subj4's three console writes to Link are live code.
+    { "oot-camera-subj4-console",
+      "Camera_Subj4 (the crawlspace camera) writes Link's world position and shape yaw as console does (SoH #6709)",
+      Test_OoTCameraSubj4Console },
     // #948: display-free and ROM-free, and order-free: it restores the current
     // game, the active slot and OoT_gPlayState, and clears the combo identity.
     { "oot-mask-shop-night-door",
       "In a paired world the night Market's Happy Mask Shop door opens as the day door does, so the crossing works "
       "at night; a vanilla file keeps the sign, and the other night shops and the day door are unchanged (#948)",
       Test_OoTMaskShopNightDoor },
+    // Backport O16: display-free and ROM-free; restores the three trigger
+    // CVars (cleared, never stored), the guards and the current game.
+    { "oot-dark-link-fixes",
+      "The Dark Link guards (voidout, fall damage, distant clank, floor-type statics, Like-Like grab) arm when the "
+      "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
+      "labels read Gerudo Thief (SoH #7054, #7272)",
+      Test_OoTDarkLinkFixes },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
@@ -10803,12 +11152,19 @@ const TestDescriptor gTests[] = {
       "func_80096A74 short-circuits via VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when "
       "camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages (#1336)",
       Test_OoTRoomBgCamGuard },
+    // SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Big Octo platform's cutscene alone.
+    { "oot-big-octo-onepoint-kept",
+      "Skip One Point Cutscenes breaks out for BgBdanObjects params 0 before the chime, and the child Ruto skip "
+      "guards cameraSetting != 2 without the one-point CVar (SoH #7158)",
+      Test_OoTBigOctoOnePointKept },
     // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
     // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
     { "oot-mweep-stop-restores-camera",
       "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
       "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
       Test_OoTMweepStopRestoresCamera },
+    // #1588: display-free and ROM-free; restores gSaveContext, active game, CVars, Rando::Context, and hooks.
+    { "oot-vanilla-magic-boundary", "OoT magic and Barinade VB boundary (#1588)", Test_OoTVanillaMagicBoundary },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
@@ -11304,6 +11660,14 @@ const TestDescriptor gTests[] = {
       "frozen rule, pairs into one bag row under the shared rule, and OoT's logic credits it as a child's explosive "
       "only then (#979)",
       Test_BlastMaskOoTItems },
+    { "blast-mask-oot-spawn",
+      "Combo_BlastMask_StepOotSpawn anchors the bomb spawn and truncated int16_t explosionCollider sphere center at "
+      "Link's world.pos once per cooldown (#1615)",
+      Test_BlastMaskOoTSpawn },
+    { "blast-mask-oot-shrub-guardhouse",
+      "Child Link's Blast Mask cuts adjacent ground shrubs (ACTOR_EN_KUSA) and spawns/centers ACTOR_EN_BOM at Link's "
+      "world.pos in the Market guard house without OoT_EnBom_Draw (#1615)",
+      Test_BlastMaskOoTShrubGuardHouse },
     { "stone-mask-oot-rule",
       "The Stone Mask (OoT) and Shared Stone Mask are two Cross-Game Rules, off by default, the shared one only with "
       "its extension, restored from the file at load in OoTMM's order; OoTMM's actors lose sight of the wearer (#979)",
@@ -11544,6 +11908,11 @@ const TestDescriptor gTests[] = {
       "respawn after the arrival's neutralisation), keeps the vanilla pad before Entrance_Init, and a door arrival "
       "with overworld ER runs no override (#1169 XW3)",
       Test_RandoWarpArrival },
+    { "rando-grotto-void",
+      "With grottos shuffled but not mixed or decoupled a grotto exit keeps the pre-grotto respawn; a swim void-out "
+      "in a grotto reloads it, none fires mid-transition, one after a grotto return lands on the grotto's point; the "
+      "tracker's Ganon's Tower rows are oneExit; a grotto hole waits for the fade-in under the Bunny Hood (SoH O7)",
+      Test_RandoGrottoVoid },
     { "shuffled-fairy-no-heal",
       "A randomized fairy (gossip stone, fountain, fairy spot, bean) gives its item on touch and no heal, and a "
       "randomized big fairy no magic refill; a fairy with no check still heals and the big one refills magic (#1289)",
@@ -11586,7 +11955,8 @@ const TestDescriptor gTests[] = {
     { "oot-shuffle-silver",
       "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and greyed out, a default world's "
       "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
-      "logic reads each silver rupee item's own event while it is off (#1363)",
+      "logic reads each silver rupee item's own event while it is off (#1363), and the Spirit boulder silver checks "
+      "carry their corrected names (#1589)",
       Test_OoTShuffleSilver },
     // #1405. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-shuffle-wonder-items",
@@ -11643,14 +12013,26 @@ const TestDescriptor gTests[] = {
       "own values, names them in a toast, and never plays the file unpaired; what the file cannot restore is "
       "refused or flagged visibly (#781)",
       Test_PairedLoadRestore },
+    { "oot-check-receive-effects",
+      "What OoT does because a check gave its item (the Silver Gauntlets chest marking Nabooru captured) runs when "
+      "that check hosts a Majora's Mask item too, once, and every such check is named in one literal (#1602)",
+      Test_OoTCheckReceiveEffects },
     { "oot-file-select-refusal",
       "A file the open path would refuse is not opened at the OoT file select (A/START consumed, one toast, nothing "
       "written), and a load refused after the gate returns to the file select instead of Play (#836)",
       Test_OoTFileSelectRefusal },
+    { "oot-gameplay-stats",
+      "OoT's stats section saves and loads gameComplete, so a finished file stays finished after a reload, and a "
+      "finished triforce hunt's timestamp outranks Ganon's in the RTA total time (SoH #7385, #7404)",
+      Test_OoTGameplayStats },
     { "oot-log-noise",
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-older-save-meta",
+      "The file select reads an older OoT save (magicAcquired/doubleMagic, a numeric or absent isMasterQuest, no "
+      "sohStats) instead of throwing and quarantining it (SoH #7434)",
+      Test_OoTOlderSaveMeta },
     { "crossing-commit",
       "Every cross-game crossing is a whole-file commit taken between the departing suspend and the target's "
       "resume: a kill after the crossing reloads it; a latched, slot-less, freeze-less or not-live departure "
@@ -11681,6 +12063,10 @@ const TestDescriptor gTests[] = {
       "Under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item for the Skull Mask and Mask of Truth "
       "checks and no vanilla Deku Stick or Nut capacity upgrade; a vanilla file still gets the upgrade (#1217)",
       Test_OoTDekuTheaterPrize },
+    { "oot-has-item-fold",
+      "Logic::HasItem answers boss souls under Shuffle Boss Souls and overworld door keys under Lock Overworld Doors, "
+      "and a shuffled key or heart drop's despawn timer is stopped (SoH #6795, #6798, #7183)",
+      Test_OoTHasItemFold },
     { "combo-player-name",
       "The paired world has one name: OoT's typed name, in each OoT filename charset, translates into MM's charset "
       "as OoTMM's copyName does (no-glyph bytes to MM's space), every typable character prints in MM as in OoT, "
@@ -12039,7 +12425,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "scrub-text-hint-setting") == 0 ||
                 strcmp(gTests[i].name, "map-compass-text") == 0 || strcmp(gTests[i].name, "bombchu-drop-rule") == 0 ||
                 strcmp(gTests[i].name, "master-sword-respawn") == 0 ||
-                strcmp(gTests[i].name, "rando-warp-arrival") == 0 ||
+                strcmp(gTests[i].name, "rando-warp-arrival") == 0 || strcmp(gTests[i].name, "rando-grotto-void") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-no-heal") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-exists") == 0 ||

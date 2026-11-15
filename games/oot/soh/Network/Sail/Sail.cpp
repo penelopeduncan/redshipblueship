@@ -3,6 +3,7 @@
 #include <libultraship/libultraship.h>
 #include <nlohmann/json.hpp>
 #include "soh/OTRGlobals.h"
+#include "soh/ShipInit.hpp"
 #include "soh/util.h"
 #include "soh/ShipUtils.h"
 
@@ -13,6 +14,12 @@ template <class DstType, class SrcType> bool IsType(const SrcType* src) {
 void Sail::Enable() {
     Network::Enable(CVarGetString(CVAR_REMOTE_SAIL("Host"), "127.0.0.1"),
                     CVarGetInteger(CVAR_REMOTE_SAIL("Port"), 43384));
+    ShipInit::Init(CVAR_REMOTE_SAIL("Enabled"));
+}
+
+void Sail::Disable() {
+    Network::Disable();
+    ShipInit::Init(CVAR_REMOTE_SAIL("Enabled"));
 }
 
 void Sail::OnConnected() {

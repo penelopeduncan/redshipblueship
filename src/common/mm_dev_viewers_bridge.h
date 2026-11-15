@@ -4,7 +4,7 @@
 /*
  * Single-executable bridge from SoH's hosted W6-DEV windows to 2Ship's DeveloperTools bodies.
  * Includes only C-compatible primitives and forward-declared types (no MM headers).
- * Slice 1 (#1238): Message Viewer. Slice 2 (Collision Viewer) appends to this header.
+ * Slice 1 (#1238): Message Viewer. Slice 2 (#1238): Collision Viewer.
  */
 
 #ifndef __cplusplus
@@ -26,6 +26,15 @@ void MM_MessageViewer_UpdateHostedElement(void);
 
 /** Test only: returns whether the hosted MM Message Viewer body has been initialized (never initializes it). */
 bool MM_MessageViewer_HostedInitializedForTest(void);
+
+/** Returns true when SoH's Collision Viewer window should host Majora's Mask's Collision Viewer body. */
+bool MM_CollisionViewer_HostedActive(void);
+/** Draws Majora's Mask's Collision Viewer body inside SoH's Collision Viewer window (call only while HostedActive). */
+void MM_CollisionViewer_DrawHostedElement(void);
+/** Initializes MM's Collision Viewer body and updates it on the first MM frame, whether the window is open or not. */
+void MM_CollisionViewer_UpdateHostedElement(void);
+/** Test only: returns whether the hosted MM Collision Viewer body has been initialized (never initializes it). */
+bool MM_CollisionViewer_HostedInitializedForTest(void);
 
 #ifdef __cplusplus
 }

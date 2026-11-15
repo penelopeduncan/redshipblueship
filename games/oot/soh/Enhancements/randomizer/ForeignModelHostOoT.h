@@ -34,6 +34,13 @@ int OoT_Rando_Foreign_BuildShowOnlyGetItem(uint16_t rc, GetItemEntry* out);
 int OoT_Rando_Foreign_TakeShowOnlyGetItem(const GetItemEntry* entry);
 
 /**
+ * 1 when `entry` is the show-only entry (armed or already taken), 0 otherwise.
+ * The item-receive hook asks it of its queue slot (#1602): a show-only slot is a
+ * foreign host's, whose give point runs the check-keyed part of the receive.
+ */
+int OoT_Rando_Foreign_IsShowOnlyGetItem(const GetItemEntry* entry);
+
+/**
  * The item textbox's words for a show-only entry: 1 with the MM item's article
  * ("the ", "a ", ... or "") and name; 0 when `entry` is not the show-only entry
  * (the caller builds OoT's own message).

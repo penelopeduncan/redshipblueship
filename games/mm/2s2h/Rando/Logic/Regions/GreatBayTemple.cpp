@@ -280,7 +280,13 @@ static RegisterShipInitFunc initFunc([]() {
             CHECK(RC_ENEMY_DROP_SKULLFISH, CanKillEnemy(ACTOR_EN_PR2)),
         },
         .connections = {
-            CONNECTION(RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM,         CAN_BE_ZORA),
+            // #1574: OoTMM great_bay_temple.yml:90,112 ("Great Bay Temple Map Room Surface" ->
+            // "Baba Room Underwater" -> "Baba Room Surface"): `((has_bombchu && trick(MM_GBT_BABA_ENTRY_BOMBCHU)) ||
+            // has_mask_blast || has_boomerang) && short_hook_anywhere && can_swim_or_sink` is ported for the
+            // Bombchu and Blast Mask legs. Left out: the Boomerang (OoT only), underwater_walking / Zora Tunic
+            // (OoT items), and the line's `|| (hookshot_anywhere && can_swim_or_sink)` disjunct (the
+            // hookshot_anywhere macro, macros_mm.yml:467, is not ported in this build; it would subsume both legs).
+            CONNECTION(RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM,         CAN_BE_ZORA || (HAS_ITEM(ITEM_BOMBCHU) && MM_TRICK(MMRT_GBT_BABA_ENTRY_BOMBCHU) && SHORT_HOOK_ANYWHERE && CAN_USE_ABILITY(SWIM)) || (HAS_ITEM(ITEM_MASK_BLAST) && SHORT_HOOK_ANYWHERE && CAN_USE_ABILITY(SWIM))),
             CONNECTION(RR_GREAT_BAY_TEMPLE_CENTRAL_ROOM,            CAN_BE_ZORA && GBT_CAN_REVERSE_WATER_FLOW),
             CONNECTION(RR_GREAT_BAY_TEMPLE_RED_PIPE_SWITCH_ROOM,    CAN_USE_MAGIC_ARROW(ICE)),
         },
@@ -365,7 +371,9 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_GREAT_BAY_TEMPLE_WATER_WHEEL_ROOM] = RandoRegion{ .sceneId = SCENE_SEA,
         .checks = {
-            CHECK(RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM,           (CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)) || (HAS_ITEM(ITEM_BOW) && HAS_ITEM(ITEM_MASK_GREAT_FAIRY))),
+            // #1574: OoTMM great_bay_temple.yml:40 ("Great Bay Temple SF Water Wheel Platform"):
+            // `... || (short_hook_anywhere && trick(MM_GBT_FAIRY2_HOOK) && can_swim)`.
+            CHECK(RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM,           (CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)) || (HAS_ITEM(ITEM_BOW) && HAS_ITEM(ITEM_MASK_GREAT_FAIRY)) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_GBT_FAIRY2_HOOK) && CAN_USE_ABILITY(SWIM))),
             CHECK(RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_SKULLTULA,          true),
             CHECK(RC_GREAT_BAY_TEMPLE_WATER_WHEEL_FREESTANDING_RUPEE_01, true),
             CHECK(RC_GREAT_BAY_TEMPLE_WATER_WHEEL_FREESTANDING_RUPEE_02, true),

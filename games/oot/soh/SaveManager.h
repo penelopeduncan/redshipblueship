@@ -107,6 +107,13 @@ class SaveManager {
     // versions.
     void AddPostFunction(const std::string& name, PostFunc func);
 
+    // Test seam (row OoTOlderSaveMeta, games/oot/soh/oot_older_save_meta_test.cpp): the file-select
+    // meta read StartupCheckAndInitMeta runs on a parsed fileN.sav, without its quarantine (whose
+    // popup needs the GUI). A save the read cannot make sense of throws out of this call.
+    void ReadMetaForTest(int fileNum, nlohmann::json& metaSaveBlock) {
+        StartupCheckAndInitMetaImpl(fileNum, metaSaveBlock);
+    }
+
     void CopyZeldaFile(int from, int to);
     void DeleteZeldaFile(int fileNum);
     bool IsRandoFile();
@@ -153,6 +160,12 @@ class SaveManager {
     // LoadRandomizer does. English text either way, whatever the file's language.
     std::string SeedPackageSerializeWorld();
     bool SeedPackageLoadWorld(const std::string& sectionJson);
+
+    // Test hooks: one section's save function run into an empty JSON object, and
+    // one section's load function run from a JSON object, in memory, with the
+    // calls the save and load paths make (SaveData / LoadData land in @p section).
+    nlohmann::json TestSaveSectionToJson(SaveFunc func, SaveContext* saveContext);
+    void TestLoadSectionFromJson(LoadFunc func, nlohmann::json& section);
 #endif
 
     // Use a name of "" to save to an array. You must be in a SaveArray callback.

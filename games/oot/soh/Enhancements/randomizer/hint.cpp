@@ -7,6 +7,7 @@
 #include "3drando/random.hpp"
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "combo_area.h" // src/common: the MM area a Termina slot names (#575 H3a)
+#include "combo_goal.h" // src/common: Combo_GoalAltarLine, the altar's win-condition line (SoH #7341)
 #include "game.h"       // src/common: GAME_MM
 #include "foreign_items.h" // src/common: the crossed item's name and article (#575 H3b)
 #include "warp_song_items.h" // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
@@ -382,7 +383,7 @@ const CustomMessage Hint::GetHintMessage(MessageFormat format, size_t id) const 
         } else {
             hintText.SetTextBoxType(TEXTBOX_TYPE_BLUE);
         }
-        hintText += GetBridgeReqsText() + GetGanonBossKeyText() +
+        hintText += GetBridgeReqsText() + GetGanonBossKeyText() + GetWinconText() +
                     StaticData::hintTextTable[RHT_ADULT_ALTAR_TEXT_END].GetHintMessage();
     } else {
         hintText = GetHintText(id).GetHintMessage(chosenMessage);
@@ -734,6 +735,31 @@ CustomMessage Hint::GetGanonBossKeyText() {
         ganonBossKeyMessage.InsertNumber(ctx->GetOption(RSK_LACS_TOKEN_COUNT).Get());
     }
     return ganonBossKeyMessage;
+}
+
+// SoH #7341, adapted: upstream reads its win-condition setting (RSK_WINCON, which
+// this tree does not have). Here the win condition is the paired file's combo goal,
+// frozen at creation, so the line follows that record: beat-oot reads upstream's
+// "defeat Ganon" line and triforce-hunt its "Triforce Pieces" line with the combo
+// requirement. Every other goal, and an unpaired file, adds nothing, so the altar
+// reads as it did before.
+CustomMessage Hint::GetWinconText() {
+    CustomMessage winconMessage;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    uint16_t required = 0;
+    switch (Combo_GoalAltarLine(&required)) {
+        case RSBS_GOAL_ALTAR_LINE_DEFEAT_GANON:
+            return StaticData::hintTextTable[RHT_WINCON_DEFEAT_GANON_HINT].GetHintMessage();
+        case RSBS_GOAL_ALTAR_LINE_TRIFORCE_PIECES:
+            winconMessage = StaticData::hintTextTable[RHT_WINCON_TRIFORCE_PIECES_HINT].GetHintMessage();
+            // The combo total is at most RSBS_TRIFORCE_COMBO_MAX (255), so is its requirement.
+            winconMessage.InsertNumber((uint8_t)required);
+            break;
+        default:
+            break;
+    }
+#endif
+    return winconMessage;
 }
 
 void Hint::AddHintedLocation(RandomizerCheck location) {

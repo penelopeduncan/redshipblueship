@@ -201,6 +201,12 @@ const char* const kLogicLabels[] = {
     "Vanilla",         // RO_LOGIC_VANILLA
 };
 
+const char* const kHookshotAnywhereLabels[] = {
+    "Off",     // RO_HOOKSHOT_ANYWHERE_OFF
+    "On",      // RO_HOOKSHOT_ANYWHERE_ON
+    "Logical", // RO_HOOKSHOT_ANYWHERE_LOGICAL
+};
+
 const char* const kDungeonAccessLabels[] = {
     "Transformation & Song",  // RO_ACCESS_DUNGEONS_FORM_AND_SONG
     "Transformation or Song", // RO_ACCESS_DUNGEONS_FORM_OR_SONG
@@ -309,6 +315,15 @@ const OptionUi kOptionUi[] = {
       "Follows [Both Games] Logic: Glitchless under All Locations and Beatable Only, No Logic under No Logic.",
       0, 0, kLogicLabels, UI_COUNT(kLogicLabels),
       COMBO_MM_LIVENESS_GENERATION_ONLY, "" },
+    // #1574: OoTMM's Hookshot Anywhere (MM) (hookshotAnywhereMm, data.ts:1690-1702),
+    // frozen per file in randoSaveOptions and enforced by HookshotAnywhere.cpp
+    // (VB_BE_HOOKSHOT_SURFACE, dispatched in z_bgcheck.c via MM_GameHooks_ExecuteVBShould).
+    { RO_HOOKSHOT_ANYWHERE, COMBO_MM_GROUP_LOGIC, COMBO_MM_WIDGET_COMBO,
+      "Hookshot Anywhere",
+      "Allows the Hookshot to latch onto most surfaces in Majora's Mask for this file: On enables the surfaces only, "
+      "while Logical also lets logic expect it. Majora's Mask only.",
+      0, 0, kHookshotAnywhereLabels, UI_COUNT(kHookshotAnywhereLabels),
+      COMBO_MM_LIVENESS_LIVE, "" },
     { RO_ACCESS_DUNGEONS, COMBO_MM_GROUP_AREA_ACCESS, COMBO_MM_WIDGET_COMBO,
       "Dungeon Access",
       "What a dungeon entrance requires: form and song, form or song, form only, song only, or nothing.",
@@ -1106,6 +1121,9 @@ const MMRandoTrickId kBoundTricks[] = {
     // part 3. Logic/Regions/West.cpp — RC_ZORA_HALL_SCRUB_PIECE_OF_HEART. #697 third
     // pass: reshaped to OoTMM's `(deed && Goron && Deku) || (trick && (Goron || Zora))`.
     MMRT_ZORA_HALL_SCRUB_HP_NO_DEKU,
+    // #1574. Logic/Regions/West.cpp — the four Zora Hall back-room doors via
+    // SHORT_HOOK_ANYWHERE.
+    MMRT_ZORA_HALL_DOORS,
     // part 3 (second pass). Logic/Regions/IkanaCastle.cpp — a NEW one-way edge
     // from RR_IKANA_CASTLE_INNER_ROOF to RR_IKANA_CASTLE_OUTER_ROOF.
     MMRT_IKANA_ROOF_PARKOUR,
@@ -1120,12 +1138,16 @@ const MMRandoTrickId kBoundTricks[] = {
     // part 3. Logic/Regions/GreatBayTemple.cpp —
     // RC_GREAT_BAY_TEMPLE_ENTRANCE_CHEST, with the Bow as the disjunct's own term.
     MMRT_GBT_ENTRANCE_BOW,
-    // #697 third pass. Logic/Regions/PiratesFortress.cpp — the plaza's upper chest as
-    // Goron (OoTMM's only MM-only use of the key).
+    // #697 third pass, #1574. Logic/Regions/PiratesFortress.cpp (plaza upper chest as
+    // Goron), MilkRoad.cpp (Milk Road boulder) and East.cpp (Stone Tower Temple door).
     MMRT_OOB_MOVEMENT,
     // part 3 (second pass). Logic/Regions/StoneTowerTemple.cpp — the six
     // Deku-gated checks in the inverted wind room whose RC names say UPDRAFTS.
     MMRT_ST_UPDRAFTS,
+    // #1574. Logic/Regions/South.cpp — Deku Palace Holding Cell to King's Chamber.
+    MMRT_ESCAPE_CAGE,
+    // #1574. Logic/Regions/GreatBayTemple.cpp — RC_GREAT_BAY_TEMPLE_SF_WATER_WHEEL_PLATFORM.
+    MMRT_GBT_FAIRY2_HOOK,
     // #697 third pass. Logic/Regions/GreatBayTemple.cpp — the central room's four
     // tunnels, through GBT_CAN_RIDE_CENTRAL_GEYSER.
     MMRT_GBT_CENTRAL_GEYSER,
@@ -1150,6 +1172,8 @@ const MMRandoTrickId kBoundTricks[] = {
     // #697 third pass. Logic/Regions/GreatBayTemple.cpp — Green Pipe 3's five
     // Fire-Arrow sites and the compass room's boss-key edge.
     MMRT_GBT_FIRELESS,
+    // #1574. Logic/Regions/North.cpp — RC_GORON_VILLAGE_LARGE_CRATE and MEDIGORON.
+    MMRT_KEG_TRIAL_HEATLESS,
     // part 2. Logic/Regions/WoodfallTemple.cpp (the water-room hive) and
     // Logic/Regions/PiratesFortress.cpp (RE_PIRATE_FORTRESS_BEEHIVE_HIT).
     MMRT_HIVE_BOMBCHU,
@@ -1158,6 +1182,8 @@ const MMRandoTrickId kBoundTricks[] = {
     MMRT_TWINMOLD_BOW,
     // #697 third pass. The same row; non-vacuous now that the Bow is gated.
     MMRT_TWINMOLD_FIRE_AND_ICE,
+    // #1574. Logic/Regions/GreatBayTemple.cpp — map room to Bio Baba room via SHORT_HOOK_ANYWHERE.
+    MMRT_GBT_BABA_ENTRY_BOMBCHU,
     // part 1 (finding (b)). Logic/Regions/GreatBayTemple.cpp — the compass-room
     // boss-key connection.
     MMRT_GBT_BOSS_KEY_ICE,
@@ -1178,10 +1204,9 @@ bool IsBoundTrick(MMRandoTrickId mmRandoTrickId) {
 // real blocker. Under the follow-OoTMM ruling a key OoTMM opens with an "X in MM"
 // setting is in the item class (stoneAgonyMm data.ts:1908, shortHookshotMm :1970,
 // tunicGoronMm/tunicZoraMm, scalesMm and strengthMm in :2106-2214) and stays
-// visible: it becomes bindable once that item is usable in MM. A key whose only
-// leg is short_hook_anywhere is NOT in the item class: MM's own Hookshot
-// satisfies can_hookshot_short, so its blocker is OoTMM's "Hookshot Anywhere
-// (MM)" logic setting (data.ts:1696), which MM's logic does not have.
+// visible: it becomes bindable once that item is usable in MM. The four keys
+// whose only leg was short_hook_anywhere were bound in #1574 once RO_HOOKSHOT_ANYWHERE
+// landed; COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE stays in the enum at count 0.
 //
 // `mm-trick-table` leg (k) holds every unbound descriptor to a class, each class
 // to its wording, and the per-class counts, so binding a key here (or adding one)
@@ -1214,22 +1239,12 @@ const UnboundTrick kUnboundTricks[] = {
     { MMRT_MAJORA_LOGIC, COMBO_MM_TRICK_UNBOUND_NO_SUCH_TERM, COMBO_MM_TRICK_REASON_NO_SUCH_TERM },
     // Inside a grotto MM's logic does not map to its entrance (#578 section 3).
     { MMRT_GBC_COW_LIKELIKE_ELEVATOR, COMBO_MM_TRICK_UNBOUND_UNMAPPED_AREA, COMBO_MM_TRICK_REASON_UNMAPPED_AREA },
-    // can_enter_zora_door's trick leg is short_hook_anywhere (macros_mm.yml:325,
-    // :424): can_hookshot_short && setting(hookshotAnywhereMm, logical). MM's
-    // Hookshot satisfies can_hookshot_short whenever shortHookshotMm is off, so
-    // the blocker is the Hookshot Anywhere logic setting, not an item.
-    // ESCAPE_CAGE, GBT_FAIRY2_HOOK and KEG_TRIAL_HEATLESS below are the same.
-    { MMRT_ZORA_HALL_DOORS, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE, COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
     // That edge is already unconditional here.
     { MMRT_IKANA_PILLAR_ENTRANCE_FLOAT, COMBO_MM_TRICK_UNBOUND_COVERED, COMBO_MM_TRICK_REASON_COVERED },
     { MMRT_IKANA_PILLAR_ENTRANCE_JUMP, COMBO_MM_TRICK_UNBOUND_COVERED, COMBO_MM_TRICK_REASON_COVERED },
     // Only matters with the Chuchu soul shuffled; the Wizzrobe-room edge here
     // has no Chuchu-soul term.
     { MMRT_ISTT_CHUCHU_LESS, COMBO_MM_TRICK_UNBOUND_COVERED, COMBO_MM_TRICK_REASON_COVERED },
-    // short_hook_anywhere, as Zora Hall's doors (deku_palace.yml "Deku Palace
-    // Cage To Throne"; great_bay_temple.yml:40).
-    { MMRT_ESCAPE_CAGE, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE, COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
-    { MMRT_GBT_FAIRY2_HOOK, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE, COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
     // ER-only: setting(erMoon).
     { MMRT_CLOCK_TOWER_WAIT, COMBO_MM_TRICK_UNBOUND_ENTRANCE_RANDO, COMBO_MM_TRICK_REASON_ENTRANCE_RANDO },
     // Grotto mapping, as the cow grotto above.
@@ -1243,19 +1258,10 @@ const UnboundTrick kUnboundTricks[] = {
     // Needs an inn-roof region; a disjunct on the midnight meeting alone is
     // unreachable under the inn's stay rules.
     { MMRT_STOCK_POT_WAIT, COMBO_MM_TRICK_UNBOUND_UNMAPPED_AREA, COMBO_MM_TRICK_REASON_UNMAPPED_AREA },
-    // access_keg_trial's trick leg is short_hook_anywhere (macros_mm.yml:333).
-    { MMRT_KEG_TRIAL_HEATLESS, COMBO_MM_TRICK_UNBOUND_HOOKSHOT_ANYWHERE, COMBO_MM_TRICK_REASON_HOOKSHOT_ANYWHERE },
     // OoTMM's kegStrength3 (strengthMm): the Golden Gauntlets.
     { MMRT_KEG_HOOKBUNNY, COMBO_MM_TRICK_UNBOUND_OOT_ITEM, "Needs Golden Gauntlets From Ocarina of Time" },
     // The keg implies Goron here, and Goron already breaks red boulders.
     { MMRT_KEG_RED_BOULDER, COMBO_MM_TRICK_UNBOUND_COVERED, COMBO_MM_TRICK_REASON_COVERED },
-    // great_bay_temple.yml:90: the trick's item legs are underwater_walking
-    // (Zora Tunic and Iron Boots) and can_dive_big && has_tunic_zora (Zora Tunic
-    // and the Golden Scale); both need the Zora Tunic. Its third leg,
-    // short_hook_anywhere, is the Hookshot Anywhere setting; the items are what
-    // this build can add.
-    { MMRT_GBT_BABA_ENTRY_BOMBCHU, COMBO_MM_TRICK_UNBOUND_OOT_ITEM,
-      "Needs Zora Tunic With Iron Boots or Golden Scale From Ocarina of Time" },
     // zora_cape.yml:20: has_iron_boots && has_tunic_zora && (... has_bombchu &&
     // trick ...). No scale leg.
     { MMRT_CAPE_LIKE_LIKE_BOMBCHU, COMBO_MM_TRICK_UNBOUND_OOT_ITEM,

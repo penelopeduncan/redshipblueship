@@ -458,8 +458,6 @@ std::string decodeNTSCPlayerNameChar(int code) {
     return ret;
 }
 
-// decodePlayerNameChar, encodePlayerNameChar and reencodePlayerName are PR #1620's (SoH #7383 hunks 1 and 4), restated
-// here word for word so this port builds on its own; #1620 merges first and the rebase keeps one copy.
 char decodePlayerNameChar(uint8_t code, uint8_t language) {
     if (language == NAME_LANGUAGE_PAL) {
         return z2ASCII(code);
