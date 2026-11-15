@@ -217,6 +217,11 @@
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted
  *     rows on SoH's Settings > General write them. Each TU is the only registrant of its VB (VB_EARTHQUAKE_ON_DAY_3,
  *     VB_APPLY_SCREEN_DISTORTION), so the probe is the same.
+ *   - 2Ship #1972 adds Cycle/MayorArguesUntilMoonfall to the same table. Its key
+ *     (gEnhancements.Cycle.MayorArguesUntilMoonfall) is MM's own: a hosted row in the Majora's Mask block of SoH's
+ *     Enhancements > Quality of Life > Time of Day writes it. The TU is the only registrant of
+ *     VB_MAYOR_MEETING_END_ON_FINAL_NIGHT and of OnActorEntryHalfDaysBits (keyed on En_Muto, En_Baisen, En_Heishi and
+ *     En_Daiku), so each of its five buckets must rise by exactly one.
  *   - 2Ship #1989 adds Items/HotWaterNeverCools to the same table. Its key (gEnhancements.Items.HotWaterNeverCools)
  *     is MM's own: a hosted row in the Majora's Mask block of SoH's Enhancements > Items > Equipment writes it. The TU
  *     is the only registrant of VB_COOL_HOT_WATER, so the probe is the same.
@@ -286,6 +291,25 @@
  *     so. This is also the leg's non-vacuity control: a stand-in the hook never reached would take no roll here.
  * The converting roll spawns a CustomItem through MM_Actor_Spawn, which needs a live actor context, so the leg never
  * takes it; a Bombchu appearing is the playtest's. Nothing ChuDrops.cpp defines is named here.
+ *
+ * MAYOR ARGUES UNTIL MOONFALL KEEPS THE MEETING GOING (2Ship #1972) -- FAIL 24. The key-gap table shows that
+ * Cycle/MayorArguesUntilMoonfall.cpp registers (one VB_MAYOR_MEETING_END_ON_FINAL_NIGHT handler and one
+ * OnActorEntryHalfDaysBits handler for each of En_Muto, En_Baisen, En_Heishi and En_Daiku); this leg shows what they
+ * answer, through the production dispatchers (GameInteractor_Should, which is MM_GameHooks_ExecuteVBShould, and
+ * GameInteractor_ExecuteOnActorEntryHalfDaysBits, #1618's bridge), with the verdicts the five overlays and z_actor.c
+ * hand them on the night of the Final Day:
+ *   - key off: the meeting ends (the vanilla verdict comes back) and no entry's half-day mask changes;
+ *   - key on, before the Couple's Mask heart piece: the meeting does not end, each of the four entries in the Mayor's
+ *     Residence gains HALFDAYBIT_DAY3_NIGHT (with its other bits kept), a flagged entry id (0x8000) is matched the same
+ *     way, and Dotour's entry, an entry in another scene, an entry after the meeting is resolved and an entry with no
+ *     play state are left alone;
+ *   - key on, after the heart piece: the meeting ends again;
+ *   - key back off: the vanilla verdicts come back, so the registrants left with their key.
+ * A stand-in zeroed play state carries the scene id (without one the half-day body's play-state guard returns first
+ * and the widened cases would fail, never pass vacuously). The weekEventReg bytes the leg touches are written raw
+ * and put back. Not covered: that the five overlays call the dispatcher with the right verdict (their Init and
+ * Update need a live play state, skeleton and collider), which is the playtest's: talk to the Mayor on the Final
+ * Night. Nothing MayorArguesUntilMoonfall.cpp defines is named here.
  *
  * HOT WATER NEVER COOLS DECIDES THE COOLING (2Ship #1989) -- FAIL 23. The key-gap table shows that
  * Items/HotWaterNeverCools.cpp registers; this leg shows what its registrant answers, through the production
@@ -432,6 +456,8 @@ constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
 // 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
 constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
+// 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
+constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
 
 // RegisterAutosave registers nothing unless this is set -- it is a runtime
 // toggle, not an unconditional registrar. Forced ON so its absence is a real
@@ -1424,6 +1450,19 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
           "Disable Final Day Quakes",
           { { "VB_EARTHQUAKE_ON_DAY_3 (Accessibility/NoFinalDayQuakes.cpp)", GAP_VB_COUNT(VB_EARTHQUAKE_ON_DAY_3),
               1 } } },
+        // 2Ship #1972: MM's own key, written by the hosted Mayor Argues Until Moonfall row.
+        { kMayorArguesCVar,
+          "Mayor Argues Until Moonfall",
+          { { "VB_MAYOR_MEETING_END_ON_FINAL_NIGHT (Cycle/MayorArguesUntilMoonfall.cpp)",
+              GAP_VB_COUNT(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT), 1 },
+            { "OnActorEntryHalfDaysBits[EN_MUTO] (Cycle/MayorArguesUntilMoonfall.cpp)",
+              GAP_HOOK_COUNT(OnActorEntryHalfDaysBits, ACTOR_EN_MUTO), 1 },
+            { "OnActorEntryHalfDaysBits[EN_BAISEN] (Cycle/MayorArguesUntilMoonfall.cpp)",
+              GAP_HOOK_COUNT(OnActorEntryHalfDaysBits, ACTOR_EN_BAISEN), 1 },
+            { "OnActorEntryHalfDaysBits[EN_HEISHI] (Cycle/MayorArguesUntilMoonfall.cpp)",
+              GAP_HOOK_COUNT(OnActorEntryHalfDaysBits, ACTOR_EN_HEISHI), 1 },
+            { "OnActorEntryHalfDaysBits[EN_DAIKU] (Cycle/MayorArguesUntilMoonfall.cpp)",
+              GAP_HOOK_COUNT(OnActorEntryHalfDaysBits, ACTOR_EN_DAIKU), 1 } } },
         { "gEnhancements.A11y.NoScreenDistortion",
           "Disable Screen Distortion",
           { { "VB_APPLY_SCREEN_DISTORTION (Accessibility/NoScreenDistortion.cpp)",
@@ -2035,6 +2074,138 @@ int RunChuDropsRuleLeg() {
     }
     printf("[TEST] W6-PLAYER: MM Enable Bombchu Drops gives a Bomb drop its conversion roll only while Link has "
            "Bombchus\n");
+    return 0;
+}
+
+// ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going (FAIL 24) -------------------------------------
+// See MAYOR ARGUES UNTIL MOONFALL in the file header. The VB verdict is the one the five overlays pass ((day == 3) &&
+// isNight), and the half-day mask is one z_actor.c decodes from an entry that excludes the Final Night.
+int RunMayorArguesUntilMoonfallLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    using HalfDays = GameInteractor::OnActorEntryHalfDaysBits;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kMayorArguesCVar, value);
+        ShipInit::Init(kMayorArguesCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+        S2H::GameHooks::FlushPendingUnregistrations<HalfDays>();
+    };
+    // Raw weekEventReg writes, so arranging the leg dispatches no OnFlagSet.
+    auto rawWeekEventReg = [](u32 flag, bool set) {
+        const u8 cur = GET_WEEKEVENTREG(flag >> 8);
+        WEEKEVENTREG(flag >> 8) = set ? (u8)(cur | (flag & 0xFF)) : (u8)(cur & (u8) ~(flag & 0xFF));
+    };
+    static constexpr s32 kVanillaMask = HALFDAYBIT_ALL & ~HALFDAYBIT_DAY3_NIGHT;
+    static constexpr s32 kWidenedMask = HALFDAYBIT_ALL;
+    // One entry's mask after dispatch. A NULL play means no play state at all.
+    auto maskFor = [](s16 entryId, PlayState* play, s16 sceneId) {
+        if (play != nullptr) {
+            play->sceneId = sceneId;
+        }
+        PlayState* const savedPlay = MM_gPlayState;
+        MM_gPlayState = play;
+        ActorEntry entry;
+        memset(&entry, 0, sizeof(entry));
+        entry.id = entryId;
+        s32 halfDaysBits = kVanillaMask;
+        GameInteractor_ExecuteOnActorEntryHalfDaysBits(&entry, &halfDaysBits);
+        MM_gPlayState = savedPlay;
+        return halfDaysBits;
+    };
+    struct MauArguer {
+        s16 id;
+        const char* who;
+    };
+    const MauArguer arguers[] = { { ACTOR_EN_MUTO, "Mutoh (En_Muto)" },
+                                  { ACTOR_EN_BAISEN, "Viscen (En_Baisen)" },
+                                  { ACTOR_EN_HEISHI, "the soldier (En_Heishi)" },
+                                  { ACTOR_EN_DAIKU, "the carpenter (En_Daiku)" } };
+
+    std::vector<char> playStorage(sizeof(PlayState), 0);
+    PlayState* const play = reinterpret_cast<PlayState*>(playStorage.data());
+    const u8 savedHeartPieceByte = GET_WEEKEVENTREG(WEEKEVENTREG_RECEIVED_MAYOR_HEART_PIECE >> 8);
+    const u8 savedResolvedByte = GET_WEEKEVENTREG(WEEKEVENTREG_RESOLVED_MAYOR_MEETING >> 8);
+    auto restoreFlags = [&]() {
+        WEEKEVENTREG(WEEKEVENTREG_RECEIVED_MAYOR_HEART_PIECE >> 8) = savedHeartPieceByte;
+        WEEKEVENTREG(WEEKEVENTREG_RESOLVED_MAYOR_MEETING >> 8) = savedResolvedByte;
+    };
+    rawWeekEventReg(WEEKEVENTREG_RECEIVED_MAYOR_HEART_PIECE, false);
+    rawWeekEventReg(WEEKEVENTREG_RESOLVED_MAYOR_MEETING, false);
+
+    int failures = 0;
+    auto expect = [&failures](bool ok, const char* what) {
+        if (!ok) {
+            printf("[TEST] FAIL(24): %s\n", what);
+            failures++;
+        }
+    };
+
+    // Key off: vanilla.
+    drive(0);
+    expect(GameInteractor_Should(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, true),
+           "with Mayor Argues Until Moonfall off, the meeting no longer breaks up on the Final Night");
+    for (const MauArguer& a : arguers) {
+        if (maskFor(a.id, play, SCENE_SONCHONOIE) != kVanillaMask) {
+            printf("[TEST] FAIL(24): with Mayor Argues Until Moonfall off, %s's entry mask changed\n", a.who);
+            failures++;
+        }
+    }
+
+    // Key on, before the Couple's Mask heart piece.
+    drive(1);
+    expect(SettledCountForId<Vb>(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT) == 1,
+           "turning Mayor Argues Until Moonfall on did not register exactly one VB_MAYOR_MEETING_END_ON_FINAL_NIGHT "
+           "handler (Cycle/MayorArguesUntilMoonfall.cpp is out of the link, or it stacks)");
+    expect(!GameInteractor_Should(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, true),
+           "with Mayor Argues Until Moonfall on and no heart piece, the meeting still breaks up on the Final Night");
+    expect(!GameInteractor_Should(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, false),
+           "with Mayor Argues Until Moonfall on, the meeting breaks up before the Final Night");
+    for (const MauArguer& a : arguers) {
+        const s32 mask = maskFor(a.id, play, SCENE_SONCHONOIE);
+        const s32 flaggedMask = maskFor((s16)(a.id | 0x8000), play, SCENE_SONCHONOIE);
+        if (mask != kWidenedMask || flaggedMask != kWidenedMask) {
+            printf("[TEST] FAIL(24): with Mayor Argues Until Moonfall on, %s's entry in the Mayor's Residence came "
+                   "back 0x%X (flagged id 0x%X), expected 0x%X: it is not granted the Final Night\n",
+                   a.who, (unsigned)mask, (unsigned)flaggedMask, (unsigned)kWidenedMask);
+            failures++;
+        }
+        if (maskFor(a.id, play, SCENE_CLOCKTOWER) != kVanillaMask) {
+            printf("[TEST] FAIL(24): with Mayor Argues Until Moonfall on, %s's entry outside the Mayor's Residence "
+                   "was widened\n",
+                   a.who);
+            failures++;
+        }
+        if (maskFor(a.id, nullptr, 0) != kVanillaMask) {
+            printf("[TEST] FAIL(24): with no play state, %s's entry mask changed\n", a.who);
+            failures++;
+        }
+    }
+    expect(maskFor(ACTOR_EN_DT, play, SCENE_SONCHONOIE) == kVanillaMask,
+           "with Mayor Argues Until Moonfall on, Dotour's own entry (En_Dt) was widened; upstream lists only the four "
+           "who argue with him");
+    rawWeekEventReg(WEEKEVENTREG_RESOLVED_MAYOR_MEETING, true);
+    expect(maskFor(ACTOR_EN_MUTO, play, SCENE_SONCHONOIE) == kVanillaMask,
+           "with Mayor Argues Until Moonfall on, an entry was widened after the meeting was resolved");
+    rawWeekEventReg(WEEKEVENTREG_RESOLVED_MAYOR_MEETING, false);
+
+    // Key on, after the heart piece: the meeting ends as in vanilla.
+    rawWeekEventReg(WEEKEVENTREG_RECEIVED_MAYOR_HEART_PIECE, true);
+    expect(GameInteractor_Should(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, true),
+           "with Mayor Argues Until Moonfall on, the meeting still runs on the Final Night after the heart piece");
+    rawWeekEventReg(WEEKEVENTREG_RECEIVED_MAYOR_HEART_PIECE, false);
+
+    // Key back off.
+    drive(0);
+    expect(GameInteractor_Should(VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, true),
+           "Mayor Argues Until Moonfall's VB handler stayed registered after its key went back off");
+    expect(maskFor(ACTOR_EN_MUTO, play, SCENE_SONCHONOIE) == kVanillaMask,
+           "Mayor Argues Until Moonfall's half-day handlers stayed registered after its key went back off");
+
+    restoreFlags();
+    if (failures != 0) {
+        return 24;
+    }
+    printf("[TEST] 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going on the Final Night only while its "
+           "key is on and the heart piece is not yet given\n");
     return 0;
 }
 
@@ -2700,6 +2871,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- #1236 (review H1): MM Enable Bombchu Drops converts only while Link has Bombchus --------
     if (const int rc = RunChuDropsRuleLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going on the Final Night --------------------
+    if (const int rc = RunMayorArguesUntilMoonfallLeg(); rc != 0) {
         return rc;
     }
 

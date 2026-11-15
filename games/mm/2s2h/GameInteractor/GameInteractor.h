@@ -878,9 +878,9 @@ void MM_GameHooks_ExecuteOnSeqPlayerInit(int32_t playerIdx, int32_t seqId);
 // OnActorEntryHalfDaysBits (2Ship #2010). An MM-only name, the
 // Before/AfterEndOfCycleSave shape: OoT defines nothing by this spelling and no
 // stub exists for it, so a dropped bridge or a dropped #define is a LINK error
-// from z_actor.c's two call sites rather than a silent no-op. No MM TU
-// registers it yet; the first registrant is the Mayor Argues Until Moonfall
-// option (2Ship #1972). The bridge keys its id leg on actorEntry->id, so it is
+// from z_actor.c's two call sites rather than a silent no-op. Its only
+// registrant is the Mayor Argues Until Moonfall option (2Ship #1972,
+// Cycle/MayorArguesUntilMoonfall.cpp). The bridge keys its id leg on actorEntry->id, so it is
 // the bridge, not the registrants, that refuses a NULL entry (the camera-trio
 // rule, "CAMERA IS GUARDED HERE" in GameExports_SingleExe.cpp).
 void MM_GameHooks_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits);
