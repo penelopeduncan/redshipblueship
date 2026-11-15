@@ -75,6 +75,7 @@
 #include "../shared_resources.h"
 #include "../test_runner.h"
 #include "../test_scratch.h"
+#include "../warp_song_items.h" // RSBS_SONG_SPOTS_OFF (#1561)
 
 #include <cstdio>
 #include <cstdlib>
@@ -221,6 +222,20 @@ void SsFreezeWorld(const ComboItemRulesRecord* rules) {
     ComboSettingsRecord rec;
     Combo_ComboSettingsDefaults(&rec);
     Combo_FreezeComboSettingsEx(&rec, rules);
+}
+
+/** SsFreezeWorld with a second rules word @p rules2 (test_shared_warp_songs.c's
+ *  SwsFreeze): the second word is its own record, frozen through the Ex2 entry. */
+void SsFreezeWorld2(const ComboItemRulesRecord* rules, uint32_t rules2) {
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0x1066F00Du;
+    gComboCtx.sharedRandoSettingsHash = kSsSettingsHash;
+    gComboCtx.mmProfileDigest = kSsProfileDigest;
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_FreezeComboSettingsEx2(&rec, rules, rules2);
 }
 
 void SsSeedShadows(uint8_t fill) {
@@ -1047,9 +1062,13 @@ TestResult Test_SharedSongsOffJunkGive(void) {
                  "(1) a non-song shared family (Lens) must not arm fixed-at-home under Off");
     }
     {
-        ComboItemRulesRecord warpRule = SsRules(0u);
-        warpRule.crossItemFlags2 = 0x00000080u; // RSBS_XITEM2_SONG_MINUET_SHARED
-        SsFreezeWorld(&warpRule);
+        // Shared Minuet needs its extension (Combo_ComboItemRule2Requires), or the
+        // freeze drops the shared bit and the leg tests a world that cannot exist.
+        const ComboItemRulesRecord warpRule = SsRules(0u);
+        SsFreezeWorld2(&warpRule, RSBS_XITEM2_SONG_MINUET_MM | RSBS_XITEM2_SHARED_SONG_MINUET);
+        SS_CHECK((Combo_SharedFamilies2Armed() & RSBS_XITEM2_SHARED_SONG_MINUET) != 0u,
+                 "(1) the freeze did not arm Shared Minuet of Forest (armed2 %08X)",
+                 (unsigned)Combo_SharedFamilies2Armed());
         SS_CHECK(Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootMinuet, RSBS_SONG_SPOTS_OFF) &&
                      Combo_SharedWarpSongFixedAtHome(GAME_MM, mmMinuet, RSBS_SONG_SPOTS_OFF) &&
                      !Combo_SharedWarpSongFixedAtHome(GAME_OOT, ootMinuet, 1u),
@@ -1098,8 +1117,9 @@ TestResult Test_SharedSongsOffJunkGive(void) {
         SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, false) &&
                      MM_SharedSongsTest_OffConvertSong(s, (int)RSBS_MM_SONGS_VANILLA) == 1,
                  "(2) %s harvested from OoT did not convert MM's default check to junk", kSsOneCopySongs[s].itemName);
-        // Non-Vanilla MM Shuffle Songs (Song Locations = 0, Anywhere = 3) leaves single-bag song gives intact.
-        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, 0) == 0 && MM_SharedSongsTest_OffConvertSong(s, 3) == 0,
+        // Non-Vanilla MM Shuffle Songs (Anywhere, Song Locations) leaves single-bag song gives intact.
+        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, (int)RSBS_MM_SONGS_ANYWHERE) == 0 &&
+                     MM_SharedSongsTest_OffConvertSong(s, (int)RSBS_MM_SONGS_SONG_LOCATIONS) == 0,
                  "(2) MM ConvertItem converted harvested %s outside Vanilla song shuffle", kSsOneCopySongs[s].itemName);
 
         // Harvested from MM -> OoT gives junk.
@@ -1136,12 +1156,14 @@ TestResult Test_SharedSongsOffJunkGive(void) {
 
     // ---- (3) Negative guards: unshared songs, warp songs, non-song families ----
     {
-        ComboItemRulesRecord everything = SsRules(kSsAllThreeSongsMask | RSBS_XITEM_SHARED_LENS);
-        everything.crossItemFlags2 = 0x00003F80u;
-        SsFreezeWorld(&everything);
+        const ComboItemRulesRecord everything = SsRules(kSsAllThreeSongsMask | RSBS_XITEM_SHARED_LENS);
+        SsFreezeWorld2(&everything, RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_WARP_SONG_SHARED);
+        SS_CHECK((Combo_SharedFamilies2Armed() & RSBS_XITEM2_WARP_SONG_SHARED) == RSBS_XITEM2_WARP_SONG_SHARED,
+                 "(3) the freeze did not arm the seven shared warp songs (armed2 %08X)",
+                 (unsigned)Combo_SharedFamilies2Armed());
         SsResetAllThreeSongsHeld();
         gComboCtx.sharedFamilyOwned = kSsAllThreeSongsMask | RSBS_XITEM_SHARED_LENS;
-        gComboCtx.sharedFamilyOwned2 = 0x00003F80u;
+        gComboCtx.sharedFamilyOwned2 = RSBS_XITEM2_WARP_SONG_SHARED;
         Context_SetCurrentGame(GAME_NONE);
 
         SS_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootUnshared, RSBS_SONG_SPOTS_OFF, true) &&
