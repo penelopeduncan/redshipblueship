@@ -31,8 +31,8 @@ Everything below passed the automated gates. None of it has been checked by a pe
   a dungeon with its keys and chest fairies confined to it.
 - The fix for a Majora's Mask chest replaying its message after a cycle reset (issue #1601) was
   tested with the game's own reset and re-open code, not by playing through a Song of Time.
-- Majora's Mask's Message Viewer and Event Log (issues #1575 and #1572) have not been used in a
-  running game.
+- Majora's Mask's Message Viewer, Collision Viewer and Event Log (issues #1575, #1576 and #1572)
+  have not been used in a running game.
 - The new first-run extraction messages (issue #1590) have not been seen on a machine without a file
   picker or with a failing extraction.
 - A file made with a development build between `v0.5.0-alpha` and this release is not supported and
