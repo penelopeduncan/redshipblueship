@@ -1550,6 +1550,10 @@ bool Combo_Logic_FixedCreditAt(int index, ComboLogicFixedCredit* out);
  *  round). Diagnostics for the locks; never format. */
 int Combo_Logic_FixedCreditDeliveredCount(void);
 
+/** Whether the LAST round delivered credit @p index; false out of range.
+ *  Diagnostics for the locks; never format. */
+bool Combo_Logic_FixedCreditDeliveredAt(int index);
+
 // ============================================================================
 // THE BAG MODEL — copies, surplus, filler and traps (operator ruling 2026-09-26)
 // ============================================================================

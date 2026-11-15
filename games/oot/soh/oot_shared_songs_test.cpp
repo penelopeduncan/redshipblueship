@@ -37,6 +37,7 @@
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/logic.h"
+#include "soh/Enhancements/item-tables/ItemTableManager.h"
 
 namespace {
 int OoTSongQuestBit(int song) {
@@ -323,7 +324,9 @@ extern "C" int OoT_SharedSongsTest_OffVanillaAtHome(int song) {
     return (il->GetPlacedRandomizerGet() == OoTSharedSongsOffGet(song) && il->IsHidden()) ? 1 : 0;
 }
 
-/** 1 when the latest Combo_Logic_RunRound reached OoT's check gated on @p song. */
+/** 1 when the MOST RECENT Combo_Logic_RunRound reached OoT's check gated on @p
+ *  song: the reach marks are the last OoT search's, so read it straight after the
+ *  round it is about. */
 extern "C" int OoT_SharedSongsTest_OffLastRoundReached(int song) {
     if (!OoTSharedSongsOffValid(song)) {
         return -1;
@@ -339,24 +342,38 @@ extern "C" int OoT_SharedSongsTest_OffLastRoundReached(int song) {
     return il->IsAddedToPool() ? 1 : 0;
 }
 
-/** 1 when @p song's OoT vanilla check resolves to CANT_OBTAIN_ALREADY_HAVE + Blue
- *  Rupee (GetItemEntry.getItemId holds the GI_ id; itemId is the ITEM_ id), 0 when it resolves to CAN_OBTAIN + the
- * song, -1 on mismatch/missing ctx. */
+/** 1 when @p song's OoT vanilla check resolves to CANT_OBTAIN_ALREADY_HAVE and
+ *  GetFinalGIEntry's junk entry (MOD_NONE's Blue Rupee), 0 when it resolves to
+ *  CAN_OBTAIN and the song's own entry, -1 on mismatch/missing ctx. Entries are
+ *  compared on getItemId (the GI_ id; itemId is the ITEM_ id). A row run with
+ *  RSBS_DISABLE_OTR_INIT=1 skips VanillaItemTable_Init, so MOD_NONE has no table
+ *  and the junk entry reads GET_ITEM_NONE there: the junk id is read from the
+ *  table GetFinalGIEntry reads, not spelled GI_RUPEE_BLUE. */
 extern "C" int OoT_SharedSongsTest_OffGiveIsJunk(int song) {
     if (!OoTSharedSongsOffValid(song)) {
         return -1;
     }
     auto ctx = Rando::Context::GetInstance();
-    if (ctx == nullptr || OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr) {
+    if (ctx == nullptr || OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandomizer == nullptr ||
+        ItemTableManager::Instance == nullptr) {
         return -1;
     }
     const RandomizerCheck rc = OoTSharedSongsOffCheck(song);
+    Rando::ItemLocation* il = ctx->GetItemLocation(rc);
+    if (il == nullptr) {
+        return -1;
+    }
+    const int16_t junkGi = ItemTableManager::Instance->RetrieveItemEntry(MOD_NONE, GI_RUPEE_BLUE).getItemId;
+    const int16_t songGi = il->GetPlacedItem().GetGIEntry_Copy().getItemId;
+    if (songGi == junkGi) {
+        return -1;
+    }
     const ItemObtainability obt = OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck(rc);
     const GetItemEntry gi = ctx->GetFinalGIEntry(rc, true, GI_NONE, false);
-    if (obt == CANT_OBTAIN_ALREADY_HAVE && gi.getItemId == GI_RUPEE_BLUE) {
+    if (obt == CANT_OBTAIN_ALREADY_HAVE && gi.getItemId == junkGi) {
         return 1;
     }
-    if (obt == CAN_OBTAIN && gi.getItemId != GI_RUPEE_BLUE) {
+    if (obt == CAN_OBTAIN && gi.getItemId == songGi) {
         return 0;
     }
     return -1;

@@ -865,6 +865,57 @@ static int SsOffRunRound(const ComboLogicHostRef* forbidden, int forbiddenCount,
     return st;
 }
 
+/** 1 when the last round delivered the fixed credit hosted on @p hostGame's
+ *  @p hostCheck, 0 when it did not, -1 when no such credit is in force. */
+static int SsOffCreditDelivered(GameId hostGame, uint16_t hostCheck) {
+    for (int c = 0; c < Combo_Logic_FixedCreditCount(); c++) {
+        ComboLogicFixedCredit credit;
+        if (Combo_Logic_FixedCreditAt(c, &credit) && credit.hostGame == (uint8_t)hostGame &&
+            credit.hostCheck == hostCheck) {
+            return Combo_Logic_FixedCreditDeliveredAt(c) ? 1 : 0;
+        }
+    }
+    return -1;
+}
+
+/** One forbid-one round for @p song: @p forbiddenGame's default check is withheld
+ *  (its own copy and its credit), so the forbidden game learns the song only
+ *  through the fixed credit on the other game's default check. Whether that
+ *  surviving check is reachable WITHOUT the forbidden one is this seed's shape
+ *  (the fill proves the goal with both in force and may route through either),
+ *  so the round is judged only when the surviving credit was delivered: then the
+ *  forbidden game holds the song again and, logic being monotone, the round must
+ *  be the baseline's minus the one withheld credit. Returns 1 when the surviving
+ *  credit was delivered, 0 when it was not, -1 when it is missing. */
+static int SsOffForbidOneLeg(int song, GameId forbiddenGame, uint16_t forbiddenCheck, uint16_t survivorCheck,
+                             int baseDelivered) {
+    const GameId survivorGame = (forbiddenGame == GAME_OOT) ? GAME_MM : GAME_OOT;
+    const char* const forbiddenName = (forbiddenGame == GAME_OOT) ? "OoT" : "MM";
+    const char* const survivorName = (forbiddenGame == GAME_OOT) ? "MM" : "OoT";
+    const ComboLogicHostRef forbid[1] = { { (uint8_t)forbiddenGame, forbiddenCheck } };
+    ComboLogicRoundResult r;
+    int delivered = -1;
+    const int st = SsOffRunRound(forbid, 1, &r, &delivered);
+    const int gated = OoT_SharedSongsTest_OffLastRoundReached(song);
+    const int survivor = SsOffCreditDelivered(survivorGame, survivorCheck);
+    printf("[TEST] (Off) %s's default check %u for %s forbidden: status %d, delivered %d, goal %d, allHosts %d, OoT "
+           "gated %d, %s's credit at %u delivered %d\n",
+           forbiddenName, (unsigned)forbiddenCheck, kSsOneCopySongs[song].itemName, st, delivered, r.goalExpression,
+           r.allHostsReached, gated, survivorName, (unsigned)survivorCheck, survivor);
+    SS_CHECK(st == RSBS_COMBO_LOGIC_OK && survivor >= 0,
+             "(Off) forbidding %s's default check %u for %s: status %d, %s's credit at %u in force %d", forbiddenName,
+             (unsigned)forbiddenCheck, kSsOneCopySongs[song].itemName, st, survivorName, (unsigned)survivorCheck,
+             survivor >= 0 ? 1 : 0);
+    if (survivor == 1) {
+        SS_CHECK(delivered == baseDelivered - 1 && r.goalExpression == 1 && r.allHostsReached == 1 && gated == 1,
+                 "(Off) forbidding %s's default check %u for %s broke reachability although %s's default check was "
+                 "reached (delivered %d, goal %d, allHosts %d, OoT gated %d): %s's fixed credit did not satisfy %s",
+                 forbiddenName, (unsigned)forbiddenCheck, kSsOneCopySongs[song].itemName, survivorName, delivered,
+                 r.goalExpression, r.allHostsReached, gated, survivorName, forbiddenName);
+    }
+    return survivor;
+}
+
 /** #1561: On the created Off world (with sPlacements intact), verify that every
  *  armed shared song's TWO fixed credits let either default check alone satisfy
  *  both games' logic, while forbidding BOTH default checks cuts off song-gated
@@ -873,36 +924,30 @@ static void SsOffVerifyExitRounds(const uint16_t ootHosts[3], const uint16_t mmH
     ComboLogicRoundResult base;
     int baseDelivered = -1;
     const int st = SsOffRunRound(nullptr, 0, &base, &baseDelivered);
+    // The gated reads are the LAST round's reach marks: take them before any
+    // forbidden round runs.
+    int baseGated[3];
+    for (int s = 0; s < 3; s++) {
+        baseGated[s] = OoT_SharedSongsTest_OffLastRoundReached(s);
+    }
     printf("[TEST] (Off) exit round: status %d, goal %d, allHostsReached %d, delivered %d of %d\n", st,
            base.goalExpression, base.allHostsReached, baseDelivered, Combo_Logic_FixedCreditCount());
     SS_CHECK(st == RSBS_COMBO_LOGIC_OK && base.goalExpression == 1 && base.allHostsReached == 1 && baseDelivered == 6,
              "(Off) baseline exit round failed (status %d, goal %d, allHosts %d, delivered %d; want 0, 1, 1, 6)", st,
              base.goalExpression, base.allHostsReached, baseDelivered);
     for (int s = 0; s < 3; s++) {
-        SS_CHECK(OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
-                 "(Off) baseline exit round did not reach OoT's gated check for %s", kSsOneCopySongs[s].itemName);
+        SS_CHECK(baseGated[s] == 1, "(Off) baseline exit round did not reach OoT's gated check for %s",
+                 kSsOneCopySongs[s].itemName);
 
-        const ComboLogicHostRef forbidOoT[1] = { { (uint8_t)GAME_OOT, ootHosts[s] } };
-        ComboLogicRoundResult rOoT;
-        int delOoT = -1;
-        const int stOoT = SsOffRunRound(forbidOoT, 1, &rOoT, &delOoT);
-        SS_CHECK(stOoT == RSBS_COMBO_LOGIC_OK && delOoT == 5 && rOoT.goalExpression == 1 && rOoT.allHostsReached == 1 &&
-                     OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
-                 "(Off) forbidding OoT's default check %u for %s broke reachability (status %d, delivered %d, goal %d, "
-                 "allHosts %d, OoT gated %d): MM's fixed credit did not satisfy OoT",
-                 (unsigned)ootHosts[s], kSsOneCopySongs[s].itemName, stOoT, delOoT, rOoT.goalExpression,
-                 rOoT.allHostsReached, OoT_SharedSongsTest_OffLastRoundReached(s));
-
-        const ComboLogicHostRef forbidMM[1] = { { (uint8_t)GAME_MM, mmHosts[s] } };
-        ComboLogicRoundResult rMM;
-        int delMM = -1;
-        const int stMM = SsOffRunRound(forbidMM, 1, &rMM, &delMM);
-        SS_CHECK(stMM == RSBS_COMBO_LOGIC_OK && delMM == 5 && rMM.goalExpression == 1 && rMM.allHostsReached == 1 &&
-                     OoT_SharedSongsTest_OffLastRoundReached(s) == 1,
-                 "(Off) forbidding MM's default check %u for %s broke reachability (status %d, delivered %d, goal %d, "
-                 "allHosts %d, OoT gated %d): OoT's fixed credit did not satisfy MM",
-                 (unsigned)mmHosts[s], kSsOneCopySongs[s].itemName, stMM, delMM, rMM.goalExpression,
-                 rMM.allHostsReached, OoT_SharedSongsTest_OffLastRoundReached(s));
+        // Whichever default check the baseline reaches FIRST is reached before
+        // either copy of the song is held, so forbidding the other one leaves it
+        // reached: at least one direction is judged in every world.
+        const int viaMM = SsOffForbidOneLeg(s, GAME_OOT, ootHosts[s], mmHosts[s], baseDelivered);
+        const int viaOoT = SsOffForbidOneLeg(s, GAME_MM, mmHosts[s], ootHosts[s], baseDelivered);
+        SS_CHECK(viaMM == 1 || viaOoT == 1,
+                 "(Off) %s: neither default check was reached with the other forbidden (MM's credit %d, OoT's %d): a "
+                 "default check needs its own song, or the fixed credits are not delivered",
+                 kSsOneCopySongs[s].itemName, viaMM, viaOoT);
 
         const ComboLogicHostRef forbidBoth[2] = {
             { (uint8_t)GAME_OOT, ootHosts[s] },
@@ -928,10 +973,16 @@ static void SsOffVerifyExitRounds(const uint16_t ootHosts[3], const uint16_t mmH
  *  RH_OOT_HINT nor the Hint Tracker promises a song once the other game owns it. */
 static void SsOffVerifyRuntimeGiveAndHints(void) {
     const GameId priorGame = Context_GetCurrentGame();
+    // Either game's ArmLive zeroes the live save, MM's RANDO_SAVE_OPTIONS with it
+    // (0 is Anywhere, not the Off world's Vanilla), so MM's bridge is handed the
+    // Vanilla an Off file stores, as shared-songs-off-junk-give does. The far
+    // game's own quest bit does not survive an ArmLive either: ownership reaches
+    // the other game through the harvested sharedFamilyOwned bit.
+    const int mmVanilla = (int)RSBS_MM_SONGS_VANILLA;
     for (int s = 0; s < 3; s++) {
         SsResetAllThreeSongsHeld();
         Context_SetCurrentGame(GAME_NONE);
-        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 0 && MM_SharedSongsTest_OffConvertSong(s, -1) == 0,
+        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 0 && MM_SharedSongsTest_OffConvertSong(s, mmVanilla) == 0,
                  "(Off) %s converted to junk before either game learned it", kSsOneCopySongs[s].itemName);
 
         // Order A: learned in Hyrule first -> Termina's default check converts to junk.
@@ -939,7 +990,7 @@ static void SsOffVerifyRuntimeGiveAndHints(void) {
         SsSetThreeSongHeldOoT(s, 1);
         OoT_HarvestSharedResources();
         MM_SharedSwordTest_ArmLive();
-        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, -1) == 1 && OoT_SharedSongsTest_OffGiveIsJunk(s) == 1,
+        SS_CHECK(MM_SharedSongsTest_OffConvertSong(s, mmVanilla) == 1 && OoT_SharedSongsTest_OffGiveIsJunk(s) == 1,
                  "(Off) %s learned in OoT did not convert MM's default check to junk", kSsOneCopySongs[s].itemName);
 
         // Order B: learned in Termina first -> Hyrule's default check converts to junk.
@@ -948,7 +999,7 @@ static void SsOffVerifyRuntimeGiveAndHints(void) {
         SsSetThreeSongHeldMM(s, 1);
         MM_HarvestSharedResources();
         OoT_SharedSwordTest_ArmLive();
-        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 1 && MM_SharedSongsTest_OffConvertSong(s, -1) == 1,
+        SS_CHECK(OoT_SharedSongsTest_OffGiveIsJunk(s) == 1 && MM_SharedSongsTest_OffConvertSong(s, mmVanilla) == 1,
                  "(Off) %s learned in MM did not convert OoT's default check to junk", kSsOneCopySongs[s].itemName);
     }
 
