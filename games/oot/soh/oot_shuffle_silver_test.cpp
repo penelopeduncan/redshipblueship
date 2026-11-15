@@ -34,6 +34,11 @@
  *     the item's offset from RG_SHADOW_SILVER_BLADES). For each of the 22 items,
  *     with exactly its event set (named here, not computed), HasItem answers true
  *     for that item and false for the other 21.
+ *  N  THE SPIRIT BOULDER NAMES (#1589, SoH 4a1b846c). RC_SPIRIT_SE_BOULDER_SILVER and
+ *     RC_SPIRIT_NE_BOULDER_SILVER answer the corrected short names ("Southeast /
+ *     Northeast Boulder Silver") and spoiler names ("Spirit Temple ..."), and each
+ *     spoiler name maps back to its check through locationNameToEnum (that map is
+ *     built from the same names, so this part only catches a name collision).
  *
  * RED HALVES, derived, not run (this lane had no build): with the 154 silver rows
  * removed from rcToRandomizerInf M fails (RAND_INF_MAX for every check, and
@@ -46,7 +51,9 @@
  * greying removed D fails; with the exclude list reading the stored ShuffleSilver
  * key again (randomizer_check_objects.cpp) D fails (silver rows listed while keyed
  * On); with the LOGIC_* silver events reordered against the
- * RG_* items (or one removed) L fails for the items past the change.
+ * RG_* items (or one removed) L fails for the items past the change; with either
+ * ShuffleSilver.cpp boulder literal reverted ("Southeast Boulder Super", "Notheast
+ * Boulder Silver") N fails its shortName and spoiler name checks.
  *
  * Every key, option, logic value and save field a leg changes is put back (in
  * memory: nothing here writes a config file).
@@ -511,7 +518,8 @@ void CheckBoulderSilverNames() {
 extern "C" int OoT_ShuffleSilverTest_Run(void) {
     printf("[TEST] oot-shuffle-silver: every silver check has its own flag, the option ships off and greyed out, "
            "default worlds fold none of its lines, a paired world generates it off, and logic reads each silver "
-           "item's own event while it is off (#1363)\n");
+           "item's own event while it is off (#1363), and the Spirit boulder checks carry their corrected names "
+           "(#1589)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-shuffle-silver needs OTRGlobals' randomizer context\n");
         return 1;
