@@ -3983,6 +3983,22 @@ bool SaveManager::SeedPackageLoadWorld(const std::string& sectionJson) {
     return ok;
 }
 
+nlohmann::json SaveManager::TestSaveSectionToJson(SaveFunc func, SaveContext* saveContext) {
+    nlohmann::json section = nlohmann::json::object();
+    nlohmann::json* prev = currentJsonContext;
+    currentJsonContext = &section;
+    func(saveContext, 0, true);
+    currentJsonContext = prev;
+    return section;
+}
+
+void SaveManager::TestLoadSectionFromJson(LoadFunc func, nlohmann::json& section) {
+    nlohmann::json* prev = currentJsonContext;
+    currentJsonContext = &section;
+    func();
+    currentJsonContext = prev;
+}
+
 extern "C++" std::string OoT_SeedPackage_SerializeOoTWorld() {
     return SaveManager::Instance->SeedPackageSerializeWorld();
 }

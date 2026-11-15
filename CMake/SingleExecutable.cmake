@@ -4280,6 +4280,11 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # session), and the item queue logged every offer of a give the player could
     # not take yet. Display-free and ROM-free. games/oot/soh/oot_log_noise_test.cpp.
     redship_add_test(NAME OoTLogNoise COMMAND redship --test oot-log-noise)
+    # SoH #7385 / #7404: OoT's stats section ("sohStats") saves and loads
+    # gameComplete, and with RTA timing a finished triforce hunt's timestamp
+    # outranks Ganon's in the total time. Display-free and ROM-free.
+    # games/oot/soh/oot_gameplay_stats_test.cpp.
+    redship_add_test(NAME OoTGameplayStats COMMAND redship --test oot-gameplay-stats)
     # #837 (decision 16, ruled 2026-10-01): every cross-game crossing is a
     # whole-file commit, taken by GameRunner_SwitchTo between the departing
     # suspend and the target's resume/init (Switch_CommitCrossing). The real

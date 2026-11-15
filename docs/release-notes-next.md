@@ -227,6 +227,10 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **Ocarina of Time: a finished file's gameplay timer stays stopped** (SoH #7385, #7404), from Ship of Harkinian.
+  The Gameplay Stats window now remembers that the game was beaten after you quit and reload, so its real-time
+  total no longer starts counting again, and a finished Triforce Hunt shows the time the hunt ended rather than an
+  earlier Ganon fight.
 
 ### Trackers
 

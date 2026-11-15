@@ -9712,6 +9712,15 @@ static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/oot_gameplay_stats_test.cpp (SoH #7385, #7404): the stats
+// section saves and loads gameComplete, and a finished triforce hunt's time
+// outranks Ganon's in the RTA total.
+extern "C" int OoT_GameplayStats_RunHeadless(void);
+
+static TestResult Test_OoTGameplayStats(void) {
+    return OoT_GameplayStats_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 TestResult Test_PairedLoadRestore(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -11636,6 +11645,10 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-gameplay-stats",
+      "OoT's stats section saves and loads gameComplete, so a finished file stays finished after a reload, and a "
+      "finished triforce hunt's timestamp outranks Ganon's in the RTA total time (SoH #7385, #7404)",
+      Test_OoTGameplayStats },
     { "crossing-commit",
       "Every cross-game crossing is a whole-file commit taken between the departing suspend and the target's "
       "resume: a kill after the crossing reloads it; a latched, slot-less, freeze-less or not-live departure "
