@@ -3260,6 +3260,15 @@ typedef enum {
     // #### `args`
     // - `*EnIshi`, `*ObjBombiwa`, or `*ObjHamishi`
     VB_ROCK_DROP_ITEM,
+
+    // [RSBS] SoH aedae12e6's hook site, appended (SoH #7183's despawn exemption reads it)
+    // #### `result`
+    // ```c
+    // this->unk_15A > 0
+    // ```
+    // #### `args`
+    // - `*EnItem00`
+    VB_ITEM00_TIMER_TICK,
 } GIVanillaBehavior;
 
 #endif

@@ -227,6 +227,9 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **Ocarina of Time: a shuffled key or Piece of Heart dropped by an enemy stays put** (SoH #7183), from Ship of
+  Harkinian. A randomized drop such as a Gerudo guard's key used to vanish about ten seconds after it fell, as a rupee
+  does. It now waits to be picked up, like the vanilla key.
 
 ### Trackers
 
