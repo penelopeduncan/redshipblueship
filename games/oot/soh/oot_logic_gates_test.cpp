@@ -255,6 +255,11 @@
 #include <z64.h>
 #include "variables.h"
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "context.h"       // src/common: gComboCtx (the BP legs freeze the cross-game mask rules)
+#include "foreign_items.h" // src/common: RSBS_XITEM_BLAST_MASK_OOT, Combo_ComboSettingsDefaults
+#endif
+
 namespace {
 
 int sFailures = 0;
@@ -1668,6 +1673,142 @@ void MaaExitOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* l
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
 }
 
+/** CanUse of one mask (Mask Quest Shuffle's ownership flag): an adult with Masks as Adult off and on, a child off. */
+void MaaMaskOffOnChild(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                       const char* legChild, RandomizerGet mask, RandomizerInf owned) {
+    ResetLogic();
+    logic->SetRandoInf(owned, true);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag(legOff, logic->CanUse(mask), false,
+               "logic lets the adult wear the mask in a seed without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag(legOn, logic->CanUse(mask), true,
+               "logic does not let the adult wear a mask the game lets him wear under Masks as Adult (#1647)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    BhlAs(false, RR_THE_LOST_WOODS);
+    ExpectFlag(legChild, logic->CanUse(mask), true, "the child can no longer wear the mask");
+    logic->CurrentRegionKey = RR_NONE;
+}
+
+/** One location for an adult: out of logic with Masks as Adult off, in logic with it on. */
+void MaaCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                   RandomizerRegion region, RandomizerCheck rc) {
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectAt(legOff, region, rc, true, false, "the adult's mask use is in logic in a seed without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectAt(legOn, region, rc, true, true, "the adult's mask use is not in logic under Masks as Adult (#1647)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+}
+
+/**
+ * #1647, operator 2026-11-15 "Widen to all": every mask the game lets an adult wear under Masks as Adult is
+ * usable by him in logic, and every use that needs the child stays the child's.
+ *  MW1..MW9  the Keaton, Goron and Zora Masks (#978's cases): adult off false, adult on true, child true.
+ *  SU1..SU8  the Skull Mask's and the Mask of Truth's uses: the Keese stun (CanAvoidEnemy), the Deku Theater's
+ *            two rewards, the Spirit MQ big wall (one pair each).
+ *  BT1, BT2  the mask trade stays the child's: an adult with Masks as Adult on borrows nothing (Kakariko
+ *            Village's LOGIC_BORROW_SKULL_MASK); the child does.
+ *  BP1..BP6  the cross-game masks stay the child's: an adult cannot wear the Blast or the Stone Mask under the
+ *            setting (their age requirement and ForeignMaskOoT refuse him), so with their rule frozen on and
+ *            Masks as Adult on, CanUse and BlastOrSmash are false for him and true for the child.
+ */
+void RunMasksAsAdultWideLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    MaaMaskOffOnChild(randoCtx, "MW1 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult off",
+                      "MW2 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult on",
+                      "MW3 CanUse(RG_KEATON_MASK), child holding it, Masks as Adult off", RG_KEATON_MASK,
+                      RAND_INF_CHILD_TRADES_HAS_MASK_KEATON);
+    MaaMaskOffOnChild(randoCtx, "MW4 CanUse(RG_GORON_MASK), adult holding it, Masks as Adult off",
+                      "MW5 CanUse(RG_GORON_MASK), adult holding it, Masks as Adult on",
+                      "MW6 CanUse(RG_GORON_MASK), child holding it, Masks as Adult off", RG_GORON_MASK,
+                      RAND_INF_CHILD_TRADES_HAS_MASK_GORON);
+    MaaMaskOffOnChild(randoCtx, "MW7 CanUse(RG_ZORA_MASK), adult holding it, Masks as Adult off",
+                      "MW8 CanUse(RG_ZORA_MASK), adult holding it, Masks as Adult on",
+                      "MW9 CanUse(RG_ZORA_MASK), child holding it, Masks as Adult off", RG_ZORA_MASK,
+                      RAND_INF_CHILD_TRADES_HAS_MASK_ZORA);
+
+    // ---- SU1..SU8: the Skull Mask's and the Mask of Truth's uses, for an adult ----
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_SKULL, true);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("SU1 CanAvoidEnemy(RE_KEESE), adult with only the Skull Mask, Masks as Adult off",
+               logic->CanAvoidEnemy(RE_KEESE), false, "the adult's Skull Mask calms Keese without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("SU2 CanAvoidEnemy(RE_KEESE), adult with only the Skull Mask, Masks as Adult on",
+               logic->CanAvoidEnemy(RE_KEESE), true,
+               "the adult's Skull Mask does not calm Keese under Masks as Adult (z_en_firefly.c asks no age)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    logic->CurrentRegionKey = RR_NONE;
+    MaaCheckOffOn(randoCtx, "SU3 Deku Theater Skull Mask reward, adult with the Skull Mask, Masks as Adult off",
+                  "SU4 Deku Theater Skull Mask reward, adult with the Skull Mask, Masks as Adult on", RR_DEKU_THEATER,
+                  RC_DEKU_THEATER_SKULL_MASK);
+    GiveClimb();
+    ExpectExit("SU7 Spirit MQ big wall base to upper, adult with the Skull Mask and Climb, Masks as Adult off",
+               RR_SPIRIT_TEMPLE_MQ_BIG_WALL_BASE, RR_SPIRIT_TEMPLE_MQ_BIG_WALL_UPPER, true, false,
+               "the adult's Skull Mask past the Keese is in logic without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectExit("SU8 Spirit MQ big wall base to upper, adult with the Skull Mask and Climb, Masks as Adult on",
+               RR_SPIRIT_TEMPLE_MQ_BIG_WALL_BASE, RR_SPIRIT_TEMPLE_MQ_BIG_WALL_UPPER, true, true,
+               "the adult's Skull Mask past the Keese is not in logic under Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_TRUTH, true);
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_DEKU, true);
+    MaaCheckOffOn(randoCtx, "SU5 Deku Theater Mask of Truth reward, adult with the Mask of Truth, Masks as Adult off",
+                  "SU6 Deku Theater Mask of Truth reward, adult with the Mask of Truth, Masks as Adult on",
+                  RR_DEKU_THEATER, RC_DEKU_THEATER_MASK_OF_TRUTH);
+
+    // ---- BT1, BT2: the mask trade is the child's, whatever the setting ----
+    ResetLogic();
+    GiveNut();
+    GiveChildWallet();
+    logic->Set(LOGIC_CAN_BORROW_MASKS, true);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    FireEvents(RR_KAKARIKO_VILLAGE, true);
+    ExpectEvent("BT1 Kakariko borrows the Skull Mask, adult with wallet and Hylian, Masks as Adult on",
+                LOGIC_BORROW_SKULL_MASK, false,
+                "the adult borrows a mask from the Happy Mask Shop's child trade under Masks as Adult");
+    FireEvents(RR_KAKARIKO_VILLAGE, false);
+    ExpectEvent("BT2 Kakariko borrows the Skull Mask, child with wallet and Hylian, Masks as Adult on",
+                LOGIC_BORROW_SKULL_MASK, true, "the child no longer borrows the Skull Mask");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // ---- BP1..BP6: the cross-game masks stay the child's (their rule frozen on for these legs only) ----
+    const ComboSettingsRecord savedComboSettings = gComboCtx.comboSettings;
+    const ComboItemRulesRecord savedComboItemRules = gComboCtx.comboItemRules;
+    if (gComboCtx.comboSettings.formatVersion == 0) {
+        Combo_ComboSettingsDefaults(&gComboCtx.comboSettings);
+    }
+    gComboCtx.comboItemRules.crossItemFlags |= RSBS_XITEM_BLAST_MASK_OOT | RSBS_XITEM_STONE_MASK_OOT;
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_OBTAINED_BLAST_MASK, true);
+    logic->SetRandoInf(RAND_INF_OBTAINED_STONE_MASK, true);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    ExpectFlag("BP1 CanUse(RG_BLAST_MASK), adult holding it, its rule on, Masks as Adult on",
+               logic->CanUse(RG_BLAST_MASK), false,
+               "logic credits the adult a Blast Mask he cannot wear (BlastMaskOoT.cpp pins it to the child)");
+    ExpectFlag("BP2 BlastOrSmash, adult holding only the Blast Mask, its rule on, Masks as Adult on",
+               logic->BlastOrSmash(), false, "logic credits the adult the Blast Mask's explosion");
+    ExpectFlag("BP3 CanUse(RG_STONE_MASK), adult holding it, its rule on, Masks as Adult on",
+               logic->CanUse(RG_STONE_MASK), false,
+               "logic credits the adult a Stone Mask he cannot wear (StoneMaskOoT.cpp pins it to the child)");
+    BhlAs(false, RR_THE_LOST_WOODS);
+    ExpectFlag("BP4 CanUse(RG_BLAST_MASK), child holding it, its rule on", logic->CanUse(RG_BLAST_MASK), true,
+               "the child can no longer use the Blast Mask, so BP1 proves nothing");
+    ExpectFlag("BP5 BlastOrSmash, child holding only the Blast Mask, its rule on", logic->BlastOrSmash(), true,
+               "the child's Blast Mask no longer counts as an explosion, so BP2 proves nothing");
+    ExpectFlag("BP6 CanUse(RG_STONE_MASK), child holding it, its rule on", logic->CanUse(RG_STONE_MASK), true,
+               "the child can no longer use the Stone Mask, so BP3 proves nothing");
+    logic->CurrentRegionKey = RR_NONE;
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    gComboCtx.comboItemRules = savedComboItemRules;
+    gComboCtx.comboSettings = savedComboSettings;
+#endif
+}
+
 void RunMasksAsAdultLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const char* const kAdultMasksKey = CVAR_ENHANCEMENT("AdultMasks");
     const char* const kTimelessKey = CVAR_CHEAT("TimelessEquipment");
@@ -1739,8 +1880,8 @@ void RunMasksAsAdultLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectFlag("MC3 CanUse(RG_SKULL_MASK), adult holding it, Masks as Adult on", logic->CanUse(RG_SKULL_MASK), true,
                "upstream's Masks as Adult case no longer covers the Skull Mask");
     logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_KEATON, true);
-    ExpectFlag("MC4 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult on", logic->CanUse(RG_KEATON_MASK), false,
-               "Masks as Adult was widened past the masks upstream gives it to (Skull, Truth, Bunny)");
+    ExpectFlag("MC4 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult on", logic->CanUse(RG_KEATON_MASK), true,
+               "Masks as Adult does not cover the Keaton Mask, which the game lets an adult wear (#1647, all masks)");
     ExpectFlag("MC5 Logic::BunnyHood, adult holding the hood, both settings on", logic->BunnyHood(), true,
                "logic does not credit the adult's hood jump under Masks as Adult and Bunny Hood Effect");
     randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
@@ -1750,6 +1891,10 @@ void RunMasksAsAdultLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     BhlAs(false, RR_THE_LOST_WOODS);
     ExpectFlag("MC7 CanUse(RG_BUNNY_HOOD), child holding the hood, Masks as Adult off", logic->CanUse(RG_BUNNY_HOOD),
                true, "the child can no longer wear the hood");
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- MW1..MW9: the masks #978 gave a case, widened to all (operator 2026-11-15) ----
+    RunMasksAsAdultWideLegs(randoCtx);
 
     // ---- BV1..BV5: Logic::BunnyHovers (Hover Boots and the hood, both settings) ----
     MaaResetAdultWithHood();
