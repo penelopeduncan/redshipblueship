@@ -2215,6 +2215,21 @@ TestResult Test_ForeignModel(void) {
                   "M2 a row past OoT's table is refused (GID_FISHING_POLE indexes one)");
         FM_ASSERT(MM_ComboModel_TestForDrawRow(-1, &model, &reason) == 0, "M2 a negative MM row is refused");
     }
+    {
+        // SoH #7341: GID_TRIFORCE took GID_ROCS_FEATHER's 0x7D, the table's last row,
+        // which draws the completed Triforce now (it drew the Fishing Pole there).
+        // The length is unchanged: GID_FISHING_POLE (0x7E) still indexes past it.
+        const int last = OoT_ComboModel_TestDrawRowCount() - 1;
+        const char* lists[COMBO_MODEL_MAX_PARTS] = {};
+        FM_ASSERT(last == 0x7D && OoT_ComboModel_TestDrawRowLists(last, lists) == 1 && lists[0] != nullptr &&
+                      std::strstr(lists[0], "gTriforcePieceCompletedDL") != nullptr,
+                  "M2 OoT's row 0x7D (GID_TRIFORCE) is the last row and draws the completed Triforce");
+        ComboModel model;
+        const char* reason = nullptr;
+        FM_ASSERT(OoT_ComboModel_TestForDrawRow(last, &model, &reason) == 0 && reason != nullptr &&
+                      std::strstr(reason, "completed Triforce") != nullptr,
+                  "M2 OoT's completed-Triforce row answers no model, by name");
+    }
 
     // ---- M3 --------------------------------------------------------------------
     {

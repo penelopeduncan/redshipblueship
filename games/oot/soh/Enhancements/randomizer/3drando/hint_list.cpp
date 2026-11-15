@@ -2176,6 +2176,23 @@ void StaticData::HintTable_Init() {
                                                // /*spanish*/la prueba de las sombras
 
     /*--------------------------
+    |      WINCON HINT TEXT     |
+    ---------------------------*/
+    // rsbs (SoH #7341, adapted): the adult altar's last line before its ending, from
+    // the FROZEN combo goal (Hint::GetWinconText). Upstream's texts, without its "$w"
+    // Triforce icon (the ITEM_CUSTOM textbox icon is not in this tree).
+
+    hintTextTable[RHT_WINCON_DEFEAT_GANON_HINT] = HintText(CustomMessage("And the #Triforce# will be granted once #the evil one# is defeated.^",
+                                                              /*german*/ "Und das #Triforce# wird gewährt, sobald #der Böse# besiegt wurde.^",
+                                                              /*french*/ "Aussi, la #Triforce# sera accordée une fois que #le Malin# aura été vaincu.^",
+                                                                         {QM_YELLOW, QM_PINK}));
+
+    hintTextTable[RHT_WINCON_TRIFORCE_PIECES_HINT] = HintText(CustomMessage("And the #Triforce# will be granted once #[[d]] Triforce Piece|# is|s# are| retrieved.^",
+                                                                 /*german*/ "Und das #Triforce# wird gewährt, sobald #[[d]] Triforce-Fragment|# gesammelt wurde|e# gesammelt wurden|.^",
+                                                                 /*french*/ "Aussi, la #Triforce# sera accordée une fois |qu' #[[d]] Morceau de Triforce# aura été récupéré|que #[[d]] Morceaux de Triforce# auront été récupérés|.^",
+                                                                            {QM_YELLOW, QM_YELLOW, QM_YELLOW}));
+
+    /*--------------------------
     |        ALTAR TEXT        |
     ---------------------------*/
 
