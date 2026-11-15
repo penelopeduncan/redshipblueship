@@ -4369,6 +4369,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # and give frames through the randomizer's real handlers; a vanilla file is
     # the control. ROM-free. games/oot/soh/oot_deku_theater_prize_test.cpp.
     redship_add_test(NAME OoTDekuTheaterPrize COMMAND redship --test oot-deku-theater-prize)
+    # Backport bundle O6 (SoH #6795, #6798, #7183): Logic::HasItem answers boss
+    # souls and overworld door keys under Shuffle Boss Souls and Lock Overworld
+    # Doors (the folded HasBossSoul and CanOpenOverworldDoor), and the randomizer's
+    # VB_ITEM00_TIMER_TICK handler stops the despawn timer of a shuffled key or
+    # heart drop. ROM-free. games/oot/soh/oot_has_item_fold_test.cpp.
+    redship_add_test(NAME OoTHasItemFold COMMAND redship --test oot-has-item-fold)
     # Lane F1 (wave 7g, #310): test windows never take keyboard focus from the
     # person at the workstation. main.cpp arms SDL's no-activation hint in code for
     # every --test / --integration-test process (src/common/test_window_focus.h),

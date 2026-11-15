@@ -240,6 +240,9 @@
 - **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
 - **A Majora's Mask stray fairy found in Ocarina of Time is animated** (issue #1165). It was drawn frozen in one pose.
+- **Ocarina of Time: a shuffled key or Piece of Heart dropped by an enemy stays put** (SoH #7183), from Ship of
+  Harkinian. A randomized drop such as a Gerudo guard's key used to vanish about ten seconds after it fell, as a rupee
+  does. It now waits to be picked up, like the vanilla key.
 - **Ocarina of Time: King Zora no longer leaves the camera stuck** (issue #1591), from Ship of Harkinian. Switching Skip
   Story Cutscenes on while he was moving aside could leave the camera and Link frozen. The camera is now given back when
   he stops.

@@ -3253,6 +3253,15 @@ typedef enum {
     // - `*Actor` (interactRangeActor)
     VB_BOULDER_BREAK_FLAG,
 
+    // [RSBS] SoH aedae12e6's hook site, appended (SoH #7183's despawn exemption reads it)
+    // #### `result`
+    // ```c
+    // this->unk_15A > 0
+    // ```
+    // #### `args`
+    // - `*EnItem00`
+    VB_ITEM00_TIMER_TICK,
+
     // #### `result`
     // ```c
     // varies
