@@ -136,6 +136,15 @@ typedef struct {
  *       owls before the Clock Tower door; the return leg cancels the owl
  *       chooser once and then soars to the second owl offered. The run ends on
  *       that MM arrival (IntegrationTest_SoaringExpectedOwl).
+ *   GP_VARIANT_FOREIGN_HOLD_QUIT (int-foreign-hold-quit; #1635 step 7): the
+ *       paired variant with two MM items pinned on Mido's chests (the debug-seed
+ *       seam). IntegrationTest_PairedFirstCrossing() is true for it too. After
+ *       the first leg's frames OoT queues the first host and quits through the
+ *       console's `reset`, reloads the file through the real file select, lets
+ *       the drain deliver it, records the second host in Mido's House, quits
+ *       there without saving and reloads again; each host must be recorded once
+ *       and redeemed once by the stock crossing that follows, where the run ends
+ *       on the return leg (games/oot/soh/oot_int_foreign_hold_quit_drive.cpp).
  *   GP_VARIANT_MM_WARP_SONG_MINUET (int-mm-warp-song-minuet; #1169 XW13): the
  *       paired variant with Majora's Mask's Minuet of Forest rule on (through its
  *       key, never a stored setting). IntegrationTest_PairedFirstCrossing() is
@@ -157,8 +166,9 @@ typedef enum {
     GP_VARIANT_ROUNDTRIP = 0,
     GP_VARIANT_PAIRED_FIRST_CROSSING = 1,
     GP_VARIANT_SOARING_TO_OWL = 2,
-    GP_VARIANT_MM_WARP_SONG_MINUET = 3,
-    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 4
+    GP_VARIANT_FOREIGN_HOLD_QUIT = 3,
+    GP_VARIANT_MM_WARP_SONG_MINUET = 4,
+    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 5
 } GameplayVariant;
 
 /**
@@ -177,12 +187,15 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant);
 GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
 /** True when the running test is int-paired-first-crossing, or
- *  int-soaring-to-owl, int-mm-warp-song-minuet or int-mm-warp-song-minuet-shared
- *  (which ride it). */
+ *  int-soaring-to-owl, int-foreign-hold-quit, int-mm-warp-song-minuet or
+ *  int-mm-warp-song-minuet-shared (which ride it). */
 bool IntegrationTest_PairedFirstCrossing(void);
 
 /** True when the running test is int-soaring-to-owl (#1169 XW6). */
 bool IntegrationTest_SoaringToOwl(void);
+
+/** True when the running test is int-foreign-hold-quit (#1635 step 7). */
+bool IntegrationTest_ForeignHoldQuit(void);
 
 /** True when the running test is int-mm-warp-song-minuet (#1169 XW13), or
  *  int-mm-warp-song-minuet-shared (#1169 XW14), which rides it. */
