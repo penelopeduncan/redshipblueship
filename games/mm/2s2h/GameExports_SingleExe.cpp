@@ -5250,6 +5250,48 @@ extern "C" void MM_GameHooks_ExecuteOnBossDefeated(s16 actorId) {
 }
 
 /**
+ * OnActorEntryHalfDaysBits dispatch (2Ship #2010).
+ *
+ * Fired from MM_Actor_SpawnSetupActors and MM_Actor_SpawnEntry (z_actor.c) with
+ * the half-day mask decoded from a scene actor entry's rot.x/rot.z, so a
+ * registrant can widen or narrow the half-days an actor exists in. The setup
+ * pass uses the result to decide WHETHER to spawn; MM_Actor_SpawnEntry passes it
+ * on as the spawned actor's halfDaysBits, which is what keeps it alive (or kills
+ * it) at the next half-day change.
+ *
+ * MM-only name: OoT defines nothing by this spelling and no stub was ever added
+ * for it, so a dropped bridge or dropped rebind in GameInteractor.h is a LINK
+ * error from z_actor.c, not a silent no-op.
+ *
+ * LEGS. Execute + ExecuteForID keyed on the entry's actor id with the
+ * flag bits stripped (actorEntry->id & 0x1FFF, the same mask MM_Actor_SpawnEntry
+ * applies), mirroring the excluded GameInteractor.cpp twin minus its ForFilter
+ * leg, which the S2H registry does not have. The mask is load-bearing: scene
+ * entries carry rotation-format flags in bits 13-15 (0x2000/0x4000/0x8000), so
+ * an unmasked key would miss every COND_ID_HOOK on an entry that sets any of
+ * them. mm_hook_dispatch_test.cpp check 19 drives a flagged id for that reason.
+ *
+ * NULL ENTRY. The id leg dereferences actorEntry, so the bridge refuses a NULL
+ * entry outright (the camera-trio rule): registrants may rely on a non-NULL
+ * entry. Both call sites already pass a non-NULL one -- MM_Actor_SpawnEntry
+ * returns before its call on NULL (#344) -- so this is defence, not a behaviour.
+ *
+ * WHAT NOW RUNS: nothing. No MM TU registers this hook yet; its first registrant
+ * is the Mayor Argues Until Moonfall option (2Ship #1972), not ported here. The
+ * upstream commit's other half, TingleAlwaysInClockTown.cpp, is an enhancement
+ * this tree does not carry. With an empty registry both call sites leave the
+ * decoded mask exactly as vanilla computed it.
+ */
+extern "C" void MM_GameHooks_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits) {
+    if (actorEntry == NULL) {
+        return;
+    }
+    S2H::GameHooks::Execute<GameInteractor::OnActorEntryHalfDaysBits>(actorEntry, halfDaysBits);
+    S2H::GameHooks::ExecuteForID<GameInteractor::OnActorEntryHalfDaysBits>(actorEntry->id & 0x1FFF, actorEntry,
+                                                                           halfDaysBits);
+}
+
+/**
  * The last of #438's dormant GameInteractor_Execute* types.
  *
  * These are the residue of the 48-hook audit. Every one of their call sites in
