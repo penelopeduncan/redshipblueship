@@ -711,6 +711,15 @@ void SetupChuSwim() {
     InvSwimAbility();
 }
 
+void SetupBlastSwim() {
+    Give(ITEM_MASK_BLAST);
+    InvSwimAbility();
+}
+
+void SetupBlastOnly() {
+    Give(ITEM_MASK_BLAST);
+}
+
 void SetupEponasSong() {
     GiveOcarinaAndButtons();
     SET_QUEST_ITEM(QUEST_SONG_EPONA);
@@ -1442,6 +1451,13 @@ const HookshotAnywhereProbe kHookshotAnywhereProbes[] = {
       (int32_t)RC_GORON_VILLAGE_MEDIGORON, kAllTime, MMRT_KEG_TRIAL_HEATLESS, InvGoronOnly, NULL },
     { "GBT map room to Bio Baba room (On vs Logical)", EDGE_CONNECTION, RR_GREAT_BAY_TEMPLE_MAP_ROOM,
       (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, MMRT_GBT_BABA_ENTRY_BOMBCHU, SetupChuSwim, NULL },
+    // great_bay_temple.yml:90's has_mask_blast leg: no trick, the Blast Mask and swim both still required.
+    { "GBT map room to Bio Baba room with the Blast Mask, Blast Mask still required", EDGE_CONNECTION,
+      RR_GREAT_BAY_TEMPLE_MAP_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, MMRT_MAX, SetupBlastSwim,
+      InvSwimAbility },
+    { "GBT map room to Bio Baba room with the Blast Mask, swim still required", EDGE_CONNECTION,
+      RR_GREAT_BAY_TEMPLE_MAP_ROOM, (int32_t)RR_GREAT_BAY_TEMPLE_BABA_CHEST_ROOM, kAllTime, MMRT_MAX, SetupBlastSwim,
+      SetupBlastOnly },
     { "Milk Road boulder exit to ranch on Day 1 (On vs Logical)", EDGE_EXIT, RR_MILK_ROAD,
       (int32_t)ENTRANCE(ROMANI_RANCH, 0), kDay1Only, MMRT_OOB_MOVEMENT, InvEmpty, NULL },
     { "Romani Ranch Epona's Song on Day 1 (On vs Logical)", EDGE_CHECK, RR_ROMANI_RANCH,
