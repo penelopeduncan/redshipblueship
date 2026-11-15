@@ -4153,6 +4153,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # SoH backport bundle O7: a normal grotto exit keeps the pre-grotto respawn
+    # unless grottos are mixed or decoupled (849928689), a swim void-out in a
+    # grotto reloads it (69681e608), none fires mid-transition and one after a
+    # grotto return runs the forced grotto return (d1d6a564e), the tracker's
+    # Ganon's Tower rows are oneExit (aa25eb4d5), and a grotto hole waits for the
+    # fade-in under the Bunny Hood speed-up (9eafd15fe).
+    # games/oot/soh/oot_grotto_void_test.cpp.
+    redship_add_test(NAME RandoGrottoVoid COMMAND redship --test rando-grotto-void
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1289: a shuffled fairy (gossip stone, fountain, fairy spot, bean) gives its
     # item and no heal, and a shuffled big fairy no magic refill either; a fairy
     # with no check still heals (and the big one refills magic). The bottle-guard

@@ -3245,6 +3245,17 @@ typedef enum {
     VB_STALAGMITE_DROP_ITEM,
 
     // #### `result`
+    // ```c
+    // !Player_InCsMode(play) && !(player->stateFlags1 & (PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_WATER)) &&
+    // this->actor.xzDistToPlayer <= 15.0f && -50.0f <= this->actor.yDistToPlayer &&
+    // this->actor.yDistToPlayer <= 15.0f
+    // ```
+    // #### `args`
+    // - None
+    // [RSBS] placed near the end (SoH 9eafd15fe, #7271, inserts it after VB_DETECT_BGM_ENEMY).
+    VB_DOOR_ANA_GRAB_PLAYER,
+
+    // #### `result`
     // Actor is ACTOR_OBJ_BOMBIWA, or ACTOR_OBJ_HAMISHI
     // ```c
     // Flags_GetSwitch(play, this->actor.params & 0x3F)

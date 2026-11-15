@@ -3187,7 +3187,8 @@ f32 triforcePieceScale;
 
 void RandomizerOnPlayerUpdateHandler() {
     if ((GET_PLAYER(OoT_gPlayState)->stateFlags1 & PLAYER_STATE1_IN_WATER) && !Flags_GetRandomizerInf(RAND_INF_CAN_SWIM) &&
-        CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_IRON) {
+        CUR_EQUIP_VALUE(EQUIP_TYPE_BOOTS) != EQUIP_VALUE_BOOTS_IRON &&
+        OoT_gPlayState->transitionTrigger == TRANS_TRIGGER_OFF) {
         // if you void out in water temple without swim you get instantly kicked out to prevent softlocks
         if (OoT_gPlayState->sceneNum == SCENE_WATER_TEMPLE) {
             GameInteractor::RawAction::TeleportPlayer(
@@ -3201,7 +3202,17 @@ void RandomizerOnPlayerUpdateHandler() {
                 gSaveContext.respawn[RESPAWN_MODE_DOWN].yaw = respawnInfo->yaw;
             }
 
-            Play_TriggerVoidOut(OoT_gPlayState);
+            if (OoT_gPlayState->sceneNum == SCENE_GROTTOS) {
+                // RESPAWN_MODE_DOWN isn't refreshed on grotto entry, reload grotto instead
+                OoT_gPlayState->nextEntranceIndex = gSaveContext.entranceIndex;
+                OoT_gPlayState->transitionTrigger = TRANS_TRIGGER_START;
+                OoT_gPlayState->transitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.respawnFlag = 0;
+            } else {
+                Play_TriggerVoidOut(OoT_gPlayState);
+                Grotto_ForceGrottoReturnOnSpecialEntrance();
+            }
         }
     }
 
