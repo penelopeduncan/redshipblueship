@@ -179,7 +179,7 @@ bool StoreCrossings(void) {
     return Combo_Crossings_Replace(rows, 4, nullptr, 0) == 4;
 }
 
-int RowsHolding(const SharedItem& item) {
+int FhqRowsHolding(const SharedItem& item) {
     int n = 0;
     for (int i = 0; i < (int)RSBS_SHARED_ITEM_LOGICAL_CAP; i++) {
         const SharedItem* row = Combo_SharedItemSlot(i);
@@ -378,7 +378,7 @@ int RunLegs(void) {
     }
     int rows[4];
     for (int i = 0; i < 4; i++) {
-        rows[i] = RowsHolding(sItems[i]);
+        rows[i] = FhqRowsHolding(sItems[i]);
     }
     const int pendingAfterDrain = Combo_CrossingPendingOoT_Count();
     printf("[TEST] foreign-hold-survives-quit-oot: leg 4: recorded %d; rows C %d R %d H %d U %d; pending %d\n",
@@ -400,7 +400,7 @@ int RunLegs(void) {
     const int restoredSecond = OoT_Rando_TestResetQueuesForLoad();
     const int queuedSecond = OoT_Rando_TestTakeQueuedChecks(nullptr, 0);
     for (int i = 0; i < 4; i++) {
-        rows[i] = RowsHolding(sItems[i]);
+        rows[i] = FhqRowsHolding(sItems[i]);
     }
     printf("[TEST] foreign-hold-survives-quit-oot: leg 5: pending %d, restored %d, queued %d; rows C %d R %d H %d U "
            "%d\n",
