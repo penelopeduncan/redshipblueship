@@ -1550,6 +1550,10 @@ if(BUILD_TESTING)
     # Source scan of SohGui::SetupGuiElements + a ROM-free, display-free
     # tripwire, so it runs in this redship tier.
     redship_add_test(NAME OoTWindowsGate COMMAND redship --test oot-windows-gate)
+    # Backport M2 (2Ship #1753): the mod menu's Enabled Mods child calls EndChild
+    # whatever BeginChild returned. Source scan of mod_menu.cpp; ROM-free,
+    # display-free.
+    redship_add_test(NAME ModMenuChildScope COMMAND redship --test mod-menu-child-scope)
     # #935: libultraship's own Console `set` command (registered by the Console
     # window, so the #930 OoT wrapper does not cover it) fails the command on a
     # value it cannot parse instead of throwing out of Ship::Console::Run and

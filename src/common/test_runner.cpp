@@ -7055,6 +7055,65 @@ TestResult Test_OoTWindowsGate(void) {
     return OoT_WindowsGate_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport M2, 2Ship c74ad0e38 (#1753): ImGui::BeginChild must ALWAYS be paired with
+// ImGui::EndChild, whatever BeginChild returned. The mod menu called EndChild only
+// inside `if (BeginChild(...))`, so a frame on which the child is clipped (BeginChild
+// returns false: the Mod Menu window collapsed or sized so the child has no visible
+// area) left the child window on ImGui's stack, which trips ImGui's stack-mismatch
+// assert at the next End(). Our MM mod list (SohMenuComboMmMods.cpp) has no child; the
+// hunk applies to OoT's mod_menu.cpp, the same code. The window cannot be drawn in the
+// harness (it needs SohGui's menu), so this is a source scan scoped to the live
+// "Enabled Mods" child: no EndChild inside its `if` body, and EndChild is the first
+// statement after that body.
+static TestResult Test_ModMenuChildScope(void) {
+    printf("[TEST] mod-menu-child-scope: the mod menu's Enabled Mods child ends outside its BeginChild branch "
+           "(2Ship #1753)\n");
+    const std::string src = DigestOut_ReadSource("games/oot/soh/Enhancements/mod_menu.cpp");
+    if (src.empty()) {
+        printf("[TEST] FAIL: cannot read games/oot/soh/Enhancements/mod_menu.cpp under RSBS_SOURCE_DIR\n");
+        return TEST_FAIL;
+    }
+    const std::string opener = "if (ImGui::BeginChild(\"Enabled Mods\"";
+    const size_t at = src.find(opener);
+    if (at == std::string::npos || src.find(opener, at + 1) != std::string::npos) {
+        printf("[TEST] FAIL: expected exactly one live `%s` in mod_menu.cpp\n", opener.c_str());
+        return TEST_FAIL;
+    }
+    // The `if` body: from its opening brace to the matching closing brace.
+    const size_t open = src.find('{', at);
+    if (open == std::string::npos) {
+        printf("[TEST] FAIL: the Enabled Mods `if` has no body\n");
+        return TEST_FAIL;
+    }
+    int depth = 0;
+    size_t close = std::string::npos;
+    for (size_t i = open; i < src.size(); i++) {
+        if (src[i] == '{') {
+            depth++;
+        } else if (src[i] == '}' && --depth == 0) {
+            close = i;
+            break;
+        }
+    }
+    if (close == std::string::npos) {
+        printf("[TEST] FAIL: the Enabled Mods `if` body is unterminated\n");
+        return TEST_FAIL;
+    }
+    const std::string body = src.substr(open, close - open);
+    if (body.find("EndChild") != std::string::npos) {
+        printf("[TEST] FAIL: EndChild is inside the `if (BeginChild(\"Enabled Mods\"))` body: a clipped child "
+               "(BeginChild false) is never ended\n");
+        return TEST_FAIL;
+    }
+    const size_t next = src.find_first_not_of(" \t\r\n", close + 1);
+    if (next == std::string::npos || src.compare(next, 18, "ImGui::EndChild();") != 0) {
+        printf("[TEST] FAIL: the first statement after the Enabled Mods `if` body is not ImGui::EndChild();\n");
+        return TEST_FAIL;
+    }
+    printf("[TEST] mod-menu-child-scope: Enabled Mods child is ended unconditionally\n");
+    return TEST_PASS;
+}
+
 // #935: libultraship's own `set` command (ConsoleWindow::SetCommand, registered by the Console window directly through
 // Console::AddCommand, so #930's OoT wrapper never sees it) parsed its value with std::stof / std::stoul / std::stoi
 // and caught nothing, and nothing above it catches either. A value CheckVarType classifies as a number but no parse
@@ -10518,6 +10577,10 @@ const TestDescriptor gTests[] = {
       "OoT save/play-state windows, menu embeds, console commands and the Giant's Knife toggle gate on the active game "
       "(#797, #798)",
       Test_OoTWindowsGate },
+    // Backport M2 (2Ship #1753): the mod menu's Enabled Mods child is ended whatever
+    // BeginChild returned. Source scan; display-free, ROM-free.
+    { "mod-menu-child-scope", "Mod menu Enabled Mods child ends outside its BeginChild branch (2Ship #1753)",
+      Test_ModMenuChildScope },
     // #935: libultraship's own `set` command fails on a value it cannot parse instead of ending the process.
     // Display-free, ROM-free.
     { "console-set-parse-guard",
