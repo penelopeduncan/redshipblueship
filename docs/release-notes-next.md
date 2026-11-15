@@ -210,6 +210,10 @@
   restore.
 - **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
   "Hide In-Game Timer Background", which did not fit at the smallest window size.
+- **Ocarina of Time: a Dark Link spawned by Crowd Control or Sail no longer acts on Link** (SoH
+  #7054, #7272), from Ship of Harkinian. The enemy randomizer's guards now also apply with Crowd Control or Sail on, so
+  such a Dark Link cannot void Link out, deal him fall damage, change how ice floors treat him or be grabbed by a
+  Like-Like for him. The enemy randomizer and the Actor Viewer now call the Gerudo Fighter a Gerudo Thief.
 - **A Majora's Mask chest that held an Ocarina of Time item no longer replays its message** (issue #1601). After a cycle
   reset such a chest could be opened again: it showed the item and "You found" and gave nothing. It now opens empty,
   with no message.
@@ -227,10 +231,6 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
-- **Ocarina of Time: a Dark Link spawned by Crowd Control or Sail no longer acts on Link** (SoH
-  #7054, #7272), from Ship of Harkinian. The enemy randomizer's guards now also apply with Crowd Control or Sail on, so
-  such a Dark Link cannot void Link out, deal him fall damage, change how ice floors treat him or be grabbed by a
-  Like-Like for him. The enemy randomizer and the Actor Viewer now call the Gerudo Fighter a Gerudo Thief.
 
 ### Trackers
 

@@ -1699,6 +1699,17 @@ static TestResult Test_MMAudioEditorReplacement(void) {
     return MM_AudioEditorReplacement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// 2Ship config import (W6-IMPORT, see the extern decl beside cvar-classification). The display-free shared bring-up,
+// because the row writes and clears the imported keys in the CVar store (in memory only: it saves no config).
+static TestResult Test_TwoShipImportMmKeys(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TwoShipImport_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Backport O16 (SoH 0cf2b3701, faed544b2): the Dark Link guards arm under the
 // enemy randomizer, Crowd Control or Sail, and the GELDB labels read "Gerudo
 // Thief". Body in games/oot/soh/oot_dark_link_fixes_test.cpp; return 0 on
@@ -1712,17 +1723,6 @@ static TestResult Test_OoTDarkLinkFixes(void) {
         return TEST_FAIL;
     }
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
-}
-
-// 2Ship config import (W6-IMPORT, see the extern decl beside cvar-classification). The display-free shared bring-up,
-// because the row writes and clears the imported keys in the CVar store (in memory only: it saves no config).
-static TestResult Test_TwoShipImportMmKeys(void) {
-    auto ctx = CreateHarnessStyleContext();
-    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
-        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
-        return TEST_FAIL;
-    }
-    return OoT_TwoShipImport_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
