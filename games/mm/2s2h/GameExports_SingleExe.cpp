@@ -2910,9 +2910,12 @@ static void RegisterMMResourceFactories() {
         RESOURCE_FORMAT_BINARY, "Array", static_cast<uint32_t>(S2H::ResourceType::SOH_Array), 0,
         /*allowOverwrite=*/true);
 
-    // TextMM — MM-only text format
+    // TextMM — MM-only text format. The XML reader (version 1) is what MM text mods ship (2Ship #2000): a TextMM
+    // under override/text/message_data_static/ replaces or adds entries in MM's message table (z_message_OTR.cpp).
     loader->RegisterResourceFactory(std::make_shared<S2H::ResourceFactoryBinaryTextMMV0>(), RESOURCE_FORMAT_BINARY,
                                     "TextMM", static_cast<uint32_t>(S2H::ResourceType::TSH_TextMM), 0);
+    loader->RegisterResourceFactory(std::make_shared<S2H::ResourceFactoryXMLTextMMV1>(), RESOURCE_FORMAT_XML, "TextMM",
+                                    static_cast<uint32_t>(S2H::ResourceType::TSH_TextMM), 1);
 
     // TextureAnimation — MM-only
     loader->RegisterResourceFactory(std::make_shared<S2H::ResourceFactoryBinaryTextureAnimationV0>(),

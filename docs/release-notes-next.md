@@ -322,6 +322,10 @@
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
   generated with it off. The same seed and settings make the same world as before.
+- **Majora's Mask text mods** (2Ship2Harkinian #2000, #2013). A Majora's Mask mod can now replace or add messages
+  with a TextMM XML file under `override/text/message_data_static/`, written in readable tags (colours, buttons,
+  line breaks, box type and position) instead of raw bytes. When two mods change the same message, the one loaded
+  last wins. Ocarina of Time's text is not affected.
 
 ---
 
