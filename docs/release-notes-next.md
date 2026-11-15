@@ -205,6 +205,10 @@
 - **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
   Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
   show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+- **Ocarina of Time randomizer: dungeon maps take their dungeon's colour** (SoH #6351), from Ship of Harkinian. With
+  Map & Compass Colors Match Dungeon on, maps now match their dungeon as compasses do, and the Ice Cavern compass is
+  cyan instead of gold. That option and Jabber Nut Colors Match Kind are no longer greyed out when the current seed
+  does not use them.
 - **The "Restored from file:" toast keeps Cross-Game Rule names whole** (issue #1479). After loading a save in a small
   window the toast no longer cuts a rule's name to "...", and its "+N" counts every restored rule, even on a long
   restore.
@@ -227,10 +231,6 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
-- **Ocarina of Time randomizer: dungeon maps take their dungeon's colour** (SoH #6351), from Ship of Harkinian. With
-  Map & Compass Colors Match Dungeon on, maps now match their dungeon as compasses do, and the Ice Cavern compass is
-  cyan instead of gold. That option and Jabber Nut Colors Match Kind are no longer greyed out when the current seed
-  does not use them.
 
 ### Trackers
 
