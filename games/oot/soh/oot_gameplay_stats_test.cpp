@@ -34,6 +34,7 @@
 
 #include "SaveManager.h"
 #include "Enhancements/gameplaystats.h"
+#include "Enhancements/game-interactor/GameInteractor.h"
 
 extern "C" {
 #include <z64.h>
@@ -80,6 +81,11 @@ extern "C" int OoT_GameplayStats_RunHeadless(void) {
            "triforce hunt's time outranks Ganon's (SoH #7404)\n");
     gFailures = 0;
 
+    // SaveManager's constructor registers hooks on GameInteractor::Instance,
+    // which nothing creates in a ROM-free test process.
+    if (GameInteractor::Instance == nullptr) {
+        GameInteractor::Instance = new GameInteractor();
+    }
     if (SaveManager::Instance == nullptr) {
         SaveManager::Instance = new SaveManager(); // kept alive, like every other *::Instance singleton
     }
