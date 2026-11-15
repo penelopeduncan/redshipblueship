@@ -248,6 +248,22 @@ static std::set<SceneId> scenesToCheckParent = {
     SCENE_BANDROOM,  SCENE_TOUGITES,    SCENE_MUSICHOUSE,
 };
 
+// 2Ship cfd1116a4 (#1775): the header names for scenes whose own name carries a state ("Southern Swamp (poison)",
+// "Mountain Village (winter)") or a second place ("Lone Peak Shrine & Grottos"), which every check under it is not in.
+static std::unordered_map<SceneId, const char*> sCheckTrackerSceneNameOverrides = {
+    { SCENE_20SICHITAI, "Southern Swamp" },   { SCENE_10YUKIYAMANOMURA, "Mountain Village" },
+    { SCENE_11GORONNOSATO, "Goron Village" }, { SCENE_17SETUGEN, "Path to Goron Village" },
+    { SCENE_KAKUSIANA, "Lone Peak Shrine" },
+};
+
+const char* Rando::CheckTracker::GetCheckTrackerSceneName(SceneId sceneId) {
+    auto it = sCheckTrackerSceneNameOverrides.find(sceneId);
+    if (it != sCheckTrackerSceneNameOverrides.end()) {
+        return it->second;
+    }
+    return Ship_GetSceneName(sceneId);
+}
+
 // The last scene OnSceneInit saw that is not a grotto, or -1: GetScrollTargetScene's last resort.
 static s32 sLastNonGrottoScene = -1;
 
@@ -567,7 +583,7 @@ void CheckTrackerDrawNonLogicalList() {
         ImGui::PushID(sceneId);
         ImGui::Separator();
         ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0, 0, 0, 0));
-        std::string headerText = Ship_GetSceneName(sceneId);
+        std::string headerText = Rando::CheckTracker::GetCheckTrackerSceneName(sceneId);
         headerText += " (" + std::to_string(obtainedCheckSum) + "/" + std::to_string(unfilteredChecks.size()) + ")";
 
         ImGui::PushStyleColor(ImGuiCol_Text, obtainedCheckSum == unfilteredChecks.size()
