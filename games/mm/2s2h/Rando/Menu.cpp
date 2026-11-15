@@ -482,7 +482,7 @@ static void DrawShufflesTab() {
             "Vanilla - Chest Stray Fairies stay on their vanilla checks, and none are added to the item pool.\n\n"
             "Start With - You begin with every dungeon's chest Stray Fairies, and none are added to the item pool."));
     UIWidgets::CVarCombobox(
-        "Other Stray Fairies", Rando::StaticData::Options[RO_PLACEMENT_STRAY_FAIRIES_OTHER].cvar,
+        "Dungeon Freestanding Fairies", Rando::StaticData::Options[RO_PLACEMENT_STRAY_FAIRIES_OTHER].cvar,
         &dungeonItemPlacementOptions,
         UIWidgets::ComboboxOptions().Tooltip(
             "Where freestanding dungeon Stray Fairies and the Clock Town Stray Fairy may be placed.\n\n"
