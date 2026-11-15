@@ -495,7 +495,10 @@ static RegisterShipInitFunc initFunc([]() {
             // statues"), DEFAULT OFF. OoTMM's stone_tower.yml:6 climbs with `(can_use_elegy3 ||
             // (can_use_elegy2 && trick(MM_ONE_MASK_STONE_TOWER))) && can_hookshot` (its `can_use_elegy3 &&
             // short_hook_anywhere && trick(MM_OOB_MOVEMENT)` disjunct is subsumed by HAS_ITEM(ITEM_HOOKSHOT)
-            // without Short Hookshot, #1574). Both directions, as the vanilla pair is written.
+            // without Short Hookshot, #1574). NOT ported: the line's `|| hookshot_anywhere` disjunct, which
+            // climbs with no Elegy at all (macros_mm.yml:467; it equals short_hook_anywhere in this build,
+            // and that macro is deferred to a follow-up sweep, so logic credits less than OoTMM here).
+            // Both directions, as the vanilla pair is written.
             CONNECTION(RR_STONE_TOWER_MIDDLE, HAS_ITEM(ITEM_HOOKSHOT) && CAN_PLAY_SONG(ELEGY) && ((CAN_BE_GORON && CAN_BE_ZORA) || (MM_TRICK(MMRT_ONE_MASK_STONE_TOWER) && (CAN_BE_GORON || CAN_BE_ZORA)))),
         },
     };
@@ -570,7 +573,8 @@ static RegisterShipInitFunc initFunc([]() {
             // #697 / #1574 — MMRT_ONE_MASK_STONE_TOWER and MMRT_OOB_MOVEMENT open the temple door
             // (DEFAULT OFF). OoTMM stone_tower.yml:20,67 ("Stone Tower Top" / "Stone Tower Upper Scarecrow
             // Ledge" -> "Stone Tower Front of Temple") adds `short_hook_anywhere && trick(MM_OOB_MOVEMENT)`
-            // without Elegy or masks alongside the Elegy route.
+            // without Elegy or masks alongside the Elegy route. NOT ported: :20's `|| hookshot_anywhere`
+            // (no trick; macros_mm.yml:467, deferred with the rest of that macro's sites).
             EXIT(ENTRANCE(STONE_TOWER_TEMPLE, 0),           ENTRANCE(STONE_TOWER, 2), (CAN_PLAY_SONG(ELEGY) && ((CAN_BE_ZORA && CAN_BE_GORON) || (MM_TRICK(MMRT_ONE_MASK_STONE_TOWER) && (CAN_BE_ZORA || CAN_BE_GORON)))) || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_OOB_MOVEMENT)))
         },
         .connections = {

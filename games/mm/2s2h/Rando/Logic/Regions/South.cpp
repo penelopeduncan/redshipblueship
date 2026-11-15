@@ -46,8 +46,8 @@ static RegisterShipInitFunc initFunc([]() {
             EXIT(ENTRANCE(DEKU_PALACE, 3),                  ENTRANCE(DEKU_KINGS_CHAMBER, 1), true),
         },
         .connections = {
-            // #1574: OoTMM deku_palace.yml:104,108 ("Deku Palace Cage" -> "Deku Palace Cage To Throne" ->
-            // "Deku Palace Throne"): `short_hook_anywhere && trick(MM_ESCAPE_CAGE)` and `has_mask_deku`.
+            // #1574: OoTMM deku_palace.yml:104 and :87-89 ("Deku Palace Cage" -> "Deku Palace Cage To Throne" ->
+            // "Deku Palace Throne"): `short_hook_anywhere && trick(MM_ESCAPE_CAGE) && has_mask_deku`, then `true`.
             CONNECTION(RR_DEKU_KINGS_CHAMBER, SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_ESCAPE_CAGE) && CAN_BE_DEKU),
         },
     };
@@ -58,7 +58,7 @@ static RegisterShipInitFunc initFunc([]() {
         .connections = {
 #ifdef RSBS_SINGLE_EXECUTABLE
             // #1574: OoTMM deku_palace.yml:77 ("Deku Palace Throne" -> "Deku Palace Throne To Cage"):
-            // `(event(DEKU_PALACE_THRONE_CAGE) || has_mask_skull) && short_hook_anywhere`.
+            // `(event(RETURN_PRINCESS) || has_mask_skull) && short_hook_anywhere`.
             CONNECTION(RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, (RANDO_EVENTS[RE_RETURN_DEKU_PRINCESS] || HAS_OOT_MASK(RI_MASK_SKULL)) && SHORT_HOOK_ANYWHERE),
 #else
             CONNECTION(RR_DEKU_KINGS_CHAMBER_HOLDING_CELL, RANDO_EVENTS[RE_RETURN_DEKU_PRINCESS] && SHORT_HOOK_ANYWHERE),

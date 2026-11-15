@@ -6,7 +6,7 @@
 using namespace Rando::Logic;
 
 // Ports 2S2H 9b699dee1 (#1506), widened by #1574 for OoTMM milk_road.yml:9 ("Milk Road" -> "Near Romani
-// Ranch", `event(OPEN_MILK_ROAD) || after(DAY3_AM_06_00) || (short_hook_anywhere && trick(MM_OOB_MOVEMENT))`;
+// Ranch", `after(DAY3_AM_06_00) || can_use_keg || (short_hook_anywhere && trick(MM_OOB_MOVEMENT))`;
 // :45 is subsumed by `true` on RR_ROMANI_RANCH's exit). Bypassing the boulder before Day 3 gives Romani Ranch
 // the same Day 1 / Night 1 reach as breaking it, while RE_DESTROY_MILK_ROAD_BOULDER stays Keg-only.
 #define CAN_PASS_MILK_ROAD_BOULDER \
