@@ -4,10 +4,10 @@
  * SohGui::SetupGuiElements before calling this.
  *
  * gSaveContext is one shared buffer, so an OoT window that runs while Majora's Mask is the running game reads MM's
- * bytes through OoT's SaveContext layout and, for the Save Editor, writes them: DrawInfoTab clamps health and assigns
- * magicCapacity / magic on every drawn frame. Ten SoH windows touch OoT save or play state, and each is reached three
- * ways: Draw() from the Gui's per-frame window loop, Update() from its unconditional per-frame update, and
- * DrawElement() straight from the Port Menu when the window is hidden and its row embeds (SohGui/Menu.cpp), which
+ * bytes through OoT's SaveContext layout and, for the Save Editor, writes them: its Flags tab assigns the gold
+ * skulltula token count from the GS flags on every drawn frame. Ten SoH windows touch OoT save or play state, and each
+ * is reached three ways: Draw() from the Gui's per-frame window loop, Update() from its unconditional per-frame update,
+ * and DrawElement() straight from the Port Menu when the window is hidden and its row embeds (SohGui/Menu.cpp), which
  * bypasses visibility entirely.
  *
  * The hard tripwire: this harness has NO ImGui context and NO OTRGlobals::Instance, and every window's visibility

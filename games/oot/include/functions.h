@@ -1571,6 +1571,7 @@ void OoT_KaleidoScopeCall_Init(PlayState* play);
 void OoT_KaleidoScopeCall_Destroy(PlayState* play);
 void OoT_KaleidoScopeCall_Update(PlayState* play);
 void OoT_KaleidoScopeCall_Draw(PlayState* play);
+void KaleidoScope_InitVertices(PlayState* play, GraphicsContext* gfxCtx);
 void Play_SetViewpoint(PlayState* play, s16 viewpoint);
 s32 Play_CheckViewpoint(PlayState* play, s16 viewpoint);
 void Play_SetShopBrowsingViewpoint(PlayState* play);

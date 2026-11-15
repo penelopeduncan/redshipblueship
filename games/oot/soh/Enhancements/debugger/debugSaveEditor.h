@@ -472,3 +472,11 @@ char decodePlayerNameChar(uint8_t code, uint8_t language);
 uint8_t encodePlayerNameChar(char c, uint8_t language);
 // Rewrites the eight characters of `name` from `oldLanguage`'s encoding into `newLanguage`'s.
 void reencodePlayerName(uint8_t* name, uint8_t oldLanguage, uint8_t newLanguage);
+
+// The Save Editor's player-name text box (Save editor v2, SoH #6474, with SoH #7383 hunks 2 and 3). Pure, so the
+// ROM-free row oot-save-editor-name-input (games/oot/soh/oot_save_editor_name_input_test.cpp) calls them.
+// Fills `input` (nine chars) with the eight characters of `name` decoded from `language`, NUL-terminated.
+void decodePlayerNameInput(const uint8_t* name, uint8_t language, char* input);
+// Stores the text box's `input` into the eight characters of `name` in `language`'s encoding: every character from
+// the first NUL on is a space, and a character the encoding lacks is a space.
+void storePlayerNameInput(const char* input, uint8_t language, uint8_t* name);
