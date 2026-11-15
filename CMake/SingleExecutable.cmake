@@ -1969,6 +1969,10 @@ if(BUILD_TESTING)
     # Display-free and ROM-free.
     redship_add_test(NAME OoTMweepStopRestoresCamera COMMAND redship --test oot-mweep-stop-restores-camera)
 
+    # SoH #7158: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
+    # cutscene alone, and the child Ruto skip keeps camera setting 2. Display-free and ROM-free.
+    redship_add_test(NAME OoTBigOctoOnePointKept COMMAND redship --test oot-big-octo-onepoint-kept)
+
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
     #

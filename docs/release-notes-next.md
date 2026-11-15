@@ -227,6 +227,9 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **Ocarina of Time: Jabu-Jabu's Big Octo platform keeps its cutscene** (SoH #7158), from Ship of Harkinian. With Skip
+  One Point Cutscenes on (the default in the randomizer), you were given control while the platform was still going up
+  and down, and could get behind the Big Octo before its fight. That short cutscene now always plays.
 
 ### Trackers
 

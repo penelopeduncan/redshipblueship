@@ -1367,6 +1367,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
 #include "tests/test_oot_mweep_stop.c"
 
+// SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
+// cutscene alone, and the child Ruto skip keeps camera setting 2 whatever that CVar says.
+#include "tests/test_oot_big_octo_cs.c"
+
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
 // — which lives in an MM TU (games/mm/2s2h/mm_scene_execute_test.cpp) to keep
@@ -10794,6 +10798,11 @@ const TestDescriptor gTests[] = {
       "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
       "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
       Test_OoTMweepStopRestoresCamera },
+    // SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Big Octo platform's cutscene alone.
+    { "oot-big-octo-onepoint-kept",
+      "Skip One Point Cutscenes breaks out for BgBdanObjects params 0 before the chime, and the child Ruto skip "
+      "guards cameraSetting != 2 without the one-point CVar (SoH #7158)",
+      Test_OoTBigOctoOnePointKept },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
