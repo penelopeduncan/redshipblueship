@@ -3260,6 +3260,30 @@ typedef enum {
     // #### `args`
     // - `*EnIshi`, `*ObjBombiwa`, or `*ObjHamishi`
     VB_ROCK_DROP_ITEM,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Color_RGB8`
+    VB_APPLY_MAGIC_METER_FILL_COLOR,
+
+    // #### `result`
+    // ```c
+    // Flags_GetEventChkInf(EVENTCHKINF_BEGAN_BARINA_BATTLE)
+    // ```
+    // #### `args`
+    // - `*BossVa`
+    VB_BARINADE_PLAY_REMATCH_INTRO,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
 } GIVanillaBehavior;
 
 #endif

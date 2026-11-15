@@ -1301,6 +1301,24 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
         case VB_CRAWL:
             *should = *should && Flags_GetRandomizerInf(RAND_INF_CAN_CRAWL);
             break;
+        case VB_BARINADE_PLAY_REMATCH_INTRO:
+            *should =
+                *should && (!RAND_GET_OPTION(RSK_SHUFFLE_BOSS_SOULS) || Flags_GetRandomizerInf(RAND_INF_BARINADE_SOUL));
+            break;
+        case VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING:
+            *should = *should && !Flags_GetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER);
+            break;
+        case VB_APPLY_MAGIC_METER_FILL_COLOR: {
+            Color_RGB8* color = va_arg(args, Color_RGB8*);
+
+            if (Flags_GetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER)) {
+                *color = { 0, 0, 200 };
+                if (CVarGetInteger(CVAR_COSMETIC("Consumable_MagicInfinite.Changed"), 0)) {
+                    *color = CVarGetColor24(CVAR_COSMETIC("Consumable_MagicInfinite.Value"), *color);
+                }
+            }
+            break;
+        }
         case VB_ALLOW_ENTRANCE_CS_FOR_EITHER_AGE: {
             s32 entranceIndex = va_arg(args, s32);
 
