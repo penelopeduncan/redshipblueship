@@ -563,6 +563,7 @@ void GameInteractor_ExecuteOnActorKill(Actor* actor);
 void GameInteractor_ExecuteOnActorDestroy(Actor* actor);
 void GameInteractor_ExecuteOnPlayerPostLimbDraw(Player* player, s32 limbIndex);
 void GameInteractor_ExecuteOnBossDefeated(s16 actorId);
+void GameInteractor_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits);
 
 void GameInteractor_ExecuteOnSceneFlagSet(s16 sceneId, FlagType flagType, u32 flag);
 void GameInteractor_ExecuteOnSceneFlagUnset(s16 sceneId, FlagType flagType, u32 flag);
@@ -873,6 +874,17 @@ void MM_GameHooks_ExecuteOnSeqPlayerInit(int32_t playerIdx, int32_t seqId);
 #define GameInteractor_ExecuteOnCameraChangeSettingsFlags MM_GameHooks_ExecuteOnCameraChangeSettingsFlags
 #define GameInteractor_ExecuteAfterCameraUpdate MM_GameHooks_ExecuteAfterCameraUpdate
 #define GameInteractor_ExecuteOnSeqPlayerInit MM_GameHooks_ExecuteOnSeqPlayerInit
+
+// OnActorEntryHalfDaysBits (2Ship #2010). An MM-only name, the
+// Before/AfterEndOfCycleSave shape: OoT defines nothing by this spelling and no
+// stub exists for it, so a dropped bridge or a dropped #define is a LINK error
+// from z_actor.c's two call sites rather than a silent no-op. No MM TU
+// registers it yet; the first registrant is the Mayor Argues Until Moonfall
+// option (2Ship #1972). The bridge keys its id leg on actorEntry->id, so it is
+// the bridge, not the registrants, that refuses a NULL entry (the camera-trio
+// rule in mm_game_hooks.h).
+void MM_GameHooks_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits);
+#define GameInteractor_ExecuteOnActorEntryHalfDaysBits MM_GameHooks_ExecuteOnActorEntryHalfDaysBits
 #endif // RSBS_SINGLE_EXECUTABLE
 
 #ifdef __cplusplus
