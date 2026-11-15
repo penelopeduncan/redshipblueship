@@ -88,6 +88,11 @@
 - **Seven Majora's Mask options from 2Ship2Harkinian are in the menu, greyed out** (issue #1403): Shuffle Skeleton Key,
   the Skulltula and Stray Fairy pool limits, and shuffles for the Song of Double Time, the Inverted Song of Time, the
   Sun's Song and Saria's Song. They read "Not Yet Supported in Paired Worlds" and cannot be turned on yet.
+- **New option: Hookshot Anywhere** (issue #1574), as in OoTMM, among Majora's Mask's logic options. It is off by
+  default. On lets the Hookshot latch onto any surface in Majora's Mask for that file. Logical does the same and also
+  lets logic expect it, on its own and in five tricks that need it. The option is set when the file is created, and it
+  is separate from the Hookshot Everything cheat, which logic never counts. With it off, worlds are made exactly as
+  before.
 - **Majora's Mask randomizer polish from 2Ship2Harkinian** (2Ship2Harkinian #1614, #1450, #1706, #1775, #1478,
   #1769). With Shuffle Enemy Souls on, an enemy whose soul you do not have yet is drawn in grey. Enemy soul items draw
   with their proper textures and colours, a randomized pot uses the major pot model when Chest Size and Texture Match
@@ -260,6 +265,9 @@
   warps, and it pairs Ganon's Tower's two entrances as it does other dungeon entrances.
 - **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
+- **Cross-Game Masks: the Blast Mask's blast in Ocarina of Time goes off where Link stands** (issue #1615). The cloud
+  was drawn at Link, but the blast itself went off at one fixed point of the map in every scene. It is now centred on
+  Link everywhere, the Market guard house included, and it cuts shrubs, as logic expects.
 - **A Majora's Mask stray fairy found in Ocarina of Time is animated** (issue #1165). It was drawn frozen in one pose.
 - **Ocarina of Time: a shuffled key or Piece of Heart dropped by an enemy stays put** (SoH #7183), from Ship of
   Harkinian. A randomized drop such as a Gerudo guard's key used to vanish about ten seconds after it fell, as a rupee
@@ -325,6 +333,8 @@
 - **Developer Tools: an Event Log for Majora's Mask** (issue #1572), from 2Ship2Harkinian. Popout Event Log opens a
   window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
 - **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
+  2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
+- **Developer Tools: the Collision Viewer works in Majora's Mask** (issue #1576). The one Collision Viewer window shows
   2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
 - **Developer Tools: Ocarina of Time's Save Editor has a new layout** (SoH #6474, #7383), from Ship of Harkinian. Its
   tabs are General, Inventory, Equipment, Quest Status, Dungeon Items, Flags and Player, laid out as cards. The player
