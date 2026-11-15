@@ -1367,6 +1367,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
 #include "tests/test_oot_mweep_stop.c"
 
+// SoH #6709: ROM-free: Camera_Subj4 (the crawlspace camera) writes Link's world
+// position and shape yaw as console does, from source.
+#include "tests/test_oot_camera_subj4.c"
+
 // MM scene-command EXECUTE regression (issue #344). Unlike the parse test, the
 // body runs the parsed commands against a PlayState, so it needs MM's global.h
 // — which lives in an MM TU (games/mm/2s2h/mm_scene_execute_test.cpp) to keep
@@ -10794,6 +10798,10 @@ const TestDescriptor gTests[] = {
       "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
       "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
       Test_OoTMweepStopRestoresCamera },
+    // SoH #6709: ROM-free: Camera_Subj4's three console writes to Link are live code.
+    { "oot-camera-subj4-console",
+      "Camera_Subj4 (the crawlspace camera) writes Link's world position and shape yaw as console does (SoH #6709)",
+      Test_OoTCameraSubj4Console },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,

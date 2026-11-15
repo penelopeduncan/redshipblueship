@@ -225,6 +225,8 @@
 - **First-run extraction says what went wrong** (issue #1590), from Ship of Harkinian and 2Ship2Harkinian. On Linux with
   no file picker installed, both games show a message instead of failing silently. Ocarina of Time shows a message when
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
+- **Ocarina of Time: crawlspaces move Link as they do on console** (SoH #6709), from Ship of Harkinian. The crawlspace
+  camera places Link and turns him with it again, so the crawlspace glitch behaves as it does on the original game.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
 
