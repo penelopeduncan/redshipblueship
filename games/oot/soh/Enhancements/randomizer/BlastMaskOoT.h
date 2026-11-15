@@ -33,6 +33,9 @@ void OoT_BlastMask_RegisterRuntime(void);
 /** TEST ONLY: the frames left on the cooldown, set directly. */
 void OoT_BlastMask_SetCooldownForTest(uint16_t frames);
 
+/** Register the Blast Mask's GameInteractor hooks (idempotent; ShipInit runs it at boot). */
+void OoT_BlastMask_RegisterHooks(void);
+
 #ifdef __cplusplus
 }
 #endif

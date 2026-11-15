@@ -8282,6 +8282,21 @@ TestResult Test_BlastMaskOoTRule(void) {
     return BlastMaskOoTRule_Run();
 }
 
+// #1615: headless OoT Blast Mask shrub-cutting + Market guard house world.pos
+// lock, with display-free CVar store bring-up.
+TestResult Test_BlastMaskOoTShrubGuardHouse(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return BlastMaskOoTShrubGuardHouse_Run();
+}
+
 // #979: the Stone Mask's Cross-Game Rules rows, the Blast Mask's bring-up.
 TestResult Test_StoneMaskOoTRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -11289,6 +11304,14 @@ const TestDescriptor gTests[] = {
       "frozen rule, pairs into one bag row under the shared rule, and OoT's logic credits it as a child's explosive "
       "only then (#979)",
       Test_BlastMaskOoTItems },
+    { "blast-mask-oot-spawn",
+      "Combo_BlastMask_StepOotSpawn anchors the bomb spawn and truncated int16_t explosionCollider sphere center at "
+      "Link's world.pos once per cooldown (#1615)",
+      Test_BlastMaskOoTSpawn },
+    { "blast-mask-oot-shrub-guardhouse",
+      "Child Link's Blast Mask cuts adjacent ground shrubs (ACTOR_EN_KUSA) and spawns/centers ACTOR_EN_BOM at Link's "
+      "world.pos in the Market guard house without OoT_EnBom_Draw (#1615)",
+      Test_BlastMaskOoTShrubGuardHouse },
     { "stone-mask-oot-rule",
       "The Stone Mask (OoT) and Shared Stone Mask are two Cross-Game Rules, off by default, the shared one only with "
       "its extension, restored from the file at load in OoTMM's order; OoTMM's actors lose sight of the wearer (#979)",
