@@ -307,7 +307,8 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
  * depend on how fast the machine was that day, which breaks the ADR's hard
  * rule that a world is a pure function of the frozen identity. The ladder
  * therefore stops cold on this type and refuses loudly instead. Every other
- * failure the fill raises ("No checks with junk", "No non-junk items left",
+ * failure the fill raises ("Out of checks to replace, ...", "No non-junk items
+ * left to place, ...",
  * the pool-balance and foreign-placement throws) is a deterministic function
  * of the seeded RNG stream and IS a legitimate ladder rung.
  *

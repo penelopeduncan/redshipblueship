@@ -538,6 +538,10 @@ int MM_TrickBindings_RunHeadless(void);
 // Rando::Foreign::RecordForeignPickup. Return 0 on pass.
 int MM_SpoilerIdentity_RunHeadless(void);
 int MM_ForeignPickupGate_RunHeadless(void);
+// games/mm/2s2h/mm_rando_polish_test.cpp (2Ship backport M4): the Check
+// Tracker's plain scene names and the spoiler-load unknown-item refusal.
+// Return 0 on pass.
+int MM_RandoPolish_RunHeadless(void);
 // #1055: where a paired spoiler goes when its seed-named file is another
 // identity's (same file, MM_Rando_ChoosePairedSpoilerName). Return 0 on pass.
 int MM_PairedSpoilerName_RunHeadless(void);
@@ -8147,6 +8151,24 @@ TestResult Test_MMSpoilerIdentity(void) {
     return MM_SpoilerIdentity_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// 2Ship backport M4 (#1775, #1478): the Check Tracker heads five scenes with
+// their plain names and the Combo Tracker's MM pane says the same words, and
+// ApplyToSaveContext refuses a spoiler naming an unknown item but keeps a
+// cross-game host's label. Same bring-up as mm-spoiler-identity.
+TestResult Test_MMRandoPolish(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_RandoPolish_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Foreign-pickup durable-record gate (#610), the defense-in-depth half: a
 // populated placement table with no live pairing must author no shared-item
 // record. Same bring-up as its sibling for consistency; the gate itself reads
@@ -10347,6 +10369,9 @@ const TestDescriptor gTests[] = {
     // the live pairing; divergence refuses through the #533 surface.
     { "mm-spoiler-identity", "A spoiler's foreign section commits only when its identity names the live pairing (#610)",
       Test_MMSpoilerIdentity },
+    { "mm-rando-polish",
+      "Plain Check Tracker scene names in both trackers and a refused unknown spoiler item (2Ship #1775, #1478)",
+      Test_MMRandoPolish },
     { "mm-foreign-pickup-gate", "An unpaired session authors no durable shared-item record on a foreign pickup (#610)",
       Test_MMForeignPickupGate },
     { "mm-paired-spoiler-name", "A paired spoiler whose seed name is another identity's goes to <seed>-<fp> (#1055)",

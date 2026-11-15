@@ -2,6 +2,9 @@
 #include "Rando/Rando.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "ShipUtils.h"
+#include <spdlog/spdlog.h>
+#include <stdexcept>
+#include <string>
 
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include <cstdio>
@@ -408,6 +411,25 @@ int ReconstructForeignPlacements(const nlohmann::json& spoiler) {
 }
 #endif
 
+// 2Ship 77cbefd28 (#1478): a check whose item the spoiler names but no MM item answers to is a bad spoiler, not a
+// world: refuse it, and the file-creation catch reports why. The one name that legitimately resolves to RI_UNKNOWN is
+// a cross-game host's, which the writer labels "<item> (Ocarina of Time)" (Spoiler/Generate.cpp, Lane C1 #392) and
+// ReconstructForeignPlacements below normalizes from its "foreign" section.
+static void ThrowOnUnknownSpoilerItem(RandoItemId randoItemId, const char* checkName, const std::string& itemName) {
+    if (randoItemId != RI_UNKNOWN) {
+        return;
+    }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    static const std::string kForeignSuffix = " (Ocarina of Time)";
+    if (itemName.size() > kForeignSuffix.size() &&
+        itemName.compare(itemName.size() - kForeignSuffix.size(), kForeignSuffix.size(), kForeignSuffix) == 0) {
+        return;
+    }
+#endif
+    SPDLOG_ERROR("Unknown item in spoiler for check {}: {}", checkName, itemName);
+    throw std::runtime_error("Unknown item in spoiler: " + itemName);
+}
+
 void ApplyToSaveContext(nlohmann::json spoiler) {
     gSaveContext.save.shipSaveInfo.rando.finalSeed = spoiler["finalSeed"].get<uint32_t>();
 
@@ -462,6 +484,7 @@ void ApplyToSaveContext(nlohmann::json spoiler) {
         if (spoiler["checks"][randoStaticCheck.name].is_object()) {
             std::string itemName = spoiler["checks"][randoStaticCheck.name]["randoItemId"].get<std::string>();
             RandoItemId randoItemId = Rando::StaticData::GetItemIdFromName(itemName.c_str());
+            ThrowOnUnknownSpoilerItem(randoItemId, randoStaticCheck.name, itemName);
 
             RANDO_SAVE_CHECKS[randoCheckId].randoItemId = randoItemId;
             RANDO_SAVE_CHECKS[randoCheckId].shuffled = true;
@@ -474,6 +497,7 @@ void ApplyToSaveContext(nlohmann::json spoiler) {
         } else {
             std::string itemName = spoiler["checks"][randoStaticCheck.name].get<std::string>();
             RandoItemId randoItemId = Rando::StaticData::GetItemIdFromName(itemName.c_str());
+            ThrowOnUnknownSpoilerItem(randoItemId, randoStaticCheck.name, itemName);
 
             RANDO_SAVE_CHECKS[randoCheckId].randoItemId = randoItemId;
             RANDO_SAVE_CHECKS[randoCheckId].shuffled = true;

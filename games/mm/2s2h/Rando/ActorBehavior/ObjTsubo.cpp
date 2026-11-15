@@ -335,7 +335,7 @@ void IdentifyPot(Actor* actor, bool* should) {
 
 void ObjTsubo_RandoDraw(Actor* actor, PlayState* play) {
     if (!CVarGetInteger("gEnhancements.ChestSizeAndTextureMatchContents", 0)) {
-        MM_Gfx_DrawDListOpa(play, (Gfx*)gPotStandardDL);
+        MM_Gfx_DrawDListOpa(play, (Gfx*)gPotMajorDL);
         return;
     }
 
