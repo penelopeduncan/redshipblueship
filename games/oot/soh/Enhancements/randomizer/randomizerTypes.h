@@ -1644,6 +1644,7 @@ typedef enum {
     RR_ICE_CAVERN_AFTER_BLOCK_ROOM,
     RR_GERUDO_TRAINING_GROUND_MQ_STALFOS_ROOM_ALCOVE,
     RR_GANONS_CASTLE_WATER_TRIAL_BLOCK_ROOM_SWITCH,
+    RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, // SoH 28ab1206 (#7396), bundle O28's Fire Trial split
 
     RR_MAX,
 } RandomizerRegion;
@@ -5083,7 +5084,7 @@ typedef enum {
 
 // Randomizer tricks and glitches (beta) based on knowledge of what is achievable in Ship of Harkinian randomizer,
 // excludes Item manipulation (e.g. RBA/GIM/SRM) and Wrong Warping and Ganon BK Skip
-// TODO Fill and alphabetize (area based tricks must have area in name and come alphetized after general tricks)
+// TODO Fill and alphabetize (area based tricks must have area in name and come alphabetized after general tricks)
 // TODO test commented out tricks to see if consistent with console on SoH
 // TODO add area specific tricks
 typedef enum {

@@ -442,7 +442,14 @@ void EnKz_Mweep(EnKz* this, PlayState* play) {
     initPos.y += -100.0f;
     initPos.z += 260.0f;
     if (GameInteractor_Should(VB_PLAY_MWEEP_CS, true)) {
-        Play_CameraSetAtEye(play, this->cutsceneCamera, &pos, &initPos);
+        if (this->cutsceneCamera != CAM_ID_MAIN) {
+            Play_CameraSetAtEye(play, this->cutsceneCamera, &pos, &initPos);
+        }
+    } else if (this->cutsceneCamera != CAM_ID_MAIN) {
+        OoT_Play_ChangeCameraStatus(play, this->gameplayCamera, CAM_STAT_ACTIVE);
+        OoT_Play_ClearCamera(play, this->cutsceneCamera);
+        this->cutsceneCamera = CAM_ID_MAIN;
+        OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);
     }
     if ((EnKz_FollowPath(this, play) == 1) && (this->waypoint == 0)) {
         Animation_ChangeByInfo(&this->skelanime, OoT_sAnimationInfo, ENKZ_ANIM_1);
@@ -461,6 +468,7 @@ void EnKz_StopMweep(EnKz* this, PlayState* play) {
     if (this->cutsceneCamera != CAM_ID_MAIN) {
         OoT_Play_ChangeCameraStatus(play, this->gameplayCamera, CAM_STAT_ACTIVE);
         OoT_Play_ClearCamera(play, this->cutsceneCamera);
+        this->cutsceneCamera = CAM_ID_MAIN;
         OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 7);
     }
     this->actionFunc = EnKz_Wait;

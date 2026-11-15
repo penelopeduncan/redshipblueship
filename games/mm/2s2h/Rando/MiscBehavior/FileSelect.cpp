@@ -12,6 +12,9 @@ extern s16 MM_sWindowContentColors[3];
 extern FileSelectState* gFileSelectState;
 }
 
+#include <ship/window/gui/GuiWindow.h>
+#include "2s2h/BenGui/CosmeticEditor.h"
+
 // static: TU-local (single-exe force-links this TU; keep generic names out of
 // the global symbol space).
 static u8 isRando[FILE_NUM_MAX_WITH_OWL_SAVE];
@@ -144,8 +147,9 @@ void RegisterShoulds() {
         OPEN_DISPS(gFileSelectState->state.gfxCtx);
 
         // But then we also render the same small box again, but using the expanded file info alpha
-        gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, MM_sWindowContentColors[0], MM_sWindowContentColors[1],
-                        MM_sWindowContentColors[2], gFileSelectState->fileInfoAlpha[fileIndex]);
+        gDPSetPrimColorOverride(POLY_OPA_DISP++, 0, 0, MM_sWindowContentColors[0], MM_sWindowContentColors[1],
+                                MM_sWindowContentColors[2], gFileSelectState->fileInfoAlpha[fileIndex],
+                                COSMETIC_ELEMENT_FILE_SELECT_PLATES);
         gDPLoadTextureBlock(POLY_OPA_DISP++, gFileSelBlankButtonTex, G_IM_FMT_IA, G_IM_SIZ_16b, 52, 16, 0,
                             G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMIRROR | G_TX_WRAP, G_TX_NOMASK, G_TX_NOMASK, G_TX_NOLOD,
                             G_TX_NOLOD);

@@ -7,6 +7,7 @@
 #include <spdlog/fmt/fmt.h>
 #include <regex>
 #include "soh/OTRGlobals.h"
+#include "soh/ShipInit.hpp"
 
 extern "C" {
 #include <z64.h>
@@ -19,6 +20,12 @@ extern PlayState* OoT_gPlayState;
 void CrowdControl::Enable() {
     Network::Enable(CVarGetString(CVAR_REMOTE_CROWD_CONTROL("Host"), "127.0.0.1"),
                     CVarGetInteger(CVAR_REMOTE_CROWD_CONTROL("Port"), 43384));
+    ShipInit::Init(CVAR_REMOTE_CROWD_CONTROL("Enabled"));
+}
+
+void CrowdControl::Disable() {
+    Network::Disable();
+    ShipInit::Init(CVAR_REMOTE_CROWD_CONTROL("Enabled"));
 }
 
 void CrowdControl::OnConnected() {

@@ -458,6 +458,71 @@ extern "C" int MM_DevViewersGate_RunHeadless(void) {
     DVG_ASSERT(MM_MessageViewer_HostedInitializedForTest(),
                "second MM_MessageViewer_UpdateHostedElement() call left MM body uninitialized");
 
+    // W6-DEV (#1238 slice 2): MM's Collision Viewer hosted lifecycle & hook legs via mm_dev_viewers_bridge.h.
+    // (a) Precondition: hosted Collision Viewer body starts uninitialized before any GAME_MM update runs.
+    DVG_ASSERT(!MM_CollisionViewer_HostedInitializedForTest(),
+               "MM_CollisionViewer_HostedInitializedForTest() returned true before first GAME_MM update");
+
+    // (b) HostedActive gates strictly on GAME_MM; under GAME_OOT and GAME_NONE, UpdateHostedElement leaves
+    // the body uninitialized and OnPlayDrawWorldEnd hook count unchanged.
+    Context_SetCurrentGame(GAME_OOT);
+    DVG_ASSERT(!MM_CollisionViewer_HostedActive(), "MM_CollisionViewer_HostedActive() returned true under GAME_OOT");
+    Context_SetCurrentGame(GAME_MM);
+    DVG_ASSERT(MM_CollisionViewer_HostedActive(), "MM_CollisionViewer_HostedActive() returned false under GAME_MM");
+    Context_SetCurrentGame(GAME_NONE);
+    DVG_ASSERT(!MM_CollisionViewer_HostedActive(), "MM_CollisionViewer_HostedActive() returned true under GAME_NONE");
+
+    const size_t colHooksBefore = S2H::GameHooks::CountForTest<GameInteractor::OnPlayDrawWorldEnd>();
+    Context_SetCurrentGame(GAME_OOT);
+    MM_CollisionViewer_UpdateHostedElement();
+    DVG_ASSERT(!MM_CollisionViewer_HostedInitializedForTest(),
+               "MM_CollisionViewer_UpdateHostedElement() initialized MM body under GAME_OOT");
+    DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnPlayDrawWorldEnd>() == colHooksBefore,
+               "MM_CollisionViewer_UpdateHostedElement() registered OnPlayDrawWorldEnd under GAME_OOT");
+
+    Context_SetCurrentGame(GAME_NONE);
+    MM_CollisionViewer_UpdateHostedElement();
+    DVG_ASSERT(!MM_CollisionViewer_HostedInitializedForTest(),
+               "MM_CollisionViewer_UpdateHostedElement() initialized MM body under GAME_NONE");
+    DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnPlayDrawWorldEnd>() == colHooksBefore,
+               "MM_CollisionViewer_UpdateHostedElement() registered OnPlayDrawWorldEnd under GAME_NONE");
+
+    // (c) First GAME_MM UpdateHostedElement initializes the body and registers OnPlayDrawWorldEnd once;
+    // a second call leaves both the initialized flag and hook count at +1.
+    Context_SetCurrentGame(GAME_MM);
+    MM_CollisionViewer_UpdateHostedElement();
+    DVG_ASSERT(MM_CollisionViewer_HostedInitializedForTest(),
+               "MM_CollisionViewer_UpdateHostedElement() failed to initialize MM body under GAME_MM");
+    DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnPlayDrawWorldEnd>() == colHooksBefore + 1,
+               "MM_CollisionViewer_UpdateHostedElement() did not register OnPlayDrawWorldEnd once under GAME_MM");
+    MM_CollisionViewer_UpdateHostedElement();
+    DVG_ASSERT(MM_CollisionViewer_HostedInitializedForTest(),
+               "second MM_CollisionViewer_UpdateHostedElement() call left MM body uninitialized");
+    DVG_ASSERT(S2H::GameHooks::CountForTest<GameInteractor::OnPlayDrawWorldEnd>() == colHooksBefore + 1,
+               "second MM_CollisionViewer_UpdateHostedElement() registered a duplicate OnPlayDrawWorldEnd hook");
+
+    // (d) With gCollisionViewer.Enabled set and MM_gPlayState == nullptr, executing OnPlayDrawWorldEnd
+    // dispatches DrawCollisionViewer without faulting (null MM_gPlayState guard).
+    {
+        DVG_ASSERT(MM_gPlayState == nullptr, "CollisionViewer leg (d) requires MM_gPlayState == nullptr");
+        constexpr const char* kCollisionViewerEnabledCVar = "gCollisionViewer.Enabled";
+        const int32_t savedColEnabled = CVarGetInteger(kCollisionViewerEnabledCVar, 0);
+        struct ColEnabledRestoreGuard {
+            const char* cvar;
+            int32_t value;
+            ~ColEnabledRestoreGuard() {
+                if (value == 0) {
+                    CVarClear(cvar);
+                } else {
+                    CVarSetInteger(cvar, value);
+                }
+            }
+        } restoreColEnabled{ kCollisionViewerEnabledCVar, savedColEnabled };
+
+        CVarSetInteger(kCollisionViewerEnabledCVar, 1);
+        GameInteractor_ExecuteOnPlayDrawWorldEnd();
+    }
+
     Context_SetCurrentGame(savedGame);
     ResetEventLogHooksAndState();
     printf("[TEST] PASS: mm-dev-viewers-gate\n");

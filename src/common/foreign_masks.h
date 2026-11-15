@@ -235,6 +235,33 @@ uint16_t Combo_BlastMaskCooldownFor(uint8_t cooldown, int noCooldown);
  */
 int Combo_BlastMask_Step(uint16_t* cooldownLeft, int pressed, uint16_t armFrames);
 
+/**
+ * An OoT Blast Mask bomb's spawn coordinates and initial explosion sphere center
+ * (#1615): Link's `world.pos` as floats for `OoT_Actor_Spawn`, and truncated
+ * `int16_t` world coordinates for `explosionCollider.elements[0].dim.worldSphere`
+ * (`MM_EnBom_Init` parity, `games/mm/src/overlays/actors/ovl_En_Bom/z_en_bom.c`).
+ */
+typedef struct ComboBlastMaskSpawn {
+    float x;
+    float y;
+    float z;
+    int16_t centerX;
+    int16_t centerY;
+    int16_t centerZ;
+} ComboBlastMaskSpawn;
+
+/**
+ * One frame of OoT's worn Blast Mask (#979, #1615): steps `cooldownLeft` via
+ * `Combo_BlastMask_Step` and, when a blast fires (returns 1), fills `out` from
+ * Link's `world.pos` (`worldX`, `worldY`, `worldZ`) and syncs the `int16_t`
+ * explosion sphere center (`centerX`, `centerY`, `centerZ`), since `OoT_EnBom_Init`
+ * leaves `worldSphere.center` at `{0, 0, 0}` and `OoT_EnBom_Update` transitions a
+ * `timer == 0` bomb past `BOMB_BODY` before `OoT_EnBom_Draw` ever updates it.
+ * Returns 0 without writing `*out` when `out` is NULL or no blast fires.
+ */
+int Combo_BlastMask_StepOotSpawn(uint16_t* cooldownLeft, int pressed, uint16_t armFrames, float worldX, float worldY,
+                                 float worldZ, ComboBlastMaskSpawn* out);
+
 #ifdef __cplusplus
 }
 #endif

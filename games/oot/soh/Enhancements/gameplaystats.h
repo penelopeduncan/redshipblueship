@@ -14,7 +14,12 @@ char* GameplayStats_GetCurrentTime();
 
 // When using RTA timing
 // get the diff since the save was created,
-// unless the game is complete in which we use the defeated ganon timestamp
+// unless the game is complete in which we use the completed triforce hunt's
+// timestamp, else the defeated ganon timestamp (SoH #7404). In a paired world
+// `gameComplete` is only set once the frozen combo goal is met
+// (BossDefeatTimestamps.cpp, OoT_ComboGoal_OnGanonDefeated), and a Ganon defeat
+// taken earlier in a triforce hunt still records its timestamp, so the hunt's
+// completion must be read first.
 // When not using RTA timing
 // Total gameplay time is tracked in tenths of seconds
 // I.E. game time counts frames at 20fps/2, pause time counts frames at 30fps/3
@@ -25,9 +30,9 @@ char* GameplayStats_GetCurrentTime();
                 ? (!gSaveContext.ship.stats.firstInput                                         \
                        ? 0                                                                     \
                        : ((GetUnixTimestamp() - gSaveContext.ship.stats.firstInput) / 100))    \
-                : (gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_DEFEAT_GANON]               \
-                       ? gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_DEFEAT_GANON]         \
-                       : gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_TRIFORCE_COMPLETED])) \
+                : (gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_TRIFORCE_COMPLETED]         \
+                       ? gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_TRIFORCE_COMPLETED]   \
+                       : gSaveContext.ship.stats.itemTimestamp[TIMESTAMP_DEFEAT_GANON]))       \
          : (gSaveContext.ship.stats.playTimer / 2 + gSaveContext.ship.stats.pauseTimer / 3))
 #define CURRENT_MODE_TIMER                                                                       \
     (CVarGetInteger(CVAR_GAMEPLAY_STATS("RoomBreakdown"), 0) ? gSaveContext.ship.stats.roomTimer \

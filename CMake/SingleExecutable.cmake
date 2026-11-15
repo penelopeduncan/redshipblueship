@@ -314,6 +314,7 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/ComboItemTrackerWindow.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_view.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_mm_options_page.h
+    ${CMAKE_SOURCE_DIR}/src/common/combo_mm_hookshot_anywhere.h
     ${CMAKE_SOURCE_DIR}/src/common/combo_settings_view.h
     ${CMAKE_SOURCE_DIR}/src/common/ComboSettingsWindow.h
     # Header for combo_logic.c above — it also carries the ENGINE CONTRACT the
@@ -681,6 +682,13 @@ if(BUILD_TESTING)
     # with the B button's keys (overridden, moved, scaled, hidden), the next-element
     # override, an element with no row, and the three presets. ROM-free, display-free.
     redship_add_test(NAME MMHudEditorReader COMMAND redship --test mm-hud-editor-reader)
+    # MM text mods (2Ship #2000, #2013): a TextMM XML under override/<a message table's folder>/ replaces or adds
+    # that table's entries through MM's XML TextMM reader, applied lowest archive priority first so the newest-mounted
+    # mod wins, and adds go before the 0xFFFF terminator. Two scratch folders mounted as archives. ROM-free.
+    # SKIP_RETURN_CODE: the row loads through the ResourceManager, which needs soh.o2r mounted at the bring-up; the
+    # netplay-relay job's archive-less control run reports it "Skipped" (the ZipContention policy).
+    redship_add_test(NAME MMTextMods COMMAND redship --test mm-text-mods)
+    set_tests_properties(MMTextMods PROPERTIES SKIP_RETURN_CODE 77)
     # Cross-game CVar classification lock (#34). Keeps ADR 0003 and
     # docs/enhancement-classification.md from decaying into prose: fails when a
     # converged key diverges again, OR when a key the inventory marks per-game
@@ -776,6 +784,10 @@ if(BUILD_TESTING)
     # 6340ad3d5: the Bow, Slingshot and Boomerang reticles never turn green).
     redship_add_test(NAME OoTHookshotReticleColour COMMAND redship --test oot-hookshot-reticle-colour)
     redship_add_test(NAME MmHookshotReticleColour COMMAND redship --test mm-hookshot-reticle-colour)
+    # SoH #6351: every dungeon map row has Randomizer_DrawMap (maps never took their
+    # dungeon's colour) and the Ice Cavern compass is cyan, not the GTG gold.
+    # games/oot/soh/oot_map_compass_colour_test.cpp; ROM-free.
+    redship_add_test(NAME OoTMapCompassColours COMMAND redship --test oot-map-compass-colours)
     # #575 H2: MM's hints said a check's scene, so every grotto check read "Lone
     # Peak Shrine & Grottos" and an enemy drop could be hinted. Drives the
     # stone's real text and candidate filter (EnGs.cpp) over MM's real check
@@ -1024,6 +1036,7 @@ if(BUILD_TESTING)
     redship_add_test(NAME SongCheckTables COMMAND redship --test song-check-tables)
     redship_add_test(NAME MMSongHostGuard COMMAND redship --test mm-song-host-guard)
     redship_add_test(NAME ComboMMOptionsPage COMMAND redship --test combo-mm-options-page)
+    redship_add_test(NAME MMHookshotAnywhere COMMAND redship --test mm-hookshot-anywhere)
     # Spoiler-drop identity gate (#610). MM's spoiler-LOAD path rebuilt
     # gComboCtx.foreignPlacements from ANY dropped spoiler with no comparison
     # against the #570 identity terms, and the pickup that followed authored a
@@ -1031,6 +1044,11 @@ if(BUILD_TESTING)
     # for the same reasons as the two rows above — the spoiler writer/loader and
     # the placement table need no fill, no display, and no ROM.
     redship_add_test(NAME MMSpoilerIdentity COMMAND redship --test mm-spoiler-identity)
+    # 2Ship backport M4 (#1775, #1478): the Check Tracker and the Combo Tracker's
+    # MM pane head five scenes with their plain names, and a spoiler naming an
+    # item no MM item answers to is refused while a cross-game host's
+    # "(Ocarina of Time)" label still loads. Display-free, no ROM, no fill.
+    redship_add_test(NAME MMRandoPolish COMMAND redship --test mm-rando-polish)
     redship_add_test(NAME MMForeignPickupGate COMMAND redship --test mm-foreign-pickup-gate)
     # #1055: a paired spoiler whose seed-named file is another identity's (an
     # older build's fingerprint, other MM options) goes to
@@ -1353,6 +1371,10 @@ if(BUILD_TESTING)
     # MM sequence replacement (W6-AUDIO-SEQ, #1239): MM's lookup answers from MM's namespaced replacement keys, a
     # colliding sfxKey under SoH's spelling leaves MM alone, and SoH's randomize combobox reaches MM's hooks. ROM-free.
     redship_add_test(NAME MMAudioEditorReplacement COMMAND redship --test mm-audio-editor-replacement)
+    # SoH Audio Editor backport O12 (SoH #5685, #6608, #7372): the missing music rows (Seal of Six Sages, the
+    # Ending group, Hyrule Field Morning), the Ending group's authentic count, and a row set to "None" answering
+    # NA_BGM_DISABLED from the replacement lookup. ROM-free.
+    redship_add_test(NAME OoTAudioEditorEntries COMMAND redship --test oot-audio-editor-entries)
     # OoT pause-menu item age table bounds (#983). OoT_Play_Init writes
     # gItemAgeReqs[ITEM_ROCS_FEATHER] (0x9C) and the pause menu reads it, but
     # the table held the 86 vanilla entries. Asserts the count the defining TU
@@ -1554,6 +1576,10 @@ if(BUILD_TESTING)
     # Source scan of SohGui::SetupGuiElements + a ROM-free, display-free
     # tripwire, so it runs in this redship tier.
     redship_add_test(NAME OoTWindowsGate COMMAND redship --test oot-windows-gate)
+    # Backport M2 (2Ship #1753): the mod menu's Enabled Mods child calls EndChild
+    # whatever BeginChild returned. Source scan of mod_menu.cpp; ROM-free,
+    # display-free.
+    redship_add_test(NAME ModMenuChildScope COMMAND redship --test mod-menu-child-scope)
     # #935: libultraship's own Console `set` command (registered by the Console
     # window, so the #930 OoT wrapper does not cover it) fails the command on a
     # value it cannot parse instead of throwing out of Ship::Console::Run and
@@ -1812,6 +1838,13 @@ if(BUILD_TESTING)
     # never gives RI_NONE. Pure (no display, no ROM).
     redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
     redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
+    # Backport M8 (2Ship #1842, #1847, #1853): the always-on ocarina-dive registrant
+    # (Restorations/OcarinaDive.cpp, attributed by registry content) is the one
+    # unkeyed OnGameStateMainStart registrant; over a stand-in play state it re-queues
+    # the promoted player-ocarina cutscene on two frames of a hover and never without
+    # one; Faster Song Playback leaves a falling song's timer alone. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMOcarinaDive COMMAND redship --test mm-ocarina-dive)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside
@@ -1939,6 +1972,14 @@ if(BUILD_TESTING)
     # only the rando Context.
     redship_add_test(NAME OoTPriceRangeMinimum COMMAND redship --test oot-price-range-minimum)
 
+    # SoH #7383 (backport O35): the Save Editor's player name is eight characters in
+    # the game's PAL or NTSC encoding. The row round-trips every character and code
+    # the two tables cover through decodePlayerNameChar / encodePlayerNameChar
+    # (debugSaveEditor.cpp) and holds the Player Name Language change, which now
+    # re-encodes the name instead of leaving its bytes to read as other characters.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorNameEncoding COMMAND redship --test oot-save-editor-name-encoding)
+
     # #1420 (SFX-26): Ship of Harkinian's tracker fixes, which reach the unified
     # Check Tracker through its OoT pane. The Locations exclusion list offers the
     # Ganon's Tower boss key chest under Triforce Hunt (OoT's own or the [Both
@@ -1951,6 +1992,10 @@ if(BUILD_TESTING)
     # generated world are in TrackerOoTPanelList (rando tier).
     redship_add_test(NAME OoTTrackerSohFixes COMMAND redship --test oot-tracker-soh-fixes)
 
+    # SoH #7158: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
+    # cutscene alone, and the child Ruto skip keeps camera setting 2. Display-free and ROM-free.
+    redship_add_test(NAME OoTBigOctoOnePointKept COMMAND redship --test oot-big-octo-onepoint-kept)
+
     # #948: the same door at night. SCENE_MARKET_NIGHT places it as a sign door
     # (DOOR_CHECKABLE, text 0x0210), so the crossing waited for morning; in a
     # paired world MaskShopNightDoor.cpp gives it the day door's params before
@@ -1962,16 +2007,36 @@ if(BUILD_TESTING)
     # another scene -> unchanged. Display-free and ROM-free.
     redship_add_test(NAME OoTMaskShopNightDoor COMMAND redship --test oot-mask-shop-night-door)
 
+    # Backport O16 (SoH 0cf2b3701 #7054, faed544b2 #7272): the six Dark Link
+    # guards (voidout, fall damage, distant clank, both floor-type statics,
+    # Like-Like grab) live in Enhancements/Fixes/DarkLinkFixes.cpp and arm when
+    # the enemy randomizer, Crowd Control or Sail is on, not only the first.
+    # The row runs that registrar out of ShipInit's map under each key, then
+    # the REAL GameInteractor_Should dispatch with a fake Dark Link and a fake
+    # Link: all off -> vanilla; each trigger alone -> guarded; Link is never
+    # refused; and the GELDB labels read "Gerudo Thief". Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in
     # ShipInit's IS_RANDO map. Display-free and ROM-free.
     redship_add_test(NAME OoTRoomBgCamGuard COMMAND redship --test oot-room-bg-cam-guard)
 
+    # SoH #6709: Camera_Subj4 (the crawlspace camera) writes Link's world position
+    # and shape yaw from its eye as console does; read from source (RSBS_SOURCE_DIR).
+    # Display-free and ROM-free (src/common/tests/test_oot_camera_subj4.c).
+    redship_add_test(NAME OoTCameraSubj4Console COMMAND redship --test oot-camera-subj4-console)
+
     # #1591: EnKz_StopMweep restores gameplayCamera and Link cs action behind
     # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
     # Display-free and ROM-free.
     redship_add_test(NAME OoTMweepStopRestoresCamera COMMAND redship --test oot-mweep-stop-restores-camera)
+
+    # #1588: OoT infinite-magic and Barinade rematch-intro VB boundary (source leg +
+    # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
+    redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
 
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
@@ -3765,6 +3830,8 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # the mask as a child's explosive only under the rule. ROM-free.
     redship_add_test(NAME BlastMaskOoTRule COMMAND redship --test blast-mask-oot-rule)
     redship_add_test(NAME BlastMaskOoTItems COMMAND redship --test blast-mask-oot-items)
+    redship_add_test(NAME BlastMaskOoTSpawn COMMAND redship --test blast-mask-oot-spawn)
+    redship_add_test(NAME BlastMaskOoTShrubGuardHouse COMMAND redship --test blast-mask-oot-shrub-guardhouse)
     # THE STONE MASK IN OCARINA OF TIME (#979, epic #975 P4's second mask; OoTMM
     # stoneMaskOot, sharedMaskStone): the two Cross-Game Rules keys (off by
     # default, the shared one only with its extension, restored at load in OoTMM's
@@ -4101,6 +4168,17 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # SoH backport bundle O7: a normal grotto exit keeps the pre-grotto respawn
+    # unless grottos are mixed or decoupled (849928689), a swim void-out in a
+    # grotto reloads it (69681e608), none fires mid-transition and one after a
+    # grotto return runs the forced grotto return (d1d6a564e), the tracker's
+    # Ganon's Tower rows are oneExit (aa25eb4d5), and a grotto hole waits for the
+    # fade-in under the Bunny Hood speed-up (9eafd15fe).
+    # games/oot/soh/oot_grotto_void_test.cpp.
+    redship_add_test(NAME RandoGrottoVoid COMMAND redship --test rando-grotto-void
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1289: a shuffled fairy (gossip stone, fountain, fairy spot, bean) gives its
     # item and no heal, and a shuffled big fairy no magic refill either; a fairy
     # with no check still heals (and the big one refills magic). The bottle-guard
@@ -4273,17 +4351,36 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # visibly, and the arrival gate agrees with a file that loaded. Loads through
     # the OnLoadFile seam's own calls. games/mm/2s2h/mm_paired_load_restore_test.cpp.
     redship_add_test(NAME PairedLoadRestore COMMAND redship --test paired-load-restore)
+    # #1602 (#1600 step 2): what OoT does because a check gave its item runs when
+    # that check hosts a Majora's Mask item too. From source, every check the
+    # receive path tests is in one literal and lives in RandomizerOnCheckReceived;
+    # the Silver Gauntlets chest's show-only release marks Nabooru captured (story
+    # skipped) or arms the Colossus transition (story shown), once. Display-free and
+    # ROM-free. src/common/tests/test_oot_check_receive_effects.c and
+    # games/oot/soh/oot_check_receive_effects_test.cpp.
+    redship_add_test(NAME OoTCheckReceiveEffects COMMAND redship --test oot-check-receive-effects)
     # #836: a refused paired file is never opened. The SoH SaveManager's file
     # select gate (OnFileChooseMain) keeps A/START on the file list for a file the
     # open path would refuse, writing nothing; its backstop (OnLoadGame) returns a
     # load the OnLoadFile seam refused to the file select instead of Play.
     # Display-free and ROM-free. games/oot/soh/oot_file_select_refusal_test.cpp.
     redship_add_test(NAME OoTFileSelectRefusal COMMAND redship --test oot-file-select-refusal)
+    # SoH #7385 / #7404: OoT's stats section ("sohStats") saves and loads
+    # gameComplete, and with RTA timing a finished triforce hunt's timestamp
+    # outranks Ganon's in the total time. Display-free and ROM-free.
+    # games/oot/soh/oot_gameplay_stats_test.cpp.
+    redship_add_test(NAME OoTGameplayStats COMMAND redship --test oot-gameplay-stats)
     # #1204: two per-frame log floods. The interval autosave probed SaveManager for
     # the 0xFF sentinel slot every frame (113k "File[255] - does not exist" lines a
     # session), and the item queue logged every offer of a give the player could
     # not take yet. Display-free and ROM-free. games/oot/soh/oot_log_noise_test.cpp.
     redship_add_test(NAME OoTLogNoise COMMAND redship --test oot-log-noise)
+    # SoH #7434: the file select's meta read (SaveManager::StartupCheckAndInitMetaImpl)
+    # takes an older OoT save, with magicAcquired/doubleMagic, a numeric or absent
+    # isMasterQuest, or no sohStats section, instead of throwing a json type_error
+    # that quarantined the readable file. Display-free and ROM-free.
+    # games/oot/soh/oot_older_save_meta_test.cpp.
+    redship_add_test(NAME OoTOlderSaveMeta COMMAND redship --test oot-older-save-meta)
     # #837 (decision 16, ruled 2026-10-01): every cross-game crossing is a
     # whole-file commit, taken by GameRunner_SwitchTo between the departing
     # suspend and the target's resume/init (Switch_CommitCrossing). The real
@@ -4318,6 +4415,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # and give frames through the randomizer's real handlers; a vanilla file is
     # the control. ROM-free. games/oot/soh/oot_deku_theater_prize_test.cpp.
     redship_add_test(NAME OoTDekuTheaterPrize COMMAND redship --test oot-deku-theater-prize)
+    # Backport bundle O6 (SoH #6795, #6798, #7183): Logic::HasItem answers boss
+    # souls and overworld door keys under Shuffle Boss Souls and Lock Overworld
+    # Doors (the folded HasBossSoul and CanOpenOverworldDoor), and the randomizer's
+    # VB_ITEM00_TIMER_TICK handler stops the despawn timer of a shuffled key or
+    # heart drop. ROM-free. games/oot/soh/oot_has_item_fold_test.cpp.
+    redship_add_test(NAME OoTHasItemFold COMMAND redship --test oot-has-item-fold)
     # Lane F1 (wave 7g, #310): test windows never take keyboard focus from the
     # person at the workstation. main.cpp arms SDL's no-activation hint in code for
     # every --test / --integration-test process (src/common/test_window_focus.h),

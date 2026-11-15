@@ -461,3 +461,14 @@ class SaveEditorWindow : public Ship::GuiWindow {
     void DrawElement() override;
     void UpdateElement() override{};
 };
+
+// Player name characters in the game's encoding (SoH #7383). `language` is a NAME_LANGUAGE_* value
+// (soh/SaveManager.h): PAL codes 0-64, every other value the NTSC table. Decoding gives a printable ASCII
+// character, a space for a character outside ASCII; encoding gives a space for a character the encoding lacks.
+// Pure, so the ROM-free row oot-save-editor-name-encoding (games/oot/soh/oot_save_editor_name_test.cpp) calls them.
+char z2ASCII(int code);
+std::string decodeNTSCPlayerNameChar(int code);
+char decodePlayerNameChar(uint8_t code, uint8_t language);
+uint8_t encodePlayerNameChar(char c, uint8_t language);
+// Rewrites the eight characters of `name` from `oldLanguage`'s encoding into `newLanguage`'s.
+void reencodePlayerName(uint8_t* name, uint8_t oldLanguage, uint8_t newLanguage);

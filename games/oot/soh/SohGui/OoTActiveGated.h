@@ -23,7 +23,7 @@
  * with the same contents when OoT is the running game again.
  *
  * The predicate is OoT_Gui_ShouldDraw(): Context_GetCurrentGame() == GAME_OOT. GAME_NONE is excluded, matching
- * MM_TrackersGui_ShouldDraw. The production wrap sites are the nine in SohGui::SetupGuiElements; the OoTWindowsGate
+ * MM_TrackersGui_ShouldDraw. The production wrap sites are the ten in SohGui::SetupGuiElements; the OoTWindowsGate
  * row (games/oot/soh/oot_windows_gate_test.cpp plus a source scan in src/common/test_runner.cpp) locks the gate and
  * holds every window that function constructs to a gated or an exempt list.
  */
@@ -76,14 +76,16 @@ template <typename BaseWindow> class OoTActiveGated final : public BaseWindow {
 
 /**
  * OoTActiveGated<B> for an SoH window that also HOSTS a Majora's Mask body (W6-TIMERS, #1237: SoH's Time Splits window;
- * W6-DEV, #1238: SoH's Message Viewer, so the player has one surface per tool while MM runs, not two).
+ * W6-DEV, #1238: SoH's Message Viewer and Collision Viewer, so the player has one surface per tool while MM runs,
+ * not two).
  *
  * Under OoT it is exactly OoTActiveGated<B>. While HostMm's @c active() says MM's body is live, Draw() runs B's Draw(),
  * which must only frame the window (B's title, size, visibility key and colours; TimeSplitWindow::Draw pushes its
  * background colour and calls GuiWindow::Draw), and DrawElement() draws MM's body through @c drawElement() instead of
  * B's, so B's body never reads OoT state under MM. The page embed reaches DrawElement() directly, so it hosts too.
  * UpdateElement() stays OoT-only unless a third pointer (@c updateElement) is given, in which case it runs
- * @c updateElement() while @c MmHosted() (#1238 Message Viewer; Time Splits passes two pointers and stays unchanged).
+ * @c updateElement() while @c MmHosted() (#1238 Message Viewer and Collision Viewer; Time Splits passes two pointers
+ * and stays unchanged).
  * Before HostMm is called it gates exactly as OoTActiveGated<B> does.
  */
 template <typename BaseWindow> class OoTGatedHostingMm final : public BaseWindow {

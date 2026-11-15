@@ -192,3 +192,17 @@ int Combo_BlastMask_Step(uint16_t* cooldownLeft, int pressed, uint16_t armFrames
     *cooldownLeft = armFrames;
     return 1;
 }
+
+int Combo_BlastMask_StepOotSpawn(uint16_t* cooldownLeft, int pressed, uint16_t armFrames, float worldX, float worldY,
+                                 float worldZ, ComboBlastMaskSpawn* out) {
+    if (out == NULL || Combo_BlastMask_Step(cooldownLeft, pressed, armFrames) == 0) {
+        return 0;
+    }
+    out->x = worldX;
+    out->y = worldY;
+    out->z = worldZ;
+    out->centerX = (int16_t)worldX;
+    out->centerY = (int16_t)worldY;
+    out->centerZ = (int16_t)worldZ;
+    return 1;
+}

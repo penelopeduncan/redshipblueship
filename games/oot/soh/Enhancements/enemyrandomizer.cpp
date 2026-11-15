@@ -11,7 +11,6 @@
 
 extern "C" {
 #include <z64.h>
-#include "src/overlays/actors/ovl_En_Rr/z_en_rr.h"
 #include "src/overlays/actors/ovl_En_GeldB/z_en_geldb.h"
 #include "src/overlays/actors/ovl_En_Peehat/z_en_peehat.h"
 #include "src/overlays/actors/ovl_En_Skb/z_en_skb.h"
@@ -134,7 +133,7 @@ const char* enemyNameList[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] = {
     "Flying Peahat",
     "Flying Pot",
     "Freezard",
-    "Gerudo Fighter",
+    "Gerudo Thief",
     "Gibdo",
     "Gohma Larva",
     "Guay",
@@ -198,7 +197,7 @@ static EnemyEntry randomizedEnemySpawnTable[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] =
     { ACTOR_EN_PEEHAT, -1 },       // Flying Peahat (big grounded, doesn't spawn larva)
     { ACTOR_EN_TUBO_TRAP, 0 },     // Flying pot
     { ACTOR_EN_FZ, 0 },            // Freezard
-    { ACTOR_EN_GELDB, 0 },         // Gerudo Fighter
+    { ACTOR_EN_GELDB, 0 },         // Gerudo Thief
     { ACTOR_EN_RD, 32766 },        // Gibdo (standing)
     { ACTOR_EN_GOMA, 7 },          // Gohma Larva (Non-Gohma rooms)
     { ACTOR_EN_CROW, 0 },          // Guay
@@ -719,63 +718,6 @@ void RegisterEnemyRandomizer() {
                  EnemyRando_SetColliderPosSkb);
     COND_ID_HOOK(OnActorInit, ACTOR_EN_PEEHAT, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT,
                  EnemyRando_SetColliderPosPeehat);
-
-    // prevent dark link from triggering a voidout
-    COND_VB_SHOULD(VB_TRIGGER_VOIDOUT, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        Actor* actor = va_arg(args, Actor*);
-
-        if (*should == true && actor->category != ACTORCAT_PLAYER) {
-            // Improvement opportunity: Play sfx
-            *should = false;
-            OoT_Actor_Kill(actor);
-        }
-    });
-
-    // prevent dark link dealing fall damage to the player
-    COND_VB_SHOULD(VB_RECIEVE_FALL_DAMAGE, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        Actor* actor = va_arg(args, Actor*);
-
-        if (actor->category != ACTORCAT_PLAYER) {
-            *should = false;
-        }
-    });
-
-    // prevent dark link from interfering with HESS/recoil/etc when at more than 100 away from him
-    COND_VB_SHOULD(VB_TORCH2_HANDLE_CLANKING, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        Actor* darkLink = va_arg(args, Actor*);
-
-        if (darkLink->xzDistToPlayer > 100.0f) {
-            *should = false;
-        }
-    });
-
-    // prevent dark link from interfering with ice floors
-    COND_VB_SHOULD(VB_SET_STATIC_PREV_FLOOR_TYPE, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        Player* playerOrDarkLink = va_arg(args, Player*);
-
-        if (playerOrDarkLink->actor.id != ACTOR_PLAYER) {
-            *should = false;
-        }
-    });
-
-    // prevent dark link from interfering with ice floors
-    COND_VB_SHOULD(VB_SET_STATIC_FLOOR_TYPE, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        Player* playerOrDarkLink = va_arg(args, Player*);
-
-        if (playerOrDarkLink->actor.id != ACTOR_PLAYER) {
-            *should = false;
-        }
-    });
-
-    // prevent dark link from being grabbed by like likes and therefore grabbing the player
-    COND_VB_SHOULD(VB_LIKE_LIKE_GRAB_PLAYER, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {
-        EnRr* likeLike = va_arg(args, EnRr*);
-
-        if (!(likeLike->collider1.base.oc != NULL && likeLike->collider1.base.oc->category == ACTORCAT_PLAYER) &&
-            !(likeLike->collider2.base.oc != NULL && likeLike->collider2.base.oc->category == ACTORCAT_PLAYER)) {
-            *should = false;
-        }
-    });
 
     // Allow Random Gerudo Fighters (contain no keys) to spawn without any switch flags
     COND_VB_SHOULD(VB_GERUDO_FIGHTER_CONTINUE_WAITING, CVAR_ENEMY_RANDOMIZER_VALUE != CVAR_ENEMY_RANDOMIZER_DEFAULT, {

@@ -669,7 +669,7 @@ default (off).
 | `gHudEditor.Clock.*` | 4 | (O), likewise (W6-HUD-B): "MM Three Day Clock position". All three clock styles honour it: the original clock (`z_parameter.c`), the MM3D clock (`Graphics/3DSClock.cpp`) and the text clock (`Graphics/TextBasedClock.cpp`, both linked by W6-GFX) each draw as `HUD_EDITOR_ELEMENT_CLOCK` |
 | HUD Editor preset | 0 | (O), no key: the section's "HUD Preset" row (Vanilla (4:3) / Hidden / Widescreen) writes every element's Mode (all nineteen since W6-HUD-B) and clears its position and scale, as 2Ship's preset did |
 | `gColors.<element>.{Color, Changed}` | 0 rows | INTENTIONAL, no row: 2Ship's HUD editor colour keys are read only by its window, never by a draw, so a row would write a key nothing in MM reads. MM's HUD colours are W6-COS-A's `gCosmetic.*` |
-| `gCollisionViewer.*` | 18 | MM collision viewer |
+| `gCollisionViewer.*` | 18 | MM collision viewer, drawn in SoH's Collision Viewer while MM runs (one surface, ruled 2026-11-12); 2Ship's `gWindows.CollisionViewer` is not used |
 | `gEventLog.*` | 13 | (O) MM event log — no OoT counterpart; `MM Event Log` window linked and gated with `Popout Event Log` under W6-DEV |
 | `gNotifications.*` | 4 | MM notification system |
 | `gDisplayOverlay.*` | 3 | (O) MM's In-Game Timer overlay; rows on Enhancements > Timers since W6-TIMERS, see the table below |
@@ -743,8 +743,9 @@ SoH's own rows cover two more MM behaviours with no MM row: Frame Advance, Advan
 RUNNING game's `frameAdvCtx` (SohMenu.cpp's `RunningFrameAdvanceEnabled`; `gDeveloperTools.FrameAdvanceTick` was
 already shared and MM honours it in `z_pause.c`), and Debug Save File Mode drives MM through the one shared key (§3.3
 BUG 2). MM's `RegisterDebugMode`, linked with the rest, clears the four switches and MM's frame advance when Debug Mode
-goes off, as in 2Ship, clearing rather than storing the keys. SoH's Message Viewer hosts 2Ship's body while MM runs
-(one surface, ruled 2026-11-12), and 2Ship's `gWindows.MessageViewer` is not used.
+goes off, as in 2Ship, clearing rather than storing the keys. SoH's Message Viewer and Collision Viewer host 2Ship's
+bodies while MM runs (one surface each, ruled 2026-11-12), and 2Ship's `gWindows.MessageViewer` and
+`gWindows.CollisionViewer` are not used.
 
 **W6-MODES-DIFF (#1236, #1240) — MM's Modes, Difficulty and 'Other' keys, linked and given rows or a ruling.** None of
 2Ship's Modes reached MM: Mirrored World was read (`gModes.MirroredWorld.State`, some thirty read sites) but only the

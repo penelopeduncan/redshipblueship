@@ -3,7 +3,7 @@
  * @brief Locks for the Blast Mask in Ocarina of Time (#979, epic #975 P4; OoTMM
  *        blastMaskOot, sharedMaskBlast and blastMaskCooldown).
  *
- * Two rows, split by what each one needs:
+ * Four rows, split by what each one needs:
  *
  *   blast-mask-oot-rule (CTest BlastMaskOoTRule, redship tier) -- THE RULES. The
  *   three tier-4 keys (gCombo.Rando.BlastMaskOoT, SharedMaskBlast and
@@ -29,8 +29,19 @@
  *   one row from them only under the shared rule), and OoT's REAL logic
  *   crediting the mask as a child's explosive only while the rule is frozen on.
  *
- * Not lockable headless: the B press, the explosion and the glow (they need a
- * PlayState); the playtest covers them.
+ *   blast-mask-oot-spawn (CTest BlastMaskOoTSpawn, redship tier) -- THE SPAWN
+ *   DECISION (#1615). Pure ROM-free lock over Combo_BlastMask_StepOotSpawn:
+ *   world.pos float coordinates and truncated int16_t explosionCollider sphere
+ *   centers (MM_EnBom_Init parity), one blast per cooldown across moving world
+ *   positions, idle countdown, and null-pointer guards.
+ *
+ *   blast-mask-oot-shrub-guardhouse (CTest BlastMaskOoTShrubGuardHouse, redship
+ *   tier) -- THE LIVE COLLISION & MARKET GUARD HOUSE LOCK (#1615). Headless
+ *   PlayState bring-up driving BlastMaskBeforePlayerUpdate, ACTOR_EN_BOM,
+ *   ACTOR_EN_KUSA, and ACTOR_OBJ_TSUBO without calling OoT_EnBom_Draw: cuts
+ *   ground shrubs beside child Link at non-origin X/Y/Z while leaving an origin
+ *   control shrub untouched, and in SCENE_MARKET_GUARD_HOUSE spawns and centers
+ *   the blast at Link's world.pos rather than (0, 0, 0) or focus.pos.
  *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
@@ -77,6 +88,7 @@ int OoT_BlastMaskTest_Owned(void);
 int OoT_BlastMaskTest_TradeSlot(void);
 void OoT_BlastMaskTest_SetTradeSlot(uint8_t item);
 int OoT_BlastMaskTest_Logic(int held, int child, int which);
+int OoT_BlastMaskTest_ShrubAndGuardHouse(void);
 // games/oot/soh/Enhancements/randomizer/BlastMaskOoT.cpp
 void OoT_BlastMask_RegisterRuntime(void);
 // games/oot/soh/oot_foreign_mask_test.cpp
@@ -464,4 +476,126 @@ TestResult Test_BlastMaskOoTItems(void) {
     OoT_ForeignMaskTest_ArmLive();
     printf("[TEST] blast-mask-oot-items: %s\n", sBmFailures == 0 ? "PASS" : "FAIL");
     return sBmFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// blast-mask-oot-spawn
+// ============================================================================
+
+TestResult Test_BlastMaskOoTSpawn(void) {
+    printf("[TEST] blast-mask-oot-spawn: Combo_BlastMask_StepOotSpawn anchors bomb spawn and explosion sphere center "
+           "at Link's world.pos once per cooldown (#1615)\n");
+    sBmFailures = 0;
+
+    // ---- (1) Coordinate propagation and int16_t sphere-center truncation -------------
+    {
+        struct Case {
+            float wx;
+            float wy;
+            float wz;
+            int16_t cx;
+            int16_t cy;
+            int16_t cz;
+        };
+        static const Case kCases[] = {
+            { 240.75f, 140.5f, -180.75f, 240, 140, -180 },
+            { -100.5f, -45.25f, 50.875f, -100, -45, 50 },
+            { 0.0f, 0.0f, 0.0f, 0, 0, 0 },
+            { 3276.9f, -120.9f, -2048.4f, 3276, -120, -2048 },
+        };
+        for (const Case& c : kCases) {
+            uint16_t left = 0;
+            ComboBlastMaskSpawn out = { -999.0f, -999.0f, -999.0f, -999, -999, -999 };
+            const int fired = Combo_BlastMask_StepOotSpawn(&left, 1, 310u, c.wx, c.wy, c.wz, &out);
+            BM_CHECK(fired == 1 && left == 310u, "ready press did not fire and arm 310 (fired=%d left=%u)", fired,
+                     (unsigned)left);
+            BM_CHECK(out.x == c.wx && out.y == c.wy && out.z == c.wz, "spawn floats (%f, %f, %f) != (%f, %f, %f)",
+                     (double)out.x, (double)out.y, (double)out.z, (double)c.wx, (double)c.wy, (double)c.wz);
+            BM_CHECK(out.centerX == c.cx && out.centerY == c.cy && out.centerZ == c.cz,
+                     "center (%d, %d, %d) != (%d, %d, %d)", (int)out.centerX, (int)out.centerY, (int)out.centerZ,
+                     (int)c.cx, (int)c.cy, (int)c.cz);
+        }
+    }
+
+    // ---- (2) One blast per cooldown across moving world positions -------------------
+    {
+        const uint16_t defArm = Combo_BlastMaskCooldownFrames((uint8_t)RSBS_BLAST_COOLDOWN_DEFAULT);
+        uint16_t left = 0;
+        int firedCount = 0;
+        int fireFrames[4] = { -1, -1, -1, -1 };
+        ComboBlastMaskSpawn out = { -1.0f, -1.0f, -1.0f, -1, -1, -1 };
+        for (int f = 0; f < 621; f++) {
+            const float wx = 10.0f + (float)f;
+            const float wy = -20.0f - (float)f;
+            const float wz = 30.0f + (float)(2 * f);
+            ComboBlastMaskSpawn sentinel = { 777.0f, 888.0f, 999.0f, 777, 888, 999 };
+            if (Combo_BlastMask_StepOotSpawn(&left, 1, defArm, wx, wy, wz, &sentinel) != 0) {
+                if (firedCount < 4) {
+                    fireFrames[firedCount] = f;
+                }
+                firedCount++;
+                out = sentinel;
+                BM_CHECK(out.x == wx && out.y == wy && out.z == wz && out.centerX == (int16_t)wx &&
+                             out.centerY == (int16_t)wy && out.centerZ == (int16_t)wz,
+                         "frame %d did not stamp current world.pos into spawn", f);
+            } else {
+                BM_CHECK(sentinel.x == 777.0f && sentinel.centerX == 777 && sentinel.centerZ == 999,
+                         "non-firing cooldown frame %d overwrote spawn struct", f);
+            }
+        }
+        BM_CHECK(firedCount == 3 && fireFrames[0] == 0 && fireFrames[1] == 310 && fireFrames[2] == 620,
+                 "621 held-B frames with Default 310 fired %d blasts at (%d, %d, %d)", firedCount, fireFrames[0],
+                 fireFrames[1], fireFrames[2]);
+        BM_CHECK(out.centerX == 630 && out.centerY == -640 && out.centerZ == 1270,
+                 "final blast center (%d, %d, %d) != (630, -640, 1270)", (int)out.centerX, (int)out.centerY,
+                 (int)out.centerZ);
+
+        // Instant (1 frame) and NoBlastMaskCooldown (0 frames) fire on every pressed frame.
+        const uint16_t instantArm = Combo_BlastMaskCooldownFrames((uint8_t)RSBS_BLAST_COOLDOWN_INSTANT);
+        const uint16_t zeroArm = Combo_BlastMaskCooldownFor((uint8_t)RSBS_BLAST_COOLDOWN_VERY_LONG, 1);
+        for (const uint16_t arm : { instantArm, zeroArm }) {
+            uint16_t cd = 0;
+            int blasts = 0;
+            for (int f = 0; f < 8; f++) {
+                ComboBlastMaskSpawn stepOut = { 0.0f, 0.0f, 0.0f, 0, 0, 0 };
+                blasts += Combo_BlastMask_StepOotSpawn(&cd, 1, arm, (float)(f * 16), 12.0f, -8.0f, &stepOut);
+                BM_CHECK(stepOut.centerX == (int16_t)(f * 16) && stepOut.centerY == 12 && stepOut.centerZ == -8,
+                         "arm=%u frame %d center mismatch", (unsigned)arm, f);
+            }
+            BM_CHECK(blasts == 8, "arm=%u over 8 pressed frames fired %d blasts, expected 8", (unsigned)arm, blasts);
+        }
+    }
+
+    // ---- (3) Idle countdown and null-pointer guards ---------------------------------
+    {
+        uint16_t left = 4;
+        ComboBlastMaskSpawn untouched = { 42.0f, 43.0f, 44.0f, 42, 43, 44 };
+        BM_CHECK(Combo_BlastMask_StepOotSpawn(&left, 0, 310u, 1.0f, 2.0f, 3.0f, &untouched) == 0 && left == 3u &&
+                     untouched.x == 42.0f && untouched.centerX == 42,
+                 "idle frame must decrement cooldown without writing spawn");
+        BM_CHECK(Combo_BlastMask_StepOotSpawn(nullptr, 1, 310u, 1.0f, 2.0f, 3.0f, &untouched) == 0 &&
+                     untouched.x == 42.0f && untouched.centerX == 42,
+                 "null cooldownLeft must return 0 without writing spawn");
+        uint16_t cd0 = 0;
+        uint16_t cd4 = 4;
+        BM_CHECK(Combo_BlastMask_StepOotSpawn(&cd0, 1, 310u, 1.0f, 2.0f, 3.0f, nullptr) == 0 && cd0 == 0u,
+                 "null out pointer must return 0 without arming cooldownLeft");
+        BM_CHECK(Combo_BlastMask_StepOotSpawn(&cd4, 1, 310u, 1.0f, 2.0f, 3.0f, nullptr) == 0 && cd4 == 4u,
+                 "null out pointer must return 0 without decrementing cooldownLeft");
+    }
+
+    printf("[TEST] blast-mask-oot-spawn: %s\n", sBmFailures == 0 ? "PASS" : "FAIL");
+    return sBmFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// blast-mask-oot-shrub-guardhouse
+// ============================================================================
+
+TestResult BlastMaskOoTShrubGuardHouse_Run(void) {
+    printf("[TEST] blast-mask-oot-shrub-guardhouse: child Link's Blast Mask cuts ground shrubs and follows world.pos "
+           "in the Market guard house without OoT_EnBom_Draw (#1615)\n");
+    const int rc = OoT_BlastMaskTest_ShrubAndGuardHouse();
+    printf("[TEST] blast-mask-oot-shrub-guardhouse: %s\n", rc == 0 ? "PASS" : "FAIL");
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
 }

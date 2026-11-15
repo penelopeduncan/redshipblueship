@@ -3245,6 +3245,17 @@ typedef enum {
     VB_STALAGMITE_DROP_ITEM,
 
     // #### `result`
+    // ```c
+    // !Player_InCsMode(play) && !(player->stateFlags1 & (PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_WATER)) &&
+    // this->actor.xzDistToPlayer <= 15.0f && -50.0f <= this->actor.yDistToPlayer &&
+    // this->actor.yDistToPlayer <= 15.0f
+    // ```
+    // #### `args`
+    // - None
+    // [RSBS] placed near the end (SoH 9eafd15fe, #7271, inserts it after VB_DETECT_BGM_ENEMY).
+    VB_DOOR_ANA_GRAB_PLAYER,
+
+    // #### `result`
     // Actor is ACTOR_OBJ_BOMBIWA, or ACTOR_OBJ_HAMISHI
     // ```c
     // Flags_GetSwitch(play, this->actor.params & 0x3F)
@@ -3253,6 +3264,15 @@ typedef enum {
     // - `*Actor` (interactRangeActor)
     VB_BOULDER_BREAK_FLAG,
 
+    // [RSBS] SoH aedae12e6's hook site, appended (SoH #7183's despawn exemption reads it)
+    // #### `result`
+    // ```c
+    // this->unk_15A > 0
+    // ```
+    // #### `args`
+    // - `*EnItem00`
+    VB_ITEM00_TIMER_TICK,
+
     // #### `result`
     // ```c
     // varies
@@ -3260,6 +3280,30 @@ typedef enum {
     // #### `args`
     // - `*EnIshi`, `*ObjBombiwa`, or `*ObjHamishi`
     VB_ROCK_DROP_ITEM,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Color_RGB8`
+    VB_APPLY_MAGIC_METER_FILL_COLOR,
+
+    // #### `result`
+    // ```c
+    // Flags_GetEventChkInf(EVENTCHKINF_BEGAN_BARINA_BATTLE)
+    // ```
+    // #### `args`
+    // - `*BossVa`
+    VB_BARINADE_PLAY_REMATCH_INTRO,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
 } GIVanillaBehavior;
 
 #endif

@@ -246,10 +246,10 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_PIRATES_FORTRESS_PLAZA_RIGHT] = RandoRegion{ .name = "Right Side", .sceneId = SCENE_KAIZOKU,
         .checks = {
-            // #697 — MMRT_OOB_MOVEMENT, DEFAULT OFF, on the one site OoTMM gives it an MM-only leg:
-            // pirate_fortress.yml's "Pirate Fortress Interior Upper Chest" is `can_hookshot ||
-            // short_hook_anywhere || (has_mask_goron && trick(MM_OOB_MOVEMENT))`. Its other uses all sit
-            // behind `short_hook_anywhere`, a glitch this dialect does not have.
+            // #697 / #1574 — MMRT_OOB_MOVEMENT, DEFAULT OFF: pirate_fortress.yml:143 ("Pirate Fortress
+            // Interior Upper Chest") is `can_hookshot || short_hook_anywhere || (has_mask_goron &&
+            // trick(MM_OOB_MOVEMENT))`. Without Short Hookshot, HAS_ITEM(ITEM_HOOKSHOT) subsumes
+            // short_hook_anywhere here and on :147-149, :237; the non-subsumed plaza routes are below.
             CHECK(RC_PIRATE_FORTRESS_PLAZA_UPPER_CHEST, HAS_ITEM(ITEM_HOOKSHOT) || (MM_TRICK(MMRT_OOB_MOVEMENT) && CAN_BE_GORON)),
         },
         .exits = { //     TO                                         FROM
@@ -299,6 +299,11 @@ static RegisterShipInitFunc initFunc([]() {
                 (HAS_ITEM(ITEM_DEKU_NUT) || HAS_ITEM(ITEM_BOW) || HAS_ITEM(ITEM_HOOKSHOT) || CAN_FOOL_PURPLE_GUARDS) ||
                 (CAN_BE_DEKU && HAS_MAGIC) || CAN_BE_ZORA
             )),
+            // #1574: OoTMM pirate_fortress.yml:138-140 ("Pirate Fortress Interior" -> Lone Guard /
+            // Barrel Maze / Treasure Room Exit): one-way jump-down ledges reached up from the plaza.
+            CONNECTION(RR_PIRATES_FORTRESS_PLAZA_LEFT_EXIT, SHORT_HOOK_ANYWHERE),
+            CONNECTION(RR_PIRATES_FORTRESS_PLAZA_RIGHT_EXIT, SHORT_HOOK_ANYWHERE),
+            CONNECTION(RR_PIRATES_FORTRESS_LEFT_PLATFORM, SHORT_HOOK_ANYWHERE),
         },
         .events = {
             EVENT(RE_ACCESS_PIRATE_PICTURE, true),

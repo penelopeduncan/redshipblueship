@@ -14,7 +14,6 @@ TYPE ActorMaximumHealth
 TYPE ActorViewerWindow
 TYPE ButtonId
 TYPE ButtonOutlineMode
-TYPE ColRenderSetting
 TYPE CustomButtonMap
 TYPE DLViewerWindow
 TYPE DListPatchInfo

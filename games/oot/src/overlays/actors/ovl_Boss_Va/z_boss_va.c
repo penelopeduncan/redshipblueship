@@ -655,42 +655,38 @@ void BossVa_Init(Actor* thisx, PlayState* play2) {
             } else {
                 this->actor.colChkInfo.damageTable = OoT_sDamageTable;
                 sPhase2Timer = 0xFFFF;
-                if (OoT_Flags_GetEventChkInf(EVENTCHKINF_BEGAN_BARINA_BATTLE)) {
-                    if (Randomizer_GetSettingValue(RSK_SHUFFLE_BOSS_SOULS) &&
-                        !Flags_GetRandomizerInf(RAND_INF_BARINADE_SOUL)) {
-                        sCsState = BOSSVA_BATTLE;
-                    } else {
-                        sCsState = INTRO_CALL_BARI;
-                        sDoorState = 100;
-                        OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 1);
-                        play->envCtx.screenFillColor[0] = 0xDC;
-                        play->envCtx.screenFillColor[1] = 0xDC;
-                        play->envCtx.screenFillColor[2] = 0xBE;
-                        play->envCtx.screenFillColor[3] = 0xD2;
-                        func_80064520(play, &play->csCtx);
-                        sCsCamera = OoT_Play_CreateSubCamera(play);
-                        OoT_Play_ChangeCameraStatus(play, MAIN_CAM, CAM_STAT_WAIT);
-                        OoT_Play_ChangeCameraStatus(play, sCsCamera, CAM_STAT_ACTIVE);
-                        sCameraNextEye.x = sCameraEye.x = 140.0f;
-                        sCameraNextEye.y = sCameraEye.y = 205.0f;
-                        sCameraNextEye.z = sCameraEye.z = -20.0f;
-                        sCameraNextAt.x = sCameraAt.x = 10.0f;
-                        sCameraNextAt.y = sCameraAt.y = 50.0f;
-                        sCameraNextAt.z = sCameraAt.z = -220.0f;
-                        Play_CameraSetAtEye(play, sCsCamera, &sCameraAt, &sCameraEye);
-                        this->timer = 20;
+                if (GameInteractor_Should(VB_BARINADE_PLAY_REMATCH_INTRO,
+                                          OoT_Flags_GetEventChkInf(EVENTCHKINF_BEGAN_BARINA_BATTLE), this)) {
+                    sCsState = INTRO_CALL_BARI;
+                    sDoorState = 100;
+                    OoT_Player_SetCsActionWithHaltedActors(play, &this->actor, 1);
+                    play->envCtx.screenFillColor[0] = 0xDC;
+                    play->envCtx.screenFillColor[1] = 0xDC;
+                    play->envCtx.screenFillColor[2] = 0xBE;
+                    play->envCtx.screenFillColor[3] = 0xD2;
+                    func_80064520(play, &play->csCtx);
+                    sCsCamera = OoT_Play_CreateSubCamera(play);
+                    OoT_Play_ChangeCameraStatus(play, MAIN_CAM, CAM_STAT_WAIT);
+                    OoT_Play_ChangeCameraStatus(play, sCsCamera, CAM_STAT_ACTIVE);
+                    sCameraNextEye.x = sCameraEye.x = 140.0f;
+                    sCameraNextEye.y = sCameraEye.y = 205.0f;
+                    sCameraNextEye.z = sCameraEye.z = -20.0f;
+                    sCameraNextAt.x = sCameraAt.x = 10.0f;
+                    sCameraNextAt.y = sCameraAt.y = 50.0f;
+                    sCameraNextAt.z = sCameraAt.z = -220.0f;
+                    Play_CameraSetAtEye(play, sCsCamera, &sCameraAt, &sCameraEye);
+                    this->timer = 20;
 
-                        for (i = BOSSVA_BARI_LOWER_5; i >= BOSSVA_BARI_UPPER_1; i--) {
-                            OoT_Actor_SpawnAsChild(
-                                &play->actorCtx, &this->actor, play, ACTOR_BOSS_VA,
-                                sInitPosOffsets[i].x + this->actor.world.pos.x,
-                                sInitPosOffsets[i].y + this->actor.world.pos.y,
-                                sInitPosOffsets[i].z + this->actor.world.pos.z, sInitRot[i].x + this->actor.world.rot.x,
-                                sInitRot[i].y + this->actor.world.rot.y, sInitRot[i].z + this->actor.world.rot.z, i);
-                        }
-
-                        sCameraAtMaxVel = sCameraEyeMaxVel = OoT_sZeroVec;
+                    for (i = BOSSVA_BARI_LOWER_5; i >= BOSSVA_BARI_UPPER_1; i--) {
+                        OoT_Actor_SpawnAsChild(
+                            &play->actorCtx, &this->actor, play, ACTOR_BOSS_VA,
+                            sInitPosOffsets[i].x + this->actor.world.pos.x,
+                            sInitPosOffsets[i].y + this->actor.world.pos.y,
+                            sInitPosOffsets[i].z + this->actor.world.pos.z, sInitRot[i].x + this->actor.world.rot.x,
+                            sInitRot[i].y + this->actor.world.rot.y, sInitRot[i].z + this->actor.world.rot.z, i);
                     }
+
+                    sCameraAtMaxVel = sCameraEyeMaxVel = OoT_sZeroVec;
 
                 } else {
                     sCsState = INTRO_START;

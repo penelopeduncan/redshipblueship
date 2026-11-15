@@ -3,6 +3,7 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "Rando/DrawFuncs.h"
 #include "Rando/Logic/Logic.h"
+#include "2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h"
 
 extern "C" {
 #include "variables.h"
@@ -122,6 +123,20 @@ void ShouldActorDraw(Actor* actor, bool* should, RandoInf randoInf) {
     }
 }
 
+// 2Ship c20da56bd (#1769): an enemy whose soul is missing draws grayscale, so the player can see which enemies cannot
+// be hurt yet. Turned on before the actor's draw (ShouldActorDraw) and off after it (OnActorDraw). MM_gPlayState is
+// upstream's gPlayState under the single-exe prefix (variables.h). static: TU-local in the single executable.
+static void SetEnemyInjureGrayscale(bool enable) {
+    OPEN_DISPS(MM_gPlayState->state.gfxCtx);
+    if (enable) {
+        gDPSetGrayscaleColor(POLY_OPA_DISP++, 70, 70, 70, 255);
+        gDPSetGrayscaleColor(POLY_XLU_DISP++, 70, 70, 70, 255);
+    }
+    gSPGrayscale(POLY_OPA_DISP++, enable);
+    gSPGrayscale(POLY_XLU_DISP++, enable);
+    CLOSE_DISPS(MM_gPlayState->state.gfxCtx);
+}
+
 void Rando::ActorBehavior::InitSoulsBehavior() {
     bool shouldBossRegister = IS_RANDO && RANDO_SAVE_OPTIONS[RO_SHUFFLE_BOSS_SOULS] == RO_GENERIC_YES;
     bool shouldEnemyInjure = IS_RANDO && RANDO_SAVE_OPTIONS[RO_SHUFFLE_ENEMY_SOULS] == RO_GENERIC_YES;
@@ -199,6 +214,20 @@ void Rando::ActorBehavior::InitSoulsBehavior() {
         if (actorId != ACTOR_EN_INVADEPOH && !HaveEnemySoul(actorId)) {
             DrawEnLight({ 155, 0, 0 }, { 1.0f, 1.0f, 1.0f });
             *should = false;
+        }
+    });
+
+    COND_HOOK(ShouldActorDraw, shouldEnemyInjure, [](Actor* actor, bool* should) {
+        ActorId actorId = (ActorId)actor->id;
+        if (actorId != ACTOR_EN_INVADEPOH && !HaveEnemySoul(actorId)) {
+            SetEnemyInjureGrayscale(true);
+        }
+    });
+
+    COND_HOOK(OnActorDraw, shouldEnemyInjure, [](Actor* actor) {
+        ActorId actorId = (ActorId)actor->id;
+        if (actorId != ACTOR_EN_INVADEPOH && !HaveEnemySoul(actorId)) {
+            SetEnemyInjureGrayscale(false);
         }
     });
 }

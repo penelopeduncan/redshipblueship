@@ -59,3 +59,7 @@ DEFINE_HOOK(OnSeqPlayerInit, (s32 playerIdx, s32 seqId));
 
 // Rando
 DEFINE_HOOK(OnRandoSeedGeneration, ());
+
+// Appended at the end, not beside OnBossDefeated where upstream (2Ship #2010) puts it: hook tables are append-only
+// here.
+DEFINE_HOOK(OnActorEntryHalfDaysBits, (ActorEntry * actorEntry, s32* halfDaysBits))

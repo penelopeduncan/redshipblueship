@@ -1309,6 +1309,16 @@ int OoT_SongCheckIndex(RandomizerCheck rc) {
  *    Randomizer_InitSaveFile gives the check at creation through StartingItemGive
  *    (savefile.cpp), which has no crossing branch, and the MM item would be lost.
  *
+ * A HOST GETS WHAT A NATIVE RECEIVE DOES. What OoT does because a check gave
+ * its item, whatever the item, runs for a foreign host too
+ * (RandomizerOnCheckReceived, hook_handlers.cpp, #1602): the Silver Gauntlets
+ * chest marks Nabooru captured, or arms the Colossus transition, either way.
+ * A side effect that only a native receive can run keeps its check refused.
+ * The POND FISH (fishsanity) are refused by the actor test below, and stay so
+ * for two reasons: several fish of the pond share one check, and the pond
+ * advances (Fishsanity::AdvancePond, fishsanity.cpp's OnItemReceive hook) only
+ * on a native receive, which a Majora's Mask item never is.
+ *
  * A pure function of the static location table and of settings frozen at file
  * creation (the song branch reads OoT's frozen Shuffle Songs and Skip Child
  * Zelda): legal outside a round, no RNG, never session history.
