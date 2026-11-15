@@ -7577,7 +7577,7 @@ extern "C" int MM_Rando_AuthorHalfAtCreation(int slot, const char* ootSpoilerPat
     // GfxPatcher, the tracker icons and the ExtensionCache rescan. See
     // MM_Rando_InitCore's header.
     // An empty region graph after this call is not checked separately: the
-    // generation below throws "No checks in logic" from GeneratePools, which
+    // generation below throws "Check pool is empty" after GeneratePools, which
     // lands in the same terminal-failure return as every other dead end.
     //
     // REPORTED AND MEASURED (#582's review). This stretch — MM's whole rando core

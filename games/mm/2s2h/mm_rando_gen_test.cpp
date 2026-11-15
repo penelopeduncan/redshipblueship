@@ -2623,7 +2623,7 @@ extern "C" int MM_Rando_HeadlessPairedAttemptDigest(const char* outPath) {
 // ============================================================================
 /**
  * A settings profile that CANNOT converge — every check user-excluded, so
- * every ladder attempt deterministically throws "No checks in logic" — must
+ * every ladder attempt deterministically throws "Check pool is empty" — must
  * exhaust the bounded ladder and surface the LOUD failure at the arrival:
  * save reverted to vanilla (no partial world), the active unified-save slot
  * latched REFUSED with RSBS_REFUSE_GENERATION through the #533 machinery
@@ -2674,7 +2674,7 @@ extern "C" int MM_Rando_HeadlessPairedExhaustion(void) {
 
     // The cannot-converge fixture: exclude EVERY check. GeneratePools keeps
     // excluded checks out of checkPool (Logic/GeneratePools.cpp), so every
-    // attempt throws "No checks in logic" before any fill work — the
+    // attempt throws "Check pool is empty" before any fill work — the
     // exhaustion path in microseconds, not 10s-per-attempt wall clock. Built
     // in the canonical "id,id,..." form the UI writer emits (no trailing
     // comma), because ProfileIdentityString folds the raw string.

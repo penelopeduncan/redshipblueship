@@ -541,8 +541,9 @@ traps (`:281-287`). `OnFileCreate` then balances the two pools by padding
    with each progress round, `:51`, `:201-212`, `:257`), swap in the first
    untried non-junk item — `RemoveItem(old)`, `GiveItem(new)` (`:242-253`) —
    and loop; when every non-junk item has been tried at that check, leave it and
-   pick another (`:232-239`). Errors: `"No checks with junk"` (`:195`),
-   `"No non-junk items left"` (`:229`), and the timeout (`:88`) which alone
+   pick another (`:232-239`). Errors: `"Out of checks to replace, cannot place
+   remaining items"` (`:195`), `"No non-junk items left to place, progression is
+   impossible"` (`:229`), and the timeout (`:88`) which alone
    throws `GenerationTimeout`. Every error path restores the snapshot (`:78`).
 4. On success, copy the placements into the snapshot and restore it
    (`:276-282`) — the post-fill save is *pre-fill state + placements*, not the

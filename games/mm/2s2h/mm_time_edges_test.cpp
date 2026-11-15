@@ -48,7 +48,7 @@
  *       on its own small graph (BuildFillGraph), Night 2 owned, an unshuffled
  *       root check giving Day 1, both IS_DAY1 rows shuffled, one item:
  *       f1  the fill completes (main's widening throws "No allowed item
- *           remains"; a removed reset throws "No checks with junk");
+ *           remains"; a removed reset throws "Out of checks to replace");
  *       f2  the item went to FREE's day row (non-vacuity: the gain reached it);
  *       f3  NIGHT's day row is still in the check pool.
  * Unit legs on NarrowEdgeTime itself:
@@ -382,7 +382,7 @@ std::map<RandoRegionId, RandoRegion> BuildFillGraph() {
  * with NIGHT's row still in the check pool. With main's in-place widening both
  * rows pass on the second pass and the second one finds an empty pool ("No
  * allowed item remains"). With the reset call removed nothing gains Day 1 and
- * the fill throws "No checks with junk". Either regression fails f1 and f2.
+ * the fill throws "Out of checks to replace". Either regression fails f1 and f2.
  */
 void RunFillDriven() {
     std::map<RandoRegionId, RandoRegion> graph = BuildFillGraph();
