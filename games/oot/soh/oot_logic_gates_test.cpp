@@ -1450,7 +1450,9 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                         "BL32 DC MQ lobby to lower right side, child with Goron's Bracelet and hood, setting on",
                         RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_LOWER_RIGHT_SIDE);
     // DC MQ lobby: the bomb-flower ground jump the hood stands in for RT_GROUND_JUMP_HARD in.
-    Give(RG_DEKU_SHIELD);
+    // The shield's equipment bit is set directly: Logic::ApplyItemEffect ignores a Deku or Hylian Shield that does not
+    // come off a shop shelf (a shield can burn, so only a shop counts as a source), and Give() would do nothing.
+    logic->GetSaveContext()->inventory.equipment |= EQUIP_FLAG_SHIELD_DEKU;
     randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(1);
     BhlExitOffOn(randoCtx, "BL33 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, off",
                  "BL34 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, on",
