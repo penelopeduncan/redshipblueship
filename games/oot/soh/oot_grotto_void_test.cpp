@@ -277,8 +277,8 @@ void RunSwimVoidLegs(PlayState* play, Player* player) {
              "a swim void-out must not fire while a transition already runs\n");
 
     // G2c. A swim void-out after a grotto return runs the forced grotto return.
-    // The previous leg left no grotto state; a warp onto the tektite grotto's
-    // exit point is a grotto return (lastEntranceType GROTTO_RETURN).
+    // A warp onto the tektite grotto's exit point sets the grotto return up
+    // afresh (lastEntranceType GROTTO_RETURN, grottoId the tektite grotto).
     ResetSave();
     ResetPlay(play, player, SCENE_HYRULE_FIELD);
     play->nextEntranceIndex = kTektiteExitPoint;
