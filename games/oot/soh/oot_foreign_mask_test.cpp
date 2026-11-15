@@ -48,10 +48,25 @@ Player* TestPlayer() {
 }
 
 constexpr int kChildTradeCount = ITEM_MASK_TRUTH - ITEM_WEIRD_EGG + 1;
+
+// The adult's permission (OoT_ForeignMask_AdultMayWear) the shims below pass to
+// the For variants, so the row never reads a CVar (#1647). 0 unless a leg sets it.
+int sFmAdultMayWear = 0;
 } // namespace
+
+/** The permission the shims pass for an adult (#1647); OoT_ForeignMaskTest_ArmLive resets it to 0. */
+extern "C" void OoT_ForeignMaskTest_SetAdultMayWear(int adultMayWear) {
+    sFmAdultMayWear = adultMayWear;
+}
+
+/** The Master Sword pedestal's deferred drop (OoT_ForeignMask_DropAtNextInit). */
+extern "C" void OoT_ForeignMaskTest_DropAtNextInit(void) {
+    OoT_ForeignMask_DropAtNextInit();
+}
 
 /** OoT's live save as a real loaded child file (GAMEMODE_NORMAL), all else zero. */
 extern "C" void OoT_ForeignMaskTest_ArmLive(void) {
+    sFmAdultMayWear = 0;
     std::memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;
     gSaveContext.gameMode = GAMEMODE_NORMAL;
@@ -105,20 +120,20 @@ extern "C" int OoT_ForeignMaskTest_PlayerMaskMax(void) {
 }
 
 extern "C" int OoT_ForeignMaskTest_Use(uint8_t mask) {
-    return OoT_ForeignMask_Use(TestPlayer(), mask);
+    return OoT_ForeignMask_UseFor(TestPlayer(), mask, sFmAdultMayWear);
 }
 
 extern "C" void OoT_ForeignMaskTest_ApplyRules(void) {
-    OoT_ForeignMask_ApplyRules(TestPlayer());
+    OoT_ForeignMask_ApplyRulesFor(TestPlayer(), sFmAdultMayWear);
 }
 
 extern "C" void OoT_ForeignMaskTest_PlayerInit(int persistentMasks) {
-    OoT_ForeignMask_OnPlayerInit(TestPlayer(), persistentMasks);
+    OoT_ForeignMask_OnPlayerInit(TestPlayer(), persistentMasks, sFmAdultMayWear);
 }
 
-/** The list OoT's head draw would emit for the test Player (OoT_ForeignMask_WornDl). */
+/** The list OoT's head draw would emit for the test Player (OoT_ForeignMask_WornDlFor). */
 extern "C" const char* OoT_ForeignMaskTest_WornDl(int headDrawn) {
-    return OoT_ForeignMask_WornDl(TestPlayer(), headDrawn);
+    return OoT_ForeignMask_WornDlFor(TestPlayer(), headDrawn, sFmAdultMayWear);
 }
 
 /** The worn field's offset and SaveContext's size: the field is appended. */

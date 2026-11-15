@@ -132,6 +132,10 @@ extern "C" int OoT_BlastMaskTest_Logic(int held, int child, int which) {
     probe->IsChild = child != 0;
     probe->IsAdult = child == 0;
     probe->SetRandoInf((uint32_t)RAND_INF_OBTAINED_BLAST_MASK, held != 0);
+    // #1647: Masks as Adult widens the adult's answer; this probe's adult is the setting off's,
+    // whatever an earlier row left in the shared context (OoTLogicGates covers the setting on).
+    const uint8_t savedMasksAsAdult = ctx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    ctx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     bool result = false;
     switch (which) {
         case 0:
@@ -153,6 +157,7 @@ extern "C" int OoT_BlastMaskTest_Logic(int held, int child, int which) {
             result = probe->HasItem(RG_BLAST_MASK);
             break;
     }
+    ctx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
     probe.reset();
     if (created) {
         // Context and its Logic hold each other: let go of the one this row made.
@@ -193,6 +198,24 @@ extern PlayState* OoT_gPlayState;
 extern EffectSsInfo OoT_sEffectSsInfo;
 void EnKusa_Main(EnKusa* thisx, PlayState* play);
 void OoT_EnKusa_DoNothing(EnKusa* thisx, PlayState* play);
+#include "overlays/misc/ovl_kaleido_scope/z_kaleido_scope.h" // AGE_REQ_NONE
+}
+
+/** #1647: OoT_ForeignMask_ApplyAgeReqs, the trade slot's age row, and AGE_REQ_NONE, for the Items rows. */
+extern "C" void OoT_BlastMaskTest_ApplyAgeReqs(int adultMayWear) {
+    OoT_ForeignMask_ApplyAgeReqs(adultMayWear);
+}
+
+extern "C" int OoT_BlastMaskTest_AgeReqNone(void) {
+    return (int)AGE_REQ_NONE;
+}
+
+extern "C" int OoT_BlastMaskTest_SlotAgeReq(void) {
+    return (int)gSlotAgeReqs[SLOT_TRADE_CHILD];
+}
+
+extern "C" void OoT_BlastMaskTest_SetSlotAgeReq(int req) {
+    gSlotAgeReqs[SLOT_TRADE_CHILD] = (u8)req;
 }
 
 template <typename H> struct Bm1615HooksAside {
@@ -326,13 +349,13 @@ static void Bm1615FreezeWorld(uint32_t flags, uint8_t cooldown) {
     Combo_FreezeComboSettingsEx(&rec, &rules);
 }
 
-static void Bm1615ArmWearer(Player* player) {
+static void Bm1615ArmWearer(Player* player, s32 linkAge = LINK_AGE_CHILD) {
     std::memset(&gSaveContext, 0, sizeof(SaveContext));
     std::memset(gSaveContext.inventory.items, ITEM_NONE, sizeof(gSaveContext.inventory.items));
     std::memset(gSaveContext.equips.buttonItems, ITEM_NONE, sizeof(gSaveContext.equips.buttonItems));
     gSaveContext.fileNum = 0;
     gSaveContext.gameMode = GAMEMODE_NORMAL;
-    gSaveContext.linkAge = LINK_AGE_CHILD;
+    gSaveContext.linkAge = linkAge;
     gSaveContext.healthCapacity = 0x30;
     gSaveContext.health = 0x30;
     Flags_SetRandomizerInf(RAND_INF_OBTAINED_BLAST_MASK);
@@ -581,6 +604,50 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     Bm1615EndScene(&sBm1615Play);
 }
 
+/** LA1..LA3 (#1647): adult Link through the LIVE readers (OoT_ForeignMask_Use,
+ *  OoT_ForeignMask_WornDl and the blast hook), whose permission is the Masks
+ *  Equippable as Adult enhancement's CVar here (OoT_MasksEquippableAsAdult). */
+static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
+    const char* const kAdultMasks = CVAR_ENHANCEMENT("AdultMasks");
+    Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
+    Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
+    Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 240.0f, 184.0f, -180.0f);
+
+    // LA1: an adult with nothing allowing it cannot put the mask on, and B stays the sword's.
+    CVarClear(kAdultMasks);
+    Bm1615ArmWearer(&sBm1615Player, LINK_AGE_ADULT);
+    Bm1615Check(OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE,
+                "LA1 an adult not allowed put the Blast Mask on through the live Use", __LINE__);
+    Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
+    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B && Bm1615FindBomb(&sBm1615Play) == nullptr,
+                "LA1 an adult not allowed had B taken or a blast spawned", __LINE__);
+
+    // LA2: allowed, the adult wears it, is drawn it, and blasts with B.
+    CVarSetInteger(kAdultMasks, 1);
+    Bm1615ArmWearer(&sBm1615Player, LINK_AGE_ADULT);
+    Bm1615Check(OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_MM_BLAST,
+                "LA2 an allowed adult could not put the Blast Mask on through the live Use", __LINE__);
+    Bm1615Check(OoT_ForeignMask_WornDl(&sBm1615Player, 1) != nullptr,
+                "LA2 an allowed adult wearing the Blast Mask is drawn no list", __LINE__);
+    Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
+    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == 0 && Bm1615FindBomb(&sBm1615Play) != nullptr,
+                "LA2 an allowed adult's B press was not the Blast Mask's (no blast)", __LINE__);
+    for (int f = 0; f < 12; f++) {
+        Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
+    }
+
+    // LA3: the permission withdrawn with the mask on: off before it can arm, the same frame.
+    Bm1615ArmWearer(&sBm1615Player, LINK_AGE_ADULT);
+    CVarClear(kAdultMasks);
+    Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
+    Bm1615Check(OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE,
+                "LA3 an adult kept the Blast Mask after the permission was withdrawn", __LINE__);
+    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B && Bm1615FindBomb(&sBm1615Play) == nullptr,
+                "LA3 a withdrawn adult's B press still blasted", __LINE__);
+
+    Bm1615EndScene(&sBm1615Play);
+}
+
 static void Bm1615RunGuardHouseSpot(std::vector<uint8_t>& thaBuf, s16 floorY, f32 linkX, f32 linkZ, f32 targetPotX,
                                     f32 targetPotZ) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
@@ -654,6 +721,8 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
     const Bm1615SavedCVar savedPersist = Bm1615SaveCVar(CVAR_ENHANCEMENT("PersistentMasks"));
     const Bm1615SavedCVar savedDpad = Bm1615SaveCVar(CVAR_ENHANCEMENT("DpadEquips"));
     const Bm1615SavedCVar savedNoCooldown = Bm1615SaveCVar(RSBS_CVAR_MM_MASKS_NO_BLAST_MASK_COOLDOWN);
+    const Bm1615SavedCVar savedAdultMasks = Bm1615SaveCVar(CVAR_ENHANCEMENT("AdultMasks"));
+    const Bm1615SavedCVar savedTimeless = Bm1615SaveCVar(CVAR_CHEAT("TimelessEquipment"));
 
     bool ownsActorDB = false;
     if (ActorDB::Instance == nullptr) {
@@ -683,6 +752,8 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
     CVarClear(CVAR_ENHANCEMENT("PersistentMasks"));
     CVarClear(CVAR_ENHANCEMENT("DpadEquips"));
     CVarClear(RSBS_CVAR_MM_MASKS_NO_BLAST_MASK_COOLDOWN);
+    CVarClear(CVAR_ENHANCEMENT("AdultMasks"));
+    CVarClear(CVAR_CHEAT("TimelessEquipment"));
 
     {
         Bm1615HooksAside<GameInteractor::OnVanillaBehavior> vbAside;
@@ -695,6 +766,7 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
 
         std::vector<uint8_t> thaBuf;
         Bm1615RunShrubLeg(thaBuf);
+        Bm1615RunAdultLegs(thaBuf);
         Bm1615RunGuardHouseSpot(thaBuf, 0, -100.0f, 50.0f, -80.0f, 50.0f);
         Bm1615RunGuardHouseSpot(thaBuf, -120, 168.0f, -210.0f, 168.0f, -190.0f);
     }
@@ -716,6 +788,8 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
     Bm1615RestoreCVar(savedPersist);
     Bm1615RestoreCVar(savedDpad);
     Bm1615RestoreCVar(savedNoCooldown);
+    Bm1615RestoreCVar(savedAdultMasks);
+    Bm1615RestoreCVar(savedTimeless);
 
     OoT_BlastMask_SetCooldownForTest(priorCooldown);
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));

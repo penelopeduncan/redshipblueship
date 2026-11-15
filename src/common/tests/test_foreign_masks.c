@@ -71,6 +71,8 @@ int OoT_ForeignMaskTest_PlayerMaskMax(void);
 int OoT_ForeignMaskTest_Use(uint8_t mask);
 void OoT_ForeignMaskTest_ApplyRules(void);
 void OoT_ForeignMaskTest_PlayerInit(int persistentMasks);
+void OoT_ForeignMaskTest_SetAdultMayWear(int adultMayWear);
+void OoT_ForeignMaskTest_DropAtNextInit(void);
 size_t OoT_ForeignMaskTest_FieldOffset(void);
 size_t OoT_ForeignMaskTest_PrevLastOffset(void);
 size_t OoT_ForeignMaskTest_SaveSize(void);
@@ -556,6 +558,41 @@ TestResult Test_ForeignMaskRules(void) {
              "an adult Link put Kamaro's Mask on");
     OoT_ForeignMaskTest_SetAdult(0);
 
+    // ---- R2A, R2B, R2K. OoT: an adult wears the Blast and Stone Masks while allowed (#1647) ----
+    // The permission is OoT_ForeignMask_AdultMayWear's answer, passed by the shims (no CVar read).
+    OoT_ForeignMaskTest_SetAdult(1);
+    OoT_ForeignMaskTest_SetAdultMayWear(1);
+    FM_CHECK(OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST) == 1 &&
+                 OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_BLAST,
+             "R2A", "an adult Link allowed to wear it could not put the Blast Mask on");
+    OoT_ForeignMaskTest_ApplyRules();
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_BLAST, "R2A",
+             "the rules took an allowed adult's Blast Mask off");
+    OoT_ForeignMaskTest_SetPlayerMask(1); // the adult puts Keaton on
+    OoT_ForeignMaskTest_ApplyRules();
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R2A", "a native mask put on left an adult's Blast Mask on");
+    OoT_ForeignMaskTest_SetPlayerMask(0);
+    FM_CHECK(OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_STONE) == 1 &&
+                 OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_STONE,
+             "R2A", "an adult Link allowed to wear it could not put the Stone Mask on");
+    FM_CHECK(OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_STONE) == 1 && OoT_ForeignMaskTest_Worn() == 0, "R2A",
+             "using an adult's worn Stone Mask again did not take it off");
+    OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_STONE);
+    OoT_ForeignMaskTest_SetAdultMayWear(0); // a file without the setting, or the enhancement turned off
+    OoT_ForeignMaskTest_ApplyRules();
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R2B", "an adult Link kept the Stone Mask once no longer allowed");
+    FM_CHECK(OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST) == 0 && OoT_ForeignMaskTest_Worn() == 0, "R2B",
+             "an adult Link not allowed put the Blast Mask on");
+    OoT_ForeignMaskTest_SetAdultMayWear(1);
+    FM_CHECK(OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_KAMARO) == 0 && OoT_ForeignMaskTest_Worn() == 0, "R2K",
+             "the permission let an adult put Kamaro's Mask on (it covers the Blast and Stone Masks only)");
+    OoT_ForeignMaskTest_SetStored(COMBO_FOREIGN_MASK_MM_KAMARO);
+    OoT_ForeignMaskTest_ApplyRules();
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0 && OoT_ForeignMaskTest_Stored() == 0, "R2K",
+             "an allowed adult Link kept a stored Kamaro's Mask");
+    OoT_ForeignMaskTest_SetAdultMayWear(0);
+    OoT_ForeignMaskTest_SetAdult(0);
+
     // ---- R3. OoT: off at a scene load, unless Persistent Masks ----------------
     OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_STONE);
     OoT_ForeignMaskTest_PlayerInit(0);
@@ -569,6 +606,38 @@ TestResult Test_ForeignMaskRules(void) {
     OoT_ForeignMaskTest_SetTradeSlot(0x2C); // ITEM_SOLD_OUT
     OoT_ForeignMaskTest_PlayerInit(1);
     FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R3", "a sold-out trade slot kept the Stone Mask (maskMemory's rule)");
+
+    // ---- R3A, R3B. OoT: an allowed adult's scene load, and the pedestal's deferred drop (#1647) ----
+    OoT_ForeignMaskTest_SetTradeSlot(0x24); // ITEM_MASK_KEATON
+    OoT_ForeignMaskTest_SetAdult(1);
+    OoT_ForeignMaskTest_SetAdultMayWear(1);
+    OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST);
+    OoT_ForeignMaskTest_PlayerInit(1);
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_BLAST, "R3A",
+             "Persistent Masks did not keep an allowed adult's Blast Mask through a scene load");
+    OoT_ForeignMaskTest_PlayerInit(0);
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R3A",
+             "an adult's Blast Mask stayed on through a scene load without Persistent Masks");
+    OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST);
+    OoT_ForeignMaskTest_SetTradeSlot(0x2C); // ITEM_SOLD_OUT
+    OoT_ForeignMaskTest_PlayerInit(1);
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R3A", "a sold-out trade slot kept an adult's Blast Mask");
+    OoT_ForeignMaskTest_SetTradeSlot(0x24);
+    OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST);
+    OoT_ForeignMaskTest_DropAtNextInit();
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_BLAST, "R3B",
+             "the Master Sword pedestal took the Blast Mask off at once, not at the next Player_Init");
+    OoT_ForeignMaskTest_PlayerInit(1);
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == 0, "R3B",
+             "the pedestal's drop did not take the Blast Mask off at the next Player_Init");
+    OoT_ForeignMaskTest_Use(COMBO_FOREIGN_MASK_MM_BLAST);
+    OoT_ForeignMaskTest_PlayerInit(1);
+    FM_CHECK(OoT_ForeignMaskTest_Worn() == COMBO_FOREIGN_MASK_MM_BLAST, "R3B",
+             "the pedestal's drop was not consumed: a later Player_Init took the Blast Mask off too");
+    OoT_ForeignMaskTest_SetStored(0);
+    OoT_ForeignMaskTest_SetTradeSlot(0x2C);
+    OoT_ForeignMaskTest_SetAdultMayWear(0);
+    OoT_ForeignMaskTest_SetAdult(0);
 
     // ---- R4. MM: the field never reaches currentMask or equippedMask ----------
     const int mmMax = MM_ForeignMaskTest_PlayerMaskMax();
@@ -834,6 +903,19 @@ TestResult Test_ForeignMaskRules(void) {
     OoT_ForeignMaskTest_SetPlayerMask(0);
     OoT_ForeignMaskTest_SetAdult(1);
     FM_CHECK(OoT_ForeignMaskTest_WornDl(1) == NULL, "R8", "OoT: an adult Link selects a worn list");
+    // R8A (#1647): an allowed adult is drawn the Blast and Stone Masks only.
+    OoT_ForeignMaskTest_SetAdultMayWear(1);
+    FM_CHECK(OoT_ForeignMaskTest_WornDl(1) == NULL, "R8A",
+             "OoT: an allowed adult wearing Kamaro's Mask selects a list (the Blast and Stone Masks only)");
+    OoT_ForeignMaskTest_SetStored(COMBO_FOREIGN_MASK_MM_BLAST);
+    const ComboForeignMaskInfo* blastInfo = Combo_ForeignMask_Info(COMBO_FOREIGN_MASK_MM_BLAST);
+    FM_CHECK(blastInfo != NULL && blastInfo->wornDl != NULL && OoT_ForeignMaskTest_WornDl(1) == blastInfo->wornDl,
+             "R8A", "OoT: an allowed adult wearing the Blast Mask selects no list");
+    FM_CHECK(OoT_ForeignMaskTest_WornDl(0) == NULL, "R8A",
+             "OoT: an allowed adult with the head list not drawn selects a list");
+    OoT_ForeignMaskTest_SetAdultMayWear(0);
+    FM_CHECK(OoT_ForeignMaskTest_WornDl(1) == NULL, "R8A", "OoT: an adult not allowed selects the Blast Mask's list");
+    OoT_ForeignMaskTest_SetStored(COMBO_FOREIGN_MASK_MM_KAMARO);
     OoT_ForeignMaskTest_SetAdult(0);
     FmFreezeRules(kFmAllRules & ~RSBS_XITEM_KAMARO_MASK_OOT);
     FM_CHECK(OoT_ForeignMaskTest_WornDl(1) == NULL, "R8", "OoT: Kamaro's Mask with its rule off selects a list");

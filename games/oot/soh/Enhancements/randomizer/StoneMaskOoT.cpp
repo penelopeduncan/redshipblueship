@@ -46,10 +46,16 @@
  * it has already passed. A held actor from an earlier frame or play state is
  * forgotten without being touched (its fields were recomputed, or it is gone).
  *
- * THE LOGIC is logic.cpp's (CanUse(RG_STONE_MASK): a child under the frozen rule,
- * OoTMM's can_use_mask_stone, counted where OoTMM's get_past_skultullas and
- * evade_gerudo count it), and the shared extension's pair is the bag's (both
- * games register their copy at RSBS_XITEM_SHARED_STONE, GameExports_SingleExe.cpp).
+ * ADULT LINK wears it, and hides from the same actors, exactly as the child does
+ * while OoT_MasksEquippableAsAdult() (operator 2026-11-15, "Make them
+ * adult-wearable"; ForeignMaskOoT.cpp's AgeMayWear). The effect reads only the
+ * worn mask, never Link's age.
+ *
+ * THE LOGIC is logic.cpp's (CanUse(RG_STONE_MASK): a child, or an adult under
+ * the seed's Masks as Adult, under the frozen rule; OoTMM's can_use_mask_stone,
+ * counted where OoTMM's get_past_skultullas and evade_gerudo count it), and the
+ * shared extension's pair is the bag's (both games register their copy at
+ * RSBS_XITEM_SHARED_STONE, GameExports_SingleExe.cpp).
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -315,8 +321,9 @@ extern "C" void OoT_StoneMask_RegisterRuntime(void) {
     // extras in registration order, the Blast Mask before the Stone Mask.
     OoT_BlastMask_RegisterRuntime();
     OoT_ChildTradeCycle_RegisterExtra((uint8_t)ITEM_MASK_STONE, StoneMaskInTradeCycle); // 0 once registered
-    // AGE_REQ_CHILD (z_kaleido_scope.h): a child trade mask, as the Blast Mask is.
-    // The 256-entry table covers the custom ItemID (#983).
+    // AGE_REQ_CHILD (z_kaleido_scope.h): a child trade mask, as the Blast Mask is;
+    // freed for an adult by OoT_ForeignMask_ApplyAgeReqs (#1647), which therefore
+    // writes both rows after this. The 256-entry table covers the custom ItemID (#983).
     gItemAgeReqs[ITEM_MASK_STONE] = LINK_AGE_CHILD;
 }
 

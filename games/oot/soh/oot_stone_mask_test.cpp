@@ -245,6 +245,10 @@ extern "C" int OoT_StoneMaskTest_Logic(int held, int child, int which) {
     probe->IsChild = child != 0;
     probe->IsAdult = child == 0;
     probe->SetRandoInf((uint32_t)RAND_INF_OBTAINED_STONE_MASK, held != 0);
+    // #1647: Masks as Adult widens the adult's answer; this probe's adult is the setting off's,
+    // whatever an earlier row left in the shared context (OoTLogicGates covers the setting on).
+    const uint8_t savedMasksAsAdult = ctx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    ctx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     bool result = false;
     switch (which) {
         case 0:
@@ -269,6 +273,7 @@ extern "C" int OoT_StoneMaskTest_Logic(int held, int child, int which) {
             result = probe->HasItem(RG_STONE_MASK);
             break;
     }
+    ctx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
     probe.reset();
     if (created) {
         // Context and its Logic hold each other: let go of the one this row made.

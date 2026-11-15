@@ -258,6 +258,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "context.h"       // src/common: gComboCtx (the BP legs freeze the cross-game mask rules)
 #include "foreign_items.h" // src/common: RSBS_XITEM_BLAST_MASK_OOT, Combo_ComboSettingsDefaults
+#include "soh/Enhancements/randomizer/ForeignMaskOoT.h" // OoT_ForeignMask_AdultMayWear (the BW legs)
 #endif
 
 namespace {
@@ -1709,9 +1710,12 @@ void MaaCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* 
  *            two rewards, the Spirit MQ big wall exit, its two wall silvers and its silver event (one pair each).
  *  BT1, BT2  the mask trade stays the child's: an adult with Masks as Adult on borrows nothing (Kakariko
  *            Village's LOGIC_BORROW_SKULL_MASK); the child does.
- *  BP1..BP6  the cross-game masks stay the child's: an adult cannot wear the Blast or the Stone Mask under the
- *            setting (their age requirement and ForeignMaskOoT refuse him), so with their rule frozen on and
- *            Masks as Adult on, CanUse and BlastOrSmash are false for him and true for the child.
+ *  BP1..BP17 the cross-game masks (operator 2026-11-15, "Make them adult-wearable"): with their rule frozen on,
+ *            the adult is credited the Blast and Stone Masks (CanUse, BlastOrSmash, Beamos, Gerudo guards) under
+ *            the seed's Masks as Adult and not without it, never without their rule, and never from the Masks
+ *            Equippable as Adult enhancement or Timeless Equipment (logic reads no CVar); the child always is.
+ *  BW1, BW2  the gameplay reader the masks follow, OoT_ForeignMask_AdultMayWear: off with everything off, on with
+ *            the enhancement alone.
  */
 void RunMasksAsAdultWideLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     MaaMaskOffOnChild(randoCtx, "MW1 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult off",
@@ -1793,7 +1797,7 @@ void RunMasksAsAdultWideLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
 
 #ifdef RSBS_SINGLE_EXECUTABLE
-    // ---- BP1..BP6: the cross-game masks stay the child's (their rule frozen on for these legs only) ----
+    // ---- BP1..BP17: the cross-game masks under Masks as Adult (their rule frozen on for these legs only) ----
     const ComboSettingsRecord savedComboSettings = gComboCtx.comboSettings;
     const ComboItemRulesRecord savedComboItemRules = gComboCtx.comboItemRules;
     if (gComboCtx.comboSettings.formatVersion == 0) {
@@ -1806,24 +1810,94 @@ void RunMasksAsAdultWideLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     logic->SetRandoInf(RAND_INF_OBTAINED_STONE_MASK, true);
     BhlAs(true, RR_THE_LOST_WOODS);
     ExpectFlag("BP1 CanUse(RG_BLAST_MASK), adult holding it, its rule on, Masks as Adult on",
-               logic->CanUse(RG_BLAST_MASK), false,
-               "logic credits the adult a Blast Mask he cannot wear (BlastMaskOoT.cpp pins it to the child)");
+               logic->CanUse(RG_BLAST_MASK), true,
+               "the adult is not credited the Blast Mask he can wear under Masks as Adult");
     ExpectFlag("BP2 BlastOrSmash, adult holding only the Blast Mask, its rule on, Masks as Adult on",
-               logic->BlastOrSmash(), false, "logic credits the adult the Blast Mask's explosion");
+               logic->BlastOrSmash(), true,
+               "the adult is not credited the Blast Mask's explosion he can make under Masks as Adult");
     ExpectFlag("BP3 CanUse(RG_STONE_MASK), adult holding it, its rule on, Masks as Adult on",
-               logic->CanUse(RG_STONE_MASK), false,
-               "logic credits the adult a Stone Mask he cannot wear (StoneMaskOoT.cpp pins it to the child)");
+               logic->CanUse(RG_STONE_MASK), true,
+               "the adult is not credited the Stone Mask he can wear under Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("BP7 CanUse(RG_BLAST_MASK), adult holding it, its rule on, Masks as Adult off",
+               logic->CanUse(RG_BLAST_MASK), false, "logic credits the adult the Blast Mask without Masks as Adult");
+    ExpectFlag("BP8 BlastOrSmash, adult holding only the Blast Mask, its rule on, Masks as Adult off",
+               logic->BlastOrSmash(), false,
+               "logic credits the adult the Blast Mask's explosion without Masks as Adult");
+    ExpectFlag("BP9 CanUse(RG_STONE_MASK), adult holding it, its rule on, Masks as Adult off",
+               logic->CanUse(RG_STONE_MASK), false, "logic credits the adult the Stone Mask without Masks as Adult");
+    // BP12, BP13: the per-install enhancement and the cheat give gameplay, never logic (cleared at once:
+    // RunMasksAsAdultLegs cleared both before these legs and restores them after).
+    CVarSetInteger(CVAR_ENHANCEMENT("AdultMasks"), 1);
+    const bool bp12Blast = logic->CanUse(RG_BLAST_MASK);
+    const bool bp12Stone = logic->CanUse(RG_STONE_MASK);
+    CVarClear(CVAR_ENHANCEMENT("AdultMasks"));
+    ExpectFlag("BP12 CanUse of both cross-game masks, adult, Masks as Adult off, Masks Equippable as Adult on",
+               bp12Blast || bp12Stone, false, "logic reads the Masks Equippable as Adult enhancement's CVar");
+    CVarSetInteger(CVAR_CHEAT("TimelessEquipment"), 1);
+    const bool bp13Blast = logic->CanUse(RG_BLAST_MASK);
+    const bool bp13Stone = logic->CanUse(RG_STONE_MASK);
+    CVarClear(CVAR_CHEAT("TimelessEquipment"));
+    ExpectFlag("BP13 CanUse of both cross-game masks, adult, Masks as Adult off, Timeless Equipment on",
+               bp13Blast || bp13Stone, false, "logic reads the Timeless Equipment cheat's CVar");
+    // BP10, BP11: the frozen rule stays a condition under the setting.
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    gComboCtx.comboItemRules.crossItemFlags &= ~(RSBS_XITEM_BLAST_MASK_OOT | RSBS_XITEM_STONE_MASK_OOT);
+    ExpectFlag("BP10 CanUse(RG_BLAST_MASK), adult holding it, its rule off, Masks as Adult on",
+               logic->CanUse(RG_BLAST_MASK), false, "Masks as Adult credits the Blast Mask without its rule");
+    ExpectFlag("BP11 CanUse(RG_STONE_MASK), adult holding it, its rule off, Masks as Adult on",
+               logic->CanUse(RG_STONE_MASK), false, "Masks as Adult credits the Stone Mask without its rule");
+    gComboCtx.comboItemRules.crossItemFlags |= RSBS_XITEM_BLAST_MASK_OOT | RSBS_XITEM_STONE_MASK_OOT;
+    // BP14..BP17: the rules that credit them, each mask held alone.
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_OBTAINED_BLAST_MASK, true);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("BP14 CanKillEnemy(RE_BEAMOS), adult holding only the Blast Mask, Masks as Adult off",
+               logic->CanKillEnemy(RE_BEAMOS), false, "the adult's Blast Mask kills a Beamos without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("BP15 CanKillEnemy(RE_BEAMOS), adult holding only the Blast Mask, Masks as Adult on",
+               logic->CanKillEnemy(RE_BEAMOS), true,
+               "the adult's Blast Mask does not kill a Beamos under Masks as Adult (OoTMM's can_kill_beamos)");
+    const uint8_t savedPassGuards = randoCtx->GetTrickOption(RT_PASS_GUARDS_WITH_NOTHING).Get();
+    randoCtx->GetTrickOption(RT_PASS_GUARDS_WITH_NOTHING).Set(0);
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_OBTAINED_STONE_MASK, true);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("BP16 CanPassEnemy(RE_GERUDO_GUARD), adult holding only the Stone Mask, Masks as Adult off",
+               logic->CanPassEnemy(RE_GERUDO_GUARD), false,
+               "the adult's Stone Mask passes a Gerudo guard without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("BP17 CanPassEnemy(RE_GERUDO_GUARD), adult holding only the Stone Mask, Masks as Adult on",
+               logic->CanPassEnemy(RE_GERUDO_GUARD), true,
+               "the adult's Stone Mask does not pass a Gerudo guard under Masks as Adult (OoTMM's evade_gerudo)");
+    randoCtx->GetTrickOption(RT_PASS_GUARDS_WITH_NOTHING).Set(savedPassGuards);
+    // BP4..BP6: the child, both held, Masks as Adult off: unchanged, so BP7..BP9 pin the age, not the rule.
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_OBTAINED_BLAST_MASK, true);
+    logic->SetRandoInf(RAND_INF_OBTAINED_STONE_MASK, true);
     BhlAs(false, RR_THE_LOST_WOODS);
     ExpectFlag("BP4 CanUse(RG_BLAST_MASK), child holding it, its rule on", logic->CanUse(RG_BLAST_MASK), true,
-               "the child can no longer use the Blast Mask, so BP1 proves nothing");
+               "the child can no longer use the Blast Mask, so BP7 proves nothing");
     ExpectFlag("BP5 BlastOrSmash, child holding only the Blast Mask, its rule on", logic->BlastOrSmash(), true,
-               "the child's Blast Mask no longer counts as an explosion, so BP2 proves nothing");
+               "the child's Blast Mask no longer counts as an explosion, so BP8 proves nothing");
     ExpectFlag("BP6 CanUse(RG_STONE_MASK), child holding it, its rule on", logic->CanUse(RG_STONE_MASK), true,
-               "the child can no longer use the Stone Mask, so BP3 proves nothing");
+               "the child can no longer use the Stone Mask, so BP9 proves nothing");
     logic->CurrentRegionKey = RR_NONE;
-    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     gComboCtx.comboItemRules = savedComboItemRules;
     gComboCtx.comboSettings = savedComboSettings;
+
+    // ---- BW1, BW2: the gameplay reader (ForeignMaskOoT.cpp), the setting off ----
+    ExpectFlag("BW1 OoT_ForeignMask_AdultMayWear, enhancement, cheat and seed setting off",
+               OoT_ForeignMask_AdultMayWear() != 0, false,
+               "adult Link may wear the Blast and Stone Masks with nothing on");
+    CVarSetInteger(CVAR_ENHANCEMENT("AdultMasks"), 1);
+    const bool bw2 = OoT_ForeignMask_AdultMayWear() != 0;
+    CVarClear(CVAR_ENHANCEMENT("AdultMasks"));
+    ExpectFlag("BW2 OoT_ForeignMask_AdultMayWear, Masks Equippable as Adult on", bw2, true,
+               "the enhancement does not let adult Link wear the Blast and Stone Masks (OoT_MasksEquippableAsAdult)");
 #endif
 }
 

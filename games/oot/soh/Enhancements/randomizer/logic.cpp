@@ -974,14 +974,17 @@ bool Logic::CanUse(RandomizerGet itemName) {
         case RG_GORON_MASK:
         case RG_ZORA_MASK:
             return IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT); // [RSBS #1647] widened to every wearable mask
-        // [RSBS #1647] the cross-game masks stay child-only under Masks as Adult: an adult cannot wear
-        // them (BlastMaskOoT.cpp / StoneMaskOoT.cpp pin their gItemAgeReqs to the child, the trade slot
-        // is freed only for ITEM_MASK_KEATON..ITEM_MASK_TRUTH, and ForeignMaskOoT.cpp's Use, ApplyRules
-        // and WornDl refuse an adult), so logic does not credit them to one.
+        // [RSBS #1647] the cross-game masks take Masks as Adult too (operator 2026-11-15, "Make them
+        // adult-wearable"): the game frees them for an adult through OoT_MasksEquippableAsAdult
+        // (z_play.c and z_kaleido_item.c via OoT_ForeignMask_ApplyAgeReqs, ForeignMaskOoT.cpp's
+        // AgeMayWear). OoTMM's can_use_mask_blast/stone is age_child_trade && has_mask_*, where
+        // age_child_trade = glitch_equip_swap || is_child || setting(agelessChildTrade)
+        // (data/macros/macros_oot.yml); the seed setting is the counterpart here, never the
+        // enhancement CVar. The frozen rule condition is kept; only the age widens.
         case RG_BLAST_MASK: // [RSBS #979] OoTMM's can_use_mask_blast: age_child_trade && has_mask_blast
-            return IsChild && OoT_BlastMaskOoTOn();
+            return (IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT)) && OoT_BlastMaskOoTOn();
         case RG_STONE_MASK: // [RSBS #979] OoTMM's can_use_mask_stone: age_child_trade && has_mask_stone
-            return IsChild && OoT_StoneMaskOoTOn();
+            return (IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT)) && OoT_StoneMaskOoTOn();
 
         // Songs
         case RG_ZELDAS_LULLABY:
