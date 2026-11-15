@@ -958,8 +958,9 @@ void EntranceTrackerWindow::DrawElement() {
                 continue;
             }
 
-            // RANDOTODO: Only show blue warps if bluewarp shuffle is on
-            if (original->metaTag.ends_with("bw") || override->metaTag.ends_with("bw")) {
+            // Only show blue warps if bluewarp shuffle is on
+            if ((original->metaTag.ends_with("bw") || override->metaTag.ends_with("bw")) &&
+                OTRGlobals::Instance->gRandomizer->GetRandoSettingValue(RSK_DECOUPLED_ENTRANCES) == RO_GENERIC_OFF) {
                 continue;
             }
 
