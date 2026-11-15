@@ -47,13 +47,13 @@
 
 namespace {
 
-struct Language {
+struct NameLanguage {
     const char* name;
     uint8_t id;
     bool pal;
 };
 
-const Language kLanguages[] = {
+const NameLanguage kLanguages[] = {
     { "PAL", NAME_LANGUAGE_PAL, true },
     { "NTSC JPN", NAME_LANGUAGE_NTSC_JPN, false },
     { "NTSC ENG", NAME_LANGUAGE_NTSC_ENG, false },
@@ -91,7 +91,7 @@ extern "C" int OoTTest_SaveEditorNameEncoding(void) {
            "name across a language change (SoH #7383)\n");
 
     // Leg 1: character -> code -> character.
-    for (const Language& lang : kLanguages) {
+    for (const NameLanguage& lang : kLanguages) {
         for (const char* p = kCovered; *p != '\0'; p++) {
             const char c = *p;
             const int code = encodePlayerNameChar(c, lang.id);
@@ -106,7 +106,7 @@ extern "C" int OoTTest_SaveEditorNameEncoding(void) {
 
     // Leg 2: code -> character -> code, for every code a table maps to ASCII.
     int codes = 0;
-    for (const Language& lang : kLanguages) {
+    for (const NameLanguage& lang : kLanguages) {
         for (int code = 0; code < 256; code++) {
             char c = '\0';
             for (const char* p = kCovered; *p != '\0'; p++) {
@@ -130,7 +130,7 @@ extern "C" int OoTTest_SaveEditorNameEncoding(void) {
 
     // Leg 3: kana show as a space; an uncovered character stores as the language's space.
     for (int code = 10; code <= 170; code++) {
-        for (const Language& lang : kLanguages) {
+        for (const NameLanguage& lang : kLanguages) {
             if (lang.pal) {
                 continue;
             }
@@ -139,7 +139,7 @@ extern "C" int OoTTest_SaveEditorNameEncoding(void) {
         }
     }
     const char uncovered[] = { '?', '_', '!', '\0', '~' };
-    for (const Language& lang : kLanguages) {
+    for (const NameLanguage& lang : kLanguages) {
         for (char c : uncovered) {
             const int code = encodePlayerNameChar(c, lang.id);
             OSEN_ASSERT(code == ExpectedCode(' ', lang.pal), "%s: uncovered character %d encoded to %d, expected %d",
@@ -152,8 +152,8 @@ extern "C" int OoTTest_SaveEditorNameEncoding(void) {
     // them hold every covered character (the last one padded with spaces).
     const int coveredCount = (int)(sizeof(kCovered) - 1);
     int names = 0;
-    for (const Language& from : kLanguages) {
-        for (const Language& to : kLanguages) {
+    for (const NameLanguage& from : kLanguages) {
+        for (const NameLanguage& to : kLanguages) {
             for (int start = 0; start < coveredCount; start += 8) {
                 char text[8];
                 uint8_t name[8];
