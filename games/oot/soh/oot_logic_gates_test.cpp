@@ -165,6 +165,19 @@
  *     the launch-platform silver rupee) without RT_HOVER_BOOST_SIMPLE, and must
  *     with it.
  *
+ * SoH eca767dcb's Bunny Hood Effect seed setting (RSK_BUNNY_HOOD) and SoH
+ * e7f1801f0's Lost Woods bridge jump (#7488):
+ *  BH. The one reader of the hood's effect in Hyrule (OoT_BunnyHoodEffectMode)
+ *     forces Faster + Longer Jump only in a randomizer file whose seed has the
+ *     setting on (not in a vanilla file while the rando context holds it on, not
+ *     with it off), over a weaker enhancement, without writing the enhancement's
+ *     CVar; its decision keeps the shared Bunny Hood rule's raise to Faster Run
+ *     with the setting off (#969). Logic::BunnyHood is false with the setting off
+ *     even for a child holding the hood, true with it on, and false for an adult.
+ *  LW. RR_THE_LOST_WOODS -> RR_LW_BRIDGE: a child with the hood and a sword must
+ *     NOT jump to the bridge with the setting off and must with it on; with the
+ *     hood alone (no jumpslash) must NOT; an adult with the hood must NOT.
+ *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
  * A0 and B0 are the exception in form: they hold everything but the event, and
@@ -183,6 +196,8 @@
 #include <libultraship/bridge.h>
 
 #include "soh/OTRGlobals.h"
+#include "soh/cvar_prefixes.h"
+#include "soh/Enhancements/enhancementTypes.h" // BunnyHoodMode, OoT_BunnyHoodEffectMode (BH legs)
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/static_data.h"
 #include "soh/Enhancements/randomizer/location_access.h"
@@ -1213,6 +1228,125 @@ void RunSohLogicBatchLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
 }
 
+// ---- SoH eca767dcb (Bunny Hood Effect) and e7f1801f0 (#7488): BH and LW -----
+void ExpectMode(const char* leg, int got, int expected, const char* why) {
+    if (got != expected) {
+        GateFail("%s: %s (expected mode %d, got %d)", leg, why, expected, got);
+        return;
+    }
+    printf("[TEST]   ok: %s: mode %d\n", leg, got);
+}
+
+void ExpectFlag(const char* leg, bool got, bool expected, const char* why) {
+    if (got != expected) {
+        GateFail("%s: %s (expected %s, got %s)", leg, why, expected ? "true" : "false", got ? "true" : "false");
+        return;
+    }
+    printf("[TEST]   ok: %s: %s\n", leg, got ? "true" : "false");
+}
+
+/** ResetLogic, holding the Bunny Hood (Mask Quest Shuffle's ownership flag). */
+void ResetLogicWithBunnyHood() {
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+}
+
+void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const char* const kEffectKey = CVAR_ENHANCEMENT("MMBunnyHood");
+    const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const uint8_t savedLwBridge = randoCtx->GetTrickOption(RT_LW_BRIDGE).Get();
+    const u8 savedQuest = gSaveContext.ship.quest.id;
+    const bool effectExisted = CVarExists(kEffectKey);
+    const int effectValue = CVarGetInteger(kEffectKey, BUNNY_HOOD_VANILLA);
+    CVarClear(kEffectKey);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetTrickOption(RT_LW_BRIDGE).Set(0);
+
+    // ---- BH1..BH4: the one reader (GameExports_SingleExe.cpp) -----------------
+    // The shared Bunny Hood rule is whatever this process froze (nothing), so the
+    // "off" legs ask only that the seed setting does not force the longer jump.
+    gSaveContext.ship.quest.id = QUEST_NORMAL;
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectFlag("BH1 reader, vanilla file while the rando context holds Bunny Hood Effect on",
+               OoT_BunnyHoodEffectMode() == BUNNY_HOOD_FAST_AND_JUMP, false,
+               "a vanilla file reads a randomizer seed's Bunny Hood Effect");
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectFlag("BH2 reader, randomizer file with Bunny Hood Effect off",
+               OoT_BunnyHoodEffectMode() == BUNNY_HOOD_FAST_AND_JUMP, false,
+               "the longer jump is forced with the seed setting off");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectMode("BH3 reader, randomizer file with Bunny Hood Effect on, enhancement unset", OoT_BunnyHoodEffectMode(),
+               BUNNY_HOOD_FAST_AND_JUMP, "the seed's Bunny Hood Effect does not force Faster + Longer Jump");
+    ExpectFlag("BH3 the enhancement's CVar after the reads", CVarExists(kEffectKey), false,
+               "the reader stored the forced effect into the player's enhancement");
+    CVarSetInteger(kEffectKey, BUNNY_HOOD_FAST);
+    ExpectMode("BH4 reader, randomizer file with Bunny Hood Effect on, enhancement Faster Run",
+               OoT_BunnyHoodEffectMode(), BUNNY_HOOD_FAST_AND_JUMP,
+               "the player's weaker enhancement wins over the seed setting the logic relies on");
+    CVarClear(kEffectKey);
+
+    // ---- BH5..BH8: the reader's decision on its inputs ---------------------------
+    ExpectMode("BH5 decision, enhancement vanilla, seed setting off, shared rule on",
+               OoT_BunnyHoodEffectModeFor(BUNNY_HOOD_VANILLA, 0, 1), BUNNY_HOOD_FAST,
+               "the shared Bunny Hood rule no longer raises the hood to Faster Run (#969)");
+    ExpectMode("BH6 decision, enhancement Faster + Longer Jump, seed setting off, shared rule on",
+               OoT_BunnyHoodEffectModeFor(BUNNY_HOOD_FAST_AND_JUMP, 0, 1), BUNNY_HOOD_FAST_AND_JUMP,
+               "the player's stronger enhancement does not stand under the shared rule");
+    ExpectMode("BH7 decision, enhancement vanilla, seed setting off, shared rule off",
+               OoT_BunnyHoodEffectModeFor(BUNNY_HOOD_VANILLA, 0, 0), BUNNY_HOOD_VANILLA,
+               "the hood is boosted with nothing asking for it");
+    ExpectMode("BH8 decision, enhancement vanilla, seed setting on, shared rule off",
+               OoT_BunnyHoodEffectModeFor(BUNNY_HOOD_VANILLA, 1, 0), BUNNY_HOOD_FAST_AND_JUMP,
+               "the seed setting does not force Faster + Longer Jump");
+    gSaveContext.ship.quest.id = savedQuest;
+
+    // ---- BH9..BH11: Logic::BunnyHood, the setting AND CanUse(RG_BUNNY_HOOD) -------
+    ResetLogicWithBunnyHood();
+    logic->IsChild = true;
+    logic->IsAdult = false;
+    logic->CurrentRegionKey = RR_THE_LOST_WOODS;
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectFlag("BH9 Logic::BunnyHood, child holding the hood, Bunny Hood Effect off", logic->BunnyHood(), false,
+               "logic credits the hood's jump in a seed without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectFlag("BH10 Logic::BunnyHood, child holding the hood, Bunny Hood Effect on", logic->BunnyHood(), true,
+               "logic does not credit the hood's jump under Bunny Hood Effect");
+    logic->IsChild = false;
+    logic->IsAdult = true;
+    ExpectFlag("BH11 Logic::BunnyHood, adult holding the hood, Bunny Hood Effect on", logic->BunnyHood(), false,
+               "logic credits the hood to an adult, who cannot wear it");
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- LW1..LW4: the Lost Woods bridge jump (lost_woods.cpp, SoH e7f1801f0) -----
+    ResetLogicWithBunnyHood();
+    GiveKokiriSword();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectExit("LW1 Lost Woods to the bridge, child with the hood and a sword, Bunny Hood Effect off",
+               RR_THE_LOST_WOODS, RR_LW_BRIDGE, false, false,
+               "the bridge jump is in logic in a seed without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("LW2 Lost Woods to the bridge, child with the hood and a sword, Bunny Hood Effect on", RR_THE_LOST_WOODS,
+               RR_LW_BRIDGE, false, true,
+               "the child's bunny jump and jumpslash to the bridge is not in logic (SoH e7f1801f0)");
+    ResetLogicWithBunnyHood();
+    ExpectExit("LW3 Lost Woods to the bridge, child with the hood but no jumpslash, Bunny Hood Effect on",
+               RR_THE_LOST_WOODS, RR_LW_BRIDGE, false, false,
+               "the child reaches the bridge with the hood alone: the jump needs the jumpslash (SoH #7488)");
+    ExpectExit("LW4 Lost Woods to the bridge, adult with the hood and nothing else, Bunny Hood Effect on",
+               RR_THE_LOST_WOODS, RR_LW_BRIDGE, true, false,
+               "the adult reaches the bridge through the hood, which only the child can wear");
+
+    CVarClear(kEffectKey);
+    if (effectExisted) {
+        CVarSetInteger(kEffectKey, effectValue);
+    }
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunnyHood);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetTrickOption(RT_LW_BRIDGE).Set(savedLwBridge);
+}
+
 // ---- #1404: LOGIC_TALON/MALON_RETURNED_FROM_CASTLE, the events A and B read --
 // Each leg fires one region's own events (FireEvents) and reads the event; a
 // "not set" leg holds everything its line asks but the one term it locks.
@@ -1509,6 +1643,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunHealthLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
+    // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
+    RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
     randoCtx->GetOption(RSK_LOGIC_RULES).Set(savedLogicRules);
     randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(savedShuffleSpeak);

@@ -7844,6 +7844,10 @@ typedef enum {
     // [RSBS #1409] Rock and Boulder Shuffles (appended after #1408's RSK_SHUFFLE_RED_ICE = 282)
     RSK_SHUFFLE_ROCKS,
     RSK_SHUFFLE_BOULDERS,
+    // [RSBS] SoH eca767dcb's Bunny Hood Effect (upstream sits it after RSK_SUNLIGHT_ARROWS),
+    // appended after #1409's RSK_SHUFFLE_BOULDERS (284): a world saved before it reads the
+    // missing entry as 0, Off.
+    RSK_BUNNY_HOOD,
     RSK_MAX
 } RandomizerSettingKey;
 

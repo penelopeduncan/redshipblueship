@@ -164,6 +164,10 @@
   Epona can cut the Lake Hylia grass. With Shuffle Rocks on, the rocks across the Gerudo Valley bridge need something
   that breaks or lifts them. In Master Quest Ganon's Castle, the Fire Trial's last room leads back to the barred-door
   side of the lava. Worlds made with the defaults do not change.
+- **Bunny Hood Effect seed setting from Ship of Harkinian** (SoH #7032, #7488). A new Ocarina of Time randomizer
+  option under Logic, off by default. With it on, the Bunny Hood makes Link run 1.5x faster and jump 1.5x further in
+  that file, whatever the Bunny Hood Effect enhancement says, and logic may expect child Link to jump to the Lost Woods
+  bridge with the hood and a sword. Worlds made with the defaults do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.

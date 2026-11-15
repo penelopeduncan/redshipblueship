@@ -35,6 +35,11 @@ typedef enum {
 extern "C" {
 #endif
 int OoT_BunnyHoodEffectMode(void);
+// The reader's decision on its inputs (the enhancement's value, the loaded randomizer
+// file's Bunny Hood Effect seed setting, the frozen shared Bunny Hood rule), and the
+// second of those as the reader reads it (SoH eca767dcb).
+int OoT_BunnyHoodEffectModeFor(int own, int seedSettingOn, int sharedRuleOn);
+int OoT_BunnyHoodSeedSettingOn(void);
 #ifdef __cplusplus
 }
 #endif

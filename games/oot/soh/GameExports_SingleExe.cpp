@@ -234,7 +234,10 @@ static_assert(RHT_KF_ROCK == 1578 && RHT_SPIRIT_TEMPLE_BOULDER == 1618 && RHT_MA
               "OoT's rock and boulder hint texts (#1409) are 1578..1618 (RHT_MAX == 1619), after #1408's");
 static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_RED_ICE + 1 && RSK_SHUFFLE_ROCKS == 283 && RSK_SHUFFLE_BOULDERS == 284,
               "OoT's Shuffle Rocks and Boulders keys (#1409) are 283 and 284, after #1408's");
-static_assert(RSK_MAX == 285, "OoT's RSK_MAX (#1409) is 285 after Shuffle Rocks and Boulders");
+// SoH eca767dcb's Bunny Hood Effect seed setting, appended after #1409's keys.
+static_assert(RSK_BUNNY_HOOD == RSK_SHUFFLE_BOULDERS + 1 && RSK_BUNNY_HOOD == 285,
+              "OoT's Bunny Hood Effect key (SoH eca767dcb) is 285, after #1409's Shuffle Boulders");
+static_assert(RSK_MAX == 286, "OoT's RSK_MAX is 286 after the Bunny Hood Effect key (SoH eca767dcb)");
 static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
               "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
@@ -5795,14 +5798,36 @@ const OoTSharedFamilyRegistrar gOoTSharedFamilyRegistrar;
 // behaves as that enhancement does when on, whatever its own setting: at least
 // "Faster Run", Majora's Mask's speed boost; a stronger setting of the player's
 // own ("Faster + Longer Jump") stands. Read, never stored: the enhancement's
-// CVar keeps the player's value. OoT's logic gains no edge from it, as SoH's
-// own enhancement never did.
-extern "C" int OoT_BunnyHoodEffectMode(void) {
-    const int own = CVarGetInteger(CVAR_ENHANCEMENT("MMBunnyHood"), BUNNY_HOOD_VANILLA);
-    if (own == BUNNY_HOOD_VANILLA && Combo_ComboCrossItemRule(RSBS_XITEM_SHARED_BUNNY)) {
+// CVar keeps the player's value. OoT's logic gains no edge from the rule, as
+// SoH's own enhancement never did.
+//
+// SoH eca767dcb (Ship_GetBunnyHoodMode, BunnyHood.cpp upstream): the loaded
+// randomizer file's own "Bunny Hood Effect" seed setting (RSK_BUNNY_HOOD) forces
+// "Faster + Longer Jump" whatever the enhancement and the rule say, because the
+// file's logic may require the longer jump (Logic::BunnyHood). The setting is
+// one of the world's options, frozen with the file (the save's randoSettings
+// array, SaveManager.cpp), and only a randomizer file reads it: a vanilla file
+// never does, whatever the rando context still holds.
+extern "C" int OoT_BunnyHoodEffectModeFor(int own, int seedSettingOn, int sharedRuleOn) {
+    if (seedSettingOn) {
+        return BUNNY_HOOD_FAST_AND_JUMP;
+    }
+    if (own == BUNNY_HOOD_VANILLA && sharedRuleOn) {
         return BUNNY_HOOD_FAST;
     }
     return own;
+}
+
+// 1 while the loaded file is a randomizer file whose seed has Bunny Hood Effect on.
+extern "C" int OoT_BunnyHoodSeedSettingOn(void) {
+    const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
+    return (IS_RANDO && ctx != nullptr && ctx->GetOption(RSK_BUNNY_HOOD).Is(RO_GENERIC_ON)) ? 1 : 0;
+}
+
+extern "C" int OoT_BunnyHoodEffectMode(void) {
+    return OoT_BunnyHoodEffectModeFor(CVarGetInteger(CVAR_ENHANCEMENT("MMBunnyHood"), BUNNY_HOOD_VANILLA),
+                                      OoT_BunnyHoodSeedSettingOn(),
+                                      Combo_ComboCrossItemRule(RSBS_XITEM_SHARED_BUNNY) ? 1 : 0);
 }
 
 // OoT's hookshot ceiling: 0 none, 1 hookshot, 2 longshot.
