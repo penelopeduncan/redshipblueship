@@ -4310,6 +4310,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # visibly, and the arrival gate agrees with a file that loaded. Loads through
     # the OnLoadFile seam's own calls. games/mm/2s2h/mm_paired_load_restore_test.cpp.
     redship_add_test(NAME PairedLoadRestore COMMAND redship --test paired-load-restore)
+    # #1602 (#1600 step 2): what OoT does because a check gave its item runs when
+    # that check hosts a Majora's Mask item too. From source, every check the
+    # receive path tests is in one literal and lives in RandomizerOnCheckReceived;
+    # the Silver Gauntlets chest's show-only release marks Nabooru captured (story
+    # skipped) or arms the Colossus transition (story shown), once. Display-free and
+    # ROM-free. src/common/tests/test_oot_check_receive_effects.c and
+    # games/oot/soh/oot_check_receive_effects_test.cpp.
+    redship_add_test(NAME OoTCheckReceiveEffects COMMAND redship --test oot-check-receive-effects)
     # #836: a refused paired file is never opened. The SoH SaveManager's file
     # select gate (OnFileChooseMain) keeps A/START on the file list for a file the
     # open path would refuse, writing nothing; its backstop (OnLoadGame) returns a

@@ -1298,6 +1298,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // and the real three-day reset (mm-song-host-guard). Both ROM-free and
 // generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_song_check_tables.c"
+// #1602 (#1600 step 2): OoT's check-keyed receive effects run for a check hosting
+// a Majora's Mask item too; the literal list of every check the receive path
+// tests, from source, and the behaviour legs in
+// games/oot/soh/oot_check_receive_effects_test.cpp (oot-check-receive-effects,
+// ROM-free). FILE SCOPE (compiled as C++).
+#include "tests/test_oot_check_receive_effects.c"
 // #1542 (S3): the shared song-location pool over real paired generations: every
 // song of either game on a song check of either game, leftovers junked, Healing a
 // host, and nothing of it under Anywhere (song-pool-union-world,
@@ -9815,6 +9821,17 @@ TestResult Test_PairingRefusalToastFit(void) {
 // Needs the shared bring-up: the rules and the MM profile are CVars.
 extern "C" int MM_PairedLoadRestore_RunHeadless(void);
 
+// #1602: the display-free shared bring-up, because the row sets aside and puts
+// back SoH's Skip Story Cutscenes key.
+static TestResult Test_OoTCheckReceiveEffects(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoTCheckReceiveEffects_Run();
+}
+
 // games/oot/soh/oot_file_select_refusal_test.cpp (#836): the file select's gate
 // and the backstop, through the hooks a fresh SoH SaveManager registers.
 extern "C" int OoT_FileSelectRefusal_RunHeadless(void);
@@ -11792,6 +11809,10 @@ const TestDescriptor gTests[] = {
       "own values, names them in a toast, and never plays the file unpaired; what the file cannot restore is "
       "refused or flagged visibly (#781)",
       Test_PairedLoadRestore },
+    { "oot-check-receive-effects",
+      "What OoT does because a check gave its item (the Silver Gauntlets chest marking Nabooru captured) runs when "
+      "that check hosts a Majora's Mask item too, once, and every such check is named in one literal (#1602)",
+      Test_OoTCheckReceiveEffects },
     { "oot-file-select-refusal",
       "A file the open path would refuse is not opened at the OoT file select (A/START consumed, one toast, nothing "
       "written), and a load refused after the gate returns to the file select instead of Play (#836)",

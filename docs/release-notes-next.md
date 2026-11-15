@@ -197,6 +197,9 @@
 
 ### Fixes
 
+- **A Majora's Mask item in the Spirit Temple's Silver Gauntlets chest now moves Nabooru's story on** (issue #1602).
+  Opening that chest marks Nabooru as captured by Twinrova (with story cutscenes skipped, the default) or takes you to
+  the Desert Colossus cutscene, whichever item the chest holds. Before, only an Ocarina of Time item there did.
 - **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
   own than it has checks, as a hunt with too many pieces does, Generate now fails with a toast that names the game,
   for example "Not generated: too many Majora's Mask pieces.", instead of "try a new seed or other options." The

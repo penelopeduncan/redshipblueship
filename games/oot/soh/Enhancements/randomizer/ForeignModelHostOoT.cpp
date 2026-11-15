@@ -561,6 +561,10 @@ extern "C" int OoT_Rando_Foreign_TakeShowOnlyGetItem(const GetItemEntry* entry) 
     return 1;
 }
 
+extern "C" int OoT_Rando_Foreign_IsShowOnlyGetItem(const GetItemEntry* entry) {
+    return IsShowOnlyEntry(entry) ? 1 : 0;
+}
+
 extern "C" int OoT_Rando_Foreign_ShowOnlyItemText(const GetItemEntry* entry, const char** article, const char** name) {
     if (!IsShowOnlyEntry(entry)) {
         return 0;
