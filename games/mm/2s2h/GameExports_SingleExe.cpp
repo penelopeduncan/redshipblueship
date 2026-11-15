@@ -5312,17 +5312,18 @@ extern "C" void MM_GameHooks_ExecuteOnBossDefeated(s16 actorId) {
  *    dispatch since #392, a different hook entirely. UpdateFreeLookState, the
  *    actual OnCameraChangeModeFlags registrant, reads camera->mode and one file
  *    static and nothing else.
- *  - OnPlayDrawWorldEnd has no compiled registrant in any single-exe build,
- *    rather than an elided one. Both candidates are excluded outright:
- *    2s2h/NameTag/*.cpp by the "NameTag (in its own directory)" filter in
- *    games/mm/CMakeLists.txt, and 2s2h/DeveloperTools/*.cpp (CollisionViewer)
- *    by the developer-tools filter. Both also register through the upstream
- *    GameInteractor::Instance members rather than S2H::GameHooks, so
- *    un-excluding either needs that migration before this bridge could see it
- *    -- games/mm/include/mm_gi_hook_guard.h says so at compile time. It is
- *    wired anyway, because the call site (games/mm/src/code/z_play.c) is live:
- *    a real dispatcher makes the next registrant work, where the stub made it
- *    silently dead.
+ *  - OnPlayDrawWorldEnd had no compiled registrant in any single-exe build
+ *    when this tranche landed, rather than an elided one. Its one compiled
+ *    registrant now is 2s2h/DeveloperTools/CollisionViewer.cpp, linked for
+ *    SoH's Collision Viewer window (#1238 slice 2), which registers through
+ *    S2H::GameHooks::Register (upstream's GameInteractor::Instance call stays
+ *    under #else). 2s2h/NameTag/*.cpp stays excluded by the "NameTag (in its
+ *    own directory)" filter in games/mm/CMakeLists.txt and still registers
+ *    through GameInteractor::Instance, so un-excluding it needs that migration
+ *    first -- games/mm/include/mm_gi_hook_guard.h says so at compile time. The
+ *    hook was wired before it had a registrant because the call site
+ *    (games/mm/src/code/z_play.c) is live: a real dispatcher makes the next
+ *    registrant work, where the stub made it silently dead.
  *
  * AfterCameraUpdate, and why its unconditional gate is ACCEPTED rather than
  * CVar-gated first. Enhancements/Camera/CameraInterpolationFixes.cpp is the one
