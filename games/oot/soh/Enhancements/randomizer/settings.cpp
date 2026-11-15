@@ -1735,7 +1735,8 @@ void Settings::CreateOptions() {
     OPT_TRICK(
         RT_GY_CHILD_DAMPE_RACE_POH, RCQUEST_BOTH, RA_THE_GRAVEYARD, { Tricks::Tag::NOVICE },
         "Second Dampe Race as Child",
-        "It is possible to complete the second dampe race as child in under a minute, but it is a strict time limit.");
+        "It is possible to complete the second dampe race as child in under a minute, but it is a strict time limit. "
+        "This is in default logic with Bunny Hood");
     OPT_TRICK(RT_GY_SHADOW_FIRE_ARROWS, RCQUEST_BOTH, RA_THE_GRAVEYARD, { Tricks::Tag::EXPERT },
               "Shadow Temple Entry with Fire Arrows",
               "It is possible to light all of the torches to open the Shadow Temple entrance with just Fire Arrows, "
@@ -1752,7 +1753,7 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_DMT_BOMBABLE, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::INTERMEDIATE },
               "Death Mountain Trail Chest with Strength",
               "Child Link can blow up the wall using a nearby bomb flower. You must backwalk with the flower and then "
-              "quickly throw it toward the wall.");
+              "quickly throw it toward the wall. This is not a trick if you have Bunny Hood.");
     OPT_TRICK(RT_DMT_HOVERS_LOWER_GS, RCQUEST_BOTH, RA_DEATH_MOUNTAIN_TRAIL, { Tricks::Tag::ADVANCED },
               "Death Mountain Trail Lower Red Rock GS with Hover Boots",
               "After killing the Skulltula, the token can be collected without needing to destroy the rock by "
@@ -1882,10 +1883,11 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_GF_LEDGE_CLIP_INTO_GTG, RCQUEST_BOTH, RA_GERUDO_FORTRESS, { Tricks::Tag::NOVICE, Tricks::Tag::GLITCH },
               "Ledge Clip into Training Ground",
               "Adult Link can use a ledge clip to enter Gerudo Training Ground without Gerudo Card.");
-    // disabled for now, can't check for being able to use bunny hood & bunny hood speedup is currently completely
-    // decoupled from rando OPT_TRICK(RT_HW_BUNNY_CROSSING, RCQUEST_BOTH, RA_HAUNTED_WASTELAND, {Tricks::Tag::NOVICE},
-    // "Wasteland Crossing with Bunny Hood", "You can beat the quicksand by using the increased speed of the Bunny Hood.
-    // Note that jumping to the carpet merchant as child typically requires a fairly precise jump slash.");
+    // only does anything with the Bunny Hood Effect setting on
+    OPT_TRICK(RT_HW_BUNNY_CROSSING, RCQUEST_BOTH, RA_HAUNTED_WASTELAND, { Tricks::Tag::NOVICE },
+              "Wasteland Crossing with Bunny Hood",
+              "You can beat the quicksand by using the increased speed of the Bunny Hood. Note that jumping to the "
+              "carpet merchant as child typically requires a fairly precise jumpslash.");
     OPT_TRICK(RT_HW_CROSSING, RCQUEST_BOTH, RA_HAUNTED_WASTELAND, { Tricks::Tag::INTERMEDIATE },
               "Wasteland Crossing without Hover Boots or Longshot",
               "You can beat the quicksand by backwalking across it in a specific way. Note that jumping to the carpet "
@@ -2149,6 +2151,11 @@ void Settings::CreateOptions() {
               "Fire Temple MQ Above Flame Wall Maze GS from Below with Longshot",
               "The floor of the room that contains this Skulltula is only solid from above. From the maze below, the "
               "Longshot can be shot through the ceiling to obtain the token with two fewer small keys than normal.");
+    OPT_TRICK(RT_WATER_HIGH_EMBLEM_JUMP, RCQUEST_BOTH, RA_WATER_TEMPLE, { Tricks::Tag::NOVICE },
+              "Water Temple Jump to High Emblem with Nothing",
+              "Adult can jump directly to the Emblem that sets the water level to high from the pillar with nothing "
+              "by aiming for the middle of the ledge. Child with the help of Bunny Hood can do the same, but even "
+              "easier.");
     OPT_TRICK(RT_WATER_LONGSHOT_TORCH, RCQUEST_VANILLA, RA_WATER_TEMPLE, { Tricks::Tag::NOVICE },
               "Water Temple Torch Longshot",
               "Stand on the eastern side of the central pillar and longshot the torches on the bottom level. Swim "

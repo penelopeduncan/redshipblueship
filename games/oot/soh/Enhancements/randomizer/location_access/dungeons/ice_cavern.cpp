@@ -146,8 +146,8 @@ void RegionTable_Init_IceCavern() {
         LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_2, logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_ICE_CAVERN_SLIDING_BLOCK_RUPEE_3, logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_ICE_CAVERN_LOWER_BLOCK_SILVER,    true),
-        LOCATION(RC_ICE_CAVERN_NEAR_BLOCK_SILVER,     logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)),
-        LOCATION(RC_ICE_CAVERN_NEAR_GS_BLOCK_SILVER,  logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)),
+        LOCATION(RC_ICE_CAVERN_NEAR_BLOCK_SILVER,     logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()),
+        LOCATION(RC_ICE_CAVERN_NEAR_GS_BLOCK_SILVER,  logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()),
         LOCATION(RC_ICE_CAVERN_PUSH_BLOCK_HALL_LEFT_STALAGMITE,         logic->CanClearStalagmite()),
         LOCATION(RC_ICE_CAVERN_PUSH_BLOCK_HALL_CENTER_LEFT_STALAGMITE,  logic->CanClearStalagmite()),
         LOCATION(RC_ICE_CAVERN_PUSH_BLOCK_HALL_CENTER_STALAGMITE,       logic->CanClearStalagmite()),
@@ -167,7 +167,7 @@ void RegionTable_Init_IceCavern() {
     areaTable[RR_ICE_CAVERN_BLOCK_ROOM_NOOKS] = Region("Ice Cavern Block Room Nooks", SCENE_ICE_CAVERN, {
         //Events
         EventAccess(LOGIC_BLUE_FIRE_ACCESS,        []{return true;}),
-        EventAccess(LOGIC_ICE_CAVERN_SILVER_BLOCK, []{return (logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS)) &&
+        EventAccess(LOGIC_ICE_CAVERN_SILVER_BLOCK, []{return (logic->IsAdult || logic->HasItem(RG_POWER_BRACELET) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) &&
                                                              (logic->BlueFire() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanJumpslash()));}),
     }, {
         //Locations

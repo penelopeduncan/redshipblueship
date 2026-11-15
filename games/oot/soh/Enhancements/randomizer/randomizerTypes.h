@@ -5367,6 +5367,7 @@ typedef enum {
     RT_DMT_SHIELDLESS_CLIMB,
     RT_GTG_STATUE_JUMP,
     RT_BOMB_DETONATION,
+    RT_WATER_HIGH_EMBLEM_JUMP,
     RT_MAX
 } RandomizerTrick;
 
@@ -8536,3 +8537,19 @@ typedef enum {
     /* 0x20 */ GROTTO_LW_DEKU_THEATRE_OFFSET,
     /* 0x21 */ GROTTO_OFFSET_MAX,
 } GrottoEntranceOffsets;
+
+typedef enum {
+    /* 0x00 */ RECOIL_SWORD,
+    /* 0x01 */ RECOIL_SWORD_AND_SHIELD,
+    /* 0x02 */ RECOIL_HAMMER,
+    /* 0x03 */ RECOIL_HAMMER_AND_SHIELD,
+    /* 0x04 */ RECOIL_MAX,
+} RecoilRequirements;
+
+typedef enum {
+    /* 0x00 */ TRECOIL_SHORT,
+    /* 0x01 */ TRECOIL_MASTER,
+    /* 0x02 */ TRECOIL_LONG,
+    /* 0x03 */ TRECOIL_LONG_AND_SHIELD,
+    /* 0x04 */ TRECOIL_MAX,
+} TorchRecoilRequirements;

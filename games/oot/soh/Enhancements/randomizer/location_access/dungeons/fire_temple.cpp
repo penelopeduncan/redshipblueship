@@ -42,13 +42,13 @@ void RegionTable_Init_FireTemple() {
         //Exits
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_ROOM,   []{return logic->FireTimer() >= 8;}),
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_TARGET, []{return logic->FireTimer() >= 8 && logic->CanUse(RG_LONGSHOT);}),
-        Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_DOOR,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_DOOR,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->BunnyHood() || logic->CanUse(RG_HOVER_BOOTS));}),
     });
 
     areaTable[RR_FIRE_TEMPLE_NEAR_BOSS_DOOR] = Region("Fire Temple Near Boss Door", SCENE_FIRE_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_ROOM,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS));}),
-        Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_PILLAR, []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_PILLAR, []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood());}),
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_TARGET, []{return logic->FireTimer() >= 8 && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_HOOKSHOT));}),
         Entrance(RR_FIRE_TEMPLE_BOSS_ENTRYWAY,    []{return true;}),
     });
@@ -364,7 +364,7 @@ void RegionTable_Init_FireTemple() {
     areaTable[RR_FIRE_TEMPLE_SOT_CAGE_UPPER_DOOR] = Region("Fire Temple Sot Cage Upper Door", SCENE_FIRE_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_BOSS_ENTRYWAY,       []{return false;}),
-        Entrance(RR_FIRE_TEMPLE_SOT_CAGE_SWITCH,     []{return logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME);}),
+        Entrance(RR_FIRE_TEMPLE_SOT_CAGE_SWITCH,     []{return logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->BunnyHood();}),
         Entrance(RR_FIRE_TEMPLE_FIRE_MAZE_PLATFORMS, []{return true;}),
         Entrance(RR_FIRE_TEMPLE_SOT_CAGE_LOWER,      []{return true;}),
     });
@@ -375,7 +375,7 @@ void RegionTable_Init_FireTemple() {
     }, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_BOSS_ENTRYWAY,       []{return false;}),
-        Entrance(RR_FIRE_TEMPLE_SOT_CAGE_UPPER_DOOR, []{return logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME);}),
+        Entrance(RR_FIRE_TEMPLE_SOT_CAGE_UPPER_DOOR, []{return logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->BunnyHood();}),
         Entrance(RR_FIRE_TEMPLE_SOT_CAGE_LOWER,      []{return true;}),
     });
 
@@ -574,13 +574,13 @@ void RegionTable_Init_FireTemple() {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM,   []{return logic->FireTimer() >= 8;}),
         Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_TARGET, []{return logic->FireTimer() >= 8 && logic->CanUse(RG_LONGSHOT);}),
-        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->BunnyHood() || logic->CanUse(RG_HOVER_BOOTS));}),
     });
 
     areaTable[RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR] = Region("Fire Temple MQ Near Boss Door", SCENE_FIRE_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM,   []{return logic->FireTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS));}),
-        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_PILLAR, []{return logic->FireTimer() >= 8 && logic->Get(LOGIC_FIRE_HIT_PLATFORM) && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_PILLAR, []{return logic->FireTimer() >= 8 && logic->Get(LOGIC_FIRE_HIT_PLATFORM) && (logic->IsAdult || logic->BunnyHood() || logic->CanUse(RG_HOVER_BOOTS));}),
         Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_TARGET, []{return logic->FireTimer() >= 8 && logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_FIRE_TEMPLE_BOSS_ENTRYWAY,       []{return true;}),
     });
@@ -602,7 +602,7 @@ void RegionTable_Init_FireTemple() {
     }, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM,       []{return logic->IsAdult && logic->TakeDamage();}),
-        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM_UPPER, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS);}),
+        Entrance(RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM_UPPER, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS);}),
     });
 
     //This region assumes tunic logic is handled on entry.
@@ -784,7 +784,7 @@ void RegionTable_Init_FireTemple() {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_LOWER_LIZALFOS_MAZE, []{return true;}),
         //it's possible to make the RT_FIRE_MQ_MAZE_HOVERS as child using bunny hood jumps, but not adult as adult bonks
-        Entrance(RR_FIRE_TEMPLE_MQ_UPPER_LIZALFOS_MAZE, []{return logic->IsAdult && ((ctx->GetTrickOption(RT_FIRE_MQ_MAZE_HOVERS) && logic->CanUse(RG_HOVER_BOOTS)) || ctx->GetTrickOption(RT_FIRE_MQ_MAZE_JUMP));}),
+        Entrance(RR_FIRE_TEMPLE_MQ_UPPER_LIZALFOS_MAZE, []{return (logic->IsAdult && ((ctx->GetTrickOption(RT_FIRE_MQ_MAZE_HOVERS) && logic->CanUse(RG_HOVER_BOOTS)) || ctx->GetTrickOption(RT_FIRE_MQ_MAZE_JUMP))) || (logic->IsChild && ctx->GetTrickOption(RT_FIRE_MQ_MAZE_JUMP) && logic->BunnyHood());}),
     });
 
     areaTable[RR_FIRE_TEMPLE_MQ_UPPER_LIZALFOS_MAZE] = Region("Fire Temple MQ Upper Lizalfos Maze", SCENE_FIRE_TEMPLE, {}, {}, {
@@ -865,7 +865,7 @@ void RegionTable_Init_FireTemple() {
         //Locations
         //There's definitely ways to do this hammerless, but with one points on it's a trick
         //you can just hook through the block while next to it to kill the skull and get the token
-        LOCATION(RC_FIRE_TEMPLE_MQ_GS_SKULL_ON_FIRE, logic->CanUse(RG_MEGATON_HAMMER) && logic->CanUse(RG_HOOKSHOT) && (logic->HasItem(RG_POWER_BRACELET) || ctx->GetTrickOption(RT_VISIBLE_COLLISION))),
+        LOCATION(RC_FIRE_TEMPLE_MQ_GS_SKULL_ON_FIRE, ((logic->CanUse(RG_MEGATON_HAMMER) && logic->CanUse(RG_HOOKSHOT)) || (logic->BunnyHood() && logic->CanKillEnemy(RE_GOLD_SKULLTULA))) && (logic->HasItem(RG_POWER_BRACELET) || ctx->GetTrickOption(RT_VISIBLE_COLLISION))),
     }, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_TORCH_SLUG_CLIMB, []{return true;}),
@@ -970,7 +970,7 @@ void RegionTable_Init_FireTemple() {
     }, {}, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MAIN,          []{return true;}),
-        Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MIDDLE,        []{return logic->CanUse(RG_SONG_OF_TIME) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MIDDLE,        []{return logic->CanUse(RG_SONG_OF_TIME) || logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && (logic->IsAdult || logic->CanJumpslash()) && logic->TakeDamage());}),
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, []{return true;}),
         //This one might be a bit too hard for base logic, but is only relevent in doorsanity or with RT_FIRE_MQ_MAZE_HOVERS
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_SWITCH,        []{return logic->CanUse(RG_SONG_OF_TIME) && logic->CanUse(RG_HOVER_BOOTS) && (logic->TakeDamage() || logic->CanJumpslash());}),
@@ -1071,7 +1071,7 @@ void RegionTable_Init_FireTemple() {
         //Locations
         //This requires nothing in N64 logic, but is tight enough to need rollspam with the one-point on which is stricter than I would normally consider in logic
         //Child basically needs the scarecrow or a bunny hood though due to a worse ledge grab.
-        LOCATION(RC_FIRE_TEMPLE_MQ_CHEST_ON_FIRE, (logic->IsAdult || logic->ReachScarecrow()) && logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_FIRE_TEMPLE_MQ_CHEST_ON_FIRE, (logic->IsAdult || logic->BunnyHood() || logic->ReachScarecrow()) && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
         //The dropdown here is unusual in that it hits 1 of 3 locations: RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_LOWER, RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, and RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_SWITCH

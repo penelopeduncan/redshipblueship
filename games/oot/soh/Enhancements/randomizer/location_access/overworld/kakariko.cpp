@@ -84,7 +84,7 @@ void RegionTable_Init_Kakariko() {
         Entrance(RR_THE_GRAVEYARD,            []{return true;}),
         Entrance(RR_KAK_BEHIND_GATE,          []{return logic->IsAdult || logic->Get(LOGIC_KAKARIKO_GATE_OPEN);}),
         //adult can jump from the fence near the windmill to ledgegrab the fence near granny's shop. is in logic on N64
-        Entrance(RR_KAK_BACKYARD,             []{return logic->IsAdult || (logic->AtDay && logic->HasItem(RG_POWER_BRACELET));}),
+        Entrance(RR_KAK_BACKYARD,             []{return logic->IsAdult || logic->BunnyHood() || (logic->AtDay && logic->HasItem(RG_POWER_BRACELET));}),
         Entrance(RR_KAK_BEHIND_POTION_SHOP,   []{return logic->CanUse(RG_HOOKSHOT) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && logic->IsAdult);}),
     });
 
