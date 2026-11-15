@@ -141,11 +141,10 @@ static RegisterShipInitFunc initFunc([]() {
         .connections = {
             CONNECTION(RR_IKANA_CASTLE_BUBBLE_ROOM , true),
             CONNECTION(RR_IKANA_CASTLE_FRONT_ENTRANCE, true),
-            // #697 — MMRT_GORON_BOMB_JUMP, DEFAULT OFF. A NEW one-way edge, the reverse of part 3's
-            // MMRT_IKANA_ROOF_PARKOUR edge: OoTMM's "Ancient Castle of Ikana Roof Exterior" -> "Roof
-            // Interior" is `can_goron_bomb_jump || short_hook_anywhere`. The trick is the whole
-            // condition, so tricks-off this edge is shut.
-            CONNECTION(RR_IKANA_CASTLE_INNER_ROOF, CAN_GORON_BOMB_JUMP)
+            // #697 / #1574 — OoTMM ancient_castle_of_ikana.yml:62 ("Ancient Castle of Ikana Roof
+            // Exterior" -> "Ancient Castle of Ikana Roof Interior"): `can_goron_bomb_jump ||
+            // short_hook_anywhere`. Shut with both MMRT_GORON_BOMB_JUMP and Logical off.
+            CONNECTION(RR_IKANA_CASTLE_INNER_ROOF, CAN_GORON_BOMB_JUMP || SHORT_HOOK_ANYWHERE)
         },
         .events = {
             EVENT(RE_IKANA_CASTLE_RIGHT_SUNLIGHT, true),

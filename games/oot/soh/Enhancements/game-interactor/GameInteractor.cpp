@@ -21,6 +21,14 @@ extern PlayState* OoT_gPlayState;
 
 #include "overlays/actors/ovl_En_Niw/z_en_niw.h"
 
+void GameInteractor::RemoveAllQueuedHooks() {
+#define DEFINE_HOOK(name, _) ProcessUnregisteredHooks<name>();
+
+#include "GameInteractor_HookTable.h"
+
+#undef DEFINE_HOOK
+}
+
 // MARK: - Effects
 
 GameInteractionEffectQueryResult GameInteractor::CanApplyEffect(GameInteractionEffectBase* effect) {

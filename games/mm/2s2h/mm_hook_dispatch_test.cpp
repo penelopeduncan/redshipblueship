@@ -224,6 +224,11 @@ int32_t sSeqLastSeqId = -1;
 int sNullPlayStateObservations = 0;
 int sNullPlayStateDispatches = 0;
 
+// Check 19 -- OnActorEntryHalfDaysBits (2Ship #2010).
+int sHalfDaysRuns = 0;
+int sHalfDaysForIdRuns = 0;
+ActorEntry* sHalfDaysLastEntry = nullptr;
+
 // Distinct sentinel ids, so no check can be satisfied by another's registrant.
 constexpr s16 kActorIdInit = 0x0BAD;
 constexpr s16 kActorIdDraw = 0x0BAE;
@@ -257,6 +262,14 @@ constexpr s16 kRoomInitSceneId = 0x0BB8;
 constexpr s8 kRoomNum = 3;
 constexpr int32_t kSeqPlayerIdx = 2;
 constexpr int32_t kSeqId = 0x0BB9;
+
+// Check 19. The entry's id carries a rotation-format flag bit (0x8000) on top of
+// the sentinel, as real scene entries do, so the id-keyed leg only matches if
+// the bridge strips the flags the way MM_Actor_SpawnEntry does.
+constexpr s16 kActorIdHalfDays = 0x0BBA;
+constexpr s32 kHalfDaysVanilla = 0x0A5;
+constexpr s32 kHalfDaysWidened = 0x3FF;
+ActorEntry sHalfDaysProbeEntry;
 
 // Argument targets for checks 14-17. Static for the same reason
 // sFileSelectProbeSave is: MM's port-side Player and Camera are large, and the
@@ -322,6 +335,8 @@ void ResetAll() {
     S2H::GameHooks::ResetForTest<GameInteractor::AfterRoomSceneCommands>();
     S2H::GameHooks::ResetForTest<GameInteractor::OnRoomInit>();
     S2H::GameHooks::ResetForTest<GameInteractor::OnSeqPlayerInit>();
+    // Check 19. No registrant links today (the first is 2Ship #1972), so hygiene.
+    S2H::GameHooks::ResetForTest<GameInteractor::OnActorEntryHalfDaysBits>();
     // The raw extern "C" OnGameStateMainStart vector is a SECOND container
     // behind the same dispatcher (the CI integration blocks and mm_gi_shim_test
     // use it). Emptying it is what makes check 13's S2H-side count attributable.
@@ -1376,6 +1391,73 @@ extern "C" int MM_HookDispatch_RunHeadless(void) {
         HOOK_ASSERT(sNullPlayStateObservations == 15, 18,
                     "a #438-remainder registrant saw a non-NULL MM_gPlayState -- something under dispatch is "
                     "substituting a play state");
+    }
+
+    // ---------------------------------------------------------------- 19
+    // OnActorEntryHalfDaysBits (2Ship #2010). An MM-only name with no stub, so a
+    // dropped bridge is a link error; what this check adds is the shape of the
+    // bridge. Three things can be wrong with it and still link:
+    //  - Execute-only: every COND_ID_HOOK registrant (the upstream pattern, keyed
+    //    on ACTOR_EN_BAL and friends) is dead.
+    //  - An unmasked id key: scene entries carry rotation-format flags in bits
+    //    13-15, so keying on the raw id misses every flagged entry. The probe
+    //    entry sets 0x8000 for that reason.
+    //  - Passing the mask by value: a registrant's widened mask would never
+    //    reach z_actor.c. Asserted through the value the caller reads back.
+    // Plus the NULL-entry refusal, since the id leg dereferences the entry.
+    //
+    // Not covered: that z_actor.c CALLS the dispatcher, and with the right
+    // variable. Both call sites (MM_Actor_SpawnSetupActors, MM_Actor_SpawnEntry)
+    // need a live play state and scene actor list; that is gameplay-tier work,
+    // as the header's ShouldActorInit note says.
+    {
+        sHalfDaysRuns = 0;
+        sHalfDaysForIdRuns = 0;
+        sHalfDaysLastEntry = nullptr;
+        sHalfDaysProbeEntry.id = (s16)(kActorIdHalfDays | 0x8000);
+
+        S2H::GameHooks::Register<GameInteractor::OnActorEntryHalfDaysBits>(
+            [](ActorEntry* actorEntry, s32* halfDaysBits) {
+                (void)halfDaysBits;
+                sHalfDaysRuns++;
+                sHalfDaysLastEntry = actorEntry;
+            });
+        S2H::GameHooks::RegisterForID<GameInteractor::OnActorEntryHalfDaysBits>(
+            kActorIdHalfDays, [](ActorEntry* actorEntry, s32* halfDaysBits) {
+                (void)actorEntry;
+                sHalfDaysForIdRuns++;
+                *halfDaysBits = kHalfDaysWidened;
+            });
+
+        HOOK_ASSERT(sHalfDaysRuns == 0, 19, "OnActorEntryHalfDaysBits ran at registration time");
+
+        s32 nullBits = kHalfDaysVanilla;
+        GameInteractor_ExecuteOnActorEntryHalfDaysBits(nullptr, &nullBits);
+        HOOK_ASSERT(sHalfDaysRuns == 0 && sHalfDaysForIdRuns == 0, 19,
+                    "OnActorEntryHalfDaysBits dispatched a NULL entry -- the id leg keys on actorEntry->id");
+        HOOK_ASSERT(nullBits == kHalfDaysVanilla, 19, "a NULL-entry dispatch changed the caller's mask");
+
+        // Spelled as games/mm/src/code/z_actor.c spells both calls.
+        s32 halfDaysBits = kHalfDaysVanilla;
+        GameInteractor_ExecuteOnActorEntryHalfDaysBits(&sHalfDaysProbeEntry, &halfDaysBits);
+        HOOK_ASSERT(sHalfDaysRuns == 1, 19,
+                    "OnActorEntryHalfDaysBits registrant never ran -- dispatch is not reaching S2H::GameHooks");
+        HOOK_ASSERT(sHalfDaysLastEntry == &sHalfDaysProbeEntry, 19,
+                    "OnActorEntryHalfDaysBits entry pointer arrived corrupted");
+        HOOK_ASSERT(sHalfDaysForIdRuns == 1, 19,
+                    "OnActorEntryHalfDaysBits id-keyed registrant never ran -- the bridge is Execute-only or keys "
+                    "on the unmasked entry id (flag bits 13-15 set)");
+        HOOK_ASSERT(halfDaysBits == kHalfDaysWidened, 19,
+                    "the id-keyed registrant's mask never reached the caller -- z_actor.c would spawn on the "
+                    "vanilla half-days");
+
+        // A different actor: the unkeyed leg runs, the id-keyed one must not.
+        sHalfDaysProbeEntry.id = (s16)((kActorIdHalfDays + 1) | 0x8000);
+        halfDaysBits = kHalfDaysVanilla;
+        GameInteractor_ExecuteOnActorEntryHalfDaysBits(&sHalfDaysProbeEntry, &halfDaysBits);
+        HOOK_ASSERT(sHalfDaysRuns == 2, 19, "OnActorEntryHalfDaysBits unkeyed leg skipped an entry of another id");
+        HOOK_ASSERT(sHalfDaysForIdRuns == 1, 19, "OnActorEntryHalfDaysBits id-keyed leg fired for the wrong actor");
+        HOOK_ASSERT(halfDaysBits == kHalfDaysVanilla, 19, "another actor's mask was rewritten");
     }
 
     // NOTE ON WHAT COVERS THE REBIND. An earlier draft of this row compared

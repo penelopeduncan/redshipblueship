@@ -51,6 +51,11 @@
  *      win condition only under triforce-hunt, and under triforce-hunt it is
  *      generated as Win (Combo_GoalGeneratesOwnHuntAsWin, #997). E7 checks that
  *      both ports' piece give arms call it, under their guards.
+ *   E10 THE ALTAR'S WIN-CONDITION LINE (SoH #7341, adapted to the combo goal):
+ *      Combo_GoalAltarLine names upstream's "defeat Ganon" line under beat-oot and
+ *      its "Triforce Pieces" line under triforce-hunt with the FROZEN combo
+ *      requirement; unpaired, every other goal and a disarmed hunt add nothing.
+ *      From source, OoT's adult altar text appends that line where upstream does.
  *
  * On main (before #762) every final-boss defeat played its own game's ending
  * under every goal: E2's and E5's withheld expectations are the red half (see
@@ -639,6 +644,47 @@ TestResult Test_ComboGoalEnding(void) {
               "E9: goal byte 6: MM's own hunt must fail open to its own ending");
     printf("[TEST] E9: a half's own triforce hunt ends its game only unpaired; under a boss goal it ends nothing and "
            "records nothing; under triforce-hunt the shared count decides\n");
+
+    // ---- E10: the adult altar's win-condition line (SoH #7341, adapted) ------
+    {
+        uint16_t lineRequired = 7u;
+        ComboContext_Init();
+        CG_ASSERT(Combo_GoalAltarLine(&lineRequired) == RSBS_GOAL_ALTAR_LINE_NONE && lineRequired == 0u,
+                  "E10: unpaired, the altar must read as before, with no win-condition line");
+        for (uint8_t goal : kGoals) {
+            CgFreezeWorld(goal);
+            lineRequired = 7u;
+            const int line = Combo_GoalAltarLine(&lineRequired);
+            const int want = goal == hunt                                ? RSBS_GOAL_ALTAR_LINE_TRIFORCE_PIECES
+                             : goal == (uint8_t)RSBS_COMBO_GOAL_BEAT_OOT ? RSBS_GOAL_ALTAR_LINE_DEFEAT_GANON
+                                                                         : RSBS_GOAL_ALTAR_LINE_NONE;
+            CG_ASSERT(line == want, "E10: %s: the altar's win-condition line is %d, expected %d", CgGoalName(goal),
+                      line, want);
+            const uint16_t wantRequired = goal == hunt ? (uint16_t)(kHuntOoTRequired + kHuntMMRequired) : 0u;
+            CG_ASSERT(lineRequired == wantRequired,
+                      "E10: %s: the altar names %u pieces, expected the frozen combo requirement %u", CgGoalName(goal),
+                      (unsigned)lineRequired, (unsigned)wantRequired);
+        }
+        CG_ASSERT(Combo_GoalAltarLine(NULL) == RSBS_GOAL_ALTAR_LINE_NONE,
+                  "E10: the last frozen goal (beat-mm) must add no line, and a NULL count must be accepted");
+        CgFreezeWorld(hunt);
+        gComboCtx.comboTriforce.requiredOoT = 0; // damaged as E8: the hunt disarms
+        CG_ASSERT(Combo_GoalAltarLine(&lineRequired) == RSBS_GOAL_ALTAR_LINE_NONE && lineRequired == 0u,
+                  "E10: a disarmed triforce-hunt record must not name a piece count on the altar");
+#ifdef RSBS_SOURCE_DIR
+        // The adult altar reads the line between Ganon's Boss Key's and its ending,
+        // where upstream's GetWinconText sits, and the line comes from the frozen goal.
+        const char* kHint = "games/oot/soh/Enhancements/randomizer/hint.cpp";
+        std::string hintText;
+        CG_ASSERT(CgReadFile(kHint, &hintText), "E10: cannot read %s", kHint);
+        CG_ASSERT(hintText.find("GetBridgeReqsText() + GetGanonBossKeyText() + GetWinconText() +") !=
+                          std::string::npos &&
+                      hintText.find("switch (Combo_GoalAltarLine(&required)) {") != std::string::npos,
+                  "E10: %s's adult altar no longer ends with the frozen goal's win-condition line", kHint);
+#endif
+        printf("[TEST] E10: the adult altar names the win condition under beat-oot and triforce-hunt (the frozen "
+               "combo requirement), and adds nothing unpaired or under any other goal\n");
+    }
 
     // ---- E7: the wiring, from source ------------------------------------------
 #ifndef RSBS_SOURCE_DIR

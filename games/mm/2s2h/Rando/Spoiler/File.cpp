@@ -64,7 +64,9 @@ nlohmann::json LoadFromFile(const std::string& fileName) {
     try {
         fileStream >> spoiler;
     } catch (nlohmann::json::exception& e) {
-        throw std::runtime_error("Failed to parse spoiler file: " + std::string(e.what()));
+        // 2Ship 77cbefd28 (#1478): the reason is now a toast, so it stays short; the parser's detail goes to the log.
+        SPDLOG_ERROR("Failed to parse spoiler file {}: {}", fileName, e.what());
+        throw std::runtime_error("Failed to parse spoiler file");
     }
 
     if (!spoiler.contains("type") || spoiler["type"] != "2S2H_RANDO_SPOILER") {

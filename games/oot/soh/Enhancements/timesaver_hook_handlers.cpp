@@ -302,6 +302,11 @@ void TimeSaverOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_li
                             break;
                         }
 
+                        // No point giving control while Big Octo platform goes up & down
+                        if (actor->id == ACTOR_BG_BDAN_OBJECTS && actor->params == 0) {
+                            break;
+                        }
+
                         RateLimitedSuccessChime();
                         *should = false;
                         break;

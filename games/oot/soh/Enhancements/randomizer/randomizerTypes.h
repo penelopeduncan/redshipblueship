@@ -5084,7 +5084,7 @@ typedef enum {
 
 // Randomizer tricks and glitches (beta) based on knowledge of what is achievable in Ship of Harkinian randomizer,
 // excludes Item manipulation (e.g. RBA/GIM/SRM) and Wrong Warping and Ganon BK Skip
-// TODO Fill and alphabetize (area based tricks must have area in name and come alphetized after general tricks)
+// TODO Fill and alphabetize (area based tricks must have area in name and come alphabetized after general tricks)
 // TODO test commented out tricks to see if consistent with console on SoH
 // TODO add area specific tricks
 typedef enum {
@@ -7452,6 +7452,10 @@ typedef enum {
     RHT_DODONGOS_BOULDER,
     RHT_JABU_BOULDER,
     RHT_SPIRIT_TEMPLE_BOULDER,
+    // rsbs (SoH #7341, adapted): the adult altar's win-condition line under the
+    // frozen combo goal (Hint::GetWinconText). Appended, not at upstream's place.
+    RHT_WINCON_DEFEAT_GANON_HINT,
+    RHT_WINCON_TRIFORCE_PIECES_HINT,
     // MAX
     RHT_MAX,
 } RandomizerHintTextKey;

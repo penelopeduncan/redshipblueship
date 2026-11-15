@@ -34,6 +34,11 @@
  *     the item's offset from RG_SHADOW_SILVER_BLADES). For each of the 22 items,
  *     with exactly its event set (named here, not computed), HasItem answers true
  *     for that item and false for the other 21.
+ *  N  THE SPIRIT BOULDER NAMES (#1589, SoH 4a1b846c). RC_SPIRIT_SE_BOULDER_SILVER and
+ *     RC_SPIRIT_NE_BOULDER_SILVER answer the corrected short names ("Southeast /
+ *     Northeast Boulder Silver") and spoiler names ("Spirit Temple ..."), and each
+ *     spoiler name maps back to its check through locationNameToEnum (that map is
+ *     built from the same names, so this part only catches a name collision).
  *
  * RED HALVES, derived, not run (this lane had no build): with the 154 silver rows
  * removed from rcToRandomizerInf M fails (RAND_INF_MAX for every check, and
@@ -46,7 +51,9 @@
  * greying removed D fails; with the exclude list reading the stored ShuffleSilver
  * key again (randomizer_check_objects.cpp) D fails (silver rows listed while keyed
  * On); with the LOGIC_* silver events reordered against the
- * RG_* items (or one removed) L fails for the items past the change.
+ * RG_* items (or one removed) L fails for the items past the change; with either
+ * ShuffleSilver.cpp boulder literal reverted ("Southeast Boulder Super", "Notheast
+ * Boulder Silver") N fails its shortName and spoiler name checks.
  *
  * Every key, option, logic value and save field a leg changes is put back (in
  * memory: nothing here writes a config file).
@@ -59,6 +66,7 @@
 #include <cstring>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 #include <libultraship/bridge.h>
@@ -471,6 +479,37 @@ void CheckLogicFallback(Rando::Context& world) {
     SR_CHECK(wrong == 0, "L: %d HasItem answer(s) read a silver rupee item's wrong LOGIC_* event", wrong);
 }
 
+// ---- N: Spirit Temple boulder silver rupee names (#1589) -------------------------------
+
+void CheckBoulderSilverNames() {
+    if (Rando::StaticData::CheckFromActorMultimap.empty()) {
+        Rando::StaticData::InitHashMaps();
+    }
+    struct ExpectedSilverName {
+        RandomizerCheck rc;
+        const char* shortName;
+        const char* spoilerName;
+    };
+    const ExpectedSilverName expected[] = {
+        { RC_SPIRIT_SE_BOULDER_SILVER, "Southeast Boulder Silver", "Spirit Temple Southeast Boulder Silver" },
+        { RC_SPIRIT_NE_BOULDER_SILVER, "Northeast Boulder Silver", "Spirit Temple Northeast Boulder Silver" },
+    };
+    for (const ExpectedSilverName& entry : expected) {
+        Rando::Location* loc = Rando::StaticData::GetLocation(entry.rc);
+        const std::string& gotShortName = loc->GetShortName();
+        SR_CHECK(gotShortName == entry.shortName, "N: check %d has shortName '%s', expected '%s'", (int)entry.rc,
+                 gotShortName.c_str(), entry.shortName);
+        const std::string& gotName = loc->GetName();
+        SR_CHECK(gotName == entry.spoilerName, "N: check %d has name '%s', expected '%s'", (int)entry.rc,
+                 gotName.c_str(), entry.spoilerName);
+        const auto it = Rando::StaticData::locationNameToEnum.find(gotName);
+        SR_CHECK(it != Rando::StaticData::locationNameToEnum.end() && it->second == entry.rc,
+                 "N: locationNameToEnum['%s'] returned %d, expected %d", gotName.c_str(),
+                 it != Rando::StaticData::locationNameToEnum.end() ? (int)it->second : -1, (int)entry.rc);
+    }
+    printf("[TEST] N: verified Spirit boulder silver short/spoiler names and locationNameToEnum round-trip\n");
+}
+
 } // namespace
 
 /**
@@ -479,7 +518,8 @@ void CheckLogicFallback(Rando::Context& world) {
 extern "C" int OoT_ShuffleSilverTest_Run(void) {
     printf("[TEST] oot-shuffle-silver: every silver check has its own flag, the option ships off and greyed out, "
            "default worlds fold none of its lines, a paired world generates it off, and logic reads each silver "
-           "item's own event while it is off (#1363)\n");
+           "item's own event while it is off (#1363), and the Spirit boulder checks carry their corrected names "
+           "(#1589)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-shuffle-silver needs OTRGlobals' randomizer context\n");
         return 1;
@@ -499,6 +539,7 @@ extern "C" int OoT_ShuffleSilverTest_Run(void) {
     } else {
         SrFail("L: no generated world to read the logic of");
     }
+    CheckBoulderSilverNames();
 
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
     Context_SetCurrentGame(prevGame);

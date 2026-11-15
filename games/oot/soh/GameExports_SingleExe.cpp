@@ -230,8 +230,10 @@ static_assert(RAND_INF_KF_CIRCLE_ROCK_1 == 2630 && RAND_INF_BOTW_MQ_BOULDER_3 ==
               "OoT's rock and boulder flags (#1409) are 2630..2914 (RAND_INF_MAX == 2915), after #1408's");
 static_assert(RCTYPE_ROCK == RCTYPE_RED_ICE + 1 && RCTYPE_ROCK == 42 && RCTYPE_BOULDER == 43,
               "OoT's RCTYPE_ROCK and RCTYPE_BOULDER (#1409) are 42 and 43, after #1408's RCTYPE_RED_ICE");
-static_assert(RHT_KF_ROCK == 1578 && RHT_SPIRIT_TEMPLE_BOULDER == 1618 && RHT_MAX == 1619,
-              "OoT's rock and boulder hint texts (#1409) are 1578..1618 (RHT_MAX == 1619), after #1408's");
+static_assert(RHT_KF_ROCK == 1578 && RHT_SPIRIT_TEMPLE_BOULDER == 1618,
+              "OoT's rock and boulder hint texts (#1409) are 1578..1618, after #1408's");
+static_assert(RHT_WINCON_DEFEAT_GANON_HINT == 1619 && RHT_WINCON_TRIFORCE_PIECES_HINT == 1620 && RHT_MAX == 1621,
+              "OoT's altar win-condition hint texts (SoH #7341) are 1619 and 1620 (RHT_MAX == 1621), after #1409's");
 static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_RED_ICE + 1 && RSK_SHUFFLE_ROCKS == 283 && RSK_SHUFFLE_BOULDERS == 284,
               "OoT's Shuffle Rocks and Boulders keys (#1409) are 283 and 284, after #1408's");
 // SoH eca767dcb's Bunny Hood Effect seed setting, appended after #1409's keys.

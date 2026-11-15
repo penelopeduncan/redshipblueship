@@ -16,13 +16,17 @@ extern u8 MM_sPlaybackState;
     (MM_gPlayState->msgCtx.ocarinaAction < OCARINA_ACTION_PROMPT_WIND_FISH_HUMAN || \
      MM_gPlayState->msgCtx.ocarinaAction > OCARINA_ACTION_PROMPT_WIND_FISH_DEKU)
 
+static bool IsFallingThroughAir(Player* player) {
+    return !(player->actor.bgCheckFlags & BGCHECKFLAG_GROUND) && (player->actor.velocity.y < 0.0f);
+}
+
 void RegisterFasterSongPlayback() {
     COND_ID_HOOK(OnActorUpdate, ACTOR_PLAYER, CVAR, [](Actor* actor) {
         // W6-MASKS-SONGS (#1236): this TU is in the single-exe link now and the body reads MM_gPlayState; a missing
         // play state leaves the vanilla behavior untouched.
         RSBS_SINGLE_EXE_REQUIRE(MM_gPlayState != NULL);
         if (MM_gPlayState->msgCtx.msgMode >= MSGMODE_SONG_PLAYED && MM_gPlayState->msgCtx.msgMode <= MSGMODE_17 &&
-            !MM_gPlayState->csCtx.state && NOT_OCARINA_ACTION_BALAD_WIND_FISH) {
+            !MM_gPlayState->csCtx.state && NOT_OCARINA_ACTION_BALAD_WIND_FISH && !IsFallingThroughAir((Player*)actor)) {
             if (MM_gPlayState->msgCtx.stateTimer > 1) {
                 MM_gPlayState->msgCtx.stateTimer = 1;
             }

@@ -113,7 +113,7 @@ void GetItem_DrawJewelGoron(PlayState* play, s16 drawId);
 void GetItem_DrawJewelZora(PlayState* play, s16 drawId);
 void GetItem_DrawGenericMusicNote(PlayState* play, s16 drawId);
 void GetItem_DrawTriforcePiece(PlayState* play, s16 drawId);
-void GetItem_DrawFishingPole(PlayState* play, s16 drawId);
+void GetItem_DrawTriforce(PlayState* play, s16 drawId);
 // games/oot/src/code/z_rcp.c: OoT's own SETUPDL table, one entry per call.
 Gfx* OoT_Gfx_SetupDL(Gfx* gfx, u32 i);
 }
@@ -343,8 +343,10 @@ int RecipeForRow(s16 drawId, OoTGetItemDrawFn fn, Gfx* const* d, ComboModel* out
     } else if (fn == GetItem_DrawTriforcePiece) {
         *reason = "Triforce piece: the shard drawn depends on the live piece count";
         return 0;
-    } else if (fn == GetItem_DrawFishingPole) {
-        *reason = "fishing pole: rod, float and hooks under separate matrices";
+    } else if (fn == GetItem_DrawTriforce) {
+        // SoH #7341's row, in the slot the Fishing Pole's row held (GID_TRIFORCE
+        // took GID_ROCS_FEATHER's 0x7D). No item another game is given draws it.
+        *reason = "completed Triforce: the goal's model, never an item that crosses";
         return 0;
     } else {
         *reason = "draw function without a recipe";

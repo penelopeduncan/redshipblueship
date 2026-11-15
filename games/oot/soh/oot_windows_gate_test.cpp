@@ -5,7 +5,7 @@
  *
  * gSaveContext is one shared buffer, so an OoT window that runs while Majora's Mask is the running game reads MM's
  * bytes through OoT's SaveContext layout and, for the Save Editor, writes them: DrawInfoTab clamps health and assigns
- * magicCapacity / magic on every drawn frame. Nine SoH windows touch OoT save or play state, and each is reached three
+ * magicCapacity / magic on every drawn frame. Ten SoH windows touch OoT save or play state, and each is reached three
  * ways: Draw() from the Gui's per-frame window loop, Update() from its unconditional per-frame update, and
  * DrawElement() straight from the Port Menu when the window is hidden and its row embeds (SohGui/Menu.cpp), which
  * bypasses visibility entirely.
@@ -20,17 +20,17 @@
  * UpdateElement bodies are empty or wait for a click, so the Update leg is locked by a counting spy base window instead
  * (GateSpy below): through OoTActiveGated<GateSpy>, each of the three bodies must run exactly once under OoT and never
  * under Majora's Mask or with no game running. Removing any one of the wrapper's three overrides fails that check.
- * SoH's Time Splits window is built as OoTGatedHostingMm<TimeSplitWindow> (W6-TIMERS, #1237), which hosts 2Ship's
- * Time Splits body while Majora's Mask runs: the nine-window tripwire holds it un-hosted, and a hosting spy
- * (HostSpy) holds the hosted case: SoH's bodies only under OoT, MM's body only under Majora's Mask, nothing with no
- * game.
+ * SoH's Time Splits (W6-TIMERS, #1237), Message Viewer and Collision Viewer (W6-DEV, #1238) windows are built as
+ * OoTGatedHostingMm<>, which hosts 2Ship's body while Majora's Mask runs: the ten-window tripwire holds them
+ * un-hosted, and a hosting spy (HostSpy) holds the hosted case: SoH's bodies only under OoT, MM's body only under
+ * Majora's Mask, nothing with no game.
  *
  * The windows are constructed without Gui::AddGuiWindow on purpose: AddGuiWindow calls Init(), and the check
  * tracker's InitElement dereferences a null SaveManager::Instance here. The Message Viewer is leaked on purpose: its
  * InitElement allocates the buffers its destructor frees, and InitElement never runs.
  *
  * The window types and CVars below mirror SohGui::SetupGuiElements; the source scan in test_runner.cpp holds that
- * function to exactly these nine wrapped sites.
+ * function to exactly these ten wrapped sites.
  *
  * #798 extends the row to OoT's non-window paths into the shared save. DebugConsole_Init registers every OoT console
  * command through one gating wrapper (debugconsole.cpp's CMD_REGISTER), so the row registers them here and drives them
@@ -91,6 +91,7 @@
 #include "soh/SohGui/OoTActiveGated.h"
 #include "soh/Enhancements/debugconsole.h"
 #include "soh/Enhancements/debugger/MessageViewer.h"
+#include "soh/Enhancements/debugger/colViewer.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/Enhancements/item-tables/ItemTableManager.h"
 #include "soh/cvar_prefixes.h"
@@ -153,7 +154,7 @@ const char* kTrackerLayoutCVars[] = {
 #define OWG_SPY_CVAR CVAR_WINDOW("OoTWindowsGateSpy")
 
 // A base window that counts how often each of the three bodies runs and touches nothing else, so OoTActiveGated<> can
-// be driven under every game, OoT included. The nine real windows cannot lock the Update leg: their UpdateElement
+// be driven under every game, OoT included. The ten real windows cannot lock the Update leg: their UpdateElement
 // bodies are empty or act only after a click, so an ungated Update() on them returns harmlessly. Nor can they show
 // pass-through, because under OoT their bodies reach ImGui, which this harness does not have. The spy overrides Draw()
 // itself (GuiWindow::Draw would reach ImGui), and that override is what OoTActiveGated<>::Draw forwards to.
@@ -1027,6 +1028,7 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
         { "Hint Tracker", CVAR_WINDOW("HintTracker"), nullptr },
         { "Item Tracker", CVAR_WINDOW("ItemTracker"), nullptr },
         { "Time Splits", CVAR_WINDOW("TimeSplits"), nullptr },
+        { "Collision Viewer", CVAR_WINDOW("CollisionViewer"), nullptr },
     };
 
     // Visible BEFORE construction, so an ungated Draw() cannot leave on !IsVisible() before reaching ImGui.
@@ -1058,6 +1060,10 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
     // W6-TIMERS (#1237): SohGui builds Time Splits as OoTGatedHostingMm<>; un-hosted here, it must gate as the others.
     windows[8].window = std::make_shared<OoTGatedHostingMm<TimeSplitWindow>>(windows[8].visibilityCVar, windows[8].name,
                                                                              ImVec2(450, 660));
+    // W6-DEV (#1238 slice 2): SohGui builds Collision Viewer as OoTGatedHostingMm<>; un-hosted here, it must gate as
+    // the others.
+    windows[9].window = std::make_shared<OoTGatedHostingMm<ColViewerWindow>>(windows[9].visibilityCVar, windows[9].name,
+                                                                             ImVec2(520, 600));
 
     for (const GatedWindow& w : windows) {
         if (!w.window->IsVisible()) {
@@ -1113,7 +1119,7 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
     OWG_ASSERT(hostFailures == 0, "OoTGatedHostingMm<> runs SoH's body outside OoT, MM's body outside Majora's Mask, "
                                   "or blocks a body it should pass through (above)");
 
-    // ---- 3. The wired gate on the nine real windows: all three paths, every window ----------------------------------
+    // ---- 3. The wired gate on the ten real windows: all three paths, every window -----------------------------------
     const GameId inactiveGames[] = { GAME_MM, GAME_NONE };
     for (GameId game : inactiveGames) {
         Context_SetCurrentGame(game);
@@ -1147,7 +1153,7 @@ extern "C" int OoT_WindowsGate_RunHeadless(void) {
                "an OoT console command or the Giant's Knife toggle ran against the shared save while OoT was not the "
                "running game (above)");
 
-    printf("[TEST] PASS: oot-windows-gate: the nine OoT save/play-state windows run no Draw, Update or menu-embed "
+    printf("[TEST] PASS: oot-windows-gate: the ten OoT save/play-state windows run no Draw, Update or menu-embed "
            "DrawElement body unless OoT is the running game, the wrapper passes all three through under OoT, and the "
            "windows stay visible while gated; every OoT console command and the Giant's Knife toggle leave the shared "
            "save untouched unless OoT is the running game\n");
