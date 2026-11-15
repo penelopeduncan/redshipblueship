@@ -107,7 +107,8 @@ constexpr int kTouchedCount = (int)(sizeof(kTouched) / sizeof(kTouched[0]));
  * #1434 term while it cannot block (the fold's own skips, which this row does not
  * test), less the Shuffle Chest Minigame (#1364), Shuffle Butterfly Fairies
  * (#1407) and Shuffle Silver Rupees (#1363) lines while those options are off,
- * less the Bunny Hood Effect seed setting while it is off (SoH eca767dcb),
+ * less the Bunny Hood Effect and Masks as Adult seed settings while they are off
+ * (SoH eca767dcb),
  * and less Early Granny's Potion Shop unless `grannyFolds`.
  */
 int CountFoldLines(Rando::Context& world, bool grannyFolds) {
@@ -228,11 +229,13 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 if (trick->GetKey() == RT_GTG_STATUE_JUMP && world.GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
                     continue;
                 }
-                // #1647: the fold leaves out the two Bunny Hood tricks while they are off.
+                // #1647: the fold leaves out the three Bunny Hood tricks while they are off.
                 if ((trick->GetKey() == RT_HW_BUNNY_CROSSING &&
                      world.GetTrickOption(RT_HW_BUNNY_CROSSING).Get() == 0) ||
                     (trick->GetKey() == RT_WATER_HIGH_EMBLEM_JUMP &&
-                     world.GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0)) {
+                     world.GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0) ||
+                    (trick->GetKey() == RT_DC_EYES_BUNNYHOVERS &&
+                     world.GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0)) {
                     continue;
                 }
             } else if (!excludes) {
@@ -243,6 +246,9 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                     continue;
                 }
                 if (option->GetKey() == RSK_BUNNY_HOOD && world.GetOption(RSK_BUNNY_HOOD).Is(RO_GENERIC_OFF)) {
+                    continue;
+                }
+                if (option->GetKey() == RSK_MASKS_AS_ADULT && world.GetOption(RSK_MASKS_AS_ADULT).Is(RO_GENERIC_OFF)) {
                     continue;
                 }
             }

@@ -330,7 +330,7 @@ void RegionTable_Init_FireTemple() {
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_ROOM,      []{return logic->Get(LOGIC_FIRE_HIT_PLATFORM) && logic->FireTimer() >= 8 && logic->TakeDamage();}), // sidehop towards foyer door
         Entrance(RR_FIRE_TEMPLE_NEAR_BOSS_DOOR,      []{return logic->Get(LOGIC_FIRE_HIT_PLATFORM) && logic->FireTimer() >= 8 && logic->TakeDamage();}), // sidehop towards boss door
         Entrance(RR_FIRE_TEMPLE_CORRIDOR,            []{return true;}),
-        Entrance(RR_FIRE_TEMPLE_FIRE_MAZE_PLATFORMS, []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && (logic->Get(LOGIC_FIRE_HIT_ABOVE_MAZE_PLATFORM) || logic->CanGroundJump()));}),
+        Entrance(RR_FIRE_TEMPLE_FIRE_MAZE_PLATFORMS, []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && (logic->Get(LOGIC_FIRE_HIT_ABOVE_MAZE_PLATFORM) || logic->CanGroundJump() || logic->BunnyHood()));}),
         Entrance(RR_FIRE_TEMPLE_CAGELESS_CHEST_ROOM, []{return true;}),
         Entrance(RR_FIRE_TEMPLE_SOT_CAGE_LOWER,      []{return logic->SmallKeys(SCENE_FIRE_TEMPLE, 8);}),
         Entrance(RR_FIRE_TEMPLE_FIRE_MAZE_SWITCH,    []{return (bool)ctx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS);}),
@@ -594,7 +594,7 @@ void RegionTable_Init_FireTemple() {
         //The Damage logic here is for jumping down and running across the lava to get in dins range of the south torch
         //Fairies cannot be used for this as it is time sensitive, and NL is only useful with sticks as it disables other magic while in use, so it's tunic or raw damage taking ability.
         //testing tells me you take 3 ticks of lava damage, which is 12 internal damage or 3/4 of a heart at x1 damage multiplier, performing this run
-        LOCATION(RC_FIRE_TEMPLE_MQ_NEAR_BOSS_CHEST,      logic->CanUse(RG_DINS_FIRE) && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_LONGSHOT) || (logic->IsAdult && (logic->CanUse(RG_FAIRY_BOW) || logic->CanUse(RG_GORON_TUNIC) || logic->EffectiveHealth() > 12 || (logic->CanUse(RG_NAYRUS_LOVE) && logic->CanUse(RG_STICKS))))) && logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_FIRE_TEMPLE_MQ_NEAR_BOSS_CHEST,      logic->CanUse(RG_DINS_FIRE) && logic->HasItem(RG_OPEN_CHEST) && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_LONGSHOT) || (logic->IsAdult && (logic->CanUse(RG_FAIRY_BOW) || logic->CanUse(RG_GORON_TUNIC) || logic->BunnyHood() || logic->EffectiveHealth() > 12 || (logic->CanUse(RG_NAYRUS_LOVE) && logic->CanUse(RG_STICKS)))))),
         LOCATION(RC_FIRE_TEMPLE_MQ_OUTSIDE_BOSS_POT_1,   logic->CanBreakPots()),
         LOCATION(RC_FIRE_TEMPLE_MQ_OUTSIDE_BOSS_POT_2,   logic->CanBreakPots()),
         LOCATION(RC_FIRE_TEMPLE_MQ_OUTSIDE_BOSS_CRATE_5, logic->CanBreakCrates()),
@@ -727,7 +727,7 @@ void RegionTable_Init_FireTemple() {
     }, {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_SHORTCUT_ROOM_MID, []{return (logic->HasFireSource() && (logic->IsAdult || (logic->CanUse(RG_HOOKSHOT) && logic->HasItem(RG_CLIMB)))) || 
-                                                                 (ctx->GetTrickOption(RT_FIRE_MQ_CLIMB) && logic->CanUse(RG_HOVER_BOOTS) && logic->HasItem(RG_CLIMB));}),
+                                                                 (ctx->GetTrickOption(RT_FIRE_MQ_CLIMB) && logic->CanUse(RG_HOVER_BOOTS) && logic->HasItem(RG_CLIMB)) || (logic->BunnyHovers() && logic->HasItem(RG_CLIMB));}),
         Entrance(RR_FIRE_TEMPLE_MQ_LAVA_GEYSER_2F,    []{return true;}),
         Entrance(RR_FIRE_TEMPLE_MQ_SHORTCUT_CAGE,     []{return logic->Get(LOGIC_FIRE_OPENED_UPPER_SHORTCUT);}),
     });
@@ -973,7 +973,7 @@ void RegionTable_Init_FireTemple() {
         Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_MIDDLE,        []{return logic->CanUse(RG_SONG_OF_TIME) || logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && (logic->IsAdult || logic->CanJumpslash()) && logic->TakeDamage());}),
         Entrance(RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR, []{return true;}),
         //This one might be a bit too hard for base logic, but is only relevent in doorsanity or with RT_FIRE_MQ_MAZE_HOVERS
-        Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_SWITCH,        []{return logic->CanUse(RG_SONG_OF_TIME) && logic->CanUse(RG_HOVER_BOOTS) && (logic->TakeDamage() || logic->CanJumpslash());}),
+        Entrance(RR_FIRE_TEMPLE_MQ_FIRE_MAZE_SWITCH,        []{return (((logic->CanUse(RG_SONG_OF_TIME) && logic->CanUse(RG_HOVER_BOOTS)) || logic->BunnyHovers()) && (logic->TakeDamage() || logic->CanJumpslash())) || (logic->CanUse(RG_SONG_OF_TIME) && logic->BunnyHovers());}),
     });
 
    areaTable[RR_FIRE_TEMPLE_MQ_2_FIRE_WALLS_UPPER_DOOR] = Region("Fire Temple MQ 2 Fire Walls Upper Door", SCENE_FIRE_TEMPLE, {}, {}, {

@@ -262,7 +262,7 @@ void RegionTable_Init_GanonsCastle() {
     }, {
         //Exits
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS);}),
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH,  []{return logic->CanUse(RG_FIRE_ARROWS) || ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH,  []{return logic->CanUse(RG_FIRE_ARROWS) || ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->BunnyHood() && logic->CanJumpslash());}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_END,           []{return ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH);}),
     });
 
@@ -658,7 +658,7 @@ void RegionTable_Init_GanonsCastle() {
     }, {}, {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_MAIN,                        []{return true;}),
-        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())) || logic->BunnyHovers();}),
     });
 
     areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM] = Region("Ganon's Castle MQ Shadow Trial Chest Platform", SCENE_INSIDE_GANONS_CASTLE, {

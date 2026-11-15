@@ -5595,7 +5595,7 @@ void func_8083A0F4(PlayState* play, Player* this) {
             Player_SetupAction(play, this, Player_Action_8084F608, 0);
             this->stateFlags1 |= PLAYER_STATE1_IN_CUTSCENE;
             if (!CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) ||
-                !CVarGetInteger(CVAR_ENHANCEMENT("AdultMasks"), 0)) {
+                !OoT_AdultMasksEnabled() /* [RSBS #1647] the enhancement or Masks as Adult */) {
                 gSaveContext.ship.maskMemory = PLAYER_MASK_NONE;
             }
         } else {

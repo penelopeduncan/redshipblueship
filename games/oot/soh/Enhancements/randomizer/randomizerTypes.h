@@ -5368,6 +5368,9 @@ typedef enum {
     RT_GTG_STATUE_JUMP,
     RT_BOMB_DETONATION,
     RT_WATER_HIGH_EMBLEM_JUMP,
+    // [RSBS #1647] SoH eca767dcb's Dodongo's Cavern eyes with Bunnyhovers (upstream sits it
+    // after RT_DC_EYES_CHU), appended: trick options are saved by index.
+    RT_DC_EYES_BUNNYHOVERS,
     RT_MAX
 } RandomizerTrick;
 
@@ -7853,6 +7856,9 @@ typedef enum {
     // appended after #1409's RSK_SHUFFLE_BOULDERS (284): a world saved before it reads the
     // missing entry as 0, Off.
     RSK_BUNNY_HOOD,
+    // [RSBS] SoH eca767dcb's Masks as Adult (upstream sits it after RSK_BUNNY_HOOD), appended
+    // after RSK_BUNNY_HOOD (285): a world saved before it reads the missing entry as 0, Off.
+    RSK_MASKS_AS_ADULT,
     RSK_MAX
 } RandomizerSettingKey;
 

@@ -40,12 +40,23 @@ int OoT_BunnyHoodEffectMode(void);
 // second of those as the reader reads it (SoH eca767dcb).
 int OoT_BunnyHoodEffectModeFor(int own, int seedSettingOn, int sharedRuleOn);
 int OoT_BunnyHoodSeedSettingOn(void);
+// SoH eca767dcb: "Masks Equippable as Adult" as it is in play (the enhancement, or the
+// loaded randomizer file's Masks as Adult seed setting), its decision on those two
+// inputs, the second as the reader reads it, and Ship_MasksEquippableAsAdult (that or
+// the cheat Timeless Equipment). The OoT sites that read the enhancement ask these.
+int OoT_AdultMasksEnabled(void);
+int OoT_AdultMasksEnabledFor(int own, int seedSettingOn);
+int OoT_MasksAsAdultSeedSettingOn(void);
+int OoT_MasksEquippableAsAdult(void);
 #ifdef __cplusplus
 }
 #endif
 #else
 // [RSBS #969] Outside the single exe there is no shared Bunny Hood rule: the reader is the enhancement's own CVar.
 #define OoT_BunnyHoodEffectMode() CVarGetInteger(CVAR_ENHANCEMENT("MMBunnyHood"), BUNNY_HOOD_VANILLA)
+#define OoT_AdultMasksEnabled() CVarGetInteger(CVAR_ENHANCEMENT("AdultMasks"), 0)
+#define OoT_MasksEquippableAsAdult() \
+    (OoT_AdultMasksEnabled() || CVarGetInteger(CVAR_CHEAT("TimelessEquipment"), 0))
 #endif
 
 typedef enum {

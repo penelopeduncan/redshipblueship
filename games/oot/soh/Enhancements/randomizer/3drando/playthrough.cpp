@@ -570,10 +570,13 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         // [RSBS #1647] SoH eca767dcb's Wasteland Crossing with Bunny Hood and SoH 73a739b7a's
                         // Water Temple high-emblem jump change a world only while on, so while off they fold
                         // nothing and a world keeps the fingerprint it had before the tricks existed.
+                        // SoH eca767dcb's Dodongo's Cavern eyes with Bunnyhovers, likewise.
                         if ((trickOption->GetKey() == RT_HW_BUNNY_CROSSING &&
                              ctx->GetTrickOption(RT_HW_BUNNY_CROSSING).Get() == 0) ||
                             (trickOption->GetKey() == RT_WATER_HIGH_EMBLEM_JUMP &&
-                             ctx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0)) {
+                             ctx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0) ||
+                            (trickOption->GetKey() == RT_DC_EYES_BUNNYHOVERS &&
+                             ctx->GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0)) {
                             continue;
                         }
                         settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
@@ -596,6 +599,12 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         // nothing and a world keeps the fingerprint it had before the option
                         // existed; on, it folds.
                         if (option->GetKey() == RSK_BUNNY_HOOD && ctx->GetOption(RSK_BUNNY_HOOD).Is(RO_GENERIC_OFF)) {
+                            continue;
+                        }
+                        // [RSBS #1647] SoH eca767dcb's Masks as Adult, likewise: while off,
+                        // CanUse of the masks is the child-only rule it was before.
+                        if (option->GetKey() == RSK_MASKS_AS_ADULT &&
+                            ctx->GetOption(RSK_MASKS_AS_ADULT).Is(RO_GENERIC_OFF)) {
                             continue;
                         }
 #endif

@@ -239,9 +239,15 @@ static_assert(RSK_SHUFFLE_ROCKS == RSK_SHUFFLE_RED_ICE + 1 && RSK_SHUFFLE_ROCKS 
 // SoH eca767dcb's Bunny Hood Effect seed setting, appended after #1409's keys.
 static_assert(RSK_BUNNY_HOOD == RSK_SHUFFLE_BOULDERS + 1 && RSK_BUNNY_HOOD == 285,
               "OoT's Bunny Hood Effect key (SoH eca767dcb) is 285, after #1409's Shuffle Boulders");
-static_assert(RSK_MAX == 286, "OoT's RSK_MAX is 286 after the Bunny Hood Effect key (SoH eca767dcb)");
+// SoH eca767dcb's Masks as Adult seed setting, appended after the Bunny Hood Effect key.
+static_assert(RSK_MASKS_AS_ADULT == RSK_BUNNY_HOOD + 1 && RSK_MASKS_AS_ADULT == 286,
+              "OoT's Masks as Adult key (SoH eca767dcb) is 286, after the Bunny Hood Effect key");
+static_assert(RSK_MAX == 287, "OoT's RSK_MAX is 287 after the Masks as Adult key (SoH eca767dcb)");
 static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
               "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");
+static_assert(RT_WATER_HIGH_EMBLEM_JUMP == RT_BOMB_DETONATION + 1 &&
+                  RT_DC_EYES_BUNNYHOVERS == RT_WATER_HIGH_EMBLEM_JUMP + 1 && RT_MAX == RT_DC_EYES_BUNNYHOVERS + 1,
+              "OoT's RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) is appended after RT_WATER_HIGH_EMBLEM_JUMP");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
@@ -5830,6 +5836,32 @@ extern "C" int OoT_BunnyHoodEffectMode(void) {
     return OoT_BunnyHoodEffectModeFor(CVarGetInteger(CVAR_ENHANCEMENT("MMBunnyHood"), BUNNY_HOOD_VANILLA),
                                       OoT_BunnyHoodSeedSettingOn(),
                                       Combo_ComboCrossItemRule(RSBS_XITEM_SHARED_BUNNY) ? 1 : 0);
+}
+
+// SoH eca767dcb (AdultMasksEnabled, AdultMasks.cpp upstream): THE ONE READER of
+// SoH's "Masks Equippable as Adult" enhancement (CVAR_ENHANCEMENT "AdultMasks").
+// The loaded randomizer file's own "Masks as Adult" seed setting
+// (RSK_MASKS_AS_ADULT) forces it on, because the file's logic may expect adult
+// Link to wear the Bunny Hood (Logic::CanUse). Like the Bunny Hood Effect setting
+// above it is one of the world's frozen options and only a randomizer file reads
+// it; read, never stored: the enhancement's CVar keeps the player's value.
+extern "C" int OoT_AdultMasksEnabledFor(int own, int seedSettingOn) {
+    return (own || seedSettingOn) ? 1 : 0;
+}
+
+// 1 while the loaded file is a randomizer file whose seed has Masks as Adult on.
+extern "C" int OoT_MasksAsAdultSeedSettingOn(void) {
+    const std::shared_ptr<Rando::Context> ctx = Rando::Context::GetInstance();
+    return (IS_RANDO && ctx != nullptr && ctx->GetOption(RSK_MASKS_AS_ADULT).Is(RO_GENERIC_ON)) ? 1 : 0;
+}
+
+extern "C" int OoT_AdultMasksEnabled(void) {
+    return OoT_AdultMasksEnabledFor(CVarGetInteger(CVAR_ENHANCEMENT("AdultMasks"), 0), OoT_MasksAsAdultSeedSettingOn());
+}
+
+// Ship_MasksEquippableAsAdult upstream: the enhancement (as above) or the cheat Timeless Equipment.
+extern "C" int OoT_MasksEquippableAsAdult(void) {
+    return (OoT_AdultMasksEnabled() || CVarGetInteger(CVAR_CHEAT("TimelessEquipment"), 0)) ? 1 : 0;
 }
 
 // OoT's hookshot ceiling: 0 none, 1 hookshot, 2 longshot.

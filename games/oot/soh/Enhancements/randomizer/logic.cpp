@@ -962,8 +962,11 @@ bool Logic::CanUse(RandomizerGet itemName) {
             return IsChild;
         case RG_SKULL_MASK:
         case RG_MASK_OF_TRUTH:
-        case RG_KEATON_MASK: // [RSBS #978] the other four masks, Skull's and Truth's rule
         case RG_BUNNY_HOOD:
+            return IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT);
+        // [RSBS #978] the other three masks keep the child-only rule: SoH eca767dcb's Masks as Adult
+        // (RSK_MASKS_AS_ADULT) is given to the Skull Mask, the Mask of Truth and the Bunny Hood only.
+        case RG_KEATON_MASK:
         case RG_GORON_MASK:
         case RG_ZORA_MASK:
             return IsChild;
@@ -2120,6 +2123,11 @@ bool Logic::BunnyHood() {
     return ctx->GetOption(RSK_BUNNY_HOOD) && CanUse(RG_BUNNY_HOOD);
 }
 
+// Hovering with the extra speed the hood gives
+bool Logic::BunnyHovers() {
+    return CanUse(RG_HOVER_BOOTS) && BunnyHood();
+}
+
 bool Logic::CanStandingShield() {
     return CanUse(RG_MIRROR_SHIELD) || (IsAdult && HasItem(RG_HYLIAN_SHIELD)) || CanUse(RG_DEKU_SHIELD);
 }
@@ -3236,12 +3244,13 @@ bool Logic::SpiritExplosiveKeyLogic() {
 }
 
 bool Logic::SpiritWestToSkull() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) || ReachScarecrow();
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
+           ReachScarecrow();
 }
 
 bool Logic::SpiritSunBlockSouthLedge() {
     // also possible to do a backwalk hover + backflip if you equip hovers as you start backwalk to accelerate faster
-    return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) /*|| BunnyHovers()*/ ||
+    return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) || BunnyHovers() ||
            (CanUse(RG_HOOKSHOT) &&
             (HasFireSource() ||
              (HasItem(RG_SPIRIT_SILVER_SUN) &&
@@ -3249,13 +3258,14 @@ bool Logic::SpiritSunBlockSouthLedge() {
 }
 
 bool Logic::SpiritEastToSwitch() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) ||
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
            (CanUse(RG_ZELDAS_LULLABY) && CanUse(RG_HOOKSHOT));
 }
 
 // Combines crossing the ledge directly and the jump from the hand
 bool Logic::MQSpiritWestToPots() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) || CanUse(RG_SONG_OF_TIME);
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
+           CanUse(RG_SONG_OF_TIME);
 }
 
 bool Logic::MQSpiritStatueToSunBlock() {

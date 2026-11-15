@@ -122,6 +122,7 @@ class Logic {
     bool HasFireSourceWithTorch();
     bool SunlightArrows();
     bool BunnyHood();
+    bool BunnyHovers();
     bool CanStandingShield();
     bool CanShield();
     bool CanUseProjectile();

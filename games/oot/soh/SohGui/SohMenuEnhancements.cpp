@@ -961,7 +961,15 @@ void SohMenu::AddMenuEnhancements() {
                               "Also disables NPC's reactions to wearing the Bunny Hood."));
     AddWidget(path, "Masks Equippable as Adult", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("AdultMasks"))
-        .Options(CheckboxOptions().Tooltip("Allows masks to be equipped normally from the pause menu as adult."));
+        .PreFunc([](WidgetInfo& info) {
+            info.options->disabled =
+                OTRGlobals::Instance->gRandoContext->GetOption(RSK_MASKS_AS_ADULT).Is(RO_GENERIC_ON);
+            info.options->disabledTooltip = "This setting is forcefully enabled because a randomized savefile with "
+                                            "\"Masks as Adult\" is currently loaded.";
+        })
+        .Options(CheckboxOptions().Tooltip("Allows masks to be equipped normally from the pause menu as adult.\n"
+                                           "Randomizer logic only accounts for this when the seed's own "
+                                           "\"Masks as Adult\" setting is on."));
     AddWidget(path, "Persistent Masks", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("PersistentMasks"))
         .Options(

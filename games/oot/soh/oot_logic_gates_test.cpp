@@ -207,6 +207,22 @@
  *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is still false with only
  *     the Bow (its body is unchanged; the Beamos rewrite is stage 5).
  *
+ * SoH eca767dcb's Masks as Adult seed setting (RSK_MASKS_AS_ADULT) and the adult
+ * hood terms it makes live (#1647 stage 1b):
+ *  MA. The one reader of Masks Equippable as Adult (OoT_AdultMasksEnabled) is on
+ *     in a randomizer file whose seed has the setting on with the enhancement
+ *     unset, without writing the enhancement's CVar; off in a vanilla file while
+ *     the rando context holds it on and with it off; the enhancement alone still
+ *     works; Timeless Equipment still lets adult Link wear masks.
+ *  MC. CanUse(RG_BUNNY_HOOD) and the Skull Mask are adult only with the setting on;
+ *     the Keaton Mask stays child-only (upstream gives the setting to three masks);
+ *     with Masks as Adult on and Bunny Hood Effect off BunnyHood() is still false.
+ *  BV. BunnyHovers() is true only for an adult with Hover Boots, the hood and both
+ *     settings on.
+ *  AH. One pair per area: an adult holding the hood (and what the term names) must
+ *     NOT pass with Masks as Adult off and must with it on, Bunny Hood Effect on.
+ *  TR. RT_DC_EYES_BUNNYHOVERS lights the Dodongo's eyes only with the trick on.
+ *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
  * A0 and B0 are the exception in form: they hold everything but the event, and
@@ -226,7 +242,7 @@
 
 #include "soh/OTRGlobals.h"
 #include "soh/cvar_prefixes.h"
-#include "soh/Enhancements/enhancementTypes.h" // BunnyHoodMode, OoT_BunnyHoodEffectMode (BH legs)
+#include "soh/Enhancements/enhancementTypes.h" // BunnyHoodMode, OoT_BunnyHoodEffectMode, OoT_AdultMasksEnabled (BH, MA legs)
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/static_data.h"
 #include "soh/Enhancements/randomizer/location_access.h"
@@ -1625,9 +1641,278 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     }
 }
 
+// ---- #1647 stage 1b (SoH eca767dcb's Masks as Adult): MA, MC, BV, AH, TR ----
+// The tricks these legs force off (saved and restored).
+const RandomizerTrick kMaaForcedTricks[] = {
+    RT_UNINTUITIVE_JUMPS,   RT_GROUND_JUMP,    RT_GROUND_JUMP_HARD, RT_HOVER_BOOST_SIMPLE, RT_DAMAGE_BOOST_SIMPLE,
+    RT_FOREST_DOORFRAME,    RT_LENS_GANON,     RT_GTG_LAVA_JUMP,    RT_SLIDE_JUMP,         RT_JABU_BOSS_HOVER,
+    RT_SHADOW_MQ_HUGE_PIT,  RT_LENS_SHADOW_MQ, RT_ZR_LOWER,         RT_SPIRIT_STATUE_JUMP, RT_DC_EYES_CHU,
+    RT_DC_EYES_BUNNYHOVERS,
+};
+
+/** ResetLogic, holding the Bunny Hood, with Climb withheld (the legs run under Shuffle Climb). */
+void MaaResetAdultWithHood() {
+    ResetLogicWithBunnyHood();
+    logic->SetRandoInf(RAND_INF_CAN_CLIMB, false);
+}
+
+/** One exit for an adult holding the hood, Bunny Hood Effect on: closed with Masks as Adult off, open with it on. */
+void MaaExitOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion from, RandomizerRegion to) {
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectExit(legOff, from, to, true, false, "the adult's hood jump is in logic in a seed without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectExit(legOn, from, to, true, true,
+               "the adult's hood jump is not in logic under Masks as Adult and Bunny Hood Effect (#1647)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+}
+
+void RunMasksAsAdultLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const char* const kAdultMasksKey = CVAR_ENHANCEMENT("AdultMasks");
+    const char* const kTimelessKey = CVAR_CHEAT("TimelessEquipment");
+    const bool adultMasksExisted = CVarExists(kAdultMasksKey);
+    const int adultMasksValue = CVarGetInteger(kAdultMasksKey, 0);
+    const bool timelessExisted = CVarExists(kTimelessKey);
+    const int timelessValue = CVarGetInteger(kTimelessKey, 0);
+    const uint8_t savedFortress = randoCtx->GetOption(RSK_GERUDO_FORTRESS).Get();
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const u8 savedQuest = gSaveContext.ship.quest.id;
+    uint8_t savedTricks[sizeof(kMaaForcedTricks) / sizeof(kMaaForcedTricks[0])];
+    for (size_t i = 0; i < sizeof(kMaaForcedTricks) / sizeof(kMaaForcedTricks[0]); i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kMaaForcedTricks[i]).Get();
+        randoCtx->GetTrickOption(kMaaForcedTricks[i]).Set(0);
+    }
+    CVarClear(kAdultMasksKey);
+    CVarClear(kTimelessKey);
+    randoCtx->GetOption(RSK_GERUDO_FORTRESS).Set(RO_GF_CARPENTERS_NORMAL);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+
+    // ---- MA1..MA8: the one reader of Masks Equippable as Adult (GameExports_SingleExe.cpp) ----
+    gSaveContext.ship.quest.id = QUEST_NORMAL;
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("MA1 reader, vanilla file while the rando context holds Masks as Adult on", OoT_AdultMasksEnabled() != 0,
+               false, "a vanilla file reads a randomizer seed's Masks as Adult");
+    ExpectFlag("MA2 masks equippable as adult, vanilla file, rando context holds the setting on",
+               OoT_MasksEquippableAsAdult() != 0, false, "a vanilla file lets adult Link wear masks from the seed");
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("MA3 reader, randomizer file with Masks as Adult off, enhancement unset", OoT_AdultMasksEnabled() != 0,
+               false, "adult masks are forced with the seed setting off");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("MA4 reader, randomizer file with Masks as Adult on, enhancement unset", OoT_AdultMasksEnabled() != 0,
+               true, "the seed's Masks as Adult does not force Masks Equippable as Adult (SoH eca767dcb)");
+    ExpectFlag("MA5 masks equippable as adult, randomizer file with Masks as Adult on",
+               OoT_MasksEquippableAsAdult() != 0, true, "adult Link cannot wear the masks the file's logic expects");
+    ExpectFlag("MA5 the enhancement's CVar after the reads", CVarExists(kAdultMasksKey), false,
+               "the reader stored the forced setting into the player's enhancement");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    CVarSetInteger(kAdultMasksKey, 1);
+    ExpectFlag("MA6 reader, randomizer file with Masks as Adult off, enhancement on", OoT_AdultMasksEnabled() != 0,
+               true, "the player's own Masks Equippable as Adult no longer works with the seed setting off");
+    CVarClear(kAdultMasksKey);
+    CVarSetInteger(kTimelessKey, 1);
+    ExpectFlag("MA7 masks equippable as adult, Timeless Equipment alone", OoT_MasksEquippableAsAdult() != 0, true,
+               "the Timeless Equipment cheat no longer lets adult Link wear masks");
+    ExpectFlag("MA7 reader, Timeless Equipment alone", OoT_AdultMasksEnabled() != 0, false,
+               "the cheat reads as the Masks Equippable as Adult enhancement");
+    CVarClear(kTimelessKey);
+    ExpectFlag("MA8 decision, enhancement off, seed setting off", OoT_AdultMasksEnabledFor(0, 0) != 0, false,
+               "adult masks are on with nothing asking for them");
+    ExpectFlag("MA8 decision, enhancement on, seed setting off", OoT_AdultMasksEnabledFor(1, 0) != 0, true,
+               "the enhancement alone no longer turns adult masks on");
+    ExpectFlag("MA8 decision, enhancement off, seed setting on", OoT_AdultMasksEnabledFor(0, 1) != 0, true,
+               "the seed setting alone does not turn adult masks on");
+    gSaveContext.ship.quest.id = savedQuest;
+
+    // ---- MC1..MC7: Logic::CanUse of the masks and Logic::BunnyHood (logic.cpp) ----
+    MaaResetAdultWithHood();
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("MC1 CanUse(RG_BUNNY_HOOD), adult holding the hood, Masks as Adult off", logic->CanUse(RG_BUNNY_HOOD),
+               false, "logic lets the adult wear the hood in a seed without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("MC2 CanUse(RG_BUNNY_HOOD), adult holding the hood, Masks as Adult on", logic->CanUse(RG_BUNNY_HOOD),
+               true, "logic does not let the adult wear the hood under Masks as Adult (SoH eca767dcb)");
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_SKULL, true);
+    ExpectFlag("MC3 CanUse(RG_SKULL_MASK), adult holding it, Masks as Adult on", logic->CanUse(RG_SKULL_MASK), true,
+               "upstream's Masks as Adult case no longer covers the Skull Mask");
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_KEATON, true);
+    ExpectFlag("MC4 CanUse(RG_KEATON_MASK), adult holding it, Masks as Adult on", logic->CanUse(RG_KEATON_MASK), false,
+               "Masks as Adult was widened past the masks upstream gives it to (Skull, Truth, Bunny)");
+    ExpectFlag("MC5 Logic::BunnyHood, adult holding the hood, both settings on", logic->BunnyHood(), true,
+               "logic does not credit the adult's hood jump under Masks as Adult and Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectFlag("MC6 Logic::BunnyHood, adult holding the hood, Masks as Adult on, Bunny Hood Effect off",
+               logic->BunnyHood(), false, "Masks as Adult alone credits the hood's jump");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    BhlAs(false, RR_THE_LOST_WOODS);
+    ExpectFlag("MC7 CanUse(RG_BUNNY_HOOD), child holding the hood, Masks as Adult off", logic->CanUse(RG_BUNNY_HOOD),
+               true, "the child can no longer wear the hood");
+
+    // ---- BV1..BV5: Logic::BunnyHovers (Hover Boots and the hood, both settings) ----
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    BhlAs(true, RR_THE_LOST_WOODS);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("BV1 BunnyHovers, adult with Hover Boots and the hood, both settings on", logic->BunnyHovers(), true,
+               "Hover Boots and the hood do not hover with the hood's speed");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    ExpectFlag("BV2 BunnyHovers, adult with Hover Boots and the hood, Masks as Adult off", logic->BunnyHovers(), false,
+               "the bunny hover is in logic without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectFlag("BV3 BunnyHovers, adult with Hover Boots and the hood, Bunny Hood Effect off", logic->BunnyHovers(),
+               false, "the bunny hover is in logic without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    BhlAs(false, RR_THE_LOST_WOODS);
+    ExpectFlag("BV4 BunnyHovers, child with Hover Boots and the hood, both settings on", logic->BunnyHovers(), false,
+               "the child is credited Hover Boots it cannot wear");
+    MaaResetAdultWithHood();
+    BhlAs(true, RR_THE_LOST_WOODS);
+    ExpectFlag("BV5 BunnyHovers, adult with the hood but no Hover Boots, both settings on", logic->BunnyHovers(), false,
+               "the bunny hover is in logic without Hover Boots");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- AH: one pair per area, an adult holding the hood, Bunny Hood Effect on ----
+    MaaResetAdultWithHood();
+    MaaExitOffOn(randoCtx, "AH1 DC MQ behind the mouth to behind the fire, adult with the hood, Masks as Adult off",
+                 "AH2 DC MQ behind the mouth to behind the fire, adult with the hood, Masks as Adult on",
+                 RR_DODONGOS_CAVERN_MQ_BEHIND_MOUTH, RR_DODONGOS_CAVERN_MQ_BACK_BEHIND_FIRE);
+    MaaExitOffOn(randoCtx, "AH3 Fire maze to its platforms, adult with the hood, Masks as Adult off",
+                 "AH4 Fire maze to its platforms, adult with the hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_FIRE_MAZE_MAIN, RR_FIRE_TEMPLE_FIRE_MAZE_PLATFORMS);
+    MaaExitOffOn(randoCtx, "AH5 Water 3F central to the entrance ledge, adult with the hood, Masks as Adult off",
+                 "AH6 Water 3F central to the entrance ledge, adult with the hood, Masks as Adult on",
+                 RR_WATER_TEMPLE_3F_CENTRAL_A, RR_WATER_TEMPLE_ENTRANCE_LEDGE);
+    MaaExitOffOn(randoCtx, "AH7 Spirit MQ Anubis bridge chest to the grave, adult with the hood, Masks as Adult off",
+                 "AH8 Spirit MQ Anubis bridge chest to the grave, adult with the hood, Masks as Adult on",
+                 RR_SPIRIT_TEMPLE_MQ_ANUBIS_BRIDGE_CHEST, RR_SPIRIT_TEMPLE_MQ_ANUBIS_BRIDGE_GRAVE);
+    MaaExitOffOn(randoCtx, "AH9 GF near the GS to the long roof, adult with the hood, Masks as Adult off",
+                 "AH10 GF near the GS to the long roof, adult with the hood, Masks as Adult on", RR_GF_NEAR_GS,
+                 RR_GF_LONG_ROOF);
+    MaaExitOffOn(randoCtx, "AH11 Zora's River to the pillar, adult with the hood, Masks as Adult off",
+                 "AH12 Zora's River to the pillar, adult with the hood, Masks as Adult on", RR_ZORAS_RIVER,
+                 RR_ZR_PILLAR);
+    // Sacred Forest Meadow above the maze: the hood rides RT_UNINTUITIVE_JUMPS; no Climb for the ladder.
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(1);
+    MaaExitOffOn(randoCtx, "AH13 SFM to above the maze, adult with the hood, RT_UNINTUITIVE_JUMPS, Masks as Adult off",
+                 "AH14 SFM to above the maze, adult with the hood, RT_UNINTUITIVE_JUMPS, Masks as Adult on",
+                 RR_SACRED_FOREST_MEADOW, RR_SFM_ABOVE_MAZE);
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(0);
+    // A jumpslash: Ganon's Shadow Trial chest platform to the lower switch.
+    MaaResetAdultWithHood();
+    Give(RG_MASTER_SWORD);
+    MaaExitOffOn(randoCtx, "AH15 Ganon's Shadow Trial chest platform to lower switch, adult with hood and sword, off",
+                 "AH16 Ganon's Shadow Trial chest platform to lower switch, adult with hood and sword, on",
+                 RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH);
+    // The Spirit Temple's reverse access (location_access.cpp spiritLogicData) and SpiritWestToSkull (logic.cpp).
+    BhlAs(true, RR_SPIRIT_TEMPLE_GS_LEDGE);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectFlag("AH17 SpiritWestToSkull, adult with hood and sword, Masks as Adult off", logic->SpiritWestToSkull(),
+               false, "the adult's hood jump to the GS ledge is in logic without Masks as Adult");
+    ExpectFlag("AH17 Spirit GS ledge reverse access, adult with hood and sword, Masks as Adult off",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_GS_LEDGE).reverseAccess(), false,
+               "the adult's hood jump to the GS ledge from the boss door is in logic without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectFlag("AH18 SpiritWestToSkull, adult with hood and sword, Masks as Adult on", logic->SpiritWestToSkull(), true,
+               "the adult's hood jump to the GS ledge is not in logic (SoH eca767dcb)");
+    ExpectFlag("AH18 Spirit GS ledge reverse access, adult with hood and sword, Masks as Adult on",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_GS_LEDGE).reverseAccess(), true,
+               "the adult's hood jump to the GS ledge from the boss door is not in logic (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    logic->CurrentRegionKey = RR_NONE;
+    // The Bow: GTG MQ torch side to ledge side.
+    MaaResetAdultWithHood();
+    Give(RG_PROGRESSIVE_BOW);
+    MaaExitOffOn(randoCtx, "AH19 GTG MQ torch side to ledge side, adult with the Bow and the hood, Masks as Adult off",
+                 "AH20 GTG MQ torch side to ledge side, adult with the Bow and the hood, Masks as Adult on",
+                 RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS, RR_GERUDO_TRAINING_GROUND_MQ_LEDGE_SIDE_PLATFORMS);
+    // Hover Boots and the hood (BunnyHovers).
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    MaaExitOffOn(randoCtx,
+                 "AH21 Shadow MQ upper to lower huge pit, adult with Hover Boots and hood, Masks as Adult off",
+                 "AH22 Shadow MQ upper to lower huge pit, adult with Hover Boots and hood, Masks as Adult on",
+                 RR_SHADOW_TEMPLE_MQ_UPPER_HUGE_PIT, RR_SHADOW_TEMPLE_MQ_LOWER_HUGE_PIT);
+    randoCtx->GetTrickOption(RT_FOREST_DOORFRAME).Set(1);
+    MaaExitOffOn(randoCtx, "AH23 Forest NE courtyard upper to doorframe, adult, Hover Boots, hood, no sword, off",
+                 "AH24 Forest NE courtyard upper to doorframe, adult, Hover Boots, hood, no sword, on",
+                 RR_FOREST_TEMPLE_NE_COURTYARD_UPPER, RR_FOREST_TEMPLE_NE_COURTYARD_DOORFRAME);
+    randoCtx->GetTrickOption(RT_FOREST_DOORFRAME).Set(0);
+    GiveClimb();
+    MaaExitOffOn(randoCtx, "AH25 GV fortress side to the valley, adult with Hover Boots, hood and Climb, off",
+                 "AH26 GV fortress side to the valley, adult with Hover Boots, hood and Climb, on", RR_GV_FORTRESS_SIDE,
+                 RR_GERUDO_VALLEY);
+    GiveGrab();
+    MaaExitOffOn(randoCtx, "AH27 Jabu lift room to near the boss, adult with Hover Boots, hood and grab, off",
+                 "AH28 Jabu lift room to near the boss, adult with Hover Boots, hood and grab, on",
+                 RR_JABU_JABUS_BELLY_LIFT_ROOM, RR_JABU_JABUS_BELLY_NEAR_BOSS_ROOM);
+    // Ice Cavern MQ scarecrow room: the blue fire event.
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    FireEvents(RR_ICE_CAVERN_MQ_SCARECROW_ROOM, true);
+    ExpectEvent("AH29 Ice MQ scarecrow room blue fire, adult with Hover Boots and hood, Masks as Adult off",
+                LOGIC_BLUE_FIRE_ACCESS, false, "the bunny hover to the blue fire is in logic without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    FireEvents(RR_ICE_CAVERN_MQ_SCARECROW_ROOM, true);
+    ExpectEvent("AH30 Ice MQ scarecrow room blue fire, adult with Hover Boots and hood, Masks as Adult on",
+                LOGIC_BLUE_FIRE_ACCESS, true, "the bunny hover to the blue fire is not in logic (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+
+    // ---- TR1..TR4: RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) -----------------------
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    GiveGoronsBracelet();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    FireEvents(RR_DODONGOS_CAVERN_LOBBY, true);
+    ExpectEvent("TR1 DC lobby eyes, adult with Hover Boots, hood and bracelet, both settings on, trick off",
+                LOGIC_DC_EYES_LIT, false, "the bunnyhover bomb flower lights the eyes with its trick off");
+    randoCtx->GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Set(1);
+    FireEvents(RR_DODONGOS_CAVERN_LOBBY, true);
+    ExpectEvent("TR2 DC lobby eyes, adult with Hover Boots, hood and bracelet, both settings on, trick on",
+                LOGIC_DC_EYES_LIT, true,
+                "Dodongo's Cavern Dodongo with Goron Bracelet and Bunnyhovers does not light the eyes");
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    GiveGoronsBracelet();
+    FireEvents(RR_DODONGOS_CAVERN_MQ_LOBBY, true);
+    ExpectEvent("TR3 DC MQ lobby eyes, adult with Hover Boots, hood and bracelet, both settings on, trick on",
+                LOGIC_DC_EYES_LIT, true, "the bunnyhover trick does not light the MQ eyes");
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    GiveGoronsBracelet();
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    FireEvents(RR_DODONGOS_CAVERN_LOBBY, true);
+    ExpectEvent("TR4 DC lobby eyes, adult with Hover Boots, hood and bracelet, trick on, Masks as Adult off",
+                LOGIC_DC_EYES_LIT, false, "the bunnyhover trick lights the eyes without Masks as Adult");
+    randoCtx->GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Set(0);
+
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_GERUDO_FORTRESS).Set(savedFortress);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    for (size_t i = 0; i < sizeof(kMaaForcedTricks) / sizeof(kMaaForcedTricks[0]); i++) {
+        randoCtx->GetTrickOption(kMaaForcedTricks[i]).Set(savedTricks[i]);
+    }
+    CVarClear(kAdultMasksKey);
+    if (adultMasksExisted) {
+        CVarSetInteger(kAdultMasksKey, adultMasksValue);
+    }
+    CVarClear(kTimelessKey);
+    if (timelessExisted) {
+        CVarSetInteger(kTimelessKey, timelessValue);
+    }
+}
+
 void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const char* const kEffectKey = CVAR_ENHANCEMENT("MMBunnyHood");
     const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    // #1647 stage 1b: every leg before the MA legs is about Masks as Adult off.
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
     const uint8_t savedLwBridge = randoCtx->GetTrickOption(RT_LW_BRIDGE).Get();
     const u8 savedQuest = gSaveContext.ship.quest.id;
@@ -1714,12 +1999,15 @@ void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
 
     // ---- BL, OW, HW, WE, RH, D1: the rest of eca767dcb's terms (#1647) ---------
     RunBunnyHoodLogicLegs(randoCtx);
+    // ---- MA, MC, BV, AH, TR: Masks as Adult and the adult hood terms (#1647 stage 1b) ----
+    RunMasksAsAdultLegs(randoCtx);
 
     CVarClear(kEffectKey);
     if (effectExisted) {
         CVarSetInteger(kEffectKey, effectValue);
     }
     randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunnyHood);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
     randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
     randoCtx->GetTrickOption(RT_LW_BRIDGE).Set(savedLwBridge);
 }

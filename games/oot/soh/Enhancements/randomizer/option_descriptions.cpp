@@ -890,6 +890,9 @@ void Settings::CreateOptionDescriptions() {
     mOptionDescriptions[RSK_BUNNY_HOOD] =
         "Wearing the Bunny Hood makes Link run 1.5x faster and jump 1.5x further, like in Majora's Mask. "
         "Item placement logic will respect this option, so it might be required to use this to progress.";
+    mOptionDescriptions[RSK_MASKS_AS_ADULT] =
+        "Masks can be equipped as adult instead of being child only. "
+        "Item placement logic will respect this option, so it might be required to use this to progress.";
     mOptionDescriptions[RSK_ROCS_FEATHER] =
         "Adds Roc's Feather to the item pool. Roc's Feather is a custom item granting the player a jump on demand. "
         "The jump can also be used when already in mid-air. Roc's Feather is not considered by logic.";

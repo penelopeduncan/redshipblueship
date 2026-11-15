@@ -312,7 +312,7 @@ void RegionTable_Init_IceCavern() {
 
     areaTable[RR_ICE_CAVERN_MQ_SCARECROW_ROOM] = Region("Ice Cavern MQ Scarecrow Room", SCENE_ICE_CAVERN, {
         //Events
-        EventAccess(LOGIC_BLUE_FIRE_ACCESS, []{return logic->CanUse(RG_SONG_OF_TIME) || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)));}),
+        EventAccess(LOGIC_BLUE_FIRE_ACCESS, []{return logic->CanUse(RG_SONG_OF_TIME) || logic->BunnyHovers() || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)));}),
     }, {
         //Locations
         //Implies being able to kill the skull if you hit the switch
