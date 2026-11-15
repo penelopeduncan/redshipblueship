@@ -482,6 +482,12 @@ static void GpFireOoTDoor(uint16_t entrance, const char* what) {
     gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
 }
 
+// int-foreign-hold-quit (#1635 step 7): the same door, for its drive's warps
+// (games/oot/soh/oot_int_foreign_hold_quit_drive.cpp).
+extern "C" void OoT_Fhq_FireDoor(uint16_t entrance, const char* what) {
+    GpFireOoTDoor(entrance, what);
+}
+
 /**
  * Author a debug save in-place and enter Play directly at `entrance`. Mirrors
  * the operator's map-select flow — Select_LoadGame (z_select.c) and the boot
@@ -1030,6 +1036,20 @@ uint32_t Randomizer_GetCurrentWorldSeed(void);
 uint32_t MM_Rando_OnSaveInitDispatchCount(void);
 // soh/SaveManager.cpp: the file select's gate (#836).
 int OoT_FileSelect_ProbeSlotForOpen(int fileNum, char* words, size_t wordsLen);
+// int-foreign-hold-quit (#1635 step 7): games/oot/soh/oot_int_foreign_hold_quit_drive.cpp.
+int OoT_Fhq_Pin(int slot, const uint8_t* name);
+void OoT_Fhq_PinClear(void);
+bool OoT_Fhq_CheckCreated(char* msg, size_t cap);
+bool OoT_Fhq_IsHost(uint16_t rc);
+void OoT_Fhq_FrameStart(void);
+void OoT_Fhq_FrameEnd(void);
+void OoT_Fhq_TitleUpdate(void* gameState);
+void OoT_Fhq_FileChooseMain(void* gameState);
+void OoT_Fhq_OnLoadGame(int32_t fileNum);
+bool OoT_Fhq_SceneInit(int phase, int16_t sceneNum, uint16_t entrance);
+bool OoT_Fhq_PlayerFrame(PlayState* play);
+void OoT_Fhq_ReturnVerdict(PlayState* play, int frame);
+const char* OoT_Fhq_StageName(void);
 }
 
 // The slot the paired row writes: the THIRD file (fileNum 2), named "RSBSTEST"
@@ -1506,10 +1526,21 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         IntegrationTest_GameplayFail("int-song-host: the debug-seed seam refused the song-host pin");
         return;
     }
+    // int-foreign-hold-quit (#1635 step 7): its two MM items on Mido's chests, the
+    // same seam; a refusal shows only later, as a failed generation or creation.
+    const int fhqPin = IntegrationTest_ForeignHoldQuit() ? OoT_Fhq_Pin(kPfcSlot, kPfcName) : 0;
+    if (fhqPin < 0) {
+        return; // the drive failed the run
+    }
+    static const char* const kFhqPinRefused =
+        "int-foreign-hold-quit F0 fixture: the FHQ pin was refused (see the [ComboLogic] fill refused line)";
     fprintf(stderr, "[PFC] generating the pinned paired world %s on the shipped defaults at %s\n", kPfcSeed, from);
     fflush(stderr);
     if (Rando_HeadlessSeedTest(kPfcSeed) != 0) {
-        if (IntegrationTest_MMWarpSongMinuet()) {
+        if (fhqPin > 0) {
+            OoT_Fhq_PinClear();
+            IntegrationTest_GameplayFail(kFhqPinRefused);
+        } else if (IntegrationTest_MMWarpSongMinuet()) {
             MwGenerationFailed();
         } else {
             IntegrationTest_GameplayFail("the pinned paired world did not generate");
@@ -1554,12 +1585,22 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
                  kPfcSlot + 1, Save_Exist(kPfcSlot) ? "written" : "MISSING",
                  RsbsSave_HasSave(kPfcSlot) ? "written" : "MISSING",
                  IntegrationTest_StderrCaptureCount("creation event: slot") > 0 ? "absent" : "never logged");
+        if (fhqPin > 0) {
+            OoT_Fhq_PinClear();
+            char fhqMsg[640];
+            snprintf(fhqMsg, sizeof(fhqMsg), "%s; %s", kFhqPinRefused, msg);
+            IntegrationTest_GameplayFail(fhqMsg);
+            return;
+        }
         IntegrationTest_GameplayFail(msg);
         return;
     }
     fprintf(stderr, "[PFC] created: \"%s\"\n", line);
     if (songHostPin > 0) {
         (void)Combo_Logic_TestSetForcedPlacements(NULL, 0); // the creation's fill took it
+    }
+    if (fhqPin > 0) {
+        OoT_Fhq_PinClear(); // the creation's fill took it
     }
     if (PfcShopPlaytest()) {
         PfcShopPlaytestSetCVars(false);
@@ -1578,6 +1619,10 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
         return;
     }
     fprintf(stderr, "[PFC] creation's crossings = the store it left: %s\n", msg);
+    if (fhqPin > 0 && !OoT_Fhq_CheckCreated(msg, sizeof(msg))) {
+        IntegrationTest_GameplayFail(msg);
+        return;
+    }
     if (!Combo_ForeignPairingActive() || gComboCtx.sharedRandoSeed == 0 || gComboCtx.mmProfileDigest == 0 ||
         gComboCtx.comboSettingsHash == 0) {
         snprintf(msg, sizeof(msg),
@@ -1842,6 +1887,10 @@ static void GpPairedTrackerPlaytest(int frame) {
             // start), and a chest this leg opened itself would hand him one. The world re-pinned for #1548
             // put Majora's Mask's Progressive Sword on the first chest host.
             if (item != NULL && (strstr(item, "Sword") != NULL || strstr(item, "Shield") != NULL)) {
+                continue;
+            }
+            // int-foreign-hold-quit (#1635 step 7): its two pinned hosts are its own legs.
+            if (OoT_Fhq_IsHost(row.hostCheck)) {
                 continue;
             }
             sHost = row.hostCheck;
@@ -3932,11 +3981,13 @@ static void MwVerdict(PlayState* play, int frame) {
 // thread while OoT's own thread is wedged: plain reads, no dereference of the
 // play state (it may be mid-teardown), no FILE lock.
 static void OoT_IntegrationWatchdogDescribe(char* out, size_t cap) {
-    snprintf(out, cap, "gameMode=%d entranceIndex=0x%04X cutsceneIndex=0x%04X gGameState=%p gPlayState=%p%s%s",
+    snprintf(out, cap, "gameMode=%d entranceIndex=0x%04X cutsceneIndex=0x%04X gGameState=%p gPlayState=%p%s%s%s%s",
              (int)gSaveContext.gameMode, (uint16_t)gSaveContext.entranceIndex, (uint16_t)gSaveContext.cutsceneIndex,
              (void*)OoT_gGameState, (void*)OoT_gPlayState,
              IntegrationTest_GetMode() == INT_TEST_SWITCH_OOT_HMS_TO_MM ? " T1 stage=" : "",
-             IntegrationTest_GetMode() == INT_TEST_SWITCH_OOT_HMS_TO_MM ? T1StageName(sT1Stage) : "");
+             IntegrationTest_GetMode() == INT_TEST_SWITCH_OOT_HMS_TO_MM ? T1StageName(sT1Stage) : "",
+             IntegrationTest_ForeignHoldQuit() ? " FHQ stage=" : "",
+             IntegrationTest_ForeignHoldQuit() ? OoT_Fhq_StageName() : "");
 }
 
 /**
@@ -4265,6 +4316,38 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             GameInteractor::Instance->RegisterGameHook<GameInteractor::OnGameStateMainStart>([]() { SoarMainStart(); });
             GameInteractor::Instance->RegisterGameHook<GameInteractor::OnPlayDestroy>([]() { SoarPlayDestroy(); });
         }
+        if (IntegrationTest_ForeignHoldQuit()) {
+            // #1635 step 7: the quits run at a frame's end (after the play update,
+            // where a GUI Reset click lands), the file-select presses at its start
+            // (before the file select's own main and its #836 gate), and the title
+            // skip on the title's update. Their order against product hooks on the
+            // same event is unspecified, so nothing relies on it.
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnGameStateMainStart>([]() {
+                if (Context_GetCurrentGame() == GAME_OOT) {
+                    OoT_Fhq_FrameStart();
+                }
+            });
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnGameFrameUpdate>([]() {
+                if (Context_GetCurrentGame() == GAME_OOT) {
+                    OoT_Fhq_FrameEnd();
+                }
+            });
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnZTitleUpdate>([](void* gameState) {
+                if (Context_GetCurrentGame() == GAME_OOT && IntegrationTest_GetGameplayPhase() != GP_PHASE_BOOT) {
+                    OoT_Fhq_TitleUpdate(gameState);
+                }
+            });
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnFileChooseMain>([](void* gameState) {
+                if (Context_GetCurrentGame() == GAME_OOT && IntegrationTest_GetGameplayPhase() != GP_PHASE_BOOT) {
+                    OoT_Fhq_FileChooseMain(gameState);
+                }
+            });
+            GameInteractor::Instance->RegisterGameHook<GameInteractor::OnLoadGame>([](int32_t fileNum) {
+                if (Context_GetCurrentGame() == GAME_OOT) {
+                    OoT_Fhq_OnLoadGame(fileNum);
+                }
+            });
+        }
 
         // Arrival tracking + entrance verification. Fires from the scene
         // build inside OoT_Play_Init — i.e. AFTER the startup-entrance
@@ -4283,6 +4366,12 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             // int-soaring-to-owl (#1169 XW6): the Windmill arrival is the drive's,
             // and an OoT scene after Soar fails the run.
             if (IntegrationTest_SoaringToOwl() && SoarSceneInit(phase, sceneNum, entrance)) {
+                return;
+            }
+            // int-foreign-hold-quit (#1635 step 7): the reloads and Mido's House
+            // are the drive's arrivals; it measures them and owns their frames.
+            if (IntegrationTest_ForeignHoldQuit() && OoT_Fhq_SceneInit((int)phase, sceneNum, entrance)) {
+                sGpArrivalPhase = phase;
                 return;
             }
             uint16_t expected;
@@ -4539,6 +4628,20 @@ static void OoT_RegisterIntegrationTestHooks(void) {
             if (IntegrationTest_SoaringToOwl() && (phase == GP_PHASE_OOT_PRE || phase == GP_PHASE_OOT_RETURN)) {
                 if (sGpFramesInPhase >= cfg->framesPerPhase) {
                     SoarFrame(play, phase);
+                }
+                return;
+            }
+            // int-foreign-hold-quit (#1635 step 7): after the paired drive's own
+            // frames of the first leg, the quits and reloads own it until Link is
+            // back in the Market; the return leg ends in its verdict (no record
+            // cycle, no debug warp, no exit door), as int-mm-warp-song-minuet's does.
+            if (IntegrationTest_ForeignHoldQuit() && phase == GP_PHASE_OOT_PRE &&
+                sGpFramesInPhase >= cfg->framesPerPhase && !OoT_Fhq_PlayerFrame(play)) {
+                return;
+            }
+            if (IntegrationTest_ForeignHoldQuit() && phase == GP_PHASE_OOT_RETURN) {
+                if (sGpFramesInPhase >= cfg->framesPerPhase) {
+                    OoT_Fhq_ReturnVerdict(play, sGpFramesInPhase - cfg->framesPerPhase);
                 }
                 return;
             }

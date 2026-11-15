@@ -143,8 +143,18 @@ bool CaptureKeeps(const std::string& line) {
     // RSBS_REFUSAL_TOAST_PREFIX: a refusal toast's line, whatever its copy says (#836).
     // "paired completion": Generate's completion of the paired world, which a
     // creation runs since #1116 and whose single-bag line the paired rows read (#1135).
-    static const char* const kTags[] = { "pairing",     "creation", "paired completion",
-                                         "[Crossings]", "REFUSED",  RSBS_REFUSAL_TOAST_PREFIX,
+    // int-foreign-hold-quit (#1635 step 7): the drain's crossing records, the load
+    // restore's line, the hold's line and the return-to-title retirement it counts.
+    static const char* const kTags[] = { "pairing",
+                                         "creation",
+                                         "paired completion",
+                                         "[Crossings]",
+                                         "[SharedItem] recorded crossing copy",
+                                         "foreign pending",
+                                         "foreign pickup HELD",
+                                         "Return to title",
+                                         "REFUSED",
+                                         RSBS_REFUSAL_TOAST_PREFIX,
                                          "[PFC" };
     for (const char* tag : kTags) {
         if (line.find(tag) != std::string::npos) {
@@ -854,7 +864,8 @@ void IntegrationTest_GameplayFail(const char* reason) {
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
     if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL ||
-        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+        variant == GP_VARIANT_FOREIGN_HOLD_QUIT || variant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+        variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -865,6 +876,9 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
                                                      : "through the production event");
         if (variant == GP_VARIANT_SOARING_TO_OWL) {
             fprintf(stderr, "[PFC] variant: Song of Soaring to an owl (#1169 XW6), riding the paired first crossing\n");
+        }
+        if (variant == GP_VARIANT_FOREIGN_HOLD_QUIT) {
+            fprintf(stderr, "[PFC] variant: foreign hold survives a quit (#1635), riding the paired first crossing\n");
         }
         if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
             fprintf(stderr, "[PFC] variant: Minuet of Forest played in Majora's Mask, crossing to Ocarina of Time "
@@ -885,12 +899,16 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void) {
 bool IntegrationTest_PairedFirstCrossing(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP &&
            (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL ||
-            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+            sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT || sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
             sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
 }
 
 bool IntegrationTest_SoaringToOwl(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_SOARING_TO_OWL;
+}
+
+bool IntegrationTest_ForeignHoldQuit(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT;
 }
 
 bool IntegrationTest_MMWarpSongMinuet(void) {
