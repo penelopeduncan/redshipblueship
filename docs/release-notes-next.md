@@ -43,7 +43,8 @@
   - The Clock Town postbox is listed under East Clock Town, and a duplicate Bad Bat drop in the upper graveyard is
     gone.
 - **More Majora's Mask logic fixes from 2Ship2Harkinian** (2Ship #1954, #1984, #2006, #2017, #2018). These change
-  where items can land, so worlds made with the default settings change too:
+  where items can land, so the same seed and settings can make a different world than before, with the default
+  settings too:
   - Freeing the Deku Princess in Woodfall Temple needs a sword.
   - Pinnacle Rock's first chest needs the Deep Python beaten, as its other chests do.
   - Stone Tower Temple's inverted upper east chest needs the underwater switch in the deep pool (Zora Mask and Swim),
