@@ -785,6 +785,7 @@ extern "C" {
 #include "tests/test_mm_get_item_presentation.c"
 #include "tests/test_mm_unique_key_models.c"    // #1172: MM's dungeon keys draw 2S2H's dungeon key models
 #include "tests/test_hookshot_reticle_colour.c" // #1173: the hookshot reticle turns green on a hookshot surface
+#include "tests/test_map_compass_colour.c"      // SoH #6351: maps and compasses draw in their dungeon's colour
 #include "tests/test_foreign_shop_mm.c"
 #include "tests/test_foreign_award.c"
 #include "tests/test_foreign_outbox_full.c"
@@ -10084,6 +10085,9 @@ const TestDescriptor gTests[] = {
       Test_OotHookshotReticleColour },
     { "mm-hookshot-reticle-colour", "Termina's hookshot reticle turns green on a hookshot surface (#1173)",
       Test_MmHookshotReticleColour },
+    // SoH #6351: every dungeon map and compass draws in its dungeon's colour.
+    { "oot-map-compass-colours", "Every dungeon map and compass draws in its dungeon's colour (SoH #6351)",
+      Test_OoTMapCompassColours },
     // #575 H2: MM's own hints name the shared area (H1), never the scene.
     { "mm-hint-area-text", "MM's hints name the shared area, not the scene (#575 H2)", Test_MmHintAreaText },
     // #575 H3c: MM's hints name the OoT area of an MM item hosted in OoT.

@@ -777,6 +777,10 @@ if(BUILD_TESTING)
     # 6340ad3d5: the Bow, Slingshot and Boomerang reticles never turn green).
     redship_add_test(NAME OoTHookshotReticleColour COMMAND redship --test oot-hookshot-reticle-colour)
     redship_add_test(NAME MmHookshotReticleColour COMMAND redship --test mm-hookshot-reticle-colour)
+    # SoH #6351: every dungeon map row has Randomizer_DrawMap (maps never took their
+    # dungeon's colour) and the Ice Cavern compass is cyan, not the GTG gold.
+    # games/oot/soh/oot_map_compass_colour_test.cpp; ROM-free.
+    redship_add_test(NAME OoTMapCompassColours COMMAND redship --test oot-map-compass-colours)
     # #575 H2: MM's hints said a check's scene, so every grotto check read "Lone
     # Peak Shrine & Grottos" and an enemy drop could be hinted. Drives the
     # stone's real text and candidate filter (EnGs.cpp) over MM's real check
