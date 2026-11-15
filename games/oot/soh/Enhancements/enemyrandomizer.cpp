@@ -134,7 +134,7 @@ const char* enemyNameList[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] = {
     "Flying Peahat",
     "Flying Pot",
     "Freezard",
-    "Gerudo Fighter",
+    "Gerudo Thief",
     "Gibdo",
     "Gohma Larva",
     "Guay",
@@ -198,7 +198,7 @@ static EnemyEntry randomizedEnemySpawnTable[RANDOMIZED_ENEMY_SPAWN_TABLE_SIZE] =
     { ACTOR_EN_PEEHAT, -1 },       // Flying Peahat (big grounded, doesn't spawn larva)
     { ACTOR_EN_TUBO_TRAP, 0 },     // Flying pot
     { ACTOR_EN_FZ, 0 },            // Freezard
-    { ACTOR_EN_GELDB, 0 },         // Gerudo Fighter
+    { ACTOR_EN_GELDB, 0 },         // Gerudo Thief
     { ACTOR_EN_RD, 32766 },        // Gibdo (standing)
     { ACTOR_EN_GOMA, 7 },          // Gohma Larva (Non-Gohma rooms)
     { ACTOR_EN_CROW, 0 },          // Guay
