@@ -264,6 +264,11 @@
   window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
 - **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
   2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
+- **Developer Tools: Ocarina of Time's Save Editor has a new layout** (SoH #6474, #7383), from Ship of Harkinian. Its
+  tabs are General, Inventory, Equipment, Quest Status, Dungeon Items, Flags and Player, laid out as cards. The player
+  name is a text box kept in the game's encoding, B, C and D-pad items can be picked from icons, each dungeon has its
+  own map, compass and key card, the flag tables can be searched, and a randomizer save gets a card for its Bombchu
+  Bag, Triforce Pieces and shuffled abilities.
 - **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is

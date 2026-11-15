@@ -280,6 +280,8 @@ std::vector<std::string> itemNamesEng = {
     "Deku Stick Upgrade (30)",
     "Deku Nut Upgrade (30)",
     "Deku Nut Upgrade (40)",
+    // ITEM_ROCS_FEATHER (0x9C: this tree has no ITEM_CUSTOM before it, so upstream's "[Removed]" row is not added)
+    "Roc's Feather",
 };
 
 std::vector<std::string> itemNamesFra = {
@@ -439,6 +441,8 @@ std::vector<std::string> itemNamesFra = {
     "Amélioration des Bâtons Mojo (30)",
     "Amélioration des Noix Mojo (30)",
     "Amélioration des Noix Mojo (40)",
+    // ITEM_ROCS_FEATHER (0x9C: this tree has no ITEM_CUSTOM before it, so upstream's "[Removed]" row is not added)
+    "Plume de Roc",
 };
 
 std::vector<std::string> itemNamesGer = {
@@ -598,6 +602,8 @@ std::vector<std::string> itemNamesGer = {
     "Deku-Stab-Kapazität (30)",
     "Deku-Nuß-Kapazität (30)",
     "Deku-Nuß-Kapazität (40)",
+    // ITEM_ROCS_FEATHER (0x9C: this tree has no ITEM_CUSTOM before it, so upstream's "[Removed]" row is not added)
+    "Greifenfeder",
 };
 
 std::vector<std::string> questItemNamesEng = {

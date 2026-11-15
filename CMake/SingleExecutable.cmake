@@ -1926,6 +1926,14 @@ if(BUILD_TESTING)
     # the rando tier below.
     redship_add_test(NAME OoTEntrancePin COMMAND redship --test oot-entrance-pin)
 
+    # SoH #6474 (Save editor v2) with SoH #7383 hunks 2 and 3: the Save Editor edits
+    # the player name as an eight-character text box, stored in the game's PAL or NTSC
+    # encoding. The row types names into storePlayerNameInput (spaces from the first
+    # NUL on, even over old text left in the buffer) and reads them back through
+    # decodePlayerNameInput (debugSaveEditor.cpp) in all three name languages.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorNameInput COMMAND redship --test oot-save-editor-name-input)
+
     # #999: the Check Tracker's Available Checks prices an unidentified shop, scrub
     # or merchant slot at GetMinimumPrice, and for a Range price setting that must
     # be min(range 1, range 2) * 5 whichever slider is higher; the inherited code

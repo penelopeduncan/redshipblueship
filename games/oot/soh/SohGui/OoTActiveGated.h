@@ -3,9 +3,9 @@
  *
  * gSaveContext is one shared buffer (src/common/unified_save.c), so while Majora's Mask is the running game any OoT
  * window that reads it through OoT's SaveContext layout shows MM's bytes, and any window that writes it writes MM's
- * live save. The Save Editor's Info tab does that on every drawn frame (the magic capacity/clamp and the health clamp
- * in DrawInfoTab), the Message Viewer's "Display Message" dereferences a null OoT_gPlayState, and Time Splits writes
- * the stats block when its last split is clicked.
+ * live save. The Save Editor does that on every drawn frame (its Flags tab's Keep GS Count Updated assigns the token
+ * count in DrawFlagsTab), the Message Viewer's "Display Message" dereferences a null OoT_gPlayState, and Time Splits
+ * writes the stats block when its last split is clicked.
  *
  * OoTActiveGated<B> is the OoT twin of MM's MMActiveGated (games/mm/2s2h/TrackersGuiSingleExe.cpp), without the CVar
  * re-sync (OoT's own menu opens and closes its windows through Show()/Hide()). It gates all three ways into a

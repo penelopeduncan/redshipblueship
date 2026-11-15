@@ -591,6 +591,10 @@ int OoT_LoadReconcile_RunHeadless(void);
 // needs the display bring-up, like the other rando-tier rows. Return 0 on pass.
 int OoTTest_EntrancePinPool(void);
 int RandoTest_EntrancePinGenerated(void);
+// SoH #6474 + #7383 hunks 2 and 3: the Save Editor's player-name text box stores the typed text in the
+// game's PAL or NTSC encoding (spaces from the first NUL on) and shows a stored name as its text. ROM-free
+// and display-free; body in games/oot/soh/oot_save_editor_name_input_test.cpp. Return 0 on pass.
+int OoTTest_SaveEditorNameInput(void);
 // #999: a Range price setting's tracker minimum is min(range 1, range 2) * 5 in
 // either slider order. ROM-free and display-free; body in
 // games/oot/soh/oot_price_range_test.cpp. Return 0 on pass.
@@ -1599,6 +1603,12 @@ static TestResult Test_OoTSceneFlagFreeze(void) {
 // up only the rando region graph, no Ship::Context and no archives.
 static TestResult Test_OoTEntrancePin(void) {
     return OoTTest_EntrancePinPool() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH #6474 + #7383 (see the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_save_editor_name_input_test.cpp. Display-free and ROM-free.
+static TestResult Test_OoTSaveEditorNameInput(void) {
+    return OoTTest_SaveEditorNameInput() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #999 (see the extern decl above). Thin wrapper over the C entry point in
@@ -10763,6 +10773,11 @@ const TestDescriptor gTests[] = {
     // row runs in its own process under the rando label).
     { "oot-entrance-pin", "The Happy Mask Shop pair never enters OoT's entrance-shuffle pools (#661)",
       Test_OoTEntrancePin },
+    // SoH #6474 + #7383: display-free and ROM-free; calls two pure functions and touches no state.
+    { "oot-save-editor-name-input",
+      "The Save Editor's player-name text box stores and shows the name in the game's encoding (SoH #6474, "
+      "#7383)",
+      Test_OoTSaveEditorNameInput },
     // #999: display-free and ROM-free; sets the three price families' own options in
     // a fresh rando Context and touches nothing else.
     { "oot-price-range-minimum",
