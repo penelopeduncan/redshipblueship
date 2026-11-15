@@ -1705,8 +1705,8 @@ void MaaCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* 
  * #1647, operator 2026-11-15 "Widen to all": every mask the game lets an adult wear under Masks as Adult is
  * usable by him in logic, and every use that needs the child stays the child's.
  *  MW1..MW9  the Keaton, Goron and Zora Masks (#978's cases): adult off false, adult on true, child true.
- *  SU1..SU8  the Skull Mask's and the Mask of Truth's uses: the Keese stun (CanAvoidEnemy), the Deku Theater's
- *            two rewards, the Spirit MQ big wall (one pair each).
+ *  SU1..SU14 the Skull Mask's and the Mask of Truth's uses: the Keese stun (CanAvoidEnemy), the Deku Theater's
+ *            two rewards, the Spirit MQ big wall exit, its two wall silvers and its silver event (one pair each).
  *  BT1, BT2  the mask trade stays the child's: an adult with Masks as Adult on borrows nothing (Kakariko
  *            Village's LOGIC_BORROW_SKULL_MASK); the child does.
  *  BP1..BP6  the cross-game masks stay the child's: an adult cannot wear the Blast or the Stone Mask under the
@@ -1751,6 +1751,24 @@ void RunMasksAsAdultWideLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectExit("SU8 Spirit MQ big wall base to upper, adult with the Skull Mask and Climb, Masks as Adult on",
                RR_SPIRIT_TEMPLE_MQ_BIG_WALL_BASE, RR_SPIRIT_TEMPLE_MQ_BIG_WALL_UPPER, true, true,
                "the adult's Skull Mask past the Keese is not in logic under Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    MaaCheckOffOn(randoCtx,
+                  "SU9 Spirit MQ highest wall silver, adult with the Skull Mask and Climb, Masks as Adult off",
+                  "SU10 Spirit MQ highest wall silver, adult with the Skull Mask and Climb, Masks as Adult on",
+                  RR_SPIRIT_TEMPLE_MQ_BIG_WALL_BASE, RC_SPIRIT_MQ_HIGHEST_WALL_SILVER);
+    MaaCheckOffOn(randoCtx,
+                  "SU11 Spirit MQ middle wall silver, adult with the Skull Mask and Climb, Masks as Adult off",
+                  "SU12 Spirit MQ middle wall silver, adult with the Skull Mask and Climb, Masks as Adult on",
+                  RR_SPIRIT_TEMPLE_MQ_BIG_WALL_BASE, RC_SPIRIT_MQ_MIDDLE_WALL_SILVER);
+    FireEvents(RR_SPIRIT_TEMPLE_MQ_BIG_WALL_UPPER, true);
+    ExpectEvent("SU13 Spirit MQ big wall silver event, adult with the Skull Mask and Climb, Masks as Adult off",
+                LOGIC_SPIRIT_MQ_SILVER_BIG_WALL, false,
+                "the adult's Skull Mask past the Keese collects the big wall silvers without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    FireEvents(RR_SPIRIT_TEMPLE_MQ_BIG_WALL_UPPER, true);
+    ExpectEvent("SU14 Spirit MQ big wall silver event, adult with the Skull Mask and Climb, Masks as Adult on",
+                LOGIC_SPIRIT_MQ_SILVER_BIG_WALL, true,
+                "the adult's Skull Mask past the Keese does not collect the big wall silvers under Masks as Adult");
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     ResetLogic();
     logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_TRUTH, true);
