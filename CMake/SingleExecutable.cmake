@@ -1808,6 +1808,13 @@ if(BUILD_TESTING)
     # never gives RI_NONE. Pure (no display, no ROM).
     redship_add_test(NAME MMTingleMapPool COMMAND redship --test mm-tingle-map-pool)
     redship_add_test(NAME MMTingleMapDisplay COMMAND redship --test mm-tingle-map-display)
+    # Backport M8 (2Ship #1842, #1847, #1853): the always-on ocarina-dive registrant
+    # (Restorations/OcarinaDive.cpp, attributed by registry content) is the one
+    # unkeyed OnGameStateMainStart registrant; over a stand-in play state it re-queues
+    # the promoted player-ocarina cutscene on two frames of a hover and never without
+    # one; Faster Song Playback leaves a falling song's timer alone. Pure (no
+    # display, no ROM).
+    redship_add_test(NAME MMOcarinaDive COMMAND redship --test mm-ocarina-dive)
     # The entrance -> region cache's registration boundary (#659).
     # Rando::Logic::Regions is filled by eighteen independent ShipInit
     # registrars whose order is link order, and the cache inside

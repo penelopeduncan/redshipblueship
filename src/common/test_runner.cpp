@@ -434,6 +434,11 @@ int MM_ShopPricesPool_RunHeadless(void);
 // need the display-free shared bring-up first. Return 0 on pass.
 int MM_TingleMapPool_RunHeadless(void);
 int MM_TingleMapDisplay_RunHeadless(void);
+// Backport M8 (games/mm/2s2h/mm_ocarina_dive_test.cpp, 2Ship #1842/#1847/#1853): the
+// always-on ocarina-dive registrant is linked and gives a hover exactly two grace
+// frames, and Faster Song Playback leaves a falling song alone. Needs the
+// display-free shared bring-up first (it runs MM_Rando_Init). Return 0 on pass.
+int MM_OcarinaDive_RunHeadless(void);
 // The curated MM enhancement keys' liveness evidence
 // (games/mm/2s2h/mm_enhancement_toggles_test.cpp, #682): the EVIDENCE half of the
 // pair above, MM-side because the registries are. Per key: exactly one
@@ -7602,6 +7607,21 @@ static TestResult Test_MMTingleMapDisplay(void) {
     return MM_TingleMapDisplay_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport M8: the ocarina-dive trio. Same display-free bring-up as mm-tingle-map-pool.
+static TestResult Test_MMOcarinaDive(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_OcarinaDive_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #682's evidence half. Same display-free shared bring-up and the same reason as
 // mm-clock-shuffle-songs: it drives MM's registrars through CVarSetInteger +
 // MM_ShipInit_OnCVarChanged, and reads the Ship::Context singleton's
@@ -10645,6 +10665,11 @@ const TestDescriptor gTests[] = {
       Test_MMTingleMapPool },
     { "mm-tingle-map-display", "A shop slot holding an owned Tingle map is named and sold as junk, once (#1499)",
       Test_MMTingleMapDisplay },
+    // Backport M8. After mm-registrar-coverage for the same reason as the Tingle
+    // rows (it runs MM_Rando_Init); restores what it writes.
+    { "mm-ocarina-dive",
+      "MM's ocarina dive: two grace frames while hovering, no faster song while falling (2Ship #1842)",
+      Test_MMOcarinaDive },
     // The two MM resume-contract tests below mutate process-global state
     // (mm-resume-arena re-inits the MM system arena + heaps; mm-startup-restore
     // scribbles and re-zeroes the unified gSaveContext). Both clean up after

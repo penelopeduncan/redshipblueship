@@ -328,3 +328,4 @@ games/oot/soh/oot_shuffle_ice_test.cpp
 games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp
 games/mm/2s2h/Enhancements/Restorations/OcarinaDive.cpp
+games/mm/2s2h/mm_ocarina_dive_test.cpp
