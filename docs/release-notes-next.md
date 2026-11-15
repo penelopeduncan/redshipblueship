@@ -227,6 +227,9 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **Ocarina of Time randomizer: dungeon maps take their dungeon's colour** (SoH #6351), from Ship of Harkinian. With
+  Map & Compass Colors Match Dungeon on, maps now match their dungeon as compasses do, and the Ice Cavern compass is
+  cyan instead of gold. That option and Jabber Nut Colors Match Kind can now be changed from the file select menu.
 
 ### Trackers
 
