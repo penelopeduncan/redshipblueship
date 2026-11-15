@@ -1992,6 +1992,17 @@ if(BUILD_TESTING)
     # another scene -> unchanged. Display-free and ROM-free.
     redship_add_test(NAME OoTMaskShopNightDoor COMMAND redship --test oot-mask-shop-night-door)
 
+    # Backport O16 (SoH 0cf2b3701 #7054, faed544b2 #7272): the six Dark Link
+    # guards (voidout, fall damage, distant clank, both floor-type statics,
+    # Like-Like grab) live in Enhancements/Fixes/DarkLinkFixes.cpp and arm when
+    # the enemy randomizer, Crowd Control or Sail is on, not only the first.
+    # The row runs that registrar out of ShipInit's map under each key, then
+    # the REAL GameInteractor_Should dispatch with a fake Dark Link and a fake
+    # Link: all off -> vanilla; each trigger alone -> guarded; Link is never
+    # refused; and the GELDB labels read "Gerudo Thief". Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

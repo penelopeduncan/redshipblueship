@@ -1770,6 +1770,21 @@ static TestResult Test_TwoShipImportMmKeys(void) {
     return OoT_TwoShipImport_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport O16 (SoH 0cf2b3701, faed544b2): the Dark Link guards arm under the
+// enemy randomizer, Crowd Control or Sail, and the GELDB labels read "Gerudo
+// Thief". Body in games/oot/soh/oot_dark_link_fixes_test.cpp; return 0 on
+// pass. The display-free shared bring-up, because the row writes and clears
+// the three trigger CVars.
+extern "C" int OoT_DarkLinkFixes_RunHeadless(void);
+static TestResult Test_OoTDarkLinkFixes(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -10975,6 +10990,13 @@ const TestDescriptor gTests[] = {
       "In a paired world the night Market's Happy Mask Shop door opens as the day door does, so the crossing works "
       "at night; a vanilla file keeps the sign, and the other night shops and the day door are unchanged (#948)",
       Test_OoTMaskShopNightDoor },
+    // Backport O16: display-free and ROM-free; restores the three trigger
+    // CVars (cleared, never stored), the guards and the current game.
+    { "oot-dark-link-fixes",
+      "The Dark Link guards (voidout, fall damage, distant clank, floor-type statics, Like-Like grab) arm when the "
+      "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
+      "labels read Gerudo Thief (SoH #7054, #7272)",
+      Test_OoTDarkLinkFixes },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
