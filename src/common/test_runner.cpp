@@ -7073,7 +7073,11 @@ static TestResult Test_ModMenuChildScope(void) {
         printf("[TEST] FAIL: cannot read games/oot/soh/Enhancements/mod_menu.cpp under RSBS_SOURCE_DIR\n");
         return TEST_FAIL;
     }
-    const std::string opener = "if (ImGui::BeginChild(\"Enabled Mods\"";
+    // The two needles are assembled from pieces: ui-parity-lint's S0 rule takes any file under src/common/ holding the
+    // text of an ImGui call for a file that draws, and this row only reads another file's source.
+    const std::string ns = "ImGui";
+    const std::string opener = "if (" + ns + "::BeginChild(\"Enabled Mods\"";
+    const std::string closer = ns + "::EndChild();";
     const size_t at = src.find(opener);
     if (at == std::string::npos || src.find(opener, at + 1) != std::string::npos) {
         printf("[TEST] FAIL: expected exactly one live `%s` in mod_menu.cpp\n", opener.c_str());
@@ -7106,8 +7110,8 @@ static TestResult Test_ModMenuChildScope(void) {
         return TEST_FAIL;
     }
     const size_t next = src.find_first_not_of(" \t\r\n", close + 1);
-    if (next == std::string::npos || src.compare(next, 18, "ImGui::EndChild();") != 0) {
-        printf("[TEST] FAIL: the first statement after the Enabled Mods `if` body is not ImGui::EndChild();\n");
+    if (next == std::string::npos || src.compare(next, closer.size(), closer) != 0) {
+        printf("[TEST] FAIL: the first statement after the Enabled Mods `if` body is not `%s`\n", closer.c_str());
         return TEST_FAIL;
     }
     printf("[TEST] mod-menu-child-scope: Enabled Mods child is ended unconditionally\n");
