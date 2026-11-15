@@ -173,8 +173,16 @@ int RunLegs(rsbs::SaveManager& mgr) {
 
     // ---- (3) the Song of Time ------------------------------------------------
     DriveRandoLoad(true);
+    // A probe bit: Sram_SaveEndOfCycle never touches shipSaveInfo, so only the
+    // rando's AfterEndOfCycleSave, visiting this host, clears it. Without this
+    // the leg passes with that hook unregistered or undispatched (the COND_HOOK
+    // vacuity trap), and an `eligible = false` beside its clear goes unseen.
+    RANDO_SAVE_CHECKS[kHost].cycleObtained = true;
     PlaySongOfTime();
     PrintHost("(3) after the Song of Time", gSaveContext);
+    FHM_ASSERT(!RANDO_SAVE_CHECKS[kHost].cycleObtained,
+               "(3) the reset did not clear the host's cycleObtained: the rando's AfterEndOfCycleSave did not run "
+               "(premise)");
     FHM_ASSERT(RANDO_SAVE_CHECKS[kHost].eligible && !RANDO_SAVE_CHECKS[kHost].obtained,
                "(3) the cycle reset keeps a held host eligible (it clears cycleObtained only)");
     gSaveContext.save.isOwlSave = true;
@@ -215,6 +223,8 @@ extern "C" int MM_ForeignHoldSurvivesQuit_Run(void) {
     rsbs::SaveManager& mgr = rsbs::SaveManager::Instance();
     const int rc = RunLegs(mgr);
 
+    // Disarm whatever the legs armed, on pass and on fail (as mm-cycle-razor-sword).
+    DriveRandoLoad(false);
     mgr.DeleteSave(0);
     mgr.ResetSlotSessionState();
     mgr.SetSaveDirectory("Save");

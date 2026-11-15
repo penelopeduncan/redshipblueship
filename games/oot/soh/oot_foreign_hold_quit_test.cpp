@@ -14,8 +14,8 @@
  * THE FIX UNDER TEST. The durable pending set (gComboCtx.crossingPendingOoT,
  * Tier-1): set at both flag-hook push sites (hook_handlers.cpp) and at the hold
  * (OoT_Rando_Foreign_HoldPickup), cleared in the call that writes the outbox row
- * (OoT_Rando_Foreign_RecordPickup), carried by every commit, never promoted to
- * found by the load reconcile (CheckStateLoadSingleExe.cpp), and restored by
+ * or credits the shared pool (OoT_Rando_Foreign_RecordPickup), carried by every
+ * commit, never promoted to found by the load reconcile (CheckStateLoadSingleExe.cpp), and restored by
  * OnLoadGame's queue reset (OoT_Rando_Foreign_RestoreHolds through the bridge
  * OoT_Rando_TestResetQueuesForLoad).
  *
@@ -28,6 +28,9 @@
  *      no longer holds its flag: a half that went back).
  * C, R and U are queued and never drained (the queue window). R's tracker status
  * reads found at the reload (the newest save says pending: pending wins).
+ * R hosts MM's Hookshot, a shared capacity tier (RSBS_SHARED_RES_HOOKSHOT_TIER):
+ * its record steps the shared pool at pickup (#1120) and writes no outbox row, so
+ * R covers the pool-credit clear and C and H cover the outbox-row clear.
  *
  * LEGS, every one through a real save and load (two commits on disk, the real
  * OnLoadFile seam, OnLoadGame's queue reset):
@@ -35,9 +38,11 @@
  *   2 without a live pairing the restore queues nothing and moves no bit;
  *   3 with the pairing the restore queues C, R and H in row order, resets R's
  *     found status, and drops U's bit without queueing it;
- *   4 the drain records each once and every bit clears;
- *   5 a second save and load queues nothing and the outbox holds one row per
- *     host.
+ *   4 the drain records each once and every bit clears: C and H one outbox row
+ *     each, R no row and the hookshot pool stepped exactly once (0 to 1);
+ *   5 a second save and load queues nothing, the outbox holds one row each for
+ *     C and H, and the pool still holds 1 after the reload's drain (a pool host
+ *     handed back again would step it to 2, the Longshot).
  * Every leg runs before any verdict, so a red run shows them all.
  */
 
@@ -49,6 +54,7 @@
 #include "game.h"
 #include "save.h"
 #include "shared_items.h"
+#include "shared_resources.h"
 #include "tests/test_named_items.h"
 
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
@@ -188,6 +194,13 @@ int FhqRowsHolding(const SharedItem& item) {
         }
     }
     return n;
+}
+
+// R's item is MM's Hookshot, a shared capacity tier: its pickup steps this pool
+// (#1120) instead of writing an outbox row. No slot reads as 0.
+int FhqHookshotPool(void) {
+    uint16_t v = 0;
+    return Combo_GetSharedResource((uint8_t)RSBS_SHARED_RES_HOOKSHOT_TIER, &v) ? (int)v : 0;
 }
 
 void NoAward(const SharedItem*, void*) {
@@ -369,6 +382,7 @@ int RunLegs(void) {
     // ---- leg 4: the drain records each once ----------------------------------
     // Termina redeems what OoT owed, so the outbox has room again.
     (void)Combo_RedeemSharedItemsForGame(GAME_OOT, NoAward, nullptr);
+    const int poolBeforeDrain = FhqHookshotPool();
     int recorded = 0;
     for (int i = 0; i < queuedCount && i < 8; i++) {
         if (OoT_Rando_Foreign_RecordPickup(queued[i]) == 1) {
@@ -381,11 +395,17 @@ int RunLegs(void) {
         rows[i] = FhqRowsHolding(sItems[i]);
     }
     const int pendingAfterDrain = Combo_CrossingPendingOoT_Count();
-    printf("[TEST] foreign-hold-survives-quit-oot: leg 4: recorded %d; rows C %d R %d H %d U %d; pending %d\n",
-           recorded, rows[0], rows[1], rows[2], rows[3], pendingAfterDrain);
-    FHQ_CHECK(recorded == 3 && rows[0] == 1 && rows[1] == 1 && rows[2] == 1 && rows[3] == 0,
-              "leg 4: each restored host records its MM item once");
-    FHQ_CHECK(pendingAfterDrain == 0, "leg 4: the record clears each host's pending bit");
+    const int poolAfterDrain = FhqHookshotPool();
+    printf("[TEST] foreign-hold-survives-quit-oot: leg 4: recorded %d; rows C %d R %d H %d U %d; hookshot pool %d -> "
+           "%d; pending %d\n",
+           recorded, rows[0], rows[1], rows[2], rows[3], poolBeforeDrain, poolAfterDrain, pendingAfterDrain);
+    FHQ_CHECK(recorded == 3, "leg 4: the drain records each of the three restored hosts");
+    FHQ_CHECK(rows[0] == 1 && rows[2] == 1 && rows[3] == 0,
+              "leg 4: each restored outbox host (C, H) records its MM item in exactly one row, U in none");
+    FHQ_CHECK(rows[1] == 0 && poolBeforeDrain == 0 && poolAfterDrain == 1,
+              "leg 4: R's Hookshot (a shared tier) steps the shared pool exactly once at pickup and writes no outbox "
+              "row (#1120)");
+    FHQ_CHECK(pendingAfterDrain == 0, "leg 4: the record or the pool credit clears each host's pending bit");
 
     // ---- leg 5: save and load again ------------------------------------------
     BlankRandoHalf(&sSavBase); // the .sav's base is still the one before any of it
@@ -398,20 +418,32 @@ int RunLegs(void) {
     LoadAsFileSelect(savGeneration, delivered);
     const int pendingSecond = Combo_CrossingPendingOoT_Count();
     const int restoredSecond = OoT_Rando_TestResetQueuesForLoad();
-    const int queuedSecond = OoT_Rando_TestTakeQueuedChecks(nullptr, 0);
+    uint16_t queuedAgain[8] = {};
+    const int queuedSecond = OoT_Rando_TestTakeQueuedChecks(queuedAgain, 8);
+    // Drain whatever the reload handed back, as the RC-queue drain would: a host
+    // left pending would be recorded (or, for R, credited to the pool) again here.
+    int recordedSecond = 0;
+    for (int i = 0; i < queuedSecond && i < 8; i++) {
+        recordedSecond += OoT_Rando_Foreign_RecordPickup(queuedAgain[i]) == 1 ? 1 : 0;
+    }
     for (int i = 0; i < 4; i++) {
         rows[i] = FhqRowsHolding(sItems[i]);
     }
-    printf("[TEST] foreign-hold-survives-quit-oot: leg 5: pending %d, restored %d, queued %d; rows C %d R %d H %d U "
-           "%d\n",
-           pendingSecond, restoredSecond, queuedSecond, rows[0], rows[1], rows[2], rows[3]);
-    FHQ_CHECK(pendingSecond == 0 && restoredSecond == 0 && queuedSecond == 0,
+    const int poolSecond = FhqHookshotPool();
+    printf("[TEST] foreign-hold-survives-quit-oot: leg 5: pending %d, restored %d, queued %d, recorded %d; rows C %d "
+           "R %d H %d U %d; hookshot pool %d\n",
+           pendingSecond, restoredSecond, queuedSecond, recordedSecond, rows[0], rows[1], rows[2], rows[3], poolSecond);
+    FHQ_CHECK(pendingSecond == 0 && restoredSecond == 0 && queuedSecond == 0 && recordedSecond == 0,
               "leg 5: a delivered host is not pending in the next commit, so a second reload queues nothing (a host "
               "queued again would send its item a second time)");
-    FHQ_CHECK(rows[0] == 1 && rows[1] == 1 && rows[2] == 1 && rows[3] == 0,
-              "leg 5: the reloaded outbox holds exactly one row per delivered host");
+    FHQ_CHECK(rows[0] == 1 && rows[1] == 0 && rows[2] == 1 && rows[3] == 0,
+              "leg 5: the reloaded outbox holds exactly one row per outbox host (C, H) and none for R or U");
+    FHQ_CHECK(poolSecond == 1,
+              "leg 5: the reloaded pool holds R's Hookshot once: a pool-credited host is not credited again after a "
+              "reload (2 would be a second step, the Longshot)");
     for (int i = 0; i < 4; i++) {
-        printf("[TEST] foreign-hold-survives-quit-oot:   %s hosts %s\n", kHostNames[i], kItemNames[i]);
+        printf("[TEST] foreign-hold-survives-quit-oot:   %s hosts %s%s\n", kHostNames[i], kItemNames[i],
+               i == 1 ? " (a shared tier: credited to the pool at pickup, no outbox row)" : "");
     }
     return 0;
 }

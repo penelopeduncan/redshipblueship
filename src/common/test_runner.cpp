@@ -7755,8 +7755,22 @@ static TestResult Test_ForeignHoldSurvivesQuitOoT(void) {
     return OoT_ForeignHoldSurvivesQuit_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
-// #1635, the MM twin: MM's durable `eligible` already survives every path.
+// #1635, the MM twin: MM's durable `eligible` already survives every path. The
+// Song of Time leg arms the rando through the production load path
+// (ShipInit::Init("IS_RANDO") re-drives registrars that read CVars), so the row
+// takes the same display-free bring-up as mm-cycle-razor-sword, which drives the
+// identical DriveRandoLoad + Song of Time (alone in its process, as CTest runs
+// it, the Ship::Context singleton is otherwise null and the row crashes).
 static TestResult Test_ForeignHoldSurvivesQuitMM(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
     return MM_ForeignHoldSurvivesQuit_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
