@@ -1861,6 +1861,19 @@ void RunMasksAsAdultLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectEvent("AH30 Ice MQ scarecrow room blue fire, adult with Hover Boots and hood, Masks as Adult on",
                 LOGIC_BLUE_FIRE_ACCESS, true, "the bunny hover to the blue fire is not in logic (SoH eca767dcb)");
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    // Shadow MQ spikes door platform: the east target rupee by bunny hover and jumpslash, no Longshot.
+    MaaResetAdultWithHood();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MASTER_SWORD);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectAt("AH31 Shadow MQ door platform east target rupee, adult, Hover Boots, hood, sword, Masks as Adult off",
+             RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER, true, false,
+             "the bunny hover to the east target rupee is in logic without Masks as Adult");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    ExpectAt("AH32 Shadow MQ door platform east target rupee, adult, Hover Boots, hood, sword, Masks as Adult on",
+             RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER, true, true,
+             "the bunny hover to the east target rupee is not in logic (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
 
     // ---- TR1..TR4: RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) -----------------------
     MaaResetAdultWithHood();

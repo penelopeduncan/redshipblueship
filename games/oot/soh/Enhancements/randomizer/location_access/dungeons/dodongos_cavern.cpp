@@ -444,7 +444,7 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_ROOM_HEART, true),
     }, {
         //Exits
-        Entrance(RR_DODONGOS_CAVERN_MQ_ENTRANCE_SIDE_BRIDGE, []{return (logic->IsAdult || logic->HasItem(RG_POWER_BRACELET)) || logic->CanClimbLadder();}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_ENTRANCE_SIDE_BRIDGE, []{return (logic->IsAdult || logic->HasItem(RG_POWER_BRACELET)) || logic->CanClimbLadder() || ((logic->IsAdult || logic->CanMiddairGroundJump(true)) && logic->BunnyHovers());}),
         Entrance(RR_DODONGOS_CAVERN_MQ_LARVAE_ROOM,          []{return logic->HasFireSource();}),
         //you can platform off the blocks to get here without climb
         Entrance(RR_DODONGOS_CAVERN_MQ_BIG_BLOCK_ROOM,       []{return logic->Get(LOGIC_DC_MQ_CLEAR_BIG_BLOCK_WEB);}), //Includes an implied CanPass(RE_BIG_SKULLTULA)

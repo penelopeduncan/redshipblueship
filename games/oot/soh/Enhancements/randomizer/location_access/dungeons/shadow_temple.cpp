@@ -662,7 +662,7 @@ void RegionTable_Init_ShadowTemple() {
     areaTable[RR_SHADOW_TEMPLE_MQ_FLOOR_SPIKES_S_DOOR] = Region("Shadow Temple MQ Floor Spikes South Door", SCENE_SHADOW_TEMPLE, {}, {
         //Locations
         LOCATION(RC_SHADOW_MQ_W_TARGET_SPIKES_SILVER, logic->CanUse(RG_HOOKSHOT)),
-        LOCATION(RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER, (logic->BunnyHovers() && logic->CanJumpslash()) || logic->CanUse(RG_LONGSHOT)),
+        LOCATION(RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER, logic->CanUse(RG_LONGSHOT)),
     }, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_HUGE_PIT,         []{return logic->SmallKeys(SCENE_SHADOW_TEMPLE, 3);}),
@@ -755,7 +755,7 @@ void RegionTable_Init_ShadowTemple() {
         //Locations
         // can also get W_TARGET and E_TARGET with hovers backwalk backflip
         LOCATION(RC_SHADOW_MQ_W_TARGET_SPIKES_SILVER,       logic->CanUse(RG_LONGSHOT)),
-        LOCATION(RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER,       logic->CanUse(RG_LONGSHOT)),
+        LOCATION(RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER,       (logic->BunnyHovers() && logic->CanJumpslash()) || logic->CanUse(RG_LONGSHOT)),
         LOCATION(RC_SHADOW_MQ_W_AIRBORNE_SPIKES_SILVER,     true),
         LOCATION(RC_SHADOW_MQ_CENTRAL_TARGET_SPIKES_SILVER, logic->CanUse(RG_HOOKSHOT)),
         LOCATION(RC_SHADOW_MQ_E_AIRBORNE_SPIKES_SILVER,     logic->CanUse(RG_HOVER_BOOTS) || logic->CanJumpslash() || logic->BunnyHood()),

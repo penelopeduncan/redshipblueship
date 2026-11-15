@@ -327,7 +327,7 @@ void RegionTable_Init_IceCavern() {
         //Exits
         Entrance(RR_ICE_CAVERN_MQ_HUB,           []{return logic->BlueFire();}),
         //The switch defaults into the state where the block exists, and is a temp flag
-        Entrance(RR_ICE_CAVERN_MQ_WEST_CORRIDOR, []{return logic->IsAdult && logic->BlueFire();}),
+        Entrance(RR_ICE_CAVERN_MQ_WEST_CORRIDOR, []{return (logic->IsAdult || logic->BunnyHovers()) && logic->BlueFire();}),
     });
 
     areaTable[RR_ICE_CAVERN_MQ_WEST_CORRIDOR] = Region("Ice Cavern MQ West Corridor", SCENE_ICE_CAVERN, {}, {
