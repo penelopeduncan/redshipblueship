@@ -1273,6 +1273,12 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // and the real three-day reset (mm-song-host-guard). Both ROM-free and
 // generation-free. FILE SCOPE (compiled as C++).
 #include "tests/test_song_check_tables.c"
+// #1602 (#1600 step 2): OoT's check-keyed receive effects run for a check hosting
+// a Majora's Mask item too; the literal list of every check the receive path
+// tests, from source, and the behaviour legs in
+// games/oot/soh/oot_check_receive_effects_test.cpp (oot-check-receive-effects,
+// ROM-free). FILE SCOPE (compiled as C++).
+#include "tests/test_oot_check_receive_effects.c"
 // #1542 (S3): the shared song-location pool over real paired generations: every
 // song of either game on a song check of either game, leftovers junked, Healing a
 // host, and nothing of it under Anywhere (song-pool-union-world,
@@ -9712,6 +9718,17 @@ static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1602: the display-free shared bring-up, because the row sets aside and puts
+// back SoH's Skip Story Cutscenes key.
+static TestResult Test_OoTCheckReceiveEffects(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoTCheckReceiveEffects_Run();
+}
+
 TestResult Test_PairedLoadRestore(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -11636,6 +11653,10 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-check-receive-effects",
+      "What OoT does because a check gave its item (the Silver Gauntlets chest marking Nabooru captured) runs when "
+      "that check hosts a Majora's Mask item too, once, and every such check is named in one literal (#1602)",
+      Test_OoTCheckReceiveEffects },
     { "crossing-commit",
       "Every cross-game crossing is a whole-file commit taken between the departing suspend and the target's "
       "resume: a kill after the crossing reloads it; a latched, slot-less, freeze-less or not-live departure "
