@@ -5279,11 +5279,12 @@ extern "C" void MM_GameHooks_ExecuteOnBossDefeated(s16 actorId) {
  * entry. Both call sites already pass a non-NULL one -- MM_Actor_SpawnEntry
  * returns before its call on NULL (#344) -- so this is defence, not a behaviour.
  *
- * WHAT NOW RUNS: nothing. No MM TU registers this hook yet; its first registrant
- * is the Mayor Argues Until Moonfall option (2Ship #1972), not ported here. The
- * upstream commit's other half, TingleAlwaysInClockTown.cpp, is an enhancement
- * this tree does not carry. With an empty registry both call sites leave the
- * decoded mask exactly as vanilla computed it.
+ * WHAT NOW RUNS: the Mayor Argues Until Moonfall option (2Ship #1972,
+ * Cycle/MayorArguesUntilMoonfall.cpp), its only registrant, with four id-keyed
+ * handlers (En_Muto, En_Baisen, En_Heishi, En_Daiku) armed only while its key is
+ * on. The upstream #2010 commit's other half, TingleAlwaysInClockTown.cpp, is an
+ * enhancement this tree does not carry. With the key off the registry is empty
+ * and both call sites leave the decoded mask exactly as vanilla computed it.
  */
 extern "C" void MM_GameHooks_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits) {
     if (actorEntry == NULL) {

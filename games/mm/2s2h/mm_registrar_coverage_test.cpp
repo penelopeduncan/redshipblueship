@@ -2874,8 +2874,7 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
         return rc;
     }
 
-    // ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going on the Final Night
-    // --------------------------
+    // ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going on the Final Night --------------------
     if (const int rc = RunMayorArguesUntilMoonfallLeg(); rc != 0) {
         return rc;
     }
