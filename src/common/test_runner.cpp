@@ -974,6 +974,11 @@ extern "C" {
 // games/mm/2s2h/mm_audio_editor_test.cpp; returns 0 on pass, non-zero on fail. Wrapper: beside mm-hud-editor-reader.
 extern "C" int MM_AudioEditorReplacement_RunHeadless(void);
 
+// SoH Audio Editor backport O12 (SoH #5685, #6608, #7372): the missing music rows, the Ending group's count and the
+// "None" replacement. C entry point in games/oot/soh/oot_audio_editor_entries_test.cpp; returns 0 on pass.
+// Wrapper: Test_OoTAudioEditorEntries, beside mm-audio-editor-replacement.
+extern "C" int OoT_AudioEditorEntries_RunHeadless(void);
+
 // OoT pause-menu item age table bounds (#983). Included at FILE SCOPE: it reads
 // the entry count z_kaleido_scope_PAL.c exports for it, declared in its own
 // extern "C" block, so no game header is needed. ROM-free, display-free.
@@ -1727,6 +1732,17 @@ static TestResult Test_MMAudioEditorReplacement(void) {
         return TEST_FAIL;
     }
     return MM_AudioEditorReplacement_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH Audio Editor backport O12 (see the extern decl beside mm-audio-editor-replacement). The display-free shared
+// bring-up, because leg 3 writes and puts back one gAudioEditor.ReplacedSequences.* key.
+static TestResult Test_OoTAudioEditorEntries(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_AudioEditorEntries_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // 2Ship config import (W6-IMPORT, see the extern decl beside cvar-classification). The display-free shared bring-up,
@@ -10522,6 +10538,9 @@ const TestDescriptor gTests[] = {
     { "mm-audio-editor-replacement",
       "MM's sequence lookup answers from MM's own replacement keys, and SoH's randomize mode reaches MM (#1239)",
       Test_MMAudioEditorReplacement },
+    { "oot-audio-editor-entries",
+      "SoH's Audio Editor shows its missing music rows, randomizes Ending, and keeps None silent (O12)",
+      Test_OoTAudioEditorEntries },
     { "item-age-reqs-bounds", "OoT's gItemAgeReqs covers ITEM_ROCS_FEATHER and every u8 ItemID (#983)",
       Test_ItemAgeReqsBounds },
     { "item-actions-bounds", "OoT sItemActions covers ITEM_ROCS_FEATHER and every u8 ItemID (#984)",
