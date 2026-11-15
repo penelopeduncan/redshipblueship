@@ -584,6 +584,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         # mm_dev_tools_bridge.h (MM_gPlayState dangles while OoT runs). WarpPoint.cpp's boot hook and 2Ship's menu
         # drawing are fenced out; its Warp() serves MmDevToolsSingleExe.cpp. No twin in games/oot; DebugConsole.cpp
         # (DebugConsole_Init's twin) stays out.
+        # Hosted in SoH's Collision Viewer, mm_dev_viewers_bridge.h
+        "2s2h/DeveloperTools/CollisionViewer.cpp"
         "2s2h/DeveloperTools/DeveloperTools.cpp"
         "2s2h/DeveloperTools/EventLog.cpp"
         # Hosted in SoH's Message Viewer, mm_dev_viewers_bridge.h

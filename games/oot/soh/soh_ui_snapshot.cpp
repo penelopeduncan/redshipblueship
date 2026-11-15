@@ -2234,6 +2234,8 @@ std::string PickBodyText(Ship::Menu& m, const std::string& header, const std::st
 constexpr const char* kSohTimeSplitsMmReference = "window/Time Splits (Majora's Mask)";
 // W6-DEV (#1238 slice 1): SoH's Message Viewer window while Majora's Mask runs (BuildPageList, EnterState).
 constexpr const char* kSohMessageViewerMmReference = "window/Message Viewer (Majora's Mask)";
+// W6-DEV (#1238 slice 2): SoH's Collision Viewer window while Majora's Mask runs (BuildPageList, EnterState).
+constexpr const char* kSohCollisionViewerMmReference = "window/Collision Viewer (Majora's Mask)";
 // W6-DEV (#1238 slice 3): MM's Event Log window, registered under "MM Event Log" and gated on GAME_MM.
 constexpr const char* kMmEventLogSnapshotPage = "window/MM Event Log";
 
@@ -2307,6 +2309,20 @@ void Session::BuildPageList() {
         p.window = "Message Viewer";
         p.states = { "mm" };
         p.expectText = { "Vanilla Message Viewer", "Custom Message Builder" };
+        p.needsRom = true;
+        pages.push_back(p);
+    }
+    {
+        // W6-DEV (#1238 slice 2): SoH's Collision Viewer window while Majora's Mask runs, when it hosts 2Ship's
+        // CollisionViewerWindow body (OoTGatedHostingMm): renders MM's Enabled / Apply Shading / Reset Colors
+        // controls. Uses Origin::SOH_REFERENCE because Collision Viewer is an SoH GuiWindow opened via Show()/Hide().
+        PageSpec p;
+        p.id = kSohCollisionViewerMmReference;
+        p.origin = Origin::SOH_REFERENCE;
+        p.kind = Kind::WINDOW;
+        p.window = "Collision Viewer";
+        p.states = { "mm" };
+        p.expectText = { "Apply Shading", "Reset Colors" };
         p.needsRom = true;
         pages.push_back(p);
     }
@@ -3720,6 +3736,10 @@ void Session::EnterState(const PageSpec& p, const std::string& state) {
             (rsbs::test::ScratchDir("ui-snapshot-time-splits") / "2S2HTimeSplitData.json").string().c_str());
     } else if (p.id == kSohMessageViewerMmReference) {
         // MM running so OoTGatedHostingMm<MessageViewer> hosts 2Ship's MessageViewerWindow body (LeaveState restores).
+        Context_SetCurrentGame(GAME_MM);
+    } else if (p.id == kSohCollisionViewerMmReference) {
+        // MM running so OoTGatedHostingMm<ColViewerWindow> hosts 2Ship's CollisionViewerWindow body
+        // (LeaveState restores).
         Context_SetCurrentGame(GAME_MM);
     } else if (p.id == kMmEventLogSnapshotPage) {
         // MM running so MMActiveGated<EventLogWindow> passes MM_TrackersGui_ShouldDraw() (LeaveState restores).
