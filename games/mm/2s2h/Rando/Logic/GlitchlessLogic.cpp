@@ -295,7 +295,7 @@ void ApplyGlitchlessLogicToSaveContext(std::vector<RandoCheckId>& checkPool, std
                     Rando::StaticData::Items[itemPool[i]].randoItemType != RITYPE_HEALTH) {
                     anyNonJunkItemsLeft = true;
                     if (nonJunkItemsThatWeHaveTried.find(itemPool[i]) == nonJunkItemsThatWeHaveTried.end() &&
-                        IsItemAllowedAtCheck(itemPool[i], checkWithJunk)) {
+                        CanPlaceItemAtCheck(itemPool[i], checkWithJunk, itemPool)) {
                         nonJunkItemsThatWeHaveNotTried.push_back({ itemPool[i], i });
                     }
                 }

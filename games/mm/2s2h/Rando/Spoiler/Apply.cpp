@@ -416,7 +416,24 @@ void ApplyToSaveContext(nlohmann::json spoiler) {
         // A spoiler written before an option existed (Shuffle Tree Drops, #1121)
         // has no key for it: the option's default is what that world used.
         if (!spoiler["options"].contains(randoStaticOption.name)) {
-            RANDO_SAVE_OPTIONS[randoOptionId] = randoStaticOption.defaultValue;
+            switch (randoOptionId) {
+                // #1548 moved these rows' defaults off Anywhere, which every world
+                // made before the rows existed used (#1492).
+                case RO_PLACEMENT_BOSS_KEYS:
+                case RO_PLACEMENT_SMALL_KEYS:
+                case RO_PLACEMENT_STRAY_FAIRIES:
+                    RANDO_SAVE_OPTIONS[randoOptionId] = RO_DUNGEON_ITEM_ANYWHERE;
+                    break;
+                // #1548 split the freestanding and Clock Town fairies out of the
+                // one Stray Fairies row: a spoiler written before the split placed
+                // them as that row said (resolved above: Options iterates by id).
+                case RO_PLACEMENT_STRAY_FAIRIES_OTHER:
+                    RANDO_SAVE_OPTIONS[randoOptionId] = RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES];
+                    break;
+                default:
+                    RANDO_SAVE_OPTIONS[randoOptionId] = randoStaticOption.defaultValue;
+                    break;
+            }
             continue;
         }
 #endif

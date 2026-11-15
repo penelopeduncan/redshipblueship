@@ -295,6 +295,10 @@ static_assert(RI_SKELETON_KEY == RI_SONG_PRELUDE + 1 && RI_SONG_DOUBLE_TIME == R
               "MM's #1403 items follow the #1485 warp songs: saved checks store RandoItemId");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
+// #1548: split freestanding dungeon fairies + Clock Town fairy out from
+// dungeon chest fairies (`RO_PLACEMENT_STRAY_FAIRIES`).
+static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64 && RO_MAX == 65,
+              "MM's #1548 stray-fairy split option is id 64, after RO_SHUFFLE_SONG_SARIA");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

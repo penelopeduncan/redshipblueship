@@ -37,6 +37,14 @@ void RegionTable_Init_ZorasDomain() {
         LOCATION(RC_ZD_NEAR_SHOP_POT_5,                     logic->CanBreakPots()),
         LOCATION(RC_ZD_KING_ZORA_RED_ICE,                   logic->IsAdult && logic->Get(LOGIC_KING_ZORA_THAWED)),
         LOCATION(RC_ZD_ZORA_SHOP_RED_ICE,                   logic->IsAdult && logic->BlueFire()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_1,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_2,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_3,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_4,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_5,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_6,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_7,                       logic->CanBreakRocks()),
+        LOCATION(RC_ZD_CIRCLE_ROCK_8,                       logic->CanBreakRocks()),
     }, {
         //Exits
         Entrance(RR_ZR_BEHIND_WATERFALL, []{return true;}),

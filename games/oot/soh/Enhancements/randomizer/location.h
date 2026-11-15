@@ -246,6 +246,14 @@ class Location {
                                RandomizerHintTextKey hintKey, RandomizerGet vanillaItem,
                                SpoilerCollectionCheck collectionCheck);
 
+    static Location Rock(RandomizerCheck rc, RandomizerCheckQuest quest_, RandomizerCheckArea area_, SceneID scene_,
+                         int32_t actorParams_, std::string&& shortName_, RandomizerHintTextKey hintKey,
+                         RandomizerGet vanillaItem, SpoilerCollectionCheck collectionCheck);
+
+    static Location Boulder(RandomizerCheck rc, RandomizerCheckQuest quest_, RandomizerCheckArea area_, SceneID scene_,
+                            int32_t actorParams_, std::string&& shortName_, RandomizerHintTextKey hintKey,
+                            SpoilerCollectionCheck collectionCheck);
+
     static Location Tree(RandomizerCheck rc, RandomizerCheckQuest quest_, RandomizerCheckArea area_, SceneID scene_,
                          int32_t actorParams_, std::string&& shortName_, RandomizerHintTextKey hintKey,
                          RandomizerGet vanillaItem, SpoilerCollectionCheck collectionCheck);

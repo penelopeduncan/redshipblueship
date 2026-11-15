@@ -128,6 +128,12 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
         // #1363: and with Shuffle Silver Rupees off, that option's (RsbsFoldIsSilverLine): the
         // RCTYPE_SILVER exclude rows and its own rows.
         const bool silverOff = world.GetOption(RSK_SHUFFLE_SILVER).Is(RO_SHUFFLE_SILVER_OFF);
+        // #1409: with Shuffle Rocks off, that option's lines (RsbsFoldIsRockLine): the
+        // RCTYPE_ROCK exclude rows and its own rows.
+        const bool rocksOff = world.GetOption(RSK_SHUFFLE_ROCKS).Is(RO_GENERIC_OFF);
+        // #1409: and with Shuffle Boulders off, that option's (RsbsFoldIsBoulderLine): the
+        // RCTYPE_BOULDER exclude rows and its own rows.
+        const bool bouldersOff = world.GetOption(RSK_SHUFFLE_BOULDERS).Is(RO_SHUFFLE_BOULDERS_OFF);
         // #1405: and with Shuffle Wonder Items off, that option's (RsbsFoldIsWonderItemLine): the
         // RCTYPE_WONDER_ITEM exclude rows and its own rows.
         const bool wonderItemOff = world.GetOption(RSK_SHUFFLE_WONDER_ITEMS).Is(RO_SHUFFLE_WONDER_ITEMS_OFF);
@@ -160,6 +166,24 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 }
             }
             if (silverOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_SILVER) {
+                continue;
+            }
+            if (rocksOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_ROCK) {
+                    continue;
+                }
+            }
+            if (rocksOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_ROCKS) {
+                continue;
+            }
+            if (bouldersOff && excludes) {
+                const RandomizerCheck rc = static_cast<const Rando::LocationOption*>(option)->GetKey();
+                if (Rando::StaticData::GetLocation(rc)->GetRCType() == RCTYPE_BOULDER) {
+                    continue;
+                }
+            }
+            if (bouldersOff && !excludes && g != RSG_TRICKS && option->GetKey() == RSK_SHUFFLE_BOULDERS) {
                 continue;
             }
             if (wonderItemOff && excludes) {
@@ -196,7 +220,8 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
             }
             if (g == RSG_TRICKS) {
                 const auto* trick = static_cast<const Rando::TrickOption*>(option);
-                if (trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) {
+                if ((trick->GetKey() == RT_HOOKSHOT_LADDERS && world.GetTrickOption(RT_HOOKSHOT_LADDERS).Get() == 0) ||
+                    (trick->GetKey() == RT_BOMB_DETONATION && world.GetTrickOption(RT_BOMB_DETONATION).Get() == 0)) {
                     continue;
                 }
                 if (trick->GetKey() == RT_GTG_STATUE_JUMP && world.GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {

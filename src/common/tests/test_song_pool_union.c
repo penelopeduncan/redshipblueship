@@ -172,6 +172,10 @@ struct SpuKeys {
         CVarClear("gRandoSettings.ShuffleDungeonReward");
         CVarClear("gRandoSettings.OoTHint");
         CVarClear("gRando.Options.RO_SHUFFLE_SHOPS");
+        CVarClear("gRando.Options.RO_PLACEMENT_SMALL_KEYS");
+        CVarClear("gRando.Options.RO_PLACEMENT_BOSS_KEYS");
+        CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES");
+        CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER");
         CVarClear("gRando.ExcludedChecks");
         Combo_Logic_TestSetForcedPlacements(nullptr, 0);
         OoT_Combo_SetHintingSuspendedWorld(0);
@@ -542,43 +546,64 @@ TestResult SongPoolAnywhereUnconfined_Run(void) {
     SpuKeys keys;
     SPU_CHECK(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "OoT's item table is not available\n");
 
-    // (i) Anywhere, override cleared and 1.
-    for (int forced = -1; forced <= 1; forced += 2) {
-        const SpuWorld w = SpuGenerate("RSBSSONGANYWHERE", (int)RSBS_OOT_SONGS_ANYWHERE, -1, forced, false);
-        SPU_CHECK(w.generated, "(i) override %d: the Anywhere world did not generate\n", forced);
-        // confinedRows: the shipped profile confines no MM row locally (the keys,
-        // boss keys and fairies GoldenSeedDigestMMConfined places in their dungeons are
-        // not the defaults), so under Anywhere no bag row carries a mask at all.
-        SPU_CHECK(!w.unionArmed && w.bag.exclusiveGroups == 0u && w.mmWideRows == 0 && w.bag.confinedRows == 0,
-                  "(i) override %d: under Anywhere the union read %d, the exclusive group 0x%08X, %d MM rows wide, "
-                  "%d bag rows confined\n",
-                  forced, w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups, w.mmWideRows, w.bag.confinedRows);
-        // The engines' answers in that world, still held.
-        Combo_SongHostsForceForTest(forced);
-        int ootSongs = 0;
-        int ootWide = 0;
-        int ootWrong = 0;
-        OoT_ComboLogic_TestSongRowMasks(0, &ootSongs, &ootWide, &ootWrong);
-        int mmSongItems = 0;
-        int mmWideItems = 0;
-        int mmMixed = 0;
-        int mmWideSong = 0;
-        int mmWideOther = 0;
-        MM_ComboLogic_TestSongGroupCensus(&mmSongItems, &mmWideItems, &mmMixed, &mmWideSong, &mmWideOther);
-        const ComboLogicEngine* oot = Combo_Logic_GetEngine(GAME_OOT);
-        int ootGrouped = 0;
-        for (int rc = 1; oot != NULL && oot->hostGroups != NULL && rc < OoT_ComboLogic_TestCheckIdSpace(); rc++) {
-            if (OoT_ComboLogic_TestSongCheckIndex((uint16_t)rc) >= 0) {
-                ootGrouped += oot->hostGroups(oot->self, (uint16_t)rc) != 0u ? 1 : 0;
-            }
+    // (i) Anywhere, override cleared and 1: first under shipped #1548 placement
+    // defaults (9 small keys + 4 boss keys + 31 chest fairies = 44 locally
+    // confined MM rows, 0 wide rows, union disarmed), then explicitly Anywhere
+    // (0 confined rows).
+    for (int anywherePlacement = 0; anywherePlacement <= 1; ++anywherePlacement) {
+        if (anywherePlacement) {
+            CVarSetInteger("gRando.Options.RO_PLACEMENT_SMALL_KEYS", 0);
+            CVarSetInteger("gRando.Options.RO_PLACEMENT_BOSS_KEYS", 0);
+            CVarSetInteger("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES", 0);
+            CVarSetInteger("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER", 0);
+        } else {
+            CVarClear("gRando.Options.RO_PLACEMENT_SMALL_KEYS");
+            CVarClear("gRando.Options.RO_PLACEMENT_BOSS_KEYS");
+            CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES");
+            CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER");
         }
-        Combo_SongHostsForceForTest(-1);
-        SPU_CHECK(ootWide == 0 && ootWrong == 0 && mmWideItems == 0 && mmWideSong == 0 && mmWideOther == 0 &&
-                      ootGrouped == 0,
-                  "(i) override %d: under Anywhere OoT gave %d rows the song group (%d wrong), MM %d rows and %d song "
-                  "checks, OoT %d song checks a group\n",
-                  forced, ootWide, ootWrong, mmWideItems, mmWideSong, ootGrouped);
+        const int wantConfined = anywherePlacement ? 0 : 44;
+        for (int forced = -1; forced <= 1; forced += 2) {
+            const SpuWorld w = SpuGenerate("RSBSSONGANYWHERE", (int)RSBS_OOT_SONGS_ANYWHERE, -1, forced, false);
+            SPU_CHECK(w.generated, "(i) anywhere=%d override %d: the Anywhere world did not generate\n",
+                      anywherePlacement, forced);
+            SPU_CHECK(!w.unionArmed && w.bag.exclusiveGroups == 0u && w.mmWideRows == 0 &&
+                          w.bag.confinedRows == wantConfined,
+                      "(i) anywhere=%d override %d: under Anywhere the union read %d, the exclusive group 0x%08X, %d "
+                      "MM rows wide, %d bag rows confined (want %d)\n",
+                      anywherePlacement, forced, w.unionArmed ? 1 : 0, (unsigned)w.bag.exclusiveGroups, w.mmWideRows,
+                      w.bag.confinedRows, wantConfined);
+            // The engines' answers in that world, still held.
+            Combo_SongHostsForceForTest(forced);
+            int ootSongs = 0;
+            int ootWide = 0;
+            int ootWrong = 0;
+            OoT_ComboLogic_TestSongRowMasks(0, &ootSongs, &ootWide, &ootWrong);
+            int mmSongItems = 0;
+            int mmWideItems = 0;
+            int mmMixed = 0;
+            int mmWideSong = 0;
+            int mmWideOther = 0;
+            MM_ComboLogic_TestSongGroupCensus(&mmSongItems, &mmWideItems, &mmMixed, &mmWideSong, &mmWideOther);
+            const ComboLogicEngine* oot = Combo_Logic_GetEngine(GAME_OOT);
+            int ootGrouped = 0;
+            for (int rc = 1; oot != NULL && oot->hostGroups != NULL && rc < OoT_ComboLogic_TestCheckIdSpace(); rc++) {
+                if (OoT_ComboLogic_TestSongCheckIndex((uint16_t)rc) >= 0) {
+                    ootGrouped += oot->hostGroups(oot->self, (uint16_t)rc) != 0u ? 1 : 0;
+                }
+            }
+            Combo_SongHostsForceForTest(-1);
+            SPU_CHECK(ootWide == 0 && ootWrong == 0 && mmWideItems == 0 && mmWideSong == 0 && mmWideOther == 0 &&
+                          ootGrouped == 0,
+                      "(i) anywhere=%d override %d: under Anywhere OoT gave %d rows the song group (%d wrong), MM %d "
+                      "rows and %d song checks, OoT %d song checks a group\n",
+                      anywherePlacement, forced, ootWide, ootWrong, mmWideItems, mmWideSong, ootGrouped);
+        }
     }
+    CVarClear("gRando.Options.RO_PLACEMENT_SMALL_KEYS");
+    CVarClear("gRando.Options.RO_PLACEMENT_BOSS_KEYS");
+    CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES");
+    CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER");
 
     // (ii) the positive control at Song Locations.
     const SpuWorld on = SpuGenerate("RSBSSONGCONTROL", (int)RSBS_OOT_SONGS_SONG_LOCATIONS, -1, -1, false);
@@ -751,6 +776,10 @@ TestResult SongPoolAllLocations_Run(void) {
 
         CVarClear(Combo_ComboSettingKey(COMBO_SETTING_DIRECTION));
         CVarClear("gRando.Options.RO_SHUFFLE_SHOPS");
+        CVarClear("gRando.Options.RO_PLACEMENT_SMALL_KEYS");
+        CVarClear("gRando.Options.RO_PLACEMENT_BOSS_KEYS");
+        CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES");
+        CVarClear("gRando.Options.RO_PLACEMENT_STRAY_FAIRIES_OTHER");
         CVarClear("gRando.ExcludedChecks");
 
         SPU_CHECK(w.generated, "%s: the paired world did not finish\n", seed);

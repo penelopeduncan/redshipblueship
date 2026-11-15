@@ -56,6 +56,7 @@
  *   4c. the spoiler's identity OMITS the seed        -> NOT committed, refused
  *   5. paired, identity matches                     -> COMMITTED, no refusal
  *   6. standalone spoiler, no "foreign" section     -> loads, no refusal
+ *   6b. a spoiler with no key for #1548's rows       -> the rows the world used
  *
  * Leg 5 is the non-vacuity leg: a gate that refuses everything would pass 1-4
  * and prove nothing. Leg 6 is the scope leg: upstream's standalone spoiler-load
@@ -578,6 +579,73 @@ extern "C" int MM_SpoilerIdentity_RunHeadless(void) {
     }
     if (gSaveContext.save.shipSaveInfo.rando.finalSeed != solo["finalSeed"].get<uint32_t>()) {
         return Fail(63, "the standalone spoiler's world was not applied");
+    }
+
+    // ---- Leg 6b: a spoiler written before #1548's placement rows moved ------
+    // #1548 split the freestanding and Clock Town fairies out of the one Stray
+    // Fairies row and moved the placement defaults off Anywhere. A spoiler
+    // written before the split has no key for the new row, and its fairies were
+    // all placed as the one row said: Start With there must still grant the
+    // Clock Town Stray Fairy (only the new row grants it). One written before
+    // the placement rows existed (#1492) placed every dungeon item Anywhere.
+    {
+        const char* const chestName = Rando::StaticData::Options[RO_PLACEMENT_STRAY_FAIRIES].name;
+        const char* const otherName = Rando::StaticData::Options[RO_PLACEMENT_STRAY_FAIRIES_OTHER].name;
+        const char* const keysName = Rando::StaticData::Options[RO_PLACEMENT_SMALL_KEYS].name;
+        const char* const bossName = Rando::StaticData::Options[RO_PLACEMENT_BOSS_KEYS].name;
+        if (!solo.contains("options") || !solo["options"].contains(chestName) || !solo["options"].contains(otherName)) {
+            return Fail(64, "the writer's spoiler carries no '%s' or '%s' option to drop", chestName, otherName);
+        }
+        const std::string preSplitName = "rsbs1548-presplit.json";
+        nlohmann::json preSplit = solo;
+        preSplit["options"][chestName] = (uint32_t)RO_DUNGEON_ITEM_START_WITH;
+        preSplit["options"].erase(std::string(otherName));
+        const std::string prePlacementName = "rsbs1548-preplacement.json";
+        nlohmann::json prePlacement = solo;
+        for (const char* name : { keysName, bossName, chestName, otherName }) {
+            prePlacement["options"].erase(std::string(name));
+        }
+        try {
+            Rando::Spoiler::SaveToFile(preSplitName, preSplit);
+            Rando::Spoiler::SaveToFile(prePlacementName, prePlacement);
+        } catch (const std::exception& e) { return Fail(64, "staging the pre-#1548 spoilers threw: %s", e.what()); }
+
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        ComboContext_Init();
+        ResetRefusalSurface();
+        if (int rc = driveLoad(preSplitName, 65, &err)) {
+            return Fail(rc, "a pre-split spoiler failed to load: %s", err);
+        }
+        if (RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES] != RO_DUNGEON_ITEM_START_WITH ||
+            RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES_OTHER] != RO_DUNGEON_ITEM_START_WITH) {
+            return Fail(66,
+                        "a pre-split spoiler with Stray Fairies Start With loaded as chest %u / freestanding %u: the "
+                        "freestanding row must take the one row's value",
+                        (unsigned)RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES],
+                        (unsigned)RANDO_SAVE_OPTIONS[RO_PLACEMENT_STRAY_FAIRIES_OTHER]);
+        }
+        int clockTownFairies = 0;
+        for (RandoItemId id : Rando::GetComputedStartingItems(gSaveContext.save.shipSaveInfo.rando)) {
+            clockTownFairies += (id == RI_CLOCK_TOWN_STRAY_FAIRY) ? 1 : 0;
+        }
+        if (clockTownFairies != 1) {
+            return Fail(67, "a pre-split Start With world computes %d Clock Town Stray Fairy starting item(s), not 1",
+                        clockTownFairies);
+        }
+
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        ComboContext_Init();
+        ResetRefusalSurface();
+        if (int rc = driveLoad(prePlacementName, 68, &err)) {
+            return Fail(rc, "a pre-placement-rows spoiler failed to load: %s", err);
+        }
+        for (const RandoOptionId id : { RO_PLACEMENT_SMALL_KEYS, RO_PLACEMENT_BOSS_KEYS, RO_PLACEMENT_STRAY_FAIRIES,
+                                        RO_PLACEMENT_STRAY_FAIRIES_OTHER }) {
+            if (RANDO_SAVE_OPTIONS[id] != RO_DUNGEON_ITEM_ANYWHERE) {
+                return Fail(69, "a spoiler written before the placement rows loaded %s as %u, not Anywhere (0)",
+                            Rando::StaticData::Options[id].name, (unsigned)RANDO_SAVE_OPTIONS[id]);
+            }
+        }
     }
 
     // ---- Legs 7-11: THE LEGACY RECONSTRUCTION, LOCKED WHILE IT SHIPS ------------

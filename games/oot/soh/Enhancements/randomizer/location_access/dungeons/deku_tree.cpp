@@ -314,6 +314,12 @@ void RegionTable_Init_DekuTree() {
         LOCATION(RC_DEKU_TREE_MQ_COMPASS_GRASS_2, logic->CanCutShrubs()),
         LOCATION(RC_DEKU_TREE_MQ_COMPASS_GRASS_3, logic->CanCutShrubs()),
         LOCATION(RC_DEKU_TREE_MQ_COMPASS_GRASS_4, logic->CanCutShrubs()),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_1,       logic->CanUse(RG_BOOMERANG) &&
+                                                  AnyAgeTime([]{return logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && (logic->CanUse(RG_SONG_OF_TIME) || logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS)));})),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_2,       logic->CanUse(RG_BOOMERANG) &&
+                                                  AnyAgeTime([]{return logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && (logic->CanUse(RG_SONG_OF_TIME) || logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS)));})),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_3,       logic->CanUse(RG_BOOMERANG) &&
+                                                  AnyAgeTime([]{return logic->CanUse(RG_BOMBCHU_5) || (logic->CanUse(RG_BOMB_BAG) && (logic->CanUse(RG_SONG_OF_TIME) || logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS)));})),
     }, {
         //Exits
         Entrance(RR_DEKU_TREE_MQ_EYE_TARGET_ROOM,    []{return true;}),
@@ -324,6 +330,9 @@ void RegionTable_Init_DekuTree() {
         //Locations
         LOCATION(RC_DEKU_TREE_MQ_GS_PAST_BOULDER_VINES, logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG)),
         LOCATION(RC_DEKU_TREE_MQ_COMPASS_ROOM_HEART,    true),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_1,             logic->BlastOrSmash()),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_2,             logic->BlastOrSmash()),
+        LOCATION(RC_DEKU_TREE_MQ_BOULDER_3,             logic->BlastOrSmash()),
     }, {
         //Exits
         Entrance(RR_DEKU_TREE_MQ_COMPASS_ROOM, []{return logic->BlastOrSmash();}),
