@@ -1018,6 +1018,9 @@ void BenMenu::AddEnhancements() {
         .CVar("gEnhancements.Equipment.BetterPictoMessage")
         .Options(
             CheckboxOptions().Tooltip("Inform the player what target if any is being captured in the pictograph."));
+    AddWidget(path, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Items.HotWaterNeverCools")
+        .Options(CheckboxOptions().Tooltip("Prevents Hot Spring Water from cooling down into regular Spring Water."));
     AddWidget(path, "Arrow Type Cycling", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.BowArrowCycle")
         .Options(CheckboxOptions().Tooltip(

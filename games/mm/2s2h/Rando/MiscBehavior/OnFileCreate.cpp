@@ -6,6 +6,7 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "ClockShuffle.h"
 #include <spdlog/spdlog.h>
+#include "2s2h/BenGui/Notification.h"
 #include <cstdio>
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "Rando/Foreign.h" // Lane C1 (#392): paired-world seed derivation + foreign placement
@@ -191,10 +192,10 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                     Rando::Logic::GeneratePools(gSaveContext.save.shipSaveInfo.rando, checkPool, itemPool);
 
                     if (checkPool.empty()) {
-                        throw std::runtime_error("No checks in logic");
+                        throw std::runtime_error("Check pool is empty");
                     }
                     if (itemPool.empty()) {
-                        throw std::runtime_error("No items in logic");
+                        throw std::runtime_error("Item pool is empty");
                     }
 
                     // Balance pools
@@ -251,14 +252,26 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                                 continue;
                             }
 
-                            SPDLOG_ERROR("Could not match item pool size to check pool size {}/{}", itemPool.size(),
+                            SPDLOG_ERROR("Could not balance item/check pools. Too many items. {}/{}", itemPool.size(),
                                          checkPool.size());
-                            throw std::runtime_error("Could not match item pool size to check pool size");
+                            throw std::runtime_error("Could not balance item/check pools. Too many items.");
                         }
                     }
 
                     // Grant the starting stuff
                     Rando::GrantStartingItems();
+
+                    // Run prelim compatibility/validation checks before attempting to place items
+
+                    // Verify we have at least one time item if clock shuffle is enabled. 2Ship 77cbefd28 (#1478): a
+                    // safety net, not a new refusal: GetComputedStartingItems grants a fallback half-day whenever
+                    // Shuffle Time is on and no starting time item was chosen, so GrantStartingItems above leaves a
+                    // clock owned here and no world that generates today is refused.
+                    if (RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE] != 0) {
+                        if (Rando::Logic::ClockCount() == 0) {
+                            throw std::runtime_error("Shuffle Time is enabled but no starting time was given");
+                        }
+                    }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
                     if (rsbsPaired) {
@@ -553,9 +566,20 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
             S2H::GameHooks::Execute<GameInteractor::OnRandoSeedGeneration>();
 
         } catch (const std::exception& e) {
-            SPDLOG_ERROR("Error with randomizer save creation: {}", e.what());
+            SPDLOG_ERROR("Seed Failure: {}", e.what());
             Audio_PlaySfx(NA_SE_SY_QUIZ_INCORRECT);
 #ifdef RSBS_SINGLE_EXECUTABLE
+            // 2Ship 77cbefd28 (#1478): say why the seed failed instead of failing silently. A paired world's failure
+            // is already reported once, at OoT's file select ("Not created:", OoT_Creation_ReportFailureAtFileSelect),
+            // so only an unpaired MM file raises this one. SoH's toast shape (docs/ui-style-guide.md, "Toasts"):
+            // Options' default colours, and muted because display-free rows run this catch.
+            if (!rsbsPaired) {
+                Notification::MM_Notify_Emit({
+                    .prefix = "Seed Failure:",
+                    .message = e.what(),
+                    .mute = true,
+                });
+            }
             // A failed generation reverts to a vanilla save below; any foreign
             // placements recorded for the aborted world must not survive it —
             // and neither may a stale attempt-provenance stamp (ADR 0010

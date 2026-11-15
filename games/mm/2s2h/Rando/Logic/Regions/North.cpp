@@ -132,9 +132,12 @@ static RegisterShipInitFunc initFunc([]() {
     Regions[RR_GORON_VILLAGE] = RandoRegion{ .sceneId = SCENE_11GORONNOSATO,
         .checks = {
             CHECK(RC_GORON_VILLAGE_PIECE_OF_HEART, Flags_GetRandoInf(RANDO_INF_OBTAINED_DEED_SWAMP) && CAN_BE_DEKU),
-            CHECK(RC_GORON_VILLAGE_LARGE_CRATE, CAN_USE_MAGIC_ARROW(FIRE) || RANDO_EVENTS[RE_CLEARED_SNOWHEAD_TEMPLE]),
+            // #1574: OoTMM macros_mm.yml:375 (`access_keg_trial`, goron_village.yml:22-23):
+            // `is_spring || can_use_fire_short_range || (short_hook_anywhere && trick(MM_KEG_TRIAL_HEATLESS))`.
+            // CAN_BE_GORON stays outside on Medigoron (`access_keg_trial && has_mask_goron`).
+            CHECK(RC_GORON_VILLAGE_LARGE_CRATE, CAN_USE_MAGIC_ARROW(FIRE) || RANDO_EVENTS[RE_CLEARED_SNOWHEAD_TEMPLE] || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_KEG_TRIAL_HEATLESS))),
             // FIXME: Update logic for Entrance Rando to account for being able to access the Racetrack Boulder
-            CHECK(RC_GORON_VILLAGE_MEDIGORON, (CAN_USE_MAGIC_ARROW(FIRE) || RANDO_EVENTS[RE_CLEARED_SNOWHEAD_TEMPLE]) && CAN_BE_GORON),
+            CHECK(RC_GORON_VILLAGE_MEDIGORON, (CAN_USE_MAGIC_ARROW(FIRE) || RANDO_EVENTS[RE_CLEARED_SNOWHEAD_TEMPLE] || (SHORT_HOOK_ANYWHERE && MM_TRICK(MMRT_KEG_TRIAL_HEATLESS))) && CAN_BE_GORON),
             CHECK(RC_GORON_VILLAGE_SCRUB_BOMB_BAG, (GET_CUR_UPG_VALUE(UPG_WALLET) >= 1) && CAN_BE_GORON),
             CHECK(RC_GORON_VILLAGE_SCRUB_DEED, Flags_GetRandoInf(RANDO_INF_OBTAINED_DEED_SWAMP) && CAN_BE_DEKU),
             CHECK(RC_GORON_VILLAGE_LARGE_SNOWBALL_01, CanKillEnemy(ACTOR_OBJ_SNOWBALL)),

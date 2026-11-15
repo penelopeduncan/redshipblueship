@@ -153,6 +153,18 @@
  *     Love or RT_DMT_SHIELDLESS_CLIMB must NOT reach the summit; an adult with
  *     Climb must, and so must the child once the trick is on.
  *
+ * The SoH logic batch of 2026-11-14 (SoH 156c2a4a #7417, 28ab1206 #7396):
+ *  LH. Lake Hylia grass (156c2a4a): an adult with the ocarina and Epona's Song
+ *     but Epona not freed, and nothing that cuts, must NOT reach RC_LH_GRASS_1;
+ *     with Epona freed (SummonEpona) he must.
+ *  GV. GV rocks across the bridge (156c2a4a): an adult with nothing must NOT
+ *     reach RC_GV_ROCK_ACROSS_BRIDGE_1; with a bomb bag (CanBreakRocks) he must.
+ *  GC. MQ Fire Trial (28ab1206): the Final Room returns to the From Barred Door
+ *     region, not straight to the main room; from there an adult with the Goron
+ *     Tunic, hammer and Hover Boots must NOT cross back to the main room (or take
+ *     the launch-platform silver rupee) without RT_HOVER_BOOST_SIMPLE, and must
+ *     with it.
+ *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
  * A0 and B0 are the exception in form: they hold everything but the event, and
@@ -1150,6 +1162,57 @@ void RunHealthLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_DMT_SHIELDLESS_CLIMB).Set(savedShieldless);
 }
 
+// ---- SoH 156c2a4a (#7417) and 28ab1206 (#7396): LH, GV and GC -------------
+void RunSohLogicBatchLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedHoverBoost = randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Get();
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(0);
+
+    // ---- LH: the grass Epona tramples (lake_hylia.cpp, SummonEpona) ---------
+    ResetLogic();
+    GiveFairyOcarina();
+    Give(RG_OCARINA_C_LEFT_BUTTON);
+    Give(RG_OCARINA_C_RIGHT_BUTTON);
+    Give(RG_OCARINA_C_UP_BUTTON);
+    Give(RG_EPONAS_SONG);
+    ExpectAs(true, "LH1 Lake Hylia grass 1, adult with ocarina and Epona's Song, Epona not freed", RR_LAKE_HYLIA,
+             RC_LH_GRASS_1, false, "the grass is in logic for an adult with nothing that cuts it and no Epona");
+    logic->Set(LOGIC_FREED_EPONA, true);
+    ExpectAs(true, "LH2 Lake Hylia grass 1, adult who can summon Epona", RR_LAKE_HYLIA, RC_LH_GRASS_1, true,
+             "an adult riding Epona cannot cut the lake grass (SoH 156c2a4a)");
+
+    // ---- GV: the rocks across the bridge need CanBreakRocks (gerudo_valley.cpp)
+    ResetLogic();
+    ExpectAs(true, "GV1 GV rock across the bridge 1, adult with nothing", RR_GV_FORTRESS_SIDE,
+             RC_GV_ROCK_ACROSS_BRIDGE_1, false, "the rock is in logic for an adult who cannot break or lift it");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectAs(true, "GV2 GV rock across the bridge 1, adult with a bomb bag", RR_GV_FORTRESS_SIDE,
+             RC_GV_ROCK_ACROSS_BRIDGE_1, true, "an adult with bombs cannot break the rock (SoH 156c2a4a)");
+
+    // ---- GC: the MQ Fire Trial's From Barred Door side (ganons_castle.cpp) ---
+    ResetLogic();
+    ExpectExit("GC1 MQ Fire Trial Final Room to From Barred Door, adult", RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FINAL_ROOM,
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, true, true,
+               "the Final Room no longer leads back to the barred-door side of the main room (SoH 28ab1206)");
+    Give(RG_GORON_TUNIC);
+    Give(RG_MEGATON_HAMMER);
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("GC2 MQ Fire Trial From Barred Door to main room, tunic, hammer, Hover Boots, no hover boost",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM, true, false,
+               "the lava is crossed back from the barred door with no hammer recoil hover");
+    ExpectAs(true, "GC3 MQ Fire Trial launch platform rupee from the barred door, no hover boost",
+             RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, false,
+             "the rupee is in logic from the barred door with no hammer recoil hover");
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(1);
+    ExpectExit("GC4 MQ Fire Trial From Barred Door to main room, with RT_HOVER_BOOST_SIMPLE",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM, true, true,
+               "a hammer recoil hover does not carry the adult back across the lava");
+    ExpectAs(true, "GC5 MQ Fire Trial launch platform rupee from the barred door, with RT_HOVER_BOOST_SIMPLE",
+             RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, true,
+             "a hammer recoil hover does not reach the launch platform rupee from the barred door");
+
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+}
+
 // ---- #1404: LOGIC_TALON/MALON_RETURNED_FROM_CASTLE, the events A and B read --
 // Each leg fires one region's own events (FireEvents) and reads the event; a
 // "not set" leg holds everything its line asks but the one term it locks.
@@ -1444,6 +1507,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunHookshotLaddersLegs(randoCtx);
     // ---- Y..Z: health in 16-per-heart units, the DMT rockfall (#1397) -------
     RunHealthLegs(randoCtx);
+    // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
+    RunSohLogicBatchLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
     randoCtx->GetOption(RSK_LOGIC_RULES).Set(savedLogicRules);
     randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(savedShuffleSpeak);

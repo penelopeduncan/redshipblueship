@@ -13,6 +13,11 @@ namespace CheckTracker {
 void Init();
 void OnFileLoad();
 
+/** The name a scene's header carries in the Check Tracker: Ship_GetSceneName, except a scene whose name says a state
+ *  or a second place the checks under it are not in ("Southern Swamp (poison)" heads as "Southern Swamp"; 2Ship
+ *  cfd1116a4, #1775). The Combo Tracker's MM pane names its areas with the same words (MMSceneAreaName). */
+const char* GetCheckTrackerSceneName(SceneId sceneId);
+
 /** The set of checks the tracker draws as "in logic": reachable from `startEntrance` under the CURRENT save
  *  (CrawlReachableRegions + EvaluateReachableChecks), shuffled and not yet obtained. Gate-free (no CVar, no frame
  *  throttle) so a test reads exactly what the window draws. The crawl zeroes and re-fires RANDO_EVENTS, which lives

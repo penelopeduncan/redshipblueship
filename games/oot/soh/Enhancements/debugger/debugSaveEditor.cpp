@@ -152,6 +152,42 @@ std::string decodeNTSCPlayerNameChar(int code) {
     return ret;
 }
 
+char decodePlayerNameChar(uint8_t code, uint8_t language) {
+    if (language == NAME_LANGUAGE_PAL) {
+        return z2ASCII(code);
+    }
+    const std::string decoded = decodeNTSCPlayerNameChar(code);
+    return (decoded.length() == 1 && decoded[0] >= 32 && decoded[0] <= 126) ? decoded[0] : ' ';
+}
+
+uint8_t encodePlayerNameChar(char c, uint8_t language) {
+    const bool pal = language == NAME_LANGUAGE_PAL;
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'A' && c <= 'Z') {
+        return (pal ? 10 : 171) + (c - 'A');
+    }
+    if (c >= 'a' && c <= 'z') {
+        return (pal ? 36 : 197) + (c - 'a');
+    }
+    if (c == '-') {
+        return pal ? 0x3F : 0xE4;
+    }
+    if (c == '.') {
+        return pal ? 0x40 : 0xEA;
+    }
+    return pal ? 0x3E : 0xDF;
+}
+
+// Upstream runs this loop inline in the language combobox's change branch; it is a function here so the ROM-free row
+// oot-save-editor-name-encoding can drive it.
+void reencodePlayerName(uint8_t* name, uint8_t oldLanguage, uint8_t newLanguage) {
+    for (int i = 0; i < 8; i++) {
+        name[i] = encodePlayerNameChar(decodePlayerNameChar(name[i], oldLanguage), newLanguage);
+    }
+}
+
 enum MagicLevel { MAGIC_LEVEL_NONE, MAGIC_LEVEL_SINGLE, MAGIC_LEVEL_DOUBLE };
 
 std::map<int8_t, const char*> magicLevelMap = {
@@ -202,12 +238,17 @@ std::map<uint8_t, const char*> filenameLanguageMapNTSCOnly = {
 };
 
 void DrawInfoTab() {
+    // SoH #7383: the name is only re-encoded on a language change while a file is loaded.
+    bool canEditName = true;
     if (gSaveContext.gameMode == GAMEMODE_TITLE_SCREEN) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Title Screen");
+        canEditName = false;
     } else if (gSaveContext.gameMode == GAMEMODE_FILE_SELECT) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "File Select");
+        canEditName = false;
     } else if (OoT_gPlayState == nullptr) {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Game Inactive");
+        canEditName = false;
     } else if (gSaveContext.fileNum >= 0 && gSaveContext.fileNum <= 2) {
         Combobox("File Number", &gSaveContext.fileNum, fileNumMap, comboboxOptionsBase.Tooltip("Current File Number"));
     } else {
@@ -256,6 +297,7 @@ void DrawInfoTab() {
     // Filename encoding
     const bool hasPAL = (sGerMessageEntryTablePtr != nullptr) && (sFraMessageEntryTablePtr != nullptr);
     const bool hasNTSC = (sJpnMessageEntryTablePtr != nullptr);
+    const uint8_t oldNameLanguage = gSaveContext.ship.filenameLanguage;
     if (hasPAL && hasNTSC) {
         // Full
         Combobox("Player Name Language", &gSaveContext.ship.filenameLanguage, filenameLanguageMap,
@@ -270,6 +312,9 @@ void DrawInfoTab() {
         Combobox("Player Name Language", &gSaveContext.ship.filenameLanguage, filenameLanguageMap,
                  comboboxOptionsBase.Tooltip("Encoding used for Player Name"));
         ImGui::EndDisabled();
+    }
+    if (canEditName && gSaveContext.ship.filenameLanguage != oldNameLanguage) {
+        reencodePlayerName(gSaveContext.playerName, oldNameLanguage, gSaveContext.ship.filenameLanguage);
     }
 
     // Use an intermediary to keep the health from updating (and potentially killing the player)

@@ -109,12 +109,11 @@
  *     and the debug MapSelect route. Guard landed in
  *     Enhancements/Cutscenes/SkipToFileSelect.cpp (it casts MM_gGameState with
  *     no null check).
- *   OnPlayDrawWorldEnd      Stubbed here. Premise correction against #438: it
- *     has NO compiled registrant in any single-exe build rather than an elided
- *     one -- 2s2h/NameTag/*.cpp and 2s2h/DeveloperTools/*.cpp are both excluded
- *     outright, and both register through the upstream GameInteractor::Instance
- *     members anyway. Wired regardless, because its z_play.c call site is live
- *     and a real dispatcher makes the next registrant work.
+ *   OnPlayDrawWorldEnd      Live in 2s2h/DeveloperTools/CollisionViewer.cpp via
+ *     S2H::GameHooks::Register (#1238 slice 2). NameTag/*.cpp remains excluded,
+ *     and upstream's GameInteractor::Instance registration stays under #else.
+ *     Wired regardless, because its z_play.c call site is live and a real
+ *     dispatcher makes every registrant work.
  *   OnGameStateMainFinish   Stubbed here, no registrants in the tree. Wired for
  *     the same reason: game.c's call site is live, so the alternative to a
  *     dispatcher is a stub that quietly eats the first registrant somebody adds.

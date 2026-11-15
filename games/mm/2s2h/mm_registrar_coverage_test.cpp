@@ -217,6 +217,9 @@
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted
  *     rows on SoH's Settings > General write them. Each TU is the only registrant of its VB (VB_EARTHQUAKE_ON_DAY_3,
  *     VB_APPLY_SCREEN_DISTORTION), so the probe is the same.
+ *   - 2Ship #1989 adds Items/HotWaterNeverCools to the same table. Its key (gEnhancements.Items.HotWaterNeverCools)
+ *     is MM's own: a hosted row in the Majora's Mask block of SoH's Enhancements > Items > Equipment writes it. The TU
+ *     is the only registrant of VB_COOL_HOT_WATER, so the probe is the same.
  *
  * PHASE 10 (#1035, #1036, #1038) -- THE THREE REMAINING KEY-GAP TUs. Equipment/SkipMagicArrowEquip,
  * DifficultyOptions/PermanentHeartLoss and Restorations/N64WeirdFrames/N64WeirdFrames have the shape of
@@ -284,6 +287,16 @@
  * The converting roll spawns a CustomItem through MM_Actor_Spawn, which needs a live actor context, so the leg never
  * takes it; a Bombchu appearing is the playtest's. Nothing ChuDrops.cpp defines is named here.
  *
+ * HOT WATER NEVER COOLS DECIDES THE COOLING (2Ship #1989) -- FAIL 23. The key-gap table shows that
+ * Items/HotWaterNeverCools.cpp registers; this leg shows what its registrant answers, through the production
+ * dispatcher (GameInteractor_Should, which is MM_GameHooks_ExecuteVBShould), with the verdict
+ * Interface_UpdateBottleTimers (z_parameter.c) hands it for a bottle of Hot Spring Water whose timer ran out:
+ *   - key off: nothing is registered on VB_COOL_HOT_WATER and the water cools (the dispatcher returns the verdict);
+ *   - key on: the water does not cool, and a bottle holding anything else is still left alone;
+ *   - key back off: the water cools again, so the registrant left with its key.
+ * The on case is red when the TU is out of the link (nothing answers) and when the body stops clearing the verdict.
+ * Nothing HotWaterNeverCools.cpp defines is named here.
+ *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
  * behind MM_Rando_AssetsReady() because its ResourceMgr_Load*ByName helpers
@@ -318,6 +331,7 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
+#include "2s2h/Rando/Rando.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/ShipUtils.h"
 #include "mm_game_hooks.h"
@@ -415,6 +429,8 @@ struct RegisterW6Phase {
 // (The third competitor, EnItem00.cpp's IS_RANDO leg, is caught by the
 // exactly-one assertion rather than prevented -- see the file header.)
 constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
+// 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
+constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
 
 // RegisterAutosave registers nothing unless this is set -- it is a runtime
@@ -1541,6 +1557,10 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
         { "gEnhancements.RemoveExplosiveLimit",
           "Remove Explosive Limit",
           { { "VB_LIMIT_EXPLOSIVES (Items/RemoveExplosiveLimit.cpp)", GAP_VB_COUNT(VB_LIMIT_EXPLOSIVES), 1 } } },
+        // 2Ship #1989: MM's own key, written by the hosted Hot Water Never Cools row.
+        { kHotWaterNeverCoolsCVar,
+          "Hot Water Never Cools",
+          { { "VB_COOL_HOT_WATER (Items/HotWaterNeverCools.cpp)", GAP_VB_COUNT(VB_COOL_HOT_WATER), 1 } } },
         { "gEnhancements.NoHeartDrops",
           "No Heart Drops",
           { { "VB_DROP_COLLECTIBLE (DifficultyOptions/NoHeartDrops.cpp)", GAP_VB_COUNT(VB_DROP_COLLECTIBLE), 1 } } },
@@ -2018,6 +2038,43 @@ int RunChuDropsRuleLeg() {
     return 0;
 }
 
+// ---- 2Ship #1989: Hot Water Never Cools decides VB_COOL_HOT_WATER (FAIL 23) ----------------------------------------
+// See HOT WATER NEVER COOLS in the file header. The verdict is the one Interface_UpdateBottleTimers passes (is this
+// bottle Hot Spring Water?), and the argument is its bottle index.
+int RunHotWaterNeverCoolsLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kHotWaterNeverCoolsCVar, value);
+        ShipInit::Init(kHotWaterNeverCoolsCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+    };
+
+    drive(0);
+    const bool coolsWhenOff = GameInteractor_Should(VB_COOL_HOT_WATER, true, 0);
+    drive(1);
+    const size_t armed = SettledCountForId<Vb>(VB_COOL_HOT_WATER);
+    const bool coolsWhenOn = GameInteractor_Should(VB_COOL_HOT_WATER, true, 0);
+    const bool otherBottleWhenOn = GameInteractor_Should(VB_COOL_HOT_WATER, false, 3);
+    drive(0);
+    const bool coolsAfterOff = GameInteractor_Should(VB_COOL_HOT_WATER, true, 0);
+
+    RC_ASSERT(coolsWhenOff, 23,
+              "with Hot Water Never Cools off, VB_COOL_HOT_WATER no longer returns the vanilla "
+              "verdict, so Hot Spring Water stops cooling for everyone");
+    RC_ASSERT(armed == 1, 23,
+              "turning Hot Water Never Cools on did not register exactly one VB_COOL_HOT_WATER "
+              "handler (Items/HotWaterNeverCools.cpp is out of the link, or it stacks)");
+    RC_ASSERT(!coolsWhenOn, 23,
+              "with Hot Water Never Cools on, a bottle of Hot Spring Water whose timer ran out "
+              "still cools into Spring Water");
+    RC_ASSERT(!otherBottleWhenOn, 23,
+              "with Hot Water Never Cools on, a bottle that is not Hot Spring Water is "
+              "turned into Spring Water");
+    RC_ASSERT(coolsAfterOff, 23, "Hot Water Never Cools' handler stayed registered after its key went back off");
+    printf("[TEST] 2Ship #1989: Hot Water Never Cools keeps Hot Spring Water hot only while its key is on\n");
+    return 0;
+}
+
 // ---- Phase 12 (#1215, #1221): the rando-forced gates the link dropped ------
 // See PHASE 12 in the file header for the attribution of each bucket.
 struct RandoGateCounts {
@@ -2186,6 +2243,52 @@ int RunRandoGateLegs() {
               "the Oceanside reward is lost for the cycle (#1221)");
     RC_ASSERT(rando.movedInWithReward, 20,
               "a rando file did not move the squatter in once the reward was collected (#1221)");
+
+    // ---- #1574: frozen RO_HOOKSHOT_ANYWHERE arms VB_BE_HOOKSHOT_SURFACE under rando ----
+    // Cheat is off (ResetCheatKeys). Under a rando save, Off (0) leaves VB_BE_HOOKSHOT_SURFACE
+    // disarmed (even if the live gRando.Options CVar is non-zero), while On and Logical arm it
+    // once; under a vanilla save, a non-zero slot arms nothing.
+    {
+        auto surfaceCount = []() {
+            return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_BE_HOOKSHOT_SURFACE);
+        };
+        CVarSetInteger("gCheats.HookshotEverything", 0);
+        CVarSetInteger("gRando.Options.RO_HOOKSHOT_ANYWHERE", RO_HOOKSHOT_ANYWHERE_LOGICAL);
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
+        DriveRandoArm(true);
+        const size_t hookOff = surfaceCount();
+        const bool ansOff = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+        CVarClear("gRando.Options.RO_HOOKSHOT_ANYWHERE");
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_ON;
+        ShipInit::Init("IS_RANDO");
+        ShipInit::Init("IS_RANDO");
+        const size_t hookOn = surfaceCount();
+        const bool ansOn = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_LOGICAL;
+        ShipInit::Init("IS_RANDO");
+        const size_t hookLogical = surfaceCount();
+        const bool ansLogical = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        DriveRandoArm(false);
+        const size_t hookVanilla = surfaceCount();
+        const bool ansVanilla = GameInteractor_Should(VB_BE_HOOKSHOT_SURFACE, false);
+
+        RANDO_SAVE_OPTIONS[RO_HOOKSHOT_ANYWHERE] = RO_HOOKSHOT_ANYWHERE_OFF;
+        DriveRandoArm(false);
+        const size_t hookRestored = surfaceCount();
+
+        printf("[TEST] mm-registrar-coverage: (#1574) RO_HOOKSHOT_ANYWHERE: off=%zu/%d, on=%zu/%d, logical=%zu/%d, "
+               "vanilla=%zu/%d, restored=%zu\n",
+               hookOff, ansOff ? 1 : 0, hookOn, ansOn ? 1 : 0, hookLogical, ansLogical ? 1 : 0, hookVanilla,
+               ansVanilla ? 1 : 0, hookRestored);
+        RC_ASSERT(hookOff == 0 && !ansOff, 23, "RO_HOOKSHOT_ANYWHERE Off armed VB_BE_HOOKSHOT_SURFACE (#1574)");
+        RC_ASSERT(hookOn == 1 && ansOn, 23, "RO_HOOKSHOT_ANYWHERE On did not arm VB_BE_HOOKSHOT_SURFACE (#1574)");
+        RC_ASSERT(hookLogical == 1 && ansLogical, 23, "RO_HOOKSHOT_ANYWHERE Logical did not arm surface hook (#1574)");
+        RC_ASSERT(hookVanilla == 0 && !ansVanilla, 23, "RO_HOOKSHOT_ANYWHERE leaked onto a vanilla save (#1574)");
+        RC_ASSERT(hookRestored == 0, 23, "RO_HOOKSHOT_ANYWHERE left VB_BE_HOOKSHOT_SURFACE armed after restore");
+    }
     return 0;
 }
 
@@ -2597,6 +2700,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- #1236 (review H1): MM Enable Bombchu Drops converts only while Link has Bombchus --------
     if (const int rc = RunChuDropsRuleLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- 2Ship #1989: Hot Water Never Cools keeps Hot Spring Water from cooling -------------------------------------
+    if (const int rc = RunHotWaterNeverCoolsLeg(); rc != 0) {
         return rc;
     }
 

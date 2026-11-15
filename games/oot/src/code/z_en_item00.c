@@ -781,7 +781,7 @@ void OoT_EnItem00_Update(Actor* thisx, PlayState* play) {
         }
     }
 
-    if (this->unk_15A > 0) {
+    if (GameInteractor_Should(VB_ITEM00_TIMER_TICK, this->unk_15A > 0, this)) {
         this->unk_15A--;
         if (CVarGetInteger(CVAR_CHEAT("DropsDontDie"), 0) && (this->unk_154 <= 0)) {
             this->unk_15A++;

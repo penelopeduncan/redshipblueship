@@ -584,6 +584,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         # mm_dev_tools_bridge.h (MM_gPlayState dangles while OoT runs). WarpPoint.cpp's boot hook and 2Ship's menu
         # drawing are fenced out; its Warp() serves MmDevToolsSingleExe.cpp. No twin in games/oot; DebugConsole.cpp
         # (DebugConsole_Init's twin) stays out.
+        # Hosted in SoH's Collision Viewer, mm_dev_viewers_bridge.h
+        "2s2h/DeveloperTools/CollisionViewer.cpp"
         "2s2h/DeveloperTools/DeveloperTools.cpp"
         "2s2h/DeveloperTools/EventLog.cpp"
         # Hosted in SoH's Message Viewer, mm_dev_viewers_bridge.h
@@ -742,7 +744,20 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Dialogue/SkipBottleCatch.cpp"
         "2s2h/Enhancements/Timesavers/FasterBottles.cpp"
         "2s2h/Enhancements/Graphics/DisableBombBillboarding.cpp"
+        # Backport M8 (2Ship #1842, #1847): the always-on ocarina-dive restoration. It has no CVar and no menu row: it
+        # registers through a file-scope RegisterShipInitFunc on "*" only, with a `true` COND_HOOK on
+        # OnGameStateMainStart, which game.c dispatches through MM_GameHooks_ExecuteOnGameStateMainStart (the S2H leg).
+        # The body reads MM_gPlayState and is guarded (null play state, null Player). No stub in mm_stubs.c; no twin of
+        # RegisterOcarinaDive in games/oot. MMOcarinaDive attributes it by registry content.
+        "2s2h/Enhancements/Restorations/OcarinaDive.cpp"
         "2s2h/Enhancements/Graphics/DisableGrottoRotation.cpp"
+        # 2Ship #1989 (Hot Water Never Cools), drawn by an MM row in the Majora's Mask block of SoH's Enhancements >
+        # Items > Equipment (SohGui/HostedMm/SohMenuHostedMmPlayer.cpp). Registers only through a file-scope
+        # RegisterShipInitFunc on its own MM key and rides VB_COOL_HOT_WATER, appended to GIVanillaBehavior and
+        # dispatched through MM_GameHooks_ExecuteVBShould from Interface_UpdateBottleTimers (z_parameter.c). The body
+        # only clears the verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
+        # RegisterHotWaterNeverCools in games/oot. MMRegistrarCoverage's key-gap table attributes it.
+        "2s2h/Enhancements/Items/HotWaterNeverCools.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 

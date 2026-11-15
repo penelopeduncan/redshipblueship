@@ -240,7 +240,8 @@ uint16_t MMSceneAreaKey(s16 scene) {
 
 /**
  * The area scene `scene`'s rows are listed under: its name, as MM's tracker heads
- * the scene (Ship_GetSceneName), keyed by MMSceneAreaKey. NULL for no scene.
+ * the scene (Rando::CheckTracker::GetCheckTrackerSceneName, 2Ship #1775), keyed by
+ * MMSceneAreaKey. NULL for no scene.
  */
 const char* MMSceneAreaName(s16 scene, uint16_t* outKey) {
     if (scene < 0 || scene >= (s16)SCENE_MAX) {
@@ -249,7 +250,7 @@ const char* MMSceneAreaName(s16 scene, uint16_t* outKey) {
     if (outKey != nullptr) {
         *outKey = MMSceneAreaKey(scene);
     }
-    return Ship_GetSceneName(scene);
+    return Rando::CheckTracker::GetCheckTrackerSceneName((SceneId)scene);
 }
 
 /** The area a check is listed under by MMCheckScenes' static rule (Randomizer > MM Locations' table). */
@@ -856,6 +857,11 @@ extern "C" int MM_TrackerAdapter_TestCheckScene(uint16_t checkId) {
 /** TEST BRIDGE (#1131): MM's grotto scene, whose checks MM's tracker lists under the scene each opens from. */
 extern "C" int MM_TrackerAdapter_TestGrottoScene(void) {
     return (int)SCENE_KAKUSIANA;
+}
+
+/** TEST BRIDGE (2Ship #1775): the area name the combo pane gives scene @p sceneId's rows (MMSceneAreaName). */
+extern "C" const char* MM_TrackerAdapter_TestSceneAreaName(int sceneId) {
+    return MMSceneAreaName((s16)sceneId, nullptr);
 }
 
 /** TEST BRIDGE (#1498): the area key of scene @p sceneId's rows (MMSceneAreaKey). */

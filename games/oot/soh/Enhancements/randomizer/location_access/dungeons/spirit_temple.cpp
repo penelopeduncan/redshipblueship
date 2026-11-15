@@ -717,7 +717,7 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, []{return logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 2) ||
                                                                 (logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 1) &&
                                                                  (!ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) ||
-                                                                  (logic->Get(LOGIC_SPIRIT_MQ_3SUNS_ENEMIES) && (logic->CanUse(RG_CLIMB) || logic->CanUse(RG_LONGSHOT))) ||
+                                                                  (logic->Get(LOGIC_SPIRIT_MQ_3SUNS_ENEMIES) && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT))) ||
                                                                   logic->Get(LOGIC_REVERSE_SPIRIT_ADULT)));}),
     });
 
@@ -745,7 +745,7 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD, []{return logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 3) ||
                                                                  (logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 2) &&
                                                                   (!ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) ||
-                                                                   (logic->Get(LOGIC_SPIRIT_MQ_3SUNS_ENEMIES) && (logic->CanUse(RG_CLIMB) || logic->CanUse(RG_LONGSHOT))) ||
+                                                                   (logic->Get(LOGIC_SPIRIT_MQ_3SUNS_ENEMIES) && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT))) ||
                                                                    logic->Get(LOGIC_REVERSE_SPIRIT_ADULT)));}),
     });
 

@@ -1075,8 +1075,12 @@ int LegMmPlacementAnywhereAndLegacyHalf() {
     if (smallKeys == nullptr || bossKeys == nullptr || chestFairies == nullptr || otherFairies == nullptr) {
         return Fail(177, "leg 2i setup: missing MM placement option descriptors");
     }
+    if (otherFairies->label == nullptr || strcmp(otherFairies->label, "Dungeon Freestanding Fairies") != 0) {
+        return Fail(177, "leg 2i: RO_PLACEMENT_STRAY_FAIRIES_OTHER label is '%s'",
+                    otherFairies->label ? otherFairies->label : "(null)");
+    }
 
-    // (i) Modern half with only Freestanding Fairies explicitly set to 0 (Anywhere).
+    // (i) Modern half with only Dungeon Freestanding Fairies explicitly set to 0 (Anywhere).
     ClearAuthoredKeys();
     Combo_MMOptionSetValue(otherFairies, (int32_t)RO_DUNGEON_ITEM_ANYWHERE);
     if (int rc = CreatePairedFile(false, nullptr)) {

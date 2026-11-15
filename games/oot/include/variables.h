@@ -59,7 +59,7 @@ extern "C"
 	extern u16 OoT_gBuildVersionMinor;
 	extern u16 OoT_gBuildVersionPatch;
 	extern const char OoT_gGitBranch[];
-    extern const char OoT_gGitCommitHash[];
+	extern const char OoT_gGitCommitHash[];
 	extern u8 OoT_gGitCommitTag[];
 	extern u8 OoT_gBuildTeam[];
 	extern u8 OoT_gBuildDate[];

@@ -68,14 +68,14 @@ void RegionTable_Init_Kakariko() {
     }, {
         //Exits
         Entrance(RR_HYRULE_FIELD,             []{return true;}),
-        Entrance(RR_KAK_CARPENTER_BOSS_HOUSE, []{return logic->CanOpenOverworldDoor(RG_BOSS_HOUSE_KEY);}),
-        Entrance(RR_KAK_HOUSE_OF_SKULLTULA,   []{return logic->CanOpenOverworldDoor(RG_SKULLTULA_HOUSE_KEY);}),
-        Entrance(RR_KAK_IMPAS_HOUSE,          []{return logic->CanOpenOverworldDoor(RG_IMPAS_HOUSE_KEY);}),
-        Entrance(RR_KAK_WINDMILL_LOWER,       []{return logic->CanOpenOverworldDoor(RG_WINDMILL_KEY);}),
-        Entrance(RR_KAK_BAZAAR,               []{return logic->IsAdult && logic->AtDay && logic->CanOpenOverworldDoor(RG_KAK_BAZAAR_KEY);}),
-        Entrance(RR_KAK_SHOOTING_GALLERY,     []{return logic->IsAdult && logic->AtDay && logic->CanOpenOverworldDoor(RG_KAK_SHOOTING_GALLERY_KEY);}),
+        Entrance(RR_KAK_CARPENTER_BOSS_HOUSE, []{return logic->HasItem(RG_BOSS_HOUSE_KEY);}),
+        Entrance(RR_KAK_HOUSE_OF_SKULLTULA,   []{return logic->HasItem(RG_SKULLTULA_HOUSE_KEY);}),
+        Entrance(RR_KAK_IMPAS_HOUSE,          []{return logic->HasItem(RG_IMPAS_HOUSE_KEY);}),
+        Entrance(RR_KAK_WINDMILL_LOWER,       []{return logic->HasItem(RG_WINDMILL_KEY);}),
+        Entrance(RR_KAK_BAZAAR,               []{return logic->IsAdult && logic->AtDay && logic->HasItem(RG_KAK_BAZAAR_KEY);}),
+        Entrance(RR_KAK_SHOOTING_GALLERY,     []{return logic->IsAdult && logic->AtDay && logic->HasItem(RG_KAK_SHOOTING_GALLERY_KEY);}),
         Entrance(RR_KAK_WELL,                 []{return logic->IsAdult || logic->Get(LOGIC_DRAIN_WELL) || logic->CanUse(RG_IRON_BOOTS) || (ctx->GetTrickOption(RT_BOTTOM_OF_THE_WELL_NAVI_DIVE) && logic->IsChild && logic->HasItem(RG_BRONZE_SCALE) && logic->CanJumpslash());}),
-        Entrance(RR_KAK_POTION_SHOP,          []{return (logic->AtDay || logic->IsChild) && logic->CanOpenOverworldDoor(RG_KAK_POTION_SHOP_KEY);}),
+        Entrance(RR_KAK_POTION_SHOP,          []{return (logic->AtDay || logic->IsChild) && logic->HasItem(RG_KAK_POTION_SHOP_KEY);}),
         Entrance(RR_KAK_REDEAD_GROTTO,        []{return logic->CanOpenBombGrotto();}),
         Entrance(RR_KAK_IMPAS_LEDGE,          []{return (logic->IsChild && logic->AtDay && logic->HasItem(RG_POWER_BRACELET)) || (logic->IsAdult && ctx->GetTrickOption(RT_VISIBLE_COLLISION));}),
         Entrance(RR_KAK_WATCHTOWER,           []{return logic->HasItem(RG_CLIMB) && (logic->IsAdult || logic->AtDay || logic->CanKillEnemy(RE_GOLD_SKULLTULA, ED_LONGSHOT) || (ctx->GetTrickOption(RT_KAK_TOWER_GS) && logic->CanJumpslashExceptHammer()));}),
@@ -133,14 +133,14 @@ void RegionTable_Init_Kakariko() {
         //Exits
         Entrance(RR_KAKARIKO_VILLAGE,        []{return true;}),
         Entrance(RR_KAK_OPEN_GROTTO,         []{return true;}),
-        Entrance(RR_KAK_ODD_POTION_BUILDING, []{return logic->IsAdult && logic->CanOpenOverworldDoor(RG_GRANNYS_POTION_SHOP_KEY);}),
+        Entrance(RR_KAK_ODD_POTION_BUILDING, []{return logic->IsAdult && logic->HasItem(RG_GRANNYS_POTION_SHOP_KEY);}),
         Entrance(RR_KAK_BEHIND_POTION_SHOP,  []{return logic->HasItem(RG_CLIMB);}),
     });
 
     areaTable[RR_KAK_BEHIND_POTION_SHOP] = Region("Kak Behind Potion Shop", SCENE_KAKARIKO_VILLAGE, {}, {}, {
         //Exits
         Entrance(RR_KAK_BACKYARD,    []{return true;}),
-        Entrance(RR_KAK_POTION_SHOP, []{return logic->IsAdult && logic->AtDay && logic->CanOpenOverworldDoor(RG_KAK_POTION_SHOP_KEY);}),
+        Entrance(RR_KAK_POTION_SHOP, []{return logic->IsAdult && logic->AtDay && logic->HasItem(RG_KAK_POTION_SHOP_KEY);}),
         //can ledgegrab fence to rooftop with hover boots, but that's more difficult than the unintuitive jump, so not including in default logic
         Entrance(RR_KAK_ROOFTOP,     []{return ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanUse(RG_MEGATON_HAMMER) && logic->IsAdult;}),
     });

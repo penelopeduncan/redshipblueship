@@ -88,6 +88,13 @@
 - **Seven Majora's Mask options from 2Ship2Harkinian are in the menu, greyed out** (issue #1403): Shuffle Skeleton Key,
   the Skulltula and Stray Fairy pool limits, and shuffles for the Song of Double Time, the Inverted Song of Time, the
   Sun's Song and Saria's Song. They read "Not Yet Supported in Paired Worlds" and cannot be turned on yet.
+- **Majora's Mask randomizer polish from 2Ship2Harkinian** (2Ship2Harkinian #1614, #1450, #1706, #1775, #1478,
+  #1769). With Shuffle Enemy Souls on, an enemy whose soul you do not have yet is drawn in grey. Enemy soul items draw
+  with their proper textures and colours, a randomized pot uses the major pot model when Chest Size and Texture Match
+  Contents is off, and the file select's randomizer box follows the File Select Plates colour. Both check trackers
+  name Southern Swamp, Mountain Village, Goron Village, Path to Goron Village and Lone Peak Shrine without "(poison)",
+  "(winter)" or "& Grottos". An unpaired Majora's Mask file whose seed cannot be made shows a "Seed Failure:" toast
+  with the reason, and a spoiler file that names an item Majora's Mask does not have is refused.
 
 ### Ocarina of Time randomizer
 
@@ -160,9 +167,17 @@
   as in OoTMM. A shuffled Ocarina of Time shelf that will sell its item again drops the "Special deal! ONE LEFT!" line,
   and a shelf that sells out keeps it. A shelf that sold a bottle of red, green or blue potion or of milk sells the
   refill afterwards. Logic counts a restocking shelf as a place to buy that item again.
+- **Ocarina of Time logic fixes from Ship of Harkinian** (SoH #7417, #7396). With Shuffle Grass on, an adult riding
+  Epona can cut the Lake Hylia grass. With Shuffle Rocks on, the rocks across the Gerudo Valley bridge need something
+  that breaks or lifts them. In Master Quest Ganon's Castle, the Fire Trial's last room leads back to the barred-door
+  side of the lava. Worlds made with the defaults do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.
+- **The Temple of Time altar names the goal** (Ship of Harkinian #7341). As an adult, the altar's text now ends with
+  the goal of a world whose goal is Beat Ocarina of Time ("the Triforce will be granted once the evil one is
+  defeated") or Triforce Hunt (how many Triforce Pieces both games together need). With any other goal the altar
+  reads as before.
 
 ### Cross-game songs
 
@@ -186,6 +201,9 @@
 
 ### Fixes
 
+- **A Majora's Mask item in the Spirit Temple's Silver Gauntlets chest now moves Nabooru's story on** (issue #1602).
+  Opening that chest marks Nabooru as captured by Twinrova (with story cutscenes skipped, the default) or takes you to
+  the Desert Colossus cutscene, whichever item the chest holds. Before, only an Ocarina of Time item there did.
 - **A Triforce Hunt that cannot fit names the game** (issue #1483). When a setting leaves one game more items of its
   own than it has checks, as a hunt with too many pieces does, Generate now fails with a toast that names the game,
   for example "Not generated: too many Majora's Mask pieces.", instead of "try a new seed or other options." The
@@ -202,35 +220,67 @@
 - **macOS: the app carries both ROM extraction tools** (issue #1501). The `v0.5.0-alpha` dmg left them out, so a fresh
   install stopped at "ZAPD extractor executable not found" when it tried to extract your ROMs. A failed macOS build no
   longer holds back a release's Windows and Linux downloads.
+- **Majora's Mask: the ocarina dive can be done** (2Ship2Harkinian #1842, #1847, #1853). While hovering, the second
+  ocarina press now has two extra frames to land, as console lag gave it. Faster Song Playback no longer shortens a
+  song played while falling.
 - **Cross-Game Masks: an Ocarina of Time mask in a Majora's Mask slot is labelled as itself** (issue #1500). When the
   Gerudo, Skull or Spooky Mask sits in the Stone or Gibdo Mask's slot, the C button, the D-pad and the pause name now
   show that mask, not the slot's own, and so does the A-button description when it is the slot's only mask.
+- **Ocarina of Time randomizer: dungeon maps take their dungeon's colour** (SoH #6351), from Ship of Harkinian. With
+  Map & Compass Colors Match Dungeon on, maps now match their dungeon as compasses do, and the Ice Cavern compass is
+  cyan instead of gold. That option and Jabber Nut Colors Match Kind are no longer greyed out when the current seed
+  does not use them.
 - **The "Restored from file:" toast keeps Cross-Game Rule names whole** (issue #1479). After loading a save in a small
   window the toast no longer cuts a rule's name to "...", and its "+N" counts every restored rule, even on a long
   restore.
 - **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
   "Hide In-Game Timer Background", which did not fit at the smallest window size.
+- **Ocarina of Time: a Dark Link spawned by Crowd Control or Sail no longer acts on Link** (SoH
+  #7054, #7272), from Ship of Harkinian. The enemy randomizer's guards now also apply with Crowd Control or Sail on, so
+  such a Dark Link cannot void Link out, deal him fall damage, change how ice floors treat him or be grabbed by a
+  Like-Like for him. The enemy randomizer and the Actor Viewer now call the Gerudo Fighter a Gerudo Thief.
 - **A Majora's Mask chest that held an Ocarina of Time item no longer replays its message** (issue #1601). After a cycle
   reset such a chest could be opened again: it showed the item and "You found" and gave nothing. It now opens empty,
   with no message.
+- **Ocarina of Time: Jabu-Jabu's Big Octo platform keeps its cutscene** (SoH #7158), from Ship of Harkinian. With Skip
+  One Point Cutscenes on (the default in the randomizer), you were given control while the platform was still going up
+  and down, and could get behind the Big Octo before its fight. That short cutscene now always plays.
 - **Cross-Game Masks: an Ocarina of Time mask comes off where Majora's Mask takes its own masks off** (issue #1452):
   when a cutscene turns Link human again, on a game over, and when he respawns after falling into a void. At night the
   Spooky Mask now also stands in for the Gibdo Mask with Pamela, her father, the Bomb Shop and the Happy Mask Salesman.
+- **Ocarina of Time grottos with entrances shuffled** (upstream #6529, #6721, #6854, #6888, #7271, #7276), from Ship
+  of Harkinian. Without Swim, voiding out in a grotto's water reloads the grotto, and voiding out in water near a
+  grotto no longer puts Link on the wrong side of its boulder. With grottos shuffled but not mixed or decoupled, a
+  void-out after leaving a grotto returns to the last entrance, not the grotto's exit. Running in the Bunny Hood no
+  longer breaks a grotto reached before the fade-in ends. With Decoupled Entrances on, the Entrance Tracker lists blue
+  warps, and it pairs Ganon's Tower's two entrances as it does other dungeon entrances.
 - **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
 - **A Majora's Mask stray fairy found in Ocarina of Time is animated** (issue #1165). It was drawn frozen in one pose.
+- **Ocarina of Time: a shuffled key or Piece of Heart dropped by an enemy stays put** (SoH #7183), from Ship of
+  Harkinian. A randomized drop such as a Gerudo guard's key used to vanish about ten seconds after it fell, as a rupee
+  does. It now waits to be picked up, like the vanilla key.
 - **Ocarina of Time: King Zora no longer leaves the camera stuck** (issue #1591), from Ship of Harkinian. Switching Skip
   Story Cutscenes on while he was moving aside could leave the camera and Link frozen. The camera is now given back when
   he stops.
+- **Ocarina of Time: a finished file's gameplay timer stays stopped** (SoH #7385, #7404), from Ship of Harkinian.
+  The Gameplay Stats window now remembers that the game was beaten after you quit and reload, so its real-time
+  total no longer starts counting again, and a finished Triforce Hunt shows the time the hunt ended rather than an
+  earlier Ganon fight.
 - **First-run extraction says what went wrong** (issue #1590), from Ship of Harkinian and 2Ship2Harkinian. On Linux with
   no file picker installed, both games show a message instead of failing silently. Ocarina of Time shows a message when
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
+- **Ocarina of Time: crawlspaces move Link as they do on console** (SoH #6709), from Ship of Harkinian. The crawlspace
+  camera places Link and turns him with it again, so the crawlspace glitch behaves as it does on the original game.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
 - **A Majora's Mask item found in Ocarina of Time is not lost if you quit before it is sent** (issue #1635). An item
   waiting for the item queue (while Link carries something or a cutscene plays) or held for a full outbox is sent after
   you reload. Quitting without saving also keeps the chests and pickups taken in the current scene, as it already kept
   everything else, so such a chest is no longer opened a second time.
+- **Ocarina of Time's Save Editor keeps the player name when you change Player Name Language** (SoH #7383), from Ship
+  of Harkinian. The name used to turn into other characters because only the language changed; now each letter,
+  digit, space, hyphen and full stop is rewritten in the new encoding. Japanese characters become spaces.
 
 ### Trackers
 
@@ -264,14 +314,24 @@
   default, and a seed made with it off makes the same world as before.
 - **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
   instead of queueing behind it.
+- **Ocarina of Time Audio Editor: the missing music, and None** (upstream #5685, #7372). A new Ending tab holds the
+  Ocarina of Time ending piece and End Credits I to IV, Hyrule Field Morning Theme and Seal of Six Sages are fanfares
+  you can replace, and the two pieces that were named the wrong way round now carry their right names. A Background
+  Music, Sound Effects or Voices row can be set to None, which plays nothing there.
 - **Developer Tools: an Event Log for Majora's Mask** (issue #1572), from 2Ship2Harkinian. Popout Event Log opens a
   window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
 - **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
   2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
+- **Majora's Mask: new option Hot Water Never Cools** (2Ship2Harkinian #1989). Under Enhancements > Items, it keeps
+  Hot Spring Water in a bottle from cooling down into Spring Water. It is off by default.
 - **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
   generated with it off. The same seed and settings make the same world as before.
+- **Majora's Mask text mods** (2Ship2Harkinian #2000, #2013). A Majora's Mask mod can now replace or add messages
+  with a TextMM XML file under `override/text/message_data_static/`, written in readable tags (colours, buttons,
+  line breaks, box type and position) instead of raw bytes. When two mods change the same message, the one loaded
+  last wins. Ocarina of Time's text is not affected.
 
 ---
 

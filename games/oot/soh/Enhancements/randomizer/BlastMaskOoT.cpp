@@ -32,11 +32,11 @@
  * THE BLAST. While it is worn, B is the mask's (OoTMM's
  * Player_ProcessItemButtonsWrapper): a B press is taken out of the frame's input
  * before Link's update reads it, so the sword does not swing, and fires a blast
- * at Link's focus when the cooldown is spent: OoT's own bomb (ACTOR_EN_BOM,
- * BOMB_BODY) with its timer at 0, which explodes on its next update, as Majora's
- * Mask's own Blast Mask spawns its EnBom (MM z_player.c, ITEM_F0). The press is
- * caught in the player's ShouldActorUpdate, which runs before Link's update
- * copies the input.
+ * at Link's world.pos when the cooldown is spent: OoT's own bomb (ACTOR_EN_BOM,
+ * BOMB_BODY) with its timer at 0 and its explosion sphere centered at spawn
+ * (as MM_EnBom_Init seeds collider2, #1615), which explodes on its first update.
+ * The press is caught in the player's ShouldActorUpdate, which runs before
+ * Link's update copies the input.
  *
  * THE COOLDOWN (OoTMM blastMaskCooldown): the frozen record's byte, in OoTMM's
  * frames (Combo_BlastMaskCooldownFrames; Default is MM's own 310), one blast per
@@ -167,13 +167,16 @@ bool PlayerFreeToBlast(PlayState* play, Player* player) {
            play->transitionTrigger != TRANS_TRIGGER_START;
 }
 
-/** One blast at Link's focus: OoT's own bomb with its fuse spent. */
-void SpawnBlast(PlayState* play, Player* player) {
-    EnBom* bomb =
-        (EnBom*)OoT_Actor_Spawn(&play->actorCtx, play, ACTOR_EN_BOM, player->actor.focus.pos.x,
-                                player->actor.focus.pos.y, player->actor.focus.pos.z, 0, 0, 0, BOMB_BODY, true);
+/** One blast at `s` (Link's world.pos): OoT's own bomb with its fuse spent and
+ *  its explosion sphere centered at spawn (MM_EnBom_Init parity, #1615). */
+void SpawnBlast(PlayState* play, const ComboBlastMaskSpawn& s) {
+    ActorContext* ctx = &play->actorCtx;
+    EnBom* bomb = (EnBom*)OoT_Actor_Spawn(ctx, play, ACTOR_EN_BOM, s.x, s.y, s.z, 0, 0, 0, BOMB_BODY, true);
     if (bomb != nullptr) {
         bomb->timer = 0;
+        bomb->explosionCollider.elements[0].dim.worldSphere.center.x = s.centerX;
+        bomb->explosionCollider.elements[0].dim.worldSphere.center.y = s.centerY;
+        bomb->explosionCollider.elements[0].dim.worldSphere.center.z = s.centerZ;
     }
 }
 
@@ -197,8 +200,11 @@ void BlastMaskBeforePlayerUpdate(void* actorRef, bool* should) {
     const bool armed = OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_MM_BLAST && PlayerFreeToBlast(play, player);
     const uint16_t frames = Combo_BlastMaskCooldownFor(
         Combo_ComboBlastMaskCooldown(), CVarGetInteger(RSBS_CVAR_MM_MASKS_NO_BLAST_MASK_COOLDOWN, 0) != 0 ? 1 : 0);
-    if (Combo_BlastMask_Step(&sCooldownLeft, (armed && pressed) ? 1 : 0, frames) != 0) {
-        SpawnBlast(play, player);
+    const int trigger = (armed && pressed) ? 1 : 0;
+    const Vec3f& pos = player->actor.world.pos;
+    ComboBlastMaskSpawn spawn;
+    if (Combo_BlastMask_StepOotSpawn(&sCooldownLeft, trigger, frames, pos.x, pos.y, pos.z, &spawn) != 0) {
+        SpawnBlast(play, spawn);
     }
     if (armed && pressed) {
         input->press.button &= ~BTN_B;
@@ -283,7 +289,7 @@ extern "C" void Randomizer_DrawBlastMask(PlayState* play, GetItemEntry* getItemE
 
 // Always registered: every hook acts only on the worn field, the custom ItemID or
 // the rule, which a world without the Blast Mask (OoT) rule never holds.
-static void RegisterBlastMaskOoT() {
+extern "C" void OoT_BlastMask_RegisterHooks(void) {
     OoT_BlastMask_RegisterRuntime();
     COND_ID_HOOK(ShouldActorUpdate, ACTOR_PLAYER, true, BlastMaskBeforePlayerUpdate);
     COND_HOOK(OnLoadGame, true, BlastMaskOnLoadGame);
@@ -299,6 +305,10 @@ static void RegisterBlastMaskOoT() {
             *should = true;
         }
     });
+}
+
+static void RegisterBlastMaskOoT() {
+    OoT_BlastMask_RegisterHooks();
 }
 
 static RegisterShipInitFunc initFunc(RegisterBlastMaskOoT);

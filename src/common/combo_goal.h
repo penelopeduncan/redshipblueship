@@ -209,6 +209,27 @@ bool Combo_GoalKeepsOwnHuntWin(uint8_t goal);
  */
 bool Combo_GoalGeneratesOwnHuntAsWin(uint8_t goal);
 
+// ---- The altar's win-condition line (SoH #7341, adapted) --------------------
+// Upstream ends the adult altar text with a line naming its win condition
+// (Hint::GetWinconText over RSK_WINCON, a setting this tree does not have). Here
+// the win condition is the FROZEN combo goal, so the line follows it. Only the
+// goals one of upstream's lines describes truly get one; every other goal, and an
+// unpaired file, keeps the altar text exactly as it was.
+/** No line: unpaired, beat-both, beat-either, beat-mm, or a hunt that is not armed. */
+#define RSBS_GOAL_ALTAR_LINE_NONE 0
+/** beat-oot: "the Triforce will be granted once the evil one is defeated". */
+#define RSBS_GOAL_ALTAR_LINE_DEFEAT_GANON 1
+/** triforce-hunt: "... once N Triforce Pieces are retrieved", N the combo requirement. */
+#define RSBS_GOAL_ALTAR_LINE_TRIFORCE_PIECES 2
+
+/**
+ * Which line the resident world's adult altar text ends with, read from the
+ * frozen combo record (never a CVar). `*outRequired` (may be NULL) receives the
+ * frozen combo requirement for RSBS_GOAL_ALTAR_LINE_TRIFORCE_PIECES and 0
+ * otherwise. Reads, never records.
+ */
+int Combo_GoalAltarLine(uint16_t* outRequired);
+
 #ifdef __cplusplus
 }
 #endif
