@@ -53,7 +53,7 @@ void RegionTable_Init_GerudoFortress() {
         Entrance(RR_GF_JAIL_WINDOW,        []{return logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_GF_OUTSKIRTS,          []{return true;}),
         Entrance(RR_GF_NEAR_GROTTO,        []{return logic->IsChild || logic->CanPassEnemy(RE_GERUDO_GUARD);}),
-        // RANDTODO: Add tricks for getting past the gerudo guarding the hba range
+        // RANDOTODO: Add tricks for getting past the gerudo guarding the hba range
         Entrance(RR_GF_ABOVE_GTG,          []{return logic->IsChild || logic->CanPassEnemy(RE_GERUDO_GUARD);}),
         Entrance(RR_GF_TOP_OF_UPPER_VINES, []{return logic->HasItem(RG_GERUDO_MEMBERSHIP_CARD) && logic->CanUse(RG_LONGSHOT);}),
         Entrance(RR_GF_HBA_RANGE,          []{return logic->IsChild || logic->HasItem(RG_GERUDO_MEMBERSHIP_CARD);}),
