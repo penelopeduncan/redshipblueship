@@ -681,6 +681,10 @@ if(BUILD_TESTING)
     # with the B button's keys (overridden, moved, scaled, hidden), the next-element
     # override, an element with no row, and the three presets. ROM-free, display-free.
     redship_add_test(NAME MMHudEditorReader COMMAND redship --test mm-hud-editor-reader)
+    # MM text mods (2Ship #2000, #2013): a TextMM XML under override/<a message table's folder>/ replaces or adds
+    # that table's entries through MM's XML TextMM reader, applied lowest archive priority first so the newest-mounted
+    # mod wins, and adds go before the 0xFFFF terminator. Two scratch folders mounted as archives. ROM-free.
+    redship_add_test(NAME MMTextMods COMMAND redship --test mm-text-mods)
     # Cross-game CVar classification lock (#34). Keeps ADR 0003 and
     # docs/enhancement-classification.md from decaying into prose: fails when a
     # converged key diverges again, OR when a key the inventory marks per-game

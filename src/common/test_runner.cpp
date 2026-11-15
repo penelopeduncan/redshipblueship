@@ -100,6 +100,10 @@ int CosmeticGfxStub_RunHeadless(void);
 // shared menu's gHudEditor.* keys and its presets write them. It reads and writes CVars, so its wrapper
 // (Test_MMHudEditorReader, after CreateHarnessStyleContext) runs the display-free shared bring-up first. 0 on pass.
 int MM_HudEditorReader_RunHeadless(void);
+// MM text mods (2Ship #2000; games/mm/2s2h/mm_text_mods_test.cpp): a TextMM XML under override/<a message table's
+// folder>/ replaces or adds that table's entries, the highest-priority archive winning. Its wrapper (Test_MMTextMods)
+// runs the display-free shared bring-up for the ResourceManager. 0 on pass.
+int MM_TextMods_RunHeadless(void);
 // MM resume-path cold-boot contracts (games/mm/2s2h/mm_resume_state_test.cpp):
 // (a) mm-resume-arena — MM_ResumeColdBootPrep must make an exhausted system
 //     arena allocatable again (the cycle-2 re-entry crash class: the retired
@@ -1686,6 +1690,18 @@ static TestResult Test_MMHudEditorReader(void) {
         return TEST_FAIL;
     }
     return MM_HudEditorReader_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// MM text mods (2Ship #2000, see the extern decl beside mm-hud-editor-reader). The display-free shared bring-up, for
+// the ResourceManager the row mounts its two scratch folders into.
+static TestResult Test_MMTextMods(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed
+");
+        return TEST_FAIL;
+    }
+    return MM_TextMods_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // MM sequence replacement (W6-AUDIO-SEQ, see the extern decl beside seq-map-bounds). The display-free shared
@@ -9934,6 +9950,8 @@ const TestDescriptor gTests[] = {
     { "cosmetic-gfx-stub", "MM HUD gfx wrappers write commands and advance the display list", Test_CosmeticGfxStub },
     { "mm-hud-editor-reader", "MM's HUD draws honour the shared menu's HUD placement keys and presets (#1239)",
       Test_MMHudEditorReader },
+    { "mm-text-mods", "MM text mods replace and add message table entries, highest priority first (2Ship #2000)",
+      Test_MMTextMods },
     { "roundtrip", "Full round-trip with state verification", Test_Roundtrip },
     { "roundtrip-integrity", "OoT SaveContext byte-identical across OoT->MM->OoT (issue #262)",
       Test_RoundtripIntegrity },
