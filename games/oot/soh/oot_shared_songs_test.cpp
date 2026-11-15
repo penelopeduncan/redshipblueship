@@ -340,7 +340,8 @@ extern "C" int OoT_SharedSongsTest_OffLastRoundReached(int song) {
 }
 
 /** 1 when @p song's OoT vanilla check resolves to CANT_OBTAIN_ALREADY_HAVE + Blue
- *  Rupee, 0 when it resolves to CAN_OBTAIN + the song, -1 on mismatch/missing ctx. */
+ *  Rupee (GetItemEntry.getItemId holds the GI_ id; itemId is the ITEM_ id), 0 when it resolves to CAN_OBTAIN + the
+ * song, -1 on mismatch/missing ctx. */
 extern "C" int OoT_SharedSongsTest_OffGiveIsJunk(int song) {
     if (!OoTSharedSongsOffValid(song)) {
         return -1;
@@ -352,10 +353,10 @@ extern "C" int OoT_SharedSongsTest_OffGiveIsJunk(int song) {
     const RandomizerCheck rc = OoTSharedSongsOffCheck(song);
     const ItemObtainability obt = OTRGlobals::Instance->gRandomizer->GetItemObtainabilityFromRandomizerCheck(rc);
     const GetItemEntry gi = ctx->GetFinalGIEntry(rc, true, GI_NONE, false);
-    if (obt == CANT_OBTAIN_ALREADY_HAVE && gi.itemId == GI_RUPEE_BLUE) {
+    if (obt == CANT_OBTAIN_ALREADY_HAVE && gi.getItemId == GI_RUPEE_BLUE) {
         return 1;
     }
-    if (obt == CAN_OBTAIN && gi.itemId != GI_RUPEE_BLUE) {
+    if (obt == CAN_OBTAIN && gi.getItemId != GI_RUPEE_BLUE) {
         return 0;
     }
     return -1;
