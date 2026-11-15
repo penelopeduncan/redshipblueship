@@ -9702,6 +9702,17 @@ TestResult Test_PairingRefusalToastFit(void) {
 // Needs the shared bring-up: the rules and the MM profile are CVars.
 extern "C" int MM_PairedLoadRestore_RunHeadless(void);
 
+// #1602: the display-free shared bring-up, because the row sets aside and puts
+// back SoH's Skip Story Cutscenes key.
+static TestResult Test_OoTCheckReceiveEffects(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoTCheckReceiveEffects_Run();
+}
+
 // games/oot/soh/oot_file_select_refusal_test.cpp (#836): the file select's gate
 // and the backstop, through the hooks a fresh SoH SaveManager registers.
 extern "C" int OoT_FileSelectRefusal_RunHeadless(void);
@@ -9716,17 +9727,6 @@ extern "C" int OoT_LogNoise_RunHeadless(void);
 
 static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
-}
-
-// #1602: the display-free shared bring-up, because the row sets aside and puts
-// back SoH's Skip Story Cutscenes key.
-static TestResult Test_OoTCheckReceiveEffects(void) {
-    auto ctx = CreateHarnessStyleContext();
-    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
-        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
-        return TEST_FAIL;
-    }
-    return OoTCheckReceiveEffects_Run();
 }
 
 TestResult Test_PairedLoadRestore(void) {
@@ -11645,6 +11645,10 @@ const TestDescriptor gTests[] = {
       "own values, names them in a toast, and never plays the file unpaired; what the file cannot restore is "
       "refused or flagged visibly (#781)",
       Test_PairedLoadRestore },
+    { "oot-check-receive-effects",
+      "What OoT does because a check gave its item (the Silver Gauntlets chest marking Nabooru captured) runs when "
+      "that check hosts a Majora's Mask item too, once, and every such check is named in one literal (#1602)",
+      Test_OoTCheckReceiveEffects },
     { "oot-file-select-refusal",
       "A file the open path would refuse is not opened at the OoT file select (A/START consumed, one toast, nothing "
       "written), and a load refused after the gate returns to the file select instead of Play (#836)",
@@ -11653,10 +11657,6 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
-    { "oot-check-receive-effects",
-      "What OoT does because a check gave its item (the Silver Gauntlets chest marking Nabooru captured) runs when "
-      "that check hosts a Majora's Mask item too, once, and every such check is named in one literal (#1602)",
-      Test_OoTCheckReceiveEffects },
     { "crossing-commit",
       "Every cross-game crossing is a whole-file commit taken between the departing suspend and the target's "
       "resume: a kill after the crossing reloads it; a latched, slot-less, freeze-less or not-live departure "
