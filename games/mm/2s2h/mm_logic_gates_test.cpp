@@ -712,26 +712,42 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
     {
         // M5 (#2006): Sakon's hideout. The second and third rooms' pots and the
         // Sun's Mask (and the Wolfos drop) are past the Deku Babas.
-        const M3Cond* pot = M3CheckRow(RR_SAKON_HIDEOUT, RC_SAKON_HIDEOUT_THIRD_ROOM_POT);
+        struct M3SakonPot {
+            RandoCheckId check;
+            const char* name;
+        };
+        const M3SakonPot kSakonPots[] = {
+            { RC_SAKON_HIDEOUT_SECOND_ROOM_POT_01, "Sakon's hideout second room pot 1" },
+            { RC_SAKON_HIDEOUT_SECOND_ROOM_POT_02, "Sakon's hideout second room pot 2" },
+            { RC_SAKON_HIDEOUT_THIRD_ROOM_POT, "Sakon's hideout third room pot" },
+        };
+        for (const M3SakonPot& row : kSakonPots) {
+            const M3Cond* pot = M3CheckRow(RR_SAKON_HIDEOUT, row.check);
+            ResetSave();
+            M3Expect("M5a empty save", row.name, pot, kAll, false, "the pot is past the Deku Babas (2Ship #2006)");
+            Give(ITEM_MASK_DEKU);
+            M3Expect("M5c Deku Mask", row.name, pot, kAll, true, "the Deku Mask kills a Deku Baba");
+        }
         ResetSave();
-        M3Expect("M5a empty save", "Sakon's hideout third room pot", pot, kAll, false,
-                 "the pot is past the Deku Babas (2Ship #2006)");
         M3Expect("M5b empty save", "Sakon's hideout first room pot",
                  M3CheckRow(RR_SAKON_HIDEOUT, RC_SAKON_HIDEOUT_FIRST_ROOM_POT_01), kAll, true,
                  "the first room is before the Deku Babas");
-        Give(ITEM_MASK_DEKU);
-        M3Expect("M5c Deku Mask", "Sakon's hideout third room pot", pot, kAll, true, "the Deku Mask kills a Deku Baba");
         // Every weapon that kills a Wolfos kills a Deku Baba, so the Sun's Mask
-        // term shows only with the enemy souls shuffled.
+        // and Wolfos drop terms show only with the enemy souls shuffled.
         const M3Cond* sun = M3EventRow(RR_SAKON_HIDEOUT, RE_RETRIEVE_SUN_MASK);
+        const M3Cond* wolfos = M3CheckRow(RR_SAKON_HIDEOUT, RC_ENEMY_DROP_WOLFOS);
         ResetSave();
         RANDO_SAVE_OPTIONS[RO_SHUFFLE_ENEMY_SOULS] = RO_GENERIC_YES;
         SET_EQUIP_VALUE(EQUIP_TYPE_SWORD, EQUIP_VALUE_SWORD_KOKIRI);
         M3GiveSoul(RI_SOUL_ENEMY_WOLFOS);
         M3Expect("M5d sword, Wolfos soul only", "the Sun's Mask", sun, kAll, false,
                  "the Sun's Mask is past the Deku Babas, whose soul is not held (2Ship #2006)");
+        M3Expect("M5f sword, Wolfos soul only", "Sakon's hideout Wolfos drop", wolfos, kAll, false,
+                 "the Wolfos is past the Deku Babas, whose soul is not held (2Ship #2006)");
         M3GiveSoul(RI_SOUL_ENEMY_DEKU_BABA);
         M3Expect("M5e sword, both souls", "the Sun's Mask", sun, kAll, true, "the Sun's Mask is out of logic");
+        M3Expect("M5g sword, both souls", "Sakon's hideout Wolfos drop", wolfos, kAll, true,
+                 "the Wolfos drop is out of logic");
     }
     {
         // M6 (#2006): the Moon's Zora trial Heart Piece needs Swim.
@@ -821,16 +837,30 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
     {
         // M10 (#2017): after Day 1 the potion shop sells once Kotake is met in
         // the Woods of Mystery (Day 2 or the final day), not once Koume is saved.
-        const M3Cond* item02 = M3CheckRow(RR_MAGIC_HAGS_POTION_SHOP, RC_HAGS_POTION_SHOP_ITEM_02);
+        // Item 1 also needs the Mask of Scents and a bottle, held on both legs.
+        struct M3PotionRow {
+            RandoCheckId check;
+            const char* name;
+        };
+        const M3PotionRow kPotionRows[] = {
+            { RC_HAGS_POTION_SHOP_ITEM_01, "the potion shop's first item" },
+            { RC_HAGS_POTION_SHOP_ITEM_02, "the potion shop's second item" },
+            { RC_HAGS_POTION_SHOP_ITEM_03, "the potion shop's third item" },
+        };
         const uint64_t kDay2 = Rando::Logic::GetHalfDayTimeMask(2);
-        ResetSave();
-        RANDO_EVENTS[RE_SAVED_KOUME] = 1;
-        M3Expect("M10a Koume saved, Day 2", "the potion shop's second item", item02, kDay2, false,
-                 "after Day 1 the shop needs Kotake met in the woods (2Ship #2017)");
-        ResetSave();
-        RANDO_EVENTS[RE_MEET_KOTAKE_WOODS] = 1;
-        M3Expect("M10b Kotake met, Day 2", "the potion shop's second item", item02, kDay2, true,
-                 "the shop is out of logic after meeting Kotake");
+        for (const M3PotionRow& row : kPotionRows) {
+            const M3Cond* item = M3CheckRow(RR_MAGIC_HAGS_POTION_SHOP, row.check);
+            ResetSave();
+            Give(ITEM_MASK_SCENTS);
+            INV_CONTENT(ITEM_BOTTLE) = ITEM_BOTTLE;
+            RANDO_EVENTS[RE_SAVED_KOUME] = 1;
+            M3Expect("M10a Koume saved, Day 2", row.name, item, kDay2, false,
+                     "after Day 1 the shop needs Kotake met in the woods (2Ship #2017)");
+            RANDO_EVENTS[RE_SAVED_KOUME] = 0;
+            RANDO_EVENTS[RE_MEET_KOTAKE_WOODS] = 1;
+            M3Expect("M10b Kotake met, Day 2", row.name, item, kDay2, true,
+                     "the shop is out of logic after meeting Kotake");
+        }
         const M3Cond* kotake = M3EventRow(RR_WOODS_OF_MYSTERY, RE_MEET_KOTAKE_WOODS);
         ResetSave();
         M3Expect("M10c Day 1 and Night 1", "meeting Kotake in the woods", kotake,
@@ -844,25 +874,35 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
         // M11 (#2018): the Beneath the Well four-spikes room's grass needs the
         // room lit: Fire Arrows, or a Deku Stick carried from the Big Poe room
         // (a bottle, the Big Poe and the Gibdo Mask).
-        const M3Cond* grass =
-            M3CheckRow(RR_BENEATH_THE_WELL_FOUR_SPIKED_BARS, RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_01);
-        ResetSave();
-        M3Expect("M11a empty save", "the four-spikes room grass", grass, kAll, false,
-                 "the grass needs the room lit (2Ship #2018)");
-        Give(ITEM_DEKU_STICK);
-        M3Expect("M11b Deku Stick alone", "the four-spikes room grass", grass, kAll, false,
-                 "the stick needs a lit torch the Gibdo Mask and the Big Poe lead to");
-        INV_CONTENT(ITEM_BOTTLE) = ITEM_BOTTLE;
-        RANDO_EVENTS[RE_ACCESS_BIG_POE] = 1;
-        Give(ITEM_MASK_GIBDO);
-        M3Expect("M11c Deku Stick, bottle, Big Poe and Gibdo Mask", "the four-spikes room grass", grass, kAll, true,
-                 "the stick route is out of logic");
-        ResetSave();
-        Give(ITEM_BOW);
-        Give(ITEM_ARROW_FIRE);
-        gSaveContext.save.saveInfo.playerData.isMagicAcquired = true;
-        M3Expect("M11d Fire Arrows", "the four-spikes room grass", grass, kAll, true,
-                 "Fire Arrows do not light the room");
+        struct M3GrassRow {
+            RandoCheckId check;
+            const char* name;
+        };
+        const M3GrassRow kGrassRows[] = {
+            { RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_01, "the four-spikes room grass 1" },
+            { RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_02, "the four-spikes room grass 2" },
+            { RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_03, "the four-spikes room grass 3" },
+            { RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_04, "the four-spikes room grass 4" },
+            { RC_BENEATH_THE_WELL_FOUR_SPIKED_BARS_GRASS_05, "the four-spikes room grass 5" },
+        };
+        for (const M3GrassRow& row : kGrassRows) {
+            const M3Cond* grass = M3CheckRow(RR_BENEATH_THE_WELL_FOUR_SPIKED_BARS, row.check);
+            ResetSave();
+            M3Expect("M11a empty save", row.name, grass, kAll, false, "the grass needs the room lit (2Ship #2018)");
+            Give(ITEM_DEKU_STICK);
+            M3Expect("M11b Deku Stick alone", row.name, grass, kAll, false,
+                     "the stick needs a lit torch the Gibdo Mask and the Big Poe lead to");
+            INV_CONTENT(ITEM_BOTTLE) = ITEM_BOTTLE;
+            RANDO_EVENTS[RE_ACCESS_BIG_POE] = 1;
+            Give(ITEM_MASK_GIBDO);
+            M3Expect("M11c Deku Stick, bottle, Big Poe and Gibdo Mask", row.name, grass, kAll, true,
+                     "the stick route is out of logic");
+            ResetSave();
+            Give(ITEM_BOW);
+            Give(ITEM_ARROW_FIRE);
+            gSaveContext.save.saveInfo.playerData.isMagicAcquired = true;
+            M3Expect("M11d Fire Arrows", row.name, grass, kAll, true, "Fire Arrows do not light the room");
+        }
     }
 
     memcpy(&gSaveContext, saved.get(), sizeof(SaveContext));
