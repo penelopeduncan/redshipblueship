@@ -1308,12 +1308,13 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
     SS_CHECK(shuffled > 0, "MM's generated world lists no shuffled items");
 
     const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
-    {
+    // #1561: the Link's Pocket legs run under Off only, so the other three Shuffle
+    // Songs rows keep main's assertions (the packet: "their rows untouched").
+    if (off) {
         const int unshared = OoT_SharedWarpSongsTest_UnsharedSongId();
-        const int wantUnshared = shuffleSongs == 1 ? 1 : 0;
-        SS_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == wantUnshared,
-                 "Link's Pocket song exclusion answered %d for an unshared song under %s; expected %d",
-                 OoT_Fill_TestSongHeldForBag((uint16_t)unshared), shuffleName, wantUnshared);
+        SS_CHECK(OoT_Fill_TestSongHeldForBag((uint16_t)unshared) == 0,
+                 "Link's Pocket song exclusion answered %d for an unshared song under %s; expected 0",
+                 OoT_Fill_TestSongHeldForBag((uint16_t)unshared), shuffleName);
     }
 
     int sharedRgs[3] = { -1, -1, -1 };
@@ -1329,11 +1330,14 @@ TestResult SharedSongsOneCopy_Run(int shuffleSongs, int mmShuffleSongs) {
             continue;
         }
         sharedRgs[s] = (int)ootId;
-        const int wantHeldForBag = off ? 0 : 1;
-        SS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == wantHeldForBag,
-                 "Link's Pocket song exclusion answered %d for %s under %s; expected %d",
-                 OoT_Fill_TestSongHeldForBag(ootId), kSsOneCopySongs[s].itemName, shuffleName, wantHeldForBag);
-        SS_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s", kSsOneCopySongs[s].itemName);
+        if (off) {
+            // Under Off no shared song is held for the bag (RsbsSongHeldForBag,
+            // fill.cpp): it stays on its vanilla check, so Link's Pocket cannot take it.
+            SS_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == 0,
+                     "Link's Pocket song exclusion answered %d for %s under %s; expected 0",
+                     OoT_Fill_TestSongHeldForBag(ootId), kSsOneCopySongs[s].itemName, shuffleName);
+            SS_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s", kSsOneCopySongs[s].itemName);
+        }
 
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         int mmCopies = 0;
