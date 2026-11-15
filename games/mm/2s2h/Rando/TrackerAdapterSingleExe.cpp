@@ -859,6 +859,11 @@ extern "C" int MM_TrackerAdapter_TestGrottoScene(void) {
     return (int)SCENE_KAKUSIANA;
 }
 
+/** TEST BRIDGE (2Ship #1775): the area name the combo pane gives scene @p sceneId's rows (MMSceneAreaName). */
+extern "C" const char* MM_TrackerAdapter_TestSceneAreaName(int sceneId) {
+    return MMSceneAreaName((s16)sceneId, nullptr);
+}
+
 /** TEST BRIDGE (#1498): the area key of scene @p sceneId's rows (MMSceneAreaKey). */
 extern "C" uint16_t MM_TrackerAdapter_TestSceneAreaKey(int sceneId) {
     return MMSceneAreaKey((s16)sceneId);

@@ -88,6 +88,13 @@
 - **Seven Majora's Mask options from 2Ship2Harkinian are in the menu, greyed out** (issue #1403): Shuffle Skeleton Key,
   the Skulltula and Stray Fairy pool limits, and shuffles for the Song of Double Time, the Inverted Song of Time, the
   Sun's Song and Saria's Song. They read "Not Yet Supported in Paired Worlds" and cannot be turned on yet.
+- **Majora's Mask randomizer polish from 2Ship2Harkinian** (2Ship2Harkinian #1614, #1450, #1706, #1775, #1478,
+  #1769). With Shuffle Enemy Souls on, an enemy whose soul you do not have yet is drawn in grey. Enemy soul items draw
+  with their proper textures and colours, a randomized pot uses the major pot model when Chest Size and Texture Match
+  Contents is off, and the file select's randomizer box follows the File Select Plates colour. Both check trackers
+  name Southern Swamp, Mountain Village, Goron Village, Path to Goron Village and Lone Peak Shrine without "(poison)",
+  "(winter)" or "& Grottos". An unpaired Majora's Mask file whose seed cannot be made shows a "Seed Failure:" toast
+  with the reason, and a spoiler file that names an item Majora's Mask does not have is refused.
 
 ### Ocarina of Time randomizer
 

@@ -1027,6 +1027,11 @@ if(BUILD_TESTING)
     # for the same reasons as the two rows above — the spoiler writer/loader and
     # the placement table need no fill, no display, and no ROM.
     redship_add_test(NAME MMSpoilerIdentity COMMAND redship --test mm-spoiler-identity)
+    # 2Ship backport M4 (#1775, #1478): the Check Tracker and the Combo Tracker's
+    # MM pane head five scenes with their plain names, and a spoiler naming an
+    # item no MM item answers to is refused while a cross-game host's
+    # "(Ocarina of Time)" label still loads. Display-free, no ROM, no fill.
+    redship_add_test(NAME MMRandoPolish COMMAND redship --test mm-rando-polish)
     redship_add_test(NAME MMForeignPickupGate COMMAND redship --test mm-foreign-pickup-gate)
     # #1055: a paired spoiler whose seed-named file is another identity's (an
     # older build's fingerprint, other MM options) goes to
