@@ -20,7 +20,8 @@
   with Shuffle Tingle Maps on (each Tingle map is now placed once), with Shuffle Time on (Majora's Mask logic now
   carries only the half-days a time-gated path is open on), with Shuffle Master Sword on, which is the default
   (the pedestal is now a child check, see below), and with Shuffle Songs at Song Locations, which is the default, or
-  Dungeon Rewards (Majora's Mask's songs follow that setting, see below). A seed package exported by `v0.5.0-alpha`
+  Dungeon Rewards (Majora's Mask's songs follow that setting, see below), and with Majora's Mask's
+  dungeon item rows at their new defaults (also below). A seed package exported by `v0.5.0-alpha`
   is refused, so generate the seed again. Saved files are a separate break (above).
 
 ### Majora's Mask randomizer
@@ -49,7 +50,7 @@
   song checks, and Vanilla and Start With behave as in 2Ship.
 - **Majora's Mask takes OoTMM's dungeon item defaults, and Stray Fairies is two settings** (issue #1548). Small Keys and
   Boss Keys now default to Own Dungeon. The Stray Fairies placement row is split as in OoTMM: Dungeon Chest Fairies
-  (default Own Dungeon) and Freestanding Fairies (default Vanilla, which also covers the Clock Town fairy). With the
+  (default Own Dungeon) and Dungeon Freestanding Fairies (default Vanilla, which also covers the Clock Town fairy). With the
   defaults, each dungeon's keys and chest fairies are found inside that dungeon and are never sent to Ocarina of Time,
   and the freestanding fairies sit where they do in the original game. Set the rows back to Anywhere for the old
   behaviour. Worlds created with the defaults change. A spoiler file written before this change loads with both fairy
@@ -84,6 +85,9 @@
   four grottos) each carry a check: hold out a Deku Stick near one and it flies to the stick and gives you the item.
   In a paired world the option is set when the file is created, and these checks only ever hold Majora's Mask items.
   With it off, worlds are made exactly as before.
+- **Seven Majora's Mask options from 2Ship2Harkinian are in the menu, greyed out** (issue #1403): Shuffle Skeleton Key,
+  the Skulltula and Stray Fairy pool limits, and shuffles for the Song of Double Time, the Inverted Song of Time, the
+  Sun's Song and Saria's Song. They read "Not Yet Supported in Paired Worlds" and cannot be turned on yet.
 
 ### Ocarina of Time randomizer
 
@@ -140,6 +144,22 @@
   Talon at the castle (or with Skip Waking Talon), not once you hold Zelda's Letter.
 - **Weird Egg fix** from Ship of Harkinian (issue #1404). In a randomizer file the egg hatches only for child Link, and
   only if you have it.
+- **New option: Shuffle Wonder Items** (issue #1405), from Ship of Harkinian. It is off by default, with Dungeons,
+  Overworld and All Items as choices. Wonder items are the invisible spots that drop something when you walk through,
+  shoot or hit them. A shuffled one is marked with swirling particles and gives its item the first time it is collected.
+  It works in paired worlds, and these spots never hold a Majora's Mask item.
+- **New options: Shuffle Icicles and Shuffle Red Ice** (issue #1408), from Ship of Harkinian, both off by default. With
+  Shuffle Icicles on, the stalagmites and stalactites in the Ice Cavern and Ganon's Castle hold an item, shown by a
+  halo, and give it when broken. With Shuffle Red Ice on, red ice holds an item, shown by a particle effect inside it,
+  and gives it when melted. Both work in paired worlds and never hold a Majora's Mask item.
+- **New options: Shuffle Rocks and Shuffle Boulders** (issue #1409), from Ship of Harkinian, both off by default. A
+  small rock gives an item the first time it is lifted or destroyed. A boulder gives one the first time it is destroyed,
+  with Dungeons, Overworld and All Boulders as choices. A new trick, Precise Bomb Detonation, comes with them. Both work
+  in paired worlds and never hold a Majora's Mask item.
+- **Restocking shop shelves no longer say "ONE LEFT!", and potion and milk bottles restock as refills** (issue #1547),
+  as in OoTMM. A shuffled Ocarina of Time shelf that will sell its item again drops the "Special deal! ONE LEFT!" line,
+  and a shelf that sells out keeps it. A shelf that sold a bottle of red, green or blue potion or of milk sells the
+  refill afterwards. Logic counts a restocking shelf as a place to buy that item again.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.
@@ -190,6 +210,23 @@
   restore.
 - **Majora's Mask "Hide Timer Background" fits its column** (issue #1487). The row on Enhancements > Timers was called
   "Hide In-Game Timer Background", which did not fit at the smallest window size.
+- **A Majora's Mask chest that held an Ocarina of Time item no longer replays its message** (issue #1601). After a cycle
+  reset such a chest could be opened again: it showed the item and "You found" and gave nothing. It now opens empty,
+  with no message.
+- **Cross-Game Masks: an Ocarina of Time mask comes off where Majora's Mask takes its own masks off** (issue #1452):
+  when a cutscene turns Link human again, on a game over, and when he respawns after falling into a void. At night the
+  Spooky Mask now also stands in for the Gibdo Mask with Pamela, her father, the Bomb Shop and the Happy Mask Salesman.
+- **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
+  Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
+- **A Majora's Mask stray fairy found in Ocarina of Time is animated** (issue #1165). It was drawn frozen in one pose.
+- **Ocarina of Time: King Zora no longer leaves the camera stuck** (issue #1591), from Ship of Harkinian. Switching Skip
+  Story Cutscenes on while he was moving aside could leave the camera and Link frozen. The camera is now given back when
+  he stops.
+- **First-run extraction says what went wrong** (issue #1590), from Ship of Harkinian and 2Ship2Harkinian. On Linux with
+  no file picker installed, both games show a message instead of failing silently. Ocarina of Time shows a message when
+  extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
+- **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
+  no longer leaves a cut-off preset or spoiler file behind.
 
 ### Trackers
 
@@ -223,6 +260,10 @@
   default, and a seed made with it off makes the same world as before.
 - **Linux: F9 toggles text-to-speech** (issue #1414), and a new line of speech now interrupts the one still playing
   instead of queueing behind it.
+- **Developer Tools: an Event Log for Majora's Mask** (issue #1572), from 2Ship2Harkinian. Popout Event Log opens a
+  window that lists flags being set and cleared, actors spawning and dying and scene changes while Majora's Mask runs.
+- **Developer Tools: the Message Viewer works in Majora's Mask** (issue #1575). The one Message Viewer window shows
+  2Ship2Harkinian's viewer while Majora's Mask runs and Ship of Harkinian's while Ocarina of Time runs.
 - **Shuffle Chest Minigame is in the menu, greyed out** (issue #1364). Ship of Harkinian's shuffle of the Market's
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
