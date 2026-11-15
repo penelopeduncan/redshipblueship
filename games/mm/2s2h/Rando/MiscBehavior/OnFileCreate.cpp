@@ -261,6 +261,18 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
                     // Grant the starting stuff
                     Rando::GrantStartingItems();
 
+                    // Run prelim compatibility/validation checks before attempting to place items
+
+                    // Verify we have at least one time item if clock shuffle is enabled. 2Ship 77cbefd28 (#1478): a
+                    // safety net, not a new refusal: GetComputedStartingItems grants a fallback half-day whenever
+                    // Shuffle Time is on and no starting time item was chosen, so GrantStartingItems above leaves a
+                    // clock owned here and no world that generates today is refused.
+                    if (RANDO_SAVE_OPTIONS[RO_CLOCK_SHUFFLE] != 0) {
+                        if (Rando::Logic::ClockCount() == 0) {
+                            throw std::runtime_error("Shuffle Time is enabled but no starting time was given");
+                        }
+                    }
+
 #ifdef RSBS_SINGLE_EXECUTABLE
                     if (rsbsPaired) {
                         // ============================================================
