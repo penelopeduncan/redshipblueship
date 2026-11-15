@@ -753,10 +753,10 @@ main() {
         "RegisterFasterBottles()"
         "RegisterDisableBombBillboarding()"
         "RegisterDisableGrottoRotation()"
-        "RegisterInfiniteEponaCarrots()"
         # Backport M8 (2Ship #1842): the always-on ocarina-dive restoration (Restorations/OcarinaDive.cpp), in
         # lib2ship_enh_registrars.a. No OoT twin (grep games/oot).
         "RegisterOcarinaDive()"
+        "RegisterInfiniteEponaCarrots()"
     )
     local sym
     for sym in "${required_mm_registrars[@]}"; do
