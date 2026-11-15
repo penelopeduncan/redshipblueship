@@ -3119,7 +3119,16 @@ void RandomizerOnPlayerUpdateHandler() {
                 gSaveContext.respawn[RESPAWN_MODE_DOWN].yaw = respawnInfo->yaw;
             }
 
-            Play_TriggerVoidOut(OoT_gPlayState);
+            if (OoT_gPlayState->sceneNum == SCENE_GROTTOS) {
+                // RESPAWN_MODE_DOWN isn't refreshed on grotto entry, reload grotto instead
+                OoT_gPlayState->nextEntranceIndex = gSaveContext.entranceIndex;
+                OoT_gPlayState->transitionTrigger = TRANS_TRIGGER_START;
+                OoT_gPlayState->transitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.nextTransitionType = TRANS_TYPE_FADE_BLACK;
+                gSaveContext.respawnFlag = 0;
+            } else {
+                Play_TriggerVoidOut(OoT_gPlayState);
+            }
         }
     }
 
