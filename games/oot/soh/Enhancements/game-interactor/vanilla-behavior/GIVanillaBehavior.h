@@ -3253,14 +3253,6 @@ typedef enum {
     // - `*Actor` (interactRangeActor)
     VB_BOULDER_BREAK_FLAG,
 
-    // #### `result`
-    // ```c
-    // varies
-    // ```
-    // #### `args`
-    // - `*EnIshi`, `*ObjBombiwa`, or `*ObjHamishi`
-    VB_ROCK_DROP_ITEM,
-
     // [RSBS] SoH aedae12e6's hook site, appended (SoH #7183's despawn exemption reads it)
     // #### `result`
     // ```c
@@ -3269,6 +3261,14 @@ typedef enum {
     // #### `args`
     // - `*EnItem00`
     VB_ITEM00_TIMER_TICK,
+
+    // #### `result`
+    // ```c
+    // varies
+    // ```
+    // #### `args`
+    // - `*EnIshi`, `*ObjBombiwa`, or `*ObjHamishi`
+    VB_ROCK_DROP_ITEM,
 } GIVanillaBehavior;
 
 #endif
