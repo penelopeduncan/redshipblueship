@@ -2329,6 +2329,16 @@ typedef enum {
     // #### `args`
     // - None
     VB_MSG_CAPTURE_MSGMODE_TEXT_CLOSING_OCARINA_ACTION,
+
+    // #### `result`
+    // ```c
+    // gSaveContext.save.saveInfo.inventory.items[i + SLOT_BOTTLE_1] == ITEM_HOT_SPRING_WATER
+    // ```
+    // #### `args`
+    // - `s16` (bottle slot index, `BOTTLE_FIRST`..`BOTTLE_MAX - 1`)
+    // 2Ship #1989 (Hot Water Never Cools). Appended rather than sorted in as upstream placed it, so no existing id
+    // moves.
+    VB_COOL_HOT_WATER,
 } GIVanillaBehavior;
 
 #endif

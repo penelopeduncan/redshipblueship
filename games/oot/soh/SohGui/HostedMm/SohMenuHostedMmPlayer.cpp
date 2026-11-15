@@ -16,7 +16,8 @@
  *    Pushing Speed, its nearest relative (one switch over every pushed and pulled object, not a speed step). A
  *    "Majora's Mask" block at the end of the section for Fast Deku Flower Launch and Fierce Deity Putaway.
  *  - Items > Equipment: a "Majora's Mask" block (Two-Handed Sword Spin Attack, Great Fairy Sword B-Button Attack,
- *    Better Picto Message).
+ *    Better Picto Message, and since 2Ship #1989 Hot Water Never Cools, an Items row in 2Ship with no SoH twin:
+ *    Ocarina of Time has no Hot Spring Water).
  *  - Items > Boomerang: Instant Fin Boomerangs Recall right after SoH's Instant Boomerang Recall, its nearest relative
  *    (Zora Link's fins and the B button, not the Boomerang and its item button).
  *  - Difficulty > Drops: "MM Enable Bombchu Drops" right after SoH's own. Held apart (kMustStayDistinct): SoH's rule
@@ -101,6 +102,11 @@ void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Names the target, if any, that a pictograph has captured. Majora's Mask only."));
+    // 2Ship #1989: an Items row in 2Ship (after its Color Pictograph), here after Better Picto Message.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)
+        .Options(UIWidgets::CheckboxOptions().Tooltip(
+            "Prevents Hot Spring Water from cooling down into regular Spring Water. Majora's Mask only."));
 }
 
 /** Items > Boomerang, right after SoH's Instant Boomerang Recall. */

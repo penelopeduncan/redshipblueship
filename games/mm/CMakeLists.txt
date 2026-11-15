@@ -751,6 +751,13 @@ if(SINGLE_EXECUTABLE_BUILD)
         # RegisterOcarinaDive in games/oot. MMOcarinaDive attributes it by registry content.
         "2s2h/Enhancements/Restorations/OcarinaDive.cpp"
         "2s2h/Enhancements/Graphics/DisableGrottoRotation.cpp"
+        # 2Ship #1989 (Hot Water Never Cools), drawn by an MM row in the Majora's Mask block of SoH's Enhancements >
+        # Items > Equipment (SohGui/HostedMm/SohMenuHostedMmPlayer.cpp). Registers only through a file-scope
+        # RegisterShipInitFunc on its own MM key and rides VB_COOL_HOT_WATER, appended to GIVanillaBehavior and
+        # dispatched through MM_GameHooks_ExecuteVBShould from Interface_UpdateBottleTimers (z_parameter.c). The body
+        # only clears the verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
+        # RegisterHotWaterNeverCools in games/oot. MMRegistrarCoverage's key-gap table attributes it.
+        "2s2h/Enhancements/Items/HotWaterNeverCools.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
