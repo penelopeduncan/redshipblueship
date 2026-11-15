@@ -125,8 +125,13 @@
 // comboOoTWarps, by hand 2696 + 20 = 2716 (a multiple of 4, the u32's alignment,
 // so no padding); sizeof 2716 + 4 = 2720, a multiple of the struct's alignment 4,
 // so no tail padding. The gate re-measures.
-#define RSBS_PIN_COMBO_FAMILY_OWNED2 2716u  // offsetof(ComboContext, sharedFamilyOwned2)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2720u // sizeof(ComboContext)
+#define RSBS_PIN_COMBO_FAMILY_OWNED2 2716u // offsetof(ComboContext, sharedFamilyOwned2)
+// Layout revision 5 (#1635): crossingPendingOoT appended directly after
+// sharedFamilyOwned2, by hand 2716 + 4 = 2720 (the array has alignment 1, so no
+// padding); sizeof 2720 + 256 = 2976, a multiple of the struct's alignment 4, so
+// no tail padding. The gate re-measures.
+#define RSBS_PIN_COMBO_CROSSING_PENDING_OOT 2720u // offsetof(ComboContext, crossingPendingOoT)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2976u       // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset

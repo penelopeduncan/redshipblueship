@@ -227,6 +227,10 @@
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.
 - **Preset and Plandomizer files are written safely** (issue #1467), from Ship of Harkinian. A write that fails part-way
   no longer leaves a cut-off preset or spoiler file behind.
+- **A Majora's Mask item found in Ocarina of Time is not lost if you quit before it is sent** (issue #1635). An item
+  waiting for the item queue (while Link carries something or a cutscene plays) or held for a full outbox is sent after
+  you reload. Quitting without saving also keeps the chests and pickups taken in the current scene, as it already kept
+  everything else, so such a chest is no longer opened a second time.
 
 ### Trackers
 

@@ -576,6 +576,12 @@ int OoT_SceneFlagFreeze_RunHeadless(void);
 // seam over a real .redsave; games/oot/soh/oot_check_state_load_test.cpp.
 int OoT_CheckStateLoad_RunHeadless(void);
 int MM_PauseSaveReload_RunHeadless(void);
+// #1635: an OoT host of an MM item held or queued at a quit is given after the
+// reload, once; games/oot/soh/oot_foreign_hold_quit_test.cpp. Its MM twin keeps
+// a held host eligible through a commit, a moon crash, a cycle reset and a load;
+// games/mm/2s2h/mm_foreign_hold_quit_test.cpp.
+int OoT_ForeignHoldSurvivesQuit_RunHeadless(void);
+int MM_ForeignHoldSurvivesQuit_Run(void);
 // #1217: under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item
 // and no vanilla capacity upgrade; games/oot/soh/oot_deku_theater_prize_test.cpp.
 int OoT_DekuTheaterPrize_RunHeadless(void);
@@ -7733,6 +7739,27 @@ TestResult Test_OoTCheckStateLoad(void) {
     return OoT_CheckStateLoad_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1635: a held or queued OoT crossing host survives a save and quit. The same
+// display-free bring-up as Test_OoTCheckStateLoad: the row authors a real
+// Rando::Context and loads through OoT's OnLoadFile seam.
+static TestResult Test_ForeignHoldSurvivesQuitOoT(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoT_ForeignHoldSurvivesQuit_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1635, the MM twin: MM's durable `eligible` already survives every path.
+static TestResult Test_ForeignHoldSurvivesQuitMM(void) {
+    return MM_ForeignHoldSurvivesQuit_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1298, #1302: an MM Pause Menu Save commits both halves, persists and clears
 // pauseSaveEntrance + shipSaveInfo.respawn, and reconciles both games' check
 // trackers on reload. Same display-free bring-up as Test_OoTCheckStateLoad.
@@ -10011,6 +10038,13 @@ const TestDescriptor gTests[] = {
     { "foreign-outbox-full-oot",
       "OoT: the drain holds a pickup the full outbox would refuse, until a row frees (#1222)",
       Test_ForeignOutboxFullOoT },
+    // #1635: a held or queued crossing survives a save and quit.
+    { "foreign-hold-survives-quit-oot",
+      "OoT: a host of an MM item held or queued at a quit is given after the reload, once (#1635)",
+      Test_ForeignHoldSurvivesQuitOoT },
+    { "foreign-hold-survives-quit-mm",
+      "MM: a held host stays eligible through a commit, a moon crash, a cycle reset and a load (#1635)",
+      Test_ForeignHoldSurvivesQuitMM },
     // #878: both arrivals' real consumers redeem a crossing and toast nothing:
     // the item was announced at its pickup.
     { "crossing-arrival-toasts", "A crossing toasts nothing its pickup already announced, on both legs (#878)",

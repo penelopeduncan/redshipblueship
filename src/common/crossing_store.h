@@ -212,6 +212,16 @@ bool Combo_Crossings_At(GameId hostGame, int index, ComboCrossing* out);
 const SharedItem* Combo_Crossings_Lookup(GameId hostGame, uint16_t hostCheck);
 
 /**
+ * #1635: the insertion-order row of `hostCheck` among `hostGame`'s crossings
+ * (the index Combo_Crossings_At takes), or -1 when the store holds no crossing
+ * for that host (a host 0, an unknown game, or a host only the pinned reverse
+ * table lists). The pending set (ComboContext.crossingPendingOoT) is keyed by
+ * it: the rows are world identity frozen at creation, so a row index names the
+ * same host in every commit of a file.
+ */
+int Combo_Crossings_HostRow(GameId hostGame, uint16_t hostCheck);
+
+/**
  * THE HYDRATE WRITER (see the file header): all-or-nothing, and frozen. An
  * empty store takes the rows, an identical set is a no-op, a different set is
  * RSBS_CROSSING_ERR_DIVERGED with the store untouched. Every refusal leaves the

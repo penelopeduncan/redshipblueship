@@ -171,10 +171,10 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * amendment of the same date). A lane that adds saved state follows it without
  * asking; anything it does not cover is a save format generation.
  *
- *   1. ComboContext. APPEND after the last member (today sharedFamilyOwned2, below).
+ *   1. ComboContext. APPEND after the last member (today crossingPendingOoT, below).
  *      Never carve reserved[] (it is frozen at 64 bytes) and never insert. Move
  *      the LAST-MEMBER assert below (`sizeof(ComboContext) == offsetof(ComboContext,
- *      <last>) + sizeof(<it>)`, today written against sharedFamilyOwned2) to the new
+ *      <last>) + sizeof(<it>)`, today written against crossingPendingOoT) to the new
  *      member, and tie the new member to the one before it by a contiguity assert
  *      (mind its alignment: say where any padding falls); the members before it
  *      keep theirs. Update RSBS_PIN_COMBO_CONTEXT_SIZEOF (save_layout_pins.h)
@@ -255,6 +255,16 @@ int Context_ArmShadowAsFrozen(GameId game, uint16_t returnEntrance);
  * claim 20); a source id past it is a format change, never a truncation.
  */
 #define RSBS_MM_HINT_READ_CAP 80u
+
+/**
+ * The OoT crossing pending set's capacity (#1635), in crossing-store rows (bits):
+ * ComboContext.crossingPendingOoT, one bit per OoT-hosted crossing. It IS
+ * RSBS_CROSSING_STORE_CAP, the most crossings one host game carries
+ * (crossing_store.c static_asserts the equality), so every row a stored world
+ * can hold has its bit. 256 bytes, appended under growth rule 1; outgrowing it
+ * is a format change, never a truncation.
+ */
+#define RSBS_CROSSING_PENDING_OOT_CAP 2048u
 
 /**
  * THE SAVE WATERMARK (save format 6; ComboContext.saveWatermark): what the newest
@@ -1586,8 +1596,31 @@ typedef struct {
     // it, and sizeof becomes 2720, a multiple of the struct's alignment, so none
     // follows it. ZERO MEANS NOTHING OWNED: a revision-3 record zero-extends to 0,
     // which is every world before XW10 (no shared warp song could be frozen on).
-    // THE LAST MEMBER: the next field is appended after it.
     uint32_t sharedFamilyOwned2;
+
+    // #1635: THE PENDING SET of Ocarina of Time's crossing hosts, one bit per
+    // OoT-hosted row of the crossing store (crossing_store.h, insertion order:
+    // bit i is row i of Combo_Crossings_At(GAME_OOT, i)). A bit is SET when the
+    // RC-queue drain is handed a host that holds an MM item (the flag-set hooks'
+    // queue, or a hold for a full outbox, #1222) and CLEARED in the same call
+    // that writes that host's outbox row, credits it to the shared pool, or
+    // degrades it to its junk cover with no pairing (#610). So a commit that
+    // carries a set bit carries no outbox row for that host, and a host its own
+    // taken flag already marks in the save is never lost at a quit: the next
+    // file load queues it again (OoT_Rando_Foreign_RestoreHolds). The OoT twin
+    // of MM's durable RANDO_SAVE_CHECKS[rc].eligible. Session state like
+    // sharedFamilyOwned2: NOT in the invalidation KEEP set (a new file starts
+    // with nothing pending), NOT a world field, NOT folded into comboSettingsHash.
+    // Every commit carries it in Tier-1 beside the fixed outbox slots, and a moon
+    // crash's last-commit restore takes it back with them. APPENDED after
+    // sharedFamilyOwned2 (growth rule 1; RSBS_SAVE_LAYOUT_REVISION 5) at offset
+    // 2720: sharedFamilyOwned2 ends on a multiple of 4 and this array has
+    // alignment 1, so no padding precedes it, and its 256 bytes end at 2976, a
+    // multiple of the struct's 4-byte alignment, so none follows it. ZERO MEANS
+    // NOTHING PENDING: a revision-4 record zero-extends to an empty set (a host
+    // held or queued at a quit in such a file stays lost, as it was).
+    // THE LAST MEMBER: the next field is appended after it.
+    uint8_t crossingPendingOoT[RSBS_CROSSING_PENDING_OOT_CAP / 8u];
 } ComboContext;
 
 /**
@@ -1887,21 +1920,29 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, comboOoTWarps) ==
                        "comboOoTWarps (#1169 XW7, ADR 0009 claim 22) is appended directly after the save watermark");
 // #1169 XW10's append (layout revision 4): directly after comboOoTWarps, with no
 // padding between (comboOoTWarps ends at 2716, a multiple of 4, the u32's
-// alignment), and THE LAST MEMBER, so sizeof is its end: 2716 + 4 = 2720, already
-// a multiple of the struct's 4-byte alignment, so no tail padding.
+// alignment). It was the last member until #1635's append below; it ends at
+// 2716 + 4 = 2720.
 RSBS_CTX_STATIC_ASSERT(offsetof(ComboContext, sharedFamilyOwned2) ==
-                               offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord) &&
-                           sizeof(ComboContext) == offsetof(ComboContext, sharedFamilyOwned2) + sizeof(uint32_t),
-                       "sharedFamilyOwned2 (#1169 XW10, ADR 0009 claim 23) is appended directly after comboOoTWarps "
-                       "and is ComboContext's last member: the next append moves this last-member term to the new "
-                       "member, raises RSBS_SAVE_LAYOUT_REVISION and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF "
-                       "(growth rule 1)");
+                           offsetof(ComboContext, comboOoTWarps) + sizeof(ComboOoTWarpRecord),
+                       "sharedFamilyOwned2 (#1169 XW10, ADR 0009 claim 23) is appended directly after comboOoTWarps");
+// #1635's append (layout revision 5): directly after sharedFamilyOwned2, with no
+// padding between (sharedFamilyOwned2 ends at 2720; the array is bytes only,
+// alignment 1), and THE LAST MEMBER, so sizeof is its end: 2720 + 256 = 2976,
+// already a multiple of the struct's 4-byte alignment, so no tail padding.
+RSBS_CTX_STATIC_ASSERT(
+    offsetof(ComboContext, crossingPendingOoT) == offsetof(ComboContext, sharedFamilyOwned2) + sizeof(uint32_t) &&
+        sizeof(((ComboContext*)0)->crossingPendingOoT) == RSBS_CROSSING_PENDING_OOT_CAP / 8u &&
+        sizeof(ComboContext) == offsetof(ComboContext, crossingPendingOoT) + RSBS_CROSSING_PENDING_OOT_CAP / 8u,
+    "crossingPendingOoT (#1635) is appended directly after sharedFamilyOwned2 and is "
+    "ComboContext's last member: the next append moves this last-member term to the new member, "
+    "raises RSBS_SAVE_LAYOUT_REVISION and re-measures RSBS_PIN_COMBO_CONTEXT_SIZEOF (growth rule 1)");
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_TRACKER_AVAIL_MM, offsetof(ComboContext, trackerAvailMM));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL_COUNT, offsetof(ComboContext, trackerSkipJournalCountOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SKIP_JOURNAL, offsetof(ComboContext, trackerSkipJournalOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_SAVE_WATERMARK, offsetof(ComboContext, saveWatermark));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_OOT_WARPS, offsetof(ComboContext, comboOoTWarps));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_FAMILY_OWNED2, offsetof(ComboContext, sharedFamilyOwned2));
+RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CROSSING_PENDING_OOT, offsetof(ComboContext, crossingPendingOoT));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext));
 RSBS_CTX_STATIC_ASSERT(RSBS_TRACKER_AVAIL_OOT_CAP % 64u == 0 && RSBS_TRACKER_AVAIL_MM_CAP % 64u == 0 &&
                            RSBS_TRACKER_AVAIL_OOT_CAP <= 0xFFFFu && RSBS_TRACKER_AVAIL_MM_CAP <= 0xFFFFu,

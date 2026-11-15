@@ -130,7 +130,12 @@
 //      family word) after comboOoTWarps at offset 2716 (ADR 0009 claim 23);
 //      sizeof(ComboContext) 2716 -> 2720; a revision-3 record zero-extends to 0,
 //      nothing owned.
-#define RSBS_SAVE_LAYOUT_REVISION 4u
+//   5  #1635 appends ComboContext.crossingPendingOoT (u8[256], one bit per
+//      OoT-hosted crossing row: the host is queued or held and its outbox row
+//      not yet written) after sharedFamilyOwned2 at offset 2720;
+//      sizeof(ComboContext) 2720 -> 2976; a revision-4 record zero-extends to
+//      an empty set, nothing pending.
+#define RSBS_SAVE_LAYOUT_REVISION 5u
 #define RSBS_SAVE_ENDIAN_LE 1
 #define RSBS_SAVE_MAX_SLOTS 3 // matches each game's MaxFiles
 

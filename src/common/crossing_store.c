@@ -24,6 +24,10 @@
 // place any number of crossings on a side with no pickup ever refused.
 RSBS_CTX_STATIC_ASSERT(RSBS_SHARED_ITEM_LOGICAL_CAP >= RSBS_CROSSING_STORE_CAP,
                        "the shared-item outbox must hold every crossing one host game can carry");
+// #1635: the OoT pending set has one bit per OoT-hosted row.
+RSBS_CTX_STATIC_ASSERT(RSBS_CROSSING_PENDING_OOT_CAP == RSBS_CROSSING_STORE_CAP,
+                       "ComboContext.crossingPendingOoT must have exactly one bit per crossing row one host game can "
+                       "carry");
 
 // Index 0 = OoT hosts (MM-origin items), 1 = MM hosts (OoT-origin items).
 static ComboCrossing sRows[2][RSBS_CROSSING_STORE_CAP];
@@ -130,6 +134,21 @@ const SharedItem* Combo_Crossings_Lookup(GameId hostGame, uint16_t hostCheck) {
         }
     }
     return NULL;
+}
+
+int Combo_Crossings_HostRow(GameId hostGame, uint16_t hostCheck) {
+    const int side = CrossingSide((uint8_t)hostGame);
+    if (side < 0 || hostCheck == 0) {
+        return -1;
+    }
+    // The same bounded scan as Combo_Crossings_Lookup (one host per row: every
+    // writer refuses a duplicate host).
+    for (int i = 0; i < sCount[side]; ++i) {
+        if (sRows[side][i].hostCheck == hostCheck) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /**

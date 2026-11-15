@@ -1640,6 +1640,59 @@ const SharedItem* Combo_GetForeignPlacementForOoTCheck(uint16_t ootCheckId) {
     return pinned != NULL ? pinned : Combo_Crossings_Lookup(GAME_OOT, ootCheckId);
 }
 
+// ---- The OoT crossing pending set (#1635; foreign_items.h) ------------------
+
+static bool PendingRowInRange(int row) {
+    return row >= 0 && row < (int)RSBS_CROSSING_PENDING_OOT_CAP;
+}
+
+bool Combo_CrossingPendingOoT_TestRow(int row) {
+    if (!PendingRowInRange(row)) {
+        return false;
+    }
+    return (gComboCtx.crossingPendingOoT[row >> 3] & (uint8_t)(1u << (row & 7))) != 0;
+}
+
+void Combo_CrossingPendingOoT_ClearRow(int row) {
+    if (PendingRowInRange(row)) {
+        gComboCtx.crossingPendingOoT[row >> 3] &= (uint8_t) ~(1u << (row & 7));
+    }
+}
+
+int Combo_CrossingPendingOoT_Set(uint16_t ootCheckId) {
+    const int row = Combo_Crossings_HostRow(GAME_OOT, ootCheckId);
+    if (!PendingRowInRange(row)) {
+        // A host only the pinned reverse table lists has no crossing row and so
+        // no bit: it keeps the RAM-only behaviour it had before #1635.
+        if (ootCheckId != 0 && ForeignLookupIn(gComboCtx.foreignPlacementsOoT, ootCheckId) != NULL) {
+            fprintf(stderr,
+                    "[OoT] foreign pending: OoT check %u hosts an MM item through the pinned reverse table only; it "
+                    "has no crossing row, so a quit before its record loses it (#1635)\n",
+                    (unsigned)ootCheckId);
+            fflush(stderr);
+        }
+        return 0;
+    }
+    gComboCtx.crossingPendingOoT[row >> 3] |= (uint8_t)(1u << (row & 7));
+    return 1;
+}
+
+void Combo_CrossingPendingOoT_Clear(uint16_t ootCheckId) {
+    Combo_CrossingPendingOoT_ClearRow(Combo_Crossings_HostRow(GAME_OOT, ootCheckId));
+}
+
+bool Combo_CrossingPendingOoT_Test(uint16_t ootCheckId) {
+    return Combo_CrossingPendingOoT_TestRow(Combo_Crossings_HostRow(GAME_OOT, ootCheckId));
+}
+
+int Combo_CrossingPendingOoT_Count(void) {
+    int n = 0;
+    for (int row = 0; row < (int)RSBS_CROSSING_PENDING_OOT_CAP; row++) {
+        n += Combo_CrossingPendingOoT_TestRow(row) ? 1 : 0;
+    }
+    return n;
+}
+
 // ---- Describers: names for any item and check (ADR 0010 O7) -------------------
 
 static const ComboGameDescriber* sGameDescribers[RSBS_FOREIGN_POOL_ORIGIN_COUNT];

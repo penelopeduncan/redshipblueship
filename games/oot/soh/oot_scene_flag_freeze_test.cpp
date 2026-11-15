@@ -41,6 +41,13 @@
  * records nothing) and the frame on which an in-OoT scene change has already
  * been committed (the PlayState still names the scene Link leaves, entranceIndex
  * the one he enters); leg 3 locks that no PlayState keeps the last save's scene.
+ *
+ * #1635 rides it too (leg 2d): OoT's QUIT SNAPSHOT (OnExitGame's stage,
+ * OoT_Combo_StageExitSnapshot in games/oot/soh/SaveManager.cpp) commits the live
+ * save, and it must carry the current scene's live flags like every crossing
+ * commit. Without the flush a hosted chest that had recorded its crossing came
+ * back closed after a quit without saving in its scene, and opening it again sent
+ * the item twice. A slot that is not writable stages nothing.
  */
 
 #include <z64.h>
@@ -64,6 +71,8 @@ extern "C" void OoT_Play_Init(GameState* thisx);
 // The two REAL freeze drivers (games/oot/soh/GameExports_SingleExe.cpp).
 extern "C" uint16_t Combo_CheckEntranceSwitch(uint16_t entranceIndex);
 extern "C" int Combo_FreezeActiveGameForHotSwap(GameId departing);
+// games/oot/soh/SaveManager.cpp: OnExitGame's quit-snapshot stage (#1635).
+extern "C" int OoT_Combo_StageExitSnapshot(int32_t fileNum);
 
 namespace {
 
@@ -351,6 +360,50 @@ int RunChecks(PlayState* play) {
     // OpenSave would not, so a frozen Kokiri Forest is the bug.
     if (int rc = StampChecks(play)) {
         return rc;
+    }
+
+    // ---- 2d. (#1635) The quit snapshot flushes the live scene flags first --
+    // A file the player quits from: slot 0 writable this session, the shadow
+    // holding the last commit's OoT half (no Market chest), a chest and a
+    // collectible taken in the Market since.
+    {
+        ArmLiveOoTSession();
+        gSaveContext.fileNum = 0;
+        // Not a live file to the pool's harvest (OoT_SaveIsLiveFile), so the stage
+        // leaves the shared pool and its RAM watermarks alone for the rows after
+        // this one; the flush and the shadow capture do not read the game mode.
+        gSaveContext.gameMode = GAMEMODE_TITLE_SCREEN;
+        Context_UpdateShadowCopy(GAME_OOT, &gSaveContext, sizeof(SaveContext));
+        play->sceneNum = SCENE_MARKET_DAY;
+        memset(&play->actorCtx.flags, 0, sizeof(play->actorCtx.flags));
+        play->actorCtx.flags.chest = kChestBit;
+        play->actorCtx.flags.collect = kCollectBit;
+        RsbsSave_ResetSlotSessionState();
+        // Not writable: nothing is staged, so nothing is flushed for a commit
+        // the save would refuse (#606).
+        const int unwritable = OoT_Combo_StageExitSnapshot(0);
+        const SaveContext* shadow = static_cast<const SaveContext*>(Context_GetOoTSaveContext());
+        OSFF_ASSERT(shadow != nullptr, "#1635 setup: OoT's shadow exists");
+        const uint32_t chestUnwritable = shadow->sceneFlags[SCENE_MARKET_DAY].chest;
+        RsbsSave_ArmSlotOnCreate(0);
+        OSFF_ASSERT(RsbsSave_IsSlotWritable(0) == 1, "#1635 setup: the armed slot is writable this session");
+        const int staged = OoT_Combo_StageExitSnapshot(0);
+        shadow = static_cast<const SaveContext*>(Context_GetOoTSaveContext());
+        const uint32_t chest = shadow != nullptr ? shadow->sceneFlags[SCENE_MARKET_DAY].chest : 0;
+        const uint32_t collect = shadow != nullptr ? shadow->sceneFlags[SCENE_MARKET_DAY].collect : 0;
+        RsbsSave_ResetSlotSessionState();
+        printf("[TEST] #1635: quit snapshot: unwritable slot staged %d (chest word %08X); writable slot staged %d, "
+               "shadow chest word %08X collect word %08X\n",
+               unwritable, (unsigned)chestUnwritable, staged, (unsigned)chest, (unsigned)collect);
+        OSFF_ASSERT(unwritable == 0 && chestUnwritable == 0,
+                    "#1635: a slot that is not writable this session must stage nothing (#606)");
+        OSFF_ASSERT(staged == 1, "#1635: the quit snapshot stages a writable slot");
+        OSFF_ASSERT(chest == kChestBit && collect == kCollectBit,
+                    "#1635: the quit snapshot must carry the chest and collectible taken in the current scene; it "
+                    "committed the live save without them, so a hosted chest that had recorded its crossing came "
+                    "back closed after a quit without saving, and opening it again sent its item twice");
+        memset(&play->actorCtx.flags, 0, sizeof(play->actorCtx.flags));
+        ComboContext_Init();
     }
 
     // ---- 3. No PlayState: both drivers still freeze, nothing is dereferenced

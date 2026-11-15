@@ -430,6 +430,54 @@ extern "C" void OoT_SaveManager_SetSavDirectoryForTest(const char* dir) {
     sSavDirectoryOverride = dir != nullptr ? dir : "";
 }
 
+// GameExports_SingleExe.cpp: Play_SaveSceneFlags for the live PlayState, if any
+// (#638's departure flush).
+extern "C" void OoT_Combo_FlushSceneFlagsForFreeze(void);
+
+/**
+ * THE QUIT SNAPSHOT'S STAGE (OnExitGame, below): bring the shared pool and OoT's
+ * shadow up to the live save, so the RsbsSave_Save that follows commits one
+ * instant. Returns 1 when it staged (the slot is writable this session), 0 when
+ * it did nothing.
+ *
+ * #1635, FIRST STEP: the current scene's chest, switch and collectible flags.
+ * OoT keeps them in play->actorCtx.flags and copies them into
+ * gSaveContext.sceneFlags only on a scene change, a pause-menu save or a crossing
+ * departure (Play_SaveSceneFlags). The snapshot used to commit the live save
+ * without them while committing everything else as it stood: the inventory, the
+ * RandomizerInf and event flags, and the shared outbox with the crossing a
+ * hosted chest had just recorded. A quit without saving in that scene then
+ * reloaded the chest closed and not found, and opening it again sent its MM item
+ * a second time. Flushed first, the snapshot is one instant like every crossing
+ * commit: quitting without saving now keeps the current scene's flags, as it
+ * already kept everything else.
+ *
+ * #606: gated on the #533/#568 write latch, matching the SaveSection staging
+ * seam's guard (`if (RsbsSave_IsSlotWritable(fileNum))`). The harvest MUTATES
+ * process-global cross-game state (gComboCtx.sharedResources and the RAM
+ * watermark table), and a slot that is not writable this session -- never
+ * established, or REFUSED for identity (#570) / generation (#500) divergence --
+ * means the RsbsSave_Save after it WILL REFUSE. Advancing the pool for a record
+ * that is never written is the harvest/apply gate-asymmetry class #591/#600
+ * already fixed on MM's capture path: apply ASSIGNS the consumable kinds, so the
+ * phantom pool movement is materialized verbatim on the far side of the next
+ * crossing; the monotonic kinds are worse in kind, since max-merge cannot decay.
+ */
+extern "C" int OoT_Combo_StageExitSnapshot(int32_t fileNum) {
+    if (fileNum < 0 || fileNum >= RSBS_SAVE_MAX_SLOTS || !RsbsSave_IsSlotWritable(fileNum)) {
+        return 0;
+    }
+    OoT_Combo_FlushSceneFlagsForFreeze();
+    // Shared cross-game resources (#525) BEFORE the shadow capture, so the pool
+    // and the OoT blob stored beside it agree. Without this, money earned since
+    // the last switch is in the OoT save but not in the pool, and the post-load
+    // first-harvest seed reads the balance as already counted and drops it.
+    OoT_HarvestSharedResources();
+    Context_UpdateShadowCopy(GAME_OOT, &gSaveContext, sizeof(gSaveContext));
+    gComboCtx.sourceGame = GAME_OOT;
+    return 1;
+}
+
 static std::string SavDirectory() {
     return sSavDirectoryOverride.empty() ? Ship::Context::GetPathRelativeToAppDirectory("Save") : sSavDirectoryOverride;
 }
@@ -665,28 +713,9 @@ SaveManager::SaveManager() {
         if (fileNum < 0 || fileNum >= RSBS_SAVE_MAX_SLOTS) {
             return;
         }
-        // #606: gated on the #533/#568 write latch, matching the SaveSection
-        // staging seam's guard (~:1553, `if (RsbsSave_IsSlotWritable(fileNum))`).
-        // The harvest below MUTATES process-global cross-game state
-        // (gComboCtx.sharedResources and the RAM watermark table), and a slot
-        // that is not writable this session -- never established, or REFUSED
-        // for identity (#570) / generation (#500) divergence -- means the
-        // RsbsSave_Save below WILL REFUSE. Advancing the pool for a record that
-        // is never written is the harvest/apply gate-asymmetry class #591/#600
-        // already fixed on MM's capture path: apply ASSIGNS the consumable
-        // kinds, so the phantom pool movement is materialized verbatim on the
-        // far side of the next crossing; the monotonic kinds are worse in
-        // kind, since max-merge cannot decay.
-        if (RsbsSave_IsSlotWritable(fileNum)) {
-            // Shared cross-game resources (#525) BEFORE the shadow capture, so
-            // the pool and the OoT blob stored beside it agree. Without this,
-            // money earned since the last switch is in the OoT save but not in
-            // the pool, and the post-load first-harvest seed reads the balance
-            // as already counted and drops it.
-            OoT_HarvestSharedResources();
-            Context_UpdateShadowCopy(GAME_OOT, &gSaveContext, sizeof(gSaveContext));
-            gComboCtx.sourceGame = GAME_OOT;
-        }
+        // The current scene's flags first (#1635), then the pool, then the
+        // shadow; only when the slot is writable (#606). See the function.
+        (void)OoT_Combo_StageExitSnapshot(fileNum);
         // Still called unconditionally: RsbsSave_Save's own CheckWriteAllowed
         // latch check refuses cleanly on its own (this part was never buggy) --
         // leaving the call here is what keeps behavior/logging identical to
