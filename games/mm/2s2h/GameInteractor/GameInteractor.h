@@ -882,7 +882,7 @@ void MM_GameHooks_ExecuteOnSeqPlayerInit(int32_t playerIdx, int32_t seqId);
 // registers it yet; the first registrant is the Mayor Argues Until Moonfall
 // option (2Ship #1972). The bridge keys its id leg on actorEntry->id, so it is
 // the bridge, not the registrants, that refuses a NULL entry (the camera-trio
-// rule in mm_game_hooks.h).
+// rule, "CAMERA IS GUARDED HERE" in GameExports_SingleExe.cpp).
 void MM_GameHooks_ExecuteOnActorEntryHalfDaysBits(ActorEntry* actorEntry, s32* halfDaysBits);
 #define GameInteractor_ExecuteOnActorEntryHalfDaysBits MM_GameHooks_ExecuteOnActorEntryHalfDaysBits
 #endif // RSBS_SINGLE_EXECUTABLE
