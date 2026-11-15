@@ -822,6 +822,13 @@ int Combo_Logic_FixedCreditDeliveredCount(void) {
     return n;
 }
 
+bool Combo_Logic_FixedCreditDeliveredAt(int index) {
+    if (index < 0 || index >= sFixedCreditCount) {
+        return false;
+    }
+    return ComboLogicBitGet(sFixedDelivered, index);
+}
+
 // TEST PROBE (Combo_Logic_TestLastTravelFacts): the facts the gates last judged.
 static uint32_t sComboLogicProbeFactsOoT = 0u;
 static uint32_t sComboLogicProbeFactsMM = 0u;

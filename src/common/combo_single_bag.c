@@ -346,51 +346,74 @@ void Combo_SingleBag_CountHomeCapacity(const ComboLogicBagItem* bag, int bagCoun
     }
 }
 
+static int SingleBagAddFixedSongCredit(ComboLogicFixedCredit* credits, int* ioCount, GameId hostGame, int hostCheck,
+                                       GameId farGame, uint16_t farId, const char* familyName) {
+    if (hostCheck < 0) {
+        return RSBS_COMBO_LOGIC_OK;
+    }
+    if (*ioCount >= RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP) {
+        return RSBS_COMBO_LOGIC_ERR_CAPACITY;
+    }
+    ComboLogicFixedCredit* c = &credits[(*ioCount)++];
+    memset(c, 0, sizeof(*c));
+    c->hostGame = (uint8_t)hostGame;
+    c->hostCheck = (uint16_t)hostCheck;
+    c->farItem.originGame = (uint8_t)farGame;
+    c->farItem.id = farId;
+    const char* hostStr = (hostGame == GAME_OOT) ? "OoT" : "MM";
+    const char* farStr = (farGame == GAME_OOT) ? "OoT" : "MM";
+    fprintf(stderr, "[SingleBag] shared family %s stays on its own %s check %u; %s's logic is credited there\n",
+            familyName, hostStr, (unsigned)c->hostCheck, farStr);
+    return RSBS_COMBO_LOGIC_OK;
+}
+
 /**
- * #1169 XW15, THE FIXED SHARED SONGS: under Shuffle Songs Off each armed SHARED WARP
- * SONG stays on its own default check (Combo_SharedWarpSongFixedAtHome), placed by
- * its own game and in no table, so the coordinator is told to credit the other game
- * when that check is reached (Combo_Logic_SetFixedCredits). One credit per family:
- * an OoT host hands MM its member, an MM host hands OoT its member. A family with a
- * host in both games would be two copies of one item, so it is refused
- * (ERR_BAD_REQUEST); with no host in either (a started song OoT did not place, a
- * mode other than Off) it adds nothing. Returns RSBS_COMBO_LOGIC_OK otherwise. Every
- * world without a shared warp song frozen on sets no credit.
+ * #1169 XW15 / #1561, THE FIXED SHARED SONGS: under Shuffle Songs Off each armed
+ * shared song (RSBS_XITEM_SHARED_SONGS_MASK and RSBS_XITEM2_WARP_SONG_SHARED) stays
+ * on its default check(s) (Combo_SharedWarpSongFixedAtHome), placed natively by its
+ * host game(s) and in no table, so the coordinator is told to credit the other game
+ * when a host check is reached (Combo_Logic_SetFixedCredits). An OoT host hands MM
+ * its member; an MM host hands OoT its member; a first-word shared song fixed in
+ * both games emits both credits. With no host in either (a started song OoT did not
+ * place, a mode other than Off) it adds nothing. Returns RSBS_COMBO_LOGIC_OK
+ * otherwise. Every world without a shared song frozen on sets no credit.
  */
 static int SingleBagSetFixedSharedSongCredits(void) {
     ComboLogicFixedCredit credits[RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP];
     int count = 0;
-    const uint32_t shared = Combo_SharedFamilies2Armed() & RSBS_XITEM2_WARP_SONG_SHARED;
-    for (uint32_t b = 0; shared != 0u && b < RSBS_XITEM2_BIT_COUNT; ++b) {
-        const uint32_t bit = 1u << b;
-        uint16_t ootId = 0;
-        uint16_t mmId = 0;
-        if ((shared & bit) == 0u || !Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId) ||
-            !Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId)) {
-            continue;
+    for (int word = 0; word < 2; ++word) {
+        uint32_t shared = Combo_SharedFamiliesArmed() & (uint32_t)RSBS_XITEM_SHARED_SONGS_MASK;
+        if (word == 1) {
+            shared = Combo_SharedFamilies2Armed() & RSBS_XITEM2_WARP_SONG_SHARED;
         }
-        const int ootHost = OoT_ComboLogic_FixedSharedSongHost(ootId);
-        const int mmHost = MM_ComboLogic_FixedSharedSongHost(mmId);
-        if (ootHost >= 0 && mmHost >= 0) {
-            fprintf(stderr, "[SingleBag] shared family %s sits on a fixed check in both games (OoT %d, MM %d)\n",
-                    Combo_SharedFamily2SlotName(bit), ootHost, mmHost);
-            return RSBS_COMBO_LOGIC_ERR_BAD_REQUEST;
+        for (uint32_t b = 0; shared != 0u && b < RSBS_XITEM_BIT_COUNT; ++b) {
+            const uint32_t bit = 1u << b;
+            if ((shared & bit) == 0u) {
+                continue;
+            }
+            uint16_t ootId = 0;
+            uint16_t mmId = 0;
+            bool haveOoT = Combo_SharedFamilyMemberId(GAME_OOT, bit, &ootId);
+            bool haveMM = Combo_SharedFamilyMemberId(GAME_MM, bit, &mmId);
+            if (word == 1) {
+                haveOoT = Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId);
+                haveMM = Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId);
+            }
+            if (!haveOoT || !haveMM) {
+                continue;
+            }
+            const int ootHost = OoT_ComboLogic_FixedSharedSongHost(ootId);
+            const int mmHost = MM_ComboLogic_FixedSharedSongHost(mmId);
+            const char* name = (word == 0) ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit);
+            int st = SingleBagAddFixedSongCredit(credits, &count, GAME_OOT, ootHost, GAME_MM, mmId, name);
+            if (st != RSBS_COMBO_LOGIC_OK) {
+                return st;
+            }
+            st = SingleBagAddFixedSongCredit(credits, &count, GAME_MM, mmHost, GAME_OOT, ootId, name);
+            if (st != RSBS_COMBO_LOGIC_OK) {
+                return st;
+            }
         }
-        if (ootHost < 0 && mmHost < 0) {
-            continue;
-        }
-        if (count >= RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP) {
-            return RSBS_COMBO_LOGIC_ERR_CAPACITY;
-        }
-        ComboLogicFixedCredit* c = &credits[count++];
-        memset(c, 0, sizeof(*c));
-        c->hostGame = (uint8_t)(ootHost >= 0 ? GAME_OOT : GAME_MM);
-        c->hostCheck = (uint16_t)(ootHost >= 0 ? ootHost : mmHost);
-        c->farItem.originGame = (uint8_t)(ootHost >= 0 ? GAME_MM : GAME_OOT);
-        c->farItem.id = ootHost >= 0 ? mmId : ootId;
-        fprintf(stderr, "[SingleBag] shared family %s stays on its own %s check %u; %s's logic is credited there\n",
-                Combo_SharedFamily2SlotName(bit), ootHost >= 0 ? "OoT" : "MM", (unsigned)c->hostCheck,
-                ootHost >= 0 ? "MM" : "OoT");
     }
     return Combo_Logic_SetFixedCredits(count > 0 ? credits : NULL, count) < 0 ? RSBS_COMBO_LOGIC_ERR_BAD_REQUEST
                                                                               : RSBS_COMBO_LOGIC_OK;

@@ -808,6 +808,22 @@ ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game) {
     return IsRealGame(game) ? sSharedLiveProbes[game] : NULL;
 }
 
+uint32_t Combo_SharedFamiliesHeldNow(void) {
+    const uint32_t armed = Combo_SharedFamiliesArmed();
+    if (armed == 0u) {
+        return 0u; // every world with no shared rule frozen: no callback runs
+    }
+    uint32_t held = gComboCtx.sharedFamilyOwned & armed;
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int i = 0; i < 2; ++i) {
+        const ComboSharedLiveProbeFn probe = sSharedLiveProbes[games[i]];
+        if (probe != NULL && probe() != 0) {
+            held |= FamiliesHeldLive(games[i], 0, armed);
+        }
+    }
+    return held;
+}
+
 uint32_t Combo_SharedFamilies2HeldNow(void) {
     const uint32_t armed2 = Combo_SharedFamilies2Armed();
     if (armed2 == 0u) {
@@ -934,6 +950,21 @@ const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
     return NULL;
 }
 
+uint32_t Combo_SharedFamilyArmedBitOf(GameId game, uint16_t nativeId) {
+    const uint32_t armed = Combo_SharedFamiliesArmed();
+    if (!IsRealGame(game)) {
+        return 0u;
+    }
+    for (int b = 0; armed != 0u && b < (int)RSBS_XITEM_BIT_COUNT; ++b) {
+        const uint32_t bit = 1u << b;
+        uint16_t id = 0;
+        if ((armed & bit) != 0u && Combo_SharedFamilyMemberId(game, bit, &id) && id == nativeId) {
+            return bit;
+        }
+    }
+    return 0u;
+}
+
 uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId) {
     const uint32_t armed2 = Combo_SharedFamilies2Armed();
     if (!IsRealGame(game)) {
@@ -953,7 +984,30 @@ bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t oo
     if (ootShuffleSongs != RSBS_SONG_SPOTS_OFF) {
         return false;
     }
-    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_WARP_SONG_SHARED) != 0u;
+    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_WARP_SONG_SHARED) != 0u ||
+           (Combo_SharedFamilyArmedBitOf(game, nativeId) & (uint32_t)RSBS_XITEM_SHARED_SONGS_MASK) != 0u;
+}
+
+bool Combo_SharedSongOffGiveBecomesJunk(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs,
+                                        bool runningGameOwnsCopy) {
+    if (ootShuffleSongs != RSBS_SONG_SPOTS_OFF) {
+        return false;
+    }
+    const uint32_t bit = Combo_SharedFamilyArmedBitOf(game, nativeId) & (uint32_t)RSBS_XITEM_SHARED_SONGS_MASK;
+    if (bit == 0u) {
+        return false;
+    }
+    if (runningGameOwnsCopy || (gComboCtx.sharedFamilyOwned & bit) != 0u) {
+        return true;
+    }
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int i = 0; i < 2; ++i) {
+        const ComboSharedLiveProbeFn probe = sSharedLiveProbes[games[i]];
+        if (probe != NULL && probe() != 0 && (FamiliesHeldLive(games[i], 0, bit) & bit) != 0u) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {

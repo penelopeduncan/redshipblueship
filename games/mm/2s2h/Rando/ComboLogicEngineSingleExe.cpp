@@ -1664,17 +1664,19 @@ extern "C" bool MM_ComboLogic_IsPairSongItem(uint16_t id) {
 }
 
 /**
- * #1169 XW15: the MM check that holds shared warp song @p ri as its FIXED content.
+ * #1169 XW15 / #1561: the MM check that holds shared song @p ri as its FIXED content.
  * Under MM's Shuffle Songs Vanilla (in a paired world only OoT's Off gives it,
- * Combo_PairSongsMmValue, hence RSBS_SONG_SPOTS_OFF, as GeneratePools asks) with
- * the shared Song of Soaring frozen on (Combo_SharedWarpSongFixedAtHome), that is
- * the Southern Swamp song check, which GeneratePools left out of the check pool
- * with its vanilla item (RsbsReleasesVanillaSharedSong): a song check holding @p ri
- * that is neither shuffled, skipped nor in the host pool. -1 in every other world
- * and for an id with no such check (MM's six "(MM)" warp songs have none).
- * combo_single_bag.c names the answer as a fixed credit, so OoT's logic holds the
- * song once MM's logic reaches the check. Read at the creation, where the live save
- * is the one GeneratePools just built.
+ * Combo_PairSongsMmValue, hence RSBS_SONG_SPOTS_OFF, as GeneratePools asks) with the
+ * song's shared rule frozen on (Combo_SharedWarpSongFixedAtHome), that is the
+ * Southern Swamp song check for Song of Soaring or Romani Ranch / Beneath the
+ * Graveyard / Clock Tower Roof for Epona's Song / Song of Storms / Song of Time,
+ * which GeneratePools left out of the check pool with its vanilla item
+ * (RsbsReleasesVanillaSharedSong): a song check holding @p ri that is neither
+ * shuffled, skipped nor in the host pool. -1 in every other world and for an id with
+ * no such check (MM's six "(MM)" warp songs have none). combo_single_bag.c names the
+ * answer as a fixed credit, so OoT's logic holds the song once MM's logic reaches the
+ * check. Read at the creation, where the live save is the one GeneratePools just
+ * built.
  */
 extern "C" int MM_ComboLogic_FixedSharedSongHost(uint16_t ri) {
     if (ri >= (uint16_t)RI_MAX || RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONGS] != RO_SONG_SHUFFLE_VANILLA ||
