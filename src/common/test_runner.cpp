@@ -1373,6 +1373,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // rsbs::SaveManager, after test_crossing_commit.c and test_combo_crossing_views.c.
 #include "tests/test_mm_hint_sources.c"
 
+// SoH #6709: ROM-free: Camera_Subj4 (the crawlspace camera) writes Link's world
+// position and shape yaw as console does, from source.
+#include "tests/test_oot_camera_subj4.c"
+
 // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
 #include "tests/test_oot_mweep_stop.c"
@@ -10847,6 +10851,10 @@ const TestDescriptor gTests[] = {
       "the saved entrance and Link's age and time, the credits item pane is live, the fortress grotto and owl rows, "
       "and the pause screen's new entries (#1420)",
       Test_OoTTrackerSohFixes },
+    // SoH #6709: ROM-free: Camera_Subj4's three console writes to Link are live code.
+    { "oot-camera-subj4-console",
+      "Camera_Subj4 (the crawlspace camera) writes Link's world position and shape yaw as console does (SoH #6709)",
+      Test_OoTCameraSubj4Console },
     // #948: display-free and ROM-free, and order-free: it restores the current
     // game, the active slot and OoT_gPlayState, and clears the combo identity.
     { "oot-mask-shop-night-door",
