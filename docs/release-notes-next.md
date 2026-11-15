@@ -268,6 +268,8 @@
   Treasure Chest Game (its chests, its keys and the item you pay for) is ported, but a paired world cannot keep the
   room's keys in Ocarina of Time yet, so the option and its Chest Minigame Keyring are disabled and every world is
   generated with it off. The same seed and settings make the same world as before.
+- **Majora's Mask: new option Hot Water Never Cools** (2Ship2Harkinian #1989). Under Enhancements > Items, it keeps
+  Hot Spring Water in a bottle from cooling down into Spring Water. It is off by default.
 
 ---
 

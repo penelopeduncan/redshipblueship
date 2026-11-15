@@ -630,6 +630,9 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK "gEnhancements.Equipment.TwoHandedSwordSpinAttack"
 #define RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON "gEnhancements.Equipment.GreatFairySwordBButton"
 #define RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE "gEnhancements.Equipment.BetterPictoMessage"
+// 2Ship #1989: Hot Water Never Cools, an Items row in 2Ship, hosted in the same Items > Equipment "Majora's Mask" block
+// after Better Picto Message. No SoH twin (Ocarina of Time has no Hot Spring Water).
+#define RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS "gEnhancements.Items.HotWaterNeverCools"
 #define RSBS_CVAR_MM_PLAYER_ACTIONS_INSTANT_RECALL "gEnhancements.PlayerActions.InstantRecall"
 #define RSBS_CVAR_MM_EQUIPMENT_CHU_DROPS "gEnhancements.Equipment.ChuDrops"
 // #1411: 2Ship's Invert Zora Swim Y Axis (dabc3aadc), a Player row in 2Ship, hosted in the same Quality of Life >
@@ -1142,6 +1145,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)           \
     X(RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON)             \
     X(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)                   \
+    X(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)                      \
     X(RSBS_CVAR_MM_PLAYER_ACTIONS_INSTANT_RECALL)                    \
     X(RSBS_CVAR_MM_EQUIPMENT_CHU_DROPS)                              \
     X(RSBS_CVAR_MM_PLAYER_INVERT_ZORA_SWIM_Y)                        \
