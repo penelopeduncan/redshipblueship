@@ -9879,6 +9879,15 @@ static TestResult Test_OoTFileSelectRefusal(void) {
     return OoT_FileSelectRefusal_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/oot_gameplay_stats_test.cpp (SoH #7385, #7404): the stats
+// section saves and loads gameComplete, and a finished triforce hunt's time
+// outranks Ganon's in the RTA total.
+extern "C" int OoT_GameplayStats_RunHeadless(void);
+
+static TestResult Test_OoTGameplayStats(void) {
+    return OoT_GameplayStats_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // games/oot/soh/oot_log_noise_test.cpp (#1204): the interval autosave's slot
 // probe and the item queue's give retries log once, not once per frame.
 extern "C" int OoT_LogNoise_RunHeadless(void);
@@ -11868,6 +11877,10 @@ const TestDescriptor gTests[] = {
       "A file the open path would refuse is not opened at the OoT file select (A/START consumed, one toast, nothing "
       "written), and a load refused after the gate returns to the file select instead of Play (#836)",
       Test_OoTFileSelectRefusal },
+    { "oot-gameplay-stats",
+      "OoT's stats section saves and loads gameComplete, so a finished file stays finished after a reload, and a "
+      "finished triforce hunt's timestamp outranks Ganon's in the RTA total time (SoH #7385, #7404)",
+      Test_OoTGameplayStats },
     { "oot-log-noise",
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",

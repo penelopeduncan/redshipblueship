@@ -253,6 +253,10 @@
 - **Ocarina of Time: King Zora no longer leaves the camera stuck** (issue #1591), from Ship of Harkinian. Switching Skip
   Story Cutscenes on while he was moving aside could leave the camera and Link frozen. The camera is now given back when
   he stops.
+- **Ocarina of Time: a finished file's gameplay timer stays stopped** (SoH #7385, #7404), from Ship of Harkinian.
+  The Gameplay Stats window now remembers that the game was beaten after you quit and reload, so its real-time
+  total no longer starts counting again, and a finished Triforce Hunt shows the time the hunt ended rather than an
+  earlier Ganon fight.
 - **First-run extraction says what went wrong** (issue #1590), from Ship of Harkinian and 2Ship2Harkinian. On Linux with
   no file picker installed, both games show a message instead of failing silently. Ocarina of Time shows a message when
   extracting a ROM fails, and cancelling the prompt for a second ROM lets you pick again.

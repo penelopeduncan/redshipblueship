@@ -160,6 +160,12 @@ class SaveManager {
     // LoadRandomizer does. English text either way, whatever the file's language.
     std::string SeedPackageSerializeWorld();
     bool SeedPackageLoadWorld(const std::string& sectionJson);
+
+    // Test hooks: one section's save function run into an empty JSON object, and
+    // one section's load function run from a JSON object, in memory, with the
+    // calls the save and load paths make (SaveData / LoadData land in @p section).
+    nlohmann::json TestSaveSectionToJson(SaveFunc func, SaveContext* saveContext);
+    void TestLoadSectionFromJson(LoadFunc func, nlohmann::json& section);
 #endif
 
     // Use a name of "" to save to an array. You must be in a SaveArray callback.
