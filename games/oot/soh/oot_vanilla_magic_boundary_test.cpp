@@ -354,25 +354,29 @@ static void VmbRunHandlerLeg(Rando::Context& randoCtx) {
     const Color_RGB8 kDefaultInfBlue = { 0, 0, 200 };
     const Color_RGB8 kCustomInfColor = { 12, 34, 56 };
 
-    // (a) Vanilla control: no RandomizerOnVanillaBehaviorHandler registered.
-    // Even if RAND_INF_HAS_INFINITE_MAGIC_METER is left set in gSaveContext,
-    // vanilla magic still depletes and keeps its green fill color (#7415).
+    // (a) Dispatch-default sanity check: no RandomizerOnVanillaBehaviorHandler is registered, so every
+    // answer below is GameInteractor_Should's own default (and no other registered handler claims these
+    // ids). This leg does NOT prove the vanilla-file guarantee of #7415: it runs none of z_parameter.c or
+    // hook_handlers.cpp. That guarantee (vanilla code never reads RAND_INF_HAS_INFINITE_MAGIC_METER) is
+    // locked by the source leg's z_parameter.c checks.
     Flags_SetRandomizerInf(RAND_INF_HAS_INFINITE_MAGIC_METER);
     CVarSetInteger(kMagicInfChangedCvar, 1);
     CVarSetColor24(kMagicInfValueCvar, kCustomInfColor);
     const bool vanillaDepletes = GameInteractor_Should(VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING, true);
-    VmbCheck(vanillaDepletes, "vanilla control: stale infinite-magic flag suppressed depletion");
+    VmbCheck(vanillaDepletes,
+             "dispatch default: VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING not true with no rando handler");
     Color_RGB8 vanillaFill = kVanillaGreen;
     const bool vanillaColorShould = GameInteractor_Should(VB_APPLY_MAGIC_METER_FILL_COLOR, true, &vanillaFill);
-    VmbCheck(vanillaColorShould, "vanilla control: VB_APPLY_MAGIC_METER_FILL_COLOR altered should");
-    VmbCheck(VmbSameRgb8(vanillaFill, kVanillaGreen), "vanilla control: stale infinite-magic flag recolored bar");
+    VmbCheck(vanillaColorShould,
+             "dispatch default: VB_APPLY_MAGIC_METER_FILL_COLOR altered should with no rando handler");
+    VmbCheck(VmbSameRgb8(vanillaFill, kVanillaGreen), "dispatch default: fill color changed with no rando handler");
 
     randoCtx.GetOption(RSK_SHUFFLE_BOSS_SOULS).Set(RO_BOSS_SOULS_ON);
     Flags_UnsetRandomizerInf(RAND_INF_BARINADE_SOUL);
     const bool vanillaRematch = GameInteractor_Should(VB_BARINADE_PLAY_REMATCH_INTRO, true, nullptr);
     const bool vanillaFirst = GameInteractor_Should(VB_BARINADE_PLAY_REMATCH_INTRO, false, nullptr);
-    VmbCheck(vanillaRematch, "vanilla control: VB_BARINADE_PLAY_REMATCH_INTRO suppressed rematch");
-    VmbCheck(!vanillaFirst, "vanilla control: VB_BARINADE_PLAY_REMATCH_INTRO forced rematch on first fight");
+    VmbCheck(vanillaRematch, "dispatch default: VB_BARINADE_PLAY_REMATCH_INTRO not true with no rando handler");
+    VmbCheck(!vanillaFirst, "dispatch default: VB_BARINADE_PLAY_REMATCH_INTRO not false with no rando handler");
 
     // (b) Randomizer file load: register RandomizerOnVanillaBehaviorHandler.
     const HOOK_ID vbHook = GameInteractor::Instance->RegisterGameHook<OnVb>(RandomizerOnVanillaBehaviorHandler);
