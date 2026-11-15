@@ -59,7 +59,8 @@ class Logic {
     // [RSBS #979] stoneMask false: OoTMM's get_past_skultullas_no_stone (no Stone Mask credit)
     bool CanPassEnemy(RandomizerEnemy enemy, EnemyDistance distance = ED_CLOSE, bool wallOrFloor = true,
                       bool stoneMask = true);
-    bool CanAvoidEnemy(RandomizerEnemy enemy, bool grounded = false, uint8_t quantity = 1);
+    bool CanAvoidEnemy(RandomizerEnemy enemy, EnemyDistance distance = ED_CLOSE, bool grounded = false,
+                       uint8_t quantity = 1);
     bool CanGetEnemyDrop(RandomizerEnemy enemy, EnemyDistance distance = ED_CLOSE, bool aboveLink = false);
     bool CanBreakMudWalls();
     bool CanGetDekuBabaSticks();
@@ -67,7 +68,8 @@ class Logic {
     bool CanHitEyeTargets();
     bool CanDetonateBombFlowers();
     bool CanDetonateUprightBombFlower();
-    bool CanHammerRecoilHover(bool needShield = false);
+    bool CanRecoilHover(RecoilRequirements req);
+    bool CanRecoilHoverFromObject(TorchRecoilRequirements req);
     bool Water3FCentralToHighEmblem();
     bool WaterRisingTargetTo3FCentral();
     bool WaterLevel(RandoWaterLevel level);

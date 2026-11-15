@@ -178,6 +178,35 @@
  *     NOT jump to the bridge with the setting off and must with it on; with the
  *     hood alone (no jumpslash) must NOT; an adult with the hood must NOT.
  *
+ * The rest of SoH eca767dcb's live child Bunny Hood terms and its recoil-hover
+ * helpers (#1647, stages 1 and 2), with SoH 73a739b7a's high-emblem trick:
+ *  BL. One pair per dungeon: a child holding the hood must NOT pass with Bunny
+ *     Hood Effect off and must with it on (Deku basement, DC MQ upper Lizalfos
+ *     heart, Fire SoT cage, Forest block-push alcove and Ganon's Shadow Trial with
+ *     a sword, GTG MQ platforms, Ice Cavern block room, Jabu MQ lift room under
+ *     RT_UNINTUITIVE_JUMPS, Shadow MQ spikes, Spirit GS ledge, Water Like Like
+ *     spikes, MQSpiritStatueToSunBlock with the bracelet, the Deku MQ compass-room
+ *     boulder with Boomerang and bombs, the DC MQ lobby's lower-right mud wall with
+ *     Goron's Bracelet and its bomb-flower ground jump, and Water's river pots to
+ *     above the dragon with the slingshot).
+ *  OW. The same pairs in Kakariko (backyard), the graveyard (Dampe's race), Death
+ *     Mountain Trail (chest with Goron's Bracelet), Zora's Domain (island exit with
+ *     Climb, closed without it) and Zora's River (ladder top to pillar); the Lake
+ *     Hylia front rupee stays child-only with eca767dcb's Iron Boots term.
+ *  HW. RT_HW_BUNNY_CROSSING crosses the wasteland only with the trick AND the
+ *     setting on.
+ *  WE. RT_WATER_HIGH_EMBLEM_JUMP: an adult with nothing reaches the high emblem
+ *     (vanilla helper and MQ exit) only with the trick on; a child with the hood
+ *     only with the trick and the setting; eca767dcb's Unintuitive Jumps form is
+ *     not what credits the child.
+ *  RH. CanRecoilHover / CanRecoilHoverFromObject are false without
+ *     RT_HOVER_BOOST_SIMPLE; with it, RECOIL_HAMMER needs no shield and
+ *     RECOIL_HAMMER_AND_SHIELD does; the old CanHammerRecoilHover() call sites
+ *     (Forest courtyard, GF long roof, GV upper stream) open with Hover Boots and
+ *     the hammer and no shield, and close with the trick off.
+ *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is still false with only
+ *     the Bow (its body is unchanged; the Beamos rewrite is stage 5).
+ *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
  * A0 and B0 are the exception in form: they hold everything but the event, and
@@ -1251,6 +1280,353 @@ void ResetLogicWithBunnyHood() {
     logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
 }
 
+// ---- #1647 (SoH eca767dcb stages 1 and 2, 73a739b7a): BL, WE, HW, OW, RH, D1 ----
+// The tricks these legs force (saved and restored), so a trick the context holds
+// on cannot open an exit a leg expects closed.
+const RandomizerTrick kBhlForcedTricks[] = {
+    RT_DEKU_B1_SKIP,
+    RT_GROUND_JUMP,
+    RT_GROUND_JUMP_HARD,
+    RT_UNINTUITIVE_JUMPS,
+    RT_FOREST_OUTSIDE_BACKDOOR,
+    RT_HW_CROSSING,
+    RT_HW_BUNNY_CROSSING,
+    RT_WATER_HIGH_EMBLEM_JUMP,
+    RT_HOVER_BOOST_SIMPLE,
+    RT_DAMAGE_BOOST_SIMPLE,
+    RT_GY_CHILD_DAMPE_RACE_POH,
+    RT_DMT_BOMBABLE,
+    RT_SPIRIT_MQ_SUN_BLOCK_SOT,
+    RT_FOREST_DOORFRAME,
+};
+
+/** One exit for a child holding the hood: closed with Bunny Hood Effect off, open with it on. */
+void BhlExitOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion from, RandomizerRegion to) {
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectExit(legOff, from, to, false, false, "the hood's jump is in logic in a seed without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit(legOn, from, to, false, true, "the child's hood jump is not in logic under Bunny Hood Effect (#1647)");
+}
+
+/** One location for a child holding the hood: out of logic with the setting off, in logic with it on. */
+void BhlCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                   RandomizerRegion region, RandomizerCheck rc) {
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectAt(legOff, region, rc, false, false, "the hood's jump is in logic in a seed without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectAt(legOn, region, rc, false, true, "the child's hood jump is not in logic under Bunny Hood Effect (#1647)");
+}
+
+/** A helper of Logic asked directly, as one age, with a region current (BAllowed reads its scene). */
+void BhlAs(bool adult, RandomizerRegion region) {
+    logic->IsChild = !adult;
+    logic->IsAdult = adult;
+    logic->CurrentRegionKey = region;
+}
+
+/** BhlExitOffOn for an exit whose lambda asks AnyAgeTime: the region holds the child's access for the probe. */
+void BhlExitOffOnAsChild(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                         RandomizerRegion from, RandomizerRegion to) {
+    Region* region = RegionTable(from);
+    const bool saved[4] = { region->childDay, region->childNight, region->adultDay, region->adultNight };
+    region->childDay = true;
+    region->childNight = true;
+    region->adultDay = false;
+    region->adultNight = false;
+    BhlExitOffOn(randoCtx, legOff, legOn, from, to);
+    region->childDay = saved[0];
+    region->childNight = saved[1];
+    region->adultDay = saved[2];
+    region->adultNight = saved[3];
+}
+
+void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    uint8_t savedTricks[sizeof(kBhlForcedTricks) / sizeof(kBhlForcedTricks[0])];
+    for (size_t i = 0; i < sizeof(kBhlForcedTricks) / sizeof(kBhlForcedTricks[0]); i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kBhlForcedTricks[i]).Get();
+        randoCtx->GetTrickOption(kBhlForcedTricks[i]).Set(0);
+    }
+
+    // ---- BL: the live child Bunny Hood terms, one pair per area ----------------
+    ResetLogicWithBunnyHood();
+    BhlExitOffOn(randoCtx, "BL1 Deku Tree basement lower to upper, child with the hood, setting off",
+                 "BL2 Deku Tree basement lower to upper, child with the hood, setting on", RR_DEKU_TREE_BASEMENT_LOWER,
+                 RR_DEKU_TREE_BASEMENT_UPPER);
+    BhlCheckOffOn(randoCtx, "BL3 DC MQ upper Lizalfos heart, child with the hood, setting off",
+                  "BL4 DC MQ upper Lizalfos heart, child with the hood, setting on",
+                  RR_DODONGOS_CAVERN_MQ_UPPER_LIZALFOS, RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_HEART);
+    BhlExitOffOn(randoCtx, "BL5 Fire SoT cage upper door to switch, child with the hood, no ocarina, setting off",
+                 "BL6 Fire SoT cage upper door to switch, child with the hood, no ocarina, setting on",
+                 RR_FIRE_TEMPLE_SOT_CAGE_UPPER_DOOR, RR_FIRE_TEMPLE_SOT_CAGE_SWITCH);
+    BhlExitOffOn(randoCtx, "BL9 GTG MQ ledge-side to furthest platform, child with the hood, setting off",
+                 "BL10 GTG MQ ledge-side to furthest platform, child with the hood, setting on",
+                 RR_GERUDO_TRAINING_GROUND_MQ_LEDGE_SIDE_PLATFORMS, RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM);
+    BhlCheckOffOn(randoCtx, "BL11 Ice Cavern near-block silver rupee, child with the hood, no grab, setting off",
+                  "BL12 Ice Cavern near-block silver rupee, child with the hood, no grab, setting on",
+                  RR_ICE_CAVERN_BLOCK_ROOM, RC_ICE_CAVERN_NEAR_BLOCK_SILVER);
+    BhlCheckOffOn(randoCtx, "BL13 Shadow MQ east airborne spikes rupee, child with the hood only, setting off",
+                  "BL14 Shadow MQ east airborne spikes rupee, child with the hood only, setting on",
+                  RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, RC_SHADOW_MQ_E_AIRBORNE_SPIKES_SILVER);
+    BhlExitOffOn(randoCtx, "BL15 Spirit GS ledge to child statue room, child with the hood, setting off",
+                 "BL16 Spirit GS ledge to child statue room, child with the hood, setting on",
+                 RR_SPIRIT_TEMPLE_GS_LEDGE, RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+    BhlExitOffOn(randoCtx, "BL17 Water Like Like spikes to toggle switch, child with the hood, no swim, setting off",
+                 "BL18 Water Like Like spikes to toggle switch, child with the hood, no swim, setting on",
+                 RR_WATER_TEMPLE_LIKE_LIKE_SPIKES, RR_WATER_TEMPLE_TOGGLE_SWITCH);
+    // The two terms that also need a jumpslash: closed with the hood alone, open with the sword.
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("BL19 Forest block-push room to courtyard alcove, child with the hood but no jumpslash, setting on",
+               RR_FOREST_TEMPLE_MIDDLE_BLOCK_PUSH_ROOM, RR_FOREST_TEMPLE_BLOCK_PUSH_ROOM_COURTYARD_ALCOVE, false, false,
+               "the hood alone crosses to the alcove: upstream asks for a jumpslash too");
+    GiveKokiriSword();
+    BhlExitOffOn(randoCtx, "BL20 Forest block-push room to courtyard alcove, child with hood and sword, setting off",
+                 "BL21 Forest block-push room to courtyard alcove, child with hood and sword, setting on",
+                 RR_FOREST_TEMPLE_MIDDLE_BLOCK_PUSH_ROOM, RR_FOREST_TEMPLE_BLOCK_PUSH_ROOM_COURTYARD_ALCOVE);
+    BhlExitOffOn(randoCtx, "BL22 Ganon's Shadow Trial end to lower switch, child with hood and sword, setting off",
+                 "BL23 Ganon's Shadow Trial end to lower switch, child with hood and sword, setting on",
+                 RR_GANONS_CASTLE_SHADOW_TRIAL_END, RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH);
+    // Jabu MQ lift room: the hood's term rides RT_UNINTUITIVE_JUMPS.
+    ResetLogicWithBunnyHood();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("BL24 Jabu MQ lift room to east ledge, child with the hood, setting on, no RT_UNINTUITIVE_JUMPS",
+               RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM, RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM_EAST_LEDGE, false, false,
+               "the lift-room jump is in logic without Unintuitive Jumps");
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(1);
+    BhlExitOffOn(randoCtx, "BL25 Jabu MQ lift room to east ledge, child with hood, RT_UNINTUITIVE_JUMPS, setting off",
+                 "BL26 Jabu MQ lift room to east ledge, child with hood, RT_UNINTUITIVE_JUMPS, setting on",
+                 RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM, RR_JABU_JABUS_BELLY_MQ_LIFT_ROOM_EAST_LEDGE);
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(0);
+    // MQ Spirit statue to the sun block (logic.cpp, upstream form): the bracelet and the hood.
+    ResetLogicWithBunnyHood();
+    GiveGrab();
+    BhlAs(false, RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectFlag("BL27 MQSpiritStatueToSunBlock, child with bracelet and hood, no ocarina, setting off",
+               logic->MQSpiritStatueToSunBlock(), false, "the hood's jump to the sun block is in logic with it off");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectFlag("BL28 MQSpiritStatueToSunBlock, child with bracelet and hood, no ocarina, setting on",
+               logic->MQSpiritStatueToSunBlock(), true, "the child's hood jump to the sun block is not in logic");
+    logic->CurrentRegionKey = RR_NONE;
+    // Deku MQ compass-room boulder: Boomerang and bombs, the hood in place of the Song of Time. Bombchu drops
+    // are held off so the bomb bag cannot answer through bombchus.
+    const uint8_t savedChuDrops = randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Get();
+    randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(RO_AMMO_DROPS_OFF);
+    ResetLogicWithBunnyHood();
+    Give(RG_BOOMERANG);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    BhlCheckOffOn(randoCtx, "BL29 Deku MQ compass room boulder, child with Boomerang, bombs and hood, setting off",
+                  "BL30 Deku MQ compass room boulder, child with Boomerang, bombs and hood, setting on",
+                  RR_DEKU_TREE_MQ_COMPASS_ROOM, RC_DEKU_TREE_MQ_BOULDER_1);
+    randoCtx->GetOption(RSK_ENABLE_BOMBCHU_DROPS).Set(savedChuDrops);
+    // DC MQ lobby: Goron's Bracelet and the hood past the lower-right mud wall (an AnyAgeTime exit).
+    ResetLogicWithBunnyHood();
+    GiveGoronsBracelet();
+    BhlExitOffOnAsChild(randoCtx,
+                        "BL31 DC MQ lobby to lower right side, child with Goron's Bracelet and hood, setting off",
+                        "BL32 DC MQ lobby to lower right side, child with Goron's Bracelet and hood, setting on",
+                        RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_LOWER_RIGHT_SIDE);
+    // DC MQ lobby: the bomb-flower ground jump the hood stands in for RT_GROUND_JUMP_HARD in.
+    // The shield's equipment bit is set directly: Logic::ApplyItemEffect ignores a Deku or Hylian Shield that does not
+    // come off a shop shelf (a shield can burn, so only a shop counts as a source), and Give() would do nothing.
+    logic->GetSaveContext()->inventory.equipment |= EQUIP_FLAG_SHIELD_DEKU;
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(1);
+    BhlExitOffOn(randoCtx, "BL33 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, off",
+                 "BL34 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, on",
+                 RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(0);
+    // Water river pots to above the dragon: the slingshot and the hood.
+    ResetLogicWithBunnyHood();
+    GiveSlingshot();
+    BhlExitOffOn(randoCtx, "BL35 Water river pots to above the dragon, child with slingshot and hood, setting off",
+                 "BL36 Water river pots to above the dragon, child with slingshot and hood, setting on",
+                 RR_WATER_TEMPLE_RIVER_POTS, RR_WATER_TEMPLE_ABOVE_DRAGON);
+
+    // ---- OW: the overworld terms -----------------------------------------------
+    ResetLogicWithBunnyHood();
+    BhlExitOffOn(randoCtx, "OW1 Kakariko to the backyard, child with the hood, no bracelet, setting off",
+                 "OW2 Kakariko to the backyard, child with the hood, no bracelet, setting on", RR_KAKARIKO_VILLAGE,
+                 RR_KAK_BACKYARD);
+    GiveNut();
+    BhlCheckOffOn(randoCtx, "OW3 Dampe race Piece of Heart, child with the hood and nut, setting off",
+                  "OW4 Dampe race Piece of Heart, child with the hood and nut, setting on", RR_GRAVEYARD_DAMPES_GRAVE,
+                  RC_GRAVEYARD_DAMPE_RACE_FREESTANDING_POH);
+    ResetLogicWithBunnyHood();
+    // The first Progressive Strength is the grab (ResetLogic withholds it), the second Goron's Bracelet.
+    GiveGoronsBracelet();
+    logic->SetRandoInf(RAND_INF_CAN_OPEN_CHEST, true);
+    BhlCheckOffOn(randoCtx, "OW5 DMT chest, child with Goron's Bracelet and the hood, no trick, setting off",
+                  "OW6 DMT chest, child with Goron's Bracelet and the hood, no trick, setting on",
+                  RR_DEATH_MOUNTAIN_TRAIL, RC_DMT_CHEST);
+    ResetLogicWithBunnyHood();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+    logic->SetRandoInf(RAND_INF_CAN_CLIMB, false);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("OW7 ZD island to Zora's Domain, child with the hood, no swim, no Climb, setting on",
+               RR_ZORAS_DOMAIN_ISLAND, RR_ZORAS_DOMAIN, false, false,
+               "the hood's jump back off the island needs no climb (upstream asks for Climb)");
+    GiveClimb();
+    BhlExitOffOn(randoCtx, "OW8 ZD island to Zora's Domain, child with hood and Climb, no swim, setting off",
+                 "OW9 ZD island to Zora's Domain, child with hood and Climb, no swim, setting on",
+                 RR_ZORAS_DOMAIN_ISLAND, RR_ZORAS_DOMAIN);
+    ResetLogicWithBunnyHood();
+    GiveKokiriSword();
+    BhlExitOffOn(randoCtx, "OW10 ZR atop the ladder to the pillar, child with hood and sword, no bracelet, setting off",
+                 "OW11 ZR atop the ladder to the pillar, child with hood and sword, no bracelet, setting on",
+                 RR_ZR_ATOP_LADDER, RR_ZR_PILLAR);
+    // Lake Hylia front rupee (eca767dcb's Iron Boots term, absorbed by its IsChild guard).
+    ResetLogic();
+    Give(RG_IRON_BOOTS);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+    ExpectAt("OW12 LH front rupee, adult with Iron Boots, no swim", RR_LAKE_HYLIA, RC_LH_FRONT_RUPEE, true, false,
+             "the child-only rupee is in logic for an adult with Iron Boots");
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAt("OW13 LH front rupee, child who can swim", RR_LAKE_HYLIA, RC_LH_FRONT_RUPEE, false, true,
+             "the child can no longer reach the front rupee by swimming");
+
+    // ---- HW: RT_HW_BUNNY_CROSSING needs the trick AND the setting --------------
+    ResetLogicWithBunnyHood();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("HW1 Wasteland crossing, child with the hood, setting on, RT_HW_BUNNY_CROSSING off",
+               RR_WASTELAND_NEAR_FORTRESS, RR_HAUNTED_WASTELAND, false, false,
+               "the bunny crossing is in logic with its trick off");
+    randoCtx->GetTrickOption(RT_HW_BUNNY_CROSSING).Set(1);
+    ExpectExit("HW2 Wasteland crossing, child with the hood, setting on, RT_HW_BUNNY_CROSSING on",
+               RR_WASTELAND_NEAR_FORTRESS, RR_HAUNTED_WASTELAND, false, true,
+               "Wasteland Crossing with Bunny Hood does not cross the sand (SoH eca767dcb)");
+    ExpectExit("HW3 Wasteland crossing back, child with the hood, setting on, RT_HW_BUNNY_CROSSING on",
+               RR_HAUNTED_WASTELAND, RR_WASTELAND_NEAR_FORTRESS, false, true,
+               "Wasteland Crossing with Bunny Hood does not cross the sand back");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectExit("HW4 Wasteland crossing, child with the hood, setting off, RT_HW_BUNNY_CROSSING on",
+               RR_WASTELAND_NEAR_FORTRESS, RR_HAUNTED_WASTELAND, false, false,
+               "the bunny crossing trick credits the hood in a seed without Bunny Hood Effect");
+    randoCtx->GetTrickOption(RT_HW_BUNNY_CROSSING).Set(0);
+
+    // ---- WE: RT_WATER_HIGH_EMBLEM_JUMP (SoH 73a739b7a) -------------------------
+    ResetLogic();
+    ExpectExit("WE1 Water MQ 3F central to high emblem, adult with nothing, trick off", RR_WATER_TEMPLE_MQ_3F_CENTRAL_A,
+               RR_WATER_TEMPLE_MQ_HIGH_EMBLEM, true, false, "the high-emblem jump is in logic with its trick off");
+    BhlAs(true, RR_WATER_TEMPLE_MQ_3F_CENTRAL_A);
+    ExpectFlag("WE2 Water3FCentralToHighEmblem, adult with nothing, trick off", logic->Water3FCentralToHighEmblem(),
+               false, "the vanilla high-emblem jump is in logic with its trick off");
+    randoCtx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Set(1);
+    ExpectFlag("WE3 Water3FCentralToHighEmblem, adult with nothing, trick on", logic->Water3FCentralToHighEmblem(),
+               true, "Water Temple Jump to High Emblem with Nothing does not credit the adult (SoH 73a739b7a)");
+    logic->CurrentRegionKey = RR_NONE;
+    ExpectExit("WE4 Water MQ 3F central to high emblem, adult with nothing, trick on", RR_WATER_TEMPLE_MQ_3F_CENTRAL_A,
+               RR_WATER_TEMPLE_MQ_HIGH_EMBLEM, true, true,
+               "Water Temple Jump to High Emblem with Nothing does not credit the adult in MQ");
+    ResetLogicWithBunnyHood();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ExpectExit("WE5 Water MQ 3F central to high emblem, child with the hood, trick on, setting off",
+               RR_WATER_TEMPLE_MQ_3F_CENTRAL_A, RR_WATER_TEMPLE_MQ_HIGH_EMBLEM, false, false,
+               "the child's high-emblem jump credits the hood in a seed without Bunny Hood Effect");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("WE6 Water MQ 3F central to high emblem, child with the hood, trick on, setting on",
+               RR_WATER_TEMPLE_MQ_3F_CENTRAL_A, RR_WATER_TEMPLE_MQ_HIGH_EMBLEM, false, true,
+               "the child's hood jump to the high emblem is not in logic under the trick");
+    randoCtx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Set(0);
+    ExpectExit("WE7 Water MQ 3F central to high emblem, child with the hood, trick off, setting on",
+               RR_WATER_TEMPLE_MQ_3F_CENTRAL_A, RR_WATER_TEMPLE_MQ_HIGH_EMBLEM, false, false,
+               "the child's high-emblem jump is in logic with its trick off (73a739b7a made it a trick)");
+    // eca767dcb's own form credited the child under RT_UNINTUITIVE_JUMPS; 73a739b7a replaced it.
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(1);
+    BhlAs(false, RR_WATER_TEMPLE_MQ_3F_CENTRAL_A);
+    ExpectFlag("WE8 Water3FCentralToHighEmblem, child with the hood, RT_UNINTUITIVE_JUMPS, trick off, setting on",
+               logic->Water3FCentralToHighEmblem(), false,
+               "eca767dcb's Unintuitive Jumps form was ported: 73a739b7a made the jump its own trick");
+    randoCtx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Set(1);
+    ExpectFlag("WE9 Water3FCentralToHighEmblem, child with the hood, trick on, setting on",
+               logic->Water3FCentralToHighEmblem(), true, "the child's hood jump to the high emblem is not in logic");
+    randoCtx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Set(0);
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(0);
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- RH: CanRecoilHover / CanRecoilHoverFromObject (eca767dcb) ------------
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ResetLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MEGATON_HAMMER);
+    Give(RG_MASTER_SWORD);
+    Give(RG_MIRROR_SHIELD);
+    BhlAs(true, RR_GF_JAIL_WINDOW);
+    ExpectFlag("RH1 CanRecoilHover(RECOIL_SWORD), everything, RT_HOVER_BOOST_SIMPLE off",
+               logic->CanRecoilHover(RECOIL_SWORD), false, "a recoil hover is in logic with its trick off");
+    ExpectFlag("RH1 CanRecoilHover(RECOIL_SWORD_AND_SHIELD), everything, trick off",
+               logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD), false, "a recoil hover is in logic with its trick off");
+    ExpectFlag("RH1 CanRecoilHover(RECOIL_HAMMER), everything, trick off", logic->CanRecoilHover(RECOIL_HAMMER), false,
+               "a recoil hover is in logic with its trick off");
+    ExpectFlag("RH1 CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), everything, trick off",
+               logic->CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), false, "a recoil hover is in logic with its trick off");
+    ExpectFlag("RH1 CanRecoilHoverFromObject(TRECOIL_SHORT), everything, trick off",
+               logic->CanRecoilHoverFromObject(TRECOIL_SHORT), false, "a recoil hover is in logic with its trick off");
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(1);
+    ResetLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MEGATON_HAMMER);
+    BhlAs(true, RR_GF_JAIL_WINDOW);
+    ExpectFlag("RH2 CanRecoilHover(RECOIL_HAMMER), Hover Boots and hammer, no shield, trick on",
+               logic->CanRecoilHover(RECOIL_HAMMER), true, "the hammer recoil hover is not in logic");
+    ExpectFlag("RH3 CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), Hover Boots and hammer, no shield, trick on",
+               logic->CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), false,
+               "the shield-needing hammer recoil is in logic without a shield");
+    ExpectFlag("RH4 CanRecoilHover(RECOIL_SWORD_AND_SHIELD), Hover Boots and hammer, no shield, trick on",
+               logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD), true,
+               "the hammer does not stand in for sword and shield (upstream's fallthrough)");
+    Give(RG_MIRROR_SHIELD);
+    ExpectFlag("RH5 CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), Hover Boots, hammer and Mirror Shield, trick on",
+               logic->CanRecoilHover(RECOIL_HAMMER_AND_SHIELD), true, "the hammer and shield recoil is not in logic");
+    ResetLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MASTER_SWORD);
+    Give(RG_MIRROR_SHIELD);
+    BhlAs(true, RR_GF_JAIL_WINDOW);
+    ExpectFlag("RH6 CanRecoilHover(RECOIL_SWORD_AND_SHIELD), Hover Boots, sword and shield, no hammer, trick on",
+               logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD), true, "the sword and shield recoil is not in logic");
+    ExpectFlag("RH7 CanRecoilHover(RECOIL_HAMMER), Hover Boots, sword and shield, no hammer, trick on",
+               logic->CanRecoilHover(RECOIL_HAMMER), false, "a hammer recoil is in logic with no hammer");
+    logic->CurrentRegionKey = RR_NONE;
+    // The call sites: the old CanHammerRecoilHover() is RECOIL_HAMMER, which needs no shield.
+    ResetLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MEGATON_HAMMER);
+    ExpectExit("RH8 Forest NE courtyard doorframe to island, adult with Hover Boots and hammer, no shield, trick on",
+               RR_FOREST_TEMPLE_NE_COURTYARD_DOORFRAME, RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND, true, true,
+               "the old CanHammerRecoilHover() call now needs a shield (mapped past RECOIL_HAMMER)");
+    ExpectExit("RH9 GF jail window to the long roof, adult with Hover Boots and hammer, trick on", RR_GF_JAIL_WINDOW,
+               RR_GF_LONG_ROOF, true, true, "the long-roof hammer recoil is not in logic (eca767dcb)");
+    ExpectExit("RH10 GV grotto ledge to the upper stream, adult with Hover Boots and hammer, trick on",
+               RR_GV_GROTTO_LEDGE, RR_GV_UPPER_STREAM, true, true,
+               "eca767dcb's hammer recoil to the upper stream is not in logic");
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(0);
+    ExpectExit("RH11 Forest NE courtyard doorframe to island, adult with Hover Boots and hammer, trick off",
+               RR_FOREST_TEMPLE_NE_COURTYARD_DOORFRAME, RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND, true, false,
+               "the hammer recoil hover is in logic with its trick off");
+    ExpectExit("RH12 GF jail window to the long roof, adult with Hover Boots and hammer, trick off", RR_GF_JAIL_WINDOW,
+               RR_GF_LONG_ROOF, true, false, "the hammer recoil hover is in logic with its trick off");
+    ExpectExit("RH13 GV grotto ledge to the upper stream, adult with Hover Boots and hammer, trick off",
+               RR_GV_GROTTO_LEDGE, RR_GV_UPPER_STREAM, true, false,
+               "the hammer recoil hover to the upper stream is in logic with its trick off");
+
+    // ---- D1: CanAvoidEnemy's new distance argument leaves the body alone -------
+    ResetLogic();
+    Give(RG_PROGRESSIVE_BOW);
+    BhlAs(true, RR_GF_JAIL_WINDOW);
+    ExpectFlag("D1 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2), adult with only the Bow",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 2), false,
+               "the Bow avoids two grounded Beamos: the body took stage 5's Beamos rewrite");
+    ExpectFlag("D2 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 1), adult with only the Bow",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 1), true,
+               "the Bow no longer avoids one grounded Beamos");
+    logic->CurrentRegionKey = RR_NONE;
+
+    for (size_t i = 0; i < sizeof(kBhlForcedTricks) / sizeof(kBhlForcedTricks[0]); i++) {
+        randoCtx->GetTrickOption(kBhlForcedTricks[i]).Set(savedTricks[i]);
+    }
+}
+
 void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const char* const kEffectKey = CVAR_ENHANCEMENT("MMBunnyHood");
     const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
@@ -1337,6 +1713,9 @@ void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectExit("LW4 Lost Woods to the bridge, adult with the hood and nothing else, Bunny Hood Effect on",
                RR_THE_LOST_WOODS, RR_LW_BRIDGE, true, false,
                "the adult reaches the bridge through the hood, which only the child can wear");
+
+    // ---- BL, OW, HW, WE, RH, D1: the rest of eca767dcb's terms (#1647) ---------
+    RunBunnyHoodLogicLegs(randoCtx);
 
     CVarClear(kEffectKey);
     if (effectExisted) {

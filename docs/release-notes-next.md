@@ -199,6 +199,11 @@
   option under Logic, off by default. With it on, the Bunny Hood makes Link run 1.5x faster and jump 1.5x further in
   that file, whatever the Bunny Hood Effect enhancement says, and logic may expect child Link to jump to the Lost Woods
   bridge with the hood and a sword or Deku Sticks. Worlds made with the defaults do not change.
+- **More Bunny Hood jumps in logic** (SoH #7032, #7145, issue #1647). With Bunny Hood Effect on, logic now expects
+  child Link to use the hood's longer jump in many more places, among them the Deku Tree basement, Kakariko's backyard
+  fence, Dampe's second race, the Death Mountain Trail chest and dungeon rooms across both quests. Two new tricks go
+  with it, both off by default: Wasteland Crossing with Bunny Hood, and Water Temple Jump to High Emblem with Nothing
+  (adult with nothing, or child with the hood). Worlds made with the defaults do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.

@@ -56,7 +56,7 @@ void RegionTable_Init_ZorasDomain() {
 
     areaTable[RR_ZORAS_DOMAIN_ISLAND] = Region("Zoras Domain Island", SCENE_ZORAS_DOMAIN, {}, {}, {
         //Exits
-        Entrance(RR_ZORAS_DOMAIN,     []{return logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOOKSHOT) && ctx->GetTrickOption(RT_HOOKSHOT_LADDERS));}),
+        Entrance(RR_ZORAS_DOMAIN,     []{return logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOOKSHOT) && ctx->GetTrickOption(RT_HOOKSHOT_LADDERS)) || logic->CanUse(RG_IRON_BOOTS) || ((logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && logic->HasItem(RG_CLIMB));}),
         Entrance(RR_ZD_STORMS_GROTTO, []{return logic->CanOpenStormsGrotto();}),
     });
 

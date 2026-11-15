@@ -154,7 +154,7 @@ void RegionTable_Init_ForestTemple() {
         //Exits
         Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_LOWER,     []{return true;}),
         Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND,    []{return logic->IsAdult && ctx->GetTrickOption(RT_FOREST_COURTYARD_LEDGE) && logic->CanUse(RG_HOVER_BOOTS);}),
-        Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_DOORFRAME, []{return logic->CanHammerRecoilHover() || ((ctx->GetTrickOption(RT_FOREST_DOORFRAME) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanJumpslash()));}),
+        Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_DOORFRAME, []{return logic->CanRecoilHover(RECOIL_HAMMER) || ((ctx->GetTrickOption(RT_FOREST_DOORFRAME) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanJumpslash()));}),
         Entrance(RR_FOREST_TEMPLE_MAP_ROOM,               []{return true;}),
     });
 
@@ -164,7 +164,7 @@ void RegionTable_Init_ForestTemple() {
     }, {}, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_LOWER,  []{return true;}),
-        Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND, []{return logic->CanHammerRecoilHover();}),
+        Entrance(RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND, []{return logic->CanRecoilHover(RECOIL_HAMMER);}),
     });
 
     areaTable[RR_FOREST_TEMPLE_NE_COURTYARD_ISLAND] = Region("Forest Temple NE Courtyard Island", SCENE_FOREST_TEMPLE, {}, {
@@ -264,7 +264,7 @@ void RegionTable_Init_ForestTemple() {
     }, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_LOWER_BLOCK_PUSH_ROOM,            []{return true;}),
-        Entrance(RR_FOREST_TEMPLE_BLOCK_PUSH_ROOM_COURTYARD_ALCOVE, []{return ctx->GetTrickOption(RT_FOREST_OUTSIDE_BACKDOOR) && logic->CanJumpslashExceptHammer();}),
+        Entrance(RR_FOREST_TEMPLE_BLOCK_PUSH_ROOM_COURTYARD_ALCOVE, []{return (ctx->GetTrickOption(RT_FOREST_OUTSIDE_BACKDOOR) && logic->CanJumpslashExceptHammer()) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood());}),
         Entrance(RR_FOREST_TEMPLE_UPPER_BLOCK_PUSH_ROOM,            []{return logic->IsAdult && logic->HasItem(RG_GORONS_BRACELET);}),
     });
 
@@ -421,7 +421,7 @@ void RegionTable_Init_ForestTemple() {
 
     areaTable[RR_FOREST_TEMPLE_MQ_TREES] = Region("Forest Temple MQ Trees", SCENE_FOREST_TEMPLE, {}, {
         //Locations
-        LOCATION(RC_FOREST_TEMPLE_MQ_FIRST_ROOM_CHEST, (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT)) && (logic->CanPassEnemy(RE_BIG_SKULLTULA, ED_SHORT_JUMPSLASH, false) || logic->CanUse(RG_HOVER_BOOTS)) && logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_FOREST_TEMPLE_MQ_FIRST_ROOM_CHEST, (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT)) && (logic->CanPassEnemy(RE_BIG_SKULLTULA, ED_SHORT_JUMPSLASH, false) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_ENTRYWAY,                   []{return true;}),
@@ -528,14 +528,14 @@ void RegionTable_Init_ForestTemple() {
         EventAccess(LOGIC_FOREST_MQ_BLOCK_ROOM_TARGETS, []{return (logic->CanUse(RG_FAIRY_BOW) || logic->CanUse(RG_FAIRY_SLINGSHOT) || logic->CanUse(RG_LONGSHOT));}),
         EventAccess(LOGIC_FOREST_CAN_TWIST_HALLWAY,     []{return ctx->GetTrickOption(RT_FOREST_MQ_JS_HALLWAY_SWITCH) && 
                                                                   (logic->IsAdult && logic->CanJumpslash()) || 
-                                                                   (logic->CanUse(RG_HOVER_BOOTS) && (logic->CanUse(RG_STICKS) || logic->CanUse(RG_BIGGORON_SWORD) || logic->CanUse(RG_MASTER_SWORD)));}),
+                                                                   ((logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && (logic->CanUse(RG_STICKS) || logic->CanUse(RG_BIGGORON_SWORD) || logic->CanUse(RG_MASTER_SWORD)));}),
     }, {}, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_MQ_LOWER_BLOCK_PUZZLE, []{return true;}),
         Entrance(RR_FOREST_TEMPLE_MQ_UPPER_BLOCK_PUZZLE, []{return (logic->IsAdult && logic->HasItem(RG_GORONS_BRACELET)) || 
                                                                    (logic->Get(LOGIC_FOREST_MQ_BLOCK_ROOM_TARGETS) && logic->CanUse(RG_HOOKSHOT));}),
         //Hammer cannot recoil from here, but can make the jump forwards with a hammer jumpslash as adult
-        Entrance(RR_FOREST_TEMPLE_MQ_INDOOR_LEDGE,       []{return logic->Get(LOGIC_FOREST_CAN_TWIST_HALLWAY) && logic->CanUse(RG_HOVER_BOOTS) || 
+        Entrance(RR_FOREST_TEMPLE_MQ_INDOOR_LEDGE,       []{return logic->Get(LOGIC_FOREST_CAN_TWIST_HALLWAY) && (logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && (logic->IsAdult || logic->CanJumpslash()))) || 
                                                                    (ctx->GetTrickOption(RT_FOREST_OUTSIDE_BACKDOOR) && (logic->CanJumpslashExceptHammer() || (logic->IsAdult && logic->CanUse(RG_MEGATON_HAMMER))));}),
     });
 
@@ -681,7 +681,7 @@ void RegionTable_Init_ForestTemple() {
     }, {
         //Exits
         Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD,        []{return true;}),
-        Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD_ISLAND, []{return logic->CanHammerRecoilHover();}),
+        Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD_ISLAND, []{return logic->CanRecoilHover(RECOIL_HAMMER);}),
     });
 
     areaTable[RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_LEDGES] = Region("Forest Temple MQ Courtyard Top Ledges", SCENE_FOREST_TEMPLE, {}, {
@@ -691,7 +691,7 @@ void RegionTable_Init_ForestTemple() {
         //Exits
         Entrance(RR_FOREST_TEMPLE_MQ_NORTH_PASSAGE,          []{return true;}),
         Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD,           []{return true;}),
-        Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD_DOORFRAME, []{return logic->CanHammerRecoilHover() || 
+        Entrance(RR_FOREST_TEMPLE_MQ_NE_COURTYARD_DOORFRAME, []{return logic->CanRecoilHover(RECOIL_HAMMER) || 
                                                                        ((ctx->GetTrickOption(RT_FOREST_DOORFRAME) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanJumpslash())) ||
                                                                        (logic->IsChild && (ctx->GetTrickOption(RT_FOREST_MQ_CHILD_DOORFRAME) || logic->CanMiddairGroundJump()));}),
         //N64 logic doesn't check damage but I always take some so I'm adding it

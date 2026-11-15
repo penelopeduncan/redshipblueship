@@ -1533,9 +1533,9 @@ bool Logic::CanPassEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool wal
 
 // Can we avoid this enemy while climbing up a wall, or doing a difficult platforming challenge?
 // use grounded if the challenge is such that the enemy interferes even if it cannot hit link out of the air
-bool Logic::CanAvoidEnemy(RandomizerEnemy enemy, bool grounded, uint8_t quantity) {
+bool Logic::CanAvoidEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool grounded, uint8_t quantity) {
     // DISTANCE AND WALL ASSUMED, add more arguments later if needed
-    if (CanKillEnemy(enemy, ED_CLOSE, true, quantity)) {
+    if (CanKillEnemy(enemy, distance, true, quantity)) {
         return true;
     }
     switch (enemy) {
@@ -1658,16 +1658,60 @@ bool Logic::CanDetonateUprightBombFlower() {
             (EffectiveHealth() > 8 || CanUse(RG_NAYRUS_LOVE)));
 }
 
-bool Logic::CanHammerRecoilHover(bool needShield) {
-    return CanUse(RG_HOVER_BOOTS) && ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && CanUse(RG_MEGATON_HAMMER) &&
-           (!needShield || CanStandingShield());
+bool Logic::CanRecoilHover(RecoilRequirements req) {
+    if (!(CanUse(RG_HOVER_BOOTS) && ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE))) {
+        return false;
+    }
+    bool can = false;
+    switch (req) {
+        case RECOIL_SWORD:
+            can = CanJumpslash();
+            break;
+        case RECOIL_SWORD_AND_SHIELD:
+            // hammer without shield gives better recoils than sword and shield
+            can = (CanJumpslash() && CanStandingShield());
+            [[fallthrough]];
+        case RECOIL_HAMMER:
+            can = can || CanUse(RG_MEGATON_HAMMER);
+            break;
+        case RECOIL_HAMMER_AND_SHIELD:
+            can = (CanUse(RG_MEGATON_HAMMER) && CanStandingShield());
+        default:
+            break;
+    }
+    return can;
+}
+
+// some actors seem to normalise recoil distance, so the only thing that can matter is attack range
+bool Logic::CanRecoilHoverFromObject(TorchRecoilRequirements req) {
+    if (!(CanUse(RG_HOVER_BOOTS) && ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE))) {
+        return false;
+    }
+    bool can = false;
+    switch (req) {
+        case TRECOIL_LONG_AND_SHIELD:
+            can = (CanUse(RG_STICKS) || CanUse(RG_BIGGORON_SWORD)) && CanStandingShield();
+            break;
+        case TRECOIL_SHORT:
+            can = CanUse(RG_MEGATON_HAMMER) || CanUse(RG_KOKIRI_SWORD);
+            [[fallthrough]];
+        case TRECOIL_MASTER:
+            can = can || CanUse(RG_MASTER_SWORD);
+            [[fallthrough]];
+        case TRECOIL_LONG:
+            can = can || CanUse(RG_STICKS) || CanUse(RG_BIGGORON_SWORD);
+            break;
+        default:
+            break;
+    }
+    return can;
 }
 
 bool Logic::Water3FCentralToHighEmblem() {
-    return (IsAdult && (CanUse(RG_HOVER_BOOTS) ||
-                        (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && CanUse(RG_BOMB_BAG) && TakeDamage()))) ||
+    return (IsAdult && CanUse(RG_HOVER_BOOTS)) ||
            (ctx->GetTrickOption(RT_GROUND_JUMP_HARD) && CanGroundJump() && CanUse(RG_HOVER_BOOTS)) ||
-           (Get(LOGIC_WATER_SCARECROW) && CanUse(RG_HOOKSHOT));
+           (Get(LOGIC_WATER_SCARECROW) && CanUse(RG_HOOKSHOT) ||
+            ((IsAdult || BunnyHood()) && ctx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP)));
 }
 
 bool Logic::WaterRisingTargetTo3FCentral() {
@@ -3215,8 +3259,8 @@ bool Logic::MQSpiritWestToPots() {
 }
 
 bool Logic::MQSpiritStatueToSunBlock() {
-    return (IsAdult || ctx->GetTrickOption(RT_SPIRIT_MQ_SUN_BLOCK_SOT) ||
-            CanUse(RG_SONG_OF_TIME) /* || CanBunnyJump()*/) &&
+    return (IsAdult || ctx->GetTrickOption(RT_SPIRIT_MQ_SUN_BLOCK_SOT) || CanUse(RG_SONG_OF_TIME) ||
+            CanUse(RG_HOVER_BOOTS) || BunnyHood()) &&
            HasItem(RG_POWER_BRACELET);
 }
 
@@ -3231,7 +3275,7 @@ bool Logic::MQSpirit4KeyColossus() {
     // Colossus This is because there are only 3 keys that can be wasted without opening up either this lock to East
     // hand, or the West Hand lock through Sun Block Room and both directions allow you to drop onto colossus
     // logic->CanKillEnemy(RE_FLOORMASTER) is implied
-    return CanAvoidEnemy(RE_BEAMOS, true, 4) && CanUse(RG_SONG_OF_TIME) && CanJumpslash() &&
+    return CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 4) && CanUse(RG_SONG_OF_TIME) && CanJumpslash() &&
            (HasItem(RG_POWER_BRACELET) || SunlightArrows()) &&
            (ctx->GetTrickOption(RT_LENS_SPIRIT_MQ) || CanUse(RG_LENS_OF_TRUTH)) && CanKillEnemy(RE_IRON_KNUCKLE) &&
            CanUse(RG_HOOKSHOT);
@@ -3245,7 +3289,7 @@ bool Logic::MQSpirit4KeyWestHand() {
 }
 // This version of the function handles Shared Access for child, based on what adult could do if they existed
 bool Logic::CouldMQSpirit4KeyWestHand() {
-    return CanAvoidEnemy(RE_BEAMOS, true, 4) && CanUse(RG_SONG_OF_TIME) &&
+    return CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 4) && CanUse(RG_SONG_OF_TIME) &&
            (HasItem(RG_MASTER_SWORD) || HasItem(RG_BIGGORON_SWORD) || HasItem(RG_MEGATON_HAMMER)) &&
            (HasItem(RG_POWER_BRACELET) || SunlightArrows()) &&
            (ctx->GetTrickOption(RT_LENS_SPIRIT_MQ) || CanUse(RG_LENS_OF_TRUTH)) && HasItem(RG_LONGSHOT);

@@ -102,12 +102,12 @@ void RegionTable_Init_ShadowTemple() {
 
     areaTable[RR_SHADOW_TEMPLE_SPINNING_BLADES] = Region("Shadow Temple Spinning Blades", SCENE_SHADOW_TEMPLE, {
         //Events
-        EventAccess(LOGIC_SHADOW_SILVER_BLADES, []{return (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanGroundJump())) || logic->CanUse(RG_HOOKSHOT);}),
+        EventAccess(LOGIC_SHADOW_SILVER_BLADES, []{return (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanGroundJump())) || logic->CanUse(RG_HOOKSHOT) || logic->BunnyHood();}),
     }, {
         //Locations
         LOCATION(RC_SHADOW_TEMPLE_EARLY_SILVER_RUPEE_CHEST, logic->HasItem(RG_SHADOW_SILVER_BLADES) && logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_SHADOW_N_UNDER_BLADE_SILVER,            true),
-        LOCATION(RC_SHADOW_TALL_BLOCK_BLADE_SILVER,         (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanGroundJump())) || logic->CanUse(RG_HOOKSHOT)),
+        LOCATION(RC_SHADOW_TALL_BLOCK_BLADE_SILVER,         (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->CanGroundJump())) || logic->CanUse(RG_HOOKSHOT) || logic->BunnyHood()),
         LOCATION(RC_SHADOW_N_NOOK_BLADE_SILVER,             true),
         LOCATION(RC_SHADOW_W_NOOK_BLADE_SILVER,             true),
         LOCATION(RC_SHADOW_S_UNDER_BLADE_SILVER,            true),
@@ -137,7 +137,7 @@ void RegionTable_Init_ShadowTemple() {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_B2_TO_B3_CORRIDOR_B3,      []{return logic->CanUse(RG_LONGSHOT);}),
         Entrance(RR_SHADOW_TEMPLE_UPPER_HUGE_PIT_DOOR_LEDGE, []{return ctx->GetTrickOption(RT_LENS_SHADOW) || logic->CanUse(RG_LENS_OF_TRUTH);}),
-        Entrance(RR_SHADOW_TEMPLE_LOWER_HUGE_PIT,            []{return logic->IsAdult || logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || ctx->GetTrickOption(RT_SHADOW_MQ_HUGE_PIT);}),
+        Entrance(RR_SHADOW_TEMPLE_LOWER_HUGE_PIT,            []{return logic->IsAdult || logic->CanJumpslash() || logic->BunnyHood() || logic->CanUse(RG_HOVER_BOOTS) || ctx->GetTrickOption(RT_SHADOW_MQ_HUGE_PIT);}),
     });
 
     areaTable[RR_SHADOW_TEMPLE_UPPER_HUGE_PIT_DOOR_LEDGE] = Region("Shadow Temple Upper Huge Pit Door Ledge", SCENE_SHADOW_TEMPLE, {}, {}, {
@@ -158,7 +158,7 @@ void RegionTable_Init_ShadowTemple() {
         LOCATION(RC_SHADOW_W_PIT_SILVER,      true),
     },{
         //Exits
-        Entrance(RR_SHADOW_TEMPLE_UPPER_HUGE_PIT,            []{return logic->IsAdult || logic->CanJumpslash();}),
+        Entrance(RR_SHADOW_TEMPLE_UPPER_HUGE_PIT,            []{return logic->IsAdult || logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SHADOW_TEMPLE_LOWER_HUGE_PIT_DOOR_LEDGE, []{return (ctx->GetTrickOption(RT_LENS_SHADOW_PLATFORM) && ctx->GetTrickOption(RT_LENS_SHADOW)) || logic->CanUse(RG_LENS_OF_TRUTH);}),
         Entrance(RR_SHADOW_TEMPLE_STONE_UMBRELLA,            []{return logic->HasItem(RG_SHADOW_SILVER_PIT);}),
     });
@@ -278,7 +278,7 @@ void RegionTable_Init_ShadowTemple() {
     areaTable[RR_SHADOW_TEMPLE_UPPER_WIND_TUNNEL] = Region("Shadow Temple Upper Wind Tunnel", SCENE_SHADOW_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_SPIKES_DOOR_PLATFORM, []{return logic->SmallKeys(SCENE_SHADOW_TEMPLE, 3);}),
-        Entrance(RR_SHADOW_TEMPLE_LOWER_WIND_TUNNEL,    []{return (logic->CanUse(RG_HOVER_BOOTS) && logic->CanPassEnemy(RE_BIG_SKULLTULA)) || logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_SHADOW_TEMPLE_LOWER_WIND_TUNNEL,    []{return logic->CanUse(RG_HOOKSHOT) || ((logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && logic->CanPassEnemy(RE_BIG_SKULLTULA));}),
     });
 
     areaTable[RR_SHADOW_TEMPLE_LOWER_WIND_TUNNEL] = Region("Shadow Temple Lower Wind Tunnel", SCENE_SHADOW_TEMPLE, {}, {}, {
@@ -289,7 +289,7 @@ void RegionTable_Init_ShadowTemple() {
     });
 
     areaTable[RR_SHADOW_TEMPLE_WIND_TUNNEL_ALCOVE] = Region("Shadow Temple Wind Tunnel Alcove", SCENE_SHADOW_TEMPLE, {}, {}, {
-        Entrance(RR_SHADOW_TEMPLE_LOWER_WIND_TUNNEL, []{return (ctx->GetTrickOption(RT_SHADOW_MQ_WINDY_WALKWAY)) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_SHADOW_TEMPLE_LOWER_WIND_TUNNEL, []{return (ctx->GetTrickOption(RT_SHADOW_MQ_WINDY_WALKWAY)) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SHADOW_TEMPLE_ROOM_TO_BOAT,      []{return true;}),
     });
 
@@ -351,7 +351,7 @@ void RegionTable_Init_ShadowTemple() {
     }, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_ACROSS_CHASM,  []{return true;}),
-        Entrance(RR_SHADOW_TEMPLE_BROKEN_PILLAR, []{return logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && logic->IsAdult && logic->CanJumpslash());}),
+        Entrance(RR_SHADOW_TEMPLE_BROKEN_PILLAR, []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->CanJumpslash()) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && logic->IsAdult && logic->CanJumpslash());}),
     });
 
     areaTable[RR_SHADOW_TEMPLE_ACROSS_CHASM] = Region("Shadow Temple Across Chasm", SCENE_SHADOW_TEMPLE, {
@@ -679,7 +679,7 @@ void RegionTable_Init_ShadowTemple() {
                                                           //hovers can cross from the corner platform with a backflip but that would be a trick.
                                                           logic->CanUse(RG_LONGSHOT) || ((AnyAgeTime([]{return logic->CanKillEnemy(RE_REDEAD);}) || logic->CanMiddairGroundJump()) &&
                                                           //East midair rupee needs longshot to reach from the floor, or hover boots or jumpslash to reach from the upper door platform.
-                                                            (logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS))) &&
+                                                            (logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())) &&
                                                           //1 rupee is in spikes, needs hovers or damage
                                                             (logic->TakeDamage() || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_GORON_TUNIC));}),
     }, {
@@ -740,7 +740,7 @@ void RegionTable_Init_ShadowTemple() {
     }, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_MQ_FLOOR_SPIKES_ROOM,    []{return ctx->GetTrickOption(RT_LENS_SHADOW_MQ) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_GORON_TUNIC) || logic->TakeDamage();}),
-        Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->CanJumpslash());}),
+        Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->CanJumpslash()) || logic->BunnyHood();}),
     });
 
     areaTable[RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM] = Region("Shadow Temple MQ Spikes Door Platform", SCENE_SHADOW_TEMPLE, {
@@ -758,12 +758,12 @@ void RegionTable_Init_ShadowTemple() {
         LOCATION(RC_SHADOW_MQ_E_TARGET_SPIKES_SILVER,       logic->CanUse(RG_LONGSHOT)),
         LOCATION(RC_SHADOW_MQ_W_AIRBORNE_SPIKES_SILVER,     true),
         LOCATION(RC_SHADOW_MQ_CENTRAL_TARGET_SPIKES_SILVER, logic->CanUse(RG_HOOKSHOT)),
-        LOCATION(RC_SHADOW_MQ_E_AIRBORNE_SPIKES_SILVER,     logic->CanUse(RG_HOVER_BOOTS) || logic->CanJumpslash()),
+        LOCATION(RC_SHADOW_MQ_E_AIRBORNE_SPIKES_SILVER,     logic->CanUse(RG_HOVER_BOOTS) || logic->CanJumpslash() || logic->BunnyHood()),
     }, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_MQ_FLOOR_SPIKES_ROOM,      []{return ctx->GetTrickOption(RT_LENS_SHADOW_MQ) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_GORON_TUNIC) || logic->TakeDamage();}),
         Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_CORNER_PLATFORM, []{return logic->CanUse(RG_HOVER_BOOTS)/* && logic->CanUse(RG_ROLL)*/;}),
-        Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_GLASS_PLATFORMS, []{return logic->HasItem(RG_SHADOW_SILVER_SPIKES) && (logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_GLASS_PLATFORMS, []{return logic->HasItem(RG_SHADOW_SILVER_SPIKES) && (logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood());}),
         Entrance(RR_SHADOW_TEMPLE_MQ_UPPER_WIND_TUNNEL,      []{return logic->SmallKeys(SCENE_SHADOW_TEMPLE, 4);}),
     });
 
@@ -778,7 +778,7 @@ void RegionTable_Init_ShadowTemple() {
     areaTable[RR_SHADOW_TEMPLE_MQ_UPPER_WIND_TUNNEL] = Region("Shadow Temple MQ Upper Wind Tunnel", SCENE_SHADOW_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_MQ_SPIKES_DOOR_PLATFORM, []{return logic->SmallKeys(SCENE_SHADOW_TEMPLE, 4);}),
-        Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL,    []{return (logic->CanUse(RG_HOVER_BOOTS) && logic->CanPassEnemy(RE_BIG_SKULLTULA)) || logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL,    []{return ((logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()) && logic->CanPassEnemy(RE_BIG_SKULLTULA)) || logic->CanUse(RG_HOOKSHOT);}),
     });
 
     areaTable[RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL] = Region("Shadow Temple MQ Lower Wind Tunnel", SCENE_SHADOW_TEMPLE, {}, {}, {
@@ -799,7 +799,7 @@ void RegionTable_Init_ShadowTemple() {
     });
 
     areaTable[RR_SHADOW_TEMPLE_MQ_WIND_TUNNEL_ALCOVE] = Region("Shadow Temple MQ Wind Tunnel Alcove", SCENE_SHADOW_TEMPLE, {}, {}, {
-        Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL, []{return (ctx->GetTrickOption(RT_SHADOW_MQ_WINDY_WALKWAY)) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL, []{return ctx->GetTrickOption(RT_SHADOW_MQ_WINDY_WALKWAY) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SHADOW_TEMPLE_MQ_B4_GIBDO_ROOM,     []{return true;}),
     });
 

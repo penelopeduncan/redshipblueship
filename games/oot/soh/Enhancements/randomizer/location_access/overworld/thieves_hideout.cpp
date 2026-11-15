@@ -122,7 +122,7 @@ void RegionTable_Init_ThievesHideout() {
         //Exits
         Entrance(RR_TH_KITCHEN_MAIN,              []{return true;}),
         //hookshot to cross using rafters implied by logic->CanPassEnemy(RE_GERUDO_GUARD)
-        Entrance(RR_TH_KITCHEN_OPPOSITE_CORRIDOR, []{return logic->CanPassEnemy(RE_GERUDO_GUARD) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_TH_KITCHEN_OPPOSITE_CORRIDOR, []{return logic->CanPassEnemy(RE_GERUDO_GUARD) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_GF_TOP_OF_LOWER_VINES,        []{return true;}),
     });
 
@@ -134,7 +134,7 @@ void RegionTable_Init_ThievesHideout() {
         //Exits
         Entrance(RR_TH_KITCHEN_MAIN,        []{return true;}),
         //hookshot to cross using rafters implied by logic->CanPassEnemy(RE_GERUDO_GUARD)
-        Entrance(RR_TH_KITCHEN_BY_CORRIDOR, []{return logic->CanPassEnemy(RE_GERUDO_GUARD) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_TH_KITCHEN_BY_CORRIDOR, []{return logic->CanPassEnemy(RE_GERUDO_GUARD) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_GF_NEAR_GS,             []{return true;}),
     });
 
