@@ -25,7 +25,7 @@
 
 namespace {
 
-static std::string OmsReadSource(const char* relPath) {
+std::string OmsReadSource(const char* relPath) {
 #ifdef RSBS_SOURCE_DIR
     std::ifstream in(std::string(RSBS_SOURCE_DIR) + "/" + relPath, std::ios::binary);
     if (!in.good()) {
@@ -47,11 +47,11 @@ static std::string OmsReadSource(const char* relPath) {
 #endif
 }
 
-static bool OmsIsIdentChar(char c) {
+bool OmsIsIdentChar(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
 }
 
-static size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
+size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
     while (pos < src.size()) {
         const char c = src[pos];
         if (c == ' ' || c == '\t' || c == '\n') {
@@ -73,7 +73,7 @@ static size_t OmsSkipSpaceAndComments(const std::string& src, size_t pos) {
     return pos;
 }
 
-static std::string OmsExtractBraceBlock(const std::string& src, size_t openBracePos) {
+std::string OmsExtractBraceBlock(const std::string& src, size_t openBracePos) {
     if (openBracePos >= src.size() || src[openBracePos] != '{') {
         return std::string();
     }
@@ -127,7 +127,7 @@ static std::string OmsExtractBraceBlock(const std::string& src, size_t openBrace
 }
 
 /** Return the `{ ... }` body of the definition starting with @p signature (skipping prototypes). */
-static std::string OmsExtractFunctionBody(const std::string& src, const char* signature) {
+std::string OmsExtractFunctionBody(const std::string& src, const char* signature) {
     const size_t sigLen = std::strlen(signature);
     size_t at = 0;
     while ((at = src.find(signature, at)) != std::string::npos) {
@@ -145,7 +145,7 @@ static std::string OmsExtractFunctionBody(const std::string& src, const char* si
 }
 
 /** Return the `{ ... }` body of an `if (<conditionExpr>) { ... }` statement outside comments/strings. */
-static std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr, size_t* afterBlockOut) {
+std::string OmsExtractIfBlock(const std::string& body, const char* conditionExpr, size_t* afterBlockOut) {
     const size_t condLen = std::strlen(conditionExpr);
     for (size_t pos = 0; pos < body.size(); pos++) {
         const char c = body[pos];
@@ -215,7 +215,7 @@ static std::string OmsExtractIfBlock(const std::string& body, const char* condit
 }
 
 /** Return the `{ ... }` body when @p s starts (after whitespace/comments) with `if (<conditionExpr>) { ... }`. */
-static std::string OmsExtractLeadingIfBlock(const std::string& s, const char* conditionExpr) {
+std::string OmsExtractLeadingIfBlock(const std::string& s, const char* conditionExpr) {
     const size_t condLen = std::strlen(conditionExpr);
     const size_t pos = OmsSkipSpaceAndComments(s, 0);
     const bool nextOk = (pos + 2 >= s.size()) || !OmsIsIdentChar(s[pos + 2]);
@@ -242,7 +242,7 @@ static std::string OmsExtractLeadingIfBlock(const std::string& s, const char* co
 }
 
 /** Copy @p src with every comment replaced by one space and every string/char literal emptied. */
-static std::string OmsStripCommentsAndStrings(const std::string& src) {
+std::string OmsStripCommentsAndStrings(const std::string& src) {
     std::string out;
     out.reserve(src.size());
     for (size_t pos = 0; pos < src.size(); pos++) {
@@ -280,7 +280,7 @@ static std::string OmsStripCommentsAndStrings(const std::string& src) {
     return out;
 }
 
-static size_t OmsCountSubstr(const std::string& haystack, const char* needle) {
+size_t OmsCountSubstr(const std::string& haystack, const char* needle) {
     const size_t len = std::strlen(needle);
     if (len == 0) {
         return 0;
@@ -300,7 +300,7 @@ static size_t OmsCountSubstr(const std::string& haystack, const char* needle) {
  * `if (0) { ... }`) and preceded only by whitespace after `{`, `;` or `}` (not the body of an
  * unbraced `if (0) call;`).
  */
-static bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const* needles, size_t count) {
+bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char* const* needles, size_t count) {
     if (block.empty() || block[0] != '{') {
         return false;
     }
@@ -337,7 +337,7 @@ static bool OmsHasTopLevelStatementsInOrder(const std::string& block, const char
 }
 
 /** Feed the matcher synthetic guard blocks it must reject, and one it must accept. */
-static bool OmsMatcherSelfCheck(const char* const* needles, size_t count, const char** whyOut) {
+bool OmsMatcherSelfCheck(const char* const* needles, size_t count, const char** whyOut) {
     if (count != 4) {
         *whyOut = "self-check expects exactly four restore statements";
         return false;
