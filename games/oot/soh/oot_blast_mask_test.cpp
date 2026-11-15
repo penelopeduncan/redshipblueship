@@ -486,9 +486,12 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
     Bm1615ArmWearer(&sBm1615Player);
-    // Non-zero X/Y/Z (240, 140, -180) with focus.pos stranded at (0, 184, 0), so
-    // every axis of both world.pos and worldSphere.center is required to cut the
-    // adjacent shrubs without touching the live (0, 140, 0) control shrub.
+    // Non-zero X/Y/Z (240, 140, -180). In play focus.pos follows Link's head on
+    // every drawn frame (OoT_Player_PostLimbDrawGameplay); it is pinned far away
+    // at (0, 184, 0) here only so a blast spawned at focus.pos instead of
+    // world.pos is observable: it would miss the adjacent shrubs and cut the
+    // (0, 140, 0) control shrub. A sphere left at (0, 0, 0) is caught by the
+    // adjacent shrubs staying uncut (it is 140 units below the control).
     Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 0.0f, 184.0f, 0.0f);
 
     EnKusa* kusaNear0 = Bm1615SpawnKusa(264.0f, 140.0f, -180.0f, ENKUSA_TYPE_0);
@@ -544,7 +547,7 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     const bool originAlive = Bm1615ActorInCat(&sBm1615Play, kusaCat, &kusaOrigin->actor);
     const bool originUnflagged = (kusaOrigin->actor.flags & ACTOR_FLAG_GRASS_DESTROYED) == 0;
     Bm1615Check(originAlive && originUnflagged && kusaOrigin->actionFunc == EnKusa_Main,
-                "control shrub at (0, floorY, 0) was hit (hitbox stayed at origin)", __LINE__);
+                "control shrub at (0, floorY, 0) was hit (blast centred at the pinned focus.pos)", __LINE__);
     Bm1615Check(Bm1615FindBomb(&sBm1615Play) == nullptr, "exploded bomb did not self-delete", __LINE__);
 
     // Negative control 1: pressing B while cooldown > 0 eats B without spawning a second bomb.
@@ -583,10 +586,15 @@ static void Bm1615RunGuardHouseSpot(std::vector<uint8_t>& thaBuf, s16 floorY, f3
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_MARKET_GUARD_HOUSE, floorY, thaBuf);
     Bm1615ArmWearer(&sBm1615Player);
-    // Fixed focus.pos at (0, 44, 0) while Link stands at non-origin Guard House coords.
+    // In play focus.pos follows Link's head on every drawn frame; it is pinned at
+    // (0, 44, 0) here only so a blast spawned at focus.pos is observable, while
+    // Link stands at non-origin Guard House coords.
     Bm1615PlacePlayer(&sBm1615Player, linkX, (f32)floorY, linkZ, 0.0f, 44.0f, 0.0f);
 
-    // (16, floorY, -6) is Guard House pot #1 right beside the room origin (ShufflePots.cpp:181).
+    // (16, floorY, -6) is Guard House Child Pot 25, beside the room origin among
+    // the pots that ring it (ShufflePots.cpp, RC_MK_GUARD_HOUSE_CHILD_POT_25). At
+    // floorY 0 it also catches a sphere left at (0, 0, 0); at floorY -120 it only
+    // catches a blast centred at the pinned focus.pos.
     ObjTsubo* potOrigin = Bm1615SpawnPot(16.0f, (f32)floorY, -6.0f);
     ObjTsubo* potNear = Bm1615SpawnPot(targetPotX, (f32)floorY, targetPotZ);
     Bm1615Check(potOrigin != nullptr && potNear != nullptr, "Guard House ObjTsubo spawn failed", __LINE__);
@@ -622,7 +630,8 @@ static void Bm1615RunGuardHouseSpot(std::vector<uint8_t>& thaBuf, s16 floorY, f3
     Bm1615Check(potNearGone && gSaveContext.ship.stats.count[COUNT_POTS_BROKEN] == 1,
                 "Guard House pot beside Link did not break", __LINE__);
     Bm1615Check(Bm1615ActorInCat(&sBm1615Play, potCat, potOriginActor),
-                "Guard House origin pot (16, -6) broke from far away (blast stuck at origin)", __LINE__);
+                "Guard House origin pot (16, -6) broke from far away (blast at the origin or the pinned focus.pos)",
+                __LINE__);
 
     Bm1615EndScene(&sBm1615Play);
 }
