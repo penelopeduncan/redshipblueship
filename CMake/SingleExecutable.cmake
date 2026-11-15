@@ -1947,6 +1947,10 @@ if(BUILD_TESTING)
     # generated world are in TrackerOoTPanelList (rando tier).
     redship_add_test(NAME OoTTrackerSohFixes COMMAND redship --test oot-tracker-soh-fixes)
 
+    # SoH #7158: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
+    # cutscene alone, and the child Ruto skip keeps camera setting 2. Display-free and ROM-free.
+    redship_add_test(NAME OoTBigOctoOnePointKept COMMAND redship --test oot-big-octo-onepoint-kept)
+
     # #948: the same door at night. SCENE_MARKET_NIGHT places it as a sign door
     # (DOOR_CHECKABLE, text 0x0210), so the crossing waited for morning; in a
     # paired world MaskShopNightDoor.cpp gives it the day door's params before
@@ -1968,10 +1972,6 @@ if(BUILD_TESTING)
     # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
     # Display-free and ROM-free.
     redship_add_test(NAME OoTMweepStopRestoresCamera COMMAND redship --test oot-mweep-stop-restores-camera)
-
-    # SoH #7158: Skip One Point Cutscenes leaves the Jabu-Jabu Big Octo platform's
-    # cutscene alone, and the child Ruto skip keeps camera setting 2. Display-free and ROM-free.
-    redship_add_test(NAME OoTBigOctoOnePointKept COMMAND redship --test oot-big-octo-onepoint-kept)
 
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.

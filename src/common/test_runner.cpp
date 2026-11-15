@@ -10792,17 +10792,17 @@ const TestDescriptor gTests[] = {
       "func_80096A74 short-circuits via VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when "
       "camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages (#1336)",
       Test_OoTRoomBgCamGuard },
+    // SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Big Octo platform's cutscene alone.
+    { "oot-big-octo-onepoint-kept",
+      "Skip One Point Cutscenes breaks out for BgBdanObjects params 0 before the chime, and the child Ruto skip "
+      "guards cameraSetting != 2 without the one-point CVar (SoH #7158)",
+      Test_OoTBigOctoOnePointKept },
     // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
     // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
     { "oot-mweep-stop-restores-camera",
       "EnKz_StopMweep restores gameplayCamera and Link cs action behind this->cutsceneCamera != CAM_ID_MAIN "
       "instead of re-querying VB_PLAY_MWEEP_CS (#1591)",
       Test_OoTMweepStopRestoresCamera },
-    // SoH #7158: ROM-free: Skip One Point Cutscenes leaves the Big Octo platform's cutscene alone.
-    { "oot-big-octo-onepoint-kept",
-      "Skip One Point Cutscenes breaks out for BgBdanObjects params 0 before the chime, and the child Ruto skip "
-      "guards cameraSetting != 2 without the one-point CVar (SoH #7158)",
-      Test_OoTBigOctoOnePointKept },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
