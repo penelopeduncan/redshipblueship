@@ -440,6 +440,19 @@ bool Logic::HasItem(RandomizerGet itemName) {
         case RG_STONE_MASK: // [RSBS #979]
         case RG_SONG_OF_SOARING_OOT: // [RSBS #1169 XW4] a song with no quest bit: its flag
             return CheckRandoInf(RandoGetToRandInf[itemName]);
+            // Boss Souls
+        case RG_GOHMA_SOUL:
+        case RG_KING_DODONGO_SOUL:
+        case RG_BARINADE_SOUL:
+        case RG_PHANTOM_GANON_SOUL:
+        case RG_VOLVAGIA_SOUL:
+        case RG_MORPHA_SOUL:
+        case RG_BONGO_BONGO_SOUL:
+        case RG_TWINROVA_SOUL:
+            return !ctx->GetOption(RSK_SHUFFLE_BOSS_SOULS) || CheckRandoInf(RandoGetToRandInf[itemName]);
+        case RG_GANON_SOUL:
+            return !ctx->GetOption(RSK_SHUFFLE_BOSS_SOULS).Is(RO_BOSS_SOULS_ON_PLUS_GANON) ||
+                   CheckRandoInf(RandoGetToRandInf[itemName]);
             // Overworld Keys
         case RG_GUARD_HOUSE_KEY:
         case RG_MARKET_BAZAAR_KEY:
