@@ -2175,9 +2175,10 @@ TestResult Test_ForeignModel(void) {
     FM_ASSERT(OoT_ComboLogic_TestEnsureItemTableTransient() == 0, "M1 OoT's item table is available");
 
     // ---- M2 --------------------------------------------------------------------
-    // OoT: the Triforce piece and the fishing pole. MM: the three empty rows (no
-    // item names any of them; #964 gave the seahorse, the Moon's Tear, the four
-    // remains and the bottled fairy a model).
+    // OoT: the Triforce piece and the completed Triforce (SoH #7341's row, where the
+    // fishing pole's was). MM: the three empty rows (no item names any of them;
+    // #964 gave the seahorse, the Moon's Tear, the four remains and the bottled
+    // fairy a model).
     const FmGame oot = { "OoT",
                          (uint8_t)GAME_OOT,
                          (uint8_t)GAME_MM,
