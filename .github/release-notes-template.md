@@ -19,8 +19,7 @@ All builds bundle `soh.o2r`, `2ship.o2r`, and the asset extraction tools: the `Z
 ## Before you play: saves from earlier builds
 
 - **Back up first.** Copy your `Save/` and `Randomizer/` folders aside before running this build on them.
-- **Saves are version 5.** Files from `v0.3.1-prealpha` load unchanged and are written as version 5 at their next save; from then on older builds refuse them.
-- **Old paired files are refused.** A paired randomizer file saved by `v0.3.0-prealpha` or any earlier build is not opened ("Refused: This file has no Majora's Mask world", or "Refused: Majora's Mask options differ" for a file created before 2026-10-10): erase it and create a new file. Only paired files from `v0.3.1-prealpha` carry over.
+- **Saves are version 6.** A file saved by `v0.5.0-alpha` or any earlier build, plain (non-randomizer) files included, is refused ("Refused: File made by an older version") and is not converted. It stays on disk: keep the old build to finish it, or erase it to start a new file in that slot. Saves made with development builds between releases are not supported.
 - **Old seed packages are refused.** This build's seed generator is version {{GENERATOR_VERSION}}: a seed package made by a build with another generator version is refused; generate the seed again.
 - **Old seeds make new worlds.** A seed and settings from an older build generate a different world on this one.
 - **Rollback:** install into a new folder and keep the old one; earlier releases, `v0.1.1-prealpha` among them, stay downloadable from the releases page.

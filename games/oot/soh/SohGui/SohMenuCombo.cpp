@@ -1193,9 +1193,10 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
             Combo_ComboSettingSet(COMBO_SETTING_BLAST_MASK_OOT, comboRuleBlastMaskOoT ? 1 : 0);
         })
         .Options(CheckboxOptions().Tooltip(
-            "Adds Majora's Mask's Blast Mask to Ocarina of Time as a child trade mask. Wear it as a child and press B "
-            "to set off an explosion in front of you, once per Blast Mask Cooldown. Ocarina of Time's logic counts "
-            "it as an explosive a child can use."));
+            "Adds Majora's Mask's Blast Mask to Ocarina of Time as a child trade mask. Wear it and press B to set off "
+            "an explosion around you, once per Blast Mask Cooldown. Adult Link can wear it too while masks are "
+            "equippable as adult. Ocarina of Time's logic counts it as an explosive for a child, and for an adult "
+            "when the seed's Masks as Adult is on."));
     menu.AddWidget(path, ComboRuleRowName(COMBO_SETTING_STONE_MASK_OOT), WIDGET_CHECKBOX)
         .ValuePointer(&comboRuleStoneMaskOoT)
         .PreFunc([](WidgetInfo& info) {
@@ -1208,9 +1209,10 @@ void AddComboRulesWidgets(SohMenu& menu, WidgetPath& path) {
             Combo_ComboSettingSet(COMBO_SETTING_STONE_MASK_OOT, comboRuleStoneMaskOoT ? 1 : 0);
         })
         .Options(CheckboxOptions().Tooltip(
-            "Adds Majora's Mask's Stone Mask to Ocarina of Time as a child trade mask. While a child wears it, most "
-            "enemies and the Gerudo and castle guards do not notice you. Ocarina of Time's logic counts it for "
-            "getting past Big Skulltulas and the Gerudo guards."));
+            "Adds Majora's Mask's Stone Mask to Ocarina of Time as a child trade mask. While you wear it, most "
+            "enemies and the Gerudo and castle guards do not notice you. Adult Link can wear it too while masks are "
+            "equippable as adult. Ocarina of Time's logic counts it for getting past Big Skulltulas and the Gerudo "
+            "guards for a child, and for an adult when the seed's Masks as Adult is on."));
     // #980 (epic #975 P5): Ocarina of Time's masks added to Majora's Mask, OoTMM's
     // gerudoMaskMm, skullMaskMm and spookyMaskMm, after the masks added to OoT.
     menu.AddWidget(path, ComboRuleRowName(COMBO_SETTING_GERUDO_MASK_MM), WIDGET_CHECKBOX)
