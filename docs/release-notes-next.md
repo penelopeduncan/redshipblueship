@@ -337,6 +337,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Castle and Ganon's Tower.
 - **Cross-Game Masks: Majora's Mask's copies of the Gerudo, Skull and Spooky Masks look like themselves in Ocarina of
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
+- **Plentiful no longer places a second copy of a shared item** (issue #1653). With Plentiful item pools and a Shared
+  Items rule on (the ocarina buttons, shields, magic arrows, Lens of Truth, masks or swim), each game added a spare of
+  the shared item, so you could find a second, tagged copy such as "C Down Button (MM)". Each shared item is now placed
+  once, and a crossed shared item is named without a game tag. A seed with Plentiful and a shared rule on can make a
+  different world.
 - **Cross-Game Masks: the Blast Mask's blast in Ocarina of Time goes off where Link stands** (issue #1615). The cloud
   was drawn at Link, but the blast itself went off at one fixed point of the map in every scene. It is now centred on
   Link everywhere, the Market guard house included, and it cuts shrubs, as logic expects. As in Majora's Mask, the

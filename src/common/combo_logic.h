@@ -1896,6 +1896,14 @@ bool Combo_Logic_FixedCreditDeliveredAt(int index);
 // copies; here the one copy is kept and both engines credit it). Surplus and
 // confined rows are never paired, and a family whose ids match no REQUIRED row
 // changes nothing. ComboLogicComposeResult.sharedPairs counts the rows made.
+// THE ONLY COPY (#1653): once a family's shared row is made, every OTHER
+// REQUIRED or SURPLUS row of its two ids, of either origin (a Plentiful spare, a
+// second copy), is TRIMMED too and counted so under its origin game: the family
+// is one bit, so a second copy is a dead pickup, and left in the bag it would
+// cross as the other game's tagged item. Spares are never paired into a second
+// shared row. A shared-quantity kind is left to its own trim, and a family with
+// no shared row made (no pair handed in, or no REQUIRED row of either id) keeps
+// every row it had.
 //
 // SEED. An assumed shared-pair row is assumed in BOTH engines: its OoT id in
 // OoT's, its MM id in MM's. One row, one copy per engine (ABI 3's rules).

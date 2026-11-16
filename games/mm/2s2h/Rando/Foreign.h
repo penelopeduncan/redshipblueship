@@ -266,6 +266,11 @@ bool IsForeignCheck(RandoCheckId randoCheckId);
 /** Display name for the foreign item hosted by this check, or nullptr. */
 const char* ForeignNameForCheck(RandoCheckId randoCheckId);
 
+/** The game tag after that name (#1653): Combo_ForeignItemTag over the hosted
+ *  item's origin, id and name (warp_song_items.h), so an armed shared family's
+ *  item reads with no " (OoT)". "" if the check hosts nothing. Never nullptr. */
+const char* ForeignTagForCheck(RandoCheckId randoCheckId);
+
 /** "Chest Size & Texture Matches Contents" (EnBox.cpp, EnBox_RandoPostLimbDraw):
  *  the RandoItemType an MM chest at @p randoCheckId is dressed by, given the type
  *  of the MM item the save table holds there (@p native). A chest hosting a
@@ -328,9 +333,10 @@ bool GiveForeignCheck(RandoCheckId randoCheckId);
 
 /** The sentence CheckQueue's textbox shows for a foreign item: "You found " +
  *  `article` + `name` + " (OoT)!", the item's game marked as the trackers mark it
- *  (null article: none; null name: "a foreign item"). Defined in
+ *  (null article: none; null name: "a foreign item"), or no tag when OoT item
+ *  `ootId` is an armed shared family's (Combo_ForeignItemTag, #1653). Defined in
  *  MiscBehavior/CheckQueue.cpp (#865). */
-std::string ForeignPickupMessage(const char* article, const char* name);
+std::string ForeignPickupMessage(const char* article, const char* name, uint16_t ootId);
 
 /** A check hosting a foreign item whose crossing was already delivered: its
  *  `obtained` bit, which survives the three-day reset (RecordForeignPickup's

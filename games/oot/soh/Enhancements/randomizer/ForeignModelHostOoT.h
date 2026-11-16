@@ -47,6 +47,13 @@ int OoT_Rando_Foreign_IsShowOnlyGetItem(const GetItemEntry* entry);
  */
 int OoT_Rando_Foreign_ShowOnlyItemText(const GetItemEntry* entry, const char** article, const char** name);
 
+/**
+ * The game tag after that name (#1653): Combo_ForeignItemTag over the shown MM
+ * item's id and name (warp_song_items.h), so an armed shared family's item reads
+ * with no " (MM)". "" when `entry` is not the show-only entry. Never NULL.
+ */
+const char* OoT_Rando_Foreign_ShowOnlyItemTag(const GetItemEntry* entry);
+
 #ifdef __cplusplus
 }
 #endif

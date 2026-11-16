@@ -46,7 +46,7 @@ static std::string ObtainedItemTrackerName(RandoCheckId randoCheckId, const Rand
     // give never rewrites it (CheckQueue.cpp). What the player found is the OoT
     // item the give's textbox named, from the same lookup.
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
-        return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
+        return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
     if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)) {
@@ -83,7 +83,7 @@ extern "C" int MM_CheckTracker_TestItemName(const void* mmSave, uint16_t randoCh
 // (Rando::UncollectedNamedItem, over MM's live save).
 static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSaveCheck& randoSaveCheck) {
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
-        return std::string(foreignName) + Combo_ForeignGameTag(foreignName, GAME_OOT);
+        return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     const RandoItemId named = Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId);
     // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).

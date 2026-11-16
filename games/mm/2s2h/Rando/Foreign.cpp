@@ -75,6 +75,7 @@
 #include "combo_mm_tricks_view.h" // the trick labels the load-time restore names
 #include "triforce_hunt.h"        // #1389: the [Both Games] Triforce Hunt split MM's half follows
 #include "combo_song_pool.h"      // #1542: the pair's one songs setting MM's half follows
+#include "warp_song_items.h"      // #1653: Combo_ForeignItemTag, the crossed item's tag
 
 #include <algorithm>
 #include <cstddef>
@@ -1387,6 +1388,14 @@ const char* ForeignNameForCheck(RandoCheckId randoCheckId) {
         return nullptr;
     }
     return Combo_GetForeignItemName(*item);
+}
+
+const char* ForeignTagForCheck(RandoCheckId randoCheckId) {
+    const SharedItem* item = PlacementFor(randoCheckId);
+    if (item == nullptr) {
+        return "";
+    }
+    return Combo_ForeignItemTag(item->originGame, item->id, Combo_GetForeignItemName(*item));
 }
 
 RandoItemType ChestItemTypeForCheck(RandoCheckId randoCheckId, RandoItemType native) {

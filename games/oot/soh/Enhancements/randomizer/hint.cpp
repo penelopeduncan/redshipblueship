@@ -40,7 +40,7 @@ static std::string CrossedItemHintName(RandomizerCheck check, bool withArticle) 
         return "";
     }
     const char* article = withArticle ? Combo_DescribeItemArticle(*item) : nullptr;
-    return std::string(article != nullptr ? article : "") + name + Combo_ForeignGameTag(name, GAME_MM);
+    return std::string(article != nullptr ? article : "") + name + Combo_ForeignItemTag(item->originGame, item->id, name);
 }
 
 /** The spoiler's name for hinted item `c`: the crossed item at a crossing host

@@ -209,6 +209,18 @@ ComboAddedSongRow Combo_AddedSongRow(uint32_t rules2, uint32_t extBit, bool sepa
 const char* Combo_ForeignGameTag(const char* name, uint8_t originGame);
 
 /**
+ * THE TAG A CROSSED ITEM'S NAME TAKES (#1653): "" when the FROZEN record arms a
+ * shared family whose @p originGame copy is native id @p id (the first family
+ * word's Combo_SharedFamilyArmedBitOf or the second word's
+ * Combo_SharedFamily2ArmedBitOf, shared_resources.h): that item is both games'
+ * own, so OoTMM names it with no game tag. Otherwise exactly
+ * Combo_ForeignGameTag(@p name, @p originGame). With every rule off nothing is
+ * armed and the answer is always Combo_ForeignGameTag's. Never NULL. Every site
+ * that appends a crossed item's tag asks this, not Combo_ForeignGameTag.
+ */
+const char* Combo_ForeignItemTag(uint8_t originGame, uint16_t id, const char* name);
+
+/**
  * THE EXTENSION ROWS' TOOLTIP (#1169 lane XW14): the Cross-Game Songs row of
  * extension @p extBit (one of RSBS_XITEM2_WARP_SONG_EXTENSIONS) shows its own
  * text (RSBS_SONG_SOARING_OOT_TOOLTIP, Combo_MMWarpSongTooltip), which names only

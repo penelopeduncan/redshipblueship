@@ -675,24 +675,24 @@ TestResult Test_WarpSongTracker(void) {
             const char* literal;
         };
         const Site sites[] = {
-            { &tracker, "static std::string PlacedItemTrackerName(", "Combo_ForeignGameTag(name, GAME_MM)", 1,
-              "+ \" (MM)\"" },
-            { &hint, "static std::string CrossedItemHintName(", "Combo_ForeignGameTag(name, GAME_MM)", 1,
-              "+ \" (MM)\"" },
+            { &tracker, "static std::string PlacedItemTrackerName(",
+              "Combo_ForeignItemTag(crossed->originGame, crossed->id, name)", 1, "+ \" (MM)\"" },
+            { &hint, "static std::string CrossedItemHintName(",
+              "Combo_ForeignItemTag(item->originGame, item->id, name)", 1, "+ \" (MM)\"" },
             { &hooks, "extern \"C\" void OoT_Rando_Foreign_EmitPickupToast(",
-              "Combo_ForeignGameTag(foreignName, GAME_MM)", 1, "+ \" (MM)\"" },
-            { &msgs, "static CustomMessage BuildForeignItemText(", "Combo_ForeignGameTag(name, GAME_MM)", 1,
-              "%w (MM)!" },
-            { &pane, "std::string ComboCheckRowItemText(uint8_t game", "Combo_ForeignGameTag(row.placedItemName,", 1,
+              "Combo_ForeignItemTag(item.originGame, item.id, foreignName)", 1, "+ \" (MM)\"" },
+            { &msgs, "static CustomMessage BuildForeignItemText(",
+              "msg.Replace(\"[[tag]]\", std::string(tag != nullptr ? tag : \"\"))", 1, "%w (MM)!" },
+            { &pane, "std::string ComboCheckRowItemText(uint8_t game", "Combo_ForeignItemTag(row.placedItemGame", 1,
               "? \" (MM)\" : \" (OoT)\"" },
-            { &queue, "std::string Rando::Foreign::ForeignPickupMessage(", "Combo_ForeignGameTag(name, GAME_OOT)", 1,
-              "\" (OoT)!\"" },
-            { &mmTracker, "static std::string ObtainedItemTrackerName(", "Combo_ForeignGameTag(foreignName, GAME_OOT)",
+            { &queue, "std::string Rando::Foreign::ForeignPickupMessage(",
+              "Combo_ForeignItemTag((uint8_t)GAME_OOT, ootId, name)", 1, "\" (OoT)!\"" },
+            { &mmTracker, "static std::string ObtainedItemTrackerName(",
+              "Rando::Foreign::ForeignTagForCheck(randoCheckId)", 1, "+ \" (OoT)\"" },
+            { &mmTracker, "static std::string SeenItemTrackerName(", "Rando::Foreign::ForeignTagForCheck(randoCheckId)",
               1, "+ \" (OoT)\"" },
-            { &mmTracker, "static std::string SeenItemTrackerName(", "Combo_ForeignGameTag(foreignName, GAME_OOT)", 1,
-              "+ \" (OoT)\"" },
             { &gossip, "static std::string GossipHintItemName(const RandoSaveCheck* checks",
-              "Combo_ForeignGameTag(foreignName, GAME_OOT)", 1, "+ \" (OoT)\"" },
+              "Rando::Foreign::ForeignTagForCheck(randoCheckId)", 1, "+ \" (OoT)\"" },
         };
         for (const Site& s : sites) {
             const std::string body = Xw11Body(*s.text, s.head);

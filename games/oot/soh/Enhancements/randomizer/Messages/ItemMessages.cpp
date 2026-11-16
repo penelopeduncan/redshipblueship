@@ -433,13 +433,14 @@ void BuildCustomItemMessage(Player* player, CustomMessage& msg) {
 // OoT's AutoFormat lays them out. Factored out of BuildItemMessage below so the
 // ForeignModel row reads the very text the cutscene shows. The item is marked
 // with its game, " (MM)", the way OoT's check tracker marks it: many names exist
-// in both games.
-static CustomMessage BuildForeignItemText(const char* article, const char* name) {
+// in both games. `tag` is OoT_Rando_Foreign_ShowOnlyItemTag's answer for the
+// entry: none for an armed shared family's item (#1653), and no second tag after
+// a name that already carries it ("Minuet of Forest (MM)", #1169 XW11).
+static CustomMessage BuildForeignItemText(const char* article, const char* name, const char* tag) {
     CustomMessage msg = CustomMessage("You found [[article]]%g[[name]]%w[[tag]]!", TEXTBOX_TYPE_BLUE);
     msg.Replace("[[article]]", std::string(article != nullptr ? article : ""));
     msg.Replace("[[name]]", std::string(name != nullptr ? name : ""));
-    // #1169 XW11: no second tag after a name that already carries it ("Minuet of Forest (MM)").
-    msg.Replace("[[tag]]", std::string(Combo_ForeignGameTag(name, GAME_MM)));
+    msg.Replace("[[tag]]", std::string(tag != nullptr ? tag : ""));
     return msg;
 }
 
@@ -455,7 +456,8 @@ extern "C" int OoT_Rando_Foreign_TestShowOnlyMessage(const GetItemEntry* entry, 
     if (OoT_Rando_Foreign_ShowOnlyItemText(entry, &article, &name) != 1) {
         return -1;
     }
-    const std::string text = BuildForeignItemText(article, name).GetEnglish(MF_CLEAN);
+    const std::string text =
+        BuildForeignItemText(article, name, OoT_Rando_Foreign_ShowOnlyItemTag(entry)).GetEnglish(MF_CLEAN);
     if (out != nullptr && cap > 0) {
         snprintf(out, (size_t)cap, "%s", text.c_str());
     }
@@ -480,7 +482,8 @@ void BuildItemMessage(u16* textId, bool* loadFromMessageTable) {
 
     if (foreign) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-        msg = BuildForeignItemText(foreignArticle, foreignName);
+        msg = BuildForeignItemText(foreignArticle, foreignName,
+                                   OoT_Rando_Foreign_ShowOnlyItemTag(&player->getItemEntry));
         msg.AutoFormat();
 #endif
     } else if (player->getItemEntry.getItemId == RG_ICE_TRAP) {

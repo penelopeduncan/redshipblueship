@@ -60,7 +60,7 @@
 #include "combo_ui.h"
 #include "context.h"          // GameId
 #include "cvar_shared_keys.h" // RSBS_CVAR_COMBO_CHECKS_* (#1131)
-#include "warp_song_items.h"  // Combo_ForeignGameTag: one tag after a crossed item's name (#1169 XW11)
+#include "warp_song_items.h"  // Combo_ForeignItemTag: one tag after a crossed item's name (#1169 XW11, #1653)
 
 namespace ComboGui {
 
@@ -659,9 +659,10 @@ std::string ComboCheckRowItemText(uint8_t game, const ComboTrackerCheckRow& row)
     if (row.placedItemName != nullptr) {
         text = row.placedItemName;
         if (row.placedItemGame != game) {
-            // #1169 XW11: no second tag after a name that already carries it ("Minuet of Forest (MM)").
-            text += Combo_ForeignGameTag(row.placedItemName,
-                                         row.placedItemGame == (uint8_t)GAME_MM ? (uint8_t)GAME_MM : (uint8_t)GAME_OOT);
+            // #1169 XW11: no second tag after a name that already carries it ("Minuet of Forest (MM)");
+            // #1653: none at all for an armed shared family's item.
+            text += Combo_ForeignItemTag(row.placedItemGame == (uint8_t)GAME_MM ? (uint8_t)GAME_MM : (uint8_t)GAME_OOT,
+                                         row.placedItemId, row.placedItemName);
         }
     }
     if (row.hasPrice) {

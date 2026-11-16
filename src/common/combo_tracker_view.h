@@ -207,6 +207,7 @@ typedef struct {
     const char* areaName;       // may be NULL; storage is the owning game's
     const char* placedItemName; // NULL unless the status reveals it; storage is the owning game's
     uint8_t placedItemGame;     // GameId of placedItemName's item; GAME_NONE when it is NULL
+    uint16_t placedItemId;      // that item's native id in placedItemGame, for its tag (#1653); 0 when unknown
     const char* shortName;      // name under the area header, or NULL for `name`; see SHORT NAME above
     bool availabilityKnown;     // see AVAILABILITY above
     bool available;             // reachable now; meaningful only when availabilityKnown
@@ -252,14 +253,16 @@ typedef struct {
     bool iceTrap;              // the check holds an ice trap
     const char* itemName;      // the item's tracker name (not an ice trap); NULL or "" for none
     uint8_t itemGame;          // GameId of itemName's item
+    uint16_t itemId;           // itemName's item's native id in itemGame (#1653); 0 when unknown
     const char* looksLikeName; // an ice trap's disguise; NULL or "" for none
     const char* trickName;     // an ice trap's trick name; NULL or "" for none
     uint16_t price;
 } ComboTrackerSeenItem;
 
 /**
- * Name `seen`'s item on `row` by the rule above: `placedItemName` and
- * `placedItemGame` (NULL and GAME_NONE when hidden or unnamed), `hasPrice` and
+ * Name `seen`'s item on `row` by the rule above: `placedItemName`,
+ * `placedItemGame` and `placedItemId` (NULL, GAME_NONE and 0 when hidden or
+ * unnamed; an ice trap's disguise carries id 0), `hasPrice` and
  * `price`. Every other field is left alone. NULL arguments are ignored.
  */
 void Combo_TrackerNameSeenItem(const ComboTrackerSeenItem* seen, ComboTrackerCheckRow* row);
@@ -306,8 +309,9 @@ typedef struct ComboMMTrackerDesc {
     // layout), with its game in `*outGame`: the crossed OoT item for a check
     // that hosts one, as MM's own check tracker names it (#796), else the item
     // MM's table stores there. NULL when there is nothing to name. May itself
-    // be NULL: rows then name no item.
-    const char* (*placedItemName)(const void* save, uint16_t checkId, uint8_t* outGame);
+    // be NULL: rows then name no item. `*outId` (when not NULL) receives that
+    // item's native id in `*outGame`, which picks its tag (#1653).
+    const char* (*placedItemName)(const void* save, uint16_t checkId, uint8_t* outGame, uint16_t* outId);
     // MM's live save, laid out exactly like the shadow blob (every offset above
     // applies to it), or NULL when it must not be read: the MM TU answers
     // &gSaveContext only while MM's play state is loaded, which excludes the

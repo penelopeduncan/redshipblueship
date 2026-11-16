@@ -580,6 +580,13 @@ extern "C" int OoT_Rando_Foreign_ShowOnlyItemText(const GetItemEntry* entry, con
     return 1;
 }
 
+extern "C" const char* OoT_Rando_Foreign_ShowOnlyItemTag(const GetItemEntry* entry) {
+    if (!IsShowOnlyEntry(entry)) {
+        return "";
+    }
+    return Combo_ForeignItemTag(sShowOnly.item.originGame, sShowOnly.item.id, Combo_GetForeignItemName(sShowOnly.item));
+}
+
 // ---- TEST BRIDGES (ForeignModel row M12, src/common/tests/test_foreign_model.c)
 
 /** M23 (#1481): the model the last built show-only entry draws: 1 and *out, or 0
