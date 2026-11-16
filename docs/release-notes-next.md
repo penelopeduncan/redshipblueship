@@ -1,8 +1,7 @@
 # Release notes: v0.5.1-alpha ("Ellen Bravo")
 
-**Status:** release candidate. The release is cut as the tag `v0.5.1-alpha` on the commit that merges this text, and
-these notes may still change until then. The next release's draft starts above this section when something merges
-after the tag.
+**Status:** released on 2026-11-16. The tag `v0.5.1-alpha` is on `main` at `ac9ace343`. The next release's draft
+starts above this section when something that players can see merges after the tag.
 **Version:** `v0.5.1-alpha`, codename "Ellen Bravo" (`src/common/rsbs_version.h`). Under
 [`VERSIONING.md`](VERSIONING.md) the number is a `z` bump, so it keeps the film character ("Ellen") and takes the
 next NATO phonetic code word, Bravo. A build's window title reads
@@ -11,6 +10,9 @@ from generator 5.
 **Last release:** `v0.5.0-alpha` ("Ellen Alfa"), tagged 2026-11-06. Its notes follow this section.
 **Covers:** everything merged after `v0.5.0-alpha`. Numbers in parentheses are issues of this project, or pull
 requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are named.
+**Get it:** the [release page](https://github.com/penelopeduncan/redshipblueship/releases/tag/v0.5.1-alpha) carries
+`redshipblueship-v0.5.1-alpha-windows.zip`, `redshipblueship-v0.5.1-alpha-linux.AppImage` and
+`redshipblueship-v0.5.1-alpha-macos.dmg`.
 
 ## Since v0.5.0-alpha
 
