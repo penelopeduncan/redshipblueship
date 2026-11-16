@@ -1439,6 +1439,10 @@ jobs:
     # failed, timed out or was cancelled, and the release keeps the Windows and
     # Linux assets. Re-running the failed build-macos job of the same run (which
     # re-runs this one) attaches the dmg to the existing release (--clobber).
+    # release-macos-retry.yml does that re-run by itself, up to four times,
+    # when the macOS job was cancelled because GitHub never found it a hosted
+    # runner and nothing else in the run failed (#1655; the full conditions
+    # are in .github/scripts/retry-unacquired-macos.sh).
     name: Attach macOS release
     if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v') || github.event_name == 'workflow_dispatch'
     needs: [create-release, build-macos]
