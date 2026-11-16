@@ -43,6 +43,20 @@ macos_job_state() {
 
 attempt="${RUN_ATTEMPT}"
 reruns=0
+
+# Act only on the run's newest attempt, and only once it has completed. If the
+# completion of a re-run started below also fires workflow_run, its retrier
+# queues behind this one (per-run concurrency group) and must not start a
+# second chain of re-runs from an attempt that is no longer the newest.
+if ! current="$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq '"\(.run_attempt) \(.status)"')"; then
+    echo "::error::could not read run ${RUN_ID}"
+    exit 1
+fi
+read -r current_attempt current_status <<<"${current}"
+if [ "${current_attempt}" != "${attempt}" ] || [ "${current_status}" != "completed" ]; then
+    echo "Run ${RUN_ID} is now at attempt ${current_attempt} (${current_status}), not completed attempt ${attempt}; nothing to do."
+    exit 0
+fi
 while :; do
     if ! state="$(macos_job_state "${attempt}")"; then
         echo "::error::could not read the jobs of run ${RUN_ID} attempt ${attempt}"
