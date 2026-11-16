@@ -207,11 +207,16 @@
 - **Masks as Adult seed setting from Ship of Harkinian** (SoH #7032, issue #1647). A new Ocarina of Time randomizer
   option under Logic, off by default. With it on, adult Link can wear the masks in that file, whatever the Masks
   Equippable as Adult enhancement says, and logic may expect him to wear the Skull Mask, the Mask of Truth or the Bunny
-  Hood (the Blast and Stone Masks from Majora's Mask stay child-only, as an adult cannot wear them). With Bunny
+  Hood, or the Blast and Stone Masks from Majora's Mask (see the next note). With Bunny
   Hood Effect on too, logic may expect adult Link to use the hood's longer jump, alone or with the Hover Boots, in
   dungeons, Gerudo's Fortress, Gerudo Valley, Sacred Forest Meadow and Zora's River. A new trick goes
   with it, off by default: Dodongo's Cavern Dodongo with Goron Bracelet and Bunnyhovers. Worlds made with the defaults
   do not change.
+- **Adult Link can wear the Blast and Stone Masks** (issue #1647). In Ocarina of Time, with Masks as Adult, the Masks
+  Equippable as Adult enhancement or Timeless Equipment on, adult Link can wear Majora's Mask's Blast and Stone Masks as
+  child Link does: the Blast Mask's blast and cooldown on B, and the Stone Mask hiding him from the same enemies and
+  guards. With Masks as Adult on, logic may expect him to use them (Beamos, Gerudo guards, explosions). How the masks
+  sit on adult Link's face has not been checked by eye yet. Worlds made with the defaults do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.

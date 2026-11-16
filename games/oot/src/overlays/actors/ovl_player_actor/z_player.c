@@ -35,6 +35,7 @@
 #include "soh/ResourceManagerHelpers.h"
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
+#include "soh/Enhancements/randomizer/ForeignMaskOoT.h"      // the pedestal's deferred mask drop (#1647)
 #endif
 
 #include <string.h>
@@ -5597,6 +5598,10 @@ void func_8083A0F4(PlayState* play, Player* this) {
             if (!CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) ||
                 !OoT_AdultMasksEnabled() /* [RSBS #1647] the enhancement or Masks as Adult */) {
                 gSaveContext.ship.maskMemory = PLAYER_MASK_NONE;
+#ifdef RSBS_SINGLE_EXECUTABLE
+                // [RSBS #1647] the worn Majora's Mask mask too, at the next Player_Init as a native one
+                OoT_ForeignMask_DropAtNextInit();
+#endif
             }
         } else {
             LinkAnimationHeader* anim;

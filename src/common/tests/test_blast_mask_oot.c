@@ -81,6 +81,10 @@ uint32_t OoT_BlastMaskTest_ItemIconsCount(void);
 const char* OoT_BlastMaskTest_Icon(uint8_t item);
 int OoT_BlastMaskTest_AgeReq(uint8_t item);
 int OoT_BlastMaskTest_ChildAge(void);
+void OoT_BlastMaskTest_ApplyAgeReqs(int adultMayWear);
+int OoT_BlastMaskTest_AgeReqNone(void);
+int OoT_BlastMaskTest_SlotAgeReq(void);
+void OoT_BlastMaskTest_SetSlotAgeReq(int req);
 int OoT_BlastMaskTest_PoolId(void);
 int OoT_BlastMaskTest_IsAdvancement(void);
 void OoT_BlastMaskTest_SetOwned(int held);
@@ -362,6 +366,37 @@ TestResult Test_BlastMaskOoTItems(void) {
         BM_CHECK(OoT_BlastMaskTest_AgeReq(blast) == OoT_BlastMaskTest_ChildAge(),
                  "the Blast Mask's age row is %d, not the child's %d", OoT_BlastMaskTest_AgeReq(blast),
                  OoT_BlastMaskTest_ChildAge());
+        // #1647: OoT_ForeignMask_ApplyAgeReqs (z_play.c, the pause screen) frees the row and the trade
+        // slot holding the mask for an adult while allowed, puts the row back to the child's otherwise,
+        // and never frees the slot for another item nor restricts it.
+        {
+            const int child = OoT_BlastMaskTest_ChildAge();
+            const int none = OoT_BlastMaskTest_AgeReqNone();
+            const int savedSlotReq = OoT_BlastMaskTest_SlotAgeReq();
+            const int savedTrade = OoT_BlastMaskTest_TradeSlot();
+            OoT_BlastMaskTest_SetTradeSlot(blast);
+            OoT_BlastMaskTest_SetSlotAgeReq(child);
+            OoT_BlastMaskTest_ApplyAgeReqs(1);
+            BM_CHECK(OoT_BlastMaskTest_AgeReq(blast) == none && OoT_BlastMaskTest_SlotAgeReq() == none,
+                     "allowed: the Blast Mask's age row is %d and the trade slot's %d, not any age's %d",
+                     OoT_BlastMaskTest_AgeReq(blast), OoT_BlastMaskTest_SlotAgeReq(), none);
+            OoT_BlastMaskTest_ApplyAgeReqs(0);
+            BM_CHECK(OoT_BlastMaskTest_AgeReq(blast) == child && OoT_BlastMaskTest_SlotAgeReq() == none,
+                     "not allowed: the Blast Mask's age row is %d (not the child's) or the slot was restricted (%d)",
+                     OoT_BlastMaskTest_AgeReq(blast), OoT_BlastMaskTest_SlotAgeReq());
+            OoT_BlastMaskTest_SetTradeSlot(0x24); // ITEM_MASK_KEATON: the native code's own
+            OoT_BlastMaskTest_SetSlotAgeReq(child);
+            OoT_BlastMaskTest_ApplyAgeReqs(1);
+            BM_CHECK(OoT_BlastMaskTest_SlotAgeReq() == child,
+                     "allowed with the Keaton Mask in the slot: the cross-game rows freed the slot (%d)",
+                     OoT_BlastMaskTest_SlotAgeReq());
+            OoT_BlastMask_RegisterRuntime();
+            BM_CHECK(OoT_BlastMaskTest_AgeReq(blast) == child, "RegisterRuntime left the Blast Mask's row at %d",
+                     OoT_BlastMaskTest_AgeReq(blast));
+            OoT_BlastMaskTest_ApplyAgeReqs(0); // the Stone Mask's row back to the child's too
+            OoT_BlastMaskTest_SetTradeSlot((uint8_t)savedTrade);
+            OoT_BlastMaskTest_SetSlotAgeReq(savedSlotReq);
+        }
         BM_CHECK(OoT_BlastMaskTest_IsAdvancement() == 1, "RG_BLAST_MASK is not an advancement item");
     }
 
@@ -594,7 +629,8 @@ TestResult Test_BlastMaskOoTSpawn(void) {
 
 TestResult BlastMaskOoTShrubGuardHouse_Run(void) {
     printf("[TEST] blast-mask-oot-shrub-guardhouse: child Link's Blast Mask cuts ground shrubs and follows world.pos "
-           "in the Market guard house without OoT_EnBom_Draw (#1615)\n");
+           "in the Market guard house without OoT_EnBom_Draw (#1615), and adult Link's only while Masks Equippable "
+           "as Adult holds (#1647)\n");
     const int rc = OoT_BlastMaskTest_ShrubAndGuardHouse();
     printf("[TEST] blast-mask-oot-shrub-guardhouse: %s\n", rc == 0 ? "PASS" : "FAIL");
     return rc == 0 ? TEST_PASS : TEST_FAIL;

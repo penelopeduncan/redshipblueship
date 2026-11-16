@@ -17,8 +17,13 @@
  * OOT'S MASK RULES, applied to it as OoT applies them to its own masks:
  *  - a mask comes off at every scene load unless SoH's Persistent Masks is on
  *    (Player_Init's "keep masks thru loading zones"), and then also when the
- *    child trade slot is sold out (OoT_ForeignMask_OnPlayerInit);
- *  - the masks are child items: an adult Link wears none (the age change);
+ *    child trade slot is sold out or the Master Sword pedestal cleared the
+ *    native maskMemory (OoT_ForeignMask_OnPlayerInit, DropAtNextInit);
+ *  - the masks are child items: an adult Link wears none (the age change),
+ *    except the Blast and Stone Masks while OoT_MasksEquippableAsAdult() (the
+ *    Masks Equippable as Adult enhancement, the file's Masks as Adult seed
+ *    setting or Timeless Equipment; operator 2026-11-15, "Make them
+ *    adult-wearable"), as the eight native masks are then;
  *  - one mask at a time: putting a native mask on takes the MM one off
  *    (OoT_ForeignMask_ApplyRules), and putting the MM one on takes the native
  *    one off, maskMemory included (OoT_ForeignMask_Use).
@@ -67,6 +72,7 @@
 #include "soh/cvar_prefixes.h"
 #include "soh/ShipInit.hpp"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include "soh/Enhancements/enhancementTypes.h" // OoT_MasksEquippableAsAdult (#1647)
 #include "ForeignMaskOoT.h"
 #include "BlastMaskOoT.h" // #979: the cooldown the Blast Mask's glow follows
 
@@ -80,6 +86,7 @@ extern "C" {
 #include "functions.h"
 #include "macros.h"
 #include "variables.h"
+#include "overlays/misc/ovl_kaleido_scope/z_kaleido_scope.h" // AGE_REQ_NONE, AGE_REQ_CHILD
 extern PlayState* OoT_gPlayState;
 }
 #include "align_asset_macro.h"
@@ -116,6 +123,46 @@ bool PathMounted(const char* path) {
 bool IsChild() {
     return gSaveContext.linkAge == LINK_AGE_CHILD;
 }
+
+/** The masks an adult may wear under OoT_MasksEquippableAsAdult(): the Blast and
+ *  Stone Masks only (operator 2026-11-15, "Make them adult-wearable"). Kamaro's
+ *  Mask joins here, and in OoT_ForeignMask_ApplyAgeReqs, only on its own ruling. */
+bool AdultWearableUnderSetting(uint8_t mask) {
+    return mask == COMBO_FOREIGN_MASK_MM_BLAST || mask == COMBO_FOREIGN_MASK_MM_STONE;
+}
+
+/** May Link, at his age, wear `mask`? `adultMayWear` is the permission
+ *  (OoT_ForeignMask_AdultMayWear), asked only of an adult. */
+bool AgeMayWear(uint8_t mask, int adultMayWear) {
+    return IsChild() || (adultMayWear != 0 && AdultWearableUnderSetting(mask));
+}
+
+/** The live permission: read only for an adult, so a child never reads a CVar
+ *  (CVarGetInteger needs a Ship::Context, which the ROM-free rows lack). */
+int LiveAdultMayWear() {
+    return IsChild() ? 0 : OoT_ForeignMask_AdultMayWear();
+}
+
+/** The Master Sword pedestal's deferred drop (z_player.c, func_8083A0F4): the
+ *  next Player_Init takes the mask off, as it does a native one whose maskMemory
+ *  the pedestal cleared. Cleared at every file load. */
+bool sDropAtNextInit = false;
+
+/**
+ * Where an adult Link wears the MM mask, relative to the head limb's matrix.
+ * UNVERIFIED BY EYE: identity is the native masks' adult placement in this tree
+ * (z_player.c draws the child mask lists unchanged in adult Link's head space; no
+ * adult transform exists here, and upstream's AgeDependentMasks.cpp swaps lists
+ * only for alternative assets). Tune after an in-game look; no test asserts
+ * these values.
+ */
+struct ForeignMaskAdultPlacement {
+    f32 x;
+    f32 y;
+    f32 z;
+    f32 scale;
+};
+constexpr ForeignMaskAdultPlacement kForeignMaskAdultPlacement = { 0.0f, 0.0f, 0.0f, 1.0f };
 
 /** OoT's eleven contiguous child trade items, then the registered extras. */
 int BuildTradeList(uint8_t* ids, uint8_t* owned, int cap) {
@@ -163,7 +210,12 @@ void ForeignMaskOnPlayerInit(void* actorRef) {
         return;
     }
     OoT_ForeignMask_OnPlayerInit(static_cast<Player*>(actorRef),
-                                 CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) != 0);
+                                 CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) != 0, LiveAdultMayWear());
+}
+
+void ForeignMaskOnLoadGame(int32_t fileNum) {
+    (void)fileNum;
+    sDropAtNextInit = false;
 }
 
 } // namespace
@@ -173,8 +225,16 @@ extern "C" uint8_t OoT_ForeignMask_Worn(void) {
     return Combo_ForeignMask_Wearable(stored, GAME_OOT) ? stored : (uint8_t)COMBO_FOREIGN_MASK_NONE;
 }
 
+extern "C" int OoT_ForeignMask_AdultMayWear(void) {
+    return OoT_MasksEquippableAsAdult() ? 1 : 0;
+}
+
 extern "C" int OoT_ForeignMask_Use(Player* player, uint8_t mask) {
-    if (!IsChild() || !Combo_ForeignMask_Wearable(mask, GAME_OOT)) {
+    return OoT_ForeignMask_UseFor(player, mask, LiveAdultMayWear());
+}
+
+extern "C" int OoT_ForeignMask_UseFor(Player* player, uint8_t mask, int adultMayWear) {
+    if (!AgeMayWear(mask, adultMayWear) || !Combo_ForeignMask_Wearable(mask, GAME_OOT)) {
         return 0;
     }
     const uint8_t before = OoT_ForeignMask_Worn();
@@ -193,10 +253,15 @@ extern "C" int OoT_ForeignMask_Use(Player* player, uint8_t mask) {
 }
 
 extern "C" void OoT_ForeignMask_ApplyRules(Player* player) {
+    // Nothing worn asks nothing: the permission is read only for a worn mask.
+    OoT_ForeignMask_ApplyRulesFor(player, OoT_ForeignMask_Worn() != COMBO_FOREIGN_MASK_NONE ? LiveAdultMayWear() : 0);
+}
+
+extern "C" void OoT_ForeignMask_ApplyRulesFor(Player* player, int adultMayWear) {
     const uint8_t stored = gSaveContext.ship.foreignMask;
     uint8_t worn = OoT_ForeignMask_Worn();
     if (worn != COMBO_FOREIGN_MASK_NONE &&
-        (!IsChild() || (player != nullptr && player->currentMask != PLAYER_MASK_NONE))) {
+        (!AgeMayWear(worn, adultMayWear) || (player != nullptr && player->currentMask != PLAYER_MASK_NONE))) {
         worn = COMBO_FOREIGN_MASK_NONE;
     }
     if (worn != stored) {
@@ -204,11 +269,32 @@ extern "C" void OoT_ForeignMask_ApplyRules(Player* player) {
     }
 }
 
-extern "C" void OoT_ForeignMask_OnPlayerInit(Player* player, int persistentMasks) {
-    if (!persistentMasks || INV_CONTENT(ITEM_TRADE_CHILD) == ITEM_SOLD_OUT) {
+extern "C" void OoT_ForeignMask_OnPlayerInit(Player* player, int persistentMasks, int adultMayWear) {
+    if (!persistentMasks || INV_CONTENT(ITEM_TRADE_CHILD) == ITEM_SOLD_OUT || sDropAtNextInit) {
         gSaveContext.ship.foreignMask = COMBO_FOREIGN_MASK_NONE;
     }
-    OoT_ForeignMask_ApplyRules(player);
+    sDropAtNextInit = false;
+    OoT_ForeignMask_ApplyRulesFor(player, adultMayWear);
+}
+
+extern "C" void OoT_ForeignMask_DropAtNextInit(void) {
+    sDropAtNextInit = true;
+}
+
+extern "C" void OoT_ForeignMask_ApplyAgeReqs(int adultMayWear) {
+    // As z_play.c and z_kaleido_item.c free the eight native masks: both custom
+    // rows, always both (the Stone Mask's RegisterRuntime rewrites the Blast
+    // Mask's row too), and the child trade slot while it holds one of them. The
+    // slot is never restricted here: the native code before each call set it.
+    // Kamaro's Mask joins only on its own ruling (AdultWearableUnderSetting).
+    // gItemAgeReqs has ITEM_NONE + 1 entries (#983); SLOT_TRADE_CHILD is a slot.
+    const u8 req = adultMayWear ? AGE_REQ_NONE : AGE_REQ_CHILD;
+    gItemAgeReqs[ITEM_MASK_BLAST] = req;
+    gItemAgeReqs[ITEM_MASK_STONE] = req;
+    const u8 slotItem = (u8)INV_CONTENT(ITEM_TRADE_CHILD);
+    if (adultMayWear && (slotItem == ITEM_MASK_BLAST || slotItem == ITEM_MASK_STONE)) {
+        gSlotAgeReqs[SLOT_TRADE_CHILD] = AGE_REQ_NONE;
+    }
 }
 
 extern "C" void OoT_ForeignMask_DrawOnHead(PlayState* play, Player* player, int headDrawn) {
@@ -252,7 +338,19 @@ extern "C" void OoT_ForeignMask_DrawOnHead(PlayState* play, Player* player, int 
     }
     // The head list may leave another limb's matrix loaded: load the head
     // limb's own from the CPU stack.
-    gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+    if (IsChild()) {
+        gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+    } else {
+        // #1647: an adult's placement (kForeignMaskAdultPlacement, unverified by
+        // eye). The push and pop bracket only this load: the post-limb draw goes
+        // on with the sibling limbs' stack.
+        const ForeignMaskAdultPlacement& p = kForeignMaskAdultPlacement;
+        OoT_Matrix_Push();
+        OoT_Matrix_Translate(p.x, p.y, p.z, MTXMODE_APPLY);
+        OoT_Matrix_Scale(p.scale, p.scale, p.scale, MTXMODE_APPLY);
+        gSPMatrix(POLY_OPA_DISP++, MATRIX_NEWMTX(play->state.gfxCtx), G_MTX_NOPUSH | G_MTX_LOAD | G_MTX_MODELVIEW);
+        OoT_Matrix_Pop();
+    }
     if (glow) {
         // The TextureAnimation's two layers (steps (1, 1) and (3, -2), 32x32),
         // as MM's AnimatedMat_TwoLayerTexScroll scrolls them by gameplayFrames.
@@ -296,8 +394,15 @@ extern "C" void OoT_ChildTradeCycle_ClearExtrasForTest(void) {
 }
 
 extern "C" const char* OoT_ForeignMask_WornDl(Player* player, int headDrawn) {
-    const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(OoT_ForeignMask_Worn());
-    if (info == nullptr || player == nullptr || !headDrawn || !IsChild() || player->currentMask != PLAYER_MASK_NONE) {
+    return OoT_ForeignMask_WornDlFor(player, headDrawn,
+                                     OoT_ForeignMask_Worn() != COMBO_FOREIGN_MASK_NONE ? LiveAdultMayWear() : 0);
+}
+
+extern "C" const char* OoT_ForeignMask_WornDlFor(Player* player, int headDrawn, int adultMayWear) {
+    const uint8_t worn = OoT_ForeignMask_Worn();
+    const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(worn);
+    if (info == nullptr || player == nullptr || !headDrawn || !AgeMayWear(worn, adultMayWear) ||
+        player->currentMask != PLAYER_MASK_NONE) {
         return nullptr;
     }
     return info->wornDl;
@@ -320,6 +425,7 @@ extern "C" size_t OoT_ForeignMask_FieldOffset(void) {
 static void RegisterForeignMasksOoT() {
     COND_HOOK(OnPlayerUpdate, true, ForeignMaskOnPlayerUpdate);
     COND_ID_HOOK(OnActorInit, ACTOR_PLAYER, true, ForeignMaskOnPlayerInit);
+    COND_HOOK(OnLoadGame, true, ForeignMaskOnLoadGame);
 }
 
 static RegisterShipInitFunc initFunc(RegisterForeignMasksOoT);

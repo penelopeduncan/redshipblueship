@@ -84,6 +84,10 @@ uint32_t OoT_BlastMaskTest_ItemIconsCount(void);
 const char* OoT_BlastMaskTest_Icon(uint8_t item);
 int OoT_BlastMaskTest_AgeReq(uint8_t item);
 int OoT_BlastMaskTest_ChildAge(void);
+void OoT_BlastMaskTest_ApplyAgeReqs(int adultMayWear);
+int OoT_BlastMaskTest_AgeReqNone(void);
+int OoT_BlastMaskTest_SlotAgeReq(void);
+void OoT_BlastMaskTest_SetSlotAgeReq(int req);
 int OoT_BlastMaskTest_TradeSlot(void);
 void OoT_BlastMaskTest_SetTradeSlot(uint8_t item);
 // games/oot/soh/Enhancements/randomizer/StoneMaskOoT.cpp
@@ -357,6 +361,39 @@ TestResult Test_StoneMaskOoTItems(void) {
         STM_CHECK(OoT_BlastMaskTest_AgeReq(stone) == OoT_BlastMaskTest_ChildAge(),
                   "the Stone Mask's age row is %d, not the child's %d", OoT_BlastMaskTest_AgeReq(stone),
                   OoT_BlastMaskTest_ChildAge());
+        // #1647: OoT_ForeignMask_ApplyAgeReqs frees the Stone Mask's row, and the trade slot holding it,
+        // for an adult while allowed; it writes the Blast Mask's row too, and runs after RegisterRuntime,
+        // which puts both rows back to the child's (it registers the Blast Mask's first).
+        {
+            const int child = OoT_BlastMaskTest_ChildAge();
+            const int none = OoT_BlastMaskTest_AgeReqNone();
+            const int savedSlotReq = OoT_BlastMaskTest_SlotAgeReq();
+            const int savedTrade = OoT_BlastMaskTest_TradeSlot();
+            OoT_BlastMaskTest_SetTradeSlot(stone);
+            OoT_BlastMaskTest_SetSlotAgeReq(child);
+            OoT_BlastMaskTest_ApplyAgeReqs(1);
+            STM_CHECK(OoT_BlastMaskTest_AgeReq(stone) == none && OoT_BlastMaskTest_AgeReq(blast) == none &&
+                          OoT_BlastMaskTest_SlotAgeReq() == none,
+                      "allowed: the Stone Mask's row is %d, the Blast Mask's %d and the trade slot's %d, not %d",
+                      OoT_BlastMaskTest_AgeReq(stone), OoT_BlastMaskTest_AgeReq(blast), OoT_BlastMaskTest_SlotAgeReq(),
+                      none);
+            OoT_BlastMaskTest_ApplyAgeReqs(0);
+            STM_CHECK(OoT_BlastMaskTest_AgeReq(stone) == child && OoT_BlastMaskTest_SlotAgeReq() == none,
+                      "not allowed: the Stone Mask's row is %d (not the child's) or the slot was restricted (%d)",
+                      OoT_BlastMaskTest_AgeReq(stone), OoT_BlastMaskTest_SlotAgeReq());
+            OoT_BlastMaskTest_SetTradeSlot(0x24); // ITEM_MASK_KEATON: the native code's own
+            OoT_BlastMaskTest_SetSlotAgeReq(child);
+            OoT_BlastMaskTest_ApplyAgeReqs(1);
+            STM_CHECK(OoT_BlastMaskTest_SlotAgeReq() == child,
+                      "allowed with the Keaton Mask in the slot: the cross-game rows freed the slot (%d)",
+                      OoT_BlastMaskTest_SlotAgeReq());
+            OoT_StoneMask_RegisterRuntime();
+            STM_CHECK(OoT_BlastMaskTest_AgeReq(stone) == child && OoT_BlastMaskTest_AgeReq(blast) == child,
+                      "RegisterRuntime left the Stone Mask's row at %d and the Blast Mask's at %d",
+                      OoT_BlastMaskTest_AgeReq(stone), OoT_BlastMaskTest_AgeReq(blast));
+            OoT_BlastMaskTest_SetTradeSlot((uint8_t)savedTrade);
+            OoT_BlastMaskTest_SetSlotAgeReq(savedSlotReq);
+        }
         STM_CHECK(OoT_StoneMaskTest_IsAdvancement() == 1, "RG_STONE_MASK is not an advancement item");
     }
 

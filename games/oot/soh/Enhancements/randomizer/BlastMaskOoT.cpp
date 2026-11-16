@@ -44,10 +44,14 @@
  * enhancement composes over it: on, there is no cooldown, here as in Termina.
  * While it runs, the worn mask shows MM's glow pass (ForeignMaskOoT.cpp).
  *
- * THE LOGIC is logic.cpp's (CanUse(RG_BLAST_MASK): a child under the frozen rule,
- * OoTMM's can_use_mask_blast), and the shared extension's pair is the bag's
- * (both games register their copy at RSBS_XITEM_SHARED_BLAST,
- * GameExports_SingleExe.cpp).
+ * ADULT LINK wears and blasts with it exactly as the child does while
+ * OoT_MasksEquippableAsAdult() (operator 2026-11-15, "Make them adult-wearable";
+ * ForeignMaskOoT.cpp's AgeMayWear). An armed mask takes B from every adult sword.
+ *
+ * THE LOGIC is logic.cpp's (CanUse(RG_BLAST_MASK): a child, or an adult under
+ * the seed's Masks as Adult, under the frozen rule; OoTMM's can_use_mask_blast),
+ * and the shared extension's pair is the bag's (both games register their copy
+ * at RSBS_XITEM_SHARED_BLAST, GameExports_SingleExe.cpp).
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -154,13 +158,19 @@ bool BlastMaskOnButtons() {
  *  z_parameter.c disables B for the player's state (swimming or diving, a
  *  ladder or vine, a crawlspace). The player's own flags, not buttonStatus[0],
  *  which also parks the B item (and a swordless child's marker) on Epona and
- *  in the minigames. */
+ *  in the minigames. Nor (#1647; reachable by an adult, or by a child only
+ *  under Timeless Equipment) while the hookshot is held unfired, where
+ *  OoT_Player_ProcessItemButtons skips every item button (func_8008F128), or in
+ *  hookshot flight. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
                           PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_ITEM_CS | PLAYER_STATE1_IN_CUTSCENE |
                           PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE |
                           PLAYER_STATE1_CLIMBING_LADDER | PLAYER_STATE1_IN_WATER;
+    if (func_8008F128(player) || (player->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT) != 0) {
+        return false;
+    }
     return (player->stateFlags1 & busy) == 0u && (player->stateFlags2 & PLAYER_STATE2_CRAWLING) == 0u &&
            player->rideActor == nullptr && gSaveContext.health != 0 && play->csCtx.state == CS_STATE_IDLE &&
            player->csAction == 0 && play->shootingGalleryStatus == 0 && play->activeCamera == MAIN_CAM &&
@@ -190,6 +200,12 @@ void BlastMaskBeforePlayerUpdate(void* actorRef, bool* should) {
     Player* player = static_cast<Player*>(actorRef);
     if (player != GET_PLAYER(play)) {
         return;
+    }
+    if (gSaveContext.linkAge != LINK_AGE_CHILD) {
+        // #1647: an adult whose permission was withdrawn (a file without the
+        // setting, the enhancement turned off) loses the mask before it can arm,
+        // not at the end of this update (ForeignMaskOnPlayerUpdate).
+        OoT_ForeignMask_ApplyRules(player);
     }
     if (OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_MM_BLAST &&
         CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) == 0 && !BlastMaskOnButtons()) {
@@ -262,7 +278,9 @@ extern "C" void OoT_BlastMask_RegisterRuntime(void) {
     Combo_ForeignMask_SetOwnedSource(GAME_OOT, ForeignMasksOwned);
     OoT_ChildTradeCycle_RegisterExtra((uint8_t)ITEM_MASK_BLAST, BlastMaskInTradeCycle); // 0 once registered
     // AGE_REQ_CHILD (z_kaleido_scope.h): a child trade mask, as OoT's own are
-    // without Adult Masks. The 256-entry table covers the custom ItemID (#983).
+    // without Adult Masks; z_play.c and the pause screen free it for an adult
+    // through OoT_ForeignMask_ApplyAgeReqs while OoT_MasksEquippableAsAdult()
+    // (#1647). Reads no CVar. The 256-entry table covers the custom ItemID (#983).
     gItemAgeReqs[ITEM_MASK_BLAST] = LINK_AGE_CHILD;
 }
 

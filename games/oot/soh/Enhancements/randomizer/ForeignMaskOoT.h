@@ -27,11 +27,24 @@ void OoT_ForeignMask_DrawOnHead(struct PlayState* play, struct Player* player, i
 
 /**
  * The list OoT_ForeignMask_DrawOnHead draws for `player`, or NULL: the worn MM
- * mask's table list when Link is a child with no native mask on (currentMask)
- * and the head list was drawn (`headDrawn`). Whether a mounted archive holds
- * the path, and whether `player` is the real player, are the draw's checks.
+ * mask's table list when Link may wear it at his age (a child, or an adult
+ * wearing the Blast or Stone Mask while OoT_ForeignMask_AdultMayWear()) with no
+ * native mask on (currentMask) and the head list was drawn (`headDrawn`).
+ * Whether a mounted archive holds the path, and whether `player` is the real
+ * player, are the draw's checks. The For variant takes the adult's permission
+ * as `adultMayWear` and reads no CVar (the ROM-free rows call it).
  */
 const char* OoT_ForeignMask_WornDl(struct Player* player, int headDrawn);
+const char* OoT_ForeignMask_WornDlFor(struct Player* player, int headDrawn, int adultMayWear);
+
+/**
+ * May an adult Link wear the Blast and Stone Masks (operator 2026-11-15, "Make
+ * them adult-wearable")? OoT_MasksEquippableAsAdult(), the reader the eight
+ * native masks follow: the Masks Equippable as Adult enhancement, the loaded
+ * randomizer file's Masks as Adult seed setting or the Timeless Equipment
+ * cheat. Reads CVars: never call it without a Ship::Context.
+ */
+int OoT_ForeignMask_AdultMayWear(void);
 
 /** The worn MM mask: the stored ComboForeignMask when OoT wears it and the
  *  frozen world added it (Combo_ForeignMask_Wearable), else NONE. */
@@ -41,25 +54,49 @@ uint8_t OoT_ForeignMask_Worn(void);
  * Use (put on, or take off when worn) MM mask `mask`: the equip path the items
  * P4 adds call from VB_CHANGE_HELD_ITEM_AND_USE_ITEM. Putting one on takes the
  * native mask off (currentMask and SoH's maskMemory to NONE). Refused (0, no
- * change) for an adult, for NONE, for anything OoT does not wear and for a
- * mask whose extension rule the world did not freeze on; 1 when the worn field
- * changed.
+ * change) for an adult (except the Blast and Stone Masks while
+ * OoT_ForeignMask_AdultMayWear()), for NONE, for anything OoT does not wear and
+ * for a mask whose extension rule the world did not freeze on; 1 when the worn
+ * field changed. The live call reads the adult's permission only for an adult;
+ * the For variant takes it as `adultMayWear` and reads no CVar.
  */
 int OoT_ForeignMask_Use(struct Player* player, uint8_t mask);
+int OoT_ForeignMask_UseFor(struct Player* player, uint8_t mask, int adultMayWear);
 
 /**
  * OoT's mask rules, applied to the worn field once per player update: a native
- * mask on (currentMask) or an adult Link takes it off, and a value OoT does
- * not wear (or whose rule is off) is cleared.
+ * mask on (currentMask) or an adult Link who may not wear it (see
+ * OoT_ForeignMask_Use) takes it off, and a value OoT does not wear (or whose
+ * rule is off) is cleared. The For variant takes the adult's permission.
  */
 void OoT_ForeignMask_ApplyRules(struct Player* player);
+void OoT_ForeignMask_ApplyRulesFor(struct Player* player, int adultMayWear);
 
 /**
  * Player_Init's rule (z_player.c, "keep masks thru loading zones"): a mask
  * comes off at every scene load unless SoH's Persistent Masks is on, and then
- * also when the child trade slot is sold out. `persistentMasks` is that CVar.
+ * also when the child trade slot is sold out or the Master Sword pedestal
+ * asked for it (OoT_ForeignMask_DropAtNextInit); then the rules, with the
+ * adult's permission `adultMayWear`. `persistentMasks` is that CVar.
  */
-void OoT_ForeignMask_OnPlayerInit(struct Player* player, int persistentMasks);
+void OoT_ForeignMask_OnPlayerInit(struct Player* player, int persistentMasks, int adultMayWear);
+
+/**
+ * The Master Sword pedestal (z_player.c, func_8083A0F4), where a native mask's
+ * maskMemory is cleared: the worn MM mask comes off at the next Player_Init,
+ * as the native one does, not at once (it stays on through the cutscene).
+ * Forgotten at every file load.
+ */
+void OoT_ForeignMask_DropAtNextInit(void);
+
+/**
+ * The pause screen's age rows for the Blast and Stone Masks, as z_play.c and
+ * z_kaleido_item.c set the eight native masks' (#1647): both custom ItemIDs'
+ * gItemAgeReqs rows to any age while `adultMayWear`, else the child's, and the
+ * child trade slot's gSlotAgeReqs to any age while `adultMayWear` and it holds
+ * one of them (never restricted here). Reads no CVar.
+ */
+void OoT_ForeignMask_ApplyAgeReqs(int adultMayWear);
 
 /**
  * The child trade slot's cycle (Randomizer_Get{Next,Prev}ChildTradeItem):

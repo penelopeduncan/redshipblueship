@@ -11,6 +11,7 @@
 #include <overlays/actors/ovl_En_Niw/z_en_niw.h>
 #include <overlays/misc/ovl_kaleido_scope/z_kaleido_scope.h>
 #include "soh/Enhancements/enhancementTypes.h"
+#include "soh/Enhancements/randomizer/ForeignMaskOoT.h" // the cross-game masks' age rows (#1647)
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/OTRGlobals.h"
 #include "soh/ResourceManagerHelpers.h"
@@ -876,6 +877,10 @@ void OoT_Play_Init(GameState* thisx) {
         }
         gSlotAgeReqs[SLOT_TRADE_CHILD] = AGE_REQ_CHILD;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // [RSBS #1647] the Blast and Stone Masks from Majora's Mask, as the eight above
+    OoT_ForeignMask_ApplyAgeReqs(OoT_MasksEquippableAsAdult());
+#endif
 
     // Handle Rocs Feather requiement
     gItemAgeReqs[ITEM_ROCS_FEATHER] = AGE_REQ_NONE;

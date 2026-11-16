@@ -11690,9 +11690,10 @@ const TestDescriptor gTests[] = {
       "and list-cycle rules hold (#977)",
       Test_ForeignMaskTable },
     { "foreign-mask-rules",
-      "A worn foreign mask never reaches currentMask in either game; OoT wears one mask at a time, as a child, off at "
-      "a scene load unless Persistent Masks; MM in human form only, with the shared pause slots' cycle, equip and "
-      "icon; neither wears a mask whose extension rule the world did not freeze on (#977)",
+      "A worn foreign mask never reaches currentMask in either game; OoT wears one mask at a time, as a child (and the "
+      "Blast and Stone Masks as an adult while Masks Equippable as Adult holds, #1647), off at a scene load unless "
+      "Persistent Masks and at the Master Sword pedestal's next load; MM in human form only, with the shared pause "
+      "slots' cycle, equip and icon; neither wears a mask whose extension rule the world did not freeze on (#977)",
       Test_ForeignMaskRules },
     { "foreign-mask-persistence",
       "Both games' worn-mask fields are appended to their saves, cross with the frozen half and survive a .redsave "
@@ -11709,8 +11710,8 @@ const TestDescriptor gTests[] = {
       Test_BlastMaskOoTRule },
     { "blast-mask-oot-items",
       "The Blast Mask's custom ItemID stays inside OoT's tables and out of SLOT(), is owned and cycled only under the "
-      "frozen rule, pairs into one bag row under the shared rule, and OoT's logic credits it as a child's explosive "
-      "only then (#979)",
+      "frozen rule, pairs into one bag row under the shared rule, its age row and the trade slot are freed for an "
+      "adult only while allowed (#1647), and OoT's logic credits it as a child's explosive only then (#979)",
       Test_BlastMaskOoTItems },
     { "blast-mask-oot-spawn",
       "Combo_BlastMask_StepOotSpawn anchors the bomb spawn and truncated int16_t explosionCollider sphere center at "
@@ -11718,7 +11719,8 @@ const TestDescriptor gTests[] = {
       Test_BlastMaskOoTSpawn },
     { "blast-mask-oot-shrub-guardhouse",
       "Child Link's Blast Mask cuts adjacent ground shrubs (ACTOR_EN_KUSA) and spawns/centers ACTOR_EN_BOM at Link's "
-      "world.pos in the Market guard house without OoT_EnBom_Draw (#1615)",
+      "world.pos in the Market guard house without OoT_EnBom_Draw (#1615); adult Link wears, is drawn and blasts "
+      "with it only while Masks Equippable as Adult holds, and loses it the frame that stops (#1647)",
       Test_BlastMaskOoTShrubGuardHouse },
     { "stone-mask-oot-rule",
       "The Stone Mask (OoT) and Shared Stone Mask are two Cross-Game Rules, off by default, the shared one only with "
@@ -11726,8 +11728,9 @@ const TestDescriptor gTests[] = {
       Test_StoneMaskOoTRule },
     { "stone-mask-oot-items",
       "The Stone Mask's custom ItemID stays inside OoT's tables and out of SLOT(), is owned and cycled after the Blast "
-      "Mask only under the frozen rule, pairs into one bag row under the shared rule, OoT's logic credits it for a "
-      "child only then, and a listed actor's update runs with Link out of sight (#979)",
+      "Mask only under the frozen rule, pairs into one bag row under the shared rule, its age row and the trade slot "
+      "are freed for an adult only while allowed (#1647), OoT's logic credits it for a child only then (Masks as "
+      "Adult off), and a listed actor's update runs with Link out of sight (#979)",
       Test_StoneMaskOoTItems },
     { "oot-masks-mm-rule",
       "The Gerudo, Skull and Spooky Masks (MM) and their shared variants are six Cross-Game Rules, off by default, "

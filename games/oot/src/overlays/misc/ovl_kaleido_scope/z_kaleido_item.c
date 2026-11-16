@@ -5,6 +5,7 @@
 #include "soh/Enhancements/randomizer/RocsFeatherCycle.h"
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/enhancementTypes.h"
+#include "soh/Enhancements/randomizer/ForeignMaskOoT.h" // the cross-game masks' age rows (#1647)
 #include "soh/Enhancements/cosmetics/cosmeticsTypes.h"
 #include "soh/OTRGlobals.h"
 
@@ -368,6 +369,10 @@ void KaleidoScope_HandleItemCycles(PlayState* play) {
                 ? AGE_REQ_NONE
                 : AGE_REQ_CHILD;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // [RSBS #1647] the Blast and Stone Masks from Majora's Mask, as the eight above
+    OoT_ForeignMask_ApplyAgeReqs(OoT_MasksEquippableAsAdult());
+#endif
 
     // handle the adult trade select
     KaleidoScope_HandleItemCycleExtras(play, SLOT_TRADE_ADULT,
