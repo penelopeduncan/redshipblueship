@@ -203,7 +203,9 @@ def rerun(state, args):
     if not state["reruns"]:
         sys.stderr.write("fake gh: unexpected re-run\n")
         return 1
-    add_attempt(state, state["reruns"].pop(0))
+    spec = state["reruns"].pop(0)
+    if spec != "stuck":  # "stuck": accepted, but the run never shows a new attempt
+        add_attempt(state, spec)
     state.setdefault("fail", {}).update(state.pop("fail_after_rerun", {}))
     return 0
 
@@ -214,6 +216,9 @@ def main():
     state["calls"].append([tool] + args)
     if tool == "sleep":
         action = state.get("on_sleep", {}).pop(args[0], None)
+        if action == "fail":
+            save(state)
+            return 1
         if action:
             add_attempt(state, action)
         if len([c for c in state["calls"] if c[0] == "sleep"]) > 200:
@@ -475,6 +480,22 @@ def test_an_acquired_and_failed_macos_build_is_not_rerun(tmp_path):
     assert "not a runner shortage" in result.stdout
 
 
+@pytest.mark.parametrize("steps,runner", [([{"name": "Set up job"}], "GitHub Actions 1000000003"),
+                                         ([{"name": "Set up job"}], ""), ([], "GitHub Actions 1000000004")])
+def test_a_cancelled_macos_job_with_steps_or_a_runner_is_not_rerun(tmp_path, steps, runner):
+    ids = Ids()
+    # It still carries the not-acquired annotation: the job shape check must refuse it on its own.
+    spec = attempt(ids)
+    for job in spec["jobs"]:
+        if job["name"] == "macOS build":
+            job.update(steps=steps, runner_name=runner)
+    result, final = run_script(tmp_path, scenario([spec]))
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert reruns_of(final) == []
+    assert "ended 'cancelled' (%d steps, runner %s)" % (len(steps), runner or "-") in result.stdout
+    assert "not a runner shortage" in result.stdout
+
+
 def test_a_stale_event_does_nothing(tmp_path):
     ids = Ids()
     state = scenario([attempt(ids), attempt(ids)])
@@ -547,6 +568,28 @@ def test_failing_polls_are_bounded(tmp_path):
     assert len(reruns_of(final)) == 1
     assert [c[1] for c in final["calls"] if c[0] == "sleep"] == ["600", str(POLL), str(POLL), str(POLL)]
     assert "in 3 polls in a row" in result.stdout
+
+
+def test_an_accepted_rerun_that_never_shows_a_new_attempt_is_bounded(tmp_path):
+    ids = Ids()
+    state = scenario([attempt(ids)], reruns=["stuck"])
+    result, final = run_script(tmp_path, state, env={"MAX_BAD_POLLS": "4"})
+    assert result.returncode != 0
+    assert len(reruns_of(final)) == 1
+    assert [c[1] for c in final["calls"] if c[0] == "sleep"] == ["600"] + [str(POLL)] * 4
+    assert "still at attempt 1 4 polls after the re-run was accepted" in result.stdout
+
+
+@pytest.mark.parametrize("which", ["600", str(POLL)])
+def test_an_interrupted_sleep_stops_the_retrier(tmp_path, which):
+    ids = Ids()
+    state = scenario([attempt(ids)], reruns=[attempt(ids, progress=["queued"] * 5)], on_sleep={which: "fail"})
+    result, final = run_script(tmp_path, state)
+    assert result.returncode != 0
+    assert "interrupted" in result.stdout
+    sleeps = [c[1] for c in final["calls"] if c[0] == "sleep"]
+    assert sleeps == (["600"] if which == "600" else ["600", str(POLL)])
+    assert len(reruns_of(final)) == (0 if which == "600" else 1)
 
 
 @pytest.mark.parametrize("name,value", [("WAIT_SCHEDULE", "600 soon"), ("WAIT_SCHEDULE", " "),

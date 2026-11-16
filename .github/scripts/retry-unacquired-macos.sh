@@ -49,8 +49,10 @@
 # schedule instead of restarting it. The default "600 1800 3600 5400" allows
 # four re-runs. The pauses count from the attempt's COMPLETION (the whole
 # run, Windows and Linux included, which can end long after the macOS job was
-# cancelled), and each unacquired re-run adds about 16 minutes, so the last
-# re-run starts about 3.6 hours after the first attempt completed. After the
+# cancelled), and each unacquired re-run takes about 15 minutes before it
+# completes, so the last re-run starts about 4 hours after the first attempt
+# completed (190 minutes of pauses plus three unacquired re-runs of about 15
+# minutes each). After the
 # last entry the script gives up with an error and the manual command.
 # release-macos-retry.yml's `run_attempt <` guard must equal the number of
 # entries plus one (tools/tests/test_retry_unacquired_macos.py locks this).
@@ -58,8 +60,9 @@
 # Environment: GH_TOKEN (actions: write, checks: read), REPO (owner/name),
 # RUN_ID, RUN_ATTEMPT (the attempt that just completed), and optionally
 # WAIT_SCHEDULE, POLL_SECONDS (default 60, the poll interval while a re-run
-# is queued) and MAX_BAD_POLLS (default 30, consecutive failed polls before
-# giving up).
+# is queued) and MAX_BAD_POLLS (default 30: the number of consecutive failed
+# polls, and of polls after an accepted re-run that still show the old
+# attempt, before giving up).
 set -uo pipefail
 
 WAIT_SCHEDULE="${WAIT_SCHEDULE:-600 1800 3600 5400}"
@@ -236,7 +239,10 @@ while :; do
     fi
     wait_seconds="${waits[$((attempt - 1))]}"
     echo "No hosted macOS runner picked the job up (GitHub reported a runner shortage). Re-running it in ${wait_seconds} s."
-    sleep "${wait_seconds}"
+    if ! sleep "${wait_seconds}"; then
+        echo "::error::the pause before re-running run ${RUN_ID} was interrupted; not re-run"
+        exit 1
+    fi
 
     # A person may have re-run the run during the pause.
     if ! current="$(run_state)"; then
@@ -256,8 +262,12 @@ while :; do
     # Wait until the new attempt's macOS job has a runner (then it is no longer
     # this script's business) or the attempt completes without one.
     bad_polls=0
+    stale_polls=0
     while :; do
-        sleep "${POLL_SECONDS}"
+        if ! sleep "${POLL_SECONDS}"; then
+            echo "::error::the wait for run ${RUN_ID}'s re-run was interrupted; giving up"
+            exit 1
+        fi
         if ! now="$(run_state)"; then
             now=""
         fi
@@ -272,6 +282,13 @@ while :; do
         fi
         bad_polls=0
         if [ "${now_attempt}" -le "${attempt}" ]; then
+            # GitHub raises run_attempt as soon as it accepts a re-run, so a run
+            # that stays at the old attempt is not going to move.
+            stale_polls=$((stale_polls + 1))
+            if [ "${stale_polls}" -ge "${MAX_BAD_POLLS}" ]; then
+                echo "::error::run ${RUN_ID} was still at attempt ${now_attempt} ${stale_polls} polls after the re-run was accepted; giving up"
+                exit 1
+            fi
             continue
         fi
         if [ "${now_status}" = "completed" ]; then
