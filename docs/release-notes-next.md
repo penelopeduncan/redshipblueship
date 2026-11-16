@@ -204,6 +204,14 @@
   fence, Dampe's second race, the Death Mountain Trail chest and dungeon rooms across both quests. Two new tricks go
   with it, both off by default: Wasteland Crossing with Bunny Hood, and Water Temple Jump to High Emblem with Nothing
   (adult with nothing, or child with the hood). Worlds made with the defaults do not change.
+- **Masks as Adult seed setting from Ship of Harkinian** (SoH #7032, issue #1647). A new Ocarina of Time randomizer
+  option under Logic, off by default. With it on, adult Link can wear the masks in that file, whatever the Masks
+  Equippable as Adult enhancement says, and logic may expect him to wear the Skull Mask, the Mask of Truth or the Bunny
+  Hood (the Blast and Stone Masks from Majora's Mask stay child-only, as an adult cannot wear them). With Bunny
+  Hood Effect on too, logic may expect adult Link to use the hood's longer jump, alone or with the Hover Boots, in
+  dungeons, Gerudo's Fortress, Gerudo Valley, Sacred Forest Meadow and Zora's River. A new trick goes
+  with it, off by default: Dodongo's Cavern Dodongo with Goron Bracelet and Bunnyhovers. Worlds made with the defaults
+  do not change.
 - **Worlds created with the defaults change** (issue #1404). Even with every new option off, the same seed and
   settings now make a different world than before, with a different fingerprint. A seed shared with someone on an
   older development build is a different world for them, so both of you need a build with this change.

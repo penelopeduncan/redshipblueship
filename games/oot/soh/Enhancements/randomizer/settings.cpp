@@ -1429,6 +1429,7 @@ void Settings::CreateOptions() {
     OPT_BOOL(RSK_BLUE_FIRE_ARROWS, "Blue Fire Arrows", CVAR_RANDOMIZER_SETTING("BlueFireArrows"), mOptionDescriptions[RSK_BLUE_FIRE_ARROWS]);
     OPT_BOOL(RSK_SUNLIGHT_ARROWS, "Sunlight Arrows", CVAR_RANDOMIZER_SETTING("SunlightArrows"), mOptionDescriptions[RSK_SUNLIGHT_ARROWS]);
     OPT_BOOL(RSK_BUNNY_HOOD, "Bunny Hood Effect", CVAR_RANDOMIZER_SETTING("BunnyHood"), mOptionDescriptions[RSK_BUNNY_HOOD]);
+    OPT_BOOL(RSK_MASKS_AS_ADULT, "Masks as Adult", CVAR_RANDOMIZER_SETTING("MasksAsAdult"), mOptionDescriptions[RSK_MASKS_AS_ADULT]);
     OPT_BOOL(RSK_ROCS_FEATHER, "Roc's Feather", CVAR_RANDOMIZER_SETTING("RocsFeather"), mOptionDescriptions[RSK_ROCS_FEATHER]);
 #ifdef RSBS_SINGLE_EXECUTABLE
     // [RSBS #1434] OoTMM's timeTravelSword, on by default as there (data.ts). Drawn
@@ -1982,6 +1983,11 @@ void Settings::CreateOptions() {
         "Dodongo\'s Cavern Light the Eyes with Bombchus",
         "You can light the dodongo head's eyes with bombchus from the main room, allowing instant access to the end "
         "of the dungeon.");
+    OPT_TRICK(RT_DC_EYES_BUNNYHOVERS, RCQUEST_BOTH, RA_DODONGOS_CAVERN, { Tricks::Tag::ADVANCED },
+              "Dodongo\'s Cavern Dodongo with Goron Bracelet and Bunnyhovers",
+              "With precisely timed movement using both Bunny Hood and Hover Boots you can use the high-rising "
+              "platform to carry a Bomb Flower to the Dodongo's Head and quickly throw it close enough to the eyes "
+              "to trigger them. This requires \"Bunny Hood Effect\" to function.");
     OPT_TRICK(RT_JABU_BOSS_HOVER, RCQUEST_VANILLA, RA_JABU_JABUS_BELLY, { Tricks::Tag::INTERMEDIATE },
               "Jabu Near Boss Room with Hover Boots",
               "A box for the blue switch can be carried over by backwalking with one while the elevator is at its "
@@ -2317,7 +2323,8 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_SHADOW_MQ_HUGE_PIT, RCQUEST_MQ, RA_SHADOW_TEMPLE, { Tricks::Tag::INTERMEDIATE },
               "Shadow Temple MQ Lower Huge Pit without Fire Source",
               "Normally a frozen eye switch spawns some platforms that you can use to climb down, but there's actually "
-              "a small piece of ground that you can stand on that you can just jump down to.");
+              "a small piece of ground that you can stand on that you can just jump down to. Bunny hood and Hover "
+              "Boots together can solve this without the trick.");
     OPT_TRICK(
         RT_SHADOW_MQ_WINDY_WALKWAY, RCQUEST_MQ, RA_SHADOW_TEMPLE, { Tricks::Tag::INTERMEDIATE },
         "Shadow Temple MQ Windy Walkway Reverse without Hover Boots",
@@ -2341,9 +2348,10 @@ void Settings::CreateOptions() {
     OPT_TRICK(
         RT_SPIRIT_STATUE_JUMP, RCQUEST_BOTH, RA_SPIRIT_TEMPLE, { Tricks::Tag::INTERMEDIATE },
         "Spirit Temple Statue Room Jump from Hands to Upper Ledges",
-        "A precise jump to obtain the following as adult without needing one of Hover Boots, or Hookshot (in Vanilla) "
-        "or Song of Time (in MQ): - Spirit Temple Statue Room Northeast Chest - Spirit Temple GS Lobby - Spirit Temple "
-        "MQ Central Chamber Top Left Pot (Left) - Spirit Temple MQ Central Chamber Top Left Pot (Right)");
+        "A precise jump to obtain the following as Adult without needing one of Hover Boots, or Hookshot (in Vanilla) "
+        "or Song of Time (in MQ). Using Bunny Hood puts this trick in default logic.: - Spirit Temple Statue Room "
+        "Northeast Chest - Spirit Temple GS Lobby - Spirit Temple MQ Central Chamber Top Left Pot (Left) - Spirit "
+        "Temple MQ Central Chamber Top Left Pot (Right)");
     // disabled since "Spirit Temple boss shortcuts" (pre-lowers the platform where you break the statues face) isn't a
     // setting in ship OPT_TRICK(RT_SPIRIT_PLATFORM_HOOKSHOT, RCQUEST_VANILLA, RA_SPIRIT_TEMPLE,
     // {Tricks::Tag::INTERMEDIATE}, "Spirit Temple Main Room Hookshot to Boss Platform", "Precise hookshot aiming at the
@@ -2411,7 +2419,8 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_GTG_FAKE_WALL, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::NOVICE },
               "Reach Gerudo Training Ground Fake Wall Ledge with Hover Boots",
               "A precise Hover Boots use from the top of the chest can allow you to grab the ledge without needing the "
-              "usual requirements. In Master Quest, this always skips a Song of Time requirement. In Vanilla, this "
+              "usual requirements. Logical Bunny Hood allows this to be done in default logic. In Master Quest, this "
+              "always skips a Song of Time requirement. In Vanilla, this "
               "skips a Hookshot requirement, but is only relevant if \"Gerudo Training Ground Left Side Silver Rupees "
               "without Hookshot\" is enabled.");
     OPT_TRICK(RT_GTG_LAVA_JUMP, RCQUEST_BOTH, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
@@ -2489,6 +2498,7 @@ void Settings::CreateOptions() {
                                                                       &mOptions[RSK_BLUE_FIRE_ARROWS],
                                                                       &mOptions[RSK_SUNLIGHT_ARROWS],
                                                                       &mOptions[RSK_BUNNY_HOOD],
+                                                                      &mOptions[RSK_MASKS_AS_ADULT],
                                                                       &mOptions[RSK_FULL_WALLETS],
                                                                       &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],
                                                                       &mOptions[RSK_MASK_QUEST],
@@ -3038,6 +3048,7 @@ void Settings::CreateOptions() {
                                               &mOptions[RSK_BLUE_FIRE_ARROWS],
                                               &mOptions[RSK_SUNLIGHT_ARROWS],
                                               &mOptions[RSK_BUNNY_HOOD],
+                                              &mOptions[RSK_MASKS_AS_ADULT],
                                               &mOptions[RSK_INFINITE_UPGRADES],
                                               &mOptions[RSK_SKELETON_KEY],
                                               &mOptions[RSK_SLINGBOW_BREAK_BEEHIVES],

@@ -962,11 +962,22 @@ bool Logic::CanUse(RandomizerGet itemName) {
             return IsChild;
         case RG_SKULL_MASK:
         case RG_MASK_OF_TRUTH:
-        case RG_KEATON_MASK: // [RSBS #978] the other four masks, Skull's and Truth's rule
         case RG_BUNNY_HOOD:
+            return IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT); // SoH eca767dcb's three
+        // [RSBS #978, #1647] the three masks this tree gave a child-only case (#978) take Masks as Adult
+        // too (operator 2026-11-15, "Widen to all"): the game lets an adult wear them under the setting
+        // (z_play.c and z_kaleido_item.c free ITEM_MASK_KEATON..ITEM_MASK_TRUTH through
+        // OoT_MasksEquippableAsAdult; Player's mask use and draw ask no age). Upstream sends them to
+        // the default (any age); no logic statement asks for them. The Spooky and Gerudo Masks have no
+        // case here or upstream (the default), so they are left as they are.
+        case RG_KEATON_MASK:
         case RG_GORON_MASK:
         case RG_ZORA_MASK:
-            return IsChild;
+            return IsChild || ctx->GetOption(RSK_MASKS_AS_ADULT); // [RSBS #1647] widened to every wearable mask
+        // [RSBS #1647] the cross-game masks stay child-only under Masks as Adult: an adult cannot wear
+        // them (BlastMaskOoT.cpp / StoneMaskOoT.cpp pin their gItemAgeReqs to the child, the trade slot
+        // is freed only for ITEM_MASK_KEATON..ITEM_MASK_TRUTH, and ForeignMaskOoT.cpp's Use, ApplyRules
+        // and WornDl refuse an adult), so logic does not credit them to one.
         case RG_BLAST_MASK: // [RSBS #979] OoTMM's can_use_mask_blast: age_child_trade && has_mask_blast
             return IsChild && OoT_BlastMaskOoTOn();
         case RG_STONE_MASK: // [RSBS #979] OoTMM's can_use_mask_stone: age_child_trade && has_mask_stone
@@ -2120,6 +2131,11 @@ bool Logic::BunnyHood() {
     return ctx->GetOption(RSK_BUNNY_HOOD) && CanUse(RG_BUNNY_HOOD);
 }
 
+// Hovering with the extra speed the hood gives
+bool Logic::BunnyHovers() {
+    return CanUse(RG_HOVER_BOOTS) && BunnyHood();
+}
+
 bool Logic::CanStandingShield() {
     return CanUse(RG_MIRROR_SHIELD) || (IsAdult && HasItem(RG_HYLIAN_SHIELD)) || CanUse(RG_DEKU_SHIELD);
 }
@@ -3236,12 +3252,13 @@ bool Logic::SpiritExplosiveKeyLogic() {
 }
 
 bool Logic::SpiritWestToSkull() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) || ReachScarecrow();
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
+           ReachScarecrow();
 }
 
 bool Logic::SpiritSunBlockSouthLedge() {
     // also possible to do a backwalk hover + backflip if you equip hovers as you start backwalk to accelerate faster
-    return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) /*|| BunnyHovers()*/ ||
+    return HasItem(RG_POWER_BRACELET) || IsAdult || CanKillEnemy(RE_BEAMOS) || BunnyHovers() ||
            (CanUse(RG_HOOKSHOT) &&
             (HasFireSource() ||
              (HasItem(RG_SPIRIT_SILVER_SUN) &&
@@ -3249,13 +3266,14 @@ bool Logic::SpiritSunBlockSouthLedge() {
 }
 
 bool Logic::SpiritEastToSwitch() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) ||
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
            (CanUse(RG_ZELDAS_LULLABY) && CanUse(RG_HOOKSHOT));
 }
 
 // Combines crossing the ledge directly and the jump from the hand
 bool Logic::MQSpiritWestToPots() {
-    return (IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) || CanUse(RG_SONG_OF_TIME);
+    return (IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || BunnyHood())) || CanUse(RG_HOVER_BOOTS) ||
+           CanUse(RG_SONG_OF_TIME);
 }
 
 bool Logic::MQSpiritStatueToSunBlock() {

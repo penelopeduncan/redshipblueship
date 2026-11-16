@@ -32,7 +32,7 @@ void RegionTable_Init_JabuJabusBelly() {
         Entrance(RR_JABU_JABUS_BELLY_BEGINNING,               []{return true;}),
         Entrance(RR_JABU_JABUS_BELLY_HOLES_ROOM,              []{return true;}),
         Entrance(RR_JABU_JABUS_BELLY_WATER_SWITCH_ROOM_SOUTH, []{return true;}),
-        Entrance(RR_JABU_JABUS_BELLY_NEAR_BOSS_ROOM,          []{return (logic->Get(LOGIC_JABU_LOWERED_PATH) || (ctx->GetTrickOption(RT_JABU_BOSS_HOVER) && logic->CanUse(RG_HOVER_BOOTS))) && logic->HasItem(RG_POWER_BRACELET);}),
+        Entrance(RR_JABU_JABUS_BELLY_NEAR_BOSS_ROOM,          []{return (logic->Get(LOGIC_JABU_LOWERED_PATH) || ((ctx->GetTrickOption(RT_JABU_BOSS_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))) && logic->HasItem(RG_POWER_BRACELET);}),
     });
 
     areaTable[RR_JABU_JABUS_BELLY_HOLES_ROOM] = Region("Jabu Jabus Belly Holes Room", SCENE_JABU_JABU, {}, {}, {
@@ -65,11 +65,11 @@ void RegionTable_Init_JabuJabusBelly() {
         EventAccess(LOGIC_FAIRY_ACCESS, []{return logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS));}),
     }, {
         //Locations
-        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_1, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS))),
-        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_2, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS))),
-        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_3, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS))),
-        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_4, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS))),
-        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_5, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) && logic->CanUse(RG_HOVER_BOOTS))),
+        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_1, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && (ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))),
+        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_2, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && (ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))),
+        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_3, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && (ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))),
+        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_4, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && (ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))),
+        LOCATION(RC_JABU_JABUS_BELLY_TWO_OCTOROK_POT_5, logic->CanUse(RG_BOOMERANG) || (logic->CanBreakPots() && (ctx->GetTrickOption(RT_JABU_B1_CUBE_HOVER) || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS))),
     }, {
         //Exits
         Entrance(RR_JABU_JABUS_BELLY_HOLES_BASEMENT, []{return true;}),
