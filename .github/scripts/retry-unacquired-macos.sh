@@ -52,8 +52,8 @@
 # cancelled), and each unacquired re-run takes about 15 minutes before it
 # completes, so the last re-run starts about 4 hours after the first attempt
 # completed (190 minutes of pauses plus three unacquired re-runs of about 15
-# minutes each). After the
-# last entry the script gives up with an error and the manual command.
+# minutes each). After the last entry the script gives up with an error and
+# the manual command.
 # release-macos-retry.yml's `run_attempt <` guard must equal the number of
 # entries plus one (tools/tests/test_retry_unacquired_macos.py locks this).
 #

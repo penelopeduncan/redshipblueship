@@ -17,7 +17,10 @@ name: release-macos-retry
 # branch push, or a dispatch (generate-builds' create-release and
 # release-macos conditions). Pull requests and pushes to main are ignored.
 # workflow_run always uses this file from the default branch, so the run is
-# listed against main's tip; run-name names the release run it is about.
+# listed against main's tip; run-name names the release run it is about. A
+# red run of this workflow therefore means that release still has no dmg, not
+# that main is broken. Every other generate-builds completion shows here as a
+# skipped run.
 on:
   workflow_run:
     workflows: [generate-builds]

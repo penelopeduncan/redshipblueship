@@ -531,6 +531,15 @@ def test_a_moved_release_tag_is_not_rerun(tmp_path):
     assert "now points at def456" in result.stdout
 
 
+def test_an_unresolvable_release_tag_fails_closed(tmp_path):
+    ids = Ids()
+    state = scenario([attempt(ids)], tags={})
+    result, final = run_script(tmp_path, state)
+    assert result.returncode != 0
+    assert reruns_of(final) == []
+    assert "could not resolve the release tag v0.5.1-alpha" in result.stdout
+
+
 def test_a_release_branch_run_checks_the_stripped_tag(tmp_path):
     ids = Ids()
     state = scenario([attempt(ids)], branch="release/v0.5.1-alpha",
