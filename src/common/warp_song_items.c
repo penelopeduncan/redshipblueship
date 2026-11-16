@@ -6,9 +6,10 @@
 
 #include "warp_song_items.h"
 
-#include "foreign_items.h" // RSBS_XITEM2_SONG_SOARING_OOT, RSBS_XITEM2_SHARED_SONG_SOARING
-#include "game.h"          // GAME_OOT, GAME_MM: Combo_ForeignGameTag's origin
-#include "warp_songs_mm.h" // Combo_MMWarpSongTooltip: the six MM rows' own text (#1169 XW14)
+#include "foreign_items.h"    // RSBS_XITEM2_SONG_SOARING_OOT, RSBS_XITEM2_SHARED_SONG_SOARING
+#include "game.h"             // GAME_OOT, GAME_MM: Combo_ForeignGameTag's origin
+#include "shared_resources.h" // Combo_SharedFamily(2)ArmedBitOf: Combo_ForeignItemTag's family test (#1653)
+#include "warp_songs_mm.h"    // Combo_MMWarpSongTooltip: the six MM rows' own text (#1169 XW14)
 
 #include <stdio.h>
 #include <string.h>
@@ -182,4 +183,13 @@ const char* Combo_ForeignGameTag(const char* name, uint8_t originGame) {
         return ""; // already its game's own name ("Minuet of Forest (MM)")
     }
     return tag;
+}
+
+const char* Combo_ForeignItemTag(uint8_t originGame, uint16_t id, const char* name) {
+    const GameId origin = (GameId)originGame;
+    if ((origin == GAME_OOT || origin == GAME_MM) &&
+        (Combo_SharedFamilyArmedBitOf(origin, id) != 0u || Combo_SharedFamily2ArmedBitOf(origin, id) != 0u)) {
+        return ""; // #1653: an armed shared family's item is both games' own (OoTMM names it untagged)
+    }
+    return Combo_ForeignGameTag(name, originGame);
 }

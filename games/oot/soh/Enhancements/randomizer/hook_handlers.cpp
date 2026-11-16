@@ -508,7 +508,7 @@ extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item) {
         .message = "You found ",
         .suffix = std::string(foreignArticle != nullptr ? foreignArticle : "") +
                   (foreignName != nullptr ? foreignName : "a foreign item") +
-                  Combo_ForeignGameTag(foreignName, GAME_MM),
+                  Combo_ForeignItemTag(item.originGame, item.id, foreignName),
     });
 }
 

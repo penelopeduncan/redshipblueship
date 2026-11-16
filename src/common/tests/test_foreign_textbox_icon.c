@@ -85,8 +85,8 @@ uint16_t MM_ForeignTextboxIcon_TestOtherCheck(void);
 int MM_ForeignTextboxIcon_TestTextureMountedReal(const char* texture);
 int MM_ForeignTextboxIcon_TestCheckQueueGive(uint16_t mmCheckId, const char* wantTexture, uint8_t wantItemId);
 int MM_ForeignTextboxIcon_RunHeadless(void);
-int MM_ForeignTextboxIcon_TestPickupLayout(const char* article, const char* name, char* out, int cap, int* lines,
-                                           int* pages);
+int MM_ForeignTextboxIcon_TestPickupLayout(const char* article, const char* name, uint16_t ootId, char* out, int cap,
+                                           int* lines, int* pages);
 }
 
 #define FTI_ASSERT(cond, msg)                                               \
@@ -453,7 +453,8 @@ TestResult Test_ForeignTextboxIcon(void) {
             char text[256];
             int lines = 0;
             int pages = 0;
-            MM_ForeignTextboxIcon_TestPickupLayout(article, name, text, (int)sizeof(text), &lines, &pages);
+            MM_ForeignTextboxIcon_TestPickupLayout(article, name, (uint16_t)id, text, (int)sizeof(text), &lines,
+                                                   &pages);
             // #1169 XW11: a name that already ends with its tag (the Song of Soaring (OoT)) takes none again.
             const std::string want =
                 std::string("You found ") + article + name + Combo_ForeignGameTag(name, (uint8_t)GAME_OOT) + "!";

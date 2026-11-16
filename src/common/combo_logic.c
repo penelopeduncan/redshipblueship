@@ -3660,6 +3660,27 @@ int Combo_Logic_ComposeBag(const ComboLogicComposeRequest* req, ComboLogicBagIte
             res.perGame[dropOrigin].rows[RSBS_COMBO_COMPOSE_TRIMMED]++;
         }
         res.sharedPairs++;
+        // #1653: NO PLENTIFUL SPARE OF A SHARED ROW. The family is one bit, so a
+        // SURPLUS row of its two ids (a Plentiful spare of either game) is a dead
+        // pickup that would cross as the other game's tagged item: TRIMMED, filler
+        // for its own game's junk pass, never paired into a second shared row. A
+        // second REQUIRED copy (a real one, such as MM's shop Hero's Shields) is
+        // left exactly as before: unpaired, its own game's item. A shared-quantity
+        // kind is left to its own trim above.
+        for (int i = 0; i < req->rowCount; ++i) {
+            if (pairOf[i] >= 0 || disp[i] != (uint8_t)RSBS_COMBO_COMPOSE_SURPLUS) {
+                continue;
+            }
+            const SharedItem it = req->rows[i].item;
+            const bool member = (it.originGame == (uint8_t)GAME_OOT && it.id == fam->ootId) ||
+                                (it.originGame == (uint8_t)GAME_MM && it.id == fam->mmId);
+            if (!member || Combo_ItemClassSharedKind(it) != (uint8_t)RSBS_SHARED_RES_NONE) {
+                continue;
+            }
+            res.perGame[it.originGame].rows[disp[i]]--;
+            res.perGame[it.originGame].rows[RSBS_COMBO_COMPOSE_TRIMMED]++;
+            disp[i] = (uint8_t)RSBS_COMBO_COMPOSE_TRIMMED;
+        }
     }
 
     // ---- pass 3: the bag, a STABLE filter of the pool -----------------------

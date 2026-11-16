@@ -11,6 +11,7 @@
 #include "2s2h/Rando/Foreign.h" // Lane C1 (#392): foreign-check lookup + shared-structure recording
 #include "2s2h/Rando/ForeignTextboxIcon.h" // #607: the origin game's icon inside the blue textbox
 #include "2s2h/Rando/ForeignModel.h"       // #577 M3: the origin game's get-item model
+#include "foreign_items.h"                 // #1653: the hosted item's id, for its tag
 #include "shared_items.h"                  // #1222: Combo_SharedItemCrossingHasRoom
 #include "triforce_hunt.h"                 // #1389: the paired hunt's requirement, for the piece text
 #include "warp_song_items.h"               // #1169 XW11: Combo_ForeignGameTag, one tag after the name
@@ -68,9 +69,10 @@ bool Rando::Foreign::GiveForeignCheck(RandoCheckId randoCheckId) {
 // Time, the Hookshot, the Lens of Truth), and the icon alone cannot tell the two
 // Songs of Time apart (both are music notes). Always, not only for the names
 // both games use, so the player learns one convention.
-std::string Rando::Foreign::ForeignPickupMessage(const char* article, const char* name) {
+std::string Rando::Foreign::ForeignPickupMessage(const char* article, const char* name, uint16_t ootId) {
+    // #1653: an armed shared family's item is both games' own, named untagged.
     return std::string("You found ") + (article != nullptr ? article : "") +
-           (name != nullptr ? name : "a foreign item") + Combo_ForeignGameTag(name, GAME_OOT) + "!";
+           (name != nullptr ? name : "a foreign item") + Combo_ForeignItemTag((uint8_t)GAME_OOT, ootId, name) + "!";
 }
 
 // THE FULL-OUTBOX TOAST (#1222; declared in Rando/Foreign.h): what the player is
@@ -209,6 +211,9 @@ void Rando::MiscBehavior::CheckQueue() {
                         [](Actor* actor, PlayState* play) {
                             const RandoCheckId checkId = (RandoCheckId)CUSTOM_ITEM_PARAM;
                             const char* foreignName = Rando::Foreign::ForeignNameForCheck(checkId);
+                            // #1653: the item's id, so an armed shared family's item is named untagged.
+                            const SharedItem* foreignItem = Combo_GetForeignPlacementForCheck((uint16_t)checkId);
+                            const uint16_t foreignId = foreignItem != nullptr ? foreignItem->id : (uint16_t)0;
 
                             // Record into gComboCtx.sharedItemsTagged (origin-
                             // tagged, durable immediately, de-duped) and mark the
@@ -244,7 +249,8 @@ void Rando::MiscBehavior::CheckQueue() {
                                 .msg = held ? std::string("The cross-game outbox is full. Cross to Hyrule, and "
                                                           "this item will be sent.")
                                             : Rando::Foreign::ForeignPickupMessage(
-                                                  Rando::Foreign::ForeignArticleForCheck(checkId), foreignName),
+                                                  Rando::Foreign::ForeignArticleForCheck(checkId), foreignName,
+                                                  foreignId),
                                 .foreignIconTexture = iconTexture,
                                 .foreignIconItemId = iconItemId,
                             };

@@ -118,7 +118,7 @@ static std::string GossipHintItemName(const RandoSaveCheck* checks, RandoCheckId
     // marker the check trackers use and OoTMM's in-game text uses.
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
         return std::string(Rando::Foreign::ForeignArticleForCheck(randoCheckId)) + foreignName +
-               Combo_ForeignGameTag(foreignName, GAME_OOT);
+               Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     return Rando::StaticData::GetItemName(checks[randoCheckId].randoItemId);
 }

@@ -581,15 +581,15 @@ extern "C" int MM_ForeignTextboxIcon_TestCheckQueueGive(uint16_t mmCheckId, cons
 
 /**
  * #865's width leg: the sentence CheckQueue's textbox shows for an item named
- * `article` + `name` (Rando::Foreign::ForeignPickupMessage), copied to `out`, and
+ * `article` + `name`, OoT item `ootId` (Rando::Foreign::ForeignPickupMessage), copied to `out`, and
  * laid out the way LoadCustomMessageIntoFont lays out an autoFormat Entry (the
  * colour codes, "\n" as 0x11, MM's own AddLineBreaks). `*lines` is the line count
  * of its first page and `*pages` the page count (0x10 starts a page). Returns the
  * sentence's length.
  */
-extern "C" int MM_ForeignTextboxIcon_TestPickupLayout(const char* article, const char* name, char* out, int cap,
-                                                      int* lines, int* pages) {
-    const std::string message = Rando::Foreign::ForeignPickupMessage(article, name);
+extern "C" int MM_ForeignTextboxIcon_TestPickupLayout(const char* article, const char* name, uint16_t ootId, char* out,
+                                                      int cap, int* lines, int* pages) {
+    const std::string message = Rando::Foreign::ForeignPickupMessage(article, name, ootId);
     if (out != nullptr && cap > 0) {
         std::snprintf(out, (size_t)cap, "%s", message.c_str());
     }

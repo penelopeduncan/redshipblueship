@@ -706,7 +706,7 @@ static std::string ExpectedCrossedItemName(uint16_t host, bool withArticle) {
         return "";
     }
     const char* article = withArticle ? Combo_DescribeItemArticle(*item) : nullptr;
-    return std::string(article != nullptr ? article : "") + name + Combo_ForeignGameTag(name, GAME_MM);
+    return std::string(article != nullptr ? article : "") + name + Combo_ForeignItemTag(item->originGame, item->id, name);
 }
 
 /** The English name OoT's own item table gives the item OoT check `rc` physically holds. */

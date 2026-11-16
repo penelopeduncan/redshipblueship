@@ -385,8 +385,10 @@ bool Combo_TrackerCheckAt(uint8_t game, int index, ComboTrackerCheckRow* out) {
         // purchasable check (seen >= 2) also prints its price.
         if (out->obtained && sMMDesc.placedItemName != NULL) {
             uint8_t itemGame = (uint8_t)GAME_NONE;
-            out->placedItemName = sMMDesc.placedItemName(blob, (uint16_t)index, &itemGame);
+            uint16_t itemId = 0;
+            out->placedItemName = sMMDesc.placedItemName(blob, (uint16_t)index, &itemGame, &itemId);
             out->placedItemGame = (out->placedItemName != NULL) ? itemGame : (uint8_t)GAME_NONE;
+            out->placedItemId = (out->placedItemName != NULL) ? itemId : (uint16_t)0;
         } else if (seen != 0 && sMMDesc.placedItemName != NULL) {
             ComboTrackerSeenItem seenItem;
             memset(&seenItem, 0, sizeof(seenItem));
@@ -396,7 +398,7 @@ bool Combo_TrackerCheckAt(uint8_t game, int index, ComboTrackerCheckRow* out) {
             seenItem.listed = out->shuffled;
             seenItem.canBePurchased = sMMDesc.canBePurchased != NULL && sMMDesc.canBePurchased((uint16_t)index);
             seenItem.itemGame = (uint8_t)GAME_NONE;
-            seenItem.itemName = sMMDesc.placedItemName(blob, (uint16_t)index, &seenItem.itemGame);
+            seenItem.itemName = sMMDesc.placedItemName(blob, (uint16_t)index, &seenItem.itemGame, &seenItem.itemId);
             seenItem.price = (sMMDesc.priceOffset != 0) ? MMRowReadU16(row, sMMDesc.priceOffset) : 0;
             Combo_TrackerNameSeenItem(&seenItem, out);
         }
@@ -503,6 +505,7 @@ void Combo_TrackerNameSeenItem(const ComboTrackerSeenItem* seen, ComboTrackerChe
 
     const char* name = NULL;
     uint8_t game = (uint8_t)GAME_NONE;
+    uint16_t id = 0;
     if (reveal && seen->iceTrap) {
         // The disguise once seen, the trick name once identified.
         name = NonEmpty(seen->identified ? seen->trickName : seen->looksLikeName);
@@ -510,9 +513,11 @@ void Combo_TrackerNameSeenItem(const ComboTrackerSeenItem* seen, ComboTrackerChe
     } else if (reveal) {
         name = NonEmpty(seen->itemName);
         game = seen->itemGame;
+        id = seen->itemId;
     }
     row->placedItemName = name;
     row->placedItemGame = (name != NULL) ? game : (uint8_t)GAME_NONE;
+    row->placedItemId = (name != NULL) ? id : (uint16_t)0;
     // The price line: an identified check SoH lists and can sell (SoH 2ba368e7e),
     // whether or not its item is named.
     row->hasPrice = seen->identified && seen->canBePurchased && seen->listed;

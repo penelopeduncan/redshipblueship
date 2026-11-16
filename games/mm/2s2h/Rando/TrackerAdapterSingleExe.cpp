@@ -70,6 +70,7 @@ extern std::unordered_map<RandoCheckId, std::string> accessLogicFuncs;
 #include "combo_hint_view.h"         // MM_HintAdapter_Register: the Hint Tracker's MM adapter (#1475)
 #include "combo_mm_locations_view.h" // Randomizer > MM Locations' check table (#1101 lane R3)
 #include "combo_mm_options_view.h"   // MM_Rando_PairedLogicShown: the resolved MM Logic (#1367)
+#include "foreign_items.h"           // Combo_GetForeignPlacementForCheck: a crossed item's id, for its tag (#1653)
 #include "game.h"                    // MM_SAVE_CONTEXT_SIZE
 #include "warp_song_items.h"         // Combo_SharedFamily2DisplayName: a shared warp song's name (#1169 XW14)
 
@@ -311,13 +312,18 @@ const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
  * owned for good reads as the junk it becomes. A frozen image is named as stored
  * (ownership is MM's live state).
  */
-const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t* outGame) {
+const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t* outGame, uint16_t* outId) {
     if (save == nullptr || checkId == (uint16_t)RC_UNKNOWN || checkId >= (uint16_t)RC_MAX) {
         return nullptr;
     }
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck((RandoCheckId)checkId)) {
         if (outGame != nullptr) {
             *outGame = (uint8_t)GAME_OOT;
+        }
+        if (outId != nullptr) {
+            // #1653: the crossed item's own id, which picks its tag.
+            const SharedItem* crossed = Combo_GetForeignPlacementForCheck(checkId);
+            *outId = crossed != nullptr ? crossed->id : (uint16_t)0;
         }
         return foreignName;
     }
@@ -331,6 +337,9 @@ const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t*
     }
     if (outGame != nullptr) {
         *outGame = (uint8_t)GAME_MM;
+    }
+    if (outId != nullptr) {
+        *outId = (uint16_t)named;
     }
     // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
     if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
@@ -769,7 +778,7 @@ extern "C" int MM_TrackerAdapter_TestSetSkippedIn(void* save, uint16_t checkId, 
  * `save` (the descriptor's placedItemName), or NULL.
  */
 extern "C" const char* MM_TrackerAdapter_TestPlacedItemName(const void* save, uint16_t checkId) {
-    return MMTrackerPlacedItemName(save, checkId, nullptr);
+    return MMTrackerPlacedItemName(save, checkId, nullptr, nullptr);
 }
 
 /**

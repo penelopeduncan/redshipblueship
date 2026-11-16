@@ -378,15 +378,17 @@ uint8_t OoTTrackerLanguage(void) {
  * the item placed there. The storage is static (the foreign describer's names, the
  * item table's Text), so the pointer outlives the row.
  */
-const char* OoTPlacedItemName(Rando::ItemLocation* loc, RandomizerCheck rc, uint8_t* outGame) {
+const char* OoTPlacedItemName(Rando::ItemLocation* loc, RandomizerCheck rc, uint8_t* outGame, uint16_t* outId) {
     if (Combo_ForeignPairingActive()) {
         if (const SharedItem* crossed = Combo_GetForeignPlacementForOoTCheck((uint16_t)rc)) {
             if (const char* name = Combo_GetForeignItemName(*crossed)) {
                 *outGame = (uint8_t)GAME_MM;
+                *outId = crossed->id; // #1653: the crossed item's own id, which picks its tag
                 return name;
             }
         }
     }
+    *outId = (uint16_t)loc->GetPlacedRandomizerGet();
     // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
     if (const char* shared =
             Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)loc->GetPlacedRandomizerGet())) {
@@ -465,7 +467,7 @@ void OoTNameSeenItem(Rando::Context* ctx, Rando::ItemLocation* loc, RandomizerCh
         }
     } else {
         seen.itemGame = (uint8_t)GAME_NONE;
-        seen.itemName = OoTPlacedItemName(loc, rc, &seen.itemGame);
+        seen.itemName = OoTPlacedItemName(loc, rc, &seen.itemGame, &seen.itemId);
     }
     seen.price = loc->GetPrice();
     Combo_TrackerNameSeenItem(&seen, out);
@@ -536,8 +538,10 @@ bool OoTTrackerCheckAt(int index, ComboTrackerCheckRow* out) {
     const RandomizerCheckStatus status = loc->GetCheckStatus();
     if (status == RCSHOW_COLLECTED || status == RCSHOW_SAVED || status == RCSHOW_SCUMMED) {
         uint8_t game = (uint8_t)GAME_NONE;
-        out->placedItemName = OoTPlacedItemName(loc, (RandomizerCheck)index, &game);
+        uint16_t id = 0;
+        out->placedItemName = OoTPlacedItemName(loc, (RandomizerCheck)index, &game, &id);
         out->placedItemGame = out->placedItemName != nullptr ? game : (uint8_t)GAME_NONE;
+        out->placedItemId = out->placedItemName != nullptr ? id : (uint16_t)0;
     } else if (status == RCSHOW_SEEN_OR_HINTED || status == RCSHOW_IDENTIFIED) {
         OoTNameSeenItem(ctx.get(), loc, (RandomizerCheck)index, status == RCSHOW_IDENTIFIED, out);
     }

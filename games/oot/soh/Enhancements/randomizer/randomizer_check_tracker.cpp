@@ -1329,7 +1329,7 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
     if (Combo_ForeignPairingActive()) {
         if (const SharedItem* crossed = Combo_GetForeignPlacementForOoTCheck((uint16_t)rc)) {
             if (const char* name = Combo_GetForeignItemName(*crossed)) {
-                return std::string(name) + Combo_ForeignGameTag(name, GAME_MM);
+                return std::string(name) + Combo_ForeignItemTag(crossed->originGame, crossed->id, name);
             }
         }
     }

@@ -19,7 +19,11 @@
  *   RSBS_GIVECAP_OCARINA_BUTTONS): a shared row may be hosted in either game,
  *   and a game without the shuffle never sees a button given there, so with one
  *   shuffle off no pair is built and each game's buttons stay its own items.
- *   With the rule off nothing is armed and no pair exists.
+ *   With the rule off nothing is armed and no pair exists. #1653: under Plentiful
+ *   (a spare of each copy in each game) every spare of a paired family, of
+ *   either origin, is TRIMMED, for the buttons and for one family of each other
+ *   kind (a shield, a magic arrow, Lens of Truth, a mask, swim); and a crossed
+ *   item of an armed family is named with no game tag (Combo_ForeignItemTag).
  *
  *   SharedOcarinaButtonsArrival ("shared-ocarina-buttons-arrival") - THE
  *   ARRIVAL. Through both games' REAL harvest and apply shims (driven as
@@ -36,9 +40,11 @@
 #include "../combo_single_bag.h"
 #include "../context.h"
 #include "../foreign_items.h"
+#include "../game.h"
 #include "../shared_items.h"
 #include "../shared_resources.h"
 #include "../test_runner.h"
+#include "../warp_song_items.h"
 
 #include <cstdio>
 #include <cstring>
@@ -63,6 +69,11 @@ void MM_SharedButtonsTest_Set(int shuffle, unsigned heldMask);
 unsigned MM_SharedButtonsTest_Held(void);
 int MM_SharedButtonsTest_PoolId(int button);
 int OoT_ComboLogic_TestEnsureItemTableTransient(void);
+// #1653's Plentiful legs: the other kinds' production registrations.
+void OoT_RegisterSharedShieldFamilies(void);
+void MM_RegisterSharedShieldFamilies(void);
+void OoT_RegisterSharedSwimFamily(void);
+void MM_RegisterSharedSwimFamily(void);
 void OoT_HarvestSharedResources(void);
 void OoT_ApplySharedResources(void);
 void MM_HarvestSharedResources(void);
@@ -225,9 +236,112 @@ static int SobCompose(ComboLogicPoolRow* pool, int rowCount, const ComboLogicSha
     req.quantityFlags = RSBS_COMBO_QUANTITY_KEEP_ALL; // no button is a quantity; keep the trim out of it
     req.sharedPairs = pairCount > 0 ? pairs : NULL;
     req.sharedPairCount = pairCount;
-    int index[16];
+    int index[4 * SOB_BUTTONS]; // the largest pool a leg composes (#1653's Plentiful one)
+    if (bagCap > 4 * SOB_BUTTONS) {
+        bagCap = 4 * SOB_BUTTONS;
+    }
     memset(res, 0, sizeof(*res));
     return Combo_Logic_ComposeBag(&req, bag, bagCap, index, res);
+}
+
+/**
+ * #1653 NO PLENTIFUL SPARE, over the real composer and both real classifications:
+ * a Plentiful pool of family (@p ootId, @p mmId) holds each game's own copy and
+ * one PLENTIFUL spare each, which the rule table makes SURPLUS as both engines
+ * mark them. Every armed-word bit is set, so no row is confined. With the pair
+ * handed in, exactly one row of the family survives (the shared row): the pair's
+ * other REQUIRED half is dropped as before and every SURPLUS spare, of either
+ * origin, is TRIMMED and counted so under its own game; with no pair, every such
+ * copy stays a bag row. A copy the rule table does not admit (OoT's RENEWABLE
+ * Hylian Shield) is left alone, and a second REQUIRED copy is never trimmed
+ * (ComboLogicSharedPair (5f) pins that).
+ */
+static void SobPlentifulLeg(const char* what, uint16_t ootId, uint16_t mmId) {
+    const uint16_t P = (uint16_t)RSBS_COMBO_POOL_PLENTIFUL;
+    ComboLogicPoolRow pool[4];
+    memset(pool, 0, sizeof(pool));
+    const uint8_t origins[4] = { (uint8_t)GAME_OOT, (uint8_t)GAME_OOT, (uint8_t)GAME_MM, (uint8_t)GAME_MM };
+    int live[3] = { 0, 0, 0 }; // REQUIRED or SURPLUS copies per GameId
+    int required = 0;
+    for (int i = 0; i < 4; ++i) {
+        pool[i].item.originGame = origins[i];
+        pool[i].item.id = origins[i] == (uint8_t)GAME_OOT ? ootId : mmId;
+        pool[i].poolFlags = (i % 2 == 1) ? P : (uint16_t)0u;
+        const int d = Combo_Logic_ComposeDisposition(pool[i].item, pool[i].poolFlags, 0xFFFFFFFFu);
+        if (d == RSBS_COMBO_COMPOSE_REQUIRED || d == RSBS_COMBO_COMPOSE_SURPLUS) {
+            live[origins[i]]++;
+        }
+        required += (d == RSBS_COMBO_COMPOSE_REQUIRED) ? 1 : 0;
+    }
+    SOB_CHECK(required >= 1 && live[GAME_MM] == 2,
+              "(4c) %s: the premise moved (%d REQUIRED copies, MM admits %d of 2); the leg needs MM's copy and spare "
+              "in the bag",
+              what, required, live[GAME_MM]);
+    const ComboLogicSharedPair fam = { ootId, mmId };
+    ComboLogicComposeRequest req;
+    memset(&req, 0, sizeof(req));
+    req.rows = pool;
+    req.rowCount = 4;
+    req.armedOoT = 0xFFFFFFFFu;
+    req.armedMM = 0xFFFFFFFFu;
+    req.quantityFlags = RSBS_COMBO_QUANTITY_KEEP_ALL; // no family is a quantity; keep the trim out of it
+    req.sharedPairs = &fam;
+    req.sharedPairCount = 1;
+    ComboLogicBagItem bag[8];
+    int index[8];
+    ComboLogicComposeResult res;
+    memset(&res, 0, sizeof(res));
+    const int rc = Combo_Logic_ComposeBag(&req, bag, 8, index, &res);
+    int family = 0;
+    uint8_t keptOrigin = (uint8_t)GAME_NONE;
+    for (int i = 0; i < res.bagCount && i < 8; ++i) {
+        family++;
+        if ((bag[i].bagFlags & RSBS_COMBO_BAG_SHARED_PAIR) != 0u) {
+            keptOrigin = bag[i].item.originGame;
+        }
+    }
+    const int liveAll = live[GAME_OOT] + live[GAME_MM];
+    printf(
+        "[TEST] (4c) %s plentiful (OoT %u, MM %u): rc %d, %d family row(s), shared row from %u, %d trimmed of %d "
+        "admitted; OoT req %d surplus %d trimmed %d, MM req %d surplus %d trimmed %d\n",
+        what, (unsigned)ootId, (unsigned)mmId, rc, family, (unsigned)keptOrigin, Combo_Logic_ComposeTrimmedCount(),
+        liveAll, res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_REQUIRED],
+        res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_SURPLUS], res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_TRIMMED],
+        res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_REQUIRED], res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_SURPLUS],
+        res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_TRIMMED]);
+    SOB_CHECK(rc == RSBS_COMBO_LOGIC_OK && res.sharedPairs == 1 && family == 1 && keptOrigin != (uint8_t)GAME_NONE,
+              "(4c) %s: %d bag row(s) of the family under Plentiful; exactly ONE, the shared row, must survive", what,
+              family);
+    SOB_CHECK(Combo_Logic_ComposeTrimmedCount() == liveAll - 1,
+              "(4c) %s: %d copies trimmed, expected %d: every spare of either origin is a dead pickup", what,
+              Combo_Logic_ComposeTrimmedCount(), liveAll - 1);
+    const GameId games[2] = { GAME_OOT, GAME_MM };
+    for (int g = 0; g < 2; ++g) {
+        const ComboLogicComposeCounts* c = &res.perGame[games[g]];
+        const int kept = keptOrigin == (uint8_t)games[g] ? 1 : 0;
+        int total = 0;
+        for (int d = 0; d < RSBS_COMBO_COMPOSE_COUNT; ++d) {
+            total += c->rows[d];
+        }
+        SOB_CHECK(c->rows[RSBS_COMBO_COMPOSE_REQUIRED] + c->rows[RSBS_COMBO_COMPOSE_SURPLUS] == kept &&
+                      c->rows[RSBS_COMBO_COMPOSE_TRIMMED] == live[games[g]] - kept && total == 2 && c->plentiful == 1,
+                  "(4c) %s: %s's counts do not add up (kept %d, trimmed %d of %d, %d rows counted)", what,
+                  Game_ToString(games[g]), kept, c->rows[RSBS_COMBO_COMPOSE_TRIMMED], live[games[g]], total);
+    }
+
+    // No pair built (the rule off, or one game not pooling its copy): the spares stay.
+    req.sharedPairs = NULL;
+    req.sharedPairCount = 0;
+    const int rcOff = Combo_Logic_ComposeBag(&req, bag, 8, index, &res);
+    SOB_CHECK(rcOff == RSBS_COMBO_LOGIC_OK && res.bagCount == liveAll && res.sharedPairs == 0 &&
+                  Combo_Logic_ComposeTrimmedCount() == 0,
+              "(4c) %s: with no pair built the family must keep all %d copies (bag %d, trimmed %d)", what, liveAll,
+              res.bagCount, Combo_Logic_ComposeTrimmedCount());
+}
+
+/** The registered (OoT, MM) ids of family slot @p slot, or false. */
+static bool SobFamilyIds(uint32_t slot, uint16_t* outOoT, uint16_t* outMM) {
+    return Combo_SharedFamilyMemberId(GAME_OOT, slot, outOoT) && Combo_SharedFamilyMemberId(GAME_MM, slot, outMM);
 }
 
 TestResult Test_SharedOcarinaButtonsPairs(void) {
@@ -424,6 +538,106 @@ TestResult Test_SharedOcarinaButtonsPairs(void) {
         SOB_CHECK(rcMM == RSBS_COMBO_LOGIC_OK && res.bagCount == SOB_BUTTONS && sharedMM == 0 &&
                       Combo_Logic_ComposeTrimmedCount() == 0,
                   "with OoT's buttons in no pool, MM's five rows must stay MM's own items, none shared, none trimmed");
+
+        // ---- (4c) #1653 PLENTIFUL: one copy per shared item, every spare trimmed ----
+        // The playtest's world: Plentiful adds a spare of each button in each
+        // game, and the MM spare crossed as "C Down Button (MM)". All five pairs
+        // over one pool, then one family of each other kind through the same leg.
+        {
+            const uint16_t P = (uint16_t)RSBS_COMBO_POOL_PLENTIFUL;
+            ComboLogicPoolRow plentiful[4 * SOB_BUTTONS];
+            memset(plentiful, 0, sizeof(plentiful));
+            for (int i = 0; i < SOB_BUTTONS; ++i) {
+                const uint16_t ids[4] = { ootId[i], ootId[i], mmId[i], mmId[i] };
+                for (int k = 0; k < 4; ++k) {
+                    ComboLogicPoolRow* r = &plentiful[4 * i + k];
+                    r->item.originGame = k < 2 ? (uint8_t)GAME_OOT : (uint8_t)GAME_MM;
+                    r->item.id = ids[k];
+                    r->poolFlags = (k % 2 == 1) ? P : (uint16_t)0u;
+                }
+            }
+            ComboLogicBagItem pbag[4 * SOB_BUTTONS];
+            const int rcP = SobCompose(plentiful, 4 * SOB_BUTTONS, pairs, pairCount, pbag, 4 * SOB_BUTTONS, &res);
+            int sharedRows = 0;
+            for (int i = 0; i < res.bagCount && i < 4 * SOB_BUTTONS; ++i) {
+                sharedRows += ((pbag[i].bagFlags & RSBS_COMBO_BAG_SHARED_PAIR) != 0u) ? 1 : 0;
+            }
+            printf("[TEST] (4c) buttons plentiful: rc %d, %d bag row(s), %d shared, %d trimmed; OoT req %d surplus %d "
+                   "trimmed %d, MM req %d surplus %d trimmed %d (expected 0, 5, 5, 15; 5 0 5, 0 0 10)\n",
+                   rcP, res.bagCount, sharedRows, Combo_Logic_ComposeTrimmedCount(),
+                   res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_REQUIRED],
+                   res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_SURPLUS],
+                   res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_TRIMMED],
+                   res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_REQUIRED],
+                   res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_SURPLUS],
+                   res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_TRIMMED]);
+            SOB_CHECK(rcP == RSBS_COMBO_LOGIC_OK && res.bagCount == SOB_BUTTONS && sharedRows == SOB_BUTTONS,
+                      "(4c) Plentiful left %d bag row(s), %d shared: each button must be ONE row, the shared one",
+                      res.bagCount, sharedRows);
+            SOB_CHECK(Combo_Logic_ComposeTrimmedCount() == 3 * SOB_BUTTONS &&
+                          res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_REQUIRED] == SOB_BUTTONS &&
+                          res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_SURPLUS] == 0 &&
+                          res.perGame[GAME_OOT].rows[RSBS_COMBO_COMPOSE_TRIMMED] == SOB_BUTTONS &&
+                          res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 0 &&
+                          res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_SURPLUS] == 0 &&
+                          res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 2 * SOB_BUTTONS,
+                      "(4c) every button spare of either game, and MM's own copy, must be TRIMMED and counted so "
+                      "under its own game (no second C-Down to find)");
+            // The rule off: no pair, every copy stays its own game's item.
+            const int rcOffP = SobCompose(plentiful, 4 * SOB_BUTTONS, NULL, 0, pbag, 4 * SOB_BUTTONS, &res);
+            SOB_CHECK(rcOffP == RSBS_COMBO_LOGIC_OK && res.bagCount == 4 * SOB_BUTTONS &&
+                          Combo_Logic_ComposeTrimmedCount() == 0,
+                      "(4c) with no pair built every button copy and spare must stay a bag row (%d, %d trimmed)",
+                      res.bagCount, Combo_Logic_ComposeTrimmedCount());
+        }
+        {
+            OoT_RegisterSharedShieldFamilies();
+            MM_RegisterSharedShieldFamilies();
+            OoT_RegisterSharedSwimFamily();
+            MM_RegisterSharedSwimFamily();
+            static const struct {
+                uint32_t slot;
+                const char* what;
+            } kKinds[] = {
+                { (uint32_t)RSBS_XFAMILY_SLOT_MIRROR_SHIELD, "Mirror Shield" },
+                { (uint32_t)RSBS_XITEM_SHARED_SHIELDS, "Hylian/Hero's Shield" }, // OoT's copy is RENEWABLE: one-sided
+                { (uint32_t)RSBS_XITEM_SHARED_ARROW_FIRE, "Fire Arrows" },
+                { (uint32_t)RSBS_XITEM_SHARED_LENS, "Lens of Truth" },
+                { (uint32_t)RSBS_XITEM_SHARED_GORON, "Goron Mask" },
+                { (uint32_t)RSBS_XITEM_SHARED_SWIM, "swim" },
+            };
+            for (int k = 0; k < (int)(sizeof(kKinds) / sizeof(kKinds[0])); ++k) {
+                uint16_t o = 0;
+                uint16_t m = 0;
+                const bool ok = SobFamilyIds(kKinds[k].slot, &o, &m);
+                SOB_CHECK(ok, "(4c) the %s family is not registered in both games", kKinds[k].what);
+                if (ok) {
+                    SobPlentifulLeg(kKinds[k].what, o, m);
+                }
+            }
+        }
+    }
+
+    // ---- (5) #1653 THE NAME: an armed shared family's item carries no game tag ----
+    {
+        static const char* const kName = "C Down Button";
+        SobFreezeWorld(true);
+        const char* on = Combo_ForeignItemTag((uint8_t)GAME_MM, mmId[2], kName);
+        const char* onOoT = Combo_ForeignItemTag((uint8_t)GAME_OOT, ootId[0], "A Button");
+        const char* unrelated = Combo_ForeignItemTag((uint8_t)GAME_MM, (uint16_t)0xFFF0u, "Fairy Bow");
+        SobFreezeWorld(false);
+        const char* off = Combo_ForeignItemTag((uint8_t)GAME_MM, mmId[2], kName);
+        printf("[TEST] (5) tags: on \"%s\" / OoT \"%s\", unrelated \"%s\", off \"%s\" (expected \"\", \"\", \" (MM)\", "
+               "\" (MM)\")\n",
+               on, onOoT, unrelated, off);
+        SOB_CHECK(std::strcmp(on, "") == 0 && std::strcmp(onOoT, "") == 0,
+                  "(5) a crossed button of the armed Shared Ocarina Buttons family is tagged (\"%s\", \"%s\"); it is "
+                  "both games' own",
+                  on, onOoT);
+        SOB_CHECK(std::strcmp(unrelated, " (MM)") == 0,
+                  "(5) an item of no armed family lost its tag (\"%s\"): only a shared item goes untagged", unrelated);
+        SOB_CHECK(std::strcmp(off, " (MM)") == 0, "(5) with the rule off the same button reads \"%s\", want \" (MM)\"",
+                  off);
     }
 
     SobUnregisterButtons();

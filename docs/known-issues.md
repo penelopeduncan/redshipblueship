@@ -58,6 +58,13 @@ Everything below passed the automated gates. None of it has been checked by a pe
   running game only. Each stays at its usual check in both games, and the second of the two you reach gives junk.
   Nobody has reached both of a song's usual checks in a paired playthrough, so the junk at the second one, and what
   the check trackers show then, have not been seen.
+- Found while playing this release: with Plentiful item pools and a Shared Items rule on, this build places one copy
+  of the shared item where OoTMM places two (issue #1653). OoTMM adds one more shared copy of the Lens of Truth, the
+  magic arrows, the ocarina buttons, several masks and the scale; this build leaves the spare out for now.
+- Found while playing this release: Shuffle Deku Stick Bag and Shuffle Deku Nut Bag apply in Hyrule only (issue
+  #1652). Majora's Mask holds sticks and nuts from the start. Sticks and nuts gathered in Termina wait in the shared
+  pool and read zero in Hyrule until the bag is found. No seed becomes unbeatable. After this release the bag will
+  gate both games.
 - Quitting with a Majora's Mask item found in Ocarina of Time not yet sent (issue #1635) was tested by an automated
   quit and reload only, while the item waited for the item queue. An item held for a full cross-game outbox, which
   takes 2048 items waiting to cross, was tested without a running game only. Nobody has quit with an item waiting
