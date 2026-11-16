@@ -1,0 +1,58 @@
+name: release-macos-retry
+# Re-runs a release run's "macOS build" when GitHub never found it a runner
+# (#1655). The v0.5.1-alpha tag run lost its macOS leg that way twice: each
+# attempt was cancelled after GitHub's 15-minute runner-acquisition limit with
+# no step run, so the release shipped without its dmg. The details, and why
+# only this kind of failure is retried, are in
+# .github/scripts/retry-unacquired-macos.sh.
+#
+# It changes nothing in generate-builds: the release is still made from the
+# Windows and Linux builds without waiting for macOS (#1501), and a re-run of
+# the failed jobs rebuilds only the macOS leg, whose release-macos job then
+# attaches the dmg to the existing release.
+#
+# Runs only for the runs that publish a release: a v* tag push, a release/v*
+# branch push, or a dispatch (generate-builds' create-release and
+# release-macos conditions). Pull requests and pushes to main are ignored.
+# workflow_run always uses this file from the default branch.
+on:
+  workflow_run:
+    workflows: [generate-builds]
+    types:
+      - completed
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  retry-macos:
+    if: >-
+      ${{ github.event.workflow_run.conclusion != 'success'
+      && github.event.workflow_run.run_attempt < 4
+      && ((github.event.workflow_run.event == 'push'
+           && (startsWith(github.event.workflow_run.head_branch, 'v')
+               || startsWith(github.event.workflow_run.head_branch, 'release/v')))
+          || github.event.workflow_run.event == 'workflow_dispatch') }}
+    # One retrier per release run; a second completion event queues, never
+    # cancels the first.
+    concurrency:
+      group: release-macos-retry-${{ github.event.workflow_run.id }}
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    # Hosted jobs stop at 6 hours. If this one stops while a re-run builds,
+    # the re-run finishes and attaches the dmg anyway.
+    timeout-minutes: 350
+    steps:
+    - name: Git Checkout
+      uses: actions/checkout@v4
+      with:
+        sparse-checkout: .github/scripts
+        fetch-depth: 1
+    - name: Re-run the macOS leg if no runner was acquired
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        RUN_ID: ${{ github.event.workflow_run.id }}
+        RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+      run: bash .github/scripts/retry-unacquired-macos.sh
