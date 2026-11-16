@@ -339,9 +339,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Time** (issue #1568). On a shop shelf and when picked up they were drawn as the mystery item.
 - **Plentiful no longer places a second copy of a shared item** (issue #1653). With Plentiful item pools and a Shared
   Items rule on (the ocarina buttons, shields, magic arrows, Lens of Truth, masks, songs or swim), each game added a
-  spare of the shared item, so you could find a second, tagged copy such as "C Down Button (MM)". Each shared item is
-  now placed once, and a crossed shared item is named without a game tag. A seed with Plentiful and a shared rule on,
-  or with Shared Shields and Majora's Mask's shop shuffle (its shop Hero's Shields), can make a different world.
+  spare of the shared item, so you could find a second, tagged copy such as "C Down Button (MM)". The spare is now
+  left out, so each shared item is placed once, and a crossed shared item is named without a game tag. Real second
+  copies, such as the Hero's Shields on Majora's Mask's shop shelves, are kept as before. Only a seed with Plentiful
+  in at least one game and a shared rule on can make a different world. OoTMM places one more shared copy under
+  Plentiful; see the known issues.
 - **Cross-Game Masks: the Blast Mask's blast in Ocarina of Time goes off where Link stands** (issue #1615). The cloud
   was drawn at Link, but the blast itself went off at one fixed point of the map in every scene. It is now centred on
   Link everywhere, the Market guard house included, and it cuts shrubs, as logic expects. As in Majora's Mask, the

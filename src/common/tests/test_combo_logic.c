@@ -4071,15 +4071,16 @@ TestResult Test_ComboLogicSharedPair(void) {
                       Combo_Logic_ComposeTrimmedCount() == 0,
                   "(5) a family with one side's row keeps that copy as the shared row and trims nothing");
 
-        // ---- (5b) #1653 THE ONLY COPY: a Plentiful spare of either origin is trimmed ----
-        // The pair's kept row is the family's one copy; OoT's spare, MM's second
-        // REQUIRED copy and MM's spare are dead pickups (the family is one bit), so
-        // each is TRIMMED under its own game, never a second shared row.
+        // ---- (5b) #1653 NO PLENTIFUL SPARE: a spare of either origin is trimmed ----
+        // The pair's kept row is the family's one copy; OoT's and MM's Plentiful
+        // spares (SURPLUS, as both engines mark them) are dead pickups (the family
+        // is one bit), so each is TRIMMED under its own game, never a second shared
+        // row. MM's own copy is the pair's dropped half, trimmed as in (5).
         const uint16_t P = (uint16_t)RSBS_COMBO_POOL_PLENTIFUL;
         const ComboLogicPoolRow spares[] = { ClPoolRow(O, 1, 0), ClPoolRow(O, 1, P), ClPoolRow(O, 4, 0),
-                                             ClPoolRow(M, 1, 0), ClPoolRow(M, 1, 0), ClPoolRow(M, 1, P) };
+                                             ClPoolRow(M, 1, 0), ClPoolRow(M, 1, P) };
         req.rows = spares;
-        req.rowCount = 6;
+        req.rowCount = 5;
         req.sharedPairs = &fam;
         req.sharedPairCount = 1;
         const int rcSpares = Combo_Logic_ComposeBag(&req, bag, 8, index, &res);
@@ -4087,13 +4088,13 @@ TestResult Test_ComboLogicSharedPair(void) {
         for (int i = 0; i < res.bagCount && i < 8; ++i) {
             familyRows += (bag[i].item.id == 1) ? 1 : 0;
         }
-        bool sparesTrimmed = Combo_Logic_ComposeTrimmedCount() == 4;
+        bool sparesTrimmed = Combo_Logic_ComposeTrimmedCount() == 3;
         for (int t = 0; t < Combo_Logic_ComposeTrimmedCount(); ++t) {
             int at = -1;
             sparesTrimmed = sparesTrimmed && Combo_Logic_ComposeTrimmedAt(t, &at) && at != 0 && at != 2;
         }
         printf("[TEST] (5b) plentiful spares: rc %d bag %d family rows %d pairs %d trimmed %d; OoT req %d surplus %d "
-               "trimmed %d, MM req %d surplus %d trimmed %d (expected 0, 1, 1, 1, 4; 1 0 1, 0 0 3)\n",
+               "trimmed %d, MM req %d surplus %d trimmed %d (expected 0, 1, 1, 1, 3; 1 0 1, 0 0 2)\n",
                rcSpares, res.bagCount, familyRows, res.sharedPairs, Combo_Logic_ComposeTrimmedCount(),
                res.perGame[O].rows[RSBS_COMBO_COMPOSE_REQUIRED], res.perGame[O].rows[RSBS_COMBO_COMPOSE_SURPLUS],
                res.perGame[O].rows[RSBS_COMBO_COMPOSE_TRIMMED], res.perGame[M].rows[RSBS_COMBO_COMPOSE_REQUIRED],
@@ -4101,15 +4102,15 @@ TestResult Test_ComboLogicSharedPair(void) {
         CLP_CHECK(rcSpares == RSBS_COMBO_LOGIC_OK && res.sharedPairs == 1 && familyRows == 1 &&
                       bag[0].bagFlags == RSBS_COMBO_BAG_SHARED_PAIR && bag[0].item.originGame == O && index[0] == 0,
                   "(5b) a family with Plentiful spares must leave exactly ONE bag row, the shared row");
-        CLP_CHECK(sparesTrimmed, "(5b) every other copy of the family, REQUIRED or SURPLUS, of either origin, must be "
-                                 "TRIMMED to its own game's filler");
+        CLP_CHECK(sparesTrimmed, "(5b) every Plentiful spare of the family, of either origin, must be TRIMMED to its "
+                                 "own game's filler");
         CLP_CHECK(res.perGame[O].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 1 &&
                       res.perGame[O].rows[RSBS_COMBO_COMPOSE_SURPLUS] == 0 &&
                       res.perGame[O].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 1 &&
                       res.perGame[O].rows[RSBS_COMBO_COMPOSE_JUNK] == 1 &&
                       res.perGame[M].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 0 &&
                       res.perGame[M].rows[RSBS_COMBO_COMPOSE_SURPLUS] == 0 &&
-                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 3 && res.perGame[O].plentiful == 1 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 2 && res.perGame[O].plentiful == 1 &&
                       res.perGame[M].plentiful == 1,
                   "(5b) the per-game counts must move each trimmed copy from its disposition to TRIMMED under its "
                   "own game, so they still add up to the pool");
@@ -4117,9 +4118,55 @@ TestResult Test_ComboLogicSharedPair(void) {
         // (5c) No pair handed in (every rule off): the spares stay ordinary rows.
         req.sharedPairs = NULL;
         req.sharedPairCount = 0;
-        CLP_CHECK(Combo_Logic_ComposeBag(&req, bag, 8, index, &res) == RSBS_COMBO_LOGIC_OK && res.bagCount == 5 &&
+        CLP_CHECK(Combo_Logic_ComposeBag(&req, bag, 8, index, &res) == RSBS_COMBO_LOGIC_OK && res.bagCount == 4 &&
                       res.sharedPairs == 0 && Combo_Logic_ComposeTrimmedCount() == 0,
                   "(5c) a family with no pair built must keep every copy, spares included");
+
+        // ---- (5f) #1653 PIN: a second REQUIRED copy is NOT trimmed ----
+        // No Plentiful row: OoT's copy and two REQUIRED MM copies (as Majora's
+        // Mask's standalone and shop Hero's Shields are under Shared Shields). The
+        // composer must give exactly what it gave before #1653: the pair's dropped
+        // half trimmed, the second MM copy an ordinary MM bag row at its own position.
+        const ComboLogicPoolRow secondCopy[] = { ClPoolRow(O, 1, 0), ClPoolRow(M, 1, 0), ClPoolRow(M, 1, 0) };
+        req.rows = secondCopy;
+        req.rowCount = 3;
+        req.sharedPairs = &fam;
+        req.sharedPairCount = 1;
+        const int rcSecond = Combo_Logic_ComposeBag(&req, bag, 8, index, &res);
+        int secondAt = -1;
+        const bool secondTrimmed = Combo_Logic_ComposeTrimmedAt(0, &secondAt);
+        printf("[TEST] (5f) second REQUIRED copy: rc %d bag %d pairs %d trimmed %d at %d; OoT req %d trimmed %d, MM "
+               "req %d trimmed %d (expected 0, 2, 1, 1 at 1; 1 0, 1 1)\n",
+               rcSecond, res.bagCount, res.sharedPairs, Combo_Logic_ComposeTrimmedCount(), secondAt,
+               res.perGame[O].rows[RSBS_COMBO_COMPOSE_REQUIRED], res.perGame[O].rows[RSBS_COMBO_COMPOSE_TRIMMED],
+               res.perGame[M].rows[RSBS_COMBO_COMPOSE_REQUIRED], res.perGame[M].rows[RSBS_COMBO_COMPOSE_TRIMMED]);
+        CLP_CHECK(rcSecond == RSBS_COMBO_LOGIC_OK && res.sharedPairs == 1 && res.bagCount == 2 &&
+                      bag[0].bagFlags == RSBS_COMBO_BAG_SHARED_PAIR && bag[0].item.originGame == O && index[0] == 0,
+                  "(5f) the shared row must be OoT's copy, and the bag must keep a second row");
+        CLP_CHECK(bag[1].item.originGame == M && bag[1].item.id == 1 &&
+                      (bag[1].bagFlags & RSBS_COMBO_BAG_SHARED_PAIR) == 0u && index[1] == 2,
+                  "(5f) a second REQUIRED copy of a shared family's id must stay its own game's unpaired bag row "
+                  "(a real copy, never trimmed as a spare)");
+        CLP_CHECK(Combo_Logic_ComposeTrimmedCount() == 1 && secondTrimmed && secondAt == 1 &&
+                      res.perGame[O].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 1 &&
+                      res.perGame[O].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 0 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 1 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 1,
+                  "(5f) only the pair's dropped half may be trimmed; the counts must equal what they were before "
+                  "#1653");
+        // The same pool with one MM Plentiful spare added: only the spare moves.
+        const ComboLogicPoolRow secondCopySpare[] = { ClPoolRow(O, 1, 0), ClPoolRow(M, 1, 0), ClPoolRow(M, 1, 0),
+                                                      ClPoolRow(M, 1, P) };
+        req.rows = secondCopySpare;
+        req.rowCount = 4;
+        int spareAt = -1;
+        CLP_CHECK(Combo_Logic_ComposeBag(&req, bag, 8, index, &res) == RSBS_COMBO_LOGIC_OK && res.bagCount == 2 &&
+                      index[1] == 2 && Combo_Logic_ComposeTrimmedCount() == 2 &&
+                      Combo_Logic_ComposeTrimmedAt(1, &spareAt) && spareAt == 3 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_REQUIRED] == 1 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_SURPLUS] == 0 &&
+                      res.perGame[M].rows[RSBS_COMBO_COMPOSE_TRIMMED] == 2,
+                  "(5f) with a spare beside the second copy, the spare alone must be trimmed");
 
         // (5d) One side only (OoT's copy is not REQUIRED, as OoT's Hylian Shield is
         // RENEWABLE): MM's REQUIRED copy is the shared row and MM's spare is trimmed.

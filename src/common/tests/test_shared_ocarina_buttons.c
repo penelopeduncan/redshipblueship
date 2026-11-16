@@ -245,13 +245,16 @@ static int SobCompose(ComboLogicPoolRow* pool, int rowCount, const ComboLogicSha
 }
 
 /**
- * #1653 THE ONLY COPY, over the real composer and both real classifications: a
- * Plentiful pool of family (@p ootId, @p mmId) holds each game's own copy and one
- * PLENTIFUL spare each. Every armed-word bit is set, so no row is confined. With
- * the pair handed in, exactly one row of the family survives (the shared row) and
- * every other REQUIRED or SURPLUS copy, of either origin, is TRIMMED and counted
- * so under its own game; with no pair, every such copy stays a bag row. A copy
- * the rule table does not admit (OoT's RENEWABLE Hylian Shield) is left alone.
+ * #1653 NO PLENTIFUL SPARE, over the real composer and both real classifications:
+ * a Plentiful pool of family (@p ootId, @p mmId) holds each game's own copy and
+ * one PLENTIFUL spare each, which the rule table makes SURPLUS as both engines
+ * mark them. Every armed-word bit is set, so no row is confined. With the pair
+ * handed in, exactly one row of the family survives (the shared row): the pair's
+ * other REQUIRED half is dropped as before and every SURPLUS spare, of either
+ * origin, is TRIMMED and counted so under its own game; with no pair, every such
+ * copy stays a bag row. A copy the rule table does not admit (OoT's RENEWABLE
+ * Hylian Shield) is left alone, and a second REQUIRED copy is never trimmed
+ * (ComboLogicSharedPair (5f) pins that).
  */
 static void SobPlentifulLeg(const char* what, uint16_t ootId, uint16_t mmId) {
     const uint16_t P = (uint16_t)RSBS_COMBO_POOL_PLENTIFUL;
