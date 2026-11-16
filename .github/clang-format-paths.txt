@@ -38,6 +38,7 @@ games/mm/2s2h/CosmeticGfxSingleExe.cpp
 games/mm/2s2h/DeveloperTools/SaveEditor.h
 games/mm/2s2h/Enhancements/Audio/AudioCollection.h
 games/mm/2s2h/Enhancements/Audio/AudioEditor.h
+games/mm/2s2h/Enhancements/Cycle/MayorArguesUntilMoonfall.cpp
 games/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h
 games/mm/2s2h/Enhancements/Items/HotWaterNeverCools.cpp
 games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp
@@ -170,6 +171,7 @@ games/oot/soh/z_scene_otr.cpp
 games/oot/soh/oot_scene_flag_freeze_test.cpp
 games/oot/soh/oot_check_state_load_test.cpp
 games/oot/soh/oot_foreign_hold_quit_test.cpp
+games/oot/soh/oot_int_foreign_hold_quit_drive.cpp
 games/oot/soh/oot_deku_theater_prize_test.cpp
 games/oot/soh/oot_has_item_fold_test.cpp
 games/oot/soh/oot_shuffled_fairy_test.cpp

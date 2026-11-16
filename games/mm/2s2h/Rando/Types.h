@@ -3643,6 +3643,10 @@ typedef enum {
     RE_BOMBER_CODE,
     RE_DESTROY_MILK_ROAD_BOULDER,
     RE_MAIL_LETTER_TO_KAFEI,
+    // 2Ship #2006 and #2017 insert these mid-list; appended here because the
+    // randoEvents bytes are saved by index (GameExports_SingleExe.cpp pins them).
+    RE_STONE_TOWER_TEMPLE_DEEP_POOL_UNDERWATER_SWITCH,
+    RE_MEET_KOTAKE_WOODS,
 
     RE_MAX,
 } RandoEvent;

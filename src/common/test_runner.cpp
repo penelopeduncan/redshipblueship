@@ -12318,6 +12318,12 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "second owl from the map: MM must land on the cleared swamp's owl, not the pause-save spot, with the one-shot "
       "target spent",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_SOARING_TO_OWL },
+    { "int-foreign-hold-quit",
+      "The paired first crossing with two MM items pinned on Mido's chests (#1635 step 7): the first is queued and the "
+      "player quits through the console's reset, reloads through the real file select, and the drain must give it "
+      "once; the second is recorded in Mido's House and the player quits there without saving, reloads, and it must "
+      "come back open and never be given again; after the round trip Majora's Mask has redeemed each exactly once",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_FOREIGN_HOLD_QUIT },
     { "int-mm-warp-song-minuet",
       "The paired first crossing with Majora's Mask's Minuet of Forest rule on (#1169 XW13): in South Clock Town, once "
       "the arrival's starting checks are paid out, Link takes the Ocarina of Time out from C-down and plays the Minuet "

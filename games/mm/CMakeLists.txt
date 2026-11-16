@@ -388,6 +388,14 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Cheats/TimeStop.cpp"
         "2s2h/Enhancements/Cycle/EndOfCycle.cpp"
         "2s2h/Enhancements/Cycle/KeepExpressMail.cpp"
+        # 2Ship #1972 (Mayor Argues Until Moonfall), drawn by an MM row in the same Quality of Life > Time of Day block,
+        # after Keep Express Mail. Registers only through a file-scope RegisterShipInitFunc on its own key: a VB verdict
+        # (VB_MAYOR_MEETING_END_ON_FINAL_NIGHT, appended to GIVanillaBehavior, dispatched through
+        # MM_GameHooks_ExecuteVBShould from the En_Baisen, En_Daiku, En_Dt, En_Heishi and En_Muto overlays) and four
+        # id-keyed OnActorEntryHalfDaysBits registrants (#1618's bridge, fired from z_actor.c). Play-state guard added
+        # (the half-day body reads MM_gPlayState). Its registrar is file-static, as upstream's, so the archive gate
+        # covers it by member; MMRegistrarCoverage's key-gap table attributes it. No stub in mm_stubs.c.
+        "2s2h/Enhancements/Cycle/MayorArguesUntilMoonfall.cpp"
         "2s2h/Enhancements/Cycle/OceansideSpiderHouseSquatter.cpp"
         "2s2h/Enhancements/Cycle/OceansideWalletAnyDay.cpp"
         # #1018-#1022: the Skips & Speed-ups rows the SoH menu draws. Every file keys on the converged
