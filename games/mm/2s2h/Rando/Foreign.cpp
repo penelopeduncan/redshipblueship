@@ -3061,7 +3061,8 @@ extern "C" int MM_Rando_AugmentSpoilerWithPairedHalf(const char* ootSpoilerPath)
             { "crossItemFlags", gComboCtx.comboItemRules.crossItemFlags },
             { "blastMaskCooldown", gComboCtx.comboItemRules.blastMaskCooldown },
             // #1069: the moon crash this world plays under (MM's frozen option,
-            // forced to New Cycle by the Shared Song of Time rule), as OoTMM names it.
+            // forced to New Cycle by the Shared Song of Time rule or by MM's Shuffle
+            // Ocarina, #1671), as OoTMM names it.
             { "moonCrash", MM_Rando_FrozenMoonCrash() == RSBS_MM_MOON_CRASH_CYCLE ? "cycle" : "reset" },
         };
         // No Logic (combo rung `none`): the coordinator distributed the bag and

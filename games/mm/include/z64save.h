@@ -459,6 +459,8 @@ typedef struct RandoSaveInfo {
     // ProfileIdentityString), so no Last Save pair's mmProfileDigest moves. The
     // Shared Song of Time rule FORCES a New Cycle in play whatever this holds
     // (MM_Rando_FrozenMoonCrash): that force is the combo record's, frozen there.
+    // The half's own frozen Shuffle Ocarina option (RO_SHUFFLE_OCARINA, #1671)
+    // forces it the same way; this byte still holds the player's choice.
     u8 randoSaveMoonCrash;
     // The FROZEN excluded-check set (#1101 lane R3): bit (1 << (id & 7)) of byte
     // (id >> 3) per RandoCheckId in gRando.ExcludedChecks, resolved at creation

@@ -155,6 +155,7 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_HIVE_DROPS,
     RO_SHUFFLE_BUTTERFLIES,
     RO_SHUFFLE_SKELETON_KEY,
+    RO_SHUFFLE_OCARINA, // #1671
     RO_SKULLTULA_SHUFFLED,
     RO_STRAY_FAIRIES_MAX,
     RO_SHUFFLE_SONG_DOUBLE_TIME,
@@ -163,7 +164,6 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_SONG_SARIA,
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
     RO_HOOKSHOT_ANYWHERE,
-    RO_SHUFFLE_OCARINA,
 };
 
 /** The five options and MM's host pool (with its cached groups) as the row found
