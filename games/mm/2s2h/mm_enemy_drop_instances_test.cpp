@@ -29,6 +29,14 @@
  *      none in logic, and with Enable Available Checks off no place answers.
  *   U  with every check shuffled, MM's native tracker lists each one under a scene it
  *      draws (the root's starting Deku Mask and Song of Healing included).
+ *   P  (#1706) every check of every shop and house interior (MM's tracker's
+ *      scenesToCheckParent, 2Ship f8bf9bb3b) is listed by the combo pane exactly
+ *      where MM's tracker lists it, the scene its region opens from, never under
+ *      the interior, its row's area that scene (the Bomb Shop under West Clock
+ *      Town, the Cucco Shack under Romani Ranch, the Poe Sisters' drop under Ikana
+ *      Canyon); Randomizer > MM Locations keeps each one's own heading; and inside
+ *      each interior the pane's current area is the scene MM's tracker scrolls to
+ *      and filters by there (the interior itself when entered from no interior).
  *
  * MM_CheckInstancesPerId_Run (row MMCheckInstancesPerIdUnchanged): over the same
  * save, the new per-instance function leaves the per-id answer exactly as it was,
@@ -63,7 +71,8 @@ extern "C" int MM_CheckInstancesPerId_Run(void) {
 #include "2s2h/Rando/StaticData/StaticData.h"
 #include "2s2h/ShipUtils.h"
 
-#include "combo_mm_options_view.h" // RSBS_MM_MOON_CRASH_CYCLE
+#include "combo_mm_locations_view.h" // Combo_MMLocationById: Randomizer > MM Locations' table (#1706)
+#include "combo_mm_options_view.h"   // RSBS_MM_MOON_CRASH_CYCLE
 #include "context.h"
 #include "combo_tracker_view.h"
 
@@ -82,6 +91,8 @@ extern "C" int MM_CheckTracker_TestCheckCopy(uint16_t sceneId, uint16_t randoChe
 extern "C" int MM_CheckTracker_TestUnlistedShuffled(uint16_t* out, int cap);
 extern "C" int MM_CheckTracker_TestScrollTargetScene(int rawSceneId);
 extern "C" void MM_CheckTracker_TestReset(void);
+extern "C" int MM_CheckTracker_TestListedScenes(uint16_t randoCheckId, uint16_t* out, int cap);
+extern "C" void MM_TrackerAdapter_TestSceneSeam(int mode, int sceneId);
 
 extern "C" {
 #include "z64save.h"
@@ -383,6 +394,152 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     printf(" (RC_STARTING_ITEM_DEKU_MASK %d, RC_STARTING_ITEM_SONG_OF_HEALING %d)\n", (int)RC_STARTING_ITEM_DEKU_MASK,
            (int)RC_STARTING_ITEM_SONG_OF_HEALING);
     EDI_CHECK(unlistedCount == 0, "U: a shuffled check is listed under no scene MM's native tracker draws");
+
+    // ---- P (#1706): shop and house interiors are listed under the scene they open from --------------
+    // MM's native lists rebuilt once from the all-shuffled save; each check of a region in scenesToCheckParent is
+    // listed by the combo pane exactly where they list it, which is the scene its region opens from and never the
+    // interior itself.
+    MM_CheckTracker_TestReset();
+    MM_TrackerAdapter_Register();
+    MM_RandoLocationsUi_Register();
+    std::set<RandoCheckId> interiorChecks;
+    int parentlessRegions = 0;
+    int listingMismatches = 0;
+    int locationsMoved = 0;
+    for (const auto& [regionId, region] : Rando::Logic::Regions) {
+        const SceneId own = (SceneId)Play_GetOriginalSceneId(region.sceneId);
+        if (own == SCENE_KAKUSIANA || !Rando::CheckTracker::IsListedUnderParentScene(own)) {
+            continue;
+        }
+        const SceneId parent = Rando::CheckTracker::GetRegionListScene(regionId);
+        if (parent == SCENE_MAX || parent == own) {
+            parentlessRegions++;
+            continue;
+        }
+        for (const auto& [checkId, _] : region.checks) {
+            if (!interiorChecks.insert(checkId).second) {
+                continue;
+            }
+            uint16_t nativeScenes[kEdiPlaceCap] = {};
+            const int nativeCount = MM_CheckTracker_TestListedScenes((uint16_t)checkId, nativeScenes, kEdiPlaceCap);
+            std::set<uint16_t> nativeKeys;
+            for (int i = 0; i < nativeCount && i < kEdiPlaceCap; i++) {
+                nativeKeys.insert(MM_TrackerAdapter_TestSceneAreaKey(nativeScenes[i]));
+            }
+            uint16_t keys[kEdiPlaceCap] = {};
+            const int count = MM_TrackerAdapter_TestAreaPlaces((uint16_t)checkId, keys, nullptr, kEdiPlaceCap);
+            const std::set<uint16_t> paneKeys(keys, keys + (count < kEdiPlaceCap ? count : kEdiPlaceCap));
+            const uint16_t parentKey = MM_TrackerAdapter_TestSceneAreaKey(parent);
+            const uint16_t ownKey = MM_TrackerAdapter_TestSceneAreaKey(own);
+            const uint16_t rowKey = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)checkId);
+            if (paneKeys != nativeKeys || paneKeys.count(parentKey) == 0 || paneKeys.count(ownKey) != 0 || count < 1 ||
+                keys[0] != rowKey) {
+                printf("[TEST] P: check %d of region %d (scene %d, parent %d): the pane lists it in %d place(s) (row "
+                       "%04X), MM's tracker under %d scene(s)\n",
+                       (int)checkId, (int)regionId, (int)own, (int)parent, count, (unsigned)rowKey, nativeCount);
+                listingMismatches++;
+            }
+            // Randomizer > MM Locations keeps an interior's own heading (MM's Check Filter has no areas): a check's
+            // own scene, an enemy drop's its first region's.
+            const auto check = Rando::StaticData::Checks.find(checkId);
+            const bool drop =
+                check != Rando::StaticData::Checks.end() && check->second.randoCheckType == RCTYPE_ENEMY_DROP;
+            const uint16_t ownHeading =
+                drop || check == Rando::StaticData::Checks.end()
+                    ? ownKey
+                    : MM_TrackerAdapter_TestSceneAreaKey(Play_GetOriginalSceneId(check->second.sceneId));
+            const ComboMMLocationDesc* location = Combo_MMLocationById((uint16_t)checkId);
+            if (location != nullptr && location->areaKey != ownHeading) {
+                printf("[TEST] P: MM Locations lists interior check %d under %04X, not its own heading %04X\n",
+                       (int)checkId, (unsigned)location->areaKey, (unsigned)ownHeading);
+                locationsMoved++;
+            }
+        }
+    }
+    // Three named by hand, so both sides moving together cannot pass: the Bomb Shop opens onto West Clock Town, the
+    // Cucco Shack onto Romani Ranch, and the Ghost Hut (the Poe Sisters' drop) onto Ikana Canyon.
+    const uint16_t bombShopRow = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)RC_BOMB_SHOP_ITEM_01);
+    const uint16_t poeRow = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)RC_ENEMY_DROP_POE_SISTER);
+    uint16_t cuccoRow = 0xFFFF;
+    for (RandoCheckId checkId : interiorChecks) {
+        const auto check = Rando::StaticData::Checks.find(checkId);
+        if (check != Rando::StaticData::Checks.end() && check->second.sceneId == SCENE_F01C) {
+            cuccoRow = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)checkId);
+            break;
+        }
+    }
+    const ComboMMLocationDesc* bombShopLocation = Combo_MMLocationById((uint16_t)RC_BOMB_SHOP_ITEM_01);
+    printf("[TEST] P: %d interior check(s), %d region(s) with no parent, %d listing mismatch(es), %d moved in MM "
+           "Locations; Bomb Shop row %04X (West Clock Town %04X), Cucco Shack %04X (Romani Ranch %04X), Poe Sisters "
+           "%04X (Ikana Canyon %04X)\n",
+           (int)interiorChecks.size(), parentlessRegions, listingMismatches, locationsMoved, (unsigned)bombShopRow,
+           (unsigned)MM_TrackerAdapter_TestSceneAreaKey(SCENE_ICHIBA), (unsigned)cuccoRow,
+           (unsigned)MM_TrackerAdapter_TestSceneAreaKey(SCENE_F01), (unsigned)poeRow,
+           (unsigned)MM_TrackerAdapter_TestSceneAreaKey(SCENE_IKANA));
+    EDI_CHECK(interiorChecks.size() >= 100, "P: fewer than 100 checks in shop and house interiors, so P is vacuous");
+    EDI_CHECK(parentlessRegions == 0, "P: an interior region has no scene it opens from");
+    EDI_CHECK(listingMismatches == 0,
+              "P: an interior's check is not listed by the combo pane exactly where MM's own tracker lists it");
+    EDI_CHECK(bombShopRow == MM_TrackerAdapter_TestSceneAreaKey(SCENE_ICHIBA),
+              "P: the Bomb Shop's check is not listed under West Clock Town");
+    EDI_CHECK(cuccoRow == MM_TrackerAdapter_TestSceneAreaKey(SCENE_F01),
+              "P: the Cucco Shack's checks are not listed under Romani Ranch");
+    EDI_CHECK(poeRow == MM_TrackerAdapter_TestSceneAreaKey(SCENE_IKANA),
+              "P: the Poe Sisters' drop is not listed under Ikana Canyon");
+    EDI_CHECK(locationsMoved == 0 && bombShopLocation != nullptr &&
+                  bombShopLocation->areaKey == MM_TrackerAdapter_TestSceneAreaKey(SCENE_BOMYA),
+              "P: Randomizer > MM Locations moved an interior's check off its own heading");
+
+    // The current area inside each interior: the pane answers what MM's tracker scrolls to and filters by there, for
+    // the entrance into each of its regions; and inside the Bomb Shop entered by an entrance of no interior region
+    // (the arrival), both answer the shop itself.
+    MM_TrackerAdapter_TestLiveSeam(1);
+    const GameId prevAreaGame = Context_GetCurrentGame();
+    Context_SetCurrentGame(GAME_MM);
+    int currentMismatches = 0;
+    int currentAsked = 0;
+    for (const auto& [regionId, region] : Rando::Logic::Regions) {
+        const SceneId own = (SceneId)Play_GetOriginalSceneId(region.sceneId);
+        if (own == SCENE_KAKUSIANA || !Rando::CheckTracker::IsListedUnderParentScene(own)) {
+            continue;
+        }
+        for (const auto& [_, regionExit] : region.exits) {
+            if (regionExit.returnEntrance == ONE_WAY_EXIT ||
+                Rando::Logic::GetRegionIdFromEntrance(regionExit.returnEntrance) != regionId) {
+                continue;
+            }
+            gSaveContext.save.entrance = regionExit.returnEntrance;
+            MM_TrackerAdapter_TestSceneSeam(1, (int)own);
+            uint16_t paneKey = 0;
+            const bool known = Combo_TrackerCurrentArea((uint8_t)GAME_MM, &paneKey);
+            const int nativeScene = MM_CheckTracker_TestScrollTargetScene((int)region.sceneId);
+            currentAsked++;
+            if (!known || paneKey != MM_TrackerAdapter_TestSceneAreaKey(nativeScene) || nativeScene == (int)own) {
+                printf(
+                    "[TEST] P: inside region %d (scene %d): the pane's current area %d:%04X, MM's tracker scene %d\n",
+                    (int)regionId, (int)own, known ? 1 : 0, (unsigned)paneKey, nativeScene);
+                currentMismatches++;
+            }
+            break;
+        }
+    }
+    gSaveContext.save.entrance = kArrivalEntrance;
+    MM_TrackerAdapter_TestSceneSeam(1, (int)SCENE_BOMYA);
+    uint16_t arrivalKey = 0;
+    const bool arrivalKnown = Combo_TrackerCurrentArea((uint8_t)GAME_MM, &arrivalKey);
+    const int arrivalNative = MM_CheckTracker_TestScrollTargetScene((int)SCENE_BOMYA);
+    MM_TrackerAdapter_TestSceneSeam(-1, 0);
+    MM_TrackerAdapter_TestLiveSeam(-1);
+    Combo_TrackerResetCurrentAreas();
+    Context_SetCurrentGame(prevAreaGame);
+    printf("[TEST] P: current area asked in %d interior region(s), %d mismatch(es); in the Bomb Shop from the "
+           "arrival %d:%04X, MM's tracker scene %d\n",
+           currentAsked, currentMismatches, arrivalKnown ? 1 : 0, (unsigned)arrivalKey, arrivalNative);
+    EDI_CHECK(currentAsked >= 20 && currentMismatches == 0,
+              "P: inside an interior the pane's current area is not the scene MM's tracker scrolls to and filters by");
+    EDI_CHECK(arrivalKnown && arrivalKey == MM_TrackerAdapter_TestSceneAreaKey(SCENE_BOMYA) &&
+                  arrivalNative == (int)SCENE_BOMYA,
+              "P: inside the Bomb Shop entered from no interior region, the current area is not the shop itself");
 
     guard.reset();
     MM_CheckTracker_TestReset();

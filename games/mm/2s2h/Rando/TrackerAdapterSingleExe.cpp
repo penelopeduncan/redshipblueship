@@ -147,31 +147,22 @@ const std::unordered_map<s32, s32> kMMSceneOrder = {
 #undef DEFINE_SCENE_UNSET
 
 /**
- * The scene MMCheckScenes lists region `regionId`'s grotto checks and enemy drops
- * under: a grotto region's (SCENE_KAKUSIANA) is the scene of the region its grotto
- * connects to (Lone Peak Shrine connects to itself), any other region's its own
- * scene through Play_GetOriginalSceneId. SCENE_MAX for a grotto with no connection.
+ * The scene MMCheckScenes lists region `regionId`'s grotto checks, interior checks
+ * and enemy drops under: MM's own tracker's rule, read from it
+ * (Rando::CheckTracker::GetRegionListScene, #1706). A region of a scene in its
+ * scenesToCheckParent table (a grotto, or a shop or house interior since 2Ship
+ * f8bf9bb3b) goes under the scene of the region it connects to (Lone Peak Shrine
+ * connects to itself), any other region under its own scene through
+ * Play_GetOriginalSceneId. SCENE_MAX for a region it lists nowhere (the root, an
+ * interior with no connection).
  */
-s16 MMRegionListScene(RandoRegionId regionId, const Rando::Logic::RandoRegion& region) {
-    if (region.sceneId != SCENE_KAKUSIANA) {
-        return Play_GetOriginalSceneId(region.sceneId);
-    }
-    RandoRegionId connected = RR_MAX;
-    if (regionId == RR_LONE_PEAK_SHRINE) {
-        connected = RR_LONE_PEAK_SHRINE;
-    } else {
-        for (const auto& [entrance, _] : region.exits) {
-            connected = Rando::Logic::GetRegionIdFromEntrance(entrance);
-        }
-        for (const auto& [connectedId, _] : region.connections) {
-            connected = connectedId;
-        }
-    }
-    const auto target = Rando::Logic::Regions.find(connected);
-    if (target == Rando::Logic::Regions.end()) {
-        return (s16)SCENE_MAX;
-    }
-    return target->second.sceneId;
+s16 MMRegionListScene(RandoRegionId regionId) {
+    return (s16)Rando::CheckTracker::GetRegionListScene(regionId);
+}
+
+/** Whether MM's tracker lists region `region`'s checks under the scene it opens from (a grotto or an interior). */
+bool MMRegionListedUnderParent(const Rando::Logic::RandoRegion& region) {
+    return Rando::CheckTracker::IsListedUnderParentScene((SceneId)Play_GetOriginalSceneId(region.sceneId));
 }
 
 bool MMIsEnemyDrop(RandoCheckId checkId) {
@@ -183,15 +174,25 @@ bool MMIsEnemyDrop(RandoCheckId checkId) {
 // check (and for a drop no region places), which has one place, its MMCheckScenes scene.
 std::vector<std::vector<s16>> sDropPlaces;
 
+// #1706: the scene Randomizer > MM Locations lists each check under, built with MMCheckScenes by its rule before
+// #1706 (a grotto's checks under the scene it opens from, an enemy drop under its first region's own scene, any other
+// check under its own scene): MM's own Check Filter tab lists its checks with no areas at all, so parity asks
+// nothing of that page, and its shop and house interiors keep their own headers.
+std::vector<s16> sLocationScenes;
+
 /**
  * The scene each check is listed under, by the rule MM's check tracker grouped
- * its rows with before 2Ship f8bf9bb3b (CheckTracker.cpp, initializeSceneChecks):
- * the check's own scene through Play_GetOriginalSceneId, except a grotto check,
- * which goes under the scene of the region its grotto connects to, and an enemy
- * drop, which goes under the first region (in region order) that lists it. A
- * check neither rule places (a grotto with no connection) keeps its own scene
- * rather than vanishing, as MM's tracker now lists it too (its local divergence
- * from f8bf9bb3b, #1498); no grotto region of today's graph lacks a connection.
+ * its rows with (CheckTracker.cpp, initializeSceneChecks): the check's own scene
+ * through Play_GetOriginalSceneId, except a check of a scene MM's tracker lists
+ * under its parent (scenesToCheckParent: a grotto, and since 2Ship f8bf9bb3b a shop
+ * or house interior, #1706), which goes under the scene the first region (in
+ * region order) of such a scene that lists it opens from (MMRegionListScene), and
+ * an enemy drop, which goes under the first region that lists it. MM's tracker
+ * lists every check of those scenes in such regions only, so the pane's one place
+ * is the native one. A check neither rule places (an interior with no
+ * connection) keeps its own scene rather than vanishing, as MM's tracker now
+ * lists it too (its local divergence from f8bf9bb3b, #1498); no such region lacks
+ * a connection in today's graph.
  *
  * #1127: MM's tracker lists an enemy drop under EVERY scene a region that lists
  * it is listed under, so this also fills sDropPlaces: each such region's scene
@@ -210,21 +211,34 @@ const std::vector<s16>& MMCheckScenes(void) {
     }
     sScenes.assign((size_t)RC_MAX, (s16)SCENE_MAX);
     sDropPlaces.assign((size_t)RC_MAX, std::vector<s16>());
+    sLocationScenes.assign((size_t)RC_MAX, (s16)SCENE_MAX);
     for (const auto& [_, check] : Rando::StaticData::Checks) {
-        if (check.sceneId == SCENE_KAKUSIANA || check.randoCheckType == RCTYPE_ENEMY_DROP) {
+        const s16 own = Play_GetOriginalSceneId(check.sceneId);
+        if (check.randoCheckType == RCTYPE_ENEMY_DROP) {
             continue;
         }
-        sScenes[check.randoCheckId] = Play_GetOriginalSceneId(check.sceneId);
+        if (own != (s16)SCENE_KAKUSIANA) {
+            sLocationScenes[check.randoCheckId] = own;
+        }
+        if (!Rando::CheckTracker::IsListedUnderParentScene((SceneId)own)) {
+            sScenes[check.randoCheckId] = own;
+        }
     }
     for (const auto& [regionId, region] : Rando::Logic::Regions) {
-        const s16 scene = MMRegionListScene(regionId, region);
-        if (scene == (s16)SCENE_MAX) {
-            continue;
-        }
-        const bool grotto = region.sceneId == SCENE_KAKUSIANA;
+        const s16 scene = MMRegionListScene(regionId);
+        const bool grotto = Play_GetOriginalSceneId(region.sceneId) == (s16)SCENE_KAKUSIANA;
+        // MM Locations' area (#1706 leaves it as it was): a grotto's parent, any other region's own scene.
+        const s16 locationScene = grotto ? scene : Play_GetOriginalSceneId(region.sceneId);
+        const bool underParent = MMRegionListedUnderParent(region);
         for (const auto& [checkId, _] : region.checks) {
             const bool drop = MMIsEnemyDrop(checkId);
-            if ((grotto || drop) && sScenes[checkId] == (s16)SCENE_MAX) {
+            if (locationScene != (s16)SCENE_MAX && (grotto || drop) && sLocationScenes[checkId] == (s16)SCENE_MAX) {
+                sLocationScenes[checkId] = locationScene;
+            }
+            if (scene == (s16)SCENE_MAX) {
+                continue;
+            }
+            if ((underParent || drop) && sScenes[checkId] == (s16)SCENE_MAX) {
                 sScenes[checkId] = scene;
             }
             std::vector<s16>& places = sDropPlaces[checkId];
@@ -236,6 +250,9 @@ const std::vector<s16>& MMCheckScenes(void) {
     for (const auto& [_, check] : Rando::StaticData::Checks) {
         if (sScenes[check.randoCheckId] == (s16)SCENE_MAX) {
             sScenes[check.randoCheckId] = Play_GetOriginalSceneId(check.sceneId);
+        }
+        if (sLocationScenes[check.randoCheckId] == (s16)SCENE_MAX) {
+            sLocationScenes[check.randoCheckId] = Play_GetOriginalSceneId(check.sceneId);
         }
     }
     sBuiltAt = Rando::Logic::Regions.size();
@@ -268,12 +285,21 @@ const char* MMSceneAreaName(s16 scene, uint16_t* outKey) {
     return Rando::CheckTracker::GetCheckTrackerSceneName((SceneId)scene);
 }
 
-/** The area a check is listed under by MMCheckScenes' static rule (Randomizer > MM Locations' table). */
+/** The area a check is listed under by MMCheckScenes' static rule: its row's area, and its first place. */
 const char* MMTrackerStaticAreaName(uint16_t checkId, uint16_t* outKey) {
     if (checkId >= (uint16_t)RC_MAX) {
         return nullptr;
     }
     return MMSceneAreaName(MMCheckScenes()[checkId], outKey);
+}
+
+/** The area Randomizer > MM Locations' table lists a check under (sLocationScenes, #1706). */
+const char* MMLocationsAreaName(uint16_t checkId, uint16_t* outKey) {
+    if (checkId >= (uint16_t)RC_MAX) {
+        return nullptr;
+    }
+    (void)MMCheckScenes(); // builds sLocationScenes with it
+    return MMSceneAreaName(sLocationScenes[checkId], outKey);
 }
 
 // #1498: from the last in-logic computation (MMRefreshInLogic), the (drop, list scene) copies of an unobtained enemy
@@ -565,7 +591,7 @@ void MMRefreshInLogic(bool force) {
             if (!MMIsEnemyDrop(checkId) || region == Rando::Logic::Regions.end() || sInLogic[checkId] == 0) {
                 continue;
             }
-            const s16 scene = MMRegionListScene(regionId, region->second);
+            const s16 scene = MMRegionListScene(regionId);
             if (scene < 0 || scene >= (s16)SCENE_MAX) {
                 continue;
             }
@@ -668,7 +694,11 @@ constexpr RandoCheckId kLonePeakShrineCheck = RC_LONE_PEAK_SHRINE_LENS_CHEST;
  * (SCENE_KAKUSIANA) answers the scene it was entered from, the last other scene
  * the op saw (the window asks every frame, open or not), because MM's tracker
  * lists a grotto's checks under the scene its grotto opens from (MMCheckScenes);
- * none if it saw none. Lone Peak Shrine is the exception (#1189): it answers the
+ * none if it saw none. A shop or house interior (#1706, 2Ship f8bf9bb3b) answers
+ * the scene MM's tracker lists its checks under, the scene the region of the
+ * save's entrance opens from (Rando::CheckTracker::GetInteriorParentScene), or
+ * itself when that region names none, as MM's tracker answers there.
+ * Lone Peak Shrine is the exception (#1189): it answers the
  * scene MMCheckScenes lists its checks under, so Only Show Current Area keeps
  * them and the scroll lands on them, and it leaves the scene a grotto was
  * entered from as it was. False unless MM plays a randomizer file (#1189, ruling
@@ -703,6 +733,15 @@ bool MMTrackerCurrentArea(uint16_t* outKey) {
         scene = sAreaLastScene;
     } else {
         sAreaLastScene = scene;
+        // #1706: inside a shop or house interior, the scene MM's tracker lists the interior's checks under, from the
+        // region of the save's entrance (CheckTracker.cpp, GetScrollTargetScene); the interior itself when that
+        // region names none, as there.
+        if (Rando::CheckTracker::IsListedUnderParentScene((SceneId)scene)) {
+            const s16 parent = (s16)Rando::CheckTracker::GetInteriorParentScene(gSaveContext.save.entrance);
+            if (parent >= 0 && parent < (s16)SCENE_MAX) {
+                scene = parent;
+            }
+        }
     }
     if (scene < 0 || scene >= (s16)SCENE_MAX) {
         return false;
@@ -931,7 +970,7 @@ extern "C" int MM_TrackerAdapter_TestRegionAreaKey(int regionId, uint16_t* outKe
     if (outKey == nullptr || region == Rando::Logic::Regions.end()) {
         return 0;
     }
-    const s16 scene = MMRegionListScene((RandoRegionId)regionId, region->second);
+    const s16 scene = MMRegionListScene((RandoRegionId)regionId);
     if (scene < 0 || scene >= (s16)SCENE_MAX) {
         return 0;
     }
@@ -966,6 +1005,77 @@ extern "C" int MM_TrackerAdapter_TestAreaPlaces(uint16_t checkId, uint16_t* outK
         }
     }
     return count;
+}
+
+/**
+ * TEST BRIDGE (#1706, the ROM-free ComboTrackerWindow leg): with @p install
+ * nonzero, give the region graph MM's West Clock Town and Bomb Shop regions, cut
+ * to one check each and the shop's door both ways (Regions/Central.cpp's
+ * RR_BOMB_SHOP exit and West Clock Town's exit into it), when the graph has no
+ * region of its own (the ROM-free tier registers none; a graph that has them
+ * already is used as it is), and stand the live save's entrance in the Bomb Shop
+ * (@p install 2: West Clock Town's entrance from the shop, whose region is the
+ * town's). @p install 0 takes out what an install put in and gives the entrance
+ * back. In the out-parameters (each may be NULL): the shop's check, West Clock
+ * Town's, and the two scenes. @return 1 when both regions are in the graph after
+ * an install; 1 after an uninstall.
+ */
+extern "C" int MM_TrackerAdapter_TestInteriorGraph(int install, uint16_t* outInteriorCheck, uint16_t* outParentCheck,
+                                                   int* outInteriorScene, int* outParentScene) {
+    static bool sInstalled = false;
+    static bool sEntranceHeld = false;
+    static s32 sHeldEntrance = 0;
+    const RandoCheckId shopCheck = RC_BOMB_SHOP_ITEM_01;
+    const RandoCheckId townCheck = RC_CLOCK_TOWN_WEST_BANK_ADULTS_WALLET;
+    if (outInteriorCheck != nullptr) {
+        *outInteriorCheck = (uint16_t)shopCheck;
+    }
+    if (outParentCheck != nullptr) {
+        *outParentCheck = (uint16_t)townCheck;
+    }
+    if (outInteriorScene != nullptr) {
+        *outInteriorScene = (int)SCENE_BOMYA;
+    }
+    if (outParentScene != nullptr) {
+        *outParentScene = (int)SCENE_ICHIBA;
+    }
+    if (install == 0) {
+        if (sInstalled) {
+            Rando::Logic::Regions.erase(RR_BOMB_SHOP);
+            Rando::Logic::Regions.erase(RR_CLOCK_TOWN_WEST);
+            Rando::Logic::InvalidateEntranceRegionCache();
+            sInstalled = false;
+        }
+        if (sEntranceHeld) {
+            gSaveContext.save.entrance = sHeldEntrance;
+            sEntranceHeld = false;
+        }
+        return 1;
+    }
+    if (!sEntranceHeld) {
+        sHeldEntrance = gSaveContext.save.entrance;
+        sEntranceHeld = true;
+    }
+    if (Rando::Logic::Regions.empty()) {
+        Rando::Logic::RandoRegion shop;
+        shop.name = "Bomb Shop";
+        shop.sceneId = SCENE_BOMYA;
+        shop.checks[shopCheck] = { [] { return true; }, "true" };
+        shop.exits[ENTRANCE(WEST_CLOCK_TOWN, 6)] = { ENTRANCE(BOMB_SHOP, 0), [] { return true; }, "true" };
+        Rando::Logic::RandoRegion town;
+        town.name = "West Clock Town";
+        town.sceneId = SCENE_ICHIBA;
+        town.checks[townCheck] = { [] { return true; }, "true" };
+        town.exits[ENTRANCE(BOMB_SHOP, 0)] = { ENTRANCE(WEST_CLOCK_TOWN, 6), [] { return true; }, "true" };
+        Rando::Logic::Regions[RR_BOMB_SHOP] = shop;
+        Rando::Logic::Regions[RR_CLOCK_TOWN_WEST] = town;
+        Rando::Logic::InvalidateEntranceRegionCache();
+        sInstalled = true;
+    }
+    // 2: the town's side of the door, an entrance whose region (West Clock Town) is no interior's.
+    gSaveContext.save.entrance = install == 2 ? ENTRANCE(WEST_CLOCK_TOWN, 6) : ENTRANCE(BOMB_SHOP, 0);
+    return Rando::Logic::Regions.count(RR_BOMB_SHOP) != 0 && Rando::Logic::Regions.count(RR_CLOCK_TOWN_WEST) != 0 ? 1
+                                                                                                                  : 0;
 }
 
 /**
@@ -1007,17 +1117,17 @@ bool MMLocationsVanillaLogic(void) {
  * (combo_mm_locations_view.h). One row per check MM's pool can hold: every
  * static check but RC_UNKNOWN and the two Stone Tower pots GeneratePools.cpp
  * never adds (excluding a check the pool never holds would be a control that
- * changes nothing). Each row carries the name and the area the combo tracker
- * lists it under (MMTrackerCheckName, MMTrackerStaticAreaName above: MM's own
- * check tracker's names and scene order; an enemy drop keeps its first region
- * here, the page having one row per check, #1127), sorted by area,
- * then id, the order the page draws.
+ * changes nothing). Each row carries the name and an area (MMTrackerCheckName,
+ * MMLocationsAreaName above: MM's own check tracker's names and scene order; an
+ * enemy drop keeps its first region here, the page having one row per check,
+ * #1127; a shop or house interior keeps its own scene, which the check tracker no
+ * longer lists it under, #1706), sorted by area, then id, the order the page draws.
  *
  * The rows are built once and own copies of their names: CheckNames[id] is
  * reassigned (a move from a temporary, which frees each longer name's old
  * buffer) by every PopulateCheckNames, and MM's tracker bring-up and the combo
  * tracker adapter both call it after this table exists, so a cached c_str()
- * would dangle. The areas follow MMCheckScenes' rule instead: a grotto's or an
+ * would dangle. The areas follow sLocationScenes' rule instead: a grotto's or an
  * enemy drop's area comes from the region graph, so the areas are re-resolved
  * and the rows re-sorted in place whenever the region count changes (the page
  * calls this each frame it draws). In place: the row count and the vector's
@@ -1046,7 +1156,7 @@ extern "C" void MM_RandoLocationsUi_Register(void) {
     if (sAreasAt != Rando::Logic::Regions.size()) {
         for (ComboMMLocationDesc& desc : sTable) {
             uint16_t areaKey = 0xFFFF;
-            const char* areaName = MMTrackerStaticAreaName(desc.id, &areaKey);
+            const char* areaName = MMLocationsAreaName(desc.id, &areaKey);
             desc.areaName = areaName != nullptr ? areaName : "";
             desc.areaKey = areaKey;
         }

@@ -101,6 +101,14 @@
 #include <ship/window/gui/IconsFontAwesome4.h>
 #include <libultraship/bridge/consolevariablebridge.h>
 
+// TrackerAdapterSingleExe.cpp (#1706's leg, LockParentScenes).
+extern "C" int MM_TrackerAdapter_TestInteriorGraph(int install, uint16_t* outInteriorCheck, uint16_t* outParentCheck,
+                                                   int* outInteriorScene, int* outParentScene);
+extern "C" uint16_t MM_TrackerAdapter_TestSceneAreaKey(int sceneId);
+extern "C" const char* MM_TrackerAdapter_TestSceneAreaName(int sceneId);
+extern "C" void MM_TrackerAdapter_TestLiveSeam(int live);
+extern "C" void MM_TrackerAdapter_TestSceneSeam(int mode, int sceneId);
+
 #define CTW_ASSERT(cond)                                                   \
     do {                                                                   \
         if (!(cond)) {                                                     \
@@ -806,6 +814,103 @@ int LockPlaces(void) {
     ComboContext_Init();           // drops the authored departure capture
     OoT_TrackerAdapter_Register(); // the production adapters, whatever the result
     MM_TrackerAdapter_Register();
+    Context_SetCurrentGame(prevGame);
+    return result;
+}
+
+// ---- #1706: a shop or house interior's checks under the scene it opens from ----
+//
+// MM's own Check Tracker lists the checks of the scenes in its scenesToCheckParent
+// table (a grotto, and since 2Ship f8bf9bb3b a shop or house interior) under the
+// scene each one opens from, and while Link stands inside one its Only Show
+// Current Scene keeps that scene (CheckTracker.cpp, initializeSceneChecks and
+// GetScrollTargetScene). The production MM descriptor over two of MM's regions
+// (MM_TrackerAdapter_TestInteriorGraph: West Clock Town and the Bomb Shop, a door
+// each way) and an authored MM half with one check of each shuffled: the shop's
+// check is listed under West Clock Town beside the town's own and nothing under
+// the Bomb Shop; standing in the shop (the save's entrance the shop's door) the
+// current area is West Clock Town, whose filter keeps both; entered by an entrance
+// whose region is no interior's, the shop is its own current area, as in MM's
+// tracker. MMEnemyDropInstances (rando tier) locks every interior of MM's real
+// graph against MM's own tracker.
+
+int LockParentScenesBody(void) {
+    using namespace ComboGui;
+    MM_TrackerAdapter_Register();
+    const ComboMMTrackerDesc* desc = Combo_Tracker_GetMMDesc();
+    CTW_ASSERT(desc != nullptr && desc->currentArea != nullptr);
+    uint16_t shopCheck = 0;
+    uint16_t townCheck = 0;
+    int shopScene = -1;
+    int townScene = -1;
+    CTW_ASSERT(MM_TrackerAdapter_TestInteriorGraph(1, &shopCheck, &townCheck, &shopScene, &townScene) == 1);
+    const uint16_t shopKey = MM_TrackerAdapter_TestSceneAreaKey(shopScene);
+    const uint16_t townKey = MM_TrackerAdapter_TestSceneAreaKey(townScene);
+    const char* townName = MM_TrackerAdapter_TestSceneAreaName(townScene);
+    CTW_ASSERT(shopKey != townKey && townName != nullptr);
+
+    std::vector<uint8_t> half((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    memcpy(half.data() + desc->newfOffset, desc->newf, desc->newfLen);
+    memcpy(half.data() + desc->saveTypeOffset, &desc->saveTypeRando, sizeof(uint32_t));
+    for (const uint16_t check : { shopCheck, townCheck }) {
+        half[desc->checkTableOffset + (size_t)check * desc->checkStride + desc->shuffledOffset] = 1;
+    }
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+    Context_SetCurrentGame(GAME_OOT);
+
+    // The listing: one area, West Clock Town's, holding both checks.
+    std::vector<ComboTrackerAreaRows> areas;
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
+    bool shopListed = false;
+    bool townListed = false;
+    for (size_t i = 0; !areas.empty() && i < areas[0].rows.size(); i++) {
+        shopListed = shopListed || areas[0].rows[i].checkId == shopCheck;
+        townListed = townListed || areas[0].rows[i].checkId == townCheck;
+    }
+    printf("[TEST] combo-tracker-window #1706: MM's pane lists \"%s\" (Bomb Shop %u, West Clock Town %u '%s')\n",
+           CtwDrawn(areas).c_str(), (unsigned)shopKey, (unsigned)townKey, townName);
+    CTW_ASSERT(areas.size() == 1 && areas[0].key == townKey && areas[0].total == 2 && shopListed && townListed);
+    CTW_ASSERT(areas[0].name != nullptr && strcmp(areas[0].name, townName) == 0);
+
+    // Standing in the shop: the current area is the town, and its filter keeps both checks.
+    Context_SetCurrentGame(GAME_MM);
+    MM_TrackerAdapter_TestLiveSeam(1);
+    MM_TrackerAdapter_TestSceneSeam(1, shopScene);
+    uint16_t inShop = 0;
+    const bool inShopKnown = Combo_TrackerCurrentArea((uint8_t)GAME_MM, &inShop);
+    // Entered by the town's side of the door (an entrance whose region is no interior's): the shop itself.
+    CTW_ASSERT(MM_TrackerAdapter_TestInteriorGraph(2, nullptr, nullptr, nullptr, nullptr) == 1);
+    uint16_t byTown = 0;
+    const bool byTownKnown = Combo_TrackerCurrentArea((uint8_t)GAME_MM, &byTown);
+    Context_SetCurrentGame(GAME_OOT);
+    printf("[TEST] combo-tracker-window #1706: current area in the Bomb Shop %d:%u, entered from the town's side "
+           "%d:%u\n",
+           inShopKnown ? 1 : 0, (unsigned)inShop, byTownKnown ? 1 : 0, (unsigned)byTown);
+    CTW_ASSERT(inShopKnown && inShop == townKey);
+    CTW_ASSERT(byTownKnown && byTown == shopKey);
+    ComboCheckHideOptions opts;
+    opts.onlyCurrentArea = true;
+    opts.currentAreaKnown = true;
+    opts.currentArea = inShop;
+    ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
+    CTW_ASSERT(areas.size() == 1 && areas[0].key == townKey && areas[0].rows.size() == 2);
+    return TEST_PASS;
+}
+
+int LockParentScenes(void) {
+    const GameId prevGame = Context_GetCurrentGame();
+    std::vector<uint8_t> shadowBackup((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    const uint8_t* resident = (const uint8_t*)Context_GetMMSaveContext();
+    if (resident != nullptr) {
+        memcpy(shadowBackup.data(), resident, shadowBackup.size());
+    }
+    const int result = LockParentScenesBody();
+    (void)MM_TrackerAdapter_TestInteriorGraph(0, nullptr, nullptr, nullptr, nullptr);
+    MM_TrackerAdapter_TestLiveSeam(-1);
+    MM_TrackerAdapter_TestSceneSeam(-1, 0);
+    Combo_TrackerResetCurrentAreas();
+    Context_UpdateShadowCopy(GAME_MM, shadowBackup.data(), shadowBackup.size());
+    MM_TrackerAdapter_Register(); // the production adapter, whatever the result
     Context_SetCurrentGame(prevGame);
     return result;
 }
@@ -2065,6 +2170,7 @@ int TrackerLayoutLocks(void) {
     const int rAreas = LockAreas();
     const int rHide = LockHide();
     const int rPlaces = LockPlaces();
+    const int rParents = LockParentScenes();
     const int rAvail = LockAvail();
     const int rChrome = LockChrome();
     const int rSeen = LockSeen();
@@ -2075,20 +2181,22 @@ int TrackerLayoutLocks(void) {
     const int rSort = LockSort();
     const int rFarSkip = LockFarSkip();
     printf("[TEST] combo-tracker-window layout locks: #815 %s, #816 %s, U4 areas+search %s, #1128 hide+totals %s, "
-           "#1127 places %s, #1129 reachability %s, #1130 chrome %s, #1166 seen item+price %s, #1166 ice trap %s, "
+           "#1127 places %s, #1706 parent scenes %s, #1129 reachability %s, #1130 chrome %s, #1166 seen item+price %s, "
+           "#1166 ice trap %s, "
            "#1161 logic %s, "
            "#1131 navigation %s, #1132 replaces SoH's %s, #1279 sort %s, #1294 far skip column %s\n",
            r815 == TEST_PASS ? "PASS" : "FAIL", r816 == TEST_PASS ? "PASS" : "FAIL",
            rAreas == TEST_PASS ? "PASS" : "FAIL", rHide == TEST_PASS ? "PASS" : "FAIL",
-           rPlaces == TEST_PASS ? "PASS" : "FAIL", rAvail == TEST_PASS ? "PASS" : "FAIL",
-           rChrome == TEST_PASS ? "PASS" : "FAIL", rSeen == TEST_PASS ? "PASS" : "FAIL",
-           rIce == TEST_PASS ? "PASS" : "FAIL", rLogic == TEST_PASS ? "PASS" : "FAIL",
-           rNav == TEST_PASS ? "PASS" : "FAIL", rL5 == TEST_PASS ? "PASS" : "FAIL",
-           rSort == TEST_PASS ? "PASS" : "FAIL", rFarSkip == TEST_PASS ? "PASS" : "FAIL");
+           rPlaces == TEST_PASS ? "PASS" : "FAIL", rParents == TEST_PASS ? "PASS" : "FAIL",
+           rAvail == TEST_PASS ? "PASS" : "FAIL", rChrome == TEST_PASS ? "PASS" : "FAIL",
+           rSeen == TEST_PASS ? "PASS" : "FAIL", rIce == TEST_PASS ? "PASS" : "FAIL",
+           rLogic == TEST_PASS ? "PASS" : "FAIL", rNav == TEST_PASS ? "PASS" : "FAIL",
+           rL5 == TEST_PASS ? "PASS" : "FAIL", rSort == TEST_PASS ? "PASS" : "FAIL",
+           rFarSkip == TEST_PASS ? "PASS" : "FAIL");
     return (r815 == TEST_PASS && r816 == TEST_PASS && rAreas == TEST_PASS && rHide == TEST_PASS &&
-            rPlaces == TEST_PASS && rAvail == TEST_PASS && rChrome == TEST_PASS && rSeen == TEST_PASS &&
-            rIce == TEST_PASS && rLogic == TEST_PASS && rNav == TEST_PASS && rL5 == TEST_PASS && rSort == TEST_PASS &&
-            rFarSkip == TEST_PASS)
+            rPlaces == TEST_PASS && rParents == TEST_PASS && rAvail == TEST_PASS && rChrome == TEST_PASS &&
+            rSeen == TEST_PASS && rIce == TEST_PASS && rLogic == TEST_PASS && rNav == TEST_PASS && rL5 == TEST_PASS &&
+            rSort == TEST_PASS && rFarSkip == TEST_PASS)
                ? TEST_PASS
                : TEST_FAIL;
 }
