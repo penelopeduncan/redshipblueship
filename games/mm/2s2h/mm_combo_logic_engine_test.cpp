@@ -490,6 +490,19 @@ void Leg17StripBagsAndWeapons() {
     gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
 }
 
+/** Leg 17e: freeze the default combo settings with both of the pair's bag
+ *  shuffles @p on or off, the way the paired creation does (playthrough.cpp,
+ *  Combo_ComboSettingsApplyCreationBagShuffles). The caller's ComboCtxGuard puts
+ *  the record back. */
+void Leg17eFreezeBags(bool on) {
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_ComboSettingsApplyCreationBagShuffles(&rec, on, on);
+    ComboItemRulesRecord rules;
+    memset(&rules, 0, sizeof(rules));
+    (void)Combo_FreezeComboSettingsEx(&rec, &rules);
+}
+
 /** What one round over @p assume shows leg 17. The inventory is read after the
  *  assumes and before the first expand; `saveUnchanged` says the assumes left the
  *  save byte-identical (the round's own starting state is the reference). */
@@ -1848,8 +1861,13 @@ int RunLegs() {
     //       Clock Town wonder item): the check is out; the stick bag alone brings
     //       it in at tier 1 with sticks held, the nut bag alone likewise, each
     //       leaving the other bag's tier at 0;
-    //   17d THE NO-OP: at the tier-1 birth (z_sram_NES.c) four copies of each
-    //       leave the save byte-identical, which is why no world moves before A1.
+    //   17d THE NO-OP: at the tier-1 birth (z_sram_NES.c, every half with the
+    //       bag shuffles off) four copies of each leave the save byte-identical,
+    //       which is why no world without the shuffles moves;
+    //   17e (#1652 A1, below) the real gate: under the frozen bag bits a stick
+    //       placed on a reached host gives junk, so the stick-gated check stays
+    //       out until the credit arrives; with the bits clear the same placement
+    //       opens it through MM's own give (the control).
     {
         SaveGuard leg17Save;
         PlacementsGuard leg17Placements;
@@ -1956,11 +1974,56 @@ int RunLegs() {
         CE_ASSERT(born.beganOk != 0 && born.saveUnchanged == 1 && born.stickHeld == 0 && born.nutHeld == 0 &&
                       born.stickTier == 1u && born.nutTier == 1u,
                   17,
-                  "at the tier-1 birth a bag stand-in changed the save - every credited copy must be a no-op until "
-                  "#1652 A1 births MM at tier 0, or today's worlds move");
+                  "at the tier-1 birth a bag stand-in changed the save - every credited copy must be a no-op while "
+                  "MM is born with the bag (both shuffles off), or worlds without the shuffles move");
         CE_ASSERT(born.wonderReached == 0, 17,
                   "at the tier-1 birth with no stick or nut held, the credit brought the wonder item in");
     }
+
+    // ---- Leg 17e: #1652 A1's gate in the simulation --------------------------
+    // The combo record is frozen OUTSIDE the save's scope and put back by its own
+    // guard, so neither leaks into a later leg or row.
+    {
+        ComboCtxGuard leg17eCombo;
+        {
+            SaveGuard leg17eSave;
+            PlacementsGuard leg17ePlacements;
+            Leg17StripBagsAndWeapons();
+            const std::vector<uint16_t> reached = ReachedHostList();
+            CE_ASSERT(!reached.empty(), 17, "the stripped save reaches no host to put a stick on");
+            SharedItem stick;
+            memset(&stick, 0, sizeof(stick));
+            stick.originGame = (uint8_t)GAME_MM;
+            stick.id = (uint16_t)RI_DEKU_STICK;
+            CE_ASSERT(gEngine->place(gEngine->self, reached.front(), stick) == 1, 17,
+                      "MM's engine refused RI_DEKU_STICK on a reached host");
+
+            // The control. Catches: the host not harvested (nothing below could
+            // then tell the gate from its absence).
+            Leg17eFreezeBags(false);
+            const Leg17BagObservation off = Leg17BagRound({});
+            // The gate. Catches: Rando::IsItemObtainable's stick case AND
+            // MM_Item_Give's refusal both removed (either alone is caught by the
+            // mm-stick-nut-bag-gate row).
+            Leg17eFreezeBags(true);
+            const Leg17BagObservation closed = Leg17BagRound({});
+            // The credit opens it. Catches: the gate reading anything but MM's own
+            // tier (the stand-in sets it to 1).
+            const Leg17BagObservation open = Leg17BagRound({ (uint16_t)RI_DEKU_STICK_BAG });
+            printf("[TEST] mm-combo-logic-engine: leg 17e stick on host %u: off %d, bag shuffled %d, with the bag %d\n",
+                   (unsigned)reached.front(), off.wonderReached, closed.wonderReached, open.wonderReached);
+            CE_ASSERT(off.beganOk != 0 && off.wonderReached == 1, 17,
+                      "with the bag shuffles off a stick on a reached host did not open the stick-gated wonder item - "
+                      "the leg cannot tell the gate from its absence");
+            CE_ASSERT(closed.beganOk != 0 && closed.wonderReached == 0, 17,
+                      "under the frozen stick bag shuffle a stick on a reached host opened the wonder item before the "
+                      "pair's bag (#1652 A1)");
+            CE_ASSERT(open.beganOk != 0 && open.wonderReached == 1, 17,
+                      "under the frozen stick bag shuffle the pair's bag did not open the wonder item");
+        }
+    }
+    CE_ASSERT(!Combo_ComboStickBagShuffled() && !Combo_ComboNutBagShuffled(), 17,
+              "leg 17e left a bag shuffle frozen on for the rest of the process");
 
     return 0;
 }

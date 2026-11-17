@@ -110,7 +110,8 @@ extern "C" {
 // src/common. Included OUTSIDE any extern "C" block: the header manages its
 // own linkage and pulls in <stdbool.h>/<stdint.h> (matching Foreign.cpp).
 #include "foreign_items.h"
-#include "shared_items.h" // RSBS_SHARED_ITEM_LOGICAL_CAP (via context.h)
+#include "shared_items.h"          // RSBS_SHARED_ITEM_LOGICAL_CAP (via context.h)
+#include "Rando/StickNutBagGate.h" // #1652 A1: MM_ForeignItem_RedeemAs, defined below
 
 // ============================================================================
 // kForeignPoolMMV1 and its attributed exclusions — RETIRED (ADR 0010 increment
@@ -361,7 +362,13 @@ std::string RenderToastLine(const Notification::Options& toast) {
 /** The actual give. Precondition: MM_gPlayState != NULL and the id is real.
  *  `announce` is false for a crossing pickup, presented at its pickup (#878). */
 void GiveNow(uint16_t riId, bool announce) {
-    const RandoItemId randoItemId = (RandoItemId)riId;
+    // #1652 A1: a crossed stick or nut pack redeemed before the pair's one bag is
+    // converted to junk by MM's own rule for its own hosts, never dropped, and the
+    // junk is announced, because the far pickup named the pack.
+    const RandoItemId randoItemId = (RandoItemId)MM_ForeignItem_RedeemAs(riId);
+    if (randoItemId != (RandoItemId)riId) {
+        announce = true;
+    }
     Rando::GiveItem(randoItemId);
     if (!announce) {
         // #878: an item the player took from an OoT check was presented there
@@ -403,6 +410,24 @@ void GiveNow(uint16_t riId, bool announce) {
 // ============================================================================
 // Redemption give (called by MM_AwardSharedItem, the A1 consumer callback)
 // ============================================================================
+
+extern "C" uint16_t MM_ForeignItem_RedeemAs(uint16_t riId) {
+    switch ((RandoItemId)riId) {
+        case RI_DEKU_STICK:
+        case RI_DEKU_STICKS_5:
+        case RI_DEKU_NUT:
+        case RI_DEKU_NUTS_5:
+        case RI_DEKU_NUTS_10:
+            // #1652 A1 (StickNutBagGate.h): MM's own rule for its own hosts, where a
+            // stick before the bag is junk (ConvertItem.cpp), never a lost pickup.
+            if (!Rando::IsItemObtainable((RandoItemId)riId)) {
+                return (uint16_t)Rando::CurrentPaidJunkItem();
+            }
+            return riId;
+        default:
+            return riId;
+    }
+}
 
 /**
  * Award one MM-origin foreign item. Gives immediately when a PlayState is live,

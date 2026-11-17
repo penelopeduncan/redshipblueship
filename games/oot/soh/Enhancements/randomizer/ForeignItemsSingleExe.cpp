@@ -98,7 +98,36 @@ void GiveLinkRupees(int numOfRupees);
 // Redemption give (called by OoT_AwardSharedItem, the A1 consumer callback)
 // ============================================================================
 
+extern "C" uint8_t OoT_ForeignItem_BagGateKind(uint16_t rgId) {
+    switch ((RandomizerGet)rgId) {
+        case RG_DEKU_STICK_1:
+        case RG_BUY_DEKU_STICK_1:
+            return (uint8_t)RSBS_SHARED_RES_STICK_TIER;
+        case RG_DEKU_NUTS_5:
+        case RG_DEKU_NUTS_10:
+        case RG_BUY_DEKU_NUTS_5:
+        case RG_BUY_DEKU_NUTS_10:
+            return (uint8_t)RSBS_SHARED_RES_NUT_TIER;
+        default:
+            return 0u;
+    }
+}
+
 extern "C" int OoT_ForeignItem_Give(uint16_t rgId) {
+    // #1652 A1: before the pair's one bag a crossed stick or nut pack is a blue
+    // rupee, OoT's own chest rule (CANT_OBTAIN_NEED_UPGRADE), not a pickup that
+    // OoT_Item_Give's refusal would drop. The gate reads the frozen predicate and
+    // OoT's own tier only, so it needs no rando context.
+    const uint8_t bagKind = OoT_ForeignItem_BagGateKind(rgId);
+    const bool stickBag = bagKind == (uint8_t)RSBS_SHARED_RES_STICK_TIER;
+    const uint16_t bagTier = (uint16_t)(stickBag ? CUR_UPG_VALUE(UPG_STICKS) : CUR_UPG_VALUE(UPG_NUTS));
+    if (bagKind != 0u && Combo_SharedBagGateClosed(bagKind, bagTier)) {
+        GiveLinkRupees(5);
+        fprintf(stderr, "[OoT] foreign give: RG id=%u before the pair's bag, given as a blue rupee (#1652)\n",
+                (unsigned)rgId);
+        return 2;
+    }
+
     // Progressive resolution walks Rando::Context / Logic / OTRGlobals; all
     // three exist once OoT has booted to gameplay, which the presence-gated
     // consumption point guarantees. Guard anyway: a give we cannot perform is

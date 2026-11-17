@@ -5,6 +5,9 @@
  */
 
 #include "z_en_girla.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Rando/StickNutBagGate.h" // #1652 A1: no sticks or nuts on a shelf before the pair's bag
+#endif
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_FRIENDLY | ACTOR_FLAG_UPDATE_CULLING_DISABLED)
 
@@ -232,6 +235,11 @@ s32 EnGirlA_CanBuyArrows(PlayState* play, EnGirlA* this) {
 }
 
 s32 EnGirlA_CanBuyNuts(PlayState* play, EnGirlA* this) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (MM_Combo_NutGated()) {
+        return CANBUY_RESULT_CANNOT_GET_NOW;
+    }
+#endif
     if ((CUR_CAPACITY(UPG_DEKU_NUTS) != 0) && (CUR_CAPACITY(UPG_DEKU_NUTS) <= AMMO(ITEM_DEKU_NUT))) {
         return CANBUY_RESULT_NO_ROOM;
     }
@@ -255,6 +263,11 @@ s32 EnGirlA_CanBuyShieldHero(PlayState* play, EnGirlA* this) {
 }
 
 s32 EnGirlA_CanBuyStick(PlayState* play, EnGirlA* this) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (MM_Combo_StickGated()) {
+        return CANBUY_RESULT_CANNOT_GET_NOW;
+    }
+#endif
     if ((CUR_CAPACITY(UPG_DEKU_STICKS) != 0) && (AMMO(ITEM_DEKU_STICK) >= CUR_CAPACITY(UPG_DEKU_STICKS))) {
         return CANBUY_RESULT_NO_ROOM;
     }

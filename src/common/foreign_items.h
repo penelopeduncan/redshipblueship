@@ -747,8 +747,10 @@ bool Combo_ComboSharedShuffleCoupled(uint32_t giveCap);
  * creation took from Ocarina of Time's own option. False while nothing is
  * frozen (an unpaired file, the title screen), and never a CVar or a seed
  * setting: a change of the option after creation does not change the answer.
- * Read by nothing in production yet; the next stages of #1652 gate Majora's
- * Mask's capacity, gives, drops, shops and logic on it.
+ * Read through Combo_SharedBag* (shared_resources.h): under it Majora's Mask's
+ * half is born without the bag too, both games' gives, drops, shops and checks
+ * refuse the item until the bag, MM's logic waits for the pair's one bag, and a
+ * bag found in Termina steps the shared tier at its pickup (#1652 A1, A3).
  */
 bool Combo_ComboStickBagShuffled(void);
 bool Combo_ComboNutBagShuffled(void);
@@ -2004,10 +2006,22 @@ void Combo_ClearForeignPlacementsOoT(void);
  * save, the same path SoH's own in-game gives take — and hand it to the
  * matching give routine (OoT_Item_Give for vanilla-equivalent entries,
  * Randomizer_Item_Give for MOD_RANDOMIZER entries).
- * @return 1 if the item was given, 0 if the give path was unavailable (logged;
+ *
+ * #1652 A1: a stick or nut pack (RG_DEKU_STICK_1, RG_DEKU_NUTS_5/10 and their
+ * RG_BUY_* twins) redeemed while the pair's frozen bag gate holds OoT's sticks
+ * (nuts) out (Combo_SharedBagGateClosed over OoT's own tier) is given as a blue
+ * rupee instead, OoT's own chest rule for an item it cannot obtain yet
+ * (CANT_OBTAIN_NEED_UPGRADE), never dropped by OoT_Item_Give's refusal.
+ * @return 1 if the item was given, 2 if it was given as that blue rupee (the
+ *         caller announces it), 0 if the give path was unavailable (logged;
  *         the redemption bit is set by the caller's consumer either way).
  */
 int OoT_ForeignItem_Give(uint16_t rgId);
+
+/** #1652 A1: the shared tier kind (RSBS_SHARED_RES_STICK_TIER / _NUT_TIER) whose
+ *  bag gate a crossed OoT pack @p rgId is held by, or 0 for every other id
+ *  (defined in OoT's ForeignItemsSingleExe.cpp beside the give that asks it). */
+uint8_t OoT_ForeignItem_BagGateKind(uint16_t rgId);
 
 /**
  * THE REVERSE DIRECTION'S GIVE-PATH CORE (#493) — the exact twin of
