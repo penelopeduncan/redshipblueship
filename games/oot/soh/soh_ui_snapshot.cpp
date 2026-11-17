@@ -206,6 +206,8 @@ extern "C" void MM_HintSources_TestAuthorSave(void* image, uint32_t finalSeed, i
 extern "C" int OoT_ItemAdapter_TestAuthorTrackerWorld(void* buf, size_t size, int rando);
 extern "C" void OoT_ItemAdapter_TestOverrideOptions(int enabled, unsigned bits);
 extern "C" int MM_ItemAdapter_TestAuthorOcarinaButtons(void* buf, size_t size, int mode, unsigned heldMask);
+// MM's TrackerAdapterSingleExe.cpp (#1127): the enemy drop the "drop-places" state lists in two places.
+extern "C" uint16_t MM_TrackerAdapter_TestSnapshotDrop(char* name, int cap);
 
 namespace SohGui {
 // Combo > Majora's Mask's body over a manifest table, and its group note's
@@ -2002,6 +2004,60 @@ const ComboOoTTrackerOps kSnapshotOoTOps = { SnapshotOoTSummary,
                                              nullptr,
                                              SnapshotOoTCurrentArea };
 
+// #1127's "drop-places" state: MM's pane lists one open enemy drop in two places, as MM's own Check Tracker lists a
+// drop under every scene its species lives in. The production MM descriptor stays; only its place ops are wrapped,
+// so the drop's places are its own area and the area of AuthorMMShadow's first check (Stone Tower Temple), whatever
+// region graph the harness has loaded. Every other check keeps the production answer. Put back in LeaveState.
+ComboMMTrackerDesc gSnapshotMMRealDesc = {};
+uint16_t gSnapshotDrop = 0xFFFF;
+
+int SnapshotDropPlaceCount(uint16_t checkId) {
+    if (checkId == gSnapshotDrop) {
+        return 2;
+    }
+    return gSnapshotMMRealDesc.areaPlaceCount != nullptr ? gSnapshotMMRealDesc.areaPlaceCount(checkId) : 1;
+}
+const char* SnapshotDropPlaceAt(uint16_t checkId, int place, uint16_t* outKey, int* outAvailable) {
+    if (checkId != gSnapshotDrop) {
+        if (gSnapshotMMRealDesc.areaPlaceAt != nullptr) {
+            return gSnapshotMMRealDesc.areaPlaceAt(checkId, place, outKey, outAvailable);
+        }
+        *outAvailable = -1;
+        return place == 0 && gSnapshotMMRealDesc.areaName != nullptr ? gSnapshotMMRealDesc.areaName(checkId, outKey)
+                                                                     : nullptr;
+    }
+    *outAvailable = -1;
+    if (gSnapshotMMRealDesc.areaName == nullptr || place < 0 || place > 1) {
+        return nullptr;
+    }
+    return gSnapshotMMRealDesc.areaName(place == 0 ? checkId : kSnapshotOoTToMMCheckA, outKey);
+}
+
+/** Shuffles the snapshot's drop in the authored MM half and wraps the descriptor's place ops (see above). */
+void SnapshotListDropTwice() {
+    const ComboMMTrackerDesc* desc = Combo_Tracker_GetMMDesc();
+    const uint8_t* resident = (const uint8_t*)Context_GetMMSaveContext();
+    if (desc == nullptr || resident == nullptr) {
+        return;
+    }
+    gSnapshotMMRealDesc = *desc;
+    gSnapshotDrop = MM_TrackerAdapter_TestSnapshotDrop(nullptr, 0);
+    std::vector<uint8_t> blob(resident, resident + MM_SAVE_CONTEXT_SIZE);
+    blob[desc->checkTableOffset + (size_t)gSnapshotDrop * desc->checkStride + desc->shuffledOffset] = 1;
+    Context_UpdateShadowCopy(GAME_MM, blob.data(), blob.size());
+    ComboMMTrackerDesc wrapped = gSnapshotMMRealDesc;
+    wrapped.areaPlaceCount = SnapshotDropPlaceCount;
+    wrapped.areaPlaceAt = SnapshotDropPlaceAt;
+    Combo_Tracker_RegisterMM(&wrapped);
+}
+
+/** The drop's name as the pane prints it ("" before MM's names exist), for the state's expected text. */
+std::string SnapshotDropName() {
+    char name[128] = {};
+    (void)MM_TrackerAdapter_TestSnapshotDrop(name, (int)sizeof(name));
+    return name;
+}
+
 // ---- #1475 (lane H2): the combined Hint Tracker's states ---------------------------
 // "hints" installs a synthetic OoT hint adapter (three rows, as SoH's Hint Tracker
 // files them: a read item stone and an unread one in one area, a read Way of the
@@ -3033,12 +3089,15 @@ void Session::BuildPageList() {
         // no close button, read against SoH's own floating overlay.
         // "bare-header" (#1287) is "progress" with every one of SoH's header
         // controls hidden: the pane's own Only Show Current Area still draws.
-        p.states = { "paired", "unpaired", "progress", "hidden", "floating", "bare-header" };
+        // "drop-places" (#1127) is "progress" with an open MM enemy drop listed
+        // in two places, as MM's own tracker lists a drop under every scene its
+        // species lives in.
+        p.states = { "paired", "unpaired", "progress", "drop-places", "hidden", "floating", "bare-header" };
         p.compareWith = kSohPaneReference;
         p.stateCompareWith["floating"] = kSohItemTrackerReference;
         p.expectText = { ComboGui::kComboTrackerWindowName };
         p.stateTitleBar = {
-            { "paired", true }, { "unpaired", true },  { "progress", true },
+            { "paired", true }, { "unpaired", true },  { "progress", true },    { "drop-places", true },
             { "hidden", true }, { "floating", false }, { "bare-header", true },
         };
         p.stateText["bare-header"] = { "Only Show Current Area", kSnapshotOoTChecks[0].shortName };
@@ -3049,6 +3108,12 @@ void Session::BuildPageList() {
         p.stateText["hidden"] = { kSnapshotOoTChecks[1].shortName };
         p.stateText["unpaired"] = { "No paired world" };
         p.stateContrast = { { "progress", "hidden" }, { "hidden", "paired" }, { "unpaired", "paired" } };
+        // #1127: the drop's name, which "progress" never lists.
+        const std::string dropName = SnapshotDropName();
+        if (!dropName.empty()) {
+            p.stateText["drop-places"] = { dropName };
+            p.stateContrast["drop-places"] = "progress";
+        }
         // #1280: the OoT pane's Scroll to Current Area button beside its search
         // box, hovered for its tooltip.
         p.paneHovers.push_back({ "scroll-to-current-area", "progress", kSnapshotScrollButtonLabel, false });
@@ -3787,10 +3852,13 @@ void Session::EnterState(const PageSpec& p, const std::string& state) {
         if (state == "paired") {
             AuthorPairing();
         } else if (state == "crossings" || state == "progress" || state == "hidden" || state == "floating" ||
-                   state == "bare-header") {
+                   state == "bare-header" || state == "drop-places") {
             AuthorPairing();
             AuthorCrossings();
             AuthorMMShadow();
+            if (state == "drop-places") {
+                SnapshotListDropTwice(); // #1127
+            }
             ArmMMShadow(); // #1294: MM's far pane takes the skip toggle
             Context_SetCurrentGame(GAME_OOT);
             CVarSetInteger(kSnapshotAutoScrollKey, 0);
@@ -3860,8 +3928,12 @@ void Session::LeaveState(const PageSpec& p, const std::string& state) {
         CVarClear(kMmNoteParentKey);
     }
     if (p.kind == Kind::WINDOW && (state == "progress" || state == "crossings" || state == "hidden" ||
-                                   state == "floating" || state == "bare-header")) {
+                                   state == "floating" || state == "bare-header" || state == "drop-places")) {
         OoT_TrackerAdapter_Register();
+        if (state == "drop-places") {
+            MM_TrackerAdapter_Register(); // #1127: the production place ops again
+            gSnapshotDrop = 0xFFFF;
+        }
         DisarmMMShadow();
         CVarClear(kSnapshotSavedHideKey);
         CVarClear(kSnapshotCollectedHideKey);
