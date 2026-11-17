@@ -455,8 +455,11 @@ bool Combo_TrackerCheckInPlace(uint8_t game, int place, ComboTrackerCheckRow* ro
     }
     row->areaName = name;
     row->areaKey = key;
+    // A place only narrows the row's own answer: MM's tracker counts a copy in
+    // logic only while the check is (CheckCopyInLogic's instances), so a place
+    // never shows available a check its row answers out of logic.
     if (row->availabilityKnown && available >= 0) {
-        row->available = available == 1;
+        row->available = row->available && available == 1;
     }
     return true;
 }

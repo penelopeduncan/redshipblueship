@@ -576,8 +576,9 @@ int Combo_TrackerCheckPlaceCount(uint8_t game, const ComboTrackerCheckRow* row);
  * Row `row` as listed in its `place`th place (0 <= place <
  * Combo_TrackerCheckPlaceCount): its areaKey and areaName become that place's,
  * and, while its availability is known and the adapter answers for that place,
- * `available` becomes that place's own answer (#1498: a drop's copy is in logic
- * only where its kill is). A row with one place is left as it is. False, with
+ * `available` is narrowed by that place's own answer (#1498: a drop's copy is in
+ * logic only where its kill is, and never while the check itself is out of
+ * logic). A row with one place is left as it is. False, with
  * the row left alone, out of range or for a place the adapter cannot name.
  */
 bool Combo_TrackerCheckInPlace(uint8_t game, int place, ComboTrackerCheckRow* row);

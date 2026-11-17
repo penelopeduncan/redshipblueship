@@ -762,6 +762,15 @@ int LockPlacesBody(void) {
     ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
     printf("[TEST] combo-tracker-window #1127: Only Show Available draws \"%s\"\n", CtwDrawn(areas).c_str());
     CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14");
+    // A place only narrows its row: with the drop captured out of logic, its
+    // Field place (which answers in logic) is not shown available either.
+    const uint8_t noneBits[(kCtwPlacesFound + 8) / 8] = {};
+    Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, noneBits, (uint32_t)kCtwPlacesFound + 1);
+    ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
+    printf("[TEST] combo-tracker-window #1127: captured out of logic, Only Show Available draws \"%s\"\n",
+           CtwDrawn(areas).c_str());
+    CTW_ASSERT(CtwDrawn(areas).empty());
+    Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, bits, (uint32_t)kCtwPlacesFound + 1);
 
     // An OoT row has one place, and placing it there leaves it byte for byte as it was.
     Combo_Tracker_RegisterOoT(&kCtwOps);
