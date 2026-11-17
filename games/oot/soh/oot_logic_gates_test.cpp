@@ -160,7 +160,8 @@
  *     GV waterfall wonder items, Octorok grotto rupee and underwater rock, the
  *     Colossus oasis, the Deku Tree before-boss hearts, the Forest Trial silver
  *     rupees, the Shadow MQ Gold Skulltulas, the Thieves' Hideout kitchen pot and
- *     soup). The rules that got STRICTER with the trick off: RC_OGC_GS needs the
+ *     soup, and the MQ Fire Trial on-pillar silver rupee from each side of the
+ *     Fire Trial split, VC55 to VC58). The rules that got STRICTER with the trick off: RC_OGC_GS needs the
  *     Hookshot or Boomerang (a sword alone no longer does), the GV waterfall
  *     wonder items need Swim, Iron Boots or the bean, and the Shadow MQ near-boss
  *     Gold Skulltula needs the Hookshot or Boomerang; LOOSER: the Deku Tree left
