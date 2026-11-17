@@ -463,16 +463,16 @@ TestResult MMStickNutBagGate_Run(void) {
     // a stick or nut the same way. Gate closed: no offer; gate open or shuffle off:
     // the offer stays. Catches: the stick and nut gates swapped (the one-bag
     // worlds), an id missing (that id), a gate that ignores the tier (tier 1), a
-    // gate on an id no bag holds (the blue rupee), OoT's helper reading MM's tier or
-    // MM's OoT's (each game's own tier moves alone).
+    // gate on an id no bag holds (the blue rupee). The two games share ONE live
+    // gSaveContext in the single executable, so each half arms its own game's live
+    // save before it asks (as (P) does), never both at once.
     for (const auto& w : kSnbWorlds) {
         SnbWorld(w.frozen, w.stick, w.nut);
+
+        // MM's half: MM's live save, both bags at tier 0, then at tier 1.
         MM_SnbTest_ArmBorn();
         MM_SnbTest_SetBag(0, 0, 0, 0);
         MM_SnbTest_SetBag(1, 0, 0, 0);
-        OoT_SharedTierTest_ArmLive();
-        OoT_SharedTierTest_SetBagTier(0, 1); // OoT holds both bags: MM's answers are MM's tier alone
-        OoT_SharedTierTest_SetBagTier(1, 1);
         printf("[TEST] (K) %s, MM at tier 0: the baba's stick offer gated %d (expected %d)\n", w.what,
                MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)), w.stick ? 1 : 0);
         SNB_CHECK(MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)) == (w.stick ? 1 : 0) &&
@@ -481,16 +481,14 @@ TestResult MMStickNutBagGate_Run(void) {
                       MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(3)) == (w.nut ? 1 : 0) &&
                       MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(4)) == 0,
                   "%s: MM's offer gate at tier 0 holds out the wrong offers", w.what);
-        SNB_CHECK(OoT_Combo_StickGated() == 0 && OoT_Combo_NutGated() == 0 &&
-                      OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(0)) == 0,
-                  "%s: OoT's offer gate holds with OoT's bags held (it reads another tier)", w.what);
         MM_SnbTest_SetBag(0, 1, 1, 1);
         MM_SnbTest_SetBag(1, 1, 1, 1);
         SNB_CHECK(MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)) == 0 &&
                       MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(3)) == 0,
                   "%s: MM's offer gate still holds at tier 1", w.what);
 
-        // OoT at tier 0, MM holding both bags.
+        // OoT's half: OoT's live save, both bags at tier 0, then at tier 1.
+        OoT_SharedTierTest_ArmLive();
         OoT_SharedTierTest_SetBagTier(0, 0);
         OoT_SharedTierTest_SetBagTier(1, 0);
         printf("[TEST] (K) %s, OoT at tier 0: the baba's stick offer gated %d (expected %d)\n", w.what,
@@ -504,12 +502,12 @@ TestResult MMStickNutBagGate_Run(void) {
             SNB_CHECK(OoT_Combo_GetItemGated((int16_t)id) == (gated ? 1 : 0), "%s: OoT's GI %d at tier 0 gated %d",
                       w.what, id, OoT_Combo_GetItemGated((int16_t)id));
         }
-        SNB_CHECK(OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(6)) == 0 &&
-                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)) == 0,
-                  "%s: a blue rupee is gated in OoT, or MM's gate reads OoT's tier", w.what);
+        SNB_CHECK(OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(6)) == 0,
+                  "%s: a blue rupee is gated in OoT", w.what);
         OoT_SharedTierTest_SetBagTier(0, 1);
         OoT_SharedTierTest_SetBagTier(1, 1);
-        SNB_CHECK(OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(0)) == 0 &&
+        SNB_CHECK(OoT_Combo_StickGated() == 0 && OoT_Combo_NutGated() == 0 &&
+                      OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(0)) == 0 &&
                       OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(4)) == 0,
                   "%s: OoT's offer gate still holds at tier 1", w.what);
     }
