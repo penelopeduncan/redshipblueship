@@ -27,6 +27,7 @@
 #include "context.h"
 #include "save.h" // RsbsSave_SetActiveSlot — publish the slot MM will save into
 #include "shared_items.h"
+#include "combo_item_view.h"  // #1652 D: Combo_Item_RegisterGrantBlocked, the Shared row's bag gate
 #include "shared_resources.h" // Shared cross-game rupees/hearts (#525)
 #include "triforce_hunt.h"    // ADR 0010 O10: the one triforce piece count's apply cap
 #include "foreign_items.h"    // OoT_ForeignItem_Give (Lane C1 redemption)
@@ -6400,6 +6401,37 @@ static bool OoT_SharedAmmoGrantBlocked(const OoTSharedAmmo* row) {
     }
     return false;
 }
+
+/**
+ * #1652 D: the item view's question (Combo_Item_RegisterGrantBlocked): does OoT's
+ * gate above keep shared count @p countKind out of the running save? The same
+ * answer the count apply takes, so the Shared tracker row shows what Hyrule holds
+ * (none of the pool's sticks before the bag) rather than the pool's count. Only
+ * while OoT is the running game on a live file (the harvest's own gate), so the
+ * live gSaveContext is the save asked about.
+ */
+static bool OoT_SharedAmmoGrantBlockedForView(uint8_t countKind) {
+    if (Context_GetCurrentGame() != GAME_OOT || OoT_Combo_DepartureIsLiveFile() == 0) {
+        return false;
+    }
+    for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {
+        if (kOoTSharedAmmo[i].countKind == countKind) {
+            return OoT_SharedAmmoGrantBlocked(&kOoTSharedAmmo[i]);
+        }
+    }
+    return false;
+}
+
+namespace {
+// Static-init registration, OoTSharedFamilyRegistrar's shape: this TU is always
+// linked, and the view's registry is zero-initialised storage.
+struct OoTGrantBlockedRegistrar {
+    OoTGrantBlockedRegistrar() {
+        Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, OoT_SharedAmmoGrantBlockedForView);
+    }
+};
+const OoTGrantBlockedRegistrar gOoTGrantBlockedRegistrar;
+} // namespace
 
 /**
  * Apply one row's COUNT from the pool: the arrival's per-row count step, and the

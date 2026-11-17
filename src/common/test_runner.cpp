@@ -959,6 +959,10 @@ extern "C" {
 // pairs, the bag makes each one shared row, and a button found in one game is
 // owned in the other on arrival. FILE SCOPE for the same reason as its neighbours.
 #include "tests/test_shared_ocarina_buttons.c"
+// The pair's one Deku Stick Bag / Deku Nut Bag shuffle (#1652 A0): two frozen
+// comboFlags bits from OoT's options, carried by the record, a package and a
+// .redsave. FILE SCOPE likewise.
+#include "tests/test_combo_bag_shuffle.c"
 // The Shared Swim rule and the pair's one Shuffle Swim / Shuffle Ocarina Buttons
 // (#1369): the gated freeze, both games' swim as one family, the coupling at MM's
 // sites, and the arrival through both games' real shims. FILE SCOPE likewise.
@@ -8528,6 +8532,21 @@ TestResult Test_SharedSwimRule(void) {
     return SharedSwimRule_Run();
 }
 
+// #1652 A0: the bag-shuffle row writes OoT's option CVars and a real .redsave,
+// the same bring-up as combo-item-rules-second-word.
+TestResult Test_ComboBagShuffleFrozen(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return ComboBagShuffleFrozen_Run();
+}
+
 // #1066: the shared songs' rule rows, the same bring-up as shared-lens-rule.
 TestResult Test_SharedSongsRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -10549,6 +10568,12 @@ const TestDescriptor gTests[] = {
       "The Shared Swim rule ships on and freezes only while a game shuffles swim, the coupled-buttons marker only with "
       "the buttons rule and a button shuffle, and a load reads the gated bit as the file decided it (#1369)",
       Test_SharedSwimRule },
+    // #1652 A0: the pair's one stick bag / nut bag shuffle, frozen world identity.
+    { "combo-bag-shuffle-frozen",
+      "The pair's one Deku Stick Bag / Deku Nut Bag shuffle freezes at the paired creation from OoT's options, reads "
+      "false unfrozen, ignores a later change of the option, and survives the rollback, a seed package and a "
+      ".redsave (#1652)",
+      Test_ComboBagShuffleFrozen },
     { "shared-swim-pairs",
       "Both games register their swim as the Shared Swim family, the bag pairs them into one row both solvers credit, "
       "and MM's sites take the pair's one shuffle from the frozen record (#1369)",

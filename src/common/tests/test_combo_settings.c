@@ -217,7 +217,8 @@ TestResult Test_ComboSettingsFormat(void) {
                   RSBS_ITEMCLASS_DUNGEON_REWARD == 0x0010u && RSBS_ITEMCLASS_SIDEQUEST == 0x0020u,
               "RSBS_ITEMCLASS_* bit positions moved — a bit may be appended, never re-pointed");
     CS_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD == 0x02u &&
-                  RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u && RSBS_COMBO_FLAGS_ALL_V1 == 0x07u,
+                  RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u && RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG == 0x08u &&
+                  RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG == 0x10u && RSBS_COMBO_FLAGS_ALL_V1 == 0x1Fu,
               "RSBS_COMBO_FLAG_* bit positions moved — comboFlags is .redsave format, append-only (#668, #886, "
               "#1369)");
     CS_ASSERT(RSBS_COMBO_SETTINGS_FORMAT_VERSION == 1u,
