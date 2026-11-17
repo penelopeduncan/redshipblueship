@@ -154,6 +154,18 @@
  *  Z. DMT rockfall (SoH 91425a39a): a child with Climb but no shield, Nayru's
  *     Love or RT_DMT_SHIELDLESS_CLIMB must NOT reach the summit; an adult with
  *     Climb must, and so must the child once the trick is on.
+ *  VC. Voidout Collection (SoH e86e0ff69, #1647), with Swim withheld and three
+ *     hearts (CanVoid): every rule the trick opens is closed with it off and open
+ *     with it on (HC moat, ZR wonder items, waterfall rupees and underwater rock,
+ *     GV waterfall wonder items, Octorok grotto rupee and underwater rock, the
+ *     Colossus oasis, the Deku Tree before-boss hearts, the Forest Trial silver
+ *     rupees, the Shadow MQ Gold Skulltulas, the Thieves' Hideout kitchen pot and
+ *     soup). The rules that got STRICTER with the trick off: RC_OGC_GS needs the
+ *     Hookshot or Boomerang (a sword alone no longer does), the GV waterfall
+ *     wonder items need Swim, Iron Boots or the bean, and the Shadow MQ near-boss
+ *     Gold Skulltula needs the Hookshot or Boomerang; LOOSER: the Deku Tree left
+ *     and right before-boss hearts are an adult's with nothing. Under OHKO with no
+ *     fairy the trick opens nothing (CanVoid).
  *
  * #1647's O28 crater lane (SoH 7522f31cc and 53dc7f43b, 69ef35d25, ec27775e8,
  * 46f775ef8, b52c31f85, ff0209e76, eca767dcb), tricks off unless a leg names one,
@@ -194,9 +206,22 @@
  *     reach RC_GV_ROCK_ACROSS_BRIDGE_1; with a bomb bag (CanBreakRocks) he must.
  *  GC. MQ Fire Trial (28ab1206): the Final Room returns to the From Barred Door
  *     region, not straight to the main room; from there an adult with the Goron
- *     Tunic, hammer and Hover Boots must NOT cross back to the main room (or take
+ *     Tunic, hammer and Hover Boots must NOT cross back to the open door (or take
  *     the launch-platform silver rupee) without RT_HOVER_BOOST_SIMPLE, and must
  *     with it.
+ *  FT. The Fire Trial split by door (SoH 139381a0e, 88099e6eb, develop's form):
+ *     with no Goron Tunic the heart piece is in logic only under
+ *     RT_FEWER_TUNIC_REQUIREMENTS with enough health (FireTimer), and so is the
+ *     longshot to the barred door; eca767dcb's hammer recoil hover crosses back
+ *     from the barred door (and takes the heart piece from there) only with
+ *     RT_HOVER_BOOST_SIMPLE, and its Bunny Hood hover takes the distant platform
+ *     rupee with no Golden Gauntlets only under Bunny Hood Effect. Master Quest: the main
+ *     room enters From Open Door, whose way to the barred door needs FireTimer 32
+ *     (four hearts under the trick, no Goron Tunic test) and Longshot, or Hover
+ *     Boots with a hit to take; its under-pillar rupee needs the Golden
+ *     Gauntlets. A scene search from each main room reaches the
+ *     trial's Final Room and clears the trial (the generation failure 88099e6eb
+ *     fixed was a trial no search could finish).
  *
  * SoH eca767dcb's Bunny Hood Effect seed setting (RSK_BUNNY_HOOD) and SoH
  * e7f1801f0's Lost Woods bridge jump (#7488):
@@ -1269,6 +1294,230 @@ void RunHealthLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_DMT_SHIELDLESS_CLIMB).Set(savedShieldless);
 }
 
+// ---- #1647 (SoH e86e0ff69): VC, Voidout Collection ---------------------------
+/** ResetLogic with Swim withheld, so the trick is the only way across the water. */
+void VcResetNoSwim() {
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+}
+
+/** One location for one age: out of logic with Voidout Collection off, in logic with it on. */
+void VcCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion region, RandomizerCheck rc, bool adult) {
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    ExpectAt(legOff, region, rc, adult, false, "the voidout collection is in logic with RT_VOIDOUT_COLLECTION off");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectAt(legOn, region, rc, adult, true,
+             "the voidout collection is not in logic with RT_VOIDOUT_COLLECTION on (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+}
+
+void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedVoidout = randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedDetonation = randoCtx->GetTrickOption(RT_BOMB_DETONATION).Get();
+    const uint8_t savedLensShadowMq = randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Get();
+    const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(1);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC1..VC5: RC_OGC_GS (castle_grounds.cpp), stricter with the trick off ----
+    VcResetNoSwim();
+    Give(RG_MASTER_SWORD);
+    VcCheckOffOn(randoCtx, "VC1 OGC Gold Skulltula, adult with the Master Sword only, trick off",
+                 "VC2 OGC Gold Skulltula, adult with the Master Sword only, trick on", RR_GANONS_CASTLE_GROUNDS,
+                 RC_OGC_GS, true);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("VC3 OGC Gold Skulltula, adult with the Master Sword, trick on, OHKO and no fairy",
+             RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    VcResetNoSwim();
+    ExpectAt("VC4 OGC Gold Skulltula, adult with nothing, trick off", RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true, false,
+             "the Gold Skulltula is in logic with nothing to kill it");
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+    ExpectAt("VC5 OGC Gold Skulltula, adult with the Hookshot, trick off", RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true,
+             true, "the Hookshot no longer kills and collects the Gold Skulltula without voiding (SoH e86e0ff69)");
+
+    // ---- VC6..VC9: Hyrule Castle moat wonder items (castle_grounds.cpp) -------
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC6 HC moat wonder item 1, child without Swim, trick off",
+                 "VC7 HC moat wonder item 1, child without Swim, trick on", RR_HC_MOAT, RC_HC_WONDER_MOAT_1, false);
+    GiveSlingshot();
+    VcCheckOffOn(randoCtx, "VC8 HC left torch wonder item, child with the slingshot, no Swim, trick off",
+                 "VC9 HC left torch wonder item, child with the slingshot, no Swim, trick on", RR_HC_MOAT,
+                 RC_HC_WONDER_LEFT_TORCH, false);
+
+    // ---- VC10..VC17: Zora's River (zoras_river.cpp) ----------------------------
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC10 ZR wonder item near the domain 1, child without Swim, trick off",
+                 "VC11 ZR wonder item near the domain 1, child without Swim, trick on", RR_ZORAS_RIVER,
+                 RC_ZR_WONDER_NEAR_DOMAIN_1, false);
+    VcCheckOffOn(randoCtx, "VC12 ZR lower river wonder item 1, child without Swim, trick off",
+                 "VC13 ZR lower river wonder item 1, child without Swim, trick on", RR_ZR_FRONT,
+                 RC_ZR_WONDER_LOWER_RIVER_1, false);
+    VcCheckOffOn(randoCtx, "VC14 ZR beneath the waterfall left rupee, adult without Swim, trick off",
+                 "VC15 ZR beneath the waterfall left rupee, adult without Swim, trick on", RR_ZORAS_RIVER,
+                 RC_ZR_BENEATH_WATERFALL_LEFT_RUPEE, true);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(1);
+    VcCheckOffOn(randoCtx, "VC16 ZR underwater rock 1, child with bombs and the detonation trick, no Swim, trick off",
+                 "VC17 ZR underwater rock 1, child with bombs and the detonation trick, no Swim, trick on",
+                 RR_ZORAS_RIVER, RC_ZR_UNDERWATER_ROCK_1, false);
+
+    // ---- VC18..VC29: Gerudo Valley (gerudo_valley.cpp) -------------------------
+    GiveGoronsBracelet();
+    VcCheckOffOn(randoCtx, "VC18 GV underwater rock 1, child with bombs, bracelet and the detonation trick, trick off",
+                 "VC19 GV underwater rock 1, child with bombs, bracelet and the detonation trick, trick on",
+                 RR_GERUDO_VALLEY, RC_GV_UNDERWATER_ROCK_1, false);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC20 GV lower waterfall wonder item, adult without Swim, trick off",
+                 "VC21 GV lower waterfall wonder item, adult without Swim, trick on", RR_GV_UPPER_STREAM,
+                 RC_GV_WONDER_LOWER_WATERFALL, true);
+    VcCheckOffOn(randoCtx, "VC22 GV upper waterfall wonder item in the alcove, adult without Swim, trick off",
+                 "VC23 GV upper waterfall wonder item in the alcove, adult without Swim, trick on",
+                 RR_GV_WATERFALL_ALCOVE, RC_GV_WONDER_UPPER_WATERFALL, true);
+    VcCheckOffOn(randoCtx, "VC24 GV Octorok grotto front left blue rupee, adult without Swim, trick off",
+                 "VC25 GV Octorok grotto front left blue rupee, adult without Swim, trick on", RR_GV_OCTOROK_GROTTO,
+                 RC_GV_OCTOROK_GROTTO_FRONT_LEFT_BLUE_RUPEE, true);
+    Give(RG_HOVER_BOOTS);
+    VcCheckOffOn(randoCtx, "VC26 GV Octorok grotto red rupee, adult with Hover Boots, no Swim, trick off",
+                 "VC27 GV Octorok grotto red rupee, adult with Hover Boots, no Swim, trick on", RR_GV_OCTOROK_GROTTO,
+                 RC_GV_OCTOROK_GROTTO_RED_RUPEE, true);
+    VcResetNoSwim();
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectAt("VC28 GV Octorok grotto red rupee, adult without Hover Boots or Swim, trick on", RR_GV_OCTOROK_GROTTO,
+             RC_GV_OCTOROK_GROTTO_RED_RUPEE, true, false, "the far rupee is collected by voiding without Hover Boots");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAt("VC29 GV upper waterfall wonder item in the alcove, adult with Swim, trick off", RR_GV_WATERFALL_ALCOVE,
+             RC_GV_WONDER_UPPER_WATERFALL, true, true, "Swim no longer reaches the waterfall wonder item");
+
+    // ---- VC30, VC31: the Colossus oasis (desert_colossus.cpp) ------------------
+    VcResetNoSwim();
+    GiveFairyOcarina();
+    Give(RG_OCARINA_A_BUTTON);
+    Give(RG_OCARINA_C_UP_BUTTON);
+    Give(RG_OCARINA_C_DOWN_BUTTON);
+    Give(RG_SONG_OF_STORMS);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    ExpectExit("VC30 Colossus to the oasis, adult with Song of Storms, no Swim or bottle, trick off",
+               RR_DESERT_COLOSSUS, RR_DESERT_COLOSSUS_OASIS, true, false,
+               "the oasis fairies are in logic without Swim, Iron Boots, a bottle or the trick");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectExit("VC31 Colossus to the oasis, adult with Song of Storms, no Swim or bottle, trick on", RR_DESERT_COLOSSUS,
+               RR_DESERT_COLOSSUS_OASIS, true, true,
+               "Voidout Collection does not reach the oasis fairies (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC32..VC41: the Deku Tree before-boss hearts (deku_tree.cpp) ----------
+    VcResetNoSwim();
+    ExpectAt("VC32 Deku before-boss left heart, adult with nothing, trick off", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+             RC_DEKU_TREE_BEFORE_BOSS_LEFT_HEART, true, true,
+             "the adult no longer reaches the left heart without swimming (SoH e86e0ff69)");
+    ExpectAt("VC33 Deku MQ before-boss right heart, adult with nothing, trick off", RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM,
+             RC_DEKU_TREE_MQ_BEFORE_BOSS_RIGHT_HEART, true, true,
+             "the adult no longer reaches the MQ right heart without swimming (SoH e86e0ff69)");
+    VcCheckOffOn(randoCtx, "VC34 Deku before-boss right heart, child without Swim, trick off",
+                 "VC35 Deku before-boss right heart, child without Swim, trick on", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+                 RC_DEKU_TREE_BEFORE_BOSS_RIGHT_HEART, false);
+    VcCheckOffOn(randoCtx, "VC36 Deku before-boss middle heart from basement upper, child, trick off",
+                 "VC37 Deku before-boss middle heart from basement upper, child, trick on", RR_DEKU_TREE_BASEMENT_UPPER,
+                 RC_DEKU_TREE_BEFORE_BOSS_MIDDLE_HEART, false);
+    VcCheckOffOn(randoCtx, "VC38 Deku MQ before-boss middle heart from the basement ledge, child, trick off",
+                 "VC39 Deku MQ before-boss middle heart from the basement ledge, child, trick on",
+                 RR_DEKU_TREE_MQ_BASEMENT_LEDGE, RC_DEKU_TREE_MQ_BEFORE_BOSS_MIDDLE_HEART, false);
+    VcCheckOffOn(randoCtx, "VC40 Deku before-boss middle heart, adult without Swim, trick off",
+                 "VC41 Deku before-boss middle heart, adult without Swim, trick on", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+                 RC_DEKU_TREE_BEFORE_BOSS_MIDDLE_HEART, true);
+
+    // ---- VC42, VC43: the Forest Trial silver rupees (ganons_castle.cpp) --------
+    VcResetNoSwim();
+    FireEvents(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM, false);
+    ExpectEvent("VC42 Forest Trial silver rupees event, child with nothing, trick off",
+                LOGIC_GANONS_CASTLE_SILVER_FOREST, false,
+                "the child collects the Forest Trial silver rupees with no Hookshot and no voidout");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    FireEvents(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM, false);
+    ExpectEvent("VC43 Forest Trial silver rupees event, child with nothing, trick on",
+                LOGIC_GANONS_CASTLE_SILVER_FOREST, true,
+                "the child's voidout after the switch does not collect the silver rupees (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC44..VC48: the Shadow MQ Gold Skulltulas (shadow_temple.cpp) ---------
+    VcResetNoSwim();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    VcCheckOffOn(randoCtx, "VC44 Shadow MQ Gold Skulltula after the ship, adult with bombs, trick off",
+                 "VC45 Shadow MQ Gold Skulltula after the ship, adult with bombs, trick on",
+                 RR_SHADOW_TEMPLE_MQ_BEYOND_BOAT, RC_SHADOW_TEMPLE_MQ_GS_AFTER_SHIP, true);
+    VcCheckOffOn(randoCtx, "VC46 Shadow MQ Gold Skulltula near the boss, adult with bombs, trick off",
+                 "VC47 Shadow MQ Gold Skulltula near the boss, adult with bombs, trick on",
+                 RR_SHADOW_TEMPLE_MQ_BOSS_DOOR, RC_SHADOW_TEMPLE_MQ_GS_NEAR_BOSS, true);
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+    ExpectAt("VC48 Shadow MQ Gold Skulltula near the boss, adult with bombs and the Hookshot, trick off",
+             RR_SHADOW_TEMPLE_MQ_BOSS_DOOR, RC_SHADOW_TEMPLE_MQ_GS_NEAR_BOSS, true, true,
+             "the Hookshot no longer collects the Gold Skulltula without voiding (SoH e86e0ff69)");
+
+    // ---- VC49..VC54: the Thieves' Hideout kitchen (thieves_hideout.cpp, SoH eca767dcb) ----
+    VcResetNoSwim();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    VcCheckOffOn(randoCtx, "VC49 TH kitchen pot 1 from by the corridor, adult with bombs, trick off",
+                 "VC50 TH kitchen pot 1 from by the corridor, adult with bombs, trick on", RR_TH_KITCHEN_BY_CORRIDOR,
+                 RC_TH_KITCHEN_POT_1, true);
+    VcCheckOffOn(randoCtx, "VC51 TH kitchen pot 2 from across the corridor, adult with bombs, trick off",
+                 "VC52 TH kitchen pot 2 from across the corridor, adult with bombs, trick on",
+                 RR_TH_KITCHEN_OPPOSITE_CORRIDOR, RC_TH_KITCHEN_POT_2, true);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_HOVER_BOOTS);
+    VcCheckOffOn(randoCtx, "VC53 TH kitchen soup, adult with Hover Boots and the hood, both hood settings, trick off",
+                 "VC54 TH kitchen soup, adult with Hover Boots and the hood, both hood settings, trick on",
+                 RR_TH_KITCHEN_BY_CORRIDOR, RC_TH_WONDER_KITCHEN_SOUP, true);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+
+    // ---- VC55..VC58: the MQ Fire Trial pillar rupee (ganons_castle.cpp, the Fire Trial split's regions) ----
+    const uint8_t savedHoverBoost = randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Get();
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(1);
+    VcResetNoSwim();
+    Give(RG_GORON_TUNIC);
+    VcCheckOffOn(randoCtx,
+                 "VC55 MQ Fire Trial on-pillar rupee from the open door, tunic, no Golden Gauntlets, trick off",
+                 "VC56 MQ Fire Trial on-pillar rupee from the open door, tunic, no Golden Gauntlets, trick on",
+                 RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true);
+    Give(RG_MEGATON_HAMMER);
+    Give(RG_HOVER_BOOTS);
+    VcCheckOffOn(randoCtx,
+                 "VC57 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, no Golden "
+                 "Gauntlets, trick off",
+                 "VC58 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, no Golden "
+                 "Gauntlets, trick on",
+                 RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true);
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(savedVoidout);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(savedDetonation);
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(savedLensShadowMq);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunnyHood);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+}
+
 // ---- SoH 156c2a4a (#7417) and 28ab1206 (#7396): LH, GV and GC -------------
 void RunSohLogicBatchLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const uint8_t savedHoverBoost = randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Get();
@@ -1303,21 +1552,206 @@ void RunSohLogicBatchLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     Give(RG_GORON_TUNIC);
     Give(RG_MEGATON_HAMMER);
     Give(RG_HOVER_BOOTS);
-    ExpectExit("GC2 MQ Fire Trial From Barred Door to main room, tunic, hammer, Hover Boots, no hover boost",
-               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM, true, false,
+    ExpectExit("GC2 MQ Fire Trial From Barred Door to Open Door, tunic, hammer, Hover Boots, no hover boost",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_OPEN_DOOR, true, false,
                "the lava is crossed back from the barred door with no hammer recoil hover");
     ExpectAs(true, "GC3 MQ Fire Trial launch platform rupee from the barred door, no hover boost",
              RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, false,
              "the rupee is in logic from the barred door with no hammer recoil hover");
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(1);
-    ExpectExit("GC4 MQ Fire Trial From Barred Door to main room, with RT_HOVER_BOOST_SIMPLE",
-               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM, true, true,
+    ExpectExit("GC4 MQ Fire Trial From Barred Door to Open Door, with RT_HOVER_BOOST_SIMPLE",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_OPEN_DOOR, true, true,
                "a hammer recoil hover does not carry the adult back across the lava");
     ExpectAs(true, "GC5 MQ Fire Trial launch platform rupee from the barred door, with RT_HOVER_BOOST_SIMPLE",
              RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, true,
              "a hammer recoil hover does not reach the launch platform rupee from the barred door");
 
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+}
+
+// ---- SoH 139381a0e (#6336) and 88099e6eb (#6487): the Fire Trial split, FT ---
+void FtsGiveLongshot() {
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+}
+
+/** Golden Gauntlets under Shuffle Grab: the first strength grants grab. */
+bool FtsGiveGoldenGauntlets() {
+    for (int i = 0; i < 4 && !logic->HasItem(RG_GOLDEN_GAUNTLETS); i++) {
+        Give(RG_PROGRESSIVE_STRENGTH);
+    }
+    return logic->HasItem(RG_GOLDEN_GAUNTLETS);
+}
+
+/** A reset with @p startingHearts (the option's value: 2 is three hearts). */
+void FtsReset(const std::shared_ptr<Rando::Context>& randoCtx, uint8_t startingHearts) {
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(startingHearts);
+    ResetLogic();
+}
+
+/** The whole trial for an adult: Goron Tunic, Longshot, Golden Gauntlets and Light Arrows. */
+void FtsTrialWalk(const std::shared_ptr<Rando::Context>& randoCtx, const char* legReach, const char* legClear,
+                  RandomizerRegion mainRoom, RandomizerRegion finalRoom) {
+    FtsReset(randoCtx, 2);
+    Give(RG_GORON_TUNIC);
+    FtsGiveLongshot();
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_LIGHT_ARROWS);
+    if (!FtsGiveGoldenGauntlets() || !logic->HasItem(RG_LIGHT_ARROWS) || !logic->HasItem(RG_FAIRY_BOW) ||
+        !logic->HasItem(RG_MAGIC_SINGLE)) {
+        GateFail("%s: the gauntlets, bow, magic or Light Arrows did not take, so the walk is vacuous", legReach);
+        return;
+    }
+    ExpectSearch(legReach, mainRoom, true, finalRoom, RC_UNKNOWN_CHECK, true,
+                 "an adult with everything the trial needs cannot reach its Final Room from the main room");
+    ExpectEvent(legClear, LOGIC_FIRE_TRIAL_CLEAR, true,
+                "the search reached the Final Room but the trial is not cleared with Light Arrows");
+}
+
+void RunFireTrialSplitLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedSilver = randoCtx->GetOption(RSK_SHUFFLE_SILVER).Get();
+    const uint8_t savedLocked = randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedTunic = randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Get();
+    const uint8_t savedHoverBoost = randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Get();
+    const uint8_t savedMqFire = randoCtx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL).Get();
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_SHUFFLE_SILVER).Set(RO_SHUFFLE_SILVER_OFF);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(0);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(0);
+    // The hood is held by Mask Quest Shuffle's flag and worn by the adult under Masks as Adult (FT19, FT20).
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(0);
+    randoCtx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL).Set(0);
+
+    // ---- vanilla: the heart piece and the longshot to the barred door ------
+    FtsReset(randoCtx, 2); // three hearts: FireTimer 24 under the trick
+    ExpectAs(true, "FT1 Fire Trial heart from the open door, adult, three hearts, no tunic, no trick",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_FIRE_TRIAL_HEART, false,
+             "the heart piece over the lava is in logic with no Goron Tunic and no RT_FEWER_TUNIC_REQUIREMENTS");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectAs(true,
+             "FT2 Fire Trial heart from the open door, adult, three hearts, no tunic, RT_FEWER_TUNIC_REQUIREMENTS",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_FIRE_TRIAL_HEART, true,
+             "three hearts (FireTimer 24) under the trick do not reach the heart piece (SoH 139381a0e)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    FtsGiveLongshot();
+    ExpectExit("FT3 Fire Trial From Open Door to Barred Door, adult, Longshot, no tunic, no trick",
+               RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_FIRE_TRIAL_BARRED_DOOR, true, false,
+               "the longshot across the lava is in logic with no Goron Tunic and no RT_FEWER_TUNIC_REQUIREMENTS");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectExit(
+        "FT4 Fire Trial From Open Door to Barred Door, adult, Longshot, three hearts, RT_FEWER_TUNIC_REQUIREMENTS",
+        RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_FIRE_TRIAL_BARRED_DOOR, true, true,
+        "the Longshot and FireTimer 24 do not reach the barred door (SoH 139381a0e)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+
+    // ---- vanilla: eca767dcb's hammer recoil hover back to the open door ----
+    FtsReset(randoCtx, 2);
+    Give(RG_GORON_TUNIC);
+    Give(RG_MEGATON_HAMMER);
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("FT5 Fire Trial From Barred Door to Open Door, tunic, hammer, Hover Boots, no hover boost",
+               RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_FIRE_TRIAL_OPEN_DOOR, true, false,
+               "the lava is crossed back from the barred door with no Longshot and no hammer recoil hover");
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(1);
+    ExpectExit("FT6 Fire Trial From Barred Door to Open Door, tunic, hammer, Hover Boots, RT_HOVER_BOOST_SIMPLE",
+               RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED, RR_GANONS_CASTLE_FIRE_TRIAL_OPEN_DOOR, true, true,
+               "a hammer recoil hover does not carry the adult back across the lava (SoH eca767dcb)");
+    ExpectAs(true, "FT17 Fire Trial heart from the barred door, tunic, hammer, Hover Boots, RT_HOVER_BOOST_SIMPLE",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_FIRE_TRIAL_HEART, true,
+             "a hammer recoil hover does not reach the heart piece from the barred door (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(0);
+    ExpectAs(true, "FT18 Fire Trial heart from the barred door, tunic, hammer, Hover Boots, no hover boost",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_FIRE_TRIAL_HEART, false,
+             "the heart piece is in logic from the barred door with no Longshot and no hammer recoil hover");
+
+    // ---- vanilla: eca767dcb's Bunny Hood hover to the distant platform -------
+    FtsReset(randoCtx, 2);
+    Give(RG_GORON_TUNIC);
+    Give(RG_HOVER_BOOTS);
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    ExpectAs(true, "FT19 Fire Trial distant platform rupee, tunic, Hover Boots, hood, Bunny Hood Effect off",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_DISTANT_PLATFORM_FIRE_SILVER, false,
+             "the distant platform rupee is in logic with no Golden Gauntlets and no Bunny Hood hover");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectAs(true, "FT20 Fire Trial distant platform rupee, tunic, Hover Boots, hood, Bunny Hood Effect on",
+             RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_DISTANT_PLATFORM_FIRE_SILVER, true,
+             "a Bunny Hood hover does not reach the distant platform rupee (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- vanilla: the whole trial from the main room -----------------------
+    FtsTrialWalk(randoCtx, "FT7 Fire Trial walk, main room to Final Room", "FT8 Fire Trial cleared",
+                 RR_GANONS_CASTLE_MAIN, RR_GANONS_CASTLE_FIRE_TRIAL_FINAL_ROOM);
+
+    // ---- Master Quest: From Open Door to the barred door ---------------------
+    FtsReset(randoCtx, 2);
+    ExpectExit("FT9 MQ main room to Fire Trial From Open Door, adult, trials not medallion-locked",
+               RR_GANONS_CASTLE_MQ_MAIN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, true, true,
+               "the main room's fire trial door does not lead into the trial room (SoH 27d35e5a9)");
+    Give(RG_GORON_TUNIC);
+    ExpectExit("FT10 MQ Fire Trial From Open Door to Barred Door, adult, tunic only",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, true, false,
+               "the barred door is in logic with no Longshot, Hover Boots or Golden Gauntlets");
+    FtsGiveLongshot();
+    ExpectExit("FT11 MQ Fire Trial From Open Door to Barred Door, adult, tunic and Longshot",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, true, true,
+               "the Goron Tunic and the Longshot do not reach the barred door");
+    FtsReset(randoCtx, 2);
+    FtsGiveLongshot();
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectExit("FT12 MQ Fire Trial From Open Door to Barred Door, Longshot, three hearts, RT_FEWER_TUNIC_REQUIREMENTS",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, true, false,
+               "FireTimer 24 (three hearts) is enough for the barred door, which needs 32");
+    FtsReset(randoCtx, 3); // four hearts: FireTimer 32 under the trick
+    FtsGiveLongshot();
+    ExpectExit("FT13 MQ Fire Trial From Open Door to Barred Door, Longshot, four hearts, RT_FEWER_TUNIC_REQUIREMENTS",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, true, true,
+               "FireTimer 32 with no Goron Tunic does not reach the barred door: the tunic test is still there "
+               "(SoH 139381a0e)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    FtsReset(randoCtx, 2);
+    Give(RG_GORON_TUNIC);
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("FT14 MQ Fire Trial From Open Door to Barred Door, tunic, Hover Boots, three hearts",
+               RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, true, true,
+               "Hover Boots and a hit to take (TakeDamage) do not reach the barred door (SoH develop)");
+
+    // ---- Master Quest: the under-pillar rupee needs the Golden Gauntlets -----
+    FtsReset(randoCtx, 2);
+    Give(RG_GORON_TUNIC);
+    ExpectAs(true, "FT21 MQ Fire Trial under-pillar rupee from the open door, tunic, no Golden Gauntlets",
+             RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER, false,
+             "the rupee under the pillar is in logic with no way to lift the pillar");
+    if (!FtsGiveGoldenGauntlets()) {
+        GateFail("FT22: the Golden Gauntlets did not take, so the leg is vacuous");
+    } else {
+        ExpectAs(true, "FT22 MQ Fire Trial under-pillar rupee from the open door, tunic, Golden Gauntlets",
+                 RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN, RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER, true,
+                 "the Goron Tunic and the Golden Gauntlets do not reach the rupee under the pillar (SoH develop)");
+    }
+
+    // ---- Master Quest: the whole trial from the main room (88099e6eb) --------
+    FtsTrialWalk(randoCtx, "FT15 MQ Fire Trial walk, main room to Final Room", "FT16 MQ Fire Trial cleared",
+                 RR_GANONS_CASTLE_MQ_MAIN, RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FINAL_ROOM);
+
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_SHUFFLE_SILVER).Set(savedSilver);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(savedLocked);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(savedTunic);
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+    randoCtx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL).Set(savedMqFire);
 }
 
 // ---- SoH eca767dcb (Bunny Hood Effect) and e7f1801f0 (#7488): BH and LW -----
@@ -3103,8 +3537,12 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunHealthLegs(randoCtx);
     // ---- DX..DE: the Death Mountain Crater refactor (#1647 O28, SoH 7522f31cc) --
     RunDmcRefactorLegs(randoCtx);
+    // ---- VC: Voidout Collection (SoH e86e0ff69, #1647) -----------------------
+    RunVoidoutCollectionLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
+    // ---- FT: the Fire Trial split by door (139381a0e, 88099e6eb) -------------
+    RunFireTrialSplitLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
