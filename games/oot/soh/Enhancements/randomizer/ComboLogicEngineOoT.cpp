@@ -1274,8 +1274,8 @@ int OoT_SongCheckIndex(RandomizerCheck rc) {
  *    it draws the MM model (ItemEtcetera_DrawRandomizedItem, hook_handlers.cpp).
  *
  * The chest game's other rows (RCTYPE_CHEST_GAME: the ten room chests and the
- * shopkeeper's paid item) stay refused: no paired world makes them locations, and
- * their give paths are untraced for a crossing (see the room's comment below).
+ * shopkeeper's paid item) stay refused: their give paths are untraced for a
+ * crossing, so they hold only Ocarina of Time items (#1364, #1530; see below).
  * The fill-side half of the old predicate ("the fill put junk here") is the old
  * overlay pass's and does not apply: the coordinator only ever offers EMPTY hosts,
  * and this engine's `place` puts the junk cover there itself. A shelf is empty
@@ -1385,20 +1385,14 @@ int OoT_ComboLogic_HostAcceptsForeign(void* self, uint16_t hostCheck) {
     //    once the chest is open, and under rando it draws the item the check
     //    holds, now the MM model (ItemEtcetera_DrawRandomizedItem).
     // The room's other rows, RCTYPE_CHEST_GAME (the ten room chests and, from SoH
-    // 6706b49d1, the shopkeeper's paid item), stay refused (above), for two reasons
-    // (#1364; the old one, a per-play reset of their flags, is gone: Shuffle Chest
-    // Minigame keeps them):
-    //  - no paired world makes them locations: Context::GenerateLocationPool skips
-    //    the type while RSK_SHUFFLE_CHEST_MINIGAME is off, and Playthrough_Init
-    //    generates the option off in every paired world until the paired generator
-    //    supports the room's keys;
-    //  - under the shuffle their give paths are untraced for a crossing: a room
-    //    chest sets a RandomizerInf flag instead of its treasure flag
-    //    (VB_CHEST_SET_TREASURE_FLAG, ShuffleTreasureChestGame.cpp), and the
-    //    shopkeeper row is an ACTOR_EN_TAKARA_MAN give (refused by the actor test
-    //    above as well).
-    // Refused, they hold only Ocarina of Time items whenever the pin is lifted. A
-    // row the room gains upstream is refused until someone traces it.
+    // 6706b49d1, the shopkeeper's paid item), stay refused (above) (#1364, #1530;
+    // the old reason, a per-play reset of their flags, is gone: Shuffle Chest
+    // Minigame keeps them): under the shuffle their give paths are untraced for a
+    // crossing — a room chest sets a RandomizerInf flag instead of its treasure
+    // flag (VB_CHEST_SET_TREASURE_FLAG, ShuffleTreasureChestGame.cpp), and the
+    // shopkeeper row is an ACTOR_EN_TAKARA_MAN give (refused by the actor test
+    // above as well). Refused, they hold only Ocarina of Time items. A row the
+    // room gains upstream is refused until someone traces it.
     if (loc->GetScene() == SCENE_TREASURE_BOX_SHOP && rc != RC_MARKET_TREASURE_CHEST_GAME_REWARD) {
         return 0;
     }
@@ -1545,22 +1539,51 @@ void OoT_ComboLogic_AcceptTravelFacts(void* self, uint32_t facts) {
     sOoTTravelAccepted |= facts & RSBS_COMBO_TRAVEL_INTO_OOT;
 }
 
+// #1530: OoT's local confinement group (bit 0 in the per-engine 0x00FFFFFF space,
+// combo_logic.h ABI 9; #1531). Chest-game keys/keyring (#1364) and silver rupee
+// items/pouches (#1363) have no restricted OoT pass before the seam, so they enter
+// the single bag as local-group rows (combo_single_bag.c marks any local-group row
+// RSBS_COMBO_BAG_HOME_ONLY) and the coordinator places them only on OoT hosts.
+// Answered only while at least one of the two options is on, so default worlds
+// leave hostGroups at 0 on every non-song check.
+constexpr uint32_t kOoTComboLogicHomeOnlyGroup = 0x00000001u;
+
+bool OoTComboLogicChestGameConfined() {
+    const auto ctx = Rando::Context::GetInstance();
+    return ctx != nullptr && ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).IsNot(RO_GENERIC_OFF);
+}
+
+bool OoTComboLogicSilverConfined() {
+    const auto ctx = Rando::Context::GetInstance();
+    return ctx != nullptr && ctx->GetOption(RSK_SHUFFLE_SILVER).IsNot(RO_SHUFFLE_SILVER_OFF);
+}
+
+bool OoTComboLogicHomeGroupArmed() {
+    return OoTComboLogicChestGameConfined() || OoTComboLogicSilverConfined();
+}
+
 /**
- * `hostGroups` (combo_logic.h ABI 9, #1542 S2): OoT has no local groups (its
- * restricted passes run before the seam, so no confined OoT row reaches the bag
- * but the songs). Under the shared song pool (OoT_ComboLogic_SongPoolUnion) each
- * of the twelve song checks answers the combo-wide song group, so either game's
- * songs may use it and nothing else may (the request's exclusive group). The
- * song index first: a non-song host answers 0 without reading the settings. A
- * pure function of the static table and the frozen settings; no RNG.
+ * `hostGroups` (combo_logic.h ABI 9, #1542 S2, #1530):
+ *  - Under the shared song pool (OoT_ComboLogic_SongPoolUnion), each of OoT's twelve
+ *    song checks answers ONLY the combo-wide song group (RSBS_COMBO_GROUP_SONG_LOCATIONS):
+ *    a host never answers a local bit and a wide bit together (combo_logic.h), and
+ *    song checks stay exclusive to songs.
+ *  - Otherwise, when Shuffle Chest Minigame or Shuffle Silver Rupees is on (#1530),
+ *    every remaining real OoT check answers kOoTComboLogicHomeOnlyGroup so OoT's
+ *    home-only chest-game keys and silver rupee items stay on OoT hosts.
+ *  - With both options off, every non-song host answers 0u (identical to main).
+ * A pure function of the static table and the frozen settings; no RNG.
  */
 uint32_t OoT_ComboLogic_HostGroups(void* self, uint16_t hostCheck) {
     (void)self;
     const RandomizerCheck rc = (RandomizerCheck)hostCheck;
-    if (!OoTComboLogicIsRealCheck(rc) || OoT_SongCheckIndex(rc) < 0) {
+    if (!OoTComboLogicIsRealCheck(rc)) {
         return 0u;
     }
-    return OoT_ComboLogic_SongPoolUnion() ? RSBS_COMBO_GROUP_SONG_LOCATIONS : 0u;
+    if (OoT_SongCheckIndex(rc) >= 0 && OoT_ComboLogic_SongPoolUnion()) {
+        return RSBS_COMBO_GROUP_SONG_LOCATIONS;
+    }
+    return OoTComboLogicHomeGroupArmed() ? kOoTComboLogicHomeOnlyGroup : 0u;
 }
 
 /** `wideGroups` (combo_logic.h ABI 11): the song group exactly while the shared
@@ -1727,23 +1750,38 @@ extern "C" uint32_t OoT_ComboLogic_ExcludedSongChecks(void) {
 }
 
 /**
- * THE SHARED SONG POOL'S ROW HALF (combo_single_bag.h): every OoT song
- * (ITEMTYPE_SONG, the separate Song of Soaring (OoT) included) carries the
- * combo-wide song group while the pool is armed, so the coordinator draws it only
- * onto a song check of either game; every other row, and every row of any other
- * world, 0.
+ * OoT's row confinement masks (combo_single_bag.h; #1542 S3, #1530):
+ *  - While the shared song pool is armed, every OoT song (ITEMTYPE_SONG, Song of
+ *    Soaring (OoT) included) carries the combo-wide song group so the coordinator
+ *    places it only on a song check of either game.
+ *  - While Shuffle Chest Minigame is on (#1530), RG_TREASURE_GAME_SMALL_KEY and
+ *    RG_TREASURE_GAME_KEY_RING carry kOoTComboLogicHomeOnlyGroup so combo_single_bag.c
+ *    marks them RSBS_COMBO_BAG_HOME_ONLY and confines them to OoT hosts.
+ *  - While Shuffle Silver Rupees is on (#1530), every ITEMTYPE_SILVER row (individual
+ *    silver rupees and pouches alike) carries kOoTComboLogicHomeOnlyGroup for the same
+ *    reason.
+ *  - Every other row, and every non-song row while both options are off, carries 0u.
  */
 extern "C" int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int count, uint32_t* out) {
     if (items == nullptr || out == nullptr || count <= 0) {
         return 0;
     }
     const bool songUnion = OoT_ComboLogic_SongPoolUnion();
+    const bool chestGameActive = OoTComboLogicChestGameConfined();
+    const bool silverActive = OoTComboLogicSilverConfined();
     int confined = 0;
     for (int i = 0; i < count; ++i) {
         uint32_t mask = 0u;
-        if (songUnion && items[i] > (uint16_t)RG_NONE && items[i] < (uint16_t)RG_MAX &&
-            Rando::StaticData::RetrieveItem((RandomizerGet)items[i]).GetItemType() == ITEMTYPE_SONG) {
-            mask = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+        if (items[i] > (uint16_t)RG_NONE && items[i] < (uint16_t)RG_MAX) {
+            const RandomizerGet rg = (RandomizerGet)items[i];
+            const ItemType type = Rando::StaticData::RetrieveItem(rg).GetItemType();
+            if (songUnion && type == ITEMTYPE_SONG) {
+                mask = RSBS_COMBO_GROUP_SONG_LOCATIONS;
+            } else if (chestGameActive && (rg == RG_TREASURE_GAME_SMALL_KEY || rg == RG_TREASURE_GAME_KEY_RING)) {
+                mask = kOoTComboLogicHomeOnlyGroup;
+            } else if (silverActive && type == ITEMTYPE_SILVER) {
+                mask = kOoTComboLogicHomeOnlyGroup;
+            }
         }
         out[i] = mask;
         confined += (mask != 0u) ? 1 : 0;
@@ -1811,6 +1849,14 @@ extern "C" int OoT_ComboLogic_TestLastSongChecksJunked(int* outPadded) {
 // OoT enum in scope by design. None is called by production, and none of them
 // re-implements a rule — the locks drive the REAL vtable above through
 // Combo_Logic_GetEngine(GAME_OOT).
+
+/** OoT's own engine vtable, whatever the coordinator's registry holds right now (a
+ *  stub row earlier in `--test all` may have unregistered it), as
+ *  MM_ComboLogic_TestEngine is for Majora's Mask. For ROM-free rows that run inside
+ *  `--test all` (#1530). */
+extern "C" const ComboLogicEngine* OoT_ComboLogic_TestEngine(void) {
+    return &kOoTComboLogicEngine;
+}
 
 /** RC_MAX: the range the enumerations walk. Printed by the lock for context; it is
  *  NOT the sizing fact (see OoT_ComboLogic_TestOwnedHostCount, which is). */
@@ -2567,12 +2613,11 @@ bool OoTFillClassIsRupee(RandomizerGet rg) {
  *     exactly `dungeon->GetSmallKey()` / `GetKeyRing()`);
  *   - Gerudo Fortress keys (ITEMTYPE_FORTRESS_SMALLKEY): RSK_GERUDO_KEYS, its own
  *     any-dungeon / overworld passes in RandomizeDungeonItems;
- *   - treasure-game keys (ITEMTYPE_SMALLKEY, but not a dungeon's): NO confinement.
- *     RSK_SHUFFLE_CHEST_MINIGAME only decides whether they enter the pool
- *     (item_pool.cpp), the treasure box shop is not in the dungeon list, and no
- *     restricted pass names them, so when present the general pass places them
- *     (in a paired world the single bag, which is why Playthrough_Init generates
- *     the option off there, #1364);
+ *   - treasure-game keys (ITEMTYPE_SMALLKEY, but not a dungeon's): NO restricted-pass
+ *     confinement bit. RSK_SHUFFLE_CHEST_MINIGAME only decides whether they enter
+ *     the pool (item_pool.cpp), the treasure box shop is not in the dungeon list,
+ *     and no restricted pass names them, so when present the single bag places them
+ *     on OoT hosts via OoT_ComboLogic_PoolRowConfineMasks (#1364, #1530);
  *   - dungeon boss keys: RSK_BOSS_KEYSANITY, which fill.cpp applies to every boss
  *     key EXCEPT Ganon's;
  *   - Ganon's Castle boss key: RSK_GANONS_BOSS_KEY.
@@ -3701,8 +3746,7 @@ extern "C" void OoT_ComboLogic_TestSetWritingSingleBagSpoiler(int on) {
  *       those under Shuffle Chest Minigame);
  * and each of these must be REJECTED:
  *   [3] RCTYPE_CHEST_GAME rows (the room chests and the shopkeeper's paid item:
- *       never locations in a paired world, #1364, and their give paths untraced
- *       for a crossing),
+ *       their give paths are untraced for a crossing, #1364 / #1530),
  *   [4] every location whose NAME says shop, bazaar or chest game and whose
  *       actor is not ACTOR_EN_GIRLA and which is not a merchant of [2] or the
  *       reward of [7] (a shop-ish check that is not a shelf, told apart by
@@ -3912,15 +3956,17 @@ extern "C" const char* OoT_ComboLogic_TestCheckName(uint16_t hostCheck) {
 
 namespace {
 // The scoped context of OoT_ComboLogic_TestHoldSongContext: the instance held,
-// whether this bridge created it, and the two options it overwrote.
+// whether this bridge created it, and the options it overwrote.
 std::shared_ptr<Rando::Context> sS0SongHostHeldCtx;
 bool sS0SongHostCreatedCtx = false;
 uint8_t sS0SongHostPriorSongs = 0;
 uint8_t sS0SongHostPriorSkip = 0;
 uint8_t sS0SongHostPriorLetter = 0;
+uint8_t sS0SongHostPriorChestGame = 0;
+uint8_t sS0SongHostPriorSilver = 0;
 } // namespace
 
-/** Release what OoT_ComboLogic_TestHoldSongContext holds: the two options put
+/** Release what OoT_ComboLogic_TestHoldSongContext holds: the options put
  *  back on a context that existed before, or the context it created dropped (its
  *  Logic back-edge was broken at creation, so the last owner frees it, as
  *  OoT_ComboLogic_TestEnsureItemTableTransient's instance is freed). Idempotent. */
@@ -3932,6 +3978,8 @@ extern "C" void OoT_ComboLogic_TestReleaseSongContext(void) {
         sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_SONGS).Set(sS0SongHostPriorSongs);
         sS0SongHostHeldCtx->GetOption(RSK_SKIP_CHILD_ZELDA).Set(sS0SongHostPriorSkip);
         sS0SongHostHeldCtx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(sS0SongHostPriorLetter);
+        sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(sS0SongHostPriorChestGame);
+        sS0SongHostHeldCtx->GetOption(RSK_SHUFFLE_SILVER).Set(sS0SongHostPriorSilver);
     }
     sS0SongHostHeldCtx.reset();
     sS0SongHostCreatedCtx = false;
@@ -3939,7 +3987,7 @@ extern "C" void OoT_ComboLogic_TestReleaseSongContext(void) {
 
 /** Hold a Rando context whose frozen RSK_SHUFFLE_SONGS is `songs` and
  *  RSK_SKIP_CHILD_ZELDA is `skipChildZelda`, until the release: the live one with
- *  its two options overwritten, or a transient one when none exists. Releases
+ *  its options overwritten, or a transient one when none exists. Releases
  *  any earlier hold first. @return 0 on success, -1 when no context could be made. */
 extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda) {
     OoT_ComboLogic_TestReleaseSongContext();
@@ -3957,11 +4005,17 @@ extern "C" int OoT_ComboLogic_TestHoldSongContext(int songs, int skipChildZelda)
     sS0SongHostPriorSongs = ctx->GetOption(RSK_SHUFFLE_SONGS).Get();
     sS0SongHostPriorSkip = ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Get();
     sS0SongHostPriorLetter = ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Get();
+    sS0SongHostPriorChestGame = ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Get();
+    sS0SongHostPriorSilver = ctx->GetOption(RSK_SHUFFLE_SILVER).Get();
     ctx->GetOption(RSK_SHUFFLE_SONGS).Set((uint8_t)songs);
     ctx->GetOption(RSK_SKIP_CHILD_ZELDA).Set((uint8_t)skipChildZelda);
     // #1404: an unshuffled starting letter also skips child Zelda (the host rule
     // above), so the held context starts without one; `skipChildZelda` decides.
     ctx->GetOption(RSK_STARTING_ZELDAS_LETTER).Set(0);
+    // #1530: song-pool table checks assert default non-song hostGroups/row masks,
+    // so hold both home-only shuffles off until release.
+    ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(RO_GENERIC_OFF);
+    ctx->GetOption(RSK_SHUFFLE_SILVER).Set(RO_SHUFFLE_SILVER_OFF);
     sS0SongHostHeldCtx = ctx;
     return 0;
 }

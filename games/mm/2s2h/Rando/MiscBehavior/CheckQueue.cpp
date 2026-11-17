@@ -70,9 +70,12 @@ bool Rando::Foreign::GiveForeignCheck(RandoCheckId randoCheckId) {
 // Songs of Time apart (both are music notes). Always, not only for the names
 // both games use, so the player learns one convention.
 std::string Rando::Foreign::ForeignPickupMessage(const char* article, const char* name, uint16_t ootId) {
-    // #1653: an armed shared family's item is both games' own, named untagged.
+    // #1653: an armed shared family's item is both games' own, named untagged; #1560: so
+    // is a name that carries the tag itself (the Song of Soaring (OoT) under its shared rule).
+    const char* shared = name != nullptr ? Combo_SharedItemDisplayName((uint8_t)GAME_OOT, ootId) : nullptr;
     return std::string("You found ") + (article != nullptr ? article : "") +
-           (name != nullptr ? name : "a foreign item") + Combo_ForeignItemTag((uint8_t)GAME_OOT, ootId, name) + "!";
+           (shared != nullptr ? shared : name != nullptr ? name : "a foreign item") +
+           Combo_ForeignItemTag((uint8_t)GAME_OOT, ootId, name) + "!";
 }
 
 // THE FULL-OUTBOX TOAST (#1222; declared in Rando/Foreign.h): what the player is

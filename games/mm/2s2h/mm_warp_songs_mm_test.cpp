@@ -37,6 +37,7 @@
 
 #include <libultraship/bridge/consolevariablebridge.h>
 
+#include "2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h" // GetItemTrackerItemName (#1560)
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/Rando/Logic/Logic.h"
 #include "2s2h/Rando/StaticData/StaticData.h"
@@ -75,12 +76,14 @@ constexpr RandoItemId kSongs[6] = { RI_SONG_MINUET,  RI_SONG_BOLERO,   RI_SONG_S
 
 /** MM ids by index: 0..5 the six songs (Minuet .. Prelude), 6 RI_MASK_SPOOKY (the
  *  id before them), 7 RI_MAX_TRAP, 8 RI_MAX, 9 RI_WOODFALL_STRAY_FAIRY,
- *  10 RI_SONG_SOARING, 11 RI_JUNK, 12 RI_MASK_GERUDO; -1 past the table. */
+ *  10 RI_SONG_SOARING, 11 RI_JUNK, 12 RI_MASK_GERUDO, 13 RI_DEKU_STICK_BAG and
+ *  14 RI_DEKU_NUT_BAG (#1652 A2's two logic-only stand-ins, after RI_MAX_TRAP);
+ *  -1 past the table. */
 extern "C" int MM_WarpSongsTest_Id(int which) {
     static const int kIds[] = { RI_SONG_MINUET,   RI_SONG_BOLERO,          RI_SONG_SERENADE, RI_SONG_REQUIEM,
                                 RI_SONG_NOCTURNE, RI_SONG_PRELUDE,         RI_MASK_SPOOKY,   RI_MAX_TRAP,
                                 RI_MAX,           RI_WOODFALL_STRAY_FAIRY, RI_SONG_SOARING,  RI_JUNK,
-                                RI_MASK_GERUDO };
+                                RI_MASK_GERUDO,   RI_DEKU_STICK_BAG,       RI_DEKU_NUT_BAG };
     return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
 }
 
@@ -158,6 +161,14 @@ extern "C" const char* MM_WarpSongsTest_Name(uint16_t ri) {
 extern "C" const char* MM_WarpSongsTest_TextName(uint16_t ri) {
     static std::string sName;
     sName = Rando::StaticData::GetItemName((RandoItemId)ri, true);
+    return sName.c_str();
+}
+
+/** The name MM's item tracker layout editor gives Items row `ri`
+ *  (GetItemTrackerItemName, TRACKER_ITEM_RANDO; #1560). */
+extern "C" const char* MM_WarpSongsTest_TrackerItemName(uint16_t ri) {
+    static std::string sName;
+    sName = GetItemTrackerItemName(TRACKER_ITEM_RANDO, (u32)ri);
     return sName.c_str();
 }
 

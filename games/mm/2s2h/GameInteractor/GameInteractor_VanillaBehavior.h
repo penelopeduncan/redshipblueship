@@ -661,6 +661,7 @@ typedef enum {
     // #### `args`
     // - `EquipSlot`
     // - `*ItemId`
+    // - `bool` (isDpad)
     VB_GET_ITEM_ON_BUTTON,
 
     // #### `result`
@@ -2350,6 +2351,28 @@ typedef enum {
     // 2Ship #1972 (Mayor Argues Until Moonfall). Appended rather than sorted in after VB_MAGIC_SPIN_ATTACK_CHECK_FORM
     // as upstream placed it, so no existing id moves.
     VB_MAYOR_MEETING_END_ON_FINAL_NIGHT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*f32`
+    // TODO: Convert to event
+    // 2Ship #1951 (Faster Hookshot). Appended rather than sorted in after VB_HAVE_ROMANI_MASK as upstream placed it,
+    // so no existing id moves. MM_ArmsHook_Shoot (z_arms_hook.c) passes the `ArmsHook*` before the `f32*`.
+    VB_HOOKSHOT_SET_SPEED,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*ArmsHook`
+    // TODO: Convert to event
+    // 2Ship #1951 (Faster Hookshot). Appended with VB_HOOKSHOT_SET_SPEED, so no existing id moves. MM_ArmsHook_Wait
+    // (z_arms_hook.c) passes `this->actor.parent == NULL` as the verdict.
+    VB_HOOKSHOT_SHOOT,
 } GIVanillaBehavior;
 
 #endif

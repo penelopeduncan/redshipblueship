@@ -963,6 +963,10 @@ extern "C" {
 // comboFlags bits from OoT's options, carried by the record, a package and a
 // .redsave. FILE SCOPE likewise.
 #include "tests/test_combo_bag_shuffle.c"
+// #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the bag,
+// refuses sticks and nuts until the pair's one bag, and a bag found in Termina
+// steps the shared tier at its pickup. FILE SCOPE likewise.
+#include "tests/test_stick_nut_bag_mm.c"
 // The Shared Swim rule and the pair's one Shuffle Swim / Shuffle Ocarina Buttons
 // (#1369): the gated freeze, both games' swim as one family, the coupling at MM's
 // sites, and the arrival through both games' real shims. FILE SCOPE likewise.
@@ -1423,6 +1427,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // SoH #6709: ROM-free: Camera_Subj4 (the crawlspace camera) writes Link's world
 // position and shape yaw as console does, from source.
 #include "tests/test_oot_camera_subj4.c"
+
+// #1667 (SoH 7006ef740): ROM-free: a hidden placement (an unshuffled Master Sword)
+// is never hintable, and WritePlaythrough leaves it out of the spoiler playthrough.
+#include "tests/test_oot_hidden_not_hintable.c"
 
 // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
@@ -9561,8 +9569,8 @@ TestResult Test_OoTEarlyGrannyShop(void) {
     }
     return OoT_EarlyGrannyShopTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
-// #1364: Shuffle Treasure Chest Game (SoH 6706b49d1, 4868b0712): the options, the
-// settings fold over two real generations, the paired pin, and the shopkeeper's
+// #1364 / #1530: Shuffle Treasure Chest Game (SoH 6706b49d1, 4868b0712): the options,
+// the settings fold over default and enabled paired generations, and the shopkeeper's
 // real wait action. Same bring-up as the row above; body in
 // games/oot/soh/oot_chest_game_shuffle_test.cpp.
 extern "C" int OoT_ChestGameShuffleTest_Run(void);
@@ -9572,16 +9580,33 @@ TestResult Test_OoTChestGameShuffle(void) {
     }
     return OoT_ChestGameShuffleTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
-// #1363: Shuffle Silver Rupees (SoH b76e303ce): the silver checks' flag map, the
-// option, the settings fold over two real generations, the paired pin, and the
-// option-off logic fallback. Same bring-up as the row above; body in
-// games/oot/soh/oot_shuffle_silver_test.cpp.
+// #1363 / #1530: Shuffle Silver Rupees (SoH b76e303ce): the silver checks' flag map,
+// the option, the settings fold over default and enabled paired generations, the
+// option-off logic fallback, and Spirit boulder names (#1589). Same bring-up as the
+// row above; body in games/oot/soh/oot_shuffle_silver_test.cpp.
 extern "C" int OoT_ShuffleSilverTest_Run(void);
 TestResult Test_OoTShuffleSilver(void) {
     if (!TrackerReachabilityBringUp()) {
         return TEST_FAIL;
     }
     return OoT_ShuffleSilverTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1530: ROM-free confinement check of OoT's local hostGroups and PoolRowConfineMasks
+// for Shuffle Chest Minigame and Shuffle Silver Rupees; body in
+// games/oot/soh/oot_chest_silver_confinement_test.cpp.
+extern "C" int OoT_ChestSilverConfinementTest_Run(void);
+TestResult Test_OoTChestSilverConfinement(void) {
+    return OoT_ChestSilverConfinementTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+// #1530: finished paired worlds across every Shuffle Chest Minigame and Shuffle
+// Silver Rupees mode, proving OoT home-only confinement, shopkeeper single-give,
+// and no residue between generations; body in games/oot/soh/oot_chest_silver_paired_test.cpp.
+extern "C" int OoT_ChestSilverPairedTest_Run(void);
+TestResult Test_OoTChestSilverPaired(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return OoT_ChestSilverPairedTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 // #1405: Shuffle Wonder Items (SoH 412e9e262): the wonder item checks' flag map and
 // IdentifyWonderItem, the option, the settings fold at default settings, and a
@@ -10608,6 +10633,14 @@ const TestDescriptor gTests[] = {
       "false unfrozen, ignores a later change of the option, and survives the rollback, a seed package and a "
       ".redsave (#1652)",
       Test_ComboBagShuffleFrozen },
+    // #1652 A1 / A3: the bag gates both games. ROM-free: gComboCtx, the RAM
+    // watermark table, MM's real give, conversion and gate helpers, MM's real
+    // pickup core and both games' real shims; no CVar, no OTRGlobals.
+    { "mm-stick-nut-bag-gate",
+      "Under the pair's frozen Deku Stick Bag / Deku Nut Bag shuffle Majora's Mask is born without the bag, its give, "
+      "drops, shelves and checks refuse sticks and nuts until the pair's one bag, and a bag found in Termina opens "
+      "both games at its pickup; with the shuffles off nothing changes (#1652)",
+      MMStickNutBagGate_Run },
     { "shared-swim-pairs",
       "Both games register their swim as the Shared Swim family, the bag pairs them into one row both solvers credit, "
       "and MM's sites take the pair's one shuffle from the frozen record (#1369)",
@@ -11243,6 +11276,11 @@ const TestDescriptor gTests[] = {
     { "oot-camera-subj4-console",
       "Camera_Subj4 (the crawlspace camera) writes Link's world position and shape yaw as console does (SoH #6709)",
       Test_OoTCameraSubj4Console },
+    // #1667 (SoH 7006ef740): ROM-free: hidden placements are unhintable and stay out of the playthrough.
+    { "oot-hidden-location-not-hintable",
+      "A hidden placement (an unshuffled Master Sword, a vanilla song) answers IsHintable() false, and "
+      "WritePlaythrough writes a sphere's location only when it is not hidden (SoH #6146)",
+      Test_OoTHiddenLocationNotHintable },
     // #948: display-free and ROM-free, and order-free: it restores the current
     // game, the active slot and OoT_gPlayState, and clears the combo identity.
     { "oot-mask-shop-night-door",
@@ -12059,19 +12097,30 @@ const TestDescriptor gTests[] = {
       "shuffled item; off, or under Shuffle Adult Trade, nothing changes and the settings fingerprint does not fold "
       "it (#1414)",
       Test_OoTEarlyGrannyShop },
-    // #1364. Two real generations; skipped by `--test all` below like its siblings.
+    // #1364 / #1530. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-chest-game-shuffle",
-      "Shuffle Chest Minigame ships off and greyed out, a default world's settings fold reads none of the lines it "
-      "added, a paired generation pins it off even when keyed on, and the chest game's shopkeeper gives his item "
-      "without queueing it a second time (SoH 4868b0712) (#1364)",
+      "Shuffle Chest Minigame ships off and enabled, a default world's settings fold reads none of the lines it "
+      "added, a paired generation with it on keeps it on and folds its lines, and the chest game's shopkeeper gives "
+      "his item without queueing it a second time (SoH 4868b0712) (#1364, #1530)",
       Test_OoTChestGameShuffle },
-    // #1363. Two real generations; skipped by `--test all` below like its siblings.
+    // #1363 / #1530. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-shuffle-silver",
-      "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and greyed out, a default world's "
-      "settings fold reads none of the lines it added, a paired generation pins it off even when keyed on, and "
-      "logic reads each silver rupee item's own event while it is off (#1363), and the Spirit boulder silver checks "
-      "carry their corrected names (#1589)",
+      "Every silver rupee check has its own flag, Shuffle Silver Rupees ships off and enabled, a default world's "
+      "settings fold reads none of the lines it added, a paired generation with it on keeps it on and folds its lines, "
+      "logic reads each silver rupee item's own event while it is off (#1363, #1530), and the Spirit boulder silver "
+      "checks carry their corrected names (#1589)",
       Test_OoTShuffleSilver },
+    // #1530. ROM-free; runs in `--test all`.
+    { "oot-chest-silver-confinement",
+      "OoT's local hostGroups and PoolRowConfineMasks confine chest-game keys/keyring and silver rupee items to OoT "
+      "hosts without overlapping the wide song pool or moving default worlds (#1530)",
+      Test_OoTChestSilverConfinement },
+    // #1530. Eight finished paired worlds; skipped by `--test all` below like its siblings.
+    { "oot-chest-silver-paired",
+      "Finished paired worlds across every Shuffle Chest Minigame and Shuffle Silver Rupees mode place every "
+      "chest-game key/keyring and silver rupee item on an OoT check, prove beatable, give the shopkeeper check once, "
+      "and leave no residue: a default world generated after them matches the first (#1530)",
+      Test_OoTChestSilverPaired },
     // #1405. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-shuffle-wonder-items",
       "Every wonder item check has its own flag and IdentifyWonderItem finds it from its key, Shuffle Wonder Items "
@@ -12565,6 +12614,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "oot-early-granny-shop") == 0 ||
                 strcmp(gTests[i].name, "oot-chest-game-shuffle") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-silver") == 0 ||
+                strcmp(gTests[i].name, "oot-chest-silver-paired") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-wonder-items") == 0 ||
                 strcmp(gTests[i].name, "oot-wonder-items-paired") == 0 ||
                 strcmp(gTests[i].name, "oot-shuffle-ice") == 0 || strcmp(gTests[i].name, "oot-ice-paired") == 0 ||

@@ -97,6 +97,7 @@
 #include "2s2h/Rando/MiscBehavior/ClockShuffle.h" // #1229: the last owned half-day for the moon-crash grace
 #include "2s2h/ObjectExtension/ObjectExtension.h" // #666: MM_RetireAbandonedSession
 #include "2s2h/Rando/Foreign.h"                   // attempt-ladder outcome accessors (ADR 0010 inc. 1.2)
+#include "2s2h/Rando/StickNutBagGate.h"           // #1652 A1: defined below, header-checked
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/resource/type/2shResourceType.h"
 #include "2s2h/resource/importer/PathFactory.h"
@@ -297,6 +298,8 @@ static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO
 static_assert(RI_SKELETON_KEY == RI_SONG_PRELUDE + 1 && RI_SONG_DOUBLE_TIME == RI_SONG_PRELUDE + 2 &&
                   RI_SONG_INVERTED_TIME == RI_SONG_PRELUDE + 3 && RI_MAX_TRAP == RI_SONG_PRELUDE + 4,
               "MM's #1403 items follow the #1485 warp songs: saved checks store RandoItemId");
+static_assert(RI_DEKU_STICK_BAG == RI_MAX_TRAP + 1 && RI_DEKU_NUT_BAG == RI_MAX_TRAP + 2 && RI_MAX == RI_MAX_TRAP + 3,
+              "#1652 A2: two logic-only credit stand-ins follow the draw-only sentinel");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
 // #1548: split freestanding dungeon fairies + Clock Town fairy out from
@@ -5759,6 +5762,61 @@ static void MM_ApplySharedAmmoCount(const MMSharedAmmo* row) {
     }
 }
 
+// ---- #1652 A1: the pair's one Deku Stick Bag and Deku Nut Bag --------------
+// (2s2h/Rando/StickNutBagGate.h). Each answer is src/common's Combo_SharedBag*
+// over MM's own capacity tier; nothing here reads a CVar or a PlayState, so the
+// give, the logic engine and a ROM-free row all reach the same decision.
+
+extern "C" int MM_Combo_StickGated(void) {
+    return Combo_SharedBagGateClosed(RSBS_SHARED_RES_STICK_TIER, (uint16_t)CUR_UPG_VALUE(UPG_DEKU_STICKS)) ? 1 : 0;
+}
+
+extern "C" int MM_Combo_NutGated(void) {
+    return Combo_SharedBagGateClosed(RSBS_SHARED_RES_NUT_TIER, (uint16_t)CUR_UPG_VALUE(UPG_DEKU_NUTS)) ? 1 : 0;
+}
+
+extern "C" int MM_Combo_StickNutGiveRefused(uint8_t item) {
+    switch (item) {
+        case ITEM_DEKU_STICK:
+        case ITEM_DEKU_STICKS_5:
+        case ITEM_DEKU_STICKS_10:
+            return MM_Combo_StickGated();
+        case ITEM_DEKU_NUT:
+        case ITEM_DEKU_NUTS_5:
+        case ITEM_DEKU_NUTS_10:
+            return MM_Combo_NutGated();
+        default:
+            return 0;
+    }
+}
+
+extern "C" int MM_Combo_Item00Gated(int16_t params) {
+    switch (params & 0xFF) {
+        case ITEM00_DEKU_STICK:
+            return MM_Combo_StickGated();
+        case ITEM00_DEKU_NUTS_1:
+        case ITEM00_DEKU_NUTS_10:
+            return MM_Combo_NutGated();
+        default:
+            return 0;
+    }
+}
+
+extern "C" void MM_Combo_ApplyPairedBagBirth(void) {
+    // Born without the bag: tier 0, no item, no ammo. OoT's half under the same
+    // option starts the same way (OoT's own new save under the shuffle).
+    if (Combo_SharedBagShuffled(RSBS_SHARED_RES_STICK_TIER)) {
+        MM_Inventory_ChangeUpgrade(UPG_DEKU_STICKS, 0);
+        INV_CONTENT(ITEM_DEKU_STICK) = ITEM_NONE;
+        AMMO(ITEM_DEKU_STICK) = 0;
+    }
+    if (Combo_SharedBagShuffled(RSBS_SHARED_RES_NUT_TIER)) {
+        MM_Inventory_ChangeUpgrade(UPG_DEKU_NUTS, 0);
+        INV_CONTENT(ITEM_DEKU_NUT) = ITEM_NONE;
+        AMMO(ITEM_DEKU_NUT) = 0;
+    }
+}
+
 // The tier-less bombchu row: its ceiling is the bomb bag's (MM_AmmoCapacity), so
 // whatever moves the bag moves it too (#1160).
 static const MMSharedAmmo* MM_SharedBombchuRow(void) {
@@ -6846,6 +6904,24 @@ static void MM_FillWalletAfterStep(s32 tierBefore) {
 }
 
 /**
+ * FILL AT THE BAG STEP (#1652 A3; Combo_SharedBagFillsAfterStep), the twin of
+ * OoT_FillBagAfterStep: the step that opens the pair's one stick (nut) bag fills
+ * MM's sticks (nuts) to the new capacity, because the bag gives them, as OoT's own
+ * bag give does. Set AFTER the apply, which authored the pool's count; the next
+ * harvest folds the fill into the pool. gSaveContext only.
+ */
+static void MM_FillBagAfterStep(uint8_t kind, uint16_t tierBefore) {
+    const MMSharedAmmo* row = MM_SharedAmmoRowForTier(kind);
+    if (row == nullptr || !Combo_SharedBagFillsAfterStep(kind, tierBefore, (uint16_t)CUR_UPG_VALUE(row->upgrade))) {
+        return;
+    }
+    MM_EnsureInventoryItem(row->item);
+    AMMO(row->item) = (s8)CUR_CAPACITY(row->upgrade);
+    fprintf(stderr, "[MM] shared bag step: kind %u opened, %d to the tier-%d capacity (#1652)\n", (unsigned)kind,
+            (int)AMMO(row->item), (int)CUR_UPG_VALUE(row->upgrade));
+}
+
+/**
  * STEP AT PICKUP (#1120; shared_resources.h), the twin of
  * OoT_StepSharedTierAtPickup: a far game's capacity tier found in Termina
  * (OoT's Progressive Bomb Bag on an MM check), or an MM tier item redeemed from
@@ -6872,12 +6948,17 @@ static int MM_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint1
         return 0;
     }
     const s32 walletTierBefore = (s32)CUR_UPG_VALUE(UPG_WALLET);
+    const MMSharedAmmo* ammoRow = MM_SharedAmmoRowForTier(kind);
+    const uint16_t ammoTierBefore = ammoRow != nullptr ? (uint16_t)CUR_UPG_VALUE(ammoRow->upgrade) : 0u;
     if (!Combo_StepSharedTier(kind, units, MM_SharedKindCap(kind))) {
         return 0; // the harvest alone changes nothing a later harvest would not
     }
     MM_ApplySharedKind(kind);
     if (kind == RSBS_SHARED_RES_WALLET_TIER) {
         MM_FillWalletAfterStep(walletTierBefore);
+    }
+    if (ammoRow != nullptr) {
+        MM_FillBagAfterStep(kind, ammoTierBefore); // #1652 A3: only the bag's step fills
     }
     uint16_t pool = 0;
     Combo_GetSharedResource(kind, &pool);
@@ -6896,14 +6977,14 @@ static int MM_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint1
  * capacity tier (#1120) takes the step path above instead.
  *
  * @return 1 when credited; 0 (nothing touched) when @p item is not a counted
- *         pack or a tier, MM's live save is not a real file, or the kind has no
- *         MM row.
+ *         pack, a tier or an armed far family member, MM's live save is not a
+ *         real file, or the kind has no MM row.
  */
 extern "C" int MM_CreditSharedPickup(const SharedItem* item) {
     uint8_t kind = 0;
     uint16_t units = 0;
-    // #1169 XW10: Ocarina of Time's copy of an ARMED second-word shared family (a
-    // shared warp song's surplus copy that crossed) is owned now and MM is given its
+    // #1169 XW10, #1551: Ocarina of Time's copy of an ARMED shared family of either
+    // word (a shared warp song's or other shared item's far copy) is owned now and MM is given its
     // own copy, with no crossing (Combo_SharedFamilies2CreditFarPickup); with the
     // shared rule off it answers false and the item crosses as before.
     if (item != nullptr && MM_SaveIsLiveFile() &&

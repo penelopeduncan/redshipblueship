@@ -132,6 +132,8 @@ int MM_ComboLogic_TestSwampSoaringCheck(void);
 // the name MM's texts and hints show (Rando::StaticData::GetItemName, with article).
 const char* MM_WarpSongsTest_Name(uint16_t ri);
 const char* MM_WarpSongsTest_TextName(uint16_t ri);
+// The same file (#1560): the name MM's item tracker layout editor gives an Items row.
+const char* MM_WarpSongsTest_TrackerItemName(uint16_t ri);
 #ifdef __cplusplus
 }
 #endif
@@ -278,6 +280,35 @@ std::string SwsReadFile(const std::filesystem::path& path) {
         return std::string();
     }
     return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+
+/** The checkout's file @p rel ("" without RSBS_SOURCE_DIR or when unreadable). */
+std::string SwsReadSource(const char* rel) {
+#ifdef RSBS_SOURCE_DIR
+    return SwsReadFile(std::filesystem::path(RSBS_SOURCE_DIR) / rel);
+#else
+    (void)rel;
+    return std::string();
+#endif
+}
+
+/** The body of the function starting at @p head, up to its first line that is exactly "}"; "" when absent. */
+std::string SwsFunctionBody(const std::string& text, const char* head) {
+    const size_t at = text.find(head);
+    if (at == std::string::npos) {
+        return std::string();
+    }
+    const size_t end = text.find("\n}\n", at);
+    return text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+}
+
+int SwsCountIn(const std::string& text, const char* needle) {
+    int n = 0;
+    const size_t len = std::strlen(needle);
+    for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + len)) {
+        n++;
+    }
+    return n;
 }
 
 } // namespace
@@ -1151,6 +1182,157 @@ TestResult Test_SharedWarpSongsMerge(void) {
             Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(1)) != NULL &&
                 Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)MM_SharedWarpSongsTest_PoolId(2)) == NULL,
             "(10) the shared Minuet alone named the Bolero (MM) too, or not the Minuet");
+    }
+
+    // ---- (11) #1560: a shared mask is named without its game ----------------------------------
+    // The first-word twin of (10), over MM's REAL registered members of the three
+    // shared OoT masks (OoTMasksMM.cpp). Under each mask's frozen shared rule MM's
+    // added copy ("Gerudo Mask (MM)") is named by the plain name, in the helper, in
+    // MM's text name (GetItemName) and in the item tracker layout editor
+    // (GetItemTrackerItemName); OoT's own copy gets NULL (its name is localized);
+    // the Items row name, a lookup key, never moves. With the shared rules off in the
+    // frozen record every name keeps its "(MM)": the helper reads the frozen word
+    // only.
+    {
+        const uint32_t kSwsMaskFamilies[3] = { RSBS_XITEM_SHARED_GERUDO, RSBS_XITEM_SHARED_SKULL,
+                                               RSBS_XITEM_SHARED_SPOOKY };
+        const uint32_t kSwsMaskExtensions =
+            RSBS_XITEM_GERUDO_MASK_MM | RSBS_XITEM_SKULL_MASK_MM | RSBS_XITEM_SPOOKY_MASK_MM;
+        const char* const kSwsMaskNames[3] = { "Gerudo Mask", "Skull Mask", "Spooky Mask" };
+        uint16_t mmMask[3] = { 0, 0, 0 };
+        uint16_t ootMask[3] = { 0, 0, 0 };
+        bool registered = true;
+        for (int m = 0; m < 3; m++) {
+            registered = registered && Combo_SharedFamilyMemberId(GAME_MM, kSwsMaskFamilies[m], &mmMask[m]) &&
+                         Combo_SharedFamilyMemberId(GAME_OOT, kSwsMaskFamilies[m], &ootMask[m]);
+        }
+        SWS_CHECK(registered, "(11) a shared mask has no registered member in one of the games");
+
+        SwsFreeze(kSwsMaskExtensions | RSBS_XITEM_SHARED_GERUDO | RSBS_XITEM_SHARED_SKULL | RSBS_XITEM_SHARED_SPOOKY,
+                  0u);
+        for (int m = 0; registered && m < 3; m++) {
+            const char* added = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[m]);
+            const char* either = Combo_SharedItemDisplayName((uint8_t)GAME_MM, mmMask[m]);
+            const char* own = Combo_SharedFamilyDisplayName((uint8_t)GAME_OOT, ootMask[m]);
+            SWS_CHECK(added != NULL && strcmp(added, kSwsMaskNames[m]) == 0 && either != NULL &&
+                          strcmp(either, kSwsMaskNames[m]) == 0 && own == NULL,
+                      "(11) the shared %s: MM's added copy is named '%s' (either word '%s'), OoT's own '%s'",
+                      kSwsMaskNames[m], added != NULL ? added : "(null)", either != NULL ? either : "(null)",
+                      own != NULL ? own : "(null)");
+            const char* text = MM_WarpSongsTest_TextName(mmMask[m]);
+            const std::string maskText = text != NULL ? text : "";
+            SWS_CHECK(maskText.find(kSwsMaskNames[m]) != std::string::npos &&
+                          maskText.find("(MM)") == std::string::npos,
+                      "(11) under the shared %s MM's text name is '%s'; want the mask without '(MM)'", kSwsMaskNames[m],
+                      maskText.c_str());
+            const char* tracker = MM_WarpSongsTest_TrackerItemName(mmMask[m]);
+            SWS_CHECK(tracker != NULL && strcmp(tracker, kSwsMaskNames[m]) == 0,
+                      "(11) under the shared %s the item tracker layout editor names it '%s'", kSwsMaskNames[m],
+                      tracker != NULL ? tracker : "(null)");
+            const char* key = MM_WarpSongsTest_Name(mmMask[m]);
+            SWS_CHECK(key != NULL && strstr(key, "(MM)") != NULL,
+                      "(11) MM's Items row name moved to '%s': it is a lookup key and must keep its '(MM)'",
+                      key != NULL ? key : "(null)");
+        }
+        // The shared warp songs' editor names ride the same helper (#1169 XW14's sites, #1560).
+        SwsFreeze(0u, kSwsAll);
+        const char* minuetTracker = MM_WarpSongsTest_TrackerItemName((uint16_t)MM_SharedWarpSongsTest_PoolId(1));
+        const char* soaringOoT =
+            Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)OoT_SharedWarpSongsTest_PoolId(0));
+        SWS_CHECK(minuetTracker != NULL && strcmp(minuetTracker, "Minuet of Forest") == 0 && soaringOoT != NULL &&
+                      strcmp(soaringOoT, "Song of Soaring") == 0,
+                  "(11) under the shared songs the editor names MM's Minuet '%s' and either word OoT's Soaring '%s'",
+                  minuetTracker != NULL ? minuetTracker : "(null)", soaringOoT != NULL ? soaringOoT : "(null)");
+
+        // Only the mask whose rule is frozen on: the shared Skull alone names no Gerudo or Spooky Mask.
+        SwsFreeze(kSwsMaskExtensions | RSBS_XITEM_SHARED_SKULL, 0u);
+        SWS_CHECK(registered && Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[0]) == NULL &&
+                      Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[1]) != NULL &&
+                      Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[2]) == NULL,
+                  "(11) the shared Skull Mask alone named the Gerudo or Spooky Mask too, or not the Skull Mask");
+
+        // Rules off in the frozen record: every name keeps its "(MM)". This row has no
+        // Ship::Context, so it has no CVar store to turn the session's settings on in
+        // (CVarSetInteger faults without one, which is how this leg first crashed the
+        // row); a helper that read a live key instead of the frozen word would fault
+        // here the same way, so the row still catches it.
+        SwsFreeze(kSwsMaskExtensions, 0u);
+        int named = 0;
+        int untagged = 0;
+        for (int m = 0; registered && m < 3; m++) {
+            named += Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[m]) != NULL ? 1 : 0;
+            named += Combo_SharedItemDisplayName((uint8_t)GAME_MM, mmMask[m]) != NULL ? 1 : 0;
+            const char* text = MM_WarpSongsTest_TextName(mmMask[m]);
+            untagged += (text == NULL || strstr(text, "(MM)") == NULL) ? 1 : 0;
+            const char* tracker = MM_WarpSongsTest_TrackerItemName(mmMask[m]);
+            untagged += (tracker == NULL || strstr(tracker, "(MM)") == NULL) ? 1 : 0;
+        }
+        SWS_CHECK(named == 0 && untagged == 0,
+                  "(11) with the shared mask rules off in the frozen record %d names were shared and %d text or "
+                  "editor names lost their '(MM)'",
+                  named, untagged);
+        SWS_CHECK(Combo_SharedFamilyDisplayName((uint8_t)GAME_NONE, mmMask[0]) == NULL &&
+                      Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, 0x7777u) == NULL,
+                  "(11) an id that is no member, or no game, got a shared mask name");
+    }
+
+    // ---- (12) #1560: every other display site asks the shared name ----------------------------
+    // Sites with no ROM-free caller (OoT's hints, the spoiler's playthrough, the
+    // crossed-item names, the trackers): each asks the helper once, in the function
+    // that builds the name. A site that drops the call fails here.
+    {
+        const char* const kO = "games/oot/soh/Enhancements/randomizer/";
+        const char* const kM = "games/mm/2s2h/Rando/";
+        const auto src = [](const char* dir, const char* file) {
+            return SwsReadSource((std::string(dir) + file).c_str());
+        };
+        const std::string hint = src(kO, "hint.cpp");
+        const std::string spoiler = src(kO, "3drando/spoiler_log.cpp");
+        const std::string ootTracker = src(kO, "randomizer_check_tracker.cpp");
+        const std::string hooks = src(kO, "hook_handlers.cpp");
+        const std::string showOnly = src(kO, "ForeignModelHostOoT.cpp");
+        const std::string queue = src(kM, "MiscBehavior/CheckQueue.cpp");
+        const std::string mmTracker = src(kM, "CheckTracker/CheckTracker.cpp");
+        const std::string mmTrackerAdapter = src(kM, "TrackerAdapterSingleExe.cpp");
+        const std::string pane = SwsReadSource("src/common/ComboTrackerWindow.cpp");
+        struct SwsNameSite {
+            const std::string* text;
+            const char* head;
+            const char* call;
+        };
+        const SwsNameSite sites[] = {
+            { &hint, "static std::string CrossedItemHintName(",
+              "Combo_SharedItemDisplayName(item->originGame, item->id)" },
+            { &hint, "const HintText Hint::GetItemHintText(uint8_t slot, bool mysterious) const {",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, shownId)" },
+            { &spoiler, "static void WriteLocation(",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)itemLocation->GetPlacedRandomizerGet())" },
+            { &ootTracker, "static std::string PlacedItemTrackerName(",
+              "Combo_SharedItemDisplayName(crossed->originGame, crossed->id)" },
+            { &hooks, "extern \"C\" void OoT_Rando_Foreign_EmitPickupToast(",
+              "Combo_SharedItemDisplayName(item.originGame, item.id)" },
+            { &showOnly, "extern \"C\" int OoT_Rando_Foreign_ShowOnlyItemText(",
+              "Combo_SharedItemDisplayName(sShowOnly.item.originGame, sShowOnly.item.id)" },
+            { &queue, "std::string Rando::Foreign::ForeignPickupMessage(",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, ootId)" },
+            { &mmTracker, "static std::string ObtainedItemTrackerName(",
+              "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)" },
+            { &mmTracker, "static std::string SeenItemTrackerName(",
+              "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
+            { &mmTrackerAdapter, "const char* MMTrackerPlacedItemName(const void* save",
+              "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
+            { &pane, "std::string ComboCheckRowItemText(uint8_t game",
+              "Combo_SharedItemDisplayName(row.placedItemGame, row.placedItemId)" },
+        };
+        for (const SwsNameSite& n : sites) {
+            const std::string body = SwsFunctionBody(*n.text, n.head);
+            SWS_CHECK(!body.empty() && SwsCountIn(body, n.call) == 1,
+                      "(12) %s does not ask the shared item's plain name once (%s)", n.head, n.call);
+        }
+        // The spoiler's "locations" section is read back by name: only the
+        // playthrough's WriteLocation asks.
+        SWS_CHECK(SwsCountIn(spoiler, "Combo_SharedItemDisplayName(") == 1,
+                  "(12) the spoiler log asks the shared name outside the playthrough's WriteLocation");
     }
 
     SwsFreeze(0u, 0u);

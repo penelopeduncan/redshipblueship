@@ -76,7 +76,10 @@ const nlohmann::json* FindNested(const nlohmann::json& cvars, const std::string&
  *     `gDisplayOverlay.Mode`, which imports through the list.
  *
  * A later 2Ship migration that renames a key the import carries is replayed
- * here, against the parsed json, before the walks below.
+ * here, against the parsed json, before the walks below. 2Ship's v2 migration
+ * of Great Fairy Sword B-Button Attack onto `ActiveItemOnB` (#1870) is
+ * deliberately not replayed, because old settings need no compatibility
+ * (ruling 2026-11-16).
  */
 
 /** Is this CVar already set in the LIVE store? See ConfigUpdaters.cpp. */

@@ -106,14 +106,14 @@ static void RsbsDropReservedSongChecks(std::vector<RandomizerCheck>& locations) 
 }
 
 /** A song the single bag places, so Link's Pocket must not take it: every OoT song
- *  under the shared song pool, a #1085 held-back shared song under OoT's
- *  restricted song modes (its one copy is the bag's shared pair row), and (#1169
- *  XW10) a held-back SHARED WARP SONG in every mode that holds it back: under
- *  Anywhere too its one copy is the pair row. Under Off (#1169 XW15 / #1561) no
- *  shared song is held back: OoT's six warp songs stay on their Sheik checks, the
- *  shared Song of Soaring on Majora's Mask's swamp check, and the three first-word
- *  shared songs on both games' vanilla checks. The only song in OoT's pool under
- *  Off is an unshared Song of Soaring (OoT), which Link's Pocket may take. */
+ *  under the shared song pool, and any held-back shared song (#1085 / #1552 first
+ *  word, #1169 XW10 warp songs) in every mode that holds it back: under Song
+ *  Locations, Dungeon Rewards and Anywhere its one copy is the bag's shared pair
+ *  row. Under Off (#1169 XW15 / #1561) no shared song is held back: OoT's six warp
+ *  songs stay on their Sheik checks, the shared Song of Soaring on Majora's Mask's
+ *  swamp check, and the three first-word shared songs on both games' vanilla checks.
+ *  The only song in OoT's pool under Off is an unshared Song of Soaring (OoT), which
+ *  Link's Pocket may take. */
 static bool RsbsSongHeldForBag(RandomizerGet rg) {
     if (Rando::StaticData::RetrieveItem(rg).GetItemType() != ITEMTYPE_SONG) {
         return false;
@@ -124,10 +124,7 @@ static bool RsbsSongHeldForBag(RandomizerGet rg) {
     if (OoT_ComboLogic_SharedWarpSongHeldBack((uint16_t)rg) != 0) {
         return true;
     }
-    auto ctx = Rando::Context::GetInstance();
-    return (ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_SONG_LOCATIONS) ||
-            ctx->GetOption(RSK_SHUFFLE_SONGS).Is(RO_SONG_SHUFFLE_DUNGEON_REWARDS)) &&
-           OoT_ComboLogic_SharedSongHeldBack((uint16_t)rg) != 0;
+    return OoT_ComboLogic_SharedSongHeldBack((uint16_t)rg) != 0;
 }
 
 /** TEST BRIDGE (#1169 XW10): RsbsSongHeldForBag for one id, so a row can lock the

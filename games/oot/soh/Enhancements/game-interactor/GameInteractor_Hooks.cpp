@@ -315,6 +315,11 @@ void GameInteractor_ExecuteOnPlayDrawBegin() {
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayDrawBegin>();
 }
 
+void GameInteractor_ExecuteOnPlayDrawAfterSkyboxFilters() {
+    GI_SINGLE_EXE_GATE();
+    GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayDrawAfterSkyboxFilters>();
+}
+
 void GameInteractor_ExecuteOnPlayDrawEnd() {
     GI_SINGLE_EXE_GATE();
     GameInteractor::Instance->ExecuteHooks<GameInteractor::OnPlayDrawEnd>();

@@ -11,7 +11,8 @@
 #include "game.h"             // src/common: GAME_MM
 #include "foreign_items.h"    // src/common: the crossed item's name and article (#575 H3b)
 #include "shared_resources.h" // src/common: Combo_SharedSongOffGiveBecomesJunk (#1561)
-#include "warp_song_items.h"  // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11)
+#include "warp_song_items.h"  // src/common: Combo_ForeignGameTag, one tag after the name (#1169 XW11);
+                              // Combo_SharedItemDisplayName, a shared item's plain name (#1560)
 // ForeignItemsSingleExe.cpp (#575 H3b): the MM item OoT check `rc` yields, when the
 // crossing store describes the world whose hint is rendered; else NULL.
 extern "C" const SharedItem* OoT_Combo_HintTextCrossingAt(int rc);
@@ -40,7 +41,10 @@ static std::string CrossedItemHintName(RandomizerCheck check, bool withArticle) 
         return "";
     }
     const char* article = withArticle ? Combo_DescribeItemArticle(*item) : nullptr;
-    return std::string(article != nullptr ? article : "") + name + Combo_ForeignItemTag(item->originGame, item->id, name);
+    // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+    const char* shown = Combo_SharedItemDisplayName(item->originGame, item->id);
+    return std::string(article != nullptr ? article : "") + (shown != nullptr ? shown : name) +
+           Combo_ForeignItemTag(item->originGame, item->id, name);
 }
 
 /** The spoiler's name for hinted item `c`: the crossed item at a crossing host
@@ -638,6 +642,16 @@ const HintText Hint::GetItemHintText(uint8_t slot, bool mysterious) const {
         msg = CustomMessage({ ctx->overrides[hintedCheck].GetTrickName() });
     } else {
         msg = shownItem->GetName();
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1560: under its frozen shared rule the Song of Soaring (OoT) is one item of
+        // both games, named without its tag (OoTMM's isItemAmbiguous); OoT's own items
+        // keep their localized names (the helper answers NULL for them).
+        const uint16_t shownId = (uint16_t)shownItem->GetRandomizerGet();
+        if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, shownId)) {
+            const std::string plain(shared);
+            msg = CustomMessage(plain, plain, plain);
+        }
+#endif
     }
     msg = CustomMessage(shownItem->GetArticle()) + msg;
     return HintText(msg);

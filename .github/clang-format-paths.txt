@@ -39,8 +39,10 @@ games/mm/2s2h/DeveloperTools/SaveEditor.h
 games/mm/2s2h/Enhancements/Audio/AudioCollection.h
 games/mm/2s2h/Enhancements/Audio/AudioEditor.h
 games/mm/2s2h/Enhancements/Cycle/MayorArguesUntilMoonfall.cpp
+games/mm/2s2h/Enhancements/Equipment/ActiveItemOnB.cpp
 games/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h
 games/mm/2s2h/Enhancements/Items/HotWaterNeverCools.cpp
+games/mm/2s2h/Enhancements/Player/FasterHookshot.cpp
 games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp
 games/mm/2s2h/GameExports_SingleExe.cpp
 games/mm/2s2h/GameInteractorEventsSingleExe.cpp
@@ -256,6 +258,8 @@ games/oot/soh/oot_shared_wallet_test.cpp
 games/oot/soh/oot_load_reconcile_test.cpp
 games/mm/2s2h/mm_shared_tier_test.cpp
 games/oot/soh/oot_shared_tier_test.cpp
+games/mm/2s2h/Rando/StickNutBagGate.h
+games/mm/2s2h/mm_stick_nut_bag_test.cpp
 games/mm/2s2h/mm_shared_lens_test.cpp
 games/oot/soh/oot_shared_lens_test.cpp
 games/mm/2s2h/mm_shared_songs_test.cpp
@@ -347,5 +351,7 @@ games/oot/soh/oot_shuffle_ice_test.cpp
 games/mm/2s2h/mm_text_mods_test.cpp
 games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp
+games/oot/soh/oot_chest_silver_confinement_test.cpp
+games/oot/soh/oot_chest_silver_paired_test.cpp
 games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp

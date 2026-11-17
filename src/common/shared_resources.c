@@ -425,14 +425,20 @@ bool Combo_CreditSharedResource(uint8_t kind, uint16_t amount) {
 bool Combo_SharedResourceStepsAtPickup(uint8_t kind) {
     // #1120: the MONOTONIC kinds a far game's pool item feeds (the item class
     // sources, ComboLogicEngineOoT.cpp / ComboLogicEngineSingleExe.cpp). A
-    // positive allowlist, like the counted one above. NOT the stick and nut
-    // tiers: only OoT's Progressive Stick/Nut Upgrade feeds them, and OoT's
-    // apply blocks their grant at tier 0 under Shuffle Deku Stick/Nut Bag
-    // (OoT_SharedAmmoGrantBlocked) because MM is born at tier 1 — OoT's own
-    // give is the only thing that opens that gate, so the item must reach OoT
-    // as a crossing. NOT the ocarina (never armed) or the triforce count (no
-    // pool item feeds it).
+    // positive allowlist, like the counted one above. NOT the ocarina (never
+    // armed) or the triforce count (no pool item feeds it).
     switch (kind) {
+        // #1652 A3: the stick and nut tiers, fed only by OoT's Progressive Stick /
+        // Nut Upgrade, and only under the pair's frozen bag shuffle. There both
+        // halves are born without the bag, so the pool's tier IS the pair's one
+        // bag and a bag found in Termina opens both games at its pickup. Only the
+        // copy that is the bag is stepped (Combo_SharedPickupStepAdmitted). With
+        // the shuffle off every copy keeps crossing: OoT's own give resolves it to
+        // OoT's next capacity (or Infinite Upgrades' item), as before.
+        case RSBS_SHARED_RES_STICK_TIER:
+            return Combo_ComboStickBagShuffled();
+        case RSBS_SHARED_RES_NUT_TIER:
+            return Combo_ComboNutBagShuffled();
         case RSBS_SHARED_RES_WALLET_TIER:
         case RSBS_SHARED_RES_HEALTH_QUARTERS:
         case RSBS_SHARED_RES_DOUBLE_DEFENSE:
@@ -452,6 +458,14 @@ bool Combo_SharedResourceStepsAtPickup(uint8_t kind) {
 }
 
 bool Combo_SharedPickupStepAdmitted(SharedItem item, uint8_t kind) {
+    if (kind == (uint8_t)RSBS_SHARED_RES_STICK_TIER || kind == (uint8_t)RSBS_SHARED_RES_NUT_TIER) {
+        // #1652 A3: only the copy that finds the pool without the bag is the bag
+        // (OoT's own resolution at its tier 0 under the shuffle, item.cpp). A later
+        // copy is OoT's next capacity or Infinite Upgrades' item, which only OoT's
+        // give can make, so it crosses. A never-shared slot reads as no bag.
+        uint16_t held = 0u;
+        return !Combo_GetSharedResource(kind, &held) || held == 0u;
+    }
     if (kind != (uint8_t)RSBS_SHARED_RES_KOKIRI_SWORD || item.originGame != (uint8_t)GAME_MM) {
         return true;
     }
@@ -527,6 +541,33 @@ bool Combo_SharedWalletFillRule(void) {
     // The frozen byte, never OoT's seed settings: MM asks the same question
     // while OoT's settings are not its to read, and the answer is the pair's.
     return Combo_ComboSettingsFrozen() && gComboCtx.comboFillWallets != 0u;
+}
+
+bool Combo_SharedBagShuffled(uint8_t tierKind) {
+    // The frozen predicates only (#1652 A0): world identity, never a live option.
+    switch (tierKind) {
+        case RSBS_SHARED_RES_STICK_TIER:
+            return Combo_ComboStickBagShuffled();
+        case RSBS_SHARED_RES_NUT_TIER:
+            return Combo_ComboNutBagShuffled();
+        default:
+            return false;
+    }
+}
+
+bool Combo_SharedBagGateClosed(uint8_t tierKind, uint16_t tier) {
+    return tier == 0u && Combo_SharedBagShuffled(tierKind);
+}
+
+bool Combo_SharedBagFillsAfterStep(uint8_t kind, uint16_t tierBefore, uint16_t tierAfter) {
+    return tierBefore == 0u && tierAfter >= 1u && Combo_SharedBagShuffled(kind);
+}
+
+bool Combo_SharedBagLegacyGrantBlocked(uint8_t tierKind, bool ootBagOptionOn, uint16_t ootTier) {
+    if (tierKind != (uint8_t)RSBS_SHARED_RES_STICK_TIER && tierKind != (uint8_t)RSBS_SHARED_RES_NUT_TIER) {
+        return false;
+    }
+    return ootBagOptionOn && ootTier == 0u && !Combo_SharedBagShuffled(tierKind);
 }
 
 bool Combo_GetSharedResource(uint8_t kind, uint16_t* outValue) {
@@ -950,6 +991,34 @@ const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
     return NULL;
 }
 
+const char* Combo_SharedFamilyDisplayName(uint8_t game, uint16_t nativeId) {
+    // #1560: the first word's only ADDED copies whose own name carries a tag are
+    // MM's three OoT masks ("Gerudo Mask (MM)" ..., Items.cpp). OoT's added MM masks
+    // are named without one, and a game's own copy keeps its own, localized name.
+    static const struct {
+        uint32_t family;
+        const char* name;
+    } kTaggedMM[] = {
+        { RSBS_XITEM_SHARED_GERUDO, "Gerudo Mask" },
+        { RSBS_XITEM_SHARED_SKULL, "Skull Mask" },
+        { RSBS_XITEM_SHARED_SPOOKY, "Spooky Mask" },
+    };
+    if ((GameId)game != GAME_MM) {
+        return NULL;
+    }
+    const uint32_t armed = Combo_SharedFamiliesArmed(); // the FROZEN record only
+    for (size_t i = 0; i < sizeof(kTaggedMM) / sizeof(kTaggedMM[0]); ++i) {
+        uint16_t id = 0;
+        if ((armed & kTaggedMM[i].family) == 0u) {
+            continue; // that mask's shared rule is off: the added copy keeps its "(MM)"
+        }
+        if (Combo_SharedFamilyMemberId(GAME_MM, kTaggedMM[i].family, &id) && id == nativeId) {
+            return kTaggedMM[i].name;
+        }
+    }
+    return NULL;
+}
+
 uint32_t Combo_SharedFamilyArmedBitOf(GameId game, uint16_t nativeId) {
     const uint32_t armed = Combo_SharedFamiliesArmed();
     if (!IsRealGame(game)) {
@@ -1010,31 +1079,41 @@ bool Combo_SharedSongOffGiveBecomesJunk(GameId game, uint16_t nativeId, uint32_t
     return false;
 }
 
-bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {
-    const GameId origin = (GameId)originGame;
-    if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {
-        return false;
-    }
-    const uint32_t armed2 = Combo_SharedFamilies2Armed();
-    for (int b = 0; armed2 != 0u && b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+static bool FamiliesCreditFarPickupWord(GameId running, GameId origin, uint16_t id, int word) {
+    const uint32_t armed = word == 0 ? Combo_SharedFamiliesArmed() : Combo_SharedFamilies2Armed();
+    const int bitCount = word == 0 ? (int)RSBS_XITEM_BIT_COUNT : (int)RSBS_XITEM2_BIT_COUNT;
+    for (int b = 0; armed != 0u && b < bitCount; ++b) {
         const uint32_t bit = 1u << b;
-        const int slot = (int)RSBS_XITEM_BIT_COUNT + b;
-        if ((armed2 & bit) == 0u || !sFamilyMemberSet[origin][slot] || sFamilyMembers[origin][slot].nativeId != id) {
+        const int slot = word * (int)RSBS_XITEM_BIT_COUNT + b;
+        if ((armed & bit) == 0u || !sFamilyMemberSet[origin][slot] || sFamilyMembers[origin][slot].nativeId != id) {
             continue;
         }
         // The far game's copy of an ARMED family: the pool owns the family now (the
         // origin game gets its own copy at its next arrival, through the apply), and
         // the running game gets its own copy at once.
-        gComboCtx.sharedFamilyOwned2 |= bit & armed2;
+        if (word == 0) {
+            gComboCtx.sharedFamilyOwned |= bit & armed;
+        } else {
+            gComboCtx.sharedFamilyOwned2 |= bit & armed;
+        }
         if (sFamilyMemberSet[running][slot]) {
-            const ComboSharedFamilyMember* m = &sFamilyMembers[running][slot];
-            if (!m->held(m->nativeId)) {
-                m->give(m->nativeId);
+            const ComboSharedFamilyMember* runningMember = &sFamilyMembers[running][slot];
+            if (!runningMember->held(runningMember->nativeId)) {
+                runningMember->give(runningMember->nativeId);
             }
         }
         fprintf(stderr, "[combo] shared family %s: %s's copy (id %u) found in %s, credited at pickup, no crossing\n",
-                Combo_SharedFamily2SlotName(bit), Game_ToString(origin), (unsigned)id, Game_ToString(running));
+                word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit), Game_ToString(origin),
+                (unsigned)id, Game_ToString(running));
         return true;
     }
     return false;
+}
+
+bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {
+    const GameId origin = (GameId)originGame;
+    if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {
+        return false;
+    }
+    return FamiliesCreditFarPickupWord(running, origin, id, 0) || FamiliesCreditFarPickupWord(running, origin, id, 1);
 }
