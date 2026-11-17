@@ -24,8 +24,9 @@ void EnIn_OnOpenPurchaseText(u16* textId, bool* loadFromMessageTable) {
                 "\xC2%gYes\x11"
                 "No";
 
+    // #1688: a shared song or mask is named without its tag.
     std::string itemName = Rando::ActorBehavior::ShopOfferedItemName(
-        RC_GORMAN_MILK_PURCHASE, Rando::StaticData::Items[riMilkPurchase].name, false);
+        RC_GORMAN_MILK_PURCHASE, Rando::StaticData::GetItemDisplayName(riMilkPurchase), false);
     std::string itemPrice = std::to_string(milkPurchaseCheck.price);
 
     CustomMessage::ReplaceColorChars(&entry.msg);

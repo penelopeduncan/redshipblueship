@@ -7,7 +7,7 @@
 #include "2s2h/Rando/OoTMasksMM.h" // #980: the OoT masks' icons
 #include "2s2h/Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' icon
 #include "game.h"                   // GAME_MM: the shared warp songs' names (#1169 XW14)
-#include "warp_song_items.h"        // Combo_SharedFamily2DisplayName (#1169 XW14)
+#include "warp_song_items.h"        // Combo_SharedFamily2DisplayName (#1169 XW14), Combo_SharedItemDisplayName (#1688)
 #endif
 
 extern "C" {
@@ -644,6 +644,17 @@ std::string GetItemName(RandoItemId randoItemId, bool includeArticle) {
     }
 
     return result;
+}
+
+const char* GetItemDisplayName(RandoItemId randoItemId) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1688: GetItemName's name, for the texts that name an item bare (shop shelves,
+    // the milk sellers, the mask cutscenes, the fixed hints).
+    if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId)) {
+        return shared;
+    }
+#endif
+    return Rando::StaticData::Items[randoItemId].name;
 }
 
 bool StoryGiveShowsGetItemCutscene() {

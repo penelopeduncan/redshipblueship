@@ -134,6 +134,8 @@ const char* MM_WarpSongsTest_Name(uint16_t ri);
 const char* MM_WarpSongsTest_TextName(uint16_t ri);
 // The same file (#1560): the name MM's item tracker layout editor gives an Items row.
 const char* MM_WarpSongsTest_TrackerItemName(uint16_t ri);
+// The same file (#1688): the bare name MM's shop shelves, milk sellers, mask cutscenes and fixed hints give.
+const char* MM_WarpSongsTest_DisplayName(uint16_t ri);
 #ifdef __cplusplus
 }
 #endif
@@ -1229,6 +1231,11 @@ TestResult Test_SharedWarpSongsMerge(void) {
             SWS_CHECK(tracker != NULL && strcmp(tracker, kSwsMaskNames[m]) == 0,
                       "(11) under the shared %s the item tracker layout editor names it '%s'", kSwsMaskNames[m],
                       tracker != NULL ? tracker : "(null)");
+            // #1688: the shelves', milk sellers', mask cutscenes' and fixed hints' bare name.
+            const char* bare = MM_WarpSongsTest_DisplayName(mmMask[m]);
+            SWS_CHECK(bare != NULL && strcmp(bare, kSwsMaskNames[m]) == 0,
+                      "(11) under the shared %s MM's bare display name is '%s'", kSwsMaskNames[m],
+                      bare != NULL ? bare : "(null)");
             const char* key = MM_WarpSongsTest_Name(mmMask[m]);
             SWS_CHECK(key != NULL && strstr(key, "(MM)") != NULL,
                       "(11) MM's Items row name moved to '%s': it is a lookup key and must keep its '(MM)'",
@@ -1243,6 +1250,11 @@ TestResult Test_SharedWarpSongsMerge(void) {
                       strcmp(soaringOoT, "Song of Soaring") == 0,
                   "(11) under the shared songs the editor names MM's Minuet '%s' and either word OoT's Soaring '%s'",
                   minuetTracker != NULL ? minuetTracker : "(null)", soaringOoT != NULL ? soaringOoT : "(null)");
+        // #1688: and so does MM's bare display name (a shelf or milk seller selling the Minuet (MM)).
+        const char* minuetBare = MM_WarpSongsTest_DisplayName((uint16_t)MM_SharedWarpSongsTest_PoolId(1));
+        SWS_CHECK(minuetBare != NULL && strcmp(minuetBare, "Minuet of Forest") == 0,
+                  "(11) under the shared songs MM's bare display name of the Minuet is '%s'",
+                  minuetBare != NULL ? minuetBare : "(null)");
 
         // Only the mask whose rule is frozen on: the shared Skull alone names no Gerudo or Spooky Mask.
         SwsFreeze(kSwsMaskExtensions | RSBS_XITEM_SHARED_SKULL, 0u);
@@ -1266,6 +1278,8 @@ TestResult Test_SharedWarpSongsMerge(void) {
             untagged += (text == NULL || strstr(text, "(MM)") == NULL) ? 1 : 0;
             const char* tracker = MM_WarpSongsTest_TrackerItemName(mmMask[m]);
             untagged += (tracker == NULL || strstr(tracker, "(MM)") == NULL) ? 1 : 0;
+            const char* bare = MM_WarpSongsTest_DisplayName(mmMask[m]); // #1688
+            untagged += (bare == NULL || strstr(bare, "(MM)") == NULL) ? 1 : 0;
         }
         SWS_CHECK(named == 0 && untagged == 0,
                   "(11) with the shared mask rules off in the frozen record %d names were shared and %d text or "
@@ -1293,6 +1307,20 @@ TestResult Test_SharedWarpSongsMerge(void) {
         const std::string showOnly = src(kO, "ForeignModelHostOoT.cpp");
         const std::string queue = src(kM, "MiscBehavior/CheckQueue.cpp");
         const std::string mmTracker = src(kM, "CheckTracker/CheckTracker.cpp");
+        // #1688: MM's crossed-item read name, its shops, mask cutscenes and fixed
+        // hints, OoT's merchants, spoiler hint entries and arrival toast.
+        const std::string mmForeign = src(kM, "Foreign.cpp");
+        const std::string mmSpoiler = src(kM, "Spoiler/Generate.cpp");
+        const std::string mmItems = src(kM, "StaticData/Items.cpp");
+        const std::string gossip = src(kM, "ActorBehavior/EnGs.cpp");
+        const std::string shop = src(kM, "ActorBehavior/EnGirlA.cpp");
+        const std::string gorman = src(kM, "ActorBehavior/EnIn.cpp");
+        const std::string milkBar = src(kM, "ActorBehavior/EnTab.cpp");
+        const std::string maskGive = src(kM, "ActorBehavior/DmChar05.cpp");
+        const std::string fixedHints = src(kM, "HintSourcesSingleExe.cpp");
+        const std::string merchants = src(kO, "Messages/MerchantMessages.cpp");
+        const std::string hintsOracle = src(kO, "3drando/menu.cpp");
+        const std::string ootExports = SwsReadSource("games/oot/soh/GameExports_SingleExe.cpp");
         const std::string mmTrackerAdapter = src(kM, "TrackerAdapterSingleExe.cpp");
         const std::string pane = SwsReadSource("src/common/ComboTrackerWindow.cpp");
         struct SwsNameSite {
@@ -1319,6 +1347,38 @@ TestResult Test_SharedWarpSongsMerge(void) {
               "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)" },
             { &mmTracker, "static std::string SeenItemTrackerName(",
               "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
+            { &mmForeign, "const char* ForeignDisplayNameForCheck(RandoCheckId randoCheckId) {",
+              "Combo_SharedItemDisplayName(item->originGame, item->id)" },
+            { &mmTracker, "static std::string ObtainedItemTrackerName(",
+              "Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)" },
+            { &mmTracker, "static std::string SeenItemTrackerName(",
+              "Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)" },
+            { &gossip, "static std::string GossipHintItemName(const RandoSaveCheck* checks",
+              "Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)" },
+            { &shop, "std::string Rando::ActorBehavior::ShopOfferedItemName(",
+              "Rando::Foreign::ForeignDisplayNameForCheck(rc)" },
+            { &mmItems, "const char* GetItemDisplayName(RandoItemId randoItemId) {",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId)" },
+            { &shop, "std::string Rando::ActorBehavior::ShopShelfItemName(RandoCheckId rc) {",
+              "Rando::StaticData::GetItemDisplayName(Rando::ActorBehavior::ShopShelfItem(rc))" },
+            { &gorman, "void EnIn_OnOpenPurchaseText(", "Rando::StaticData::GetItemDisplayName(riMilkPurchase)" },
+            { &milkBar, "void EnTab_OnOpenShopText(", "Rando::StaticData::GetItemDisplayName(riMilkPurchase)" },
+            { &milkBar, "void EnTab_OnOpenShopText(", "Rando::StaticData::GetItemDisplayName(riChateauPurchase)" },
+            { &maskGive, "void replaceGetItemText(", "Rando::StaticData::GetItemDisplayName(shownItem)" },
+            { &fixedHints, "void ReplaceStoredItem(",
+              "Rando::StaticData::GetItemDisplayName(checks[check].randoItemId)" },
+            { &fixedHints, "std::string BuildFixedText(",
+              "Rando::StaticData::GetItemDisplayName(checks[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId)" },
+            { &merchants, "void BuildMerchantMessage(",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
+            { &merchants, "static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc) {",
+              "Combo_SharedItemDisplayName(presented.originGame, presented.id)" },
+            { &hint, "static std::string SpoilerItemName(",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)items[c])" },
+            { &hintsOracle, "static std::string PlacedItemEnglishName(",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)placed)" },
+            { &ootExports, "static void OoT_AwardSharedItem(",
+              "Combo_SharedItemDisplayName(shown.originGame, shown.id)" },
             { &mmTrackerAdapter, "const char* MMTrackerPlacedItemName(const void* save",
               "Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)" },
             { &pane, "std::string ComboCheckRowItemText(uint8_t game",
@@ -1333,6 +1393,14 @@ TestResult Test_SharedWarpSongsMerge(void) {
         // playthrough's WriteLocation asks.
         SWS_CHECK(SwsCountIn(spoiler, "Combo_SharedItemDisplayName(") == 1,
                   "(12) the spoiler log asks the shared name outside the playthrough's WriteLocation");
+        // #1688: MM's spoiler writer reads its names back too (Apply.cpp GetItemIdFromName),
+        // so it, and the lookup name it uses, keep the describer's tagged name.
+        SWS_CHECK(
+            !mmSpoiler.empty() && SwsCountIn(mmSpoiler, "ForeignDisplayNameForCheck(") == 0 &&
+                SwsCountIn(mmSpoiler, "Combo_SharedItemDisplayName(") == 0 &&
+                SwsCountIn(SwsFunctionBody(mmForeign, "const char* ForeignNameForCheck(RandoCheckId randoCheckId) {"),
+                           "Combo_SharedItemDisplayName(") == 0,
+            "(12) MM's spoiler writer or ForeignNameForCheck, a lookup name, asks the shared display name");
     }
 
     SwsFreeze(0u, 0u);

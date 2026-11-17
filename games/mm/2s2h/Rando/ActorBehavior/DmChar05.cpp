@@ -22,14 +22,17 @@ static RandoItemId DmChar05_ShownItem(RandoCheckId randoCheckId) {
 
 // Replace vanilla item get text with a simple message stating what randomized item has been received
 void replaceGetItemText(RandoCheckId randoCheckId, u16* textId, bool* loadFromMessageTable) {
-    auto randoStaticItem = Rando::StaticData::Items[DmChar05_ShownItem(randoCheckId)];
+    const RandoItemId shownItem = DmChar05_ShownItem(randoCheckId);
+    auto randoStaticItem = Rando::StaticData::Items[shownItem];
 
     auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
     entry.autoFormat = false;
     // RI_JUNK (#1499) has an empty article: no double space before its name.
     const bool hasArticle = randoStaticItem.article != nullptr && randoStaticItem.article[0] != '\0';
     const std::string article = hasArticle ? std::string(randoStaticItem.article) + " " : std::string();
-    entry.msg.assign("You received " + article + std::string(randoStaticItem.name) + "!\x1C\x02\x10");
+    // #1688: a shared song or mask is named without its tag.
+    entry.msg.assign("You received " + article + std::string(Rando::StaticData::GetItemDisplayName(shownItem)) +
+                     "!\x1C\x02\x10");
     entry.icon = 0xFE; // No icon
 
     CustomMessage::LoadCustomMessageIntoFont(entry);

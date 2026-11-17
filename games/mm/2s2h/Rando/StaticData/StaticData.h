@@ -71,6 +71,11 @@ int SkipGetItemCutsceneTierFromSoh(int sohSkipGetItemAnimation);
 // StoryCutscenes gives, which queue only outside rando) hold the item overhead?
 bool StoryGiveShowsGetItemCutscene();
 std::string GetItemName(RandoItemId randoItemId, bool includeArticle = true);
+// #1688: Items[randoItemId].name as a player reads it, with no article and no
+// " (<junk>)" after RI_JUNK: under its frozen shared rule an added warp song or
+// OoT mask ("Minuet of Forest (MM)", "Gerudo Mask (MM)") is named without its tag
+// (Combo_SharedItemDisplayName). Never a lookup key: those keep Items[].name.
+const char* GetItemDisplayName(RandoItemId randoItemId);
 std::string GetTrapMessage();
 
 struct RandoStaticOption {

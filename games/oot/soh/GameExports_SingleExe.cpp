@@ -5482,6 +5482,11 @@ static void OoT_AwardSharedItem(const SharedItem* item, void* ctx) {
     // difference is visible at a glance and reads as "this one is special",
     // which is the class of tell #510 removed from the model and the text.
     const char* foreignName = Combo_GetForeignItemName(shown);
+    // #1688: a shared song or mask whose own name carries its game's tag is named without it.
+    if (const char* shared =
+            foreignName != nullptr ? Combo_SharedItemDisplayName(shown.originGame, shown.id) : nullptr) {
+        foreignName = shared;
+    }
     const char* foreignArticle = Combo_GetForeignItemArticle(shown);
     const char* fallbackName = given == 2 ? "a Blue Rupee" : "a foreign item";
     Notification::Emit({
