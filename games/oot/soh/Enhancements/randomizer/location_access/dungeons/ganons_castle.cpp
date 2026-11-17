@@ -72,7 +72,7 @@ void RegionTable_Init_GanonsCastle() {
     });
 
     areaTable[RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM] = Region("Ganon's Castle Forest Trial Beamos Room", SCENE_INSIDE_GANONS_CASTLE, {
-        EventAccess(LOGIC_GANONS_CASTLE_SILVER_FOREST, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT);}), // child can get these by voiding after switch
+        EventAccess(LOGIC_GANONS_CASTLE_SILVER_FOREST, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || (logic->IsChild && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid());}), // child can get these by voiding after switch
     }, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_SOT_BLOCK_FOREST_SILVER, true),

@@ -1687,6 +1687,18 @@ void Settings::CreateOptions() {
               "invisible spike room to reach door\n- Jumping past second step in Ice Cavern");
     OPT_TRICK(RT_SLIDE_JUMP, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Sliding Jumps",
               "Running forward while sliding sideways on ice can be used to jump on platforms.");
+    OPT_TRICK(RT_VOIDOUT_COLLECTION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Voidout Collection",
+              "Some items can be collected by jumping to them, even if it results in voiding out. Used for:\n"
+              "- OGC Gold Skulltula\n"
+              "- HC wonder items without swim\n"
+              "- ZR wonder items without swim\n"
+              "- ZR Waterfall freestanding rupees without swim\n"
+              "- GV wonder items without swim\n"
+              "- GV Octorok grotto rupees without swim\n"
+              "- Colossus oasis fairies\n"
+              "- Deku Tree freestanding hearts before boss\n"
+              "- Water Temple near boss key chest Gold Skulltula\n"
+              "- Shadow MQ after boat and before boss Gold Skulltulas");
     OPT_TRICK(RT_BOMB_DETONATION, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Precise Bomb Detonation",
               "This trick enables methods that rely on precisely timing the detonation of bombs, such as detonating "
               "bombs on the surface of the water to destroy underwater rocks or getting the Gold Skulltula in the first "

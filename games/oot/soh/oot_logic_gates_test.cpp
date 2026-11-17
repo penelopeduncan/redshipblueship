@@ -152,6 +152,18 @@
  *  Z. DMT rockfall (SoH 91425a39a): a child with Climb but no shield, Nayru's
  *     Love or RT_DMT_SHIELDLESS_CLIMB must NOT reach the summit; an adult with
  *     Climb must, and so must the child once the trick is on.
+ *  VC. Voidout Collection (SoH e86e0ff69, #1647), with Swim withheld and three
+ *     hearts (CanVoid): every rule the trick opens is closed with it off and open
+ *     with it on (HC moat, ZR wonder items, waterfall rupees and underwater rock,
+ *     GV waterfall wonder items, Octorok grotto rupee and underwater rock, the
+ *     Colossus oasis, the Deku Tree before-boss hearts, the Forest Trial silver
+ *     rupees, the Shadow MQ Gold Skulltulas, the Thieves' Hideout kitchen pot and
+ *     soup). The rules that got STRICTER with the trick off: RC_OGC_GS needs the
+ *     Hookshot or Boomerang (a sword alone no longer does), the GV waterfall
+ *     wonder items need Swim, Iron Boots or the bean, and the Shadow MQ near-boss
+ *     Gold Skulltula needs the Hookshot or Boomerang; LOOSER: the Deku Tree left
+ *     and right before-boss hearts are an adult's with nothing. Under OHKO with no
+ *     fairy the trick opens nothing (CanVoid).
  *
  * The SoH logic batch of 2026-11-14 (SoH 156c2a4a #7417, 28ab1206 #7396):
  *  LH. Lake Hylia grass (156c2a4a): an adult with the ocarina and Epona's Song
@@ -1226,6 +1238,208 @@ void RunHealthLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
     randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
     randoCtx->GetTrickOption(RT_DMT_SHIELDLESS_CLIMB).Set(savedShieldless);
+}
+
+// ---- #1647 (SoH e86e0ff69): VC, Voidout Collection ---------------------------
+/** ResetLogic with Swim withheld, so the trick is the only way across the water. */
+void VcResetNoSwim() {
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+}
+
+/** One location for one age: out of logic with Voidout Collection off, in logic with it on. */
+void VcCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion region, RandomizerCheck rc, bool adult) {
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    ExpectAt(legOff, region, rc, adult, false, "the voidout collection is in logic with RT_VOIDOUT_COLLECTION off");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectAt(legOn, region, rc, adult, true,
+             "the voidout collection is not in logic with RT_VOIDOUT_COLLECTION on (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+}
+
+void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedVoidout = randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedDetonation = randoCtx->GetTrickOption(RT_BOMB_DETONATION).Get();
+    const uint8_t savedLensShadowMq = randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Get();
+    const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(1);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC1..VC5: RC_OGC_GS (castle_grounds.cpp), stricter with the trick off ----
+    VcResetNoSwim();
+    Give(RG_MASTER_SWORD);
+    VcCheckOffOn(randoCtx, "VC1 OGC Gold Skulltula, adult with the Master Sword only, trick off",
+                 "VC2 OGC Gold Skulltula, adult with the Master Sword only, trick on", RR_GANONS_CASTLE_GROUNDS,
+                 RC_OGC_GS, true);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("VC3 OGC Gold Skulltula, adult with the Master Sword, trick on, OHKO and no fairy",
+             RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    VcResetNoSwim();
+    ExpectAt("VC4 OGC Gold Skulltula, adult with nothing, trick off", RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true, false,
+             "the Gold Skulltula is in logic with nothing to kill it");
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+    ExpectAt("VC5 OGC Gold Skulltula, adult with the Hookshot, trick off", RR_GANONS_CASTLE_GROUNDS, RC_OGC_GS, true,
+             true, "the Hookshot no longer kills and collects the Gold Skulltula without voiding (SoH e86e0ff69)");
+
+    // ---- VC6..VC9: Hyrule Castle moat wonder items (castle_grounds.cpp) -------
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC6 HC moat wonder item 1, child without Swim, trick off",
+                 "VC7 HC moat wonder item 1, child without Swim, trick on", RR_HC_MOAT, RC_HC_WONDER_MOAT_1, false);
+    GiveSlingshot();
+    VcCheckOffOn(randoCtx, "VC8 HC left torch wonder item, child with the slingshot, no Swim, trick off",
+                 "VC9 HC left torch wonder item, child with the slingshot, no Swim, trick on", RR_HC_MOAT,
+                 RC_HC_WONDER_LEFT_TORCH, false);
+
+    // ---- VC10..VC17: Zora's River (zoras_river.cpp) ----------------------------
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC10 ZR wonder item near the domain 1, child without Swim, trick off",
+                 "VC11 ZR wonder item near the domain 1, child without Swim, trick on", RR_ZORAS_RIVER,
+                 RC_ZR_WONDER_NEAR_DOMAIN_1, false);
+    VcCheckOffOn(randoCtx, "VC12 ZR lower river wonder item 1, child without Swim, trick off",
+                 "VC13 ZR lower river wonder item 1, child without Swim, trick on", RR_ZR_FRONT,
+                 RC_ZR_WONDER_LOWER_RIVER_1, false);
+    VcCheckOffOn(randoCtx, "VC14 ZR beneath the waterfall left rupee, adult without Swim, trick off",
+                 "VC15 ZR beneath the waterfall left rupee, adult without Swim, trick on", RR_ZORAS_RIVER,
+                 RC_ZR_BENEATH_WATERFALL_LEFT_RUPEE, true);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(1);
+    VcCheckOffOn(randoCtx, "VC16 ZR underwater rock 1, child with bombs and the detonation trick, no Swim, trick off",
+                 "VC17 ZR underwater rock 1, child with bombs and the detonation trick, no Swim, trick on",
+                 RR_ZORAS_RIVER, RC_ZR_UNDERWATER_ROCK_1, false);
+
+    // ---- VC18..VC29: Gerudo Valley (gerudo_valley.cpp) -------------------------
+    GiveGoronsBracelet();
+    VcCheckOffOn(randoCtx, "VC18 GV underwater rock 1, child with bombs, bracelet and the detonation trick, trick off",
+                 "VC19 GV underwater rock 1, child with bombs, bracelet and the detonation trick, trick on",
+                 RR_GERUDO_VALLEY, RC_GV_UNDERWATER_ROCK_1, false);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+    VcResetNoSwim();
+    VcCheckOffOn(randoCtx, "VC20 GV lower waterfall wonder item, adult without Swim, trick off",
+                 "VC21 GV lower waterfall wonder item, adult without Swim, trick on", RR_GV_UPPER_STREAM,
+                 RC_GV_WONDER_LOWER_WATERFALL, true);
+    VcCheckOffOn(randoCtx, "VC22 GV upper waterfall wonder item in the alcove, adult without Swim, trick off",
+                 "VC23 GV upper waterfall wonder item in the alcove, adult without Swim, trick on",
+                 RR_GV_WATERFALL_ALCOVE, RC_GV_WONDER_UPPER_WATERFALL, true);
+    VcCheckOffOn(randoCtx, "VC24 GV Octorok grotto front left blue rupee, adult without Swim, trick off",
+                 "VC25 GV Octorok grotto front left blue rupee, adult without Swim, trick on", RR_GV_OCTOROK_GROTTO,
+                 RC_GV_OCTOROK_GROTTO_FRONT_LEFT_BLUE_RUPEE, true);
+    Give(RG_HOVER_BOOTS);
+    VcCheckOffOn(randoCtx, "VC26 GV Octorok grotto red rupee, adult with Hover Boots, no Swim, trick off",
+                 "VC27 GV Octorok grotto red rupee, adult with Hover Boots, no Swim, trick on", RR_GV_OCTOROK_GROTTO,
+                 RC_GV_OCTOROK_GROTTO_RED_RUPEE, true);
+    VcResetNoSwim();
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectAt("VC28 GV Octorok grotto red rupee, adult without Hover Boots or Swim, trick on", RR_GV_OCTOROK_GROTTO,
+             RC_GV_OCTOROK_GROTTO_RED_RUPEE, true, false, "the far rupee is collected by voiding without Hover Boots");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAt("VC29 GV upper waterfall wonder item in the alcove, adult with Swim, trick off", RR_GV_WATERFALL_ALCOVE,
+             RC_GV_WONDER_UPPER_WATERFALL, true, true, "Swim no longer reaches the waterfall wonder item");
+
+    // ---- VC30, VC31: the Colossus oasis (desert_colossus.cpp) ------------------
+    VcResetNoSwim();
+    GiveFairyOcarina();
+    Give(RG_OCARINA_A_BUTTON);
+    Give(RG_OCARINA_C_UP_BUTTON);
+    Give(RG_OCARINA_C_DOWN_BUTTON);
+    Give(RG_SONG_OF_STORMS);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    ExpectExit("VC30 Colossus to the oasis, adult with Song of Storms, no Swim or bottle, trick off",
+               RR_DESERT_COLOSSUS, RR_DESERT_COLOSSUS_OASIS, true, false,
+               "the oasis fairies are in logic without Swim, Iron Boots, a bottle or the trick");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    ExpectExit("VC31 Colossus to the oasis, adult with Song of Storms, no Swim or bottle, trick on", RR_DESERT_COLOSSUS,
+               RR_DESERT_COLOSSUS_OASIS, true, true,
+               "Voidout Collection does not reach the oasis fairies (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC32..VC41: the Deku Tree before-boss hearts (deku_tree.cpp) ----------
+    VcResetNoSwim();
+    ExpectAt("VC32 Deku before-boss left heart, adult with nothing, trick off", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+             RC_DEKU_TREE_BEFORE_BOSS_LEFT_HEART, true, true,
+             "the adult no longer reaches the left heart without swimming (SoH e86e0ff69)");
+    ExpectAt("VC33 Deku MQ before-boss right heart, adult with nothing, trick off", RR_DEKU_TREE_MQ_OUTSIDE_BOSS_ROOM,
+             RC_DEKU_TREE_MQ_BEFORE_BOSS_RIGHT_HEART, true, true,
+             "the adult no longer reaches the MQ right heart without swimming (SoH e86e0ff69)");
+    VcCheckOffOn(randoCtx, "VC34 Deku before-boss right heart, child without Swim, trick off",
+                 "VC35 Deku before-boss right heart, child without Swim, trick on", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+                 RC_DEKU_TREE_BEFORE_BOSS_RIGHT_HEART, false);
+    VcCheckOffOn(randoCtx, "VC36 Deku before-boss middle heart from basement upper, child, trick off",
+                 "VC37 Deku before-boss middle heart from basement upper, child, trick on", RR_DEKU_TREE_BASEMENT_UPPER,
+                 RC_DEKU_TREE_BEFORE_BOSS_MIDDLE_HEART, false);
+    VcCheckOffOn(randoCtx, "VC38 Deku MQ before-boss middle heart from the basement ledge, child, trick off",
+                 "VC39 Deku MQ before-boss middle heart from the basement ledge, child, trick on",
+                 RR_DEKU_TREE_MQ_BASEMENT_LEDGE, RC_DEKU_TREE_MQ_BEFORE_BOSS_MIDDLE_HEART, false);
+    VcCheckOffOn(randoCtx, "VC40 Deku before-boss middle heart, adult without Swim, trick off",
+                 "VC41 Deku before-boss middle heart, adult without Swim, trick on", RR_DEKU_TREE_OUTSIDE_BOSS_ROOM,
+                 RC_DEKU_TREE_BEFORE_BOSS_MIDDLE_HEART, true);
+
+    // ---- VC42, VC43: the Forest Trial silver rupees (ganons_castle.cpp) --------
+    VcResetNoSwim();
+    FireEvents(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM, false);
+    ExpectEvent("VC42 Forest Trial silver rupees event, child with nothing, trick off",
+                LOGIC_GANONS_CASTLE_SILVER_FOREST, false,
+                "the child collects the Forest Trial silver rupees with no Hookshot and no voidout");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    FireEvents(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM, false);
+    ExpectEvent("VC43 Forest Trial silver rupees event, child with nothing, trick on",
+                LOGIC_GANONS_CASTLE_SILVER_FOREST, true,
+                "the child's voidout after the switch does not collect the silver rupees (SoH e86e0ff69)");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+
+    // ---- VC44..VC48: the Shadow MQ Gold Skulltulas (shadow_temple.cpp) ---------
+    VcResetNoSwim();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    VcCheckOffOn(randoCtx, "VC44 Shadow MQ Gold Skulltula after the ship, adult with bombs, trick off",
+                 "VC45 Shadow MQ Gold Skulltula after the ship, adult with bombs, trick on",
+                 RR_SHADOW_TEMPLE_MQ_BEYOND_BOAT, RC_SHADOW_TEMPLE_MQ_GS_AFTER_SHIP, true);
+    VcCheckOffOn(randoCtx, "VC46 Shadow MQ Gold Skulltula near the boss, adult with bombs, trick off",
+                 "VC47 Shadow MQ Gold Skulltula near the boss, adult with bombs, trick on",
+                 RR_SHADOW_TEMPLE_MQ_BOSS_DOOR, RC_SHADOW_TEMPLE_MQ_GS_NEAR_BOSS, true);
+    Give(RG_PROGRESSIVE_HOOKSHOT);
+    ExpectAt("VC48 Shadow MQ Gold Skulltula near the boss, adult with bombs and the Hookshot, trick off",
+             RR_SHADOW_TEMPLE_MQ_BOSS_DOOR, RC_SHADOW_TEMPLE_MQ_GS_NEAR_BOSS, true, true,
+             "the Hookshot no longer collects the Gold Skulltula without voiding (SoH e86e0ff69)");
+
+    // ---- VC49..VC54: the Thieves' Hideout kitchen (thieves_hideout.cpp, SoH eca767dcb) ----
+    VcResetNoSwim();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    VcCheckOffOn(randoCtx, "VC49 TH kitchen pot 1 from by the corridor, adult with bombs, trick off",
+                 "VC50 TH kitchen pot 1 from by the corridor, adult with bombs, trick on", RR_TH_KITCHEN_BY_CORRIDOR,
+                 RC_TH_KITCHEN_POT_1, true);
+    VcCheckOffOn(randoCtx, "VC51 TH kitchen pot 2 from across the corridor, adult with bombs, trick off",
+                 "VC52 TH kitchen pot 2 from across the corridor, adult with bombs, trick on",
+                 RR_TH_KITCHEN_OPPOSITE_CORRIDOR, RC_TH_KITCHEN_POT_2, true);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_HOVER_BOOTS);
+    VcCheckOffOn(randoCtx, "VC53 TH kitchen soup, adult with Hover Boots and the hood, both hood settings, trick off",
+                 "VC54 TH kitchen soup, adult with Hover Boots and the hood, both hood settings, trick on",
+                 RR_TH_KITCHEN_BY_CORRIDOR, RC_TH_WONDER_KITCHEN_SOUP, true);
+
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(savedVoidout);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(savedDetonation);
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(savedLensShadowMq);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunnyHood);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
 }
 
 // ---- SoH 156c2a4a (#7417) and 28ab1206 (#7396): LH, GV and GC -------------
@@ -2558,6 +2772,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunHookshotLaddersLegs(randoCtx);
     // ---- Y..Z: health in 16-per-heart units, the DMT rockfall (#1397) -------
     RunHealthLegs(randoCtx);
+    // ---- VC: Voidout Collection (SoH e86e0ff69, #1647) -----------------------
+    RunVoidoutCollectionLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----

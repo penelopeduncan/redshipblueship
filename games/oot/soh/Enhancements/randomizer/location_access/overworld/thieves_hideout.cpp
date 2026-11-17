@@ -116,8 +116,10 @@ void RegionTable_Init_ThievesHideout() {
 
     areaTable[RR_TH_KITCHEN_BY_CORRIDOR] = Region("Thieves Hideout Kitchen Top By Corridor", SCENE_THIEVES_HIDEOUT, {}, {
         //Locations
-        LOCATION(RC_TH_KITCHEN_POT_1, logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_TH_KITCHEN_POT_2, logic->CanUse(RG_BOOMERANG)),
+        //"Voidout" here means getting caught by guards
+        LOCATION(RC_TH_KITCHEN_POT_1,       logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanBreakPots(ED_BOMB_THROW))),
+        LOCATION(RC_TH_KITCHEN_POT_2,       logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_TH_WONDER_KITCHEN_SOUP, ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->BunnyHovers()),
     }, {
         //Exits
         Entrance(RR_TH_KITCHEN_MAIN,              []{return true;}),
@@ -128,8 +130,9 @@ void RegionTable_Init_ThievesHideout() {
 
     areaTable[RR_TH_KITCHEN_OPPOSITE_CORRIDOR] = Region("Thieves Hideout Kitchen Top Across From Corridor", SCENE_THIEVES_HIDEOUT, {}, {
         //Locations
-        LOCATION(RC_TH_KITCHEN_POT_1, logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_TH_KITCHEN_POT_2, logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_TH_KITCHEN_POT_1,       logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_TH_KITCHEN_POT_2,       logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanBreakPots(ED_BOMB_THROW))),
+        LOCATION(RC_TH_WONDER_KITCHEN_SOUP, ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->BunnyHovers()),
     }, {
         //Exits
         Entrance(RR_TH_KITCHEN_MAIN,        []{return true;}),

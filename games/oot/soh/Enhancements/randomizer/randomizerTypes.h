@@ -5371,6 +5371,9 @@ typedef enum {
     // [RSBS #1647] SoH eca767dcb's Dodongo's Cavern eyes with Bunnyhovers (upstream sits it
     // after RT_DC_EYES_CHU), appended: trick options are saved by index.
     RT_DC_EYES_BUNNYHOVERS,
+    // [RSBS #1647] SoH e86e0ff69's Voidout Collection (upstream sits it after RT_SLIDE_JUMP),
+    // appended: trick options are saved by index.
+    RT_VOIDOUT_COLLECTION,
     RT_MAX
 } RandomizerTrick;
 
