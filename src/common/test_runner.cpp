@@ -2726,7 +2726,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 5, was 0xEF3042B8): the backport changes the text of Ocarina of Time's settings
 // fold, so settingsHash moves in every golden and each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5935FFu;
+// Re-pinned again by the Moon Crash default (#1671, PR #1673; generator 6, was
+// 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
+// every default world folds into its identity, so each pinned seed is a different
+// world (docs/determinism-goldens.md has the fields); the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
