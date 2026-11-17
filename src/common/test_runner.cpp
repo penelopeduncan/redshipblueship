@@ -20,6 +20,7 @@
 #include "headless_crash.h"
 #include "test_window_focus.h" // lane F1: test windows never take focus
 #include "test_scratch.h"      // #926: per-process scratch dirs, removed when a row passes
+#include "test_home.h"         // #1692: TestHome_RowOutputPath, the per-row home
 #include "rsbs_version.h"
 #include <SDL2/SDL_hints.h>
 #include <clocale> // #1346: the windows-utf8-code-page row reads the CRT locale
@@ -1083,6 +1084,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // taken (#824, #925). FILE SCOPE: it starts this executable per group of rows
 // through test_scratch.h and requires each to pass. No display, no ROM archives.
 #include "tests/test_scratch_poisoned_cwd.c"
+
+// Row-home probes (#1692): where a row given RSBS_TEST_HOME writes, alone and as
+// a concurrent pair. FILE SCOPE: Ship::Context's static path helpers and
+// test_scratch.h's spawner. No display, no ROM archives, no Ship::Context.
+#include "tests/test_row_home.c"
 
 // #560 root-cause contention lock over the shared per-archive handle. FILE
 // SCOPE (compiled as C++): it drives the C++-linkage Ship::Context /
@@ -2610,7 +2616,10 @@ TestResult Test_RandoShopCrossingsMM(void) {
     // RSBS_SHOP_CROSSING_SEED overrides the pinned seed, for re-pinning by scan.
     const char* seedEnv = std::getenv("RSBS_SHOP_CROSSING_SEED");
     const char* seed = (seedEnv != nullptr && seedEnv[0] != '\0') ? seedEnv : "RSBSSHOPS2";
-    const char* digestPath = "rsbs_shop_crossings_digest.txt";
+    // Beside the build directory's other collected digests even when the row runs in
+    // its private home (#1692): CI uploads this file from there by name.
+    const std::string digestPathStr = TestHome_RowOutputPath("rsbs_shop_crossings_digest.txt");
+    const char* digestPath = digestPathStr.c_str();
     std::remove(digestPath);
     const int ootRc = Rando_HeadlessSeedDeterminismDigest(seed, digestPath);
     const int mmRc = ootRc == 0 ? MM_Rando_HeadlessForeignDigest(digestPath) : -1;
@@ -2768,7 +2777,10 @@ TestResult Test_RandoStaticHintOrder(void) {
         cvars.push_back(std::string("gRandoSettings.") + name);
         CVarSetInteger(cvars.back().c_str(), 1);
     }
-    const char* digestPath = "rsbs_static_hint_order_digest.txt";
+    // Beside the build directory's other collected digests even when the row runs in
+    // its private home (#1692): CI uploads this file from there by name.
+    const std::string digestPathStr = TestHome_RowOutputPath("rsbs_static_hint_order_digest.txt");
+    const char* digestPath = digestPathStr.c_str();
     std::remove(digestPath);
     // RSBS_STATIC_HINT_SEED overrides the pinned seed, for re-pinning by scan.
     const char* seedEnv = std::getenv("RSBS_STATIC_HINT_SEED");
@@ -11109,6 +11121,12 @@ const TestDescriptor gTests[] = {
     { "test-scratch-poisoned-cwd",
       "Save-writing rows pass in a working directory whose Save/ and fixed scratch names are poisoned (#824, #925)",
       Test_TestScratchPoisonedCwd },
+    // #1692: a row given a private home (RSBS_TEST_HOME) writes only there, and two
+    // at once write only their own. Driven by CMake/CheckRowHome.cmake (the
+    // RowHomeIsolation row); without its variables both skip.
+    { "row-home-probe", "Reports where a row given RSBS_TEST_HOME works and writes there (#1692)", Test_RowHomeProbe },
+    { "row-home-probe-pair", "Two row-home probes at once in one directory, each with its own home (#1692)",
+      Test_RowHomeProbePair },
     // #564 V18: an MM save that cannot commit is told to the player, once per
     // cause. Pure (no display, no ROM).
     { "mm-save-failure-surface", "An MM save that cannot commit shows a 'Save failed:' toast, once per cause",

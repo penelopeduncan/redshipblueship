@@ -19,6 +19,7 @@
 
 #include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace rsbs::test {
@@ -75,6 +76,25 @@ void ScratchDirs_EndRow(const char* rowName, bool passed);
  *         or did not exit normally
  */
 std::vector<int> RunRowConcurrently(const char* row, int copies, const std::filesystem::path& logDir);
+
+/** One child of RunRowWithEnvsConcurrently. */
+struct ChildSpec {
+    std::filesystem::path cwd;                            ///< the child's working directory (must exist)
+    std::vector<std::pair<std::string, std::string>> env; ///< set (or replaced) in the child only
+    std::filesystem::path log;                            ///< the child's stdout and stderr
+};
+
+/**
+ * RunRowConcurrently with a working directory and environment chosen per child
+ * (#1692: the row-home probe pair needs two children in ONE directory with two
+ * different RSBS_TEST_HOME values). Every child runs `<this executable> --test
+ * <row>` with this process's environment plus its own ChildSpec::env entries,
+ * which replace a variable of the same name; all start before any is waited for.
+ *
+ * @return one exit code per child, or -1 for a child that could not be spawned
+ *         or did not exit normally
+ */
+std::vector<int> RunRowWithEnvsConcurrently(const char* row, const std::vector<ChildSpec>& children);
 
 /**
  * Runs `<this executable> --test <rowArg>` ONCE with @p cwd as its working

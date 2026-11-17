@@ -21,6 +21,7 @@ Nothing lives in a session scratchpad.
 | `gate-lock.cmd`, `gate-unlock.cmd` | Take and release the gate merge lock (wrappers for `gatelock.py`) |
 | `gatelock.py` | Lock CLI: `acquire`, `release`, `heartbeat`, `heartbeat-loop`, `status` |
 | `verify.cmd`, `verify.py` | Merge a branch onto `origin/main` in the main checkout, build, run the tiers, write `verify-<tag>.log` |
+| `partier.cmd`, `partier.py` | Run the rando tier serially and then `-j N` in a built tree and require the two to agree (#1692) |
 | `preflight.py` | First node of every workflow: sweep a dead lock, restore the main checkout, print every lane's resume stage |
 | `lane-manifest.py` | Per-lane resume manifest `lanes/<KEY>.json`: `write` at every stage change, `read` as a table |
 | `wavelib.py` | The shared core all of the above call; the tests exercise it directly |
@@ -358,6 +359,7 @@ A session restart, a bugcheck or a quota kill:
 | `WAVE_LOAD_WAIT_MIN` / `WAVE_LOAD_PROCS` | `30` / `ninja.exe,cl.exe` | verify's load wait |
 | `WAVE_BUILD_TIMEOUT_MIN` / `WAVE_TIER_TIMEOUT_MIN` | `120` / `90` | verify |
 | `WAVE_ALLOW_SKIPS` | unset | verify |
+| `WAVE_RANDO_JOBS` | `1` | verify's rando tier and `partier`'s parallel run: rows at a time, 1 to 4 (#1692) |
 
 ## Tests
 
@@ -374,3 +376,27 @@ in the `python-tests` job beside `tools/tests/`.
 `python .claude/tools/wave/tests/test_verify.py` runs verify's checks on its
 own, in a few seconds. Those checks include the CTest parser tests, which use
 CTest 3.x and 4.4 output captured verbatim.
+
+## Running the rando tier side by side (#1692)
+
+Every rando row works in its own home, `<build>/rsbs-rows/<row>`
+(`src/common/test_home.h`), so two rows share no config, log or spoiler folder.
+`verify` runs that tier `WAVE_RANDO_JOBS` rows at a time (default 1, at most 4);
+every other tier stays at `-j 1`.
+
+Before raising `WAVE_RANDO_JOBS` on a tree, prove a serial run and a parallel run
+agree there. Under the gate lock and in the one build slot, on a built tree:
+
+```
+partier.cmd <tag> --build-dir=build-cmake -j 2
+```
+
+It checks the registered homes (`ctest --show-only=json-v1`), snapshots the build
+directory's shared files, runs `ctest -L ^rando$ -j 1` and then `-j 2` with junit
+output, copies each run's `compare` outputs (CMake/CheckRowOutputs.cmake) into
+`<build>/partier/serial` and `<build>/partier/par`, and exits 0 only when every
+row passed in both runs, the per-row results match, every compare file is
+byte-identical (CR stripped) and neither run touched the shared files. It prints
+both wall times, the speed-up, the rows above 60% of their TIMEOUT
+(CMake/CheckRowTimes.cmake) and the tail (the stretch at the end where fewer than
+N rows ran). About 32 + 21 minutes locally.

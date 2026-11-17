@@ -11,6 +11,13 @@
 #   leg 3    + redship_test_not_generating(boot-oot)     -> must fail as stale
 #   leg 4    - redship_test_not_generating(lifecycle)    -> must fail, naming the
 #            row-less (redship_test_exempt) entry that --test all would run
+#   leg 5    + home|RandoGEN|rsbs-rows/RandoGEN          -> must fail as a duplicate
+#            home (#1692: RandoGen's home, case-folded, as on NTFS)
+#   leg 6    - RandoGen's home| line                     -> must fail, naming RandoGen
+#   leg 7    + a second row declaring golden-seed-digest-default-actual.txt
+#                                                        -> must fail as a duplicate output
+# Legs 5-7 cross-check #1692's homes in the manifest; the registered-property
+# check of the same homes is TestRowHomeCoverage (CheckTestRowHome.cmake).
 # boot-oot is display-free, not on the skip list and driven by no rando-label row;
 # rando-gen is the oldest skip (#337) and has a rando-label row; lifecycle is
 # row-less, not on the skip list and declared non-generating. A failing leg must
@@ -90,4 +97,19 @@ _run_leg(leg3 "" "nogen|boot-oot|synthetic" FALSE
 _run_leg(leg4 "nogen[|]lifecycle[|][^\n]*\n" "" FALSE
     "row-less dispatch entry 'lifecycle' (redship_test_exempt) is not on the --test all skip list")
 
-message(STATUS "CheckTestRegistrationRed: the --test all skip-list check fails by name on all four legs")
+# A multi-config tree has no homes (redship_add_test: the executable is not in the
+# build directory), so legs 5 and 6 have nothing to remove or collide with there.
+string(FIND "${_manifest}" "homes|disabled|" _homes_disabled_at)
+if(_homes_disabled_at EQUAL -1)
+    _run_leg(leg5 "" "home|RandoGEN|rsbs-rows/RandoGEN" FALSE
+        "duplicate home: RandoGEN and RandoGen share the home rsbs-rows/RandoGEN")
+    _run_leg(leg6 "home[|]RandoGen[|][^\n]*\n" "" FALSE
+        "rando-label CTest row 'RandoGen' has no home| line")
+else()
+    message(STATUS "leg5, leg6: skipped, homes are disabled in this (multi-config) tree")
+endif()
+_run_leg(leg7 "" "output|SyntheticDigestRow|rando|crossos|golden-seed-digest-default-actual.txt" FALSE
+    "declared output 'golden-seed-digest-default-actual.txt' belongs to both")
+
+message(STATUS "CheckTestRegistrationRed: the --test all skip-list check fails by name on all four legs, and the "
+    "home and output cross-checks on all three of theirs")

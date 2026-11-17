@@ -21,15 +21,36 @@ include_guard(GLOBAL)
 
 # ============================================================================
 # redship_add_test(NAME <name> COMMAND <argv...>
-#                  [LABEL <label>...] [TIMEOUT <seconds>] [ENVIRONMENT <var=val>...])
+#                  [LABEL <label>...] [TIMEOUT <seconds>] [ENVIRONMENT <var=val>...]
+#                  [HOME AUTO|ON|OFF] [OUTPUTS <group>=[?]<path>...])
 #
 # Registers a CTest row and its properties together.
 #
 # LABEL defaults to "redship" (the ROM-free tier hosted CI runs) and TIMEOUT
 # defaults to ${REDSHIP_TEST_TIMEOUT}, so a plain unit test needs neither.
+#
+# HOME (#1692) gives the row a private working directory, <build>/rsbs-rows/<NAME>,
+# so it can run beside other rows under `ctest -j`: the row gets RSBS_TEST_HOME
+# and RSBS_TEST_HOME_FROM, and src/common/test_home.cpp enters that home first in
+# every `--test` process the row starts from the build directory (a -P script's
+# children inherit both). AUTO, the default, means ON for a row labelled `rando`
+# and OFF otherwise. A home row also gets RSBS_ROW_OUTPUT_DIR=<build> (where it
+# writes the digests CI collects by name) and requires the rsbs_row_homes fixture
+# (RowHomesReset, registered by redship_finalize_tests), which empties
+# <build>/rsbs-rows before any home row of a ctest run starts. Under a
+# multi-config generator the executable is not in <build>, so a home would lose
+# the archives staged there: AUTO is OFF there and ON is refused.
+#
+# OUTPUTS (#1692) declares files the row writes into the build directory that CI
+# or the gate collects by name: `crossos=` (compared across the Linux and Windows
+# legs and uploaded), `compare=` (compared between a serial and a parallel run,
+# with every crossos file) and `package=` (the seed package upload). Paths are
+# exact and relative to the build directory; a leading `?` marks a file that only
+# some environments write. CMake/CheckRowOutputs.cmake reads them back and fails on
+# a declared file that is missing or empty.
 # ============================================================================
 function(redship_add_test)
-    cmake_parse_arguments(PARSE_ARGV 0 RSBS_T "" "NAME;TIMEOUT" "COMMAND;LABEL;ENVIRONMENT")
+    cmake_parse_arguments(PARSE_ARGV 0 RSBS_T "" "NAME;TIMEOUT;HOME" "COMMAND;LABEL;ENVIRONMENT;OUTPUTS")
 
     if(NOT RSBS_T_NAME)
         message(FATAL_ERROR "redship_add_test: NAME is required")
@@ -94,12 +115,109 @@ function(redship_add_test)
     # RSBS_TEST_AUDIO=1 un-silences direct `redship --test` runs, not ctest.
     list(PREPEND _environment "SDL_AUDIODRIVER=dummy")
 
+    # The row's private home (#1692; see the header). Resolved here, once, so every
+    # row of a label is treated alike and a row cannot opt in by half.
+    if(NOT RSBS_T_HOME)
+        set(RSBS_T_HOME "AUTO")
+    endif()
+    if(NOT RSBS_T_HOME MATCHES "^(AUTO|ON|OFF)$")
+        message(FATAL_ERROR "redship_add_test(${RSBS_T_NAME}): HOME must be AUTO, ON or OFF, not '${RSBS_T_HOME}'")
+    endif()
+    get_property(_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+    set(_home_on FALSE)
+    if(RSBS_T_HOME STREQUAL "ON")
+        set(_home_on TRUE)
+    elseif(RSBS_T_HOME STREQUAL "AUTO" AND "rando" IN_LIST _labels)
+        set(_home_on TRUE)
+    endif()
+    if(_home_on AND _multi_config)
+        if(RSBS_T_HOME STREQUAL "ON")
+            message(FATAL_ERROR
+                "redship_add_test(${RSBS_T_NAME}): HOME ON under a multi-config generator. The executable is in "
+                "<build>/<Config>/, not <build>, so a row in a home would not find the archives staged in <build>.")
+        endif()
+        set(_home_on FALSE)
+        set_property(GLOBAL PROPERTY REDSHIP_TEST_HOMES_DISABLED TRUE)
+    endif()
+    set(_home "")
+    if(_home_on)
+        set(_home "${CMAKE_BINARY_DIR}/rsbs-rows/${RSBS_T_NAME}")
+        # NTFS and APFS fold case: two rows whose names differ only in case would
+        # share one home there.
+        string(TOLOWER "${RSBS_T_NAME}" _home_key)
+        get_property(_home_keys GLOBAL PROPERTY REDSHIP_TEST_HOME_KEYS)
+        if(_home_key IN_LIST _home_keys)
+            message(FATAL_ERROR
+                "redship_add_test(${RSBS_T_NAME}): another row's home differs from rsbs-rows/${RSBS_T_NAME} only in "
+                "case, so on a case-insensitive file system the two rows would share it. Rename one of them.")
+        endif()
+        set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_HOME_KEYS "${_home_key}")
+    endif()
+    # A row's own ENVIRONMENT never names the home's variables: a home without the
+    # fixture, or a home row pointed elsewhere, would defeat the checks that read
+    # them back (TestRowHomeCoverage).
+    foreach(_own IN LISTS _environment)
+        if(_own MATCHES "^(RSBS_TEST_HOME|RSBS_TEST_HOME_FROM|RSBS_ROW_OUTPUT_DIR)=")
+            message(FATAL_ERROR
+                "redship_add_test(${RSBS_T_NAME}): ENVIRONMENT names ${CMAKE_MATCH_1}, which the HOME keyword owns")
+        endif()
+    endforeach()
+    if(_home_on)
+        # PREPENDED like the entries above.
+        list(PREPEND _environment
+            "RSBS_TEST_HOME=${_home}"
+            "RSBS_TEST_HOME_FROM=${CMAKE_BINARY_DIR}"
+            "RSBS_ROW_OUTPUT_DIR=${CMAKE_BINARY_DIR}")
+    endif()
+
+    # Declared outputs (#1692; see the header). Exact paths only: a glob here would
+    # let a missing file match nothing and pass.
+    set(_output_lines "")
+    string(REPLACE ";" "," _output_labels "${_labels}")
+    foreach(_out IN LISTS RSBS_T_OUTPUTS)
+        if(NOT _out MATCHES "^(crossos|compare|package)=(\\??)([^?*[]+)$")
+            message(FATAL_ERROR
+                "redship_add_test(${RSBS_T_NAME}): OUTPUTS entry '${_out}' is not <crossos|compare|package>=[?]<path> "
+                "with an exact path (no '*', no '?' after the first character, no '[')")
+        endif()
+        set(_out_group "${CMAKE_MATCH_1}")
+        set(_out_opt "${CMAKE_MATCH_2}")
+        set(_out_path "${CMAKE_MATCH_3}")
+        if(IS_ABSOLUTE "${_out_path}" OR _out_path MATCHES "(^|/)\\.\\.(/|$)" OR _out_path MATCHES "^rsbs-rows(/|$)")
+            message(FATAL_ERROR
+                "redship_add_test(${RSBS_T_NAME}): OUTPUTS path '${_out_path}' must be relative to the build directory "
+                "and outside rsbs-rows/ (the homes are emptied at the start of every run)")
+        endif()
+        string(TOLOWER "${_out_path}" _out_key)
+        get_property(_out_owners GLOBAL PROPERTY REDSHIP_TEST_OUTPUT_OWNERS)
+        foreach(_owner IN LISTS _out_owners)
+            string(FIND "${_owner}" "|" _bar)
+            string(SUBSTRING "${_owner}" 0 ${_bar} _owner_row)
+            math(EXPR _bar "${_bar} + 1")
+            string(SUBSTRING "${_owner}" ${_bar} -1 _owner_key)
+            if(_owner_key STREQUAL _out_key AND NOT _owner_row STREQUAL RSBS_T_NAME)
+                message(FATAL_ERROR
+                    "redship_add_test(${RSBS_T_NAME}): OUTPUTS path '${_out_path}' is already declared by row "
+                    "${_owner_row}; two rows writing one collected file is the race #1692 removes")
+            endif()
+        endforeach()
+        set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_OUTPUT_OWNERS "${RSBS_T_NAME}|${_out_key}")
+        list(APPEND _output_lines "output|${RSBS_T_NAME}|${_output_labels}|${_out_group}|${_out_opt}${_out_path}")
+    endforeach()
+
     add_test(NAME ${RSBS_T_NAME} COMMAND ${RSBS_T_COMMAND})
     set_tests_properties(${RSBS_T_NAME} PROPERTIES
         TIMEOUT "${RSBS_T_TIMEOUT}"
         LABELS "${_labels}"
         ENVIRONMENT "${_environment}"
     )
+    if(_home_on)
+        set_tests_properties(${RSBS_T_NAME} PROPERTIES FIXTURES_REQUIRED rsbs_row_homes)
+        set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "home|${RSBS_T_NAME}|rsbs-rows/${RSBS_T_NAME}")
+    endif()
+    foreach(_line IN LISTS _output_lines)
+        set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "${_line}")
+    endforeach()
 
     # Record which dispatch-table entry this row drives, for the completeness
     # guard below. The CTest row name is NOT the dispatch name: RandoGen,
@@ -157,6 +275,26 @@ endfunction()
 # ============================================================================
 function(redship_test_not_generating name reason)
     set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "nogen|${name}|${reason}")
+endfunction()
+
+# ============================================================================
+# redship_test_cost(<row> <seconds>)
+#
+# Declares a row's expected run time (#1692), applied as its CTest COST property
+# by redship_finalize_tests when the configure option RSBS_TEST_COST is ON (CI
+# turns it on; it is OFF by default). Under `ctest -j` CTest starts higher-cost
+# rows first, so the slowest rows do not form a one-row-at-a-time tail. Behind an
+# option because CTest may order a SERIAL run by COST as well (not verified here),
+# and a local serial run keeps its registration order unless asked. A declaration
+# naming no registered row fails at configure.
+# ============================================================================
+option(RSBS_TEST_COST "Apply redship_test_cost() declarations as CTest COST properties (#1692)" OFF)
+
+function(redship_test_cost name seconds)
+    if(NOT seconds MATCHES "^[0-9]+$")
+        message(FATAL_ERROR "redship_test_cost(${name}): '${seconds}' is not a whole number of seconds")
+    endif()
+    set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_COSTS "${name}|${seconds}")
 endfunction()
 
 # ============================================================================
@@ -218,6 +356,47 @@ endfunction()
 # redship_add_test()/redship_test_exempt()/redship_test_not_generating() call.
 # ============================================================================
 function(redship_finalize_tests manifest_path)
+    # #1692: the homes' reset row. Registered here, after every row, so no lane's
+    # list edit can move it; CTest runs a FIXTURES_SETUP row before every row that
+    # requires the fixture (under -L and -R too) and finishes it before any of them
+    # starts, so each ctest run starts with empty homes and a fresh copy of the
+    # staged config. Labelled rando so `-L ^rando$` lists it; HOME OFF, it is the
+    # one rando row with no home. Deleting rsbs-rows/ by hand is always safe.
+    get_property(_home_keys GLOBAL PROPERTY REDSHIP_TEST_HOME_KEYS)
+    if(_home_keys)
+        redship_add_test(NAME RowHomesReset
+            COMMAND ${CMAKE_COMMAND} -E rm -rf "${CMAKE_BINARY_DIR}/rsbs-rows"
+            LABEL rando
+            HOME OFF
+            TIMEOUT 120)
+        set_tests_properties(RowHomesReset PROPERTIES FIXTURES_SETUP rsbs_row_homes)
+    endif()
+    get_property(_homes_disabled GLOBAL PROPERTY REDSHIP_TEST_HOMES_DISABLED)
+    if(_homes_disabled)
+        set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "homes|disabled|multi-config")
+    endif()
+
+    # #1692: COST, only when asked (see redship_test_cost).
+    get_property(_costs GLOBAL PROPERTY REDSHIP_TEST_COSTS)
+    foreach(_cost IN LISTS _costs)
+        string(REPLACE "|" ";" _cost_fields "${_cost}")
+        list(GET _cost_fields 0 _cost_row)
+        list(GET _cost_fields 1 _cost_seconds)
+        if(NOT TEST ${_cost_row})
+            message(FATAL_ERROR "redship_test_cost(${_cost_row}): no row of that name is registered")
+        endif()
+        if(RSBS_TEST_COST)
+            set_tests_properties(${_cost_row} PROPERTIES COST ${_cost_seconds})
+        endif()
+    endforeach()
+    if(_costs)
+        if(RSBS_TEST_COST)
+            set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "cost|on")
+        else()
+            set_property(GLOBAL APPEND PROPERTY REDSHIP_TEST_MANIFEST "cost|off")
+        endif()
+    endif()
+
     get_property(_entries GLOBAL PROPERTY REDSHIP_TEST_MANIFEST)
     if(NOT _entries)
         message(FATAL_ERROR "redship_finalize_tests: no tests were registered")
@@ -228,5 +407,9 @@ function(redship_finalize_tests manifest_path)
         "# register|<labels>|<ctest-name>|<kind>|<dispatch-name>\n"
         "# exempt|<dispatch-name>|<reason>\n"
         "# nogen|<dispatch-name>|<reason>\n"
+        "# home|<ctest-name>|<home relative to the build directory>\n"
+        "# output|<ctest-name>|<labels>|<crossos|compare|package>|[?]<path relative to the build directory>\n"
+        "# homes|disabled|<why>  (no row has a home in this tree)\n"
+        "# cost|<on|off>  (whether redship_test_cost() declarations became COST properties)\n"
         "${_body}\n")
 endfunction()

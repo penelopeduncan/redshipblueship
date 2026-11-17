@@ -1379,8 +1379,18 @@ wrote, as an artifact named `determinism-digests-linux` or
 
 * the golden rows' `golden-*-actual.txt`;
 * the self-diff rows' `seed-determinism-run1.txt` and `paired-attempt-run1.txt`;
-* the redship tier's `rsbs_static_hint_order_digest.txt` and
-  `rsbs_shop_crossings_digest.txt`.
+* the rando rows `RandoStaticHintOrder`'s and `RandoShopCrossingsMM`'s
+  `rsbs_static_hint_order_digest.txt` and `rsbs_shop_crossings_digest.txt`.
+
+The list is not a glob (#1692): each of these rows declares its file with
+`OUTPUTS crossos=<file>` on its `redship_add_test` line, and
+`CMake/CheckRowOutputs.cmake` copies exactly the declared files and fails the
+build job, naming the row, when one is missing or empty. A leg can therefore no
+longer upload a thinner set than the other without going red itself. Since every
+rando row runs in its own home (`<build>/rsbs-rows/<row>`), the two rows that used
+to write their digest relative to their working directory write it to
+`RSBS_ROW_OUTPUT_DIR` (the build directory) instead, through
+`TestHome_RowOutputPath` (`src/common/test_home.h`).
 
 The `digest-crossos-diff` job (`.github/scripts/diff-crossos-digests.py`)
 downloads both artifacts. It fails when any file differs field by field (CR
