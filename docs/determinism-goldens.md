@@ -1030,6 +1030,17 @@ item on an Ocarina of Time shop shelf, Business Scrub and merchant.
 `RSBSXW9TRAVEL5`: seed 4's new world gives no raw Soaring fact, and seed 5 is
 the next one whose row passes whole.
 
+Shared item names in hints (2026-11-17, PR #1685; issue #1560), still version 6.
+A hint names a shared item without its game tag ("Skull Mask", not "Skull Mask
+(MM)") when the file's frozen record arms that shared rule. The hint digests
+fold the displayed text, so `seed-digest-all-masks`, the one golden that arms
+the three shared mask rules, moves `mmHintDigest` (`66E8B7F0` to `FD88D4A5`)
+and `mmFreeStoneDigest` (`83E446D5` to `E6169D08`) and nothing else: no
+placement, count or fingerprint field moves in it, and the other twelve goldens
+do not move. A world with no shared rule armed has the hint text it had. The
+residual behind the unchanged fingerprint is hint wording only: two generator-6
+builds on either side of this change place every item the same.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned
