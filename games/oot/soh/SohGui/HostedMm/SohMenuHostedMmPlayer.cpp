@@ -20,6 +20,8 @@
  *    Ocarina of Time has no Hot Spring Water).
  *  - Items > Boomerang: Instant Fin Boomerangs Recall right after SoH's Instant Boomerang Recall, its nearest relative
  *    (Zora Link's fins and the B button, not the Boomerang and its item button).
+ *  - Items > Hookshot: since 2Ship #1951 a "Majora's Mask" block at the end of the section, after SoH's Targetable
+ *    Hookshot Reticle, for Faster Hookshot (a Player row in 2Ship; SoH has no hookshot speed setting to sit beside).
  *  - Difficulty > Drops: "MM Enable Bombchu Drops" right after SoH's own. Held apart (kMustStayDistinct): SoH's rule
  *    weighs what Link carries and an Ocarina of Time seed can force it on; MM's gives a Bomb drop an even chance to
  *    be a Bombchu, and in the single exe only once Link has Bombchus (review H1: the Bombchu count is a shared
@@ -107,6 +109,16 @@ void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Prevents Hot Spring Water from cooling down into regular Spring Water. Majora's Mask only."));
+}
+
+/** Items > Hookshot, at the end of the section (right after SoH's Targetable Hookshot Reticle). */
+void AddMmFasterHookshotRow(SohMenu& menu, WidgetPath& path) {
+    AddHostedMmBlock(menu, path);
+    // 2Ship #1951: a Player row in 2Ship (after its Manual Jump), here with the Hookshot rows.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Faster Hookshot", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT)
+        .Options(UIWidgets::CheckboxOptions().Tooltip(
+            "Speeds up the time it takes for the Hookshot to fire and retract. Majora's Mask only."));
 }
 
 /** Items > Boomerang, right after SoH's Instant Boomerang Recall. */

@@ -628,6 +628,9 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING "gEnhancements.Player.InfiniteDekuHopping"
 #define RSBS_CVAR_MM_PLAYER_CLIMB_SPEED "gEnhancements.Player.ClimbSpeed"
 #define RSBS_CVAR_MM_PLAYER_FASTER_PUSH_AND_PULL "gEnhancements.Player.FasterPushAndPull"
+// 2Ship #1951: Faster Hookshot, a Player row in 2Ship, hosted in a "Majora's Mask" block at the end of the Items >
+// Hookshot section, after SoH's Targetable Hookshot Reticle. No SoH twin (SoH has no hookshot speed setting).
+#define RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT "gEnhancements.Player.FasterHookshot"
 #define RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH "gEnhancements.Player.FastFlowerLaunch"
 #define RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY "gEnhancements.Player.FierceDeityPutaway"
 #define RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK "gEnhancements.Equipment.TwoHandedSwordSpinAttack"
@@ -1147,6 +1150,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING)                     \
     X(RSBS_CVAR_MM_PLAYER_CLIMB_SPEED)                               \
     X(RSBS_CVAR_MM_PLAYER_FASTER_PUSH_AND_PULL)                      \
+    X(RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT)                           \
     X(RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH)                        \
     X(RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY)                      \
     X(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)           \

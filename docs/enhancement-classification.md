@@ -77,7 +77,7 @@ brief, plus everything in the collision set:
 | `Timesavers` | 11 | ✅ all. #1412 added two, Faster Rupee Accumulator and Faster Bottles, both converged (§5.3) |
 | `Cutscenes` | 10 | ✅ all |
 | `Saving` | 7 | ✅ all |
-| `Player` | 11 | ✅ all, and only since W6-PLAYER and W6-MASKS-SONGS (#1236): Instant Putaway (§5.3), Climb Speed ((P), §4 W6-PLAYER), six (O) keys (§6.1 W6-PLAYER) and Underwater Ocarina ((O), §6.1, hosted with the Ocarina rows by W6-MASKS-SONGS). The earlier "✅ all" predated any per-key row for the seven. Invert Zora Swim Y ((O), §6.1 #1411) is the tenth, and Unsheathe Sword Without Slashing (converged, §5.3 #1412) the eleventh |
+| `Player` | 12 | ✅ all, and only since W6-PLAYER and W6-MASKS-SONGS (#1236): Instant Putaway (§5.3), Climb Speed ((P), §4 W6-PLAYER), six (O) keys (§6.1 W6-PLAYER) and Underwater Ocarina ((O), §6.1, hosted with the Ocarina rows by W6-MASKS-SONGS). The earlier "✅ all" predated any per-key row for the seven. Invert Zora Swim Y ((O), §6.1 #1411) is the tenth, Unsheathe Sword Without Slashing (converged, §5.3 #1412) the eleventh, and Faster Hookshot ((O), §6.1 2Ship #1951) the twelfth |
 | `Equipment` | 7 | ✅ all since W6-PLAYER (#1236): Item Unequip and Magic Arrow Equip Speed (§5.3), Invert Shield Y ((P) P7, §4), Bombchu Drops ((P), §4 W6-PLAYER) and three (O) keys (§6.1 W6-PLAYER). The earlier "✅ all" predated any per-key row for the last four |
 | `Camera` | 31 | ✅ all (the aiming and camera inversion / sensitivity keys and two first-person switches per key since W6-CAM-AIM, §4, the third, auto-centering, converged onto SoH's key by #1272, §5.3; the gyro axes, the free-look pitch limits and the debug camera per key since W6-CAM-GYRO, §4) |
 | `Dialogue` / `Dpad` / `Playback` / `Items` / `A11y` / `Mods` / `Fixes` | 25 | ✅ all; `Fixes` (and the `gFixes.*` namespace) per key only since W6-FIXES (#1237, §6.1 W6-FIXES): the earlier "✅ all" was a category-level claim. #1411 added two `A11y` keys (§6.1 #1411), and #1412 four converged ones (§5.3): Skip Bottle Pickup Messages (`Dialogue`), Remove Explosive Limit (`Items`), Disable Bomb Billboarding and Disable Grotto Fixed Rotation (`Mods`). 2Ship #1989 added Hot Water Never Cools (`Items`, (O), §6.1 2Ship #1989), and 2Ship #1952 Fix Owl Save Scene Layers (`Fixes`, (O), §6.1 W6-FIXES) |
@@ -86,15 +86,16 @@ brief, plus everything in the collision set:
 | `Minigames` | 18 | ✅ all since W6-MINIGAMES (#1236): eighteen (O) rows in §6.1 |
 | `DifficultyOptions` | 15 | ✅ all: Hyper Enemies and Permanent Heart Loss converged (§5.3), Damage Multiplier held apart and hosted (§5.3, #1037), Goron Race with the minigames (§6.1), and since W6-MODES-DIFF (#1236) seven (O) rows and Delete File on Death (INTENTIONAL) in §6.1. #1412 added three: No Heart Drops and Drops Don't Despawn converged (§5.3), and No Random Drops held apart ((P), hosted, in §6.1's W6-MODES-DIFF table) |
 | `Cycle` | 9 | ✅ all since W6-CYCLE-CHEATS (#1236): six (O) rows and Do Not Reset Rupees / Consumables (INTENTIONAL) in §6.1. 2Ship #1972 added Mayor Argues Until Moonfall ((O), §6.1) |
-| **Subtotal** | **201** | |
+| **Subtotal** | **202** | |
 
 **NOT classified at individual-setting level:** none since the W6 lanes. Until then 55 MM keys in five categories
 (`Minigames`, `DifficultyOptions`, `Masks`, `Cycle`, `Songs`) were classified **(O) MM-only at the category level** on
 the strength of their contents, with the rows inside them that have OoT counterparts pulled out (§5). Each category now
 has a row per key (table above), and `Masks` counts 9 keys, not 10, so the total in scope was 184; #1411's three keys
 (two `A11y`, one `Player`) made it 187, and #1412's eleven 2Ship keys (ten converged, §5.3, and No Random Drops held
-apart, §6.1) made it 198, 2Ship #1989's Hot Water Never Cools (§6.1) made it 199, and 2Ship #1972's Mayor Argues
-Until Moonfall (§6.1) made it 200, and 2Ship #1952's Fix Owl Save Scene Layers (§6.1 W6-FIXES) makes it 201.
+apart, §6.1) made it 198, 2Ship #1989's Hot Water Never Cools (§6.1) made it 199, 2Ship #1972's Mayor Argues
+Until Moonfall (§6.1) made it 200, 2Ship #1952's Fix Owl Save Scene Layers (§6.1 W6-FIXES) made it 201, and 2Ship
+#1951's Faster Hookshot (§6.1) makes it 202.
 
 Also not covered: OoT's 1570 `gCosmetics.*` keys (overwhelmingly auto-generated per-actor
 colour entries with no MM counterpart — MM has 3, all in the collision set and all
@@ -843,6 +844,19 @@ stick, not generation or combo identity.
 | `gEnhancements.A11y.NoScreenDistortion` | off | Disable Screen Distortion (likewise) | (O) nearest relative only: SoH's `gSettings.A11yNoJabuWobble` covers Jabu-Jabu's geometry wobble and camera distortion; MM's covers every distortion request (underwater and other sources). `Accessibility/NoScreenDistortion.cpp` linked (play-state guard added) |
 | `gEnhancements.Player.InvertZoraSwimY` | on | Invert Zora Swim Y Axis (Quality of Life > Controls, Majora's Mask block) | (O) MM-only: Zora Link. On is vanilla; row only, `GameExports_SingleExe.cpp`'s `GameInteractor_InvertControl` reads it |
 
+**2Ship #1951 — Faster Hookshot, backported from 2Ship and hosted.** One key from 2Ship 7f2d4ad22 that our tree did
+not have. 2Ship draws it on its Gameplay page's Player section in the excluded `BenMenu.cpp`; here it has a row added
+through the hosted-row seam, bound through `RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT`, and is on `RSBS_TWOSHIP_IMPORT_KEYS`.
+Its TU is carved into `ship__Enh_registrars` and rides `VB_HOOKSHOT_SHOOT` and `VB_HOOKSHOT_SET_SPEED`, appended to
+`GIVanillaBehavior` and dispatched from `MM_ArmsHook_Wait` and `MM_ArmsHook_Shoot` (`z_arms_hook.c`). The
+registrar-coverage lock's key-gap table attributes it, and its FAIL 26 leg drives both verdicts; the classification
+lock's leg 3f-2c holds the binding. A player preference: it doubles how fast the Hookshot flies out and pulls back, not
+generation or combo identity (no logic rule reads it).
+
+| MM key | MM default | Row (page > section) | Call |
+|---|---|---|---|
+| `gEnhancements.Player.FasterHookshot` | off | Faster Hookshot (Enhancements > Items, Hookshot, Majora's Mask block, after Targetable Hookshot Reticle) | (O) MM-only: SoH has no hookshot speed setting. `Player/FasterHookshot.cpp` linked (play-state guard added to the shot) |
+
 **2Ship #1989 — Hot Water Never Cools, backported from 2Ship and hosted.** One key from 2Ship fd9fb03b that our tree
 did not have. 2Ship draws it on its Items page in the excluded `BenMenu.cpp`; here it has a row added through the
 hosted-row seam, bound through `RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS`, and is on `RSBS_TWOSHIP_IMPORT_KEYS`. Its TU
@@ -898,7 +912,7 @@ before the menu exists. CvarClassification leg (2b) and the TwoShipImportMmKeys 
 Scoped to the enhancement/cheat/cosmetic surface classified at **individual-setting level**
 (MM's 185 `gEnhancements.*` + `gCheats.*` keys, and their OoT counterparts). These counts are the original inventory's
 (2026-07-21) and are not re-derived per row: since then the W6 lanes classified every key per row (§2, where the total
-read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 201 since #1411, #1412, 2Ship #1989, 2Ship #1972 and 2Ship #1952), and the #966 rows,
+read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 202 since #1411, #1412, 2Ship #1989, 2Ship #1972, 2Ship #1952 and 2Ship #1951), and the #966 rows,
 #1239, #1272 and #1412 converged more keys than the 26 below.
 
 | Class | Rows | Notes |

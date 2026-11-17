@@ -996,6 +996,9 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Manual Jump", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.ManualJump")
         .Options(CheckboxOptions().Tooltip("Z + A to Jump and B while midair to Jump Attack."));
+    AddWidget(path, "Faster Hookshot", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Player.FasterHookshot")
+        .Options(CheckboxOptions().Tooltip("Speeds up the time it takes for the Hookshot to fire and retract."));
     AddWidget(path, "Dpad Equips", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.DpadEquips")
         .Options(CheckboxOptions().Tooltip("Allows you to equip items to your D-pad."));
