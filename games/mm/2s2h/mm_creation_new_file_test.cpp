@@ -127,6 +127,7 @@
 
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/Rando/Foreign.h"
+#include "2s2h/Rando/MiscBehavior/ClockShuffle.h" // #1671: the New Cycle landing under Shuffle Time
 #include "2s2h/ShipInit.hpp"
 #include "combo_mm_options_view.h"
 #include "combo_tracker_view.h"
@@ -136,6 +137,7 @@
 #include "crossing_store.h"
 #include "game.h"
 #include "game_lifecycle.h"
+#include "mm_game_hooks.h" // S2H::GameHooks::ExecuteForID (the EnTest4 pre-update dispatch)
 #include "save.h"
 #include "shared_items.h"
 #include "shared_resources.h"
@@ -150,6 +152,7 @@
 #endif
 
 extern "C" {
+#include "overlays/actors/ovl_En_Test4/z_en_test4.h"
 void MM_Creation_StampNewFileFields(const u8* playerName);
 void OoT_PlayerName_ToMMCharset(const uint8_t* ootName, uint8_t filenameLanguage, uint8_t* mmName);
 void Randomizer_TestSetOoTPlayerName(const uint8_t* name, uint8_t filenameLanguage);
@@ -728,6 +731,11 @@ extern "C" int MM_CreationNewFile_RunWorld(void) {
            "would recognize (#765)\n",
            sRow);
 
+    // #1671: Moon Crash Behavior defaults to New Cycle, and this row's crash legs
+    // (CheckMoonCrashRestoresLastCommit and the two after it) lock the Last Save
+    // restore. The world is authored through the key, so the key says Last Save
+    // explicitly, from the generation on, and is cleared when the row ends.
+    CVarSetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET);
     CNF_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAG1") == 0, "the pinned seed generates");
     Randomizer_TestClearOoTSave();
     // What OoT's file select writes before the creation seam (Sram_InitSave).
@@ -753,6 +761,7 @@ extern "C" int MM_CreationNewFile_RunWorld(void) {
         return 1;
     }
 
+    CVarClear(RSBS_CVAR_MM_MOON_CRASH);
     Combo_SingleBag_Forget();
     Combo_Crossings_Clear();
     printf("[TEST] PASS: %s\n", sRow);
@@ -1341,23 +1350,29 @@ void ResolveFreshRandoHalf() {
 } // namespace
 
 /**
- * mm-moon-crash-cycle-forced (#1069). The FROZEN moon crash a file plays under
- * (MM_Rando_FrozenMoonCrash): the MM option's frozen value, forced to New Cycle
- * by the frozen Shared Song of Time rule.
+ * mm-moon-crash-cycle-forced (#1069, #1671). The FROZEN moon crash a file plays
+ * under (MM_Rando_FrozenMoonCrash): the MM option's frozen value, forced to New
+ * Cycle by the frozen Shared Song of Time rule. Since #1671 the option defaults
+ * to New Cycle (the operator's 2026-11-16 ruling); Last Save stays selectable.
  *
- *   1. Rule off, option untouched: Last Save (today's behaviour, OoTMM's default).
- *   2. Rule frozen on, option untouched: New Cycle, whatever the half holds.
+ *   1. Rule off, key cleared: the half freezes New Cycle and plays as New Cycle.
+ *   2. Rule frozen on over a Last Save half: New Cycle, whatever the half holds.
  *   3. The rule never enters MM's identity: the creation stamp is the same with
  *      the rule's key on and off (MM_Rando_ComputeProfileStamp runs before the
  *      combo freeze, so a rule-dependent term would refuse every arrival).
- *   4. The option itself: New Cycle authored freezes into the half and plays as
- *      New Cycle with the rule off, and moves the stamp; Last Save authored adds
- *      no term (no existing pair's digest moves).
+ *   4. The option itself: New Cycle authored (key 1) stamps exactly as a cleared
+ *      key does; Last Save authored (key 0) moves the stamp, freezes into the
+ *      half and plays as Last Save with the rule off.
+ *   5. The resolution: a cleared key is New Cycle, 0 is Last Save, and an
+ *      out-of-range 7 is New Cycle (the default).
+ *   6. The fold is NOT flipped: the identity string carries "|moonCrash:1" with
+ *      the key cleared, and no moonCrash term with Last Save, so every Last Save
+ *      file created before #1671 keeps its identity.
  */
 extern "C" int MM_MoonCrashCycleForced_Run(void) {
     sRow = "mm-moon-crash-cycle-forced";
     printf("[TEST] %s: the frozen Shared Song of Time rule forces Moon Crash Behavior to New Cycle; otherwise the "
-           "frozen option decides, Last Save by default (#1069)\n",
+           "frozen option decides, New Cycle by default (#1069, #1671)\n",
            sRow);
     const std::string ruleKey = SharedSongTimeKey();
     CVarClear(kMoonCrashKey);
@@ -1370,23 +1385,29 @@ extern "C" int MM_MoonCrashCycleForced_Run(void) {
         }
     };
 
-    // ---- 1. rule off, option untouched ---------------------------------------
+    // ---- 1. rule off, key cleared --------------------------------------------
     ResolveFreshRandoHalf();
     FreezeSongOfTimeRule(false);
     const int offMode = MM_Rando_FrozenMoonCrash();
-    printf("[TEST] %s: (1) rule off: frozen option %u, plays as %d (expected 0, %d)\n", sRow,
-           (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash, offMode, RSBS_MM_MOON_CRASH_RESET);
-    check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_RESET &&
-              offMode == RSBS_MM_MOON_CRASH_RESET,
-          "(1) with every rule off and the option untouched the moon crash is not Last Save");
+    printf("[TEST] %s: (1) rule off, key cleared: frozen option %u, plays as %d (expected %d, %d)\n", sRow,
+           (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash, offMode, RSBS_MM_MOON_CRASH_CYCLE,
+           RSBS_MM_MOON_CRASH_CYCLE);
+    check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_CYCLE &&
+              offMode == RSBS_MM_MOON_CRASH_CYCLE,
+          "(1) with every rule off and the key cleared the moon crash is not New Cycle, the default since #1671");
 
-    // ---- 2. rule frozen on --------------------------------------------------
+    // ---- 2. rule frozen on, over a Last Save half ----------------------------
+    CVarSetInteger(kMoonCrashKey, RSBS_MM_MOON_CRASH_RESET);
+    ResolveFreshRandoHalf();
+    CVarClear(kMoonCrashKey);
     FreezeSongOfTimeRule(true);
     const int onMode = MM_Rando_FrozenMoonCrash();
-    printf("[TEST] %s: (2) rule on: frozen rules %08X, frozen option %u, plays as %d (expected %08X, 0, %d)\n", sRow,
+    printf("[TEST] %s: (2) rule on: frozen rules %08X, frozen option %u, plays as %d (expected %08X, %d, %d)\n", sRow,
            (unsigned)gComboCtx.comboItemRules.crossItemFlags,
            (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash, onMode, (unsigned)kSharedSongTimeBit,
-           RSBS_MM_MOON_CRASH_CYCLE);
+           RSBS_MM_MOON_CRASH_RESET, RSBS_MM_MOON_CRASH_CYCLE);
+    check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_RESET,
+          "(2) a Last Save key did not freeze Last Save into the half: the force below would be vacuous");
     check(onMode == RSBS_MM_MOON_CRASH_CYCLE,
           "(2) the frozen Shared Song of Time rule did not force New Cycle: MM would start without the song and "
           "without a free reset");
@@ -1403,21 +1424,52 @@ extern "C" int MM_MoonCrashCycleForced_Run(void) {
     // ---- 4. the option itself ------------------------------------------------
     CVarSetInteger(kMoonCrashKey, RSBS_MM_MOON_CRASH_CYCLE);
     const uint32_t stampCycle = MM_Rando_ComputeProfileStamp();
+    CVarSetInteger(kMoonCrashKey, RSBS_MM_MOON_CRASH_RESET);
+    const uint32_t stampReset = MM_Rando_ComputeProfileStamp();
     ResolveFreshRandoHalf();
     FreezeSongOfTimeRule(false);
     const int authoredMode = MM_Rando_FrozenMoonCrash();
-    printf("[TEST] %s: (4) New Cycle authored: frozen option %u, plays as %d, stamp %08X vs default %08X (expected "
-           "%d, %d, different)\n",
-           sRow, (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash, authoredMode, (unsigned)stampCycle,
-           (unsigned)stampOff, RSBS_MM_MOON_CRASH_CYCLE, RSBS_MM_MOON_CRASH_CYCLE);
-    check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_CYCLE &&
-              authoredMode == RSBS_MM_MOON_CRASH_CYCLE,
-          "(4) New Cycle authored did not freeze into the half, or does not play as New Cycle");
-    check(stampCycle != stampOff,
-          "(4) the option is not part of MM's identity: a change after creation would go unnoticed");
+    printf("[TEST] %s: (4) stamps: New Cycle authored %08X, Last Save authored %08X, key cleared %08X (expected the "
+           "first and the last equal); Last Save authored: frozen option %u, plays as %d (expected %d, %d)\n",
+           sRow, (unsigned)stampCycle, (unsigned)stampReset, (unsigned)stampOff,
+           (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash, authoredMode, RSBS_MM_MOON_CRASH_RESET,
+           RSBS_MM_MOON_CRASH_RESET);
+    check(stampCycle == stampOff, "(4) New Cycle authored stamps differently from a cleared key: the default is not "
+                                  "New Cycle");
+    check(stampReset != stampOff,
+          "(4) Last Save is not part of MM's identity: a change after creation would go unnoticed");
+    check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_RESET &&
+              authoredMode == RSBS_MM_MOON_CRASH_RESET,
+          "(4) Last Save authored did not freeze into the half, or does not play as Last Save");
+
+    // ---- 5. the resolution ---------------------------------------------------
+    CVarClear(kMoonCrashKey);
+    const unsigned resolvedCleared = Rando::Foreign::TestResolveMoonCrash();
     CVarSetInteger(kMoonCrashKey, RSBS_MM_MOON_CRASH_RESET);
-    const uint32_t stampReset = MM_Rando_ComputeProfileStamp();
-    check(stampReset == stampOff, "(4) Last Save authored moved the stamp: every existing pair's digest would move");
+    const unsigned resolvedReset = Rando::Foreign::TestResolveMoonCrash();
+    CVarSetInteger(kMoonCrashKey, 7);
+    const unsigned resolvedOutOfRange = Rando::Foreign::TestResolveMoonCrash();
+    printf("[TEST] %s: (5) resolved: key cleared %u, key 0 %u, key 7 %u (expected %d, %d, %d)\n", sRow, resolvedCleared,
+           resolvedReset, resolvedOutOfRange, RSBS_MM_MOON_CRASH_CYCLE, RSBS_MM_MOON_CRASH_RESET,
+           RSBS_MM_MOON_CRASH_CYCLE);
+    check(resolvedCleared == (unsigned)RSBS_MM_MOON_CRASH_CYCLE, "(5) a cleared key does not resolve to New Cycle");
+    check(resolvedReset == (unsigned)RSBS_MM_MOON_CRASH_RESET, "(5) key 0 does not resolve to Last Save");
+    check(resolvedOutOfRange == (unsigned)RSBS_MM_MOON_CRASH_CYCLE,
+          "(5) an out-of-range key does not resolve to the default, New Cycle");
+
+    // ---- 6. the fold is not flipped ------------------------------------------
+    const std::vector<uint32_t> zeroValues((size_t)RO_MAX, 0u);
+    CVarClear(kMoonCrashKey);
+    const std::string idCleared = Rando::Foreign::TestFoldIdentityStringResolvedMoonCrash(zeroValues.data());
+    CVarSetInteger(kMoonCrashKey, RSBS_MM_MOON_CRASH_RESET);
+    const std::string idReset = Rando::Foreign::TestFoldIdentityStringResolvedMoonCrash(zeroValues.data());
+    const bool clearedFolds = idCleared.find("|moonCrash:1") != std::string::npos;
+    const bool resetFolds = idReset.find("moonCrash") != std::string::npos;
+    printf("[TEST] %s: (6) identity term: key cleared %s, key 0 %s (expected folded, not folded)\n", sRow,
+           clearedFolds ? "folded" : "NOT folded", resetFolds ? "FOLDED" : "not folded");
+    check(clearedFolds, "(6) a default (New Cycle) world does not fold |moonCrash:1 into its identity");
+    check(!resetFolds, "(6) a Last Save world folds a moonCrash term: every Last Save file created before #1671 "
+                       "would no longer match its stamp (the fold was flipped)");
 
     CVarClear(kMoonCrashKey);
     CVarClear(ruleKey.c_str());
@@ -1431,6 +1483,108 @@ extern "C" int MM_MoonCrashCycleForced_Run(void) {
     return 0;
 }
 
+namespace {
+
+/** The six Shuffle Time bits, written directly (as mm-clock-shuffle-final-hours does). */
+void CnfSetOwnedHalfDays(u8 mask) {
+    for (int i = 0; i < Rando::ClockItems::HALF_COUNT; i++) {
+        const s32 flag = RANDO_INF_OBTAINED_CLOCK_DAY_1 + i;
+        u16& word = gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4];
+        const u16 bit = (u16)(1u << (flag & 0xF));
+        word = (mask & (1u << i)) ? (u16)(word | bit) : (u16)(word & ~bit);
+    }
+}
+
+/**
+ * #1671 (A1.6): New Cycle is now the default, so a Shuffle Time file meets the
+ * New Cycle crash by default. With Day 1 and Night 1 unowned and Day 2 owned,
+ * the crash restarts the cycle (day 0, 05:59), the Dawn of the First Day telop
+ * leaves day 1 at 06:00 (DayTelop_Init's Sram_IncrementDay, DayTelop_Update's
+ * time), and the first EnTest4 update in South Clock Town runs ClockShuffle's
+ * per-frame skip (OnFileLoad's ShouldActorUpdate[ACTOR_EN_TEST4] hook). It must
+ * stage the earliest owned half-day: the dawn trick into Day 2 (day 1, 06:00,
+ * prevTime 05:59, daytimeIndex NIGHT), so vanilla EnTest4 opens the Dawn of the
+ * Second Day instead of letting the file play the unowned Day 1.
+ */
+int CnfNewCycleLandingLegs() {
+    const u8 kOwned = (u8)((1u << Rando::ClockItems::HALF_DAY2_DAY) | (1u << Rando::ClockItems::HALF_DAY2_NIGHT) |
+                           (1u << Rando::ClockItems::HALF_DAY3_DAY));
+    const u16 kDawn = (u16)CLOCK_TIME(6, 0);
+    const u16 kDawnPrev = (u16)(CLOCK_TIME(6, 0) - CLOCK_TIME(0, 1));
+
+    // Shuffle Time on, armed as the file's load arms it, with the clock away
+    // from day 0 05:59 (OnFileLoad corrects that instant on its own).
+    gSaveContext.save.day = 3;
+    gSaveContext.save.eventDayCount = 3;
+    gSaveContext.save.time = (u16)CLOCK_TIME(15, 0);
+    gSaveContext.save.isOwlSave = false;
+    gSaveContext.save.shipSaveInfo.rando.randoSaveOptions[RO_CLOCK_SHUFFLE] = RO_GENERIC_ON;
+    CnfSetOwnedHalfDays(kOwned);
+    Rando::ClockShuffle::OnFileLoad();
+    CNF_ASSERT(MM_Rando_FrozenMoonCrash() == RSBS_MM_MOON_CRASH_CYCLE, "the file plays under New Cycle (premise)");
+
+    if (CrashTheMoon() != 0) {
+        return 1;
+    }
+    PrintClock("after the moon crash (New Cycle, Shuffle Time, Day 1 unowned)");
+    CNF_ASSERT(gSaveContext.save.day == 0 && gSaveContext.save.time == (u16)(CLOCK_TIME(6, 0) - 1),
+               "the New Cycle crash restarts the cycle at day 0, 05:59 (premise)");
+    CNF_ASSERT(Rando::ClockItems::GetAllOwnedHalfDaysMask() == kOwned,
+               "the new cycle kept the file's Shuffle Time items (premise)");
+
+    // The Dawn of the First Day telop: day 1, 06:00.
+    gSaveContext.save.day = 1;
+    gSaveContext.save.eventDayCount = 1;
+    gSaveContext.save.time = kDawn;
+    gSaveContext.save.isNight = false;
+    gSaveContext.eventInf[1] &= (u8)~0x80; // EVENTINF_17: no day/night transition in progress
+    gSaveContext.sunsSongState = SUNSSONG_INACTIVE;
+
+    // The first frame in South Clock Town: a zeroed stand-in play state with a
+    // time speed, an idle cutscene context and a zeroed Player, and EnTest4 as
+    // its Init leaves it (prevTime = CURRENT_TIME).
+    static PlayState sLandingPlay;
+    static Player sLandingPlayer;
+    static EnTest4 sLandingTest4;
+    memset(&sLandingPlay, 0, sizeof(sLandingPlay));
+    memset(&sLandingPlayer, 0, sizeof(sLandingPlayer));
+    memset(&sLandingTest4, 0, sizeof(sLandingTest4));
+    sLandingPlay.envCtx.sceneTimeSpeed = 3;
+    sLandingPlay.csCtx.state = CS_STATE_IDLE;
+    sLandingPlay.actorCtx.actorLists[ACTORCAT_PLAYER].first = &sLandingPlayer.actor;
+    sLandingPlay.sceneId = SCENE_CLOCKTOWER; // South Clock Town: reloaded for a skip on day 3 only
+    sLandingTest4.actor.id = ACTOR_EN_TEST4;
+    sLandingTest4.daytimeIndex = THREEDAY_DAYTIME_DAY;
+    sLandingTest4.prevTime = kDawn;
+    PlayState* const savedPlayState = MM_gPlayState;
+    MM_gPlayState = &sLandingPlay;
+    bool should = true;
+    S2H::GameHooks::ExecuteForID<GameInteractor::ShouldActorUpdate>(ACTOR_EN_TEST4, &sLandingTest4.actor, &should);
+    MM_gPlayState = savedPlayState;
+    printf("[TEST] %s: Shuffle Time landing: day=%d time=0x%04X prevTime=0x%04X daytimeIndex=%d (expected 1, 0x%04X, "
+           "0x%04X, %d: the dawn into Day 2, the earliest owned half-day)\n",
+           sRow, (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time, (unsigned)sLandingTest4.prevTime,
+           (int)sLandingTest4.daytimeIndex, (unsigned)kDawn, (unsigned)kDawnPrev, (int)THREEDAY_DAYTIME_NIGHT);
+    CNF_ASSERT(should, "the ClockShuffle hook vetoed EnTest4's update");
+    CNF_ASSERT(gSaveContext.save.day == 1 && gSaveContext.save.time == kDawn && sLandingTest4.prevTime == kDawnPrev &&
+                   sLandingTest4.daytimeIndex == THREEDAY_DAYTIME_NIGHT,
+               "after a New Cycle crash under Shuffle Time with Day 1 unowned, the first EnTest4 update did not "
+               "skip to the earliest owned half-day (the dawn into Day 2): the file would play the unowned Day 1");
+    return 0;
+}
+
+/** The legs above, then Shuffle Time disarmed on pass and fail alike, so no
+ *  later row in the process inherits ClockShuffle's hooks. */
+int CnfCheckNewCycleClockShuffleLanding() {
+    const int rc = CnfNewCycleLandingLegs();
+    gSaveContext.save.shipSaveInfo.rando.randoSaveOptions[RO_CLOCK_SHUFFLE] = RO_GENERIC_OFF;
+    CnfSetOwnedHalfDays(0);
+    Rando::ClockShuffle::OnFileLoad();
+    return rc;
+}
+
+} // namespace
+
 /**
  * mm-moon-crash-cycle-reset (#1069). A moon crash under New Cycle starts a new
  * cycle, as OoTMM's MoonCrashCycle does (human form, no mask, the Song of Time's
@@ -1438,7 +1592,10 @@ extern "C" int MM_MoonCrashCycleForced_Run(void) {
  * masks and quest items are kept, the last-commit rollback (#785) does not run,
  * and the new cycle is committed. A paired half with a creation commit; play on
  * past it (a mask, a song and a bottle the commit does not hold); crash through
- * the REAL Interface_StartMoonCrash and Sram_ResetSaveFromMoonCrash.
+ * the REAL Interface_StartMoonCrash and Sram_ResetSaveFromMoonCrash. Then
+ * (#1671) a second crash under Shuffle Time with Day 1 unowned: the first EnTest4
+ * update after the Dawn of the First Day stages the earliest owned half-day
+ * (CnfCheckNewCycleClockShuffleLanding).
  */
 extern "C" int MM_MoonCrashCycleReset_Run(void) {
     sRow = "mm-moon-crash-cycle-reset";
@@ -1523,6 +1680,9 @@ extern "C" int MM_MoonCrashCycleReset_Run(void) {
                "the half is still this world");
     CNF_ASSERT(gComboCtx.commitGeneration > generationBefore,
                "the new cycle was not committed: a reload would put the file back before the crash");
+    if (CnfCheckNewCycleClockShuffleLanding() != 0) {
+        return 1;
+    }
 
     mgr.DeleteSave(0);
     mgr.ResetSlotSessionState();

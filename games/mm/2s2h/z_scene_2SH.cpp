@@ -318,6 +318,27 @@ void Scene_CommandEnvLightSettings(PlayState* play, S2H::ISceneCommand* cmd) {
     play->envCtx.lightSettingsList = (EnvLightSettings*)lightSettings->GetRawPointer();
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+/**
+ * The first cycle's 5x clock, as upstream's GameInteractor_Should(VB_FASTER_FIRST_CYCLE, ...) call (#1671 B0).
+ *
+ * Until #1671 the single exe skipped that dispatch and evaluated the un-hooked default directly (#344): MM's
+ * GameInteractor_Should then linked to OoT's implementation, whose VB ordinals alias MM's. MM's VB dispatch has
+ * since been rebound to the MM-owned registry (MM_GameHooks_ExecuteVBShould, GameInteractor.h), so the bypass was
+ * stale, and it kept both overrides from firing: rando's IS_RANDO one (Rando/MiscBehavior/MiscBehavior.cpp) and
+ * the combo one in MM_Combo_RegisterFirstCycleOverrides (GameExports_SingleExe.cpp). A paired half that does not
+ * hold its ocarina (the coming Shuffle Ocarina option) must not run the first cycle's fast clock.
+ *
+ * PlayState-free so the ROM-free mm-combo-first-cycle row can call it. z_scene.c's copy of the predicate (its
+ * ROM-format MM_Scene_CommandTimeSettings) sits inside that file's `#if 0` block and is not compiled.
+ */
+extern "C" bool MM_Scene_FirstCycleTimeSpeedApplies(u16 sceneTimeSpeed) {
+    return GameInteractor_Should(VB_FASTER_FIRST_CYCLE,
+                                 (gSaveContext.save.saveInfo.inventory.items[SLOT_OCARINA] == ITEM_NONE) &&
+                                     (sceneTimeSpeed != 0));
+}
+#endif
+
 void MM_Scene_CommandTimeSettings(PlayState* play, S2H::ISceneCommand* cmd) {
     S2H::SetTimeSettings* settings = (S2H::SetTimeSettings*)cmd;
 
@@ -334,13 +355,9 @@ void MM_Scene_CommandTimeSettings(PlayState* play, S2H::ISceneCommand* cmd) {
 
     // Increase time speed during first cycle
 #ifdef RSBS_SINGLE_EXECUTABLE
-    // (#344) Don't consult GameInteractor_Should here in single-exe builds: it
-    // links to OoT's implementation and MM's GIVanillaBehavior ordinals alias
-    // OoT's (VB_FASTER_FIRST_CYCLE == 67 == OoT's VB_FIX_SAW_SOFTLOCK), so the
-    // call would run OoT vanilla-behavior hooks against MM state. MM's
-    // enhancement layer is excluded in single-exe mode, so nothing could
-    // legitimately hook this — use the un-hooked default directly.
-    if ((gSaveContext.save.saveInfo.inventory.items[SLOT_OCARINA] == ITEM_NONE) && (play->envCtx.sceneTimeSpeed != 0)) {
+    // (#1671 B0) The same VB dispatch as below, through the PlayState-free
+    // MM_Scene_FirstCycleTimeSpeedApplies above so a ROM-free row can drive it.
+    if (MM_Scene_FirstCycleTimeSpeedApplies(play->envCtx.sceneTimeSpeed)) {
         play->envCtx.sceneTimeSpeed = 5;
     }
 #else

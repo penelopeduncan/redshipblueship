@@ -275,7 +275,7 @@ static inline bool Combo_LogicRungProves(uint8_t rung) {
 //
 // Pinned BIT POSITIONS, append-only, retire-never-renumber — the same rule the
 // item classes carry, and for the same two reasons (a local save re-read and
-// #574's cross-peer hash). Bits 0x04..0x80 are UNALLOCATED and must read as 0.
+// #574's cross-peer hash). Bits 0x20..0x80 are UNALLOCATED and must read as 0.
 //
 // EVERY BIT IN THIS BYTE MUST HAVE "CLEAR == THE BEHAVIOUR BEFORE IT EXISTED".
 // That is what let byte 10 be spent without a formatVersion bump (see
@@ -396,11 +396,36 @@ static inline bool Combo_LogicRungProves(uint8_t rung) {
  */
 #define RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS 0x04u
 
+/**
+ * ONE DEKU STICK BAG / ONE DEKU NUT BAG FOR THE PAIR (#1652; operator ruling
+ * 2026-11-15, option A: the bag shuffles gate BOTH games). NO KEY AUTHORS THEM:
+ * the paired creation sets each exactly when Ocarina of Time's own option
+ * (RSK_SHUFFLE_DEKU_STICK_BAG, RSK_SHUFFLE_DEKU_NUT_BAG) is on
+ * (Combo_ComboSettingsApplyCreationBagShuffles), so Majora's Mask can read the
+ * pair's answer (Combo_ComboStickBagShuffled, Combo_ComboNutBagShuffled) at its
+ * own file creation and inside its logic with no OoT seed context loaded.
+ *
+ * Clear (every world before #1652, and every world with the shuffle off),
+ * NOTHING changes: the canonical bytes and the fingerprint are exactly what they
+ * were. Set, the fingerprint moves with it (OoT's settings hash already differs
+ * for such a world). A session never resolves them; every compare reads them as
+ * the file decided (Combo_ComboSettingsDivergenceForEx2), like the
+ * coupled-buttons marker.
+ */
+#define RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG 0x08u
+#define RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG 0x10u
+
+/** The comboFlags bits no key authors: the creation derives them, and every
+ *  session compare takes them from the file. */
+#define RSBS_COMBO_FLAGS_CREATION_DERIVED \
+    (RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS | RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG)
+
 /** Every comboFlags bit ALLOCATED at formatVersion 1. The shipped default is 0
  *  — "reproduce today's world exactly" is the binding constraint on every
  *  default in this file, and every flag here changes a world. */
-#define RSBS_COMBO_FLAGS_ALL_V1 \
-    (RSBS_COMBO_FLAG_SHARED_OCARINA | RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD | RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS)
+#define RSBS_COMBO_FLAGS_ALL_V1                                                                                       \
+    (RSBS_COMBO_FLAG_SHARED_OCARINA | RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD | RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS | \
+     RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG)
 
 // The pinning lock. A renumbering is a RED BUILD rather than a silently
 // re-read save — the same shape RSBS_SHARED_RES_* carries, and the reason
@@ -426,10 +451,13 @@ RSBS_CTX_STATIC_ASSERT(RSBS_ITEMCLASS_PROGRESSION == 0x0001u && RSBS_ITEMCLASS_S
                        "allocate the next free bit and never re-point an allocated one (ADR 0011 "
                        "decision 1.2.1)");
 RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD == 0x02u &&
-                           RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u && RSBS_COMBO_FLAGS_ALL_V1 == 0x07u,
+                           RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u &&
+                           RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG == 0x08u && RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG == 0x10u &&
+                           RSBS_COMBO_FLAGS_ALL_V1 == 0x1Fu,
                        "RSBS_COMBO_FLAG_* bit positions are .redsave format: pinned, append-only, "
                        "allocate the next free bit and never re-point an allocated one (ADR 0011 "
-                       "decision 1.2.1, amended 2026-09-16 for #668, 2026-10-10 for #886 and 2026-11-02 for #1369)");
+                       "decision 1.2.1, amended 2026-09-16 for #668, 2026-10-10 for #886, 2026-11-02 for #1369 "
+                       "and 2026-11-16 for #1652)");
 
 // ============================================================================
 // The cross-game ITEM RULES (#976, epic #975 P1): ComboItemRulesRecord's value
@@ -711,6 +739,29 @@ uint8_t Combo_ComboBlastMaskCooldown(void);
  * without a check for it) leaves this out of its own predicate.
  */
 bool Combo_ComboSharedShuffleCoupled(uint32_t giveCap);
+
+/**
+ * ONE STICK BAG / ONE NUT BAG FOR THE PAIR (#1652, stage A0): does this world
+ * shuffle the Deku Stick Bag (the Deku Nut Bag) for BOTH games? The frozen
+ * record's RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG (_NUT_BAG) bit, which the paired
+ * creation took from Ocarina of Time's own option. False while nothing is
+ * frozen (an unpaired file, the title screen), and never a CVar or a seed
+ * setting: a change of the option after creation does not change the answer.
+ * Read by nothing in production yet; the next stages of #1652 gate Majora's
+ * Mask's capacity, gives, drops, shops and logic on it.
+ */
+bool Combo_ComboStickBagShuffled(void);
+bool Combo_ComboNutBagShuffled(void);
+
+/**
+ * THE CREATION'S BAG DECISIONS (#1652), applied to the combo record a paired
+ * creation is about to freeze: RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG is set exactly
+ * when @p stickBagShuffled (OoT's RSK_SHUFFLE_DEKU_STICK_BAG is on), and
+ * RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG exactly when @p nutBagShuffled, each cleared
+ * otherwise; every other bit is left alone. NULL is a no-op.
+ */
+void Combo_ComboSettingsApplyCreationBagShuffles(ComboSettingsRecord* settings, bool stickBagShuffled,
+                                                 bool nutBagShuffled);
 
 /**
  * The shuffles the AUTHORED rules would make one for the pair, as
@@ -1428,8 +1479,25 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     world can move (OoT placements and what follows from them); #1363's gate
  *     re-pin records which goldens did. The option itself is generated off in a
  *     paired world, so it makes no new world yet.
+ * 6 = the worlds v0.5.1-alpha (generator 5) made that this build makes
+ *     differently: OoT's Death Mountain Crater follows upstream's refactor
+ *     (SoH 7522f31cc and its follow-ups): seven entry regions, one for each
+ *     way into the scene, each with its own heat-timer and health threshold
+ *     to every destination, and twenty RR_DMC_* regions in place of twelve,
+ *     which renumbers the region ids after them (the search and the pool
+ *     builders walk regions in id order); Ganon's Castle's Fire Trial rooms
+ *     are split by door, with FireTimer thresholds in place of the Master
+ *     Quest trial's Goron Tunic test (SoH 139381a0e, 88099e6eb); and the
+ *     Voidout Collection trick (SoH e86e0ff69), whose rows are not additive
+ *     with the trick off: the Gold Skulltula outside Ganon's Castle and the
+ *     Shadow MQ near-boss Gold Skulltula need the Hookshot or Boomerang, the
+ *     Gerudo Valley waterfall wonder items need Swim, Iron Boots or the bean,
+ *     and the Deku Tree's left and right before-boss hearts are an adult's
+ *     with nothing (#1647, PRs #1660, #1662, #1664). DEFAULT worlds move, and
+ *     the goldens move with them. Seed packages written by generator 5 are
+ *     refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 5u
+#define RSBS_GENERATOR_VERSION 6u
 
 /**
  * The fingerprint formula at an explicit generator version:

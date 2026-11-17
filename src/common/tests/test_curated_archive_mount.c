@@ -371,13 +371,11 @@ struct CamStage {
 CamStage CamStageStandIns(const char* dirName, const char* ootHalfPath, const char* mmHalfPath,
                           const char* contestedPath) {
     CamStage stage;
-    std::error_code ec;
-    stage.dir = std::filesystem::absolute(dirName, ec);
-    // Best effort: a previous process's stand-ins are overwritten below either
-    // way. (This process cannot delete them afterwards on Windows -- archives
-    // are never unmounted, so their handles stay open.)
-    std::filesystem::remove_all(stage.dir, ec);
-    std::filesystem::create_directories(stage.dir, ec);
+    // #1641: this process's own folder (test_scratch.h, emptied on first use), not
+    // a fixed name under the working directory every concurrent row shares.
+    // ScratchDirs_EndRow's removal is best effort here: archives are never
+    // unmounted, so on Windows their handles stay open and the folder may stay.
+    stage.dir = rsbs::test::ScratchDir(dirName);
     stage.modPath = (stage.dir / "mm_mod_standin.o2r").generic_string();
     stage.ok = CamWriteZip((stage.dir / kCamOoTHalf).string(), { ootHalfPath }) &&
                CamWriteZip((stage.dir / kCamMMHalf).string(), { mmHalfPath, contestedPath }) &&

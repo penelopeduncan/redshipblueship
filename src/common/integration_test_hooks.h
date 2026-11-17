@@ -40,8 +40,9 @@ typedef enum {
                                                // paths both archives carry, OoT gets back what it had (#981)
     INT_TEST_CROSSING_REFUSED_MM,              // Boot MM with oot.o2r set aside, walk into the Clock Tower
                                                // door, verify MM keeps running outside it (#954)
-    INT_TEST_MM_MOON_CRASH_CYCLE               // Boot MM on its debug save, mark it New Cycle, let the moon
-                                               // fall, verify a new cycle began with progress kept (#1069)
+    INT_TEST_MM_MOON_CRASH_CYCLE               // Boot MM on its debug save, author it from a cleared key (New
+                                               // Cycle, the default since #1671), let the moon fall, verify a
+                                               // new cycle began with progress kept (#1069)
 } IntegrationTestMode;
 
 /**

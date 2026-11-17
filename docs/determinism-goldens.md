@@ -536,10 +536,15 @@ build would turn the oracle back into a no-op.
    Precedents: #1392 bumped to 4 after `v0.4.4-alpha` shipped generator 3; #979,
    #1436 and #1446 re-pinned worlds in the same window and rode generator 4. PR
    #1517 bumped to 5 after `v0.5.0-alpha` shipped generator 4, with no golden
-   moved, for PRs #1507 and #1504, which moved worlds no golden pins. Any
-   world-moving re-pin that lands after it in that window (the #1398 logic
-   backports, still open when this was written) will ride generator 5 and must
-   list its residuals. See "The generator version" below.
+   moved, for PRs #1507 and #1504, which moved worlds no golden pins. The
+   world-moving re-pins that landed after it in that window (the #1398 logic
+   backports among them) rode generator 5 and listed their residuals. PR #1664
+   bumped to 6 after `v0.5.1-alpha` shipped generator 5, for the Death Mountain
+   Crater, Voidout Collection and Fire Trial logic ports of #1647, which move
+   default worlds. The world-moving changes after it in that window, the Moon
+   Crash Behavior default (#1671, PR #1673) and the stick and nut bag gating of
+   Majora's Mask (#1652), ride generator 6 and must list their residuals. See
+   "The generator version" below.
 
 ## The generator version (#1003)
 
@@ -815,7 +820,7 @@ Measured against the pins before it:
 * Rounds: `seed-digest-all-masks` now takes 486 rounds (267 before) and
   `seed-digest-entrances` 465 (272 before); the others keep their counts.
 
-Why no bump, and the residuals: generator 5 has not shipped. A world whose MM songs
+Why no bump, and the residuals: generator 5 had not shipped then. A world whose MM songs
 value changes also changes its MM profile digest and so its fingerprint, so a
 default world made after this change does not share a fingerprint with one made
 before it. The one residual is against unreleased generator-5 builds: a paired
@@ -861,7 +866,7 @@ Measured against the pins before it (`seed-digest-default` unless named):
   that Majora's Mask's songs, held to Termina by the one-way direction, needed,
   and the world only came on attempt 4.
 
-Why no bump, and the residuals: generator 5 has not shipped. Unlike the change
+Why no bump, and the residuals: generator 5 had not shipped then. Unlike the change
 before it, this one moves no input, so a Song Locations world keeps its
 fingerprint while its placements move. That is a residual against the unreleased
 generator-5 builds only: against a build between PR #1543 and this change for
@@ -931,13 +936,13 @@ Measured against the pins before it (`seed-digest-default` unless named):
   to 316) and `seed-digest-excludes-tricks` one (533 to 284). The others keep their
   counts, and `mmPairedAttempt` stays 1 in every seed digest.
 
-Why no bump, and the residuals: generator 5 has not shipped. Unlike the change
+Why no bump, and the residuals: generator 5 had not shipped then. Unlike the change
 before it, this one moves an input. With every new option off, a world's
 `settingsHash`, and so its fingerprint, differ before and after this change. A
 player who shares a seed and settings with someone on a generator-5 build from
 before it gets a different world under a different fingerprint, so both players
-need a build from after this change. Released builds are not affected:
-`v0.5.0-alpha` is generator 4, and its seed packages are already refused. A
+need a build from after this change. Released builds were not affected then:
+`v0.5.0-alpha` was generator 4, and its seed packages were already refused. A
 stored Skip Child Zelda is converted to Start with Zelda's Letter and Skip Waking
 Talon, and both it and a stored Kakariko Gate are cleared, once at boot (config
 version 11). The two keys stay registered and folded, so a value that still
@@ -972,8 +977,58 @@ merchant), and `ComboWarpTravelRounds` T5 and T6 are on `RSBSXW9TRAVEL4` (seeds
 1 to 3 give no raw Soaring fact). `kCsbFLoadBearingFixedChecks` stays empty. A
 player who shares a seed and settings with someone on a generator-5 build from
 before this change gets a different world under a different fingerprint, so both
-players need a build from after it. Released builds are not affected:
-`v0.5.0-alpha` is generator 4.
+players need a build from after it. Released builds were not affected then:
+`v0.5.0-alpha` was generator 4.
+
+Version 6 (2026-11-16, PR #1664). `v0.5.1-alpha` shipped generator 5, and the
+Ocarina of Time logic ports of #1647 make the same seed and settings produce a
+different world than it does, in the default world too:
+
+* The Death Mountain Crater refactor (Ship of Harkinian 7522f31cc and its
+  follow-ups, PR #1664): each of the seven ways into the crater is its own entry
+  region, with its own heat-timer and health threshold to every destination,
+  and twenty `RR_DMC_*` regions replace twelve. The thresholds move what is
+  reachable with few hearts, and the region ids after the crater's are
+  renumbered, so the search and the pool builders walk regions in another order
+  even where reachability does not move. The Bunny Hood counts in the crater
+  under Bunny Hood Effect.
+* The Fire Trial split (Ship of Harkinian 139381a0e and 88099e6eb, PR #1660): both Fire
+  Trial rooms of Ganon's Castle are split by door, and the Master Quest trial's
+  Goron Tunic test becomes heat-timer thresholds, so Fewer Tunic Requirements
+  covers it.
+* The Voidout Collection trick (Ship of Harkinian e86e0ff69, PR #1662,
+  `RT_VOIDOUT_COLLECTION`, off by default). Its rows are not all additive with the trick off: the Gold
+  Skulltula outside Ganon's Castle and the Shadow Temple MQ near-boss Gold
+  Skulltula need the Hookshot or Boomerang, the Gerudo Valley waterfall wonder
+  items need Swim, the Iron Boots or the bean, and the Deku Tree's left and right
+  before-boss hearts are open to an adult with nothing.
+
+Pinned worlds move, so rule 6 asks for this bump, and the goldens are re-pinned in
+the same PR. As for every bump, the label itself moves `comboSettingsHash` in the
+goldens that carry it and no placement field; the placements that move are the
+logic's. Seed packages written by generator 5 are refused, as designed.
+
+The Moon Crash default (2026-11-16, PR #1673; issue #1671), still version 6.
+Majora's Mask's frozen Moon Crash Behavior defaults to New Cycle instead of Last
+Save (an operator ruling; OoTMM's default is Last Save). The identity folds the
+value only when it is not Last Save, so every world created with the default now
+folds `|moonCrash:1`: `mmProfileDigest`, `bagSeed` and `comboSettingsHash` move
+in every golden that carries them, and with the bag seed every placement field.
+Under New Cycle the reset-time guard also counts a moon crash as a way to reset
+time, so Majora's Mask's fill is no longer held back by it; `bagRounds` in
+`seed-digest-default` went from 254 to 502. A profile that sets Moon Crash
+Behavior to Last Save folds nothing and keeps the identity it had. All 13 golden
+files were regenerated. It rides generator 6 with no residual behind an
+unchanged fingerprint: against the generator-6 builds between PR #1664 and this
+one, a default world has a different fingerprint as well as different
+placements. `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in
+the same re-pin (`8F5935FF` to `8F5E9C45`, still 17 hints), and
+`ComboSingleBag`'s leg G seed went from `RSBSSINGLEBAGSHOPS11` to
+`RSBSSINGLEBAGSHOPS12`, the next seed whose world has a crossing Majora's Mask
+item on an Ocarina of Time shop shelf, Business Scrub and merchant.
+`ComboWarpTravelRounds` T5 and T6 went from `RSBSXW9TRAVEL4` to
+`RSBSXW9TRAVEL5`: seed 4's new world gives no raw Soaring fact, and seed 5 is
+the next one whose row passes whole.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

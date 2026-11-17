@@ -194,8 +194,8 @@ extern "C" int LooseModsDiscovery_RunHeadless(void) {
     //   Mm/loosely/        neither: a near-miss name
     //   notes-loose        a FILE, never a folder to mount
     std::error_code ec;
-    const std::filesystem::path root = std::filesystem::current_path(ec) / "rsbs_test_loose_705_discovery";
-    std::filesystem::remove_all(root, ec);
+    // #1641: this process's own folder (test_scratch.h, emptied on first use).
+    const std::filesystem::path root = rsbs::test::ScratchDir("rsbs_test_loose_705_discovery");
     const std::filesystem::path kDirs[] = {
         root / "Loose",         root / "Mm" / "LOOSE",         root / "my-pack" / "loose",
         root / "mmx" / "loose", root / "Mm" / "sub" / "loose", root / "Mm" / "loosely",
@@ -293,8 +293,8 @@ extern "C" int LooseModsMount_RunHeadless(const char* sohArchive, const char* mm
     //   <root>/mm/loose/portVersion            MM loose override
     //   <root>/mm/loose/rsbs705/nested/mm-probe MM loose, nested
     std::error_code ec;
-    const std::filesystem::path root = std::filesystem::current_path(ec) / "rsbs_test_loose_705";
-    std::filesystem::remove_all(root, ec);
+    // #1641: this process's own folder (test_scratch.h, emptied on first use).
+    const std::filesystem::path root = rsbs::test::ScratchDir("rsbs_test_loose_705");
     std::filesystem::create_directories(root / "mm", ec);
     if (ec) {
         printf("[TEST] FAIL(2): could not create %s (%s)\n", root.generic_string().c_str(), ec.message().c_str());

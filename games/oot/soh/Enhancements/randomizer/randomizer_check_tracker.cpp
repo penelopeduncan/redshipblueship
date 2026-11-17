@@ -3144,7 +3144,15 @@ void CheckTrackerWindow::InitElement() {
     sectionId = SaveManager::Instance->AddSaveFunction("trackerData", 1, SaveFile, true, SECTION_PARENT_NONE);
     SaveManager::Instance->AddLoadFunction("trackerData", 1, LoadFile);
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnLoadGame>(CheckTrackerLoadGame);
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnExitGame>([](uint32_t fileNum) { Teardown(); });
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnExitGame>([](uint32_t fileNum) {
+        // #1642: a threaded trackerData save (SetAreaSpoiled's SaveSection, or
+        // the base save's) reads areasSpoiled and walks checksByArea on the
+        // save worker. OnExitGame runs its handlers in no defined order, so
+        // SaveManager's own waiting handler may come after this one: drain the
+        // pool here before Teardown clears what the worker reads.
+        SaveManager::Instance->ThreadPoolWait(); // #1642: drain before Teardown
+        Teardown();
+    });
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnItemReceive>(CheckTrackerItemReceive);
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnTransitionEnd>(CheckTrackerTransition);
     GameInteractor::Instance->RegisterGameHook<GameInteractor::OnShopSlotChange>(CheckTrackerShopSlotChange);

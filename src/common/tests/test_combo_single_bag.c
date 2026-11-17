@@ -2220,7 +2220,7 @@ TestResult ComboSingleBag_Run(void) {
             }
         } restoreCVars{ &savedCVars };
 
-        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS11") == 0,
+        CSB_ASSERT(Rando_HeadlessSeedTest("RSBSSINGLEBAGSHOPS12") == 0,
                    "the paired generation with both shop shuffles on failed");
         // V2c. A new generation forgets the one file 1 consumed.
         {
@@ -2250,7 +2250,9 @@ TestResult ComboSingleBag_Run(void) {
         // at pickup, and seeds 2 to 4 put no MM item on an OoT merchant at all (there are
         // only four merchant hosts). It is RSBSSINGLEBAGSHOPS11 since OoTMM's placement
         // defaults (#1548) moved every world again: seeds 5 to 10 each lack a crossing MM
-        // item on one of the three kinds. When a re-pin moves this world again, pick the
+        // item on one of the three kinds. It is RSBSSINGLEBAGSHOPS12 since the Moon Crash
+        // default (#1671, PR #1673) moved every world: seed 11's world no longer has a
+        // crossing MM item on each kind. When a re-pin moves this world again, pick the
         // next suffix whose world has a crossing MM item on each of the three kinds.
         auto creditedAtPickup = [](const SharedItem& item) {
             uint8_t kind = 0;

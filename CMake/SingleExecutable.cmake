@@ -959,6 +959,10 @@ if(BUILD_TESTING)
     # one shared row, MM's sites taking the pair's one shuffle; and swim (and a
     # coupled MM's button) found in one game held in the other on arrival. ROM-free.
     redship_add_test(NAME SharedSwimRule COMMAND redship --test shared-swim-rule)
+    # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
+    # comboFlags bits from OoT's options (CVar store, display-free bring-up),
+    # through the rollback, a seed package and a real .redsave. ROM-free.
+    redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
     redship_add_test(NAME SharedSwimPairs COMMAND redship --test shared-swim-pairs)
     redship_add_test(NAME SharedSwimArrival COMMAND redship --test shared-swim-arrival)
     # #968: Shared Fire, Ice and Light Arrows, three more families on the lens's
@@ -1499,8 +1503,11 @@ if(BUILD_TESTING)
     # name and a directory under every Save/file<N>.sav, then runs the slot-0
     # subtests of #925 and the foreign-item and .redsave rows of #824 back to back
     # in one process each: a row that still shares its working directory fails.
-    # Display-free and ROM-free.
-    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd)
+    # #1641: a third group (curated-archive-inapp and the rows that, like it,
+    # emptied a fixed folder of their own there) must leave a sentinel folder under
+    # each of those names untouched. Display-free and ROM-free. 240 s: the new
+    # group runs make_redship_otr.py several times when Python is configured.
+    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd TIMEOUT 240)
     # #564 V18 (games/mm/2s2h/mm_save_failure_surface_test.cpp): an MM save that
     # cannot commit (no active slot, a latched slot, a failed write) is shown to
     # the player as a "Save failed:" toast, once per cause, instead of running its
@@ -4546,11 +4553,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # tier); games/mm/2s2h/mm_creation_new_file_test.cpp.
     redship_add_test(NAME MMMoonCrashPoolApplied COMMAND redship --test mm-moon-crash-pool-applied)
 
-    # #1069: MM's Moon Crash Behavior (OoTMM's moonCrash: "Last Save", the
-    # default and the rows above, or "New Cycle"). The frozen value a file plays
+    # #1069: MM's Moon Crash Behavior (OoTMM's moonCrash: "Last Save", the rows
+    # above, or "New Cycle", the default since #1671). The frozen value a file plays
     # under, forced to New Cycle by the Shared Song of Time rule (which never moves
     # MM's profile stamp); and a crash under New Cycle starting a new cycle that
-    # keeps progress and is committed, not the last commit. ROM-free (default
+    # keeps progress and is committed, not the last commit, and (#1671) lands a
+    # Shuffle Time file on its earliest owned half-day. ROM-free (default
     # tier); games/mm/2s2h/mm_creation_new_file_test.cpp.
     redship_add_test(NAME MMMoonCrashCycleForced COMMAND redship --test mm-moon-crash-cycle-forced)
     redship_add_test(NAME MMMoonCrashCycleReset COMMAND redship --test mm-moon-crash-cycle-reset)
@@ -4834,7 +4842,9 @@ crossing to refuse (#954).")
 
     # #1069: the moon falls on a live MM session whose frozen Moon Crash Behavior
     # is New Cycle (OoTMM's moonCrash 'cycle', which the Shared Song of Time rule
-    # forces). MM boots on its debug save outside the Clock Tower, the crash runs
+    # forces; since #1671 the half is authored from a cleared key, so the row
+    # proves New Cycle is the default). MM boots on its debug save outside the
+    # Clock Tower, the crash runs
     # the real Interface_StartMoonCrash and the real crash and Fire Wall
     # cutscenes (the reset cue is the Fire Wall's, in SCENE_SPOT00), and the scene
     # after them must be a NEW cycle (one more three-day reset, the cycle's Deku

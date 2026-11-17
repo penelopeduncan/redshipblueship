@@ -108,6 +108,7 @@ int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 int MM_Rando_Foreign_TestSongCheckIndex(uint16_t randoCheckId);
 }
 
+#include "test_scratch.h"        // src/common — a scratch directory per process (#1641)
 #include "gen_budget.h"          // src/common — the creation's round budget (#950)
 #include "combo_single_bag.h"    // src/common — the single bag's report and commit (lane K11)
 #include "crossing_store.h"      // src/common — the crossings the creation stores (ADR 0010 O7)
@@ -1108,7 +1109,7 @@ extern "C" int OoT_SeedPackage_FileSelectTick(void);
  * @return 0 when the digest was written; a distinct nonzero step code otherwise.
  */
 extern "C" int MM_Rando_HeadlessPlayerPathDigest(const char* seedStr, const char* outPath) {
-    const char* const kSaveDir = "rsbs_test_playerpath_saves";
+    const char* const kSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_playerpath_saves"); // #1641: per process
     rsbs::SaveManager::Instance().SetSaveDirectory(kSaveDir);
     RsbsSave_ResetSlotSessionState();
     RsbsSave_ArmSlotOnCreate(0); // the file select's create seam: slot 0 is the file being created
@@ -1603,7 +1604,7 @@ extern "C" int MM_Rando_HeadlessPairSwitchEntry(void) {
     //    mid-session-edited CVars — a post-creation edit silently changing the
     //    paired world, exactly what the one-game ruling forbids.
     // ----------------------------------------------------------------------
-    const char* const kPhase4SaveDir = "rsbs_test_pairswitch_saves";
+    const char* const kPhase4SaveDir = rsbs::test::ScratchDirCStr("rsbs_test_pairswitch_saves"); // #1641: per process
     rsbs::SaveManager::Instance().SetSaveDirectory(kPhase4SaveDir);
     RsbsSave_ResetSlotSessionState();
     RsbsSave_ArmSlotOnCreate(0); // the create seam: slot 0 is this session's
@@ -2693,7 +2694,7 @@ extern "C" int MM_Rando_HeadlessPairedExhaustion(void) {
     }
 
     // Slot fixture, exactly as MMPairSwitchEntry's Phase 4 stands one up.
-    const char* const kExhaustSaveDir = "rsbs_test_pairedexhaustion_saves";
+    const char* const kExhaustSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_pairedexhaustion_saves"); // #1641: per process
     rsbs::SaveManager::Instance().SetSaveDirectory(kExhaustSaveDir);
     RsbsSave_ResetSlotSessionState();
     RsbsSave_ArmSlotOnCreate(0);
@@ -3137,7 +3138,7 @@ constexpr uint32_t kRoundBudgetScaleHigh = 300u;
  * @return 0 on success, a distinct nonzero step code otherwise.
  */
 extern "C" int MM_Rando_HeadlessRoundBudgetHostScale(void) {
-    const char* const kSaveDir = "rsbs_test_roundbudget_saves";
+    const char* const kSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_roundbudget_saves"); // #1641: per process
     const int up = RoundBudgetBringUp("MM-ROUNDS", kSaveDir);
     if (up != 0) {
         return up;
@@ -3251,7 +3252,7 @@ extern "C" int MM_Rando_HeadlessRoundBudgetHostScale(void) {
  * @return 0 on success, a distinct nonzero step code otherwise.
  */
 extern "C" int MM_Rando_HeadlessGoldenSeedsRoundBudget(void) {
-    const char* const kSaveDir = "rsbs_test_goldenrounds_saves";
+    const char* const kSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_goldenrounds_saves"); // #1641: per process
     const int up = RoundBudgetBringUp("MM-GOLDEN-ROUNDS", kSaveDir);
     if (up != 0) {
         return up;
@@ -3621,7 +3622,7 @@ int CritRenewCreate(const char* ootSeed, bool shuffled) {
  * @return 0 on success, a FAIL code otherwise.
  */
 extern "C" int MM_Rando_HeadlessCriticalRenewables(void) {
-    const char* const kSaveDir = "rsbs_test_critrenew_saves";
+    const char* const kSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_critrenew_saves"); // #1641: per process
     const int up = RoundBudgetBringUp("MM-CRIT-RENEW", kSaveDir);
     if (up != 0) {
         return up;
@@ -4641,7 +4642,7 @@ extern "C" int MM_SeedPackage_TestGoldenWrite(const char* seed, const char* pkgP
  * @return 0, or a distinct nonzero step code.
  */
 extern "C" int MM_SeedPackage_TestGoldenCreate(const char* pkgPath, const char* outPath) {
-    const char* const kSaveDir = "rsbs_test_packagepath_saves";
+    const char* const kSaveDir = rsbs::test::ScratchDirCStr("rsbs_test_packagepath_saves"); // #1641: per process
     rsbs::SaveManager::Instance().SetSaveDirectory(kSaveDir);
     RsbsSave_ResetSlotSessionState();
     RsbsSave_ArmSlotOnCreate(0);
