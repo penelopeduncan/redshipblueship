@@ -7257,7 +7257,8 @@ uint32_t sComboSongOfTimeCsHookId = 0;
 
 /**
  * The combo VB_PLAY_SONG_OF_TIME_CS override (#1671 B0). Forces false for a
- * paired rando half.
+ * paired rando half, whose Song of Time is a start item or, under the Shared
+ * Song of Time rule (#1069), a pool item: never the flashback's reward.
  *
  * Handlers of one VB share one bool and run in hook-id order
  * (mm_game_hooks.h). SkipLearningSongOfTime.cpp's Story registrant is a
@@ -7333,8 +7334,9 @@ extern "C" void MM_Combo_RegisterSongOfTimeCsOverride(void) {
  *       any scene. A combo half is not; South Clock Town still plays the
  *       opening through that call site's own sceneId clause.
  *   VB_PLAY_SONG_OF_TIME_CS (z_player.c) — getting GI_OCARINA_OF_TIME starts
- *       the "learn the Song of Time" flashback. A paired rando half already
- *       holds the Song of Time from its start, so it never plays. See
+ *       the "learn the Song of Time" flashback. A paired rando half gets its
+ *       Song of Time from its start or, under Shared Song of Time, from the
+ *       pool, so it never plays. See
  *       MM_Combo_RegisterSongOfTimeCsOverride for why that one re-registers.
  */
 extern "C" void MM_Combo_RegisterFirstCycleOverrides(void) {

@@ -13,7 +13,8 @@ bool Combo_IsCrossGameHalf(const char* gameId); // src/common/entrance.h
 #endif
 }
 
-// RSBS guard (#1671 B0): a paired rando half already holds the Song of Time, and the combo
+// RSBS guard (#1671 B0): a paired rando half gets its Song of Time from its start or, under
+// Shared Song of Time, from the pool, never from this vanilla give, and the combo
 // override in GameExports_SingleExe.cpp decides this VB for it, so this handler leaves it alone
 // in whichever order the two run. A macro because the test sits inside the COND_VB_SHOULD body,
 // where #ifdef cannot go.
