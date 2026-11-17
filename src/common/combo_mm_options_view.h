@@ -437,8 +437,8 @@ void MM_Rando_ResolveTriforceHalf(int fromSave, uint16_t* outTotal, uint16_t* ou
  * from OoTMM's settings data): what a moon crash does to the paired file.
  * Pinned: the value is .redsave format (RandoSaveInfo.randoSaveMoonCrash).
  */
-#define RSBS_MM_MOON_CRASH_RESET 0 // "Last Save": the file as last saved (OoTMM 'reset', the default)
-#define RSBS_MM_MOON_CRASH_CYCLE 1 // "New Cycle": a new cycle, keeping progress (OoTMM 'cycle')
+#define RSBS_MM_MOON_CRASH_RESET 0 // "Last Save": the file as last saved (OoTMM 'reset', OoTMM's default)
+#define RSBS_MM_MOON_CRASH_CYCLE 1 // "New Cycle": a new cycle, keeping progress (OoTMM 'cycle'; the default, #1671)
 /** Its authoring key, in MM's option namespace beside the RO_* rows. */
 #define RSBS_CVAR_MM_MOON_CRASH "gRando.Options.MoonCrash"
 /**

@@ -157,7 +157,7 @@ bool ItemLocation::GetIsSkipped() {
 }
 
 bool ItemLocation::IsHintable() const {
-    return isHintable;
+    return isHintable && !hidden;
 }
 
 void ItemLocation::SetAsHintable() {
@@ -249,3 +249,17 @@ void ItemLocation::SetAvailable(bool isAvailable_) {
     isAvailable = isAvailable_;
 }
 } // namespace Rando
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+/** TEST BRIDGE (#1667, SoH 7006ef740): what IsHintable() answers for a fresh location
+ *  marked hintable and/or hidden, so a ROM-free row can lock that a hidden placement
+ *  (an unshuffled Master Sword, a vanilla song) is never hintable. */
+extern "C" int OoT_ItemLocation_TestHintableAnswer(int hintable, int hidden) {
+    Rando::ItemLocation loc(RC_TOT_MASTER_SWORD);
+    if (hintable != 0) {
+        loc.SetAsHintable();
+    }
+    loc.SetHidden(hidden != 0);
+    return loc.IsHintable() ? 1 : 0;
+}
+#endif

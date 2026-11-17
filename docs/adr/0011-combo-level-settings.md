@@ -2029,6 +2029,42 @@ Locked by `CrossItemRulesRecord`, `SharedSongOfTimePairs`,
 `MMMoonCrashCycleForced`, `MMMoonCrashCycleReset` and the ROM-staged
 `IntMoonCrashCycle`.
 
+### 2026-11-16 -- Moon Crash Behavior defaults to New Cycle (#1671)
+
+The operator ruled on 2026-11-16 that the end of the cycle resets rather than
+reloading the last save. This entry sits beside the #1069 entry it amends
+rather than at the end, so that it does not collide with other entries added
+in the same week.
+
+- **The default.** The authoring key `gRando.Options.MoonCrash` resolves to
+  "New Cycle" unless it holds exactly 0 ("Last Save"), so a cleared key and an
+  out-of-range value both mean New Cycle (`ResolveMoonCrashFromCVar`). The row
+  on MM Randomizer defaults to New Cycle. Last Save is still a choice. This
+  departs from OoTMM, whose `moonCrash` defaults to `reset`.
+- **The encoding is unchanged.** `randoSaveMoonCrash` still stores 0 for Last
+  Save and 1 for New Cycle. The note in the #1069 entry that zero is "Last
+  Save" still holds for the stored byte: zero is no longer the authoring
+  default.
+- **The identity fold is unchanged.** The term is still folded only when the
+  value is not Last Save, so a default world now folds `|moonCrash:1`, and the
+  profile digest of every default world moved once. Flipping the fold to fold
+  only Last Save would have kept every golden. It was not done, because it
+  would change the recomputed identity of every Last Save file created before
+  this change, which would then no longer match the stamp it was created with.
+- **Logic.** The reset-time guard (`Rando/Logic/ResetTimeGuard.h`) counts a
+  New Cycle crash as a reset, so under the default it no longer limits a fill.
+  Default worlds therefore generate differently, as well as hashing
+  differently. The operator accepted on 2026-11-14 that worlds may move.
+- **Old files.** A file created before this change has Last Save frozen and
+  keeps it. Loading it writes Last Save back into the key, which is the
+  existing "frozen wins at load" behaviour, so a file created after that load
+  inherits Last Save until the row is changed.
+
+Locked by `MMRandoOptions` (the row's default), `MMMoonCrashCycleForced` (the
+resolve, the fold and the four creation legs), `MMMoonCrashCycleReset` (a New
+Cycle crash under Clock Shuffle lands on the earliest owned half-day), and the
+ROM-staged `IntMoonCrashCycle`, which now authors its half from a cleared key.
+
 ### 2026-10-22 -- The record freezes at Generate; file creation binds it from a seed package (#1044)
 
 Decision 4's "frozen at creation" is amended with the one-game ruling it

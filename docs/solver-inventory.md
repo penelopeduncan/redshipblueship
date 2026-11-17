@@ -1004,7 +1004,8 @@ the MM→OoT trigger), with MM arrival at `0xD800`
   OoT→MM arrival lands in the state a save-warp would, Clock Shuffle included.
   The reset guard is NOT implied. `CONNECTION(RR_MAX, true)` on South Clock
   Town (`Central.cpp`) makes the graph assume a free reset everywhere, which is
-  false when "Moon Crash Behavior" is "Last Save" (the default) and MM's
+  false when "Moon Crash Behavior" is "Last Save" (a choice; New Cycle is the
+  default since #1671) and MM's
   Shuffle Ocarina Buttons leaves the held Song of Time unplayable: a fill could
   then ask for late-cycle items before the ones that unlock them (inherited
   from 2Ship). [Corrected 2026-11-02, #645: this paragraph used to say "can

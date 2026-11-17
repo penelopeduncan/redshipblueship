@@ -996,6 +996,9 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Manual Jump", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.ManualJump")
         .Options(CheckboxOptions().Tooltip("Z + A to Jump and B while midair to Jump Attack."));
+    AddWidget(path, "Faster Hookshot", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Player.FasterHookshot")
+        .Options(CheckboxOptions().Tooltip("Speeds up the time it takes for the Hookshot to fire and retract."));
     AddWidget(path, "Dpad Equips", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.DpadEquips")
         .Options(CheckboxOptions().Tooltip("Allows you to equip items to your D-pad."));
@@ -1041,11 +1044,11 @@ void BenMenu::AddEnhancements() {
         .CVar("gEnhancements.Equipment.InvertShieldY")
         .Options(CheckboxOptions().Tooltip(
             "Invert the Y axis while holding the shield so that it moves up with the left stick."));
-    AddWidget(path, "Great Fairy Sword B-Button Attack", WIDGET_CVAR_CHECKBOX)
-        .CVar("gEnhancements.Equipment.GreatFairySwordBButton")
+    AddWidget(path, "Active Item on B", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Equipment.ActiveItemOnB")
         .Options(CheckboxOptions().Tooltip(
-            "When the Great Fairy's Sword is held, pressing B attacks with it instead of drawing "
-            "your equipped sword. The sword can still be put away with A as normal."));
+            "Press B to use the item currently held by Link (Bow, Hookshot, Great Fairy's Sword and Deku Stick). "
+            "Second press on item unequips it."));
     AddWidget(path, "Invert Zora Swim Y Axis", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.InvertZoraSwimY")
         .Options(CheckboxOptions().DefaultValue(true).Tooltip(

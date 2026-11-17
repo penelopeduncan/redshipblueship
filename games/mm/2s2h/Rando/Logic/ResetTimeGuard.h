@@ -8,9 +8,9 @@
  * has no "can the player go back to Day 1" term: every region hangs off the root
  * through `CONNECTION(RR_MAX, true)` on South Clock Town (Regions/Central.cpp),
  * so the graph assumes a free reset at all times. In a paired file that holds
- * only under two conditions. With "Moon Crash Behavior" = "Last Save" (the
- * default, OptionsUiSingleExe.cpp) a crash rolls the file back to its last
- * save, so progress made in a cycle that cannot be reset is lost; and with
+ * only under two conditions. With "Moon Crash Behavior" = "Last Save" (a
+ * choice since #1671 made New Cycle the default, OptionsUiSingleExe.cpp) a crash
+ * rolls the file back to its last save, so progress made in a cycle that cannot be reset is lost; and with
  * "Shuffle Ocarina Buttons" on, the paired start's Song of Time is held but
  * cannot be played until C-Right, A and C-Down are found. Under both, logic that
  * walks out of the arrival area can demand late-cycle items before the earlier

@@ -217,6 +217,10 @@
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted
  *     rows on SoH's Settings > General write them. Each TU is the only registrant of its VB (VB_EARTHQUAKE_ON_DAY_3,
  *     VB_APPLY_SCREEN_DISTORTION), so the probe is the same.
+ *   - 2Ship #1951 adds Player/FasterHookshot to the same table. Its key (gEnhancements.Player.FasterHookshot) is MM's
+ *     own: a hosted row in a Majora's Mask block at the end of SoH's Enhancements > Items > Hookshot section writes
+ *     it. The TU is the only registrant of VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED, so each bucket must rise by
+ *     exactly one.
  *   - 2Ship #1972 adds Cycle/MayorArguesUntilMoonfall to the same table. Its key
  *     (gEnhancements.Cycle.MayorArguesUntilMoonfall) is MM's own: a hosted row in the Majora's Mask block of SoH's
  *     Enhancements > Quality of Life > Time of Day writes it. The TU is the only registrant of
@@ -292,6 +296,20 @@
  * The converting roll spawns a CustomItem through MM_Actor_Spawn, which needs a live actor context, so the leg never
  * takes it; a Bombchu appearing is the playtest's. Nothing ChuDrops.cpp defines is named here.
  *
+ * FASTER HOOKSHOT DOUBLES THE HOOK'S SPEEDS (2Ship #1951) -- FAIL 26. The key-gap table shows that
+ * Player/FasterHookshot.cpp registers; this leg shows what its two registrants answer, through the production
+ * dispatcher (GameInteractor_Should, which is MM_GameHooks_ExecuteVBShould), with the arguments MM_ArmsHook_Wait and
+ * MM_ArmsHook_Shoot (z_arms_hook.c) hand them, on a zeroed stand-in hook with no child and no attached actor:
+ *   - key off: VB_HOOKSHOT_SET_SPEED returns its verdict and leaves the velocity as handed, and VB_HOOKSHOT_SHOOT
+ *     returns its verdict and leaves the hook alone;
+ *   - key on: the free hook's velocity reads 400 (upstream's 200 doubled) and the verdict comes back false; a hook
+ *     about to fire (verdict true) over a zeroed stand-in play state with a stand-in Player is fired by the handler at
+ *     speed 40 with a 13-frame timer, parented to that Player, and the verdict comes back false; a hook already fired
+ *     (verdict false) and a hook with no play state (the single exe's guard) are left alone;
+ *   - key back off: both verdicts come back as handed, so the registrants left with their key.
+ * Not covered: that the overlay calls the dispatcher (its Update needs a live play state and collider), and the
+ * faster shot itself, which is the playtest's. Nothing FasterHookshot.cpp defines is named here.
+ *
  * MAYOR ARGUES UNTIL MOONFALL KEEPS THE MEETING GOING (2Ship #1972) -- FAIL 24. The key-gap table shows that
  * Cycle/MayorArguesUntilMoonfall.cpp registers (one VB_MAYOR_MEETING_END_ON_FINAL_NIGHT handler and one
  * OnActorEntryHalfDaysBits handler for each of En_Muto, En_Baisen, En_Heishi and En_Daiku); this leg shows what they
@@ -320,6 +338,24 @@
  *   - key back off: the water cools again, so the registrant left with its key.
  * The on case is red when the TU is out of the link (nothing answers) and when the body stops clearing the verdict.
  * Nothing HotWaterNeverCools.cpp defines is named here.
+ *
+ * ACTIVE ITEM ON B OVERRIDES B AND PASSES THE SEAM (2Ship #1870, #1578, #1566) -- FAIL 25. The W6-PLAYER table shows
+ * that Equipment/ActiveItemOnB.cpp registers (one handler each on VB_GET_ITEM_ON_BUTTON,
+ * VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON and OnActorUpdate[ACTOR_PLAYER]); this leg drives MM_Player_GetItemOnButton
+ * and Player_Dpad_GetItemOnButton (z_player_lib.c) over a zeroed stand-in play state and player:
+ *   - (a) key off, GFS held, B returns the equipped Kokiri Sword;
+ *   - (b) key on, GFS held, B returns the Great Fairy's Sword;
+ *   - (c) key on, Deku Stick held, B returns the Deku Stick;
+ *   - (d) key on, GFS held as Zora Link, B returns the Kokiri Sword;
+ *   - (e) key on, GFS held with the Blast Mask worn, B returns the Kokiri Sword;
+ *   - (f) key on, GFS held with B empty (ITEM_NONE), B still returns the Great Fairy's Sword (#1578: dispatch sits
+ *     above the item >= ITEM_FD guard);
+ *   - (g) key off, a probe handler on VB_GET_ITEM_ON_BUTTON observes all five button dispatches (B, C-left, C-down,
+ *     C-right with isDpad false, and D-right with isDpad true);
+ *   - (h) key back off, nothing of the TU stays registered and (a) holds again.
+ * The leg never takes the click putaway path (pressing a held item's own C or D-pad button calls func_8082FDC4, which
+ * reads z_player.c's sPlayerControlInput, unset in a headless run) and never aims a first-person item (that path
+ * writes the B slot); both are playtest items. Nothing ActiveItemOnB.cpp defines is named here.
  *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
@@ -368,6 +404,8 @@ extern "C" {
 // Phase 12 (#1215, #1221): the rando arm drive and the gates' flags.
 #include "variables.h"
 #include "overlays/actors/ovl_En_Sth/z_en_sth.h"
+// 2Ship #1951: the hook actor FAIL 26's leg hands VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED.
+#include "overlays/actors/ovl_Arms_Hook/z_arms_hook.h"
 // W6-CYCLE-CHEATS: z_player.c's Deku-glide distance pair, which Longer Deku Flower Glide rewrites.
 extern f32 D_8085D958[2];
 }
@@ -455,7 +493,11 @@ struct RegisterW6Phase {
 constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
 // 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
 constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
+// 2Ship #1870: W6-PLAYER's probe and FAIL 25's leg (see the file header).
+constexpr const char* kActiveItemOnBCVar = "gEnhancements.Equipment.ActiveItemOnB";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
+// 2Ship #1951: the key-gap probe and FAIL 26's leg (see the file header).
+constexpr const char* kFasterHookshotCVar = "gEnhancements.Player.FasterHookshot";
 // 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
 constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
 
@@ -1163,10 +1205,13 @@ const std::vector<SkipKeyProbe>& W6PlayerProbes() {
           "MM Enable Bombchu Drops",
           { { "ShouldActorInit[ACTOR_EN_ITEM00] (Equipment/ChuDrops.cpp)",
               []() { return SettledCountForId<GameInteractor::ShouldActorInit>(ACTOR_EN_ITEM00); }, 1 } } },
-        { "gEnhancements.Equipment.GreatFairySwordBButton",
-          "Great Fairy Sword B-Button Attack",
-          { { "VB_GET_ITEM_ON_BUTTON (Equipment/GreatFairySwordBButton.cpp)", W6_PLAYER_VB_COUNT(VB_GET_ITEM_ON_BUTTON),
-              1 } } },
+        { kActiveItemOnBCVar,
+          "Active Item on B",
+          { { "VB_GET_ITEM_ON_BUTTON (Equipment/ActiveItemOnB.cpp)", W6_PLAYER_VB_COUNT(VB_GET_ITEM_ON_BUTTON), 1 },
+            { "VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON (Equipment/ActiveItemOnB.cpp)",
+              W6_PLAYER_VB_COUNT(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON), 1 },
+            { "OnActorUpdate[ACTOR_PLAYER] (Equipment/ActiveItemOnB.cpp)",
+              []() { return SettledCountForId<GameInteractor::OnActorUpdate>(ACTOR_PLAYER); }, 1 } } },
     };
     return probes;
 }
@@ -1593,6 +1638,11 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
           "Unsheathe Sword Without Slashing",
           { { "VB_USE_HELD_ITEM_AFTER_CHANGE (Player/UnsheatheWithoutSlashing.cpp)",
               GAP_VB_COUNT(VB_USE_HELD_ITEM_AFTER_CHANGE), 1 } } },
+        // 2Ship #1951: MM's own key, written by the hosted Faster Hookshot row.
+        { kFasterHookshotCVar,
+          "Faster Hookshot",
+          { { "VB_HOOKSHOT_SHOOT (Player/FasterHookshot.cpp)", GAP_VB_COUNT(VB_HOOKSHOT_SHOOT), 1 },
+            { "VB_HOOKSHOT_SET_SPEED (Player/FasterHookshot.cpp)", GAP_VB_COUNT(VB_HOOKSHOT_SET_SPEED), 1 } } },
         { "gEnhancements.RemoveExplosiveLimit",
           "Remove Explosive Limit",
           { { "VB_LIMIT_EXPLOSIVES (Items/RemoveExplosiveLimit.cpp)", GAP_VB_COUNT(VB_LIMIT_EXPLOSIVES), 1 } } },
@@ -2077,6 +2127,93 @@ int RunChuDropsRuleLeg() {
     return 0;
 }
 
+// ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds (FAIL 26) ---------------------------------------------
+// See FASTER HOOKSHOT in the file header. The arguments are the ones z_arms_hook.c passes: the hook, and for
+// VB_HOOKSHOT_SET_SPEED a pointer to the velocity MM_ArmsHook_Shoot is about to pick.
+int RunFasterHookshotLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kFasterHookshotCVar, value);
+        ShipInit::Init(kFasterHookshotCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+    };
+    std::vector<char> hookStorage(sizeof(ArmsHook), 0);
+    ArmsHook* const hook = reinterpret_cast<ArmsHook*>(hookStorage.data());
+    std::vector<char> playStorage(sizeof(PlayState), 0);
+    PlayState* const play = reinterpret_cast<PlayState*>(playStorage.data());
+    std::vector<char> playerStorage(sizeof(Player), 0);
+    Player* const player = reinterpret_cast<Player*>(playerStorage.data());
+    play->actorCtx.actorLists[ACTORCAT_PLAYER].first = &player->actor;
+    PlayState* const savedPlay = MM_gPlayState;
+
+    // The velocity a free hook gets, from a sentinel, and the verdict.
+    auto speed = [hook](bool& verdict) {
+        memset(hook, 0, sizeof(ArmsHook));
+        f32 velocity = -1.0f;
+        verdict = GameInteractor_Should(VB_HOOKSHOT_SET_SPEED, true, hook, &velocity);
+        return velocity;
+    };
+    // A fresh hook handed to VB_HOOKSHOT_SHOOT with the verdict over the play state; the hook is left to inspect.
+    auto shoot = [hook](bool verdictIn, PlayState* withPlay) {
+        memset(hook, 0, sizeof(ArmsHook));
+        MM_gPlayState = withPlay;
+        return GameInteractor_Should(VB_HOOKSHOT_SHOOT, verdictIn, hook);
+    };
+    auto untouched = [hook]() {
+        return hook->timer == 0 && hook->actionFunc == nullptr && hook->actor.parent == nullptr &&
+               hook->actor.speed == 0.0f;
+    };
+
+    drive(0);
+    bool speedVerdictOff = false;
+    const f32 velocityOff = speed(speedVerdictOff);
+    const bool shootVerdictOff = shoot(true, play);
+    const bool shootUntouchedOff = untouched();
+
+    drive(1);
+    const size_t armedShoot = SettledCountForId<Vb>(VB_HOOKSHOT_SHOOT);
+    const size_t armedSpeed = SettledCountForId<Vb>(VB_HOOKSHOT_SET_SPEED);
+    bool speedVerdictOn = true;
+    const f32 velocityOn = speed(speedVerdictOn);
+    const bool shootVerdictOn = shoot(true, play);
+    const bool fired = hook->timer == 13 && hook->actionFunc != nullptr && hook->actor.parent == &player->actor &&
+                       hook->actor.speed > 39.9f && hook->actor.speed < 40.1f;
+    const bool shootVerdictFired = shoot(false, play);
+    const bool firedUntouched = untouched();
+    const bool shootVerdictNoPlay = shoot(true, nullptr);
+    const bool noPlayUntouched = untouched();
+
+    drive(0);
+    bool speedVerdictAfter = false;
+    const f32 velocityAfter = speed(speedVerdictAfter);
+    const bool shootVerdictAfter = shoot(true, play);
+    const bool shootUntouchedAfter = untouched();
+    MM_gPlayState = savedPlay;
+
+    RC_ASSERT(speedVerdictOff && velocityOff == -1.0f, 26,
+              "with Faster Hookshot off, VB_HOOKSHOT_SET_SPEED no longer returns the vanilla verdict or changed the "
+              "velocity it was handed");
+    RC_ASSERT(shootVerdictOff && shootUntouchedOff, 26,
+              "with Faster Hookshot off, VB_HOOKSHOT_SHOOT no longer returns the vanilla verdict or changed the hook");
+    RC_ASSERT(armedShoot == 1 && armedSpeed == 1, 26,
+              "turning Faster Hookshot on did not register exactly one VB_HOOKSHOT_SHOOT and one "
+              "VB_HOOKSHOT_SET_SPEED handler (Player/FasterHookshot.cpp is out of the link, or it stacks)");
+    RC_ASSERT(!speedVerdictOn && velocityOn == 400.0f, 26,
+              "with Faster Hookshot on, a free hook's velocity is not 400 (200 doubled), or the vanilla speed "
+              "block still runs");
+    RC_ASSERT(!shootVerdictOn && fired, 26,
+              "with Faster Hookshot on, a hook about to fire was not fired at speed 40 with a 13-frame timer and "
+              "parented to the Player, or the vanilla shot still runs");
+    RC_ASSERT(!shootVerdictFired && firedUntouched, 26,
+              "with Faster Hookshot on, a hook that had already fired was fired again");
+    RC_ASSERT(shootVerdictNoPlay && noPlayUntouched, 26,
+              "with Faster Hookshot on and no play state, VB_HOOKSHOT_SHOOT did not leave the vanilla shot to run");
+    RC_ASSERT(speedVerdictAfter && velocityAfter == -1.0f && shootVerdictAfter && shootUntouchedAfter, 26,
+              "Faster Hookshot's handlers stayed registered after its key went back off");
+    printf("[TEST] 2Ship #1951: Faster Hookshot doubles the hook's speeds only while its key is on\n");
+    return 0;
+}
+
 // ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going (FAIL 24) -------------------------------------
 // See MAYOR ARGUES UNTIL MOONFALL in the file header. The VB verdict is the one the five overlays pass ((day == 3) &&
 // isNight), and the half-day mask is one z_actor.c decodes from an entry that excludes the Final Night.
@@ -2243,6 +2380,140 @@ int RunHotWaterNeverCoolsLeg() {
               "turned into Spring Water");
     RC_ASSERT(coolsAfterOff, 23, "Hot Water Never Cools' handler stayed registered after its key went back off");
     printf("[TEST] 2Ship #1989: Hot Water Never Cools keeps Hot Spring Water hot only while its key is on\n");
+    return 0;
+}
+
+// ---- 2Ship #1870, #1578, #1566: Active Item on B and VB_GET_ITEM_ON_BUTTON seam (FAIL 25) ---------------------------
+// See ACTIVE ITEM ON B in the file header. Copies gSaveContext and MM_gPlayState first and puts both back on every
+// exit, pass or fail.
+int RunActiveItemOnBLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    using OnUpdate = GameInteractor::OnActorUpdate;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kActiveItemOnBCVar, value);
+        ShipInit::Init(kActiveItemOnBCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+        S2H::GameHooks::FlushPendingUnregistrations<OnUpdate>();
+    };
+
+    auto savedSave = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
+    memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
+    PlayState* const savedPlay = MM_gPlayState;
+    struct RestoreGuard {
+        uint8_t* save;
+        PlayState* play;
+        ~RestoreGuard() {
+            CVarSetInteger(kActiveItemOnBCVar, 0);
+            ShipInit::Init(kActiveItemOnBCVar);
+            S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+            S2H::GameHooks::FlushPendingUnregistrations<OnUpdate>();
+            memcpy(&gSaveContext, save, sizeof(gSaveContext));
+            MM_gPlayState = play;
+        }
+    } guard{ savedSave.get(), savedPlay };
+
+    static PlayState play;
+    static Player player;
+    memset(&play, 0, sizeof(play));
+    memset(&player, 0, sizeof(player));
+    memset(&gSaveContext, 0, sizeof(gSaveContext));
+    play.actorCtx.actorLists[ACTORCAT_PLAYER].first = &player.actor;
+    MM_gPlayState = &play;
+
+    auto resetFixture = [&]() {
+        gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
+        gSaveContext.buttonStatus[EQUIP_SLOT_B] = BTN_ENABLED;
+        gSaveContext.bButtonStatus = BTN_ENABLED;
+        CUR_FORM_EQUIP(EQUIP_SLOT_B) = ITEM_SWORD_KOKIRI;
+        player.transformation = PLAYER_FORM_HUMAN;
+        player.currentMask = PLAYER_MASK_NONE;
+        player.heldItemAction = PLAYER_IA_SWORD_TWO_HANDED;
+        player.heldItemId = ITEM_SWORD_GREAT_FAIRY;
+    };
+
+    // (a) key off, GFS held, B: ITEM_SWORD_KOKIRI.
+    drive(0);
+    const size_t baseGetItem = SettledCountForId<Vb>(VB_GET_ITEM_ON_BUTTON);
+    const size_t baseExitFp = SettledCountForId<Vb>(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON);
+    const size_t baseUpdate = SettledCountForId<OnUpdate>(ACTOR_PLAYER);
+    resetFixture();
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(a) with Active Item on B off and GFS held, B did not return ITEM_SWORD_KOKIRI");
+
+    // (b) key on, GFS held, B: ITEM_SWORD_GREAT_FAIRY.
+    drive(1);
+    resetFixture();
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_GREAT_FAIRY, 25,
+              "(b) with Active Item on B on and GFS held, B did not return ITEM_SWORD_GREAT_FAIRY");
+
+    // (c) key on, Deku Stick held, B: ITEM_DEKU_STICK.
+    resetFixture();
+    player.heldItemAction = PLAYER_IA_DEKU_STICK;
+    player.heldItemId = ITEM_DEKU_STICK;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_DEKU_STICK, 25,
+              "(c) with Active Item on B on and Deku Stick held, B did not return ITEM_DEKU_STICK");
+
+    // (d) key on, GFS held, Zora transformation, B: ITEM_SWORD_KOKIRI.
+    resetFixture();
+    player.transformation = PLAYER_FORM_ZORA;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(d) with Active Item on B on and GFS held as Zora Link, B did not return ITEM_SWORD_KOKIRI");
+
+    // (e) key on, GFS held, Blast Mask worn, B: ITEM_SWORD_KOKIRI.
+    resetFixture();
+    player.currentMask = PLAYER_MASK_BLAST;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(e) with Active Item on B on and Blast Mask worn, B did not return ITEM_SWORD_KOKIRI");
+
+    // (f) key on, GFS held, B empty (ITEM_NONE): ITEM_SWORD_GREAT_FAIRY (#1578).
+    resetFixture();
+    CUR_FORM_EQUIP(EQUIP_SLOT_B) = ITEM_NONE;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_GREAT_FAIRY, 25,
+              "(f) with Active Item on B on and B empty, GFS held did not return ITEM_SWORD_GREAT_FAIRY (#1578)");
+
+    // (g) key off, the seam: five dispatches with expected slots and isDpad flags (#1566, #1870).
+    drive(0);
+    resetFixture();
+    struct SeamCall {
+        int slot;
+        bool isDpad;
+    };
+    std::vector<SeamCall> seamCalls;
+    auto seamProbe = [&](GIVanillaBehavior, bool*, va_list originalArgs) {
+        va_list args;
+        va_copy(args, originalArgs);
+        const int slot = va_arg(args, int);
+        (void)va_arg(args, ItemId*);
+        const bool isDpad = (bool)va_arg(args, int);
+        va_end(args);
+        seamCalls.push_back({ slot, isDpad });
+    };
+    const uint32_t probeId = S2H::GameHooks::RegisterForID<Vb>(VB_GET_ITEM_ON_BUTTON, seamProbe);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_LEFT);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_DOWN);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_RIGHT);
+    (void)Player_Dpad_GetItemOnButton(&play, &player, EQUIP_SLOT_D_RIGHT);
+    S2H::GameHooks::UnregisterForID<Vb>(probeId);
+    S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+    const bool seamOk = seamCalls.size() == 5 && seamCalls[0].slot == EQUIP_SLOT_B && !seamCalls[0].isDpad &&
+                        seamCalls[1].slot == EQUIP_SLOT_C_LEFT && !seamCalls[1].isDpad &&
+                        seamCalls[2].slot == EQUIP_SLOT_C_DOWN && !seamCalls[2].isDpad &&
+                        seamCalls[3].slot == EQUIP_SLOT_C_RIGHT && !seamCalls[3].isDpad &&
+                        seamCalls[4].slot == EQUIP_SLOT_D_RIGHT && seamCalls[4].isDpad;
+    RC_ASSERT(seamOk, 25, "(g) VB_GET_ITEM_ON_BUTTON did not pass all five button slots with expected isDpad");
+
+    // (h) key back off: nothing of this TU stays registered, and (a) holds again.
+    drive(0);
+    resetFixture();
+    const bool disarmed = SettledCountForId<Vb>(VB_GET_ITEM_ON_BUTTON) == baseGetItem &&
+                          SettledCountForId<Vb>(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON) == baseExitFp &&
+                          SettledCountForId<OnUpdate>(ACTOR_PLAYER) == baseUpdate;
+    RC_ASSERT(disarmed, 25, "(h) Active Item on B left a handler registered after its key went back off");
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(h) after turning Active Item on B back off, B with GFS held did not return ITEM_SWORD_KOKIRI");
+
+    printf("[TEST] 2Ship #1870: Active Item on B overrides B for scoped human Link and passes the 5-button seam\n");
     return 0;
 }
 
@@ -2874,6 +3145,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
         return rc;
     }
 
+    // ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds -------------------------------------------------
+    if (const int rc = RunFasterHookshotLeg(); rc != 0) {
+        return rc;
+    }
+
     // ---- 2Ship #1972: Mayor Argues Until Moonfall keeps the meeting going on the Final Night --------------------
     if (const int rc = RunMayorArguesUntilMoonfallLeg(); rc != 0) {
         return rc;
@@ -2881,6 +3157,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- 2Ship #1989: Hot Water Never Cools keeps Hot Spring Water from cooling -------------------------------------
     if (const int rc = RunHotWaterNeverCoolsLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- 2Ship #1870, #1578, #1566: Active Item on B overrides B and passes the 5-button seam -----------------------
+    if (const int rc = RunActiveItemOnBLeg(); rc != 0) {
         return rc;
     }
 

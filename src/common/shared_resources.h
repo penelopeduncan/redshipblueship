@@ -758,9 +758,10 @@ int Combo_SharedFamiliesApplyLive(GameId game);
  * Combo_ClearSharedFamilyMembers clears both. Combo_SingleBag_SharedPairs builds
  * the second word's pairs after the first word's.
  *
- * AT PICKUP. A far game's copy of an armed second-word family found in the running
- * game (a surplus copy that crossed) is credited there and then
- * (Combo_SharedFamilies2CreditFarPickup), the #1061 / #1120 rule: never a round trip.
+ * AT PICKUP. A far game's copy of an armed shared family of EITHER word found in
+ * the running game (a surplus copy that crossed) is credited there and then
+ * (Combo_SharedFamilies2CreditFarPickup; #1551 extended it to the first word too,
+ * so the `2` in its name is historical), the #1061 / #1120 rule: never a round trip.
  */
 
 /** Register (or, with NULL @p member, unregister) @p game's copy of the
@@ -839,15 +840,18 @@ uint32_t Combo_SharedFamilies2Harvest(GameId game, uint32_t heldBits);
 uint32_t Combo_SharedFamilies2Owed(GameId game, uint32_t heldBits);
 
 /**
- * CREDIT AT PICKUP for the second word (#1169 XW10; the #1061 / #1120 rule): the
- * item (@p originGame, @p id) was found in @p running, the other game. When it is
- * @p originGame's registered copy of a second-word family the frozen word ARMS,
- * the family is owned now (`owned2 |= bit`, armed bits only), @p running is given
- * its own copy unless it holds it, and the answer is true: the pickup is credited
- * and must NOT cross (the origin game gets its copy at its next arrival, through
- * the apply). False, touching nothing, for anything else: a disarmed family (the
- * extension alone: the item is an ordinary crossing), an unregistered id, an item
- * of the running game. The CALLER gates it on its live-file test (gameMode).
+ * CREDIT AT PICKUP for BOTH family words (#1169 XW10, #1551; the #1061 / #1120
+ * rule; the `2` in the name is historical): the item (@p originGame, @p id) was
+ * found in @p running, the other game. Word 0 (Combo_SharedFamiliesArmed,
+ * sharedFamilyOwned) is tried first, then word 1 (Combo_SharedFamilies2Armed,
+ * sharedFamilyOwned2). When it is @p originGame's registered copy of a family its
+ * frozen word ARMS, the family is owned now (`owned |= bit` / `owned2 |= bit`,
+ * armed bits only), @p running is given its own copy unless it holds it, and the
+ * answer is true: the pickup is credited and must NOT cross (the origin game gets
+ * its copy at its next arrival, through the apply). False, touching nothing, for
+ * anything else: a disarmed family (the extension alone: the item is an ordinary
+ * crossing), an unregistered id, an item of the running game. The CALLER gates it
+ * on its live-file test (gameMode).
  */
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id);
 

@@ -36,6 +36,7 @@ tests/golden/seed-digest-all-masks.txt           # --test rando-determinism, eve
 tests/golden/seed-digest-beatable-only.txt       # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=2 (#1367 R5)
 tests/golden/seed-digest-no-logic.txt            # --test rando-determinism, RSBS_DIAG_CVARS=gCombo.Rando.Logic=1 (#1367 R5)
 tests/golden/seed-digest-new-options.txt         # --test rando-determinism, the clean save break's options on: MM Wonder Items, Hive Drops, Grass Drops, Butterflies; OoT Butterfly Fairies (#1406, #1410, #1407; generated at #1363's gate)
+tests/golden/seed-digest-oot-confined.txt        # --test rando-determinism, RSBS_DIAG_CVARS=gRandoSettings.ShuffleChestMinigame=1,gRandoSettings.ShuffleSilver=1 (#1530; generated at its gate)
 ```
 
 Every golden without `gCombo.Rando.Logic` in its profile is an **All Locations**
@@ -197,7 +198,8 @@ capabilities. Four more profiles, on the same seed and dispatch as
 | `seed-digest-direction-forward` | combo direction FORWARD (OoT items into MM checks only) | a one-way bag: `crossingsInOoT=0`, `bagHomeOnly` non-zero |
 | `seed-digest-beatable-only` (#1367 R5) | `[Both Games] Logic` Beatable Only | the rung without the All Locations pre-flight and every-location exit term (`comboSettings=.../r2`) |
 | `seed-digest-no-logic` (#1367 R5) | `[Both Games] Logic` No Logic | the base rung: no round (`bagRounds=0`), every row drawn from every empty host, OoT generated No Logic with All Locations Reachable off (`comboSettings=.../r1`) |
-| `seed-digest-new-options` (#1363's gate) | MM Shuffle Wonder Items, Shuffle Hive Drops, Shuffle Grass Drops and Shuffle Butterflies, OoT Shuffle Butterfly Fairies, all on | a world holding the checks the clean save break's backports added (#1406, #1410, #1407). OoT Shuffle Silver Rupees is not in it: a paired world generates it off until #1530 lifts that pin, and then it joins the profile and re-pins the file |
+| `seed-digest-new-options` (#1363's gate) | MM Shuffle Wonder Items, Shuffle Hive Drops, Shuffle Grass Drops and Shuffle Butterflies, OoT Shuffle Butterfly Fairies, all on | a world holding the checks the clean save break's backports added (#1406, #1410, #1407). OoT Shuffle Silver Rupees is not in it: #1530 gave it and Shuffle Chest Minigame a profile of their own (next row), so this file did not move |
+| `seed-digest-oot-confined` (#1530's gate) | OoT Shuffle Chest Minigame and Shuffle Silver Rupees, both On | a world whose chest-game keys and silver rupees are bag rows confined to Ocarina of Time's hosts (OoT's local group), with the room's 11 checks and the 80 vanilla silver rupee checks as locations |
 
 **How a profile names its sets.** The harness (`Rando_HeadlessSeedTest`,
 `ReadGoldenProfileSets` in `3drando/menu.cpp`) reads three variables:
@@ -1007,6 +1009,39 @@ Pinned worlds move, so rule 6 asks for this bump, and the goldens are re-pinned 
 the same PR. As for every bump, the label itself moves `comboSettingsHash` in the
 goldens that carry it and no placement field; the placements that move are the
 logic's. Seed packages written by generator 5 are refused, as designed.
+
+The Moon Crash default (2026-11-16, PR #1673; issue #1671), still version 6.
+Majora's Mask's frozen Moon Crash Behavior defaults to New Cycle instead of Last
+Save (an operator ruling; OoTMM's default is Last Save). The identity folds the
+value only when it is not Last Save, so every world created with the default now
+folds `|moonCrash:1`: `mmProfileDigest`, `bagSeed` and `comboSettingsHash` move
+in every golden that carries them, and with the bag seed every placement field.
+Under New Cycle the reset-time guard also counts a moon crash as a way to reset
+time, so Majora's Mask's fill is no longer held back by it; `bagRounds` in
+`seed-digest-default` went from 254 to 502. A profile that sets Moon Crash
+Behavior to Last Save folds nothing and keeps the identity it had. All 13 golden
+files were regenerated. It rides generator 6 with no residual behind an
+unchanged fingerprint: against the generator-6 builds between PR #1664 and this
+one, a default world has a different fingerprint as well as different
+placements. `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in
+the same re-pin (`8F5935FF` to `8F5E9C45`, still 17 hints), and
+`ComboSingleBag`'s leg G seed went from `RSBSSINGLEBAGSHOPS11` to
+`RSBSSINGLEBAGSHOPS12`, the next seed whose world has a crossing Majora's Mask
+item on an Ocarina of Time shop shelf, Business Scrub and merchant.
+`ComboWarpTravelRounds` T5 and T6 went from `RSBSXW9TRAVEL4` to
+`RSBSXW9TRAVEL5`: seed 4's new world gives no raw Soaring fact, and seed 5 is
+the next one whose row passes whole.
+
+Shared item names in hints (2026-11-17, PR #1685; issue #1560), still version 6.
+A hint names a shared item without its game tag ("Skull Mask", not "Skull Mask
+(MM)") when the file's frozen record arms that shared rule. The hint digests
+fold the displayed text, so `seed-digest-all-masks`, the one golden that arms
+the three shared mask rules, moves `mmHintDigest` (`66E8B7F0` to `FD88D4A5`)
+and `mmFreeStoneDigest` (`83E446D5` to `E6169D08`) and nothing else: no
+placement, count or fingerprint field moves in it, and the other twelve goldens
+do not move. A world with no shared rule armed has the hint text it had. The
+residual behind the unchanged fingerprint is hint wording only: two generator-6
+builds on either side of this change place every item the same.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

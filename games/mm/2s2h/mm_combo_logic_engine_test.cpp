@@ -588,7 +588,8 @@ int RunLegs() {
 
     // THE CONTRACT LEGS' SONG OF TIME (ADR 0010 answer O2). This row's save is
     // static-init zeros: it knows no Song of Time and holds no ocarina button,
-    // and its randoSaveMoonCrash reads 0, "Last Save". Under that pair the
+    // and its randoSaveMoonCrash reads 0, "Last Save" (nothing resolves this half
+    // from the key, so #1671's New Cycle default does not reach it). Under that pair the
     // reset-time guard `expand` applies (Rando/Logic/ResetTimeGuard.h) holds MM's
     // answer to the arrival nook, and every leg below would be a question about
     // four checks. They lock the engine's contract over MM's whole graph, so they

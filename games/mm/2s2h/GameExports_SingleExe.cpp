@@ -1128,8 +1128,9 @@ static void MMCrRegisterHooks(void) {
 // ============================================================================
 //
 // MM boots on its debug save outside the Clock Tower (the refused-crossing
-// row's injection), plays kMMMcFramesBeforeCrash live frames, then marks the
-// file New Cycle (randoSaveMoonCrash, the frozen option the creation writes),
+// row's injection), plays kMMMcFramesBeforeCrash live frames, then authors the
+// file's frozen options from a cleared key as a creation does (since #1671 that
+// freezes New Cycle into randoSaveMoonCrash: the default),
 // records what a new cycle must keep (the Bunny Hood, the Song of Healing, a
 // bottle) and what only a new cycle clears (a Deku Playground record and the
 // three-day reset count), and lets the moon fall through the REAL
@@ -1187,7 +1188,15 @@ static void MMMcFail(const char* why) {
 }
 
 static void MMMcCrash(PlayState* play) {
-    gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = RSBS_MM_MOON_CRASH_CYCLE;
+    // #1671: the half is authored the normal way from a cleared key (the
+    // creation's resolution), so the drive proves New Cycle is the DEFAULT.
+    CVarClear(RSBS_CVAR_MM_MOON_CRASH);
+    Rando::Foreign::ResolvePairedProfile(false);
+    if (gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash != RSBS_MM_MOON_CRASH_CYCLE) {
+        MMMcFail("a half authored from a cleared Moon Crash Behavior key did not freeze New Cycle, the default "
+                 "since #1671");
+        return;
+    }
     gSaveContext.save.saveInfo.inventory.items[SLOT_MASK_BUNNY] = ITEM_MASK_BUNNY;
     gSaveContext.save.saveInfo.inventory.items[SLOT_BOTTLE_1] = ITEM_BOTTLE;
     gSaveContext.save.saveInfo.inventory.questItems |= (1u << QUEST_SONG_HEALING);
@@ -6937,14 +6946,14 @@ static int MM_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint1
  * capacity tier (#1120) takes the step path above instead.
  *
  * @return 1 when credited; 0 (nothing touched) when @p item is not a counted
- *         pack or a tier, MM's live save is not a real file, or the kind has no
- *         MM row.
+ *         pack, a tier or an armed far family member, MM's live save is not a
+ *         real file, or the kind has no MM row.
  */
 extern "C" int MM_CreditSharedPickup(const SharedItem* item) {
     uint8_t kind = 0;
     uint16_t units = 0;
-    // #1169 XW10: Ocarina of Time's copy of an ARMED second-word shared family (a
-    // shared warp song's surplus copy that crossed) is owned now and MM is given its
+    // #1169 XW10, #1551: Ocarina of Time's copy of an ARMED shared family of either
+    // word (a shared warp song's or other shared item's far copy) is owned now and MM is given its
     // own copy, with no crossing (Combo_SharedFamilies2CreditFarPickup); with the
     // shared rule off it answers false and the item crosses as before.
     if (item != nullptr && MM_SaveIsLiveFile() &&
