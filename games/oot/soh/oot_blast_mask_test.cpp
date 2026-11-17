@@ -648,6 +648,65 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615EndScene(&sBm1615Play);
 }
 
+/** One B press with Link in `stateFlags1` / `stateFlags3`, on `boots`, holding
+ *  `heldItemAction` (no held actor), the mask worn and its cooldown spent:
+ *  true when the press was the Blast Mask's (B taken and a blast spawned). The
+ *  explosion is stepped out and the cooldown spent again before it returns. */
+static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction) {
+    Bm1615ArmWearer(&sBm1615Player);
+    sBm1615Player.stateFlags1 = stateFlags1;
+    sBm1615Player.stateFlags3 = stateFlags3;
+    sBm1615Player.currentBoots = boots;
+    sBm1615Player.heldItemAction = heldItemAction;
+    sBm1615Player.heldActor = nullptr;
+    Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
+    const bool tookB = (sBm1615Play.state.input[0].press.button & BTN_B) == 0;
+    const EnBom* bomb = Bm1615FindBomb(&sBm1615Play);
+    const bool blasted = tookB && bomb != nullptr && bomb->actor.params == BOMB_EXPLOSION;
+    for (int f = 0; f < 12; f++) {
+        Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
+    }
+    sBm1615Player.stateFlags1 = 0;
+    sBm1615Player.stateFlags3 = 0;
+    sBm1615Player.currentBoots = PLAYER_BOOTS_KOKIRI;
+    sBm1615Player.heldItemAction = PLAYER_IA_NONE;
+    OoT_BlastMask_SetCooldownForTest(0);
+    return blasted;
+}
+
+/** UW0..UW7 (#1701): under water on the Iron Boots (PLAYER_STATE1_IN_WATER kept,
+ *  z_player.c) the blast goes off, as OoTMM's has no water test; swimming still
+ *  refuses it, and so do the hookshot held unfired or in flight there. An armed
+ *  mask still takes B from a held Megaton Hammer, under water as on land. */
+static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
+    Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
+    Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
+    Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 240.0f, 184.0f, -180.0f);
+    const s8 none = PLAYER_IA_NONE;
+
+    Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, none),
+                "UW0 the control: a B press on dry land was not the Blast Mask's", __LINE__);
+    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, none),
+                "UW1 under water on the Iron Boots the Blast Mask did not go off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none),
+                "UW2 swimming (in water without the Iron Boots) the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_HOVER, none),
+                "UW3 swimming on the Hover Boots the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT),
+                "UW4 under water on the Iron Boots with the hookshot held unfired the Blast Mask went off", __LINE__);
+    Bm1615Check(
+        !Bm1615PressInState(PLAYER_STATE1_IN_WATER, PLAYER_STATE3_FLYING_WITH_HOOKSHOT, PLAYER_BOOTS_IRON, none),
+        "UW5 under water on the Iron Boots in hookshot flight the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HAMMER),
+                "UW6 under water on the Iron Boots the armed mask did not take B from a held Megaton Hammer", __LINE__);
+    Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HAMMER),
+                "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
+                "UW7 on dry land with the hookshot held unfired the Blast Mask went off", __LINE__);
+
+    Bm1615EndScene(&sBm1615Play);
+}
+
 static void Bm1615RunGuardHouseSpot(std::vector<uint8_t>& thaBuf, s16 floorY, f32 linkX, f32 linkZ, f32 targetPotX,
                                     f32 targetPotZ) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
@@ -767,6 +826,7 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
         std::vector<uint8_t> thaBuf;
         Bm1615RunShrubLeg(thaBuf);
         Bm1615RunAdultLegs(thaBuf);
+        Bm1615RunWaterLegs(thaBuf);
         Bm1615RunGuardHouseSpot(thaBuf, 0, -100.0f, 50.0f, -80.0f, 50.0f);
         Bm1615RunGuardHouseSpot(thaBuf, -120, 168.0f, -210.0f, 168.0f, -190.0f);
     }

@@ -156,19 +156,29 @@ bool BlastMaskOnButtons() {
  *  only where OoT processes the item buttons with B live: never hanging from or
  *  climbing a ledge (those actions never update the items), and never where
  *  z_parameter.c disables B for the player's state (swimming or diving, a
- *  ladder or vine, a crawlspace). The player's own flags, not buttonStatus[0],
+ *  ladder or vine, a crawlspace; it also dims B on the Iron Boots under water,
+ *  where the sword still swings: see below). The player's own flags, not buttonStatus[0],
  *  which also parks the B item (and a swordless child's marker) on Epona and
  *  in the minigames. Nor (#1647; reachable by an adult, or by a child only
  *  under Timeless Equipment) while the hookshot is held unfired, where
  *  OoT_Player_ProcessItemButtons skips every item button (func_8008F128), or in
- *  hookshot flight. */
+ *  hookshot flight.
+ *  UNDER WATER ON THE IRON BOOTS it goes off (#1701, operator 2026-11-17, as
+ *  OoTMM's Player_ProcessItemButtonsWrapper has no water test): z_player.c keeps
+ *  PLAYER_STATE1_IN_WATER set there, but Link is not swimming (func_808332B8: in
+ *  water without the Iron Boots) and his ground actions, sword included, run.
+ *  Swimming and diving still refuse it. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
                           PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_ITEM_CS | PLAYER_STATE1_IN_CUTSCENE |
                           PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE |
-                          PLAYER_STATE1_CLIMBING_LADDER | PLAYER_STATE1_IN_WATER;
+                          PLAYER_STATE1_CLIMBING_LADDER;
     if (func_8008F128(player) || (player->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT) != 0) {
+        return false;
+    }
+    // func_808332B8 (z_player.c, not exported): swimming or diving refuses, the Iron Boots do not.
+    if ((player->stateFlags1 & PLAYER_STATE1_IN_WATER) != 0u && player->currentBoots != PLAYER_BOOTS_IRON) {
         return false;
     }
     return (player->stateFlags1 & busy) == 0u && (player->stateFlags2 & PLAYER_STATE2_CRAWLING) == 0u &&
