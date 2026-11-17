@@ -29,6 +29,10 @@
  *        masks and the edge computation; the setter refuses before it writes;
  *        the integration row's verdict cleanup clears MM's test buttons before
  *        its no-keys return (pass or fail).
+ *     W7 (#1671 B2) int-mm-shuffle-ocarina's wiring, by source anchor: the
+ *        paired predicate names its variant, and the verdict cleanup runs for
+ *        it before its no-keys return, so its two in-memory keys never outlive
+ *        the run.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++)
  * directly after test_mm_warp_song_play.c, whose anonymous-namespace source
@@ -186,6 +190,18 @@ void MwdCheckAnchors() {
                                     "MM_PadMgr_SetTestButtons(0);", "if (sSoaringKeys.empty())" }),
               "W6: int-mm-warp-song-minuet's verdict cleanup does not clear MM's test buttons before its no-keys "
               "return\n");
+    // W7 (#1671 B2): int-mm-shuffle-ocarina rides the paired first crossing and
+    // sets two keys in memory, so the paired predicate must name its variant
+    // and the verdict cleanup must run for it (a key left set poisons the next
+    // paired row's shipped-defaults check).
+    MWD_CHECK(MwpInOrder(cleanup, { "IntegrationTest_MMShuffleOcarina()", "Combo_ComboItemRules2RevealForTest(0);",
+                                    "if (sSoaringKeys.empty())" }),
+              "W7: the verdict cleanup does not run for int-mm-shuffle-ocarina before its no-keys return, so its "
+              "two keys would outlive the run\n");
+    const std::string paired = MwpFunctionBody(hooks, "bool IntegrationTest_PairedFirstCrossing(void)");
+    MWD_CHECK(MwpInOrder(paired, { "INT_TEST_GAMEPLAY_ROUNDTRIP", "GP_VARIANT_MM_SHUFFLE_OCARINA" }),
+              "W7: IntegrationTest_PairedFirstCrossing does not name GP_VARIANT_MM_SHUFFLE_OCARINA, so "
+              "int-mm-shuffle-ocarina would skip the paired creation\n");
 }
 
 } // namespace

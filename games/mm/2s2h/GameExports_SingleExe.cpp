@@ -1768,6 +1768,9 @@ static RegisterShipInitFunc sPfcBootWriteProbe(MM_PfcBootWriteProbe, { "IS_RANDO
  * and both are held; the Kokiri Sword and the Hero's Shield are MM pool items, so
  * neither is held unless one of the two free starting checks the arrival pays out
  * (RC_STARTING_ITEM_DEKU_MASK, RC_STARTING_ITEM_SONG_OF_HEALING) carries it.
+ * int-mm-shuffle-ocarina (#1671 B2) asks for MM's Shuffle Ocarina: the frozen
+ * world must say so, the start list is the Song of Time alone, and the ocarina
+ * is not held unless one of those free checks carries it.
  * Writes the observed inventory into @p msg either way.
  */
 static bool MM_PairedFirstCrossingCheckStart(char* msg, size_t cap) {
@@ -1796,15 +1799,31 @@ static bool MM_PairedFirstCrossingCheckStart(char* msg, size_t cap) {
     const int bButton = (int)BUTTON_ITEM_EQUIP(0, EQUIP_SLOT_B) & 0xFF;
     const bool swordFree = freeCheckHolds(RI_PROGRESSIVE_SWORD, RI_SWORD_KOKIRI);
     const bool shieldFree = freeCheckHolds(RI_SHIELD_HERO, RI_SHIELD_HERO);
+    const bool wantShuffled = IntegrationTest_MMShuffleOcarina();
+    const bool worldShuffled = Rando::Foreign::ShuffleOcarinaForWorld(RANDO_SAVE_OPTIONS);
+    const bool ocarinaFree = freeCheckHolds(RI_OCARINA, RI_OCARINA);
     snprintf(msg, cap,
              "start list [%s] (RI_OCARINA=%d, RI_SONG_TIME=%d); ocarina=%d songOfTime=%d sword=%d shield=%d B=0x%02X; "
-             "a free starting check holds a sword=%d, the Hero's Shield=%d",
+             "a free starting check holds a sword=%d, the Hero's Shield=%d, the Ocarina=%d; Shuffle Ocarina "
+             "asked=%d, frozen in the world=%d",
              list.c_str(), (int)RI_OCARINA, (int)RI_SONG_TIME, ocarina ? 1 : 0, songOfTime ? 1 : 0, sword, shield,
-             bButton, swordFree ? 1 : 0, shieldFree ? 1 : 0);
+             bButton, swordFree ? 1 : 0, shieldFree ? 1 : 0, ocarinaFree ? 1 : 0, wantShuffled ? 1 : 0,
+             worldShuffled ? 1 : 0);
+    if (wantShuffled || worldShuffled) {
+        return wantShuffled && worldShuffled && start.size() == 1 && ocarinas == 0 && songs == 1 &&
+               (!ocarina || ocarinaFree) && songOfTime &&
+               (swordFree || (sword == EQUIP_VALUE_SWORD_NONE && bButton == (ITEM_NONE & 0xFF))) &&
+               (shieldFree || shield == EQUIP_VALUE_SHIELD_NONE);
+    }
     return start.size() == 2 && ocarinas == 1 && songs == 1 && ocarina && songOfTime &&
            (swordFree || (sword == EQUIP_VALUE_SWORD_NONE && bButton == (ITEM_NONE & 0xFF))) &&
            (shieldFree || shield == EQUIP_VALUE_SHIELD_NONE);
 }
+
+// int-mm-shuffle-ocarina (#1671 B2): the arrival's legs, the Day 3 midnight and
+// moon crash drive (games/mm/2s2h/mm_int_shuffle_ocarina_drive.cpp).
+extern "C" bool MM_IntSoDrive_CheckArrival(PlayState* play);
+extern "C" void MM_IntSoDrive_Frame(PlayState* play);
 
 /**
  * int-paired-first-crossing: the MM arrival's verdict, taken once South Clock
@@ -1970,12 +1989,17 @@ static bool MM_PairedFirstCrossingCheckArrival(int arrival) {
         if (!MM_PairedFirstCrossingCheckStart(start, sizeof(start))) {
             snprintf(msg, sizeof(msg),
                      "MM arrival 1 does not hold the combo's paired start (exactly the Ocarina of Time and the Song "
-                     "of Time; the Kokiri Sword and the Hero's Shield are pool items, #879): %s",
+                     "of Time, or the Song of Time alone under Shuffle Ocarina, #1671; the Kokiri Sword and the "
+                     "Hero's Shield are pool items, #879): %s",
                      start);
             IntegrationTest_GameplayFail(msg);
             return false;
         }
         fprintf(stderr, "[PFC] MM arrival 1 start PASS: %s\n", start);
+        // int-mm-shuffle-ocarina (#1671 B2): the arrival's own legs.
+        if (IntegrationTest_MMShuffleOcarina() && !MM_IntSoDrive_CheckArrival(MM_gPlayState)) {
+            return false;
+        }
     }
     fprintf(stderr, "[PFC] MM arrival %d PASS: \"%s\"\n", arrival, matchLine);
     fprintf(stderr, "[PFC] MM arrival %d PASS: \"%s\"\n", arrival, line);
@@ -2499,6 +2523,12 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
     // Clock Tower door; the drive marks the departure and hands the phase to OoT.
     if (IntegrationTest_MMWarpSongMinuet()) {
         MM_IntMwDrive_Frame(MM_gPlayState);
+        return;
+    }
+    // int-mm-shuffle-ocarina (#1671 B2): Day 3 midnight and the moon crash; the
+    // run ends in MM, so the Clock Tower door is never fired.
+    if (IntegrationTest_MMShuffleOcarina()) {
+        MM_IntSoDrive_Frame(MM_gPlayState);
         return;
     }
     // int-soaring-to-owl (#1169 XW6): the owls the OoT drive soars to, frozen

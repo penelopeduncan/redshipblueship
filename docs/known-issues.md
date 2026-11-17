@@ -1629,6 +1629,33 @@ Since the merges after `v0.2.0-prealpha` every row the #966 audit filed works in
   since Majora's Mask has no Master Quest. In the Cosmetics Editor a rainbow colour holds still in Majora's Mask, and
   Randomize All, Reset All and Lock All skip the Majora's Mask rows.
 
+### Shuffle Ocarina: what is not yet seen in a running game, and what stays as it is ([#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671))
+
+Shuffle Ocarina (Randomizer > MM Randomizer, Additional Items, above Shuffle Ocarina Buttons) puts Majora's Mask's
+Ocarina of Time in the item pool, so Termina starts with the Song of Time and no ocarina, and it makes the moon crash
+New Cycle whatever Moon Crash Behavior says. It is frozen when the file is created. The integration row
+`IntMMShuffleOcarina` drives the start, Day 3 midnight in North Clock Town and the moon crash; nobody has played
+such a file yet. Until someone has:
+
+- **Song teachers without the ocarina.** Nobody has checked that Romani's Epona's Song check, Flat's tomb (the Song
+  of Storms check) and the Song of Soaring engraving give their item to a player who has no ocarina yet. If one does
+  not, find the ocarina first.
+- **Under the No Logic rung** the ocarina may land anywhere, somewhere you cannot reach without it included, as with
+  every item under OoTMM's No Logic.
+- **The Clock Tower roof save.** OoTMM's New Cycle lets you save on the Clock Tower roof; this build does not yet
+  (the "Song of Time" item of "What the Shared Items rules do not do yet", below). With Shuffle Ocarina that applies
+  to every crash.
+- **Leftovers of the first cycle, accepted as they are.** Some of Majora's Mask's actors still look at whether you
+  hold the ocarina, and have no hook to tell them a paired file is past its first cycle. None of them changes what
+  you can reach:
+  - From midnight on the Final Day, the Clock Tower seen from outside South Clock Town (Termina Field, the other
+    districts) keeps its closed look, without the fireworks, until you hold the ocarina. The stairs to the roof are
+    there from midnight whether you hold it or not, and in South Clock Town the tower opens at midnight as usual.
+  - The Happy Mask Salesman chooses the cutscene he plays by whether you hold the ocarina (and the Deku Mask), so
+    without it he may play the one meant for the first cycle.
+  - In a Skull Kid cutscene he is drawn holding the ocarina while you have none.
+  - One of Tatl's prompts, which vanilla stops once you hold the ocarina, can still play.
+
 ### The Song of Time takes your Powder Keg and Magic Beans unless Keep Items on Cycle Reset is on — this is intentional ([#1175](https://github.com/penelopeduncan/redshipblueship/issues/1175), PR [#1194](https://github.com/penelopeduncan/redshipblueship/pull/1194))
 
 A Powder Keg found in Hyrule arrives in Termina as one keg. Majora's Mask's three-day reset then empties it, and any
@@ -1895,7 +1922,8 @@ Each Shared rule on Randomizer > Cross-Game (under Shared Items) is off by defau
   their contents; the difference is deliberate and open to the operator (PR [#1094](https://github.com/penelopeduncan/redshipblueship/pull/1094)).
 - **Masks.** While Ocarina of Time is running, the tracker's Shared mask rows use Majora's Mask's icons.
 - **Song of Time** (PR [#1102](https://github.com/penelopeduncan/redshipblueship/pull/1102)). Moon Crash Behavior's New Cycle (the default since [#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671),
-  and forced by Shared Song of Time) does not yet let you save on the Clock Tower roof, as OoTMM's does. The New
+  and forced by Shared Song of Time and by Majora's Mask's Shuffle Ocarina) does not yet let you save on the Clock
+  Tower roof, as OoTMM's does. The New
   Cycle default itself differs from OoTMM, whose default is Last Save (the operator's 2026-11-16 ruling). Forcing New Cycle under the rule is itself a divergence from OoTMM,
   which credits time resets in its logic instead.
 

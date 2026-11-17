@@ -864,8 +864,8 @@ void IntegrationTest_GameplayFail(const char* reason) {
 void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
     sGameplayVariant = variant;
     if (variant == GP_VARIANT_PAIRED_FIRST_CROSSING || variant == GP_VARIANT_SOARING_TO_OWL ||
-        variant == GP_VARIANT_FOREIGN_HOLD_QUIT || variant == GP_VARIANT_MM_WARP_SONG_MINUET ||
-        variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
+        variant == GP_VARIANT_FOREIGN_HOLD_QUIT || variant == GP_VARIANT_MM_SHUFFLE_OCARINA ||
+        variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
         // Before the first game boots, so the creation's own lines are kept.
         if (!IntegrationTest_StderrCaptureStart()) {
             fprintf(stderr, "[PFC] WARNING: the stderr capture could not start; every line assertion will fail\n");
@@ -879,6 +879,10 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant) {
         }
         if (variant == GP_VARIANT_FOREIGN_HOLD_QUIT) {
             fprintf(stderr, "[PFC] variant: foreign hold survives a quit (#1635), riding the paired first crossing\n");
+        }
+        if (variant == GP_VARIANT_MM_SHUFFLE_OCARINA) {
+            fprintf(stderr, "[PFC] variant: Majora's Mask's Shuffle Ocarina, Day 3 midnight and the moon crash "
+                            "(#1671 B2), riding the paired first crossing\n");
         }
         if (variant == GP_VARIANT_MM_WARP_SONG_MINUET || variant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED) {
             fprintf(stderr, "[PFC] variant: Minuet of Forest played in Majora's Mask, crossing to Ocarina of Time "
@@ -899,7 +903,8 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void) {
 bool IntegrationTest_PairedFirstCrossing(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP &&
            (sGameplayVariant == GP_VARIANT_PAIRED_FIRST_CROSSING || sGameplayVariant == GP_VARIANT_SOARING_TO_OWL ||
-            sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT || sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
+            sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT || sGameplayVariant == GP_VARIANT_MM_SHUFFLE_OCARINA ||
+            sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET ||
             sGameplayVariant == GP_VARIANT_MM_WARP_SONG_MINUET_SHARED);
 }
 
@@ -909,6 +914,10 @@ bool IntegrationTest_SoaringToOwl(void) {
 
 bool IntegrationTest_ForeignHoldQuit(void) {
     return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_FOREIGN_HOLD_QUIT;
+}
+
+bool IntegrationTest_MMShuffleOcarina(void) {
+    return sTestMode == INT_TEST_GAMEPLAY_ROUNDTRIP && sGameplayVariant == GP_VARIANT_MM_SHUFFLE_OCARINA;
 }
 
 bool IntegrationTest_MMWarpSongMinuet(void) {
@@ -1456,7 +1465,7 @@ void IntegrationTest_SoaringSetCVarInt(const char* key, int32_t value) {
 }
 
 void IntegrationTest_SoaringCleanup(void) {
-    if (!IntegrationTest_SoaringToOwl() && !IntegrationTest_MMWarpSongMinuet()) {
+    if (!IntegrationTest_SoaringToOwl() && !IntegrationTest_MMWarpSongMinuet() && !IntegrationTest_MMShuffleOcarina()) {
         return;
     }
     Combo_ComboItemRules2RevealForTest(0);

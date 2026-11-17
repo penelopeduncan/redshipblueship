@@ -146,6 +146,15 @@ typedef struct {
  *       there without saving and reloads again; each host must be recorded once
  *       and redeemed once by the stock crossing that follows, where the run ends
  *       on the return leg (games/oot/soh/oot_int_foreign_hold_quit_drive.cpp).
+ *   GP_VARIANT_MM_SHUFFLE_OCARINA (int-mm-shuffle-ocarina; #1671 lane B2): the
+ *       paired variant with Majora's Mask's Shuffle Ocarina option on and Moon
+ *       Crash Behavior on Last Save (both through their keys, in memory, put
+ *       back at the verdict). IntegrationTest_PairedFirstCrossing() is true for
+ *       it too. The first MM arrival must hold the Song of Time and no ocarina,
+ *       with the first cycle's fast clock off and the force to New Cycle frozen;
+ *       the MM leg then spends Day 3 midnight in North Clock Town (no festival
+ *       warp) and lets the moon fall at 6:00, which must start a new cycle. The
+ *       run ends there, in MM (games/mm/2s2h/mm_int_shuffle_ocarina_drive.cpp).
  *   GP_VARIANT_MM_WARP_SONG_MINUET (int-mm-warp-song-minuet; #1169 XW13): the
  *       paired variant with Majora's Mask's Minuet of Forest rule on (through its
  *       key, never a stored setting). IntegrationTest_PairedFirstCrossing() is
@@ -168,6 +177,7 @@ typedef enum {
     GP_VARIANT_PAIRED_FIRST_CROSSING = 1,
     GP_VARIANT_SOARING_TO_OWL = 2,
     GP_VARIANT_FOREIGN_HOLD_QUIT = 3,
+    GP_VARIANT_MM_SHUFFLE_OCARINA = 6, // numbered after the Minuet pair, listed beside its sibling (#1671 B2)
     GP_VARIANT_MM_WARP_SONG_MINUET = 4,
     GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 5
 } GameplayVariant;
@@ -188,8 +198,8 @@ void IntegrationTest_SetGameplayVariant(GameplayVariant variant);
 GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
 /** True when the running test is int-paired-first-crossing, or
- *  int-soaring-to-owl, int-foreign-hold-quit, int-mm-warp-song-minuet or
- *  int-mm-warp-song-minuet-shared (which ride it). */
+ *  int-soaring-to-owl, int-foreign-hold-quit, int-mm-shuffle-ocarina,
+ *  int-mm-warp-song-minuet or int-mm-warp-song-minuet-shared (which ride it). */
 bool IntegrationTest_PairedFirstCrossing(void);
 
 /** True when the running test is int-soaring-to-owl (#1169 XW6). */
@@ -197,6 +207,9 @@ bool IntegrationTest_SoaringToOwl(void);
 
 /** True when the running test is int-foreign-hold-quit (#1635 step 7). */
 bool IntegrationTest_ForeignHoldQuit(void);
+
+/** True when the running test is int-mm-shuffle-ocarina (#1671 lane B2). */
+bool IntegrationTest_MMShuffleOcarina(void);
 
 /** True when the running test is int-mm-warp-song-minuet (#1169 XW13), or
  *  int-mm-warp-song-minuet-shared (#1169 XW14), which rides it. */

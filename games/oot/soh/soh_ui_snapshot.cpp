@@ -2846,6 +2846,27 @@ void Session::BuildPageList() {
                 p.hovers.push_back("trap-row");
                 p.hoverRows["trap-row"] = std::string("Freeze Traps") + COMBO_MM_OPTIONS_ROW_ID_SUFFIX;
                 p.hoverRowState["trap-row"] = "unpaired";
+                // #1671 B2: Shuffle Ocarina (Additional Items, the row above
+                // Shuffle Ocarina Buttons) and Moon Crash Behavior, whose
+                // tooltip names the option's force to New Cycle, unpaired. Found
+                // by their enumerator and key name, so a renamed label still
+                // finds its row (the row's own place and shape are locked
+                // ROM-free by MMRandoOptions, #1671 B1.7).
+                for (int i = 0; i < Combo_MMOptionCount(); i++) {
+                    const ComboMMOptionDesc* d = Combo_MMOptionAt(i);
+                    if (d == nullptr || d->name == nullptr) {
+                        continue;
+                    }
+                    const std::string name = d->name;
+                    const char* hover = name == "RO_SHUFFLE_OCARINA" ? "shuffle-ocarina-row"
+                                        : name == "MOON_CRASH"       ? "moon-crash-row"
+                                                                     : nullptr;
+                    if (hover != nullptr) {
+                        p.hovers.push_back(hover);
+                        p.hoverRows[hover] = rowName(d);
+                        p.hoverRowState[hover] = "unpaired";
+                    }
+                }
             } else if (p.id == std::string("Randomizer/") + COMBO_MM_TRICKS_PAGE_NAME) {
                 // Unpaired: the model's headline; frozen: the freeze sentence.
                 p.states = { "unpaired", "frozen" };
