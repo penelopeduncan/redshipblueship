@@ -961,9 +961,11 @@ TestResult Test_SharedMasksMerge(void) {
         const uint16_t mmGoronId = (uint16_t)MM_SharedMasksTest_PoolId(0);
         const uint16_t ootGoronId = (uint16_t)OoT_SharedMasksTest_PoolId(0);
 
+        // The single exe's gSaveContext storage is unified: each arm wipes the
+        // other game's live bytes, so the running game of each credit is armed last.
         SmFreezeWorld(&goronOnly);
-        SmArmOoT();
         SmArmMM();
+        SmArmOoT();
         const bool creditedInOoT = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, mmGoronId);
         SM_CHECK(creditedInOoT && Combo_SharedFamiliesOwned() == kSmMasks[0].bit && OoT_SharedMasksTest_Held(0) == 1 &&
                      OoT_SharedMasksTest_TradeSlot() == OoT_SharedMasksTest_ItemOf(0),
@@ -987,8 +989,8 @@ TestResult Test_SharedMasksMerge(void) {
                  MM_SharedMasksTest_Held(0));
 
         SmFreezeWorld(NULL);
-        SmArmOoT();
         SmArmMM();
+        SmArmOoT();
         SM_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, mmGoronId) &&
                      Combo_SharedFamiliesOwned() == 0u && OoT_SharedMasksTest_Held(0) == 0,
                  "(5) with Shared Goron Mask off, MM's Goron Mask was credited at pickup instead of crossing");
