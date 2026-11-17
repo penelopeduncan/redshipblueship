@@ -1,7 +1,154 @@
+# Release notes: next release (draft)
+
+**Status:** draft, not released. There is no tag yet, and a build from `main` still reads `v0.5.1-alpha` in its
+window title until the release candidate changes `src/common/rsbs_version.h`.
+**Version:** planned as `v0.5.2-alpha`, codename "Ellen Charlie" (a `z` bump under [`VERSIONING.md`](VERSIONING.md):
+the film character stays "Ellen" and the code word moves from Bravo to Charlie). Saves stay save format 6; seeds
+come from generator 6.
+**Last release:** `v0.5.1-alpha` ("Ellen Bravo"), tagged 2026-11-16. Its notes follow this section.
+**Covers:** everything merged after `v0.5.1-alpha`. Numbers in parentheses are issues of this project, or pull
+requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are named.
+
+## Since v0.5.1-alpha
+
+### Read this first
+
+- **Seeds come from generator 6.** The same seed and settings can make a different world than `v0.5.1-alpha` made,
+  with the default settings too. The Death Mountain Crater logic rework, the Ganon's Castle Fire Trial rework, the
+  stricter Gold Skulltula outside Ganon's Castle and Majora's Mask's new Moon Crash default each move items (all are
+  described below). A seed package exported by `v0.5.1-alpha` is refused ("Seed package from another generator"), so
+  generate the seed again.
+- **Save files from `v0.5.1-alpha` still open, but there is no way back.** The save format did not change. Once
+  this version saves a `v0.5.1-alpha` file, `v0.5.1-alpha` refuses it ("File made by another build"), so copy
+  `Save/` first if you may go back. If you do open such a file in `v0.5.1-alpha`, that build also renames the
+  file's cross-game save aside, and you must rename it back before this version opens the file again (see "Back
+  up your saves" in the known issues). A file keeps the rules it was created with. An older file keeps the Moon
+  Crash Behavior it was made with: Last Save, unless you chose New Cycle or Shared Song of Time is on, which
+  always makes it New Cycle. In an older file the Deku Stick Bag and Deku Nut Bag shuffles gate Ocarina of Time
+  only, as they did when it was made.
+- **Loading an older file can change your Majora's Mask settings.** Loading a file puts its Majora's Mask settings
+  back into the menu, and a message lists what changed ("Restored for Majora's Mask"). This is not new, but it now
+  matters more: loading any file made before this version turns Shuffle Ocarina off, and if that file was made
+  with Last Save it also sets Moon Crash Behavior to Last Save. The next file you create uses those values, so
+  check them before you create one.
+
+### Cross-game randomizer
+
+- **The Deku Stick Bag and Deku Nut Bag shuffles gate both games** (issue #1652). With Shuffle Deku Stick Bag or
+  Shuffle Deku Nut Bag on, Majora's Mask starts without sticks or nuts too. Until the pair's one bag is found, in
+  either game, Majora's Mask's drops, shops and checks give none. A stick or nut check opened before the bag gives
+  junk instead, and a shuffled shop shelf sells junk once and stocks the item again after the bag. A stick or nut
+  pack from the other game that you find before the bag also becomes junk (a blue rupee in Ocarina of Time). A Deku
+  Baba or a withered Deku Baba still leaves its stick. Before the bag, picking it up plays the "Deku Stick"
+  get-item scene and gives nothing, in both games (issue #1691). A bag found
+  in Termina opens both games at once and fills it (10 sticks or 20 nuts). Logic in both games knows the rule. A
+  world made with either shuffle on differs from the one `v0.5.1-alpha` made.
+- **The tracker's Shared Deku Sticks and Deku Nuts rows show what the running game holds** (issue #1652). Under
+  either bag shuffle they no longer show sticks or nuts as held before the bag is found, and neither do Ocarina of
+  Time's own stick and nut slots in a custom tracker layout.
+- **Shared items are named without a game tag in more places** (issues #1560, #1688). While their Shared rule is
+  on, the shared Gerudo, Skull and Spooky Masks and the shared warp songs (the Song of Soaring and Ocarina of
+  Time's six warp songs) are now named without "(MM)" or "(OoT)" in hints and gossip stones, the
+  spoiler log's playthrough and hint entries, the check trackers, pickup and get-item messages, shop shelves and
+  purchase text in both games, and the item tracker layout editor. Three places keep the tag: the spoiler logs'
+  location lists (the game reads those names back), and, for a shared Song of Soaring, Ocarina of Time's Skulltula
+  house reward hints and its map and compass text.
+- **A shared item found in the other game is yours at once** (issue #1551). This covers the Lens of Truth, Epona's
+  Song, the Song of Storms and the Song of Time, the magic arrows, the shared masks, the shields, the ocarina
+  buttons and swimming, when their shared option is on. If one of these items from the other game turned up where
+  you were playing (for example an extra Hero's Shield from a Majora's Mask shop), it used to travel to its home
+  game first, and the game you were playing got it only after a trip there and back. It is now yours where you pick
+  it up.
+- **Link's Pocket never takes a shared song's only copy** (issue #1552). With Shuffle Songs set to Anywhere and
+  Link's Pocket set to Advancement, the pocket could take Epona's Song, the Song of Storms or the Song of Time when
+  its shared option was on. It no longer does, as under Song Locations and Dungeon Rewards. A world made with those
+  settings differs from the one `v0.5.1-alpha` made.
+- **Shuffle Chest Minigame and Shuffle Silver Rupees work in a paired game** (issue #1530). Both were locked off
+  when Majora's Mask was paired. They can now be turned on: the Treasure Chest Game keys (or key ring) and the
+  silver rupees and pouches are placed in Ocarina of Time only, so they never land on a Majora's Mask check.
+
+### Majora's Mask randomizer
+
+- **Moon Crash Behavior defaults to New Cycle** (issue #1671). When the Moon crashes, a new cycle starts at the
+  Dawn of the First Day and you keep your items and progress, as with the Song of Time. It is always New Cycle when
+  Shuffle Ocarina or the Cross-Game Rule Shared Song of Time is on. Last Save can still be chosen: Majora's Mask
+  then goes back to the file's last save, and what you did in Majora's Mask since then is lost. The choice is part
+  of the world, so the same seed makes a different world than before with the default settings. New Cycle does not
+  yet let you save on the Clock Tower roof (see the known issues).
+- **New option: Shuffle Ocarina** (issue #1671; Randomizer > MM Randomizer, Additional Items; off by default).
+  Majora's Mask then starts without the Ocarina of Time, which joins the item pool and can be found in either game.
+  You keep the starting Song of Time (unless Shared Song of Time is on), but no song can be played until the
+  ocarina is found. The Moon Crash is always New Cycle, so a first cycle without the ocarina cannot lose your
+  progress, and that first cycle plays like any later one: the clock runs at its normal speed, Termina Field is
+  not empty, and midnight of the Final Day does not pull you into the festival scene in Clock Town. Most
+  song checks give their item without the ocarina. The imprisoned monkey, the Goron baby and the Zora eggs need it
+  in hand, and logic knows that. Some first-cycle sights and lines stay as they are in the original game before you
+  get the ocarina; the known issues list them.
+- **Logic: Beneath the Well's Two Spikes Room** (2Ship #1893). With Shuffle Grass Drops on, the two grass checks
+  there now need a Deku Stick or Fire Arrows, as in 2Ship2Harkinian.
+
+### Ocarina of Time randomizer
+
+- **Death Mountain Crater logic follows Ship of Harkinian's rework** (SoH #6294, issue #1647). Each way into the
+  crater has its own heat and heart thresholds, and the Bunny Hood counts there under Bunny Hood Effect. This
+  changes where items can land with the default settings too.
+- **Ganon's Castle Fire Trial logic** (SoH #6336, #6487, issue #1647). Master Quest's Fire Trial now follows Fewer
+  Tunic Requirements, so it no longer always needs the Goron Tunic. In both quests, logic now treats the trial's
+  main room by which door you came in through, and it may expect a Hover Boots route there.
+- **New trick: Voidout Collection** (SoH #6453, issue #1647). With it on, logic can expect you to grab some items
+  by jumping to them even though you void out, when you can survive that (more than one heart, or a fairy in a
+  bottle). It covers wonder items in the castle moat, Zora's River and Gerudo Valley, rupees in Zora's River and
+  the Gerudo Valley Octorok grotto, the Colossus oasis, the Thieves' Hideout kitchen, the Gold Skulltula outside
+  Ganon's Castle, the Deku Tree hearts before the boss, and a few Master Quest Shadow Temple and Ganon's Castle
+  checks. The trick's description also names a Water Temple Gold Skulltula, which logic does not use it for yet.
+  With it off (the default), the Gold Skulltula outside Ganon's Castle now expects the Hookshot or Boomerang, which
+  moves items in default worlds. The Gerudo Valley waterfall wonder items and the Master Quest Shadow Temple Gold
+  Skulltula near the boss also need more than before, and adult Link needs nothing for the left and right Deku Tree
+  hearts before the boss.
+- **A fixed placement stays out of the playthrough and location hints** (SoH #6146). Some checks always keep their
+  own item when they are not shuffled: the Master Sword in the Temple of Time, the Kokiri Sword, vanilla songs,
+  unshuffled Gold Skulltula tokens and a few others. They are no longer listed in the spoiler log's playthrough,
+  and location hints skip them. Vanilla dungeon rewards, maps, compasses, keys and shop items are not affected.
+
+### Trackers
+
+- **Item tracker rows for the cross-game masks** (issue #1570). In a randomizer file, the item tracker shows
+  Majora's Mask's Gerudo, Skull and Spooky Masks and Ocarina of Time's Blast and Stone Masks when their rules are on
+  (Gerudo Mask (MM), Skull Mask (MM), Spooky Mask (MM), Blast Mask (OoT), Stone Mask (OoT)). Each mask has a Shared
+  row while its Shared rule is on, and the layout editor's Shared Masks & Arrows group can now place these five
+  Shared masks. While Ocarina of Time is running, the Shared mask rows use Ocarina of Time's own icons.
+
+### Options and quality of life
+
+- **Majora's Mask: Active Item on B** (2Ship #1870; Enhancements > Items, Equipment; off by default). It replaces
+  Great Fairy Sword B-Button Attack. B uses the item Link has out: the Great Fairy's Sword or a Deku Stick while
+  held, and the Bow or Hookshot while you aim them (not while locked onto a target). Pressing the item's own button
+  again puts it away. It works only as human Link, and not while wearing the Blast, Bremen or Kamaro Mask. The old
+  setting is not carried over, so turn the new one on if you used it.
+- **Majora's Mask: Faster Hookshot** (2Ship #1951; Enhancements > Items, Hookshot; off by default). The Hookshot
+  fires, pulls back and pulls Link along twice as fast. Its reach is unchanged.
+- **Majora's Mask: owl and pause saves load a cleared area as cleared** (2Ship #1952; new option Fix Owl Save Scene
+  Layers in Enhancements > Fixes, Gameplay Fixes; on by default). This matters for a file loaded from Majora's
+  Mask's own file select, for example Great Bay Coast after Gyorg. A crossing or a paired file's load already did
+  this.
+- **Ocarina of Time dev tools and Boss Rush** (from Ship of Harkinian). The Actor Viewer shows category numbers and
+  hexadecimal actor ids and parameters, the Mod Menu has a Clear List button, the Collision Viewer has a new
+  Scarecrow Spawn setting (off until you choose it), and booting into the debug warp screen applies the time
+  savers. Boss Rush sets Link's name in the PAL encoding, so its text boxes read correctly on a non-PAL ROM.
+
+### Fixes
+
+- **Ocarina of Time: the ruined market has its fog and sky with Disable 2D Pre-Rendered Scenes** (from Ship of
+  Harkinian). With that option on (Enhancements > Graphics), the ruined Market, its entrance and the ruined Temple
+  of Time exterior were drawn without their fog or sky.
+- **Ocarina of Time: quitting with Autosave on no longer makes the check tracker forget dungeons** (issue #1689).
+  The autosave made as you quit could be written after the check tracker had already reset itself. A dungeon the
+  tracker had revealed without a collected check (one you had only entered, or one revealed by its map) was then
+  hidden again the next time you loaded the file, until you went back in.
+
 # Release notes: v0.5.1-alpha ("Ellen Bravo")
 
-**Status:** released on 2026-11-16. The tag `v0.5.1-alpha` is on `main` at `ac9ace343`. The next release's draft
-starts above this section when something that players can see merges after the tag.
+**Status:** released on 2026-11-16. The tag `v0.5.1-alpha` is on `main` at `ac9ace343`.
 **Version:** `v0.5.1-alpha`, codename "Ellen Bravo" (`src/common/rsbs_version.h`). Under
 [`VERSIONING.md`](VERSIONING.md) the number is a `z` bump, so it keeps the film character ("Ellen") and takes the
 next NATO phonetic code word, Bravo. A build's window title reads
