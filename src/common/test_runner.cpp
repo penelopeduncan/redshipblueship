@@ -583,7 +583,7 @@ int MM_DeathDeclineAutosave_RunHeadless(void);
 // REAL freeze drivers (Combo_CheckEntranceSwitch and
 // Combo_FreezeActiveGameForHotSwap). Return 0 on pass.
 int MM_SceneFlagFreeze_RunHeadless(void);
-int OoT_SceneFlagFreeze_RunHeadless(void);
+int OoT_SceneFlagFreeze_RunHeadless(const char* sourceDir); // checkout root: #1642's source leg
 // #849 / #803's load leg: after a load, OoT's check statuses follow the save
 // half that was loaded, not the .sav's tracker section. Drives OoT's OnLoadFile
 // seam over a real .redsave; games/oot/soh/oot_check_state_load_test.cpp.
@@ -1656,7 +1656,12 @@ static TestResult Test_MMSceneFlagFreeze(void) {
 }
 
 static TestResult Test_OoTSceneFlagFreeze(void) {
-    return OoT_SceneFlagFreeze_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+#ifndef RSBS_SOURCE_DIR
+    printf("[TEST] FAIL (oot-scene-flag-freeze): RSBS_SOURCE_DIR is undefined\n");
+    return TEST_FAIL;
+#else
+    return OoT_SceneFlagFreeze_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
+#endif
 }
 
 // #661 pool-candidate probe (see the extern decl above). Thin wrapper over the C
