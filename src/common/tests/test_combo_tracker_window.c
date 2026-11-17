@@ -1757,7 +1757,7 @@ int LockL5(void) {
     // None of the three status squares (empty, ticked, skipped) in the row draw.
     CTW_ASSERT(drawRow.find("SQUARE_O") == std::string::npos);
     CTW_ASSERT(win.find("if (headerPresent) {\n        ImGui::Separator();") != std::string::npos);
-    CTW_ASSERT(win.find("haystack = ComboCheckRowSearchText(game, row);") != std::string::npos);
+    CTW_ASSERT(win.find("haystack = ComboCheckRowSearchText(game, listed);") != std::string::npos);
     // #1287: the checkboxes are drawn behind their own keys, and the keys are read.
     const std::string areaToggle = CtwSlice(win, "if (header.onlyCurrentAreaToggle) {", "\n    }");
     CTW_ASSERT(!areaToggle.empty() && areaToggle.find("\"Only Show Current Area\"") != std::string::npos);
