@@ -631,7 +631,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH "gEnhancements.Player.FastFlowerLaunch"
 #define RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY "gEnhancements.Player.FierceDeityPutaway"
 #define RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK "gEnhancements.Equipment.TwoHandedSwordSpinAttack"
-#define RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON "gEnhancements.Equipment.GreatFairySwordBButton"
+// 2Ship #1870: Active Item on B, replacing Great Fairy Sword B-Button Attack.
+#define RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B "gEnhancements.Equipment.ActiveItemOnB"
 #define RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE "gEnhancements.Equipment.BetterPictoMessage"
 // 2Ship #1989: Hot Water Never Cools, an Items row in 2Ship, hosted in the same Items > Equipment "Majora's Mask" block
 // after Better Picto Message. No SoH twin (Ocarina of Time has no Hot Spring Water).
@@ -1147,7 +1148,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH)                        \
     X(RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY)                      \
     X(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)           \
-    X(RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON)             \
+    X(RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B)                       \
     X(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)                   \
     X(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)                      \
     X(RSBS_CVAR_MM_PLAYER_ACTIONS_INSTANT_RECALL)                    \

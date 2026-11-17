@@ -242,6 +242,7 @@ static void CycleToNextArrow(PlayState* play, Player* player) {
     }
 
     MM_Player_InitItemAction(play, player, static_cast<PlayerItemAction>(nextArrow));
+    player->heldItemId = (ItemId)GetBowItemForArrow(static_cast<PlayerItemAction>(nextArrow));
     UpdateEquippedBow(play, nextArrow);
     Audio_PlaySfx(NA_SE_PL_CHANGE_ARMS);
 }

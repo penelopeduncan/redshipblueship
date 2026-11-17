@@ -321,6 +321,24 @@
  * The on case is red when the TU is out of the link (nothing answers) and when the body stops clearing the verdict.
  * Nothing HotWaterNeverCools.cpp defines is named here.
  *
+ * ACTIVE ITEM ON B OVERRIDES B AND PASSES THE SEAM (2Ship #1870, #1578, #1566) -- FAIL 25. The W6-PLAYER table shows
+ * that Equipment/ActiveItemOnB.cpp registers (one handler each on VB_GET_ITEM_ON_BUTTON,
+ * VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON and OnActorUpdate[ACTOR_PLAYER]); this leg drives MM_Player_GetItemOnButton
+ * and Player_Dpad_GetItemOnButton (z_player_lib.c) over a zeroed stand-in play state and player:
+ *   - (a) key off, GFS held, B returns the equipped Kokiri Sword;
+ *   - (b) key on, GFS held, B returns the Great Fairy's Sword;
+ *   - (c) key on, Deku Stick held, B returns the Deku Stick;
+ *   - (d) key on, GFS held as Zora Link, B returns the Kokiri Sword;
+ *   - (e) key on, GFS held with the Blast Mask worn, B returns the Kokiri Sword;
+ *   - (f) key on, GFS held with B empty (ITEM_NONE), B still returns the Great Fairy's Sword (#1578: dispatch sits
+ *     above the item >= ITEM_FD guard);
+ *   - (g) key off, a probe handler on VB_GET_ITEM_ON_BUTTON observes all five button dispatches (B, C-left, C-down,
+ *     C-right with isDpad false, and D-right with isDpad true);
+ *   - (h) key back off, nothing of the TU stays registered and (a) holds again.
+ * The leg never takes the click putaway path (pressing a held item's own C or D-pad button calls func_8082FDC4, which
+ * reads z_player.c's sPlayerControlInput, unset in a headless run) and never aims a first-person item (that path
+ * writes the B slot); both are playtest items. Nothing ActiveItemOnB.cpp defines is named here.
+ *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
  * behind MM_Rando_AssetsReady() because its ResourceMgr_Load*ByName helpers
@@ -455,6 +473,8 @@ struct RegisterW6Phase {
 constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
 // 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
 constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
+// 2Ship #1870: W6-PLAYER's probe and FAIL 25's leg (see the file header).
+constexpr const char* kActiveItemOnBCVar = "gEnhancements.Equipment.ActiveItemOnB";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
 // 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
 constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
@@ -1163,10 +1183,13 @@ const std::vector<SkipKeyProbe>& W6PlayerProbes() {
           "MM Enable Bombchu Drops",
           { { "ShouldActorInit[ACTOR_EN_ITEM00] (Equipment/ChuDrops.cpp)",
               []() { return SettledCountForId<GameInteractor::ShouldActorInit>(ACTOR_EN_ITEM00); }, 1 } } },
-        { "gEnhancements.Equipment.GreatFairySwordBButton",
-          "Great Fairy Sword B-Button Attack",
-          { { "VB_GET_ITEM_ON_BUTTON (Equipment/GreatFairySwordBButton.cpp)", W6_PLAYER_VB_COUNT(VB_GET_ITEM_ON_BUTTON),
-              1 } } },
+        { kActiveItemOnBCVar,
+          "Active Item on B",
+          { { "VB_GET_ITEM_ON_BUTTON (Equipment/ActiveItemOnB.cpp)", W6_PLAYER_VB_COUNT(VB_GET_ITEM_ON_BUTTON), 1 },
+            { "VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON (Equipment/ActiveItemOnB.cpp)",
+              W6_PLAYER_VB_COUNT(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON), 1 },
+            { "OnActorUpdate[ACTOR_PLAYER] (Equipment/ActiveItemOnB.cpp)",
+              []() { return SettledCountForId<GameInteractor::OnActorUpdate>(ACTOR_PLAYER); }, 1 } } },
     };
     return probes;
 }
@@ -2246,6 +2269,140 @@ int RunHotWaterNeverCoolsLeg() {
     return 0;
 }
 
+// ---- 2Ship #1870, #1578, #1566: Active Item on B and VB_GET_ITEM_ON_BUTTON seam (FAIL 25) ---------------------------
+// See ACTIVE ITEM ON B in the file header. Copies gSaveContext and MM_gPlayState first and puts both back on every
+// exit, pass or fail.
+int RunActiveItemOnBLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    using OnUpdate = GameInteractor::OnActorUpdate;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kActiveItemOnBCVar, value);
+        ShipInit::Init(kActiveItemOnBCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+        S2H::GameHooks::FlushPendingUnregistrations<OnUpdate>();
+    };
+
+    auto savedSave = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
+    memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
+    PlayState* const savedPlay = MM_gPlayState;
+    struct RestoreGuard {
+        uint8_t* save;
+        PlayState* play;
+        ~RestoreGuard() {
+            CVarSetInteger(kActiveItemOnBCVar, 0);
+            ShipInit::Init(kActiveItemOnBCVar);
+            S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+            S2H::GameHooks::FlushPendingUnregistrations<OnUpdate>();
+            memcpy(&gSaveContext, save, sizeof(gSaveContext));
+            MM_gPlayState = play;
+        }
+    } guard{ savedSave.get(), savedPlay };
+
+    static PlayState play;
+    static Player player;
+    memset(&play, 0, sizeof(play));
+    memset(&player, 0, sizeof(player));
+    memset(&gSaveContext, 0, sizeof(gSaveContext));
+    play.actorCtx.actorLists[ACTORCAT_PLAYER].first = &player.actor;
+    MM_gPlayState = &play;
+
+    auto resetFixture = [&]() {
+        gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
+        gSaveContext.buttonStatus[EQUIP_SLOT_B] = BTN_ENABLED;
+        gSaveContext.bButtonStatus = BTN_ENABLED;
+        CUR_FORM_EQUIP(EQUIP_SLOT_B) = ITEM_SWORD_KOKIRI;
+        player.transformation = PLAYER_FORM_HUMAN;
+        player.currentMask = PLAYER_MASK_NONE;
+        player.heldItemAction = PLAYER_IA_SWORD_TWO_HANDED;
+        player.heldItemId = ITEM_SWORD_GREAT_FAIRY;
+    };
+
+    // (a) key off, GFS held, B: ITEM_SWORD_KOKIRI.
+    drive(0);
+    const size_t baseGetItem = SettledCountForId<Vb>(VB_GET_ITEM_ON_BUTTON);
+    const size_t baseExitFp = SettledCountForId<Vb>(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON);
+    const size_t baseUpdate = SettledCountForId<OnUpdate>(ACTOR_PLAYER);
+    resetFixture();
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(a) with Active Item on B off and GFS held, B did not return ITEM_SWORD_KOKIRI");
+
+    // (b) key on, GFS held, B: ITEM_SWORD_GREAT_FAIRY.
+    drive(1);
+    resetFixture();
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_GREAT_FAIRY, 25,
+              "(b) with Active Item on B on and GFS held, B did not return ITEM_SWORD_GREAT_FAIRY");
+
+    // (c) key on, Deku Stick held, B: ITEM_DEKU_STICK.
+    resetFixture();
+    player.heldItemAction = PLAYER_IA_DEKU_STICK;
+    player.heldItemId = ITEM_DEKU_STICK;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_DEKU_STICK, 25,
+              "(c) with Active Item on B on and Deku Stick held, B did not return ITEM_DEKU_STICK");
+
+    // (d) key on, GFS held, Zora transformation, B: ITEM_SWORD_KOKIRI.
+    resetFixture();
+    player.transformation = PLAYER_FORM_ZORA;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(d) with Active Item on B on and GFS held as Zora Link, B did not return ITEM_SWORD_KOKIRI");
+
+    // (e) key on, GFS held, Blast Mask worn, B: ITEM_SWORD_KOKIRI.
+    resetFixture();
+    player.currentMask = PLAYER_MASK_BLAST;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(e) with Active Item on B on and Blast Mask worn, B did not return ITEM_SWORD_KOKIRI");
+
+    // (f) key on, GFS held, B empty (ITEM_NONE): ITEM_SWORD_GREAT_FAIRY (#1578).
+    resetFixture();
+    CUR_FORM_EQUIP(EQUIP_SLOT_B) = ITEM_NONE;
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_GREAT_FAIRY, 25,
+              "(f) with Active Item on B on and B empty, GFS held did not return ITEM_SWORD_GREAT_FAIRY (#1578)");
+
+    // (g) key off, the seam: five dispatches with expected slots and isDpad flags (#1566, #1870).
+    drive(0);
+    resetFixture();
+    struct SeamCall {
+        int slot;
+        bool isDpad;
+    };
+    std::vector<SeamCall> seamCalls;
+    auto seamProbe = [&](GIVanillaBehavior, bool*, va_list originalArgs) {
+        va_list args;
+        va_copy(args, originalArgs);
+        const int slot = va_arg(args, int);
+        (void)va_arg(args, ItemId*);
+        const bool isDpad = (bool)va_arg(args, int);
+        va_end(args);
+        seamCalls.push_back({ slot, isDpad });
+    };
+    const uint32_t probeId = S2H::GameHooks::RegisterForID<Vb>(VB_GET_ITEM_ON_BUTTON, seamProbe);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_LEFT);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_DOWN);
+    (void)MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_C_RIGHT);
+    (void)Player_Dpad_GetItemOnButton(&play, &player, EQUIP_SLOT_D_RIGHT);
+    S2H::GameHooks::UnregisterForID<Vb>(probeId);
+    S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+    const bool seamOk = seamCalls.size() == 5 && seamCalls[0].slot == EQUIP_SLOT_B && !seamCalls[0].isDpad &&
+                        seamCalls[1].slot == EQUIP_SLOT_C_LEFT && !seamCalls[1].isDpad &&
+                        seamCalls[2].slot == EQUIP_SLOT_C_DOWN && !seamCalls[2].isDpad &&
+                        seamCalls[3].slot == EQUIP_SLOT_C_RIGHT && !seamCalls[3].isDpad &&
+                        seamCalls[4].slot == EQUIP_SLOT_D_RIGHT && seamCalls[4].isDpad;
+    RC_ASSERT(seamOk, 25, "(g) VB_GET_ITEM_ON_BUTTON did not pass all five button slots with expected isDpad");
+
+    // (h) key back off: nothing of this TU stays registered, and (a) holds again.
+    drive(0);
+    resetFixture();
+    const bool disarmed = SettledCountForId<Vb>(VB_GET_ITEM_ON_BUTTON) == baseGetItem &&
+                          SettledCountForId<Vb>(VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON) == baseExitFp &&
+                          SettledCountForId<OnUpdate>(ACTOR_PLAYER) == baseUpdate;
+    RC_ASSERT(disarmed, 25, "(h) Active Item on B left a handler registered after its key went back off");
+    RC_ASSERT(MM_Player_GetItemOnButton(&play, &player, EQUIP_SLOT_B) == ITEM_SWORD_KOKIRI, 25,
+              "(h) after turning Active Item on B back off, B with GFS held did not return ITEM_SWORD_KOKIRI");
+
+    printf("[TEST] 2Ship #1870: Active Item on B overrides B for scoped human Link and passes the 5-button seam\n");
+    return 0;
+}
+
 // ---- Phase 12 (#1215, #1221): the rando-forced gates the link dropped ------
 // See PHASE 12 in the file header for the attribution of each bucket.
 struct RandoGateCounts {
@@ -2881,6 +3038,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- 2Ship #1989: Hot Water Never Cools keeps Hot Spring Water from cooling -------------------------------------
     if (const int rc = RunHotWaterNeverCoolsLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- 2Ship #1870, #1578, #1566: Active Item on B overrides B and passes the 5-button seam -----------------------
+    if (const int rc = RunActiveItemOnBLeg(); rc != 0) {
         return rc;
     }
 
