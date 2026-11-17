@@ -400,7 +400,7 @@ typedef struct RandoSaveCheck {
 // Outgrowing one is a save format generation (GameExports_SingleExe.cpp
 // static_asserts each _MAX against its capacity). Multiples of 64.
 #define RSBS_MM_SAVE_CHECK_CAP 4096      // randoSaveChecks rows, RC_MAX 2311 at format 6
-#define RSBS_MM_SAVE_OPTION_CAP 128      // randoSaveOptions, RO_MAX 54 at format 6
+#define RSBS_MM_SAVE_OPTION_CAP 128      // randoSaveOptions, RO_MAX 54 at format 6, 67 since #1671
 #define RSBS_MM_SAVE_TRICK_CAP 128       // randoSaveTricks, MMRT_MAX 86 at format 6
 #define RSBS_MM_RANDO_INF_CAP 256        // randoInf flags, RANDO_INF_MAX 78 at format 6
 #define RSBS_MM_RANDO_EVENT_CAP 256      // randoEvents, RE_MAX 83 at format 6

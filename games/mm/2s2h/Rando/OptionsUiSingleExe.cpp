@@ -658,6 +658,15 @@ const OptionUi kOptionUi[] = {
     { RO_SHUFFLE_ENEMY_DROPS, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Enemy Drops", "Shuffles the first drop from a non-boss enemy.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
+    // #1671: the combo's own row (2Ship has none; upstream takes the Ocarina out
+    // of its Starting Items list). Frozen per file in randoSaveOptions; it decides
+    // the paired start (Foreign.cpp, PairedStartingItemsForWorld) and forces New
+    // Cycle (MM_Rando_FrozenMoonCrash), both read from the half in play, so LIVE.
+    { RO_SHUFFLE_OCARINA, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
+      "Shuffle Ocarina",
+      "Adds the Ocarina of Time to the item pool; Majora's Mask otherwise starts with it. No song can be played "
+      "until it is found. The Moon Crash is then always New Cycle.",
+      0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
     { RO_SHUFFLE_OCARINA_BUTTONS, COMBO_MM_GROUP_ADDITIONAL_ITEMS, COMBO_MM_WIDGET_CHECKBOX,
       "Shuffle Ocarina Buttons", "Ocarina buttons become items; a song is unplayable until its notes are found.",
       0, 0, nullptr, 0, COMBO_MM_LIVENESS_LIVE, "" },
@@ -907,8 +916,8 @@ std::vector<ComboMMOptionDesc>& DescriptorTable() {
     moonCrash.label = "Moon Crash Behavior";
     moonCrash.tooltip = "What happens when the Moon crashes. New Cycle (default): a new cycle starts at the Dawn of "
                         "the First Day and you keep your items and progress, as with the Song of Time. Last Save: "
-                        "everything since you last saved in Majora's Mask is lost. Always New Cycle when the "
-                        "Cross-Game Rule Shared Song of Time is on.";
+                        "everything since you last saved in Majora's Mask is lost. Always New Cycle when Shuffle "
+                        "Ocarina or the Cross-Game Rule Shared Song of Time is on.";
     moonCrash.group = (uint8_t)COMBO_MM_GROUP_LOGIC;
     moonCrash.widget = (uint8_t)COMBO_MM_WIDGET_COMBO;
     moonCrash.defaultValue = RSBS_MM_MOON_CRASH_CYCLE;

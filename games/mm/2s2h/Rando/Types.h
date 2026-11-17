@@ -3391,6 +3391,12 @@ typedef enum {
     // (hookshotAnywhereMm, data.ts:1690-1702), RandoOptionHookshotAnywhere values.
     // The identity strings fold it only when it is not Off (0, the default).
     RO_HOOKSHOT_ANYWHERE,
+    // Appended for the same reason (#1671): the combo's Shuffle Ocarina for
+    // Majora's Mask, a yes/no (RO_GENERIC_*). 2Ship has no such row: upstream
+    // takes the Ocarina out of the Starting Items list, and the paired start is a
+    // constant here (Foreign.cpp, PairedStartingItemsForWorld). The identity
+    // strings fold it only when it is on (0, the default).
+    RO_SHUFFLE_OCARINA,
     RO_MAX,
 } RandoOptionId;
 

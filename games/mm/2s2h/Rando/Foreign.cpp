@@ -119,8 +119,9 @@ std::string PairedInputSeedString() {
  *  (#1427) are off at RO_PRICES_VANILLA, their default, the dungeon item
  *  placements (#1361, #1548) at RO_DUNGEON_ITEM_ANYWHERE, the song placement
  *  (#1362) at RO_SONG_SHUFFLE_ANYWHERE, Shuffle Wonder Items (#1406), hive
- *  drops (#1410), butterflies (#1407), the #1403 pool/song rows, and Hookshot
- *  Anywhere (#1574, RO_HOOKSHOT_ANYWHERE_OFF) at 0, theirs. */
+ *  drops (#1410), butterflies (#1407), the #1403 pool/song rows, Hookshot
+ *  Anywhere (#1574, RO_HOOKSHOT_ANYWHERE_OFF) and Shuffle Ocarina (#1671,
+ *  RO_GENERIC_NO) at 0, theirs. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
@@ -131,7 +132,7 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
            randoOptionId == RO_SKULLTULA_SHUFFLED || randoOptionId == RO_STRAY_FAIRIES_MAX ||
            randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME || randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME ||
            randoOptionId == RO_SHUFFLE_SONG_SUN || randoOptionId == RO_SHUFFLE_SONG_SARIA ||
-           randoOptionId == RO_HOOKSHOT_ANYWHERE;
+           randoOptionId == RO_HOOKSHOT_ANYWHERE || randoOptionId == RO_SHUFFLE_OCARINA;
 }
 
 /** #1403/#1548: whether 0 in an appended option's persisted slot means "not yet
@@ -822,7 +823,31 @@ std::vector<RandoItemId> PairedStartingItemsForWorld() {
     if (Combo_ComboCrossItemRule(RSBS_XITEM_SHARED_SONG_TIME)) {
         items.erase(std::remove(items.begin(), items.end(), RI_SONG_TIME), items.end());
     }
+    // #1671: under the frozen Shuffle Ocarina option the Ocarina leaves the start.
+    // Nothing else is needed for the pool: GeneratePools removes a starting item
+    // from it, so the Clock Tower roof check's vanilla RI_OCARINA (Checks.cpp)
+    // now stays pooled and the fill places it. Upstream 2Ship's mechanism, with
+    // its Starting Items list replaced by this constant. The identity term stays
+    // PairedStartingItems: the option folds as its own appended term instead.
+    if (ShuffleOcarinaForWorld(RANDO_SAVE_OPTIONS)) {
+        items.erase(std::remove(items.begin(), items.end(), RI_OCARINA), items.end());
+        // The Song of Time is KEPT (design default, 2026-11-16; the operator has
+        // not ruled on it): to shuffle it with the ocarina, this is the one line.
+        constexpr bool kShuffleOcarinaKeepsSongOfTime = true;
+        if constexpr (!kShuffleOcarinaKeepsSongOfTime) {
+            items.erase(std::remove(items.begin(), items.end(), RI_SONG_TIME), items.end());
+        }
+    }
     return items;
+}
+
+bool ShuffleOcarinaForWorld(const uint32_t* options) {
+    // No Vanilla-logic exception, unlike the coupled rows below: this is MM's own
+    // option, and MM's own shuffle rows take their own option before any Vanilla
+    // test too (CoupledShuffleForWorld). Under Vanilla logic the ocarina still
+    // leaves the start and sits on its roof check, so the option is never vacuous
+    // there; and a paired world is never Vanilla anyway (PairedLogicForRung).
+    return options != nullptr && options[RO_SHUFFLE_OCARINA] != RO_GENERIC_NO;
 }
 
 /** MM's own shuffle @p own, or the pair's one shuffle of @p giveCap's item from
@@ -1852,6 +1877,16 @@ extern "C" int MM_Rando_FrozenMoonCrash(void) {
     // can_reset_time_impl counts setting(moonCrash, cycle) as one). The combo
     // record is frozen at creation, so this is the world's, never a key's.
     if (Combo_ComboCrossItemRule(RSBS_XITEM_SHARED_SONG_TIME)) {
+        return RSBS_MM_MOON_CRASH_CYCLE;
+    }
+    // The frozen Shuffle Ocarina option FORCES it too (#1671): MM then starts
+    // without its ocarina, so the Song of Time cannot be played until the ocarina
+    // is found, and the crash is the only reset there is. The option is frozen in
+    // the half's own options at creation, so this is the world's, never a key's;
+    // the frozen byte stays the player's choice and the identity stays
+    // force-independent (the option folds as its own term). Read only for a
+    // randomizer half: a vanilla save's options array is not a profile.
+    if (IS_RANDO && Rando::Foreign::ShuffleOcarinaForWorld(RANDO_SAVE_OPTIONS)) {
         return RSBS_MM_MOON_CRASH_CYCLE;
     }
     return gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_CYCLE

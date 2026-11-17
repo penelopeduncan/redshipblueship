@@ -163,6 +163,7 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_SONG_SARIA,
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
     RO_HOOKSHOT_ANYWHERE,
+    RO_SHUFFLE_OCARINA,
 };
 
 /** The five options and MM's host pool (with its cached groups) as the row found
@@ -591,6 +592,30 @@ extern "C" int MM_PlacementConfinement_RunHeadless(void) {
                       term.c_str());
             MPC_CHECK(identity == base + term + baseIdentity.substr(base.size()),
                       "(e) %s=%u must add '%s' to the identity string", name, (unsigned)value, term.c_str());
+        }
+        // #1671 (B1.2): RO_SHUFFLE_OCARINA folds as exactly '|RO_SHUFFLE_OCARINA:1'
+        // when on, into both strings, and adds nothing when off: an option-off
+        // world hashes the strings it hashed before the option existed (the
+        // positional part never sees an appended option, checked above), so its
+        // digest is the base's. Both strings at 0 are the all-zero ones verbatim.
+        {
+            const char* name = Rando::StaticData::Options[RO_SHUFFLE_OCARINA].name;
+            std::vector<uint32_t> off(RO_MAX, 0u);
+            off[RO_SHUFFLE_OCARINA] = RO_GENERIC_NO;
+            MPC_CHECK(Rando::Foreign::TestFoldOptionsString(off.data()) == base &&
+                          Rando::Foreign::TestFoldIdentityString(off.data()) == baseIdentity &&
+                          baseIdentity.find(name) == std::string::npos,
+                      "(e) %s=0 changed a fold string: every option-off world's identity would move", name);
+            std::vector<uint32_t> on(RO_MAX, 0u);
+            on[RO_SHUFFLE_OCARINA] = RO_GENERIC_YES;
+            const std::string term = std::string("|") + name + ":1";
+            const std::string seed = Rando::Foreign::TestFoldOptionsString(on.data());
+            const std::string identity = Rando::Foreign::TestFoldIdentityString(on.data());
+            printf("[TEST] (e) %s on adds '%s': seed +%zu chars, identity +%zu chars\n", name, term.c_str(),
+                   seed.size() - base.size(), identity.size() - baseIdentity.size());
+            MPC_CHECK(seed == base + term, "(e) %s=1 must add exactly '%s' to the seed string", name, term.c_str());
+            MPC_CHECK(identity == base + term + baseIdentity.substr(base.size()),
+                      "(e) %s=1 must add exactly '%s' to the identity string", name, term.c_str());
         }
     }
 

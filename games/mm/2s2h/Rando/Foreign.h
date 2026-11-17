@@ -49,9 +49,19 @@ std::vector<RandoItemId> PairedStartingItems();
  *  (OoTMM's sharedSongTime) the pair has ONE Song of Time, a pool item, so MM's
  *  start drops it and keeps the Ocarina. The identity term stays
  *  PairedStartingItems (rule-independent): MM_Rando_ComputeProfileStamp runs
- *  before the combo freeze. Every consumer that GENERATES (OnFileCreate's paired
- *  start, the measurement bridges) reads this one. */
+ *  before the combo freeze. Under the frozen Shuffle Ocarina option (#1671,
+ *  ShuffleOcarinaForWorld over RANDO_SAVE_OPTIONS) the start also drops the
+ *  Ocarina, which then stays in the pool on its Clock Tower roof check; the
+ *  Song of Time stays in the start. Every consumer that GENERATES (OnFileCreate's
+ *  paired start, the measurement bridges) reads this one, after the profile is
+ *  resolved into RANDO_SAVE_OPTIONS. */
 std::vector<RandoItemId> PairedStartingItemsForWorld();
+
+/** SHUFFLE OCARINA (#1671; operator request 2026-11-16): does this MM world put its
+ *  Ocarina of Time in the item pool instead of the paired start? Its own frozen
+ *  RO_SHUFFLE_OCARINA in @p options (RANDO_SAVE_OPTIONS, or a creation-time
+ *  resolution of the profile), with no Vanilla-logic exception. */
+bool ShuffleOcarinaForWorld(const uint32_t* options);
 
 /** ONE SHUFFLE FOR THE PAIR (#1369; operator ruling 2026-11-02): does this MM world
  *  shuffle the swim ability? Its own frozen RO_SHUFFLE_SWIM, or the frozen Shared
