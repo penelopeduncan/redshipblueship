@@ -286,7 +286,8 @@
 
 #include "Rando/Rando.h"
 #include "Rando/Types.h"
-#include "Rando/Foreign.h" // Rando::Foreign::ResolvePairedProfile — measurement bridge only
+#include "Rando/Foreign.h"         // Rando::Foreign::ResolvePairedProfile — measurement bridge only
+#include "Rando/StickNutBagGate.h" // #1652 A1: MM_Combo_ApplyPairedBagBirth for the measured profile
 #include "Rando/StaticData/StaticData.h"
 #include "Rando/Logic/Logic.h"
 #include "Rando/Logic/ResetTimeGuard.h" // ADR 0010 answer O2: the reset-time guard `expand` applies (A8)
@@ -670,8 +671,12 @@ int sCounterClamps = 0; // copies a clamp absorbed; the lock reads it
  * copy at tier 0 IS the bag: what OoT's RG_DEKU_STICK_BAG / RG_DEKU_NUT_BAG give
  * does (randomizer.cpp: tier 1, the item in its slot, ammo to capacity). At tier 1
  * or more it changes nothing: MM's logic reads sticks and nuts only as HAS_ITEM
- * (Logic.h), never their tier, and MM has one capacity step. A new MM save is
- * born at tier 1 (z_sram_NES.c), so until #1652 A1 every credit is a no-op.
+ * (Logic.h), never their tier, and MM has one capacity step. A paired MM half is
+ * born at tier 0 under the frozen shuffle (#1652 A1, MM_Combo_ApplyPairedBagBirth,
+ * the round's starting save), and until the credit arrives its stick and nut hosts
+ * give junk (ConvertItem.cpp) and its give refuses them, so this is the only thing
+ * that opens a stick- or nut-gated check. With the shuffle off the half is born at
+ * tier 1 and the stand-in is never credited (Combo_SharedCreditStandIn).
  *
  * It writes gSaveContext directly, NOT through MM_Item_Give: A1's refusal of
  * sticks and nuts at tier 0 must not block the bag itself, and Rando::GiveItem's
@@ -2367,6 +2372,7 @@ extern "C" int MM_ComboLogic_ApplyShippedProfile(void) {
         gRegEditor = &sMeasurementRegEditor;
     }
     MM_Sram_InitNewSave();
+    MM_Combo_ApplyPairedBagBirth(); // #1652 A1: the production birth (OnFileCreate.cpp), from the same helper
     gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
     Rando::Foreign::ResolvePairedProfile(false);
     auto startingItems = Rando::Foreign::PairedStartingItemsForWorld(); // #1069: the frozen rules' start

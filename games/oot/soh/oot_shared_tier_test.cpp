@@ -79,3 +79,37 @@ extern "C" int OoT_SharedTierTest_BombBagId(void) {
 extern "C" int OoT_SharedTierTest_WalletId(void) {
     return (int)RG_PROGRESSIVE_WALLET;
 }
+
+// ---- #1652 A1 / A3 (mm-stick-nut-bag-gate, test_stick_nut_bag_mm.c) --------
+// @p nut 0 names the sticks, 1 the nuts.
+
+/** RG_PROGRESSIVE_STICK_UPGRADE / RG_PROGRESSIVE_NUT_UPGRADE: what OoT's pool
+ *  places as the bag under its shuffle (resolved at OoT's tier 0, item.cpp). */
+extern "C" int OoT_SharedTierTest_BagUpgradeId(int nut) {
+    return nut ? (int)RG_PROGRESSIVE_NUT_UPGRADE : (int)RG_PROGRESSIVE_STICK_UPGRADE;
+}
+
+/** RG_DEKU_STICK_1 / RG_DEKU_NUTS_5: a pack OoT cannot hold before the bag. */
+extern "C" int OoT_SharedTierTest_BagPackId(int nut) {
+    return nut ? (int)RG_DEKU_NUTS_5 : (int)RG_DEKU_STICK_1;
+}
+
+/** RG_BOMBS_5: a pack no bag gate holds. */
+extern "C" int OoT_SharedTierTest_BombPackId(void) {
+    return (int)RG_BOMBS_5;
+}
+
+/** OoT's live stick (nut) capacity tier. */
+extern "C" int OoT_SharedTierTest_BagTier(int nut) {
+    return (int)(nut ? CUR_UPG_VALUE(UPG_NUTS) : CUR_UPG_VALUE(UPG_STICKS));
+}
+
+/** OoT's live stick (nut) count. */
+extern "C" int OoT_SharedTierTest_BagAmmo(int nut) {
+    return (int)(nut ? AMMO(ITEM_NUT) : AMMO(ITEM_STICK));
+}
+
+/** 1 when the stick (nut) item is in its slot. */
+extern "C" int OoT_SharedTierTest_BagHeld(int nut) {
+    return nut ? (INV_CONTENT(ITEM_NUT) == ITEM_NUT ? 1 : 0) : (INV_CONTENT(ITEM_STICK) == ITEM_STICK ? 1 : 0);
+}

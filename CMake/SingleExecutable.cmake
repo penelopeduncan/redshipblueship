@@ -963,6 +963,12 @@ if(BUILD_TESTING)
     # comboFlags bits from OoT's options (CVar store, display-free bring-up),
     # through the rollback, a seed package and a real .redsave. ROM-free.
     redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
+    # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
+    # bag; its give, drops, shelves and checks refuse sticks and nuts until the
+    # pair's one bag; a bag found in Termina steps the shared tier at its pickup;
+    # the call sites are checked from source (RSBS_SOURCE_DIR). MM's real give and
+    # both games' real shims, ROM-free, no generation: default tier.
+    redship_add_test(NAME MMStickNutBagGate COMMAND redship --test mm-stick-nut-bag-gate)
     redship_add_test(NAME SharedSwimPairs COMMAND redship --test shared-swim-pairs)
     redship_add_test(NAME SharedSwimArrival COMMAND redship --test shared-swim-arrival)
     # #968: Shared Fire, Ice and Light Arrows, three more families on the lens's

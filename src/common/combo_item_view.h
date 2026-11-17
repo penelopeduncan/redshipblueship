@@ -267,10 +267,13 @@ const ComboItemOps* Combo_Item_GetOps(uint8_t game);
  * #1652 D: may the RUNNING game not hold shared count `countKind`
  * (RSBS_SHARED_RES_*_COUNT) right now? True only when the game's own gate keeps
  * the pool's count out of its save: Ocarina of Time under Shuffle Deku Stick
- * Bag / Shuffle Deku Nut Bag before the bag is found, or under its Bombchu Bag
- * option before the bag (OoT_SharedAmmoGrantBlocked in
- * games/oot/soh/GameExports_SingleExe.cpp, the answer its own count apply
- * takes). The pool still holds the count; the running game holds none of it.
+ * Bag / Shuffle Deku Nut Bag before the bag is found in a world frozen without
+ * the pair's bag bit, or under its Bombchu Bag option before the bag
+ * (OoT_SharedAmmoGrantBlocked in games/oot/soh/GameExports_SingleExe.cpp, the
+ * answer its own count apply takes). The pool still holds the count; the
+ * running game holds none of it. Under the pair's frozen bag shuffle (#1652 A1)
+ * both halves are born without the bag and neither game can hold a stick (nut)
+ * before it, so the pool's count is 0 until the bag and nothing needs blocking.
  * False for every other kind, and whenever the game is not running a live file.
  */
 typedef bool (*ComboItemGrantBlockedFn)(uint8_t countKind);

@@ -27,7 +27,9 @@
  *       refusal of monotonic kinds (the discipline pin); it creates the slot,
  *       steps by one copy, absorbs a copy at the cap, raises the finder's cap to
  *       the other game's ceiling (an OoT longshot found in Termina) and steps
- *       health by four quarters a piece; the allowlist names the kinds;
+ *       health by four quarters a piece; the allowlist names the kinds, the
+ *       stick and nut tiers only under their own frozen bag bit and only for a
+ *       copy over a pool that holds no bag yet (#1652 A3);
  *   (B) MM's bomb bag picked up in Hyrule: OoT tier 1 holding 10 bombs, 3
  *       thrown, then the pickup: OoT tier 2 at once, the pool at 2, the 7 bombs
  *       kept (the harvest runs first), NO MM crossing; MM's bag-less arrival
@@ -316,10 +318,11 @@ TestResult Test_SharedTierPickup(void) {
                      StPool(kHealth) == 20,
                  "a heart container stepped the health pool to %d, expected 20 quarters", StPool(kHealth));
 
-        // The allowlist: every monotonic kind some pool item feeds, minus the
-        // stick and nut tiers (OoT's grant block at tier 0 under the bag shuffles
-        // is opened only by OoT's own give, so those items keep crossing). The
-        // Kokiri Sword joined with #1145.
+        // The allowlist: every monotonic kind some pool item feeds. The Kokiri
+        // Sword joined with #1145. The stick and nut tiers step only under the
+        // pair's frozen bag shuffle (#1652 A3); this world is frozen with both bag
+        // bits clear, so they are in kNoSteps here, and the legs after the loops
+        // cover the unfrozen record and the bits on.
         static const uint8_t kSteps[] = {
             RSBS_SHARED_RES_WALLET_TIER,   RSBS_SHARED_RES_HEALTH_QUARTERS, RSBS_SHARED_RES_DOUBLE_DEFENSE,
             RSBS_SHARED_RES_MAGIC_LEVEL,   RSBS_SHARED_RES_QUIVER_TIER,     RSBS_SHARED_RES_BOMB_BAG_TIER,
@@ -341,6 +344,47 @@ TestResult Test_SharedTierPickup(void) {
         ST_CHECK(Combo_SharedResourceCreditsAtPickup((uint8_t)RSBS_SHARED_RES_BOMBCHU_COUNT) &&
                      !Combo_SharedResourceCreditsAtPickup(kBag),
                  "the counted-pack allowlist moved");
+
+        // #1652 A3: the stick and nut tiers follow their own frozen bag bit.
+        // Catches: either case ungated (unfrozen reads true), the predicates
+        // swapped (the one-bag worlds), and the admission rule missing or reading
+        // `held <= 1` (a copy over a pool that holds the bag is admitted).
+        const uint8_t kStick = (uint8_t)RSBS_SHARED_RES_STICK_TIER;
+        const uint8_t kNut = (uint8_t)RSBS_SHARED_RES_NUT_TIER;
+        ComboContext_Init(); // unfrozen
+        ST_CHECK(!Combo_SharedResourceStepsAtPickup(kStick) && !Combo_SharedResourceStepsAtPickup(kNut),
+                 "an unfrozen record steps the stick or nut tier at pickup");
+        static const struct {
+            bool stick;
+            bool nut;
+        } kBagWorlds[] = { { true, false }, { false, true }, { true, true } };
+        for (const auto& bw : kBagWorlds) {
+            StFreezeWorld(false);
+            ComboSettingsRecord rec;
+            Combo_ComboSettingsDefaults(&rec);
+            Combo_ComboSettingsApplyCreationBagShuffles(&rec, bw.stick, bw.nut);
+            ComboItemRulesRecord rules;
+            memset(&rules, 0, sizeof(rules));
+            Combo_FreezeComboSettingsEx(&rec, &rules);
+            ST_CHECK(Combo_SharedResourceStepsAtPickup(kStick) == bw.stick &&
+                         Combo_SharedResourceStepsAtPickup(kNut) == bw.nut,
+                     "bag bits stick %d nut %d: the tiers step at pickup %d / %d", bw.stick ? 1 : 0, bw.nut ? 1 : 0,
+                     Combo_SharedResourceStepsAtPickup(kStick) ? 1 : 0,
+                     Combo_SharedResourceStepsAtPickup(kNut) ? 1 : 0);
+            const uint8_t bagKinds[2] = { kStick, kNut };
+            for (uint8_t kind : bagKinds) {
+                const SharedItem ootCopy = StItem(GAME_OOT, 1);
+                ST_CHECK(Combo_SharedPickupStepAdmitted(ootCopy, kind), "kind %u: a copy over no slot is not admitted",
+                         (unsigned)kind);
+                Combo_HarvestSharedResource(GAME_OOT, kind, 1);
+                ST_CHECK(!Combo_SharedPickupStepAdmitted(ootCopy, kind),
+                         "kind %u: a copy over a pool that holds the bag is admitted (it must cross)", (unsigned)kind);
+                Combo_HarvestSharedResource(GAME_OOT, kind, 2);
+                ST_CHECK(!Combo_SharedPickupStepAdmitted(ootCopy, kind), "kind %u: a copy over tier 2 is admitted",
+                         (unsigned)kind);
+            }
+        }
+        StFreezeWorld(false);
     }
 
     // ---- (B) MM's bag picked up in Hyrule --------------------------------------
