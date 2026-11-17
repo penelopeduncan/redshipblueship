@@ -1784,7 +1784,7 @@ Three read-only agents checked 47 claims that decide the top bundles' priority, 
 | M7 | RO growth precedent | see note | `git log -S 'RO_'`; `z64save.h:424`; `combo_mm_options_view.h:352-360` | Only `fabe7d33` ever appended an `RO_` id; #1047 and #1102 chose separate appended fields instead. |
 | M10 | 2S2H b1edee5ff | ABSENT -> ADAPTED (#1351) | `z_common_data.c:35`; `z_sram_NES.c:2127,2135`; `mm_save_manager_stubs.c:59-64`; MM `GameExports_SingleExe.cpp` (`MM_Combo_MirrorOoTZTargetSetting`) | MM used to play Switch targeting every time. It now copies OoT's `zTargetSetting` from OoT's frozen half at every arrival and on resume. Upstream reads the mode from config instead. |
 | M10 | 2S2H eed759261 / 937292289 / 7f67743b3 / 525c1bc62 | ABSENT | none in `games/mm` | No TU, row or converged key for any of the four. |
-| M16 | 2S2H 31f902da3 | decided against | `combo_mm_options_view.h:348-351`; `z64save.h:436`; `z_sram_NES.c:1420,1457` | #1102's Moon Crash Behavior: Last Save by default, New Cycle opt-in; no save-on-crash mode. |
+| M16 | 2S2H 31f902da3 | decided against | `combo_mm_options_view.h:348-351`; `z64save.h:436`; `z_sram_NES.c:1420,1457` | #1102's Moon Crash Behavior: Last Save by default, New Cycle opt-in; no save-on-crash mode. [Updated 2026-11-16: #1671 made New Cycle the default, Last Save stays selectable.] |
 
 ## Changed since the finder snapshot
 
@@ -1795,7 +1795,7 @@ Three read-only agents checked 47 claims that decide the top bundles' priority, 
 | SoH `0a946e5b9` (Roc's Feather: avoid OOB access to gItemAgeReqs (#6297)) | covered by PR #985 (`acdae0c1`): gItemAgeReqs sized to every u8 ItemID | O11 |
 | 2S2H `4661df2e6` (Tree Shuffle (#1346)) | ported by PR #1125 (`fabe7d33`): Shuffle Tree Drops, with the save growth accepted as the v0.3.0 save break | M5 |
 | SoH `38e684fda` (Fixed scrub text checking merchant hint setting (#6378)) | covered by PR #1074 (`ab767fd9`): the scrub's offer textbox follows Scrub Hint Text | O20 |
-| 2S2H `31f902da3` ([Enhancement] Save Game on Moon Crash (#1480)) | decided against by PR #1102 (`ab4ecc6a`): Moon Crash Behavior with Last Save as the default and New Cycle opt-in, the OoTMM way; no save-on-crash mode | M16 |
+| 2S2H `31f902da3` ([Enhancement] Save Game on Moon Crash (#1480)) | decided against by PR #1102 (`ab4ecc6a`): Moon Crash Behavior with Last Save as the default and New Cycle opt-in, the OoTMM way; no save-on-crash mode (since #1671, 2026-11-16, New Cycle is the default and Last Save the opt-in) | M16 |
 | 2S2H `22518984e` (Remove Gorman Track trees from shuffle (#1511)) | included in PR #1125 (`fabe7d33`): the 25 Gorman Track trees were never added | M5 |
 | SoH `7a7f942b8` (Fix item tracker fishing pole & roc's feather (#7103)) | the opposite move: the 2026-10-18 verifier filed it as ported, but the `INV_CONTENT(item.id)` bound is absent and the read is live (`randomizer_item_tracker.cpp:827,648`); it is in O11 (since ported in #1323) | O11 |
 
@@ -1880,7 +1880,7 @@ LUS `74776bf1` docs: Add Doxygen documentation to all public headers and bridge 
 
 SoH `e7dce8e05` Keep StatsWindow fps rendered stable (#6368); SoH `9f61e635d` Fix displayed token count (#6428).
 
-Also decided against by rulings rather than by the finder: 2S2H `31f902da3` and `5bb90c25c` (Save Game on Moon Crash; #1102 chose Moon Crash Behavior with Last Save as the default), SoH `2ba5c40da` (#7134; the verifier found it changes no behaviour), and SoH `eca767dcb` (Logical bunny hood; its central feature conflicts with the shared-masks rulings of 2026-10-18 and PR #1095). SoH `c00dd24ca` (Torch) and the ARM64 commits are decisions, listed under O37, not skips.
+Also decided against by rulings rather than by the finder: 2S2H `31f902da3` and `5bb90c25c` (Save Game on Moon Crash; #1102 chose Moon Crash Behavior with Last Save as the default, and #1671 later made New Cycle the default), SoH `2ba5c40da` (#7134; the verifier found it changes no behaviour), and SoH `eca767dcb` (Logical bunny hood; its central feature conflicts with the shared-masks rulings of 2026-10-18 and PR #1095). SoH `c00dd24ca` (Torch) and the ARM64 commits are decisions, listed under O37, not skips.
 
 ## Uncertain items
 

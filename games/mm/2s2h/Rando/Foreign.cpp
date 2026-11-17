@@ -604,17 +604,17 @@ static void ResolveProfileTricks(uint8_t* tricks) {
 }
 
 /** The AUTHORED "Moon Crash Behavior" (#1069; OoTMM's moonCrash), resolved from
- *  its key with no side effects: RSBS_MM_MOON_CRASH_RESET ("Last Save", the
- *  default) unless the key holds New Cycle. Any other stored value is Last Save,
- *  as an out-of-space value resolves to its default everywhere else. The Shared
- *  Song of Time rule's force is NOT folded here: the identity must stay
- *  rule-independent (MM_Rando_ComputeProfileStamp runs before the combo freeze),
- *  so the force is applied in play from the frozen combo record
- *  (MM_Rando_FrozenMoonCrash). */
+ *  its key with no side effects: RSBS_MM_MOON_CRASH_CYCLE ("New Cycle", the
+ *  default since #1671) unless the key holds exactly Last Save. Any other stored
+ *  value is New Cycle, as an out-of-space value resolves to its default
+ *  everywhere else. The Shared Song of Time rule's force is NOT folded here: the
+ *  identity must stay rule-independent (MM_Rando_ComputeProfileStamp runs before
+ *  the combo freeze), so the force is applied in play from the frozen combo
+ *  record (MM_Rando_FrozenMoonCrash). */
 static uint8_t ResolveMoonCrashFromCVar() {
-    return CVarGetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET) == RSBS_MM_MOON_CRASH_CYCLE
-               ? (uint8_t)RSBS_MM_MOON_CRASH_CYCLE
-               : (uint8_t)RSBS_MM_MOON_CRASH_RESET;
+    return CVarGetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_CYCLE) == RSBS_MM_MOON_CRASH_RESET
+               ? (uint8_t)RSBS_MM_MOON_CRASH_RESET
+               : (uint8_t)RSBS_MM_MOON_CRASH_CYCLE;
 }
 
 /** The AUTHORED "Keep Items on Cycle Reset" (#1175; OoTMM's keepItemsReset),
@@ -767,8 +767,11 @@ static std::string ProfileIdentityString(const uint32_t* values, const uint8_t* 
     // MOON CRASH BEHAVIOR (#1069; OoTMM's moonCrash). Not a generation input, but
     // world identity: it decides what the moon does to the file. Frozen into the
     // half beside the trap-type set (randoSaveMoonCrash), and folded the same way,
-    // only when it is not the default: "Last Save", which every world before
-    // #1069 had, adds no term, so no existing pair's mmProfileDigest moves.
+    // only when it is not "Last Save", which every world before #1069 had, so no
+    // pair created before #1671 moved. Since #1671 the DEFAULT is New Cycle and
+    // the fold is deliberately NOT flipped: a default world folds "|moonCrash:1"
+    // (its digest moved once, at #1671), and every existing Last Save file keeps
+    // the identity it was created with.
     if (moonCrash != RSBS_MM_MOON_CRASH_RESET) {
         s += "|moonCrash:";
         s += std::to_string((unsigned)moonCrash);
@@ -1554,6 +1557,16 @@ std::string TestFoldIdentityString(const uint32_t* values) {
     std::vector<uint8_t> tricks(MMRT_MAX, 0);
     std::vector<uint8_t> excluded(kExcludedChecksBytes, 0);
     return ProfileIdentityString(values, tricks.data(), 0, 0, excluded.data(), 0);
+}
+
+uint8_t TestResolveMoonCrash() {
+    return ResolveMoonCrashFromCVar();
+}
+
+std::string TestFoldIdentityStringResolvedMoonCrash(const uint32_t* values) {
+    std::vector<uint8_t> tricks(MMRT_MAX, 0);
+    std::vector<uint8_t> excluded(kExcludedChecksBytes, 0);
+    return ProfileIdentityString(values, tricks.data(), 0, ResolveMoonCrashFromCVar(), excluded.data(), 0);
 }
 
 } // namespace Foreign

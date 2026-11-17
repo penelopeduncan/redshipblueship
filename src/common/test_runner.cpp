@@ -12158,12 +12158,14 @@ const TestDescriptor gTests[] = {
       "rupees, health and ammo EQUAL to the restored pool, and a later spend is an exact delta (#785)",
       Test_MMMoonCrashPoolApplied },
     { "mm-moon-crash-cycle-forced",
-      "The frozen Moon Crash Behavior (OoTMM's moonCrash) is Last Save by default, the frozen option otherwise, and "
-      "New Cycle whenever the frozen Shared Song of Time rule is on; the rule never moves MM's profile stamp (#1069)",
+      "The frozen Moon Crash Behavior (OoTMM's moonCrash) is New Cycle by default (#1671), the frozen option "
+      "otherwise, and New Cycle whenever the frozen Shared Song of Time rule is on; the rule never moves MM's profile "
+      "stamp, and a Last Save world folds no identity term (#1069)",
       Test_MMMoonCrashCycleForced },
     { "mm-moon-crash-cycle-reset",
       "A moon crash under New Cycle starts a new cycle (Dawn of the First Day, human form, no mask) keeping inventory "
-      "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069)",
+      "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069); "
+      "under Shuffle Time the first EnTest4 update lands on the earliest owned half-day (#1671)",
       Test_MMMoonCrashCycleReset },
     { "mm-moon-crash-arrival",
       "After a moon crash (Last Save or New Cycle, Story cutscene skipped or not) a paired file lands in South Clock "

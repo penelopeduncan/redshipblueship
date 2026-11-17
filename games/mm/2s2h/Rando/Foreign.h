@@ -373,6 +373,14 @@ void NotifyForeignOutboxFull();
 std::string TestFoldOptionsString(const uint32_t* values);
 std::string TestFoldIdentityString(const uint32_t* values);
 
+/** TEST BRIDGES (#1671, the Moon Crash Behavior default): the authored moon
+ *  crash ResolveMoonCrashFromCVar resolves from the live key, and the identity
+ *  string above with that resolved value folded in place of zero. Exactly the
+ *  resolution and the fold production uses; nothing is recomputed. Defined in
+ *  Foreign.cpp. */
+uint8_t TestResolveMoonCrash();
+std::string TestFoldIdentityStringResolvedMoonCrash(const uint32_t* values);
+
 } // namespace Foreign
 } // namespace Rando
 
