@@ -10,7 +10,8 @@
  * Control Characters in z_message_nes.c) and needed only a row. Each row binds its RSBS_CVAR_MM_* define
  * (src/common/cvar_shared_keys.h), and SoH's page calls each function below in one line, at the end of the section
  * that holds its nearest relatives:
- *  - Gameplay Fixes: Fix Epona Stealing Sword, Fix Fierce Deity Z-Target Movement.
+ *  - Gameplay Fixes: Fix Epona Stealing Sword, Fix Fierce Deity Z-Target Movement, and since 2Ship #1952 Fix Owl Save
+ *    Scene Layers (default on, as upstream's; read in z_sram_NES.c's MM_Sram_OpenSave, so it needed only a row).
  *  - Item-related Fixes: MM Power Crouch Stab, right after SoH's Remove Power Crouch Stab. It means the opposite (MM's
  *    row RESTORES the glitch SoH's row removes) and its values differ, so the keys are never mapped; and it has its
  *    own visibility, so it does not inherit SoH's row's Fix Megaton Hammer Crouch Stab gate.
@@ -43,6 +44,14 @@ void AddMmGameplayFixesRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_FIXES_FIERCE_DEITY_Z_TARGET_MOVEMENT)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Fixes Fierce Deity Link's movement being choppy while Z-targeting. Majora's Mask only."));
+    // 2Ship #1952: a Fixes row in 2Ship, default on there and here (DefaultValue(true) draws it ticked when unset, as
+    // MM's read in z_sram_NES.c defaults to 1).
+    AddHostedMmWidget(menu, path, "Gameplay Fixes", "Fix Owl Save Scene Layers", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_FIXES_OWL_SAVE_SCENE_LAYERS)
+        .Options(UIWidgets::CheckboxOptions().DefaultValue(true).Tooltip(
+            "Fixes owl saves loading areas in their uncleared state (e.g. Great Bay Coast after defeating Gyorg) in "
+            "certain scenarios. This is a vanilla bug but more common with the Pause Save/Remember Save Location "
+            "enhancements. Majora's Mask only."));
 }
 
 /** Enhancements > Fixes > Item-related Fixes, right after SoH's Remove Power Crouch Stab, always shown. */

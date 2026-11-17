@@ -98,7 +98,6 @@ class Logic {
     bool CallGossipFairyExceptSuns();
     uint16_t Health();
     uint16_t EffectiveHealth();
-    uint8_t Hearts();
     uint8_t StoneCount();
     uint8_t MedallionCount();
     uint8_t DungeonCount();
@@ -166,6 +165,10 @@ class Logic {
     static const std::array<uint32_t, RG_MAX> RandoGetToEquipFlag;
     static const std::array<uint32_t, RG_MAX> RandoGetToRandInf;
     bool IsReverseAccessPossible();
+    bool DMCUpperToPots();
+    bool DMCPotsToPad();
+    bool DMCPadToPots();
+    bool DMCUpperToPad();
     bool SpiritEastToSwitch();
     bool SpiritWestToSkull();
     bool SpiritSunBlockSouthLedge();
