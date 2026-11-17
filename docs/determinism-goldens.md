@@ -992,12 +992,12 @@ different world than it does, in the default world too:
   renumbered, so the search and the pool builders walk regions in another order
   even where reachability does not move. The Bunny Hood counts in the crater
   under Bunny Hood Effect.
-* The Fire Trial split (Ship of Harkinian 139381a0e and 88099e6eb): both Fire
+* The Fire Trial split (Ship of Harkinian 139381a0e and 88099e6eb, PR #1660): both Fire
   Trial rooms of Ganon's Castle are split by door, and the Master Quest trial's
   Goron Tunic test becomes heat-timer thresholds, so Fewer Tunic Requirements
   covers it.
-* The Voidout Collection trick (Ship of Harkinian e86e0ff69, `RT_VOIDOUT_COLLECTION`,
-  off by default). Its rows are not all additive with the trick off: the Gold
+* The Voidout Collection trick (Ship of Harkinian e86e0ff69, PR #1662,
+  `RT_VOIDOUT_COLLECTION`, off by default). Its rows are not all additive with the trick off: the Gold
   Skulltula outside Ganon's Castle and the Shadow Temple MQ near-boss Gold
   Skulltula need the Hookshot or Boomerang, the Gerudo Valley waterfall wonder
   items need Swim, the Iron Boots or the bean, and the Deku Tree's left and right
