@@ -172,6 +172,12 @@ extern "C" const char* MM_WarpSongsTest_TrackerItemName(uint16_t ri) {
     return sName.c_str();
 }
 
+/** The bare name MM's shop shelves, milk sellers, mask cutscenes and fixed hints
+ *  give Items row `ri` (Rando::StaticData::GetItemDisplayName; #1688). */
+extern "C" const char* MM_WarpSongsTest_DisplayName(uint16_t ri) {
+    return Rando::StaticData::GetItemDisplayName((RandoItemId)ri);
+}
+
 /** Is `ri`'s Items row junk (RITYPE_JUNK)? */
 extern "C" int MM_WarpSongsTest_IsJunk(int ri) {
     const auto it = Rando::StaticData::Items.find((RandoItemId)ri);

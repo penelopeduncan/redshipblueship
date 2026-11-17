@@ -38,8 +38,9 @@ void EnTab_OnOpenShopText(u16* textId, bool* loadFromMessageTable) {
     // #800: a slot hosting a foreign item names it, and is sold for good once delivered.
     if (!Rando::ActorBehavior::ShopCounterSlotSold(RC_MILK_BAR_PURCHASE_MILK)) {
         Rando::ActorBehavior::MarkCheckSeen(RC_MILK_BAR_PURCHASE_MILK, RCSEEN_IDENTIFIED);
-        itemName1 = Rando::ActorBehavior::ShopOfferedItemName(RC_MILK_BAR_PURCHASE_MILK,
-                                                              Rando::StaticData::Items[riMilkPurchase].name, false);
+        // #1688: a shared song or mask is named without its tag.
+        itemName1 = Rando::ActorBehavior::ShopOfferedItemName(
+            RC_MILK_BAR_PURCHASE_MILK, Rando::StaticData::GetItemDisplayName(riMilkPurchase), false);
         itemPrice1 = std::to_string(milkPurchaseCheck.price);
     }
 
@@ -48,7 +49,7 @@ void EnTab_OnOpenShopText(u16* textId, bool* loadFromMessageTable) {
     if (!Rando::ActorBehavior::ShopCounterSlotSold(RC_MILK_BAR_PURCHASE_CHATEAU)) {
         Rando::ActorBehavior::MarkCheckSeen(RC_MILK_BAR_PURCHASE_CHATEAU, RCSEEN_IDENTIFIED);
         itemName2 = Rando::ActorBehavior::ShopOfferedItemName(
-            RC_MILK_BAR_PURCHASE_CHATEAU, Rando::StaticData::Items[riChateauPurchase].name, false);
+            RC_MILK_BAR_PURCHASE_CHATEAU, Rando::StaticData::GetItemDisplayName(riChateauPurchase), false);
         itemPrice2 = std::to_string(chateauPurchaseCheck.price);
     }
 

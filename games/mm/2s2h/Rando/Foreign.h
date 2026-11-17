@@ -276,6 +276,14 @@ bool IsForeignCheck(RandoCheckId randoCheckId);
 /** Display name for the foreign item hosted by this check, or nullptr. */
 const char* ForeignNameForCheck(RandoCheckId randoCheckId);
 
+/** #1688: the name a player READS for that item: ForeignNameForCheck, except an
+ *  item of a shared rule the file's frozen record arms whose own name carries its
+ *  game's tag (the Song of Soaring (OoT) under Shared Song of Soaring) is named
+ *  without it (Combo_SharedItemDisplayName, OoTMM's isItemAmbiguous). nullptr
+ *  exactly when ForeignNameForCheck is. For text, trackers and hints only: the
+ *  spoiler writer and every lookup keep ForeignNameForCheck. */
+const char* ForeignDisplayNameForCheck(RandoCheckId randoCheckId);
+
 /** The game tag after that name (#1653): Combo_ForeignItemTag over the hosted
  *  item's origin, id and name (warp_song_items.h), so an armed shared family's
  *  item reads with no " (OoT)". "" if the check hosts nothing. Never nullptr. */

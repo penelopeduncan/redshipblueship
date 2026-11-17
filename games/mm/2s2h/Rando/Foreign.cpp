@@ -1418,6 +1418,17 @@ const char* ForeignNameForCheck(RandoCheckId randoCheckId) {
     return Combo_GetForeignItemName(*item);
 }
 
+const char* ForeignDisplayNameForCheck(RandoCheckId randoCheckId) {
+    const SharedItem* item = PlacementFor(randoCheckId);
+    if (item == nullptr) {
+        return nullptr;
+    }
+    const char* name = Combo_GetForeignItemName(*item);
+    // #1688: a shared song or mask whose own name carries its game's tag is named without it.
+    const char* shared = name != nullptr ? Combo_SharedItemDisplayName(item->originGame, item->id) : nullptr;
+    return shared != nullptr ? shared : name;
+}
+
 const char* ForeignTagForCheck(RandoCheckId randoCheckId) {
     const SharedItem* item = PlacementFor(randoCheckId);
     if (item == nullptr) {

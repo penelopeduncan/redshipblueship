@@ -116,7 +116,8 @@ static std::string GossipHintItemName(const RandoSaveCheck* checks, RandoCheckId
     // one and its game after it: an MM host only ever holds an OoT item, and
     // many names exist in both games ("the Lens of Truth"). " (OoT)" is the
     // marker the check trackers use and OoTMM's in-game text uses.
-    if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
+    // #1688: and a shared song or mask without the tag its own name carries.
+    if (const char* foreignName = Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)) {
         return std::string(Rando::Foreign::ForeignArticleForCheck(randoCheckId)) + foreignName +
                Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }

@@ -186,7 +186,8 @@ void ReplaceStoredItem(std::string* msg, const RandoSaveCheck* checks, RandoChec
         CustomMessage::Replace(msg, articleKey, "");
     }
 
-    CustomMessage::Replace(msg, itemKey, randoStaticItem.name);
+    // #1688: a shared song or mask is named without its tag.
+    CustomMessage::Replace(msg, itemKey, Rando::StaticData::GetItemDisplayName(checks[check].randoItemId));
 }
 
 /** The resolution's entry for an item-location hint: where `item` is, which its
@@ -323,9 +324,10 @@ std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* check
             // EnKgy.cpp, text 0xC4B.
             msg = "Gold dust can be found " RANDO_HINT_PREPOS("at") " %p{location}%w.\x10";
             msg += "Bring me that, and my %r{itemName}%w is all yours.\xE0";
+            // #1688: a shared song or mask is named without its tag.
             CustomMessage::Replace(
                 &msg, "{itemName}",
-                Rando::StaticData::Items[checks[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId].name);
+                Rando::StaticData::GetItemDisplayName(checks[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId));
             Rando::HintArea::ReplaceItemLocation(checks, &msg, "{location}", RI_BOTTLE_GOLD_DUST);
             break;
         case RSBS_MM_HINT_SRC_SPIDER_HOUSE_SWAMP:
@@ -809,47 +811,50 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
         case RSBS_MM_HINT_SRC_GOLD_DUST_PRIZE:
             msg = "Gold dust can be found " RANDO_HINT_PREPOS("at") " %p{location}%w.\x10";
             msg += "Bring me that, and my %r{itemName}%w is all yours.\xE0";
-            CustomMessage::Replace(
-                &msg, "{itemName}",
-                Rando::StaticData::Items[RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId].name);
+            // #1688: the hook's name, as the resolver's (GetItemDisplayName).
+            CustomMessage::Replace(&msg, "{itemName}",
+                                   Rando::StaticData::GetItemDisplayName(
+                                       RANDO_SAVE_CHECKS[RC_MOUNTAIN_VILLAGE_SMITHY_GILDED_SWORD].randoItemId));
             Rando::HintArea::ReplaceItemLocation(&msg, "{location}", RI_BOTTLE_GOLD_DUST);
             break;
         case RSBS_MM_HINT_SRC_SPIDER_HOUSE_SWAMP: {
             msg = "Make me...normal again...I'll give you %g{{article}}{{item}}%w...Please...help me...\xE0";
-            auto& randoStaticItem =
-                Rando::StaticData::Items[RANDO_SAVE_CHECKS[RC_SWAMP_SPIDER_HOUSE_MASK_OF_TRUTH].randoItemId];
+            const RandoItemId stored = RANDO_SAVE_CHECKS[RC_SWAMP_SPIDER_HOUSE_MASK_OF_TRUTH].randoItemId;
+            auto& randoStaticItem = Rando::StaticData::Items[stored];
             CustomMessage::Replace(&msg, "{{article}}",
                                    !Ship_IsCStringEmpty(randoStaticItem.article)
                                        ? std::string(randoStaticItem.article) + " "
                                        : std::string(""));
-            CustomMessage::Replace(&msg, "{{item}}", randoStaticItem.name);
+            CustomMessage::Replace(&msg, "{{item}}", Rando::StaticData::GetItemDisplayName(stored)); // #1688
             break;
         }
         case RSBS_MM_HINT_SRC_SPIDER_HOUSE_OCEAN: {
             msg = "Huh? How'd I get up here... Why do I have %g{{article}}{{item}}%w in my pocket...?\xE0";
-            auto& randoStaticItem =
-                Rando::StaticData::Items[RANDO_SAVE_CHECKS[RC_OCEAN_SPIDER_HOUSE_WALLET].randoItemId];
+            const RandoItemId stored = RANDO_SAVE_CHECKS[RC_OCEAN_SPIDER_HOUSE_WALLET].randoItemId;
+            auto& randoStaticItem = Rando::StaticData::Items[stored];
             CustomMessage::Replace(&msg, "{{article}}",
                                    !Ship_IsCStringEmpty(randoStaticItem.article)
                                        ? std::string(randoStaticItem.article) + " "
                                        : std::string(""));
-            CustomMessage::Replace(&msg, "{{item}}", randoStaticItem.name);
+            CustomMessage::Replace(&msg, "{{item}}", Rando::StaticData::GetItemDisplayName(stored)); // #1688
             break;
         }
         case RSBS_MM_HINT_SRC_FAIRY_CLOCK_TOWN: {
             msg = "%wPlease, find the Stray Fairy who's lost! We will reward you with %g{{article1}}{{item1}}%w and "
                   "maybe "
                   "even %g{{article2}}{{item2}}%w if you are worthy.";
-            auto& item1 = Rando::StaticData::Items[RANDO_SAVE_CHECKS[RC_CLOCK_TOWN_GREAT_FAIRY].randoItemId];
+            const RandoItemId stored1 = RANDO_SAVE_CHECKS[RC_CLOCK_TOWN_GREAT_FAIRY].randoItemId;
+            auto& item1 = Rando::StaticData::Items[stored1];
             CustomMessage::Replace(&msg, "{{article1}}",
                                    !Ship_IsCStringEmpty(item1.article) ? std::string(item1.article) + " "
                                                                        : std::string(""));
-            CustomMessage::Replace(&msg, "{{item1}}", item1.name);
-            auto& item2 = Rando::StaticData::Items[RANDO_SAVE_CHECKS[RC_CLOCK_TOWN_GREAT_FAIRY_ALT].randoItemId];
+            CustomMessage::Replace(&msg, "{{item1}}", Rando::StaticData::GetItemDisplayName(stored1)); // #1688
+            const RandoItemId stored2 = RANDO_SAVE_CHECKS[RC_CLOCK_TOWN_GREAT_FAIRY_ALT].randoItemId;
+            auto& item2 = Rando::StaticData::Items[stored2];
             CustomMessage::Replace(&msg, "{{article2}}",
                                    !Ship_IsCStringEmpty(item2.article) ? std::string(item2.article) + " "
                                                                        : std::string(""));
-            CustomMessage::Replace(&msg, "{{item2}}", item2.name);
+            CustomMessage::Replace(&msg, "{{item2}}", Rando::StaticData::GetItemDisplayName(stored2)); // #1688
             break;
         }
         case RSBS_MM_HINT_SRC_FAIRY_WOODFALL:
@@ -858,11 +863,12 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
         case RSBS_MM_HINT_SRC_FAIRY_IKANA: {
             msg = "%wPlease, find the Stray Fairies who match our color! We will reward you with "
                   "%g{{article}}{{item}}%w.";
-            auto& item = Rando::StaticData::Items[RANDO_SAVE_CHECKS[FixedSourceOf(source)->checks[0]].randoItemId];
+            const RandoItemId stored = RANDO_SAVE_CHECKS[FixedSourceOf(source)->checks[0]].randoItemId;
+            auto& item = Rando::StaticData::Items[stored];
             CustomMessage::Replace(&msg, "{{article}}",
                                    !Ship_IsCStringEmpty(item.article) ? std::string(item.article) + " "
                                                                       : std::string(""));
-            CustomMessage::Replace(&msg, "{{item}}", item.name);
+            CustomMessage::Replace(&msg, "{{item}}", Rando::StaticData::GetItemDisplayName(stored)); // #1688
             break;
         }
         case RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK: {

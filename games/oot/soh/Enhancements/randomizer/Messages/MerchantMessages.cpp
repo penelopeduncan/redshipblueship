@@ -12,7 +12,9 @@
 #include "soh/ObjectExtension/ObjectExtension.h"
 #include "soh/Enhancements/randomizer/randomizer.h"
 #ifdef RSBS_SINGLE_EXECUTABLE
-#include "foreign_items.h" // src/common — Combo_GetForeignPlacementForOoTCheck, Combo_GetForeignItemName (#800)
+#include "foreign_items.h"   // src/common — Combo_GetForeignPlacementForOoTCheck, Combo_GetForeignItemName (#800)
+#include "game.h"            // src/common: GAME_OOT
+#include "warp_song_items.h" // src/common: Combo_SharedItemDisplayName, a shared item's plain name (#1688)
 extern "C" int OoT_Rando_Foreign_HostCollected(uint16_t rc); // ForeignItemsSingleExe.cpp (#800)
 extern "C" uint16_t OoT_Rando_ShopShelfDisplayedItem(uint16_t rc, int bought); // ShopRestockSingleExe.cpp (#1547)
 extern "C" int OoT_Rando_ShopMessageIncludesOneLeft(uint16_t rc, int bought, int mysterious);
@@ -67,6 +69,15 @@ void BuildMerchantMessage(CustomMessage& msg, RandomizerCheck rc, bool mysteriou
         color = "%g";
     } else {
         itemName = CustomMessage(Rando::StaticData::RetrieveItem(rgid).GetName());
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1688: under its frozen shared rule the Song of Soaring (OoT) is one item of
+        // both games, named without its tag (OoTMM's isItemAmbiguous); OoT's own items
+        // keep their localized names (the helper answers NULL for them).
+        if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)) {
+            const std::string plain(shared);
+            itemName = CustomMessage(plain, plain, plain);
+        }
+#endif
     }
     msg.Replace("[[color]]", color);
     msg.InsertNames({ itemName, CustomMessage(std::to_string(price)) });
@@ -89,7 +100,13 @@ static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc) {
     }
     // #1481: named as it will be granted (a Progressive Time as its next
     // half-day); not bought yet, so its own crossing is not in the array.
-    const char* foreignName = Combo_GetForeignItemName(Combo_PresentForeignItem(*foreignItem, false));
+    const SharedItem presented = Combo_PresentForeignItem(*foreignItem, false);
+    const char* foreignName = Combo_GetForeignItemName(presented);
+    // #1688: a shared song or mask whose own name carries its game's tag is named without it.
+    if (const char* shared =
+            foreignName != nullptr ? Combo_SharedItemDisplayName(presented.originGame, presented.id) : nullptr) {
+        foreignName = shared;
+    }
     msg.Replace("[[color]]", "%g");
     msg.InsertNames({ CustomMessage(std::string(foreignName != nullptr ? foreignName : "Majora's Mask item")),
                       CustomMessage(std::to_string(MerchantRandoContext()->GetItemLocation(rc)->GetPrice())) });

@@ -45,7 +45,8 @@ static std::string ObtainedItemTrackerName(RandoCheckId randoCheckId, const Rand
     // A check that hosts an OoT item holds RI_JUNK in MM's table, and the foreign
     // give never rewrites it (CheckQueue.cpp). What the player found is the OoT
     // item the give's textbox named, from the same lookup.
-    if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
+    // #1688: the read name, so a shared song or mask is named without its game's tag.
+    if (const char* foreignName = Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)) {
         return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous);
@@ -86,7 +87,8 @@ extern "C" int MM_CheckTracker_TestItemName(const void* mmSave, uint16_t randoCh
 // already owned for good (a second Tingle map) reads as the junk the check hands
 // (Rando::UncollectedNamedItem, over MM's live save).
 static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSaveCheck& randoSaveCheck) {
-    if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
+    // #1688: the read name, so a shared song or mask is named without its game's tag.
+    if (const char* foreignName = Rando::Foreign::ForeignDisplayNameForCheck(randoCheckId)) {
         return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     const RandoItemId named = Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId);

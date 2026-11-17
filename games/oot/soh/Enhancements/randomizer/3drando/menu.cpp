@@ -712,10 +712,16 @@ static std::string ExpectedCrossedItemName(uint16_t host, bool withArticle) {
            Combo_ForeignItemTag(item->originGame, item->id, name);
 }
 
-/** The English name OoT's own item table gives the item OoT check `rc` physically holds. */
+/** The English name OoT's own item table gives the item OoT check `rc` physically holds,
+ *  as a hint and the spoiler's hint entry name it: a shared item under its frozen rule
+ *  without its tag (#1688). */
 static std::string PlacedItemEnglishName(RandomizerCheck rc) {
     auto ctx = Rando::Context::GetInstance();
-    return Rando::StaticData::RetrieveItem(ctx->GetItemLocation(rc)->GetPlacedRandomizerGet()).GetName().GetEnglish();
+    const RandomizerGet placed = ctx->GetItemLocation(rc)->GetPlacedRandomizerGet();
+    if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)placed)) {
+        return shared;
+    }
+    return Rando::StaticData::RetrieveItem(placed).GetName().GetEnglish();
 }
 
 /** (P2, #575 H3b) Whether the "Named Item" filter must count crossing host `host` as

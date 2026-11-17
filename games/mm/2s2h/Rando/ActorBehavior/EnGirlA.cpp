@@ -54,7 +54,8 @@ void Rando::ActorBehavior::MarkCheckSeen(RandoCheckId rc, RandoCheckSeen level) 
 std::string Rando::ActorBehavior::ShopOfferedItemName(RandoCheckId rc, const std::string& nativeName,
                                                       bool withArticle) {
 #ifdef RSBS_SINGLE_EXECUTABLE
-    if (const char* foreign = Rando::Foreign::ForeignNameForCheck(rc)) {
+    // #1688: a shared song or mask is named without the tag its own name carries.
+    if (const char* foreign = Rando::Foreign::ForeignDisplayNameForCheck(rc)) {
         return withArticle ? std::string(Rando::Foreign::ForeignArticleForCheck(rc)) + foreign : std::string(foreign);
     }
 #endif
@@ -138,8 +139,9 @@ bool Rando::ActorBehavior::HagsMushroomLineArms() {
 // The name the shelf lines give slot `rc`'s item (no article, as the native lines).
 #ifdef RSBS_SINGLE_EXECUTABLE
 std::string Rando::ActorBehavior::ShopShelfItemName(RandoCheckId rc) {
+    // #1688: a shared song or mask on its own game's shelf is named without its tag.
     return Rando::ActorBehavior::ShopOfferedItemName(
-        rc, Rando::StaticData::Items[Rando::ActorBehavior::ShopShelfItem(rc)].name, false);
+        rc, Rando::StaticData::GetItemDisplayName(Rando::ActorBehavior::ShopShelfItem(rc)), false);
 }
 
 static std::string EnGirlA_RandoItemName(RandoCheckId rc) {

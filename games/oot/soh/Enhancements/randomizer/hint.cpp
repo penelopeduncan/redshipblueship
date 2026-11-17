@@ -48,7 +48,9 @@ static std::string CrossedItemHintName(RandomizerCheck check, bool withArticle) 
 }
 
 /** The spoiler's name for hinted item `c`: the crossed item at a crossing host
- *  (#575 H3b), else the item table's English name, as upstream writes it. */
+ *  (#575 H3b), else the item table's English name, as upstream writes it, but for
+ *  a shared item under its frozen rule, named without its tag (#1688). The hint's
+ *  "item" is read by people only: no reader parses it back. */
 static std::string SpoilerItemName(const std::vector<RandomizerCheck>& locations,
                                    const std::vector<RandomizerGet>& items, size_t c) {
     if (c < locations.size()) {
@@ -56,6 +58,9 @@ static std::string SpoilerItemName(const std::vector<RandomizerCheck>& locations
         if (!crossed.empty()) {
             return crossed;
         }
+    }
+    if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)items[c])) {
+        return shared;
     }
     return StaticData::GetItemTable()[items[c]].GetName().GetEnglish();
 }
