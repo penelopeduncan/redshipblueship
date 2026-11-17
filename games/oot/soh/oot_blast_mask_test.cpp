@@ -648,13 +648,14 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615EndScene(&sBm1615Play);
 }
 
-/** One B press with Link in `stateFlags1` / `stateFlags3`, on `boots`, holding
- *  `heldItemAction` (no held actor), the mask worn and its cooldown spent:
+/** One B press with Link in `stateFlags1` / `stateFlags3` (and `stateFlags2`),
+ *  on `boots`, holding `heldItemAction` (no held actor), the mask worn and its cooldown spent:
  *  true when the press was the Blast Mask's (B taken and a blast spawned). The
  *  explosion is stepped out and the cooldown spent again before it returns. */
-static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction) {
+static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction, u32 stateFlags2 = 0u) {
     Bm1615ArmWearer(&sBm1615Player);
     sBm1615Player.stateFlags1 = stateFlags1;
+    sBm1615Player.stateFlags2 = stateFlags2;
     sBm1615Player.stateFlags3 = stateFlags3;
     sBm1615Player.currentBoots = boots;
     sBm1615Player.heldItemAction = heldItemAction;
@@ -667,6 +668,7 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
         Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
     }
     sBm1615Player.stateFlags1 = 0;
+    sBm1615Player.stateFlags2 = 0;
     sBm1615Player.stateFlags3 = 0;
     sBm1615Player.currentBoots = PLAYER_BOOTS_KOKIRI;
     sBm1615Player.heldItemAction = PLAYER_IA_NONE;
@@ -674,10 +676,13 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     return blasted;
 }
 
-/** UW0..UW7 (#1701): under water on the Iron Boots (PLAYER_STATE1_IN_WATER kept,
+/** UW0..UW10 (#1701): under water on the Iron Boots (PLAYER_STATE1_IN_WATER kept,
  *  z_player.c) the blast goes off, as OoTMM's has no water test; swimming still
  *  refuses it, and so do the hookshot held unfired or in flight there. An armed
- *  mask still takes B from a held Megaton Hammer, under water as on land. */
+ *  mask still takes B from a held Megaton Hammer, under water as on land. In the
+ *  dive (PLAYER_STATE2_DIVING, set only when A starts one) it goes off, as
+ *  OoTMM's does; still under after falling in without a dive does not, and a dive
+ *  carrying something up from the bottom does not. */
 static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
@@ -703,6 +708,14 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
                 "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
                 "UW7 on dry land with the hookshot held unfired the Blast Mask went off", __LINE__);
+    const u32 dive = PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_DIVING;
+    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none, dive),
+                "UW8 in the dive the Blast Mask did not go off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none, PLAYER_STATE2_UNDERWATER),
+                "UW9 under water without a dive (fallen in, not yet surfaced) the Blast Mask went off", __LINE__);
+    Bm1615Check(
+        !Bm1615PressInState(PLAYER_STATE1_IN_WATER | PLAYER_STATE1_CARRYING_ACTOR, 0u, PLAYER_BOOTS_KOKIRI, none, dive),
+        "UW10 in the dive carrying something the Blast Mask went off", __LINE__);
 
     Bm1615EndScene(&sBm1615Play);
 }
