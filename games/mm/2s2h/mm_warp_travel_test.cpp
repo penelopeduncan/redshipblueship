@@ -487,7 +487,12 @@ extern "C" int MM_WarpTravelRounds_RunHeadless(void) {
     // never rolled back over this one (mm-warp-songs-pooled-only-when-rule-on).
     Combo_SingleBag_Forget();
     ComboContext_Init();
-    if (Rando_HeadlessSeedTest("RSBSXW9TRAVEL4") != 0 || !Combo_ForeignPairingActive() ||
+    // The seed is chosen for a property of its world, not pinned by a digest: T5 and
+    // T6 need both engines to report a raw travel fact with one crossing closed (the
+    // vacuity guards below). It is RSBSXW9TRAVEL5 since the Moon Crash default (#1671,
+    // PR #1673) moved every world: seed 4's new world gives no raw Soaring fact.
+    // When a re-pin moves this world again, pick the next suffix whose row passes.
+    if (Rando_HeadlessSeedTest("RSBSXW9TRAVEL5") != 0 || !Combo_ForeignPairingActive() ||
         !Combo_ComboSettingsFrozen() || !OoT_ComboLogic_GeneralPassDeferred()) {
         fprintf(stderr, "[COMBO-WARP-TRAVEL-ROUNDS] FAIL: the paired OoT generation did not leave a frozen paired "
                         "world at its general pass\n");

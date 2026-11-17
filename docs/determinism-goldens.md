@@ -1008,6 +1008,28 @@ the same PR. As for every bump, the label itself moves `comboSettingsHash` in th
 goldens that carry it and no placement field; the placements that move are the
 logic's. Seed packages written by generator 5 are refused, as designed.
 
+The Moon Crash default (2026-11-16, PR #1673; issue #1671), still version 6.
+Majora's Mask's frozen Moon Crash Behavior defaults to New Cycle instead of Last
+Save (an operator ruling; OoTMM's default is Last Save). The identity folds the
+value only when it is not Last Save, so every world created with the default now
+folds `|moonCrash:1`: `mmProfileDigest`, `bagSeed` and `comboSettingsHash` move
+in every golden that carries them, and with the bag seed every placement field.
+Under New Cycle the reset-time guard also counts a moon crash as a way to reset
+time, so Majora's Mask's fill is no longer held back by it; `bagRounds` in
+`seed-digest-default` went from 254 to 502. A profile that sets Moon Crash
+Behavior to Last Save folds nothing and keeps the identity it had. All 13 golden
+files were regenerated. It rides generator 6 with no residual behind an
+unchanged fingerprint: against the generator-6 builds between PR #1664 and this
+one, a default world has a different fingerprint as well as different
+placements. `RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in
+the same re-pin (`8F5935FF` to `8F5E9C45`, still 17 hints), and
+`ComboSingleBag`'s leg G seed went from `RSBSSINGLEBAGSHOPS11` to
+`RSBSSINGLEBAGSHOPS12`, the next seed whose world has a crossing Majora's Mask
+item on an Ocarina of Time shop shelf, Business Scrub and merchant.
+`ComboWarpTravelRounds` T5 and T6 went from `RSBSXW9TRAVEL4` to
+`RSBSXW9TRAVEL5`: seed 4's new world gives no raw Soaring fact, and seed 5 is
+the next one whose row passes whole.
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned
