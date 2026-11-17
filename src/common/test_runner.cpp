@@ -1420,6 +1420,10 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // position and shape yaw as console does, from source.
 #include "tests/test_oot_camera_subj4.c"
 
+// #1667 (SoH 7006ef740): ROM-free: a hidden placement (an unshuffled Master Sword)
+// is never hintable, and WritePlaythrough leaves it out of the spoiler playthrough.
+#include "tests/test_oot_hidden_not_hintable.c"
+
 // #1591: ROM-free: EnKz_StopMweep restores gameplayCamera and Link cs action
 // behind this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
 #include "tests/test_oot_mweep_stop.c"
@@ -11184,6 +11188,11 @@ const TestDescriptor gTests[] = {
     { "oot-camera-subj4-console",
       "Camera_Subj4 (the crawlspace camera) writes Link's world position and shape yaw as console does (SoH #6709)",
       Test_OoTCameraSubj4Console },
+    // #1667 (SoH 7006ef740): ROM-free: hidden placements are unhintable and stay out of the playthrough.
+    { "oot-hidden-location-not-hintable",
+      "A hidden placement (an unshuffled Master Sword, a vanilla song) answers IsHintable() false, and "
+      "WritePlaythrough writes a sphere's location only when it is not hidden (SoH #6146)",
+      Test_OoTHiddenLocationNotHintable },
     // #948: display-free and ROM-free, and order-free: it restores the current
     // game, the active slot and OoT_gPlayState, and clears the combo identity.
     { "oot-mask-shop-night-door",

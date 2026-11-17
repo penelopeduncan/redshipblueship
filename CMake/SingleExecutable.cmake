@@ -2047,6 +2047,11 @@ if(BUILD_TESTING)
     # Display-free and ROM-free (src/common/tests/test_oot_camera_subj4.c).
     redship_add_test(NAME OoTCameraSubj4Console COMMAND redship --test oot-camera-subj4-console)
 
+    # #1667 (SoH 7006ef740): a hidden placement (an unshuffled Master Sword) answers
+    # IsHintable() false through the item_location.cpp bridge, and WritePlaythrough
+    # skips hidden locations (read from source, RSBS_SOURCE_DIR). Display-free and ROM-free.
+    redship_add_test(NAME OoTHiddenLocationNotHintable COMMAND redship --test oot-hidden-location-not-hintable)
+
     # #1591: EnKz_StopMweep restores gameplayCamera and Link cs action behind
     # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.
     # Display-free and ROM-free.
