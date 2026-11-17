@@ -187,6 +187,25 @@ void EnBox_RandoDraw(Actor* actor, PlayState* play) {
     CLOSE_DISPS(play->state.gfxCtx);
 }
 
+// #1691: an unshuffled chest keeps its own item (the Treasure Chest Shop's second Deku-form game always does: its
+// treasureGameMap row is RC_UNKNOWN). Before the pair's bag a stick or nut there would play the chest's get-item
+// scene and be refused by MM_Item_Give, so it holds a blue rupee, OoT's own chest rule for an item it cannot obtain
+// yet (CANT_OBTAIN_NEED_UPGRADE). A function of its own, called from the ShouldActorInit hook below: a
+// preprocessor directive inside that hook's lambda would sit inside a macro argument, which MSVC rejects.
+#ifdef RSBS_SINGLE_EXECUTABLE
+static void EnBox_RsbsWithholdGatedStickNut(Actor* actor, RandoCheckId randoCheckId) {
+    if ((randoCheckId == RC_UNKNOWN || !RANDO_SAVE_CHECKS[randoCheckId].shuffled) &&
+        MM_Combo_GetItemGated((int16_t)ENBOX_GET_ITEM(actor))) {
+        ENBOX_SET_ITEM(actor, GI_RUPEE_BLUE);
+    }
+}
+#else
+static void EnBox_RsbsWithholdGatedStickNut(Actor* actor, RandoCheckId randoCheckId) {
+    (void)actor;
+    (void)randoCheckId;
+}
+#endif
+
 // This simply prevents the player from getting an item from the chest, but still
 // plays the chest opening animation and ensure the treasure chest flag is set
 void Rando::ActorBehavior::InitEnBoxBehavior() {
@@ -212,16 +231,7 @@ void Rando::ActorBehavior::InitEnBoxBehavior() {
             randoCheckId = treasureGameMap[transformation][gameNumber];
         }
 
-#ifdef RSBS_SINGLE_EXECUTABLE
-        // #1691: an unshuffled chest keeps its own item (the Treasure Chest Shop's second Deku-form game always
-        // does: its row above is RC_UNKNOWN). Before the pair's bag a stick or nut there would play the chest's
-        // get-item scene and be refused by MM_Item_Give, so it holds a blue rupee, OoT's own chest rule for an
-        // item it cannot obtain yet (CANT_OBTAIN_NEED_UPGRADE).
-        if ((randoCheckId == RC_UNKNOWN || !RANDO_SAVE_CHECKS[randoCheckId].shuffled) &&
-            MM_Combo_GetItemGated((int16_t)ENBOX_GET_ITEM(actor))) {
-            ENBOX_SET_ITEM(actor, GI_RUPEE_BLUE);
-        }
-#endif
+        EnBox_RsbsWithholdGatedStickNut(actor, randoCheckId); // #1691
 
         if (randoCheckId == RC_UNKNOWN || !RANDO_SAVE_CHECKS[randoCheckId].shuffled) {
             return;

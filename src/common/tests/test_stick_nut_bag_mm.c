@@ -681,9 +681,13 @@ TestResult MMStickNutBagGate_Run(void) {
                 SnbBefore(item00Body, kSnbMmKarebabaGate, "MM_EnKarebaba_SetupDead(enKarebaba);"),
             "MM's Deku Baba or withered / Mini Baba still offers its stick before the pair's bag");
         const std::string mmBox = SnbReadSource("games/mm/2s2h/Rando/ActorBehavior/EnBox.cpp");
-        SNB_CHECK(SnbBefore(SnbBody(mmBox, "void Rando::ActorBehavior::InitEnBoxBehavior() {"),
+        SNB_CHECK(SnbBefore(SnbBody(mmBox, "static void EnBox_RsbsWithholdGatedStickNut(Actor* actor, RandoCheckId "
+                                           "randoCheckId) {"),
                             "MM_Combo_GetItemGated((int16_t)ENBOX_GET_ITEM(actor))",
-                            "ENBOX_SET_ITEM(actor, GI_RUPEE_BLUE);"),
+                            "ENBOX_SET_ITEM(actor, GI_RUPEE_BLUE);") &&
+                      SnbBefore(SnbBody(mmBox, "void Rando::ActorBehavior::InitEnBoxBehavior() {"),
+                                "COND_ID_HOOK(ShouldActorInit, ACTOR_EN_BOX, IS_RANDO",
+                                "EnBox_RsbsWithholdGatedStickNut(actor, randoCheckId);"),
                   "MM's unshuffled chest still holds a stick or nut before the pair's bag");
         const std::string ootHooks = SnbReadSource("games/oot/soh/Enhancements/randomizer/hook_handlers.cpp");
         const std::string withhold = SnbBody(ootHooks, "static void OoT_DekuBaba_WithholdStick(Actor* actor) {");
