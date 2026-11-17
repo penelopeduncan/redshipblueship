@@ -28,7 +28,7 @@ void RegionTable_Init_GanonsCastle() {
         //Exits
         Entrance(RR_GANONS_CASTLE_LOBBY,                       []{return true;}),
         Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_WOLFOS_ROOM,    []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FOREST_MEDALLION);}),
-        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM,        []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FIRE_MEDALLION);}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN,        []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FIRE_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_WATER_TRIAL_BLUE_FIRE_ROOM,  []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_WATER_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_START,          []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_SHADOW_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_SPIRIT_TRIAL_BEAMOS_ROOM,    []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_SPIRIT_MEDALLION);}),
@@ -114,26 +114,50 @@ void RegionTable_Init_GanonsCastle() {
         Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM_FINAL_DOOR, []{return true;}),
     });
 
-    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM] = Region("Ganon's Castle Fire Trial Main Room", SCENE_INSIDE_GANONS_CASTLE, {
-        // backwalking hoverboots with backflip reaches silver rupee without needing str3
+    //SoH 139381a0e (#6336) splits the main room by door, with eca767dcb's hammer recoil hover and develop's forms.
+    //Upstream develop's CanMegajump, CanBunnyMegaJumpslash and CanBombRecoilHover terms (2d529b315) are left out:
+    //this tree has no damage boost tricks. Its CanMeleeRecoilHover is this tree's CanRecoilHover.
+    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_OPEN_DOOR] = Region("Ganon's Castle Fire Trial Open Door", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_MAIN, []{return true;}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_FROM_OPEN] = Region("Ganon's Castle Fire Trial From Open Door", SCENE_INSIDE_GANONS_CASTLE, {
         EventAccess(LOGIC_GANONS_CASTLE_SILVER_FIRE, []{return logic->FireTimer() >= 48 && logic->CanUse(RG_GOLDEN_GAUNTLETS);}),
     }, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_FIRE_TRIAL_HEART,                logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_TORCH_SLUG_FIRE_SILVER,          logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_FLAME_JETS_FIRE_SILVER,          logic->FireTimer() >= 16),
-        LOCATION(RC_GANONS_CASTLE_DISTANT_PLATFORM_FIRE_SILVER,    logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
+        // backwalking hoverboots with backflip reaches silver rupee without needing str3
+        LOCATION(RC_GANONS_CASTLE_DISTANT_PLATFORM_FIRE_SILVER,    logic->FireTimer() >= 32 && (logic->CanUse(RG_GOLDEN_GAUNTLETS) || logic->BunnyHovers())),
         LOCATION(RC_GANONS_CASTLE_CLOSE_PLATFORM_FIRE_SILVER,      logic->FireTimer() >= 8),
         LOCATION(RC_GANONS_GANONS_CASTLE_UNDER_PILLAR_FIRE_SILVER, logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MAIN,                     []{return true;}),
-        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM_END, []{return logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_OPEN_DOOR,   []{return true;}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_BARRED_DOOR, []{return logic->CanUse(RG_LONGSHOT) && logic->FireTimer() >= 16;}),
     });
 
-    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM_END] = Region("Ganon's Castle Fire Trial Main Room", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED] = Region("Ganon's Castle Fire Trial From Barred Door", SCENE_INSIDE_GANONS_CASTLE, {
+        EventAccess(LOGIC_GANONS_CASTLE_SILVER_FIRE, []{return (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 56 && logic->CanUse(RG_GOLDEN_GAUNTLETS);}),
+    }, {
+        //Locations
+        LOCATION(RC_GANONS_CASTLE_FIRE_TRIAL_HEART,                (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 16),
+        LOCATION(RC_GANONS_CASTLE_TORCH_SLUG_FIRE_SILVER,          (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 8),
+        LOCATION(RC_GANONS_CASTLE_FLAME_JETS_FIRE_SILVER,          (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 16),
+        LOCATION(RC_GANONS_CASTLE_DISTANT_PLATFORM_FIRE_SILVER,    (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 32 &&
+                                                                   (logic->CanUse(RG_GOLDEN_GAUNTLETS) || logic->BunnyHovers())),
+        LOCATION(RC_GANONS_CASTLE_CLOSE_PLATFORM_FIRE_SILVER,      (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 16),
+        LOCATION(RC_GANONS_GANONS_CASTLE_UNDER_PILLAR_FIRE_SILVER, (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
+    }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM,  []{return logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_OPEN_DOOR,   []{return (logic->CanUse(RG_LONGSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->FireTimer() >= 24;}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_BARRED_DOOR, []{return true;}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_FIRE_TRIAL_BARRED_DOOR] = Region("Ganon's Castle Fire Trial Barred Door", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+        //Exits
         Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_FINAL_ROOM, []{return logic->HasItem(RG_GANONS_CASTLE_SILVER_FIRE);}),
     });
 
@@ -146,7 +170,7 @@ void RegionTable_Init_GanonsCastle() {
         LOCATION(RC_GANONS_CASTLE_FIRE_TRIAL_POT_2, logic->CanBreakPots()),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_MAIN_ROOM_END, []{return true;}),
+        Entrance(RR_GANONS_CASTLE_FIRE_TRIAL_FROM_BARRED, []{return true;}),
     });
 
     areaTable[RR_GANONS_CASTLE_WATER_TRIAL_BLUE_FIRE_ROOM] = Region("Ganon's Castle Water Trial Blue Fire Room", SCENE_INSIDE_GANONS_CASTLE, {
@@ -418,7 +442,7 @@ void RegionTable_Init_GanonsCastle() {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_LOBBY,                       []{return true;}),
         Entrance(RR_GANONS_CASTLE_MQ_FOREST_TRIAL_STALFOS_ROOM,   []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FOREST_MEDALLION);}),
-        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM,        []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FIRE_MEDALLION);}),
+        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN,        []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_FIRE_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_MQ_WATER_TRIAL_GEYSER_ROOM,     []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_WATER_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_SHADOW_MEDALLION);}),
         Entrance(RR_GANONS_CASTLE_MQ_SPIRIT_TRIAL_CHAIRS_ROOM,    []{return !ctx->GetOption(RSK_MEDALLION_LOCKED_TRIALS) || logic->HasItem(RG_SPIRIT_MEDALLION);}),
@@ -509,37 +533,49 @@ void RegionTable_Init_GanonsCastle() {
         Entrance(RR_GANONS_CASTLE_MQ_FOREST_TRIAL_BEAMOS_ROOM_END, []{return true;}),
     });
 
-    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM] = Region("Ganon's Castle MQ Fire Trial Main Room", SCENE_INSIDE_GANONS_CASTLE, {
+    //SoH 139381a0e (#6336) and 88099e6eb (#6487) split the main room by door, in develop's form (27d35e5a9 enters
+    //From Open Door from the main room, 28ab1206 returns the Final Room to From Barred Door). Develop's CanMegajump
+    //terms (2d529b315) are left out: this tree has no damage boost tricks.
+    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_OPEN_DOOR] = Region("Ganon's Castle MQ Fire Trial Open Door", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_MQ_MAIN, []{return true;}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_OPEN] = Region("Ganon's Castle MQ Fire Trial From Open Door", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
         EventAccess(LOGIC_GANONS_CASTLE_SILVER_FIRE, []{return logic->FireTimer() >= 80 && logic->CanUse(RG_GOLDEN_GAUNTLETS);}),
     }, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->FireTimer() >= 24),
+        LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
         LOCATION(RC_GANONS_CASTLE_MQ_NEAR_TARGET_FIRE_SILVER,     logic->FireTimer() >= 32),
-        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->FireTimer() >= 48 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
+        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       (logic->FireTimer() >= 48 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 32 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid())),
         LOCATION(RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_MQ_JET_PLATFORM_FIRE_SILVER,    logic->FireTimer() >= 40),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MQ_MAIN,                  []{return true;}),
-                                                                                                                                    //2 checks, 1 for the rupees, 1 for actually making it, as the rupees are permanent but throwing a pillar is not
-        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FINAL_ROOM, []{return logic->HasItem(RG_GANONS_CASTLE_SILVER_FIRE) && logic->CanUse(RG_GORON_TUNIC) && (logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_GOLDEN_GAUNTLETS) && (logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL) && logic->IsAdult && logic->CanUse(RG_HOOKSHOT)))));}),
+        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_OPEN_DOOR,   []{return true;}),
+        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, []{return logic->FireTimer() >= 32 && (logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOVER_BOOTS) && (logic->BunnyHood() || logic->TakeDamage())) ||
+                                                                                                    (logic->CanUse(RG_GOLDEN_GAUNTLETS) && (logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->BunnyHood()) || (ctx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL) && logic->IsAdult && logic->CanUse(RG_HOOKSHOT)))));}),
     });
 
-    //SoH 28ab1206 (#7396) returns the Final Room to the main room's barred-door side, a region of the bundle O28 split
-    //(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED). The split's other regions are not ported here: this tree's Main Room
-    //is SoH's Open Door and From Open Door in one, and the Barred Door's one exit is folded into this region's.
-    //SoH's From Barred voidout clause on the pillar silver rupee is left out (RT_VOIDOUT_COLLECTION is not ported).
-    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED] = Region("Ganon's Castle MQ Fire Trial From Barred Door", SCENE_INSIDE_GANONS_CASTLE, {}, {
+    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED] = Region("Ganon's Castle MQ Fire Trial From Barred Door", SCENE_INSIDE_GANONS_CASTLE, {
+        //Events
+        EventAccess(LOGIC_GANONS_CASTLE_SILVER_FIRE, []{return logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 56 && logic->CanUse(RG_GOLDEN_GAUNTLETS);}),
+    }, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
+        LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
         LOCATION(RC_GANONS_CASTLE_MQ_NEAR_TARGET_FIRE_SILVER,     logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
-        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
+        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && ((logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 8 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION)))),
         LOCATION(RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_MQ_JET_PLATFORM_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_MAIN_ROOM,  []{return logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 32;}),
+        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_OPEN_DOOR,   []{return logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 32;}),
+        Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR, []{return true;}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_MQ_FIRE_TRIAL_BARRED_DOOR] = Region("Ganon's Castle MQ Fire Trial Barred Door", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+        //Exits
         Entrance(RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FINAL_ROOM, []{return logic->HasItem(RG_GANONS_CASTLE_SILVER_FIRE);}),
     });
 
