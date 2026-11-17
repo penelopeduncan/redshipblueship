@@ -1190,9 +1190,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
     // added copy ("Gerudo Mask (MM)") is named by the plain name, in the helper, in
     // MM's text name (GetItemName) and in the item tracker layout editor
     // (GetItemTrackerItemName); OoT's own copy gets NULL (its name is localized);
-    // the Items row name, a lookup key, never moves. With the shared rules off, or
-    // on only in the session's settings, every name keeps its "(MM)": the helper
-    // reads the frozen word only.
+    // the Items row name, a lookup key, never moves. With the shared rules off in the
+    // frozen record every name keeps its "(MM)": the helper reads the frozen word
+    // only.
     {
         const uint32_t kSwsMaskFamilies[3] = { RSBS_XITEM_SHARED_GERUDO, RSBS_XITEM_SHARED_SKULL,
                                                RSBS_XITEM_SHARED_SPOOKY };
@@ -1251,13 +1251,12 @@ TestResult Test_SharedWarpSongsMerge(void) {
                       Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, mmMask[2]) == NULL,
                   "(11) the shared Skull Mask alone named the Gerudo or Spooky Mask too, or not the Skull Mask");
 
-        // Rules off in the frozen record, on in the session's settings: every name keeps its "(MM)".
+        // Rules off in the frozen record: every name keeps its "(MM)". This row has no
+        // Ship::Context, so it has no CVar store to turn the session's settings on in
+        // (CVarSetInteger faults without one, which is how this leg first crashed the
+        // row); a helper that read a live key instead of the frozen word would fault
+        // here the same way, so the row still catches it.
         SwsFreeze(kSwsMaskExtensions, 0u);
-        const ComboSettingId kSwsMaskKeys[4] = { COMBO_SETTING_GERUDO_MASK_MM, COMBO_SETTING_SHARED_MASK_GERUDO,
-                                                 COMBO_SETTING_SHARED_MASK_SKULL, COMBO_SETTING_SHARED_MASK_SPOOKY };
-        for (ComboSettingId k : kSwsMaskKeys) {
-            CVarSetInteger(Combo_ComboSettingKey(k), 1);
-        }
         int named = 0;
         int untagged = 0;
         for (int m = 0; registered && m < 3; m++) {
@@ -1268,12 +1267,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
             const char* tracker = MM_WarpSongsTest_TrackerItemName(mmMask[m]);
             untagged += (tracker == NULL || strstr(tracker, "(MM)") == NULL) ? 1 : 0;
         }
-        for (ComboSettingId k : kSwsMaskKeys) {
-            CVarClear(Combo_ComboSettingKey(k));
-        }
         SWS_CHECK(named == 0 && untagged == 0,
-                  "(11) with the shared mask rules off in the frozen record (on in the session) %d names were "
-                  "shared and %d text or editor names lost their '(MM)'",
+                  "(11) with the shared mask rules off in the frozen record %d names were shared and %d text or "
+                  "editor names lost their '(MM)'",
                   named, untagged);
         SWS_CHECK(Combo_SharedFamilyDisplayName((uint8_t)GAME_NONE, mmMask[0]) == NULL &&
                       Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, 0x7777u) == NULL,
