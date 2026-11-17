@@ -2164,8 +2164,9 @@ int CitwLockCustomLayout(void) {
                 mmAvail[0].slots.size() == 27);
     CITW_ASSERT(!ootAvail.empty() && ootAvail[0].name == "Key Items" && ootAvail[0].columns == 5 &&
                 ootAvail[0].slots.size() == 50);
-    // #1369: the Shared Swim slot joins the shared catalog (33) and gets a "Shared Abilities" group of its own.
-    CITW_ASSERT(sharedAvail.size() >= 5 && sharedAvail[0].slots.size() == 33);
+    // #1369: the Shared Swim slot joins the shared catalog and gets a "Shared Abilities" group of its own; #1570:
+    // the Shared Gerudo, Skull, Spooky, Blast and Stone Masks join it too (38).
+    CITW_ASSERT(sharedAvail.size() >= 5 && sharedAvail[0].slots.size() == 38);
     CITW_ASSERT(sharedAvail.back().name == "Shared Abilities" && sharedAvail.back().slots.size() == 1);
     {
         // OoT's catalog gives SoH's ability rows a group of their own, hidden in a seed that does not shuffle them.

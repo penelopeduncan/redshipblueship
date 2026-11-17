@@ -68,6 +68,7 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#include <vector>
 
 #include "Rando/Rando.h"               // SaveContext (via variables.h), StaticData::Items, GetIconTexturePath
 #include "Rando/ActorBehavior/Souls.h" // SOUL_RI_TO_RANDO_INF
@@ -88,6 +89,8 @@ extern "C" {
 #include "warp_song_items.h"   // Combo_AddedSongRow: the added warp songs' rows (#1169 XW11)
 #include "warp_song_tracker.h" // Combo_TrackerTravel_RegisterMMReader: MM's frozen warp songs (#1169 XW11)
 #include "warp_songs_mm.h"     // Combo_MMWarpSongOwned: their ownership byte (#1169 XW11)
+#include "foreign_masks.h"     // Combo_ForeignMask_Info: the added OoT masks' owned bits (#1570)
+#include "Rando/OoTMasksMM.h"  // MM_OoTMask_ForeignId / MM_OoTMask_IconPath: the added OoT masks' rows (#1570)
 
 // The view hands this TU either the unified live storage (unified_save.c,
 // alignas(16)) or MM's shadow, a std::vector<uint8_t> buffer (context.cpp),
@@ -888,6 +891,95 @@ int MMItemSongsEnd(void) {
     return sEnd;
 }
 
+// ---- #1570: Ocarina of Time's Gerudo, Skull and Spooky Masks added to Majora's Mask ------
+//
+// Zero to three rows right after the Fierce Deity's Mask, the end of MM's own "Masks" group, in OoTMM's order
+// (OoTMasksMM.cpp), each only in a randomizer file whose frozen record holds its RSBS_XITEM_*_MASK_MM extension: a
+// file with every rule off has exactly the rows and indices it had before, as the added warp songs above. Each is
+// MM's own item: its name is MM's item table's ("Skull Mask (MM)", Items.cpp), or the plain name under its frozen
+// shared rule (Combo_SharedFamilyDisplayName, #1560); its icon is MM_OoTMask_IconPath's. It is held through the owned
+// bit MM_OoTMask_Owned tests, read here over the HANDED buffer (the Stone or Gibdo slot's state byte,
+// foreignMaskSlotSel) rather than through MM_OoTMask_Owned, which reads the live global: the view also hands MM's
+// shadow while Ocarina of Time runs. Each row is MM's copy of its mask's shared family, so under the shared rule the
+// view draws it once, in the Shared group, as the Goron .. Truth rows are. Not in the catalog, as the songs are not.
+struct MMItemAddedMaskDef {
+    uint32_t rule;   // the extension (RSBS_XITEM_GERUDO_MASK_MM ...)
+    uint32_t family; // its shared family (RSBS_XITEM_SHARED_GERUDO ...)
+    RandoItemId rando;
+    const char* slotKey;
+};
+const MMItemAddedMaskDef kMMItemAddedMasks[] = {
+    { RSBS_XITEM_GERUDO_MASK_MM, RSBS_XITEM_SHARED_GERUDO, RI_MASK_GERUDO, "mask_gerudo_mm" },
+    { RSBS_XITEM_SKULL_MASK_MM, RSBS_XITEM_SHARED_SKULL, RI_MASK_SKULL, "mask_skull_mm" },
+    { RSBS_XITEM_SPOOKY_MASK_MM, RSBS_XITEM_SHARED_SPOOKY, RI_MASK_SPOOKY, "mask_spooky_mm" },
+};
+constexpr int kMMItemAddedMaskCount = (int)(sizeof(kMMItemAddedMasks) / sizeof(kMMItemAddedMasks[0]));
+
+/** Does the buffer's file show added mask `i`? A randomizer file whose frozen record holds its extension. */
+bool MMItemAddedMaskShown(const SaveContext* src, int i) {
+    return IS_RANDO && Combo_ComboCrossItemRule(kMMItemAddedMasks[i].rule);
+}
+
+/** MM_OoTMask_Owned's test over the handed buffer: the mask's owned bit in its shared slot's state byte. */
+bool MMItemAddedMaskOwned(const SaveContext* src, int i) {
+    const uint8_t foreignId = MM_OoTMask_ForeignId((uint16_t)kMMItemAddedMasks[i].rando);
+    const ComboForeignMaskInfo* info = Combo_ForeignMask_Info(foreignId);
+    const uint8_t bit = Combo_ForeignMask_SlotOwnedBit(foreignId);
+    if (info == nullptr || bit == 0u || info->mmSharedSlot == COMBO_FOREIGN_MASK_SLOT_NONE ||
+        info->mmSharedSlot >= COMBO_FOREIGN_MASK_SLOT_COUNT) {
+        return false;
+    }
+    return (gSaveContext.save.shipSaveInfo.rando.foreignMaskSlotSel[info->mmSharedSlot - 1] & bit) != 0u;
+}
+
+/** How many added masks the buffer's file shows. */
+int MMItemAddedMaskRows(const SaveContext* src) {
+    int n = 0;
+    for (int i = 0; i < kMMItemAddedMaskCount; i++) {
+        n += MMItemAddedMaskShown(src, i) ? 1 : 0;
+    }
+    return n;
+}
+
+/** Added mask row `index` (0-based over the rows shown), or false past the last. */
+bool MMItemDeriveAddedMask(const SaveContext* src, int index, ComboItemRow* out) {
+    for (int i = 0; i < kMMItemAddedMaskCount; i++) {
+        if (!MMItemAddedMaskShown(src, i)) {
+            continue;
+        }
+        if (index == 0) {
+            const MMItemAddedMaskDef& def = kMMItemAddedMasks[i];
+            out->group = "Masks";
+            out->slotKey = def.slotKey;
+            MMItemFillRando(out, def.rando);
+            // #1560: under its frozen shared rule the mask is one item of both games, named without "(MM)".
+            if (const char* shared = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)def.rando)) {
+                out->name = shared;
+            }
+            out->iconKey = MM_OoTMask_IconPath((uint16_t)def.rando);
+            out->iconKeyFaded = out->iconKey;
+            out->have = MMItemAddedMaskOwned(src, i);
+            out->sharedFamily = def.family;
+            return true;
+        }
+        index--;
+    }
+    return false;
+}
+
+/** The fixed-row index the added masks are inserted at: right after the Fierce Deity's Mask. */
+int MMItemMasksEnd(void) {
+    static const int sEnd = [] {
+        for (int i = 0; i < kMMItemRowCount; i++) {
+            if (std::strcmp(kMMItemRows[i].slotKey, "mask_fierce_deity") == 0) {
+                return i + 1;
+            }
+        }
+        return kMMItemRowCount;
+    }();
+    return sEnd;
+}
+
 // ---- the vtable ----------------------------------------------------------------
 
 int MMItemCount(void) {
@@ -901,7 +993,7 @@ int MMItemCountFor(const void* buf) {
         return kMMItemRowCount;
     }
     const SaveContext* src = static_cast<const SaveContext*>(buf);
-    return kMMItemRowCount + MMItemAddedSongRows(src) + MMItemGatedRowCount(src);
+    return kMMItemRowCount + MMItemAddedMaskRows(src) + MMItemAddedSongRows(src) + MMItemGatedRowCount(src);
 }
 
 bool MMItemHasSave(const void* buf) {
@@ -997,6 +1089,14 @@ uint32_t MMItemSharedFamily(const MMItemRowDef& def) {
     if (def.kind == MMRK_SLOT && def.item == (uint8_t)ITEM_MASK_TRUTH) {
         return RSBS_XITEM_SHARED_TRUTH; // #978
     }
+    // #1570: MM's own Blast and Stone Masks, the host copies of the shared extensions whose added copies are OoT's
+    // (OoTMM sharedMaskBlast, sharedMaskStone; both games register their member, GameExports_SingleExe.cpp).
+    if (def.kind == MMRK_SLOT && def.item == (uint8_t)ITEM_MASK_BLAST) {
+        return RSBS_XITEM_SHARED_BLAST;
+    }
+    if (def.kind == MMRK_SLOT && def.item == (uint8_t)ITEM_MASK_STONE) {
+        return RSBS_XITEM_SHARED_STONE;
+    }
     return 0u;
 }
 
@@ -1008,6 +1108,16 @@ bool MMItemRowAt(const void* buf, int index, ComboItemRow* out) {
     const uint8_t freshness = out->freshness; // the view's field; left alone
     std::memset(out, 0, sizeof(*out));
     out->freshness = freshness;
+    // #1570: the added OoT masks after the Fierce Deity's Mask, only where their frozen rules are on. MM's own Masks
+    // group comes before its Songs, so past them the index is the one the added songs below are placed by.
+    const int masksEnd = MMItemMasksEnd();
+    if (index >= masksEnd) {
+        const int addedMasks = MMItemAddedMaskRows(src);
+        if (index - masksEnd < addedMasks) {
+            return MMItemDeriveAddedMask(src, index - masksEnd, out);
+        }
+        index -= addedMasks;
+    }
     // #1169 XW11: the added warp songs after the Oath to Order, only where their frozen rules are on.
     const int songsEnd = MMItemSongsEnd();
     if (index >= songsEnd) {
@@ -1486,6 +1596,39 @@ extern "C" int MM_ItemAdapter_TestAuthorWarpSongWorld(void* buf, size_t size, in
     }
     SaveContext* s = static_cast<SaveContext*>(buf);
     s->save.saveInfo.inventory.items[SLOT_OCARINA] = ocarina ? ITEM_OCARINA_OF_TIME : ITEM_NONE;
+    return 1;
+}
+
+/**
+ * #1570 (combo-item-view): give the authored MM save in `buf` the added OoT mask
+ * `riId` (RI_MASK_GERUDO, RI_MASK_SKULL or RI_MASK_SPOOKY) through
+ * MM_OoTMask_Give itself, which writes the live global: the buffer is put in the
+ * global's place for the call and the global's bytes are put back after it, so
+ * the row is shown to read exactly the bit the production give sets. Returns 1,
+ * or 0 when `size` cannot hold a SaveContext or `buf` is misaligned.
+ */
+extern "C" int MM_ItemAdapter_TestGiveOoTMask(void* buf, size_t size, uint16_t riId) {
+    if (buf == nullptr || size < sizeof(SaveContext) || !MMItemAligned(buf)) {
+        return 0;
+    }
+    std::vector<uint8_t> live(sizeof(SaveContext));
+    std::memcpy(live.data(), &gSaveContext, sizeof(SaveContext));
+    std::memcpy(&gSaveContext, buf, sizeof(SaveContext));
+    MM_OoTMask_Give(riId);
+    std::memcpy(buf, &gSaveContext, sizeof(SaveContext));
+    std::memcpy(&gSaveContext, live.data(), sizeof(SaveContext));
+    return 1;
+}
+
+/**
+ * #1570 (combo-item-view): put MM's own Blast Mask in its slot of the authored
+ * MM save in `buf`. Returns 1, or 0 as MM_ItemAdapter_TestGiveOoTMask.
+ */
+extern "C" int MM_ItemAdapter_TestPutBlastMask(void* buf, size_t size) {
+    if (buf == nullptr || size < sizeof(SaveContext) || !MMItemAligned(buf)) {
+        return 0;
+    }
+    static_cast<SaveContext*>(buf)->save.saveInfo.inventory.items[SLOT_MASK_BLAST] = ITEM_MASK_BLAST;
     return 1;
 }
 

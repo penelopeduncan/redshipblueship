@@ -1092,6 +1092,121 @@ void OoTItemFillSoaring(const ComboAddedSongRow& song, ComboItemRow* out) {
     out->sharedFamily = song.sharedFamily;
 }
 
+// ---- #1570: Majora's Mask's Blast and Stone Masks added to Ocarina of Time --------------------
+//
+// Zero to two rows right after the songs (and the Song of Soaring (OoT) when its rule is on), before the dungeon
+// tables, each only in a randomizer file whose frozen record holds its RSBS_XITEM_*_MASK_OOT extension: a file with
+// every rule off has exactly the rows and indices it had before, as the Song of Soaring (OoT) above. SoH's tracker
+// draws the eight masks as ONE child-trade row, so the added masks are not folded into it: each is its own cell in
+// the "Inventory" section's display key, on the line after the songs, where the dungeon tables (which start a line,
+// OoTItemGroupStartsLine) cannot shift. Named as OoT's item table names it (item_list.cpp: "Blast Mask", "Stone
+// Mask", carrying no game tag, so #1560's Combo_SharedFamilyDisplayName answers NULL for it and the name stays),
+// drawn with OoT's own icon for the item (OoT_gItemIcons' custom row, the curated texture its pause menu draws) faded
+// by alpha as Majora's Mask's tracker fades that texture, and held through its RAND_INF flag, the ownership
+// BlastMaskOoT.cpp's source answers. Each is OoT's copy of its mask's shared family, so under the shared rule the view
+// draws it once, in the Shared group, as Majora's Mask's own Blast and Stone rows are.
+struct OoTItemAddedMaskDef {
+    uint32_t rule;   // the extension (RSBS_XITEM_BLAST_MASK_OOT ...)
+    uint32_t family; // its shared family (RSBS_XITEM_SHARED_BLAST ...)
+    RandomizerGet rg;
+    RandomizerInf owned;
+    uint8_t item; // its custom ItemID: OoT_gItemIcons' row
+    const char* slotKey;
+    const char* name;
+};
+const OoTItemAddedMaskDef kOoTItemAddedMasks[] = {
+    { RSBS_XITEM_BLAST_MASK_OOT, RSBS_XITEM_SHARED_BLAST, RG_BLAST_MASK, RAND_INF_OBTAINED_BLAST_MASK,
+      (uint8_t)ITEM_MASK_BLAST, "mask_blast_oot", "Blast Mask" },
+    { RSBS_XITEM_STONE_MASK_OOT, RSBS_XITEM_SHARED_STONE, RG_STONE_MASK, RAND_INF_OBTAINED_STONE_MASK,
+      (uint8_t)ITEM_MASK_STONE, "mask_stone_oot", "Stone Mask" },
+};
+constexpr int kOoTItemAddedMaskCount = (int)(sizeof(kOoTItemAddedMasks) / sizeof(kOoTItemAddedMasks[0]));
+// Majora's Mask's tracker draws a mask not held at 40% alpha (ItemTracker.cpp GetImageObject).
+constexpr float kOoTItemAddedMaskFadedAlpha = 0.4f;
+
+/** Does the buffer's file show added mask `i`? A randomizer file whose frozen record holds its extension. */
+bool OoTItemAddedMaskShown(const SaveContext* src, int i) {
+    return IS_RANDO && Combo_ComboCrossItemRule(kOoTItemAddedMasks[i].rule);
+}
+
+/** How many added masks the buffer's file shows. */
+int OoTItemAddedMaskRows(const SaveContext* src) {
+    int n = 0;
+    for (int i = 0; i < kOoTItemAddedMaskCount; i++) {
+        n += OoTItemAddedMaskShown(src, i) ? 1 : 0;
+    }
+    return n;
+}
+
+/** Added mask `i`'s display fields; `have` and `sharedFamily` are the caller's. */
+void OoTItemFillAddedMask(const OoTItemAddedMaskDef& def, ComboItemRow* out) {
+    out->group = "Inventory";
+    out->slotKey = def.slotKey;
+    const char* shared = Combo_SharedFamilyDisplayName((uint8_t)GAME_OOT, (uint16_t)def.rg);
+    out->name = shared != nullptr ? shared : def.name;
+    out->iconKey = static_cast<const char*>(OoT_gItemIcons[def.item]);
+    out->iconKeyFaded = out->iconKey;
+    out->fadedAlpha = kOoTItemAddedMaskFadedAlpha;
+}
+
+/** Added mask row `index` (0-based over the rows shown), or false past the last. */
+bool OoTItemDeriveAddedMask(const SaveContext* src, int index, ComboItemRow* out) {
+    for (int i = 0; i < kOoTItemAddedMaskCount; i++) {
+        if (!OoTItemAddedMaskShown(src, i)) {
+            continue;
+        }
+        if (index == 0) {
+            OoTItemFillAddedMask(kOoTItemAddedMasks[i], out);
+            out->have = RandInfOf(src, kOoTItemAddedMasks[i].owned);
+            out->sharedFamily = kOoTItemAddedMasks[i].family;
+            return true;
+        }
+        index--;
+    }
+    return false;
+}
+
+// #1570 item B: Ocarina of Time's own icon for each mask family it has a copy of. SoH's tracker draws the eight
+// masks as one child-trade row (no row per mask), so the view found no OoT row carrying a mask family and drew the
+// Shared mask rows with Majora's Mask's icon while Ocarina of Time ran. These entries close the catalog (after the
+// abilities, so every earlier catalog index keeps its item) and carry each family's bit and OoT's icon; they have NO
+// group, so the layout editor (which builds its groups from the catalog's groups) never offers them and the view's
+// catalog reads (Combo_ItemCatalogRowAt) skip them: only the Shared column's icon lookup by family
+// (combo_item_view.c StaticCatalogFamilyRowOf) reads them. Never held.
+struct OoTItemMaskIconDef {
+    uint32_t family;
+    uint8_t item;
+    const char* slotKey;
+};
+const OoTItemMaskIconDef kOoTItemMaskIcons[] = {
+    { RSBS_XITEM_SHARED_KEATON, (uint8_t)ITEM_MASK_KEATON, "mask_keaton_icon" },
+    { RSBS_XITEM_SHARED_SKULL, (uint8_t)ITEM_MASK_SKULL, "mask_skull_icon" },
+    { RSBS_XITEM_SHARED_SPOOKY, (uint8_t)ITEM_MASK_SPOOKY, "mask_spooky_icon" },
+    { RSBS_XITEM_SHARED_BUNNY, (uint8_t)ITEM_MASK_BUNNY, "mask_bunny_icon" },
+    { RSBS_XITEM_SHARED_GORON, (uint8_t)ITEM_MASK_GORON, "mask_goron_icon" },
+    { RSBS_XITEM_SHARED_ZORA, (uint8_t)ITEM_MASK_ZORA, "mask_zora_icon" },
+    { RSBS_XITEM_SHARED_GERUDO, (uint8_t)ITEM_MASK_GERUDO, "mask_gerudo_icon" },
+    { RSBS_XITEM_SHARED_TRUTH, (uint8_t)ITEM_MASK_TRUTH, "mask_truth_icon" },
+};
+constexpr int kOoTItemMaskIconCount = (int)(sizeof(kOoTItemMaskIcons) / sizeof(kOoTItemMaskIcons[0]));
+constexpr int kOoTItemMaskIconCatalogCount = kOoTItemMaskIconCount + kOoTItemAddedMaskCount;
+
+/** Icon-only catalog entry `i` (the eight masks, then the Blast and Stone Masks): no group, never held. */
+void OoTItemFillMaskIcon(int i, ComboItemRow* out) {
+    if (i >= kOoTItemMaskIconCount) {
+        const OoTItemAddedMaskDef& def = kOoTItemAddedMasks[i - kOoTItemMaskIconCount];
+        OoTItemFillAddedMask(def, out);
+        out->sharedFamily = def.family;
+    } else {
+        const OoTItemMaskIconDef& def = kOoTItemMaskIcons[i];
+        FillFromItem(out, def.item, nullptr);
+        out->slotKey = def.slotKey;
+        out->sharedFamily = def.family;
+    }
+    out->group = nullptr;
+    out->have = false;
+}
+
 /** SoH pads each optional section onto a fresh line of its main window (UpdateVectors); the dungeon tables
  *  follow the songs. */
 bool OoTItemGroupOwnLine(const char* group) {
@@ -1125,7 +1240,7 @@ int OoTItemCountFor(const void* buf) {
         return kFixedRowCount;
     }
     const SaveContext* src = static_cast<const SaveContext*>(buf);
-    return kFixedRowCount + OoTItemSoaringRows(src) + OoTItemGatedRows(src);
+    return kFixedRowCount + OoTItemSoaringRows(src) + OoTItemAddedMaskRows(src) + OoTItemGatedRows(src);
 }
 
 /** A created OoT file is in `buf`: the test the .redsave slot panel registers
@@ -1187,6 +1302,12 @@ bool OoTItemRowAt(const void* buf, int index, ComboItemRow* out) {
         }
         index--;
     }
+    // #1570: the Blast and Stone Masks after the songs, only where their frozen rules are on.
+    const int addedMasks = OoTItemAddedMaskRows(src);
+    if (index < addedMasks) {
+        return OoTItemDeriveAddedMask(src, index, out);
+    }
+    index -= addedMasks;
     if (index < kDungeonWithMapsCount) {
         DeriveDungeonCell(src, kDungeonWithMaps[index], "Dungeon Items", out);
         return true;
@@ -1207,7 +1328,8 @@ constexpr int kGatedCatalogCount =
     (int)(sizeof(kOcarinaButtonRows) / sizeof(kOcarinaButtonRows[0])) +
     (int)(sizeof(kOverworldKeyRows) / sizeof(kOverworldKeyRows[0]));
 // #1369: the ability rows come last in the catalog, so every earlier catalog index keeps its item.
-constexpr int kCatalogRowCount = kRowCount + kDungeonCatalogCount + kGatedCatalogCount + kAbilityRowCount;
+constexpr int kCatalogRowCount =
+    kRowCount + kDungeonCatalogCount + kGatedCatalogCount + kAbilityRowCount + kOoTItemMaskIconCatalogCount;
 
 int OoTItemCatalogCount(void) {
     return kCatalogRowCount;
@@ -1300,6 +1422,13 @@ bool OoTItemCatalogRowAt(const void* buf, int catalogIndex, ComboItemRow* out) {
             // an item rather than an ability: without its option the seed has none.
             out->have = a.option != RSK_ROCS_FEATHER;
         }
+        return true;
+    }
+    catalogIndex -= kAbilityRowCount;
+
+    // #1570 item B: the icon-only mask entries close the catalog.
+    if (catalogIndex < kOoTItemMaskIconCatalogCount) {
+        OoTItemFillMaskIcon(catalogIndex, out);
         return true;
     }
     return false;
@@ -1706,6 +1835,32 @@ extern "C" int OoT_ItemAdapter_TestAuthorSoaringWorld(void* buf, size_t size, in
         set(RAND_INF_HAS_OCARINA_C_DOWN);
         set(RAND_INF_HAS_OCARINA_C_UP);
         set(RAND_INF_HAS_OCARINA_C_LEFT);
+    }
+    return 1;
+}
+
+/**
+ * #1570 (combo-item-view): the Soaring world above with nothing owned, the Fairy
+ * Ocarina and the three buttons, a child, holding the Blast Mask when
+ * `blastOwned` and the Stone Mask when `stoneOwned` as their get-item leaves them
+ * (randomizer.cpp: the RAND_INF flag, and the mask in an empty child trade slot).
+ * Returns 1, or 0 as OoT_ItemAdapter_TestAuthorSoaringWorld.
+ */
+extern "C" int OoT_ItemAdapter_TestAuthorAddedMaskWorld(void* buf, size_t size, int blastOwned, int stoneOwned) {
+    if (OoT_ItemAdapter_TestAuthorSoaringWorld(buf, size, 0, 1, 1, 1) != 1) {
+        return 0;
+    }
+    SaveContext* s = static_cast<SaveContext*>(buf);
+    const auto set = [s](RandomizerInf flag) { s->ship.randomizerInf[flag >> 4] |= (u16)(1u << (flag & 0xF)); };
+    if (blastOwned) {
+        set(RAND_INF_OBTAINED_BLAST_MASK);
+        s->inventory.items[SLOT_TRADE_CHILD] = ITEM_MASK_BLAST;
+    }
+    if (stoneOwned) {
+        set(RAND_INF_OBTAINED_STONE_MASK);
+        if (s->inventory.items[SLOT_TRADE_CHILD] == ITEM_NONE) {
+            s->inventory.items[SLOT_TRADE_CHILD] = ITEM_MASK_STONE;
+        }
     }
     return 1;
 }

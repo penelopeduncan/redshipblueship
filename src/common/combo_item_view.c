@@ -649,6 +649,11 @@ static const SharedFamilyRowDef kSharedFamilyRows[] = {
     { RSBS_XITEM_SHARED_BUNNY, "Bunny Hood", "mask_bunny", (uint8_t)GAME_NONE },          // #978
     { RSBS_XITEM_SHARED_KEATON, "Keaton Mask", "mask_keaton", (uint8_t)GAME_NONE },       // #978
     { RSBS_XITEM_SHARED_TRUTH, "Mask of Truth", "mask_truth", (uint8_t)GAME_NONE },       // #978
+    { RSBS_XITEM_SHARED_GERUDO, "Gerudo Mask", "mask_gerudo", (uint8_t)GAME_NONE },       // #1570
+    { RSBS_XITEM_SHARED_SKULL, "Skull Mask", "mask_skull", (uint8_t)GAME_NONE },          // #1570
+    { RSBS_XITEM_SHARED_SPOOKY, "Spooky Mask", "mask_spooky", (uint8_t)GAME_NONE },       // #1570
+    { RSBS_XITEM_SHARED_BLAST, "Blast Mask", "mask_blast", (uint8_t)GAME_NONE },          // #1570
+    { RSBS_XITEM_SHARED_STONE, "Stone Mask", "mask_stone", (uint8_t)GAME_NONE },          // #1570
     { RSBS_XITEM_SHARED_SWIM, "Swim", "ability_swim", (uint8_t)GAME_NONE },               // #1369
 };
 #define SHARED_FAMILY_ROW_DEF_COUNT ((int)(sizeof(kSharedFamilyRows) / sizeof(kSharedFamilyRows[0])))
@@ -729,7 +734,7 @@ static bool StaticCatalogFamilyRowOf(uint8_t game, uint32_t family, ComboItemRow
         bool (*catalogRowAt)(const void*, int, ComboItemRow*);
         uint32_t family;
         int index;
-    } sCache[8];
+    } sCache[24]; // #1570: the five buttons and up to ten mask families at once, so no armed family evicts another
     static int sCacheNext = 0;
     for (int c = 0; c < (int)(sizeof(sCache) / sizeof(sCache[0])); c++) {
         if (sCache[c].catalogRowAt == ops->catalogRowAt && sCache[c].family == family) {
@@ -765,13 +770,21 @@ static bool SharedFamilyIconRow(const SharedFamilyRowDef* def, uint8_t iconGame,
     if (def->iconGame != (uint8_t)GAME_NONE && StaticCatalogFamilyRowOf(def->iconGame, def->family, own)) {
         return true;
     }
-    // OoT's tracker has one child-trade row, not a row per mask (#978), so a
-    // family with no row in the icon game takes the other game's icon.
     const uint8_t otherGame = (iconGame == (uint8_t)GAME_MM) ? (uint8_t)GAME_OOT : (uint8_t)GAME_MM;
     if (catalog) {
         return CatalogFamilyRowOf(iconGame, def->family, own) || CatalogFamilyRowOf(otherGame, def->family, own);
     }
-    return FamilyRowOf(iconGame, def->family, own) || FamilyRowOf(otherGame, def->family, own);
+    if (FamilyRowOf(iconGame, def->family, own)) {
+        return true;
+    }
+    // #1570: OoT's tracker has one child-trade row, not a row per mask (#978),
+    // so OoT answers its own mask icons through its static catalog (icon-only
+    // entries, ItemAdapterSingleExe.cpp kOoTItemMaskIcons); only a family the
+    // icon game has neither a row nor a catalog entry for takes the other game's.
+    if (StaticCatalogFamilyRowOf(iconGame, def->family, own)) {
+        return true;
+    }
+    return FamilyRowOf(otherGame, def->family, own);
 }
 
 /** Fill `out` with family row `familyIndex`: held when the pool holds it or

@@ -1560,8 +1560,8 @@ void ComboItemTrackerAvailableGroups(int section, std::vector<ComboItemTrackerGr
         masksAndArrows.columns = 4;
         masksAndArrows.autoHideUnshuffled = false;
         static const char* const kMaskArrowSlots[] = {
-            "lens",      "arrow_fire", "arrow_ice",   "arrow_light", "mask_goron",
-            "mask_zora", "mask_bunny", "mask_keaton", "mask_truth",
+            "lens",        "arrow_fire", "arrow_ice",   "arrow_light", "mask_goron",  "mask_zora",  "mask_bunny",
+            "mask_keaton", "mask_truth", "mask_gerudo", "mask_skull",  "mask_spooky", "mask_blast", "mask_stone",
         };
         for (const char* k : kMaskArrowSlots) {
             masksAndArrows.slots.push_back(MakeSlot(COMBO_SLOT_SHARED, k));
