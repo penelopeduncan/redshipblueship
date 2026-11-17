@@ -217,6 +217,10 @@
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted
  *     rows on SoH's Settings > General write them. Each TU is the only registrant of its VB (VB_EARTHQUAKE_ON_DAY_3,
  *     VB_APPLY_SCREEN_DISTORTION), so the probe is the same.
+ *   - 2Ship #1951 adds Player/FasterHookshot to the same table. Its key (gEnhancements.Player.FasterHookshot) is MM's
+ *     own: a hosted row in a Majora's Mask block at the end of SoH's Enhancements > Items > Hookshot section writes
+ *     it. The TU is the only registrant of VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED, so each bucket must rise by
+ *     exactly one.
  *   - 2Ship #1972 adds Cycle/MayorArguesUntilMoonfall to the same table. Its key
  *     (gEnhancements.Cycle.MayorArguesUntilMoonfall) is MM's own: a hosted row in the Majora's Mask block of SoH's
  *     Enhancements > Quality of Life > Time of Day writes it. The TU is the only registrant of
@@ -291,6 +295,20 @@
  *     so. This is also the leg's non-vacuity control: a stand-in the hook never reached would take no roll here.
  * The converting roll spawns a CustomItem through MM_Actor_Spawn, which needs a live actor context, so the leg never
  * takes it; a Bombchu appearing is the playtest's. Nothing ChuDrops.cpp defines is named here.
+ *
+ * FASTER HOOKSHOT DOUBLES THE HOOK'S SPEEDS (2Ship #1951) -- FAIL 25. The key-gap table shows that
+ * Player/FasterHookshot.cpp registers; this leg shows what its two registrants answer, through the production
+ * dispatcher (GameInteractor_Should, which is MM_GameHooks_ExecuteVBShould), with the arguments MM_ArmsHook_Wait and
+ * MM_ArmsHook_Shoot (z_arms_hook.c) hand them, on a zeroed stand-in hook with no child and no attached actor:
+ *   - key off: VB_HOOKSHOT_SET_SPEED returns its verdict and leaves the velocity as handed, and VB_HOOKSHOT_SHOOT
+ *     returns its verdict and leaves the hook alone;
+ *   - key on: the free hook's velocity reads 400 (upstream's 200 doubled) and the verdict comes back false; a hook
+ *     about to fire (verdict true) over a zeroed stand-in play state with a stand-in Player is fired by the handler at
+ *     speed 40 with a 13-frame timer, parented to that Player, and the verdict comes back false; a hook already fired
+ *     (verdict false) and a hook with no play state (the single exe's guard) are left alone;
+ *   - key back off: both verdicts come back as handed, so the registrants left with their key.
+ * Not covered: that the overlay calls the dispatcher (its Update needs a live play state and collider), and the
+ * faster shot itself, which is the playtest's. Nothing FasterHookshot.cpp defines is named here.
  *
  * MAYOR ARGUES UNTIL MOONFALL KEEPS THE MEETING GOING (2Ship #1972) -- FAIL 24. The key-gap table shows that
  * Cycle/MayorArguesUntilMoonfall.cpp registers (one VB_MAYOR_MEETING_END_ON_FINAL_NIGHT handler and one
@@ -368,6 +386,8 @@ extern "C" {
 // Phase 12 (#1215, #1221): the rando arm drive and the gates' flags.
 #include "variables.h"
 #include "overlays/actors/ovl_En_Sth/z_en_sth.h"
+// 2Ship #1951: the hook actor FAIL 25's leg hands VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED.
+#include "overlays/actors/ovl_Arms_Hook/z_arms_hook.h"
 // W6-CYCLE-CHEATS: z_player.c's Deku-glide distance pair, which Longer Deku Flower Glide rewrites.
 extern f32 D_8085D958[2];
 }
@@ -455,6 +475,8 @@ struct RegisterW6Phase {
 constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
 // 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
 constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
+// 2Ship #1951: the key-gap probe and FAIL 25's leg (see the file header).
+constexpr const char* kFasterHookshotCVar = "gEnhancements.Player.FasterHookshot";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
 // 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
 constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
@@ -1593,6 +1615,11 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
           "Unsheathe Sword Without Slashing",
           { { "VB_USE_HELD_ITEM_AFTER_CHANGE (Player/UnsheatheWithoutSlashing.cpp)",
               GAP_VB_COUNT(VB_USE_HELD_ITEM_AFTER_CHANGE), 1 } } },
+        // 2Ship #1951: MM's own key, written by the hosted Faster Hookshot row.
+        { kFasterHookshotCVar,
+          "Faster Hookshot",
+          { { "VB_HOOKSHOT_SHOOT (Player/FasterHookshot.cpp)", GAP_VB_COUNT(VB_HOOKSHOT_SHOOT), 1 },
+            { "VB_HOOKSHOT_SET_SPEED (Player/FasterHookshot.cpp)", GAP_VB_COUNT(VB_HOOKSHOT_SET_SPEED), 1 } } },
         { "gEnhancements.RemoveExplosiveLimit",
           "Remove Explosive Limit",
           { { "VB_LIMIT_EXPLOSIVES (Items/RemoveExplosiveLimit.cpp)", GAP_VB_COUNT(VB_LIMIT_EXPLOSIVES), 1 } } },
@@ -2074,6 +2101,93 @@ int RunChuDropsRuleLeg() {
     }
     printf("[TEST] W6-PLAYER: MM Enable Bombchu Drops gives a Bomb drop its conversion roll only while Link has "
            "Bombchus\n");
+    return 0;
+}
+
+// ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds (FAIL 25) ---------------------------------------------
+// See FASTER HOOKSHOT in the file header. The arguments are the ones z_arms_hook.c passes: the hook, and for
+// VB_HOOKSHOT_SET_SPEED a pointer to the velocity MM_ArmsHook_Shoot is about to pick.
+int RunFasterHookshotLeg() {
+    using Vb = GameInteractor::ShouldVanillaBehavior;
+    auto drive = [](int32_t value) {
+        CVarSetInteger(kFasterHookshotCVar, value);
+        ShipInit::Init(kFasterHookshotCVar);
+        S2H::GameHooks::FlushPendingUnregistrations<Vb>();
+    };
+    std::vector<char> hookStorage(sizeof(ArmsHook), 0);
+    ArmsHook* const hook = reinterpret_cast<ArmsHook*>(hookStorage.data());
+    std::vector<char> playStorage(sizeof(PlayState), 0);
+    PlayState* const play = reinterpret_cast<PlayState*>(playStorage.data());
+    std::vector<char> playerStorage(sizeof(Player), 0);
+    Player* const player = reinterpret_cast<Player*>(playerStorage.data());
+    play->actorCtx.actorLists[ACTORCAT_PLAYER].first = &player->actor;
+    PlayState* const savedPlay = MM_gPlayState;
+
+    // The velocity a free hook gets, from a sentinel, and the verdict.
+    auto speed = [hook](bool& verdict) {
+        memset(hook, 0, sizeof(ArmsHook));
+        f32 velocity = -1.0f;
+        verdict = GameInteractor_Should(VB_HOOKSHOT_SET_SPEED, true, hook, &velocity);
+        return velocity;
+    };
+    // A fresh hook handed to VB_HOOKSHOT_SHOOT with the verdict over the play state; the hook is left to inspect.
+    auto shoot = [hook](bool verdictIn, PlayState* withPlay) {
+        memset(hook, 0, sizeof(ArmsHook));
+        MM_gPlayState = withPlay;
+        return GameInteractor_Should(VB_HOOKSHOT_SHOOT, verdictIn, hook);
+    };
+    auto untouched = [hook]() {
+        return hook->timer == 0 && hook->actionFunc == nullptr && hook->actor.parent == nullptr &&
+               hook->actor.speed == 0.0f;
+    };
+
+    drive(0);
+    bool speedVerdictOff = false;
+    const f32 velocityOff = speed(speedVerdictOff);
+    const bool shootVerdictOff = shoot(true, play);
+    const bool shootUntouchedOff = untouched();
+
+    drive(1);
+    const size_t armedShoot = SettledCountForId<Vb>(VB_HOOKSHOT_SHOOT);
+    const size_t armedSpeed = SettledCountForId<Vb>(VB_HOOKSHOT_SET_SPEED);
+    bool speedVerdictOn = true;
+    const f32 velocityOn = speed(speedVerdictOn);
+    const bool shootVerdictOn = shoot(true, play);
+    const bool fired = hook->timer == 13 && hook->actionFunc != nullptr && hook->actor.parent == &player->actor &&
+                       hook->actor.speed > 39.9f && hook->actor.speed < 40.1f;
+    const bool shootVerdictFired = shoot(false, play);
+    const bool firedUntouched = untouched();
+    const bool shootVerdictNoPlay = shoot(true, nullptr);
+    const bool noPlayUntouched = untouched();
+
+    drive(0);
+    bool speedVerdictAfter = false;
+    const f32 velocityAfter = speed(speedVerdictAfter);
+    const bool shootVerdictAfter = shoot(true, play);
+    const bool shootUntouchedAfter = untouched();
+    MM_gPlayState = savedPlay;
+
+    RC_ASSERT(speedVerdictOff && velocityOff == -1.0f, 25,
+              "with Faster Hookshot off, VB_HOOKSHOT_SET_SPEED no longer returns the vanilla verdict or changed the "
+              "velocity it was handed");
+    RC_ASSERT(shootVerdictOff && shootUntouchedOff, 25,
+              "with Faster Hookshot off, VB_HOOKSHOT_SHOOT no longer returns the vanilla verdict or changed the hook");
+    RC_ASSERT(armedShoot == 1 && armedSpeed == 1, 25,
+              "turning Faster Hookshot on did not register exactly one VB_HOOKSHOT_SHOOT and one "
+              "VB_HOOKSHOT_SET_SPEED handler (Player/FasterHookshot.cpp is out of the link, or it stacks)");
+    RC_ASSERT(!speedVerdictOn && velocityOn == 400.0f, 25,
+              "with Faster Hookshot on, a free hook's velocity is not 400 (200 doubled), or the vanilla speed "
+              "block still runs");
+    RC_ASSERT(!shootVerdictOn && fired, 25,
+              "with Faster Hookshot on, a hook about to fire was not fired at speed 40 with a 13-frame timer and "
+              "parented to the Player, or the vanilla shot still runs");
+    RC_ASSERT(!shootVerdictFired && firedUntouched, 25,
+              "with Faster Hookshot on, a hook that had already fired was fired again");
+    RC_ASSERT(shootVerdictNoPlay && noPlayUntouched, 25,
+              "with Faster Hookshot on and no play state, VB_HOOKSHOT_SHOOT did not leave the vanilla shot to run");
+    RC_ASSERT(speedVerdictAfter && velocityAfter == -1.0f && shootVerdictAfter && shootUntouchedAfter, 25,
+              "Faster Hookshot's handlers stayed registered after its key went back off");
+    printf("[TEST] 2Ship #1951: Faster Hookshot doubles the hook's speeds only while its key is on\n");
     return 0;
 }
 
@@ -2871,6 +2985,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- #1236 (review H1): MM Enable Bombchu Drops converts only while Link has Bombchus --------
     if (const int rc = RunChuDropsRuleLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds -------------------------------------------------
+    if (const int rc = RunFasterHookshotLeg(); rc != 0) {
         return rc;
     }
 
