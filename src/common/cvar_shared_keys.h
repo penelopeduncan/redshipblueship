@@ -708,6 +708,9 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_CAMERA_FIX_TARGETTING_CAMERA_SNAP "gEnhancements.Camera.FixTargettingCameraSnap"
 #define RSBS_CVAR_MM_FIXES_EPONA_STEALING_SWORD "gFixes.FixEponaStealingSword"
 #define RSBS_CVAR_MM_FIXES_FIERCE_DEITY_Z_TARGET_MOVEMENT "gEnhancements.Fixes.FierceDeityZTargetMovement"
+// 2Ship #1952: Fix Owl Save Scene Layers, a Fixes row in 2Ship, hosted in the same Gameplay Fixes block after Fix
+// Fierce Deity Z-Target Movement. Default on, as upstream's (z_sram_NES.c reads it with default 1). No SoH twin.
+#define RSBS_CVAR_MM_FIXES_OWL_SAVE_SCENE_LAYERS "gEnhancements.Fixes.OwlSaveSceneLayers"
 #define RSBS_CVAR_MM_FIXES_AMMO_COUNT_ENV_COLOR "gFixes.FixAmmoCountEnvColor"
 #define RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR "gFixes.FixIkanaGreatFairyFountainColor"
 #define RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS "gEnhancements.Fixes.ControlCharacters"
@@ -1200,6 +1203,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_CAMERA_FIX_TARGETTING_CAMERA_SNAP)                \
     X(RSBS_CVAR_MM_FIXES_EPONA_STEALING_SWORD)                       \
     X(RSBS_CVAR_MM_FIXES_FIERCE_DEITY_Z_TARGET_MOVEMENT)             \
+    X(RSBS_CVAR_MM_FIXES_OWL_SAVE_SCENE_LAYERS)                      \
     X(RSBS_CVAR_MM_FIXES_AMMO_COUNT_ENV_COLOR)                       \
     X(RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR)           \
     X(RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS)                         \

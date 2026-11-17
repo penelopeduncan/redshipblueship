@@ -7251,6 +7251,36 @@ extern "C" void MM_RegisterSharedResourceCycleHooks(void) {
     });
 }
 
+namespace {
+uint32_t sComboSongOfTimeCsHookId = 0;
+}
+
+/**
+ * The combo VB_PLAY_SONG_OF_TIME_CS override (#1671 B0). Forces false for a
+ * paired rando half, whose Song of Time is a start item or, under the Shared
+ * Song of Time rule (#1069), a pool item: never the flashback's reward.
+ *
+ * Handlers of one VB share one bool and run in hook-id order
+ * (mm_game_hooks.h). SkipLearningSongOfTime.cpp's Story registrant is a
+ * COND_VB_SHOULD that re-registers with a new id on every ShipInit pass for its
+ * key, so it may run before or after this one. When it runs first with *should
+ * still true it sets playerForm to Deku and queues a give of the vanilla Song of
+ * Time; that file's RSBS guard returns early for a paired rando half, so this
+ * override decides alone in either order.
+ *
+ * Unregister-then-register, so a second call moves this registrant behind every
+ * registrant that exists at that moment: mm-combo-first-cycle drives both orders.
+ * Production calls it once, from MM_Combo_RegisterFirstCycleOverrides.
+ */
+extern "C" void MM_Combo_RegisterSongOfTimeCsOverride(void) {
+    S2H::GameHooks::UnregisterForID<GameInteractor::ShouldVanillaBehavior>(sComboSongOfTimeCsHookId);
+    sComboSongOfTimeCsHookId = REGISTER_VB_SHOULD(VB_PLAY_SONG_OF_TIME_CS, {
+        if (IS_RANDO && Combo_IsCrossGameHalf("mm")) {
+            *should = false;
+        }
+    });
+}
+
 /**
  * Every combo MM half acts as if the Ocarina of Time is held, for the
  * FIRST-CYCLE gates (#654, operator ruling 2026-09-16).
@@ -7290,19 +7320,24 @@ extern "C" void MM_RegisterSharedResourceCycleHooks(void) {
  * and not `Combo_ForeignPairingActive()` — that one answers "does a paired RANDO
  * world exist", which is false for exactly the pairing kinds #654 is about.
  *
- * HONEST SCOPE — VB_FASTER_FIRST_CYCLE IS NOT DISPATCHED IN THE SINGLE EXE
- * TODAY. Its one consumer is `#ifdef RSBS_SINGLE_EXECUTABLE`-branched
- * (z_scene_2SH.cpp:335-350, from #344) to evaluate the un-hooked default
- * directly rather than call GameInteractor_Should, so neither this registrant nor
- * rando's IS_RANDO one can fire. MM's VB dispatch has since been rebound to the
- * MM-owned registry (MM_GameHooks_ExecuteVBShould, the #392 follow-up), which is
- * what that bypass was guarding against, so the bypass is stale — but removing it
- * is a change to a file this lane does not own. It is registered here anyway
- * because it costs nothing and is correct the moment the bypass goes; the
- * behaviour a combo MM half actually gets today comes from the arrival's ocarina
- * grant (MM_Play_GrantComboArrivalIntroRewards), which makes the un-hooked
- * predicate false at its source. mm-combo-first-cycle asserts both legs through
- * MM's real dispatcher and says which is which.
+ * VB_FASTER_FIRST_CYCLE IS DISPATCHED SINCE #1671 B0. Until then its one
+ * consumer skipped the dispatch in the single exe (#344's bypass, stale since
+ * MM's VB dispatch was rebound to the MM-owned registry), so this registrant
+ * could not fire. MM_Scene_FirstCycleTimeSpeedApplies (z_scene_2SH.cpp) now
+ * dispatches it as upstream does.
+ *
+ * TWO MORE FIRST-CYCLE GATES (#1671 B0), for a paired half that does not hold
+ * its ocarina (the Shuffle Ocarina option):
+ *
+ *   VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE (z_en_test4.c) — at Day 3
+ *       midnight an ocarina-less file is pulled into the festival cutscene from
+ *       any scene. A combo half is not; South Clock Town still plays the
+ *       opening through that call site's own sceneId clause.
+ *   VB_PLAY_SONG_OF_TIME_CS (z_player.c) — getting GI_OCARINA_OF_TIME starts
+ *       the "learn the Song of Time" flashback. A paired rando half gets its
+ *       Song of Time from its start or, under Shared Song of Time, from the
+ *       pool, so it never plays. See
+ *       MM_Combo_RegisterSongOfTimeCsOverride for why that one re-registers.
  */
 extern "C" void MM_Combo_RegisterFirstCycleOverrides(void) {
     // REGISTER_VB_SHOULD does not de-duplicate (unlike the COND_ macros, which
@@ -7326,6 +7361,14 @@ extern "C" void MM_Combo_RegisterFirstCycleOverrides(void) {
             *should = false;
         }
     });
+
+    // #1671 B0: the Day 3 midnight festival warp and the forced Song of Time flashback.
+    REGISTER_VB_SHOULD(VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE, {
+        if (Combo_IsCrossGameHalf("mm")) {
+            *should = false;
+        }
+    });
+    MM_Combo_RegisterSongOfTimeCsOverride();
 
     fprintf(stderr, "[MM] combo first-cycle overrides registered (#654)\n");
     fflush(stderr);
