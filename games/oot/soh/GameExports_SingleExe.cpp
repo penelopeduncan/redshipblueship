@@ -5174,8 +5174,9 @@ extern "C" void OoT_Combo_FlushSceneFlagsForFreeze(void) {
  * rows, a switch requested outside gameplay): nothing to read, the last save's
  * scene is kept. A cross-game ARRIVAL never reads the field: it is placed by its
  * startup entrance (z_play.c), and OnLoadGame is dispatched only by the file
- * select's load (z_file_choose.c), SoH's boot-to-warp-point debug save and the
- * integration drives. Idempotent: the launcher's re-freeze stamps the same scene.
+ * select's load (z_file_choose.c), SoH's boot-to-warp-point debug save, the
+ * debug warp screen's debug-save init (z_select.c Select_LoadGame, fileNum 0xFF
+ * only) and the integration drives. Idempotent: the launcher's re-freeze stamps the same scene.
  *
  * The committed-transition frame. Play_Update commits an in-OoT scene change by
  * clearing state.running, SET_NEXT_GAMESTATE(OoT_Play_Init) and writing
