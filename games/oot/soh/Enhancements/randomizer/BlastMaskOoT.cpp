@@ -177,8 +177,9 @@ bool BlastMaskOnButtons() {
  *  into water, Player_Action_80844A44) has no such flag and stays
  *  refused, as does PLAYER_STATE2_UNDERWATER alone, which z_player.c also sets
  *  on the Iron Boots and while Link sinks after falling in. Swimming at the surface
- *  still refuses it: none of the surface swim actions update the items, so
- *  OoTMM never blasts there either. */
+ *  still refuses it, although OoTMM's wrapper is reached there too (the swim
+ *  actions Player_Action_8084D610, 8084D84C and 8084DAB4 update the upper body
+ *  through OoT_Player_TryActionHandlerList): the ruling names only the dive. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
