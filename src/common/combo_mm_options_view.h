@@ -457,7 +457,10 @@ void MM_Rando_ResolveTriforceHalf(int fromSave, uint16_t* outTotal, uint16_t* ou
  * (randoSaveMoonCrash) says New Cycle, or when the frozen combo record holds the
  * Shared Song of Time rule (which forces it: with one Song of Time for the pair,
  * MM starts without it, and the crash is then the free, progress-keeping reset
- * 2Ship's logic assumes); RSBS_MM_MOON_CRASH_RESET otherwise. Never a CVar read.
+ * 2Ship's logic assumes), or when the live randomizer half's frozen Shuffle
+ * Ocarina option (RO_SHUFFLE_OCARINA, #1671) is on (which forces it too: MM then
+ * starts without its ocarina, so the Song of Time cannot be played until the
+ * ocarina is found); RSBS_MM_MOON_CRASH_RESET otherwise. Never a CVar read.
  * DEFINED MM-SIDE in games/mm/2s2h/Rando/Foreign.cpp.
  */
 int MM_Rando_FrozenMoonCrash(void);

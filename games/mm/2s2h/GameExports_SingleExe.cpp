@@ -303,8 +303,9 @@ static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SO
 // dungeon chest fairies (`RO_PLACEMENT_STRAY_FAIRIES`).
 static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64,
               "MM's #1548 stray-fairy split option is id 64, after RO_SHUFFLE_SONG_SARIA");
-static_assert(RO_HOOKSHOT_ANYWHERE == 65 && RO_MAX == 66,
-              "MM's #1574 Hookshot Anywhere option is id 65, after RO_PLACEMENT_STRAY_FAIRIES_OTHER");
+// #1574 made Hookshot Anywhere id 65, after RO_PLACEMENT_STRAY_FAIRIES_OTHER.
+static_assert(RO_HOOKSHOT_ANYWHERE == 65 && RO_SHUFFLE_OCARINA == 66 && RO_MAX == 67,
+              "MM's Shuffle Ocarina option is id 66, after RO_HOOKSHOT_ANYWHERE");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

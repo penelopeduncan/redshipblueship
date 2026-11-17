@@ -5359,6 +5359,26 @@ TestResult Test_MMPairedStart(void) {
     return MM_PairedStart_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1671 lane B1: under MM's frozen Shuffle Ocarina option the paired start drops
+// the Ocarina (it is placed from MM's pool and credited when found), keeps the
+// Song of Time and plays New Cycle; the option-off identity never moves. Same
+// body file and the same bring-up; `--test all` skips it.
+extern "C" int MM_PairedStartShuffleOcarina_RunHeadless(void);
+
+TestResult Test_MMPairedStartShuffleOcarina(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+
+    return MM_PairedStartShuffleOcarina_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1069: under the frozen Shared Song of Time rule MM's paired start drops the
 // song (the pair's one copy is a pool item) and the identity list never moves.
 // Same body file and the same bring-up; `--test all` skips it.
@@ -10246,6 +10266,11 @@ const TestDescriptor gTests[] = {
       "A paired MM half starts with exactly the Ocarina and the Song of Time, never 2Ship's StartingItems block; "
       "the Kokiri Sword and the Hero's Shield are MM pool items (#879)",
       Test_MMPairedStart },
+    // #1671 lane B1: the same start under MM's Shuffle Ocarina option.
+    { "mm-paired-start-shuffle-ocarina",
+      "Under MM's frozen Shuffle Ocarina a paired MM half starts with the Song of Time alone, the Ocarina is placed "
+      "from MM's pool and credited when found, and the moon crash plays New Cycle (#1671)",
+      Test_MMPairedStartShuffleOcarina },
     // #1069: the same start under the Shared Song of Time rule.
     { "mm-paired-start-shared-song-time",
       "Under the frozen Shared Song of Time rule a paired MM half starts with the Ocarina alone and the Song of Time "
@@ -12460,6 +12485,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "crossgame-frame-interpolation") == 0 ||
                 strcmp(gTests[i].name, "mm-rando-gen") == 0 || strcmp(gTests[i].name, "mm-pair-switch-entry") == 0 ||
                 strcmp(gTests[i].name, "mm-paired-start") == 0 ||
+                strcmp(gTests[i].name, "mm-paired-start-shuffle-ocarina") == 0 ||
                 strcmp(gTests[i].name, "mm-paired-start-shared-song-time") == 0 ||
                 strcmp(gTests[i].name, "mm-paired-attempt") == 0 ||
                 strcmp(gTests[i].name, "mm-paired-exhaustion") == 0 ||

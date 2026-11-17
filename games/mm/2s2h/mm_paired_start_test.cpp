@@ -38,6 +38,7 @@
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -60,6 +61,9 @@
 #include "context.h"
 #include "cvar_shared_keys.h"
 #include "foreign_items.h"
+#include "shared_items.h" // Combo_RecordSharedItemCrossing: the ocarina found on an OoT host (#1671)
+
+#include "2s2h/Rando/Logic/ResetTimeGuard.h" // MmCanResetTime / MmCanResetTimeOnMoon (#1671)
 
 extern "C" {
 #include "functions.h"
@@ -71,6 +75,15 @@ int OoT_ComboLogic_GeneralPassDeferred(void);
 // mm_rando_gen_test.cpp: MM's creation-time half over that world, through the
 // real OnSaveInit chain, without OoT's side of the tail.
 int MM_Rando_HeadlessPairedHalf(void);
+// GameExports_SingleExe.cpp: MM's arrival consumer and its two shared-resource
+// shims; Rando/ForeignItemsSingleExe.cpp: the deferred give's queue (#1671).
+void MM_ConsumeSharedItems(void);
+void MM_HarvestSharedResources(void);
+void MM_ApplySharedResources(void);
+int MM_ForeignItem_FlushPending(void);
+int MM_ForeignItem_TestPendingCount(void);
+uint16_t MM_ForeignItem_TestPendingAt(int index);
+void MM_ForeignItem_TestResetPending(void);
 }
 
 namespace {
@@ -285,6 +298,342 @@ extern "C" int MM_PairedStart_RunHeadless(void) {
     }
     printf("[TEST] PASS: a paired MM half starts with exactly the Ocarina of Time and the Song of Time whatever "
            "2Ship's config says; the Kokiri Sword and the Hero's Shield are placed as MM pool items (#879)\n");
+    return 0;
+}
+
+/**
+ * mm-paired-start-shuffle-ocarina (#1671 lane B1; the operator's 2026-11-16
+ * request for "shuffle ocarina as an MM option"). Majora's Mask's frozen Shuffle
+ * Ocarina option (RO_SHUFFLE_OCARINA, off by default) takes the Ocarina of Time
+ * out of the paired start, so the Clock Tower roof check's vanilla RI_OCARINA
+ * stays in MM's pool; the Song of Time stays in the start; the moon crash is then
+ * always New Cycle.
+ *
+ *   1. The IDENTITY list (PairedStartingItems) never moves, and the creation
+ *      stamp moves only through the option's own appended term: key cleared and
+ *      key 0 stamp alike, key 1 differently.
+ *   2. The WORLD list (PairedStartingItemsForWorld) reads the frozen option from
+ *      the half (RANDO_SAVE_OPTIONS): off, the Ocarina and the Song of Time; on,
+ *      the Song of Time; on with the Shared Song of Time rule, nothing; on under
+ *      Vanilla logic, the Song of Time (no Vanilla exception).
+ *   3. The force (MM_Rando_FrozenMoonCrash): a randomizer half with the option on
+ *      plays New Cycle over a frozen Last Save byte; off, it plays its byte. The
+ *      identity folds the AUTHORED moon crash, never the force.
+ *   4. Real paired creations with the key on, at the default (proving) rung and
+ *      at the No Logic rung: generation succeeds; the half starts with the Song
+ *      of Time alone and without the ocarina; the frozen byte is the authored Last
+ *      Save while the half plays New Cycle; RI_OCARINA is in MM's pool once (twice
+ *      under Plentiful) and every copy is placed. At the proving rung the
+ *      reset-time guard keeps the full first cycle (MmCanResetTime) and the Moon's
+ *      reset term is false until the ocarina is found. Under Vanilla logic the
+ *      roof check and RI_OCARINA are still in the pool.
+ *   5. The ocarina found on an OoT host: its crossing is redeemed at the next MM
+ *      arrival and the first gameplay frame's give puts ITEM_OCARINA_OF_TIME in
+ *      its slot; a harvest/apply round trip keeps it.
+ *
+ * Every leg reports and the row fails at the end.
+ */
+extern "C" int MM_PairedStartShuffleOcarina_RunHeadless(void) {
+    printf("[TEST] mm-paired-start-shuffle-ocarina: MM's frozen Shuffle Ocarina takes the Ocarina out of the paired "
+           "start and into the pool, keeps the Song of Time, and forces New Cycle (#1671)\n");
+    sFailures = 0;
+    const char* const optionKey = Rando::StaticData::Options[RO_SHUFFLE_OCARINA].cvar;
+    const std::string ruleKey = std::string(RSBS::kComboIdentityKeyPrefix) + "SharedSongTime";
+    const uint32_t kSharedSongTimeBit = 0x04000000u; // the rule's record bit (.redsave format)
+    struct PSOClearKeys {
+        const char* option;
+        std::string rule;
+        ~PSOClearKeys() {
+            CVarClear(option);
+            CVarClear(rule.c_str());
+            CVarClear(RSBS_CVAR_MM_MOON_CRASH);
+            CVarClear(RSBS_CVAR_COMBO_RANDO_LOGIC);
+        }
+    } clearKeys{ optionKey, ruleKey };
+    CVarClear(optionKey);
+    CVarClear(ruleKey.c_str());
+    CVarClear(RSBS_CVAR_MM_MOON_CRASH);
+    CVarClear(RSBS_CVAR_COMBO_RANDO_LOGIC);
+
+    // ------------------------------------------------------------------------
+    // 1. The identity list and the stamp.
+    // ------------------------------------------------------------------------
+    const std::vector<RandoItemId> identity = Rando::Foreign::PairedStartingItems();
+    printf("[TEST] mm-paired-start-shuffle-ocarina: (1) identity list: %s (expected Ocarina, Song of Time)\n",
+           ItemNames(identity).c_str());
+    Check(identity.size() == 2 && CountOf(identity, RI_OCARINA) == 1 && CountOf(identity, RI_SONG_TIME) == 1,
+          "(1) the identity start list moved: every existing pair's MM profile digest would move");
+    const uint32_t stampCleared = MM_Rando_ComputeProfileStamp();
+    CVarSetInteger(optionKey, 0);
+    const uint32_t stampOff = MM_Rando_ComputeProfileStamp();
+    CVarSetInteger(optionKey, 1);
+    const uint32_t stampOn = MM_Rando_ComputeProfileStamp();
+    CVarClear(optionKey);
+    printf("[TEST] mm-paired-start-shuffle-ocarina: (1) creation stamp cleared %08X, off %08X, on %08X (expected the "
+           "first two equal, the third different)\n",
+           (unsigned)stampCleared, (unsigned)stampOff, (unsigned)stampOn);
+    Check(stampOff == stampCleared, "(1) the option at 0 moved MM's creation stamp: every option-off world would move");
+    Check(stampOn != stampCleared, "(1) the option at 1 did not move MM's creation stamp: it is no part of the world");
+
+    // ------------------------------------------------------------------------
+    // 2. The world list reads the frozen option from the half.
+    // ------------------------------------------------------------------------
+    {
+        const uint32_t savedOption = RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA];
+        const uint32_t savedLogic = RANDO_SAVE_OPTIONS[RO_LOGIC];
+        struct Case {
+            uint32_t option;
+            bool rule;
+            uint32_t logic;
+            const char* what;
+            int ocarinas;
+            int songs;
+        };
+        const Case kCases[] = {
+            { RO_GENERIC_NO, false, RO_LOGIC_GLITCHLESS, "option off", 1, 1 },
+            { RO_GENERIC_YES, false, RO_LOGIC_GLITCHLESS, "option on", 0, 1 },
+            { RO_GENERIC_YES, true, RO_LOGIC_GLITCHLESS, "option on + Shared Song of Time", 0, 0 },
+            { RO_GENERIC_YES, false, RO_LOGIC_VANILLA, "option on under Vanilla logic", 0, 1 },
+        };
+        for (const Case& c : kCases) {
+            ComboContext_Init();
+            gComboCtx.sourceIsRando = true;
+            gComboCtx.sharedRandoSeed = 0x1671517Au;
+            gComboCtx.sharedRandoSettingsHash = 0x1671CA5Eu;
+            gComboCtx.mmProfileDigest = 0x1671D16Eu;
+            ComboSettingsRecord rec;
+            Combo_ComboSettingsDefaults(&rec);
+            ComboItemRulesRecord rules;
+            memset(&rules, 0, sizeof(rules));
+            rules.crossItemFlags = c.rule ? kSharedSongTimeBit : 0u;
+            Combo_FreezeComboSettingsEx(&rec, &rules);
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA] = c.option;
+            RANDO_SAVE_OPTIONS[RO_LOGIC] = c.logic;
+            const std::vector<RandoItemId> world = Rando::Foreign::PairedStartingItemsForWorld();
+            printf("[TEST] mm-paired-start-shuffle-ocarina: (2) %s: world start %s (expected Ocarina %d, Song of "
+                   "Time %d)\n",
+                   c.what, ItemNames(world).c_str(), c.ocarinas, c.songs);
+            Check(CountOf(world, RI_OCARINA) == c.ocarinas && CountOf(world, RI_SONG_TIME) == c.songs &&
+                      (int)world.size() == c.ocarinas + c.songs,
+                  "(2) the paired world start does not follow the frozen Shuffle Ocarina option (#1671)");
+        }
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA] = savedOption;
+        RANDO_SAVE_OPTIONS[RO_LOGIC] = savedLogic;
+        ComboContext_Init();
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. The force, and an identity that folds the authored value only.
+    // ------------------------------------------------------------------------
+    {
+        const SaveType savedSaveType = gSaveContext.save.shipSaveInfo.saveType;
+        const uint8_t savedByte = gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash;
+        const uint32_t savedOption = RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA];
+        ComboContext_Init(); // no Shared Song of Time rule
+        gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+        struct Case {
+            uint32_t option;
+            uint8_t byte;
+            int expected;
+            const char* what;
+        };
+        const Case kCases[] = {
+            { RO_GENERIC_YES, (uint8_t)RSBS_MM_MOON_CRASH_RESET, RSBS_MM_MOON_CRASH_CYCLE, "on, byte Last Save" },
+            { RO_GENERIC_NO, (uint8_t)RSBS_MM_MOON_CRASH_RESET, RSBS_MM_MOON_CRASH_RESET, "off, byte Last Save" },
+            { RO_GENERIC_NO, (uint8_t)RSBS_MM_MOON_CRASH_CYCLE, RSBS_MM_MOON_CRASH_CYCLE, "off, byte New Cycle" },
+        };
+        for (const Case& c : kCases) {
+            RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA] = c.option;
+            gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = c.byte;
+            const int mode = MM_Rando_FrozenMoonCrash();
+            printf("[TEST] mm-paired-start-shuffle-ocarina: (3) %s: plays %d (expected %d)\n", c.what, mode,
+                   c.expected);
+            Check(mode == c.expected, "(3) the frozen Shuffle Ocarina option does not decide the moon crash as "
+                                      "designed (it forces New Cycle when on, and only then)");
+        }
+        gSaveContext.save.shipSaveInfo.saveType = savedSaveType;
+        gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = savedByte;
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA] = savedOption;
+
+        std::vector<uint32_t> values(RO_MAX, 0u);
+        values[RO_SHUFFLE_OCARINA] = RO_GENERIC_YES;
+        CVarSetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET);
+        const std::string authoredReset = Rando::Foreign::TestFoldIdentityStringResolvedMoonCrash(values.data());
+        CVarSetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_CYCLE);
+        const std::string authoredCycle = Rando::Foreign::TestFoldIdentityStringResolvedMoonCrash(values.data());
+        CVarClear(RSBS_CVAR_MM_MOON_CRASH);
+        const bool resetFoldsNoMoon = authoredReset.find("|moonCrash:") == std::string::npos;
+        const bool cycleFoldsMoon = authoredCycle.find("|moonCrash:1") != std::string::npos;
+        const bool bothFoldOption = authoredReset.find("|RO_SHUFFLE_OCARINA:1") != std::string::npos &&
+                                    authoredCycle.find("|RO_SHUFFLE_OCARINA:1") != std::string::npos;
+        printf("[TEST] mm-paired-start-shuffle-ocarina: (3) identity with the option on: authored Last Save folds a "
+               "moon term %d, authored New Cycle %d, both fold the option %d (expected 0/1/1)\n",
+               resetFoldsNoMoon ? 0 : 1, cycleFoldsMoon ? 1 : 0, bothFoldOption ? 1 : 0);
+        Check(resetFoldsNoMoon && cycleFoldsMoon && bothFoldOption,
+              "(3) the identity folds the forced moon crash instead of the authored one, or misses the option");
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. Real paired creations with the key on, at two rungs.
+    // ------------------------------------------------------------------------
+    struct RungCase {
+        int rungKey; // -1: the key cleared (the default rung)
+        const char* what;
+    };
+    const RungCase kRungs[] = {
+        { -1, "default rung" },
+        { (int)RSBS_COMBO_RUNG_NONE, "No Logic rung" },
+    };
+    for (const RungCase& r : kRungs) {
+        CVarClear(ruleKey.c_str());
+        CVarSetInteger(optionKey, 1);
+        // Last Save authored, so the half's byte shows the force is the option's.
+        CVarSetInteger(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET);
+        if (r.rungKey >= 0) {
+            CVarSetInteger(RSBS_CVAR_COMBO_RANDO_LOGIC, r.rungKey);
+        } else {
+            CVarClear(RSBS_CVAR_COMBO_RANDO_LOGIC);
+        }
+        int rc = Rando_HeadlessSeedTest(kStartSeed);
+        if (rc != 0 || !Combo_ForeignPairingActive() || !Combo_ComboSettingsFrozen() ||
+            !OoT_ComboLogic_GeneralPassDeferred()) {
+            printf("[TEST] FAIL: (4) %s: the paired OoT generation for %s did not leave a frozen paired world at its "
+                   "general pass (rc=%d)\n",
+                   r.what, kStartSeed, rc);
+            return 1;
+        }
+        const bool proving = Combo_LogicRungProves(gComboCtx.comboSettings.logicRung);
+        rc = MM_Rando_HeadlessPairedHalf();
+        if (rc != 0) {
+            printf("[TEST] FAIL: (4) %s: MM's creation-time half did not produce a rando world (rc=%d)\n", r.what, rc);
+            return 1;
+        }
+        const std::vector<RandoItemId> persisted =
+            Rando::GetStartingItemsFromSave(gSaveContext.save.shipSaveInfo.rando);
+        const bool ocarina = INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME;
+        const bool songOfTime = CHECK_QUEST_ITEM(QUEST_SONG_TIME) != 0;
+        printf("[TEST] mm-paired-start-shuffle-ocarina: (4) %s (proving %d): frozen option %u, start %s; ocarina=%d "
+               "songOfTime=%d; moon crash byte %u, plays %d (expected 1, Song of Time, 0, 1, %d, %d)\n",
+               r.what, proving ? 1 : 0, (unsigned)RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA], ItemNames(persisted).c_str(),
+               ocarina ? 1 : 0, songOfTime ? 1 : 0, (unsigned)gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash,
+               MM_Rando_FrozenMoonCrash(), RSBS_MM_MOON_CRASH_RESET, RSBS_MM_MOON_CRASH_CYCLE);
+        Check(RANDO_SAVE_OPTIONS[RO_SHUFFLE_OCARINA] == RO_GENERIC_YES,
+              "(4) the creation did not freeze Shuffle Ocarina from its key into the MM half");
+        Check(persisted.size() == 1 && CountOf(persisted, RI_SONG_TIME) == 1,
+              "(4) the paired MM half's start is not the Song of Time alone under Shuffle Ocarina");
+        Check(!ocarina, "(4) the paired MM half starts with the Ocarina of Time under Shuffle Ocarina");
+        Check(songOfTime, "(4) the paired MM half does not know the Song of Time (it stays in the start)");
+        Check(gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash == RSBS_MM_MOON_CRASH_RESET,
+              "(4) the half's frozen moon crash byte is not the authored Last Save: the force leaked into it");
+        Check(MM_Rando_FrozenMoonCrash() == RSBS_MM_MOON_CRASH_CYCLE,
+              "(4) the half does not play New Cycle under Shuffle Ocarina");
+
+        auto info = std::make_unique<RandoSaveInfo>();
+        memcpy(info.get(), &gSaveContext.save.shipSaveInfo.rando, sizeof(RandoSaveInfo));
+        std::vector<RandoCheckId> checkPool;
+        std::vector<RandoItemId> itemPool;
+        Rando::Logic::GeneratePools(*info, checkPool, itemPool);
+        const int expectedOcarinas = info->randoSaveOptions[RO_PLENTIFUL_ITEMS] == RO_GENERIC_YES ? 2 : 1;
+        const int ocarinas = CountOf(itemPool, RI_OCARINA);
+        int onOoT = 0;
+        const int placed = PlacedInWorld(RI_OCARINA, &onOoT);
+        printf("[TEST] mm-paired-start-shuffle-ocarina: (4) %s: MM's pool holds %d Ocarina (expected %d), placed %d "
+               "(%d crossed onto OoT hosts)\n",
+               r.what, ocarinas, expectedOcarinas, placed, onOoT);
+        Check(ocarinas == expectedOcarinas, "(4) MM's pool does not hold the Ocarina the world no longer starts with");
+        Check(placed == ocarinas, "(4) not every Ocarina copy of MM's pool was placed in the world");
+
+        if (proving) {
+            const bool resets = Rando::Logic::MmCanResetTime();
+            const bool resetsOnMoon = Rando::Logic::MmCanResetTimeOnMoon();
+            printf("[TEST] mm-paired-start-shuffle-ocarina: (4) %s: MmCanResetTime %d, MmCanResetTimeOnMoon %d "
+                   "(expected 1/0)\n",
+                   r.what, resets ? 1 : 0, resetsOnMoon ? 1 : 0);
+            Check(resets, "(4) with no ocarina the reset-time guard shuts the first cycle: New Cycle is not forced");
+            Check(!resetsOnMoon, "(4) the Moon's reset term holds before the ocarina is found");
+        }
+
+        if (r.rungKey < 0) {
+            // Under Vanilla logic the start is the same list and the roof check
+            // keeps its Ocarina in the pool (no Vanilla exception, B1.1).
+            auto vanilla = std::make_unique<RandoSaveInfo>();
+            memcpy(vanilla.get(), &gSaveContext.save.shipSaveInfo.rando, sizeof(RandoSaveInfo));
+            vanilla->randoSaveOptions[RO_LOGIC] = RO_LOGIC_VANILLA;
+            std::vector<RandoCheckId> vanillaChecks;
+            std::vector<RandoItemId> vanillaItems;
+            Rando::Logic::GeneratePools(*vanilla, vanillaChecks, vanillaItems);
+            const bool roof = std::find(vanillaChecks.begin(), vanillaChecks.end(), RC_CLOCK_TOWER_ROOF_OCARINA) !=
+                              vanillaChecks.end();
+            const bool roofHoldsOcarina =
+                vanilla->randoSaveChecks[RC_CLOCK_TOWER_ROOF_OCARINA].randoItemId == RI_OCARINA;
+            const int vanillaOcarinas = CountOf(vanillaItems, RI_OCARINA);
+            printf("[TEST] mm-paired-start-shuffle-ocarina: (4) Vanilla logic: roof check pooled %d, holds the "
+                   "Ocarina %d, pool Ocarina %d (expected 1/1/>=1)\n",
+                   roof ? 1 : 0, roofHoldsOcarina ? 1 : 0, vanillaOcarinas);
+            Check(roof && roofHoldsOcarina && vanillaOcarinas >= 1,
+                  "(4) under Vanilla logic the Clock Tower roof check no longer pools the Ocarina");
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    // 5. The ocarina found on an OoT host, then a round trip.
+    // ------------------------------------------------------------------------
+    {
+        auto savedSave = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
+        memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
+        auto savedCombo = std::make_unique<uint8_t[]>(sizeof(gComboCtx));
+        memcpy(savedCombo.get(), &gComboCtx, sizeof(gComboCtx));
+        PlayState* const savedPlay = MM_gPlayState;
+
+        ComboContext_Init();
+        Combo_ClearSharedItemOutbox();
+        MM_ForeignItem_TestResetPending();
+        gSaveContext.fileNum = 0xFF; // a cross-game MM session's "no flash slot" sentinel
+        gSaveContext.gameMode = GAMEMODE_NORMAL;
+        const bool heldBefore = INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME;
+        const int recorded = Combo_RecordSharedItemCrossing(GAME_MM, (uint16_t)RI_OCARINA);
+        MM_gPlayState = nullptr; // the arrival runs before MM_gPlayState is set (z_play.c)
+        MM_ConsumeSharedItems();
+        const int pending = MM_ForeignItem_TestPendingCount();
+        const uint16_t queued = MM_ForeignItem_TestPendingAt(0);
+        int given = 0;
+        {
+            static PlayState sPSOStandIn;
+            memset(&sPSOStandIn, 0, sizeof(sPSOStandIn));
+            MM_gPlayState = &sPSOStandIn;
+            given = MM_ForeignItem_FlushPending();
+            MM_gPlayState = nullptr;
+        }
+        const bool heldAfterGive = INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME;
+        MM_HarvestSharedResources(); // the suspend
+        MM_ApplySharedResources();   // the next arrival
+        const bool heldAfterRoundTrip = INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME;
+        printf("[TEST] mm-paired-start-shuffle-ocarina: (5) held before %d; crossing slot %d; queued %d (id %u, "
+               "expected %u); given %d; held after the give %d, after a round trip %d (expected 0, >=0, 1, 1, 1, 1)\n",
+               heldBefore ? 1 : 0, recorded, pending, (unsigned)queued, (unsigned)RI_OCARINA, given,
+               heldAfterGive ? 1 : 0, heldAfterRoundTrip ? 1 : 0);
+        Check(!heldBefore, "(5) the half already held the ocarina: the legs below would be vacuous");
+        Check(recorded >= 0, "(5) the ocarina's crossing was not recorded");
+        Check(pending == 1 && queued == (uint16_t)RI_OCARINA,
+              "(5) the next MM arrival did not queue exactly the ocarina's give");
+        Check(given == 1 && heldAfterGive,
+              "(5) the first gameplay frame's give did not put the Ocarina of Time in its slot");
+        Check(heldAfterRoundTrip, "(5) a harvest/apply round trip took the ocarina away");
+
+        MM_ForeignItem_TestResetPending();
+        Combo_ClearSharedItemOutbox();
+        memcpy(&gComboCtx, savedCombo.get(), sizeof(gComboCtx));
+        MM_gPlayState = savedPlay;
+        memcpy(&gSaveContext, savedSave.get(), sizeof(gSaveContext));
+    }
+
+    if (sFailures != 0) {
+        printf("[TEST] FAIL: %d contract(s) broken\n", sFailures);
+        return 1;
+    }
+    printf("[TEST] PASS: under Shuffle Ocarina MM's paired start is the Song of Time alone, the Ocarina is placed from "
+           "MM's pool and credited when found, the moon crash plays New Cycle, and the option-off identity is "
+           "unchanged (#1671)\n");
     return 0;
 }
 
