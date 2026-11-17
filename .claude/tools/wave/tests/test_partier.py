@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from wavetest import load_script
@@ -103,6 +104,86 @@ class CompareTest(unittest.TestCase):
     def test_nothing_collected_is_a_difference(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(partier.compare_dirs(Path(tmp) / "a", Path(tmp) / "b"))
+
+
+_MANIFEST = (
+    "# header\n"
+    "home|RandoGen|rando|/b/rsbs-rows/RandoGen\n"
+    "output|RandoShopCrossingsMM|rando|crossos|rsbs_shop_crossings_digest.txt\n"
+    "output|GoldenA|rando|crossos|golden-a-actual.txt\n"
+    "output|GoldenA|rando|compare|?golden-a-actual-rom-mounted.txt\n"
+    "output|SeedPackageRoundTrip|rando|package|seed-package-roundtrip-load.txt\n"
+    "output|SeedPackageRoundTrip|rando|compare|seed-package-roundtrip-load.txt\r\n"
+)
+
+
+class DeclaredOutputsTest(unittest.TestCase):
+    def test_every_group_and_optional_path_once(self):
+        self.assertEqual(partier.declared_outputs(_MANIFEST), [
+            "rsbs_shop_crossings_digest.txt", "golden-a-actual.txt", "golden-a-actual-rom-mounted.txt",
+            "seed-package-roundtrip-load.txt"])
+
+    def test_stale_outputs_are_removed_and_other_files_kept(self):
+        # A stale digest left by an earlier run must not survive into the next run,
+        # where it would stand in for a row that now writes it somewhere else.
+        with tempfile.TemporaryDirectory() as tmp:
+            build = Path(tmp)
+            (build / "rsbs_shop_crossings_digest.txt").write_text("stale\n")
+            (build / "golden-a-actual-rom-mounted.txt").write_text("stale\n")
+            (build / "shipofharkinian.json").write_text("{}\n")
+            removed = partier.clear_declared_outputs(build, _MANIFEST)
+            self.assertEqual(removed, ["rsbs_shop_crossings_digest.txt", "golden-a-actual-rom-mounted.txt"])
+            self.assertFalse((build / "rsbs_shop_crossings_digest.txt").exists())
+            self.assertTrue((build / "shipofharkinian.json").is_file())
+
+    def test_a_path_outside_the_build_directory_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            build = Path(tmp) / "b"
+            build.mkdir()
+            (Path(tmp) / "outside.txt").write_text("keep\n")
+            with self.assertRaises(ValueError):
+                partier.clear_declared_outputs(build, "output|R|rando|crossos|../outside.txt\n")
+            self.assertTrue((Path(tmp) / "outside.txt").is_file())
+
+
+class TierRefusalTest(unittest.TestCase):
+    """verify.py's rando tier at -j > 1 refuses a tree whose rows have no homes."""
+
+    class _Log:
+        def __init__(self):
+            self.lines = []
+
+        def step(self, text):
+            self.lines.append(text)
+
+    def _fake(self, build):
+        fake = type("FakeVerify", (), {})()
+        fake.dry = False
+        fake.build = build
+        fake.failures = []
+        fake.log = self._Log()
+        fake.ran = []
+
+        def run_cmd(cmd, minutes):
+            fake.ran.append(cmd)
+            return 0, []
+        fake.run_cmd = run_cmd
+        return fake
+
+    def test_homes_disabled_line(self):
+        self.assertTrue(verify.homes_disabled("# x\nhomes|disabled|multi-config\n"))
+        self.assertFalse(verify.homes_disabled("# x\nhome|RandoGen|rando|/b/rsbs-rows/RandoGen\n"))
+
+    def test_disabled_or_missing_manifest_refuses_before_ctest(self):
+        for body in ("homes|disabled|multi-config\n", None):
+            with tempfile.TemporaryDirectory() as tmp:
+                if body is not None:
+                    (Path(tmp) / "redship-test-manifest.txt").write_text(body)
+                fake = self._fake(tmp)
+                with mock.patch.dict("os.environ", {"WAVE_RANDO_JOBS": "2"}):
+                    self.assertFalse(verify.Verify.tier(fake, "rando"))
+                self.assertEqual(fake.ran, [])
+                self.assertTrue(any("refused" in f for f in fake.failures))
 
 
 class TailTest(unittest.TestCase):

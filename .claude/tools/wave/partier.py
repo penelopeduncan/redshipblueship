@@ -15,7 +15,9 @@ same, since the tier is CPU-bound). N is 2 by default, 2 to 4 allowed
       ENVIRONMENT and rsbs_row_homes in FIXTURES_REQUIRED, homes distinct after
       case-folding;
   (b) a snapshot of the build directory's shared files (CheckSharedDirUntouched);
-  (c) the serial run, its `compare` outputs copied to <build>/partier/serial
+  (c) every declared output (the manifest's `output|` lines) deleted from the
+      build directory, so an earlier run's file cannot stand in for a missing one;
+      then the serial run, its `compare` outputs copied to <build>/partier/serial
       (CheckRowOutputs; optional ROM-mounted files required when oot.o2r and
       mm.o2r are staged), and the shared files verified unchanged;
   (d) the same at -j N into <build>/partier/par;
@@ -147,6 +149,38 @@ def compare_dirs(a: Path, b: Path) -> list:
     return diffs
 
 
+_OUTPUT_LINE = re.compile(r"^output\|[^|]*\|[^|]*\|[^|]*\|\??(.+)$")
+
+
+def declared_outputs(manifest_text: str) -> list:
+    """Every path an `output|<row>|<labels>|<group>|[?]<path>` manifest line
+    declares (all groups, optional ones too), relative to the build directory, in
+    manifest order without repeats."""
+    out = []
+    for line in manifest_text.splitlines():
+        m = _OUTPUT_LINE.match(line.rstrip("\r"))
+        if m and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def clear_declared_outputs(build: Path, manifest_text: str) -> list:
+    """Deletes every declared output from @p build before a run, so a file that
+    run did not write is reported MISSING by CheckRowOutputs instead of an earlier
+    run's copy matching itself. Returns the paths it removed. A declared path that
+    resolves outside @p build is refused (ValueError), never deleted."""
+    root = build.resolve()
+    removed = []
+    for rel in declared_outputs(manifest_text):
+        target = (build / rel).resolve()
+        if target == root or root not in target.parents:
+            raise ValueError(f"declared output {rel!r} resolves outside {build}")
+        if target.is_file() or target.is_symlink():
+            target.unlink()
+            removed.append(rel)
+    return removed
+
+
 _START = re.compile(r"^\s*Start\s+\d+:\s+(\S+)")
 _END = re.compile(r"^\s*\d+/\d+\s+Test\s+#\d+:\s+(\S+)\s")
 
@@ -250,6 +284,12 @@ class Partier(v.Verify):
 
     def one_run(self, jobs: int, name: str) -> tuple[list, float, list]:
         junit = self.out / f"partier-{name}.xml"
+        manifest = (self.build / "redship-test-manifest.txt").read_text(encoding="utf-8", errors="replace")
+        try:
+            cleared = clear_declared_outputs(self.build, manifest)
+        except ValueError as exc:
+            raise v.VerifyFail(f"precondition: {exc}") from None
+        self.log.step(f"partier: {name} run: removed {len(cleared)} declared output(s) left by an earlier run")
         rc, events, seconds = self.timed_cmd(
             ["ctest", "--test-dir", self.build, "-L", "^rando$", "-j", str(jobs), "--output-on-failure",
              "--no-tests=error", "--output-junit", junit])

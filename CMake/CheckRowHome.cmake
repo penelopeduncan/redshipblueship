@@ -6,12 +6,15 @@
 # code runs. This drives the real binary's row-home-probe dispatch
 # (src/common/tests/test_row_home.c) in scratch folders and checks, leg by leg:
 #
-#   (a) cwd = FROM = F (the binary linked into F, F holding a seed config): exit 0,
-#       `[HOME] ... config=seeded`, the probe's working directory AND app directory
-#       are the home, the home holds the seed's exact bytes and every file the probe
-#       wrote, no archive was copied, and F is exactly as it was: its listing gains
-#       only rsbs-rows/ and its config keeps its bytes. Red if the home is not
-#       entered (current_path dropped) or a writer resolves outside it.
+#   (a) cwd = FROM = F (the binary linked into F, F holding a seed config and two
+#       placeholder .o2r archives), and on Linux and macOS SHIP_HOME exported as
+#       F/sub: exit 0, `[HOME] ... config=seeded`, the probe's working directory AND
+#       app directory are the home, the home holds the seed's exact bytes and every
+#       file the probe wrote, no archive was copied, and F is exactly as it was: its
+#       listing gains only rsbs-rows/ and its config keeps its bytes. Red if the home
+#       is not entered (current_path dropped), if the home does not override an
+#       exported SHIP_HOME (the setenv dropped; Linux and macOS), if an archive is
+#       copied into the home, or if a writer resolves outside it.
 #   (b) FROM with no config: exit 0, `config=none`. Red if a missing seed refuses.
 #   (c) cwd = F/sub (not FROM): `[HOME] kept`, the home is never created. Red if
 #       the cwd rule (the equivalent() guard) is dropped.
@@ -60,6 +63,10 @@ endforeach()
 set(_seed_bytes "{\"rsbsRowHomeIsolation\": \"seed bytes, #1692\"}\n")
 file(WRITE "${_F}/shipofharkinian.json" "${_seed_bytes}")
 file(MAKE_DIRECTORY "${_S}/shipofharkinian.json")
+# Placeholder archives beside the binary, where the real ones are staged: leg (a)'s
+# "no archive copied into the home" check has something a faulty home could copy.
+file(WRITE "${_F}/oot.o2r" "row-home placeholder archive, #1692\n")
+file(WRITE "${_F}/mm.o2r" "row-home placeholder archive, #1692\n")
 
 file(GLOB _F_before LIST_DIRECTORIES true RELATIVE "${_F}" "${_F}/*")
 list(SORT _F_before)
@@ -136,8 +143,16 @@ endmacro()
 
 # ---- (a) ---------------------------------------------------------------------
 set(_H1 "${_F}/rsbs-rows/H1")
+# Linux and macOS: a SHIP_HOME exported by the caller, pointing elsewhere (F/sub),
+# must be overridden by the home (TestHome_EnterIfAsked step 6), or the app
+# directory is F/sub and app_dir_is_home turns 0. Windows never reads SHIP_HOME.
+set(_a_ship_home "")
+if(NOT CMAKE_HOST_WIN32)
+    set(_a_ship_home "SHIP_HOME=${_F}/sub")
+endif()
 _rh_run("${_F}" "${_F}/${_exe_name}" row-home-probe _rc _text
-    "RSBS_TEST_HOME=${_H1}" "RSBS_TEST_HOME_FROM=${_F}" "RSBS_ROW_HOME_REPORT=${_R}/a.txt" "RSBS_ROW_HOME_ID=1")
+    "RSBS_TEST_HOME=${_H1}" "RSBS_TEST_HOME_FROM=${_F}" "RSBS_ROW_HOME_REPORT=${_R}/a.txt" "RSBS_ROW_HOME_ID=1"
+    ${_a_ship_home})
 if(NOT _rc STREQUAL "0")
     _rh_fail(a "exited ${_rc}:\n${_text}")
 endif()

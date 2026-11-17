@@ -755,15 +755,19 @@ jobs:
         retention-days: 7
     # The seed package this leg's SeedPackageRoundTrip row wrote, with the report of
     # the world a second Linux process loaded from it, for package-crossos-load
-    # (#1044): a package made here must load on Windows to the same world.
+    # (#1044): a package made here must load on Windows to the same world. The files
+    # are the row's declared `package=` outputs (#1692), copied flat by name, so the
+    # artifact keeps the layout package-crossos-load reads, and one missing or empty
+    # file fails here by name (if-no-files-found fails only when NO file matches).
+    - name: Collect this build's seed package (Linux) (#1044)
+      if: always()
+      run: cmake -DMANIFEST=build-cmake/redship-test-manifest.txt -DBUILD_DIR=build-cmake -DGROUP=package -DCOPY_TO=seed-package -P CMake/CheckRowOutputs.cmake
     - name: Upload this build's seed package (Linux) (#1044)
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: seed-package-linux
-        path: |
-          build-cmake/seed-package-roundtrip.rsbs-seed.zip
-          build-cmake/seed-package-roundtrip-load.txt
+        path: seed-package/
         if-no-files-found: error
         retention-days: 7
     # The UI snapshot harness (docs/ui-style-guide.md section 12): SoH's own menu

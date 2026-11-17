@@ -92,6 +92,13 @@ def tier_jobs(label: str, env=None) -> int:
     return rando_jobs(env) if label == "rando" else 1
 
 
+def homes_disabled(manifest_text: str) -> bool:
+    """True when a tree's redship-test-manifest.txt says no row has a private home
+    (`homes|disabled|<why>`, a multi-config tree): its rando rows share the build
+    directory, so they must not run side by side (#1692)."""
+    return any(line.startswith("homes|disabled|") for line in manifest_text.splitlines())
+
+
 def parse_flags(text: str) -> set:
     text = (text or "").strip()
     if text in ("", "-"):
@@ -621,6 +628,15 @@ class Verify:
     def tier(self, label: str) -> bool:
         started = time.time()
         jobs = tier_jobs(label)
+        if jobs > 1 and not self.dry:
+            manifest = Path(self.build) / "redship-test-manifest.txt"
+            text = manifest.read_text(encoding="utf-8", errors="replace") if manifest.is_file() else None
+            if text is None or homes_disabled(text):
+                why = "has no redship-test-manifest.txt" if text is None else "has homes disabled (homes|disabled|)"
+                self.failures.append(f"tier {label}: {RANDO_JOBS_VAR}={jobs} refused: {self.build} {why}, so its "
+                                     "rows would share the build directory side by side; unset it or use -j 1")
+                self.log.step(f"tier: {label} REFUSED -j {jobs}: the tree {why}")
+                return False
         self.log.step(f"tier: {label} runs {jobs} row(s) at a time (ctest -j {jobs})")
         rc, lines = self.run_cmd(
             [
