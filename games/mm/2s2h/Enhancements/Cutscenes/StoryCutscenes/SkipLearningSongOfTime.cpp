@@ -8,14 +8,27 @@
 extern "C" {
 #include "functions.h"
 #include "variables.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+bool Combo_IsCrossGameHalf(const char* gameId); // src/common/entrance.h
+#endif
 }
+
+// RSBS guard (#1671 B0): a paired rando half already holds the Song of Time, and the combo
+// override in GameExports_SingleExe.cpp decides this VB for it, so this handler leaves it alone
+// in whichever order the two run. A macro because the test sits inside the COND_VB_SHOULD body,
+// where #ifdef cannot go.
+#ifdef RSBS_SINGLE_EXECUTABLE
+#define RSBS_COMBO_RANDO_HALF() (IS_RANDO && Combo_IsCrossGameHalf("mm"))
+#else
+#define RSBS_COMBO_RANDO_HALF() false
+#endif
 
 #define CVAR_NAME "gEnhancements.TimeSavers.SkipCutscene.Story"
 #define CVAR CVarGetInteger(CVAR_NAME, 0)
 
 void RegisterSkipLearningSongOfTime() {
     COND_VB_SHOULD(VB_PLAY_SONG_OF_TIME_CS, CVAR, {
-        if (!*should) {
+        if (!*should || RSBS_COMBO_RANDO_HALF()) {
             return;
         }
 
