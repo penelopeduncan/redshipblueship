@@ -4,6 +4,10 @@
 #include "ShipUtils.h"
 #include "ship/config/Config.h"
 #include "2s2h/ShipInit.hpp"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "game.h"            // src/common: GAME_MM
+#include "warp_song_items.h" // src/common: Combo_SharedItemDisplayName, a shared item's plain name (#1560)
+#endif
 
 namespace BenGui {
 extern std::shared_ptr<ItemTrackerWindow> mItemTrackerWindow;
@@ -27,10 +31,24 @@ std::vector<std::pair<TrackerItemType, u32>> GetItemsFromRange(TrackerItemType i
     return items;
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// #1560: an added song or OoT mask whose own name carries "(MM)" is named without
+// it under its frozen shared rule (OoTMM's isItemAmbiguous); every other item, and
+// every item with the rules off, keeps its Items row name.
+static const char* ItemTrackerRandoItemName(RandoItemId randoItemId) {
+    const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId);
+    return shared != nullptr ? shared : Rando::StaticData::Items[randoItemId].name;
+}
+#else
+static const char* ItemTrackerRandoItemName(RandoItemId randoItemId) {
+    return Rando::StaticData::Items[randoItemId].name;
+}
+#endif
+
 std::string GetItemTrackerItemName(TrackerItemType itemType, u32 itemId) {
     switch (itemType) {
         case TRACKER_ITEM_RANDO: {
-            return Rando::StaticData::Items[(RandoItemId)itemId].name;
+            return ItemTrackerRandoItemName((RandoItemId)itemId);
         } break;
         case TRACKER_ITEM_SLOT: {
             auto vanillaItemId = gSaveContext.save.saveInfo.inventory.items[itemId];
@@ -38,7 +56,7 @@ std::string GetItemTrackerItemName(TrackerItemType itemType, u32 itemId) {
                 vanillaItemId = safeItemsForInventorySlot[itemId][0];
             }
             RandoItemId randoItemId = Rando::StaticData::GetItemIdFromVanillaItemId(vanillaItemId);
-            return Rando::StaticData::Items[randoItemId].name;
+            return ItemTrackerRandoItemName(randoItemId);
         } break;
         case TRACKER_ITEM_SWORD: {
             if (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SWORD) == EQUIP_VALUE_SWORD_KOKIRI) {

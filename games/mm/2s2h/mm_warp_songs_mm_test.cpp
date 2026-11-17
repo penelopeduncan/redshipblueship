@@ -37,6 +37,7 @@
 
 #include <libultraship/bridge/consolevariablebridge.h>
 
+#include "2s2h/Enhancements/Trackers/ItemTracker/ItemTracker.h" // GetItemTrackerItemName (#1560)
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/Rando/Logic/Logic.h"
 #include "2s2h/Rando/StaticData/StaticData.h"
@@ -158,6 +159,14 @@ extern "C" const char* MM_WarpSongsTest_Name(uint16_t ri) {
 extern "C" const char* MM_WarpSongsTest_TextName(uint16_t ri) {
     static std::string sName;
     sName = Rando::StaticData::GetItemName((RandoItemId)ri, true);
+    return sName.c_str();
+}
+
+/** The name MM's item tracker layout editor gives Items row `ri`
+ *  (GetItemTrackerItemName, TRACKER_ITEM_RANDO; #1560). */
+extern "C" const char* MM_WarpSongsTest_TrackerItemName(uint16_t ri) {
+    static std::string sName;
+    sName = GetItemTrackerItemName(TRACKER_ITEM_RANDO, (u32)ri);
     return sName.c_str();
 }
 

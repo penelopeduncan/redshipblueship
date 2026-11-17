@@ -571,6 +571,12 @@ extern "C" int OoT_Rando_Foreign_ShowOnlyItemText(const GetItemEntry* entry, con
     }
     const char* a = Combo_GetForeignItemArticle(sShowOnly.item);
     const char* n = Combo_GetForeignItemName(sShowOnly.item);
+    // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+    const char* shared =
+        n != nullptr ? Combo_SharedItemDisplayName(sShowOnly.item.originGame, sShowOnly.item.id) : nullptr;
+    if (shared != nullptr) {
+        n = shared;
+    }
     if (article != nullptr) {
         *article = a != nullptr ? a : "";
     }
