@@ -148,17 +148,8 @@ void Settings::HandleKeyringUI() {
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("FortressCarpenters"), RO_GF_CARPENTERS_NORMAL) ==
             RO_GF_CARPENTERS_NORMAL &&
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("GerudoKeys"), RO_GERUDO_KEYS_VANILLA) != RO_GERUDO_KEYS_VANILLA;
-#ifdef RSBS_SINGLE_EXECUTABLE
-    // #1364: every world is generated with Shuffle Chest Minigame off
-    // (Playthrough_Init pins it), so FinalizeSettings never adds the Chest Minigame
-    // Keyring to its list. The menu follows the pin, not the stored CVar (which a
-    // preset or the config file can still set): a count slider one past that list
-    // would index past its end.
-    const bool chestGameKeyring = false;
-#else
     const bool chestGameKeyring =
         CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleChestMinigame"), RO_GENERIC_OFF) != RO_GENERIC_OFF;
-#endif
     const uint8_t maxKeyringCount = 8 + fortressKeyring + chestGameKeyring;
     if (mOptions[RSK_KEYRINGS_RANDOM_COUNT].GetOptionCount() != maxKeyringCount + 1) {
         mOptions[RSK_KEYRINGS_RANDOM_COUNT].ChangeOptions(NumOpts(0, maxKeyringCount));
@@ -174,12 +165,7 @@ void Settings::HandleKeyringUI() {
     if (chestGameKeyring) {
         mOptions[RSK_KEYRINGS_CHEST_GAME].Enable();
     } else {
-#ifdef RSBS_SINGLE_EXECUTABLE
-        mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because the cross-game randomizer does not support\n"
-                                                  "the Treasure Chest Game's keys yet.");
-#else
         mOptions[RSK_KEYRINGS_CHEST_GAME].Disable("Disabled because Shuffle Chest Minigame is off.");
-#endif
     }
 }
 
@@ -1128,12 +1114,6 @@ void Settings::CreateOptions() {
     OPT_CALLBACK(RSK_SHUFFLE_CHEST_MINIGAME, {
         HandleKeyringUI();
     });
-#ifdef RSBS_SINGLE_EXECUTABLE
-    // #1364: every world is generated with it off (Playthrough_Init) until the
-    // cross-game generator supports the chest game's keys, so the menu says so.
-    mOptions[RSK_SHUFFLE_CHEST_MINIGAME].Disable("Disabled because the cross-game randomizer does not support\n"
-                                                 "the Treasure Chest Game's keys yet.");
-#endif
     OPT_BOOL(RSK_SHUFFLE_100_GS_REWARD, "Shuffle 100 GS Reward", CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), mOptionDescriptions[RSK_SHUFFLE_100_GS_REWARD], IMFLAG_SEPARATOR_BOTTOM, WIDGET_CVAR_CHECKBOX, RO_GENERIC_OFF);
     OPT_CALLBACK(RSK_SHUFFLE_100_GS_REWARD, {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("Shuffle100GSReward"), RO_GENERIC_OFF)) {
@@ -1162,12 +1142,6 @@ void Settings::CreateOptions() {
     });
     OPT_U8(RSK_SHUFFLE_FREESTANDING, "Shuffle Freestanding Items", {"Off", "Dungeons", "Overworld", "All Items"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleFreestanding"), mOptionDescriptions[RSK_SHUFFLE_FREESTANDING], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_FREESTANDING_OFF);
     OPT_U8(RSK_SHUFFLE_SILVER, "Shuffle Silver Rupees", {"Off", "On", "Wallet", "Start With"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleSilver"), mOptionDescriptions[RSK_SHUFFLE_SILVER], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_SILVER_OFF);
-#ifdef RSBS_SINGLE_EXECUTABLE
-    // #1363: every world is generated with it off (Playthrough_Init) until the
-    // cross-game generator supports silver rupees, so the menu says so.
-    mOptions[RSK_SHUFFLE_SILVER].Disable("Disabled because the cross-game randomizer does not support\n"
-                                         "Silver Rupees yet.");
-#endif
     OPT_U8(RSK_SHUFFLE_WONDER_ITEMS, "Shuffle Wonder Items", {"Off", "Dungeons", "Overworld", "All Items"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("ShuffleWonderItems"), mOptionDescriptions[RSK_SHUFFLE_WONDER_ITEMS], WIDGET_CVAR_COMBOBOX, RO_SHUFFLE_WONDER_ITEMS_OFF);
     OPT_U8(RSK_FISHSANITY, "Fishsanity", {"Off", "Shuffle only Hyrule Loach", "Shuffle Fishing Pond", "Shuffle Overworld Fish", "Shuffle Both"}, OptionCategory::Setting, CVAR_RANDOMIZER_SETTING("Fishsanity"), mOptionDescriptions[RSK_FISHSANITY], WIDGET_CVAR_COMBOBOX, RO_FISHSANITY_OFF);
     OPT_CALLBACK(RSK_FISHSANITY, {

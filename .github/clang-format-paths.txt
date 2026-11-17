@@ -346,5 +346,7 @@ games/oot/soh/oot_shuffle_ice_test.cpp
 games/mm/2s2h/mm_text_mods_test.cpp
 games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp
+games/oot/soh/oot_chest_silver_confinement_test.cpp
+games/oot/soh/oot_chest_silver_paired_test.cpp
 games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp

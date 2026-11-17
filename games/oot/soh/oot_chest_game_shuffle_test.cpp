@@ -8,12 +8,13 @@
  *        (OTRGlobals' randomizer context). No ROM: the generations run in whatever
  *        archive set the build directory holds, as rando-settings-fold-excludes'.
  *
- *  D  THE OPTIONS. Shuffle Chest Minigame is named and keyed as SoH names it, reads
- *     Off with its key cleared, is greyed out in this build (every world here is a
- *     paired creation, which generates it off: leg P), and still sits in Shuffle
- *     Items, the group the settings fold read it from before #1364, where its Off
- *     text is the one that fold folded ("Off"). Key Rings keeps its name, which
- *     spoilers and seed packages key it by (SoH renamed it "Keyrings").
+ *  D  THE OPTIONS (#1364, #1530). Shuffle Chest Minigame is named and keyed as SoH
+ *     names it, reads Off with its key cleared, is enabled in paired builds (#1530),
+ *     enables/disables Chest Minigame Keyring and widens Keyring Count when toggled,
+ *     shows/hides the 11 RCTYPE_CHEST_GAME Exclude Locations rows when toggled, and
+ *     still sits in Shuffle Items, the group the settings fold read it from before
+ *     #1364, where its Off text is the one that fold folded ("Off"). Key Rings keeps
+ *     its name, which spoilers and seed packages key it by (SoH renamed it "Keyrings").
  *  F  THE FOLD AT DEFAULT SETTINGS. A real generation with both new options' keys
  *     cleared: the settings fold reads none of the lines #1364 added (the Chest
  *     Minigame Keyring rows in Keyrings and Shuffle Dungeon Items, the option's row
@@ -22,11 +23,11 @@
  *     by pointer from the groups and the static location table. The counts are
  *     taken inside the fold loop at the line itself (playthrough.cpp), so a skip
  *     deleted at the call site shows up as a folded line.
- *  P  A PAIRED WORLD GENERATES IT OFF. The same generation with Shuffle Chest
- *     Minigame and the Chest Minigame Keyring keyed on, as a player could set them
- *     before the option was greyed out (or a spoiler import could): the generation
- *     pins both off, the fold again reads none of their lines, the settings
- *     fingerprint is leg F's, and the room's checks are not locations.
+ *  P  A PAIRED WORLD GENERATES IT ON (#1530). The same generation with Shuffle Chest
+ *     Minigame and the Chest Minigame Keyring keyed on: both options stay on in the
+ *     generated world, the fold reads every #1364 line and skips none, the settings
+ *     fingerprint moves off leg F's, the 11 RCTYPE_CHEST_GAME checks join the
+ *     location pool, and the room's keys join the item pool for the single bag.
  *  H  THE SHOPKEEPER GIVES ONCE (SoH 4868b0712). The shopkeeper's real wait action
  *     (z_en_takara_man.c's func_80B17A6C) on a stub frame, Link in reach, with the
  *     real hooks (RegisterShuffleTreasureChestGame, the option on) and the
@@ -82,6 +83,7 @@
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/item_location.h"
+#include "soh/Enhancements/randomizer/randomizer_check_objects.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 
 #include "context.h" // src/common: gComboCtx, Context_GetCurrentGame, Context_SetCurrentGame
@@ -105,9 +107,9 @@ int OoT_Rando_TestTakeQueuedChecks(uint16_t* out, int cap);
 // 3drando/menu.cpp: the headless generation bridge every rando row uses.
 extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
 // 3drando/playthrough.cpp: what the last settings fold folded, in total and of
-// Shuffle Chest Minigame's lines, and whether that generation pinned it off.
+// Shuffle Chest Minigame's lines.
 extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* outExcludeLines, int groupCap);
-extern "C" int OoT_Rando_LastSettingsFoldChestGame(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned);
+extern "C" int OoT_Rando_LastSettingsFoldChestGame(uint32_t* outFolded, uint32_t* outSkipped);
 // ShuffleTreasureChestGame.cpp: the registrar ShipInit runs on a randomizer load.
 void RegisterShuffleTreasureChestGame();
 // hook_handlers.cpp: the flag-set handler RandomizerRegisterHooks registers on a
@@ -203,6 +205,8 @@ void CheckOptions() {
     CgSavedKey shuffle;
     shuffle.Save(kShuffleKey);
     CVarClear(kShuffleKey);
+    settings->HandleKeyringUI();
+    RandomizerCheckObjects::UpdateImGuiVisibility();
 
     Rando::Option& option = settings->GetOption(RSK_SHUFFLE_CHEST_MINIGAME);
     const int shipped = option.GetOptionIndex();
@@ -214,8 +218,8 @@ void CheckOptions() {
              option.GetName().c_str());
     CG_CHECK(option.GetCVarName() == kShuffleKey, "D: the option is not keyed %s", kShuffleKey);
     CG_CHECK(shipped == RO_GENERIC_OFF, "D: the shipped default is %d, not Off", shipped);
-    CG_CHECK(option.IsDisabled() && !option.GetDisabledText().empty(),
-             "D: the option is not greyed out with a reason, though every world here generates it off");
+    CG_CHECK(!option.IsDisabled(), "D: Shuffle Chest Minigame is still greyed out ('%s')",
+             option.GetDisabledText().c_str());
     // Main folded this option once, from Shuffle Settings, as "Off" (an OPT_U8 whose
     // first entry was "Off"); that line still folds, so it must still say so.
     CG_CHECK(inShuffleSettings >= 0, "D: the option left Shuffle Settings, the group the settings fold read it from");
@@ -225,10 +229,14 @@ void CheckOptions() {
 
     Rando::Option& keyRings = settings->GetOption(RSK_KEYRINGS);
     Rando::Option& chestKeyring = settings->GetOption(RSK_KEYRINGS_CHEST_GAME);
+    Rando::Option& keyRingCount = settings->GetOption(RSK_KEYRINGS_RANDOM_COUNT);
+    const size_t countWhenOff = keyRingCount.GetOptionCount();
     const bool keyRingsByName = Rando::StaticData::optionNameToEnum.contains("Key Rings") &&
                                 Rando::StaticData::optionNameToEnum["Key Rings"] == RSK_KEYRINGS;
-    printf("[TEST] D: '%s' (spoiler name maps back %d); '%s' (key %s)\n", keyRings.GetName().c_str(),
-           keyRingsByName ? 1 : 0, chestKeyring.GetName().c_str(), chestKeyring.GetCVarName().c_str());
+    printf("[TEST] D: '%s' (spoiler name maps back %d); '%s' (key %s, off-disabled %d: '%s', count opts %zu)\n",
+           keyRings.GetName().c_str(), keyRingsByName ? 1 : 0, chestKeyring.GetName().c_str(),
+           chestKeyring.GetCVarName().c_str(), chestKeyring.IsDisabled() ? 1 : 0,
+           chestKeyring.GetDisabledText().c_str(), countWhenOff);
     CG_CHECK(keyRings.GetName() == "Key Rings" && keyRingsByName,
              "D: Key Rings is named '%s': a spoiler or seed package written before #1364 names it 'Key Rings', so "
              "its import would drop the setting",
@@ -236,8 +244,48 @@ void CheckOptions() {
     CG_CHECK(chestKeyring.GetName() == "Chest Minigame Keyring" && chestKeyring.GetCVarName() == kKeyringKey,
              "D: the chest game's keyring is '%s' keyed %s, not 'Chest Minigame Keyring' keyed %s",
              chestKeyring.GetName().c_str(), chestKeyring.GetCVarName().c_str(), kKeyringKey);
+    CG_CHECK(chestKeyring.IsDisabled() &&
+                 chestKeyring.GetDisabledText() == "Disabled because Shuffle Chest Minigame is off.",
+             "D: with Shuffle Chest Minigame off, Chest Minigame Keyring disabled=%d ('%s')",
+             chestKeyring.IsDisabled() ? 1 : 0, chestKeyring.GetDisabledText().c_str());
+
+    int chestChecks = 0;
+    int listedOff = 0;
+    for (auto& loc : Rando::StaticData::GetLocationTable()) {
+        if (loc.GetRCType() != RCTYPE_CHEST_GAME) {
+            continue;
+        }
+        chestChecks++;
+        if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
+            listedOff++;
+        }
+    }
+    CG_CHECK(chestChecks == 11 && listedOff == 0,
+             "D: keyed Off, the exclude list shows %d of %d chest-game checks", listedOff, chestChecks);
+
+    CVarSetInteger(kShuffleKey, RO_GENERIC_ON);
+    settings->HandleKeyringUI();
+    RandomizerCheckObjects::UpdateImGuiVisibility();
+    const size_t countWhenOn = keyRingCount.GetOptionCount();
+    int listedOn = 0;
+    for (auto& loc : Rando::StaticData::GetLocationTable()) {
+        if (loc.GetRCType() == RCTYPE_CHEST_GAME &&
+            Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
+            listedOn++;
+        }
+    }
+    printf("[TEST] D: keyed On, keyring disabled %d, count opts %zu, exclude rows %d of %d\n",
+           chestKeyring.IsDisabled() ? 1 : 0, countWhenOn, listedOn, chestChecks);
+    CG_CHECK(!chestKeyring.IsDisabled(), "D: keyed On, Chest Minigame Keyring stayed disabled ('%s')",
+             chestKeyring.GetDisabledText().c_str());
+    CG_CHECK(countWhenOn == countWhenOff + 1,
+             "D: keyed On, Keyring Count has %zu option(s), want %zu (off + 1)", countWhenOn, countWhenOff + 1);
+    CG_CHECK(listedOn == chestChecks, "D: keyed On, the exclude list shows %d of %d chest-game checks", listedOn,
+             chestChecks);
 
     shuffle.Restore();
+    settings->HandleKeyringUI();
+    RandomizerCheckObjects::UpdateImGuiVisibility();
 }
 
 // ---- F and P: the fold -----------------------------------------------------------------
@@ -298,12 +346,12 @@ struct FoldRecord {
     uint32_t total;
     uint32_t folded;
     uint32_t skipped;
-    int pinned;
     uint32_t settingsHash;
     uint8_t shuffleOption;
     uint8_t keyringOption;
     size_t locations;
     size_t chestGameLocations;
+    int chestGameKeysInPool;
     int chestGameKeysPlaced;
 };
 
@@ -312,7 +360,7 @@ FoldRecord CgGenerate(const char* leg) {
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
     r.runs = OoT_Rando_LastSettingsFold(&r.total, nullptr, 0);
-    (void)OoT_Rando_LastSettingsFoldChestGame(&r.folded, &r.skipped, &r.pinned);
+    (void)OoT_Rando_LastSettingsFoldChestGame(&r.folded, &r.skipped);
     r.settingsHash = gComboCtx.sharedRandoSettingsHash;
     auto world = Rando::Context::GetInstance();
     if (world != nullptr) {
@@ -324,6 +372,11 @@ FoldRecord CgGenerate(const char* leg) {
                 r.chestGameLocations++;
             }
         }
+        for (RandomizerGet item : world->ItemPool) {
+            if (item == RG_TREASURE_GAME_SMALL_KEY || item == RG_TREASURE_GAME_KEY_RING) {
+                r.chestGameKeysInPool++;
+            }
+        }
         for (int c = RC_UNKNOWN_CHECK + 1; c < RC_MAX; c++) {
             const RandomizerGet placed = world->GetItemLocation((RandomizerCheck)c)->GetPlacedRandomizerGet();
             if (placed == RG_TREASURE_GAME_SMALL_KEY || placed == RG_TREASURE_GAME_KEY_RING) {
@@ -331,12 +384,12 @@ FoldRecord CgGenerate(const char* leg) {
             }
         }
     }
-    printf("[TEST] %s: generation rc %d, fold run %d: %u line(s), #1364 lines folded %u / left out %u, pinned %d, "
+    printf("[TEST] %s: generation rc %d, fold run %d: %u line(s), #1364 lines folded %u / left out %u, "
            "settingsHash %08X; option %u, keyring %u; %zu location(s), %zu of them the chest game's; %d chest-game "
-           "key(s) placed in Ocarina of Time\n",
-           leg, rc, r.runs, (unsigned)r.total, (unsigned)r.folded, (unsigned)r.skipped, r.pinned,
-           (unsigned)r.settingsHash, (unsigned)r.shuffleOption, (unsigned)r.keyringOption, r.locations,
-           r.chestGameLocations, r.chestGameKeysPlaced);
+           "key(s) in ItemPool, %d pre-bag placed\n",
+           leg, rc, r.runs, (unsigned)r.total, (unsigned)r.folded, (unsigned)r.skipped, (unsigned)r.settingsHash,
+           (unsigned)r.shuffleOption, (unsigned)r.keyringOption, r.locations, r.chestGameLocations,
+           r.chestGameKeysInPool, r.chestGameKeysPlaced);
     return r;
 }
 
@@ -353,7 +406,9 @@ void CheckOffWorld(const char* leg, const FoldRecord& r, uint32_t expectedSkippe
     CG_CHECK(r.locations > 0 && r.chestGameLocations == 0,
              "%s: %zu of the world's %zu locations are chest-game checks, want none of a non-empty pool", leg,
              r.chestGameLocations, r.locations);
-    CG_CHECK(r.chestGameKeysPlaced == 0, "%s: %d chest-game key(s) were placed", leg, r.chestGameKeysPlaced);
+    CG_CHECK(r.chestGameKeysInPool == 0 && r.chestGameKeysPlaced == 0,
+             "%s: %d chest-game key(s) entered ItemPool and %d were placed", leg, r.chestGameKeysInPool,
+             r.chestGameKeysPlaced);
 }
 
 /** Legs F and P. Returns leg P's generation result (H runs over its world). */
@@ -368,24 +423,33 @@ bool CheckFold() {
     const FoldRecord f = CgGenerate("F");
     const uint32_t expectedF = CountChestGameLines();
     CheckOffWorld("F", f, expectedF);
-    CG_CHECK(f.pinned == 0, "F: the generation reports pinning an option that was already off");
 
-    // Never stored: a stored rando key poisons later rows (CVarClear below).
+    // Never stored: a stored rando key poisons later rows (Restore below).
     CVarSetInteger(kShuffleKey, RO_GENERIC_ON);
     CVarSetInteger(kKeyringKey, RO_KEYRING_FOR_DUNGEON_ON);
     const FoldRecord p = CgGenerate("P");
     shuffle.Restore();
     keyring.Restore();
     const uint32_t expectedP = CountChestGameLines();
-    CheckOffWorld("P", p, expectedP);
-    CG_CHECK(p.pinned == 1, "P: a paired generation with Shuffle Chest Minigame keyed on did not pin it off");
-    CG_CHECK(p.keyringOption == RO_KEYRING_FOR_DUNGEON_OFF, "P: the Chest Minigame Keyring was generated as %u",
+    CG_CHECK(p.generated && p.runs > 0, "P: the generation failed or ran no settings fold");
+    CG_CHECK(p.folded == expectedP && p.skipped == 0,
+             "P: keyed On, the fold read %u and skipped %u of the %u #1364 line(s)", (unsigned)p.folded,
+             (unsigned)p.skipped, (unsigned)expectedP);
+    CG_CHECK(p.shuffleOption == RO_GENERIC_ON, "P: Shuffle Chest Minigame was generated as %u, want On",
+             (unsigned)p.shuffleOption);
+    CG_CHECK(p.keyringOption == RO_KEYRING_FOR_DUNGEON_ON, "P: the Chest Minigame Keyring was generated as %u, want On",
              (unsigned)p.keyringOption);
-    CG_CHECK(f.generated && p.generated && p.settingsHash == f.settingsHash,
-             "P: the pinned world's settings fingerprint %08X is not the default world's %08X",
+    CG_CHECK(f.generated && p.generated && p.settingsHash != f.settingsHash,
+             "P: keyed On, the settings fingerprint %08X did not move off the default world's %08X",
              (unsigned)p.settingsHash, (unsigned)f.settingsHash);
-    CG_CHECK(p.total == f.total, "P: the pinned world folded %u line(s), the default world %u", (unsigned)p.total,
-             (unsigned)f.total);
+    CG_CHECK(p.total == f.total + expectedP, "P: keyed On, the world folded %u line(s), want %u + %u",
+             (unsigned)p.total, (unsigned)f.total, (unsigned)expectedP);
+    CG_CHECK(p.chestGameLocations == 11 && p.locations == f.locations + 11,
+             "P: keyed On, %zu chest-game checks joined (%zu total vs %zu off)", p.chestGameLocations, p.locations,
+             f.locations);
+    CG_CHECK(p.chestGameKeysInPool == 6,
+             "P: keyed On (Key Rings off), ItemPool holds %d chest-game key(s) for the single bag, want 6",
+             p.chestGameKeysInPool);
     return p.generated;
 }
 
@@ -586,8 +650,9 @@ void CheckSentinel() {
  * @return 0 when every leg holds, 1 otherwise.
  */
 extern "C" int OoT_ChestGameShuffleTest_Run(void) {
-    printf("[TEST] oot-chest-game-shuffle: Shuffle Chest Minigame ships off and greyed out, default worlds fold none "
-           "of its lines, a paired world generates it off, and the shopkeeper gives his item once (#1364)\n");
+    printf("[TEST] oot-chest-game-shuffle: Shuffle Chest Minigame ships off and enabled, default worlds fold none "
+           "of its lines, a paired world with it on keeps it on and folds its lines, and the shopkeeper gives his item "
+           "once (#1364, #1530)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-chest-game-shuffle needs OTRGlobals' randomizer context\n");
         return 1;
@@ -604,6 +669,8 @@ extern "C" int OoT_ChestGameShuffleTest_Run(void) {
     auto world = Rando::Context::GetInstance();
     if (generated && world != nullptr) {
         CheckShopkeeper(*world);
+        world->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(RO_GENERIC_OFF);
+        world->GetOption(RSK_KEYRINGS_CHEST_GAME).Set(RO_KEYRING_FOR_DUNGEON_OFF);
     } else {
         CgFail("H: no generated world to run the shopkeeper over");
     }

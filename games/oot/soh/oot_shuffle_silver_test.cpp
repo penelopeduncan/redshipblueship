@@ -16,9 +16,10 @@
  *     vanilla-quest silver check is also identified from its own actor position by
  *     the real IdentifySilver, the lookup the silver rupee hooks run, which returns
  *     the check and its flag.
- *  D  THE OPTION. Shuffle Silver Rupees ships off with its key cleared and is greyed
- *     out with a reason (every world here is a paired creation, which generates it
- *     off: leg P).
+ *  D  THE OPTION (#1363, #1530). Shuffle Silver Rupees ships off with its key cleared,
+ *     is enabled in paired builds (#1530), hides the silver Exclude Locations rows
+ *     while Off, and lists every vanilla-quest silver check under On, Wallet and
+ *     Start With.
  *  F  THE FOLD AT DEFAULT SETTINGS. A real generation with the option's key cleared:
  *     the settings fold reads none of the lines #1363 added (the option's own rows,
  *     the RCTYPE_SILVER exclude rows) and leaves out exactly as many as the option
@@ -26,9 +27,10 @@
  *     table. The counts are taken inside the fold loop at the line itself
  *     (playthrough.cpp), so a skip deleted at the call site shows up as a folded
  *     line. No silver check is a location and no silver rupee is placed.
- *  P  A PAIRED WORLD GENERATES IT OFF. The same generation with the option keyed On:
- *     the generation pins it off, the fold again reads none of its lines, and the
- *     settings fingerprint and fold length are leg F's.
+ *  P  A PAIRED WORLD GENERATES IT ON (#1530). The same generation with the option
+ *     keyed On: the option stays On in the generated world, the fold reads every
+ *     #1363 line and skips none, the settings fingerprint moves off leg F's, and the
+ *     vanilla-quest silver checks and items join the world's pools.
  *  L  THE LOGIC FALLBACK. With the option off, Logic::HasItem answers each silver
  *     rupee item from its own LOGIC_* event (logic.cpp: LOGIC_SHADOW_SILVER_BLADES +
  *     the item's offset from RG_SHADOW_SILVER_BLADES). For each of the 22 items,
@@ -95,9 +97,9 @@ extern PlayState* OoT_gPlayState;
 // 3drando/menu.cpp: the headless generation bridge every rando row uses.
 extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
 // 3drando/playthrough.cpp: what the last settings fold folded, in total and of
-// Shuffle Silver Rupees' lines, and whether that generation pinned it off.
+// Shuffle Silver Rupees' lines.
 extern "C" int OoT_Rando_LastSettingsFold(uint32_t* outTotalLines, uint32_t* outExcludeLines, int groupCap);
-extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* outSkipped, int* outPinned);
+extern "C" int OoT_Rando_LastSettingsFoldSilver(uint32_t* outFolded, uint32_t* outSkipped);
 
 // THE APPEND-ONLY LOCKS: each id #1363 adds sits after the last id before it (main's,
 // then #1407's butterfly fairies), so no id a world or a save already holds moves.
@@ -246,6 +248,8 @@ void CheckOption() {
     SilverSavedKey shuffle;
     shuffle.Save(kShuffleKey);
     CVarClear(kShuffleKey);
+    RandomizerCheckObjects::UpdateImGuiVisibility();
+
     Rando::Option& option = settings->GetOption(RSK_SHUFFLE_SILVER);
     const int shipped = option.GetOptionIndex();
     printf("[TEST] D: '%s' (key %s): %d with no key stored; greyed %d ('%s')\n", option.GetName().c_str(),
@@ -253,30 +257,42 @@ void CheckOption() {
     SR_CHECK(option.GetName() == "Shuffle Silver Rupees", "D: the option is named '%s'", option.GetName().c_str());
     SR_CHECK(option.GetCVarName() == kShuffleKey, "D: the option is not keyed %s", kShuffleKey);
     SR_CHECK(shipped == RO_SHUFFLE_SILVER_OFF, "D: the shipped default is %d, not Off", shipped);
-    SR_CHECK(option.IsDisabled() && !option.GetDisabledText().empty(),
-             "D: the option is not greyed out with a reason, though every world here generates it off");
+    SR_CHECK(!option.IsDisabled(), "D: Shuffle Silver Rupees is still greyed out ('%s')",
+             option.GetDisabledText().c_str());
 
-    // A stored On (an older build, a preset) must not list the silver checks under
-    // Exclude Locations: the world is generated with the option off (leg P) and the
-    // fold leaves those rows out (leg F). Vanilla-quest checks are counted, so the
-    // default MQ setting (none) does not hide them for another reason.
-    CVarSetInteger(kShuffleKey, RO_SHUFFLE_SILVER_ON);
-    RandomizerCheckObjects::UpdateImGuiVisibility();
     int vanillaSilver = 0;
-    int listedSilver = 0;
+    int listedOff = 0;
     for (auto& loc : Rando::StaticData::GetLocationTable()) {
         if (loc.GetRCType() != RCTYPE_SILVER || loc.GetQuest() != RCQUEST_VANILLA) {
             continue;
         }
         vanillaSilver++;
         if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
-            listedSilver++;
+            listedOff++;
         }
     }
-    printf("[TEST] D: keyed On, the exclude list shows %d of %d vanilla silver checks\n", listedSilver, vanillaSilver);
-    SR_CHECK(vanillaSilver > 0, "D: the location table holds no vanilla silver check to look at");
-    SR_CHECK(listedSilver == 0, "D: keyed On, the exclude list shows %d silver checks of a world generated off",
-             listedSilver);
+    SR_CHECK(vanillaSilver > 0 && listedOff == 0,
+             "D: keyed Off, the exclude list shows %d of %d vanilla silver checks", listedOff, vanillaSilver);
+
+    const int activeModes[] = { RO_SHUFFLE_SILVER_ON, RO_SHUFFLE_SILVER_WALLET, RO_SHUFFLE_SILVER_STARTWITH };
+    for (int mode : activeModes) {
+        CVarSetInteger(kShuffleKey, mode);
+        RandomizerCheckObjects::UpdateImGuiVisibility();
+        int listedSilver = 0;
+        for (auto& loc : Rando::StaticData::GetLocationTable()) {
+            if (loc.GetRCType() != RCTYPE_SILVER || loc.GetQuest() != RCQUEST_VANILLA) {
+                continue;
+            }
+            if (Rando::Context::GetInstance()->GetItemLocation(loc.GetRandomizerCheck())->IsVisible()) {
+                listedSilver++;
+            }
+        }
+        printf("[TEST] D: keyed mode %d, the exclude list shows %d of %d vanilla silver checks\n", mode, listedSilver,
+               vanillaSilver);
+        SR_CHECK(listedSilver == vanillaSilver,
+                 "D: keyed mode %d, the exclude list shows %d of %d vanilla silver checks", mode, listedSilver,
+                 vanillaSilver);
+    }
     shuffle.Restore();
     RandomizerCheckObjects::UpdateImGuiVisibility();
 }
@@ -328,11 +344,11 @@ struct FoldRecord {
     uint32_t total;
     uint32_t folded;
     uint32_t skipped;
-    int pinned;
     uint32_t settingsHash;
     uint8_t shuffleOption;
     size_t locations;
     size_t silverLocations;
+    int silverInPool;
     int silverPlaced;
 };
 
@@ -341,7 +357,7 @@ FoldRecord SilverGenerate(const char* leg) {
     const int rc = Rando_HeadlessSeedTest("RSBSUNIFIED1");
     r.generated = rc == 0;
     r.runs = OoT_Rando_LastSettingsFold(&r.total, nullptr, 0);
-    (void)OoT_Rando_LastSettingsFoldSilver(&r.folded, &r.skipped, &r.pinned);
+    (void)OoT_Rando_LastSettingsFoldSilver(&r.folded, &r.skipped);
     r.settingsHash = gComboCtx.sharedRandoSettingsHash;
     auto world = Rando::Context::GetInstance();
     if (world != nullptr) {
@@ -352,6 +368,11 @@ FoldRecord SilverGenerate(const char* leg) {
                 r.silverLocations++;
             }
         }
+        for (RandomizerGet item : world->ItemPool) {
+            if (item >= RG_SHADOW_SILVER_BLADES && item <= RG_GANONS_CASTLE_MQ_SILVER_SHADOW) {
+                r.silverInPool++;
+            }
+        }
         for (int c = RC_UNKNOWN_CHECK + 1; c < RC_MAX; c++) {
             const RandomizerGet placed = world->GetItemLocation((RandomizerCheck)c)->GetPlacedRandomizerGet();
             if (placed >= RG_SHADOW_SILVER_BLADES && placed <= RG_GANONS_CASTLE_MQ_SILVER_SHADOW) {
@@ -359,10 +380,11 @@ FoldRecord SilverGenerate(const char* leg) {
             }
         }
     }
-    printf("[TEST] %s: generation rc %d, fold run %d: %u line(s), #1363 lines folded %u / left out %u, pinned %d, "
-           "settingsHash %08X; option %u; %zu location(s), %zu of them silver checks; %d silver rupee(s) placed\n",
-           leg, rc, r.runs, (unsigned)r.total, (unsigned)r.folded, (unsigned)r.skipped, r.pinned,
-           (unsigned)r.settingsHash, (unsigned)r.shuffleOption, r.locations, r.silverLocations, r.silverPlaced);
+    printf("[TEST] %s: generation rc %d, fold run %d: %u line(s), #1363 lines folded %u / left out %u, "
+           "settingsHash %08X; option %u; %zu location(s), %zu of them silver checks; %d silver item(s) in ItemPool, "
+           "%d pre-bag placed\n",
+           leg, rc, r.runs, (unsigned)r.total, (unsigned)r.folded, (unsigned)r.skipped, (unsigned)r.settingsHash,
+           (unsigned)r.shuffleOption, r.locations, r.silverLocations, r.silverInPool, r.silverPlaced);
     return r;
 }
 
@@ -379,10 +401,11 @@ void CheckOffWorld(const char* leg, const FoldRecord& r, uint32_t expectedSkippe
     SR_CHECK(r.locations > 0 && r.silverLocations == 0,
              "%s: %zu of the world's %zu locations are silver checks, want none of a non-empty pool", leg,
              r.silverLocations, r.locations);
-    SR_CHECK(r.silverPlaced == 0, "%s: %d silver rupee(s) were placed", leg, r.silverPlaced);
+    SR_CHECK(r.silverInPool == 0 && r.silverPlaced == 0,
+             "%s: %d silver rupee(s) entered ItemPool and %d were placed", leg, r.silverInPool, r.silverPlaced);
 }
 
-/** Legs F and P. Returns whether leg F's generation ran (L reads its world). */
+/** Legs F and P. Returns whether leg F's or P's generation ran (L reads its world). */
 bool CheckFold() {
     SilverSavedKey shuffle;
     shuffle.Save(kShuffleKey);
@@ -391,20 +414,29 @@ bool CheckFold() {
     const FoldRecord f = SilverGenerate("F");
     const uint32_t expectedF = CountSilverLines();
     CheckOffWorld("F", f, expectedF);
-    SR_CHECK(f.pinned == 0, "F: the generation reports pinning an option that was already off");
 
     // Never stored: a stored rando key poisons later rows (Restore below).
     CVarSetInteger(kShuffleKey, RO_SHUFFLE_SILVER_ON);
     const FoldRecord p = SilverGenerate("P");
     shuffle.Restore();
     const uint32_t expectedP = CountSilverLines();
-    CheckOffWorld("P", p, expectedP);
-    SR_CHECK(p.pinned == 1, "P: a paired generation with Shuffle Silver Rupees keyed On did not pin it off");
-    SR_CHECK(f.generated && p.generated && p.settingsHash == f.settingsHash,
-             "P: the pinned world's settings fingerprint %08X is not the default world's %08X",
+    SR_CHECK(p.generated && p.runs > 0, "P: the generation failed or ran no settings fold");
+    SR_CHECK(p.folded == expectedP && p.skipped == 0,
+             "P: keyed On, the fold read %u and skipped %u of the %u #1363 line(s)", (unsigned)p.folded,
+             (unsigned)p.skipped, (unsigned)expectedP);
+    SR_CHECK(p.shuffleOption == RO_SHUFFLE_SILVER_ON, "P: Shuffle Silver Rupees was generated as %u, want On",
+             (unsigned)p.shuffleOption);
+    SR_CHECK(f.generated && p.generated && p.settingsHash != f.settingsHash,
+             "P: keyed On, the settings fingerprint %08X did not move off the default world's %08X",
              (unsigned)p.settingsHash, (unsigned)f.settingsHash);
-    SR_CHECK(p.total == f.total, "P: the pinned world folded %u line(s), the default world %u", (unsigned)p.total,
-             (unsigned)f.total);
+    SR_CHECK(p.total == f.total + expectedP, "P: keyed On, the world folded %u line(s), want %u + %u",
+             (unsigned)p.total, (unsigned)f.total, (unsigned)expectedP);
+    SR_CHECK(p.silverLocations == 80 && p.locations == f.locations + p.silverLocations,
+             "P: keyed On, %zu silver checks joined (%zu total vs %zu off)", p.silverLocations, p.locations,
+             f.locations);
+    SR_CHECK(p.silverInPool == 80,
+             "P: keyed On (vanilla dungeons), ItemPool holds %d silver item(s) for the single bag, want 80",
+             p.silverInPool);
     return f.generated || p.generated;
 }
 
@@ -516,10 +548,10 @@ void CheckBoulderSilverNames() {
  * @return 0 when every leg holds, 1 otherwise.
  */
 extern "C" int OoT_ShuffleSilverTest_Run(void) {
-    printf("[TEST] oot-shuffle-silver: every silver check has its own flag, the option ships off and greyed out, "
-           "default worlds fold none of its lines, a paired world generates it off, and logic reads each silver "
-           "item's own event while it is off (#1363), and the Spirit boulder checks carry their corrected names "
-           "(#1589)\n");
+    printf("[TEST] oot-shuffle-silver: every silver check has its own flag, the option ships off and enabled, "
+           "default worlds fold none of its lines, a paired world with it on keeps it on and folds its lines, logic "
+           "reads each silver item's own event while it is off (#1363, #1530), and the Spirit boulder checks carry "
+           "their corrected names (#1589)\n");
     if (OTRGlobals::Instance == nullptr || OTRGlobals::Instance->gRandoContext == nullptr) {
         printf("[TEST] FAIL: oot-shuffle-silver needs OTRGlobals' randomizer context\n");
         return 1;
@@ -536,6 +568,7 @@ extern "C" int OoT_ShuffleSilverTest_Run(void) {
     auto world = Rando::Context::GetInstance();
     if (generated && world != nullptr) {
         CheckLogicFallback(*world);
+        world->GetOption(RSK_SHUFFLE_SILVER).Set(RO_SHUFFLE_SILVER_OFF);
     } else {
         SrFail("L: no generated world to read the logic of");
     }
