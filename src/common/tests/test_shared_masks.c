@@ -955,6 +955,46 @@ TestResult Test_SharedMasksMerge(void) {
              "with the rules off %d mask(s) found in Termina reached Hyrule (pool %08X, trade slot %d)", ootHeld,
              (unsigned)Combo_SharedFamiliesOwned(), OoT_SharedMasksTest_TradeSlot());
 
+    // ---- (5) #1551: a surplus far copy of a real registered shared mask is credited at pickup
+    {
+        const ComboItemRulesRecord goronOnly = SmRules(kSmMasks[0].bit);
+        const uint16_t mmGoronId = (uint16_t)MM_SharedMasksTest_PoolId(0);
+        const uint16_t ootGoronId = (uint16_t)OoT_SharedMasksTest_PoolId(0);
+
+        SmFreezeWorld(&goronOnly);
+        SmArmOoT();
+        SmArmMM();
+        const bool creditedInOoT = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, mmGoronId);
+        SM_CHECK(creditedInOoT && Combo_SharedFamiliesOwned() == kSmMasks[0].bit &&
+                     OoT_SharedMasksTest_Held(0) == 1 &&
+                     OoT_SharedMasksTest_TradeSlot() == OoT_SharedMasksTest_ItemOf(0),
+                 "(5) MM's real Goron Mask (id %u) found in Hyrule: credited %d, pool %08X, OoT held %d, trade slot %d "
+                 "(want credited, %08X, 1, %d)",
+                 (unsigned)mmGoronId, creditedInOoT ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(),
+                 OoT_SharedMasksTest_Held(0), OoT_SharedMasksTest_TradeSlot(), (unsigned)kSmMasks[0].bit,
+                 OoT_SharedMasksTest_ItemOf(0));
+        SmArmMM();
+        MM_ApplySharedResources();
+        SM_CHECK(MM_SharedMasksTest_Held(0) == 1,
+                 "(5) after far-pickup credit in Hyrule, Termina's arrival apply did not give MM the Goron Mask");
+
+        SmFreezeWorld(&goronOnly);
+        SmArmOoT();
+        SmArmMM();
+        const bool creditedInMM = Combo_SharedFamilies2CreditFarPickup(GAME_MM, (uint8_t)GAME_OOT, ootGoronId);
+        SM_CHECK(creditedInMM && Combo_SharedFamiliesOwned() == kSmMasks[0].bit && MM_SharedMasksTest_Held(0) == 1,
+                 "(5) OoT's real Goron Mask (id %u) found in Termina: credited %d, pool %08X, MM held %d",
+                 (unsigned)ootGoronId, creditedInMM ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(),
+                 MM_SharedMasksTest_Held(0));
+
+        SmFreezeWorld(NULL);
+        SmArmOoT();
+        SmArmMM();
+        SM_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, mmGoronId) &&
+                     Combo_SharedFamiliesOwned() == 0u && OoT_SharedMasksTest_Held(0) == 0,
+                 "(5) with Shared Goron Mask off, MM's Goron Mask was credited at pickup instead of crossing");
+    }
+
     SmArmOoT();
     SmArmMM();
     ComboContext_Init();

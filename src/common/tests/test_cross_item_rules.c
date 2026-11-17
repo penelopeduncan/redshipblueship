@@ -804,6 +804,56 @@ TestResult Test_SharedFamilyMerge(void) {
         XIR_CHECK(sXirHeldCalls[GAME_OOT] == 0 && sXirHeldCalls[GAME_MM] == 0 && sXirGives[GAME_MM] == 0 &&
                       Combo_SharedFamiliesOwned() == 0u,
                   "with the rule off a shim asked a member or gave a copy");
+
+        // ---- (4) THE FAR-PICKUP CREDIT (#1551): armed first-word families only ---
+        // Armed Goron: MM's registered member id picked up in OoT owns G now, gives
+        // OoT its own member once, and leaves the second family word untouched.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        const uint32_t owned2Before = Combo_SharedFamilies2Owned();
+        const bool credited = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u);
+        XIR_CHECK(credited && Combo_SharedFamiliesOwned() == G && sXirGives[GAME_OOT] == 1 && sXirHeld[GAME_OOT] &&
+                      sXirGives[GAME_MM] == 0 && Combo_SharedFamilies2Owned() == owned2Before && owned2Before == 0u,
+                  "(4) MM's Goron member found in OoT: credited %d, owned %08X, OoT given %d, owned2 %08X; want "
+                  "credited, %08X, 1, and owned2 unchanged (0)",
+                  credited ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT],
+                  (unsigned)Combo_SharedFamilies2Owned(), (unsigned)G);
+
+        // Negative cases: the running game's own id, an unregistered id, and GAME_NONE.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        XIR_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_OOT, 0x0123u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x7777u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_NONE, (uint8_t)GAME_MM, 0x0456u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_NONE, 0x0456u) &&
+                      Combo_SharedFamiliesOwned() == 0u && sXirGives[GAME_OOT] == 0 && sXirGives[GAME_MM] == 0,
+                  "(4) the far-pickup credit fired for the running game's own item, an unregistered id, or GAME_NONE");
+
+        // Rule-off with ANOTHER first-word family armed (Keaton on, Goron off): enters
+        // the word-0 loop (`armed != 0`) and must still answer false for Goron's MM id,
+        // owning nothing and giving nothing.
+        ComboItemRulesRecord keatonOnly;
+        memset(&keatonOnly, 0, sizeof(keatonOnly));
+        keatonOnly.crossItemFlags = K;
+        XirFreezeWorld(&keatonOnly);
+        XirResetMembers();
+        XIR_CHECK(Combo_SharedFamiliesArmed() == K, "(4) Keaton-only world armed %08X, expected %08X",
+                  (unsigned)Combo_SharedFamiliesArmed(), (unsigned)K);
+        XIR_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u) &&
+                      Combo_SharedFamiliesOwned() == 0u && sXirGives[GAME_OOT] == 0 && sXirHeldCalls[GAME_OOT] == 0,
+                  "(4) with Keaton armed and Goron off, Goron's MM copy was credited (owned %08X, OoT given %d)",
+                  (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT]);
+
+        // Already-held: OoT already holds its Goron member, so the pickup is credited
+        // and sets the pool bit without calling give() again.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        sXirHeld[GAME_OOT] = true;
+        const bool creditedHeld = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u);
+        XIR_CHECK(creditedHeld && Combo_SharedFamiliesOwned() == G && sXirGives[GAME_OOT] == 0 &&
+                      sXirHeldCalls[GAME_OOT] == 1,
+                  "(4) when OoT already holds its member: credited %d, owned %08X, OoT given %d (want 1, %08X, 0)",
+                  creditedHeld ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT], (unsigned)G);
     }
 
     Combo_RegisterSharedFamilyMember(GAME_OOT, G, hadGoron[0] ? &gameGoron[0] : NULL);
