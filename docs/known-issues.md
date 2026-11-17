@@ -61,10 +61,13 @@ Everything below passed the automated gates. None of it has been checked by a pe
 - Found while playing this release: with Plentiful item pools and a Shared Items rule on, this build places one copy
   of the shared item where OoTMM places two (issue #1653). OoTMM adds one more shared copy of the Lens of Truth, the
   magic arrows, the ocarina buttons, several masks and the scale; this build leaves the spare out for now.
-- Found while playing this release: Shuffle Deku Stick Bag and Shuffle Deku Nut Bag apply in Hyrule only (issue
-  #1652). Majora's Mask holds sticks and nuts from the start. Sticks and nuts gathered in Termina wait in the shared
-  pool and read zero in Hyrule until the bag is found. No seed becomes unbeatable. After this release the bag will
-  gate both games.
+- Shuffle Deku Stick Bag and Shuffle Deku Nut Bag now gate both games (issue #1652). Majora's Mask starts without
+  the bag too, and its drops, shops and checks give no sticks (nuts) until the one bag is found in either game. A
+  check that holds them gives junk instead, a shuffled Trading Post shelf sells junk once and stocks the item again
+  after the bag, and a stick or nut pack that crossed from the other game arrives as junk. A bag found in Termina
+  opens both games at once. Later Progressive Deku Stick and Nut upgrades still cross, so Infinite Upgrades keeps
+  working for them. This was checked without a running game only: nobody has played a file with either shuffle on
+  since the change.
 - Quitting with a Majora's Mask item found in Ocarina of Time not yet sent (issue #1635) was tested by an automated
   quit and reload only, while the item waited for the item queue. An item held for a full cross-game outbox, which
   takes 2048 items waiting to cross, was tested without a running game only. Nobody has quit with an item waiting
@@ -1880,9 +1883,11 @@ Each Shared rule on Randomizer > Cross-Game (under Shared Items) is off by defau
   hookshot, and bottles under Shared Bottles) raises your tier at once, and since
   [#1145](https://github.com/penelopeduncan/redshipblueship/issues/1145) so does the Kokiri Sword under Shared Kokiri
   Sword. Majora's Mask's sword does this only while the shared sword is still empty (neither game has handed you a
-  sword yet); a later copy still crosses, because Majora's Mask turns it into the Razor or Gilded Sword. Ocarina of
-  Time's Progressive Deku Stick and Nut upgrades found in Termina still cross and arrive at Ocarina of Time's next arrival, so Shuffle Deku Stick/Nut Bag keeps
-  gating sticks and nuts. The ocarina is never shared. An upgrade raised at the pickup does not bring the other
+  sword yet); a later copy still crosses, because Majora's Mask turns it into the Razor or Gilded Sword. Under
+  Shuffle Deku Stick/Nut Bag, Ocarina of Time's Progressive Deku Stick or Nut upgrade found in Termina while neither
+  game has the bag is the bag, and it opens both games at the pickup
+  ([#1652](https://github.com/penelopeduncan/redshipblueship/issues/1652)); a later one, and every one with the
+  shuffle off, still crosses and arrives at Ocarina of Time's next arrival. The ocarina is never shared. An upgrade raised at the pickup does not bring the other
   game's give-time refill with it: a bomb bag that Majora's Mask gives fills your bombs, but one raised at the
   pickup leaves the shared bomb count where it was.
 - **A surplus copy under the plentiful pool.** Ocarina of Time still shuffles a second copy of a shared Lens of Truth,

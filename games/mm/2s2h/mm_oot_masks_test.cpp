@@ -62,11 +62,13 @@ Player* OmPlayer() {
 
 /** MM ids by index: 0..2 the three masks, 3 RI_WOODFALL_STRAY_FAIRY (the last
  *  id before them), 4 RI_MAX_TRAP, 5 RI_MAX, 6 RI_MASK_STONE, 7 RI_ABILITY_SWIM,
- *  8 RI_JUNK; -1 past the table. */
+ *  8 RI_JUNK, 9 RI_DEKU_STICK_BAG and 10 RI_DEKU_NUT_BAG (#1652 A2's two logic-only
+ *  stand-ins, after RI_MAX_TRAP); -1 past the table. */
 extern "C" int MM_OoTMasksTest_Id(int which) {
     static const int kIds[] = { RI_MASK_GERUDO,          RI_MASK_SKULL,   RI_MASK_SPOOKY,
                                 RI_WOODFALL_STRAY_FAIRY, RI_MAX_TRAP,     RI_MAX,
-                                RI_MASK_STONE,           RI_ABILITY_SWIM, RI_JUNK };
+                                RI_MASK_STONE,           RI_ABILITY_SWIM, RI_JUNK,
+                                RI_DEKU_STICK_BAG,       RI_DEKU_NUT_BAG };
     return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
 }
 

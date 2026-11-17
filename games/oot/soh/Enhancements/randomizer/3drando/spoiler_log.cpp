@@ -265,7 +265,9 @@ static void WritePlaythrough() {
             sphereString += "0";
         sphereString += sphereNum;
         for (const RandomizerCheck key : ctx->playthroughLocations[i]) {
-            WriteLocation(sphereString, key, true);
+            if (!ctx->GetItemLocation(key)->IsHidden()) {
+                WriteLocation(sphereString, key, true);
+            }
         }
     }
 }

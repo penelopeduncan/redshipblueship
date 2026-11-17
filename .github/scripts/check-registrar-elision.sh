@@ -660,7 +660,7 @@ main() {
         "RegisterTwoHandedSwordSpinAttack()"
         "RegisterBetterPictoMessage()"
         "RegisterChuDrops()"
-        "RegisterGreatFairySwordBButton()"
+        "RegisterActiveItemOnB()"
         "MM_RegisterItemUnequip()"
         "RegisterDpadPageSwitchPrevention()"
         "MM_RegisterPauseBufferInputs()"

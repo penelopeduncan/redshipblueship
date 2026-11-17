@@ -937,6 +937,7 @@ extern "C" void InitOTR() {
 
     std::shared_ptr<Ship::Config> conf = OTRGlobals::Instance->context->GetConfig();
     conf->RegisterVersionUpdater(std::make_shared<Ben::ConfigVersion1Updater>());
+    conf->RegisterVersionUpdater(std::make_shared<Ben::ConfigVersion2Updater>());
     conf->RunVersionUpdates();
     Ship::Context::GetInstance()->GetConsoleVariables()->Save();
 

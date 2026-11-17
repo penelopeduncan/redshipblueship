@@ -3618,6 +3618,26 @@ int Combo_Logic_ComposeBag(const ComboLogicComposeRequest* req, ComboLogicBagIte
             creditAmbiguous[kind][it.originGame] = true;
         }
     }
+    // THE STAND-IN FALLBACK (#1652 A2; shared_items.h): a game whose pool names a
+    // credited kind by NO id takes its registered, frozen-gated logic-only id. A
+    // real pool id always wins, so an ambiguous game stays ambiguous. It fills the
+    // far id only: no disposition, count or pair changes, so neither the trim nor
+    // the bag's length can move.
+    for (uint8_t kind = 1u; creditKinds != 0u && kind < (uint8_t)RSBS_SHARED_RES_KIND_COUNT; ++kind) {
+        if ((creditKinds & (1u << kind)) == 0u) {
+            continue;
+        }
+        for (uint8_t g = (uint8_t)GAME_OOT; g <= (uint8_t)GAME_MM; ++g) {
+            if (creditHave[kind][g]) {
+                continue;
+            }
+            const uint16_t standIn = Combo_SharedCreditStandIn(g, kind);
+            if (standIn != 0u) {
+                creditHave[kind][g] = true;
+                creditId[kind][g] = standIn;
+            }
+        }
+    }
 
     // ---- pass 2b: THE SHARED PAIR (ABI 7, #976; combo_logic.h) ---------------
     // After the trim, so a family's rows are paired only if they are still

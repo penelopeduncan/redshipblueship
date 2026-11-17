@@ -45,6 +45,13 @@
  *      ZERO dead pickups; the UNTRIMMED bag clamps N pickups (printed, > 0). The
  *      same for the quiver tier and double defense; and the unequal-ceiling
  *      hookshot's order hazard, observed (the reason it is kept whole).
+ *   Q6 THE SHARED-QUANTITY CREDIT's flags (#1367 R5).
+ *   Q7 THE SHARED-CREDIT STAND-INS (#1652 stage A2): MM's registered logic-only
+ *      stick and nut bag ids, the frozen gate on each, the composer's fallback
+ *      (every OoT stick / nut tier row credited with MM's stand-in, the Plentiful
+ *      one included, only for its own bag's bit; a real MM id wins; an ambiguous
+ *      MM stays uncredited), and the shuffle-off world composed field-for-field
+ *      as with no stand-in registered at all.
  *
  * Linkage note: `#include`d into test_runner.cpp at FILE SCOPE and therefore
  * compiled as C++, like every other file in this directory.
@@ -52,6 +59,7 @@
 
 #include "../combo_logic.h"
 #include "../context.h"
+#include "../foreign_items.h" // Q7: Combo_ComboSettingsApplyCreationBagShuffles, the frozen bag bits
 #include "../shared_items.h"
 #include "../shared_resources.h"
 #include "../test_runner.h"
@@ -237,6 +245,11 @@ constexpr uint16_t kSqpOcarina = 8;
 /** A second quiver-tier id (#1367 R5's credit leg Q6): a game whose pool names its
  *  quiver family by two ids has no one far id to be credited. */
 constexpr uint16_t kSqpQuiverAlt = 9;
+/** #1652 A2's leg Q7: OoT's Progressive Stick / Nut Upgrade shape (one id per bag
+ *  kind), and a second stick-tier id for a game that names the kind itself. */
+constexpr uint16_t kSqpStickTier = 10;
+constexpr uint16_t kSqpNutTier = 11;
+constexpr uint16_t kSqpStickTierAlt = 12;
 
 ComboItemClassRow SqpRow(uint8_t fillClass, uint8_t kind, uint8_t units) {
     ComboItemClassRow row;
@@ -275,6 +288,13 @@ int SqpClassify(uint16_t id, ComboItemClassRow* out) {
             return 1;
         case kSqpOcarina:
             *out = SqpRow(P, RSBS_SHARED_RES_OCARINA_TIER, 0u);
+            return 1;
+        case kSqpStickTier:
+        case kSqpStickTierAlt:
+            *out = SqpRow(P, RSBS_SHARED_RES_STICK_TIER, 0u);
+            return 1;
+        case kSqpNutTier:
+            *out = SqpRow(P, RSBS_SHARED_RES_NUT_TIER, 0u);
             return 1;
         default:
             *out = SqpRow((uint8_t)RSBS_FILL_CLASS_NONE, 0u, 0u);
@@ -444,6 +464,92 @@ std::vector<uint8_t> SqpOrigins(const SqpComposed& c, uint16_t id) {
         }
     }
     return out;
+}
+
+/** Q7: freeze a paired record whose only comboFlags are #1652's two bag bits
+ *  (stick 0x08, nut 0x10), set the way the creation applies them. */
+void SqpFreezeBags(bool stick, bool nut) {
+    SqpFreeze(false);
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    rec.comboFlags = 0u;
+    Combo_ComboSettingsApplyCreationBagShuffles(&rec, stick, nut);
+    Combo_FreezeComboSettings(&rec);
+}
+
+/** Q7: puts the process's registered stand-ins back on every exit, so a leg may
+ *  clear or replace them. */
+struct SqpStandInGuard {
+    uint16_t stick;
+    uint16_t nut;
+    SqpStandInGuard()
+        : stick(Combo_SharedCreditStandInRegistered((uint8_t)GAME_MM, RSBS_SHARED_RES_STICK_TIER)),
+          nut(Combo_SharedCreditStandInRegistered((uint8_t)GAME_MM, RSBS_SHARED_RES_NUT_TIER)) {
+    }
+    void Restore() const {
+        Combo_TestClearSharedCreditStandIns();
+        if (stick != 0u) {
+            (void)Combo_RegisterSharedCreditStandIn((uint8_t)GAME_MM, RSBS_SHARED_RES_STICK_TIER, stick);
+        }
+        if (nut != 0u) {
+            (void)Combo_RegisterSharedCreditStandIn((uint8_t)GAME_MM, RSBS_SHARED_RES_NUT_TIER, nut);
+        }
+    }
+    ~SqpStandInGuard() {
+        Restore();
+    }
+    SqpStandInGuard(const SqpStandInGuard&) = delete;
+    SqpStandInGuard& operator=(const SqpStandInGuard&) = delete;
+};
+
+/** Q7: the same composed result, field by field: every bag row (flags and pairId
+ *  included), the pool index, the trimmed list and the result's counters. */
+bool SqpSameCompose(const SqpComposed& a, const SqpComposed& b) {
+    if (a.status != b.status || a.bag.size() != b.bag.size() || a.poolIndex != b.poolIndex || a.trimmed != b.trimmed ||
+        a.res.bagCount != b.res.bagCount || a.res.sharedCredits != b.res.sharedCredits ||
+        a.res.sharedPairs != b.res.sharedPairs || a.res.noOrigin != b.res.noOrigin) {
+        return false;
+    }
+    for (int g = 0; g < (int)RSBS_FOREIGN_POOL_ORIGIN_COUNT; ++g) {
+        if (a.res.perGame[g].plentiful != b.res.perGame[g].plentiful) {
+            return false;
+        }
+        for (int d = 0; d < RSBS_COMBO_COMPOSE_COUNT; ++d) {
+            if (a.res.perGame[g].rows[d] != b.res.perGame[g].rows[d]) {
+                return false;
+            }
+        }
+    }
+    for (size_t i = 0; i < a.bag.size(); ++i) {
+        const ComboLogicBagItem& x = a.bag[i];
+        const ComboLogicBagItem& y = b.bag[i];
+        if (x.item.originGame != y.item.originGame || x.item.id != y.item.id || x.bagFlags != y.bagFlags ||
+            x.pairId != y.pairId || x.itemClass != y.itemClass) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** Q7: bag rows of (origin, id) carrying the credit with far id @p pairId; and
+ *  every credited row of any kind. */
+int SqpCredited(const SqpComposed& c, uint8_t origin, uint16_t id, uint16_t pairId) {
+    int n = 0;
+    for (const ComboLogicBagItem& b : c.bag) {
+        if (b.item.originGame == origin && b.item.id == id && (b.bagFlags & RSBS_COMBO_BAG_SHARED_CREDIT) != 0u &&
+            b.pairId == pairId) {
+            n++;
+        }
+    }
+    return n;
+}
+
+int SqpCreditedAny(const SqpComposed& c) {
+    int n = 0;
+    for (const ComboLogicBagItem& b : c.bag) {
+        n += ((b.bagFlags & RSBS_COMBO_BAG_SHARED_CREDIT) != 0u) ? 1 : 0;
+    }
+    return n;
 }
 
 } // namespace
@@ -924,6 +1030,162 @@ TestResult Test_SharedQuantityPolicy(void) {
         SQP_ASSERT(tc.status == RSBS_COMBO_LOGIC_OK && !ootQuiverCredited && mmQuivers > 0 && mmQuiverCreditsOoT,
                    "Q6: a far game whose pool names the family by two ids is credited nothing; the other direction "
                    "still is");
+    }
+
+    // ---- Q7: THE SHARED-CREDIT STAND-INS (#1652 stage A2; shared_items.h) -----------
+    // OoT pools its Progressive Stick / Nut Upgrade (the STICK_TIER / NUT_TIER kinds);
+    // MM pools no capacity of either, so Q6's rule credits MM's solver nothing. Under
+    // the frozen bag shuffle MM's registrar's logic-only id fills that far id.
+    {
+        const SqpStandInGuard standIns;
+        const uint16_t stickIn = standIns.stick;
+        const uint16_t nutIn = standIns.nut;
+        printf("[TEST] shared-quantity-policy: Q7 MM's registered stand-ins: stick %u, nut %u\n", (unsigned)stickIn,
+               (unsigned)nutIn);
+        // (a) THE REGISTRY. Catches: the MM registrar dropped or swapped, a kind
+        // allowlist that admits another kind, a duplicate accepted.
+        SQP_ASSERT(stickIn != 0u && nutIn != 0u && stickIn != nutIn,
+                   "Q7: MM's engine registrar registered one distinct stand-in per bag kind");
+        for (uint8_t k = 0u; k < (uint8_t)RSBS_SHARED_RES_KIND_COUNT; ++k) {
+            SQP_ASSERT(Combo_SharedCreditStandInRegistered(O, k) == 0u,
+                       "Q7: OoT registers no stand-in (its pool names both bag kinds itself)");
+        }
+        SQP_ASSERT(!Combo_RegisterSharedCreditStandIn(M, RSBS_SHARED_RES_QUIVER_TIER, 900u) &&
+                       Combo_SharedCreditStandInRegistered(M, RSBS_SHARED_RES_QUIVER_TIER) == 0u,
+                   "Q7: a stand-in for a kind other than the stick and nut tiers is refused");
+        SQP_ASSERT(!Combo_RegisterSharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER, 901u) &&
+                       Combo_SharedCreditStandInRegistered(M, RSBS_SHARED_RES_STICK_TIER) == stickIn,
+                   "Q7: a second stand-in for (MM, STICK_TIER) is refused and the first is kept");
+        SQP_ASSERT(!Combo_RegisterSharedCreditStandIn((uint8_t)GAME_NONE, RSBS_SHARED_RES_NUT_TIER, 902u) &&
+                       !Combo_RegisterSharedCreditStandIn(O, RSBS_SHARED_RES_NUT_TIER, 0u),
+                   "Q7: a stand-in for no game, or id 0, is refused");
+
+        // (b) THE FROZEN GATE. Catches: the predicate check dropped from the lookup
+        // (the off halves), the stick and nut predicates swapped (the one-bit halves).
+        ComboContext_Init();
+        SQP_ASSERT(Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER) == 0u &&
+                       Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_NUT_TIER) == 0u,
+                   "Q7: with nothing frozen (an unpaired file) neither stand-in is armed");
+        SqpFreezeBags(false, false);
+        SQP_ASSERT(Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER) == 0u &&
+                       Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_NUT_TIER) == 0u,
+                   "Q7: a paired world frozen with both bag shuffles off arms neither stand-in");
+        SqpFreezeBags(true, false);
+        SQP_ASSERT(Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER) == stickIn &&
+                       Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_NUT_TIER) == 0u,
+                   "Q7: the frozen stick bit (0x08) arms the stick stand-in only");
+        SqpFreezeBags(false, true);
+        SQP_ASSERT(Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER) == 0u &&
+                       Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_NUT_TIER) == nutIn,
+                   "Q7: the frozen nut bit (0x10) arms the nut stand-in only");
+        SqpFreezeBags(true, true);
+        SQP_ASSERT(Combo_SharedCreditStandIn(O, RSBS_SHARED_RES_STICK_TIER) == 0u &&
+                       Combo_SharedCreditStandIn(O, RSBS_SHARED_RES_NUT_TIER) == 0u,
+                   "Q7: OoT is never handed a stand-in");
+        {
+            // A stand-in that is a FILL ITEM of its game is refused at lookup: it
+            // could be pooled, and would then be counted twice. Catches: the
+            // fill-item check dropped.
+            Combo_TestClearSharedCreditStandIns();
+            const bool registered = Combo_RegisterSharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER, kSqpStickTier);
+            const uint16_t armed = Combo_SharedCreditStandIn(M, RSBS_SHARED_RES_STICK_TIER);
+            standIns.Restore();
+            SQP_ASSERT(registered && armed == 0u, "Q7: a stand-in that is a fill item of its game is refused");
+        }
+
+        // (c) THE COMPOSER'S FALLBACK. OoT's shape: 3 + 3 tier rows and one
+        // Plentiful stick copy; no MM tier row.
+        SqpPool bags;
+        bags.Add(O, kSqpStickTier, 3);
+        bags.Add(O, kSqpStickTier, 1, RSBS_COMBO_POOL_PLENTIFUL);
+        bags.Add(O, kSqpNutTier, 3);
+        SqpFreezeBags(true, false);
+        const SqpComposed stickOnly = SqpCompose(bags, 0x1652u);
+        SqpFreezeBags(true, true);
+        const SqpComposed both = SqpCompose(bags, 0x1652u);
+        SqpFreezeBags(false, false);
+        const SqpComposed off = SqpCompose(bags, 0x1652u);
+        printf("[TEST] shared-quantity-policy: Q7 compose: stick bit only %d credited (%d stick, %d nut), both bits "
+               "%d (%d, %d), off %d; bag rows %d / %d / %d\n",
+               stickOnly.res.sharedCredits, SqpCredited(stickOnly, O, kSqpStickTier, stickIn),
+               SqpCredited(stickOnly, O, kSqpNutTier, nutIn), both.res.sharedCredits,
+               SqpCredited(both, O, kSqpStickTier, stickIn), SqpCredited(both, O, kSqpNutTier, nutIn),
+               off.res.sharedCredits, stickOnly.res.bagCount, both.res.bagCount, off.res.bagCount);
+        SQP_ASSERT(stickOnly.status == RSBS_COMBO_LOGIC_OK && both.status == RSBS_COMBO_LOGIC_OK &&
+                       off.status == RSBS_COMBO_LOGIC_OK,
+                   "Q7: every compose accepted");
+        // Catches: the fallback loop removed (every on-half), or keyed on the wrong kind.
+        SQP_ASSERT(SqpCredited(stickOnly, O, kSqpStickTier, stickIn) == 4 && SqpCreditedAny(stickOnly) == 4 &&
+                       stickOnly.res.sharedCredits == 4,
+                   "Q7: under the stick bit every OoT stick-tier row (the Plentiful one included) credits MM's stick "
+                   "stand-in, and nothing else is credited");
+        SQP_ASSERT(SqpCredited(both, O, kSqpStickTier, stickIn) == 4 && SqpCredited(both, O, kSqpNutTier, nutIn) == 3 &&
+                       SqpCreditedAny(both) == 7 && both.res.sharedCredits == 7,
+                   "Q7: under both bits the nut rows credit MM's nut stand-in too");
+        SQP_ASSERT(SqpCreditedAny(off) == 0 && off.res.sharedCredits == 0,
+                   "Q7: with both shuffles off no row is credited (Q6's rule: MM names neither kind)");
+        // The fallback fills the far id only: the trim and the bag do not move.
+        SQP_ASSERT(stickOnly.res.bagCount == 7 && both.res.bagCount == 7 && off.res.bagCount == 7 &&
+                       stickOnly.trimmed.empty() && both.trimmed.empty() && off.trimmed.empty() &&
+                       stickOnly.poolIndex == off.poolIndex && both.poolIndex == off.poolIndex,
+                   "Q7: the stand-in moves no disposition: same rows, nothing trimmed, either way");
+
+        // (d) A REAL MM ID WINS, and AMBIGUITY STAYS AMBIGUOUS. Catches: a fallback
+        // that overrides `creditHave`.
+        SqpPool realMM = bags;
+        realMM.Add(M, kSqpStickTierAlt, 1);
+        SqpFreezeBags(true, true);
+        const SqpComposed real = SqpCompose(realMM, 0x1652u);
+        SqpPool twoMM = realMM;
+        twoMM.Add(M, kSqpStickTier, 1);
+        const SqpComposed ambiguous = SqpCompose(twoMM, 0x1652u);
+        int realOoTStick = 0;
+        int realOoTStickToAlt = 0;
+        int ambiguousOoTStickCredited = 0;
+        for (const ComboLogicBagItem& b : real.bag) {
+            if (b.item.originGame == O && b.item.id == kSqpStickTier) {
+                realOoTStick++;
+                realOoTStickToAlt +=
+                    ((b.bagFlags & RSBS_COMBO_BAG_SHARED_CREDIT) != 0u && b.pairId == kSqpStickTierAlt) ? 1 : 0;
+            }
+        }
+        for (const ComboLogicBagItem& b : ambiguous.bag) {
+            if (b.item.originGame == O && b.item.id == kSqpStickTier &&
+                (b.bagFlags & RSBS_COMBO_BAG_SHARED_CREDIT) != 0u) {
+                ambiguousOoTStickCredited++;
+            }
+        }
+        // (MM's one row may be the copy the 3/3 trim drops; a pool row names the far
+        // id whatever its disposition, so the OoT half holds either way.)
+        SQP_ASSERT(real.status == RSBS_COMBO_LOGIC_OK && realOoTStick > 0 && realOoTStickToAlt == realOoTStick &&
+                       SqpCredited(real, M, kSqpStickTierAlt, kSqpStickTier) == SqpCount(real, M, kSqpStickTierAlt) &&
+                       SqpCredited(real, O, kSqpNutTier, nutIn) == 3,
+                   "Q7: an MM pool row of the stick kind wins over the stand-in (and is credited OoT's id); the nut "
+                   "kind, which MM's pool still lacks, keeps its stand-in");
+        SQP_ASSERT(ambiguous.status == RSBS_COMBO_LOGIC_OK && ambiguousOoTStickCredited == 0,
+                   "Q7: an MM pool naming the stick kind by two ids is ambiguous: the stand-in does not resolve it");
+
+        // (e) SHUFFLE OFF IS TODAY'S WORLD: with both bits clear the composed result
+        // equals, field for field, the one with no stand-in registered at all. The
+        // sensitivity half: with both bits set the two DIFFER, so the comparison can
+        // see the fallback. Catches: the frozen gate ignored (the off half).
+        SqpFreezeBags(false, false);
+        const SqpComposed offRegistered = SqpCompose(bags, 0x0A11u);
+        SqpFreezeBags(true, true);
+        const SqpComposed onRegistered = SqpCompose(bags, 0x0A11u);
+        Combo_TestClearSharedCreditStandIns();
+        SqpFreezeBags(false, false);
+        const SqpComposed offNone = SqpCompose(bags, 0x0A11u);
+        SqpFreezeBags(true, true);
+        const SqpComposed onNone = SqpCompose(bags, 0x0A11u);
+        standIns.Restore();
+        SQP_ASSERT(SqpSameCompose(offRegistered, offNone),
+                   "Q7: a world frozen with both bag shuffles off composes exactly as if no stand-in were registered");
+        SQP_ASSERT(!SqpSameCompose(onRegistered, onNone) && onNone.res.sharedCredits == 0 &&
+                       onRegistered.res.sharedCredits == 7,
+                   "Q7 SENSITIVITY: with both bits on the stand-ins change the composed result (so the off half can "
+                   "see them)");
+        SqpFreeze(false);
     }
 
     printf("[TEST] PASS: shared-quantity-policy\n");

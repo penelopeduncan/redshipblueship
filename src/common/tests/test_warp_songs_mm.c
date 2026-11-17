@@ -301,8 +301,11 @@ TestResult MMWarpSongsItems_Run(void) {
         for (int i = 0; i < 6; i++) {
             consecutive = consecutive && MM_WarpSongsTest_Id(i) == spooky + 1 + i;
         }
-        WSM_CHECK(consecutive && maxTrap > MM_WarpSongsTest_Id(5) && riMax == maxTrap + 1,
-                  "the six ids are not appended after the masks and before RI_MAX_TRAP");
+        // #1652 A2 appends two logic-only stand-ins after RI_MAX_TRAP.
+        WSM_CHECK(consecutive && maxTrap > MM_WarpSongsTest_Id(5) && MM_WarpSongsTest_Id(13) == maxTrap + 1 &&
+                      MM_WarpSongsTest_Id(14) == maxTrap + 2 && riMax == maxTrap + 3,
+                  "the six ids are not appended after the masks and before RI_MAX_TRAP (or #1652 A2's two "
+                  "stand-ins do not follow RI_MAX_TRAP)");
         // Saved ids (randoSaveChecks[].randoItemId, the crossing store) pinned at
         // their pre-XW5 values: RI_WOODFALL_STRAY_FAIRY and the masks P5 appended.
         WSM_CHECK(MM_WarpSongsTest_Id(9) == 234 && MM_WarpSongsTest_Id(12) == 235 && spooky == 237 &&
