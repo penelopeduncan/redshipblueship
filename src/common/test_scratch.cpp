@@ -67,13 +67,23 @@ std::string ThisExecutablePath() {
 
 } // namespace
 
-std::filesystem::path ScratchDir(const std::string& name) {
+std::filesystem::path ScratchProcessRoot() {
     std::error_code ec;
     std::filesystem::path base = std::filesystem::temp_directory_path(ec);
     if (ec) {
         base = std::filesystem::current_path(ec);
     }
-    const std::filesystem::path dir = base / (name + "." + std::to_string(ProcessId()));
+    return base / ("rsbs_scratch." + std::to_string(ProcessId()));
+}
+
+std::filesystem::path ScratchDir(const std::string& name) {
+    std::error_code ec;
+    // #1641: the process id goes on the PARENT, never on the caller's own name.
+    // `<temp>/<name>.<pid>` made the id the extension of the leaf, and
+    // libultraship's ArchiveManager::AddArchive picks the archive kind from that
+    // extension: a loose folder (no extension, a FolderArchive) became one with
+    // the unknown extension ".<pid>", which it opens as a zip, and the mount failed.
+    const std::filesystem::path dir = ScratchProcessRoot() / name;
     auto& dirs = RowScratchDirs();
     if (std::find(dirs.begin(), dirs.end(), dir) == dirs.end()) {
         // A directory of this name can only be left over from an earlier
@@ -103,6 +113,12 @@ void ScratchDirs_EndRow(const char* rowName, bool passed) {
         } else {
             printf("[TestScratch] %s did not pass: kept %s\n", rowName ? rowName : "(row)", dir.string().c_str());
         }
+    }
+    if (!dirs.empty()) {
+        // The per-process parent goes too once nothing is left in it (remove
+        // refuses a folder that still holds a kept or undeletable directory).
+        std::error_code ec;
+        std::filesystem::remove(ScratchProcessRoot(), ec);
     }
     dirs.clear();
 }

@@ -24,10 +24,20 @@
 namespace rsbs::test {
 
 /**
+ * The parent of every directory ScratchDir hands this process:
+ * `<temp>/rsbs_scratch.<pid>`. Only this folder carries the process id.
+ */
+std::filesystem::path ScratchProcessRoot();
+
+/**
  * The calling process's own scratch directory for @p name:
- * `<temp>/<name>.<pid>`. The first call for a name in a row empties and creates
- * it and registers it for ScratchDirs_EndRow; a later call in the same row
- * returns the same directory unchanged.
+ * `<temp>/rsbs_scratch.<pid>/<name>`. The leaf is exactly @p name, so a caller
+ * that picks behaviour from the name gets the name it asked for (#1641): a loose
+ * folder that ArchiveManager::AddArchive mounts as a FolderArchive because it has
+ * no extension keeps having none, and a name with its own extension keeps it.
+ * The first call for a name in a row empties and creates it and registers it for
+ * ScratchDirs_EndRow; a later call in the same row returns the same directory
+ * unchanged.
  */
 std::filesystem::path ScratchDir(const std::string& name);
 
@@ -41,6 +51,7 @@ const char* ScratchDirCStr(const std::string& name);
 /**
  * End of a test row: removes every directory ScratchDir handed out since the
  * previous call when @p passed, otherwise keeps them and prints their paths.
+ * The per-process parent goes as well once it is empty.
  */
 void ScratchDirs_EndRow(const char* rowName, bool passed);
 

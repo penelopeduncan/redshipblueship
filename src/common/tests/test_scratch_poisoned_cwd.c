@@ -255,6 +255,33 @@ void SpcPrintFailureLines(const std::filesystem::path& log) {
     }
 }
 
+// #1641: the leaf ScratchDir hands back is the caller's own name. A loose folder
+// that ArchiveManager::AddArchive mounts as a FolderArchive must have no
+// extension (mod-survives-switch's rsbs_test_mod_1308_alt), so the process id
+// may sit only on the parent; `<name>.<pid>` made it the extension and the mount
+// failed. Returns the number of failures.
+int SpcScratchShape() {
+    const std::string name = "rsbs_test_scratch_shape_1641";
+    const std::filesystem::path dir = rsbs::test::ScratchDir(name);
+    int failures = 0;
+    if (dir.filename().string() != name || !dir.extension().empty()) {
+        printf("[TEST] FAIL: ScratchDir(\"%s\") is %s: its leaf must be the name itself, with no extension\n",
+               name.c_str(), dir.generic_string().c_str());
+        failures++;
+    }
+    if (dir.parent_path() != rsbs::test::ScratchProcessRoot()) {
+        printf("[TEST] FAIL: ScratchDir(\"%s\") is %s, not under this process's own folder %s\n", name.c_str(),
+               dir.generic_string().c_str(), rsbs::test::ScratchProcessRoot().generic_string().c_str());
+        failures++;
+    }
+    std::error_code ec;
+    if (!std::filesystem::is_directory(dir, ec)) {
+        printf("[TEST] FAIL: ScratchDir(\"%s\") did not create %s\n", name.c_str(), dir.generic_string().c_str());
+        failures++;
+    }
+    return failures;
+}
+
 } // namespace
 
 static TestResult Test_TestScratchPoisonedCwd(void) {
@@ -296,6 +323,7 @@ static TestResult Test_TestScratchPoisonedCwd(void) {
         group++;
     }
     failures += SpcMissingAnchors();
+    failures += SpcScratchShape();
     printf("[TEST] %s: test-scratch-poisoned-cwd, %d failure(s)\n", failures == 0 ? "PASS" : "FAIL", failures);
     return failures == 0 ? TEST_PASS : TEST_FAIL;
 }
