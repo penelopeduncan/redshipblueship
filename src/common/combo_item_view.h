@@ -279,7 +279,9 @@ typedef bool (*ComboItemGrantBlockedFn)(uint8_t countKind);
  * Install `game`'s grant-blocked answer (GAME_OOT or GAME_MM; NULL un-registers,
  * so a test can restore it). The Shared group asks only the RUNNING game's, and
  * while it answers true for a row's count, the row reads as not held with a
- * count of 0. A game with none registered (MM today) blocks nothing.
+ * count of 0, and the running game's own per-game copy of the row's tier in a
+ * custom group (Combo_ItemCatalogRowAt) is not lit from the pool's tier. A game
+ * with none registered (MM today) blocks nothing.
  */
 void Combo_Item_RegisterGrantBlocked(uint8_t game, ComboItemGrantBlockedFn fn);
 
