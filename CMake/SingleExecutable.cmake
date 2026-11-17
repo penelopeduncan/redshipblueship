@@ -5105,6 +5105,33 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
+    # #1671 lane B2: Majora's Mask's Shuffle Ocarina, live. The paired first
+    # crossing with gRando.Options.RO_SHUFFLE_OCARINA=1 and Moon Crash Behavior on
+    # Last Save (gRando.Options.MoonCrash=0), both in memory and put back at the
+    # verdict, so the New Cycle the crash must take can only come from the
+    # option's force (MM_Rando_FrozenMoonCrash), never from the frozen byte. At
+    # the first MM arrival: the start list is the Song of Time alone, SLOT_OCARINA
+    # is empty, the Song of Time is held, R_TIME_SPEED and the scene's time speed
+    # are not the first cycle's 5 (B0's VB_FASTER_FIRST_CYCLE dispatch), the
+    # Termina Field gate does not empty the field, and the frozen moon crash is
+    # New Cycle over a Last Save byte. The MM drive
+    # (games/mm/2s2h/mm_int_shuffle_ocarina_drive.cpp) waits for the payouts,
+    # moves the file to Day 3 23:54 in North Clock Town and watches midnight pass
+    # with no festival warp (B0's VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE
+    # registrant), then sets the clock to 5:58 and lets the three-day clock
+    # actor drop the moon at 6:00 through the real crash and Fire Wall
+    # cutscenes. The scene after them must be a new cycle (one more three-day
+    # reset, the cycle's Deku record cleared, the "New Cycle" line logged once)
+    # at the Dawn of the First Day with the fixture items, the Song of Time and
+    # the Last Save byte kept, still without the ocarina and still not on the
+    # fast clock. The run ends there, in MM, and a pass erases file 3. Not driven:
+    # a song-teaching NPC without the ocarina and finding the ocarina (playtest
+    # steps in docs/playtest-2026-09.md). The budgets are the Minuet rows'.
+    redship_add_test(NAME IntMMShuffleOcarina
+        COMMAND redship --integration-test int-mm-shuffle-ocarina
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1169 XW14: the same row with the Shared Minuet of Forest on too, through
     # its key and the production mask (no test seam: the row is the proof that
     # offered the seven shared rules). OoT is given its own
@@ -5129,7 +5156,7 @@ crossing to refuse (#954).")
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
         IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntForeignHoldQuit
-        IntMMWarpSongMinuet IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM
+        IntMMWarpSongMinuet IntMMShuffleOcarina IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM
         PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================

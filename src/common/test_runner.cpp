@@ -12626,6 +12626,13 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
       "Minuet still held at the arrival",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
+    { "int-mm-shuffle-ocarina",
+      "The paired first crossing with Majora's Mask's Shuffle Ocarina on and Moon Crash Behavior on Last Save "
+      "(#1671 B2): the first MM arrival holds the Song of Time and no ocarina, its clock runs at the scene's speed "
+      "(not the first cycle's 5), Termina Field is not emptied and the frozen moon crash is New Cycle; on Day 3 "
+      "midnight in North Clock Town no festival warp fires, and the moon falling at 6:00 starts a new cycle that "
+      "keeps the file's progress and its frozen Last Save byte",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_SHUFFLE_OCARINA },
     { "int-crossing-refused",
       "With MM's game or port archive set aside (CMake/CheckCrossingRefused.cmake): debug save outside the Happy "
       "Mask Shop, walk into the door, verify the crossing is refused while OoT is still in its frame loop and Link "

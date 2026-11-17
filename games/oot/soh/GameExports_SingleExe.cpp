@@ -1089,6 +1089,8 @@ static void PfcChestPlaytestLogHosts(void);
 // int-soaring-to-owl (#1169 XW6): the world's settings for the drive (defined
 // with the drive, below).
 static void SoarArmWorld(void);
+// int-mm-shuffle-ocarina (#1671 B2): its world (defined beside SoarArmWorld).
+static bool SoArmWorld(void);
 // int-mm-warp-song-minuet (#1169 XW13): its world, and the checks on the file it
 // created (defined with the row's OoT half, below).
 static bool MwArmWorld(void);
@@ -1524,6 +1526,9 @@ static void GpCreatePairedFileAndEnterPlay(FileChooseContext* fileChoose, const 
     if (IntegrationTest_SoaringToOwl()) {
         SoarArmWorld();
     }
+    if (IntegrationTest_MMShuffleOcarina() && !SoArmWorld()) {
+        return;
+    }
     if (IntegrationTest_MMWarpSongMinuet() && !MwArmWorld()) {
         return;
     }
@@ -1896,6 +1901,11 @@ static void GpPairedTrackerPlaytest(int frame) {
             // start), and a chest this leg opened itself would hand him one. The world re-pinned for #1548
             // put Majora's Mask's Progressive Sword on the first chest host.
             if (item != NULL && (strstr(item, "Sword") != NULL || strstr(item, "Shield") != NULL)) {
+                continue;
+            }
+            // int-mm-shuffle-ocarina (#1671 B2): nor Majora's Mask's Ocarina of Time, a pool item there, which
+            // would reach MM before its arrival asserts that the half holds none.
+            if (item != NULL && IntegrationTest_MMShuffleOcarina() && strstr(item, "Ocarina") != NULL) {
                 continue;
             }
             // int-foreign-hold-quit (#1635 step 7): its two pinned hosts are its own legs.
@@ -3627,12 +3637,15 @@ void SoarPlayDestroy(void) {
  * the next paired run erases it by its name.
  */
 extern "C" void OoT_SoaringTest_ErasePairedFile(void) {
-    if (!IntegrationTest_SoaringToOwl() || !IntegrationTest_PairedFirstCrossing() ||
+    // int-mm-shuffle-ocarina (#1671 B2) ends in MM too (its moon crash verdict).
+    const bool shuffleOcarina = IntegrationTest_MMShuffleOcarina();
+    if ((!IntegrationTest_SoaringToOwl() && !shuffleOcarina) || !IntegrationTest_PairedFirstCrossing() ||
         IntegrationTest_PairedSkipCreation()) {
         return;
     }
     Save_DeleteFile(kPfcSlot);
-    fprintf(stderr, "[PFC] PASS: the Song of Soaring crossing; erased file %d\n", kPfcSlot + 1);
+    fprintf(stderr, "[PFC] PASS: %s; erased file %d\n",
+            shuffleOcarina ? "Shuffle Ocarina's moon crash" : "the Song of Soaring crossing", kPfcSlot + 1);
     fflush(stderr);
 }
 
@@ -3650,6 +3663,44 @@ static void SoarArmWorld(void) {
     IntegrationTest_SoaringSetCVarInt(CVAR_RANDOMIZER_SETTING("ShuffleSongs"), RO_SONG_SHUFFLE_ANYWHERE);
     fprintf(stderr, "[PFC] soaring: songSoaringOot on (the production mask, no reveal), Shuffle Songs Anywhere\n");
     fflush(stderr);
+}
+
+/**
+ * int-mm-shuffle-ocarina (#1671 B2): the world, set right after the
+ * shipped-defaults check and before the generation, as SoarArmWorld does.
+ * Majora's Mask's Shuffle Ocarina on through the key its options-page row names
+ * (looked up by its enumerator, so a build without the row fails here by name),
+ * and Moon Crash Behavior on Last Save, so the frozen byte is Last Save and the
+ * New Cycle the MM leg must see can only come from the option's force. Both
+ * are in memory only and go back at the verdict (IntegrationTest_SoaringCleanup).
+ */
+static bool SoArmWorld(void) {
+    const ComboMMOptionDesc* shuffle = nullptr;
+    for (int i = 0; i < Combo_MMOptionCount(); i++) {
+        const ComboMMOptionDesc* d = Combo_MMOptionAt(i);
+        if (d != nullptr && d->name != nullptr && strcmp(d->name, "RO_SHUFFLE_OCARINA") == 0) {
+            shuffle = d;
+            break;
+        }
+    }
+    if (shuffle == nullptr || shuffle->cvar == nullptr || shuffle->widget != COMBO_MM_WIDGET_CHECKBOX) {
+        char reason[256];
+        snprintf(reason, sizeof(reason),
+                 "int-mm-shuffle-ocarina, the world: MM's options table has no RO_SHUFFLE_OCARINA checkbox row "
+                 "(found %s, widget %d, expected the checkbox %d) among its %d rows",
+                 shuffle != nullptr ? "a row" : "no row", shuffle != nullptr ? (int)shuffle->widget : -1,
+                 (int)COMBO_MM_WIDGET_CHECKBOX, Combo_MMOptionCount());
+        IntegrationTest_GameplayFail(reason);
+        return false;
+    }
+    IntegrationTest_SoaringSetCVarInt(shuffle->cvar, 1);
+    IntegrationTest_SoaringSetCVarInt(RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET);
+    fprintf(stderr,
+            "[PFC] mm shuffle ocarina: %s on (\"%s\"), %s at %d (Last Save), everything else at the shipped "
+            "defaults\n",
+            shuffle->cvar, shuffle->label, RSBS_CVAR_MM_MOON_CRASH, RSBS_MM_MOON_CRASH_RESET);
+    fflush(stderr);
+    return true;
 }
 
 // ============================================================================

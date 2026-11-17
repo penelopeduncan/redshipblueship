@@ -1706,6 +1706,67 @@ Locked by `SharedOcarinaRetired` (which replaced `SharedOcarina`),
 `ComboSettingsRows` leg 1e, `ComboSettingsAuthoring` leg 10,
 `PairedLoadRestore` leg 1 and `CVarClassification` (two identity keys).
 
+### 2026-11-17 -- Majora's Mask's "Shuffle Ocarina": an appended RO row, and its force to New Cycle (#1671)
+
+The operator asked on 2026-11-16 for Shuffle Ocarina as a Majora's Mask
+option. This entry sits beside the retired Shared Ocarina entry, the other
+decision about MM's instrument, rather than at the end of the list.
+
+- **An appended RO row, not a combo-own one.** The option is
+  `RO_SHUFFLE_OCARINA` (id 66, so `RO_MAX` is 67; static-asserted in
+  `games/mm/2s2h/GameExports_SingleExe.cpp`), key
+  `gRando.Options.RO_SHUFFLE_OCARINA`, off by default, a checkbox on
+  Randomizer > MM Randomizer directly above Shuffle Ocarina Buttons. Moon
+  Crash Behavior and Keep Items on Cycle Reset took combo-own ids (0x8000 and
+  up) because, when they were added, an RO id grew `randoSaveOptions` and
+  moved every later field of the MM half (the reason
+  `RSBS_MM_OPTION_ID_MOON_CRASH`'s comment gives). That array is now a fixed
+  128 slots (`RSBS_MM_SAVE_OPTION_CAP`, z64save.h), so an appended RO id costs
+  no save-layout change, and appended RO rows are the pattern since Hookshot
+  Anywhere (#1574). The value is frozen in the half's options like every other
+  MM option.
+- **The identity.** The option is listed in `IsAppendedOption`, so it folds as
+  its own term, `|RO_SHUFFLE_OCARINA:1`, into both the MM options string and
+  the profile identity, and only when it is on. A world with the option off
+  hashes exactly as it did before the option existed. The paired start's
+  identity term stays the constant `PairedStartingItems`; the option's own term
+  records the choice.
+- **The mechanism is upstream 2Ship's.** 2Ship has no such option: a player
+  removes `RI_OCARINA` from its Starting Items list, and the Clock Tower roof
+  check's vanilla `RI_OCARINA` then stays in the pool. This tree's paired start
+  is a constant, so `PairedStartingItemsForWorld` drops `RI_OCARINA` when the
+  frozen option is on, and the pool generation needs no change. The Song of
+  Time stays in the start, which has held it since the 2026-10-09 ruling on
+  #879; whether it should leave with the ocarina has not been ruled on, and
+  `kShuffleOcarinaKeepsSongOfTime` in `PairedStartingItemsForWorld` is the one
+  line that would change it. Under Shared Song of Time both leave the start. There is no Vanilla-logic exception, as for MM's other
+  shuffle rows, and a paired world is never Vanilla anyway.
+- **Why New Cycle is forced.** `MM_Rando_FrozenMoonCrash` returns New Cycle for
+  a randomizer half whose frozen option is on, as it does under Shared Song of
+  Time, whatever the frozen Moon Crash Behavior byte says. Without the
+  ocarina the Song of Time cannot be played, so under Last Save the half would
+  have no reset at all until the ocarina is found: the reset-time guard
+  (`Rando/Logic/ResetTimeGuard.h`) would confine logic to the arrival nook, and
+  every moon crash would send the player back to the last save. The operator
+  gave the two requests together for this reason. The frozen byte stays the
+  player's choice, and the identity does not depend on the force, because the
+  option is its own term.
+- **The first-cycle gates.** A half without its ocarina meets vanilla's
+  first-cycle tests (the 5x clock, the Day 3 midnight festival warp from any
+  scene, the forced Song of Time flashback). #1672 (lane B0) made each of them
+  answer as if the half held the ocarina, after the 2026-09-16 ruling that a
+  combo half acts at first-cycle gates as if it does. The cosmetic tests that
+  have no VanillaBehavior point (the Clock Tower's look from outside South
+  Clock Town, the Happy Mask Salesman's cutscene choice, Skull Kid's hand,
+  Tatl's line in Clock Town) are accepted and listed in known-issues.md.
+
+Locked by `MMRandoOptions` (the row), `MMPairedStartShuffleOcarina` (the start
+list, the pool and the force), `MMPlacementConfinement` (the fold),
+`MMComboFirstCycle` (the gates) and the ROM-staged `IntMMShuffleOcarina`, which
+creates a paired file with the option on and Moon Crash Behavior on Last Save,
+arrives without the ocarina, passes Day 3 midnight in North Clock Town with no
+festival warp, and lets the moon fall into a new cycle.
+
 ### 2026-10-10 -- The "Shared Kokiri Sword" option (#886)
 
 Operator ruling 2026-10-09 on #879: the two Kokiri Swords "being the same item
