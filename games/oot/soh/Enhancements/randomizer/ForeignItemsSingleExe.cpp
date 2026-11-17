@@ -76,6 +76,7 @@ extern "C" {
 #include <z64.h>
 #include "variables.h"
 #include "functions.h" // OoT_Item_Give
+#include "macros.h"    // CUR_UPG_VALUE: OoT_ForeignItem_Give's bag gate reads OoT's own tier (#1652 A1)
 u16 Randomizer_Item_Give(PlayState* play, GetItemEntry giEntry);
 }
 
