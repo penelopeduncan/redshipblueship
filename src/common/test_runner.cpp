@@ -3302,6 +3302,180 @@ TestResult Test_TestWindowNoActivation(void) {
     return failures == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1690 lock: a crash under --test prints on stderr enough to name the faulting
+// code from redship.map, with no debugger and no rebuild. The row runs itself
+// again as a child (RSBS_CRASH_TRACE_CHILD=1, and RSBS_HEADLESS=1 over any outer
+// "0") that writes through a null pointer (HeadlessCrash_SelfTestFault) with
+// only what main's --test branch installed, no Ship::Context, and reads what
+// the child printed:
+//   T1 it exited 128 + SIGSEGV (139; macOS may raise SIGBUS for it, 138);
+//   T2 the first line tools already read, "[CRASH] Windows exception: 0xc0000005"
+//      with the exe_offset= field (Windows), "[CRASH] SIGSEGV" or "SIGBUS" (POSIX);
+//   T3 "[CRASH] fault at <exe>+0x<hex>" (Windows and Linux; macOS prints no
+//      fault PC), and on Windows that offset equals exe_offset and frame #0's;
+//   T4 at least two "[CRASH] #<n> <exe>+0x<hex>" frames, <exe> being redship
+//      (redship.exe on Windows);
+//   T5 the handler's last line, "[CRASH] exiting immediately".
+// Red half: without HeadlessCrash_InstallForTestMode at the top of main's --test
+// branch the child has only main's startup handler, which prints the exception
+// code alone and then hands a Windows fault to the system (exit 0xC0000005; the
+// child turned the fault dialog off first) or exits 1 (POSIX): T1, T3, T4 fail.
+// ROM-free and display-free; the parent leg only spawns and reads a file.
+static void CtmoSetEnv(const char* name, const char* value) {
+#ifdef _WIN32
+    _putenv_s(name, value != nullptr ? value : "");
+#else
+    if (value != nullptr) {
+        setenv(name, value, 1);
+    } else {
+        unsetenv(name);
+    }
+#endif
+}
+
+// The module of a "<module>+0x<hex>" token, lower-cased, and its offset;
+// false when @p text holds no such token.
+static bool CtmoParseModuleOffset(const std::string& text, std::string& module, std::string& offset) {
+    const size_t plus = text.find("+0x");
+    if (plus == std::string::npos) {
+        return false;
+    }
+    const size_t start = text.rfind(' ', plus);
+    module =
+        text.substr(start == std::string::npos ? 0 : start + 1, plus - (start == std::string::npos ? 0 : start + 1));
+    for (char& c : module) {
+        if (c >= 'A' && c <= 'Z') {
+            c = (char)(c - 'A' + 'a');
+        }
+    }
+    size_t end = plus + 3;
+    while (end < text.size() && ((text[end] >= '0' && text[end] <= '9') || (text[end] >= 'a' && text[end] <= 'f'))) {
+        end++;
+    }
+    offset = text.substr(plus + 3, end - (plus + 3));
+    return !module.empty() && !offset.empty();
+}
+
+static bool CtmoIsExe(const std::string& module) {
+    return module == "redship" || module == "redship.exe";
+}
+
+static TestResult Test_CrashTraceModuleOffsets(void) {
+    const char* childEnv = getenv("RSBS_CRASH_TRACE_CHILD");
+    if (childEnv != nullptr && strcmp(childEnv, "1") == 0) {
+        printf("[TEST] crash-trace-module-offsets: child, writing through a null pointer\n");
+        fflush(stdout);
+        HeadlessCrash_SelfTestFault();
+        printf("[TEST] FAIL: crash-trace-module-offsets: the null write did not fault\n");
+        return TEST_FAIL;
+    }
+
+    printf("[TEST] crash-trace-module-offsets: a crash under --test prints its frames as module+offset\n");
+    int failures = 0;
+#define CTMO_ASSERT(cond, ...)       \
+    do {                             \
+        if (!(cond)) {               \
+            printf("[TEST] FAIL: "); \
+            printf(__VA_ARGS__);     \
+            printf("\n");            \
+            failures++;              \
+        }                            \
+    } while (0)
+
+    const std::filesystem::path dir = rsbs::test::ScratchDir("crash_trace_module_offsets");
+    const std::filesystem::path logPath = dir / "child.log";
+    const char* outerHeadless = getenv("RSBS_HEADLESS");
+    const std::string savedHeadless = outerHeadless != nullptr ? outerHeadless : "";
+    const bool hadHeadless = outerHeadless != nullptr;
+    CtmoSetEnv("RSBS_CRASH_TRACE_CHILD", "1");
+    CtmoSetEnv("RSBS_HEADLESS", "1");
+    const int rc = rsbs::test::RunRowsInDir("crash-trace-module-offsets", dir, logPath);
+    CtmoSetEnv("RSBS_CRASH_TRACE_CHILD", nullptr);
+    CtmoSetEnv("RSBS_HEADLESS", hadHeadless ? savedHeadless.c_str() : nullptr);
+
+    std::vector<std::string> lines;
+    {
+        std::ifstream in(logPath, std::ios::binary);
+        std::string line;
+        while (std::getline(in, line)) {
+            if (!line.empty() && line.back() == '\r') {
+                line.pop_back();
+            }
+            lines.push_back(line);
+        }
+    }
+    printf("[TEST] child exit code %d, %zu line(s) of output:\n", rc, lines.size());
+    for (const std::string& line : lines) {
+        printf("[TEST]   | %s\n", line.c_str());
+    }
+
+#if defined(__APPLE__)
+    CTMO_ASSERT(rc == 139 || rc == 138, "T1 the child exited %d, expected 128 + SIGSEGV (139) or SIGBUS (138)", rc);
+#else
+    CTMO_ASSERT(rc == 139, "T1 the child exited %d, expected 128 + SIGSEGV (139)", rc);
+#endif
+
+    bool sawFirst = false;
+    bool sawExit = false;
+    std::string exeOffset;
+    std::string faultModule;
+    std::string faultOffset;
+    std::string frame0Offset;
+    int exeFrames = 0;
+    for (const std::string& line : lines) {
+#ifdef _WIN32
+        if (line == "[CRASH] Windows exception: 0xc0000005") {
+            sawFirst = true;
+        }
+        const size_t field = line.find(" exe_offset=0x");
+        if (line.rfind("[CRASH] addr=0x", 0) == 0 && field != std::string::npos) {
+            exeOffset = line.substr(field + 14);
+        }
+#else
+        if (line.rfind("[CRASH] SIGSEGV", 0) == 0 || line.rfind("[CRASH] SIGBUS", 0) == 0) {
+            sawFirst = true;
+        }
+#endif
+        if (line.rfind("[CRASH] exiting immediately", 0) == 0) {
+            sawExit = true;
+        }
+        std::string module;
+        std::string offset;
+        if (line.rfind("[CRASH] fault at ", 0) == 0 && CtmoParseModuleOffset(line, module, offset)) {
+            faultModule = module;
+            faultOffset = offset;
+        }
+        if (line.rfind("[CRASH] #", 0) == 0 && CtmoParseModuleOffset(line, module, offset) && CtmoIsExe(module)) {
+            exeFrames++;
+            if (line.rfind("[CRASH] #0 ", 0) == 0) {
+                frame0Offset = offset;
+            }
+        }
+    }
+
+    CTMO_ASSERT(sawFirst, "T2 no first [CRASH] line naming the access violation");
+#ifdef _WIN32
+    CTMO_ASSERT(!exeOffset.empty(), "T2 no [CRASH] addr= line with an exe_offset= field");
+#endif
+#if defined(_WIN32) || defined(__linux__)
+    CTMO_ASSERT(CtmoIsExe(faultModule), "T3 no '[CRASH] fault at redship+0x<offset>' line (module '%s')",
+                faultModule.c_str());
+#endif
+#ifdef _WIN32
+    CTMO_ASSERT(faultOffset == exeOffset, "T3 the fault's offset 0x%s is not exe_offset 0x%s", faultOffset.c_str(),
+                exeOffset.c_str());
+    CTMO_ASSERT(frame0Offset == exeOffset, "T3 frame #0's offset 0x%s is not exe_offset 0x%s", frame0Offset.c_str(),
+                exeOffset.c_str());
+#endif
+    CTMO_ASSERT(exeFrames >= 2, "T4 %d '[CRASH] #<n> redship+0x<offset>' frame line(s), expected at least 2",
+                exeFrames);
+    CTMO_ASSERT(sawExit, "T5 no '[CRASH] exiting immediately' line");
+#undef CTMO_ASSERT
+
+    printf("[TEST] %s: crash-trace-module-offsets, %d failure(s)\n", failures == 0 ? "PASS" : "FAIL", failures);
+    return failures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1152 lock: a test process never plays the operator's game controller. Its
 // window never holds the keyboard (the row above), so SDL would drop pad input
 // for it -- except that libultraship's Gui::ImGuiWMInit (Gui.cpp:204/212) sets
@@ -12186,6 +12360,10 @@ const TestDescriptor gTests[] = {
       "A --test process arms SDL's no-activation hint in code (not only from the environment) and a shown window "
       "takes no keyboard focus, so a tier never steals the caret from the person at the workstation (lane F1, #310)",
       Test_TestWindowNoActivation },
+    { "crash-trace-module-offsets",
+      "A crash under --test, in a row with no Ship::Context, prints the fault and its frames as module+offset on "
+      "stderr and exits 128 + SIGSEGV with no crash dialog, so redship.map names the faulting code (#1690)",
+      Test_CrashTraceModuleOffsets },
     { "test-controllers-ignored",
       "A --test process keeps SDL's joystick background events off in code over libultraship's \"1\" and its "
       "ControlDeck opens no game controller, so a tier never plays the operator's pad (#1152)",

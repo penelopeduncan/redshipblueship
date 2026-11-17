@@ -80,6 +80,37 @@ void HeadlessCrash_ForceHeadless(void);
  */
 void HeadlessCrash_ClaimAndInstall(void);
 
+/**
+ * @brief Install the fast-fail handlers for a test process that has no context.
+ *
+ * For main's --test and --integration-test branches, before any row or game
+ * init runs (#1690). Declares the session headless (as
+ * HeadlessCrash_ForceHeadless) and, unless RSBS_HEADLESS=0 says otherwise,
+ * installs the handlers HeadlessCrash_ClaimAndInstall installs, without
+ * touching Ship::Context. So every --test row, not only those that bring up a
+ * harness context, reports a fault on stderr as:
+ *
+ *   [CRASH] Windows exception: 0x<code>        (POSIX: [CRASH] <signal name>)
+ *   [CRASH] addr=0x.. exe_base=0x.. exe_offset=0x..                 (Windows)
+ *   [CRASH] fault at <module>+0x<offset>
+ *   [CRASH] #<n> <module>+0x<offset>          (up to 16 frames, #0 the fault on
+ *                                              Windows, traceback order on POSIX)
+ *
+ * and exits 128 + the signal number with no crash dialog. A normal run never
+ * calls this; its crash reporting is unchanged.
+ */
+void HeadlessCrash_InstallForTestMode(void);
+
+/**
+ * @brief Fault on purpose: a write through a null pointer (#1690).
+ *
+ * Only for the crash-trace-module-offsets row's child process. Turns off the
+ * Windows fault dialog and (POSIX) core dumps for this process first, so a
+ * build without the handlers fails that row on its exit code and leaves no
+ * dialog or dump. Does not return.
+ */
+void HeadlessCrash_SelfTestFault(void);
+
 #ifdef __cplusplus
 }
 #endif
