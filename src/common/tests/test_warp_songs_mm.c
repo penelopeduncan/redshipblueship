@@ -301,8 +301,11 @@ TestResult MMWarpSongsItems_Run(void) {
         for (int i = 0; i < 6; i++) {
             consecutive = consecutive && MM_WarpSongsTest_Id(i) == spooky + 1 + i;
         }
-        WSM_CHECK(consecutive && maxTrap > MM_WarpSongsTest_Id(5) && riMax == maxTrap + 1,
-                  "the six ids are not appended after the masks and before RI_MAX_TRAP");
+        // #1652 A2 appends two logic-only stand-ins after RI_MAX_TRAP.
+        WSM_CHECK(consecutive && maxTrap > MM_WarpSongsTest_Id(5) && MM_WarpSongsTest_Id(13) == maxTrap + 1 &&
+                      MM_WarpSongsTest_Id(14) == maxTrap + 2 && riMax == maxTrap + 3,
+                  "the six ids are not appended after the masks and before RI_MAX_TRAP (or #1652 A2's two "
+                  "stand-ins do not follow RI_MAX_TRAP)");
         // Saved ids (randoSaveChecks[].randoItemId, the crossing store) pinned at
         // their pre-XW5 values: RI_WOODFALL_STRAY_FAIRY and the masks P5 appended.
         WSM_CHECK(MM_WarpSongsTest_Id(9) == 234 && MM_WarpSongsTest_Id(12) == 235 && spooky == 237 &&
@@ -744,10 +747,10 @@ TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
             WsmFreezeWorld(0u);
             Combo_MMWarpSongsSetOwned(owned);
             const uint32_t restamped = Combo_StampComboSettingsHash();
-            WSM_CHECK(gComboCtx.comboSettingsHash == 0x503ED9E6u && restamped == 0x503ED9E6u &&
+            WSM_CHECK(gComboCtx.comboSettingsHash == 0x00129AD5u && restamped == 0x00129AD5u &&
                           Combo_ComboSettingsWorldHash() == 0xCEA3786Bu,
                       "with the byte at %02X a rules-off world stamps %08X (re-stamped %08X) with world hash %08X; "
-                      "main's (generator 5) are 503ED9E6 and CEA3786B",
+                      "main's (generator 6) are 00129AD5 and CEA3786B",
                       (unsigned)owned, (unsigned)gComboCtx.comboSettingsHash, (unsigned)restamped,
                       (unsigned)Combo_ComboSettingsWorldHash());
             for (int a = 0; a < 3; a++) {
@@ -767,7 +770,7 @@ TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
         ComboContext* carried = new ComboContext;
         memset(carried, 0xEE, sizeof(ComboContext));
         const int rt = OoT_SeedPackage_WorldRecordRoundTripForTest(live, carried);
-        WSM_CHECK(rt == 1 && carried->mmWarpSongsOwned == 0u && carried->comboSettingsHash == 0x503ED9E6u &&
+        WSM_CHECK(rt == 1 && carried->mmWarpSongsOwned == 0u && carried->comboSettingsHash == 0x00129AD5u &&
                       Combo_MMWarpSongsOwned() == 0u,
                   "a rules-off world's package record carries an ownership byte (%02X) or another fingerprint",
                   (unsigned)carried->mmWarpSongsOwned);

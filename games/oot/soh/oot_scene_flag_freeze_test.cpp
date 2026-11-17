@@ -48,6 +48,11 @@
  * commit. Without the flush a hosted chest that had recorded its crossing came
  * back closed after a quit without saving in its scene, and opening it again sent
  * the item twice. A slot that is not writable stages nothing.
+ *
+ * #1642 rides it too (leg 4, from source): the quit snapshot's OnExitGame
+ * handler and the check tracker's drain the save worker pool in their own
+ * bodies before they stage or tear down, since OnExitGame's handlers run in no
+ * defined order and the one that only waits may come last.
  */
 
 #include <z64.h>
@@ -60,6 +65,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
+#include <string>
 
 extern "C" SaveContext gSaveContext;
 // games/oot/src/code/z_play.c: set by Play_Init, nulled by Play_Destroy and
@@ -429,9 +437,83 @@ int RunChecks(PlayState* play) {
     return 0;
 }
 
+std::string OsffReadSource(const char* sourceDir, const char* relPath) {
+    std::ifstream in(std::string(sourceDir) + "/" + relPath, std::ios::binary);
+    if (!in) {
+        return std::string();
+    }
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // CRLF checkouts read as LF so the needles below stay one spelling.
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (const char c : text) {
+        if (c != '\r') {
+            normalized += c;
+        }
+    }
+    return normalized;
+}
+
+// The body of the OnExitGame handler whose statement `needle` is: from the
+// nearest OnExitGame registration before it to the first line that closes a
+// registration after it. Empty when the needle is missing or sits in no handler.
+std::string OsffExitHandlerBody(const std::string& src, const char* needle) {
+    const size_t at = src.find(needle);
+    if (at == std::string::npos || src.find(needle, at + 1) != std::string::npos) {
+        return std::string(); // absent, or ambiguous
+    }
+    const size_t reg = src.rfind("RegisterGameHook<GameInteractor::OnExitGame>(", at);
+    if (reg == std::string::npos) {
+        return std::string();
+    }
+    const size_t open = src.find("\n    });\n", reg);
+    if (open == std::string::npos || open < at) {
+        return std::string(); // the needle is not inside this registration's body
+    }
+    return src.substr(reg, open - reg);
+}
+
+// ---- 4. (#1642) Quit-path handlers drain the save worker pool themselves --
+// GameInteractor runs a hook's handlers in no defined order (an unordered_map),
+// so SaveManager's own waiting OnExitGame handler may run AFTER the quit
+// snapshot or the check tracker's teardown. Each must call the wait in its own
+// body, before what it does: the snapshot's stage, and the teardown that clears
+// what a threaded tracker save reads. Read from source because the order the
+// container happens to iterate in this process proves nothing about the next
+// standard library or rehash.
+int QuitWaitSourceChecks(const char* sourceDir) {
+    OSFF_ASSERT(sourceDir != nullptr && sourceDir[0] != '\0', "#1642: the source directory was not passed in");
+    const std::string save = OsffReadSource(sourceDir, "games/oot/soh/SaveManager.cpp");
+    OSFF_ASSERT(!save.empty(), "#1642: games/oot/soh/SaveManager.cpp could not be read");
+    const std::string snapshot = OsffExitHandlerBody(save, "        (void)OoT_Combo_StageExitSnapshot(fileNum);\n");
+    OSFF_ASSERT(!snapshot.empty(), "#1642: the quit snapshot's stage is not found inside one OnExitGame handler");
+    const size_t snapshotWait = snapshot.find("\n        ThreadPoolWait();");
+    const size_t snapshotStage = snapshot.find("(void)OoT_Combo_StageExitSnapshot(fileNum);");
+    printf("[TEST] #1642: quit snapshot handler: wait at %d, stage at %d\n",
+           snapshotWait == std::string::npos ? -1 : (int)snapshotWait, (int)snapshotStage);
+    OSFF_ASSERT(snapshotWait != std::string::npos && snapshotWait < snapshotStage,
+                "#1642: the quit snapshot's OnExitGame handler must drain the save worker pool itself before it "
+                "stages; the other handler that waits runs in no defined order, so a threaded section save could "
+                "still be writing while the snapshot staged and committed");
+
+    const std::string tracker =
+        OsffReadSource(sourceDir, "games/oot/soh/Enhancements/randomizer/randomizer_check_tracker.cpp");
+    OSFF_ASSERT(!tracker.empty(), "#1642: randomizer_check_tracker.cpp could not be read");
+    const std::string teardown = OsffExitHandlerBody(tracker, "\n        Teardown();\n");
+    OSFF_ASSERT(!teardown.empty(), "#1642: the check tracker's Teardown is not found inside one OnExitGame handler");
+    const size_t trackerWait = teardown.find("\n        SaveManager::Instance->ThreadPoolWait();");
+    const size_t trackerTeardown = teardown.find("\n        Teardown();");
+    printf("[TEST] #1642: check tracker exit handler: wait at %d, teardown at %d\n",
+           trackerWait == std::string::npos ? -1 : (int)trackerWait, (int)trackerTeardown);
+    OSFF_ASSERT(trackerWait != std::string::npos && trackerWait < trackerTeardown,
+                "#1642: the check tracker's OnExitGame handler must drain the save worker pool before Teardown; a "
+                "threaded trackerData save reads areasSpoiled and walks checksByArea while Teardown clears them");
+    return 0;
+}
+
 } // namespace
 
-extern "C" int OoT_SceneFlagFreeze_RunHeadless(void) {
+extern "C" int OoT_SceneFlagFreeze_RunHeadless(const char* sourceDir) {
     Context_InitFrozenStates();
     Context_ClearAllFrozenStates();
     ComboContext_Init();
@@ -461,6 +543,9 @@ extern "C" int OoT_SceneFlagFreeze_RunHeadless(void) {
         play->sceneNum = SCENE_MARKET_DAY;
         OoT_gPlayState = play;
         rc = RunChecks(play);
+        if (rc == 0) {
+            rc = QuitWaitSourceChecks(sourceDir);
+        }
     }
 
     // Leave global state clean for whatever runs next in this process, on

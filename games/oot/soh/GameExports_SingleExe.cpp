@@ -27,6 +27,7 @@
 #include "context.h"
 #include "save.h" // RsbsSave_SetActiveSlot — publish the slot MM will save into
 #include "shared_items.h"
+#include "combo_item_view.h"  // #1652 D: Combo_Item_RegisterGrantBlocked, the Shared row's bag gate
 #include "shared_resources.h" // Shared cross-game rupees/hearts (#525)
 #include "triforce_hunt.h"    // ADR 0010 O10: the one triforce piece count's apply cap
 #include "foreign_items.h"    // OoT_ForeignItem_Give (Lane C1 redemption)
@@ -246,8 +247,10 @@ static_assert(RSK_MAX == 287, "OoT's RSK_MAX is 287 after the Masks as Adult key
 static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
               "OoT's RT_BOMB_DETONATION (#1409) is appended after #1405's RT_GTG_STATUE_JUMP");
 static_assert(RT_WATER_HIGH_EMBLEM_JUMP == RT_BOMB_DETONATION + 1 &&
-                  RT_DC_EYES_BUNNYHOVERS == RT_WATER_HIGH_EMBLEM_JUMP + 1 && RT_MAX == RT_DC_EYES_BUNNYHOVERS + 1,
+                  RT_DC_EYES_BUNNYHOVERS == RT_WATER_HIGH_EMBLEM_JUMP + 1,
               "OoT's RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) is appended after RT_WATER_HIGH_EMBLEM_JUMP");
+static_assert(RT_VOIDOUT_COLLECTION == RT_DC_EYES_BUNNYHOVERS + 1 && RT_MAX == RT_VOIDOUT_COLLECTION + 1,
+              "OoT's RT_VOIDOUT_COLLECTION (SoH e86e0ff69) is appended after RT_DC_EYES_BUNNYHOVERS");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
@@ -5174,8 +5177,9 @@ extern "C" void OoT_Combo_FlushSceneFlagsForFreeze(void) {
  * rows, a switch requested outside gameplay): nothing to read, the last save's
  * scene is kept. A cross-game ARRIVAL never reads the field: it is placed by its
  * startup entrance (z_play.c), and OnLoadGame is dispatched only by the file
- * select's load (z_file_choose.c), SoH's boot-to-warp-point debug save and the
- * integration drives. Idempotent: the launcher's re-freeze stamps the same scene.
+ * select's load (z_file_choose.c), SoH's boot-to-warp-point debug save, the
+ * debug warp screen's debug-save init (z_select.c Select_LoadGame, fileNum 0xFF
+ * only) and the integration drives. Idempotent: the launcher's re-freeze stamps the same scene.
  *
  * The committed-transition frame. Play_Update commits an in-OoT scene change by
  * clearing state.running, SET_NEXT_GAMESTATE(OoT_Play_Init) and writing
@@ -5429,7 +5433,13 @@ static void OoT_AwardSharedItem(const SharedItem* item, void* ctx) {
     int given = OoT_CreditSharedPickup(item) != 0 ? 1 : OoT_ForeignItem_Give(item->id);
     fprintf(stderr, "[OoT] shared-item redeem: RG id=%u %s (Lane C1 foreign give)\n", (unsigned)item->id,
             given ? "awarded" : "NOT awarded — give path unavailable");
-    if ((item->flags & RSBS_SHARED_ITEM_SOURCED) == 0) {
+    // #1652 A1: a stick or nut pack redeemed before the pair's bag was given as a
+    // blue rupee (OoT_ForeignItem_Give answers 2). Its pickup named the pack, so the
+    // rupee is announced here, by the same toast as a sourced grant.
+    SharedItem shown = *item;
+    if (given == 2) {
+        shown.id = (uint16_t)RG_BLUE_RUPEE;
+    } else if ((item->flags & RSBS_SHARED_ITEM_SOURCED) == 0) {
         return; // #878: presented at its pickup (see above)
     }
 
@@ -5471,13 +5481,14 @@ static void OoT_AwardSharedItem(const SharedItem* item, void* ctx) {
     // arrival in blue-then-grey where an ordinary pickup is grey-then-red. That
     // difference is visible at a glance and reads as "this one is special",
     // which is the class of tell #510 removed from the model and the text.
-    const char* foreignName = Combo_GetForeignItemName(*item);
-    const char* foreignArticle = Combo_GetForeignItemArticle(*item);
+    const char* foreignName = Combo_GetForeignItemName(shown);
+    const char* foreignArticle = Combo_GetForeignItemArticle(shown);
+    const char* fallbackName = given == 2 ? "a Blue Rupee" : "a foreign item";
     Notification::Emit({
-        .itemIcon = Combo_GetForeignItemIconName(*item),
+        .itemIcon = Combo_GetForeignItemIconName(shown),
         .message = "You got ",
         .suffix = std::string(foreignArticle != nullptr ? foreignArticle : "") +
-                  (foreignName != nullptr ? foreignName : "a foreign item"),
+                  (foreignName != nullptr ? foreignName : fallbackName),
     });
 }
 
@@ -6362,12 +6373,17 @@ const OoTSharedSwimRegistrar gOoTSharedSwimRegistrar;
  * seed placed elsewhere? Then the pool may not hand it over.
  *
  * OoT_Item_Give opens with exactly this refusal for sticks and nuts
- * (z_parameter.c:1876-1885, "in case something got missed"): with
+ * (z_parameter.c, "in case something got missed"): with
  * RSK_SHUFFLE_DEKU_STICK_BAG or RSK_SHUFFLE_DEKU_NUT_BAG on, neither is
- * obtainable until its bag check is found. That gate matters HERE and not for
- * the wallet or the quiver because MM's side is not neutral: a fresh MM save is
- * BORN at stick and nut tier 1 (the Sram default table), so plain monotonic
- * sharing would push tier 1 into OoT on the very first crossing of every seed.
+ * obtainable until its bag check is found. Under the pair's FROZEN bag shuffle
+ * (#1652) the bag gates both games: MM's half is born at tier 0 as well
+ * (MM_Combo_ApplyPairedBagBirth), so the pool's stick (nut) tier IS the pair's
+ * one bag, wherever it was found, and OoT applies it like any other tier (a bag
+ * found in Termina opens Hyrule at the next arrival). The block below is kept
+ * only for a world frozen WITHOUT the bit while OoT's option is on
+ * (Combo_SharedBagLegacyGrantBlocked): its MM half was born at stick and nut tier
+ * 1 (the Sram default table), so plain monotonic sharing would push tier 1 into
+ * OoT on the very first crossing.
  *
  * Bombchus are the same hazard wearing different clothes. When the seed shuffles
  * them (RSK_BOMBCHU_BAG is not NONE) the player is meant to hold none until the
@@ -6389,10 +6405,14 @@ static bool OoT_SharedAmmoGrantBlocked(const OoTSharedAmmo* row) {
         return false;
     }
     if (row->item == ITEM_STICK) {
-        return Randomizer_GetSettingValue(RSK_SHUFFLE_DEKU_STICK_BAG) != 0 && CUR_UPG_VALUE(UPG_STICKS) == 0;
+        return Combo_SharedBagLegacyGrantBlocked(RSBS_SHARED_RES_STICK_TIER,
+                                                 Randomizer_GetSettingValue(RSK_SHUFFLE_DEKU_STICK_BAG) != 0,
+                                                 (uint16_t)CUR_UPG_VALUE(UPG_STICKS));
     }
     if (row->item == ITEM_NUT) {
-        return Randomizer_GetSettingValue(RSK_SHUFFLE_DEKU_NUT_BAG) != 0 && CUR_UPG_VALUE(UPG_NUTS) == 0;
+        return Combo_SharedBagLegacyGrantBlocked(RSBS_SHARED_RES_NUT_TIER,
+                                                 Randomizer_GetSettingValue(RSK_SHUFFLE_DEKU_NUT_BAG) != 0,
+                                                 (uint16_t)CUR_UPG_VALUE(UPG_NUTS));
     }
     if (row->item == ITEM_BOMBCHU) {
         return Randomizer_GetSettingValue(RSK_BOMBCHU_BAG) != RO_BOMBCHU_BAG_NONE &&
@@ -6400,6 +6420,37 @@ static bool OoT_SharedAmmoGrantBlocked(const OoTSharedAmmo* row) {
     }
     return false;
 }
+
+/**
+ * #1652 D: the item view's question (Combo_Item_RegisterGrantBlocked): does OoT's
+ * gate above keep shared count @p countKind out of the running save? The same
+ * answer the count apply takes, so the Shared tracker row shows what Hyrule holds
+ * (none of the pool's sticks before the bag) rather than the pool's count. Only
+ * while OoT is the running game on a live file (the harvest's own gate), so the
+ * live gSaveContext is the save asked about.
+ */
+static bool OoT_SharedAmmoGrantBlockedForView(uint8_t countKind) {
+    if (Context_GetCurrentGame() != GAME_OOT || OoT_Combo_DepartureIsLiveFile() == 0) {
+        return false;
+    }
+    for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {
+        if (kOoTSharedAmmo[i].countKind == countKind) {
+            return OoT_SharedAmmoGrantBlocked(&kOoTSharedAmmo[i]);
+        }
+    }
+    return false;
+}
+
+namespace {
+// Static-init registration, OoTSharedFamilyRegistrar's shape: this TU is always
+// linked, and the view's registry is zero-initialised storage.
+struct OoTGrantBlockedRegistrar {
+    OoTGrantBlockedRegistrar() {
+        Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, OoT_SharedAmmoGrantBlockedForView);
+    }
+};
+const OoTGrantBlockedRegistrar gOoTGrantBlockedRegistrar;
+} // namespace
 
 /**
  * Apply one row's COUNT from the pool: the arrival's per-row count step, and the
@@ -7137,6 +7188,24 @@ static void OoT_FillWalletAfterStep(s32 tierBefore) {
 }
 
 /**
+ * FILL AT THE BAG STEP (#1652 A3; Combo_SharedBagFillsAfterStep), the twin of
+ * MM_FillBagAfterStep: the step that opens the pair's one stick (nut) bag fills
+ * OoT's sticks (nuts) to the new capacity, as OoT's own bag give does
+ * (randomizer.cpp). Reached by an OoT bag copy redeemed from a crossing while the
+ * pool holds no bag. Set AFTER the apply; the next harvest folds it into the pool.
+ */
+static void OoT_FillBagAfterStep(const OoTSharedAmmo* row, uint16_t tierBefore) {
+    if (row == nullptr ||
+        !Combo_SharedBagFillsAfterStep(row->tierKind, tierBefore, (uint16_t)CUR_UPG_VALUE(row->upgrade))) {
+        return;
+    }
+    OoT_EnsureInventoryItem(row->item);
+    AMMO(row->item) = (s8)CUR_CAPACITY(row->upgrade);
+    fprintf(stderr, "[OoT] shared bag step: kind %u opened, %d to the tier-%d capacity (#1652)\n",
+            (unsigned)row->tierKind, (int)AMMO(row->item), (int)CUR_UPG_VALUE(row->upgrade));
+}
+
+/**
  * STEP AT PICKUP (#1120; shared_resources.h): a far game's capacity tier found
  * in Hyrule (MM's Progressive Bomb Bag on an OoT check), or an OoT tier item
  * redeemed from an older save's crossing, steps the pool now and OoT's tier
@@ -7161,6 +7230,8 @@ static int OoT_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint
         return 0;
     }
     const s32 walletTierBefore = (s32)CUR_UPG_VALUE(UPG_WALLET);
+    const OoTSharedAmmo* ammoRow = OoT_SharedAmmoRowForTier(kind);
+    const uint16_t ammoTierBefore = ammoRow != nullptr ? (uint16_t)CUR_UPG_VALUE(ammoRow->upgrade) : 0u;
     if (!Combo_StepSharedTier(kind, units, OoT_SharedKindCap(kind))) {
         return 0; // the harvest alone changes nothing a later harvest would not
     }
@@ -7168,6 +7239,7 @@ static int OoT_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint
     if (kind == RSBS_SHARED_RES_WALLET_TIER) {
         OoT_FillWalletAfterStep(walletTierBefore);
     }
+    OoT_FillBagAfterStep(ammoRow, ammoTierBefore); // #1652 A3: only the bag's step fills
     uint16_t pool = 0;
     Combo_GetSharedResource(kind, &pool);
     fprintf(stderr, "[OoT] shared pickup step: %s id=%u steps shared kind %u by %u; the pool now holds %u (#1120)\n",
@@ -7184,8 +7256,9 @@ static int OoT_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint
  * keeps every bombchu spent since the arrival out of the re-applied count.
  * A capacity tier (#1120) takes the step path above instead.
  *
- * #1169 XW10: Majora's Mask's copy of an ARMED second-word shared family (a
- * shared warp song's surplus copy that crossed) is credited the same way: the
+ * #1169 XW10, #1551: Majora's Mask's copy of an ARMED shared family of either
+ * word (a shared warp song's surplus copy that crossed, or a second required
+ * copy such as an MM shop Hero's Shield) is credited the same way: the
  * family is owned now and OoT is given its own copy, with no crossing
  * (Combo_SharedFamilies2CreditFarPickup). With the shared rule off (the extension
  * alone) it answers 0 and the item crosses as before.

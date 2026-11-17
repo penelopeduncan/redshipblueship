@@ -352,13 +352,17 @@ TestResult Test_CrossItemRulesRecord(void) {
     const uint32_t base = Combo_ComputeComboSettingsHash(&rec, kXirSettingsHash, kXirProfileDigest);
     // Vectors at the generator version (#1003): version 0 is the label-free value,
     // and version n extends the same FNV state by ':' || LE32(n). The production
-    // value is RSBS_GENERATOR_VERSION 5 (the Tingle map pool, #1499, and MM's
-    // half-day time logic, #1453); versions 1 to 4 stay pinned at explicit
-    // versions. #1367 R5 (generator 4) also moved the shipped defaults themselves
-    // (record byte 9, the rung, 2 -> 3), so every vector over `rec` below moved
-    // with it; before R5 the defaults' were 5C46A389 (version 3), 0C1A6478,
-    // FC9F21AB and BA5FC364 (versions 2, 1, 0).
-    XIR_CHECK(base == 0x503ED9E6u, "the shipped defaults' fingerprint is %08X, expected 503ED9E6", (unsigned)base);
+    // value is RSBS_GENERATOR_VERSION 6 (the Death Mountain Crater, Voidout
+    // Collection and Fire Trial logic ports of #1647, which move default worlds
+    // after v0.5.1-alpha shipped generator 5); versions 1 to 5 stay pinned at
+    // explicit versions. #1367 R5 (generator 4) also moved the shipped defaults
+    // themselves (record byte 9, the rung, 2 -> 3), so every vector over `rec`
+    // below moved with it; before R5 the defaults' were 5C46A389 (version 3),
+    // 0C1A6478, FC9F21AB and BA5FC364 (versions 2, 1, 0).
+    XIR_CHECK(base == 0x00129AD5u, "the shipped defaults' fingerprint is %08X, expected 00129AD5", (unsigned)base);
+    XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, NULL, kXirSettingsHash, kXirProfileDigest, 5u) ==
+                  0x503ED9E6u,
+              "the shipped defaults' version-5 fingerprint must stay 503ED9E6");
     XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, NULL, kXirSettingsHash, kXirProfileDigest, 4u) ==
                   0xA06B18F7u,
               "the shipped defaults' version-4 fingerprint must stay A06B18F7");
@@ -404,7 +408,10 @@ TestResult Test_CrossItemRulesRecord(void) {
         memset(&r, 0, sizeof(r));
         r.blastMaskCooldown = (uint8_t)RSBS_BLAST_COOLDOWN_SHORT;
         const uint32_t hc = Combo_ComputeComboSettingsHashEx(&rec, &r, kXirSettingsHash, kXirProfileDigest);
-        XIR_CHECK(hc == 0xCDACD606u, "the SHORT-cooldown fingerprint is %08X, expected CDACD606", (unsigned)hc);
+        XIR_CHECK(hc == 0x7D8096F5u, "the SHORT-cooldown fingerprint is %08X, expected 7D8096F5", (unsigned)hc);
+        XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, &r, kXirSettingsHash, kXirProfileDigest, 5u) ==
+                      0xCDACD606u,
+                  "the SHORT-cooldown version-5 fingerprint must stay CDACD606");
         XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, &r, kXirSettingsHash, kXirProfileDigest, 4u) ==
                       0x1DD91517u,
                   "the SHORT-cooldown version-4 fingerprint must stay 1DD91517");
@@ -428,7 +435,10 @@ TestResult Test_CrossItemRulesRecord(void) {
         }
         const ComboItemRulesRecord on = XirOnRecord();
         const uint32_t hon = Combo_ComputeComboSettingsHashEx(&rec, &on, kXirSettingsHash, kXirProfileDigest);
-        XIR_CHECK(hon == 0xA6E48D81u, "the ON record's fingerprint is %08X, expected A6E48D81", (unsigned)hon);
+        XIR_CHECK(hon == 0xF710CC92u, "the ON record's fingerprint is %08X, expected F710CC92", (unsigned)hon);
+        XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, &on, kXirSettingsHash, kXirProfileDigest, 5u) ==
+                      0xA6E48D81u,
+                  "the ON record's version-5 fingerprint must stay A6E48D81");
         XIR_CHECK(Combo_ComputeComboSettingsHashForGeneratorEx(&rec, &on, kXirSettingsHash, kXirProfileDigest, 4u) ==
                       0x56B84E70u,
                   "the ON record's version-4 fingerprint must stay 56B84E70");
@@ -454,8 +464,8 @@ TestResult Test_CrossItemRulesRecord(void) {
         XirFreezeWorld(&on);
         XIR_CHECK(memcmp(&gComboCtx.comboItemRules, &on, sizeof(on)) == 0,
                   "FreezeComboSettingsEx must store the rules");
-        XIR_CHECK(gComboCtx.comboSettingsHash == 0xA6E48D81u,
-                  "the stamped fingerprint is %08X; the freeze must fold the rules (expected A6E48D81)",
+        XIR_CHECK(gComboCtx.comboSettingsHash == 0xF710CC92u,
+                  "the stamped fingerprint is %08X; the freeze must fold the rules (expected F710CC92)",
                   (unsigned)gComboCtx.comboSettingsHash);
         // The bag folds the label-free value over the record AND its rules (#976 x
         // #1003): the rules stay in the world's seed, only the version comes off.
@@ -468,7 +478,9 @@ TestResult Test_CrossItemRulesRecord(void) {
                                                             kXirProfileDigest, 0x4D8B1306u) == 0 &&
                       Combo_ComboSettingsHashGeneratorVersionEx(&gComboCtx.comboSettings, &on, kXirSettingsHash,
                                                                 kXirProfileDigest,
-                                                                0xA6E48D81u) == (int)RSBS_GENERATOR_VERSION &&
+                                                                0xF710CC92u) == (int)RSBS_GENERATOR_VERSION &&
+                      Combo_ComboSettingsHashGeneratorVersionEx(&gComboCtx.comboSettings, &on, kXirSettingsHash,
+                                                                kXirProfileDigest, 0xA6E48D81u) == 5 &&
                       Combo_ComboSettingsHashGeneratorVersionEx(&gComboCtx.comboSettings, &on, kXirSettingsHash,
                                                                 kXirProfileDigest, 0x56B84E70u) == 4 &&
                       Combo_ComboSettingsHashGeneratorVersionEx(&gComboCtx.comboSettings, &on, kXirSettingsHash,
@@ -484,7 +496,7 @@ TestResult Test_CrossItemRulesRecord(void) {
                       Combo_ComboBlastMaskCooldown() == (uint8_t)RSBS_BLAST_COOLDOWN_SHORT,
                   "the frozen accessors must read the frozen record");
         Context_InvalidateSessionState(RSBS_SEED_STAMP_KEEP);
-        XIR_CHECK(memcmp(&gComboCtx.comboItemRules, &on, sizeof(on)) == 0 && gComboCtx.comboSettingsHash == 0xA6E48D81u,
+        XIR_CHECK(memcmp(&gComboCtx.comboItemRules, &on, sizeof(on)) == 0 && gComboCtx.comboSettingsHash == 0xF710CC92u,
                   "the file-create invalidation dropped the item rules while keeping the fingerprint over them");
         // Kept with its fingerprint, the record is not damage: the only fields the
         // session diff names are the two rules this session cannot author ((7)).
@@ -804,6 +816,56 @@ TestResult Test_SharedFamilyMerge(void) {
         XIR_CHECK(sXirHeldCalls[GAME_OOT] == 0 && sXirHeldCalls[GAME_MM] == 0 && sXirGives[GAME_MM] == 0 &&
                       Combo_SharedFamiliesOwned() == 0u,
                   "with the rule off a shim asked a member or gave a copy");
+
+        // ---- (4) THE FAR-PICKUP CREDIT (#1551): armed first-word families only ---
+        // Armed Goron: MM's registered member id picked up in OoT owns G now, gives
+        // OoT its own member once, and leaves the second family word untouched.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        const uint32_t owned2Before = Combo_SharedFamilies2Owned();
+        const bool credited = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u);
+        XIR_CHECK(credited && Combo_SharedFamiliesOwned() == G && sXirGives[GAME_OOT] == 1 && sXirHeld[GAME_OOT] &&
+                      sXirGives[GAME_MM] == 0 && Combo_SharedFamilies2Owned() == owned2Before && owned2Before == 0u,
+                  "(4) MM's Goron member found in OoT: credited %d, owned %08X, OoT given %d, owned2 %08X; want "
+                  "credited, %08X, 1, and owned2 unchanged (0)",
+                  credited ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT],
+                  (unsigned)Combo_SharedFamilies2Owned(), (unsigned)G);
+
+        // Negative cases: the running game's own id, an unregistered id, and GAME_NONE.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        XIR_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_OOT, 0x0123u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x7777u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_NONE, (uint8_t)GAME_MM, 0x0456u) &&
+                      !Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_NONE, 0x0456u) &&
+                      Combo_SharedFamiliesOwned() == 0u && sXirGives[GAME_OOT] == 0 && sXirGives[GAME_MM] == 0,
+                  "(4) the far-pickup credit fired for the running game's own item, an unregistered id, or GAME_NONE");
+
+        // Rule-off with ANOTHER first-word family armed (Keaton on, Goron off): enters
+        // the word-0 loop (`armed != 0`) and must still answer false for Goron's MM id,
+        // owning nothing and giving nothing.
+        ComboItemRulesRecord keatonOnly;
+        memset(&keatonOnly, 0, sizeof(keatonOnly));
+        keatonOnly.crossItemFlags = K;
+        XirFreezeWorld(&keatonOnly);
+        XirResetMembers();
+        XIR_CHECK(Combo_SharedFamiliesArmed() == K, "(4) Keaton-only world armed %08X, expected %08X",
+                  (unsigned)Combo_SharedFamiliesArmed(), (unsigned)K);
+        XIR_CHECK(!Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u) &&
+                      Combo_SharedFamiliesOwned() == 0u && sXirGives[GAME_OOT] == 0 && sXirHeldCalls[GAME_OOT] == 0,
+                  "(4) with Keaton armed and Goron off, Goron's MM copy was credited (owned %08X, OoT given %d)",
+                  (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT]);
+
+        // Already-held: OoT already holds its Goron member, so the pickup is credited
+        // and sets the pool bit without calling give() again.
+        XirFreezeWorld(&r);
+        XirResetMembers();
+        sXirHeld[GAME_OOT] = true;
+        const bool creditedHeld = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, 0x0456u);
+        XIR_CHECK(creditedHeld && Combo_SharedFamiliesOwned() == G && sXirGives[GAME_OOT] == 0 &&
+                      sXirHeldCalls[GAME_OOT] == 1,
+                  "(4) when OoT already holds its member: credited %d, owned %08X, OoT given %d (want 1, %08X, 0)",
+                  creditedHeld ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT], (unsigned)G);
     }
 
     Combo_RegisterSharedFamilyMember(GAME_OOT, G, hadGoron[0] ? &gameGoron[0] : NULL);

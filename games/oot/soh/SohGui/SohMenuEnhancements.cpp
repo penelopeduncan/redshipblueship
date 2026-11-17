@@ -59,6 +59,7 @@ void AddMmClimbSpeedRow(SohMenu& menu, WidgetPath& path);
 void AddMmPushPullRow(SohMenu& menu, WidgetPath& path);
 void AddMmAnimationsRows(SohMenu& menu, WidgetPath& path);
 void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path);
+void AddMmFasterHookshotRow(SohMenu& menu, WidgetPath& path);
 void AddMmFinBoomerangRow(SohMenu& menu, WidgetPath& path);
 void AddMmBombchuDropsRow(SohMenu& menu, WidgetPath& path);
 // W6-MODES-DIFF (#1236): MM's Modes and Difficulty rows (HostedMm/SohMenuHostedMmModesDifficulty.cpp).
@@ -1073,6 +1074,7 @@ void SohMenu::AddMenuEnhancements() {
         .CVar(CVAR_ENHANCEMENT("HookshotableReticle"))
         .Options(CheckboxOptions().Tooltip(
             "Makes the Hookshot Reticle use a different color when aiming at hookshotable collision."));
+    AddMmFasterHookshotRow(*this, path);
 
     AddWidget(path, "Boomerang", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Instant Boomerang Recall", WIDGET_CVAR_CHECKBOX)

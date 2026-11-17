@@ -628,10 +628,14 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING "gEnhancements.Player.InfiniteDekuHopping"
 #define RSBS_CVAR_MM_PLAYER_CLIMB_SPEED "gEnhancements.Player.ClimbSpeed"
 #define RSBS_CVAR_MM_PLAYER_FASTER_PUSH_AND_PULL "gEnhancements.Player.FasterPushAndPull"
+// 2Ship #1951: Faster Hookshot, a Player row in 2Ship, hosted in a "Majora's Mask" block at the end of the Items >
+// Hookshot section, after SoH's Targetable Hookshot Reticle. No SoH twin (SoH has no hookshot speed setting).
+#define RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT "gEnhancements.Player.FasterHookshot"
 #define RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH "gEnhancements.Player.FastFlowerLaunch"
 #define RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY "gEnhancements.Player.FierceDeityPutaway"
 #define RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK "gEnhancements.Equipment.TwoHandedSwordSpinAttack"
-#define RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON "gEnhancements.Equipment.GreatFairySwordBButton"
+// 2Ship #1870: Active Item on B, replacing Great Fairy Sword B-Button Attack.
+#define RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B "gEnhancements.Equipment.ActiveItemOnB"
 #define RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE "gEnhancements.Equipment.BetterPictoMessage"
 // 2Ship #1989: Hot Water Never Cools, an Items row in 2Ship, hosted in the same Items > Equipment "Majora's Mask" block
 // after Better Picto Message. No SoH twin (Ocarina of Time has no Hot Spring Water).
@@ -708,6 +712,9 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_CAMERA_FIX_TARGETTING_CAMERA_SNAP "gEnhancements.Camera.FixTargettingCameraSnap"
 #define RSBS_CVAR_MM_FIXES_EPONA_STEALING_SWORD "gFixes.FixEponaStealingSword"
 #define RSBS_CVAR_MM_FIXES_FIERCE_DEITY_Z_TARGET_MOVEMENT "gEnhancements.Fixes.FierceDeityZTargetMovement"
+// 2Ship #1952: Fix Owl Save Scene Layers, a Fixes row in 2Ship, hosted in the same Gameplay Fixes block after Fix
+// Fierce Deity Z-Target Movement. Default on, as upstream's (z_sram_NES.c reads it with default 1). No SoH twin.
+#define RSBS_CVAR_MM_FIXES_OWL_SAVE_SCENE_LAYERS "gEnhancements.Fixes.OwlSaveSceneLayers"
 #define RSBS_CVAR_MM_FIXES_AMMO_COUNT_ENV_COLOR "gFixes.FixAmmoCountEnvColor"
 #define RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR "gFixes.FixIkanaGreatFairyFountainColor"
 #define RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS "gEnhancements.Fixes.ControlCharacters"
@@ -1144,10 +1151,11 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING)                     \
     X(RSBS_CVAR_MM_PLAYER_CLIMB_SPEED)                               \
     X(RSBS_CVAR_MM_PLAYER_FASTER_PUSH_AND_PULL)                      \
+    X(RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT)                           \
     X(RSBS_CVAR_MM_PLAYER_FAST_FLOWER_LAUNCH)                        \
     X(RSBS_CVAR_MM_PLAYER_FIERCE_DEITY_PUTAWAY)                      \
     X(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)           \
-    X(RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON)             \
+    X(RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B)                       \
     X(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)                   \
     X(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)                      \
     X(RSBS_CVAR_MM_PLAYER_ACTIONS_INSTANT_RECALL)                    \
@@ -1200,6 +1208,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_CAMERA_FIX_TARGETTING_CAMERA_SNAP)                \
     X(RSBS_CVAR_MM_FIXES_EPONA_STEALING_SWORD)                       \
     X(RSBS_CVAR_MM_FIXES_FIERCE_DEITY_Z_TARGET_MOVEMENT)             \
+    X(RSBS_CVAR_MM_FIXES_OWL_SAVE_SCENE_LAYERS)                      \
     X(RSBS_CVAR_MM_FIXES_AMMO_COUNT_ENV_COLOR)                       \
     X(RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR)           \
     X(RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS)                         \

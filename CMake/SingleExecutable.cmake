@@ -959,6 +959,16 @@ if(BUILD_TESTING)
     # one shared row, MM's sites taking the pair's one shuffle; and swim (and a
     # coupled MM's button) found in one game held in the other on arrival. ROM-free.
     redship_add_test(NAME SharedSwimRule COMMAND redship --test shared-swim-rule)
+    # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
+    # comboFlags bits from OoT's options (CVar store, display-free bring-up),
+    # through the rollback, a seed package and a real .redsave. ROM-free.
+    redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
+    # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
+    # bag; its give, drops, shelves and checks refuse sticks and nuts until the
+    # pair's one bag; a bag found in Termina steps the shared tier at its pickup;
+    # the call sites are checked from source (RSBS_SOURCE_DIR). MM's real give and
+    # both games' real shims, ROM-free, no generation: default tier.
+    redship_add_test(NAME MMStickNutBagGate COMMAND redship --test mm-stick-nut-bag-gate)
     redship_add_test(NAME SharedSwimPairs COMMAND redship --test shared-swim-pairs)
     redship_add_test(NAME SharedSwimArrival COMMAND redship --test shared-swim-arrival)
     # #968: Shared Fire, Ice and Light Arrows, three more families on the lens's
@@ -1499,8 +1509,11 @@ if(BUILD_TESTING)
     # name and a directory under every Save/file<N>.sav, then runs the slot-0
     # subtests of #925 and the foreign-item and .redsave rows of #824 back to back
     # in one process each: a row that still shares its working directory fails.
-    # Display-free and ROM-free.
-    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd)
+    # #1641: a third group (curated-archive-inapp and the rows that, like it,
+    # emptied a fixed folder of their own there) must leave a sentinel folder under
+    # each of those names untouched. Display-free and ROM-free. 240 s: the new
+    # group runs make_redship_otr.py several times when Python is configured.
+    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd TIMEOUT 240)
     # #564 V18 (games/mm/2s2h/mm_save_failure_surface_test.cpp): an MM save that
     # cannot commit (no active slot, a latched slot, a failed write) is shown to
     # the player as a "Save failed:" toast, once per cause, instead of running its
@@ -2046,6 +2059,11 @@ if(BUILD_TESTING)
     # and shape yaw from its eye as console does; read from source (RSBS_SOURCE_DIR).
     # Display-free and ROM-free (src/common/tests/test_oot_camera_subj4.c).
     redship_add_test(NAME OoTCameraSubj4Console COMMAND redship --test oot-camera-subj4-console)
+
+    # #1667 (SoH 7006ef740): a hidden placement (an unshuffled Master Sword) answers
+    # IsHintable() false through the item_location.cpp bridge, and WritePlaythrough
+    # skips hidden locations (read from source, RSBS_SOURCE_DIR). Display-free and ROM-free.
+    redship_add_test(NAME OoTHiddenLocationNotHintable COMMAND redship --test oot-hidden-location-not-hintable)
 
     # #1591: EnKz_StopMweep restores gameplayCamera and Link cs action behind
     # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.

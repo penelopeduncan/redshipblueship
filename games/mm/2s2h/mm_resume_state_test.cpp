@@ -50,6 +50,7 @@
 #include <vector>
 
 #include <ship/Context.h>
+#include <libultraship/bridge/consolevariablebridge.h>
 
 #include "2s2h/Enhancements/Saving/SavingEnhancements.h"
 #include "2s2h/ObjectExtension/ActorListIndex.h"
@@ -178,6 +179,112 @@ void StageFrozenPauseSaveHalf(uint16_t returnEntrance, s32 pauseSaveEntrance, bo
     gSaveContext.save.isOwlSave = isOwlSave;
     Combo_FreezeState("mm", returnEntrance, &gSaveContext, sizeof(gSaveContext));
     memset(&gSaveContext, 0, sizeof(gSaveContext)); // the boot chain's wipe
+}
+
+// ---- 2Ship #1952: Fix Owl Save Scene Layers (gEnhancements.Fixes.OwlSaveSceneLayers) ----------------------------
+// MM_Sram_OpenSave's non-new-cycle branch (an owl save, or in this port a pause save) now sets nextCutsceneIndex to
+// 0xFFEF while the key is on (default on), so MM_Play_Init loads an area's cleared layer (Great Bay Coast after
+// Gyorg). The cross-game paths never call MM_Sram_OpenSave: MM_Play_ConsumeStartupEntrance writes its own 0xFFEF.
+// These legs pin both halves. Names carry the OSSL prefix (the build-free ODR gate).
+constexpr const char* kOsslCVar = "gEnhancements.Fixes.OwlSaveSceneLayers";
+constexpr u16 kOsslStaged = 0x1234; // no cutscene index any branch writes
+u8 sOsslSaveBuf[SAVE_BUFFER_SIZE];
+
+/**
+ * Open a staged save as MM's file select does (FileSelect_LoadGame -> MM_Sram_OpenSave), with no flash to read:
+ * flashSaveAvailable false skips the readback, so the function interprets exactly the save staged here, and fileNum
+ * 0xFF (no slot) makes the owl branch's delete (func_80147314) bail before it touches flash.
+ */
+void OsslOpenStagedSave(bool isOwlSave, bool isFirstCycle, s32 pauseSaveEntrance, u16 stagedNextCutsceneIndex) {
+    memset(&gSaveContext, 0, sizeof(gSaveContext));
+    MM_Sram_InitNewSave();
+    gSaveContext.flashSaveAvailable = false;
+    gSaveContext.fileNum = 0xFF;
+    gSaveContext.save.isOwlSave = isOwlSave;
+    gSaveContext.save.isFirstCycle = isFirstCycle;
+    gSaveContext.save.owlWarpId = OWL_WARP_GREAT_BAY_COAST;
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance = pauseSaveEntrance;
+    gSaveContext.nextCutsceneIndex = stagedNextCutsceneIndex;
+    SramContext sramCtx;
+    memset(&sramCtx, 0, sizeof(sramCtx));
+    sramCtx.saveBuf = sOsslSaveBuf;
+    MM_Sram_OpenSave(nullptr, &sramCtx);
+}
+
+int OsslRunLegs(uint16_t arrival) {
+    const u16 kOwlEntrance = ENTRANCE(GREAT_BAY_COAST, 11); // sOwlWarpEntrances[OWL_WARP_GREAT_BAY_COAST]
+    const s32 kPauseEntrance = ENTRANCE(GREAT_BAY_COAST, 0);
+
+    // (a) The key unset: upstream's default, on. An owl save opens with 0xFFEF.
+    CVarClear(kOsslCVar);
+    OsslOpenStagedSave(true, false, -1, 0);
+    printf("[TEST] mm-startup-restore: owl save opened with the key unset: entrance 0x%04X nextCutsceneIndex 0x%04X\n",
+           (unsigned)gSaveContext.save.entrance, (unsigned)gSaveContext.nextCutsceneIndex);
+    RESUME_ASSERT(gSaveContext.save.entrance == kOwlEntrance, "the owl-save open did not spawn at its owl statue");
+    RESUME_ASSERT(gSaveContext.nextCutsceneIndex == 0xFFEF,
+                  "with Fix Owl Save Scene Layers unset (default on) an owl save opened with a nextCutsceneIndex "
+                  "other than 0xFFEF, so a cleared area loads uncleared (2Ship #1952)");
+
+    // (b) The key on, a pause save: 0xFFEF, and the pause-save entrance still wins over the owl.
+    CVarSetInteger(kOsslCVar, 1);
+    OsslOpenStagedSave(true, false, kPauseEntrance, 0);
+    RESUME_ASSERT(gSaveContext.save.entrance == kPauseEntrance,
+                  "the pause-save open did not spawn at its recorded entrance (the fix must not move the spawn)");
+    RESUME_ASSERT(gSaveContext.nextCutsceneIndex == 0xFFEF,
+                  "with Fix Owl Save Scene Layers on a pause save opened without 0xFFEF (2Ship #1952)");
+
+    // (c) The key off: vanilla. The open leaves nextCutsceneIndex as it found it, and spawns where it did.
+    CVarSetInteger(kOsslCVar, 0);
+    OsslOpenStagedSave(true, false, -1, 0);
+    RESUME_ASSERT(gSaveContext.save.entrance == kOwlEntrance, "the key-off owl-save open moved the spawn");
+    RESUME_ASSERT(gSaveContext.nextCutsceneIndex == 0,
+                  "with Fix Owl Save Scene Layers off an owl save still opened with 0xFFEF: the key is ignored");
+
+    // (d) A new-cycle open (not an owl save) is unchanged with the key on: after the first cycle it is the Song of
+    // Time's cutscene entrance with nextCutsceneIndex 0, and on the first cycle nextCutsceneIndex is left alone.
+    CVarSetInteger(kOsslCVar, 1);
+    OsslOpenStagedSave(false, false, -1, kOsslStaged);
+    RESUME_ASSERT(gSaveContext.save.entrance == ENTRANCE(CUTSCENE, 0) && gSaveContext.nextCutsceneIndex == 0,
+                  "a new-cycle open changed with Fix Owl Save Scene Layers on (it must stay the cutscene entrance "
+                  "with nextCutsceneIndex 0)");
+    OsslOpenStagedSave(false, true, -1, kOsslStaged);
+    RESUME_ASSERT(gSaveContext.save.entrance == ENTRANCE(SOUTH_CLOCK_TOWN, 0) &&
+                      gSaveContext.nextCutsceneIndex == kOsslStaged,
+                  "a first-cycle open changed with Fix Owl Save Scene Layers on (nextCutsceneIndex must be left "
+                  "alone)");
+
+    // (e) The cross-game paths: a crossing, a .redsave load and the reload of a held crossing all arm a frozen half
+    // and reach MM through MM_Play_ConsumeStartupEntrance, never MM_Sram_OpenSave. A half whose last MM save was a
+    // pause save carries nextCutsceneIndex 0 (the commit never stores 0xFFEF); the arrival writes 0xFFEF itself and
+    // spawns at the pause-save entrance, the same with the key off and on.
+    for (int key = 0; key < 2; key++) {
+        CVarSetInteger(kOsslCVar, key);
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        MM_Sram_InitNewSave();
+        gSaveContext.save.day = 2;
+        gSaveContext.save.isOwlSave = true;
+        gSaveContext.save.shipSaveInfo.pauseSaveEntrance = kPauseEntrance;
+        gSaveContext.nextCutsceneIndex = 0;
+        Combo_FreezeState("mm", arrival, &gSaveContext, sizeof(gSaveContext));
+        memset(&gSaveContext, 0, sizeof(gSaveContext)); // the boot chain's wipe
+        Combo_SetStartupEntrance(arrival);
+        MM_Play_ConsumeStartupEntrance();
+        printf("[TEST] mm-startup-restore: key %d: a pause-saved half arrives at 0x%04X with nextCutsceneIndex "
+               "0x%04X\n",
+               key, (unsigned)gSaveContext.save.entrance, (unsigned)gSaveContext.nextCutsceneIndex);
+        RESUME_ASSERT(gSaveContext.save.day == 2, "the arrival leg did not restore its frozen half");
+        RESUME_ASSERT(gSaveContext.save.entrance == kPauseEntrance,
+                      "the arrival of a pause-saved half did not spawn at its pause-save entrance");
+        RESUME_ASSERT(gSaveContext.nextCutsceneIndex == 0xFFEF,
+                      "the arrival did not write its own 0xFFEF, so a cleared area loads uncleared after a crossing "
+                      "or a reload whatever Fix Owl Save Scene Layers says");
+    }
+    CVarClear(kOsslCVar);
+    Combo_ClearFrozenState("mm");
+    Combo_ClearStartupEntrance();
+    printf("[TEST] mm-startup-restore: 2Ship #1952 owl and pause save opens load the cleared layer; arrivals "
+           "write their own\n");
+    return 0;
 }
 
 } // namespace
@@ -590,6 +697,12 @@ extern "C" int MM_StartupRestore_RunHeadless(void) {
         } else {
             Context_UpdateShadowCopy(GAME_OOT, ootPrior.data(), ootPrior.size());
         }
+    }
+
+    // 2Ship #1952: an owl or pause save opened from MM's file select loads the cleared layer while Fix Owl Save Scene
+    // Layers is on; a crossing or reload writes its own 0xFFEF (OsslRunLegs, above).
+    if (OsslRunLegs(kArrival) != 0) {
+        return 1;
     }
 
     // Leave clean global state for later tests.

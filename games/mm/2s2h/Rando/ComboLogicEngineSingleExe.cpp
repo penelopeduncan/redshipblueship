@@ -286,7 +286,8 @@
 
 #include "Rando/Rando.h"
 #include "Rando/Types.h"
-#include "Rando/Foreign.h" // Rando::Foreign::ResolvePairedProfile — measurement bridge only
+#include "Rando/Foreign.h"         // Rando::Foreign::ResolvePairedProfile — measurement bridge only
+#include "Rando/StickNutBagGate.h" // #1652 A1: MM_Combo_ApplyPairedBagBirth for the measured profile
 #include "Rando/StaticData/StaticData.h"
 #include "Rando/Logic/Logic.h"
 #include "Rando/Logic/ResetTimeGuard.h" // ADR 0010 answer O2: the reset-time guard `expand` applies (A8)
@@ -665,13 +666,60 @@ int MmCounterMax(uint16_t riId, const MmCounterInfo& c) {
 int sCounterClamps = 0; // copies a clamp absorbed; the lock reads it
 
 /**
+ * #1652 A2: THE PAIR'S ONE BAG, credited from Ocarina of Time's Progressive Stick
+ * / Nut Upgrade (THE SHARED-QUANTITY CREDIT's stand-in, shared_items.h). A credited
+ * copy at tier 0 IS the bag: what OoT's RG_DEKU_STICK_BAG / RG_DEKU_NUT_BAG give
+ * does (randomizer.cpp: tier 1, the item in its slot, ammo to capacity). At tier 1
+ * or more it changes nothing: MM's logic reads sticks and nuts only as HAS_ITEM
+ * (Logic.h), never their tier, and MM has one capacity step. A paired MM half is
+ * born at tier 0 under the frozen shuffle (#1652 A1, MM_Combo_ApplyPairedBagBirth,
+ * the round's starting save), and until the credit arrives its stick and nut hosts
+ * give junk (ConvertItem.cpp) and its give refuses them, so this is the only thing
+ * that opens a stick- or nut-gated check. With the shuffle off the half is born at
+ * tier 1 and the stand-in is never credited (Combo_SharedCreditStandIn).
+ *
+ * It writes gSaveContext directly, NOT through MM_Item_Give: A1's refusal of
+ * sticks and nuts at tier 0 must not block the bag itself, and Rando::GiveItem's
+ * default branch would index StaticData::Items, which has no row for these ids.
+ * MM's vestigial ITEM_DEKU_STICK_UPGRADE_* gives are not used either: they set
+ * the item at ANY tier (z_parameter.c), which would move today's worlds.
+ * Returns false, doing nothing, for any other id.
+ */
+bool MmGiveBagStandIn(uint16_t riId) {
+    s16 upgrade = 0;
+    ItemId item = ITEM_NONE;
+    switch ((RandoItemId)riId) {
+        case RI_DEKU_STICK_BAG:
+            upgrade = UPG_DEKU_STICKS;
+            item = ITEM_DEKU_STICK;
+            break;
+        case RI_DEKU_NUT_BAG:
+            upgrade = UPG_DEKU_NUTS;
+            item = ITEM_DEKU_NUT;
+            break;
+        default:
+            return false;
+    }
+    if (CUR_UPG_VALUE(upgrade) == 0) {
+        MM_Inventory_ChangeUpgrade(upgrade, 1);
+        INV_CONTENT(item) = item;
+        AMMO(item) = (s8)CUR_CAPACITY(upgrade);
+    }
+    sRound.copiesGranted++;
+    return true;
+}
+
+/**
  * GIVE ONE COPY. The single give path both `assumeOwnItem` and the A6 harvest
  * use, so the two sources of a copy cannot drift apart. A counter already at
  * its maximum absorbs the copy (counted in sCounterClamps); everything else goes
  * through MM's own `GiveItem(ConvertItem(...))`, whose progressive and set-item
- * arms bound themselves.
+ * arms bound themselves. #1652 A2's bag stand-ins are given by MmGiveBagStandIn.
  */
 void MmGiveOneCopy(uint16_t riId) {
+    if (MmGiveBagStandIn(riId)) {
+        return;
+    }
     const MmCounterInfo c = MmCounterFor(riId);
     if (c.kind != MmCounterKind::None) {
         const int max = MmCounterMax(riId, c);
@@ -755,7 +803,10 @@ int BeginQuery(void* self) {
 
 void AssumeOwnItem(void* self, uint16_t ownItemId) {
     (void)self;
-    if (!IsGiveableItemId(ownItemId)) {
+    // #1652 A2: a bag stand-in has no Items row, so the giveable test below would
+    // drop it; it is the coordinator's credit of OoT's bag, given by
+    // MmGiveBagStandIn inside MmGiveOneCopy.
+    if (!Rando_IsSharedCreditStandIn(ownItemId) && !IsGiveableItemId(ownItemId)) {
         // Not an error the contract lets us report (the call returns void), so it
         // is logged and dropped. A sentinel here means the bag carried one, which
         // is the caller's bug.
@@ -2321,6 +2372,7 @@ extern "C" int MM_ComboLogic_ApplyShippedProfile(void) {
         gRegEditor = &sMeasurementRegEditor;
     }
     MM_Sram_InitNewSave();
+    MM_Combo_ApplyPairedBagBirth(); // #1652 A1: the production birth (OnFileCreate.cpp), from the same helper
     gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
     Rando::Foreign::ResolvePairedProfile(false);
     auto startingItems = Rando::Foreign::PairedStartingItemsForWorld(); // #1069: the frozen rules' start
@@ -3038,6 +3090,11 @@ const ComboItemClassSource kMMItemClassSource = {
 struct MMItemClassRegistrar {
     MMItemClassRegistrar() {
         Combo_RegisterItemClassSource(GAME_MM, &kMMItemClassSource);
+        // #1652 A2: MM has no stick or nut capacity item, so OoT's bag reaches MM's
+        // solver through these logic-only ids (shared_items.h, SHARED-CREDIT
+        // STAND-INS). Armed only by the frozen bag shuffles.
+        Combo_RegisterSharedCreditStandIn(GAME_MM, RSBS_SHARED_RES_STICK_TIER, (uint16_t)RI_DEKU_STICK_BAG);
+        Combo_RegisterSharedCreditStandIn(GAME_MM, RSBS_SHARED_RES_NUT_TIER, (uint16_t)RI_DEKU_NUT_BAG);
     }
 };
 const MMItemClassRegistrar gMMItemClassRegistrar;

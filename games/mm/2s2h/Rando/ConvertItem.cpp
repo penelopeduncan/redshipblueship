@@ -8,6 +8,7 @@
 #include "Rando/WarpSongsMM.h" // #1169 XW5: the warp songs' owned bits
 #include "shared_resources.h"  // src/common — #1561: Combo_SharedSongOffGiveBecomesJunk
 #include "warp_song_items.h"   // src/common — #1561: RSBS_SONG_SPOTS_*
+#include "Rando/StickNutBagGate.h" // #1652 A1: the stick and nut gates
 #endif
 
 // Copied from z_player.c, we could instead move this to a header file, idk
@@ -311,6 +312,23 @@ bool Rando::IsItemObtainable(RandoItemId randoItemId, RandoCheckId randoCheckId)
                 return false;
             }
             break;
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // #1652 A1: no sticks (nuts) before the pair's one bag under its frozen
+        // shuffle (StickNutBagGate.h): the check converts to junk, as OoT's does.
+        case RI_DEKU_STICK:
+        case RI_DEKU_STICKS_5:
+            if (MM_Combo_StickGated()) {
+                return false;
+            }
+            break;
+        case RI_DEKU_NUT:
+        case RI_DEKU_NUTS_5:
+        case RI_DEKU_NUTS_10:
+            if (MM_Combo_NutGated()) {
+                return false;
+            }
+            break;
+#endif
         case RI_SHIELD_HERO:
             if (GET_CUR_EQUIP_VALUE(EQUIP_TYPE_SHIELD) != EQUIP_VALUE_SHIELD_NONE) {
                 return false;

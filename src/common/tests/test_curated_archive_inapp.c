@@ -74,6 +74,7 @@
 #include <ship/utils/StrHash64.h>
 
 #include "../curated_archives.h"
+#include "../test_scratch.h"
 #include "../zapd_subprocess.h"
 
 namespace {
@@ -524,11 +525,10 @@ bool CaiLoggedLine(const std::vector<CaiLogged>& logged, const std::string& text
 int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::string& generatorScript,
                                     const std::string& shippedManifest) {
     namespace cur = rsbs::curated;
-    const std::string root = std::filesystem::current_path().generic_string() + "/rsbs_test_806";
-    {
-        std::error_code ec;
-        std::filesystem::remove_all(root, ec);
-    }
+    // #1641: this process's own folder (test_scratch.h), emptied on first use and
+    // removed by ScratchDirs_EndRow when the row passes. A fixed name under the
+    // working directory was shared with AllTests, which runs this same body.
+    const std::string root = rsbs::test::ScratchDir("rsbs_test_806").generic_string();
     const bool havePython = !pythonExe.empty() && !generatorScript.empty();
     if (!havePython) {
         printf("[curated-archive-inapp] note: no Python interpreter or generator script; the parity legs compare "
@@ -1005,10 +1005,6 @@ int CuratedArchiveInApp_RunHeadless(const std::string& pythonExe, const std::str
         }
     }
 
-    {
-        std::error_code ec;
-        std::filesystem::remove_all(root, ec);
-    }
     if (failures == 0) {
         printf("[curated-archive-inapp] PASS: the in-app generator writes what make_redship_otr.py writes, refuses "
                "what it refuses (every rule above), and regenerates a missing half, an unstamped half, a changed "

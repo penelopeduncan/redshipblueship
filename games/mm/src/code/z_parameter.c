@@ -27,6 +27,7 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 
 #ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Rando/StickNutBagGate.h" // #1652 A1: MM_Combo_StickNutGiveRefused
 // games/mm/2s2h/Rando/ForeignMaskMM.cpp (#1500): a shared mask slot's own item on a
 // button draws the Ocarina of Time mask it stands for; every other item its own icon.
 const char* MM_ForeignMask_ItemIcon(int item, const char* nativeIcon);
@@ -4608,6 +4609,12 @@ u8 MM_Item_Give(PlayState* play, u8 item) {
     if (!GameInteractor_ShouldItemGive(item) || item == ITEM_SHIP) {
         return ITEM_NONE;
     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1652 A1: no sticks (nuts) before the pair's one bag, as OoT_Item_Give refuses.
+    if (MM_Combo_StickNutGiveRefused(item)) {
+        return item;
+    }
+#endif
 
     u8 result = Item_GiveImpl(play, item);
     GameInteractor_ExecuteOnItemGive(item);

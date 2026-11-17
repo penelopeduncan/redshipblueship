@@ -191,7 +191,9 @@ bool CagReadReport(const std::string& path, CagDirectionReport* mmToOoT, CagDire
 extern "C" int CuratedArchiveGenerator_RunHeadless(const char* pythonExe, const char* generatorScript,
                                                    const char* shippedManifest, const char* ootArchive,
                                                    const char* mmArchive) {
-    const std::string workDir = std::filesystem::current_path().generic_string();
+    // #1641: this process's own folder (test_scratch.h), removed when the row
+    // passes; the working directory is shared with AllTests and other rows.
+    const std::string workDir = rsbs::test::ScratchDir("rsbs_test_605").generic_string();
     const std::string badManifestPath = workDir + "/rsbs_test_605_bad_manifest.txt";
     const std::string badOutPrefix = workDir + "/rsbs_test_605_bad_out";
     const std::string goodOutPrefix = workDir + "/rsbs_test_605_good_out";
@@ -358,15 +360,8 @@ extern "C" int CuratedArchiveGenerator_RunHeadless(const char* pythonExe, const 
         }
     }
 
-    // Leave no fixtures behind for a later row (or a later run) to trip over.
-    std::error_code ec;
-    std::filesystem::remove(goodReportPath, ec);
-    std::filesystem::remove(badManifestPath, ec);
-    for (const char* host : { "oot", "mm" }) {
-        std::filesystem::remove(CagOutPath(badOutPrefix, host), ec);
-        std::filesystem::remove(CagOutPath(goodOutPrefix, host), ec);
-    }
-
+    // The fixtures live in workDir, which ScratchDirs_EndRow removes when the row
+    // passes and keeps for forensics when it fails.
     if (failures == 0) {
         printf("[curated-archive-generator] PASS: the raw-segmented-texture (#605), Array reader-agreement (#604) "
                "and escaping-reference (#577 M6) guards each refuse a known-bad resource, and the real shipped "

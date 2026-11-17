@@ -463,13 +463,14 @@ bool Combo_CreditSharedResource(uint8_t kind, uint16_t amount);
 
 /** Is @p kind a capacity tier a pickup steps instead of crossing? (#1120) A
  *  positive allowlist of the MONOTONIC kinds some pool item of either game
- *  feeds: the four ammo tiers minus sticks and nuts (OoT's apply blocks those
- *  at tier 0 under Shuffle Deku Stick/Nut Bag, OoT_SharedAmmoGrantBlocked, and
- *  only OoT's own give opens that gate, so their items must keep crossing),
- *  the wallet, magic, double defense, health, the hookshot, the bottle count
- *  and (#1145) the Kokiri Sword, whose MM copies are further gated by
- *  Combo_SharedPickupStepAdmitted. The arming gate is not consulted here: the
- *  step is (so a disarmed kind's item still crosses). */
+ *  feeds: the quiver and bomb bag tiers, the wallet, magic, double defense,
+ *  health, the hookshot, the bottle count and (#1145) the Kokiri Sword, whose
+ *  MM copies are further gated by Combo_SharedPickupStepAdmitted; and (#1652
+ *  A3) the stick and nut tiers only under the pair's FROZEN bag shuffle
+ *  (Combo_SharedBagShuffled), where both halves are born without the bag and
+ *  the pool's tier is the pair's one bag. With the shuffle off their items
+ *  keep crossing. The arming gate is not consulted here: the step is (so a
+ *  disarmed kind's item still crosses). */
 bool Combo_SharedResourceStepsAtPickup(uint8_t kind);
 
 /**
@@ -484,7 +485,14 @@ bool Combo_SharedResourceStepsAtPickup(uint8_t kind);
  * tier, which only MM's own give can make, so it must cross as before. Stepped
  * instead, it would be absorbed at the cap and MM would never reach its Razor or
  * Gilded Sword. OoT's Kokiri Sword is the whole of OoT's chain, so a copy at the
- * cap is absorbed like any tier's (true). True for every other kind.
+ * cap is absorbed like any tier's (true).
+ *
+ * #1652 A3: false for a stick or nut tier copy while the pool already holds the
+ * bag (a tier of 1 or more). Only the copy that finds the pool without one IS the
+ * bag (OoT resolves a Progressive Stick / Nut Upgrade at its tier 0 under the
+ * shuffle to the bag); a later copy is OoT's next capacity or, under Infinite
+ * Upgrades, its infinite item, which only OoT's give can make, so it crosses.
+ * True for every other kind.
  */
 bool Combo_SharedPickupStepAdmitted(SharedItem item, uint8_t kind);
 
@@ -535,6 +543,46 @@ void Combo_FreezeFillWalletsAtCreation(bool on);
 /** Is the pair's FROZEN fill-wallets rule on (#1284)? False while nothing is
  *  frozen, and for every world created before the rule was carved. */
 bool Combo_SharedWalletFillRule(void);
+
+/*
+ * THE PAIR'S ONE DEKU STICK BAG AND DEKU NUT BAG (#1652, operator ruling
+ * 2026-11-15, option A). Under OoT's Shuffle Deku Stick Bag / Shuffle Deku Nut
+ * Bag, frozen at the paired creation (Combo_ComboStickBagShuffled /
+ * Combo_ComboNutBagShuffled), the bag gates BOTH games: each half is born at
+ * capacity tier 0 with none of the item, each game's give, drops, shops and
+ * obtainability refuse the item while its tier is 0, and the one bag, found in
+ * either game, opens both (A3: the tier steps at the pickup). Every decision of
+ * that is one of these helpers, keyed on the frozen predicate and the capacity
+ * tier, so a ROM-free row locks the decision and the games only ask. Each takes
+ * the TIER kind (RSBS_SHARED_RES_STICK_TIER or _NUT_TIER) and answers false for
+ * any other kind, and false whenever nothing is frozen or the bag is not
+ * shuffled: with both shuffles off nothing here changes anything.
+ */
+
+/** Is the pair's bag for @p tierKind shuffled (the frozen predicate)? Also the
+ *  birth rule: a paired half is born at tier 0 with none of the item exactly
+ *  when this is true (MM_Combo_ApplyPairedBagBirth). */
+bool Combo_SharedBagShuffled(uint8_t tierKind);
+
+/** Does the bag gate hold the item of @p tierKind out of a game whose own
+ *  capacity tier is @p tier? True only under the frozen shuffle at tier 0: the
+ *  give refuses it, a drop is not spawned, a shop shelf refuses the sale, and
+ *  a check converts it to junk. */
+bool Combo_SharedBagGateClosed(uint8_t tierKind, uint16_t tier);
+
+/** Does a pickup step of @p kind from @p tierBefore to @p tierAfter fill the
+ *  item to capacity? True only under the frozen shuffle for the step that opens
+ *  the bag (0 to 1 or more): the bag gives the sticks (or nuts), as OoT's own
+ *  RG_DEKU_STICK_BAG give does (randomizer.cpp: tier 1, the item, ammo to
+ *  capacity). Higher tiers never step here (Combo_SharedPickupStepAdmitted). */
+bool Combo_SharedBagFillsAfterStep(uint8_t kind, uint16_t tierBefore, uint16_t tierAfter);
+
+/** OoT's grant block of the pool's stick or nut tier at its arrival, for a world
+ *  frozen WITHOUT the bag bit while OoT's own bag option is on (@p
+ *  ootBagOptionOn) and OoT's tier is @p ootTier: such a world's MM half was born
+ *  at tier 1, so its pool tier is not a bag and must not open OoT's gate. Under
+ *  the bit the pool's tier IS the bag, and the block is lifted (false). */
+bool Combo_SharedBagLegacyGrantBlocked(uint8_t tierKind, bool ootBagOptionOn, uint16_t ootTier);
 
 /**
  * Read the shared pool's value for `kind` (trackers / tests / the cycle-safe
@@ -710,9 +758,10 @@ int Combo_SharedFamiliesApplyLive(GameId game);
  * Combo_ClearSharedFamilyMembers clears both. Combo_SingleBag_SharedPairs builds
  * the second word's pairs after the first word's.
  *
- * AT PICKUP. A far game's copy of an armed second-word family found in the running
- * game (a surplus copy that crossed) is credited there and then
- * (Combo_SharedFamilies2CreditFarPickup), the #1061 / #1120 rule: never a round trip.
+ * AT PICKUP. A far game's copy of an armed shared family of EITHER word found in
+ * the running game (a surplus copy that crossed) is credited there and then
+ * (Combo_SharedFamilies2CreditFarPickup; #1551 extended it to the first word too,
+ * so the `2` in its name is historical), the #1061 / #1120 rule: never a round trip.
  */
 
 /** Register (or, with NULL @p member, unregister) @p game's copy of the
@@ -791,15 +840,18 @@ uint32_t Combo_SharedFamilies2Harvest(GameId game, uint32_t heldBits);
 uint32_t Combo_SharedFamilies2Owed(GameId game, uint32_t heldBits);
 
 /**
- * CREDIT AT PICKUP for the second word (#1169 XW10; the #1061 / #1120 rule): the
- * item (@p originGame, @p id) was found in @p running, the other game. When it is
- * @p originGame's registered copy of a second-word family the frozen word ARMS,
- * the family is owned now (`owned2 |= bit`, armed bits only), @p running is given
- * its own copy unless it holds it, and the answer is true: the pickup is credited
- * and must NOT cross (the origin game gets its copy at its next arrival, through
- * the apply). False, touching nothing, for anything else: a disarmed family (the
- * extension alone: the item is an ordinary crossing), an unregistered id, an item
- * of the running game. The CALLER gates it on its live-file test (gameMode).
+ * CREDIT AT PICKUP for BOTH family words (#1169 XW10, #1551; the #1061 / #1120
+ * rule; the `2` in the name is historical): the item (@p originGame, @p id) was
+ * found in @p running, the other game. Word 0 (Combo_SharedFamiliesArmed,
+ * sharedFamilyOwned) is tried first, then word 1 (Combo_SharedFamilies2Armed,
+ * sharedFamilyOwned2). When it is @p originGame's registered copy of a family its
+ * frozen word ARMS, the family is owned now (`owned |= bit` / `owned2 |= bit`,
+ * armed bits only), @p running is given its own copy unless it holds it, and the
+ * answer is true: the pickup is credited and must NOT cross (the origin game gets
+ * its copy at its next arrival, through the apply). False, touching nothing, for
+ * anything else: a disarmed family (the extension alone: the item is an ordinary
+ * crossing), an unregistered id, an item of the running game. The CALLER gates it
+ * on its live-file test (gameMode).
  */
 bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id);
 
