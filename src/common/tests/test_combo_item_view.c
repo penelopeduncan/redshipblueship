@@ -100,6 +100,7 @@
 #include "../combo_item_view.h"
 #include "../context.h"
 #include "../foreign_items.h" // RSBS_XITEM_SHARED_OCARINA_BUTTONS: the #1067 leg
+#include "../foreign_masks.h" // COMBO_FOREIGN_MASK_OOT_*: the #1570 leg's MM item ids
 #include "../game.h"
 #include "../save.h" // rsbs::SaveManager, SlotMeta: the new-file row's slot-panel leg (#873)
 #include "../shared_resources.h"
@@ -151,6 +152,13 @@ extern "C" int OoT_ItemAdapter_TestItemSlotCount(void);
 extern "C" int OoT_ItemAdapter_TestAuthorSoaringWorld(void* buf, size_t size, int soaringOwned, int ocarina,
                                                       int buttons, int linkAge);
 extern "C" int MM_ItemAdapter_TestAuthorWarpSongWorld(void* buf, size_t size, int ocarina, unsigned heldMask);
+// #1570: the added masks' seams (both ItemAdapterSingleExe.cpp files) and MM's own registration and item ids
+// (OoTMasksMM.cpp).
+extern "C" int OoT_ItemAdapter_TestAuthorAddedMaskWorld(void* buf, size_t size, int blastOwned, int stoneOwned);
+extern "C" int MM_ItemAdapter_TestGiveOoTMask(void* buf, size_t size, uint16_t riId);
+extern "C" int MM_ItemAdapter_TestPutBlastMask(void* buf, size_t size);
+extern "C" void MM_OoTMasks_RegisterRuntime(void);
+extern "C" uint16_t MM_OoTMask_ItemId(uint8_t foreignMask);
 
 #define CIV_ASSERT(cond)                                                   \
     do {                                                                   \
@@ -2506,6 +2514,208 @@ static int CivHaveOfKey(const std::vector<ComboItemRow>& rows, const char* key) 
     return i < 0 ? -1 : (rows[(size_t)i].have ? 1 : 0);
 }
 
+// ---- #1570: the added masks' rows, their Shared rows and OoT's own Shared mask icons ----
+//
+//   (a) Every rule off: no added mask row in either game, and the rows and indices are the ones the legs before
+//       this have always read (the added rows' gates: the rules-off count).
+//   (b) MM, the Skull Mask (MM) rule alone: exactly one added row, right after the Fierce Deity's Mask, named
+//       "Skull Mask (MM)", not held until MM_OoTMask_Give gives it, every other row in place; a vanilla file shows
+//       none; all three rules: Gerudo, Skull, Spooky in OoTMM's order.
+//   (c) OoT, the Blast Mask (OoT) rule alone: exactly one added row right after the songs, "Blast Mask", held only
+//       in the file whose RAND_INF flag is set, every other row in place; MM unchanged.
+//   (d) The Shared Skull Mask: MM's copy leaves the Masks group for the Shared group's "Skull Mask", named without
+//       its tag, held when MM's copy or the pool (OoT's copy, harvested) holds it; and with OoT as the icon game the
+//       Shared Skull and Goron rows draw OoT's own mask icons, MM's with MM as the icon game (item B).
+//   (e) The Shared Blast Mask: "Blast Mask" in the Shared group, held from either game's own copy.
+static void CivFreezeRules1(uint32_t crossItemFlags) {
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0x1570F00Du;
+    gComboCtx.sharedRandoSettingsHash = 0x1570CA5Eu;
+    gComboCtx.mmProfileDigest = 0x1570D16Eu;
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    ComboItemRulesRecord rules;
+    memset(&rules, 0, sizeof(rules));
+    rules.crossItemFlags = crossItemFlags;
+    Combo_FreezeComboSettingsEx(&rec, &rules);
+}
+
+/** The Shared group's row keyed `key` with `iconGame`'s icons; false when it is not drawn. */
+static bool CivSharedRowWithIcons(const char* key, uint8_t iconGame, ComboItemRow* out) {
+    const int n = Combo_ItemSharedCount();
+    for (int i = 0; i < n; i++) {
+        if (Combo_ItemSharedRowAtWithIcons(i, iconGame, out) && CivSlotKeyIs(*out, key)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Is `rows` `base` with `added` rows inserted after index `at`, every other row the same? */
+static bool CivRowsShifted(const std::vector<ComboItemRow>& base, const std::vector<ComboItemRow>& on, int at,
+                           int added, const char* label) {
+    if (on.size() != base.size() + (size_t)added) {
+        printf("[TEST] FAIL: #1570 %s: %zu rows, want %zu\n", label, on.size(), base.size() + (size_t)added);
+        return false;
+    }
+    for (size_t i = 0; i < base.size(); i++) {
+        const size_t at2 = i <= (size_t)at ? i : i + (size_t)added;
+        if (!CivSameRow(base[i], on[at2])) {
+            printf("[TEST] FAIL: #1570 %s: row %zu (\"%s\") is not rule-off row %zu\n", label, at2, on[at2].name, i);
+            return false;
+        }
+    }
+    return true;
+}
+
+static int CivAddedMaskLegs(const ComboItemOps* ops, const ComboItemOps* mmOps) {
+    MM_OoTMasks_RegisterRuntime(); // MM's halves of the three families, as its ship init registers them
+    const uint16_t riGerudo = MM_OoTMask_ItemId((uint8_t)COMBO_FOREIGN_MASK_OOT_GERUDO);
+    const uint16_t riSkull = MM_OoTMask_ItemId((uint8_t)COMBO_FOREIGN_MASK_OOT_SKULL);
+    const uint16_t riSpooky = MM_OoTMask_ItemId((uint8_t)COMBO_FOREIGN_MASK_OOT_SPOOKY);
+    CIV_ASSERT(riGerudo != 0u && riSkull != 0u && riSpooky != 0u);
+    std::vector<uint8_t> oot((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> ootBlast((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> mm((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    std::vector<uint8_t> mmVanilla((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorAddedMaskWorld(oot.data(), oot.size(), 0, 0) == 1);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorAddedMaskWorld(ootBlast.data(), ootBlast.size(), 1, 0) == 1);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorTrackerWorld(mm.data(), mm.size(), 1, 0u) == 1);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorTrackerWorld(mmVanilla.data(), mmVanilla.size(), 0, 0u) == 1);
+    OoT_ItemAdapter_TestOverrideOptions(1, 0u); // the gated groups read no seed context here
+
+    // (a) every rule off.
+    CivFreezeRules1(0u);
+    const std::vector<ComboItemRow> ootOff = CivRowsOf(ops, oot.data());
+    const std::vector<ComboItemRow> ootBlastOff = CivRowsOf(ops, ootBlast.data());
+    const std::vector<ComboItemRow> mmOff = CivRowsOf(mmOps, mm.data());
+    CIV_ASSERT(!ootOff.empty() && !mmOff.empty() && ootBlastOff.size() == ootOff.size());
+    for (const char* key : { "mask_gerudo_mm", "mask_skull_mm", "mask_spooky_mm" }) {
+        CIV_ASSERT(CivIndexOfKey(mmOff, key) < 0);
+    }
+    CIV_ASSERT(CivIndexOfKey(ootOff, "mask_blast_oot") < 0 && CivIndexOfKey(ootOff, "mask_stone_oot") < 0);
+    const int fierce = CivIndexOfKey(mmOff, "mask_fierce_deity");
+    const int prelude = CivIndexOfKey(ootOff, "song_prelude");
+    CIV_ASSERT(fierce >= 0 && prelude >= 0);
+
+    // (b) MM, the Skull Mask (MM) rule alone.
+    CivFreezeRules1(RSBS_XITEM_SKULL_MASK_MM);
+    const std::vector<ComboItemRow> mmSkull = CivRowsOf(mmOps, mm.data());
+    printf("[TEST] combo-item-view: #1570 MM rows %zu with the Skull Mask (MM) rule, %zu without\n", mmSkull.size(),
+           mmOff.size());
+    if (!CivRowsShifted(mmOff, mmSkull, fierce, 1, "MM with the Skull Mask (MM) rule")) {
+        return TEST_FAIL;
+    }
+    const ComboItemRow& skull = mmSkull[(size_t)fierce + 1];
+    CIV_ASSERT(CivSlotKeyIs(skull, "mask_skull_mm") && strcmp(skull.group, "Masks") == 0 &&
+               strcmp(skull.name, "Skull Mask (MM)") == 0 && !skull.have && skull.iconKey != NULL &&
+               skull.sharedFamily == RSBS_XITEM_SHARED_SKULL);
+    CIV_ASSERT(MM_ItemAdapter_TestGiveOoTMask(mm.data(), mm.size(), riSkull) == 1);
+    CIV_ASSERT(CivHaveOfKey(CivRowsOf(mmOps, mm.data()), "mask_skull_mm") == 1);
+    CIV_ASSERT(CivIndexOfKey(CivRowsOf(mmOps, mmVanilla.data()), "mask_skull_mm") < 0); // a vanilla file: none
+    CIV_ASSERT(CivRowsOf(ops, oot.data()).size() == ootOff.size());                     // OoT unchanged
+    CivFreezeRules1(RSBS_XITEM_GERUDO_MASK_MM | RSBS_XITEM_SKULL_MASK_MM | RSBS_XITEM_SPOOKY_MASK_MM);
+    const std::vector<ComboItemRow> mmAll = CivRowsOf(mmOps, mm.data());
+    CIV_ASSERT(mmAll.size() == mmOff.size() + 3);
+    CIV_ASSERT(CivSlotKeyIs(mmAll[(size_t)fierce + 1], "mask_gerudo_mm") &&
+               strcmp(mmAll[(size_t)fierce + 1].name, "Gerudo Mask (MM)") == 0 && !mmAll[(size_t)fierce + 1].have &&
+               CivSlotKeyIs(mmAll[(size_t)fierce + 2], "mask_skull_mm") && mmAll[(size_t)fierce + 2].have &&
+               CivSlotKeyIs(mmAll[(size_t)fierce + 3], "mask_spooky_mm") &&
+               strcmp(mmAll[(size_t)fierce + 3].name, "Spooky Mask (MM)") == 0 && !mmAll[(size_t)fierce + 3].have);
+    CIV_ASSERT(CivSlotKeyIs(mmAll[(size_t)fierce + 4], mmOff[(size_t)fierce + 1].slotKey));
+
+    // (c) OoT, the Blast Mask (OoT) rule alone.
+    CivFreezeRules1(RSBS_XITEM_BLAST_MASK_OOT);
+    const std::vector<ComboItemRow> ootOn = CivRowsOf(ops, oot.data());
+    const std::vector<ComboItemRow> ootBlastOn = CivRowsOf(ops, ootBlast.data());
+    printf("[TEST] combo-item-view: #1570 OoT rows %zu with the Blast Mask (OoT) rule, %zu without\n", ootOn.size(),
+           ootOff.size());
+    if (!CivRowsShifted(ootOff, ootOn, prelude, 1, "OoT with the Blast Mask (OoT) rule") ||
+        !CivRowsShifted(ootBlastOff, ootBlastOn, prelude, 1, "OoT holding the Blast Mask, its rule on")) {
+        return TEST_FAIL;
+    }
+    const ComboItemRow& blast = ootOn[(size_t)prelude + 1];
+    CIV_ASSERT(CivSlotKeyIs(blast, "mask_blast_oot") && strcmp(blast.group, "Inventory") == 0 &&
+               strcmp(blast.name, "Blast Mask") == 0 && !blast.have && blast.iconKey != NULL &&
+               blast.fadedAlpha > 0.0f && blast.sharedFamily == RSBS_XITEM_SHARED_BLAST);
+    CIV_ASSERT(CivSlotKeyIs(ootBlastOn[(size_t)prelude + 1], "mask_blast_oot") && ootBlastOn[(size_t)prelude + 1].have);
+    CIV_ASSERT(CivRowsOf(mmOps, mm.data()).size() == mmOff.size()); // MM unchanged
+
+    // The Shared group's worlds read both games through their shadows, no game live.
+    Combo_Item_RegisterOps((uint8_t)GAME_OOT, ops);
+    Combo_Item_RegisterOps((uint8_t)GAME_MM, mmOps);
+    sCivLive = NULL;
+    sCivMMLive = NULL;
+    const auto civShared = [&](uint32_t rules, const std::vector<uint8_t>& ootBuf, const std::vector<uint8_t>& mmBuf) {
+        CivFreezeRules1(rules);
+        Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_RUPEES, 1); // a Shared group to draw in
+        Context_UpdateShadowCopy(GAME_OOT, ootBuf.data(), ootBuf.size());
+        Context_UpdateShadowCopy(GAME_MM, mmBuf.data(), mmBuf.size());
+        Context_SetCurrentGame(GAME_NONE);
+    };
+
+    // (d) the Shared Skull Mask (MM's copy given above), and the Shared Goron Mask for OoT's icon.
+    std::vector<uint8_t> mmNone((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorTrackerWorld(mmNone.data(), mmNone.size(), 1, 0u) == 1);
+    const uint32_t skullRules = RSBS_XITEM_SKULL_MASK_MM | RSBS_XITEM_SHARED_SKULL | RSBS_XITEM_SHARED_GORON;
+    civShared(skullRules, oot, mmNone);
+    std::vector<ComboItemRow> rows;
+    CivReadAll((uint8_t)GAME_MM, rows);
+    CIV_ASSERT(CivIndexOfKey(rows, "mask_skull_mm") < 0 && CivIndexOfKey(rows, "mask_goron") < 0);
+    CIV_ASSERT(strcmp(CivRowsOf(mmOps, mmNone.data())[(size_t)fierce + 1].name, "Skull Mask") == 0);
+    ComboItemRow sharedSkull;
+    CIV_ASSERT(CivSharedRowWithIcons("mask_skull", (uint8_t)GAME_MM, &sharedSkull));
+    CIV_ASSERT(strcmp(sharedSkull.name, "Skull Mask") == 0 && !sharedSkull.have &&
+               sharedSkull.sharedFamily == RSBS_XITEM_SHARED_SKULL);
+    gComboCtx.sharedFamilyOwned = RSBS_XITEM_SHARED_SKULL; // OoT's own copy, harvested into the pool
+    CIV_ASSERT(CivSharedRowWithIcons("mask_skull", (uint8_t)GAME_MM, &sharedSkull) && sharedSkull.have);
+    civShared(skullRules, oot, mm); // MM's copy held
+    CIV_ASSERT(CivSharedRowWithIcons("mask_skull", (uint8_t)GAME_MM, &sharedSkull) && sharedSkull.have);
+    const char* mmSkullIcon = sharedSkull.iconKey;
+    ComboItemRow ootSkull;
+    ComboItemRow ootGoron;
+    CIV_ASSERT(CivSharedRowWithIcons("mask_skull", (uint8_t)GAME_OOT, &ootSkull));
+    CIV_ASSERT(CivSharedRowWithIcons("mask_goron", (uint8_t)GAME_OOT, &ootGoron));
+    printf("[TEST] combo-item-view: #1570 Shared Skull Mask icon with OoT's icons %s, with MM's %s; Shared Goron "
+           "Mask with OoT's %s\n",
+           ootSkull.iconKey != NULL ? ootSkull.iconKey : "(none)", mmSkullIcon != NULL ? mmSkullIcon : "(none)",
+           ootGoron.iconKey != NULL ? ootGoron.iconKey : "(none)");
+    CIV_ASSERT(CivSameText(ootSkull.iconKey, "ITEM_MASK_SKULL") &&
+               CivSameText(ootSkull.iconKeyFaded, "ITEM_MASK_SKULL_Faded"));
+    CIV_ASSERT(CivSameText(ootGoron.iconKey, "ITEM_MASK_GORON"));
+    CIV_ASSERT(mmSkullIcon != NULL && !CivSameText(mmSkullIcon, "ITEM_MASK_SKULL"));
+    ComboItemRow mmGoron;
+    CIV_ASSERT(CivSharedRowWithIcons("mask_goron", (uint8_t)GAME_MM, &mmGoron) && mmGoron.iconKey != NULL &&
+               !CivSameText(mmGoron.iconKey, "ITEM_MASK_GORON"));
+    // OoT's visible rows gain nothing for it: the icons come from entries the view's own catalog reads skip.
+    CivReadAll((uint8_t)GAME_OOT, rows);
+    CIV_ASSERT(rows.size() == ootOff.size());
+
+    // (e) the Shared Blast Mask: held from OoT's copy, then from MM's own.
+    const uint32_t blastRules = RSBS_XITEM_BLAST_MASK_OOT | RSBS_XITEM_SHARED_BLAST;
+    civShared(blastRules, oot, mmNone);
+    CivReadAll((uint8_t)GAME_OOT, rows);
+    CIV_ASSERT(CivIndexOfKey(rows, "mask_blast_oot") < 0);
+    CivReadAll((uint8_t)GAME_MM, rows);
+    CIV_ASSERT(CivIndexOfKey(rows, "mask_blast") < 0);
+    ComboItemRow sharedBlast;
+    CIV_ASSERT(CivSharedRowWithIcons("mask_blast", (uint8_t)GAME_OOT, &sharedBlast));
+    CIV_ASSERT(strcmp(sharedBlast.name, "Blast Mask") == 0 && !sharedBlast.have && sharedBlast.iconKey != NULL);
+    civShared(blastRules, ootBlast, mmNone);
+    CIV_ASSERT(CivSharedRowWithIcons("mask_blast", (uint8_t)GAME_OOT, &sharedBlast) && sharedBlast.have);
+    std::vector<uint8_t> mmBlast = mmNone;
+    CIV_ASSERT(MM_ItemAdapter_TestPutBlastMask(mmBlast.data(), mmBlast.size()) == 1);
+    civShared(blastRules, oot, mmBlast);
+    CIV_ASSERT(CivSharedRowWithIcons("mask_blast", (uint8_t)GAME_MM, &sharedBlast) && sharedBlast.have);
+
+    printf("[TEST] combo-item-view: #1570 the added masks show only under their frozen rules, in place, held from "
+           "their own records; their Shared rows read either game; OoT draws its own Shared mask icons\n");
+    OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+    return TEST_PASS;
+}
+
 /** XW14 leg (f) of CivAddedWarpSongLegs: the rows read the shared warp-song
  *  family. `oot` holds no OoT song and no Soaring (OoT) flag, `mm` no Song of
  *  Soaring; the probes are put back on every path. */
@@ -2843,6 +3053,38 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
             break;
         }
 
+        // ---- 2 for the added masks, their Shared rows and OoT's Shared mask icons (#1570) --
+        // The leg freezes its own worlds and hands the view its own shadows; the legs after it get back the
+        // context, shadows, game and adapters they had.
+        {
+            static ComboContext sMaskCtxBefore;
+            sMaskCtxBefore = gComboCtx;
+            const GameId maskGameBefore = Context_GetCurrentGame();
+            std::vector<uint8_t> maskOoTShadow((size_t)OOT_SAVE_CONTEXT_SIZE, 0);
+            std::vector<uint8_t> maskMMShadow((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+            if (const uint8_t* p = (const uint8_t*)Context_GetOoTSaveContext()) {
+                memcpy(maskOoTShadow.data(), p, maskOoTShadow.size());
+            }
+            if (const uint8_t* p = (const uint8_t*)Context_GetMMSaveContext()) {
+                memcpy(maskMMShadow.data(), p, maskMMShadow.size());
+            }
+            const ComboItemOps* maskOoTOps = Combo_Item_GetOps((uint8_t)GAME_OOT);
+            const ComboItemOps* maskMMOps = Combo_Item_GetOps((uint8_t)GAME_MM);
+            const int maskResult = CivAddedMaskLegs(ops, mmOps);
+            OoT_ItemAdapter_TestOverrideOptions(0, 0u);
+            Combo_Item_RegisterOps((uint8_t)GAME_OOT, maskOoTOps);
+            Combo_Item_RegisterOps((uint8_t)GAME_MM, maskMMOps);
+            Context_UpdateShadowCopy(GAME_OOT, maskOoTShadow.data(), maskOoTShadow.size());
+            Context_UpdateShadowCopy(GAME_MM, maskMMShadow.data(), maskMMShadow.size());
+            Context_SetCurrentGame(maskGameBefore);
+            gComboCtx = sMaskCtxBefore;
+            Combo_ResetSharedResourceWatermarks();
+            if (maskResult != TEST_PASS) {
+                result = TEST_FAIL;
+                break;
+            }
+        }
+
         // ---- 2 for MM's tokens, fairies, dungeon items and gated groups (#1140) --
         if (CivMMTrackerRowLegs(mmOps) != TEST_PASS) {
             result = TEST_FAIL;
@@ -2900,18 +3142,30 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
             const int ootCatCount = Combo_ItemCatalogCount((uint8_t)GAME_OOT);
             const int mmCatCount = Combo_ItemCatalogCount((uint8_t)GAME_MM);
             const int sharedCatCount = Combo_ItemSharedCatalogCount();
-            CIV_ASSERT(ootCatCount == 163); // #1369: SoH's six ability rows
+            CIV_ASSERT(ootCatCount == 173); // #1369: SoH's six ability rows; #1570: ten icon-only mask entries
             CIV_ASSERT(mmCatCount == 112);
-            CIV_ASSERT(sharedCatCount == 33); // #1369: the Shared Swim row
+            CIV_ASSERT(sharedCatCount == 38); // #1369: the Shared Swim row; #1570: five Shared mask rows
 
+            int ootIconOnly = 0;
             for (int i = 0; i < ootCatCount; i++) {
                 ComboItemRow r = {};
                 ComboItemRow byKey = {};
+                // #1570: the icon-only mask entries close OoT's catalog: no group (the layout editor never offers
+                // them, and the view's catalog read skips them), a shared family and an icon each.
+                ComboItemRow raw = {};
+                CIV_ASSERT(ops->catalogRowAt(NULL, i, &raw));
+                if (raw.group == NULL) {
+                    CIV_ASSERT(i >= ootCatCount - 10 && raw.sharedFamily != 0u && raw.iconKey != NULL && !raw.have);
+                    CIV_ASSERT(!Combo_ItemCatalogRowAt((uint8_t)GAME_OOT, i, &r));
+                    ootIconOnly++;
+                    continue;
+                }
                 CIV_ASSERT(Combo_ItemCatalogRowAt((uint8_t)GAME_OOT, i, &r));
                 CIV_ASSERT(r.slotKey != NULL && r.slotKey[0] != '\0' && r.name != NULL);
                 CIV_ASSERT(Combo_ItemCatalogRowByKey((uint8_t)GAME_OOT, r.slotKey, &byKey));
                 CIV_ASSERT(byKey.slotKey != NULL && strcmp(r.slotKey, byKey.slotKey) == 0);
             }
+            CIV_ASSERT(ootIconOnly == 10);
             for (int i = 0; i < mmCatCount; i++) {
                 ComboItemRow r = {};
                 ComboItemRow byKey = {};
