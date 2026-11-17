@@ -1505,6 +1505,19 @@ extern "C" int OoT_CheckTracker_TestExitSaveOrder(void) {
         failures++;
     }
 
+    // A second OnExitGame before any file loads (the console reset at the title
+    // screen) tears the already-cleared tracker down again: it must not record
+    // that 0 over the exited file's value a waiting save still writes.
+    Teardown();
+    const u32 pastSecondExit = AreasSpoiledForSave();
+    if (pastSecondExit != kAreasSentinel) {
+        fprintf(stderr,
+                "[exit-save-order] FAIL - a second Teardown before the next file left a waiting exit save "
+                "writing 0x%X, expected 0x%X\n",
+                pastSecondExit, kAreasSentinel);
+        failures++;
+    }
+
     // The next file: its init must not inherit the exited file's value.
     InitTrackerData(false);
     const u32 nextFile = AreasSpoiledForSave();
@@ -1603,8 +1616,12 @@ void Teardown() {
 #endif
     ClearAreaChecksAndTotals();
     checksByArea.clear();
-    sAreasSpoiledAtExit = areasSpoiled; // #1689: what a save queued after this still writes
-    sTornDownForExit = true;
+    // #1689: a second Teardown before the next file comes up (a console reset at
+    // the title screen) finds areasSpoiled already 0 and keeps the first record.
+    if (!sTornDownForExit) {
+        sAreasSpoiledAtExit = areasSpoiled; // #1689: what a save queued after this still writes
+        sTornDownForExit = true;
+    }
     areasSpoiled = 0;
     filterAreasHidden = { 0 };
     filterChecksHidden = { 0 };
