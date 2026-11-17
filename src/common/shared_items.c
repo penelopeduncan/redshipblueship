@@ -1216,6 +1216,79 @@ uint8_t Combo_SharedSlotReserveKind(SharedItem item) {
     return 0u;
 }
 
+// The shared-credit stand-ins (shared_items.h, #1652 A2). Constant-initialized
+// like the slot reserves, for the same reason.
+typedef struct {
+    uint8_t originGame;
+    uint8_t kind;
+    uint16_t id;
+} SharedCreditStandIn;
+static SharedCreditStandIn sCreditStandIns[RSBS_SHARED_CREDIT_STAND_IN_CAP];
+static int sCreditStandInCount = 0;
+
+static bool SharedCreditStandInKindAllowed(uint8_t kind) {
+    return kind == (uint8_t)RSBS_SHARED_RES_STICK_TIER || kind == (uint8_t)RSBS_SHARED_RES_NUT_TIER;
+}
+
+bool Combo_RegisterSharedCreditStandIn(uint8_t originGame, uint8_t kind, uint16_t id) {
+    if ((originGame != (uint8_t)GAME_OOT && originGame != (uint8_t)GAME_MM) || !SharedCreditStandInKindAllowed(kind) ||
+        id == 0u) {
+        return false;
+    }
+    if (Combo_SharedCreditStandInRegistered(originGame, kind) != 0u) {
+        return false;
+    }
+    if (sCreditStandInCount >= RSBS_SHARED_CREDIT_STAND_IN_CAP) {
+        fprintf(stderr, "[SharedItems] credit stand-in %u:%u for kind %u refused: the table is full\n",
+                (unsigned)originGame, (unsigned)id, (unsigned)kind);
+        return false;
+    }
+    sCreditStandIns[sCreditStandInCount].originGame = originGame;
+    sCreditStandIns[sCreditStandInCount].kind = kind;
+    sCreditStandIns[sCreditStandInCount].id = id;
+    sCreditStandInCount++;
+    return true;
+}
+
+uint16_t Combo_SharedCreditStandInRegistered(uint8_t originGame, uint8_t kind) {
+    for (int i = 0; i < sCreditStandInCount; i++) {
+        if (sCreditStandIns[i].originGame == originGame && sCreditStandIns[i].kind == kind) {
+            return sCreditStandIns[i].id;
+        }
+    }
+    return 0u;
+}
+
+uint16_t Combo_SharedCreditStandIn(uint8_t originGame, uint8_t kind) {
+    const uint16_t id = Combo_SharedCreditStandInRegistered(originGame, kind);
+    if (id == 0u) {
+        return 0u;
+    }
+    // THE FROZEN GATE (#1652): the bag is world identity, read from the record the
+    // creation froze, never from a live setting.
+    const bool armed = (kind == (uint8_t)RSBS_SHARED_RES_STICK_TIER) ? Combo_ComboStickBagShuffled()
+                       : (kind == (uint8_t)RSBS_SHARED_RES_NUT_TIER) ? Combo_ComboNutBagShuffled()
+                                                                     : false;
+    if (!armed) {
+        return 0u;
+    }
+    SharedItem item;
+    memset(&item, 0, sizeof(item));
+    item.originGame = originGame;
+    item.id = id;
+    if (Combo_ItemClassSourceOf(item) != (uint8_t)RSBS_FILL_CLASS_NONE) {
+        fprintf(stderr, "[SharedItems] credit stand-in %u:%u for kind %u refused: it is a fill item of its game\n",
+                (unsigned)originGame, (unsigned)id, (unsigned)kind);
+        return 0u;
+    }
+    return id;
+}
+
+void Combo_TestClearSharedCreditStandIns(void) {
+    memset(sCreditStandIns, 0, sizeof(sCreditStandIns));
+    sCreditStandInCount = 0;
+}
+
 void Combo_SharedQuantitySplit(int budget, int ootCopies, int mmCopies, uint32_t tieSeed, int* outOoT, int* outMM) {
     int keepO = 0;
     int keepM = 0;

@@ -153,9 +153,15 @@ int sPendingCount = 0;
  * accepts them (the #488 sentinel trap, same two values, different surface).
  * An id at or past RI_MAX is out of the table entirely and would index
  * Rando::StaticData::Items out of range inside the give.
+ *
+ * #1652 A2: the two logic-only credit stand-ins are below RI_MAX but are not
+ * items (no Items row; Rando::GiveItem's default branch would insert one). No
+ * producer records them, so this refuses what cannot arrive; every other id's
+ * answer is unchanged.
  */
 bool IsGiveableItemId(uint16_t riId) {
-    return riId != (uint16_t)RI_UNKNOWN && riId != (uint16_t)RI_NONE && riId < (uint16_t)RI_MAX;
+    return riId != (uint16_t)RI_UNKNOWN && riId != (uint16_t)RI_NONE && riId < (uint16_t)RI_MAX &&
+           !Rando_IsSharedCreditStandIn(riId);
 }
 
 /**
