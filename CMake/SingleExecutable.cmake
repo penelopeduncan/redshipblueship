@@ -963,6 +963,12 @@ if(BUILD_TESTING)
     # comboFlags bits from OoT's options (CVar store, display-free bring-up),
     # through the rollback, a seed package and a real .redsave. ROM-free.
     redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
+    # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
+    # bag; its give, drops, shelves and checks refuse sticks and nuts until the
+    # pair's one bag; a bag found in Termina steps the shared tier at its pickup;
+    # the call sites are checked from source (RSBS_SOURCE_DIR). MM's real give and
+    # both games' real shims, ROM-free, no generation: default tier.
+    redship_add_test(NAME MMStickNutBagGate COMMAND redship --test mm-stick-nut-bag-gate)
     redship_add_test(NAME SharedSwimPairs COMMAND redship --test shared-swim-pairs)
     redship_add_test(NAME SharedSwimArrival COMMAND redship --test shared-swim-arrival)
     # #968: Shared Fire, Ice and Light Arrows, three more families on the lens's
@@ -2053,6 +2059,11 @@ if(BUILD_TESTING)
     # and shape yaw from its eye as console does; read from source (RSBS_SOURCE_DIR).
     # Display-free and ROM-free (src/common/tests/test_oot_camera_subj4.c).
     redship_add_test(NAME OoTCameraSubj4Console COMMAND redship --test oot-camera-subj4-console)
+
+    # #1667 (SoH 7006ef740): a hidden placement (an unshuffled Master Sword) answers
+    # IsHintable() false through the item_location.cpp bridge, and WritePlaythrough
+    # skips hidden locations (read from source, RSBS_SOURCE_DIR). Display-free and ROM-free.
+    redship_add_test(NAME OoTHiddenLocationNotHintable COMMAND redship --test oot-hidden-location-not-hintable)
 
     # #1591: EnKz_StopMweep restores gameplayCamera and Link cs action behind
     # this->cutsceneCamera != CAM_ID_MAIN instead of re-querying VB_PLAY_MWEEP_CS.

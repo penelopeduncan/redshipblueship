@@ -2,6 +2,9 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "2s2h/ObjectExtension/ActorListIndex.h"
 #include "2s2h/CustomItem/CustomItem.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "2s2h/Rando/StickNutBagGate.h" // #1652 A1: MM_Combo_Item00Gated
+#endif
 
 extern "C" {
 #include "functions.h"
@@ -120,4 +123,17 @@ void Rando::ActorBehavior::InitEnItem00Behavior() {
             replacementItem->actor.draw = Rando::ActorBehavior::DrawWonderItemSparkle;
         }
     });
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1652 A1: before the pair's one bag (its frozen shuffle, StickNutBagGate.h)
+    // an unshuffled stick or nut drop is not spawned, whatever spawned it (the
+    // drop tables, a Deku Baba, a pot, a scene's own actor), as OoT's actor-init
+    // hook does (hook_handlers.cpp). The rando's own items (ITEM00_NOTHING) are not
+    // drops; a shuffled check's replacement above is spawned regardless.
+    COND_ID_HOOK(ShouldActorInit, ACTOR_EN_ITEM00, IS_RANDO, [](Actor* actor, bool* should) {
+        if (actor->params != ITEM00_NOTHING && MM_Combo_Item00Gated(actor->params)) {
+            *should = false;
+        }
+    });
+#endif
 }

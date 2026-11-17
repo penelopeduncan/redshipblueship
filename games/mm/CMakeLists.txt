@@ -500,7 +500,10 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Equipment/TwoHandedSwordSpinAttack.cpp"
         "2s2h/Enhancements/Equipment/BetterPictoMessage.cpp"
         "2s2h/Enhancements/Equipment/ChuDrops.cpp"
-        "2s2h/Enhancements/Equipment/GreatFairySwordBButton.cpp"
+        # 2Ship #1870, replaced Great Fairy Sword B-Button Attack; rides VB_GET_ITEM_ON_BUTTON (B, C and D-pad, from
+        # z_player_lib.c), VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON (z_player.c) and OnActorUpdate[ACTOR_PLAYER]; its
+        # bodies are guarded.
+        "2s2h/Enhancements/Equipment/ActiveItemOnB.cpp"
         # #1015
         "2s2h/Enhancements/Equipment/ItemUnequip.cpp"
         # #1016
@@ -752,6 +755,14 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Dialogue/SkipBottleCatch.cpp"
         "2s2h/Enhancements/Timesavers/FasterBottles.cpp"
         "2s2h/Enhancements/Graphics/DisableBombBillboarding.cpp"
+        # 2Ship #1951 (Faster Hookshot), drawn by an MM row in a Majora's Mask block at the end of the Hookshot section
+        # of SoH's Enhancements > Items (SohGui/HostedMm/SohMenuHostedMmPlayer.cpp). Registers only through a
+        # file-scope RegisterShipInitFunc lambda on its own MM key and rides VB_HOOKSHOT_SHOOT and
+        # VB_HOOKSHOT_SET_SPEED, appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from
+        # MM_ArmsHook_Wait and MM_ArmsHook_Shoot (z_arms_hook.c). The SET_SPEED body touches only the hook actor and the
+        # velocity it is handed; the SHOOT body reads MM_gPlayState and leaves the verdict alone without one. No stub
+        # in mm_stubs.c; no twin of the TU's name in games/oot. MMRegistrarCoverage's key-gap table attributes it.
+        "2s2h/Enhancements/Player/FasterHookshot.cpp"
         # Backport M8 (2Ship #1842, #1847): the always-on ocarina-dive restoration. It has no CVar and no menu row: it
         # registers through a file-scope RegisterShipInitFunc on "*" only, with a `true` COND_HOOK on
         # OnGameStateMainStart, which game.c dispatches through MM_GameHooks_ExecuteOnGameStateMainStart (the S2H leg).

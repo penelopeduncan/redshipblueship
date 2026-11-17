@@ -1823,7 +1823,13 @@ bool Combo_Logic_FixedCreditDeliveredAt(int index);
 //  2. THE FAR ID. For each such kind and each game, the one id that game's POOL
 //     rows of the kind carry (its own progressive item). A game whose rows of the
 //     kind carry two ids is ambiguous and is credited nothing (the sound
-//     under-count), and so is a game with no row of the kind.
+//     under-count), and so is a game with no row of the kind, unless that game
+//     registered a SHARED-CREDIT STAND-IN for the kind and its frozen gate is on
+//     (#1652 A2, shared_items.h: Majora's Mask's logic-only RI_DEKU_STICK_BAG /
+//     RI_DEKU_NUT_BAG under the frozen stick / nut bag shuffle). The stand-in is
+//     a fallback only: a real pool id always wins, and it fills the far id alone,
+//     so the trim and the bag's length cannot move. A CONFINED row admitted as
+//     HOME_ONLY is never credited (the bag pass); no stick or nut row is confinable.
 //  3. THE FLAG. Every REQUIRED or SURPLUS bag row of such a kind that is not a
 //     shared pair carries RSBS_COMBO_BAG_SHARED_CREDIT and the far game's id in
 //     `pairId`. It is otherwise an ordinary row: it crosses, it is counted against
@@ -1837,8 +1843,9 @@ bool Combo_Logic_FixedCreditDeliveredAt(int index);
 //     placement records the far copy (ComboLogicPlacement.credit), so placing a
 //     row loses none of it, and every round over the tables, the fill's or an
 //     exposed one after it, credits it the same way.
-// A pure function of the composed bag: no RNG, no host, and the placement digest
-// does not fold it (the far copy is a function of the bag row).
+// A pure function of the composed bag and the frozen combo record (the stand-ins'
+// gate, as the policy's arming already is): no RNG, no host, and the placement
+// digest does not fold it (the far copy is a function of the bag row).
 //
 // `quantityFlags` RSBS_COMBO_QUANTITY_KEEP_ALL switches the trim off for the
 // whole call: the untrimmed bag, for the before/after measurement and for the

@@ -1835,6 +1835,7 @@ void OoT_Play_Draw(PlayState* play) {
         if ((HREG(80) != 10) || (HREG(90) & 1)) {
             OoT_Environment_DrawSkyboxFilters(play);
         }
+        GameInteractor_ExecuteOnPlayDrawAfterSkyboxFilters();
 
         if ((HREG(80) != 10) || (HREG(90) & 4)) {
             OoT_Environment_UpdateLightningStrike(play);
