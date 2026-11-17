@@ -76,8 +76,9 @@
  *     opens for an adult by day without Climb (the potion shop's back side is up
  *     a ladder); one does with it. The watchtower jump to the rooftop is any age
  *     under RT_UNINTUITIVE_JUMPS and closed without it.
- *  G. DMC wall Piece of Heart (ec27775e8, the PoH clause): an adult with 3
- *     hearts must NOT reach it without Climb; with Climb it must.
+ *  G. DMC wall Piece of Heart (ec27775e8, the PoH clause, in 7522f31cc's
+ *     RR_DMC_UPPER_ENTRY): an adult with 3 hearts must NOT reach it without
+ *     Climb; with Climb it must.
  *  H. DC Armos Room -> Bomb Room Lower (fe5dce24b): a child with the bracelet
  *     must NOT pass without Climb; with Climb it must.
  *  I. Child Spirit "before climb" (fe5dce24b): its locked door leads to Sun On
@@ -119,13 +120,11 @@
  *     RR_SHADOW_TEMPLE_BEYOND_BOAT requires RT_HOOKSHOT_LADDERS for the
  *     Hookshot path (closed on Hookshot with the trick off, open with it, and
  *     open with Goron's Bracelet + Climb).
- *  U. DMC and Hyrule Field (60ec65592): DMC ladder area -> upper nearby and
- *     both directions of the Hyrule Field <-> Lake Hylia fence ladder
- *     (RR_HYRULE_FIELD <-> RR_HF_TO_LAKE_HYLIA) are CanClimbLadder (closed on
- *     Hookshot with the trick off, open with it).
- *  V. Lost Woods and SFM (60ec65592): the Lost Woods under-bridge exit
- *     (RR_LW_UNDER_BRIDGE -> RR_THE_LOST_WOODS) and both SFM maze ladders
- *     (RR_SACRED_FOREST_MEADOW -> RR_SFM_ABOVE_MAZE and
+ *  U. DMC and Hyrule Field (60ec65592): the crater ladder (7522f31cc's
+ *     RR_DMC_BLOCKED_ENTRY -> RR_DMC_CRATE, Goron Tunic held) and both directions of the Hyrule Field <-> Lake Hylia
+ * fence ladder (RR_HYRULE_FIELD <-> RR_HF_TO_LAKE_HYLIA) are CanClimbLadder (closed on Hookshot with the trick off,
+ * open with it). V. Lost Woods and SFM (60ec65592): the Lost Woods under-bridge exit (RR_LW_UNDER_BRIDGE ->
+ * RR_THE_LOST_WOODS) and both SFM maze ladders (RR_SACRED_FOREST_MEADOW -> RR_SFM_ABOVE_MAZE and
  *     RR_SFM_OUTSIDE_FAIRY_GROTTO -> RR_SFM_ABOVE_MAZE) are CanClimbLadder
  *     (closed on Hookshot with the trick off, open with it).
  *  W. Gerudo Fortress (60ec65592): RR_GF_OUTSKIRTS -> RR_GF_TOWER is
@@ -152,6 +151,33 @@
  *  Z. DMT rockfall (SoH 91425a39a): a child with Climb but no shield, Nayru's
  *     Love or RT_DMT_SHIELDLESS_CLIMB must NOT reach the summit; an adult with
  *     Climb must, and so must the child once the trick is on.
+ *
+ * #1647's O28 crater lane (SoH 7522f31cc and 53dc7f43b, 69ef35d25, ec27775e8,
+ * 46f775ef8, b52c31f85, ff0209e76, eca767dcb), tricks off unless a leg names one,
+ * no tunic, Shuffle Climb off (restored):
+ *  DX. Every crater region the refactor adds is built.
+ *  DT. Every exit of the seven entry regions at its heart threshold: an adult
+ *     with the Hover Boots (and the Longshot and the scarecrow for the far
+ *     platform) passes with the threshold's hearts and NOT with one fewer; the
+ *     wall Piece of Heart (Climb) and the volcano Piece of Heart
+ *     (RT_DMC_HOVER_BEAN_POH) likewise from each entry.
+ *  DF. The heat timer side: the Goron Tunic opens the upper entry to the centre
+ *     with one heart; Fewer Tunic Requirements opens it with 8 hearts, not 7.
+ *  DV. LOGIC_DMC_BOULDER: the blocked exit fires it for an adult with the hammer
+ *     (not without); the scrub ledge only under RT_DMC_BOULDER_JS.
+ *  DU. DMCUpperToPots: closed for an adult with nothing; open with the boulder
+ *     event, with RT_DMC_BOULDER_SKIP; a child holding the hood only under Bunny
+ *     Hood Effect (eca767dcb, #1647 G1).
+ *  DP. DMCPotsToPad: the Hookshot; RT_DMC_BOLERO_JUMP with a shield and the Power
+ *     Bracelet (not without the bracelet); a child with the hood and Climb only
+ *     under Bunny Hood Effect.
+ *  DQ. DMCPadToPots: the Hookshot; an adult with the hood and Climb only under
+ *     Masks as Adult. DB. The bean: planted, an adult passes with 3 hearts.
+ *  DD. DMCUpperToPad: the scarecrow jump needs RT_UNINTUITIVE_JUMPS, and 9 hearts.
+ *  DC. A child reaches the temple exit only under dungeon entrance shuffle.
+ *  DE. The entrance table rows the refactor moved (entrance.cpp): each row's
+ *     exit carries its index and type, and each two-way row's reverse is the
+ *     exit upstream names (the Fire Temple's comes out at RR_DMC_TEMPLE_ENTRY).
  *
  * The SoH logic batch of 2026-11-14 (SoH 156c2a4a #7417, 28ab1206 #7396):
  *  LH. Lake Hylia grass (156c2a4a): an adult with the ocarina and Epona's Song
@@ -260,6 +286,11 @@
 #include "foreign_items.h" // src/common: RSBS_XITEM_BLAST_MASK_OOT, Combo_ComboSettingsDefaults
 #include "soh/Enhancements/randomizer/ForeignMaskOoT.h" // OoT_ForeignMask_AdultMayWear (the BW legs)
 #endif
+
+namespace Rando {
+// entrance.cpp, which no header declares: the DE legs stamp the entrance table on the live graph.
+void SetAllEntrancesData();
+} // namespace Rando
 
 namespace {
 
@@ -785,14 +816,14 @@ void RunShuffleClimbLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
 
     // ---- G: the DMC wall Piece of Heart needs Climb (SoH ec27775e8, PoH clause)
     ResetClimbLogic();
-    if (logic->Hearts() < 3) {
-        GateFail("G: Logic::Reset left %d hearts, so the heat term fails and the legs are vacuous",
-                 (int)logic->Hearts());
+    if (logic->Health() < 3 * 16) {
+        GateFail("G: Logic::Reset left health %d, so the heat term fails and the legs are vacuous",
+                 (int)logic->Health());
     }
-    ExpectAt("G1 DMC wall PoH, adult with 3 hearts, no Climb", RR_DMC_UPPER_LOCAL, RC_DMC_WALL_FREESTANDING_POH, true,
+    ExpectAt("G1 DMC wall PoH, adult with 3 hearts, no Climb", RR_DMC_UPPER_ENTRY, RC_DMC_WALL_FREESTANDING_POH, true,
              false, "the wall alcove is in logic without climbing down to it (#1277)");
     GiveClimb();
-    ExpectAt("G2 DMC wall PoH, adult with 3 hearts and Climb", RR_DMC_UPPER_LOCAL, RC_DMC_WALL_FREESTANDING_POH, true,
+    ExpectAt("G2 DMC wall PoH, adult with 3 hearts and Climb", RR_DMC_UPPER_ENTRY, RC_DMC_WALL_FREESTANDING_POH, true,
              true, "the wall alcove is out of logic with Climb and the hearts");
 
     // ---- H: DC Armos Room to Bomb Room Lower (SoH fe5dce24b) ---------------
@@ -1056,10 +1087,13 @@ void RunHookshotLaddersLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                "Goron's Bracelet and Climb do not reach the Shadow Temple boat from the dock");
 
     // ---- U: DMC ladder and Hyrule Field to Lake Hylia fence (SoH 60ec65592)
+    // The crater ladder is 7522f31cc's blocked entry up to the crate ledge; the
+    // Goron Tunic carries its heat term, so the ladder alone decides.
     ResetClimbLogic();
     GiveHookshot(false);
-    ExpectExit("U1 DMC ladder area to upper nearby, adult with Hookshot, trick off, no Climb",
-               RR_DMC_LADDER_AREA_NEARBY, RR_DMC_UPPER_NEARBY, true, false,
+    Give(RG_GORON_TUNIC);
+    ExpectExit("U1 DMC blocked entry to the crate ledge, adult with Hookshot, trick off, no Climb",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CRATE, true, false,
                "the Hookshot climbs the DMC ladder with RT_HOOKSHOT_LADDERS off (#1300)");
     ExpectExit("U2 Hyrule Field to Lake Hylia, adult with Hookshot, trick off, no Climb", RR_HYRULE_FIELD,
                RR_HF_TO_LAKE_HYLIA, true, false,
@@ -1069,8 +1103,8 @@ void RunHookshotLaddersLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
         RR_HYRULE_FIELD, true, false,
         "the Hookshot climbs the Lake Hylia fence ladder from the lake side with RT_HOOKSHOT_LADDERS off (#1300)");
     SetHookshotLadders(randoCtx, 1);
-    ExpectExit("U4 DMC ladder area to upper nearby, adult with Hookshot, RT_HOOKSHOT_LADDERS on, no Climb",
-               RR_DMC_LADDER_AREA_NEARBY, RR_DMC_UPPER_NEARBY, true, true,
+    ExpectExit("U4 DMC blocked entry to the crate ledge, adult with Hookshot, RT_HOOKSHOT_LADDERS on, no Climb",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CRATE, true, true,
                "the Hookshot with RT_HOOKSHOT_LADDERS does not climb the DMC ladder (#1300)");
     ExpectExit("U5 Hyrule Field to Lake Hylia, adult with Hookshot, RT_HOOKSHOT_LADDERS on, no Climb", RR_HYRULE_FIELD,
                RR_HF_TO_LAKE_HYLIA, true, true,
@@ -2264,6 +2298,492 @@ void RunBunnyHoodLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_LW_BRIDGE).Set(savedLwBridge);
 }
 
+// ---- #1647 O28: SoH 7522f31cc's crater and its follow-ups (DX..DE) ------------
+// The tricks these legs force off (saved and restored), so a trick the context
+// holds on cannot open a branch a leg expects closed.
+const RandomizerTrick kDmcForcedTricks[] = {
+    RT_FEWER_TUNIC_REQUIREMENTS, RT_UNINTUITIVE_JUMPS, RT_HOOKSHOT_LADDERS, RT_DMC_HOVER_BEAN_POH,
+    RT_DMC_BOLERO_JUMP,          RT_DMC_BOULDER_JS,    RT_DMC_BOULDER_SKIP,
+};
+
+/** One exit of the crater at its heart threshold, for an adult with the Hover Boots (DT). */
+struct DmcExitThreshold {
+    RandomizerRegion from;
+    RandomizerRegion to;
+    uint8_t hearts; // 0: open with one heart, nothing to close
+    bool scarecrow; // the far platform's branches also need the Longshot and the scarecrow
+};
+
+// Every exit of the seven entry regions (death_mountain_crater.cpp). With the Hover
+// Boots DMCUpperToPots, DMCPotsToPad and DMCPadToPots hold and DMCUpperToPad
+// (RT_UNINTUITIVE_JUMPS) does not, so each row's threshold is that of the branch
+// the boots open; Shuffle Climb is off, so CanClimbLadder and Climb hold.
+const DmcExitThreshold kDmcExitThresholds[] = {
+    { RR_DMC_UPPER_ENTRY, RR_DMC_CRATE, 0, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_ROCK_GROTTO, 2, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_CRACKED_WALL, 3, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_SCRUB, 3, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_BLOCKED_EXIT, 5, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_POTS, 6, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_POT_GROTTO_EXIT, 6, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_CENTRAL, 12, false },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_FAR_PLATFORM, 14, true },
+    { RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, 14, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_CRATE, 2, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_ROCK_GROTTO, 0, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_CRACKED_WALL, 3, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_SCRUB, 3, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_BLOCKED_EXIT, 6, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_POTS, 6, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_POT_GROTTO_EXIT, 8, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_CENTRAL, 12, false },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_FAR_PLATFORM, 14, true },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RR_DMC_TEMPLE_EXIT, 12, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_CRATE, 5, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_ROCK_GROTTO, 5, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_CRACKED_WALL, 6, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_SCRUB, 2, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_BLOCKED_EXIT, 0, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_POTS, 2, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_POT_GROTTO_EXIT, 3, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, 8, false },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_FAR_PLATFORM, 9, true },
+    { RR_DMC_BLOCKED_ENTRY, RR_DMC_TEMPLE_EXIT, 9, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_CRATE, 6, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_ROCK_GROTTO, 6, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_CRACKED_WALL, 6, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_SCRUB, 3, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_BLOCKED_EXIT, 2, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_POTS, 0, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_POT_GROTTO_EXIT, 2, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_CENTRAL, 6, false },
+    { RR_DMC_POTS_ENTRY, RR_DMC_FAR_PLATFORM, 8, true },
+    { RR_DMC_POTS_ENTRY, RR_DMC_TEMPLE_EXIT, 8, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_CRATE, 6, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_ROCK_GROTTO, 6, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_CRACKED_WALL, 8, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_SCRUB, 5, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_BLOCKED_EXIT, 3, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_POTS, 2, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_POT_GROTTO_EXIT, 0, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_CENTRAL, 6, false },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_FAR_PLATFORM, 8, true },
+    { RR_DMC_POT_GROTTO_ENTRY, RR_DMC_TEMPLE_EXIT, 8, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_CRATE, 8, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_ROCK_GROTTO, 8, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_CRACKED_WALL, 9, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_SCRUB, 5, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_BLOCKED_EXIT, 5, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_POTS, 3, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_POT_GROTTO_EXIT, 3, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_CENTRAL, 3, false },
+    { RR_DMC_PAD_ENTRY, RR_DMC_FAR_PLATFORM, 3, true },
+    { RR_DMC_PAD_ENTRY, RR_DMC_TEMPLE_EXIT, 3, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_CRATE, 14, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_ROCK_GROTTO, 14, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_CRACKED_WALL, 15, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_SCRUB, 11, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_BLOCKED_EXIT, 11, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_POTS, 9, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_POT_GROTTO_EXIT, 9, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_CENTRAL, 9, false },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_FAR_PLATFORM, 9, true },
+    { RR_DMC_TEMPLE_ENTRY, RR_DMC_TEMPLE_EXIT, 0, false },
+};
+
+/** One Piece of Heart from one entry region at its heart threshold (DT). */
+struct DmcCheckThreshold {
+    RandomizerRegion region;
+    RandomizerCheck check;
+    uint8_t hearts;
+};
+
+// The wall PoH with Climb (Shuffle Climb off) and the Hover Boots; the volcano PoH
+// under RT_DMC_HOVER_BEAN_POH with the Hover Boots (DMCPadToPots holds).
+const DmcCheckThreshold kDmcWallThresholds[] = {
+    { RR_DMC_UPPER_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 3 },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 2 },
+    { RR_DMC_BLOCKED_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 5 },
+    { RR_DMC_POTS_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 8 },
+    { RR_DMC_POT_GROTTO_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 8 },
+    { RR_DMC_PAD_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 8 },
+    { RR_DMC_TEMPLE_ENTRY, RC_DMC_WALL_FREESTANDING_POH, 14 },
+};
+const DmcCheckThreshold kDmcVolcanoThresholds[] = {
+    { RR_DMC_UPPER_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 5 },
+    { RR_DMC_ROCKS_GROTTO_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 5 },
+    { RR_DMC_BLOCKED_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 3 },
+    { RR_DMC_POTS_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 2 },
+    { RR_DMC_POT_GROTTO_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 3 },
+    { RR_DMC_PAD_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 5 },
+    { RR_DMC_TEMPLE_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, 11 },
+};
+
+/** ResetLogic with `hearts` heart containers (Logic::Reset seeds health from Starting Hearts). */
+void DmcResetHearts(const std::shared_ptr<Rando::Context>& randoCtx, uint8_t hearts) {
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(hearts - 1);
+    ResetLogic();
+}
+
+/** The Longshot and both halves of the scarecrow's song: ReachDistantScarecrow. */
+void DmcGiveDistantScarecrow() {
+    GiveHookshot(true);
+    logic->Set(LOGIC_CHILD_SCARECROW, true);
+    logic->Set(LOGIC_ADULT_SCARECROW, true);
+}
+
+/** The adult the DT rows assume, with `hearts` hearts. */
+void DmcResetHoverAdult(const std::shared_ptr<Rando::Context>& randoCtx, uint8_t hearts, bool scarecrow) {
+    DmcResetHearts(randoCtx, hearts);
+    Give(RG_HOVER_BOOTS);
+    if (scarecrow) {
+        DmcGiveDistantScarecrow();
+    }
+}
+
+void DmcExpectExitAt(const std::shared_ptr<Rando::Context>& randoCtx, const DmcExitThreshold& row) {
+    const uint8_t open = row.hearts == 0 ? 1 : row.hearts;
+    char leg[192];
+    DmcResetHoverAdult(randoCtx, open, row.scarecrow);
+    snprintf(leg, sizeof(leg), "DT %s -> %s, adult with Hover Boots%s, %d heart(s)",
+             RegionTable(row.from)->regionName.c_str(), RegionTable(row.to)->regionName.c_str(),
+             row.scarecrow ? ", Longshot and scarecrow" : "", (int)open);
+    ExpectExit(leg, row.from, row.to, true, true, "the exit stays closed at its heart threshold (7522f31cc)");
+    if (row.hearts > 1) {
+        DmcResetHoverAdult(randoCtx, row.hearts - 1, row.scarecrow);
+        snprintf(leg, sizeof(leg), "DT %s -> %s, adult with Hover Boots%s, %d heart(s)",
+                 RegionTable(row.from)->regionName.c_str(), RegionTable(row.to)->regionName.c_str(),
+                 row.scarecrow ? ", Longshot and scarecrow" : "", (int)row.hearts - 1);
+        ExpectExit(leg, row.from, row.to, true, false, "the exit opens one heart below its threshold (7522f31cc)");
+    }
+}
+
+void DmcExpectCheckAt(const std::shared_ptr<Rando::Context>& randoCtx, const DmcCheckThreshold& row) {
+    char leg[192];
+    for (int below = 0; below < 2; below++) {
+        const uint8_t hearts = row.hearts - below;
+        DmcResetHoverAdult(randoCtx, hearts, false);
+        snprintf(leg, sizeof(leg), "DT %s from %s, adult with Hover Boots, %d heart(s)",
+                 Rando::StaticData::GetLocation(row.check)->GetName().c_str(),
+                 RegionTable(row.region)->regionName.c_str(), (int)hearts);
+        ExpectAt(leg, row.region, row.check, true, below == 0,
+                 below == 0 ? "the Piece of Heart is out of logic at its heart threshold (7522f31cc)"
+                            : "the Piece of Heart is in logic one heart below its threshold (7522f31cc)");
+    }
+}
+
+/** The exit of `from` that leads to `to`, or none. */
+const Rando::Entrance* DmcFindExit(RandomizerRegion from, RandomizerRegion to) {
+    for (const Rando::Entrance& exit : RegionTable(from)->exits) {
+        if (exit.GetConnectedRegionKey() == to) {
+            return &exit;
+        }
+    }
+    return nullptr;
+}
+
+/** One row of entrance.cpp's table the refactor moved (DE). */
+struct DmcEntranceRow {
+    Rando::EntranceType type;
+    RandomizerRegion parent;
+    RandomizerRegion connected;
+    int16_t index;
+    RandomizerRegion reverseParent; // RR_NONE: NO_RETURN_ENTRANCE
+    RandomizerRegion reverseConnected;
+    int16_t reverseIndex;
+};
+
+// Upstream develop's rows (soh/soh/Enhancements/randomizer/entrance.cpp), with
+// eca767dcb's Fire Temple reverse (RR_DMC_TEMPLE_ENTRY).
+const DmcEntranceRow kDmcEntranceRows[] = {
+    { Rando::EntranceType::Dungeon, RR_DMC_TEMPLE_EXIT, RR_FIRE_TEMPLE_ENTRYWAY, ENTR_FIRE_TEMPLE_ENTRANCE,
+      RR_FIRE_TEMPLE_ENTRYWAY, RR_DMC_TEMPLE_ENTRY, ENTR_DEATH_MOUNTAIN_CRATER_OUTSIDE_TEMPLE },
+    { Rando::EntranceType::Interior, RR_DMC_BLOCKED_EXIT, RR_DMC_GREAT_FAIRY_FOUNTAIN,
+      ENTR_GREAT_FAIRYS_FOUNTAIN_MAGIC_DMC, RR_DMC_GREAT_FAIRY_FOUNTAIN, RR_DMC_BLOCKED_ENTRY,
+      ENTR_DEATH_MOUNTAIN_CRATER_GREAT_FAIRY_EXIT },
+    { Rando::EntranceType::GrottoGrave, RR_DMC_POT_GROTTO_EXIT, RR_DMC_SCRUB_GROTTO,
+      ENTRANCE_GROTTO_LOAD(GROTTO_DMC_HAMMER_OFFSET), RR_DMC_SCRUB_GROTTO, RR_DMC_POT_GROTTO_ENTRY,
+      ENTRANCE_GROTTO_EXIT(GROTTO_DMC_HAMMER_OFFSET) },
+    { Rando::EntranceType::GrottoGrave, RR_DMC_ROCK_GROTTO, RR_DMC_UPPER_GROTTO,
+      ENTRANCE_GROTTO_LOAD(GROTTO_DMC_UPPER_OFFSET), RR_DMC_UPPER_GROTTO, RR_DMC_ROCKS_GROTTO_ENTRY,
+      ENTRANCE_GROTTO_EXIT(GROTTO_DMC_UPPER_OFFSET) },
+    { Rando::EntranceType::Overworld, RR_GC_DARUNIAS_CHAMBER, RR_DMC_POTS_ENTRY, ENTR_DEATH_MOUNTAIN_CRATER_GC_EXIT,
+      RR_DMC_POTS, RR_GC_DARUNIAS_CHAMBER, ENTR_GORON_CITY_DARUNIA_ROOM_EXIT },
+    { Rando::EntranceType::Overworld, RR_DEATH_MOUNTAIN_SUMMIT, RR_DMC_UPPER_ENTRY,
+      ENTR_DEATH_MOUNTAIN_CRATER_UPPER_EXIT, RR_DMC_CRATE, RR_DEATH_MOUNTAIN_SUMMIT,
+      ENTR_DEATH_MOUNTAIN_TRAIL_SUMMIT_EXIT },
+    { Rando::EntranceType::WarpSong, RR_BOLERO_OF_FIRE_WARP, RR_DMC_PAD_ENTRY, ENTR_DEATH_MOUNTAIN_CRATER_WARP_PAD,
+      RR_NONE, RR_NONE, 0 },
+    { Rando::EntranceType::BlueWarp, RR_FIRE_TEMPLE_BOSS_ROOM, RR_DMC_PAD_ENTRY,
+      ENTR_DEATH_MOUNTAIN_CRATER_FIRE_TEMPLE_BLUE_WARP, RR_NONE, RR_NONE, 0 },
+};
+
+void DmcExpectEntranceRow(const DmcEntranceRow& row) {
+    const std::string name = RegionTable(row.parent)->regionName + " -> " + RegionTable(row.connected)->regionName;
+    const Rando::Entrance* exit = DmcFindExit(row.parent, row.connected);
+    if (exit == nullptr) {
+        GateFail("DE %s: the region graph has no such exit", name.c_str());
+        return;
+    }
+    bool ok = true;
+    if (exit->GetIndex() != row.index || exit->GetType() != row.type) {
+        GateFail("DE %s: the table stamped index 0x%04X type %d, upstream's row is 0x%04X type %d", name.c_str(),
+                 (unsigned)(uint16_t)exit->GetIndex(), (int)exit->GetType(), (unsigned)(uint16_t)row.index,
+                 (int)row.type);
+        ok = false;
+    }
+    const Rando::Entrance* reverse = exit->GetReverse();
+    if (row.reverseParent == RR_NONE) {
+        if (reverse != nullptr) {
+            GateFail("DE %s: a one-way row came back bound to a reverse", name.c_str());
+            ok = false;
+        }
+    } else if (reverse == nullptr || reverse->GetParentRegionKey() != row.reverseParent ||
+               reverse->GetConnectedRegionKey() != row.reverseConnected || reverse->GetIndex() != row.reverseIndex ||
+               reverse->GetType() != row.type) {
+        GateFail("DE %s: the reverse is %d -> %d index 0x%04X, upstream's is %d -> %d index 0x%04X", name.c_str(),
+                 reverse != nullptr ? (int)reverse->GetParentRegionKey() : -1,
+                 reverse != nullptr ? (int)reverse->GetConnectedRegionKey() : -1,
+                 reverse != nullptr ? (unsigned)(uint16_t)reverse->GetIndex() : 0u, (int)row.reverseParent,
+                 (int)row.reverseConnected, (unsigned)(uint16_t)row.reverseIndex);
+        ok = false;
+    }
+    if (ok) {
+        printf("[TEST]   ok: DE %s: index 0x%04X%s\n", name.c_str(), (unsigned)(uint16_t)row.index,
+               row.reverseParent == RR_NONE ? ", one way" : ", reverse bound");
+    }
+}
+
+void RunDmcRefactorLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    uint8_t savedTricks[sizeof(kDmcForcedTricks) / sizeof(kDmcForcedTricks[0])];
+    for (size_t i = 0; i < sizeof(kDmcForcedTricks) / sizeof(kDmcForcedTricks[0]); i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kDmcForcedTricks[i]).Get();
+        randoCtx->GetTrickOption(kDmcForcedTricks[i]).Set(0);
+    }
+    const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedDungeonEr = randoCtx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).Get();
+    const uint8_t savedBunnyHood = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const uint8_t savedSkipBeans = randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Get();
+    const uint8_t savedStartingBeans = randoCtx->GetOption(RSK_STARTING_BEANS).Get();
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(0);
+    randoCtx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).Set(RO_DUNGEON_ENTRANCE_SHUFFLE_OFF);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_STARTING_BEANS).Set(RO_GENERIC_OFF);
+
+    // ---- DX: every region the refactor adds is built ---------------------------
+    int unbuilt = 0;
+    for (int r = RR_DMC_UPPER_ENTRY; r <= RR_DMC_SCRUB_GROTTO; r++) {
+        if (RegionTable((RandomizerRegion)r)->regionName.empty()) {
+            GateFail("DX region %d: RegionTable_Init built no crater region for it", r);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: DX the crater's %d regions are built\n",
+               (int)(RR_DMC_SCRUB_GROTTO - RR_DMC_UPPER_ENTRY + 1));
+    }
+
+    // ---- DT: each exit and each Piece of Heart at its heart threshold ------------
+    DmcResetHearts(randoCtx, 3);
+    if (!logic->HasItem(RG_CLIMB) || logic->Health() != 3 * 16 || logic->FireTimer() != 0) {
+        GateFail("DT: the reset holds Climb %d, health %d, heat timer %d (expected Climb, 48, 0), so the "
+                 "thresholds are not what the legs measure",
+                 logic->HasItem(RG_CLIMB) ? 1 : 0, (int)logic->Health(), (int)logic->FireTimer());
+    }
+    for (const DmcExitThreshold& row : kDmcExitThresholds) {
+        DmcExpectExitAt(randoCtx, row);
+    }
+    for (const DmcCheckThreshold& row : kDmcWallThresholds) {
+        DmcExpectCheckAt(randoCtx, row);
+    }
+    randoCtx->GetTrickOption(RT_DMC_HOVER_BEAN_POH).Set(1);
+    for (const DmcCheckThreshold& row : kDmcVolcanoThresholds) {
+        DmcExpectCheckAt(randoCtx, row);
+    }
+    randoCtx->GetTrickOption(RT_DMC_HOVER_BEAN_POH).Set(0);
+    DmcResetHoverAdult(randoCtx, 20, false);
+    ExpectAt("DT volcano PoH from the upper entry, adult with Hover Boots, 20 hearts, RT_DMC_HOVER_BEAN_POH off",
+             RR_DMC_UPPER_ENTRY, RC_DMC_VOLCANO_FREESTANDING_POH, true, false,
+             "the hover to the volcano Piece of Heart is in logic without its trick");
+
+    // ---- DF: the heat timer side of each threshold ---------------------------------
+    DmcResetHoverAdult(randoCtx, 1, false);
+    Give(RG_GORON_TUNIC);
+    ExpectExit("DF1 DMC upper entry to the centre, adult with Hover Boots and the Goron Tunic, one heart",
+               RR_DMC_UPPER_ENTRY, RR_DMC_CENTRAL, true, true, "the Goron Tunic does not lift the crater's heat");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    DmcResetHoverAdult(randoCtx, 8, false);
+    ExpectExit("DF2 DMC upper entry to the centre, adult with Hover Boots, 8 hearts, Fewer Tunic Requirements",
+               RR_DMC_UPPER_ENTRY, RR_DMC_CENTRAL, true, true,
+               "8 hearts (a 64-unit heat timer) do not cross the crater under Fewer Tunic Requirements");
+    DmcResetHoverAdult(randoCtx, 7, false);
+    ExpectExit("DF3 DMC upper entry to the centre, adult with Hover Boots, 7 hearts, Fewer Tunic Requirements",
+               RR_DMC_UPPER_ENTRY, RR_DMC_CENTRAL, true, false,
+               "7 hearts (a 56-unit heat timer) cross the crater under Fewer Tunic Requirements");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+
+    // ---- DV: LOGIC_DMC_BOULDER ------------------------------------------------------
+    DmcResetHearts(randoCtx, 3);
+    FireEvents(RR_DMC_BLOCKED_EXIT, true);
+    ExpectEvent("DV1 DMC blocked exit, adult with nothing", LOGIC_DMC_BOULDER, false,
+                "the boulder breaks without the hammer");
+    Give(RG_MEGATON_HAMMER);
+    FireEvents(RR_DMC_BLOCKED_EXIT, true);
+    ExpectEvent("DV2 DMC blocked exit, adult with the hammer", LOGIC_DMC_BOULDER, true,
+                "the hammer does not break the boulder from the blocked exit (7522f31cc)");
+    DmcResetHearts(randoCtx, 3);
+    Give(RG_MEGATON_HAMMER);
+    FireEvents(RR_DMC_SCRUB, true);
+    ExpectEvent("DV3 DMC scrub ledge, adult with the hammer, RT_DMC_BOULDER_JS off", LOGIC_DMC_BOULDER, false,
+                "the scrub ledge breaks the boulder without the jumpslash trick");
+    randoCtx->GetTrickOption(RT_DMC_BOULDER_JS).Set(1);
+    FireEvents(RR_DMC_SCRUB, true);
+    ExpectEvent("DV4 DMC scrub ledge, adult with the hammer, RT_DMC_BOULDER_JS on", LOGIC_DMC_BOULDER, true,
+                "the jumpslash trick does not break the boulder from the scrub ledge (7522f31cc)");
+    randoCtx->GetTrickOption(RT_DMC_BOULDER_JS).Set(0);
+
+    // ---- DU: DMCUpperToPots, through the upper entry's blocked-exit branch (5 hearts) ----
+    DmcResetHearts(randoCtx, 5);
+    ExpectExit("DU1 DMC upper entry to the blocked exit, adult with nothing, 5 hearts", RR_DMC_UPPER_ENTRY,
+               RR_DMC_BLOCKED_EXIT, true, false, "the upper entry reaches the blocked exit past the boulder");
+    logic->Set(LOGIC_DMC_BOULDER, true);
+    ExpectExit("DU2 DMC upper entry to the blocked exit, adult, boulder broken, 5 hearts", RR_DMC_UPPER_ENTRY,
+               RR_DMC_BLOCKED_EXIT, true, true, "a broken boulder does not open the way down (7522f31cc)");
+    DmcResetHearts(randoCtx, 5);
+    randoCtx->GetTrickOption(RT_DMC_BOULDER_SKIP).Set(1);
+    ExpectExit("DU3 DMC upper entry to the blocked exit, adult, RT_DMC_BOULDER_SKIP, 5 hearts", RR_DMC_UPPER_ENTRY,
+               RR_DMC_BLOCKED_EXIT, true, true, "the boulder skip does not open the way down (7522f31cc)");
+    ExpectExit("DU4 DMC upper entry to the blocked exit, child, RT_DMC_BOULDER_SKIP, 5 hearts", RR_DMC_UPPER_ENTRY,
+               RR_DMC_BLOCKED_EXIT, false, false, "the boulder skip is a child's");
+    randoCtx->GetTrickOption(RT_DMC_BOULDER_SKIP).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(4);
+    ResetLogicWithBunnyHood();
+    BhlExitOffOn(randoCtx, "DU5 DMC upper entry to the blocked exit, child with the hood, 5 hearts, setting off",
+                 "DU6 DMC upper entry to the blocked exit, child with the hood, 5 hearts, setting on",
+                 RR_DMC_UPPER_ENTRY, RR_DMC_BLOCKED_EXIT);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- DP: DMCPotsToPad, through the blocked entry's centre branch (8 hearts) --------
+    DmcResetHearts(randoCtx, 8);
+    ExpectExit("DP1 DMC blocked entry to the centre, adult with nothing, 8 hearts", RR_DMC_BLOCKED_ENTRY,
+               RR_DMC_CENTRAL, true, false, "the bridge's gap is crossed with nothing");
+    GiveHookshot(false);
+    ExpectExit("DP2 DMC blocked entry to the centre, adult with the Hookshot, 8 hearts", RR_DMC_BLOCKED_ENTRY,
+               RR_DMC_CENTRAL, true, true, "the Hookshot does not cross the bridge's gap (7522f31cc)");
+    DmcResetHearts(randoCtx, 8);
+    Give(RG_HYLIAN_SHIELD);
+    randoCtx->GetTrickOption(RT_DMC_BOLERO_JUMP).Set(1);
+    ExpectExit("DP3 DMC blocked entry to the centre, adult, shield, RT_DMC_BOLERO_JUMP, no Power Bracelet, 8 hearts",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, false, "the pot jump is in logic without lifting the pot");
+    GiveGrab();
+    ExpectExit("DP4 DMC blocked entry to the centre, adult, shield, Power Bracelet, RT_DMC_BOLERO_JUMP, 8 hearts",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, true,
+               "the pot jump with a shield and the Power Bracelet does not cross the gap (7522f31cc)");
+    randoCtx->GetTrickOption(RT_DMC_BOLERO_JUMP).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(7);
+    ResetLogicWithBunnyHood();
+    BhlExitOffOn(randoCtx, "DP5 DMC blocked entry to the centre, child with the hood and Climb, 8 hearts, setting off",
+                 "DP6 DMC blocked entry to the centre, child with the hood and Climb, 8 hearts, setting on",
+                 RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- DQ, DB: DMCPadToPots and the bean, through the pad entry's pots exit (3 hearts) ----
+    DmcResetHearts(randoCtx, 3);
+    ExpectExit("DQ1 DMC pad entry to the pots, adult with nothing, 3 hearts", RR_DMC_PAD_ENTRY, RR_DMC_POTS, true,
+               false, "the pad reaches the pots with nothing");
+    GiveHookshot(false);
+    ExpectExit("DQ2 DMC pad entry to the pots, adult with the Hookshot, 3 hearts", RR_DMC_PAD_ENTRY, RR_DMC_POTS, true,
+               true, "the Hookshot does not cross back from the pad (7522f31cc)");
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    MaaResetAdultWithHood();
+    GiveClimb();
+    MaaExitOffOn(randoCtx, "DQ3 DMC pad entry to the pots, adult with the hood and Climb, Masks as Adult off",
+                 "DQ4 DMC pad entry to the pots, adult with the hood and Climb, Masks as Adult on", RR_DMC_PAD_ENTRY,
+                 RR_DMC_POTS);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    DmcResetHearts(randoCtx, 3);
+    Give(RG_DEATH_MOUNTAIN_CRATER_BEAN_SOUL);
+    randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_STARTING_BEANS).Set(RO_GENERIC_ON);
+    ExpectExit("DB1 DMC pad entry to the pots, adult, the bean planted, 3 hearts", RR_DMC_PAD_ENTRY, RR_DMC_POTS, true,
+               true, "the planted bean does not carry an adult from the pad to the pots (7522f31cc)");
+    ExpectExit("DB2 DMC pad entry to the pots, child, the bean planted, 3 hearts", RR_DMC_PAD_ENTRY, RR_DMC_POTS, false,
+               false, "the bean's platform carries a child");
+    randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_STARTING_BEANS).Set(RO_GENERIC_OFF);
+
+    // ---- DD: DMCUpperToPad, the scarecrow jump from the upper entry (9 hearts) -----------
+    DmcResetHearts(randoCtx, 9);
+    DmcGiveDistantScarecrow();
+    ExpectExit("DD1 DMC upper entry to the temple exit, adult with Longshot and scarecrow, 9 hearts, trick off",
+               RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, true, false,
+               "the scarecrow jump to the pad is in logic without RT_UNINTUITIVE_JUMPS");
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(1);
+    ExpectExit("DD2 DMC upper entry to the temple exit, adult with Longshot and scarecrow, 9 hearts, trick on",
+               RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, true, true,
+               "the scarecrow jump to the pad is out of logic with RT_UNINTUITIVE_JUMPS (ec27775e8)");
+    DmcResetHearts(randoCtx, 8);
+    DmcGiveDistantScarecrow();
+    ExpectExit("DD3 DMC upper entry to the temple exit, adult with Longshot and scarecrow, 8 hearts, trick on",
+               RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, true, false,
+               "the scarecrow jump to the pad is in logic with 8 hearts");
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(0);
+
+    // ---- DC: a child reaches the temple exit only under dungeon entrance shuffle ------
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(13);
+    ResetLogicWithBunnyHood();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("DC1 DMC upper entry to the temple exit, child with the hood, 14 hearts, dungeon shuffle off",
+               RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, false, false,
+               "a child walks into the Fire Temple with dungeon entrance shuffle off");
+    randoCtx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).Set(RO_DUNGEON_ENTRANCE_SHUFFLE_ON);
+    ExpectExit("DC2 DMC upper entry to the temple exit, child with the hood, 14 hearts, dungeon shuffle on",
+               RR_DMC_UPPER_ENTRY, RR_DMC_TEMPLE_EXIT, false, true,
+               "a child cannot reach the temple door under dungeon entrance shuffle (7522f31cc)");
+    randoCtx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).Set(RO_DUNGEON_ENTRANCE_SHUFFLE_OFF);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- DE: entrance.cpp's rows (SetAllEntrancesData stamps them on the live graph) ----
+    // Every exit a row names is looked up first: SetAllEntrancesData asserts on a
+    // missing one, so a renamed exit fails here by name instead of crashing.
+    bool graphHoldsRows = true;
+    for (const DmcEntranceRow& row : kDmcEntranceRows) {
+        if (DmcFindExit(row.parent, row.connected) == nullptr ||
+            (row.reverseParent != RR_NONE && DmcFindExit(row.reverseParent, row.reverseConnected) == nullptr)) {
+            GateFail("DE %d -> %d: a region of the row has no exit to the region upstream's row names", (int)row.parent,
+                     (int)row.connected);
+            graphHoldsRows = false;
+        }
+    }
+    if (graphHoldsRows) {
+        Rando::SetAllEntrancesData();
+        for (const DmcEntranceRow& row : kDmcEntranceRows) {
+            DmcExpectEntranceRow(row);
+        }
+    }
+
+    for (size_t i = 0; i < sizeof(kDmcForcedTricks) / sizeof(kDmcForcedTricks[0]); i++) {
+        randoCtx->GetTrickOption(kDmcForcedTricks[i]).Set(savedTricks[i]);
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_DUNGEON_ENTRANCES).Set(savedDungeonEr);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunnyHood);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Set(savedSkipBeans);
+    randoCtx->GetOption(RSK_STARTING_BEANS).Set(savedStartingBeans);
+}
+
 // ---- #1404: LOGIC_TALON/MALON_RETURNED_FROM_CASTLE, the events A and B read --
 // Each leg fires one region's own events (FireEvents) and reads the event; a
 // "not set" leg holds everything its line asks but the one term it locks.
@@ -2558,6 +3078,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunHookshotLaddersLegs(randoCtx);
     // ---- Y..Z: health in 16-per-heart units, the DMT rockfall (#1397) -------
     RunHealthLegs(randoCtx);
+    // ---- DX..DE: the Death Mountain Crater refactor (#1647 O28, SoH 7522f31cc) --
+    RunDmcRefactorLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----

@@ -1622,11 +1622,13 @@ void Settings::CreateOptions() {
               "niether are any form of clips, including clipping Link's hitbox inside boulders with jumpslash.");
     OPT_TRICK(RT_GROTTOS_WITHOUT_AGONY, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE },
               "Hidden Grottos without Stone of Agony", "Allows entering hidden grottos without the Stone of Agony.");
-    OPT_TRICK(RT_FEWER_TUNIC_REQUIREMENTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE },
-              "Fewer Tunic Requirements",
-              "Allows the following possible without Tunics:\n- Enter Water Temple. The area below the center pillar "
-              "still requires Zora Tunic. Applies to MQ also.\n- Enter Fire Temple. Volvagia still requires Goron "
-              "Tunic. Applies to MQ also, and includes child access to first floor with dungeon shuffle.");
+    OPT_TRICK(
+        RT_FEWER_TUNIC_REQUIREMENTS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::INTERMEDIATE }, "Fewer Tunic Requirements",
+        "Normally the only hot area logic expects you to navigate without a Goron Tunic is Death Mountain Crater\n"
+        "and you are not expected to navigate underwater sections without a Zora Tunic.\n\n"
+        "With this trick you are expected to do any underwater area except Central Pillar,\n"
+        "any hot area except Volvagia and the Block lift room in Fire Temple\n"
+        "and the health needed to logically navigate Crater is decreased.");
     OPT_TRICK(RT_UNINTUITIVE_JUMPS, RCQUEST_BOTH, RA_NONE, { Tricks::Tag::NOVICE }, "Unintuitive Jumps",
               "Many ledges can be overcome with particular jumps which are simple to execute without items.\n"
               "This includes jumping from heights to dive deeper without scales,\n"
