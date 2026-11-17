@@ -61,6 +61,7 @@ int OoT_ComboLogic_TestEnsureItemTableTransient(void);
 int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
 int OoT_ComboLogic_TestHostAcceptsForeign(uint16_t rc);
 int OoT_ComboLogic_TestRandoContextExists(void);
+const ComboLogicEngine* OoT_ComboLogic_TestEngine(void);
 int OoT_ComboLogic_ClassifyItem(uint16_t id, ComboItemClassRow* out);
 }
 
@@ -375,7 +376,10 @@ extern "C" int OoT_ChestSilverConfinementTest_Run(void) {
         return 1;
     }
 
-    const ComboLogicEngine* oot = Combo_Logic_GetEngine(GAME_OOT);
+    // The engine itself, not the registry's entry: inside `--test all` the stub rows
+    // of combo-logic have unregistered Ocarina of Time's engine by the time this row
+    // runs (the row passed alone and failed there at the local gate).
+    const ComboLogicEngine* oot = OoT_ComboLogic_TestEngine();
     CSC_CHECK(oot != nullptr && oot->hostGroups != nullptr && oot->wideGroups != nullptr,
               "OoT ComboLogicEngine is missing hostGroups or wideGroups");
     if (oot != nullptr && oot->hostGroups != nullptr && oot->wideGroups != nullptr) {

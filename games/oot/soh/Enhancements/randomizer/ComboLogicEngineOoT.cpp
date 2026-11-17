@@ -1850,6 +1850,14 @@ extern "C" int OoT_ComboLogic_TestLastSongChecksJunked(int* outPadded) {
 // re-implements a rule — the locks drive the REAL vtable above through
 // Combo_Logic_GetEngine(GAME_OOT).
 
+/** OoT's own engine vtable, whatever the coordinator's registry holds right now (a
+ *  stub row earlier in `--test all` may have unregistered it), as
+ *  MM_ComboLogic_TestEngine is for Majora's Mask. For ROM-free rows that run inside
+ *  `--test all` (#1530). */
+extern "C" const ComboLogicEngine* OoT_ComboLogic_TestEngine(void) {
+    return &kOoTComboLogicEngine;
+}
+
 /** RC_MAX: the range the enumerations walk. Printed by the lock for context; it is
  *  NOT the sizing fact (see OoT_ComboLogic_TestOwnedHostCount, which is). */
 extern "C" int OoT_ComboLogic_TestCheckIdSpace(void) {
