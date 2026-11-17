@@ -441,7 +441,9 @@ static void ReenterAfterRefusedSwitch(GameRunner* runner) {
 // Covers the window before the Ship::Context singleton exists, which is the
 // only stretch src/common/headless_crash.cpp cannot reach (it needs a context
 // to claim libultraship's handler from). Once HeadlessCrash_ClaimAndInstall
-// runs below, these are superseded.
+// runs below, these are superseded; a --test or --integration-test process
+// supersedes them at once, through HeadlessCrash_InstallForTestMode (#1690).
+// What they print for a normal run is unchanged.
 // ============================================================================
 
 #ifndef _WIN32
@@ -619,6 +621,14 @@ int main(int argc, char** argv) {
     // Check for unit test mode (--test)
     const char* testArg = TestRunner_ParseArgs(argc, argv);
     if (testArg != nullptr) {
+        // First, before any row runs: the headless crash handler, for every row
+        // (#1690). This branch exits before HeadlessCrash_ClaimAndInstall below,
+        // so a row that brings up no harness context had only the startup
+        // handler above, which printed the exception code and handed a Windows
+        // fault to the system's crash reporting. Now a fault prints the fault
+        // and up to sixteen frames as module+offset on stderr and exits 128 +
+        // the signal number. Locked by the crash-trace-module-offsets row.
+        HeadlessCrash_InstallForTestMode(); // every --test row (#1690)
         // Before any row can create a window: a test window is shown WITHOUT
         // activation, so a tier of ~180 processes never takes the keyboard from
         // the person at the workstation. Runs before the UI snapshot harness's own
@@ -658,6 +668,10 @@ int main(int argc, char** argv) {
         if (!TestRunner_SetupIntegrationTest(integrationTestArg)) {
             return 1; // Test not found
         }
+        // The same handler as --test above (#1690), from here rather than only
+        // from HeadlessCrash_ClaimAndInstall below: the stretch before the
+        // Ship::Context exists reports a fault the same way.
+        HeadlessCrash_InstallForTestMode();
         // Same policy as --test above: the integration tier boots the real game in
         // a window, and it must not take focus either. Set before the
         // Ship::Context below can create one.

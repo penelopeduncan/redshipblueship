@@ -4495,6 +4495,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # asserts it took no focus; with no display it reports and passes on the hint
     # halves. Default tier: SDL video only, no Fast3dWindow, no archive.
     redship_add_test(NAME TestWindowNoActivation COMMAND redship --test test-window-no-activation)
+    # #1690: a crash under --test prints the fault and up to sixteen frames as
+    # module+offset on stderr (src/common/headless_crash.cpp), for every row:
+    # main.cpp installs the headless handler at the top of its --test branch. The
+    # row runs itself again as a child that writes through a null pointer and
+    # reads its output: exit 139, the first [CRASH] line and exe_offset=, a fault
+    # line and at least two frames in redship. The child turns the Windows fault
+    # dialog and core dumps off first. ROM-free, display-free, no Ship::Context.
+    redship_add_test(NAME CrashTraceModuleOffsets COMMAND redship --test crash-trace-module-offsets)
     # #1152: test processes never play the operator's game controller. main.cpp
     # keeps SDL's joystick background events off in code over libultraship's "1"
     # (Gui.cpp:204) and hides every device from SDL (src/common/test_window_focus.h).
