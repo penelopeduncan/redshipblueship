@@ -39,6 +39,7 @@ games/mm/2s2h/DeveloperTools/SaveEditor.h
 games/mm/2s2h/Enhancements/Audio/AudioCollection.h
 games/mm/2s2h/Enhancements/Audio/AudioEditor.h
 games/mm/2s2h/Enhancements/Cycle/MayorArguesUntilMoonfall.cpp
+games/mm/2s2h/Enhancements/Equipment/ActiveItemOnB.cpp
 games/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h
 games/mm/2s2h/Enhancements/Items/HotWaterNeverCools.cpp
 games/mm/2s2h/Enhancements/Player/FasterHookshot.cpp

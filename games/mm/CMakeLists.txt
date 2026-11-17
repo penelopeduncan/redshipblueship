@@ -500,7 +500,10 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Equipment/TwoHandedSwordSpinAttack.cpp"
         "2s2h/Enhancements/Equipment/BetterPictoMessage.cpp"
         "2s2h/Enhancements/Equipment/ChuDrops.cpp"
-        "2s2h/Enhancements/Equipment/GreatFairySwordBButton.cpp"
+        # 2Ship #1870, replaced Great Fairy Sword B-Button Attack; rides VB_GET_ITEM_ON_BUTTON (B, C and D-pad, from
+        # z_player_lib.c), VB_EXIT_FIRST_PERSON_MODE_FROM_BUTTON (z_player.c) and OnActorUpdate[ACTOR_PLAYER]; its
+        # bodies are guarded.
+        "2s2h/Enhancements/Equipment/ActiveItemOnB.cpp"
         # #1015
         "2s2h/Enhancements/Equipment/ItemUnequip.cpp"
         # #1016

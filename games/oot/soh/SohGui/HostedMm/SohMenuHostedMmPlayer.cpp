@@ -15,9 +15,9 @@
  *    (kMustStayDistinct): SoH adds an offset (+0-12), MM multiplies (1-5x). Faster Push/Pull right after SoH's Block
  *    Pushing Speed, its nearest relative (one switch over every pushed and pulled object, not a speed step). A
  *    "Majora's Mask" block at the end of the section for Fast Deku Flower Launch and Fierce Deity Putaway.
- *  - Items > Equipment: a "Majora's Mask" block (Two-Handed Sword Spin Attack, Great Fairy Sword B-Button Attack,
- *    Better Picto Message, and since 2Ship #1989 Hot Water Never Cools, an Items row in 2Ship with no SoH twin:
- *    Ocarina of Time has no Hot Spring Water).
+ *  - Items > Equipment: a "Majora's Mask" block (Two-Handed Sword Spin Attack, Active Item on B (2Ship #1870,
+ *    replacing Great Fairy Sword B-Button Attack), Better Picto Message, and since 2Ship #1989 Hot Water Never Cools,
+ *    an Items row in 2Ship with no SoH twin: Ocarina of Time has no Hot Spring Water).
  *  - Items > Boomerang: Instant Fin Boomerangs Recall right after SoH's Instant Boomerang Recall, its nearest relative
  *    (Zora Link's fins and the B button, not the Boomerang and its item button).
  *  - Items > Hookshot: since 2Ship #1951 a "Majora's Mask" block at the end of the section, after SoH's Targetable
@@ -26,8 +26,9 @@
  *    weighs what Link carries and an Ocarina of Time seed can force it on; MM's gives a Bomb drop an even chance to
  *    be a Bombchu, and in the single exe only once Link has Bombchus (review H1: the Bombchu count is a shared
  *    progression quantity, so the row must never hand out Bombchus the seed has not given).
- * Fierce Deity Putaway and Great Fairy Sword B-Button Attack touch only how the held sword is put away or swung; no
- * mask the combo owns is read or written.
+ * Fierce Deity Putaway touches only how the held sword is put away; Active Item on B touches the B button's item
+ * while one of four items is held, and putting that item away from its own C or D-pad button (it reads the worn mask
+ * only to step aside for the Blast, Bremen and Kamaro Masks, and it writes no mask).
  */
 
 #include "SohMenuHostedMm.h"
@@ -95,11 +96,11 @@ void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)
         .Options(UIWidgets::CheckboxOptions().Tooltip("Enables magic spin attacks with the Fierce Deity's Sword and "
                                                       "the Great Fairy's Sword. Majora's Mask only."));
-    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Great Fairy Sword B-Button Attack", WIDGET_CVAR_CHECKBOX)
-        .CVar(RSBS_CVAR_MM_EQUIPMENT_GREAT_FAIRY_SWORD_B_BUTTON)
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Active Item on B", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
-            "Makes B attack with the Great Fairy's Sword while it is held, instead of drawing your equipped sword. "
-            "A still puts it away. Majora's Mask only."));
+            "Press B to use the item currently held by Link (Bow, Hookshot, Great Fairy's Sword and Deku Stick). "
+            "Second press on item unequips it. Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Better Picto Message", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)
         .Options(UIWidgets::CheckboxOptions().Tooltip(

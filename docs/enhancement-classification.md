@@ -720,7 +720,7 @@ holds each binding.
 | `gEnhancements.Player.FastFlowerLaunch` | off | Fast Deku Flower Launch (Animations, Majora's Mask block) | (O) MM-only: Deku Link |
 | `gEnhancements.Player.FierceDeityPutaway` | off | Fierce Deity Putaway (likewise) | (O) MM-only; acts on the held sword only, never on a mask the combo owns |
 | `gEnhancements.Equipment.TwoHandedSwordSpinAttack` | off | Two-Handed Sword Spin Attack (Items > Equipment, Majora's Mask block) | (O) MM-only |
-| `gEnhancements.Equipment.GreatFairySwordBButton` | off | Great Fairy Sword B-Button Attack (likewise) | (O) MM-only; acts on the B button's item only, never on a mask the combo owns |
+| `gEnhancements.Equipment.ActiveItemOnB` | off | Active Item on B (likewise) | (O) MM-only; replaced Great Fairy Sword B-Button Attack (2Ship #1870). Acts on the B button's item while one of four items is held and on putting that item away from its C or D-pad button; reads the worn mask only to step aside for the Blast, Bremen and Kamaro Masks, and writes no mask |
 | `gEnhancements.Equipment.BetterPictoMessage` | off | Better Picto Message (likewise) | (O) MM-only |
 | `gEnhancements.PlayerActions.InstantRecall` | off | Instant Fin Boomerangs Recall (Items > Boomerang, after SoH's Instant Boomerang Recall) | (O) nearest relative only: Zora Link's fins on B, not the Boomerang on its item button |
 

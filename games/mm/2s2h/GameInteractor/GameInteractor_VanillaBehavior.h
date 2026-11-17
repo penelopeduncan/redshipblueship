@@ -661,6 +661,7 @@ typedef enum {
     // #### `args`
     // - `EquipSlot`
     // - `*ItemId`
+    // - `bool` (isDpad)
     VB_GET_ITEM_ON_BUTTON,
 
     // #### `result`
