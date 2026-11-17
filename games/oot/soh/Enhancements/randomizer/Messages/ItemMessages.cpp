@@ -15,7 +15,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "triforce_hunt.h" // src/common — #1389: the paired hunt's requirement, for the piece text
-#include "warp_song_items.h" // src/common — #1169 XW11: Combo_ForeignGameTag, one tag after the name
+#include "warp_song_items.h" // src/common — #1169 XW11: Combo_ForeignGameTag; #1698: Combo_SharedItemDisplayName
 #include "game.h"            // src/common — GAME_MM
 #endif
 
@@ -404,8 +404,10 @@ void BuildCustomItemMessage(Player* player, CustomMessage& msg) {
             break;
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
-    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
-    const char* sharedName = Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)rgid);
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous);
+    // #1698: through the either-word helper every other OoT text site asks, so a shared
+    // rule whose added OoT copy carries a tag is covered here too (today the same answer).
+    const char* sharedName = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid);
     CustomMessage name =
         sharedName != nullptr
             ? CustomMessage(std::string(sharedName), std::string(sharedName), std::string(sharedName),

@@ -1319,6 +1319,9 @@ TestResult Test_SharedWarpSongsMerge(void) {
         const std::string maskGive = src(kM, "ActorBehavior/DmChar05.cpp");
         const std::string fixedHints = src(kM, "HintSourcesSingleExe.cpp");
         const std::string merchants = src(kO, "Messages/MerchantMessages.cpp");
+        // #1698: the Skulltula house reward hints and the native get-item text.
+        const std::string staticHints = src(kO, "Messages/StaticHints.cpp");
+        const std::string itemMessages = src(kO, "Messages/ItemMessages.cpp");
         const std::string hintsOracle = src(kO, "3drando/menu.cpp");
         const std::string ootExports = SwsReadSource("games/oot/soh/GameExports_SingleExe.cpp");
         const std::string mmTrackerAdapter = src(kM, "TrackerAdapterSingleExe.cpp");
@@ -1339,6 +1342,11 @@ TestResult Test_SharedWarpSongsMerge(void) {
               "Combo_SharedItemDisplayName(crossed->originGame, crossed->id)" },
             { &hooks, "extern \"C\" void OoT_Rando_Foreign_EmitPickupToast(",
               "Combo_SharedItemDisplayName(item.originGame, item.id)" },
+            // #1698: OoT's native pickup toast (the get-item animation skipped), and the one call to it.
+            { &hooks, "static std::string Item00ToastItemName(uint16_t rgid",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, rgid)" },
+            { &hooks, "void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id",
+              "Item00ToastItemName((uint16_t)item00->itemEntry.getItemId, itemName)" },
             { &showOnly, "extern \"C\" int OoT_Rando_Foreign_ShowOnlyItemText(",
               "Combo_SharedItemDisplayName(sShowOnly.item.originGame, sShowOnly.item.id)" },
             { &queue, "std::string Rando::Foreign::ForeignPickupMessage(",
@@ -1373,6 +1381,15 @@ TestResult Test_SharedWarpSongsMerge(void) {
               "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
             { &merchants, "static bool BuildForeignHostMessage(CustomMessage& msg, RandomizerCheck rc) {",
               "Combo_SharedItemDisplayName(presented.originGame, presented.id)" },
+            // #1698: the Skulltula house reward hints (both builders name through one
+            // helper) and the get-item text a compass and every native item read.
+            { &staticHints, "static CustomMessage SkulltulaRewardItemName(RandomizerCheck rc) {",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)placed)" },
+            { &staticHints, "void BuildSkulltulaPeopleMessage(", "SkulltulaRewardItemName(rc)" },
+            { &staticHints, "void Build100SkullsHintMessage(",
+              "SkulltulaRewardItemName(RC_KAK_100_GOLD_SKULLTULA_REWARD)" },
+            { &itemMessages, "void BuildCustomItemMessage(Player* player",
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
             { &hint, "static std::string SpoilerItemName(",
               "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)items[c])" },
             { &hintsOracle, "static std::string PlacedItemEnglishName(",
