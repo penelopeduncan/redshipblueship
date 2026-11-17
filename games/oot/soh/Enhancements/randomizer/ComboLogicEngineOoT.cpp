@@ -1546,20 +1546,20 @@ void OoT_ComboLogic_AcceptTravelFacts(void* self, uint32_t facts) {
 // RSBS_COMBO_BAG_HOME_ONLY) and the coordinator places them only on OoT hosts.
 // Answered only while at least one of the two options is on, so default worlds
 // leave hostGroups at 0 on every non-song check.
-constexpr uint32_t kCmg1530OoTGroupHomeOnly = 0x00000001u;
+constexpr uint32_t kOoTComboLogicHomeOnlyGroup = 0x00000001u;
 
-bool Cmg1530ChestGameActive() {
+bool OoTComboLogicChestGameConfined() {
     const auto ctx = Rando::Context::GetInstance();
     return ctx != nullptr && ctx->GetOption(RSK_SHUFFLE_CHEST_MINIGAME).IsNot(RO_GENERIC_OFF);
 }
 
-bool Cmg1530SilverActive() {
+bool OoTComboLogicSilverConfined() {
     const auto ctx = Rando::Context::GetInstance();
     return ctx != nullptr && ctx->GetOption(RSK_SHUFFLE_SILVER).IsNot(RO_SHUFFLE_SILVER_OFF);
 }
 
-bool Cmg1530OoTHomeGroupActive() {
-    return Cmg1530ChestGameActive() || Cmg1530SilverActive();
+bool OoTComboLogicHomeGroupArmed() {
+    return OoTComboLogicChestGameConfined() || OoTComboLogicSilverConfined();
 }
 
 /**
@@ -1569,7 +1569,7 @@ bool Cmg1530OoTHomeGroupActive() {
  *    a host never answers a local bit and a wide bit together (combo_logic.h), and
  *    song checks stay exclusive to songs.
  *  - Otherwise, when Shuffle Chest Minigame or Shuffle Silver Rupees is on (#1530),
- *    every remaining real OoT check answers kCmg1530OoTGroupHomeOnly so OoT's
+ *    every remaining real OoT check answers kOoTComboLogicHomeOnlyGroup so OoT's
  *    home-only chest-game keys and silver rupee items stay on OoT hosts.
  *  - With both options off, every non-song host answers 0u (identical to main).
  * A pure function of the static table and the frozen settings; no RNG.
@@ -1583,7 +1583,7 @@ uint32_t OoT_ComboLogic_HostGroups(void* self, uint16_t hostCheck) {
     if (OoT_SongCheckIndex(rc) >= 0 && OoT_ComboLogic_SongPoolUnion()) {
         return RSBS_COMBO_GROUP_SONG_LOCATIONS;
     }
-    return Cmg1530OoTHomeGroupActive() ? kCmg1530OoTGroupHomeOnly : 0u;
+    return OoTComboLogicHomeGroupArmed() ? kOoTComboLogicHomeOnlyGroup : 0u;
 }
 
 /** `wideGroups` (combo_logic.h ABI 11): the song group exactly while the shared
@@ -1755,10 +1755,10 @@ extern "C" uint32_t OoT_ComboLogic_ExcludedSongChecks(void) {
  *    Soaring (OoT) included) carries the combo-wide song group so the coordinator
  *    places it only on a song check of either game.
  *  - While Shuffle Chest Minigame is on (#1530), RG_TREASURE_GAME_SMALL_KEY and
- *    RG_TREASURE_GAME_KEY_RING carry kCmg1530OoTGroupHomeOnly so combo_single_bag.c
+ *    RG_TREASURE_GAME_KEY_RING carry kOoTComboLogicHomeOnlyGroup so combo_single_bag.c
  *    marks them RSBS_COMBO_BAG_HOME_ONLY and confines them to OoT hosts.
  *  - While Shuffle Silver Rupees is on (#1530), every ITEMTYPE_SILVER row (individual
- *    silver rupees and pouches alike) carries kCmg1530OoTGroupHomeOnly for the same
+ *    silver rupees and pouches alike) carries kOoTComboLogicHomeOnlyGroup for the same
  *    reason.
  *  - Every other row, and every non-song row while both options are off, carries 0u.
  */
@@ -1767,8 +1767,8 @@ extern "C" int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int cou
         return 0;
     }
     const bool songUnion = OoT_ComboLogic_SongPoolUnion();
-    const bool chestGameActive = Cmg1530ChestGameActive();
-    const bool silverActive = Cmg1530SilverActive();
+    const bool chestGameActive = OoTComboLogicChestGameConfined();
+    const bool silverActive = OoTComboLogicSilverConfined();
     int confined = 0;
     for (int i = 0; i < count; ++i) {
         uint32_t mask = 0u;
@@ -1778,9 +1778,9 @@ extern "C" int OoT_ComboLogic_PoolRowConfineMasks(const uint16_t* items, int cou
             if (songUnion && type == ITEMTYPE_SONG) {
                 mask = RSBS_COMBO_GROUP_SONG_LOCATIONS;
             } else if (chestGameActive && (rg == RG_TREASURE_GAME_SMALL_KEY || rg == RG_TREASURE_GAME_KEY_RING)) {
-                mask = kCmg1530OoTGroupHomeOnly;
+                mask = kOoTComboLogicHomeOnlyGroup;
             } else if (silverActive && type == ITEMTYPE_SILVER) {
-                mask = kCmg1530OoTGroupHomeOnly;
+                mask = kOoTComboLogicHomeOnlyGroup;
             }
         }
         out[i] = mask;
