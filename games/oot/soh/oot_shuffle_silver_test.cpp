@@ -47,12 +47,13 @@
  * IdentifySilver finds no check); with two rows given one flag M fails (shared);
  * with RegisterSilverLocations dropped from InitLocationTable, M's IdentifySilver
  * leg fails wherever the actor map was built before ShipInit registered the checks;
- * with the fold's skip removed at its call site F and P fail (lines folded); with the
- * classifier returning false F's and P's left-out count is 0; without the paired
- * pin P fails (pinned 0, the option on, a different fingerprint); with the menu
- * greying removed D fails; with the exclude list reading the stored ShuffleSilver
- * key again (randomizer_check_objects.cpp) D fails (silver rows listed while keyed
- * On); with the LOGIC_* silver events reordered against the
+ * with the fold's skip removed at its call site F fails (lines folded); with the
+ * classifier returning false F's left-out count is 0 and P's folded count is 0; with the paired pin put back
+ * P fails (the option generated off, no fold lines, the fingerprint unmoved, no
+ * silver checks or items in the pools); with the menu greying put back D fails;
+ * with the exclude list ignoring the stored ShuffleSilver key
+ * (randomizer_check_objects.cpp) D fails (silver rows hidden while keyed On, or
+ * listed while keyed Off); with the LOGIC_* silver events reordered against the
  * RG_* items (or one removed) L fails for the items past the change; with either
  * ShuffleSilver.cpp boulder literal reverted ("Southeast Boulder Super", "Notheast
  * Boulder Silver") N fails its shortName and spoiler name checks.
@@ -272,8 +273,8 @@ void CheckOption() {
             listedOff++;
         }
     }
-    SR_CHECK(vanillaSilver > 0 && listedOff == 0,
-             "D: keyed Off, the exclude list shows %d of %d vanilla silver checks", listedOff, vanillaSilver);
+    SR_CHECK(vanillaSilver > 0 && listedOff == 0, "D: keyed Off, the exclude list shows %d of %d vanilla silver checks",
+             listedOff, vanillaSilver);
 
     const int activeModes[] = { RO_SHUFFLE_SILVER_ON, RO_SHUFFLE_SILVER_WALLET, RO_SHUFFLE_SILVER_STARTWITH };
     for (int mode : activeModes) {
@@ -404,8 +405,8 @@ void CheckOffWorld(const char* leg, const FoldRecord& r, uint32_t expectedSkippe
     SR_CHECK(r.locations > 0 && r.silverLocations == 0,
              "%s: %zu of the world's %zu locations are silver checks, want none of a non-empty pool", leg,
              r.silverLocations, r.locations);
-    SR_CHECK(r.silverInPool == 0 && r.silverPlaced == 0,
-             "%s: %d silver rupee(s) entered ItemPool and %d were placed", leg, r.silverInPool, r.silverPlaced);
+    SR_CHECK(r.silverInPool == 0 && r.silverPlaced == 0, "%s: %d silver rupee(s) entered ItemPool and %d were placed",
+             leg, r.silverInPool, r.silverPlaced);
 }
 
 /** Legs F and P. Returns whether leg F's or P's generation ran (L reads its world). */

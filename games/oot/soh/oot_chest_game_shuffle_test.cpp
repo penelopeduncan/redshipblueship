@@ -48,13 +48,14 @@
  *     6 that word was past randomizerInf, over foreignMask; it is spare capacity now.)
  *
  * RED HALVES, derived, not run (this lane had no build): with the fold's skip
- * removed at its call site F and P fail (lines folded); with the classifier
- * returning false F's and P's left-out count is 0; without the paired pin P fails
- * (pinned 0, the option on, a different fingerprint, the room's checks in the
- * pool); with the check marked collected after its flag (or not at all), H1 and H2
- * see the check queued; with the give put back behind the flag guard (the shape
- * this PR first had), H2 sees no offer; with the menu greying removed or Key Rings
- * renamed, D fails; with the bound removed from Flags_SetRandomizerInf S1 fails
+ * removed at its call site F fails (lines folded); with the classifier returning
+ * false F's left-out count is 0 and P's folded count is 0; with the paired pin put
+ * back P fails (the option generated off, no fold lines, the fingerprint unmoved,
+ * none of the room's checks or keys in the pools); with the check marked collected
+ * after its flag (or not at all), H1 and H2 see the check queued; with the give put
+ * back behind the flag guard (the shape this PR first had), H2 sees no offer; with
+ * the menu greying put back, the keyring left disabled while the option is on, or
+ * Key Rings renamed, D fails; with the bound removed from Flags_SetRandomizerInf S1 fails
  * (foreignMask written), and from Flags_GetRandomizerInf S2 fails (it reads 1).
  * Flags_UnsetRandomizerInf's own bound is not separately observable: it writes only
  * after Flags_GetRandomizerInf reads the bit set, which that bound already stops.
@@ -261,8 +262,8 @@ void CheckOptions() {
             listedOff++;
         }
     }
-    CG_CHECK(chestChecks == 11 && listedOff == 0,
-             "D: keyed Off, the exclude list shows %d of %d chest-game checks", listedOff, chestChecks);
+    CG_CHECK(chestChecks == 11 && listedOff == 0, "D: keyed Off, the exclude list shows %d of %d chest-game checks",
+             listedOff, chestChecks);
 
     CVarSetInteger(kShuffleKey, RO_GENERIC_ON);
     settings->HandleKeyringUI();
@@ -279,8 +280,8 @@ void CheckOptions() {
            chestKeyring.IsDisabled() ? 1 : 0, countWhenOn, listedOn, chestChecks);
     CG_CHECK(!chestKeyring.IsDisabled(), "D: keyed On, Chest Minigame Keyring stayed disabled ('%s')",
              chestKeyring.GetDisabledText().c_str());
-    CG_CHECK(countWhenOn == countWhenOff + 1,
-             "D: keyed On, Keyring Count has %zu option(s), want %zu (off + 1)", countWhenOn, countWhenOff + 1);
+    CG_CHECK(countWhenOn == countWhenOff + 1, "D: keyed On, Keyring Count has %zu option(s), want %zu (off + 1)",
+             countWhenOn, countWhenOff + 1);
     CG_CHECK(listedOn == chestChecks, "D: keyed On, the exclude list shows %d of %d chest-game checks", listedOn,
              chestChecks);
 
@@ -543,7 +544,7 @@ void CheckShopkeeper(Rando::Context& world) {
     gSaveContext.ship.quest.id = QUEST_RANDOMIZER; // IS_RANDO, as a randomizer load leaves it
     shopkeeper->SetPlacedItem(RG_PIECE_OF_HEART);
     shopkeeper->SetCheckStatus(RCSHOW_UNCHECKED);
-    world.GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(RO_GENERIC_ON); // the pin lifted, as upstream plays it
+    world.GetOption(RSK_SHUFFLE_CHEST_MINIGAME).Set(RO_GENERIC_ON); // on, as a paired world generates it (#1530)
     const GetItemEntry seedEntry = world.GetFinalGIEntry(RC_MARKET_TREASURE_CHEST_GAME_SHOPKEEPER, true, GI_DOOR_KEY);
     OoT_gPlayState = s.play;
     (void)OoT_Rando_TestTakeQueuedChecks(nullptr, 0);

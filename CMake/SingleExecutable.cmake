@@ -2740,8 +2740,7 @@ if(BUILD_TESTING)
         # Butterflies and OoT Shuffle Butterfly Fairies (#1407). OoT Shuffle Chest
         # Minigame (#1515) and OoT Shuffle Silver Rupees (#1512) are pinned by their
         # own row below (GoldenSeedDigestOoTConfined, #1530) so this file stays
-        # unmoved. Same seed and dispatch
-        # as seed-digest-default. Until the orchestrator first generates
+        # unmoved. Same seed and dispatch as seed-digest-default. Until the orchestrator first generates
         # tests/golden/seed-digest-new-options.txt (regen-golden-digests), this row
         # FAILS by design: CheckGoldenDigest.cmake refuses a missing golden with
         # "A missing golden is a FAILURE, not a free pass" and prints the digest
@@ -4297,7 +4296,8 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # #1530: eight finished paired worlds on one seed (OFF, CG_KEYS + EnTakaraMan
     # single-give, CG_RING, SR_ON, SR_WALLET, SR_START, BOTH, OFF_AGAIN) proving
     # every chest-game key/keyring and silver rupee item stays on an OoT host and
-    # default worlds do not move. games/oot/soh/oot_chest_silver_paired_test.cpp.
+    # the last default world matches the first (no residue; the goldens, not this
+    # row, pin default worlds against main). games/oot/soh/oot_chest_silver_paired_test.cpp.
     redship_add_test(NAME OoTChestSilverPaired COMMAND redship --test oot-chest-silver-paired
         LABEL rando
         TIMEOUT 2400

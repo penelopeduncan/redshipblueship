@@ -9568,7 +9568,7 @@ TestResult Test_OoTChestSilverConfinement(void) {
 }
 // #1530: finished paired worlds across every Shuffle Chest Minigame and Shuffle
 // Silver Rupees mode, proving OoT home-only confinement, shopkeeper single-give,
-// and default-world invariance; body in games/oot/soh/oot_chest_silver_paired_test.cpp.
+// and no residue between generations; body in games/oot/soh/oot_chest_silver_paired_test.cpp.
 extern "C" int OoT_ChestSilverPairedTest_Run(void);
 TestResult Test_OoTChestSilverPaired(void) {
     if (!TrackerReachabilityBringUp()) {
@@ -12069,7 +12069,7 @@ const TestDescriptor gTests[] = {
     { "oot-chest-silver-paired",
       "Finished paired worlds across every Shuffle Chest Minigame and Shuffle Silver Rupees mode place every "
       "chest-game key/keyring and silver rupee item on an OoT check, prove beatable, give the shopkeeper check once, "
-      "and leave default worlds byte-identical (#1530)",
+      "and leave no residue: a default world generated after them matches the first (#1530)",
       Test_OoTChestSilverPaired },
     // #1405. Two real generations; skipped by `--test all` below like its siblings.
     { "oot-shuffle-wonder-items",

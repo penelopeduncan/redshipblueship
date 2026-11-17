@@ -21,9 +21,13 @@
  *                  items in pool, 22 silver pouches in StartingInventory)
  *   7. BOTH      — Shuffle Chest Minigame On + Shuffle Silver Rupees On together
  *                  (6 small keys + 80 silver rupee items)
- *   8. OFF_AGAIN — all options cleared again: proves zero residual state and exact
- *                  equality of settingsHash, placementDigest, location set, placed
- *                  OoT items, and crossing tables with OFF.
+ *   8. OFF_AGAIN — all options cleared again: settingsHash, placementDigest, location
+ *                  set, placed OoT items and crossing tables equal OFF's, so the
+ *                  generations with the options on leave no residue behind. A
+ *                  two-run self-diff, NOT a pin against main: a default world that
+ *                  moved would move in both runs. Default-world invariance against
+ *                  main is carried by the existing goldens (GoldenSeedDigestDefault
+ *                  and the other seed-digest rows) staying green.
  */
 #ifdef RSBS_SINGLE_EXECUTABLE
 
@@ -516,8 +520,8 @@ extern "C" int OoT_ChestSilverPairedTest_Run(void) {
     CspCheckFinished("OFF_AGAIN", offAgain);
 
     // OFF baseline checks.
-    CSP_CHECK(off.chestLocations == 0 && off.silverLocations == 0 && off.smallKeysOnOoT == 0 &&
-                  off.keyRingOnOoT == 0 && off.silverItemsOnOoT == 0 && off.startingSilverItems == 0,
+    CSP_CHECK(off.chestLocations == 0 && off.silverLocations == 0 && off.smallKeysOnOoT == 0 && off.keyRingOnOoT == 0 &&
+                  off.silverItemsOnOoT == 0 && off.startingSilverItems == 0,
               "OFF: expected zero chest-game/silver locations or items");
 
     // CG_KEYS checks (6 small keys, 11 locations).
@@ -593,8 +597,8 @@ extern "C" int OoT_ChestSilverPairedTest_Run(void) {
     CSP_CHECK(both.chestOption == RO_GENERIC_ON && both.silverOption == RO_SHUFFLE_SILVER_ON &&
                   both.chestLocations == 11 && both.silverLocations == 80 &&
                   both.locations.size() == off.locations.size() + 91,
-              "BOTH: cg=%d sr=%d locs=%zu (want %zu)", both.chestLocations, both.silverLocations,
-              both.locations.size(), off.locations.size() + 91);
+              "BOTH: cg=%d sr=%d locs=%zu (want %zu)", both.chestLocations, both.silverLocations, both.locations.size(),
+              off.locations.size() + 91);
     CSP_CHECK(both.chestEmpty == 0 && both.silverEmpty == 0 && both.chestCrossed == 0 && both.silverCrossed == 0 &&
                   both.smallKeysOnOoT == 6 && both.silverItemsOnOoT == 80,
               "BOTH: keys=%d silver=%d cgEmpty=%d srEmpty=%d", both.smallKeysOnOoT, both.silverItemsOnOoT,
@@ -603,11 +607,12 @@ extern "C" int OoT_ChestSilverPairedTest_Run(void) {
               "BOTH: bag confined=%d (want %d) homeOnly=%d (want %d)", both.confinedRows, off.confinedRows + 86,
               both.homeOnlyRows, off.homeOnlyRows + 86);
 
-    // OFF_AGAIN default-world invariance against OFF.
+    // OFF_AGAIN: no residue from the generations above (a self-diff against OFF,
+    // not a pin against main; the goldens carry that).
     CSP_CHECK(offAgain.settingsHash == off.settingsHash && offAgain.placementDigest == off.placementDigest &&
                   offAgain.locations == off.locations && offAgain.placedItems == off.placedItems &&
                   offAgain.ootCrossings == off.ootCrossings && offAgain.mmCrossings == off.mmCrossings,
-              "OFF_AGAIN: default world diverged after active chest-game/silver generations "
+              "OFF_AGAIN: the default world diverged from OFF after the chest-game/silver generations "
               "(hash %08X vs %08X, digest %08X vs %08X)",
               (unsigned)offAgain.settingsHash, (unsigned)off.settingsHash, (unsigned)offAgain.placementDigest,
               (unsigned)off.placementDigest);

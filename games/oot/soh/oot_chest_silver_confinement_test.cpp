@@ -354,10 +354,10 @@ void CscCheckClassifierAndForeignHosts() {
             silverAccepted += OoT_ComboLogic_TestHostAcceptsForeign((uint16_t)rc) != 0 ? 1 : 0;
         }
     }
-    CSC_CHECK(chestChecks == 11 && chestAccepted == 0,
-              "B: %d of %d RCTYPE_CHEST_GAME checks accepted a foreign item", chestAccepted, chestChecks);
-    CSC_CHECK(silverChecks == 154 && silverAccepted == 0,
-              "B: %d of %d RCTYPE_SILVER checks accepted a foreign item", silverAccepted, silverChecks);
+    CSC_CHECK(chestChecks == 11 && chestAccepted == 0, "B: %d of %d RCTYPE_CHEST_GAME checks accepted a foreign item",
+              chestAccepted, chestChecks);
+    CSC_CHECK(silverChecks == 154 && silverAccepted == 0, "B: %d of %d RCTYPE_SILVER checks accepted a foreign item",
+              silverAccepted, silverChecks);
     CSC_CHECK(OoT_ComboLogic_TestHostAcceptsForeign((uint16_t)RC_MARKET_TREASURE_CHEST_GAME_REWARD) == 1,
               "B: RC_MARKET_TREASURE_CHEST_GAME_REWARD was rejected as a foreign host");
 }
@@ -390,8 +390,8 @@ extern "C" int OoT_ChestSilverConfinementTest_Run(void) {
     }
 
     const int hasCtxAfter = OoT_ComboLogic_TestRandoContextExists();
-    CSC_CHECK(hasCtxAfter == hadCtxBefore,
-              "C: Rando::Context leaked across ROM-free test (before %d, after %d)", hadCtxBefore, hasCtxAfter);
+    CSC_CHECK(hasCtxAfter == hadCtxBefore, "C: Rando::Context leaked across ROM-free test (before %d, after %d)",
+              hadCtxBefore, hasCtxAfter);
     CSC_CHECK(Combo_SongHostsTestOverride() < 0, "C: song-host test override left set (%d)",
               Combo_SongHostsTestOverride());
 
