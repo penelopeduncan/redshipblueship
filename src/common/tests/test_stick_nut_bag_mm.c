@@ -369,8 +369,7 @@ TestResult MMStickNutBagGate_Run(void) {
                 // save can take it now, read before the bag below changes the answer; the
                 // pack's own family cannot at tier 0.
                 SNB_CHECK(as != ri && (!SnbIsStickNutRando(as) || MM_SnbTest_Obtainable(as) == 1) &&
-                              as != MM_SnbTest_RandoId(5) && as != MM_SnbTest_RandoId(6) &&
-                              as != MM_SnbTest_RandoId(7),
+                              as != MM_SnbTest_RandoId(5) && as != MM_SnbTest_RandoId(6) && as != MM_SnbTest_RandoId(7),
                           "%s: a crossed pack %d before the bag is redeemed as %d (expected a real junk item)", w.what,
                           ri, as);
             } else {
