@@ -53,6 +53,13 @@
  * handler and the check tracker's drain the save worker pool in their own
  * bodies before they stage or tear down, since OnExitGame's handlers run in no
  * defined order and the one that only waits may come last.
+ *
+ * #1689 rides it too (leg 5): in that same unordered dispatch an exit autosave
+ * can be queued AFTER the check tracker's Teardown. The trackerData save must
+ * still write the exited file's areasSpoiled, in both orders, and the next file
+ * must not inherit it. Driven through the real Teardown / InitTrackerData and the
+ * value the save writes (a pure bridge); the save's use of that value, the load
+ * hook's reset and the exit autosave itself are read from source.
  */
 
 #include <z64.h>
@@ -81,6 +88,8 @@ extern "C" uint16_t Combo_CheckEntranceSwitch(uint16_t entranceIndex);
 extern "C" int Combo_FreezeActiveGameForHotSwap(GameId departing);
 // games/oot/soh/SaveManager.cpp: OnExitGame's quit-snapshot stage (#1635).
 extern "C" int OoT_Combo_StageExitSnapshot(int32_t fileNum);
+// games/oot/soh/Enhancements/randomizer/randomizer_check_tracker.cpp (#1689).
+extern "C" int OoT_CheckTracker_TestExitSaveOrder(void);
 
 namespace {
 
@@ -511,6 +520,53 @@ int QuitWaitSourceChecks(const char* sourceDir) {
     return 0;
 }
 
+// The text from `start` to the first line that closes a top-level function after
+// it. Empty when `start` is missing or ambiguous.
+std::string OsffFunctionBody(const std::string& src, const char* start) {
+    const size_t at = src.find(start);
+    if (at == std::string::npos || src.find(start, at + 1) != std::string::npos) {
+        return std::string();
+    }
+    const size_t close = src.find("\n}\n", at);
+    return close == std::string::npos ? std::string() : src.substr(at, close - at);
+}
+
+// ---- 5. (#1689) An exit autosave after the tracker's Teardown ---------------
+// The tracker's OnExitGame handler drains the pool and tears down; the autosave's
+// handler queues a threaded base save whose trackerData section reads the
+// tracker's areasSpoiled on the worker. In the order where the autosave runs
+// second, it used to write the torn-down 0 over the file's revealed areas.
+int ExitSaveOrderChecks(const char* sourceDir) {
+    const int bridgeFailures = OoT_CheckTracker_TestExitSaveOrder();
+    printf("[TEST] #1689: exit autosave beside Teardown, both orders: %d failures\n", bridgeFailures);
+    OSFF_ASSERT(bridgeFailures == 0, "#1689: a trackerData save queued after the check tracker's Teardown must still "
+                                     "write the exited file's areasSpoiled, and the next file must start from 0");
+
+    const std::string tracker =
+        OsffReadSource(sourceDir, "games/oot/soh/Enhancements/randomizer/randomizer_check_tracker.cpp");
+    OSFF_ASSERT(!tracker.empty(), "#1689: randomizer_check_tracker.cpp could not be read");
+    const std::string save = OsffFunctionBody(tracker, "\nvoid SaveTrackerData(");
+    OSFF_ASSERT(!save.empty(), "#1689: SaveTrackerData is not found");
+    const char* kWritesExitValue = "SaveManager::Instance->SaveData(\"areasSpoiled\", AreasSpoiledForSave());";
+    const size_t firstWrite = save.find("SaveData(\"areasSpoiled\"");
+    OSFF_ASSERT(save.find(kWritesExitValue) != std::string::npos && firstWrite != std::string::npos &&
+                    save.find("SaveData(\"areasSpoiled\"", firstWrite + 1) == std::string::npos,
+                "#1689: SaveTrackerData must write areasSpoiled once, through AreasSpoiledForSave; the live value is "
+                "already 0 when an exit autosave queued after Teardown reaches the worker");
+    const std::string load = OsffFunctionBody(tracker, "\nvoid CheckTrackerLoadGame(int32_t fileNum) {");
+    OSFF_ASSERT(!load.empty() && load.find("\n    sTornDownForExit = false;") != std::string::npos,
+                "#1689: CheckTrackerLoadGame must end the exited file's hold, so the loaded file's saves write its "
+                "live areasSpoiled");
+
+    // The exit autosave is kept: the fix must not drop it to dodge the order.
+    const std::string autosave = OsffReadSource(sourceDir, "games/oot/soh/Enhancements/QoL/Autosave.cpp");
+    OSFF_ASSERT(!autosave.empty(), "#1689: Autosave.cpp could not be read");
+    OSFF_ASSERT(autosave.find("COND_HOOK(GameInteractor::OnExitGame, CVAR_AUTOSAVE_VALUE, [](int32_t fileNum) { "
+                              "Autosave_SoftResetSave(); });") != std::string::npos,
+                "#1689: the exit autosave (Autosave's OnExitGame hook) must stay registered");
+    return 0;
+}
+
 } // namespace
 
 extern "C" int OoT_SceneFlagFreeze_RunHeadless(const char* sourceDir) {
@@ -545,6 +601,9 @@ extern "C" int OoT_SceneFlagFreeze_RunHeadless(const char* sourceDir) {
         rc = RunChecks(play);
         if (rc == 0) {
             rc = QuitWaitSourceChecks(sourceDir);
+        }
+        if (rc == 0) {
+            rc = ExitSaveOrderChecks(sourceDir);
         }
     }
 
