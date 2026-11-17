@@ -2726,7 +2726,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 5, was 0xEF3042B8): the backport changes the text of Ocarina of Time's settings
 // fold, so settingsHash moves in every golden and each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5935FFu;
+// Re-pinned again by the Moon Crash default (#1671, PR #1673; generator 6, was
+// 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
+// every default world folds into its identity, so each pinned seed is a different
+// world (docs/determinism-goldens.md has the fields); the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -12216,12 +12220,14 @@ const TestDescriptor gTests[] = {
       "rupees, health and ammo EQUAL to the restored pool, and a later spend is an exact delta (#785)",
       Test_MMMoonCrashPoolApplied },
     { "mm-moon-crash-cycle-forced",
-      "The frozen Moon Crash Behavior (OoTMM's moonCrash) is Last Save by default, the frozen option otherwise, and "
-      "New Cycle whenever the frozen Shared Song of Time rule is on; the rule never moves MM's profile stamp (#1069)",
+      "The frozen Moon Crash Behavior (OoTMM's moonCrash) is New Cycle by default (#1671), the frozen option "
+      "otherwise, and New Cycle whenever the frozen Shared Song of Time rule is on; the rule never moves MM's profile "
+      "stamp, and a Last Save world folds no identity term (#1069)",
       Test_MMMoonCrashCycleForced },
     { "mm-moon-crash-cycle-reset",
       "A moon crash under New Cycle starts a new cycle (Dawn of the First Day, human form, no mask) keeping inventory "
-      "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069)",
+      "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069); "
+      "under Shuffle Time the first EnTest4 update lands on the earliest owned half-day (#1671)",
       Test_MMMoonCrashCycleReset },
     { "mm-moon-crash-arrival",
       "After a moon crash (Last Save or New Cycle, Story cutscene skipped or not) a paired file lands in South Clock "

@@ -451,11 +451,12 @@ typedef struct RandoSaveInfo {
     // The FROZEN "Moon Crash Behavior" (#1069; OoTMM's moonCrash): 0 = "Last
     // Save" (reset, the file as last saved; OoTMM's default), 1 = "New Cycle"
     // (cycle: the crash starts a new cycle as the Song of Time does, keeping
-    // inventory and progress). The player's choice from gRando.Options.MoonCrash,
-    // resolved at creation beside the trap-type set and read when the moon falls.
-    // Zero is "Last Save", today's behaviour.
+    // inventory and progress; the authoring default since #1671). The player's
+    // choice from gRando.Options.MoonCrash, resolved at creation beside the
+    // trap-type set and read when the moon falls. Zero is "Last Save", the
+    // behaviour of every file created before #1069.
     // The profile digest folds it when nonzero (Foreign.cpp
-    // ProfileIdentityString), so no existing pair's mmProfileDigest moves. The
+    // ProfileIdentityString), so no Last Save pair's mmProfileDigest moves. The
     // Shared Song of Time rule FORCES a New Cycle in play whatever this holds
     // (MM_Rando_FrozenMoonCrash): that force is the combo record's, frozen there.
     u8 randoSaveMoonCrash;

@@ -1380,7 +1380,11 @@ file's **last save**: the last whole `.redsave` commit (an owl save, the autosav
 of Time, a save in OoT, your last crossing between the games, or the file's creation), with
 both halves and the cross-game records
 restored together. This is what vanilla's reload does and what OoTMM's default
-("Last Save") moon crash does. What to expect:
+("Last Save") moon crash does. Since [#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671)
+Moon Crash Behavior defaults to New Cycle (a new cycle that keeps your progress, as the Song of Time does), so this
+entry is about files that choose Last Save, and about files created before that change, which keep Last Save. Loading
+such a file sets the Moon Crash Behavior row to Last Save (the load puts the file's own value back), and a file you
+create after that inherits it until you change the row. What to expect under Last Save:
 
 - MM progress since that save is lost, as in vanilla. After an owl save or autosave the
   clock resumes at that save's day and time; the Dawn of the First Day plays only when the
@@ -1890,8 +1894,9 @@ Each Shared rule on Randomizer > Cross-Game (under Shared Items) is off by defau
   per game, so Majora's Mask's fifth and sixth bottle slots stay empty. OoTMM's sharedBottles shares six bottles with
   their contents; the difference is deliberate and open to the operator (PR [#1094](https://github.com/penelopeduncan/redshipblueship/pull/1094)).
 - **Masks.** While Ocarina of Time is running, the tracker's Shared mask rows use Majora's Mask's icons.
-- **Song of Time** (PR [#1102](https://github.com/penelopeduncan/redshipblueship/pull/1102)). Moon Crash Behavior's New Cycle (forced by Shared Song of Time) does not yet let you
-  save on the Clock Tower roof, as OoTMM's does. Forcing New Cycle under the rule is itself a divergence from OoTMM,
+- **Song of Time** (PR [#1102](https://github.com/penelopeduncan/redshipblueship/pull/1102)). Moon Crash Behavior's New Cycle (the default since [#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671),
+  and forced by Shared Song of Time) does not yet let you save on the Clock Tower roof, as OoTMM's does. The New
+  Cycle default itself differs from OoTMM, whose default is Last Save (the operator's 2026-11-16 ruling). Forcing New Cycle under the rule is itself a divergence from OoTMM,
   which credits time resets in its logic instead.
 
 ### Majora's Mask's trap types are fixed when the file is created ([#1047](https://github.com/penelopeduncan/redshipblueship/issues/1047), PR [#1049](https://github.com/penelopeduncan/redshipblueship/pull/1049))

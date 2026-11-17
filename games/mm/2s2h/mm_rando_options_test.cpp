@@ -289,11 +289,12 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             // #1069: OoTMM's moonCrash, the combo's own row. No StaticData row to
             // compare with, so its binding is checked against the one spelling.
             if (desc->cvar == NULL || strcmp(desc->cvar, RSBS_CVAR_MM_MOON_CRASH) != 0 ||
-                desc->defaultValue != RSBS_MM_MOON_CRASH_RESET || desc->widget != (uint8_t)COMBO_MM_WIDGET_COMBO ||
+                desc->defaultValue != RSBS_MM_MOON_CRASH_CYCLE || desc->widget != (uint8_t)COMBO_MM_WIDGET_COMBO ||
                 desc->valueCount != 2 || desc->valueLabels == NULL || desc->label == NULL || desc->tooltip == NULL ||
                 desc->liveness != (uint8_t)COMBO_MM_LIVENESS_LIVE || desc->disabledReason == NULL ||
                 desc->disabledReason[0] != '\0') {
-                return Fail(77, "the Moon Crash Behavior row does not bind %s, default Last Save, two values, live",
+                return Fail(77,
+                            "the Moon Crash Behavior row does not bind %s, default New Cycle (#1671), two values, live",
                             RSBS_CVAR_MM_MOON_CRASH);
             }
             moonCrashAt = i;

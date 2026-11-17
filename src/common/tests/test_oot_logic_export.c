@@ -895,7 +895,7 @@ TestResult OoTLogicExport_Run(void) {
     //   - MM_ComboLogic_ApplyShippedProfile(). MM's engine answers from the live
     //     save, and both ports overlay one unified buffer, so without it MM would
     //     read OoT's save bytes as its own. That save knows no playable Song of
-    //     Time, and under the default "Last Save" moon crash the reset-time guard
+    //     Time, and under a "Last Save" moon crash the reset-time guard
     //     (ADR 0010 answer O2, games/mm/2s2h/Rando/Logic/ResetTimeGuard.h) holds
     //     MM's whole answer to the four-check arrival nook. The beat-oot fill below
     //     then has no MM host for an OoT item and dead-ends, as it should on such a

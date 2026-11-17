@@ -1125,8 +1125,9 @@ static void MMCrRegisterHooks(void) {
 // ============================================================================
 //
 // MM boots on its debug save outside the Clock Tower (the refused-crossing
-// row's injection), plays kMMMcFramesBeforeCrash live frames, then marks the
-// file New Cycle (randoSaveMoonCrash, the frozen option the creation writes),
+// row's injection), plays kMMMcFramesBeforeCrash live frames, then authors the
+// file's frozen options from a cleared key as a creation does (since #1671 that
+// freezes New Cycle into randoSaveMoonCrash: the default),
 // records what a new cycle must keep (the Bunny Hood, the Song of Healing, a
 // bottle) and what only a new cycle clears (a Deku Playground record and the
 // three-day reset count), and lets the moon fall through the REAL
@@ -1184,7 +1185,15 @@ static void MMMcFail(const char* why) {
 }
 
 static void MMMcCrash(PlayState* play) {
-    gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = RSBS_MM_MOON_CRASH_CYCLE;
+    // #1671: the half is authored the normal way from a cleared key (the
+    // creation's resolution), so the drive proves New Cycle is the DEFAULT.
+    CVarClear(RSBS_CVAR_MM_MOON_CRASH);
+    Rando::Foreign::ResolvePairedProfile(false);
+    if (gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash != RSBS_MM_MOON_CRASH_CYCLE) {
+        MMMcFail("a half authored from a cleared Moon Crash Behavior key did not freeze New Cycle, the default "
+                 "since #1671");
+        return;
+    }
     gSaveContext.save.saveInfo.inventory.items[SLOT_MASK_BUNNY] = ITEM_MASK_BUNNY;
     gSaveContext.save.saveInfo.inventory.items[SLOT_BOTTLE_1] = ITEM_BOTTLE;
     gSaveContext.save.saveInfo.inventory.questItems |= (1u << QUEST_SONG_HEALING);
