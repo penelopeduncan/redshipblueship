@@ -98,9 +98,8 @@ TestResult Test_UiSnapshotImage(void) {
 
     // ---- 2: PNG round trip -------------------------------------------------------
     namespace fs = std::filesystem;
-    std::error_code ec;
-    const fs::path dir = "ui-snapshot-image-test";
-    fs::create_directories(dir, ec);
+    // #1641: this process's own folder (test_scratch.h), removed when the row passes.
+    const fs::path dir = rsbs::test::ScratchDir("ui-snapshot-image-test");
     const std::string pngPath = (dir / "synthetic.png").string();
     UIIMG_CHECK(UiImage_WritePng(&img, pngPath.c_str()) == 0, "UiImage_WritePng failed on %s", pngPath.c_str());
     {
@@ -205,7 +204,6 @@ TestResult Test_UiSnapshotImage(void) {
     UiImage_Free(&stacked);
     UiImage_Free(&crop);
     UiImage_Free(&img);
-    fs::remove_all(dir, ec);
 
     if (gUiImgFailures != 0) {
         printf("[TEST] FAIL: ui-snapshot-image: %d check(s) failed\n", gUiImgFailures);
