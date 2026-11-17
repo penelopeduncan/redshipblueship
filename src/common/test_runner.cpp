@@ -1653,8 +1653,7 @@ static TestResult Test_MMSceneFlagFreeze(void) {
 
 static TestResult Test_OoTSceneFlagFreeze(void) {
 #ifndef RSBS_SOURCE_DIR
-    printf("[TEST] FAIL (oot-scene-flag-freeze): RSBS_SOURCE_DIR is undefined
-");
+    printf("[TEST] FAIL (oot-scene-flag-freeze): RSBS_SOURCE_DIR is undefined\n");
     return TEST_FAIL;
 #else
     return OoT_SceneFlagFreeze_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
