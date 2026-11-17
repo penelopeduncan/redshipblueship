@@ -1903,6 +1903,11 @@ static void GpPairedTrackerPlaytest(int frame) {
             if (item != NULL && (strstr(item, "Sword") != NULL || strstr(item, "Shield") != NULL)) {
                 continue;
             }
+            // int-mm-shuffle-ocarina (#1671 B2): nor Majora's Mask's Ocarina of Time, a pool item there, which
+            // would reach MM before its arrival asserts that the half holds none.
+            if (item != NULL && IntegrationTest_MMShuffleOcarina() && strstr(item, "Ocarina") != NULL) {
+                continue;
+            }
             // int-foreign-hold-quit (#1635 step 7): its two pinned hosts are its own legs.
             if (OoT_Fhq_IsHost(row.hostCheck)) {
                 continue;

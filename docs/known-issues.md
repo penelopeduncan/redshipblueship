@@ -1654,7 +1654,8 @@ such a file yet. Until someone has:
   - The Happy Mask Salesman chooses the cutscene he plays by whether you hold the ocarina (and the Deku Mask), so
     without it he may play the one meant for the first cycle.
   - In a Skull Kid cutscene he is drawn holding the ocarina while you have none.
-  - One of Tatl's prompts, which vanilla stops once you hold the ocarina, can still play.
+  - Tatl's first-cycle hints (what she says when you call her, and one of her prompts in Clock Town), which vanilla
+    stops once you hold the ocarina, can still play.
 
 ### The Song of Time takes your Powder Keg and Magic Beans unless Keep Items on Cycle Reset is on — this is intentional ([#1175](https://github.com/penelopeduncan/redshipblueship/issues/1175), PR [#1194](https://github.com/penelopeduncan/redshipblueship/pull/1194))
 

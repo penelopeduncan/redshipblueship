@@ -1736,8 +1736,10 @@ decision about MM's instrument, rather than at the end of the list.
   check's vanilla `RI_OCARINA` then stays in the pool. This tree's paired start
   is a constant, so `PairedStartingItemsForWorld` drops `RI_OCARINA` when the
   frozen option is on, and the pool generation needs no change. The Song of
-  Time stays in the start (the 2026-10-01 ruling); under Shared Song of Time
-  both leave it. There is no Vanilla-logic exception, as for MM's other
+  Time stays in the start, which has held it since the 2026-10-09 ruling on
+  #879; whether it should leave with the ocarina has not been ruled on, and
+  `kShuffleOcarinaKeepsSongOfTime` in `PairedStartingItemsForWorld` is the one
+  line that would change it. Under Shared Song of Time both leave the start. There is no Vanilla-logic exception, as for MM's other
   shuffle rows, and a paired world is never Vanilla anyway.
 - **Why New Cycle is forced.** `MM_Rando_FrozenMoonCrash` returns New Cycle for
   a randomizer half whose frozen option is on, as it does under Shared Song of

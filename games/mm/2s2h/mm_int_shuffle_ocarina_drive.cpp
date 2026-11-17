@@ -55,7 +55,7 @@
  *             clock actor must drop the moon at 6:00 (day 4, Termina Field).
  *             600 frames.
  *   CRASHING  the crash in Termina Field and the Fire Wall (SCENE_SPOT00); 30
- *             live frames in the scene after them. 6000 frames.
+ *             live frames in the scene after them. 3000 frames.
  *   VERDICT   one more three-day reset, the record cleared, day 0 or 1, the New
  *             Cycle line logged once more, the fixture items and the Song of
  *             Time kept, the frozen byte still Last Save, still New Cycle, the
@@ -104,7 +104,11 @@ const int kSodArriveBudget = 600;
 const int kSodMidnightBudget = 1200;
 const int kSodMidnightHold = 20;
 const int kSodCrashBudget = 600;
-const int kSodCrashingBudget = 6000;
+// Under the MM phase watchdog (framesPerPhase * 4 + 3600 = 4800 frames at
+// RSBS_GP_FRAMES=300, counted from the start of the gameplay window), so this
+// step's own failure line fires before the generic one; int-mm-moon-crash-cycle
+// measured the crash and the Fire Wall at about 58 s (about 1200 frames).
+const int kSodCrashingBudget = 3000;
 const int kSodFramesAfterCrash = 30;
 const u16 kSodFestivalCutscene = 0xFFF1; // z_en_test4.c's Day 3 midnight cutscene index
 const u32 kSodRecordSentinel = 16712u;   // #1671 B2
@@ -574,8 +578,9 @@ extern "C" bool MM_IntSoDrive_CheckArrival(PlayState* play) {
                  (int)ocarinaOnFreeCheck);
     } else if (SodOcarinaHeld()) {
         snprintf(why, sizeof(why),
-                 "SLOT_OCARINA holds 0x%02X at the first arrival, expected ITEM_NONE (0x%02X) (if the first OoT leg's "
-                 "chest held the Ocarina, this is the pinned seed, not the option)",
+                 "SLOT_OCARINA holds 0x%02X at the first arrival, expected ITEM_NONE (0x%02X) (the first OoT leg's "
+                 "chest skips the Ocarina; if another OoT check it collected held it, this is the pinned seed, not "
+                 "the option)",
                  (unsigned)gSaveContext.save.saveInfo.inventory.items[SLOT_OCARINA], (unsigned)ITEM_NONE);
     } else if (!CHECK_QUEST_ITEM(QUEST_SONG_TIME)) {
         snprintf(why, sizeof(why), "the Song of Time is not held at the first arrival (quest items %08X), expected it",
