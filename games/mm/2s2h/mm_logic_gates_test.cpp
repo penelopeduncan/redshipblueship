@@ -59,6 +59,10 @@
  *     Stone Tower Temple's underwater switch and Armos (M9); the potion shop
  *     after Kotake is met in the woods (M10); the Beneath the Well grass needs
  *     the room lit (M11).
+ *  T. Beneath the Well's Two Spikes Room grass (2S2H 51e52727d #1893), on the
+ *     row lambdas: both grass rows are out of logic with no way to light a torch
+ *     from another (an empty save, or Fire Arrows without magic) and in logic
+ *     with a Deku Stick or with Fire Arrows.
  *
  * Every "not reached" leg is paired with a "reached" leg on the same save plus
  * one thing, and each names a region or check that must be reached, so a probe
@@ -272,7 +276,8 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
            "broken, the Circus Leader needs Romani's Mask (#1168), and East Clock Town's Bombers' hideout door needs "
            "the Bombers' code or backflip trick (#1306), Great Bay Coast's minigame platforms need the Hookshot after "
            "the temple and the Fisherman plays 07:00-04:00 each day, and the Peahat dies by day only (#1398), and the "
-           "2Ship logic batch M3 holds (#1954, #1984, #2006, #2017, #2018)\n");
+           "2Ship logic batch M3 holds (#1954, #1984, #2006, #2017, #2018), and the Two Spikes Room grass needs a "
+           "torch lit from another (#1893)\n");
     sFailures = 0;
 
     // Populate the region graph (file-scope ShipInit registrars; see
@@ -902,6 +907,39 @@ extern "C" int MM_LogicGates_RunHeadless(void) {
             Give(ITEM_ARROW_FIRE);
             gSaveContext.save.saveInfo.playerData.isMagicAcquired = true;
             M3Expect("M11d Fire Arrows", row.name, grass, kAll, true, "Fire Arrows do not light the room");
+        }
+    }
+
+    // ---- T: the Two Spikes Room grass (2Ship 51e52727d #1893) --------------
+    // CAN_LIGHT_TORCH_NEAR_ANOTHER, as the room's pots and its bug event: a
+    // Deku Stick or Fire Arrows. An empty save would reach the grass under the
+    // old `true` rows.
+    {
+        struct TsGrassRow {
+            RandoCheckId check;
+            const char* name;
+        };
+        const TsGrassRow kTsGrassRows[] = {
+            { RC_BENEATH_THE_WELL_TWO_SPIKED_BARS_GRASS_01, "the two-spikes room grass 1" },
+            { RC_BENEATH_THE_WELL_TWO_SPIKED_BARS_GRASS_02, "the two-spikes room grass 2" },
+        };
+        for (const TsGrassRow& row : kTsGrassRows) {
+            const M3Cond* grass = M3CheckRow(RR_BENEATH_THE_WELL_TWO_SPIKED_BARS, row.check);
+            ResetSave();
+            M3Expect("T1 empty save", row.name, grass, kAll, false,
+                     "the grass needs a torch lit from another (2Ship #1893)");
+            Give(ITEM_BOW);
+            Give(ITEM_ARROW_FIRE);
+            M3Expect("T2 Bow and Fire Arrows, no magic", row.name, grass, kAll, false,
+                     "Fire Arrows without magic cannot light a torch");
+            ResetSave();
+            Give(ITEM_DEKU_STICK);
+            M3Expect("T3 Deku Stick", row.name, grass, kAll, true, "a Deku Stick does not light the torch");
+            ResetSave();
+            Give(ITEM_BOW);
+            Give(ITEM_ARROW_FIRE);
+            gSaveContext.save.saveInfo.playerData.isMagicAcquired = true;
+            M3Expect("T4 Fire Arrows", row.name, grass, kAll, true, "Fire Arrows do not light the torch");
         }
     }
 
