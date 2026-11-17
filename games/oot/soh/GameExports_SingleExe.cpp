@@ -39,6 +39,8 @@
 // OTRGlobals.h only forward-declares Rando::Context, which is enough to hold
 // the shared_ptr but not to call through it.
 #include "soh/Enhancements/randomizer/SeedContext.h"
+// #1691: OoT_Combo_StickGated and its siblings, defined below, header-checked.
+#include "soh/Enhancements/randomizer/StickNutBagGate.h"
 #include "soh/SaveManager.h"       // SaveFileMetaInfo: the paired row's slot ownership mark
 #include "notification_bridge.h"   // the paired row's "no refusal toast" check
 #include "pairing_refusal_toast.h" // RSBS_REFUSAL_TOAST_PREFIX: that check's matcher (#836)
@@ -6507,6 +6509,35 @@ struct OoTGrantBlockedRegistrar {
 };
 const OoTGrantBlockedRegistrar gOoTGrantBlockedRegistrar;
 } // namespace
+
+// ---- #1691: the offers that are not an ITEM00 drop -------------------------
+// (soh/Enhancements/randomizer/StickNutBagGate.h), the twins of MM's
+// MM_Combo_StickGated / MM_Combo_NutGated (games/mm/2s2h/GameExports_SingleExe.cpp).
+// Each answer is src/common's Combo_SharedBagGateClosed over OoT's own capacity
+// tier; nothing here reads a CVar, the seed context or a PlayState.
+
+extern "C" int OoT_Combo_StickGated(void) {
+    return Combo_SharedBagGateClosed(RSBS_SHARED_RES_STICK_TIER, (uint16_t)CUR_UPG_VALUE(UPG_STICKS)) ? 1 : 0;
+}
+
+extern "C" int OoT_Combo_NutGated(void) {
+    return Combo_SharedBagGateClosed(RSBS_SHARED_RES_NUT_TIER, (uint16_t)CUR_UPG_VALUE(UPG_NUTS)) ? 1 : 0;
+}
+
+extern "C" int OoT_Combo_GetItemGated(int16_t getItemId) {
+    switch (getItemId) {
+        case GI_STICKS_1:
+        case GI_STICKS_5:
+        case GI_STICKS_10:
+            return OoT_Combo_StickGated();
+        case GI_NUTS_5:
+        case GI_NUTS_5_2:
+        case GI_NUTS_10:
+            return OoT_Combo_NutGated();
+        default:
+            return 0;
+    }
+}
 
 /**
  * Apply one row's COUNT from the pool: the arrival's per-row count step, and the

@@ -11,7 +11,7 @@
  *
  * Defined in games/mm/2s2h/GameExports_SingleExe.cpp; included there and by
  * every caller (z_parameter.c, z_en_girla.c, ConvertItem.cpp, EnItem00.cpp,
- * OnFileCreate.cpp, ComboLogicEngineSingleExe.cpp), so each signature is checked
+ * EnBox.cpp, OnFileCreate.cpp, ComboLogicEngineSingleExe.cpp), so each signature is checked
  * against the definition. C-compatible: two of the callers are C.
  */
 
@@ -37,6 +37,12 @@ int MM_Combo_StickNutGiveRefused(uint8_t item);
 /** 1 when an EnItem00 with @p params (the low byte is the ITEM00_* type) is a
  *  stick or nut drop the gate holds out: the actor is not spawned. */
 int MM_Combo_Item00Gated(int16_t params);
+
+/** #1691: 1 when an offer of MM's GI_* @p getItemId must not be made: a stick
+ *  (GI_DEKU_STICKS_1) under MM_Combo_StickGated or a nut (GI_DEKU_NUTS_1, _5,
+ *  _10) under MM_Combo_NutGated. A Deku Baba's or withered / Mini Baba's stick
+ *  (EnItem00.cpp) and an unshuffled chest's item (EnBox.cpp) are asked here. */
+int MM_Combo_GetItemGated(int16_t getItemId);
 
 /** The birth flip: a paired MM half authored under the frozen stick (nut) bag
  *  shuffle drops to tier 0 with no item and no ammo. Each bag on its own; a bag
