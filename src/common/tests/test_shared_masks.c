@@ -965,8 +965,7 @@ TestResult Test_SharedMasksMerge(void) {
         SmArmOoT();
         SmArmMM();
         const bool creditedInOoT = Combo_SharedFamilies2CreditFarPickup(GAME_OOT, (uint8_t)GAME_MM, mmGoronId);
-        SM_CHECK(creditedInOoT && Combo_SharedFamiliesOwned() == kSmMasks[0].bit &&
-                     OoT_SharedMasksTest_Held(0) == 1 &&
+        SM_CHECK(creditedInOoT && Combo_SharedFamiliesOwned() == kSmMasks[0].bit && OoT_SharedMasksTest_Held(0) == 1 &&
                      OoT_SharedMasksTest_TradeSlot() == OoT_SharedMasksTest_ItemOf(0),
                  "(5) MM's real Goron Mask (id %u) found in Hyrule: credited %d, pool %08X, OoT held %d, trade slot %d "
                  "(want credited, %08X, 1, %d)",

@@ -1046,6 +1046,5 @@ bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, ui
     if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {
         return false;
     }
-    return FamiliesCreditFarPickupWord(running, origin, id, 0) ||
-           FamiliesCreditFarPickupWord(running, origin, id, 1);
+    return FamiliesCreditFarPickupWord(running, origin, id, 0) || FamiliesCreditFarPickupWord(running, origin, id, 1);
 }
