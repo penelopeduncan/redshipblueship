@@ -121,10 +121,13 @@
  *     Hookshot path (closed on Hookshot with the trick off, open with it, and
  *     open with Goron's Bracelet + Climb).
  *  U. DMC and Hyrule Field (60ec65592): the crater ladder (7522f31cc's
- *     RR_DMC_BLOCKED_ENTRY -> RR_DMC_CRATE, Goron Tunic held) and both directions of the Hyrule Field <-> Lake Hylia
- * fence ladder (RR_HYRULE_FIELD <-> RR_HF_TO_LAKE_HYLIA) are CanClimbLadder (closed on Hookshot with the trick off,
- * open with it). V. Lost Woods and SFM (60ec65592): the Lost Woods under-bridge exit (RR_LW_UNDER_BRIDGE ->
- * RR_THE_LOST_WOODS) and both SFM maze ladders (RR_SACRED_FOREST_MEADOW -> RR_SFM_ABOVE_MAZE and
+ *     RR_DMC_BLOCKED_ENTRY -> RR_DMC_CRATE, Goron Tunic held) and both
+ *     directions of the Hyrule Field <-> Lake Hylia fence ladder
+ *     (RR_HYRULE_FIELD <-> RR_HF_TO_LAKE_HYLIA) are CanClimbLadder (closed on
+ *     Hookshot with the trick off, open with it).
+ *  V. Lost Woods and SFM (60ec65592): the Lost Woods under-bridge exit
+ *     (RR_LW_UNDER_BRIDGE -> RR_THE_LOST_WOODS) and both SFM maze ladders
+ *     (RR_SACRED_FOREST_MEADOW -> RR_SFM_ABOVE_MAZE and
  *     RR_SFM_OUTSIDE_FAIRY_GROTTO -> RR_SFM_ABOVE_MAZE) are CanClimbLadder
  *     (closed on Hookshot with the trick off, open with it).
  *  W. Gerudo Fortress (60ec65592): RR_GF_OUTSKIRTS -> RR_GF_TOWER is
@@ -172,7 +175,11 @@
  *     Bracelet (not without the bracelet); a child with the hood and Climb only
  *     under Bunny Hood Effect.
  *  DQ. DMCPadToPots: the Hookshot; an adult with the hood and Climb only under
- *     Masks as Adult. DB. The bean: planted, an adult passes with 3 hearts.
+ *     Masks as Adult.
+ *  DB. The bean: planted, an adult passes with 3 hearts.
+ *  DS. The child's bean sprout fairy (upstream's form before 55b52a26a): a
+ *     child alone in the crater with the soul and Song of Storms reaches it
+ *     with a bean to plant, and not without one.
  *  DD. DMCUpperToPad: the scarecrow jump needs RT_UNINTUITIVE_JUMPS, and 9 hearts.
  *  DC. A child reaches the temple exit only under dungeon entrance shuffle.
  *  DE. The entrance table rows the refactor moved (entrance.cpp): each row's
@@ -2719,6 +2726,22 @@ void RunDmcRefactorLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                false, "the bean's platform carries a child");
     randoCtx->GetOption(RSK_SKIP_PLANTING_BEANS).Set(RO_GENERIC_OFF);
     randoCtx->GetOption(RSK_STARTING_BEANS).Set(RO_GENERIC_OFF);
+
+    // ---- DS: the child's bean sprout keeps upstream's form before 55b52a26a: a
+    // child planting a fresh bean, alone in the crater, Skip Planting Beans off -----
+    DmcResetHearts(randoCtx, 3);
+    Give(RG_DEATH_MOUNTAIN_CRATER_BEAN_SOUL);
+    GiveFairyOcarina();
+    Give(RG_SONG_OF_STORMS);
+    Give(RG_OCARINA_A_BUTTON);
+    Give(RG_OCARINA_C_UP_BUTTON);
+    Give(RG_OCARINA_C_DOWN_BUTTON);
+    ExpectAt("DS1 DMC bean sprout fairy, child with Song of Storms and the soul, no bean", RR_DMC_CENTRAL,
+             RC_DMC_BEAN_SPROUT_FAIRY_1, false, false, "the sprout's fairy is in logic without a bean to plant");
+    Give(RG_MAGIC_BEAN);
+    ExpectAt("DS2 DMC bean sprout fairy, child with Song of Storms, the soul and a bean, no adult", RR_DMC_CENTRAL,
+             RC_DMC_BEAN_SPROUT_FAIRY_1, false, true,
+             "a child who plants a fresh bean alone cannot reach the sprout's fairy (SoH b52c31f85 form)");
 
     // ---- DD: DMCUpperToPad, the scarecrow jump from the upper entry (9 hearts) -----------
     DmcResetHearts(randoCtx, 9);
