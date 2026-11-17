@@ -35,6 +35,10 @@
  * the folder must hold exactly that file, unchanged: a row that removed it, or
  * wrote anything beside it, still uses the shared name.
  *
+ * The #1641 rows that need staged archives or the rando tier cannot run here, so
+ * their move is held by source: each file must still call ScratchDir for its old
+ * fixed name (kSpcAnchors).
+ *
  * Included at FILE SCOPE by test_runner.cpp (compiled as C++). No display, no
  * ROM archives: every child row is display-free and ROM-free itself.
  */
@@ -85,6 +89,29 @@ const char* const kSpcFixedNames[] = {
 const char* const kSpcSentinelNames[] = {
     "rsbs_test_806",         "ui-snapshot-image-test", "rsbs_test_loose_705_discovery",
     "rsbs_test_mod_set_706", "rsbs604_array_dispatch",
+};
+// #1641: the rows that moved to ScratchDir with the ones above but need staged
+// archives or the rando tier, so no ROM-free group can run them here. Held by
+// source instead: each file must still call the helper for its old fixed name.
+struct SpcAnchor {
+    const char* file; // relative to the source tree
+    const char* call;
+};
+const SpcAnchor kSpcAnchors[] = {
+    { "src/common/tests/test_curated_archive_generator.c", "rsbs::test::ScratchDir(\"rsbs_test_605\")" },
+    { "src/common/tests/test_curated_archive_order.c", "rsbs::test::ScratchDir(\"rsbs_test_mod_593_dir\")" },
+    { "src/common/tests/test_curated_archive_order.c", "rsbs::test::ScratchDir(\"rsbs_test_mod_1308_alt\")" },
+    { "src/common/tests/test_curated_archive_mount.c", "stage.dir = rsbs::test::ScratchDir(dirName);" },
+    { "src/common/tests/test_loose_mods_mount.c", "rsbs::test::ScratchDir(\"rsbs_test_loose_705\")" },
+    { "src/common/tests/test_mm_mods_mount.c", "rsbs::test::ScratchDir(\"rsbs_test_mods_670\")" },
+    { "src/common/tests/test_mm_mods_mount.c", "rsbs::test::ScratchDir(\"rsbs_test_mods_706\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_playerpath_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_pairswitch_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_pairedexhaustion_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_roundbudget_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_goldenrounds_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_critrenew_saves\")" },
+    { "games/mm/2s2h/mm_rando_gen_test.cpp", "rsbs::test::ScratchDirCStr(\"rsbs_test_packagepath_saves\")" },
 };
 const char kSpcSentinelFile[] = "sentinel.txt";
 const char kSpcSentinelText[] = "sentinel: a row that removes or writes beside this shares the working directory";
@@ -192,6 +219,28 @@ int SpcDisturbedSentinels(const std::filesystem::path& cwd, int group) {
     return disturbed;
 }
 
+// Counts the kSpcAnchors entries whose file no longer calls the helper (or cannot
+// be read), printing each.
+int SpcMissingAnchors(void) {
+#ifdef RSBS_SOURCE_DIR
+    int missing = 0;
+    for (const SpcAnchor& a : kSpcAnchors) {
+        std::ifstream in(std::string(RSBS_SOURCE_DIR) + "/" + a.file, std::ios::binary);
+        const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (text.empty() || text.find(a.call) == std::string::npos) {
+            printf("[TEST] FAIL: %s %s %s: that row is back on a fixed name every concurrent process shares "
+                   "(#1641)\n",
+                   a.file, text.empty() ? "could not be read for" : "no longer calls", a.call);
+            missing++;
+        }
+    }
+    return missing;
+#else
+    printf("[TEST] note: RSBS_SOURCE_DIR is not defined; the source anchors of #1641 were not checked\n");
+    return 0;
+#endif
+}
+
 // Prints the lines of a failed child's log that say why it failed.
 void SpcPrintFailureLines(const std::filesystem::path& log) {
     std::ifstream in(log);
@@ -246,6 +295,7 @@ static TestResult Test_TestScratchPoisonedCwd(void) {
         failures += SpcDisturbedSentinels(cwd, group);
         group++;
     }
+    failures += SpcMissingAnchors();
     printf("[TEST] %s: test-scratch-poisoned-cwd, %d failure(s)\n", failures == 0 ? "PASS" : "FAIL", failures);
     return failures == 0 ? TEST_PASS : TEST_FAIL;
 }
