@@ -363,7 +363,13 @@ TestResult MMStickNutBagGate_Run(void) {
             MM_Rando_TestColdJunkCache();
             const int as = (int)MM_ForeignItem_RedeemAs((uint16_t)ri);
             if (gated) {
-                SNB_CHECK(!SnbIsStickNutRando(as) && as != MM_SnbTest_RandoId(5) && as != MM_SnbTest_RandoId(6) &&
+                // The junk is a draw from Consumables' list, which holds both families, so
+                // a pack of the OTHER family is a legal draw while that family's bag is
+                // held (nut bag only: five sticks). A stick or nut pack passes only if this
+                // save can take it now, read before the bag below changes the answer; the
+                // pack's own family cannot at tier 0.
+                SNB_CHECK(as != ri && (!SnbIsStickNutRando(as) || MM_SnbTest_Obtainable(as) == 1) &&
+                              as != MM_SnbTest_RandoId(5) && as != MM_SnbTest_RandoId(6) &&
                               as != MM_SnbTest_RandoId(7),
                           "%s: a crossed pack %d before the bag is redeemed as %d (expected a real junk item)", w.what,
                           ri, as);
