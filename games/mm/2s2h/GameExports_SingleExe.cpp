@@ -6946,14 +6946,14 @@ static int MM_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint1
  * capacity tier (#1120) takes the step path above instead.
  *
  * @return 1 when credited; 0 (nothing touched) when @p item is not a counted
- *         pack or a tier, MM's live save is not a real file, or the kind has no
- *         MM row.
+ *         pack, a tier or an armed far family member, MM's live save is not a
+ *         real file, or the kind has no MM row.
  */
 extern "C" int MM_CreditSharedPickup(const SharedItem* item) {
     uint8_t kind = 0;
     uint16_t units = 0;
-    // #1169 XW10: Ocarina of Time's copy of an ARMED second-word shared family (a
-    // shared warp song's surplus copy that crossed) is owned now and MM is given its
+    // #1169 XW10, #1551: Ocarina of Time's copy of an ARMED shared family of either
+    // word (a shared warp song's or other shared item's far copy) is owned now and MM is given its
     // own copy, with no crossing (Combo_SharedFamilies2CreditFarPickup); with the
     // shared rule off it answers false and the item crosses as before.
     if (item != nullptr && MM_SaveIsLiveFile() &&

@@ -7255,8 +7255,9 @@ static int OoT_StepSharedTierAtPickup(const SharedItem* item, uint8_t kind, uint
  * keeps every bombchu spent since the arrival out of the re-applied count.
  * A capacity tier (#1120) takes the step path above instead.
  *
- * #1169 XW10: Majora's Mask's copy of an ARMED second-word shared family (a
- * shared warp song's surplus copy that crossed) is credited the same way: the
+ * #1169 XW10, #1551: Majora's Mask's copy of an ARMED shared family of either
+ * word (a shared warp song's surplus copy that crossed, or a second required
+ * copy such as an MM shop Hero's Shield) is credited the same way: the
  * family is owned now and OoT is given its own copy, with no crossing
  * (Combo_SharedFamilies2CreditFarPickup). With the shared rule off (the extension
  * alone) it answers 0 and the item crosses as before.

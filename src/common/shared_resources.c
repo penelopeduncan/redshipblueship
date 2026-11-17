@@ -1051,31 +1051,41 @@ bool Combo_SharedSongOffGiveBecomesJunk(GameId game, uint16_t nativeId, uint32_t
     return false;
 }
 
-bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {
-    const GameId origin = (GameId)originGame;
-    if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {
-        return false;
-    }
-    const uint32_t armed2 = Combo_SharedFamilies2Armed();
-    for (int b = 0; armed2 != 0u && b < (int)RSBS_XITEM2_BIT_COUNT; ++b) {
+static bool FamiliesCreditFarPickupWord(GameId running, GameId origin, uint16_t id, int word) {
+    const uint32_t armed = word == 0 ? Combo_SharedFamiliesArmed() : Combo_SharedFamilies2Armed();
+    const int bitCount = word == 0 ? (int)RSBS_XITEM_BIT_COUNT : (int)RSBS_XITEM2_BIT_COUNT;
+    for (int b = 0; armed != 0u && b < bitCount; ++b) {
         const uint32_t bit = 1u << b;
-        const int slot = (int)RSBS_XITEM_BIT_COUNT + b;
-        if ((armed2 & bit) == 0u || !sFamilyMemberSet[origin][slot] || sFamilyMembers[origin][slot].nativeId != id) {
+        const int slot = word * (int)RSBS_XITEM_BIT_COUNT + b;
+        if ((armed & bit) == 0u || !sFamilyMemberSet[origin][slot] || sFamilyMembers[origin][slot].nativeId != id) {
             continue;
         }
         // The far game's copy of an ARMED family: the pool owns the family now (the
         // origin game gets its own copy at its next arrival, through the apply), and
         // the running game gets its own copy at once.
-        gComboCtx.sharedFamilyOwned2 |= bit & armed2;
+        if (word == 0) {
+            gComboCtx.sharedFamilyOwned |= bit & armed;
+        } else {
+            gComboCtx.sharedFamilyOwned2 |= bit & armed;
+        }
         if (sFamilyMemberSet[running][slot]) {
-            const ComboSharedFamilyMember* m = &sFamilyMembers[running][slot];
-            if (!m->held(m->nativeId)) {
-                m->give(m->nativeId);
+            const ComboSharedFamilyMember* runningMember = &sFamilyMembers[running][slot];
+            if (!runningMember->held(runningMember->nativeId)) {
+                runningMember->give(runningMember->nativeId);
             }
         }
         fprintf(stderr, "[combo] shared family %s: %s's copy (id %u) found in %s, credited at pickup, no crossing\n",
-                Combo_SharedFamily2SlotName(bit), Game_ToString(origin), (unsigned)id, Game_ToString(running));
+                word == 0 ? Combo_SharedFamilySlotName(bit) : Combo_SharedFamily2SlotName(bit), Game_ToString(origin),
+                (unsigned)id, Game_ToString(running));
         return true;
     }
     return false;
+}
+
+bool Combo_SharedFamilies2CreditFarPickup(GameId running, uint8_t originGame, uint16_t id) {
+    const GameId origin = (GameId)originGame;
+    if (!IsRealGame(running) || !IsRealGame(origin) || origin == running) {
+        return false;
+    }
+    return FamiliesCreditFarPickupWord(running, origin, id, 0) || FamiliesCreditFarPickupWord(running, origin, id, 1);
 }
