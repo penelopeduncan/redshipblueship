@@ -10,7 +10,10 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <exception>
+#include <fstream>
 #include <map>
+#include <string>
 #include <system_error>
 
 #ifdef _WIN32
@@ -24,6 +27,8 @@
 #include <process.h>
 #else
 #include <fcntl.h>
+#include <signal.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #if defined(__APPLE__)
@@ -65,7 +70,66 @@ std::string ThisExecutablePath() {
 #endif
 }
 
+constexpr const char kScratchRootPrefix[] = "rsbs_scratch.";
+// Written into a process's root when a row fails, so the stale sweep leaves the
+// kept directories for forensics.
+constexpr const char kScratchKeptMarker[] = "rsbs_scratch_kept";
+
+// Whether process @p pid may still be running. Errs towards "running": a root
+// is swept only when its owner is certainly gone.
+bool ProcessMayBeAlive(long pid) {
+#ifdef _WIN32
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, static_cast<DWORD>(pid));
+    if (h == nullptr) {
+        return GetLastError() == ERROR_ACCESS_DENIED;
+    }
+    DWORD code = 0;
+    const bool alive = !GetExitCodeProcess(h, &code) || code == STILL_ACTIVE;
+    CloseHandle(h);
+    return alive;
+#else
+    return kill(static_cast<pid_t>(pid), 0) == 0 || errno == EPERM;
+#endif
+}
+
 } // namespace
+
+int ScratchSweepStale() {
+    int removed = 0;
+    // Never fatal: a temp entry this cannot read or name is skipped, and an
+    // error from the listing ends the sweep.
+    try {
+        std::error_code ec;
+        const std::filesystem::path base = ScratchProcessRoot().parent_path();
+        const long self = ProcessId();
+        const std::string prefix = kScratchRootPrefix;
+        std::filesystem::directory_iterator it(base, ec);
+        for (; !ec && it != std::filesystem::directory_iterator(); it.increment(ec)) {
+            const std::u8string leaf8 = it->path().filename().u8string();
+            const std::string leaf(leaf8.begin(), leaf8.end());
+            // At most nine digits, so std::stol cannot overflow a 32-bit long.
+            if (leaf.size() <= prefix.size() || leaf.size() > prefix.size() + 9 ||
+                leaf.compare(0, prefix.size(), prefix) != 0) {
+                continue;
+            }
+            const std::string digits = leaf.substr(prefix.size());
+            if (digits.find_first_not_of("0123456789") != std::string::npos) {
+                continue;
+            }
+            const long pid = std::stol(digits);
+            std::error_code entryEc;
+            if (pid == self || !it->is_directory(entryEc) ||
+                std::filesystem::exists(it->path() / kScratchKeptMarker, entryEc) || ProcessMayBeAlive(pid)) {
+                continue;
+            }
+            std::filesystem::remove_all(it->path(), entryEc);
+            if (!std::filesystem::exists(it->path(), entryEc)) {
+                removed++;
+            }
+        }
+    } catch (const std::exception&) {}
+    return removed;
+}
 
 std::filesystem::path ScratchProcessRoot() {
     std::error_code ec;
@@ -84,6 +148,11 @@ std::filesystem::path ScratchDir(const std::string& name) {
     // extension: a loose folder (no extension, a FolderArchive) became one with
     // the unknown extension ".<pid>", which it opens as a zip, and the mount failed.
     const std::filesystem::path dir = ScratchProcessRoot() / name;
+    // Once per process: the roots of processes that are gone, which a row that
+    // passed could not empty (a mounted archive is never unmounted, and Windows
+    // cannot delete an open file), leave the temp directory here.
+    static const int sSwept = ScratchSweepStale();
+    (void)sSwept;
     auto& dirs = RowScratchDirs();
     if (std::find(dirs.begin(), dirs.end(), dir) == dirs.end()) {
         // A directory of this name can only be left over from an earlier
@@ -113,6 +182,12 @@ void ScratchDirs_EndRow(const char* rowName, bool passed) {
         } else {
             printf("[TestScratch] %s did not pass: kept %s\n", rowName ? rowName : "(row)", dir.string().c_str());
         }
+    }
+    if (!dirs.empty() && !passed) {
+        // Marks the kept directories, so ScratchSweepStale in a later process
+        // leaves them for forensics.
+        std::ofstream marker(ScratchProcessRoot() / kScratchKeptMarker, std::ios::binary | std::ios::trunc);
+        marker << (rowName ? rowName : "(row)") << '\n';
     }
     if (!dirs.empty()) {
         // The per-process parent goes too once nothing is left in it (remove

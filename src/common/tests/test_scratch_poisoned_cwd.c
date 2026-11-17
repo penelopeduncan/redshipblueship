@@ -282,6 +282,48 @@ int SpcScratchShape() {
     return failures;
 }
 
+// #1641: a row that passed but could not delete its folder (on Windows, an
+// archive still mounted from it) leaves `<temp>/rsbs_scratch.<pid>` behind when
+// its process exits; the next test process's ScratchSweepStale removes it. A root
+// a failed row marked as kept stays, and so does a live process's. 999999996 is
+// a process id no supported platform hands out (Linux caps at 2^22, macOS at
+// 99999, Windows ids stay far below), so its owner is certainly gone. Returns
+// the number of failures.
+int SpcStaleSweep() {
+    const std::filesystem::path base = rsbs::test::ScratchProcessRoot().parent_path();
+    const std::filesystem::path stale = base / "rsbs_scratch.999999996";
+    const std::filesystem::path kept = base / "rsbs_scratch.999999992";
+    std::error_code ec;
+    std::filesystem::remove_all(stale, ec);
+    std::filesystem::remove_all(kept, ec);
+    std::filesystem::create_directories(stale / "leftover", ec);
+    std::filesystem::create_directories(kept / "kept_row", ec);
+    {
+        std::ofstream(stale / "leftover" / "file.txt", std::ios::binary) << "left by a row that passed";
+        std::ofstream(kept / "rsbs_scratch_kept", std::ios::binary) << "a-failed-row";
+    }
+    int failures = 0;
+    rsbs::test::ScratchSweepStale();
+    if (std::filesystem::exists(stale, ec)) {
+        printf("[TEST] FAIL: ScratchSweepStale left %s, the root of a process that is gone, in the temp directory\n",
+               stale.generic_string().c_str());
+        failures++;
+    }
+    if (!std::filesystem::exists(kept / "kept_row", ec)) {
+        printf("[TEST] FAIL: ScratchSweepStale removed %s, which a failed row kept for forensics\n",
+               kept.generic_string().c_str());
+        failures++;
+    }
+    if (!std::filesystem::is_directory(rsbs::test::ScratchProcessRoot(), ec)) {
+        printf("[TEST] FAIL: ScratchSweepStale removed this live process's own root %s\n",
+               rsbs::test::ScratchProcessRoot().generic_string().c_str());
+        failures++;
+    }
+    std::filesystem::remove_all(stale, ec);
+    std::filesystem::remove_all(kept, ec);
+    return failures;
+}
+
 } // namespace
 
 static TestResult Test_TestScratchPoisonedCwd(void) {
@@ -324,6 +366,7 @@ static TestResult Test_TestScratchPoisonedCwd(void) {
     }
     failures += SpcMissingAnchors();
     failures += SpcScratchShape();
+    failures += SpcStaleSweep();
     printf("[TEST] %s: test-scratch-poisoned-cwd, %d failure(s)\n", failures == 0 ? "PASS" : "FAIL", failures);
     return failures == 0 ? TEST_PASS : TEST_FAIL;
 }

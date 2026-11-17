@@ -30,6 +30,15 @@ namespace rsbs::test {
 std::filesystem::path ScratchProcessRoot();
 
 /**
+ * Removes every `<temp>/rsbs_scratch.<pid>` whose process is gone and that holds
+ * no kept-for-forensics marker (ScratchDirs_EndRow writes one when a row fails),
+ * and returns how many it removed. A row that passed leaves its root behind only
+ * when it could not delete it (on Windows, an archive still mounted from it);
+ * ScratchDir calls this once per process, so the next test process clears it.
+ */
+int ScratchSweepStale();
+
+/**
  * The calling process's own scratch directory for @p name:
  * `<temp>/rsbs_scratch.<pid>/<name>`. The leaf is exactly @p name, so a caller
  * that picks behaviour from the name gets the name it asked for (#1641): a loose
