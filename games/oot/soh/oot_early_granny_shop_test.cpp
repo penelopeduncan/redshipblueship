@@ -229,13 +229,16 @@ int CountFoldLines(Rando::Context& world, bool grannyFolds) {
                 if (trick->GetKey() == RT_GTG_STATUE_JUMP && world.GetTrickOption(RT_GTG_STATUE_JUMP).Get() == 0) {
                     continue;
                 }
-                // #1647: the fold leaves out the three Bunny Hood tricks while they are off.
+                // #1647: the fold leaves out the three Bunny Hood tricks and Voidout Collection
+                // (SoH e86e0ff69) while they are off.
                 if ((trick->GetKey() == RT_HW_BUNNY_CROSSING &&
                      world.GetTrickOption(RT_HW_BUNNY_CROSSING).Get() == 0) ||
                     (trick->GetKey() == RT_WATER_HIGH_EMBLEM_JUMP &&
                      world.GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0) ||
                     (trick->GetKey() == RT_DC_EYES_BUNNYHOVERS &&
-                     world.GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0)) {
+                     world.GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0) ||
+                    (trick->GetKey() == RT_VOIDOUT_COLLECTION &&
+                     world.GetTrickOption(RT_VOIDOUT_COLLECTION).Get() == 0)) {
                     continue;
                 }
             } else if (!excludes) {

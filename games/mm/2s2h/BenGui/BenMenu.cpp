@@ -1547,6 +1547,13 @@ void BenMenu::AddEnhancements() {
         .Options(CheckboxOptions().Tooltip(
             "Fixes a bug that results in the wrong audio playing upon receiving a 4th piece of heart to "
             "fill a new heart container."));
+    AddWidget(path, "Fix Owl Save Scene Layers", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Fixes.OwlSaveSceneLayers")
+        .Options(CheckboxOptions()
+                     .Tooltip("Fixes owl saves loading areas in their uncleared state (e.g. Great Bay Coast after "
+                              "defeating Gyorg) in certain scenarios. This is a vanilla bug but more common with "
+                              "the Pause Save/Remember Save Location enhancements.")
+                     .DefaultValue(true));
 
     // Restorations
     path = { "Enhancements", "Restorations", SECTION_COLUMN_1 };

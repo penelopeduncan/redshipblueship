@@ -80,13 +80,13 @@ brief, plus everything in the collision set:
 | `Player` | 12 | ✅ all, and only since W6-PLAYER and W6-MASKS-SONGS (#1236): Instant Putaway (§5.3), Climb Speed ((P), §4 W6-PLAYER), six (O) keys (§6.1 W6-PLAYER) and Underwater Ocarina ((O), §6.1, hosted with the Ocarina rows by W6-MASKS-SONGS). The earlier "✅ all" predated any per-key row for the seven. Invert Zora Swim Y ((O), §6.1 #1411) is the tenth, Unsheathe Sword Without Slashing (converged, §5.3 #1412) the eleventh, and Faster Hookshot ((O), §6.1 2Ship #1951) the twelfth |
 | `Equipment` | 7 | ✅ all since W6-PLAYER (#1236): Item Unequip and Magic Arrow Equip Speed (§5.3), Invert Shield Y ((P) P7, §4), Bombchu Drops ((P), §4 W6-PLAYER) and three (O) keys (§6.1 W6-PLAYER). The earlier "✅ all" predated any per-key row for the last four |
 | `Camera` | 31 | ✅ all (the aiming and camera inversion / sensitivity keys and two first-person switches per key since W6-CAM-AIM, §4, the third, auto-centering, converged onto SoH's key by #1272, §5.3; the gyro axes, the free-look pitch limits and the debug camera per key since W6-CAM-GYRO, §4) |
-| `Dialogue` / `Dpad` / `Playback` / `Items` / `A11y` / `Mods` / `Fixes` | 24 | ✅ all; `Fixes` (and the `gFixes.*` namespace) per key only since W6-FIXES (#1237, §6.1 W6-FIXES): the earlier "✅ all" was a category-level claim. #1411 added two `A11y` keys (§6.1 #1411), and #1412 four converged ones (§5.3): Skip Bottle Pickup Messages (`Dialogue`), Remove Explosive Limit (`Items`), Disable Bomb Billboarding and Disable Grotto Fixed Rotation (`Mods`). 2Ship #1989 added Hot Water Never Cools (`Items`, (O), §6.1 2Ship #1989) |
+| `Dialogue` / `Dpad` / `Playback` / `Items` / `A11y` / `Mods` / `Fixes` | 25 | ✅ all; `Fixes` (and the `gFixes.*` namespace) per key only since W6-FIXES (#1237, §6.1 W6-FIXES): the earlier "✅ all" was a category-level claim. #1411 added two `A11y` keys (§6.1 #1411), and #1412 four converged ones (§5.3): Skip Bottle Pickup Messages (`Dialogue`), Remove Explosive Limit (`Items`), Disable Bomb Billboarding and Disable Grotto Fixed Rotation (`Mods`). 2Ship #1989 added Hot Water Never Cools (`Items`, (O), §6.1 2Ship #1989), and 2Ship #1952 Fix Owl Save Scene Layers (`Fixes`, (O), §6.1 W6-FIXES) |
 | `Masks` | 9 | ✅ all since W6-MASKS-SONGS (#1236): eight (O) rows and the internal `PersistentBunnyHood.State` in §6.1. Counted 10 before that lane counted the keys |
 | `Songs` | 7 | ✅ all since W6-MASKS-SONGS (#1236) and L7 (#1133): five (O) rows in §6.1, and Better Song of Double Time and Skip Song of Time Cutscenes hosted by L7 (§5.3's #1133 table) |
 | `Minigames` | 18 | ✅ all since W6-MINIGAMES (#1236): eighteen (O) rows in §6.1 |
 | `DifficultyOptions` | 15 | ✅ all: Hyper Enemies and Permanent Heart Loss converged (§5.3), Damage Multiplier held apart and hosted (§5.3, #1037), Goron Race with the minigames (§6.1), and since W6-MODES-DIFF (#1236) seven (O) rows and Delete File on Death (INTENTIONAL) in §6.1. #1412 added three: No Heart Drops and Drops Don't Despawn converged (§5.3), and No Random Drops held apart ((P), hosted, in §6.1's W6-MODES-DIFF table) |
 | `Cycle` | 9 | ✅ all since W6-CYCLE-CHEATS (#1236): six (O) rows and Do Not Reset Rupees / Consumables (INTENTIONAL) in §6.1. 2Ship #1972 added Mayor Argues Until Moonfall ((O), §6.1) |
-| **Subtotal** | **201** | |
+| **Subtotal** | **202** | |
 
 **NOT classified at individual-setting level:** none since the W6 lanes. Until then 55 MM keys in five categories
 (`Minigames`, `DifficultyOptions`, `Masks`, `Cycle`, `Songs`) were classified **(O) MM-only at the category level** on
@@ -94,7 +94,8 @@ the strength of their contents, with the rows inside them that have OoT counterp
 has a row per key (table above), and `Masks` counts 9 keys, not 10, so the total in scope was 184; #1411's three keys
 (two `A11y`, one `Player`) made it 187, and #1412's eleven 2Ship keys (ten converged, §5.3, and No Random Drops held
 apart, §6.1) made it 198, 2Ship #1989's Hot Water Never Cools (§6.1) made it 199, 2Ship #1972's Mayor Argues
-Until Moonfall (§6.1) made it 200, and 2Ship #1951's Faster Hookshot (§6.1) makes it 201.
+Until Moonfall (§6.1) made it 200, 2Ship #1952's Fix Owl Save Scene Layers (§6.1 W6-FIXES) made it 201, and 2Ship
+#1951's Faster Hookshot (§6.1) makes it 202.
 
 Also not covered: OoT's 1570 `gCosmetics.*` keys (overwhelmingly auto-generated per-actor
 colour entries with no MM counterpart — MM has 3, all in the collision set and all
@@ -813,6 +814,7 @@ that could share its key.
 | `gEnhancements.Camera.FixTargettingCameraSnap` | off | Fix Targeting Camera Snap (Camera Fixes) | (O) MM-only; row only, `z_camera.c`'s `MM_Camera_Parallel1` reads it (2Ship 4a7af3068, #1402; `z_player.c` read it before) |
 | `gFixes.FixEponaStealingSword` | off | Fix Epona Stealing Sword (Gameplay Fixes) | (O) MM-only; `Fixes/FixEponaStealingSword.cpp` linked (play-state guard added) |
 | `gEnhancements.Fixes.FierceDeityZTargetMovement` | off | Fix Fierce Deity Z-Target Movement (Gameplay Fixes) | (O) MM-only; `Fixes/FierceDeityZTargetMovement.cpp` linked (guard added) |
+| `gEnhancements.Fixes.OwlSaveSceneLayers` | on | Fix Owl Save Scene Layers (Gameplay Fixes, after Fix Fierce Deity Z-Target Movement) | (O) MM-only, backported from 2Ship 58b5dd81 (2Ship #1952) and on `RSBS_TWOSHIP_IMPORT_KEYS`; row only, `z_sram_NES.c`'s `MM_Sram_OpenSave` reads it (default 1) on an owl or pause save opened from MM's own file select. A player preference, not generation or combo identity: a crossing, a `.redsave` load and a held crossing's reload never run that function and set 0xFFEF themselves (`MM_Play_ConsumeStartupEntrance`, locked by mm-startup-restore) |
 | `gEnhancements.Fixes.ConsoleCrashes` | on | none | INTENTIONAL: the single exe always keeps the crash fixes on. `src/common/mm_stubs.c`'s handler returns "not reset" and every call site takes its safe fallback; 2Ship's off mode is a soft reset through the console's "reset" command, which in the single exe is SoH's and resets Ocarina of Time, not the Majora's Mask state the crash came from |
 | `gFixes.FixAmmoCountEnvColor` | off | Fix Ammo Count Color (Graphical Fixes) | (O) MM-only; row only, `z_parameter.c` reads it (the ammo count, and since 2Ship e04c3ae28, #1402, the B button ammo count and action labels too). The key keeps this spelling: 2Ship v1's rename to `gFixes.FixButtonEnvColor` (`ConfigUpdaters.cpp`) was never followed by MM's code, so the row never binds the renamed key. The 2Ship import carries it under this spelling (this document's §6.3) |
 | `gFixes.FixIkanaGreatFairyFountainColor` | off | Fix Ikana Great Fairy Fountain Color (Graphical Fixes) | (O) MM-only; row only, `z_kankyo.c` reads it |
@@ -910,7 +912,7 @@ before the menu exists. CvarClassification leg (2b) and the TwoShipImportMmKeys 
 Scoped to the enhancement/cheat/cosmetic surface classified at **individual-setting level**
 (MM's 185 `gEnhancements.*` + `gCheats.*` keys, and their OoT counterparts). These counts are the original inventory's
 (2026-07-21) and are not re-derived per row: since then the W6 lanes classified every key per row (§2, where the total
-read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 201 since #1411, #1412, 2Ship #1989, 2Ship #1972 and 2Ship #1951), and the #966 rows,
+read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 202 since #1411, #1412, 2Ship #1989, 2Ship #1972, 2Ship #1952 and 2Ship #1951), and the #966 rows,
 #1239, #1272 and #1412 converged more keys than the 26 below.
 
 | Class | Rows | Notes |

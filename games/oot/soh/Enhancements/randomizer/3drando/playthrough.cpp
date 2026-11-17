@@ -571,12 +571,16 @@ static std::string FoldSettingsString(const std::shared_ptr<Rando::Context>& ctx
                         // Water Temple high-emblem jump change a world only while on, so while off they fold
                         // nothing and a world keeps the fingerprint it had before the tricks existed.
                         // SoH eca767dcb's Dodongo's Cavern eyes with Bunnyhovers, likewise.
+                        // SoH e86e0ff69's Voidout Collection, likewise: its off state is folded into the
+                        // location rules it changes, not into the string.
                         if ((trickOption->GetKey() == RT_HW_BUNNY_CROSSING &&
                              ctx->GetTrickOption(RT_HW_BUNNY_CROSSING).Get() == 0) ||
                             (trickOption->GetKey() == RT_WATER_HIGH_EMBLEM_JUMP &&
                              ctx->GetTrickOption(RT_WATER_HIGH_EMBLEM_JUMP).Get() == 0) ||
                             (trickOption->GetKey() == RT_DC_EYES_BUNNYHOVERS &&
-                             ctx->GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0)) {
+                             ctx->GetTrickOption(RT_DC_EYES_BUNNYHOVERS).Get() == 0) ||
+                            (trickOption->GetKey() == RT_VOIDOUT_COLLECTION &&
+                             ctx->GetTrickOption(RT_VOIDOUT_COLLECTION).Get() == 0)) {
                             continue;
                         }
                         settingsStr += option->GetOptionText(ctx->GetTrickOption(trickOption->GetKey()).Get());
@@ -1209,6 +1213,13 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
             }
             Combo_ComboItemRulesApplyCreationShuffles(&comboSettings, &comboItemRules, rsbsShuffled);
         }
+        // #1652 (operator ruling 2026-11-15): the pair's one Deku Stick Bag and
+        // Deku Nut Bag shuffle, from OoT's own options, frozen in the same act so
+        // MM reads the pair's answer with no OoT seed context loaded. A world with
+        // both off freezes exactly what it did before.
+        Combo_ComboSettingsApplyCreationBagShuffles(&comboSettings,
+                                                    ctx->GetOption(RSK_SHUFFLE_DEKU_STICK_BAG).IsNot(RO_GENERIC_OFF),
+                                                    ctx->GetOption(RSK_SHUFFLE_DEKU_NUT_BAG).IsNot(RO_GENERIC_OFF));
         // #1169 XW2: the second rules word freezes in the same act. The gate above
         // refused any word it names, so this holds no bit of RSBS_XITEM2_HIDDEN: it
         // is 0, and the freeze and its fingerprint exactly the Ex form's, unless a

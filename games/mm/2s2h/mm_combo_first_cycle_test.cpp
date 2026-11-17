@@ -47,7 +47,10 @@
 #include <cstdio>
 #include <cstring>
 
+#include <libultraship/bridge/consolevariablebridge.h>
+
 #include "2s2h/GameInteractor/GameInteractor.h"
+#include "2s2h/ShipInit.hpp"
 
 extern "C" {
 // games/mm/src/code/z_play.c — the three functions under test.
@@ -56,6 +59,10 @@ void MM_Play_GrantComboArrivalIntroRewards(void);
 bool MM_Play_ShouldEmptyFirstCycleTerminaField(s32 scene, u16 entrance);
 // games/mm/2s2h/GameExports_SingleExe.cpp — the combo override registrar.
 void MM_Combo_RegisterFirstCycleOverrides(void);
+// #1671 B0: re-registers the combo VB_PLAY_SONG_OF_TIME_CS override behind every registrant that exists now.
+void MM_Combo_RegisterSongOfTimeCsOverride(void);
+// games/mm/2s2h/z_scene_2SH.cpp — the first cycle's 5x clock predicate (#1671 B0).
+bool MM_Scene_FirstCycleTimeSpeedApplies(u16 sceneTimeSpeed);
 // src/common/context.cpp + entrance.cpp — the same C surface z_play.c uses.
 void Combo_FreezeState(const char* gameId, uint16_t returnEntrance, const void* saveContext, size_t size);
 void Combo_ClearFrozenState(const char* gameId);
@@ -96,6 +103,18 @@ bool HasOcarina(void) {
     return INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME;
 }
 
+// The Story key SkipLearningSongOfTime.cpp and SkipClockTowerOpen.cpp register on (#1671 B0 legs).
+constexpr const char* kFcStoryKey = "gEnhancements.TimeSavers.SkipCutscene.Story";
+
+void FcDriveStoryKey(int value) {
+    if (value == 0) {
+        CVarClear(kFcStoryKey);
+    } else {
+        CVarSetInteger(kFcStoryKey, value);
+    }
+    ShipInit::Init(kFcStoryKey);
+}
+
 } // namespace
 
 extern "C" int MM_ComboFirstCycle_RunHeadless(void) {
@@ -128,9 +147,8 @@ extern "C" int MM_ComboFirstCycle_RunHeadless(void) {
 
     // The faster-first-cycle twin, through MM's real dispatcher. Its production
     // consumer (MM_Scene_CommandTimeSettings, games/mm/2s2h/z_scene_2SH.cpp)
-    // is #ifdef RSBS_SINGLE_EXECUTABLE-branched to evaluate the un-hooked
-    // default directly and so does not reach this dispatch today (#344); what is
-    // asserted here is the OVERRIDE, not that the scene command consults it.
+    // reaches this dispatch through MM_Scene_FirstCycleTimeSpeedApplies since
+    // #1671 B0; leg 2b drives that predicate itself.
     FC_ASSERT(GameInteractor_Should(VB_FASTER_FIRST_CYCLE, true),
               "VB_FASTER_FIRST_CYCLE no longer defaults to the caller's verdict off a combo half");
 
@@ -145,6 +163,95 @@ extern "C" int MM_ComboFirstCycle_RunHeadless(void) {
               "an ocarina-less COMBO MM half still gets the empty first-cycle Termina Field (#654)");
     FC_ASSERT(!GameInteractor_Should(VB_FASTER_FIRST_CYCLE, true),
               "a COMBO MM half still runs the first cycle's 5x clock (#654)");
+
+    // ========================================================================
+    // 2b. #1671 B0: the first-cycle gates that key on an empty ocarina slot, for
+    //     a paired half that does not hold its ocarina (the Shuffle Ocarina
+    //     option). Every non-combo baseline runs before its combo leg.
+    // ========================================================================
+    // The Story key off, so SkipClockTowerOpen.cpp and SkipLearningSongOfTime.cpp
+    // are not registered for the baselines.
+    FcDriveStoryKey(0);
+
+    // B0.1: the fast first-cycle clock, through the scene command's own predicate.
+    Combo_ClearCrossGameHalves();
+    ArrangeBootstrapSave();
+    FC_ASSERT(!HasOcarina(), "B0.1 baseline save unexpectedly holds the ocarina");
+    FC_ASSERT(MM_Scene_FirstCycleTimeSpeedApplies(3),
+              "B0.1: a standalone ocarina-less MM file no longer gets vanilla's 5x first-cycle clock");
+    FC_ASSERT(!MM_Scene_FirstCycleTimeSpeedApplies(0),
+              "B0.1: the 5x clock fired for a scene whose time does not run (sceneTimeSpeed 0)");
+    INV_CONTENT(ITEM_OCARINA_OF_TIME) = ITEM_OCARINA_OF_TIME;
+    FC_ASSERT(!MM_Scene_FirstCycleTimeSpeedApplies(3), "B0.1: the 5x clock fired for a file that holds the ocarina");
+    ArrangeBootstrapSave();
+    gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    Combo_NoteCrossGameArrival("mm");
+    FC_ASSERT(!HasOcarina(), "B0.1 combo leg lost its ocarina-less arrangement");
+    FC_ASSERT(!MM_Scene_FirstCycleTimeSpeedApplies(3),
+              "B0.1: a paired rando half without its ocarina runs the first cycle's 5x clock (#1671): the scene "
+              "command does not dispatch VB_FASTER_FIRST_CYCLE");
+
+    // B0.2: the Day 3 midnight festival warp (z_en_test4.c).
+    Combo_ClearCrossGameHalves();
+    ArrangeBootstrapSave();
+    FC_ASSERT(GameInteractor_Should(VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE, true),
+              "B0.2: VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE no longer defaults to the caller's verdict "
+              "off a combo half");
+    Combo_NoteCrossGameArrival("mm");
+    FC_ASSERT(!GameInteractor_Should(VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE, true),
+              "B0.2: an ocarina-less combo MM half is still pulled into the Day 3 midnight festival cutscene from "
+              "any scene (#1671)");
+
+    // B0.3: the forced "learn the Song of Time" flashback (z_player.c), Story key
+    // off and then on in both registrant orders.
+    Combo_ClearCrossGameHalves();
+    ArrangeBootstrapSave();
+    gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    FC_ASSERT(GameInteractor_Should(VB_PLAY_SONG_OF_TIME_CS, true),
+              "B0.3: VB_PLAY_SONG_OF_TIME_CS no longer defaults to the caller's verdict off a combo half");
+    Combo_NoteCrossGameArrival("mm");
+    FC_ASSERT(!GameInteractor_Should(VB_PLAY_SONG_OF_TIME_CS, true),
+              "B0.3: a paired rando half still plays the Song of Time flashback with the Story key off (#1671)");
+
+    // Non-vacuity: with the Story key on, its registrant is live and acts on a
+    // NON-combo rando file (Deku form, one queued give).
+    FcDriveStoryKey(1);
+    Combo_ClearCrossGameHalves();
+    {
+        const u8 formBefore = gSaveContext.save.playerForm;
+        const size_t queueBefore = MM_GameEvents_Queue().size();
+        FC_ASSERT(formBefore != PLAYER_FORM_DEKU, "B0.3 baseline save already in Deku form");
+        FC_ASSERT(!GameInteractor_Should(VB_PLAY_SONG_OF_TIME_CS, true),
+                  "B0.3: the Story key's SkipLearningSongOfTime registrant is not live (baseline)");
+        FC_ASSERT(gSaveContext.save.playerForm == PLAYER_FORM_DEKU && MM_GameEvents_Queue().size() == queueBefore + 1,
+                  "B0.3: SkipLearningSongOfTime did not act on a non-combo rando file, so the combo legs below would "
+                  "be vacuous");
+        MM_GameEvents_Queue().pop_back();
+        gSaveContext.save.playerForm = formBefore;
+    }
+
+    Combo_NoteCrossGameArrival("mm");
+    for (int order = 0; order < 2; order++) {
+        if (order == 0) {
+            // The Story registrant first: move the combo one behind it.
+            MM_Combo_RegisterSongOfTimeCsOverride();
+        } else {
+            // The Story registrant last: a ShipInit pass for its key re-registers it.
+            ShipInit::Init(kFcStoryKey);
+        }
+        const u8 formBefore = gSaveContext.save.playerForm;
+        const size_t queueBefore = MM_GameEvents_Queue().size();
+        const bool should = GameInteractor_Should(VB_PLAY_SONG_OF_TIME_CS, true);
+        printf("[TEST] mm-combo-first-cycle: B0.3 %s: should %d, form %d -> %d, queue %zu -> %zu\n",
+               order == 0 ? "Story registrant first" : "Story registrant last", should ? 1 : 0, formBefore,
+               gSaveContext.save.playerForm, queueBefore, MM_GameEvents_Queue().size());
+        FC_ASSERT(!should, "B0.3: a paired rando half still plays the Song of Time flashback with the Story key on");
+        FC_ASSERT(gSaveContext.save.playerForm == formBefore,
+                  "B0.3: SkipLearningSongOfTime changed a paired rando half's player form (#1671)");
+        FC_ASSERT(MM_GameEvents_Queue().size() == queueBefore,
+                  "B0.3: SkipLearningSongOfTime queued a vanilla Song of Time give for a paired rando half (#1671)");
+    }
+    FcDriveStoryKey(0);
 
     // ========================================================================
     // 3. The grants, driven directly: a VANILLA-paired half gets the post-intro

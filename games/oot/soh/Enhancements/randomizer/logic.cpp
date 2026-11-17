@@ -2021,15 +2021,6 @@ uint16_t Logic::EffectiveHealth() {
     return (health + (1 << Multiplier) - 1) >> Multiplier;
 }
 
-// [RSBS #1397] Upstream b52c31f85 deletes Hearts(). Ours keeps it because our
-// tree still calls it: death_mountain_crater.cpp predates upstream's crater
-// refactor (Hearts() >= N is exactly Health() >= N * 16), PR #1493 (packet
-// #1395) moves the two void-out exits to CanVoid(), and oot_logic_gates_test.cpp
-// leg G reads it.
-uint8_t Logic::Hearts() {
-    return Health() / 16;
-}
-
 uint8_t Logic::DungeonCount() {
     if (CalculatingAvailableChecks) {
         return CheckEventChkInf(EVENTCHKINF_USED_DEKU_TREE_BLUE_WARP) +
@@ -3248,6 +3239,27 @@ bool Logic::IsReverseAccessPossible() {
              ctx->GetOption(RSK_SHUFFLE_BOSS_ENTRANCES).Is(RO_BOSS_ROOM_ENTRANCE_SHUFFLE_FULL)) ||
             (ctx->GetOption(RSK_MIX_BOSS_ENTRANCES) &&
              (ctx->GetOption(RSK_MIX_OVERWORLD_ENTRANCES) || ctx->GetOption(RSK_MIX_INTERIOR_ENTRANCES))));
+}
+
+bool Logic::DMCUpperToPots() {
+    return CanUse(RG_HOVER_BOOTS) || BunnyHood() ||
+           (IsAdult &&
+            ((Get(LOGIC_DMC_BOULDER)) || (ctx->GetTrickOption(RT_DMC_BOULDER_SKIP) /* && CanUse(RG_ROLL)*/)));
+}
+
+bool Logic::DMCPotsToPad() {
+    return CanUse(RG_HOVER_BOOTS) || (BunnyHood() && (IsAdult || HasItem(RG_CLIMB))) || CanUse(RG_HOOKSHOT) ||
+           (IsAdult && CanShield() && ctx->GetTrickOption(RT_DMC_BOLERO_JUMP) && CanUse(RG_POWER_BRACELET));
+}
+
+bool Logic::DMCPadToPots() {
+    return (CanUse(RG_HOVER_BOOTS) && (IsAdult || (HasItem(RG_CLIMB) /*&& can roll or bunny*/))) ||
+           CanUse(RG_HOOKSHOT) || (IsAdult && BunnyHood() && HasItem(RG_CLIMB));
+}
+
+// via scarecrow
+bool Logic::DMCUpperToPad() {
+    return IsAdult && TakeDamage() && ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && ReachDistantScarecrow();
 }
 
 bool Logic::SpiritExplosiveKeyLogic() {

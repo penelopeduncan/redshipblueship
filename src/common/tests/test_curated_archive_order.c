@@ -280,7 +280,10 @@ extern "C" int ModArchiveSurvivesSwitch_RunHeadless(const char* baseArchive, con
     // Stand-in mod: a byte copy of a staged archive, so it is a real loadable
     // o2r whose paths overlap the base archive's. Its own file name is what
     // makes "which archive won" observable.
-    const std::string modPath = (std::filesystem::current_path() / "rsbs_test_mod_593.o2r").generic_string();
+    // #1641: in this process's own folder (test_scratch.h), not the working
+    // directory every concurrent row shares.
+    const std::string modPath =
+        (rsbs::test::ScratchDir("rsbs_test_mod_593_dir") / "rsbs_test_mod_593.o2r").generic_string();
     std::error_code ec;
     std::filesystem::remove(modPath, ec);
     std::filesystem::copy_file(modSourceArchive, modPath, std::filesystem::copy_options::overwrite_existing, ec);
@@ -424,7 +427,7 @@ extern "C" int ModArchiveSurvivesSwitch_RunHeadless(const char* baseArchive, con
         ctx->GetResourceManager()->SetAltAssetsEnabled(true);
 
         const char* kFallbackDL = "objects/object_bosskey/gBossKeyIconShadowTempleDL";
-        const std::filesystem::path looseMod1308 = std::filesystem::current_path() / "rsbs_test_mod_1308_alt";
+        const std::filesystem::path looseMod1308 = rsbs::test::ScratchDir("rsbs_test_mod_1308_alt");
 
         auto cleanup1308 = [&]() {
             Combo_ExtensionCache_Erase("alt/portVersion");
@@ -646,7 +649,6 @@ extern "C" int ModArchiveSurvivesSwitch_RunHeadless(const char* baseArchive, con
     Combo_ExtensionCache_Erase("alt/portVersion");
     Combo_ExtensionCache_Erase("alt/objects/object_bosskey/gBossKeyIconShadowTempleDL");
     std::filesystem::remove(modPath, ec);
-    std::filesystem::remove_all(std::filesystem::current_path() / "rsbs_test_mod_1308_alt", ec);
 
     if (rc == 0) {
         printf("[mod-survives-switch] PASS: a registered mod archive still wins after the switch-time base "

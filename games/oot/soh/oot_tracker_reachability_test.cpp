@@ -509,7 +509,7 @@ TrrWarpRun TrrWarpRecalc() {
     if (TrrEnableAndRecalc()) {
         run.available = TrrAvailableSet();
         run.crossing = TrrChildReaches(RR_MARKET_MASK_SHOP);
-        run.crater = TrrChildReaches(RR_DMC_CENTRAL_LOCAL);
+        run.crater = TrrChildReaches(RR_DMC_PAD_ENTRY);
         uint16_t dest = 0xFFFFu;
         run.disarmed = OoT_ComboLogic_TestTrackerTravel(0, &dest) == 0u && dest == 0u;
     }
@@ -526,8 +526,8 @@ TrrWarpRun TrrWarpRecalc() {
  * frozen on and a PRESENT warp record, the REAL ComputeAvailableChecks over an MM
  * frozen half holding the Ocarina of Time and every button.
  *   W1 the songs unowned: no fact, no second search, and the Bolero pad's region
- *      (Death Mountain Crater's centre, which a child with no explosives reaches no
- *      other way) is not reached.
+ *      (RR_DMC_PAD_ENTRY, which only the Bolero warp and the Fire Temple blue warp lead
+ *      to) is not reached.
  *   W2 all six owned: the facts are the six songs, and the recalculation reaches the
  *      crater and marks available every W1 check plus at least one more (a check
  *      reachable only through a root warp exit); the arm is clear afterwards. With the
