@@ -659,6 +659,10 @@ std::string ComboCheckRowItemText(uint8_t game, const ComboTrackerCheckRow& row)
     if (row.placedItemName != nullptr) {
         text = row.placedItemName;
         if (row.placedItemGame != game) {
+            // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+            if (const char* shared = Combo_SharedItemDisplayName(row.placedItemGame, row.placedItemId)) {
+                text = shared;
+            }
             // #1169 XW11: no second tag after a name that already carries it ("Minuet of Forest (MM)");
             // #1653: none at all for an armed shared family's item.
             text += Combo_ForeignItemTag(row.placedItemGame == (uint8_t)GAME_MM ? (uint8_t)GAME_MM : (uint8_t)GAME_OOT,

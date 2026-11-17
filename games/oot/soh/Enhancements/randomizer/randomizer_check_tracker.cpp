@@ -1329,7 +1329,10 @@ static std::string PlacedItemTrackerName(const Rando::ItemLocation* itemLoc, Ran
     if (Combo_ForeignPairingActive()) {
         if (const SharedItem* crossed = Combo_GetForeignPlacementForOoTCheck((uint16_t)rc)) {
             if (const char* name = Combo_GetForeignItemName(*crossed)) {
-                return std::string(name) + Combo_ForeignItemTag(crossed->originGame, crossed->id, name);
+                // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+                const char* shown = Combo_SharedItemDisplayName(crossed->originGame, crossed->id);
+                return std::string(shown != nullptr ? shown : name) +
+                       Combo_ForeignItemTag(crossed->originGame, crossed->id, name);
             }
         }
     }

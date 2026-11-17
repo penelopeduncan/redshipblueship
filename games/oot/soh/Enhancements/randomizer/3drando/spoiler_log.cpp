@@ -45,6 +45,8 @@ extern std::array<std::string, 17> hintCategoryNames;
 extern "C" int OoT_ComboLogic_WritingSingleBagSpoiler(void);
 // games/mm/2s2h/Rando/Foreign.cpp (#564 V23, #1055).
 extern "C" int MM_Rando_ChoosePairedSpoilerName(const char* dir, const char* seedName, char* out, size_t outCap);
+#include "game.h"            // src/common: GAME_OOT
+#include "warp_song_items.h" // src/common: Combo_SharedItemDisplayName, a shared item's plain name (#1560)
 #endif
 extern Region* GetHintRegion(uint32_t);
 
@@ -81,6 +83,18 @@ static auto GetPlacementLogPath() {
 static void WriteLocation(std::string sphere, const RandomizerCheck locationKey, const bool withPadding = false) {
     Rando::Location* location = Rando::StaticData::GetLocation(locationKey);
     Rando::ItemLocation* itemLocation = Rando::Context::GetInstance()->GetItemLocation(locationKey);
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1560: the playthrough is read by people only, so under its frozen shared rule
+    // the Song of Soaring (OoT) is written without its tag (OoTMM's isItemAmbiguous).
+    // The "locations" section keeps the item table's name: it is read back as a key
+    // (SeedContext.cpp ParseItemLocationsJson, Plandomizer.cpp).
+    if (const char* shared =
+            Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)itemLocation->GetPlacedRandomizerGet())) {
+        jsonData["playthrough"][sphere][location->GetName()] = shared;
+        return;
+    }
+#endif
 
     switch (gSaveContext.language) {
         case LANGUAGE_ENG:
