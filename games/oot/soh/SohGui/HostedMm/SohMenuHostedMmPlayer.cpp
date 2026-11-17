@@ -18,10 +18,10 @@
  *  - Items > Equipment: a "Majora's Mask" block (Two-Handed Sword Spin Attack, Great Fairy Sword B-Button Attack,
  *    Better Picto Message, and since 2Ship #1989 Hot Water Never Cools, an Items row in 2Ship with no SoH twin:
  *    Ocarina of Time has no Hot Spring Water).
- *  - Items > Hookshot: since 2Ship #1951 a "Majora's Mask" block at the end of the section, after SoH's Targetable
- *    Hookshot Reticle, for Faster Hookshot (a Player row in 2Ship; SoH has no hookshot speed setting to sit beside).
  *  - Items > Boomerang: Instant Fin Boomerangs Recall right after SoH's Instant Boomerang Recall, its nearest relative
  *    (Zora Link's fins and the B button, not the Boomerang and its item button).
+ *  - Items > Hookshot: since 2Ship #1951 a "Majora's Mask" block at the end of the section, after SoH's Targetable
+ *    Hookshot Reticle, for Faster Hookshot (a Player row in 2Ship; SoH has no hookshot speed setting to sit beside).
  *  - Difficulty > Drops: "MM Enable Bombchu Drops" right after SoH's own. Held apart (kMustStayDistinct): SoH's rule
  *    weighs what Link carries and an Ocarina of Time seed can force it on; MM's gives a Bomb drop an even chance to
  *    be a Bombchu, and in the single exe only once Link has Bombchus (review H1: the Bombchu count is a shared

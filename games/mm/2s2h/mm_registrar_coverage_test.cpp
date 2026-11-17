@@ -296,7 +296,7 @@
  * The converting roll spawns a CustomItem through MM_Actor_Spawn, which needs a live actor context, so the leg never
  * takes it; a Bombchu appearing is the playtest's. Nothing ChuDrops.cpp defines is named here.
  *
- * FASTER HOOKSHOT DOUBLES THE HOOK'S SPEEDS (2Ship #1951) -- FAIL 25. The key-gap table shows that
+ * FASTER HOOKSHOT DOUBLES THE HOOK'S SPEEDS (2Ship #1951) -- FAIL 26. The key-gap table shows that
  * Player/FasterHookshot.cpp registers; this leg shows what its two registrants answer, through the production
  * dispatcher (GameInteractor_Should, which is MM_GameHooks_ExecuteVBShould), with the arguments MM_ArmsHook_Wait and
  * MM_ArmsHook_Shoot (z_arms_hook.c) hand them, on a zeroed stand-in hook with no child and no attached actor:
@@ -386,7 +386,7 @@ extern "C" {
 // Phase 12 (#1215, #1221): the rando arm drive and the gates' flags.
 #include "variables.h"
 #include "overlays/actors/ovl_En_Sth/z_en_sth.h"
-// 2Ship #1951: the hook actor FAIL 25's leg hands VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED.
+// 2Ship #1951: the hook actor FAIL 26's leg hands VB_HOOKSHOT_SHOOT and VB_HOOKSHOT_SET_SPEED.
 #include "overlays/actors/ovl_Arms_Hook/z_arms_hook.h"
 // W6-CYCLE-CHEATS: z_player.c's Deku-glide distance pair, which Longer Deku Flower Glide rewrites.
 extern f32 D_8085D958[2];
@@ -475,9 +475,9 @@ struct RegisterW6Phase {
 constexpr const char* kChuDropsCVar = "gEnhancements.Equipment.ChuDrops";
 // 2Ship #1989: the key-gap probe and FAIL 23's leg (see the file header).
 constexpr const char* kHotWaterNeverCoolsCVar = "gEnhancements.Items.HotWaterNeverCools";
-// 2Ship #1951: the key-gap probe and FAIL 25's leg (see the file header).
-constexpr const char* kFasterHookshotCVar = "gEnhancements.Player.FasterHookshot";
 constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
+// 2Ship #1951: the key-gap probe and FAIL 26's leg (see the file header).
+constexpr const char* kFasterHookshotCVar = "gEnhancements.Player.FasterHookshot";
 // 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
 constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
 
@@ -2104,7 +2104,7 @@ int RunChuDropsRuleLeg() {
     return 0;
 }
 
-// ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds (FAIL 25) ---------------------------------------------
+// ---- 2Ship #1951: Faster Hookshot doubles the hook's speeds (FAIL 26) ---------------------------------------------
 // See FASTER HOOKSHOT in the file header. The arguments are the ones z_arms_hook.c passes: the hook, and for
 // VB_HOOKSHOT_SET_SPEED a pointer to the velocity MM_ArmsHook_Shoot is about to pick.
 int RunFasterHookshotLeg() {
@@ -2167,25 +2167,25 @@ int RunFasterHookshotLeg() {
     const bool shootUntouchedAfter = untouched();
     MM_gPlayState = savedPlay;
 
-    RC_ASSERT(speedVerdictOff && velocityOff == -1.0f, 25,
+    RC_ASSERT(speedVerdictOff && velocityOff == -1.0f, 26,
               "with Faster Hookshot off, VB_HOOKSHOT_SET_SPEED no longer returns the vanilla verdict or changed the "
               "velocity it was handed");
-    RC_ASSERT(shootVerdictOff && shootUntouchedOff, 25,
+    RC_ASSERT(shootVerdictOff && shootUntouchedOff, 26,
               "with Faster Hookshot off, VB_HOOKSHOT_SHOOT no longer returns the vanilla verdict or changed the hook");
-    RC_ASSERT(armedShoot == 1 && armedSpeed == 1, 25,
+    RC_ASSERT(armedShoot == 1 && armedSpeed == 1, 26,
               "turning Faster Hookshot on did not register exactly one VB_HOOKSHOT_SHOOT and one "
               "VB_HOOKSHOT_SET_SPEED handler (Player/FasterHookshot.cpp is out of the link, or it stacks)");
-    RC_ASSERT(!speedVerdictOn && velocityOn == 400.0f, 25,
+    RC_ASSERT(!speedVerdictOn && velocityOn == 400.0f, 26,
               "with Faster Hookshot on, a free hook's velocity is not 400 (200 doubled), or the vanilla speed "
               "block still runs");
-    RC_ASSERT(!shootVerdictOn && fired, 25,
+    RC_ASSERT(!shootVerdictOn && fired, 26,
               "with Faster Hookshot on, a hook about to fire was not fired at speed 40 with a 13-frame timer and "
               "parented to the Player, or the vanilla shot still runs");
-    RC_ASSERT(!shootVerdictFired && firedUntouched, 25,
+    RC_ASSERT(!shootVerdictFired && firedUntouched, 26,
               "with Faster Hookshot on, a hook that had already fired was fired again");
-    RC_ASSERT(shootVerdictNoPlay && noPlayUntouched, 25,
+    RC_ASSERT(shootVerdictNoPlay && noPlayUntouched, 26,
               "with Faster Hookshot on and no play state, VB_HOOKSHOT_SHOOT did not leave the vanilla shot to run");
-    RC_ASSERT(speedVerdictAfter && velocityAfter == -1.0f && shootVerdictAfter && shootUntouchedAfter, 25,
+    RC_ASSERT(speedVerdictAfter && velocityAfter == -1.0f && shootVerdictAfter && shootUntouchedAfter, 26,
               "Faster Hookshot's handlers stayed registered after its key went back off");
     printf("[TEST] 2Ship #1951: Faster Hookshot doubles the hook's speeds only while its key is on\n");
     return 0;

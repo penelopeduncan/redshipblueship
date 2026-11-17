@@ -847,7 +847,7 @@ not have. 2Ship draws it on its Gameplay page's Player section in the excluded `
 through the hosted-row seam, bound through `RSBS_CVAR_MM_PLAYER_FASTER_HOOKSHOT`, and is on `RSBS_TWOSHIP_IMPORT_KEYS`.
 Its TU is carved into `ship__Enh_registrars` and rides `VB_HOOKSHOT_SHOOT` and `VB_HOOKSHOT_SET_SPEED`, appended to
 `GIVanillaBehavior` and dispatched from `MM_ArmsHook_Wait` and `MM_ArmsHook_Shoot` (`z_arms_hook.c`). The
-registrar-coverage lock's key-gap table attributes it, and its FAIL 25 leg drives both verdicts; the classification
+registrar-coverage lock's key-gap table attributes it, and its FAIL 26 leg drives both verdicts; the classification
 lock's leg 3f-2c holds the binding. A player preference: it doubles how fast the Hookshot flies out and pulls back, not
 generation or combo identity (no logic rule reads it).
 
