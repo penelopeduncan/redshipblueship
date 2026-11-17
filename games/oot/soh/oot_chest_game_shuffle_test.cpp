@@ -84,6 +84,7 @@
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/item_location.h"
 #include "soh/Enhancements/randomizer/randomizer_check_objects.h"
+#include "soh/Enhancements/randomizer/3drando/item_pool.hpp" // itemPool: the general pass's pool
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 
 #include "context.h" // src/common: gComboCtx, Context_GetCurrentGame, Context_SetCurrentGame
@@ -372,7 +373,9 @@ FoldRecord CgGenerate(const char* leg) {
                 r.chestGameLocations++;
             }
         }
-        for (RandomizerGet item : world->ItemPool) {
+        // A paired world defers its general pass to the single bag (fill.cpp), so its
+        // items still wait in the 3drando pool when the generation returns.
+        for (RandomizerGet item : itemPool) {
             if (item == RG_TREASURE_GAME_SMALL_KEY || item == RG_TREASURE_GAME_KEY_RING) {
                 r.chestGameKeysInPool++;
             }
