@@ -253,6 +253,29 @@ const char* Combo_WarpSongExtensionTooltip(uint32_t extBit, bool shareOffered);
  */
 const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId);
 
+/**
+ * THE FIRST FAMILY WORD'S TWIN of Combo_SharedFamily2DisplayName (#1560), with
+ * the same contract: the plain name ("Gerudo Mask", "Skull Mask", "Spooky
+ * Mask") when @p nativeId is @p game's REGISTERED member of a first-word family
+ * the FROZEN record arms AND that member is the game's ADDED copy whose own
+ * table name carries the tag: MM's "Gerudo Mask (MM)", "Skull Mask (MM)" and
+ * "Spooky Mask (MM)" (OoTMM's isItemAmbiguous: a mask is tagged only while its
+ * shared rule is off). NULL for anything else, a game's own copy included
+ * (OoT's own masks keep their localized names), OoT's added MM masks (named
+ * without a tag), and every copy while its shared rule is off. A display name
+ * only, never a lookup key. Never touches a member's callbacks.
+ */
+const char* Combo_SharedFamilyDisplayName(uint8_t game, uint16_t nativeId);
+
+/**
+ * #1560: the shared display name of @p game's item @p id under either family
+ * word: Combo_SharedFamily2DisplayName, else Combo_SharedFamilyDisplayName, else
+ * NULL (the caller keeps its own name). For the sites that name an item of
+ * either game (a crossed item, a spoiler line, a hint), where a shared song and
+ * a shared mask can both appear.
+ */
+const char* Combo_SharedItemDisplayName(uint8_t game, uint16_t id);
+
 #ifdef __cplusplus
 }
 #endif

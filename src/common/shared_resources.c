@@ -991,6 +991,34 @@ const char* Combo_SharedFamily2DisplayName(uint8_t game, uint16_t nativeId) {
     return NULL;
 }
 
+const char* Combo_SharedFamilyDisplayName(uint8_t game, uint16_t nativeId) {
+    // #1560: the first word's only ADDED copies whose own name carries a tag are
+    // MM's three OoT masks ("Gerudo Mask (MM)" ..., Items.cpp). OoT's added MM masks
+    // are named without one, and a game's own copy keeps its own, localized name.
+    static const struct {
+        uint32_t family;
+        const char* name;
+    } kTaggedMM[] = {
+        { RSBS_XITEM_SHARED_GERUDO, "Gerudo Mask" },
+        { RSBS_XITEM_SHARED_SKULL, "Skull Mask" },
+        { RSBS_XITEM_SHARED_SPOOKY, "Spooky Mask" },
+    };
+    if ((GameId)game != GAME_MM) {
+        return NULL;
+    }
+    const uint32_t armed = Combo_SharedFamiliesArmed(); // the FROZEN record only
+    for (size_t i = 0; i < sizeof(kTaggedMM) / sizeof(kTaggedMM[0]); ++i) {
+        uint16_t id = 0;
+        if ((armed & kTaggedMM[i].family) == 0u) {
+            continue; // that mask's shared rule is off: the added copy keeps its "(MM)"
+        }
+        if (Combo_SharedFamilyMemberId(GAME_MM, kTaggedMM[i].family, &id) && id == nativeId) {
+            return kTaggedMM[i].name;
+        }
+    }
+    return NULL;
+}
+
 uint32_t Combo_SharedFamilyArmedBitOf(GameId game, uint16_t nativeId) {
     const uint32_t armed = Combo_SharedFamiliesArmed();
     if (!IsRealGame(game)) {

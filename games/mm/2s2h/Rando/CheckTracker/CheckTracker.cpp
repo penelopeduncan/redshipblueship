@@ -48,9 +48,13 @@ static std::string ObtainedItemTrackerName(RandoCheckId randoCheckId, const Rand
     if (const char* foreignName = Rando::Foreign::ForeignNameForCheck(randoCheckId)) {
         return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
-    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous);
+    // #1560: so is an added OoT mask under its shared rule.
     if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)) {
         return shared;
+    }
+    if (const char* mask = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)randoSaveCheck.randoItemId)) {
+        return mask;
     }
     return Rando::StaticData::Items[randoSaveCheck.randoItemId].name;
 }
@@ -86,9 +90,13 @@ static std::string SeenItemTrackerName(RandoCheckId randoCheckId, const RandoSav
         return std::string(foreignName) + Rando::Foreign::ForeignTagForCheck(randoCheckId);
     }
     const RandoItemId named = Rando::UncollectedNamedItem(randoSaveCheck.randoItemId, randoCheckId);
-    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous);
+    // #1560: so is an added OoT mask under its shared rule.
     if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
         return shared;
+    }
+    if (const char* mask = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
+        return mask;
     }
     return Rando::StaticData::Items[named].name;
 }

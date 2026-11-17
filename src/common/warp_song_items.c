@@ -193,3 +193,8 @@ const char* Combo_ForeignItemTag(uint8_t originGame, uint16_t id, const char* na
     }
     return Combo_ForeignGameTag(name, originGame);
 }
+
+const char* Combo_SharedItemDisplayName(uint8_t game, uint16_t id) {
+    const char* songs = Combo_SharedFamily2DisplayName(game, id);
+    return songs != NULL ? songs : Combo_SharedFamilyDisplayName(game, id); // #1560: a shared mask
+}

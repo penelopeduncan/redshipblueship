@@ -504,10 +504,12 @@ void Randomizer_ReleaseQueuedShowOnly(uint16_t rc) {
 extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item) {
     const char* foreignName = Combo_GetForeignItemName(item);
     const char* foreignArticle = Combo_GetForeignItemArticle(item);
+    // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+    const char* sharedName = foreignName != nullptr ? Combo_SharedItemDisplayName(item.originGame, item.id) : nullptr;
     Notification::Emit({
         .message = "You found ",
         .suffix = std::string(foreignArticle != nullptr ? foreignArticle : "") +
-                  (foreignName != nullptr ? foreignName : "a foreign item") +
+                  (sharedName != nullptr ? sharedName : foreignName != nullptr ? foreignName : "a foreign item") +
                   Combo_ForeignItemTag(item.originGame, item.id, foreignName),
     });
 }

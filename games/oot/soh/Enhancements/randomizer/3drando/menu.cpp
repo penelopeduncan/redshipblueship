@@ -706,7 +706,10 @@ static std::string ExpectedCrossedItemName(uint16_t host, bool withArticle) {
         return "";
     }
     const char* article = withArticle ? Combo_DescribeItemArticle(*item) : nullptr;
-    return std::string(article != nullptr ? article : "") + name + Combo_ForeignItemTag(item->originGame, item->id, name);
+    // #1560: a shared song or mask whose own name carries its game's tag is named without it.
+    const char* shown = Combo_SharedItemDisplayName(item->originGame, item->id);
+    return std::string(article != nullptr ? article : "") + (shown != nullptr ? shown : name) +
+           Combo_ForeignItemTag(item->originGame, item->id, name);
 }
 
 /** The English name OoT's own item table gives the item OoT check `rc` physically holds. */

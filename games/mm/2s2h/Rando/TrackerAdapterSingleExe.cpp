@@ -341,9 +341,13 @@ const char* MMTrackerPlacedItemName(const void* save, uint16_t checkId, uint8_t*
     if (outId != nullptr) {
         *outId = (uint16_t)named;
     }
-    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous).
+    // #1169 XW14: a shared warp song is named without its game (OoTMM's isItemAmbiguous);
+    // #1560: so is an added OoT mask under its shared rule.
     if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
         return shared;
+    }
+    if (const char* mask = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)named)) {
+        return mask;
     }
     return item->second.name;
 }

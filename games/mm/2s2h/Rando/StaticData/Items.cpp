@@ -624,8 +624,13 @@ std::string GetItemName(RandoItemId randoItemId, bool includeArticle) {
 
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1169 XW14: under its frozen shared rule an added warp song is one item of
-    // both games, named without its "(MM)" (OoTMM's isItemAmbiguous).
-    if (const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId)) {
+    // both games, named without its "(MM)" (OoTMM's isItemAmbiguous); #1560: so is
+    // an added OoT mask under its shared rule.
+    const char* shared = Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId);
+    if (shared == nullptr) {
+        shared = Combo_SharedFamilyDisplayName((uint8_t)GAME_MM, (uint16_t)randoItemId);
+    }
+    if (shared != nullptr) {
         result += shared;
     } else {
         result += Rando::StaticData::Items[randoItemId].name;
