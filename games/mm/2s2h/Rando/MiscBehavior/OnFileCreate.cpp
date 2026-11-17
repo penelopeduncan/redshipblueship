@@ -12,6 +12,7 @@
 #include "Rando/Foreign.h" // Lane C1 (#392): paired-world seed derivation + foreign placement
 #include "foreign_items.h" // src/common — Combo_ClearForeignPlacements
 #include "gen_budget.h"    // src/common — the #582 fill budget + progress surface
+#include "Rando/StickNutBagGate.h" // #1652 A1: the paired half's birth without the bag
 #endif
 
 extern "C" {
@@ -71,6 +72,13 @@ void Rando::MiscBehavior::OnFileCreate(s16 fileNum) {
         // recorded for any previous world must not leak into it (they are
         // re-placed below iff this world pairs with a live OoT rando world).
         Combo_ClearForeignPlacements();
+        // #1652 A1: under the pair's frozen bag shuffle the half is born without
+        // the bag, before the ladder's snapshot, the starting grant and the fill,
+        // so every attempt and the coordinator's MM rounds start from it. Only a
+        // paired creation: a solo file must not read a record that is not its own.
+        if (rsbsPaired) {
+            MM_Combo_ApplyPairedBagBirth();
+        }
         // #1169 XW5: likewise, a new MM file owns none of Ocarina of Time's warp
         // songs (the combo record's ownership byte, outside the rando struct zeroed
         // above): its starting grant below gives the world's starting songs, and

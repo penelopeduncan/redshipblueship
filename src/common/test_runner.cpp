@@ -963,6 +963,10 @@ extern "C" {
 // comboFlags bits from OoT's options, carried by the record, a package and a
 // .redsave. FILE SCOPE likewise.
 #include "tests/test_combo_bag_shuffle.c"
+// #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the bag,
+// refuses sticks and nuts until the pair's one bag, and a bag found in Termina
+// steps the shared tier at its pickup. FILE SCOPE likewise.
+#include "tests/test_stick_nut_bag_mm.c"
 // The Shared Swim rule and the pair's one Shuffle Swim / Shuffle Ocarina Buttons
 // (#1369): the gated freeze, both games' swim as one family, the coupling at MM's
 // sites, and the arrival through both games' real shims. FILE SCOPE likewise.
@@ -10579,6 +10583,14 @@ const TestDescriptor gTests[] = {
       "false unfrozen, ignores a later change of the option, and survives the rollback, a seed package and a "
       ".redsave (#1652)",
       Test_ComboBagShuffleFrozen },
+    // #1652 A1 / A3: the bag gates both games. ROM-free: gComboCtx, the RAM
+    // watermark table, MM's real give, conversion and gate helpers, MM's real
+    // pickup core and both games' real shims; no CVar, no OTRGlobals.
+    { "mm-stick-nut-bag-gate",
+      "Under the pair's frozen Deku Stick Bag / Deku Nut Bag shuffle Majora's Mask is born without the bag, its give, "
+      "drops, shelves and checks refuse sticks and nuts until the pair's one bag, and a bag found in Termina opens "
+      "both games at its pickup; with the shuffles off nothing changes (#1652)",
+      MMStickNutBagGate_Run },
     { "shared-swim-pairs",
       "Both games register their swim as the Shared Swim family, the bag pairs them into one row both solvers credit, "
       "and MM's sites take the pair's one shuffle from the frozen record (#1369)",

@@ -2968,8 +2968,25 @@ typedef enum {
     RI_SONG_DOUBLE_TIME,
     RI_SONG_INVERTED_TIME,
     RI_MAX_TRAP,
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // RedShipBlueShip #1652 stage A2: the pair's ONE Deku Stick Bag and Deku Nut
+    // Bag (Ocarina of Time's shuffled bags), as Majora's Mask's solver is credited
+    // them. LOGIC-ONLY: no StaticData::Items row, never pooled, placed, saved or
+    // shown (ComboLogicEngineSingleExe.cpp's MmGiveBagStandIn is their one give).
+    // After RI_MAX_TRAP so it and every saved id keep their values.
+    RI_DEKU_STICK_BAG,
+    RI_DEKU_NUT_BAG,
+#endif
     RI_MAX,
 } RandoItemId;
+
+#if defined(RSBS_SINGLE_EXECUTABLE) && defined(__cplusplus)
+/** #1652 A2: the one definition of "is a shared-credit stand-in", which every MM
+ *  give gate that must refuse them reads. */
+inline bool Rando_IsSharedCreditStandIn(unsigned int id) {
+    return id == (unsigned int)RI_DEKU_STICK_BAG || id == (unsigned int)RI_DEKU_NUT_BAG;
+}
+#endif
 
 typedef enum {
     RR_ASTRAL_OBSERVATORY_OUTSIDE,
