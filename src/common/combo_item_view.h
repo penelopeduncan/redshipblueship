@@ -264,6 +264,30 @@ void Combo_Item_RegisterOps(uint8_t game, const ComboItemOps* ops);
 const ComboItemOps* Combo_Item_GetOps(uint8_t game);
 
 /**
+ * #1652 D: may the RUNNING game not hold shared count `countKind`
+ * (RSBS_SHARED_RES_*_COUNT) right now? True only when the game's own gate keeps
+ * the pool's count out of its save: Ocarina of Time under Shuffle Deku Stick
+ * Bag / Shuffle Deku Nut Bag before the bag is found, or under its Bombchu Bag
+ * option before the bag (OoT_SharedAmmoGrantBlocked in
+ * games/oot/soh/GameExports_SingleExe.cpp, the answer its own count apply
+ * takes). The pool still holds the count; the running game holds none of it.
+ * False for every other kind, and whenever the game is not running a live file.
+ */
+typedef bool (*ComboItemGrantBlockedFn)(uint8_t countKind);
+
+/**
+ * Install `game`'s grant-blocked answer (GAME_OOT or GAME_MM; NULL un-registers,
+ * so a test can restore it). The Shared group asks only the RUNNING game's, and
+ * while it answers true for a row's count, the row reads as not held with a
+ * count of 0. A game with none registered (MM today) blocks nothing.
+ */
+void Combo_Item_RegisterGrantBlocked(uint8_t game, ComboItemGrantBlockedFn fn);
+
+/** The answer registered for `game`, or NULL. Exposed so the lock can put the
+ *  production one back. */
+ComboItemGrantBlockedFn Combo_Item_GetGrantBlocked(uint8_t game);
+
+/**
  * Register OoT's item adapter. DEFINED OoT-SIDE
  * (games/oot/soh/Enhancements/randomizer/ItemAdapterSingleExe.cpp), declared
  * here because the combo entry point (Combo_TrackerWindow_Init) calls it.

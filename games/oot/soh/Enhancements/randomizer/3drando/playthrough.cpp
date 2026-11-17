@@ -1209,6 +1209,13 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
             }
             Combo_ComboItemRulesApplyCreationShuffles(&comboSettings, &comboItemRules, rsbsShuffled);
         }
+        // #1652 (operator ruling 2026-11-15): the pair's one Deku Stick Bag and
+        // Deku Nut Bag shuffle, from OoT's own options, frozen in the same act so
+        // MM reads the pair's answer with no OoT seed context loaded. A world with
+        // both off freezes exactly what it did before.
+        Combo_ComboSettingsApplyCreationBagShuffles(&comboSettings,
+                                                    ctx->GetOption(RSK_SHUFFLE_DEKU_STICK_BAG).IsNot(RO_GENERIC_OFF),
+                                                    ctx->GetOption(RSK_SHUFFLE_DEKU_NUT_BAG).IsNot(RO_GENERIC_OFF));
         // #1169 XW2: the second rules word freezes in the same act. The gate above
         // refused any word it names, so this holds no bit of RSBS_XITEM2_HIDDEN: it
         // is 0, and the freeze and its fingerprint exactly the Ex form's, unless a

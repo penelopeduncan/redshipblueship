@@ -323,6 +323,33 @@ bool Combo_ComboSharedShuffleCoupled(uint32_t giveCap) {
     }
 }
 
+bool Combo_ComboStickBagShuffled(void) {
+    // The frozen record only (#1652): the pair's one stick bag is world identity.
+    return Combo_ComboSettingsFrozen() &&
+           (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG) != 0u;
+}
+
+bool Combo_ComboNutBagShuffled(void) {
+    return Combo_ComboSettingsFrozen() &&
+           (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG) != 0u;
+}
+
+void Combo_ComboSettingsApplyCreationBagShuffles(ComboSettingsRecord* settings, bool stickBagShuffled,
+                                                 bool nutBagShuffled) {
+    if (settings == NULL) {
+        return;
+    }
+    uint8_t flags = (uint8_t)(settings->comboFlags &
+                              (uint8_t) ~(RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG));
+    if (stickBagShuffled) {
+        flags |= (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG;
+    }
+    if (nutBagShuffled) {
+        flags |= (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG;
+    }
+    settings->comboFlags = flags;
+}
+
 uint32_t Combo_ComboCouplingAuthored(void) {
     const uint32_t authored = Combo_ComboItemRulesAuthored();
     uint32_t caps = 0u;
@@ -1166,10 +1193,11 @@ uint32_t Combo_ComboSettingsDivergenceBetween(const ComboSettingsRecord* frozen,
     if ((flagsDelta & (uint8_t)RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD) != 0u) {
         bits |= RSBS_COMBO_DIVERGE_SHARED_KOKIRI_SWORD;
     }
-    // #1369's coupled-buttons marker has no rule name of its own (no key authors
-    // it; the session compare reads it as the file decided it), so a raw diff of
-    // it is reported at the byte, with the unallocated bits.
-    if ((flagsDelta & (uint8_t)(~RSBS_COMBO_FLAGS_ALL_V1 | RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS)) != 0u) {
+    // #1369's coupled-buttons marker and #1652's two bag bits have no rule name of
+    // their own (no key authors them; the session compare reads them as the file
+    // decided), so a raw diff of one is reported at the byte, with the unallocated
+    // bits.
+    if ((flagsDelta & (uint8_t)(~RSBS_COMBO_FLAGS_ALL_V1 | RSBS_COMBO_FLAGS_CREATION_DERIVED)) != 0u) {
         bits |= RSBS_COMBO_DIVERGE_COMBO_FLAGS;
     }
     if (frozen->spare1 != live->spare1) {
@@ -1243,9 +1271,11 @@ uint32_t Combo_ComboSettingsDivergenceForEx2(const ComboSettingsRecord* frozen, 
     // And the coupled-buttons marker (#1369): no key authors it either. The
     // creation derives it from the Shared Ocarina Buttons rule (compared below)
     // and the two games' button shuffles (each game's own profile), so the file's
-    // bit is the session's, and the fingerprint pins it.
-    live.comboFlags = (uint8_t)((live.comboFlags & (uint8_t)~RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS) |
-                                (frozen->comboFlags & (uint8_t)RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS));
+    // bit is the session's, and the fingerprint pins it. #1652's two bag bits
+    // likewise: the creation took them from OoT's own options (OoT's settings
+    // hash, compared below).
+    live.comboFlags = (uint8_t)((live.comboFlags & (uint8_t)~RSBS_COMBO_FLAGS_CREATION_DERIVED) |
+                                (frozen->comboFlags & (uint8_t)RSBS_COMBO_FLAGS_CREATION_DERIVED));
     uint32_t bits = Combo_ComboSettingsDivergenceBetween(frozen, &live);
 
     // #976: the item rules against the session's. Deliberately NOT given the

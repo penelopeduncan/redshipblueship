@@ -959,6 +959,10 @@ if(BUILD_TESTING)
     # one shared row, MM's sites taking the pair's one shuffle; and swim (and a
     # coupled MM's button) found in one game held in the other on arrival. ROM-free.
     redship_add_test(NAME SharedSwimRule COMMAND redship --test shared-swim-rule)
+    # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
+    # comboFlags bits from OoT's options (CVar store, display-free bring-up),
+    # through the rollback, a seed package and a real .redsave. ROM-free.
+    redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
     redship_add_test(NAME SharedSwimPairs COMMAND redship --test shared-swim-pairs)
     redship_add_test(NAME SharedSwimArrival COMMAND redship --test shared-swim-arrival)
     # #968: Shared Fire, Ice and Light Arrows, three more families on the lens's

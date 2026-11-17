@@ -65,6 +65,12 @@
  *    only while the frozen rule is on; and a live game's own tiers and counts
  *    reach the Shared row before the next harvest.
  *
+ * 5c'. THE RUNNING GAME'S BAG GATE (#1652 D). While OoT runs and its own
+ *    gate keeps the pool's sticks and nuts out of its save (Shuffle Deku Stick /
+ *    Nut Bag, the bag not found), the Shared Deku Sticks and Deku Nuts rows and
+ *    slots read as not held with a count of 0; under MM the gate is not asked.
+ *    The Bombchus row needs no gate: it is OoT's own live count.
+ *
  * 5e. A SHARED BUTTON DRAWN WITH OoT's OCARINA IS NAMED (#1347). Under Shared
  *    Ocarina Buttons, every Shared button row is read through both paths (the
  *    column's Combo_ItemSharedRowAtWithIcons, the customizable tracker's
@@ -1397,6 +1403,128 @@ static int CivSharedLiveLegs(const ComboItemOps* ootOps, const ComboItemOps* mmO
     printf("[TEST] combo-item-view: the Shared column follows the active game's live save, the pool untouched PASS "
            "(#971)\n");
     return TEST_PASS;
+}
+
+// ---- 5c'. The Shared ammo rows under the running game's bag gate (#1652 D) -------
+//
+// Under Shuffle Deku Stick Bag / Deku Nut Bag, OoT holds none of the pool's sticks
+// or nuts before the bag (OoT_SharedAmmoGrantBlocked: its count apply clamps to 0),
+// so while OoT runs the Shared rows read as not held with a count of 0, in both the
+// column and the customizable tracker's Shared slots. A fake answer stands in for
+// OoT's (which needs a live randomizer file); the production one is registered and
+// answers false with no live OoT file.
+
+static int sCivGrantBlockedCalls = 0;
+
+static bool CivGrantBlockedSticksNuts(uint8_t countKind) {
+    sCivGrantBlockedCalls++;
+    return countKind == (uint8_t)RSBS_SHARED_RES_STICK_COUNT || countKind == (uint8_t)RSBS_SHARED_RES_NUT_COUNT;
+}
+
+static bool CivSharedSlot(const char* slotKey, ComboItemRow* out) {
+    memset(out, 0, sizeof(*out));
+    return Combo_ItemSharedCatalogRowByKey(slotKey, (uint8_t)GAME_OOT, out);
+}
+
+static int CivSharedGrantBlockedLegsBody(const ComboItemOps* ootOps, const ComboItemOps* mmOps) {
+    ComboItemRow sharedRow;
+    std::vector<uint8_t> ootV0((size_t)OOT_SAVE_CONTEXT_SIZE, 0); // no sticks, nuts or bombchus
+    std::vector<uint8_t> mmV2((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    CIV_ASSERT(OoT_ItemAdapter_TestAuthorSave(ootV0.data(), ootV0.size(), 0) == 1);
+    CIV_ASSERT(MM_ItemAdapter_TestAuthorSave(mmV2.data(), mmV2.size(), 2) == 1);
+    Context_UpdateShadowCopy(GAME_OOT, ootV0.data(), ootV0.size());
+    Context_UpdateShadowCopy(GAME_MM, mmV2.data(), mmV2.size());
+
+    static ComboItemOps sGateOoTOps;
+    static ComboItemOps sGateMMOps;
+    sGateOoTOps = *ootOps;
+    sGateOoTOps.liveSave = CivLiveSave;
+    sGateMMOps = *mmOps;
+    sGateMMOps.liveSave = CivMMLiveSave;
+    Combo_Item_RegisterOps((uint8_t)GAME_OOT, &sGateOoTOps);
+    Combo_Item_RegisterOps((uint8_t)GAME_MM, &sGateMMOps);
+
+    // The pool as a Termina stint leaves it (the pool keeps no origin for a count):
+    // tier-1 bags with 7 sticks and 9 nuts, and 15 bombchus.
+    CivFreshPool(99);
+    Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_STICK_TIER, 1);
+    Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_STICK_COUNT, 7);
+    Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_NUT_TIER, 1);
+    Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_NUT_COUNT, 9);
+    Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_BOMBCHU_COUNT, 15);
+    sCivLive = ootV0.data();
+    sCivMMLive = NULL;
+    Context_SetCurrentGame(GAME_OOT);
+    CIV_ASSERT(Combo_ItemFreshness((uint8_t)GAME_OOT) == COMBO_TRACKER_FRESH_LIVE);
+
+    // No gate answer: the rows are the pool's (the fault #1652 D names when OoT is gated).
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, NULL);
+    CIV_ASSERT(CivFindSharedRow("Deku Sticks", &sharedRow));
+    printf("[TEST] combo-item-view: OoT live, no gate answer, pool 7 sticks at tier 1: have=%d count=%d max=%d\n",
+           (int)sharedRow.have, sharedRow.count, sharedRow.max);
+    CIV_ASSERT(sharedRow.have && sharedRow.count == 7 && sharedRow.max == 10);
+    // The Bombchus row is the live game's own count (a consumable, #971), and OoT's
+    // gated apply holds 0, so it never showed the pool's 15 in Hyrule.
+    CIV_ASSERT(CivFindSharedRow("Bombchus", &sharedRow));
+    printf("[TEST] combo-item-view: OoT live with no bombchus, pool 15: shared Bombchus have=%d count=%d\n",
+           (int)sharedRow.have, sharedRow.count);
+    CIV_ASSERT(!sharedRow.have && sharedRow.count == 0);
+
+    // OoT's bag gate closed: neither row is held while OoT runs, in the column or the slots.
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, CivGrantBlockedSticksNuts);
+    sCivGrantBlockedCalls = 0;
+    CIV_ASSERT(CivFindSharedRow("Deku Sticks", &sharedRow));
+    printf("[TEST] combo-item-view: OoT live, stick bag gated, pool 7: shared Deku Sticks have=%d count=%d max=%d\n",
+           (int)sharedRow.have, sharedRow.count, sharedRow.max);
+    CIV_ASSERT(!sharedRow.have && sharedRow.count == 0 && sharedRow.max == 0);
+    CIV_ASSERT(CivFindSharedRow("Deku Nuts", &sharedRow));
+    CIV_ASSERT(!sharedRow.have && sharedRow.count == 0 && sharedRow.max == 0);
+    CIV_ASSERT(sCivGrantBlockedCalls > 0);
+    CIV_ASSERT(CivSharedSlot("sticks", &sharedRow));
+    printf("[TEST] combo-item-view: the Shared 'sticks' slot under the gate: have=%d count=%d max=%d\n",
+           (int)sharedRow.have, sharedRow.count, sharedRow.max);
+    CIV_ASSERT(!sharedRow.have && sharedRow.count == 0 && sharedRow.max == 0);
+    CIV_ASSERT(CivSharedSlot("nuts", &sharedRow) && !sharedRow.have && sharedRow.count == 0);
+    // An ungated kind is untouched, and the pool is never written by a draw.
+    CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow) && sharedRow.have && sharedRow.count == 123);
+    CIV_ASSERT(CivPoolValue(RSBS_SHARED_RES_STICK_COUNT) == 7 && CivPoolValue(RSBS_SHARED_RES_NUT_COUNT) == 9);
+
+    // MM running: the OoT answer is never asked, and MM (no gate) holds the pool's sticks.
+    sCivLive = NULL;
+    Context_SetCurrentGame(GAME_MM);
+    sCivGrantBlockedCalls = 0;
+    CIV_ASSERT(CivFindSharedRow("Deku Sticks", &sharedRow));
+    printf("[TEST] combo-item-view: MM running, OoT gate set: shared Deku Sticks have=%d count=%d (asked %d)\n",
+           (int)sharedRow.have, sharedRow.count, sCivGrantBlockedCalls);
+    CIV_ASSERT(sharedRow.have && sharedRow.count == 7 && sCivGrantBlockedCalls == 0);
+    CIV_ASSERT(CivSharedSlot("sticks", &sharedRow) && sharedRow.have && sharedRow.count == 7);
+    return TEST_PASS;
+}
+
+static int CivSharedGrantBlockedLegs(const ComboItemOps* ootOps, const ComboItemOps* mmOps) {
+    // OoT's production answer is registered by GameExports_SingleExe.cpp's static
+    // registrar, and it asks about OoT's save only while OoT is the running game.
+    const ComboItemGrantBlockedFn production = Combo_Item_GetGrantBlocked((uint8_t)GAME_OOT);
+    CIV_ASSERT(production != NULL);
+    CIV_ASSERT(Combo_Item_GetGrantBlocked((uint8_t)GAME_MM) == NULL);
+    const GameId priorGame = Context_GetCurrentGame();
+    Context_SetCurrentGame(GAME_MM);
+    const bool productionBlocked = production((uint8_t)RSBS_SHARED_RES_STICK_COUNT);
+    Context_SetCurrentGame(priorGame);
+    CIV_ASSERT(!productionBlocked);
+
+    const int result = CivSharedGrantBlockedLegsBody(ootOps, mmOps);
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, production);
+    sCivLive = NULL;
+    sCivMMLive = NULL;
+    Context_SetCurrentGame(priorGame);
+    Combo_Item_RegisterOps((uint8_t)GAME_OOT, ootOps);
+    Combo_Item_RegisterOps((uint8_t)GAME_MM, mmOps);
+    if (result == TEST_PASS) {
+        printf("[TEST] combo-item-view: the Shared stick and nut rows follow the running game's bag gate PASS "
+               "(#1652)\n");
+    }
+    return result;
 }
 
 // ---- OoT's tracker groups beyond SoH's default sections (#1142, #1158) ---------
@@ -2734,6 +2862,12 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
 
         // ---- 5c. the Shared column follows the active game's live save (#971) --
         if (CivSharedLiveLegs(ops, mmOps) != TEST_PASS) {
+            result = TEST_FAIL;
+            break;
+        }
+
+        // ---- 5c'. the Shared stick and nut rows under the running game's bag gate (#1652 D) --
+        if (CivSharedGrantBlockedLegs(ops, mmOps) != TEST_PASS) {
             result = TEST_FAIL;
             break;
         }
