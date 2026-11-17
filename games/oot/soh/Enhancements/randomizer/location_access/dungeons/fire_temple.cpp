@@ -11,7 +11,7 @@ void RegionTable_Init_FireTemple() {
         //Exits
         Entrance(RR_FIRE_TEMPLE_FOYER,          []{return ctx->GetDungeon(FIRE_TEMPLE)->IsVanilla();}),
         Entrance(RR_FIRE_TEMPLE_MQ_FOYER_LOWER, []{return ctx->GetDungeon(FIRE_TEMPLE)->IsMQ();}),
-        Entrance(RR_DMC_OUTSIDE_FIRE_TEMPLE,    []{return true;}),
+        Entrance(RR_DMC_TEMPLE_ENTRY,           []{return true;}),
     });
 
 #pragma region Vanilla
@@ -1141,7 +1141,7 @@ void RegionTable_Init_FireTemple() {
     }, {
         // Exits
         Entrance(RR_FIRE_TEMPLE_BOSS_ENTRYWAY, []{return false;}),
-        Entrance(RR_DMC_CENTRAL_LOCAL,         []{return logic->Get(LOGIC_FIRE_TEMPLE_CLEAR);}, false),
+        Entrance(RR_DMC_PAD_ENTRY,             []{return logic->Get(LOGIC_FIRE_TEMPLE_CLEAR);}, false),
     });
 
     // clang-format on

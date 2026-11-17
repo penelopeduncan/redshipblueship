@@ -747,10 +747,10 @@ TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
             WsmFreezeWorld(0u);
             Combo_MMWarpSongsSetOwned(owned);
             const uint32_t restamped = Combo_StampComboSettingsHash();
-            WSM_CHECK(gComboCtx.comboSettingsHash == 0x503ED9E6u && restamped == 0x503ED9E6u &&
+            WSM_CHECK(gComboCtx.comboSettingsHash == 0x00129AD5u && restamped == 0x00129AD5u &&
                           Combo_ComboSettingsWorldHash() == 0xCEA3786Bu,
                       "with the byte at %02X a rules-off world stamps %08X (re-stamped %08X) with world hash %08X; "
-                      "main's (generator 5) are 503ED9E6 and CEA3786B",
+                      "main's (generator 6) are 00129AD5 and CEA3786B",
                       (unsigned)owned, (unsigned)gComboCtx.comboSettingsHash, (unsigned)restamped,
                       (unsigned)Combo_ComboSettingsWorldHash());
             for (int a = 0; a < 3; a++) {
@@ -770,7 +770,7 @@ TestResult Test_MMWarpSongsRulesOffUnchanged(void) {
         ComboContext* carried = new ComboContext;
         memset(carried, 0xEE, sizeof(ComboContext));
         const int rt = OoT_SeedPackage_WorldRecordRoundTripForTest(live, carried);
-        WSM_CHECK(rt == 1 && carried->mmWarpSongsOwned == 0u && carried->comboSettingsHash == 0x503ED9E6u &&
+        WSM_CHECK(rt == 1 && carried->mmWarpSongsOwned == 0u && carried->comboSettingsHash == 0x00129AD5u &&
                       Combo_MMWarpSongsOwned() == 0u,
                   "a rules-off world's package record carries an ownership byte (%02X) or another fingerprint",
                   (unsigned)carried->mmWarpSongsOwned);

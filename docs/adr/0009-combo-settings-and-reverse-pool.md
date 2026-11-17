@@ -858,6 +858,15 @@ place by the #654 fix (a different file's contract) and the behaviour a combo MM
 half gets today comes from the ocarina grant making the un-hooked predicate false
 at its source.
 
+*Update 2026-11-16 (#1671 lane B0):* the bypass is gone. The scene command
+dispatches `VB_FASTER_FIRST_CYCLE` through the PlayState-free
+`MM_Scene_FirstCycleTimeSpeedApplies` (`z_scene_2SH.cpp`), so both registrants
+fire. The same lane adds combo overrides for two more first-cycle gates that key
+on an empty ocarina slot, `VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE`
+(the Day 3 midnight festival warp) and `VB_PLAY_SONG_OF_TIME_CS` (the forced
+Song of Time flashback, paired rando halves only), ahead of the Shuffle Ocarina
+option.
+
 **Locks.** `mm-combo-first-cycle`
 (`games/mm/2s2h/mm_combo_first_cycle_test.cpp`, CTest label `redship`): the
 extracted PlayState-free gate `MM_Play_ShouldEmptyFirstCycleTerminaField` with the

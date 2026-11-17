@@ -1481,8 +1481,25 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     world can move (OoT placements and what follows from them); #1363's gate
  *     re-pin records which goldens did. The option itself is generated off in a
  *     paired world, so it makes no new world yet.
+ * 6 = the worlds v0.5.1-alpha (generator 5) made that this build makes
+ *     differently: OoT's Death Mountain Crater follows upstream's refactor
+ *     (SoH 7522f31cc and its follow-ups): seven entry regions, one for each
+ *     way into the scene, each with its own heat-timer and health threshold
+ *     to every destination, and twenty RR_DMC_* regions in place of twelve,
+ *     which renumbers the region ids after them (the search and the pool
+ *     builders walk regions in id order); Ganon's Castle's Fire Trial rooms
+ *     are split by door, with FireTimer thresholds in place of the Master
+ *     Quest trial's Goron Tunic test (SoH 139381a0e, 88099e6eb); and the
+ *     Voidout Collection trick (SoH e86e0ff69), whose rows are not additive
+ *     with the trick off: the Gold Skulltula outside Ganon's Castle and the
+ *     Shadow MQ near-boss Gold Skulltula need the Hookshot or Boomerang, the
+ *     Gerudo Valley waterfall wonder items need Swim, Iron Boots or the bean,
+ *     and the Deku Tree's left and right before-boss hearts are an adult's
+ *     with nothing (#1647, PRs #1660, #1662, #1664). DEFAULT worlds move, and
+ *     the goldens move with them. Seed packages written by generator 5 are
+ *     refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 5u
+#define RSBS_GENERATOR_VERSION 6u
 
 /**
  * The fingerprint formula at an explicit generator version:

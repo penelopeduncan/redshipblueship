@@ -620,8 +620,8 @@ extern "C" int MMModsMount_RunHeadless(const char* sohArchive, const char* mmArc
     //   <root>/mm/notes.txt        not an archive — must be ignored
     // Stems sort "10-mm" < "20-soh", so 20-soh mounts last and wins.
     std::error_code ec;
-    const std::filesystem::path root = std::filesystem::current_path(ec) / "rsbs_test_mods_670";
-    std::filesystem::remove_all(root, ec);
+    // #1641: this process's own folder (test_scratch.h, emptied on first use).
+    const std::filesystem::path root = rsbs::test::ScratchDir("rsbs_test_mods_670");
     std::filesystem::create_directories(root / "mm" / "sub", ec);
     if (ec) {
         printf("[TEST] FAIL(4): could not stage the mods tree at %s (%s)\n", root.generic_string().c_str(),
@@ -1133,8 +1133,7 @@ extern "C" int MMModsMount_RunHeadless(const char* sohArchive, const char* mmArc
         // Each outcome below differs from what the pre-#706 mount would do: it
         // would mount 3, register 3, and hand the contested path to 30-off.
         {
-            const std::filesystem::path setRoot = std::filesystem::current_path(ec) / "rsbs_test_mods_706";
-            std::filesystem::remove_all(setRoot, ec);
+            const std::filesystem::path setRoot = rsbs::test::ScratchDir("rsbs_test_mods_706");
             std::filesystem::create_directories(setRoot / "mm", ec);
             const std::string setA = (setRoot / "mm" / "10-mm.o2r").generic_string();
             const std::string setB = (setRoot / "mm" / "20-soh.o2r").generic_string();
@@ -1229,8 +1228,8 @@ extern "C" int MMModsMount_RunHeadless(const char* sohArchive, const char* mmArc
                 enabledSetLegRan = true;
             }
             Combo_MMModSet_Reset();
-            // setRoot is removed after the do-block, once SetArchives has closed
-            // the archives mounted from it (Windows cannot delete an open file).
+            // setRoot is removed by ScratchDirs_EndRow, after SetArchives below has
+            // closed the archives mounted from it (Windows cannot delete an open file).
             if (rc != 0) {
                 break;
             }
@@ -1242,7 +1241,6 @@ extern "C" int MMModsMount_RunHeadless(const char* sohArchive, const char* mmArc
     Combo_ClearModArchives(GAME_OOT);
     Combo_ClearModArchives(GAME_MM);
     std::filesystem::remove_all(root, ec);
-    std::filesystem::remove_all(std::filesystem::current_path(ec) / "rsbs_test_mods_706", ec);
     Combo_MMModSet_Reset();
     if (savedEnabledMods.empty()) {
         CVarClear(RSBS_CVAR_MM_ENABLED_MODS);

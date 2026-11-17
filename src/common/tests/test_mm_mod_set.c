@@ -374,7 +374,10 @@ extern "C" int MMModSet_RunHeadless(void) {
 
     int rc = MmsResolveLegs();
     std::error_code ec;
-    const std::filesystem::path root = std::filesystem::current_path(ec) / "rsbs_test_mod_set_706";
+    // #1641: this process's own path (test_scratch.h), not a fixed name under the
+    // working directory. Each leg below starts from no folder at all, so the
+    // folder ScratchDir creates is removed again here and between the legs.
+    const std::filesystem::path root = rsbs::test::ScratchDir("rsbs_test_mod_set_706");
     std::filesystem::remove_all(root, ec);
     if (rc == 0) {
         rc = MmsTreeLegs(root);
