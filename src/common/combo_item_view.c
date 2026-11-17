@@ -65,6 +65,58 @@ const ComboItemOps* Combo_Item_GetOps(uint8_t game) {
     return (slot != NULL) ? *slot : NULL;
 }
 
+// #1652 D: each game's grant-blocked answer. Zero-initialised storage, so a
+// game's static-init registrar may run in any order against this TU.
+static ComboItemGrantBlockedFn sOoTGrantBlocked = NULL;
+static ComboItemGrantBlockedFn sMMGrantBlocked = NULL;
+
+void Combo_Item_RegisterGrantBlocked(uint8_t game, ComboItemGrantBlockedFn fn) {
+    if (game == (uint8_t)GAME_OOT) {
+        sOoTGrantBlocked = fn;
+    } else if (game == (uint8_t)GAME_MM) {
+        sMMGrantBlocked = fn;
+    }
+}
+
+ComboItemGrantBlockedFn Combo_Item_GetGrantBlocked(uint8_t game) {
+    if (game == (uint8_t)GAME_OOT) {
+        return sOoTGrantBlocked;
+    }
+    if (game == (uint8_t)GAME_MM) {
+        return sMMGrantBlocked;
+    }
+    return NULL;
+}
+
+/** Does the RUNNING game's own gate keep shared count `countKind` out of its save
+ *  (Combo_Item_RegisterGrantBlocked)? False under GAME_NONE and for a game with no
+ *  answer registered. */
+static bool RunningGameGrantBlocked(uint8_t countKind) {
+    const GameId active = Context_GetCurrentGame();
+    if (active != GAME_OOT && active != GAME_MM) {
+        return false;
+    }
+    const ComboItemGrantBlockedFn fn = Combo_Item_GetGrantBlocked((uint8_t)active);
+    return fn != NULL && fn(countKind);
+}
+
+/** #1652 D: a Shared ammo row whose count the running game cannot hold yet (its
+ *  bag not found under the bag's shuffle) reads as not held with a count of 0, as
+ *  that game's own save holds none: the pool's count waits for the bag. A tiered
+ *  row's ceiling and icon drop to tier 0 with it. */
+static void ApplyRunningGameGrantBlock(const uint8_t countKind, const uint16_t* tierCaps, ComboItemRow* out,
+                                       uint16_t* iconTier) {
+    if (!RunningGameGrantBlocked(countKind)) {
+        return;
+    }
+    out->have = false;
+    out->count = 0;
+    if (tierCaps != NULL) {
+        out->max = (int)tierCaps[0];
+        *iconTier = 0;
+    }
+}
+
 // SoH's DrawItemsInRows defaults (randomizer_item_tracker.cpp): IconSize 36,
 // IconSpacing 12, six a line, every section flowing on into the next.
 const ComboItemGridStyle kComboItemSohGrid = { 36.0f, 12.0f, 6, false, NULL, (uint8_t)COMBO_ITEM_COUNT_SOH, 0.0f };
@@ -830,6 +882,7 @@ bool Combo_ItemSharedRowAtWithIcons(int index, uint8_t iconGame, ComboItemRow* o
             out->capacityMax = (int)Combo_TriforceHuntTotal();
         }
     }
+    ApplyRunningGameGrantBlock(def->countKind, def->tierCaps, out, &iconTier);
     out->iconNumber = def->tierIcon ? -1 : 0;
     const ComboItemOps* ops = Combo_Item_GetOps(iconGame);
     if (ops != NULL && ops->sharedIcon != NULL) {
@@ -842,6 +895,21 @@ bool Combo_ItemSharedRowAtWithIcons(int index, uint8_t iconGame, ComboItemRow* o
 // ============================================================================
 // Addressable item catalog (for the Customizable Item Tracker)
 // ============================================================================
+
+/** #1652 D: is `game` the running game, and does its grant-blocked answer keep
+ *  the count bounded by shared tier `tierKind` out of its save? Then its own
+ *  per-game copy of that tier is not lit from the pool's tier. */
+static bool RunningGameTierSlotBlocked(uint8_t game, uint8_t tierKind) {
+    if (Context_GetCurrentGame() != (GameId)game) {
+        return false;
+    }
+    for (int i = 0; i < SHARED_ROW_DEF_COUNT; i++) {
+        if (kSharedRows[i].tierKind == tierKind) {
+            return RunningGameGrantBlocked(kSharedRows[i].countKind);
+        }
+    }
+    return false;
+}
 
 static bool CatalogFamilyRowOf(uint8_t game, uint32_t family, ComboItemRow* out) {
     return FamilyRowOf(game, family, out) || StaticCatalogFamilyRowOf(game, family, out);
@@ -891,7 +959,9 @@ bool Combo_ItemCatalogRowAt(uint8_t game, int catalogIndex, ComboItemRow* out) {
             Combo_ItemSharedFreshness() != COMBO_TRACKER_FRESH_UNAVAILABLE &&
             Combo_SharedResourceKindArmed(row.sharedKind)) {
             const SharedTierRead read = ReadSharedTier(row.sharedKind);
-            if (read.tier > 0) {
+            // #1652 D: the running game's own slot stays dark while its bag gate
+            // keeps the pool's count out of its save, as its Shared row does.
+            if (read.tier > 0 && !RunningGameTierSlotBlocked(game, row.sharedKind)) {
                 row.have = true;
             }
         }
@@ -1005,6 +1075,7 @@ bool Combo_ItemSharedCatalogRowAt(int catalogIndex, uint8_t iconGame, ComboItemR
                     out->capacityMax = (int)Combo_TriforceHuntTotal();
                 }
             }
+            ApplyRunningGameGrantBlock(def->countKind, def->tierCaps, out, &iconTier);
         } else {
             out->have = false;
             out->count = 0;

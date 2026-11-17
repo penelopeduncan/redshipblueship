@@ -699,17 +699,23 @@ SaveManager::SaveManager() {
     });
 #endif
 
-    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnExitGame>([](int32_t fileNum) {
+    GameInteractor::Instance->RegisterGameHook<GameInteractor::OnExitGame>([this](int32_t fileNum) {
         // Snapshot on quit so unsaved cross-game flags (shared items, last
         // game) survive across a process exit even if the user never went
         // through the file select.
         //
         // Thread affinity (#537): OnExitGame is dispatched from the GAME
-        // THREAD (z_play.c / kaleido), and the earlier-registered handler
-        // above has already drained the save worker pool — so refreshing the
-        // shadow from the live gSaveContext and committing synchronously here
-        // (RsbsSave_Save == stage + write through the commit choke point) is
-        // race-free by construction.
+        // THREAD (z_play.c / kaleido). This handler drains the save worker
+        // pool ITSELF before it stages (#1642): the OnExitGame handler above
+        // that also waits is no help, because GameInteractor keeps a hook's
+        // handlers in an unordered_map and runs them in no defined order, so
+        // it may run after this one. With the pool drained here, no threaded
+        // section save (a tracker SaveSection after a pickup, say) is still
+        // writing while this refreshes the shadow from the live gSaveContext
+        // and commits synchronously (RsbsSave_Save == stage + write through
+        // the commit choke point). Waiting twice is harmless: an idle pool
+        // returns at once.
+        ThreadPoolWait(); // #1642: drain the save worker pool before the stage below
         if (fileNum < 0 || fileNum >= RSBS_SAVE_MAX_SLOTS) {
             return;
         }
