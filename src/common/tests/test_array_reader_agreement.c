@@ -526,9 +526,10 @@ extern "C" int ArrayReaderDispatch_RunHeadless(void) {
         return 1;
     }
 
-    const std::filesystem::path root = std::filesystem::absolute(kAraDispatchRoot).lexically_normal();
+    // #1641: this process's own folder (test_scratch.h, emptied on first use), not
+    // a fixed name under the working directory every concurrent row shares.
+    const std::filesystem::path root = rsbs::test::ScratchDir(kAraDispatchRoot).lexically_normal();
     std::error_code ec;
-    std::filesystem::remove_all(root, ec);
     const std::vector<char> file = AraDispatchFile();
     if (!AraWriteFile(root / "mm" / kAraDispatchMMPath, file) ||
         !AraWriteFile(root / "unowned" / kAraDispatchUnownedPath, file)) {

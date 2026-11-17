@@ -1499,8 +1499,11 @@ if(BUILD_TESTING)
     # name and a directory under every Save/file<N>.sav, then runs the slot-0
     # subtests of #925 and the foreign-item and .redsave rows of #824 back to back
     # in one process each: a row that still shares its working directory fails.
-    # Display-free and ROM-free.
-    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd)
+    # #1641: a third group (curated-archive-inapp and the rows that, like it,
+    # emptied a fixed folder of their own there) must leave a sentinel folder under
+    # each of those names untouched. Display-free and ROM-free. 240 s: the new
+    # group runs make_redship_otr.py several times when Python is configured.
+    redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd TIMEOUT 240)
     # #564 V18 (games/mm/2s2h/mm_save_failure_surface_test.cpp): an MM save that
     # cannot commit (no active slot, a latched slot, a failed write) is shown to
     # the player as a "Save failed:" toast, once per cause, instead of running its

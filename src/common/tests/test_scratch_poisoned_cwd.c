@@ -18,13 +18,22 @@
  * row has used there (a row that still writes `<name>/redship_slot0.redsave`
  * cannot create its directory) and DIRECTORIES under `Save/file<N>.sav` and
  * `Save/file<N>.temp` (SoH's .sav of a slot cannot be written or read), then runs
- * two groups of rows in it, each group back to back in ONE process:
+ * three groups of rows in it, each group back to back in ONE process:
  *   - the three slot-0 subtests #925 names, in the order AllTests runs them;
+ *   - the rows of #1641 that kept a scratch FOLDER under a fixed name in the
+ *     working directory and emptied it themselves (curated-archive-inapp, which
+ *     AllTests runs too, and its siblings);
  *   - the foreign-item rows #824 names and the .redsave rows that shared their
  *     working directory.
  * Every group must exit 0. A row that is self-contained never looks at the
  * poison; a row that still shares the working directory fails here, whatever
  * the timing of any other process.
+ *
+ * A plain file does not catch the #1641 rows: each one removed its folder first,
+ * poison and all, and wrote a fresh one. So every group's directory also holds a
+ * SENTINEL folder under each of those names, holding one file. After the group
+ * the folder must hold exactly that file, unchanged: a row that removed it, or
+ * wrote anything beside it, still uses the shared name.
  *
  * Included at FILE SCOPE by test_runner.cpp (compiled as C++). No display, no
  * ROM archives: every child row is display-free and ROM-free itself.
@@ -34,6 +43,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -69,6 +79,16 @@ const char* const kSpcFixedNames[] = {
     "rsbs_test_oot_check_state_load",
 };
 
+// #1641: the fixed folder names the rows of the second group used to empty and
+// rewrite in the working directory. Planted as sentinel folders, which must come
+// through every group untouched.
+const char* const kSpcSentinelNames[] = {
+    "rsbs_test_806",         "ui-snapshot-image-test", "rsbs_test_loose_705_discovery",
+    "rsbs_test_mod_set_706", "rsbs604_array_dispatch",
+};
+const char kSpcSentinelFile[] = "sentinel.txt";
+const char kSpcSentinelText[] = "sentinel: a row that removes or writes beside this shares the working directory";
+
 struct SpcGroup {
     const char* why;
     const char* rows; // comma-separated, run back to back in one process
@@ -77,6 +97,8 @@ struct SpcGroup {
 const SpcGroup kSpcGroups[] = {
     { "the three slot-0 subtests of #925, in AllTests' order",
       "oot-exit-harvest-gate,mm-death-decline-autosave,oot-file-select-refusal" },
+    { "the rows of #1641 that kept a fixed scratch folder in the working directory",
+      "curated-archive-inapp,ui-snapshot-image,loose-mods-discovery,mm-mod-set,array-reader-dispatch" },
     { "the foreign-item rows of #824 and the rows that shared their working directory",
       "foreign-item-give,foreign-item-give-reverse,foreign-host-eligibility,foreign-host-gossip-hint,"
       "save-roundtrip-tiers,save-has-delete,save-refused-quarantine,save-write-latch,commit-generation-monotonic,"
@@ -120,6 +142,56 @@ int SpcPlantPoison(const std::filesystem::path& cwd) {
     return planted;
 }
 
+// Plants one sentinel folder per kSpcSentinelNames entry in @p cwd; returns how
+// many it planted.
+int SpcPlantSentinels(const std::filesystem::path& cwd) {
+    int planted = 0;
+    for (const char* name : kSpcSentinelNames) {
+        std::error_code ec;
+        std::filesystem::create_directories(cwd / name, ec);
+        std::ofstream out(cwd / name / kSpcSentinelFile, std::ios::binary | std::ios::trunc);
+        out << kSpcSentinelText;
+        out.close();
+        if (!ec && out) {
+            planted++;
+        }
+    }
+    return planted;
+}
+
+// Counts the sentinel folders in @p cwd a row disturbed (removed, rewritten, or
+// given another entry), printing each with what was found.
+int SpcDisturbedSentinels(const std::filesystem::path& cwd, int group) {
+    int disturbed = 0;
+    for (const char* name : kSpcSentinelNames) {
+        const std::filesystem::path dir = cwd / name;
+        std::error_code ec;
+        int entries = 0;
+        bool onlySentinel = std::filesystem::is_directory(dir, ec);
+        if (onlySentinel) {
+            for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
+                entries++;
+                if (entry.path().filename().string() != kSpcSentinelFile) {
+                    onlySentinel = false;
+                }
+            }
+        }
+        std::string text;
+        {
+            std::ifstream in(dir / kSpcSentinelFile, std::ios::binary);
+            text.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+        }
+        const bool intact = text == kSpcSentinelText;
+        if (!onlySentinel || entries != 1 || !intact) {
+            printf("[TEST] FAIL: group %d: the sentinel folder %s was disturbed (%d entries, sentinel %s): a row "
+                   "still keeps a scratch folder under that fixed name in the working directory (#1641)\n",
+                   group, name, entries, intact ? "intact" : "gone or rewritten");
+            disturbed++;
+        }
+    }
+    return disturbed;
+}
+
 // Prints the lines of a failed child's log that say why it failed.
 void SpcPrintFailureLines(const std::filesystem::path& log) {
     std::ifstream in(log);
@@ -154,6 +226,15 @@ static TestResult Test_TestScratchPoisonedCwd(void) {
             group++;
             continue;
         }
+        const int sentinels = SpcPlantSentinels(cwd);
+        const int sentinelsWanted = (int)(sizeof(kSpcSentinelNames) / sizeof(kSpcSentinelNames[0]));
+        if (sentinels != sentinelsWanted) {
+            printf("[TEST] FAIL: group %d: planted %d of %d sentinel folders (this row would pass vacuously)\n", group,
+                   sentinels, sentinelsWanted);
+            failures++;
+            group++;
+            continue;
+        }
         const int code = rsbs::test::RunRowsInDir(g.rows, cwd, log);
         const bool ok = code == 0;
         printf("[TEST] %s: %s, in a poisoned working directory, one process, exited %d\n", ok ? "ok" : "FAIL", g.why,
@@ -162,6 +243,7 @@ static TestResult Test_TestScratchPoisonedCwd(void) {
             failures++;
             SpcPrintFailureLines(log);
         }
+        failures += SpcDisturbedSentinels(cwd, group);
         group++;
     }
     printf("[TEST] %s: test-scratch-poisoned-cwd, %d failure(s)\n", failures == 0 ? "PASS" : "FAIL", failures);
