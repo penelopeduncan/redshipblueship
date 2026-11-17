@@ -185,8 +185,9 @@
  *     event, with RT_DMC_BOULDER_SKIP; a child holding the hood only under Bunny
  *     Hood Effect (eca767dcb, #1647 G1).
  *  DP. DMCPotsToPad: the Hookshot; RT_DMC_BOLERO_JUMP with a shield and the Power
- *     Bracelet (not without the bracelet); a child with the hood and Climb only
- *     under Bunny Hood Effect.
+ *     Bracelet (not without the bracelet, not without the shield, not without
+ *     the trick; the shield is its equipment bit, as BL33's); a child with the
+ *     hood and Climb only under Bunny Hood Effect.
  *  DQ. DMCPadToPots: the Hookshot; an adult with the hood and Climb only under
  *     Masks as Adult.
  *  DB. The bean: planted, an adult passes with 3 hearts.
@@ -3121,7 +3122,13 @@ void RunDmcRefactorLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectExit("DP2 DMC blocked entry to the centre, adult with the Hookshot, 8 hearts", RR_DMC_BLOCKED_ENTRY,
                RR_DMC_CENTRAL, true, true, "the Hookshot does not cross the bridge's gap (7522f31cc)");
     DmcResetHearts(randoCtx, 8);
-    Give(RG_HYLIAN_SHIELD);
+    // The shield's equipment bit is set directly: Logic::ApplyItemEffect ignores a Deku or Hylian Shield that does not
+    // come off a shop shelf (upstream too), so Give(RG_HYLIAN_SHIELD) would leave CanShield false and every leg below
+    // closed by the shield instead of the term it names.
+    logic->GetSaveContext()->inventory.equipment |= EQUIP_FLAG_SHIELD_HYLIAN;
+    if (!logic->CanShield()) {
+        GateFail("DP: the Hylian Shield's equipment bit does not give CanShield, so DP3, DP4, DP7 and DP8 are vacuous");
+    }
     randoCtx->GetTrickOption(RT_DMC_BOLERO_JUMP).Set(1);
     ExpectExit("DP3 DMC blocked entry to the centre, adult, shield, RT_DMC_BOLERO_JUMP, no Power Bracelet, 8 hearts",
                RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, false, "the pot jump is in logic without lifting the pot");
@@ -3129,7 +3136,13 @@ void RunDmcRefactorLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectExit("DP4 DMC blocked entry to the centre, adult, shield, Power Bracelet, RT_DMC_BOLERO_JUMP, 8 hearts",
                RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, true,
                "the pot jump with a shield and the Power Bracelet does not cross the gap (7522f31cc)");
+    logic->GetSaveContext()->inventory.equipment &= ~EQUIP_FLAG_SHIELD_HYLIAN;
+    ExpectExit("DP7 DMC blocked entry to the centre, adult, Power Bracelet, RT_DMC_BOLERO_JUMP, no shield, 8 hearts",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, false, "the pot jump is in logic without a shield");
+    logic->GetSaveContext()->inventory.equipment |= EQUIP_FLAG_SHIELD_HYLIAN;
     randoCtx->GetTrickOption(RT_DMC_BOLERO_JUMP).Set(0);
+    ExpectExit("DP8 DMC blocked entry to the centre, adult, shield, Power Bracelet, RT_DMC_BOLERO_JUMP off, 8 hearts",
+               RR_DMC_BLOCKED_ENTRY, RR_DMC_CENTRAL, true, false, "the pot jump is in logic without its trick");
     randoCtx->GetOption(RSK_STARTING_HEARTS).Set(7);
     ResetLogicWithBunnyHood();
     BhlExitOffOn(randoCtx, "DP5 DMC blocked entry to the centre, child with the hood and Climb, 8 hearts, setting off",
