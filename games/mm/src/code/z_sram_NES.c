@@ -1668,6 +1668,16 @@ void MM_Sram_OpenSave(FileSelectState* fileSelect, SramContext* sramCtx) {
             gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
         }
     } else {
+        // 2S2H [Enhancement] Owl saves don't store nextCutsceneIndex. Creating a file or skipping to file select leaves
+        // it at 0 instead of 0xFFEF, which makes Play_Init skip loading cleared scene layers.
+        // RSBS (2Ship #1952): MM's own file select (FileSelect_LoadGame) is this function's only caller, so this
+        // touches an owl or pause save opened there and nothing else. A crossing into MM, a .redsave load and the
+        // reload of a held crossing never run Sram_OpenSave: MM_Play_ConsumeStartupEntrance (z_play.c) restores the
+        // frozen half and writes 0xFFEF itself, whatever this key says.
+        if (CVarGetInteger("gEnhancements.Fixes.OwlSaveSceneLayers", 1)) {
+            gSaveContext.nextCutsceneIndex = 0xFFEF;
+        }
+
         // When a pauseSaveEntrance is available, prioritize it over the
         // owlWarpId, this means the players last save was a pause save.
         if (gSaveContext.save.shipSaveInfo.pauseSaveEntrance != -1) {
