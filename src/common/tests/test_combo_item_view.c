@@ -68,7 +68,9 @@
  * 5c'. THE RUNNING GAME'S BAG GATE (#1652 D). While OoT runs and its own
  *    gate keeps the pool's sticks and nuts out of its save (Shuffle Deku Stick /
  *    Nut Bag, the bag not found), the Shared Deku Sticks and Deku Nuts rows and
- *    slots read as not held with a count of 0; under MM the gate is not asked.
+ *    slots read as not held with a count of 0, and OoT's own sticks and nuts
+ *    slots in a custom group are not lit from the pool's tier; under MM the gate
+ *    is not asked.
  *    The Bombchus row needs no gate: it is OoT's own live count.
  *
  * 5e. A SHARED BUTTON DRAWN WITH OoT's OCARINA IS NAMED (#1347). Under Shared
@@ -1463,6 +1465,10 @@ static int CivSharedGrantBlockedLegsBody(const ComboItemOps* ootOps, const Combo
     printf("[TEST] combo-item-view: OoT live, no gate answer, pool 7 sticks at tier 1: have=%d count=%d max=%d\n",
            (int)sharedRow.have, sharedRow.count, sharedRow.max);
     CIV_ASSERT(sharedRow.have && sharedRow.count == 7 && sharedRow.max == 10);
+    // OoT's own Deku Sticks slot in a custom group lights from the pool's tier too.
+    ComboItemRow ownSlot;
+    memset(&ownSlot, 0, sizeof(ownSlot));
+    CIV_ASSERT(Combo_ItemCatalogRowByKey((uint8_t)GAME_OOT, "sticks", &ownSlot) && ownSlot.have);
     // The Bombchus row is the live game's own count (a consumable, #971), and OoT's
     // gated apply holds 0, so it never showed the pool's 15 in Hyrule.
     CIV_ASSERT(CivFindSharedRow("Bombchus", &sharedRow));
@@ -1485,6 +1491,13 @@ static int CivSharedGrantBlockedLegsBody(const ComboItemOps* ootOps, const Combo
            (int)sharedRow.have, sharedRow.count, sharedRow.max);
     CIV_ASSERT(!sharedRow.have && sharedRow.count == 0 && sharedRow.max == 0);
     CIV_ASSERT(CivSharedSlot("nuts", &sharedRow) && !sharedRow.have && sharedRow.count == 0);
+    // ...and OoT's own sticks and nuts slots stay dark while OoT runs gated.
+    memset(&ownSlot, 0, sizeof(ownSlot));
+    CIV_ASSERT(Combo_ItemCatalogRowByKey((uint8_t)GAME_OOT, "sticks", &ownSlot));
+    printf("[TEST] combo-item-view: OoT's own 'sticks' slot under the gate, pool tier 1: have=%d\n", (int)ownSlot.have);
+    CIV_ASSERT(!ownSlot.have);
+    memset(&ownSlot, 0, sizeof(ownSlot));
+    CIV_ASSERT(Combo_ItemCatalogRowByKey((uint8_t)GAME_OOT, "nuts", &ownSlot) && !ownSlot.have);
     // An ungated kind is untouched, and the pool is never written by a draw.
     CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow) && sharedRow.have && sharedRow.count == 123);
     CIV_ASSERT(CivPoolValue(RSBS_SHARED_RES_STICK_COUNT) == 7 && CivPoolValue(RSBS_SHARED_RES_NUT_COUNT) == 9);

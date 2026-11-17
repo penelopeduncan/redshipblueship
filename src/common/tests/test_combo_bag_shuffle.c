@@ -187,6 +187,11 @@ TestResult ComboBagShuffleFrozen_Run(void) {
         CVarSetInteger(kCbsNutKey, 1);
         CBS_CHECK(CbsReads(false, false), "an unpaired file read a bag shuffled from OoT's live option");
         CbsClearKeys();
+        // A record nothing froze (formatVersion 0) reads false even with both bits in its bytes.
+        gComboCtx.comboSettings.comboFlags = (uint8_t)(kCbsStick | kCbsNut);
+        CBS_CHECK(!Combo_ComboSettingsFrozen() && CbsReads(false, false),
+                  "an unfrozen record with the bag bits in its bytes read a bag shuffled");
+        ComboContext_Init();
         for (const auto& w : kCbsWorlds) {
             CbsFreezeWorld(w.stick, w.nut);
             CBS_CHECK(CbsReads(w.stick, w.nut), "%s: the predicates read stick %d nut %d", w.what,

@@ -896,6 +896,21 @@ bool Combo_ItemSharedRowAtWithIcons(int index, uint8_t iconGame, ComboItemRow* o
 // Addressable item catalog (for the Customizable Item Tracker)
 // ============================================================================
 
+/** #1652 D: is `game` the running game, and does its grant-blocked answer keep
+ *  the count bounded by shared tier `tierKind` out of its save? Then its own
+ *  per-game copy of that tier is not lit from the pool's tier. */
+static bool RunningGameTierSlotBlocked(uint8_t game, uint8_t tierKind) {
+    if (Context_GetCurrentGame() != (GameId)game) {
+        return false;
+    }
+    for (int i = 0; i < SHARED_ROW_DEF_COUNT; i++) {
+        if (kSharedRows[i].tierKind == tierKind) {
+            return RunningGameGrantBlocked(kSharedRows[i].countKind);
+        }
+    }
+    return false;
+}
+
 static bool CatalogFamilyRowOf(uint8_t game, uint32_t family, ComboItemRow* out) {
     return FamilyRowOf(game, family, out) || StaticCatalogFamilyRowOf(game, family, out);
 }
@@ -944,7 +959,9 @@ bool Combo_ItemCatalogRowAt(uint8_t game, int catalogIndex, ComboItemRow* out) {
             Combo_ItemSharedFreshness() != COMBO_TRACKER_FRESH_UNAVAILABLE &&
             Combo_SharedResourceKindArmed(row.sharedKind)) {
             const SharedTierRead read = ReadSharedTier(row.sharedKind);
-            if (read.tier > 0) {
+            // #1652 D: the running game's own slot stays dark while its bag gate
+            // keeps the pool's count out of its save, as its Shared row does.
+            if (read.tier > 0 && !RunningGameTierSlotBlocked(game, row.sharedKind)) {
                 row.have = true;
             }
         }

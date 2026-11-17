@@ -324,9 +324,10 @@ bool Combo_ComboSharedShuffleCoupled(uint32_t giveCap) {
 }
 
 bool Combo_ComboStickBagShuffled(void) {
-    // The frozen record only (#1652): the pair's one stick bag is world identity.
-    return Combo_ComboSettingsFrozen() &&
-           (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG) != 0u;
+    // The frozen record only (#1652): the pair's one stick bag is world identity,
+    // and a record nothing froze answers false whatever its bytes hold.
+    const bool frozen = Combo_ComboSettingsFrozen();
+    return frozen && (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG) != 0u;
 }
 
 bool Combo_ComboNutBagShuffled(void) {
