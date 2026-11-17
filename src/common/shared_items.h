@@ -1022,6 +1022,41 @@ bool Combo_RegisterSharedSlotReserve(uint8_t originGame, uint16_t id, uint8_t ki
 /** The SLOTS kind @p item is a registered slot reserve of, or 0. */
 uint8_t Combo_SharedSlotReserveKind(SharedItem item);
 
+/**
+ * SHARED-CREDIT STAND-INS (#1652 stage A2). THE SHARED-QUANTITY CREDIT
+ * (combo_logic.h) names a family's far id from the far game's POOL rows, so a TIER
+ * kind one game's pool never carries is credited to that game's solver as
+ * nothing. Majora's Mask has no stick or nut capacity item at all, yet under
+ * #1652 option A (operator ruling 2026-11-15) the pair's one Deku Stick Bag and
+ * Deku Nut Bag gate both games. A stand-in is that game's LOGIC-ONLY id for such
+ * a kind: never a pool row, never placed, never shown; the composer falls back to
+ * it only where the game's pool names the kind by no id at all.
+ *
+ * Registered once per game from its combo-logic engine TU's file-scope registrar
+ * (constant-initialized table, safe during static initialization). Only
+ * RSBS_SHARED_RES_STICK_TIER and RSBS_SHARED_RES_NUT_TIER may have one. Returns
+ * false, registering nothing, for a bad game or kind, a second stand-in for the
+ * same (game, kind), an id 0, or a full table.
+ */
+#define RSBS_SHARED_CREDIT_STAND_IN_CAP 4
+bool Combo_RegisterSharedCreditStandIn(uint8_t originGame, uint8_t kind, uint16_t id);
+
+/**
+ * The ARMED stand-in for (@p originGame, @p kind), or 0: none registered; the
+ * kind's FROZEN gate is off (STICK_TIER: Combo_ComboStickBagShuffled(); NUT_TIER:
+ * Combo_ComboNutBagShuffled(); a record nothing froze answers 0); or the id is a
+ * fill item of its game (Combo_ItemClassSourceOf != NONE: a stand-in that could be
+ * pooled is refused and logged, because it would then be counted twice).
+ */
+uint16_t Combo_SharedCreditStandIn(uint8_t originGame, uint8_t kind);
+
+/** The REGISTERED stand-in for (@p originGame, @p kind), ignoring the gate, or 0.
+ *  For the locks and their restore. */
+uint16_t Combo_SharedCreditStandInRegistered(uint8_t originGame, uint8_t kind);
+
+/** TEST ONLY: drop every registered stand-in (re-register to restore). */
+void Combo_TestClearSharedCreditStandIns(void);
+
 #ifdef __cplusplus
 }
 #endif

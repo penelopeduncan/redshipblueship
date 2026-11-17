@@ -43,6 +43,9 @@
  *   - LEG 16 is new (ADR 0010 answer O2): the reset-time guard `expand` applies.
  *     Legs 3-15 run with the paired default start's Song of Time kit, under
  *     which the guard is off (see the note after leg 2).
+ *   - LEG 17 is new (#1652 stage A2): the logic-only Deku Stick Bag / Deku Nut
+ *     Bag stand-ins the coordinator credits OoT's bag as. Their give writes the
+ *     save directly (MmGiveBagStandIn), never through GiveItem.
  *   - leg 5 parked the whole region graph into a function-local and restored it
  *     after four early-returning assertions. It is a scope guard now.
  *
@@ -120,6 +123,8 @@ extern "C" int MM_ComboLogicEngine_RunHeadless(void) {
 #include "context.h"
 #include "foreign_items.h" // RSBS_XITEM_SHARED_SONG_TIME, Combo_FreezeComboSettingsEx (leg 16)
 #include "mm_game_hooks.h"
+#include "shared_items.h"     // ComboItemClassRow, the shared-credit stand-ins (leg 17)
+#include "shared_resources.h" // RSBS_SHARED_RES_STICK_TIER / _NUT_TIER (leg 17)
 
 extern "C" {
 #include "z64save.h"
@@ -139,6 +144,12 @@ void MM_ComboLogic_ResetCounters(void);
 int MM_ComboLogic_SnapshotLive(void);
 int MM_ComboLogic_HeldPlacementCount(void);
 int MM_ComboLogic_TestRoundRegions(uint16_t* outRegions, uint64_t* outTimeSlices, int cap);
+
+// Leg 17 (#1652 A2): MM's item classifier and fill predicate (ComboLogicEngineSingleExe.cpp),
+// and the foreign-award give gate (ForeignItemsSingleExe.cpp).
+int MM_ComboLogic_ClassifyItem(uint16_t id, ComboItemClassRow* out);
+int MM_ComboLogic_TestFillAdvancement(uint16_t id);
+int MM_ForeignItem_TestIsGiveableId(uint16_t riId);
 }
 
 namespace {
@@ -449,6 +460,85 @@ GuardObservation GuardRound(const std::vector<uint16_t>& assume) {
 // NOT `small`: Windows' rpcndr.h defines `small` as `char` (leg 3's note).
 bool IsSubset(const std::set<uint16_t>& part, const std::set<uint16_t>& whole) {
     return std::includes(whole.begin(), whole.end(), part.begin(), part.end());
+}
+
+// ============================================================================
+// Leg 17's helpers: #1652 A2's bag stand-ins
+// ============================================================================
+
+/** #1652 A1's condition, simulated: no stick or nut capacity, neither item held,
+ *  and every other term of RC_CLOCK_TOWN_EAST_WONDER_ITEM_01's rule (Central.cpp:
+ *  CAN_USE_SWORD || CAN_USE_PROJECTILE || HAS_ITEM(ITEM_DEKU_STICK) ||
+ *  HAS_ITEM(ITEM_DEKU_NUT)) removed: no human sword, Great Fairy's Sword, Fierce
+ *  Deity Mask, bow, hookshot, Deku Mask, magic or Zora Mask, in human form
+ *  (Logic.h's IS_* read the save's playerForm; 0 is the Fierce Deity). */
+void Leg17StripBagsAndWeapons() {
+    MM_Inventory_ChangeUpgrade(UPG_DEKU_STICKS, 0);
+    MM_Inventory_ChangeUpgrade(UPG_DEKU_NUTS, 0);
+    INV_CONTENT(ITEM_DEKU_STICK) = ITEM_NONE;
+    INV_CONTENT(ITEM_DEKU_NUT) = ITEM_NONE;
+    AMMO(ITEM_DEKU_STICK) = 0;
+    AMMO(ITEM_DEKU_NUT) = 0;
+    SET_EQUIP_VALUE(EQUIP_TYPE_SWORD, EQUIP_VALUE_SWORD_NONE);
+    INV_CONTENT(ITEM_SWORD_GREAT_FAIRY) = ITEM_NONE;
+    INV_CONTENT(ITEM_MASK_FIERCE_DEITY) = ITEM_NONE;
+    INV_CONTENT(ITEM_BOW) = ITEM_NONE;
+    INV_CONTENT(ITEM_HOOKSHOT) = ITEM_NONE;
+    INV_CONTENT(ITEM_MASK_DEKU) = ITEM_NONE;
+    INV_CONTENT(ITEM_MASK_ZORA) = ITEM_NONE;
+    gSaveContext.save.saveInfo.playerData.isMagicAcquired = false;
+    gSaveContext.save.playerForm = PLAYER_FORM_HUMAN;
+}
+
+/** What one round over @p assume shows leg 17. The inventory is read after the
+ *  assumes and before the first expand; `saveUnchanged` says the assumes left the
+ *  save byte-identical (the round's own starting state is the reference). */
+struct Leg17BagObservation {
+    int beganOk = 0;
+    int saveUnchanged = 0;
+    int stickHeld = 0;
+    int nutHeld = 0;
+    unsigned stickTier = 0;
+    unsigned nutTier = 0;
+    int stickAmmo = 0;
+    int eastReached = 0;
+    int wonderReached = 0;
+};
+
+Leg17BagObservation Leg17BagRound(const std::vector<uint16_t>& assume) {
+    Leg17BagObservation obs;
+    if (!gEngine->snapshot(gEngine->self)) {
+        return obs;
+    }
+    obs.beganOk = gEngine->beginQuery(gEngine->self);
+    if (obs.beganOk) {
+        auto before = std::make_unique<SaveContext>();
+        memcpy(before.get(), &gSaveContext, sizeof(SaveContext));
+        for (uint16_t id : assume) {
+            gEngine->assumeOwnItem(gEngine->self, id);
+        }
+        obs.saveUnchanged = memcmp(before.get(), &gSaveContext, sizeof(SaveContext)) == 0 ? 1 : 0;
+        obs.stickHeld = INV_CONTENT(ITEM_DEKU_STICK) == ITEM_DEKU_STICK ? 1 : 0;
+        obs.nutHeld = INV_CONTENT(ITEM_DEKU_NUT) == ITEM_DEKU_NUT ? 1 : 0;
+        obs.stickTier = (unsigned)CUR_UPG_VALUE(UPG_DEKU_STICKS);
+        obs.nutTier = (unsigned)CUR_UPG_VALUE(UPG_DEKU_NUTS);
+        obs.stickAmmo = (int)AMMO(ITEM_DEKU_STICK);
+        for (int i = 0; i < RSBS_COMBO_LOGIC_MAX_ROUND_ITERATIONS; ++i) {
+            if (!gEngine->expand(gEngine->self)) {
+                break;
+            }
+        }
+        obs.wonderReached = gEngine->checkReached(gEngine->self, (uint16_t)RC_CLOCK_TOWN_EAST_WONDER_ITEM_01);
+        const int regionTotal = MM_ComboLogic_TestRoundRegions(nullptr, nullptr, 0);
+        if (regionTotal > 0) {
+            std::vector<uint16_t> buf((size_t)regionTotal, 0);
+            MM_ComboLogic_TestRoundRegions(buf.data(), nullptr, regionTotal);
+            obs.eastReached = std::find(buf.begin(), buf.end(), (uint16_t)RR_CLOCK_TOWN_EAST) != buf.end() ? 1 : 0;
+        }
+    }
+    gEngine->restore(gEngine->self);
+    gEngine->endQuery(gEngine->self);
+    return obs;
 }
 
 int RunLegs() {
@@ -1744,6 +1834,132 @@ int RunLegs() {
                       "the Moon trial did not come back once the Song of Time is playable - 16g's red half is "
                       "measuring the synthetic edge, not the guard");
         }
+    }
+
+    // ---- Leg 17: #1652 A2's BAG STAND-INS (RI_DEKU_STICK_BAG / RI_DEKU_NUT_BAG) ----
+    //
+    // The coordinator credits Ocarina of Time's Progressive Stick / Nut Upgrade to
+    // MM's solver as these logic-only ids (shared_items.h, SHARED-CREDIT
+    // STAND-INS; src/common's shared-quantity-policy Q7 locks the composer side).
+    //   17a they are no fill item, no Items row, not giveable by any other MM gate,
+    //       never placed, and a pool row of one is refused by the composer;
+    //   17b MM's registrar names exactly them for the stick and nut tiers;
+    //   17c #1652 A1's condition simulated (tier 0, nothing that opens the East
+    //       Clock Town wonder item): the check is out; the stick bag alone brings
+    //       it in at tier 1 with sticks held, the nut bag alone likewise, each
+    //       leaving the other bag's tier at 0;
+    //   17d THE NO-OP: at the tier-1 birth (z_sram_NES.c) four copies of each
+    //       leave the save byte-identical, which is why no world moves before A1.
+    {
+        SaveGuard leg17Save;
+        PlacementsGuard leg17Placements;
+        const uint16_t standIns[2] = { (uint16_t)RI_DEKU_STICK_BAG, (uint16_t)RI_DEKU_NUT_BAG };
+        const std::vector<uint16_t> hosts = AllHostList();
+        CE_ASSERT(!hosts.empty(), 17, "no host to try a stand-in placement on");
+
+        // ---- 17a. Catches: an Items row for a stand-in (every assertion here),
+        // the stand-in term dropped from the foreign gate, a fill class for it.
+        for (uint16_t id : standIns) {
+            ComboItemClassRow row;
+            memset(&row, 0xA5, sizeof(row));
+            const int classified = MM_ComboLogic_ClassifyItem(id, &row);
+            CE_ASSERT(classified == 0 && row.fillClass == RSBS_FILL_CLASS_NONE && row.sharedKind == 0u, 17,
+                      "a bag stand-in is a fill item of MM's classifier - it could then be pooled and counted twice");
+            CE_ASSERT(MM_ComboLogic_TestFillAdvancement(id) == -1 &&
+                          Rando::StaticData::Items.find((RandoItemId)id) == Rando::StaticData::Items.end(),
+                      17, "a bag stand-in has a Rando::StaticData::Items row - it must be logic-only");
+            CE_ASSERT(MM_ForeignItem_TestIsGiveableId(id) == 0, 17,
+                      "MM_ForeignItem_Give's gate accepts a bag stand-in - Rando::GiveItem would then insert an Items "
+                      "row for it (ForeignItemsSingleExe.cpp, IsGiveableItemId)");
+            SharedItem standIn;
+            memset(&standIn, 0, sizeof(standIn));
+            standIn.originGame = (uint8_t)GAME_MM;
+            standIn.id = id;
+            CE_ASSERT(gEngine->place(gEngine->self, hosts.front(), standIn) == 0 &&
+                          MM_ComboLogic_HeldPlacementCount() == 0,
+                      17, "MM's engine placed a bag stand-in on a host");
+
+            ComboLogicPoolRow poolRow;
+            memset(&poolRow, 0, sizeof(poolRow));
+            poolRow.item = standIn;
+            ComboLogicComposeRequest req;
+            memset(&req, 0, sizeof(req));
+            req.rows = &poolRow;
+            req.rowCount = 1;
+            req.quantityFlags = RSBS_COMBO_QUANTITY_KEEP_ALL;
+            ComboLogicBagItem bag[2];
+            ComboLogicComposeResult res;
+            memset(&res, 0, sizeof(res));
+            CE_ASSERT(Combo_Logic_ComposeBag(&req, bag, 2, nullptr, &res) == RSBS_COMBO_LOGIC_ERR_BAD_REQUEST &&
+                          res.perGame[GAME_MM].rows[RSBS_COMBO_COMPOSE_UNCLASSIFIED] == 1,
+                      17, "the composer accepted an MM pool row of a bag stand-in - it must never be pooled");
+        }
+
+        // ---- 17b. Catches: the registrar dropped, or its two ids swapped.
+        CE_ASSERT(Combo_SharedCreditStandInRegistered((uint8_t)GAME_MM, RSBS_SHARED_RES_STICK_TIER) ==
+                          (uint16_t)RI_DEKU_STICK_BAG &&
+                      Combo_SharedCreditStandInRegistered((uint8_t)GAME_MM, RSBS_SHARED_RES_NUT_TIER) ==
+                          (uint16_t)RI_DEKU_NUT_BAG,
+                  17, "MM's registrar does not name RI_DEKU_STICK_BAG / RI_DEKU_NUT_BAG for the stick / nut tiers");
+
+        // ---- 17c. A1's condition, simulated. The precondition is CHECKED: if the
+        // strip leaves any term of the check's rule, the bare round reaches it and
+        // the leg goes red instead of passing vacuously.
+        Leg17StripBagsAndWeapons();
+        const Leg17BagObservation bare = Leg17BagRound({});
+        printf("[TEST] mm-combo-logic-engine: leg 17c bare: began %d, East Clock Town %d, wonder item %d\n",
+               bare.beganOk, bare.eastReached, bare.wonderReached);
+        CE_ASSERT(bare.beganOk != 0 && bare.eastReached == 1, 17,
+                  "East Clock Town is not reached on the stripped save - 17c would measure the region, not the bag");
+        CE_ASSERT(bare.wonderReached == 0, 17,
+                  "the East Clock Town wonder item is reached with no bag and no weapon - the strip left a term of "
+                  "its rule, so the bag halves below cannot tell the bag from that term");
+
+        // Catches: the INV_CONTENT write omitted (the check stays out), the stick
+        // and nut cases swapped (the other tier moves), the stand-in refused by
+        // AssumeOwnItem's giveable test (nothing moves).
+        const Leg17BagObservation stick = Leg17BagRound({ (uint16_t)RI_DEKU_STICK_BAG });
+        printf("[TEST] mm-combo-logic-engine: leg 17c stick bag: stick %d tier %u ammo %d, nut %d tier %u, "
+               "wonder item %d\n",
+               stick.stickHeld, stick.stickTier, stick.stickAmmo, stick.nutHeld, stick.nutTier, stick.wonderReached);
+        CE_ASSERT(stick.beganOk != 0 && stick.stickHeld == 1 && stick.stickTier == 1u && stick.stickAmmo == 10 &&
+                      stick.nutHeld == 0 && stick.nutTier == 0u,
+                  17,
+                  "the stick bag stand-in did not give the bag (tier 1, sticks held, 10 sticks) or touched the nuts");
+        CE_ASSERT(stick.wonderReached == 1, 17,
+                  "the stick bag stand-in did not bring the stick-gated wonder item into MM's logic");
+
+        // The round restored the stripped save; the strip is re-applied anyway, so
+        // the nut half cannot inherit anything from the stick half.
+        Leg17StripBagsAndWeapons();
+        const Leg17BagObservation nut = Leg17BagRound({ (uint16_t)RI_DEKU_NUT_BAG });
+        printf("[TEST] mm-combo-logic-engine: leg 17c nut bag: nut %d tier %u, stick %d tier %u, wonder item %d\n",
+               nut.nutHeld, nut.nutTier, nut.stickHeld, nut.stickTier, nut.wonderReached);
+        CE_ASSERT(nut.beganOk != 0 && nut.nutHeld == 1 && nut.nutTier == 1u && nut.stickHeld == 0 &&
+                      nut.stickTier == 0u,
+                  17, "the nut bag stand-in did not give the bag (tier 1, nuts held) or touched the sticks");
+        CE_ASSERT(nut.wonderReached == 1, 17,
+                  "the nut bag stand-in did not bring the nut-gated wonder item into MM's logic");
+
+        // ---- 17d. THE NO-OP at the tier-1 birth. Catches: the tier-0 guard
+        // dropped, or the bag routed through MM's ITEM_DEKU_STICK_UPGRADE_* gives
+        // (both write the save at tier 1).
+        Leg17StripBagsAndWeapons();
+        MM_Inventory_ChangeUpgrade(UPG_DEKU_STICKS, 1);
+        MM_Inventory_ChangeUpgrade(UPG_DEKU_NUTS, 1);
+        const std::vector<uint16_t> fourOfEach = {
+            (uint16_t)RI_DEKU_STICK_BAG, (uint16_t)RI_DEKU_STICK_BAG, (uint16_t)RI_DEKU_STICK_BAG,
+            (uint16_t)RI_DEKU_STICK_BAG, (uint16_t)RI_DEKU_NUT_BAG,   (uint16_t)RI_DEKU_NUT_BAG,
+            (uint16_t)RI_DEKU_NUT_BAG,   (uint16_t)RI_DEKU_NUT_BAG,
+        };
+        const Leg17BagObservation born = Leg17BagRound(fourOfEach);
+        CE_ASSERT(born.beganOk != 0 && born.saveUnchanged == 1 && born.stickHeld == 0 && born.nutHeld == 0 &&
+                      born.stickTier == 1u && born.nutTier == 1u,
+                  17,
+                  "at the tier-1 birth a bag stand-in changed the save - every credited copy must be a no-op until "
+                  "#1652 A1 births MM at tier 0, or today's worlds move");
+        CE_ASSERT(born.wonderReached == 0, 17,
+                  "at the tier-1 birth with no stick or nut held, the credit brought the wonder item in");
     }
 
     return 0;

@@ -297,6 +297,8 @@ static_assert(RO_SHUFFLE_SKELETON_KEY == 57 && RO_SKULLTULA_SHUFFLED == 58 && RO
 static_assert(RI_SKELETON_KEY == RI_SONG_PRELUDE + 1 && RI_SONG_DOUBLE_TIME == RI_SONG_PRELUDE + 2 &&
                   RI_SONG_INVERTED_TIME == RI_SONG_PRELUDE + 3 && RI_MAX_TRAP == RI_SONG_PRELUDE + 4,
               "MM's #1403 items follow the #1485 warp songs: saved checks store RandoItemId");
+static_assert(RI_DEKU_STICK_BAG == RI_MAX_TRAP + 1 && RI_DEKU_NUT_BAG == RI_MAX_TRAP + 2 && RI_MAX == RI_MAX_TRAP + 3,
+              "#1652 A2: two logic-only credit stand-ins follow the draw-only sentinel");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
 // #1548: split freestanding dungeon fairies + Clock Town fairy out from

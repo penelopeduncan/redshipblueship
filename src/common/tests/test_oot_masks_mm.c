@@ -384,10 +384,13 @@ TestResult Test_OoTMasksMMItems(void) {
                woodfallFairy, (unsigned)gerudo, (unsigned)skull, (unsigned)spooky, maxTrap, riMax,
                MM_OoTMasksTest_Id(6), MM_OoTMasksTest_Id(7), MM_OoTMasksTest_Id(8));
         // RI_MAX_TRAP is not pinned to the last mask: a later lane appends after it
-        // (#1169 XW5's warp songs).
+        // (#1169 XW5's warp songs). #1652 A2 appends two logic-only stand-ins after
+        // RI_MAX_TRAP, so RI_MAX is three past it and the two are named.
         OMM_CHECK(gerudo == woodfallFairy + 1 && skull == gerudo + 1 && spooky == skull + 1 && maxTrap > spooky &&
-                      riMax == maxTrap + 1,
-                  "the three ids are not appended between RI_WOODFALL_STRAY_FAIRY and RI_MAX_TRAP");
+                      MM_OoTMasksTest_Id(9) == maxTrap + 1 && MM_OoTMasksTest_Id(10) == maxTrap + 2 &&
+                      riMax == maxTrap + 3,
+                  "the three ids are not appended between RI_WOODFALL_STRAY_FAIRY and RI_MAX_TRAP (or #1652 A2's "
+                  "two stand-ins do not follow RI_MAX_TRAP)");
         // Saved ids (randoSaveChecks[].randoItemId, the crossing store): pinned at
         // their pre-#980 values, so no existing world or crossing row renumbers.
         OMM_CHECK(MM_OoTMasksTest_Id(3) == 234 && MM_OoTMasksTest_Id(6) == 84 && MM_OoTMasksTest_Id(7) == 1 &&
