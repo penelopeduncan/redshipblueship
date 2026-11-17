@@ -1026,6 +1026,9 @@ the same re-pin (`8F5935FF` to `8F5E9C45`, still 17 hints), and
 `ComboSingleBag`'s leg G seed went from `RSBSSINGLEBAGSHOPS11` to
 `RSBSSINGLEBAGSHOPS12`, the next seed whose world has a crossing Majora's Mask
 item on an Ocarina of Time shop shelf, Business Scrub and merchant.
+`ComboWarpTravelRounds` T5 and T6 went from `RSBSXW9TRAVEL4` to
+`RSBSXW9TRAVEL5`: seed 4's new world gives no raw Soaring fact, and seed 5 is
+the next one whose row passes whole.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
