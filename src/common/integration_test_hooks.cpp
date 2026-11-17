@@ -145,7 +145,10 @@ bool CaptureKeeps(const std::string& line) {
     // creation runs since #1116 and whose single-bag line the paired rows read (#1135).
     // int-foreign-hold-quit (#1635 step 7): the drain's crossing records, the load
     // restore's line, the hold's line and the return-to-title retirement it counts.
+    // int-mm-shuffle-ocarina (#1671 B2): z_sram_NES.c's New Cycle line, which the
+    // drive counts across the moon crash (unkept, its first run read 0 of them).
     static const char* const kTags[] = { "pairing",
+                                         "moon crash: New Cycle",
                                          "creation",
                                          "paired completion",
                                          "[Crossings]",
