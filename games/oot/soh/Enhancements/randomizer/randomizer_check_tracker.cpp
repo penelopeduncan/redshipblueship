@@ -190,6 +190,15 @@ std::vector<uint32_t> spoilingEntrances = {
 std::map<RandomizerCheckArea, std::vector<RandomizerCheck>> checksByArea;
 bool areasFullyChecked[RCAREA_INVALID];
 u32 areasSpoiled = 0;
+// #1689: the file's areasSpoiled as Teardown found it. OnExitGame runs its
+// handlers in no defined order, so an exit autosave (Autosave.cpp) can be queued
+// AFTER the handler below has torn the tracker down, and its worker would then
+// write the reset 0 into the file's trackerData section. Until the next file's
+// tracker data comes up (InitTrackerData, CheckTrackerLoadGame), a trackerData
+// save writes this value instead of the cleared live one. Set and cleared on the
+// game thread; a worker save reads it after its task was queued.
+static bool sTornDownForExit = false;
+static u32 sAreasSpoiledAtExit = 0;
 bool showVOrMQ;
 s16 areaChecksGotten[RCAREA_INVALID]; //|     "Kokiri Forest (4/9)"
 s16 areaChecksAvailable[RCAREA_INVALID];
@@ -846,6 +855,7 @@ static void LoadVisibilitySettings(bool refilter) {
 #endif
 
 void CheckTrackerLoadGame(int32_t fileNum) {
+    sTornDownForExit = false; // #1689: this file's tracker comes up; saves write the live value again
 #ifdef RSBS_SINGLE_EXECUTABLE
     availableComputed = false; // #1129: the bits belong to the file this load replaces
 #endif
@@ -1247,6 +1257,13 @@ void CheckTrackerDialogMessage() {
 
 void InitTrackerData(bool isDebug) {
     TrySetAreas();
+    // #1689: a file is being created or loaded, so the exited file's value is
+    // not the next file's. The title screen's init (isDebug) keeps it: the kaleido
+    // quit reaches it a frame after OnExitGame with nothing draining the pool, so
+    // an exit autosave may still be waiting to write the exited file.
+    if (!isDebug) {
+        sTornDownForExit = false;
+    }
     // Cross-game OoT arrival: do NOT reset the revealed-area state when a switch
     // INTO OoT is restoring the live session (#482, same class/shape as #441).
     // InitTrackerData is a SaveManager initFunc, so the arrival title-demo chain
@@ -1416,6 +1433,107 @@ extern "C" uint16_t OoT_CheckTracker_VanillaCheckForFlag(int16_t flagType, int16
 }
 #endif
 
+// #1689: the areasSpoiled a trackerData save writes. The live value, or, once
+// the exit handler has torn the tracker down, the value it held at that moment.
+static u32 AreasSpoiledForSave() {
+    return sTornDownForExit ? sAreasSpoiledAtExit : areasSpoiled;
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+// TEST BRIDGE (#1689): an exit autosave beside the tracker's Teardown, in both
+// orders OnExitGame may run them, through the real Teardown, the value the
+// trackerData save writes (AreasSpoiledForSave) and the next file's
+// InitTrackerData. Pure: no SaveManager, no OTR, no CVar. Everything Teardown
+// clears is put back afterwards. Returns the failure count.
+extern "C" int OoT_CheckTracker_TestExitSaveOrder(void) {
+    int failures = 0;
+    const u32 kAreasSentinel = 0x00001C03u; // any nonzero revealed-area bitmask
+    const bool savedInitialized = initialized;
+    const bool savedAvailableComputed = availableComputed;
+    const auto savedChecksByArea = checksByArea;
+    const u32 savedAreasSpoiled = areasSpoiled;
+    const bool savedTornDown = sTornDownForExit;
+    const u32 savedAtExit = sAreasSpoiledAtExit;
+    const auto savedFilterAreas = filterAreasHidden;
+    const auto savedFilterChecks = filterChecksHidden;
+    const RandomizerCheck savedLastChecked = lastLocationChecked;
+    s16 savedGotten[RCAREA_INVALID], savedAvailable[RCAREA_INVALID], savedTotals[RCAREA_INVALID];
+    memcpy(savedGotten, areaChecksGotten, sizeof(savedGotten));
+    memcpy(savedAvailable, areaChecksAvailable, sizeof(savedAvailable));
+    memcpy(savedTotals, areaCheckTotals, sizeof(savedTotals));
+    const uint16_t savedTotalChecks = totalChecks, savedTotalGotten = totalChecksGotten,
+                   savedTotalAvailable = totalChecksAvailable;
+
+    // Autosave first: its save is queued with the tracker live, and the tracker
+    // handler drains the pool (#1642) before Teardown, so the worker writes then.
+    sTornDownForExit = false;
+    areasSpoiled = kAreasSentinel;
+    const u32 autosaveFirst = AreasSpoiledForSave();
+    Teardown();
+    if (autosaveFirst != kAreasSentinel) {
+        fprintf(stderr, "[exit-save-order] FAIL - autosave before Teardown wrote 0x%X, expected 0x%X\n", autosaveFirst,
+                kAreasSentinel);
+        failures++;
+    }
+
+    // Tracker first: Teardown, then the autosave is queued and its worker writes.
+    InitTrackerData(false);
+    areasSpoiled = kAreasSentinel;
+    Teardown();
+    const u32 trackerFirst = AreasSpoiledForSave();
+    if (areasSpoiled != 0) {
+        fprintf(stderr, "[exit-save-order] FAIL - Teardown left the live areasSpoiled at 0x%X (the check is vacuous)\n",
+                areasSpoiled);
+        failures++;
+    }
+    if (trackerFirst != kAreasSentinel) {
+        fprintf(stderr, "[exit-save-order] FAIL - autosave after Teardown wrote 0x%X, expected 0x%X (#1689)\n",
+                trackerFirst, kAreasSentinel);
+        failures++;
+    }
+
+    // The title screen's init (Opening -> Sram_InitDebugSave) comes a frame
+    // after the kaleido quit, with nothing draining the pool: a save still
+    // waiting from the exit must write the exited file's value past it.
+    InitTrackerData(true);
+    const u32 pastTitle = AreasSpoiledForSave();
+    if (pastTitle != kAreasSentinel) {
+        fprintf(stderr,
+                "[exit-save-order] FAIL - an exit save still waiting past the title screen's init wrote "
+                "0x%X, expected 0x%X\n",
+                pastTitle, kAreasSentinel);
+        failures++;
+    }
+
+    // The next file: its init must not inherit the exited file's value.
+    InitTrackerData(false);
+    const u32 nextFile = AreasSpoiledForSave();
+    if (nextFile != 0) {
+        fprintf(stderr, "[exit-save-order] FAIL - the next file's tracker save would write 0x%X, expected 0\n",
+                nextFile);
+        failures++;
+    }
+
+    initialized = savedInitialized;
+    availableComputed = savedAvailableComputed;
+    checksByArea = savedChecksByArea;
+    areasSpoiled = savedAreasSpoiled;
+    sTornDownForExit = savedTornDown;
+    sAreasSpoiledAtExit = savedAtExit;
+    filterAreasHidden = savedFilterAreas;
+    filterChecksHidden = savedFilterChecks;
+    lastLocationChecked = savedLastChecked;
+    memcpy(areaChecksGotten, savedGotten, sizeof(savedGotten));
+    memcpy(areaChecksAvailable, savedAvailable, sizeof(savedAvailable));
+    memcpy(areaCheckTotals, savedTotals, sizeof(savedTotals));
+    totalChecks = savedTotalChecks;
+    totalChecksGotten = savedTotalGotten;
+    totalChecksAvailable = savedTotalAvailable;
+    fprintf(stderr, "[exit-save-order] %d failures\n", failures);
+    return failures;
+}
+#endif
+
 void SaveTrackerData(SaveContext* saveContext, int sectionID, bool fullSave) {
     bool updateOrdering = false;
     std::vector<RandomizerCheck> checkCount;
@@ -1446,7 +1564,7 @@ void SaveTrackerData(SaveContext* saveContext, int sectionID, bool fullSave) {
             });
         }
     });
-    SaveManager::Instance->SaveData("areasSpoiled", areasSpoiled);
+    SaveManager::Instance->SaveData("areasSpoiled", AreasSpoiledForSave()); // #1689
     if (updateOrdering) {
         UpdateAllOrdering();
         UpdateAllAreas();
@@ -1485,6 +1603,8 @@ void Teardown() {
 #endif
     ClearAreaChecksAndTotals();
     checksByArea.clear();
+    sAreasSpoiledAtExit = areasSpoiled; // #1689: what a save queued after this still writes
+    sTornDownForExit = true;
     areasSpoiled = 0;
     filterAreasHidden = { 0 };
     filterChecksHidden = { 0 };
