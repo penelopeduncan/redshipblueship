@@ -2660,8 +2660,13 @@ void MM_Play_ConsumeStartupEntrance(void) {
     // the cutscene/game-mode state so the entrance resolves layer 0.
     // (A restored frozen save can likewise carry a mid-cutscene index;
     // the same reset applies — arrivals are plain spawns.)
+    // 0xFFEF is also what lets MM_Play_Init pick an area's cleared layer (Great
+    // Bay Coast after Gyorg). An arrival, a .redsave load and the reload of a
+    // held crossing all come through here and never through MM_Sram_OpenSave,
+    // so 2Ship #1952's Fix Owl Save Scene Layers key does not reach them; this
+    // write is theirs (mm-startup-restore pins it with the key off and on).
     gSaveContext.save.cutsceneIndex = 0;
-    gSaveContext.nextCutsceneIndex = 0xFFEF;
+    gSaveContext.nextCutsceneIndex = 0xFFEF; // the arrival's own, key-independent
     gSaveContext.gameMode = GAMEMODE_NORMAL;
     // The frozen blob can carry in-flight respawn/day-transition state that
     // never used to reach gameplay (the pre-restore boot chain zeroed it):
