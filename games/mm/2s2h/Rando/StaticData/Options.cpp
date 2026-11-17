@@ -84,6 +84,7 @@ std::map<RandoOptionId, RandoStaticOption> Options = {
     RO(RO_SHUFFLE_TRAPS,               RO_GENERIC_OFF),
     RO(RO_SHUFFLE_OWL_STATUES,         RO_GENERIC_OFF),
     RO(RO_SHUFFLE_OCARINA_BUTTONS,     RO_GENERIC_OFF),
+    RO(RO_SHUFFLE_OCARINA,             RO_GENERIC_OFF), // #1671, the combo's (2Ship has no such row)
     RO(RO_SHUFFLE_POT_DROPS,           RO_GENERIC_OFF),
     RO(RO_SHUFFLE_SHOPS,               RO_GENERIC_OFF),
     RO(RO_SHUFFLE_SKELETON_KEY,        RO_GENERIC_OFF),

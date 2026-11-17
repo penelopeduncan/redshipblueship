@@ -594,6 +594,7 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             { RO_SHUFFLE_TINGLE_SHOPS, "Shuffle Shops & Merchants" },
             { RO_TINGLE_PRICES, "Shuffle Shops & Merchants" },
             { RO_SHUFFLE_SWIM, "Additional Items" },
+            { RO_SHUFFLE_OCARINA, "Additional Items" },
             { RO_SHUFFLE_OCARINA_BUTTONS, "Additional Items" },
             { RO_SHUFFLE_SKELETON_KEY, "Additional Items" },
             { RO_SHUFFLE_SONG_DOUBLE_TIME, "Additional Items" },
@@ -658,6 +659,30 @@ extern "C" int MM_RandoOptions_RunHeadless(void) {
             strcmp(hookshotAnywhere->label, "Hookshot Anywhere") != 0 ||
             hookshotAnywhere->liveness != (uint8_t)COMBO_MM_LIVENESS_LIVE) {
             return Fail(80, "RO_HOOKSHOT_ANYWHERE is not registered with default 0, Off/On/Logical combo, LIVE");
+        }
+        // #1671 (B1.7): Shuffle Ocarina is a LIVE checkbox, default off (0, both in
+        // its descriptor and its StaticData row), labelled as the operator asked,
+        // in Additional Items DIRECTLY before Shuffle Ocarina Buttons.
+        const ComboMMOptionDesc* shuffleOcarina = Combo_MMOptionById((uint16_t)RO_SHUFFLE_OCARINA);
+        if (shuffleOcarina == NULL || shuffleOcarina->defaultValue != 0 ||
+            Rando::StaticData::Options.at(RO_SHUFFLE_OCARINA).defaultValue != RO_GENERIC_OFF ||
+            shuffleOcarina->widget != (uint8_t)COMBO_MM_WIDGET_CHECKBOX ||
+            shuffleOcarina->group != (uint8_t)COMBO_MM_GROUP_ADDITIONAL_ITEMS ||
+            strcmp(shuffleOcarina->label, "Shuffle Ocarina") != 0 ||
+            shuffleOcarina->liveness != (uint8_t)COMBO_MM_LIVENESS_LIVE) {
+            return Fail(82, "RO_SHUFFLE_OCARINA is not registered as a LIVE 'Shuffle Ocarina' checkbox, default 0, "
+                            "in Additional Items (#1671)");
+        }
+        int shuffleOcarinaAt = -1;
+        for (int i = 0; i < descCount; i++) {
+            if (Combo_MMOptionAt(i)->id == (uint16_t)RO_SHUFFLE_OCARINA) {
+                shuffleOcarinaAt = i;
+            }
+        }
+        if (shuffleOcarinaAt < 0 || shuffleOcarinaAt + 1 >= descCount ||
+            Combo_MMOptionAt(shuffleOcarinaAt + 1)->id != (uint16_t)RO_SHUFFLE_OCARINA_BUTTONS) {
+            return Fail(82, "Shuffle Ocarina (row %d) is not the row directly before Shuffle Ocarina Buttons (#1671)",
+                        shuffleOcarinaAt);
         }
     }
 

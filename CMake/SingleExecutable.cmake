@@ -2368,6 +2368,15 @@ if(BUILD_TESTING)
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1671 lane B1: paired creations with MM's Shuffle Ocarina on, at the default
+    # rung and the No Logic rung: the start is the Song of Time alone, the Ocarina
+    # is an MM pool item the bag places and the arrival credits, the moon crash
+    # plays New Cycle; the identity list and the option-off stamp never move.
+    # Same label/env; two generations, hence the longer timeout.
+    redship_add_test(NAME MMPairedStartShuffleOcarina COMMAND redship --test mm-paired-start-shuffle-ocarina
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1069: the same paired creation under the Shared Song of Time rule (OoTMM
     # sharedSongTime): MM's start is the Ocarina alone and the song is an MM pool
     # item (the pair's one copy); with the rule off the start keeps it; MM's

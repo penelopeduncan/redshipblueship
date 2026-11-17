@@ -56,8 +56,9 @@
  *     disjunct) is left unbound. For MmCanResetTime it is vacuous here: Oath
  *     to Order's buttons include the Song of Time's, and the paired start holds
  *     the song unless the Shared Song of Time rule takes it away, which forces
- *     New Cycle, which already counts. It could only widen the on-Moon term
- *     under that rule, and the trick ships off (T = empty, ADR 0010 O11).
+ *     New Cycle, which already counts (Shuffle Ocarina, #1671, which takes the
+ *     ocarina away, forces New Cycle the same way). It could only widen the
+ *     on-Moon term under those, and the trick ships off (T = empty, ADR 0010 O11).
  *
  * MONOTONE. Both predicates only turn on as items are added (the Ocarina, the
  * song and the buttons are never taken away by a give), and the nook and the
