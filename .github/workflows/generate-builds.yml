@@ -1,6 +1,8 @@
 name: generate-builds
-# REQUIRED STATUS CHECKS (#1373). The "basic" ruleset requires build-linux,
-# build-windows and build-macos (and clang-format, from clang-format.yml). In
+# REQUIRED STATUS CHECKS (#1373). The "basic" ruleset requires build-linux and
+# build-windows (and clang-format, from clang-format.yml). build-macos is
+# reported the same way but has not been required since 2026-11: a red or slow
+# macOS build does not block a merge, and a failed one is still read. In
 # this workflow each of those names belongs to ONE job, in the "Required status
 # checks" section at the bottom of the file: a small job with `if: always()`
 # that cannot be skipped and reports the outcome of the real build job
@@ -521,6 +523,9 @@ jobs:
     # build-linux job at the bottom of this file (#1373).
     name: Linux build
     needs: generate-rsbs-otr
+    # The longest green job in the last 100 runs took 98 minutes (median 55).
+    # 180 leaves room for a cold ccache and still stops a hung job (#1518).
+    timeout-minutes: 180
     # One build of this job at a time on main, every push queued; a group of
     # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
     concurrency:
@@ -813,6 +818,9 @@ jobs:
   # ==========================================================================
   netplay-relay:
     needs: generate-rsbs-otr
+    # The longest green job in the last 100 runs took 53 minutes. Stops a hung
+    # job (#1518).
+    timeout-minutes: 120
     # One build of this job at a time on main, every push queued; a group of
     # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
     concurrency:
@@ -940,6 +948,11 @@ jobs:
     # build-windows job at the bottom of this file (#1373).
     name: Windows build
     needs: generate-rsbs-otr
+    # A cold sccache build took 126 to 128 minutes on 2026-11-17, the rando
+    # tier up to 45 and the other steps about 10; the longest green job was
+    # 181 minutes. 300, as for macOS, leaves room for a slower runner and
+    # still stops a hung job an hour before GitHub's six-hour default (#1518).
+    timeout-minutes: 300
     # One build of this job at a time on main, every push queued; a group of
     # one everywhere else. See MAIN'S BUILD QUEUES at the top of the file.
     concurrency:
@@ -985,7 +998,24 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2
       with:
         variant: sccache
-        max-size: "5G"
+        # 1536M (1.5 GiB), not 5G (2026-11-17). WRITE AN INTEGER: sccache's size
+        # parser takes whole numbers with K, M, G or T, and "1.5G" does not
+        # parse, so sccache would silently use its 10 GiB default. The
+        # "sccache stats" step prints "Max cache size": check it reads 1536 MiB.
+        # A cold build of all 3,333 translation units
+        # fills 393 MiB, so this holds almost four of them, and hits only come
+        # from recent main commits anyway. At 5G the saved entry was 4.9 GiB,
+        # half of the repository's 10 GiB Actions-cache quota by itself. Every
+        # main save here is a new timestamped entry and nothing deletes the old
+        # ones, so the cache always sits at the quota and GitHub evicts whatever
+        # was read longest ago. On 2026-11-17 no Windows job restored main's
+        # entry for ninety minutes, it was the one evicted, and the next two
+        # pull requests compiled everything from nothing: 126 and 128 minutes
+        # of build against about 61 with a 56% warm cache and 7 to 12 fully
+        # warm. A smaller entry leaves room for several superseded Linux
+        # entries to stand ahead of it in the eviction order. It does not
+        # remove the cause: only deleting superseded entries would.
+        max-size: "1536M"
         # Save on main only. The previous per-branch save policy (issue #177)
         # wrote a fresh ~2.3GB cache on every PR push; at the current PR rate
         # that blew the repo's 10GB Actions-cache quota and LRU-evicted main's
@@ -995,12 +1025,11 @@ jobs:
         # cache restored via restore-keys is nearly fresh for every PR; a PR's
         # repeated pushes only re-compile files the PR itself touched.
         #
-        # Deliberately NOT changed when build-linux's ccache moved to
-        # save-on-every-branch: this step is the one with direct measured
-        # evidence of blowing the quota, its per-run save is ~2.3GB (vs 1.5G
-        # capped on Linux), and Windows already runs at a 99.8% hit rate off
-        # main's cache, so there is little left for a branch-scoped cache to
-        # win. Revisit only with fresh hit-rate numbers.
+        # build-linux and netplay-relay save on main only too (since
+        # 2026-11-05), so no pull request branch writes a compiler cache.
+        # What a pull request restores is as fresh as main's last finished
+        # Windows job: after a burst of merges that touch widely included
+        # headers it misses 40 to 60% until main's next save lands.
         save: ${{ github.ref_name == github.event.repository.default_branch }}
         key: ${{ runner.os }}-sccache-${{ github.ref }}
         restore-keys: |
