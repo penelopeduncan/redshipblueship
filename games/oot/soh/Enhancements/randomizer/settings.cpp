@@ -3684,9 +3684,9 @@ void Settings::ParseJson(nlohmann::json spoilerFileJson) {
 
 // RSBS (#1730): a spoiler log lists its enabled tricks by display name, and a name this build does not know (a
 // trick renamed or removed since the log was written) is skipped. The loop used to read mTrickNameToEnum[name]:
-// for an unknown name that ADDS the name to the map with value 0, so trick 0 (RT_VISIBLE_COLLISION) was switched
-// on here, and Context::ParseTricksJson, which runs next and looks the name up again, then found it and switched
-// trick 0 on in the context too.
+// for an unknown name that ADDS the name to the map with value 0. Context::ParseTricksJson, which reads the same
+// list later in Context::ParseSpoiler and looks each name up with find, then found the added name and switched
+// trick 0 (RT_VISIBLE_COLLISION) on in the context.
 void Settings::ParseEnabledTricksJson(const nlohmann::json& enabledTricksJson) {
     for (auto it = enabledTricksJson.begin(); it != enabledTricksJson.end(); ++it) {
         if (!it.value().is_string()) {

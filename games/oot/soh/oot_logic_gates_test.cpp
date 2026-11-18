@@ -2280,6 +2280,9 @@ void TnReadTricks(const std::shared_ptr<Rando::Context>& randoCtx, const nlohman
 void RunSpoilerTrickNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     printf("[TEST] TN: trick names in a spoiler log\n");
     const auto settings = Rando::Settings::GetInstance();
+    // The trick name table is filled by CreateOptions. A run without game archives skips the SoH menu setup that
+    // normally calls it (3drando/menu.cpp says the same), and every lookup would then answer -1. Idempotent.
+    settings->CreateOptions();
     const char* kNewName = "Dodongo's Cavern Lobby Recoil to Ledge as Child";
     const char* kOldName = "Dodongo's Cavern MQ Early Bomb Bag Area as Child";
     const char* kNoName = "RSBS no such trick";
@@ -2306,6 +2309,8 @@ void RunSpoilerTrickNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectMode("TN6 a log with the lobby trick's old name leaves the lobby trick off",
                randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get(), 0, "the old name switched the lobby trick on");
 
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(0);
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(0);
     TnReadTricks(randoCtx, nlohmann::json::array({ kNewName }));
     ExpectMode("TN7 a log with the lobby trick's new name switches the lobby trick on",
                randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get(), 1, "the new name did not switch the lobby trick on");
@@ -4103,8 +4108,6 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunFireTrialSplitLegs(randoCtx);
     // ---- EB: eca767dcb overhaul batch 1 (#1647 stage 3) ----------------------
     RunEcaOverhaulBatch1Legs(randoCtx);
-    // ---- TN: trick names in a spoiler log (#1730) -----------------------------
-    RunSpoilerTrickNameLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
@@ -4118,6 +4121,11 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     logic->IsAdult = savedAdult;
     logic->AtDay = savedDay;
     logic->AtNight = savedNight;
+
+    // ---- TN: trick names in a spoiler log (#1730) -----------------------------
+    // Last, after the restore: these legs create the Settings options, so that in a run without game archives
+    // every leg above still runs as it did before, with no options created.
+    RunSpoilerTrickNameLegs(randoCtx);
 
     if (sFailures == 0) {
         printf("[TEST] PASS: oot-logic-gates\n");
