@@ -132,11 +132,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 
 ### Options and quality of life
 
-- **Cross-Game Masks: the Blast Mask goes off under water** (issue #1701). In Ocarina of Time, with the Blast Mask
-  (OoT) rule on, the mask's blast now works while Link is under water in the Iron Boots (sinking or walking the
-  bottom) and during a dive he starts with A at the surface. It still does not go off while he swims at the
-  surface, or while he is under water after falling or jumping in or after taking the Iron Boots off, until he
-  comes up and dives with A. OoTMM allows the blast in those cases too. Logic does not change.
+- **Cross-Game Masks: the Blast Mask goes off in water** (issues #1701, #1714). In Ocarina of Time, with the Blast
+  Mask (OoT) rule on, the mask's blast now works in water wherever OoTMM allows it: while Link swims or treads
+  water at the surface, while he is under water after falling or jumping in, in a dive, and in the Iron Boots. As
+  in OoTMM, it does not go off while he comes up for breath, reels from a hit in water or carries something, and
+  as before it does not go off with the Hookshot in hand or in flight. Logic does not change.
 - **Majora's Mask: Active Item on B** (2Ship #1870; Enhancements > Items, Equipment; off by default). It replaces
   Great Fairy Sword B-Button Attack. B uses the item Link has out: the Great Fairy's Sword or a Deku Stick while
   held, and the Bow or Hookshot while you aim them (not while locked onto a target). Pressing the item's own button
@@ -162,6 +162,14 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   The autosave made as you quit could be written after the check tracker had already reset itself. A dungeon the
   tracker had revealed without a collected check (one you had only entered, or one revealed by its map) was then
   hidden again the next time you loaded the file, until you went back in.
+
+### Build and tests
+
+- **Tests: the rando tier runs two rows at a time** (issue #1692). The rando test rows now each work in a folder
+  of their own (most in `<build>/rsbs-rows/<row>`), so rows that run at the same time no longer write to the same
+  files. CI runs that tier two rows at a time on the same runner. In its first three runs the tier took 13 to 26
+  minutes on Linux (25 to 40 before) and 23 to 29 minutes on Windows (28 to 58 before, usually about 44). Nothing
+  in the game changes.
 
 # Release notes: v0.5.1-alpha ("Ellen Bravo")
 
