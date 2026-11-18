@@ -22,6 +22,14 @@ cmake_policy(SET CMP0057 NEW)
 #       manifest records as an unlabelled meta row) are judged the same way,
 #       since AllTests runs them too and no label says whether they generate.
 #   ((3) and (5) keep the exemption and non-generating lists honest.)
+#   (6)-(9) cross-check the private homes and declared outputs of #1692 in the
+#       manifest: every rando-label row has a `home|` line (unless the tree
+#       disabled homes), homes are unique after case-folding, every declared
+#       output path is unique across rows and lies outside rsbs-rows/, and every
+#       crossos output belongs to a rando-label row. The primary home check reads
+#       the REGISTERED properties instead (TestRowHomeCoverage,
+#       CheckTestRowHome.cmake); these catch a helper that writes the manifest
+#       line from code that drifted from the environment it sets.
 #
 # The table side is read from the BINARY (`redship --test list`), not from the
 # source text, so it reflects what actually linked.
@@ -60,6 +68,13 @@ set(_meta_rows "")         # rows that drive neither table (this guard itself)
 set(_rando_rows "")        # "<dispatch>=<ctest row>" for every rando-label --test row
 set(_rando_dispatch "")    # the dispatch names of those rows
 set(_nogen "")             # redship_test_not_generating() declarations (#1465)
+set(_all_rando_names "")   # every rando-label row, whatever it drives (#1692)
+set(_home_rows "")         # rows with a `home|` line (#1692)
+set(_home_keys "")         # their homes, case-folded
+set(_home_key_owner "")    # parallel to _home_keys
+set(_outputs "")           # "<row>|<group>|<path>" for every `output|` line (#1692)
+set(_homes_disabled FALSE)
+set(_dup_homes "")         # duplicate-home findings, case-folded (#1692)
 
 foreach(_line IN LISTS _manifest_lines)
     if(_line MATCHES "^#")
@@ -69,6 +84,9 @@ foreach(_line IN LISTS _manifest_lines)
         set(_ctest_name "${CMAKE_MATCH_2}")
         set(_kind "${CMAKE_MATCH_3}")
         set(_dispatch "${CMAKE_MATCH_4}")
+        if("rando" IN_LIST _labels)
+            list(APPEND _all_rando_names "${_ctest_name}")
+        endif()
         if(_kind STREQUAL "unit")
             list(APPEND _reg_unit "${_dispatch}")
             list(APPEND _row_for "${_dispatch}=${_ctest_name}")
@@ -86,6 +104,21 @@ foreach(_line IN LISTS _manifest_lines)
         list(APPEND _exempt "${CMAKE_MATCH_1}")
     elseif(_line MATCHES "^nogen\\|([^|]*)\\|(.*)$")
         list(APPEND _nogen "${CMAKE_MATCH_1}")
+    elseif(_line MATCHES "^home\\|([^|]*)\\|(.*)$")
+        list(APPEND _home_rows "${CMAKE_MATCH_1}")
+        string(TOLOWER "${CMAKE_MATCH_2}" _hk)
+        list(FIND _home_keys "${_hk}" _hat)
+        if(_hat EQUAL -1)
+            list(APPEND _home_keys "${_hk}")
+            list(APPEND _home_key_owner "${CMAKE_MATCH_1}")
+        else()
+            list(GET _home_key_owner ${_hat} _hother)
+            list(APPEND _dup_homes "${CMAKE_MATCH_1} and ${_hother} share the home ${CMAKE_MATCH_2} (case-folded)")
+        endif()
+    elseif(_line MATCHES "^output\\|([^|]*)\\|([^|]*)\\|([^|]*)\\|(.*)$")
+        list(APPEND _outputs "${CMAKE_MATCH_1}|${CMAKE_MATCH_3}|${CMAKE_MATCH_4}")
+    elseif(_line MATCHES "^homes\\|disabled\\|")
+        set(_homes_disabled TRUE)
     endif()
 endforeach()
 
@@ -334,6 +367,48 @@ and no row-less dispatch entry -- drop the declaration")
         list(APPEND _problems
             "contradicted declaration: redship_test_not_generating(${_g}) names a row that is on \
 the --test all skip list -- drop one of the two")
+    endif()
+endforeach()
+
+# (6)-(9) the private homes and declared outputs (#1692; see the header).
+if(NOT _homes_disabled)
+    foreach(_r IN LISTS _all_rando_names)
+        if(NOT _r STREQUAL "RowHomesReset" AND NOT _r IN_LIST _home_rows)
+            list(APPEND _problems
+                "rando-label CTest row '${_r}' has no home| line, so it would run in the shared build \
+directory -- register it with redship_add_test() and do not pass HOME OFF")
+        endif()
+    endforeach()
+endif()
+foreach(_dup IN LISTS _dup_homes)
+    list(APPEND _problems "duplicate home: ${_dup}")
+endforeach()
+set(_out_keys "")
+set(_out_key_owner "")
+foreach(_o IN LISTS _outputs)
+    string(REPLACE "|" ";" _of "${_o}")
+    list(GET _of 0 _orow)
+    list(GET _of 1 _ogroup)
+    list(GET _of 2 _opath)
+    string(REGEX REPLACE "^\\?" "" _opath "${_opath}")
+    string(TOLOWER "${_opath}" _okey)
+    if(_okey MATCHES "^rsbs-rows(/|$)")
+        list(APPEND _problems "declared output '${_opath}' of row '${_orow}' is under rsbs-rows/, which every run empties")
+    endif()
+    list(FIND _out_keys "${_okey}" _oat)
+    if(_oat EQUAL -1)
+        list(APPEND _out_keys "${_okey}")
+        list(APPEND _out_key_owner "${_orow}")
+    else()
+        list(GET _out_key_owner ${_oat} _oother)
+        if(NOT _oother STREQUAL _orow)
+            list(APPEND _problems "declared output '${_opath}' belongs to both '${_oother}' and '${_orow}'")
+        endif()
+    endif()
+    if(_ogroup STREQUAL "crossos" AND NOT _orow IN_LIST _all_rando_names)
+        list(APPEND _problems
+            "crossos output '${_opath}' belongs to '${_orow}', which is not a rando-label row (the CI step that \
+collects crossos files runs after the rando tier)")
     endif()
 endforeach()
 

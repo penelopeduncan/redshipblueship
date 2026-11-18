@@ -14,7 +14,9 @@ checkout, under the gate lock.
     a   regenerate the archives (extract both ROMs, soh/2ship/redship halves)
 
 The redship and rando tiers always run. Every child inherits
-SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN=1. The full log is
+SDL_WINDOW_NO_ACTIVATION_WHEN_SHOWN=1. Every tier runs one row at a time
+(`ctest -j 1`) except the rando tier, which runs WAVE_RANDO_JOBS rows at a time
+(1 to 4, default 1; its rows work in private homes, #1692). The full log is
 <state>/logs/verify-<tag>.log; stdout carries the step lines and the summary.
 A background heartbeat process refreshes the lock every 60 s and stops with
 this process. Exit 0 = every requested tier green, 1 = a failure (the FAIL
@@ -63,6 +65,38 @@ class VerifyFail(Exception):
 
 class Usage(Exception):
     pass
+
+
+RANDO_JOBS_VAR = "WAVE_RANDO_JOBS"
+RANDO_JOBS_MAX = 4  # the operator's standing rule: at most four build or test threads
+
+
+def rando_jobs(env=None) -> int:
+    """How many rando rows run at once (#1692): WAVE_RANDO_JOBS, 1 to 4, default 1.
+    Raises Usage for anything else, so a typo never silently runs serial or wide."""
+    env = os.environ if env is None else env
+    text = (env.get(RANDO_JOBS_VAR) or "").strip()
+    if text == "":
+        return 1
+    try:
+        jobs = int(text)
+    except ValueError:
+        raise Usage(f"{RANDO_JOBS_VAR}={text!r} is not a whole number (1 to {RANDO_JOBS_MAX})") from None
+    if jobs < 1 or jobs > RANDO_JOBS_MAX:
+        raise Usage(f"{RANDO_JOBS_VAR}={jobs} is outside 1 to {RANDO_JOBS_MAX} (at most four threads)")
+    return jobs
+
+
+def tier_jobs(label: str, env=None) -> int:
+    """`ctest -j` for a tier: WAVE_RANDO_JOBS for rando, 1 for every other tier."""
+    return rando_jobs(env) if label == "rando" else 1
+
+
+def homes_disabled(manifest_text: str) -> bool:
+    """True when a tree's redship-test-manifest.txt says no row has a private home
+    (`homes|disabled|<why>`, a multi-config tree): its rando rows share the build
+    directory, so they must not run side by side (#1692)."""
+    return any(line.startswith("homes|disabled|") for line in manifest_text.splitlines())
 
 
 def parse_flags(text: str) -> set:
@@ -593,8 +627,22 @@ class Verify:
 
     def tier(self, label: str) -> bool:
         started = time.time()
+        jobs = tier_jobs(label)
+        if jobs > 1 and not self.dry:
+            manifest = Path(self.build) / "redship-test-manifest.txt"
+            text = manifest.read_text(encoding="utf-8", errors="replace") if manifest.is_file() else None
+            if text is None or homes_disabled(text):
+                why = "has no redship-test-manifest.txt" if text is None else "has homes disabled (homes|disabled|)"
+                self.failures.append(f"tier {label}: {RANDO_JOBS_VAR}={jobs} refused: {self.build} {why}, so its "
+                                     "rows would share the build directory side by side; unset it or use -j 1")
+                self.log.step(f"tier: {label} REFUSED -j {jobs}: the tree {why}")
+                return False
+        self.log.step(f"tier: {label} runs {jobs} row(s) at a time (ctest -j {jobs})")
         rc, lines = self.run_cmd(
-            ["ctest", "--test-dir", self.build, "-L", f"^{label}$", "--output-on-failure", "--no-tests=error"],
+            [
+                "ctest", "--test-dir", self.build, "-L", f"^{label}$", "--output-on-failure", "--no-tests=error",
+                "-j", str(jobs),
+            ],
             _env_minutes("WAVE_TIER_TIMEOUT_MIN", 90),
         )
         if self.dry:
@@ -738,6 +786,7 @@ def main(argv: list | None = None) -> int:
             return 2
     try:
         letters = parse_flags(positional[2] if len(positional) == 3 else "")
+        rando_jobs()
     except Usage as exc:
         print(f"FAIL verify: {exc}", file=sys.stderr)
         return 2

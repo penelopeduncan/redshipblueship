@@ -38,6 +38,7 @@
 #include "save.h"             // rsbs::SaveManager — unified .redsave save-directory wiring
 #include "rsbs_version.h"
 #include "test_runner.h"
+#include "test_home.h" // #1692: a private working directory per CTest row
 #include "integration_test_hooks.h"
 #include "archive_check.h"
 #include "array_reader_agreement.h" // #604: both games' vertex readers must agree before anything draws
@@ -621,7 +622,17 @@ int main(int argc, char** argv) {
     // Check for unit test mode (--test)
     const char* testArg = TestRunner_ParseArgs(argc, argv);
     if (testArg != nullptr) {
-        // First, before any row runs: the headless crash handler, for every row
+        // First of all: a row that CTest gave a private home (RSBS_TEST_HOME,
+        // CMake/RedshipTests.cmake) works there, so two rows can run at once
+        // without sharing the build directory's config, logs and spoilers (#1692).
+        // Unset (a hand run), this does nothing.
+        const int homeRc = TestHome_EnterIfAsked("--test");
+        if (homeRc != 0) {
+            fflush(stdout);
+            fflush(stderr);
+            _Exit(homeRc);
+        }
+        // Then, before any row runs: the headless crash handler, for every row
         // (#1690). This branch exits before HeadlessCrash_ClaimAndInstall below,
         // so a row that brings up no harness context had only the startup
         // handler above, which printed the exception code and handed a Windows

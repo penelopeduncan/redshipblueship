@@ -348,7 +348,7 @@ class DryRunTest(unittest.TestCase):
 
 
 class WrapperContractTest(unittest.TestCase):
-    CMD_FILES = ("gate-lock.cmd", "gate-unlock.cmd", "verify.cmd", "_python.cmd")
+    CMD_FILES = ("gate-lock.cmd", "gate-unlock.cmd", "verify.cmd", "partier.cmd", "_python.cmd")
 
     def test_wrappers_name_scripts_that_exist(self):
         for name in self.CMD_FILES:

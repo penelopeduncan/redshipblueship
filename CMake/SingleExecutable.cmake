@@ -147,6 +147,9 @@ set(REDSHIP_COMMON_SOURCES
     # Per-process scratch directories for the test rows that write files, and
     # the concurrent-copies driver of their lock (#926). Test tooling only.
     ${CMAKE_SOURCE_DIR}/src/common/test_scratch.cpp
+    # A private working directory per CTest row (RSBS_TEST_HOME), so rows can
+    # run side by side under ctest -j (#1692). Test tooling only.
+    ${CMAKE_SOURCE_DIR}/src/common/test_home.cpp
     # The single-bag fill AT THE CREATION EVENT (ADR 0010 increment 3, D3/D5;
     # #645 lane K11): the coordinator's one production caller. Game-header-free.
     # APPENDED, never reordered.
@@ -332,6 +335,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/frame_capture.h
     # Header for test_scratch.cpp above (#926)
     ${CMAKE_SOURCE_DIR}/src/common/test_scratch.h
+    # Header for test_home.cpp above (#1692)
+    ${CMAKE_SOURCE_DIR}/src/common/test_home.h
     ${CMAKE_SOURCE_DIR}/src/common/game_lifecycle.h
     ${CMAKE_SOURCE_DIR}/src/common/SharedGraphics.h
     ${CMAKE_SOURCE_DIR}/src/common/save.h
@@ -1514,6 +1519,25 @@ if(BUILD_TESTING)
     # each of those names untouched. Display-free and ROM-free. 240 s: the new
     # group runs make_redship_otr.py several times when Python is configured.
     redship_add_test(NAME TestScratchPoisonedCwd COMMAND redship --test test-scratch-poisoned-cwd TIMEOUT 240)
+    # #1692: a row given a private home (RSBS_TEST_HOME, src/common/test_home.h) works
+    # and writes only there. CMake/CheckRowHome.cmake runs the row-home-probe dispatch
+    # in scratch folders under <build>/row-home-isolation: (a) it enters its home,
+    # seeds it with the staged config and leaves the starting folder as it was; (b)
+    # with no config to seed it still runs; (c) started outside RSBS_TEST_HOME_FROM it
+    # keeps its folder; (d) two probes at once, one folder, two homes, each writes only
+    # its own; (e) an executable outside RSBS_TEST_HOME_FROM is refused (not macOS);
+    # (f) a seed that cannot be copied is refused. Display-free, ROM-free, no
+    # Ship::Context. A meta row: the two dispatches are row-less (exempt below).
+    redship_add_test(NAME RowHomeIsolation
+        COMMAND ${CMAKE_COMMAND}
+                -DREDSHIP_EXE=$<TARGET_FILE:redship>
+                -DSCRATCH_DIR=${CMAKE_BINARY_DIR}/row-home-isolation
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckRowHome.cmake
+        TIMEOUT 120)
+    redship_test_exempt(row-home-probe "Driven by RowHomeIsolation (CMake/CheckRowHome.cmake); skips without its env")
+    redship_test_exempt(row-home-probe-pair "Driven by RowHomeIsolation (CMake/CheckRowHome.cmake); skips without its env")
+    redship_test_not_generating(row-home-probe "Reports its directories and writes six small files; no seed")
+    redship_test_not_generating(row-home-probe-pair "Spawns two row-home-probe children; no seed")
     # #564 V18 (games/mm/2s2h/mm_save_failure_surface_test.cpp): an MM save that
     # cannot commit (no active slot, a latched slot, a failed write) is shown to
     # the player as a "Save failed:" toast, once per cause, instead of running its
@@ -2419,7 +2443,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckPairedAttemptDeterminism.cmake
         LABEL rando
         TIMEOUT 480
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1"
+        OUTPUTS "crossos=paired-attempt-run1.txt"
+                "compare=paired-attempt-run2.txt")
 
     # ADR 0010 increment 1.2, lock (c): a profile that CANNOT converge (every
     # check excluded, so every attempt dies pre-fill) exhausts the bounded
@@ -2453,9 +2479,12 @@ if(BUILD_TESTING)
     # its pinned attempt inside the shipped round budget, and its bagSeed,
     # bagRounds and mmPairedAttempt match the golden's when the golden is in the
     # tree (bagSeed tells the profiles apart; #982).
+    # TIMEOUT 600 (#1692): 193 s of its 300 at -j1 on the hosted Windows runner (run
+    # 44165289141), the closest any rando row came to its timeout, before the tier
+    # ran two rows at a time. It asserts fill ROUNDS, never time (gen_budget.h, #950).
     redship_add_test(NAME GoldenSeedsRoundBudget COMMAND redship --test mm-golden-seeds-round-budget
         LABEL rando
-        TIMEOUT 300
+        TIMEOUT 600
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_GOLDEN_DIR=${CMAKE_SOURCE_DIR}/tests/golden")
 
     # #439 follow-up: MMPairSwitchEntry locks the cross-game arrival convergence;
@@ -2556,7 +2585,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckSeedDeterminism.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRandoSettings.ShuffleSongs=2")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRandoSettings.ShuffleSongs=2"
+        OUTPUTS "crossos=seed-determinism-run1.txt"
+                "compare=seed-determinism-run2.txt")
 
     # ========================================================================
     # #688 — THE GOLDEN ROWS. Stored digests, so a MOVED world fails.
@@ -2801,7 +2832,9 @@ if(BUILD_TESTING)
                     -P ${CMAKE_CURRENT_LIST_DIR}/CheckGoldenDigest.cmake
             LABEL rando
             TIMEOUT 300
-            ENVIRONMENT ${_golden_env})
+            ENVIRONMENT ${_golden_env}
+            OUTPUTS "crossos=golden-${_golden_name}-actual.txt"
+                    "compare=?golden-${_golden_name}-actual-rom-mounted.txt")
         # NO SKIP PROPERTY, DELIBERATELY. These two rows carried
         # `SKIP_REGULAR_EXPRESSION "RSBS_GOLDEN_SKIP:"` for the fallback where the
         # archive-free sandbox could not be built, which meant the local merge gate
@@ -2832,7 +2865,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckGoldenDigest.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_GENBUDGET_HOST_SCALE=300")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_GENBUDGET_HOST_SCALE=300"
+        OUTPUTS "crossos=golden-seed-digest-default-host-scale-300-actual.txt"
+                "compare=?golden-seed-digest-default-host-scale-300-actual-rom-mounted.txt")
     # #1367: MM's own Logic row set to Nearly No Logic. Until #1367 the paired
     # profile honoured that choice and this row pinned its own world
     # (seed-digest-mm-nearly-no-logic, #982; the file is retired, #1367 R5). A
@@ -2854,7 +2889,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckGoldenDigest.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRando.Options.RO_LOGIC=2")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1;RSBS_DIAG_CVARS=gRando.Options.RO_LOGIC=2"
+        OUTPUTS "crossos=golden-seed-digest-mm-nearly-no-logic-actual.txt"
+                "compare=?golden-seed-digest-mm-nearly-no-logic-actual-rom-mounted.txt")
     # #982: THE PLAYER'S PATH against the default golden. Every golden is written
     # by the headless harness (RSBS_DISABLE_OTR_INIT=1, the synchronous generation,
     # MM's OnSaveInit driven directly); this row generates the same seed the way a
@@ -2879,7 +2916,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckGoldenDigest.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        OUTPUTS "crossos=golden-seed-digest-default-player-path-actual.txt"
+                "compare=?golden-seed-digest-default-player-path-actual-rom-mounted.txt")
     # #1044: THE PACKAGE'S PATH against the default golden. Process 1
     # (PRE_DISPATCH seed-package-golden-write) is the player's Generate -- the full
     # OTR bring-up, the worker thread, then the file select's tick, which completes
@@ -2903,7 +2942,9 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckGoldenDigest.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy"
+        OUTPUTS "crossos=golden-seed-digest-default-package-path-actual.txt"
+                "compare=?golden-seed-digest-default-package-path-actual-rom-mounted.txt")
     # #1044: a package written by one process and loaded by another holds the same
     # world. Process 1 generates, completes the paired world and reports it from
     # the LIVE state before the package exists; process 2 never generates, loads
@@ -2921,7 +2962,11 @@ if(BUILD_TESTING)
                 -P ${CMAKE_CURRENT_LIST_DIR}/CheckSeedPackageRoundTrip.cmake
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1"
+        OUTPUTS "package=seed-package-roundtrip.rsbs-seed.zip"
+                "package=seed-package-roundtrip-load.txt"
+                "compare=seed-package-roundtrip-write.txt"
+                "compare=seed-package-roundtrip-load.txt")
     # #1044: the CVars at file-select time cannot move the world. Generate (its
     # completion writes and stages the package), then an MM option, a Cross-Game
     # Rule and an OoT setting change, then a file is created: the created world
@@ -3058,7 +3103,11 @@ if(BUILD_TESTING)
     # read Randomizer/<icons>.json in the build tree (the round trip twice, around
     # its package write): one at a time under ctest -j, so none reads another's
     # spoiler mid-rewrite. CreationHeavyProfileBudget writes its own spoiler into
-    # the same folder, so it waits its turn with them.
+    # the same folder, so it waits its turn with them. Since #1692 every rando row
+    # works in its own home (rsbs-rows/<row>), so each has its own Randomizer/ and
+    # the lock is redundant; it is kept for the first -j trial and goes in a
+    # follow-up once a serial run and a parallel run are seen to agree (it
+    # serialises six of the heaviest rows).
     set_tests_properties(GoldenSeedDigestPlayerPath GoldenSeedDigestPackagePath SeedPackageRoundTrip
         SeedPackageCVarsCannotMoveWorld DebugSeedForcedPlacements CreationHeavyProfileBudget
         PROPERTIES RESOURCE_LOCK rsbs_default_seed_spoiler)
@@ -3087,7 +3136,8 @@ if(BUILD_TESTING)
     redship_add_test(NAME RandoShopCrossingsMM COMMAND redship --test rando-shop-crossings-mm
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1"
+        OUTPUTS "crossos=rsbs_shop_crossings_digest.txt")
     # #951: the static hints' text against one pinned digest, so Windows/MSVC and
     # Linux/GCC must build them in the same order. A real paired creation at the
     # default hint clarity, with every on/off static hint set on by the dispatch and
@@ -3099,7 +3149,8 @@ if(BUILD_TESTING)
     redship_add_test(NAME RandoStaticHintOrder COMMAND redship --test rando-static-hint-order
         LABEL rando
         TIMEOUT 300
-        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1"
+        OUTPUTS "crossos=rsbs_static_hint_order_digest.txt")
 
     # #578 part 2: every trick binding this pass authored, as a table of edges
     # each probed with the frozen trick bit off and then on. Tier `rando` for the
@@ -4535,6 +4586,21 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         # Lists every row through ctest, so its time grows with the table: 48 s and then
         # a timeout at the 60 s default on the hosted Windows runner (2026-11-11).
         TIMEOUT 300)
+    # #1692: every rando row carries its private home in the REGISTERED properties
+    # (RSBS_TEST_HOME and RSBS_TEST_HOME_FROM in ENVIRONMENT, the rsbs_row_homes
+    # fixture), read back through `ctest --show-only=json-v1` the way the row above
+    # reads SDL_AUDIODRIVER, so a deleted PREPEND line, a later set_tests_properties
+    # that replaces ENVIRONMENT and a bare add_test(... LABELS rando) all fail here,
+    # as do two homes equal after case-folding or a home outside rsbs-rows/. A row
+    # without its home would run in the shared build directory, which nothing else
+    # would notice. Same listing cost as the row above, hence the timeout.
+    redship_add_test(NAME TestRowHomeCoverage
+        COMMAND ${CMAKE_COMMAND}
+                -DCTEST_EXE=${CMAKE_CTEST_COMMAND}
+                -DBUILD_DIR=${CMAKE_BINARY_DIR}
+                -DMANIFEST=${CMAKE_BINARY_DIR}/redship-test-manifest.txt
+                -P ${CMAKE_CURRENT_LIST_DIR}/CheckTestRowHome.cmake
+        TIMEOUT 300)
     # #1346 (SFX-23): on Windows main.cpp's setlocale(LC_ALL, ".UTF8") makes the CRT
     # decode narrow paths as UTF-8, and rsbs/windows/redship.manifest (activeCodePage
     # UTF-8, root CMakeLists.txt) makes the OS ANSI code page UTF-8 to match, so an
@@ -5257,6 +5323,18 @@ crossing to refuse (#954).")
         add_dependencies(${_regen_target} redship)
     endforeach()
 
+    # #1692: the slowest rando rows, by their serial seconds on the hosted Windows
+    # runner (run 44165289141), so `ctest -j` starts them first instead of leaving
+    # them as a one-row tail. Applied only with -DRSBS_TEST_COST=ON (CI sets it),
+    # because CTest may order a serial run by COST too (see redship_test_cost).
+    redship_test_cost(OoTChestSilverPaired 194)
+    redship_test_cost(GoldenSeedsRoundBudget 193)
+    redship_test_cost(ComboSingleBag 192)
+    redship_test_cost(SongPoolAnywhereUnconfined 140)
+    redship_test_cost(OoTWarpSongRecord 140)
+    redship_test_cost(SongLocationsOverflowRefused 123)
+    redship_test_cost(ComboLogicMonotonicity 92)
+    redship_test_cost(ComboWarpSongWorld 89)
     # Must come after every redship_add_test()/redship_test_exempt() above —
     # writes the manifest TestRegistrationComplete reads.
     redship_finalize_tests(${CMAKE_BINARY_DIR}/redship-test-manifest.txt)

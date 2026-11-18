@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <cstdio>
+#include <cstring>
 #include <exception>
 #include <fstream>
 #include <map>
@@ -34,6 +35,14 @@
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
 #endif
+#endif
+
+#ifndef _WIN32
+// RunRowWithEnvsConcurrently builds each child's envp from it. C linkage, as
+// unistd.h declares it where it declares it at all (glibc with _GNU_SOURCE).
+extern "C" {
+extern char** environ;
+}
 #endif
 
 namespace rsbs::test {
@@ -280,6 +289,211 @@ std::vector<int> RunRowConcurrently(const char* row, int copies, const std::file
                 close(fd);
             }
             execv(exe.c_str(), argv.data());
+            _exit(127);
+        }
+        if (pid < 0) {
+            printf("[TestScratch] could not fork for %s\n", row);
+        }
+        pids[i] = pid;
+    }
+    for (size_t i = 0; i < pids.size(); i++) {
+        if (pids[i] <= 0) {
+            continue;
+        }
+        int status = 0;
+        pid_t waited;
+        do {
+            waited = waitpid(pids[i], &status, 0);
+        } while (waited < 0 && errno == EINTR);
+        if (waited == pids[i] && WIFEXITED(status)) {
+            codes[i] = WEXITSTATUS(status);
+        }
+    }
+#endif
+    return codes;
+}
+
+namespace {
+
+// The name part of a `NAME=value` environment entry. On Windows an entry may
+// start with '=' (the per-drive working directories), so the separator is
+// searched from the second character.
+std::string ScratchEnvName(const std::string& entry) {
+    const size_t eq = entry.find('=', 1);
+    return eq == std::string::npos ? entry : entry.substr(0, eq);
+}
+
+#ifdef _WIN32
+char ScratchEnvUpper(char c) {
+    return (c >= 'a' && c <= 'z') ? static_cast<char>(c - 'a' + 'A') : c;
+}
+#endif
+
+bool ScratchEnvNameEquals(const std::string& a, const std::string& b) {
+#ifdef _WIN32
+    // Windows environment names are case-insensitive.
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (size_t i = 0; i < a.size(); i++) {
+        if (ScratchEnvUpper(a[i]) != ScratchEnvUpper(b[i])) {
+            return false;
+        }
+    }
+    return true;
+#else
+    return a == b;
+#endif
+}
+
+// This process's environment with @p overrides applied: an entry whose name an
+// override names is dropped, then every override is appended.
+std::vector<std::string> ScratchChildEnv(const std::vector<std::pair<std::string, std::string>>& overrides) {
+    std::vector<std::string> inherited;
+#ifdef _WIN32
+    LPCH block = GetEnvironmentStringsA();
+    if (block != nullptr) {
+        for (const char* p = block; *p != '\0'; p += std::strlen(p) + 1) {
+            inherited.emplace_back(p);
+        }
+        FreeEnvironmentStringsA(block);
+    }
+#else
+    for (char** p = environ; p != nullptr && *p != nullptr; p++) {
+        inherited.emplace_back(*p);
+    }
+#endif
+    std::vector<std::string> out;
+    for (const std::string& entry : inherited) {
+        const std::string name = ScratchEnvName(entry);
+        bool replaced = false;
+        for (const auto& kv : overrides) {
+            if (ScratchEnvNameEquals(name, kv.first)) {
+                replaced = true;
+                break;
+            }
+        }
+        if (!replaced) {
+            out.push_back(entry);
+        }
+    }
+    for (const auto& kv : overrides) {
+        out.push_back(kv.first + "=" + kv.second);
+    }
+#ifdef _WIN32
+    // CreateProcess documents the block as sorted by name, case-insensitively.
+    std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
+        const std::string na = ScratchEnvName(a);
+        const std::string nb = ScratchEnvName(b);
+        const size_t n = (std::min)(na.size(), nb.size());
+        for (size_t i = 0; i < n; i++) {
+            const char x = ScratchEnvUpper(na[i]);
+            const char y = ScratchEnvUpper(nb[i]);
+            if (x != y) {
+                return x < y;
+            }
+        }
+        return na.size() < nb.size();
+    });
+#endif
+    return out;
+}
+
+} // namespace
+
+std::vector<int> RunRowWithEnvsConcurrently(const char* row, const std::vector<ChildSpec>& children) {
+    std::vector<int> codes(children.size(), -1);
+    const std::string exe = ThisExecutablePath();
+    if (exe.empty()) {
+        printf("[TestScratch] could not resolve this executable's path\n");
+        return codes;
+    }
+    std::vector<std::vector<std::string>> envs;
+    std::vector<std::string> logs;
+    std::vector<std::string> cwds;
+    for (const ChildSpec& child : children) {
+        envs.push_back(ScratchChildEnv(child.env));
+        logs.push_back(child.log.string());
+        cwds.push_back(child.cwd.string());
+    }
+    fflush(nullptr); // nothing buffered in this process may be duplicated into a child
+
+#ifdef _WIN32
+    std::vector<HANDLE> procs(children.size(), nullptr);
+    for (size_t i = 0; i < children.size(); i++) {
+        std::vector<char> block;
+        for (const std::string& entry : envs[i]) {
+            block.insert(block.end(), entry.begin(), entry.end());
+            block.push_back('\0');
+        }
+        block.push_back('\0');
+        SECURITY_ATTRIBUTES sa = { sizeof(sa), nullptr, TRUE };
+        HANDLE log = CreateFileA(logs[i].c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, &sa, CREATE_ALWAYS,
+                                 FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (log == INVALID_HANDLE_VALUE) {
+            printf("[TestScratch] could not create %s: error %lu\n", logs[i].c_str(), GetLastError());
+            continue;
+        }
+        std::string cmdLine = "\"" + exe + "\" --test " + row;
+        std::vector<char> mutableCmd(cmdLine.begin(), cmdLine.end());
+        mutableCmd.push_back('\0');
+        STARTUPINFOA si = { 0 };
+        si.cb = sizeof(si);
+        si.dwFlags = STARTF_USESTDHANDLES;
+        si.hStdInput = nullptr;
+        si.hStdOutput = log;
+        si.hStdError = log;
+        PROCESS_INFORMATION pi = { 0 };
+        // Same handle discipline as RunRowConcurrently. CREATE_NO_WINDOW: never a
+        // console window, so never a focus change.
+        if (CreateProcessA(exe.c_str(), mutableCmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, block.data(),
+                           cwds[i].c_str(), &si, &pi)) {
+            procs[i] = pi.hProcess;
+            CloseHandle(pi.hThread);
+        } else {
+            printf("[TestScratch] could not spawn %s: error %lu\n", exe.c_str(), GetLastError());
+        }
+        CloseHandle(log);
+    }
+    for (size_t i = 0; i < procs.size(); i++) {
+        if (procs[i] == nullptr) {
+            continue;
+        }
+        WaitForSingleObject(procs[i], INFINITE);
+        DWORD exitCode = static_cast<DWORD>(-1);
+        GetExitCodeProcess(procs[i], &exitCode);
+        CloseHandle(procs[i]);
+        codes[i] = static_cast<int>(exitCode);
+    }
+#else
+    // Every pointer the child uses between fork and exec is built here, so the
+    // child makes only async-signal-safe calls (chdir, open, dup2, execve, _exit).
+    std::vector<char*> argv = { const_cast<char*>(exe.c_str()), const_cast<char*>("--test"), const_cast<char*>(row),
+                                nullptr };
+    std::vector<std::vector<char*>> envps(children.size());
+    for (size_t i = 0; i < children.size(); i++) {
+        for (std::string& entry : envs[i]) {
+            envps[i].push_back(&entry[0]);
+        }
+        envps[i].push_back(nullptr);
+    }
+    std::vector<pid_t> pids(children.size(), -1);
+    for (size_t i = 0; i < children.size(); i++) {
+        const char* logPath = logs[i].c_str();
+        const char* cwd = cwds[i].c_str();
+        char* const* envp = envps[i].data();
+        const pid_t pid = fork();
+        if (pid == 0) {
+            if (chdir(cwd) != 0) {
+                _exit(126);
+            }
+            const int fd = open(logPath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (fd >= 0) {
+                dup2(fd, 1);
+                dup2(fd, 2);
+                close(fd);
+            }
+            execve(exe.c_str(), argv.data(), envp);
             _exit(127);
         }
         if (pid < 0) {
