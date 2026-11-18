@@ -156,19 +156,43 @@ bool BlastMaskOnButtons() {
  *  only where OoT processes the item buttons with B live: never hanging from or
  *  climbing a ledge (those actions never update the items), and never where
  *  z_parameter.c disables B for the player's state (swimming or diving, a
- *  ladder or vine, a crawlspace). The player's own flags, not buttonStatus[0],
- *  which also parks the B item (and a swordless child's marker) on Epona and
+ *  ladder or vine, a crawlspace), except on the Iron Boots under water, where
+ *  the sword still swings, and in the dive: see below. The player's own flags,
+ *  not buttonStatus[0], which also parks the B item (and a swordless child's marker) on Epona and
  *  in the minigames. Nor (#1647; reachable by an adult, or by a child only
  *  under Timeless Equipment) while the hookshot is held unfired, where
  *  OoT_Player_ProcessItemButtons skips every item button (func_8008F128), or in
- *  hookshot flight. */
+ *  hookshot flight.
+ *  UNDER WATER ON THE IRON BOOTS it goes off (#1701, operator 2026-11-17, as
+ *  OoTMM's Player_ProcessItemButtonsWrapper has no water test): z_player.c keeps
+ *  PLAYER_STATE1_IN_WATER set there, but Link is not swimming (func_808332B8: in
+ *  water without the Iron Boots) and his ground actions, sword included, run.
+ *  IN THE DIVE it goes off too (#1701, operator 2026-11-17, "Yes, follow
+ *  OoTMM"): the dive action (Player_Action_8084DC48) runs
+ *  OoT_Player_UpdateUpperBody, so OoTMM's wrapper is reached there. The dive is
+ *  read from PLAYER_STATE2_DIVING, which z_player.c sets only in func_8083D12C
+ *  when A starts a dive from the surface and clears (func_80832340) as Link
+ *  surfaces, leaves the water or puts the Iron Boots on. The dive action entered
+ *  without A (the Iron Boots taken off under water, the fall from a running jump
+ *  into water, Player_Action_80844A44) has no such flag and stays
+ *  refused, as does PLAYER_STATE2_UNDERWATER alone, which z_player.c also sets
+ *  on the Iron Boots and while Link sinks after falling in. Swimming at the surface
+ *  still refuses it, although OoTMM's wrapper is reached there too (the swim
+ *  actions Player_Action_8084D610, 8084D84C and 8084DAB4 update the upper body
+ *  through OoT_Player_TryActionHandlerList): the ruling names only the dive. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
                           PLAYER_STATE1_ON_HORSE | PLAYER_STATE1_IN_ITEM_CS | PLAYER_STATE1_IN_CUTSCENE |
                           PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE |
-                          PLAYER_STATE1_CLIMBING_LADDER | PLAYER_STATE1_IN_WATER;
+                          PLAYER_STATE1_CLIMBING_LADDER;
     if (func_8008F128(player) || (player->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT) != 0) {
+        return false;
+    }
+    // func_808332B8 (z_player.c, not exported): swimming refuses; the Iron Boots and the dive do not.
+    const bool inWater = (player->stateFlags1 & PLAYER_STATE1_IN_WATER) != 0u;
+    const bool diving = (player->stateFlags2 & PLAYER_STATE2_DIVING) != 0u;
+    if (inWater && player->currentBoots != PLAYER_BOOTS_IRON && !diving) {
         return false;
     }
     return (player->stateFlags1 & busy) == 0u && (player->stateFlags2 & PLAYER_STATE2_CRAWLING) == 0u &&
