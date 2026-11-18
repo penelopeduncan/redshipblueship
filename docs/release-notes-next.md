@@ -124,7 +124,9 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   jump with the Hover Boots, also need Masks as Adult. The trick "Dodongo's Cavern MQ Early Bomb Bag Area as
   Child" is now called "Dodongo's Cavern Lobby Recoil to Ledge as Child", Ship of Harkinian's name for it,
   and also covers the same jumpslash to the lobby ledge in the vanilla quest. It and four other tricks have
-  Ship of Harkinian's newer descriptions.
+  Ship of Harkinian's newer descriptions. A spoiler log from an earlier build that lists the old name loads
+  with this trick off. Until now, a trick name the build did not know switched on "Ignore Visible Collision"
+  instead when a spoiler log was loaded.
 - **A fixed placement stays out of the playthrough and location hints** (SoH #6146). Some checks always keep their
   own item when they are not shuffled: the Master Sword in the Temple of Time, the Kokiri Sword, vanilla songs,
   unshuffled Gold Skulltula tokens and a few others. They are no longer listed in the spoiler log's playthrough,

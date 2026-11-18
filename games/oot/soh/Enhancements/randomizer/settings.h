@@ -139,6 +139,14 @@ class Settings {
      * @param spoilerFileJson
      */
     void ParseJson(nlohmann::json spoilerFileJson);
+
+    /**
+     * @brief RSBS (#1730): turn on the tricks a spoiler log's "enabledTricks" array names.
+     * A name this build does not know is skipped and is not added to the name table.
+     *
+     * @param enabledTricksJson the array of trick display names (null or empty turns nothing on)
+     */
+    void ParseEnabledTricksJson(const nlohmann::json& enabledTricksJson);
     std::map<RandomizerArea, std::vector<RandomizerTrick>> mTricksByArea = {};
 
     /**

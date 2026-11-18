@@ -294,6 +294,10 @@
  *     RT_DC_CHILD_LOBBY; closed/open pairs and scene searches cover DC, Jabu, Forest
  *     and Fire's new and split regions; GF's lower-vines bunny hover and Fire's
  *     near-boss hood exits open for an adult with the hood only under Masks as Adult.
+ *  TN. Trick names in a spoiler log (#1730): RT_DC_CHILD_LOBBY answers to Ship of
+ *     Harkinian's name and not to its old one; a log that lists names this build does
+ *     not know turns no trick on (not trick 0 either) and leaves the names unknown;
+ *     a log that lists the new name turns the lobby trick on.
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -2263,6 +2267,56 @@ void ExpectFlag(const char* leg, bool got, bool expected, const char* why) {
     printf("[TEST]   ok: %s: %s\n", leg, got ? "true" : "false");
 }
 
+// ---- TN: trick names in a spoiler log (#1730) --------------------------------
+// A spoiler log lists its enabled tricks by display name. The legs read the list the way Context::ParseSpoiler
+// does: Settings first (ParseJson hands the array to ParseEnabledTricksJson), then Context::ParseTricksJson.
+void TnReadTricks(const std::shared_ptr<Rando::Context>& randoCtx, const nlohmann::json& names) {
+    nlohmann::json spoiler;
+    spoiler["enabledTricks"] = names;
+    Rando::Settings::GetInstance()->ParseEnabledTricksJson(spoiler["enabledTricks"]);
+    randoCtx->ParseTricksJson(spoiler);
+}
+
+void RunSpoilerTrickNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    printf("[TEST] TN: trick names in a spoiler log\n");
+    const auto settings = Rando::Settings::GetInstance();
+    const char* kNewName = "Dodongo's Cavern Lobby Recoil to Ledge as Child";
+    const char* kOldName = "Dodongo's Cavern MQ Early Bomb Bag Area as Child";
+    const char* kNoName = "RSBS no such trick";
+    const uint8_t savedVisible = randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Get();
+    const uint8_t savedDcLobby = randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get();
+
+    ExpectMode("TN1 the lobby trick's name is Ship of Harkinian's", settings->GetRandomizerTrickByName(kNewName),
+               RT_DC_CHILD_LOBBY, "the new display name does not name RT_DC_CHILD_LOBBY");
+    ExpectMode("TN2 the lobby trick's old name names no trick", settings->GetRandomizerTrickByName(kOldName), -1,
+               "the old display name still names a trick");
+
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(0);
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(0);
+    TnReadTricks(randoCtx, nlohmann::json::array({ kOldName, kNoName }));
+    ExpectMode("TN3 after a log with two unknown names, the old name still names no trick",
+               settings->GetRandomizerTrickByName(kOldName), -1,
+               "reading the log added the unknown name to the trick name table");
+    ExpectMode("TN4 after a log with two unknown names, the made-up name still names no trick",
+               settings->GetRandomizerTrickByName(kNoName), -1,
+               "reading the log added the unknown name to the trick name table");
+    ExpectMode("TN5 a log with two unknown names leaves trick 0 (RT_VISIBLE_COLLISION) off",
+               randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Get(), 0,
+               "an unknown trick name switched trick 0 on in the context");
+    ExpectMode("TN6 a log with the lobby trick's old name leaves the lobby trick off",
+               randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get(), 0, "the old name switched the lobby trick on");
+
+    TnReadTricks(randoCtx, nlohmann::json::array({ kNewName }));
+    ExpectMode("TN7 a log with the lobby trick's new name switches the lobby trick on",
+               randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get(), 1, "the new name did not switch the lobby trick on");
+    ExpectMode("TN8 a log with the lobby trick's new name leaves trick 0 off",
+               randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Get(), 0, "a known trick name switched trick 0 on");
+
+    settings->GetTrickOption(RT_DC_CHILD_LOBBY).SetContextIndex(RO_GENERIC_OFF);
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(savedVisible);
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(savedDcLobby);
+}
+
 /** ResetLogic, holding the Bunny Hood (Mask Quest Shuffle's ownership flag). */
 void ResetLogicWithBunnyHood() {
     ResetLogic();
@@ -4049,6 +4103,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunFireTrialSplitLegs(randoCtx);
     // ---- EB: eca767dcb overhaul batch 1 (#1647 stage 3) ----------------------
     RunEcaOverhaulBatch1Legs(randoCtx);
+    // ---- TN: trick names in a spoiler log (#1730) -----------------------------
+    RunSpoilerTrickNameLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------

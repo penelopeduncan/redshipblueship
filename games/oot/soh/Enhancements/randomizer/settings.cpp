@@ -3679,10 +3679,24 @@ void Settings::ParseJson(nlohmann::json spoilerFileJson) {
         ctx->GetItemLocation(rc)->SetExcludedOption(RO_GENERIC_ON);
     }
 
-    nlohmann::json enabledTricksJson = spoilerFileJson["enabledTricks"];
+    ParseEnabledTricksJson(spoilerFileJson["enabledTricks"]);
+}
+
+// RSBS (#1730): a spoiler log lists its enabled tricks by display name, and a name this build does not know (a
+// trick renamed or removed since the log was written) is skipped. The loop used to read mTrickNameToEnum[name]:
+// for an unknown name that ADDS the name to the map with value 0, so trick 0 (RT_VISIBLE_COLLISION) was switched
+// on here, and Context::ParseTricksJson, which runs next and looks the name up again, then found it and switched
+// trick 0 on in the context too.
+void Settings::ParseEnabledTricksJson(const nlohmann::json& enabledTricksJson) {
     for (auto it = enabledTricksJson.begin(); it != enabledTricksJson.end(); ++it) {
-        const RandomizerTrick rt = mTrickNameToEnum[it.value()];
-        GetTrickOption(rt).SetContextIndex(RO_GENERIC_ON);
+        if (!it.value().is_string()) {
+            continue;
+        }
+        const int rt = GetRandomizerTrickByName(it.value().get<std::string>());
+        if (rt == -1) {
+            continue;
+        }
+        GetTrickOption(static_cast<RandomizerTrick>(rt)).SetContextIndex(RO_GENERIC_ON);
     }
 }
 
