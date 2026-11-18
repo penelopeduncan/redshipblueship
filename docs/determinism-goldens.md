@@ -544,8 +544,9 @@ build would turn the oracle back into a no-op.
    bumped to 6 after `v0.5.1-alpha` shipped generator 5, for the Death Mountain
    Crater, Voidout Collection and Fire Trial logic ports of #1647, which move
    default worlds. The world-moving changes after it in that window, the Moon
-   Crash Behavior default (#1671, PR #1673) and the stick and nut bag gating of
-   Majora's Mask (#1652), ride generator 6 and must list their residuals. See
+   Crash Behavior default (#1671, PR #1673), the stick and nut bag gating of
+   Majora's Mask (#1652) and the first overhaul batch of #1647 (PR #1724), ride
+   generator 6 and must list their residuals. See
    "The generator version" below.
 
 ## The generator version (#1003)
@@ -1042,6 +1043,38 @@ placement, count or fingerprint field moves in it, and the other twelve goldens
 do not move. A world with no shared rule armed has the hint text it had. The
 residual behind the unchanged fingerprint is hint wording only: two generator-6
 builds on either side of this change place every item the same.
+
+The first overhaul batch of #1647 (2026-11-18, PR #1724), still version 6. It
+ports Ship of Harkinian eca767dcb's logic for Dodongo's Cavern, Jabu-Jabu's
+Belly, the Forest Temple, the Fire Temple and the Ice Cavern, and seven
+overworld rules. Twelve `RandomizerRegion` ids are new (nine regions, and three
+regions split in two), so the regions after them are renumbered, and rules
+change that the default settings use: the Fire Temple's foyer no longer asks
+for the heat timer on the way to the big lava room, the exits from its boss
+entryway back to the two near-boss doors are no longer closed, the child's
+fire in Goron City opens the Lost Woods shortcut only for a child with Deku
+Sticks, the Hyrule Castle drain ledge takes the Hover Boots, the Kokiri Forest
+rupee alcove no longer takes the bean, an adult leaves the Lake Hylia fishing
+island without a scale, and Ruto reaches Jabu-Jabu's first floor only once her
+basement room has been reached.
+
+One golden moves, `seed-digest-new-options`, in three fields: `placementHash`
+(`82384983` to `50903423`), `ootFinalPlacementHash` (`CFFF9B4D` to `60E36385`)
+and `ootHintDigest` (`59E362A3` to `9D9E64FE`). Its fingerprint fields, its
+Majora's Mask fields and its counts do not move. The other twelve seed digests
+and `paired-attempt-digest` are unchanged, the default profile's among them,
+and no hand pin moved (`RandoStaticHintOrder`, `ComboSingleBag` and
+`ComboWarpTravelRounds` pass as they were). That is what these pinned seeds do
+and no more: the changed rules apply at the default settings, so another seed
+can place items differently with every setting at its default.
+
+The residual behind the unchanged fingerprint is therefore the placements
+themselves. No option or trick is added and no trick index moves (the trick
+`RT_DC_MQ_CHILD_BOMBS` is renamed `RT_DC_CHILD_LOBBY` in place), so
+`comboSettingsHash` is the same on both sides of this change, and two
+generator-6 builds, one from before it and one from after, can make different
+Ocarina of Time worlds from the same seed and settings. Generator 6 has not
+shipped, so no released build is on the far side of that.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
