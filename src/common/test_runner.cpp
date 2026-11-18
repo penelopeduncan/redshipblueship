@@ -9930,6 +9930,15 @@ TestResult Test_OoTMasksMMLogic(void) {
     }
     return MM_OoTMasksLogic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1703: Pirates' Fortress CAN_EVADE_GERUDO logic sites (games/mm/2s2h/mm_fortress_evade_test.cpp),
+// over MM's real region lambdas. Same bring-up as mm-logic-gates.
+extern "C" int MM_FortressEvade_RunHeadless(void);
+TestResult Test_MMFortressEvadeGerudo(void) {
+    if (!TrackerReachabilityBringUp()) {
+        return TEST_FAIL;
+    }
+    return MM_FortressEvade_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
 // #1569: MM pool counts for OoT's masks under frozen rules (tests/test_oot_masks_mm_pool.c),
 // using Test_RandoArmedCapsDigest's bring-up (InitOTRForMMFirstBoot + MM_Rando_InitCore).
 TestResult Test_OoTMasksMMPool(void) {
@@ -11798,6 +11807,10 @@ const TestDescriptor gTests[] = {
       "Under their frozen rules the Skull Mask opens the Deku Palace, the Gerudo Mask gets past the purple guard, "
       "and the Spooky Mask passes the Gibdos at night only, in MM's real logic (#980)",
       Test_OoTMasksMMLogic },
+    // #1703. Skipped by `--test all` below like its siblings.
+    { "mm-fortress-evade-gerudo",
+      "Pirates' Fortress guard-evasion sites require Bow, Hookshot, Zora, Stone, or frozen Gerudo Mask (#1703)",
+      Test_MMFortressEvadeGerudo },
     // #1569. Needs InitOTRForMMFirstBoot + MM_Rando_InitCore; skipped by `--test all` like oot-masks-mm-logic.
     { "oot-masks-mm-pool",
       "MM's pool adds RI_MASK_GERUDO/SKULL/SPOOKY only under their frozen OoT-mask rules and keeps one copy under "
@@ -12769,6 +12782,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "tracker-oot-panel-list") == 0 ||
                 strcmp(gTests[i].name, "oot-logic-gates") == 0 || strcmp(gTests[i].name, "mm-logic-gates") == 0 ||
                 strcmp(gTests[i].name, "mm-time-edges") == 0 || strcmp(gTests[i].name, "oot-masks-mm-logic") == 0 ||
+                strcmp(gTests[i].name, "mm-fortress-evade-gerudo") == 0 ||
                 strcmp(gTests[i].name, "oot-masks-mm-pool") == 0 ||
                 // #1569: each CTest row is its own process, so the first thing it reads is the static-init state;
                 // under `--test all`, FmResetAll clears sOwnedSources[GAME_MM] in-process.
