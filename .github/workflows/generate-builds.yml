@@ -1163,7 +1163,9 @@ jobs:
     # somebody took once (docs/determinism-goldens.md, "Platform portability").
     # #1692: the same shared-directory guard as build-linux's.
     - name: Snapshot the shared build directory before the rando tier (Windows) (#1692)
-      run: cmake -DMODE=snapshot -DBUILD_DIR=bw -DSTATE=shared-dir-before-rando.txt -P CMake/CheckSharedDirUntouched.cmake
+      # Quoted: PowerShell splits an unquoted argument that starts with "-" at its first ".", so cmake
+      # would get -DSTATE=shared-dir-before-rando and a stray ".txt".
+      run: cmake -DMODE=snapshot -DBUILD_DIR=bw "-DSTATE=shared-dir-before-rando.txt" -P CMake/CheckSharedDirUntouched.cmake
     - name: Run rando tier (Windows/MSVC) (#709, #688)
       env:
         # Same as build-linux's rando step: name each ShipInit func as it runs so a
@@ -1185,7 +1187,7 @@ jobs:
         cmake "-DJUNIT=$junit" "-DCTEST_EXE=$ctest" -DBUILD_DIR=bw '-DLABEL=^rando$' -DWARN_PCT=60 -P CMake/CheckRowTimes.cmake
     - name: The rando tier left the shared build directory alone (Windows) (#1692)
       if: always()
-      run: cmake -DMODE=verify -DBUILD_DIR=bw -DSTATE=shared-dir-before-rando.txt -P CMake/CheckSharedDirUntouched.cmake
+      run: cmake -DMODE=verify -DBUILD_DIR=bw "-DSTATE=shared-dir-before-rando.txt" -P CMake/CheckSharedDirUntouched.cmake
     # The Windows twin of build-linux's "Print this build's golden determinism
     # digests" step, and it exists for the reason that step states: with only
     # `--output-on-failure`, a PASSING row's digest never reaches the log, so "do
@@ -1200,11 +1202,12 @@ jobs:
     - name: Print this build's golden determinism digests (Windows) (#688)
       # The rows' declared crossos outputs (#1692), as on build-linux.
       if: always()
-      run: cmake -DMANIFEST=bw/redship-test-manifest.txt -DBUILD_DIR=bw -DGROUP=crossos -DPRINT=ON -P CMake/CheckRowOutputs.cmake
+      # Quoted for the same PowerShell reason as the snapshot step: unquoted, the manifest lost its ".txt".
+      run: cmake "-DMANIFEST=bw/redship-test-manifest.txt" -DBUILD_DIR=bw -DGROUP=crossos -DPRINT=ON -P CMake/CheckRowOutputs.cmake
     # The Windows twin of build-linux's digest upload, for digest-crossos-diff (#1003).
     - name: Upload this build's determinism digests (Windows) (#1003)
       if: always()
-      run: cmake -DMANIFEST=bw/redship-test-manifest.txt -DBUILD_DIR=bw -DGROUP=crossos -DCOPY_TO=crossos-digests -P CMake/CheckRowOutputs.cmake
+      run: cmake "-DMANIFEST=bw/redship-test-manifest.txt" -DBUILD_DIR=bw -DGROUP=crossos -DCOPY_TO=crossos-digests -P CMake/CheckRowOutputs.cmake
     - if: always()
       uses: actions/upload-artifact@v4
       with:
