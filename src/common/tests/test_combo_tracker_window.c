@@ -835,7 +835,8 @@ int LockPlacesBody(void) {
     Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
     ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
     printf("[TEST] combo-tracker-window #1711: a NULL place draws \"%s\"\n", CtwDrawn(areas).c_str());
-    CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14 9:14,15,17");
+    // 0x15 is the found check, so SoH's order (#1279) draws it below the open rows.
+    CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14 9:14,17,15");
     ComboTrackerCheckRow lostRow = {};
     CTW_ASSERT(Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kCtwPlacesLost, &lostRow) && lostRow.areaKey == 9);
     CTW_ASSERT(Combo_TrackerCheckInPlace((uint8_t)GAME_MM, 0, &lostRow) && lostRow.areaKey == 9);
