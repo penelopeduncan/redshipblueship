@@ -520,7 +520,7 @@
 				"description": "Taking a bomb from the back can be used to lower stairs without using stick to drop bomb from wall."
 			},
 			"dc_child_lobby": {
-				"name": "Dodongo's Cavern MQ Early Bomb Bag Area as Child",
+				"name": "Dodongo's Cavern Lobby Recoil to Ledge as Child",
 				"description": "With a precise jumpslash from above, you can reach the ledge in DC Lobby as Child from the upper area near the tablet. You will take fall damage."
 			},
 			"dc_mq_child_eyes": {
