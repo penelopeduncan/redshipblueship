@@ -51,6 +51,11 @@ Everything below passed the automated gates. None of it has been checked by a pe
   game only. Nobody has seen what the blast breaks or hurts under water. In three places this build is still
   stricter than OoTMM, whose blast goes off there: the last moments of climbing onto a ledge (out of water too)
   and of getting off a ladder, and first-person aiming.
+- Gerudo Mask Tunic (issue #1581): a test covers the rule behind the new Cosmetics Editor checkbox, and none
+  draws Link. Nobody has seen the purple tunic in a running game. To try it: in a randomizer file with the
+  Gerudo Mask (MM) rule on, find the Gerudo Mask, turn the checkbox on and put the mask on as Human Link in
+  Majora's Mask (it sits in the Stone Mask's place on the mask screen). Taking the mask off, or turning the
+  checkbox off, should bring back the tunic's own colour.
 - The Check Tracker's Majora's Mask pane (issues #1127, #1706): an enemy drop listed under every area where the
   enemy lives, and the checks inside shops, houses, Great Fairy Fountains and other rooms listed under the area
   their door opens onto. Each copy of a drop, or of a check held by several places, counts in its own area's numbers,

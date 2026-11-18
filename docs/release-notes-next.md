@@ -88,6 +88,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   get the ocarina; the known issues list them.
 - **Logic: Beneath the Well's Two Spikes Room** (2Ship #1893). With Shuffle Grass Drops on, the two grass checks
   there now need a Deku Stick or Fire Arrows, as in 2Ship2Harkinian.
+- **Logic: the Pirates' Fortress asks for a way past the guards** (issue #1703), as OoTMM's does. Nine rules
+  there now need the Bow, the Hookshot, the Zora Mask, the Stone Mask or, with its rule on, the Gerudo Mask
+  (MM): the Silver Rupee chest, two of the plaza's large crates, the way from the plaza's upper left ledge into
+  the plaza, and the doors between three guard rooms and their egg aquariums. Every way into the fortress needs
+  the Zora Mask, which is one of the five, so no seed changes.
 
 ### Ocarina of Time randomizer
 
@@ -124,6 +129,14 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   example the Bomb Shop under West Clock Town and the Cucco Shack under Romani Ranch. Only Show Current Area
   inside one shows that area, and the Hint Tracker's Majora's Mask pane follows it: inside the Stock Pot Inn it
   scrolls to East Clock Town's hints rather than the Inn's.
+- **The Check Tracker's Majora's Mask pane lists six more checks where Majora's Mask's own Check Tracker lists
+  them** (issues #1709, #1711): the Bombers' Notebook, the Clock Town postbox, the Clock Town stray fairy, the
+  Keaton quiz, the Oath to Order and the Moon's Tear. A check that several places hold is listed under each of
+  their areas, and each copy counts in its own area's numbers. Unlike an enemy drop's copies, all copies of
+  such a check show the same lock: once the check is in logic from one of its places, it shows and counts as
+  available in all of them, as in Majora's Mask's own tracker. The Oath to Order is listed with each of the
+  four bosses and no longer under the Giants' Chamber. The Moon's Tear is listed under Termina Field and no
+  longer under the Astral Observatory, so Only Show Current Area does not show it inside the observatory.
 - **Item tracker rows for the cross-game masks** (issue #1570). In a randomizer file, the item tracker shows
   Majora's Mask's Gerudo, Skull and Spooky Masks and Ocarina of Time's Blast and Stone Masks when their rules are on
   (Gerudo Mask (MM), Skull Mask (MM), Spooky Mask (MM), Blast Mask (OoT), Stone Mask (OoT)). Each mask has a Shared
@@ -145,6 +158,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   The mask no longer takes B in those moments either, so B counts again toward breaking out of ice or a grab.
   The blast still goes off at the end of a stagger and at the end of getting up, as OoTMM's does. Logic does not
   change.
+- **Cross-Game Masks: new cosmetic, Gerudo Mask Tunic** (issue #1581; Enhancements > Cosmetics Editor, Link &
+  Items tab, below Majora's Mask's Link colours; off by default). With it on, Human Link's tunic is purple in
+  Majora's Mask while he wears the Gerudo Mask, as in OoTMM. The mask is in Majora's Mask only in a randomizer
+  file with the Gerudo Mask (MM) rule on, where it is an item to find. While the mask is on, the purple replaces
+  a custom Kokiri Tunic colour. Logic does not change.
 - **Majora's Mask: Active Item on B** (2Ship #1870; Enhancements > Items, Equipment; off by default). It replaces
   Great Fairy Sword B-Button Attack. B uses the item Link has out: the Great Fairy's Sword or a Deku Stick while
   held, and the Bow or Hookshot while you aim them (not while locked onto a target). Pressing the item's own button
