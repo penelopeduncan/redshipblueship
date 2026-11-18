@@ -37,16 +37,21 @@
  *
  *   blast-mask-oot-shrub-guardhouse (CTest BlastMaskOoTShrubGuardHouse, redship
  *   tier) -- THE LIVE COLLISION & MARKET GUARD HOUSE LOCK (#1615). Headless
- *   PlayState bring-up driving BlastMaskBeforePlayerUpdate, ACTOR_EN_BOM,
- *   ACTOR_EN_KUSA, and ACTOR_OBJ_TSUBO without calling OoT_EnBom_Draw: cuts
- *   ground shrubs beside child Link at non-origin X/Y/Z while leaving an origin
- *   control shrub untouched, and in SCENE_MARKET_GUARD_HOUSE spawns and centers
- *   the blast at Link's world.pos rather than (0, 0, 0) or focus.pos. Its
- *   water legs (#1701, #1714) blast wherever OoTMM's wrapper is reached:
- *   swimming at the surface, sinking after falling in, every dive and on the
- *   Iron Boots; they refuse it while surfacing for breath, hit in water,
- *   arriving swimming or dying in water, and with the hookshot held unfired or
- *   in flight.
+ *   PlayState bring-up driving BlastMaskBeforePlayerUpdate and, from the test
+ *   player's update, OoT_BlastMask_OnItemButtons (OoT_Player_UpdateItems'
+ *   call), ACTOR_EN_BOM, ACTOR_EN_KUSA, and ACTOR_OBJ_TSUBO without calling
+ *   OoT_EnBom_Draw: cuts ground shrubs beside child Link at non-origin X/Y/Z
+ *   while leaving an origin control shrub untouched, and in
+ *   SCENE_MARKET_GUARD_HOUSE spawns and centers the blast at Link's world.pos
+ *   rather than (0, 0, 0) or focus.pos. The press is the mask's only on a frame
+ *   that reaches the item buttons (#1718, OoTMM's wrapper), so its water legs
+ *   (#1701, #1714) blast swimming at the surface, sinking after falling in, in
+ *   every dive and on the Iron Boots, and refuse it while surfacing for breath,
+ *   hit in water, arriving swimming or dying in water, and with the hookshot's
+ *   hook out (fired) or in flight; its land legs refuse it in a sword swing, a jump
+ *   attack, a roll, knocked down, shocked and frozen. Its source half checks
+ *   that the call sits in OoT_Player_UpdateItems alone, and that each action a
+ *   leg samples reaches the item buttons in z_player.c exactly when the leg says.
  *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
@@ -67,8 +72,14 @@
 #include "../test_runner.h"
 #include "test_named_items.h"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
+#include <initializer_list>
+#include <iterator>
+#include <set>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -98,6 +109,9 @@ int OoT_BlastMaskTest_TradeSlot(void);
 void OoT_BlastMaskTest_SetTradeSlot(uint8_t item);
 int OoT_BlastMaskTest_Logic(int held, int child, int which);
 int OoT_BlastMaskTest_ShrubAndGuardHouse(void);
+int OoT_BlastMaskTest_ActionCount(void);
+const char* OoT_BlastMaskTest_ActionFunc(int i);
+int OoT_BlastMaskTest_ActionReaches(int i);
 // games/oot/soh/Enhancements/randomizer/BlastMaskOoT.cpp
 void OoT_BlastMask_RegisterRuntime(void);
 // games/oot/soh/oot_foreign_mask_test.cpp
@@ -632,11 +646,275 @@ TestResult Test_BlastMaskOoTSpawn(void) {
 // blast-mask-oot-shrub-guardhouse
 // ============================================================================
 
+namespace {
+
+/** A checkout file (RSBS_SOURCE_DIR), or "" when it cannot be read. */
+std::string BmReadSource(const char* rel) {
+#ifdef RSBS_SOURCE_DIR
+    std::ifstream in(std::string(RSBS_SOURCE_DIR) + "/" + rel, std::ios::binary);
+    if (!in.good()) {
+        return std::string();
+    }
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    text.erase(std::remove(text.begin(), text.end(), '\r'), text.end());
+    return text;
+#else
+    (void)rel;
+    return std::string();
+#endif
+}
+
+/** `text` without its comments (a '/' pair inside a string is never followed by
+ *  the scan's needles, so strings are not tracked). */
+std::string BmStripComments(const std::string& text) {
+    std::string out;
+    out.reserve(text.size());
+    for (size_t i = 0; i < text.size(); i++) {
+        if (text[i] == '/' && i + 1 < text.size() && text[i + 1] == '/') {
+            while (i < text.size() && text[i] != '\n') {
+                i++;
+            }
+            out.push_back('\n');
+        } else if (text[i] == '/' && i + 1 < text.size() && text[i + 1] == '*') {
+            const size_t end = text.find("*/", i + 2);
+            i = (end == std::string::npos) ? text.size() : end + 1;
+            out.push_back(' ');
+        } else {
+            out.push_back(text[i]);
+        }
+    }
+    return out;
+}
+
+/** From `open` (a '{' or '('), the index just past its match, or npos. */
+size_t BmMatchClose(const std::string& text, size_t open) {
+    const char o = text[open];
+    const char c = (o == '{') ? '}' : ')';
+    int depth = 0;
+    for (size_t q = open; q < text.size(); q++) {
+        if (text[q] == o) {
+            depth++;
+        } else if (text[q] == c && --depth == 0) {
+            return q + 1;
+        }
+    }
+    return std::string::npos;
+}
+
+/** The body ("{...}") of the function `name` defined at column 0 of `src`, or "".
+ *  `name` is a bare name, or the definition's head from column 0 ("void Name"). */
+std::string BmBodyOf(const std::string& src, const std::string& name) {
+    const std::string needle = name + "(";
+    const bool head = name.find(' ') != std::string::npos;
+    size_t at = 0;
+    while ((at = src.find(needle, at)) != std::string::npos) {
+        const size_t lineStart =
+            at == 0 || src.rfind('\n', at - 1) == std::string::npos ? 0 : src.rfind('\n', at - 1) + 1;
+        const std::string prefix = src.substr(lineStart, at - lineStart);
+        const bool topLevel = head ? prefix.empty()
+                                   : !prefix.empty() && prefix[0] != ' ' && prefix[0] != '\t' &&
+                                         prefix.find_first_of("(;=#{}") == std::string::npos &&
+                                         (prefix.back() == ' ' || prefix.back() == '*');
+        if (topLevel) {
+            size_t p = BmMatchClose(src, at + name.size());
+            while (p != std::string::npos && p < src.size() && (src[p] == ' ' || src[p] == '\n' || src[p] == '\t')) {
+                p++;
+            }
+            if (p != std::string::npos && p < src.size() && src[p] == '{') {
+                const size_t end = BmMatchClose(src, p);
+                if (end != std::string::npos) {
+                    return src.substr(p, end - p);
+                }
+            }
+        }
+        at += needle.size();
+    }
+    return std::string();
+}
+
+/** Does `body` reach the item buttons (#1718)? True when it, or a function of
+ *  `src` it calls (followed through their bodies), calls OoT_Player_UpdateUpperBody
+ *  (the only caller of OoT_Player_UpdateItems), OoT_Player_UpdateItems itself,
+ *  OoT_Player_TryActionInterrupt (which runs the idle list with the upper body),
+ *  or OoT_Player_TryActionHandlerList with a last argument other than false.
+ *  `via` names the first one found. */
+bool BmReachesItems(const std::string& src, const std::string& body, std::set<std::string>& seen, std::string& via) {
+    const std::string code = BmStripComments(body);
+    static const char* const kKeywords[] = { "if", "while", "for", "switch", "return", "sizeof" };
+    for (size_t i = 0; i < code.size(); i++) {
+        if (!(isalpha((unsigned char)code[i]) || code[i] == '_') ||
+            (i > 0 && (isalnum((unsigned char)code[i - 1]) || code[i - 1] == '_'))) {
+            continue;
+        }
+        size_t j = i;
+        while (j < code.size() && (isalnum((unsigned char)code[j]) || code[j] == '_')) {
+            j++;
+        }
+        const std::string name = code.substr(i, j - i);
+        size_t k = j;
+        while (k < code.size() && (code[k] == ' ' || code[k] == '\n' || code[k] == '\t')) {
+            k++;
+        }
+        const bool member = i > 0 && (code[i - 1] == '.' || code[i - 1] == '>');
+        i = j - 1;
+        if (k >= code.size() || code[k] != '(' || member) {
+            continue;
+        }
+        bool keyword = false;
+        for (const char* kw : kKeywords) {
+            keyword = keyword || name == kw;
+        }
+        if (keyword) {
+            continue;
+        }
+        if (name == "OoT_Player_UpdateUpperBody" || name == "OoT_Player_UpdateItems" ||
+            name == "OoT_Player_TryActionInterrupt") {
+            via = name;
+            return true;
+        }
+        if (name == "OoT_Player_TryActionHandlerList") {
+            const size_t close = BmMatchClose(code, k);
+            const std::string args = code.substr(k + 1, close == std::string::npos ? 0 : close - k - 2);
+            std::string last = args.substr(args.rfind(',') == std::string::npos ? 0 : args.rfind(',') + 1);
+            last.erase(std::remove_if(last.begin(), last.end(), [](char ch) { return isspace((unsigned char)ch); }),
+                       last.end());
+            if (last != "false" && last != "0") {
+                via = name + " (upper body: " + last + ")";
+                return true;
+            }
+            continue;
+        }
+        if (!seen.insert(name).second) {
+            continue;
+        }
+        const std::string callee = BmBodyOf(src, name);
+        if (!callee.empty() && BmReachesItems(src, callee, seen, via)) {
+            via = name + " -> " + via;
+            return true;
+        }
+    }
+    return false;
+}
+
+bool BmReachesItems(const std::string& src, const std::string& body, std::string& via) {
+    std::set<std::string> seen;
+    return BmReachesItems(src, body, seen, via);
+}
+
+size_t BmCount(const std::string& text, const std::string& needle) {
+    size_t n = 0;
+    for (size_t at = text.find(needle); at != std::string::npos; at = text.find(needle, at + needle.size())) {
+        n++;
+    }
+    return n;
+}
+
+bool BmInOrder(const std::string& text, std::initializer_list<const char*> needles) {
+    size_t at = 0;
+    for (const char* needle : needles) {
+        at = text.find(needle, at);
+        if (at == std::string::npos) {
+            return false;
+        }
+        at += strlen(needle);
+    }
+    return true;
+}
+
+/** The source half of the row (#1718): the press is taken at the item buttons
+ *  and nowhere else, and kBm1615Actions' `reaches` column (which decides, for
+ *  each leg, whether its frame reaches the item buttons) is z_player.c's. */
+void BmCheckItemButtonSource() {
+    const std::string player = BmReadSource("games/oot/src/overlays/actors/ovl_player_actor/z_player.c");
+    const std::string blast = BmReadSource("games/oot/soh/Enhancements/randomizer/BlastMaskOoT.cpp");
+    if (player.empty() || blast.empty()) {
+        BM_CHECK(false, "SL0 z_player.c or BlastMaskOoT.cpp could not be read (RSBS_SOURCE_DIR)");
+        return;
+    }
+
+    // SL1: one call, inside OoT_Player_UpdateItems' gate, just before the vanilla
+    // OoT_Player_ProcessItemButtons call it shares a block with.
+    BM_CHECK(BmCount(player, "OoT_BlastMask_OnItemButtons(") == 1,
+             "SL1 z_player.c does not call OoT_BlastMask_OnItemButtons exactly once");
+    BM_CHECK(BmCount(player, "OoT_Player_ProcessItemButtons(this, play);") == 1,
+             "SL1 z_player.c does not call OoT_Player_ProcessItemButtons exactly once");
+    const std::string items = BmBodyOf(player, "void OoT_Player_UpdateItems");
+    BM_CHECK(BmInOrder(items, { "(gSaveContext.timerState != TIMER_STATE_STOP)) {", "#ifdef RSBS_SINGLE_EXECUTABLE",
+                                "OoT_BlastMask_OnItemButtons(play, this, CHECK_BTN_ALL(sControlInput->press.button, "
+                                "BTN_B))",
+                                "sControlInput->press.button &= ~BTN_B;", "#endif",
+                                "OoT_Player_ProcessItemButtons(this, play);" }),
+             "SL1 the Blast Mask's call is not inside OoT_Player_UpdateItems' gate before the item buttons");
+    const size_t call = items.find("OoT_BlastMask_OnItemButtons(");
+    const size_t vanilla = items.find("OoT_Player_ProcessItemButtons(this, play);");
+    if (call != std::string::npos && vanilla != std::string::npos && call < vanilla) {
+        const std::string between = items.substr(call, vanilla - call);
+        BM_CHECK(BmCount(between, "{") == BmCount(between, "}"),
+                 "SL1 the Blast Mask's call and the item buttons are not in the same block");
+    }
+    // SL2: OoT_Player_UpdateItems' one caller is OoT_Player_UpdateUpperBody.
+    BM_CHECK(BmCount(player, "OoT_Player_UpdateItems(this, play);") == 1 &&
+                 BmBodyOf(player, "s32 OoT_Player_UpdateUpperBody").find("OoT_Player_UpdateItems(this, play);") !=
+                     std::string::npos,
+             "SL2 OoT_Player_UpdateItems is not called from OoT_Player_UpdateUpperBody alone");
+
+    // SL3: the frame hook takes no press and fires nothing; the entry point does both.
+    const std::string hook = BmBodyOf(blast, "void BlastMaskBeforePlayerUpdate");
+    BM_CHECK(!hook.empty() && hook.find("BTN_B") == std::string::npos &&
+                 hook.find("SpawnBlast(") == std::string::npos &&
+                 hook.find("PlayerFreeToBlast(") == std::string::npos &&
+                 hook.find("Combo_BlastMask_Step(&sCooldownLeft, 0, 0);") != std::string::npos,
+             "SL3 BlastMaskBeforePlayerUpdate reads B, blasts or decides, or no longer counts the cooldown down");
+    const std::string entry = BmBodyOf(blast, "extern \"C\" int OoT_BlastMask_OnItemButtons");
+    BM_CHECK(entry.find("PlayerFreeToBlast(play, player)") != std::string::npos &&
+                 entry.find("SpawnBlast(play, spawn);") != std::string::npos &&
+                 BmCount(blast, "PlayerFreeToBlast(play, player)") == 1 &&
+                 BmCount(blast, "SpawnBlast(play, spawn);") == 1,
+             "SL3 the blast is not decided and spawned in OoT_BlastMask_OnItemButtons alone");
+
+    // SL4: each sampled action reaches the item buttons exactly when the legs say.
+    const int count = OoT_BlastMaskTest_ActionCount();
+    BM_CHECK(count > 0, "SL4 the action table is empty");
+    for (int i = 0; i < count; i++) {
+        const char* func = OoT_BlastMaskTest_ActionFunc(i);
+        const std::string body = BmBodyOf(player, std::string("void ") + func);
+        if (body.empty()) {
+            BM_CHECK(false, "SL4 %s is not defined in z_player.c", func);
+            continue;
+        }
+        std::string via;
+        std::string scanned = body;
+        if (std::string(func) == "Player_Action_Roll") {
+            // The roll reaches the item buttons only in the recovery after a bonk
+            // (its action interrupt); the legs sample the roll itself.
+            BM_CHECK(BmReachesItems(player, body, via), "SL4 the roll no longer reaches the item buttons after a bonk");
+            const size_t bonk = body.find("if (this->av2.bonked) {");
+            const size_t open = bonk == std::string::npos ? bonk : body.find('{', bonk);
+            const size_t close = open == std::string::npos ? open : BmMatchClose(body, open);
+            BM_CHECK(close != std::string::npos, "SL4 the roll's bonk branch was not found");
+            if (close != std::string::npos) {
+                scanned = body.substr(0, open) + body.substr(close);
+            }
+            via.clear();
+        }
+        const int reaches = BmReachesItems(player, scanned, via) ? 1 : 0;
+        BM_CHECK(reaches == OoT_BlastMaskTest_ActionReaches(i), "SL4 %s %s the item buttons (%s), the legs say %s",
+                 func, reaches ? "reaches" : "never reaches", reaches ? via.c_str() : "-",
+                 OoT_BlastMaskTest_ActionReaches(i) ? "it does" : "it never does");
+    }
+}
+
+} // namespace
+
 TestResult BlastMaskOoTShrubGuardHouse_Run(void) {
     printf("[TEST] blast-mask-oot-shrub-guardhouse: child Link's Blast Mask cuts ground shrubs and follows world.pos "
            "in the Market guard house without OoT_EnBom_Draw (#1615), adult Link's only while Masks Equippable "
-           "as Adult holds (#1647), and in every water state where OoTMM's wrapper is reached (#1701, #1714)\n");
+           "as Adult holds (#1647), and only on a frame on which the item buttons are processed, on land as in "
+           "water (#1701, #1714, #1718)\n");
+    sBmFailures = 0;
     const int rc = OoT_BlastMaskTest_ShrubAndGuardHouse();
-    printf("[TEST] blast-mask-oot-shrub-guardhouse: %s\n", rc == 0 ? "PASS" : "FAIL");
-    return rc == 0 ? TEST_PASS : TEST_FAIL;
+    BmCheckItemButtonSource();
+    const bool pass = rc == 0 && sBmFailures == 0;
+    printf("[TEST] blast-mask-oot-shrub-guardhouse: %s\n", pass ? "PASS" : "FAIL");
+    return pass ? TEST_PASS : TEST_FAIL;
 }
