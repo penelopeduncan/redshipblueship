@@ -63,8 +63,10 @@
 // W6-COS-B (#1239): Link's per-form model colours (the patch registrars below).
 #include <ship/resource/ResourceManager.h>
 
+#include "2s2h/Rando/ForeignMaskMM.h"
 #include "2s2h/ShipInit.hpp"
 #include "context.h"       // src/common: Context_GetCurrentGame, the owner gate
+#include "foreign_masks.h" // src/common: Combo_ForeignMask_GerudoTunic (#1581)
 #include "mm_game_hooks.h" // MM's frame hook
 
 #include <algorithm>
@@ -749,9 +751,18 @@ void ApplyChangedPlayerPatches() {
         const MmPlayerPatch& patch = kMmPlayerPatches[i];
         const MmCosmeticElement* element = FindMmCosmeticElement(patch.id);
         const char* valueKey = element != nullptr ? ChangedValueKey(*element) : nullptr;
-        const bool on = valueKey != nullptr;
+        bool on = valueKey != nullptr;
         const Color_RGBA8 unset = { 0, 0, 0, 255 };
-        const Color_RGBA8 color = on ? CVarGetColor(valueKey, unset) : unset;
+        Color_RGBA8 color = on ? CVarGetColor(valueKey, unset) : unset;
+        if (patch.id == COSMETIC_ELEMENT_HUMAN_TUNIC) {
+            int tunicOn = on ? 1 : 0;
+            uint8_t rgb[3] = { color.r, color.g, color.b };
+            if (Combo_ForeignMask_GerudoTunic(CVarGetInteger("gCosmetic.Player.GerudoMaskTunic", 0),
+                                              MM_ForeignMask_Worn(), &tunicOn, rgb)) {
+                on = tunicOn != 0;
+                color = { rgb[0], rgb[1], rgb[2], 255 };
+            }
+        }
         AppliedPlayerColour& applied = sAppliedPlayerColours[i];
         const bool recoloured =
             on && (applied.color.r != color.r || applied.color.g != color.g || applied.color.b != color.b);

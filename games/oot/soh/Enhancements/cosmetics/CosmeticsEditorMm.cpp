@@ -190,7 +190,7 @@ void DrawMmCosmeticRow(const MmCosmeticRow& row) {
 }
 
 /** SoH's DrawCosmeticGroup on MM's rows, under the "Majora's Mask" heading the hosted MM blocks use. */
-void DrawMmCosmeticGroup(const char* id, const MmCosmeticRow* rows, std::size_t count) {
+void DrawMmCosmeticGroup(const char* id, const MmCosmeticRow* rows, std::size_t count, void (*after)() = nullptr) {
     ImGui::Text("%s", SohGui::kHostedMmBlockLabel);
     ImGui::SameLine();
     ImGui::SetCursorPosX(CosmeticButtonColumn());
@@ -212,7 +212,21 @@ void DrawMmCosmeticGroup(const char* id, const MmCosmeticRow* rows, std::size_t 
     for (std::size_t i = 0; i < count; i++) {
         DrawMmCosmeticRow(rows[i]);
     }
+    if (after != nullptr) {
+        after();
+    }
     UIWidgets::Separator(true, true, 2.0f, 2.0f);
+}
+
+void DrawMmLinkAfter() {
+    static constexpr const char* kGerudoTunicLabel = "Gerudo Mask Tunic";
+    static constexpr const char* kGerudoTunicTooltip =
+        "Turns Human Link's tunic purple while he wears the Gerudo Mask, in a file whose world added it (as OoTMM "
+        "does). Majora's Mask only.";
+    UIWidgets::CVarCheckbox(kGerudoTunicLabel, RSBS_CVAR_MM_COSMETIC_GERUDO_MASK_TUNIC,
+                            UIWidgets::CheckboxOptions().Color(THEME_COLOR).Tooltip(kGerudoTunicTooltip));
+    ComboUi_NotifyRect(kGerudoTunicLabel, kGerudoTunicTooltip, ImGui::GetItemRectMin().x, ImGui::GetItemRectMin().y,
+                       ImGui::GetItemRectMax().x, ImGui::GetItemRectMax().y);
 }
 
 } // namespace
@@ -221,7 +235,7 @@ void CosmeticsEditor_DrawMmHudRows() {
     DrawMmCosmeticGroup("MM HUD", kMmHudRows, sizeof(kMmHudRows) / sizeof(kMmHudRows[0]));
 }
 void CosmeticsEditor_DrawMmLinkRows() {
-    DrawMmCosmeticGroup("MM Link", kMmLinkRows, sizeof(kMmLinkRows) / sizeof(kMmLinkRows[0]));
+    DrawMmCosmeticGroup("MM Link", kMmLinkRows, sizeof(kMmLinkRows) / sizeof(kMmLinkRows[0]), DrawMmLinkAfter);
 }
 
 void CosmeticsEditor_DrawMmConsumableRows() {

@@ -924,6 +924,47 @@ TestResult Test_ForeignMaskRules(void) {
                  OoT_ForeignMaskTest_WornDl(1) == kamaro->wornDl,
              "R8", "OoT: the selection changed the worn field");
 
+    // ---- R9. MM (#1581): Gerudo Mask tunic recolour (Combo_ForeignMask_GerudoTunic) ----
+    for (int opt = 0; opt <= 1; opt++) {
+        for (int v = 0; v < 256; v++) {
+            int tunicOn = -7;
+            uint8_t rgb[3] = { 0xAA, 0xBB, 0xCC };
+            const int rc = Combo_ForeignMask_GerudoTunic(opt, (uint8_t)v, &tunicOn, rgb);
+            const bool want = opt != 0 && v == COMBO_FOREIGN_MASK_OOT_GERUDO;
+            const bool purple = rc == 1 && tunicOn == 1 && rgb[0] == 120 && rgb[1] == 0 && rgb[2] == 180;
+            const bool untouched = rc == 0 && tunicOn == -7 && rgb[0] == 0xAA && rgb[1] == 0xBB && rgb[2] == 0xCC;
+            FM_CHECK(want ? purple : untouched, "R9", "opt=%d worn=%d rc=%d on=%d rgb=%u,%u,%u", opt, v, rc, tunicOn,
+                     (unsigned)rgb[0], (unsigned)rgb[1], (unsigned)rgb[2]);
+        }
+    }
+    {
+        int tunicOn = 0;
+        uint8_t rgb[3] = { 30, 105, 27 };
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_OOT_GERUDO, &tunicOn, rgb) == 1 && tunicOn == 1 &&
+                     rgb[0] == 120 && rgb[1] == 0 && rgb[2] == 180,
+                 "R9", "Gerudo Mask with option on did not set purple {120, 0, 180}");
+        tunicOn = 0;
+        rgb[0] = 30;
+        rgb[1] = 105;
+        rgb[2] = 27;
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(0, COMBO_FOREIGN_MASK_OOT_GERUDO, &tunicOn, rgb) == 0 && tunicOn == 0 &&
+                     rgb[0] == 30 && rgb[1] == 105 && rgb[2] == 27,
+                 "R9", "Gerudo Mask with option off touched tunic state");
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_OOT_SKULL, &tunicOn, rgb) == 0 && tunicOn == 0 &&
+                     rgb[0] == 30 && rgb[1] == 105 && rgb[2] == 27,
+                 "R9", "Skull Mask touched tunic state");
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_OOT_SPOOKY, &tunicOn, rgb) == 0 && tunicOn == 0 &&
+                     rgb[0] == 30 && rgb[1] == 105 && rgb[2] == 27,
+                 "R9", "Spooky Mask touched tunic state");
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_NONE, &tunicOn, rgb) == 0 && tunicOn == 0 &&
+                     rgb[0] == 30 && rgb[1] == 105 && rgb[2] == 27,
+                 "R9", "COMBO_FOREIGN_MASK_NONE touched tunic state");
+        FM_CHECK(Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_OOT_GERUDO, NULL, rgb) == 0 &&
+                     Combo_ForeignMask_GerudoTunic(1, COMBO_FOREIGN_MASK_OOT_GERUDO, &tunicOn, NULL) == 0 &&
+                     tunicOn == 0 && rgb[0] == 30 && rgb[1] == 105 && rgb[2] == 27,
+                 "R9", "NULL out-parameter touched tunic state or returned non-zero");
+    }
+
     FmLeaveClean();
     return FmVerdict("foreign-mask-rules");
 }
