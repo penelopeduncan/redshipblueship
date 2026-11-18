@@ -834,8 +834,7 @@ int LockPlacesBody(void) {
     half[desc.checkTableOffset + (size_t)kCtwPlacesLost * desc.checkStride + desc.shuffledOffset] = 1;
     Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
     ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
-    printf("[TEST] combo-tracker-window #1711: a NULL place draws \"%s\"
-", CtwDrawn(areas).c_str());
+    printf("[TEST] combo-tracker-window #1711: a NULL place draws \"%s\"\n", CtwDrawn(areas).c_str());
     CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14 9:14,15,17");
     ComboTrackerCheckRow lostRow = {};
     CTW_ASSERT(Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kCtwPlacesLost, &lostRow) && lostRow.areaKey == 9);
