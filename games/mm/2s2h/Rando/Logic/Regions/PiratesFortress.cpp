@@ -48,7 +48,8 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_PIRATES_FORTRESS_INSIDE_3_GUARD_ROOM] = RandoRegion{ .name = "3 Guard Room", .sceneId = SCENE_PIRATE,
         .checks = {
-            CHECK(RC_PIRATE_FORTRESS_INTERIOR_SILVER_RUPEE_CHEST, true),
+            // #1703 (OoTMM pirate_fortress.yml:282 "Pirate Fortress Interior Silver Rupee Chest"): can_evade_gerudo
+            CHECK(RC_PIRATE_FORTRESS_INTERIOR_SILVER_RUPEE_CHEST, CAN_EVADE_GERUDO),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS, 3),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 2), true),
@@ -72,7 +73,8 @@ static RegisterShipInitFunc initFunc([]() {
             EXIT(ENTRANCE(PIRATES_FORTRESS, 8),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 7), true)
         },
         .connections = {
-            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_ORANGE_GUARD, true),
+            // #1703 (OoTMM pirate_fortress.yml:249 "Pirate Fortress Lone Guard"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_ORANGE_GUARD, CAN_EVADE_GERUDO),
         },
         .events = {
             EVENT(RE_ACCESS_ZORA_EGG, HAS_ITEM(ITEM_HOOKSHOT) && HAS_BOTTLE && CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),
@@ -87,7 +89,8 @@ static RegisterShipInitFunc initFunc([]() {
         },
         .connections = {
             CONNECTION(RR_PIRATES_FORTRESS_INSIDE_MAZE_GUARD, CanKillEnemy(ACTOR_EN_KAIZOKU)),
-            CONNECTION(RR_PIRATES_FORTRESS_RIGHT_CLAM_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU)),
+            // #1703 (OoTMM pirate_fortress.yml:208 "Pirate Fortress Barrel Maze Aquarium"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_RIGHT_CLAM_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU) && CAN_EVADE_GERUDO),
         }
     };
     Regions[RR_PIRATES_FORTRESS_INSIDE_LINE_GUARD] = RandoRegion{ .name = "Line Guard Room", .sceneId = SCENE_PIRATE,
@@ -118,7 +121,8 @@ static RegisterShipInitFunc initFunc([]() {
         },
         .connections = {
             CONNECTION(RR_PIRATES_FORTRESS_INSIDE_LINE_GUARD, CanKillEnemy(ACTOR_EN_KAIZOKU)),
-            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_CHEST_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU)),
+            // #1703 (OoTMM pirate_fortress.yml:244 "Pirate Fortress Lone Guard Aquarium"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_CHEST_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU) && CAN_EVADE_GERUDO),
         }
     };
     Regions[RR_PIRATES_FORTRESS_INSIDE_PURPLE_GUARD] = RandoRegion{ .name = "Purple Guard Room", .sceneId = SCENE_PIRATE,
@@ -127,7 +131,8 @@ static RegisterShipInitFunc initFunc([]() {
         },
         .connections = {
             CONNECTION(RR_PIRATES_FORTRESS_INSIDE_3_GUARD_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU)),
-            CONNECTION(RR_PIRATES_FORTRESS_LEFT_CLAM_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU)),
+            // #1703 (OoTMM pirate_fortress.yml:279 "Pirate Fortress Treasure Room Aquarium"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_LEFT_CLAM_EGG_ROOM, CanKillEnemy(ACTOR_EN_KAIZOKU) && CAN_EVADE_GERUDO),
         }
     };
     Regions[RR_PIRATES_FORTRESS_LEFT_CLAM_EGG_ROOM] = RandoRegion{ .name = "Left Clam Room", .sceneId = SCENE_PIRATE,
@@ -228,7 +233,8 @@ static RegisterShipInitFunc initFunc([]() {
             EXIT(ENTRANCE(PIRATES_FORTRESS_INTERIOR, 2),    ENTRANCE(PIRATES_FORTRESS, 3), true),
         },
         .connections = {
-            CONNECTION(RR_PIRATES_FORTRESS_PLAZA, true),
+            // #1703 (OoTMM pirate_fortress.yml:269 "Pirate Fortress Interior"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_PLAZA, CAN_EVADE_GERUDO),
             CONNECTION(RR_PIRATES_FORTRESS_PLAZA_LEFT_LOWER, HAS_ITEM(ITEM_HOOKSHOT))
         },
         .events = {
@@ -262,8 +268,10 @@ static RegisterShipInitFunc initFunc([]() {
     };
     Regions[RR_PIRATES_FORTRESS_PLAZA_TOWER] = RandoRegion{ .name = "Plaza Tower", .sceneId = SCENE_KAIZOKU,
         .checks = {
-            CHECK(RC_PIRATE_FORTRESS_PLAZA_LARGE_CRATE_02, true),
-            CHECK(RC_PIRATE_FORTRESS_PLAZA_LARGE_CRATE_03, true),
+            // #1703 (OoTMM pirate_fortress.yml:145 "Pirate Fortress Interior Crate Middle 1"): can_evade_gerudo
+            CHECK(RC_PIRATE_FORTRESS_PLAZA_LARGE_CRATE_02, CAN_EVADE_GERUDO),
+            // #1703 (OoTMM pirate_fortress.yml:146 "Pirate Fortress Interior Crate Middle 2"): can_evade_gerudo
+            CHECK(RC_PIRATE_FORTRESS_PLAZA_LARGE_CRATE_03, CAN_EVADE_GERUDO),
         },
         .exits = { //     TO                                         FROM
             EXIT(ENTRANCE(PIRATES_FORTRESS_INTERIOR, 1),    ENTRANCE(PIRATES_FORTRESS, 2), true),
@@ -320,7 +328,8 @@ static RegisterShipInitFunc initFunc([]() {
             EXIT(ENTRANCE(PIRATES_FORTRESS, 6),             ENTRANCE(PIRATES_FORTRESS_INTERIOR, 5), true)
         },
         .connections = {
-            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_MAZE_GUARD, true),
+            // #1703 (OoTMM pirate_fortress.yml:215 "Pirate Fortress Barrel Maze"): can_evade_gerudo
+            CONNECTION(RR_PIRATES_FORTRESS_INSIDE_MAZE_GUARD, CAN_EVADE_GERUDO),
         },
         .events = {
             EVENT(RE_ACCESS_ZORA_EGG, HAS_ITEM(ITEM_HOOKSHOT) && HAS_BOTTLE && CAN_BE_ZORA && CAN_USE_ABILITY(SWIM)),

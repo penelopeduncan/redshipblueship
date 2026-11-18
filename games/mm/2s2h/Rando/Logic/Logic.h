@@ -403,8 +403,8 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 #define HAS_OOT_MASK(ri) MM_OoTMask_Usable(ri)
 // OoTMM's can_pass_gibdo: the Gibdo Mask, or the Spooky Mask at night.
 #define CAN_PASS_GIBDO (HAS_ITEM(ITEM_MASK_GIBDO) || (HAS_OOT_MASK(RI_MASK_SPOOKY) && IS_NIGHT()))
-// OoTMM's can_evade_gerudo has has_mask_gerudo beside has_mask_stone: the purple
-// guards (En_Ge2) read the Gerudo Mask as the Stone Mask.
+// OoTMM's can_evade_gerudo (CAN_EVADE_GERUDO below) has has_mask_gerudo beside
+// has_mask_stone: the purple guards (En_Ge2) read the Gerudo Mask as the Stone Mask.
 #define CAN_FOOL_PURPLE_GUARDS (HAS_ITEM(ITEM_MASK_STONE) || HAS_OOT_MASK(RI_MASK_GERUDO))
 // RedShipBlueShip #1169 XW5 (OoTMM macros_common.yml): can_play_tp_forest ..
 // can_play_tp_light in MM, for Ocarina of Time's warp songs as MM items
@@ -433,6 +433,13 @@ void ValidateRegionTimeOwnership(RandoRegionId regionId, RandoCheckId checkId, u
 #define CAN_OOT_SOAR_TO_OWL false
 #define SHORT_HOOK_ANYWHERE false
 #endif
+// RedShipBlueShip #1703 (OoTMM macros_mm.yml:335, can_evade_gerudo):
+// "has_arrows || can_use_slingshot || has_boomerang || can_hookshot_short ||
+// has_mask_zora || has_mask_stone || has_mask_gerudo". Slingshot and Boomerang
+// are OoT-only items with no MM item (GreatBayTemple.cpp:283-288); MM's single
+// Hookshot satisfies can_hookshot_short; CAN_FOOL_PURPLE_GUARDS covers the Stone
+// Mask and, under RSBS_SINGLE_EXECUTABLE, the Gerudo Mask (MM).
+#define CAN_EVADE_GERUDO (HAS_ITEM(ITEM_BOW) || HAS_ITEM(ITEM_HOOKSHOT) || CAN_BE_ZORA || CAN_FOOL_PURPLE_GUARDS)
 
 // TODO: This may not stay here
 #define IS_DEKU (GET_PLAYER_FORM == PLAYER_FORM_DEKU)
