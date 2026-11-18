@@ -38,21 +38,23 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Shuffle Deku Nut Bag on, Majora's Mask starts without sticks or nuts too. Until the pair's one bag is found, in
   either game, Majora's Mask's drops, shops and checks give none. A stick or nut check opened before the bag gives
   junk instead, and a shuffled shop shelf sells junk once and stocks the item again after the bag. A stick or nut
-  pack from the other game that you find before the bag also becomes junk (a blue rupee in Ocarina of Time). A Deku
-  Baba or a withered Deku Baba still leaves its stick. Before the bag, picking it up plays the "Deku Stick"
-  get-item scene and gives nothing, in both games (issue #1691). A bag found
+  pack from the other game that you find before the bag also becomes junk (a blue rupee in Ocarina of Time).
+  Each item waits for its own bag (issue #1691). Before the Deku Stick Bag, a Deku Baba or a withered Deku Baba (and
+  a Mini Baba in Majora's Mask) leaves no stick in either game, and Ocarina of Time's Business Scrubs do not sell
+  sticks. Before the Deku Nut Bag, the Scrubs do not sell nuts, and an unshuffled Majora's Mask chest that holds
+  nuts gives a blue rupee instead: that is the Treasure Chest Shop's prize when you win again as Deku Link in the
+  same cycle. A bag found
   in Termina opens both games at once and fills it (10 sticks or 20 nuts). Logic in both games knows the rule. A
   world made with either shuffle on differs from the one `v0.5.1-alpha` made.
 - **The tracker's Shared Deku Sticks and Deku Nuts rows show what the running game holds** (issue #1652). Under
   either bag shuffle they no longer show sticks or nuts as held before the bag is found, and neither do Ocarina of
   Time's own stick and nut slots in a custom tracker layout.
-- **Shared items are named without a game tag in more places** (issues #1560, #1688). While their Shared rule is
+- **Shared items are named without a game tag in more places** (issues #1560, #1688, #1698). While their Shared rule is
   on, the shared Gerudo, Skull and Spooky Masks and the shared warp songs (the Song of Soaring and Ocarina of
   Time's six warp songs) are now named without "(MM)" or "(OoT)" in hints and gossip stones, the
   spoiler log's playthrough and hint entries, the check trackers, pickup and get-item messages, shop shelves and
-  purchase text in both games, and the item tracker layout editor. Three places keep the tag: the spoiler logs'
-  location lists (the game reads those names back), and, for a shared Song of Soaring, Ocarina of Time's Skulltula
-  house reward hints and its map and compass text.
+  purchase text in both games, and the item tracker layout editor. Only the spoiler logs keep the tag: in their
+  location lists, which the game reads back, and in the list of cross-game placements.
 - **A shared item found in the other game is yours at once** (issue #1551). This covers the Lens of Truth, Epona's
   Song, the Song of Storms and the Song of Time, the magic arrows, the shared masks, the shields, the ocarina
   buttons and swimming, when their shared option is on. If one of these items from the other game turned up where
@@ -112,6 +114,16 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 
 ### Trackers
 
+- **The Check Tracker's Majora's Mask pane lists enemy drops and indoor checks where Majora's Mask's own Check
+  Tracker lists them** (issues #1127, #1706). An enemy drop is listed under every area where that enemy lives.
+  With Enable Available Checks on, each area's copy shows an open or closed lock for whether the kill there is in
+  logic, and Only Show Available Checks hides the copies that are not. Each copy counts in its own area's numbers,
+  so the areas add up to more than the pane's total. Killing that enemy anywhere checks off every copy, and
+  skipping one copy skips them all. The checks inside shops, houses and other rooms (the Great Fairy Fountains,
+  the Swordsman's School, the Ghost Hut and the like) are listed under the area their door opens onto, for
+  example the Bomb Shop under West Clock Town and the Cucco Shack under Romani Ranch. Only Show Current Area
+  inside one shows that area, and the Hint Tracker's Majora's Mask pane follows it: inside the Stock Pot Inn it
+  scrolls to East Clock Town's hints rather than the Inn's.
 - **Item tracker rows for the cross-game masks** (issue #1570). In a randomizer file, the item tracker shows
   Majora's Mask's Gerudo, Skull and Spooky Masks and Ocarina of Time's Blast and Stone Masks when their rules are on
   (Gerudo Mask (MM), Skull Mask (MM), Spooky Mask (MM), Blast Mask (OoT), Stone Mask (OoT)). Each mask has a Shared
@@ -120,6 +132,11 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 
 ### Options and quality of life
 
+- **Cross-Game Masks: the Blast Mask goes off under water** (issue #1701). In Ocarina of Time, with the Blast Mask
+  (OoT) rule on, the mask's blast now works while Link is under water in the Iron Boots (sinking or walking the
+  bottom) and during a dive he starts with A at the surface. It still does not go off while he swims at the
+  surface, or while he is under water after falling or jumping in or after taking the Iron Boots off, until he
+  comes up and dives with A. OoTMM allows the blast in those cases too. Logic does not change.
 - **Majora's Mask: Active Item on B** (2Ship #1870; Enhancements > Items, Equipment; off by default). It replaces
   Great Fairy Sword B-Button Attack. B uses the item Link has out: the Great Fairy's Sword or a Deku Stick while
   held, and the Bow or Hookshot while you aim them (not while locked onto a target). Pressing the item's own button
