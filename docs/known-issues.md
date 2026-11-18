@@ -43,13 +43,14 @@ Everything below passed the automated gates. None of it has been checked by a pe
   made before this version, Ocarina of Time keeps the old behaviour: before the bag a Deku Baba's stick plays
   the "Deku Stick" get-item scene and gives nothing, and a Business Scrub still sells sticks or nuts that give
   nothing.
-- The Blast Mask in water (issues #1701, #1714): with the Blast Mask (OoT) rule on, the blast goes off wherever
-  OoTMM allows it in water: swimming at the surface, under water after falling in, in a dive, and in the Iron
-  Boots. It does not go off while Link comes up for breath or reels from a hit in water. Checked without a
-  running game only. Nobody has seen what the blast breaks or hurts under water. Out of the water this build is
-  still looser than OoTMM: the blast also goes off in moves where OoTMM's does not, such as being knocked back
-  on land, being shocked or frozen (under water in the Iron Boots too), a sword swing, a jump attack and most of
-  a roll.
+- The Blast Mask in water and on land (issues #1701, #1714, #1718): with the Blast Mask (OoT) rule on, the blast
+  goes off only on a frame on which the game handles the item buttons, as in OoTMM. In water that is swimming at
+  the surface, under water after falling in, in a dive, and in the Iron Boots, and not while Link comes up for
+  breath or reels from a hit. On land it does not go off in a sword swing, a jump attack or a roll (except as he
+  recovers from rolling into a wall), or while he is knocked down, shocked or frozen. Checked without a running
+  game only. Nobody has seen what the blast breaks or hurts under water. In three places this build is still
+  stricter than OoTMM, whose blast goes off there: the last moments of climbing onto a ledge (out of water too)
+  and of getting off a ladder, and first-person aiming.
 - The Check Tracker's Majora's Mask pane (issues #1127, #1706): an enemy drop listed under every area where the
   enemy lives, and the checks inside shops, houses, Great Fairy Fountains and other rooms listed under the area
   their door opens onto. Each copy of a drop, or of a check held by several places, counts in its own area's numbers,
@@ -124,8 +125,9 @@ Everything below passed the automated gates. None of it has been checked by a pe
   adult models too). Nobody has seen the Stone Mask hide an adult from the Gerudo guards or from the enemies only an
   adult meets (Dark Link, Like Likes, Freezards), although with Masks as Adult on logic may expect it to get him past
   the Gerudo guards: until someone has, do not rely on it there. Nobody has checked in play that the Blast Mask
-  takes B from a held Megaton Hammer, or that it refuses to go off with the Hookshot in hand or in flight. With
-  Timeless Equipment on, adult Link can wear both masks even with Masks as Adult off.
+  takes B from a held Megaton Hammer, or that it refuses to go off while the Hookshot's hook is out or pulling
+  Link along (with the Hookshot only held ready it does go off, as in OoTMM). With Timeless Equipment on, adult
+  Link can wear both masks even with Masks as Adult off.
 - Shared Epona's Song, Song of Storms and Song of Time under Shuffle Songs: Off (issue #1561) were tested without a
   running game only. Each stays at its usual check in both games, and the second of the two you reach gives junk.
   Nobody has reached both of a song's usual checks in a paired playthrough, so the junk at the second one, and what

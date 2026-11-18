@@ -36,6 +36,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "soh/Enhancements/randomizer/ForeignMaskOoT.h"      // the pedestal's deferred mask drop (#1647)
+#include "soh/Enhancements/randomizer/BlastMaskOoT.h"        // the Blast Mask's B press at the item buttons (#1718)
 #endif
 
 #include <string.h>
@@ -2661,6 +2662,15 @@ void OoT_Player_UpdateItems(Player* this, PlayState* play) {
         (gSaveContext.health != 0) && (play->csCtx.state == CS_STATE_IDLE) && (this->csAction == 0) &&
         (play->shootingGalleryStatus == 0) && (play->activeCamera == MAIN_CAM) &&
         (play->transitionTrigger != TRANS_TRIGGER_START) && (gSaveContext.timerState != TIMER_STATE_STOP)) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // [RSBS #1718] Blast Mask (OoT): OoTMM patches this call with Player_ProcessItemButtonsWrapper, which takes
+        // a B press for the worn Blast Mask before the item buttons see it, so the blast goes off only on a frame
+        // on which the item buttons are processed. Here the same press is offered to BlastMaskOoT.cpp first.
+        if ((sControlInput != NULL) &&
+            OoT_BlastMask_OnItemButtons(play, this, CHECK_BTN_ALL(sControlInput->press.button, BTN_B))) {
+            sControlInput->press.button &= ~BTN_B;
+        }
+#endif
         OoT_Player_ProcessItemButtons(this, play);
     }
 
@@ -14263,36 +14273,6 @@ void Player_Action_8084E368(Player* this, PlayState* play) {
 
     func_8084AEEC(this, &this->linearVelocity, 0.0f, this->actor.shape.rot.y);
 }
-
-#ifdef RSBS_SINGLE_EXECUTABLE
-// [RSBS #1714] Blast Mask (OoT): is Link in one of the water actions that never run OoT_Player_UpdateUpperBody, so
-// never reach OoT_Player_UpdateItems' item buttons (where OoTMM's Player_ProcessItemButtonsWrapper takes B)?
-// Surfacing for breath (8084E1EC), hit while in water (8084E30C), arriving in a scene swimming (8084D7C4) and dying
-// in water (8084E368). The other swim actions (8084D610, 8084D84C, 8084DAB4) run the action handler list with the
-// upper body updated, and the dive (8084DC48) updates it first thing. Read by BlastMaskOoT.cpp's PlayerFreeToBlast.
-s32 OoT_Player_InWaterActionWithoutItems(Player* this) {
-    return (this->actionFunc == Player_Action_8084E1EC) || (this->actionFunc == Player_Action_8084E30C) ||
-           (this->actionFunc == Player_Action_8084D7C4) || (this->actionFunc == Player_Action_8084E368);
-}
-
-// Test export for blast-mask-oot-shrub-guardhouse: puts `this` in one of the water actions without running it.
-// Sample 0 swim wait (8084D610), 1 swim (8084D84C), 2 Z-targeted swim (8084DAB4), 3 the dive (8084DC48),
-// 4 surfacing (8084E1EC), 5 hit in water (8084E30C), 6 arriving swimming (8084D7C4), 7 dying in water (8084E368);
-// any other sample clears the action. Returns 1 when an action was set, 0 when it was cleared.
-s32 OoT_Player_SetWaterActionForTest(Player* this, s32 sample) {
-    static PlayerActionFunc const sSampleActions[] = {
-        Player_Action_8084D610, Player_Action_8084D84C, Player_Action_8084DAB4, Player_Action_8084DC48,
-        Player_Action_8084E1EC, Player_Action_8084E30C, Player_Action_8084D7C4, Player_Action_8084E368,
-    };
-
-    if (sample < 0 || sample >= (s32)ARRAY_COUNT(sSampleActions)) {
-        this->actionFunc = NULL;
-        return 0;
-    }
-    this->actionFunc = sSampleActions[sample];
-    return 1;
-}
-#endif
 
 static s16 sWarpSongEntrances[] = {
     ENTR_SACRED_FOREST_MEADOW_WARP_PAD,

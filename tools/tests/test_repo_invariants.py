@@ -913,6 +913,8 @@ KEY_SHAPED_LABELS = {
     # The function name MM_Combo_RefuseNewSaveOverSession prints in its refusal log.
     ("games/mm/src/code/z_sram_NES.c", '"MM_Sram_InitNewSave"'),
     ("games/mm/src/code/z_sram_NES.c", '"MM_Sram_InitSave"'),
+    # A test's table naming the z_player.c action whose body its source half scans (#1718).
+    ("games/oot/soh/oot_blast_mask_test.cpp", '"OoT_Player_Action_Idle"'),
     # A test's printf naming the next game state.
     ("games/oot/soh/oot_file_select_refusal_test.cpp", '"OoT_Play_Init"'),
 }

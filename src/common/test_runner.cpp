@@ -12010,9 +12010,11 @@ const TestDescriptor gTests[] = {
     { "blast-mask-oot-shrub-guardhouse",
       "Child Link's Blast Mask cuts adjacent ground shrubs (ACTOR_EN_KUSA) and spawns/centers ACTOR_EN_BOM at Link's "
       "world.pos in the Market guard house without OoT_EnBom_Draw (#1615); adult Link wears, is drawn and blasts "
-      "with it only while Masks Equippable as Adult holds, and loses it the frame that stops (#1647); in water the "
-      "blast goes off wherever OoTMM's wrapper is reached (surface swimming, sinking after a fall, every dive, the "
-      "Iron Boots), never surfacing for breath, hit in water or with the hookshot held or in flight (#1701, #1714)",
+      "with it only while Masks Equippable as Adult holds, and loses it the frame that stops (#1647); the blast goes "
+      "off only on a frame that reaches the item buttons, as OoTMM's wrapper (#1718): in water surface swimming, "
+      "sinking after a fall, every dive and the Iron Boots, never surfacing for breath, hit in water or with the "
+      "hookshot held or in flight (#1701, #1714), and on land never in a sword swing, jump attack, roll, knockdown, "
+      "shock or freeze, the call sitting in OoT_Player_UpdateItems alone",
       Test_BlastMaskOoTShrubGuardHouse },
     { "stone-mask-oot-rule",
       "The Stone Mask (OoT) and Shared Stone Mask are two Cross-Game Rules, off by default, the shared one only with "
