@@ -444,14 +444,14 @@ bool Combo_TrackerCheckInPlace(uint8_t game, int place, ComboTrackerCheckRow* ro
     if (row == NULL || place < 0 || place >= count) {
         return false;
     }
-    if (count == 1) {
-        return true; // its one place is its own area
+    if (count == 1 && (game != (uint8_t)GAME_MM || !sMMRegistered || sMMDesc.areaPlaceAt == NULL)) {
+        return true; // OoT, or MM without place ops: its one place is its own area
     }
     uint16_t key = 0;
     int available = -1;
     const char* name = sMMDesc.areaPlaceAt(row->checkId, place, &key, &available);
     if (name == NULL) {
-        return false;
+        return count == 1; // never drop a one-place row
     }
     row->areaName = name;
     row->areaKey = key;

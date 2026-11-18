@@ -664,16 +664,35 @@ int LockHide(void) {
 // totals, and greys each place from that place's own answer. An authored MM half
 // read STALE (Ocarina of Time played): an open drop with three places (in logic
 // in area 5, out in area 9, no answer of its own in area 2) and a found check
-// with one place (area 9). MMEnemyDropInstances (rando tier) locks the real
-// adapter's places against MM's own tracker.
+// with one place (area 9). A second segment marks a one-place check whose place
+// (area 5) differs from its row's own area (area 7) (#1711), and a one-place check
+// whose place op answers NULL (area 9), which keeps its row. MMEnemyDropInstances
+// (rando tier) locks the real adapter's places against MM's own tracker.
 
 const uint16_t kCtwPlacesDrop = 0x14;
 const uint16_t kCtwPlacesFound = 0x15;
+const uint16_t kCtwPlacesMoved = 0x16;
+const uint16_t kCtwPlacesLost = 0x17;
 
 const char* CtwPlacesName(uint16_t id) {
-    return id == kCtwPlacesDrop ? "Enemy Drop Like Like" : (id == kCtwPlacesFound ? "Well Chest" : nullptr);
+    if (id == kCtwPlacesDrop) {
+        return "Enemy Drop Like Like";
+    }
+    if (id == kCtwPlacesFound) {
+        return "Well Chest";
+    }
+    if (id == kCtwPlacesMoved) {
+        return "Moon's Tear";
+    }
+    return id == kCtwPlacesLost ? "Well Pot" : nullptr;
 }
 const char* CtwPlacesArea(uint16_t id, uint16_t* outKey) {
+    if (id == kCtwPlacesMoved) {
+        if (outKey != nullptr) {
+            *outKey = 7;
+        }
+        return "Observatory";
+    }
     const bool drop = id == kCtwPlacesDrop;
     if (outKey != nullptr) {
         *outKey = drop ? 5 : 9;
@@ -690,6 +709,24 @@ const char* CtwPlacesAt(uint16_t id, int place, uint16_t* outKey, int* outAvaila
         int available;
     };
     static const CtwPlace kDropPlaces[] = { { 5, "Field", 1 }, { 9, "Well", 0 }, { 2, "Swamp", -1 } };
+    if (id == kCtwPlacesMoved) {
+        if (outAvailable != nullptr) {
+            *outAvailable = -1;
+        }
+        if (place != 0) {
+            return nullptr;
+        }
+        if (outKey != nullptr) {
+            *outKey = 5;
+        }
+        return "Field";
+    }
+    if (id == kCtwPlacesLost) {
+        if (outAvailable != nullptr) {
+            *outAvailable = -1;
+        }
+        return nullptr; // no place answer: its row keeps its own area
+    }
     if (id != kCtwPlacesDrop) {
         *outAvailable = -1;
         return place == 0 ? CtwPlacesArea(id, outKey) : nullptr;
@@ -779,6 +816,32 @@ int LockPlacesBody(void) {
            CtwDrawn(areas).c_str());
     CTW_ASSERT(CtwDrawn(areas).empty());
     Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, bits, (uint32_t)kCtwPlacesFound + 1);
+
+    // #1711: a one-place check whose place differs from its row's own area is
+    // listed under that place while its row keeps its own area key.
+    half[desc.checkTableOffset + (size_t)kCtwPlacesMoved * desc.checkStride + desc.shuffledOffset] = 1;
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
+    printf("[TEST] combo-tracker-window #1711: one moved place draws \"%s\"\n", CtwDrawn(areas).c_str());
+    CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14,16 9:14,15");
+    ComboTrackerCheckRow movedRow = {};
+    CTW_ASSERT(Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kCtwPlacesMoved, &movedRow) && movedRow.areaKey == 7);
+    half[desc.checkTableOffset + (size_t)kCtwPlacesMoved * desc.checkStride + desc.shuffledOffset] = 0;
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+
+    // A one-place check whose place op answers NULL is never dropped from the
+    // pane: it stays listed under its row's own area (area 9).
+    half[desc.checkTableOffset + (size_t)kCtwPlacesLost * desc.checkStride + desc.shuffledOffset] = 1;
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
+    printf("[TEST] combo-tracker-window #1711: a NULL place draws \"%s\"\n", CtwDrawn(areas).c_str());
+    // 0x15 is the found check, so SoH's order (#1279) draws it below the open rows.
+    CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14 9:14,17,15");
+    ComboTrackerCheckRow lostRow = {};
+    CTW_ASSERT(Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kCtwPlacesLost, &lostRow) && lostRow.areaKey == 9);
+    CTW_ASSERT(Combo_TrackerCheckInPlace((uint8_t)GAME_MM, 0, &lostRow) && lostRow.areaKey == 9);
+    half[desc.checkTableOffset + (size_t)kCtwPlacesLost * desc.checkStride + desc.shuffledOffset] = 0;
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
 
     // An OoT row has one place, and placing it there leaves it byte for byte as it was.
     Combo_Tracker_RegisterOoT(&kCtwOps);

@@ -150,9 +150,10 @@ typedef enum {
  * native tracker's scene headers, grottos under the scene they open from).
  * `areaKey` is as game-local as `checkId`: rows of one game with equal keys
  * share an area, and the panel draws its areas in ascending key order (each
- * game's own tracker order). It is never compared across games. A row MM's
- * tracker lists in several places (an enemy drop, #1127) carries its first
- * place here; Combo_TrackerCheckInPlace gives it the others.
+ * game's own tracker order). It is never compared across games. An MM row
+ * carries the check's own listing scene here, which the Hint Tracker reads;
+ * Combo_TrackerCheckInPlace gives each place the Check Tracker pane lists it in
+ * (#1127, #1711).
  *
  * PLACED ITEM (#458 U4). `placedItemName` is the item the game's own check
  * tracker names beside a found check, or beside a seen one where that tracker
@@ -380,15 +381,18 @@ typedef struct ComboMMTrackerDesc {
     uint32_t seenOffset;
     uint32_t priceOffset;
     bool (*canBePurchased)(uint16_t checkId);
-    // The places MM's own check tracker lists a check in (#1127): it lists an
-    // enemy drop under every scene its species lives in (CheckTracker.cpp,
-    // initializeSceneChecks), each copy greyed from that scene's own kill (#1498).
-    // `areaPlaceCount` answers how many places check `checkId` has (0 or 1: the
-    // one area areaName answers); `areaPlaceAt` the `place`th one's name, or
-    // NULL, with its key in `*outKey` as areaName keys it (place 0 is areaName's
-    // own area), and in `*outAvailable` whether the check is in logic there (1 /
-    // 0), or -1 when that place has no answer of its own (the row's stands). Both
-    // NULL or both set; NULL: every check has one place.
+    // The places MM's own check tracker lists a check in (#1127, #1711): it lists
+    // each check under every scene a region holding it is listed under
+    // (CheckTracker.cpp, initializeSceneChecks), with an enemy drop's copy in each
+    // scene greyed from that scene's own kill (#1498). `areaName` stays the check's
+    // own listing scene, which the Hint Tracker reads; these ops say where the pane
+    // lists it, and the two differ only where MM's tracker lists a check away from
+    // its own scene. `areaPlaceCount` answers how many places check `checkId` has
+    // (at least 1 for a valid check); `areaPlaceAt` the `place`th one's name, or
+    // NULL, with its key in `*outKey` as areaName keys it, and in `*outAvailable`
+    // whether the check is in logic there (1 / 0), or -1 when that place has no
+    // answer of its own (the row's stands). Both NULL or both set; NULL: every
+    // check has one place, its areaName's.
     int (*areaPlaceCount)(uint16_t checkId);
     const char* (*areaPlaceAt)(uint16_t checkId, int place, uint16_t* outKey, int* outAvailable);
 } ComboMMTrackerDesc;
@@ -566,20 +570,24 @@ bool Combo_TrackerCheckAt(uint8_t game, int index, ComboTrackerCheckRow* out);
 
 /**
  * How many places `game`'s own check tracker lists row `row` (from
- * Combo_TrackerCheckAt) in (#1127): MM's lists an enemy drop under every scene
- * its species lives in (the descriptor's areaPlaceCount); every other row, and
- * every OoT row, has one place, its own area. Always at least 1; 1 for NULL.
+ * Combo_TrackerCheckAt) in (#1127, #1711): MM's lists a check under every scene
+ * a region holding it is listed under (the descriptor's areaPlaceCount); every
+ * OoT row, and every MM row without place ops, has one place, its own area.
+ * Always at least 1; 1 for NULL.
  */
 int Combo_TrackerCheckPlaceCount(uint8_t game, const ComboTrackerCheckRow* row);
 
 /**
  * Row `row` as listed in its `place`th place (0 <= place <
- * Combo_TrackerCheckPlaceCount): its areaKey and areaName become that place's,
- * and, while its availability is known and the adapter answers for that place,
- * `available` is narrowed by that place's own answer (#1498: a drop's copy is in
- * logic only where its kill is, and never while the check itself is out of
- * logic). A row with one place is left as it is. False, with
- * the row left alone, out of range or for a place the adapter cannot name.
+ * Combo_TrackerCheckPlaceCount): its areaKey and areaName become that place's
+ * (which differs from the row's own listing scene where MM's tracker lists a
+ * check away from its own scene, #1711), and, while its availability is known
+ * and the adapter answers for that place, `available` is narrowed by that
+ * place's own answer (#1498: a drop's copy is in logic only where its kill is,
+ * and never while the check itself is out of logic). An OoT row, an MM row
+ * without place ops, or a one-place row whose place 0 the adapter cannot name
+ * is left as it is and answers true. False, with the row left alone, out of
+ * range or for a multi-place entry the adapter cannot name.
  */
 bool Combo_TrackerCheckInPlace(uint8_t game, int place, ComboTrackerCheckRow* row);
 
