@@ -26,7 +26,8 @@
  *      Field in, Beneath the Well out), each place answers as MM's tracker's copy
  *      there does, its tooltip names Termina Field, reading the row twice and its
  *      places computes availability once, a collected drop keeps its places with
- *      none in logic, and with Enable Available Checks off no place answers.
+ *      none in logic, a non-drop check's places answer -1 while drop areas
+ *      apply (#1711), and with Enable Available Checks off no place answers.
  *   U  with every check shuffled, MM's native tracker lists each one under a scene it
  *      draws (the root's starting Deku Mask and Song of Healing included).
  *   P  (#1706) every check of every shop and house interior (MM's tracker's
@@ -37,6 +38,12 @@
  *      Canyon); Randomizer > MM Locations keeps each one's own heading; and inside
  *      each interior the pane's current area is the scene MM's tracker scrolls to
  *      and filters by there (the interior itself when entered from no interior).
+ *   R  (#1711) every check MM's tracker lists (including non-drops) is listed by
+ *      the combo pane under the exact set of scenes MM's tracker lists it
+ *      under, while each non-drop check outside scenesToCheckParent keeps its
+ *      own static row area (Moon's Tear under Termina Field with Observatory row
+ *      area, Clock Town Postbox in three scenes, Oath to Order in the four boss
+ *      scenes with Giants' Chamber row area).
  *
  * MM_CheckInstancesPerId_Run (row MMCheckInstancesPerIdUnchanged): over the same
  * save, the new per-instance function leaves the per-id answer exactly as it was,
@@ -263,6 +270,9 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     uint16_t placeKeys[kEdiPlaceCap] = {};
     int placeAvailable[kEdiPlaceCap] = {};
     const int placeCount = MM_TrackerAdapter_TestAreaPlaces((uint16_t)kDrop, placeKeys, placeAvailable, kEdiPlaceCap);
+    int postboxAvailable[kEdiPlaceCap] = {};
+    const int postboxPlaceCount =
+        MM_TrackerAdapter_TestAreaPlaces((uint16_t)RC_CLOCK_TOWN_POSTBOX, nullptr, postboxAvailable, kEdiPlaceCap);
     const int computations = MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
 
     std::set<uint16_t> reachableAreas;
@@ -296,6 +306,10 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
         wellPlace = placeKeys[i] == wellKey ? placeAvailable[i] : wellPlace;
         fieldPlace = placeKeys[i] == fieldKey ? placeAvailable[i] : fieldPlace;
     }
+    bool postboxUnanswered = postboxPlaceCount >= 1;
+    for (int i = 0; i < postboxPlaceCount && i < kEdiPlaceCap; i++) {
+        postboxUnanswered = postboxUnanswered && postboxAvailable[i] == -1;
+    }
     printf("[TEST] C: row %d, available %d (known %d), area %04X '%s'; %d place(s) (%d region area(s)), %d in logic; "
            "Beneath the Well %04X (%d), Termina Field %04X (%d); static first region %04X; tooltip '%s'; "
            "computations %d\n",
@@ -312,6 +326,7 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
               "C: the places where Mini Baba is in logic are not exactly the areas of its instances in logic");
     EDI_CHECK(wellPlace == 0, "C: the combo pane's Beneath the Well place of Mini Baba is not listed out of logic");
     EDI_CHECK(fieldPlace == 1, "C: the combo pane's Termina Field place of Mini Baba is not listed in logic");
+    EDI_CHECK(postboxUnanswered, "C: a non-drop check's places do not all answer -1 while drop areas apply (#1711)");
     EDI_CHECK(haveAgain && again.areaKey == row.areaKey, "C: reading the row again moved it to another area");
     EDI_CHECK(computations == 1,
               "C: reading the summary, the row twice and its places did not compute availability exactly once");
@@ -540,6 +555,94 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     EDI_CHECK(arrivalKnown && arrivalKey == MM_TrackerAdapter_TestSceneAreaKey(SCENE_BOMYA) &&
                   arrivalNative == (int)SCENE_BOMYA,
               "P: inside the Bomb Shop entered from no interior region, the current area is not the shop itself");
+
+    // ---- R (#1711): every check (including non-drops) is listed where MM's tracker lists it -------
+    auto placeKeySet = [](RandoCheckId checkId, int* outCount) {
+        uint16_t keys[kEdiPlaceCap] = {};
+        const int count = MM_TrackerAdapter_TestAreaPlaces((uint16_t)checkId, keys, nullptr, kEdiPlaceCap);
+        if (outCount != nullptr) {
+            *outCount = count;
+        }
+        const int n = count > 0 ? (count < kEdiPlaceCap ? count : kEdiPlaceCap) : 0;
+        return std::set<uint16_t>(keys, keys + n);
+    };
+    int rListedChecks = 0;
+    int rPlaceMismatches = 0;
+    int rMultiPlaceNonDrops = 0;
+    int rRowAreaMoved = 0;
+    for (const auto& [checkId, check] : Rando::StaticData::Checks) {
+        if (checkId == RC_UNKNOWN) {
+            continue;
+        }
+        uint16_t nativeScenes[kEdiPlaceCap] = {};
+        const int nativeCount = MM_CheckTracker_TestListedScenes((uint16_t)checkId, nativeScenes, kEdiPlaceCap);
+        int count = 0;
+        const std::set<uint16_t> paneKeys = placeKeySet(checkId, &count);
+        if (nativeCount >= 1) {
+            rListedChecks++;
+            std::set<uint16_t> nativeKeys;
+            for (int i = 0; i < nativeCount && i < kEdiPlaceCap; i++) {
+                nativeKeys.insert(MM_TrackerAdapter_TestSceneAreaKey(nativeScenes[i]));
+            }
+            if (count < 1 || count > kEdiPlaceCap || nativeCount > kEdiPlaceCap || paneKeys != nativeKeys) {
+                printf("[TEST] R: check %d: the pane lists it in %d place(s), MM's tracker under %d scene(s)\n",
+                       (int)checkId, count, nativeCount);
+                rPlaceMismatches++;
+            }
+        }
+        if (check.randoCheckType != RCTYPE_ENEMY_DROP) {
+            if (count > 1) {
+                rMultiPlaceNonDrops++;
+            }
+            const SceneId own = (SceneId)Play_GetOriginalSceneId(check.sceneId);
+            if (!Rando::CheckTracker::IsListedUnderParentScene(own)) {
+                const uint16_t rowKey = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)checkId);
+                const uint16_t ownKey = MM_TrackerAdapter_TestSceneAreaKey(own);
+                if (rowKey != ownKey) {
+                    printf("[TEST] R: non-drop check %d: row area %04X moved off own scene %04X\n", (int)checkId,
+                           (unsigned)rowKey, (unsigned)ownKey);
+                    rRowAreaMoved++;
+                }
+            }
+        }
+    }
+    int moonTearCount = 0;
+    const std::set<uint16_t> moonTearPlaces = placeKeySet(RC_ASTRAL_OBSERVATORY_MOON_TEAR, &moonTearCount);
+    const uint16_t moonTearRow = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)RC_ASTRAL_OBSERVATORY_MOON_TEAR);
+    int postboxCount = 0;
+    const std::set<uint16_t> postboxPlaces = placeKeySet(RC_CLOCK_TOWN_POSTBOX, &postboxCount);
+    int oathCount = 0;
+    const std::set<uint16_t> oathPlaces = placeKeySet(RC_GIANTS_CHAMBER_OATH_TO_ORDER, &oathCount);
+    const uint16_t oathRow = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)RC_GIANTS_CHAMBER_OATH_TO_ORDER);
+    const std::set<uint16_t> expectedMoonTear = { MM_TrackerAdapter_TestSceneAreaKey(SCENE_00KEIKOKU) };
+    const std::set<uint16_t> expectedPostbox = {
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_TOWN),
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_BACKTOWN),
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_CLOCKTOWER),
+    };
+    const std::set<uint16_t> expectedOath = {
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_SEA_BS),
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_HAKUGIN_BS),
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_INISIE_BS),
+        MM_TrackerAdapter_TestSceneAreaKey(SCENE_MITURIN_BS),
+    };
+    printf("[TEST] R: %d listed check(s), %d place mismatch(es), %d multi-place non-drop(s), %d row-area move(s); "
+           "Moon's Tear %d place(s) (row %04X), Postbox %d place(s), Oath %d place(s) (row %04X)\n",
+           rListedChecks, rPlaceMismatches, rMultiPlaceNonDrops, rRowAreaMoved, moonTearCount, (unsigned)moonTearRow,
+           postboxCount, oathCount, (unsigned)oathRow);
+    EDI_CHECK(rListedChecks >= 1000, "R: fewer than 1000 listed checks, so R is vacuous");
+    EDI_CHECK(rMultiPlaceNonDrops >= 5, "R: fewer than 5 multi-place non-drop checks, so R is vacuous");
+    EDI_CHECK(rPlaceMismatches == 0,
+              "R: a check is not listed by the combo pane under the exact scenes MM's own tracker lists it under");
+    EDI_CHECK(rRowAreaMoved == 0, "R: a non-drop check's row area moved off its own scene");
+    EDI_CHECK(moonTearCount == 1 && moonTearPlaces == expectedMoonTear &&
+                  moonTearRow == MM_TrackerAdapter_TestSceneAreaKey(SCENE_TENMON_DAI),
+              "R: Moon's Tear is not listed in Termina Field alone while keeping Astral Observatory as its row area");
+    EDI_CHECK(postboxCount == 3 && postboxPlaces == expectedPostbox,
+              "R: Clock Town Postbox is not listed under East, North and South Clock Town");
+    EDI_CHECK(oathCount == 4 && oathPlaces == expectedOath &&
+                  oathRow == MM_TrackerAdapter_TestSceneAreaKey(SCENE_KYOJINNOMA),
+              "R: Oath to Order is not listed in all four boss scenes while keeping Giants' Chamber as its row area");
 
     guard.reset();
     MM_CheckTracker_TestReset();

@@ -52,11 +52,9 @@ Everything below passed the automated gates. None of it has been checked by a pe
   a roll.
 - The Check Tracker's Majora's Mask pane (issues #1127, #1706): an enemy drop listed under every area where the
   enemy lives, and the checks inside shops, houses, Great Fairy Fountains and other rooms listed under the area
-  their door opens onto. Each copy of a drop counts in its own area's numbers, so the areas add up to more than the
-  pane's total. A few checks that are not enemy drops are still listed differently from Majora's Mask's own Check
-  Tracker: the Bombers' Notebook, the Clock Town postbox and stray fairy, the Keaton quiz, the Oath to Order, the
-  Moon's Tear and the inverted Stone Tower checks (issue #1711). Checked by automated tests only. Inside the Stock
-  Pot Inn the Hint Tracker's Majora's Mask pane now scrolls to East Clock Town's hints.
+  their door opens onto. Each copy of a drop, or of a check held by several places, counts in its own area's numbers,
+  so the areas add up to more than the pane's total. Checked by automated tests only. Inside the Stock Pot Inn the Hint
+  Tracker's Majora's Mask pane now scrolls to East Clock Town's hints.
 - Moon Crash Behavior's New Cycle default (issue #1671). One automated run lets the moon fall on Majora's Mask's
   debug save, and another lets it fall in a paired file where Shuffle Ocarina forces New Cycle. No test lets it
   fall in a paired file that has New Cycle only from the new default, and nobody has played one. To try it: let
