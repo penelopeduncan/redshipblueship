@@ -113,6 +113,14 @@ foreach(_i RANGE ${_last})
     if(NOT _home STREQUAL "")
         math(EXPR _rows_with_home "${_rows_with_home} + 1")
     endif()
+    # The reset row sets the fixture up, so it must not require it or run in a home
+    # (HOME OFF). CTest refuses the WHOLE tier otherwise ("a cycle exists in the
+    # test dependency graph"), and only when the tier runs: this listing is the one
+    # place that sees it earlier.
+    if(_name STREQUAL "RowHomesReset" AND (NOT _home STREQUAL "" OR "rsbs_row_homes" IN_LIST _fixtures))
+        list(APPEND _problems
+            "RowHomesReset: it has a home or requires rsbs_row_homes itself, so CTest would refuse the whole tier (a cycle in the test dependency graph); it must be registered with HOME OFF")
+    endif()
     if(NOT "rando" IN_LIST _labels OR _name STREQUAL "RowHomesReset")
         continue()
     endif()

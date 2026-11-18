@@ -117,7 +117,11 @@ function(redship_add_test)
 
     # The row's private home (#1692; see the header). Resolved here, once, so every
     # row of a label is treated alike and a row cannot opt in by half.
-    if(NOT RSBS_T_HOME)
+    # NOT DEFINED, not NOT: `if(NOT RSBS_T_HOME)` is true for HOME OFF as well ("OFF"
+    # is a false constant). That turned the reset row's HOME OFF into AUTO, gave it
+    # a home and the very fixture it sets up, and CTest refused the whole tier with
+    # "a cycle exists in the test dependency graph".
+    if(NOT DEFINED RSBS_T_HOME)
         set(RSBS_T_HOME "AUTO")
     endif()
     if(NOT RSBS_T_HOME MATCHES "^(AUTO|ON|OFF)$")
