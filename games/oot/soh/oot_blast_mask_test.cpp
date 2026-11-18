@@ -198,6 +198,8 @@ extern PlayState* OoT_gPlayState;
 extern EffectSsInfo OoT_sEffectSsInfo;
 void EnKusa_Main(EnKusa* thisx, PlayState* play);
 void OoT_EnKusa_DoNothing(EnKusa* thisx, PlayState* play);
+// z_player.c (#1714): puts Link in one of its water actions without running it.
+s32 OoT_Player_SetWaterActionForTest(Player* player, s32 sample);
 #include "overlays/misc/ovl_kaleido_scope/z_kaleido_scope.h" // AGE_REQ_NONE
 }
 
@@ -648,11 +650,27 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615EndScene(&sBm1615Play);
 }
 
+// OoT_Player_SetWaterActionForTest's samples: z_player.c's water actions (#1714).
+enum Bm1615WaterAction : s32 {
+    BM1615_ACT_NONE = -1,           // no action (cleared)
+    BM1615_ACT_SWIM_WAIT = 0,       // Player_Action_8084D610: treading water, sinking after a fall or on the Iron Boots
+    BM1615_ACT_SWIM = 1,            // Player_Action_8084D84C: swimming forward at the surface
+    BM1615_ACT_SWIM_ZTARGET = 2,    // Player_Action_8084DAB4: Z-targeted swimming
+    BM1615_ACT_DIVE = 3,            // Player_Action_8084DC48: the dive, with A or without
+    BM1615_ACT_SURFACING = 4,       // Player_Action_8084E1EC: surfacing for breath
+    BM1615_ACT_HIT_IN_WATER = 5,    // Player_Action_8084E30C: hit while in water
+    BM1615_ACT_ARRIVE_SWIMMING = 6, // Player_Action_8084D7C4: arriving in a scene swimming
+    BM1615_ACT_DYING_IN_WATER = 7,  // Player_Action_8084E368: dying in water
+};
+
 /** One B press with Link in `stateFlags1` / `stateFlags3` (and `stateFlags2`),
- *  on `boots`, holding `heldItemAction` (no held actor), the mask worn and its cooldown spent:
- *  true when the press was the Blast Mask's (B taken and a blast spawned). The
- *  explosion is stepped out and the cooldown spent again before it returns. */
-static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction, u32 stateFlags2 = 0u) {
+ *  on `boots`, holding `heldItemAction` (no held actor), in the water action
+ *  `action` (never run: the test player's update is a no-op), the mask worn and
+ *  its cooldown spent: true when the press was the Blast Mask's (B taken and a
+ *  blast spawned). The explosion is stepped out, the action cleared and the
+ *  cooldown spent again before it returns. */
+static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction, u32 stateFlags2 = 0u,
+                               s32 action = BM1615_ACT_NONE) {
     Bm1615ArmWearer(&sBm1615Player);
     sBm1615Player.stateFlags1 = stateFlags1;
     sBm1615Player.stateFlags2 = stateFlags2;
@@ -660,10 +678,12 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     sBm1615Player.currentBoots = boots;
     sBm1615Player.heldItemAction = heldItemAction;
     sBm1615Player.heldActor = nullptr;
+    OoT_Player_SetWaterActionForTest(&sBm1615Player, action);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
     const bool tookB = (sBm1615Play.state.input[0].press.button & BTN_B) == 0;
     const EnBom* bomb = Bm1615FindBomb(&sBm1615Play);
     const bool blasted = tookB && bomb != nullptr && bomb->actor.params == BOMB_EXPLOSION;
+    OoT_Player_SetWaterActionForTest(&sBm1615Player, BM1615_ACT_NONE);
     for (int f = 0; f < 12; f++) {
         Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
     }
@@ -676,46 +696,71 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     return blasted;
 }
 
-/** UW0..UW10 (#1701): under water on the Iron Boots (PLAYER_STATE1_IN_WATER kept,
- *  z_player.c) the blast goes off, as OoTMM's has no water test; swimming still
- *  refuses it, and so do the hookshot held unfired or in flight there. An armed
- *  mask still takes B from a held Megaton Hammer, under water as on land. In the
- *  dive (PLAYER_STATE2_DIVING, set only when A starts one) it goes off, as
- *  OoTMM's does; still under after falling in without a dive does not, and a dive
- *  carrying something up from the bottom does not. */
+/** UW0..UW17 (#1701, #1714): in water the blast goes off wherever OoTMM's
+ *  Player_ProcessItemButtonsWrapper is reached (it has no water test): treading
+ *  water and swimming at the surface, sinking after falling in, every dive (with
+ *  A or without), and on the Iron Boots sinking or walking the bottom. It is
+ *  refused in the water actions that never reach the item buttons (surfacing for
+ *  breath, hit in water, arriving swimming, dying in water), climbing out onto a
+ *  ledge, and with the hookshot held unfired or in flight. An armed mask still
+ *  takes B from a held Megaton Hammer, under water as on land, and a dive
+ *  carrying something up from the bottom still refuses. */
 static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
     Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 240.0f, 184.0f, -180.0f);
     const s8 none = PLAYER_IA_NONE;
+    const u32 inWater = PLAYER_STATE1_IN_WATER;
+    const u32 under = PLAYER_STATE2_UNDERWATER;
+    const u32 dive = PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_DIVING;
 
     Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, none),
                 "UW0 the control: a B press on dry land was not the Blast Mask's", __LINE__);
-    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, none),
-                "UW1 under water on the Iron Boots the Blast Mask did not go off", __LINE__);
-    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none),
-                "UW2 swimming (in water without the Iron Boots) the Blast Mask went off", __LINE__);
-    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_HOVER, none),
-                "UW3 swimming on the Hover Boots the Blast Mask went off", __LINE__);
-    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT),
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, none, under),
+                "UW1 walking the bottom on the Iron Boots the Blast Mask did not go off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_SWIM_WAIT),
+                "UW2 treading water at the surface the Blast Mask did not go off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_HOVER, none, 0u, BM1615_ACT_SWIM),
+                "UW3 swimming forward at the surface on the Hover Boots the Blast Mask did not go off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT),
                 "UW4 under water on the Iron Boots with the hookshot held unfired the Blast Mask went off", __LINE__);
-    Bm1615Check(
-        !Bm1615PressInState(PLAYER_STATE1_IN_WATER, PLAYER_STATE3_FLYING_WITH_HOOKSHOT, PLAYER_BOOTS_IRON, none),
-        "UW5 under water on the Iron Boots in hookshot flight the Blast Mask went off", __LINE__);
-    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HAMMER),
+    Bm1615Check(!Bm1615PressInState(inWater, PLAYER_STATE3_FLYING_WITH_HOOKSHOT, PLAYER_BOOTS_IRON, none),
+                "UW5 under water on the Iron Boots in hookshot flight the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HAMMER),
                 "UW6 under water on the Iron Boots the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HAMMER),
                 "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
                 "UW7 on dry land with the hookshot held unfired the Blast Mask went off", __LINE__);
-    const u32 dive = PLAYER_STATE2_UNDERWATER | PLAYER_STATE2_DIVING;
-    Bm1615Check(Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none, dive),
-                "UW8 in the dive the Blast Mask did not go off", __LINE__);
-    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_IN_WATER, 0u, PLAYER_BOOTS_KOKIRI, none, PLAYER_STATE2_UNDERWATER),
-                "UW9 under water without a dive (fallen in, not yet surfaced) the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, dive, BM1615_ACT_DIVE),
+                "UW8 in the dive started with A the Blast Mask did not go off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, under, BM1615_ACT_SWIM_WAIT),
+                "UW9 sinking after falling in, before surfacing, the Blast Mask did not go off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater | PLAYER_STATE1_CARRYING_ACTOR, 0u, PLAYER_BOOTS_KOKIRI, none, dive,
+                                    BM1615_ACT_DIVE),
+                "UW10 in the dive carrying something the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_SWIM_ZTARGET),
+                "UW11 Z-targeted swimming at the surface the Blast Mask did not go off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, under, BM1615_ACT_DIVE),
+                "UW12 in the dive entered without A (Iron Boots taken off, running jump) the Blast Mask did not go off",
+                __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, none, under, BM1615_ACT_SWIM_WAIT),
+                "UW13 sinking on the Iron Boots the Blast Mask did not go off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_SURFACING),
+                "UW14 surfacing for breath the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_HIT_IN_WATER),
+                "UW15 hit while swimming the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, none, under, BM1615_ACT_HIT_IN_WATER),
+                "UW15 hit under water on the Iron Boots the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater | PLAYER_STATE1_IN_CUTSCENE, 0u, PLAYER_BOOTS_KOKIRI, none, 0u,
+                                    BM1615_ACT_ARRIVE_SWIMMING),
+                "UW16 arriving in a scene swimming the Blast Mask went off", __LINE__);
     Bm1615Check(
-        !Bm1615PressInState(PLAYER_STATE1_IN_WATER | PLAYER_STATE1_CARRYING_ACTOR, 0u, PLAYER_BOOTS_KOKIRI, none, dive),
-        "UW10 in the dive carrying something the Blast Mask went off", __LINE__);
+        !Bm1615PressInState(inWater | PLAYER_STATE1_DEAD, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_DYING_IN_WATER),
+        "UW16 dying in water the Blast Mask went off", __LINE__);
+    Bm1615Check(
+        !Bm1615PressInState(PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_JUMPING, 0u, PLAYER_BOOTS_KOKIRI, none),
+        "UW17 climbing out of water onto a ledge the Blast Mask went off", __LINE__);
 
     Bm1615EndScene(&sBm1615Play);
 }
