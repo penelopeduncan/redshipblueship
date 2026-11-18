@@ -1783,7 +1783,8 @@ void Settings::CreateOptions() {
               "of inventory explosives.");
     OPT_TRICK(RT_GC_ROLLING_STRENGTH, RCQUEST_BOTH, RA_GORON_CITY, { Tricks::Tag::INTERMEDIATE },
               "Rolling Goron (Hot Rodder Goron) as Child with Strength",
-              "Use the Bomb Flower on the stairs or near Medigoron. Timing is tight, especially without backwalking.");
+              "Use the Bomb Flower on the stairs or near Medigoron. Timing is tight, especially without backwalking.\n"
+              "This is in default logic with Bunny Hood.");
     OPT_TRICK(RT_GC_LEFTMOST, RCQUEST_BOTH, RA_GORON_CITY, { Tricks::Tag::ADVANCED },
               "Goron City Maze Left Chest with Hover Boots",
               "A precise backwalk starting from on top of the crate and ending with a precisely-timed backflip can "
@@ -1812,7 +1813,8 @@ void Settings::CreateOptions() {
               "Lower with Hammer\".");
     OPT_TRICK(RT_ZR_LOWER, RCQUEST_BOTH, RA_ZORAS_RIVER, { Tricks::Tag::INTERMEDIATE },
               "Zora\'s River Lower Freestanding PoH as Adult with Nothing",
-              "Adult can reach this PoH with a precise jump, no Hover Boots required.");
+              "Adult can reach this PoH and the nearby bush with a precise jump, no Hover Boots or Bunny Hood "
+              "required.");
     OPT_TRICK(RT_ZR_UPPER, RCQUEST_BOTH, RA_ZORAS_RIVER, { Tricks::Tag::INTERMEDIATE },
               "Zora\'s River Upper Freestanding PoH as Adult with Nothing",
               "Adult can reach this PoH with a precise jump, no Hover Boots required.");
@@ -1935,12 +1937,12 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_DC_SLINGSHOT_SKIP, RCQUEST_VANILLA, RA_DODONGOS_CAVERN, { Tricks::Tag::EXPERT },
               "Dodongo\'s Cavern Child Slingshot Skips",
               "With precise platforming, child can cross the platforms while the flame circles are there. When "
-              "enabling this trick, it's recommended that you also enable the Adult variant: \"Dodongo's Cavern Spike "
-              "Trap Room Jump without Hover Boots\".");
+              "enabling this trick, it's recommended that you also enable Unintuitive Jumps, which enables Adult to "
+              "skip this loop in an easier way.");
     OPT_TRICK(RT_DC_SCRUB_ROOM, RCQUEST_VANILLA, RA_DODONGOS_CAVERN, { Tricks::Tag::NOVICE },
               "Dodongo\'s Cavern Two Scrub Room with Strength",
-              "With help from a conveniently-positioned block, Adult can quickly carry a Bomb Flower over to destroy "
-              "the mud wall blocking the room with two Deku Scrubs.");
+              "With help from a conveniently-positioned block, Adult (or Child with Bunny Hood) can quickly carry a "
+              "Bomb Flower over to destroy the mud wall blocking the room with two Deku Scrubs.");
     OPT_TRICK(RT_DC_HAMMER_FLOOR, RCQUEST_BOTH, RA_DODONGOS_CAVERN, { Tricks::Tag::NOVICE },
               "Dodongo\'s Cavern Smash the Boss Lobby Floor",
               "The bombable floor before King Dodongo can be destroyed with Hammer if hit in the very center. This is "
@@ -1952,10 +1954,10 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_DC_MQ_STAIRS_WITH_ONLY_STRENGTH, RCQUEST_MQ, RA_DODONGOS_CAVERN, { Tricks::Tag::NOVICE },
               "Dodongo\'s Cavern MQ Stairs With Only Strength",
               "Taking a bomb from the back can be used to lower stairs without using stick to drop bomb from wall.");
-    OPT_TRICK(RT_DC_MQ_CHILD_BOMBS, RCQUEST_MQ, RA_DODONGOS_CAVERN, { Tricks::Tag::ADVANCED },
+    OPT_TRICK(RT_DC_CHILD_LOBBY, RCQUEST_BOTH, RA_DODONGOS_CAVERN, { Tricks::Tag::ADVANCED },
               "Dodongo\'s Cavern MQ Early Bomb Bag Area as Child",
-              "With a precise jump slash from above, you can reach the Bomb Bag area as only child without needing a "
-              "Slingshot. You will take fall damage.");
+              "With a precise jumpslash from above, you can reach the ledge in DC Lobby as Child from the upper area "
+              "near the tablet. You will take fall damage.");
     OPT_TRICK(RT_DC_MQ_CHILD_EYES, RCQUEST_MQ, RA_DODONGOS_CAVERN, { Tricks::Tag::EXPERT },
               "Dodongo\'s Cavern MQ Light the Eyes with Strength as Child",
               "If you move very quickly, it is possible to use the bomb flower at the top of the room to light the "
