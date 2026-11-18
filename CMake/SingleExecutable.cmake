@@ -3587,6 +3587,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         LABEL rando
         TIMEOUT 300
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1703: Pirates' Fortress CAN_EVADE_GERUDO (OoTMM can_evade_gerudo) across all
+    # nine changed MM checks and connections plus two controls (Deku Nut on the
+    # plaza-to-tower edge vs. crate 02; internal edge 3 Guard Room -> Purple Guard
+    # Room). games/mm/2s2h/mm_fortress_evade_test.cpp. Same bring-up as MMLogicGates.
+    redship_add_test(NAME MMFortressEvadeGerudo COMMAND redship --test mm-fortress-evade-gerudo
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1569: MM pool counts for RI_MASK_GERUDO/SKULL/SPOOKY under frozen rules
     # (InitOTRForMMFirstBoot + MM_Rando_InitCore + MM_ComboLogic_TestPairedPool).
     # On `--test all` skip list like OoTMasksMMLogic (CheckTestRegistration.cmake
