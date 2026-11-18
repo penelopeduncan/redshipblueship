@@ -122,8 +122,9 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Megaton Hammer open the shortcut as before). With Bunny Hood Effect on, logic expects more hood jumps in
   Dodongo's Cavern, the Forest Temple and the Fire Temple; most of the new Fire Temple ones, and every hood
   jump with the Hover Boots, also need Masks as Adult. The trick "Dodongo's Cavern MQ Early Bomb Bag Area as
-  Child" keeps its name but now also covers the same jumpslash to the lobby ledge in the vanilla quest, and it
-  and four other tricks have Ship of Harkinian's newer descriptions.
+  Child" is now called "Dodongo's Cavern Lobby Recoil to Ledge as Child", Ship of Harkinian's name for it,
+  and also covers the same jumpslash to the lobby ledge in the vanilla quest. It and four other tricks have
+  Ship of Harkinian's newer descriptions.
 - **A fixed placement stays out of the playthrough and location hints** (SoH #6146). Some checks always keep their
   own item when they are not shuffled: the Master Sword in the Temple of Time, the Kokiri Sword, vanilla songs,
   unshuffled Gold Skulltula tokens and a few others. They are no longer listed in the spoiler log's playthrough,
