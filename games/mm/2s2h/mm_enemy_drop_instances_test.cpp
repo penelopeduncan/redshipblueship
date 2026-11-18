@@ -19,11 +19,14 @@
  *   G  Only Show Current Scene inside a grotto whose shared entrance names no region
  *      (the Termina Field Mini Baba grottos' ENTRANCE(GROTTOS, 4)) answers the scene
  *      it was entered from (the respawn point's entrance), not the grotto scene.
- *   C  the combo tracker's MM pane: the drop is available and filed under the area
- *      of one of its instances in logic (not Beneath the Well, its static first
- *      region), its tooltip names Termina Field, reading the row twice computes
- *      availability once, a collected drop keeps that area, and with Enable
- *      Available Checks off the row goes back to the static first region.
+ *   C  the combo tracker's MM pane: the drop is available, and (#1127) listed in
+ *      one place per area of a region that lists it, as MM's own tracker lists it,
+ *      its first place its row's (the static first region, Beneath the Well); the
+ *      places in logic are exactly the areas of its instances in logic (Termina
+ *      Field in, Beneath the Well out), each place answers as MM's tracker's copy
+ *      there does, its tooltip names Termina Field, reading the row twice and its
+ *      places computes availability once, a collected drop keeps its places with
+ *      none in logic, and with Enable Available Checks off no place answers.
  *   U  with every check shuffled, MM's native tracker lists each one under a scene it
  *      draws (the root's starting Deku Mask and Song of Healing included).
  *
@@ -72,6 +75,7 @@ extern "C" int MM_TrackerAdapter_TestInLogicSeam(int authored, const uint16_t* i
 extern "C" uint16_t MM_TrackerAdapter_TestSceneAreaKey(int sceneId);
 extern "C" int MM_TrackerAdapter_TestRegionAreaKey(int regionId, uint16_t* outKey);
 extern "C" uint16_t MM_TrackerAdapter_TestStaticAreaKey(uint16_t checkId);
+extern "C" int MM_TrackerAdapter_TestAreaPlaces(uint16_t checkId, uint16_t* outKeys, int* outAvailable, int cap);
 // CheckTracker.cpp.
 extern "C" int MM_CheckTracker_TestCheckCopy(uint16_t sceneId, uint16_t randoCheckId, char* tip, int cap,
                                              int currentSceneId, int* outShown);
@@ -149,6 +153,8 @@ int EdiInstanceCount(const std::set<Rando::Logic::CheckInstance>& instances, Ran
 }
 
 const char* const kEdiAvailableKey = "gTrackers.CheckTracker.EnableAvailableChecks";
+// More places than any drop has (Mini Baba, the most, is listed under fourteen scenes).
+constexpr int kEdiPlaceCap = 32;
 
 } // namespace
 
@@ -242,6 +248,10 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
     const bool haveAgain = Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kDrop, &again);
     const char* comboTip = Combo_TrackerCheckLogic((uint8_t)GAME_MM, (uint16_t)kDrop);
     const std::string comboTipText = comboTip != nullptr ? comboTip : "";
+    // #1127: the places the pane lists the drop in, each with its own answer, read before the seam drops them.
+    uint16_t placeKeys[kEdiPlaceCap] = {};
+    int placeAvailable[kEdiPlaceCap] = {};
+    const int placeCount = MM_TrackerAdapter_TestAreaPlaces((uint16_t)kDrop, placeKeys, placeAvailable, kEdiPlaceCap);
     const int computations = MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
 
     std::set<uint16_t> reachableAreas;
@@ -251,47 +261,105 @@ extern "C" int MM_EnemyDropInstances_Run(void) {
             reachableAreas.insert(key);
         }
     }
+    // MM's tracker lists the drop under the scene of EVERY region that lists it (initializeSceneChecks).
+    std::set<uint16_t> regionAreas;
+    for (const auto& [regionId, region] : Rando::Logic::Regions) {
+        uint16_t key = 0;
+        if (region.checks.count(kDrop) != 0 && MM_TrackerAdapter_TestRegionAreaKey((int)regionId, &key) != 0) {
+            regionAreas.insert(key);
+        }
+    }
     const uint16_t wellKey = MM_TrackerAdapter_TestSceneAreaKey(wellScene);
+    const uint16_t fieldKey = MM_TrackerAdapter_TestSceneAreaKey(fieldScene);
     const uint16_t staticKey = MM_TrackerAdapter_TestStaticAreaKey((uint16_t)kDrop);
-    printf("[TEST] C: row %d, available %d (known %d), area %04X '%s'; areas in logic %d; Beneath the Well %04X; "
-           "static first region %04X (informational: #1498 saw Beneath the Well); tooltip '%s'; computations %d\n",
+    const int listed = placeCount < kEdiPlaceCap ? placeCount : kEdiPlaceCap;
+    std::set<uint16_t> placeAreas;
+    std::set<uint16_t> placesInLogic;
+    int wellPlace = -2;
+    int fieldPlace = -2;
+    for (int i = 0; i < listed; i++) {
+        placeAreas.insert(placeKeys[i]);
+        if (placeAvailable[i] == 1) {
+            placesInLogic.insert(placeKeys[i]);
+        }
+        wellPlace = placeKeys[i] == wellKey ? placeAvailable[i] : wellPlace;
+        fieldPlace = placeKeys[i] == fieldKey ? placeAvailable[i] : fieldPlace;
+    }
+    printf("[TEST] C: row %d, available %d (known %d), area %04X '%s'; %d place(s) (%d region area(s)), %d in logic; "
+           "Beneath the Well %04X (%d), Termina Field %04X (%d); static first region %04X; tooltip '%s'; "
+           "computations %d\n",
            haveRow ? 1 : 0, row.available ? 1 : 0, row.availabilityKnown ? 1 : 0, (unsigned)row.areaKey,
-           row.areaName != nullptr ? row.areaName : "(null)", (int)reachableAreas.size(), (unsigned)wellKey,
-           (unsigned)staticKey, comboTipText.c_str(), computations);
+           row.areaName != nullptr ? row.areaName : "(null)", placeCount, (int)regionAreas.size(),
+           (int)placesInLogic.size(), (unsigned)wellKey, wellPlace, (unsigned)fieldKey, fieldPlace, (unsigned)staticKey,
+           comboTipText.c_str(), computations);
     EDI_CHECK(haveRow && row.availabilityKnown && row.available, "C: the combo pane does not show Mini Baba available");
-    EDI_CHECK(!reachableAreas.empty() && reachableAreas.count(row.areaKey) != 0,
-              "C: the combo pane does not file Mini Baba under an area where its kill is in logic");
-    EDI_CHECK(row.areaKey != wellKey, "C: the combo pane files Mini Baba under Beneath the Well");
+    EDI_CHECK(row.areaKey == staticKey, "C: Mini Baba's row does not carry its first place, the static first region");
+    EDI_CHECK(placeCount >= 2 && placeCount == (int)placeAreas.size() && placeAreas == regionAreas,
+              "C: the combo pane does not list Mini Baba once under the area of every region that lists it (#1127)");
+    EDI_CHECK(listed > 0 && placeKeys[0] == staticKey, "C: Mini Baba's first place is not its row's area");
+    EDI_CHECK(placesInLogic == reachableAreas && !placesInLogic.empty(),
+              "C: the places where Mini Baba is in logic are not exactly the areas of its instances in logic");
+    EDI_CHECK(wellPlace == 0, "C: the combo pane's Beneath the Well place of Mini Baba is not listed out of logic");
+    EDI_CHECK(fieldPlace == 1, "C: the combo pane's Termina Field place of Mini Baba is not listed in logic");
     EDI_CHECK(haveAgain && again.areaKey == row.areaKey, "C: reading the row again moved it to another area");
-    EDI_CHECK(computations == 1, "C: reading the summary and the row twice did not compute availability exactly once");
+    EDI_CHECK(computations == 1,
+              "C: reading the summary, the row twice and its places did not compute availability exactly once");
     EDI_CHECK(comboTipText.find(fieldName) != std::string::npos && comboTipText.find(wellName) == std::string::npos,
               "C: the combo pane's drop tooltip does not name Termina Field alone of the two");
-    // The issue's claim, and the guard that keeps the area legs from passing against the static rule.
+    // The issue's claim, and the guard that keeps the place legs from passing on the first place alone.
     EDI_CHECK(staticKey == wellKey, "C: Mini Baba's static first region is not Beneath the Well (the issue's claim)");
     EDI_CHECK(reachableAreas.count(staticKey) == 0,
-              "C: Mini Baba's static first region is an area in logic, so the area legs would be vacuous");
+              "C: Mini Baba's static first region is an area in logic, so the place legs would be vacuous");
 
-    // Collected: the drop keeps the area it was filed under instead of going back to the static first region.
+    // The places match MM's own tracker: each is a scene it lists the drop under, greyed the same (#1127).
+    int nativeMismatch = 0;
+    for (int i = 0; i < listed; i++) {
+        const int nativeCopy =
+            MM_CheckTracker_TestCheckCopy((uint16_t)(placeKeys[i] & 0xFF), (uint16_t)kDrop, nullptr, 0, -1, nullptr);
+        if (nativeCopy != placeAvailable[i]) {
+            printf("[TEST] C: place %04X: the combo pane answers %d, MM's tracker %d\n", (unsigned)placeKeys[i],
+                   placeAvailable[i], nativeCopy);
+            nativeMismatch++;
+        }
+    }
+    (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
+    EDI_CHECK(nativeMismatch == 0, "C: a place of Mini Baba in the combo pane differs from MM's own tracker's copy");
+
+    // Collected: the row keeps its places, none in logic (a found drop is in logic nowhere).
     RANDO_SAVE_CHECKS[kDrop].obtained = true;
     (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
     ComboTrackerGameSummary obtainedSummary = {};
     Combo_TrackerGameSummary((uint8_t)GAME_MM, &obtainedSummary);
     ComboTrackerCheckRow obtainedRow = {};
     const bool haveObtained = Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kDrop, &obtainedRow);
+    int obtainedAvailable[kEdiPlaceCap] = {};
+    const int obtainedCount =
+        MM_TrackerAdapter_TestAreaPlaces((uint16_t)kDrop, nullptr, obtainedAvailable, kEdiPlaceCap);
+    int obtainedInLogic = 0;
+    for (int i = 0; i < obtainedCount && i < kEdiPlaceCap; i++) {
+        obtainedInLogic += obtainedAvailable[i] == 1 ? 1 : 0;
+    }
     RANDO_SAVE_CHECKS[kDrop].obtained = false;
     (void)MM_TrackerAdapter_TestInLogicSeam(0, nullptr, 0);
-    printf("[TEST] C (collected): area %04X\n", (unsigned)obtainedRow.areaKey);
-    EDI_CHECK(haveObtained && obtainedRow.areaKey == row.areaKey,
-              "C: collecting Mini Baba's drop moved its row to another area");
+    printf("[TEST] C (collected): area %04X, %d place(s), %d in logic\n", (unsigned)obtainedRow.areaKey, obtainedCount,
+           obtainedInLogic);
+    EDI_CHECK(haveObtained && obtainedRow.areaKey == row.areaKey && obtainedCount == placeCount && obtainedInLogic == 0,
+              "C: collecting Mini Baba's drop moved its places, or left one in logic");
 
-    // Enable Available Checks off: nothing is computed, and the row keeps the static first region.
+    // Enable Available Checks off: nothing is computed, the places stay, and none answers for itself.
     CVarSetInteger(kEdiAvailableKey, 0);
     ComboTrackerCheckRow off = {};
     const bool haveOff = Combo_TrackerCheckAt((uint8_t)GAME_MM, (int)kDrop, &off);
-    printf("[TEST] C (Available Checks off): area %04X, known %d\n", (unsigned)off.areaKey,
-           off.availabilityKnown ? 1 : 0);
-    EDI_CHECK(haveOff && off.areaKey == staticKey && !off.availabilityKnown,
-              "C: with Enable Available Checks off the drop does not go back to the static first region");
+    int offAvailable[kEdiPlaceCap] = {};
+    const int offCount = MM_TrackerAdapter_TestAreaPlaces((uint16_t)kDrop, nullptr, offAvailable, kEdiPlaceCap);
+    bool offUnanswered = true;
+    for (int i = 0; i < offCount && i < kEdiPlaceCap; i++) {
+        offUnanswered = offUnanswered && offAvailable[i] == -1;
+    }
+    printf("[TEST] C (Available Checks off): area %04X, known %d, %d place(s), unanswered %d\n", (unsigned)off.areaKey,
+           off.availabilityKnown ? 1 : 0, offCount, offUnanswered ? 1 : 0);
+    EDI_CHECK(haveOff && off.areaKey == staticKey && !off.availabilityKnown && offCount == placeCount && offUnanswered,
+              "C: with Enable Available Checks off the drop does not keep its places with no answer of their own");
 
     if (hadAvailableKey) {
         CVarSetInteger(kEdiAvailableKey, availableKey);

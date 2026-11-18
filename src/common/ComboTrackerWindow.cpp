@@ -758,30 +758,40 @@ void CollectCheckAreas(uint8_t game, const char* search, bool keepFiltered, std:
         if (!row.shuffled) {
             continue;
         }
-        ComboTrackerAreaRows& area = byKey[row.areaKey];
-        area.key = row.areaKey;
-        if (area.name == nullptr) {
-            area.name = row.areaName;
-        }
-        area.total++;
-        if (row.obtained || row.skipped) {
-            area.done++;
-        }
-        // #1129: like `total`, the whole area, whatever the search hides.
-        if (row.availabilityKnown) {
-            area.availabilityKnown = true;
-            if (row.available && !row.obtained && !row.skipped) {
-                area.available++;
-            }
-        }
-        if (filter.IsActive()) {
-            // What SoH's ShouldShowCheck searches (ComboCheckRowSearchText).
-            haystack = ComboCheckRowSearchText(game, row);
-            if (!filter.PassFilter(haystack.c_str())) {
+        // #1127: a check its game's tracker lists in several places (MM's enemy
+        // drops, under every scene the species lives in) is listed in each, and
+        // counted in each area's totals, as MM's scene headers count it.
+        const int places = Combo_TrackerCheckPlaceCount(game, &row);
+        for (int place = 0; place < places; place++) {
+            ComboTrackerCheckRow listed = row;
+            if (!Combo_TrackerCheckInPlace(game, place, &listed)) {
                 continue;
             }
+            ComboTrackerAreaRows& area = byKey[listed.areaKey];
+            area.key = listed.areaKey;
+            if (area.name == nullptr) {
+                area.name = listed.areaName;
+            }
+            area.total++;
+            if (listed.obtained || listed.skipped) {
+                area.done++;
+            }
+            // #1129: like `total`, the whole area, whatever the search hides.
+            if (listed.availabilityKnown) {
+                area.availabilityKnown = true;
+                if (listed.available && !listed.obtained && !listed.skipped) {
+                    area.available++;
+                }
+            }
+            if (filter.IsActive()) {
+                // What SoH's ShouldShowCheck searches (ComboCheckRowSearchText).
+                haystack = ComboCheckRowSearchText(game, listed);
+                if (!filter.PassFilter(haystack.c_str())) {
+                    continue;
+                }
+            }
+            area.rows.push_back(listed);
         }
-        area.rows.push_back(row);
     }
     for (auto& [key, area] : byKey) {
         // #1279: SoH's order inside the area (UpdateOrdering's std::sort with

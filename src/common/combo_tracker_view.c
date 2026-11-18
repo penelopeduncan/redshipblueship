@@ -60,6 +60,11 @@ void Combo_Tracker_RegisterMM(const ComboMMTrackerDesc* desc) {
         fprintf(stderr, "[ComboTracker] REJECTED MM tracker descriptor: geometry reads outside the shadow blob\n");
         return;
     }
+    // #1127: a half-registered place pair would call NULL from the list's collection.
+    if ((desc->areaPlaceCount == NULL) != (desc->areaPlaceAt == NULL)) {
+        fprintf(stderr, "[ComboTracker] REJECTED MM tracker descriptor: one of the area place ops is NULL\n");
+        return;
+    }
 
     sMMDesc = *desc;
     sMMRegistered = true;
@@ -424,6 +429,39 @@ bool Combo_TrackerCheckAt(uint8_t game, int index, ComboTrackerCheckRow* out) {
         return true;
     }
     return false;
+}
+
+int Combo_TrackerCheckPlaceCount(uint8_t game, const ComboTrackerCheckRow* row) {
+    if (row == NULL || game != (uint8_t)GAME_MM || !sMMRegistered || sMMDesc.areaPlaceCount == NULL) {
+        return 1;
+    }
+    const int count = sMMDesc.areaPlaceCount(row->checkId);
+    return count > 1 ? count : 1;
+}
+
+bool Combo_TrackerCheckInPlace(uint8_t game, int place, ComboTrackerCheckRow* row) {
+    const int count = Combo_TrackerCheckPlaceCount(game, row);
+    if (row == NULL || place < 0 || place >= count) {
+        return false;
+    }
+    if (count == 1) {
+        return true; // its one place is its own area
+    }
+    uint16_t key = 0;
+    int available = -1;
+    const char* name = sMMDesc.areaPlaceAt(row->checkId, place, &key, &available);
+    if (name == NULL) {
+        return false;
+    }
+    row->areaName = name;
+    row->areaKey = key;
+    // A place only narrows the row's own answer: MM's tracker counts a copy in
+    // logic only while the check is (CheckCopyInLogic's instances), so a place
+    // never shows available a check its row answers out of logic.
+    if (row->availabilityKnown && available >= 0) {
+        row->available = row->available && available == 1;
+    }
+    return true;
 }
 
 const char* Combo_TrackerCheckName(uint8_t game, uint16_t checkId) {

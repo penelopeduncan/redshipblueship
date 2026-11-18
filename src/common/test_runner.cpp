@@ -11745,7 +11745,8 @@ const TestDescriptor gTests[] = {
       Test_MMTrackerInLogicArrival },
     { "mm-enemy-drop-instances",
       "MM enemy drops per instance: with a Kokiri Sword, Mini Baba is in logic, the native tracker's Beneath the Well "
-      "copy is not, and the combo pane files it under an area where the kill is in logic (#1498)",
+      "copy is not, and the combo pane lists it in every area the native tracker does, each greyed alike (#1498, "
+      "#1127)",
       Test_MMEnemyDropInstances },
     { "mm-check-instances-per-id",
       "The per-instance check answer leaves the per-id answer the fill reads unchanged, raw and under the reset-time "

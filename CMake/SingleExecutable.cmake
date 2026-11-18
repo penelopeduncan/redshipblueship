@@ -3474,8 +3474,9 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1498: an MM enemy drop answered per instance. MMEnemyDropInstances: with a
     # Kokiri Sword, Mini Baba is in logic, MM's native tracker lists its Beneath the
-    # Well copy out of logic, and the combo pane files it under an area where the
-    # kill is in logic; MMCheckInstancesPerIdUnchanged: the per-instance answer
+    # Well copy out of logic, and the combo pane lists it in every area MM's own
+    # tracker does, each greyed from its own kill (#1127);
+    # MMCheckInstancesPerIdUnchanged: the per-instance answer
     # leaves the per-id answer the fill reads as it was. `rando`: MM's real region
     # graph (the MMTrackerInLogicArrival reason).
     redship_add_test(NAME MMEnemyDropInstances COMMAND redship --test mm-enemy-drop-instances

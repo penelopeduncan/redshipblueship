@@ -647,6 +647,169 @@ int LockHide(void) {
     return result;
 }
 
+// ---- #1127: a check MM's tracker lists in several places ----------------------
+//
+// MM's own Check Tracker lists an enemy drop under every scene its species lives
+// in (CheckTracker.cpp, initializeSceneChecks), each copy greyed from that
+// scene's own kill (#1498). The pane lists such a row once per place its MM
+// descriptor names (areaPlaceCount / areaPlaceAt), counts it in each place's
+// totals, and greys each place from that place's own answer. An authored MM half
+// read STALE (Ocarina of Time played): an open drop with three places (in logic
+// in area 5, out in area 9, no answer of its own in area 2) and a found check
+// with one place (area 9). MMEnemyDropInstances (rando tier) locks the real
+// adapter's places against MM's own tracker.
+
+const uint16_t kCtwPlacesDrop = 0x14;
+const uint16_t kCtwPlacesFound = 0x15;
+
+const char* CtwPlacesName(uint16_t id) {
+    return id == kCtwPlacesDrop ? "Enemy Drop Like Like" : (id == kCtwPlacesFound ? "Well Chest" : nullptr);
+}
+const char* CtwPlacesArea(uint16_t id, uint16_t* outKey) {
+    const bool drop = id == kCtwPlacesDrop;
+    if (outKey != nullptr) {
+        *outKey = drop ? 5 : 9;
+    }
+    return drop ? "Field" : "Well";
+}
+int CtwPlacesCount(uint16_t id) {
+    return id == kCtwPlacesDrop ? 3 : 1;
+}
+const char* CtwPlacesAt(uint16_t id, int place, uint16_t* outKey, int* outAvailable) {
+    struct CtwPlace {
+        uint16_t key;
+        const char* name;
+        int available;
+    };
+    static const CtwPlace kDropPlaces[] = { { 5, "Field", 1 }, { 9, "Well", 0 }, { 2, "Swamp", -1 } };
+    if (id != kCtwPlacesDrop) {
+        *outAvailable = -1;
+        return place == 0 ? CtwPlacesArea(id, outKey) : nullptr;
+    }
+    if (place < 0 || place >= 3) {
+        return nullptr;
+    }
+    *outKey = kDropPlaces[place].key;
+    *outAvailable = kDropPlaces[place].available;
+    return kDropPlaces[place].name;
+}
+
+/** "<key>:<available>/<done>/<total>" per area, in order. */
+std::string CtwPlacesTotals(const std::vector<ComboGui::ComboTrackerAreaRows>& areas) {
+    std::string s;
+    for (const ComboGui::ComboTrackerAreaRows& area : areas) {
+        char text[32];
+        snprintf(text, sizeof(text), "%s%u:%d/%d/%d", s.empty() ? "" : " ", (unsigned)area.key, area.available,
+                 area.done, area.total);
+        s += text;
+    }
+    return s;
+}
+
+int LockPlacesBody(void) {
+    using namespace ComboGui;
+    MM_TrackerAdapter_Register();
+    const ComboMMTrackerDesc* real = Combo_Tracker_GetMMDesc();
+    CTW_ASSERT(real != nullptr);
+    ComboMMTrackerDesc desc = *real;
+    desc.checkName = CtwPlacesName;
+    desc.areaName = CtwPlacesArea;
+    desc.placedItemName = nullptr;
+    desc.logicText = nullptr;
+    desc.areaPlaceCount = CtwPlacesCount;
+    desc.areaPlaceAt = CtwPlacesAt;
+    Combo_Tracker_RegisterMM(&desc);
+    CTW_ASSERT(Combo_Tracker_GetMMDesc() != nullptr && Combo_Tracker_GetMMDesc()->areaPlaceAt == CtwPlacesAt);
+
+    std::vector<uint8_t> half((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    memcpy(half.data() + desc.newfOffset, desc.newf, desc.newfLen);
+    memcpy(half.data() + desc.saveTypeOffset, &desc.saveTypeRando, sizeof(uint32_t));
+    for (const uint16_t check : { kCtwPlacesDrop, kCtwPlacesFound }) {
+        half[desc.checkTableOffset + (size_t)check * desc.checkStride + desc.shuffledOffset] = 1;
+    }
+    half[desc.checkTableOffset + (size_t)kCtwPlacesFound * desc.checkStride + desc.obtainedOffset] = 1;
+    Context_UpdateShadowCopy(GAME_MM, half.data(), half.size());
+    // The departure capture: the drop in logic (one kill somewhere is), the found check not.
+    uint8_t bits[(kCtwPlacesFound + 8) / 8] = {};
+    bits[kCtwPlacesDrop >> 3] |= (uint8_t)(1u << (kCtwPlacesDrop & 7));
+    Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, bits, (uint32_t)kCtwPlacesFound + 1);
+    Context_SetCurrentGame(GAME_OOT);
+
+    // One row per place, each area counting it; the drop's own place answers for it.
+    std::vector<ComboTrackerAreaRows> areas;
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
+    const std::string drawn = CtwDrawn(areas);
+    const std::string totals = CtwPlacesTotals(areas);
+    printf("[TEST] combo-tracker-window #1127: MM's pane lists \"%s\", available/checked/total \"%s\"\n", drawn.c_str(),
+           totals.c_str());
+    CTW_ASSERT(drawn == "2:14 5:14 9:14,15");
+    CTW_ASSERT(totals == "2:1/0/1 5:1/0/1 9:0/1/2");
+    CTW_ASSERT(areas.size() == 3 && strcmp(areas[0].name, "Swamp") == 0 && strcmp(areas[1].name, "Field") == 0 &&
+               strcmp(areas[2].name, "Well") == 0);
+    // The search reads each place's own area name: "well" finds the drop in the Well only.
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "well", areas);
+    CTW_ASSERT(CtwDrawn(areas) == "9:14,15");
+    // Only Show Current Area keeps the drop's place in the current area.
+    ComboCheckHideOptions opts;
+    opts.onlyCurrentArea = true;
+    opts.currentAreaKnown = true;
+    opts.currentArea = 5;
+    ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
+    CTW_ASSERT(CtwDrawn(areas) == "5:14");
+    // Only Show Available drops the place where the kill is out of logic.
+    opts = ComboCheckHideOptions();
+    opts.onlyAvailable = true;
+    ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
+    printf("[TEST] combo-tracker-window #1127: Only Show Available draws \"%s\"\n", CtwDrawn(areas).c_str());
+    CTW_ASSERT(CtwDrawn(areas) == "2:14 5:14");
+    // A place only narrows its row: with the drop captured out of logic, its
+    // Field place (which answers in logic) is not shown available either.
+    const uint8_t noneBits[(kCtwPlacesFound + 8) / 8] = {};
+    Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, noneBits, (uint32_t)kCtwPlacesFound + 1);
+    ComboCollectVisibleCheckAreas((uint8_t)GAME_MM, "", opts, areas);
+    printf("[TEST] combo-tracker-window #1127: captured out of logic, Only Show Available draws \"%s\"\n",
+           CtwDrawn(areas).c_str());
+    CTW_ASSERT(CtwDrawn(areas).empty());
+    Combo_TrackerFreezeAvailability((uint8_t)GAME_MM, bits, (uint32_t)kCtwPlacesFound + 1);
+
+    // An OoT row has one place, and placing it there leaves it byte for byte as it was.
+    Combo_Tracker_RegisterOoT(&kCtwOps);
+    ComboTrackerCheckRow oot;
+    CTW_ASSERT(Combo_TrackerCheckAt((uint8_t)GAME_OOT, 0, &oot));
+    ComboTrackerCheckRow placed = oot;
+    CTW_ASSERT(Combo_TrackerCheckPlaceCount((uint8_t)GAME_OOT, &oot) == 1);
+    CTW_ASSERT(Combo_TrackerCheckInPlace((uint8_t)GAME_OOT, 0, &placed) && memcmp(&placed, &oot, sizeof(oot)) == 0);
+    CTW_ASSERT(!Combo_TrackerCheckInPlace((uint8_t)GAME_OOT, 1, &placed));
+
+    // Without the place ops every MM check has one place, its areaName's.
+    desc.areaPlaceCount = nullptr;
+    desc.areaPlaceAt = nullptr;
+    Combo_Tracker_RegisterMM(&desc);
+    ComboCollectCheckAreas((uint8_t)GAME_MM, "", areas);
+    CTW_ASSERT(CtwDrawn(areas) == "5:14 9:15");
+    // A half-registered pair is refused: the registry keeps the descriptor it had.
+    desc.areaPlaceCount = CtwPlacesCount;
+    Combo_Tracker_RegisterMM(&desc);
+    CTW_ASSERT(Combo_Tracker_GetMMDesc() != nullptr && Combo_Tracker_GetMMDesc()->areaPlaceCount == nullptr);
+    return TEST_PASS;
+}
+
+int LockPlaces(void) {
+    const GameId prevGame = Context_GetCurrentGame();
+    std::vector<uint8_t> shadowBackup((size_t)MM_SAVE_CONTEXT_SIZE, 0);
+    const uint8_t* resident = (const uint8_t*)Context_GetMMSaveContext();
+    if (resident != nullptr) {
+        memcpy(shadowBackup.data(), resident, shadowBackup.size());
+    }
+    const int result = LockPlacesBody();
+    Context_UpdateShadowCopy(GAME_MM, shadowBackup.data(), shadowBackup.size());
+    ComboContext_Init();           // drops the authored departure capture
+    OoT_TrackerAdapter_Register(); // the production adapters, whatever the result
+    MM_TrackerAdapter_Register();
+    Context_SetCurrentGame(prevGame);
+    return result;
+}
+
 // ---- #1279: each area's rows in SoH's CompareChecks order ----------------------
 
 // One area (9) holding every class CompareChecks orders, in descending id order
@@ -1594,7 +1757,8 @@ int LockL5(void) {
     // None of the three status squares (empty, ticked, skipped) in the row draw.
     CTW_ASSERT(drawRow.find("SQUARE_O") == std::string::npos);
     CTW_ASSERT(win.find("if (headerPresent) {\n        ImGui::Separator();") != std::string::npos);
-    CTW_ASSERT(win.find("haystack = ComboCheckRowSearchText(game, row);") != std::string::npos);
+    // #1127: the search text is each listed place's row (CollectCheckAreas' `listed`).
+    CTW_ASSERT(win.find("haystack = ComboCheckRowSearchText(game, listed);") != std::string::npos);
     // #1287: the checkboxes are drawn behind their own keys, and the keys are read.
     const std::string areaToggle = CtwSlice(win, "if (header.onlyCurrentAreaToggle) {", "\n    }");
     CTW_ASSERT(!areaToggle.empty() && areaToggle.find("\"Only Show Current Area\"") != std::string::npos);
@@ -1901,6 +2065,7 @@ int TrackerLayoutLocks(void) {
     const int r816 = Lock816();
     const int rAreas = LockAreas();
     const int rHide = LockHide();
+    const int rPlaces = LockPlaces();
     const int rAvail = LockAvail();
     const int rChrome = LockChrome();
     const int rSeen = LockSeen();
@@ -1911,18 +2076,20 @@ int TrackerLayoutLocks(void) {
     const int rSort = LockSort();
     const int rFarSkip = LockFarSkip();
     printf("[TEST] combo-tracker-window layout locks: #815 %s, #816 %s, U4 areas+search %s, #1128 hide+totals %s, "
-           "#1129 reachability %s, #1130 chrome %s, #1166 seen item+price %s, #1166 ice trap %s, #1161 logic %s, "
+           "#1127 places %s, #1129 reachability %s, #1130 chrome %s, #1166 seen item+price %s, #1166 ice trap %s, "
+           "#1161 logic %s, "
            "#1131 navigation %s, #1132 replaces SoH's %s, #1279 sort %s, #1294 far skip column %s\n",
            r815 == TEST_PASS ? "PASS" : "FAIL", r816 == TEST_PASS ? "PASS" : "FAIL",
            rAreas == TEST_PASS ? "PASS" : "FAIL", rHide == TEST_PASS ? "PASS" : "FAIL",
-           rAvail == TEST_PASS ? "PASS" : "FAIL", rChrome == TEST_PASS ? "PASS" : "FAIL",
-           rSeen == TEST_PASS ? "PASS" : "FAIL", rIce == TEST_PASS ? "PASS" : "FAIL",
-           rLogic == TEST_PASS ? "PASS" : "FAIL", rNav == TEST_PASS ? "PASS" : "FAIL",
-           rL5 == TEST_PASS ? "PASS" : "FAIL", rSort == TEST_PASS ? "PASS" : "FAIL",
-           rFarSkip == TEST_PASS ? "PASS" : "FAIL");
+           rPlaces == TEST_PASS ? "PASS" : "FAIL", rAvail == TEST_PASS ? "PASS" : "FAIL",
+           rChrome == TEST_PASS ? "PASS" : "FAIL", rSeen == TEST_PASS ? "PASS" : "FAIL",
+           rIce == TEST_PASS ? "PASS" : "FAIL", rLogic == TEST_PASS ? "PASS" : "FAIL",
+           rNav == TEST_PASS ? "PASS" : "FAIL", rL5 == TEST_PASS ? "PASS" : "FAIL",
+           rSort == TEST_PASS ? "PASS" : "FAIL", rFarSkip == TEST_PASS ? "PASS" : "FAIL");
     return (r815 == TEST_PASS && r816 == TEST_PASS && rAreas == TEST_PASS && rHide == TEST_PASS &&
-            rAvail == TEST_PASS && rChrome == TEST_PASS && rSeen == TEST_PASS && rIce == TEST_PASS &&
-            rLogic == TEST_PASS && rNav == TEST_PASS && rL5 == TEST_PASS && rSort == TEST_PASS && rFarSkip == TEST_PASS)
+            rPlaces == TEST_PASS && rAvail == TEST_PASS && rChrome == TEST_PASS && rSeen == TEST_PASS &&
+            rIce == TEST_PASS && rLogic == TEST_PASS && rNav == TEST_PASS && rL5 == TEST_PASS && rSort == TEST_PASS &&
+            rFarSkip == TEST_PASS)
                ? TEST_PASS
                : TEST_FAIL;
 }
