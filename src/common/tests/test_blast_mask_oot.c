@@ -47,8 +47,8 @@
  *   that reaches the item buttons (#1718, OoTMM's wrapper), so its water legs
  *   (#1701, #1714) blast swimming at the surface, sinking after falling in, in
  *   every dive and on the Iron Boots, and refuse it while surfacing for breath,
- *   hit in water, arriving swimming or dying in water, and with the hookshot
- *   held unfired or in flight; its land legs refuse it in a sword swing, a jump
+ *   hit in water, arriving swimming or dying in water, and with the hookshot's
+ *   hook out (fired) or in flight; its land legs refuse it in a sword swing, a jump
  *   attack, a roll, knocked down, shocked and frozen. Its source half checks
  *   that the call sits in OoT_Player_UpdateItems alone, and that each action a
  *   leg samples reaches the item buttons in z_player.c exactly when the leg says.

@@ -776,8 +776,8 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
  *  in, every dive (with A or without), and on the Iron Boots sinking or walking
  *  the bottom. It is refused in the water actions that never reach the item
  *  buttons (surfacing for breath, hit in water, arriving swimming, dying in
- *  water), climbing out onto a ledge, and with the hookshot held unfired or in
- *  flight. An armed mask still takes B from a held Megaton Hammer, under water as
+ *  water), climbing out onto a ledge, and with the hookshot's hook out (fired) or
+ *  in flight. An armed mask still takes B from a held Megaton Hammer, under water as
  *  on land, and a dive carrying something up from the bottom still refuses. */
 static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
@@ -797,7 +797,7 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_HOVER, none, 0u, BM1615_ACT_SWIM),
                 "UW3 swimming forward at the surface on the Hover Boots the Blast Mask did not go off", __LINE__);
     Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT),
-                "UW4 under water on the Iron Boots with the hookshot held unfired the Blast Mask went off", __LINE__);
+                "UW4 under water on the Iron Boots with the hookshot's hook out the Blast Mask went off", __LINE__);
     Bm1615Check(!Bm1615PressInState(inWater, PLAYER_STATE3_FLYING_WITH_HOOKSHOT, PLAYER_BOOTS_IRON, none),
                 "UW5 under water on the Iron Boots in hookshot flight the Blast Mask went off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HAMMER),
@@ -805,7 +805,7 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HAMMER),
                 "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
-                "UW7 on dry land with the hookshot held unfired the Blast Mask went off", __LINE__);
+                "UW7 on dry land with the hookshot's hook out the Blast Mask went off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, dive, BM1615_ACT_DIVE),
                 "UW8 in the dive started with A the Blast Mask did not go off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, under, BM1615_ACT_SWIM_WAIT),

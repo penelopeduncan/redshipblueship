@@ -173,7 +173,7 @@ bool BlastMaskOnButtons() {
  *  at the surface, sinks, dives, or walks the bottom on the Iron Boots, and so
  *  does the blast (#1701, #1714, operator 2026-11-17, "yes follow ootmm"). On top
  *  of that it keeps OoTMM's wrapper's own tests (not carrying an actor, not in a
- *  cutscene, the hookshot not held unfired, which is func_8008F128 and OoTMM's
+ *  cutscene, the hookshot's hook not out (fired), which is func_8008F128 and OoTMM's
  *  Player_UsingItem, not on Epona) and this build's other refusals, some of
  *  which OoTMM does not make: input disabled, talking, a dead Link, getting an
  *  item, first person, an item cutscene, hanging from or climbing a ledge, a
