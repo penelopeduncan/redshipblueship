@@ -793,6 +793,9 @@ struct DistinctPair {
 // (a kTranslatedKeys row below); an element with none is an MM row in SoH's Cosmetics Editor, bound through this
 // prefix.
 #define RSBS_CVAR_MM_COSMETIC_PREFIX "gCosmetic."
+// #1581: OoTMM's opt-in Gerudo Mask Tunic cosmetic (boolean, default off), bound in CosmeticsEditorMm.cpp and read by
+// CosmeticGfxSingleExe.cpp. Not a colour pair, so it has its own scalar define under the gCosmetic. family.
+#define RSBS_CVAR_MM_COSMETIC_GERUDO_MASK_TUNIC "gCosmetic.Player.GerudoMaskTunic"
 // W6-AUDIO-SEQ
 // W6-AUDIO-SEQ (#1239): the two key families MM's sequence editor composes by concatenation, a replacement
 // (<prefix><sfxKey>.value / .locked) and a shuffle-pool exclusion (<prefix><sfxKey>), held under MM's own namespace.
