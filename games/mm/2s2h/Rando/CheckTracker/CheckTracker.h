@@ -18,6 +18,23 @@ void OnFileLoad();
  *  cfd1116a4, #1775). The Combo Tracker's MM pane names its areas with the same words (MMSceneAreaName). */
 const char* GetCheckTrackerSceneName(SceneId sceneId);
 
+/** The scene the tracker lists region `regionId`'s checks under (initializeSceneChecks' rule, 2Ship f8bf9bb3b): a
+ *  region of a scene in scenesToCheckParent (a grotto, a shop or house interior) under the scene of the region it
+ *  connects to, any other region under its own scene through Play_GetOriginalSceneId. SCENE_MAX when the tracker
+ *  lists the region under no scene (the root, or an interior region with no connection found). The Combo Tracker's
+ *  MM pane lists by this same rule (TrackerAdapterSingleExe.cpp, #1706). */
+SceneId GetRegionListScene(RandoRegionId regionId);
+
+/** The scene the tracker lists the checks of the interior Link stands in under, while a scene in
+ *  scenesToCheckParent is played with save entrance `entrance` (GetScrollTargetScene's parent lookup): the
+ *  GetRegionListScene of the entrance's region when that region is in such a scene and has one, else SCENE_MAX (the
+ *  tracker then answers the played scene itself, or for a grotto the scene it was entered from). #1706. */
+SceneId GetInteriorParentScene(s32 entrance);
+
+/** Whether the tracker lists the checks of scene `sceneId` (an original scene id) under the scene each region of it
+ *  opens from (scenesToCheckParent, 2Ship f8bf9bb3b). #1706. */
+bool IsListedUnderParentScene(SceneId sceneId);
+
 /** The set of checks the tracker draws as "in logic": reachable from `startEntrance` under the CURRENT save
  *  (CrawlReachableRegions + EvaluateReachableChecks), shuffled and not yet obtained. Gate-free (no CVar, no frame
  *  throttle) so a test reads exactly what the window draws. The crawl zeroes and re-fires RANDO_EVENTS, which lives

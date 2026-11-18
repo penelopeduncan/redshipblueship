@@ -274,15 +274,70 @@ const char* Rando::CheckTracker::GetCheckTrackerSceneName(SceneId sceneId) {
     return Ship_GetSceneName(sceneId);
 }
 
+bool Rando::CheckTracker::IsListedUnderParentScene(SceneId sceneId) {
+    return scenesToCheckParent.contains(sceneId);
+}
+
+// Local divergence from f8bf9bb3b (#1706): initializeSceneChecks' per-region rule, factored out unchanged so the
+// Combo Tracker's MM pane lists by it (TrackerAdapterSingleExe.cpp) instead of a copy. Read-only: Regions.find, where
+// upstream's Regions[connectedRegionId] would insert a region the graph lacks.
+SceneId Rando::CheckTracker::GetRegionListScene(RandoRegionId regionId) {
+    auto region = Rando::Logic::Regions.find(regionId);
+    if (region == Rando::Logic::Regions.end()) {
+        return SCENE_MAX;
+    }
+    auto& staticRegion = region->second;
+    SceneId sceneId = (SceneId)Play_GetOriginalSceneId(staticRegion.sceneId);
+    if (sceneId == SCENE_MAX) {
+        return SCENE_MAX;
+    }
+
+    // For some scenes we want to show them in their parent instead
+    if (scenesToCheckParent.contains(sceneId)) {
+        RandoRegionId connectedRegionId = RR_MAX;
+        if (regionId == RR_LONE_PEAK_SHRINE) {
+            connectedRegionId = RR_LONE_PEAK_SHRINE;
+        } else {
+            for (auto& [entrance, _] : staticRegion.exits) {
+                connectedRegionId = Rando::Logic::GetRegionIdFromEntrance(entrance);
+            }
+            for (auto& [connectionId, _] : staticRegion.connections) {
+                connectedRegionId = connectionId;
+            }
+            if (connectedRegionId == RR_MAX) {
+                return SCENE_MAX;
+            }
+        }
+        auto connected = Rando::Logic::Regions.find(connectedRegionId);
+        if (connected == Rando::Logic::Regions.end()) {
+            return SCENE_MAX;
+        }
+        sceneId = connected->second.sceneId;
+    }
+    return sceneId;
+}
+
+SceneId Rando::CheckTracker::GetInteriorParentScene(s32 entrance) {
+    const RandoRegionId regionId = Rando::Logic::GetRegionIdFromEntrance(entrance);
+    auto region = Rando::Logic::Regions.find(regionId);
+    if (region == Rando::Logic::Regions.end() ||
+        !scenesToCheckParent.contains((SceneId)Play_GetOriginalSceneId(region->second.sceneId))) {
+        return SCENE_MAX;
+    }
+    return GetRegionListScene(regionId);
+}
+
 // The last scene OnSceneInit saw that is not a grotto, or -1: GetScrollTargetScene's last resort.
 static s32 sLastNonGrottoScene = -1;
 
 static SceneId GetScrollTargetScene(s32 rawSceneId) {
     SceneId sceneId = (SceneId)Play_GetOriginalSceneId(rawSceneId);
     if (scenesToCheckParent.contains(sceneId)) {
-        RandoRegionId regionId = Rando::Logic::GetRegionIdFromEntrance(gSaveContext.save.entrance);
-        if (regionParentSceneMap.contains(regionId)) {
-            return regionParentSceneMap[regionId];
+        // #1706: regionParentSceneMap's answer, from the rule that builds it (GetInteriorParentScene), so it holds
+        // before initializeSceneChecks has run too.
+        const SceneId parentSceneId = Rando::CheckTracker::GetInteriorParentScene(gSaveContext.save.entrance);
+        if (parentSceneId != SCENE_MAX) {
+            return parentSceneId;
         }
         // Local divergence from f8bf9bb3b (#1498): upstream's Logic half gives each grotto that shares
         // ENTRANCE(GROTTOS, 4) / (GROTTOS, 10) its own entrance. That half is not ported (it moves the fill), so here
@@ -318,28 +373,14 @@ void initializeSceneChecks() {
     // every shuffled check no listed region holds goes under its own static scene below, as before the port.
     std::set<RandoCheckId> listedChecks;
     for (auto& [regionId, staticRegion] : Rando::Logic::Regions) {
-        SceneId sceneId = (SceneId)Play_GetOriginalSceneId(staticRegion.sceneId);
+        // #1706: the per-region rule is Rando::CheckTracker::GetRegionListScene, which the Combo Tracker reads too.
+        const SceneId sceneId = Rando::CheckTracker::GetRegionListScene(regionId);
         if (sceneId == SCENE_MAX) {
             continue;
         }
 
         // For some scenes we want to show them in their parent instead
-        if (scenesToCheckParent.contains(sceneId)) {
-            RandoRegionId connectedRegionId = RR_MAX;
-            if (regionId == RR_LONE_PEAK_SHRINE) {
-                connectedRegionId = RR_LONE_PEAK_SHRINE;
-            } else {
-                for (auto& [entrance, _] : staticRegion.exits) {
-                    connectedRegionId = Rando::Logic::GetRegionIdFromEntrance(entrance);
-                }
-                for (auto& [regionId, _] : staticRegion.connections) {
-                    connectedRegionId = regionId;
-                }
-                if (connectedRegionId == RR_MAX) {
-                    continue;
-                }
-            }
-            sceneId = Rando::Logic::Regions[connectedRegionId].sceneId;
+        if (scenesToCheckParent.contains((SceneId)Play_GetOriginalSceneId(staticRegion.sceneId))) {
             regionParentSceneMap[regionId] = sceneId;
         }
         for (auto& [randoCheckId, _] : staticRegion.checks) {
@@ -517,6 +558,22 @@ extern "C" int MM_CheckTracker_TestUnlistedShuffled(uint16_t* out, int cap) {
             }
             count++;
         }
+    }
+    return count;
+}
+
+// TEST BRIDGE (#1706): the scenes the tracker's lists, as last built (MM_CheckTracker_TestReset or a file load), hold
+// check `randoCheckId` under, in scene id order, up to `cap` of them in `out` (may be NULL). Returns how many.
+extern "C" int MM_CheckTracker_TestListedScenes(uint16_t randoCheckId, uint16_t* out, int cap) {
+    int count = 0;
+    for (auto& [sceneId, checks] : sceneChecks) {
+        if (!checks.contains((RandoCheckId)randoCheckId)) {
+            continue;
+        }
+        if (out != nullptr && count < cap) {
+            out[count] = (uint16_t)sceneId;
+        }
+        count++;
     }
     return count;
 }
