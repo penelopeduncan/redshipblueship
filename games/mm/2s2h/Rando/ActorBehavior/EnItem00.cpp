@@ -10,6 +10,14 @@ extern "C" {
 #include "functions.h"
 #include "variables.h"
 #include "overlays/actors/ovl_Obj_Mure3/z_obj_mure3.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.h"
+#include "overlays/actors/ovl_En_Karebaba/z_en_karebaba.h"
+
+void MM_EnDekubaba_DeadStickDrop(EnDekubaba* enDekubaba, PlayState* play);
+void MM_EnKarebaba_DeadItemDrop(EnKarebaba* enKarebaba, PlayState* play);
+void MM_EnKarebaba_SetupDead(EnKarebaba* enKarebaba);
+#endif
 }
 
 std::map<std::tuple<u16, u8, s16>, RandoCheckId> freestandingMap = {
@@ -133,6 +141,26 @@ void Rando::ActorBehavior::InitEnItem00Behavior() {
     COND_ID_HOOK(ShouldActorInit, ACTOR_EN_ITEM00, IS_RANDO, [](Actor* actor, bool* should) {
         if (actor->params != ITEM00_NOTHING && MM_Combo_Item00Gated(actor->params)) {
             *should = false;
+        }
+    });
+
+    // #1691: a Deku Baba's stick is not an ITEM00: it is the baba itself in its
+    // stick-drop state, offering GI_DEKU_STICKS_1, which MM_Item_Give then refuses
+    // (the get-item scene plays and nothing is given). Run after the actor's own
+    // update, so the frame that enters that state ends here, before any offer:
+    // the Deku Baba goes as its stick does when it times out, and the withered or
+    // Mini Baba goes straight to its dead state, as after its stick is taken, and
+    // regrows as usual. OoT does the same (hook_handlers.cpp).
+    COND_ID_HOOK(OnActorUpdate, ACTOR_EN_DEKUBABA, IS_RANDO, [](Actor* actor) {
+        EnDekubaba* enDekubaba = (EnDekubaba*)actor;
+        if (enDekubaba->actionFunc == MM_EnDekubaba_DeadStickDrop && MM_Combo_GetItemGated(GI_DEKU_STICKS_1)) {
+            MM_Actor_Kill(actor);
+        }
+    });
+    COND_ID_HOOK(OnActorUpdate, ACTOR_EN_KAREBABA, IS_RANDO, [](Actor* actor) {
+        EnKarebaba* enKarebaba = (EnKarebaba*)actor;
+        if (enKarebaba->actionFunc == MM_EnKarebaba_DeadItemDrop && MM_Combo_GetItemGated(GI_DEKU_STICKS_1)) {
+            MM_EnKarebaba_SetupDead(enKarebaba);
         }
     });
 #endif

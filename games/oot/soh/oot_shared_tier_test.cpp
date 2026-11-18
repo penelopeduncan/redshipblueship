@@ -104,6 +104,20 @@ extern "C" int OoT_SharedTierTest_BagTier(int nut) {
     return (int)(nut ? CUR_UPG_VALUE(UPG_NUTS) : CUR_UPG_VALUE(UPG_STICKS));
 }
 
+/** #1691: OoT's live stick (nut) capacity tier set to @p tier. */
+extern "C" void OoT_SharedTierTest_SetBagTier(int nut, int tier) {
+    OoT_Inventory_ChangeUpgrade(nut ? UPG_NUTS : UPG_STICKS, (s16)tier);
+}
+
+/** #1691: OoT's GI_* ids by index: 0 GI_STICKS_1 (a Deku Baba's stick), 1 _5,
+ *  2 _10, 3 GI_NUTS_5, 4 GI_NUTS_5_2 (a scrub's), 5 GI_NUTS_10, 6 GI_RUPEE_BLUE
+ *  (not gated); -1 past it. */
+extern "C" int OoT_SharedTierTest_GetItemId(int which) {
+    static const int kIds[] = { GI_STICKS_1, GI_STICKS_5, GI_STICKS_10, GI_NUTS_5,
+                                GI_NUTS_5_2, GI_NUTS_10,  GI_RUPEE_BLUE };
+    return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
+}
+
 /** OoT's live stick (nut) count. */
 extern "C" int OoT_SharedTierTest_BagAmmo(int nut) {
     return (int)(nut ? AMMO(ITEM_NUT) : AMMO(ITEM_STICK));

@@ -10,6 +10,9 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/OTRGlobals.h"
 #include "soh/ResourceManagerHelpers.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "soh/Enhancements/randomizer/StickNutBagGate.h" // #1691: no stick or nut sale before the pair's bag
+#endif
 
 #define FLAGS (ACTOR_FLAG_ATTENTION_ENABLED | ACTOR_FLAG_FRIENDLY)
 
@@ -176,6 +179,12 @@ void OoT_EnDns_ChangeAnim(EnDns* this, u8 index) {
 /* Item give checking functions */
 
 u32 EnDns_CanBuyDekuNuts(EnDns* this) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // [RSBS #1691] Before the pair's nut bag the give refuses nuts: no sale, as the shop shelves (z_en_girla.c).
+    if (IS_RANDO && OoT_Combo_GetItemGated((int16_t)this->dnsItemEntry->getItemId)) {
+        return DNS_CANBUY_RESULT_CANT_GET_NOW;
+    }
+#endif
     if ((CUR_CAPACITY(UPG_NUTS) != 0) && (AMMO(ITEM_NUT) >= CUR_CAPACITY(UPG_NUTS))) {
         return DNS_CANBUY_RESULT_CAPACITY_FULL;
     }
@@ -189,6 +198,12 @@ u32 EnDns_CanBuyDekuNuts(EnDns* this) {
 }
 
 u32 EnDns_CanBuyDekuSticks(EnDns* this) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // [RSBS #1691] Before the pair's stick bag the give refuses sticks: no sale, as the shop shelves (z_en_girla.c).
+    if (IS_RANDO && OoT_Combo_GetItemGated((int16_t)this->dnsItemEntry->getItemId)) {
+        return DNS_CANBUY_RESULT_CANT_GET_NOW;
+    }
+#endif
     if ((CUR_CAPACITY(UPG_STICKS) != 0) && (AMMO(ITEM_STICK) >= CUR_CAPACITY(UPG_STICKS))) {
         return DNS_CANBUY_RESULT_CAPACITY_FULL;
     }

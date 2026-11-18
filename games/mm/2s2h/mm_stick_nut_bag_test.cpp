@@ -44,6 +44,10 @@ extern "C" int MM_SnbTest_ItemId(int which) {
     (void)which;
     return -1;
 }
+extern "C" int MM_SnbTest_GetItemId(int which) {
+    (void)which;
+    return -1;
+}
 extern "C" int MM_SnbTest_Give(int item) {
     (void)item;
     return -1;
@@ -134,6 +138,13 @@ extern "C" int MM_SnbTest_ItemId(int which) {
     static const int kIds[] = { ITEM_DEKU_STICK, ITEM_DEKU_STICKS_5, ITEM_DEKU_STICKS_10,
                                 ITEM_DEKU_NUT,   ITEM_DEKU_NUTS_5,   ITEM_DEKU_NUTS_10,
                                 ITEM_BOMB };
+    return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
+}
+
+/** #1691: MM's GI_* ids by index: 0 GI_DEKU_STICKS_1 (a Deku Baba's stick),
+ *  1 GI_DEKU_NUTS_1, 2 _NUTS_5, 3 _NUTS_10, 4 GI_RUPEE_BLUE (not gated); -1 past it. */
+extern "C" int MM_SnbTest_GetItemId(int which) {
+    static const int kIds[] = { GI_DEKU_STICKS_1, GI_DEKU_NUTS_1, GI_DEKU_NUTS_5, GI_DEKU_NUTS_10, GI_RUPEE_BLUE };
     return (which >= 0 && which < (int)(sizeof(kIds) / sizeof(kIds[0]))) ? kIds[which] : -1;
 }
 

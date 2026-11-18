@@ -8,6 +8,10 @@
 #include <soh/OTRGlobals.h>
 #include "soh/Enhancements/randomizer/randomizer.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
+#ifdef RSBS_SINGLE_EXECUTABLE
+#include "game.h"            // src/common: GAME_OOT
+#include "warp_song_items.h" // src/common: Combo_SharedItemDisplayName, a shared item's plain name (#1698)
+#endif
 
 extern "C" {
 extern PlayState* OoT_gPlayState;
@@ -115,6 +119,22 @@ void BuildAdultAltarMessage(uint16_t* textId, bool* loadFromMessageTable) {
     *loadFromMessageTable = false;
 }
 
+// The name a Skulltula house reward hint gives the item check `rc` holds: the item
+// table's localized name, except that under its frozen shared rule the Song of
+// Soaring (OoT) is one item of both games, named without its tag (#1698, OoTMM's
+// isItemAmbiguous); OoT's own items keep their localized names (the helper answers
+// NULL for them).
+static CustomMessage SkulltulaRewardItemName(RandomizerCheck rc) {
+    const RandomizerGet placed = RAND_GET_ITEM_LOC(rc)->GetPlacedRandomizerGet();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)placed)) {
+        const std::string plain(shared);
+        return CustomMessage(plain, plain, plain);
+    }
+#endif
+    return CustomMessage(Rando::StaticData::RetrieveItem(placed).GetName());
+}
+
 void BuildSkulltulaPeopleMessage(uint16_t* textId, bool* loadFromMessageTable) {
     uint8_t count = 0;
     RandomizerCheck rc = RC_UNKNOWN_CHECK;
@@ -148,7 +168,7 @@ void BuildSkulltulaPeopleMessage(uint16_t* textId, bool* loadFromMessageTable) {
                                       "et j'aurai quelque chose à te donner! [[color]]([[1]])%w");
     msg.InsertNumber(count);
     msg.Replace("[[color]]", item.GetColor());
-    msg.InsertNames({ item.GetName() });
+    msg.InsertNames({ SkulltulaRewardItemName(rc) }); // #1698: a shared item without its tag
     msg.AutoFormat();
     msg.LoadIntoFont();
     *loadFromMessageTable = false;
@@ -166,9 +186,7 @@ void Build100SkullsHintMessage(uint16_t* textId, bool* loadFromMessageTable) {
     msg.Replace("[[color]]", Rando::StaticData::RetrieveItem(
                                  RAND_GET_ITEM_LOC(RC_KAK_100_GOLD_SKULLTULA_REWARD)->GetPlacedRandomizerGet())
                                  .GetColor());
-    msg.InsertNames(
-        { Rando::StaticData::RetrieveItem(RAND_GET_ITEM_LOC(RC_KAK_100_GOLD_SKULLTULA_REWARD)->GetPlacedRandomizerGet())
-              .GetName() });
+    msg.InsertNames({ SkulltulaRewardItemName(RC_KAK_100_GOLD_SKULLTULA_REWARD) }); // #1698
     msg.AutoFormat();
     msg.LoadIntoFont();
     *loadFromMessageTable = false;

@@ -33,6 +33,10 @@
  *       ITEM00_NOTHING or another drop;
  *   (S) shelves: MM_Combo_StickGated / MM_Combo_NutGated, the answers the
  *       vanilla shelves ask;
+ *   (K) #1691, the offers that are not a drop, in both games: a Deku Baba's or
+ *       withered (Mini) Baba's stick, MM's unshuffled chests and OoT's vanilla
+ *       business scrubs ask MM_Combo_GetItemGated / OoT_Combo_GetItemGated, each
+ *       over its own game's tier: closed, no offer; open or shuffle off, it stays;
  *   (Y) harvest/apply symmetry at tier 0: the pool's count does not materialize
  *       and is not debited; the bag's tier then lands it;
  *   (P) A3, the step at pickup: OoT's bag found in Termina steps the pool, opens
@@ -69,6 +73,7 @@ int MM_Combo_StickGated(void);
 int MM_Combo_NutGated(void);
 int MM_Combo_StickNutGiveRefused(uint8_t item);
 int MM_Combo_Item00Gated(int16_t params);
+int MM_Combo_GetItemGated(int16_t getItemId);
 void MM_Combo_ApplyPairedBagBirth(void);
 uint16_t MM_ForeignItem_RedeemAs(uint16_t riId);
 // games/mm/2s2h/mm_stick_nut_bag_test.cpp
@@ -78,6 +83,7 @@ int MM_SnbTest_Tier(int nut);
 int MM_SnbTest_Ammo(int nut);
 int MM_SnbTest_Held(int nut);
 int MM_SnbTest_ItemId(int which);
+int MM_SnbTest_GetItemId(int which);
 int MM_SnbTest_Give(int item);
 int MM_SnbTest_RandoId(int which);
 int MM_SnbTest_Obtainable(int ri);
@@ -93,6 +99,12 @@ int OoT_SharedTierTest_BagUpgradeId(int nut);
 int OoT_SharedTierTest_BagPackId(int nut);
 int OoT_SharedTierTest_BombPackId(void);
 int OoT_SharedTierTest_BagTier(int nut);
+void OoT_SharedTierTest_SetBagTier(int nut, int tier);
+int OoT_SharedTierTest_GetItemId(int which);
+// soh/Enhancements/randomizer/StickNutBagGate.h (defined in OoT's GameExports_SingleExe.cpp)
+int OoT_Combo_StickGated(void);
+int OoT_Combo_NutGated(void);
+int OoT_Combo_GetItemGated(int16_t getItemId);
 int OoT_SharedTierTest_BagAmmo(int nut);
 int OoT_SharedTierTest_BagHeld(int nut);
 // Both games' shims and MM's pickup core.
@@ -445,6 +457,61 @@ TestResult MMStickNutBagGate_Run(void) {
                   "%s: a gate still holds at tier 1", w.what);
     }
 
+    // ---- (K) #1691: the offers that are not a drop, in both games ----------------------
+    // A Deku Baba's (and a withered or Mini Baba's) stick is the baba offering a
+    // stick get-item; MM's unshuffled chests and OoT's vanilla business scrubs offer
+    // a stick or nut the same way. Gate closed: no offer; gate open or shuffle off:
+    // the offer stays. Catches: the stick and nut gates swapped (the one-bag
+    // worlds), an id missing (that id), a gate that ignores the tier (tier 1), a
+    // gate on an id no bag holds (the blue rupee). The two games share ONE live
+    // gSaveContext in the single executable, so each half arms its own game's live
+    // save before it asks (as (P) does), never both at once.
+    for (const auto& w : kSnbWorlds) {
+        SnbWorld(w.frozen, w.stick, w.nut);
+
+        // MM's half: MM's live save, both bags at tier 0, then at tier 1.
+        MM_SnbTest_ArmBorn();
+        MM_SnbTest_SetBag(0, 0, 0, 0);
+        MM_SnbTest_SetBag(1, 0, 0, 0);
+        printf("[TEST] (K) %s, MM at tier 0: the baba's stick offer gated %d (expected %d)\n", w.what,
+               MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)), w.stick ? 1 : 0);
+        SNB_CHECK(MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)) == (w.stick ? 1 : 0) &&
+                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(1)) == (w.nut ? 1 : 0) &&
+                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(2)) == (w.nut ? 1 : 0) &&
+                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(3)) == (w.nut ? 1 : 0) &&
+                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(4)) == 0,
+                  "%s: MM's offer gate at tier 0 holds out the wrong offers", w.what);
+        MM_SnbTest_SetBag(0, 1, 1, 1);
+        MM_SnbTest_SetBag(1, 1, 1, 1);
+        SNB_CHECK(MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(0)) == 0 &&
+                      MM_Combo_GetItemGated((int16_t)MM_SnbTest_GetItemId(3)) == 0,
+                  "%s: MM's offer gate still holds at tier 1", w.what);
+
+        // OoT's half: OoT's live save, both bags at tier 0, then at tier 1.
+        OoT_SharedTierTest_ArmLive();
+        OoT_SharedTierTest_SetBagTier(0, 0);
+        OoT_SharedTierTest_SetBagTier(1, 0);
+        printf("[TEST] (K) %s, OoT at tier 0: the baba's stick offer gated %d (expected %d)\n", w.what,
+               OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(0)), w.stick ? 1 : 0);
+        SNB_CHECK(OoT_Combo_StickGated() == (w.stick ? 1 : 0) && OoT_Combo_NutGated() == (w.nut ? 1 : 0),
+                  "%s: OoT's gates at tier 0 read stick %d nut %d", w.what, OoT_Combo_StickGated(),
+                  OoT_Combo_NutGated());
+        for (int which = 0; which < 6; which++) {
+            const bool gated = which >= 3 ? w.nut : w.stick;
+            const int id = OoT_SharedTierTest_GetItemId(which);
+            SNB_CHECK(OoT_Combo_GetItemGated((int16_t)id) == (gated ? 1 : 0), "%s: OoT's GI %d at tier 0 gated %d",
+                      w.what, id, OoT_Combo_GetItemGated((int16_t)id));
+        }
+        SNB_CHECK(OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(6)) == 0,
+                  "%s: a blue rupee is gated in OoT", w.what);
+        OoT_SharedTierTest_SetBagTier(0, 1);
+        OoT_SharedTierTest_SetBagTier(1, 1);
+        SNB_CHECK(OoT_Combo_StickGated() == 0 && OoT_Combo_NutGated() == 0 &&
+                      OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(0)) == 0 &&
+                      OoT_Combo_GetItemGated((int16_t)OoT_SharedTierTest_GetItemId(4)) == 0,
+                  "%s: OoT's offer gate still holds at tier 1", w.what);
+    }
+
     // ---- (Y) Harvest/apply symmetry at tier 0 ------------------------------------------
     // Catches: MM_AmmoCapacity answering a nonzero cap at tier 0 (the count
     // materializes), a harvest-side clamp or debit (the pool loses its 7).
@@ -601,6 +668,48 @@ TestResult MMStickNutBagGate_Run(void) {
             SnbBefore(item00Body, "actor->params != ITEM00_NOTHING && MM_Combo_Item00Gated(actor->params)",
                       "*should = false;"),
             "InitEnItem00Behavior does not kill a gated stick or nut drop (or lost the ITEM00_NOTHING exemption)");
+        // #1691: the babas' stick offers, both games; MM's unshuffled chests; OoT's vanilla scrubs.
+        // (No needle spans a line: a Windows checkout may end its lines with CRLF.)
+        const char* kSnbMmBabaGate =
+            "enDekubaba->actionFunc == MM_EnDekubaba_DeadStickDrop && MM_Combo_GetItemGated(GI_DEKU_STICKS_1)";
+        const char* kSnbMmKarebabaGate =
+            "enKarebaba->actionFunc == MM_EnKarebaba_DeadItemDrop && MM_Combo_GetItemGated(GI_DEKU_STICKS_1)";
+        SNB_CHECK(
+            SnbBefore(item00Body, "COND_ID_HOOK(OnActorUpdate, ACTOR_EN_DEKUBABA, IS_RANDO", kSnbMmBabaGate) &&
+                SnbBefore(item00Body, kSnbMmBabaGate, "MM_Actor_Kill(actor);") &&
+                SnbBefore(item00Body, "COND_ID_HOOK(OnActorUpdate, ACTOR_EN_KAREBABA, IS_RANDO", kSnbMmKarebabaGate) &&
+                SnbBefore(item00Body, kSnbMmKarebabaGate, "MM_EnKarebaba_SetupDead(enKarebaba);"),
+            "MM's Deku Baba or withered / Mini Baba still offers its stick before the pair's bag");
+        const std::string mmBox = SnbReadSource("games/mm/2s2h/Rando/ActorBehavior/EnBox.cpp");
+        SNB_CHECK(SnbBefore(SnbBody(mmBox, "static void EnBox_RsbsWithholdGatedStickNut(Actor* actor, RandoCheckId "
+                                           "randoCheckId) {"),
+                            "MM_Combo_GetItemGated((int16_t)ENBOX_GET_ITEM(actor))",
+                            "ENBOX_SET_ITEM(actor, GI_RUPEE_BLUE);") &&
+                      SnbBefore(SnbBody(mmBox, "void Rando::ActorBehavior::InitEnBoxBehavior() {"),
+                                "COND_ID_HOOK(ShouldActorInit, ACTOR_EN_BOX, IS_RANDO",
+                                "EnBox_RsbsWithholdGatedStickNut(actor, randoCheckId);"),
+                  "MM's unshuffled chest still holds a stick or nut before the pair's bag");
+        const std::string ootHooks = SnbReadSource("games/oot/soh/Enhancements/randomizer/hook_handlers.cpp");
+        const std::string withhold = SnbBody(ootHooks, "static void OoT_DekuBaba_WithholdStick(Actor* actor) {");
+        SNB_CHECK(!ootHooks.empty() &&
+                      SnbBefore(withhold, "if (!OoT_Combo_GetItemGated(GI_STICKS_1)) {",
+                                "enDekubaba->actionFunc == OoT_EnDekubaba_DeadStickDrop") &&
+                      SnbBefore(withhold, "enDekubaba->actionFunc == OoT_EnDekubaba_DeadStickDrop",
+                                "OoT_Actor_Kill(actor);") &&
+                      SnbBefore(withhold, "enKarebaba->actionFunc == OoT_EnKarebaba_DeadItemDrop",
+                                "OoT_EnKarebaba_SetupDead(enKarebaba);") &&
+                      SnbBefore(SnbBody(ootHooks, "void RandomizerOnActorUpdateHandler(void* refActor) {"),
+                                "actor->id == ACTOR_EN_DEKUBABA || actor->id == ACTOR_EN_KAREBABA",
+                                "OoT_DekuBaba_WithholdStick(actor);"),
+                  "OoT's Deku Baba or withered Deku Baba still offers its stick before the pair's bag");
+        const std::string ootDns = SnbReadSource("games/oot/src/overlays/actors/ovl_En_Dns/z_en_dns.c");
+        SNB_CHECK(SnbBefore(SnbBody(ootDns, "u32 EnDns_CanBuyDekuNuts(EnDns* this) {"),
+                            "OoT_Combo_GetItemGated((int16_t)this->dnsItemEntry->getItemId)",
+                            "DNS_CANBUY_RESULT_CANT_GET_NOW") &&
+                      SnbBefore(SnbBody(ootDns, "u32 EnDns_CanBuyDekuSticks(EnDns* this) {"),
+                                "OoT_Combo_GetItemGated((int16_t)this->dnsItemEntry->getItemId)",
+                                "DNS_CANBUY_RESULT_CANT_GET_NOW"),
+                  "an OoT business scrub still sells sticks or nuts before the pair's bag");
         const std::string obtainBody = SnbBody(convert, "bool Rando::IsItemObtainable(");
         SNB_CHECK(SnbBefore(obtainBody, "case RI_DEKU_STICKS_5:", "MM_Combo_StickGated()") &&
                       SnbBefore(obtainBody, "case RI_DEKU_NUTS_10:", "MM_Combo_NutGated()"),
