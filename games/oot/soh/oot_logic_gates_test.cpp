@@ -292,7 +292,8 @@
  *     opens without blue fire under RT_VISIBLE_COLLISION and Kokiri Sword; DC Far
  *     Bridge -> Lobby Switch opens for a child with Kokiri Sword under
  *     RT_DC_CHILD_LOBBY; closed/open pairs and scene searches cover DC, Jabu, Forest
- *     and Fire's new and split regions.
+ *     and Fire's new and split regions; GF's lower-vines bunny hover and Fire's
+ *     near-boss hood exits open for an adult with the hood only under Masks as Adult.
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -1791,6 +1792,11 @@ const EcaBatch1Region kEcaBatch1Regions[] = {
     { RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F, "RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F" },
 };
 
+// Defined with the #1647 stage 1b legs below.
+void ResetLogicWithBunnyHood();
+void MaaExitOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion from, RandomizerRegion to);
+
 void RunEcaOverhaulBatch1Legs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
     const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
@@ -2161,6 +2167,39 @@ void RunEcaOverhaulBatch1Legs(const std::shared_ptr<Rando::Context>& randoCtx) {
     ExpectSearch("EB60 Fire search from entryway to hammer chest, adult with Climb, tunic, bombs, sword and 8 keys",
                  RR_FIRE_TEMPLE_ENTRYWAY, true, RR_NONE, RC_FIRE_TEMPLE_MEGATON_HAMMER_CHEST, true,
                  "an adult with Climb, Goron Tunic, Bracelet, bombs, sword and 8 keys cannot reach the hammer chest");
+
+    // ---- EB61..EB72: the hood terms eca767dcb carries (GF vines, Fire near boss) ----
+    // An adult holding the hood, Bunny Hood Effect on: closed with Masks as Adult off, open with it on.
+    // GF Top of Lower Vines -> Below GS is eca's BunnyHovers() exit (Hover Boots and the hood).
+    ResetLogicWithBunnyHood();
+    Give(RG_HOVER_BOOTS);
+    MaaExitOffOn(randoCtx,
+                 "EB61 GF Top of Lower Vines to Below GS, adult with Hover Boots and hood, Masks as Adult off",
+                 "EB62 GF Top of Lower Vines to Below GS, adult with Hover Boots and hood, Masks as Adult on",
+                 RR_GF_TOP_OF_LOWER_VINES, RR_GF_BELOW_GS);
+    // Fire near boss (eca's terms in upstream 53f688df5's door split): Goron Tunic, no Hover Boots, no Hookshot.
+    ResetLogicWithBunnyHood();
+    Give(RG_GORON_TUNIC);
+    MaaExitOffOn(randoCtx, "EB63 Fire Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB64 Fire Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_ROOM, RR_FIRE_TEMPLE_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB65 Fire Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult off",
+                 "EB66 Fire Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_DOOR, RR_FIRE_TEMPLE_NEAR_BOSS_TARGET);
+    MaaExitOffOn(randoCtx,
+                 "EB67 Fire Near Boss Target to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB68 Fire Near Boss Target to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_TARGET, RR_FIRE_TEMPLE_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB69 Fire MQ Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB70 Fire MQ Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM, RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB71 Fire MQ Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult off",
+                 "EB72 Fire MQ Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR, RR_FIRE_TEMPLE_MQ_NEAR_BOSS_TARGET);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
 
     if (savedDcMq) {
         randoCtx->GetDungeon(Rando::DODONGOS_CAVERN)->SetMQ();
