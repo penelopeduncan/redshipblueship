@@ -208,6 +208,23 @@ uint8_t Combo_ForeignMask_SlotByteSelection(uint8_t slotByte);
 uint8_t Combo_ForeignMask_SlotByteWithSelection(uint8_t slotByte, uint8_t sel);
 
 /**
+ * GERUDO MASK TUNIC (#1581; OoTMM gerudoTunic, packages/core/src/cosmetics/data.ts:46-51,
+ * packages/generator/lib/combo/cosmetics/index.ts:438-440). When `optionOn` is
+ * non-zero and `mmWorn` is COMBO_FOREIGN_MASK_OOT_GERUDO, writes `*tunicOn = 1`
+ * and `rgb = { 120, 0, 180 }` (OoTMM sGerudoMaskTunicColor,
+ * packages/generator/src/mm/actors/Player.c:1520, :2127-2146, :2262-2290, which
+ * overrides sTunicColors[0]) and returns 1; otherwise leaves `*tunicOn` and
+ * `rgb` untouched and returns 0.
+ *
+ * Needs no human-form or tunic argument: MM_ForeignMask_Worn is NONE unless the
+ * frozen world added the mask (games/mm/2s2h/Rando/ForeignMaskMM.cpp:184), the
+ * mask goes on in human form only (:194) and MM_ForeignMask_ApplyRules takes it
+ * off on a transformation (:213-223), and Majora's Mask has no Ocarina of Time
+ * tunics in this tree so OoTMM's `tunic == 0` always holds. Pure.
+ */
+int Combo_ForeignMask_GerudoTunic(int optionOn, uint8_t mmWorn, int* tunicOn, uint8_t rgb[3]);
+
+/**
  * THE BLAST MASK'S COOLDOWN (#979; OoTMM blastMaskCooldown), in frames, for one
  * RSBS_BLAST_COOLDOWN_* value of the frozen item rules: OoTMM's own table
  * (packages/generator/src/oot/actors/Player.c, blastMaskDelay): Instant 1, Very

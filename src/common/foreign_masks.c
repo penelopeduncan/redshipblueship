@@ -154,6 +154,25 @@ uint8_t Combo_ForeignMask_SlotByteWithSelection(uint8_t slotByte, uint8_t sel) {
     return (uint8_t)((slotByte & COMBO_FOREIGN_MASK_SLOT_OWNED_BITS) | (sel & COMBO_FOREIGN_MASK_SLOT_SEL_BITS));
 }
 
+// #1581: OoTMM's sGerudoMaskTunicColor = { 120, 0, 180 } (packages/generator/src/mm/actors/Player.c:1520).
+static const uint8_t kGerudoTunicR = 120u;
+static const uint8_t kGerudoTunicG = 0u;
+static const uint8_t kGerudoTunicB = 180u;
+
+int Combo_ForeignMask_GerudoTunic(int optionOn, uint8_t mmWorn, int* tunicOn, uint8_t rgb[3]) {
+    if (tunicOn == NULL || rgb == NULL) {
+        return 0;
+    }
+    if (optionOn && mmWorn == COMBO_FOREIGN_MASK_OOT_GERUDO) {
+        *tunicOn = 1;
+        rgb[0] = kGerudoTunicR;
+        rgb[1] = kGerudoTunicG;
+        rgb[2] = kGerudoTunicB;
+        return 1;
+    }
+    return 0;
+}
+
 uint16_t Combo_BlastMaskCooldownFrames(uint8_t cooldown) {
     // OoTMM's blastMaskDelay(), value for value. DEFAULT is Majora's Mask's own
     // 310 frames (z_player.c, `this->blastMaskTimer = 310`), so an all-clear
