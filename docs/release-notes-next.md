@@ -133,10 +133,18 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 ### Options and quality of life
 
 - **Cross-Game Masks: the Blast Mask goes off in water** (issues #1701, #1714). In Ocarina of Time, with the Blast
-  Mask (OoT) rule on, the mask's blast now works in water wherever OoTMM allows it: while Link swims or treads
-  water at the surface, while he is under water after falling or jumping in, in a dive, and in the Iron Boots. As
-  in OoTMM, it does not go off while he comes up for breath, reels from a hit in water or carries something, and
-  as before it does not go off with the Hookshot in hand or in flight. Logic does not change.
+  Mask (OoT) rule on, the mask's blast now works in water as OoTMM's does: while Link swims or treads water at
+  the surface, while he is under water after falling or jumping in, in a dive, and in the Iron Boots. As in
+  OoTMM, it does not go off while he comes up for breath, reels from a hit in water or carries something, or
+  while the Hookshot's hook is out or pulling him along. Unlike OoTMM's, it does not go off while he aims in
+  first person. Logic does not change.
+- **Cross-Game Masks: the Blast Mask goes off only when Link could use an item** (issue #1718). In Ocarina of
+  Time, with the Blast Mask (OoT) rule on, B is the mask's only on a frame on which the game handles the item
+  buttons, as in OoTMM. So the blast no longer goes off in the middle of a sword swing, a jump attack or a roll,
+  or while Link is knocked down, shocked, frozen, grabbed by an enemy, or gripping, pushing or pulling a block.
+  The mask no longer takes B in those moments either, so B counts again toward breaking out of ice or a grab.
+  The blast still goes off at the end of a stagger and at the end of getting up, as OoTMM's does. Logic does not
+  change.
 - **Majora's Mask: Active Item on B** (2Ship #1870; Enhancements > Items, Equipment; off by default). It replaces
   Great Fairy Sword B-Button Attack. B uses the item Link has out: the Great Fairy's Sword or a Deku Stick while
   held, and the Bow or Hookshot while you aim them (not while locked onto a target). Pressing the item's own button
