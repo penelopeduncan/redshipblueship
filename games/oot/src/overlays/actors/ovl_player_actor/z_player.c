@@ -14264,6 +14264,36 @@ void Player_Action_8084E368(Player* this, PlayState* play) {
     func_8084AEEC(this, &this->linearVelocity, 0.0f, this->actor.shape.rot.y);
 }
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// [RSBS #1714] Blast Mask (OoT): is Link in one of the water actions that never run OoT_Player_UpdateUpperBody, so
+// never reach OoT_Player_UpdateItems' item buttons (where OoTMM's Player_ProcessItemButtonsWrapper takes B)?
+// Surfacing for breath (8084E1EC), hit while in water (8084E30C), arriving in a scene swimming (8084D7C4) and dying
+// in water (8084E368). The other swim actions (8084D610, 8084D84C, 8084DAB4) run the action handler list with the
+// upper body updated, and the dive (8084DC48) updates it first thing. Read by BlastMaskOoT.cpp's PlayerFreeToBlast.
+s32 OoT_Player_InWaterActionWithoutItems(Player* this) {
+    return (this->actionFunc == Player_Action_8084E1EC) || (this->actionFunc == Player_Action_8084E30C) ||
+           (this->actionFunc == Player_Action_8084D7C4) || (this->actionFunc == Player_Action_8084E368);
+}
+
+// Test export for blast-mask-oot-shrub-guardhouse: puts `this` in one of the water actions without running it.
+// Sample 0 swim wait (8084D610), 1 swim (8084D84C), 2 Z-targeted swim (8084DAB4), 3 the dive (8084DC48),
+// 4 surfacing (8084E1EC), 5 hit in water (8084E30C), 6 arriving swimming (8084D7C4), 7 dying in water (8084E368);
+// any other sample clears the action. Returns 1 when an action was set, 0 when it was cleared.
+s32 OoT_Player_SetWaterActionForTest(Player* this, s32 sample) {
+    static PlayerActionFunc const sSampleActions[] = {
+        Player_Action_8084D610, Player_Action_8084D84C, Player_Action_8084DAB4, Player_Action_8084DC48,
+        Player_Action_8084E1EC, Player_Action_8084E30C, Player_Action_8084D7C4, Player_Action_8084E368,
+    };
+
+    if (sample < 0 || sample >= (s32)ARRAY_COUNT(sSampleActions)) {
+        this->actionFunc = NULL;
+        return 0;
+    }
+    this->actionFunc = sSampleActions[sample];
+    return 1;
+}
+#endif
+
 static s16 sWarpSongEntrances[] = {
     ENTR_SACRED_FOREST_MEADOW_WARP_PAD,
     ENTR_DEATH_MOUNTAIN_CRATER_WARP_PAD,

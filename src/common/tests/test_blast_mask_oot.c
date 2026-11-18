@@ -42,9 +42,11 @@
  *   ground shrubs beside child Link at non-origin X/Y/Z while leaving an origin
  *   control shrub untouched, and in SCENE_MARKET_GUARD_HOUSE spawns and centers
  *   the blast at Link's world.pos rather than (0, 0, 0) or focus.pos. Its
- *   water legs (#1701) blast under water on the Iron Boots and in the dive,
- *   and refuse it while swimming at the surface or with the hookshot held
- *   unfired or in flight.
+ *   water legs (#1701, #1714) blast wherever OoTMM's wrapper is reached:
+ *   swimming at the surface, sinking after falling in, every dive and on the
+ *   Iron Boots; they refuse it while surfacing for breath, hit in water,
+ *   arriving swimming or dying in water, and with the hookshot held unfired or
+ *   in flight.
  *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
@@ -633,7 +635,7 @@ TestResult Test_BlastMaskOoTSpawn(void) {
 TestResult BlastMaskOoTShrubGuardHouse_Run(void) {
     printf("[TEST] blast-mask-oot-shrub-guardhouse: child Link's Blast Mask cuts ground shrubs and follows world.pos "
            "in the Market guard house without OoT_EnBom_Draw (#1615), adult Link's only while Masks Equippable "
-           "as Adult holds (#1647), and under water on the Iron Boots or in the dive but not swimming (#1701)\n");
+           "as Adult holds (#1647), and in every water state where OoTMM's wrapper is reached (#1701, #1714)\n");
     const int rc = OoT_BlastMaskTest_ShrubAndGuardHouse();
     printf("[TEST] blast-mask-oot-shrub-guardhouse: %s\n", rc == 0 ? "PASS" : "FAIL");
     return rc == 0 ? TEST_PASS : TEST_FAIL;

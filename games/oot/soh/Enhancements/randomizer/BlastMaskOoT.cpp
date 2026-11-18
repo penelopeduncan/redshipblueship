@@ -85,6 +85,8 @@ extern "C" {
 #include "variables.h"
 #include "src/overlays/actors/ovl_En_Bom/z_en_bom.h"
 extern PlayState* OoT_gPlayState;
+// z_player.c (#1714): the water actions that never reach the item buttons.
+s32 OoT_Player_InWaterActionWithoutItems(Player* player);
 // ForeignModelHostOoT.cpp: an MM item's model, drawn by OoT as the host.
 int OoT_ForeignModel_DrawForeignItem(PlayState* play, uint8_t originGame, uint16_t id);
 }
@@ -152,34 +154,33 @@ bool BlastMaskOnButtons() {
 
 /** May a B press be the mask's this frame? OoT_Player_UpdateItems' own gate for
  *  the item buttons, plus OoTMM's (not on Epona, not holding or in a cutscene).
- *  OoTMM takes the press inside Player_ProcessItemButtons, so the mask blasts
- *  only where OoT processes the item buttons with B live: never hanging from or
- *  climbing a ledge (those actions never update the items), and never where
- *  z_parameter.c disables B for the player's state (swimming or diving, a
- *  ladder or vine, a crawlspace), except on the Iron Boots under water, where
- *  the sword still swings, and in the dive: see below. The player's own flags,
- *  not buttonStatus[0], which also parks the B item (and a swordless child's marker) on Epona and
- *  in the minigames. Nor (#1647; reachable by an adult, or by a child only
- *  under Timeless Equipment) while the hookshot is held unfired, where
- *  OoT_Player_ProcessItemButtons skips every item button (func_8008F128), or in
- *  hookshot flight.
- *  UNDER WATER ON THE IRON BOOTS it goes off (#1701, operator 2026-11-17, as
- *  OoTMM's Player_ProcessItemButtonsWrapper has no water test): z_player.c keeps
- *  PLAYER_STATE1_IN_WATER set there, but Link is not swimming (func_808332B8: in
- *  water without the Iron Boots) and his ground actions, sword included, run.
- *  IN THE DIVE it goes off too (#1701, operator 2026-11-17, "Yes, follow
- *  OoTMM"): the dive action (Player_Action_8084DC48) runs
- *  OoT_Player_UpdateUpperBody, so OoTMM's wrapper is reached there. The dive is
- *  read from PLAYER_STATE2_DIVING, which z_player.c sets only in func_8083D12C
- *  when A starts a dive from the surface and clears (func_80832340) as Link
- *  surfaces, leaves the water or puts the Iron Boots on. The dive action entered
- *  without A (the Iron Boots taken off under water, the fall from a running jump
- *  into water, Player_Action_80844A44) has no such flag and stays
- *  refused, as does PLAYER_STATE2_UNDERWATER alone, which z_player.c also sets
- *  on the Iron Boots and while Link sinks after falling in. Swimming at the surface
- *  still refuses it, although OoTMM's wrapper is reached there too (the swim
- *  actions Player_Action_8084D610, 8084D84C and 8084DAB4 update the upper body
- *  through OoT_Player_TryActionHandlerList): the ruling names only the dive. */
+ *  OoTMM takes the press in Player_ProcessItemButtonsWrapper, patched over the
+ *  call to Player_ProcessItemButtons in Player_UpdateItems, so it blasts only in
+ *  the player actions that reach the item buttons through
+ *  OoT_Player_UpdateUpperBody. This gate refuses hanging from or climbing a
+ *  ledge (those actions never update the items), and a ladder or vine or a
+ *  crawlspace, where z_parameter.c disables B for the player's state. The
+ *  player's own flags, not buttonStatus[0], which also parks the B item (and a
+ *  swordless child's marker) on Epona and in the minigames. Nor (#1647;
+ *  reachable by an adult, or by a child only under Timeless Equipment) while the
+ *  hookshot is held unfired, where OoT_Player_ProcessItemButtons skips every item
+ *  button (func_8008F128), or in hookshot flight.
+ *  IN WATER (#1701, #1714, operator 2026-11-17, "yes follow ootmm") the press is
+ *  the mask's wherever OoTMM's wrapper is reached, as the wrapper has no water,
+ *  swim or boots test: treading water and swimming at the surface
+ *  (Player_Action_8084D610, 8084D84C and 8084DAB4 run
+ *  OoT_Player_TryActionHandlerList with the upper body updated); sinking after
+ *  falling in, and sinking on the Iron Boots until he lands, which are the same
+ *  swim-wait action; every dive (Player_Action_8084DC48 updates the upper body
+ *  first thing, whether A started it or Link entered it by taking the Iron Boots
+ *  off under water or from a running jump); and walking the bottom on the Iron
+ *  Boots, where his ground actions run. It is refused in the water actions that
+ *  never update the upper body, so never reach the item buttons
+ *  (OoT_Player_InWaterActionWithoutItems, z_player.c): surfacing for breath, hit
+ *  while in water (on the Iron Boots too), arriving in a scene swimming and dying
+ *  in water. Climbing out onto a ledge is a ledge climb
+ *  (PLAYER_STATE1_CLIMBING_LEDGE). The action read is the one Link's previous
+ *  update left, since the press is taken before his update runs. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
@@ -189,10 +190,8 @@ bool PlayerFreeToBlast(PlayState* play, Player* player) {
     if (func_8008F128(player) || (player->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT) != 0) {
         return false;
     }
-    // func_808332B8 (z_player.c, not exported): swimming refuses; the Iron Boots and the dive do not.
-    const bool inWater = (player->stateFlags1 & PLAYER_STATE1_IN_WATER) != 0u;
-    const bool diving = (player->stateFlags2 & PLAYER_STATE2_DIVING) != 0u;
-    if (inWater && player->currentBoots != PLAYER_BOOTS_IRON && !diving) {
+    // The water actions that never reach the item buttons, where OoTMM's wrapper never runs.
+    if (OoT_Player_InWaterActionWithoutItems(player) != 0) {
         return false;
     }
     return (player->stateFlags1 & busy) == 0u && (player->stateFlags2 & PLAYER_STATE2_CRAWLING) == 0u &&
