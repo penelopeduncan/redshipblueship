@@ -104,6 +104,7 @@ void RegionTable_Init_GerudoFortress() {
         Entrance(RR_GF_BOTTOM_OF_LOWER_VINES, []{return true;}),
         // need to explicitly convert it into a bool
         Entrance(RR_GF_BOTTOM_OF_UPPER_VINES, []{return logic->IsAdult && ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Get();}),
+        Entrance(RR_GF_BELOW_GS,              []{return logic->BunnyHovers();}),
     });
 
     areaTable[RR_GF_NEAR_GS] = Region("GF Near GS", SCENE_GERUDOS_FORTRESS, {}, {
