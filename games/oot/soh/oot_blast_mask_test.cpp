@@ -752,6 +752,11 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     const bool tookB = !Bm1615LinkKeptB();
     const EnBom* bomb = Bm1615FindBomb(&sBm1615Play);
     const bool blasted = tookB && bomb != nullptr && bomb->actor.params == BOMB_EXPLOSION;
+    // With the cooldown spent, the press is the mask's exactly when a blast goes
+    // off: B taken without a blast, or a blast with B left, is a press taken
+    // somewhere other than the item buttons.
+    Bm1615Check(tookB == (bomb != nullptr), "a B press took B without a blast, or blasted with B left in Link's input",
+                __LINE__);
     sBm1615ItemButtons = true;
     for (int f = 0; f < 12; f++) {
         Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
