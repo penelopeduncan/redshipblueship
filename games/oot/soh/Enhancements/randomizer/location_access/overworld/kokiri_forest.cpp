@@ -225,7 +225,7 @@ void RegionTable_Init_KokiriForest() {
         //Exits
         Entrance(RR_KOKIRI_FOREST,         []{return true;}),
         Entrance(RR_THE_LOST_WOODS,        []{return true;}),
-        Entrance(RR_KF_RUPEE_ALCOVE,       []{return logic->IsAdult && (CanPlantBean(RR_KOKIRI_FOREST, RG_KOKIRI_FOREST_BEAN_SOUL) || logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_KF_RUPEE_ALCOVE,       []{return (logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS)) || logic->CanMiddairGroundJump();}),
         Entrance(RR_KF_STORMS_GROTTO,      []{return logic->CanOpenStormsGrotto();}),
     });
 

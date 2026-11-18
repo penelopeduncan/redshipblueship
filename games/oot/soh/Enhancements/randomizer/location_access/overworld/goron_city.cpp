@@ -11,9 +11,10 @@ void RegionTable_Init_GoronCity() {
         EventAccess(LOGIC_STICK_ACCESS,                           []{return logic->IsChild && logic->CanBreakPots();}),
         EventAccess(LOGIC_BUG_ACCESS,                             []{return (logic->BlastOrSmash() && logic->HasItem(RG_POWER_BRACELET)) || logic->CanUse(RG_SILVER_GAUNTLETS);}),
         EventAccess(LOGIC_GORON_CITY_CHILD_FIRE,                  []{return logic->IsChild && logic->CanUse(RG_DINS_FIRE);}),
-        EventAccess(LOGIC_GORON_CITY_WOODS_WARP_OPEN,             []{return logic->CanDetonateUprightBombFlower() || logic->CanUse(RG_MEGATON_HAMMER) || logic->Get(LOGIC_GORON_CITY_CHILD_FIRE);}),
+        EventAccess(LOGIC_GORON_CITY_WOODS_WARP_OPEN,             []{return logic->CanDetonateUprightBombFlower() || logic->CanUse(RG_MEGATON_HAMMER) || (logic->IsChild && logic->Get(LOGIC_GORON_CITY_CHILD_FIRE) && logic->CanUse(RG_STICKS));}),
         EventAccess(LOGIC_GORON_CITY_DARUNIAS_DOOR_OPEN_CHILD,    []{return logic->IsChild && logic->CanUse(RG_ZELDAS_LULLABY);}),
         // bottle animation causes similar complications as stopping goron with Din's Fire, only put in logic when both din's & blue fire tricks enabled
+        // RANDOTODO Strength for this is a trick in N64, should it be here? Should bunny put it in default logic?
         EventAccess(LOGIC_GORON_CITY_STOP_ROLLING_GORON_AS_ADULT, []{return logic->IsAdult && logic->HasItem(RG_SPEAK_GORON) && (logic->HasItem(RG_GORONS_BRACELET) || logic->HasExplosives() || logic->CanUse(RG_FAIRY_BOW) ||
                                                                                    (ctx->GetTrickOption(RT_GC_LINK_GORON_DINS) && (logic->CanUse(RG_DINS_FIRE) || (ctx->GetTrickOption(RT_BLUE_FIRE_MUD_WALLS) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE)))));}),
     }, {
