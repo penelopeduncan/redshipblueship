@@ -22,6 +22,7 @@
 // in C linkage (see context.h's header comment).
 #include "foreign_items.h" // Combo_GetForeignPlacementForOoTCheck, OoT_Rando_Foreign_RecordPickup (#510/#493)
 #include "warp_song_items.h" // Combo_ForeignGameTag: one tag after the item's name (#1169 XW11)
+#include "game.h"            // GAME_OOT: the native pickup toast's shared name (#1698)
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "soh/Enhancements/randomizer/TimeTravelSword.h"     // the pedestal's rule (#1434)
 #include "soh/Enhancements/randomizer/StickNutBagGate.h"     // #1691: no Deku Baba stick before the bag
@@ -515,6 +516,17 @@ extern "C" void OoT_Rando_Foreign_EmitPickupToast(SharedItem item) {
                   (sharedName != nullptr ? sharedName : foreignName != nullptr ? foreignName : "a foreign item") +
                   Combo_ForeignItemTag(item.originGame, item.id, foreignName),
     });
+}
+
+// #1698: the item name the native rando pickup toast (VB_GIVE_ITEM_FROM_ITEM_00
+// below, the get-item animation skipped) gives OoT item `rgid`: `name`, the item
+// table's name in the save's language, except that under its frozen shared rule
+// the Song of Soaring (OoT) is one item of both games, named without its tag
+// (OoTMM's isItemAmbiguous); OoT's own items keep their localized names (the
+// helper answers NULL for them).
+static std::string Item00ToastItemName(uint16_t rgid, const std::string& name) {
+    const char* shared = Combo_SharedItemDisplayName((uint8_t)GAME_OOT, rgid);
+    return shared != nullptr ? std::string(shared) : name;
 }
 
 // #1222: the toast for a pickup the drain HOLDS because every shared row is full
@@ -1764,6 +1776,9 @@ void RandomizerOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_l
                                            .english;
                             break;
                     }
+#ifdef RSBS_SINGLE_EXECUTABLE
+                    itemName = Item00ToastItemName((uint16_t)item00->itemEntry.getItemId, itemName); // #1698
+#endif
 
                     Notification::Emit({
                         .message = message,

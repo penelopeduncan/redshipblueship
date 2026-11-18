@@ -827,7 +827,7 @@ TestResult Test_WarpSongTracker(void) {
             { &ootAdapter, "void OoTItemFillSoaring(const ComboAddedSongRow& song, ComboItemRow* out) {",
               "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)RG_SONG_OF_SOARING_OOT)" },
             { &msgs, "void BuildCustomItemMessage(Player* player, CustomMessage& msg) {",
-              "Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
+              "Combo_SharedItemDisplayName((uint8_t)GAME_OOT, (uint16_t)rgid)" },
         };
         for (const NameSite& n : nameSites) {
             const std::string body = Xw11Body(*n.text, n.head);
