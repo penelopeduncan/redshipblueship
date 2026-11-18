@@ -24,6 +24,7 @@
 #include "warp_song_items.h" // Combo_ForeignGameTag: one tag after the item's name (#1169 XW11)
 #include "soh/Enhancements/randomizer/ForeignModelHostOoT.h" // the show-only get-item entry (#577 M4)
 #include "soh/Enhancements/randomizer/TimeTravelSword.h"     // the pedestal's rule (#1434)
+#include "soh/Enhancements/randomizer/StickNutBagGate.h"     // #1691: no Deku Baba stick before the bag
 #endif
 
 extern "C" {
@@ -35,6 +36,8 @@ extern "C" {
 #include "soh/Enhancements/randomizer/randomizer_grotto.h"
 #include "src/overlays/actors/ovl_Bg_Treemouth/z_bg_treemouth.h"
 #include "src/overlays/actors/ovl_Bg_Jya_Bigmirror/z_bg_jya_bigmirror.h"
+#include "src/overlays/actors/ovl_En_Dekubaba/z_en_dekubaba.h"
+#include "src/overlays/actors/ovl_En_Karebaba/z_en_karebaba.h"
 #include "src/overlays/actors/ovl_En_Si/z_en_si.h"
 #include "src/overlays/actors/ovl_En_Ossan/z_en_ossan.h"
 #include "src/overlays/actors/ovl_En_Shopnuts/z_en_shopnuts.h"
@@ -3145,6 +3148,34 @@ void RandomizerOnGameFrameUpdateHandler() {
 
 extern "C" void func_8099485C(DoorGerudo* gerudoDoor, PlayState* play);
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+extern "C" void OoT_EnDekubaba_DeadStickDrop(EnDekubaba* enDekubaba, PlayState* play);
+extern "C" void OoT_EnKarebaba_DeadItemDrop(EnKarebaba* enKarebaba, PlayState* play);
+extern "C" void OoT_EnKarebaba_SetupDead(EnKarebaba* enKarebaba);
+
+// [RSBS #1691] OoT's actor-init hook kills an ITEM00 stick before the bag (the consumable bags block above), but a
+// Deku Baba's stick is the baba itself in its stick-drop state, offering GI_STICKS_1, which OoT_Item_Give then
+// refuses: the get-item scene plays and nothing is given. Called after the actor's own update, so the frame that
+// enters the stick-drop state ends here, before any offer: the Deku Baba goes as its stick does when it times out,
+// and the withered Deku Baba goes straight to its dead state, as after its stick is taken, and regrows as usual.
+static void OoT_DekuBaba_WithholdStick(Actor* actor) {
+    if (!OoT_Combo_GetItemGated(GI_STICKS_1)) {
+        return;
+    }
+    if (actor->id == ACTOR_EN_DEKUBABA) {
+        EnDekubaba* enDekubaba = reinterpret_cast<EnDekubaba*>(actor);
+        if (enDekubaba->actionFunc == OoT_EnDekubaba_DeadStickDrop) {
+            OoT_Actor_Kill(actor);
+        }
+    } else if (actor->id == ACTOR_EN_KAREBABA) {
+        EnKarebaba* enKarebaba = reinterpret_cast<EnKarebaba*>(actor);
+        if (enKarebaba->actionFunc == OoT_EnKarebaba_DeadItemDrop) {
+            OoT_EnKarebaba_SetupDead(enKarebaba);
+        }
+    }
+}
+#endif
+
 void RandomizerOnActorUpdateHandler(void* refActor) {
     Actor* actor = static_cast<Actor*>(refActor);
 
@@ -3177,6 +3208,10 @@ void RandomizerOnActorUpdateHandler(void* refActor) {
     if (actor->id == ACTOR_BG_TOKI_SWD) {
         // [RSBS #1484] OoTMM's child pedestal check: given as the child walks up (TimeTravelSword.cpp).
         OoT_PedestalChildCheck_OnPedestalUpdate(actor);
+    }
+    if (actor->id == ACTOR_EN_DEKUBABA || actor->id == ACTOR_EN_KAREBABA) {
+        // [RSBS #1691] Before the pair's stick bag a Deku Baba leaves no stick (StickNutBagGate.h).
+        OoT_DekuBaba_WithholdStick(actor);
     }
 #endif
 }
