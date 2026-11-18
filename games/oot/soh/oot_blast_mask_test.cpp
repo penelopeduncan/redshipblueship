@@ -814,9 +814,9 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
                 "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
                 "UW7 on dry land with the hookshot's hook out the Blast Mask went off", __LINE__);
-    Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT, 0u, BM1615_ACT_IDLE, -1,
-                                   &sBm1615HookActor),
-                "UW7b on dry land with the hookshot held ready the Blast Mask did not go off", __LINE__);
+    Bm1615Check(
+        Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT, 0u, BM1615_ACT_IDLE, -1, &sBm1615HookActor),
+        "UW7b on dry land with the hookshot held ready the Blast Mask did not go off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, dive, BM1615_ACT_DIVE),
                 "UW8 in the dive started with A the Blast Mask did not go off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, under, BM1615_ACT_SWIM_WAIT),
