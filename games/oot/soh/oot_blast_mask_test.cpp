@@ -248,6 +248,8 @@ struct Bm1615SavedCVar {
 
 static PlayState sBm1615Play;
 static Player sBm1615Player;
+// Zero-initialised stand-in hook actor for heldActor != nullptr legs (never spawned or dereferenced).
+static Actor sBm1615HookActor;
 static GameInfo sBm1615GameInfo;
 static Vec3s sBm1615FloorVtx[4];
 static CollisionPoly sBm1615FloorPolys[2];
@@ -732,21 +734,21 @@ extern "C" int OoT_BlastMaskTest_ActionReaches(int i) {
 }
 
 /** One B press with Link in `stateFlags1` / `stateFlags3` (and `stateFlags2`),
- *  on `boots`, holding `heldItemAction` (no held actor), in `action`, the mask
- *  worn and its cooldown spent: true when the press was the Blast Mask's (B
- *  taken out of Link's input and a blast spawned). The frame reaches the item
- *  buttons when the action does (kBm1615Actions), or as `itemButtons` says when
- *  it is 0 or 1. The explosion is stepped out and the cooldown spent again
- *  before it returns. */
+ *  on `boots`, holding `heldItemAction` (a held actor only when `heldActor` is
+ *  given), in `action`, the mask worn and its cooldown spent: true when the
+ *  press was the Blast Mask's (B taken out of Link's input and a blast spawned).
+ *  The frame reaches the item buttons when the action does (kBm1615Actions), or
+ *  as `itemButtons` says when it is 0 or 1. The explosion is stepped out and the
+ *  cooldown spent again before it returns. */
 static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction, u32 stateFlags2 = 0u,
-                               s32 action = BM1615_ACT_IDLE, int itemButtons = -1) {
+                               s32 action = BM1615_ACT_IDLE, int itemButtons = -1, Actor* heldActor = nullptr) {
     Bm1615ArmWearer(&sBm1615Player);
     sBm1615Player.stateFlags1 = stateFlags1;
     sBm1615Player.stateFlags2 = stateFlags2;
     sBm1615Player.stateFlags3 = stateFlags3;
     sBm1615Player.currentBoots = boots;
     sBm1615Player.heldItemAction = heldItemAction;
-    sBm1615Player.heldActor = nullptr;
+    sBm1615Player.heldActor = heldActor;
     sBm1615ItemButtons = itemButtons >= 0 ? itemButtons != 0 : kBm1615Actions[action].reaches != 0;
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
     const bool tookB = !Bm1615LinkKeptB();
@@ -766,19 +768,21 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     sBm1615Player.stateFlags3 = 0;
     sBm1615Player.currentBoots = PLAYER_BOOTS_KOKIRI;
     sBm1615Player.heldItemAction = PLAYER_IA_NONE;
+    sBm1615Player.heldActor = nullptr;
     OoT_BlastMask_SetCooldownForTest(0);
     return blasted;
 }
 
-/** UW0..UW17 (#1701, #1714): in water the blast goes off wherever the item
- *  buttons are processed, as OoTMM's Player_ProcessItemButtonsWrapper has no
- *  water test: treading water and swimming at the surface, sinking after falling
- *  in, every dive (with A or without), and on the Iron Boots sinking or walking
- *  the bottom. It is refused in the water actions that never reach the item
- *  buttons (surfacing for breath, hit in water, arriving swimming, dying in
+/** UW0..UW17 (#1701, #1714, #1725): in water the blast goes off wherever the
+ *  item buttons are processed, as OoTMM's Player_ProcessItemButtonsWrapper has
+ *  no water test: treading water and swimming at the surface, sinking after
+ *  falling in, every dive (with A or without), and on the Iron Boots sinking or
+ *  walking the bottom. It is refused in the water actions that never reach the
+ *  item buttons (surfacing for breath, hit in water, arriving swimming, dying in
  *  water), climbing out onto a ledge, and with the hookshot's hook out (fired) or
- *  in flight. An armed mask still takes B from a held Megaton Hammer, under water as
- *  on land, and a dive carrying something up from the bottom still refuses. */
+ *  in flight. With the hookshot held ready, the blast goes off. An armed mask
+ *  still takes B from a held Megaton Hammer, under water as on land, and a dive
+ *  carrying something up from the bottom still refuses. */
 static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
@@ -798,6 +802,10 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
                 "UW3 swimming forward at the surface on the Hover Boots the Blast Mask did not go off", __LINE__);
     Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT),
                 "UW4 under water on the Iron Boots with the hookshot's hook out the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HOOKSHOT, 0u, BM1615_ACT_IDLE, -1,
+                                   &sBm1615HookActor),
+                "UW4b under water on the Iron Boots with the hookshot held ready the Blast Mask did not go off",
+                __LINE__);
     Bm1615Check(!Bm1615PressInState(inWater, PLAYER_STATE3_FLYING_WITH_HOOKSHOT, PLAYER_BOOTS_IRON, none),
                 "UW5 under water on the Iron Boots in hookshot flight the Blast Mask went off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, PLAYER_IA_HAMMER),
@@ -806,6 +814,9 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
                 "UW6 on dry land the armed mask did not take B from a held Megaton Hammer", __LINE__);
     Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT),
                 "UW7 on dry land with the hookshot's hook out the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, PLAYER_IA_HOOKSHOT, 0u, BM1615_ACT_IDLE, -1,
+                                   &sBm1615HookActor),
+                "UW7b on dry land with the hookshot held ready the Blast Mask did not go off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, dive, BM1615_ACT_DIVE),
                 "UW8 in the dive started with A the Blast Mask did not go off", __LINE__);
     Bm1615Check(Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_KOKIRI, none, under, BM1615_ACT_SWIM_WAIT),
@@ -844,6 +855,7 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
         !Bm1615PressInState(inWater | PLAYER_STATE1_DEAD, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_SWIM_WAIT),
         "UW16 a dead Link on a frame that reaches the item buttons the Blast Mask went off", __LINE__);
 
+    // Bm1615PressInState resets sBm1615Player.heldActor to nullptr on return (and every later call omits it).
     Bm1615EndScene(&sBm1615Play);
 }
 
