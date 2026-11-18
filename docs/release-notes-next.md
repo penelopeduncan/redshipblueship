@@ -163,6 +163,14 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   tracker had revealed without a collected check (one you had only entered, or one revealed by its map) was then
   hidden again the next time you loaded the file, until you went back in.
 
+### Build and tests
+
+- **Tests: the rando tier runs two rows at a time** (issue #1692). The rando test rows now each work in a folder
+  of their own (most in `<build>/rsbs-rows/<row>`), so rows that run at the same time no longer write to the same
+  files. CI runs that tier two rows at a time on the same runner. In its first three runs the tier took 13 to 26
+  minutes on Linux (25 to 40 before) and 23 to 29 minutes on Windows (28 to 58 before, usually about 44). Nothing
+  in the game changes.
+
 # Release notes: v0.5.1-alpha ("Ellen Bravo")
 
 **Status:** released on 2026-11-16. The tag `v0.5.1-alpha` is on `main` at `ac9ace343`.
