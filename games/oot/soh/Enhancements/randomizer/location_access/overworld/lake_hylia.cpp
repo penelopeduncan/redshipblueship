@@ -108,7 +108,7 @@ void RegionTable_Init_LakeHylia() {
         LOCATION(RC_LH_ROCK, logic->CanBreakRocks()),
     }, {
         //Exits
-        Entrance(RR_LAKE_HYLIA,      []{return logic->HasItem(RG_BRONZE_SCALE);}),
+        Entrance(RR_LAKE_HYLIA,      []{return logic->IsAdult || logic->HasItem(RG_BRONZE_SCALE);}),
         Entrance(RR_LH_FISHING_POND, []{return logic->HasItem(RG_FISHING_HOLE_KEY);}),
     });
 

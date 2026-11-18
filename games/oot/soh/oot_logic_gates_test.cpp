@@ -282,6 +282,18 @@
  *  AH. One pair per area: an adult holding the hood (and what the term names) must
  *     NOT pass with Masks as Adult off and must with it on, Bunny Hood Effect on.
  *  TR. RT_DC_EYES_BUNNYHOVERS lights the Dodongo's eyes only with the trick on.
+ *  EB. SoH eca767dcb overhaul batch 1 (#1647 stage 3): every new and split region
+ *     is built; GF Above Jail -> Outskirts opens under OHKO with Unintuitive Jumps
+ *     off; Fire Foyer -> Big Lava Room opens with 2 small keys and FireTimer 0 (not
+ *     1); Goron City's woods warp stays unset for an adult from child fire and opens
+ *     for a child with sticks after lighting fire in Darunia's chamber; Jabu's Ruto
+ *     in 1F and MQ water switch room wait on LOGIC_JABU_RUTO_IN_B1; DMT's PoH opens
+ *     for an adult under OHKO with nothing and not a child; Ice Cavern's lobby rupee
+ *     opens without blue fire under RT_VISIBLE_COLLISION and Kokiri Sword; DC Far
+ *     Bridge -> Lobby Switch opens for a child with Kokiri Sword under
+ *     RT_DC_CHILD_LOBBY; closed/open pairs and scene searches cover DC, Jabu, Forest
+ *     and Fire's new and split regions; GF's lower-vines bunny hover and Fire's
+ *     near-boss hood exits open for an adult with the hood only under Masks as Adult.
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -1754,6 +1766,484 @@ void RunFireTrialSplitLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(savedTunic);
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
     randoCtx->GetTrickOption(RT_GANON_MQ_FIRE_TRIAL).Set(savedMqFire);
+}
+
+// ---- SoH eca767dcb (#7032): overhaul batch 1 (#1647 stage 3), EB -----------
+struct EcaBatch1Region {
+    RandomizerRegion region;
+    const char* name;
+};
+
+const EcaBatch1Region kEcaBatch1Regions[] = {
+    { RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE, "RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE" },
+    { RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER, "RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER" },
+    { RR_JABU_JABUS_BELLY_JIGGLIES_LEDGE, "RR_JABU_JABUS_BELLY_JIGGLIES_LEDGE" },
+    { RR_JABU_JABUS_BELLY_MQ_HOLES_B1_SW_DOOR, "RR_JABU_JABUS_BELLY_MQ_HOLES_B1_SW_DOOR" },
+    { RR_FOREST_TEMPLE_NE_COURTYARD_SWITCH, "RR_FOREST_TEMPLE_NE_COURTYARD_SWITCH" },
+    { RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_DOOR, "RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_DOOR" },
+    { RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_CHEST, "RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_CHEST" },
+    { RR_FIRE_TEMPLE_SHORTCUT_ROOM_3F, "RR_FIRE_TEMPLE_SHORTCUT_ROOM_3F" },
+    { RR_FIRE_TEMPLE_FIRE_WALL_UPPER_DOOR, "RR_FIRE_TEMPLE_FIRE_WALL_UPPER_DOOR" },
+    { RR_FIRE_TEMPLE_FIRE_WALL_SIDE_DOOR, "RR_FIRE_TEMPLE_FIRE_WALL_SIDE_DOOR" },
+    { RR_FIRE_TEMPLE_BOULDER_MAZE_4F, "RR_FIRE_TEMPLE_BOULDER_MAZE_4F" },
+    { RR_FIRE_TEMPLE_SWITCH_CLIMB_4F, "RR_FIRE_TEMPLE_SWITCH_CLIMB_4F" },
+    { RR_FIRE_TEMPLE_SWITCH_CLIMB_5F, "RR_FIRE_TEMPLE_SWITCH_CLIMB_5F" },
+    { RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_4F, "RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_4F" },
+    { RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F, "RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F" },
+};
+
+// Defined with the #1647 stage 1b legs below.
+void ResetLogicWithBunnyHood();
+void MaaExitOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* legOff, const char* legOn,
+                  RandomizerRegion from, RandomizerRegion to);
+
+void RunEcaOverhaulBatch1Legs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const uint8_t savedBlueFireArrows = randoCtx->GetOption(RSK_BLUE_FIRE_ARROWS).Get();
+    const uint8_t savedUnintuitive = randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Get();
+    const uint8_t savedVisible = randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Get();
+    const uint8_t savedDcLobby = randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Get();
+    const uint8_t savedDcSlingSkip = randoCtx->GetTrickOption(RT_DC_SLINGSHOT_SKIP).Get();
+    const uint8_t savedDcScrub = randoCtx->GetTrickOption(RT_DC_SCRUB_ROOM).Get();
+    const uint8_t savedTunic = randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Get();
+    const uint8_t savedHookshotLadders = randoCtx->GetTrickOption(RT_HOOKSHOT_LADDERS).Get();
+    const uint8_t savedHoverBoost = randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Get();
+    const uint8_t savedDamageBoost = randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Get();
+    const uint8_t savedGroundJump = randoCtx->GetTrickOption(RT_GROUND_JUMP).Get();
+    const uint8_t savedGroundJumpHard = randoCtx->GetTrickOption(RT_GROUND_JUMP_HARD).Get();
+    const uint8_t savedForestVines = randoCtx->GetTrickOption(RT_FOREST_VINES).Get();
+    const uint8_t savedFireStrength = randoCtx->GetTrickOption(RT_FIRE_STRENGTH).Get();
+    const uint8_t savedFireScarecrow = randoCtx->GetTrickOption(RT_FIRE_SCARECROW).Get();
+    const uint8_t savedSkipFlames = randoCtx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS).Get();
+    const bool savedDcMq = randoCtx->GetDungeon(Rando::DODONGOS_CAVERN)->IsMQ();
+    const bool savedJabuMq = randoCtx->GetDungeon(Rando::JABU_JABUS_BELLY)->IsMQ();
+    const bool savedForestMq = randoCtx->GetDungeon(Rando::FOREST_TEMPLE)->IsMQ();
+    const bool savedFireMq = randoCtx->GetDungeon(Rando::FIRE_TEMPLE)->IsMQ();
+
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(1);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_BLUE_FIRE_ARROWS).Set(RO_GENERIC_OFF);
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(0);
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(0);
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(0);
+    randoCtx->GetTrickOption(RT_DC_SLINGSHOT_SKIP).Set(0);
+    randoCtx->GetTrickOption(RT_DC_SCRUB_ROOM).Set(0);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetTrickOption(RT_HOOKSHOT_LADDERS).Set(0);
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(0);
+    randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(0);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(0);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP_HARD).Set(0);
+    randoCtx->GetTrickOption(RT_FOREST_VINES).Set(0);
+    randoCtx->GetTrickOption(RT_FIRE_STRENGTH).Set(0);
+    randoCtx->GetTrickOption(RT_FIRE_SCARECROW).Set(0);
+    randoCtx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS).Set(0);
+
+    // ---- EB0: every new and split region is built ---------------------------
+    int unbuilt = 0;
+    for (const EcaBatch1Region& row : kEcaBatch1Regions) {
+        if (RegionTable(row.region)->regionName.empty()) {
+            GateFail("EB0 %s (%d): RegionTable_Init built no region for it", row.name, (int)row.region);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: EB0 all 15 stage-3 regions built\n");
+    }
+
+    // ---- EB1..EB2: GF Above Jail -> Outskirts under OHKO, trick off ---------
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ResetClimbLogic();
+    ExpectExit("EB1 GF Above Jail to Below Chest, adult under OHKO with nothing (control)", RR_GF_ABOVE_JAIL,
+               RR_GF_BELOW_CHEST, true, false, "TakeDamage is true under OHKO with no fairy or Nayru's Love");
+    ExpectExit("EB2 GF Above Jail to Outskirts, adult under OHKO, RT_UNINTUITIVE_JUMPS off", RR_GF_ABOVE_JAIL,
+               RR_GF_OUTSKIRTS, true, true,
+               "GF Above Jail -> Outskirts still demands TakeDamage or RT_UNINTUITIVE_JUMPS (SoH eca767dcb)");
+
+    // ---- EB3..EB4: DMT freestanding PoH under OHKO with nothing -------------
+    ResetClimbLogic();
+    ExpectAs(false, "EB3 DMT freestanding PoH, child with nothing under OHKO", RR_DEATH_MOUNTAIN_TRAIL,
+             RC_DMT_FREESTANDING_POH, false,
+             "a child with nothing under OHKO reaches the DMT freestanding PoH without Bunny Hood");
+    ExpectAs(true, "EB4 DMT freestanding PoH, adult with nothing under OHKO", RR_DEATH_MOUNTAIN_TRAIL,
+             RC_DMT_FREESTANDING_POH, true,
+             "an adult with nothing under OHKO cannot jump to the DMT freestanding PoH (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+
+    // ---- EB5..EB6: Fire Foyer -> Big Lava Room with 1 vs 2 keys, FireTimer 0 -
+    ResetClimbLogic();
+    logic->SetSmallKeyCount(SCENE_FIRE_TEMPLE, 1);
+    ExpectExit("EB5 Fire Foyer to Big Lava Room, adult, no tunic, FireTimer 0, 1 key", RR_FIRE_TEMPLE_FOYER,
+               RR_FIRE_TEMPLE_BIG_LAVA_ROOM, true, false, "1 small key opens Fire Foyer -> Big Lava Room");
+    logic->SetSmallKeyCount(SCENE_FIRE_TEMPLE, 2);
+    ExpectExit("EB6 Fire Foyer to Big Lava Room, adult, no tunic, FireTimer 0, 2 keys", RR_FIRE_TEMPLE_FOYER,
+               RR_FIRE_TEMPLE_BIG_LAVA_ROOM, true, true,
+               "Fire Foyer -> Big Lava Room still demands FireTimer >= 24 (SoH eca767dcb)");
+
+    // ---- EB7..EB9: Goron City woods warp event ------------------------------
+    ResetClimbLogic();
+    logic->Set(LOGIC_GORON_CITY_CHILD_FIRE, true);
+    FireEvents(RR_GORON_CITY, true);
+    ExpectEvent("EB7 Goron City woods warp, adult with nothing and child fire already set",
+                LOGIC_GORON_CITY_WOODS_WARP_OPEN, false,
+                "an adult with nothing opens the Goron City woods warp from LOGIC_GORON_CITY_CHILD_FIRE");
+    ResetClimbLogic();
+    GiveSticks();
+    FireEvents(RR_GORON_CITY, false);
+    ExpectEvent("EB8 Goron City woods warp, child with sticks only, before Darunia's chamber",
+                LOGIC_GORON_CITY_WOODS_WARP_OPEN, false,
+                "sticks alone open the Goron City woods warp before lighting fire in Darunia's chamber");
+    FireEvents(RR_GC_DARUNIAS_CHAMBER, false);
+    FireEvents(RR_GORON_CITY, false);
+    ExpectEvent("EB9 Goron City woods warp, child with sticks after Darunia's chamber",
+                LOGIC_GORON_CITY_WOODS_WARP_OPEN, true,
+                "a child with sticks after Darunia's chamber does not open the woods warp (SoH eca767dcb)");
+
+    // ---- EB10..EB13: Jabu LOGIC_JABU_RUTO_IN_B1 -> 1F and MQ water switch ---
+    ResetClimbLogic();
+    Give(RG_BRONZE_SCALE);
+    Give(RG_SPEAK_ZORA);
+    GiveGrab();
+    FireEvents(RR_JABU_JABUS_BELLY_WATER_SWITCH_ROOM_NORTH, false);
+    ExpectEvent("EB10 Jabu Ruto in 1F, child with Swim, Speak Zora and grab, before B1", LOGIC_JABU_RUTO_IN_1F, false,
+                "LOGIC_JABU_RUTO_IN_1F fires before meeting Ruto in B1 (SoH eca767dcb)");
+    FireEvents(RR_JABU_JABUS_BELLY_HOLES_ROOM, false);
+    FireEvents(RR_JABU_JABUS_BELLY_WATER_SWITCH_ROOM_NORTH, false);
+    ExpectEvent("EB11 Jabu Ruto in 1F, child with Swim, Speak Zora and grab, after Holes Room", LOGIC_JABU_RUTO_IN_1F,
+                true, "LOGIC_JABU_RUTO_IN_1F stays unset after Holes Room sets LOGIC_JABU_RUTO_IN_B1");
+
+    ResetClimbLogic();
+    Give(RG_SPEAK_ZORA);
+    GiveGrab();
+    ExpectExit("EB12 Jabu MQ Holes Basement to Water Switch Room, Speak Zora and grab, before B1",
+               RR_JABU_JABUS_BELLY_MQ_HOLES_BASEMENT, RR_JABU_JABUS_BELLY_MQ_WATER_SWITCH_ROOM, false, false,
+               "MQ Water Switch Room opens without LOGIC_JABU_RUTO_IN_B1 (SoH eca767dcb)");
+    FireEvents(RR_JABU_JABUS_BELLY_MQ_HOLES_ROOM, false);
+    ExpectExit("EB13 Jabu MQ Holes Basement to Water Switch Room, Speak Zora and grab, after MQ Holes Room",
+               RR_JABU_JABUS_BELLY_MQ_HOLES_BASEMENT, RR_JABU_JABUS_BELLY_MQ_WATER_SWITCH_ROOM, false, true,
+               "MQ Water Switch Room stays closed after MQ Holes Room sets LOGIC_JABU_RUTO_IN_B1");
+
+    // ---- EB14..EB15: Ice Cavern lobby rupee under RT_VISIBLE_COLLISION ------
+    ResetClimbLogic();
+    GiveKokiriSword();
+    ExpectAs(false, "EB14 Ice Cavern lobby rupee, child with Kokiri Sword, no blue fire, trick off",
+             RR_ICE_CAVERN_BEGINNING, RC_ICE_CAVERN_LOBBY_RUPEE, false,
+             "RC_ICE_CAVERN_LOBBY_RUPEE is reachable without blue fire when RT_VISIBLE_COLLISION is off");
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(1);
+    ExpectAs(false, "EB15 Ice Cavern lobby rupee, child with Kokiri Sword, no blue fire, RT_VISIBLE_COLLISION",
+             RR_ICE_CAVERN_BEGINNING, RC_ICE_CAVERN_LOBBY_RUPEE, true,
+             "RT_VISIBLE_COLLISION and a jumpslash do not reach RC_ICE_CAVERN_LOBBY_RUPEE (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(0);
+
+    // ---- EB16..EB17: DC Far Bridge -> Lobby Switch under RT_DC_CHILD_LOBBY --
+    ResetClimbLogic();
+    GiveKokiriSword();
+    ExpectExit("EB16 DC Far Bridge to Lobby Switch, child with Kokiri Sword, RT_DC_CHILD_LOBBY off",
+               RR_DODONGOS_CAVERN_FAR_BRIDGE, RR_DODONGOS_CAVERN_LOBBY_SWITCH, false, false,
+               "a child jumpslashes from DC Far Bridge to Lobby Switch with RT_DC_CHILD_LOBBY off");
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(1);
+    ExpectExit("EB17 DC Far Bridge to Lobby Switch, child with Kokiri Sword, RT_DC_CHILD_LOBBY on",
+               RR_DODONGOS_CAVERN_FAR_BRIDGE, RR_DODONGOS_CAVERN_LOBBY_SWITCH, false, true,
+               "RT_DC_CHILD_LOBBY and Kokiri Sword do not open DC Far Bridge -> Lobby Switch (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(0);
+
+    // ---- EB18..EB23: DC entrance side bridge and MQ two-fires boulder -------
+    ResetClimbLogic();
+    ExpectExit("EB18 DC Bomb Room Lower to Entrance Side Bridge, child without Climb",
+               RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER, RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE, false, false,
+               "DC Bomb Room Lower climbs to Entrance Side Bridge without Climb");
+    GiveClimb();
+    ExpectExit("EB19 DC Bomb Room Lower to Entrance Side Bridge, child with Climb", RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER,
+               RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE, false, true,
+               "Climb does not open DC Bomb Room Lower -> Entrance Side Bridge (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    ExpectExit("EB20 DC MQ Two Fires Room to Flower, child with nothing", RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM,
+               RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER, false, false,
+               "DC MQ Two Fires Flower opens with no switch hitter, hood, Hover Boots or skip trick");
+    GiveSlingshot();
+    ExpectExit("EB21 DC MQ Two Fires Room to Flower, child with Slingshot", RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM,
+               RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER, false, true,
+               "Slingshot does not open DC MQ Two Fires Room -> Flower (SoH eca767dcb)");
+    GiveGrab();
+    FireEvents(RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER, false);
+    ExpectEvent("EB22 DC MQ Two Fires boulder, Power Bracelet only in Flower", LOGIC_DC_MQ_TWO_FIRES_BOULDER, false,
+                "Power Bracelet without Goron's Bracelet clears LOGIC_DC_MQ_TWO_FIRES_BOULDER");
+    GiveGoronsBracelet();
+    FireEvents(RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER, false);
+    ExpectEvent("EB23 DC MQ Two Fires boulder, Goron's Bracelet in Flower", LOGIC_DC_MQ_TWO_FIRES_BOULDER, true,
+                "Goron's Bracelet in MQ Two Fires Flower does not set LOGIC_DC_MQ_TWO_FIRES_BOULDER (SoH eca767dcb)");
+
+    // ---- EB24..EB27: Jabu Jigglies Ledge and MQ Holes B1 SW Door ------------
+    ResetClimbLogic();
+    ExpectExit("EB24 Jabu Jigglies Room to Jigglies Ledge, child without Boomerang", RR_JABU_JABUS_BELLY_JIGGLIES_ROOM,
+               RR_JABU_JABUS_BELLY_JIGGLIES_LEDGE, false, false,
+               "a child without Boomerang crosses to Jabu Jigglies Ledge");
+    Give(RG_BOOMERANG);
+    ExpectExit("EB25 Jabu Jigglies Room to Jigglies Ledge, child with Boomerang", RR_JABU_JABUS_BELLY_JIGGLIES_ROOM,
+               RR_JABU_JABUS_BELLY_JIGGLIES_LEDGE, false, true,
+               "Boomerang does not reach Jabu Jigglies Ledge (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    ExpectExit("EB26 Jabu MQ Holes Basement to B1 SW Door, child with nothing", RR_JABU_JABUS_BELLY_MQ_HOLES_BASEMENT,
+               RR_JABU_JABUS_BELLY_MQ_HOLES_B1_SW_DOOR, false, true,
+               "Jabu MQ Holes Basement -> B1 SW Door is closed (SoH eca767dcb)");
+    ExpectExit("EB27 Jabu MQ B1 SW Door to Invisible Keese Room, north tentacle still up",
+               RR_JABU_JABUS_BELLY_MQ_HOLES_B1_SW_DOOR, RR_JABU_JABUS_BELLY_MQ_INVISIBLE_KEESE_ROOM, false, false,
+               "Jabu MQ B1 SW Door passes the north tentacle before it is cleared");
+    logic->Set(LOGIC_JABU_NORTH_TENTACLE, true);
+    ExpectExit("EB28 Jabu MQ B1 SW Door to Invisible Keese Room, north tentacle cleared",
+               RR_JABU_JABUS_BELLY_MQ_HOLES_B1_SW_DOOR, RR_JABU_JABUS_BELLY_MQ_INVISIBLE_KEESE_ROOM, false, true,
+               "clearing LOGIC_JABU_NORTH_TENTACLE does not open Jabu MQ B1 SW Door -> Invisible Keese Room");
+
+    // ---- EB29..EB35: Forest NE Courtyard Switch and MQ Top Door / Chest -----
+    ResetClimbLogic();
+    GiveHookshot(false);
+    GiveClimb();
+    ExpectExit("EB29 Forest NE Courtyard Lower to Switch, adult with short Hookshot and Climb, vines trick off",
+               RR_FOREST_TEMPLE_NE_COURTYARD_LOWER, RR_FOREST_TEMPLE_NE_COURTYARD_SWITCH, true, false,
+               "short Hookshot without RT_FOREST_VINES reaches Forest NE Courtyard Switch");
+    GiveHookshot(true);
+    ExpectExit("EB30 Forest NE Courtyard Lower to Switch, adult with Longshot", RR_FOREST_TEMPLE_NE_COURTYARD_LOWER,
+               RR_FOREST_TEMPLE_NE_COURTYARD_SWITCH, true, true,
+               "Longshot does not reach Forest NE Courtyard Switch (SoH eca767dcb)");
+    FireEvents(RR_FOREST_TEMPLE_NE_COURTYARD_UPPER, true);
+    ExpectEvent("EB31 Forest drained well from NE Courtyard Upper", LOGIC_FOREST_DRAINED_WELL, false,
+                "NE Courtyard Upper still drains the well directly without reaching the switch");
+    FireEvents(RR_FOREST_TEMPLE_NE_COURTYARD_SWITCH, true);
+    ExpectEvent("EB32 Forest drained well from NE Courtyard Switch", LOGIC_FOREST_DRAINED_WELL, true,
+                "NE Courtyard Switch does not set LOGIC_FOREST_DRAINED_WELL (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    ExpectExit("EB33 Forest MQ North Passage to Courtyard Top Door, adult with nothing",
+               RR_FOREST_TEMPLE_MQ_NORTH_PASSAGE, RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_DOOR, true, true,
+               "Forest MQ North Passage -> Courtyard Top Door is closed (SoH eca767dcb)");
+    ExpectExit("EB34 Forest MQ Courtyard Top Door to Top Chest, adult without Climb",
+               RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_DOOR, RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_CHEST, true, false,
+               "Forest MQ Courtyard Top Door reaches Top Chest with no Climb, Hookshot, Hover Boots or jump trick");
+    GiveClimb();
+    ExpectExit("EB35 Forest MQ Courtyard Top Door to Top Chest, adult with Climb",
+               RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_DOOR, RR_FOREST_TEMPLE_MQ_COURTYARD_TOP_CHEST, true, true,
+               "Climb does not reach Forest MQ Courtyard Top Chest from Top Door (SoH eca767dcb)");
+
+    // ---- EB36..EB50: Fire Switch Climb, MQ Locked Climb, Shortcut 3F, -------
+    // ----             Fire Wall doors and Boulder Maze 4F --------------------
+    ResetClimbLogic();
+    ExpectExit("EB36 Fire Above 3F Flare Dancer to Switch Climb 4F, adult", RR_FIRE_TEMPLE_ABOVE_3F_FLARE_DANCER,
+               RR_FIRE_TEMPLE_SWITCH_CLIMB_4F, true, true,
+               "Fire Above 3F Flare Dancer -> Switch Climb 4F is closed (SoH eca767dcb)");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectExit("EB37 Fire Switch Climb 4F to 5F, adult with bomb bag, no Climb", RR_FIRE_TEMPLE_SWITCH_CLIMB_4F,
+               RR_FIRE_TEMPLE_SWITCH_CLIMB_5F, true, false, "Fire Switch Climb 4F -> 5F opens without Climb");
+    ResetClimbLogic();
+    GiveClimb();
+    ExpectExit("EB38 Fire Switch Climb 4F to 5F, adult with Climb, no switch hitter", RR_FIRE_TEMPLE_SWITCH_CLIMB_4F,
+               RR_FIRE_TEMPLE_SWITCH_CLIMB_5F, true, false,
+               "Fire Switch Climb 4F -> 5F opens without hitting the switch");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectExit("EB39 Fire Switch Climb 4F to 5F, adult with Climb and bomb bag", RR_FIRE_TEMPLE_SWITCH_CLIMB_4F,
+               RR_FIRE_TEMPLE_SWITCH_CLIMB_5F, true, true,
+               "Climb and a bomb bag do not open Fire Switch Climb 4F -> 5F (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    ExpectExit("EB40 Fire MQ Above 3F Flare Dancer to Locked Climb 4F, adult", RR_FIRE_TEMPLE_MQ_ABOVE_3F_FLARE_DANCER,
+               RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_4F, true, true,
+               "Fire MQ Above 3F Flare Dancer -> Locked Climb 4F is closed (SoH eca767dcb)");
+    ExpectExit("EB41 Fire MQ Locked Climb 4F to 5F, adult without Climb", RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_4F,
+               RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F, true, false, "Fire MQ Locked Climb 4F -> 5F opens without Climb");
+    GiveClimb();
+    ExpectExit("EB42 Fire MQ Locked Climb 4F to 5F, adult with Climb", RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_4F,
+               RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F, true, true,
+               "Climb does not open Fire MQ Locked Climb 4F -> 5F (SoH eca767dcb)");
+    logic->SetSmallKeyCount(SCENE_FIRE_TEMPLE, 3);
+    ExpectExit("EB43 Fire MQ Locked Climb 5F to Narrow Stairs, 3 keys", RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F,
+               RR_FIRE_TEMPLE_MQ_NARROW_STAIRS_ROOM, true, false,
+               "3 small keys open Fire MQ Locked Climb 5F -> Narrow Stairs Room");
+    logic->SetSmallKeyCount(SCENE_FIRE_TEMPLE, 4);
+    ExpectExit("EB44 Fire MQ Locked Climb 5F to Narrow Stairs, 4 keys", RR_FIRE_TEMPLE_MQ_LOCKED_CLIMB_5F,
+               RR_FIRE_TEMPLE_MQ_NARROW_STAIRS_ROOM, true, true,
+               "4 small keys do not open Fire MQ Locked Climb 5F -> Narrow Stairs Room (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    GiveGoronsBracelet();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectExit("EB45 Fire Shortcut Room to 3F, adult with Goron's Bracelet and bombs, no Climb",
+               RR_FIRE_TEMPLE_SHORTCUT_ROOM, RR_FIRE_TEMPLE_SHORTCUT_ROOM_3F, true, false,
+               "Fire Shortcut Room -> 3F opens without Climb");
+    GiveClimb();
+    ExpectExit("EB46 Fire Shortcut Room to 3F, adult with Goron's Bracelet, bombs and Climb",
+               RR_FIRE_TEMPLE_SHORTCUT_ROOM, RR_FIRE_TEMPLE_SHORTCUT_ROOM_3F, true, true,
+               "Goron's Bracelet, bombs and Climb do not open Fire Shortcut Room -> 3F (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    ExpectExit("EB47 Fire Wall Chase to Upper Door, adult without tunic", RR_FIRE_TEMPLE_FIRE_WALL_CHASE,
+               RR_FIRE_TEMPLE_FIRE_WALL_UPPER_DOOR, true, false,
+               "Fire Wall Chase -> Upper Door opens with FireTimer 0");
+    ExpectExit("EB48 Fire Wall Chase to Side Door, adult without tunic", RR_FIRE_TEMPLE_FIRE_WALL_CHASE,
+               RR_FIRE_TEMPLE_FIRE_WALL_SIDE_DOOR, true, false, "Fire Wall Chase -> Side Door opens with FireTimer 0");
+    Give(RG_GORON_TUNIC);
+    ExpectExit("EB49 Fire Wall Chase to Upper Door, adult with Goron Tunic", RR_FIRE_TEMPLE_FIRE_WALL_CHASE,
+               RR_FIRE_TEMPLE_FIRE_WALL_UPPER_DOOR, true, true,
+               "Goron Tunic does not open Fire Wall Chase -> Upper Door (SoH eca767dcb)");
+    ExpectExit("EB50 Fire Wall Chase to Side Door, adult with Goron Tunic", RR_FIRE_TEMPLE_FIRE_WALL_CHASE,
+               RR_FIRE_TEMPLE_FIRE_WALL_SIDE_DOOR, true, true,
+               "Goron Tunic does not open Fire Wall Chase -> Side Door (SoH eca767dcb)");
+
+    ResetClimbLogic();
+    GiveHookshot(true);
+    ExpectExit("EB51 Fire Boulder Maze Upper to 4F, adult with Longshot, scarecrow trick off",
+               RR_FIRE_TEMPLE_BOULDER_MAZE_UPPER, RR_FIRE_TEMPLE_BOULDER_MAZE_4F, true, false,
+               "Fire Boulder Maze Upper -> 4F opens on Longshot without scarecrow or RT_FIRE_SCARECROW");
+    randoCtx->GetTrickOption(RT_FIRE_SCARECROW).Set(1);
+    ExpectExit("EB52 Fire Boulder Maze Upper to 4F, adult with Longshot and RT_FIRE_SCARECROW",
+               RR_FIRE_TEMPLE_BOULDER_MAZE_UPPER, RR_FIRE_TEMPLE_BOULDER_MAZE_4F, true, true,
+               "Longshot and RT_FIRE_SCARECROW do not open Fire Boulder Maze Upper -> 4F (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_FIRE_SCARECROW).Set(0);
+
+    // ---- EB53..EB60: one ExpectSearch per split dungeon from its entryway ---
+    randoCtx->GetDungeon(Rando::DODONGOS_CAVERN)->ClearMQ();
+    ResetClimbLogic();
+    GiveGoronsBracelet();
+    Give(RG_MASTER_SWORD);
+    ExpectSearch("EB53 DC search from entryway to first bridge grass, adult without Climb", RR_DODONGOS_CAVERN_ENTRYWAY,
+                 true, RR_NONE, RC_DODONGOS_CAVERN_FIRST_BRIDGE_GRASS, false,
+                 "DC first bridge grass on Entrance Side Bridge is reached from the entryway without Climb");
+    GiveClimb();
+    ExpectSearch("EB54 DC search from entryway to first bridge grass, adult with Climb", RR_DODONGOS_CAVERN_ENTRYWAY,
+                 true, RR_NONE, RC_DODONGOS_CAVERN_FIRST_BRIDGE_GRASS, true,
+                 "an adult with Goron's Bracelet, sword and Climb cannot reach DC first bridge grass from entryway");
+
+    randoCtx->GetDungeon(Rando::JABU_JABUS_BELLY)->ClearMQ();
+    ResetClimbLogic();
+    GiveSlingshot();
+    GiveKokiriSword();
+    Give(RG_BOOMERANG);
+    Give(RG_BRONZE_SCALE);
+    GiveGrab();
+    ExpectSearch("EB55 Jabu search from entryway to near-boss GS, child without Speak Zora",
+                 RR_JABU_JABUS_BELLY_ENTRYWAY, false, RR_NONE, RC_JABU_JABUS_BELLY_GS_NEAR_BOSS, false,
+                 "Jabu near-boss GS is reached from the entryway without Ruto lowering the path");
+    Give(RG_SPEAK_ZORA);
+    ExpectSearch("EB56 Jabu search from entryway to near-boss GS, child with Speak Zora via Jigglies Ledge",
+                 RR_JABU_JABUS_BELLY_ENTRYWAY, false, RR_NONE, RC_JABU_JABUS_BELLY_GS_NEAR_BOSS, true,
+                 "a child with Ruto, Boomerang and Kokiri Sword cannot reach Jabu near-boss GS via Jigglies Ledge");
+
+    randoCtx->GetDungeon(Rando::FOREST_TEMPLE)->ClearMQ();
+    ResetClimbLogic();
+    GiveOpenChest();
+    Give(RG_PROGRESSIVE_BOW);
+    GiveHookshot(false);
+    ExpectSearch("EB57 Forest search from entryway to well chest, adult with Bow and short Hookshot",
+                 RR_FOREST_TEMPLE_ENTRYWAY, true, RR_NONE, RC_FOREST_TEMPLE_WELL_CHEST, false,
+                 "Forest well chest is reached from the entryway without Longshot reaching NE Courtyard Switch");
+    GiveHookshot(true);
+    ExpectSearch("EB58 Forest search from entryway to well chest, adult with Bow and Longshot",
+                 RR_FOREST_TEMPLE_ENTRYWAY, true, RR_NONE, RC_FOREST_TEMPLE_WELL_CHEST, true,
+                 "an adult with Bow, Longshot and Open Chest cannot drain the well via NE Courtyard Switch");
+
+    randoCtx->GetDungeon(Rando::FIRE_TEMPLE)->ClearMQ();
+    ResetClimbLogic();
+    GiveOpenChest();
+    Give(RG_GORON_TUNIC);
+    GiveGoronsBracelet();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    Give(RG_MASTER_SWORD);
+    logic->SetSmallKeyCount(SCENE_FIRE_TEMPLE, 8);
+    ExpectSearch("EB59 Fire search from entryway to hammer chest, adult without Climb", RR_FIRE_TEMPLE_ENTRYWAY, true,
+                 RR_NONE, RC_FIRE_TEMPLE_MEGATON_HAMMER_CHEST, false,
+                 "Fire Megaton Hammer chest is reached from the entryway without Climb");
+    GiveClimb();
+    ExpectSearch("EB60 Fire search from entryway to hammer chest, adult with Climb, tunic, bombs, sword and 8 keys",
+                 RR_FIRE_TEMPLE_ENTRYWAY, true, RR_NONE, RC_FIRE_TEMPLE_MEGATON_HAMMER_CHEST, true,
+                 "an adult with Climb, Goron Tunic, Bracelet, bombs, sword and 8 keys cannot reach the hammer chest");
+
+    // ---- EB61..EB72: the hood terms eca767dcb carries (GF vines, Fire near boss) ----
+    // An adult holding the hood, Bunny Hood Effect on: closed with Masks as Adult off, open with it on.
+    // GF Top of Lower Vines -> Below GS is eca's BunnyHovers() exit (Hover Boots and the hood).
+    ResetLogicWithBunnyHood();
+    Give(RG_HOVER_BOOTS);
+    MaaExitOffOn(randoCtx,
+                 "EB61 GF Top of Lower Vines to Below GS, adult with Hover Boots and hood, Masks as Adult off",
+                 "EB62 GF Top of Lower Vines to Below GS, adult with Hover Boots and hood, Masks as Adult on",
+                 RR_GF_TOP_OF_LOWER_VINES, RR_GF_BELOW_GS);
+    // Fire near boss (eca's terms in upstream 53f688df5's door split): Goron Tunic, no Hover Boots, no Hookshot.
+    ResetLogicWithBunnyHood();
+    Give(RG_GORON_TUNIC);
+    MaaExitOffOn(randoCtx, "EB63 Fire Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB64 Fire Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_ROOM, RR_FIRE_TEMPLE_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB65 Fire Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult off",
+                 "EB66 Fire Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_DOOR, RR_FIRE_TEMPLE_NEAR_BOSS_TARGET);
+    MaaExitOffOn(randoCtx,
+                 "EB67 Fire Near Boss Target to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB68 Fire Near Boss Target to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_NEAR_BOSS_TARGET, RR_FIRE_TEMPLE_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB69 Fire MQ Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult off",
+                 "EB70 Fire MQ Near Boss Room to Near Boss Door, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_MQ_NEAR_BOSS_ROOM, RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR);
+    MaaExitOffOn(randoCtx,
+                 "EB71 Fire MQ Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult off",
+                 "EB72 Fire MQ Near Boss Door to Near Boss Target, adult with tunic and hood, Masks as Adult on",
+                 RR_FIRE_TEMPLE_MQ_NEAR_BOSS_DOOR, RR_FIRE_TEMPLE_MQ_NEAR_BOSS_TARGET);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    if (savedDcMq) {
+        randoCtx->GetDungeon(Rando::DODONGOS_CAVERN)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::DODONGOS_CAVERN)->ClearMQ();
+    }
+    if (savedJabuMq) {
+        randoCtx->GetDungeon(Rando::JABU_JABUS_BELLY)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::JABU_JABUS_BELLY)->ClearMQ();
+    }
+    if (savedForestMq) {
+        randoCtx->GetDungeon(Rando::FOREST_TEMPLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::FOREST_TEMPLE)->ClearMQ();
+    }
+    if (savedFireMq) {
+        randoCtx->GetDungeon(Rando::FIRE_TEMPLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::FIRE_TEMPLE)->ClearMQ();
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_BLUE_FIRE_ARROWS).Set(savedBlueFireArrows);
+    randoCtx->GetTrickOption(RT_UNINTUITIVE_JUMPS).Set(savedUnintuitive);
+    randoCtx->GetTrickOption(RT_VISIBLE_COLLISION).Set(savedVisible);
+    randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(savedDcLobby);
+    randoCtx->GetTrickOption(RT_DC_SLINGSHOT_SKIP).Set(savedDcSlingSkip);
+    randoCtx->GetTrickOption(RT_DC_SCRUB_ROOM).Set(savedDcScrub);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(savedTunic);
+    randoCtx->GetTrickOption(RT_HOOKSHOT_LADDERS).Set(savedHookshotLadders);
+    randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+    randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(savedDamageBoost);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(savedGroundJump);
+    randoCtx->GetTrickOption(RT_GROUND_JUMP_HARD).Set(savedGroundJumpHard);
+    randoCtx->GetTrickOption(RT_FOREST_VINES).Set(savedForestVines);
+    randoCtx->GetTrickOption(RT_FIRE_STRENGTH).Set(savedFireStrength);
+    randoCtx->GetTrickOption(RT_FIRE_SCARECROW).Set(savedFireScarecrow);
+    randoCtx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS).Set(savedSkipFlames);
 }
 
 // ---- SoH eca767dcb (Bunny Hood Effect) and e7f1801f0 (#7488): BH and LW -----
@@ -3557,6 +4047,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunSohLogicBatchLegs(randoCtx);
     // ---- FT: the Fire Trial split by door (139381a0e, 88099e6eb) -------------
     RunFireTrialSplitLegs(randoCtx);
+    // ---- EB: eca767dcb overhaul batch 1 (#1647 stage 3) ----------------------
+    RunEcaOverhaulBatch1Legs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------

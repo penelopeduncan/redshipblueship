@@ -55,7 +55,7 @@ void RegionTable_Init_DodongosCavern() {
 
     areaTable[RR_DODONGOS_CAVERN_SE_CORRIDOR] = Region("Dodongos Cavern SE Corridor", SCENE_DODONGOS_CAVERN, {}, {
         //Locations
-        LOCATION(RC_DODONGOS_CAVERN_GS_SCARECROW,    logic->ReachScarecrow() || (logic->IsAdult && logic->CanUse(RG_LONGSHOT)) || (ctx->GetTrickOption(RT_DC_SCARECROW_GS) && logic->HasItem(RG_POWER_BRACELET) && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA))),
+        LOCATION(RC_DODONGOS_CAVERN_GS_SCARECROW,    logic->ReachScarecrow() || (logic->IsAdult && logic->CanUse(RG_LONGSHOT)) || (ctx->GetTrickOption(RT_DC_SCARECROW_GS) && logic->HasItem(RG_POWER_BRACELET) && (logic->IsAdult || logic->CanUse(RG_LONGSHOT)) && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA))),
         LOCATION(RC_DODONGOS_CAVERN_SIDE_ROOM_POT_1, logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_SIDE_ROOM_POT_2, logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_SIDE_ROOM_POT_3, logic->CanBreakPots()),
@@ -161,18 +161,33 @@ void RegionTable_Init_DodongosCavern() {
         Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER, []{return logic->IsAdult || (logic->HasItem(RG_POWER_BRACELET) && logic->HasItem(RG_CLIMB)) || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || logic->CanUse(RG_HOOKSHOT);}),
     });
 
+    areaTable[RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE] = Region("Dodongos Cavern Entrance Side Bridge", SCENE_DODONGOS_CAVERN, {}, {
+        //Locations
+        LOCATION(RC_DODONGOS_CAVERN_FIRST_BRIDGE_GRASS, logic->CanCutShrubs()),
+        LOCATION(RC_DODONGOS_CAVERN_BLADE_POT_1,        logic->CanUse(RG_BOOMERANG)),
+    }, {
+        //Exits
+        Entrance(RR_DODONGOS_CAVERN_LOBBY,           []{return logic->TakeDamage();}),
+        Entrance(RR_DODONGOS_CAVERN_ARMOS_ROOM,      []{return true;}),
+        //RANDOTODO where does this damage boost start?
+        Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER, []{return ((logic->IsAdult || logic->BunnyHood()) && ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)) || logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->HasExplosives() && logic->CanJumpslash());}),
+    });
+
     areaTable[RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER] = Region("Dodongos Cavern Bomb Room Lower", SCENE_DODONGOS_CAVERN, {}, {
         //Locations
         LOCATION(RC_DODONGOS_CAVERN_BOMB_FLOWER_PLATFORM_CHEST, logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_DODONGOS_CAVERN_BLADE_ROOM_HEART,           logic->HasItem(RG_POWER_BRACELET)),
-        LOCATION(RC_DODONGOS_CAVERN_FIRST_BRIDGE_GRASS,         logic->CanCutShrubs()),
         LOCATION(RC_DODONGOS_CAVERN_BLADE_GRASS,                logic->CanCutShrubs()),
+        //You can get this from the ledge leading to the slingshot loop. breaking the mud wall is not necessary
+        LOCATION(RC_DODONGOS_CAVERN_BLADE_POT_2,                logic->CanUse(RG_BOOMERANG)),
     }, {
         //Exits
-        Entrance(RR_DODONGOS_CAVERN_ARMOS_ROOM,           []{return logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT);}),
-        Entrance(RR_DODONGOS_CAVERN_2F_SIDE_ROOM,         []{return AnyAgeTime([]{return logic->CanBreakMudWalls() || (ctx->GetTrickOption(RT_DC_SCRUB_ROOM) && logic->HasItem(RG_GORONS_BRACELET));});}),
+        Entrance(RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE, []{return logic->CanClimbLadder() || ((logic->IsAdult || logic->CanMiddairGroundJump(true)) && logic->BunnyHovers());}),
+        Entrance(RR_DODONGOS_CAVERN_2F_SIDE_ROOM,         []{return AnyAgeTime([]{return logic->CanBreakMudWalls() || (ctx->GetTrickOption(RT_DC_SCRUB_ROOM) && (logic->IsAdult || logic->BunnyHood()) && logic->HasItem(RG_GORONS_BRACELET));});}),
         Entrance(RR_DODONGOS_CAVERN_FIRST_SLINGSHOT_ROOM, []{return AnyAgeTime([]{return logic->CanBreakMudWalls() || logic->HasItem(RG_GORONS_BRACELET);});}),
-        Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER,      []{return (logic->IsAdult && (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || logic->CanGroundJump())) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->HasExplosives() && logic->CanJumpslash());}),
+        Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER,      []{return (logic->IsAdult && ((ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && logic->BunnyHood()) || logic->CanGroundJump(true) || logic->CanUse(RG_HOVER_BOOTS))) ||
+                                                                    logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE) && logic->HasExplosives() && logic->CanJumpslash()) ||
+                                                                    logic->CanMiddairGroundJump();}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_2F_SIDE_ROOM] = Region("Dodongos Cavern 2F Side Room", SCENE_DODONGOS_CAVERN, {}, {
@@ -192,7 +207,7 @@ void RegionTable_Init_DodongosCavern() {
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER, []{return true;}),
-        Entrance(RR_DODONGOS_CAVERN_UPPER_LIZALFOS,  []{return logic->CanHitEyeTargets() || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP) || (logic->IsAdult && logic->CanGroundJump()) || (ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && (logic->CanUse(RG_MEGATON_HAMMER) || (logic->CanStandingShield() && logic->CanJumpslash())));}),
+        Entrance(RR_DODONGOS_CAVERN_UPPER_LIZALFOS,  []{return logic->CanHitEyeTargets() || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP) || (logic->IsAdult && logic->CanGroundJump()) || logic->CanUse(RG_HOVER_BOOTS);}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_UPPER_LIZALFOS] = Region("Dodongos Cavern Upper Lizalfos", SCENE_DODONGOS_CAVERN, {}, {
@@ -222,7 +237,8 @@ void RegionTable_Init_DodongosCavern() {
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_UPPER_LIZALFOS,  []{return true;}),
-        Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER, []{return logic->CanUse(RG_FAIRY_SLINGSHOT) || logic->CanUse(RG_FAIRY_BOW) || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP) || (logic->IsAdult && logic->CanGroundJump()) || (ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && (logic->CanUse(RG_MEGATON_HAMMER) || (logic->CanStandingShield() && logic->CanJumpslash()))) || logic->BunnyHovers();}),
+        //barely possible as adult with just hover boots and rolls, but hard enough to be a trick
+        Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER, []{return logic->CanHitEyeTargets() || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP) || (logic->IsAdult && logic->CanGroundJump()) || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD) || logic->BunnyHovers();}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER] = Region("Dodongos Cavern Bomb Room Upper", SCENE_DODONGOS_CAVERN, {}, {
@@ -232,6 +248,7 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_BLADE_POT_2,    logic->CanBreakPots()),
     }, {
         //Exits
+        Entrance(RR_DODONGOS_CAVERN_ENTRANCE_SIDE_BRIDGE,  []{return true;}),
         Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_LOWER,       []{return true;}),
         Entrance(RR_DODONGOS_CAVERN_SECOND_SLINGSHOT_ROOM, []{return true;}),
         Entrance(RR_DODONGOS_CAVERN_FAR_BRIDGE,            []{return true;}),
@@ -247,6 +264,8 @@ void RegionTable_Init_DodongosCavern() {
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_LOBBY,           []{return true;}),
+        //Bunny hood jump + jumpslash can also make it directly from the raising platform, but it's too tight for unintuitive and overlaps with the recoil trick
+        Entrance(RR_DODONGOS_CAVERN_LOBBY_SWITCH,    []{return logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_DC_CHILD_LOBBY) && logic->CanJumpslashExceptHammer() && logic->TakeDamage());}),
         Entrance(RR_DODONGOS_CAVERN_BOMB_ROOM_UPPER, []{return true;}),
     });
 
@@ -340,11 +359,11 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_MOUTH_SIDE_BRIDGE_BOULDER_3, logic->Get(LOGIC_DC_MQ_CLEAR_UPPER_LOBBY_ROCKS)),
     }, {
         //Exits
-        Entrance(RR_DODONGOS_CAVERN_MQ_LOBBY,              []{return true;}),
-        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER, []{return logic->Get(LOGIC_DC_MQ_CLEAR_UPPER_LOBBY_ROCKS);}),
-        //Bunny hood jump + jumpslash can also make it directly from the raising platform
-        Entrance(RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM,  []{return logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_DC_MQ_CHILD_BOMBS) && logic->CanJumpslashExceptHammer() && logic->TakeDamage());}), //RANDOTODO is this possible with equip swapped hammer?
-        //it is possible to use bunny hood speed, hovers and a jumpslash to go between here and the other bridge (included with TORCH_ROOM_LOWER), but this would be a trick
+        Entrance(RR_DODONGOS_CAVERN_MQ_LOBBY,                []{return true;}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER,   []{return logic->Get(LOGIC_DC_MQ_CLEAR_UPPER_LOBBY_ROCKS);}),
+        //Bunny hood jump + jumpslash can also make it directly from the raising platform, but it's too tight for unintuitive and overlaps with the recoil trick
+        Entrance(RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM,    []{return logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_DC_CHILD_LOBBY) && logic->CanJumpslashExceptHammer() && logic->TakeDamage());}),
+        //ENTRANCE(RR_DODONGOS_CAVERN_MQ_ENTRANCE_SIDE_BRIDGE, ctx->GetTrickOption(RT_UNINTUITIVE_HOVERS) && logic->BunnyHovers() && logic->CanJumpslash()),
     });
 
     areaTable[RR_DODONGOS_CAVERN_MQ_STAIRS_LOWER] = Region("Dodongos Cavern MQ Stairs Lower", SCENE_DODONGOS_CAVERN, {}, {
@@ -353,10 +372,10 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_POT_2,         logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_POT_3,         logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_POT_4,         logic->CanBreakPots()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_1, logic->CanBreakCrates()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_2, logic->CanBreakCrates()),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_1, logic->CanBreakCrates() || logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_STAIRCASE_LOWER_CRATE_2, logic->CanBreakCrates() || logic->HasItem(RG_GORONS_BRACELET)),
         LOCATION(RC_DODONGOS_CAVERN_MQ_BEAMOS_SILVER,           true),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_1F_CRATE_SILVER,         logic->CanBreakCrates() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->IsChild)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_1F_CRATE_SILVER,         logic->CanBreakCrates() || logic->HasItem(RG_GORONS_BRACELET) || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->IsChild)),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_LOBBY,               []{return true;}),
@@ -440,7 +459,8 @@ void RegionTable_Init_DodongosCavern() {
         EventAccess(LOGIC_DC_MQ_CLEAR_BIG_BLOCK_WEB, []{return logic->HasFireSource();}),
     }, {
         //Locations
-        //on review, RC_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_MIDDLE_POT from here is indirect as there's a lack of clear line of sight as child.
+        //on review of the review, RC_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_MIDDLE_POT has good line of sight from the top of the ladder to big block
+        LOCATION(RC_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_MIDDLE_POT, logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_ROOM_HEART, true),
     }, {
         //Exits
@@ -448,8 +468,8 @@ void RegionTable_Init_DodongosCavern() {
         Entrance(RR_DODONGOS_CAVERN_MQ_LARVAE_ROOM,          []{return logic->HasFireSource();}),
         //you can platform off the blocks to get here without climb
         Entrance(RR_DODONGOS_CAVERN_MQ_BIG_BLOCK_ROOM,       []{return logic->Get(LOGIC_DC_MQ_CLEAR_BIG_BLOCK_WEB);}), //Includes an implied CanPass(RE_BIG_SKULLTULA)
-        //Bunny hood jump can make it as child
-        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER,   []{return (logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || logic->CanGroundJump())) || logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER,   []{return (logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || logic->CanGroundJump())) ||
+                                                                       logic->CanUse(RG_HOOKSHOT) || logic->CanMiddairGroundJump();}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_MQ_BIG_BLOCK_ROOM] = Region("Dodongos Cavern MQ Big Block Room", SCENE_DODONGOS_CAVERN, {
@@ -487,7 +507,8 @@ void RegionTable_Init_DodongosCavern() {
         LOCATION(RC_DODONGOS_CAVERN_MQ_UPPER_LIZALFOS_POT_2, logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_UPPER_LIZALFOS_POT_3, logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_UPPER_LIZALFOS_POT_4, logic->CanBreakPots()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_HEART,  logic->BlastOrSmash() || logic->BunnyHood()),
+        //bunny hood visibly clears the lower boulders, but even without it you can air drift into a relative gap in the boulders to cross
+        LOCATION(RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_HEART,  logic->BlastOrSmash() || logic->BunnyHood() || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)),
         LOCATION(RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_BOULDER_1, logic->BlastOrSmash() && (logic->TakeDamage() || logic->CanUse(RG_GORON_TUNIC) || logic->CanUse(RG_BOOMERANG))),
         LOCATION(RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_BOULDER_2, logic->BlastOrSmash() && (logic->TakeDamage() || logic->CanUse(RG_GORON_TUNIC) || logic->CanUse(RG_BOOMERANG))),
         LOCATION(RC_DODONGOS_CAVERN_MQ_LIZALFOS_ROOM_BOULDER_3, logic->BlastOrSmash() && (logic->TakeDamage() || logic->CanUse(RG_GORON_TUNIC) || logic->CanUse(RG_BOOMERANG))),
@@ -507,18 +528,37 @@ void RegionTable_Init_DodongosCavern() {
         Entrance(RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM, []{return AnyAgeTime([]{return logic->CanKillEnemy(RE_LIZALFOS);});}),
     });
 
-    areaTable[RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM] = Region("Dodongos Cavern MQ Before Upper Lizalfos", SCENE_DODONGOS_CAVERN, {}, {
+    areaTable[RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM] = Region("Dodongos Cavern MQ Two Fires Room", SCENE_DODONGOS_CAVERN, {
+        //Events
+        EventAccess(LOGIC_DC_MQ_TWO_FIRES_BOULDER, []{return logic->BlastOrSmash();}),
+    }, {
         //Locations
         LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_POT_1,    logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_POT_2,    logic->CanBreakPots()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_CRATE_1,  logic->CanBreakCrates()),
         LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_CRATE_2,  logic->CanBreakCrates()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_BOULDER,  logic->BlastOrSmash() || (logic->HasItem(RG_GORONS_BRACELET) && (logic->CanHitSwitch() || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP)))),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_BOULDER,  logic->BlastOrSmash()),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_UPPER_LIZALFOS,     []{return true;}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER,   []{return logic->CanHitSwitch() || logic->BunnyHood() || logic->CanUse(RG_HOVER_BOOTS) || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP);}),
         //crate platforming skips the puzzle
-        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER, []{return logic->IsAdult || (AnyAgeTime([]{return logic->BlastOrSmash() || (logic->CanAttack() && logic->HasItem(RG_GORONS_BRACELET));})) || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP);}),
+        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER, []{return logic->IsAdult || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) || ctx->GetTrickOption(RT_DC_SLINGSHOT_SKIP) || (logic->Get(LOGIC_DC_MQ_TWO_FIRES_BOULDER) && logic->CanHitSwitch());}),
+    });
+
+    areaTable[RR_DODONGOS_CAVERN_MQ_TWO_FIRES_FLOWER] = Region("Dodongos Cavern MQ Two Fires Nook", SCENE_DODONGOS_CAVERN, {
+        //Events
+        EventAccess(LOGIC_DC_MQ_TWO_FIRES_BOULDER, []{return logic->HasItem(RG_GORONS_BRACELET);}),
+    }, {
+        //Locations
+        LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_CRATE_1, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_CRATE_2, logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_TWO_FLAMES_BOULDER, logic->HasItem(RG_GORONS_BRACELET)),
+    }, {
+        //Exits
+        Entrance(RR_DODONGOS_CAVERN_MQ_TWO_FIRES_ROOM,     []{return true;}),
+        //barely possible as adult with just hover boots and rolls, but hard enough to be a trick
+        Entrance(RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER, []{return logic->HasItem(RG_GORONS_BRACELET) || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD) || logic->BunnyHovers();}),
     });
 
     areaTable[RR_DODONGOS_CAVERN_MQ_TORCH_PUZZLE_UPPER] = Region("Dodongos Cavern MQ Torch Puzzle Upper", SCENE_DODONGOS_CAVERN, {
@@ -629,6 +669,7 @@ void RegionTable_Init_DodongosCavern() {
     }, {
         //Locations
         LOCATION(RC_DODONGOS_CAVERN_MQ_GS_BACK_AREA, logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_GRASS,  logic->CanCutShrubs()),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_BEHIND_MOUTH,      []{return logic->CanHitSwitch();}),
@@ -650,13 +691,12 @@ void RegionTable_Init_DodongosCavern() {
     areaTable[RR_DODONGOS_CAVERN_MQ_BACK_SWITCH_GRAVE] = Region("Dodongos Cavern MQ Back Switch Grave", SCENE_DODONGOS_CAVERN, {
         //Events
         EventAccess(LOGIC_DC_MQ_BEHIND_FIRE_SWITCH, []{return logic->HasItem(RG_POWER_BRACELET) || logic->CanHitSwitch() || logic->CanDetonateBombFlowers();}),
-        EventAccess(LOGIC_FAIRY_ACCESS,             []{return logic->CanBreakPots();}),
+        EventAccess(LOGIC_FAIRY_ACCESS,             []{return logic->CanBreakPots() || logic->HasItem(RG_GORONS_BRACELET);}),
     }, {
         //Locations
         LOCATION(RC_DODONGOS_CAVERN_MQ_GS_BACK_AREA,      logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA) || logic->HasItem(RG_GORONS_BRACELET)),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_ROOM_NW_POT, logic->CanBreakPots()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_ROOM_NE_POT, logic->CanBreakPots()),
-        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_GRASS,       logic->CanCutShrubs()),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_ROOM_NW_POT, logic->CanBreakPots() || logic->HasItem(RG_GORONS_BRACELET)),
+        LOCATION(RC_DODONGOS_CAVERN_MQ_ARMOS_ROOM_NE_POT, logic->CanBreakPots() || logic->HasItem(RG_GORONS_BRACELET)),
     }, {
         //Exits
         Entrance(RR_DODONGOS_CAVERN_MQ_BEHIND_MOUTH,     []{return true;}),

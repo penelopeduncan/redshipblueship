@@ -19,7 +19,7 @@ void RegionTable_Init_IceCavern() {
     areaTable[RR_ICE_CAVERN_BEGINNING] = Region("Ice Cavern Beginning", SCENE_ICE_CAVERN, {}, {
         //Locations
         LOCATION(RC_ICE_CAVERN_ENTRANCE_STORMS_FAIRY,      logic->CanUse(RG_SONG_OF_STORMS)),
-        LOCATION(RC_ICE_CAVERN_LOBBY_RUPEE,                logic->BlueFire()), // can get with rang trick
+        LOCATION(RC_ICE_CAVERN_LOBBY_RUPEE,                logic->BlueFire() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanJumpslash())), // can get with rang trick
         LOCATION(RC_ICE_CAVERN_ENTRANCE_LEFT_STALAGMITE,   logic->CanClearStalagmite()),
         LOCATION(RC_ICE_CAVERN_ENTRANCE_MIDDLE_STALAGMITE, logic->CanClearStalagmite()),
         LOCATION(RC_ICE_CAVERN_ENTRANCE_RIGHT_STALAGMITE,  logic->CanClearStalagmite()),
@@ -310,6 +310,7 @@ void RegionTable_Init_IceCavern() {
         LOCATION(RC_ICE_CAVERN_MQ_MAP_RED_ICE,                  logic->BlueFire()),
     }, {});
 
+    //RANDOTODO the default state of the toggle switchs in MQ ice are wierd, investigate for doordsanity
     areaTable[RR_ICE_CAVERN_MQ_SCARECROW_ROOM] = Region("Ice Cavern MQ Scarecrow Room", SCENE_ICE_CAVERN, {
         //Events
         EventAccess(LOGIC_BLUE_FIRE_ACCESS, []{return logic->CanUse(RG_SONG_OF_TIME) || logic->BunnyHovers() || (logic->IsAdult && (logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)));}),
@@ -320,9 +321,9 @@ void RegionTable_Init_IceCavern() {
         LOCATION(RC_ICE_CAVERN_MQ_GS_SCARECROW,                logic->ReachScarecrow() || (logic->IsAdult && (logic->CanUse(RG_LONGSHOT) || logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP)))),
         LOCATION(RC_ICE_CAVERN_MQ_BEFORE_SCARECROW_STALAGMITE, logic->CanClearStalagmite()),
         LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_ROOM_STALACTITE,   true),
-        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_LEFT_RED_ICE,      logic->IsChild && ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_MIDDLE_RED_ICE,    logic->IsChild && ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_RIGHT_RED_ICE,     logic->IsChild && ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_LEFT_RED_ICE,      ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_MIDDLE_RED_ICE,    ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_ICE_CAVERN_MQ_SCARECROW_RIGHT_RED_ICE,     ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS) && logic->CanUse(RG_BOOMERANG)),
     }, {
         //Exits
         Entrance(RR_ICE_CAVERN_MQ_HUB,           []{return logic->BlueFire();}),
