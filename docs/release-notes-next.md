@@ -15,9 +15,9 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 
 - **Seeds come from generator 6.** The same seed and settings can make a different world than `v0.5.1-alpha` made,
   with the default settings too. The Death Mountain Crater logic rework, the Ganon's Castle Fire Trial rework, the
-  stricter Gold Skulltula outside Ganon's Castle and Majora's Mask's new Moon Crash default each move items (all are
-  described below). A seed package exported by `v0.5.1-alpha` is refused ("Seed package from another generator"), so
-  generate the seed again.
+  logic rework of five dungeons, the stricter Gold Skulltula outside Ganon's Castle and Majora's Mask's new Moon
+  Crash default each move items (all are described below). A seed package exported by `v0.5.1-alpha` is refused
+  ("Seed package from another generator"), so generate the seed again.
 - **Save files from `v0.5.1-alpha` still open, but there is no way back.** The save format did not change. Once
   this version saves a `v0.5.1-alpha` file, `v0.5.1-alpha` refuses it ("File made by another build"), so copy
   `Save/` first if you may go back. If you do open such a file in `v0.5.1-alpha`, that build also renames the
@@ -112,6 +112,18 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   moves items in default worlds. The Gerudo Valley waterfall wonder items and the Master Quest Shadow Temple Gold
   Skulltula near the boss also need more than before, and adult Link needs nothing for the left and right Deku Tree
   hearts before the boss.
+- **Logic for five dungeons follows Ship of Harkinian's rework** (SoH #7032, issue #1647): Dodongo's Cavern,
+  Jabu-Jabu's Belly, the Forest Temple, the Fire Temple and the Ice Cavern, in both quests, and a few rules
+  outside them. Rooms are divided more finely and many rules were rewritten, so items can land elsewhere with
+  the default settings too. Two examples that need no trick: logic no longer asks for the Goron Tunic at the
+  door from the Fire Temple's first room to the big lava room, and in Goron City the fire a child lights with
+  a Deku Stick in Darunia's chamber no longer opens the shortcut to the Lost Woods for an adult (a child
+  holding Deku Sticks still uses it, and Din's Fire, explosives, the Fairy Bow, Goron's Bracelet or the
+  Megaton Hammer open the shortcut as before). With Bunny Hood Effect on, logic expects more hood jumps in
+  Dodongo's Cavern, the Forest Temple and the Fire Temple; most of the new Fire Temple ones, and every hood
+  jump with the Hover Boots, also need Masks as Adult. The trick "Dodongo's Cavern MQ Early Bomb Bag Area as
+  Child" keeps its name but now also covers the same jumpslash to the lobby ledge in the vanilla quest, and it
+  and four other tricks have Ship of Harkinian's newer descriptions.
 - **A fixed placement stays out of the playthrough and location hints** (SoH #6146). Some checks always keep their
   own item when they are not shuffled: the Master Sword in the Temple of Time, the Kokiri Sword, vanilla songs,
   unshuffled Gold Skulltula tokens and a few others. They are no longer listed in the spoiler log's playthrough,

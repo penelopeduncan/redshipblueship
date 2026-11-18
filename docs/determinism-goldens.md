@@ -1049,14 +1049,19 @@ ports Ship of Harkinian eca767dcb's logic for Dodongo's Cavern, Jabu-Jabu's
 Belly, the Forest Temple, the Fire Temple and the Ice Cavern, and seven
 overworld rules. Twelve `RandomizerRegion` ids are new (nine regions, and three
 regions split in two), so the regions after them are renumbered, and rules
-change that the default settings use: the Fire Temple's foyer no longer asks
-for the heat timer on the way to the big lava room, the exits from its boss
-entryway back to the two near-boss doors are no longer closed, the child's
-fire in Goron City opens the Lost Woods shortcut only for a child with Deku
-Sticks, the Hyrule Castle drain ledge takes the Hover Boots, the Kokiri Forest
-rupee alcove no longer takes the bean, an adult leaves the Lake Hylia fishing
-island without a scale, and Ruto reaches Jabu-Jabu's first floor only once her
-basement room has been reached.
+change. At least two of them can change a world with every option and trick
+at its default: the Fire Temple's foyer no longer asks for the heat timer on
+the way to the big lava room, and the fire a child lights in Goron City opens
+the Lost Woods shortcut only for a child with Deku Sticks, no longer for an
+adult. Others named in the pull request matter only under options or shuffles
+that are off by default: the exit from the Fire Temple's boss entryway back to
+its near-boss door is no longer closed, the Hyrule Castle drain ledge takes
+the Hover Boots, an adult leaves the Lake Hylia fishing island without a scale
+(which matters under Shuffle Swim), and Ruto reaches Jabu-Jabu's first floor
+(in Master Quest, the water switch room opens) only once the holes room she
+drops from has been reached. The way into the Kokiri Forest rupee alcove from
+outside the Lost Woods no longer takes the bean; the way in from the village
+still does, so nothing moves there.
 
 One golden moves, `seed-digest-new-options`, in three fields: `placementHash`
 (`82384983` to `50903423`), `ootFinalPlacementHash` (`CFFF9B4D` to `60E36385`)
