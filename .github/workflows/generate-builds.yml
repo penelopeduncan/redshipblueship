@@ -431,11 +431,11 @@ jobs:
         # runner the 17 of them took 6815 s at -j10 and 387 s at -j3. That is
         # why a few genuine misses in Logic.h cost 1.5-3 hours.
         cmake --build build-cmake --config Release --parallel "$(sysctl -n hw.ncpu)"
-        if ! (cd build-cmake && cpack); then
-          # The install rules and fixup_bundle log here, not to the console.
-          find build-cmake/_CPack_Packages -name 'InstallOutput.log' -exec sh -c 'echo "== $1"; tail -n 300 "$1"' _ {} \;
-          exit 1
-        fi
+        # cpack, tried again (up to three tries in all) only when hdiutil
+        # reports "Resource busy" (#1713). On failure the script prints the
+        # InstallOutput.log files the install rules and fixup_bundle write
+        # instead of the console, and exits non-zero.
+        bash .github/scripts/cpack-retry-busy.sh build-cmake
 
         mv _packages/*.dmg RedShipBlueShip.dmg
         mv README.md readme.txt
