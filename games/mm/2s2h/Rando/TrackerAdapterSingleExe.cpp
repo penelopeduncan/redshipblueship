@@ -170,9 +170,10 @@ bool MMIsEnemyDrop(RandoCheckId checkId) {
     return check != Rando::StaticData::Checks.end() && check->second.randoCheckType == RCTYPE_ENEMY_DROP;
 }
 
-// #1127: every scene an enemy drop is listed under, by check id, built with MMCheckScenes: empty for every other
-// check (and for a drop no region places), which has one place, its MMCheckScenes scene.
-std::vector<std::vector<s16>> sDropPlaces;
+// #1127, #1711: every scene a check is listed under, by check id, built with MMCheckScenes: each region's scene
+// (MMRegionListScene) once in region order; empty only for a check no listed region holds (the root's starting items),
+// which has one place, its MMCheckScenes scene.
+std::vector<std::vector<s16>> sCheckPlaces;
 
 // #1706: the scene Randomizer > MM Locations lists each check under, built with MMCheckScenes by its rule before
 // #1706 (a grotto's checks under the scene it opens from, an enemy drop under its first region's own scene, any other
@@ -194,10 +195,12 @@ std::vector<s16> sLocationScenes;
  * lists it too (its local divergence from f8bf9bb3b, #1498); no such region lacks
  * a connection in today's graph.
  *
- * #1127: MM's tracker lists an enemy drop under EVERY scene a region that lists
- * it is listed under, so this also fills sDropPlaces: each such region's scene
- * (MMRegionListScene, the rule the region's other checks are listed by here),
- * once, in region order, so a drop's first place is the scene above.
+ * #1127, #1711: MM's tracker lists a check under EVERY scene a region that holds
+ * it is listed under (initializeSceneChecks), so this also fills sCheckPlaces:
+ * each such region's scene (MMRegionListScene), once, in region order. sScenes
+ * stays the check's own listing scene, which the Hint Tracker reads; sCheckPlaces
+ * is where the pane lists it, and the two differ only where MM's tracker lists a
+ * check away from its own scene (such as the Moon's Tear or the Oath to Order).
  *
  * Built from Rando::Logic::Regions, which registration fills during bring-up, so
  * the table is rebuilt whenever the region count changes (the #659 entrance
@@ -210,7 +213,7 @@ const std::vector<s16>& MMCheckScenes(void) {
         return sScenes;
     }
     sScenes.assign((size_t)RC_MAX, (s16)SCENE_MAX);
-    sDropPlaces.assign((size_t)RC_MAX, std::vector<s16>());
+    sCheckPlaces.assign((size_t)RC_MAX, std::vector<s16>());
     sLocationScenes.assign((size_t)RC_MAX, (s16)SCENE_MAX);
     for (const auto& [_, check] : Rando::StaticData::Checks) {
         const s16 own = Play_GetOriginalSceneId(check.sceneId);
@@ -241,8 +244,8 @@ const std::vector<s16>& MMCheckScenes(void) {
             if ((underParent || drop) && sScenes[checkId] == (s16)SCENE_MAX) {
                 sScenes[checkId] = scene;
             }
-            std::vector<s16>& places = sDropPlaces[checkId];
-            if (drop && std::find(places.begin(), places.end(), scene) == places.end()) {
+            std::vector<s16>& places = sCheckPlaces[checkId];
+            if (std::find(places.begin(), places.end(), scene) == places.end()) {
                 places.push_back(scene);
             }
         }
@@ -285,7 +288,7 @@ const char* MMSceneAreaName(s16 scene, uint16_t* outKey) {
     return Rando::CheckTracker::GetCheckTrackerSceneName((SceneId)scene);
 }
 
-/** The area a check is listed under by MMCheckScenes' static rule: its row's area, and its first place. */
+/** The area a check is listed under by MMCheckScenes' static rule: its row's area, which the Hint Tracker reads. */
 const char* MMTrackerStaticAreaName(uint16_t checkId, uint16_t* outKey) {
     if (checkId >= (uint16_t)RC_MAX) {
         return nullptr;
@@ -326,30 +329,32 @@ bool MMDropAreasApply(void) {
 }
 
 /**
- * The descriptor's areaName: a check's first place, MMTrackerStaticAreaName. #1127:
- * an enemy drop is no longer filed under one area chosen by availability (#1498's
- * first instance in logic); it is listed in every place MM's tracker lists it
- * (MMTrackerAreaPlaceAt), and this is the first of them.
+ * The descriptor's areaName: the check's own listing scene (MMTrackerStaticAreaName),
+ * which the Hint Tracker reads to map a scene key to an MM hint area. Where the
+ * Check Tracker pane lists the check is MMTrackerAreaPlaceAt (#1127, #1711); the
+ * two differ only where MM's tracker lists a check away from its own scene.
  */
 const char* MMTrackerAreaName(uint16_t checkId, uint16_t* outKey) {
     return MMTrackerStaticAreaName(checkId, outKey);
 }
 
-/** The descriptor's areaPlaceCount (#1127): how many scenes MMCheckScenes lists check `checkId` under. */
+/** The descriptor's areaPlaceCount (#1127, #1711): how many scenes MMCheckScenes lists check `checkId` under. */
 int MMTrackerAreaPlaceCount(uint16_t checkId) {
     if (checkId >= (uint16_t)RC_MAX) {
         return 0;
     }
-    (void)MMCheckScenes(); // builds sDropPlaces with it
-    return sDropPlaces[checkId].empty() ? 1 : (int)sDropPlaces[checkId].size();
+    (void)MMCheckScenes(); // builds sCheckPlaces with it
+    return sCheckPlaces[checkId].empty() ? 1 : (int)sCheckPlaces[checkId].size();
 }
 
 /**
- * The descriptor's areaPlaceAt (#1127): the `place`th scene check `checkId` is
- * listed under, named and keyed as MMSceneAreaName does (place 0 is
- * MMTrackerAreaName's), with in `*outAvailable` whether the drop's kill there is in
- * logic, from the last availability computation on the save shown (MMDropAreasApply),
- * or -1 without one (the row's per-check answer stands). NULL out of range.
+ * The descriptor's areaPlaceAt (#1127, #1711): the `place`th scene MM's tracker
+ * lists check `checkId` under, named and keyed as MMSceneAreaName does (which
+ * differs from MMTrackerAreaName where MM's tracker lists the check away from its
+ * own scene), with in `*outAvailable` for an enemy drop whether its kill there is
+ * in logic, from the last availability computation on the save shown
+ * (MMDropAreasApply), or -1 for any other check or without one (the row's
+ * per-check answer stands, as CheckCopyInLogic does). NULL out of range.
  */
 const char* MMTrackerAreaPlaceAt(uint16_t checkId, int place, uint16_t* outKey, int* outAvailable) {
     if (outAvailable != nullptr) {
@@ -358,12 +363,12 @@ const char* MMTrackerAreaPlaceAt(uint16_t checkId, int place, uint16_t* outKey, 
     if (place < 0 || place >= MMTrackerAreaPlaceCount(checkId)) {
         return nullptr;
     }
-    const std::vector<s16>& places = sDropPlaces[checkId];
+    const std::vector<s16>& places = sCheckPlaces[checkId];
     if (places.empty()) {
         return MMTrackerStaticAreaName(checkId, outKey);
     }
     const s16 scene = places[(size_t)place];
-    if (outAvailable != nullptr && MMDropAreasApply()) {
+    if (outAvailable != nullptr && MMIsEnemyDrop((RandoCheckId)checkId) && MMDropAreasApply()) {
         *outAvailable = sDropCopiesInLogic.count({ checkId, scene }) != 0 ? 1 : 0;
     }
     return MMSceneAreaName(scene, outKey);
