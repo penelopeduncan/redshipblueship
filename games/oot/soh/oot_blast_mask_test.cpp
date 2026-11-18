@@ -198,8 +198,6 @@ extern PlayState* OoT_gPlayState;
 extern EffectSsInfo OoT_sEffectSsInfo;
 void EnKusa_Main(EnKusa* thisx, PlayState* play);
 void OoT_EnKusa_DoNothing(EnKusa* thisx, PlayState* play);
-// z_player.c (#1714): puts Link in one of its water actions without running it.
-s32 OoT_Player_SetWaterActionForTest(Player* player, s32 sample);
 #include "overlays/misc/ovl_kaleido_scope/z_kaleido_scope.h" // AGE_REQ_NONE
 }
 
@@ -257,6 +255,11 @@ static SurfaceType sBm1615SurfaceTypes[1];
 static CamData sBm1615CamData[1];
 static CollisionHeader sBm1615FloorHeader;
 static int sBm1615Failures = 0;
+// #1718: does the harness's player update reach the item buttons this frame (as
+// OoT_Player_UpdateItems would call OoT_BlastMask_OnItemButtons), and Link's own
+// input after it (his copy of play->state.input[0], as OoT_Player_Update makes).
+static bool sBm1615ItemButtons = true;
+static u32 sBm1615LinkPress = 0u;
 
 static void Bm1615Check(bool cond, const char* msg, int line) {
     if (!cond) {
@@ -298,9 +301,24 @@ static void Bm1615RestoreCVar(const Bm1615SavedCVar& saved) {
     }
 }
 
-static void Bm1615NoopPlayerUpdate(Actor* thisx, PlayState* play) {
-    (void)thisx;
-    (void)play;
+/** The test player's update (#1718). It runs no action: it copies the frame's
+ *  input as OoT_Player_Update does and, when sBm1615ItemButtons says the frame's
+ *  action reaches the item buttons, makes OoT_Player_UpdateItems' call into the
+ *  Blast Mask and takes B out of Link's copy as z_player.c does. Whether an action
+ *  reaches them is kBm1615Actions' column, which the row checks against
+ *  z_player.c's source (test_blast_mask_oot.c). */
+static void Bm1615PlayerUpdate(Actor* thisx, PlayState* play) {
+    Input linkInput = play->state.input[0];
+    if (sBm1615ItemButtons &&
+        OoT_BlastMask_OnItemButtons(play, (Player*)thisx, CHECK_BTN_ALL(linkInput.press.button, BTN_B)) != 0) {
+        linkInput.press.button &= ~BTN_B;
+    }
+    sBm1615LinkPress = linkInput.press.button;
+}
+
+/** Did Link's own input keep B this frame (the press not the mask's)? */
+static bool Bm1615LinkKeptB() {
+    return (sBm1615LinkPress & BTN_B) == BTN_B;
 }
 
 static void Bm1615InitFloorHeader(s16 floorY) {
@@ -411,7 +429,7 @@ static void Bm1615BeginScene(s16 sceneNum, s16 floorY, std::vector<uint8_t>& tha
     sBm1615Player.actor.id = ACTOR_PLAYER;
     sBm1615Player.actor.category = ACTORCAT_PLAYER;
     sBm1615Player.actor.flags = ACTOR_FLAG_UPDATE_CULLING_DISABLED;
-    sBm1615Player.actor.update = Bm1615NoopPlayerUpdate;
+    sBm1615Player.actor.update = Bm1615PlayerUpdate;
     sBm1615Play.actorCtx.actorLists[ACTORCAT_PLAYER].head = &sBm1615Player.actor;
     sBm1615Play.actorCtx.actorLists[ACTORCAT_PLAYER].length = 1;
 }
@@ -439,6 +457,7 @@ static void Bm1615EndScene(PlayState* play) {
 static void Bm1615StepFrame(PlayState* play, Player* player, u16 pressButtons) {
     play->state.input[0].press.button = pressButtons;
     play->state.input[0].cur.button = pressButtons;
+    sBm1615LinkPress = 0u;
     OoT_CollisionCheck_ClearContext(play, &play->colChkCtx);
 
     for (int cat = 0; cat < (int)ARRAY_COUNT(play->actorCtx.actorLists); cat++) {
@@ -537,11 +556,12 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(nearReady && kusaOrigin->actionFunc == EnKusa_Main, "shrubs not in EnKusa_Main", __LINE__);
     Bm1615Check(gSaveContext.ship.stats.count[COUNT_BUSHES_CUT] == 0, "bushes cut nonzero before blast", __LINE__);
 
-    // Press B: ShouldActorUpdate eats BTN_B, arms Default 310 cooldown, and spawns
-    // EnBom at world.pos; OoT_EnBom_Update transitions it to BOMB_EXPLOSION that same frame.
+    // Press B: the item buttons take BTN_B out of Link's input, arm the Default 310
+    // cooldown, and spawn EnBom at world.pos; OoT_EnBom_Update transitions it to
+    // BOMB_EXPLOSION that same frame.
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    const bool ateBtnB = (sBm1615Play.state.input[0].press.button & BTN_B) == 0;
-    Bm1615Check(ateBtnB, "worn Blast Mask left BTN_B in input", __LINE__);
+    const bool ateBtnB = !Bm1615LinkKeptB();
+    Bm1615Check(ateBtnB, "worn Blast Mask left BTN_B in Link's input", __LINE__);
     Bm1615Check(OoT_BlastMask_CooldownLeft() == 310u, "Blast Mask did not arm Default 310 cooldown", __LINE__);
     EnBom* bomb = Bm1615FindBomb(&sBm1615Play);
     Bm1615Check(bomb != nullptr, "Blast Mask B press did not spawn ACTOR_EN_BOM", __LINE__);
@@ -580,8 +600,7 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
     Bm1615Check(OoT_BlastMask_CooldownLeft() > 0u, "cooldown unexpectedly expired", __LINE__);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == 0,
-                "worn Blast Mask did not consume BTN_B during cooldown", __LINE__);
+    Bm1615Check(!Bm1615LinkKeptB(), "worn Blast Mask did not consume BTN_B during cooldown", __LINE__);
     const bool kusaCooldownIntact = kusaCooldown != nullptr && kusaCooldown->actionFunc == EnKusa_Main;
     Bm1615Check(Bm1615FindBomb(&sBm1615Play) == nullptr && kusaCooldownIntact,
                 "B press during active cooldown spawned a bomb or cut a shrub", __LINE__);
@@ -590,7 +609,7 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     OoT_ForeignMask_Use(&sBm1615Player, COMBO_FOREIGN_MASK_MM_BLAST);
     OoT_BlastMask_SetCooldownForTest(0);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    const bool leftBtnUnworn = (sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B;
+    const bool leftBtnUnworn = Bm1615LinkKeptB();
     Bm1615Check(leftBtnUnworn && Bm1615FindBomb(&sBm1615Play) == nullptr,
                 "unworn Blast Mask still intercepted BTN_B or spawned a bomb", __LINE__);
 
@@ -599,7 +618,7 @@ static void Bm1615RunShrubLeg(std::vector<uint8_t>& thaBuf) {
     OoT_ForeignMask_SetStoredRaw(COMBO_FOREIGN_MASK_MM_BLAST);
     OoT_BlastMask_SetCooldownForTest(0);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    const bool leftBtnRuleOff = (sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B;
+    const bool leftBtnRuleOff = Bm1615LinkKeptB();
     Bm1615Check(leftBtnRuleOff && Bm1615FindBomb(&sBm1615Play) == nullptr,
                 "Blast Mask fired with RSBS_XITEM_BLAST_MASK_OOT frozen off", __LINE__);
 
@@ -621,7 +640,7 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE,
                 "LA1 an adult not allowed put the Blast Mask on through the live Use", __LINE__);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B && Bm1615FindBomb(&sBm1615Play) == nullptr,
+    Bm1615Check(Bm1615LinkKeptB() && Bm1615FindBomb(&sBm1615Play) == nullptr,
                 "LA1 an adult not allowed had B taken or a blast spawned", __LINE__);
 
     // LA2: allowed, the adult wears it, is drawn it, and blasts with B.
@@ -632,7 +651,7 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(OoT_ForeignMask_WornDl(&sBm1615Player, 1) != nullptr,
                 "LA2 an allowed adult wearing the Blast Mask is drawn no list", __LINE__);
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == 0 && Bm1615FindBomb(&sBm1615Play) != nullptr,
+    Bm1615Check(!Bm1615LinkKeptB() && Bm1615FindBomb(&sBm1615Play) != nullptr,
                 "LA2 an allowed adult's B press was not the Blast Mask's (no blast)", __LINE__);
     for (int f = 0; f < 12; f++) {
         Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
@@ -644,33 +663,83 @@ static void Bm1615RunAdultLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
     Bm1615Check(OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_NONE,
                 "LA3 an adult kept the Blast Mask after the permission was withdrawn", __LINE__);
-    Bm1615Check((sBm1615Play.state.input[0].press.button & BTN_B) == BTN_B && Bm1615FindBomb(&sBm1615Play) == nullptr,
+    Bm1615Check(Bm1615LinkKeptB() && Bm1615FindBomb(&sBm1615Play) == nullptr,
                 "LA3 a withdrawn adult's B press still blasted", __LINE__);
 
     Bm1615EndScene(&sBm1615Play);
 }
 
-// OoT_Player_SetWaterActionForTest's samples: z_player.c's water actions (#1714).
-enum Bm1615WaterAction : s32 {
-    BM1615_ACT_NONE = -1,           // no action (cleared)
-    BM1615_ACT_SWIM_WAIT = 0,       // Player_Action_8084D610: treading water, sinking after a fall or on the Iron Boots
-    BM1615_ACT_SWIM = 1,            // Player_Action_8084D84C: swimming forward at the surface
-    BM1615_ACT_SWIM_ZTARGET = 2,    // Player_Action_8084DAB4: Z-targeted swimming
-    BM1615_ACT_DIVE = 3,            // Player_Action_8084DC48: the dive, with A or without
-    BM1615_ACT_SURFACING = 4,       // Player_Action_8084E1EC: surfacing for breath
-    BM1615_ACT_HIT_IN_WATER = 5,    // Player_Action_8084E30C: hit while in water
-    BM1615_ACT_ARRIVE_SWIMMING = 6, // Player_Action_8084D7C4: arriving in a scene swimming
-    BM1615_ACT_DYING_IN_WATER = 7,  // Player_Action_8084E368: dying in water
+// Link's actions the legs put him in (#1714, #1718). Nothing runs them: the
+// harness's player update reaches the item buttons exactly when the action's
+// `reaches` column says so, and test_blast_mask_oot.c checks every row of that
+// column against z_player.c's source (does the action's body, through the
+// functions it calls, reach OoT_Player_UpdateUpperBody, the only caller of
+// OoT_Player_UpdateItems).
+enum Bm1615Action : s32 {
+    BM1615_ACT_SWIM_WAIT = 0,        // treading water, sinking after a fall or on the Iron Boots
+    BM1615_ACT_SWIM = 1,             // swimming forward at the surface
+    BM1615_ACT_SWIM_ZTARGET = 2,     // Z-targeted swimming
+    BM1615_ACT_DIVE = 3,             // the dive, with A or without
+    BM1615_ACT_SURFACING = 4,        // surfacing for breath
+    BM1615_ACT_HIT_IN_WATER = 5,     // hit while in water
+    BM1615_ACT_ARRIVE_SWIMMING = 6,  // arriving in a scene swimming
+    BM1615_ACT_DYING_IN_WATER = 7,   // dying in water
+    BM1615_ACT_SWORD_SWING = 8,      // a sword (or hammer) swing
+    BM1615_ACT_JUMP_ATTACK = 9,      // the jump attack, in the air
+    BM1615_ACT_ROLL = 10,            // the roll (the recovery after a bonk is not sampled)
+    BM1615_ACT_KNOCKED_DOWN = 11,    // knocked down by a hit
+    BM1615_ACT_LYING = 12,           // lying on the ground after it
+    BM1615_ACT_SHOCKED = 13,         // the electric shock
+    BM1615_ACT_FROZEN = 14,          // frozen (an ice trap or a freezing hit)
+    BM1615_ACT_STAGGER = 15,         // the small stagger after a hit on the ground
+    BM1615_ACT_GETTING_UP = 16,      // getting up after lying on the ground
+    BM1615_ACT_REDEAD_GRAB = 17,     // held by a ReDead or Gibdo
+    BM1615_ACT_GRAB_BLOCK = 18,      // holding a block to push or pull it
+    BM1615_ACT_SWORD_RECOIL = 19,    // the sword bounced off a wall
+    BM1615_ACT_RUN_JUMP_WATER = 20,  // falling into water from a running jump
+    BM1615_ACT_CLIMB_OUT_LEDGE = 21, // climbing up onto a ledge, out of water too
+    BM1615_ACT_IDLE = 22,            // standing (and the ground actions)
 };
 
+struct Bm1615ActionRow {
+    const char* func; // z_player.c's action function
+    int reaches;      // 1: the action reaches the item buttons (on some frames); 0: never
+};
+
+static const Bm1615ActionRow kBm1615Actions[] = {
+    { "Player_Action_8084D610", 1 }, { "Player_Action_8084D84C", 1 }, { "Player_Action_8084DAB4", 1 },
+    { "Player_Action_8084DC48", 1 }, { "Player_Action_8084E1EC", 0 }, { "Player_Action_8084E30C", 0 },
+    { "Player_Action_8084D7C4", 0 }, { "Player_Action_8084E368", 0 }, { "Player_Action_808502D0", 0 },
+    { "Player_Action_80844AF4", 0 }, { "Player_Action_Roll", 0 },     { "Player_Action_8084377C", 0 },
+    { "Player_Action_80843954", 0 }, { "Player_Action_8084FBF4", 0 }, { "Player_Action_8084FB10", 0 },
+    { "Player_Action_8084370C", 1 }, { "Player_Action_80843A38", 1 }, { "Player_Action_8084F308", 0 },
+    { "Player_Action_8084B78C", 0 }, { "Player_Action_808505DC", 0 }, { "Player_Action_80844A44", 0 },
+    { "Player_Action_80845668", 1 }, { "OoT_Player_Action_Idle", 1 },
+};
+static_assert(ARRAY_COUNT(kBm1615Actions) == BM1615_ACT_IDLE + 1, "one row per Bm1615Action");
+
+/** The action table, for test_blast_mask_oot.c's source check (#1718). */
+extern "C" int OoT_BlastMaskTest_ActionCount(void) {
+    return (int)ARRAY_COUNT(kBm1615Actions);
+}
+
+extern "C" const char* OoT_BlastMaskTest_ActionFunc(int i) {
+    return (i >= 0 && i < (int)ARRAY_COUNT(kBm1615Actions)) ? kBm1615Actions[i].func : nullptr;
+}
+
+extern "C" int OoT_BlastMaskTest_ActionReaches(int i) {
+    return (i >= 0 && i < (int)ARRAY_COUNT(kBm1615Actions)) ? kBm1615Actions[i].reaches : -1;
+}
+
 /** One B press with Link in `stateFlags1` / `stateFlags3` (and `stateFlags2`),
- *  on `boots`, holding `heldItemAction` (no held actor), in the water action
- *  `action` (never run: the test player's update is a no-op), the mask worn and
- *  its cooldown spent: true when the press was the Blast Mask's (B taken and a
- *  blast spawned). The explosion is stepped out, the action cleared and the
- *  cooldown spent again before it returns. */
+ *  on `boots`, holding `heldItemAction` (no held actor), in `action`, the mask
+ *  worn and its cooldown spent: true when the press was the Blast Mask's (B
+ *  taken out of Link's input and a blast spawned). The frame reaches the item
+ *  buttons when the action does (kBm1615Actions), or as `itemButtons` says when
+ *  it is 0 or 1. The explosion is stepped out and the cooldown spent again
+ *  before it returns. */
 static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 heldItemAction, u32 stateFlags2 = 0u,
-                               s32 action = BM1615_ACT_NONE) {
+                               s32 action = BM1615_ACT_IDLE, int itemButtons = -1) {
     Bm1615ArmWearer(&sBm1615Player);
     sBm1615Player.stateFlags1 = stateFlags1;
     sBm1615Player.stateFlags2 = stateFlags2;
@@ -678,12 +747,12 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     sBm1615Player.currentBoots = boots;
     sBm1615Player.heldItemAction = heldItemAction;
     sBm1615Player.heldActor = nullptr;
-    OoT_Player_SetWaterActionForTest(&sBm1615Player, action);
+    sBm1615ItemButtons = itemButtons >= 0 ? itemButtons != 0 : kBm1615Actions[action].reaches != 0;
     Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
-    const bool tookB = (sBm1615Play.state.input[0].press.button & BTN_B) == 0;
+    const bool tookB = !Bm1615LinkKeptB();
     const EnBom* bomb = Bm1615FindBomb(&sBm1615Play);
     const bool blasted = tookB && bomb != nullptr && bomb->actor.params == BOMB_EXPLOSION;
-    OoT_Player_SetWaterActionForTest(&sBm1615Player, BM1615_ACT_NONE);
+    sBm1615ItemButtons = true;
     for (int f = 0; f < 12; f++) {
         Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
     }
@@ -696,15 +765,15 @@ static bool Bm1615PressInState(u32 stateFlags1, u8 stateFlags3, s8 boots, s8 hel
     return blasted;
 }
 
-/** UW0..UW17 (#1701, #1714): in water the blast goes off wherever OoTMM's
- *  Player_ProcessItemButtonsWrapper is reached (it has no water test): treading
- *  water and swimming at the surface, sinking after falling in, every dive (with
- *  A or without), and on the Iron Boots sinking or walking the bottom. It is
- *  refused in the water actions that never reach the item buttons (surfacing for
- *  breath, hit in water, arriving swimming, dying in water), climbing out onto a
- *  ledge, and with the hookshot held unfired or in flight. An armed mask still
- *  takes B from a held Megaton Hammer, under water as on land, and a dive
- *  carrying something up from the bottom still refuses. */
+/** UW0..UW17 (#1701, #1714): in water the blast goes off wherever the item
+ *  buttons are processed, as OoTMM's Player_ProcessItemButtonsWrapper has no
+ *  water test: treading water and swimming at the surface, sinking after falling
+ *  in, every dive (with A or without), and on the Iron Boots sinking or walking
+ *  the bottom. It is refused in the water actions that never reach the item
+ *  buttons (surfacing for breath, hit in water, arriving swimming, dying in
+ *  water), climbing out onto a ledge, and with the hookshot held unfired or in
+ *  flight. An armed mask still takes B from a held Megaton Hammer, under water as
+ *  on land, and a dive carrying something up from the bottom still refuses. */
 static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
     Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
@@ -758,9 +827,132 @@ static void Bm1615RunWaterLegs(std::vector<uint8_t>& thaBuf) {
     Bm1615Check(
         !Bm1615PressInState(inWater | PLAYER_STATE1_DEAD, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_DYING_IN_WATER),
         "UW16 dying in water the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_JUMPING, 0u, PLAYER_BOOTS_KOKIRI, none,
+                                    0u, BM1615_ACT_CLIMB_OUT_LEDGE),
+                "UW17 climbing out of water onto a ledge the Blast Mask went off", __LINE__);
+    // UW16 again on a frame that reaches the item buttons: the kept refusals (the
+    // cutscene and death flags) hold by themselves.
+    Bm1615Check(!Bm1615PressInState(inWater | PLAYER_STATE1_IN_CUTSCENE, 0u, PLAYER_BOOTS_KOKIRI, none, 0u,
+                                    BM1615_ACT_SWIM_WAIT),
+                "UW16 in a cutscene on a frame that reaches the item buttons the Blast Mask went off", __LINE__);
     Bm1615Check(
-        !Bm1615PressInState(PLAYER_STATE1_CLIMBING_LEDGE | PLAYER_STATE1_JUMPING, 0u, PLAYER_BOOTS_KOKIRI, none),
-        "UW17 climbing out of water onto a ledge the Blast Mask went off", __LINE__);
+        !Bm1615PressInState(inWater | PLAYER_STATE1_DEAD, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_SWIM_WAIT),
+        "UW16 a dead Link on a frame that reaches the item buttons the Blast Mask went off", __LINE__);
+
+    Bm1615EndScene(&sBm1615Play);
+}
+
+/** IB1..IB4 (#1718; OoTMM's Player_ProcessItemButtonsWrapper, patched over the
+ *  call to Player_ProcessItemButtons in Player_UpdateItems): the B press is the
+ *  mask's only on a frame on which the item buttons are processed, through
+ *  OoT_BlastMask_OnItemButtons, and the frame hook alone never blasts; the
+ *  cooldown still counts down on the frames without them. */
+static void Bm1615RunItemButtonLegs(std::vector<uint8_t>& thaBuf) {
+    Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
+    Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
+    Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 240.0f, 184.0f, -180.0f);
+    const s8 none = PLAYER_IA_NONE;
+
+    // IB1: standing, the mask worn, B pressed, but the frame never reaches the item buttons.
+    Bm1615Check(!Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_IDLE, 0),
+                "IB1 a frame that never reached the item buttons blasted (the frame hook took the press)", __LINE__);
+    // IB2: the same frame reaching them blasts.
+    Bm1615Check(Bm1615PressInState(0u, 0u, PLAYER_BOOTS_KOKIRI, none, 0u, BM1615_ACT_IDLE, 1),
+                "IB2 a frame that reached the item buttons did not blast", __LINE__);
+
+    // IB3: the cooldown counts down once a frame, item buttons or not.
+    Bm1615ArmWearer(&sBm1615Player);
+    OoT_BlastMask_SetCooldownForTest(3);
+    sBm1615ItemButtons = false;
+    for (int f = 0; f < 2; f++) {
+        Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
+    }
+    Bm1615Check(OoT_BlastMask_CooldownLeft() == 1u,
+                "IB3 the cooldown did not count down on frames without the item buttons", __LINE__);
+    sBm1615ItemButtons = true;
+    Bm1615StepFrame(&sBm1615Play, &sBm1615Player, BTN_B);
+    Bm1615Check(!Bm1615LinkKeptB() && Bm1615FindBomb(&sBm1615Play) != nullptr && OoT_BlastMask_CooldownLeft() == 310u,
+                "IB3 the press on the frame the cooldown ran out did not blast and re-arm it", __LINE__);
+    for (int f = 0; f < 12; f++) {
+        Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
+    }
+
+    // IB4: the entry point itself. No press: not the mask's. A press while the
+    // cooldown runs: the mask's, and no blast. Spent: the mask's, and a blast.
+    // Mask off: not the mask's.
+    OoT_BlastMask_SetCooldownForTest(0);
+    Bm1615Check(OoT_BlastMask_OnItemButtons(&sBm1615Play, &sBm1615Player, 0) == 0 &&
+                    Bm1615FindBomb(&sBm1615Play) == nullptr && OoT_BlastMask_CooldownLeft() == 0u,
+                "IB4 no B press was taken as the mask's", __LINE__);
+    OoT_BlastMask_SetCooldownForTest(7);
+    Bm1615Check(OoT_BlastMask_OnItemButtons(&sBm1615Play, &sBm1615Player, 1) == 1 &&
+                    Bm1615FindBomb(&sBm1615Play) == nullptr && OoT_BlastMask_CooldownLeft() == 7u,
+                "IB4 a press during the cooldown was not the mask's, blasted, or moved the cooldown", __LINE__);
+    OoT_BlastMask_SetCooldownForTest(0);
+    Bm1615Check(OoT_BlastMask_OnItemButtons(&sBm1615Play, &sBm1615Player, 1) == 1 &&
+                    Bm1615FindBomb(&sBm1615Play) != nullptr && OoT_BlastMask_CooldownLeft() == 310u,
+                "IB4 a press with the cooldown spent did not blast", __LINE__);
+    for (int f = 0; f < 12; f++) {
+        Bm1615StepFrame(&sBm1615Play, &sBm1615Player, 0);
+    }
+    OoT_ForeignMask_Use(&sBm1615Player, COMBO_FOREIGN_MASK_MM_BLAST); // the toggle takes it off
+    OoT_BlastMask_SetCooldownForTest(0);
+    Bm1615Check(OoT_BlastMask_OnItemButtons(&sBm1615Play, &sBm1615Player, 1) == 0 &&
+                    Bm1615FindBomb(&sBm1615Play) == nullptr,
+                "IB4 a press with the mask off was taken as the mask's", __LINE__);
+
+    Bm1615EndScene(&sBm1615Play);
+}
+
+/** LM1..LM15 (#1718, operator 2026-11-18, "Yes, match OoTMM"): on land (and
+ *  under water on the Iron Boots) the moves that never reach the item buttons
+ *  refuse the blast, as OoTMM's wrapper never runs in them; the stagger after a
+ *  hit and getting up do reach them (their action interrupt), and blast. */
+static void Bm1615RunLandMoveLegs(std::vector<uint8_t>& thaBuf) {
+    Bm1615FreezeWorld(RSBS_XITEM_BLAST_MASK_OOT, 0u);
+    Bm1615BeginScene(SCENE_KOKIRI_FOREST, 140, thaBuf);
+    Bm1615PlacePlayer(&sBm1615Player, 240.0f, 140.0f, -180.0f, 240.0f, 184.0f, -180.0f);
+    const s8 none = PLAYER_IA_NONE;
+    const s8 sword = PLAYER_IA_SWORD_KOKIRI;
+    const s8 kokiri = PLAYER_BOOTS_KOKIRI;
+    const u32 zLock = PLAYER_STATE2_DISABLE_ROTATION_Z_TARGET;
+    const u32 inWater = PLAYER_STATE1_IN_WATER;
+    const u32 under = PLAYER_STATE2_UNDERWATER;
+
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, sword, zLock, BM1615_ACT_SWORD_SWING),
+                "LM1 in a sword swing the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, PLAYER_IA_HAMMER, zLock, BM1615_ACT_SWORD_SWING),
+                "LM2 in a Megaton Hammer swing the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, PLAYER_STATE3_MIDAIR, kokiri, sword, zLock, BM1615_ACT_JUMP_ATTACK),
+                "LM3 in a jump attack the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, zLock, BM1615_ACT_ROLL),
+                "LM4 in a roll the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, PLAYER_STATE3_MIDAIR, kokiri, none, 0u, BM1615_ACT_KNOCKED_DOWN),
+                "LM5 knocked down by a hit the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(PLAYER_STATE1_DAMAGED, 0u, kokiri, none, 0u, BM1615_ACT_LYING),
+                "LM6 lying on the ground after a hit the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, 0u, BM1615_ACT_SHOCKED),
+                "LM7 in the electric shock the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, PLAYER_STATE2_FROZEN, BM1615_ACT_FROZEN),
+                "LM8 frozen the Blast Mask went off", __LINE__);
+    Bm1615Check(
+        !Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, none, under | PLAYER_STATE2_FROZEN, BM1615_ACT_FROZEN),
+        "LM9 frozen under water on the Iron Boots the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(inWater, 0u, PLAYER_BOOTS_IRON, none, under, BM1615_ACT_SHOCKED),
+                "LM10 shocked under water on the Iron Boots the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, PLAYER_STATE2_GRABBED_BY_ENEMY, BM1615_ACT_REDEAD_GRAB),
+                "LM11 held by a ReDead the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, PLAYER_STATE2_GRABBING_DYNAPOLY, BM1615_ACT_GRAB_BLOCK),
+                "LM12 holding a block the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, sword, 0u, BM1615_ACT_SWORD_RECOIL),
+                "LM13 in the recoil off a wall the Blast Mask went off", __LINE__);
+    Bm1615Check(!Bm1615PressInState(0u, 0u, kokiri, none, zLock, BM1615_ACT_RUN_JUMP_WATER),
+                "LM14 falling into water from a running jump the Blast Mask went off", __LINE__);
+    Bm1615Check(Bm1615PressInState(0u, 0u, kokiri, none, 0u, BM1615_ACT_STAGGER),
+                "LM15 in the stagger after a hit (it reaches the item buttons) the Blast Mask did not go off",
+                __LINE__);
+    Bm1615Check(Bm1615PressInState(0u, 0u, kokiri, none, zLock, BM1615_ACT_GETTING_UP),
+                "LM15 getting up after a hit (it reaches the item buttons) the Blast Mask did not go off", __LINE__);
 
     Bm1615EndScene(&sBm1615Play);
 }
@@ -885,6 +1077,8 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
         Bm1615RunShrubLeg(thaBuf);
         Bm1615RunAdultLegs(thaBuf);
         Bm1615RunWaterLegs(thaBuf);
+        Bm1615RunItemButtonLegs(thaBuf);
+        Bm1615RunLandMoveLegs(thaBuf);
         Bm1615RunGuardHouseSpot(thaBuf, 0, -100.0f, 50.0f, -80.0f, 50.0f);
         Bm1615RunGuardHouseSpot(thaBuf, -120, 168.0f, -210.0f, 168.0f, -190.0f);
     }
@@ -909,6 +1103,7 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
     Bm1615RestoreCVar(savedAdultMasks);
     Bm1615RestoreCVar(savedTimeless);
 
+    sBm1615ItemButtons = true;
     OoT_BlastMask_SetCooldownForTest(priorCooldown);
     std::memcpy(&gSaveContext, priorSave.get(), sizeof(SaveContext));
     OoT_gPlayState = priorPlay;
@@ -923,6 +1118,20 @@ extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
 
 extern "C" int OoT_BlastMaskTest_ShrubAndGuardHouse(void) {
     return 0;
+}
+
+extern "C" int OoT_BlastMaskTest_ActionCount(void) {
+    return 0;
+}
+
+extern "C" const char* OoT_BlastMaskTest_ActionFunc(int i) {
+    (void)i;
+    return nullptr;
+}
+
+extern "C" int OoT_BlastMaskTest_ActionReaches(int i) {
+    (void)i;
+    return -1;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

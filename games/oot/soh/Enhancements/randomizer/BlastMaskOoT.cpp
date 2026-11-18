@@ -30,17 +30,22 @@
  *    rule for a native mask).
  *
  * THE BLAST. While it is worn, B is the mask's (OoTMM's
- * Player_ProcessItemButtonsWrapper): a B press is taken out of the frame's input
- * before Link's update reads it, so the sword does not swing, and fires a blast
- * at Link's world.pos when the cooldown is spent: OoT's own bomb (ACTOR_EN_BOM,
- * BOMB_BODY) with its timer at 0 and its explosion sphere centered at spawn
- * (as MM_EnBom_Init seeds collider2, #1615), which explodes on its first update.
- * The press is caught in the player's ShouldActorUpdate, which runs before
- * Link's update copies the input.
+ * Player_ProcessItemButtonsWrapper, #1718): z_player.c offers the B press to
+ * OoT_BlastMask_OnItemButtons from OoT_Player_UpdateItems just before
+ * OoT_Player_ProcessItemButtons, the call OoTMM patches with its wrapper, so the
+ * press is the mask's only on a frame on which the game processes the item
+ * buttons. There it is taken out of Link's input before the item buttons and his
+ * action handlers read it, so the sword does not swing, and fires a blast at
+ * Link's world.pos when the cooldown is spent: OoT's own bomb (ACTOR_EN_BOM,
+ * BOMB_BODY) with its timer at 0 and its explosion sphere centered at spawn (as
+ * MM_EnBom_Init seeds collider2, #1615), which explodes on its first update.
  *
  * THE COOLDOWN (OoTMM blastMaskCooldown): the frozen record's byte, in OoTMM's
  * frames (Combo_BlastMaskCooldownFrames; Default is MM's own 310), one blast per
- * cooldown (Combo_BlastMask_Step). Majora's Mask's own No Blast Mask Cooldown
+ * cooldown (Combo_BlastMask_Step). It counts down once a frame in the player's
+ * ShouldActorUpdate, before his update, as OoTMM's Player_UpdateWrapper counts
+ * it down before Player_Update, so a frame without the item buttons still
+ * spends it. Majora's Mask's own No Blast Mask Cooldown
  * enhancement composes over it: on, there is no cooldown, here as in Termina.
  * While it runs, the worn mask shows MM's glow pass (ForeignMaskOoT.cpp).
  *
@@ -85,8 +90,6 @@ extern "C" {
 #include "variables.h"
 #include "src/overlays/actors/ovl_En_Bom/z_en_bom.h"
 extern PlayState* OoT_gPlayState;
-// z_player.c (#1714): the water actions that never reach the item buttons.
-s32 OoT_Player_InWaterActionWithoutItems(Player* player);
 // ForeignModelHostOoT.cpp: an MM item's model, drawn by OoT as the host.
 int OoT_ForeignModel_DrawForeignItem(PlayState* play, uint8_t originGame, uint16_t id);
 }
@@ -152,35 +155,30 @@ bool BlastMaskOnButtons() {
     return false;
 }
 
-/** May a B press be the mask's this frame? OoT_Player_UpdateItems' own gate for
- *  the item buttons, plus OoTMM's (not on Epona, not holding or in a cutscene).
- *  OoTMM takes the press in Player_ProcessItemButtonsWrapper, patched over the
- *  call to Player_ProcessItemButtons in Player_UpdateItems, so it blasts only in
- *  the player actions that reach the item buttons through
- *  OoT_Player_UpdateUpperBody. This gate refuses hanging from or climbing a
- *  ledge (those actions never update the items), and a ladder or vine or a
- *  crawlspace, where z_parameter.c disables B for the player's state. The
- *  player's own flags, not buttonStatus[0], which also parks the B item (and a
- *  swordless child's marker) on Epona and in the minigames. Nor (#1647;
- *  reachable by an adult, or by a child only under Timeless Equipment) while the
- *  hookshot is held unfired, where OoT_Player_ProcessItemButtons skips every item
- *  button (func_8008F128), or in hookshot flight.
- *  IN WATER (#1701, #1714, operator 2026-11-17, "yes follow ootmm") the press is
- *  the mask's wherever OoTMM's wrapper is reached, as the wrapper has no water,
- *  swim or boots test: treading water and swimming at the surface
- *  (Player_Action_8084D610, 8084D84C and 8084DAB4 run
- *  OoT_Player_TryActionHandlerList with the upper body updated); sinking after
- *  falling in, and sinking on the Iron Boots until he lands, which are the same
- *  swim-wait action; every dive (Player_Action_8084DC48 updates the upper body
- *  first thing, whether A started it or Link entered it by taking the Iron Boots
- *  off under water or from a running jump); and walking the bottom on the Iron
- *  Boots, where his ground actions run. It is refused in the water actions that
- *  never update the upper body, so never reach the item buttons
- *  (OoT_Player_InWaterActionWithoutItems, z_player.c): surfacing for breath, hit
- *  while in water (on the Iron Boots too), arriving in a scene swimming and dying
- *  in water. Climbing out onto a ledge is a ledge climb
- *  (PLAYER_STATE1_CLIMBING_LEDGE). The action read is the one Link's previous
- *  update left, since the press is taken before his update runs. */
+/** May a B press be the mask's? Asked only at the item buttons
+ *  (OoT_BlastMask_OnItemButtons, called from OoT_Player_UpdateItems just before
+ *  OoT_Player_ProcessItemButtons, where OoTMM patches in its
+ *  Player_ProcessItemButtonsWrapper), so only on a frame on which the game
+ *  processes the item buttons: Link's action reached OoT_Player_UpdateUpperBody
+ *  (the only caller of OoT_Player_UpdateItems), and OoT_Player_UpdateItems' own
+ *  gate (the held item settled, health, no cutscene or csAction, no shooting
+ *  gallery, the main camera, no transition starting, the timer not stopped)
+ *  passed. The actions that never reach the item buttons never ask, on land as
+ *  in water (#1714, #1718): among them a sword swing, a jump attack, the roll
+ *  (but for the end of the recovery after a bonk), being knocked down and lying
+ *  there, the electric shock, being frozen, surfacing for breath, being hit in
+ *  water, arriving in a scene swimming and dying in water. So in water this gate
+ *  has no test of its own: the item buttons run while Link treads water or swims
+ *  at the surface, sinks, dives, or walks the bottom on the Iron Boots, and so
+ *  does the blast (#1701, #1714, operator 2026-11-17, "yes follow ootmm"). On top
+ *  of that it keeps OoTMM's wrapper's own tests (not carrying an actor, not in a
+ *  cutscene, the hookshot not held unfired, which is func_8008F128 and OoTMM's
+ *  Player_UsingItem, not on Epona) and this build's other refusals, some of
+ *  which OoTMM does not make: input disabled, talking, a dead Link, getting an
+ *  item, first person, an item cutscene, hanging from or climbing a ledge, a
+ *  ladder or vine, a crawlspace and hookshot flight (#1647). The health,
+ *  cutscene, shooting gallery, camera and transition tests repeat
+ *  OoT_Player_UpdateItems' gate. */
 bool PlayerFreeToBlast(PlayState* play, Player* player) {
     const uint32_t busy = PLAYER_STATE1_INPUT_DISABLED | PLAYER_STATE1_TALKING | PLAYER_STATE1_DEAD |
                           PLAYER_STATE1_GETTING_ITEM | PLAYER_STATE1_CARRYING_ACTOR | PLAYER_STATE1_FIRST_PERSON |
@@ -188,10 +186,6 @@ bool PlayerFreeToBlast(PlayState* play, Player* player) {
                           PLAYER_STATE1_HANGING_OFF_LEDGE | PLAYER_STATE1_CLIMBING_LEDGE |
                           PLAYER_STATE1_CLIMBING_LADDER;
     if (func_8008F128(player) || (player->stateFlags3 & PLAYER_STATE3_FLYING_WITH_HOOKSHOT) != 0) {
-        return false;
-    }
-    // The water actions that never reach the item buttons, where OoTMM's wrapper never runs.
-    if (OoT_Player_InWaterActionWithoutItems(player) != 0) {
         return false;
     }
     return (player->stateFlags1 & busy) == 0u && (player->stateFlags2 & PLAYER_STATE2_CRAWLING) == 0u &&
@@ -213,7 +207,10 @@ void SpawnBlast(PlayState* play, const ComboBlastMaskSpawn& s) {
     }
 }
 
-/** Link's ShouldActorUpdate: before his update reads the frame's input. */
+/** Link's ShouldActorUpdate, once a frame before his update: the worn mask's
+ *  rules, then the cooldown's countdown (OoTMM's Player_UpdateWrapper counts it
+ *  down before Player_Update). The B press is taken at the item buttons
+ *  (OoT_BlastMask_OnItemButtons), not here. */
 void BlastMaskBeforePlayerUpdate(void* actorRef, bool* should) {
     (void)should;
     if (Context_GetCurrentGame() != GAME_OOT || OoT_gPlayState == nullptr || actorRef == nullptr) {
@@ -234,20 +231,7 @@ void BlastMaskBeforePlayerUpdate(void* actorRef, bool* should) {
         CVarGetInteger(CVAR_ENHANCEMENT("PersistentMasks"), 0) == 0 && !BlastMaskOnButtons()) {
         OoT_ForeignMask_Use(player, COMBO_FOREIGN_MASK_MM_BLAST); // the toggle takes the worn mask off
     }
-    Input* input = &play->state.input[0];
-    const bool pressed = CHECK_BTN_ALL(input->press.button, BTN_B);
-    const bool armed = OoT_ForeignMask_Worn() == COMBO_FOREIGN_MASK_MM_BLAST && PlayerFreeToBlast(play, player);
-    const uint16_t frames = Combo_BlastMaskCooldownFor(
-        Combo_ComboBlastMaskCooldown(), CVarGetInteger(RSBS_CVAR_MM_MASKS_NO_BLAST_MASK_COOLDOWN, 0) != 0 ? 1 : 0);
-    const int trigger = (armed && pressed) ? 1 : 0;
-    const Vec3f& pos = player->actor.world.pos;
-    ComboBlastMaskSpawn spawn;
-    if (Combo_BlastMask_StepOotSpawn(&sCooldownLeft, trigger, frames, pos.x, pos.y, pos.z, &spawn) != 0) {
-        SpawnBlast(play, spawn);
-    }
-    if (armed && pressed) {
-        input->press.button &= ~BTN_B;
-    }
+    Combo_BlastMask_Step(&sCooldownLeft, 0, 0); // counts down only; fires nothing
 }
 
 /** The C-button press (VB_CHANGE_HELD_ITEM_AND_USE_ITEM): true when `item` is the
@@ -287,6 +271,29 @@ void BlastMaskOnLoadGame(int32_t fileNum) {
 
 extern "C" bool OoT_BlastMaskOoTOn(void) {
     return Combo_ComboCrossItemRule(RSBS_XITEM_BLAST_MASK_OOT);
+}
+
+extern "C" int OoT_BlastMask_OnItemButtons(PlayState* play, Player* player, int bPressed) {
+    if (bPressed == 0 || play == nullptr || player == nullptr || Context_GetCurrentGame() != GAME_OOT ||
+        player != GET_PLAYER(play)) {
+        return 0;
+    }
+    if (OoT_ForeignMask_Worn() != COMBO_FOREIGN_MASK_MM_BLAST || !PlayerFreeToBlast(play, player)) {
+        return 0;
+    }
+    // OoTMM's Player_BlastMask: the press is the mask's even while the cooldown
+    // runs, and blasts only once it is spent. The frame hook already counted this
+    // frame down, so the step below fires without counting it twice.
+    if (sCooldownLeft == 0) {
+        const uint16_t frames = Combo_BlastMaskCooldownFor(
+            Combo_ComboBlastMaskCooldown(), CVarGetInteger(RSBS_CVAR_MM_MASKS_NO_BLAST_MASK_COOLDOWN, 0) != 0 ? 1 : 0);
+        const Vec3f& pos = player->actor.world.pos;
+        ComboBlastMaskSpawn spawn;
+        if (Combo_BlastMask_StepOotSpawn(&sCooldownLeft, 1, frames, pos.x, pos.y, pos.z, &spawn) != 0) {
+            SpawnBlast(play, spawn);
+        }
+    }
+    return 1;
 }
 
 extern "C" uint16_t OoT_BlastMask_CooldownLeft(void) {

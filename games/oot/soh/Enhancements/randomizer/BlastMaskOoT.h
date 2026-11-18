@@ -30,6 +30,18 @@ uint16_t OoT_BlastMask_CooldownLeft(void);
  *  at every file load; the locks call it after rows that clear them. */
 void OoT_BlastMask_RegisterRuntime(void);
 
+struct PlayState;
+struct Player;
+
+/** The worn Blast Mask's B press (#1718; OoTMM's Player_ProcessItemButtonsWrapper).
+ *  z_player.c calls it from OoT_Player_UpdateItems just before
+ *  OoT_Player_ProcessItemButtons, inside that function's own gate, so only on a
+ *  frame on which the item buttons are processed. `bPressed` is whether B is
+ *  pressed in Link's input that frame. Returns 1 when the press is the mask's (it
+ *  is worn and PlayerFreeToBlast holds): the caller takes B out of Link's input,
+ *  and a blast went off if the cooldown was spent. Returns 0 otherwise. */
+int OoT_BlastMask_OnItemButtons(struct PlayState* play, struct Player* player, int bPressed);
+
 /** TEST ONLY: the frames left on the cooldown, set directly. */
 void OoT_BlastMask_SetCooldownForTest(uint16_t frames);
 
