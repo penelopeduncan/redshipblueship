@@ -160,7 +160,8 @@ bool BlastMaskOnButtons() {
  *  OoT_Player_ProcessItemButtons, where OoTMM patches in its
  *  Player_ProcessItemButtonsWrapper), so only on a frame on which the game
  *  processes the item buttons: Link's action reached OoT_Player_UpdateUpperBody
- *  (the only caller of OoT_Player_UpdateItems), and OoT_Player_UpdateItems' own
+ *  (the only caller of OoT_Player_UpdateItems) and got past its hookshot-parent
+ *  and OoT_Player_CanUpdateItems tests, and OoT_Player_UpdateItems' own
  *  gate (the held item settled, health, no cutscene or csAction, no shooting
  *  gallery, the main camera, no transition starting, the timer not stopped)
  *  passed. The actions that never reach the item buttons never ask, on land as
