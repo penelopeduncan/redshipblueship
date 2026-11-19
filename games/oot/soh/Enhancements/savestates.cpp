@@ -338,6 +338,31 @@ typedef struct SaveStateInfo {
     // z_en_heishi1
     uint32_t sHeishi1PlayerIsCaughtCopy;
 
+    // z_player
+    s32 D_80858AA0_copy;
+    s32 OoT_sSavedCurrentMask_copy;
+    Vec3f OoT_sInteractWallCheckResult_copy;
+    Input* sControlInput_copy;
+    u32 OoT_sNoclipEnabled_copy;
+    f32 OoT_sControlStickMagnitude_copy;
+    s16 OoT_sControlStickAngle_copy;
+    s16 OoT_sControlStickWorldYaw_copy;
+    s32 OoT_sUpperBodyIsBusy_copy;
+    s32 sFloorType_copy;
+    f32 OoT_sWaterSpeedFactor_copy;
+    f32 OoT_sInvWaterSpeedFactor_copy;
+    u32 sTouchedWallFlags_copy;
+    u32 sConveyorSpeed_copy;
+    s16 sIsFloorConveyor_copy;
+    s16 sConveyorYaw_copy;
+    f32 sYDistToFloor_copy;
+    s32 OoT_sPrevFloorProperty_copy;
+    s32 OoT_sShapeYawToTouchedWall_copy;
+    s32 OoT_sWorldYawToTouchedWall_copy;
+    s16 sFloorShapePitch_copy;
+    s32 sUseHeldItem_copy;
+    s32 sHeldItemButtonIsHeldDown_copy;
+
     // Misc static data
     //  z_map_exp
 
@@ -723,6 +748,30 @@ void SaveState::SaveOverlayStaticData(void) {
     info->sTrailingFairies_copy = sTrailingFairies;
 
     info->sHeishi1PlayerIsCaughtCopy = sHeishi1PlayerIsCaught;
+
+    info->D_80858AA0_copy = D_80858AA0;
+    info->OoT_sSavedCurrentMask_copy = OoT_sSavedCurrentMask;
+    info->OoT_sInteractWallCheckResult_copy = OoT_sInteractWallCheckResult;
+    info->sControlInput_copy = sControlInput;
+    info->OoT_sNoclipEnabled_copy = OoT_sNoclipEnabled;
+    info->OoT_sControlStickMagnitude_copy = OoT_sControlStickMagnitude;
+    info->OoT_sControlStickAngle_copy = OoT_sControlStickAngle;
+    info->OoT_sControlStickWorldYaw_copy = OoT_sControlStickWorldYaw;
+    info->OoT_sUpperBodyIsBusy_copy = OoT_sUpperBodyIsBusy;
+    info->sFloorType_copy = sFloorType;
+    info->OoT_sWaterSpeedFactor_copy = OoT_sWaterSpeedFactor;
+    info->OoT_sInvWaterSpeedFactor_copy = OoT_sInvWaterSpeedFactor;
+    info->sTouchedWallFlags_copy = sTouchedWallFlags;
+    info->sConveyorSpeed_copy = sConveyorSpeed;
+    info->sIsFloorConveyor_copy = sIsFloorConveyor;
+    info->sConveyorYaw_copy = sConveyorYaw;
+    info->sYDistToFloor_copy = sYDistToFloor;
+    info->OoT_sPrevFloorProperty_copy = OoT_sPrevFloorProperty;
+    info->OoT_sShapeYawToTouchedWall_copy = OoT_sShapeYawToTouchedWall;
+    info->OoT_sWorldYawToTouchedWall_copy = OoT_sWorldYawToTouchedWall;
+    info->sFloorShapePitch_copy = sFloorShapePitch;
+    info->sUseHeldItem_copy = sUseHeldItem;
+    info->sHeldItemButtonIsHeldDown_copy = sHeldItemButtonIsHeldDown;
 }
 
 void SaveState::LoadOverlayStaticData(void) {
@@ -823,6 +872,30 @@ void SaveState::LoadOverlayStaticData(void) {
     sTrailingFairies = info->sTrailingFairies_copy;
 
     sHeishi1PlayerIsCaught = info->sHeishi1PlayerIsCaughtCopy;
+
+    D_80858AA0 = info->D_80858AA0_copy;
+    OoT_sSavedCurrentMask = info->OoT_sSavedCurrentMask_copy;
+    OoT_sInteractWallCheckResult = info->OoT_sInteractWallCheckResult_copy;
+    sControlInput = info->sControlInput_copy;
+    OoT_sNoclipEnabled = info->OoT_sNoclipEnabled_copy;
+    OoT_sControlStickMagnitude = info->OoT_sControlStickMagnitude_copy;
+    OoT_sControlStickAngle = info->OoT_sControlStickAngle_copy;
+    OoT_sControlStickWorldYaw = info->OoT_sControlStickWorldYaw_copy;
+    OoT_sUpperBodyIsBusy = info->OoT_sUpperBodyIsBusy_copy;
+    sFloorType = info->sFloorType_copy;
+    OoT_sWaterSpeedFactor = info->OoT_sWaterSpeedFactor_copy;
+    OoT_sInvWaterSpeedFactor = info->OoT_sInvWaterSpeedFactor_copy;
+    sTouchedWallFlags = info->sTouchedWallFlags_copy;
+    sConveyorSpeed = info->sConveyorSpeed_copy;
+    sIsFloorConveyor = info->sIsFloorConveyor_copy;
+    sConveyorYaw = info->sConveyorYaw_copy;
+    sYDistToFloor = info->sYDistToFloor_copy;
+    OoT_sPrevFloorProperty = info->OoT_sPrevFloorProperty_copy;
+    OoT_sShapeYawToTouchedWall = info->OoT_sShapeYawToTouchedWall_copy;
+    OoT_sWorldYawToTouchedWall = info->OoT_sWorldYawToTouchedWall_copy;
+    sFloorShapePitch = info->sFloorShapePitch_copy;
+    sUseHeldItem = info->sUseHeldItem_copy;
+    sHeldItemButtonIsHeldDown = info->sHeldItemButtonIsHeldDown_copy;
 }
 
 void SaveState::SaveMiscCodeData(void) {

@@ -237,6 +237,31 @@ extern "C" s16 sPlayerInitialDirection;
 // z_en_heishi1
 extern "C" s32 sHeishi1PlayerIsCaught;
 
+// z_player
+extern "C" s32 D_80858AA0;
+extern "C" s32 OoT_sSavedCurrentMask;
+extern "C" Vec3f OoT_sInteractWallCheckResult;
+extern "C" Input* sControlInput;
+extern "C" u32 OoT_sNoclipEnabled;
+extern "C" f32 OoT_sControlStickMagnitude;
+extern "C" s16 OoT_sControlStickAngle;
+extern "C" s16 OoT_sControlStickWorldYaw;
+extern "C" s32 OoT_sUpperBodyIsBusy;
+extern "C" s32 sFloorType;
+extern "C" f32 OoT_sWaterSpeedFactor;
+extern "C" f32 OoT_sInvWaterSpeedFactor;
+extern "C" u32 sTouchedWallFlags;
+extern "C" u32 sConveyorSpeed;
+extern "C" s16 sIsFloorConveyor;
+extern "C" s16 sConveyorYaw;
+extern "C" f32 sYDistToFloor;
+extern "C" s32 OoT_sPrevFloorProperty;
+extern "C" s32 OoT_sShapeYawToTouchedWall;
+extern "C" s32 OoT_sWorldYawToTouchedWall;
+extern "C" s16 sFloorShapePitch;
+extern "C" s32 sUseHeldItem;
+extern "C" s32 sHeldItemButtonIsHeldDown;
+
 // code_800EC960
 // Related to ocarina
 extern "C" u8 sOcarinaInpEnabled;
