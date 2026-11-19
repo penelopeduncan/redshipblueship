@@ -19,6 +19,8 @@
 
 namespace {
 
+// Same copies as games/oot/soh/Enhancements/savestates.cpp (sources: z_boss_va.c, z_boss_mo.c,
+// code_800EC960.c); keep the three in step.
 struct BossVa;
 
 typedef struct BossVaEffect {

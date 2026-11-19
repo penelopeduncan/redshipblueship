@@ -35,6 +35,10 @@ typedef struct {
     /* 0x008 */ LightNode buf[LIGHTS_BUFFER_SIZE];
 } LightsBuffer; // size = 0x188
 
+// Copies of file-local types from vendored C files, needed to size the saved arrays: BossVaEffect
+// (z_boss_va.c), BossMoEffect (z_boss_mo.c), SfxPlayerState / FreqLerp / OcarinaStick
+// (code_800EC960.c). Keep each field-for-field identical to its source, and update the copies in
+// games/oot/soh/oot_savestate_roundtrip_test.cpp with them.
 struct BossVa;
 
 typedef struct BossVaEffect {
