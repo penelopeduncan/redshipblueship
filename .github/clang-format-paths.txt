@@ -363,3 +363,4 @@ games/oot/soh/oot_chest_silver_confinement_test.cpp
 games/oot/soh/oot_chest_silver_paired_test.cpp
 games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp
+games/oot/soh/oot_qol_options_1747_test.cpp
