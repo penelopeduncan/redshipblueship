@@ -22,8 +22,11 @@
  *   4. Telescope Invert Y (2Ship #1927). GameInteractor_InvertControl(GI_INVERT_TELESCOPE_Y) follows
  *      gEnhancements.Camera.FirstPerson.InvertY (-1 on its default, 1 when 0); GI_INVERT_TELESCOPE_X follows InvertX.
  *   5. En_Rail_Skb (2Ship #1702). Its profile carries a reset function, which MM_Actor_FreeOverlay calls.
- *   6. Ammo Buyback (2Ship a5cbfdf1c). AmmoBuyback_SalePrice: Half Price halves bombs, never arrows.
- *   7. Auto Bank Deposit (2Ship 24df3b56c). AutoBankDeposit_CrossedNotificationThreshold at each milestone's edges.
+ *   6. Ammo Buyback (2Ship a5cbfdf1c). AmmoBuyback_SalePriceFor (header-only, AmmoBuybackPrice.h): Half Price
+ *      halves bombs, never arrows.
+ *   7. Auto Bank Deposit (2Ship 24df3b56c). AutoBankDeposit_ReachesNotificationMilestone (header-only,
+ *      AutoBankDepositMilestones.h) at each milestone's edges. Both decisions are inline so this row names nothing
+ *      AmmoBuyback.cpp or AutoBankDeposit.cpp defines and cannot un-elide either registrar TU.
  *   8. Fix Deku Butler Shock Animation (2Ship f7ccda83a). With the key off, VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION
  * leaves changeAnim alone (control); on, it clears changeAnim while the butler is in SHOCK_LOOP (18) and leaves it in
  * any other animation. The TU is reached only through ShipInit (nothing it defines is named here, so this reference
@@ -60,7 +63,9 @@ extern "C" int MM_UpstreamFixes1754_RunHeadless(void) {
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/Enhancements/Enhancements.h"
+#include "2s2h/Enhancements/Items/AmmoBuybackPrice.h"
 #include "2s2h/Enhancements/Songs/Songs.h"
+#include "2s2h/Enhancements/Timesavers/AutoBankDepositMilestones.h"
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/Rando/ActorBehavior/Souls.h"
 #include "2s2h/Rando/MiscBehavior/MiscBehavior.h"
@@ -72,9 +77,6 @@ extern "C" {
 #include "overlays/actors/ovl_En_Invadepoh/z_en_invadepoh.h"
 #include "overlays/actors/ovl_En_Dno/z_en_dno.h"
 extern s16 sOcarinaSongFanfares[17];
-// Enhancements/Items/AmmoBuyback.cpp and Enhancements/Timesavers/AutoBankDeposit.cpp.
-s16 AmmoBuyback_SalePrice(int mode, ItemId itemId, s16 count);
-bool AutoBankDeposit_CrossedNotificationThreshold(s16 balanceBeforeDeposit, s16 balanceAfterDeposit);
 }
 
 namespace {
@@ -289,11 +291,11 @@ int Uf1754RunRailSkbLeg() {
 
 // ---- Legs 6-7: Ammo Buyback and Auto Bank Deposit ----------------------------------------
 int Uf1754RunPriceAndBankLegs() {
-    UF1754_ASSERT(AmmoBuyback_SalePrice(AMMO_BUYBACK_HALF_PRICE, ITEM_BOW, 30) == 30, 60,
+    UF1754_ASSERT(AmmoBuyback_SalePriceFor(AMMO_BUYBACK_HALF_PRICE, ITEM_BOW, 30, 1) == 30, 60,
                   "Half Price halves 30 arrows - arrows always sell at full price (2Ship a5cbfdf1c)");
-    UF1754_ASSERT(AmmoBuyback_SalePrice(AMMO_BUYBACK_HALF_PRICE, ITEM_BOMB, 5) == 8, 61,
+    UF1754_ASSERT(AmmoBuyback_SalePriceFor(AMMO_BUYBACK_HALF_PRICE, ITEM_BOMB, 5, 3) == 8, 61,
                   "Half Price does not halve 5 bombs (15 rupees) to 8, rounded up");
-    UF1754_ASSERT(AmmoBuyback_SalePrice(AMMO_BUYBACK_FULL_PRICE, ITEM_BOW, 30) == 30, 62,
+    UF1754_ASSERT(AmmoBuyback_SalePriceFor(AMMO_BUYBACK_FULL_PRICE, ITEM_BOW, 30, 1) == 30, 62,
                   "Full Price does not sell 30 arrows for 30 rupees");
 
     const struct {
@@ -305,7 +307,7 @@ int Uf1754RunPriceAndBankLegs() {
         { 450, 1200, true }, { 4999, 5000, true }, { 5000, 5000, false },
     };
     for (const auto& d : deposits) {
-        if (AutoBankDeposit_CrossedNotificationThreshold(d.before, d.after) != d.notify) {
+        if (AutoBankDeposit_ReachesNotificationMilestone(d.before, d.after) != d.notify) {
             printf("[TEST] FAIL(70): mm-upstream-fixes-1754: a deposit from %d to %d %s - Auto Bank Deposit notifies "
                    "only when the balance reaches 100, 200, 500, 1000 or 5000 (2Ship 24df3b56c)\n",
                    d.before, d.after, d.notify ? "raised no notification" : "raised a notification");

@@ -5,6 +5,7 @@
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/CustomItem/CustomItem.h"
 #include "2s2h/ShipUtils.h"
+#include "2s2h/Enhancements/Timesavers/AutoBankDepositMilestones.h"
 
 #include <string>
 #include <vector>
@@ -121,20 +122,6 @@ static void GrantBankerReward(s16 balanceBeforeDeposit, s16 balanceAfterDeposit)
     }
 }
 
-// 2Ship 24df3b56c: notify only when a deposit crosses one of these balances. extern "C" so a test row can call it
-// (mm_upstream_fixes_1754_test.cpp).
-extern "C" bool AutoBankDeposit_CrossedNotificationThreshold(s16 balanceBeforeDeposit, s16 balanceAfterDeposit) {
-    const s16 milestones[] = { 100, 200, 500, 1000, 5000 };
-
-    for (s16 milestone : milestones) {
-        if (balanceBeforeDeposit < milestone && balanceAfterDeposit >= milestone) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static void HandleWalletOverflow() {
     s16 currentBankBalance = HS_GET_BANK_RUPEES();
 
@@ -152,7 +139,7 @@ static void HandleWalletOverflow() {
         HS_SET_BANK_RUPEES(balanceAfterDeposit);
         gSaveContext.rupeeAccumulator -= depositAmount;
 
-        if (AutoBankDeposit_CrossedNotificationThreshold(balanceBeforeDeposit, balanceAfterDeposit)) {
+        if (AutoBankDeposit_ReachesNotificationMilestone(balanceBeforeDeposit, balanceAfterDeposit)) {
             EmitDepositNotification(balanceAfterDeposit);
         }
         GrantBankerReward(balanceBeforeDeposit, balanceAfterDeposit);
