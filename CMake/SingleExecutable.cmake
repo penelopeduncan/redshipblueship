@@ -2089,6 +2089,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTTwoHandedIdleAnim COMMAND redship --test oot-two-handed-idle-anim)
 
+    # SoH 16ee01404 (#1747): Allow unequipping Items now also unequips the bow
+    # when a magic arrow is on the button and the bow is under the cursor. The
+    # row drives OoT_ItemUnequip_ShouldUnequip (Enhancements/ItemUnequip.cpp):
+    # the bow over each magic-arrow bow -> unequip; the old pairs unchanged.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTItemUnequipBow COMMAND redship --test oot-item-unequip-bow)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

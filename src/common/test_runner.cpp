@@ -1878,6 +1878,13 @@ static TestResult Test_OoTTwoHandedIdleAnim(void) {
     return OoT_TwoHandedIdleAnim_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 16ee01404 (#1747): the bow unequips a bow-with-magic-arrow button. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_ItemUnequipBow_RunHeadless(void);
+static TestResult Test_OoTItemUnequipBow(void) {
+    return OoT_ItemUnequipBow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11525,6 +11532,11 @@ const TestDescriptor gTests[] = {
       "With Fix Two-Handed Idle Animations on, Biggoron's Sword and the Deku Stick reach the swing fidget and never "
       "the shield one; with it off the vanilla choice passes through (SoH 8584ced40b)",
       Test_OoTTwoHandedIdleAnim },
+    // SoH 16ee01404: display-free, ROM-free, no global state.
+    { "oot-item-unequip-bow",
+      "Re-pressing a button over the bow unequips the fire, ice or light arrow bow on it, and the existing unequip "
+      "pairs are unchanged (SoH 16ee01404)",
+      Test_OoTItemUnequipBow },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

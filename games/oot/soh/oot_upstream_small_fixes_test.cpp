@@ -64,4 +64,34 @@ extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void) {
     return 0;
 }
 
+// ---- OoTItemUnequipBow (SoH 16ee01404, #1747) ----
+
+// games/oot/soh/Enhancements/ItemUnequip.cpp.
+bool OoT_ItemUnequip_ShouldUnequip(u16 cursorItem, u16 cursorSlot, u8 equippedItem, u8 equippedSlot);
+
+extern "C" int OoT_ItemUnequipBow_RunHeadless(void) {
+    const u16 slot = SLOT_BOW;
+    // (a) the fix: the bow under the cursor unequips the bow-with-a-magic-arrow on the pressed button.
+    USF_ASSERT(OoT_ItemUnequip_ShouldUnequip(ITEM_BOW, slot, ITEM_BOW_ARROW_FIRE, slot),
+               "(a): the bow does not unequip the fire-arrow bow");
+    USF_ASSERT(OoT_ItemUnequip_ShouldUnequip(ITEM_BOW, slot, ITEM_BOW_ARROW_ICE, slot),
+               "(a): the bow does not unequip the ice-arrow bow");
+    USF_ASSERT(OoT_ItemUnequip_ShouldUnequip(ITEM_BOW, slot, ITEM_BOW_ARROW_LIGHT, slot),
+               "(a): the bow does not unequip the light-arrow bow");
+    // (b) unchanged: the same item, an arrow over its own bow, and a different item.
+    USF_ASSERT(OoT_ItemUnequip_ShouldUnequip(ITEM_BOW, slot, ITEM_BOW, slot), "(b): the bow does not unequip itself");
+    USF_ASSERT(OoT_ItemUnequip_ShouldUnequip(ITEM_ARROW_FIRE, SLOT_ARROW_FIRE, ITEM_BOW_ARROW_FIRE, slot),
+               "(b): fire arrows no longer unequip the fire-arrow bow");
+    USF_ASSERT(!OoT_ItemUnequip_ShouldUnequip(ITEM_BOW, slot, ITEM_SLINGSHOT, SLOT_SLINGSHOT),
+               "(b): the bow unequips the slingshot");
+    USF_ASSERT(!OoT_ItemUnequip_ShouldUnequip(ITEM_ARROW_FIRE, SLOT_ARROW_FIRE, ITEM_BOW_ARROW_ICE, slot),
+               "(b): fire arrows unequip the ice-arrow bow");
+    // (c) bottles still need the same slot.
+    USF_ASSERT(!OoT_ItemUnequip_ShouldUnequip(ITEM_BOTTLE, SLOT_BOTTLE_1, ITEM_BOTTLE, SLOT_BOTTLE_2),
+               "(c): a bottle unequips another slot's bottle");
+
+    printf("[TEST] oot-item-unequip-bow: PASS\n");
+    return 0;
+}
+
 #endif // RSBS_SINGLE_EXECUTABLE
