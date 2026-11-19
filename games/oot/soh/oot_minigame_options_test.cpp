@@ -67,8 +67,8 @@ const char* const kRupeeDashScalingKey = CVAR_ENHANCEMENT("RupeeDashScaling");
 const char* const kRupeeDashIntervalKey = CVAR_ENHANCEMENT("RupeeDashInterval");
 
 const char* const kAllKeys[] = {
-    kIngoRaceOnceKey,  kHbaCustomizeKey,   kHbaInstantWinKey,     kHbaAlwaysScoreKey,  kHbaAmmoKey,
-    kHbaBothPrizesKey, kDivingTimeLimitKey, kRupeeDashKey,        kRupeeDashScalingKey, kRupeeDashIntervalKey,
+    kIngoRaceOnceKey,  kHbaCustomizeKey,    kHbaInstantWinKey, kHbaAlwaysScoreKey,   kHbaAmmoKey,
+    kHbaBothPrizesKey, kDivingTimeLimitKey, kRupeeDashKey,     kRupeeDashScalingKey, kRupeeDashIntervalKey,
 };
 constexpr int kAllKeyCount = static_cast<int>(sizeof(kAllKeys) / sizeof(kAllKeys[0]));
 constexpr int32_t kUnsetSentinel = -999999;
@@ -218,7 +218,7 @@ int CheckIngoRaceOptions(GameInfo* scratchGameInfo) {
     ResetScratchState(scratchGameInfo);
     OoT_gPlayState = &sPlayState;
     gSaveContext.eventInf[0] = 2;
-    gSaveContext.timerState = TIMER_STATE_DOWN;
+    gSaveContext.timerState = TIMER_STATE_DOWN_TICK;
     MO_ASSERT(GameInteractor_Should(VB_RACE_INGO, true, 2), "VB_RACE_INGO skipped race under INGO_RACE_ONCE");
     MO_ASSERT(sPlayState.nextEntranceIndex == 0, "VB_RACE_INGO touched nextEntranceIndex under INGO_RACE_ONCE");
 
@@ -236,8 +236,7 @@ int CheckIngoRaceOptions(GameInfo* scratchGameInfo) {
 
     // Riding Epona entering race (entranceIndex == 2, (eventInf[0] & 0x12) == 2).
     MO_ASSERT(!GameInteractor_Should(VB_RACE_INGO, true, 2), "VB_RACE_INGO did not skip race under INGO_RACE_NONE");
-    MO_ASSERT(sPlayState.nextEntranceIndex == ENTR_LON_LON_RANCH_7,
-              "VB_RACE_INGO did not set ENTR_LON_LON_RANCH_7");
+    MO_ASSERT(sPlayState.nextEntranceIndex == ENTR_LON_LON_RANCH_7, "VB_RACE_INGO did not set ENTR_LON_LON_RANCH_7");
     MO_ASSERT(gSaveContext.eventInf[0] == 0x8046, "VB_RACE_INGO did not set eventInf[0] flags 0x8046");
     MO_ASSERT(sPlayState.transitionType == TRANS_TYPE_FADE_WHITE, "VB_RACE_INGO did not set fade-white transition");
     MO_ASSERT(sPlayState.transitionTrigger == TRANS_TRIGGER_START, "VB_RACE_INGO did not trigger transition");
