@@ -603,7 +603,7 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/DeveloperTools/MessageViewer.cpp"
         "2s2h/DeveloperTools/ObjectDependency.cpp"
         "2s2h/DeveloperTools/WarpPoint.cpp"
-        # #1032: the 25 Skip Misc Interactions TUs, all keyed on gEnhancements.TimeSavers.SkipMiscInteractions
+        # #1032: the 25 Skip Misc Interactions TUs (#1755 adds two more below), all keyed on gEnhancements.TimeSavers.SkipMiscInteractions
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipAlienStartAndFail.cpp"
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipAlienWarning.cpp"
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipBankerDialogue.cpp"
