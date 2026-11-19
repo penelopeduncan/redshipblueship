@@ -370,6 +370,12 @@ int MM_SongTeacherHooks_RunHeadless(void);
 // default and its order-independence from Goron Rolling Ignores Magic. Needs the
 // display-free shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_RuntimeParity_RunHeadless(void);
+// The 2Ship fixes ported from #1754 and #1755 (games/mm/2s2h/mm_upstream_fixes_1754_test.cpp):
+// Pause Owl Warp's Soaring, Ocarina and button gate, the Saria's Song restricted-song text,
+// the soulless-alien cue, telescope inversion, En_Rail_Skb's reset, Ammo Buyback's arrows,
+// Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
+// shared bring-up first. Returns 0 on pass, non-zero on fail.
+int MM_UpstreamFixes1754_RunHeadless(void);
 // The MM rando minigame reward hooks (games/mm/2s2h/mm_minigame_offer_hooks_test.cpp):
 // a rupee that stands in for an open check is not given on top of it (#1216).
 // Drives the Rando/ActorBehavior hooks through OnFileLoad against a calloc'd
@@ -7778,6 +7784,25 @@ static TestResult Test_MMRuntimeParity(void) {
     return MM_RuntimeParity_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1754, #1755. Same display-free shared bring-up as mm-runtime-parity: the legs read CVars
+// and drive ShipInit registrars through the Ship::Context singleton. It restores the
+// SaveContext image, MM_gPlayState and every key it touches, and re-runs SariasSongHint()
+// under the restored save, so its only constraint is to stay after mm-registrar-coverage
+// (it registers hooks while it runs).
+static TestResult Test_MMUpstreamFixes1754(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1216. Same display-free shared bring-up as mm-song-teacher-hooks. Restores
 // the SaveContext image and MM_gPlayState and re-runs OnFileLoad on the way
 // out, so it has no ordering constraints.
@@ -11263,6 +11288,11 @@ const TestDescriptor gTests[] = {
       "through a landing, charges at a lower speed and keeps spikes out at any speed, on by default under rando "
       "(#1426)",
       Test_MMRuntimeParity },
+    // #1754, #1755: eight 2Ship fixes. After mm-registrar-coverage (it registers hooks while it
+    // runs); restores everything it touches.
+    { "mm-upstream-fixes-1754",
+      "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
+      Test_MMUpstreamFixes1754 },
     // The MM rando minigame reward hooks (#1216). Restores everything it touches.
     { "mm-gallery-rupee-stand-in",
       "A minigame rupee standing in for an open MM check is not given on top of it (#1216)",

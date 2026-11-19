@@ -1778,6 +1778,14 @@ if(BUILD_TESTING)
     # Ignores Magic runs last. Driven over a calloc'd play state and player. Pure (no
     # display, no ROM); games/mm/2s2h/mm_runtime_parity_test.cpp.
     redship_add_test(NAME MMRuntimeParity COMMAND redship --test mm-runtime-parity)
+    # #1754, #1755: eight 2Ship fixes. Pause Owl Warp needs Soaring, the Ocarina and (rando)
+    # C-Down, C-Left and C-Up (2Ship afd85345d); the Saria's Song hook leaves a restricted
+    # song's text alone (f443698ea); only soulless aliens of ACTOR_EN_INVADEPOH are cued and
+    # the telescope follows both aiming inversions (#1927); En_Rail_Skb has a reset (#1702);
+    # arrows sell back at full price (a5cbfdf1c); bank toasts only at milestones (24df3b56c);
+    # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
+    # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
+    redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
     # The MM rando minigame reward hooks (Rando/ActorBehavior/, armed through
     # ActorBehavior::OnFileLoad and driven by VB dispatch against a calloc'd
     # play state). MMGalleryRupeeStandIn (#1216): while a shooting gallery's
