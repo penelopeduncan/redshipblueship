@@ -1957,6 +1957,19 @@ static TestResult Test_OoTHoverFishing(void) {
     return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1737 (SoH 2af5d2112): Reworked Targeting answers the two Z-target vanilla behaviours only while its setting is on.
+// Body in games/oot/soh/oot_camera_targeting_options_test.cpp; return 0 on pass. The display-free shared bring-up,
+// because the row writes and clears the setting's CVars.
+extern "C" int OoT_CameraTargetingOptions_RunHeadless(void);
+static TestResult Test_OoTCameraTargetingOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_CameraTargetingOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
@@ -11679,6 +11692,13 @@ const TestDescriptor gTests[] = {
       "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
       "(SoH a089fa60b)",
       Test_OoTHoverFishing },
+    // #1737: display-free and ROM-free; restores the two CVars (cleared, never stored, when they were unset), the
+    // hooks, the fake play state and the current game.
+    { "oot-camera-targeting-options",
+      "Reworked Targeting answers the Z-target switch behaviours only while on: off is vanilla, on with a focus actor "
+      "un-targets on a plain Z press, the button combo switches only when a next target exists, and off again is "
+      "vanilla (SoH #6322)",
+      Test_OoTCameraTargetingOptions },
 
     // #1741: display-free and ROM-free; restores every controller key it touches
     // (cleared, never stored, when it was unset) and saves nothing to disk.

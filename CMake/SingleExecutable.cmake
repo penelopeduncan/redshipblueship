@@ -2162,6 +2162,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
 
+    # #1737 (SoH 2af5d2112 #6322): Reworked Targeting. Enhancements/ReworkedTargeting.cpp answers
+    # VB_TOGGLE_Z_TARGET_SWITCH_TARGETS and VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION only while the setting is on. The row
+    # runs that registrar out of ShipInit's map, then the REAL GameInteractor_Should dispatch with a fake
+    # OoT_gPlayState: off -> vanilla; on with a focus actor -> a plain Z press un-targets; the configured button combo
+    # (R) with a next target switches, with none does not; off again -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTCameraTargetingOptions COMMAND redship --test oot-camera-targeting-options)
+
     # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
     # custom ocarina-note buttons' saved id lists. The row builds that state in
     # the CVar store and runs the start-up clean-up: the stray ids go, the

@@ -16,7 +16,6 @@ extern PlayState* OoT_gPlayState;
 static bool sTriggeredByButtonCombo = false;
 
 void RegisterReworkedTargeting() {
-
     COND_VB_SHOULD(VB_TOGGLE_Z_TARGET_SWITCH_TARGETS, CVAR_REWORKED_TARGETING_VALUE, {
         Player* player = GET_PLAYER(OoT_gPlayState);
         if (player->focusActor != NULL && !sTriggeredByButtonCombo) {
