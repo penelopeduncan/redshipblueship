@@ -121,6 +121,18 @@ uint32_t Xw2HighestUnallocatedBit() {
     return 0u;
 }
 
+/** The lowest bit of the second word no rule of this build takes: the next
+ *  bit a later build allocates. 0 when the word is full. */
+uint32_t Xw2LowestUnallocatedBit() {
+    const uint32_t freeBits = ~(uint32_t)RSBS_XITEM2_ALL_V1;
+    for (int b = 0; b < 32; ++b) {
+        if ((freeBits & (1u << b)) != 0u) {
+            return 1u << b;
+        }
+    }
+    return 0u;
+}
+
 /** The index of the single bit @p bit, or -1. */
 int Xw2BitIndex(uint32_t bit) {
     for (int b = 0; b < 32; ++b) {
@@ -132,6 +144,7 @@ int Xw2BitIndex(uint32_t bit) {
 }
 
 const uint32_t kXw2Later = Xw2HighestUnallocatedBit(); // another build's rule (#1169 XW14's legs)
+const uint32_t kXw2Next = Xw2LowestUnallocatedBit();   // the next rule a later build takes
 
 /** The fourteen keys, in OoTMM's order, with OoTMM's key and option name. */
 struct Xw2Key {
@@ -278,6 +291,10 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(kXw2Later != 0u && (kXw2Later & (uint32_t)RSBS_XITEM2_ALL_V1) == 0u,
                   "the second word is full (no unallocated bit, %08X): these legs need a new free bit",
                   (unsigned)kXw2Later);
+        XW2_CHECK(kXw2Next != 0u && (kXw2Next & (uint32_t)RSBS_XITEM2_ALL_V1) == 0u && kXw2Next != kXw2Later,
+                  "the second word has fewer than two unallocated bits (lowest %08X, highest %08X): the "
+                  "unallocated-bit legs probe both ends of the free range",
+                  (unsigned)kXw2Next, (unsigned)kXw2Later);
         XW2_CHECK(RSBS_XITEM2_SONG_SOARING_OOT == kXw2Soaring && RSBS_XITEM2_SHARED_SONG_SOARING == kXw2SharedSoaring &&
                       RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u,
                   "a warp-song bit moved; they are .redsave format, append-only");
@@ -327,7 +344,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "an allocated word with every shared song's extension is a world");
         XW2_CHECK(!Combo_ComboItemRules2Valid(kXw2SharedSoaring) && !Combo_ComboItemRules2Valid(0x0100u),
                   "a SHARED BIT REQUIRES ITS EXTENSION: a shared song alone is not a world");
-        XW2_CHECK(!Combo_ComboItemRules2Valid(kXw2Later) && !Combo_ComboItemRules2Valid(0x80000000u),
+        XW2_CHECK(!Combo_ComboItemRules2Valid(kXw2Later) && !Combo_ComboItemRules2Valid(kXw2Next),
                   "AN UNALLOCATED BIT IS REFUSED: it is a later build's rule");
     }
 

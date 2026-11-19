@@ -317,16 +317,9 @@ TestResult SharedSunSariaRule_Run(void) {
 
     // ---- (4) The fingerprint: folded when set, today's with both off ----------------
     // Catches: a freeze that drops either bit, a fold that cannot tell the two
-    // apart, and a world with both off whose fingerprint moved.
+    // apart, and a world with both off whose fingerprint moved (the v4 pin below;
+    // the word-blind Ex form is Ex2 with 0, so comparing the two proves nothing).
     {
-        for (uint32_t v = 0; v <= RSBS_GENERATOR_VERSION; v++) {
-            const uint32_t without =
-                Combo_ComputeComboSettingsHashForGeneratorEx(&defaults, NULL, kSsrSettingsHash, kSsrProfileDigest, v);
-            const uint32_t withZero = Combo_ComputeComboSettingsHashForGeneratorEx2(
-                &defaults, NULL, 0u, kSsrSettingsHash, kSsrProfileDigest, v);
-            SSR_CHECK(without == withZero, "(4) at generator %u a 0 second word gives %08X, the word-blind %08X",
-                      (unsigned)v, (unsigned)withZero, (unsigned)without);
-        }
         const uint32_t base =
             Combo_ComputeComboSettingsHashForGeneratorEx2(&defaults, NULL, 0u, kSsrSettingsHash, kSsrProfileDigest, 4u);
         SSR_CHECK(base == 0xA06B18F7u, "(4) a rules-off world's v4 fingerprint is %08X, main's is A06B18F7",

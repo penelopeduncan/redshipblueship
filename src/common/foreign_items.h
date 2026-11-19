@@ -1591,9 +1591,9 @@ uint32_t Combo_FreezeComboSettingsEx(const ComboSettingsRecord* rec, const Combo
  * fingerprint over all three. Combo_FreezeComboSettingsEx is this with 0 (every
  * second-word rule off). The creation event calls this one with
  * Combo_ResolveComboItemRules2, after refusing any word
- * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (none is
- * hidden since #1169 XW14) and no unallocated one: 0 unless a Cross-Game Songs
- * row is on.
+ * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (since
+ * #1587 S1 the Shared Sun's Song and Shared Saria's Song are hidden until #1587
+ * S7) and no unallocated one: 0 unless a Cross-Game Songs row is on.
  */
 uint32_t Combo_FreezeComboSettingsEx2(const ComboSettingsRecord* rec, const ComboItemRulesRecord* rules,
                                       uint32_t rules2);
