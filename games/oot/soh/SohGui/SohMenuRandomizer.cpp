@@ -157,10 +157,10 @@ std::set<RandomizerCheck> ParseExcludedLocations(const char* raw) {
         return parsed;
     }
     std::stringstream excludedLocationStringStream(raw);
-    std::string excludedLocationString;
-    while (getline(excludedLocationStringStream, excludedLocationString, ',')) {
-        if (!excludedLocationString.empty()) {
-            parsed.insert((RandomizerCheck)std::stoi(excludedLocationString));
+    std::string excludedLocationToken;
+    while (getline(excludedLocationStringStream, excludedLocationToken, ',')) {
+        if (!excludedLocationToken.empty()) { // skip empty fields: std::stoi("") throws
+            parsed.insert((RandomizerCheck)std::stoi(excludedLocationToken));
         }
     }
     return parsed;
