@@ -3320,6 +3320,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_HOT_ROOM_DISTORTION,
+
+    // #### `result`
+    // ```c
+    // play->sceneNum == SCENE_KOKIRI_FOREST
+    // ```
+    // #### `args`
+    // - `*EnSa`
+    VB_SARIA_GESTURE,
 } GIVanillaBehavior;
 
 #endif
