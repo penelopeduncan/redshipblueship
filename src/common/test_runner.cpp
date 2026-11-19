@@ -1864,9 +1864,9 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
-// Backport #1753 (SoH 236c9c81f, 5c55c01c6, cca66cdc5): the Bombchu Bowling, frogs' Ocarina game and Shooting Gallery
-// options are GameInteractor_Should hooks. Body in games/oot/soh/oot_minigame_hookify_test.cpp; return 0 on pass. The
-// display-free shared bring-up, because the row writes and clears the option CVars.
+// Backport #1753 (SoH 236c9c81f, 5c55c01c6, cca66cdc5): the Bombchu Bowling, frogs' Ocarina game and Shooting
+// Gallery options are GameInteractor_Should hooks. Body in games/oot/soh/oot_minigame_hookify_test.cpp; return 0
+// on pass. The display-free shared bring-up, because the row writes and clears the option CVars.
 extern "C" int OoT_MinigameHookify_RunHeadless(void);
 static TestResult Test_OoTMinigameHookify(void) {
     auto ctx = CreateHarnessStyleContext();

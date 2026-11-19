@@ -82,11 +82,19 @@ const char* const kGalConstant = CVAR_ENHANCEMENT("ConstantAdultGallery");
 const char* const kGalAmmoChild = CVAR_ENHANCEMENT("ShootingGalleryAmmoChild");
 const char* const kGalAmmoAdult = CVAR_ENHANCEMENT("ShootingGalleryAmmoAdult");
 
-const char* const kAllKeys[] = { kBowlCustomize, kBowlSmall,     kBowlBig,       kBowlAmmo,      kFrogCustomize,
-                                 kFrogModify,    kFrogUnlimited, kFrogInstant,   kGalCustomize,  kGalInstant,
-                                 kGalConstant,   kGalAmmoChild,  kGalAmmoAdult };
+const char* const kBowlKeys[] = { kBowlCustomize, kBowlSmall, kBowlBig, kBowlAmmo };
+const char* const kFrogKeys[] = { kFrogCustomize, kFrogModify, kFrogUnlimited, kFrogInstant };
+const char* const kGalKeys[] = { kGalCustomize, kGalInstant, kGalConstant, kGalAmmoChild, kGalAmmoAdult };
 constexpr int kAllKeyCount = 13;
 constexpr int kUnset = INT_MIN;
+
+// The thirteen option keys this row writes: the four, four and five of the three hook files.
+const char* AllKey(int i) {
+    if (i < 4) {
+        return kBowlKeys[i];
+    }
+    return i < 8 ? kFrogKeys[i - 4] : kGalKeys[i - 8];
+}
 
 // The three hook files this row owns, and how many registrars each registers
 // under "*" and under each of its keys.
@@ -156,7 +164,7 @@ void RunSitesUnder(const char* key) {
 
 void ClearAllKeys() {
     for (int i = 0; i < kAllKeyCount; i++) {
-        CVarClear(kAllKeys[i]);
+        CVarClear(AllKey(i));
     }
 }
 
@@ -198,7 +206,8 @@ int CheckVanilla(const char* leg) {
     MGH_ASSERT(GameInteractor_Should(VB_SET_FROG_OCARINA_GAME_TIME_LIMIT, true, &sFrogs[0], 40),
                "frogs time limit overridden with options off");
     MGH_ASSERT(sFrogs[0].frogSongTimer == 77, "frogs timer changed with options off");
-    MGH_ASSERT(GameInteractor_Should(VB_FROGS_OCARINA_GAME_TIMER_TICK, true), "frogs timer tick stopped with options off");
+    MGH_ASSERT(GameInteractor_Should(VB_FROGS_OCARINA_GAME_TIMER_TICK, true),
+               "frogs timer tick stopped with options off");
     MGH_ASSERT(GameInteractor_Should(VB_PLAY_FROG_OCARINA_GAME, true, &sFrogs[0]), "frogs game won with options off");
     MGH_ASSERT(sFrogs[0].actor.textId == 0x1234 && sPlay.msgCtx.msgMode == 5 && sFrogs[0].actionFunc == nullptr,
                "frogs instant win changed state with options off");
@@ -336,7 +345,8 @@ int RunLegs(void) {
     CVarSetInteger(kGalCustomize, 1);
     CVarSetInteger(kGalConstant, 1);
     RunSitesUnder(kGalConstant);
-    MGH_ASSERT(!GameInteractor_Should(VB_SHOOTING_GALLERY_SHUFFLE_ADULT_RUPEES, true), "(8): adult shuffle not refused");
+    MGH_ASSERT(!GameInteractor_Should(VB_SHOOTING_GALLERY_SHUFFLE_ADULT_RUPEES, true),
+               "(8): adult shuffle not refused");
     printf("[TEST] (8) constant adult: shuffle refused\n");
 
     // (9) child ammo: only a child's ammo changes.
@@ -386,7 +396,7 @@ extern "C" int OoT_MinigameHookify_RunHeadless(void) {
 
     int saved[kAllKeyCount];
     for (int i = 0; i < kAllKeyCount; i++) {
-        saved[i] = CVarGetInteger(kAllKeys[i], kUnset);
+        saved[i] = CVarGetInteger(AllKey(i), kUnset);
     }
     PlayState* const savedPlayState = OoT_gPlayState;
     const s32 savedLinkAge = gSaveContext.linkAge;
@@ -400,9 +410,9 @@ extern "C" int OoT_MinigameHookify_RunHeadless(void) {
     // pointers, then the hooks to match them.
     for (int i = 0; i < kAllKeyCount; i++) {
         if (saved[i] == kUnset) {
-            CVarClear(kAllKeys[i]);
+            CVarClear(AllKey(i));
         } else {
-            CVarSetInteger(kAllKeys[i], saved[i]);
+            CVarSetInteger(AllKey(i), saved[i]);
         }
     }
     OoT_gPlayState = savedPlayState;
