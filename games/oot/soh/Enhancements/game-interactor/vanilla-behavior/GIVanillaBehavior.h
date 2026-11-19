@@ -3328,6 +3328,14 @@ typedef enum {
     // #### `args`
     // - `*EnSa`
     VB_SARIA_GESTURE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Actor`
+    VB_ON_ACTOR_THROW_ONLY_CHECK,
 } GIVanillaBehavior;
 
 #endif
