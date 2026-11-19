@@ -814,7 +814,7 @@ void TimeSaverOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_li
                     // RSBS divergence from SoH 942134669: the rando branch relied on the trailing `*should =
                     // false` that commit removed. Without it BgDyYoseizo_ChooseType grants the vanilla reward
                     // (magic, double magic, double defence, a spell) on top of the randomized check.
-                    *should = false;
+                    *should = false; // rando: never the vanilla Great Fairy reward
                 } else {
                     // If we're in vanilla, set the flag _if_ we were eligble, so that anchor can send the reward in
                     // co-op
