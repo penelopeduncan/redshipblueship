@@ -2,6 +2,7 @@
 
 #include <soh/GameVersions.h>
 
+#include <algorithm>
 #include <cstdio> // std::sprintf
 
 #include <spdlog/spdlog.h>
@@ -101,6 +102,8 @@ typedef struct SaveStateInfo {
     SaveContext saveContextCopy;
     GameInfo gameInfoCopy;
     EffectContext effectContextCopy;
+    u8 transitionActorCount_copy;
+    s16 transitionActorIds_copy[256];
     LightsBuffer lightBufferCopy;
     AudioContext audioContextCopy;
     MtxF mtxStackCopy[20]; // always 20 matricies
@@ -547,6 +550,8 @@ class SaveState {
     void LoadMiscCodeData(void);
     void SaveEffectData(void);
     void LoadEffectData(void);
+    void SaveTransitionActors(void);
+    void LoadTransitionActors(void);
 
     SaveStateInfo* GetSaveStateInfo(void);
 };
@@ -1276,6 +1281,26 @@ void SaveState::LoadEffectData(void) {
     memcpy(&OoT_sEffectContext, &info->effectContextCopy, sizeof(EffectContext));
 }
 
+void SaveState::SaveTransitionActors(void) {
+    if (OoT_gPlayState != nullptr && OoT_gPlayState->transiActorCtx.list != nullptr) {
+        info->transitionActorCount_copy = OoT_gPlayState->transiActorCtx.numActors;
+        for (u32 i = 0; i < info->transitionActorCount_copy; i++) {
+            info->transitionActorIds_copy[i] = OoT_gPlayState->transiActorCtx.list[i].id;
+        }
+    } else {
+        info->transitionActorCount_copy = 0;
+    }
+}
+
+void SaveState::LoadTransitionActors(void) {
+    if (OoT_gPlayState != nullptr && OoT_gPlayState->transiActorCtx.list != nullptr) {
+        u32 count = std::min<u32>(info->transitionActorCount_copy, OoT_gPlayState->transiActorCtx.numActors);
+        for (u32 i = 0; i < count; i++) {
+            OoT_gPlayState->transiActorCtx.list[i].id = info->transitionActorIds_copy[i];
+        }
+    }
+}
+
 extern "C" void ProcessSaveStateRequests(void) {
     OTRGlobals::Instance->gSaveStateMgr->ProcessSaveStateRequests();
 }
@@ -1383,6 +1408,7 @@ void SaveState::Save(void) {
     SaveOverlayStaticData();
     SaveMiscCodeData();
     SaveEffectData();
+    SaveTransitionActors();
 }
 
 void SaveState::Load(void) {
@@ -1417,4 +1443,5 @@ void SaveState::Load(void) {
     LoadOverlayStaticData();
     LoadMiscCodeData();
     LoadEffectData();
+    LoadTransitionActors();
 }
