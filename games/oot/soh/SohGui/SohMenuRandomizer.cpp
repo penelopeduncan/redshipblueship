@@ -32,6 +32,7 @@ static const std::map<int32_t, const char*> skipGetItemAnimationOptions = {
 
 static bool locationsDirty = true;
 static bool tricksDirty = true;
+static int32_t prevMQDungeonSetting;
 static char seedString[MAX_SEED_STRING_SIZE];
 
 // Whether the trick lists draw (SoH: whenever Logic is not "No Logic").
@@ -129,17 +130,25 @@ static std::set<RandomizerCheck> excludedLocations;
 static std::set<RandomizerTrick> enabledTricks;
 static std::set<RandomizerTrick> enabledGlitches;
 
+int32_t PackMQDungeonSetting(int32_t mqDungeons, int32_t mqDungeonCount) {
+    return mqDungeons | (mqDungeonCount << 8);
+}
+
 void DrawLocationsMenu(WidgetInfo& info) {
     auto ctx = OTRGlobals::Instance->gRandoContext;
+    int32_t currMQDungeonSetting =
+        PackMQDungeonSetting(CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), 0),
+                             CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 0));
     static ImVec2 cellPadding(8.0f, 8.0f);
     bool generating = IsRandoGenerating();
     bool disableEditingRandoSettings = generating || CVarGetInteger(CVAR_GENERAL("OnFileSelectNameEntry"), 0);
     ImGui::BeginDisabled(CVarGetInteger(CVAR_SETTING("DisableChanges"), 0) || disableEditingRandoSettings);
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, cellPadding);
-    if (locationsDirty) {
+    if (locationsDirty || currMQDungeonSetting != prevMQDungeonSetting) {
         locationsDirty = false;
         UpdateMenuLocations();
     }
+    prevMQDungeonSetting = currMQDungeonSetting;
 
     if (ImGui::BeginTable("tableRandoLocations", 2, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV)) {
         ImGui::TableSetupColumn("Included", ImGuiTableColumnFlags_WidthStretch, 200.0f);
