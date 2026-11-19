@@ -106,6 +106,11 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
 
     // Queue all packets to be processed on the game thread
     std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
+    // RSBS: keep only the newest PLAYER_UPDATE per sender (see pendingPlayerUpdates in Anchor.h).
+    if (packetType == PLAYER_UPDATE && payload.contains("clientId") && payload["clientId"].is_number_integer()) {
+        pendingPlayerUpdates[payload["clientId"].get<uint32_t>()] = std::move(payload);
+        return;
+    }
     incomingPacketQueue.push(payload);
 }
 
@@ -115,6 +120,11 @@ void Anchor::ProcessIncomingPacketQueue() {
     {
         std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
         packetsToProcess.swap(incomingPacketQueue);
+        // The coalesced PLAYER_UPDATEs go last, after any ALL_CLIENT_STATE that adds or removes their sender.
+        for (auto& [clientId, update] : pendingPlayerUpdates) {
+            packetsToProcess.push(std::move(update));
+        }
+        pendingPlayerUpdates.clear();
     }
 
     // Process packets without holding the lock
@@ -173,6 +183,9 @@ void Anchor::ProcessIncomingPacketQueue() {
         } catch (const std::exception& e) {
             SPDLOG_ERROR("[Anchor] Exception while processing incoming packet {}", e.what());
             SPDLOG_ERROR("[Anchor] Packet: {}", payload.dump());
+            // RSBS: HandlePacket_UpdateTeamState clears this only on its normal exit; a throw from one of its
+            // .at() reads would otherwise stop SET_CHECK_STATUS sync (HookHandlers.cpp) for the session.
+            isHandlingUpdateTeamState = false;
         }
 
         isProcessingIncomingPacket = false;
