@@ -299,23 +299,33 @@ int OsslRunLegs(uint16_t arrival) {
 // within GRACE (0x1E0) of the moon crash is pulled back to crash - GRACE (common/save.c gracePeriod, run on every open
 // of MM's save). A Last Save file keeps both as before. Names carry the RFS prefix (the build-free ODR gate).
 constexpr int kRfsNoCVar = -0x1728; // no Moon Crash Behavior value; "the key was unset"
-ComboContext sRfsComboSnapshot;     // static: the context is too large for the stack
+constexpr const char* kRfsRememberCVar = "gEnhancements.RememberSaveLocation"; // SavingEnhancements.cpp's key
+ComboContext sRfsComboSnapshot; // static: the context is too large for the stack
 
 // Everything the legs change, put back on every exit path (AllTests runs every row in one process).
 struct RfsGlobalsGuard {
     int slot;
     int moonCrashCVar;
+    int rememberCVar;
+    PlayState* play;
     RfsGlobalsGuard()
-        : slot(RsbsSave_GetActiveSlot()), moonCrashCVar(CVarGetInteger(RSBS_CVAR_MM_MOON_CRASH, kRfsNoCVar)) {
+        : slot(RsbsSave_GetActiveSlot()), moonCrashCVar(CVarGetInteger(RSBS_CVAR_MM_MOON_CRASH, kRfsNoCVar)),
+          rememberCVar(CVarGetInteger(kRfsRememberCVar, kRfsNoCVar)), play(MM_gPlayState) {
         memcpy(&sRfsComboSnapshot, &gComboCtx, sizeof(ComboContext));
     }
     ~RfsGlobalsGuard() {
         memcpy(&gComboCtx, &sRfsComboSnapshot, sizeof(ComboContext));
         RsbsSave_SetActiveSlot(slot);
+        MM_gPlayState = play;
         if (moonCrashCVar == kRfsNoCVar) {
             CVarClear(RSBS_CVAR_MM_MOON_CRASH);
         } else {
             CVarSetInteger(RSBS_CVAR_MM_MOON_CRASH, moonCrashCVar);
+        }
+        if (rememberCVar == kRfsNoCVar) {
+            CVarClear(kRfsRememberCVar);
+        } else {
+            CVarSetInteger(kRfsRememberCVar, rememberCVar);
         }
         Combo_ClearFrozenState("mm");
         Combo_ClearStartupEntrance();
@@ -430,6 +440,41 @@ int RfsRunLegs(uint16_t arrival) {
                   "an unpaired session's roof save must keep 2Ship's choice");
     CVarClear(RSBS_CVAR_MM_MOON_CRASH);
 
+    // (r8) The real save step, SavingEnhancements_PersistSaveEntranceInfo, on the roof (a stub PlayState) with Remember
+    //      Save Location on, in a paired session, with stale roof respawn data already in the save. New Cycle: South
+    //      Clock Town and the respawn data zeroed; red if Persist's `else if (remember)` memset is removed (the stale
+    //      0x1A30 survives) or Persist stops calling the live wrapper (the copied 0x2400 comes back). Last Save: the
+    //      tracked respawn data is copied, as before #1728; red if the copy is skipped for every roof save.
+    {
+        static PlayState sRfsRoofPlay; // static: PlayState is too large for the stack
+        memset(&sRfsRoofPlay, 0, sizeof(sRfsRoofPlay));
+        sRfsRoofPlay.sceneId = SCENE_OKUJOU;
+        MM_gPlayState = &sRfsRoofPlay;
+        CVarSetInteger(kRfsRememberCVar, 1);
+        RfsOpenPairedSession(true);
+        for (int lastSave = 0; lastSave <= 1; lastSave++) {
+            memset(&gSaveContext, 0, sizeof(gSaveContext));
+            gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash = (u8)(lastSave ? kReset : kCycle);
+            RESUME_ASSERT(MM_Rando_FrozenMoonCrash() == (lastSave ? kReset : kCycle),
+                          "premise: the file is frozen under the leg's Moon Crash Behavior");
+            gSaveContext.respawn[RESPAWN_MODE_DOWN].entrance = 0x2400;
+            gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].entrance = 0x1A30;
+            SavingEnhancements_PersistSaveEntranceInfo();
+            if (!lastSave) {
+                RESUME_ASSERT(gSaveContext.save.shipSaveInfo.pauseSaveEntrance == kSouthClockTown,
+                              "a paired New Cycle roof save must record South Clock Town (#1728)");
+                RESUME_ASSERT(gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].entrance == 0,
+                              "a paired New Cycle roof save must carry no respawn data (#1728)");
+            } else {
+                RESUME_ASSERT(gSaveContext.save.shipSaveInfo.respawn[RESPAWN_MODE_DOWN].entrance == 0x2400,
+                              "a Last Save file's roof save must keep Remember Save Location's respawn data");
+            }
+        }
+        MM_gPlayState = guard.play;
+        CVarClear(kRfsRememberCVar);
+        RfsOpenPairedSession(false);
+    }
+
     // (g1) The grace arithmetic: OoTMM's linear clock and window. Day 3 at 05:49 is linear 0x3FE20, crash - 0x1E0.
     RESUME_ASSERT(Combo_MmLinearClock(3, 0x3E20) == 0x3FE20u && Combo_MmLinearClock(3, 0x4000) == 0x30000u,
                   "the linear clock must be day * 0x10000 + (time - 06:00), wrapping (OoTMM Time_Game2Linear)");
@@ -474,8 +519,9 @@ int RfsRunLegs(uint16_t arrival) {
                       "the arrival moved the restored day (the grace keeps day 3)");
         RESUME_ASSERT(gSaveContext.save.time == leg.expected,
                       "the arrival's clock is not OoTMM's grace period for this file's Moon Crash Behavior (#1728)");
-        RESUME_ASSERT(gSaveContext.save.entrance == kSouthClockTown,
-                      "the roof save's pair must land the arrival in South Clock Town");
+        // Consistency only: the staged pair's entrance equals the arrival's, so this does not tell which one was
+        // used (this row's 2Ship #1952 pause-save legs, kPauseSaveEntrance != kArrival, prove the pair is used).
+        RESUME_ASSERT(gSaveContext.save.entrance == kSouthClockTown, "the arrival must land in South Clock Town");
     }
     printf("[TEST] mm-startup-restore: #1728 New Cycle roof saves come back in South Clock Town and New Cycle "
            "arrivals take OoTMM's grace period; Last Save is unchanged\n");
