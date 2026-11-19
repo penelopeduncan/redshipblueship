@@ -292,3 +292,6 @@ extern "C" s16 OoT_sLastPlayedSong;
 extern "C" s16 sHasSunsSong;
 extern "C" s16 sMessageHasSetSfx;
 extern "C" u16 sOcarinaSongBitFlags;
+
+// z_effect
+extern "C" EffectContext OoT_sEffectContext;

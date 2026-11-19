@@ -78,6 +78,7 @@ typedef struct SaveStateInfo {
 
     SaveContext saveContextCopy;
     GameInfo gameInfoCopy;
+    EffectContext effectContextCopy;
     LightsBuffer lightBufferCopy;
     AudioContext audioContextCopy;
     MtxF mtxStackCopy[20]; // always 20 matricies
@@ -422,6 +423,8 @@ class SaveState {
 
     void SaveMiscCodeData(void);
     void LoadMiscCodeData(void);
+    void SaveEffectData(void);
+    void LoadEffectData(void);
 
     SaveStateInfo* GetSaveStateInfo(void);
 };
@@ -941,6 +944,14 @@ void SaveState::LoadMiscCodeData(void) {
     sOcarinaSongBitFlags = info->sOcarinaSongBitFlags_copy;
 }
 
+void SaveState::SaveEffectData(void) {
+    memcpy(&info->effectContextCopy, &OoT_sEffectContext, sizeof(EffectContext));
+}
+
+void SaveState::LoadEffectData(void) {
+    memcpy(&OoT_sEffectContext, &info->effectContextCopy, sizeof(EffectContext));
+}
+
 extern "C" void ProcessSaveStateRequests(void) {
     OTRGlobals::Instance->gSaveStateMgr->ProcessSaveStateRequests();
 }
@@ -1047,6 +1058,7 @@ void SaveState::Save(void) {
     SaveOnePointDemoData();
     SaveOverlayStaticData();
     SaveMiscCodeData();
+    SaveEffectData();
 }
 
 void SaveState::Load(void) {
@@ -1080,4 +1092,5 @@ void SaveState::Load(void) {
     LoadOnePointDemoData();
     LoadOverlayStaticData();
     LoadMiscCodeData();
+    LoadEffectData();
 }
