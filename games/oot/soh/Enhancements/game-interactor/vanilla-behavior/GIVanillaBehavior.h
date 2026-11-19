@@ -3304,6 +3304,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
+
+    // #### `result`
+    // ```c
+    // gSaveContext.eventInf[0] & 0x40
+    // ```
+    // #### `args`
+    // - None
+    VB_LINK_WIN_EPONA,
 } GIVanillaBehavior;
 
 #endif
