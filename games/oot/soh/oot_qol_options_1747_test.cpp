@@ -266,16 +266,18 @@ void LegRollSteer(void) {
     RunRegistrar(kRollKey, kRollFile);
 }
 
+void CheckRegistered(const char* file, const char* key) {
+    QOL_CHECK(CountRegistrars("*", file) == 1, "%s's boot registrar is not in ShipInit's map exactly once", file);
+    QOL_CHECK(CountRegistrars(key, file) == 1, "%s's registrar does not re-run on %s", file, key);
+}
+
 void RunLegs(void) {
-    const char* const fileKeys[][2] = {
-        { kGoronPotFile, kGoronPotKey },   { kHeatHazeFile, kHeatHazeKey }, { kSariaFile, kSariaKey },
-        { kThrowOnlyFile, kThrowOnlyKey }, { kRollFile, kRollKey },         { kRollFile, kSteerKey },
-    };
-    for (const auto& fk : fileKeys) {
-        QOL_CHECK(CountRegistrars("*", fk[0]) == 1, "%s's boot registrar is not in ShipInit's map exactly once",
-                  fk[0]);
-        QOL_CHECK(CountRegistrars(fk[1], fk[0]) == 1, "%s's registrar does not re-run on %s", fk[0], fk[1]);
-    }
+    CheckRegistered(kGoronPotFile, kGoronPotKey);
+    CheckRegistered(kHeatHazeFile, kHeatHazeKey);
+    CheckRegistered(kSariaFile, kSariaKey);
+    CheckRegistered(kThrowOnlyFile, kThrowOnlyKey);
+    CheckRegistered(kRollFile, kRollKey);
+    CheckRegistered(kRollFile, kSteerKey);
     if (sFailures != 0) {
         return;
     }
