@@ -204,6 +204,12 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   The autosave made as you quit could be written after the check tracker had already reset itself. A dungeon the
   tracker had revealed without a collected check (one you had only entered, or one revealed by its map) was then
   hidden again the next time you loaded the file, until you went back in.
+- **Ocarina of Time: two menu fixes from Ship of Harkinian** (SoH #7520, #7521, issue #1739). While one of the
+  four "C Button ... position" sections of the Cosmetics Editor was open, the D-pad's bindings were added again,
+  on every frame, to four of the custom ocarina note buttons (the F, A, B and high D notes). Ship of Harkinian
+  reports a crash when one of those bindings was removed at the same moment. And with Bombchu Bag set to
+  Progressive Bags, the three choices in the Bombchu picker on the Starting Items page shared one internal
+  id, which Ship of Harkinian reports as a crash. Neither crash was reproduced in this build before the fix.
 
 ### Build and tests
 
