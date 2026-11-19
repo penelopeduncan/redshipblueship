@@ -596,16 +596,16 @@ void Settings::CreateOptionDescriptions() {
         "This excludes gossip stones and magic bean locations.";
     mOptionDescriptions[RSK_SHUFFLE_BUTTERFLY_FAIRIES] = "Shuffle fairies from butterfly locations.";
     mOptionDescriptions[RSK_SHUFFLE_GRASS] =
-        "Grass/Bushes will drop a randomized item the first time they're cut and collected. "
-        "Grass/Bushes will have a different appearance when they hold a randomized item.\n"
+        "Grass will drop a randomized item the first time it's cut and collected. "
+        "Grass will have a different appearance when it holds a randomized item.\n"
         "\n"
-        "Off - Grass/Bushes will not be shuffled.\n"
+        "Off - Grass will not be shuffled.\n"
         "\n"
-        "Dungeons - Only shuffle grass/bushes that are within dungeons.\n"
+        "Dungeons - Only shuffle grass that is within dungeons.\n"
         "\n"
-        "Overworld - Only shuffle grass/bushes that are outside of dungeons.\n"
+        "Overworld - Only shuffle grass that is outside of dungeons.\n"
         "\n"
-        "All Grass/Bushes - Shuffle all grass/bushes.";
+        "All Grass/Bushes - Shuffle all grass.";
     mOptionDescriptions[RSK_SHUFFLE_DUNGEON_REWARDS] =
         "Shuffles the location of Spiritual Stones and medallions.\n"
         "Vanilla - Spiritual Stones and medallions will be given by their respective boss.\n"
