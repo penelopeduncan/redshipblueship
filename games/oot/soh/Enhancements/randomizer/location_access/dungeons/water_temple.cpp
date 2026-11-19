@@ -292,7 +292,7 @@ void RegionTable_Init_WaterTemple() {
         LOCATION(RC_WATER_TEMPLE_GS_NEAR_BOSS_KEY_CHEST, logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG) ||
                                                          //Otherwise we need to be able to reach it...
                                                          //child can also do a hovers backwalk backflip to reach the token after killing the skull
-                                                         (((logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS)) || logic->BunnyHovers() || logic->CanMiddairGroundJump()) &&
+                                                         ((((logic->IsAdult || (ctx->GetTrickOption(RT_GROUND_JUMP_HARD) && logic->CanGroundJump())) && logic->CanUse(RG_HOVER_BOOTS)) || logic->BunnyHovers()) &&
                                                          //survive the landing, or don't care if we void
                                                           (logic->HasItem(RG_BRONZE_SCALE) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid())) &&
                                                           //and of course kill the skulltula to spawn the token
