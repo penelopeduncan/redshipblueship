@@ -811,6 +811,10 @@ void TimeSaverOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_li
                     Flags_SetRandomizerInf(flag);
                     gSaveContext.healthAccumulator = MAX_HEALTH;
                     Magic_Fill(OoT_gPlayState);
+                    // RSBS divergence from SoH 942134669: the rando branch relied on the trailing `*should =
+                    // false` that commit removed. Without it BgDyYoseizo_ChooseType grants the vanilla reward
+                    // (magic, double magic, double defence, a spell) on top of the randomized check.
+                    *should = false;
                 } else {
                     // If we're in vanilla, set the flag _if_ we were eligble, so that anchor can send the reward in
                     // co-op
