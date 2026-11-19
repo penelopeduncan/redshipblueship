@@ -81,12 +81,18 @@ static const char* GetNameForDialogue(ItemId itemId) {
     }
 }
 
-static s16 GetSalePrice(ItemId itemId, s16 count) {
+// 2Ship a5cbfdf1c: arrows always sell at full price. The arithmetic takes the mode as an argument so a test row can
+// call it (mm_upstream_fixes_1754_test.cpp).
+extern "C" s16 AmmoBuyback_SalePrice(int mode, ItemId itemId, s16 count) {
     s16 totalPrice = count * GetPricePerUnit(itemId);
-    if (CVAR == AMMO_BUYBACK_HALF_PRICE) {
+    if (mode == AMMO_BUYBACK_HALF_PRICE && itemId != ITEM_BOW) {
         totalPrice = (totalPrice + 1) / 2;
     }
     return totalPrice;
+}
+
+static s16 GetSalePrice(ItemId itemId, s16 count) {
+    return AmmoBuyback_SalePrice(CVAR, itemId, count);
 }
 
 static bool IsItemAvailable(ItemId itemId) {
