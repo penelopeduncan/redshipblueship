@@ -654,7 +654,11 @@ RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLA
  *  slots, which no rule owns, sit at two more. Pinned, append-only,
  *  .redsave format (bits of gComboCtx.sharedFamilyOwned); never an
  *  RSBS_XITEM_FAMILY_MASK bit: either a bit no rule occupies (bit 31) or the
- *  bit of an EXTENSION rule, which is pinned as never a family. */
+ *  bit of an EXTENSION rule, which is pinned as never a family.
+ *  NO EXTENSION BIT IS LEFT: #1702's two slots took the last two. The next extra
+ *  slot needs one of the free first-word rule bits 28 to 30 (and then that bit
+ *  can never become a rule), or an extra-slot mechanism in the second word,
+ *  which has none today (every family bit there is its rule bit). */
 #define RSBS_XFAMILY_SLOTS_EXTRA                                                                           \
     (RSBS_XFAMILY_SLOT_MIRROR_SHIELD | RSBS_XFAMILY_SLOT_OCARINA_C_UP | RSBS_XFAMILY_SLOT_OCARINA_C_DOWN | \
      RSBS_XFAMILY_SLOT_OCARINA_C_LEFT | RSBS_XFAMILY_SLOT_OCARINA_C_RIGHT | RSBS_XFAMILY_SLOTS_POSSESSION)
