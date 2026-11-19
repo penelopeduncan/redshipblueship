@@ -1778,5 +1778,7 @@ Text GetIceTrapName(uint16_t id) {
         return Text{ "not an Ice Trap" };
     }
     // Randomly get the easy, medium, or hard name for the given item id
-    return RandomElement(trickNameTable[id]);
+    Text name = RandomElement(trickNameTable[id]);
+    name.FillMissingTranslations();
+    return name;
 }
