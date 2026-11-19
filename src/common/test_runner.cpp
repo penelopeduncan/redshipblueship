@@ -10382,6 +10382,17 @@ TestResult Test_OoTDepartureLinkAge(void) {
     return OoT_DepartureLinkAge_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1747: OoT minigame options (IngoRaceOnce, HorsebackArchery, DivingGameTimer, RupeeDashScaling).
+extern "C" int OoT_MinigameOptions_RunHeadless(void);
+static TestResult Test_OoTMinigameOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // ============================================================================
 // Test registry
 // ============================================================================
@@ -12592,6 +12603,10 @@ const TestDescriptor gTests[] = {
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
       "shops shuffled and vanilla (#1443)",
       Test_CriticalRenewablesWorld },
+    // #1747: display-free and ROM-free; restores CVars, gSaveContext, OoT_gPlayState, gGameInfo, game, and hooks.
+    { "oot-minigame-options",
+      "OoT minigame options registrars and VB/OnPlayerUpdate dispatch match setting toggles (#1747)",
+      Test_OoTMinigameOptions },
     { nullptr, nullptr, nullptr } // Sentinel
 };
 

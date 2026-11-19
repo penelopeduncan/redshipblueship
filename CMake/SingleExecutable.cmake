@@ -2142,6 +2142,11 @@ if(BUILD_TESTING)
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
 
+    # #1747: Minigame options backport (SoH #6965, #6975, #6991, #6517, #6982, #6476, #6778).
+    # Drives IngoRaceOnce.cpp, HorsebackArchery.cpp, DivingGameTimer.cpp, and RupeeDash.cpp
+    # registrars and real GameInteractor_Should / OnPlayerUpdate dispatch. Display-free, ROM-free.
+    redship_add_test(NAME OoTMinigameOptions COMMAND redship --test oot-minigame-options)
+
     # Every --test row in one process, so its time grows with the table. On the hosted
     # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
     redship_add_test(NAME AllTests COMMAND redship --test all
