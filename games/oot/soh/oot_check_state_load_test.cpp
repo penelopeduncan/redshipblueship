@@ -100,6 +100,9 @@ extern "C" int MM_Rando_AuthorPairHalfForTest(void* mmHalf, size_t mmHalfSize, u
 // games/mm/2s2h/mm_unified_save_test.cpp (#1298, #1302): MM pause-save commit + shadow verification.
 extern "C" int MM_PauseSaveReload_CommitAndVerifyMmHalf(int slot, uint32_t masterSeed);
 extern "C" int MM_PauseSaveReload_VerifyRestoredMmShadow(void);
+// games/mm/2s2h/mm_unified_save_test.cpp (#1744): Moon pause saves, then the reopened MM half.
+extern "C" int MM_PauseSaveReload_CommitMoonSaves(int slot, uint32_t masterSeed);
+extern "C" int MM_PauseSaveReload_VerifyRestoredMoonShadow(void);
 
 namespace {
 
@@ -641,6 +644,27 @@ extern "C" int MM_PauseSaveReload_RunHeadless(void) {
             sFailures++;
             return 1;
         }
+
+        // 5. #1744 (2Ship e5e9f3364): cross into MM again and pause-save on the Moon, in each trial and in Majora's
+        //    lair, then reopen the file: the MM half the first crossing restores must carry the Moon save. The
+        //    reload's load consumed OoT's armed half, so the crossing's OoT freeze is put back first, as in step 1.
+        Context_UpdateShadowCopy(GAME_OOT, &sCommitted, sizeof(SaveContext));
+        gComboCtx.sourceGame = GAME_MM;
+        if (MM_PauseSaveReload_CommitMoonSaves(kSlot, kMasterSeed) != 0) {
+            sFailures++;
+            return 1;
+        }
+        ComboContext_Init();
+        Context_ClearAllFrozenStates();
+        mgr.ResetSlotSessionState();
+        mgr.SetActiveSlot(-1);
+        Context_SetCurrentGame(GAME_OOT);
+        LoadAsFileSelect(sSavBase, savGeneration, RCSHOW_UNCHECKED, RCSHOW_SCUMMED, RCSHOW_SCUMMED);
+        if (MM_PauseSaveReload_VerifyRestoredMoonShadow() != 0) {
+            sFailures++;
+            return 1;
+        }
+        Context_SetCurrentGame(GAME_NONE);
         return 0;
     };
 

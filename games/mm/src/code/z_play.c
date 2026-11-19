@@ -2625,7 +2625,9 @@ void MM_Play_ConsumeStartupEntrance(void) {
     // function restores the saved respawn data (LoadRespawnData). Pause Menu
     // Save and Autosave both default to off, so on default settings no save
     // records the pair and nothing changes. With either on and Remember Save
-    // Location off, only temple saves change: every other pause save records
+    // Location off, only temple saves and Moon saves change (#1744, 2Ship
+    // e5e9f3364: a save on the Moon, in a trial or in Majora's lair records
+    // ENTRANCE(THE_MOON, 0)): every other pause save records
     // ENTRANCE(SOUTH_CLOCK_TOWN, 0), the crossing entrance. With Remember Save
     // Location on, the recorded entrance is the last one Link went through
     // before the save.

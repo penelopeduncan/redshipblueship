@@ -1574,13 +1574,38 @@ only apply once that enhancement is enabled — operator ruling, 2026-09-16
 ### A reload after a Termina save opens in Hyrule — this is intentional, as in OoTMM (PR [#1317](https://github.com/penelopeduncan/redshipblueship/pull/1317), [#1298](https://github.com/penelopeduncan/redshipblueship/issues/1298), [#1302](https://github.com/penelopeduncan/redshipblueship/issues/1302))
 
 A reload after a Termina save opens in Hyrule, as in OoTMM; the first crossing into Termina after the reload arrives
-at the entrance the save recorded: a temple save returns to the temple, and with Remember Save Location on any pause
-save or autosave returns to its place (otherwise to South Clock Town). The paired file is one game, and it always
+at the entrance the save recorded: a temple save returns to the temple, a save on the Moon, in a trial or in Majora's
+lair returns to the Moon, and with Remember Save Location on any pause save or autosave returns to its place
+(otherwise to South Clock Town). The paired file is one game, and it always
 opens on Ocarina of Time's file select and in Hyrule, whichever game you saved in. PR #1317 backported
 2Ship2Harkinian's pause-save entrance and respawn persistence (2Ship `16ef59bae`, `96611c3b3`), so the save keeps
 where you pause-saved; the release notes of `v0.4.1-alpha` first said the reload itself returned there, which is not
 so for a paired file. The return on the first crossing comes with PR [#1353](https://github.com/penelopeduncan/redshipblueship/pull/1353)
 ([#1348](https://github.com/penelopeduncan/redshipblueship/issues/1348)), merged after `v0.4.4-alpha`.
+
+### Pause Menu Save and Autosave work on the Moon — this is intentional, as in 2Ship2Harkinian ([#1744](https://github.com/penelopeduncan/redshipblueship/issues/1744))
+
+By the operator's ruling of 2026-11-19 ("so save on the moon"), Pause Menu Save and Autosave work on the Moon, in
+its four trials and in Majora's lair, as 2Ship2Harkinian `e5e9f3364` has it. Both options stay off by default, and
+with both off nothing changes. This differs from OoTMM, which refuses saves in these six scenes
+(`packages/generator/src/common/kaleido_scope.c:20-26` at `29e8303629bf`) and always opens Majora's Mask in Clock Town
+(`packages/generator/src/mm/save.c:19`).
+
+- **Where it comes back.** With Remember Save Location off, any Moon save comes back on the Moon field. With it on,
+  at the last entrance Link went through, which can be a trial's entrance or Majora's lair.
+- **In a paired file the save is a save of the whole file.** The file still opens in Hyrule; the first crossing into
+  Majora's Mask after reopening it lands on the Moon (or in the trial or the lair), not in Clock Town. A Song of
+  Soaring warp from Hyrule lands on its owl instead.
+- **Ways off the Moon.** The Moon has no crossing back to Hyrule. The ways off are the Song of Time, the Moon Child's
+  reset in a randomizer file (no song needed), beating Majora, or dying and choosing not to continue (with the Game
+  Over Prompt on), which returns you to Ocarina of Time. A randomizer file without the Song of Time that saves inside
+  Majora's lair with Remember Save Location on can leave only by beating Majora or by that game-over exit, which
+  needs the Game Over Prompt (off by default; without it a death respawns you in the lair).
+- **The autosave can fire during the Majora fight.** The fight itself is not saved: a reload restarts it.
+- **Trial progress and the masks given to the Moon children** are kept by a reload in the same cycle.
+- **Moon Crash Behavior.** Under New Cycle, a Moon save at or after 05:49 on the Final Day comes back at 05:49
+  (#1728's grace period). A Last Save moon crash never returns you to the Moon.
+- **Not played.** The Moon's clock after such a reload and the Moon Child's spawn after a reload are unverified in game.
 
 ### ~~The Reset button does nothing while Majora's Mask runs~~ — RESOLVED ([#1274](https://github.com/penelopeduncan/redshipblueship/issues/1274), PR [#1315](https://github.com/penelopeduncan/redshipblueship/pull/1315))
 

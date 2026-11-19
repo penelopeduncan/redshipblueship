@@ -101,6 +101,14 @@ extern "C" int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember
         case SCENE_INISIE_R:
         case SCENE_INISIE_BS:
             return ENTRANCE(STONE_TOWER_TEMPLE_INVERTED, 0);
+        // The Moon + The Moon Trials
+        case SCENE_LAST_BS:
+        case SCENE_LAST_DEKU:
+        case SCENE_LAST_GORON:
+        case SCENE_LAST_LINK:
+        case SCENE_LAST_ZORA:
+        case SCENE_SOUGEN:
+            return ENTRANCE(THE_MOON, 0);
         default:
             return ENTRANCE(SOUTH_CLOCK_TOWN, 0);
     }
@@ -232,13 +240,6 @@ extern "C" bool SavingEnhancements_CanSave() {
     // Hasn't gotten to clock town yet
     if (MM_gPlayState->sceneId == SCENE_SPOT00 || MM_gPlayState->sceneId == SCENE_LOST_WOODS ||
         MM_gPlayState->sceneId == SCENE_OPENINGDAN) {
-        return false;
-    }
-
-    // Can't save once you've gone to the moon
-    if (MM_gPlayState->sceneId == SCENE_SOUGEN || MM_gPlayState->sceneId == SCENE_LAST_LINK ||
-        MM_gPlayState->sceneId == SCENE_LAST_DEKU || MM_gPlayState->sceneId == SCENE_LAST_GORON ||
-        MM_gPlayState->sceneId == SCENE_LAST_ZORA || MM_gPlayState->sceneId == SCENE_LAST_BS) {
         return false;
     }
 

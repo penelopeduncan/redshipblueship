@@ -902,6 +902,57 @@ extern "C" int MM_UnifiedSaveCapture_RunHeadless(void) {
                      "a paired pause save must clear shipSaveInfo.respawn after its commit (#1302)");
     }
 
+    // ---- 15. Pause Menu Save and Autosave are allowed on the Moon (#1744, 2Ship e5e9f3364) --
+    // SavingEnhancements_CanSave is the one gate both share (PauseSave.cpp's
+    // VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU hook and HandleAutoSave). It reads no
+    // CVar, only the play state, a Player whose blocking-cutscene fields are all
+    // zero when idle (MM_Player_InBlockingCsMode, z_player_lib.c), the durable
+    // destination and the minigame flags, so a zeroed PlayState with a zeroed
+    // Player in the player actor list drives it. The play state is put back to
+    // NULL before any assertion (check 9 needs it NULL in a later AllTests pass).
+    {
+        static PlayState sMmsCanSavePlay; // static: PlayState and Player are too large for the stack
+        static Player sMmsCanSavePlayer;
+        memset(&sMmsCanSavePlay, 0, sizeof(sMmsCanSavePlay));
+        memset(&sMmsCanSavePlayer, 0, sizeof(sMmsCanSavePlayer));
+        sMmsCanSavePlay.actorCtx.actorLists[ACTORCAT_PLAYER].first = &sMmsCanSavePlayer.actor;
+        memset(&gSaveContext, 0, sizeof(SaveContext));
+        gSaveContext.fileNum = 0xFF; // the cross-game shape: the active unified slot is the destination
+        gSaveContext.flashSaveAvailable = true;
+        RsbsSave_SetActiveSlot(kSlot);
+
+        const int kMmsMoonScenes[] = { SCENE_SOUGEN,    SCENE_LAST_DEKU, SCENE_LAST_GORON,
+                                       SCENE_LAST_ZORA, SCENE_LAST_LINK, SCENE_LAST_BS };
+        PlayState* const priorPlay = MM_gPlayState;
+        MM_gPlayState = &sMmsCanSavePlay;
+        int moonRefused = -1;
+        for (const int moonScene : kMmsMoonScenes) {
+            sMmsCanSavePlay.sceneId = moonScene;
+            if (!SavingEnhancements_CanSave() && moonRefused < 0) {
+                moonRefused = moonScene;
+            }
+        }
+        sMmsCanSavePlay.sceneId = SCENE_CLOCKTOWER;
+        const bool clockTownAllowed = SavingEnhancements_CanSave();
+        sMmsCanSavePlay.sceneId = SCENE_SPOT00;
+        const bool openingRefused = !SavingEnhancements_CanSave();
+        sMmsCanSavePlay.sceneId = SCENE_SOUGEN;
+        // The bit itself, not SET_WEEKEVENTREG: that is Flags_SetWeekEventReg, which dispatches OnFlagSet hooks.
+        WEEKEVENTREG(WEEKEVENTREG_08_01 >> 8) |= (WEEKEVENTREG_08_01 & 0xFF);
+        const bool minigameRefused = !SavingEnhancements_CanSave();
+        MM_gPlayState = priorPlay;
+        memset(&gSaveContext, 0, sizeof(SaveContext));
+
+        USAVE_ASSERT(clockTownAllowed, "premise: the stub play state must be one CanSave allows in Clock Town");
+        if (moonRefused >= 0) {
+            printf("[TEST] mm-unified-save-capture: CanSave refused Moon scene 0x%02X\n", (unsigned)moonRefused);
+        }
+        USAVE_ASSERT(moonRefused < 0, "Pause Menu Save and Autosave must be allowed on the Moon, in the four trials "
+                                      "and in Majora's lair, as 2Ship e5e9f3364 has it (#1744)");
+        USAVE_ASSERT(openingRefused, "CanSave must still refuse the opening scenes (the stub cannot pass vacuously)");
+        USAVE_ASSERT(minigameRefused, "CanSave must still refuse a minigame's temporary flags on the Moon");
+    }
+
     // Leave global state clean for whatever runs next.
     Combo_ClearGameSwitchRequest();
     memset(&gSaveContext, 0, sizeof(SaveContext));
@@ -985,6 +1036,111 @@ extern "C" int MM_PauseSaveReload_CommitAndVerifyMmHalf(int slot, uint32_t maste
                  "#1302: paired pause-save post-commit must clear shipSaveInfo.respawn[]");
 
     memset(&gSaveContext, 0, sizeof(SaveContext));
+    return 0;
+}
+
+// #1744 (2Ship e5e9f3364): the trial progress and the Moon child's mask the last Moon commit carries, so the reload
+// can show they came back with it. cycleSceneFlags and masksGivenOnMoon both sit past sizeof(Save), in the full-width
+// half (MM_Combo_CaptureSaveToUnifiedSlot copies the whole SaveContext).
+constexpr u32 kMmsTrialSwitch = 0x00A10744u;
+constexpr u8 kMmsMoonMasks = 0x5Au;
+
+/**
+ * #1744: a paired Pause Menu Save on the Moon, in each trial and in Majora's lair, with Remember Save Location off.
+ * Each drives the real save step (SavingEnhancements_PersistSaveEntranceInfo over a stub PlayState in that scene),
+ * the real commit (func_8014546C -> MM_Combo_CaptureSaveToUnifiedSlot) and the paired post-commit clear, as the
+ * kaleido save prompt does. Each commit must record ENTRANCE(THE_MOON, 0) with isOwlSave in the MM shadow the
+ * .redsave stages, and leave the live pair cleared. The last commit (Majora's lair) is the one the reload reads
+ * (MM_PauseSaveReload_VerifyRestoredMoonShadow). The slot must be open and writable (the caller's reload armed it).
+ */
+extern "C" int MM_PauseSaveReload_CommitMoonSaves(int slot, uint32_t masterSeed) {
+    static PlayState sMmsMoonPlay; // static: PlayState is too large for the stack
+    const int kMmsMoonScenes[] = { SCENE_SOUGEN,    SCENE_LAST_DEKU, SCENE_LAST_GORON,
+                                   SCENE_LAST_ZORA, SCENE_LAST_LINK, SCENE_LAST_BS };
+    PlayState* const priorPlay = MM_gPlayState;
+    CVarSetInteger("gEnhancements.RememberSaveLocation", 0);
+    RsbsSave_SetActiveSlot(slot);
+
+    auto commitEach = [&]() -> int {
+        for (const int moonScene : kMmsMoonScenes) {
+            memset(&gSaveContext, 0, sizeof(SaveContext));
+            USAVE_ASSERT(MM_Rando_AuthorPairHalfForTest(&gSaveContext, sizeof(SaveContext), masterSeed) == 1,
+                         "mm-pause-save-reload setup: could not author the paired MM half for a Moon save");
+            gSaveContext.fileNum = 0xFF;
+            gSaveContext.flashSaveAvailable = true;
+            gSaveContext.save.saveInfo.playerData.savedSceneId = (s16)moonScene; // the prompt's own write
+            gSaveContext.cycleSceneFlags[SCENE_LAST_GORON].switch0 = kMmsTrialSwitch;
+            gSaveContext.masksGivenOnMoon[0] = kMmsMoonMasks;
+
+            // The prompt's pre-commit step, in the Moon scene.
+            memset(&sMmsMoonPlay, 0, sizeof(sMmsMoonPlay));
+            sMmsMoonPlay.sceneId = moonScene;
+            MM_gPlayState = &sMmsMoonPlay;
+            gSaveContext.save.isOwlSave = true;
+            SavingEnhancements_PersistSaveEntranceInfo();
+            MM_gPlayState = priorPlay;
+            const s32 recorded = gSaveContext.save.shipSaveInfo.pauseSaveEntrance;
+            if (recorded != ENTRANCE(THE_MOON, 0)) {
+                printf("[TEST] mm-pause-save-reload: #1744 a save in scene 0x%02X recorded entrance 0x%04X\n",
+                       (unsigned)moonScene, (unsigned)recorded);
+            }
+            USAVE_ASSERT(recorded == ENTRANCE(THE_MOON, 0),
+                         "#1744: with Remember Save Location off a save on the Moon, in a trial or in Majora's lair "
+                         "must record ENTRANCE(THE_MOON, 0)");
+
+            SramContext sramCtx = {};
+            memset(sSaveBuf, 0, sizeof(sSaveBuf));
+            sramCtx.saveBuf = sSaveBuf;
+            const uint32_t genBefore = gComboCtx.commitGeneration;
+            func_8014546C(&sramCtx);
+            USAVE_ASSERT(gComboCtx.commitGeneration == genBefore + 1,
+                         "#1744: a Moon pause save must commit the .redsave once, as any other pause save does");
+            MM_Combo_EndPauseSaveCommitFor(1);
+            USAVE_ASSERT(!gSaveContext.save.isOwlSave && gSaveContext.save.shipSaveInfo.pauseSaveEntrance == -1,
+                         "#1744: a Moon pause save must clear the live pair after its commit, as any other does");
+
+            const SaveContext* shadow = static_cast<const SaveContext*>(Context_GetMMSaveContext());
+            USAVE_ASSERT(shadow != nullptr, "#1744: no MM shadow after a Moon pause save's commit");
+            USAVE_ASSERT(shadow->save.isOwlSave && shadow->save.shipSaveInfo.pauseSaveEntrance == ENTRANCE(THE_MOON, 0),
+                         "#1744: the committed MM half must carry the Moon save's pair (isOwlSave and "
+                         "ENTRANCE(THE_MOON, 0)), or a reload cannot come back on the Moon");
+        }
+        return 0;
+    };
+    const int rc = commitEach();
+    MM_gPlayState = priorPlay;
+    CVarClear("gEnhancements.RememberSaveLocation");
+    memset(&gSaveContext, 0, sizeof(SaveContext));
+    return rc;
+}
+
+/**
+ * #1744: after the .redsave holding the Moon saves is reopened from OoT's file select, the MM half is armed for the
+ * first crossing (whose own entrance is South Clock Town) and carries the Majora's lair save: the Moon pair, the
+ * scene it was saved in, the Goron trial's switch flags and the Moon child's mask. The arrival that reads the pair is
+ * mm-startup-restore's leg m4.
+ */
+extern "C" int MM_PauseSaveReload_VerifyRestoredMoonShadow(void) {
+    USAVE_ASSERT(Context_HasFrozenState(GAME_MM) == 1,
+                 "#1744: reopening the file must arm the MM half that holds the Moon save");
+    USAVE_ASSERT(Context_GetFrozenReturnEntrance(GAME_MM) == ENTRANCE(SOUTH_CLOCK_TOWN, 0),
+                 "#1744 premise: the armed half's crossing entrance must be South Clock Town, so a Moon landing can "
+                 "only come from the save's pair");
+    const SaveContext* shadow = static_cast<const SaveContext*>(Context_GetMMSaveContext());
+    USAVE_ASSERT(shadow != nullptr, "#1744: no MM shadow after reopening the file");
+    printf("[TEST] mm-pause-save-reload: #1744 reopened MM half: isOwlSave %d pauseSaveEntrance 0x%04X savedSceneId "
+           "0x%02X\n",
+           (int)shadow->save.isOwlSave, (unsigned)shadow->save.shipSaveInfo.pauseSaveEntrance,
+           (unsigned)shadow->save.saveInfo.playerData.savedSceneId);
+    USAVE_ASSERT(
+        shadow->save.isOwlSave && shadow->save.shipSaveInfo.pauseSaveEntrance == ENTRANCE(THE_MOON, 0),
+        "#1744: the reopened MM half must carry the Moon save's pair, so the first crossing lands on the Moon");
+    USAVE_ASSERT(shadow->save.saveInfo.playerData.savedSceneId == SCENE_LAST_BS,
+                 "#1744: the reopened MM half is not the newest Moon save (Majora's lair)");
+    USAVE_ASSERT(shadow->cycleSceneFlags[SCENE_LAST_GORON].switch0 == kMmsTrialSwitch &&
+                     shadow->masksGivenOnMoon[0] == kMmsMoonMasks,
+                 "#1744: a Moon save's reload must keep the trial's progress and the masks given to the Moon "
+                 "children in the same cycle");
     return 0;
 }
 
