@@ -253,7 +253,7 @@ void ResolutionCustomWidget(WidgetInfo& info) {
             // Having this button should hopefully prevent support headaches.
             ImGui::TextColored(messageColor[MESSAGE_QUESTION], ICON_FA_QUESTION_CIRCLE
                                " If the image is stretched and you don't know why, click this.");
-            if (ImGui::Button("Click to reenable aspect correction.")) {
+            if (ImGui::Button("Click to re-enable aspect correction.")) {
                 CVarSetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".IgnoreAspectCorrection", 0);
                 Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
             }
@@ -406,7 +406,7 @@ void RegisterResolutionWidgets() {
         .RaceDisable(false);
     // Error/Warning display
     mSohMenu
-        ->AddWidget(path, ICON_FA_EXCLAMATION_TRIANGLE " Significant frame rate (FPS) drops may be occuring.",
+        ->AddWidget(path, ICON_FA_EXCLAMATION_TRIANGLE " Significant frame rate (FPS) drops may be occurring.",
                     WIDGET_TEXT)
         .RaceDisable(false)
         .PreFunc(
