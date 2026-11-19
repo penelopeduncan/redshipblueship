@@ -2373,6 +2373,14 @@ typedef enum {
     // 2Ship #1951 (Faster Hookshot). Appended with VB_HOOKSHOT_SET_SPEED, so no existing id moves. MM_ArmsHook_Wait
     // (z_arms_hook.c) passes `this->actor.parent == NULL` as the verdict.
     VB_HOOKSHOT_SHOOT,
+
+    // #### `result`
+    // ```c
+    // func_80A3E9DC(this, play)
+    // ```
+    // #### `args`
+    // - None
+    VB_KAFEI_RUN_TO_TOWN,
 } GIVanillaBehavior;
 
 #endif

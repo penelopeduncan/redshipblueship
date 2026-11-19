@@ -777,6 +777,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         # only clears the verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
         # RegisterHotWaterNeverCools in games/oot. MMRegistrarCoverage's key-gap table attributes it.
         "2s2h/Enhancements/Items/HotWaterNeverCools.cpp"
+        # #1755: Skip Misc Interactions cutscene skips
+        "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipKafeiRunToTown.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
