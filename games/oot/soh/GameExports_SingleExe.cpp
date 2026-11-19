@@ -5894,6 +5894,30 @@ static_assert((int)RG_PRELUDE_OF_LIGHT - (int)RG_MINUET_OF_FOREST == 5 &&
                   (int)QUEST_SONG_PRELUDE - (int)QUEST_SONG_MINUET == 5,
               "the six warp songs' RG_* and QUEST_SONG_* ids must stay contiguous and in the same order (#1169 XW10)");
 
+// #1587 S2: the Sun's Song and Saria's Song as the OoT members of the Shared
+// Sun's Song and Shared Saria's Song (OoTMM sharedSongSun, sharedSongSarias, the
+// second family word). Item_Give(ITEM_SONG_SUN / ITEM_SONG_SARIA) only sets the
+// song's quest bit, and the ocarina staff reads the quest bits alone, as for the
+// warp songs above. Their own map, NOT OoT_SharedSongQuestBit (it answers Epona's
+// bit for every id but the Song of Storms). The give never sets
+// EVENTCHKINF_LEARNED_SARIAS_SONG / _SUNS_SONG: those mark the check collected,
+// not the song known. It only adds: nothing on the shared path removes a song.
+static uint32_t OoT_SharedSunSariaQuestBit(uint16_t nativeId) {
+    return (nativeId == (uint16_t)RG_SUNS_SONG)     ? (1u << QUEST_SONG_SUN)
+           : (nativeId == (uint16_t)RG_SARIAS_SONG) ? (1u << QUEST_SONG_SARIA)
+                                                    : 0u;
+}
+static bool OoT_SharedSunSariaHeld(uint16_t nativeId) {
+    const uint32_t bit = OoT_SharedSunSariaQuestBit(nativeId);
+    return bit != 0u && (gSaveContext.inventory.questItems & bit) != 0u;
+}
+static void OoT_SharedSunSariaGive(uint16_t nativeId) {
+    const uint32_t bit = OoT_SharedSunSariaQuestBit(nativeId);
+    if (bit != 0u) {
+        gSaveContext.inventory.questItems |= bit;
+    }
+}
+
 // #837: defined below, beside OoT_SaveIsLiveFile (the harvest's gate).
 extern "C" int OoT_Combo_DepartureIsLiveFile(void);
 
@@ -5966,6 +5990,14 @@ struct OoTSharedFamilyRegistrar {
                                                    OoT_SharedWarpSongGive };
             Combo_RegisterSharedFamily2Member(GAME_OOT, kSharedWarp[i], &song);
         }
+        // #1587 S2: the Sun's Song and Saria's Song, OoT's native copies, each
+        // paired with MM's own song of the same name. Always pooled when the song
+        // is a pool item (pooled NULL), the warp songs' OoT shape.
+        const ComboSharedFamilyMember sun = { (uint16_t)RG_SUNS_SONG, OoT_SharedSunSariaHeld, OoT_SharedSunSariaGive };
+        Combo_RegisterSharedFamily2Member(GAME_OOT, RSBS_XITEM2_SHARED_SONG_SUN, &sun);
+        const ComboSharedFamilyMember saria = { (uint16_t)RG_SARIAS_SONG, OoT_SharedSunSariaHeld,
+                                                OoT_SharedSunSariaGive };
+        Combo_RegisterSharedFamily2Member(GAME_OOT, RSBS_XITEM2_SHARED_SONG_SARIAS, &saria);
     }
 };
 const OoTSharedFamilyRegistrar gOoTSharedFamilyRegistrar;

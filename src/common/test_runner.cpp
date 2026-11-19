@@ -8802,6 +8802,13 @@ TestResult Test_SharedSunSariaRule(void) {
     return SharedSunSariaRule_Run();
 }
 
+// #1587 S2: the Shared Sun's Song and Shared Saria's Song members through the real
+// shims. ROM-free and no bring-up, as shared-warp-songs-merge: the rules are frozen
+// directly and nothing it calls reads a CVar.
+TestResult Test_SharedSunSariaMerge(void) {
+    return SharedSunSariaMerge_Run();
+}
+
 // #968: the shared arrows' rule rows, the same bring-up as shared-lens-rule.
 TestResult Test_SharedArrowsRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -10828,6 +10835,12 @@ const TestDescriptor gTests[] = {
       "is known in the other at arrival and at the load seam; the matchers answer from the family; a far copy is "
       "credited at pickup (#1169 XW10)",
       Test_SharedWarpSongsMerge },
+    // #1587 S2: the Shared Sun's Song and Shared Saria's Song members. ROM-free.
+    { "shared-sun-saria-merge",
+      "Both games register their own Sun's Song and Saria's Song as the shared families' members, and through the "
+      "real shims a song learnt in either game is known in the other at arrival, at the load seam and at pickup; the "
+      "MM members' pooled follows the frozen rule, so the pair is built with MM's row at 0 (#1587)",
+      Test_SharedSunSariaMerge },
     // #1067: the Shared Ocarina Buttons rule on the same mechanism, five pairs
     // behind one bit. ROM-free, as the shields rows.
     { "shared-ocarina-buttons-pairs",

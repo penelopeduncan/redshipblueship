@@ -958,6 +958,12 @@ if(BUILD_TESTING)
     redship_add_test(NAME SharedWarpFamilyStorage COMMAND redship --test shared-warp-family-storage)
     redship_add_test(NAME WarpSongHeld COMMAND redship --test warp-song-held)
     redship_add_test(NAME SharedWarpSongsMerge COMMAND redship --test shared-warp-songs-merge)
+    # #1587 S2: the Shared Sun's Song and Shared Saria's Song members (OoTMM
+    # sharedSongSun, sharedSongSarias): both games' own songs registered at the two
+    # second-word bits, MM's pooled following the frozen rule (the pair is built with
+    # MM's own rows at 0), carried by the real shims, at the load seam and at pickup,
+    # each rule only its own song. ROM-free, the rules frozen directly, generates nothing.
+    redship_add_test(NAME SharedSunSariaMerge COMMAND redship --test shared-sun-saria-merge)
     # #1067: the Shared Ocarina Buttons rule (OoTMM sharedOcarinaButtons): five
     # pairs behind one bit, registered by both games and composed into one shared
     # row each, and a button found in one game owned in the other on arrival.
