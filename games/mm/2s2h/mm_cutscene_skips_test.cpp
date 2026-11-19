@@ -9,8 +9,9 @@
  *      - setting off: bell (ACTOR_EN_CHA), owl statue (ACTOR_OBJ_WARPSTONE) and bean patch (ACTOR_OBJ_BEAN) all keep
  *        the vanilla verdict true, and the owl statue stays unactivated;
  *      - setting on: bell skips (*should = false), owl statue skips and calls Sram_ActivateOwl right away
- *        (GET_OWL_STATUE_ACTIVATED becomes non-zero), bean subtype ENOBJBEAN_GET_C000_0 skips with csId = -1, and
- *        excluded bean subtypes ENOBJBEAN_GET_C000_1 / ENOBJBEAN_GET_C000_2 keep the vanilla verdict and csId;
+ *        (GET_OWL_STATUE_ACTIVATED becomes non-zero), and every bean subtype (ENOBJBEAN_GET_C000_0, _1, _2) still
+ *        skips with csId = -1, as on main: upstream 8b9452056 narrows this to subtype 0 only together with
+ *        ed0eb99b0 (Restorations/SoilPatch.cpp), which this tree does not have;
  *      - missing MM_gPlayState leaves vanilla untouched; setting back off disarms cleanly.
  *   2. SkipSakonsHideoutCutscenes Ikana Canyon arm (VB_START_CUTSCENE, gEnhancements.TimeSavers.SkipMiscInteractions):
  *      - setting off: SCENE_IKANA csIds 14 and 34 keep true;
@@ -156,10 +157,10 @@ int RunOnePointLeg(PlayState* play) {
               "owl statue flag was not activated immediately on skip");
     CS_ASSERT(!StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean0On, 10) && bean0On.csId == -1, 14,
               "bean plant (ENOBJBEAN_GET_C000_0) cutscene was not skipped or csId not cleared");
-    CS_ASSERT(StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean1On, 10) && bean1On.csId == 10, 15,
-              "excluded bean subtype ENOBJBEAN_GET_C000_1 was still skipped");
-    CS_ASSERT(StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean2On, 10) && bean2On.csId == 10, 15,
-              "excluded bean subtype ENOBJBEAN_GET_C000_2 was still skipped");
+    CS_ASSERT(!StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean1On, 10) && bean1On.csId == -1, 15,
+              "soil patch subtype ENOBJBEAN_GET_C000_1 was not skipped (main skips every bean subtype)");
+    CS_ASSERT(!StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean2On, 10) && bean2On.csId == -1, 15,
+              "soil patch subtype ENOBJBEAN_GET_C000_2 was not skipped (main skips every bean subtype)");
 
     MM_gPlayState = nullptr;
     Actor bellNoPlay = MakeActor(ACTOR_EN_CHA, 0, 10);
