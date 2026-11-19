@@ -134,6 +134,37 @@ int32_t PackMQDungeonSetting(int32_t mqDungeons, int32_t mqDungeonCount) {
     return mqDungeons | (mqDungeonCount << 8);
 }
 
+bool ShouldRefreshLocationsMenu(bool dirty, int32_t currMQSetting, int32_t prevMQSetting, bool saveLoaded) {
+    return dirty || currMQSetting != prevMQSetting || saveLoaded;
+}
+
+std::string FormatExcludedLocations(const std::set<RandomizerCheck>& excluded) {
+    // todo: this efficiently when we build out cvar array support
+    std::string excludedLocationString = "";
+    for (auto excludedLocationIt : excluded) {
+        if (!excludedLocationString.empty()) {
+            excludedLocationString += ",";
+        }
+        excludedLocationString += std::to_string(excludedLocationIt);
+    }
+    return excludedLocationString;
+}
+
+std::set<RandomizerCheck> ParseExcludedLocations(const char* raw) {
+    std::set<RandomizerCheck> parsed;
+    if (raw == nullptr || raw[0] == '\0') {
+        return parsed;
+    }
+    std::stringstream excludedLocationStringStream(raw);
+    std::string excludedLocationString;
+    while (getline(excludedLocationStringStream, excludedLocationString, ',')) {
+        if (!excludedLocationString.empty()) {
+            parsed.insert((RandomizerCheck)std::stoi(excludedLocationString));
+        }
+    }
+    return parsed;
+}
+
 void DrawLocationsMenu(WidgetInfo& info) {
     auto ctx = OTRGlobals::Instance->gRandoContext;
     int32_t currMQDungeonSetting =
@@ -144,11 +175,14 @@ void DrawLocationsMenu(WidgetInfo& info) {
     bool disableEditingRandoSettings = generating || CVarGetInteger(CVAR_GENERAL("OnFileSelectNameEntry"), 0);
     ImGui::BeginDisabled(CVarGetInteger(CVAR_SETTING("DisableChanges"), 0) || disableEditingRandoSettings);
     ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, cellPadding);
-    if (locationsDirty || currMQDungeonSetting != prevMQDungeonSetting) {
+    if (ShouldRefreshLocationsMenu(locationsDirty, currMQDungeonSetting, prevMQDungeonSetting,
+                                   GameInteractor::IsSaveLoaded())) {
         locationsDirty = false;
+        prevMQDungeonSetting = currMQDungeonSetting;
         UpdateMenuLocations();
+    } else {
+        RandomizerCheckObjects::UpdateImGuiVisibility();
     }
-    prevMQDungeonSetting = currMQDungeonSetting;
 
     if (ImGui::BeginTable("tableRandoLocations", 2, ImGuiTableFlags_BordersH | ImGuiTableFlags_BordersV)) {
         ImGui::TableSetupColumn("Included", ImGuiTableColumnFlags_WidthStretch, 200.0f);
@@ -188,12 +222,7 @@ void DrawLocationsMenu(WidgetInfo& info) {
                             UIWidgets::PushStyleButton(THEME_COLOR, ImVec2(7.f, 5.f));
                             if (ImGui::ArrowButton(std::to_string(location).c_str(), ImGuiDir_Right)) {
                                 excludedLocations.insert(location);
-                                // todo: this efficently when we build out cvar array support
-                                std::string excludedLocationString = "";
-                                for (auto excludedLocationIt : excludedLocations) {
-                                    excludedLocationString += std::to_string(excludedLocationIt);
-                                    excludedLocationString += ",";
-                                }
+                                std::string excludedLocationString = FormatExcludedLocations(excludedLocations);
                                 CVarSetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"),
                                               excludedLocationString.c_str());
                                 Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
@@ -233,12 +262,7 @@ void DrawLocationsMenu(WidgetInfo& info) {
                             UIWidgets::PushStyleButton(THEME_COLOR, ImVec2(7.f, 5.f));
                             if (ImGui::ArrowButton(std::to_string(location).c_str(), ImGuiDir_Left)) {
                                 excludedLocations.erase(elfound);
-                                // todo: this efficently when we build out cvar array support
-                                std::string excludedLocationString = "";
-                                for (auto excludedLocationIt : excludedLocations) {
-                                    excludedLocationString += std::to_string(excludedLocationIt);
-                                    excludedLocationString += ",";
-                                }
+                                std::string excludedLocationString = FormatExcludedLocations(excludedLocations);
                                 if (excludedLocationString == "") {
                                     CVarClear(CVAR_RANDOMIZER_SETTING("ExcludedLocations"));
                                 } else {
@@ -268,18 +292,13 @@ void DrawLocationsMenu(WidgetInfo& info) {
 
 void UpdateMenuLocations() {
     RandomizerCheckObjects::UpdateImGuiVisibility();
-    // todo: this efficently when we build out cvar array support
-    std::stringstream excludedLocationStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"), ""));
-    std::string excludedLocationString;
-    excludedLocations.clear();
-    while (getline(excludedLocationStringStream, excludedLocationString, ',')) {
-        excludedLocations.insert((RandomizerCheck)std::stoi(excludedLocationString));
-    }
+    // todo: this efficiently when we build out cvar array support
+    excludedLocations = ParseExcludedLocations(CVarGetString(CVAR_RANDOMIZER_SETTING("ExcludedLocations"), ""));
 }
 
 void UpdateMenuTricks() {
     // RandomizerTricks::UpdateImGuiVisibility();
-    //  todo: this efficently when we build out cvar array support
+    //  todo: this efficiently when we build out cvar array support
     std::stringstream enabledTrickStringStream(CVarGetString(CVAR_RANDOMIZER_SETTING("EnabledTricks"), ""));
     std::string enabledTrickString;
     enabledTricks.clear();
