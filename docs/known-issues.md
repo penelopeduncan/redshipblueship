@@ -1599,10 +1599,15 @@ with both off nothing changes. This differs from OoTMM, which refuses saves in t
 - **Ways off the Moon.** The Moon has no crossing back to Hyrule. The ways off are the Song of Time, the Moon Child's
   reset in a randomizer file (no song needed), beating Majora, or dying and choosing not to continue (with the Game
   Over Prompt on), which returns you to Ocarina of Time. A randomizer file without the Song of Time that saves inside
-  Majora's lair with Remember Save Location on can leave only by beating Majora or by that game-over exit, which
-  needs the Game Over Prompt (off by default; without it a death respawns you in the lair).
+  Majora's lair with Remember Save Location on can leave only by beating Majora, by that game-over exit, which
+  needs the Game Over Prompt (off by default; without it a death respawns you in the lair), or, when the file has
+  Ocarina of Time's Song of Soaring (the Cross-Game Songs row or the shared Soaring rule) and an active owl, by
+  reopening the file and soaring from Hyrule: a Soaring arrival lands on its owl and clears the lair save.
 - **The autosave can fire during the Majora fight.** The fight itself is not saved: a reload restarts it.
 - **Trial progress and the masks given to the Moon children** are kept by a reload in the same cycle.
+- **Two differences from 2Ship2Harkinian on a reload.** Unlike 2Ship, a reload in Majora's lair replays Majora's
+  intro (the crossing arrival zeroes `eventInf`, where 2Ship's owl-save load keeps it), and the masks given to the
+  Moon children are kept (the `.redsave` stores the whole SaveContext, where 2Ship's owl save stops at `fileNum`).
 - **Moon Crash Behavior.** Under New Cycle, a Moon save at or after 05:49 on the Final Day comes back at 05:49
   (#1728's grace period). A Last Save moon crash never returns you to the Moon.
 - **Not played.** The Moon's clock after such a reload and the Moon Child's spawn after a reload are unverified in game.

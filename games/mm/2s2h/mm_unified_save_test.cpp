@@ -210,6 +210,14 @@
  *      MM_Combo_EndPauseSaveCommit reads the CVar into it; the call-site half
  *      (after the commit, in the paired leg) is the source-text invariant
  *      test_paired_pause_save_ends_its_commit in tools/tests/test_repo_invariants.py.
+ *
+ *  15. Pause Menu Save and Autosave are allowed on the Moon (#1744, 2Ship
+ *      e5e9f3364). SavingEnhancements_CanSave, driven over a zeroed static
+ *      PlayState with a zeroed Player and an active unified slot, allows the
+ *      six Moon scenes (the Moon field, the four trials, Majora's lair).
+ *      CLOCKTOWER allowed is the premise; SPOT00 and the WEEKEVENTREG_08_01
+ *      minigame flag refused show the stub cannot pass vacuously. The stub play
+ *      state goes back to NULL before any assertion.
  */
 
 #include "global.h"
