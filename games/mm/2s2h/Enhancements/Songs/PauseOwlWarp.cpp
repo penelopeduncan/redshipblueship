@@ -2,6 +2,7 @@
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/ShipUtils.h"
+#include "2s2h/Rando/Logic/Logic.h"
 
 extern "C" {
 #include "overlays/kaleido_scope/ovl_kaleido_scope/z_kaleido_scope.h"
@@ -17,8 +18,17 @@ extern s32 gHorseIsMounted;
 #define CVAR_NAME "gEnhancements.Songs.PauseOwlWarp"
 #define CVAR CVarGetInteger(CVAR_NAME, 0)
 
+// 2Ship afd85345d: the warp needs what playing the Song of Soaring needs - the song, the Ocarina in MM's slot and,
+// in a randomizer file, the ocarina buttons the song uses (canPlaySong, the predicate the world logic's
+// CAN_PLAY_SONG(SOARING) uses; a world that shuffles no buttons holds every button flag from file creation).
+// Reads only gSaveContext, so a test row can call it.
+extern "C" bool PauseOwlWarp_CanPlaySoaring(void) {
+    return CHECK_QUEST_ITEM(QUEST_SONG_SOARING) && INV_CONTENT(ITEM_OCARINA_OF_TIME) == ITEM_OCARINA_OF_TIME &&
+           (!IS_RANDO || Rando::Logic::canPlaySong(OCARINA_SONG_SOARING));
+}
+
 extern "C" bool PauseOwlWarp_IsOwlWarpEnabled() {
-    return CVAR && CHECK_QUEST_ITEM(QUEST_SONG_SOARING) &&
+    return CVAR && PauseOwlWarp_CanPlaySoaring() &&
            gSaveContext.save.saveInfo.playerData.owlActivationFlags != 0 &&
            MM_gPlayState->pauseCtx.debugEditor == DEBUG_EDITOR_NONE &&
            MM_gPlayState->interfaceCtx.restrictions.songOfSoaring == 0;
