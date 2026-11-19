@@ -2406,6 +2406,14 @@ typedef enum {
     // #### `args`
     // - `*EnOwl`
     VB_OWL_DESPAWN_FEATHER,
+
+    // #### `result`
+    // ```c
+    // this->myPotIndex == 4
+    // ```
+    // #### `args`
+    // - None
+    VB_FIND_ROCK_SIRLOIN,
 } GIVanillaBehavior;
 
 #endif

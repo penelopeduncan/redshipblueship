@@ -100,6 +100,12 @@ void AddMmDifficultyRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_DIFFICULTY_DISABLE_TAKKURI_STEAL)
         .Options(CheckboxOptions().Tooltip("Stops the Takkuri stealing key items like bottles and swords; it may "
                                            "still steal other items. Majora's Mask only."));
+    // 2Ship #1944: Always Find Rock Sirloin.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Always Find Rock Sirloin", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_DIFFICULTY_ALWAYS_FIND_ROCK_SIRLOIN)
+        .Options(CheckboxOptions().Tooltip(
+            "Breaking any pot on the Goron Shrine's chandelier will reveal the Rock Sirloin. "
+            "Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Deku Guard Search Balls", WIDGET_CVAR_COMBOBOX)
         .CVar(RSBS_CVAR_MM_DIFFICULTY_DEKU_GUARD_SEARCH_BALLS)
         .Options(ComboboxOptions()

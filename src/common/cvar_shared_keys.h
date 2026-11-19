@@ -746,6 +746,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_DIFFICULTY_JINXED_TIMER "gEnhancements.DifficultyOptions.JinxedTimer"
 #define RSBS_CVAR_MM_DIFFICULTY_LOWER_BANK_REWARD_THRESHOLDS "gEnhancements.DifficultyOptions.LowerBankRewardThresholds"
 #define RSBS_CVAR_MM_DIFFICULTY_DISABLE_TAKKURI_STEAL "gEnhancements.DifficultyOptions.DisableTakkuriSteal"
+// 2Ship #1944: Always find Rock Sirloin.
+#define RSBS_CVAR_MM_DIFFICULTY_ALWAYS_FIND_ROCK_SIRLOIN "gEnhancements.DifficultyOptions.AlwaysFindRockSirloin"
 #define RSBS_CVAR_MM_DIFFICULTY_DEKU_GUARD_SEARCH_BALLS "gEnhancements.DifficultyOptions.DekuGuardSearchBalls"
 #define RSBS_CVAR_MM_DIFFICULTY_GIBDO_TRADE_SEQUENCE "gEnhancements.DifficultyOptions.GibdoTradeSequence"
 #define RSBS_CVAR_MM_DIFFICULTY_HIDDEN_GROTTOS_VISIBILITY "gEnhancements.DifficultyOptions.HiddenGrottosVisibility"
@@ -1244,6 +1246,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_DIFFICULTY_JINXED_TIMER)                          \
     X(RSBS_CVAR_MM_DIFFICULTY_LOWER_BANK_REWARD_THRESHOLDS)          \
     X(RSBS_CVAR_MM_DIFFICULTY_DISABLE_TAKKURI_STEAL)                 \
+    X(RSBS_CVAR_MM_DIFFICULTY_ALWAYS_FIND_ROCK_SIRLOIN)              \
     X(RSBS_CVAR_MM_DIFFICULTY_DEKU_GUARD_SEARCH_BALLS)               \
     X(RSBS_CVAR_MM_DIFFICULTY_GIBDO_TRADE_SEQUENCE)                  \
     X(RSBS_CVAR_MM_DIFFICULTY_HIDDEN_GROTTOS_VISIBILITY)             \

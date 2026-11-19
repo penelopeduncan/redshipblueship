@@ -1808,6 +1808,10 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Drops Don't Despawn", WIDGET_CVAR_CHECKBOX)
         .CVar("gCheats.DropsDontDie")
         .Options(CheckboxOptions().Tooltip("Prevents drops from despawning after a set amount of time."));
+    AddWidget(path, "Always Find Rock Sirloin", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.DifficultyOptions.AlwaysFindRockSirloin")
+        .Options(CheckboxOptions().Tooltip(
+            "Breaking any pot on the Goron Shrine's chandelier will reveal the Rock Sirloin."));
     AddWidget(path, "Deku Guard Search Balls", WIDGET_CVAR_COMBOBOX)
         .CVar("gEnhancements.DifficultyOptions.DekuGuardSearchBalls")
         .Options(

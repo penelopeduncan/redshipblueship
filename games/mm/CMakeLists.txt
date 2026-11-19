@@ -804,6 +804,13 @@ if(SINGLE_EXECUTABLE_BUILD)
         # No stub in mm_stubs.c; no twin of initFunc in games/oot. MMRegistrarCoverage's key-gap table +
         # MMSmallOptions1755 attribute it.
         "2s2h/Enhancements/Player/DashAfterRoll.cpp"
+        # #1755: 2Ship #1944 (AlwaysFindRockSirloin), drawn in Difficulty > Other (SohMenuHostedMmModesDifficulty.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides VB_FIND_ROCK_SIRLOIN,
+        # appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from ObjChan_PotAction
+        # (z_obj_chan.c). The body sets only *should = true, so it needs no play-state guard. No stub in mm_stubs.c;
+        # no twin of RegisterAlwaysFindRockSirloin in games/oot. MMRegistrarCoverage's key-gap table +
+        # MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/DifficultyOptions/AlwaysFindRockSirloin.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
