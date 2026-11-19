@@ -53,6 +53,9 @@ class Hint {
     std::vector<TrialKey> GetHintedTrials() const;
     int GetNum();
     void ResetVariables();
+    // RSBS (#1731): true when Hint(key, json) met a type, location, area or trial name this build does not know and
+    // loaded the hint disabled.
+    bool HasUnknownName() const;
 #ifdef RSBS_SINGLE_EXECUTABLE
     // RedShipBlueShip (#575 H3a): the Majora's Mask area a slot names. Parallel to
     // `areas`: an MM area of src/common's shared vocabulary (combo_area.h) for a
@@ -65,6 +68,8 @@ class Hint {
 #endif
 
   private:
+    void MarkUnknownName(const char* field, const nlohmann::json& name);
+    bool unknownName = false;
     RandomizerHint ownKey = RH_NONE;
     HintType hintType = HINT_TYPE_HINT_KEY;
     std::string distribution = "";

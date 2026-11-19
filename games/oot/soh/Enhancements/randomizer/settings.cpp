@@ -7,6 +7,7 @@
 #include "soh/OTRGlobals.h"
 
 #include <spdlog/spdlog.h>
+#include <stdexcept> // RSBS (#1731): ParseExcludedLocationsJson fails the spoiler load on an unknown name
 
 #include <libultraship/bridge/consolevariablebridge.h>
 
@@ -3671,15 +3672,29 @@ void Settings::ParseJson(nlohmann::json spoilerFileJson) {
         }
     }
 
-    nlohmann::json jsonExcludedLocations = spoilerFileJson["excludedLocations"];
+    ParseExcludedLocationsJson(spoilerFileJson["excludedLocations"]);
+
+    ParseEnabledTricksJson(spoilerFileJson["enabledTricks"]);
+}
+
+// RSBS (#1731): a spoiler log lists its excluded checks by location name. The loop used to read
+// locationNameToEnum[name], which for a name this build does not know ADDS the name with value 0 and excluded
+// check 0 (RC_UNKNOWN_CHECK) instead. Exclusion is read during play (excluded pots, crates, grass, beehives and trees
+// keep their vanilla look, the check tracker hides excluded checks, the save keeps the flag), so skipping the name
+// would load a world other than the file's: an unknown or non-string name fails the load, through
+// Context::ParseSpoiler's catch, as Majora's Mask's spoiler reader does for an unknown item (Apply.cpp).
+void Settings::ParseExcludedLocationsJson(const nlohmann::json& jsonExcludedLocations) {
     const auto ctx = Context::GetInstance();
 
     for (auto it = jsonExcludedLocations.begin(); it != jsonExcludedLocations.end(); ++it) {
-        const RandomizerCheck rc = Rando::StaticData::locationNameToEnum[it.value()];
+        RandomizerCheck rc = RC_UNKNOWN_CHECK;
+        if (!it.value().is_string() ||
+            !StaticData::FindName(StaticData::locationNameToEnum, it.value().get<std::string>(), &rc)) {
+            SPDLOG_ERROR("Unknown excluded location in spoiler: {}", it.value().dump());
+            throw std::runtime_error("Unknown excluded location in spoiler: " + it.value().dump());
+        }
         ctx->GetItemLocation(rc)->SetExcludedOption(RO_GENERIC_ON);
     }
-
-    ParseEnabledTricksJson(spoilerFileJson["enabledTricks"]);
 }
 
 // RSBS (#1730): a spoiler log lists its enabled tricks by display name, and a name this build does not know (a
