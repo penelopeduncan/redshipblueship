@@ -368,3 +368,4 @@ games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp
 games/mm/2s2h/Enhancements/Items/PictoBoxOnCUp.cpp
 games/mm/2s2h/Enhancements/Timesavers/AlwaysShowShrineFeathers.cpp
+games/mm/2s2h/Enhancements/Player/DashAfterRoll.cpp

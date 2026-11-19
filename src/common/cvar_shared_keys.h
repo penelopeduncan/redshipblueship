@@ -626,6 +626,8 @@ struct DistinctPair {
 // W6-PLAYER (#1236): MM's Player, Equipment and PlayerActions rows, hosted on SoH's Enhancements pages
 // (SohGui/HostedMm/SohMenuHostedMmPlayer.cpp). Climb speed and Bombchu drops are held apart (kMustStayDistinct).
 #define RSBS_CVAR_MM_PLAYER_MANUAL_JUMP "gEnhancements.Player.ManualJump"
+// 2Ship #1938: Dash After Roll.
+#define RSBS_CVAR_MM_PLAYER_DASH_AFTER_ROLL "gEnhancements.Player.DashAfterRoll"
 #define RSBS_CVAR_MM_PLAYER_PREVENT_DIVE_OVER_WATER "gEnhancements.Player.PreventDiveOverWater"
 #define RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING "gEnhancements.Player.InfiniteDekuHopping"
 #define RSBS_CVAR_MM_PLAYER_CLIMB_SPEED "gEnhancements.Player.ClimbSpeed"
@@ -1158,6 +1160,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_CYCLE_OCEANSIDE_WALLET_ANY_DAY)                   \
     /* W6-PLAYER */                                                  \
     X(RSBS_CVAR_MM_PLAYER_MANUAL_JUMP)                               \
+    X(RSBS_CVAR_MM_PLAYER_DASH_AFTER_ROLL)                           \
     X(RSBS_CVAR_MM_PLAYER_PREVENT_DIVE_OVER_WATER)                   \
     X(RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING)                     \
     X(RSBS_CVAR_MM_PLAYER_CLIMB_SPEED)                               \

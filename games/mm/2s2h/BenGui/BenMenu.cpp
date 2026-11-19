@@ -146,6 +146,12 @@ static const std::vector<const char*> maskOfTruthGrottoOptions = {
     "Always",             // HIDDEN_GROTTOS_VISIBLITY_ALWAYS
 };
 
+static const std::vector<const char*> dashAfterRollOptions = {
+    "Off",                   // DASH_AFTER_ROLL_OFF
+    "On",                    // DASH_AFTER_ROLL_ON
+    "Stack with Bunny Hood", // DASH_AFTER_ROLL_STACK
+};
+
 static const std::vector<const char*> goronRaceDifficultyOptions = {
     "Vanilla",  // GORON_RACE_DIFFICULTY_VANILLA
     "Balanced", // GORON_RACE_DIFFICULTY_BALANCED
@@ -996,6 +1002,14 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Manual Jump", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.ManualJump")
         .Options(CheckboxOptions().Tooltip("Z + A to Jump and B while midair to Jump Attack."));
+    AddWidget(path, "Dash After Roll", WIDGET_CVAR_COMBOBOX)
+        .CVar("gEnhancements.Player.DashAfterRoll")
+        .Options(ComboboxOptions()
+                     .Tooltip("Keep holding A after a roll to dash.\n\n"
+                              "- On: Dashing runs at Bunny Hood speed, wearing the bunny hood adds nothing extra.\n"
+                              "- Stack with Bunny Hood: Dashing while wearing the Bunny Hood combines both boosts to "
+                              "run even faster.")
+                     .ComboVec(&dashAfterRollOptions));
     AddWidget(path, "Faster Hookshot", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.FasterHookshot")
         .Options(CheckboxOptions().Tooltip("Speeds up the time it takes for the Hookshot to fire and retract."));

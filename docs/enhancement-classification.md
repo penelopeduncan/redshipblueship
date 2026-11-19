@@ -877,6 +877,7 @@ Spring Water as timed).
 |---|---|---|---|
 | `gEnhancements.Items.PictoBoxOnCUp` | off | Picto Box on C-Up (Enhancements > Items, Equipment, Majora's Mask block, between Better Picto Message and Hot Water Never Cools) | (O) MM-only: opens the Pictograph Box with C-Up when owned instead of first-person camera (`2Ship #1558`, `Items/PictoBoxOnCUp.cpp` linked, play-state guard added after `*should = false`) |
 | `gEnhancements.Timesavers.AlwaysShowShrineFeathers` | off | Always Show Shrine of Truth Feathers (Enhancements > Timesavers, Majora's Mask block, after Fast Dampe Flame Digging) | (O) MM-only: reveals all Shrine of Truth owl feathers immediately and stops void-out despawn (`2Ship #1594`, `#1905`, `Timesavers/AlwaysShowShrineFeathers.cpp` linked, play-state and `setupPathList` guards added in `OnActorInit`) |
+| `gEnhancements.Player.DashAfterRoll` | Off | Dash After Roll (Quality of Life > Controls, Majora's Mask block, after Manual Jump) | (O) MM-only: hold A after a roll to dash at Bunny Hood speed or stack with Bunny Hood (`2Ship #1938`, `Player/DashAfterRoll.cpp` linked, play-state and player guards added in `OnPassPlayerInputs`) |
 
 ### 6.2 OoT-only (category level)
 

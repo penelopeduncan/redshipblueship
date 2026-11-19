@@ -797,6 +797,13 @@ if(SINGLE_EXECUTABLE_BUILD)
         # RegisterAlwaysShowShrineFeathers in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755
         # attribute it.
         "2s2h/Enhancements/Timesavers/AlwaysShowShrineFeathers.cpp"
+        # #1755: 2Ship #1938 (DashAfterRoll), drawn in Quality of Life > Controls (SohMenuHostedMmPlayer.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc lambda on its own MM key and rides
+        # OnPassPlayerInputs, VB_CONSIDER_BUNNY_HOOD_EQUIPPED (On), and VB_SPEED_MODIFIER_WALK (Stack with Bunny Hood),
+        # all dispatched from z_player.c. Its OnPassPlayerInputs body guards MM_gPlayState and GET_PLAYER(MM_gPlayState).
+        # No stub in mm_stubs.c; no twin of initFunc in games/oot. MMRegistrarCoverage's key-gap table +
+        # MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/Player/DashAfterRoll.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
