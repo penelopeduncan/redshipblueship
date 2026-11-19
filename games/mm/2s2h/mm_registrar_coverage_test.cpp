@@ -212,8 +212,8 @@
  * attributable. Since 2Ship b41f365aa Minigames/Archery.cpp's Swamp registrar is
  * also keyed on Skip Misc Interactions (its VB_ARCHERY_ADD_BONUS_POINTS gate);
  * its row names that bucket. Nothing a TU defines is named here (a reference would un-elide it).
- *   - Skip Misc Interactions: the 25 TUs' registrations are summed per bucket in the table
- *     below, each bucket attributed to its TU(s) by name. Several TUs share a bucket
+ *   - Skip Misc Interactions: the 26 TUs' registrations (the 25 MiscInteractions TUs and Minigames/Archery.cpp)
+ *     are summed per bucket in the table below, each bucket attributed to its TU(s) by name. Several TUs share a bucket
  *     (VB_START_CUTSCENE has eight of them), so one dropped TU leaves its bucket short.
  *   - #1411 adds Accessibility/NoFinalDayQuakes and Accessibility/NoScreenDistortion to the same table. Their keys
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted

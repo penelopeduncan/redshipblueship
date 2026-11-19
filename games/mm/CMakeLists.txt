@@ -709,8 +709,6 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Fixes/FixEponaStealingSword.cpp"
         "2s2h/Enhancements/Fixes/FierceDeityZTargetMovement.cpp"
         "2s2h/Enhancements/Fixes/CompletedHeartContainerAudio.cpp"
-        # 2Ship f7ccda83a: VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION, dispatched from z_en_dno.c (func_80A73408).
-        "2s2h/Enhancements/Fixes/FixDekuButlerShockLoopAnimation.cpp"
         "2s2h/Enhancements/Restorations/FlipHopVariable.cpp"
         "2s2h/Enhancements/Restorations/PowerCrouchStab.cpp"
         "2s2h/Enhancements/Restorations/SideRoll.cpp"
@@ -779,6 +777,13 @@ if(SINGLE_EXECUTABLE_BUILD)
         # only clears the verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
         # RegisterHotWaterNeverCools in games/oot. MMRegistrarCoverage's key-gap table attributes it.
         "2s2h/Enhancements/Items/HotWaterNeverCools.cpp"
+        # #1755 (2Ship f7ccda83a, Fix Deku Butler Shock Animation), drawn by an MM row in Enhancements > Fixes >
+        # Graphical Fixes (SohGui/HostedMm/SohMenuHostedMmFixes.cpp). Registers only through a file-scope
+        # RegisterShipInitFunc on its own MM key and rides VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION, dispatched through
+        # MM_GameHooks_ExecuteVBShould from z_en_dno.c (func_80A73408, case 2). The body reads only the EnDno and the
+        # verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
+        # RegisterDekuButlerFixShockLoopAnimation in games/oot. MMRegistrarCoverage's W6-FIXES probe attributes it.
+        "2s2h/Enhancements/Fixes/FixDekuButlerShockLoopAnimation.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
