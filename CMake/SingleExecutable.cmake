@@ -1779,8 +1779,8 @@ if(BUILD_TESTING)
     # display, no ROM); games/mm/2s2h/mm_runtime_parity_test.cpp.
     redship_add_test(NAME MMRuntimeParity COMMAND redship --test mm-runtime-parity)
     # #1755: Majora's Mask cutscene skips ported from 2Ship2Harkinian.
-    # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, bean
-    # patch subtype exclusion), SkipSakonsHideoutCutscenes (Ikana 14/34,
+    # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, every
+    # bean subtype still skipped as on main), SkipSakonsHideoutCutscenes (Ikana 14/34,
     # Sakon's Hideout 21), and SkipCouplesMaskCutscene (VB_PLAY_COUPLES_MASK_CS
     # phase advance and play-state guard). Pure (no display, no ROM);
     # games/mm/2s2h/mm_cutscene_skips_test.cpp.
