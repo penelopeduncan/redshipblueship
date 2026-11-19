@@ -81,6 +81,17 @@ void Anchor::RegisterHooks() {
         }
     });
 
+    // RSBS adaptation (SoH #6384): OoT_Actor_Delete reads ActorDB_Retrieve(actor->id) before
+    // OoT_Actor_Destroy runs, so restore ACTOR_PLAYER in OnActorDestroy before that lookup.
+    // Keep true so a DummyPlayer killed during Anchor::Disable() (after isConnected becomes false)
+    // still restores its id.
+    COND_ID_HOOK(OnActorDestroy, ACTOR_EN_OE2, true, [](void* actorRef) {
+        Actor* actor = (Actor*)actorRef;
+        if (actor->destroy == DummyPlayer_Destroy) {
+            actor->id = ACTOR_PLAYER;
+        }
+    });
+
     COND_HOOK(OnPlayerUpdate, isConnected, [&]() {
         if (justLoadedSave) {
             justLoadedSave = false;
