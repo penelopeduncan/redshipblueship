@@ -3345,6 +3345,14 @@ typedef enum {
     // #### `args`
     // - `*InterfaceContext`
     VB_SET_HORSEBACK_ARCHERY_AMMO,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnGe1`
+    VB_END_HORSEBACK_ARCHERY,
 } GIVanillaBehavior;
 
 #endif
