@@ -2129,6 +2129,15 @@ if(BUILD_TESTING)
     # a x2 copy saturates at 255. Display-free and ROM-free.
     redship_add_test(NAME OoTBowBodyCosmetic COMMAND redship --test oot-bow-body-cosmetic)
 
+    # SoH 847e3cd32 (#1747, the z_map_exp.c hunk only): in a randomizer file
+    # Lake Hylia's minimap keyed the lowered-water map on the Water Temple blue
+    # warp, so it showed raised water after the floor switch lowered it. The row
+    # drives OoT_Map_LakeHyliaShowsLoweredMap: blue warp but water lowered ->
+    # lowered map; water raised without the blue warp -> raised map; vanilla
+    # files still follow the Water Medallion; child -> raised. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTLakeHyliaMinimap COMMAND redship --test oot-lake-hylia-minimap)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

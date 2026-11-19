@@ -486,4 +486,72 @@ extern "C" int OoT_BowBodyCosmetic_RunHeadless(void) {
     return rc;
 }
 
+// ---- OoTLakeHyliaMinimap (SoH 847e3cd32, the z_map_exp.c hunk, #1747) ----
+
+extern "C" s32 OoT_Map_LakeHyliaShowsLoweredMap(void); // z_map_exp.c
+
+namespace {
+
+void UsfSetEventChkInf(s32 flag, bool on) {
+    if (on) {
+        gSaveContext.eventChkInf[flag >> 4] |= (u16)(1 << (flag & 0xF));
+    } else {
+        gSaveContext.eventChkInf[flag >> 4] &= (u16) ~(1 << (flag & 0xF));
+    }
+}
+
+int UsfLakeHyliaLegs(void) {
+    const u32 waterMedallion = 1u << QUEST_MEDALLION_WATER;
+    gSaveContext.linkAge = LINK_AGE_ADULT;
+    gSaveContext.inventory.questItems &= ~waterMedallion;
+
+    // A randomizer file: the map follows the raised-water flag, not the blue warp.
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    // (a) blue warp taken, the floor switch lowered the water: the lowered map (the old key gave the raised one).
+    UsfSetEventChkInf(EVENTCHKINF_USED_WATER_TEMPLE_BLUE_WARP, true);
+    UsfSetEventChkInf(EVENTCHKINF_RAISED_LAKE_HYLIA_WATER, false);
+    USF_ASSERT(OoT_Map_LakeHyliaShowsLoweredMap(), "(a): the minimap shows raised water after the water was lowered");
+    // (b) the water raised without the blue warp flag: the raised map (the old key gave the lowered one).
+    UsfSetEventChkInf(EVENTCHKINF_USED_WATER_TEMPLE_BLUE_WARP, false);
+    UsfSetEventChkInf(EVENTCHKINF_RAISED_LAKE_HYLIA_WATER, true);
+    USF_ASSERT(!OoT_Map_LakeHyliaShowsLoweredMap(), "(b): the minimap shows lowered water while the water is raised");
+
+    // A vanilla file: unchanged, the Water Medallion decides.
+    gSaveContext.ship.quest.id = QUEST_NORMAL;
+    UsfSetEventChkInf(EVENTCHKINF_RAISED_LAKE_HYLIA_WATER, false);
+    USF_ASSERT(OoT_Map_LakeHyliaShowsLoweredMap(),
+               "(c): vanilla adult without the Water Medallion lost the lowered map");
+    gSaveContext.inventory.questItems |= waterMedallion;
+    USF_ASSERT(!OoT_Map_LakeHyliaShowsLoweredMap(),
+               "(c): vanilla adult with the Water Medallion shows the lowered map");
+
+    // (d) child: always the raised map.
+    gSaveContext.linkAge = LINK_AGE_CHILD;
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    USF_ASSERT(!OoT_Map_LakeHyliaShowsLoweredMap(), "(d): child Link sees the lowered map");
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_LakeHyliaMinimap_RunHeadless(void) {
+    const u8 savedQuest = gSaveContext.ship.quest.id;
+    const s32 savedAge = gSaveContext.linkAge;
+    const u32 savedQuestItems = gSaveContext.inventory.questItems;
+    u16 savedEventChkInf[14];
+    static_assert(sizeof(savedEventChkInf) == sizeof(gSaveContext.eventChkInf), "eventChkInf changed size");
+    memcpy(savedEventChkInf, gSaveContext.eventChkInf, sizeof(savedEventChkInf));
+
+    const int rc = UsfLakeHyliaLegs();
+
+    gSaveContext.ship.quest.id = savedQuest;
+    gSaveContext.linkAge = savedAge;
+    gSaveContext.inventory.questItems = savedQuestItems;
+    memcpy(gSaveContext.eventChkInf, savedEventChkInf, sizeof(savedEventChkInf));
+    if (rc == 0) {
+        printf("[TEST] oot-lake-hylia-minimap: PASS\n");
+    }
+    return rc;
+}
+
 #endif // RSBS_SINGLE_EXECUTABLE

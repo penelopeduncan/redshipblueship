@@ -1931,6 +1931,13 @@ static TestResult Test_OoTBowBodyCosmetic(void) {
     return OoT_BowBodyCosmetic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 847e3cd32 (#1747): Lake Hylia's minimap follows the raised-water flag. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper over gSaveContext (restored), no Context needed.
+extern "C" int OoT_LakeHyliaMinimap_RunHeadless(void);
+static TestResult Test_OoTLakeHyliaMinimap(void) {
+    return OoT_LakeHyliaMinimap_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11603,6 +11610,11 @@ const TestDescriptor gTests[] = {
       "Editing Bow Body keeps the picked colour and derives Bow Tips and Bow Handle from it, not from a cached "
       "default (SoH 11fd0e0e7)",
       Test_OoTBowBodyCosmetic },
+    // SoH 847e3cd32: display-free, ROM-free; restores the gSaveContext fields it writes.
+    { "oot-lake-hylia-minimap",
+      "In a randomizer file Lake Hylia's minimap shows the lowered-water map exactly when the raised-water flag is "
+      "clear; vanilla files still follow the Water Medallion (SoH 847e3cd32)",
+      Test_OoTLakeHyliaMinimap },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
