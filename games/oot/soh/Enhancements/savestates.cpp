@@ -34,6 +34,42 @@ typedef struct {
     /* 0x008 */ LightNode buf[LIGHTS_BUFFER_SIZE];
 } LightsBuffer; // size = 0x188
 
+struct BossVa;
+
+typedef struct BossVaEffect {
+    /* 0x00 */ Vec3f pos;
+    /* 0x0C */ Vec3f velocity;
+    /* 0x18 */ Vec3f accel;
+    /* 0x24 */ u8 type;
+    /* 0x26 */ u16 timer;
+    /* 0x28 */ s16 mode;
+    /* 0x2A */ Vec3s rot;
+    /* 0x30 */ s16 primColor[4];
+    /* 0x38 */ s16 envColor[4];
+    /* 0x40 */ f32 scale;
+    /* 0x44 */ f32 scaleMod;
+    /* 0x48 */ Vec3f offset;
+    /* 0x54 */ struct BossVa* parent;
+    u32 epoch;
+} BossVaEffect; // size = 0x58
+
+typedef struct {
+    /* 0x00 */ Vec3f pos;
+    /* 0x0C */ Vec3f vel;
+    /* 0x18 */ Vec3f accel;
+    /* 0x24 */ u8 type;
+    /* 0x25 */ u8 timer;
+    /* 0x26 */ u8 stopTimer;
+    /* 0x28 */ s16 unk_28; // unused?
+    /* 0x2A */ s16 alpha;
+    /* 0x2C */ s16 rippleMode;
+    /* 0x2E */ s16 maxAlpha;
+    /* 0x30 */ f32 scale;
+    /* 0x30 */ f32 fwork[2];
+    /* 0x3C */ Vec3f* targetPos;
+    u32 epoch;
+} BossMoEffect; // size = 0x40
+
 #include "savestates_extern.inc"
 
 typedef struct SaveStateInfo {
@@ -199,9 +235,43 @@ typedef struct SaveStateInfo {
     Vec3f D_80910608_copy[4];
     BossGanon2Effect sBossGanon2Particles_copy[100];
 
+    // z_boss_mo
+    void* sMorphaCore_copy;
+    void* sMorphaTent1_copy;
+    void* sMorphaTent2_copy;
+    BossMoEffect OoT_sEffects_copy[300];
+    s32 sBossMoSeed1_copy;
+    s32 sBossMoSeed2_copy;
+    s32 sBossMoSeed3_copy;
+
+    // z_boss_sst
+    void* sHead_copy;
+    void* sHands_copy[2];
+    void* sFloor_copy;
+    Vec3f sHandOffsets_copy[2];
+    s16 sHandYawOffsets_copy[2];
+    s16 sCutsceneCamera_copy;
+    u32 sBodyStatic_copy;
+    Color_RGBA8 sBodyColor_copy;
+    Color_RGBA8 sStaticColor_copy;
+
     // z_boss_tw
     uint8_t sTwInitalized_copy;
     BossTwEffect sTwEffects_copy[150];
+
+    // z_boss_va
+    u8 sKillBari_copy;
+    u8 sBodyBari_copy[10];
+    s16 sCsCamera_copy;
+    BossVaEffect sVaEffects_copy[400];
+    u8 sBodyState_copy;
+    u8 sFightPhase_copy;
+    s8 sCsState_copy;
+    s16 sDoorState_copy;
+    u8 sPhase3StopMoving_copy;
+    Vec3s sZapperRot_copy;
+    u16 sPhase2Timer_copy;
+    s8 sPhase4HP_copy;
 
     // z_demo_6k
     Vec3f sDemo6kVelocity_copy;
@@ -583,8 +653,36 @@ void SaveState::SaveOverlayStaticData(void) {
     memcpy(info->D_809105D8_copy, D_809105D8, sizeof(D_809105D8));
     memcpy(info->D_80910608_copy, D_80910608, sizeof(D_80910608));
     memcpy(info->sBossGanon2Particles_copy, sBossGanon2Particles, sizeof(sBossGanon2Particles));
+    info->sMorphaCore_copy = sMorphaCore;
+    info->sMorphaTent1_copy = sMorphaTent1;
+    info->sMorphaTent2_copy = sMorphaTent2;
+    memcpy(info->OoT_sEffects_copy, OoT_sEffects, sizeof(OoT_sEffects));
+    info->sBossMoSeed1_copy = sBossMoSeed1;
+    info->sBossMoSeed2_copy = sBossMoSeed2;
+    info->sBossMoSeed3_copy = sBossMoSeed3;
+    info->sHead_copy = sHead;
+    memcpy(info->sHands_copy, sHands, sizeof(sHands));
+    info->sFloor_copy = sFloor;
+    memcpy(info->sHandOffsets_copy, sHandOffsets, sizeof(sHandOffsets));
+    memcpy(info->sHandYawOffsets_copy, sHandYawOffsets, sizeof(sHandYawOffsets));
+    info->sCutsceneCamera_copy = sCutsceneCamera;
+    info->sBodyStatic_copy = sBodyStatic;
+    info->sBodyColor_copy = sBodyColor;
+    info->sStaticColor_copy = sStaticColor;
     info->sTwInitalized_copy = sTwInitalized;
     memcpy(info->sTwEffects_copy, sTwEffects, sizeof(sTwEffects));
+    info->sKillBari_copy = sKillBari;
+    memcpy(info->sBodyBari_copy, sBodyBari, sizeof(sBodyBari));
+    info->sCsCamera_copy = sCsCamera;
+    memcpy(info->sVaEffects_copy, sVaEffects, sizeof(sVaEffects));
+    info->sBodyState_copy = sBodyState;
+    info->sFightPhase_copy = sFightPhase;
+    info->sCsState_copy = sCsState;
+    info->sDoorState_copy = sDoorState;
+    info->sPhase3StopMoving_copy = sPhase3StopMoving;
+    info->sZapperRot_copy = sZapperRot;
+    info->sPhase2Timer_copy = sPhase2Timer;
+    info->sPhase4HP_copy = sPhase4HP;
     info->sDemo6kVelocity_copy = sDemo6kVelocity;
     info->D_8096CE94_copy = D_8096CE94;
     info->demoKekkaiVel_copy = demoKekkaiVel;
@@ -657,8 +755,36 @@ void SaveState::LoadOverlayStaticData(void) {
     memcpy(D_809105D8, info->D_809105D8_copy, sizeof(D_809105D8));
     memcpy(D_80910608, info->D_80910608_copy, sizeof(D_80910608));
     memcpy(sBossGanon2Particles, info->sBossGanon2Particles_copy, sizeof(sBossGanon2Particles));
+    sMorphaCore = info->sMorphaCore_copy;
+    sMorphaTent1 = info->sMorphaTent1_copy;
+    sMorphaTent2 = info->sMorphaTent2_copy;
+    memcpy(OoT_sEffects, info->OoT_sEffects_copy, sizeof(OoT_sEffects));
+    sBossMoSeed1 = info->sBossMoSeed1_copy;
+    sBossMoSeed2 = info->sBossMoSeed2_copy;
+    sBossMoSeed3 = info->sBossMoSeed3_copy;
+    sHead = info->sHead_copy;
+    memcpy(sHands, info->sHands_copy, sizeof(sHands));
+    sFloor = info->sFloor_copy;
+    memcpy(sHandOffsets, info->sHandOffsets_copy, sizeof(sHandOffsets));
+    memcpy(sHandYawOffsets, info->sHandYawOffsets_copy, sizeof(sHandYawOffsets));
+    sCutsceneCamera = info->sCutsceneCamera_copy;
+    sBodyStatic = info->sBodyStatic_copy;
+    sBodyColor = info->sBodyColor_copy;
+    sStaticColor = info->sStaticColor_copy;
     sTwInitalized = info->sTwInitalized_copy;
     memcpy(sTwEffects, info->sTwEffects_copy, sizeof(sTwEffects));
+    sKillBari = info->sKillBari_copy;
+    memcpy(sBodyBari, info->sBodyBari_copy, sizeof(sBodyBari));
+    sCsCamera = info->sCsCamera_copy;
+    memcpy(sVaEffects, info->sVaEffects_copy, sizeof(sVaEffects));
+    sBodyState = info->sBodyState_copy;
+    sFightPhase = info->sFightPhase_copy;
+    sCsState = info->sCsState_copy;
+    sDoorState = info->sDoorState_copy;
+    sPhase3StopMoving = info->sPhase3StopMoving_copy;
+    sZapperRot = info->sZapperRot_copy;
+    sPhase2Timer = info->sPhase2Timer_copy;
+    sPhase4HP = info->sPhase4HP_copy;
     sDemo6kVelocity = info->sDemo6kVelocity_copy;
 
     D_8096CE94 = info->D_8096CE94_copy;

@@ -126,9 +126,43 @@ extern "C" Vec3f D_809105D8[4];
 extern "C" Vec3f D_80910608[4];
 extern "C" BossGanon2Effect sBossGanon2Particles[100];
 
+// z_boss_mo
+extern "C" void* sMorphaCore;
+extern "C" void* sMorphaTent1;
+extern "C" void* sMorphaTent2;
+extern "C" BossMoEffect OoT_sEffects[300];
+extern "C" s32 sBossMoSeed1;
+extern "C" s32 sBossMoSeed2;
+extern "C" s32 sBossMoSeed3;
+
+// z_boss_sst
+extern "C" void* sHead;
+extern "C" void* sHands[2];
+extern "C" void* sFloor;
+extern "C" Vec3f sHandOffsets[2];
+extern "C" s16 sHandYawOffsets[2];
+extern "C" s16 sCutsceneCamera;
+extern "C" u32 sBodyStatic;
+extern "C" Color_RGBA8 sBodyColor;
+extern "C" Color_RGBA8 sStaticColor;
+
 // z_boss_tw
 extern "C" uint8_t sTwInitalized;
 extern "C" BossTwEffect sTwEffects[150];
+
+// z_boss_va
+extern "C" u8 sKillBari;
+extern "C" u8 sBodyBari[10];
+extern "C" s16 sCsCamera;
+extern "C" BossVaEffect sVaEffects[400];
+extern "C" u8 sBodyState;
+extern "C" u8 sFightPhase;
+extern "C" s8 sCsState;
+extern "C" s16 sDoorState;
+extern "C" u8 sPhase3StopMoving;
+extern "C" Vec3s sZapperRot;
+extern "C" u16 sPhase2Timer;
+extern "C" s8 sPhase4HP;
 
 // z_demo_6k
 extern "C" Vec3f sDemo6kVelocity;
