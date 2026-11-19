@@ -1112,7 +1112,7 @@ void InitTrickNames() {
     trickNameTable[RG_GERUDO_FORTRESS_SMALL_KEY] = {
         // TODO_TRANSALTE
         Text{ "Fortress of Winds Small Key", "Fortress of Winds Small Key", "Fortress of Winds Small Key" },
-        Text{ "Thieve's Town Small Key", "Thieve's Town Small Key", "Thieve's Town Small Key" },
+        Text{ "Thieves' Town Small Key", "Thieves' Town Small Key", "Thieves' Town Small Key" },
         Text{ "Fortress Centrum Small Key", "Fortress Centrum Small Key", "Fortress Centrum Small Key" },
         Text{ "Forsaken Fortress Smol Key", "Forsaken Fortress Smol Key", "Forsaken Fortress Smol Key" },
         Text{ "Pirate's Fortress Small Key", "Pirate's Fortress Small Key", "Pirate's Fortress Small Key" },
@@ -1177,7 +1177,7 @@ void InitTrickNames() {
     trickNameTable[RG_GERUDO_FORTRESS_KEY_RING] = {
         // TODO_TRANSALTE
         Text{ "Fortress of Winds Key Ring", "Fortress of Winds Key Ring", "Fortress of Winds Key Ring" },
-        Text{ "Thieve's Town Key Ring", "Thieve's Town Key Ring", "Thieve's Town Key Ring" },
+        Text{ "Thieves' Town Key Ring", "Thieves' Town Key Ring", "Thieves' Town Key Ring" },
         Text{ "Fortress Centrum Key Ring", "Fortress Centrum Key Ring", "Fortress Centrum Key Ring" },
         Text{ "Forsaken Fortress Key Ring", "Forsaken Fortress Key Ring", "Forsaken Fortresse Key Ring" },
         Text{ "Pirate's Fortress Key Ring", "Pirate's Fortress Key Ring", "Pirate's Fortress Key Ring" },
