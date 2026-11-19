@@ -104,8 +104,8 @@ void Menu::RemoveSidebarSearch() {
     CVarSetString(menuEntries["Settings"].sidebarCvar, menuEntries["Settings"].sidebarOrder.at(curIndex).c_str());
 }
 
-static std::unordered_map<Ship::AudioBackend, const char*> BuildAvailableAudioBackendsMap(
-    const std::vector<Ship::AudioBackend>& availableBackends) {
+static std::unordered_map<Ship::AudioBackend, const char*>
+BuildAvailableAudioBackendsMap(const std::vector<Ship::AudioBackend>& availableBackends) {
     std::unordered_map<Ship::AudioBackend, const char*> availableMap;
     for (const auto& backend : availableBackends) {
         if (auto it = audioBackendsMap.find(backend); it != audioBackendsMap.end()) {

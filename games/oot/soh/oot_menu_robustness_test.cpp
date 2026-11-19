@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <exception>
 #include <map>
 #include <set>
 #include <string>
@@ -48,8 +49,8 @@ std::set<RandomizerCheck> ParseExcludedLocations(const char* raw);
 
 // Menu.cpp: pure helper filtering Audio API combobox entries to available backends.
 namespace Ship {
-std::map<Ship::AudioBackend, const char*> BuildAvailableAudioBackendsMap(
-    const std::vector<Ship::AudioBackend>& availableBackends);
+std::map<Ship::AudioBackend, const char*>
+BuildAvailableAudioBackendsMap(const std::vector<Ship::AudioBackend>& availableBackends);
 } // namespace Ship
 
 // UIWidgets.cpp: slider label suffix stripper.
@@ -61,12 +62,12 @@ namespace {
 
 int sFailures = 0;
 
-#define MR_CHECK(cond, msg)                                                              \
-    do {                                                                                 \
-        if (!(cond)) {                                                                   \
+#define MR_CHECK(cond, msg)                                                                    \
+    do {                                                                                       \
+        if (!(cond)) {                                                                         \
             printf("[TEST] oot-menu-robustness: FAIL: %s (%s:%d)\n", msg, __FILE__, __LINE__); \
-            sFailures++;                                                                 \
-        }                                                                                \
+            sFailures++;                                                                       \
+        }                                                                                      \
     } while (0)
 
 struct SavedIntCVar {
@@ -125,6 +126,19 @@ void CheckExcludedLocationsRoundTrip() {
     const std::string multiLegacy = multiFormatted + ",";
     MR_CHECK(SohGui::ParseExcludedLocations(multiLegacy.c_str()) == multiSet,
              "legacy trailing-comma multi excluded list must parse to the exact same set");
+
+    // An empty field (a leading comma, a doubled comma) is skipped rather than
+    // handed to std::stoi, which would throw out of the menu draw.
+    const std::string emptyFields = "," + std::to_string(RC_KF_KOKIRI_SWORD_CHEST) + ",," +
+                                    std::to_string(RC_DEKU_TREE_SLINGSHOT_CHEST) + ",," +
+                                    std::to_string(RC_DODONGOS_CAVERN_BOSS_ROOM_CHEST) + ",";
+    bool emptyFieldsParsed = false;
+    try {
+        emptyFieldsParsed = SohGui::ParseExcludedLocations(emptyFields.c_str()) == multiSet;
+    } catch (const std::exception& e) {
+        printf("[TEST] oot-menu-robustness: the parse threw on empty fields (%s)\n", e.what());
+    }
+    MR_CHECK(emptyFieldsParsed, "an excluded list with empty fields must parse to the same set without throwing");
 }
 
 void CheckMQLocationsVisibility() {
@@ -152,10 +166,8 @@ void CheckMQLocationsVisibility() {
     // Pure predicate checks across None / Selection Only / Set Number (0, 5, 12)
     MR_CHECK(RandomizerCheckObjects::IsQuestVisible(RCQUEST_VANILLA, RO_MQ_DUNGEONS_NONE, 0),
              "None: vanilla check visible");
-    MR_CHECK(!RandomizerCheckObjects::IsQuestVisible(RCQUEST_MQ, RO_MQ_DUNGEONS_NONE, 0),
-             "None: MQ check hidden");
-    MR_CHECK(RandomizerCheckObjects::IsQuestVisible(RCQUEST_BOTH, RO_MQ_DUNGEONS_NONE, 0),
-             "None: Both check visible");
+    MR_CHECK(!RandomizerCheckObjects::IsQuestVisible(RCQUEST_MQ, RO_MQ_DUNGEONS_NONE, 0), "None: MQ check hidden");
+    MR_CHECK(RandomizerCheckObjects::IsQuestVisible(RCQUEST_BOTH, RO_MQ_DUNGEONS_NONE, 0), "None: Both check visible");
 
     MR_CHECK(RandomizerCheckObjects::IsQuestVisible(RCQUEST_VANILLA, RO_MQ_DUNGEONS_SELECTION, 0),
              "Selection Only: vanilla check visible");

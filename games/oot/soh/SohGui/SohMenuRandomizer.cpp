@@ -179,9 +179,8 @@ void SaveExcludedLocations() {
 
 void DrawLocationsMenu(WidgetInfo& info) {
     auto ctx = OTRGlobals::Instance->gRandoContext;
-    int32_t currMQDungeonSetting =
-        PackMQDungeonSetting(CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), 0),
-                             CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 0));
+    int32_t currMQDungeonSetting = PackMQDungeonSetting(CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), 0),
+                                                        CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 0));
     static ImVec2 cellPadding(8.0f, 8.0f);
     bool generating = IsRandoGenerating();
     bool disableEditingRandoSettings = generating || CVarGetInteger(CVAR_GENERAL("OnFileSelectNameEntry"), 0);
