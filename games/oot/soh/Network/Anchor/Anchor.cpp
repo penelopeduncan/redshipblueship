@@ -108,7 +108,10 @@ void Anchor::OnIncomingJson(nlohmann::json payload) {
     std::lock_guard<std::mutex> lock(incomingPacketQueueMutex);
     // RSBS: keep only the newest PLAYER_UPDATE per sender (see pendingPlayerUpdates in Anchor.h).
     if (packetType == PLAYER_UPDATE && payload.contains("clientId") && payload["clientId"].is_number_integer()) {
-        pendingPlayerUpdates[payload["clientId"].get<uint32_t>()] = std::move(payload);
+        // Read the key first: the right-hand side of the assignment is evaluated before the subscript, and a
+        // moved-from payload has no clientId.
+        const uint32_t pendingClientId = payload["clientId"].get<uint32_t>();
+        pendingPlayerUpdates[pendingClientId] = std::move(payload);
         return;
     }
     incomingPacketQueue.push(payload);
