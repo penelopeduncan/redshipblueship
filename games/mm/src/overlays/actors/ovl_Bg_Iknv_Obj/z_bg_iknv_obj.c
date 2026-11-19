@@ -6,7 +6,6 @@
 
 #include "z_bg_iknv_obj.h"
 #include "objects/object_iknv_obj/object_iknv_obj.h"
-#include "2s2h/GameInteractor/GameInteractor.h"
 
 #define FLAGS (ACTOR_FLAG_UPDATE_CULLING_DISABLED)
 
@@ -180,7 +179,7 @@ void func_80BD7FDC(BgIknvObj* this, PlayState* play) {
 }
 
 void func_80BD8040(BgIknvObj* this, PlayState* play) {
-    if (GameInteractor_Should(VB_HIDEOUT_DOOR_OPEN, func_80BD7CEC(this))) {
+    if (func_80BD7CEC(this)) {
         this->actionFunc = func_80BD7FDC;
     }
     MM_CollisionCheck_SetOC(play, &play->colChkCtx, &this->collider.base);
