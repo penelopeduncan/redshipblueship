@@ -1865,6 +1865,19 @@ static TestResult Test_OoTSwimVoidRespawnRoom(void) {
     return OoT_SwimVoidRespawnRoom_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 8584ced40b (#1742): the Fix Two-Handed Idle Animations option. Body in
+// games/oot/soh/oot_two_handed_idle_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the TwoHandedIdle CVar.
+extern "C" int OoT_TwoHandedIdleAnim_RunHeadless(void);
+static TestResult Test_OoTTwoHandedIdleAnim(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TwoHandedIdleAnim_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11507,6 +11520,11 @@ const TestDescriptor gTests[] = {
       "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
       "keeps the current room otherwise (SoH c93b6188c)",
       Test_OoTSwimVoidRespawnRoom },
+    // SoH 8584ced40b: display-free and ROM-free; clears the TwoHandedIdle CVar and re-runs the registrar.
+    { "oot-two-handed-idle-anim",
+      "With Fix Two-Handed Idle Animations on, Biggoron's Sword and the Deku Stick reach the swing fidget and never "
+      "the shield one; with it off the vanilla choice passes through (SoH 8584ced40b)",
+      Test_OoTTwoHandedIdleAnim },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

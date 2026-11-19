@@ -3304,6 +3304,27 @@ typedef enum {
     // #### `args`
     // - None
     VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
+
+    // #### `result`
+    // ```c
+    // (
+    //     (
+    //         (commonType + FIDGET_SWORD_SWING != FIDGET_SWORD_SWING) &&
+    //         (commonType + FIDGET_SWORD_SWING != FIDGET_ADJUST_SHIELD)
+    //     ) ||
+    //     (
+    //         (player->rightHandType == PLAYER_MODELTYPE_RH_SHIELD) &&
+    //         (
+    //             (commonType + FIDGET_SWORD_SWING == FIDGET_ADJUST_SHIELD) ||
+    //             (Player_GetMeleeWeaponHeld2(player) != 0)
+    //         )
+    //     )
+    // )
+    // ```
+    // #### `args`
+    // - `Player*`
+    // - `s32` commonType
+    VB_SET_IDLE_ANIM,
 } GIVanillaBehavior;
 
 #endif

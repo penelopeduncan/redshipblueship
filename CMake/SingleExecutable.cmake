@@ -2080,6 +2080,15 @@ if(BUILD_TESTING)
     # out-of-range index -> the current room. Display-free and ROM-free.
     redship_add_test(NAME OoTSwimVoidRespawnRoom COMMAND redship --test oot-swim-void-respawn-room)
 
+    # SoH 8584ced40b (#1742): Fix Two-Handed Idle Animations did nothing, since
+    # the swing fidget needed the shield hand. The row runs
+    # FixTwoHandedIdleAnim.cpp's registrar out of ShipInit's map, then the REAL
+    # VB_SET_IDLE_ANIM dispatch with a fake Link holding Biggoron's Sword, then
+    # the Deku Stick: option off -> vanilla; on -> the swing is accepted and the
+    # shield adjust refused; a one-handed sword is unchanged. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTTwoHandedIdleAnim COMMAND redship --test oot-two-handed-idle-anim)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in
