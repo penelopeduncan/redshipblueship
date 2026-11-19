@@ -69,6 +69,8 @@ typedef struct {
 } RoomState;
 
 class Anchor : public Network {
+    friend struct AnchorNetplayFixesTestAccess;
+
   private:
     uint32_t spawningDummyPlayerForClientId = 0;
     bool shouldRefreshActors = false;

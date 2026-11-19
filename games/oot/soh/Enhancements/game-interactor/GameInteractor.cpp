@@ -61,11 +61,7 @@ bool GameInteractor::IsSaveLoaded(bool allowDbgSave) {
 }
 
 bool GameInteractor::IsGameplayPaused() {
-    if (OoT_gPlayState == NULL) {
-        return true;
-    }
-
-    Player* player = GET_PLAYER(OoT_gPlayState);
+    Player* player = (OoT_gPlayState != NULL) ? GET_PLAYER(OoT_gPlayState) : NULL;
     if (player == NULL) {
         return true;
     }
