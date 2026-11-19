@@ -709,6 +709,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Fixes/FixEponaStealingSword.cpp"
         "2s2h/Enhancements/Fixes/FierceDeityZTargetMovement.cpp"
         "2s2h/Enhancements/Fixes/CompletedHeartContainerAudio.cpp"
+        # 2Ship f7ccda83a: VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION, dispatched from z_en_dno.c (func_80A73408).
+        "2s2h/Enhancements/Fixes/FixDekuButlerShockLoopAnimation.cpp"
         "2s2h/Enhancements/Restorations/FlipHopVariable.cpp"
         "2s2h/Enhancements/Restorations/PowerCrouchStab.cpp"
         "2s2h/Enhancements/Restorations/SideRoll.cpp"

@@ -1808,6 +1808,7 @@ void ResetKeyGapKeys() {
 // ---- W6-FIXES (#1237): MM's Fixes and Restorations TUs ------------------------------------------------------------
 // One probe per key; each TU registers only through a file-scope RegisterShipInitFunc on its own key. Per key, the TU:
 // Fixes/FixEponaStealingSword.cpp, Fixes/FierceDeityZTargetMovement.cpp, Fixes/CompletedHeartContainerAudio.cpp,
+// Fixes/FixDekuButlerShockLoopAnimation.cpp (2Ship f7ccda83a),
 // Restorations/FlipHopVariable.cpp (ConstantFlipsHops), PowerCrouchStab.cpp, SideRoll.cpp, OoTFasterSwim.cpp,
 // TatlISG.cpp, WoodfallMountainAppearance.cpp, JPGrottos.cpp and BonkCollision.cpp. Attributed by registry content:
 // every bucket is keyed on a VB id, an actor id or a scene id, and the delta is measured with every other key off.
@@ -1840,6 +1841,10 @@ const std::vector<SkipKeyProbe>& W6FixesProbes() {
           "Fix Completed Heart Container Audio",
           { { "VB_PLAY_HEART_CONTAINER_GET_FANFARE (Fixes/CompletedHeartContainerAudio.cpp)",
               W6_FIXES_VB_COUNT(VB_PLAY_HEART_CONTAINER_GET_FANFARE), 1 } } },
+        { "gEnhancements.Fixes.DekuButlerFixShockLoopAnimation",
+          "Fix Deku Butler Shock Animation",
+          { { "VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION (Fixes/FixDekuButlerShockLoopAnimation.cpp)",
+              W6_FIXES_VB_COUNT(VB_DEKU_BUTLER_CHANGE_SHOCK_ANIMATION), 1 } } },
         { "gEnhancements.Restorations.ConstantFlipsHops",
           "Constant Distance Backflips and Sidehops",
           { { "VB_APPLY_AIR_CONTROL (Restorations/FlipHopVariable.cpp)", W6_FIXES_VB_COUNT(VB_APPLY_AIR_CONTROL),
