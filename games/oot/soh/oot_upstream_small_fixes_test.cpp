@@ -554,4 +554,60 @@ extern "C" int OoT_LakeHyliaMinimap_RunHeadless(void) {
     return rc;
 }
 
+// ---- OoTHoverFishing (SoH a089fa60b, #1747) ----
+
+namespace {
+
+const char* const kUsfHoverFishingKey = CVAR_ENHANCEMENT("HoverFishing");
+
+int UsfHoverFishingLegs(void) {
+    USF_ASSERT(UsfCountRegistrars(kUsfHoverFishingKey, "Fishing.cpp") == 1,
+               "Fishing.cpp's Hover Fishing registrar does not re-run on the HoverFishing CVar");
+
+    // (a) option off: both behaviours are vanilla (every cast check runs, Link stops).
+    CVarClear(kUsfHoverFishingKey);
+    UsfRunRegistrars(kUsfHoverFishingKey, "Fishing.cpp");
+    Vec3f rodCheckPos = { 0.0f, 50.0f, 0.0f };
+    USF_ASSERT(GameInteractor_Should(VB_NOT_CAST_FISHING, true, &rodCheckPos),
+               "(a): a refused cast was allowed with Hover Fishing off");
+    USF_ASSERT(!GameInteractor_Should(VB_NOT_CAST_FISHING, false, &rodCheckPos),
+               "(a): an allowed cast was refused with Hover Fishing off");
+    USF_ASSERT(GameInteractor_Should(VB_FISHING_ZERO_XZ, true),
+               "(a): the cast kept Link's speed with Hover Fishing off");
+
+    // (b) option on: the cast keeps Link's momentum, as on NTSC 1.0. The cast check itself is not driven here: it
+    // reads OoT_gPlayState->colCtx, which a ROM-free process does not have.
+    CVarSetInteger(kUsfHoverFishingKey, 1);
+    UsfRunRegistrars(kUsfHoverFishingKey, "Fishing.cpp");
+    USF_ASSERT(!GameInteractor_Should(VB_FISHING_ZERO_XZ, true), "(b): the Hover Fishing cast still stops Link");
+
+    // (c) option off again: the hooks are gone.
+    CVarClear(kUsfHoverFishingKey);
+    UsfRunRegistrars(kUsfHoverFishingKey, "Fishing.cpp");
+    USF_ASSERT(GameInteractor_Should(VB_FISHING_ZERO_XZ, true), "(c): a Hover Fishing hook stayed registered");
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_HoverFishing_RunHeadless(void) {
+    if (GameInteractor::Instance == nullptr) {
+        GameInteractor::Instance = new GameInteractor();
+    }
+    const GameId prevGame = Context_GetCurrentGame();
+    // The GameInteractor dispatch is gated off only under GAME_MM.
+    Context_SetCurrentGame(GAME_OOT);
+    const int saved = CVarGetInteger(kUsfHoverFishingKey, 0);
+
+    const int rc = UsfHoverFishingLegs();
+
+    UsfRestoreInt(kUsfHoverFishingKey, saved);
+    UsfRunRegistrars(kUsfHoverFishingKey, "Fishing.cpp");
+    Context_SetCurrentGame(prevGame);
+    if (rc == 0) {
+        printf("[TEST] oot-hover-fishing: PASS\n");
+    }
+    return rc;
+}
+
 #endif // RSBS_SINGLE_EXECUTABLE

@@ -3325,6 +3325,23 @@ typedef enum {
     // - `Player*`
     // - `s32` commonType
     VB_SET_IDLE_ANIM,
+
+    // #### `result`
+    // ```c
+    // !(this->actor.bgCheckFlags & 1) || (this->actor.world.pos.z > 1300.0f) ||
+    // OoT_BgCheck_SphVsFirstPoly(&play->colCtx, &rodCheckPos, 20.0f)
+    // ```
+    // #### `args`
+    // - `*Vec3f`
+    VB_NOT_CAST_FISHING,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_FISHING_ZERO_XZ,
 } GIVanillaBehavior;
 
 #endif

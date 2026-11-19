@@ -6644,17 +6644,19 @@ s32 func_8083C6B8(PlayState* play, Player* this) {
 
             rodCheckPos.y += 50.0f;
 
-            if (CVarGetInteger(CVAR_ENHANCEMENT("HoverFishing"), 0)
-                    ? 0
-                    : !(this->actor.bgCheckFlags & 1) || (this->actor.world.pos.z > 1300.0f) ||
-                          OoT_BgCheck_SphVsFirstPoly(&play->colCtx, &rodCheckPos, 20.0f)) {
+            if (GameInteractor_Should(VB_NOT_CAST_FISHING,
+                                      (!(this->actor.bgCheckFlags & 1) || (this->actor.world.pos.z > 1300.0f) ||
+                                       OoT_BgCheck_SphVsFirstPoly(&play->colCtx, &rodCheckPos, 20.0f)),
+                                      &rodCheckPos)) {
                 Sfx_PlaySfxCentered(NA_SE_SY_ERROR);
                 return 0;
             }
 
             Player_SetupAction(play, this, Player_Action_80850C68, 0);
             this->unk_860 = 1;
-            Player_ZeroSpeedXZ(this);
+            if (GameInteractor_Should(VB_FISHING_ZERO_XZ, true)) {
+                Player_ZeroSpeedXZ(this);
+            }
             Player_AnimPlayOnce(play, this, &gPlayerAnim_link_fishing_throw);
             return 1;
         } else {

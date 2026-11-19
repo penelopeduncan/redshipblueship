@@ -2138,6 +2138,15 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTLakeHyliaMinimap COMMAND redship --test oot-lake-hylia-minimap)
 
+    # SoH a089fa60b (#1747): Hover Fishing skipped every cast check; it now
+    # restores NTSC 1.0 (only the rod-in-wall check, and Link keeps his speed)
+    # through VB_NOT_CAST_FISHING and VB_FISHING_ZERO_XZ. The row runs
+    # Fishing.cpp's registrar out of ShipInit's map, then the REAL dispatch:
+    # off -> both vanilla; on -> the cast keeps Link's speed. The on-state cast
+    # check reads the play state's collision and is not driven. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

@@ -1938,6 +1938,19 @@ static TestResult Test_OoTLakeHyliaMinimap(void) {
     return OoT_LakeHyliaMinimap_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH a089fa60b (#1747): Hover Fishing restores the NTSC 1.0 cast. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HoverFishing CVar.
+extern "C" int OoT_HoverFishing_RunHeadless(void);
+static TestResult Test_OoTHoverFishing(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11615,6 +11628,11 @@ const TestDescriptor gTests[] = {
       "In a randomizer file Lake Hylia's minimap shows the lowered-water map exactly when the raised-water flag is "
       "clear; vanilla files still follow the Water Medallion (SoH 847e3cd32)",
       Test_OoTLakeHyliaMinimap },
+    // SoH a089fa60b: display-free and ROM-free; clears the HoverFishing CVar and re-runs the registrar.
+    { "oot-hover-fishing",
+      "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
+      "(SoH a089fa60b)",
+      Test_OoTHoverFishing },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
