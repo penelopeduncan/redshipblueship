@@ -774,6 +774,10 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_MINIGAMES_SKIP_HORSE_RACE "gEnhancements.Minigames.SkipHorseRace"
 #define RSBS_CVAR_MM_MINIGAMES_BEAVER_RACE_RINGS_COLLECTED "gEnhancements.Minigames.BeaverRaceRingsCollected"
 #define RSBS_CVAR_MM_MINIGAMES_SKIP_LITTLE_BEAVER "gEnhancements.Minigames.SkipLittleBeaver"
+// 2Ship #1947: Difficulty options for Fisherman's Jumping Game.
+#define RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_TORCH_TIME_LIMIT "gEnhancements.Minigames.FishermanJumpingGame.TorchTimeLimit"
+#define RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_TARGET_SCORE "gEnhancements.Minigames.FishermanJumpingGame.TargetScore"
+#define RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_EARLY_WIN "gEnhancements.Minigames.FishermanJumpingGame.EarlyWin"
 #define RSBS_CVAR_MM_DIFFICULTY_GORON_RACE "gEnhancements.DifficultyOptions.GoronRace"
 #define RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_SCORE "gEnhancements.Minigames.BoatArcheryScore"
 #define RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_HEALTH "gEnhancements.Minigames.BoatArcheryHealth"
@@ -1269,6 +1273,9 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_MINIGAMES_SKIP_HORSE_RACE)                        \
     X(RSBS_CVAR_MM_MINIGAMES_BEAVER_RACE_RINGS_COLLECTED)            \
     X(RSBS_CVAR_MM_MINIGAMES_SKIP_LITTLE_BEAVER)                     \
+    X(RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_TORCH_TIME_LIMIT) \
+    X(RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_TARGET_SCORE)    \
+    X(RSBS_CVAR_MM_MINIGAMES_FISHERMAN_JUMPING_GAME_EARLY_WIN)       \
     X(RSBS_CVAR_MM_DIFFICULTY_GORON_RACE)                            \
     X(RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_SCORE)                     \
     X(RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_HEALTH)                    \

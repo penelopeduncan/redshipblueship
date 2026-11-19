@@ -64,6 +64,12 @@ enum GoronRaceDifficultyOptions {
     GORON_RACE_DIFFICULTY_SKIP,
 };
 
+enum TorchTimeLimitOptions {
+    TORCH_TIME_LIMIT_NORMAL,
+    TORCH_TIME_LIMIT_DOUBLE,
+    TORCH_TIME_LIMIT_INFINITY,
+};
+
 // Old Entry Point
 void InitEnhancements();
 
