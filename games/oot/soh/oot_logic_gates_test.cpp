@@ -264,8 +264,20 @@
  *     RECOIL_HAMMER_AND_SHIELD does; the old CanHammerRecoilHover() call sites
  *     (Forest courtyard, GF long roof, GV upper stream) open with Hover Boots and
  *     the hammer and no shield, and close with the trick off.
- *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is still false with only
- *     the Bow (its body is unchanged; the Beamos rewrite is stage 5).
+ *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is true with only the Bow:
+ *     SoH eca767dcb's Beamos body (stage 5) reads the distance, not the count.
+ *  EC. SoH eca767dcb overhaul batch 2b (#1647 stage 5), with 73a739b7a's lines in
+ *     the same files: every new region is built; four grounded Beamos at the Spirit
+ *     MQ call site give way to a child's Boomerang and the body reads the distance;
+ *     the vanilla big wall opens for Climb, hammer and Hookshot (not without the
+ *     Hookshot); Ganon's vanilla Shadow Trial late-chest, rusted-switch, torch and
+ *     Song of Time platform exits and events; the MQ Shadow Trial late chest, bomb
+ *     flower and silver-shadow precedence; GTG MQ's lit torch platforms with and
+ *     without RT_GTG_MQ_LAVA_ROOM; scene searches through each split room; the
+ *     spiritLogicData MQ inner right hand reverse row; the ZD frozen waterfall
+ *     Gold Skulltula; the Fire MQ crate cage under RT_BOMB_DETONATION; GTG MQ's
+ *     magenta switch with bombs; the Shadow corner-platform target rupee; and the
+ *     Shadow MQ pit stairs' Lens term.
  *
  * SoH eca767dcb's Masks as Adult seed setting (RSK_MASKS_AS_ADULT) and the adult
  * hood terms it makes live (#1647 stage 1b):
@@ -1328,6 +1340,368 @@ void VcCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* l
     ExpectAt(legOn, region, rc, adult, true,
              "the voidout collection is not in logic with RT_VOIDOUT_COLLECTION on (SoH e86e0ff69)");
     randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+}
+
+// ---- SoH eca767dcb (#7032): overhaul batch 2b (#1647 stage 5), EC ----------
+// Defined with the #1647 stage 1 and 2 legs below.
+void ExpectFlag(const char* leg, bool got, bool expected, const char* why);
+void BhlAs(bool adult, RandomizerRegion region);
+
+struct EcaBatch2bRegion {
+    RandomizerRegion region;
+    const char* name;
+};
+
+const EcaBatch2bRegion kEcaBatch2bRegions[] = {
+    { RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, "RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, "RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, "RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, "RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH" },
+    { RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, "RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER" },
+    { RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, "RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS" },
+};
+
+// The tricks these legs force off (saved and restored), so a trick the context holds on cannot open what a leg
+// expects closed.
+const RandomizerTrick kEcaBatch2bForcedTricks[] = {
+    RT_GTG_MQ_LAVA_ROOM,
+    RT_HOVER_BOOST_SIMPLE,
+    RT_LENS_GANON,
+    RT_LENS_GANON_MQ,
+    RT_LENS_GTG_MQ,
+    RT_LENS_SHADOW_MQ,
+    RT_GANON_MQ_SHADOW_TRIAL,
+    RT_VOIDOUT_COLLECTION,
+    RT_VISIBLE_COLLISION,
+    RT_UNINTUITIVE_JUMPS,
+    RT_SPIRIT_WALL,
+    RT_GROUND_JUMP,
+    RT_GROUND_JUMP_HARD,
+    RT_GTG_FAKE_WALL,
+    RT_GTG_LAVA_JUMP,
+    RT_DAMAGE_BOOST_SIMPLE,
+    RT_SLIDE_JUMP,
+    RT_ITEM_EXTENSION,
+    RT_ZD_GS,
+    RT_BOMB_DETONATION,
+    RT_SPIRIT_STATUE_JUMP,
+    RT_SHADOW_MQ_HUGE_PIT,
+    RT_BLUE_FIRE_MUD_WALLS,
+};
+
+/** ExpectExit for an adult, with `from` holding the adult's access (its exit asks AnyAgeTime). */
+void Eb2bAdultExit(const char* leg, RandomizerRegion from, RandomizerRegion to, bool expected, const char* why) {
+    Region* region = RegionTable(from);
+    const bool saved[4] = { region->childDay, region->childNight, region->adultDay, region->adultNight };
+    region->childDay = false;
+    region->childNight = false;
+    region->adultDay = true;
+    region->adultNight = true;
+    ExpectExit(leg, from, to, true, expected, why);
+    region->childDay = saved[0];
+    region->childNight = saved[1];
+    region->adultDay = saved[2];
+    region->adultNight = saved[3];
+}
+
+void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedMedallionTrials = randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Get();
+    const uint8_t savedSkullsSuns = randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Get();
+    const bool savedGtgMq = randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->IsMQ();
+    const bool savedGanonMq = randoCtx->GetDungeon(Rando::GANONS_CASTLE)->IsMQ();
+    constexpr size_t kTrickCount = sizeof(kEcaBatch2bForcedTricks) / sizeof(kEcaBatch2bForcedTricks[0]);
+    uint8_t savedTricks[kTrickCount];
+    for (size_t i = 0; i < kTrickCount; i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Get();
+        randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Set(0);
+    }
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(1);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Set(RO_GENERIC_OFF);
+
+    // ---- EC0: every new region is built -------------------------------------
+    int unbuilt = 0;
+    for (const EcaBatch2bRegion& row : kEcaBatch2bRegions) {
+        if (RegionTable(row.region)->regionName.empty()) {
+            GateFail("EC0 %s (%d): RegionTable_Init built no region for it", row.name, (int)row.region);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: EC0 all 6 stage-5 regions built\n");
+    }
+
+    // ---- EC1..EC2: four grounded Beamos at the Spirit MQ call site, Boomerang -
+    ResetClimbLogic();
+    GiveFairyOcarina();
+    Give(RG_SONG_OF_TIME);
+    GiveGrab();
+    ExpectExit("EC1 Spirit MQ Beamos Pits to SoT Sun Room, child with Song of Time and grab, no Boomerang",
+               RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS, RR_SPIRIT_TEMPLE_MQ_SOT_SUN_ROOM, false, false,
+               "a child with nothing to stun or out-range the Beamos passes four grounded Beamos");
+    Give(RG_BOOMERANG);
+    ExpectExit("EC2 Spirit MQ Beamos Pits to SoT Sun Room, child with Song of Time, grab and Boomerang",
+               RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS, RR_SPIRIT_TEMPLE_MQ_SOT_SUN_ROOM, false, true,
+               "the Boomerang does not avoid four grounded Beamos at ED_CLOSE (SoH eca767dcb's Beamos body)");
+
+    // ---- EC3..EC4: the Beamos body reads the distance -----------------------
+    ResetClimbLogic();
+    GiveHookshot(false);
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS);
+    ExpectFlag("EC3 CanAvoidEnemy(RE_BEAMOS, ED_LONGSHOT, grounded, 1), adult with only the Hookshot",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_LONGSHOT, true, 1), false,
+               "the Hookshot avoids a grounded Beamos from Longshot range");
+    ExpectFlag("EC4 CanAvoidEnemy(RE_BEAMOS, ED_HOOKSHOT, grounded, 1), adult with only the Hookshot",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_HOOKSHOT, true, 1), true,
+               "the Hookshot does not avoid a grounded Beamos from Hookshot range (SoH eca767dcb)");
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- EC5..EC6: vanilla Spirit big wall, only the Beamos term differs -----
+    ResetClimbLogic();
+    GiveClimb();
+    Give(RG_MEGATON_HAMMER);
+    ExpectExit("EC5 Spirit Big Wall Base to Upper, adult with Climb and hammer", RR_SPIRIT_TEMPLE_BIG_WALL_BASE,
+               RR_SPIRIT_TEMPLE_BIG_WALL_UPPER, true, false,
+               "the hammer (which kills the Walltula) also gets past two grounded Beamos");
+    GiveHookshot(false);
+    ExpectExit("EC6 Spirit Big Wall Base to Upper, adult with Climb, hammer and Hookshot",
+               RR_SPIRIT_TEMPLE_BIG_WALL_BASE, RR_SPIRIT_TEMPLE_BIG_WALL_UPPER, true, true,
+               "the Hookshot does not avoid two grounded Beamos at the big wall (SoH eca767dcb)");
+
+    // ---- EC7..EC8: vanilla Shadow Trial late chest event --------------------
+    randoCtx->GetDungeon(Rando::GANONS_CASTLE)->ClearMQ();
+    ResetClimbLogic();
+    GiveOpenChest();
+    ExpectAs(true, "EC7 Shadow Trial gauntlets chest, adult with Open Chest, late-chest switch not hit",
+             RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, false,
+             "the gauntlets chest opens before LOGIC_SHADOW_TRIAL_LATE_CHEST");
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH, true);
+    ExpectEvent("EC8a Shadow Trial lower switch, adult", LOGIC_SHADOW_TRIAL_LATE_CHEST, true,
+                "the lower switch does not set LOGIC_SHADOW_TRIAL_LATE_CHEST (SoH eca767dcb's rename)");
+    ExpectAs(true, "EC8 Shadow Trial gauntlets chest, adult with Open Chest, late-chest switch hit",
+             RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, true,
+             "LOGIC_SHADOW_TRIAL_LATE_CHEST does not open the gauntlets chest");
+
+    // ---- EC9..EC10: Shadow Trial start to the torch -------------------------
+    ResetClimbLogic();
+    GiveHookshot(false);
+    ExpectExit("EC9 Shadow Trial Start to Torch, adult with the Hookshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, true, false, "the Hookshot reaches the Shadow Trial torch");
+    GiveHookshot(true);
+    ExpectExit("EC10 Shadow Trial Start to Torch, adult with the Longshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, true, true,
+               "the Longshot does not reach the Shadow Trial torch (SoH eca767dcb)");
+
+    // ---- EC11..EC12: a search from the entryway through the split trial ----
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_LENS_OF_TRUTH);
+    GiveHookshot(false);
+    ExpectSearch("EC11 Ganon's Castle search to Shadow Trial heart 1, adult with Lens and the Hookshot",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, false,
+                 "the Hookshot crosses the Shadow Trial to the chest platform");
+    GiveHookshot(true);
+    ExpectSearch("EC12 Ganon's Castle search to Shadow Trial heart 1, adult with Lens and the Longshot",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, true,
+                 "the Longshot does not reach the chest platform through the torch (SoH eca767dcb)");
+
+    // ---- EC13..EC14: the rusted switch is its own region ------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, true);
+    ExpectEvent("EC13 Shadow Trial rusted switch, adult with nothing", LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, false,
+                "the rusted switch is hit with no hammer");
+    Give(RG_MEGATON_HAMMER);
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, true);
+    ExpectEvent("EC14 Shadow Trial rusted switch, adult with the hammer", LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, true,
+                "the hammer does not hit the rusted switch from its region (SoH eca767dcb)");
+
+    // ---- EC15..EC16: Shadow Trial start to the Song of Time platform -------
+    ResetClimbLogic();
+    ExpectExit("EC15 Shadow Trial Start to SoT Platform, adult with nothing", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, true, false,
+               "an adult with nothing reaches the Song of Time platform");
+    GiveHookshot(false);
+    ExpectExit("EC16 Shadow Trial Start to SoT Platform, adult with the Hookshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, true, true,
+               "the Hookshot does not reach the Song of Time platform (SoH eca767dcb)");
+
+    // ---- EC17..EC18: MQ Shadow Trial late chest event ----------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, true);
+    ExpectEvent("EC17 MQ Shadow Trial Beamos chest, adult with nothing", LOGIC_SHADOW_TRIAL_LATE_CHEST, false,
+                "the MQ eye switch is hit with nothing");
+    Give(RG_PROGRESSIVE_BOW);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, true);
+    ExpectEvent("EC18 MQ Shadow Trial Beamos chest, adult with the Bow", LOGIC_SHADOW_TRIAL_LATE_CHEST, true,
+                "the Bow does not hit the MQ eye switch (SoH eca767dcb)");
+
+    // ---- EC19..EC20: MQ Shadow Trial bomb flower region ---------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, true);
+    ExpectEvent("EC19 MQ Shadow Trial bomb flower, adult with nothing", LOGIC_SHADOW_TRIAL_FIRST_CHEST, false,
+                "the bomb flower is set off with nothing");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, true);
+    ExpectEvent("EC20 MQ Shadow Trial bomb flower, adult with bombs", LOGIC_SHADOW_TRIAL_FIRST_CHEST, true,
+                "bombs do not set off the bomb flower from its region (SoH eca767dcb)");
+
+    // ---- EC21..EC22: an MQ search from the entryway to the far Beamos -------
+    randoCtx->GetDungeon(Rando::GANONS_CASTLE)->SetMQ();
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(1);
+    ResetClimbLogic();
+    Give(RG_MEGATON_HAMMER);
+    ExpectSearch("EC21 Ganon's Castle MQ search to the Beamos platform silver rupee, adult with hammer",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, false,
+                 "the hammer alone crosses the MQ Shadow Trial");
+    Give(RG_HOVER_BOOTS);
+    ExpectSearch("EC22 Ganon's Castle MQ search to the Beamos platform silver rupee, adult with hammer and Hover "
+                 "Boots",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, true,
+                 "the Hover Boots do not reach the far Beamos (SoH eca767dcb)");
+
+    // ---- EC23..EC24: MQ silver shadow event from the starting ledge ---------
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent("EC23 MQ Shadow Trial starting ledge, adult with Hover Boots, no Lens",
+                LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, false,
+                "the Hover Boots get the silver rupees without Lens (SoH eca767dcb's precedence)");
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(1);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent("EC24 MQ Shadow Trial starting ledge, adult with Hover Boots, RT_LENS_GANON_MQ",
+                LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, true,
+                "the Hover Boots and the Lens trick do not get the silver rupees");
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+
+    // ---- EC25..EC28: GTG MQ lit torch platforms and the lava room trick -----
+    ResetClimbLogic();
+    ExpectExit("EC25 GTG MQ Maze Right to Platforms Lit Torch, adult with nothing, RT_GTG_MQ_LAVA_ROOM off",
+               RR_GERUDO_TRAINING_GROUND_MQ_MAZE_RIGHT, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, true, false,
+               "an adult with nothing reaches the lit torch platforms with the trick off");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(1);
+    ExpectExit("EC26 GTG MQ Maze Right to Platforms Lit Torch, adult with nothing, RT_GTG_MQ_LAVA_ROOM on",
+               RR_GERUDO_TRAINING_GROUND_MQ_MAZE_RIGHT, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, true, true,
+               "RT_GTG_MQ_LAVA_ROOM does not let an adult jump to the lit torch platforms (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("EC27 GTG MQ Unlit Torch to Lit Torch, adult with Hover Boots, RT_GTG_MQ_LAVA_ROOM off",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_UNLIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH,
+               true, false, "the Hover Boots cross to the lit torch with the trick off");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(1);
+    ExpectExit("EC28 GTG MQ Unlit Torch to Lit Torch, adult with Hover Boots, RT_GTG_MQ_LAVA_ROOM on",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_UNLIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH,
+               true, true, "RT_GTG_MQ_LAVA_ROOM and the Hover Boots do not cross to the lit torch (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(0);
+
+    // ---- EC29..EC30: a GTG MQ search through the split lava room ------------
+    randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->SetMQ();
+    ResetClimbLogic();
+    ExpectSearch("EC29 GTG MQ search to the near-lit-torch lava silver rupee, adult with nothing",
+                 RR_GERUDO_TRAINING_GROUND_ENTRYWAY, true, RR_NONE, RC_GTG_MQ_NEAR_LIT_TORCH_LAVA_SILVER, false,
+                 "an adult with nothing reaches the lava room's torch side");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectSearch("EC30 GTG MQ search to the near-lit-torch lava silver rupee, adult with the Bow",
+                 RR_GERUDO_TRAINING_GROUND_ENTRYWAY, true, RR_NONE, RC_GTG_MQ_NEAR_LIT_TORCH_LAVA_SILVER, true,
+                 "the Bow does not reach the torch side through the Dinolfos room and the lit torch (SoH eca767dcb)");
+
+    // ---- EC31..EC32: spiritLogicData, MQ Inner Right Hand reverse access -----
+    ResetClimbLogic();
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND);
+    ExpectFlag("EC31 spiritLogicData MQ Inner Right Hand reverse access, adult with nothing",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), false,
+               "an adult with nothing reaches the MQ inner right hand in reverse");
+    GiveClimb();
+    ExpectFlag("EC32 spiritLogicData MQ Inner Right Hand reverse access, adult with Climb",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), true,
+               "an adult with Climb does not reach the MQ inner right hand in reverse (SoH eca767dcb)");
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- EC33..EC34: Zora's Domain frozen waterfall Gold Skulltula -----------
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    ExpectAs(true, "EC33 ZD GS frozen waterfall, adult with magic only", RR_ZORAS_DOMAIN, RC_ZD_GS_FROZEN_WATERFALL,
+             false, "an adult with magic and no weapon kills the frozen waterfall Skulltula");
+    Give(RG_DINS_FIRE);
+    ExpectAs(true, "EC34 ZD GS frozen waterfall, adult with magic and Din's Fire", RR_ZORAS_DOMAIN,
+             RC_ZD_GS_FROZEN_WATERFALL, true,
+             "Din's Fire does not kill the frozen waterfall Skulltula (SoH eca767dcb's CanKillEnemy form)");
+
+    // ---- EC35..EC36: Fire MQ maze crate cage under RT_BOMB_DETONATION (73a739b7a)
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    Eb2bAdultExit("EC35 Fire MQ Lower Lizalfos Maze to Maze Crate Cage, adult with bombs, RT_BOMB_DETONATION off",
+                  RR_FIRE_TEMPLE_MQ_LOWER_LIZALFOS_MAZE, RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE, false,
+                  "bombs open the crate cage with the trick off");
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(1);
+    Eb2bAdultExit("EC36 Fire MQ Lower Lizalfos Maze to Maze Crate Cage, adult with bombs, RT_BOMB_DETONATION on",
+                  RR_FIRE_TEMPLE_MQ_LOWER_LIZALFOS_MAZE, RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE, true,
+                  "RT_BOMB_DETONATION and bombs do not open the crate cage (SoH 73a739b7a)");
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+
+    // ---- EC37..EC38: GTG MQ statue room ledge to the magenta fire room (73a739b7a)
+    ResetClimbLogic();
+    Eb2bAdultExit("EC37 GTG MQ Statue Room Ledge to Magenta Fire Room, adult with nothing",
+                  RR_GERUDO_TRAINING_GROUND_MQ_STATUE_ROOM_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_MAGENTA_FIRE_ROOM, false,
+                  "an adult with nothing hits the magenta fire switch");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    Eb2bAdultExit("EC38 GTG MQ Statue Room Ledge to Magenta Fire Room, adult with bombs",
+                  RR_GERUDO_TRAINING_GROUND_MQ_STATUE_ROOM_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_MAGENTA_FIRE_ROOM, true,
+                  "bombs do not hit the magenta fire switch from ED_BOMB_THROW (SoH 73a739b7a)");
+
+    // ---- EC39..EC40: Shadow spikes corner platform west target rupee --------
+    ResetClimbLogic();
+    ExpectAs(true, "EC39 Shadow spikes corner platform west target rupee, adult with nothing",
+             RR_SHADOW_TEMPLE_SPIKES_CORNER_PLATFORM, RC_SHADOW_W_TARGET_SPIKES_SILVER, false,
+             "an adult with nothing takes the west target rupee from the corner platform");
+    GiveHookshot(false);
+    ExpectAs(true, "EC40 Shadow spikes corner platform west target rupee, adult with the Hookshot",
+             RR_SHADOW_TEMPLE_SPIKES_CORNER_PLATFORM, RC_SHADOW_W_TARGET_SPIKES_SILVER, true,
+             "the Hookshot does not take the west target rupee from the corner platform (SoH eca767dcb)");
+
+    // ---- EC41..EC42: Shadow MQ pit stairs need Lens or its trick ------------
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_DINS_FIRE);
+    FireEvents(RR_SHADOW_TEMPLE_MQ_UPPER_HUGE_PIT, true);
+    ExpectEvent("EC41 Shadow MQ pit stairs, adult with Din's Fire, no Lens", LOGIC_SHADOW_MQ_PIT_STAIRS, false,
+                "a fire source alone lights the pit stairs without Lens (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(1);
+    FireEvents(RR_SHADOW_TEMPLE_MQ_UPPER_HUGE_PIT, true);
+    ExpectEvent("EC42 Shadow MQ pit stairs, adult with Din's Fire, RT_LENS_SHADOW_MQ", LOGIC_SHADOW_MQ_PIT_STAIRS, true,
+                "a fire source and the Lens trick do not light the pit stairs");
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(0);
+
+    if (savedGtgMq) {
+        randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->ClearMQ();
+    }
+    if (savedGanonMq) {
+        randoCtx->GetDungeon(Rando::GANONS_CASTLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::GANONS_CASTLE)->ClearMQ();
+    }
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Set(savedTricks[i]);
+    }
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(savedMedallionTrials);
+    randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Set(savedSkullsSuns);
 }
 
 void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
@@ -2658,13 +3032,13 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                RR_GV_GROTTO_LEDGE, RR_GV_UPPER_STREAM, true, false,
                "the hammer recoil hover to the upper stream is in logic with its trick off");
 
-    // ---- D1: CanAvoidEnemy's new distance argument leaves the body alone -------
+    // ---- D1: SoH eca767dcb's Beamos body (stage 5) reads the distance, not the count ----
     ResetLogic();
     Give(RG_PROGRESSIVE_BOW);
     BhlAs(true, RR_GF_JAIL_WINDOW);
     ExpectFlag("D1 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2), adult with only the Bow",
-               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 2), false,
-               "the Bow avoids two grounded Beamos: the body took stage 5's Beamos rewrite");
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 2), true,
+               "the Bow does not avoid two grounded Beamos: the body lacks stage 5's Beamos rewrite");
     ExpectFlag("D2 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 1), adult with only the Bow",
                logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 1), true,
                "the Bow no longer avoids one grounded Beamos");
@@ -4102,6 +4476,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunDmcRefactorLegs(randoCtx);
     // ---- VC: Voidout Collection (SoH e86e0ff69, #1647) -----------------------
     RunVoidoutCollectionLegs(randoCtx);
+    // ---- EC: eca767dcb overhaul batch 2b (#1647 stage 5) ----------------------
+    RunEcaOverhaulBatch2bLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
     // ---- FT: the Fire Trial split by door (139381a0e, 88099e6eb) -------------
