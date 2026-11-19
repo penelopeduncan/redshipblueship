@@ -4,6 +4,7 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <string>
 #include "randomizerTypes.h"
 #include "item.h"
 #include "location.h"
@@ -102,6 +103,24 @@ class StaticData {
     static std::vector<RandomizerGet> beanSouls;
     static std::vector<RandomizerGet> overworldKeys;
     static std::vector<RandomizerGet> silverRupees;
+
+    /**
+     * @brief RSBS (#1731): look a name read from a file (a spoiler log, a save, a Plandomizer log) up in one of the
+     * name tables above without adding it. operator[] on a name the table does not hold inserts the name with value
+     * 0 and answers 0, so an unknown name silently became entry 0 (RC_UNKNOWN_CHECK, RG_NONE, RH_NONE, ...) and
+     * stayed in the table for the rest of the session.
+     *
+     * @return true with *out set when the table holds the name; false with *out untouched when it does not
+     */
+    template <typename T>
+    static bool FindName(const std::unordered_map<std::string, T>& table, const std::string& name, T* out) {
+        const auto it = table.find(name);
+        if (it == table.end()) {
+            return false;
+        }
+        *out = it->second;
+        return true;
+    }
 
     StaticData();
     ~StaticData();

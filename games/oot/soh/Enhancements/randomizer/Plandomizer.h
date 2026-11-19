@@ -16,6 +16,8 @@ extern "C" {
 #include "soh/Enhancements/randomizer/item.h"
 
 #ifdef __cplusplus
+#include <string>
+#include "nlohmann/json.hpp" // RSBS (#1731): PlandomizerParseSpoilerJson
 class PlandomizerWindow final : public Ship::GuiWindow {
   public:
     using GuiWindow::GuiWindow;
@@ -38,6 +40,10 @@ typedef struct {
     std::string hintType;
     std::string hintText;
 } SpoilerHintObject;
+
+// RSBS (#1731): fill the Plandomizer's lists from a spoiler log's json. False, with the lists empty and *error naming
+// it, when the log names a location, item or ice-trap model this build does not know.
+bool PlandomizerParseSpoilerJson(const nlohmann::json& spoilerLogInput, std::string* error);
 
 typedef enum PlandoTabs {
     TAB_HINTS,

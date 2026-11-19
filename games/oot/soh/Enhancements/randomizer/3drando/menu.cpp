@@ -197,9 +197,10 @@ static int OoT_ComboLogic_TestSetNativeGeneralPass(int) {
 //   (2) name<->enum round trip — RC -> Location::GetName() -> locationNameToEnum
 //       must return the SAME RC. This is exactly the lossy transform the save
 //       file round-trips hints through (SaveManager writes hinted locations as
-//       names and Hint(json) reads them back through locationNameToEnum with
-//       operator[], which silently yields 0 on a miss), so a collision or a
-//       missing entry shows up here instead of as "No Item" in someone's game;
+//       names and Hint(json) reads them back through locationNameToEnum; since
+//       #1731 a miss loads the hint disabled, where operator[] silently yielded
+//       0), so a collision or a missing entry shows up here instead of as a
+//       missing or wrong hint in someone's game;
 //   (3) rendered text — no hint's final message may contain the sentinel, which
 //       catches any resolution path the first two passes don't model.
 #ifdef RSBS_SINGLE_EXECUTABLE

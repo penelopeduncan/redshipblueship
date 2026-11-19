@@ -562,7 +562,8 @@ void PlandomizerSaveSpoilerLog() {
     }
 }
 
-void PlandomizerLoadSpoilerLog(std::string logFile) {
+// RSBS (#1731): empty every list a loaded spoiler log fills (Save stays disabled while spoilerLogData is empty).
+static void PlandomizerClearLoadedSpoiler() {
     spoilerHash.clear();
     plandoHash.clear();
     spoilerLogData.clear();
@@ -570,6 +571,113 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
     spoilerHintData.clear();
     plandoHintData.clear();
     drawnItemsList.clear();
+}
+
+// RSBS (#1731): the item a Plandomizer log names, looked up without adding it to itemNameToEnum.
+static bool PlandomizerFindItemName(const nlohmann::json& name, RandomizerGet* out) {
+    return name.is_string() &&
+           Rando::StaticData::FindName(Rando::StaticData::itemNameToEnum, name.get<std::string>(), out);
+}
+
+// RSBS (#1731): fill the Plandomizer's lists from a spoiler log. Every location, item and ice-trap model name is
+// looked up without adding it to its table. The lookups used operator[], which turned a name this build does not
+// know into check 0 or RG_NONE (and kept it in the table); Save then wrote RG_NONE's name back into the file. On such
+// a name the lists are left empty, *error names it and the answer is false; PlandomizerLoadSpoilerLog shows its
+// existing "Invalid Spoiler Log Format" toast. A hint's text is read from "message" or, when the hint has several,
+// from the first of its "messages" (assigning a missing "message" threw json::type_error out of the window).
+bool PlandomizerParseSpoilerJson(const nlohmann::json& spoilerLogInput, std::string* error) {
+    PlandomizerClearLoadedSpoiler();
+
+    if (spoilerLogInput.contains("file_hash")) {
+        for (const auto& load : spoilerLogInput.at("file_hash")) {
+            spoilerHash.push_back(load.get<int32_t>());
+            plandoHash.push_back(load.get<int32_t>());
+        }
+    }
+
+    if (spoilerLogInput.contains("Gossip Stone Hints")) {
+        const auto& hints = spoilerLogInput.at("Gossip Stone Hints");
+        for (auto it = hints.begin(); it != hints.end(); ++it) {
+            const nlohmann::json& value = it.value();
+            SpoilerHintObject hintObject;
+            hintObject.hintName = it.key();
+            hintObject.hintType = "Hardcoded Message";
+            if (value.contains("message") && value.at("message").is_string()) {
+                hintObject.hintText = value.at("message").get<std::string>();
+            } else if (value.contains("messages") && value.at("messages").is_array() && !value.at("messages").empty() &&
+                       value.at("messages").at(0).is_string()) {
+                hintObject.hintText = value.at("messages").at(0).get<std::string>();
+            } else {
+                hintObject.hintText = "";
+            }
+
+            spoilerHintData.push_back(hintObject);
+            plandoHintData.push_back(hintObject);
+        }
+    }
+
+    if (spoilerLogInput.contains("locations")) {
+        const auto& locations = spoilerLogInput.at("locations");
+        for (auto it = locations.begin(); it != locations.end(); ++it) {
+            const std::string& key = it.key();
+            const nlohmann::json& value = it.value();
+            if (key == "Ganon" || key == "Completed Triforce") {
+                continue;
+            }
+            RandomizerCheck rc = RC_UNKNOWN_CHECK;
+            if (!Rando::StaticData::FindName(Rando::StaticData::locationNameToEnum, key, &rc)) {
+                *error = "location " + key;
+                PlandomizerClearLoadedSpoiler();
+                return false;
+            }
+            SpoilerCheckObject checkObject;
+            checkObject.checkName = key;
+            RandomizerGet rg = RG_NONE;
+            if (value.is_object()) {
+                if (!value.contains("item") || !PlandomizerFindItemName(value.at("item"), &rg)) {
+                    *error = "item for location " + key;
+                    PlandomizerClearLoadedSpoiler();
+                    return false;
+                }
+                checkObject.checkRewardItem = plandomizerRandoRetrieveItem(rg);
+                if (value.contains("price") && value.at("price").is_number()) {
+                    checkObject.shopPrice = value.at("price").get<int32_t>();
+                } else {
+                    checkObject.shopPrice = -1;
+                }
+                if (checkObject.checkRewardItem.GetRandomizerGet() == RG_ICE_TRAP) {
+                    RandomizerGet model = RG_NONE;
+                    if (!value.contains("model") || !PlandomizerFindItemName(value.at("model"), &model)) {
+                        *error = "ice trap model for location " + key;
+                        PlandomizerClearLoadedSpoiler();
+                        return false;
+                    }
+                    checkObject.iceTrapModel = plandomizerRandoRetrieveItem(model);
+                    checkObject.iceTrapName = value.at("trickName").get<std::string>();
+                }
+            } else {
+                if (!PlandomizerFindItemName(value, &rg)) {
+                    *error = "item for location " + key;
+                    PlandomizerClearLoadedSpoiler();
+                    return false;
+                }
+                checkObject.checkRewardItem = plandomizerRandoRetrieveItem(rg);
+                checkObject.shopPrice = -1;
+                if (checkObject.shopPrice == -1 &&
+                    checkObject.checkRewardItem.GetName().english.find("Buy") != std::string::npos) {
+                    checkObject.shopPrice = checkObject.checkRewardItem.GetPrice();
+                }
+            }
+            spoilerLogData.push_back(checkObject);
+            plandoLogData.push_back(checkObject);
+            PlandomizerAddToItemList(plandomizerRandoRetrieveItem(RG_SOLD_OUT));
+        }
+    }
+    return true;
+}
+
+void PlandomizerLoadSpoilerLog(std::string logFile) {
+    PlandomizerClearLoadedSpoiler();
 
     nlohmann::json spoilerLogInput;
     auto spoilerPath = Ship::Context::GetPathRelativeToAppDirectory("Randomizer");
@@ -586,64 +694,15 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
             file >> spoilerLogInput;
             file.close();
 
-            if (spoilerLogInput.contains("file_hash")) {
-                auto hash = spoilerLogInput["file_hash"];
-                for (auto& load : hash) {
-                    spoilerHash.push_back(load);
-                    plandoHash.push_back(load);
-                }
+            std::string unknownName;
+            if (!PlandomizerParseSpoilerJson(spoilerLogInput, &unknownName)) {
+                SPDLOG_ERROR("Plandomizer: spoiler log {} names an unknown {}", spoilerStr, unknownName);
+                Notification::Emit({ .message = "Invalid Spoiler Log Format", .remainingTime = 10.0f });
             }
-
-            if (spoilerLogInput.contains("Gossip Stone Hints")) {
-                auto hints = spoilerLogInput["Gossip Stone Hints"];
-                for (auto& [key, value] : hints.items()) {
-                    SpoilerHintObject hintObject;
-                    hintObject.hintName = key.c_str();
-                    hintObject.hintType = "Hardcoded Message";
-                    hintObject.hintText = value["message"];
-
-                    spoilerHintData.push_back(hintObject);
-                    plandoHintData.push_back(hintObject);
-                }
-            }
-
-            if (spoilerLogInput.contains("locations")) {
-                auto locations = spoilerLogInput["locations"];
-                for (auto& [key, value] : locations.items()) {
-                    if (key == "Ganon" || key == "Completed Triforce") {
-                        continue;
-                    }
-                    SpoilerCheckObject checkObject;
-                    checkObject.checkName = key;
-                    auto type = value;
-                    if (value.is_object()) {
-                        checkObject.checkRewardItem =
-                            plandomizerRandoRetrieveItem(Rando::StaticData::itemNameToEnum[value["item"]]);
-                        if (value["price"].is_number()) {
-                            checkObject.shopPrice = value["price"];
-                        } else {
-                            checkObject.shopPrice = -1;
-                        }
-                        if (checkObject.checkRewardItem.GetRandomizerGet() == RG_ICE_TRAP) {
-                            checkObject.iceTrapModel =
-                                plandomizerRandoRetrieveItem(Rando::StaticData::itemNameToEnum[value["model"]]);
-                            checkObject.iceTrapName = value["trickName"];
-                        }
-                    } else {
-                        checkObject.checkRewardItem =
-                            plandomizerRandoRetrieveItem(Rando::StaticData::itemNameToEnum[value.get<std::string>()]);
-                        checkObject.shopPrice = -1;
-                        if (checkObject.shopPrice == -1 &&
-                            checkObject.checkRewardItem.GetName().english.find("Buy") != std::string::npos) {
-                            checkObject.shopPrice = checkObject.checkRewardItem.GetPrice();
-                        }
-                    }
-                    spoilerLogData.push_back(checkObject);
-                    plandoLogData.push_back(checkObject);
-                    PlandomizerAddToItemList(plandomizerRandoRetrieveItem(RG_SOLD_OUT));
-                }
-            }
-        } catch (nlohmann::json::parse_error&) {
+        } catch (nlohmann::json::exception&) {
+            // RSBS (#1731): every json error (a type_error from a missing "trickName" or a non-numeric hash, not
+            // only a parse_error) leaves no half-filled lists.
+            PlandomizerClearLoadedSpoiler();
             Notification::Emit({ .message = "Invalid Spoiler Log Format", .remainingTime = 10.0f });
         }
     }
@@ -1122,7 +1181,13 @@ void PlandomizerDrawLocationsWindow(RandomizerCheckArea rcArea) {
         ImGui::TableHeadersRow();
 
         for (auto& spoilerData : spoilerLogData) {
-            auto checkID = Rando::StaticData::locationNameToEnum[spoilerData.checkName];
+            // RSBS (#1731): looked up without adding the name. PlandomizerParseSpoilerJson already refused a log
+            // with an unknown location, so the miss is not reached; index stays parallel to plandoLogData.
+            RandomizerCheck checkID = RC_UNKNOWN_CHECK;
+            if (!Rando::StaticData::FindName(Rando::StaticData::locationNameToEnum, spoilerData.checkName, &checkID)) {
+                index++;
+                continue;
+            }
             auto randoArea = Rando::StaticData::GetLocation(checkID)->GetArea();
             if (rcArea == RCAREA_INVALID || rcArea == randoArea) {
                 ImGui::TableNextColumn();
