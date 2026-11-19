@@ -686,10 +686,14 @@ extern "C" int OoT_SaveStateRoundtrip_RunHeadless(void) {
     state.Load();
     CHECK(entries[0].id == -12 && entries[1].id == 45 && entries[2].id == 333, "transitionActorIds clamp");
 
-    // Null guards: non-zero numActors with null list, and null OoT_gPlayState.
+    // Null guards: non-zero numActors with null list, and null OoT_gPlayState. The slot first
+    // holds a real three-entry save (count 3, ids -12 / 45 / 333), so the null-list save below
+    // must reset the saved count rather than inherit it from the fresh, zeroed SaveStateInfo.
+    play->transiActorCtx.numActors = 3;
+    TestSaveState nullListState;
+    nullListState.Save();
     play->transiActorCtx.numActors = 5;
     play->transiActorCtx.list = nullptr;
-    TestSaveState nullListState;
     nullListState.Save();
     nullListState.Load();
     OoT_gPlayState = nullptr;
@@ -702,7 +706,8 @@ extern "C" int OoT_SaveStateRoundtrip_RunHeadless(void) {
     entries[1].id = 20;
     entries[2].id = 30;
     nullListState.Load();
-    CHECK(entries[0].id == 10 && entries[1].id == 20 && entries[2].id == 30, "null list saved count 0");
+    CHECK(entries[0].id == 10 && entries[1].id == 20 && entries[2].id == 30,
+          "null list save resets the saved count to 0");
 
     std::printf("[TEST] PASS: oot-savestate-roundtrip\n");
     return 0;
