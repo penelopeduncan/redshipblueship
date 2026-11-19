@@ -1778,6 +1778,13 @@ if(BUILD_TESTING)
     # Ignores Magic runs last. Driven over a calloc'd play state and player. Pure (no
     # display, no ROM); games/mm/2s2h/mm_runtime_parity_test.cpp.
     redship_add_test(NAME MMRuntimeParity COMMAND redship --test mm-runtime-parity)
+    # #1755: Majora's Mask cutscene skips ported from 2Ship2Harkinian.
+    # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, bean
+    # patch subtype exclusion), SkipSakonsHideoutCutscenes (Ikana 14/34,
+    # Sakon's Hideout 21), and SkipCouplesMaskCutscene (VB_PLAY_COUPLES_MASK_CS
+    # phase advance and play-state guard). Pure (no display, no ROM);
+    # games/mm/2s2h/mm_cutscene_skips_test.cpp.
+    redship_add_test(NAME MMCutsceneSkips COMMAND redship --test mm-cutscene-skips)
     # The MM rando minigame reward hooks (Rando/ActorBehavior/, armed through
     # ActorBehavior::OnFileLoad and driven by VB dispatch against a calloc'd
     # play state). MMGalleryRupeeStandIn (#1216): while a shooting gallery's
