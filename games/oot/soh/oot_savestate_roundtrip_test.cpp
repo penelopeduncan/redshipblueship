@@ -222,6 +222,13 @@ extern s32 D_80130F68;
 extern u16 D_80130F4C;
 extern u32 D_8016BA04;
 extern OcarinaStick sCurOcaStick;
+
+// Saved before this packet, restored only since the QC pass (LoadMiscCodeData used to copy
+// each of these onto itself).
+extern u16 sLearnSongPos[0x10];
+extern u16 D_8016BA50[0x10];
+extern u16 D_8016BA70[0x10];
+extern u8 sLearnSongExpectedNote[0x10];
 }
 
 namespace {
@@ -458,6 +465,12 @@ void SeedAudioOcarina(bool sentinel) {
     D_80130F4C = sentinel ? 0xC001 : 0x0002;
     D_8016BA04 = sentinel ? 0xFEDCBA98u : 3u;
     sCurOcaStick = { static_cast<s8>(sentinel ? 50 : -5), static_cast<s8>(sentinel ? -60 : 6) };
+    for (int i = 0; i < 0x10; i++) {
+        sLearnSongPos[i] = static_cast<u16>((sentinel ? 0x100 : 0x10) + i);
+        D_8016BA50[i] = static_cast<u16>((sentinel ? 0x200 : 0x20) + i);
+        D_8016BA70[i] = static_cast<u16>((sentinel ? 0x300 : 0x30) + i);
+        sLearnSongExpectedNote[i] = static_cast<u8>((sentinel ? 0x40 : 0x04) + i);
+    }
 }
 
 #define CHECK(cond, msg)                                                                  \
@@ -605,6 +618,12 @@ int VerifyAudioOcarina() {
               D_80130F68 == 987654 && D_80130F4C == 0xC001 && D_8016BA04 == 0xFEDCBA98u && sCurOcaStick.x == 50 &&
               sCurOcaStick.y == -60,
           "audio note playback / stick");
+    for (int i = 0; i < 0x10; i++) {
+        CHECK(sLearnSongPos[i] == static_cast<u16>(0x100 + i), "audio sLearnSongPos restored");
+        CHECK(D_8016BA50[i] == static_cast<u16>(0x200 + i), "audio D_8016BA50 restored");
+        CHECK(D_8016BA70[i] == static_cast<u16>(0x300 + i), "audio D_8016BA70 restored");
+        CHECK(sLearnSongExpectedNote[i] == static_cast<u8>(0x40 + i), "audio sLearnSongExpectedNote restored");
+    }
     return 0;
 }
 

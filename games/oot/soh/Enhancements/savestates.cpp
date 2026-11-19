@@ -1178,10 +1178,10 @@ void SaveState::LoadMiscCodeData(void) {
     sOcarinaSongCnt = info->sOcarinaSongCnt_copy;
     sOcarinaAvailSongs = info->sOcarinaAvailSongs_copy;
     sStaffPlayingPos = info->sStaffPlayingPos_copy;
-    memcpy(info->sLearnSongPos_copy, info->sLearnSongPos_copy, sizeof(sLearnSongPos));
-    memcpy(info->D_8016BA50_copy, info->D_8016BA50_copy, sizeof(D_8016BA50));
-    memcpy(info->D_8016BA70_copy, info->D_8016BA70_copy, sizeof(D_8016BA70));
-    memcpy(info->sLearnSongExpectedNote_copy, info->sLearnSongExpectedNote_copy, sizeof(sLearnSongExpectedNote));
+    memcpy(sLearnSongPos, info->sLearnSongPos_copy, sizeof(sLearnSongPos));
+    memcpy(D_8016BA50, info->D_8016BA50_copy, sizeof(D_8016BA50));
+    memcpy(D_8016BA70, info->D_8016BA70_copy, sizeof(D_8016BA70));
+    memcpy(sLearnSongExpectedNote, info->sLearnSongExpectedNote_copy, sizeof(sLearnSongExpectedNote));
     memcpy(&D_8016BAA0, &info->D_8016BAA0_copy, sizeof(D_8016BAA0));
     sAudioHasMalonBgm = info->sAudioHasMalonBgm_copy;
     sAudioMalonBgmDist = info->sAudioMalonBgmDist_copy;
