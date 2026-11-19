@@ -2121,6 +2121,14 @@ if(BUILD_TESTING)
     # hidden elements. Display-free and ROM-free.
     redship_add_test(NAME OoTTitleCardCvars COMMAND redship --test oot-title-card-cvars)
 
+    # SoH 11fd0e0e7 (#1750): editing Bow Body multiplied the picked colour by
+    # four, and the derived colours read a cached copy the colour picker never
+    # refreshed. The row sets Bow Body's .Value as the picker does and runs
+    # the editor's side effects (OoT_CosmeticsEditor_ApplySideEffectsById):
+    # Bow Body stays as picked; Bow Tips is half of it and Bow Handle equals it;
+    # a x2 copy saturates at 255. Display-free and ROM-free.
+    redship_add_test(NAME OoTBowBodyCosmetic COMMAND redship --test oot-bow-body-cosmetic)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

@@ -1918,6 +1918,19 @@ static TestResult Test_OoTTitleCardCvars(void) {
     return OoT_TitleCardCvars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 11fd0e0e7 (#1750): the Bow Body colour and its derived colours. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and restores cosmetic colour CVars.
+extern "C" int OoT_BowBodyCosmetic_RunHeadless(void);
+static TestResult Test_OoTBowBodyCosmetic(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_BowBodyCosmetic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11585,6 +11598,11 @@ const TestDescriptor gTests[] = {
       "The title cards follow the Cosmetics Editor's HUD.TitleCard position settings, and All margins on skips "
       "hidden elements and the unanchored title cards at their original place (SoH 8b3d91506)",
       Test_OoTTitleCardCvars },
+    // SoH 11fd0e0e7: display-free and ROM-free; puts back every cosmetic CVar it writes (cleared if absent).
+    { "oot-bow-body-cosmetic",
+      "Editing Bow Body keeps the picked colour and derives Bow Tips and Bow Handle from it, not from a cached "
+      "default (SoH 11fd0e0e7)",
+      Test_OoTBowBodyCosmetic },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

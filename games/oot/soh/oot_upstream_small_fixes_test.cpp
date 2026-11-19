@@ -11,6 +11,7 @@
 // At file scope, not inside an extern "C" block: z64.h includes <memory> under C++.
 #include <z64.h>
 
+#include <libultraship/bridge.h>
 #include "context.h"
 #include "soh/ShipInit.hpp"
 #include "soh/cvar_prefixes.h"
@@ -381,6 +382,106 @@ extern "C" int OoT_TitleCardCvars_RunHeadless(void) {
     }
     if (rc == 0) {
         printf("[TEST] oot-title-card-cvars: PASS\n");
+    }
+    return rc;
+}
+
+// ---- OoTBowBodyCosmetic (SoH 11fd0e0e7, #1750) ----
+
+void OoT_CosmeticsEditor_ApplySideEffectsById(const char* id); // CosmeticsEditor.cpp
+
+namespace {
+
+// One CVar's state, to put back exactly: cleared when it did not exist, never stored.
+struct UsfSavedCvar {
+    std::string key;
+    bool existed;
+    bool isColor;
+    Color_RGBA8 color;
+    int value;
+};
+
+UsfSavedCvar UsfSaveCvar(const std::string& key, bool isColor) {
+    UsfSavedCvar saved = {};
+    saved.key = key;
+    saved.existed = CVarGet(key.c_str()) != nullptr;
+    saved.isColor = isColor;
+    if (saved.existed) {
+        if (isColor) {
+            saved.color = CVarGetColor(key.c_str(), Color_RGBA8{ 0, 0, 0, 0 });
+        } else {
+            saved.value = CVarGetInteger(key.c_str(), 0);
+        }
+    }
+    return saved;
+}
+
+void UsfRestoreCvar(const UsfSavedCvar& saved) {
+    if (!saved.existed) {
+        CVarClear(saved.key.c_str());
+    } else if (saved.isColor) {
+        CVarSetColor(saved.key.c_str(), saved.color);
+    } else {
+        CVarSetInteger(saved.key.c_str(), saved.value);
+    }
+}
+
+bool UsfColorIs(const char* key, u8 r, u8 g, u8 b) {
+    const Color_RGBA8 c = CVarGetColor(key, Color_RGBA8{ 0, 0, 0, 0 });
+    return c.r == r && c.g == g && c.b == b;
+}
+
+void UsfPrintColor(const char* label, const char* key) {
+    const Color_RGBA8 c = CVarGetColor(key, Color_RGBA8{ 0, 0, 0, 0 });
+    printf("[TEST] %s = (%d, %d, %d)\n", label, c.r, c.g, c.b);
+}
+
+int UsfBowBodyLegs(void) {
+    const char* const bodyValue = CVAR_COSMETIC("Equipment.BowBody.Value");
+    const char* const tipsValue = CVAR_COSMETIC("Equipment.BowTips.Value");
+    const char* const handleValue = CVAR_COSMETIC("Equipment.BowHandle.Value");
+    CVarClear(CVAR_COSMETIC("AdvancedMode"));
+    // The colour picker writes only the option's .Value (UIWidgets' colour edit), so do the same.
+    CVarSetColor(bodyValue, Color_RGBA8{ 40, 80, 120, 255 });
+    OoT_CosmeticsEditor_ApplySideEffectsById("Equipment.BowBody");
+    UsfPrintColor("(a) Bow Body", bodyValue);
+    UsfPrintColor("(b) Bow Tips", tipsValue);
+    UsfPrintColor("(b) Bow Handle", handleValue);
+    // (a) the picked colour stays as picked (the removed line multiplied it by four, saturating it).
+    USF_ASSERT(UsfColorIs(bodyValue, 40, 80, 120), "(a): the Bow Body colour is not the colour the player picked");
+    // (b) the derived parts follow the picked colour, not a cached copy of the default (140, 90, 10).
+    USF_ASSERT(UsfColorIs(tipsValue, 20, 40, 60), "(b): Bow Tips is not half the picked Bow Body colour");
+    USF_ASSERT(UsfColorIs(handleValue, 40, 80, 120), "(b): Bow Handle is not the picked Bow Body colour");
+    // (c) a copy over 255 saturates, and also reads the picked colour (Level 1 Secondary copies at x2).
+    CVarSetColor(CVAR_COSMETIC("SpinAttack.Level1Secondary.Value"), Color_RGBA8{ 200, 100, 10, 255 });
+    OoT_CosmeticsEditor_ApplySideEffectsById("SpinAttack.Level1Secondary");
+    USF_ASSERT(UsfColorIs(CVAR_COSMETIC("SpinAttack.Level1Primary.Value"), 255, 200, 20),
+               "(c): a doubled colour did not saturate at 255, or read a cached colour");
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_BowBodyCosmetic_RunHeadless(void) {
+    const char* const options[] = { "Equipment.BowBody", "Equipment.BowTips", "Equipment.BowHandle",
+                                    "SpinAttack.Level1Secondary", "SpinAttack.Level1Primary" };
+    const std::string prefix = CVAR_COSMETIC("");
+    UsfSavedCvar saved[5 * 3 + 1];
+    int count = 0;
+    for (const char* option : options) {
+        saved[count++] = UsfSaveCvar(prefix + option + ".Value", true);
+        saved[count++] = UsfSaveCvar(prefix + option + ".Changed", false);
+        saved[count++] = UsfSaveCvar(prefix + option + ".Rainbow", false);
+    }
+    saved[count++] = UsfSaveCvar(CVAR_COSMETIC("AdvancedMode"), false);
+
+    const int rc = UsfBowBodyLegs();
+
+    for (int i = 0; i < count; i++) {
+        UsfRestoreCvar(saved[i]);
+    }
+    if (rc == 0) {
+        printf("[TEST] oot-bow-body-cosmetic: PASS\n");
     }
     return rc;
 }

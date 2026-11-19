@@ -4,6 +4,7 @@
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 
 #include <string>
+#include <algorithm>
 #include <libultraship/bridge.h>
 #include <math.h>
 #include <libultraship/libultraship.h>
@@ -123,7 +124,6 @@ typedef struct {
     const char* changedCvar;
     std::string label;
     CosmeticGroup group;
-    ImVec4 currentColor;
     Color_RGBA8 defaultColor;
     bool supportsAlpha;
     bool supportsRainbow;
@@ -140,8 +140,6 @@ Color_RGBA8 ColorRGBA8(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
         id, {                                                                                                         \
             CVAR_COSMETIC(id), CVAR_COSMETIC(id ".Value"), CVAR_COSMETIC(id ".Rainbow"), CVAR_COSMETIC(id ".Locked"), \
                 CVAR_COSMETIC(id ".Changed"), label, group,                                                           \
-                ImVec4(defaultColor.r / 255.0f, defaultColor.g / 255.0f, defaultColor.b / 255.0f,                     \
-                       defaultColor.a / 255.0f),                                                                      \
                 defaultColor, supportsAlpha, supportsRainbow, advancedOption                                          \
         }                                                                                                             \
     }
@@ -595,13 +593,8 @@ void CosmeticsUpdateTick() {
             newColor.a = 255;
             // For alpha supported options, retain the last set alpha instead of overwriting
             if (cosmeticOption.supportsAlpha) {
-                newColor.a = static_cast<uint8_t>(cosmeticOption.currentColor.w * 255.0f);
+                newColor.a = CVarGetColor(cosmeticOption.valuesCvar, cosmeticOption.defaultColor).a;
             }
-
-            cosmeticOption.currentColor.x = newColor.r / 255.0f;
-            cosmeticOption.currentColor.y = newColor.g / 255.0f;
-            cosmeticOption.currentColor.z = newColor.b / 255.0f;
-            cosmeticOption.currentColor.w = newColor.a / 255.0f;
 
             CVarSetColor(cosmeticOption.valuesCvar, newColor);
         }
@@ -2099,16 +2092,12 @@ void DrawSillyTab() {
 // allows you create and use multiple shades of the same color.
 void CopyMultipliedColor(CosmeticOption& cosmeticOptionSrc, CosmeticOption& cosmeticOptionTarget,
                          float amount = 0.75f) {
+    Color_RGBA8 srcColor = CVarGetColor(cosmeticOptionSrc.valuesCvar, cosmeticOptionSrc.defaultColor);
     Color_RGBA8 newColor;
-    newColor.r = static_cast<uint8_t>(MIN((cosmeticOptionSrc.currentColor.x * 255.0f) * amount, 255));
-    newColor.g = static_cast<uint8_t>(MIN((cosmeticOptionSrc.currentColor.y * 255.0f) * amount, 255));
-    newColor.b = static_cast<uint8_t>(MIN((cosmeticOptionSrc.currentColor.z * 255.0f) * amount, 255));
+    newColor.r = static_cast<uint8_t>((std::min)(srcColor.r * amount, 255.0f));
+    newColor.g = static_cast<uint8_t>((std::min)(srcColor.g * amount, 255.0f));
+    newColor.b = static_cast<uint8_t>((std::min)(srcColor.b * amount, 255.0f));
     newColor.a = 255;
-
-    cosmeticOptionTarget.currentColor.x = newColor.r / 255.0f;
-    cosmeticOptionTarget.currentColor.y = newColor.g / 255.0f;
-    cosmeticOptionTarget.currentColor.z = newColor.b / 255.0f;
-    cosmeticOptionTarget.currentColor.w = newColor.a / 255.0f;
 
     CVarSetColor(cosmeticOptionTarget.valuesCvar, newColor);
     CVarSetInteger((cosmeticOptionTarget.rainbowCvar), 0);
@@ -2135,7 +2124,6 @@ void ApplySideEffects(CosmeticOption& cosmeticOption) {
     if (cosmeticOption.label == "Bow Body") {
         CopyMultipliedColor(cosmeticOption, cosmeticOptions.at("Equipment.BowTips"), 0.5f);
         CopyMultipliedColor(cosmeticOption, cosmeticOptions.at("Equipment.BowHandle"), 1.0f);
-        CopyMultipliedColor(cosmeticOption, cosmeticOption, 4.0f);
     } else if (cosmeticOption.label == "Idle Primary") {
         CopyMultipliedColor(cosmeticOption, cosmeticOptions.at("Navi.IdleSecondary"), 0.5f);
     } else if (cosmeticOption.label == "Enemy Primary") {
@@ -2151,6 +2139,12 @@ void ApplySideEffects(CosmeticOption& cosmeticOption) {
     } else if (cosmeticOption.label == "Level 2 Secondary") {
         CopyMultipliedColor(cosmeticOption, cosmeticOptions.at("SpinAttack.Level2Primary"), 2.0f);
     }
+}
+
+// Runs the side effects of the option keyed @p id, as an edit of that option in the editor does. Not static: the
+// OoTBowBodyCosmetic row (SoH 11fd0e0e7) drives it without ImGui.
+void OoT_CosmeticsEditor_ApplySideEffectsById(const char* id) {
+    ApplySideEffects(cosmeticOptions.at(id));
 }
 
 static uint64_t seeded_cosmetics_state = 0;
@@ -2178,13 +2172,8 @@ void RandomizeColor(CosmeticOption& cosmeticOption, bool manual = true) {
     newColor.a = 255;
     // For alpha supported options, retain the last set alpha instead of overwriting
     if (cosmeticOption.supportsAlpha) {
-        newColor.a = static_cast<uint8_t>(cosmeticOption.currentColor.w * 255.0f);
+        newColor.a = CVarGetColor(cosmeticOption.valuesCvar, cosmeticOption.defaultColor).a;
     }
-
-    cosmeticOption.currentColor.x = newColor.r / 255.0f;
-    cosmeticOption.currentColor.y = newColor.g / 255.0f;
-    cosmeticOption.currentColor.z = newColor.b / 255.0f;
-    cosmeticOption.currentColor.w = newColor.a / 255.0f;
 
     CVarSetColor(cosmeticOption.valuesCvar, newColor);
     CVarSetInteger(cosmeticOption.rainbowCvar, 0);
@@ -2193,13 +2182,6 @@ void RandomizeColor(CosmeticOption& cosmeticOption, bool manual = true) {
 }
 
 void ResetColor(CosmeticOption& cosmeticOption) {
-    Color_RGBA8 defaultColor = { cosmeticOption.defaultColor.r, cosmeticOption.defaultColor.g,
-                                 cosmeticOption.defaultColor.b, cosmeticOption.defaultColor.a };
-    cosmeticOption.currentColor.x = defaultColor.r / 255.0f;
-    cosmeticOption.currentColor.y = defaultColor.g / 255.0f;
-    cosmeticOption.currentColor.z = defaultColor.b / 255.0f;
-    cosmeticOption.currentColor.w = defaultColor.a / 255.0f;
-
     CVarClear(cosmeticOption.changedCvar);
     CVarClear(cosmeticOption.rainbowCvar);
     CVarClear(cosmeticOption.lockedCvar);
@@ -2346,87 +2328,71 @@ void CosmeticsEditorWindow::ApplyDungeonKeyColors() {
     // Forest Temple
     CVarSetColor(cosmeticOptions["Key.ForestSmallBody"].valuesCvar, { 4, 195, 46, 255 });
     CVarSetInteger(cosmeticOptions["Key.ForestSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.ForestSmallBody"].currentColor = { 4 / 255.0f, 195 / 255.0f, 46 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.ForestSmallEmblem"));
 
     ResetColor(cosmeticOptions.at("Key.ForestBossBody"));
     CVarSetColor(cosmeticOptions["Key.ForestBossGem"].valuesCvar, { 0, 255, 0, 255 });
     CVarSetInteger(cosmeticOptions["Key.ForestBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.ForestBossGem"].currentColor = { 0, 255 / 255.0f, 0, 255 / 255.0f };
 
     // Fire Temple
     CVarSetColor(cosmeticOptions["Key.FireSmallBody"].valuesCvar, { 237, 95, 95, 255 });
     CVarSetInteger(cosmeticOptions["Key.FireSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.FireSmallBody"].currentColor = { 237 / 255.0f, 95 / 255.0f, 95 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.FireSmallEmblem"));
 
     ResetColor(cosmeticOptions.at("Key.FireBossBody"));
     CVarSetColor(cosmeticOptions["Key.FireBossGem"].valuesCvar, { 255, 30, 0, 255 });
     CVarSetInteger(cosmeticOptions["Key.FireBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.FireBossGem"].currentColor = { 255 / 255.0f, 30 / 255.0f, 0, 255 / 255.0f };
 
     // Water Temple
     CVarSetColor(cosmeticOptions["Key.WaterSmallBody"].valuesCvar, { 85, 180, 223, 255 });
     CVarSetInteger(cosmeticOptions["Key.WaterSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.WaterSmallBody"].currentColor = { 85 / 255.0f, 180 / 255.0f, 223 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.WaterSmallEmblem"));
 
     ResetColor(cosmeticOptions.at("Key.WaterBossBody"));
     CVarSetColor(cosmeticOptions["Key.WaterBossGem"].valuesCvar, { 0, 137, 255, 255 });
     CVarSetInteger(cosmeticOptions["Key.WaterBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.WaterBossGem"].currentColor = { 0, 137 / 255.0f, 255 / 255.0f, 255 / 255.0f };
 
     // Spirit Temple
     CVarSetColor(cosmeticOptions["Key.SpiritSmallBody"].valuesCvar, { 222, 158, 47, 255 });
     CVarSetInteger(cosmeticOptions["Key.SpiritSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.SpiritSmallBody"].currentColor = { 222 / 255.0f, 158 / 255.0f, 47 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.SpiritSmallEmblem"));
 
     ResetColor(cosmeticOptions.at("Key.SpiritBossBody"));
     CVarSetColor(cosmeticOptions["Key.SpiritBossGem"].valuesCvar, { 255, 85, 0, 255 });
     CVarSetInteger(cosmeticOptions["Key.SpiritBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.SpiritBossGem"].currentColor = { 255 / 255.0f, 85 / 255.0f, 0, 255 / 255.0f };
 
     // Shadow Temple
     CVarSetColor(cosmeticOptions["Key.ShadowSmallBody"].valuesCvar, { 126, 16, 177, 255 });
     CVarSetInteger(cosmeticOptions["Key.ShadowSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.ShadowSmallBody"].currentColor = { 126 / 255.0f, 16 / 255.0f, 177 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.ShadowSmallEmblem"));
 
     ResetColor(cosmeticOptions.at("Key.ShadowBossBody"));
     CVarSetColor(cosmeticOptions["Key.ShadowBossGem"].valuesCvar, { 153, 0, 255, 255 });
     CVarSetInteger(cosmeticOptions["Key.ShadowBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.ShadowBossGem"].currentColor = { 153 / 255.0f, 0, 255 / 255.0f, 255 / 255.0f };
 
     // Ganon's Tower
     CVarSetColor(cosmeticOptions["Key.GanonsSmallBody"].valuesCvar, { 80, 80, 80, 255 });
     CVarSetInteger(cosmeticOptions["Key.GanonsSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.GanonsSmallBody"].currentColor = { 80 / 255.0f, 80 / 255.0f, 80 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.GanonsSmallEmblem"));
 
     CVarSetColor(cosmeticOptions["Key.GanonsBossBody"].valuesCvar, { 80, 80, 80, 255 });
     CVarSetInteger(cosmeticOptions["Key.GanonsBossBody"].changedCvar, 1);
-    cosmeticOptions["Key.GanonsBossBody"].currentColor = { 80 / 255.0f, 80 / 255.0f, 80 / 255.0f, 255 / 255.0f };
     CVarSetColor(cosmeticOptions["Key.GanonsBossGem"].valuesCvar, { 255, 0, 0, 255 });
     CVarSetInteger(cosmeticOptions["Key.GanonsBossGem"].changedCvar, 1);
-    cosmeticOptions["Key.GanonsBossGem"].currentColor = { 255 / 255.0f, 0, 0, 255 / 255.0f };
 
     // Bottom of the Well
     CVarSetColor(cosmeticOptions["Key.WellSmallBody"].valuesCvar, { 227, 110, 255, 255 });
     CVarSetInteger(cosmeticOptions["Key.WellSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.WellSmallBody"].currentColor = { 227 / 255.0f, 110 / 255.0f, 255 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.WellSmallEmblem"));
 
     // Gerudo Training Ground
     CVarSetColor(cosmeticOptions["Key.GTGSmallBody"].valuesCvar, { 221, 212, 60, 255 });
     CVarSetInteger(cosmeticOptions["Key.GTGSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.GTGSmallBody"].currentColor = { 221 / 255.0f, 212 / 255.0f, 60 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.GTGSmallEmblem"));
 
     // Gerudo Fortress
     CVarSetColor(cosmeticOptions["Key.FortSmallBody"].valuesCvar, { 255, 255, 255, 255 });
     CVarSetInteger(cosmeticOptions["Key.FortSmallBody"].changedCvar, 1);
-    cosmeticOptions["Key.FortSmallBody"].currentColor = { 255 / 255.0f, 255 / 255.0f, 255 / 255.0f, 255 / 255.0f };
     ResetColor(cosmeticOptions.at("Key.FortSmallEmblem"));
 }
 
@@ -2669,17 +2635,6 @@ void RegisterOnGameFrameUpdateHook() {
 }
 
 void CosmeticsEditorWindow::InitElement() {
-    // Convert the `current color` into the format that the ImGui color picker expects
-    for (auto& [id, cosmeticOption] : cosmeticOptions) {
-        Color_RGBA8 defaultColor = { cosmeticOption.defaultColor.r, cosmeticOption.defaultColor.g,
-                                     cosmeticOption.defaultColor.b, cosmeticOption.defaultColor.a };
-        Color_RGBA8 cvarColor = CVarGetColor(cosmeticOption.valuesCvar, defaultColor);
-
-        cosmeticOption.currentColor.x = cvarColor.r / 255.0f;
-        cosmeticOption.currentColor.y = cvarColor.g / 255.0f;
-        cosmeticOption.currentColor.z = cvarColor.b / 255.0f;
-        cosmeticOption.currentColor.w = cvarColor.a / 255.0f;
-    }
     Ship::Context::GetInstance()->GetWindow()->GetGui()->SaveConsoleVariablesNextFrame();
     ApplyOrResetCustomGfxPatches();
     ApplyAuthenticGfxPatches();
