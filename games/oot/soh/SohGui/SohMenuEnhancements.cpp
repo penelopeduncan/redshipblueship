@@ -118,6 +118,12 @@ static const std::map<int32_t, const char*> sleepingWaterfallOptions = {
     { WATERFALL_NEVER, "Never" },
 };
 
+static const std::map<int32_t, const char*> ingoRaceOptions = {
+    { INGO_RACE_TWICE, "Twice" },
+    { INGO_RACE_ONCE, "Once" },
+    { INGO_RACE_NONE, "None" },
+};
+
 static const std::map<int32_t, const char*> allPowers = {
     { DAMAGE_VANILLA, "Vanilla (1x)" },      { DAMAGE_DOUBLE, "Double (2x)" },
     { DAMAGE_QUADRUPLE, "Quadruple (4x)" },  { DAMAGE_OCTUPLE, "Octuple (8x)" },
@@ -1680,9 +1686,13 @@ void SohMenu::AddMenuEnhancements() {
         .Options(CheckboxOptions().Tooltip("Amy's block pushing puzzle instantly solved."));
 
     AddWidget(path, "Ingo's Race", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Only Race Once", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, "Number of Races", WIDGET_CVAR_COMBOBOX)
         .CVar(CVAR_ENHANCEMENT("IngoRaceOnce"))
-        .Options(CheckboxOptions().Tooltip("Link only needs to race Ingo once to win Epona."));
+        .Options(ComboboxOptions()
+                     .ComboMap(ingoRaceOptions)
+                     .DefaultIndex(INGO_RACE_TWICE)
+                     .Tooltip("Number of races Link must win against Ingo to earn Epona. "
+                              "Only works if Link is riding Epona, not the other rideable horse."));
 
     path.column = SECTION_COLUMN_3;
     AddWidget(path, "Fishing", WIDGET_SEPARATOR_TEXT);

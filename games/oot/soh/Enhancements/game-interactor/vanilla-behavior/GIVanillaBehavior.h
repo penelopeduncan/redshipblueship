@@ -3312,6 +3312,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_LINK_WIN_EPONA,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `s32` (entrance index)
+    VB_RACE_INGO,
 } GIVanillaBehavior;
 
 #endif

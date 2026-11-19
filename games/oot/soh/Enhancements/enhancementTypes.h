@@ -158,4 +158,10 @@ typedef enum {
     RANDOMIZE_ON_FILE_LOAD_SEEDED,
 } RandomizeOnMode;
 
+typedef enum {
+    INGO_RACE_TWICE,
+    INGO_RACE_ONCE,
+    INGO_RACE_NONE,
+} IngoRaceType;
+
 #endif
