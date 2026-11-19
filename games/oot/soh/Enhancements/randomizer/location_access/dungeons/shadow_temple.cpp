@@ -431,6 +431,7 @@ void RegionTable_Init_ShadowTemple() {
         LOCATION(RC_SHADOW_BOSS_KEY_HINT, true),
     }, {
         //Exits
+        //child can make this jump with bunny, and it's not hard, but it's too inconsistent for unintuitive
         Entrance(RR_SHADOW_TEMPLE_PRE_BOSS_ROOM, []{return (ctx->GetTrickOption(RT_LENS_SHADOW) || logic->CanUse(RG_LENS_OF_TRUTH)) && (logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->IsAdult));}),
         Entrance(RR_SHADOW_TEMPLE_BOSS_ENTRYWAY, []{return true;}),
     });
@@ -805,6 +806,8 @@ void RegionTable_Init_ShadowTemple() {
     });
 
     areaTable[RR_SHADOW_TEMPLE_MQ_WIND_TUNNEL_ALCOVE] = Region("Shadow Temple MQ Wind Tunnel Alcove", SCENE_SHADOW_TEMPLE, {}, {}, {
+        //Exits
+        //child can make it using the wind strat
         Entrance(RR_SHADOW_TEMPLE_MQ_LOWER_WIND_TUNNEL, []{return ctx->GetTrickOption(RT_SHADOW_MQ_WINDY_WALKWAY) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SHADOW_TEMPLE_MQ_B4_GIBDO_ROOM,     []{return true;}),
     });
@@ -821,7 +824,6 @@ void RegionTable_Init_ShadowTemple() {
         LOCATION(RC_SHADOW_TEMPLE_MQ_BEFORE_BOAT_POT_2,       logic->CanBreakPots()),
     }, {
         //Exits
-        //child can make it using the wind strat
         Entrance(RR_SHADOW_TEMPLE_MQ_WIND_TUNNEL_ALCOVE, []{return true;}),
         Entrance(RR_SHADOW_TEMPLE_MQ_DOCK,               []{return logic->SmallKeys(SCENE_SHADOW_TEMPLE, 5);}),
     });
@@ -879,6 +881,7 @@ void RegionTable_Init_ShadowTemple() {
     areaTable[RR_SHADOW_TEMPLE_MQ_PRE_BOSS_ROOM] = Region("Shadow Temple MQ Pre Boss Room", SCENE_SHADOW_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_SHADOW_TEMPLE_MQ_ACROSS_CHASM, []{return true;}),
+        //child can make this jump with bunny, and it's not hard, but it's too inconsistent for unintuitive
         Entrance(RR_SHADOW_TEMPLE_MQ_BOSS_DOOR,    []{return (logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->IsAdult)) && (ctx->GetTrickOption(RT_LENS_SHADOW_MQ) || logic->CanUse(RG_LENS_OF_TRUTH));}),
     });
 

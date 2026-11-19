@@ -273,7 +273,9 @@
  *     Hookshot); Ganon's vanilla Shadow Trial late-chest, rusted-switch, torch and
  *     Song of Time platform exits and events; the MQ Shadow Trial late chest, bomb
  *     flower and silver-shadow precedence; GTG MQ's lit torch platforms with and
- *     without RT_GTG_MQ_LAVA_ROOM; scene searches through each split room; the
+ *     without RT_GTG_MQ_LAVA_ROOM; scene searches through each split room, and the
+ *     new exit out of each split (MQ Beamos chest to far Beamos, GTG MQ lit torch
+ *     to torch side), which main lacks, so a revert of either split fails; the
  *     spiritLogicData MQ inner right hand reverse row; the ZD frozen waterfall
  *     Gold Skulltula; the Fire MQ crate cage under RT_BOMB_DETONATION; GTG MQ's
  *     magenta switch with bombs; the Shadow corner-platform target rupee; and the
@@ -1568,6 +1570,17 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
                  RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, true,
                  "the Hover Boots do not reach the far Beamos (SoH eca767dcb)");
 
+    // ---- EC22a..EC22b: the split's new exit, MQ Beamos chest to far Beamos ---
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+    ResetClimbLogic();
+    ExpectExit("EC22a MQ Shadow Trial Beamos Chest to Far Beamos, adult with nothing, no Lens",
+               RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, true, false,
+               "an adult with nothing and no Lens crosses to the far Beamos");
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("EC22b MQ Shadow Trial Beamos Chest to Far Beamos, adult with Hover Boots, no Lens",
+               RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, true, true,
+               "the Hover Boots do not cross to the far Beamos (SoH eca767dcb)");
+
     // ---- EC23..EC24: MQ silver shadow event from the starting ledge ---------
     randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
     ResetClimbLogic();
@@ -1614,6 +1627,16 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     ExpectSearch("EC30 GTG MQ search to the near-lit-torch lava silver rupee, adult with the Bow",
                  RR_GERUDO_TRAINING_GROUND_ENTRYWAY, true, RR_NONE, RC_GTG_MQ_NEAR_LIT_TORCH_LAVA_SILVER, true,
                  "the Bow does not reach the torch side through the Dinolfos room and the lit torch (SoH eca767dcb)");
+
+    // ---- EC30a..EC30b: the split's new exit, lit torch to torch side ----------
+    ResetClimbLogic();
+    ExpectExit("EC30a GTG MQ Platforms Lit Torch to Torch Side Platforms, adult with nothing",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS,
+               true, false, "an adult with nothing lights the far torch from the lit torch platforms");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectExit("EC30b GTG MQ Platforms Lit Torch to Torch Side Platforms, adult with the Bow",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS,
+               true, true, "an adult's Bow does not reach the torch side from the lit torch (SoH eca767dcb)");
 
     // ---- EC31..EC32: spiritLogicData, MQ Inner Right Hand reverse access -----
     ResetClimbLogic();
