@@ -180,7 +180,7 @@ static bool ableToBalance = true;
 static std::set<RandoItemId> setOfItemsInPool;
 void RefreshMetrics() {
     setOfItemsInPool.clear();
-    RandoSaveInfo randoSaveInfo;
+    RandoSaveInfo randoSaveInfo{};
     std::vector<RandoCheckId> checkPool;
     std::vector<RandoItemId> itemPool;
 
