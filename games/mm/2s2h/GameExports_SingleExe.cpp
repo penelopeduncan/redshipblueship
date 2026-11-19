@@ -302,6 +302,9 @@ static_assert(RI_DEKU_STICK_BAG == RI_MAX_TRAP + 1 && RI_DEKU_NUT_BAG == RI_MAX_
               "#1652 A2: two logic-only credit stand-ins follow the draw-only sentinel");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
+static_assert(RANDO_INF_OBTAINED_CHILD_WALLET == 80 && RANDO_INF_OBTAINED_BOMBCHU_BAG == 81 && RANDO_INF_MAX == 82,
+              "#1702 C1: the pair-possession randomizer-inf flags are 80 and 81, after "
+              "RANDO_INF_OBTAINED_SONG_INVERTED_TIME");
 // #1548: split freestanding dungeon fairies + Clock Town fairy out from
 // dungeon chest fairies (`RO_PLACEMENT_STRAY_FAIRIES`).
 static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64,
@@ -6308,6 +6311,75 @@ struct MMSharedSwimRegistrar {
     }
 };
 const MMSharedSwimRegistrar gMMSharedSwimRegistrar;
+} // namespace
+
+// ============================================================================
+// The pair's possession of the Child's Wallet and the Bombchu Bag (#1702 C1)
+// ============================================================================
+//
+// MM's copies of the two possession slots (RSBS_XFAMILY_SLOT_CHILD_WALLET,
+// RSBS_XFAMILY_SLOT_BOMBCHU_BAG): RANDO_INF_OBTAINED_CHILD_WALLET and
+// RANDO_INF_OBTAINED_BOMBCHU_BAG, which only these gives write and nothing reads
+// until stages C2 and C3. A member is asked only while its slot is armed, which is
+// only while Ocarina of Time's shuffle froze the slot on
+// (Combo_SharedPossessionArmed), so the raw reads below already follow the
+// frozen bit first. The GIVES write the flags directly, as the swim give does
+// (no flag-set hook before gameplay). POOLED is false: the pair is never a shared
+// bag row. The bag member's id is a PLACEHOLDER (RI_UNKNOWN): MM has no Bombchu
+// Bag item, and stage C2 replaces it with its stand-in.
+
+namespace {
+
+bool MM_SharedChildWalletHeld(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = RANDO_INF_OBTAINED_CHILD_WALLET;
+    return IS_RANDO && (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
+}
+
+void MM_SharedChildWalletGive(uint16_t nativeId) {
+    (void)nativeId;
+    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_CHILD_WALLET >> 4] |=
+        (u16)(1u << (RANDO_INF_OBTAINED_CHILD_WALLET & 0xF));
+}
+
+bool MM_SharedBombchuBagHeld(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = RANDO_INF_OBTAINED_BOMBCHU_BAG;
+    return IS_RANDO && (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
+}
+
+void MM_SharedBombchuBagGive(uint16_t nativeId) {
+    (void)nativeId;
+    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_BOMBCHU_BAG >> 4] |=
+        (u16)(1u << (RANDO_INF_OBTAINED_BOMBCHU_BAG & 0xF));
+}
+
+bool MM_SharedPossessionPooled(uint16_t nativeId) {
+    (void)nativeId;
+    return false;
+}
+
+} // namespace
+
+/** Register MM's copies of the pair's two possession slots (#1702 C1). Idempotent;
+ *  the static registrar below runs it at start-up. */
+extern "C" void MM_RegisterSharedPossessionFamilies(void) {
+    const ComboSharedFamilyMember wallet = { (uint16_t)RI_PROGRESSIVE_WALLET, MM_SharedChildWalletHeld,
+                                             MM_SharedChildWalletGive, MM_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET, &wallet);
+    // Stage C2 replaces RI_UNKNOWN with its Bombchu Bag stand-in.
+    const ComboSharedFamilyMember bag = { (uint16_t)RI_UNKNOWN, MM_SharedBombchuBagHeld, MM_SharedBombchuBagGive,
+                                          MM_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &bag);
+}
+
+namespace {
+struct MMSharedPossessionRegistrar {
+    MMSharedPossessionRegistrar() {
+        MM_RegisterSharedPossessionFamilies();
+    }
+};
+const MMSharedPossessionRegistrar gMMSharedPossessionRegistrar;
 } // namespace
 
 static uint16_t MM_ReadHealthQuarters(void) {

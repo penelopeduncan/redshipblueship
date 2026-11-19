@@ -91,6 +91,30 @@ extern "C" void OoT_SharedWalletTest_GiveChildWallet(void) {
     Flags_SetRandomizerInf(RAND_INF_HAS_WALLET);
 }
 
+/** #1702 C1: put OoT's Bombchu Bag possession (the inventory's Bombchu item) in
+ *  a known state: held, or ITEM_NONE. Call after every ArmLive in a leg that
+ *  arms the bag slot: ArmLive zeroes the save, and a zeroed slot reads item 0,
+ *  which the bag member counts as held. Nothing else (no ammo, no level). */
+extern "C" void OoT_SharedWalletTest_SetBombchuBag(int held) {
+    INV_CONTENT(ITEM_BOMBCHU) = held != 0 ? ITEM_BOMBCHU : ITEM_NONE;
+}
+
+/** 1 when OoT's live inventory holds the Bombchu item (the bag). */
+extern "C" int OoT_SharedWalletTest_HasBombchuBag(void) {
+    return INV_CONTENT(ITEM_BOMBCHU) == ITEM_BOMBCHU ? 1 : 0;
+}
+
+/** The ids OoT's possession members must carry (#1702 C1): the items OoT
+ *  places for the child wallet and the Bombchu Bag. */
+extern "C" void OoT_SharedWalletTest_PossessionIds(int* walletId, int* bagId) {
+    if (walletId != nullptr) {
+        *walletId = (int)RG_PROGRESSIVE_WALLET;
+    }
+    if (bagId != nullptr) {
+        *bagId = (int)RG_PROGRESSIVE_BOMBCHU_BAG;
+    }
+}
+
 /** Set OoT's live rupee count (what the player holds mid-stint). */
 extern "C" void OoT_SharedWalletTest_SetRupees(int rupees) {
     gSaveContext.rupees = (s16)rupees;

@@ -48,6 +48,21 @@ extern "C" int MM_SharedSwimTest_ComputedStart(int ownSwim, int ownButtons, int 
     (void)vanilla;
     return 0;
 }
+extern "C" void MM_SharedPossessionTest_Set(int wallet, int bag) {
+    (void)wallet;
+    (void)bag;
+}
+extern "C" int MM_SharedPossessionTest_Held(void) {
+    return 0;
+}
+extern "C" void MM_SharedPossessionTest_Ids(int* walletId, int* bagId) {
+    if (walletId != nullptr) {
+        *walletId = -1;
+    }
+    if (bagId != nullptr) {
+        *bagId = -1;
+    }
+}
 #else
 
 extern "C" {
@@ -132,6 +147,49 @@ extern "C" int MM_SharedSwimTest_ComputedStart(int ownSwim, int ownButtons, int 
         buttons += (item >= RI_OCARINA_BUTTON_A && item <= RI_OCARINA_BUTTON_C_UP) ? 1 : 0;
     }
     return (swim ? 1 : 0) | (buttons == 5 ? 2 : 0);
+}
+
+// ---- #1702 C1: MM's half of the pair's possession ------------------------------
+
+/** MM's live save as a randomizer file holding RANDO_INF_OBTAINED_CHILD_WALLET when
+ *  @p wallet and RANDO_INF_OBTAINED_BOMBCHU_BAG when @p bag (each cleared
+ *  otherwise). Call after MM_SharedSwordTest_ArmLive. */
+extern "C" void MM_SharedPossessionTest_Set(int wallet, int bag) {
+    gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+    const int flags[2] = { RANDO_INF_OBTAINED_CHILD_WALLET, RANDO_INF_OBTAINED_BOMBCHU_BAG };
+    const int want[2] = { wallet, bag };
+    for (int i = 0; i < 2; i++) {
+        const u16 bit = (u16)(1u << (flags[i] & 0xF));
+        if (want[i] != 0) {
+            gSaveContext.save.shipSaveInfo.rando.randoInf[flags[i] >> 4] |= bit;
+        } else {
+            gSaveContext.save.shipSaveInfo.rando.randoInf[flags[i] >> 4] &= (u16)~bit;
+        }
+    }
+}
+
+/** MM's two possession flags as bits: 1 the child wallet, 2 the Bombchu Bag. */
+extern "C" int MM_SharedPossessionTest_Held(void) {
+    const int flags[2] = { RANDO_INF_OBTAINED_CHILD_WALLET, RANDO_INF_OBTAINED_BOMBCHU_BAG };
+    int bits = 0;
+    for (int i = 0; i < 2; i++) {
+        if ((gSaveContext.save.shipSaveInfo.rando.randoInf[flags[i] >> 4] & (1u << (flags[i] & 0xF))) != 0u) {
+            bits |= 1 << i;
+        }
+    }
+    return bits;
+}
+
+/** The ids MM's possession members must carry: RI_PROGRESSIVE_WALLET, and stage
+ *  C2's placeholder RI_UNKNOWN for the Bombchu Bag (C2 changes both this and the
+ *  registration to its stand-in). */
+extern "C" void MM_SharedPossessionTest_Ids(int* walletId, int* bagId) {
+    if (walletId != nullptr) {
+        *walletId = (int)RI_PROGRESSIVE_WALLET;
+    }
+    if (bagId != nullptr) {
+        *bagId = (int)RI_UNKNOWN;
+    }
 }
 
 #endif
