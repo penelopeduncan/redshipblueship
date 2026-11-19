@@ -61,15 +61,49 @@ bool GameInteractor::IsSaveLoaded(bool allowDbgSave) {
 }
 
 bool GameInteractor::IsGameplayPaused() {
+    if (OoT_gPlayState == NULL) {
+        return true;
+    }
+
     Player* player = GET_PLAYER(OoT_gPlayState);
+    if (player == NULL) {
+        return true;
+    }
+
     return (OoT_Player_InBlockingCsMode(OoT_gPlayState, player) || OoT_gPlayState->pauseCtx.state != 0 ||
             OoT_gPlayState->msgCtx.msgMode != 0)
                ? true
                : false;
 }
 
+bool GameInteractor::IsPlayerInControl() {
+    if (OoT_gPlayState == NULL) {
+        return false;
+    }
+
+    Player* player = GET_PLAYER(OoT_gPlayState);
+    if (player == NULL) {
+        return false;
+    }
+
+    if (gSaveContext.gameMode != GAMEMODE_NORMAL) {
+        return false;
+    }
+
+    if (!((gSaveContext.fileNum >= 0 && gSaveContext.fileNum <= 2) || gSaveContext.fileNum == 0xFF)) {
+        return false;
+    }
+
+    if (OoT_Player_InBlockingCsMode(OoT_gPlayState, player) || OoT_gPlayState->pauseCtx.state != 0 ||
+        OoT_gPlayState->msgCtx.msgMode != 0 || player->unk_6AD == 4) {
+        return false;
+    }
+
+    return true;
+}
+
 bool GameInteractor::CanSpawnActor() {
-    return GameInteractor::IsSaveLoaded() && !GameInteractor::IsGameplayPaused();
+    return GameInteractor::IsPlayerInControl();
 }
 
 bool GameInteractor::CanAddOrTakeAmmo(int16_t amount, int16_t item) {
