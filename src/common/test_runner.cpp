@@ -1864,6 +1864,19 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport #1753 (SoH 236c9c81f, 5c55c01c6, cca66cdc5): the Bombchu Bowling, frogs' Ocarina game and Shooting Gallery
+// options are GameInteractor_Should hooks. Body in games/oot/soh/oot_minigame_hookify_test.cpp; return 0 on pass. The
+// display-free shared bring-up, because the row writes and clears the option CVars.
+extern "C" int OoT_MinigameHookify_RunHeadless(void);
+static TestResult Test_OoTMinigameHookify(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameHookify_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
@@ -11541,6 +11554,14 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // Backport #1753: display-free and ROM-free; restores the thirteen option
+    // CVars (cleared, never stored, when unset), OoT_gPlayState, the age, the
+    // frog pointers, the hooks and the current game.
+    { "oot-minigame-hookify",
+      "The Bombchu Bowling, frogs' Ocarina game and Shooting Gallery options are GameInteractor hooks: every answer is "
+      "vanilla with the options off, and each of the ten moved behaviours holds with its option on (SoH #6968, #6969, "
+      "#6972)",
+      Test_OoTMinigameHookify },
     // #1741: display-free and ROM-free; restores every controller key it touches
     // (cleared, never stored, when it was unset) and saves nothing to disk.
     { "oot-ocarina-note-mapping-cleanup",
