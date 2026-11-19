@@ -700,8 +700,8 @@ void PlandomizerLoadSpoilerLog(std::string logFile) {
                 Notification::Emit({ .message = "Invalid Spoiler Log Format", .remainingTime = 10.0f });
             }
         } catch (nlohmann::json::exception&) {
-            // RSBS (#1731): every json error (a type_error from a missing "trickName" or a non-numeric hash, not
-            // only a parse_error) leaves no half-filled lists.
+            // RSBS (#1731): every json error (an out_of_range from a missing "trickName", a type_error from a
+            // non-numeric hash, not only a parse_error) leaves no half-filled lists.
             PlandomizerClearLoadedSpoiler();
             Notification::Emit({ .message = "Invalid Spoiler Log Format", .remainingTime = 10.0f });
         }

@@ -298,13 +298,14 @@
  *     Harkinian's name and not to its old one; a log that lists names this build does
  *     not know turns no trick on (not trick 0 either) and leaves the names unknown;
  *     a log that lists the new name turns the lobby trick on.
- *  SN. Names in a spoiler log, a save's hints and a Plandomizer log (#1731): every name
- *     this build writes reads back (SN0); an unknown excluded location, placed location,
- *     item, ice-trap model or hint name fails the spoiler load (SN1-SN5, SN11), an
- *     unknown type, location, area or trial loads a hint disabled (SN6-SN9), and the
- *     Plandomizer refuses a log with an unknown location or item (SN10). No leg adds a
- *     name to any table, and none turns into entry 0 (which has a real name in every
- *     table, so the legs check that the lookup missed, not that a value is non-zero).
+ *  SN. Names in a spoiler log, a save's hints and a Plandomizer log (#1731): every hint,
+ *     hint type, area and trial name this build writes reads back (SN0); an unknown
+ *     excluded location, placed location, item, ice-trap model or hint name fails the
+ *     spoiler load (SN1-SN5, SN11), an unknown type, location, area or trial loads a
+ *     hint disabled (SN6-SN9), and the Plandomizer refuses a log with an unknown location
+ *     or item (SN10). No leg adds a name to any table, and none turns into entry 0 (which
+ *     has a real name in every table, so the legs check that the lookup missed, not that
+ *     a value is non-zero).
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -341,6 +342,7 @@
 #include "soh/Enhancements/randomizer/settings.h"
 #include "soh/Enhancements/randomizer/hint.h"
 #include "soh/Enhancements/randomizer/Plandomizer.h" // PlandomizerParseSpoilerJson, SpoilerCheckObject (SN10)
+#include "test_scratch.h"                            // src/common: rsbs::test::ScratchDir (SN11's spoiler file)
 
 // At file scope, not inside an extern "C" block (see oot_shared_kokiri_sword_test.cpp).
 #include <z64.h>
@@ -2423,32 +2425,12 @@ bool SnFirstName(const std::unordered_map<std::string, T>& table, P keep, std::s
 
 // SN0: every name this build WRITES into a spoiler log or a save reads back. The fixed readers fail a load (or
 // disable a hint) on a miss where operator[] silently answered 0, so a name the writer emits but the table lacks
-// would now reject this build's own files. The forms are the writers': an item's three Text names
-// (3drando/spoiler_log.cpp), and the MF_CLEAN text of hint, hint type, area and trial names in each language
-// (Hint::logHint, Hint::toJSON).
+// would now reject this build's own files. The form is the writers': the MF_CLEAN text of hint, hint type, area and
+// trial names in each language (Hint::logHint, Hint::toJSON), which the tables store raw. Item names are not checked:
+// itemNameToEnum is built from the same three Text names of the same itemTable the spoiler writer reads
+// (item_list.cpp), so such a check could not fail.
 void SnRoundTripLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const uint8_t languages[] = { LANGUAGE_ENG, LANGUAGE_GER, LANGUAGE_FRA };
-    int unnamedItems = 0;
-    int itemMisses = 0;
-    for (int rg = 0; rg < RG_MAX; rg++) {
-        const Text& name = Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rg)).GetName();
-        if (name.english.empty()) {
-            if (unnamedItems++ < 8) {
-                printf("[TEST]   SN0: item %d has no English name (not in itemNameToEnum; must never be placed)\n", rg);
-            }
-            continue;
-        }
-        for (const std::string* text : { &name.english, &name.french, &name.german }) {
-            if (!Rando::StaticData::itemNameToEnum.contains(*text)) {
-                printf("[TEST]   SN0: item %d's name '%s' is not in itemNameToEnum\n", rg, text->c_str());
-                itemMisses++;
-            }
-        }
-    }
-    printf("[TEST]   SN0: %d item(s) without an English name\n", unnamedItems);
-    ExpectMode("SN0a every named item reads back by each of its names", itemMisses, 0,
-               "a spoiler log's item name would now fail the load");
-
     int hintMisses = 0;
     for (const auto& [key, message] : Rando::StaticData::hintNames) {
         for (const uint8_t language : languages) {
@@ -2832,7 +2814,7 @@ void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
         settings->AssignContext(randoCtx);
         std::error_code ec;
         const std::filesystem::path path =
-            std::filesystem::temp_directory_path(ec) / "rsbs_sn11_unknown_location_spoiler.json";
+            rsbs::test::ScratchDir("oot_logic_gates_sn11") / "unknown_location_spoiler.json";
         nlohmann::json doc;
         doc["seed"] = "x";
         doc["finalSeed"] = 0;
