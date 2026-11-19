@@ -16,7 +16,8 @@
  *      - setting off: SCENE_IKANA csIds 14 and 34 keep true;
  *      - setting on: SCENE_IKANA csIds 14 and 34 skip, csId 15 and SCENE_TOWN csId 14 stay true;
  *      - missing MM_gPlayState leaves vanilla untouched.
- *   3. SkipSakonsHideoutCutscenes Sakon's Hideout arm (VB_START_CUTSCENE, gEnhancements.TimeSavers.SkipMiscInteractions):
+ *   3. SkipSakonsHideoutCutscenes Sakon's Hideout arm (VB_START_CUTSCENE,
+ *      gEnhancements.TimeSavers.SkipMiscInteractions):
  *      - setting off: SCENE_SECOM csId 21 keeps true;
  *      - setting on: SCENE_SECOM csId 21 skips, csId 22 stays true;
  *      - setting back off disarms cleanly.
@@ -133,8 +134,7 @@ int RunOnePointLeg(PlayState* play) {
               "bell cutscene already skipped with OnePoint off");
     CS_ASSERT(StartCutsceneForActor(play, SCENE_TOWN, &owlOff, 10), 10,
               "owl statue cutscene already skipped with OnePoint off");
-    CS_ASSERT(GET_OWL_STATUE_ACTIVATED(OWL_WARP_CLOCK_TOWN) == 0, 10,
-              "owl statue flag set with OnePoint off");
+    CS_ASSERT(GET_OWL_STATUE_ACTIVATED(OWL_WARP_CLOCK_TOWN) == 0, 10, "owl statue flag set with OnePoint off");
     CS_ASSERT(StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean0Off, 10) && bean0Off.csId == 10, 10,
               "bean plant cutscene already skipped with OnePoint off");
     CS_ASSERT(StartCutsceneForActor(play, SCENE_22DEKUCITY, &bean1Off, 10) && bean1Off.csId == 10, 10,
@@ -196,8 +196,7 @@ int RunSakonsHideoutLegs(PlayState* play) {
               "SCENE_IKANA csId 14 not skipped with SkipMiscInteractions on");
     CS_ASSERT(!StartCutsceneForActor(play, SCENE_IKANA, nullptr, 34), 22,
               "SCENE_IKANA csId 34 not skipped with SkipMiscInteractions on");
-    CS_ASSERT(StartCutsceneForActor(play, SCENE_IKANA, nullptr, 15), 23,
-              "unrelated SCENE_IKANA csId 15 skipped");
+    CS_ASSERT(StartCutsceneForActor(play, SCENE_IKANA, nullptr, 15), 23, "unrelated SCENE_IKANA csId 15 skipped");
     CS_ASSERT(StartCutsceneForActor(play, SCENE_TOWN, nullptr, 14), 23,
               "SCENE_TOWN csId 14 skipped by Sakon's Hideout hook");
 
@@ -209,8 +208,7 @@ int RunSakonsHideoutLegs(PlayState* play) {
     MM_gPlayState = play;
     CS_ASSERT(!StartCutsceneForActor(play, SCENE_SECOM, nullptr, 21), 31,
               "SCENE_SECOM csId 21 not skipped with SkipMiscInteractions on");
-    CS_ASSERT(StartCutsceneForActor(play, SCENE_SECOM, nullptr, 22), 32,
-              "unrelated SCENE_SECOM csId 22 skipped");
+    CS_ASSERT(StartCutsceneForActor(play, SCENE_SECOM, nullptr, 22), 32, "unrelated SCENE_SECOM csId 22 skipped");
 
     DriveKey(kMiscCVar, 0);
     CS_ASSERT(StartCutsceneForActor(play, SCENE_IKANA, nullptr, 14), 25,
