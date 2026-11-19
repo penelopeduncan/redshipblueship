@@ -1722,6 +1722,11 @@ void SohMenu::AddMenuEnhancements() {
                               "Only works if Link is riding Epona, not the other rideable horse."));
 
     path.column = SECTION_COLUMN_3;
+    AddWidget(path, "Rupee Diving Game", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Time Limit: %d seconds", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_ENHANCEMENT("DivingGame.TimeLimit"))
+        .Options(IntSliderOptions().Min(30).Max(120).DefaultValue(50).Format("%d seconds"));
+
     AddWidget(path, "Fishing", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Customize Behavior##Fishing", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("CustomizeFishing"))

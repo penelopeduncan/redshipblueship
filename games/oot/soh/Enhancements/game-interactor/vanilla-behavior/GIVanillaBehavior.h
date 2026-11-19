@@ -3353,6 +3353,14 @@ typedef enum {
     // #### `args`
     // - `*EnGe1`
     VB_END_HORSEBACK_ARCHERY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_SET_DIVING_GAME_TIME_LIMIT,
 } GIVanillaBehavior;
 
 #endif
