@@ -13,8 +13,9 @@
  *
  *   shared-warp-family-storage (redship) -- THE STORAGE AND THE REGISTRY.
  *   gComboCtx.sharedFamilyOwned2 is appended at 2716 (sizeof 2720, layout revision
- *   4); RSBS_XITEM2_FAMILY_MASK is 0x3F80; a second-word member registers only at
- *   a shared bit and never touches the first word's slot at the same bit; the
+ *   4); RSBS_XITEM2_FAMILY_MASK holds the seven shared warp songs (0x3F80; since
+ *   #1587 S1 also the Sun's and Saria's Songs, 0xFF80); a second-word member
+ *   registers only at a shared bit and never touches the first word's slot at the same bit; the
  *   arming reads the frozen word only; the harvest ORs armed bits and never
  *   clears; the live harvest and apply run the second word in a world that arms
  *   no first-word family; the far-pickup credit fires only for an armed family;
@@ -187,6 +188,20 @@ void SwsFreeze(uint32_t rules1, uint32_t rules2) {
     Combo_FreezeComboSettingsEx2(&rec, &r1, rules2);
 }
 
+/** The highest bit of the second word that is not a family (bit 31 today).
+ *  Derived rather than spelled, so allocating a family never turns the "past the
+ *  mask" registration below into a registration at a real family. 0 when every
+ *  bit is a family. */
+uint32_t SwsHighestNonFamilyBit() {
+    const uint32_t nonFamily = ~(uint32_t)RSBS_XITEM2_FAMILY_MASK;
+    for (int b = 31; b >= 0; --b) {
+        if ((nonFamily & (1u << b)) != 0u) {
+            return 1u << b;
+        }
+    }
+    return 0u;
+}
+
 int SwsPopcount(uint32_t v) {
     int n = 0;
     for (; v != 0u; v &= v - 1u) {
@@ -339,8 +354,12 @@ TestResult Test_SharedWarpFamilyStorage(void) {
         (unsigned)offsetof(ComboContext, sharedFamilyOwned2), (unsigned)offsetof(ComboContext, crossingPendingOoT));
     SWS_CHECK(RSBS_SAVE_LAYOUT_REVISION >= 4u, "(1) the layout revision is %u, want 4 or later (one append)",
               (unsigned)RSBS_SAVE_LAYOUT_REVISION);
-    SWS_CHECK(RSBS_XITEM2_FAMILY_MASK == kSwsShared && RSBS_XFAMILY_SLOT_COUNT == 64u,
-              "(1) the second-word family mask is %08X (want 00003F80), the slot count %u (want 64)",
+    // The seven shared warp songs are families and no extension is; #1587 S1's
+    // Sun's and Saria's bits are pinned by shared-sun-saria-rule.
+    SWS_CHECK((RSBS_XITEM2_FAMILY_MASK & kSwsShared) == kSwsShared && (RSBS_XITEM2_FAMILY_MASK & 0x7Fu) == 0u &&
+                  RSBS_XFAMILY_SLOT_COUNT == 64u,
+              "(1) the second-word family mask is %08X (want 00003F80 inside it and no extension), the slot count %u "
+              "(want 64)",
               (unsigned)RSBS_XITEM2_FAMILY_MASK, (unsigned)RSBS_XFAMILY_SLOT_COUNT);
 
     // ---- (2) Registration: the seven shared bits, nothing else ---------------------
@@ -355,7 +374,9 @@ TestResult Test_SharedWarpFamilyStorage(void) {
         for (int s = 0; s < 7; s++) {
             refused += Combo_RegisterSharedFamily2Member(GAME_OOT, 1u << s, &fake) ? 0 : 1; // the extensions
         }
-        refused += Combo_RegisterSharedFamily2Member(GAME_OOT, 0x00004000u, &fake) ? 0 : 1; // past the mask
+        SWS_CHECK(SwsHighestNonFamilyBit() != 0u, "(2) every second-word bit is a family: no bit past the mask");
+        refused +=
+            Combo_RegisterSharedFamily2Member(GAME_OOT, SwsHighestNonFamilyBit(), &fake) ? 0 : 1; // past the mask
         refused += Combo_RegisterSharedFamily2Member(GAME_OOT, kSwsSharedSoaring | kSwsSharedMinuet, &fake) ? 0 : 1;
         refused += Combo_RegisterSharedFamily2Member(GAME_OOT, 0u, &fake) ? 0 : 1;
         refused += Combo_RegisterSharedFamily2Member(GAME_NONE, kSwsSharedMinuet, &fake) ? 0 : 1;

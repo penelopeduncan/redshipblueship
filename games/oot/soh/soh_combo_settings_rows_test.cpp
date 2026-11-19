@@ -1564,6 +1564,11 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
                        "the writer refused the pre-creation value leg 9 needs for '%s'",
                        Combo_ComboSettingLabel((ComboSettingId)i));
         }
+        // #1587 S1: the Shared Sun's Song and Shared Saria's Song keys (no row until
+        // #1587 S7): the Reset button clears them too.
+        ROWS_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SUN, 1) == 1 &&
+                       Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SARIAS, 1) == 1,
+                   "the writer refused the Shared Sun's Song or Shared Saria's Song value leg 9 needs");
         for (int i = 0; i < (int)COMBO_SETTING_COUNT; i++) {
             ROWS_CHECK(Combo_ComboSettingIsExplicit((ComboSettingId)i),
                        "leg 9 set '%s' but the store holds no explicit value, so the reset check would be vacuous",
