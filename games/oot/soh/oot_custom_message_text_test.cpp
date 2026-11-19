@@ -35,7 +35,7 @@
  *   T4. FillMissingTranslations copies English into empty and placeholder slots.
  *   A1. no row has a German article in its French slot or a French one in its
  *       German slot.
- *   C1. every colour is empty or a %-code; the Water Temple Boss Key's is "%b".
+ *   CC1. every colour is empty or a %-code; the Water Temple Boss Key's is "%b".
  *   H1. every area and trial name, as the spoiler writes it, reads back through a
  *       fresh translation map (GetAllMessages formats now; its callers ask for
  *       MF_CLEAN).
@@ -52,7 +52,7 @@
  * and M2 fail; without the item_list.cpp half C1 fails on RG_DEKU_TREE_COMPASS.
  * Without the #1746 fixes: K1-K3 fail on the by-value loops and the assignment;
  * T2 and T3 fail without the getter fallback or the getter-built keys; A1 fails on
- * any swapped article; C1 on the Water Temple Boss Key's "b"; H1 when a caller of
+ * any swapped article; CC1 on the Water Temple Boss Key's "b"; H1 when a caller of
  * GetAllMessages takes its MF_FORMATTED default.
  */
 
@@ -311,7 +311,7 @@ extern "C" int OoT_ItemTextTest_Run(void) {
         failures++;
     }
 
-    // T1-T3 over every named row of the item table; A1 and C1 over the same rows.
+    // T1-T3 over every named row of the item table; A1 and CC1 over the same rows.
     static const char* const kOitGermanArticles[] = { "der", "die",  "das",   "den",   "dem",
                                                       "ein", "eine", "einen", "einem", "einer" };
     static const char* const kOitFrenchArticles[] = { "le", "la", "les", "l'", "un", "une", "du" };
@@ -362,10 +362,11 @@ extern "C" int OoT_ItemTextTest_Run(void) {
                    name.english.c_str(), rg, article.english.c_str(), article.french.c_str(), article.german.c_str());
             failures++;
         }
-        // C1. A colour is empty or a two-character %-code.
+        // CC1. A colour is empty or a two-character %-code.
         const std::string& color = item.GetColor();
         if (!color.empty() && (color.size() != 2 || color[0] != '%')) {
-            printf("[TEST] FAIL C1: \"%s\" (%d) has the colour code \"%s\"\n", name.english.c_str(), rg, color.c_str());
+            printf("[TEST] FAIL CC1: \"%s\" (%d) has the colour code \"%s\"\n", name.english.c_str(), rg,
+                   color.c_str());
             failures++;
         }
     }
@@ -406,9 +407,9 @@ extern "C" int OoT_ItemTextTest_Run(void) {
             failures++;
         }
     }
-    // C1, the row the fix names.
+    // CC1, the row the fix names.
     if (Rando::StaticData::RetrieveItem(RG_WATER_TEMPLE_BOSS_KEY).GetColor() != "%b") {
-        printf("[TEST] FAIL C1: the Water Temple Boss Key's colour is \"%s\", not \"%%b\"\n",
+        printf("[TEST] FAIL CC1: the Water Temple Boss Key's colour is \"%s\", not \"%%b\"\n",
                Rando::StaticData::RetrieveItem(RG_WATER_TEMPLE_BOSS_KEY).GetColor().c_str());
         failures++;
     }
