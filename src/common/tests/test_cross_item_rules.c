@@ -233,21 +233,44 @@ void XirPossSpyGiveMM(uint16_t id) {
     sXirPossGives[GAME_MM]++;
 }
 
+/** OoT's live save holding neither possession: a randomizer file with no wallet
+ *  flag and no Bombchu item (SetBombchuBag(0) after ArmLive). */
+void XirPossArmOoTEmpty() {
+    OoT_SharedWalletTest_ArmLive(0, 0, 0);
+    OoT_SharedWalletTest_SetBombchuBag(0);
+}
+
+/** OoT's live save holding both possessions: the wallet flag and the Bombchu item. */
+void XirPossArmOoTBoth() {
+    OoT_SharedWalletTest_ArmLive(0, 0, 1);
+    OoT_SharedWalletTest_SetBombchuBag(1);
+}
+
+/** MM's live save holding neither possession: flags 80 and 81 clear. */
+void XirPossArmMMEmpty() {
+    MM_SharedSwordTest_ArmLive();
+    MM_SharedPossessionTest_Set(0, 0);
+}
+
 /** Leg (5d)'s four admission answers as bits: 1 OoT/wallet, 2 OoT/bag, 4 MM/wallet,
- *  8 MM/bag. */
-int XirPossAdmitted() {
+ *  8 MM/bag. The single exe's gSaveContext storage is unified (each arm wipes the
+ *  other game's live bytes, test_shared_masks.c leg (5)), so each game's two
+ *  questions are asked right after @p armOoT or @p armMM stages that game's save,
+ *  as only the running game's save is live at a real pickup. */
+int XirPossAdmitted(void (*armOoT)(), void (*armMM)()) {
     int bits = 0;
+    armOoT();
     bits |= Combo_SharedPossessionPickupAdmitted(GAME_OOT, RSBS_XFAMILY_SLOT_CHILD_WALLET) ? 1 : 0;
     bits |= Combo_SharedPossessionPickupAdmitted(GAME_OOT, RSBS_XFAMILY_SLOT_BOMBCHU_BAG) ? 2 : 0;
+    armMM();
     bits |= Combo_SharedPossessionPickupAdmitted(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET) ? 4 : 0;
     bits |= Combo_SharedPossessionPickupAdmitted(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG) ? 8 : 0;
     return bits;
 }
 
-/** Both live saves holding neither possession: OoT a randomizer file with no
- *  wallet flag and no Bombchu item (SetBombchuBag(0) after ArmLive, see
- *  OoT_SharedWalletTest_SetBombchuBag), MM a randomizer file with flags 80 and 81
- *  clear. */
+/** Neither live save holding either possession, MM's armed LAST. The storage is
+ *  unified, so this leaves MM's save live and OoT's bytes wiped (a zeroed OoT
+ *  Bombchu slot reads as the bag held): a leg asking OoT re-arms OoT after it. */
 void XirPossArmBothEmpty() {
     OoT_SharedWalletTest_ArmLive(0, 0, 0);
     OoT_SharedWalletTest_SetBombchuBag(0);
@@ -1112,21 +1135,20 @@ TestResult Test_SharedFamilyMerge(void) {
         // (5d) ADMISSION: each case decided by exactly one term.
         XirFreezePossession(NULL, true, true);
         XirPossArmBothEmpty();
-        const int admittedAll = XirPossAdmitted();
+        const int admittedAll = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         gComboCtx.sharedFamilyOwned |= W | B; // owned, held by nobody, no pool tier
-        const int ownedOnly = XirPossAdmitted();
+        const int ownedOnly = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         gComboCtx.sharedFamilyOwned = 0u;
-        OoT_SharedWalletTest_ArmLive(0, 0, 1);
-        OoT_SharedWalletTest_SetBombchuBag(1); // OoT holds both live, nothing owned
-        const int heldByOoT = XirPossAdmitted();
+        // OoT holds both live, nothing owned
+        const int heldByOoT = XirPossAdmitted(XirPossArmOoTBoth, XirPossArmMMEmpty);
         XirFreezePossession(NULL, true, true);
         XirPossArmBothEmpty();
         Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_WALLET_TIER, 1); // the pool's tier 1
-        const int poolTier1 = XirPossAdmitted();
+        const int poolTier1 = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         const uint32_t ownedAfterAsk = Combo_SharedFamiliesOwned();
         XirFreezePossession(NULL, false, false);
         XirPossArmBothEmpty();
-        const int unarmed = XirPossAdmitted();
+        const int unarmed = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         XirFreezePossession(NULL, true, true);
         const bool oddSlots = Combo_SharedPossessionPickupAdmitted(GAME_OOT, W | B) ||
                               Combo_SharedPossessionPickupAdmitted(GAME_OOT, G) ||
