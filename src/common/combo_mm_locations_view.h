@@ -30,8 +30,11 @@
  *    tab did ("This setting is not compatible with Vanilla Logic.").
  *
  * THE ONE SPELLING. Every writer emits the list in the form MM's own menu wrote
- * (SaveExcludedChecks) and SoH writes its own list in: ascending ids, each
- * followed by a comma ("12,34,"); an empty list clears the key. The profile
+ * (SaveExcludedChecks): ascending ids, each followed by a comma ("12,34,"); an
+ * empty list clears the key. (SoH's own Locations page now writes its
+ * ExcludedLocations list without the trailing comma, "12,34", and every OoT
+ * reader parses both spellings to the same set; MM's spelling here is
+ * unchanged.) The profile
  * digest folds the list in that same canonical form whatever spelling the key
  * holds, and the MM half of a paired file records the set
  * (`randoSaveExcludedChecks`), so a load can put a file's own list back (#781's
