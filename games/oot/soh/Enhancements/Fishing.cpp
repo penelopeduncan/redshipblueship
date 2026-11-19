@@ -1,5 +1,6 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "soh/ShipInit.hpp"
+#include "src/overlays/actors/ovl_Fishing/z_fishing.h"
 
 extern "C" {
 #include "macros.h"
@@ -7,6 +8,18 @@ extern "C" {
 
 extern SaveContext gSaveContext;
 extern PlayState* OoT_gPlayState;
+f32 Fishing_GetMinimumRequiredScore();
+}
+
+// Ship of Harkinian 172b373fb: outside the randomizer, the Customize Fishing minimum weights also set the weight that
+// wins the Piece of Heart and the Golden Scale (the randomizer gives its own prize through VB_GIVE_RANDO_FISHING_PRIZE).
+void RegisterFishingPrizeThreshold() {
+    COND_VB_SHOULD(
+        VB_SHOULD_GIVE_VANILLA_FISHING_PRIZE, (!IS_RANDO && CVarGetInteger(CVAR_ENHANCEMENT("CustomizeFishing"), 0)), {
+            VBFishingData* fishData = va_arg(args, VBFishingData*);
+            *should = fishData->fishWeight >= Fishing_GetMinimumRequiredScore() &&
+                      !(HIGH_SCORE(HS_FISHING) & (LINK_IS_CHILD ? HS_FISH_PRIZE_CHILD : HS_FISH_PRIZE_ADULT));
+        });
 }
 
 // Vanilla bug: Not possible to fish with blank B because blank B item value 0xFF is saved
@@ -32,5 +45,7 @@ void RegisterAllowFishingBlankB() {
         });
 }
 
+static RegisterShipInitFunc initFishingPrizeThreshold(RegisterFishingPrizeThreshold,
+                                                      { CVAR_ENHANCEMENT("CustomizeFishing"), "IS_RANDO" });
 static RegisterShipInitFunc initAllowFishingBlankB(RegisterAllowFishingBlankB,
                                                    { CVAR_ENHANCEMENT("FishingBlankB"), "IS_RANDO" });

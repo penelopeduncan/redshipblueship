@@ -11,10 +11,19 @@
 // At file scope, not inside an extern "C" block: z64.h includes <memory> under C++.
 #include <z64.h>
 
+#include "context.h"
+#include "soh/ShipInit.hpp"
+#include "soh/cvar_prefixes.h"
+#include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
+#include "src/overlays/actors/ovl_Fishing/z_fishing.h"
+
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 extern "C" {
+#include "macros.h"
 #include "variables.h"
 }
 
@@ -25,6 +34,48 @@ extern "C" {
             return 1;                                                     \
         }                                                                 \
     } while (0)
+
+namespace {
+
+bool UsfIsSite(const ShipInitEntry& entry, const char* fileName) {
+    const std::string file = entry.registeredAt.file_name();
+    const std::string want = fileName;
+    return file.size() >= want.size() && file.compare(file.size() - want.size(), want.size(), want) == 0 &&
+           (file.size() == want.size() || file[file.size() - want.size() - 1] == '/' ||
+            file[file.size() - want.size() - 1] == '\\');
+}
+
+// How many registrars @p fileName put in ShipInit's map under @p key.
+int UsfCountRegistrars(const char* key, const char* fileName) {
+    int found = 0;
+    for (const auto& entry : ShipInit::GetAll()[key]) {
+        if (UsfIsSite(entry, fileName)) {
+            found++;
+        }
+    }
+    return found;
+}
+
+// Re-runs @p fileName's registrars under @p key, the way a change of that key does.
+void UsfRunRegistrars(const char* key, const char* fileName) {
+    for (const auto& entry : ShipInit::GetAll()[key]) {
+        if (UsfIsSite(entry, fileName)) {
+            entry.initFunc();
+        }
+    }
+}
+
+// Restores an integer CVar the row changed: cleared, never stored, when it read 0 before (gate-config
+// contamination); the same rule as OoTDarkLinkFixes.
+void UsfRestoreInt(const char* key, int value) {
+    if (value != 0) {
+        CVarSetInteger(key, value);
+    } else {
+        CVarClear(key);
+    }
+}
+
+} // namespace
 
 // ---- OoTSwimVoidRespawnRoom (SoH c93b6188c, #1748) ----
 
@@ -92,6 +143,89 @@ extern "C" int OoT_ItemUnequipBow_RunHeadless(void) {
 
     printf("[TEST] oot-item-unequip-bow: PASS\n");
     return 0;
+}
+
+// ---- OoTFishingPrizeThreshold (SoH 172b373fb, #1747) ----
+
+namespace {
+
+const char* const kUsfCustomizeFishingKey = CVAR_ENHANCEMENT("CustomizeFishing");
+const char* const kUsfMinWeightAdultKey = CVAR_ENHANCEMENT("MinimumFishWeightAdult");
+
+bool UsfFishingPrize(f32 fishWeight, bool vanilla) {
+    VBFishingData fishData = {};
+    fishData.fishWeight = fishWeight;
+    return GameInteractor_Should(VB_SHOULD_GIVE_VANILLA_FISHING_PRIZE, vanilla, &fishData);
+}
+
+int UsfFishingPrizeLegs(void) {
+    USF_ASSERT(UsfCountRegistrars(kUsfCustomizeFishingKey, "Fishing.cpp") == 1,
+               "Fishing.cpp's prize registrar does not re-run on the CustomizeFishing CVar");
+    USF_ASSERT(UsfCountRegistrars("IS_RANDO", "Fishing.cpp") == 2,
+               "Fishing.cpp's prize registrar does not re-run when a file loads (IS_RANDO)");
+
+    // A vanilla adult file; the adult minimum set to 7 lbs, a score of sqrt(6.5 / 0.0036), about 42.5.
+    gSaveContext.ship.quest.id = QUEST_NORMAL;
+    gSaveContext.linkAge = LINK_AGE_ADULT;
+    gSaveContext.highScores[HS_FISHING] &= ~HS_FISH_PRIZE_ADULT;
+    CVarSetInteger(kUsfMinWeightAdultKey, 7);
+    CVarSetInteger(kUsfCustomizeFishingKey, 1);
+    UsfRunRegistrars(kUsfCustomizeFishingKey, "Fishing.cpp");
+
+    // (a) a fish over the customised minimum wins, although the vanilla 13 lb threshold said no.
+    const bool won = UsfFishingPrize(45.0f, false);
+    printf("[TEST] (a) Customize Fishing, adult minimum 7 lbs, fish length 45: prize %d\n", won);
+    USF_ASSERT(won, "(a): the customised minimum weight does not give the vanilla prize");
+    // (b) a fish under it does not, whatever vanilla said.
+    USF_ASSERT(!UsfFishingPrize(40.0f, true), "(b): a fish under the customised minimum won the prize");
+    // (c) the prize already won: no second Golden Scale.
+    gSaveContext.highScores[HS_FISHING] |= HS_FISH_PRIZE_ADULT;
+    USF_ASSERT(!UsfFishingPrize(45.0f, true), "(c): the Golden Scale was given twice");
+    gSaveContext.highScores[HS_FISHING] &= ~HS_FISH_PRIZE_ADULT;
+
+    // (d) Customize Fishing off: the hook is gone and the vanilla result passes through.
+    CVarClear(kUsfCustomizeFishingKey);
+    UsfRunRegistrars(kUsfCustomizeFishingKey, "Fishing.cpp");
+    USF_ASSERT(!UsfFishingPrize(45.0f, false) && UsfFishingPrize(40.0f, true),
+               "(d): the prize hook stayed armed with Customize Fishing off");
+
+    // (e) a randomizer file: the hook stays off (the randomizer gives its own prize).
+    CVarSetInteger(kUsfCustomizeFishingKey, 1);
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    UsfRunRegistrars("IS_RANDO", "Fishing.cpp");
+    USF_ASSERT(!UsfFishingPrize(45.0f, false), "(e): the vanilla prize hook armed in a randomizer file");
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_FishingPrizeThreshold_RunHeadless(void) {
+    if (GameInteractor::Instance == nullptr) {
+        GameInteractor::Instance = new GameInteractor();
+    }
+    const GameId prevGame = Context_GetCurrentGame();
+    // The GameInteractor dispatch is gated off only under GAME_MM.
+    Context_SetCurrentGame(GAME_OOT);
+    const int savedCustomize = CVarGetInteger(kUsfCustomizeFishingKey, 0);
+    const int savedMinAdult = CVarGetInteger(kUsfMinWeightAdultKey, 0);
+    const u8 savedQuest = gSaveContext.ship.quest.id;
+    const s32 savedAge = gSaveContext.linkAge;
+    const s32 savedFishing = gSaveContext.highScores[HS_FISHING];
+
+    const int rc = UsfFishingPrizeLegs();
+
+    gSaveContext.ship.quest.id = savedQuest;
+    gSaveContext.linkAge = savedAge;
+    gSaveContext.highScores[HS_FISHING] = savedFishing;
+    UsfRestoreInt(kUsfCustomizeFishingKey, savedCustomize);
+    UsfRestoreInt(kUsfMinWeightAdultKey, savedMinAdult);
+    UsfRunRegistrars("IS_RANDO", "Fishing.cpp");
+    Context_SetCurrentGame(prevGame);
+
+    if (rc == 0) {
+        printf("[TEST] oot-fishing-prize-threshold: PASS\n");
+    }
+    return rc;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

@@ -2096,6 +2096,14 @@ if(BUILD_TESTING)
     # Display-free and ROM-free.
     redship_add_test(NAME OoTItemUnequipBow COMMAND redship --test oot-item-unequip-bow)
 
+    # SoH 172b373fb (#1747): outside the randomizer, the Customize Fishing
+    # minimum weights now also set the weight that wins the vanilla prize. The
+    # row runs Fishing.cpp's prize registrar out of ShipInit's map, then the REAL
+    # VB_SHOULD_GIVE_VANILLA_FISHING_PRIZE dispatch on a vanilla adult file with
+    # a 7 lb minimum: over it -> prize; under it or already won -> none; the
+    # option off or a randomizer file -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTFishingPrizeThreshold COMMAND redship --test oot-fishing-prize-threshold)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

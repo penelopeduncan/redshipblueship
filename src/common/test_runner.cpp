@@ -1885,6 +1885,19 @@ static TestResult Test_OoTItemUnequipBow(void) {
     return OoT_ItemUnequipBow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 172b373fb (#1747): the customised fishing minimum sets the vanilla prize. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears two fishing CVars.
+extern "C" int OoT_FishingPrizeThreshold_RunHeadless(void);
+static TestResult Test_OoTFishingPrizeThreshold(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_FishingPrizeThreshold_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11537,6 +11550,11 @@ const TestDescriptor gTests[] = {
       "Re-pressing a button over the bow unequips the fire, ice or light arrow bow on it, and the existing unequip "
       "pairs are unchanged (SoH 16ee01404)",
       Test_OoTItemUnequipBow },
+    // SoH 172b373fb: display-free and ROM-free; restores the fishing CVars (cleared, never stored) and the save fields.
+    { "oot-fishing-prize-threshold",
+      "Outside the randomizer, Customize Fishing's minimum weight decides the vanilla fishing prize, once per age; "
+      "off or in a randomizer file the vanilla result passes through (SoH 172b373fb)",
+      Test_OoTFishingPrizeThreshold },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
