@@ -245,8 +245,12 @@ struct TestSaveState {
     }
     TestSaveState(const TestSaveState&) = delete;
     TestSaveState& operator=(const TestSaveState&) = delete;
-    void Save() { OoT_SaveState_TestSavePlainBlocks(handle); }
-    void Load() { OoT_SaveState_TestLoadPlainBlocks(handle); }
+    void Save() {
+        OoT_SaveState_TestSavePlainBlocks(handle);
+    }
+    void Load() {
+        OoT_SaveState_TestLoadPlainBlocks(handle);
+    }
 };
 
 struct BaselineGuard {
@@ -375,14 +379,20 @@ void SeedAudioOcarina(bool sentinel) {
     std::memset(sOcarinaSongs[OCARINA_SONG_MEMORY_GAME], 0, sizeof(sOcarinaSongs[OCARINA_SONG_MEMORY_GAME]));
     std::memset(sOcarinaSongs[OCARINA_SONG_SCARECROW], 0, sizeof(sOcarinaSongs[OCARINA_SONG_SCARECROW]));
     for (int i = 0; i < 20; i++) {
-        sOcarinaSongs[OCARINA_SONG_MEMORY_GAME][i] = { static_cast<u8>((sentinel ? 1 : 10) + i), b,
+        sOcarinaSongs[OCARINA_SONG_MEMORY_GAME][i] = { static_cast<u8>((sentinel ? 1 : 10) + i),
+                                                       b,
                                                        static_cast<u16>(sentinel ? (300 + i) : 7),
-                                                       static_cast<u8>(b + 1), static_cast<u8>(b + 2), sb,
+                                                       static_cast<u8>(b + 1),
+                                                       static_cast<u8>(b + 2),
+                                                       sb,
                                                        static_cast<u8>(sentinel ? 2 : 0) };
-        sOcarinaSongs[OCARINA_SONG_SCARECROW][i] = { static_cast<u8>((sentinel ? 21 : 5) + i), static_cast<u8>(b + 3),
+        sOcarinaSongs[OCARINA_SONG_SCARECROW][i] = { static_cast<u8>((sentinel ? 21 : 5) + i),
+                                                     static_cast<u8>(b + 3),
                                                      static_cast<u16>(sentinel ? (600 + i) : 9),
-                                                     static_cast<u8>(b + 4), static_cast<u8>(b + 5),
-                                                     static_cast<s8>(sb - 1), static_cast<u8>(sentinel ? 3 : 1) };
+                                                     static_cast<u8>(b + 4),
+                                                     static_cast<u8>(b + 5),
+                                                     static_cast<s8>(sb - 1),
+                                                     static_cast<u8>(sentinel ? 3 : 1) };
     }
     sOcaMinigameAppendPos = sentinel ? 11 : 1;
     sOcaMinigameEndPos = sentinel ? 16 : 2;
@@ -430,8 +440,12 @@ void SeedAudioOcarina(bool sentinel) {
     sAudioGanonDistVol = sentinel ? 0x77 : 0x11;
     std::memset(OoT_sSfxChannelState, 0, sizeof(OoT_sSfxChannelState));
     for (int i = 0; i < 0x10; i++) {
-        OoT_sSfxChannelState[i] = { f + i, f + 0.5f + i, static_cast<s8>(sb + i), static_cast<s8>(i - 8),
-                                    static_cast<s8>(sentinel ? 3 : 0), static_cast<u8>(b + i),
+        OoT_sSfxChannelState[i] = { f + i,
+                                    f + 0.5f + i,
+                                    static_cast<s8>(sb + i),
+                                    static_cast<s8>(i - 8),
+                                    static_cast<s8>(sentinel ? 3 : 0),
+                                    static_cast<u8>(b + i),
                                     static_cast<u8>(sentinel ? 1 : 0) };
     }
     D_8016B9D8 = sentinel ? 9 : 1;
@@ -473,12 +487,12 @@ void SeedAudioOcarina(bool sentinel) {
     }
 }
 
-#define CHECK(cond, msg)                                                                  \
-    do {                                                                                  \
-        if (!(cond)) {                                                                    \
-            std::printf("[TEST] FAIL (oot-savestate-roundtrip): %s\n", (msg));            \
-            return 1;                                                                     \
-        }                                                                                 \
+#define CHECK(cond, msg)                                                       \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            std::printf("[TEST] FAIL (oot-savestate-roundtrip): %s\n", (msg)); \
+            return 1;                                                          \
+        }                                                                      \
     } while (0)
 
 int CheckVec3fEq(const Vec3f& a, const Vec3f& b, const char* name) {
@@ -525,7 +539,8 @@ int VerifyBosses() {
         if (CheckVec3fEq(sVaEffects[idx].pos, { 52.5f, 62.5f, 72.5f }, "boss sVaEffects pos") != 0) {
             return 1;
         }
-        CHECK(sVaEffects[idx].type == 6 && sVaEffects[idx].timer == static_cast<u16>(500 + idx), "boss sVaEffects fields");
+        CHECK(sVaEffects[idx].type == 6 && sVaEffects[idx].timer == static_cast<u16>(500 + idx),
+              "boss sVaEffects fields");
         CHECK(sVaEffects[idx].parent == reinterpret_cast<BossVa*>(&sDummyPtrTargets[0]), "boss sVaEffects parent");
         CHECK(sVaEffects[idx].epoch == 0xCAFE0000u + idx, "boss sVaEffects epoch");
     }
@@ -583,7 +598,8 @@ int VerifyAudioOcarina() {
     CHECK(OoT_sAudioBaseFilter == 0x22 && OoT_sAudioExtraFilter == 0x33 && OoT_sAudioBaseFilter2 == 0x44 &&
               OoT_sAudioExtraFilter2 == 0x55,
           "audio filters");
-    CHECK(sSariaBgmPtr == reinterpret_cast<Vec3f*>(&sDummyPtrTargets[2]) && D_80130650 == f + 200.0f, "audio saria bgm");
+    CHECK(sSariaBgmPtr == reinterpret_cast<Vec3f*>(&sDummyPtrTargets[2]) && D_80130650 == f + 200.0f,
+          "audio saria bgm");
     CHECK(D_8016B7A8 == f + 2.0f && D_8016B7AC == f + 3.0f && D_8016B7B0 == f + 4.0f && D_8016B7B4 == f + 5.0f,
           "audio D_8016B7A8..B4 fields");
     CHECK(OoT_sRiverFreqScaleLerp.value == f + 0.1f && OoT_sRiverFreqScaleLerp.target == f + 0.2f &&
@@ -610,7 +626,8 @@ int VerifyAudioOcarina() {
           "audio ocarina recording");
     CHECK(OoT_sPlayingStaff.noteIdx == 5 && OoT_sPlayingStaff.state == 2 && OoT_sPlayingStaff.pos == 6,
           "audio playing staff");
-    CHECK(sDisplayedStaff.noteIdx == 7 && sDisplayedStaff.state == 3 && sDisplayedStaff.pos == 4, "audio displayed staff");
+    CHECK(sDisplayedStaff.noteIdx == 7 && sDisplayedStaff.state == 3 && sDisplayedStaff.pos == 4,
+          "audio displayed staff");
     CHECK(OoT_sRecordingStaff.noteIdx == 9 && OoT_sRecordingStaff.state == 1 && OoT_sRecordingStaff.pos == 12,
           "audio recording staff");
     CHECK(OoT_sNotePlaybackVolume == 0x60 && OoT_sNotePlaybackVibrato == 0x12 && sNotePlaybackTone == -15 &&

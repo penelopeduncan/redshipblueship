@@ -220,6 +220,7 @@ games/mm/2s2h/mm_locations_view_test.cpp
 games/oot/soh/oot_entrance_pin_test.cpp
 games/oot/soh/oot_price_range_test.cpp
 games/oot/soh/oot_save_editor_name_test.cpp
+games/oot/soh/oot_savestate_roundtrip_test.cpp
 games/oot/soh/SohGui/SohMenuComboMmEnhancements.cpp
 games/oot/soh/soh_menu_mm_enhancements_test.cpp
 games/mm/2s2h/mm_enhancement_toggles_test.cpp
