@@ -17,9 +17,13 @@
  *   (a)-(f) one clean-up run over a stray state built in the CVar store.
  *   (g) a second run changes nothing and reports nothing.
  * Every key the row touches is recorded first and put back afterwards (set when
- * it was present, cleared when it was not). Nothing is saved to disk: the row
- * calls the clean-up directly, never the bring-up hook, and never
- * ReloadAllMappingsFromConfig (ButtonMappingFactory can Save()).
+ * it was present, cleared when it was not). The row's own bring-up (the
+ * wrapper in test_runner.cpp) runs the once-per-process hook, which saves only
+ * if the staged config already holds strays; the second bring-up (h) reaches
+ * the once-guarded hook, which saves only under the guard mutation. Everything
+ * the row itself writes is in memory and restored, the legs call the clean-up
+ * directly, and the row never calls ReloadAllMappingsFromConfig
+ * (ButtonMappingFactory can Save()).
  */
 
 #ifdef RSBS_SINGLE_EXECUTABLE

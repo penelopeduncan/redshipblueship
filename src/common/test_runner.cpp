@@ -1861,7 +1861,8 @@ static TestResult Test_OoTDarkLinkFixes(void) {
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
-// the row writes and restores controller CVars (in memory only: it saves no config).
+// the row writes and restores controller CVars in memory. This bring-up runs the once-per-process #1741 hook, which
+// saves the config only if the staged config already holds strays; the row never calls ReloadAllMappingsFromConfig.
 extern "C" int OoT_OcarinaNoteMappingCleanup_RunHeadless(void);
 static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
     auto ctx = CreateHarnessStyleContext();
