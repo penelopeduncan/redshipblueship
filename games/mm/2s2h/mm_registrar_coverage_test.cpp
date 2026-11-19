@@ -209,7 +209,9 @@
  * registry the TU(s) write to by EXACTLY the count the table names. Each key is
  * read by these TUs alone (BenMenu.cpp only draws it; ChuDrops.cpp reads
  * gEnhancements.NewDrops inline and registers nothing on it), so the delta is
- * attributable. Nothing a TU defines is named here (a reference would un-elide it).
+ * attributable. Since 2Ship b41f365aa Minigames/Archery.cpp's Swamp registrar is
+ * also keyed on Skip Misc Interactions (its VB_ARCHERY_ADD_BONUS_POINTS gate);
+ * its row names that bucket. Nothing a TU defines is named here (a reference would un-elide it).
  *   - Skip Misc Interactions: the 25 TUs' registrations are summed per bucket in the table
  *     below, each bucket attributed to its TU(s) by name. Several TUs share a bucket
  *     (VB_START_CUTSCENE has eight of them), so one dropped TU leaves its bucket short.
@@ -726,9 +728,9 @@ const std::vector<SkipKeyProbe>& SkipProbes() {
 // every bucket is keyed on a VB id, an actor id or a text id, and the delta is measured with every other key off, so
 // only the TU behind the probed key can move it. Per key, the TU: Timesavers/BombersHideAndSeek.cpp,
 // Minigames/SwordsmanSchool.cpp, HoneyAndDarling.cpp (one registrar on its three keys), Archery.cpp (Town, Swamp and
-// Boat scores, Koume's health, Invincible), RomaniTargetPractice.cpp, AlwaysWinDoggyRace.cpp, CuccoShackCuccoCount.cpp,
-// SkipHorseRace.cpp, BeaverRace.cpp (two keys), DifficultyOptions/GoronRace.cpp, TreasureChestShopFullMaze.cpp and
-// MarkShootingGalleryOctoroks.cpp.
+// Boat scores, Koume's health, Invincible; the Swamp bonus VB is Skip Misc Interactions' since 2Ship b41f365aa),
+// RomaniTargetPractice.cpp, AlwaysWinDoggyRace.cpp, CuccoShackCuccoCount.cpp, SkipHorseRace.cpp, BeaverRace.cpp (two
+// keys), DifficultyOptions/GoronRace.cpp, TreasureChestShopFullMaze.cpp and MarkShootingGalleryOctoroks.cpp.
 //
 // Most of these are sliders whose default (MM's vanilla value) is the one value that disarms them: they arm while the
 // key differs from it, so the drive's "off" (0) would arm them too. Every count below first puts each such key that
@@ -791,9 +793,7 @@ const std::vector<SkipKeyProbe>& W6MinigameProbes() {
         { "gEnhancements.Minigames.SwampArcheryScore",
           "Swamp Archery Score",
           { { "ShouldActorUpdate[EN_SYATEKI_MAN] (Minigames/Archery.cpp, Swamp)",
-              W6_MINIGAME_UPDATE_COUNT(ACTOR_EN_SYATEKI_MAN), 1 },
-            { "VB_ARCHERY_ADD_BONUS_POINTS (Minigames/Archery.cpp, Swamp)",
-              W6_MINIGAME_VB_COUNT(VB_ARCHERY_ADD_BONUS_POINTS), 1 } } },
+              W6_MINIGAME_UPDATE_COUNT(ACTOR_EN_SYATEKI_MAN), 1 } } },
         { "gEnhancements.Minigames.RomaniTargetPractice",
           "Romani Target Practice",
           { { "VB_WIN_ROMANI_PRACTICE (Minigames/RomaniTargetPractice.cpp)",
@@ -1606,7 +1606,10 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
               1 },
             { "OnOpenText[0x72F] (SkipGivingBombersNotebook.cpp)", GAP_HOOK_COUNT(OnOpenText, 0x72F), 1 },
             { "OnOpenText[0x716] (SkipGivingBombersNotebook.cpp)", GAP_HOOK_COUNT(OnOpenText, 0x716), 1 },
-            { "OnOpenText[0x296A] (SkipKafeiReveal.cpp)", GAP_HOOK_COUNT(OnOpenText, 0x296A), 1 } } },
+            { "OnOpenText[0x296A] (SkipKafeiReveal.cpp)", GAP_HOOK_COUNT(OnOpenText, 0x296A), 1 },
+            // 2Ship b41f365aa: the Swamp archery bonus speed-up is gated on this key, not on the Swamp score.
+            { "VB_ARCHERY_ADD_BONUS_POINTS (Minigames/Archery.cpp, Swamp)", GAP_VB_COUNT(VB_ARCHERY_ADD_BONUS_POINTS),
+              1 } } },
         // #1123: Skip Boss Introductions. One TU, Cutscenes/SkipEnemyCutscenes.cpp, three registrars on the one key:
         //   VB_START_CUTSCENE 2 = the boss-warp leg and the enemy-cutscene leg. The other buckets are one each; a
         //   representative set of its ShouldActorInit / OnActorInit / ShouldActorUpdate / OnActorUpdate ids is probed.
