@@ -2210,7 +2210,8 @@ void Settings::CreateOptions() {
     OPT_TRICK(RT_WATER_DRAGON_JUMP_DIVE, RCQUEST_BOTH, RA_WATER_TEMPLE, { Tricks::Tag::NOVICE },
               "Water Temple Dragon Statue Jump Dive",
               "If you come into the dragon statue room from the serpent river, you can sidehop down from above and get "
-              "into the tunnel without needing either Iron Boots or a Scale. This trick applies to both Vanilla and "
+              "into the tunnel without needing either Iron Boots or a Scale. Alternativly, you can do this while "
+              "equipping irons in middair to get into the tunnel without swim. This trick applies to both Vanilla and "
               "Master Quest. In Vanilla, you must shoot the switch from above with the Bow, and then quickly get "
               "through the tunnel before the gate closes.");
     OPT_TRICK(RT_WATER_ADULT_DRAGON, RCQUEST_VANILLA, RA_WATER_TEMPLE, { Tricks::Tag::NOVICE },
@@ -2243,7 +2244,8 @@ void Settings::CreateOptions() {
               "Water Temple Invisible Hookshot Target",
               "Invisible hookshot geometry can be used in MQ to get over the gate that blocks you from going to this "
               "Skulltula early, skipping a small key as well as needing Hovers or Scarecrow to reach the locked door.\n"
-              "In vanilla this can be used to get past without bronze scale.");
+              "In vanilla this can be used to leave the water and pass in either direction without Bronze Scale using "
+              "Iron Boots and Hookshot.");
     OPT_TRICK(RT_WATER_MORPHA_WITHOUT_HOOKSHOT, RCQUEST_BOTH, RA_WATER_TEMPLE, { Tricks::Tag::EXTREME },
               "Water Temple Morpha without Hookshot", "It is possible to slash at Morpha without hookshot.");
     OPT_TRICK(RT_LENS_SHADOW, RCQUEST_VANILLA, RA_SHADOW_TEMPLE, { Tricks::Tag::NOVICE },

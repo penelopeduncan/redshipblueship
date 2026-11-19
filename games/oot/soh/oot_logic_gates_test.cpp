@@ -247,7 +247,7 @@
  *     RT_UNINTUITIVE_JUMPS, Shadow MQ spikes, Spirit GS ledge, Water Like Like
  *     spikes, MQSpiritStatueToSunBlock with the bracelet, the Deku MQ compass-room
  *     boulder with Boomerang and bombs, the DC MQ lobby's lower-right mud wall with
- *     Goron's Bracelet and its bomb-flower ground jump, and Water's river pots to
+ *     Goron's Bracelet and its bomb-flower ground jump, and Water's river platform to
  *     above the dragon with the slingshot).
  *  OW. The same pairs in Kakariko (backyard), the graveyard (Dampe's race), Death
  *     Mountain Trail (chest with Goron's Bracelet), Zora's Domain (island exit with
@@ -294,6 +294,13 @@
  *     RT_DC_CHILD_LOBBY; closed/open pairs and scene searches cover DC, Jabu, Forest
  *     and Fire's new and split regions; GF's lower-vines bunny hover and Fire's
  *     near-boss hood exits open for an adult with the hood only under Masks as Adult.
+ *  WT. SoH eca767dcb's Water Temple (#1647 stage 4): the four new regions are built;
+ *     the river platform needs the Longshot (the Hookshot only with the hood) and a
+ *     WaterTimer of 16; the river hearts and GS need 8; the platform's GS trick needs
+ *     a far kill; LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES gates both sides of the MQ
+ *     boss key room; the MQ dragon eyes moved to the dragon room bottom (irons), the
+ *     jump-dive tunnel needs its trick; the MQ vortex beds take the submerged crates;
+ *     scene searches cross the river split and the MQ dragon and vortex splits.
  *  TN. Trick names in a spoiler log (#1730): RT_DC_CHILD_LOBBY answers to Ship of
  *     Harkinian's name and not to its old one; a log that lists names this build does
  *     not know turns no trick on (not trick 0 either) and leaves the names unknown;
@@ -2250,6 +2257,373 @@ void RunEcaOverhaulBatch1Legs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS).Set(savedSkipFlames);
 }
 
+// ---- SoH eca767dcb (#7032): the Water Temple (#1647 stage 4), WT -------------
+const EcaBatch1Region kEcaWaterRegions[] = {
+    { RR_WATER_TEMPLE_RIVER_PLATFORM, "RR_WATER_TEMPLE_RIVER_PLATFORM" },
+    { RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, "RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM" },
+    { RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, "RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S" },
+    { RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, "RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N" },
+};
+
+// Every trick water_temple.cpp and the helpers it calls read, forced off (saved and restored), so a trick the
+// context holds on cannot open a path a leg expects closed.
+const RandomizerTrick kEcaWaterTricks[] = {
+    RT_FEWER_TUNIC_REQUIREMENTS,
+    RT_WATER_ADULT_DRAGON,
+    RT_WATER_BK_REGION,
+    RT_WATER_CENTRAL_BOW,
+    RT_WATER_CHILD_DRAGON,
+    RT_WATER_CRACKED_WALL,
+    RT_WATER_CRACKED_WALL_HOVERS,
+    RT_WATER_DRAGON_JUMP_DIVE,
+    RT_WATER_FW_CENTRAL_GS,
+    RT_WATER_HIGH_EMBLEM_JUMP,
+    RT_WATER_HOOKSHOT_FALLING_PLATFORM_GS,
+    RT_WATER_INVISIBLE_HOOKSHOT_TARGET,
+    RT_WATER_IRONS_CENTRAL_GS,
+    RT_WATER_IRON_BOOTS_LEDGE_GRAB,
+    RT_WATER_LONGSHOT_TORCH,
+    RT_WATER_MQ_CENTRAL_PILLAR,
+    RT_WATER_MORPHA_WITHOUT_HOOKSHOT,
+    RT_WATER_NORTH_BASEMENT_LEDGE_JUMP,
+    RT_WATER_RANG_FALLING_PLATFORM_GS,
+    RT_WATER_RIVER_GS,
+    RT_VOIDOUT_COLLECTION,
+    RT_HOVER_BOOST_SIMPLE,
+    RT_DAMAGE_BOOST_SIMPLE,
+    RT_UNINTUITIVE_JUMPS,
+    RT_GROUND_JUMP,
+    RT_GROUND_JUMP_HARD,
+    RT_HOOKSHOT_EXTENSION,
+    RT_OPEN_UNDERWATER_CHEST,
+    RT_VISIBLE_COLLISION,
+};
+
+/** ResetClimbLogic, with Swim granted or withheld (the context's Shuffle Swim decides it otherwise). */
+void EcaWaterReset(bool swim) {
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, swim);
+}
+
+/** A reset with Starting Hearts @p value (value + 1 hearts, 16 health each), no Swim. Logic::Reset reads the option
+ *  only at reset, so it is set first; WaterTimer is Health() / 2 under RT_FEWER_TUNIC_REQUIREMENTS. */
+void EcaWaterResetHearts(const std::shared_ptr<Rando::Context>& randoCtx, const char* leg, uint8_t value) {
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(value);
+    EcaWaterReset(false);
+    if (logic->Health() != 16 * (value + 1)) {
+        GateFail("%s: Logic::Reset left health capacity %d under Starting Hearts %d, not %d", leg, (int)logic->Health(),
+                 (int)value, 16 * (value + 1));
+    }
+}
+
+void RunEcaOverhaulWaterLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    constexpr size_t kTrickCount = sizeof(kEcaWaterTricks) / sizeof(kEcaWaterTricks[0]);
+    uint8_t savedTricks[kTrickCount];
+    for (size_t i = 0; i < kTrickCount; i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kEcaWaterTricks[i]).Get();
+    }
+    const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
+    const uint8_t savedOcarinaButtons = randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const bool savedWaterMq = randoCtx->GetDungeon(Rando::WATER_TEMPLE)->IsMQ();
+
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaWaterTricks[i]).Set(0);
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(1);
+    // Song of Time's buttons (the vanilla walk to the river), granted at reset with the setting off.
+    randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+
+    // ---- WT0: every new region is built ---------------------------------------
+    int unbuilt = 0;
+    for (const EcaBatch1Region& row : kEcaWaterRegions) {
+        if (RegionTable(row.region)->regionName.empty()) {
+            GateFail("WT0 %s (%d): RegionTable_Init built no region for it", row.name, (int)row.region);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: WT0 all 4 stage-4 regions built\n");
+    }
+
+    // ---- WT1..WT2: River -> River Platform, adult with irons and tunic, no Swim, hood setting off ----
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    GiveHookshot(false);
+    ExpectExit("WT1 Water River to River Platform, adult with irons, tunic and short Hookshot, no Swim",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, false,
+               "the short Hookshot pulls out of the river without the hood (eca767dcb asks for the Longshot)");
+    GiveHookshot(true);
+    ExpectExit("WT2 Water River to River Platform, adult with irons, tunic and Longshot, no Swim",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, true,
+               "irons, tunic and Longshot do not reach the river platform (SoH eca767dcb)");
+
+    // ---- WT3..WT4: the platform's WaterTimer >= 16, RT_FEWER_TUNIC_REQUIREMENTS, no tunic ----
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    EcaWaterResetHearts(randoCtx, "WT3", 0);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    ExpectExit("WT3 Water River to River Platform, adult with irons and Longshot, one heart (WaterTimer 8)",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, false,
+               "a WaterTimer of 8 reaches the river platform (eca767dcb asks for 16)");
+    EcaWaterResetHearts(randoCtx, "WT4", 1);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    ExpectExit("WT4 Water River to River Platform, adult with irons and Longshot, two hearts (WaterTimer 16)",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, true,
+               "a WaterTimer of 16 does not reach the river platform (the parent's 32 is still in force)");
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+
+    // ---- WT5..WT6: the hood term on River -> River Platform ------------------------
+    ResetLogicWithBunnyHood();
+    logic->SetRandoInf(RAND_INF_CAN_CLIMB, false);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    GiveHookshot(false);
+    MaaExitOffOn(
+        randoCtx,
+        "WT5 Water River to River Platform, adult with irons, tunic, short Hookshot and hood, Masks as Adult "
+        "off",
+        "WT6 Water River to River Platform, adult with irons, tunic, short Hookshot and hood, Masks as Adult on",
+        RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- WT7..WT10: the river hearts and the river GS at WaterTimer >= 8 -----------
+    EcaWaterResetHearts(randoCtx, "WT7", 0);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(false);
+    ExpectAs(true, "WT7 Water river heart 1, adult with irons, no tunic, trick off (WaterTimer 0)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_RIVER_HEART_1, false,
+             "irons alone with a WaterTimer of 0 collect the river heart");
+    ExpectAs(true, "WT9 Water river GS, adult with irons and short Hookshot, no tunic, trick off (WaterTimer 0)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_GS_RIVER, false,
+             "irons and Hookshot with a WaterTimer of 0 collect the river GS");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectAs(true, "WT8 Water river heart 1, adult with irons, no tunic, one heart, trick on (WaterTimer 8)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_RIVER_HEART_1, true,
+             "a WaterTimer of 8 does not collect the river heart (the parent's 16 is still in force)");
+    ExpectAs(true, "WT10 Water river GS, adult with irons and short Hookshot, one heart, trick on (WaterTimer 8)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_GS_RIVER, true,
+             "a WaterTimer of 8 does not collect the river GS (the parent's 16 is still in force)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+
+    // ---- WT11..WT12: RT_WATER_RIVER_GS on the platform needs a far kill -----------
+    randoCtx->GetTrickOption(RT_WATER_RIVER_GS).Set(1);
+    EcaWaterReset(false);
+    GiveHookshot(true);
+    ExpectAs(true, "WT11 Water river GS from the platform, adult with Longshot, RT_WATER_RIVER_GS, no Bow",
+             RR_WATER_TEMPLE_RIVER_PLATFORM, RC_WATER_TEMPLE_GS_RIVER, false,
+             "the Longshot alone takes the river GS from the platform (eca767dcb asks for a far kill)");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectAs(true, "WT12 Water river GS from the platform, adult with Longshot and Bow, RT_WATER_RIVER_GS",
+             RR_WATER_TEMPLE_RIVER_PLATFORM, RC_WATER_TEMPLE_GS_RIVER, true,
+             "Longshot, Bow and RT_WATER_RIVER_GS do not take the river GS from the platform (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_RIVER_GS).Set(0);
+
+    // ---- WT13..WT14: vanilla search from the entryway across the river split ------
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MASTER_SWORD);
+    GiveFairyOcarina();
+    Give(RG_SONG_OF_TIME);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 6);
+    ExpectSearch("WT13 Water search from entryway to the river chest, adult without Bow", RR_WATER_TEMPLE_ENTRYWAY,
+                 true, RR_NONE, RC_WATER_TEMPLE_RIVER_CHEST, false,
+                 "the river chest is reached without hitting the eye target from the river platform");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectSearch("WT14 Water search from entryway to the river chest, adult with Bow via the river platform",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_RIVER_CHEST, true,
+                 "an adult with Swim, Longshot, irons, tunic, Hover Boots, sword, Song of Time, Bow and 6 keys cannot "
+                 "reach the river chest through the river platform");
+
+    // ---- WT15..WT18: LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES from either side --------
+    EcaWaterReset(false);
+    Give(RG_DINS_FIRE);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true);
+    ExpectEvent("WT15 Water MQ boss key torches from the switch side, adult with Din's Fire, no switch hitter",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, false,
+                "Din's Fire alone lights the boss key chest torches without hitting the switch");
+    GiveGrab();
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true);
+    ExpectEvent("WT16 Water MQ boss key torches from the switch side, adult with Din's Fire and the bracelet",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true,
+                "Din's Fire and the Power Bracelet do not light the boss key chest torches (SoH eca767dcb)");
+
+    EcaWaterReset(false);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true);
+    ExpectEvent("WT17 Water MQ boss key torches from the chest side, adult with Bow and magic, no fire",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, false, "the chest-side torches light with no fire source");
+    Give(RG_FIRE_ARROWS);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true);
+    ExpectEvent("WT18 Water MQ boss key torches from the chest side, adult with Fire Arrows",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true,
+                "Fire Arrows do not light the boss key chest torches from the chest side (SoH eca767dcb)");
+
+    // ---- WT19..WT22: the boss key room's two sides need the torches ---------------
+    EcaWaterReset(false);
+    Give(RG_MASTER_SWORD);
+    ExpectExit("WT19 Water MQ boss key switch side to chest, adult with Master Sword, torches unlit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true, false,
+               "the switch side reaches the chest with the torches unlit");
+    logic->Set(LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true);
+    ExpectExit("WT20 Water MQ boss key switch side to chest, adult with Master Sword, torches lit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true, true,
+               "a sword and the lit torches do not reach the chest side (SoH eca767dcb)");
+
+    // The short Hookshot hits the switch at bomb-throw range (CanHitSwitch falls through to it); the sword does not.
+    EcaWaterReset(false);
+    GiveHookshot(false);
+    ExpectExit("WT21 Water MQ boss key chest side to switch side, adult with short Hookshot, torches unlit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true, false,
+               "the chest side reaches the switch side with the torches unlit");
+    logic->Set(LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true);
+    ExpectExit("WT22 Water MQ boss key chest side to switch side, adult with short Hookshot, torches lit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true, true,
+               "a Hookshot and the lit torches do not reach the switch side (SoH eca767dcb)");
+
+    // ---- WT23..WT28: the MQ dragon room bottom and the jump-dive tunnel ------------
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT23 Water MQ river pots to dragon room bottom, adult with irons, no tunic",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, true, false,
+               "irons with a WaterTimer of 0 sink to the dragon room bottom");
+    Give(RG_ZORA_TUNIC);
+    ExpectExit("WT24 Water MQ river pots to dragon room bottom, adult with irons and tunic",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, true, true,
+               "irons and tunic do not reach the dragon room bottom (SoH eca767dcb)");
+    ExpectExit("WT27 Water MQ river pots to dragon room tunnel, adult with irons and tunic, jump-dive trick off",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_TUNNEL, true, false,
+               "irons alone dive straight into the tunnel without RT_WATER_DRAGON_JUMP_DIVE");
+    randoCtx->GetTrickOption(RT_WATER_DRAGON_JUMP_DIVE).Set(1);
+    ExpectExit("WT28 Water MQ river pots to dragon room tunnel, adult with irons and tunic, jump-dive trick on",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_TUNNEL, true, true,
+               "irons, tunic and RT_WATER_DRAGON_JUMP_DIVE do not reach the tunnel (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_DRAGON_JUMP_DIVE).Set(0);
+
+    EcaWaterReset(false);
+    ExpectAs(true, "WT25 Water MQ dragon room left eye from the bottom, adult with nothing",
+             RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, false,
+             "the left eye's wonder item drops with no Hookshot");
+    GiveHookshot(false);
+    ExpectAs(true, "WT26 Water MQ dragon room left eye from the bottom, adult with short Hookshot",
+             RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, true,
+             "the Hookshot does not take the left eye from the dragon room bottom (SoH eca767dcb)");
+
+    // ---- WT29..WT30: MQ search from the entryway into the dragon room bottom --------
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_MASTER_SWORD);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 2);
+    ExpectSearch("WT29 Water MQ search from entryway to the dragon room left eye, adult without irons",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, false,
+                 "the dragon room eyes are reached without irons (they left the door and tunnel for the bottom)");
+    Give(RG_IRON_BOOTS);
+    ExpectSearch("WT30 Water MQ search from entryway to the dragon room left eye, adult with irons",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, true,
+                 "an adult with Swim, Longshot, tunic, irons, sword, Bow and 2 keys cannot reach the dragon room "
+                 "bottom's left eye");
+
+    // ---- WT31..WT36: the MQ crate vortex beds ---------------------------------------
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT31 Water MQ crate vortex room to bed south, adult with irons, no tunic",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, false,
+               "irons with a WaterTimer of 0 sink to the vortex bed");
+    Give(RG_ZORA_TUNIC);
+    ExpectExit("WT32 Water MQ crate vortex room to bed south, adult with irons and tunic",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, true,
+               "irons and tunic do not reach the vortex bed (SoH eca767dcb)");
+
+    EcaWaterResetHearts(randoCtx, "WT33", 0);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT33 Water MQ crate vortex room to bed south, adult with irons, one heart, trick off (WaterTimer 0)",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, false,
+               "irons with a WaterTimer of 0 sink to the vortex bed");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectExit("WT34 Water MQ crate vortex room to bed south, adult with irons, one heart, trick on (WaterTimer 8)",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, true,
+               "a WaterTimer of 8 does not reach the vortex bed (eca767dcb asks for 8, the old crates for 16)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+
+    EcaWaterReset(false);
+    GiveHookshot(false);
+    ExpectExit("WT35 Water MQ crate vortex bed north to cage, adult with short Hookshot, invisible target trick off",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_CAGE, true, false,
+               "the invisible target reaches the vortex cage with RT_WATER_INVISIBLE_HOOKSHOT_TARGET off");
+    randoCtx->GetTrickOption(RT_WATER_INVISIBLE_HOOKSHOT_TARGET).Set(1);
+    ExpectExit("WT36 Water MQ crate vortex bed north to cage, adult with short Hookshot, invisible target trick on",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_CAGE, true, true,
+               "the short Hookshot and RT_WATER_INVISIBLE_HOOKSHOT_TARGET do not reach the cage (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_INVISIBLE_HOOKSHOT_TARGET).Set(0);
+
+    // ---- WT37..WT38: MQ search through the vortex beds (no bombchus, so the room's own copy stays closed) ----
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_MASTER_SWORD);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_DINS_FIRE);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 2);
+    ExpectSearch("WT37 Water MQ search from entryway to vortex crate 3, adult without irons", RR_WATER_TEMPLE_ENTRYWAY,
+                 true, RR_NONE, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_3, false,
+                 "the submerged vortex crate is reached without irons or bombchus");
+    Give(RG_IRON_BOOTS);
+    ExpectSearch("WT38 Water MQ search from entryway to vortex crate 3, adult with irons via bed north",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_3, true,
+                 "an adult with Swim, Longshot, tunic, irons, sword, Bow, Din's Fire and 2 keys cannot reach vortex "
+                 "crate 3 through the vortex beds");
+
+    if (savedWaterMq) {
+        randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    }
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaWaterTricks[i]).Set(savedTricks[i]);
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
+    randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Set(savedOcarinaButtons);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+}
+
 // ---- SoH eca767dcb (Bunny Hood Effect) and e7f1801f0 (#7488): BH and LW -----
 void ExpectMode(const char* leg, int got, int expected, const char* why) {
     if (got != expected) {
@@ -2484,12 +2858,12 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                  "BL34 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, on",
                  RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM);
     randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(0);
-    // Water river pots to above the dragon: the slingshot and the hood.
+    // Water river platform to above the dragon: the slingshot and the hood.
     ResetLogicWithBunnyHood();
     GiveSlingshot();
-    BhlExitOffOn(randoCtx, "BL35 Water river pots to above the dragon, child with slingshot and hood, setting off",
-                 "BL36 Water river pots to above the dragon, child with slingshot and hood, setting on",
-                 RR_WATER_TEMPLE_RIVER_POTS, RR_WATER_TEMPLE_ABOVE_DRAGON);
+    BhlExitOffOn(randoCtx, "BL35 Water river platform to above the dragon, child with slingshot and hood, setting off",
+                 "BL36 Water river platform to above the dragon, child with slingshot and hood, setting on",
+                 RR_WATER_TEMPLE_RIVER_PLATFORM, RR_WATER_TEMPLE_ABOVE_DRAGON);
 
     // ---- OW: the overworld terms -----------------------------------------------
     ResetLogicWithBunnyHood();
@@ -4108,6 +4482,8 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunFireTrialSplitLegs(randoCtx);
     // ---- EB: eca767dcb overhaul batch 1 (#1647 stage 3) ----------------------
     RunEcaOverhaulBatch1Legs(randoCtx);
+    // ---- WT: eca767dcb Water Temple (#1647 stage 4) ---------------------------
+    RunEcaOverhaulWaterLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
