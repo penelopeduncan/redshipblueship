@@ -2390,6 +2390,22 @@ typedef enum {
     // #### `args`
     // - None
     VB_FIRST_PERSON_CAMERA,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnOwl`
+    VB_OWL_SPAWN_FEATHER,
+
+    // #### `result`
+    // ```c
+    // player->stateFlags3 & PLAYER_STATE3_10000000
+    // ```
+    // #### `args`
+    // - `*EnOwl`
+    VB_OWL_DESPAWN_FEATHER,
 } GIVanillaBehavior;
 
 #endif

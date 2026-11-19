@@ -790,6 +790,13 @@ if(SINGLE_EXECUTABLE_BUILD)
         # (z_player.c). Its body guards MM_gPlayState after *should = false. No stub in mm_stubs.c; no twin of
         # RegisterPictoBoxOnCUp in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755 attribute it.
         "2s2h/Enhancements/Items/PictoBoxOnCUp.cpp"
+        # #1755: 2Ship #1594 / #1905 (AlwaysShowShrineFeathers), drawn in Timesavers (SohMenuHostedMmTimesavers.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides OnActorInit[ACTOR_EN_OWL],
+        # OnActorUpdate[ACTOR_EN_OWL], VB_OWL_SPAWN_FEATHER, and VB_OWL_DESPAWN_FEATHER (z_en_owl.c). Its OnActorInit
+        # body guards MM_gPlayState and MM_gPlayState->setupPathList. No stub in mm_stubs.c; no twin of
+        # RegisterAlwaysShowShrineFeathers in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755
+        # attribute it.
+        "2s2h/Enhancements/Timesavers/AlwaysShowShrineFeathers.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 

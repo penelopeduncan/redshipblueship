@@ -595,6 +595,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_TIMESAVERS_GALLERY_TWOFER "gEnhancements.Timesavers.GalleryTwofer"
 #define RSBS_CVAR_MM_TIMESAVERS_MARINE_LAB_HP "gEnhancements.Timesavers.MarineLabHP"
 #define RSBS_CVAR_MM_TIMESAVERS_DAMPE_DIGGING_SKIP "gEnhancements.Timesavers.DampeDiggingSkip"
+// 2Ship #1594: always show feathers.
+#define RSBS_CVAR_MM_TIMESAVERS_ALWAYS_SHOW_SHRINE_FEATHERS "gEnhancements.Timesavers.AlwaysShowShrineFeathers"
 #define RSBS_CVAR_MM_TIMESAVERS_FASTER_SCENE_TRANSITIONS "gEnhancements.Timesavers.FasterSceneTransitions"
 #define RSBS_CVAR_MM_TIMESAVERS_POWDER_KEG_CERTIFICATION "gEnhancements.Timesavers.PowderKegCertification"
 #define RSBS_CVAR_MM_TIMESAVERS_SKIP_BALLAD_OF_WINDFISH "gEnhancements.Timesavers.SkipBalladOfWindfish"
@@ -1134,6 +1136,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_TIMESAVERS_GALLERY_TWOFER)                        \
     X(RSBS_CVAR_MM_TIMESAVERS_MARINE_LAB_HP)                         \
     X(RSBS_CVAR_MM_TIMESAVERS_DAMPE_DIGGING_SKIP)                    \
+    X(RSBS_CVAR_MM_TIMESAVERS_ALWAYS_SHOW_SHRINE_FEATHERS)           \
     X(RSBS_CVAR_MM_TIMESAVERS_FASTER_SCENE_TRANSITIONS)              \
     X(RSBS_CVAR_MM_TIMESAVERS_POWDER_KEG_CERTIFICATION)              \
     X(RSBS_CVAR_MM_TIMESAVERS_SKIP_BALLAD_OF_WINDFISH)               \
