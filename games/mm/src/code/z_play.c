@@ -2630,7 +2630,10 @@ void MM_Play_ConsumeStartupEntrance(void) {
     // ENTRANCE(THE_MOON, 0)): every other pause save records
     // ENTRANCE(SOUTH_CLOCK_TOWN, 0), the crossing entrance. With Remember Save
     // Location on, the recorded entrance is the last one Link went through
-    // before the save.
+    // before the save, except in Majora's lair, which has no exit and always
+    // records ENTRANCE(THE_MOON, 0) (#1744, the ruling of 2026-11-19), and on
+    // a paired New Cycle file's Clock Tower roof, which records South Clock
+    // Town (#1728).
     //
     // Range-checked, not merely compared with -1: the restored blob is not
     // guaranteed sane, and an s32 outside 0..0xFFFF is no entrance. Gated on

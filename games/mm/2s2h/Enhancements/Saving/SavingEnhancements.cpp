@@ -15,7 +15,8 @@ extern "C" {
 // declare it rather than include it — the convention the decomp TUs already use
 // for the Combo_* entry points.
 extern "C" int RsbsSave_GetActiveSlot(void);
-// #1728: a New Cycle roof save comes back in South Clock Town. The rule is
+// #1728: a New Cycle roof save comes back in South Clock Town; #1744: a save in
+// Majora's lair comes back on the Moon field. The rules are
 // game-header-free (src/common/mm_moon_crash_rules.h); its two live inputs are
 // declared here for the same reason as above (src/common/context.h,
 // src/common/combo_mm_options_view.h).
@@ -59,6 +60,15 @@ static HOOK_ID gameplayStartHookId = 0;
  * mm/save.c Sram_AfterOpenSave). Without it the first arrival after a load
  * landed on the roof with a new five-minute timer. A Last Save file and an
  * unpaired session keep the choice below.
+ *
+ * RSBS (#1744): a save in Majora's lair (Combo_MmLairSaveLandsOnMoonField)
+ * comes back on the Moon field, ENTRANCE(THE_MOON, 0), even with Remember
+ * Save Location on, in every file. This departs from 2Ship2Harkinian
+ * e5e9f3364 for this one scene, by the operator's ruling of 2026-11-19 on
+ * #1744: upstream's Remember branch records the lair's own entrance, and the
+ * lair has no exit, so a randomizer file without the Song of Time reloaded
+ * there could be stuck. The four trials and the Moon field keep upstream's
+ * choice.
  */
 extern "C" int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember, int lastEntrance, int paired,
                                                        int frozenMoonCrash, int* outRemembered) {
@@ -68,6 +78,10 @@ extern "C" int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember
 #ifdef RSBS_SINGLE_EXECUTABLE
     if (Combo_MmRoofSaveLandsAtCrossing(sceneId == SCENE_OKUJOU, paired, frozenMoonCrash)) {
         return ENTRANCE(SOUTH_CLOCK_TOWN, 0);
+    }
+    // #1744: ahead of the Remember branch, so Remember Save Location cannot send a reload back into the lair.
+    if (Combo_MmLairSaveLandsOnMoonField(sceneId == SCENE_LAST_BS)) {
+        return ENTRANCE(THE_MOON, 0);
     }
 #else
     (void)paired;
@@ -149,6 +163,8 @@ extern "C" void SavingEnhancements_PersistSaveEntranceInfo() {
     } else if (remember) {
         // RSBS (#1728): a New Cycle roof save with Remember Save Location on comes back in South Clock Town, so it
         // carries no roof respawn data for the load's LoadRespawnData to bring back (as ClearSaveEntranceInfo does).
+        // RSBS (#1744): the same for a save in Majora's lair, which comes back on the Moon field: no respawn data
+        // that points into the lair.
         memset(&gSaveContext.save.shipSaveInfo.respawn, 0, sizeof(gSaveContext.save.shipSaveInfo.respawn));
     }
 }

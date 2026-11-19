@@ -646,7 +646,9 @@ extern "C" int MM_PauseSaveReload_RunHeadless(void) {
         }
 
         // 5. #1744 (2Ship e5e9f3364): cross into MM again and pause-save on the Moon, in each trial and in Majora's
-        //    lair, then reopen the file: the MM half the first crossing restores must carry the Moon save. The
+        //    lair, then in a trial and in the lair with Remember Save Location on, then reopen the file: the MM half
+        //    the first crossing restores must carry the lair save, which records the Moon field and no respawn data
+        //    (the ruling of 2026-11-19). The
         //    reload's load consumed OoT's armed half, so the crossing's OoT freeze is put back first, as in step 1.
         Context_UpdateShadowCopy(GAME_OOT, &sCommitted, sizeof(SaveContext));
         gComboCtx.sourceGame = GAME_MM;
