@@ -888,9 +888,9 @@ void InitTrickNames() {
         Text{ "Shiny Rock", "Caillou Brillant", "glänzender Stein" },       // "Shiny Rock"
     };
     trickNameTable[RG_ROCS_FEATHER] = {
-        Text{ "Chicken Wing", "Chicken Wing", "Chicken Wing" }, // "Chicken Wing"
-        Text{ "Roc's Leg", "Roc's Leg", "Roc's Leg" },          // "Roc's Leg"
-        Text{ "Roc's Fapper", "Roc's Fapper", "Roc's Fapper" }, // "Roc's Fapper"
+        Text{ "Chicken Wing", "Chicken Wing", "Chicken Wing" },    // "Chicken Wing"
+        Text{ "Roc's Leg", "Roc's Leg", "Roc's Leg" },             // "Roc's Leg"
+        Text{ "Roc's Flapper", "Roc's Flapper", "Roc's Flapper" }, // "Roc's Flapper"
     };
     // [RSBS #979] Majora's Mask's Blast Mask in OoT.
     trickNameTable[RG_BLAST_MASK] = {
