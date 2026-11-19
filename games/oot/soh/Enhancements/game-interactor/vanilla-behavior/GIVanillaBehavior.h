@@ -3312,6 +3312,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_LINK_SPIN_WITH_GORON_POT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_HOT_ROOM_DISTORTION,
 } GIVanillaBehavior;
 
 #endif
