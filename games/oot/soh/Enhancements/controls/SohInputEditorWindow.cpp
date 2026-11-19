@@ -461,6 +461,9 @@ void SohInputEditorWindow::DrawButtonLineEditMappingButton(uint8_t port, N64Butt
 
 void SohInputEditorWindow::DrawButtonLine(const char* buttonName, uint8_t port, N64ButtonMask bitmask,
                                           ImVec4 color = CHIP_COLOR_N64_GREY) {
+    // RSBS (#1741): one id scope per button line. The edit/remove/threshold ids are built from the mapping id alone,
+    // so two lines holding one mapping id (the pre-#1740 D-pad copies on the ocarina note lines) collided.
+    ImGui::PushID(static_cast<int>(bitmask));
     ImGui::NewLine();
     ImGui::SameLine(SCALE_IMGUI_SIZE(32.0f));
     DrawInputChip(buttonName, color);
@@ -469,6 +472,7 @@ void SohInputEditorWindow::DrawButtonLine(const char* buttonName, uint8_t port, 
         DrawButtonLineEditMappingButton(port, bitmask, id);
     }
     DrawButtonLineAddMappingButton(port, bitmask);
+    ImGui::PopID();
 }
 
 void SohInputEditorWindow::DrawStickDirectionLineAddMappingButton(uint8_t port, uint8_t stick,

@@ -57,7 +57,8 @@
 // MM_Rando_ComputeProfileStamp — the arrival's identity re-resolution
 // (#498/#564: compare against the creation-frozen mmProfileDigest).
 #include "combo_mm_options_view.h"
-#include "gen_budget.h" // src/common — the #582 creation-progress channel
+#include "mm_moon_crash_rules.h" // src/common — OoTMM's grace period and who takes it (#1728)
+#include "gen_budget.h"          // src/common — the #582 creation-progress channel
 // OoT_Notification_Emit — the shared toast overlay (#427 bridge): the arrival
 // refusal must be player-visible in-game, not only on the Combo > Save Files page.
 #include "notification_bridge.h"
@@ -3134,11 +3135,13 @@ int GameInteractor_InvertControl(GIInvertType type) {
             }
             break;
         case GI_INVERT_FIRST_PERSON_AIM_X:
+        case GI_INVERT_TELESCOPE_X:
             if (CVarGetInteger("gEnhancements.Camera.FirstPerson.InvertX", 0)) {
                 result *= -1;
             }
             break;
         case GI_INVERT_FIRST_PERSON_AIM_Y:
+        case GI_INVERT_TELESCOPE_Y:
             if (CVarGetInteger("gEnhancements.Camera.FirstPerson.InvertY", 1)) {
                 result *= -1;
             }
@@ -4233,9 +4236,9 @@ int MoonCrashAcceptCommittedHalf(const uint8_t* mmBlob, size_t size, void* ctx) 
 // within GRACE of the crash is pulled back to crash - GRACE, so the moon cannot
 // fall again before the player can act. Same linear clock as OoTMM's
 // Time_Game2Linear (common/time.c): day * 0x10000 + (time - 06:00), crash at
-// day 4 06:00 (OoTMM's Time_LinearMoonCrash with no half-day shuffle).
+// day 4 06:00 (OoTMM's Time_LinearMoonCrash with no half-day shuffle). The
+// arithmetic is Combo_MmGraceLinear (src/common/mm_moon_crash_rules.h, #1728).
 constexpr u32 kMoonCrashLinear = 4u * 0x10000u;
-constexpr u32 kMoonCrashGrace = 0x1E0u;
 
 /**
  * OoTMM's Time_LinearMoonCrash under Shuffle Time (#1229): the moon falls at the
@@ -4258,6 +4261,55 @@ u32 MoonCrashLinearForRestoredHalf() {
 }
 
 } // namespace
+
+/**
+ * OoTMM's grace period over the live half (#1728, factored out of the Last Save
+ * reload below, unchanged): a clock at or within the grace of the crash
+ * (MoonCrashLinearForRestoredHalf, read from the half in gSaveContext) is pulled
+ * back to crash - 0x1E0 (05:49 on day 3 with no Shuffle Time), and eventDayCount
+ * never stays ahead of the day it was pulled back to. @p what names the caller
+ * in the log line.
+ *
+ * @return 1 when the clock moved, 0 when it was left as it was.
+ */
+extern "C" int MM_Combo_ApplyMoonCrashGrace(const char* what) {
+    u32 graced = 0;
+    if (!Combo_MmGraceLinear(Combo_MmLinearClock(gSaveContext.save.day, gSaveContext.save.time),
+                             MoonCrashLinearForRestoredHalf(), &graced)) {
+        return 0;
+    }
+    gSaveContext.save.day = (s32)(graced >> 16);
+    gSaveContext.save.time = (u16)((graced & 0xFFFFu) + CLOCK_TIME(6, 0));
+    if (gSaveContext.save.eventDayCount > gSaveContext.save.day) {
+        gSaveContext.save.eventDayCount = gSaveContext.save.day;
+    }
+    fprintf(stderr,
+            "[MM] %s: the committed clock was within the grace period; pulled back to day %d time 0x%04X (OoTMM "
+            "gracePeriod)\n",
+            what, (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time);
+    return 1;
+}
+
+/**
+ * OoTMM's grace period on an ARRIVAL (#1728). Called by MM_Play_ConsumeStartupEntrance
+ * (z_play.c) once the frozen half is in gSaveContext and the crossed items are
+ * redeemed (a half-day found in Ocarina of Time moves the crash under Shuffle
+ * Time). OoTMM runs gracePeriod from Save_OnLoad on every open of Majora's
+ * Mask's save (common/save.c), and its game switch saves and reboots
+ * (common/switch.c comboGameSwitch), so every arrival takes it. Here only a New
+ * Cycle file's arrival with a restored half does (Combo_MmArrivalTakesGrace): a
+ * Last Save file keeps its clock as committed, exactly as before.
+ *
+ * @return 1 when the clock moved.
+ */
+extern "C" int MM_Combo_ApplyArrivalMoonCrashGrace(int hadFrozenState) {
+    if (!Combo_MmArrivalTakesGrace(hadFrozenState, MM_Rando_FrozenMoonCrash())) {
+        return 0;
+    }
+    const int moved = MM_Combo_ApplyMoonCrashGrace("arrival");
+    fflush(stderr);
+    return moved;
+}
 
 /**
  * THE MOON-CRASH RESET OF A PAIRED MM HALF (#785). Called from
@@ -4341,20 +4393,7 @@ extern "C" int MM_Combo_ResetFromLastCommitOnMoonCrash(void) {
     SavingEnhancements_ClearSaveEntranceInfo();
     gSaveContext.rupeeAccumulator = 0;
 
-    const u32 linear = (u32)gSaveContext.save.day * 0x10000u + (u16)(gSaveContext.save.time - CLOCK_TIME(6, 0));
-    const u32 crashLinear = MoonCrashLinearForRestoredHalf();
-    if (linear + kMoonCrashGrace >= crashLinear) {
-        const u32 graced = crashLinear - kMoonCrashGrace;
-        gSaveContext.save.day = (s32)(graced >> 16);
-        gSaveContext.save.time = (u16)((graced & 0xFFFFu) + CLOCK_TIME(6, 0));
-        if (gSaveContext.save.eventDayCount > gSaveContext.save.day) {
-            gSaveContext.save.eventDayCount = gSaveContext.save.day;
-        }
-        fprintf(stderr,
-                "[MM] moon crash: the committed clock was within the grace period; pulled back to day %d time "
-                "0x%04X (OoTMM gracePeriod)\n",
-                (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time);
-    }
+    MM_Combo_ApplyMoonCrashGrace("moon crash");
 
     // The pool first (assign the consumables, raise the capacities, set the
     // watermarks), then the harvest's first-seed rule for any kind the pool

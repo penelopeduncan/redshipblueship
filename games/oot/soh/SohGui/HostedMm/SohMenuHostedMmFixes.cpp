@@ -16,7 +16,9 @@
  *    row RESTORES the glitch SoH's row removes) and its values differ, so the keys are never mapped; and it has its
  *    own visibility, so it does not inherit SoH's row's Fix Megaton Hammer Crouch Stab gate.
  *  - Camera Fixes: Fix Targeting Camera Snap.
- *  - Graphical Fixes: Fix Ammo Count Color, Fix Ikana Great Fairy Fountain Color, Fix Text Control Characters.
+ *  - Graphical Fixes: Fix Ammo Count Color, Fix Ikana Great Fairy Fountain Color, Fix Text Control Characters, and
+ *    since 2Ship f7ccda83a Fix Deku Butler Shock Animation (its own TU, Fixes/FixDekuButlerShockLoopAnimation.cpp,
+ *    added to ship__Enh_registrars).
  *  - Audio Fixes: Fix Completed Heart Container Audio.
  *  - Glitch Restorations: Tatl ISG (Restoration), labelled as ADR 0004 rules: held apart from SoH's Easy ISG (P2 in
  *    kMustStayDistinct), which is a Cheat.
@@ -104,6 +106,12 @@ void AddMmGraphicalFixesRows(SohMenu& menu, WidgetPath& path) {
         .RaceDisable(false)
         .Options(UIWidgets::CheckboxOptions().Tooltip("Fixes certain text control characters not working, depending "
                                                       "on where they sit in the text. Majora's Mask only."));
+    AddHostedMmWidget(menu, path, "Graphical Fixes", "Fix Deku Butler Shock Animation", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_FIXES_DEKU_BUTLER_SHOCK_LOOP_ANIMATION)
+        .RaceDisable(false)
+        .Options(UIWidgets::CheckboxOptions().Tooltip(
+            "Fixes a bug where the Deku Butler loops the incorrect animation in the cutscene that plays after freeing "
+            "the Deku Princess. Majora's Mask only."));
 }
 
 /** Enhancements > Fixes > Audio Fixes, at the end of the section. */

@@ -298,6 +298,14 @@
  *     Harkinian's name and not to its old one; a log that lists names this build does
  *     not know turns no trick on (not trick 0 either) and leaves the names unknown;
  *     a log that lists the new name turns the lobby trick on.
+ *  SN. Names in a spoiler log, a save's hints and a Plandomizer log (#1731): every hint,
+ *     hint type, area and trial name this build writes reads back (SN0); an unknown
+ *     excluded location, placed location, item, ice-trap model or hint name fails the
+ *     spoiler load (SN1-SN5, SN11), an unknown type, location, area or trial loads a
+ *     hint disabled (SN6-SN9), and the Plandomizer refuses a log with an unknown location
+ *     or item (SN10). No leg adds a name to any table, and none turns into entry 0 (which
+ *     has a real name in every table, so the legs check that the lookup missed, not that
+ *     a value is non-zero).
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -311,7 +319,13 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <map>
 #include <memory>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <libultraship/bridge.h>
@@ -326,6 +340,9 @@
 #include "soh/Enhancements/randomizer/SeedContext.h"
 #include "soh/Enhancements/randomizer/logic.h"
 #include "soh/Enhancements/randomizer/settings.h"
+#include "soh/Enhancements/randomizer/hint.h"
+#include "soh/Enhancements/randomizer/Plandomizer.h" // PlandomizerParseSpoilerJson, SpoilerCheckObject (SN10)
+#include "test_scratch.h"                            // src/common: rsbs::test::ScratchDir (SN11's spoiler file)
 
 // At file scope, not inside an extern "C" block (see oot_shared_kokiri_sword_test.cpp).
 #include <z64.h>
@@ -341,6 +358,15 @@ namespace Rando {
 // entrance.cpp, which no header declares: the DE legs stamp the entrance table on the live graph.
 void SetAllEntrancesData();
 } // namespace Rando
+
+// Plandomizer.cpp's lists, which no header declares (the SN10 legs read what PlandomizerParseSpoilerJson filled).
+extern std::vector<SpoilerCheckObject> spoilerLogData;
+extern std::vector<SpoilerCheckObject> plandoLogData;
+extern std::vector<SpoilerHintObject> spoilerHintData;
+// SeedPackageSingleExe.cpp and ComboLogicEngineOoT.cpp: the state Context::ParseSpoiler resets before its try (SN11).
+extern "C" int OoT_SeedPackage_Staged(void);
+extern "C" int OoT_ComboLogic_GeneralPassDeferred(void);
+extern "C" void OoT_ComboLogic_SetGeneralPassDeferred(int deferred);
 
 namespace {
 
@@ -2322,6 +2348,502 @@ void RunSpoilerTrickNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_DC_CHILD_LOBBY).Set(savedDcLobby);
 }
 
+// ---- SN: names in a spoiler log, a save's hints and a Plandomizer log (#1731) ---------------------------------
+// Every reader below used operator[] on a name table: an unknown name became entry 0 and was added to the table.
+// Entry 0 of every table has a real name, so each leg checks that the lookup MISSED (a throw, a disabled hint, a
+// refused Plandomizer log, an unchanged entry 0) and that no table grew (SnExpectTablesUntouched).
+const char* const kSnNoLocation = "RSBS no such location";
+const char* const kSnNoItem = "RSBS no such item";
+const char* const kSnNoHint = "RSBS no such hint";
+const char* const kSnNoType = "RSBS no such type";
+const char* const kSnNoArea = "RSBS no such area";
+const char* const kSnNoTrial = "RSBS no such trial";
+
+struct SnTableSizes {
+    size_t locations;
+    size_t items;
+    size_t hints;
+    size_t hintTypes;
+    size_t areas;
+    size_t trials;
+};
+
+SnTableSizes SnTakeTableSizes() {
+    return { Rando::StaticData::locationNameToEnum.size(), Rando::StaticData::itemNameToEnum.size(),
+             Rando::StaticData::hintNameToEnum.size(),     Rando::StaticData::hintTypeNameToEnum.size(),
+             Rando::StaticData::areaNameToEnum.size(),     Rando::StaticData::trialNameToEnum.size() };
+}
+
+// (b) of every leg: the document added no name to any table, and the made-up names are still unknown. Fails when a
+// reader goes back to operator[] (the table grows by the unknown name).
+void SnExpectTablesUntouched(const char* leg, const SnTableSizes& before) {
+    const SnTableSizes now = SnTakeTableSizes();
+    const bool sameSizes = now.locations == before.locations && now.items == before.items &&
+                           now.hints == before.hints && now.hintTypes == before.hintTypes &&
+                           now.areas == before.areas && now.trials == before.trials;
+    const bool stillUnknown = !Rando::StaticData::locationNameToEnum.contains(kSnNoLocation) &&
+                              !Rando::StaticData::itemNameToEnum.contains(kSnNoItem) &&
+                              !Rando::StaticData::hintNameToEnum.contains(kSnNoHint) &&
+                              !Rando::StaticData::hintTypeNameToEnum.contains(kSnNoType) &&
+                              !Rando::StaticData::areaNameToEnum.contains(kSnNoArea) &&
+                              !Rando::StaticData::trialNameToEnum.contains(kSnNoTrial);
+    ExpectFlag(leg, sameSizes && stillUnknown, true, "reading the document added a name to a name table");
+}
+
+// 1 when the call throws std::runtime_error (the spoiler readers' failure), 2 for any other exception, 0 for none.
+template <typename F> int SnThrows(F&& call) {
+    try {
+        call();
+    } catch (const std::runtime_error&) { return 1; } catch (...) {
+        return 2;
+    }
+    return 0;
+}
+
+// 1 when PlandomizerParseSpoilerJson accepts the document, 0 when it refuses it, -1 when it throws.
+int SnPlandoParse(const nlohmann::json& doc) {
+    std::string error;
+    try {
+        return PlandomizerParseSpoilerJson(doc, &error) ? 1 : 0;
+    } catch (...) { return -1; }
+}
+
+// The lexicographically first name of a table whose value passes `keep`: a pick that hard-codes no display string
+// and does not depend on the table's iteration order.
+template <typename T, typename P>
+bool SnFirstName(const std::unordered_map<std::string, T>& table, P keep, std::string* name, T* value) {
+    bool found = false;
+    for (const auto& [candidate, candidateValue] : table) {
+        if (keep(candidateValue) && (!found || candidate < *name)) {
+            *name = candidate;
+            *value = candidateValue;
+            found = true;
+        }
+    }
+    return found;
+}
+
+// SN0: every name this build WRITES into a spoiler log or a save reads back. The fixed readers fail a load (or
+// disable a hint) on a miss where operator[] silently answered 0, so a name the writer emits but the table lacks
+// would now reject this build's own files. The form is the writers': the MF_CLEAN text of hint, hint type, area and
+// trial names in each language (Hint::logHint, Hint::toJSON), which the tables store raw. Item names are not checked:
+// itemNameToEnum is built from the same three Text names of the same itemTable the spoiler writer reads
+// (item_list.cpp), so such a check could not fail.
+void SnRoundTripLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t languages[] = { LANGUAGE_ENG, LANGUAGE_GER, LANGUAGE_FRA };
+    int hintMisses = 0;
+    for (const auto& [key, message] : Rando::StaticData::hintNames) {
+        for (const uint8_t language : languages) {
+            const std::string text = message.GetForLanguage(language, MF_CLEAN);
+            if (!Rando::StaticData::hintNameToEnum.contains(text)) {
+                printf("[TEST]   SN0: hint %u's name '%s' is not in hintNameToEnum\n", key, text.c_str());
+                hintMisses++;
+            }
+        }
+    }
+    ExpectMode("SN0b every hint name reads back", hintMisses, 0, "a spoiler log's hint name would now fail the load");
+
+    int typeMisses = 0;
+    for (const auto& [key, message] : Rando::StaticData::hintTypeNames) {
+        for (const uint8_t language : languages) {
+            const std::string text = message.GetForLanguage(language, MF_CLEAN);
+            if (!Rando::StaticData::hintTypeNameToEnum.contains(text)) {
+                printf("[TEST]   SN0: hint type %u's name '%s' is not in hintTypeNameToEnum\n", key, text.c_str());
+                typeMisses++;
+            }
+        }
+    }
+    ExpectMode("SN0c every hint type name reads back", typeMisses, 0, "a hint's type name would now disable the hint");
+
+    int areaMisses = 0;
+    for (const auto& [key, textKey] : Rando::StaticData::areaNames) {
+        for (const uint8_t language : languages) {
+            const std::string text =
+                Rando::StaticData::hintTextTable[textKey].GetClear().GetForLanguage(language, MF_CLEAN);
+            if (!Rando::StaticData::areaNameToEnum.contains(text)) {
+                printf("[TEST]   SN0: area %u's name '%s' is not in areaNameToEnum\n", key, text.c_str());
+                areaMisses++;
+            }
+        }
+    }
+    ExpectMode("SN0d every area name reads back", areaMisses, 0, "a hint's area name would now disable the hint");
+
+    int trialMisses = 0;
+    for (int tk = 0; tk < TK_MAX; tk++) {
+        for (const uint8_t language : languages) {
+            const std::string text =
+                randoCtx->GetTrial(static_cast<TrialKey>(tk))->GetName().GetForLanguage(language, MF_CLEAN);
+            if (!Rando::StaticData::trialNameToEnum.contains(text)) {
+                printf("[TEST]   SN0: trial %d's name '%s' is not in trialNameToEnum\n", tk, text.c_str());
+                trialMisses++;
+            }
+        }
+    }
+    ExpectMode("SN0e every trial name reads back", trialMisses, 0, "a hint's trial name would now disable the hint");
+}
+
+void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    printf("[TEST] SN: names in a spoiler log, a save's hints and a Plandomizer log\n");
+    // A run without game archives may hold only the two hand-written location names (location_list.cpp); the
+    // hash maps fill the rest. The guard keeps InitHashMaps from emplacing the actor multimap twice.
+    if (Rando::StaticData::CheckFromActorMultimap.empty()) {
+        Rando::StaticData::InitHashMaps();
+    }
+
+    const RandomizerCheck kLoc = RC_KF_KOKIRI_SWORD_CHEST;
+    const RandomizerGet kItem = RG_DEKU_SHIELD;
+    const RandomizerGet kSentinel = RG_RECOVERY_HEART;
+    const std::string locName = Rando::StaticData::GetLocation(kLoc)->GetName();
+    const std::string itemName = Rando::StaticData::RetrieveItem(kItem).GetName().english;
+    const std::string iceName = Rando::StaticData::RetrieveItem(RG_ICE_TRAP).GetName().english;
+    RandomizerCheck locBack = RC_UNKNOWN_CHECK;
+    RandomizerGet itemBack = RG_NONE;
+    RandomizerGet iceBack = RG_NONE;
+    const bool locOk =
+        Rando::StaticData::FindName(Rando::StaticData::locationNameToEnum, locName, &locBack) && locBack == kLoc;
+    const bool itemOk =
+        Rando::StaticData::FindName(Rando::StaticData::itemNameToEnum, itemName, &itemBack) && itemBack == kItem;
+    const bool iceOk =
+        Rando::StaticData::FindName(Rando::StaticData::itemNameToEnum, iceName, &iceBack) && iceBack == RG_ICE_TRAP;
+
+    // The known gossip stone has no static target checks (hint.cpp's FillGapsInData would add locations the
+    // document never named), the known area is not RA_NONE and the known trial is not the Light Trial (entry 0).
+    std::string stoneName;
+    uint32_t stoneValue = RH_NONE;
+    const bool stoneOk = SnFirstName(
+        Rando::StaticData::hintNameToEnum,
+        [](uint32_t v) {
+            return v != RH_NONE && v < RH_GANONDORF_HINT &&
+                   !Rando::StaticData::staticHintInfoMap.contains(static_cast<RandomizerHint>(v));
+        },
+        &stoneName, &stoneValue);
+    std::string messageTypeName;
+    uint32_t messageTypeValue = HINT_TYPE_HINT_KEY;
+    const bool typeOk = SnFirstName(
+        Rando::StaticData::hintTypeNameToEnum, [](uint32_t v) { return v == HINT_TYPE_MESSAGE; }, &messageTypeName,
+        &messageTypeValue);
+    std::string areaName;
+    uint32_t areaValue = RA_NONE;
+    const bool areaOk = SnFirstName(
+        Rando::StaticData::areaNameToEnum, [](uint32_t v) { return v != RA_NONE; }, &areaName, &areaValue);
+    std::string trialName;
+    uint32_t trialValue = TK_LIGHT_TRIAL;
+    const bool trialOk = SnFirstName(
+        Rando::StaticData::trialNameToEnum, [](uint32_t v) { return v != TK_LIGHT_TRIAL; }, &trialName, &trialValue);
+    if (!locOk || !itemOk || !iceOk || !stoneOk || !typeOk || !areaOk || !trialOk) {
+        GateFail("SN: the known names did not resolve (location %d, item %d, ice trap %d, stone %d, message type %d, "
+                 "area %d, trial %d); the legs would prove nothing",
+                 locOk, itemOk, iceOk, stoneOk, typeOk, areaOk, trialOk);
+        return;
+    }
+    const RandomizerHint kStone = static_cast<RandomizerHint>(stoneValue);
+    const RandomizerArea kArea = static_cast<RandomizerArea>(areaValue);
+    const TrialKey kTrial = static_cast<TrialKey>(trialValue);
+    printf("[TEST]   SN: known location '%s', item '%s', stone '%s', area '%s', trial '%s'\n", locName.c_str(),
+           itemName.c_str(), stoneName.c_str(), areaName.c_str(), trialName.c_str());
+
+    SnRoundTripLegs(randoCtx);
+
+    // Everything the legs touch, restored at the end: both checks whole (placed item, price, excluded option,
+    // hinted-by list), the overrides, the two hint table entries.
+    Rando::ItemLocation* zero = randoCtx->GetItemLocation(RC_UNKNOWN_CHECK);
+    Rando::ItemLocation* known = randoCtx->GetItemLocation(kLoc);
+    const Rando::ItemLocation savedZero = *zero;
+    const Rando::ItemLocation savedKnown = *known;
+    const std::map<RandomizerCheck, Rando::ItemOverride> savedOverrides = randoCtx->overrides;
+    const Rando::Hint savedNoneHint = *randoCtx->GetHint(RH_NONE);
+    const Rando::Hint savedStoneHint = *randoCtx->GetHint(kStone);
+    const SnTableSizes sizes = SnTakeTableSizes();
+    const auto settings = Rando::Settings::GetInstance();
+
+    // ---- SN1: excluded locations (Settings::ParseExcludedLocationsJson) ----
+    zero->SetExcludedOption(RO_GENERIC_OFF);
+    known->SetExcludedOption(RO_GENERIC_OFF);
+    ExpectMode("SN1a an unknown excluded location fails the load", SnThrows([&] {
+                   settings->ParseExcludedLocationsJson(nlohmann::json::array({ locName, kSnNoLocation }));
+               }),
+               1, "the unknown excluded location did not throw std::runtime_error");
+    ExpectMode("SN1b an unknown excluded location leaves check 0 included", zero->GetExcludedOption().Get(),
+               RO_GENERIC_OFF, "the unknown name excluded RC_UNKNOWN_CHECK");
+    SnExpectTablesUntouched("SN1c an unknown excluded location adds no name", sizes);
+    known->SetExcludedOption(RO_GENERIC_OFF);
+    ExpectMode("SN1d a known excluded location loads",
+               SnThrows([&] { settings->ParseExcludedLocationsJson(nlohmann::json::array({ locName })); }), 0,
+               "a known excluded location threw");
+    ExpectMode("SN1e a known excluded location is excluded", known->GetExcludedOption().Get(), RO_GENERIC_ON,
+               "the known location was not excluded");
+    ExpectMode("SN1f an excluded location that is not a string fails the load",
+               SnThrows([&] { settings->ParseExcludedLocationsJson(nlohmann::json::array({ 42 })); }), 1,
+               "a non-string excluded location did not throw std::runtime_error");
+    SnExpectTablesUntouched("SN1g a non-string excluded location adds no name", sizes);
+
+    // ---- SN2-SN4: placements (Context::ParseItemLocationsJson) ----
+    zero->SetPlacedItem(RG_NONE);
+    known->SetPlacedItem(kSentinel);
+    randoCtx->overrides.erase(kLoc);
+    {
+        nlohmann::json doc;
+        doc["locations"][kSnNoLocation] = itemName;
+        ExpectMode("SN2a an unknown placed location fails the load",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(doc); }), 1,
+                   "the unknown location did not throw std::runtime_error");
+        ExpectMode("SN2b an unknown placed location places nothing at check 0", zero->GetPlacedRandomizerGet(), RG_NONE,
+                   "the file's item went to RC_UNKNOWN_CHECK");
+        SnExpectTablesUntouched("SN2c an unknown placed location adds no name", sizes);
+    }
+    {
+        nlohmann::json doc;
+        doc["locations"][locName] = kSnNoItem;
+        ExpectMode("SN3a an unknown item (string form) fails the load",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(doc); }), 1,
+                   "the unknown item did not throw std::runtime_error");
+        ExpectMode("SN3b an unknown item (string form) leaves the check's item", known->GetPlacedRandomizerGet(),
+                   kSentinel, "the unknown item was placed as RG_NONE");
+        nlohmann::json objectDoc;
+        objectDoc["locations"][locName]["item"] = kSnNoItem;
+        ExpectMode("SN3c an unknown item (object form) fails the load",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(objectDoc); }), 1,
+                   "the unknown item did not throw std::runtime_error");
+        ExpectMode("SN3d an unknown item (object form) leaves the check's item", known->GetPlacedRandomizerGet(),
+                   kSentinel, "the unknown item was placed as RG_NONE");
+        SnExpectTablesUntouched("SN3e an unknown item adds no name", sizes);
+
+        nlohmann::json knownDoc;
+        knownDoc["locations"][locName] = itemName;
+        ExpectMode("SN3f a known item (string form) loads",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(knownDoc); }), 0, "a known placement threw");
+        ExpectMode("SN3g a known item (string form) is placed", known->GetPlacedRandomizerGet(), kItem,
+                   "the known item was not placed");
+        known->SetPlacedItem(kSentinel);
+        nlohmann::json knownObjectDoc;
+        knownObjectDoc["locations"][locName]["item"] = itemName;
+        knownObjectDoc["locations"][locName]["price"] = 7;
+        ExpectMode("SN3h a known item (object form) loads",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(knownObjectDoc); }), 0, "a known placement threw");
+        ExpectMode("SN3i a known item (object form) is placed", known->GetPlacedRandomizerGet(), kItem,
+                   "the known item was not placed");
+        ExpectMode("SN3j a known item (object form) keeps its price", known->GetPrice(), 7, "the price was not read");
+    }
+    {
+        known->SetPlacedItem(kSentinel);
+        randoCtx->overrides.erase(kLoc);
+        nlohmann::json doc;
+        doc["locations"][locName]["item"] = iceName;
+        doc["locations"][locName]["model"] = kSnNoItem;
+        ExpectMode("SN4a an unknown ice-trap model fails the load",
+                   SnThrows([&] { randoCtx->ParseItemLocationsJson(doc); }), 1,
+                   "the unknown model did not throw std::runtime_error");
+        ExpectMode("SN4b an unknown ice-trap model sets no disguise", (int)randoCtx->overrides.count(kLoc), 0,
+                   "the unknown model disguised the trap as RG_NONE");
+        SnExpectTablesUntouched("SN4c an unknown ice-trap model adds no name", sizes);
+        nlohmann::json knownDoc;
+        knownDoc["locations"][locName]["item"] = iceName;
+        knownDoc["locations"][locName]["model"] = itemName;
+        ExpectMode("SN4d a known ice-trap model loads", SnThrows([&] { randoCtx->ParseItemLocationsJson(knownDoc); }),
+                   0, "a known model threw");
+        ExpectFlag("SN4e a known ice-trap model disguises the trap",
+                   randoCtx->overrides.count(kLoc) == 1 && randoCtx->overrides[kLoc].LooksLike() == kItem, true,
+                   "the trap does not look like the known item");
+    }
+
+    // ---- SN5: hint names (Context::ParseHintSectionJson) ----
+    {
+        nlohmann::json body;
+        body["type"] = messageTypeName;
+        body["message"] = "x";
+        randoCtx->AddHint(RH_NONE, Rando::Hint());
+        randoCtx->AddHint(kStone, Rando::Hint());
+        nlohmann::json unknownSection;
+        unknownSection[kSnNoHint] = body;
+        ExpectMode("SN5a an unknown hint name fails the load",
+                   SnThrows([&] { randoCtx->ParseHintSectionJson(unknownSection); }), 1,
+                   "the unknown hint name did not throw std::runtime_error");
+        ExpectFlag("SN5b an unknown hint name leaves RH_NONE's hint alone", randoCtx->GetHint(RH_NONE)->IsEnabled(),
+                   false, "the unknown hint name wrote RH_NONE's hint");
+        SnExpectTablesUntouched("SN5c an unknown hint name adds no name", sizes);
+        nlohmann::json knownSection;
+        knownSection[stoneName] = body;
+        ExpectMode("SN5d a known hint name loads", SnThrows([&] { randoCtx->ParseHintSectionJson(knownSection); }), 0,
+                   "a known hint threw");
+        ExpectFlag("SN5e a known hint name loads its hint",
+                   randoCtx->GetHint(kStone)->IsEnabled() &&
+                       randoCtx->GetHint(kStone)->GetHintType() == HINT_TYPE_MESSAGE,
+                   true, "the known stone's hint is not an enabled message");
+        randoCtx->AddHint(kStone, Rando::Hint());
+        nlohmann::json badTypeSection;
+        badTypeSection[stoneName]["type"] = kSnNoType;
+        badTypeSection[stoneName]["message"] = "x";
+        ExpectMode("SN5f a known hint with an unknown type fails the load",
+                   SnThrows([&] { randoCtx->ParseHintSectionJson(badTypeSection); }), 1,
+                   "a hint with an unknown type did not throw std::runtime_error");
+        ExpectFlag("SN5g a known hint with an unknown type is not stored", randoCtx->GetHint(kStone)->IsEnabled(),
+                   false, "the hint with an unknown type was stored enabled");
+        SnExpectTablesUntouched("SN5h a hint with an unknown type adds no name", sizes);
+    }
+
+    // ---- SN6-SN9: names inside a hint (Rando::Hint(key, json), the spoiler's and the save's reader) ----
+    // Every document with a location also names its area, so FillGapsInData never asks GetFirstArea (an
+    // assert(false) for a check with no areas, which this row never sets), even when a mutation turns the unknown
+    // location into RC_UNKNOWN_CHECK.
+    {
+        const auto expectDisabled = [](const char* leg, const Rando::Hint& hint) {
+            ExpectFlag(leg,
+                       hint.HasUnknownName() && !hint.IsEnabled() && hint.GetHintedLocations().empty() &&
+                           hint.GetHintedAreas().empty() && hint.GetHintedTrials().empty(),
+                       true, "the hint with an unknown name is enabled or holds a slot");
+        };
+        nlohmann::json badType;
+        badType["type"] = kSnNoType;
+        badType["message"] = "x";
+        expectDisabled("SN6a an unknown hint type disables the hint", Rando::Hint(kStone, badType));
+        nlohmann::json goodType;
+        goodType["type"] = messageTypeName;
+        goodType["message"] = "x";
+        const Rando::Hint typed(kStone, goodType);
+        ExpectFlag("SN6b a known hint type is read",
+                   typed.IsEnabled() && !typed.HasUnknownName() && typed.GetHintType() == HINT_TYPE_MESSAGE, true,
+                   "the known type did not load");
+
+        nlohmann::json badLocations;
+        badLocations["locations"] = nlohmann::json::array({ locName, kSnNoLocation });
+        badLocations["areas"] = nlohmann::json::array({ areaName, areaName });
+        expectDisabled("SN7a an unknown hinted location disables the hint", Rando::Hint(kStone, badLocations));
+        nlohmann::json badLocation;
+        badLocation["location"] = kSnNoLocation;
+        badLocation["area"] = areaName;
+        expectDisabled("SN7b an unknown hinted location (one) disables the hint", Rando::Hint(kStone, badLocation));
+        nlohmann::json goodLocations;
+        goodLocations["locations"] = nlohmann::json::array({ locName });
+        goodLocations["areas"] = nlohmann::json::array({ areaName });
+        const Rando::Hint located(kStone, goodLocations);
+        ExpectFlag("SN7c a known hinted location is read",
+                   located.IsEnabled() && !located.HasUnknownName() &&
+                       located.GetHintedLocations() == std::vector<RandomizerCheck>{ kLoc } &&
+                       located.GetHintedAreas() == std::vector<RandomizerArea>{ kArea },
+                   true, "the known location did not load");
+
+        nlohmann::json badAreas;
+        badAreas["areas"] = nlohmann::json::array({ areaName, kSnNoArea });
+        expectDisabled("SN8a an unknown area disables the hint", Rando::Hint(kStone, badAreas));
+        nlohmann::json badArea;
+        badArea["area"] = kSnNoArea;
+        expectDisabled("SN8b an unknown area (one) disables the hint", Rando::Hint(kStone, badArea));
+        nlohmann::json nonStringArea;
+        nonStringArea["areas"] = nlohmann::json::array({ 42 });
+        expectDisabled("SN8c an area that is not a string disables the hint", Rando::Hint(kStone, nonStringArea));
+        nlohmann::json goodAreas;
+        goodAreas["areas"] = nlohmann::json::array({ areaName });
+        const Rando::Hint areaHint(kStone, goodAreas);
+        ExpectFlag("SN8d a known area is read",
+                   areaHint.IsEnabled() && !areaHint.HasUnknownName() &&
+                       areaHint.GetHintedAreas() == std::vector<RandomizerArea>{ kArea },
+                   true, "the known area did not load");
+
+        nlohmann::json badTrials;
+        badTrials["trials"] = nlohmann::json::array({ trialName, kSnNoTrial });
+        expectDisabled("SN9a an unknown trial disables the hint", Rando::Hint(kStone, badTrials));
+        nlohmann::json badTrial;
+        badTrial["trial"] = kSnNoTrial;
+        expectDisabled("SN9b an unknown trial (one) disables the hint", Rando::Hint(kStone, badTrial));
+        nlohmann::json goodTrials;
+        goodTrials["trials"] = nlohmann::json::array({ trialName });
+        const Rando::Hint trialHint(kStone, goodTrials);
+        ExpectFlag("SN9c a known trial is read",
+                   trialHint.IsEnabled() && !trialHint.HasUnknownName() &&
+                       trialHint.GetHintedTrials() == std::vector<TrialKey>{ kTrial },
+                   true, "the known trial did not load");
+        SnExpectTablesUntouched("SN9d names inside a hint add no name", sizes);
+    }
+
+    // ---- SN10: the Plandomizer's reader (PlandomizerParseSpoilerJson) ----
+    {
+        nlohmann::json unknownItem;
+        unknownItem["locations"][locName] = kSnNoItem;
+        ExpectMode("SN10a the Plandomizer refuses an unknown item", SnPlandoParse(unknownItem), 0,
+                   "a log with an unknown item was accepted (or threw)");
+        ExpectFlag("SN10b a refused log leaves the lists empty", spoilerLogData.empty() && plandoLogData.empty(), true,
+                   "a refused log left entries behind");
+        nlohmann::json unknownLocation;
+        unknownLocation["locations"][kSnNoLocation] = itemName;
+        ExpectMode("SN10c the Plandomizer refuses an unknown location", SnPlandoParse(unknownLocation), 0,
+                   "a log with an unknown location was accepted (or threw)");
+        ExpectFlag("SN10d a refused log leaves the lists empty", spoilerLogData.empty() && plandoLogData.empty(), true,
+                   "a refused log left entries behind");
+        nlohmann::json unknownModel;
+        unknownModel["locations"][locName]["item"] = iceName;
+        unknownModel["locations"][locName]["model"] = kSnNoItem;
+        unknownModel["locations"][locName]["trickName"] = "t";
+        ExpectMode("SN10e the Plandomizer refuses an unknown ice-trap model", SnPlandoParse(unknownModel), 0,
+                   "a log with an unknown model was accepted (or threw)");
+        nlohmann::json noItem;
+        noItem["locations"][locName]["price"] = 5;
+        ExpectMode("SN10f the Plandomizer refuses a placement with no item", SnPlandoParse(noItem), 0,
+                   "a placement with no item was accepted (or threw)");
+        ExpectFlag("SN10g a refused log leaves the lists empty", spoilerLogData.empty() && plandoLogData.empty(), true,
+                   "a refused log left entries behind");
+        SnExpectTablesUntouched("SN10h the Plandomizer's reader adds no name", sizes);
+
+        nlohmann::json good;
+        good["Gossip Stone Hints"][stoneName]["type"] = messageTypeName;
+        good["Gossip Stone Hints"][stoneName]["messages"] = nlohmann::json::array({ "a", "b" });
+        good["locations"][locName] = itemName;
+        ExpectMode("SN10i the Plandomizer loads a known log whose hint has several messages", SnPlandoParse(good), 1,
+                   "a known log was refused (or threw)");
+        ExpectFlag("SN10j the known log's placement is listed",
+                   spoilerLogData.size() == 1 && spoilerLogData[0].checkRewardItem.GetRandomizerGet() == kItem, true,
+                   "the known placement is not the one entry");
+        ExpectFlag("SN10k the hint with several messages shows its first",
+                   spoilerHintData.size() == 1 && spoilerHintData[0].hintText == "a", true,
+                   "the hint text is not the first message");
+        SnPlandoParse(nlohmann::json::object()); // empties the lists again
+    }
+
+    // ---- SN11: one end-to-end load (Context::ParseSpoiler) ----
+    // ParseSpoiler resets the deferred general pass and unstages the seed package before its try
+    // (SeedContext.cpp, #1044). A staged package is not this leg's to drop: it fails instead, which says an earlier
+    // row of a `--test all` process leaked one. Settings::ParseJson writes the seed through the Settings' context,
+    // assigned here to this row's context as OTRGlobals does at boot.
+    if (OoT_SeedPackage_Staged()) {
+        GateFail("SN11: a seed package is staged; ParseSpoiler would unstage it (SeedContext.cpp:495)");
+    } else {
+        const std::string savedSeedString = randoCtx->GetSeedString();
+        const uint32_t savedSeed = randoCtx->GetSeed();
+        const bool savedGenerated = randoCtx->IsSeedGenerated();
+        const bool savedLoaded = randoCtx->IsSpoilerLoaded();
+        const int savedDeferred = OoT_ComboLogic_GeneralPassDeferred();
+        settings->AssignContext(randoCtx);
+        std::error_code ec;
+        const std::filesystem::path path =
+            rsbs::test::ScratchDir("oot_logic_gates_sn11") / "unknown_location_spoiler.json";
+        nlohmann::json doc;
+        doc["seed"] = "x";
+        doc["finalSeed"] = 0;
+        doc["locations"][kSnNoLocation] = itemName;
+        {
+            std::ofstream out(path);
+            out << doc.dump();
+        }
+        // Set first, so a file ParseSpoiler could not open (it returns before clearing the flag) fails too.
+        randoCtx->SetSpoilerLoaded(true);
+        randoCtx->ParseSpoiler(path.string().c_str());
+        ExpectFlag("SN11a a spoiler log with an unknown location does not load", randoCtx->IsSpoilerLoaded(), false,
+                   "the spoiler log loaded (or could not be opened)");
+        SnExpectTablesUntouched("SN11b the spoiler load adds no name", sizes);
+        std::filesystem::remove(path, ec);
+        randoCtx->SetSeedString(savedSeedString);
+        randoCtx->SetSeed(savedSeed);
+        randoCtx->SetSeedGenerated(savedGenerated);
+        randoCtx->SetSpoilerLoaded(savedLoaded);
+        OoT_ComboLogic_SetGeneralPassDeferred(savedDeferred);
+    }
+
+    *zero = savedZero;
+    *known = savedKnown;
+    randoCtx->overrides = savedOverrides;
+    randoCtx->AddHint(RH_NONE, savedNoneHint);
+    randoCtx->AddHint(kStone, savedStoneHint);
+}
+
 /** ResetLogic, holding the Bunny Hood (Mask Quest Shuffle's ownership flag). */
 void ResetLogicWithBunnyHood() {
     ResetLogic();
@@ -4126,6 +4648,10 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     // Last, after the restore: these legs create the Settings options, so that in a run without game archives
     // every leg above still runs as it did before, with no options created.
     RunSpoilerTrickNameLegs(randoCtx);
+
+    // ---- SN: names in a spoiler log, a save's hints and a Plandomizer log (#1731) ---------------------------
+    // After TN, for the same reason: these legs fill the location hash maps when the run has no archives.
+    RunSpoilerNameLegs(randoCtx);
 
     if (sFailures == 0) {
         printf("[TEST] PASS: oot-logic-gates\n");

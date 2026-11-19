@@ -147,6 +147,15 @@ class Settings {
      * @param enabledTricksJson the array of trick display names (null or empty turns nothing on)
      */
     void ParseEnabledTricksJson(const nlohmann::json& enabledTricksJson);
+
+    /**
+     * @brief RSBS (#1731): exclude the checks a spoiler log's "excludedLocations" array names.
+     * A name this build does not know (or a value that is not a string) is not added to the name table: it throws
+     * std::runtime_error, which fails the spoiler load (Context::ParseSpoiler's catch).
+     *
+     * @param jsonExcludedLocations the array of location names (null or empty excludes nothing)
+     */
+    void ParseExcludedLocationsJson(const nlohmann::json& jsonExcludedLocations);
     std::map<RandomizerArea, std::vector<RandomizerTrick>> mTricksByArea = {};
 
     /**
