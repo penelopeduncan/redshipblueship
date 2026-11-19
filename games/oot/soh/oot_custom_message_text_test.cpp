@@ -16,6 +16,29 @@
  *   so a call still running after the deadline is reported and the process exits
  *   with a failure code at once (the runaway thread would otherwise keep growing
  *   its string until the process ends).
+ *   #1746 (SoH c9491183f, c9414b4d4), on the same plain strings:
+ *   K1. Capitalize capitalises the first letter of every language (it looped over
+ *       copies and changed nothing, so the altar text kept "the Lost Woods").
+ *   K2. InsertNames capitalises only the names its capital flags ask for and leaves
+ *       the flags as given (it tested capital[a] with an assignment).
+ *   K3. GetAllMessages(MF_CLEAN) returns cleaned text (it looped over copies).
+ *
+ * ROW OoTItemText (redship tier; bring-up: the ROM-free item and hint tables, no
+ * Rando::Context left behind). #1746 (SoH 86dea7d1b, 52a08daf0, 451820cac):
+ *   T0. Text::IsMissing knows TODO_TRANSLATE's spelling.
+ *   T1. anti-vacuity: 300+ named rows, 40+ missing German/French name slots,
+ *       150+ French articles.
+ *   T2. every named row reads a real name in English, German and French, and that
+ *       name maps back to the row through itemNameToEnum (RG_SHADOW_SILVER_BLADES
+ *       in German reads its English name).
+ *   T3. "TranslateThis" is no item's key in itemNameToEnum.
+ *   T4. FillMissingTranslations copies English into empty and placeholder slots.
+ *   A1. no row has a German article in its French slot or a French one in its
+ *       German slot.
+ *   C1. every colour is empty or a %-code; the Water Temple Boss Key's is "%b".
+ *   H1. every area and trial name, as the spoiler writes it, reads back through a
+ *       fresh translation map (GetAllMessages formats now; its callers ask for
+ *       MF_CLEAN).
  *
  * ROW MapCompassText (rando tier: it generates for the context BuildMapMessage reads).
  *   M1. a dungeon map's get-item text names the map ("Great Deku Tree Map"), never
@@ -27,6 +50,10 @@
  *
  * RED: without the Replace fix R1-R3 time out; without the BuildMapMessage half M1
  * and M2 fail; without the item_list.cpp half C1 fails on RG_DEKU_TREE_COMPASS.
+ * Without the #1746 fixes: K1-K3 fail on the by-value loops and the assignment;
+ * T2 and T3 fail without the getter fallback or the getter-built keys; A1 fails on
+ * any swapped article; C1 on the Water Temple Boss Key's "b"; H1 when a caller of
+ * GetAllMessages takes its MF_FORMATTED default.
  */
 
 #include <algorithm>
@@ -36,10 +63,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unordered_map>
+#include <vector>
 
 #include "soh/Enhancements/custom-message/CustomMessageManager.h"
 #include "soh/Enhancements/custom-message/CustomMessageTypes.h"
@@ -57,6 +87,10 @@ extern "C" int Rando_HeadlessSeedTest(const char* seedStr);
 extern "C" int OoT_Rando_MapMessageText(uint16_t rg, char* out, size_t cap);
 // Messages/ItemMessages.cpp: TEXT_RANDOMIZER_CUSTOM_ITEM OnOpenText handler.
 void BuildItemMessage(u16* textId, bool* loadFromMessageTable);
+// ComboLogicEngineOoT.cpp: the item table and itemNameToEnum, leaving no Rando::Context behind.
+extern "C" int OoT_ComboLogic_TestEnsureItemTableTransient(void);
+// HintAreaOoT.cpp: the hint text table without a ROM or a Rando::Context.
+extern "C" int OoT_HintArea_TestInitStaticData(void);
 
 namespace {
 
@@ -208,12 +242,216 @@ extern "C" int OoT_CustomMessageReplaceTest_Run(void) {
         OoT_gPlayState = prevPlay;
     }
 
+    // K1. Capitalize changes the strings themselves, in every language (#1746, SoH c9491183f).
+    {
+        CustomMessage msg("the Lost Woods", "in den Verlorenen Wäldern", "les Bois Perdus");
+        msg.Capitalize();
+        const std::string k1 = CmtAllRaw(msg);
+        if (k1 != "The Lost Woods|In den Verlorenen Wäldern|Les Bois Perdus") {
+            printf("[TEST] FAIL K1: Capitalize left \"%s\"; it must capitalise the first letter of each language "
+                   "(#1746)\n",
+                   k1.c_str());
+            failures++;
+        }
+    }
+
+    // K2. InsertNames capitalises only the names its flags ask for, and keeps the flags (#1746, SoH c9414b4d4).
+    {
+        CustomMessage msg("[[1]] / [[2]]", "[[1]] / [[2]]", "[[1]] / [[2]]", std::vector<std::string>{},
+                          std::vector<bool>{ false, true });
+        msg.InsertNames({ CustomMessage("the market", "der markt", "le marché"),
+                          CustomMessage("the graveyard", "der friedhof", "le cimetière") });
+        const std::string k2 = CmtAllRaw(msg);
+        const std::vector<bool>& flags = msg.GetCapital();
+        if (k2 != "the market / The graveyard|der markt / Der friedhof|le marché / Le cimetière" || flags.size() != 2 ||
+            flags[0] || !flags[1]) {
+            printf("[TEST] FAIL K2: InsertNames with flags {false, true} reads \"%s\" (flags %zu); only the second "
+                   "name may be capitalised and the flags must stay as given (#1746)\n",
+                   k2.c_str(), flags.size());
+            failures++;
+        }
+    }
+
+    // K3. GetAllMessages applies its format to what it returns (#1746, SoH c9491183f).
+    {
+        const CustomMessage msg("#Kokiri# Forest^", "#Kokiri#-Wald^", "#Forêt# Kokiri^");
+        const std::vector<std::string> all = msg.GetAllMessages(MF_CLEAN);
+        if (all.size() < 3 || all[LANGUAGE_ENG] != "Kokiri Forest " || all[LANGUAGE_GER] != "Kokiri-Wald " ||
+            all[LANGUAGE_FRA] != "Forêt Kokiri ") {
+            printf("[TEST] FAIL K3: GetAllMessages(MF_CLEAN) returned \"%s\"; it must clean each language's text "
+                   "(#1746)\n",
+                   all.empty() ? "" : all[LANGUAGE_ENG].c_str());
+            failures++;
+        }
+    }
+
     if (failures != 0) {
         printf("[TEST] FAIL: custom-message-replace: %d assertion(s) failed\n", failures);
         return 1;
     }
     printf("[TEST] PASS: Replace returns and replaces every occurrence once, in both overloads and through "
-           "AutoFormat(ItemID)\n");
+           "AutoFormat(ItemID); Capitalize, InsertNames' flags and GetAllMessages' format take effect\n");
+    return 0;
+}
+
+extern "C" int OoT_ItemTextTest_Run(void) {
+    printf("[TEST] oot-item-text: missing translations fall back to English and round-trip through the name table; "
+           "articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
+           "(#1746)\n");
+    if (OoT_ComboLogic_TestEnsureItemTableTransient() != 0 || OoT_HintArea_TestInitStaticData() != 0) {
+        printf("[TEST] FAIL: OoT's item or hint table could not be brought up without a ROM\n");
+        return 1;
+    }
+    int failures = 0;
+
+    // T0. Text's own spelling of the placeholder matches TODO_TRANSLATE (text.hpp cannot include z64.h).
+    if (!Text::IsMissing(TODO_TRANSLATE) || !Text::IsMissing("") || Text::IsMissing("Bomb")) {
+        printf("[TEST] FAIL T0: Text::IsMissing does not recognise TODO_TRANSLATE (\"%s\") and \"\" only\n",
+               TODO_TRANSLATE);
+        failures++;
+    }
+
+    // T1-T3 over every named row of the item table; A1 and C1 over the same rows.
+    static const char* const kOitGermanArticles[] = { "der", "die",  "das",   "den",   "dem",
+                                                      "ein", "eine", "einen", "einem", "einer" };
+    static const char* const kOitFrenchArticles[] = { "le", "la", "les", "l'", "un", "une", "du" };
+    const auto oitTrimmedIn = [](const std::string& raw, const char* const* set, size_t count) {
+        const size_t first = raw.find_first_not_of(' ');
+        const std::string word =
+            first == std::string::npos ? "" : raw.substr(first, raw.find_last_not_of(' ') - first + 1);
+        for (size_t i = 0; i < count; i++) {
+            if (word == set[i]) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const uint8_t langs[] = { LANGUAGE_ENG, LANGUAGE_GER, LANGUAGE_FRA };
+    int named = 0;
+    int missingSlots = 0;
+    int frenchArticles = 0;
+    int t2Failures = 0;
+    for (int rg = RG_NONE + 1; rg < RG_MAX; rg++) {
+        const Rando::Item& item = Rando::StaticData::RetrieveItem(static_cast<RandomizerGet>(rg));
+        const Text& name = item.GetName();
+        if (name.english.empty()) {
+            continue;
+        }
+        named++;
+        missingSlots += (Text::IsMissing(name.german) ? 1 : 0) + (Text::IsMissing(name.french) ? 1 : 0);
+        for (const uint8_t lang : langs) {
+            const std::string& shown = name.GetForLanguage(lang);
+            const auto found = Rando::StaticData::itemNameToEnum.find(shown);
+            if (shown.empty() || shown == TODO_TRANSLATE || found == Rando::StaticData::itemNameToEnum.end() ||
+                found->second != static_cast<RandomizerGet>(rg)) {
+                if (t2Failures++ < 5) {
+                    printf("[TEST] FAIL T2: \"%s\" (%d) reads \"%s\" in language %u, which does not map back to it\n",
+                           name.english.c_str(), rg, shown.c_str(), (unsigned)lang);
+                }
+            }
+        }
+        // A1. The raw French slot holds no German article and the raw German slot no French one.
+        const Text& article = item.GetArticle();
+        if (!article.french.empty() && article.french != TODO_TRANSLATE) {
+            frenchArticles++;
+        }
+        if (oitTrimmedIn(article.french, kOitGermanArticles, std::size(kOitGermanArticles)) ||
+            oitTrimmedIn(article.german, kOitFrenchArticles, std::size(kOitFrenchArticles))) {
+            printf("[TEST] FAIL A1: \"%s\" (%d) has the article {\"%s\", \"%s\", \"%s\"}: French and German are "
+                   "swapped\n",
+                   name.english.c_str(), rg, article.english.c_str(), article.french.c_str(), article.german.c_str());
+            failures++;
+        }
+        // C1. A colour is empty or a two-character %-code.
+        const std::string& color = item.GetColor();
+        if (!color.empty() && (color.size() != 2 || color[0] != '%')) {
+            printf("[TEST] FAIL C1: \"%s\" (%d) has the colour code \"%s\"\n", name.english.c_str(), rg, color.c_str());
+            failures++;
+        }
+    }
+    failures += t2Failures;
+    printf("[TEST] oot-item-text: %d named row(s), %d missing German/French name slot(s), %d French article(s)\n",
+           named, missingSlots, frenchArticles);
+    // T1. Anti-vacuity: the table is there, and missing translations remain to fall back from.
+    if (named < 300 || missingSlots < 40 || frenchArticles < 150) {
+        printf("[TEST] FAIL T1: too few rows to prove anything (need 300 named, 40 missing slots, 150 French "
+               "articles)\n");
+        failures++;
+    }
+    // T2, the case the issue names.
+    const std::string blades = Rando::StaticData::RetrieveItem(RG_SHADOW_SILVER_BLADES).GetName().GetGerman();
+    const auto bladesFound = Rando::StaticData::itemNameToEnum.find(blades);
+    if (blades != "Shadow Silver: Blades" || bladesFound == Rando::StaticData::itemNameToEnum.end() ||
+        bladesFound->second != RG_SHADOW_SILVER_BLADES) {
+        printf("[TEST] FAIL T2: RG_SHADOW_SILVER_BLADES reads \"%s\" in German; it must fall back to its English "
+               "name and map back to itself\n",
+               blades.c_str());
+        failures++;
+    }
+    // T3. The placeholder is not a key for any item (RG_NONE: an earlier spoiler parse may have asked for it).
+    const auto placeholder = Rando::StaticData::itemNameToEnum.find(TODO_TRANSLATE);
+    if (placeholder != Rando::StaticData::itemNameToEnum.end() && placeholder->second != RG_NONE) {
+        printf("[TEST] FAIL T3: \"%s\" is a key of itemNameToEnum for item %d\n", TODO_TRANSLATE,
+               (int)placeholder->second);
+        failures++;
+    }
+    // T4. FillMissingTranslations copies English into empty and placeholder slots.
+    {
+        Text text{ "Bomb", TODO_TRANSLATE, "" };
+        text.spanish = TODO_TRANSLATE;
+        text.FillMissingTranslations();
+        if (text.french != "Bomb" || text.german != "Bomb" || text.spanish != "Bomb") {
+            printf("[TEST] FAIL T4: FillMissingTranslations left {\"%s\", \"%s\", \"%s\"}, not \"Bomb\" in each\n",
+                   text.french.c_str(), text.german.c_str(), text.spanish.c_str());
+            failures++;
+        }
+    }
+    // C1, the row the fix names.
+    if (Rando::StaticData::RetrieveItem(RG_WATER_TEMPLE_BOSS_KEY).GetColor() != "%b") {
+        printf("[TEST] FAIL C1: the Water Temple Boss Key's colour is \"%s\", not \"%%b\"\n",
+               Rando::StaticData::RetrieveItem(RG_WATER_TEMPLE_BOSS_KEY).GetColor().c_str());
+        failures++;
+    }
+
+    // H1. Every area and trial name, as the spoiler writes it (clear text, MF_CLEAN), reads back through a fresh
+    // translation map to an entry with that very name (#1746: GetAllMessages now formats, so its callers ask for
+    // MF_CLEAN).
+    int names = 0;
+    const struct {
+        const char* label;
+        const std::unordered_map<uint32_t, RandomizerHintTextKey>* table;
+    } kOitTables[] = { { "area", &Rando::StaticData::areaNames }, { "trial", &Rando::StaticData::trialData } };
+    for (const auto& entry : kOitTables) {
+        const std::unordered_map<std::string, uint32_t> map = Rando::StaticData::PopulateTranslationMap(*entry.table);
+        for (const auto& [key, rht] : *entry.table) {
+            const CustomMessage clear = Rando::StaticData::hintTextTable[rht].GetClear();
+            for (const uint8_t lang : langs) {
+                const std::string written = clear.GetForLanguage(lang, MF_CLEAN);
+                names++;
+                const auto found = map.find(written);
+                const bool same =
+                    found != map.end() &&
+                    Rando::StaticData::hintTextTable[entry.table->at(found->second)].GetClear().GetForLanguage(
+                        lang, MF_CLEAN) == written;
+                if (!same) {
+                    printf("[TEST] FAIL H1: the %s name \"%s\" (key %u, language %u) does not read back\n", entry.label,
+                           written.c_str(), (unsigned)key, (unsigned)lang);
+                    failures++;
+                }
+            }
+        }
+    }
+    if (names < 90) {
+        printf("[TEST] FAIL H1: only %d area and trial names checked\n", names);
+        failures++;
+    }
+
+    if (failures != 0) {
+        printf("[TEST] FAIL: oot-item-text: %d assertion(s) failed\n", failures);
+        return 1;
+    }
+    printf("[TEST] PASS: missing translations fall back to English and round-trip; articles and colours are "
+           "well-formed; area and trial names read back\n");
     return 0;
 }
 
