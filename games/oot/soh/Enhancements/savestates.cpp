@@ -529,6 +529,10 @@ class SaveState {
 
   public:
     SaveState(std::shared_ptr<SaveStateMgr> mgr, unsigned int slot);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    void SavePlainBlocksForTest(void);
+    void LoadPlainBlocksForTest(void);
+#endif
 
   private:
     unsigned int slot;
@@ -1445,3 +1449,37 @@ void SaveState::Load(void) {
     LoadEffectData();
     LoadTransitionActors();
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+void SaveState::SavePlainBlocksForTest(void) {
+    SaveOverlayStaticData();
+    SaveMiscCodeData();
+    SaveEffectData();
+    SaveTransitionActors();
+}
+
+void SaveState::LoadPlainBlocksForTest(void) {
+    LoadOverlayStaticData();
+    LoadMiscCodeData();
+    LoadEffectData();
+    LoadTransitionActors();
+}
+
+extern "C" {
+void* OoT_SaveState_TestCreate(void) {
+    return new SaveState(nullptr, 0);
+}
+
+void OoT_SaveState_TestDestroy(void* state) {
+    delete static_cast<SaveState*>(state);
+}
+
+void OoT_SaveState_TestSavePlainBlocks(void* state) {
+    static_cast<SaveState*>(state)->SavePlainBlocksForTest();
+}
+
+void OoT_SaveState_TestLoadPlainBlocks(void* state) {
+    static_cast<SaveState*>(state)->LoadPlainBlocksForTest();
+}
+}
+#endif

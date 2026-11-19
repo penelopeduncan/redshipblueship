@@ -4787,6 +4787,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # tier; src/common/tests/test_extractor_picker_guard.c.
     redship_add_test(NAME ExtractorPickerGuard COMMAND redship --test extractor-picker-guard)
 
+    # #1752 / #1735: ROM-free round-trip of newly wired OoT savestate plain-data
+    # blocks (Barinade/Bongo/Morpha statics, OoT_sEffectContext, z_player statics,
+    # AudioOcarina statics, and transition actor IDs + live numActors clamp).
+    # Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+    redship_add_test(NAME OoTSaveStateRoundtrip COMMAND redship --test oot-savestate-roundtrip)
+
     # ========================================================================
     # Integration tests (requires display - use Xvfb in CI)
     # These tests actually boot the games and verify boot completion
