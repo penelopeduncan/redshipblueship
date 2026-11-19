@@ -251,6 +251,10 @@ set(REDSHIP_COMMON_SOURCES
     # age and the creation's warp-song record (ADR 0009 claim 22).
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
+    # #1728: Majora's Mask's save and arrival rules under the file's frozen Moon
+    # Crash Behavior: a New Cycle roof save comes back in South Clock Town, and
+    # OoTMM's grace period on an arrival. Game-header-free.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_moon_crash_rules.c
     # #1169 XW11: the check trackers' cross-game warp-song travel facts, read from
     # the frozen world for a tracker-scoped second search. Game-header-free.
     # APPENDED, never reordered.
@@ -385,6 +389,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
     # Header for mm_warp_song_play.c above (#1169 XW7)
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
+    # Header for mm_moon_crash_rules.c above (#1728)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_moon_crash_rules.h
     # Header for warp_song_tracker.c above (#1169 XW11)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.h
     # Header for warp_song_family.c above (#1169 XW10)

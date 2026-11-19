@@ -11,6 +11,9 @@ extern "C" {
 #endif
 
 void SavingEnhancements_PersistSaveEntranceInfo();
+// Where a pause save or an autosave comes back; contract on the definition (#1728).
+int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember, int lastEntrance, int paired,
+                                            int frozenMoonCrash, int* outRemembered);
 void SavingEnhancements_ClearSaveEntranceInfo();
 bool SavingEnhancements_CanSave();
 // RSBS (#530): "is there any durable destination for a save right now" — a real
@@ -30,6 +33,9 @@ uint64_t SavingEnhancements_GetLastAutosaveTimestamp();
 // #693: the periodic autosave's interval (ms), from the MM-only minutes key the
 // unified menu's Combo > Majora's Mask slider writes. Contract on the definition.
 uint32_t SavingEnhancements_AutosaveIntervalMs();
+// #1728: SavingEnhancements_PauseSaveEntranceFor over the live file (paired
+// session, frozen Moon Crash Behavior). Contract on the definition.
+int SavingEnhancements_PauseSaveEntranceForLiveFile(int sceneId, int remember, int lastEntrance, int* outRemembered);
 // PR #730 review: HandleAutoSave's interval decision, observable. The count of
 // ticks that got past the interval check, and a setter for the interval clock
 // (test-only). Contracts on the definitions.
