@@ -513,7 +513,7 @@ void PopStyleSlider() {
     ImGui::PopStyleColor(6);
 }
 
-static std::string GetVisibleLabel(const char* label) {
+std::string GetVisibleLabel(const char* label) {
     if (label == nullptr) {
         return "";
     }
