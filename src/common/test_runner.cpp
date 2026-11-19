@@ -1905,6 +1905,19 @@ static TestResult Test_OoTSaveEditorSwordRange(void) {
     return OoT_SaveEditorSwordRange_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 8b3d91506 (#1750): title card position names and the All margins buttons. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HUD position and margin CVars.
+extern "C" int OoT_TitleCardCvars_RunHeadless(void);
+static TestResult Test_OoTTitleCardCvars(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TitleCardCvars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11567,6 +11580,11 @@ const TestDescriptor gTests[] = {
       "The Save Editor's B-button selector treats Kokiri, Master and Biggoron's swords and the broken Giant's Knife "
       "as swords and nothing else (SoH 490e13616)",
       Test_OoTSaveEditorSwordRange },
+    // SoH 8b3d91506: display-free and ROM-free; restores every HUD CVar it writes (cleared, never stored).
+    { "oot-title-card-cvars",
+      "The title cards follow the Cosmetics Editor's HUD.TitleCard position settings, and All margins on skips "
+      "hidden elements and the unanchored title cards at their original place (SoH 8b3d91506)",
+      Test_OoTTitleCardCvars },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

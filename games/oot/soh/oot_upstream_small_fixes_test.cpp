@@ -14,6 +14,7 @@
 #include "context.h"
 #include "soh/ShipInit.hpp"
 #include "soh/cvar_prefixes.h"
+#include "soh/Enhancements/cosmetics/cosmeticsTypes.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "src/overlays/actors/ovl_Fishing/z_fishing.h"
@@ -247,6 +248,141 @@ extern "C" int OoT_SaveEditorSwordRange_RunHeadless(void) {
 
     printf("[TEST] oot-save-editor-sword-range: PASS\n");
     return 0;
+}
+
+// ---- OoTTitleCardCvars (SoH 8b3d91506, #1750) ----
+
+extern "C" void OoT_TitleCard_ResolvePos(TitleCardContext* titleCtx, s16* posX, s16* posY); // z_actor.c
+void OoT_CosmeticsEditor_ApplyMarginAll(bool SetActivated);                                 // CosmeticsEditor.cpp
+
+namespace {
+
+// CosmeticsEditor.cpp's MarginCvarList: every element the All margins buttons write.
+const char* const kUsfMarginElements[] = {
+    CVAR_COSMETIC("HUD.Hearts"),        CVAR_COSMETIC("HUD.HeartsCount"),    CVAR_COSMETIC("HUD.MagicBar"),
+    CVAR_COSMETIC("HUD.VisualSoA"),     CVAR_COSMETIC("HUD.BButton"),        CVAR_COSMETIC("HUD.AButton"),
+    CVAR_COSMETIC("HUD.StartButton"),   CVAR_COSMETIC("HUD.CUpButton"),      CVAR_COSMETIC("HUD.CDownButton"),
+    CVAR_COSMETIC("HUD.CLeftButton"),   CVAR_COSMETIC("HUD.CRightButton"),   CVAR_COSMETIC("HUD.Dpad"),
+    CVAR_COSMETIC("HUD.Minimap"),       CVAR_COSMETIC("HUD.SmallKey"),       CVAR_COSMETIC("HUD.Rupees"),
+    CVAR_COSMETIC("HUD.Carrots"),       CVAR_COSMETIC("HUD.Timers"),         CVAR_COSMETIC("HUD.ArcheryScore"),
+    CVAR_COSMETIC("HUD.TitleCard.Map"), CVAR_COSMETIC("HUD.TitleCard.Boss"), CVAR_COSMETIC("HUD.IGT"),
+};
+constexpr int kUsfMarginElementCount = sizeof(kUsfMarginElements) / sizeof(kUsfMarginElements[0]);
+const char* const kUsfTitleCardSuffixes[] = { ".PosType", ".PosX", ".PosY", ".UseMargins" };
+
+std::string UsfKey(const char* element, const char* suffix) {
+    return std::string(element).append(suffix);
+}
+
+int UsfGet(const char* element, const char* suffix) {
+    return CVarGetInteger(UsfKey(element, suffix).c_str(), 0);
+}
+
+void UsfSet(const char* element, const char* suffix, int value) {
+    CVarSetInteger(UsfKey(element, suffix).c_str(), value);
+}
+
+int UsfTitleCardLegs(void) {
+    const char* const map = CVAR_COSMETIC("HUD.TitleCard.Map");
+    const char* const boss = CVAR_COSMETIC("HUD.TitleCard.Boss");
+    for (int i = 0; i < kUsfMarginElementCount; i++) {
+        CVarClear(UsfKey(kUsfMarginElements[i], ".PosType").c_str());
+        CVarClear(UsfKey(kUsfMarginElements[i], ".UseMargins").c_str());
+    }
+
+    TitleCardContext titleCtx = {};
+    titleCtx.x = 160;
+    titleCtx.y = 40;
+    s16 x = 0;
+    s16 y = 0;
+
+    // (a) original location: the card's own position.
+    OoT_TitleCard_ResolvePos(&titleCtx, &x, &y);
+    USF_ASSERT(x == 160 && y == 40, "(a): the original-location title card moved");
+
+    // (b) the map card, not anchored, at (77, 33) in the editor's HUD.TitleCard.Map names.
+    UsfSet(map, ".PosType", ANCHOR_NONE);
+    UsfSet(map, ".PosX", 77);
+    UsfSet(map, ".PosY", 33);
+    OoT_TitleCard_ResolvePos(&titleCtx, &x, &y);
+    printf("[TEST] (b) map card, HUD.TitleCard.Map not anchored at (77, 33): drawn at (%d, %d)\n", x, y);
+    USF_ASSERT(x == 77 && y == 33, "(b): the map title card ignores the HUD.TitleCard.Map position settings");
+
+    // (c) the boss card reads the boss names, not the map ones.
+    titleCtx.isBossCard = 1;
+    OoT_TitleCard_ResolvePos(&titleCtx, &x, &y);
+    USF_ASSERT(x == 160 && y == 40, "(c): the boss title card read the map card's settings");
+    UsfSet(boss, ".PosType", ANCHOR_NONE);
+    UsfSet(boss, ".PosX", 12);
+    UsfSet(boss, ".PosY", 21);
+    OoT_TitleCard_ResolvePos(&titleCtx, &x, &y);
+    USF_ASSERT(x == 12 && y == 21, "(c): the boss title card ignores the HUD.TitleCard.Boss position settings");
+
+    // (d) hidden.
+    titleCtx.isBossCard = 0;
+    UsfSet(map, ".PosType", HIDDEN);
+    OoT_TitleCard_ResolvePos(&titleCtx, &x, &y);
+    USF_ASSERT(x == -9999 && y == 33, "(d): the hidden map title card is not moved off screen");
+
+    // (e) All margins on, every element at its original location, Hearts hidden.
+    for (int i = 0; i < kUsfMarginElementCount; i++) {
+        CVarClear(UsfKey(kUsfMarginElements[i], ".PosType").c_str());
+    }
+    UsfSet(CVAR_COSMETIC("HUD.Hearts"), ".PosType", HIDDEN);
+    OoT_CosmeticsEditor_ApplyMarginAll(true);
+    printf("[TEST] (e) All margins on: map card %d, boss card %d, rupees %d, hidden hearts %d\n",
+           UsfGet(map, ".UseMargins"), UsfGet(boss, ".UseMargins"), UsfGet(CVAR_COSMETIC("HUD.Rupees"), ".UseMargins"),
+           UsfGet(CVAR_COSMETIC("HUD.Hearts"), ".UseMargins"));
+    USF_ASSERT(UsfGet(map, ".UseMargins") == 0,
+               "(e): All margins on gave margins to the map title card at its unanchored original location");
+    USF_ASSERT(UsfGet(boss, ".UseMargins") == 0,
+               "(e): All margins on gave margins to the boss title card at its unanchored original location");
+    USF_ASSERT(UsfGet(CVAR_COSMETIC("HUD.Rupees"), ".UseMargins") == 1,
+               "(e): All margins on did not give margins to the rupee counter");
+    USF_ASSERT(UsfGet(CVAR_COSMETIC("HUD.Hearts"), ".UseMargins") == 0,
+               "(e): All margins on gave margins to a hidden element");
+    // (f) the map card anchored left: margins apply.
+    UsfSet(map, ".PosType", ANCHOR_LEFT);
+    OoT_CosmeticsEditor_ApplyMarginAll(true);
+    USF_ASSERT(UsfGet(map, ".UseMargins") == 1, "(f): All margins on skipped the anchored map title card");
+    // (g) All margins off.
+    OoT_CosmeticsEditor_ApplyMarginAll(false);
+    USF_ASSERT(UsfGet(map, ".UseMargins") == 0 && UsfGet(CVAR_COSMETIC("HUD.Rupees"), ".UseMargins") == 0,
+               "(g): All margins off left a margin on");
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_TitleCardCvars_RunHeadless(void) {
+    // Every CVar the row writes: the four title-card settings of both cards, and PosType / UseMargins of every
+    // margin element (the title cards' are among them).
+    std::string keys[kUsfMarginElementCount * 2 + 4];
+    int count = 0;
+    for (int i = 0; i < kUsfMarginElementCount; i++) {
+        keys[count++] = UsfKey(kUsfMarginElements[i], ".PosType");
+        keys[count++] = UsfKey(kUsfMarginElements[i], ".UseMargins");
+    }
+    const char* const cards[] = { CVAR_COSMETIC("HUD.TitleCard.Map"), CVAR_COSMETIC("HUD.TitleCard.Boss") };
+    for (int c = 0; c < 2; c++) {
+        for (int s = 1; s <= 2; s++) { // PosX and PosY; PosType and UseMargins are in the element list
+            keys[count++] = UsfKey(cards[c], kUsfTitleCardSuffixes[s]);
+        }
+    }
+    int saved[kUsfMarginElementCount * 2 + 4];
+    for (int i = 0; i < count; i++) {
+        saved[i] = CVarGetInteger(keys[i].c_str(), 0);
+    }
+
+    const int rc = UsfTitleCardLegs();
+
+    for (int i = 0; i < count; i++) {
+        UsfRestoreInt(keys[i].c_str(), saved[i]);
+    }
+    if (rc == 0) {
+        printf("[TEST] oot-title-card-cvars: PASS\n");
+    }
+    return rc;
 }
 
 #endif // RSBS_SINGLE_EXECUTABLE

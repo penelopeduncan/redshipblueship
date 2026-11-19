@@ -484,39 +484,35 @@ static const char* MarginCvarNonAnchor[]{
     CVAR_COSMETIC("HUD.TitleCard.Map"), CVAR_COSMETIC("HUD.TitleCard.Boss"),
 };
 
+// Ship of Harkinian 8b3d91506: the All margins on / off buttons. The old loop set UseMargins once per
+// MarginCvarNonAnchor entry, so the last entry won. Not static: OoTTitleCardCvars drives it.
+void OoT_CosmeticsEditor_ApplyMarginAll(bool SetActivated) {
+    for (auto cvarName : MarginCvarList) {
+        std::string cvarPosType = std::string(cvarName).append(".PosType");
+        std::string cvarNameMargins = std::string(cvarName).append(".UseMargins");
+        bool activate = SetActivated;
+        if (SetActivated) {
+            int posType = CVarGetInteger(cvarPosType.c_str(), 0);
+            // MarginCvarNonAnchor lists the elements that have no anchor by default.
+            bool noDefaultAnchor = false;
+            for (auto nonAnchorName : MarginCvarNonAnchor) {
+                if (strcmp(cvarName, nonAnchorName) == 0) {
+                    noDefaultAnchor = true;
+                    break;
+                }
+            }
+            // Skip hidden and non anchored elements, plus elements that only get an anchor once the player moves
+            // them off their original position. Margins do nothing for those.
+            activate = posType <= ANCHOR_RIGHT && !(noDefaultAnchor && posType == ORIGINAL_LOCATION);
+        }
+        CVarSetInteger(cvarNameMargins.c_str(), activate);
+    }
+}
+
 void SetMarginAll(const char* ButtonName, bool SetActivated, const char* tooltip) {
     if (UIWidgets::Button(ButtonName,
                           UIWidgets::ButtonOptions().Size(ImVec2(200.0f, 0.0f)).Color(THEME_COLOR).Tooltip(tooltip))) {
-        // MarginCvarNonAnchor is an array that list every element that has No anchor by default, because if that the
-        // case this function will not touch it with pose type 0.
-        u8 arrayLengthNonMargin = sizeof(MarginCvarNonAnchor) / sizeof(*MarginCvarNonAnchor);
-        for (auto cvarName : MarginCvarList) {
-            std::string cvarPosType = std::string(cvarName).append(".PosType");
-            std::string cvarNameMargins = std::string(cvarName).append(".UseMargins");
-            if (CVarGetInteger(cvarPosType.c_str(), 0) <= ANCHOR_RIGHT &&
-                SetActivated) { // Our element is not Hidden or Non anchor
-                for (int i = 0; i < arrayLengthNonMargin; i++) {
-                    if ((strcmp(cvarName, MarginCvarNonAnchor[i]) == 0) &&
-                        (CVarGetInteger(cvarPosType.c_str(), 0) ==
-                         ORIGINAL_LOCATION)) { // Our element is both in original position and do not have anchor by
-                                               // default so we skip it.
-                        CVarSetInteger(cvarNameMargins.c_str(), false); // force set off
-                    } else if ((strcmp(cvarName, MarginCvarNonAnchor[i]) == 0) &&
-                               (CVarGetInteger(cvarPosType.c_str(), 0) !=
-                                ORIGINAL_LOCATION)) { // Our element is not in original position regarless it has no
-                                                      // anchor by default since player made it anchored we can toggle
-                                                      // margins
-                        CVarSetInteger(cvarNameMargins.c_str(), SetActivated);
-                    } else if (strcmp(cvarName, MarginCvarNonAnchor[i]) !=
-                               0) { // Our elements has an anchor by default so regarless of it's position right now
-                                    // that okay to toggle margins.
-                        CVarSetInteger(cvarNameMargins.c_str(), SetActivated);
-                    }
-                }
-            } else { // Since the user requested to turn all margin off no need to do any check there.
-                CVarSetInteger(cvarNameMargins.c_str(), SetActivated);
-            }
-        }
+        OoT_CosmeticsEditor_ApplyMarginAll(SetActivated);
     }
 }
 

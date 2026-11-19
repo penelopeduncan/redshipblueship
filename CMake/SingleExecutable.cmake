@@ -2112,6 +2112,15 @@ if(BUILD_TESTING)
     # Display-free and ROM-free.
     redship_add_test(NAME OoTSaveEditorSwordRange COMMAND redship --test oot-save-editor-sword-range)
 
+    # SoH 8b3d91506 (#1750): the title cards read stale TitleCard.* position
+    # names while the Cosmetics Editor writes HUD.TitleCard.*, and All margins on
+    # let the last list entry win. The row drives OoT_TitleCard_ResolvePos
+    # (z_actor.c; original, not anchored and hidden only, since the anchors read
+    # the window) and OoT_CosmeticsEditor_ApplyMarginAll: the HUD.* settings move
+    # each card; margins skip the unanchored cards at their original place and
+    # hidden elements. Display-free and ROM-free.
+    redship_add_test(NAME OoTTitleCardCvars COMMAND redship --test oot-title-card-cvars)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in
