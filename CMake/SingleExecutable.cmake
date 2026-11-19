@@ -939,6 +939,11 @@ if(BUILD_TESTING)
     # fingerprint and the load restore; then both games' songs registered and
     # carried by the real harvest/apply shims, each rule only its own song. ROM-free.
     redship_add_test(NAME SharedSongsRule COMMAND redship --test shared-songs-rule)
+    # #1587 S1: the Shared Sun's Song and Shared Saria's Song, two more second-word
+    # rules: both bits (families, requiring nothing) and keys (off by default, 0 or
+    # 1), the fingerprint, HIDDEN (Generate refuses them until #1587 S7), and the
+    # restore through the API and a real .redsave. ROM-free, generates nothing.
+    redship_add_test(NAME SharedSunSariaRule COMMAND redship --test shared-sun-saria-rule)
     redship_add_test(NAME SharedSongsMerge COMMAND redship --test shared-songs-merge)
     # #1561: under Shuffle Songs Off, armed first-word shared songs stay fixed at
     # both games' default checks and convert whichever default check is reached

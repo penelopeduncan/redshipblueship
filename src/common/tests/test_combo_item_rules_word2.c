@@ -15,7 +15,8 @@
  *   shared songs at 7-13, each requiring its extension); the fourteen keys
  *   (OoTMM's names, off by default, exactly 0 or 1) and the resolver (a shared
  *   song without its extension resolves off); THE GATE: an unallocated bit and a
- *   shared song alone (every allocated rule is offered since #1169 XW14) are refused by the one
+ *   shared song alone (every warp-song rule is offered since #1169 XW14; #1587's
+ *   two hidden rules are shared-sun-saria-rule's) are refused by the one
  *   predicate Generate, a seed package's validation and a .redsave load ask, and
  *   from source, Generate asks it before the freeze and the package validation
  *   asks it; the fingerprint (folded only when set, pinned vectors computed
@@ -103,7 +104,34 @@ const uint32_t kXw2Soaring = 0x00000001u;       // songSoaringOot
 const uint32_t kXw2SharedSoaring = 0x00000080u; // sharedSongSoaring
 const uint32_t kXw2SoaringPair = kXw2Soaring | kXw2SharedSoaring;
 const uint32_t kXw2Minuet = 0x00000002u; // songMinuetMm (#1169 XW12's invariant legs)
-const uint32_t kXw2Later = 0x00004000u;  // bit 14: no rule of this build (#1169 XW14's another-build legs)
+
+/** The highest bit of the second word no rule of this build takes. Rules are
+ *  taken bottom-up (foreign_items.h, "a later rule takes the next free bit"),
+ *  so this is the last bit a later build allocates. 0 when the word is full.
+ *  Derived rather than spelled (#1587 S1 took bits 14 and 15, the bit these legs
+ *  used to spell), so allocating a rule never turns these legs into legs about an
+ *  allocated one. */
+uint32_t Xw2HighestUnallocatedBit() {
+    const uint32_t freeBits = ~(uint32_t)RSBS_XITEM2_ALL_V1;
+    for (int b = 31; b >= 0; --b) {
+        if ((freeBits & (1u << b)) != 0u) {
+            return 1u << b;
+        }
+    }
+    return 0u;
+}
+
+/** The index of the single bit @p bit, or -1. */
+int Xw2BitIndex(uint32_t bit) {
+    for (int b = 0; b < 32; ++b) {
+        if (bit == (1u << b)) {
+            return b;
+        }
+    }
+    return -1;
+}
+
+const uint32_t kXw2Later = Xw2HighestUnallocatedBit(); // another build's rule (#1169 XW14's legs)
 
 /** The fourteen keys, in OoTMM's order, with OoTMM's key and option name. */
 struct Xw2Key {
@@ -242,14 +270,21 @@ TestResult ComboItemRulesSecondWord_Run(void) {
             XW2_CHECK(strcmp(Combo_ComboItemRule2Name(k.bit), k.rule) == 0, "bit %04X is named '%s', OoTMM's key is %s",
                       (unsigned)k.bit, Combo_ComboItemRule2Name(k.bit), k.rule);
         }
-        XW2_CHECK(all == 0x00003FFFu && RSBS_XITEM2_ALL_V1 == 0x00003FFFu,
+        // The fourteen are bits 0-13; the exact ALL_V1 is pinned by the header's
+        // static assert and by shared-sun-saria-rule (#1587 S1 took bits 14-15).
+        XW2_CHECK(all == 0x00003FFFu && (RSBS_XITEM2_ALL_V1 & 0x00003FFFu) == 0x00003FFFu,
                   "the fourteen warp-song rules are not bits 0-13 (%08X, ALL_V1 %08X)", (unsigned)all,
                   (unsigned)RSBS_XITEM2_ALL_V1);
+        XW2_CHECK(kXw2Later != 0u && (kXw2Later & (uint32_t)RSBS_XITEM2_ALL_V1) == 0u,
+                  "the second word is full (no unallocated bit, %08X): these legs need a new free bit",
+                  (unsigned)kXw2Later);
         XW2_CHECK(RSBS_XITEM2_SONG_SOARING_OOT == kXw2Soaring && RSBS_XITEM2_SHARED_SONG_SOARING == kXw2SharedSoaring &&
                       RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u,
                   "a warp-song bit moved; they are .redsave format, append-only");
-        XW2_CHECK(RSBS_XITEM2_HIDDEN == 0u,
-                  "since XW14 no allocated rule is hidden (the seven shared warp songs are offered), not %08X",
+        // Only the warp-song rules: #1587's Sun's and Saria's rules are hidden until
+        // #1587 S7, which shared-sun-saria-rule pins.
+        XW2_CHECK((RSBS_XITEM2_HIDDEN & 0x00003FFFu) == 0u,
+                  "since XW14 no warp-song rule is hidden (the seven shared warp songs are offered), not %08X",
                   (unsigned)RSBS_XITEM2_HIDDEN);
         // The rows' predicate (Combo_ComboItemRule2Offered): every one of the
         // fourteen is offered (the Song of Soaring (OoT) since XW12, the six MM
@@ -269,7 +304,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                       "RSBS_XITEM2_REVEAL_MM_SONGS no longer reads the production mask: %s is not offered", k.rule);
         }
         Combo_ComboItemRules2RevealForTest(0);
-        XW2_CHECK(!Combo_ComboItemRule2Offered(0u) && !Combo_ComboItemRule2Offered(0x4000u) &&
+        XW2_CHECK(!Combo_ComboItemRule2Offered(0u) && !Combo_ComboItemRule2Offered(kXw2Later) &&
                       !Combo_ComboItemRule2Offered(kXw2SoaringPair),
                   "zero, an unallocated bit or a mask of two bits reads as an offered rule");
         Combo_ComboItemRules2RevealForTest(1);
@@ -281,10 +316,10 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                           Combo_ComboItemRule2Requires(1u << b) == 0u,
                       "shared song bit %u must require extension bit %u, and the extension nothing", b + 7u, b);
         }
-        XW2_CHECK(Combo_ComboItemRule2Requires(0u) == 0u && Combo_ComboItemRule2Requires(0x4000u) == 0u &&
+        XW2_CHECK(Combo_ComboItemRule2Requires(0u) == 0u && Combo_ComboItemRule2Requires(kXw2Later) == 0u &&
                       Combo_ComboItemRule2Requires(kXw2SoaringPair) == 0u,
                   "an unallocated bit or a mask of two bits requires nothing");
-        XW2_CHECK(strcmp(Combo_ComboItemRule2Name(0x4000u), "(unknown)") == 0 &&
+        XW2_CHECK(strcmp(Combo_ComboItemRule2Name(kXw2Later), "(unknown)") == 0 &&
                       strcmp(Combo_ComboItemRule2Name(kXw2SoaringPair), "(unknown)") == 0,
                   "an unallocated bit or a mask of two bits has no name");
         XW2_CHECK(Combo_ComboItemRules2Valid(0u) && Combo_ComboItemRules2Valid(kXw2Soaring) &&
@@ -292,7 +327,7 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                   "an allocated word with every shared song's extension is a world");
         XW2_CHECK(!Combo_ComboItemRules2Valid(kXw2SharedSoaring) && !Combo_ComboItemRules2Valid(0x0100u),
                   "a SHARED BIT REQUIRES ITS EXTENSION: a shared song alone is not a world");
-        XW2_CHECK(!Combo_ComboItemRules2Valid(0x4000u) && !Combo_ComboItemRules2Valid(0x80000000u),
+        XW2_CHECK(!Combo_ComboItemRules2Valid(kXw2Later) && !Combo_ComboItemRules2Valid(0x80000000u),
                   "AN UNALLOCATED BIT IS REFUSED: it is a later build's rule");
     }
 
@@ -314,7 +349,11 @@ TestResult ComboItemRulesSecondWord_Run(void) {
                       (unsigned)Combo_ComboItemRule2BitFor(k.id), (unsigned)k.bit);
             keyed |= k.bit;
         }
-        XW2_CHECK(Combo_ComboItemRule2KeyedBits() == keyed && keyed == RSBS_XITEM2_ALL_V1,
+        // This file's keys are the fourteen warp-song rules; every allocated bit
+        // (#1587's two included, which shared-sun-saria-rule checks one by one) has
+        // a key.
+        XW2_CHECK(keyed == 0x00003FFFu && (Combo_ComboItemRule2KeyedBits() & 0x00003FFFu) == keyed &&
+                      Combo_ComboItemRule2KeyedBits() == RSBS_XITEM2_ALL_V1,
                   "the keyed second-word bits are %08X, expected every allocated bit",
                   (unsigned)Combo_ComboItemRule2KeyedBits());
         XW2_CHECK(Combo_ComboItemRule2BitFor(COMBO_SETTING_SHARED_SONG_TIME) == 0u &&
@@ -397,9 +436,11 @@ TestResult ComboItemRulesSecondWord_Run(void) {
         XW2_CHECK(Combo_ComboItemRules2Refused(kXw2SharedSoaring, names, sizeof(names)) == kXw2SharedSoaring &&
                       strcmp(names, "sharedSongSoaring") == 0,
                   "a shared song without its extension is refused even revealed ('%s')", names);
-        XW2_CHECK(Combo_ComboItemRules2Refused(0x00004001u, names, sizeof(names)) == 0x00004000u &&
-                      strcmp(names, "bit 14") == 0,
-                  "an unallocated bit is refused, named by position ('%s')", names);
+        char laterName[16];
+        snprintf(laterName, sizeof(laterName), "bit %d", Xw2BitIndex(kXw2Later));
+        XW2_CHECK(Combo_ComboItemRules2Refused(kXw2Later | kXw2Soaring, names, sizeof(names)) == kXw2Later &&
+                      strcmp(names, laterName) == 0,
+                  "an unallocated bit is refused, named by position ('%s', want '%s')", names, laterName);
         Combo_ComboItemRules2RevealForTest(0);
 
         // From source: Generate asks before it freezes, and the seed package's
