@@ -228,4 +228,25 @@ extern "C" int OoT_FishingPrizeThreshold_RunHeadless(void) {
     return rc;
 }
 
+// ---- OoTSaveEditorSwordRange (SoH 490e13616, #1746) ----
+
+// games/oot/soh/Enhancements/debugger/debugSaveEditor.cpp.
+bool OoT_SaveEditor_IsSwordItem(u32 id);
+
+extern "C" int OoT_SaveEditorSwordRange_RunHeadless(void) {
+    // (a) the four swords the B-button selector offers are swords (the old range matched none of them).
+    USF_ASSERT(OoT_SaveEditor_IsSwordItem(ITEM_SWORD_KOKIRI), "(a): the Kokiri Sword is not a sword");
+    USF_ASSERT(OoT_SaveEditor_IsSwordItem(ITEM_SWORD_MASTER), "(a): the Master Sword is not a sword");
+    USF_ASSERT(OoT_SaveEditor_IsSwordItem(ITEM_SWORD_BGS), "(a): Biggoron's Sword is not a sword");
+    USF_ASSERT(OoT_SaveEditor_IsSwordItem(ITEM_SWORD_BROKEN), "(a): the broken Giant's Knife is not a sword");
+    // (b) neighbours that are not.
+    USF_ASSERT(!OoT_SaveEditor_IsSwordItem(ITEM_SHIELD_DEKU), "(b): the Deku Shield is a sword");
+    USF_ASSERT(!OoT_SaveEditor_IsSwordItem(ITEM_SWORD_KNIFE), "(b): the trade-quest knife is a sword");
+    USF_ASSERT(!OoT_SaveEditor_IsSwordItem(ITEM_PRESCRIPTION), "(b): the Prescription is a sword");
+    USF_ASSERT(!OoT_SaveEditor_IsSwordItem(ITEM_NONE), "(b): ITEM_NONE is a sword");
+
+    printf("[TEST] oot-save-editor-sword-range: PASS\n");
+    return 0;
+}
+
 #endif // RSBS_SINGLE_EXECUTABLE

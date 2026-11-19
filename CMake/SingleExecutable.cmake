@@ -2104,6 +2104,14 @@ if(BUILD_TESTING)
     # option off or a randomizer file -> vanilla. Display-free and ROM-free.
     redship_add_test(NAME OoTFishingPrizeThreshold COMMAND redship --test oot-fishing-prize-threshold)
 
+    # SoH 490e13616 (#1746, the Save Editor hunk only): the B-button selector's
+    # sword test was the empty range ITEM_SWORD_KOKIRI (0x3B)..ITEM_SWORD_BROKEN
+    # (0x33), so a picked sword never reached Link's held sword. The row drives
+    # OoT_SaveEditor_IsSwordItem (debugSaveEditor.cpp): the four swords -> true;
+    # the Deku Shield, the knife, the Prescription, ITEM_NONE -> false.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorSwordRange COMMAND redship --test oot-save-editor-sword-range)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in
