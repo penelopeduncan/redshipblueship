@@ -1951,6 +1951,21 @@ static TestResult Test_OoTHoverFishing(void) {
     return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
+// at start-up, without touching the D-pad's own list or settings record. Body in
+// games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
+// the row writes and restores controller CVars in memory. This bring-up runs the once-per-process #1741 hook, which
+// saves the config only if the staged config already holds strays; the row never calls ReloadAllMappingsFromConfig.
+extern "C" int OoT_OcarinaNoteMappingCleanup_RunHeadless(void);
+static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_OcarinaNoteMappingCleanup_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11633,6 +11648,13 @@ const TestDescriptor gTests[] = {
       "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
       "(SoH a089fa60b)",
       Test_OoTHoverFishing },
+
+    // #1741: display-free and ROM-free; restores every controller key it touches
+    // (cleared, never stored, when it was unset) and saves nothing to disk.
+    { "oot-ocarina-note-mapping-cleanup",
+      "Stray D-pad mapping ids saved on the four custom ocarina-note buttons are dropped at start-up, the notes' own "
+      "and unparseable ids are kept, and the D-pad's own list and settings record are untouched (#1741)",
+      Test_OoTOcarinaNoteMappingCleanup },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

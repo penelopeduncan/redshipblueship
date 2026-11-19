@@ -2147,6 +2147,14 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
 
+    # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
+    # custom ocarina-note buttons' saved id lists. The row builds that state in
+    # the CVar store and runs the start-up clean-up: the stray ids go, the
+    # notes' own and unparseable ids stay, every port is scanned, a second run
+    # and a second bring-up change nothing, and the D-pad's own list and
+    # settings record are untouched. Display-free and ROM-free.
+    redship_add_test(NAME OoTOcarinaNoteMappingCleanup COMMAND redship --test oot-ocarina-note-mapping-cleanup)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in
