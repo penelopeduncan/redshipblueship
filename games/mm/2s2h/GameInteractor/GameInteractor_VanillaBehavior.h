@@ -2373,6 +2373,17 @@ typedef enum {
     // 2Ship #1951 (Faster Hookshot). Appended with VB_HOOKSHOT_SET_SPEED, so no existing id moves. MM_ArmsHook_Wait
     // (z_arms_hook.c) passes `this->actor.parent == NULL` as the verdict.
     VB_HOOKSHOT_SHOOT,
+
+    // #### `result`
+    // ```c
+    // !MM_Play_InCsMode(play) && (play->roomCtx.curRoom.num == 2)
+    // ```
+    // #### `args`
+    // - `*EnTest3` (Kafei)
+    // - `*s32` (cutscene phase)
+    // 2Ship #1659 (Couple's Mask cutscene skip). Appended rather than sorted in after VB_PICTO_TAKE as upstream
+    // placed it, so no existing id moves.
+    VB_PLAY_COUPLES_MASK_CS,
 } GIVanillaBehavior;
 
 #endif

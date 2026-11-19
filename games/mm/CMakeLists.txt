@@ -779,6 +779,7 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/Enhancements/Items/HotWaterNeverCools.cpp"
         # #1755: Skip Misc Interactions cutscene skips
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipSakonsHideoutCutscenes.cpp"
+        "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipCouplesMaskCutscene.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 
