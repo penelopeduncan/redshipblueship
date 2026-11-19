@@ -3304,6 +3304,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_LINK_SPIN_WITH_GORON_POT,
 } GIVanillaBehavior;
 
 #endif
