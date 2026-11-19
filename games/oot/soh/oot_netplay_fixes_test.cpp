@@ -7,12 +7,20 @@
  *   (a) Anchor::HandlePacket_PlayerUpdate: a PLAYER_UPDATE payload missing keys
  *       (e.g. sceneNum, linkAge, jointTable) is handled without throwing and
  *       applies defaults, while a complete payload populates client fields.
- *   (b) DummyPlayer_Update: an out-of-range client.unk_862 past GID_MAXIMUM
- *       clamps to GID_STONE_OF_AGONY instead of indexing past the draw table;
- *       valid draw ids (at GID_MAXIMUM and GID_OCARINA_TIME) are preserved.
+ *   (b) DummyPlayer_Update: a client.unk_862 (draw id + 1) past this tree's
+ *       draw table row count (GID_MAXIMUM, GID_MAXIMUM + 1) clamps to
+ *       GID_STONE_OF_AGONY instead of indexing past OoT_sDrawItemTable; the
+ *       last in-table value (GID_FISHING_POLE) and GID_OCARINA_TIME are kept.
  *   (c) GameInteractor::IsGameplayPaused (and IsPlayerInControl): a null
  *       OoT_gPlayState (and a PlayState with null GET_PLAYER) returns safely
  *       without dereferencing NULL.
+ *   (d) VB_BE_ELIGIBLE_FOR_GREAT_FAIRY_REWARD in a randomizer file (magic and
+ *       spell fountains): the TimeSavers handler sets the fountain's
+ *       RandomizerInf flag and answers false, so the vanilla reward is not
+ *       granted on top of the randomized check.
+ *   (e) Anchor::OnIncomingJson: PLAYER_UPDATEs from one sender coalesce into
+ *       one pending update (not the unbounded queue), and
+ *       ProcessIncomingPacketQueue applies the newest one.
  */
 
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -27,12 +35,19 @@ extern "C" {
 #include "macros.h"
 #include "variables.h"
 #include "functions.h"
+#include "src/overlays/actors/ovl_Bg_Dy_Yoseizo/z_bg_dy_yoseizo.h"
 extern PlayState* OoT_gPlayState;
+// z_draw.c: OoT_sDrawItemTable's row count.
+s32 OoT_GetItem_DrawTableCount(void);
 }
 
+#include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <memory>
+#include <mutex>
 #include <vector>
 
 struct AnchorNetplayFixesTestAccess {
@@ -51,7 +66,20 @@ struct AnchorNetplayFixesTestAccess {
     static void ResetShouldRefreshActors(Anchor& anchor) {
         anchor.shouldRefreshActors = false;
     }
+
+    static size_t PendingPlayerUpdateCount(Anchor& anchor) {
+        std::lock_guard<std::mutex> lock(anchor.incomingPacketQueueMutex);
+        return anchor.pendingPlayerUpdates.size();
+    }
+
+    static size_t QueuedPacketCount(Anchor& anchor) {
+        std::lock_guard<std::mutex> lock(anchor.incomingPacketQueueMutex);
+        return anchor.incomingPacketQueue.size();
+    }
 };
+
+// timesaver_hook_handlers.cpp: registered on every file load by the TimeSavers init.
+void TimeSaverOnVanillaBehaviorHandler(GIVanillaBehavior id, bool* should, va_list originalArgs);
 
 namespace {
 
@@ -71,13 +99,77 @@ struct NetplayTestGuard {
 
 } // namespace
 
-#define NETPLAY_ASSERT(cond, msg)                                  \
-    do {                                                           \
-        if (!(cond)) {                                             \
-            printf("[TEST] FAIL (oot-netplay-fixes): %s\n", msg);  \
-            return 1;                                              \
-        }                                                          \
+#define NETPLAY_ASSERT(cond, msg)                                 \
+    do {                                                          \
+        if (!(cond)) {                                            \
+            printf("[TEST] FAIL (oot-netplay-fixes): %s\n", msg); \
+            return 1;                                             \
+        }                                                         \
     } while (0)
+
+namespace {
+
+// Calls the TimeSavers vanilla-behaviour handler the way GameInteractor_Should's dispatch does.
+bool NetplayTimeSaverShould(GIVanillaBehavior id, bool* should, ...) {
+    va_list args;
+    va_start(args, should);
+    TimeSaverOnVanillaBehaviorHandler(id, should, args);
+    va_end(args);
+    return *should;
+}
+
+// One fountain in a randomizer file: the handler must set the fountain's RandomizerInf flag (which queues the
+// randomized check) and answer false, so BgDyYoseizo_CheckMagicAcquired kills the fairy before
+// BgDyYoseizo_ChooseType can grant the vanilla magic, double magic, double defence or spell.
+int NetplayCheckRandoFountain(PlayState* play, s16 sceneNum, RandomizerInf flag, const char* label) {
+    play->sceneNum = sceneNum;
+    std::unique_ptr<BgDyYoseizo> fairy = std::make_unique<BgDyYoseizo>();
+    fairy->fountainType = 0;
+    bool should = true;
+    NetplayTimeSaverShould(VB_BE_ELIGIBLE_FOR_GREAT_FAIRY_REWARD, &should, fairy.get());
+    if (!Flags_GetRandomizerInf(flag)) {
+        printf("[TEST] FAIL (oot-netplay-fixes): %s: rando Great Fairy did not set its RandomizerInf flag\n", label);
+        return 1;
+    }
+    if (should) {
+        printf("[TEST] FAIL (oot-netplay-fixes): %s: rando Great Fairy VB stayed true, so the vanilla reward is "
+               "granted on top of the randomized check\n",
+               label);
+        return 1;
+    }
+    return 0;
+}
+
+int NetplayRunGreatFairyLeg(PlayState* play) {
+    // Flags_SetRandomizerInf dispatches OnFlagSet through the instance (no hook is registered here).
+    if (GameInteractor::Instance == nullptr) {
+        GameInteractor::Instance = new GameInteractor();
+    }
+    SaveContext* savedSave = static_cast<SaveContext*>(malloc(sizeof(SaveContext)));
+    if (savedSave == nullptr) {
+        printf("[TEST] FAIL (oot-netplay-fixes): could not allocate SaveContext snapshot\n");
+        return 1;
+    }
+    memcpy(savedSave, &gSaveContext, sizeof(SaveContext));
+    memset(&gSaveContext, 0, sizeof(SaveContext));
+    gSaveContext.ship.quest.id = QUEST_RANDOMIZER;
+    PlayState* prevPlayState = OoT_gPlayState;
+    OoT_gPlayState = play;
+
+    int failed = NetplayCheckRandoFountain(play, SCENE_GREAT_FAIRYS_FOUNTAIN_MAGIC, RAND_INF_DMT_GREAT_FAIRY_REWARD,
+                                           "magic fountain (DMT)");
+    if (failed == 0) {
+        failed = NetplayCheckRandoFountain(play, SCENE_GREAT_FAIRYS_FOUNTAIN_SPELLS, RAND_INF_ZF_GREAT_FAIRY_REWARD,
+                                           "spell fountain (ZF)");
+    }
+
+    OoT_gPlayState = prevPlayState;
+    memcpy(&gSaveContext, savedSave, sizeof(SaveContext));
+    free(savedSave);
+    return failed;
+}
+
+} // namespace
 
 extern "C" int OoT_NetplayFixes_RunHeadless(void) {
     constexpr uint32_t kClientId = 42u;
@@ -194,6 +286,11 @@ extern "C" int OoT_NetplayFixes_RunHeadless(void) {
     client.modelGroup = 0;
     player->modelGroup = 0;
 
+    // unk_862 is draw id + 1. This tree's draw table has no GID_FISHING_POLE row, so its row count is
+    // GID_MAXIMUM - 1 and unk_862 == GID_MAXIMUM (a peer holding the randomizer Fishing Pole) is out of range.
+    NETPLAY_ASSERT(OoT_GetItem_DrawTableCount() == (s32)GID_FISHING_POLE,
+                   "premise: OoT_sDrawItemTable row count is no longer GID_FISHING_POLE; re-derive the clamp legs");
+
     client.unk_862 = (s16)(GID_MAXIMUM + 1);
     DummyPlayer_Update(&player->actor, play.get());
     NETPLAY_ASSERT(player->unk_862 == (s16)GID_STONE_OF_AGONY,
@@ -201,13 +298,17 @@ extern "C" int OoT_NetplayFixes_RunHeadless(void) {
 
     client.unk_862 = (s16)GID_MAXIMUM;
     DummyPlayer_Update(&player->actor, play.get());
-    NETPLAY_ASSERT(player->unk_862 == (s16)GID_MAXIMUM,
-                   "DummyPlayer_Update incorrectly clamped GID_MAXIMUM boundary");
+    NETPLAY_ASSERT(player->unk_862 == (s16)GID_STONE_OF_AGONY,
+                   "DummyPlayer_Update kept unk_862 == GID_MAXIMUM, one row past OoT_sDrawItemTable");
+
+    client.unk_862 = (s16)GID_FISHING_POLE;
+    DummyPlayer_Update(&player->actor, play.get());
+    NETPLAY_ASSERT(player->unk_862 == (s16)GID_FISHING_POLE,
+                   "DummyPlayer_Update clamped the last in-table unk_862 (GID_FISHING_POLE, draws row 0x7D)");
 
     client.unk_862 = (s16)GID_OCARINA_TIME;
     DummyPlayer_Update(&player->actor, play.get());
-    NETPLAY_ASSERT(player->unk_862 == (s16)GID_OCARINA_TIME,
-                   "DummyPlayer_Update altered valid unk_862 draw id");
+    NETPLAY_ASSERT(player->unk_862 == (s16)GID_OCARINA_TIME, "DummyPlayer_Update altered valid unk_862 draw id");
 
     // ---- (c) GameInteractor::IsGameplayPaused / IsPlayerInControl null PlayState ----
     OoT_gPlayState = NULL;
@@ -222,7 +323,36 @@ extern "C" int OoT_NetplayFixes_RunHeadless(void) {
     NETPLAY_ASSERT(!GameInteractor::IsPlayerInControl(),
                    "GameInteractor::IsPlayerInControl returned true when GET_PLAYER(OoT_gPlayState) is NULL");
 
-    printf("[TEST] PASS: oot-netplay-fixes - PlayerUpdate partial/full payload, DummyPlayer unk_862 clamp, and null PlayState paused check\n");
+    // ---- (d) Great Fairy VB in a randomizer file (942134669 port) ----
+    if (NetplayRunGreatFairyLeg(play.get()) != 0) {
+        return 1;
+    }
+
+    // ---- (e) PLAYER_UPDATE coalescing on the receive side ----
+    client.sceneNum = 0x12;
+    AnchorNetplayFixesTestAccess::ResetShouldRefreshActors(*anchor);
+    anchor->OnIncomingJson(nlohmann::json{ { "type", Anchor::PLAYER_UPDATE },
+                                           { "clientId", kClientId },
+                                           { "sceneNum", 0x10 },
+                                           { "linkAge", LINK_AGE_CHILD },
+                                           { "quiet", true } });
+    anchor->OnIncomingJson(nlohmann::json{ { "type", Anchor::PLAYER_UPDATE },
+                                           { "clientId", kClientId },
+                                           { "sceneNum", 0x11 },
+                                           { "linkAge", LINK_AGE_CHILD },
+                                           { "quiet", true } });
+    NETPLAY_ASSERT(AnchorNetplayFixesTestAccess::PendingPlayerUpdateCount(*anchor) == 1,
+                   "two PLAYER_UPDATEs from one sender were not coalesced into one pending update");
+    NETPLAY_ASSERT(AnchorNetplayFixesTestAccess::QueuedPacketCount(*anchor) == 0,
+                   "a PLAYER_UPDATE was pushed onto the unbounded incoming packet queue");
+    NETPLAY_ASSERT(client.sceneNum == 0x12, "PLAYER_UPDATE was applied on the receive side instead of being queued");
+    anchor->ProcessIncomingPacketQueue();
+    NETPLAY_ASSERT(client.sceneNum == 0x11, "ProcessIncomingPacketQueue did not apply the newest PLAYER_UPDATE");
+    NETPLAY_ASSERT(AnchorNetplayFixesTestAccess::PendingPlayerUpdateCount(*anchor) == 0,
+                   "ProcessIncomingPacketQueue left a pending PLAYER_UPDATE behind");
+
+    printf("[TEST] PASS: oot-netplay-fixes - PlayerUpdate partial/full payload, DummyPlayer unk_862 clamp, null "
+           "PlayState paused check, rando Great Fairy VB, and PLAYER_UPDATE coalescing\n");
     return 0;
 }
 
