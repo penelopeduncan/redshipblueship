@@ -2073,6 +2073,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
 
+    # SoH c93b6188c (#1748): a swim void without Swim moves the respawn to the
+    # entrance's position and now also to the entrance's room. The row drives
+    # Randomizer_SwimVoidRespawnRoom (hook_handlers.cpp) with a fake entrance
+    # list: own scene -> the entrance's room; another scene, no list or an
+    # out-of-range index -> the current room. Display-free and ROM-free.
+    redship_add_test(NAME OoTSwimVoidRespawnRoom COMMAND redship --test oot-swim-void-respawn-room)
+
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     # camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages in

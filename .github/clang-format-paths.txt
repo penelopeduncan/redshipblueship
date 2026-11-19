@@ -180,6 +180,7 @@ games/oot/soh/oot_shuffled_fairy_test.cpp
 games/oot/soh/oot_butterfly_fairy_test.cpp
 games/oot/soh/oot_mask_shop_night_door_test.cpp
 games/oot/soh/oot_dark_link_fixes_test.cpp
+games/oot/soh/oot_upstream_small_fixes_test.cpp
 games/oot/soh/oot_room_bg_cam_guard_test.cpp
 games/oot/soh/oot_xml_skeleton_empty_limb_test.cpp
 games/oot/soh/oot_custom_message_text_test.cpp

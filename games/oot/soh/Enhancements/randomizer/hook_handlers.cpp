@@ -3273,6 +3273,17 @@ std::map<s32, SpecialRespawnInfo> swimSpecialRespawnInfo = {
       { { -1580.0f, 150.0f, 1670.0f }, 8000 } },
 };
 
+// Ship of Harkinian c93b6188c: the swim-void respawn moves to the entrance's position, so it must also take the
+// entrance's room, not the room Link swam into. The null and range guards are ours: a ROM-free row drives this helper.
+u8 Randomizer_SwimVoidRespawnRoom(s16 sceneNum, s32 entranceIndex, const EntranceEntry* setupEntranceList,
+                                  u8 currentRoom) {
+    if (setupEntranceList != nullptr && entranceIndex >= 0 && entranceIndex < ENTR_MAX &&
+        sceneNum == gEntranceTable[entranceIndex].scene) {
+        return setupEntranceList[gEntranceTable[entranceIndex].spawn].room;
+    }
+    return currentRoom;
+}
+
 f32 triforcePieceScale;
 
 void RandomizerOnPlayerUpdateHandler() {
@@ -3288,6 +3299,9 @@ void RandomizerOnPlayerUpdateHandler() {
                 SpecialRespawnInfo* respawnInfo = &swimSpecialRespawnInfo.at(gSaveContext.entranceIndex);
 
                 OoT_Play_SetupRespawnPoint(OoT_gPlayState, RESPAWN_MODE_DOWN, 0xDFF);
+                gSaveContext.respawn[RESPAWN_MODE_DOWN].roomIndex = Randomizer_SwimVoidRespawnRoom(
+                    OoT_gPlayState->sceneNum, gSaveContext.entranceIndex, OoT_gPlayState->setupEntranceList,
+                    gSaveContext.respawn[RESPAWN_MODE_DOWN].roomIndex);
                 gSaveContext.respawn[RESPAWN_MODE_DOWN].pos = respawnInfo->pos;
                 gSaveContext.respawn[RESPAWN_MODE_DOWN].yaw = respawnInfo->yaw;
             }

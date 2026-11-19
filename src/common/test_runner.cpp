@@ -1858,6 +1858,13 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH c93b6188c (#1748): the swim-void respawn takes the entrance's room. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void);
+static TestResult Test_OoTSwimVoidRespawnRoom(void) {
+    return OoT_SwimVoidRespawnRoom_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11495,6 +11502,11 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // SoH c93b6188c: display-free, ROM-free, no global state.
+    { "oot-swim-void-respawn-room",
+      "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
+      "keeps the current room otherwise (SoH c93b6188c)",
+      Test_OoTSwimVoidRespawnRoom },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
