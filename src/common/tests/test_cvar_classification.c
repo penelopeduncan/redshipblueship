@@ -2047,6 +2047,39 @@ TestResult Test_CVarClassification(void) {
                    "input\n");
         }
 
+        // (3e-4) #1737: SoH's Follow Default Camera Distance (SoH 100bae3b9) is ADOPTED by Majora's Mask. OoT's
+        // Camera_Free reads the key through CVAR_SETTING; MM's free-look camera (games/mm/2s2h/Enhancements/Camera/
+        // FreeLook.cpp, the distTarget line) reads the exact spelling and follows roData->unk_04 while it is set. The
+        // checkbox hides the shared Camera Distance slider, so a tree where MM's reader moves off the key would hide
+        // the slider in Majora's Mask and change nothing. Red on a tree where MM's reader drops the key, OoT stops
+        // naming it, or the manifest drops it.
+        {
+            constexpr const char* kUseGameDistanceKey = "gSettings.FreeLook.UseGameDistance";
+            bool shared = false;
+            for (std::size_t i = 0; i < RSBS::kSharedIntentKeyCount; i++) {
+                shared = shared || strcmp(RSBS::kSharedIntentKeys[i], kUseGameDistanceKey) == 0;
+            }
+            CVARCLASS_CHECK(shared, "(3e-4) #1737: gSettings.FreeLook.UseGameDistance is not in "
+                                    "RSBS::kSharedIntentKeys, but Majora's Mask's free-look camera reads it");
+            const std::filesystem::path freeLookPath =
+                sourceRoot / "games" / "mm" / "2s2h" / "Enhancements" / "Camera" / "FreeLook.cpp";
+            std::ifstream freeLookFile(freeLookPath, std::ios::binary);
+            const std::string freeLookText((std::istreambuf_iterator<char>(freeLookFile)),
+                                           std::istreambuf_iterator<char>());
+            CVARCLASS_CHECK(!freeLookText.empty(),
+                            "(3e-4) #1737: could not read games/mm/2s2h/Enhancements/Camera/FreeLook.cpp");
+            const std::vector<std::string> freeLookTree = { CvarClassStripComments(freeLookText) };
+            CVARCLASS_CHECK(CvarClassTreeContainsExactKey(freeLookTree, kUseGameDistanceKey),
+                            "(3e-4) #1737: MM's FreeLook.cpp does not read SoH's "
+                            "\"gSettings.FreeLook.UseGameDistance\", so the Follow Default Camera Distance checkbox "
+                            "hides the Camera Distance slider in Majora's Mask without changing its camera");
+            CVARCLASS_CHECK(CvarClassOotTreeNamesKey(ootTree, kUseGameDistanceKey),
+                            "(3e-4) #1737: nothing under games/oot names \"gSettings.FreeLook.UseGameDistance\" any "
+                            "more (SoH's Camera_Free and input editor reach it through CVAR_SETTING)");
+            printf("[TEST] (3e-4) Follow Default Camera Distance is one shared-intent key, read by both games' "
+                   "free-look cameras\n");
+        }
+
         // (3f) The canonical keys are actually read by OoT. Catches a typo in
         // the manifest that would otherwise make every check above pass while
         // pointing at a key nothing uses. Skips Volume.Ambience, which is an

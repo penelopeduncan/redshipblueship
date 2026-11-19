@@ -1854,8 +1854,15 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                         .DefaultValue(1.0f)
                         .ShowButtons(true));
     DrawMmCameraRows(MmCameraRows::ThirdPerson); // RSBS (W6-CAM-AIM): MM's camera rows
-    CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
-                  IntSliderOptions().Color(THEME_COLOR).Min(100).Max(900).DefaultValue(185).ShowButtons(true));
+    CVarCheckbox("Follow Default Camera Distance", CVAR_SETTING("FreeLook.UseGameDistance"),
+                 CheckboxOptions()
+                     .Color(THEME_COLOR)
+                     .Tooltip("Lets the free camera pull in and out using the game's default distance for the "
+                              "current situation instead of a fixed distance."));
+    if (!CVarGetInteger(CVAR_SETTING("FreeLook.UseGameDistance"), 0)) {
+        CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
+                      IntSliderOptions().Color(THEME_COLOR).Min(100).Max(900).DefaultValue(185).ShowButtons(true));
+    }
     CVarSliderInt("Camera Transition Speed: %d", CVAR_SETTING("FreeLook.TransitionSpeed"),
                   IntSliderOptions().Color(THEME_COLOR).Min(0).Max(900).DefaultValue(25).ShowButtons(true));
     DrawMmCameraRows(MmCameraRows::FreeLookPitch); // RSBS (W6-CAM-GYRO): MM's free-look pitch limits
