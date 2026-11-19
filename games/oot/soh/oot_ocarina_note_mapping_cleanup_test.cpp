@@ -98,10 +98,10 @@ int OnmcPureLeg() {
     int fails = 0;
     size_t dropped = 99;
     const std::string kept =
-        SohInput_StripForeignBitmaskMappingIds(",P0-B1310720-KB1,,P0-B131072,P0-B131072-SDLA1-ADP,", 131072, &dropped);
-    fails += OnmcCheck(kept == "P0-B131072,P0-B131072-SDLA1-ADP,",
-                       "(p) the pure helper drops a prefix-sharing foreign bitmask, keeps an unterminated B field "
-                       "and the note's own id, and leaves out empty tokens");
+        SohInput_StripForeignBitmaskMappingIds(",P0-B1310720-KB1,,P0-B1024,P0-B131072-SDLA1-ADP,", 131072, &dropped);
+    fails += OnmcCheck(kept == "P0-B1024,P0-B131072-SDLA1-ADP,",
+                       "(p) the pure helper drops a prefix-sharing foreign bitmask, keeps a foreign id whose B field "
+                       "has no \"-\" after it (not an id shape), keeps the note's own id, and leaves out empty tokens");
     fails += OnmcCheck(dropped == 1, "(p) the pure helper counts one dropped id");
     return fails;
 }
