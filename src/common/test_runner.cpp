@@ -2752,7 +2752,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
 // every default world folds into its identity, so each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
+// Re-pinned again by the text fixes of #1746 (PR #1764; generator 6, was
+// 0x8F5E9C45): Ship of Harkinian f35f134c9's grammar fixes change the English
+// text of six static hints (Big Poes, the chickens, Malon, horseback archery,
+// the loach, Biggoron). No placement moves through them; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x63EB5596u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
