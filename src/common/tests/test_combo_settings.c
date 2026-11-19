@@ -218,9 +218,10 @@ TestResult Test_ComboSettingsFormat(void) {
               "RSBS_ITEMCLASS_* bit positions moved — a bit may be appended, never re-pointed");
     CS_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD == 0x02u &&
                   RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u && RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG == 0x08u &&
-                  RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG == 0x10u && RSBS_COMBO_FLAGS_ALL_V1 == 0x1Fu,
+                  RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG == 0x10u && RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET == 0x20u &&
+                  RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG == 0x40u && RSBS_COMBO_FLAGS_ALL_V1 == 0x7Fu,
               "RSBS_COMBO_FLAG_* bit positions moved — comboFlags is .redsave format, append-only (#668, #886, "
-              "#1369)");
+              "#1369, #1652, #1702)");
     CS_ASSERT(RSBS_COMBO_SETTINGS_FORMAT_VERSION == 1u,
               "the record format version moved. Spending a spare does NOT earn a bump — #668 spent byte 10 with "
               "a bitset whose CLEAR state is the pre-#668 behaviour, so 'absent' and 'zero' are the same world. "

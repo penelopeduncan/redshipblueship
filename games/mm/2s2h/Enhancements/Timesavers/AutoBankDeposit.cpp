@@ -4,19 +4,30 @@
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/CustomItem/CustomItem.h"
+#include "2s2h/ShipUtils.h"
+#include "2s2h/Enhancements/Timesavers/AutoBankDepositMilestones.h"
+
+#include <string>
+#include <vector>
 
 #define CVAR_NAME "gEnhancements.Timesavers.AutoBankDeposit"
 #define CVAR CVarGetInteger(CVAR_NAME, 0)
 
 #define BANK_MAX_CAPACITY 5000
 
-static void EmitDepositNotification(s16 depositAmount, s16 newBalance) {
+// 2Ship 24df3b56c. File-local here (upstream's vector has external linkage), and the pick uses Ship_Random rather than
+// rand() (#286): Ship_Random's upper bound is exclusive.
+static const std::vector<std::string> sAutoBankDepositMessages = {
+    "STONKS!", "You should invest!", "Cha-ching!", "Money in the bank!", "Rupees secured!",
+};
+
+static void EmitDepositNotification(s16 newBalance) {
     Notification::Options notif = {};
-    notif.prefix = "Deposit Amount:";
+    notif.prefix = sAutoBankDepositMessages[Ship_Random(0, (s32)sAutoBankDepositMessages.size())];
     notif.prefixColor = ImVec4(0.4f, 0.7f, 1.0f, 1.0f);
-    notif.message = std::to_string(depositAmount);
+    notif.message = "Bank Balance:";
     notif.messageColor = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
-    notif.suffix = "New Balance: " + std::to_string(newBalance);
+    notif.suffix = std::to_string(newBalance);
     notif.suffixColor = ImVec4(0.3f, 1.0f, 0.3f, 1.0f);
     notif.remainingTime = 6.0f;
     Notification::MM_Notify_Emit(notif);
@@ -128,7 +139,9 @@ static void HandleWalletOverflow() {
         HS_SET_BANK_RUPEES(balanceAfterDeposit);
         gSaveContext.rupeeAccumulator -= depositAmount;
 
-        EmitDepositNotification(depositAmount, balanceAfterDeposit);
+        if (AutoBankDeposit_ReachesNotificationMilestone(balanceBeforeDeposit, balanceAfterDeposit)) {
+            EmitDepositNotification(balanceAfterDeposit);
+        }
         GrantBankerReward(balanceBeforeDeposit, balanceAfterDeposit);
     }
 }

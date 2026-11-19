@@ -90,6 +90,7 @@
 #include "soh/Network/Sail/Sail.h"
 #include "soh/Network/Anchor/Anchor.h"
 #include "Enhancements/mods.h"
+#include "Enhancements/controls/OcarinaNoteMappingCleanup.h" // #1741
 #include "Enhancements/game-interactor/GameInteractor.h"
 #include "Enhancements/randomizer/draw.h"
 #include <libultraship/libultraship.h>
@@ -347,9 +348,15 @@ extern std::shared_ptr<SohGui::SohMenu> mSohMenu;
  * Split out (issue #329) so the headless boot regression tests
  * (--test boot-oot / boot-mm, src/common/test_runner.cpp) can drive the same
  * code the constructor runs and assert none of these subsystems is left null
- * on the harness-created context. Every Ship::Context::Init* early-returns
- * when its subsystem already exists, so calling this on an initialized
- * context is a no-op.
+ * on the harness-created context.
+ *
+ * The first call in a process also drops stray foreign-bitmask mapping ids from
+ * the four custom ocarina-note buttons' saved id lists (#1741,
+ * SohInput_DropForeignOcarinaNoteMappingIds) and saves the config when it
+ * changed. That clean-up must run before the first ControlDeck::Init
+ * (osContInit), which loads the lists. Later calls skip it. Every
+ * Ship::Context::Init* early-returns when its subsystem already exists, so a
+ * later call on an initialized context is a no-op.
  *
  * Returns 0 when every display-free subsystem is non-null afterwards.
  */
@@ -379,6 +386,16 @@ extern "C" int OoT_InitSharedContextSubsystems(void) {
         BTN_CUSTOM_OCARINA_PITCH_DOWN,
     }));
     ctx->InitControlDeck(controlDeck);
+    // #1741: drop the pre-#1740 Cosmetics Editor D-pad copies from the ocarina-note id lists. Must run before the
+    // first ControlDeck::Init (osContInit), which loads those lists into memory. Once per process, so a second
+    // bring-up on a live context stays a no-op.
+    static bool sOcarinaNoteIdsCleaned = false;
+    if (!sOcarinaNoteIdsCleaned) {
+        sOcarinaNoteIdsCleaned = true;
+        if (SohInput_DropForeignOcarinaNoteMappingIds()) {
+            ctx->GetConsoleVariables()->Save();
+        }
+    }
     ctx->InitResourceManager({ portArchivePath }, {}, 3, true);
     ctx->InitConsole();
 

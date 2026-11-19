@@ -66,6 +66,25 @@ extern "C" void OoT_SharedWalletTest_ArmLiveVanilla(int tier, int rupees) {
     gSaveContext.rupees = (s16)rupees;
 }
 
+// #1702 C0: the save a row found, kept while it arms its own (the priorSave pattern
+// of oot_shared_bombchu_test.cpp; static storage, so nothing is freed at exit).
+static SaveContext sOoTSharedWalletTestPriorSave;
+static bool sOoTSharedWalletTestHasPriorSave = false;
+
+/** Keep a copy of OoT's live save, for OoT_SharedWalletTest_RestoreLive. */
+extern "C" void OoT_SharedWalletTest_SnapshotLive(void) {
+    std::memcpy(&sOoTSharedWalletTestPriorSave, &gSaveContext, sizeof(SaveContext));
+    sOoTSharedWalletTestHasPriorSave = true;
+}
+
+/** Put back the save OoT_SharedWalletTest_SnapshotLive kept (nothing if none). */
+extern "C" void OoT_SharedWalletTest_RestoreLive(void) {
+    if (sOoTSharedWalletTestHasPriorSave) {
+        std::memcpy(&gSaveContext, &sOoTSharedWalletTestPriorSave, sizeof(SaveContext));
+        sOoTSharedWalletTestHasPriorSave = false;
+    }
+}
+
 /** OoT's own child-wallet give (Item_Give for the first progressive wallet when
  *  the flag is clear): sets the possession flag, leaves the tier at 0. */
 extern "C" void OoT_SharedWalletTest_GiveChildWallet(void) {

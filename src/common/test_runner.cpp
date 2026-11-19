@@ -370,6 +370,12 @@ int MM_SongTeacherHooks_RunHeadless(void);
 // default and its order-independence from Goron Rolling Ignores Magic. Needs the
 // display-free shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_RuntimeParity_RunHeadless(void);
+// The 2Ship fixes ported from #1754 and #1755 (games/mm/2s2h/mm_upstream_fixes_1754_test.cpp):
+// Pause Owl Warp's Soaring, Ocarina and button gate, the Saria's Song restricted-song text,
+// the soulless-alien cue, telescope inversion, En_Rail_Skb's reset, Ammo Buyback's arrows,
+// Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
+// shared bring-up first. Returns 0 on pass, non-zero on fail.
+int MM_UpstreamFixes1754_RunHeadless(void);
 // The MM rando minigame reward hooks (games/mm/2s2h/mm_minigame_offer_hooks_test.cpp):
 // a rupee that stands in for an open check is not given on top of it (#1216).
 // Drives the Rando/ActorBehavior hooks through OnFileLoad against a calloc'd
@@ -1856,6 +1862,21 @@ static TestResult Test_OoTDarkLinkFixes(void) {
         return TEST_FAIL;
     }
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
+// at start-up, without touching the D-pad's own list or settings record. Body in
+// games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
+// the row writes and restores controller CVars in memory. This bring-up runs the once-per-process #1741 hook, which
+// saves the config only if the staged config already holds strays; the row never calls ReloadAllMappingsFromConfig.
+extern "C" int OoT_OcarinaNoteMappingCleanup_RunHeadless(void);
+static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_OcarinaNoteMappingCleanup_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
@@ -7778,6 +7799,25 @@ static TestResult Test_MMRuntimeParity(void) {
     return MM_RuntimeParity_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1754, #1755. Same display-free shared bring-up as mm-runtime-parity: the legs read CVars
+// and drive ShipInit registrars through the Ship::Context singleton. It restores the
+// SaveContext image, MM_gPlayState and every key it touches, and re-runs SariasSongHint()
+// under the restored save, so its only constraint is to stay after mm-registrar-coverage
+// (it registers hooks while it runs).
+static TestResult Test_MMUpstreamFixes1754(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1216. Same display-free shared bring-up as mm-song-teacher-hooks. Restores
 // the SaveContext image and MM_gPlayState and re-runs OnFileLoad on the way
 // out, so it has no ordering constraints.
@@ -10822,11 +10862,12 @@ const TestDescriptor gTests[] = {
       "The Shared Swim rule ships on and freezes only while a game shuffles swim, the coupled-buttons marker only with "
       "the buttons rule and a button shuffle, and a load reads the gated bit as the file decided it (#1369)",
       Test_SharedSwimRule },
-    // #1652 A0: the pair's one stick bag / nut bag shuffle, frozen world identity.
+    // #1652 A0 / #1702 C0: the pair's one stick bag / nut bag shuffle, and its one
+    // Child's Wallet / Bombchu Bag shuffle, frozen world identity.
     { "combo-bag-shuffle-frozen",
-      "The pair's one Deku Stick Bag / Deku Nut Bag shuffle freezes at the paired creation from OoT's options, reads "
-      "false unfrozen, ignores a later change of the option, and survives the rollback, a seed package and a "
-      ".redsave (#1652)",
+      "The pair's one Deku Stick Bag / Deku Nut Bag shuffle, and its one Child's Wallet / Bombchu Bag shuffle, freeze "
+      "at the paired creation from OoT's options, read false unfrozen, ignore a later change of the option, and "
+      "survive the rollback, a seed package and a .redsave (#1652, #1702)",
       Test_ComboBagShuffleFrozen },
     // #1652 A1 / A3: the bag gates both games. ROM-free: gComboCtx, the RAM
     // watermark table, MM's real give, conversion and gate helpers, MM's real
@@ -11263,6 +11304,11 @@ const TestDescriptor gTests[] = {
       "through a landing, charges at a lower speed and keeps spikes out at any speed, on by default under rando "
       "(#1426)",
       Test_MMRuntimeParity },
+    // #1754, #1755: eight 2Ship fixes. After mm-registrar-coverage (it registers hooks while it
+    // runs); restores everything it touches.
+    { "mm-upstream-fixes-1754",
+      "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
+      Test_MMUpstreamFixes1754 },
     // The MM rando minigame reward hooks (#1216). Restores everything it touches.
     { "mm-gallery-rupee-stand-in",
       "A minigame rupee standing in for an open MM check is not given on top of it (#1216)",
@@ -11495,6 +11541,12 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // #1741: display-free and ROM-free; restores every controller key it touches
+    // (cleared, never stored, when it was unset) and saves nothing to disk.
+    { "oot-ocarina-note-mapping-cleanup",
+      "Stray D-pad mapping ids saved on the four custom ocarina-note buttons are dropped at start-up, the notes' own "
+      "and unparseable ids are kept, and the D-pad's own list and settings record are untouched (#1741)",
+      Test_OoTOcarinaNoteMappingCleanup },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

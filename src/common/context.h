@@ -858,8 +858,10 @@ RSBS_CTX_STATIC_ASSERT(offsetof(ComboTriforceRecord, totalOoT) == 0 &&
  * WHY A SIBLING RECORD AND NOT A WIDER ComboSettingsRecord. The combo record is
  * twelve bytes at 884 and the triforce record is pinned right behind it at 896,
  * so the combo record cannot grow in place; a formatVersion bump that moved it
- * would reinterpret every shipped .redsave. comboFlags (byte 10) has six free
- * bits and spare1 is one byte, which cannot hold the 17 mask rules plus #968's
+ * would reinterpret every shipped .redsave. comboFlags (byte 10) had six free
+ * bits when this record was carved (one, 0x80, since #1702: foreign_items.h's
+ * comboFlags table is the authority, pinned by its static assert) and spare1 is
+ * one byte, which cannot hold the 17 mask rules plus #968's
  * arrows and #970's bottles. So the rules are a second record, carved from the
  * FRONT of reserved[] at 900, written by the same creation event, KEPT through
  * file-create invalidation beside comboSettings, and folded into

@@ -719,6 +719,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR "gFixes.FixIkanaGreatFairyFountainColor"
 #define RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS "gEnhancements.Fixes.ControlCharacters"
 #define RSBS_CVAR_MM_FIXES_COMPLETED_HEART_CONTAINER_AUDIO "gEnhancements.Fixes.CompletedHeartContainerAudio"
+// 2Ship f7ccda83a: Fix Deku Butler Shock Animation, a Graphical Fixes row after Fix Text Control Characters.
+#define RSBS_CVAR_MM_FIXES_DEKU_BUTLER_SHOCK_LOOP_ANIMATION "gEnhancements.Fixes.DekuButlerFixShockLoopAnimation"
 #define RSBS_CVAR_MM_RESTORATIONS_POWER_CROUCH_STAB "gEnhancements.Restorations.PowerCrouchStab"
 #define RSBS_CVAR_MM_RESTORATIONS_TATL_ISG "gEnhancements.Restorations.TatlISG"
 #define RSBS_CVAR_MM_RESTORATIONS_CONSTANT_FLIPS_HOPS "gEnhancements.Restorations.ConstantFlipsHops"
@@ -1216,6 +1218,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR)           \
     X(RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS)                         \
     X(RSBS_CVAR_MM_FIXES_COMPLETED_HEART_CONTAINER_AUDIO)            \
+    X(RSBS_CVAR_MM_FIXES_DEKU_BUTLER_SHOCK_LOOP_ANIMATION)           \
     X(RSBS_CVAR_MM_RESTORATIONS_POWER_CROUCH_STAB)                   \
     X(RSBS_CVAR_MM_RESTORATIONS_TATL_ISG)                            \
     X(RSBS_CVAR_MM_RESTORATIONS_CONSTANT_FLIPS_HOPS)                 \
