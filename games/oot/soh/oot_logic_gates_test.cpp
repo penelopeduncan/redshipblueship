@@ -302,10 +302,10 @@
  *     hint type, area and trial name this build writes reads back (SN0); an unknown
  *     excluded location, placed location, item, ice-trap model or hint name fails the
  *     spoiler load (SN1-SN5, SN11), an unknown type, location, area or trial loads a
- *     hint disabled (SN6-SN9), and the Plandomizer refuses a log with an unknown location
- *     or item (SN10). No leg adds a name to any table, and none turns into entry 0 (which
- *     has a real name in every table, so the legs check that the lookup missed, not that
- *     a value is non-zero).
+ *     hint disabled (SN6-SN9) as the "enabled": false hint (SN12), and the Plandomizer
+ *     refuses a log with an unknown location or item (SN10). No leg adds a name to any
+ *     table, and none turns into entry 0 (which has a real name in every table, so the
+ *     legs check that the lookup missed, not that a value is non-zero).
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -2669,15 +2669,20 @@ void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                    randoCtx->GetHint(kStone)->IsEnabled() &&
                        randoCtx->GetHint(kStone)->GetHintType() == HINT_TYPE_MESSAGE,
                    true, "the known stone's hint is not an enabled message");
-        randoCtx->AddHint(kStone, Rando::Hint());
+        // Seeded with an enabled message hint, which a stored rejected hint (disabled, the "no hint" type) is not.
+        randoCtx->AddHint(kStone,
+                          Rando::Hint(kStone, std::vector<CustomMessage>{ CustomMessage(std::string("RSBS seeded")) }));
         nlohmann::json badTypeSection;
         badTypeSection[stoneName]["type"] = kSnNoType;
         badTypeSection[stoneName]["message"] = "x";
         ExpectMode("SN5f a known hint with an unknown type fails the load",
                    SnThrows([&] { randoCtx->ParseHintSectionJson(badTypeSection); }), 1,
                    "a hint with an unknown type did not throw std::runtime_error");
-        ExpectFlag("SN5g a known hint with an unknown type is not stored", randoCtx->GetHint(kStone)->IsEnabled(),
-                   false, "the hint with an unknown type was stored enabled");
+        const Rando::Hint* kept = randoCtx->GetHint(kStone);
+        ExpectFlag("SN5g a known hint with an unknown type is not stored",
+                   kept->IsEnabled() && !kept->HasUnknownName() && kept->GetHintType() == HINT_TYPE_MESSAGE &&
+                       kept->GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN) == "RSBS seeded",
+                   true, "the stone no longer holds the seeded hint");
         SnExpectTablesUntouched("SN5h a hint with an unknown type adds no name", sizes);
     }
 
@@ -2753,6 +2758,67 @@ void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                        trialHint.GetHintedTrials() == std::vector<TrialKey>{ kTrial },
                    true, "the known trial did not load");
         SnExpectTablesUntouched("SN9d names inside a hint add no name", sizes);
+    }
+
+    // ---- SN12: a hint that met an unknown name is the "enabled": false hint (Hint::MarkUnknownName) ----
+    // The save's reader keeps such a hint, and a stone reads its text without asking IsEnabled (GossipStoneHints.cpp).
+    // A known type read before the unknown name must not survive with its list emptied: GetHintText reads trials[0]
+    // for a Trial hint. Each document has the save writer's shape (a known type, then the unknown name).
+    {
+        nlohmann::json disabledDoc;
+        disabledDoc["enabled"] = false;
+        const Rando::Hint disabled(kStone, disabledDoc);
+        const std::string disabledText = disabled.GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN);
+        const auto typeName = [](HintType type, std::string* name) {
+            uint32_t value = HINT_TYPE_HINT_KEY;
+            return SnFirstName(
+                Rando::StaticData::hintTypeNameToEnum, [type](uint32_t v) { return v == (uint32_t)type; }, name,
+                &value);
+        };
+        std::string trialTypeName;
+        std::string itemTypeName;
+        std::string foolishTypeName;
+        if (!typeName(HINT_TYPE_TRIAL, &trialTypeName) || !typeName(HINT_TYPE_ITEM, &itemTypeName) ||
+            !typeName(HINT_TYPE_FOOLISH, &foolishTypeName)) {
+            GateFail("SN12: the Trial, Item or Foolish type name did not resolve; the legs would prove nothing");
+        } else {
+            const auto expectReset = [&](const char* leg, const Rando::Hint& hint) {
+                const bool shape = hint.HasUnknownName() && !hint.IsEnabled() &&
+                                   hint.GetHintType() == HINT_TYPE_HINT_KEY && hint.GetHintedLocations().empty() &&
+                                   hint.GetHintedAreas().empty() && hint.GetHintedTrials().empty() &&
+                                   hint.GetHintTextKeys().empty() && hint.GetDistribution().empty();
+                // The text is asked for only when the type is not a Trial: a Trial hint with no trial reads
+                // trials[0] out of bounds, which the shape check above already fails on.
+                std::string text;
+                const int threw = hint.GetHintType() == HINT_TYPE_TRIAL
+                                      ? 2
+                                      : SnThrows([&] { text = hint.GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN); });
+                ExpectFlag(leg, shape && threw == 0 && !disabledText.empty() && text == disabledText, true,
+                           "the hint with an unknown name is not the \"enabled\": false hint");
+            };
+            nlohmann::json trialDoc;
+            trialDoc["enabled"] = true;
+            trialDoc["distribution"] = "RSBS distribution";
+            trialDoc["type"] = trialTypeName;
+            trialDoc["trials"] = nlohmann::json::array({ kSnNoTrial });
+            trialDoc["hintKeys"] = nlohmann::json::array();
+            expectReset("SN12a a Trial hint with an unknown trial is the disabled hint", Rando::Hint(kStone, trialDoc));
+            nlohmann::json itemDoc;
+            itemDoc["enabled"] = true;
+            itemDoc["distribution"] = "RSBS distribution";
+            itemDoc["type"] = itemTypeName;
+            itemDoc["locations"] = nlohmann::json::array({ kSnNoLocation });
+            itemDoc["areas"] = nlohmann::json::array({ areaName });
+            expectReset("SN12b an Item hint with an unknown location is the disabled hint",
+                        Rando::Hint(kStone, itemDoc));
+            nlohmann::json foolishDoc;
+            foolishDoc["enabled"] = true;
+            foolishDoc["distribution"] = "RSBS distribution";
+            foolishDoc["type"] = foolishTypeName;
+            foolishDoc["areas"] = nlohmann::json::array({ kSnNoArea });
+            expectReset("SN12c a Foolish hint with an unknown area is the disabled hint",
+                        Rando::Hint(kStone, foolishDoc));
+        }
     }
 
     // ---- SN10: the Plandomizer's reader (PlandomizerParseSpoilerJson) ----
