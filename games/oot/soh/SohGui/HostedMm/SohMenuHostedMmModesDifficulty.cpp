@@ -138,7 +138,7 @@ void AddMmDifficultyRows(SohMenu& menu, WidgetPath& path) {
                      .ComboMap(ammoBuybackOptions)
                      .DefaultIndex(0)
                      .Tooltip("Lets the Curiosity Shop owner buy your ammo, Magic Beans and Powder Kegs at full or "
-                              "half price. Majora's Mask only."));
+                              "half price. Arrows always sell at full price. Majora's Mask only."));
 }
 
 /** Enhancements > Difficulty > Drops, right after SoH's No Random Drops. */

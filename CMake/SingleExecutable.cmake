@@ -251,6 +251,10 @@ set(REDSHIP_COMMON_SOURCES
     # age and the creation's warp-song record (ADR 0009 claim 22).
     # Game-header-free. APPENDED, never reordered.
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.c
+    # #1728: Majora's Mask's save and arrival rules under the file's frozen Moon
+    # Crash Behavior: a New Cycle roof save comes back in South Clock Town, and
+    # OoTMM's grace period on an arrival. Game-header-free.
+    ${CMAKE_SOURCE_DIR}/src/common/mm_moon_crash_rules.c
     # #1169 XW11: the check trackers' cross-game warp-song travel facts, read from
     # the frozen world for a tracker-scoped second search. Game-header-free.
     # APPENDED, never reordered.
@@ -385,6 +389,8 @@ set(REDSHIP_COMMON_HEADERS
     ${CMAKE_SOURCE_DIR}/src/common/warp_songs_mm.h
     # Header for mm_warp_song_play.c above (#1169 XW7)
     ${CMAKE_SOURCE_DIR}/src/common/mm_warp_song_play.h
+    # Header for mm_moon_crash_rules.c above (#1728)
+    ${CMAKE_SOURCE_DIR}/src/common/mm_moon_crash_rules.h
     # Header for warp_song_tracker.c above (#1169 XW11)
     ${CMAKE_SOURCE_DIR}/src/common/warp_song_tracker.h
     # Header for warp_song_family.c above (#1169 XW10)
@@ -966,7 +972,8 @@ if(BUILD_TESTING)
     redship_add_test(NAME SharedSwimRule COMMAND redship --test shared-swim-rule)
     # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
     # comboFlags bits from OoT's options (CVar store, display-free bring-up),
-    # through the rollback, a seed package and a real .redsave. ROM-free.
+    # through the rollback, a seed package and a real .redsave; and #1702 C0's two
+    # more, the pair's one Child's Wallet / Bombchu Bag shuffle, the same way. ROM-free.
     redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
     # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
     # bag; its give, drops, shelves and checks refuse sticks and nuts until the
@@ -1778,6 +1785,14 @@ if(BUILD_TESTING)
     # Ignores Magic runs last. Driven over a calloc'd play state and player. Pure (no
     # display, no ROM); games/mm/2s2h/mm_runtime_parity_test.cpp.
     redship_add_test(NAME MMRuntimeParity COMMAND redship --test mm-runtime-parity)
+    # #1754, #1755: eight 2Ship fixes. Pause Owl Warp needs Soaring, the Ocarina and (rando)
+    # C-Down, C-Left and C-Up (2Ship afd85345d); the Saria's Song hook leaves a restricted
+    # song's text alone (f443698ea); only soulless aliens of ACTOR_EN_INVADEPOH are cued and
+    # the telescope follows both aiming inversions (#1927); En_Rail_Skb has a reset (#1702);
+    # arrows sell back at full price (a5cbfdf1c); bank toasts only at milestones (24df3b56c);
+    # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
+    # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
+    redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
     # The MM rando minigame reward hooks (Rando/ActorBehavior/, armed through
     # ActorBehavior::OnFileLoad and driven by VB dispatch against a calloc'd
     # play state). MMGalleryRupeeStandIn (#1216): while a shooting gallery's
@@ -2072,6 +2087,14 @@ if(BUILD_TESTING)
     # refused; and the GELDB labels read "Gerudo Thief". Display-free and
     # ROM-free.
     redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
+
+    # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
+    # custom ocarina-note buttons' saved id lists. The row builds that state in
+    # the CVar store and runs the start-up clean-up: the stray ids go, the
+    # notes' own and unparseable ids stay, every port is scanned, a second run
+    # and a second bring-up change nothing, and the D-pad's own list and
+    # settings record are untouched. Display-free and ROM-free.
+    redship_add_test(NAME OoTOcarinaNoteMappingCleanup COMMAND redship --test oot-ocarina-note-mapping-cleanup)
 
     # #1336 (SFX-1, SFX-18): func_80096A74 short-circuits via
     # VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when

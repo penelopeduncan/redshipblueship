@@ -15,6 +15,13 @@ extern "C" {
 // declare it rather than include it — the convention the decomp TUs already use
 // for the Combo_* entry points.
 extern "C" int RsbsSave_GetActiveSlot(void);
+// #1728: a New Cycle roof save comes back in South Clock Town. The rule is
+// game-header-free (src/common/mm_moon_crash_rules.h); its two live inputs are
+// declared here for the same reason as above (src/common/context.h,
+// src/common/combo_mm_options_view.h).
+#include "mm_moon_crash_rules.h"
+extern "C" int Context_ComboSessionResident(void);
+extern "C" int MM_Rando_FrozenMoonCrash(void);
 #endif
 
 #define CVAR_REMEMBER_SAVE_LOCATION_NAME "gEnhancements.RememberSaveLocation"
@@ -37,47 +44,104 @@ static HOOK_ID autosaveGameStateDrawFinishHookId = 0;
 static HOOK_ID skipEntranceCutsceneHookId = 0;
 static HOOK_ID gameplayStartHookId = 0;
 
+/**
+ * Where a pause save or an autosave taken in @p sceneId comes back (2Ship's
+ * choice, factored out of SavingEnhancements_PersistSaveEntranceInfo so the
+ * ROM-free mm-startup-restore row can drive it; no CVar, no PlayState).
+ * @p remember is Remember Save Location, @p lastEntrance the entrance it
+ * tracked (entranceToSave). @p outRemembered (may be NULL) is set to 1 when the
+ * choice is Remember Save Location's, whose save also keeps the respawn data.
+ *
+ * RSBS (#1728): on the Clock Tower roof of a paired New Cycle file
+ * (@p paired, @p frozenMoonCrash; Combo_MmRoofSaveLandsAtCrossing) the save
+ * comes back in South Clock Town even with Remember Save Location on, as
+ * OoTMM's does (its MM open forces ENTR_MM_CLOCK_TOWN_FROM_CLOCK_TOWER,
+ * mm/save.c Sram_AfterOpenSave). Without it the first arrival after a load
+ * landed on the roof with a new five-minute timer. A Last Save file and an
+ * unpaired session keep the choice below.
+ */
+extern "C" int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember, int lastEntrance, int paired,
+                                                       int frozenMoonCrash, int* outRemembered) {
+    if (outRemembered != NULL) {
+        *outRemembered = 0;
+    }
+#ifdef RSBS_SINGLE_EXECUTABLE
+    if (Combo_MmRoofSaveLandsAtCrossing(sceneId == SCENE_OKUJOU, paired, frozenMoonCrash)) {
+        return ENTRANCE(SOUTH_CLOCK_TOWN, 0);
+    }
+#else
+    (void)paired;
+    (void)frozenMoonCrash;
+#endif
+    if (remember) {
+        if (outRemembered != NULL) {
+            *outRemembered = 1;
+        }
+        // Daytelop on new game, with Time Shuffle, makes it possible for entranceToSave to be -1. Given that the player
+        // must be at this entrance in that scenario, just use it as a fallback.
+        return lastEntrance < 0 ? ENTRANCE(SOUTH_CLOCK_TOWN, 0) : lastEntrance;
+    }
+    switch (sceneId) {
+        // Woodfall Temple + Odolwa
+        case SCENE_MITURIN:
+        case SCENE_MITURIN_BS:
+            return ENTRANCE(WOODFALL_TEMPLE, 0);
+        // Snowhead Temple + Goht
+        case SCENE_HAKUGIN:
+        case SCENE_HAKUGIN_BS:
+            return ENTRANCE(SNOWHEAD_TEMPLE, 0);
+        // Great Bay Temple + Gyorg
+        case SCENE_SEA:
+        case SCENE_SEA_BS:
+            return ENTRANCE(GREAT_BAY_TEMPLE, 0);
+        // Stone Tower Temple
+        case SCENE_INISIE_N:
+            return ENTRANCE(STONE_TOWER_TEMPLE, 0);
+        // Stone Tower Temple (inverted) + Twinmold
+        case SCENE_INISIE_R:
+        case SCENE_INISIE_BS:
+            return ENTRANCE(STONE_TOWER_TEMPLE_INVERTED, 0);
+        default:
+            return ENTRANCE(SOUTH_CLOCK_TOWN, 0);
+    }
+}
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+/**
+ * SavingEnhancements_PauseSaveEntranceFor over the live file (#1728): the
+ * session is paired when Context_ComboSessionResident says so, and the Moon
+ * Crash Behavior is the file's FROZEN one (MM_Rando_FrozenMoonCrash), never the
+ * menu's key, so the save and the crash (Sram_ResetSaveFromMoonCrash reads the
+ * same accessor) agree by construction.
+ */
+extern "C" int SavingEnhancements_PauseSaveEntranceForLiveFile(int sceneId, int remember, int lastEntrance,
+                                                               int* outRemembered) {
+    return SavingEnhancements_PauseSaveEntranceFor(sceneId, remember, lastEntrance, Context_ComboSessionResident(),
+                                                   MM_Rando_FrozenMoonCrash(), outRemembered);
+}
+#endif
+
 // Used for saving through Autosaves and Pause Menu saves.
 extern "C" void SavingEnhancements_PersistSaveEntranceInfo() {
-    if (CVAR_REMEMBER_SAVE_LOCATION) {
+    const int sceneId = MM_gPlayState != NULL ? MM_gPlayState->sceneId : -1;
+    const int remember = CVAR_REMEMBER_SAVE_LOCATION;
+    int remembered = 0;
+#ifdef RSBS_SINGLE_EXECUTABLE
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance =
+        SavingEnhancements_PauseSaveEntranceForLiveFile(sceneId, remember, entranceToSave, &remembered);
+#else
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance =
+        SavingEnhancements_PauseSaveEntranceFor(sceneId, remember, entranceToSave, 0, 0, &remembered);
+#endif
+    if (remembered) {
         // Maintain respawn information, used for grottos
         for (int i = 0; i < RESPAWN_MODE_MAX; i++) {
             gSaveContext.save.shipSaveInfo.respawn[i] = gSaveContext.respawn[i];
         }
-        // Daytelop on new game, with Time Shuffle, makes it possible for entranceToSave to be -1. Given that the player
-        // must be at this entrance in that scenario, just use it as a fallback.
-        gSaveContext.save.shipSaveInfo.pauseSaveEntrance =
-            entranceToSave < 0 ? ENTRANCE(SOUTH_CLOCK_TOWN, 0) : entranceToSave;
-    } else {
-        switch (MM_gPlayState != NULL ? MM_gPlayState->sceneId : -1) {
-            // Woodfall Temple + Odolwa
-            case SCENE_MITURIN:
-            case SCENE_MITURIN_BS:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(WOODFALL_TEMPLE, 0);
-                break;
-            // Snowhead Temple + Goht
-            case SCENE_HAKUGIN:
-            case SCENE_HAKUGIN_BS:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(SNOWHEAD_TEMPLE, 0);
-                break;
-            // Great Bay Temple + Gyorg
-            case SCENE_SEA:
-            case SCENE_SEA_BS:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(GREAT_BAY_TEMPLE, 0);
-                break;
-            // Stone Tower Temple
-            case SCENE_INISIE_N:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(STONE_TOWER_TEMPLE, 0);
-                break;
-            // Stone Tower Temple (inverted) + Twinmold
-            case SCENE_INISIE_R:
-            case SCENE_INISIE_BS:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(STONE_TOWER_TEMPLE_INVERTED, 0);
-                break;
-            default:
-                gSaveContext.save.shipSaveInfo.pauseSaveEntrance = ENTRANCE(SOUTH_CLOCK_TOWN, 0);
-                break;
-        }
+    } else if (remember) {
+        // RSBS (#1728): a New Cycle roof save with Remember Save Location on comes back in South Clock Town, so it
+        // carries no roof respawn data for the load's LoadRespawnData to bring back (as ClearSaveEntranceInfo does).
+        memset(&gSaveContext.save.shipSaveInfo.respawn, 0, sizeof(gSaveContext.save.shipSaveInfo.respawn));
     }
 }
 

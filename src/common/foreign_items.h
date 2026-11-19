@@ -275,7 +275,7 @@ static inline bool Combo_LogicRungProves(uint8_t rung) {
 //
 // Pinned BIT POSITIONS, append-only, retire-never-renumber — the same rule the
 // item classes carry, and for the same two reasons (a local save re-read and
-// #574's cross-peer hash). Bits 0x20..0x80 are UNALLOCATED and must read as 0.
+// #574's cross-peer hash). Bit 0x80 is UNALLOCATED and must read as 0.
 //
 // EVERY BIT IN THIS BYTE MUST HAVE "CLEAR == THE BEHAVIOUR BEFORE IT EXISTED".
 // That is what let byte 10 be spent without a formatVersion bump (see
@@ -415,17 +415,38 @@ static inline bool Combo_LogicRungProves(uint8_t rung) {
 #define RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG 0x08u
 #define RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG 0x10u
 
+/**
+ * ONE CHILD'S WALLET / ONE BOMBCHU BAG FOR THE PAIR (#1702; operator ruling
+ * 2026-11-17, following #1652's staging: the two shuffles gate BOTH games). NO
+ * KEY AUTHORS THEM: the paired creation sets the wallet bit exactly when Ocarina
+ * of Time's Shuffle Child's Wallet (RSK_SHUFFLE_CHILD_WALLET) is on, and the bag
+ * bit exactly when its Bombchu Bag option (RSK_BOMBCHU_BAG) is not None
+ * (Combo_ComboSettingsApplyCreationWalletChuShuffles), so Majora's Mask can read
+ * the pair's answer (Combo_ComboChildWalletShuffled,
+ * Combo_ComboBombchuBagShuffled) with no OoT seed context loaded.
+ *
+ * Clear (every world before #1702, and every world with both options off),
+ * NOTHING changes: the canonical bytes and the fingerprint are exactly what they
+ * were. Set, the fingerprint moves with it. A session never resolves them; every
+ * compare reads them as the file decided (Combo_ComboSettingsDivergenceForEx2),
+ * like the bag bits above.
+ */
+#define RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET 0x20u
+#define RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG 0x40u
+
 /** The comboFlags bits no key authors: the creation derives them, and every
  *  session compare takes them from the file. */
-#define RSBS_COMBO_FLAGS_CREATION_DERIVED \
-    (RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS | RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG)
+#define RSBS_COMBO_FLAGS_CREATION_DERIVED                                                                              \
+    (RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS | RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG | \
+     RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET | RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG)
 
 /** Every comboFlags bit ALLOCATED at formatVersion 1. The shipped default is 0
  *  — "reproduce today's world exactly" is the binding constraint on every
  *  default in this file, and every flag here changes a world. */
 #define RSBS_COMBO_FLAGS_ALL_V1                                                                                       \
     (RSBS_COMBO_FLAG_SHARED_OCARINA | RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD | RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS | \
-     RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG)
+     RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG | RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG | RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET |  \
+     RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG)
 
 // The pinning lock. A renumbering is a RED BUILD rather than a silently
 // re-read save — the same shape RSBS_SHARED_RES_* carries, and the reason
@@ -453,11 +474,12 @@ RSBS_CTX_STATIC_ASSERT(RSBS_ITEMCLASS_PROGRESSION == 0x0001u && RSBS_ITEMCLASS_S
 RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD == 0x02u &&
                            RSBS_COMBO_FLAG_COUPLED_OCARINA_BUTTONS == 0x04u &&
                            RSBS_COMBO_FLAG_SHUFFLED_STICK_BAG == 0x08u && RSBS_COMBO_FLAG_SHUFFLED_NUT_BAG == 0x10u &&
-                           RSBS_COMBO_FLAGS_ALL_V1 == 0x1Fu,
+                           RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET == 0x20u &&
+                           RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG == 0x40u && RSBS_COMBO_FLAGS_ALL_V1 == 0x7Fu,
                        "RSBS_COMBO_FLAG_* bit positions are .redsave format: pinned, append-only, "
                        "allocate the next free bit and never re-point an allocated one (ADR 0011 "
-                       "decision 1.2.1, amended 2026-09-16 for #668, 2026-10-10 for #886, 2026-11-02 for #1369 "
-                       "and 2026-11-16 for #1652)");
+                       "decision 1.2.1, amended 2026-09-16 for #668, 2026-10-10 for #886, 2026-11-02 for #1369, "
+                       "2026-11-16 for #1652 and 2026-11-19 for #1702)");
 
 // ============================================================================
 // The cross-game ITEM RULES (#976, epic #975 P1): ComboItemRulesRecord's value
@@ -764,6 +786,29 @@ bool Combo_ComboNutBagShuffled(void);
  */
 void Combo_ComboSettingsApplyCreationBagShuffles(ComboSettingsRecord* settings, bool stickBagShuffled,
                                                  bool nutBagShuffled);
+
+/**
+ * ONE CHILD'S WALLET / ONE BOMBCHU BAG FOR THE PAIR (#1702, stage C0): does this
+ * world shuffle the Child's Wallet (the Bombchu Bag) for BOTH games? The frozen
+ * record's RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET (_BOMBCHU_BAG) bit, which the
+ * paired creation took from Ocarina of Time's own option. False while nothing is
+ * frozen (an unpaired file, the title screen), and never a CVar or a seed
+ * setting: a change of the option after creation does not change the answer.
+ * Read by nothing in production yet; the later stages of #1702 do.
+ */
+bool Combo_ComboChildWalletShuffled(void);
+bool Combo_ComboBombchuBagShuffled(void);
+
+/**
+ * THE CREATION'S WALLET AND BOMBCHU BAG DECISIONS (#1702), applied to the combo
+ * record a paired creation is about to freeze: RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET
+ * is set exactly when @p childWalletShuffled (OoT's RSK_SHUFFLE_CHILD_WALLET is
+ * on), and RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG exactly when
+ * @p bombchuBagShuffled (OoT's RSK_BOMBCHU_BAG is not None), each cleared
+ * otherwise; every other bit is left alone. NULL is a no-op.
+ */
+void Combo_ComboSettingsApplyCreationWalletChuShuffles(ComboSettingsRecord* settings, bool childWalletShuffled,
+                                                       bool bombchuBagShuffled);
 
 /**
  * The shuffles the AUTHORED rules would make one for the pair, as

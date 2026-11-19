@@ -3,6 +3,7 @@
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/Enhancements/Enhancements.h"
+#include "2s2h/Enhancements/Items/AmmoBuybackPrice.h"
 #include "message_data_fmt_nes.h"
 
 extern "C" {
@@ -81,12 +82,9 @@ static const char* GetNameForDialogue(ItemId itemId) {
     }
 }
 
+// 2Ship a5cbfdf1c: arrows always sell at full price (AmmoBuybackPrice.h).
 static s16 GetSalePrice(ItemId itemId, s16 count) {
-    s16 totalPrice = count * GetPricePerUnit(itemId);
-    if (CVAR == AMMO_BUYBACK_HALF_PRICE) {
-        totalPrice = (totalPrice + 1) / 2;
-    }
-    return totalPrice;
+    return (s16)AmmoBuyback_SalePriceFor(CVAR, itemId, count, GetPricePerUnit(itemId));
 }
 
 static bool IsItemAvailable(ItemId itemId) {
