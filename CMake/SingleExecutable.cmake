@@ -972,7 +972,8 @@ if(BUILD_TESTING)
     redship_add_test(NAME SharedSwimRule COMMAND redship --test shared-swim-rule)
     # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
     # comboFlags bits from OoT's options (CVar store, display-free bring-up),
-    # through the rollback, a seed package and a real .redsave. ROM-free.
+    # through the rollback, a seed package and a real .redsave; and #1702 C0's two
+    # more, the pair's one Child's Wallet / Bombchu Bag shuffle, the same way. ROM-free.
     redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
     # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
     # bag; its give, drops, shelves and checks refuse sticks and nuts until the

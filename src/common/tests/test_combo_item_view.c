@@ -72,6 +72,14 @@
  *    slots in a custom group are not lit from the pool's tier; under MM the gate
  *    is not asked.
  *    The Bombchus row needs no gate: it is OoT's own live count.
+ *    #1702 C0: the Rupees row is a live count too, and is now also asked of
+ *    the running game's gate: under a fake answer that blocks the rupees it
+ *    reads not held with a count of 0 (the pool keeps its balance), and OoT's
+ *    production answer is true exactly on a live randomizer save with
+ *    RAND_INF_HAS_WALLET clear (Shuffle Child's Wallet, the wallet not found).
+ *    The #971 live leg (5c) and the Shared group leg (5) run with no OoT gate
+ *    answer registered, so what an earlier row left in OoT's real save cannot
+ *    reach their rupee asserts.
  *
  * 5e. A SHARED BUTTON DRAWN WITH OoT's OCARINA IS NAMED (#1347). Under Shared
  *    Ocarina Buttons, every Shared button row is read through both paths (the
@@ -159,6 +167,12 @@ extern "C" int MM_ItemAdapter_TestGiveOoTMask(void* buf, size_t size, uint16_t r
 extern "C" int MM_ItemAdapter_TestPutBlastMask(void* buf, size_t size);
 extern "C" void MM_OoTMasks_RegisterRuntime(void);
 extern "C" uint16_t MM_OoTMask_ItemId(uint8_t foreignMask);
+// #1702 C0: OoT's live save in a known wallet state, and its snapshot and restore
+// (games/oot/soh/oot_shared_wallet_test.cpp), for OoT's production rupee answer.
+extern "C" void OoT_SharedWalletTest_ArmLive(int tier, int rupees, int hasWallet);
+extern "C" void OoT_SharedWalletTest_ArmLiveVanilla(int tier, int rupees);
+extern "C" void OoT_SharedWalletTest_SnapshotLive(void);
+extern "C" void OoT_SharedWalletTest_RestoreLive(void);
 
 #define CIV_ASSERT(cond)                                                   \
     do {                                                                   \
@@ -1294,7 +1308,7 @@ static void CivFreshPool(uint16_t rupees) {
  * never fall below the pool, a consumable count is the live game's own, and the
  * pool is never written by a draw. The inactive game keeps its snapshot.
  */
-static int CivSharedLiveLegs(const ComboItemOps* ootOps, const ComboItemOps* mmOps) {
+static int CivSharedLiveLegsBody(const ComboItemOps* ootOps, const ComboItemOps* mmOps) {
     ComboItemRow row;
     ComboItemRow sharedRow;
     std::vector<uint8_t> ootV0((size_t)OOT_SAVE_CONTEXT_SIZE, 0); // Longshot, Adult's Wallet, 123 rupees, tier-2 quiver
@@ -1415,6 +1429,27 @@ static int CivSharedLiveLegs(const ComboItemOps* ootOps, const ComboItemOps* mmO
     return TEST_PASS;
 }
 
+/**
+ * #1702 C0: the #971 live leg with NO OoT gate answer registered. Its Rupees
+ * asserts are about the view's live/pool mechanics, and OoT's production answer
+ * now reads OoT's REAL save for the rupees (IS_RANDO, RAND_INF_HAS_WALLET), which
+ * an earlier row in the same process may have left as a no-wallet randomizer
+ * file. The production answer is put back on every exit; leg 5c' asks it alone.
+ */
+static int CivSharedLiveLegs(const ComboItemOps* ootOps, const ComboItemOps* mmOps) {
+    // The running game is left as the body leaves it (MM), as before the split:
+    // the legs after this one start from that state.
+    const ComboItemGrantBlockedFn production = Combo_Item_GetGrantBlocked((uint8_t)GAME_OOT);
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, NULL);
+    const int result = CivSharedLiveLegsBody(ootOps, mmOps);
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, production);
+    sCivLive = NULL;
+    sCivMMLive = NULL;
+    Combo_Item_RegisterOps((uint8_t)GAME_OOT, ootOps);
+    Combo_Item_RegisterOps((uint8_t)GAME_MM, mmOps);
+    return result;
+}
+
 // ---- 5c'. The Shared ammo rows under the running game's bag gate (#1652 D) -------
 //
 // Under Shuffle Deku Stick Bag / Deku Nut Bag, OoT holds none of the pool's sticks
@@ -1429,6 +1464,12 @@ static int sCivGrantBlockedCalls = 0;
 static bool CivGrantBlockedSticksNuts(uint8_t countKind) {
     sCivGrantBlockedCalls++;
     return countKind == (uint8_t)RSBS_SHARED_RES_STICK_COUNT || countKind == (uint8_t)RSBS_SHARED_RES_NUT_COUNT;
+}
+
+/** #1702 C0: a fake OoT gate that keeps the pool's rupees out (no wallet yet). */
+static bool CivGrantBlockedRupees(uint8_t countKind) {
+    sCivGrantBlockedCalls++;
+    return countKind == (uint8_t)RSBS_SHARED_RES_RUPEES;
 }
 
 static bool CivSharedSlot(const char* slotKey, ComboItemRow* out) {
@@ -1510,6 +1551,28 @@ static int CivSharedGrantBlockedLegsBody(const ComboItemOps* ootOps, const Combo
     CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow) && sharedRow.have && sharedRow.count == 123);
     CIV_ASSERT(CivPoolValue(RSBS_SHARED_RES_STICK_COUNT) == 7 && CivPoolValue(RSBS_SHARED_RES_NUT_COUNT) == 9);
 
+    // #1702 C0: the Rupees row, a row with no tier, under the running game's gate.
+    // With no answer it is OoT's live count (123), not the pool's 99.
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, NULL);
+    CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow));
+    printf("[TEST] combo-item-view: OoT live 123 rupees, pool 99, no gate answer: shared Rupees have=%d count=%d\n",
+           (int)sharedRow.have, sharedRow.count);
+    CIV_ASSERT(sharedRow.have && sharedRow.count == 123);
+    // OoT's wallet gate closed (Shuffle Child's Wallet, the wallet not found): not
+    // held, a count of 0, and the pool keeps its balance.
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, CivGrantBlockedRupees);
+    sCivGrantBlockedCalls = 0;
+    CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow));
+    printf("[TEST] combo-item-view: OoT live 123 rupees, pool 99, wallet gated: shared Rupees have=%d count=%d "
+           "(asked %d)\n",
+           (int)sharedRow.have, sharedRow.count, sCivGrantBlockedCalls);
+    CIV_ASSERT(!sharedRow.have && sharedRow.count == 0 && sCivGrantBlockedCalls > 0);
+    CIV_ASSERT(CivSharedSlot("rupees", &sharedRow) && !sharedRow.have && sharedRow.count == 0);
+    CIV_ASSERT(CivPoolValue(RSBS_SHARED_RES_RUPEES) == 99);
+    // ...and a gate on the rupees alone leaves the stick row the pool's.
+    CIV_ASSERT(CivFindSharedRow("Deku Sticks", &sharedRow) && sharedRow.have && sharedRow.count == 7);
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, CivGrantBlockedSticksNuts);
+
     // MM running: the OoT answer is never asked, and MM (no gate) holds the pool's sticks.
     sCivLive = NULL;
     Context_SetCurrentGame(GAME_MM);
@@ -1519,6 +1582,47 @@ static int CivSharedGrantBlockedLegsBody(const ComboItemOps* ootOps, const Combo
            (int)sharedRow.have, sharedRow.count, sCivGrantBlockedCalls);
     CIV_ASSERT(sharedRow.have && sharedRow.count == 7 && sCivGrantBlockedCalls == 0);
     CIV_ASSERT(CivSharedSlot("sticks", &sharedRow) && sharedRow.have && sharedRow.count == 7);
+    // #1702 C0: OoT's rupee gate is not asked under MM either; with no live MM
+    // source the row is the pool's 99.
+    Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, CivGrantBlockedRupees);
+    sCivGrantBlockedCalls = 0;
+    CIV_ASSERT(CivFindSharedRow("Rupees", &sharedRow));
+    printf("[TEST] combo-item-view: MM running, OoT wallet gate set: shared Rupees have=%d count=%d (asked %d)\n",
+           (int)sharedRow.have, sharedRow.count, sCivGrantBlockedCalls);
+    CIV_ASSERT(sharedRow.have && sharedRow.count == 99 && sCivGrantBlockedCalls == 0);
+    return TEST_PASS;
+}
+
+/**
+ * #1702 C0: OoT's PRODUCTION answer for the rupees, over OoT's real live save
+ * (oot_shared_wallet_test.cpp's arming, the save snapshotted and restored by the
+ * caller). True exactly on a live randomizer file with RAND_INF_HAS_WALLET clear,
+ * only while OoT runs; and the rupee line answers for no other kind.
+ */
+static int CivProductionRupeeAnswerBody(ComboItemGrantBlockedFn production) {
+    const uint8_t rupees = (uint8_t)RSBS_SHARED_RES_RUPEES;
+    const uint8_t sticks = (uint8_t)RSBS_SHARED_RES_STICK_COUNT;
+    Context_SetCurrentGame(GAME_OOT);
+    OoT_SharedWalletTest_ArmLive(0, 50, 1); // the child wallet held
+    const bool withWallet = production(rupees);
+    const bool sticksWithWallet = production(sticks);
+    OoT_SharedWalletTest_ArmLiveVanilla(0, 50); // not a randomizer file: the flag is never set
+    const bool vanilla = production(rupees);
+    OoT_SharedWalletTest_ArmLive(0, 50, 0); // Shuffle Child's Wallet on, the wallet not found
+    const bool noWallet = production(rupees);
+    const bool sticksNoWallet = production(sticks);
+    Context_SetCurrentGame(GAME_MM);
+    const bool noWalletUnderMM = production(rupees);
+    Context_SetCurrentGame(GAME_OOT);
+    printf("[TEST] combo-item-view: OoT's production rupee answer: no wallet %d, wallet %d, vanilla %d, no wallet "
+           "under MM %d; sticks no wallet %d / wallet %d\n",
+           noWallet ? 1 : 0, withWallet ? 1 : 0, vanilla ? 1 : 0, noWalletUnderMM ? 1 : 0, sticksNoWallet ? 1 : 0,
+           sticksWithWallet ? 1 : 0);
+    CIV_ASSERT(noWallet);
+    CIV_ASSERT(!withWallet);
+    CIV_ASSERT(!vanilla);
+    CIV_ASSERT(!noWalletUnderMM);
+    CIV_ASSERT(sticksNoWallet == sticksWithWallet);
     return TEST_PASS;
 }
 
@@ -1534,16 +1638,23 @@ static int CivSharedGrantBlockedLegs(const ComboItemOps* ootOps, const ComboItem
     Context_SetCurrentGame(priorGame);
     CIV_ASSERT(!productionBlocked);
 
-    const int result = CivSharedGrantBlockedLegsBody(ootOps, mmOps);
+    int result = CivSharedGrantBlockedLegsBody(ootOps, mmOps);
     Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, production);
+    // #1702 C0: OoT's production rupee answer over its real save, the save put
+    // back on every exit before anything else is restored.
+    if (result == TEST_PASS) {
+        OoT_SharedWalletTest_SnapshotLive();
+        result = CivProductionRupeeAnswerBody(production);
+        OoT_SharedWalletTest_RestoreLive();
+    }
     sCivLive = NULL;
     sCivMMLive = NULL;
     Context_SetCurrentGame(priorGame);
     Combo_Item_RegisterOps((uint8_t)GAME_OOT, ootOps);
     Combo_Item_RegisterOps((uint8_t)GAME_MM, mmOps);
     if (result == TEST_PASS) {
-        printf("[TEST] combo-item-view: the Shared stick and nut rows follow the running game's bag gate PASS "
-               "(#1652)\n");
+        printf("[TEST] combo-item-view: the Shared stick, nut and rupee rows follow the running game's gate PASS "
+               "(#1652, #1702)\n");
     }
     return result;
 }
@@ -3098,9 +3209,18 @@ extern "C" int Combo_ItemView_RunHeadless(void) {
         }
 
         // ---- 5. the Shared group -----------------------------------------
-        if (CivSharedLegs() != TEST_PASS) {
-            result = TEST_FAIL;
-            break;
+        // #1702 C0: with no OoT gate answer, as leg 5c: OoT is the running game
+        // here (the #1141 leg left it so), and the production answer now reads
+        // OoT's real save for the Rupees row this leg asserts on.
+        {
+            const ComboItemGrantBlockedFn sharedProduction = Combo_Item_GetGrantBlocked((uint8_t)GAME_OOT);
+            Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, NULL);
+            const int sharedResult = CivSharedLegs();
+            Combo_Item_RegisterGrantBlocked((uint8_t)GAME_OOT, sharedProduction);
+            if (sharedResult != TEST_PASS) {
+                result = TEST_FAIL;
+                break;
+            }
         }
 
         // ---- 5a. the Shared column's pooled heart pieces (#1159) -----------
