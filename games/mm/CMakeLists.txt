@@ -784,6 +784,12 @@ if(SINGLE_EXECUTABLE_BUILD)
         # verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
         # RegisterDekuButlerFixShockLoopAnimation in games/oot. MMRegistrarCoverage's W6-FIXES probe attributes it.
         "2s2h/Enhancements/Fixes/FixDekuButlerShockLoopAnimation.cpp"
+        # #1755: 2Ship #1558 (PictoBoxOnCUp), drawn in Enhancements > Items > Equipment (SohMenuHostedMmPlayer.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides VB_FIRST_PERSON_CAMERA,
+        # appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from MM_Player_ActionHandler_0
+        # (z_player.c). Its body guards MM_gPlayState after *should = false. No stub in mm_stubs.c; no twin of
+        # RegisterPictoBoxOnCUp in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/Items/PictoBoxOnCUp.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 

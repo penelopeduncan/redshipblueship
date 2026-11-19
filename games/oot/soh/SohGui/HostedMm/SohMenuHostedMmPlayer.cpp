@@ -105,6 +105,12 @@ void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Names the target, if any, that a pictograph has captured. Majora's Mask only."));
+    // 2Ship #1558: Picto Box on C-Up.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Picto Box on C-Up", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_ITEMS_PICTO_BOX_ON_C_UP)
+        .Options(UIWidgets::CheckboxOptions().Tooltip(
+            "Press C-Up to activate the Pictograph Box once acquired, without needing to equip it to a C-button. "
+            "Majora's Mask only."));
     // 2Ship #1989: an Items row in 2Ship (after its Color Pictograph), here after Better Picto Message.
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)

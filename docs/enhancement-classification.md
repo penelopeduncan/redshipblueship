@@ -871,6 +871,12 @@ Spring Water as timed).
 |---|---|---|---|
 | `gEnhancements.Items.HotWaterNeverCools` | off | Hot Water Never Cools (Enhancements > Items, Equipment, Majora's Mask block, after Better Picto Message) | (O) MM-only: Ocarina of Time has no Hot Spring Water. `Items/HotWaterNeverCools.cpp` linked |
 
+**#1755 — Small MM options backported from 2Ship and hosted.** Keys added beyond upstream 2Ship's earlier snapshot, each drawn by a hosted row on SoH's Enhancements pages (`SohGui/HostedMm/`), bound through its `RSBS_CVAR_MM_*` define, and on `RSBS_TWOSHIP_IMPORT_KEYS`; every provider TU is carved into `ship__Enh_registrars`, reads `MM_gPlayState` safely (play-state guards added where read), is attributed in `MMRegistrarCoverage`'s key-gap table, and is exercised by `MMSmallOptions1755`.
+
+| MM key | MM default | Row (page > section) | Call |
+|---|---|---|---|
+| `gEnhancements.Items.PictoBoxOnCUp` | off | Picto Box on C-Up (Enhancements > Items, Equipment, Majora's Mask block, between Better Picto Message and Hot Water Never Cools) | (O) MM-only: opens the Pictograph Box with C-Up when owned instead of first-person camera (`2Ship #1558`, `Items/PictoBoxOnCUp.cpp` linked, play-state guard added after `*should = false`) |
+
 ### 6.2 OoT-only (category level)
 
 Dungeon/trade/age machinery with no MM counterpart: `gRandoSettings.*` (232),

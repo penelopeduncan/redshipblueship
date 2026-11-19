@@ -1021,6 +1021,10 @@ void BenMenu::AddEnhancements() {
         .CVar("gEnhancements.Equipment.BetterPictoMessage")
         .Options(
             CheckboxOptions().Tooltip("Inform the player what target if any is being captured in the pictograph."));
+    AddWidget(path, "Picto Box on C-Up", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Items.PictoBoxOnCUp")
+        .Options(CheckboxOptions().Tooltip(
+            "Press C-Up to activate the Pictograph Box once acquired, without needing to equip it to a C-button."));
     AddWidget(path, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Items.HotWaterNeverCools")
         .Options(CheckboxOptions().Tooltip("Prevents Hot Spring Water from cooling down into regular Spring Water."));
