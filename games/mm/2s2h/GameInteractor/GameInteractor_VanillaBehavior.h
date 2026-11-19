@@ -2381,6 +2381,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_KAFEI_RUN_TO_TOWN,
+
+    // #### `result`
+    // ```c
+    // func_80BD7CEC(this)
+    // ```
+    // #### `args`
+    // - None
+    VB_HIDEOUT_DOOR_OPEN,
 } GIVanillaBehavior;
 
 #endif
