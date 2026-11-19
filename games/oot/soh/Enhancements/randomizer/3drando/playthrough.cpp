@@ -1170,6 +1170,12 @@ int Playthrough_Init(uint32_t seed, std::set<RandomizerCheck> excludedLocations,
         Combo_ComboSettingsApplyCreationBagShuffles(&comboSettings,
                                                     ctx->GetOption(RSK_SHUFFLE_DEKU_STICK_BAG).IsNot(RO_GENERIC_OFF),
                                                     ctx->GetOption(RSK_SHUFFLE_DEKU_NUT_BAG).IsNot(RO_GENERIC_OFF));
+        // #1702 (operator ruling 2026-11-17): the pair's one Child's Wallet and
+        // Bombchu Bag shuffle, from OoT's own options, frozen in the same act. A
+        // world with both off freezes exactly what it did before.
+        Combo_ComboSettingsApplyCreationWalletChuShuffles(
+            &comboSettings, ctx->GetOption(RSK_SHUFFLE_CHILD_WALLET).IsNot(RO_GENERIC_OFF),
+            ctx->GetOption(RSK_BOMBCHU_BAG).IsNot(RO_BOMBCHU_BAG_NONE));
         // #1169 XW2: the second rules word freezes in the same act. The gate above
         // refused any word it names, so this holds no bit of RSBS_XITEM2_HIDDEN: it
         // is 0, and the freeze and its fingerprint exactly the Ex form's, unless a

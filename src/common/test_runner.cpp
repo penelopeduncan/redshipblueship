@@ -10822,11 +10822,12 @@ const TestDescriptor gTests[] = {
       "The Shared Swim rule ships on and freezes only while a game shuffles swim, the coupled-buttons marker only with "
       "the buttons rule and a button shuffle, and a load reads the gated bit as the file decided it (#1369)",
       Test_SharedSwimRule },
-    // #1652 A0: the pair's one stick bag / nut bag shuffle, frozen world identity.
+    // #1652 A0 / #1702 C0: the pair's one stick bag / nut bag shuffle, and its one
+    // Child's Wallet / Bombchu Bag shuffle, frozen world identity.
     { "combo-bag-shuffle-frozen",
-      "The pair's one Deku Stick Bag / Deku Nut Bag shuffle freezes at the paired creation from OoT's options, reads "
-      "false unfrozen, ignores a later change of the option, and survives the rollback, a seed package and a "
-      ".redsave (#1652)",
+      "The pair's one Deku Stick Bag / Deku Nut Bag shuffle, and its one Child's Wallet / Bombchu Bag shuffle, freeze "
+      "at the paired creation from OoT's options, read false unfrozen, ignore a later change of the option, and "
+      "survive the rollback, a seed package and a .redsave (#1652, #1702)",
       Test_ComboBagShuffleFrozen },
     // #1652 A1 / A3: the bag gates both games. ROM-free: gComboCtx, the RAM
     // watermark table, MM's real give, conversion and gate helpers, MM's real
