@@ -2606,6 +2606,80 @@ void RunEcaOverhaulWaterLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                  "an adult with Swim, Longshot, tunic, irons, sword, Bow, Din's Fire and 2 keys cannot reach vortex "
                  "crate 3 through the vortex beds");
 
+    // ---- WT39..WT40: the Rising Target Ledge sets no LOGIC_WATER_COULD_LOW (a departure from upstream) ----
+    // Upstream's ledge event (73a739b7a, unchanged on develop) set it from Iron Boots and Swim alone, so WL_MID held
+    // with no tunic although the low emblem is only behind the side tower (WaterTimer >= 24 with irons). With the
+    // tunic the side tower sets LOGIC_WATER_COULD_LOW_FROM_HIGH, which WL_MID reads in the same place. The compass
+    // chest is behind WL_MID: Outside Waterfall -> Outside Jet Lift 2F -> 2F Central LM -> Jet Chest Room.
+    const auto expectWaterMid = [](const char* leg, bool expected, const char* why) {
+        const bool got = logic->WaterLevel(WL_MID);
+        if (got != expected) {
+            GateFail("%s: %s (expected %s, got %s)", leg, why, expected ? "true" : "false", got ? "true" : "false");
+            return;
+        }
+        printf("[TEST]   ok: %s: WaterLevel(WL_MID) %s\n", leg, expected ? "true" : "false");
+    };
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    EcaWaterReset(true);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveZeldasLullaby();
+    Give(RG_HOVER_BOOTS);
+    GiveOpenChest();
+    GiveClimb();
+    ExpectSearch("WT39 Water search from entryway to the compass chest, adult with Swim, irons, Longshot, Bow, "
+                 "Zelda's Lullaby and Hover Boots, no tunic",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_COMPASS_CHEST, false,
+                 "the compass chest is reached behind the middle water level although the water cannot be lowered "
+                 "without the tunic (the ledge's LOGIC_WATER_COULD_LOW is back)");
+    expectWaterMid("WT39 Water WL_MID after that search, no tunic", false,
+                   "the middle water level is in logic with no tunic (the ledge's LOGIC_WATER_COULD_LOW is back)");
+    EcaWaterReset(true);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveZeldasLullaby();
+    Give(RG_HOVER_BOOTS);
+    GiveOpenChest();
+    GiveClimb();
+    Give(RG_ZORA_TUNIC);
+    ExpectSearch("WT40 Water search from entryway to the compass chest, the WT39 items and the tunic",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_COMPASS_CHEST, true,
+                 "the tunic does not lower the water through the side tower and reach the compass chest");
+    expectWaterMid("WT40 Water WL_MID after that search, with the tunic", true,
+                   "the side tower's LOGIC_WATER_COULD_LOW_FROM_HIGH does not put the middle water level in logic");
+
+    // ---- WT41..WT44: the MQ vortex crates' voidout needs CanVoid (a departure from upstream) ----
+    // Upstream's disjunct (73a739b7a, unchanged on develop) has no CanVoid. No Swim, irons or Boomerang (and adult),
+    // so the voidout disjunct is the crate's only way; bombchus come from LOGIC_BUY_BOMBCHUS.
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    EcaWaterReset(false);
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    logic->SetInventory(ITEM_BOMBCHU, ITEM_BOMBCHU);
+    logic->Set(LOGIC_BUY_BOMBCHUS, true);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("WT41 Water MQ vortex submerged crate 1, adult with bombchus and the hood, trick on, OHKO and no fairy",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_1, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    ExpectAt("WT42 Water MQ vortex submerged crate 5, adult with bombchus and the hood, trick on, OHKO and no fairy",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_5, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    ExpectAt("WT43 Water MQ vortex submerged crate 1, adult with bombchus and the hood, trick on, normal damage",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_1, true, true,
+             "three hearts, the hood, bombchus and RT_VOIDOUT_COLLECTION do not collect the crate by voiding");
+    ExpectAt("WT44 Water MQ vortex submerged crate 5, adult with bombchus and the hood, trick on, normal damage",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_5, true, true,
+             "three hearts, the hood, bombchus and RT_VOIDOUT_COLLECTION do not collect the crate by voiding");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+
     if (savedWaterMq) {
         randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
     } else {

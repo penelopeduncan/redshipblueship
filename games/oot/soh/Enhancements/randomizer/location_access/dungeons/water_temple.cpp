@@ -648,7 +648,6 @@ void RegionTable_Init_WaterTemple() {
         //Assumes RR_WATER_TEMPLE_JET_LIFT and RR_WATER_TEMPLE_HIGH_EMBLEM access
         EventAccess(LOGIC_WATER_COULD_HIGH_FROM_MID, []{return (logic->BunnyHovers() || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD) || logic->CanUse(RG_LONGSHOT)) &&
                                                                logic->CanHitSwitch(ED_BOMB_THROW);}),
-        EventAccess(LOGIC_WATER_COULD_LOW,           []{return logic->CanUse(RG_IRON_BOOTS) && logic->HasItem(RG_BRONZE_SCALE);}),
     }, {
         // Locations
         LOCATION(RC_WATER_TEMPLE_MAIN_LEVEL_1_POT_1, logic->CanBreakPots()),
@@ -1396,7 +1395,7 @@ void RegionTable_Init_WaterTemple() {
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_FRONT_CRATE_1,     logic->CanBreakCrates()),
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_FRONT_CRATE_2,     logic->CanBreakCrates()),
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_1, logic->CanUse(RG_BOMBCHU_5) &&
-                                                                     ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8) || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->IsAdult && logic->BunnyHood()))),
+                                                                     ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8) || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->IsAdult && logic->BunnyHood() && logic->CanVoid()))),
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_2, logic->CanUse(RG_BOMBCHU_5) &&
                                                                      ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOOKSHOT))) || logic->HasItem(RG_BRONZE_SCALE))),
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_3, logic->CanUse(RG_BOMBCHU_5) &&
@@ -1404,7 +1403,7 @@ void RegionTable_Init_WaterTemple() {
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_4, logic->CanUse(RG_BOMBCHU_5) &&
                                                                      ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8 && (logic->IsAdult || logic->CanUse(RG_HOOKSHOT))) || logic->HasItem(RG_BRONZE_SCALE))),
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_5, logic->CanUse(RG_BOMBCHU_5) &&
-                                                                     ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8) || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->IsAdult && logic->BunnyHood()))),
+                                                                     ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8) || logic->HasItem(RG_BRONZE_SCALE) || logic->CanUse(RG_BOOMERANG) || (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->IsAdult && logic->BunnyHood() && logic->CanVoid()))),
         //This can spawn in or outside of rang range depending on random spread, should be a trick
         LOCATION(RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_6, logic->CanUse(RG_BOMBCHU_5) &&
                                                                      ((logic->CanUse(RG_IRON_BOOTS) && logic->WaterTimer() >= 8) || logic->HasItem(RG_BRONZE_SCALE))),
