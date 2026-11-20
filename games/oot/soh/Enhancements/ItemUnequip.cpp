@@ -15,6 +15,33 @@ extern SaveContext gSaveContext;
 #define CVAR_ITEM_UNEQUIP_DEFAULT 0
 #define CVAR_ITEM_UNEQUIP_VALUE CVarGetInteger(CVAR_ITEM_UNEQUIP_NAME, CVAR_ITEM_UNEQUIP_DEFAULT)
 
+// Whether re-pressing a button over the cursor's item unequips what that button holds. A pure decision, so the
+// OoTItemUnequipBow row can drive it; SoH 16ee01404 adds the bow over a magic arrow.
+bool OoT_ItemUnequip_ShouldUnequip(u16 cursorItem, u16 cursorSlot, u8 equippedItem, u8 equippedSlot) {
+    bool shouldUnequip = false;
+
+    if (equippedItem == cursorItem) {
+        if (cursorItem >= ITEM_BOTTLE && cursorItem <= ITEM_POE) {
+            if (equippedSlot == cursorSlot) {
+                shouldUnequip = true;
+            }
+        } else {
+            shouldUnequip = true;
+        }
+    } else if (cursorItem == ITEM_ARROW_FIRE && equippedItem == ITEM_BOW_ARROW_FIRE) {
+        shouldUnequip = true;
+    } else if (cursorItem == ITEM_ARROW_ICE && equippedItem == ITEM_BOW_ARROW_ICE) {
+        shouldUnequip = true;
+    } else if (cursorItem == ITEM_ARROW_LIGHT && equippedItem == ITEM_BOW_ARROW_LIGHT) {
+        shouldUnequip = true;
+    } else if (cursorItem == ITEM_BOW && (equippedItem == ITEM_BOW_ARROW_FIRE || equippedItem == ITEM_BOW_ARROW_ICE ||
+                                          equippedItem == ITEM_BOW_ARROW_LIGHT)) {
+        shouldUnequip = true;
+    }
+
+    return shouldUnequip;
+}
+
 void RegisterItemUnequip() {
     COND_VB_SHOULD(VB_EQUIP_ITEM_TO_C_BUTTON, CVAR_ITEM_UNEQUIP_VALUE, {
         PlayState* play = va_arg(args, PlayState*);
@@ -49,23 +76,7 @@ void RegisterItemUnequip() {
 
         u8 equippedItem = gSaveContext.equips.buttonItems[targetButton];
         u8 equippedSlot = gSaveContext.equips.cButtonSlots[targetButton - 1];
-        bool shouldUnequip = false;
-
-        if (equippedItem == cursorItem) {
-            if (cursorItem >= ITEM_BOTTLE && cursorItem <= ITEM_POE) {
-                if (equippedSlot == cursorSlot) {
-                    shouldUnequip = true;
-                }
-            } else {
-                shouldUnequip = true;
-            }
-        } else if (cursorItem == ITEM_ARROW_FIRE && equippedItem == ITEM_BOW_ARROW_FIRE) {
-            shouldUnequip = true;
-        } else if (cursorItem == ITEM_ARROW_ICE && equippedItem == ITEM_BOW_ARROW_ICE) {
-            shouldUnequip = true;
-        } else if (cursorItem == ITEM_ARROW_LIGHT && equippedItem == ITEM_BOW_ARROW_LIGHT) {
-            shouldUnequip = true;
-        }
+        bool shouldUnequip = OoT_ItemUnequip_ShouldUnequip(cursorItem, cursorSlot, equippedItem, equippedSlot);
 
         if (shouldUnequip) {
             gSaveContext.equips.buttonItems[targetButton] = ITEM_NONE;

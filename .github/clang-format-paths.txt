@@ -137,6 +137,7 @@ games/mm/src/code/z_visfbuf.c
 games/mm/src/overlays/gamestates/ovl_title/z_title.c
 games/oot/soh/Enhancements/MaskShopNightDoor.cpp
 games/oot/soh/Enhancements/Fixes/DarkLinkFixes.cpp
+games/oot/soh/Enhancements/Fixes/FixTwoHandedIdleAnim.cpp
 games/oot/soh/Enhancements/controls/OcarinaNoteMappingCleanup.cpp
 games/oot/soh/Enhancements/controls/OcarinaNoteMappingCleanup.h
 games/oot/soh/Enhancements/cosmetics/CustomLogoTitle.cpp
@@ -184,6 +185,8 @@ games/oot/soh/oot_shuffled_fairy_test.cpp
 games/oot/soh/oot_butterfly_fairy_test.cpp
 games/oot/soh/oot_mask_shop_night_door_test.cpp
 games/oot/soh/oot_dark_link_fixes_test.cpp
+games/oot/soh/oot_upstream_small_fixes_test.cpp
+games/oot/soh/oot_two_handed_idle_test.cpp
 games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp
 games/oot/soh/oot_room_bg_cam_guard_test.cpp
 games/oot/soh/oot_xml_skeleton_empty_limb_test.cpp
