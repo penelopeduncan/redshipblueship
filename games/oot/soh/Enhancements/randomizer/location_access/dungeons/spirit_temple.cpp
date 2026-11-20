@@ -155,7 +155,8 @@ void RegionTable_Init_SpiritTemple() {
 
     areaTable[RR_SPIRIT_TEMPLE_SAND_PIT] = Region("Spirit Temple Sand Pit", SCENE_SPIRIT_TEMPLE, {}, {
         //Locations
-        LOCATION(RC_SPIRIT_TEMPLE_COMPASS_CHEST, logic->CanUse(RG_ZELDAS_LULLABY) && (logic->CanUse(RG_HOOKSHOT) || (ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanUse(RG_MEGATON_HAMMER))) && logic->HasItem(RG_OPEN_CHEST)),
+        //bunnyhovers works as adult if you run against the wall, but it's unintuitive
+        LOCATION(RC_SPIRIT_TEMPLE_COMPASS_CHEST, logic->CanUse(RG_ZELDAS_LULLABY) && (logic->CanUse(RG_HOOKSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_ADULT_SIDE_HUB, []{return true;}),
@@ -218,6 +219,7 @@ void RegionTable_Init_SpiritTemple() {
         //Locations
         //Assumes RR_SPIRIT_TEMPLE_STATUE_ROOM access
         LOCATION(RC_SPIRIT_TEMPLE_MAP_CHEST, SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return logic->HasFireSourceWithTorch() || (ctx->GetTrickOption(RT_SPIRIT_MAP_CHEST) && logic->CanUse(RG_FAIRY_BOW));}, false,
+                                                          RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return logic->HasFireSourceWithTorch();},
                                                           RR_SPIRIT_TEMPLE_STATUE_ROOM,       []{return logic->HasFireSource();}) && logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_SPIRIT_TEMPLE_GS_LOBBY,  SpiritShared(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_LONGSHOT);}, false,
                                                           RR_SPIRIT_TEMPLE_INNER_WEST_HAND,   []{return logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ctx->GetTrickOption(RT_SPIRIT_WEST_LEDGE) ? ED_BOOMERANG : ED_HOOKSHOT);},
@@ -228,6 +230,8 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_SUN_ON_FLOOR_2F,  []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_INNER_WEST_HAND, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_GS_LEDGE,         []{return logic->CanUse(RG_HOVER_BOOTS) || logic->ReachScarecrow();}),
+        //adult requirement is artificial as a way to prevent child logic leaking
+        Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return logic->CanRecoilHoverFromObject(TRECOIL_SHORT) && logic->IsAdult;}),
         // RT_SPIRIT_PLATFORM_HOOKSHOT is currently disabled
         Entrance(RR_SPIRIT_TEMPLE_PLATFORM,         []{return logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED) && 
                                                               (logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_SPIRIT_PLATFORM_HOOKSHOT) && logic->CanUse(RG_HOOKSHOT)));}),
@@ -279,8 +283,6 @@ void RegionTable_Init_SpiritTemple() {
     }, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT);}),
-        Entrance(RR_SPIRIT_TEMPLE_PLATFORM,          []{return logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED) && 
-                                                               (logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_SPIRIT_PLATFORM_HOOKSHOT) && logic->CanUse(RG_HOOKSHOT)));}),
         //explicit adult check here is a precaution against possible child logic leaking, child with a hookshot can do this
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return logic->IsAdult && logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_SPIRIT_TEMPLE_SHORTCUT,          []{return logic->Get(LOGIC_SPIRIT_STATUE_SOUTH_DOOR);}),
@@ -375,6 +377,7 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, []{return true;}),
         //(IsAdult && ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP)) || CanUse(RG_HOVER_BOOTS) || (CanUse(RG_ZELDAS_LULLABY) && CanUse(RG_HOOKSHOT));
         Entrance(RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH, []{return logic->SpiritEastToSwitch();}),
+        Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return logic->CanRecoilHoverFromObject(TRECOIL_SHORT);}),
         Entrance(RR_SPIRIT_TEMPLE_POT_STAIRS,      []{return logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 4);}),
         //RT_SPIRIT_PLATFORM_HOOKSHOT is currently disabled
         Entrance(RR_SPIRIT_TEMPLE_PLATFORM,        []{return logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED) && 
@@ -384,11 +387,17 @@ void RegionTable_Init_SpiritTemple() {
     areaTable[RR_SPIRIT_TEMPLE_INNER_LEFT_HAND] = Region("Spirit Temple Inner Left Hand", SCENE_SPIRIT_TEMPLE, {}, {
         //Locations
         //Assumes RR_SPIRIT_TEMPLE_INNER_WEST_HAND access via RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD and RR_SPIRIT_TEMPLE_STATUE_ROOM.
-        LOCATION(RC_SPIRIT_TEMPLE_STATUE_ROOM_HAND_CHEST, SpiritShared(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, []{return logic->CanUse(RG_ZELDAS_LULLABY) && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT)) && logic->HasItem(RG_OPEN_CHEST);})),
-    }, {
+        //If entering via the statue's head, there's a scenario where RC_SPIRIT_TEMPLE_STATUE_ROOM_HAND_CHEST can be reached without being able to go from 1 hand to the other
+        //This invovles using limited means to reach the left hand, playing ZL, dieing, then on respawn jumping to the other hand for the chest
+        //Both reloading a save and using FW reload the temp flags and despawn the chest.
+        //In addition to being obtuse however there is no reliable, itemless way to die in this room, as the only enemies that can be reached with no items are pots that do 1 hit, break and likely give you a heart to replace it
+        //because of all of this, it would be a trick
+        LOCATION(RC_SPIRIT_TEMPLE_STATUE_ROOM_HAND_CHEST,      SpiritShared(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, []{return logic->CanUse(RG_ZELDAS_LULLABY) && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT)) && logic->HasItem(RG_OPEN_CHEST);})),
+        LOCATION(RC_SPIRIT_TEMPLE_STATUE_ROOM_NORTHEAST_CHEST, SpiritShared(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, []{return logic->CanUse(RG_ZELDAS_LULLABY) && logic->HasItem(RG_OPEN_CHEST) &&
+                                                                                                                                                               ((logic->IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || logic->BunnyHood())) || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS));})),}, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM,       []{return true;}),
-        Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
+        Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood() || logic->CanUse(RG_HOOKSHOT);}),
         //Assumes RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT access via RR_SPIRIT_TEMPLE_STATUE_ROOM
         Entrance(RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH,   []{return (logic->IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || logic->BunnyHood())) ||
                                                                (logic->CanUse(RG_ZELDAS_LULLABY) && logic->CanUse(RG_HOOKSHOT));}),
@@ -397,11 +406,7 @@ void RegionTable_Init_SpiritTemple() {
     areaTable[RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH] = Region("Spirit Temple Shortcut Switch", SCENE_SPIRIT_TEMPLE, {
         //Events
         EventAccess(LOGIC_SPIRIT_STATUE_SOUTH_DOOR, []{return SpiritShared(RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH, []{return logic->CanUse(RG_MEGATON_HAMMER);});}),
-    }, {
-        //Locations
-        //Assumes RR_SPIRIT_TEMPLE_INNER_LEFT_HAND access
-        LOCATION(RC_SPIRIT_TEMPLE_STATUE_ROOM_NORTHEAST_CHEST, SpiritShared(RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH, []{return logic->CanUse(RG_ZELDAS_LULLABY) && logic->HasItem(RG_OPEN_CHEST);})),
-    }, {
+    }, {}, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND,   []{return true;}),
@@ -430,7 +435,6 @@ void RegionTable_Init_SpiritTemple() {
 
     areaTable[RR_SPIRIT_TEMPLE_4_ARMOS] = Region("Spirit Temple 4 Armos", SCENE_SPIRIT_TEMPLE, {}, {
         //Locations
-        LOCATION(RC_SPIRIT_TEMPLE_NEAR_FOUR_ARMOS_CHEST, (logic->CanUse(RG_MIRROR_SHIELD) || logic->SunlightArrows()) && logic->HasExplosives() && logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_SPIRIT_TEMPLE_ARMOS_ROOM_SUN_FAIRY,  logic->HasExplosives() && logic->CanUse(RG_SUNS_SONG)),
     }, {
         Entrance(RR_SPIRIT_TEMPLE_BEAMOS_PITS,       []{return true;}),
@@ -545,9 +549,10 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM,       []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_CHILD, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_INNER_WEST_HAND,   []{return true;}),
+        //if we are here as child, it's either doorsanity or we have 5 logical keys, so we don't care about leaks
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND,   []{return true;}),
-        Entrance(RR_SPIRIT_TEMPLE_STATUE_HEAD,       []{return logic->Get(LOGIC_SPIRIT_PUSHED_4F_MIRRORS) && logic->CanUse(RG_MIRROR_SHIELD) && logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_SPIRIT_TEMPLE_STATUE_HEAD,       []{return logic->Get(LOGIC_SPIRIT_PUSHED_4F_MIRRORS) && AnyAgeTime([]{return logic->CanUse(RG_MIRROR_SHIELD);}) && logic->CanUse(RG_HOOKSHOT);}),
     });
 
     areaTable[RR_SPIRIT_TEMPLE_STATUE_HEAD] = Region("Spirit Temple Statue Head", SCENE_SPIRIT_TEMPLE, {
@@ -561,7 +566,8 @@ void RegionTable_Init_SpiritTemple() {
     }, {
         // Exits
         Entrance(RR_SPIRIT_TEMPLE_STATUE_ROOM,      []{return true;}),
-        //CanBunnyJump with a jumpslash can reach either hand and with good timing the platform as child. the latter is definitely a trick, the former may not be
+        //Bunny hood jumps with a jumpslash can reach either hand and with good timing the platform as child. 
+        //The latter is definitely a trick, the former may not be but I am dissalowing it because I would have to spend a week writing a new branch of spirit key logic.
         //If this interaction with the hands is added, SpiritSharedLogic needs updating for it
         Entrance(RR_SPIRIT_TEMPLE_INNER_WEST_HAND,  []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->CanJumpslash() && logic->IsAdult);}),
         Entrance(RR_SPIRIT_TEMPLE_INNER_LEFT_HAND,  []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->CanJumpslash() && logic->IsAdult);}),
@@ -599,7 +605,8 @@ void RegionTable_Init_SpiritTemple() {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_ENTRYWAY,           []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_CHILD_SIDE_HUB,  []{return (logic->IsAdult || logic->HasItem(RG_SPEAK_GERUDO) || logic->Get(LOGIC_SPIRIT_NABOORU_KIDNAPPED)) && logic->CanUse(RG_CRAWL) /*&& logic->HasSoul(RG_NABOORU_SOUL)*/;}),
-        Entrance(RR_SPIRIT_TEMPLE_MQ_BEHIND_GEYSER,   []{return ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && (logic->CanUse(RG_MEGATON_HAMMER) || (logic->CanStandingShield() && (logic->CanUseSword() || logic->CanUse(RG_STICKS))));}),
+        //You can use the boulder over the eye target to do this with just sword, but it cannot be logical as the boulder is a perm flag
+        Entrance(RR_SPIRIT_TEMPLE_MQ_BEHIND_GEYSER,   []{return logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_BIG_BLOCKS_HOLE, []{return logic->CanUse(RG_LONGSHOT) && logic->CanUse(RG_BOMBCHU_5);}),
     });
 
@@ -649,6 +656,7 @@ void RegionTable_Init_SpiritTemple() {
         LOCATION(RC_SPIRIT_TEMPLE_MQ_GIBDO_BOULDER,     logic->BlastOrSmash()),
     }, {
         //Exits
+        //climbing the grate through the celing allows you to go backwards here, but that's a clip not visible collision
         Entrance(RR_SPIRIT_TEMPLE_MQ_TURNTABLE, []{return logic->Get(LOGIC_SPIRIT_MQ_GIBDOS_CLEARED);}),
     });
 
@@ -768,7 +776,7 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND,    []{return logic->IsAdult || logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_FLAMETHROWER_STAIRS, []{return logic->MQSpiritStatueToSunBlock();}),
         //explicit adult check here is a precaution against possible child logic leaking, child with a hookshot can do this
-        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_ADULT,   []{return logic->IsAdult && logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_ADULT,   []{return logic->IsAdult && (logic->CanUse(RG_HOOKSHOT) || logic->CanRecoilHover(RECOIL_HAMMER_AND_SHIELD));}),
     });
 
     areaTable[RR_SPIRIT_TEMPLE_MQ_POT_LEDGE] = Region("Spirit Temple MQ Pot Ledge", SCENE_SPIRIT_TEMPLE, {
@@ -800,9 +808,6 @@ void RegionTable_Init_SpiritTemple() {
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM,       []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_POT_LEDGE,         []{return logic->IsAdult && (ctx->GetTrickOption(RT_SPIRIT_STATUE_JUMP) || logic->BunnyHood());}),
-        // RT_SPIRIT_PLATFORM_HOOKSHOT is currently disabled
-        Entrance(RR_SPIRIT_TEMPLE_MQ_PLATFORM,          []{return logic->Get(LOGIC_SPIRIT_PLATFORM_LOWERED) && 
-                                                                  (logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_SPIRIT_PLATFORM_HOOKSHOT) && logic->CanUse(RG_HOOKSHOT)));}),
     });
     
     areaTable[RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM] = Region("Spirit Temple MQ Statue Room", SCENE_SPIRIT_TEMPLE, {
@@ -825,6 +830,7 @@ void RegionTable_Init_SpiritTemple() {
                                                                                                                         (logic->CanUse(RG_BOOMERANG) && logic->HasExplosives());})),
     }, {
         //Exits
+        //Adult can use bunnyhovers to reach the SoT block from the statues legs, but that's unintuitive
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD, []{return logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_BIG_BLOCKS_DOOR,   []{return logic->Get(LOGIC_SPIRIT_STATUE_SOUTH_DOOR);}),
         //explicit adult check here is a precaution against possible Child logic leaking, Child with a hookshot can do this
@@ -842,7 +848,7 @@ void RegionTable_Init_SpiritTemple() {
         //Locations
         LOCATION(RC_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM_CHEST, SpiritShared(RR_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM, []{return logic->HasItem(RG_POWER_BRACELET) && logic->HasItem(RG_OPEN_CHEST);})),
         //RT_SPIRIT_MQ_SUN_BLOCK_GS should probably be expanded to cover all ground based methods, as it can be hit with longshot because the skull hitbox is larger than the model
-        LOCATION(RC_SPIRIT_TEMPLE_MQ_GS_SUN_BLOCK_ROOM,    SpiritShared(RR_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM, []{return (logic->CanUse(RG_HOOKSHOT) && (logic->HasItem(RG_POWER_BRACELET) || logic->SunlightArrows())) ||
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_GS_SUN_BLOCK_ROOM,    SpiritShared(RR_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM, []{return (logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG) && (logic->HasItem(RG_POWER_BRACELET) || logic->SunlightArrows())) ||
                                                                                                                       (ctx->GetTrickOption(RT_SPIRIT_MQ_SUN_BLOCK_GS) && logic->CanUse(RG_BOOMERANG));})),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_SUN_BLOCKS_POT_1,     SpiritShared(RR_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM, []{return logic->CanBreakPots();})),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_SUN_BLOCKS_POT_2,     SpiritShared(RR_SPIRIT_TEMPLE_MQ_SUN_BLOCK_ROOM, []{return logic->CanBreakPots();})),
@@ -905,6 +911,7 @@ void RegionTable_Init_SpiritTemple() {
     areaTable[RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_ADULT] = Region("Spirit Temple MQ Statue Room Adult", SCENE_SPIRIT_TEMPLE, {}, {}, {
         //Exits
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM,            []{return true;}),
+        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD,      []{return logic->CanUse(RG_HOOKSHOT) || logic->CanRecoilHover(RECOIL_HAMMER_AND_SHIELD);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_INNER_LEFT_HAND,        []{return logic->IsAdult || logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood();}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_CHEST_LEDGE,            []{return logic->CanUse(RG_HOVER_BOOTS) || 
                                                                       ((ctx->GetTrickOption(RT_LENS_SPIRIT_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && logic->CanUse(RG_LONGSHOT));}),
@@ -969,7 +976,7 @@ void RegionTable_Init_SpiritTemple() {
         LOCATION(RC_SPIRIT_MQ_JET_LOBBY_SILVER,         logic->CanUse(RG_MEGATON_HAMMER)),
     }, {
         //Exits
-        Entrance(RR_SPIRIT_TEMPLE_MQ_FOYER,               []{return logic->CanUse(RG_MEGATON_HAMMER) || (ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanStandingShield() && (logic->CanUseSword() || logic->CanUse(RG_STICKS)));}),
+        Entrance(RR_SPIRIT_TEMPLE_MQ_FOYER,               []{return logic->CanUse(RG_MEGATON_HAMMER) || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_3_SUNS_ROOM_1F,      []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_SAND_PIT,            []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_SYMPHONY_ROOM_UPPER, []{return logic->SmallKeys(SCENE_SPIRIT_TEMPLE, 7);}),
@@ -977,7 +984,8 @@ void RegionTable_Init_SpiritTemple() {
 
     areaTable[RR_SPIRIT_TEMPLE_MQ_SAND_PIT] = Region("Spirit Temple MQ Sand Pit", SCENE_SPIRIT_TEMPLE, {}, {
         //Locations
-        LOCATION(RC_SPIRIT_TEMPLE_MQ_LEEVER_ROOM_CHEST, logic->CanKillEnemy(RE_PURPLE_LEEVER) && (logic->CanUse(RG_HOOKSHOT) || (ctx->GetTrickOption(RT_HOVER_BOOST_SIMPLE) && logic->CanUse(RG_HOVER_BOOTS) && logic->CanUse(RG_MEGATON_HAMMER))) && logic->HasItem(RG_OPEN_CHEST)),
+        //bunnyhovers works as adult if you run against the wall, but it's unintuitive
+        LOCATION(RC_SPIRIT_TEMPLE_MQ_LEEVER_ROOM_CHEST, logic->CanKillEnemy(RE_PURPLE_LEEVER) && (logic->CanUse(RG_HOOKSHOT) || logic->CanRecoilHover(RECOIL_HAMMER)) && logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_SPIRIT_TEMPLE_MQ_GS_LEEVER_ROOM,    logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOOMERANG)),
     }, {
         //Exits
@@ -1170,7 +1178,7 @@ void RegionTable_Init_SpiritTemple() {
     //Assumes SpiritPlatformLowered is checked on entry
     areaTable[RR_SPIRIT_TEMPLE_MQ_PLATFORM] = Region("Spirit Temple MQ Platform", SCENE_SPIRIT_TEMPLE, {}, {}, {
         //Exits
-        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_HEAD,       []{return logic->Get(LOGIC_SPIRIT_PUSHED_4F_MIRRORS) && logic->CanUse(RG_MIRROR_SHIELD) && logic->CanUse(RG_HOOKSHOT);}),
+        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_HEAD,       []{return logic->Get(LOGIC_SPIRIT_PUSHED_4F_MIRRORS) && AnyAgeTime([]{return logic->CanUse(RG_MIRROR_SHIELD);}) && logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM_CHILD, []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND,  []{return true;}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM,       []{return true;}),
@@ -1189,7 +1197,8 @@ void RegionTable_Init_SpiritTemple() {
     }, {
         // Exits
         Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM,      []{return true;}),
-        //CanBunnyJump with a jumpslash can reach either hand and with good timing the platform as child. the latter is definitely a trick, the former may not be
+        //Bunny hood jumps with a jumpslash can reach either hand and with good timing the platform as child. 
+        //The latter is definitely a trick, the former may not be but I am dissalowing it because I would have to spend a week writing a new branch of spirit key logic.
         //If this interaction with the hands is added, SpiritSharedLogic needs updating for it
         Entrance(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND, []{return logic->CanUse(RG_HOVER_BOOTS);}),
         Entrance(RR_SPIRIT_TEMPLE_MQ_INNER_LEFT_HAND,  []{return logic->CanUse(RG_HOVER_BOOTS);}),
@@ -1202,8 +1211,8 @@ void RegionTable_Init_SpiritTemple() {
     // Boss Room
     areaTable[RR_SPIRIT_TEMPLE_BOSS_ENTRYWAY] = Region("Spirit Temple Boss Entryway", SCENE_SPIRIT_TEMPLE, {}, {}, {
         // Exits
-        Entrance(RR_SPIRIT_TEMPLE_STATUE_HEAD,    []{return ctx->GetDungeon(SPIRIT_TEMPLE)->IsVanilla() && false;}),
-        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_HEAD, []{return ctx->GetDungeon(SPIRIT_TEMPLE)->IsMQ() && false;}),
+        Entrance(RR_SPIRIT_TEMPLE_STATUE_HEAD,    []{return ctx->GetDungeon(SPIRIT_TEMPLE)->IsVanilla();}),
+        Entrance(RR_SPIRIT_TEMPLE_MQ_STATUE_HEAD, []{return ctx->GetDungeon(SPIRIT_TEMPLE)->IsMQ();}),
         Entrance(RR_SPIRIT_TEMPLE_BOSS_ROOM,      []{return logic->HasItem(RG_SPIRIT_TEMPLE_BOSS_KEY);}),
     });
 

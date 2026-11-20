@@ -104,12 +104,13 @@ static bool HintFindJsonName(const std::unordered_map<std::string, T>& table, co
 
 void Hint::MarkUnknownName(const char* field, const nlohmann::json& name) {
     SPDLOG_WARN("Hint {}: unknown {} {}; the hint is loaded disabled", (int)ownKey, field, name.dump());
+    // Reset whole, as an "enabled": false hint is left: a type the earlier fields set (Trial, Item, ...) must not
+    // survive with its lists emptied, since GetHintText reads trials[0] for a Trial hint and a stone reads its text
+    // without asking IsEnabled.
+    const RandomizerHint key = ownKey;
+    ResetVariables();
+    ownKey = key;
     unknownName = true;
-    enabled = false;
-    // Cleared whole, never one slot: itemNamesChosen, areaNamesChosen and foreignAreas run parallel to these.
-    locations.clear();
-    areas.clear();
-    trials.clear();
 }
 
 bool Hint::HasUnknownName() const {

@@ -251,8 +251,10 @@ static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
 static_assert(RT_WATER_HIGH_EMBLEM_JUMP == RT_BOMB_DETONATION + 1 &&
                   RT_DC_EYES_BUNNYHOVERS == RT_WATER_HIGH_EMBLEM_JUMP + 1,
               "OoT's RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) is appended after RT_WATER_HIGH_EMBLEM_JUMP");
-static_assert(RT_VOIDOUT_COLLECTION == RT_DC_EYES_BUNNYHOVERS + 1 && RT_MAX == RT_VOIDOUT_COLLECTION + 1,
+static_assert(RT_VOIDOUT_COLLECTION == RT_DC_EYES_BUNNYHOVERS + 1,
               "OoT's RT_VOIDOUT_COLLECTION (SoH e86e0ff69) is appended after RT_DC_EYES_BUNNYHOVERS");
+static_assert(RT_GTG_MQ_LAVA_ROOM == RT_VOIDOUT_COLLECTION + 1 && RT_MAX == RT_GTG_MQ_LAVA_ROOM + 1,
+              "OoT's RT_GTG_MQ_LAVA_ROOM (SoH eca767dcb) is appended after RT_VOIDOUT_COLLECTION");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));

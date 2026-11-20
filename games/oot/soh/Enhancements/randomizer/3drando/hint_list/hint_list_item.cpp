@@ -1964,11 +1964,11 @@ void StaticData::HintTable_Init_Item() {
                                                  CustomMessage("a gold fragment", /*german*/"ein Goldfragment", /*french*/"un fragment d'or")});
                                                   // /*spanish*/un fragmento dorado
 
-    hintTextTable[RHT_ROCS_FEATHER] = HintText(CustomMessage("Roc's Feather", /*german*/"Roc's Feather", /*french*/"Roc's Feather"),
+    hintTextTable[RHT_ROCS_FEATHER] = HintText(CustomMessage("Roc's Feather", /*german*/"Greifenfeder", /*french*/"Plume de Roc"),
                                                  {}, {
-                                                 CustomMessage("a feather", /*german*/"a feather", /*french*/"a feather"),
-                                                 CustomMessage("a chicken wing", /*german*/"a chicken wing", /*french*/"a chicken wing"),
-                                                 CustomMessage("a blue wing", /*german*/"a blue wing", /*french*/"a blue wing")});
+                                                 CustomMessage("a feather", /*german*/TODO_TRANSLATE, /*french*/"une plume"),
+                                                 CustomMessage("a chicken wing", /*german*/TODO_TRANSLATE, /*french*/"une aile de poulet"),
+                                                 CustomMessage("a blue wing", /*german*/TODO_TRANSLATE, /*french*/"une aile bleue")});
 
     // [RSBS #979] Majora's Mask's Blast Mask in OoT, the masks' shape.
     hintTextTable[RHT_BLAST_MASK] = HintText(CustomMessage("a blast mask", /*german*/"!!!", /*french*/"le Masque Explosif"), {CustomMessage("a mask", /*german*/"!!!", /*french*/"un masque")});
@@ -2176,7 +2176,7 @@ void StaticData::HintTable_Init_Item() {
     hintTextTable[RHT_HINT_MYSTERIOUS] = HintText(CustomMessage("something mysterious", /*german*/"etwas Mysteriöses", /*french*/"un sacré mystère"));
                                                   // /*spanish*/algo misterioso
 
-    hintTextTable[RHT_MYSTERIOUS_ITEM] = HintText(CustomMessage("mysterious item", /*german*/"ein mysteriöser Gegenstand", /*french*/"objet mystérieux"));
+    hintTextTable[RHT_MYSTERIOUS_ITEM] = HintText(CustomMessage("a mysterious item", /*german*/"ein mysteriöser Gegenstand", /*french*/"un objet mystérieux"));
                                                   // /*spanish*/algo misterioso
 
      hintTextTable[RHT_MYSTERIOUS_ITEM_CAPITAL] = HintText(CustomMessage("Mysterious Item", /*german*/"Mysteriöser Gegenstand", /*french*/"Objet Mystérieux"));
