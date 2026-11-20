@@ -1864,6 +1864,19 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport #1753 (SoH 236c9c81f, 5c55c01c6, cca66cdc5): the Bombchu Bowling, frogs' Ocarina game and Shooting
+// Gallery options are GameInteractor_Should hooks. Body in games/oot/soh/oot_minigame_hookify_test.cpp; return 0
+// on pass. The display-free shared bring-up, because the row writes and clears the option CVars.
+extern "C" int OoT_MinigameHookify_RunHeadless(void);
+static TestResult Test_OoTMinigameHookify(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameHookify_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // SoH c93b6188c (#1748): the swim-void respawn takes the entrance's room. Body in
 // games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
 extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void);
@@ -11634,6 +11647,14 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // Backport #1753: display-free and ROM-free; restores the thirteen option
+    // CVars (cleared, never stored, when unset), OoT_gPlayState, the age, the
+    // frog pointers, the hooks and the current game.
+    { "oot-minigame-hookify",
+      "The Bombchu Bowling, frogs' Ocarina game and Shooting Gallery options are GameInteractor hooks: every answer is "
+      "vanilla with the options off, and each of the ten moved behaviours holds with its option on (SoH #6968, #6969, "
+      "#6972)",
+      Test_OoTMinigameHookify },
     // SoH c93b6188c: display-free, ROM-free, no global state.
     { "oot-swim-void-respawn-room",
       "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
