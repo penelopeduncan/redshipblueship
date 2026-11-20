@@ -2098,6 +2098,80 @@ if(BUILD_TESTING)
     # behaviour (ten) with the option on. Display-free and ROM-free.
     redship_add_test(NAME OoTMinigameHookify COMMAND redship --test oot-minigame-hookify)
 
+    # SoH c93b6188c (#1748): a swim void without Swim moves the respawn to the
+    # entrance's position and now also to the entrance's room. The row drives
+    # Randomizer_SwimVoidRespawnRoom (hook_handlers.cpp) with a fake entrance
+    # list: own scene -> the entrance's room; another scene, no list or an
+    # out-of-range index -> the current room. Display-free and ROM-free.
+    redship_add_test(NAME OoTSwimVoidRespawnRoom COMMAND redship --test oot-swim-void-respawn-room)
+
+    # SoH 8584ced40b (#1742): Fix Two-Handed Idle Animations did nothing, since
+    # the swing fidget needed the shield hand. The row runs
+    # FixTwoHandedIdleAnim.cpp's registrar out of ShipInit's map, then the REAL
+    # VB_SET_IDLE_ANIM dispatch with a fake Link holding Biggoron's Sword, then
+    # the Deku Stick: option off -> vanilla; on -> the swing is accepted and the
+    # shield adjust refused; a one-handed sword is unchanged. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTTwoHandedIdleAnim COMMAND redship --test oot-two-handed-idle-anim)
+
+    # SoH 16ee01404 (#1747): Allow unequipping Items now also unequips the bow
+    # when a magic arrow is on the button and the bow is under the cursor. The
+    # row drives OoT_ItemUnequip_ShouldUnequip (Enhancements/ItemUnequip.cpp):
+    # the bow over each magic-arrow bow -> unequip; the old pairs unchanged.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTItemUnequipBow COMMAND redship --test oot-item-unequip-bow)
+
+    # SoH 172b373fb (#1747): outside the randomizer, the Customize Fishing
+    # minimum weights now also set the weight that wins the vanilla prize. The
+    # row runs Fishing.cpp's prize registrar out of ShipInit's map, then the REAL
+    # VB_SHOULD_GIVE_VANILLA_FISHING_PRIZE dispatch on a vanilla adult file with
+    # a 7 lb minimum: over it -> prize; under it or already won -> none; the
+    # option off or a randomizer file -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTFishingPrizeThreshold COMMAND redship --test oot-fishing-prize-threshold)
+
+    # SoH 490e13616 (#1746, the Save Editor hunk only): the B-button selector's
+    # sword test was the empty range ITEM_SWORD_KOKIRI (0x3B)..ITEM_SWORD_BROKEN
+    # (0x33), so a picked sword never reached Link's held sword. The row drives
+    # OoT_SaveEditor_IsSwordItem (debugSaveEditor.cpp): the four swords -> true;
+    # the Deku Shield, the knife, the Prescription, ITEM_NONE -> false.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorSwordRange COMMAND redship --test oot-save-editor-sword-range)
+
+    # SoH 8b3d91506 (#1750): the title cards read stale TitleCard.* position
+    # names while the Cosmetics Editor writes HUD.TitleCard.*, and All margins on
+    # let the last list entry win. The row drives OoT_TitleCard_ResolvePos
+    # (z_actor.c; original, not anchored and hidden only, since the anchors read
+    # the window) and OoT_CosmeticsEditor_ApplyMarginAll: the HUD.* settings move
+    # each card; margins skip the unanchored cards at their original place and
+    # hidden elements. Display-free and ROM-free.
+    redship_add_test(NAME OoTTitleCardCvars COMMAND redship --test oot-title-card-cvars)
+
+    # SoH 11fd0e0e7 (#1750): editing Bow Body multiplied the picked colour by
+    # four, and the derived colours read a cached copy the colour picker never
+    # refreshed. The row sets Bow Body's .Value as the picker does and runs
+    # the editor's side effects (OoT_CosmeticsEditor_ApplySideEffectsById):
+    # Bow Body stays as picked; Bow Tips is half of it and Bow Handle equals it;
+    # a x2 copy saturates at 255. Display-free and ROM-free.
+    redship_add_test(NAME OoTBowBodyCosmetic COMMAND redship --test oot-bow-body-cosmetic)
+
+    # SoH 847e3cd32 (#1747, the z_map_exp.c hunk only): in a randomizer file
+    # Lake Hylia's minimap keyed the lowered-water map on the Water Temple blue
+    # warp, so it showed raised water after the floor switch lowered it. The row
+    # drives OoT_Map_LakeHyliaShowsLoweredMap: blue warp but water lowered ->
+    # lowered map; water raised without the blue warp -> raised map; vanilla
+    # files still follow the Water Medallion; child -> raised. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTLakeHyliaMinimap COMMAND redship --test oot-lake-hylia-minimap)
+
+    # SoH a089fa60b (#1747): Hover Fishing skipped every cast check; it now
+    # restores NTSC 1.0 (only the rod-in-wall check, and Link keeps his speed)
+    # through VB_NOT_CAST_FISHING and VB_FISHING_ZERO_XZ. The row runs
+    # Fishing.cpp's registrar out of ShipInit's map, then the REAL dispatch:
+    # off -> both vanilla; on -> the cast keeps Link's speed. The on-state cast
+    # check reads the play state's collision and is not driven. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
+
     # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
     # custom ocarina-note buttons' saved id lists. The row builds that state in
     # the CVar store and runs the start-up clean-up: the stray ids go, the

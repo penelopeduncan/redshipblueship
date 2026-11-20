@@ -1877,6 +1877,99 @@ static TestResult Test_OoTMinigameHookify(void) {
     return OoT_MinigameHookify_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH c93b6188c (#1748): the swim-void respawn takes the entrance's room. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void);
+static TestResult Test_OoTSwimVoidRespawnRoom(void) {
+    return OoT_SwimVoidRespawnRoom_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 8584ced40b (#1742): the Fix Two-Handed Idle Animations option. Body in
+// games/oot/soh/oot_two_handed_idle_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the TwoHandedIdle CVar.
+extern "C" int OoT_TwoHandedIdleAnim_RunHeadless(void);
+static TestResult Test_OoTTwoHandedIdleAnim(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TwoHandedIdleAnim_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 16ee01404 (#1747): the bow unequips a bow-with-magic-arrow button. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_ItemUnequipBow_RunHeadless(void);
+static TestResult Test_OoTItemUnequipBow(void) {
+    return OoT_ItemUnequipBow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 172b373fb (#1747): the customised fishing minimum sets the vanilla prize. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears two fishing CVars.
+extern "C" int OoT_FishingPrizeThreshold_RunHeadless(void);
+static TestResult Test_OoTFishingPrizeThreshold(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_FishingPrizeThreshold_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 490e13616 (#1746): the Save Editor's sword test. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_SaveEditorSwordRange_RunHeadless(void);
+static TestResult Test_OoTSaveEditorSwordRange(void) {
+    return OoT_SaveEditorSwordRange_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 8b3d91506 (#1750): title card position names and the All margins buttons. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HUD position and margin CVars.
+extern "C" int OoT_TitleCardCvars_RunHeadless(void);
+static TestResult Test_OoTTitleCardCvars(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TitleCardCvars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 11fd0e0e7 (#1750): the Bow Body colour and its derived colours. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and restores cosmetic colour CVars.
+extern "C" int OoT_BowBodyCosmetic_RunHeadless(void);
+static TestResult Test_OoTBowBodyCosmetic(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_BowBodyCosmetic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 847e3cd32 (#1747): Lake Hylia's minimap follows the raised-water flag. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper over gSaveContext (restored), no Context needed.
+extern "C" int OoT_LakeHyliaMinimap_RunHeadless(void);
+static TestResult Test_OoTLakeHyliaMinimap(void) {
+    return OoT_LakeHyliaMinimap_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH a089fa60b (#1747): Hover Fishing restores the NTSC 1.0 cast. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HoverFishing CVar.
+extern "C" int OoT_HoverFishing_RunHeadless(void);
+static TestResult Test_OoTHoverFishing(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
@@ -11562,6 +11655,52 @@ const TestDescriptor gTests[] = {
       "vanilla with the options off, and each of the ten moved behaviours holds with its option on (SoH #6968, #6969, "
       "#6972)",
       Test_OoTMinigameHookify },
+    // SoH c93b6188c: display-free, ROM-free, no global state.
+    { "oot-swim-void-respawn-room",
+      "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
+      "keeps the current room otherwise (SoH c93b6188c)",
+      Test_OoTSwimVoidRespawnRoom },
+    // SoH 8584ced40b: display-free and ROM-free; clears the TwoHandedIdle CVar and re-runs the registrar.
+    { "oot-two-handed-idle-anim",
+      "With Fix Two-Handed Idle Animations on, Biggoron's Sword and the Deku Stick reach the swing fidget and never "
+      "the shield one; with it off the vanilla choice passes through (SoH 8584ced40b)",
+      Test_OoTTwoHandedIdleAnim },
+    // SoH 16ee01404: display-free, ROM-free, no global state.
+    { "oot-item-unequip-bow",
+      "Re-pressing a button over the bow unequips the fire, ice or light arrow bow on it, and the existing unequip "
+      "pairs are unchanged (SoH 16ee01404)",
+      Test_OoTItemUnequipBow },
+    // SoH 172b373fb: display-free and ROM-free; restores the fishing CVars (cleared, never stored) and the save fields.
+    { "oot-fishing-prize-threshold",
+      "Outside the randomizer, Customize Fishing's minimum weight decides the vanilla fishing prize, once per age; "
+      "off or in a randomizer file the vanilla result passes through (SoH 172b373fb)",
+      Test_OoTFishingPrizeThreshold },
+    // SoH 490e13616: display-free, ROM-free, no global state.
+    { "oot-save-editor-sword-range",
+      "The Save Editor's B-button selector treats Kokiri, Master and Biggoron's swords and the broken Giant's Knife "
+      "as swords and nothing else (SoH 490e13616)",
+      Test_OoTSaveEditorSwordRange },
+    // SoH 8b3d91506: display-free and ROM-free; restores every HUD CVar it writes (cleared, never stored).
+    { "oot-title-card-cvars",
+      "The title cards follow the Cosmetics Editor's HUD.TitleCard position settings, and All margins on skips "
+      "hidden elements and the unanchored title cards at their original place (SoH 8b3d91506)",
+      Test_OoTTitleCardCvars },
+    // SoH 11fd0e0e7: display-free and ROM-free; puts back every cosmetic CVar it writes (cleared if absent).
+    { "oot-bow-body-cosmetic",
+      "Editing Bow Body keeps the picked colour and derives Bow Tips and Bow Handle from it, not from a cached "
+      "default (SoH 11fd0e0e7)",
+      Test_OoTBowBodyCosmetic },
+    // SoH 847e3cd32: display-free, ROM-free; restores the gSaveContext fields it writes.
+    { "oot-lake-hylia-minimap",
+      "In a randomizer file Lake Hylia's minimap shows the lowered-water map exactly when the raised-water flag is "
+      "clear; vanilla files still follow the Water Medallion (SoH 847e3cd32)",
+      Test_OoTLakeHyliaMinimap },
+    // SoH a089fa60b: display-free and ROM-free; clears the HoverFishing CVar and re-runs the registrar.
+    { "oot-hover-fishing",
+      "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
+      "(SoH a089fa60b)",
+      Test_OoTHoverFishing },
+
     // #1741: display-free and ROM-free; restores every controller key it touches
     // (cleared, never stored, when it was unset) and saves nothing to disk.
     { "oot-ocarina-note-mapping-cleanup",
