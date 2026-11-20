@@ -126,8 +126,8 @@ bool Camera_FreeLook(Camera* camera) {
         pitch = minPitch;
     }
 
-    // RSBS: shared FreeLook.UseGameDistance (SoH 100bae3b9): when set, follow the game's default distance
-    // (roData->unk_04) instead of the fixed MaxCameraDistance.
+    // RSBS: adapted from SoH 100bae3b9's z_camera.c line. Shared FreeLook.UseGameDistance: when set, follow the
+    // game's default distance (roData->unk_04) instead of the fixed MaxCameraDistance.
     f32 distTarget = CVarGetInteger("gSettings.FreeLook.UseGameDistance", 0)
                          ? roData->unk_04
                          : CVarGetInteger("gSettings.FreeLook.MaxCameraDistance", roData->unk_04);
