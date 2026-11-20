@@ -193,17 +193,16 @@ void CheckMQLocationsVisibility() {
     MR_CHECK(RandomizerCheckObjects::IsQuestVisible(RCQUEST_MQ, RO_MQ_DUNGEONS_SET_NUMBER, 5),
              "Set Number 5: MQ check visible");
 
-    // Live UpdateImGuiVisibility() over Rando::Context + Rando::StaticData
-    auto randoCtx = Rando::Context::GetInstance();
-    if (!randoCtx) {
-        randoCtx = Rando::Context::CreateInstance();
-        randoCtx->InitStaticData();
-    }
+    // Live UpdateImGuiVisibility() over Rando::Context + Rando::StaticData, the
+    // bring-up oot_tracker_soh_fixes_test.cpp uses. It reads the MQ keys from the
+    // CVar store and the seed options from the Context, so it needs no
+    // Settings::CreateOptions(): that one asks OTRGlobals::Instance whether both
+    // quests' archives are loaded, and this row has no OTRGlobals.
     if (Rando_InitRegionGraphForTest() != 0 || Rando::Context::GetInstance() == nullptr) {
         MR_CHECK(false, "Rando_InitRegionGraphForTest failed");
         return;
     }
-    Rando::Settings::GetInstance()->CreateOptions();
+    auto randoCtx = Rando::Context::GetInstance();
     if (Rando::StaticData::GetLocation(RC_DEKU_TREE_SLINGSHOT_CHEST)->GetName().empty()) {
         Rando::StaticData::InitLocationTable();
     }
