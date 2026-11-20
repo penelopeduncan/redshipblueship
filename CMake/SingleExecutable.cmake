@@ -4895,6 +4895,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # tier; src/common/tests/test_extractor_picker_guard.c.
     redship_add_test(NAME ExtractorPickerGuard COMMAND redship --test extractor-picker-guard)
 
+    # Backport packet #1733 (menu robustness): ExcludedLocations trailing-comma
+    # round-trip, MQ Dungeons selection visibility, Audio API backend filtering,
+    # and slider label suffix stripping. Default redship tier;
+    # games/oot/soh/oot_menu_robustness_test.cpp.
+    redship_add_test(NAME OoTMenuRobustness COMMAND redship --test oot-menu-robustness)
+
     # ========================================================================
     # Integration tests (requires display - use Xvfb in CI)
     # These tests actually boot the games and verify boot completion

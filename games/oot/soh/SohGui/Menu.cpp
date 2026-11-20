@@ -6,8 +6,10 @@
 #include "SohModals.h"
 #include <variant>
 #include <spdlog/fmt/fmt.h>
+#include <map>
 #include <tuple>
 #include <unordered_set>
+#include <vector>
 
 extern "C" {
 #include "z64.h"
@@ -101,6 +103,17 @@ void Menu::RemoveSidebarSearch() {
         curIndex = menuEntries["Settings"].sidebarOrder.size() - 1;
     }
     CVarSetString(menuEntries["Settings"].sidebarCvar, menuEntries["Settings"].sidebarOrder.at(curIndex).c_str());
+}
+
+std::map<Ship::AudioBackend, const char*>
+BuildAvailableAudioBackendsMap(const std::vector<Ship::AudioBackend>& availableBackends) {
+    std::map<Ship::AudioBackend, const char*> availableMap;
+    for (const auto& backend : availableBackends) {
+        if (auto it = audioBackendsMap.find(backend); it != audioBackendsMap.end()) {
+            availableMap.emplace(backend, it->second);
+        }
+    }
+    return availableMap;
 }
 
 void Menu::UpdateWindowBackendObjects() {
@@ -344,14 +357,21 @@ void Menu::MenuDrawItem(WidgetInfo& widget, uint32_t width, UIWidgets::Colors me
                 };
             } break;
             case WIDGET_AUDIO_BACKEND: {
-                auto currentAudioBackend = Ship::Context::GetInstance()->GetAudio()->GetCurrentAudioBackend();
+                auto audio = Ship::Context::GetInstance()->GetAudio();
+                auto currentAudioBackend = audio->GetCurrentAudioBackend();
+                auto availableBackends = audio->GetAvailableAudioBackends();
+                const std::map<Ship::AudioBackend, const char*> availableAudioBackendsMap =
+                    availableBackends != nullptr ? BuildAvailableAudioBackendsMap(*availableBackends)
+                                                 : std::map<Ship::AudioBackend, const char*>{};
+                const std::map<Ship::AudioBackend, const char*>& offeredBackendsMap =
+                    availableAudioBackendsMap.empty() ? audioBackendsMap : availableAudioBackendsMap;
                 UIWidgets::ComboboxOptions options = {};
                 options.color = menuThemeIndex;
                 options.tooltip = "Sets the audio API used by the game. Requires a relaunch to take effect.";
-                options.disabled = Ship::Context::GetInstance()->GetAudio()->GetAvailableAudioBackends()->size() <= 1;
+                options.disabled = availableAudioBackendsMap.size() <= 1;
                 options.disabledTooltip = "Only one audio API is available on this platform.";
-                if (UIWidgets::Combobox("Audio API", &currentAudioBackend, audioBackendsMap, options)) {
-                    Ship::Context::GetInstance()->GetAudio()->SetCurrentAudioBackend(currentAudioBackend);
+                if (UIWidgets::Combobox("Audio API", &currentAudioBackend, offeredBackendsMap, options)) {
+                    audio->SetCurrentAudioBackend(currentAudioBackend);
                 }
             } break;
             case WIDGET_VIDEO_BACKEND: {

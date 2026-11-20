@@ -10549,6 +10549,20 @@ TestResult Test_OoTDepartureLinkAge(void) {
     return OoT_DepartureLinkAge_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
+// visibility under Selection Only / All, Audio API backend filtering, slider label
+// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
+extern "C" int OoT_MenuRobustness_RunHeadless(void);
+
+static TestResult Test_OoTMenuRobustness(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // ============================================================================
 // Test registry
 // ============================================================================
@@ -12828,6 +12842,13 @@ const TestDescriptor gTests[] = {
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
       "shops shuffled and vanilla (#1443)",
       Test_CriticalRenewablesWorld },
+    // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
+    // round-trip, MQ location visibility, Audio API backend filtering, slider
+    // label suffix stripping).
+    { "oot-menu-robustness",
+      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
+      "suffix stripping (#1733)",
+      Test_OoTMenuRobustness },
     { nullptr, nullptr, nullptr } // Sentinel
 };
 
