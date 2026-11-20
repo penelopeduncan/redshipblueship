@@ -1142,6 +1142,12 @@ Ocarina of Time worlds from the same seed and settings, and where the worlds
 agree their hints can still read differently. Generator 6 has not shipped, so
 no released build is on the far side of that.
 
+`v0.5.2-alpha` (2026-11-19) ships generator 6. The entries above that say
+generator 6 had not shipped were true when they were written. From this
+release on, a change that makes a different world from a seed and settings
+`v0.5.2-alpha` accepts bumps the generator version, once per release window
+(rule 6).
+
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
 The golden rows answer one question: does *this* binary still produce the pinned

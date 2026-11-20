@@ -28,6 +28,15 @@ Everything below passed the automated gates. None of it has been checked by a pe
 
 ### New in v0.5.2-alpha
 
+- Saves on the Moon and on the Clock Tower roof (issues #1728, #1744): nobody has saved there and reopened the file in
+  a running game. See "Pause Menu Save and Autosave work on the Moon" below for what to expect and what was not
+  checked.
+- These were tested without a running game only: the new minigame options, the newly skipped Majora's Mask cutscenes,
+  the eleven Ocarina of Time fixes and the Majora's Mask fixes (the Pause Owl Warp gate among them), the clean-up of
+  stray D-pad copies at start-up, the Anchor, Crowd Control and Sail fixes, and the wider save states (issues #1741,
+  #1742, #1747, #1748, #1750, #1751, #1752, #1754, #1755).
+- The logic of the Water Temple, the Spirit Temple, the Shadow Temple, Gerudo Training Ground and Ganon's Castle
+  (issue #1647) is checked by logic tests and pinned seeds; nobody has played a seed made with it.
 - With Shuffle Deku Stick Bag or Shuffle Deku Nut Bag on, Majora's Mask now starts without sticks or nuts too
   (issue #1652). Until the bag is found in either game, its drops, shops and checks give none. A check that holds
   them gives junk. A shop shelf that sells them as usual will not sell them, and a shuffled shelf sells junk once
@@ -277,7 +286,8 @@ game's pool.
   by default), it starts without the ocarina: the ocarina is then in the item pool, no song can be played until
   you find it, and the Moon Crash is always New Cycle.
 - **Moon Crash Behavior defaults to New Cycle** (issue #1671). It is always New Cycle with Shuffle Ocarina or
-  Shared Song of Time on. New Cycle does not yet let you save on the Clock Tower roof.
+  Shared Song of Time on. In a paired file, a save on the Clock Tower roof under New Cycle comes back in South
+  Clock Town.
 - **Shared Items: one item for both games, rule by rule.** Randomizer → Cross-Game → "Shared Items" holds OoTMM's
   "Shared <Item>" rules in OoTMM's order: Fire, Ice and Light Arrows, Epona's Song, Song of Storms, Song of Time,
   Lens of Truth, Goron Mask, Zora Mask, Bunny Hood, Keaton Mask, Mask of Truth, Kokiri Sword, Shields, Ocarina
@@ -1538,9 +1548,9 @@ such a file yet. Until someone has:
   drives the roof with no ocarina.
 - **Under the No Logic rung** the ocarina may land anywhere, somewhere you cannot reach without it included, as with
   every item under OoTMM's No Logic.
-- **The Clock Tower roof save.** OoTMM's New Cycle lets you save on the Clock Tower roof; this build does not yet
-  (the "Song of Time" item of "What the Shared Items rules do not do yet", below). With Shuffle Ocarina that applies
-  to every crash.
+- **The Clock Tower roof save.** As in OoTMM, a paired New Cycle file can save on the Clock Tower roof (with Pause
+  Menu Save or Autosave on), and the save comes back in South Clock Town, even with Remember Save Location on
+  (issue #1728).
 - **Leftovers of the first cycle, accepted as they are.** Some of Majora's Mask's actors still look at whether you
   hold the ocarina, and have no hook to tell them a paired file is past its first cycle. None of them changes what
   you can reach:
@@ -1594,8 +1604,8 @@ saves; this build follows 2Ship2Harkinian here, with one difference of its own f
 - **Where a reload comes back.** With Remember Save Location off, on the Moon field. With it on, at the last entrance
   Link went through, which can be a trial's entrance.
 - **A save in Majora's lair always comes back on the Moon field**, even with Remember Save Location on. The lair has
-  no exit, so a file brought back inside it could be left with no way out. 2Ship2Harkinian brings such a save back
-  inside the lair; this build does not.
+  no exit, so a file brought back inside it could be left with no way out. With Remember Save Location on,
+  2Ship2Harkinian brings such a save back inside the lair; this build does not.
 - **In a paired file the save is a save of the whole file.** The file still opens in Hyrule. The first crossing into
   Majora's Mask after you reopen it lands on the Moon (or at the trial's entrance), not in Clock Town. A Song of
   Soaring warp from Hyrule lands on its owl instead.
@@ -1806,8 +1816,8 @@ Each Shared rule on Randomizer > Cross-Game (under Shared Items) is off by defau
   per game, so Majora's Mask's fifth and sixth bottle slots stay empty. OoTMM's sharedBottles shares six bottles with
   their contents; the difference is deliberate and open to the operator (PR [#1094](https://github.com/penelopeduncan/redshipblueship/pull/1094)).
 - **Song of Time** (PR [#1102](https://github.com/penelopeduncan/redshipblueship/pull/1102)). Moon Crash Behavior's New Cycle (the default since [#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671),
-  and forced by Shared Song of Time and by Majora's Mask's Shuffle Ocarina) does not yet let you save on the Clock
-  Tower roof, as OoTMM's does. The New
+  and forced by Shared Song of Time and by Majora's Mask's Shuffle Ocarina) lets you save on the Clock Tower roof,
+  as OoTMM's does, and the save comes back in South Clock Town (issue #1728). The New
   Cycle default itself differs from OoTMM, whose default is Last Save (the operator's 2026-11-16 ruling). Forcing New Cycle under the rule is itself a divergence from OoTMM,
   which credits time resets in its logic instead.
 
@@ -1819,17 +1829,32 @@ names them (for example "Restored for Majora's Mask: Blast Traps"). The types ar
 on Randomizer → MM Randomizer, Freeze Traps to Time Traps. They are greyed once the world is created. With no type
 chosen, every trap is a Freeze Trap. Checked by automated tests only; not played.
 
-### The Voidout Collection trick names a Gold Skulltula that logic does not use it for
+### ~~The Voidout Collection trick names a Gold Skulltula that logic does not use it for~~ — RESOLVED (issue #1647)
 
-The trick's description lists a Water Temple Gold Skulltula (near the boss key chest), but logic does not use the
-trick there yet (issue #1647). With the trick on, logic never expects you to get that Skulltula by voiding out.
+With the trick on, logic now uses it for the Water Temple Gold Skulltula near the boss key chest, as the trick's
+  description says.
 
-### New Cycle cannot save on the Clock Tower roof yet ([#1671](https://github.com/penelopeduncan/redshipblueship/issues/1671))
+### A save state in a paired file holds only Ocarina of Time ([#1752](https://github.com/penelopeduncan/redshipblueship/issues/1752))
 
-Moon Crash Behavior defaults to New Cycle: when the Moon crashes, a new cycle starts and you keep your items. Unlike
-OoTMM's New Cycle, you cannot save on the Clock Tower roof first. You can still choose Last Save on Randomizer →
-MM Randomizer, unless Shuffle Ocarina or Shared Song of Time is on. A file made before this version keeps the
-behaviour it was made with.
+Save States (Enhancements > Cheats > Save States, once both warning boxes are ticked; F5 to save, F7 to load) stay
+  available in a paired file, but a save state records Ocarina of Time alone. Loading one rolls Ocarina of Time back
+  and leaves Majora's Mask's half of the file, what the two games share and items on their way to the other game where
+  they were. While Majora's Mask runs, F5 and F7 say "states not available here".
+
+The case to avoid: a state saved before a crossing can still be loaded after you come back to Hyrule. That puts an
+  older Ocarina of Time over the game you came back to, and the two games can then disagree about items, rupees or
+  progress. A load does not touch the file on disk, but the next save or autosave writes the rolled-back Ocarina of
+  Time beside the newer Majora's Mask, which makes the disagreement permanent. Use save states inside one visit to
+  Hyrule, and keep a copy of `Save/` before you rely on one.
+
+### ~~New Cycle cannot save on the Clock Tower roof yet~~ — RESOLVED ([#1728](https://github.com/penelopeduncan/redshipblueship/issues/1728))
+
+A paired New Cycle file's save on the Clock Tower roof, made with Pause Menu Save or Autosave on, now comes back in
+  South Clock Town even with Remember Save Location on, as OoTMM's does. In a New Cycle file every arrival in Termina
+  from Hyrule within about ten in-game minutes of the Moon's fall is pulled back to about ten minutes before it. A
+  Last Save file is unchanged: a roof save with Remember Save Location on still comes back on the roof, with the
+  Moon's timer running. Both saving options are still off by default; turning Pause Menu Save on by default in a
+  paired file is decided and not built yet (issue #1728). Checked by automated tests only; not played.
 
 ### ~~OoT's plentiful item pool can wrap the wallet inside the fill's own logic~~ — RESOLVED ([#726](https://github.com/penelopeduncan/redshipblueship/issues/726))
 
