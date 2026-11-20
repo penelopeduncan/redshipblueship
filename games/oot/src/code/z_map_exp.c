@@ -361,6 +361,15 @@ const char* minimapTableDangeon[] = {
     gIceCavernRoom11MinimapTex,
 };
 
+// Whether Lake Hylia's minimap is the lowered-water map. Ship of Harkinian 847e3cd32: in a randomizer file it follows
+// EVENTCHKINF_RAISED_LAKE_HYLIA_WATER, the flag the water plane's Init reads, not the Water Temple blue warp, so the map
+// matches the water after the floor switch lowers it. Not static: the OoTLakeHyliaMinimap row drives it.
+s32 OoT_Map_LakeHyliaShowsLoweredMap(void) {
+    return (LINK_AGE_IN_YEARS == YEARS_ADULT) &&
+           ((!IS_RANDO && !CHECK_QUEST_ITEM(QUEST_MEDALLION_WATER)) ||
+            (IS_RANDO && !OoT_Flags_GetEventChkInf(EVENTCHKINF_RAISED_LAKE_HYLIA_WATER)));
+}
+
 void Map_InitData(PlayState* play, s16 room) {
     s32 mapIndex = gSaveContext.mapIndex;
     InterfaceContext* interfaceCtx = &play->interfaceCtx;
@@ -393,9 +402,7 @@ void Map_InitData(PlayState* play, s16 room) {
                     extendedMapIndex = 0x14;
                 }
             } else if (play->sceneNum == SCENE_LAKE_HYLIA) {
-                if ((LINK_AGE_IN_YEARS == YEARS_ADULT) &&
-                    ((!IS_RANDO && !CHECK_QUEST_ITEM(QUEST_MEDALLION_WATER)) ||
-                     (IS_RANDO && !OoT_Flags_GetEventChkInf(EVENTCHKINF_USED_WATER_TEMPLE_BLUE_WARP)))) {
+                if (OoT_Map_LakeHyliaShowsLoweredMap()) {
                     extendedMapIndex = 0x15;
                 }
             } else if (play->sceneNum == SCENE_GERUDO_VALLEY) {

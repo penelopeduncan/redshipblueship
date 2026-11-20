@@ -21,6 +21,17 @@
  *   .redsave: refused on the production mask, restored into both keys revealed,
  *   the second family word riding the file.
  *
+ *   shared-sun-saria-merge (CTest SharedSunSariaMerge, redship tier, ROM-free, no
+ *   bring-up, as shared-warp-songs-merge; generates nothing) -- THE MEMBERS (#1587
+ *   S2). Both games register their own Sun's Song and Saria's Song at the two
+ *   bits; MM's pooled follows the FROZEN rule (so the bag builds both pairs with
+ *   MM's own rows at 0); through the real shims a song learnt in either game is
+ *   known in the other at arrival and at OoT's load seam, each rule carrying only
+ *   its own song and never Epona's; a far copy is credited at pickup; a shared
+ *   copy is named untagged; and a Saria's Song MM loses comes back at the next
+ *   apply (the pool is OR-only). The rules are frozen directly (no Generate), so
+ *   the hidden bits need no reveal.
+ *
  * Every key is spelled from the identity prefix rather than as a literal, so
  * the tier-4 classification scan sees only the manifest's spelling.
  *
@@ -30,6 +41,7 @@
  */
 
 #include "../combo_settings_view.h"
+#include "../combo_single_bag.h"
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
@@ -37,6 +49,7 @@
 #include "../shared_resources.h"
 #include "../test_runner.h"
 #include "../test_scratch.h"
+#include "../warp_song_items.h"
 
 #include <cstdio>
 #include <cstring>
@@ -71,7 +84,8 @@ const char* const kSsrLoadDir = "rsbs_test_shared_sun_saria_load";
 /** One rule: its bit, spelled as a literal (it is .redsave and seed-package
  *  format, so the lock states it rather than reading it back from the header
  *  under test), its key's suffix, its label (OoTMM's option name) and OoTMM's
- *  key. S2 extends this table with each game's item. */
+ *  key. Each game's item (#1587 S2) is not spelled here: this TU sees no RG_* or
+ *  RI_*, so the merge row asks the games' bridges (_PoolId, the same index). */
 struct SsrSong {
     uint32_t bit;
     const char* keySuffix;
@@ -547,5 +561,389 @@ TestResult SharedSunSariaRule_Run(void) {
     SsrClearKeys();
     ComboContext_Init();
     printf("[TEST] shared-sun-saria-rule: %s\n", sSsrFailures == 0 ? "PASS" : "FAIL");
+    return sSsrFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// shared-sun-saria-merge (#1587 S2)
+// ============================================================================
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+void OoT_SharedSwordTest_ArmLive(void);
+void MM_SharedSwordTest_ArmLive(void);
+void OoT_HarvestSharedResources(void);
+void OoT_ApplySharedResources(void);
+void MM_HarvestSharedResources(void);
+void MM_ApplySharedResources(void);
+void OoT_ApplySharedResourcesAtFileLoad(void);
+void OoT_SharedSongsTest_SetHeld(int song, int held);
+int MM_SharedSongsTest_Held(int song);
+const char* MM_WarpSongsTest_Name(uint16_t ri);
+// games/oot/soh/oot_shared_songs_test.cpp and games/mm/2s2h/mm_shared_songs_test.cpp:
+// `song` 0 is the Sun's Song, 1 Saria's Song.
+void OoT_SharedSunSariaTest_SetHeld(int song, int held);
+int OoT_SharedSunSariaTest_Held(int song);
+int OoT_SharedSunSariaTest_PoolId(int song);
+uint32_t OoT_SharedSunSariaTest_QuestBit(int song);
+uint32_t OoT_SharedSunSariaTest_SongBits(void);
+void MM_SharedSunSariaTest_SetHeld(int song, int held);
+int MM_SharedSunSariaTest_Held(int song);
+int MM_SharedSunSariaTest_PoolId(int song);
+uint32_t MM_SharedSunSariaTest_QuestBit(int song);
+uint32_t MM_SharedSunSariaTest_SongBits(void);
+void MM_SharedSunSariaTest_SetRow(int song, uint32_t value);
+#ifdef __cplusplus
+}
+#endif
+
+namespace {
+const char* const kSsrSongNames[2] = { "Sun's Song", "Saria's Song" };
+const uint32_t kSsrSharedEponaWord1 = 0x00400000u; // the first word's Shared Epona's Song (#1066)
+const uint32_t kSsrAllWarp = 0x00003FFFu;          // every warp-song rule of the second word (#1169)
+
+/** SsrFreezeWorld with a first-word rule word too (@p rules1), for the Epona leg. */
+void SsrFreezeWorld2(uint32_t rules1, uint32_t rules2) {
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = kSsrSeed;
+    gComboCtx.sharedRandoSettingsHash = kSsrSettingsHash;
+    gComboCtx.mmProfileDigest = kSsrProfileDigest;
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    ComboItemRulesRecord r1;
+    memset(&r1, 0, sizeof(r1));
+    r1.crossItemFlags = rules1;
+    Combo_FreezeComboSettingsEx2(&rec, &r1, rules2);
+}
+
+/** Both games' live saves armed and empty (no song, MM's own rows at 0). */
+void SsrForgetBoth() {
+    OoT_SharedSwordTest_ArmLive();
+    MM_SharedSwordTest_ArmLive();
+}
+} // namespace
+
+TestResult SharedSunSariaMerge_Run(void) {
+    printf("[TEST] shared-sun-saria-merge: both games register their own Sun's Song and Saria's Song as the shared "
+           "families' members; MM's pooled follows the frozen rule, so the pair is built with MM's rows at 0; through "
+           "the real shims a song learnt in either game is known in the other at arrival, at the load seam and at "
+           "pickup, each rule only its own song (#1587 S2)\n");
+    sSsrFailures = 0;
+
+    // ---- (0) The registrations -------------------------------------------------------------
+    // Catches: a missing or misplaced registration, and the wrong id.
+    for (int song = 0; song < 2; song++) {
+        const uint32_t bit = kSsrSongs[song].bit;
+        uint16_t ootId = 0;
+        uint16_t mmId = 0;
+        const bool ootReg = Combo_SharedFamily2MemberId(GAME_OOT, bit, &ootId);
+        const bool mmReg = Combo_SharedFamily2MemberId(GAME_MM, bit, &mmId);
+        SSR_CHECK(ootReg && (int)ootId == OoT_SharedSunSariaTest_PoolId(song) && mmReg &&
+                      (int)mmId == MM_SharedSunSariaTest_PoolId(song),
+                  "(0) the shared %s: OoT member %d (id %u, want %d), MM member %d (id %u, want %d)",
+                  kSsrSongNames[song], ootReg ? 1 : 0, (unsigned)ootId, OoT_SharedSunSariaTest_PoolId(song),
+                  mmReg ? 1 : 0, (unsigned)mmId, MM_SharedSunSariaTest_PoolId(song));
+    }
+
+    // ---- (1) pooled follows the frozen rule, never MM's own rows -------------------------------
+    // Catches: an MM pooled that is NULL or always true, the two bits swapped, and
+    // a pooled that ORs in MM's Shuffle Sun's Song / Shuffle Saria's Song rows.
+    {
+        SsrForgetBoth();
+        for (int song = 0; song < 2; song++) {
+            SsrFreezeWorld(kSsrSongs[song].bit);
+            const bool mine = Combo_SharedFamily2MemberPooled(GAME_MM, kSsrSongs[song].bit);
+            const bool other = Combo_SharedFamily2MemberPooled(GAME_MM, kSsrSongs[1 - song].bit);
+            SSR_CHECK(mine && !other,
+                      "(1) frozen %08X with MM's rows at 0: MM's %s pooled %d (want 1), MM's %s pooled %d (want 0)",
+                      (unsigned)kSsrSongs[song].bit, kSsrSongNames[song], mine ? 1 : 0, kSsrSongNames[1 - song],
+                      other ? 1 : 0);
+        }
+        SsrFreezeWorld(0u);
+        MM_SharedSunSariaTest_SetRow(0, 1u);
+        MM_SharedSunSariaTest_SetRow(1, 1u);
+        const bool sunOn = Combo_SharedFamily2MemberPooled(GAME_MM, kSsrSongs[0].bit);
+        const bool sariaOn = Combo_SharedFamily2MemberPooled(GAME_MM, kSsrSongs[1].bit);
+        SSR_CHECK(!sunOn && !sariaOn,
+                  "(1) both rules off with MM's own rows at 1: MM's members answered pooled (Sun %d, Saria's %d); "
+                  "pooled must read the frozen rule only",
+                  sunOn ? 1 : 0, sariaOn ? 1 : 0);
+        SSR_CHECK(Combo_SharedFamily2MemberPooled(GAME_OOT, kSsrSongs[0].bit) &&
+                      Combo_SharedFamily2MemberPooled(GAME_OOT, kSsrSongs[1].bit),
+                  "(1) OoT's members answered not pooled (OoT's shape is pooled NULL, always pooled)");
+        SsrForgetBoth();
+    }
+
+    // ---- (2) The pair is built with MM's rows at 0 (the key leg) -------------------------------
+    // Catches: a pooled that reads MM's own options (0 in every paired profile
+    // before #1587 S3), which would never build the pair.
+    {
+        SsrForgetBoth();
+        SsrFreezeWorld(kSsrBoth);
+        ComboLogicSharedPair pairs[RSBS_XFAMILY_SLOT_COUNT];
+        memset(pairs, 0, sizeof(pairs));
+        const int n = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        printf("[TEST] (2) frozen 0000C000, MM's rows 0: %d pairs, [0] %u/%u, [1] %u/%u\n", n, (unsigned)pairs[0].ootId,
+               (unsigned)pairs[0].mmId, (unsigned)pairs[1].ootId, (unsigned)pairs[1].mmId);
+        SSR_CHECK(n == 2 && (int)pairs[0].ootId == OoT_SharedSunSariaTest_PoolId(0) &&
+                      (int)pairs[0].mmId == MM_SharedSunSariaTest_PoolId(0) &&
+                      (int)pairs[1].ootId == OoT_SharedSunSariaTest_PoolId(1) &&
+                      (int)pairs[1].mmId == MM_SharedSunSariaTest_PoolId(1),
+                  "(2) the bag built %d pairs; want exactly the Sun's Song then Saria's Song, each (OoT id, MM id)", n);
+        SsrFreezeWorld(0u);
+        const int none = Combo_SingleBag_SharedPairs(pairs, (int)RSBS_XFAMILY_SLOT_COUNT);
+        SSR_CHECK(none == 0, "(2) with every rule off the bag built %d pairs", none);
+    }
+
+    // ---- (3) Learnt in OoT, known in MM; (4) learnt in MM, known in OoT, and the load seam ------
+    // Catches: an MM or OoT give that writes nothing, another song's bit or extra
+    // songs; a held that reads the wrong bit; and the #1163 load seam skipping them.
+    for (int song = 0; song < 2; song++) {
+        const uint32_t bit = kSsrSongs[song].bit;
+        SsrFreezeWorld(bit);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_SharedSunSariaTest_SetHeld(song, 1);
+        OoT_HarvestSharedResources();
+        const uint32_t afterOoT = Combo_SharedFamilies2Owned();
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        printf("[TEST] (3) %s OoT -> MM: pool %08X, MM song bits %08X (want %08X)\n", kSsrSongNames[song],
+               (unsigned)afterOoT, (unsigned)MM_SharedSunSariaTest_SongBits(),
+               (unsigned)MM_SharedSunSariaTest_QuestBit(song));
+        SSR_CHECK(afterOoT == bit && Combo_SharedFamiliesOwned() == 0u,
+                  "(3) OoT's harvest put %08X for the %s, want exactly %08X and nothing in the first word",
+                  (unsigned)afterOoT, kSsrSongNames[song], (unsigned)bit);
+        SSR_CHECK(MM_SharedSunSariaTest_Held(song) == 1 &&
+                      MM_SharedSunSariaTest_SongBits() == MM_SharedSunSariaTest_QuestBit(song),
+                  "(3) MM's apply did not give MM the %s alone: song bits %08X", kSsrSongNames[song],
+                  (unsigned)MM_SharedSunSariaTest_SongBits());
+        SSR_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == bit,
+                  "(3) MM's give record reads %08X after giving the %s, want %08X",
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM), kSsrSongNames[song], (unsigned)bit);
+
+        SsrFreezeWorld(bit);
+        SsrForgetBoth();
+        MM_SharedSwordTest_ArmLive();
+        MM_SharedSunSariaTest_SetHeld(song, 1);
+        MM_HarvestSharedResources();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_ApplySharedResources();
+        printf("[TEST] (4) %s MM -> OoT: pool %08X, OoT song bits %08X (want %08X)\n", kSsrSongNames[song],
+               (unsigned)Combo_SharedFamilies2Owned(), (unsigned)OoT_SharedSunSariaTest_SongBits(),
+               (unsigned)OoT_SharedSunSariaTest_QuestBit(song));
+        SSR_CHECK(Combo_SharedFamilies2Owned() == bit && OoT_SharedSunSariaTest_Held(song) == 1 &&
+                      OoT_SharedSunSariaTest_SongBits() == OoT_SharedSunSariaTest_QuestBit(song),
+                  "(4) MM's %s did not reach OoT alone through the shims (pool %08X, OoT song bits %08X)",
+                  kSsrSongNames[song], (unsigned)Combo_SharedFamilies2Owned(),
+                  (unsigned)OoT_SharedSunSariaTest_SongBits());
+        SSR_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_OOT) == bit,
+                  "(4) OoT's give record reads %08X after giving the %s, want %08X",
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_OOT), kSsrSongNames[song], (unsigned)bit);
+        // The .redsave load seam (#1163): OoT's half applied before its own save opens.
+        OoT_SharedSwordTest_ArmLive();
+        OoT_ApplySharedResourcesAtFileLoad();
+        SSR_CHECK(OoT_SharedSunSariaTest_Held(song) == 1 &&
+                      OoT_SharedSunSariaTest_SongBits() == OoT_SharedSunSariaTest_QuestBit(song),
+                  "(4) OoT's load seam did not give the %s alone (song bits %08X)", kSsrSongNames[song],
+                  (unsigned)OoT_SharedSunSariaTest_SongBits());
+    }
+
+    // ---- (5) Each rule carries only its own song -----------------------------------------------
+    // Catches: aliased bits, and a member registered at the other song's bit.
+    for (int song = 0; song < 2; song++) {
+        const uint32_t bit = kSsrSongs[song].bit;
+        SsrFreezeWorld(bit);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_SharedSunSariaTest_SetHeld(0, 1);
+        OoT_SharedSunSariaTest_SetHeld(1, 1);
+        OoT_HarvestSharedResources();
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        SSR_CHECK(Combo_SharedFamilies2Owned() == bit && MM_SharedSunSariaTest_Held(song) == 1 &&
+                      MM_SharedSunSariaTest_Held(1 - song) == 0,
+                  "(5) with only the shared %s frozen and OoT holding both: pool %08X (want %08X), MM holds the %s "
+                  "%d (want 1) and the %s %d (want 0)",
+                  kSsrSongNames[song], (unsigned)Combo_SharedFamilies2Owned(), (unsigned)bit, kSsrSongNames[song],
+                  MM_SharedSunSariaTest_Held(song), kSsrSongNames[1 - song], MM_SharedSunSariaTest_Held(1 - song));
+    }
+
+    // ---- (6) Rules off carry nothing -----------------------------------------------------------
+    // Catches: an armed mask not driven by the frozen word, and the warp-song rules
+    // leaking into these two bits.
+    {
+        const uint32_t worlds[2] = { 0u, kSsrAllWarp };
+        for (int w = 0; w < 2; w++) {
+            SsrFreezeWorld(worlds[w]);
+            SsrForgetBoth();
+            OoT_SharedSwordTest_ArmLive();
+            OoT_SharedSunSariaTest_SetHeld(0, 1);
+            OoT_SharedSunSariaTest_SetHeld(1, 1);
+            OoT_HarvestSharedResources();
+            MM_SharedSwordTest_ArmLive();
+            MM_ApplySharedResources();
+            const uint32_t owned2 = Combo_SharedFamilies2Owned();
+            const uint32_t given = Combo_SharedFamilies2GivenAtLastApply(GAME_MM);
+            SSR_CHECK((owned2 & kSsrBoth) == 0u && (worlds[w] != 0u || owned2 == 0u) &&
+                          MM_SharedSunSariaTest_Held(0) == 0 && MM_SharedSunSariaTest_Held(1) == 0 &&
+                          (given & kSsrBoth) == 0u,
+                      "(6) frozen %08X with OoT holding both songs: pool %08X, MM holds Sun %d / Saria's %d, MM's "
+                      "give record %08X; want none of them carried",
+                      (unsigned)worlds[w], (unsigned)owned2, MM_SharedSunSariaTest_Held(0),
+                      MM_SharedSunSariaTest_Held(1), (unsigned)given);
+        }
+    }
+
+    // ---- (7) No crossover with Epona's Song ------------------------------------------------------
+    // Catches: helpers built on OoT_SharedSongQuestBit / MM_SharedSongQuestBit (they
+    // answer Epona's bit), and a member misregistered in the first word at Epona's slot.
+    {
+        SsrFreezeWorld2(kSsrSharedEponaWord1, kSsrBoth);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_SharedSunSariaTest_SetHeld(0, 1); // the Sun's Song only
+        OoT_HarvestSharedResources();
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        SSR_CHECK(Combo_SharedFamilies2Owned() == kSsrSongs[0].bit &&
+                      (Combo_SharedFamiliesOwned() & kSsrSharedEponaWord1) == 0u && MM_SharedSongsTest_Held(0) == 0 &&
+                      MM_SharedSunSariaTest_Held(0) == 1,
+                  "(7) OoT holding the Sun's Song alone: second word %08X (want 00004000), first %08X (want no "
+                  "Epona), MM holds Epona's Song %d (want 0) and the Sun's Song %d (want 1)",
+                  (unsigned)Combo_SharedFamilies2Owned(), (unsigned)Combo_SharedFamiliesOwned(),
+                  MM_SharedSongsTest_Held(0), MM_SharedSunSariaTest_Held(0));
+
+        SsrFreezeWorld2(kSsrSharedEponaWord1, kSsrBoth);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_SharedSongsTest_SetHeld(0, 1); // Epona's Song only
+        OoT_HarvestSharedResources();
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        SSR_CHECK(Combo_SharedFamilies2Owned() == 0u && (Combo_SharedFamiliesOwned() & kSsrSharedEponaWord1) != 0u &&
+                      MM_SharedSunSariaTest_Held(0) == 0 && MM_SharedSunSariaTest_Held(1) == 0,
+                  "(7) OoT holding Epona's Song alone: second word %08X (want 0), first %08X (want Epona), MM holds "
+                  "Sun %d / Saria's %d (want 0 / 0)",
+                  (unsigned)Combo_SharedFamilies2Owned(), (unsigned)Combo_SharedFamiliesOwned(),
+                  MM_SharedSunSariaTest_Held(0), MM_SharedSunSariaTest_Held(1));
+    }
+
+    // ---- (8) A far copy found here is credited at pickup, no crossing ----------------------------
+    // Catches: a far copy that crosses instead of being credited (a round trip),
+    // and an MM member id that is not the one MM's pool places.
+    {
+        SharedItem item;
+        memset(&item, 0, sizeof(item));
+
+        SsrFreezeWorld(kSsrBoth);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        item.originGame = (uint8_t)GAME_MM;
+        item.id = (uint16_t)MM_SharedSunSariaTest_PoolId(0);
+        const int ootSun = OoT_CreditSharedPickup(&item);
+        SSR_CHECK(ootSun == 1 && OoT_SharedSunSariaTest_Held(0) == 1 &&
+                      (Combo_SharedFamilies2Owned() & kSsrSongs[0].bit) != 0u,
+                  "(8) MM's Sun's Song found in Hyrule: credited %d, OoT holds it %d, pool %08X; want credited at "
+                  "once with OoT's own song",
+                  ootSun, OoT_SharedSunSariaTest_Held(0), (unsigned)Combo_SharedFamilies2Owned());
+
+        SsrFreezeWorld(kSsrBoth);
+        SsrForgetBoth();
+        MM_SharedSwordTest_ArmLive();
+        item.originGame = (uint8_t)GAME_OOT;
+        item.id = (uint16_t)OoT_SharedSunSariaTest_PoolId(1);
+        const int mmSaria = MM_CreditSharedPickup(&item);
+        SSR_CHECK(mmSaria == 1 && MM_SharedSunSariaTest_Held(1) == 1 &&
+                      (Combo_SharedFamilies2Owned() & kSsrSongs[1].bit) != 0u,
+                  "(8) OoT's Saria's Song found in Termina: credited %d, MM holds it %d, pool %08X; want credited at "
+                  "once with MM's own song",
+                  mmSaria, MM_SharedSunSariaTest_Held(1), (unsigned)Combo_SharedFamilies2Owned());
+
+        SsrFreezeWorld(0u);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        item.originGame = (uint8_t)GAME_MM;
+        item.id = (uint16_t)MM_SharedSunSariaTest_PoolId(0);
+        const int ootOff = OoT_CreditSharedPickup(&item);
+        MM_SharedSwordTest_ArmLive();
+        item.originGame = (uint8_t)GAME_OOT;
+        item.id = (uint16_t)OoT_SharedSunSariaTest_PoolId(1);
+        const int mmOff = MM_CreditSharedPickup(&item);
+        SSR_CHECK(ootOff == 0 && mmOff == 0 && OoT_SharedSunSariaTest_Held(0) == 0 &&
+                      MM_SharedSunSariaTest_Held(1) == 0 && Combo_SharedFamilies2Owned() == 0u,
+                  "(8) with both rules off a far copy was credited (OoT %d, MM %d) instead of crossing", ootOff, mmOff);
+    }
+
+    // ---- (9) Names: a shared copy is untagged and keeps its own name -----------------------------
+    // Catches: a shared far copy that keeps its game tag, and a display name that
+    // renames a shared Sun's Song or Saria's Song.
+    {
+        const uint16_t ootSun = (uint16_t)OoT_SharedSunSariaTest_PoolId(0);
+        const uint16_t ootSaria = (uint16_t)OoT_SharedSunSariaTest_PoolId(1);
+        const uint16_t mmSun = (uint16_t)MM_SharedSunSariaTest_PoolId(0);
+        const uint16_t mmSaria = (uint16_t)MM_SharedSunSariaTest_PoolId(1);
+        SsrFreezeWorld(kSsrBoth);
+        SSR_CHECK(Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, ootSun) == NULL &&
+                      Combo_SharedFamily2DisplayName((uint8_t)GAME_OOT, ootSaria) == NULL &&
+                      Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, mmSun) == NULL &&
+                      Combo_SharedFamily2DisplayName((uint8_t)GAME_MM, mmSaria) == NULL,
+                  "(9) a shared Sun's Song or Saria's Song was given a display name of its own (renamed)");
+        const char* sunName = MM_WarpSongsTest_Name(mmSun);
+        const char* sariaName = MM_WarpSongsTest_Name(mmSaria);
+        SSR_CHECK(sunName != NULL && strcmp(sunName, "Sun's Song") == 0 && sariaName != NULL &&
+                      strcmp(sariaName, "Saria's Song") == 0,
+                  "(9) MM names its songs '%s' and '%s', want \"Sun's Song\" and \"Saria's Song\"",
+                  sunName != NULL ? sunName : "(null)", sariaName != NULL ? sariaName : "(null)");
+        const char* sharedMM = Combo_ForeignItemTag((uint8_t)GAME_MM, mmSun, "Sun's Song");
+        const char* sharedOoT = Combo_ForeignItemTag((uint8_t)GAME_OOT, ootSaria, "Saria's Song");
+        SSR_CHECK(strcmp(sharedMM, "") == 0 && strcmp(sharedOoT, "") == 0,
+                  "(9) shared, MM's Sun's Song is tagged '%s' and OoT's Saria's Song '%s'; want both untagged",
+                  sharedMM, sharedOoT);
+        SsrFreezeWorld(0u);
+        const char* ownMM = Combo_ForeignItemTag((uint8_t)GAME_MM, mmSun, "Sun's Song");
+        const char* ownOoT = Combo_ForeignItemTag((uint8_t)GAME_OOT, ootSaria, "Saria's Song");
+        SSR_CHECK(strcmp(ownMM, " (MM)") == 0 && strcmp(ownOoT, " (OoT)") == 0,
+                  "(9) not shared, MM's Sun's Song is tagged '%s' and OoT's Saria's Song '%s'; want ' (MM)' and "
+                  "' (OoT)'",
+                  ownMM, ownOoT);
+    }
+
+    // ---- (10) Saria's Song stays permanent -------------------------------------------------------
+    // Catches: a harvest that assigns instead of ORing (a song MM lost would leave
+    // the pool), and a give that only toggles.
+    {
+        const uint32_t saria = kSsrSongs[1].bit;
+        SsrFreezeWorld(saria);
+        SsrForgetBoth();
+        OoT_SharedSwordTest_ArmLive();
+        OoT_SharedSunSariaTest_SetHeld(1, 1);
+        OoT_HarvestSharedResources();
+        MM_SharedSwordTest_ArmLive();
+        MM_ApplySharedResources();
+        SSR_CHECK(MM_SharedSunSariaTest_Held(1) == 1, "(10) MM's apply did not give Saria's Song");
+        MM_ApplySharedResources();
+        SSR_CHECK(Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == 0u && MM_SharedSunSariaTest_Held(1) == 1,
+                  "(10) a second MM apply gave %08X (want nothing owed) or took the song away",
+                  (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM));
+        MM_SharedSunSariaTest_SetHeld(1, 0); // as 2Ship's one-use removal would
+        MM_HarvestSharedResources();
+        const uint32_t afterLoss = Combo_SharedFamilies2Owned();
+        MM_ApplySharedResources();
+        SSR_CHECK((afterLoss & saria) != 0u && MM_SharedSunSariaTest_Held(1) == 1 &&
+                      Combo_SharedFamilies2GivenAtLastApply(GAME_MM) == saria,
+                  "(10) after MM lost Saria's Song the pool reads %08X and the next apply gave %08X (MM holds it %d); "
+                  "want the family kept and the song given back",
+                  (unsigned)afterLoss, (unsigned)Combo_SharedFamilies2GivenAtLastApply(GAME_MM),
+                  MM_SharedSunSariaTest_Held(1));
+    }
+
+    SsrFreezeWorld(0u);
+    SsrForgetBoth();
+    ComboContext_Init();
+    printf("[TEST] shared-sun-saria-merge: %s\n", sSsrFailures == 0 ? "PASS" : "FAIL");
     return sSsrFailures == 0 ? TEST_PASS : TEST_FAIL;
 }

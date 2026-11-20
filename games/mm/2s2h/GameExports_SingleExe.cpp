@@ -6025,6 +6025,43 @@ static void MM_SharedSoaringGive(uint16_t nativeId) {
     }
 }
 
+// #1587 S2: Majora's Mask's Sun's Song and Saria's Song (RI_SONG_SUN and
+// RI_SONG_SARIA, MM's pool items) as the MM members of the Shared Sun's Song and
+// Shared Saria's Song (OoTMM sharedSongSun, sharedSongSarias, the second family
+// word). Item_Give(ITEM_SONG_SUN / ITEM_SONG_SARIA) only sets the quest bit
+// (z_parameter.c, SET_QUEST_ITEM(item - ITEM_SONG_SONATA + QUEST_SONG_SONATA)).
+// Their own helpers, NOT MM_SharedSongQuestBit (Epona's bit for every id but the
+// Song of Storms). The give only adds: it never removes Saria's Song (the
+// 2026-11-17 ruling: a shared Saria's Song is permanent in both games).
+static uint32_t MM_SharedSunSariaQuestBit(uint16_t nativeId) {
+    return (nativeId == (uint16_t)RI_SONG_SUN)     ? (1u << QUEST_SONG_SUN)
+           : (nativeId == (uint16_t)RI_SONG_SARIA) ? (1u << QUEST_SONG_SARIA)
+                                                   : 0u;
+}
+static uint32_t MM_SharedSunSariaRuleBit(uint16_t nativeId) {
+    return (nativeId == (uint16_t)RI_SONG_SUN)     ? (uint32_t)RSBS_XITEM2_SHARED_SONG_SUN
+           : (nativeId == (uint16_t)RI_SONG_SARIA) ? (uint32_t)RSBS_XITEM2_SHARED_SONG_SARIAS
+                                                   : 0u;
+}
+static bool MM_SharedSunSariaHeld(uint16_t nativeId) {
+    const uint32_t bit = MM_SharedSunSariaQuestBit(nativeId);
+    return bit != 0u && (gSaveContext.save.saveInfo.inventory.questItems & bit) != 0u;
+}
+static void MM_SharedSunSariaGive(uint16_t nativeId) {
+    const uint32_t bit = MM_SharedSunSariaQuestBit(nativeId);
+    if (bit != 0u) {
+        gSaveContext.save.saveInfo.inventory.questItems |= bit;
+    }
+}
+// Pooled answers "the shared rule is FROZEN on", never MM's own Shuffle Sun's
+// Song / Shuffle Saria's Song rows: in a paired profile those resolve to 0 (they
+// are PARTIAL rows), so a pooled that read them would never build the pair. The
+// warp songs' MM_WarpSongMM_RuleOn (WarpSongsMM.cpp) is the precedent.
+static bool MM_SharedSunSariaRuleOn(uint16_t nativeId) {
+    const uint32_t rule = MM_SharedSunSariaRuleBit(nativeId);
+    return rule != 0u && Combo_ComboCrossItemRule2(rule);
+}
+
 // #837: defined below, beside MM_SaveIsLiveFile (the harvest's gate).
 extern "C" int MM_Combo_DepartureIsLiveFile(void);
 
@@ -6081,6 +6118,14 @@ struct MMSharedFamilyRegistrar {
         const ComboSharedFamilyMember soaring = { (uint16_t)RI_SONG_SOARING, MM_SharedSoaringHeld,
                                                   MM_SharedSoaringGive };
         Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SOARING, &soaring);
+        // #1587 S2: the Sun's Song and Saria's Song, MM's own songs, each paired
+        // with OoT's song of the same name; pooled follows the frozen rule.
+        const ComboSharedFamilyMember sun = { (uint16_t)RI_SONG_SUN, MM_SharedSunSariaHeld, MM_SharedSunSariaGive,
+                                              MM_SharedSunSariaRuleOn };
+        Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SUN, &sun);
+        const ComboSharedFamilyMember saria = { (uint16_t)RI_SONG_SARIA, MM_SharedSunSariaHeld, MM_SharedSunSariaGive,
+                                                MM_SharedSunSariaRuleOn };
+        Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SARIAS, &saria);
     }
 };
 const MMSharedFamilyRegistrar gMMSharedFamilyRegistrar;

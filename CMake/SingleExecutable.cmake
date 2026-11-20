@@ -964,6 +964,12 @@ if(BUILD_TESTING)
     redship_add_test(NAME SharedWarpFamilyStorage COMMAND redship --test shared-warp-family-storage)
     redship_add_test(NAME WarpSongHeld COMMAND redship --test warp-song-held)
     redship_add_test(NAME SharedWarpSongsMerge COMMAND redship --test shared-warp-songs-merge)
+    # #1587 S2: the Shared Sun's Song and Shared Saria's Song members (OoTMM
+    # sharedSongSun, sharedSongSarias): both games' own songs registered at the two
+    # second-word bits, MM's pooled following the frozen rule (the pair is built with
+    # MM's own rows at 0), carried by the real shims, at the load seam and at pickup,
+    # each rule only its own song. ROM-free, the rules frozen directly, generates nothing.
+    redship_add_test(NAME SharedSunSariaMerge COMMAND redship --test shared-sun-saria-merge)
     # #1067: the Shared Ocarina Buttons rule (OoTMM sharedOcarinaButtons): five
     # pairs behind one bit, registered by both games and composed into one shared
     # row each, and a button found in one game owned in the other on arrival.
@@ -1732,6 +1738,11 @@ if(BUILD_TESTING)
     # what that means for red-before-green. Pure (no display, no ROM, no
     # Ship::Context), so it runs in this redship tier.
     redship_add_test(NAME OoTMenuRegistrars COMMAND redship --test oot-menu-registrars)
+    # #1751 / #1750: Anchor PlayerUpdate missing-key defaults, DummyPlayer unk_862
+    # clamp, and GameInteractor null-PlayState pause/control guards. Pure (no
+    # display, no ROM, no Ship::Context, no connection), so it runs in this
+    # redship tier.
+    redship_add_test(NAME OoTNetplayFixes COMMAND redship --test oot-netplay-fixes)
     # The MM twin of the row above, and the same elided-registrar class (#678).
     # games/mm/2s2h/Enhancements/Songs/BetterSongOfDoubleTime.cpp and
     # SkipSoTCutscenes.cpp register only through a file-scope
@@ -2093,6 +2104,80 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
 
+    # SoH c93b6188c (#1748): a swim void without Swim moves the respawn to the
+    # entrance's position and now also to the entrance's room. The row drives
+    # Randomizer_SwimVoidRespawnRoom (hook_handlers.cpp) with a fake entrance
+    # list: own scene -> the entrance's room; another scene, no list or an
+    # out-of-range index -> the current room. Display-free and ROM-free.
+    redship_add_test(NAME OoTSwimVoidRespawnRoom COMMAND redship --test oot-swim-void-respawn-room)
+
+    # SoH 8584ced40b (#1742): Fix Two-Handed Idle Animations did nothing, since
+    # the swing fidget needed the shield hand. The row runs
+    # FixTwoHandedIdleAnim.cpp's registrar out of ShipInit's map, then the REAL
+    # VB_SET_IDLE_ANIM dispatch with a fake Link holding Biggoron's Sword, then
+    # the Deku Stick: option off -> vanilla; on -> the swing is accepted and the
+    # shield adjust refused; a one-handed sword is unchanged. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTTwoHandedIdleAnim COMMAND redship --test oot-two-handed-idle-anim)
+
+    # SoH 16ee01404 (#1747): Allow unequipping Items now also unequips the bow
+    # when a magic arrow is on the button and the bow is under the cursor. The
+    # row drives OoT_ItemUnequip_ShouldUnequip (Enhancements/ItemUnequip.cpp):
+    # the bow over each magic-arrow bow -> unequip; the old pairs unchanged.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTItemUnequipBow COMMAND redship --test oot-item-unequip-bow)
+
+    # SoH 172b373fb (#1747): outside the randomizer, the Customize Fishing
+    # minimum weights now also set the weight that wins the vanilla prize. The
+    # row runs Fishing.cpp's prize registrar out of ShipInit's map, then the REAL
+    # VB_SHOULD_GIVE_VANILLA_FISHING_PRIZE dispatch on a vanilla adult file with
+    # a 7 lb minimum: over it -> prize; under it or already won -> none; the
+    # option off or a randomizer file -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTFishingPrizeThreshold COMMAND redship --test oot-fishing-prize-threshold)
+
+    # SoH 490e13616 (#1746, the Save Editor hunk only): the B-button selector's
+    # sword test was the empty range ITEM_SWORD_KOKIRI (0x3B)..ITEM_SWORD_BROKEN
+    # (0x33), so a picked sword never reached Link's held sword. The row drives
+    # OoT_SaveEditor_IsSwordItem (debugSaveEditor.cpp): the four swords -> true;
+    # the Deku Shield, the knife, the Prescription, ITEM_NONE -> false.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTSaveEditorSwordRange COMMAND redship --test oot-save-editor-sword-range)
+
+    # SoH 8b3d91506 (#1750): the title cards read stale TitleCard.* position
+    # names while the Cosmetics Editor writes HUD.TitleCard.*, and All margins on
+    # let the last list entry win. The row drives OoT_TitleCard_ResolvePos
+    # (z_actor.c; original, not anchored and hidden only, since the anchors read
+    # the window) and OoT_CosmeticsEditor_ApplyMarginAll: the HUD.* settings move
+    # each card; margins skip the unanchored cards at their original place and
+    # hidden elements. Display-free and ROM-free.
+    redship_add_test(NAME OoTTitleCardCvars COMMAND redship --test oot-title-card-cvars)
+
+    # SoH 11fd0e0e7 (#1750): editing Bow Body multiplied the picked colour by
+    # four, and the derived colours read a cached copy the colour picker never
+    # refreshed. The row sets Bow Body's .Value as the picker does and runs
+    # the editor's side effects (OoT_CosmeticsEditor_ApplySideEffectsById):
+    # Bow Body stays as picked; Bow Tips is half of it and Bow Handle equals it;
+    # a x2 copy saturates at 255. Display-free and ROM-free.
+    redship_add_test(NAME OoTBowBodyCosmetic COMMAND redship --test oot-bow-body-cosmetic)
+
+    # SoH 847e3cd32 (#1747, the z_map_exp.c hunk only): in a randomizer file
+    # Lake Hylia's minimap keyed the lowered-water map on the Water Temple blue
+    # warp, so it showed raised water after the floor switch lowered it. The row
+    # drives OoT_Map_LakeHyliaShowsLoweredMap: blue warp but water lowered ->
+    # lowered map; water raised without the blue warp -> raised map; vanilla
+    # files still follow the Water Medallion; child -> raised. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTLakeHyliaMinimap COMMAND redship --test oot-lake-hylia-minimap)
+
+    # SoH a089fa60b (#1747): Hover Fishing skipped every cast check; it now
+    # restores NTSC 1.0 (only the rod-in-wall check, and Link keeps his speed)
+    # through VB_NOT_CAST_FISHING and VB_FISHING_ZERO_XZ. The row runs
+    # Fishing.cpp's registrar out of ShipInit's map, then the REAL dispatch:
+    # off -> both vanilla; on -> the cast keeps Link's speed. The on-state cast
+    # check reads the play state's collision and is not driven. Display-free and
+    # ROM-free.
+    redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
+
     # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
     # custom ocarina-note buttons' saved id lists. The row builds that state in
     # the CVar store and runs the start-up clean-up: the stray ids go, the
@@ -2169,6 +2254,11 @@ if(BUILD_TESTING)
     # write only through the gated writers, and the Windows page must no longer
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
+
+    # #1747: Minigame options backport (SoH #6965, #6975, #6991, #6517, #6982, #6476, #6778).
+    # Drives IngoRaceOnce.cpp, HorsebackArchery.cpp, DivingGameTimer.cpp, and RupeeDash.cpp
+    # registrars and real GameInteractor_Should / OnPlayerUpdate dispatch. Display-free, ROM-free.
+    redship_add_test(NAME OoTMinigameOptions COMMAND redship --test oot-minigame-options)
 
     # Every --test row in one process, so its time grows with the table. On the hosted
     # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
@@ -3935,6 +4025,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # on a two-page text) never returned. Plain strings under a watchdog: default
     # tier. games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME CustomMessageReplace COMMAND redship --test custom-message-replace)
+    # #1746: OoT item names with a missing translation fall back to English and
+    # round-trip through itemNameToEnum, articles sit in their language's slot,
+    # colour codes are well-formed, area and trial names read back. The ROM-free
+    # item and hint tables, no seed: default tier.
+    # games/oot/soh/oot_custom_message_text_test.cpp.
+    redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font
@@ -4814,6 +4910,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # "Extraction Failed" popup in OTRGlobals.cpp::RunExtract. Default redship
     # tier; src/common/tests/test_extractor_picker_guard.c.
     redship_add_test(NAME ExtractorPickerGuard COMMAND redship --test extractor-picker-guard)
+
+    # #1752 / #1735: ROM-free round-trip of newly wired OoT savestate plain-data
+    # blocks (Barinade/Bongo/Morpha statics, OoT_sEffectContext, z_player statics,
+    # AudioOcarina statics, and transition actor IDs + live numActors clamp).
+    # Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+    redship_add_test(NAME OoTSaveStateRoundtrip COMMAND redship --test oot-savestate-roundtrip)
 
     # ========================================================================
     # Integration tests (requires display - use Xvfb in CI)

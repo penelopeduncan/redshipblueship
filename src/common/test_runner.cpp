@@ -258,6 +258,13 @@ int OoT_ExitHarvestGate_RunHeadless(void);
 // naming neither symbol (a reference would un-elide them by itself). Returns 0
 // on pass, non-zero on fail.
 int OoT_MenuRegistrars_RunHeadless(void);
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750;
+// games/oot/soh/oot_netplay_fixes_test.cpp): verifies HandlePacket_PlayerUpdate
+// missing-key defaults & complete payload updates, DummyPlayer_Update unk_862
+// clamping past GID_MAXIMUM, and GameInteractor::IsGameplayPaused /
+// IsPlayerInControl null-PlayState guards. Pure (no display, no ROM, no
+// connection). Returns 0 on pass, non-zero on fail.
+int OoT_NetplayFixes_RunHeadless(void);
 // Tier-4 combo-settings ROWS (games/oot/soh/soh_combo_settings_rows_test.cpp,
 // #655): the six gCombo.Rando.* keys are SohMenu rows -- in the tier-4 Combo
 // section's Cross-Game Rules page since #497 step 6 moved them off their interim
@@ -668,6 +675,11 @@ int RandoTest_ScrubTextHintSetting(void);
 // in games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_CustomMessageReplaceTest_Run(void);
 int RandoTest_MapCompassText(void);
+// #1746: missing translations fall back to English and round-trip through
+// itemNameToEnum; articles sit in their language's slot; colour codes are
+// well-formed; area and trial names read back. Body in
+// games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
+int OoT_ItemTextTest_Run(void);
 // #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
 // the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 // Return 0 on pass.
@@ -1655,6 +1667,13 @@ static TestResult Test_OoTMenuRegistrars(void) {
     return OoT_MenuRegistrars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750; see
+// the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_netplay_fixes_test.cpp.
+static TestResult Test_OoTNetplayFixes(void) {
+    return OoT_NetplayFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Tier-4 combo-settings menu rows (#655) — the wrapper lives further down,
 // beside the other rows that need the display-free shared Context bring-up,
 // because CreateHarnessStyleContext is defined below this point.
@@ -1867,6 +1886,99 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH c93b6188c (#1748): the swim-void respawn takes the entrance's room. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void);
+static TestResult Test_OoTSwimVoidRespawnRoom(void) {
+    return OoT_SwimVoidRespawnRoom_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 8584ced40b (#1742): the Fix Two-Handed Idle Animations option. Body in
+// games/oot/soh/oot_two_handed_idle_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the TwoHandedIdle CVar.
+extern "C" int OoT_TwoHandedIdleAnim_RunHeadless(void);
+static TestResult Test_OoTTwoHandedIdleAnim(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TwoHandedIdleAnim_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 16ee01404 (#1747): the bow unequips a bow-with-magic-arrow button. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_ItemUnequipBow_RunHeadless(void);
+static TestResult Test_OoTItemUnequipBow(void) {
+    return OoT_ItemUnequipBow_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 172b373fb (#1747): the customised fishing minimum sets the vanilla prize. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears two fishing CVars.
+extern "C" int OoT_FishingPrizeThreshold_RunHeadless(void);
+static TestResult Test_OoTFishingPrizeThreshold(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_FishingPrizeThreshold_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 490e13616 (#1746): the Save Editor's sword test. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
+extern "C" int OoT_SaveEditorSwordRange_RunHeadless(void);
+static TestResult Test_OoTSaveEditorSwordRange(void) {
+    return OoT_SaveEditorSwordRange_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 8b3d91506 (#1750): title card position names and the All margins buttons. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HUD position and margin CVars.
+extern "C" int OoT_TitleCardCvars_RunHeadless(void);
+static TestResult Test_OoTTitleCardCvars(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_TitleCardCvars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 11fd0e0e7 (#1750): the Bow Body colour and its derived colours. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and restores cosmetic colour CVars.
+extern "C" int OoT_BowBodyCosmetic_RunHeadless(void);
+static TestResult Test_OoTBowBodyCosmetic(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_BowBodyCosmetic_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 847e3cd32 (#1747): Lake Hylia's minimap follows the raised-water flag. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper over gSaveContext (restored), no Context needed.
+extern "C" int OoT_LakeHyliaMinimap_RunHeadless(void);
+static TestResult Test_OoTLakeHyliaMinimap(void) {
+    return OoT_LakeHyliaMinimap_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH a089fa60b (#1747): Hover Fishing restores the NTSC 1.0 cast. Body in
+// games/oot/soh/oot_upstream_small_fixes_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the HoverFishing CVar.
+extern "C" int OoT_HoverFishing_RunHeadless(void);
+static TestResult Test_OoTHoverFishing(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
@@ -1880,6 +1992,17 @@ static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
         return TEST_FAIL;
     }
     return OoT_OcarinaNoteMappingCleanup_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1747: OoT minigame options (IngoRaceOnce, HorsebackArchery, DivingGameTimer, RupeeDashScaling).
+extern "C" int OoT_MinigameOptions_RunHeadless(void);
+static TestResult Test_OoTMinigameOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
@@ -2771,7 +2894,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
 // every default world folds into its identity, so each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
+// Re-pinned again by the text fixes of #1746 (PR #1764; generator 6, was
+// 0x8F5E9C45): Ship of Harkinian f35f134c9's grammar fixes change the English
+// text of six static hints (Big Poes, the chickens, Malon, horseback archery,
+// the loach, Biggoron). No placement moves through them; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x63EB5596u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -3921,6 +4048,13 @@ TestResult Test_ScrubTextHintSetting(void) {
 // games/oot/soh/oot_custom_message_text_test.cpp.
 TestResult Test_CustomMessageReplace(void) {
     return OoT_CustomMessageReplaceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1746: the ROM-free item and hint tables (OoT_ComboLogic_TestEnsureItemTableTransient,
+// OoT_HintArea_TestInitStaticData), no Rando::Context left behind. Assertions in
+// games/oot/soh/oot_custom_message_text_test.cpp.
+TestResult Test_OoTItemText(void) {
+    return OoT_ItemTextTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1556: MM's AddLineBreaks is plain strings and a static width table, so no
@@ -8842,6 +8976,13 @@ TestResult Test_SharedSunSariaRule(void) {
     return SharedSunSariaRule_Run();
 }
 
+// #1587 S2: the Shared Sun's Song and Shared Saria's Song members through the real
+// shims. ROM-free and no bring-up, as shared-warp-songs-merge: the rules are frozen
+// directly and nothing it calls reads a CVar.
+TestResult Test_SharedSunSariaMerge(void) {
+    return SharedSunSariaMerge_Run();
+}
+
 // #968: the shared arrows' rule rows, the same bring-up as shared-lens-rule.
 TestResult Test_SharedArrowsRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -10440,6 +10581,15 @@ TestResult Test_OoTDepartureLinkAge(void) {
     return OoT_DepartureLinkAge_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1752 / #1735: ROM-free savestate plain-data round-trip (boss statics,
+// OoT_sEffectContext, z_player statics, AudioOcarina statics, transition actor IDs).
+// Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+extern "C" int OoT_SaveStateRoundtrip_RunHeadless(void);
+
+TestResult Test_OoTSaveStateRoundtrip(void) {
+    return OoT_SaveStateRoundtrip_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // ============================================================================
 // Test registry
 // ============================================================================
@@ -10868,6 +11018,12 @@ const TestDescriptor gTests[] = {
       "is known in the other at arrival and at the load seam; the matchers answer from the family; a far copy is "
       "credited at pickup (#1169 XW10)",
       Test_SharedWarpSongsMerge },
+    // #1587 S2: the Shared Sun's Song and Shared Saria's Song members. ROM-free.
+    { "shared-sun-saria-merge",
+      "Both games register their own Sun's Song and Saria's Song as the shared families' members, and through the "
+      "real shims a song learnt in either game is known in the other at arrival, at the load seam and at pickup; the "
+      "MM members' pooled follows the frozen rule, so the pair is built with MM's row at 0 (#1587)",
+      Test_SharedSunSariaMerge },
     // #1067: the Shared Ocarina Buttons rule on the same mechanism, five pairs
     // behind one bit. ROM-free, as the shields rows.
     { "shared-ocarina-buttons-pairs",
@@ -11422,6 +11578,10 @@ const TestDescriptor gTests[] = {
     // no ROM, no Ship::Context).
     { "oot-menu-registrars", "soh_port's RegisterMenuInitFunc registrars survive the link (#640)",
       Test_OoTMenuRegistrars },
+    // Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750): pure (no
+    // display, no ROM, no Ship::Context, no connection).
+    { "oot-netplay-fixes", "PlayerUpdate defaults, DummyPlayer unk_862 clamp & null PlayState (#1751, #1750)",
+      Test_OoTNetplayFixes },
     // #618 (#516 Phase 3): the ExtensionCache rescan MM's two remaining InitOTR
     // entries depend on. Placed near the END on purpose — it MOUNTS an extra MM
     // archive into the shared ArchiveManager, and resolution is last-added-wins,
@@ -11564,12 +11724,62 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // SoH c93b6188c: display-free, ROM-free, no global state.
+    { "oot-swim-void-respawn-room",
+      "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
+      "keeps the current room otherwise (SoH c93b6188c)",
+      Test_OoTSwimVoidRespawnRoom },
+    // SoH 8584ced40b: display-free and ROM-free; clears the TwoHandedIdle CVar and re-runs the registrar.
+    { "oot-two-handed-idle-anim",
+      "With Fix Two-Handed Idle Animations on, Biggoron's Sword and the Deku Stick reach the swing fidget and never "
+      "the shield one; with it off the vanilla choice passes through (SoH 8584ced40b)",
+      Test_OoTTwoHandedIdleAnim },
+    // SoH 16ee01404: display-free, ROM-free, no global state.
+    { "oot-item-unequip-bow",
+      "Re-pressing a button over the bow unequips the fire, ice or light arrow bow on it, and the existing unequip "
+      "pairs are unchanged (SoH 16ee01404)",
+      Test_OoTItemUnequipBow },
+    // SoH 172b373fb: display-free and ROM-free; restores the fishing CVars (cleared, never stored) and the save fields.
+    { "oot-fishing-prize-threshold",
+      "Outside the randomizer, Customize Fishing's minimum weight decides the vanilla fishing prize, once per age; "
+      "off or in a randomizer file the vanilla result passes through (SoH 172b373fb)",
+      Test_OoTFishingPrizeThreshold },
+    // SoH 490e13616: display-free, ROM-free, no global state.
+    { "oot-save-editor-sword-range",
+      "The Save Editor's B-button selector treats Kokiri, Master and Biggoron's swords and the broken Giant's Knife "
+      "as swords and nothing else (SoH 490e13616)",
+      Test_OoTSaveEditorSwordRange },
+    // SoH 8b3d91506: display-free and ROM-free; restores every HUD CVar it writes (cleared, never stored).
+    { "oot-title-card-cvars",
+      "The title cards follow the Cosmetics Editor's HUD.TitleCard position settings, and All margins on skips "
+      "hidden elements and the unanchored title cards at their original place (SoH 8b3d91506)",
+      Test_OoTTitleCardCvars },
+    // SoH 11fd0e0e7: display-free and ROM-free; puts back every cosmetic CVar it writes (cleared if absent).
+    { "oot-bow-body-cosmetic",
+      "Editing Bow Body keeps the picked colour and derives Bow Tips and Bow Handle from it, not from a cached "
+      "default (SoH 11fd0e0e7)",
+      Test_OoTBowBodyCosmetic },
+    // SoH 847e3cd32: display-free, ROM-free; restores the gSaveContext fields it writes.
+    { "oot-lake-hylia-minimap",
+      "In a randomizer file Lake Hylia's minimap shows the lowered-water map exactly when the raised-water flag is "
+      "clear; vanilla files still follow the Water Medallion (SoH 847e3cd32)",
+      Test_OoTLakeHyliaMinimap },
+    // SoH a089fa60b: display-free and ROM-free; clears the HoverFishing CVar and re-runs the registrar.
+    { "oot-hover-fishing",
+      "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
+      "(SoH a089fa60b)",
+      Test_OoTHoverFishing },
+
     // #1741: display-free and ROM-free; restores every controller key it touches
     // (cleared, never stored, when it was unset) and saves nothing to disk.
     { "oot-ocarina-note-mapping-cleanup",
       "Stray D-pad mapping ids saved on the four custom ocarina-note buttons are dropped at start-up, the notes' own "
       "and unparseable ids are kept, and the D-pad's own list and settings record are untouched (#1741)",
       Test_OoTOcarinaNoteMappingCleanup },
+    // #1747: display-free and ROM-free; restores CVars, gSaveContext, OoT_gPlayState, gGameInfo, game, and hooks.
+    { "oot-minigame-options",
+      "OoT minigame options registrars and VB/OnPlayerUpdate dispatch match setting toggles (#1747)",
+      Test_OoTMinigameOptions },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
@@ -12046,8 +12256,14 @@ const TestDescriptor gTests[] = {
       Test_ForeignTextboxIcon },
     { "custom-message-replace",
       "CustomMessage::Replace returns when the replacement contains the search string, in both overloads and through "
-      "AutoFormat(ItemID) (#1187)",
+      "AutoFormat(ItemID) (#1187); Capitalize, InsertNames' capital flags and GetAllMessages' format take effect "
+      "(#1746)",
       Test_CustomMessageReplace },
+    { "oot-item-text",
+      "OoT item names with a missing German or French translation read their English name and map back to the same "
+      "item; articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
+      "through the translation maps (#1746)",
+      Test_OoTItemText },
     { "mm-custom-message-line-breaks",
       "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
       "one, adds no width for an overflowing space, and loses no letter (#1556)",
@@ -12667,6 +12883,10 @@ const TestDescriptor gTests[] = {
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
       "shops shuffled and vanilla (#1443)",
       Test_CriticalRenewablesWorld },
+    { "oot-savestate-roundtrip",
+      "ROM-free: newly wired OoT savestate blocks (Barinade/Bongo/Morpha, OoT_sEffectContext, z_player, AudioOcarina, "
+      "and transition actor IDs with live-count clamp) round-trip across Save/Load (#1752, #1735)",
+      Test_OoTSaveStateRoundtrip },
     { nullptr, nullptr, nullptr } // Sentinel
 };
 

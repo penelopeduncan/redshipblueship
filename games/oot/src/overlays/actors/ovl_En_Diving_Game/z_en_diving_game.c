@@ -425,10 +425,12 @@ void func_809EE800(EnDivingGame* this, PlayState* play) {
     OoT_SkelAnime_Update(&this->skelAnime);
     if (this->unk_292 == OoT_Message_GetState(&play->msgCtx) && OoT_Message_ShouldAdvance(play)) {
         OoT_Message_CloseTextbox(play);
-        if (!OoT_Flags_GetEventChkInf(EVENTCHKINF_OBTAINED_SILVER_SCALE)) {
-            Interface_SetTimer(BREG(2) + 50);
-        } else {
-            Interface_SetTimer(BREG(2) + 50);
+        if (GameInteractor_Should(VB_SET_DIVING_GAME_TIME_LIMIT, true)) {
+            if (!OoT_Flags_GetEventChkInf(EVENTCHKINF_OBTAINED_SILVER_SCALE)) {
+                Interface_SetTimer(BREG(2) + 50);
+            } else {
+                Interface_SetTimer(BREG(2) + 50);
+            }
         }
         func_800F5ACC(NA_BGM_TIMED_MINI_GAME);
         OoT_Player_SetCsActionWithHaltedActors(play, NULL, 7);
