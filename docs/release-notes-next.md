@@ -18,8 +18,8 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
 ### Read this first
 
 - **Seeds come from generator 6.** The same seed and settings can make a different world than `v0.5.1-alpha` made,
-  with the default settings too. The Death Mountain Crater logic rework, the Ganon's Castle Fire Trial rework, the
-  dungeon logic reworks, the stricter Gold Skulltula outside Ganon's Castle and Majora's Mask's new Moon
+  with the default settings too. The Death Mountain Crater and Fire Trial reworks, the dungeon logic reworks, the
+  stricter Gold Skulltula outside Ganon's Castle, the stick and nut bag gating of Majora's Mask and its new Moon
   Crash default each move items (all are described below). A seed package exported by `v0.5.1-alpha` is refused
   ("Seed package from another generator"), so generate the seed again.
 - **Save files from `v0.5.1-alpha` still open, but there is no way back.** The save format did not change. Once
@@ -112,7 +112,8 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   the Gerudo Valley Octorok grotto, the Colossus oasis, the Thieves' Hideout kitchen, the Gold Skulltula outside
   Ganon's Castle, the Deku Tree hearts before the boss, and a few Master Quest Shadow Temple and Ganon's Castle
   checks. It also covers the Water Temple Gold Skulltula near the boss key chest, two crates in the Master Quest
-  Water Temple's whirlpool room and the hearts in Ganon's Castle's Shadow Trial.
+  Water Temple's whirlpool room, the hearts in Ganon's Castle's Shadow Trial and the Forest Trial's on-target
+  silver rupee.
   With it off (the default), the Gold Skulltula outside Ganon's Castle now expects the Hookshot or Boomerang, which
   moves items in default worlds. The Gerudo Valley waterfall wonder items and the Master Quest Shadow Temple Gold
   Skulltula near the boss also need more than before, and adult Link needs nothing for the left and right Deku Tree
@@ -219,24 +220,30 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Layers in Enhancements > Fixes, Gameplay Fixes; on by default). This matters for a file loaded from Majora's
   Mask's own file select, for example Great Bay Coast after Gyorg. A crossing or a paired file's load already did
   this.
-- **Majora's Mask: a save on the Clock Tower roof under New Cycle comes back in South Clock Town** (issue #1728), as
-  in OoTMM. With Pause Menu Save or Autosave on, a save made on the roof next arrives in South Clock Town, never back
-  on the roof. Arriving in Termina within about ten in-game minutes of the Moon's fall pulls the clock back to about
-  ten minutes before it (05:49 on the Final Day without Shuffle Time). Last Save files are unchanged.
+- **Majora's Mask: in a paired New Cycle file, a save on the Clock Tower roof comes back in South Clock Town** (issue
+  #1728), as in OoTMM. With Pause Menu Save or Autosave on, such a save now comes back in South Clock Town even with
+  Remember Save Location on; before, that option brought you back to the roof with its timer started again. In a New
+  Cycle file, arriving in Termina from Hyrule within about ten in-game minutes of the Moon's fall also pulls the clock
+  back to about ten minutes before it (05:49 on the Final Day without Shuffle Time); that holds for every such
+  arrival, not only after a roof save. Last Save files are unchanged: there a roof save with Remember Save Location on
+  still comes back on the roof, with the Moon's timer running.
 - **Majora's Mask: Pause Menu Save and Autosave work on the Moon** (2Ship #2007, issue #1744), in its four trials and
   in Majora's lair too. Both options stay off by default. With Remember Save Location off, a reload comes back on the
   Moon field; with it on, at the last entrance Link went through, which can be a trial's. A save in Majora's lair
-  always comes back on the Moon field, because the lair has no exit; this is the one difference from 2Ship2Harkinian.
-  In a paired file the first crossing into Termina after you reopen the file lands there instead of in Clock Town. The
-  known issues list the ways off the Moon.
-- **Majora's Mask: more cutscenes can be skipped** (from 2Ship2Harkinian). Skip One Point Cutscenes now also covers
-  the Laundry Pool bell and the owl statues, and a statue is activated as soon as you strike it. Skip Misc
-  Interactions now also covers Kafei running to town, the door and the conveyor belt in Sakon's Hideout, and the
-  Couple's Mask cutscene.
-- **Ocarina of Time: new minigame options** (from Ship of Harkinian; all off by default). Ingo's race can be run once
-  or skipped, and its rematch can be skipped. Horseback Archery has its own settings and can award both prizes for a
-  high score. The Rupee Diving Game's time limit has a slider. Rupee Dash can drain at a fixed rate instead of scaling
-  with the wallet.
+  always comes back on the Moon field, because the lair has no exit; 2Ship2Harkinian brings it back inside the lair
+  when Remember Save Location is on. In a paired file the first crossing into Termina after you reopen the file lands
+  there instead of in Clock Town. The known issues list the ways off the Moon.
+- **Majora's Mask: more cutscenes can be skipped** (from 2Ship2Harkinian). "Skip One Point Cutscenes (Chests, Door
+  Unlocks, etc.)" now also covers the Laundry Pool bell and the owl statues, and a statue is activated as soon as you
+  strike it (with owl statues shuffled, the strike makes the statue's check available instead). Skip Misc Interactions
+  now also covers Kafei running to town, the door and the conveyor belt in Sakon's Hideout, and the Couple's Mask
+  cutscene. Both settings are shared by the two games, but in a randomizer file the checkbox shows ticked before you
+  have ever touched it while Majora's Mask reads it as off: untick and tick it once to skip the Termina cutscenes.
+- **Ocarina of Time: new minigame options** (from Ship of Harkinian). Each keeps the game's own behaviour until you
+  change it. Ingo's Race > Number of Races (Twice, Once or None) gives Epona after one race or none; it works only
+  while you ride Epona. Horseback Archery has its own settings (Instant Win, Always Score 100, Arrow Count) and, under
+  Multiple Prizes, can award both prizes for a high score. The Rupee Diving Game's time limit has a slider (30 to 120
+  seconds). Turning Rupee Dash Wallet Scaling off makes Rupee Dash drain at a fixed rate.
 - **Ocarina of Time dev tools and Boss Rush** (from Ship of Harkinian). The Actor Viewer shows category numbers and
   hexadecimal actor ids and parameters, the Mod Menu has a Clear List button, the Collision Viewer has a new
   Scarecrow Spawn setting (off until you choose it), and booting into the debug warp screen applies the time
@@ -261,26 +268,30 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Controls in the controller settings. They did nothing there, but two rows then held the same binding, and Ship
   of Harkinian reports an error, and possibly a crash, when one was removed. Copies made before this fix are
   removed when the game starts, and the D-pad keeps its own bindings (issue #1741).
-- **Ocarina of Time: eleven fixes from Ship of Harkinian** (issues #1742, #1747, #1748). A swim void without Swim
-  respawns in the entrance's room. Fix Two-Handed Idle Animations works. The Item Tracker's Personal Notes is no
-  longer greyed out. The bow can unequip a magic-arrow button. Customize Fishing's minimum weights also set the
-  vanilla prize, and Hover Fishing casts as on NTSC 1.0, so Link keeps his momentum. The Save Editor's B-button sword
-  picker updates Link's sword. Title-card positions from the Cosmetics Editor take effect, and positions already saved
-  apply at once. Bow Body keeps the colour picked. The title screen's logo shift is right on Master Quest. In a
-  randomizer file the Lake Hylia minimap matches the water level.
+- **Ocarina of Time: eleven fixes from Ship of Harkinian** (issues #1742, #1747, #1748, #1750). A swim void without
+  Swim respawns in the entrance's room. Fix Two-Handed Idle Animations works. The Item Tracker's "Personal notes"
+  setting is no longer greyed out, though this build's Item Tracker does not show notes yet. The bow can unequip a
+  magic-arrow button. Customize Fishing's minimum weights also set the vanilla prize, and Fish while Hovering casts as
+  on NTSC 1.0, so Link keeps his momentum. The Save Editor's B-button sword picker updates Link's sword. Title-card
+  positions from the Cosmetics Editor take effect, and positions already saved apply at once. Bow Body keeps the
+  colour picked. The title screen's logo shift is right on Master Quest. In a randomizer file the Lake Hylia minimap
+  matches the water level.
 - **Majora's Mask: fixes from 2Ship2Harkinian** (issues #1754, #1755). Pause Owl Warp now needs the Ocarina and, in a
-  randomizer file, the ocarina buttons the Song of Soaring uses. A restricted song no longer opens an empty text box
-  when Saria's Song is shuffled. Aliens without their soul are drawn gray. The telescope follows the aiming inversion
-  settings. Replaced music no longer swaps sound effects. Arrows sell back at full price. The Swamp archery bonus
+  randomizer file, the ocarina buttons the Song of Soaring uses; with Shuffle Ocarina on it stays closed until the
+  Ocarina is found. A restricted song no longer opens an empty text box when Saria's Song is shuffled. Aliens without
+  their soul are drawn gray. The telescope follows the aiming inversion settings. Replaced music no longer swaps sound
+  effects. With Ammo Buyback Options at half price, arrows still sell back at full price. The Swamp archery bonus
   speed-up follows Skip Misc Interactions. Auto Bank Deposit notifies only at milestones. There is a new option, Fix
   Deku Butler Shock Animation.
-- **Ocarina of Time: Anchor, Crowd Control and Sail fixes from Ship of Harkinian** (issue #1751). Anchor no longer
-  fails on a packet with a missing field, a dummy player's held item is kept inside the draw table, Crowd Control
-  effects wait until Link is in control and respect the infinite magic, money and ammo cheats, and invisible Link's
-  equipment is no longer drawn.
+- **Ocarina of Time: Anchor, Crowd Control and Sail fixes from Ship of Harkinian** (issues #1750, #1751). Anchor skips
+  a packet with a missing field instead of failing (a player update fills in defaults), a dummy player's held item is
+  kept inside the draw table, Crowd Control effects wait until Link is in control and respect the infinite magic,
+  money and ammo cheats, invisible Link's equipment is no longer drawn, and Sail's hooks no longer wait for a
+  connection or a loaded save.
 - **Ocarina of Time: save states keep more of the game** (from Ship of Harkinian; issue #1752). A save state now also
   keeps the Barinade, Bongo Bongo and Morpha fights, active effects, more of Link's own state, the ocarina and doors
-  between rooms. In a paired file a save state still holds only the running game (see the known issues).
+  between rooms. A save state holds Ocarina of Time only; while Majora's Mask runs, F5 and F7 say "states not
+  available here" (see the known issues).
 
 ### Build and tests
 
