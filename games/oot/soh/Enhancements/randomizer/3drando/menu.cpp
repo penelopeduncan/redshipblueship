@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -197,9 +198,10 @@ static int OoT_ComboLogic_TestSetNativeGeneralPass(int) {
 //   (2) name<->enum round trip — RC -> Location::GetName() -> locationNameToEnum
 //       must return the SAME RC. This is exactly the lossy transform the save
 //       file round-trips hints through (SaveManager writes hinted locations as
-//       names and Hint(json) reads them back through locationNameToEnum with
-//       operator[], which silently yields 0 on a miss), so a collision or a
-//       missing entry shows up here instead of as "No Item" in someone's game;
+//       names and Hint(json) reads them back through locationNameToEnum; since
+//       #1731 a miss loads the hint disabled, where operator[] silently yielded
+//       0), so a collision or a missing entry shows up here instead of as a
+//       missing or wrong hint in someone's game;
 //   (3) rendered text — no hint's final message may contain the sentinel, which
 //       catches any resolution path the first two passes don't model.
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -417,6 +419,30 @@ static std::string JoinMessages(const std::vector<std::string>& messages) {
     return joined;
 }
 
+namespace {
+/**
+ * #1746: whether hint text `text` names `name`. Since SoH c9491183f / c9414b4d4
+ * CustomMessage::InsertNames really upper-cases the first byte of each language's
+ * string of an inserted name whose capital flag is set (today the altar texts,
+ * RHT_CHILD_ALTAR_STONES and RHT_ADULT_ALTAR_MEDALLIONS, flag every slot), so an
+ * area name reads "The Southern Swamp" there. Exactly that is tolerated: the name
+ * as given, or the name with its first letter in the other case. Nothing else is
+ * folded, so a wrong name still misses.
+ */
+bool TextNamesName(const std::string& text, const std::string& name) {
+    if (text.find(name) != std::string::npos) {
+        return true;
+    }
+    if (name.empty() || !std::isalpha(static_cast<unsigned char>(name[0]))) {
+        return false;
+    }
+    std::string otherCase = name;
+    const unsigned char first = static_cast<unsigned char>(name[0]);
+    otherCase[0] = static_cast<char>(std::isupper(first) ? std::tolower(first) : std::toupper(first));
+    return text.find(otherCase) != std::string::npos;
+}
+} // namespace
+
 struct ForeignAreaProbeResult {
     int probes = 0;
     size_t failures = 0;
@@ -601,7 +627,8 @@ static ForeignAreaProbeResult ProbeMultiSlotForeignAreaHints() {
             result.failures++;
         }
         result.failures += CheckForeignAreaSlots(label, areas, foreign, slotItems, nullptr);
-        if (live.find(nameA) == std::string::npos || (b.namesB && live.find(nameB) == std::string::npos)) {
+        // The altar flags its slots capital (#1746): "The Southern Swamp" names "the Southern Swamp".
+        if (!TextNamesName(live, nameA) || (b.namesB && !TextNamesName(live, nameB))) {
             fprintf(stderr, "[rando-hints] FAIL %s: the hint does not name \"%s\"%s%s%s: \"%s\" (P6)\n",
                     label.c_str(), nameA.c_str(), b.namesB ? " and \"" : "", b.namesB ? nameB.c_str() : "",
                     b.namesB ? "\"" : "", live.c_str());

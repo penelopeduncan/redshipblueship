@@ -20,6 +20,9 @@ void EnSyatekiMan_Town_RunGame(EnSyatekiMan* enSyatekiMan, PlayState* play);
 #define BOAT_HEALTH_CVAR CVarGetInteger(BOAT_HEALTH_CVAR_NAME, 10)
 #define BOAT_NO_DAMAGE_CVAR_NAME "gEnhancements.Minigames.BoatArcheryInvincible"
 #define BOAT_NO_DAMAGE_CVAR CVarGetInteger(BOAT_NO_DAMAGE_CVAR_NAME, 0)
+// 2Ship b41f365aa. This tree's Skip Misc Interactions key (src/common/cvar_shared_keys.h); MM reads it with 0.
+#define SKIP_MISC_CVAR_NAME "gEnhancements.TimeSavers.SkipMiscInteractions"
+#define SKIP_MISC_CVAR CVarGetInteger(SKIP_MISC_CVAR_NAME, 0)
 
 static constexpr u16 TEXT_BOAT_ARCHERY_FAIL = 0x877;
 
@@ -40,7 +43,7 @@ static void RegisterSwampArchery() {
         }
     });
 
-    COND_VB_SHOULD(VB_ARCHERY_ADD_BONUS_POINTS, SWAMP_CVAR != 2180, {
+    COND_VB_SHOULD(VB_ARCHERY_ADD_BONUS_POINTS, SKIP_MISC_CVAR, {
         Actor* actor = va_arg(args, Actor*);
         s32* sBonusTimer = va_arg(args, s32*);
 
@@ -94,7 +97,8 @@ static void RegisterKoumeInvincible() {
     COND_VB_SHOULD(VB_KOUME_TAKE_DAMAGE, BOAT_NO_DAMAGE_CVAR, { *should = false; });
 }
 
-static RegisterShipInitFunc initFunc_Swamp(RegisterSwampArchery, { SWAMP_CVAR_NAME });
+// The bonus VB is gated on Skip Misc Interactions, so that key re-arms this registrar too (upstream: Swamp key only).
+static RegisterShipInitFunc initFunc_Swamp(RegisterSwampArchery, { SWAMP_CVAR_NAME, SKIP_MISC_CVAR_NAME });
 static RegisterShipInitFunc initFunc_Town(RegisterTownArchery, { TOWN_CVAR_NAME });
 
 static RegisterShipInitFunc initFunc_Boat(RegisterBoatArchery, { BOAT_CVAR_NAME });

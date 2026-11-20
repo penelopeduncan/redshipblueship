@@ -351,6 +351,34 @@ void Combo_ComboSettingsApplyCreationBagShuffles(ComboSettingsRecord* settings, 
     settings->comboFlags = flags;
 }
 
+bool Combo_ComboChildWalletShuffled(void) {
+    // The frozen record only (#1702): the pair's one Child's Wallet is world
+    // identity, and a record nothing froze answers false whatever its bytes hold.
+    const bool frozen = Combo_ComboSettingsFrozen();
+    return frozen && (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET) != 0u;
+}
+
+bool Combo_ComboBombchuBagShuffled(void) {
+    return Combo_ComboSettingsFrozen() &&
+           (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG) != 0u;
+}
+
+void Combo_ComboSettingsApplyCreationWalletChuShuffles(ComboSettingsRecord* settings, bool childWalletShuffled,
+                                                       bool bombchuBagShuffled) {
+    if (settings == NULL) {
+        return;
+    }
+    uint8_t flags = (uint8_t)(settings->comboFlags & (uint8_t) ~(RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET |
+                                                                 RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG));
+    if (childWalletShuffled) {
+        flags |= (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET;
+    }
+    if (bombchuBagShuffled) {
+        flags |= (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG;
+    }
+    settings->comboFlags = flags;
+}
+
 uint32_t Combo_ComboCouplingAuthored(void) {
     const uint32_t authored = Combo_ComboItemRulesAuthored();
     uint32_t caps = 0u;
@@ -451,7 +479,11 @@ void Combo_ComboItemRules2Store(ComboItemRules2Record* rec, uint32_t word) {
 uint32_t Combo_ComboItemRule2Requires(uint32_t bit) {
     // A shared warp song is one family of the extension's added copy and the
     // host-native copy (OoTMM's `cond: s.songMinuetMm`), so without the
-    // extension there is nothing to share.
+    // extension there is nothing to share. Restricted to the warp songs on
+    // purpose: the Shared Sun's Song and Shared Saria's Song (#1587) require NO
+    // second-word bit, because their extension is Majora's Mask's own song-shuffle
+    // row, which the shared rule turns on (#1587 S3). Widening this to
+    // RSBS_XITEM2_FAMILY_MASK would make the Sun's Song require Shared Soaring.
     if (bit != 0u && (bit & (bit - 1u)) == 0u && (bit & (uint32_t)RSBS_XITEM2_WARP_SONG_SHARED) != 0u) {
         return bit >> RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
     }
@@ -490,6 +522,10 @@ const char* Combo_ComboItemRule2Name(uint32_t bit) {
             return "sharedSongNocturne";
         case RSBS_XITEM2_SHARED_SONG_PRELUDE:
             return "sharedSongPrelude";
+        case RSBS_XITEM2_SHARED_SONG_SUN: // #1587 S1
+            return "sharedSongSun";
+        case RSBS_XITEM2_SHARED_SONG_SARIAS: // #1587 S1
+            return "sharedSongSarias";
         default:
             return "(unknown)";
     }
@@ -511,7 +547,7 @@ bool Combo_ComboItemRules2Valid(uint32_t word) {
 
 uint32_t Combo_ResolveComboItemRules2(void) {
     // THE ONE RESOLVER for the second word (Combo_ResolveComboItemRules'
-    // discipline): ASSEMBLED from the fourteen keys, each through
+    // discipline): ASSEMBLED from the sixteen keys, each through
     // Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
     // bit no key authors is never on. With nothing authored this is 0, so every
     // world whose player leaves the (hidden) keys alone keeps its fingerprint.
@@ -545,9 +581,10 @@ bool Combo_ComboCrossItemRule2(uint32_t bit) {
 
 // TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
 // the hidden mask and RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out
-// of it. When RSBS_XITEM2_HIDDEN is 0 (every allocated rule offered) all three
-// levels read the same empty mask, so a row that names a level means what it
-// meant. Never set in production.
+// of it. Since #1587 S1 the mask holds only the Shared Sun's Song and Shared
+// Saria's Song, no MM extension, so RSBS_XITEM2_REVEAL_MM_SONGS reads the
+// production mask and only RSBS_XITEM2_REVEAL_ALL offers those two. Never set in
+// production.
 static int sComboItemRules2RevealLevel = RSBS_XITEM2_REVEAL_NONE;
 
 void Combo_ComboItemRules2RevealForTest(int on) {
@@ -1194,10 +1231,10 @@ uint32_t Combo_ComboSettingsDivergenceBetween(const ComboSettingsRecord* frozen,
     if ((flagsDelta & (uint8_t)RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD) != 0u) {
         bits |= RSBS_COMBO_DIVERGE_SHARED_KOKIRI_SWORD;
     }
-    // #1369's coupled-buttons marker and #1652's two bag bits have no rule name of
-    // their own (no key authors them; the session compare reads them as the file
-    // decided), so a raw diff of one is reported at the byte, with the unallocated
-    // bits.
+    // #1369's coupled-buttons marker, #1652's two bag bits and #1702's wallet and
+    // bombchu bag bits have no rule name of their own (no key authors them; the
+    // session compare reads them as the file decided), so a raw diff of one is
+    // reported at the byte, with the unallocated bits.
     if ((flagsDelta & (uint8_t)(~RSBS_COMBO_FLAGS_ALL_V1 | RSBS_COMBO_FLAGS_CREATION_DERIVED)) != 0u) {
         bits |= RSBS_COMBO_DIVERGE_COMBO_FLAGS;
     }
@@ -1272,9 +1309,9 @@ uint32_t Combo_ComboSettingsDivergenceForEx2(const ComboSettingsRecord* frozen, 
     // And the coupled-buttons marker (#1369): no key authors it either. The
     // creation derives it from the Shared Ocarina Buttons rule (compared below)
     // and the two games' button shuffles (each game's own profile), so the file's
-    // bit is the session's, and the fingerprint pins it. #1652's two bag bits
-    // likewise: the creation took them from OoT's own options (OoT's settings
-    // hash, compared below).
+    // bit is the session's, and the fingerprint pins it. #1652's two bag bits and
+    // #1702's wallet and bombchu bag bits likewise: the creation took them from
+    // OoT's own options (OoT's settings hash, compared below).
     live.comboFlags = (uint8_t)((live.comboFlags & (uint8_t)~RSBS_COMBO_FLAGS_CREATION_DERIVED) |
                                 (frozen->comboFlags & (uint8_t)RSBS_COMBO_FLAGS_CREATION_DERIVED));
     uint32_t bits = Combo_ComboSettingsDivergenceBetween(frozen, &live);

@@ -545,7 +545,8 @@ build would turn the oracle back into a no-op.
    Crater, Voidout Collection and Fire Trial logic ports of #1647, which move
    default worlds. The world-moving changes after it in that window, the Moon
    Crash Behavior default (#1671, PR #1673), the stick and nut bag gating of
-   Majora's Mask (#1652) and the first overhaul batch of #1647 (PR #1724), ride
+   Majora's Mask (#1652), the first overhaul batch of #1647 (PR #1724) and the
+   second with the text fixes of #1746 (PRs #1756, #1760 and #1764), ride
    generator 6 and must list their residuals. See
    "The generator version" below.
 
@@ -1080,6 +1081,66 @@ themselves. No option or trick is added and no trick index moves (the trick
 generator-6 builds, one from before it and one from after, can make different
 Ocarina of Time worlds from the same seed and settings. Generator 6 has not
 shipped, so no released build is on the far side of that.
+
+The second overhaul batch of #1647 and the text fixes of #1746 (2026-11-19,
+PRs #1756, #1760 and #1764, re-pinned once, in #1760), still version 6. The
+overhaul's stages 4 and 5 port Ship of Harkinian eca767dcb's logic for the
+Water Temple, the Spirit Temple, the Shadow Temple, Gerudo Training Ground and
+Ganon's Castle. Ten `RandomizerRegion` ids are new (four in stage 4, six in
+stage 5), so the regions after them are renumbered, and stage 5 changes rules
+that the default settings use. In the Spirit Temple an adult passes the big
+wall's Beamos with the Hookshot, the Longshot or the Bow. In Ganon's Castle
+the Shadow Trial's front chest is free and its chest platform takes the
+Longshot alone. The Zora's Domain frozen-waterfall Skulltula opens to an adult
+with Bombchus, or with magic and either bombs or Din's Fire. The Water, Spirit
+and Shadow boss entryways lead back into their dungeons, which matters once
+boss entrances are shuffled. Most of stage 4's other Water Temple rules change
+reach only under a trick or Shuffle Swim; in #1756's own CI run no golden
+moves. One trick is new, `RT_GTG_MQ_LAVA_ROOM`, appended at the end of the
+trick list and folded out of the fingerprint while it is off.
+
+The text fixes port Ship of Harkinian's corrections to item names, hint texts
+and message formatting. They change no rule and no placement; what they change
+in a pinned world is the wording its hints carry.
+
+The goldens were regenerated on main `d46138129` plus the three pull requests
+and three others that touch no rule and no hint text (#1758, #1767 and #1774;
+combined commit `64f6bf26e`). #1760's branch does not hold #1756, so its golden
+rows pass only once #1756 is on main.
+
+Eight seed digests and `paired-attempt-digest` move:
+
+- `seed-digest-default` and `seed-digest-mm-confined`: `ootHintDigest` only
+  (`DB98AB06` to `C02F7367`, and `405CCD0E` to `84274190`). That is the text
+  fixes alone: in #1764's own CI run, `ootHintDigest` is the one field that
+  moves in any golden. The default profile's pinned seed places every item
+  where it did.
+- `seed-digest-profile-v1`: `placementHash`, `ootFinalPlacementHash` and
+  `ootHintDigest`.
+- `seed-digest-entrances` and `seed-digest-new-options`: those three and
+  `coordinatorDigest`.
+- `seed-digest-shopsanity`: `placementHash`, `coordinatorDigest`,
+  `ootFinalPlacementHash`, `crossingDigest`, `mmHintDigest` and the tenth
+  Ocarina of Time crossing; its `ootHintDigest` does not move.
+- `seed-digest-all-masks`: the same and `ootHintDigest`.
+- `seed-digest-oot-confined`: placement, crossing and hint fields of both
+  games, and its counts (`bagBatchAttempts` 2 to 1, `bagRounds` 676 to 340).
+- `paired-attempt-digest`: `ootFinalPlacementHash` (`586654E5` to `98290E03`).
+
+`seed-digest-armed-caps`, `seed-digest-beatable-only`,
+`seed-digest-direction-forward`, `seed-digest-excludes-tricks` and
+`seed-digest-no-logic` are unchanged. No fingerprint field moves in any golden.
+`RandoStaticHintOrder`'s hand pin `kStaticHintTextDigest` moved in the same
+re-pin (`8F5E9C45` to `63EB5596`, still 17 hints), through the English text of
+six static hints. `GoldenSeedsRoundBudget`, `ComboWarpTravelRounds` and
+`ComboSingleBag`'s seeds pass as they were.
+
+The residual behind the unchanged fingerprint is the placements and the hint
+wording. `comboSettingsHash` is the same on both sides of this change, so two
+generator-6 builds, one from before it and one from after, can make different
+Ocarina of Time worlds from the same seed and settings, and where the worlds
+agree their hints can still read differently. Generator 6 has not shipped, so
+no released build is on the far side of that.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

@@ -206,6 +206,11 @@ typedef enum {
     COMBO_SETTING_SHARED_MASK_GERUDO, // gCombo.Rando.SharedMaskGerudo -> RSBS_XITEM_SHARED_GERUDO
     COMBO_SETTING_SHARED_MASK_SKULL,  // gCombo.Rando.SharedMaskSkull -> RSBS_XITEM_SHARED_SKULL
     COMBO_SETTING_SHARED_MASK_SPOOKY, // gCombo.Rando.SharedMaskSpooky -> RSBS_XITEM_SHARED_SPOOKY
+    // #1587 S1: OoTMM's sharedSongSun and sharedSongSarias, bits of the SECOND rules
+    // word (no requirement; hidden until #1587 S7: no row, and Generate refuses).
+    // Appended after #980's ids so no id moves.
+    COMBO_SETTING_SHARED_SONG_SUN,    // gCombo.Rando.SharedSongSun -> RSBS_XITEM2_SHARED_SONG_SUN
+    COMBO_SETTING_SHARED_SONG_SARIAS, // gCombo.Rando.SharedSongSarias -> RSBS_XITEM2_SHARED_SONG_SARIAS
     COMBO_SETTING_COUNT
 } ComboSettingId;
 
@@ -229,9 +234,10 @@ uint32_t Combo_ComboItemRuleKeyedBits(void);
  * The same two for the SECOND rules word (#1169 XW2, RSBS_XITEM2_*): the bits
  * whose keys resolve on now (Combo_ResolveComboItemRules2 reads this and
  * nothing else), and every bit a key authors at all (all fourteen warp-song
- * rules). The extensions have rows, drawn while offered (the Song of Soaring
- * (OoT) since XW12, the six MM ones since XW13); the shared songs' rows are drawn
- * once XW10 offers them.
+ * rules, and #1587's Shared Sun's Song and Shared Saria's Song: sixteen). The
+ * extensions have rows, drawn while offered (the Song of Soaring (OoT) since
+ * XW12, the six MM ones since XW13); the shared warp songs' rows are drawn since
+ * XW14; the Sun's and Saria's rules have no row until #1587 S7.
  */
 uint32_t Combo_ComboItemRules2Authored(void);
 uint32_t Combo_ComboItemRule2KeyedBits(void);
@@ -465,8 +471,8 @@ int Combo_ComboSettingsCanRestoreLiveEx(const ComboSettingsRecord* frozen, const
 
 /**
  * The two above with the file's SECOND rules word too (#1169 XW2): a
- * RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS divergence restores the fourteen
- * warp-song keys from @p frozenRules2 beside the first word's keys, and is
+ * RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS divergence restores the sixteen
+ * second-word keys from @p frozenRules2 beside the first word's keys, and is
  * unrestorable when the file's word holds a bit this build refuses to load
  * (Combo_ComboItemRules2Refused: an unallocated bit, a shared song without its
  * extension, or, since XW12, an MM or shared warp-song rule on), so such a file is refused

@@ -19,6 +19,7 @@
 
 #include <fstream>
 #include <spdlog/spdlog.h>
+#include <stdexcept> // RSBS (#1731): an unknown name in a spoiler log fails the load
 #ifdef RSBS_SINGLE_EXECUTABLE
 // ComboLogicEngineOoT.cpp: a loaded spoiler replaces the world, so a general pass
 // deferred for the previous generation's single-bag fill no longer exists.
@@ -544,25 +545,44 @@ void Context::ParseHashIconIndexesJson(nlohmann::json spoilerFileJson) {
     }
 }
 
+// RSBS (#1731): the item a spoiler log names for a location (its "item" or its ice trap's "model"). A name this
+// build does not know used to become RG_NONE through itemNameToEnum[name] (and stay in the table): the check then
+// gave nothing, or the trap looked like nothing. Skipping it would leave the check holding another world's item, so
+// the load fails instead, through ParseSpoiler's catch, as Majora's Mask's ThrowOnUnknownSpoilerItem does.
+static RandomizerGet SeedContextSpoilerItemOrThrow(const std::string& location, const nlohmann::json& name) {
+    RandomizerGet rg = RG_NONE;
+    if (!name.is_string() || !StaticData::FindName(StaticData::itemNameToEnum, name.get<std::string>(), &rg)) {
+        SPDLOG_ERROR("Unknown item in spoiler for location {}: {}", location, name.dump());
+        throw std::runtime_error("Unknown item in spoiler for location " + location + ": " + name.dump());
+    }
+    return rg;
+}
+
 void Context::ParseItemLocationsJson(nlohmann::json spoilerFileJson) {
     nlohmann::json locationsJson = spoilerFileJson["locations"];
     for (auto it = locationsJson.begin(); it != locationsJson.end(); ++it) {
-        RandomizerCheck rc = StaticData::locationNameToEnum[it.key()];
+        // RSBS (#1731): an unknown location name used to become RC_UNKNOWN_CHECK (the file's item went there and the
+        // real check kept what it held before); it fails the load instead.
+        RandomizerCheck rc = RC_UNKNOWN_CHECK;
+        if (!StaticData::FindName(StaticData::locationNameToEnum, it.key(), &rc)) {
+            SPDLOG_ERROR("Unknown location in spoiler: {}", it.key());
+            throw std::runtime_error("Unknown location in spoiler: " + it.key());
+        }
         if (it->is_structured()) {
             nlohmann::json itemJson = *it;
             for (auto itemit = itemJson.begin(); itemit != itemJson.end(); ++itemit) {
                 if (itemit.key() == "item") {
-                    itemLocationTable[rc].SetPlacedItem(StaticData::itemNameToEnum[itemit.value().get<std::string>()]);
+                    itemLocationTable[rc].SetPlacedItem(SeedContextSpoilerItemOrThrow(it.key(), itemit.value()));
                 } else if (itemit.key() == "price") {
                     itemLocationTable[rc].SetCustomPrice(itemit.value().get<uint16_t>());
                 } else if (itemit.key() == "model") {
-                    overrides[rc] = ItemOverride(rc, StaticData::itemNameToEnum[itemit.value().get<std::string>()]);
+                    overrides[rc] = ItemOverride(rc, SeedContextSpoilerItemOrThrow(it.key(), itemit.value()));
                 } else if (itemit.key() == "trickName") {
                     overrides[rc].SetTrickName(Text(itemit.value().get<std::string>()));
                 }
             }
         } else {
-            itemLocationTable[rc].SetPlacedItem(StaticData::itemNameToEnum[it.value().get<std::string>()]);
+            itemLocationTable[rc].SetPlacedItem(SeedContextSpoilerItemOrThrow(it.key(), it.value()));
         }
     }
 }
@@ -584,15 +604,31 @@ nlohmann::json getValueForMessage(std::unordered_map<std::string, nlohmann::json
 }
 
 void Context::ParseHintJson(nlohmann::json spoilerFileJson) {
-    for (auto hintData : spoilerFileJson["Gossip Stone Hints"].items()) {
-        RandomizerHint hint = (RandomizerHint)StaticData::hintNameToEnum[hintData.key()];
-        AddHint(hint, Hint(hint, hintData.value()));
-    }
-    for (auto hintData : spoilerFileJson["Static Hints"].items()) {
-        RandomizerHint hint = (RandomizerHint)StaticData::hintNameToEnum[hintData.key()];
-        AddHint(hint, Hint(hint, hintData.value()));
-    }
+    ParseHintSectionJson(spoilerFileJson["Gossip Stone Hints"]);
+    ParseHintSectionJson(spoilerFileJson["Static Hints"]);
     CreateStaticHints();
+}
+
+// RSBS (#1731): one section ("Gossip Stone Hints" or "Static Hints") of a spoiler log. An unknown hint name used to
+// become RH_NONE through hintNameToEnum[name] (the stone the file names kept its previous hint), and an unknown type,
+// location, area or trial inside the hint became entry 0 of its table. Both now fail the load, through
+// ParseSpoiler's catch: Hint(key, json) loads such a hint disabled and says so (HasUnknownName).
+void Context::ParseHintSectionJson(const nlohmann::json& hintsJson) {
+    for (auto hintData : hintsJson.items()) {
+        uint32_t hintKey = RH_NONE;
+        if (!StaticData::FindName(StaticData::hintNameToEnum, hintData.key(), &hintKey)) {
+            SPDLOG_ERROR("Unknown hint in spoiler: {}", hintData.key());
+            throw std::runtime_error("Unknown hint in spoiler: " + hintData.key());
+        }
+        RandomizerHint hint = (RandomizerHint)hintKey;
+        Hint parsed(hint, hintData.value());
+        if (parsed.HasUnknownName()) {
+            SPDLOG_ERROR("Hint {} in spoiler names a type, location, area or trial this build does not know",
+                         hintData.key());
+            throw std::runtime_error("Unknown name in spoiler hint " + hintData.key());
+        }
+        AddHint(hint, parsed);
+    }
 }
 
 void Context::ParseTricksJson(nlohmann::json spoilerFileJson) {

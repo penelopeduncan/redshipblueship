@@ -162,6 +162,12 @@ static int8_t GetMaxKeysForDungeon(int32_t dungeonIndex) {
     return static_cast<int8_t>(dungeon->GetSmallKeyCount());
 }
 
+// Ship of Harkinian 490e13616: the B-button selector's sword test. Kokiri to Biggoron's are 0x3B-0x3D and the broken
+// Giant's Knife is 0x33, so the old KOKIRI..BROKEN range was always empty. Not static: OoTSaveEditorSwordRange drives it.
+bool OoT_SaveEditor_IsSwordItem(u32 id) {
+    return (id >= ITEM_SWORD_KOKIRI && id <= ITEM_SWORD_BGS) || id == ITEM_SWORD_BROKEN;
+}
+
 // Check if a dungeon has a boss key
 static bool DungeonHasBossKey(int32_t dungeonIndex) {
     switch (dungeonIndex) {
@@ -330,7 +336,7 @@ static void DrawButtonItemSelector(const char* label, int buttonIndex, UIWidgets
                         Player* player = GET_PLAYER(OoT_gPlayState);
                         if (player != nullptr) {
                             // Check item type and update corresponding equipment
-                            if (slotEntry.id >= ITEM_SWORD_KOKIRI && slotEntry.id <= ITEM_SWORD_BROKEN) {
+                            if (OoT_SaveEditor_IsSwordItem(slotEntry.id)) {
                                 player->currentSwordItemId = slotEntry.id;
                             } else if (slotEntry.id >= ITEM_SHIELD_DEKU && slotEntry.id <= ITEM_SHIELD_MIRROR) {
                                 if (slotEntry.id == ITEM_SHIELD_DEKU)

@@ -288,6 +288,13 @@
 #define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_REQUIEM "gCombo.Rando.SharedSongRequiem"
 #define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_NOCTURNE "gCombo.Rando.SharedSongNocturne"
 #define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_PRELUDE "gCombo.Rando.SharedSongPrelude"
+/* #1587 S1: OoTMM's sharedSongSun and sharedSongSarias, two more bits of the
+ * SECOND rules word (RSBS_XITEM2_SHARED_SONG_SUN / _SARIAS): the two Sun's Songs,
+ * and the two Saria's Songs, one item for both games. Boolean (0/1), DEFAULT 0
+ * each, folded into comboSettingsHash only when on. Inside RSBS_XITEM2_HIDDEN
+ * until #1587 S7: no row is drawn and Generate refuses a world with either on. */
+#define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN "gCombo.Rando.SharedSongSun"
+#define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS "gCombo.Rando.SharedSongSarias"
 
 /* The common-owned windows' visibility toggles (ADR 0008). PREFERENCE keys:
  * no identity role, live forever. Spelled here so the tier-4 manifest carries
@@ -719,6 +726,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR "gFixes.FixIkanaGreatFairyFountainColor"
 #define RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS "gEnhancements.Fixes.ControlCharacters"
 #define RSBS_CVAR_MM_FIXES_COMPLETED_HEART_CONTAINER_AUDIO "gEnhancements.Fixes.CompletedHeartContainerAudio"
+// 2Ship f7ccda83a: Fix Deku Butler Shock Animation, a Graphical Fixes row after Fix Text Control Characters.
+#define RSBS_CVAR_MM_FIXES_DEKU_BUTLER_SHOCK_LOOP_ANIMATION "gEnhancements.Fixes.DekuButlerFixShockLoopAnimation"
 #define RSBS_CVAR_MM_RESTORATIONS_POWER_CROUCH_STAB "gEnhancements.Restorations.PowerCrouchStab"
 #define RSBS_CVAR_MM_RESTORATIONS_TATL_ISG "gEnhancements.Restorations.TatlISG"
 #define RSBS_CVAR_MM_RESTORATIONS_CONSTANT_FLIPS_HOPS "gEnhancements.Restorations.ConstantFlipsHops"
@@ -1216,6 +1225,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_FIXES_IKANA_GREAT_FAIRY_FOUNTAIN_COLOR)           \
     X(RSBS_CVAR_MM_FIXES_CONTROL_CHARACTERS)                         \
     X(RSBS_CVAR_MM_FIXES_COMPLETED_HEART_CONTAINER_AUDIO)            \
+    X(RSBS_CVAR_MM_FIXES_DEKU_BUTLER_SHOCK_LOOP_ANIMATION)           \
     X(RSBS_CVAR_MM_RESTORATIONS_POWER_CROUCH_STAB)                   \
     X(RSBS_CVAR_MM_RESTORATIONS_TATL_ISG)                            \
     X(RSBS_CVAR_MM_RESTORATIONS_CONSTANT_FLIPS_HOPS)                 \
@@ -1731,6 +1741,14 @@ inline constexpr ComboKey kComboKeys[] = {
     { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_PRELUDE, ComboKeyClass::Identity,
       "ComboItemRules2Record's RSBS_XITEM2_SHARED_SONG_PRELUDE bit (#1169): the two Preludes of Light are one item "
       "for both games (OoTMM sharedSongPrelude); frozen only with the Prelude of Light in MM" },
+    // #1587 S1: the Shared Sun's Song and Shared Saria's Song, two more bits of the
+    // second rules word, hidden until #1587 S7 and IDENTITY all the same.
+    { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN, ComboKeyClass::Identity,
+      "ComboItemRules2Record's RSBS_XITEM2_SHARED_SONG_SUN bit (#1587): the two Sun's Songs are one item for both "
+      "games (OoTMM sharedSongSun)" },
+    { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS, ComboKeyClass::Identity,
+      "ComboItemRules2Record's RSBS_XITEM2_SHARED_SONG_SARIAS bit (#1587): the two Saria's Songs are one item for "
+      "both games (OoTMM sharedSongSarias)" },
     // ---- gCombo.Windows.*: the common-owned windows' visibility (ADR 0008).
     //      All PREFERENCE: whether a pane is open says nothing about a world.
     { RSBS_CVAR_COMBO_WINDOW_SPOILER, ComboKeyClass::Preference, "cross-game spoiler window visibility (#496)" },
@@ -2208,7 +2226,7 @@ static_assert(kDisputedClassificationKeyCount == 0,
               "kSharedIntentKeys by #454");
 
 inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kComboKeys[0]);
-// Forty-seven identity keys (the five of ADR 0011 increment 2 less the two pool sizes
+// Forty-nine identity keys (the five of ADR 0011 increment 2 less the two pool sizes
 // #801 and the two item classes #834 retired, Goal (ADR 0010 D1), Logic (#1367),
 // TriforcePieces and TriforceGoal (#1389),
 // SharedKokiriSword (#886), SharedShields (#1068), SharedLens (#1065),
@@ -2218,9 +2236,9 @@ inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kCombo
 // SharedMaskTruth (#978), SharedSwim (#1369), BlastMaskOoT, SharedMaskBlast,
 // BlastMaskCooldown, StoneMaskOoT and SharedMaskStone (#979), the fourteen
 // warp-song keys SongSoaringOoT, SongMinuetMM .. SongPreludeMM and
-// SharedSongSoaring .. SharedSongPrelude (#1169 XW2), and
+// SharedSongSoaring .. SharedSongPrelude (#1169 XW2),
 // GerudoMaskMM, SkullMaskMM, SpookyMaskMM, SharedMaskGerudo, SharedMaskSkull and
-// SharedMaskSpooky (#980); #879 retired SharedOcarina (#668)) + four
+// SharedMaskSpooky (#980), and SharedSongSun and SharedSongSarias (#1587); #879 retired SharedOcarina (#668)) + four
 // window-visibility preferences (the MM randomizer options window's left with
 // it on 2026-09-27, when the options became Combo pages; #458 U0 added the
 // unified item tracker overlay's) + twelve gCombo.Tracker.Items.* preferences
@@ -2231,9 +2249,9 @@ inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kCombo
 // Checks checkbox's visibility).
 // Pinning the count makes a silently dropped row a compile error; the lock's
 // tree scan makes a silently ADDED key a red test.
-static_assert(kComboKeyCount == 67, "forty-seven gCombo.Rando.* identity keys + four gCombo.Windows.* "
+static_assert(kComboKeyCount == 69, "forty-nine gCombo.Rando.* identity keys + four gCombo.Windows.* "
                                     "preferences + twelve gCombo.Tracker.Items.* preferences + four "
-                                    "gCombo.Tracker.Checks.* preferences = 67");
+                                    "gCombo.Tracker.Checks.* preferences = 69");
 static_assert(kComboRetiredKeyCount == 5, "#1141: the Item Tracker overlay's five twins of SoH's keys");
 
 // #682's curated allowlist was exactly the four keys that issue named; #693 adds
