@@ -1279,7 +1279,7 @@ void InitHeader(bool has_header = true) {
     }
     ImGui::TableNextRow();
     ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normlized.
+    ImGui::AlignTextToFramePadding(); // This is to adjust Vertical pos of item in a cell to be normalized.
     ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
 }
 

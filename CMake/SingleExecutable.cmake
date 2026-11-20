@@ -945,6 +945,11 @@ if(BUILD_TESTING)
     # fingerprint and the load restore; then both games' songs registered and
     # carried by the real harvest/apply shims, each rule only its own song. ROM-free.
     redship_add_test(NAME SharedSongsRule COMMAND redship --test shared-songs-rule)
+    # #1587 S1: the Shared Sun's Song and Shared Saria's Song, two more second-word
+    # rules: both bits (families, requiring nothing) and keys (off by default, 0 or
+    # 1), the fingerprint, HIDDEN (Generate refuses them until #1587 S7), and the
+    # restore through the API and a real .redsave. ROM-free, generates nothing.
+    redship_add_test(NAME SharedSunSariaRule COMMAND redship --test shared-sun-saria-rule)
     redship_add_test(NAME SharedSongsMerge COMMAND redship --test shared-songs-merge)
     # #1561: under Shuffle Songs Off, armed first-word shared songs stay fixed at
     # both games' default checks and convert whichever default check is reached
@@ -4011,6 +4016,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # on a two-page text) never returned. Plain strings under a watchdog: default
     # tier. games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME CustomMessageReplace COMMAND redship --test custom-message-replace)
+    # #1746: OoT item names with a missing translation fall back to English and
+    # round-trip through itemNameToEnum, articles sit in their language's slot,
+    # colour codes are well-formed, area and trial names read back. The ROM-free
+    # item and hint tables, no seed: default tier.
+    # games/oot/soh/oot_custom_message_text_test.cpp.
+    redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font

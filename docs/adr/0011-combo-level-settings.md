@@ -2420,6 +2420,41 @@ first-word bits, divergence bits or shared-resource slots. Locked by
 `CrossItemRulesRecord` and `ComboSettingsFormat` (the carve), `CVarClassification`
 and `ComboSettingsRows` (leg 9 sets the fourteen keys the Reset clears).
 
+### 2026-11-19 -- The Shared Sun's Song and Shared Saria's Song: two more second-word bits, hidden (#1587 stage S1, format note)
+
+Operator ruling 2026-11-13 on #1587: the Sun's Song and Saria's Song are
+shareable between the two games like the other shared songs (OoTMM's
+`sharedSongSun` and `sharedSongSarias`, data.ts:3080 and :3280). Stage S1 of the
+2026-11-19 staged plan allocates the two rules and nothing else; the members, the
+runtime merge, Majora's Mask's option coupling, models, text and the unhide are
+stages S2 to S7.
+
+- **Bits (pinned, .redsave and seed-package format).**
+  `RSBS_XITEM2_SHARED_SONG_SUN` 0x00004000 and `RSBS_XITEM2_SHARED_SONG_SARIAS`
+  0x00008000, the next two free bits of the second word. Each requires no
+  second-word bit: OoTMM's `cond` is `songSunMm` / `songSariasMm`, which here is
+  Majora's Mask's own song-shuffle row (RO_SHUFFLE_SONG_SUN / _SARIA), coupled in
+  S3, so `Combo_ComboItemRule2Requires` stays restricted to the warp songs.
+- **Masks.** `RSBS_XITEM2_SHARED_SONGS` 0xFF80 (every second-word shared song) is
+  new; `RSBS_XITEM2_ALL_V1` 0x3FFF -> **0xFFFF**; `RSBS_XITEM2_FAMILY_MASK`
+  0x3F80 -> **0xFF80** (ADR 0009 claim 23's word, no layout change: the family
+  slots are 46 and 47 of the existing 64); `RSBS_XITEM2_HIDDEN` 0 -> **0xC000**
+  until S7, under the 2026-11-04 decision 7, so Generate, a seed package's
+  validation and a `.redsave` load refuse a world with either on.
+- **Keys.** `gCombo.Rando.SharedSongSun` and `gCombo.Rando.SharedSongSarias`,
+  identity, boolean, default 0, labelled with OoTMM's names; two
+  `ComboSettingId`s appended after #980's, so no id moves (manifest 67 -> 69,
+  identity 47 -> 49). No row is drawn until S7.
+- **The fingerprint with both off is unchanged.** The second word is folded only
+  when it is not 0, and both keys ship off, so no world, golden or generator
+  version moves; a frozen bit is folded like every second-word bit.
+
+Locked by `SharedSunSariaRule` (new), with `ComboItemRulesSecondWord` and
+`SharedWarpFamilyStorage` no longer spelling 0x4000 as "an unallocated bit"
+(each derives the highest bit outside its mask), `CVarClassification` (49
+identity keys) and `ComboSettingsRows` (leg 9 sets the two keys the Reset
+clears).
+
 ### 2026-11-04 -- Ocarina of Time's Gerudo, Skull and Spooky Masks in Majora's Mask and their shared variants (#980)
 
 Epic #975 P5, OoTMM's `gerudoMaskMm`, `skullMaskMm`, `spookyMaskMm` and

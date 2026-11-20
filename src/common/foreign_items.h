@@ -869,12 +869,15 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 //
 // THE ALLOCATION. Warp songs first (OoTMM data.ts's `songSoaringOot`,
 // `songMinuetMm` .. `songPreludeMm`, and the seven `sharedSong*` that each
-// require theirs), bits 0-13. Bits 14-31 are free, which is exactly OoTMM's
-// eighteen other song rows not in either word yet: the nine extensions
-// (`elegyOot`, `songHealingOot`, `songAwakeningOot`, `songGoronOot`,
-// `songZoraOot`, `songOrderOot`, `songSunMm`, `songZeldaLullabyMm`,
-// `songSariasMm`) and their nine `sharedSong*` (the shared Epona's Song, Song of
-// Storms and Song of Time already have first-word bits). That plan is not a
+// require theirs), bits 0-13. Bits 14-15 are `sharedSongSun` and
+// `sharedSongSarias` (#1587 S1). Neither has a second-word extension bit:
+// OoTMM's `songSunMm` / `songSariasMm` are Majora's Mask's own song-shuffle rows
+// here (RO_SHUFFLE_SONG_SUN / _SARIA), which the shared rule turns on, so they
+// take no bit in this word. Bits 16-31 are free, which leaves room for OoTMM's
+// seven remaining extensions (`elegyOot`, `songHealingOot`, `songAwakeningOot`,
+// `songGoronOot`, `songZoraOot`, `songOrderOot`, `songZeldaLullabyMm`) and their
+// seven `sharedSong*` rows (the shared Epona's Song, Song of Storms and Song of
+// Time already have first-word bits). That plan is not a
 // pin: a later rule takes the next free bit, first come. The masks need none of
 // it: Kamaro's two rules (0x80, 0x2000) and masks P5's six (#980: 0x100, 0x200,
 // 0x400, 0x4000, 0x8000, 0x10000) were allocated in the FIRST word by #976, so a
@@ -892,7 +895,9 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // Minuet learnt only in Ocarina of Time in Majora's Mask). A bit inside the mask
 // has a key but no drawn row (Combo_ComboItemRule2Offered), and Generate REFUSES a
 // word holding it, as a seed package's validation and a .redsave load do for a
-// world another build made with one on (Combo_ComboItemRules2Refused).
+// world another build made with one on (Combo_ComboItemRules2Refused). The
+// Shared Sun's Song and Shared Saria's Song (#1587) are inside the mask until
+// their own integration proof (#1587 S7), under the same decision 7.
 //
 // THE SECOND FAMILY WORD (lane XW10, decision 6): a shared song's family is not a
 // bit of gComboCtx.sharedFamilyOwned but of gComboCtx.sharedFamilyOwned2, which is
@@ -918,29 +923,43 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 #define RSBS_XITEM2_SHARED_SONG_REQUIEM 0x00000800u  // OoTMM sharedSongRequiem
 #define RSBS_XITEM2_SHARED_SONG_NOCTURNE 0x00001000u // OoTMM sharedSongNocturne
 #define RSBS_XITEM2_SHARED_SONG_PRELUDE 0x00002000u  // OoTMM sharedSongPrelude
+// #1587 S1: OoTMM sharedSongSun / sharedSongSarias (data.ts:3080, :3280). Each
+// REQUIRES NO second-word bit: OoTMM's cond is s.songSunMm / s.songSariasMm
+// (data.ts:3088, :3288), and here that extension is Majora's Mask's own row
+// (RO_SHUFFLE_SONG_SUN / _SARIA), which the shared rule turns on (2026-11-18
+// ruling, #1587 S3).
+#define RSBS_XITEM2_SHARED_SONG_SUN 0x00004000u    // OoTMM sharedSongSun
+#define RSBS_XITEM2_SHARED_SONG_SARIAS 0x00008000u // OoTMM sharedSongSarias
 
 /** The seven warp-song extensions, and the seven shared songs over them. */
 #define RSBS_XITEM2_WARP_SONG_EXTENSIONS 0x0000007Fu
 #define RSBS_XITEM2_WARP_SONG_SHARED 0x00003F80u
 /** How far a shared warp song sits above the extension it requires. */
 #define RSBS_XITEM2_WARP_SONG_SHARED_SHIFT 7u
+/** Every second-word SHARED song (the seven warp songs, the Sun's Song, Saria's
+ *  Song) (#1587 S1). */
+#define RSBS_XITEM2_SHARED_SONGS \
+    (RSBS_XITEM2_WARP_SONG_SHARED | RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)
 /** Every RSBS_XITEM2_* bit ALLOCATED by this build. A frozen word holding any
  *  other bit was written by a later build. */
-#define RSBS_XITEM2_ALL_V1 (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_WARP_SONG_SHARED)
+#define RSBS_XITEM2_ALL_V1 (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_SHARED_SONGS)
 /** The six Majora's Mask extensions (songMinuetMm .. songPreludeMm). */
 #define RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS 0x0000007Eu
-/** The allocated bits no world of this build may hold yet: none. XW12 exposed
- *  the Song of Soaring (OoT) (operator ruling 2026-11-04, decision 7), XW13 the
- *  six Majora's Mask extensions once IntMMWarpSongMinuet played the Minuet in
- *  Majora's Mask and arrived in Ocarina of Time as a child, and XW14 the seven
- *  shared warp songs once IntMMWarpSongMinuetShared played a Minuet learnt only in
- *  Ocarina of Time in Majora's Mask, through the shared family. A rule allocated
- *  later and not yet playable goes here until its own proof is written. */
-#define RSBS_XITEM2_HIDDEN 0u
+/** The allocated bits no world of this build may hold yet: the Shared Sun's Song
+ *  and the Shared Saria's Song (#1587), until #1587 S7 writes their integration
+ *  proof (operator ruling 2026-11-04, decision 7, above). XW12 exposed the Song of
+ *  Soaring (OoT), XW13 the six Majora's Mask extensions once IntMMWarpSongMinuet
+ *  played the Minuet in Majora's Mask and arrived in Ocarina of Time as a child,
+ *  and XW14 the seven shared warp songs once IntMMWarpSongMinuetShared played a
+ *  Minuet learnt only in Ocarina of Time in Majora's Mask, through the shared
+ *  family. A rule allocated later and not yet playable goes here until its own
+ *  proof is written. */
+#define RSBS_XITEM2_HIDDEN (RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)
 /** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
  *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
- *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. */
-#define RSBS_XITEM2_FAMILY_MASK RSBS_XITEM2_WARP_SONG_SHARED
+ *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. Every
+ *  second-word shared song since #1587 S1 (0xFF80). */
+#define RSBS_XITEM2_FAMILY_MASK RSBS_XITEM2_SHARED_SONGS
 /** What ships: every second-word rule off (OoTMM's defaults). */
 #define RSBS_XITEM2_DEFAULTS 0u
 /** How many bit positions the word has. */
@@ -955,13 +974,16 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 RSBS_CTX_STATIC_ASSERT(
     RSBS_XITEM2_SONG_SOARING_OOT == 0x1u && RSBS_XITEM2_SONG_PRELUDE_MM == 0x40u &&
         RSBS_XITEM2_SHARED_SONG_SOARING == 0x80u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u &&
-        RSBS_XITEM2_ALL_V1 == 0x00003FFFu &&
+        RSBS_XITEM2_SHARED_SONG_SUN == 0x4000u && RSBS_XITEM2_SHARED_SONG_SARIAS == 0x8000u &&
+        RSBS_XITEM2_SHARED_SONGS == 0x0000FF80u &&
+        (RSBS_XITEM2_SHARED_SONGS & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u && RSBS_XITEM2_ALL_V1 == 0x0000FFFFu &&
         (RSBS_XITEM2_WARP_SONG_EXTENSIONS << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT) == RSBS_XITEM2_WARP_SONG_SHARED &&
         RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS == (RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT) &&
         (RSBS_XITEM2_HIDDEN & ~RSBS_XITEM2_ALL_V1) == 0u && RSBS_XITEM2_DEFAULTS == 0u,
     "RSBS_XITEM2_* bit positions are .redsave and seed-package format: pinned, append-only, allocate the next free bit "
     "and never re-point an allocated one; the defaults stay 0 so an all-clear word is today's world (#1169 XW2)");
-RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_FAMILY_MASK == 0x00003F80u &&
+RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
+                           (RSBS_XITEM2_FAMILY_MASK & RSBS_XITEM2_WARP_SONG_SHARED) == RSBS_XITEM2_WARP_SONG_SHARED &&
                            (RSBS_XITEM2_FAMILY_MASK & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u &&
                            (RSBS_XITEM2_FAMILY_MASK & ~RSBS_XITEM2_ALL_V1) == 0u,
                        "RSBS_XITEM2_FAMILY_MASK bits are gComboCtx.sharedFamilyOwned2 bits, .redsave format: pinned, "
@@ -978,12 +1000,14 @@ uint32_t Combo_ComboItemRules2Word(const ComboItemRules2Record* rec);
 void Combo_ComboItemRules2Store(ComboItemRules2Record* rec, uint32_t word);
 
 /** The extension bit a SHARED warp-song bit requires, or 0 for every other bit
- *  (an extension, an unallocated bit, a mask with more than one bit set). */
+ *  (an extension, the Shared Sun's Song and Shared Saria's Song, whose extension
+ *  is Majora's Mask's own row (#1587), an unallocated bit, a mask with more than
+ *  one bit set). */
 uint32_t Combo_ComboItemRule2Requires(uint32_t bit);
 
 /** OoTMM's key for ONE RSBS_XITEM2_* bit ("songSoaringOot", "sharedSongMinuet",
- *  ...), or "(unknown)" for an unallocated bit or a mask with more than one bit
- *  set. Never NULL. */
+ *  ..., "sharedSongSun", "sharedSongSarias"), or "(unknown)" for an unallocated
+ *  bit or a mask with more than one bit set. Never NULL. */
 const char* Combo_ComboItemRule2Name(uint32_t bit);
 
 /**
@@ -998,7 +1022,7 @@ bool Combo_ComboItemRules2Valid(uint32_t word);
  * The session's RESOLVED second word: what a creation event would freeze now
  * and what an arrival or a load compares the frozen word against (the
  * one-resolver discipline Combo_ResolveComboItemRules states). Assembled from
- * the fourteen keys (Combo_ComboItemRules2Authored), never overlaid from a
+ * the sixteen keys (Combo_ComboItemRules2Authored), never overlaid from a
  * stored bitset; a shared song whose extension key is off resolves off (OoTMM's
  * `cond`), so the result is always a word Combo_ComboItemRules2Valid accepts.
  * With no key set (and with no CVar store at all) it is 0.
@@ -1040,19 +1064,19 @@ bool Combo_ComboItemRule2Offered(uint32_t bit);
 
 /** The test reveal's levels (Combo_ComboItemRules2RevealForTest). */
 #define RSBS_XITEM2_REVEAL_NONE 0 // the production mask
-#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty (it is empty since XW14)
+#define RSBS_XITEM2_REVEAL_ALL 1  // the hidden mask reads empty (the Sun's and Saria's rules offered, #1587)
 // Since XW13 the six MM extensions are offered in production, so this level
 // reads exactly the production mask: an alias of RSBS_XITEM2_REVEAL_NONE, kept
-// so a row that names it still compiles and means what it meant. With
-// RSBS_XITEM2_HIDDEN 0 every level reads the empty mask.
-#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // reads the production mask (empty since XW14): every allocated bit offered
+// so a row that names it still compiles and means what it meant. It takes the
+// six MM extensions out of RSBS_XITEM2_HIDDEN, none of which is in it, so since
+// #1587 S1 it reads HIDDEN & ~0x7E = 0xC000, the production mask.
+#define RSBS_XITEM2_REVEAL_MM_SONGS 2 // reads the production mask (the Sun's and Saria's rules still hidden)
 
 /**
  * TEST ONLY: with @p on RSBS_XITEM2_REVEAL_ALL (any nonzero value but
  * RSBS_XITEM2_REVEAL_MM_SONGS) the hidden mask reads empty, so a row can drive a
- * world with a hidden rule on through the real freeze, .redsave load and
- * restore. Kept, harmless, once the mask is 0: the rules OoTMM still has after
- * these fourteen (bits 14-31, above) will need the same gate. With
+ * world with a hidden rule on (the Shared Sun's Song and Shared Saria's Song
+ * until #1587 S7) through the real freeze, .redsave load and restore. With
  * RSBS_XITEM2_REVEAL_MM_SONGS only the six Majora's Mask extensions leave the
  * mask, which since XW13 is the production mask itself. RSBS_XITEM2_REVEAL_NONE
  * (0) is the production mask. Production never calls it.
@@ -1612,9 +1636,9 @@ uint32_t Combo_FreezeComboSettingsEx(const ComboSettingsRecord* rec, const Combo
  * fingerprint over all three. Combo_FreezeComboSettingsEx is this with 0 (every
  * second-word rule off). The creation event calls this one with
  * Combo_ResolveComboItemRules2, after refusing any word
- * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (none is
- * hidden since #1169 XW14) and no unallocated one: 0 unless a Cross-Game Songs
- * row is on.
+ * Combo_ComboItemRules2Refused names, so it freezes no hidden bit (since
+ * #1587 S1 the Shared Sun's Song and Shared Saria's Song are hidden until #1587
+ * S7) and no unallocated one: 0 unless a Cross-Game Songs row is on.
  */
 uint32_t Combo_FreezeComboSettingsEx2(const ComboSettingsRecord* rec, const ComboItemRulesRecord* rules,
                                       uint32_t rules2);

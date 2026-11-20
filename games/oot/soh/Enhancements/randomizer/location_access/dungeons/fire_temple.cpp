@@ -788,7 +788,7 @@ void RegionTable_Init_FireTemple() {
         //Exits
         Entrance(RR_FIRE_TEMPLE_MQ_SHORTCUT_ROOM_LOWER, []{return true;}),
         //Explosives can also reach this room. Chus is relatively simple, they need to detonate on the first horizontal bar up from the floor while horizontally near the switch, but bombs are much harder
-        Entrance(RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE,     []{return AnyAgeTime([]{return logic->CanJumpslash() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanUse(RG_BOMBCHU_5));});}),
+        Entrance(RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE,     []{return AnyAgeTime([]{return logic->CanJumpslash() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanUse(RG_BOMBCHU_5)) || (ctx->GetTrickOption(RT_BOMB_DETONATION) && logic->CanUse(RG_BOMB_BAG));});}),
         Entrance(RR_FIRE_TEMPLE_MQ_UPPER_LIZALFOS_MAZE, []{return (logic->HasExplosives() || ctx->GetTrickOption(RT_VISIBLE_COLLISION)) && logic->CanUse(RG_MEGATON_HAMMER) && logic->CanUse(RG_HOOKSHOT);}),
         Entrance(RR_FIRE_TEMPLE_MQ_MAZE_SWITCH_DOOR,    []{return logic->HasExplosives() && ctx->GetTrickOption(RT_FIRE_MQ_MAZE_SIDE_ROOM);}),
         Entrance(RR_FIRE_TEMPLE_MQ_NARROW_PATH_ROOM,    []{return false;}),

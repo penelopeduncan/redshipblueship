@@ -668,6 +668,11 @@ int RandoTest_ScrubTextHintSetting(void);
 // in games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_CustomMessageReplaceTest_Run(void);
 int RandoTest_MapCompassText(void);
+// #1746: missing translations fall back to English and round-trip through
+// itemNameToEnum; articles sit in their language's slot; colour codes are
+// well-formed; area and trial names read back. Body in
+// games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
+int OoT_ItemTextTest_Run(void);
 // #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
 // the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 // Return 0 on pass.
@@ -945,6 +950,9 @@ extern "C" {
 // (warp-song-held), the real shims (shared-warp-songs-merge), and the one-copy
 // worlds (shared-warp-songs-one-copy-*, shared-warp-songs-edges, rando).
 #include "tests/test_shared_warp_songs.c"
+// #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, two more bits of
+// the second rules word, hidden until #1587 S7 (shared-sun-saria-rule).
+#include "tests/test_shared_sun_saria.c"
 // #968: Shared Fire, Ice and Light Arrows, the same three rows for the three
 // arrow families #976 reserved (shared-arrows-rule, -merge, -bag).
 #include "tests/test_shared_arrows.c"
@@ -2874,7 +2882,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
 // every default world folds into its identity, so each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
+// Re-pinned again by the text fixes of #1746 (PR #1764; generator 6, was
+// 0x8F5E9C45): Ship of Harkinian f35f134c9's grammar fixes change the English
+// text of six static hints (Big Poes, the chickens, Malon, horseback archery,
+// the loach, Biggoron). No placement moves through them; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x63EB5596u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -4024,6 +4036,13 @@ TestResult Test_ScrubTextHintSetting(void) {
 // games/oot/soh/oot_custom_message_text_test.cpp.
 TestResult Test_CustomMessageReplace(void) {
     return OoT_CustomMessageReplaceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1746: the ROM-free item and hint tables (OoT_ComboLogic_TestEnsureItemTableTransient,
+// OoT_HintArea_TestInitStaticData), no Rando::Context left behind. Assertions in
+// games/oot/soh/oot_custom_message_text_test.cpp.
+TestResult Test_OoTItemText(void) {
+    return OoT_ItemTextTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1556: MM's AddLineBreaks is plain strings and a static width table, so no
@@ -8930,6 +8949,21 @@ TestResult Test_SharedSongsRule(void) {
     return SharedSongsRule_Run();
 }
 
+// #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, the same bring-up
+// as shared-songs-rule (the CVar store and the shared registrars).
+TestResult Test_SharedSunSariaRule(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return SharedSunSariaRule_Run();
+}
+
 // #968: the shared arrows' rule rows, the same bring-up as shared-lens-rule.
 TestResult Test_SharedArrowsRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -10928,6 +10962,11 @@ const TestDescriptor gTests[] = {
       "Shared Epona's Song and Shared Song of Storms are two Cross-Game Rules, off by default, frozen at creation "
       "into the fingerprint, and restored from the file at load (#1066)",
       Test_SharedSongsRule },
+    // #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, hidden.
+    { "shared-sun-saria-rule",
+      "Shared Sun's Song and Shared Saria's Song are two second-word Cross-Game Rules, off by default, hidden "
+      "(Generate refuses them), frozen into the fingerprint, and restored from the file at load (#1587)",
+      Test_SharedSunSariaRule },
     { "shared-songs-merge",
       "Both games register Epona's Song and the Song of Storms as shared families, and a song learnt in either game "
       "is known in the other at arrival through the real shims (#1066)",
@@ -12182,8 +12221,14 @@ const TestDescriptor gTests[] = {
       Test_ForeignTextboxIcon },
     { "custom-message-replace",
       "CustomMessage::Replace returns when the replacement contains the search string, in both overloads and through "
-      "AutoFormat(ItemID) (#1187)",
+      "AutoFormat(ItemID) (#1187); Capitalize, InsertNames' capital flags and GetAllMessages' format take effect "
+      "(#1746)",
       Test_CustomMessageReplace },
+    { "oot-item-text",
+      "OoT item names with a missing German or French translation read their English name and map back to the same "
+      "item; articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
+      "through the translation maps (#1746)",
+      Test_OoTItemText },
     { "mm-custom-message-line-breaks",
       "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
       "one, adds no width for an overflowing space, and loses no letter (#1556)",
