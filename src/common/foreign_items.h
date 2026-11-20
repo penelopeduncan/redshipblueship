@@ -1603,8 +1603,29 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     with nothing (#1647, PRs #1660, #1662, #1664). DEFAULT worlds move, and
  *     the goldens move with them. Seed packages written by generator 5 are
  *     refused, as designed.
+ * 7 = the worlds v0.5.2-alpha (generator 6) made that this build makes
+ *     differently: OoT logic rules of #1760 (SoH eca767dcb) that could expect
+ *     what Link cannot do are tightened (#1793). With Voidout Collection on
+ *     and a void Link cannot survive (one-hit KO, or one heart without Double
+ *     Defense, each with no fairy), the three hearts at the end of Ganon's
+ *     Castle's Shadow Trial and the Master Quest Fire Trial's on-pillar
+ *     silver rupee from the barred door leave logic (CanVoid). With Master
+ *     Quest Ganon's Castle, the Shadow Trial's silver rupees from the starting
+ *     ledge need the Bow and RT_GANON_MQ_SHADOW_TRIAL with the Hover Boots or
+ *     the hood (a precedence slip let the Lens with the Hover Boots, or the
+ *     Lens with Bunny Hood Effect, take them alone). With Master Quest Gerudo
+ *     Training Ground and Masks as Adult on, the far lava platform's hood jump
+ *     needs Bunny Hood Effect. And the frozen waterfall Gold Skulltula in
+ *     Zora's Domain is no longer killed by thrown bombs (CanKillEnemy's Gold
+ *     Skulltula case honours inWater, which only that rule passes): this one
+ *     needs no non-default setting, since its token counts toward the
+ *     Skulltula House rewards, so a DEFAULT world can move where the search
+ *     reached that token with bombs as its only weapon. The Great Deku Tree
+ *     Map's English article and the Zora's Sapphire's French one gain their
+ *     space; that moves hint text, not worlds. Seed packages written by
+ *     generator 6 are refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 6u
+#define RSBS_GENERATOR_VERSION 7u
 
 /**
  * The fingerprint formula at an explicit generator version:

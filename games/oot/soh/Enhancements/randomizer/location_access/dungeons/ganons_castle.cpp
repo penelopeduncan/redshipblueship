@@ -338,9 +338,10 @@ void RegionTable_Init_GanonsCastle() {
 
     areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_END] = Region("Ganon's Castle Shadow Trial End", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->BunnyHovers()),
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanUse(RG_HOVER_BOOTS)) || logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && (logic->CanUse(RG_HOVER_BOOTS)|| logic->BunnyHood())) || logic->CanUse(RG_BOOMERANG)),
+        // [RSBS #1793] each voidout needs CanVoid, as every other Voidout Collection rule of this file has
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && logic->BunnyHovers()),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && logic->CanUse(RG_HOVER_BOOTS)) || logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && (logic->CanUse(RG_HOVER_BOOTS)|| logic->BunnyHood())) || logic->CanUse(RG_BOOMERANG)),
     }, {
         //Exits
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH)) || ((logic->CanUse(RG_HOVER_BOOTS) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood())) && logic->HasFireSource()) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT));}),
@@ -607,7 +608,8 @@ void RegionTable_Init_GanonsCastle() {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
         LOCATION(RC_GANONS_CASTLE_MQ_NEAR_TARGET_FIRE_SILVER,     logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
-        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && ((logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 8 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION)))),
+        // [RSBS #1793] the voidout needs CanVoid, as the From Open Door row above has
+        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && ((logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 8 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid()))),
         LOCATION(RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_MQ_JET_PLATFORM_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
     }, {
@@ -734,9 +736,10 @@ void RegionTable_Init_GanonsCastle() {
         //Events
         EventAccess(LOGIC_SHADOW_TRIAL_FIRST_CHEST, []{return logic->CanUse(RG_FAIRY_BOW);}),
         //shortcut route for passage involving the torch. defacto the same as the RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST shortcut as everything else is merely lens locked
+        // [RSBS #1793] grouped as the BEAMOS_CHEST shortcut exit below: the Hover Boots and hood terms sit inside the trick-and-bow term
         EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW,  []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && ((logic->BunnyHovers() && logic->CanUse(RG_STICKS)) ||
                                                                            (logic->IsAdult && ctx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL) && logic->CanUse(RG_FAIRY_BOW) &&
-                                                                            (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())));}),
+                                                                            ((logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())));}),
     }, {}, {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_MAIN,                        []{return true;}),
@@ -771,7 +774,7 @@ void RegionTable_Init_GanonsCastle() {
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_TORCH,   []{return true;}),
     });
 
-    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER] = Region("Ganon's Castle MQ Shadow Trial Moving Platform", SCENE_INSIDE_GANONS_CASTLE, {
+    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER] = Region("Ganon's Castle MQ Shadow Trial Bomb Flower", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
         //A torch run from RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE is possible but tight, so would be a trick
         EventAccess(LOGIC_SHADOW_TRIAL_FIRST_CHEST,        []{return logic->CanDetonateUprightBombFlower();}),

@@ -395,7 +395,8 @@ void RegionTable_Init_GerudoTrainingGround() {
                                                                                (logic->HasItem(RG_GTG_SILVER_LAVA) && (logic->CanUse(RG_HOOKSHOT) || logic->BunnyHovers())) ||
                                                                                (ctx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM) && ((logic->IsAdult && logic->BunnyHovers()) || logic->CanUse(RG_HOOKSHOT)));}),
         Entrance(RR_GERUDO_TRAINING_GROUND_MQ_MAZE_RIGHT,            []{return logic->Get(LOGIC_GTG_MQ_RIGHT_SIDE_SWITCH) && (logic->CanUse(RG_LONGSHOT) || (ctx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM) && logic->CanUse(RG_HOOKSHOT)));}),
-        Entrance(RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM,     []{return logic->CanUse(RG_FIRE_ARROWS) && ((logic->CanUse(RG_BUNNY_HOOD) && logic->CanJumpslash()) || logic->CanUse(RG_HOVER_BOOTS));}),
+        // [RSBS #1793] the hood's jump needs Bunny Hood Effect (BunnyHood), not only a mask Link can wear
+        Entrance(RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM,     []{return logic->CanUse(RG_FIRE_ARROWS) && ((logic->BunnyHood() && logic->CanJumpslash()) || logic->CanUse(RG_HOVER_BOOTS));}),
         //You can use roll, silvers and the hover boots to get all the way to lit torch, but it's a trick
         Entrance(RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SLUG_ROOM,       []{return true;}),
     });

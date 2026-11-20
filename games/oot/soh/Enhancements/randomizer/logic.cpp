@@ -1140,7 +1140,9 @@ bool Logic::CanKillEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool wal
                     killed = killed || CanUse(RG_BIGGORON_SWORD) || CanUse(RG_STICKS);
                     [[fallthrough]];
                 case ED_BOMB_THROW:
-                    killed = killed || CanUse(RG_BOMB_BAG);
+                    // [RSBS #1793] inWater blocks bomb throws here as in the other cases (the frozen waterfall's
+                    // rule, the only Gold Skulltula caller that passes it, relies on that)
+                    killed = killed || (CanUse(RG_BOMB_BAG) && !inWater);
                     [[fallthrough]];
                 case ED_BOOMERANG:
                     killed = killed || CanUse(RG_BOOMERANG) || CanUse(RG_DINS_FIRE);
