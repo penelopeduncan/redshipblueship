@@ -1151,28 +1151,31 @@ release on, a change that makes a different world from a seed and settings
 (rule 6).
 
 Generator 7 (2026-11-19, PR #1795), the first change after `v0.5.2-alpha`. It
-corrects four Ocarina of Time rules that could expect something the player
+corrects five Ocarina of Time rules that could expect something the player
 cannot do (issue #1793). The Voidout Collection clauses of the three Shadow
 Trial hearts in Ganon's Castle, and of the Master Quest Fire Trial's pillar
 rupee, now need `CanVoid`. The Master Quest Shadow Trial's silver rupee event
 has its grouping corrected. The far lava platform of the Master Quest Gerudo
 Training Ground asks for the Bunny Hood effect, not the item. The Gold
 Skulltula on the frozen waterfall in Zora's Domain no longer counts bomb
-throws. Each can move a world only under Master Quest dungeons, the Voidout
-Collection trick, Masks as Adult with Bunny Hood Effect off, or shuffled Gold
-Skulltula tokens. Two item articles also change item and hint text (the
-Zora's Sapphire in French, the Deku Tree Map in English).
+throws. The Master Quest Spirit Temple's way from the statue's head back to
+the inner right hand loses a Bunny Hood jump. The Skulltula rule can move a
+world with the default settings, because its token counts toward the
+Skulltula House rewards; the others need Master Quest dungeons, the Voidout
+Collection trick or Masks as Adult. Two item articles also change item and
+hint text (the Zora's Sapphire in French, the Deku Tree Map in English).
 
 All thirteen seed digests move, in one field: `comboSettingsHash`, which folds
 the generator version. No placement, crossing or hint field moves in any
 golden, and `paired-attempt-digest` is unchanged. No hand pin moved
 (`RandoStaticHintOrder`, `ComboSingleBag`, `GoldenSeedsRoundBudget` and
-`ComboWarpTravelRounds` pass as they were). The fingerprints pinned per
-generator version in `test_cross_item_rules.c`,
-`test_combo_item_rules_word2.c` and `test_warp_songs_mm.c` gained their
-version-7 values, and version 6 is now pinned beside the older ones. Seed
-packages written by generator 6 are refused, as designed. There is no residual
-behind an unchanged fingerprint: every world this build makes has a new one.
+`ComboWarpTravelRounds` pass as they were). The fingerprints in
+`test_cross_item_rules.c`, `test_combo_item_rules_word2.c` and
+`test_warp_songs_mm.c` take their version-7 values; the first of the three
+also pins version 6 beside the older versions. Seed packages written by
+generator 6 are refused, as designed. There is no residual behind an
+unchanged fingerprint: every world this build makes has a new one. No pinned
+seed shows the default-settings move of the Skulltula rule.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 

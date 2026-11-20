@@ -16,29 +16,37 @@ from generator 7.
 
 ### Read this first
 
-- **This release corrects four logic rules that `v0.5.2-alpha` shipped with** (issue #1793). A review had found them
-  before `v0.5.2-alpha` was released, and the finding was not acted on in time. None applies with the default
-  settings. If you made a seed with `v0.5.2-alpha` using Master Quest dungeons, the Voidout Collection trick, Masks as
-  Adult with Bunny Hood Effect off, or shuffled Gold Skulltula tokens, logic may have expected something that does not
-  work: generate the seed again with this version.
+- **This release corrects logic rules that `v0.5.2-alpha` shipped with** (issue #1793). A review had found them before
+  `v0.5.2-alpha` was released, and the finding was not acted on in time. Most apply only under non-default settings:
+  Master Quest dungeons, the Voidout Collection trick, or Masks as Adult. One can matter with the default settings:
+  the Gold Skulltula on the frozen waterfall in Zora's Domain, whose token counts toward the Skulltula House rewards.
+  In a seed made with `v0.5.2-alpha`, logic may have expected something that does not work in those places.
+- **Updating does not repair a file in progress.** A paired file keeps the world it was created with, and this version
+  opens it as it is. Only a new seed, in a new file, is made with the corrected logic. If you think a `v0.5.2-alpha`
+  seed is asking for something impossible in one of the places below, start a new one.
 - **Seeds come from generator 7.** A seed package exported by `v0.5.2-alpha` is refused ("Seed package from another
-  generator"), so generate the seed again. With the default settings the same seed makes the same world as in
-  `v0.5.2-alpha`, as far as the pinned test seeds show: none of them places an item or words a hint differently. Save
-  files are not affected; the save format did not change.
+  generator"), so generate the seed again. With the default settings the pinned test seeds place every item and word
+  every hint as they did in `v0.5.2-alpha`; another seed can differ where the frozen-waterfall Skulltula's rule
+  mattered. The save format did not change.
 
 ### Ocarina of Time randomizer
 
-- **Voidout Collection asks that you survive, everywhere** (issue #1793). With the trick on, the three hearts in the
-  Shadow Trial of Ganon's Castle, and a rupee in the Master Quest Fire Trial, were in logic even when the void-out
-  would kill Link (one-hit KO, or one heart and no fairy). They now need what every other use of the trick needs.
+- **Voidout Collection asks that you survive every real void-out** (issue #1793). With the trick on, the three hearts
+  in the Shadow Trial of Ganon's Castle, and a silver rupee in the Master Quest Fire Trial, were in logic even when
+  the void-out would kill Link (one-hit KO, or one heart without Double Defense, in either case with no fairy). They
+  now need what the trick's other void-outs need.
 - **Master Quest Ganon's Castle: the Shadow Trial's silver rupees** (issue #1793). Logic counted them as collected
-  with the Lens of Truth and only the Hover Boots, or only the Bunny Hood effect. Those two ways now also need the
-  Fairy Bow and the trick "Shadow Trial MQ Torch with Bow", as the exit beside them already did.
+  with the Lens of Truth (or its trick) and only the Hover Boots, or only the Bunny Hood effect. Those ways now also
+  need an adult with the Fairy Bow and the trick "Shadow Trial MQ Torch with Bow", as the exit beside them already
+  did.
 - **Master Quest Gerudo Training Ground: the far lava platform** (issue #1793). With Masks as Adult on and Bunny Hood
   Effect off, logic expected a Bunny Hood jump that gave no boost. The rule now asks for the Bunny Hood effect.
+- **Master Quest Spirit Temple: one Bunny Hood jump is no longer in logic** (issue #1793): from the statue's head back
+  to the inner right hand. It could only have counted with Masks as Adult and Bunny Hood Effect on.
 - **The Gold Skulltula on the frozen waterfall in Zora's Domain no longer counts bombs** (issue #1793). The rule says
-  the terrain blocks bomb throws, but an adult with magic and bombs was in logic. Bombchus still count. OoTMM does
-  count bombs here; this build takes the stricter rule until someone has tried it.
+  the terrain blocks bomb throws, but an adult with magic and bombs was in logic. This is the correction that can
+  matter with the default settings. Bombchus still count. OoTMM does count bombs here; this build takes the stricter
+  rule until someone has tried it.
 
 ### Fixes
 
@@ -60,7 +68,7 @@ next NATO phonetic code word, Charlie. A build's window title reads
 `RedShipBlueShip v0.5.2-alpha+<commit> (Ellen Charlie)`. Saves written by this version are save format 6; seeds come
 from generator 6.
 **Last release:** `v0.5.1-alpha` ("Ellen Bravo"), tagged 2026-11-16. Its notes follow this section.
-**Next release:** `v0.5.3-alpha` ("Ellen Delta") corrects four logic rules of this one; see the section above.
+**Next release:** `v0.5.3-alpha` ("Ellen Delta") corrects logic rules of this one; see the section above.
 **Covers:** everything merged after `v0.5.1-alpha`. Numbers in parentheses are issues of this project, or pull
 requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are named.
 **Get it:** the [release page](https://github.com/penelopeduncan/redshipblueship/releases/tag/v0.5.2-alpha) carries
