@@ -3870,7 +3870,8 @@ void OoT_Player_UpdateZTargeting(Player* this, PlayState* play) {
         if (!isTalking) {
             if (!(this->stateFlags1 & PLAYER_STATE1_BOOMERANG_THROWN) &&
                 ((this->heldItemAction != PLAYER_IA_FISHING_POLE) || (this->unk_860 == 0)) &&
-                CHECK_BTN_ALL(sControlInput->press.button, BTN_Z)) {
+                GameInteractor_Should(VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION,
+                                      CHECK_BTN_ALL(sControlInput->press.button, BTN_Z))) {
 
                 if (this->actor.category == ACTORCAT_PLAYER) {
                     // The next lock-on actor defaults to the actor Navi is hovering over.
@@ -3896,7 +3897,7 @@ void OoT_Player_UpdateZTargeting(Player* this, PlayState* play) {
                         nextLockOnActor = play->actorCtx.targetCtx.unk_94;
                     }
 
-                    if (nextLockOnActor != this->focusActor) {
+                    if (GameInteractor_Should(VB_TOGGLE_Z_TARGET_SWITCH_TARGETS, nextLockOnActor != this->focusActor)) {
                         // Set new lock-on
 
                         if (!usingHoldTargeting) {

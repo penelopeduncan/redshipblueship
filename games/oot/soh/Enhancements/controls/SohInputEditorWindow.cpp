@@ -20,6 +20,7 @@ using namespace UIWidgets;
 static WidgetInfo freeLook;
 static WidgetInfo mouseControl;
 static WidgetInfo mouseAutoCapture;
+static WidgetInfo mouseDisableThirdPerson;
 static WidgetInfo rightStickOcarina;
 static WidgetInfo dpadOcarina;
 static WidgetInfo dpadPause;
@@ -1760,6 +1761,9 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
     cursor = ImGui::GetCursorPos();
     ImGui::SetCursorPos(ImVec2(cursor.x + 5, cursor.y + 5));
     SohGui::mSohMenu->MenuDrawItem(mouseAutoCapture, ImGui::GetContentRegionAvail().x, THEME_COLOR);
+    cursor = ImGui::GetCursorPos();
+    ImGui::SetCursorPos(ImVec2(cursor.x + 5, cursor.y + 5));
+    SohGui::mSohMenu->MenuDrawItem(mouseDisableThirdPerson, ImGui::GetContentRegionAvail().x, THEME_COLOR);
 
     Ship::GuiWindow::BeginGroupPanel("Aiming/First-Person Camera", ImGui::GetContentRegionAvail());
     CVarCheckbox("Right Stick Aiming", CVAR_SETTING("Controls.RightStickAim"),
@@ -1854,8 +1858,15 @@ void SohInputEditorWindow::DrawCameraControlPanel() {
                         .DefaultValue(1.0f)
                         .ShowButtons(true));
     DrawMmCameraRows(MmCameraRows::ThirdPerson); // RSBS (W6-CAM-AIM): MM's camera rows
-    CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
-                  IntSliderOptions().Color(THEME_COLOR).Min(100).Max(900).DefaultValue(185).ShowButtons(true));
+    CVarCheckbox("Follow Default Camera Distance", CVAR_SETTING("FreeLook.UseGameDistance"),
+                 CheckboxOptions()
+                     .Color(THEME_COLOR)
+                     .Tooltip("Lets the free camera pull in and out using the game's default distance for the "
+                              "current situation instead of a fixed distance."));
+    if (!CVarGetInteger(CVAR_SETTING("FreeLook.UseGameDistance"), 0)) {
+        CVarSliderInt("Camera Distance: %d", CVAR_SETTING("FreeLook.MaxCameraDistance"),
+                      IntSliderOptions().Color(THEME_COLOR).Min(100).Max(900).DefaultValue(185).ShowButtons(true));
+    }
     CVarSliderInt("Camera Transition Speed: %d", CVAR_SETTING("FreeLook.TransitionSpeed"),
                   IntSliderOptions().Color(THEME_COLOR).Min(0).Max(900).DefaultValue(25).ShowButtons(true));
     DrawMmCameraRows(MmCameraRows::FreeLookPitch); // RSBS (W6-CAM-GYRO): MM's free-look pitch limits
@@ -2297,6 +2308,19 @@ void RegisterInputEditorWidgets() {
                               "hide the cursor "
                               "and capture mouse input when closing the menu."));
     SohGui::mSohMenu->AddSearchWidget({ mouseAutoCapture, "Settings", "Controls", "Camera Controls" });
+
+    mouseDisableThirdPerson = { .name = "Disable Third-Person Mouse Controls",
+                                .type = WidgetType::WIDGET_CVAR_CHECKBOX };
+    mouseDisableThirdPerson.CVar(CVAR_SETTING("DisableThirdPersonMouse"))
+        .PreFunc([](WidgetInfo& info) {
+            info.options->disabled = !CVarGetInteger(CVAR_SETTING("EnableMouse"), 0);
+            info.options->disabledTooltip = "Forced off because Mouse Controls are disabled.";
+        })
+        .Options(CheckboxOptions()
+                     .Color(THEME_COLOR)
+                     .Tooltip("Stops the mouse from moving the third-person camera and from triggering quickspins, "
+                              "while still allowing mouse control for first-person aiming and the shield."));
+    SohGui::mSohMenu->AddSearchWidget({ mouseDisableThirdPerson, "Settings", "Controls", "Camera Controls" });
 
     rightStickOcarina = { .name = "Right Stick Ocarina Playback", .type = WidgetType::WIDGET_CVAR_CHECKBOX };
     rightStickOcarina.CVar(CVAR_SETTING("CustomOcarina.RightStick")).Options(CheckboxOptions().Color(THEME_COLOR));
