@@ -146,10 +146,22 @@ static const std::vector<const char*> maskOfTruthGrottoOptions = {
     "Always",             // HIDDEN_GROTTOS_VISIBLITY_ALWAYS
 };
 
+static const std::vector<const char*> dashAfterRollOptions = {
+    "Off",                   // DASH_AFTER_ROLL_OFF
+    "On",                    // DASH_AFTER_ROLL_ON
+    "Stack with Bunny Hood", // DASH_AFTER_ROLL_STACK
+};
+
 static const std::vector<const char*> goronRaceDifficultyOptions = {
     "Vanilla",  // GORON_RACE_DIFFICULTY_VANILLA
     "Balanced", // GORON_RACE_DIFFICULTY_BALANCED
     "Skip",     // GORON_RACE_DIFFICULTY_SKIP
+};
+
+static const std::vector<const char*> torchTimeLimitOptions = {
+    "Normal",   // TORCH_TIME_LIMIT_NORMAL
+    "Double",   // TORCH_TIME_LIMIT_DOUBLE
+    "Infinity", // TORCH_TIME_LIMIT_INFINITY
 };
 
 static const std::vector<const char*> timerDisplayOptions = {
@@ -996,6 +1008,14 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Manual Jump", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.ManualJump")
         .Options(CheckboxOptions().Tooltip("Z + A to Jump and B while midair to Jump Attack."));
+    AddWidget(path, "Dash After Roll", WIDGET_CVAR_COMBOBOX)
+        .CVar("gEnhancements.Player.DashAfterRoll")
+        .Options(ComboboxOptions()
+                     .Tooltip("Keep holding A after a roll to dash.\n\n"
+                              "- On: Dashing runs at Bunny Hood speed, wearing the bunny hood adds nothing extra.\n"
+                              "- Stack with Bunny Hood: Dashing while wearing the Bunny Hood combines both boosts to "
+                              "run even faster.")
+                     .ComboVec(&dashAfterRollOptions));
     AddWidget(path, "Faster Hookshot", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Player.FasterHookshot")
         .Options(CheckboxOptions().Tooltip("Speeds up the time it takes for the Hookshot to fire and retract."));
@@ -1021,6 +1041,10 @@ void BenMenu::AddEnhancements() {
         .CVar("gEnhancements.Equipment.BetterPictoMessage")
         .Options(
             CheckboxOptions().Tooltip("Inform the player what target if any is being captured in the pictograph."));
+    AddWidget(path, "Picto Box on C-Up", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Items.PictoBoxOnCUp")
+        .Options(CheckboxOptions().Tooltip(
+            "Press C-Up to activate the Pictograph Box once acquired, without needing to equip it to a C-button."));
     AddWidget(path, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Items.HotWaterNeverCools")
         .Options(CheckboxOptions().Tooltip("Prevents Hot Spring Water from cooling down into regular Spring Water."));
@@ -1469,6 +1493,9 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Fast Dampe Flame Digging", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Timesavers.DampeDiggingSkip")
         .Options(CheckboxOptions().Tooltip("Only requires digging up one flame to spawn the big poe."));
+    AddWidget(path, "Always Show Shrine of Truth Feathers", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Timesavers.AlwaysShowShrineFeathers")
+        .Options(CheckboxOptions().Tooltip("Always reveals the feather-marked path to the Shrine of Truth."));
     AddWidget(path, "Fast Chests", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.FastChests")
         .Options(CheckboxOptions().Tooltip("Uses the quick kick animation for all chests in vanilla gameplay."));
@@ -1727,6 +1754,26 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Skip Little Beaver Brother Races", WIDGET_CVAR_CHECKBOX)
         .CVar("gEnhancements.Minigames.SkipLittleBeaver")
         .Options(CheckboxOptions().Tooltip("Only Race the Older Beaver."));
+    AddWidget(path, "Fisherman's Jumping Game Torch Time Limit", WIDGET_CVAR_COMBOBOX)
+        .CVar("gEnhancements.Minigames.FishermanJumpingGame.TorchTimeLimit")
+        .Options(ComboboxOptions()
+                     .Tooltip("Sets the time limit for Link to jump to each torch in the Fisherman's Jumping Game."
+                              "\n- Normal: 5 seconds."
+                              "\n- Double: 10 seconds."
+                              "\n- Infinity: No time limit.")
+                     .DefaultIndex(TorchTimeLimitOptions::TORCH_TIME_LIMIT_NORMAL)
+                     .ComboVec(&torchTimeLimitOptions));
+    AddWidget(path, "Fisherman's Jumping Game Target Score", WIDGET_CVAR_SLIDER_INT)
+        .CVar("gEnhancements.Minigames.FishermanJumpingGame.TargetScore")
+        .Options(IntSliderOptions()
+                     .Tooltip("Sets the target score for the Fisherman's Jumping Game.")
+                     .Min(1)
+                     .Max(40)
+                     .DefaultValue(20));
+    AddWidget(path, "Win Jumping Game Early", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.Minigames.FishermanJumpingGame.EarlyWin")
+        .Options(CheckboxOptions().Tooltip(
+            "Link wins the Fisherman's Jumping Game immediately upon reaching the target score."));
     AddWidget(path, "Goron Race", WIDGET_CVAR_COMBOBOX)
         .CVar("gEnhancements.DifficultyOptions.GoronRace")
         .Options(ComboboxOptions()
@@ -1787,6 +1834,10 @@ void BenMenu::AddEnhancements() {
     AddWidget(path, "Drops Don't Despawn", WIDGET_CVAR_CHECKBOX)
         .CVar("gCheats.DropsDontDie")
         .Options(CheckboxOptions().Tooltip("Prevents drops from despawning after a set amount of time."));
+    AddWidget(path, "Always Find Rock Sirloin", WIDGET_CVAR_CHECKBOX)
+        .CVar("gEnhancements.DifficultyOptions.AlwaysFindRockSirloin")
+        .Options(CheckboxOptions().Tooltip(
+            "Breaking any pot on the Goron Shrine's chandelier will reveal the Rock Sirloin."));
     AddWidget(path, "Deku Guard Search Balls", WIDGET_CVAR_COMBOBOX)
         .CVar("gEnhancements.DifficultyOptions.DekuGuardSearchBalls")
         .Options(

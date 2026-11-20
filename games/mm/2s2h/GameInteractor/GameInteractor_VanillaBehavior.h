@@ -2382,6 +2382,62 @@ typedef enum {
     // 2Ship #1951 (Faster Hookshot). Appended with VB_HOOKSHOT_SET_SPEED, so no existing id moves. MM_ArmsHook_Wait
     // (z_arms_hook.c) passes `this->actor.parent == NULL` as the verdict.
     VB_HOOKSHOT_SHOOT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_FIRST_PERSON_CAMERA,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnOwl`
+    VB_OWL_SPAWN_FEATHER,
+
+    // #### `result`
+    // ```c
+    // player->stateFlags3 & PLAYER_STATE3_10000000
+    // ```
+    // #### `args`
+    // - `*EnOwl`
+    VB_OWL_DESPAWN_FEATHER,
+
+    // #### `result`
+    // ```c
+    // this->myPotIndex == 4
+    // ```
+    // #### `args`
+    // - None
+    VB_FIND_ROCK_SIRLOIN,
+
+    // #### `result`
+    // ```c
+    // gSaveContext.minigameScore < 20
+    // ```
+    // #### `args`
+    // - None
+    VB_FAIL_FISHERMAN_JUMPING_GAME,
+
+    // #### `result`
+    // ```c
+    // gSaveContext.timerCurTimes[TIMER_ID_MINIGAME_2] == SECONDS_TO_TIMER(0)
+    // ```
+    // #### `args`
+    // - None
+    VB_JUMPING_GAME_END,
+
+    // #### `result`
+    // ```c
+    // this->unk_2FC > 100
+    // ```
+    // #### `args`
+    // - `s32` (torch burn time)
+    VB_JUMPING_GAME_TORCH_RUN_OUT,
 } GIVanillaBehavior;
 
 #endif

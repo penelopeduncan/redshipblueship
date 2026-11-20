@@ -74,28 +74,28 @@ brief, plus everything in the collision set:
 | `gCheats.` | 15 | ✅ all. #1412's Infinite Epona Carrots is the fifteenth, converged onto SoH's Epona Boost (§5.3) |
 | `Graphics` | 16 | ✅ all, but per key only since W6-GFX (#1237): the eight keys MM still reads under its own spelling (Clock Type, 24 Hours Clock, the three Motion Blur keys, the two Scene Geometry keys, and Authentic Logo, INTENTIONAL) in §6.1 W6-GFX; Bow Reticle, Disable Black Bars and Enemy Health Bars in §5.3; Actor Culling and Actor Draw Distance in §3.2. The earlier "✅ all" named few of them |
 | `Restorations` | 10 | ✅ all; the eight behaviour restorations per key since W6-FIXES (#1237, §6.1 W6-FIXES), N64 Weird Frames and Pause Buffer Window in §5.3 |
-| `Timesavers` | 11 | ✅ all. #1412 added two, Faster Rupee Accumulator and Faster Bottles, both converged (§5.3) |
+| `Timesavers` | 12 | ✅ all. #1412 added two, Faster Rupee Accumulator and Faster Bottles, both converged (§5.3), and #1755 added Always Show Shrine of Truth Feathers (§6.1) |
 | `Cutscenes` | 10 | ✅ all |
 | `Saving` | 7 | ✅ all |
-| `Player` | 12 | ✅ all, and only since W6-PLAYER and W6-MASKS-SONGS (#1236): Instant Putaway (§5.3), Climb Speed ((P), §4 W6-PLAYER), six (O) keys (§6.1 W6-PLAYER) and Underwater Ocarina ((O), §6.1, hosted with the Ocarina rows by W6-MASKS-SONGS). The earlier "✅ all" predated any per-key row for the seven. Invert Zora Swim Y ((O), §6.1 #1411) is the tenth, Unsheathe Sword Without Slashing (converged, §5.3 #1412) the eleventh, and Faster Hookshot ((O), §6.1 2Ship #1951) the twelfth |
+| `Player` | 13 | ✅ all, and only since W6-PLAYER and W6-MASKS-SONGS (#1236): Instant Putaway (§5.3), Climb Speed ((P), §4 W6-PLAYER), six (O) keys (§6.1 W6-PLAYER) and Underwater Ocarina ((O), §6.1, hosted with the Ocarina rows by W6-MASKS-SONGS). The earlier "✅ all" predated any per-key row for the seven. Invert Zora Swim Y ((O), §6.1 #1411) is the tenth, Unsheathe Sword Without Slashing (converged, §5.3 #1412) the eleventh, Faster Hookshot ((O), §6.1 2Ship #1951) the twelfth, and Dash After Roll ((O), §6.1 #1755 / 2Ship #1938) the thirteenth |
 | `Equipment` | 7 | ✅ all since W6-PLAYER (#1236): Item Unequip and Magic Arrow Equip Speed (§5.3), Invert Shield Y ((P) P7, §4), Bombchu Drops ((P), §4 W6-PLAYER) and three (O) keys (§6.1 W6-PLAYER). The earlier "✅ all" predated any per-key row for the last four |
 | `Camera` | 31 | ✅ all (the aiming and camera inversion / sensitivity keys and two first-person switches per key since W6-CAM-AIM, §4, the third, auto-centering, converged onto SoH's key by #1272, §5.3; the gyro axes, the free-look pitch limits and the debug camera per key since W6-CAM-GYRO, §4) |
-| `Dialogue` / `Dpad` / `Playback` / `Items` / `A11y` / `Mods` / `Fixes` | 25 | ✅ all; `Fixes` (and the `gFixes.*` namespace) per key only since W6-FIXES (#1237, §6.1 W6-FIXES): the earlier "✅ all" was a category-level claim. #1411 added two `A11y` keys (§6.1 #1411), and #1412 four converged ones (§5.3): Skip Bottle Pickup Messages (`Dialogue`), Remove Explosive Limit (`Items`), Disable Bomb Billboarding and Disable Grotto Fixed Rotation (`Mods`). 2Ship #1989 added Hot Water Never Cools (`Items`, (O), §6.1 2Ship #1989), and 2Ship #1952 Fix Owl Save Scene Layers (`Fixes`, (O), §6.1 W6-FIXES) |
+| `Dialogue` / `Dpad` / `Playback` / `Items` / `A11y` / `Mods` / `Fixes` | 26 | ✅ all; `Fixes` (and the `gFixes.*` namespace) per key only since W6-FIXES (#1237, §6.1 W6-FIXES): the earlier "✅ all" was a category-level claim. #1411 added two `A11y` keys (§6.1 #1411), and #1412 four converged ones (§5.3): Skip Bottle Pickup Messages (`Dialogue`), Remove Explosive Limit (`Items`), Disable Bomb Billboarding and Disable Grotto Fixed Rotation (`Mods`). 2Ship #1989 added Hot Water Never Cools (`Items`, (O), §6.1 2Ship #1989), 2Ship #1952 added Fix Owl Save Scene Layers (`Fixes`, (O), §6.1 W6-FIXES), and #1755 added Picto Box on C-Up (`Items`, (O), §6.1 #1755 / 2Ship #1558) |
 | `Masks` | 9 | ✅ all since W6-MASKS-SONGS (#1236): eight (O) rows and the internal `PersistentBunnyHood.State` in §6.1. Counted 10 before that lane counted the keys |
 | `Songs` | 7 | ✅ all since W6-MASKS-SONGS (#1236) and L7 (#1133): five (O) rows in §6.1, and Better Song of Double Time and Skip Song of Time Cutscenes hosted by L7 (§5.3's #1133 table) |
-| `Minigames` | 18 | ✅ all since W6-MINIGAMES (#1236): eighteen (O) rows in §6.1 |
-| `DifficultyOptions` | 15 | ✅ all: Hyper Enemies and Permanent Heart Loss converged (§5.3), Damage Multiplier held apart and hosted (§5.3, #1037), Goron Race with the minigames (§6.1), and since W6-MODES-DIFF (#1236) seven (O) rows and Delete File on Death (INTENTIONAL) in §6.1. #1412 added three: No Heart Drops and Drops Don't Despawn converged (§5.3), and No Random Drops held apart ((P), hosted, in §6.1's W6-MODES-DIFF table) |
+| `Minigames` | 21 | ✅ all since W6-MINIGAMES (#1236): eighteen (O) rows in §6.1, plus the three Fisherman's Jumping Game options (#1755 / 2Ship #1947) |
+| `DifficultyOptions` | 16 | ✅ all: Hyper Enemies and Permanent Heart Loss converged (§5.3), Damage Multiplier held apart and hosted (§5.3, #1037), Goron Race with the minigames (§6.1), and since W6-MODES-DIFF (#1236) seven (O) rows and Delete File on Death (INTENTIONAL) in §6.1. #1412 added three: No Heart Drops and Drops Don't Despawn converged (§5.3), and No Random Drops held apart ((P), hosted, in §6.1's W6-MODES-DIFF table); #1755 added Always Find Rock Sirloin ((O), §6.1 #1755 / 2Ship #1944) |
 | `Cycle` | 9 | ✅ all since W6-CYCLE-CHEATS (#1236): six (O) rows and Do Not Reset Rupees / Consumables (INTENTIONAL) in §6.1. 2Ship #1972 added Mayor Argues Until Moonfall ((O), §6.1) |
-| **Subtotal** | **202** | |
+| **Subtotal** | **209** | |
 
 **NOT classified at individual-setting level:** none since the W6 lanes. Until then 55 MM keys in five categories
 (`Minigames`, `DifficultyOptions`, `Masks`, `Cycle`, `Songs`) were classified **(O) MM-only at the category level** on
 the strength of their contents, with the rows inside them that have OoT counterparts pulled out (§5). Each category now
 has a row per key (table above), and `Masks` counts 9 keys, not 10, so the total in scope was 184; #1411's three keys
-(two `A11y`, one `Player`) made it 187, and #1412's eleven 2Ship keys (ten converged, §5.3, and No Random Drops held
+(two `A11y`, one `Player`) made it 187, #1412's eleven 2Ship keys (ten converged, §5.3, and No Random Drops held
 apart, §6.1) made it 198, 2Ship #1989's Hot Water Never Cools (§6.1) made it 199, 2Ship #1972's Mayor Argues
-Until Moonfall (§6.1) made it 200, 2Ship #1952's Fix Owl Save Scene Layers (§6.1 W6-FIXES) made it 201, and 2Ship
-#1951's Faster Hookshot (§6.1) makes it 202.
+Until Moonfall (§6.1) made it 200, 2Ship #1952's Fix Owl Save Scene Layers (§6.1 W6-FIXES) made it 201, 2Ship
+#1951's Faster Hookshot (§6.1) made it 202, and #1755's seven options (§6.1) make it 209.
 
 Also not covered: OoT's 1570 `gCosmetics.*` keys (overwhelmingly auto-generated per-actor
 colour entries with no MM counterpart — MM has 3, all in the collision set and all
@@ -871,6 +871,18 @@ Spring Water as timed).
 |---|---|---|---|
 | `gEnhancements.Items.HotWaterNeverCools` | off | Hot Water Never Cools (Enhancements > Items, Equipment, Majora's Mask block, after Better Picto Message) | (O) MM-only: Ocarina of Time has no Hot Spring Water. `Items/HotWaterNeverCools.cpp` linked |
 
+**#1755 — Small MM options backported from 2Ship and hosted.** Keys added beyond upstream 2Ship's earlier snapshot, each drawn by a hosted row on SoH's Enhancements pages (`SohGui/HostedMm/`), bound through its `RSBS_CVAR_MM_*` define, and on `RSBS_TWOSHIP_IMPORT_KEYS`; every provider TU is carved into `ship__Enh_registrars`, reads `MM_gPlayState` safely (play-state guards added where read), is attributed in `MMRegistrarCoverage`'s key-gap table, and is exercised by `MMSmallOptions1755`.
+
+| MM key | MM default | Row (page > section) | Call |
+|---|---|---|---|
+| `gEnhancements.Items.PictoBoxOnCUp` | off | Picto Box on C-Up (Enhancements > Items, Equipment, Majora's Mask block, between Better Picto Message and Hot Water Never Cools) | (O) MM-only: opens the Pictograph Box with C-Up when owned instead of first-person camera (`2Ship #1558`, `Items/PictoBoxOnCUp.cpp` linked, play-state guard added after `*should = false`) |
+| `gEnhancements.Timesavers.AlwaysShowShrineFeathers` | off | Always Show Shrine of Truth Feathers (Enhancements > Timesavers, Majora's Mask block, after Fast Dampe Flame Digging) | (O) MM-only: reveals all Shrine of Truth owl feathers immediately and stops void-out despawn (`2Ship #1594`, `#1905`, `Timesavers/AlwaysShowShrineFeathers.cpp` linked, play-state and `setupPathList` guards added in `OnActorInit`) |
+| `gEnhancements.Player.DashAfterRoll` | Off | Dash After Roll (Quality of Life > Controls, Majora's Mask block, after Manual Jump) | (O) MM-only: hold A after a roll to dash at Bunny Hood speed or stack with Bunny Hood (`2Ship #1938`, `Player/DashAfterRoll.cpp` linked, play-state and player guards added in `OnPassPlayerInputs`) |
+| `gEnhancements.DifficultyOptions.AlwaysFindRockSirloin` | off | Always Find Rock Sirloin (Enhancements > Difficulty, Majora's Mask block, before Deku Guard Search Balls) | (O) MM-only: breaking any Goron Shrine chandelier pot reveals the Rock Sirloin (`2Ship #1944`, `DifficultyOptions/AlwaysFindRockSirloin.cpp` linked) |
+| `gEnhancements.Minigames.FishermanJumpingGame.TorchTimeLimit` | Normal | Fisherman's Jumping Game Torch Time Limit (Enhancements > Minigames, Majora's Mask block, after Skip Little Beaver Races) | (O) MM-only: configures Jumping Game torch burn limit as Normal (5 s), Double (10 s), or Infinity (`2Ship #1947`, `Minigames/FishermanJumpingGame.cpp` linked) |
+| `gEnhancements.Minigames.FishermanJumpingGame.TargetScore` | 20 | Fisherman's Jumping Game Target Score (likewise) | (O) MM-only: sets the target score (1-40, default 20) to win the Fisherman's Jumping Game (`2Ship #1947`, `Minigames/FishermanJumpingGame.cpp` linked) |
+| `gEnhancements.Minigames.FishermanJumpingGame.EarlyWin` | off | Win Jumping Game Early (likewise) | (O) MM-only: wins the Fisherman's Jumping Game immediately upon reaching the target score (`2Ship #1947`, `Minigames/FishermanJumpingGame.cpp` linked) |
+
 ### 6.2 OoT-only (category level)
 
 Dungeon/trade/age machinery with no MM counterpart: `gRandoSettings.*` (232),
@@ -913,7 +925,7 @@ before the menu exists. CvarClassification leg (2b) and the TwoShipImportMmKeys 
 Scoped to the enhancement/cheat/cosmetic surface classified at **individual-setting level**
 (MM's 185 `gEnhancements.*` + `gCheats.*` keys, and their OoT counterparts). These counts are the original inventory's
 (2026-07-21) and are not re-derived per row: since then the W6 lanes classified every key per row (§2, where the total
-read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 202 since #1411, #1412, 2Ship #1989, 2Ship #1972, 2Ship #1952 and 2Ship #1951), and the #966 rows,
+read 184 because `Masks` holds 9 keys, not the inventory's 10, and reads 209 since #1411, #1412, 2Ship #1989, 2Ship #1972, 2Ship #1952, 2Ship #1951, and #1755), and the #966 rows,
 #1239, #1272 and #1412 converged more keys than the 26 below.
 
 | Class | Rows | Notes |
