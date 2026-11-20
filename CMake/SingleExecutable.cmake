@@ -1809,6 +1809,13 @@ if(BUILD_TESTING)
     # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
     # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
     redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
+    # #1755: Majora's Mask cutscene skips ported from 2Ship2Harkinian.
+    # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, every
+    # bean subtype still skipped as on main), SkipSakonsHideoutCutscenes (Ikana 14/34,
+    # Sakon's Hideout 21), and SkipCouplesMaskCutscene (VB_PLAY_COUPLES_MASK_CS
+    # phase advance and play-state guard). Pure (no display, no ROM);
+    # games/mm/2s2h/mm_cutscene_skips_test.cpp.
+    redship_add_test(NAME MMCutsceneSkips COMMAND redship --test mm-cutscene-skips)
     # The MM rando minigame reward hooks (Rando/ActorBehavior/, armed through
     # ActorBehavior::OnFileLoad and driven by VB dispatch against a calloc'd
     # play state). MMGalleryRupeeStandIn (#1216): while a shooting gallery's

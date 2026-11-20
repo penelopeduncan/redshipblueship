@@ -383,6 +383,9 @@ int MM_RuntimeParity_RunHeadless(void);
 // Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
 // shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_UpstreamFixes1754_RunHeadless(void);
+// #1755: Majora's Mask cutscene skips (games/mm/2s2h/mm_cutscene_skips_test.cpp).
+// Returns 0 on pass.
+int MM_CutsceneSkips_RunHeadless(void);
 // The MM rando minigame reward hooks (games/mm/2s2h/mm_minigame_offer_hooks_test.cpp):
 // a rupee that stands in for an open check is not given on top of it (#1216).
 // Drives the Rando/ActorBehavior hooks through OnFileLoad against a calloc'd
@@ -7955,6 +7958,24 @@ static TestResult Test_MMUpstreamFixes1754(void) {
     return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1755. Same display-free shared bring-up as mm-runtime-parity: the registrars
+// it drives read CVars through the Ship::Context singleton. It restores
+// gSaveContext, MM_gPlayState and both CVars on the way out, so it has no
+// ordering constraints.
+static TestResult Test_MMCutsceneSkips(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_CutsceneSkips_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1216. Same display-free shared bring-up as mm-song-teacher-hooks. Restores
 // the SaveContext image and MM_gPlayState and re-runs OnFileLoad on the way
 // out, so it has no ordering constraints.
@@ -11488,6 +11509,11 @@ const TestDescriptor gTests[] = {
     { "mm-upstream-fixes-1754",
       "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
       Test_MMUpstreamFixes1754 },
+    // #1755: Majora's Mask cutscene skips. Restores everything it touches.
+    { "mm-cutscene-skips",
+      "MM cutscene skips: OnePoint bell/owl/bean-subtype, Sakon's Hideout (Ikana 14/34, Secom 21), and Couple's Mask "
+      "(#1755)",
+      Test_MMCutsceneSkips },
     // The MM rando minigame reward hooks (#1216). Restores everything it touches.
     { "mm-gallery-rupee-stand-in",
       "A minigame rupee standing in for an open MM check is not given on top of it (#1216)",
