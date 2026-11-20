@@ -1834,6 +1834,17 @@ chosen, every trap is a Freeze Trap. Checked by automated tests only; not played
 With the trick on, logic now uses it for the Water Temple Gold Skulltula near the boss key chest, as the trick's
   description says.
 
+### ~~Four logic rules of `v0.5.2-alpha` can expect something you cannot do~~ — RESOLVED in `v0.5.3-alpha` ([#1793](https://github.com/penelopeduncan/redshipblueship/issues/1793))
+
+`v0.5.2-alpha` shipped with four Ocarina of Time logic rules that are wrong under non-default settings: Voidout
+  Collection on the three Shadow Trial hearts of Ganon's Castle (no check that Link survives), the Master Quest Shadow
+  Trial's silver rupees, the far lava platform of the Master Quest Gerudo Training Ground (the Bunny Hood item was
+  read instead of the Bunny Hood effect), and bombs counted for the Gold Skulltula on the frozen waterfall in Zora's
+  Domain. `v0.5.3-alpha` corrects all four. A seed made with `v0.5.2-alpha` under Master Quest dungeons, the Voidout
+  Collection trick, Masks as Adult with Bunny Hood Effect off, or shuffled Gold Skulltula tokens can ask for something
+  that does not work: generate it again. The corrected rules are checked by logic tests only; nobody has played a seed
+  made with them.
+
 ### A save state in a paired file holds only Ocarina of Time ([#1752](https://github.com/penelopeduncan/redshipblueship/issues/1752))
 
 Save States (Enhancements > Cheats > Save States, once both warning boxes are ticked; F5 to save, F7 to load) stay
