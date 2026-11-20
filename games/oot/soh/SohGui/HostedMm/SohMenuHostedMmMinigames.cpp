@@ -159,14 +159,10 @@ void AddMmMinigameRows(SohMenu& menu, WidgetPath& path) {
                               "- Double: 10 seconds.\n"
                               "- Infinity: No time limit.\n"
                               "Majora's Mask only."));
-    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Fisherman's Jumping Game Target Score",
-                      WIDGET_CVAR_SLIDER_INT)
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Fisherman's Jumping Game Target Score", WIDGET_CVAR_SLIDER_INT)
         .CVar(RSBS_CVAR_MM_MINIGAMES_JUMPING_TARGET_SCORE)
-        .Options(IntSliderOptions()
-                     .Min(1)
-                     .Max(40)
-                     .DefaultValue(20)
-                     .Tooltip("Sets the target score for the Fisherman's Jumping Game. Majora's Mask only."));
+        .Options(IntSliderOptions().Min(1).Max(40).DefaultValue(20).Tooltip(
+            "Sets the target score for the Fisherman's Jumping Game. Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Win Jumping Game Early", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_MINIGAMES_JUMPING_EARLY_WIN)
         .Options(CheckboxOptions().Tooltip(
