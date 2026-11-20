@@ -296,6 +296,10 @@ int RunLegs(ScopedStateRestore& guard) {
     MM_GameHooks_ExecuteOnActorUpdate(&feather->actor);
     SO1755_ASSERT(feather->unk_3DC == 0x12C, 26,
                   "AlwaysShowShrineFeathers OnActorUpdate did not lock unk_3DC to 0x12C");
+    type2Owl.unk_3DC = 10;
+    MM_GameHooks_ExecuteOnActorUpdate(&type2Owl.actor);
+    SO1755_ASSERT(type2Owl.unk_3DC == 10, 27,
+                  "AlwaysShowShrineFeathers OnActorUpdate modified a type-2 owl");
 
     FreeSpawnedOwls(play);
     play->setupPathList = NULL;
@@ -395,13 +399,13 @@ int RunLegs(ScopedStateRestore& guard) {
     DriveKey(kTorchLimitKey, TORCH_TIME_LIMIT_NORMAL);
 
     // TargetScore: score comparison + 0x109A custom message replacement.
-    DriveKey(kTargetScoreKey, 5);
-    gSaveContext.minigameScore = 4;
+    DriveKey(kTargetScoreKey, 10);
+    gSaveContext.minigameScore = 9;
     SO1755_ASSERT(GameInteractor_Should(VB_FAIL_FISHERMAN_JUMPING_GAME, false), 55,
-                  "TargetScore 5 did not fail at minigameScore == 4");
-    gSaveContext.minigameScore = 5;
+                  "TargetScore 10 did not fail at minigameScore == 9");
+    gSaveContext.minigameScore = 10;
     SO1755_ASSERT(!GameInteractor_Should(VB_FAIL_FISHERMAN_JUMPING_GAME, true), 56,
-                  "TargetScore 5 still failed at minigameScore == 5");
+                  "TargetScore 10 still failed at minigameScore == 10");
 
     char rawEntryBytes[MESSAGE_HEADER_SIZE + 8] = {};
     rawEntryBytes[9] = '\xFF';
@@ -423,20 +427,20 @@ int RunLegs(ScopedStateRestore& guard) {
                   "TargetScore OnOpenText[0x109A] produced empty message buffer");
     const std::string rendered(reinterpret_cast<const char*>(play->msgCtx.font.msgBuf.schar + MESSAGE_HEADER_SIZE),
                                play->msgCtx.msgLength - MESSAGE_HEADER_SIZE);
-    SO1755_ASSERT(rendered.find("\x01" "5") != std::string::npos && rendered.find("20") == std::string::npos, 59,
+    SO1755_ASSERT(rendered.find("\x01" "10") != std::string::npos && rendered.find("20") == std::string::npos, 59,
                   "TargetScore OnOpenText[0x109A] did not replace vanilla 20 with target score");
     play->msgCtx.messageTableNES = nullptr;
 
     // EarlyWin zeroes TIMER_ID_MINIGAME_2 and ends game once score reaches TargetScore.
     DriveKey(kEarlyWinKey, 1);
-    gSaveContext.minigameScore = 4;
+    gSaveContext.minigameScore = 9;
     gSaveContext.timerCurTimes[TIMER_ID_MINIGAME_2] = SECONDS_TO_TIMER(30);
     SO1755_ASSERT(!GameInteractor_Should(VB_JUMPING_GAME_END, false), 60,
                   "EarlyWin ended jumping game below target score");
     SO1755_ASSERT(gSaveContext.timerCurTimes[TIMER_ID_MINIGAME_2] == SECONDS_TO_TIMER(30), 61,
                   "EarlyWin modified timer below target score");
 
-    gSaveContext.minigameScore = 5;
+    gSaveContext.minigameScore = 10;
     SO1755_ASSERT(GameInteractor_Should(VB_JUMPING_GAME_END, false), 62,
                   "EarlyWin did not end jumping game at target score");
     SO1755_ASSERT(gSaveContext.timerCurTimes[TIMER_ID_MINIGAME_2] == SECONDS_TO_TIMER(0), 63,
