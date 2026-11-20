@@ -1994,6 +1994,17 @@ static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
     return OoT_OcarinaNoteMappingCleanup_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1747: OoT minigame options (IngoRaceOnce, HorsebackArchery, DivingGameTimer, RupeeDashScaling).
+extern "C" int OoT_MinigameOptions_RunHeadless(void);
+static TestResult Test_OoTMinigameOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
 // and clears the randomizer's Triforce Hunt and Ganon's Boss Key keys and the [Both Games] goal (in memory only).
 static TestResult Test_OoTTrackerSohFixes(void) {
@@ -11752,6 +11763,10 @@ const TestDescriptor gTests[] = {
       "Stray D-pad mapping ids saved on the four custom ocarina-note buttons are dropped at start-up, the notes' own "
       "and unparseable ids are kept, and the D-pad's own list and settings record are untouched (#1741)",
       Test_OoTOcarinaNoteMappingCleanup },
+    // #1747: display-free and ROM-free; restores CVars, gSaveContext, OoT_gPlayState, gGameInfo, game, and hooks.
+    { "oot-minigame-options",
+      "OoT minigame options registrars and VB/OnPlayerUpdate dispatch match setting toggles (#1747)",
+      Test_OoTMinigameOptions },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.

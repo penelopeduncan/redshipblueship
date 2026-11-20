@@ -512,7 +512,9 @@ void EnGe1_WaitTillItemGiven_Archery(EnGe1* this, PlayState* play) {
         return;
     }
     if (OoT_Actor_HasParent(&this->actor, play)) {
-        this->actionFunc = EnGe1_SetupWait_Archery;
+        if (GameInteractor_Should(VB_END_HORSEBACK_ARCHERY, true, this)) {
+            this->actionFunc = EnGe1_SetupWait_Archery;
+        }
 
         if (this->stateFlags & GE1_STATE_GIVE_QUIVER) {
             Flags_SetItemGetInf(ITEMGETINF_0F);
@@ -600,7 +602,7 @@ void EnGe1_BeginGame_Archery(EnGe1* this, PlayState* play) {
                 if (gSaveContext.rupees < 20) {
                     OoT_Message_ContinueTextbox(play, 0x85);
                     this->actionFunc = EnGe1_TalkTooPoor_Archery;
-                } else {
+                } else if (GameInteractor_Should(VB_PLAY_HORSEBACK_ARCHERY, true, this, play)) {
                     OoT_Rupees_ChangeBy(-20);
                     play->nextEntranceIndex = ENTR_GERUDOS_FORTRESS_EAST_EXIT;
                     gSaveContext.nextCutsceneIndex = 0xFFF0;
