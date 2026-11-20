@@ -1834,6 +1834,26 @@ chosen, every trap is a Freeze Trap. Checked by automated tests only; not played
 With the trick on, logic now uses it for the Water Temple Gold Skulltula near the boss key chest, as the trick's
   description says.
 
+### Four logic rules can expect something you cannot do, under non-default settings ([#1793](https://github.com/penelopeduncan/redshipblueship/issues/1793))
+
+These came in with the logic rework of `v0.5.2-alpha`. A review found them before the release and the finding was not
+acted on. None applies with the default settings, but with the settings named, logic can ask for something that does
+not work, and a seed can then be unbeatable in logic.
+
+- **Voidout Collection, the three hearts in Ganon's Castle's Shadow Trial.** With the trick on, logic expects the
+void-out even when it kills Link (one-hit KO, or one heart and no fairy). Every other use of the trick checks that you
+survive.
+- **Master Quest Ganon's Castle, the Shadow Trial's silver rupees.** Logic counts them as collected with the Lens of
+Truth and only the Hover Boots, or only the Bunny Hood effect, without the Fairy Bow and with the trick "Shadow Trial
+MQ Torch with Bow" off.
+- **Master Quest Gerudo Training Ground, the far lava platform.** With Masks as Adult on and Bunny Hood Effect off,
+logic expects a Bunny Hood jump that gives no boost.
+- **The Gold Skulltula on the frozen waterfall in Zora's Domain**, when tokens are shuffled. Logic accepts an adult
+with magic and bombs; the rule's own comment says the terrain blocks bomb throws, and nobody has tried it here.
+
+Two item articles are also wrong in text: in French the Zora's Sapphire reads "leSaphir Zora", and an English clear
+hint can read "theGreat Deku Tree Map" (that one is older than this release).
+
 ### A save state in a paired file holds only Ocarina of Time ([#1752](https://github.com/penelopeduncan/redshipblueship/issues/1752))
 
 Save States (Enhancements > Cheats > Save States, once both warning boxes are ticked; F5 to save, F7 to load) stay
