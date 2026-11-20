@@ -46,14 +46,19 @@ extern "C" int MM_SmallOptions1755_RunHeadless(void) {
 #include "2s2h/Enhancements/Enhancements.h"
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipInit.hpp"
+// C++ header (pulls in <string>), so it stays outside the extern "C" block. It supplies MESSAGE_HEADER_SIZE.
+#include "2s2h/CustomMessage/CustomMessage.h"
 #include "mm_game_hooks.h"
 
 extern "C" {
 #include "variables.h"
 #include "functions.h"
+#include "z64malloc.h"
 #include "overlays/actors/ovl_En_Owl/z_en_owl.h"
 #include "objects/object_owl/object_owl.h"
 #include <message_data_static.h>
+// Defined in z_actor.c and declared only there (as in mm_actor_overlay_entry_guard_test.cpp).
+Actor* MM_Actor_Delete(ActorContext* actorCtx, Actor* actor, PlayState* play);
 extern Input* sPlayerControlInput;
 extern void MM_Player_Action_Idle(Player* player, PlayState* play);
 extern void Player_Action_13(Player* player, PlayState* play);
@@ -139,9 +144,9 @@ struct ScopedStateRestore {
           savedSave(std::make_unique<uint8_t[]>(sizeof(gSaveContext))),
           savedOwlLoaded(gActorOverlayTable[ACTOR_EN_OWL].numLoaded) {
         memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
-        const char* allKeys[] = { kPictoBoxKey, kFeathersKey, kSkipMiscKey, kDashAfterRollKey, kDebugCamKey,
-                                  kSpeedModKey, kPersistentHoodKey, kRockSirloinKey, kTorchLimitKey, kTargetScoreKey,
-                                  kEarlyWinKey };
+        const char* allKeys[] = { kPictoBoxKey,   kFeathersKey,    kSkipMiscKey,       kDashAfterRollKey,
+                                  kDebugCamKey,   kSpeedModKey,    kPersistentHoodKey, kRockSirloinKey,
+                                  kTorchLimitKey, kTargetScoreKey, kEarlyWinKey };
         for (const char* k : allKeys) {
             keys.emplace_back(k);
         }
@@ -186,7 +191,7 @@ struct ScopedStateRestore {
     }
 };
 
-static uint8_t sTestArenaBuffer[64 * 1024];
+alignas(16) static uint8_t sTestArenaBuffer[64 * 1024];
 
 int RunLegs(ScopedStateRestore& guard) {
     guard.testPlay = static_cast<PlayState*>(calloc(1, sizeof(PlayState)));
@@ -204,6 +209,9 @@ int RunLegs(ScopedStateRestore& guard) {
 
     play->actorCtx.actorLists[ACTORCAT_PLAYER].first = &player->actor;
     player->actor.id = ACTOR_PLAYER;
+    // A real overlay entry, so the overlay canary that MM_Actor_Init runs on each feather spawn (leg 2) does not
+    // report the stand-in Player as corrupt.
+    player->actor.overlayEntry = &gActorOverlayTable[ACTOR_PLAYER];
     cam->setting = CAM_SET_NORMAL0;
     cam->mode = CAM_MODE_NORMAL;
     play->cameraPtrs[CAM_ID_MAIN] = cam;
@@ -298,8 +306,7 @@ int RunLegs(ScopedStateRestore& guard) {
                   "AlwaysShowShrineFeathers OnActorUpdate did not lock unk_3DC to 0x12C");
     type2Owl.unk_3DC = 10;
     MM_GameHooks_ExecuteOnActorUpdate(&type2Owl.actor);
-    SO1755_ASSERT(type2Owl.unk_3DC == 10, 27,
-                  "AlwaysShowShrineFeathers OnActorUpdate modified a type-2 owl");
+    SO1755_ASSERT(type2Owl.unk_3DC == 10, 27, "AlwaysShowShrineFeathers OnActorUpdate modified a type-2 owl");
 
     FreeSpawnedOwls(play);
     play->setupPathList = NULL;
@@ -361,8 +368,7 @@ int RunLegs(ScopedStateRestore& guard) {
     GameInteractor_ExecuteOnPassPlayerInputs(input);
     f32 speedTarget = 10.0f;
     (void)GameInteractor_Should(VB_SPEED_MODIFIER_WALK, true, &speedTarget);
-    SO1755_ASSERT(speedTarget == 15.0f, 35,
-                  "DashAfterRoll Stack mode did not scale speedTarget by 1.5x");
+    SO1755_ASSERT(speedTarget == 15.0f, 35, "DashAfterRoll Stack mode did not scale speedTarget by 1.5x");
     SO1755_ASSERT(!GameInteractor_Should(VB_CONSIDER_BUNNY_HOOD_EQUIPPED, false), 36,
                   "DashAfterRoll Stack mode should not arm VB_CONSIDER_BUNNY_HOOD_EQUIPPED");
     DriveKey(kDashAfterRollKey, 0);
@@ -410,7 +416,10 @@ int RunLegs(ScopedStateRestore& guard) {
     char rawEntryBytes[MESSAGE_HEADER_SIZE + 8] = {};
     rawEntryBytes[9] = '\xFF';
     rawEntryBytes[10] = '\xFF';
-    memcpy(rawEntryBytes + MESSAGE_HEADER_SIZE, "\x01" "20 pts\xBF", 8);
+    memcpy(rawEntryBytes + MESSAGE_HEADER_SIZE,
+           "\x01"
+           "20 pts\xBF",
+           8);
     MessageTableEntry fakeTable[2]{};
     fakeTable[0].textId = 0x109A;
     fakeTable[0].segment = rawEntryBytes;
@@ -427,7 +436,9 @@ int RunLegs(ScopedStateRestore& guard) {
                   "TargetScore OnOpenText[0x109A] produced empty message buffer");
     const std::string rendered(reinterpret_cast<const char*>(play->msgCtx.font.msgBuf.schar + MESSAGE_HEADER_SIZE),
                                play->msgCtx.msgLength - MESSAGE_HEADER_SIZE);
-    SO1755_ASSERT(rendered.find("\x01" "10") != std::string::npos && rendered.find("20") == std::string::npos, 59,
+    std::string redTarget = "\x01"; // the red colour code that "%r" becomes
+    redTarget += "10";
+    SO1755_ASSERT(rendered.find(redTarget) != std::string::npos && rendered.find("20") == std::string::npos, 59,
                   "TargetScore OnOpenText[0x109A] did not replace vanilla 20 with target score");
     play->msgCtx.messageTableNES = nullptr;
 
