@@ -196,15 +196,15 @@ void BossSst_IceShatter(BossSst* this);
 
 #include "overlays/ovl_Boss_Sst/ovl_Boss_Sst.h"
 
-static BossSst* sHead;
-static BossSst* sHands[2];
-static BgSstFloor* sFloor;
+BossSst* sHead;
+BossSst* sHands[2];
+BgSstFloor* sFloor;
 
 static Vec3f sRoomCenter = { ROOM_CENTER_X, ROOM_CENTER_Y, ROOM_CENTER_Z };
-static Vec3f sHandOffsets[2];
-static s16 sHandYawOffsets[2];
+Vec3f sHandOffsets[2];
+s16 sHandYawOffsets[2];
 
-static s16 sCutsceneCamera;
+s16 sCutsceneCamera;
 static Vec3f sCameraAt = { ROOM_CENTER_X + 50.0f, ROOM_CENTER_Y + 0.0f, ROOM_CENTER_Z + 0.0f };
 static Vec3f sCameraEye = { ROOM_CENTER_X + 150.0f, ROOM_CENTER_Y + 100.0f, ROOM_CENTER_Z + 0.0f };
 static Vec3f sCameraAtVel = { 0.0f, 0.0f, 0.0f };
@@ -233,13 +233,13 @@ static Vec3f sCameraEyePoints[] = {
 };
 
 static Vec3f OoT_sZeroVec = { 0.0f, 0.0f, 0.0f };
-static u32 sBodyStatic = false;
+u32 sBodyStatic = false;
 
 // Unreferenced. Maybe two OoT_zero vectors?
 static u32 sUnkValues[] = { 0, 0, 0, 0, 0, 0 };
 
-static Color_RGBA8 sBodyColor = { 255, 255, 255, 255 };
-static Color_RGBA8 sStaticColor = { 0, 0, 0, 255 };
+Color_RGBA8 sBodyColor = { 255, 255, 255, 255 };
+Color_RGBA8 sStaticColor = { 0, 0, 0, 255 };
 static s32 sHandState[] = { HAND_WAIT, HAND_WAIT };
 
 const ActorInit Boss_Sst_InitVars = {

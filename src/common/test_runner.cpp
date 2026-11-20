@@ -10563,6 +10563,15 @@ TestResult Test_OoTDepartureLinkAge(void) {
     return OoT_DepartureLinkAge_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1752 / #1735: ROM-free savestate plain-data round-trip (boss statics,
+// OoT_sEffectContext, z_player statics, AudioOcarina statics, transition actor IDs).
+// Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+extern "C" int OoT_SaveStateRoundtrip_RunHeadless(void);
+
+TestResult Test_OoTSaveStateRoundtrip(void) {
+    return OoT_SaveStateRoundtrip_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // ============================================================================
 // Test registry
 // ============================================================================
@@ -12846,6 +12855,10 @@ const TestDescriptor gTests[] = {
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
       "shops shuffled and vanilla (#1443)",
       Test_CriticalRenewablesWorld },
+    { "oot-savestate-roundtrip",
+      "ROM-free: newly wired OoT savestate blocks (Barinade/Bongo/Morpha, OoT_sEffectContext, z_player, AudioOcarina, "
+      "and transition actor IDs with live-count clamp) round-trip across Save/Load (#1752, #1735)",
+      Test_OoTSaveStateRoundtrip },
     { nullptr, nullptr, nullptr } // Sentinel
 };
 
