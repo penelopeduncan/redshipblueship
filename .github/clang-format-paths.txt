@@ -136,6 +136,7 @@ games/mm/src/code/z_play.c
 games/mm/src/code/z_visfbuf.c
 games/mm/src/overlays/gamestates/ovl_title/z_title.c
 games/oot/soh/Enhancements/MaskShopNightDoor.cpp
+games/oot/soh/Enhancements/ReworkedTargeting.cpp
 games/oot/soh/Enhancements/Fixes/DarkLinkFixes.cpp
 games/oot/soh/Enhancements/Fixes/FixTwoHandedIdleAnim.cpp
 games/oot/soh/Enhancements/controls/OcarinaNoteMappingCleanup.cpp
@@ -185,6 +186,7 @@ games/oot/soh/oot_shuffled_fairy_test.cpp
 games/oot/soh/oot_butterfly_fairy_test.cpp
 games/oot/soh/oot_mask_shop_night_door_test.cpp
 games/oot/soh/oot_dark_link_fixes_test.cpp
+games/oot/soh/oot_camera_targeting_options_test.cpp
 games/oot/soh/oot_upstream_small_fixes_test.cpp
 games/oot/soh/oot_two_handed_idle_test.cpp
 games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp
@@ -366,5 +368,3 @@ games/oot/soh/oot_chest_silver_confinement_test.cpp
 games/oot/soh/oot_chest_silver_paired_test.cpp
 games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp
-games/oot/soh/Enhancements/ReworkedTargeting.cpp
-games/oot/soh/oot_camera_targeting_options_test.cpp
