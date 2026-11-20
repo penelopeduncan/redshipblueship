@@ -1999,6 +1999,19 @@ static TestResult Test_OoTVanillaMagicBoundary(void) {
 #endif
 }
 
+// #1747 (SoH 6606eefbf, ef014a35e, 3250cc27f, 0ed782ddc, a629af2e9): the five QoL options' VB handlers. Body in
+// games/oot/soh/oot_qol_options_1747_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the six option CVars (in memory only).
+extern "C" int OoT_QolOptions1747_RunHeadless(void);
+static TestResult Test_OoTQolOptions1747(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_QolOptions1747_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // MM new-save session guard (#564 V21; see the extern decl above). The display-free shared bring-up, because leg 7
 // (W6-DEV, #1238) writes and clears Debug Mode's gDeveloperTools.* keys and drives MM's ShipInit registrars on them,
 // and every CVar call dereferences the Ship::Context singleton (a pure row has none, so the leg faulted).
@@ -11706,6 +11719,13 @@ const TestDescriptor gTests[] = {
       Test_OoTMweepStopRestoresCamera },
     // #1588: display-free and ROM-free; restores gSaveContext, active game, CVars, Rando::Context, and hooks.
     { "oot-vanilla-magic-boundary", "OoT magic and Barinade VB boundary (#1588)", Test_OoTVanillaMagicBoundary },
+    // #1747: display-free and ROM-free; restores the six option CVars (cleared,
+    // never stored), the five registrars, OoT_gPlayState, gGameInfo and the
+    // current game.
+    { "oot-qol-options-1747",
+      "Goron Pot spin, heat haze, Saria's gesture, dropping throw-only actors, roll chaining and roll steering follow "
+      "their options and are vanilla with them off (SoH #6138, #6663, #6569, #7023, #6604)",
+      Test_OoTQolOptions1747 },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,

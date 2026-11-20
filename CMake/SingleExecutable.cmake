@@ -2195,6 +2195,15 @@ if(BUILD_TESTING)
     # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
     redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
 
+    # #1747 (SoH 6606eefbf #6138, ef014a35e #6663, 3250cc27f #6569, 0ed782ddc
+    # #7023, a629af2e9 #6604): the five QoL options' registrars run out of
+    # ShipInit's map under each key, then the REAL GameInteractor_Should
+    # dispatch: Goron Pot spin, heat haze, Saria's gesture in her house,
+    # dropping throw-only actors (and z_player.c's
+    # OoT_Player_CanThrowCarriedActor), roll chaining and roll steering.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTQolOptions1747 COMMAND redship --test oot-qol-options-1747)
+
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
     #
