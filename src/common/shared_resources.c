@@ -752,6 +752,10 @@ const char* Combo_SharedFamilySlotName(uint32_t slot) {
             return "sharedOcarinaButtons (C-Right)";
         case RSBS_XITEM_SHARED_OCARINA_BUTTONS:
             return "sharedOcarinaButtons (A)";
+        case RSBS_XFAMILY_SLOT_CHILD_WALLET:
+            return "childWallet (pair possession)";
+        case RSBS_XFAMILY_SLOT_BOMBCHU_BAG:
+            return "bombchuBag (pair possession)";
         default:
             break;
     }
@@ -769,6 +773,49 @@ uint32_t Combo_SharedFamiliesArmed(void) {
     return Combo_SharedFamilySlotsArmedBy(Combo_ComboCrossItemFlags());
 }
 
+uint32_t Combo_SharedPossessionSlotsArmedBy(bool childWalletShuffled, bool bombchuBagShuffled) {
+    uint32_t slots = 0u;
+    if (childWalletShuffled) {
+        slots |= RSBS_XFAMILY_SLOT_CHILD_WALLET;
+    }
+    if (bombchuBagShuffled) {
+        slots |= RSBS_XFAMILY_SLOT_BOMBCHU_BAG;
+    }
+    return slots;
+}
+
+uint32_t Combo_SharedPossessionArmed(void) {
+    // #1702 C1: stage C0's FROZEN bits only (false unfrozen or unpaired).
+    return Combo_SharedPossessionSlotsArmedBy(Combo_ComboChildWalletShuffled(), Combo_ComboBombchuBagShuffled());
+}
+
+/** The first-word slots the OWNERSHIP path arms: every rule-armed family slot and
+ *  #1702's possession slots. Only the harvest, the owed set, the live harvest and
+ *  apply and Combo_SharedFamiliesHeldNow read it; every item-id path keeps
+ *  Combo_SharedFamiliesArmed, which never holds a possession slot. Equal to
+ *  Combo_SharedFamiliesArmed in every world frozen without the C0 bits. */
+static uint32_t FamiliesOwnershipArmed1(void) {
+    return Combo_SharedFamiliesArmed() | Combo_SharedPossessionArmed();
+}
+
+bool Combo_SharedWalletTierImpliesPossession(uint16_t tier) {
+    return tier >= 1u;
+}
+
+/** #1702 C1: the possession slots of @p armedPossession the POOL implies, ruling
+ *  R2's wallet half: CHILD_WALLET while it is armed and the pool's wallet tier
+ *  implies a wallet (a wallet tier is only ever reached through the child
+ *  wallet). A never-shared tier implies nothing. Nothing implies the bag. */
+static uint32_t PossessionImpliedByPool(uint32_t armedPossession) {
+    uint16_t tier = 0u;
+    if ((armedPossession & (uint32_t)RSBS_XFAMILY_SLOT_CHILD_WALLET) == 0u ||
+        !Combo_GetSharedResource((uint8_t)RSBS_SHARED_RES_WALLET_TIER, &tier) ||
+        !Combo_SharedWalletTierImpliesPossession(tier)) {
+        return 0u;
+    }
+    return (uint32_t)RSBS_XFAMILY_SLOT_CHILD_WALLET;
+}
+
 uint32_t Combo_SharedFamiliesOwned(void) {
     return gComboCtx.sharedFamilyOwned;
 }
@@ -779,7 +826,7 @@ uint32_t Combo_SharedFamiliesHarvest(GameId game, uint32_t heldBits) {
     }
     // OR, never assign: a family the departing game no longer holds keeps its
     // bit, so the other game's copy is never taken away.
-    gComboCtx.sharedFamilyOwned |= heldBits & Combo_SharedFamiliesArmed();
+    gComboCtx.sharedFamilyOwned |= heldBits & FamiliesOwnershipArmed1();
     return gComboCtx.sharedFamilyOwned;
 }
 
@@ -787,7 +834,7 @@ uint32_t Combo_SharedFamiliesOwed(GameId game, uint32_t heldBits) {
     if (!IsRealGame(game)) {
         return 0u;
     }
-    return gComboCtx.sharedFamilyOwned & Combo_SharedFamiliesArmed() & ~heldBits;
+    return gComboCtx.sharedFamilyOwned & FamiliesOwnershipArmed1() & ~heldBits;
 }
 
 uint32_t Combo_SharedFamilies2Armed(void) {
@@ -850,7 +897,7 @@ ComboSharedLiveProbeFn Combo_SharedLiveProbeFor(GameId game) {
 }
 
 uint32_t Combo_SharedFamiliesHeldNow(void) {
-    const uint32_t armed = Combo_SharedFamiliesArmed();
+    const uint32_t armed = FamiliesOwnershipArmed1();
     if (armed == 0u) {
         return 0u; // every world with no shared rule frozen: no callback runs
     }
@@ -918,9 +965,11 @@ uint32_t Combo_SharedFamiliesHarvestLive(GameId game) {
     }
     // #1169 XW10: both family words. Each is asked only when it arms a family, so a
     // world that arms neither (the default) runs no callback, and a world that arms
-    // only the second word still harvests it.
-    const uint32_t armed = Combo_SharedFamiliesArmed();
+    // only the second word still harvests it. #1702 C1: the first word's possession
+    // slots ride the ownership path, and the pool's wallet tier owns the wallet.
+    const uint32_t armed = FamiliesOwnershipArmed1();
     const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    gComboCtx.sharedFamilyOwned |= PossessionImpliedByPool(Combo_SharedPossessionArmed()); // R2 at a departure
     if (armed == 0u && armed2 == 0u) {
         return gComboCtx.sharedFamilyOwned; // the default world: no callback runs
     }
@@ -941,9 +990,12 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
     // an apply that owes nothing reads 0 afterwards.
     sFamilies2GivenAtLastApply[game] = 0u;
     // #1169 XW10: a family word is applied when it arms a family and the pool holds
-    // one of it; the first word exactly as before, then the second.
-    const uint32_t armed = Combo_SharedFamiliesArmed();
+    // one of it; the first word exactly as before, then the second. #1702 C1: the
+    // first word's possession slots ride the ownership path, and the pool's wallet
+    // tier owns the wallet before the owed set is read.
+    const uint32_t armed = FamiliesOwnershipArmed1();
     const uint32_t armed2 = Combo_SharedFamilies2Armed();
+    gComboCtx.sharedFamilyOwned |= PossessionImpliedByPool(Combo_SharedPossessionArmed()); // R2 at an arrival
     const bool word1 = armed != 0u && gComboCtx.sharedFamilyOwned != 0u;
     const bool word2 = armed2 != 0u && gComboCtx.sharedFamilyOwned2 != 0u;
     if (!word1 && !word2) {
@@ -957,6 +1009,21 @@ int Combo_SharedFamiliesApplyLive(GameId game) {
         given += FamiliesGiveOwed(game, 1, Combo_SharedFamilies2Owed(game, FamiliesHeldLive(game, 1, armed2)));
     }
     return given;
+}
+
+bool Combo_SharedPossessionPickupAdmitted(GameId running, uint32_t slot) {
+    // #1702 C1: the twin of Combo_SharedPickupStepAdmitted's bag branch, "only the
+    // copy that finds the pair without it is the possession". Stage C4 calls it.
+    const uint32_t armedPossession = Combo_SharedPossessionArmed();
+    if (!IsRealGame(running) || slot == 0u || (slot & (slot - 1u)) != 0u || (slot & armedPossession) == 0u) {
+        return false;
+    }
+    const bool unowned = (gComboCtx.sharedFamilyOwned & slot) == 0u;
+    const bool impliedByPool = (PossessionImpliedByPool(armedPossession) & slot) != 0u;
+    // The harvest-before-admit order of the tier steps: the running game's own
+    // copy, held now and not yet harvested, already owns the slot.
+    const bool heldLive = (FamiliesHeldLive(running, 0, slot) & slot) != 0u;
+    return unowned && !impliedByPool && !heldLive;
 }
 
 uint32_t Combo_SharedFamilies2GivenAtLastApply(GameId game) {
