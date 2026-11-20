@@ -25,11 +25,14 @@
  *       The renamed z_player.c function OoT_Player_CanThrowCarriedActor with a
  *       standing fake Player answers throw (true) off and drop (false) on.
  *       ACTOR_EN_BOM_CHU, on -> the vanilla value, both ways.
- *   (e) Roll chain: on, curFrame 20, A pressed, floor type 7 -> false and
- *       Player_SetupRoll not called (no action set); off -> false.
+ *   (e) Roll chain: on, curFrame 20, A pressed, floor type 7 -> false,
+ *       Player_SetupRoll not called (no action set) and one handler
+ *       registered; off -> false and no handler registered. A chain that
+ *       starts is not checked here (it needs a ROM animation).
  *   (f) Roll steer, with gGameInfo pointed at a static GameInfo with
  *       R_UPDATE_RATE = 3: both keys on, Z clear, rot.y 0, target 0x1000 ->
  *       rot.y 0x300 and false. Z held -> rot.y 0. Steering off -> rot.y 0.
+ *       Improved Roll off with steering on -> rot.y 0.
  *
  * Each key is cleared after its leg and never stored; on the way out every key
  * is put back (cleared when it was unset), the five registrars are re-run to
@@ -227,6 +230,17 @@ bool RollChainShould(void) {
     return GameInteractor_Should(VB_PLAYER_ROLL_CHAIN, false, &sPlayer, &sPlay, &sInput, (s32)7);
 }
 
+// Handlers registered under @p vb. An unregistration is applied lazily, on the
+// next dispatch of that id, so read this only after a GameInteractor_Should.
+size_t VbCount(GIVanillaBehavior vb) {
+    auto& buckets = GameInteractor::RegisteredGameHooks<GameInteractor::OnVanillaBehavior>::functionsForID;
+    auto it = buckets.find((int32_t)vb);
+    return it == buckets.end() ? 0u : it->second.size();
+}
+
+// A chain that actually starts needs Player_SetupRoll's animation load (a ROM),
+// so this leg locks the floor-type-7 guard and whether the handler is
+// registered at all; only a person in the game can see a chained roll.
 void LegRollChain(void) {
     ResetState();
     sPlayer.skelAnime.curFrame = 20.0f;
@@ -235,9 +249,13 @@ void LegRollChain(void) {
     RunRegistrar(kRollKey, kRollFile);
     QOL_CHECK(!RollChainShould(), "(e) on: a roll chained on floor type 7");
     QOL_CHECK(sPlayer.actionFunc == nullptr, "(e) on: Player_SetupRoll ran on floor type 7");
+    QOL_CHECK(VbCount(VB_PLAYER_ROLL_CHAIN) == 1, "(e) on: %zu roll-chain handler(s) registered, want 1",
+              VbCount(VB_PLAYER_ROLL_CHAIN));
     SetKey(kRollKey, false);
     RunRegistrar(kRollKey, kRollFile);
     QOL_CHECK(!RollChainShould(), "(e) off: the roll-chain behaviour is not vanilla");
+    QOL_CHECK(VbCount(VB_PLAYER_ROLL_CHAIN) == 0, "(e) off: %zu roll-chain handler(s) still registered, want 0",
+              VbCount(VB_PLAYER_ROLL_CHAIN));
 }
 
 s16 Steer(u16 buttons, bool* outShould) {
@@ -262,8 +280,14 @@ void LegRollSteer(void) {
     RunRegistrar(kSteerKey, kRollFile);
     rot = Steer(0, &should);
     QOL_CHECK(rot == 0 && !should, "(f) steering off: rot.y 0x%X should %d, want 0 and 0", (u16)rot, should);
+    // Steering is a sub-option: with Improved Roll itself off it does nothing.
+    SetKey(kSteerKey, true);
     SetKey(kRollKey, false);
     RunRegistrar(kRollKey, kRollFile);
+    rot = Steer(0, &should);
+    QOL_CHECK(rot == 0 && !should, "(f) roll off, steering on: rot.y 0x%X should %d, want 0 and 0", (u16)rot, should);
+    SetKey(kSteerKey, false);
+    RunRegistrar(kSteerKey, kRollFile);
 }
 
 void CheckRegistered(const char* file, const char* key) {
