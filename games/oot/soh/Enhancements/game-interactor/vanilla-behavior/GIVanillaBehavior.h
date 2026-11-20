@@ -3304,6 +3304,44 @@ typedef enum {
     // #### `args`
     // - None
     VB_MAGIC_METER_DEPLETE_WHILE_CONSUMING,
+
+    // #### `result`
+    // ```c
+    // (
+    //     (
+    //         (commonType + FIDGET_SWORD_SWING != FIDGET_SWORD_SWING) &&
+    //         (commonType + FIDGET_SWORD_SWING != FIDGET_ADJUST_SHIELD)
+    //     ) ||
+    //     (
+    //         (player->rightHandType == PLAYER_MODELTYPE_RH_SHIELD) &&
+    //         (
+    //             (commonType + FIDGET_SWORD_SWING == FIDGET_ADJUST_SHIELD) ||
+    //             (Player_GetMeleeWeaponHeld2(player) != 0)
+    //         )
+    //     )
+    // )
+    // ```
+    // #### `args`
+    // - `Player*`
+    // - `s32` commonType
+    VB_SET_IDLE_ANIM,
+
+    // #### `result`
+    // ```c
+    // !(this->actor.bgCheckFlags & 1) || (this->actor.world.pos.z > 1300.0f) ||
+    // OoT_BgCheck_SphVsFirstPoly(&play->colCtx, &rodCheckPos, 20.0f)
+    // ```
+    // #### `args`
+    // - `*Vec3f`
+    VB_NOT_CAST_FISHING,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_FISHING_ZERO_XZ,
 } GIVanillaBehavior;
 
 #endif

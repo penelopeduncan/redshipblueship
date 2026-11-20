@@ -96,6 +96,27 @@ Hint::Hint(RandomizerHint ownKey_, std::vector<CustomMessage> messages_) : ownKe
     enabled = true;
 }
 
+// RSBS (#1731): a name a hint document gives, looked up without adding it; a value that is not a string is unknown.
+template <typename T>
+static bool HintFindJsonName(const std::unordered_map<std::string, T>& table, const nlohmann::json& name, T* out) {
+    return name.is_string() && StaticData::FindName(table, name.get<std::string>(), out);
+}
+
+void Hint::MarkUnknownName(const char* field, const nlohmann::json& name) {
+    SPDLOG_WARN("Hint {}: unknown {} {}; the hint is loaded disabled", (int)ownKey, field, name.dump());
+    // Reset whole, as an "enabled": false hint is left: a type the earlier fields set (Trial, Item, ...) must not
+    // survive with its lists emptied, since GetHintText reads trials[0] for a Trial hint and a stone reads its text
+    // without asking IsEnabled.
+    const RandomizerHint key = ownKey;
+    ResetVariables();
+    ownKey = key;
+    unknownName = true;
+}
+
+bool Hint::HasUnknownName() const {
+    return unknownName;
+}
+
 Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
     ownKey = ownKey_;
     if (json_.contains("enabled") && !json_["enabled"].get<bool>()) {
@@ -103,8 +124,18 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
     }
     enabled = true;
 
+    // RSBS (#1731): every name below is looked up without adding it to its table (HintFindJsonName). A name this
+    // build does not know used to become entry 0 of the table (the "Message" type, RC_UNKNOWN_CHECK, RA_NONE, the
+    // Light Trial); the hint now loads disabled instead (MarkUnknownName), before FillGapsInData and
+    // SetLocationsAsHinted, as an "enabled": false hint does. A spoiler load then fails
+    // (Context::ParseHintSectionJson); a save load keeps the hint disabled rather than set the save aside.
     if (json_.contains("type")) {
-        hintType = (HintType)StaticData::hintTypeNameToEnum[json_["type"].get<std::string>()];
+        uint32_t type = HINT_TYPE_HINT_KEY;
+        if (!HintFindJsonName(StaticData::hintTypeNameToEnum, json_["type"], &type)) {
+            MarkUnknownName("type", json_["type"]);
+            return;
+        }
+        hintType = (HintType)type;
     }
 
     if (hintType == HINT_TYPE_MESSAGE) {
@@ -123,10 +154,20 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
 
     if (json_.contains("locations")) {
         for (auto loc : json_["locations"]) {
-            locations.push_back(StaticData::locationNameToEnum[loc.get<std::string>()]);
+            RandomizerCheck rc = RC_UNKNOWN_CHECK;
+            if (!HintFindJsonName(StaticData::locationNameToEnum, loc, &rc)) {
+                MarkUnknownName("locations", loc);
+                return;
+            }
+            locations.push_back(rc);
         }
     } else if (json_.contains("location")) {
-        locations.push_back(StaticData::locationNameToEnum[json_["location"].get<std::string>()]);
+        RandomizerCheck rc = RC_UNKNOWN_CHECK;
+        if (!HintFindJsonName(StaticData::locationNameToEnum, json_["location"], &rc)) {
+            MarkUnknownName("location", json_["location"]);
+            return;
+        }
+        locations.push_back(rc);
     }
 
     if (json_.contains("itemNamesChosen")) {
@@ -139,10 +180,20 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
 
     if (json_.contains("areas")) {
         for (auto area : json_["areas"]) {
-            areas.push_back((RandomizerArea)Rando::StaticData::areaNameToEnum[area]);
+            uint32_t ra = RA_NONE;
+            if (!HintFindJsonName(Rando::StaticData::areaNameToEnum, area, &ra)) {
+                MarkUnknownName("areas", area);
+                return;
+            }
+            areas.push_back((RandomizerArea)ra);
         }
     } else if (json_.contains("area")) {
-        areas.push_back((RandomizerArea)Rando::StaticData::areaNameToEnum[json_["area"]]);
+        uint32_t ra = RA_NONE;
+        if (!HintFindJsonName(Rando::StaticData::areaNameToEnum, json_["area"], &ra)) {
+            MarkUnknownName("area", json_["area"]);
+            return;
+        }
+        areas.push_back((RandomizerArea)ra);
     }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -170,10 +221,20 @@ Hint::Hint(RandomizerHint ownKey_, nlohmann::json json_) {
 
     if (json_.contains("trials")) {
         for (auto trial : json_["trials"]) {
-            trials.push_back((TrialKey)Rando::StaticData::trialNameToEnum[trial]);
+            uint32_t tk = TK_LIGHT_TRIAL;
+            if (!HintFindJsonName(Rando::StaticData::trialNameToEnum, trial, &tk)) {
+                MarkUnknownName("trials", trial);
+                return;
+            }
+            trials.push_back((TrialKey)tk);
         }
     } else if (json_.contains("trial")) {
-        trials.push_back((TrialKey)Rando::StaticData::trialNameToEnum[json_["trial"]]);
+        uint32_t tk = TK_LIGHT_TRIAL;
+        if (!HintFindJsonName(Rando::StaticData::trialNameToEnum, json_["trial"], &tk)) {
+            MarkUnknownName("trial", json_["trial"]);
+            return;
+        }
+        trials.push_back((TrialKey)tk);
     }
 
     if (json_.contains("hintKeys")) {
@@ -873,6 +934,7 @@ void Hint::ResetVariables() {
     itemNamesChosen = {};
     hintTextsChosen = {};
     areaNamesChosen = {};
+    unknownName = false; // RSBS (#1731)
 #ifdef RSBS_SINGLE_EXECUTABLE
     foreignAreas = {};
 #endif

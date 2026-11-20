@@ -124,6 +124,8 @@ class Context {
     void ParseItemLocationsJson(nlohmann::json spoilerFileJson);
     void WriteHintJson(nlohmann::ordered_json& spoilerFileJson);
     void ParseHintJson(nlohmann::json spoilerFileJson);
+    // RSBS (#1731): one hint section of a spoiler log; throws std::runtime_error on a name this build does not know.
+    void ParseHintSectionJson(const nlohmann::json& hintsJson);
     void ParseTricksJson(nlohmann::json spoilerFileJson);
     std::map<RandomizerCheck, ItemOverride> overrides = {};
     std::vector<std::vector<RandomizerCheck>> playthroughLocations = {};

@@ -251,8 +251,10 @@ static_assert(RT_BOMB_DETONATION == RT_GTG_STATUE_JUMP + 1,
 static_assert(RT_WATER_HIGH_EMBLEM_JUMP == RT_BOMB_DETONATION + 1 &&
                   RT_DC_EYES_BUNNYHOVERS == RT_WATER_HIGH_EMBLEM_JUMP + 1,
               "OoT's RT_DC_EYES_BUNNYHOVERS (SoH eca767dcb) is appended after RT_WATER_HIGH_EMBLEM_JUMP");
-static_assert(RT_VOIDOUT_COLLECTION == RT_DC_EYES_BUNNYHOVERS + 1 && RT_MAX == RT_VOIDOUT_COLLECTION + 1,
+static_assert(RT_VOIDOUT_COLLECTION == RT_DC_EYES_BUNNYHOVERS + 1,
               "OoT's RT_VOIDOUT_COLLECTION (SoH e86e0ff69) is appended after RT_DC_EYES_BUNNYHOVERS");
+static_assert(RT_GTG_MQ_LAVA_ROOM == RT_VOIDOUT_COLLECTION + 1 && RT_MAX == RT_GTG_MQ_LAVA_ROOM + 1,
+              "OoT's RT_GTG_MQ_LAVA_ROOM (SoH eca767dcb) is appended after RT_VOIDOUT_COLLECTION");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_OOT_SHIP, offsetof(SaveContext, ship));
@@ -6512,6 +6514,19 @@ static bool OoT_SharedAmmoGrantBlocked(const OoTSharedAmmo* row) {
 }
 
 /**
+ * #1702 C0: does OoT's own wallet gate keep the pool's rupees out of the running
+ * save? Under Shuffle Child's Wallet, before the wallet (RAND_INF_HAS_WALLET
+ * clear), OoT holds no rupees: the frame handler pins the count at 0 and the
+ * arrival applies the pool's rupees against a ZERO capacity
+ * (OoT_ApplySharedKind). One answer for that apply and the item view, so
+ * the two cannot drift. Keyed on OoT's own flag, like its apply: a save reads,
+ * with no seed context needed.
+ */
+static bool OoT_SharedRupeesGrantBlocked(void) {
+    return IS_RANDO && !Flags_GetRandomizerInf(RAND_INF_HAS_WALLET);
+}
+
+/**
  * #1652 D: the item view's question (Combo_Item_RegisterGrantBlocked): does OoT's
  * gate above keep shared count @p countKind out of the running save? The same
  * answer the count apply takes, so the Shared tracker row shows what Hyrule holds
@@ -6522,6 +6537,11 @@ static bool OoT_SharedAmmoGrantBlocked(const OoTSharedAmmo* row) {
 static bool OoT_SharedAmmoGrantBlockedForView(uint8_t countKind) {
     if (Context_GetCurrentGame() != GAME_OOT || OoT_Combo_DepartureIsLiveFile() == 0) {
         return false;
+    }
+    // #1702 C0: the Shared Rupees row reads 0 in Hyrule before the wallet, the
+    // answer the rupee apply takes.
+    if (countKind == (uint8_t)RSBS_SHARED_RES_RUPEES) {
+        return OoT_SharedRupeesGrantBlocked();
     }
     for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {
         if (kOoTSharedAmmo[i].countKind == countKind) {
@@ -7012,8 +7032,7 @@ static void OoT_ApplySharedKind(uint8_t kind) {
             // (OoT_SharedAmmoGrantBlocked): the pool keeps its balance, OoT shows
             // 0, and the watermark moves to 0 so the next harvest reads no drop to
             // debit from the pool (#992).
-            const uint16_t rupeeCap =
-                (!IS_RANDO || Flags_GetRandomizerInf(RAND_INF_HAS_WALLET)) ? (uint16_t)CUR_CAPACITY(UPG_WALLET) : 0u;
+            const uint16_t rupeeCap = OoT_SharedRupeesGrantBlocked() ? 0u : (uint16_t)CUR_CAPACITY(UPG_WALLET);
             if (Combo_ApplySharedResource(GAME_OOT, RSBS_SHARED_RES_RUPEES, rupeeCap, &rupees)) {
                 gSaveContext.rupees = (s16)rupees;
             }
