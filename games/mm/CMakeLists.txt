@@ -814,8 +814,8 @@ if(SINGLE_EXECUTABLE_BUILD)
         # #1755: 2Ship #1947 (FishermanJumpingGame), drawn in Minigames (SohMenuHostedMmMinigames.cpp). Three
         # file-scope RegisterShipInitFunc registrars on its three keys ride VB_JUMPING_GAME_END,
         # VB_FAIL_FISHERMAN_JUMPING_GAME, VB_JUMPING_GAME_TORCH_RUN_OUT (z_en_jgame_tsn.c), and OnOpenText[0x109A]
-        # (via S2H::CustomMessage). Bodies read only gSaveContext and args, so no play-state guard is needed. No stub
-        # in mm_stubs.c; no twin of its registrars in games/oot. MMRegistrarCoverage's key-gap table +
+        # (via S2H::CustomMessage). The VB bodies read only gSaveContext and args; the OnOpenText body reads
+        # MM_gPlayState->msgCtx through CustomMessage, so it opens with RSBS_SINGLE_EXE_REQUIRE. No stub in mm_stubs.c; no twin of its registrars in games/oot. MMRegistrarCoverage's key-gap table +
         # MMSmallOptions1755 attribute it.
         "2s2h/Enhancements/Minigames/FishermanJumpingGame.cpp"
     )

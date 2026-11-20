@@ -23,6 +23,8 @@ static bool ShouldWinJumpingGame() {
 }
 
 static void ModifyTargetScore(u16* textId, bool* loadFromMessageTable) {
+    // Both CustomMessage calls below read MM_gPlayState->msgCtx.
+    RSBS_SINGLE_EXE_REQUIRE(MM_gPlayState != NULL);
     auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
     CustomMessage::Replace(&entry.msg,
                            "\x01"
