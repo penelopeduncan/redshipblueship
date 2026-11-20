@@ -681,7 +681,8 @@ main() {
         "RegisterRemoteBombchu()"
         "RegisterLinkSpeedModifier()"
         # #1030-#1034: the key-gap registrars in lib2ship_enh_registrars.a (Disable Screen Flash for Finishing Blow,
-        # 3D Dropped Items, Skip Misc Interactions (25 TUs), Skip Scarecrow's Song, Arrow Cycle). MM's ArrowCycle
+        # 3D Dropped Items, Skip Misc Interactions (every TU under Cutscenes/MiscInteractions, and
+        # Minigames/Archery.cpp since #1762), Skip Scarecrow's Song, Arrow Cycle). MM's ArrowCycle
         # registrar is MM_-prefixed in the source because OoT ships RegisterArrowCycle. The file-scope static
         # registrars (RegisterDisableScreenFlash, SkipHungryGoronDialogue, SkipMayorsOfficeCutscene) have no
         # exported name to probe; the archive gate above covers every file by member.
@@ -757,6 +758,10 @@ main() {
         # lib2ship_enh_registrars.a. No OoT twin (grep games/oot).
         "RegisterOcarinaDive()"
         "RegisterInfiniteEponaCarrots()"
+        # PR #1762 (one of its eight 2Ship fixes): Fix Deku Butler Shock Animation
+        # (Fixes/FixDekuButlerShockLoopAnimation.cpp), in lib2ship_enh_registrars.a. Exported, not file-scope
+        # static, so it can be named here. No OoT twin of the name (grep games/oot).
+        "RegisterDekuButlerFixShockLoopAnimation()"
         # 2Ship #1989: Hot Water Never Cools (Items/HotWaterNeverCools.cpp), in lib2ship_enh_registrars.a. No OoT twin
         # of the name (grep games/oot).
         "RegisterHotWaterNeverCools()"
