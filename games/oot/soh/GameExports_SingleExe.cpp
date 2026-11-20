@@ -6460,6 +6460,80 @@ struct OoTSharedSwimRegistrar {
 const OoTSharedSwimRegistrar gOoTSharedSwimRegistrar;
 } // namespace
 
+// ============================================================================
+// The pair's possession of the Child's Wallet and the Bombchu Bag (#1702 C1)
+// ============================================================================
+//
+// OoT's copies of the two possession slots (RSBS_XFAMILY_SLOT_CHILD_WALLET,
+// RSBS_XFAMILY_SLOT_BOMBCHU_BAG) are OoT's own possession: RAND_INF_HAS_WALLET
+// (set by the child wallet's give, randomizer.cpp, at creation when the shuffle is
+// off, savefile.cpp, and by ruling R2 at the wallet-tier apply below) and the
+// Bombchu item in the inventory (Context::HandleGetBombchuBag, SeedContext.cpp).
+// A member is asked only while its slot is armed, which is only while this world's
+// shuffle froze the slot on (Combo_SharedPossessionArmed). The ids are the items
+// OoT places: RG_PROGRESSIVE_WALLET resolves to the child wallet while the flag is
+// clear (item.cpp), RG_PROGRESSIVE_BOMBCHU_BAG is the bag under Single and
+// Progressive. The GIVES write the possession only: no rupee or bombchu fill,
+// which stages C2 and C4 decide. POOLED is false: the pair is never a shared bag
+// row.
+
+namespace {
+
+bool OoT_SharedChildWalletHeld(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = (int)RAND_INF_HAS_WALLET;
+    return IS_RANDO && (gSaveContext.ship.randomizerInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
+}
+
+void OoT_SharedChildWalletGive(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = (int)RAND_INF_HAS_WALLET;
+    gSaveContext.ship.randomizerInf[flag >> 4] |= (u16)(1 << (flag & 0xF));
+}
+
+bool OoT_SharedBombchuBagHeld(uint16_t nativeId) {
+    (void)nativeId;
+    return IS_RANDO && INV_CONTENT(ITEM_BOMBCHU) != ITEM_NONE;
+}
+
+void OoT_SharedBombchuBagGive(uint16_t nativeId) {
+    (void)nativeId;
+    INV_CONTENT(ITEM_BOMBCHU) = ITEM_BOMBCHU;
+    // Progressive's first level is the bag, as HandleGetBombchuBag's level 0 step.
+    if (IS_RANDO && OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandoContext != nullptr &&
+        Randomizer_GetSettingValue(RSK_BOMBCHU_BAG) == RO_BOMBCHU_BAG_PROGRESSIVE &&
+        gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel == 0) {
+        gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = 1;
+    }
+}
+
+bool OoT_SharedPossessionPooled(uint16_t nativeId) {
+    (void)nativeId;
+    return false;
+}
+
+} // namespace
+
+/** Register OoT's copies of the pair's two possession slots (#1702 C1).
+ *  Idempotent; the static registrar below runs it at start-up. */
+extern "C" void OoT_RegisterSharedPossessionFamilies(void) {
+    const ComboSharedFamilyMember wallet = { (uint16_t)RG_PROGRESSIVE_WALLET, OoT_SharedChildWalletHeld,
+                                             OoT_SharedChildWalletGive, OoT_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_OOT, RSBS_XFAMILY_SLOT_CHILD_WALLET, &wallet);
+    const ComboSharedFamilyMember bag = { (uint16_t)RG_PROGRESSIVE_BOMBCHU_BAG, OoT_SharedBombchuBagHeld,
+                                          OoT_SharedBombchuBagGive, OoT_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_OOT, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &bag);
+}
+
+namespace {
+struct OoTSharedPossessionRegistrar {
+    OoTSharedPossessionRegistrar() {
+        OoT_RegisterSharedPossessionFamilies();
+    }
+};
+const OoTSharedPossessionRegistrar gOoTSharedPossessionRegistrar;
+} // namespace
+
 /**
  * Would GRANTING this row's item be handing the player a shuffled CHECK the
  * seed placed elsewhere? Then the pool may not hand it over.
@@ -7019,8 +7093,9 @@ static void OoT_ApplySharedKind(uint8_t kind) {
             // wallet of that progression, not a second item, so a tier of 1 or more
             // implies the possession flag. Without it the tier rises with the flag
             // clear (a state SoH alone cannot reach): logic's GetWalletCapacity
-            // reads the tier while the frame handler pins rupees at 0.
-            if (IS_RANDO && walletTier >= 1) {
+            // reads the tier while the frame handler pins rupees at 0. #1702 C1: one
+            // answer with the pair's possession slot (shared_resources.c).
+            if (IS_RANDO && Combo_SharedWalletTierImpliesPossession(walletTier)) {
                 Flags_SetRandomizerInf(RAND_INF_HAS_WALLET);
             }
 

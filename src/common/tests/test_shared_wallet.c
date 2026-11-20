@@ -33,7 +33,11 @@
  *   (6) a VANILLA (non-randomizer) file never has the possession flag, yet the
  *       wallet kinds are armed for every world: its rupees must still apply
  *       (the zero cap is a randomizer-only rule), and a pooled wallet tier
- *       writes no randomizer-inf bit into it.
+ *       writes no randomizer-inf bit into it;
+ *   (7) #1702 C1: with stage C0's Child's Wallet bit frozen, the same R2 owns the
+ *       pair's possession slot (Combo_SharedWalletTierImpliesPossession), so MM's
+ *       arrival gets its possession flag too; a pool without a tier owns nothing;
+ *       with the bit off R2 is today's flag and the family word stays 0.
  */
 
 #include <stdio.h>
@@ -53,6 +57,12 @@ void OoT_SharedWalletTest_Frame(void);
 int OoT_SharedWalletTest_LogicCapacity(int* childRow);
 void OoT_HarvestSharedResources(void);
 void OoT_ApplySharedResources(void);
+// #1702 C1, leg (7): MM's possession flags (mm_shared_swim_test.cpp).
+void MM_SharedSwordTest_ArmLive(void);
+void MM_HarvestSharedResources(void);
+void MM_ApplySharedResources(void);
+void MM_SharedPossessionTest_Set(int wallet, int bag);
+int MM_SharedPossessionTest_Held(void);
 #ifdef __cplusplus
 }
 #endif
@@ -88,6 +98,21 @@ static void SwFreezeWorld(void) {
     gComboCtx.mmProfileDigest = 0x0991D16Eu;
     ComboSettingsRecord rec;
     Combo_ComboSettingsDefaults(&rec);
+    Combo_FreezeComboSettings(&rec);
+}
+
+/** SwFreezeWorld with stage C0's Child's Wallet bit frozen as @p wallet (#1702 C1),
+ *  the Bombchu Bag bit off. */
+static void SwFreezeWorldWallet(bool wallet) {
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0x1702C1F1u;
+    gComboCtx.sharedRandoSettingsHash = 0x0991CA5Eu;
+    gComboCtx.mmProfileDigest = 0x0991D16Eu;
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_ComboSettingsApplyCreationWalletChuShuffles(&rec, wallet, false);
     Combo_FreezeComboSettings(&rec);
 }
 
@@ -246,6 +271,67 @@ TestResult Test_SharedWallet(void) {
         SW_CHECK(tier == 1, "the vanilla file's tier is %d after a pooled tier-1 apply, expected 1", tier);
         SW_CHECK(flag2 == 0, "a pooled tier wrote the randomizer wallet flag (%d) into a vanilla file", flag2);
         SW_CHECK(applied2 == 50, "the vanilla file holds %d rupees after the apply, expected 50", applied2);
+    }
+
+    // ---- (7) #1702 C1: ruling R2 is the pair's possession slot too --------------
+    {
+        const uint32_t W = RSBS_XFAMILY_SLOT_CHILD_WALLET;
+        // The bit on, pool tier 1, MM departs holding no flag: its harvest owns the slot
+        // (the departure half of R2) and gives nothing.
+        SwFreezeWorldWallet(true);
+        Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_WALLET_TIER, 1);
+        MM_SharedSwordTest_ArmLive();
+        MM_SharedPossessionTest_Set(0, 0);
+        MM_HarvestSharedResources();
+        const uint32_t ownedAtDeparture = Combo_SharedFamiliesOwned() & W;
+        const int mmFlagsAtDeparture = MM_SharedPossessionTest_Held();
+        SW_CHECK(ownedAtDeparture == W && mmFlagsAtDeparture == 0,
+                 "a departure over pool wallet tier 1 owned %08X (want %08X) and set MM flags %d (want 0)",
+                 (unsigned)ownedAtDeparture, (unsigned)W, mmFlagsAtDeparture);
+        // The bit on, pool tier 1, MM arrives first: the slot is owned and MM's flag set.
+        SwFreezeWorldWallet(true);
+        Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_WALLET_TIER, 1);
+        MM_SharedSwordTest_ArmLive();
+        MM_SharedPossessionTest_Set(0, 0);
+        MM_ApplySharedResources();
+        const uint32_t ownedAfterMM = Combo_SharedFamiliesOwned() & W;
+        const int mmFlags = MM_SharedPossessionTest_Held();
+        // Then OoT arrives without a wallet: its R2 flag, and the slot stays owned.
+        OoT_SharedWalletTest_ArmLive(0, 0, 0);
+        OoT_ApplySharedResources();
+        const int ootFlag = OoT_SharedWalletTest_HasWalletFlag();
+        const uint32_t ownedAfterOoT = Combo_SharedFamiliesOwned() & W;
+        printf("[TEST] (7) bit on, pool tier 1: owned after MM %08X, MM flags %d, OoT flag %d, owned after OoT %08X "
+               "(expected %08X, 1, 1, %08X)\n",
+               (unsigned)ownedAfterMM, mmFlags, ootFlag, (unsigned)ownedAfterOoT, (unsigned)W, (unsigned)W);
+        SW_CHECK(ownedAfterMM == W && mmFlags == 1,
+                 "a pool wallet tier of 1 did not own the pair's wallet slot (%08X) or give MM its flag (%d)",
+                 (unsigned)ownedAfterMM, mmFlags);
+        SW_CHECK(ootFlag == 1 && ownedAfterOoT == W, "OoT's arrival after it: flag %d, owned %08X", ootFlag,
+                 (unsigned)ownedAfterOoT);
+
+        // The bit on, tier 0 (pool rupees only): no wallet was found, the slot stays unowned.
+        SwFreezeWorldWallet(true);
+        Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_RUPEES, 80);
+        OoT_SharedWalletTest_ArmLive(0, 0, 0);
+        OoT_ApplySharedResources();
+        const uint32_t ownedTier0 = Combo_SharedFamiliesOwned();
+        const int flagTier0 = OoT_SharedWalletTest_HasWalletFlag();
+        SW_CHECK(ownedTier0 == 0u && flagTier0 == 0,
+                 "with no wallet found the slot was owned (%08X) or OoT's flag set (%d)", (unsigned)ownedTier0,
+                 flagTier0);
+
+        // The bit off, tier 1: today's R2 (the flag), and the family word is never written.
+        SwFreezeWorldWallet(false);
+        Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_WALLET_TIER, 1);
+        OoT_SharedWalletTest_ArmLive(0, 0, 0);
+        OoT_ApplySharedResources();
+        const int flagOff = OoT_SharedWalletTest_HasWalletFlag();
+        const uint32_t ownedOff = Combo_SharedFamiliesOwned();
+        SW_CHECK(flagOff == 1 && ownedOff == 0u,
+                 "the bit off, pool tier 1: OoT's flag %d (want 1, ruling R2) and owned %08X (want 0: inert)", flagOff,
+                 (unsigned)ownedOff);
+        MM_SharedSwordTest_ArmLive();
     }
 
     ComboContext_Init();
