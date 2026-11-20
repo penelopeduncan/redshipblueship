@@ -1574,13 +1574,44 @@ only apply once that enhancement is enabled — operator ruling, 2026-09-16
 ### A reload after a Termina save opens in Hyrule — this is intentional, as in OoTMM (PR [#1317](https://github.com/penelopeduncan/redshipblueship/pull/1317), [#1298](https://github.com/penelopeduncan/redshipblueship/issues/1298), [#1302](https://github.com/penelopeduncan/redshipblueship/issues/1302))
 
 A reload after a Termina save opens in Hyrule, as in OoTMM; the first crossing into Termina after the reload arrives
-at the entrance the save recorded: a temple save returns to the temple, and with Remember Save Location on any pause
-save or autosave returns to its place (otherwise to South Clock Town). The paired file is one game, and it always
+at the entrance the save recorded: a temple save returns to the temple, a save on the Moon, in a trial or in Majora's
+lair returns to the Moon, and with Remember Save Location on any pause save or autosave returns to its place
+(otherwise to South Clock Town). Two places are exceptions whatever Remember Save Location says: a New Cycle
+file's save on the Clock Tower roof returns to South Clock Town, and a save in Majora's lair returns to the Moon
+field. The paired file is one game, and it always
 opens on Ocarina of Time's file select and in Hyrule, whichever game you saved in. PR #1317 backported
 2Ship2Harkinian's pause-save entrance and respawn persistence (2Ship `16ef59bae`, `96611c3b3`), so the save keeps
 where you pause-saved; the release notes of `v0.4.1-alpha` first said the reload itself returned there, which is not
 so for a paired file. The return on the first crossing comes with PR [#1353](https://github.com/penelopeduncan/redshipblueship/pull/1353)
 ([#1348](https://github.com/penelopeduncan/redshipblueship/issues/1348)), merged after `v0.4.4-alpha`.
+
+### Pause Menu Save and Autosave work on the Moon — this is intentional, as in 2Ship2Harkinian ([#1744](https://github.com/penelopeduncan/redshipblueship/issues/1744))
+
+Pause Menu Save and Autosave work on the Moon, in its four trials and in Majora's lair, as they do in
+2Ship2Harkinian. Both options are off by default, and with both off nothing changes. OoTMM does not allow these
+saves; this build follows 2Ship2Harkinian here, with one difference of its own for Majora's lair.
+
+- **Where a reload comes back.** With Remember Save Location off, on the Moon field. With it on, at the last entrance
+  Link went through, which can be a trial's entrance.
+- **A save in Majora's lair always comes back on the Moon field**, even with Remember Save Location on. The lair has
+  no exit, so a file brought back inside it could be left with no way out. 2Ship2Harkinian brings such a save back
+  inside the lair; this build does not.
+- **In a paired file the save is a save of the whole file.** The file still opens in Hyrule. The first crossing into
+  Majora's Mask after you reopen it lands on the Moon (or at the trial's entrance), not in Clock Town. A Song of
+  Soaring warp from Hyrule lands on its owl instead.
+- **Ways off the Moon.** The Moon has no crossing back to Hyrule. You leave by playing the Song of Time, by the Moon
+  Child's reset in a randomizer file (it needs no song), by beating Majora, or by dying and choosing not to continue,
+  which needs the Game Over Prompt on and returns you to Ocarina of Time. In a paired file with Ocarina of Time's
+  Song of Soaring and an active owl, reopening the file and soaring from Hyrule is one more.
+- **The autosave can fire during the Majora fight.** The fight itself is not saved: a reload comes back on the Moon
+  field, and the fight starts over, intro included, when you go back in.
+- **Trial progress and the masks given to the Moon children** are kept by a reload in the same cycle.
+  2Ship2Harkinian's own save forgets the masks given; this build's save keeps them.
+- **Moon Crash Behavior.** Under New Cycle, a Moon save made at or after 05:49 on the Final Day comes back at 05:49
+  (the grace period of [#1728](https://github.com/penelopeduncan/redshipblueship/issues/1728)). Under Last Save, a
+  moon crash never returns you to the Moon.
+- **Not played.** Nobody has yet checked in the running game what the Moon's clock reads after such a reload, or that
+  the Moon Child appears after one.
 
 ### ~~The Reset button does nothing while Majora's Mask runs~~ — RESOLVED ([#1274](https://github.com/penelopeduncan/redshipblueship/issues/1274), PR [#1315](https://github.com/penelopeduncan/redshipblueship/pull/1315))
 

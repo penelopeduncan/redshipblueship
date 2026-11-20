@@ -33,6 +33,15 @@
  * Save reload already applied it (MM_Combo_ResetFromLastCommitOnMoonCrash);
  * Combo_MmArrivalTakesGrace says which arrivals take it.
  *
+ * THE LAIR SAVE (#1744). 2Ship2Harkinian e5e9f3364 lets the pause save and
+ * the autosave save on the Moon, and with Remember Save Location on a save in
+ * Majora's lair records the lair's own entrance. The lair has no exit, so a
+ * randomizer file without the Song of Time that reloads there may be stuck.
+ * By the operator's ruling of 2026-11-19 ("Yes, Moon field") a save in the
+ * lair records the Moon field's first entrance whatever Remember Save
+ * Location says; Combo_MmLairSaveLandsOnMoonField is that rule. The four
+ * trials and the Moon field keep 2Ship's choice.
+ *
  * Game-header-free and pure: every input is an argument, so a ROM-free row
  * drives each rule without a PlayState, a CVar or a save.
  */
@@ -80,6 +89,16 @@ int Combo_MmArrivalTakesGrace(int hadFrozenState, int frozenMoonCrash);
  * An unpaired session keeps 2Ship's choice, and a Last Save file keeps today's.
  */
 int Combo_MmRoofSaveLandsAtCrossing(int sceneIsRoof, int paired, int frozenMoonCrash);
+
+/**
+ * Whether a pause save or an autosave taken in this scene records the Moon
+ * field (ENTRANCE(THE_MOON, 0)) as the place to come back to, whatever Remember
+ * Save Location says: 1 only in Majora's lair (@p sceneIsLair, SCENE_LAST_BS),
+ * which has no exit (#1744, the ruling of 2026-11-19). Any file, paired or
+ * not, under either Moon Crash Behavior. The four trials and the Moon field
+ * keep 2Ship2Harkinian's choice (e5e9f3364).
+ */
+int Combo_MmLairSaveLandsOnMoonField(int sceneIsLair);
 
 #ifdef __cplusplus
 }
