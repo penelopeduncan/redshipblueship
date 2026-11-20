@@ -221,9 +221,9 @@ class GameInteractor {
     };
 
     // Effects
-    static GameInteractionEffectQueryResult CanApplyEffect(GameInteractionEffectBase* effect);
-    static GameInteractionEffectQueryResult ApplyEffect(GameInteractionEffectBase* effect);
-    static GameInteractionEffectQueryResult RemoveEffect(RemovableGameInteractionEffect* effect);
+    static GameInteractionEffectQueryResult CanApplyEffect(GameInteractionEffectBase& effect);
+    static GameInteractionEffectQueryResult ApplyEffect(GameInteractionEffectBase& effect);
+    static GameInteractionEffectQueryResult RemoveEffect(RemovableGameInteractionEffect& effect);
 
     // Game Hooks
     HOOK_ID nextHookId = 1;
@@ -532,6 +532,7 @@ class GameInteractor {
     // Helpers
     static bool IsSaveLoaded(bool allowDbgSave = false);
     static bool IsGameplayPaused();
+    static bool IsPlayerInControl();
     static bool CanSpawnActor();
     static bool CanAddOrTakeAmmo(int16_t amount, int16_t item);
 

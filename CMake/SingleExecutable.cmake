@@ -1732,6 +1732,11 @@ if(BUILD_TESTING)
     # what that means for red-before-green. Pure (no display, no ROM, no
     # Ship::Context), so it runs in this redship tier.
     redship_add_test(NAME OoTMenuRegistrars COMMAND redship --test oot-menu-registrars)
+    # #1751 / #1750: Anchor PlayerUpdate missing-key defaults, DummyPlayer unk_862
+    # clamp, and GameInteractor null-PlayState pause/control guards. Pure (no
+    # display, no ROM, no Ship::Context, no connection), so it runs in this
+    # redship tier.
+    redship_add_test(NAME OoTNetplayFixes COMMAND redship --test oot-netplay-fixes)
     # The MM twin of the row above, and the same elided-registrar class (#678).
     # games/mm/2s2h/Enhancements/Songs/BetterSongOfDoubleTime.cpp and
     # SkipSoTCutscenes.cpp register only through a file-scope

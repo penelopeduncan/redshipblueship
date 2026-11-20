@@ -258,6 +258,13 @@ int OoT_ExitHarvestGate_RunHeadless(void);
 // naming neither symbol (a reference would un-elide them by itself). Returns 0
 // on pass, non-zero on fail.
 int OoT_MenuRegistrars_RunHeadless(void);
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750;
+// games/oot/soh/oot_netplay_fixes_test.cpp): verifies HandlePacket_PlayerUpdate
+// missing-key defaults & complete payload updates, DummyPlayer_Update unk_862
+// clamping past GID_MAXIMUM, and GameInteractor::IsGameplayPaused /
+// IsPlayerInControl null-PlayState guards. Pure (no display, no ROM, no
+// connection). Returns 0 on pass, non-zero on fail.
+int OoT_NetplayFixes_RunHeadless(void);
 // Tier-4 combo-settings ROWS (games/oot/soh/soh_combo_settings_rows_test.cpp,
 // #655): the six gCombo.Rando.* keys are SohMenu rows -- in the tier-4 Combo
 // section's Cross-Game Rules page since #497 step 6 moved them off their interim
@@ -1658,6 +1665,13 @@ static TestResult Test_OoTExitHarvestGate(void) {
 // wrapper over the C entry point in games/oot/soh/soh_menu_registrar_test.cpp.
 static TestResult Test_OoTMenuRegistrars(void) {
     return OoT_MenuRegistrars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750; see
+// the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_netplay_fixes_test.cpp.
+static TestResult Test_OoTNetplayFixes(void) {
+    return OoT_NetplayFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // Tier-4 combo-settings menu rows (#655) — the wrapper lives further down,
@@ -11531,6 +11545,10 @@ const TestDescriptor gTests[] = {
     // no ROM, no Ship::Context).
     { "oot-menu-registrars", "soh_port's RegisterMenuInitFunc registrars survive the link (#640)",
       Test_OoTMenuRegistrars },
+    // Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750): pure (no
+    // display, no ROM, no Ship::Context, no connection).
+    { "oot-netplay-fixes", "PlayerUpdate defaults, DummyPlayer unk_862 clamp & null PlayState (#1751, #1750)",
+      Test_OoTNetplayFixes },
     // #618 (#516 Phase 3): the ExtensionCache rescan MM's two remaining InitOTR
     // entries depend on. Placed near the END on purpose — it MOUNTS an extra MM
     // archive into the shared ArchiveManager, and resolution is last-added-wins,
