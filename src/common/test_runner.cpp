@@ -668,6 +668,11 @@ int RandoTest_ScrubTextHintSetting(void);
 // in games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_CustomMessageReplaceTest_Run(void);
 int RandoTest_MapCompassText(void);
+// #1746: missing translations fall back to English and round-trip through
+// itemNameToEnum; articles sit in their language's slot; colour codes are
+// well-formed; area and trial names read back. Body in
+// games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
+int OoT_ItemTextTest_Run(void);
 // #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
 // the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 // Return 0 on pass.
@@ -2864,7 +2869,11 @@ extern "C" int OoT_HintArea_TestSetArea(uint16_t rc, int ra);
 // 0x8F5935FF): Majora's Mask's Moon Crash Behavior defaults to New Cycle, which
 // every default world folds into its identity, so each pinned seed is a different
 // world (docs/determinism-goldens.md has the fields); the count stays 17.
-static const uint32_t kStaticHintTextDigest = 0x8F5E9C45u;
+// Re-pinned again by the text fixes of #1746 (PR #1764; generator 6, was
+// 0x8F5E9C45): Ship of Harkinian f35f134c9's grammar fixes change the English
+// text of six static hints (Big Poes, the chickens, Malon, horseback archery,
+// the loach, Biggoron). No placement moves through them; the count stays 17.
+static const uint32_t kStaticHintTextDigest = 0x63EB5596u;
 static const int kStaticHintCount = 17;
 static const char* const kStaticHintSeed = "RSBSUNIFIED1";
 
@@ -4014,6 +4023,13 @@ TestResult Test_ScrubTextHintSetting(void) {
 // games/oot/soh/oot_custom_message_text_test.cpp.
 TestResult Test_CustomMessageReplace(void) {
     return OoT_CustomMessageReplaceTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1746: the ROM-free item and hint tables (OoT_ComboLogic_TestEnsureItemTableTransient,
+// OoT_HintArea_TestInitStaticData), no Rando::Context left behind. Assertions in
+// games/oot/soh/oot_custom_message_text_test.cpp.
+TestResult Test_OoTItemText(void) {
+    return OoT_ItemTextTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1556: MM's AddLineBreaks is plain strings and a static width table, so no
@@ -12185,8 +12201,14 @@ const TestDescriptor gTests[] = {
       Test_ForeignTextboxIcon },
     { "custom-message-replace",
       "CustomMessage::Replace returns when the replacement contains the search string, in both overloads and through "
-      "AutoFormat(ItemID) (#1187)",
+      "AutoFormat(ItemID) (#1187); Capitalize, InsertNames' capital flags and GetAllMessages' format take effect "
+      "(#1746)",
       Test_CustomMessageReplace },
+    { "oot-item-text",
+      "OoT item names with a missing German or French translation read their English name and map back to the same "
+      "item; articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
+      "through the translation maps (#1746)",
+      Test_OoTItemText },
     { "mm-custom-message-line-breaks",
       "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
       "one, adds no width for an overflowing space, and loses no letter (#1556)",

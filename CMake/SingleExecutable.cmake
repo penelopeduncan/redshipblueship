@@ -4009,6 +4009,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # on a two-page text) never returned. Plain strings under a watchdog: default
     # tier. games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME CustomMessageReplace COMMAND redship --test custom-message-replace)
+    # #1746: OoT item names with a missing translation fall back to English and
+    # round-trip through itemNameToEnum, articles sit in their language's slot,
+    # colour codes are well-formed, area and trial names read back. The ROM-free
+    # item and hint tables, no seed: default tier.
+    # games/oot/soh/oot_custom_message_text_test.cpp.
+    redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font

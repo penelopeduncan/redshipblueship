@@ -387,8 +387,7 @@ void BuildTriforcePieceMessage(CustomMessage& msg) {
 void BuildCustomItemMessage(Player* player, CustomMessage& msg) {
     int16_t rgid;
     ItemID icon = ITEM_NONE;
-    msg = CustomMessage("You found [[article]][[color]][[name]]%w!",
-                        "Du erhältst [[article]][[color]][[name]]%w gefunden!",
+    msg = CustomMessage("You found [[article]][[color]][[name]]%w!", "Du hast [[article]][[color]][[name]]%w gefunden!",
                         "Vous avez trouvé [[article]][[color]][[name]]%w!", TEXTBOX_TYPE_BLUE);
     if (player->getItemEntry.objectId != OBJECT_INVALID) {
         rgid = player->getItemEntry.getItemId;
@@ -510,7 +509,7 @@ static CustomMessage BuildMapMessageText(uint16_t getItemId) {
     auto ctx = OTRGlobals::Instance->gRandoContext;
     CustomMessage msg =
         CustomMessage("You found the %g[[name]]%w! [[typeHint]]", "Du erhältst das %g[[name]]%w! [[typeHint]]",
-                      "Vous ebtenez %g[[name]]%w! [[typeHint]]", TEXTBOX_TYPE_BLUE);
+                      "Vous obtenez %g[[name]]%w! [[typeHint]]", TEXTBOX_TYPE_BLUE);
     int sceneNum = -1;
     switch (getItemId) {
         case RG_DEKU_TREE_MAP:

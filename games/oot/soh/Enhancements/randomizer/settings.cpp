@@ -1693,9 +1693,10 @@ void Settings::CreateOptions() {
               "Lost Woods Navi dive",
               "You need Deku Sticks or Kokiri Sword to dive with Navi for entering Zora's River.");
     OPT_TRICK(RT_LW_GS_BEAN, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::INTERMEDIATE },
-              "Lost Woods Adult GS without Bean",
+              "Lost Woods Adult GS with Hookshot",
               "You can collect the token with a precise Hookshot use, as long as you can kill the Skulltula somehow "
-              "first. It can be killed using Longshot, Bow, Bombchus or Din's Fire.");
+              "first. It can be killed using Bow, Bombchus or Din's Fire. Using Longshot to both kill the skull and "
+              "grab the token is in default logic.");
     OPT_TRICK(RT_HC_STORMS_GS, RCQUEST_BOTH, RA_HYRULE_CASTLE, { Tricks::Tag::INTERMEDIATE },
               "Hyrule Castle Storms Grotto GS with Just Boomerang",
               "With precise throws, the Boomerang alone can kill the Skulltula and collect the token, without first "
@@ -2437,6 +2438,13 @@ void Settings::CreateOptions() {
               "the Wallmaster has begun its attempt to grab you. Also included with this trick is that fact that the "
               "switch that unbars the door to the final chest of GTG can be hit without a projectile, using a precise "
               "jump slash. This trick supersedes \"Gerudo Training Ground MQ Left Side Silver Rupees with Hookshot\".");
+    OPT_TRICK(RT_GTG_MQ_LAVA_ROOM, RCQUEST_MQ, RA_GERUDO_TRAINING_GROUND, { Tricks::Tag::INTERMEDIATE },
+              "Navigate Gerudo Training Ground MQ Lava Room without Fire",
+              "It's possible to use the edges of the platforms, either with well placed jumps or Hover Boots, to "
+              "cross sections of MQ GTG Lava Room without having fire to switch off the fire rings.\n"
+              "This allows you to clear the room using a combination of Din's Fire and either Hover Boots or Bunny "
+              "Hood instead of Bow and allows you to reach the right of the maze using only Hookshot if the upper "
+              "switch has been hit, among other things.");
     OPT_TRICK(RT_LENS_GANON, RCQUEST_VANILLA, RA_GANONS_CASTLE, { Tricks::Tag::NOVICE },
               "Ganon\'s Castle without Lens of Truth",
               "Removes the requirements for the Lens of Truth in Ganon's Castle.");
