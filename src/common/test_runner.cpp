@@ -945,6 +945,9 @@ extern "C" {
 // (warp-song-held), the real shims (shared-warp-songs-merge), and the one-copy
 // worlds (shared-warp-songs-one-copy-*, shared-warp-songs-edges, rando).
 #include "tests/test_shared_warp_songs.c"
+// #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, two more bits of
+// the second rules word, hidden until #1587 S7 (shared-sun-saria-rule).
+#include "tests/test_shared_sun_saria.c"
 // #968: Shared Fire, Ice and Light Arrows, the same three rows for the three
 // arrow families #976 reserved (shared-arrows-rule, -merge, -bag).
 #include "tests/test_shared_arrows.c"
@@ -8917,6 +8920,21 @@ TestResult Test_SharedSongsRule(void) {
     return SharedSongsRule_Run();
 }
 
+// #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, the same bring-up
+// as shared-songs-rule (the CVar store and the shared registrars).
+TestResult Test_SharedSunSariaRule(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return SharedSunSariaRule_Run();
+}
+
 // #968: the shared arrows' rule rows, the same bring-up as shared-lens-rule.
 TestResult Test_SharedArrowsRule(void) {
     auto ctx = CreateHarnessStyleContext();
@@ -10915,6 +10933,11 @@ const TestDescriptor gTests[] = {
       "Shared Epona's Song and Shared Song of Storms are two Cross-Game Rules, off by default, frozen at creation "
       "into the fingerprint, and restored from the file at load (#1066)",
       Test_SharedSongsRule },
+    // #1587 S1: the Shared Sun's Song and Shared Saria's Song rules, hidden.
+    { "shared-sun-saria-rule",
+      "Shared Sun's Song and Shared Saria's Song are two second-word Cross-Game Rules, off by default, hidden "
+      "(Generate refuses them), frozen into the fingerprint, and restored from the file at load (#1587)",
+      Test_SharedSunSariaRule },
     { "shared-songs-merge",
       "Both games register Epona's Song and the Song of Storms as shared families, and a song learnt in either game "
       "is known in the other at arrival through the real shims (#1066)",

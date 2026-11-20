@@ -479,7 +479,11 @@ void Combo_ComboItemRules2Store(ComboItemRules2Record* rec, uint32_t word) {
 uint32_t Combo_ComboItemRule2Requires(uint32_t bit) {
     // A shared warp song is one family of the extension's added copy and the
     // host-native copy (OoTMM's `cond: s.songMinuetMm`), so without the
-    // extension there is nothing to share.
+    // extension there is nothing to share. Restricted to the warp songs on
+    // purpose: the Shared Sun's Song and Shared Saria's Song (#1587) require NO
+    // second-word bit, because their extension is Majora's Mask's own song-shuffle
+    // row, which the shared rule turns on (#1587 S3). Widening this to
+    // RSBS_XITEM2_FAMILY_MASK would make the Sun's Song require Shared Soaring.
     if (bit != 0u && (bit & (bit - 1u)) == 0u && (bit & (uint32_t)RSBS_XITEM2_WARP_SONG_SHARED) != 0u) {
         return bit >> RSBS_XITEM2_WARP_SONG_SHARED_SHIFT;
     }
@@ -518,6 +522,10 @@ const char* Combo_ComboItemRule2Name(uint32_t bit) {
             return "sharedSongNocturne";
         case RSBS_XITEM2_SHARED_SONG_PRELUDE:
             return "sharedSongPrelude";
+        case RSBS_XITEM2_SHARED_SONG_SUN: // #1587 S1
+            return "sharedSongSun";
+        case RSBS_XITEM2_SHARED_SONG_SARIAS: // #1587 S1
+            return "sharedSongSarias";
         default:
             return "(unknown)";
     }
@@ -539,7 +547,7 @@ bool Combo_ComboItemRules2Valid(uint32_t word) {
 
 uint32_t Combo_ResolveComboItemRules2(void) {
     // THE ONE RESOLVER for the second word (Combo_ResolveComboItemRules'
-    // discipline): ASSEMBLED from the fourteen keys, each through
+    // discipline): ASSEMBLED from the sixteen keys, each through
     // Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
     // bit no key authors is never on. With nothing authored this is 0, so every
     // world whose player leaves the (hidden) keys alone keeps its fingerprint.
@@ -573,9 +581,10 @@ bool Combo_ComboCrossItemRule2(uint32_t bit) {
 
 // TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
 // the hidden mask and RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out
-// of it. When RSBS_XITEM2_HIDDEN is 0 (every allocated rule offered) all three
-// levels read the same empty mask, so a row that names a level means what it
-// meant. Never set in production.
+// of it. Since #1587 S1 the mask holds only the Shared Sun's Song and Shared
+// Saria's Song, no MM extension, so RSBS_XITEM2_REVEAL_MM_SONGS reads the
+// production mask and only RSBS_XITEM2_REVEAL_ALL offers those two. Never set in
+// production.
 static int sComboItemRules2RevealLevel = RSBS_XITEM2_REVEAL_NONE;
 
 void Combo_ComboItemRules2RevealForTest(int on) {

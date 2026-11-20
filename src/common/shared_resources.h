@@ -743,7 +743,8 @@ int Combo_SharedFamiliesApplyLive(GameId game);
  * THE SECOND FAMILY WORD (#1169 lane XW10; scoping decision 6)
  * ---------------------------------------------------------------------------
  * The shared families of the SECOND rules word (foreign_items.h,
- * RSBS_XITEM2_FAMILY_MASK: today the seven shared warp songs) are owned in
+ * RSBS_XITEM2_FAMILY_MASK: the seven shared warp songs, the Sun's Song and
+ * Saria's Song (0xFF80)) are owned in
  * gComboCtx.sharedFamilyOwned2, one bit per family at its own rule bit, under the
  * SAME OR discipline, direction rule and arming rule as the first word (above):
  * armed from the FROZEN second word only, harvest `owned2 |= held & armed2`,
