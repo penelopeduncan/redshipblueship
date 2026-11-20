@@ -1,6 +1,6 @@
 # Release notes: v0.5.3-alpha ("Ellen Delta")
 
-**Status:** released on 2026-11-19. The tag `v0.5.3-alpha` is on `main`, on the commit that brought this text.
+**Status:** released on 2026-11-20. The tag `v0.5.3-alpha` is on `main`, on the commit that brought this text.
 **Version:** `v0.5.3-alpha`, codename "Ellen Delta" (`src/common/rsbs_version.h`). Under
 [`VERSIONING.md`](VERSIONING.md) the number is a `z` bump, so it keeps the film character ("Ellen") and takes the
 next NATO phonetic code word, Delta. A build's window title reads
