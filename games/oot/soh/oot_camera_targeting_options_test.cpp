@@ -18,7 +18,9 @@
  *   (b) setting on, focus set, no combo: SWITCH_TARGETS is false (pressing Z on a locked target un-targets).
  *   (c) setting on, combo = R, R in press.button, targetCtx.unk_94 set: DIRECTION is true (a new target is chosen),
  *       then SWITCH_TARGETS stays true (the combo switch is allowed through).
- *   (d) the same with unk_94 NULL, after one frame with R released: DIRECTION is false (nothing to switch to).
+ *   (c2) R still down the next frame, unk_94 still set: DIRECTION is false (the combo fires on its rising edge only).
+ *   (d) the same with unk_94 NULL, after one frame with R released: DIRECTION is false (nothing to switch to); then
+ *       one released frame, so the "was the combo down" static is false before the hooks are disarmed.
  *   (e) setting off again: both are vanilla, with R still down and unk_94 set.
  */
 
@@ -150,6 +152,11 @@ int RunLegs(void) {
     CTO_ASSERT(direction, "(c): DIRECTION was not forced on by the combo with a next target");
     CTO_ASSERT(switchTargets, "(c): SWITCH_TARGETS was refused for a switch the combo triggered");
 
+    // (c2) the combo still down the next frame, a next target still there: the switch fires on the rising edge only.
+    direction = ShouldSwitchDirection(false);
+    printf("[TEST] (c2) on, combo R still down: direction %d\n", direction);
+    CTO_ASSERT(!direction, "(c2): DIRECTION was forced on again with the combo held from the previous frame");
+
     // (d) one frame with R released, then R again with no next target: nothing to switch to.
     SetPress(0);
     direction = ShouldSwitchDirection(false);
@@ -159,6 +166,10 @@ int RunLegs(void) {
     direction = ShouldSwitchDirection(false);
     printf("[TEST] (d) on, combo R, no next target: direction %d\n", direction);
     CTO_ASSERT(!direction, "(d): DIRECTION was forced on by the combo with no next target");
+    // One released frame while the setting is still on, so the hook's "combo down last frame" static is false again
+    // before the hooks are disarmed.
+    SetPress(0);
+    CTO_ASSERT(!ShouldSwitchDirection(false), "(d): DIRECTION was forced on with the combo released");
 
     // (e) off again: both vanilla, even with R down and a next target.
     CVarClear(kEnabledKey);
