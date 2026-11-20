@@ -120,6 +120,11 @@ extern void MM_Rando_HydrateCrossGameArrival(int hadFrozenState, int refused);
 // in games/mm/2s2h/GameExports_SingleExe.cpp.
 extern void Combo_NoteCrossGameArrival(const char* gameId);
 
+// OoTMM's grace period on an arrival under New Cycle (#1728). Defined in
+// games/mm/2s2h/GameExports_SingleExe.cpp; the rule is Combo_MmArrivalTakesGrace
+// (src/common/mm_moon_crash_rules.h).
+extern int MM_Combo_ApplyArrivalMoonCrashGrace(int hadFrozenState);
+
 s32 MM_gDbgCamEnabled = false;
 u8 D_801D0D54 = false;
 
@@ -2788,6 +2793,14 @@ void MM_Play_ConsumeStartupEntrance(void) {
     // picks it up as a delta.
     MM_ApplySharedResources();
     MM_ConsumeSharedItems();
+    // OoTMM's grace period (#1728): OoTMM runs it on every open of MM's save, so
+    // on every arrival. A New Cycle file's restored clock within about ten game
+    // minutes of the Moon's fall is pulled back to crash - 0x1E0 (05:49 on the
+    // Final Day); a Last Save file keeps its clock. After the item consumer, so
+    // a half-day crossed from Hyrule under Shuffle Time is owned when the crash
+    // is computed. Nothing below moves a restored clock in the grace: the
+    // re-dispatch's ClockShuffle CorrectInitialTime acts only on day 0 at 05:59.
+    MM_Combo_ApplyArrivalMoonCrashGrace(hadFrozenState);
     Combo_ClearStartupEntrance();
 
     // Re-arm the save-shape-dependent hooks against the save that actually
