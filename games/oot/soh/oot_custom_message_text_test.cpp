@@ -35,6 +35,8 @@
  *   T4. FillMissingTranslations copies English into empty and placeholder slots.
  *   A1. no row has a German article in its French slot or a French one in its
  *       German slot.
+ *   A2. untrimmed, every non-empty English, French and German article ends with a
+ *       space or an apostrophe and does not begin with a space (#1793).
  *   CC1. every colour is empty or a %-code; the Water Temple Boss Key's is "%b".
  *   H1. every area and trial name, as the spoiler writes it, reads back through a
  *       fresh translation map (GetAllMessages formats now; its callers ask for
@@ -52,8 +54,9 @@
  * and M2 fail; without the item_list.cpp half C1 fails on RG_DEKU_TREE_COMPASS.
  * Without the #1746 fixes: K1-K3 fail on the by-value loops and the assignment;
  * T2 and T3 fail without the getter fallback or the getter-built keys; A1 fails on
- * any swapped article; CC1 on the Water Temple Boss Key's "b"; H1 when a caller of
- * GetAllMessages takes its MF_FORMATTED default.
+ * any swapped article; A2 on the Zora's Sapphire's French " le" or the Deku Tree
+ * Map's English "the" (#1793); CC1 on the Water Temple Boss Key's "b"; H1 when a
+ * caller of GetAllMessages takes its MF_FORMATTED default.
  */
 
 #include <algorithm>
@@ -361,6 +364,20 @@ extern "C" int OoT_ItemTextTest_Run(void) {
                    "swapped\n",
                    name.english.c_str(), rg, article.english.c_str(), article.french.c_str(), article.german.c_str());
             failures++;
+        }
+        // A2. Untrimmed: the text puts an article straight before the name, so a non-empty article must end with
+        // a space or an apostrophe and must not begin with a space (#1793: the Sapphire's French " le" and the
+        // Deku Tree Map's English "the" read "leSaphir Zora" and "theGreat Deku Tree Map").
+        for (const std::string* slot : { &article.english, &article.french, &article.german }) {
+            if (slot->empty() || *slot == TODO_TRANSLATE) {
+                continue;
+            }
+            if (slot->front() == ' ' || (slot->back() != ' ' && slot->back() != '\'')) {
+                printf("[TEST] FAIL A2: \"%s\" (%d) has the article \"%s\": it must end with a space or an "
+                       "apostrophe and not begin with a space\n",
+                       name.english.c_str(), rg, slot->c_str());
+                failures++;
+            }
         }
         // CC1. A colour is empty or a two-character %-code.
         const std::string& color = item.GetColor();

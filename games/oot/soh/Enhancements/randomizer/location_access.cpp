@@ -738,10 +738,12 @@ std::map<RandomizerRegion, SpiritLogicData> Region::spiritLogicData = {
                                                  []{return logic->MQSpiritWestToPots() && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT));},
                                                  []{return logic->CanUse(RG_HOVER_BOOTS) || ((logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT) || (logic->BunnyHood() && logic->CanJumpslash() && logic->IsAdult)) && logic->MQSpiritWestToPots());},
                                              }},
+    // [RSBS #1793] reverse access from the statue head takes no hood jump: spirit_temple.cpp's
+    // RR_SPIRIT_TEMPLE_MQ_STATUE_HEAD -> RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND exit disallows it (upstream keeps the term)
     {RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND,   {7, 0, 0, 0,
                                                  []{return logic->CanHitSwitch() && logic->MQSpiritWestToPots() && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT));},
                                                  []{return logic->MQSpiritWestToPots() && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT));},
-                                                 []{return logic->CanUse(RG_HOVER_BOOTS) || (logic->BunnyHood() && logic->CanJumpslash() && logic->IsAdult) || ((logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT)) && (logic->IsAdult || logic->CanJumpslash() || logic->BunnyHood()));},
+                                                 []{return logic->CanUse(RG_HOVER_BOOTS) || ((logic->HasItem(RG_CLIMB) || logic->CanUse(RG_HOOKSHOT)) && (logic->IsAdult || logic->CanJumpslash() || logic->BunnyHood()));},
                                              }},
     {RR_SPIRIT_TEMPLE_MQ_STATUE_ROOM,        {7, 0, 0, 0,
                                                  []{return logic->CanHitSwitch() && (logic->HasItem(RG_CLIMB) || logic->CanUse(RG_LONGSHOT));},

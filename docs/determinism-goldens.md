@@ -547,7 +547,9 @@ build would turn the oracle back into a no-op.
    Crash Behavior default (#1671, PR #1673), the stick and nut bag gating of
    Majora's Mask (#1652), the first overhaul batch of #1647 (PR #1724) and the
    second with the text fixes of #1746 (PRs #1756, #1760 and #1764), ride
-   generator 6 and must list their residuals. See
+   generator 6 and must list their residuals. PR #1795 bumped to 7 after
+   `v0.5.2-alpha` shipped generator 6, for the logic corrections of #1793,
+   which move worlds that no golden pins. See
    "The generator version" below.
 
 ## The generator version (#1003)
@@ -1147,6 +1149,30 @@ generator 6 had not shipped were true when they were written. From this
 release on, a change that makes a different world from a seed and settings
 `v0.5.2-alpha` accepts bumps the generator version, once per release window
 (rule 6).
+
+Generator 7 (2026-11-19, PR #1795), the first change after `v0.5.2-alpha`. It
+corrects four Ocarina of Time rules that could expect something the player
+cannot do (issue #1793). The Voidout Collection clauses of the three Shadow
+Trial hearts in Ganon's Castle, and of the Master Quest Fire Trial's pillar
+rupee, now need `CanVoid`. The Master Quest Shadow Trial's silver rupee event
+has its grouping corrected. The far lava platform of the Master Quest Gerudo
+Training Ground asks for the Bunny Hood effect, not the item. The Gold
+Skulltula on the frozen waterfall in Zora's Domain no longer counts bomb
+throws. Each can move a world only under Master Quest dungeons, the Voidout
+Collection trick, Masks as Adult with Bunny Hood Effect off, or shuffled Gold
+Skulltula tokens. Two item articles also change item and hint text (the
+Zora's Sapphire in French, the Deku Tree Map in English).
+
+All thirteen seed digests move, in one field: `comboSettingsHash`, which folds
+the generator version. No placement, crossing or hint field moves in any
+golden, and `paired-attempt-digest` is unchanged. No hand pin moved
+(`RandoStaticHintOrder`, `ComboSingleBag`, `GoldenSeedsRoundBudget` and
+`ComboWarpTravelRounds` pass as they were). The fingerprints pinned per
+generator version in `test_cross_item_rules.c`,
+`test_combo_item_rules_word2.c` and `test_warp_songs_mm.c` gained their
+version-7 values, and version 6 is now pinned beside the older ones. Seed
+packages written by generator 6 are refused, as designed. There is no residual
+behind an unchanged fingerprint: every world this build makes has a new one.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
