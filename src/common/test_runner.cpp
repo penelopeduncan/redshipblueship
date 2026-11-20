@@ -651,6 +651,9 @@ int OoT_RoomBgCamGuard_RunHeadless(void);
 // #1588: z_parameter.c and z_boss_va.c query VB hooks instead of randomizer state directly,
 // RandomizerOnVanillaBehaviorHandler answers them, and RemoveAllQueuedHooks drains queued hooks.
 int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir);
+// #1755: five small MM options (PictoBoxOnCUp, AlwaysShowShrineFeathers, DashAfterRoll, AlwaysFindRockSirloin,
+// FishermanJumpingGame). Display-free and ROM-free; body in games/mm/2s2h/mm_small_options_1755_test.cpp.
+int MM_SmallOptions1755_RunHeadless(void);
 // #702: the per-area exclude-location groups reach OoT's settings fingerprint at
 // their shipped sizes, whichever archives are mounted. Body in
 // games/oot/soh/oot_settings_fold_test.cpp. Runs a real generation, so it needs
@@ -1997,6 +2000,16 @@ static TestResult Test_OoTVanillaMagicBoundary(void) {
     }
     return OoT_VanillaMagicBoundary_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
 #endif
+}
+
+// #1755: five small MM options (display-free shared Context bring-up for ShipInit CVar reads/writes).
+static TestResult Test_MMSmallOptions1755(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_SmallOptions1755_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // MM new-save session guard (#564 V21; see the extern decl above). The display-free shared bring-up, because leg 7
@@ -11706,6 +11719,9 @@ const TestDescriptor gTests[] = {
       Test_OoTMweepStopRestoresCamera },
     // #1588: display-free and ROM-free; restores gSaveContext, active game, CVars, Rando::Context, and hooks.
     { "oot-vanilla-magic-boundary", "OoT magic and Barinade VB boundary (#1588)", Test_OoTVanillaMagicBoundary },
+    // #1755: five small MM options (display-free and ROM-free; restores gSaveContext, CVars, play state, hooks).
+    { "mm-small-options-1755", "MM five small enhancement options (2Ship #1558/#1594/#1905/#1938/#1944/#1947)",
+      Test_MMSmallOptions1755 },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,

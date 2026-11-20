@@ -2195,6 +2195,10 @@ if(BUILD_TESTING)
     # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
     redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
 
+    # #1755: five small MM options (PictoBoxOnCUp, AlwaysShowShrineFeathers, DashAfterRoll,
+    # AlwaysFindRockSirloin, FishermanJumpingGame). Display-free and ROM-free; restores all state.
+    redship_add_test(NAME MMSmallOptions1755 COMMAND redship --test mm-small-options-1755)
+
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
     #
