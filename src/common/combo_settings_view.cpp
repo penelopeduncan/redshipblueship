@@ -99,6 +99,11 @@ const ComboSettingDesc kComboSettingDescs[COMBO_SETTING_COUNT] = {
     { RSBS_CVAR_COMBO_RANDO_SHARED_MASK_GERUDO, "Shared Gerudo Mask" },
     { RSBS_CVAR_COMBO_RANDO_SHARED_MASK_SKULL, "Shared Skull Mask" },
     { RSBS_CVAR_COMBO_RANDO_SHARED_MASK_SPOOKY, "Shared Spooky Mask" },
+    // #1587 S1: OoTMM's sharedSongSun and sharedSongSarias, under OoTMM's own names
+    // (data.ts:3081, :3281). No row draws them until #1587 S7 (RSBS_XITEM2_HIDDEN);
+    // a load that restores one names it in its toast.
+    { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN, "Shared Sun's Song" },
+    { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS, "Shared Saria's Song" },
 };
 
 bool ComboSettingIdValid(ComboSettingId id) {
@@ -155,8 +160,10 @@ uint32_t ItemRuleBitFor(ComboSettingId id) {
 // #1169 XW2: THE SECOND WORD'S KEYS, the same shape: each authors one
 // RSBS_XITEM2_* bit of gComboCtx.comboItemRules2. OoTMM's order (the seven
 // extensions, then the seven shared songs), which is also the order a restore
-// names them in. Every bit here is a plain 0/1 rule; the shared ones need their
-// extension (Combo_ComboItemRule2Requires).
+// names them in; #1587 S1's Sun's Song and Saria's Song appended after them, so
+// every existing restore and toast order holds. Every bit here is a plain 0/1
+// rule; the shared warp songs need their extension (Combo_ComboItemRule2Requires),
+// the Sun's and Saria's rules nothing in this word.
 const ItemRuleKey kItemRule2Keys[] = {
     { COMBO_SETTING_SONG_SOARING_OOT, RSBS_XITEM2_SONG_SOARING_OOT },
     { COMBO_SETTING_SONG_MINUET_MM, RSBS_XITEM2_SONG_MINUET_MM },
@@ -172,6 +179,8 @@ const ItemRuleKey kItemRule2Keys[] = {
     { COMBO_SETTING_SHARED_SONG_REQUIEM, RSBS_XITEM2_SHARED_SONG_REQUIEM },
     { COMBO_SETTING_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_NOCTURNE },
     { COMBO_SETTING_SHARED_SONG_PRELUDE, RSBS_XITEM2_SHARED_SONG_PRELUDE },
+    { COMBO_SETTING_SHARED_SONG_SUN, RSBS_XITEM2_SHARED_SONG_SUN },       // #1587 S1
+    { COMBO_SETTING_SHARED_SONG_SARIAS, RSBS_XITEM2_SHARED_SONG_SARIAS }, // #1587 S1
 };
 
 } // namespace
@@ -270,8 +279,10 @@ int32_t Combo_ComboSettingDefault(ComboSettingId id) {
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
+        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1
             // A bit of the second word's defaults, the one definition of "what
-            // ships" (RSBS_XITEM2_DEFAULTS: every warp-song rule off, OoTMM's).
+            // ships" (RSBS_XITEM2_DEFAULTS: every second-word rule off, OoTMM's).
             return ((uint32_t)RSBS_XITEM2_DEFAULTS & Combo_ComboItemRule2BitFor(id)) != 0u ? 1 : 0;
         default:
             return 0;
@@ -342,6 +353,8 @@ bool Combo_ComboSettingValueValid(ComboSettingId id, int32_t value) {
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
+        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1, the same
+        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1, the same
             // EXACTLY 0 or 1, not "nonzero is true" (#886, #668's rule). A flag key
             // holding 2 is a value nobody chose, and the record stores one bit,
             // so a coercion would make two stored values produce the same world.
@@ -593,7 +606,7 @@ const Restorable kRestorable[] = {
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_MASK_SPOOKY }, // #980
     // #979: the cooldown BYTE has its own divergence bit and, since #979, a key.
     { RSBS_COMBO_DIVERGE_BLAST_MASK_COOLDOWN, COMBO_SETTING_BLAST_MASK_COOLDOWN },
-    // #1169 XW2: the second rules word's fourteen keys, under the same bitset bit
+    // #1169 XW2: the second rules word's keys (fourteen, and #1587's two), under the same bitset bit
     // as the first word's (one divergence bit for both words), in OoTMM's order.
     // Restorable only when every differing bit has a key and the file's word holds
     // nothing this build refuses (ItemRulesKeyedDiff): an offered rule is restored;
@@ -613,6 +626,8 @@ const Restorable kRestorable[] = {
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_REQUIEM },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_NOCTURNE },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_PRELUDE },
+    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SUN },    // #1587 S1
+    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SARIAS }, // #1587 S1
 };
 
 /** Can the keys put the file's crossItemFlags back? Only when every bit that
@@ -698,6 +713,8 @@ int32_t FrozenValue(const ComboSettingsRecord* frozen, const ComboItemRulesRecor
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
+        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1
             // A bit of the file's second rules word (0: every rule off).
             return (frozenRules2 & Combo_ComboItemRule2BitFor(id)) != 0u ? 1 : 0;
         default:

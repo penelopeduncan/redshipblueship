@@ -23,28 +23,34 @@ class Text {
         french = spanish = german = english;
     }
 
+    // A translation is missing when it is empty or still the TODO_TRANSLATE placeholder (include/z64.h); the
+    // literal is spelled here because this header must not include z64.h.
+    static bool IsMissing(const std::string& translation) {
+        return translation.empty() || translation == "TranslateThis";
+    }
+
+    // Use English where a translation is missing, so text never shows "TranslateThis"
+    void FillMissingTranslations() {
+        for (std::string* translation : { &french, &german, &spanish }) {
+            if (IsMissing(*translation)) {
+                *translation = english;
+            }
+        }
+    }
+
     const std::string& GetEnglish() const {
         return english;
     }
 
     const std::string& GetFrench() const {
-        if (french.length() > 0) {
-            return french;
-        }
-        return english;
+        return IsMissing(french) ? english : french;
     }
 
     const std::string& GetGerman() const {
-        if (german.length() > 0) {
-            return german;
-        }
-        return english;
+        return IsMissing(german) ? english : german;
     }
     const std::string& GetSpanish() const {
-        if (spanish.length() > 0) {
-            return spanish;
-        }
-        return english;
+        return IsMissing(spanish) ? english : spanish;
     }
 
     const std::string& GetForLanguage(uint8_t language) const {
