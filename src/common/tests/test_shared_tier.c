@@ -954,21 +954,27 @@ TestResult Test_SharedTierPickup(void) {
     OoT_SharedTierTest_ArmLive();
     OoT_SharedTierTest_SetChuBag(0, 0, 7);
     OoT_ApplySharedResources();
+    // Read OoT BEFORE MM is armed: both games keep their live save in the one
+    // unified gSaveContext, and MM_SharedTierTest_ArmLive zeroes it, so a later
+    // read would see 0 whatever OoT's apply did. OoT keeps its own 7 because this
+    // fresh pool has no bombchu count slot (the count apply then writes nothing,
+    // as on main); level 0 and no item hold because the unarmed tier slot is not
+    // applied. Keep these reads ahead of the MM arm.
+    const int l1Level = OoT_SharedTierTest_ChuBagLevel();
+    const int l1Holds = OoT_SharedTierTest_HoldsBombchu();
+    const int l1Chus = OoT_SharedTierTest_Bombchus();
     MM_SharedTierTest_ArmLive();
     MM_SharedTierTest_SetChuBagFlags(0);
     MM_ApplySharedResources();
     {
-        const int level = OoT_SharedTierTest_ChuBagLevel();
-        const int holds = OoT_SharedTierTest_HoldsBombchu();
-        const int chus = OoT_SharedTierTest_Bombchus();
         const int mmFlags = MM_SharedTierTest_ChuBagFlags();
         printf(
             "[TEST] (L1) unarmed, a raw tier slot of 3: OoT level %d, item %d, bombchus %d; MM flags %d (expected 0, "
             "0, 7, 0)\n",
-            level, holds, chus, mmFlags);
-        ST_CHECK(level == 0 && holds == 0 && mmFlags == 0,
-                 "(L1) an unarmed tier slot was applied: OoT level %d item %d, MM flags %d", level, holds, mmFlags);
-        ST_CHECK(chus == 7, "(L1) OoT's unarmed arrival holds %d bombchus, expected today's 7", chus);
+            l1Level, l1Holds, l1Chus, mmFlags);
+        ST_CHECK(l1Level == 0 && l1Holds == 0 && mmFlags == 0,
+                 "(L1) an unarmed tier slot was applied: OoT level %d item %d, MM flags %d", l1Level, l1Holds, mmFlags);
+        ST_CHECK(l1Chus == 7, "(L1) OoT's unarmed arrival holds %d bombchus, expected today's 7", l1Chus);
     }
     ST_CHECK(Combo_SetForeignPlacement(mmHost4, ootChuBag) >= 0, "could not place OoT's Bombchu Bag on an MM check");
     {
