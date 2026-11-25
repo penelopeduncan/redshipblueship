@@ -612,8 +612,8 @@ const Restorable kRestorable[] = {
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_MASK_SPOOKY }, // #980
     // #979: the cooldown BYTE has its own divergence bit and, since #979, a key.
     { RSBS_COMBO_DIVERGE_BLAST_MASK_COOLDOWN, COMBO_SETTING_BLAST_MASK_COOLDOWN },
-    // #1169 XW2: the second rules word's keys (fourteen, and #1587's two), under the same bitset bit
-    // as the first word's (one divergence bit for both words), in OoTMM's order.
+    // #1169 XW2: the second rules word's keys (fourteen, #1587's two, #1702's Shared Child's Wallet),
+    // under the same bitset bit as the first word's (one divergence bit for both words), in OoTMM's order.
     // Restorable only when every differing bit has a key and the file's word holds
     // nothing this build refuses (ItemRulesKeyedDiff): an offered rule is restored;
     // a file with a bit this build refuses (unallocated, or inside RSBS_XITEM2_HIDDEN)

@@ -1096,9 +1096,13 @@ TestResult Test_RulesOffGoldensUnchanged(void) {
                   "#1702 C2's bits do not ship off (defaults %08X, comboFlags %02X, ALL_V1 %02X, resolved %08X)",
                   (unsigned)RSBS_XITEM2_DEFAULTS, (unsigned)shipped.comboFlags, (unsigned)RSBS_COMBO_FLAGS_ALL_V1,
                   (unsigned)resolved);
-        XW2_CHECK(Combo_ComputeComboSettingsHashEx2(&shipped, NULL, 0u, kXw2SettingsHash, kXw2ProfileDigest) ==
-                      Combo_ComputeComboSettingsHashEx(&shipped, NULL, kXw2SettingsHash, kXw2ProfileDigest),
-                  "with #1702 C2's bits off the Ex2 stamp differs from the pre-XW2 Ex entry point");
+        // The rule-off stamp of the shipped defaults, pinned at version 0 (main's
+        // CEA3786B, as test_cross_item_rules.c and test_combo_settings.c pin it), so a default
+        // that ships any C2 bit, or a fold of an all-clear second word, turns this red.
+        const uint32_t stamp = Combo_ComputeComboSettingsHashForGeneratorEx2(&shipped, NULL, resolved, kXw2SettingsHash,
+                                                                             kXw2ProfileDigest, 0u);
+        XW2_CHECK(stamp == 0xCEA3786Bu, "with #1702 C2's bits off the shipped world's stamp is %08X, expected CEA3786B",
+                  (unsigned)stamp);
     }
 
     ComboContext_Init();

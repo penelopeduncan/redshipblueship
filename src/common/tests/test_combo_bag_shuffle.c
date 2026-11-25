@@ -727,15 +727,17 @@ TestResult ComboBagShuffleFrozen_Run(void) {
             CBS_CHECK(Combo_ResolveComboItemRules2() == 0u, "(9) with the key cleared the word resolved %08X",
                       (unsigned)Combo_ResolveComboItemRules2());
             // THE FINGERPRINT. Catches the bit not folded (on == off), and a rule-off
-            // world whose stamp moved (off != the word-blind Ex form).
+            // world whose stamp moved. Pinned at version 0 so a generator bump
+            // re-pins nothing: canonical(defaults) ':' LE32(1652BA65) ':'
+            // LE32(1652D16E) [ '%' LE32(00010000) ], FNV-1a 32, computed outside
+            // the build (the same formula reproduces CEA3786B, test_cross_item_rules.c).
             ComboSettingsRecord defaults;
             Combo_ComboSettingsDefaults(&defaults);
-            const uint32_t off =
-                Combo_ComputeComboSettingsHashEx2(&defaults, NULL, 0u, kCbsSettingsHash, kCbsProfileDigest);
-            const uint32_t on =
-                Combo_ComputeComboSettingsHashEx2(&defaults, NULL, kCbsRule, kCbsSettingsHash, kCbsProfileDigest);
-            CBS_CHECK(on != off &&
-                          off == Combo_ComputeComboSettingsHashEx(&defaults, NULL, kCbsSettingsHash, kCbsProfileDigest),
+            const uint32_t off = Combo_ComputeComboSettingsHashForGeneratorEx2(&defaults, NULL, 0u, kCbsSettingsHash,
+                                                                               kCbsProfileDigest, 0u);
+            const uint32_t on = Combo_ComputeComboSettingsHashForGeneratorEx2(&defaults, NULL, kCbsRule,
+                                                                              kCbsSettingsHash, kCbsProfileDigest, 0u);
+            CBS_CHECK(on != off && off == 0x24DF9AA0u && on == 0x1EEE1BE6u,
                       "(9) the rule's fingerprint %08X does not differ from the rule-off %08X, or the rule-off world "
                       "moved",
                       (unsigned)on, (unsigned)off);
@@ -946,15 +948,20 @@ TestResult ComboBagShuffleFrozen_Run(void) {
         const size_t gateAt = (resolveAt == std::string::npos)
                                   ? std::string::npos
                                   : body.find("Combo_ComboItemRules2Refused(rsbsItemRules2,", resolveAt);
-        const size_t noteAt = (gateAt == std::string::npos)
-                                  ? std::string::npos
-                                  : body.find("Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_HIDDEN_RULE);", gateAt);
+        // Only whitespace may lie between the note and its return (a byte bound
+        // broke on the indent alone): catches a statement slipped between them.
+        static const char kCbsHiddenNote[] = "Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_HIDDEN_RULE);";
+        const size_t kCbsHiddenNoteLen = sizeof(kCbsHiddenNote) - 1u;
+        const size_t noteAt = (gateAt == std::string::npos) ? std::string::npos : body.find(kCbsHiddenNote, gateAt);
         const size_t returnAt = (noteAt == std::string::npos) ? std::string::npos : body.find("return -1;", noteAt);
         printf("[TEST] (9) Playthrough_Init: resolve at %zu, hidden-rules gate at %zu, its return at %zu, freeze at "
                "%zu\n",
                resolveAt, gateAt, returnAt, freeze);
+        const size_t afterNote = (noteAt == std::string::npos)
+                                     ? std::string::npos
+                                     : body.find_first_not_of(" \t\r\n", noteAt + kCbsHiddenNoteLen);
         CBS_CHECK(resolveAt != std::string::npos && gateAt != std::string::npos && noteAt != std::string::npos &&
-                      returnAt != std::string::npos && returnAt - noteAt < 64u && freeze != std::string::npos &&
+                      returnAt != std::string::npos && returnAt == afterNote && freeze != std::string::npos &&
                       returnAt < freeze,
                   "Playthrough_Init does not refuse a hidden second-word rule over the frozen word before the freeze");
     }

@@ -553,8 +553,8 @@ bool Combo_ComboItemRules2Valid(uint32_t word) {
 
 uint32_t Combo_ResolveComboItemRules2(void) {
     // THE ONE RESOLVER for the second word (Combo_ResolveComboItemRules'
-    // discipline): ASSEMBLED from the sixteen keys, each through
-    // Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
+    // discipline): ASSEMBLED from the second word's keys (kItemRule2Keys), each
+    // through Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
     // bit no key authors is never on. With nothing authored this is 0, so every
     // world whose player leaves the (hidden) keys alone keeps its fingerprint.
     uint32_t word = Combo_ComboItemRules2Authored() & (uint32_t)RSBS_XITEM2_ALL_V1;
