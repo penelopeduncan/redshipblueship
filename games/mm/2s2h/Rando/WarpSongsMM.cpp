@@ -250,6 +250,7 @@ static_assert(OCARINA_BTN_A == 0 && OCARINA_BTN_C_DOWN == 1 && OCARINA_BTN_C_RIG
 static_assert(RSBS_MMWP_STATE_FIRST > OCARINA_SONG_TERMINA_WALL && RSBS_MMWP_STATE_LAST < 0xFE,
               "the warp songs' staff states sit above every vanilla state and below 0xFE / 0xFF");
 static_assert((uint16_t)RSBS_MMWP_TEXT_RESTRICTED == 0x1B95u, "MM's restricted-song refusal text");
+static_assert(RSBS_MMSUN_SONG_STATE == OCARINA_SONG_SUNS, "mm_warp_song_play.h spells the Sun's Song's state 11");
 
 namespace {
 
@@ -433,6 +434,22 @@ extern "C" uint16_t MM_WarpSongMM_PlayedTextId(unsigned state) {
     }
     CustomMessage::Entry entry = CustomMessage::LoadVanillaMessageTableEntry((u16)RSBS_MMWP_TEXT_PLAYED_BOX);
     CustomMessage::SetActiveCustomMessage(MMWarpPlayMapTeal(text), entry);
+    return (uint16_t)CUSTOM_MESSAGE_ID;
+}
+
+// #1587 stage T: OoTMM's Ocarina_DisplaySongPlayedTextbox rewrites 0x1b7d (MM's
+// empty Sun's Song entry) into 0x1b78's box with no gate; ruling 2.6 is "always".
+extern "C" bool MM_SunsSongMM_IsPlayedState(unsigned state) {
+    return Combo_MMSunsSong_IsPlayedState(state);
+}
+
+extern "C" uint16_t MM_SunsSongMM_PlayedTextId(unsigned state) {
+    char text[64];
+    if (!Combo_MMSunsSong_IsPlayedState(state) || Combo_MMSunsSong_PlayedText(text, sizeof(text)) < 0) {
+        return (uint16_t)(RSBS_MMSUN_TEXT_VANILLA_BASE + state);
+    }
+    CustomMessage::Entry entry = CustomMessage::LoadVanillaMessageTableEntry((u16)RSBS_MMWP_TEXT_PLAYED_BOX);
+    CustomMessage::SetActiveCustomMessage(text, entry);
     return (uint16_t)CUSTOM_MESSAGE_ID;
 }
 

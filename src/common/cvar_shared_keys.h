@@ -120,6 +120,21 @@
 #define RSBS_VOLUME_SCALE(percent) ((float)(percent) / 100.0f)
 
 /* ==========================================================================
+ * Majora's Mask's Pause Menu Save default (#1728).
+ *
+ * The operator's ruling of 2026-11-19: Pause Menu Save is ON by default in a
+ * paired file, and every file in this build is a paired file. 2Ship2Harkinian's
+ * own default is off; OoTMM has no such option and always offers its
+ * pause-menu save. This is the value read when RSBS_CVAR_MM_SAVING_PAUSE_SAVE
+ * is ABSENT: a stored 0 or 1 wins, and nothing writes the key to make it true.
+ * Every game reader goes through SavingEnhancements_PauseSaveOn()
+ * (games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp), and the hosted
+ * menu row draws this default. Not an RSBS_CVAR_ define on purpose: the key
+ * classification scans those as string-literal keys.
+ * ========================================================================== */
+#define RSBS_MM_PAUSE_SAVE_DEFAULT 1
+
+/* ==========================================================================
  * Tier-4 combo-level keys (ADR 0004 §3 tier 4; ADR 0011 increment 2).
  *
  * The `gCombo.` namespace is the combo's own. Keys here describe the PAIR,
@@ -1481,6 +1496,13 @@ inline constexpr const char* kSharedIntentKeys[] = {
     // are the BTN_CUSTOM_OCARINA_* bits of the one shared ControlDeck. Adopted, not converged: nothing to migrate.
     // The checkbox is a raw CVarCheckbox in SoH's input editor, which the menu marker pass does not reach.
     "gSettings.CustomOcarina.Enabled",
+    // #1737 (SoH 100bae3b9): SoH's "Follow Default Camera Distance" free-look checkbox. OoT's Camera_Free and MM's
+    // FreeLook.cpp (the distTarget line, an RSBS adaptation) both read SoH's key with SoH's default (off) and use the
+    // game's own per-mode default distance while it is set; the checkbox hides the shared Camera Distance slider
+    // (gSettings.FreeLook.MaxCameraDistance) in SoH's input editor. Adopted, not converged: 2Ship has no such
+    // setting, so there is no MM spelling to migrate. The checkbox is a raw CVarCheckbox in SoH's input editor,
+    // which the menu marker pass does not reach.
+    "gSettings.FreeLook.UseGameDistance",
 };
 
 /**
@@ -2210,13 +2232,15 @@ static_assert(kConvergedKeyCount == 60, "tier 1 (9) + inventory §5.3 remainder 
 // #966 (#1027, #1028) converged them as ordinary rows and this table carried 24.
 // #1426 adds one adopted key, SoH's DisableCritWiggle, which MM's camera now
 // reads too: 25. #1413 adopts SoH's gSettings.CustomOcarina.Enabled, which MM's
-// ocarina input now reads too: 26. Pinning the count makes a silent drop a
+// ocarina input now reads too: 26. #1737 adopts SoH's gSettings.FreeLook.UseGameDistance, which MM's free-look
+// camera now reads too: 27. Pinning the count makes a silent drop a
 // compile error rather than a quietly weaker lock.
-static_assert(kSharedIntentKeyCount == 26,
+static_assert(kSharedIntentKeyCount == 27,
               "ADR 0003 Appendix B's 26 class-(S) keys less the two actor-cull spellings #966 moved to converged "
               "rows (#1027, #1028); includes DebugSaveFileMode — restored to (S) by #454 once MM's "
               "DeveloperTools.cpp write was retired and its read default aligned to OoT's 1; plus #1426's "
-              "adopted gEnhancements.DisableCritWiggle and #1413's adopted gSettings.CustomOcarina.Enabled");
+              "adopted gEnhancements.DisableCritWiggle, #1413's adopted gSettings.CustomOcarina.Enabled and "
+              "#1737's adopted gSettings.FreeLook.UseGameDistance");
 static_assert(kMenuIndexKeyCount == 4, "four menu-index keys — #451");
 // The disputed table is empty since #454's fix. Pinned at 0 like every other
 // table here, so a key silently re-added to it is a compile error rather than a

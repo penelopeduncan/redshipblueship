@@ -1401,6 +1401,11 @@ extern "C" int MM_VolumeLiveApply_RunHeadless(void);
 // (mm-warp-drive-seam, ROM-free, generation-free). Directly after the file above:
 // it reuses that file's source readers. FILE SCOPE (compiled as C++).
 #include "tests/test_mm_warp_drive.c"
+// #1587 stage T: the Sun's Song's own "You played" text in Majora's Mask
+// (mm-sun-song-played-text, ROM-free, generation-free). After
+// test_mm_warp_song_play.c: it reuses that file's source readers. FILE SCOPE
+// (compiled as C++).
+#include "tests/test_mm_suns_song_played_text.c"
 // #1169 lane XW9: the travel facts' game-side locks: OoT's six warp-song root
 // exits, its Soaring fact and XW7's destination rule (oot-warp-travel-edges,
 // ROM-free, generation-free); MM's half (mm-warp-travel-edges) is declared with its
@@ -1986,6 +1991,19 @@ static TestResult Test_OoTHoverFishing(void) {
     return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1737 (SoH 2af5d2112): Reworked Targeting answers the two Z-target vanilla behaviours only while its setting is on.
+// Body in games/oot/soh/oot_camera_targeting_options_test.cpp; return 0 on pass. The display-free shared bring-up,
+// because the row writes and clears the setting's CVars.
+extern "C" int OoT_CameraTargetingOptions_RunHeadless(void);
+static TestResult Test_OoTCameraTargetingOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_CameraTargetingOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1741: the four custom ocarina-note buttons' saved mapping id lists lose the pre-#1740 Cosmetics Editor D-pad copies
 // at start-up, without touching the D-pad's own list or settings record. Body in
 // games/oot/soh/oot_ocarina_note_mapping_cleanup_test.cpp; return 0 on pass. The display-free shared bring-up, because
@@ -2037,6 +2055,19 @@ static TestResult Test_OoTVanillaMagicBoundary(void) {
     }
     return OoT_VanillaMagicBoundary_RunHeadless(RSBS_SOURCE_DIR) == 0 ? TEST_PASS : TEST_FAIL;
 #endif
+}
+
+// #1747 (SoH 6606eefbf, ef014a35e, 3250cc27f, 0ed782ddc, a629af2e9): the five QoL options' VB handlers. Body in
+// games/oot/soh/oot_qol_options_1747_test.cpp; return 0 on pass. The display-free shared bring-up, because the row
+// writes and clears the six option CVars (in memory only).
+extern "C" int OoT_QolOptions1747_RunHeadless(void);
+static TestResult Test_OoTQolOptions1747(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_QolOptions1747_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // MM new-save session guard (#564 V21; see the extern decl above). The display-free shared bring-up, because leg 7
@@ -9226,6 +9257,16 @@ static TestResult Test_MMWarpSongDeparture(void) {
     }
     return MM_WarpSongPlay_DepartureRunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
+// #1587 T: the same bring-up as mm-warp-song-play; MM's half swaps in a stand-in
+// play state and message table and reads no CVar.
+static TestResult Test_MMSunSongPlayedText(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MMSunsSongPlayedText_Run();
+}
 // #1169 XW13: no bring-up: the row reads no CVar and no play state.
 static TestResult Test_MMWarpDriveSeam(void) {
     return MMWarpDriveSeam_Run();
@@ -11836,6 +11877,13 @@ const TestDescriptor gTests[] = {
       "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
       "(SoH a089fa60b)",
       Test_OoTHoverFishing },
+    // #1737: display-free and ROM-free; restores the two CVars (cleared, never stored, when they were unset), the
+    // hooks, the fake play state and the current game.
+    { "oot-camera-targeting-options",
+      "Reworked Targeting answers the Z-target switch behaviours only while on: off is vanilla, on with a focus actor "
+      "un-targets on a plain Z press, the button combo switches only when a next target exists, and off again is "
+      "vanilla (SoH #6322)",
+      Test_OoTCameraTargetingOptions },
 
     // #1741: display-free and ROM-free; restores every controller key it touches
     // (cleared, never stored, when it was unset) and saves nothing to disk.
@@ -11867,6 +11915,13 @@ const TestDescriptor gTests[] = {
       Test_OoTMweepStopRestoresCamera },
     // #1588: display-free and ROM-free; restores gSaveContext, active game, CVars, Rando::Context, and hooks.
     { "oot-vanilla-magic-boundary", "OoT magic and Barinade VB boundary (#1588)", Test_OoTVanillaMagicBoundary },
+    // #1747: display-free and ROM-free; restores the six option CVars (cleared,
+    // never stored), the five registrars, OoT_gPlayState, gGameInfo and the
+    // current game.
+    { "oot-qol-options-1747",
+      "Goron Pot spin, heat haze, Saria's gesture, dropping throw-only actors, roll chaining and roll steering follow "
+      "their options and are vanilla with them off (SoH #6138, #6663, #6569, #7023, #6604)",
+      Test_OoTQolOptions1747 },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,
@@ -12533,6 +12588,12 @@ const TestDescriptor gTests[] = {
       "En_Test7's real final action departs an OoT warp song once: it arms MM -> OoT Minuet's pad with the warp kind, "
       "later calls write nothing, and every refusal arms nothing and reloads in place (#1169)",
       Test_MMWarpSongDeparture },
+    // #1587 stage T: ROM-free and generation-free; the wrapper brings up the CVar store.
+    { "mm-sun-song-played-text",
+      "Playing the Sun's Song in any MM file shows OoTMM's \"You played the Sun's Song!\" (the name in yellow) in "
+      "0x1B78's box, not MM's empty 0x1B7D; every other song keeps its text, and z_message.c takes the Sun's Song "
+      "after the warp songs and before the plain arm (#1587)",
+      Test_MMSunSongPlayedText },
     // #1169 XW13: ROM-free and generation-free.
     { "mm-warp-drive-seam",
       "MM's test input seam ORs a latch into controller 1 once and clears it, refuses outside an integration run and "
@@ -12849,12 +12910,14 @@ const TestDescriptor gTests[] = {
     { "mm-moon-crash-cycle-reset",
       "A moon crash under New Cycle starts a new cycle (Dawn of the First Day, human form, no mask) keeping inventory "
       "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069); "
+      "the reset runs at the moon's fall from Play_Init and writes the landing, so no crash cutscene plays (#1789); "
       "under Shuffle Time the first EnTest4 update lands on the earliest owned half-day (#1671)",
       Test_MMMoonCrashCycleReset },
     { "mm-moon-crash-arrival",
       "After a moon crash (Last Save or New Cycle, Story cutscene skipped or not) a paired file lands in South Clock "
       "Town (0xD800), the Song of Time's spawn, not the Clock Tower interior's spawn 3 (0xC030) with the salesman's "
-      "cutscene; other entrances and a session with no combo file are unchanged (#1278)",
+      "cutscene; other entrances and a session with no combo file are unchanged (#1278); through Play_Init, New "
+      "Cycle skips the crash cutscenes and resets once with or without the Story skip, and Last Save does not (#1789)",
       Test_MMMoonCrashArrival },
     { "mm-moon-crash-story-skip-icons",
       "With the Story cutscene skip on, a New Cycle moon crash with a trade item or a bottled drink on a C or D-pad "
@@ -13049,9 +13112,10 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       INT_TEST_CROSSING_REFUSED_MM, GAME_MM },
     { "int-mm-moon-crash-cycle",
       "MM boots on its debug save outside the Clock Tower, the file is marked New Cycle (OoTMM's moonCrash 'cycle'), "
-      "and the moon falls through the real crash cutscene: the scene after it must be a NEW cycle (one more three-day "
-      "reset, the cycle's Deku record cleared) at the Dawn of the First Day with the mask, the bottle and the song "
-      "kept (#1069)",
+      "and the moon falls: no frame plays in Termina Field or the Fire Wall (the cutscene skip and the reset each log "
+      "once, #1789), and the first scene after the fade, the Clock Tower interior, must be a NEW cycle (one more "
+      "three-day reset, the cycle's Deku record cleared) at the Dawn of the First Day with the mask, the bottle and "
+      "the song kept (#1069)",
       INT_TEST_MM_MOON_CRASH_CYCLE, GAME_MM },
     { nullptr, nullptr, INT_TEST_NONE, GAME_NONE } // Sentinel
 };

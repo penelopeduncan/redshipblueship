@@ -1423,6 +1423,26 @@ extern "C" int OoT_MenuMmEnhancementRows_RunHeadless(void) {
                covered);
     }
 
+    // ---- Leg 11 (#1728): Pause Menu Save draws ticked when its key is unset -------------------------------------
+    // The operator's ruling of 2026-11-19: on by default. CVarCheckbox draws CVarGetInteger(key, defaultValue)
+    // (UIWidgets.cpp), so the row must carry the shared default the game's reads use (RSBS_MM_PAUSE_SAVE_DEFAULT),
+    // or a fresh config shows the option off while B in the pause menu offers a save.
+    {
+        FlatRow* row = FindRowByCVar(rows, RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+        MME_CHECK(row != nullptr, "no row under Enhancements binds %s", RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+        if (row != nullptr) {
+            const bool isCheckbox = row->info->type == WIDGET_CVAR_CHECKBOX && row->info->options != nullptr;
+            MME_CHECK(isCheckbox, "the Pause Menu Save row is not a CVar checkbox with options%s", "");
+            if (isCheckbox) {
+                const auto opts = std::static_pointer_cast<UIWidgets::CheckboxOptions>(row->info->options);
+                MME_CHECK(opts->defaultValue && opts->defaultValue == (RSBS_MM_PAUSE_SAVE_DEFAULT != 0),
+                          "the Pause Menu Save row's default is %d, expected on (RSBS_MM_PAUSE_SAVE_DEFAULT %d, #1728)",
+                          opts->defaultValue ? 1 : 0, RSBS_MM_PAUSE_SAVE_DEFAULT);
+                printf("[TEST] leg 11: the Pause Menu Save row's default is on, the shared default the game reads\n");
+            }
+        }
+    }
+
     if (gFailures == 0) {
         printf("[TEST] menu-mm-enhancement-rows: PASS\n");
     } else {

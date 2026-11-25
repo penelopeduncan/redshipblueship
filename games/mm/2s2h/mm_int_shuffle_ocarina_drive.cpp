@@ -24,7 +24,8 @@
  *
  * Nothing here calls the gates or the reset. The drive moves the clock and the
  * scene the way a debug warp does, and the three-day clock actor (EnTest4), the
- * real Interface_StartMoonCrash, the crash and Fire Wall cutscenes and
+ * real Interface_StartMoonCrash, Play_Init's New Cycle cutscene skip (#1789,
+ * SkipMoonCrash.cpp from z_demo.c's func_800EDDB0) and
  * Sram_ResetSaveFromMoonCrash do the rest; the drive reads the state they leave.
  *
  * The steps, run from MM_IntegrationGameplayFrameTick's GP_PHASE_MM_PLAY branch
@@ -51,16 +52,18 @@
  *             0:02 with the clock actor still alive. 1200 frames.
  *   CRASH     the fixture items (the Bunny Hood, a bottle, the Song of Healing)
  *             and a Deku Playground record are written, the reset count and
- *             the New Cycle line count recorded, and the clock set to 5:58; the
- *             clock actor must drop the moon at 6:00 (day 4, Termina Field).
- *             600 frames.
- *   CRASHING  the crash in Termina Field and the Fire Wall (SCENE_SPOT00); 30
- *             live frames in the scene after them. 3000 frames.
+ *             the two New Cycle line counts recorded, and the clock set to
+ *             5:58; the clock actor must drop the moon at 6:00 (day 4, during
+ *             the white fade). 600 frames.
+ *   CRASHING  (#1789) no frame in Termina Field (the moonfall) or SCENE_SPOT00
+ *             (the Fire Wall): either is a FAIL; the first live scene after the
+ *             fade is the landing; 30 live frames in it. 900 frames.
  *   VERDICT   one more three-day reset, the record cleared, day 0 or 1, the New
- *             Cycle line logged once more, the fixture items and the Song of
- *             Time kept, the frozen byte still Last Save, still New Cycle, the
- *             ocarina still not held and the clock not on 5. A pass erases
- *             file 3 and ends the run in MM.
+ *             Cycle reset line and the #1789 skip line each logged once more,
+ *             the landing South Clock Town at 0xD800 (a paired file), the
+ *             fixture items and the Song of Time kept, the frozen byte still
+ *             Last Save, still New Cycle, the ocarina still not held and the
+ *             clock not on 5. A pass erases file 3 and ends the run in MM.
  */
 
 #include "global.h"
@@ -106,9 +109,11 @@ const int kSodMidnightHold = 20;
 const int kSodCrashBudget = 600;
 // Under the MM phase watchdog (framesPerPhase * 4 + 3600 = 4800 frames at
 // RSBS_GP_FRAMES=300, counted from the start of the gameplay window), so this
-// step's own failure line fires before the generic one; int-mm-moon-crash-cycle
-// measured the crash and the Fire Wall at about 58 s (about 1200 frames).
-const int kSodCrashingBudget = 3000;
+// step's own failure line fires before the generic one. Since #1789 no crash
+// cutscene plays (int-mm-moon-crash-cycle measured the crash and the Fire Wall
+// at about 1200 frames): the 60-frame white fade, then 30 live frames in the
+// landing (the Day Telop is not a drive frame).
+const int kSodCrashingBudget = 900;
 const int kSodFramesAfterCrash = 30;
 const u16 kSodFestivalCutscene = 0xFFF1; // z_en_test4.c's Day 3 midnight cutscene index
 const u32 kSodRecordSentinel = 16712u;   // #1671 B2
@@ -120,6 +125,11 @@ const u16 kSodBeforeDawn = CLOCK_TIME(5, 58);
 // Sram_ResetSaveFromMoonCrash's line for the New Cycle branch (z_sram_NES.c).
 // Counted, never printed here (a print would be counted too).
 const char* const kSodNewCycleNeedle = "[MM] moon crash: New Cycle (#1069)";
+// #1789: MM_Play_SkipMoonCrashUnderNewCycle's line (SkipMoonCrash.cpp), kept by
+// the tee's "moon crash: New Cycle" tag. Counted, never printed here.
+const char* const kSodSkipNeedle = "[MM] moon crash: New Cycle skips the Termina Field and Fire Wall cutscenes (#1789)";
+// Where a paired file lands after the moon crash (#1278): South Clock Town spawn 0.
+const u16 kSodLandingEntrance = 0xD800;
 
 struct SodState {
     SodStep step = SodStep::Payouts;
@@ -135,6 +145,9 @@ struct SodState {
     u8 arrivalByte = 0xFF;
     u16 resetsBefore = 0;
     int newCycleLinesBefore = -1;
+    int skipLinesBefore = -1; // #1789
+    int landingScene = -1;    // #1789: the first live scene after the crash
+    u16 landingEntrance = 0;  // #1789: the save's entrance there
 };
 SodState sSod;
 
@@ -434,6 +447,7 @@ void SodStepCrash(PlayState* play) {
         gSaveContext.save.saveInfo.dekuPlaygroundHighScores[0] = kSodRecordSentinel;
         sSod.resetsBefore = gSaveContext.save.saveInfo.playerData.threeDayResetCount;
         sSod.newCycleLinesBefore = IntegrationTest_StderrCaptureCount(kSodNewCycleNeedle);
+        sSod.skipLinesBefore = IntegrationTest_StderrCaptureCount(kSodSkipNeedle);
         gSaveContext.save.time = kSodBeforeDawn;
         fprintf(stderr,
                 "[PFC] mm shuffle ocarina: the clock is set to 0x%04X (5:58) on Day 3; the file plays under %d "
@@ -443,7 +457,9 @@ void SodStepCrash(PlayState* play) {
         fflush(stderr);
         return;
     }
-    if (gSaveContext.save.day == 4 || play->sceneId == SCENE_00KEIKOKU || play->sceneId == SCENE_SPOT00) {
+    // #1789: the moon's fall is read during the white fade (day 4), before
+    // Play_Init skips Termina Field and the Fire Wall.
+    if (gSaveContext.save.day == 4) {
         SodNext(SodStep::Crashing);
         return;
     }
@@ -462,6 +478,7 @@ void SodVerdict(PlayState* play) {
     char why[512];
     const SaveInfo& info = gSaveContext.save.saveInfo;
     const int newCycleLines = IntegrationTest_StderrCaptureCount(kSodNewCycleNeedle);
+    const int skipLines = IntegrationTest_StderrCaptureCount(kSodSkipNeedle);
     const u8 byte = gSaveContext.save.shipSaveInfo.rando.randoSaveMoonCrash;
     why[0] = '\0';
     if (info.playerData.threeDayResetCount != (u16)(sSod.resetsBefore + 1) ||
@@ -477,6 +494,17 @@ void SodVerdict(PlayState* play) {
                  "the reset logged z_sram_NES.c's New Cycle line %d time(s) since the clock was set, expected exactly "
                  "once",
                  newCycleLines - sSod.newCycleLinesBefore);
+    } else if (skipLines != sSod.skipLinesBefore + 1) {
+        snprintf(why, sizeof(why),
+                 "the crash logged SkipMoonCrash.cpp's New Cycle cutscene-skip line %d time(s) since the clock was "
+                 "set, expected exactly once (#1789)",
+                 skipLines - sSod.skipLinesBefore);
+    } else if (sSod.landingScene != (int)SCENE_CLOCKTOWER || sSod.landingEntrance != kSodLandingEntrance) {
+        snprintf(why, sizeof(why),
+                 "after the crash the first live scene is %d at entrance 0x%04X, expected South Clock Town (%d) at "
+                 "0x%04X, a paired file's landing (#1278, #1789)",
+                 sSod.landingScene, (unsigned)sSod.landingEntrance, (int)SCENE_CLOCKTOWER,
+                 (unsigned)kSodLandingEntrance);
     } else if (gSaveContext.save.day > 1 || gSaveContext.save.eventDayCount > 1) {
         snprintf(why, sizeof(why),
                  "after the crash the file is on day %d (eventDayCount %d), expected the Dawn of the First Day (day 0 "
@@ -528,13 +556,27 @@ void SodVerdict(PlayState* play) {
 }
 
 void SodStepCrashing(PlayState* play) {
-    // Termina Field holds the moon's fall and SCENE_SPOT00 the Fire Wall, whose
-    // reset cue runs late in its timeline; the verdict waits for the scene after
-    // them (int-mm-moon-crash-cycle's reading).
-    if (play->sceneId == SCENE_00KEIKOKU || play->sceneId == SCENE_SPOT00 || gSaveContext.save.day == 4) {
+    // #1789: under New Cycle the moon's fall never loads Termina Field (the
+    // moonfall) nor SCENE_SPOT00 (the Fire Wall): a frame in either is the
+    // cutscene playing. Day 4 is the white fade in the scene the moon fell in.
+    if (play->sceneId == SCENE_00KEIKOKU || play->sceneId == SCENE_SPOT00) {
+        char why[160];
+        snprintf(why, sizeof(why), "the moon-crash cutscene played under New Cycle: a frame in scene %d (#1789)",
+                 (int)play->sceneId);
+        SodFail(play, why);
+        return;
+    }
+    if (gSaveContext.save.day == 4) {
         sSod.afterCrashFrames = 0;
     } else if (play->transitionTrigger == TRANS_TRIGGER_OFF && play->transitionMode == TRANS_MODE_OFF &&
                gSaveContext.gameMode == GAMEMODE_NORMAL) {
+        if (sSod.landingScene < 0) {
+            sSod.landingScene = (int)play->sceneId;
+            sSod.landingEntrance = (u16)gSaveContext.save.entrance;
+            fprintf(stderr, "[PFC] mm shuffle ocarina: first live scene after the crash: %d (entrance 0x%04X)\n",
+                    sSod.landingScene, (unsigned)sSod.landingEntrance);
+            fflush(stderr);
+        }
         if (++sSod.afterCrashFrames >= kSodFramesAfterCrash) {
             SodVerdict(play);
             return;
@@ -542,7 +584,7 @@ void SodStepCrashing(PlayState* play) {
     }
     if (sSod.stepFrames >= kSodCrashingBudget) {
         char why[160];
-        snprintf(why, sizeof(why), "the crash and the Fire Wall did not hand over to a new cycle within %d frames",
+        snprintf(why, sizeof(why), "the moon crash did not hand over to a new cycle within %d frames",
                  kSodCrashingBudget);
         SodFail(play, why);
     }

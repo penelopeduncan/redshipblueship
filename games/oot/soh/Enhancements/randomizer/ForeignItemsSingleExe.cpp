@@ -450,6 +450,29 @@ extern "C" int OoT_Rando_Foreign_HostsForeign(uint16_t rc) {
 }
 
 /**
+ * #1788, the shop shelf's refusal (z_en_girla.c, EnGirlA_CanBuy_Randomizer): 1
+ * when OoT check `rc` hosts an MM stick or nut pack (MM_ForeignItem_BagGateKind)
+ * while the pair's bag holds it out (Combo_SharedBagGateClosed over OoT's own
+ * tier, which the shared pool keeps equal to MM's). The shelf shows the MM item
+ * and refuses the sale, as it refuses OoT's own pack (CANT_OBTAIN_NEED_UPGRADE)
+ * and as OoTMM refuses it (item_buy.c isItemBuyable); OoT's give is not reached,
+ * so nothing crosses. Reads no rando context: a ROM-free row can ask it.
+ */
+extern "C" int OoT_Rando_ShopShelfForeignLocked(uint16_t rc) {
+    const SharedItem* item = rc != 0 ? Combo_GetForeignPlacementForOoTCheck(rc) : nullptr;
+    if (item == nullptr || item->originGame != (uint8_t)GAME_MM) {
+        return 0;
+    }
+    const uint8_t bagKind = MM_ForeignItem_BagGateKind(item->id);
+    if (bagKind == 0u) {
+        return 0;
+    }
+    const bool stickBag = bagKind == (uint8_t)RSBS_SHARED_RES_STICK_TIER;
+    const uint16_t bagTier = (uint16_t)(stickBag ? CUR_UPG_VALUE(UPG_STICKS) : CUR_UPG_VALUE(UPG_NUTS));
+    return Combo_SharedBagGateClosed(bagKind, bagTier) ? 1 : 0;
+}
+
+/**
  * #577 M5, the chest's appearance (z_en_box.c, OoT_EnBox_Init): the item category
  * "Chest Size & Texture Matches Contents" dresses OoT chest `rc` by, given the
  * category of the item the OoT table holds there (`coverCategory`).

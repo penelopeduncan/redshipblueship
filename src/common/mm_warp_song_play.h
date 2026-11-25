@@ -299,6 +299,22 @@ int Combo_MMWarpPlay_PlayedText(int song, char* out, size_t len);
 /** How many lines Combo_MMWarpPlay_PromptText's text spans ('\n' + 1). */
 int Combo_MMWarpPlay_LineCount(const char* text);
 
+/* ---- #1587 stage T: the Sun's Song's own "You played" text ------------------ */
+
+/** MM's song state for the Sun's Song (OCARINA_SONG_SUNS, z64ocarina.h;
+ *  WarpSongsMM.cpp static-asserts it). Vanilla opens 0x1B72 + 11 = 0x1B7D for it,
+ *  an empty entry in MM's English table, so the box shows no text. */
+#define RSBS_MMSUN_SONG_STATE 11u
+/** z_message.c's plain arm: the played text of song state s is 0x1B72 + s. */
+#define RSBS_MMSUN_TEXT_VANILLA_BASE 0x1B72u
+/** Is @p state the Sun's Song? In every MM file: ruling 2.6 on #1587 ("always"),
+ *  as OoTMM's Ocarina_DisplaySongPlayedTextbox patches 0x1b7d with no gate. */
+bool Combo_MMSunsSong_IsPlayedState(unsigned state);
+/** "You played the %ySun's Song%w!" (OoTMM mm/ocarina.c, the 0x1b7d branch: the
+ *  song name in yellow), in 2Ship's CustomMessage colour codes. Returns the
+ *  length, or -1 for a NULL or too-small buffer (out is then ""). */
+int Combo_MMSunsSong_PlayedText(char* out, size_t len);
+
 /* ---- The one-shot latches (RAM only) ----------------------------------------- */
 
 /** The prompt's pending song: set on OFFER, taken by Player's OCARINA_MODE_WARP arm,
