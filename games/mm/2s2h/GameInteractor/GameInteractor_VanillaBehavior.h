@@ -2385,6 +2385,17 @@ typedef enum {
 
     // #### `result`
     // ```c
+    // !MM_Play_InCsMode(play) && (play->roomCtx.curRoom.num == 2)
+    // ```
+    // #### `args`
+    // - `*EnTest3` (Kafei)
+    // - `*s32` (cutscene phase)
+    // 2Ship #1659 (Couple's Mask cutscene skip). Appended rather than sorted in after VB_PICTO_TAKE as upstream
+    // placed it, so no existing id moves.
+    VB_PLAY_COUPLES_MASK_CS,
+
+    // #### `result`
+    // ```c
     // true
     // ```
     // #### `args`

@@ -303,6 +303,9 @@ static_assert(RI_DEKU_STICK_BAG == RI_MAX_TRAP + 1 && RI_DEKU_NUT_BAG == RI_MAX_
               "#1652 A2: two logic-only credit stand-ins follow the draw-only sentinel");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
+static_assert(RANDO_INF_OBTAINED_CHILD_WALLET == 80 && RANDO_INF_OBTAINED_BOMBCHU_BAG == 81 && RANDO_INF_MAX == 82,
+              "#1702 C1: the pair-possession randomizer-inf flags are 80 and 81, after "
+              "RANDO_INF_OBTAINED_SONG_INVERTED_TIME");
 // #1548: split freestanding dungeon fairies + Clock Town fairy out from
 // dungeon chest fairies (`RO_PLACEMENT_STRAY_FAIRIES`).
 static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64,
@@ -6022,6 +6025,43 @@ static void MM_SharedSoaringGive(uint16_t nativeId) {
     }
 }
 
+// #1587 S2: Majora's Mask's Sun's Song and Saria's Song (RI_SONG_SUN and
+// RI_SONG_SARIA, MM's pool items) as the MM members of the Shared Sun's Song and
+// Shared Saria's Song (OoTMM sharedSongSun, sharedSongSarias, the second family
+// word). Item_Give(ITEM_SONG_SUN / ITEM_SONG_SARIA) only sets the quest bit
+// (z_parameter.c, SET_QUEST_ITEM(item - ITEM_SONG_SONATA + QUEST_SONG_SONATA)).
+// Their own helpers, NOT MM_SharedSongQuestBit (Epona's bit for every id but the
+// Song of Storms). The give only adds: it never removes Saria's Song (the
+// 2026-11-17 ruling: a shared Saria's Song is permanent in both games).
+static uint32_t MM_SharedSunSariaQuestBit(uint16_t nativeId) {
+    return (nativeId == (uint16_t)RI_SONG_SUN)     ? (1u << QUEST_SONG_SUN)
+           : (nativeId == (uint16_t)RI_SONG_SARIA) ? (1u << QUEST_SONG_SARIA)
+                                                   : 0u;
+}
+static uint32_t MM_SharedSunSariaRuleBit(uint16_t nativeId) {
+    return (nativeId == (uint16_t)RI_SONG_SUN)     ? (uint32_t)RSBS_XITEM2_SHARED_SONG_SUN
+           : (nativeId == (uint16_t)RI_SONG_SARIA) ? (uint32_t)RSBS_XITEM2_SHARED_SONG_SARIAS
+                                                   : 0u;
+}
+static bool MM_SharedSunSariaHeld(uint16_t nativeId) {
+    const uint32_t bit = MM_SharedSunSariaQuestBit(nativeId);
+    return bit != 0u && (gSaveContext.save.saveInfo.inventory.questItems & bit) != 0u;
+}
+static void MM_SharedSunSariaGive(uint16_t nativeId) {
+    const uint32_t bit = MM_SharedSunSariaQuestBit(nativeId);
+    if (bit != 0u) {
+        gSaveContext.save.saveInfo.inventory.questItems |= bit;
+    }
+}
+// Pooled answers "the shared rule is FROZEN on", never MM's own Shuffle Sun's
+// Song / Shuffle Saria's Song rows: in a paired profile those resolve to 0 (they
+// are PARTIAL rows), so a pooled that read them would never build the pair. The
+// warp songs' MM_WarpSongMM_RuleOn (WarpSongsMM.cpp) is the precedent.
+static bool MM_SharedSunSariaRuleOn(uint16_t nativeId) {
+    const uint32_t rule = MM_SharedSunSariaRuleBit(nativeId);
+    return rule != 0u && Combo_ComboCrossItemRule2(rule);
+}
+
 // #837: defined below, beside MM_SaveIsLiveFile (the harvest's gate).
 extern "C" int MM_Combo_DepartureIsLiveFile(void);
 
@@ -6078,6 +6118,14 @@ struct MMSharedFamilyRegistrar {
         const ComboSharedFamilyMember soaring = { (uint16_t)RI_SONG_SOARING, MM_SharedSoaringHeld,
                                                   MM_SharedSoaringGive };
         Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SOARING, &soaring);
+        // #1587 S2: the Sun's Song and Saria's Song, MM's own songs, each paired
+        // with OoT's song of the same name; pooled follows the frozen rule.
+        const ComboSharedFamilyMember sun = { (uint16_t)RI_SONG_SUN, MM_SharedSunSariaHeld, MM_SharedSunSariaGive,
+                                              MM_SharedSunSariaRuleOn };
+        Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SUN, &sun);
+        const ComboSharedFamilyMember saria = { (uint16_t)RI_SONG_SARIA, MM_SharedSunSariaHeld, MM_SharedSunSariaGive,
+                                                MM_SharedSunSariaRuleOn };
+        Combo_RegisterSharedFamily2Member(GAME_MM, RSBS_XITEM2_SHARED_SONG_SARIAS, &saria);
     }
 };
 const MMSharedFamilyRegistrar gMMSharedFamilyRegistrar;
@@ -6347,6 +6395,75 @@ struct MMSharedSwimRegistrar {
     }
 };
 const MMSharedSwimRegistrar gMMSharedSwimRegistrar;
+} // namespace
+
+// ============================================================================
+// The pair's possession of the Child's Wallet and the Bombchu Bag (#1702 C1)
+// ============================================================================
+//
+// MM's copies of the two possession slots (RSBS_XFAMILY_SLOT_CHILD_WALLET,
+// RSBS_XFAMILY_SLOT_BOMBCHU_BAG): RANDO_INF_OBTAINED_CHILD_WALLET and
+// RANDO_INF_OBTAINED_BOMBCHU_BAG, which only these gives write and nothing reads
+// until stages C2 and C3. A member is asked only while its slot is armed, which is
+// only while Ocarina of Time's shuffle froze the slot on
+// (Combo_SharedPossessionArmed), so the raw reads below already follow the
+// frozen bit first. The GIVES write the flags directly, as the swim give does
+// (no flag-set hook before gameplay). POOLED is false: the pair is never a shared
+// bag row. The bag member's id is a PLACEHOLDER (RI_UNKNOWN): MM has no Bombchu
+// Bag item, and stage C2 replaces it with its stand-in.
+
+namespace {
+
+bool MM_SharedChildWalletHeld(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = RANDO_INF_OBTAINED_CHILD_WALLET;
+    return IS_RANDO && (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
+}
+
+void MM_SharedChildWalletGive(uint16_t nativeId) {
+    (void)nativeId;
+    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_CHILD_WALLET >> 4] |=
+        (u16)(1u << (RANDO_INF_OBTAINED_CHILD_WALLET & 0xF));
+}
+
+bool MM_SharedBombchuBagHeld(uint16_t nativeId) {
+    (void)nativeId;
+    const int flag = RANDO_INF_OBTAINED_BOMBCHU_BAG;
+    return IS_RANDO && (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
+}
+
+void MM_SharedBombchuBagGive(uint16_t nativeId) {
+    (void)nativeId;
+    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_BOMBCHU_BAG >> 4] |=
+        (u16)(1u << (RANDO_INF_OBTAINED_BOMBCHU_BAG & 0xF));
+}
+
+bool MM_SharedPossessionPooled(uint16_t nativeId) {
+    (void)nativeId;
+    return false;
+}
+
+} // namespace
+
+/** Register MM's copies of the pair's two possession slots (#1702 C1). Idempotent;
+ *  the static registrar below runs it at start-up. */
+extern "C" void MM_RegisterSharedPossessionFamilies(void) {
+    const ComboSharedFamilyMember wallet = { (uint16_t)RI_PROGRESSIVE_WALLET, MM_SharedChildWalletHeld,
+                                             MM_SharedChildWalletGive, MM_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET, &wallet);
+    // Stage C2 replaces RI_UNKNOWN with its Bombchu Bag stand-in.
+    const ComboSharedFamilyMember bag = { (uint16_t)RI_UNKNOWN, MM_SharedBombchuBagHeld, MM_SharedBombchuBagGive,
+                                          MM_SharedPossessionPooled };
+    Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &bag);
+}
+
+namespace {
+struct MMSharedPossessionRegistrar {
+    MMSharedPossessionRegistrar() {
+        MM_RegisterSharedPossessionFamilies();
+    }
+};
+const MMSharedPossessionRegistrar gMMSharedPossessionRegistrar;
 } // namespace
 
 static uint16_t MM_ReadHealthQuarters(void) {

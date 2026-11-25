@@ -44,6 +44,17 @@
  *     the nut it must NOT be reached; with the nut and a price the wallet covers
  *     it must; with the nut and a price above the wallet it must NOT.
  *     (SoH 0702b11b9.)
+ *  JN. Which conversation steps ask for a Jabber Nut (#1798). Shuffle Speak
+ *     blocks only pressing A to talk (VB_SPEAK, asked in
+ *     OoT_Player_ActionHandler_Talk); showing an item from C takes the exchange
+ *     branch of OoT_Player_ActionHandler_13, which never asks it. CM: the
+ *     merchant's event LOGIC_CARPET_MERCHANT (his bombchu refill) must NOT fire
+ *     without the Hylian nut, nor with the Gerudo nut only; it must with the
+ *     Hylian nut, and with Shuffle Speak off and no nut given. TR: the ten adult
+ *     trade steps and LOGIC_WAKE_UP_ADULT_TALON must be reached by an adult with
+ *     every nut withheld. K: five rows that do ask (Anju, King Zora thawed, the
+ *     Biggoron hint, the lab dive, Granny's shop) must NOT be reached without
+ *     their nut in a setup that meets their other terms, and must with it.
  *  E. The four carpenters' check rows (#1191, SoH 2bc50f605): each cell's Gerudo
  *     guard (En_GeldB) drops its key as En_Item00 with params keyFlag | 0x11
  *     (z_en_geldb.c), and the randomizer names the check that drop awards by
@@ -280,6 +291,13 @@
  *     Gold Skulltula; the Fire MQ crate cage under RT_BOMB_DETONATION; GTG MQ's
  *     magenta switch with bombs; the Shadow corner-platform target rupee; and the
  *     Shadow MQ pit stairs' Lens term.
+ *     #1793's fixes: the MQ bomb flower region's own name (EC0a); the MQ silver
+ *     shadow event needs the Lens, the Bow and RT_GANON_MQ_SHADOW_TRIAL with the
+ *     Hover Boots (EC23, EC24, EC24b); GTG MQ's furthest platform takes the
+ *     hood's jump only under Bunny Hood Effect (EC30c, EC30d); the MQ inner right
+ *     hand's reverse row takes no hood jump (EC32a); thrown bombs do not kill the
+ *     ZD frozen waterfall Gold Skulltula (EC34a). VC59 to VC65 lock CanVoid on
+ *     the MQ Fire Trial barred-door rupee and the vanilla Shadow Trial end hearts.
  *
  * SoH eca767dcb's Masks as Adult seed setting (RSK_MASKS_AS_ADULT) and the adult
  * hood terms it makes live (#1647 stage 1b):
@@ -1444,6 +1462,7 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
     const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
     const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
     const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
     const uint8_t savedMedallionTrials = randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Get();
     const uint8_t savedSkullsSuns = randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Get();
@@ -1473,6 +1492,16 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     }
     if (unbuilt == 0) {
         printf("[TEST]   ok: EC0 all 6 stage-5 regions built\n");
+    }
+    // EC0a (#1793): the bomb flower region carries its own name, not the moving platform's.
+    const std::string& bombFlowerName = RegionTable(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER)->regionName;
+    if (bombFlowerName != "Ganon's Castle MQ Shadow Trial Bomb Flower" ||
+        bombFlowerName == RegionTable(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM)->regionName) {
+        GateFail("EC0a RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER is named \"%s\", not \"Ganon's Castle MQ Shadow "
+                 "Trial Bomb Flower\"",
+                 bombFlowerName.c_str());
+    } else {
+        printf("[TEST]   ok: EC0a the MQ Shadow Trial bomb flower region has its own name\n");
     }
 
     // ---- EC1..EC2: four grounded Beamos at the Spirit MQ call site, Boomerang -
@@ -1614,19 +1643,37 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
                RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, true, true,
                "the Hover Boots do not cross to the far Beamos (SoH eca767dcb)");
 
-    // ---- EC23..EC24: MQ silver shadow event from the starting ledge ---------
+    // ---- EC23..EC24b: MQ silver shadow event from the starting ledge (#1793) ----
+    // The Hover Boots term sits inside the trick-and-bow term, as on the paired BEAMOS_CHEST shortcut exit.
+    // EC23 holds everything but the Lens (so dropping the Lens term sets the event), EC24 the Lens and the Hover
+    // Boots only (so the old precedence, which detached the Hover Boots term, sets it), EC24b everything.
     randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
     ResetClimbLogic();
     Give(RG_HOVER_BOOTS);
+    Give(RG_PROGRESSIVE_BOW);
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(1);
     FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
-    ExpectEvent("EC23 MQ Shadow Trial starting ledge, adult with Hover Boots, no Lens",
+    ExpectEvent(
+        "EC23 MQ Shadow Trial starting ledge, adult with Hover Boots, Bow and RT_GANON_MQ_SHADOW_TRIAL, no Lens",
+        LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, false, "the silver rupees are taken without the Lens of Truth");
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_LENS_OF_TRUTH);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent("EC24 MQ Shadow Trial starting ledge, adult with the Lens of Truth and Hover Boots only, trick off",
                 LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, false,
-                "the Hover Boots get the silver rupees without Lens (SoH eca767dcb's precedence)");
-    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(1);
+                "the Lens and the Hover Boots take the silver rupees with no Bow and no RT_GANON_MQ_SHADOW_TRIAL "
+                "(SoH eca767dcb's precedence, #1793)");
+    Give(RG_PROGRESSIVE_BOW);
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(1);
     FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
-    ExpectEvent("EC24 MQ Shadow Trial starting ledge, adult with Hover Boots, RT_LENS_GANON_MQ",
+    ExpectEvent("EC24b MQ Shadow Trial starting ledge, adult with the Lens, Hover Boots, Bow and "
+                "RT_GANON_MQ_SHADOW_TRIAL",
                 LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, true,
-                "the Hover Boots and the Lens trick do not get the silver rupees");
+                "the Lens, the Bow, the trick and the Hover Boots do not take the silver rupees");
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(0);
     randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
 
     // ---- EC25..EC28: GTG MQ lit torch platforms and the lava room trick -----
@@ -1671,6 +1718,31 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
                RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS,
                true, true, "an adult's Bow does not reach the torch side from the lit torch (SoH eca767dcb)");
 
+    // ---- EC30c..EC30d: GTG MQ switch ledge to the furthest platform, the hood's effect (#1793) ----
+    // An adult wearing the hood under Masks as Adult, with Fire Arrows and a sword, no Hover Boots: the hood's jump
+    // needs Bunny Hood Effect (BunnyHood), not only a mask Link can wear (CanUse(RG_BUNNY_HOOD) is true here).
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_FIRE_ARROWS);
+    Give(RG_MASTER_SWORD);
+    ExpectExit("EC30c GTG MQ Switch Ledge to Furthest Platform, adult with the hood, Fire Arrows and a sword, Masks "
+               "as Adult on, Bunny Hood Effect off",
+               RR_GERUDO_TRAINING_GROUND_MQ_SWITCH_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM, true, false,
+               "the hood's jump is in logic with Bunny Hood Effect off (CanUse(RG_BUNNY_HOOD) in place of BunnyHood)");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("EC30d GTG MQ Switch Ledge to Furthest Platform, adult with the hood, Fire Arrows and a sword, Masks "
+               "as Adult on, Bunny Hood Effect on",
+               RR_GERUDO_TRAINING_GROUND_MQ_SWITCH_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM, true, true,
+               "the hood's jump with a sword and Fire Arrows does not reach the furthest platform (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+
     // ---- EC31..EC32: spiritLogicData, MQ Inner Right Hand reverse access -----
     ResetClimbLogic();
     BhlAs(true, RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND);
@@ -1681,6 +1753,21 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     ExpectFlag("EC32 spiritLogicData MQ Inner Right Hand reverse access, adult with Climb",
                Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), true,
                "an adult with Climb does not reach the MQ inner right hand in reverse (SoH eca767dcb)");
+    // EC32a (#1793): the statue head's exit to the right hand takes the Hover Boots only (spirit_temple.cpp), so the
+    // reverse access takes no hood jump: an adult with the hood's effect and a sword, no Climb, Hookshot or boots.
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_MASTER_SWORD);
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND);
+    ExpectFlag("EC32a spiritLogicData MQ Inner Right Hand reverse access, adult with the hood's effect and a sword",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), false,
+               "a hood jump reaches the MQ inner right hand in reverse, which the statue head's exit does not allow");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
     logic->CurrentRegionKey = RR_NONE;
 
     // ---- EC33..EC34: Zora's Domain frozen waterfall Gold Skulltula -----------
@@ -1692,6 +1779,14 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     ExpectAs(true, "EC34 ZD GS frozen waterfall, adult with magic and Din's Fire", RR_ZORAS_DOMAIN,
              RC_ZD_GS_FROZEN_WATERFALL, true,
              "Din's Fire does not kill the frozen waterfall Skulltula (SoH eca767dcb's CanKillEnemy form)");
+    // EC34a (#1793): the rule passes inWater because the terrain blocks bomb throws; the Gold Skulltula case of
+    // CanKillEnemy honours it, so magic (which opens ED_SHORT_JUMPSLASH) and bombs kill nothing here.
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectAs(true, "EC34a ZD GS frozen waterfall, adult with magic and bombs", RR_ZORAS_DOMAIN,
+             RC_ZD_GS_FROZEN_WATERFALL, false,
+             "thrown bombs kill the frozen waterfall Skulltula, which the rule's inWater says they cannot reach");
 
     // ---- EC35..EC36: Fire MQ maze crate cage under RT_BOMB_DETONATION (73a739b7a)
     ResetClimbLogic();
@@ -1755,6 +1850,7 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
     randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
     randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
     randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(savedMedallionTrials);
     randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Set(savedSkullsSuns);
@@ -1955,7 +2051,56 @@ void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                  "VC58 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, no Golden "
                  "Gauntlets, trick on",
                  RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true);
+    // VC59 (#1793): the barred door's voidout needs CanVoid, as the open door's row has (VC3's staging: OHKO, no
+    // fairy, so the void kills Link). Nothing else of the row reads the damage setting.
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("VC59 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, trick on, OHKO and "
+             "no fairy",
+             RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid, #1793)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+
+    // ---- VC60..VC65: the vanilla Shadow Trial end hearts need CanVoid (#1793) ----
+    // An adult with Hover Boots and the hood's effect (BunnyHovers for heart 1), no Boomerang: with the trick on
+    // each heart is in logic at the default damage and out of it under OHKO with no fairy (VC3's staging).
+    struct VcShadowHeart {
+        RandomizerCheck check;
+        const char* legOn;
+        const char* legOhko;
+    };
+    const VcShadowHeart kVcShadowHearts[] = {
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1,
+          "VC60 Shadow Trial end heart 1, adult with Hover Boots and the hood, trick on",
+          "VC61 Shadow Trial end heart 1, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2,
+          "VC62 Shadow Trial end heart 2, adult with Hover Boots and the hood, trick on",
+          "VC63 Shadow Trial end heart 2, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3,
+          "VC64 Shadow Trial end heart 3, adult with Hover Boots and the hood, trick on",
+          "VC65 Shadow Trial end heart 3, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+    };
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_HOVER_BOOTS);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    for (const VcShadowHeart& heart : kVcShadowHearts) {
+        ExpectAt(heart.legOn, RR_GANONS_CASTLE_SHADOW_TRIAL_END, heart.check, true, true,
+                 "the voidout collection is not in logic with the trick on, Hover Boots and the hood");
+        randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+        ExpectAt(heart.legOhko, RR_GANONS_CASTLE_SHADOW_TRIAL_END, heart.check, true, false,
+                 "the voidout is in logic under OHKO with no fairy (CanVoid, #1793)");
+        randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    }
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
 
     randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(savedVoidout);
     randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
@@ -5345,6 +5490,188 @@ void RunReturnedFromCastleLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(savedDamageBoost);
 }
 
+// ---- #1798: which conversation steps ask for a Jabber Nut (leg JN) ----------
+// Shuffle Speak blocks only pressing A to talk: ShuffleSpeak.cpp answers VB_SPEAK,
+// asked only in OoT_Player_ActionHandler_Talk (z_player.c). Showing a trade item
+// from a C button takes the exchange branch of OoT_Player_ActionHandler_13, which
+// sets ACTOR_FLAG_TALK on the talk actor directly and never asks VB_SPEAK.
+
+/** One adult trade step, done by showing the item from C. */
+struct JnTradeStep {
+    const char* leg;
+    RandomizerInf has;
+    /** An event the row also reads (set by hand: Reaches fires only the probed
+     *  region's own events), or LOGIC_NONE. */
+    LogicVal alsoSet;
+    RandomizerRegion region;
+    RandomizerCheck check;
+};
+
+const JnTradeStep kJnTradeSteps[] = {
+    { "TR2 Kak Trade Pocket Cucco (Anju)", RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, LOGIC_WAKE_UP_ADULT_TALON,
+      RR_KAKARIKO_VILLAGE, RC_KAK_TRADE_POCKET_CUCCO },
+    { "TR3 LW Trade Cojiro (Grog)", RAND_INF_ADULT_TRADES_HAS_COJIRO, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_COJIRO },
+    { "TR4 LW Trade Odd Potion (Fado)", RAND_INF_ADULT_TRADES_HAS_ODD_POTION, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_ODD_POTION },
+    { "TR5 Kak Trade Odd Mushroom (Granny)", RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, LOGIC_NONE,
+      RR_KAK_ODD_POTION_BUILDING, RC_KAK_TRADE_ODD_MUSHROOM },
+    { "TR6 GV Trade Saw (carpenters' boss)", RAND_INF_ADULT_TRADES_HAS_SAW, LOGIC_NONE, RR_GV_FORTRESS_SIDE,
+      RC_GV_TRADE_SAW },
+    { "TR7 DMT Trade Broken Sword (Biggoron)", RAND_INF_ADULT_TRADES_HAS_SWORD_BROKEN, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_BROKEN_SWORD },
+    { "TR8 DMT Trade Eyedrops (Biggoron)", RAND_INF_ADULT_TRADES_HAS_EYEDROPS, LOGIC_NONE, RR_DEATH_MOUNTAIN_SUMMIT,
+      RC_DMT_TRADE_EYEDROPS },
+    { "TR9 DMT Trade Claim Check (Biggoron)", RAND_INF_ADULT_TRADES_HAS_CLAIM_CHECK, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_CLAIM_CHECK },
+    { "TR10 ZD Trade Prescription (King Zora)", RAND_INF_ADULT_TRADES_HAS_PRESCRIPTION, LOGIC_KING_ZORA_THAWED,
+      RR_ZORAS_DOMAIN, RC_ZD_TRADE_PRESCRIPTION },
+    { "TR11 LH Trade Frog (lakeside scientist)", RAND_INF_ADULT_TRADES_HAS_FROG, LOGIC_NONE, RR_LH_LAB,
+      RC_LH_TRADE_FROG },
+};
+
+/** The carpet merchant's event setup for leg CM: a child with sticks (a
+ *  jumpslash), the adult wallet (200 rupees) against a 60-rupee price, the
+ *  wasteland's own events fired. Everything LOGIC_CARPET_MERCHANT asks but the nut. */
+void JnCarpetMerchantSetup() {
+    GiveSticks();
+    GiveChildWallet();
+    logic->SetUpgrade(UPG_WALLET, 1);
+    FireEvents(RR_HAUNTED_WASTELAND, false);
+}
+
+void RunJabberNutConversationLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    // ---- CM: the carpet merchant's event (haunted_wasteland.cpp) needs the
+    // Hylian nut, as his check does: his first sale needs A pressed (z_en_js.c
+    // func_80A88F64 offers talk with no auto-accept). The event feeds
+    // BombchuRefill and the bombchu items' HasItem (logic.cpp).
+    // GetCheckPrice reads the merchant's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("CM: no OTRGlobals randomizer context, so the merchant's price cannot be read");
+    } else {
+        Rando::ItemLocation* merchant = randoCtx->GetItemLocation(RC_WASTELAND_BOMBCHU_SALESMAN);
+        const uint16_t savedPrice = merchant->GetPrice();
+        merchant->SetPrice(60);
+        if (merchant->GetPrice() != 60) {
+            GateFail("CM: the merchant's price did not take (a custom price is pinned), so the CM legs are vacuous");
+        } else {
+            ResetLogic();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM1 carpet merchant event, wallet, price and jumpslash, no jabber nut", LOGIC_CARPET_MERCHANT,
+                        false,
+                        "the merchant's bombchu refill counts for a child who cannot talk to him (#1798): the event "
+                        "lost its Hylian nut term");
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_CAN_SPEAK_GERUDO, true);
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM2 carpet merchant event, the Gerudo nut only", LOGIC_CARPET_MERCHANT, false,
+                        "another race's nut opens the Hylian merchant (wrong race, or an any-nut OR)");
+            ResetLogic();
+            GiveNut();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM3 carpet merchant event, with the Hylian nut", LOGIC_CARPET_MERCHANT, true,
+                        "the merchant's event does not fire with the Hylian nut, wallet, price and jumpslash");
+
+            // CM4, Shuffle Speak off: Logic::Reset grants every nut, so the term is
+            // neutral. ResetLogic is NOT used here: it withholds the Hylian nut
+            // whatever the option says.
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(0);
+            logic->Reset(true);
+            logic->CurrentCheckKey = RC_UNKNOWN_CHECK;
+            logic->CalculatingAvailableChecks = false;
+            if (!logic->CheckRandoInf(RAND_INF_CAN_SPEAK_HYLIAN)) {
+                GateFail("CM4: Reset did not grant the Hylian nut with Shuffle Speak off; CM4 would be vacuous");
+            } else {
+                JnCarpetMerchantSetup();
+                ExpectEvent("CM4 carpet merchant event, Shuffle Speak off, no nut given", LOGIC_CARPET_MERCHANT, true,
+                            "the nut term is not neutral with Shuffle Speak off");
+            }
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(1);
+        }
+        merchant->SetPrice(savedPrice);
+    }
+
+    // ---- TR: the ten adult trade steps and Talon's wake need NO nut: each is
+    // done by showing the item from C (z_player.c, OoT_Player_ActionHandler_13's
+    // exchange branch sets ACTOR_FLAG_TALK without asking VB_SPEAK). Shuffle
+    // Speak on, every nut withheld (ResetLogic), adult.
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, true);
+    FireEvents(RR_KAK_CARPENTER_BOSS_HOUSE, true);
+    ExpectEvent("TR1 wake Kakariko Talon with the Pocket Cucco, no jabber nut", LOGIC_WAKE_UP_ADULT_TALON, true,
+                "Talon's wake asks for a nut, but the cucco is shown from C and the exchange never asks VB_SPEAK "
+                "(z_player.c OoT_Player_ActionHandler_13)");
+    for (const JnTradeStep& step : kJnTradeSteps) {
+        char leg[112];
+        ResetLogic();
+        logic->SetRandoInf(step.has, true);
+        if (step.alsoSet != LOGIC_NONE) {
+            logic->Set(step.alsoSet, true);
+        }
+        snprintf(leg, sizeof(leg), "%s, no jabber nut", step.leg);
+        ExpectAs(true, leg, step.region, step.check, true,
+                 "the trade step asks for a nut, but the item is shown from C and the exchange never asks VB_SPEAK "
+                 "(z_player.c OoT_Player_ActionHandler_13)");
+    }
+
+    // ---- K: non-vacuity controls in the same setup. Each control meets every
+    // term of its row but the nut and must NOT be reached; its twin adds the
+    // row's own race and must be.
+    ResetLogic();
+    ExpectAs(true, "K1 Anju as adult, no jabber nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, false,
+             "Anju's adult check is reached with every nut withheld (Shuffle Speak not on, or the row lost its nut)");
+    GiveNut();
+    ExpectAs(true, "K1+ Anju as adult, Hylian nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, true,
+             "Anju's adult check is not reached with the Hylian nut");
+
+    ResetLogic();
+    logic->Set(LOGIC_KING_ZORA_THAWED, true);
+    ExpectAs(true, "K2 King Zora thawed, no jabber nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, false,
+             "King Zora's thawed check is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_ZORA, true);
+    ExpectAs(true, "K2+ King Zora thawed, Zora nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, true,
+             "King Zora's thawed check is not reached with the Zora nut");
+
+    ResetLogic();
+    ExpectAs(true, "K3 Biggoron hint, no jabber nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, false,
+             "Biggoron's hint is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_GORON, true);
+    ExpectAs(true, "K3+ Biggoron hint, Goron nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, true,
+             "Biggoron's hint is not reached with the Goron nut");
+
+    ResetLogic();
+    logic->SetUpgrade(UPG_SCALE, 2);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAs(true, "K4 lab dive, golden scale, no jabber nut", RR_LH_LAB, RC_LH_LAB_DIVE, false,
+             "the lab dive is reached with every nut withheld");
+    GiveNut();
+    ExpectAs(true, "K4+ lab dive, golden scale and Hylian nut", RR_LH_LAB, RC_LH_LAB_DIVE, true,
+             "the lab dive is not reached with the golden scale and the Hylian nut");
+
+    // GetCheckPrice reads Granny's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("K5: no OTRGlobals randomizer context, so Granny's price cannot be read");
+    } else {
+        Rando::ItemLocation* granny = randoCtx->GetItemLocation(RC_KAK_GRANNYS_SHOP);
+        const uint16_t savedPrice = granny->GetPrice();
+        granny->SetPrice(60);
+        if (granny->GetPrice() != 60) {
+            GateFail("K5: Granny's price did not take (a custom price is pinned), so the K5 legs are vacuous");
+        } else {
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, true);
+            logic->SetUpgrade(UPG_WALLET, 1);
+            ExpectAs(true, "K5 Granny's shop, Odd Mushroom and a 60-rupee price in a 200 wallet, no jabber nut",
+                     RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP, false,
+                     "Granny's shop is reached with every nut withheld");
+            GiveNut();
+            ExpectAs(true, "K5+ Granny's shop, plus the Hylian nut", RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP,
+                     true, "Granny's shop is not reached with the Odd Mushroom, the rupees and the Hylian nut");
+        }
+        granny->SetPrice(savedPrice);
+    }
+}
+
 } // namespace
 
 extern "C" int OoT_LogicGates_RunHeadless(void) {
@@ -5472,6 +5799,9 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
         }
         merchant->SetPrice(savedPrice);
     }
+
+    // ---- JN: the carpet merchant's event needs its nut; the trades need none (#1798)
+    RunJabberNutConversationLegs(randoCtx);
 
     // ---- E: each carpenter's row carries its own cell's key (SoH 2bc50f605)
     for (const Carpenter& carpenter : kCarpenters) {

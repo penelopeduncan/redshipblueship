@@ -7,6 +7,7 @@
 #include <libultraship/libultraship.h>
 #include <queue>
 #include <mutex>
+#include <unordered_map>
 
 extern "C" {
 #include "variables.h"
@@ -69,6 +70,8 @@ typedef struct {
 } RoomState;
 
 class Anchor : public Network {
+    friend struct AnchorNetplayFixesTestAccess;
+
   private:
     uint32_t spawningDummyPlayerForClientId = 0;
     bool shouldRefreshActors = false;
@@ -76,6 +79,10 @@ class Anchor : public Network {
     bool isHandlingUpdateTeamState = false;
     bool isProcessingIncomingPacket = false;
     std::queue<nlohmann::json> incomingPacketQueue;
+    // RSBS: the latest queued PLAYER_UPDATE per sender, guarded by incomingPacketQueueMutex. Each one overwrites
+    // every field the previous one set, so only the newest matters. Keeping one per client bounds the backlog
+    // while the game thread is not draining it (MM is the running game: OnGameFrameUpdate is OoT's hook).
+    std::unordered_map<uint32_t, nlohmann::json> pendingPlayerUpdates;
     std::mutex incomingPacketQueueMutex;
     std::queue<nlohmann::json> outgoingPacketQueue;
     std::mutex outgoingPacketQueueMutex;

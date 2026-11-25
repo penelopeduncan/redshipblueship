@@ -2,6 +2,7 @@
 
 #include <soh/GameVersions.h>
 
+#include <algorithm>
 #include <cstdio> // std::sprintf
 
 #include <spdlog/spdlog.h>
@@ -34,6 +35,68 @@ typedef struct {
     /* 0x008 */ LightNode buf[LIGHTS_BUFFER_SIZE];
 } LightsBuffer; // size = 0x188
 
+// Copies of file-local types from vendored C files, needed to size the saved arrays: BossVaEffect
+// (z_boss_va.c), BossMoEffect (z_boss_mo.c), SfxPlayerState / FreqLerp / OcarinaStick
+// (code_800EC960.c). Keep each field-for-field identical to its source, and update the copies in
+// games/oot/soh/oot_savestate_roundtrip_test.cpp with them.
+struct BossVa;
+
+typedef struct BossVaEffect {
+    /* 0x00 */ Vec3f pos;
+    /* 0x0C */ Vec3f velocity;
+    /* 0x18 */ Vec3f accel;
+    /* 0x24 */ u8 type;
+    /* 0x26 */ u16 timer;
+    /* 0x28 */ s16 mode;
+    /* 0x2A */ Vec3s rot;
+    /* 0x30 */ s16 primColor[4];
+    /* 0x38 */ s16 envColor[4];
+    /* 0x40 */ f32 scale;
+    /* 0x44 */ f32 scaleMod;
+    /* 0x48 */ Vec3f offset;
+    /* 0x54 */ struct BossVa* parent;
+    u32 epoch;
+} BossVaEffect; // size = 0x58
+
+typedef struct {
+    /* 0x00 */ Vec3f pos;
+    /* 0x0C */ Vec3f vel;
+    /* 0x18 */ Vec3f accel;
+    /* 0x24 */ u8 type;
+    /* 0x25 */ u8 timer;
+    /* 0x26 */ u8 stopTimer;
+    /* 0x28 */ s16 unk_28; // unused?
+    /* 0x2A */ s16 alpha;
+    /* 0x2C */ s16 rippleMode;
+    /* 0x2E */ s16 maxAlpha;
+    /* 0x30 */ f32 scale;
+    /* 0x30 */ f32 fwork[2];
+    /* 0x3C */ Vec3f* targetPos;
+    u32 epoch;
+} BossMoEffect; // size = 0x40
+
+typedef struct {
+    /* 0x0 */ f32 vol;
+    /* 0x4 */ f32 freqScale;
+    /* 0x8 */ s8 reverb;
+    /* 0x9 */ s8 panSigned;
+    /* 0xA */ s8 stereoBits;
+    /* 0xB */ u8 filter;
+    /* 0xC */ u8 unk_0C;
+} SfxPlayerState;
+
+typedef struct {
+    /* 0x0 */ f32 value;
+    /* 0x4 */ f32 target;
+    /* 0x8 */ f32 step;
+    /* 0xC */ s32 remainingFrames;
+} FreqLerp;
+
+typedef struct {
+    s8 x;
+    s8 y;
+} OcarinaStick;
+
 #include "savestates_extern.inc"
 
 typedef struct SaveStateInfo {
@@ -42,6 +105,9 @@ typedef struct SaveStateInfo {
 
     SaveContext saveContextCopy;
     GameInfo gameInfoCopy;
+    EffectContext effectContextCopy;
+    u8 transitionActorCount_copy;
+    s16 transitionActorIds_copy[256];
     LightsBuffer lightBufferCopy;
     AudioContext audioContextCopy;
     MtxF mtxStackCopy[20]; // always 20 matricies
@@ -199,9 +265,43 @@ typedef struct SaveStateInfo {
     Vec3f D_80910608_copy[4];
     BossGanon2Effect sBossGanon2Particles_copy[100];
 
+    // z_boss_mo
+    void* sMorphaCore_copy;
+    void* sMorphaTent1_copy;
+    void* sMorphaTent2_copy;
+    BossMoEffect OoT_sEffects_copy[300];
+    s32 sBossMoSeed1_copy;
+    s32 sBossMoSeed2_copy;
+    s32 sBossMoSeed3_copy;
+
+    // z_boss_sst
+    void* sHead_copy;
+    void* sHands_copy[2];
+    void* sFloor_copy;
+    Vec3f sHandOffsets_copy[2];
+    s16 sHandYawOffsets_copy[2];
+    s16 sCutsceneCamera_copy;
+    u32 sBodyStatic_copy;
+    Color_RGBA8 sBodyColor_copy;
+    Color_RGBA8 sStaticColor_copy;
+
     // z_boss_tw
     uint8_t sTwInitalized_copy;
     BossTwEffect sTwEffects_copy[150];
+
+    // z_boss_va
+    u8 sKillBari_copy;
+    u8 sBodyBari_copy[10];
+    s16 sCsCamera_copy;
+    BossVaEffect sVaEffects_copy[400];
+    u8 sBodyState_copy;
+    u8 sFightPhase_copy;
+    s8 sCsState_copy;
+    s16 sDoorState_copy;
+    u8 sPhase3StopMoving_copy;
+    Vec3s sZapperRot_copy;
+    u16 sPhase2Timer_copy;
+    s8 sPhase4HP_copy;
 
     // z_demo_6k
     Vec3f sDemo6kVelocity_copy;
@@ -267,6 +367,31 @@ typedef struct SaveStateInfo {
     // z_en_heishi1
     uint32_t sHeishi1PlayerIsCaughtCopy;
 
+    // z_player
+    s32 D_80858AA0_copy;
+    s32 OoT_sSavedCurrentMask_copy;
+    Vec3f OoT_sInteractWallCheckResult_copy;
+    Input* sControlInput_copy;
+    u32 OoT_sNoclipEnabled_copy;
+    f32 OoT_sControlStickMagnitude_copy;
+    s16 OoT_sControlStickAngle_copy;
+    s16 OoT_sControlStickWorldYaw_copy;
+    s32 OoT_sUpperBodyIsBusy_copy;
+    s32 sFloorType_copy;
+    f32 OoT_sWaterSpeedFactor_copy;
+    f32 OoT_sInvWaterSpeedFactor_copy;
+    u32 sTouchedWallFlags_copy;
+    u32 sConveyorSpeed_copy;
+    s16 sIsFloorConveyor_copy;
+    s16 sConveyorYaw_copy;
+    f32 sYDistToFloor_copy;
+    s32 OoT_sPrevFloorProperty_copy;
+    s32 OoT_sShapeYawToTouchedWall_copy;
+    s32 OoT_sWorldYawToTouchedWall_copy;
+    s16 sFloorShapePitch_copy;
+    s32 sUseHeldItem_copy;
+    s32 sHeldItemButtonIsHeldDown_copy;
+
     // Misc static data
     //  z_map_exp
 
@@ -312,6 +437,81 @@ typedef struct SaveStateInfo {
     OcarinaNote D_8016BAA0_copy;
     u8 sAudioHasMalonBgm_copy;
     f32 sAudioMalonBgmDist_copy;
+    OcarinaNote sOcarinaSongs_memoryGame_copy[20];
+    OcarinaNote sOcarinaSongs_scarecrow_copy[20];
+    u8 sOcaMinigameAppendPos_copy;
+    u8 sOcaMinigameEndPos_copy;
+    f32 D_801305B0_copy;
+    s8 D_801305B4_copy;
+    s8 D_801305B8_copy;
+    s8 D_801305BC_copy;
+    s8 D_801305C0_copy;
+    u8 OoT_sAudioIncreasingTranspose_copy;
+    u8 OoT_sPrevChargeLevel_copy;
+    f32 D_801305F4_copy;
+    u8 D_80130600_copy;
+    s8 D_80130608_copy;
+    s8 OoT_sAudioCutsceneFlag_copy;
+    s8 OoT_sSpecReverb_copy;
+    s8 OoT_sAudioEnvReverb_copy;
+    s8 OoT_sAudioCodeReverb_copy;
+    u8 OoT_sPrevSeqMode_copy;
+    f32 sAudioEnemyDist_copy;
+    s8 sAudioEnemyVol_copy;
+    u16 OoT_sPrevMainBgmSeqId_copy;
+    u8 D_8013062C_copy;
+    u8 D_80130630_copy;
+    u32 OoT_sNumFramesStill_copy;
+    u32 OoT_sNumFramesMoving_copy;
+    u8 OoT_sAudioBaseFilter_copy;
+    u8 OoT_sAudioExtraFilter_copy;
+    u8 OoT_sAudioBaseFilter2_copy;
+    u8 OoT_sAudioExtraFilter2_copy;
+    Vec3f* sSariaBgmPtr_copy;
+    f32 D_80130650_copy;
+    f32 D_8016B7A8_copy;
+    f32 D_8016B7AC_copy;
+    f32 D_8016B7B0_copy;
+    f32 D_8016B7B4_copy;
+    FreqLerp OoT_sRiverFreqScaleLerp_copy;
+    FreqLerp OoT_sWaterfallFreqScaleLerp_copy;
+    f32 D_8016B7D8_copy;
+    s8 D_8016B7DC_copy;
+    f32 D_8016B7E0_copy;
+    u8 D_8016B8B0_copy;
+    u8 D_8016B8B1_copy;
+    u8 D_8016B8B2_copy;
+    u8 D_8016B8B3_copy;
+    u8 sAudioGanonDistVol_copy;
+    SfxPlayerState OoT_sSfxChannelState_copy[0x10];
+    u8 D_8016B9D8_copy;
+    u8 D_8016B9F2_copy;
+    u8 D_8016B9F3_copy;
+    u8 D_8016B9F4_copy;
+    u16 D_8016B9F6_copy;
+    u8 OoT_sRecordingState_copy;
+    u8 OoT_sRecordSongPos_copy;
+    u32 D_80131860_copy;
+    u8 D_80131864_copy;
+    u8 D_80131868_copy;
+    u8 D_8013186C_copy;
+    s8 D_80131870_copy;
+    u8 D_80131874_copy;
+    u8 D_80131878_copy;
+    u8 D_8013187C_copy;
+    u8 OoT_sOcarinaDropInputTimer_copy;
+    OcarinaStaff OoT_sPlayingStaff_copy;
+    OcarinaStaff sDisplayedStaff_copy;
+    OcarinaStaff OoT_sRecordingStaff_copy;
+    u8 OoT_sNotePlaybackVolume_copy;
+    u8 OoT_sNotePlaybackVibrato_copy;
+    s8 sNotePlaybackTone_copy;
+    f32 sNormalizedNotePlaybackTone_copy;
+    f32 sNormalizedNotePlaybackVolume_copy;
+    s32 D_80130F68_copy;
+    u16 D_80130F4C_copy;
+    u32 D_8016BA04_copy;
+    OcarinaStick sCurOcaStick_copy;
 
     // Message_PAL
     s16 sOcarinaNoteBufPos_copy;
@@ -333,6 +533,10 @@ class SaveState {
 
   public:
     SaveState(std::shared_ptr<SaveStateMgr> mgr, unsigned int slot);
+#ifdef RSBS_SINGLE_EXECUTABLE
+    void SavePlainBlocksForTest(void);
+    void LoadPlainBlocksForTest(void);
+#endif
 
   private:
     unsigned int slot;
@@ -352,6 +556,10 @@ class SaveState {
 
     void SaveMiscCodeData(void);
     void LoadMiscCodeData(void);
+    void SaveEffectData(void);
+    void LoadEffectData(void);
+    void SaveTransitionActors(void);
+    void LoadTransitionActors(void);
 
     SaveStateInfo* GetSaveStateInfo(void);
 };
@@ -583,8 +791,36 @@ void SaveState::SaveOverlayStaticData(void) {
     memcpy(info->D_809105D8_copy, D_809105D8, sizeof(D_809105D8));
     memcpy(info->D_80910608_copy, D_80910608, sizeof(D_80910608));
     memcpy(info->sBossGanon2Particles_copy, sBossGanon2Particles, sizeof(sBossGanon2Particles));
+    info->sMorphaCore_copy = sMorphaCore;
+    info->sMorphaTent1_copy = sMorphaTent1;
+    info->sMorphaTent2_copy = sMorphaTent2;
+    memcpy(info->OoT_sEffects_copy, OoT_sEffects, sizeof(OoT_sEffects));
+    info->sBossMoSeed1_copy = sBossMoSeed1;
+    info->sBossMoSeed2_copy = sBossMoSeed2;
+    info->sBossMoSeed3_copy = sBossMoSeed3;
+    info->sHead_copy = sHead;
+    memcpy(info->sHands_copy, sHands, sizeof(sHands));
+    info->sFloor_copy = sFloor;
+    memcpy(info->sHandOffsets_copy, sHandOffsets, sizeof(sHandOffsets));
+    memcpy(info->sHandYawOffsets_copy, sHandYawOffsets, sizeof(sHandYawOffsets));
+    info->sCutsceneCamera_copy = sCutsceneCamera;
+    info->sBodyStatic_copy = sBodyStatic;
+    info->sBodyColor_copy = sBodyColor;
+    info->sStaticColor_copy = sStaticColor;
     info->sTwInitalized_copy = sTwInitalized;
     memcpy(info->sTwEffects_copy, sTwEffects, sizeof(sTwEffects));
+    info->sKillBari_copy = sKillBari;
+    memcpy(info->sBodyBari_copy, sBodyBari, sizeof(sBodyBari));
+    info->sCsCamera_copy = sCsCamera;
+    memcpy(info->sVaEffects_copy, sVaEffects, sizeof(sVaEffects));
+    info->sBodyState_copy = sBodyState;
+    info->sFightPhase_copy = sFightPhase;
+    info->sCsState_copy = sCsState;
+    info->sDoorState_copy = sDoorState;
+    info->sPhase3StopMoving_copy = sPhase3StopMoving;
+    info->sZapperRot_copy = sZapperRot;
+    info->sPhase2Timer_copy = sPhase2Timer;
+    info->sPhase4HP_copy = sPhase4HP;
     info->sDemo6kVelocity_copy = sDemo6kVelocity;
     info->D_8096CE94_copy = D_8096CE94;
     info->demoKekkaiVel_copy = demoKekkaiVel;
@@ -622,6 +858,30 @@ void SaveState::SaveOverlayStaticData(void) {
     info->sTrailingFairies_copy = sTrailingFairies;
 
     info->sHeishi1PlayerIsCaughtCopy = sHeishi1PlayerIsCaught;
+
+    info->D_80858AA0_copy = D_80858AA0;
+    info->OoT_sSavedCurrentMask_copy = OoT_sSavedCurrentMask;
+    info->OoT_sInteractWallCheckResult_copy = OoT_sInteractWallCheckResult;
+    info->sControlInput_copy = sControlInput;
+    info->OoT_sNoclipEnabled_copy = OoT_sNoclipEnabled;
+    info->OoT_sControlStickMagnitude_copy = OoT_sControlStickMagnitude;
+    info->OoT_sControlStickAngle_copy = OoT_sControlStickAngle;
+    info->OoT_sControlStickWorldYaw_copy = OoT_sControlStickWorldYaw;
+    info->OoT_sUpperBodyIsBusy_copy = OoT_sUpperBodyIsBusy;
+    info->sFloorType_copy = sFloorType;
+    info->OoT_sWaterSpeedFactor_copy = OoT_sWaterSpeedFactor;
+    info->OoT_sInvWaterSpeedFactor_copy = OoT_sInvWaterSpeedFactor;
+    info->sTouchedWallFlags_copy = sTouchedWallFlags;
+    info->sConveyorSpeed_copy = sConveyorSpeed;
+    info->sIsFloorConveyor_copy = sIsFloorConveyor;
+    info->sConveyorYaw_copy = sConveyorYaw;
+    info->sYDistToFloor_copy = sYDistToFloor;
+    info->OoT_sPrevFloorProperty_copy = OoT_sPrevFloorProperty;
+    info->OoT_sShapeYawToTouchedWall_copy = OoT_sShapeYawToTouchedWall;
+    info->OoT_sWorldYawToTouchedWall_copy = OoT_sWorldYawToTouchedWall;
+    info->sFloorShapePitch_copy = sFloorShapePitch;
+    info->sUseHeldItem_copy = sUseHeldItem;
+    info->sHeldItemButtonIsHeldDown_copy = sHeldItemButtonIsHeldDown;
 }
 
 void SaveState::LoadOverlayStaticData(void) {
@@ -657,8 +917,36 @@ void SaveState::LoadOverlayStaticData(void) {
     memcpy(D_809105D8, info->D_809105D8_copy, sizeof(D_809105D8));
     memcpy(D_80910608, info->D_80910608_copy, sizeof(D_80910608));
     memcpy(sBossGanon2Particles, info->sBossGanon2Particles_copy, sizeof(sBossGanon2Particles));
+    sMorphaCore = info->sMorphaCore_copy;
+    sMorphaTent1 = info->sMorphaTent1_copy;
+    sMorphaTent2 = info->sMorphaTent2_copy;
+    memcpy(OoT_sEffects, info->OoT_sEffects_copy, sizeof(OoT_sEffects));
+    sBossMoSeed1 = info->sBossMoSeed1_copy;
+    sBossMoSeed2 = info->sBossMoSeed2_copy;
+    sBossMoSeed3 = info->sBossMoSeed3_copy;
+    sHead = info->sHead_copy;
+    memcpy(sHands, info->sHands_copy, sizeof(sHands));
+    sFloor = info->sFloor_copy;
+    memcpy(sHandOffsets, info->sHandOffsets_copy, sizeof(sHandOffsets));
+    memcpy(sHandYawOffsets, info->sHandYawOffsets_copy, sizeof(sHandYawOffsets));
+    sCutsceneCamera = info->sCutsceneCamera_copy;
+    sBodyStatic = info->sBodyStatic_copy;
+    sBodyColor = info->sBodyColor_copy;
+    sStaticColor = info->sStaticColor_copy;
     sTwInitalized = info->sTwInitalized_copy;
     memcpy(sTwEffects, info->sTwEffects_copy, sizeof(sTwEffects));
+    sKillBari = info->sKillBari_copy;
+    memcpy(sBodyBari, info->sBodyBari_copy, sizeof(sBodyBari));
+    sCsCamera = info->sCsCamera_copy;
+    memcpy(sVaEffects, info->sVaEffects_copy, sizeof(sVaEffects));
+    sBodyState = info->sBodyState_copy;
+    sFightPhase = info->sFightPhase_copy;
+    sCsState = info->sCsState_copy;
+    sDoorState = info->sDoorState_copy;
+    sPhase3StopMoving = info->sPhase3StopMoving_copy;
+    sZapperRot = info->sZapperRot_copy;
+    sPhase2Timer = info->sPhase2Timer_copy;
+    sPhase4HP = info->sPhase4HP_copy;
     sDemo6kVelocity = info->sDemo6kVelocity_copy;
 
     D_8096CE94 = info->D_8096CE94_copy;
@@ -694,6 +982,30 @@ void SaveState::LoadOverlayStaticData(void) {
     sTrailingFairies = info->sTrailingFairies_copy;
 
     sHeishi1PlayerIsCaught = info->sHeishi1PlayerIsCaughtCopy;
+
+    D_80858AA0 = info->D_80858AA0_copy;
+    OoT_sSavedCurrentMask = info->OoT_sSavedCurrentMask_copy;
+    OoT_sInteractWallCheckResult = info->OoT_sInteractWallCheckResult_copy;
+    sControlInput = info->sControlInput_copy;
+    OoT_sNoclipEnabled = info->OoT_sNoclipEnabled_copy;
+    OoT_sControlStickMagnitude = info->OoT_sControlStickMagnitude_copy;
+    OoT_sControlStickAngle = info->OoT_sControlStickAngle_copy;
+    OoT_sControlStickWorldYaw = info->OoT_sControlStickWorldYaw_copy;
+    OoT_sUpperBodyIsBusy = info->OoT_sUpperBodyIsBusy_copy;
+    sFloorType = info->sFloorType_copy;
+    OoT_sWaterSpeedFactor = info->OoT_sWaterSpeedFactor_copy;
+    OoT_sInvWaterSpeedFactor = info->OoT_sInvWaterSpeedFactor_copy;
+    sTouchedWallFlags = info->sTouchedWallFlags_copy;
+    sConveyorSpeed = info->sConveyorSpeed_copy;
+    sIsFloorConveyor = info->sIsFloorConveyor_copy;
+    sConveyorYaw = info->sConveyorYaw_copy;
+    sYDistToFloor = info->sYDistToFloor_copy;
+    OoT_sPrevFloorProperty = info->OoT_sPrevFloorProperty_copy;
+    OoT_sShapeYawToTouchedWall = info->OoT_sShapeYawToTouchedWall_copy;
+    OoT_sWorldYawToTouchedWall = info->OoT_sWorldYawToTouchedWall_copy;
+    sFloorShapePitch = info->sFloorShapePitch_copy;
+    sUseHeldItem = info->sUseHeldItem_copy;
+    sHeldItemButtonIsHeldDown = info->sHeldItemButtonIsHeldDown_copy;
 }
 
 void SaveState::SaveMiscCodeData(void) {
@@ -742,6 +1054,83 @@ void SaveState::SaveMiscCodeData(void) {
     info->sAudioHasMalonBgm_copy = sAudioHasMalonBgm;
     info->sAudioMalonBgmDist_copy = sAudioMalonBgmDist;
     info->sDisplayedNoteValue_copy = sDisplayedNoteValue;
+    memcpy(info->sOcarinaSongs_memoryGame_copy, sOcarinaSongs[OCARINA_SONG_MEMORY_GAME],
+           sizeof(sOcarinaSongs[OCARINA_SONG_MEMORY_GAME]));
+    memcpy(info->sOcarinaSongs_scarecrow_copy, sOcarinaSongs[OCARINA_SONG_SCARECROW],
+           sizeof(sOcarinaSongs[OCARINA_SONG_SCARECROW]));
+    info->sOcaMinigameAppendPos_copy = sOcaMinigameAppendPos;
+    info->sOcaMinigameEndPos_copy = sOcaMinigameEndPos;
+    info->D_801305B0_copy = D_801305B0;
+    info->D_801305B4_copy = D_801305B4;
+    info->D_801305B8_copy = D_801305B8;
+    info->D_801305BC_copy = D_801305BC;
+    info->D_801305C0_copy = D_801305C0;
+    info->OoT_sAudioIncreasingTranspose_copy = OoT_sAudioIncreasingTranspose;
+    info->OoT_sPrevChargeLevel_copy = OoT_sPrevChargeLevel;
+    info->D_801305F4_copy = D_801305F4;
+    info->D_80130600_copy = D_80130600;
+    info->D_80130608_copy = D_80130608;
+    info->OoT_sAudioCutsceneFlag_copy = OoT_sAudioCutsceneFlag;
+    info->OoT_sSpecReverb_copy = OoT_sSpecReverb;
+    info->OoT_sAudioEnvReverb_copy = OoT_sAudioEnvReverb;
+    info->OoT_sAudioCodeReverb_copy = OoT_sAudioCodeReverb;
+    info->OoT_sPrevSeqMode_copy = OoT_sPrevSeqMode;
+    info->sAudioEnemyDist_copy = sAudioEnemyDist;
+    info->sAudioEnemyVol_copy = sAudioEnemyVol;
+    info->OoT_sPrevMainBgmSeqId_copy = OoT_sPrevMainBgmSeqId;
+    info->D_8013062C_copy = D_8013062C;
+    info->D_80130630_copy = D_80130630;
+    info->OoT_sNumFramesStill_copy = OoT_sNumFramesStill;
+    info->OoT_sNumFramesMoving_copy = OoT_sNumFramesMoving;
+    info->OoT_sAudioBaseFilter_copy = OoT_sAudioBaseFilter;
+    info->OoT_sAudioExtraFilter_copy = OoT_sAudioExtraFilter;
+    info->OoT_sAudioBaseFilter2_copy = OoT_sAudioBaseFilter2;
+    info->OoT_sAudioExtraFilter2_copy = OoT_sAudioExtraFilter2;
+    info->sSariaBgmPtr_copy = sSariaBgmPtr;
+    info->D_80130650_copy = D_80130650;
+    info->D_8016B7A8_copy = D_8016B7A8;
+    info->D_8016B7AC_copy = D_8016B7AC;
+    info->D_8016B7B0_copy = D_8016B7B0;
+    info->D_8016B7B4_copy = D_8016B7B4;
+    info->OoT_sRiverFreqScaleLerp_copy = OoT_sRiverFreqScaleLerp;
+    info->OoT_sWaterfallFreqScaleLerp_copy = OoT_sWaterfallFreqScaleLerp;
+    info->D_8016B7D8_copy = D_8016B7D8;
+    info->D_8016B7DC_copy = D_8016B7DC;
+    info->D_8016B7E0_copy = D_8016B7E0;
+    info->D_8016B8B0_copy = D_8016B8B0;
+    info->D_8016B8B1_copy = D_8016B8B1;
+    info->D_8016B8B2_copy = D_8016B8B2;
+    info->D_8016B8B3_copy = D_8016B8B3;
+    info->sAudioGanonDistVol_copy = sAudioGanonDistVol;
+    memcpy(info->OoT_sSfxChannelState_copy, OoT_sSfxChannelState, sizeof(OoT_sSfxChannelState));
+    info->D_8016B9D8_copy = D_8016B9D8;
+    info->D_8016B9F2_copy = D_8016B9F2;
+    info->D_8016B9F3_copy = D_8016B9F3;
+    info->D_8016B9F4_copy = D_8016B9F4;
+    info->D_8016B9F6_copy = D_8016B9F6;
+    info->OoT_sRecordingState_copy = OoT_sRecordingState;
+    info->OoT_sRecordSongPos_copy = OoT_sRecordSongPos;
+    info->D_80131860_copy = D_80131860;
+    info->D_80131864_copy = D_80131864;
+    info->D_80131868_copy = D_80131868;
+    info->D_8013186C_copy = D_8013186C;
+    info->D_80131870_copy = D_80131870;
+    info->D_80131874_copy = D_80131874;
+    info->D_80131878_copy = D_80131878;
+    info->D_8013187C_copy = D_8013187C;
+    info->OoT_sOcarinaDropInputTimer_copy = OoT_sOcarinaDropInputTimer;
+    info->OoT_sPlayingStaff_copy = OoT_sPlayingStaff;
+    info->sDisplayedStaff_copy = sDisplayedStaff;
+    info->OoT_sRecordingStaff_copy = OoT_sRecordingStaff;
+    info->OoT_sNotePlaybackVolume_copy = OoT_sNotePlaybackVolume;
+    info->OoT_sNotePlaybackVibrato_copy = OoT_sNotePlaybackVibrato;
+    info->sNotePlaybackTone_copy = sNotePlaybackTone;
+    info->sNormalizedNotePlaybackTone_copy = sNormalizedNotePlaybackTone;
+    info->sNormalizedNotePlaybackVolume_copy = sNormalizedNotePlaybackVolume;
+    info->D_80130F68_copy = D_80130F68;
+    info->D_80130F4C_copy = D_80130F4C;
+    info->D_8016BA04_copy = D_8016BA04;
+    info->sCurOcaStick_copy = sCurOcaStick;
 
     info->sOcarinaNoteBufPos_copy = sOcarinaNoteBufPos;
     info->sOcarinaNoteBufLen_copy = sOcarinaNoteBufLen;
@@ -793,14 +1182,91 @@ void SaveState::LoadMiscCodeData(void) {
     sOcarinaSongCnt = info->sOcarinaSongCnt_copy;
     sOcarinaAvailSongs = info->sOcarinaAvailSongs_copy;
     sStaffPlayingPos = info->sStaffPlayingPos_copy;
-    memcpy(info->sLearnSongPos_copy, info->sLearnSongPos_copy, sizeof(sLearnSongPos));
-    memcpy(info->D_8016BA50_copy, info->D_8016BA50_copy, sizeof(D_8016BA50));
-    memcpy(info->D_8016BA70_copy, info->D_8016BA70_copy, sizeof(D_8016BA70));
-    memcpy(info->sLearnSongExpectedNote_copy, info->sLearnSongExpectedNote_copy, sizeof(sLearnSongExpectedNote));
+    memcpy(sLearnSongPos, info->sLearnSongPos_copy, sizeof(sLearnSongPos));
+    memcpy(D_8016BA50, info->D_8016BA50_copy, sizeof(D_8016BA50));
+    memcpy(D_8016BA70, info->D_8016BA70_copy, sizeof(D_8016BA70));
+    memcpy(sLearnSongExpectedNote, info->sLearnSongExpectedNote_copy, sizeof(sLearnSongExpectedNote));
     memcpy(&D_8016BAA0, &info->D_8016BAA0_copy, sizeof(D_8016BAA0));
     sAudioHasMalonBgm = info->sAudioHasMalonBgm_copy;
     sAudioMalonBgmDist = info->sAudioMalonBgmDist_copy;
     sDisplayedNoteValue = info->sDisplayedNoteValue_copy;
+    memcpy(sOcarinaSongs[OCARINA_SONG_MEMORY_GAME], info->sOcarinaSongs_memoryGame_copy,
+           sizeof(sOcarinaSongs[OCARINA_SONG_MEMORY_GAME]));
+    memcpy(sOcarinaSongs[OCARINA_SONG_SCARECROW], info->sOcarinaSongs_scarecrow_copy,
+           sizeof(sOcarinaSongs[OCARINA_SONG_SCARECROW]));
+    sOcaMinigameAppendPos = info->sOcaMinigameAppendPos_copy;
+    sOcaMinigameEndPos = info->sOcaMinigameEndPos_copy;
+    D_801305B0 = info->D_801305B0_copy;
+    D_801305B4 = info->D_801305B4_copy;
+    D_801305B8 = info->D_801305B8_copy;
+    D_801305BC = info->D_801305BC_copy;
+    D_801305C0 = info->D_801305C0_copy;
+    OoT_sAudioIncreasingTranspose = info->OoT_sAudioIncreasingTranspose_copy;
+    OoT_sPrevChargeLevel = info->OoT_sPrevChargeLevel_copy;
+    D_801305F4 = info->D_801305F4_copy;
+    D_80130600 = info->D_80130600_copy;
+    D_80130608 = info->D_80130608_copy;
+    OoT_sAudioCutsceneFlag = info->OoT_sAudioCutsceneFlag_copy;
+    OoT_sSpecReverb = info->OoT_sSpecReverb_copy;
+    OoT_sAudioEnvReverb = info->OoT_sAudioEnvReverb_copy;
+    OoT_sAudioCodeReverb = info->OoT_sAudioCodeReverb_copy;
+    OoT_sPrevSeqMode = info->OoT_sPrevSeqMode_copy;
+    sAudioEnemyDist = info->sAudioEnemyDist_copy;
+    sAudioEnemyVol = info->sAudioEnemyVol_copy;
+    OoT_sPrevMainBgmSeqId = info->OoT_sPrevMainBgmSeqId_copy;
+    D_8013062C = info->D_8013062C_copy;
+    D_80130630 = info->D_80130630_copy;
+    OoT_sNumFramesStill = info->OoT_sNumFramesStill_copy;
+    OoT_sNumFramesMoving = info->OoT_sNumFramesMoving_copy;
+    OoT_sAudioBaseFilter = info->OoT_sAudioBaseFilter_copy;
+    OoT_sAudioExtraFilter = info->OoT_sAudioExtraFilter_copy;
+    OoT_sAudioBaseFilter2 = info->OoT_sAudioBaseFilter2_copy;
+    OoT_sAudioExtraFilter2 = info->OoT_sAudioExtraFilter2_copy;
+    sSariaBgmPtr = info->sSariaBgmPtr_copy;
+    D_80130650 = info->D_80130650_copy;
+    D_8016B7A8 = info->D_8016B7A8_copy;
+    D_8016B7AC = info->D_8016B7AC_copy;
+    D_8016B7B0 = info->D_8016B7B0_copy;
+    D_8016B7B4 = info->D_8016B7B4_copy;
+    OoT_sRiverFreqScaleLerp = info->OoT_sRiverFreqScaleLerp_copy;
+    OoT_sWaterfallFreqScaleLerp = info->OoT_sWaterfallFreqScaleLerp_copy;
+    D_8016B7D8 = info->D_8016B7D8_copy;
+    D_8016B7DC = info->D_8016B7DC_copy;
+    D_8016B7E0 = info->D_8016B7E0_copy;
+    D_8016B8B0 = info->D_8016B8B0_copy;
+    D_8016B8B1 = info->D_8016B8B1_copy;
+    D_8016B8B2 = info->D_8016B8B2_copy;
+    D_8016B8B3 = info->D_8016B8B3_copy;
+    sAudioGanonDistVol = info->sAudioGanonDistVol_copy;
+    memcpy(OoT_sSfxChannelState, info->OoT_sSfxChannelState_copy, sizeof(OoT_sSfxChannelState));
+    D_8016B9D8 = info->D_8016B9D8_copy;
+    D_8016B9F2 = info->D_8016B9F2_copy;
+    D_8016B9F3 = info->D_8016B9F3_copy;
+    D_8016B9F4 = info->D_8016B9F4_copy;
+    D_8016B9F6 = info->D_8016B9F6_copy;
+    OoT_sRecordingState = info->OoT_sRecordingState_copy;
+    OoT_sRecordSongPos = info->OoT_sRecordSongPos_copy;
+    D_80131860 = info->D_80131860_copy;
+    D_80131864 = info->D_80131864_copy;
+    D_80131868 = info->D_80131868_copy;
+    D_8013186C = info->D_8013186C_copy;
+    D_80131870 = info->D_80131870_copy;
+    D_80131874 = info->D_80131874_copy;
+    D_80131878 = info->D_80131878_copy;
+    D_8013187C = info->D_8013187C_copy;
+    OoT_sOcarinaDropInputTimer = info->OoT_sOcarinaDropInputTimer_copy;
+    OoT_sPlayingStaff = info->OoT_sPlayingStaff_copy;
+    sDisplayedStaff = info->sDisplayedStaff_copy;
+    OoT_sRecordingStaff = info->OoT_sRecordingStaff_copy;
+    OoT_sNotePlaybackVolume = info->OoT_sNotePlaybackVolume_copy;
+    OoT_sNotePlaybackVibrato = info->OoT_sNotePlaybackVibrato_copy;
+    sNotePlaybackTone = info->sNotePlaybackTone_copy;
+    sNormalizedNotePlaybackTone = info->sNormalizedNotePlaybackTone_copy;
+    sNormalizedNotePlaybackVolume = info->sNormalizedNotePlaybackVolume_copy;
+    D_80130F68 = info->D_80130F68_copy;
+    D_80130F4C = info->D_80130F4C_copy;
+    D_8016BA04 = info->D_8016BA04_copy;
+    sCurOcaStick = info->sCurOcaStick_copy;
 
     sOcarinaNoteBufPos = info->sOcarinaNoteBufPos_copy;
     sOcarinaNoteBufLen = info->sOcarinaNoteBufLen_copy;
@@ -813,6 +1279,34 @@ void SaveState::LoadMiscCodeData(void) {
     sHasSunsSong = info->sHasSunsSong_copy;
     sMessageHasSetSfx = info->sMessageHasSetSfx_copy;
     sOcarinaSongBitFlags = info->sOcarinaSongBitFlags_copy;
+}
+
+void SaveState::SaveEffectData(void) {
+    memcpy(&info->effectContextCopy, &OoT_sEffectContext, sizeof(EffectContext));
+}
+
+void SaveState::LoadEffectData(void) {
+    memcpy(&OoT_sEffectContext, &info->effectContextCopy, sizeof(EffectContext));
+}
+
+void SaveState::SaveTransitionActors(void) {
+    if (OoT_gPlayState != nullptr && OoT_gPlayState->transiActorCtx.list != nullptr) {
+        info->transitionActorCount_copy = OoT_gPlayState->transiActorCtx.numActors;
+        for (u32 i = 0; i < info->transitionActorCount_copy; i++) {
+            info->transitionActorIds_copy[i] = OoT_gPlayState->transiActorCtx.list[i].id;
+        }
+    } else {
+        info->transitionActorCount_copy = 0;
+    }
+}
+
+void SaveState::LoadTransitionActors(void) {
+    if (OoT_gPlayState != nullptr && OoT_gPlayState->transiActorCtx.list != nullptr) {
+        u32 count = std::min<u32>(info->transitionActorCount_copy, OoT_gPlayState->transiActorCtx.numActors);
+        for (u32 i = 0; i < count; i++) {
+            OoT_gPlayState->transiActorCtx.list[i].id = info->transitionActorIds_copy[i];
+        }
+    }
 }
 
 extern "C" void ProcessSaveStateRequests(void) {
@@ -921,6 +1415,8 @@ void SaveState::Save(void) {
     SaveOnePointDemoData();
     SaveOverlayStaticData();
     SaveMiscCodeData();
+    SaveEffectData();
+    SaveTransitionActors();
 }
 
 void SaveState::Load(void) {
@@ -954,4 +1450,40 @@ void SaveState::Load(void) {
     LoadOnePointDemoData();
     LoadOverlayStaticData();
     LoadMiscCodeData();
+    LoadEffectData();
+    LoadTransitionActors();
 }
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+void SaveState::SavePlainBlocksForTest(void) {
+    SaveOverlayStaticData();
+    SaveMiscCodeData();
+    SaveEffectData();
+    SaveTransitionActors();
+}
+
+void SaveState::LoadPlainBlocksForTest(void) {
+    LoadOverlayStaticData();
+    LoadMiscCodeData();
+    LoadEffectData();
+    LoadTransitionActors();
+}
+
+extern "C" {
+void* OoT_SaveState_TestCreate(void) {
+    return new SaveState(nullptr, 0);
+}
+
+void OoT_SaveState_TestDestroy(void* state) {
+    delete static_cast<SaveState*>(state);
+}
+
+void OoT_SaveState_TestSavePlainBlocks(void* state) {
+    static_cast<SaveState*>(state)->SavePlainBlocksForTest();
+}
+
+void OoT_SaveState_TestLoadPlainBlocks(void* state) {
+    static_cast<SaveState*>(state)->LoadPlainBlocksForTest();
+}
+}
+#endif

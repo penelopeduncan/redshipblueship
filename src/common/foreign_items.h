@@ -613,6 +613,24 @@ RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLA
 #define RSBS_XFAMILY_SLOT_OCARINA_C_LEFT 0x00000080u
 #define RSBS_XFAMILY_SLOT_OCARINA_C_RIGHT 0x00000100u
 
+/** #1702 C1: the PAIR'S POSSESSION of the Child's Wallet and of the Bombchu Bag,
+ *  two family slots that belong to no rule. Each is the sharedFamilyOwned bit of
+ *  an EXTENSION rule (RSBS_XITEM_SKULL_MASK_MM, RSBS_XITEM_SPOOKY_MASK_MM), the
+ *  C-button precedent above: an extension is pinned as never a family, so its bit
+ *  of the ownership bitset can be nothing else's. Not in the second family word,
+ *  whose every family bit IS its rule bit (RSBS_XITEM2_FAMILY_MASK), so a
+ *  non-rule slot there would take the next second-word rule's bit (#1767 took
+ *  0x4000 and 0x8000 for the Shared Sun's and Saria's Songs).
+ *  ARMED ONLY BY THE FROZEN COMBO FLAGS of stage C0 (Combo_SharedPossessionArmed,
+ *  shared_resources.h), never by a rule: Combo_SharedFamiliesArmed never returns
+ *  them, so the item-id paths (the far-pickup credit, the shared bag pairs, the
+ *  name tags) never see them, and a file frozen without the C0 bits never writes
+ *  them. */
+#define RSBS_XFAMILY_SLOT_CHILD_WALLET 0x00000200u
+#define RSBS_XFAMILY_SLOT_BOMBCHU_BAG 0x00000400u
+/** Both possession slots (#1702 C1). */
+#define RSBS_XFAMILY_SLOTS_POSSESSION (RSBS_XFAMILY_SLOT_CHILD_WALLET | RSBS_XFAMILY_SLOT_BOMBCHU_BAG)
+
 /** Every RSBS_XITEM_* bit ALLOCATED by this build. A frozen record holding any
  *  other bit was written by a later build (Combo_ComboItemRulesValid). */
 #define RSBS_XITEM_ALL_V1                                                                                  \
@@ -632,13 +650,18 @@ RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLA
 
 /** The FAMILY SLOTS that are not family rule bits: a rule with more than one
  *  pair (#1068's two shields, #1067's five buttons) owns its first pair at its
- *  own bit and each further pair at one of these. Pinned, append-only,
+ *  own bit and each further pair at one of these, and #1702's two possession
+ *  slots, which no rule owns, sit at two more. Pinned, append-only,
  *  .redsave format (bits of gComboCtx.sharedFamilyOwned); never an
  *  RSBS_XITEM_FAMILY_MASK bit: either a bit no rule occupies (bit 31) or the
- *  bit of an EXTENSION rule, which is pinned as never a family. */
+ *  bit of an EXTENSION rule, which is pinned as never a family.
+ *  NO EXTENSION BIT IS LEFT: #1702's two slots took the last two. The next extra
+ *  slot needs one of the free first-word rule bits 28 to 30 (and then that bit
+ *  can never become a rule), or an extra-slot mechanism in the second word,
+ *  which has none today (every family bit there is its rule bit). */
 #define RSBS_XFAMILY_SLOTS_EXTRA                                                                           \
     (RSBS_XFAMILY_SLOT_MIRROR_SHIELD | RSBS_XFAMILY_SLOT_OCARINA_C_UP | RSBS_XFAMILY_SLOT_OCARINA_C_DOWN | \
-     RSBS_XFAMILY_SLOT_OCARINA_C_LEFT | RSBS_XFAMILY_SLOT_OCARINA_C_RIGHT)
+     RSBS_XFAMILY_SLOT_OCARINA_C_LEFT | RSBS_XFAMILY_SLOT_OCARINA_C_RIGHT | RSBS_XFAMILY_SLOTS_POSSESSION)
 /** Every family slot: a family rule's own bit or an extra slot. */
 #define RSBS_XFAMILY_SLOTS_ALL (RSBS_XITEM_FAMILY_MASK | RSBS_XFAMILY_SLOTS_EXTRA)
 
@@ -680,6 +703,19 @@ RSBS_CTX_STATIC_ASSERT(
     "RSBS_XITEM_* bit positions and the extra family slots are .redsave format: pinned, append-only, allocate the "
     "next free bit and never re-point an allocated one; an extra slot is bit 31 or an extension rule's bit, never a "
     "family's (ADR 0011's 2026-10-18 amendment, #976, #1065, #1066, #1067, #1068, #1069, #1369)");
+RSBS_CTX_STATIC_ASSERT(
+    RSBS_XFAMILY_SLOT_CHILD_WALLET == 0x200u && RSBS_XFAMILY_SLOT_BOMBCHU_BAG == 0x400u &&
+        RSBS_XFAMILY_SLOT_CHILD_WALLET == RSBS_XITEM_SKULL_MASK_MM &&
+        RSBS_XFAMILY_SLOT_BOMBCHU_BAG == RSBS_XITEM_SPOOKY_MASK_MM &&
+        (RSBS_XFAMILY_SLOTS_POSSESSION & RSBS_XITEM_FAMILY_MASK) == 0u &&
+        (RSBS_XFAMILY_SLOTS_POSSESSION & RSBS_XITEM_SHUFFLE_GATED) == 0u &&
+        (RSBS_XFAMILY_SLOTS_POSSESSION &
+         (RSBS_XFAMILY_SLOT_MIRROR_SHIELD | RSBS_XFAMILY_SLOT_OCARINA_C_UP | RSBS_XFAMILY_SLOT_OCARINA_C_DOWN |
+          RSBS_XFAMILY_SLOT_OCARINA_C_LEFT | RSBS_XFAMILY_SLOT_OCARINA_C_RIGHT)) == 0u &&
+        (RSBS_XFAMILY_SLOTS_EXTRA & RSBS_XFAMILY_SLOTS_POSSESSION) == RSBS_XFAMILY_SLOTS_POSSESSION &&
+        (RSBS_XFAMILY_SLOTS_POSSESSION & 0x70000000u) == 0u,
+    "#1702 C1: the two possession slots are pinned at the Skull and Spooky Mask (MM) extension bits, never a "
+    "family rule's bit, a shuffle-gated rule's, another extra slot's or one of the free rule bits 28-30");
 RSBS_CTX_STATIC_ASSERT(RSBS_BLAST_COOLDOWN_DEFAULT == 0u && RSBS_BLAST_COOLDOWN_INSTANT == 1u &&
                            RSBS_BLAST_COOLDOWN_VERY_LONG == 5u,
                        "RSBS_BLAST_COOLDOWN_* values are .redsave format: pinned, append-only, and DEFAULT stays 0 "
@@ -1567,8 +1603,37 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     with nothing (#1647, PRs #1660, #1662, #1664). DEFAULT worlds move, and
  *     the goldens move with them. Seed packages written by generator 5 are
  *     refused, as designed.
+ * 7 = the worlds v0.5.2-alpha (generator 6) made that this build makes
+ *     differently: OoT logic rules of #1760 (SoH eca767dcb) that could expect
+ *     what Link cannot do are tightened (#1793). With Voidout Collection on
+ *     and a void Link cannot survive (one-hit KO, or one heart without Double
+ *     Defense, each with no fairy), the three hearts at the end of Ganon's
+ *     Castle's Shadow Trial and the Master Quest Fire Trial's on-pillar
+ *     silver rupee from the barred door leave logic (CanVoid). With Master
+ *     Quest Ganon's Castle, the Shadow Trial's silver rupees from the starting
+ *     ledge need the Bow and RT_GANON_MQ_SHADOW_TRIAL with the Hover Boots or
+ *     the hood (a precedence slip let the Lens with the Hover Boots, or the
+ *     Lens with Bunny Hood Effect, take them alone). With Master Quest Gerudo
+ *     Training Ground and Masks as Adult on, the far lava platform's hood jump
+ *     needs Bunny Hood Effect. And the frozen waterfall Gold Skulltula in
+ *     Zora's Domain is no longer killed by thrown bombs (CanKillEnemy's Gold
+ *     Skulltula case honours inWater, which only that rule passes): this one
+ *     needs no non-default setting, since its token counts toward the
+ *     Skulltula House rewards, so a DEFAULT world can move where the search
+ *     reached that token with bombs as its only weapon. The Great Deku Tree
+ *     Map's English article and the Zora's Sapphire's French one gain their
+ *     space; that moves hint text, not worlds. Seed packages written by
+ *     generator 6 are refused, as designed.
+ * 8 = the worlds v0.5.3-alpha (generator 7) made that this build makes
+ *     differently: with Shuffle Speak on, the Haunted Wasteland carpet
+ *     merchant's event (LOGIC_CARPET_MERCHANT) needs the Hylian Jabber Nut
+ *     (#1798), so the merchant no longer counts as a bombchu refill before
+ *     that nut is found, and such a world can move where the search counted
+ *     on bombchus the carpet merchant refilled before the Hylian nut. DEFAULT
+ *     worlds (Shuffle Speak off) do not move. Seed packages written by
+ *     generator 7 are refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 6u
+#define RSBS_GENERATOR_VERSION 8u
 
 /**
  * The fingerprint formula at an explicit generator version:

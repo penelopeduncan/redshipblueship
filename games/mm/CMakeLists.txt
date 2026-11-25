@@ -603,7 +603,7 @@ if(SINGLE_EXECUTABLE_BUILD)
         "2s2h/DeveloperTools/MessageViewer.cpp"
         "2s2h/DeveloperTools/ObjectDependency.cpp"
         "2s2h/DeveloperTools/WarpPoint.cpp"
-        # #1032: the 25 Skip Misc Interactions TUs, all keyed on gEnhancements.TimeSavers.SkipMiscInteractions
+        # #1032: the 25 Skip Misc Interactions TUs (#1755 adds two more below), all keyed on gEnhancements.TimeSavers.SkipMiscInteractions
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipAlienStartAndFail.cpp"
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipAlienWarning.cpp"
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipBankerDialogue.cpp"
@@ -784,6 +784,9 @@ if(SINGLE_EXECUTABLE_BUILD)
         # verdict it is handed, so it needs no play-state guard. No stub in mm_stubs.c; no twin of
         # RegisterDekuButlerFixShockLoopAnimation in games/oot. MMRegistrarCoverage's W6-FIXES probe attributes it.
         "2s2h/Enhancements/Fixes/FixDekuButlerShockLoopAnimation.cpp"
+        # #1755: Skip Misc Interactions cutscene skips
+        "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipSakonsHideoutCutscenes.cpp"
+        "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipCouplesMaskCutscene.cpp"
         # #1755: 2Ship #1558 (PictoBoxOnCUp), drawn in Enhancements > Items > Equipment (SohMenuHostedMmPlayer.cpp).
         # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides VB_FIRST_PERSON_CAMERA,
         # appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from MM_Player_ActionHandler_0

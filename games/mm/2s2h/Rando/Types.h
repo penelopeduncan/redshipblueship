@@ -3579,6 +3579,15 @@ typedef enum {
     RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP,
     RANDO_INF_OBTAINED_SONG_DOUBLE_TIME,
     RANDO_INF_OBTAINED_SONG_INVERTED_TIME,
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // RedShipBlueShip #1702 stage C1: Majora's Mask's half of the pair's one
+    // Child's Wallet and one Bombchu Bag (the shared-family possession slots,
+    // GameExports_SingleExe.cpp). Written only by those members' gives while
+    // Ocarina of Time's shuffle froze the slot on; read by nothing until stages C2
+    // and C3. After the last flag so every saved flag keeps its number.
+    RANDO_INF_OBTAINED_CHILD_WALLET,
+    RANDO_INF_OBTAINED_BOMBCHU_BAG,
+#endif
     RANDO_INF_MAX,
 } RandoInf;
 

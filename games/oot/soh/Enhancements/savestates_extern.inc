@@ -126,9 +126,43 @@ extern "C" Vec3f D_809105D8[4];
 extern "C" Vec3f D_80910608[4];
 extern "C" BossGanon2Effect sBossGanon2Particles[100];
 
+// z_boss_mo
+extern "C" void* sMorphaCore;
+extern "C" void* sMorphaTent1;
+extern "C" void* sMorphaTent2;
+extern "C" BossMoEffect OoT_sEffects[300];
+extern "C" s32 sBossMoSeed1;
+extern "C" s32 sBossMoSeed2;
+extern "C" s32 sBossMoSeed3;
+
+// z_boss_sst
+extern "C" void* sHead;
+extern "C" void* sHands[2];
+extern "C" void* sFloor;
+extern "C" Vec3f sHandOffsets[2];
+extern "C" s16 sHandYawOffsets[2];
+extern "C" s16 sCutsceneCamera;
+extern "C" u32 sBodyStatic;
+extern "C" Color_RGBA8 sBodyColor;
+extern "C" Color_RGBA8 sStaticColor;
+
 // z_boss_tw
 extern "C" uint8_t sTwInitalized;
 extern "C" BossTwEffect sTwEffects[150];
+
+// z_boss_va
+extern "C" u8 sKillBari;
+extern "C" u8 sBodyBari[10];
+extern "C" s16 sCsCamera;
+extern "C" BossVaEffect sVaEffects[400];
+extern "C" u8 sBodyState;
+extern "C" u8 sFightPhase;
+extern "C" s8 sCsState;
+extern "C" s16 sDoorState;
+extern "C" u8 sPhase3StopMoving;
+extern "C" Vec3s sZapperRot;
+extern "C" u16 sPhase2Timer;
+extern "C" s8 sPhase4HP;
 
 // z_demo_6k
 extern "C" Vec3f sDemo6kVelocity;
@@ -203,6 +237,31 @@ extern "C" s16 sPlayerInitialDirection;
 // z_en_heishi1
 extern "C" s32 sHeishi1PlayerIsCaught;
 
+// z_player
+extern "C" s32 D_80858AA0;
+extern "C" s32 OoT_sSavedCurrentMask;
+extern "C" Vec3f OoT_sInteractWallCheckResult;
+extern "C" Input* sControlInput;
+extern "C" u32 OoT_sNoclipEnabled;
+extern "C" f32 OoT_sControlStickMagnitude;
+extern "C" s16 OoT_sControlStickAngle;
+extern "C" s16 OoT_sControlStickWorldYaw;
+extern "C" s32 OoT_sUpperBodyIsBusy;
+extern "C" s32 sFloorType;
+extern "C" f32 OoT_sWaterSpeedFactor;
+extern "C" f32 OoT_sInvWaterSpeedFactor;
+extern "C" u32 sTouchedWallFlags;
+extern "C" u32 sConveyorSpeed;
+extern "C" s16 sIsFloorConveyor;
+extern "C" s16 sConveyorYaw;
+extern "C" f32 sYDistToFloor;
+extern "C" s32 OoT_sPrevFloorProperty;
+extern "C" s32 OoT_sShapeYawToTouchedWall;
+extern "C" s32 OoT_sWorldYawToTouchedWall;
+extern "C" s16 sFloorShapePitch;
+extern "C" s32 sUseHeldItem;
+extern "C" s32 sHeldItemButtonIsHeldDown;
+
 // code_800EC960
 // Related to ocarina
 extern "C" u8 sOcarinaInpEnabled;
@@ -243,6 +302,80 @@ extern "C" OcarinaNote D_8016BAA0;
 extern "C" u8 sAudioHasMalonBgm;
 extern "C" f32 sAudioMalonBgmDist;
 extern "C" u8 sDisplayedNoteValue;
+extern "C" OcarinaNote sOcarinaSongs[OCARINA_SONG_MAX][20];
+extern "C" u8 sOcaMinigameAppendPos;
+extern "C" u8 sOcaMinigameEndPos;
+extern "C" f32 D_801305B0;
+extern "C" s8 D_801305B4;
+extern "C" s8 D_801305B8;
+extern "C" s8 D_801305BC;
+extern "C" s8 D_801305C0;
+extern "C" u8 OoT_sAudioIncreasingTranspose;
+extern "C" u8 OoT_sPrevChargeLevel;
+extern "C" f32 D_801305F4;
+extern "C" u8 D_80130600;
+extern "C" s8 D_80130608;
+extern "C" s8 OoT_sAudioCutsceneFlag;
+extern "C" s8 OoT_sSpecReverb;
+extern "C" s8 OoT_sAudioEnvReverb;
+extern "C" s8 OoT_sAudioCodeReverb;
+extern "C" u8 OoT_sPrevSeqMode;
+extern "C" f32 sAudioEnemyDist;
+extern "C" s8 sAudioEnemyVol;
+extern "C" u16 OoT_sPrevMainBgmSeqId;
+extern "C" u8 D_8013062C;
+extern "C" u8 D_80130630;
+extern "C" u32 OoT_sNumFramesStill;
+extern "C" u32 OoT_sNumFramesMoving;
+extern "C" u8 OoT_sAudioBaseFilter;
+extern "C" u8 OoT_sAudioExtraFilter;
+extern "C" u8 OoT_sAudioBaseFilter2;
+extern "C" u8 OoT_sAudioExtraFilter2;
+extern "C" Vec3f* sSariaBgmPtr;
+extern "C" f32 D_80130650;
+extern "C" f32 D_8016B7A8;
+extern "C" f32 D_8016B7AC;
+extern "C" f32 D_8016B7B0;
+extern "C" f32 D_8016B7B4;
+extern "C" FreqLerp OoT_sRiverFreqScaleLerp;
+extern "C" FreqLerp OoT_sWaterfallFreqScaleLerp;
+extern "C" f32 D_8016B7D8;
+extern "C" s8 D_8016B7DC;
+extern "C" f32 D_8016B7E0;
+extern "C" u8 D_8016B8B0;
+extern "C" u8 D_8016B8B1;
+extern "C" u8 D_8016B8B2;
+extern "C" u8 D_8016B8B3;
+extern "C" u8 sAudioGanonDistVol;
+extern "C" SfxPlayerState OoT_sSfxChannelState[0x10];
+extern "C" u8 D_8016B9D8;
+extern "C" u8 D_8016B9F2;
+extern "C" u8 D_8016B9F3;
+extern "C" u8 D_8016B9F4;
+extern "C" u16 D_8016B9F6;
+extern "C" u8 OoT_sRecordingState;
+extern "C" u8 OoT_sRecordSongPos;
+extern "C" u32 D_80131860;
+extern "C" u8 D_80131864;
+extern "C" u8 D_80131868;
+extern "C" u8 D_8013186C;
+extern "C" s8 D_80131870;
+extern "C" u8 D_80131874;
+extern "C" u8 D_80131878;
+extern "C" u8 D_8013187C;
+extern "C" u8 OoT_sOcarinaDropInputTimer;
+extern "C" OcarinaStaff OoT_sPlayingStaff;
+extern "C" OcarinaStaff sDisplayedStaff;
+extern "C" OcarinaStaff OoT_sRecordingStaff;
+extern "C" u8 OoT_sNotePlaybackVolume;
+extern "C" u8 OoT_sNotePlaybackVibrato;
+extern "C" s8 sNotePlaybackTone;
+extern "C" f32 sNormalizedNotePlaybackTone;
+extern "C" f32 sNormalizedNotePlaybackVolume;
+extern "C" s32 D_80130F68;
+extern "C" u16 D_80130F4C;
+extern "C" u32 D_8016BA04;
+extern "C" OcarinaStick sCurOcaStick;
 
 
 
@@ -258,3 +391,6 @@ extern "C" s16 OoT_sLastPlayedSong;
 extern "C" s16 sHasSunsSong;
 extern "C" s16 sMessageHasSetSfx;
 extern "C" u16 sOcarinaSongBitFlags;
+
+// z_effect
+extern "C" EffectContext OoT_sEffectContext;

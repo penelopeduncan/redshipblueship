@@ -198,7 +198,7 @@
  *     per-mode "may free-look" reset.
  *
  * PHASE 9 (#1030-#1034) -- THE FIVE KEY-GAP TUs. Accessibility/NoScreenFlashForEnemyKill,
- * Graphics/3DItemDrops, Cutscenes/MiscInteractions/* (25 TUs), Songs/SkipScarecrowSong and
+ * Graphics/3DItemDrops, Cutscenes/MiscInteractions/* (27 TUs with #1755), Songs/SkipScarecrowSong and
  * Equipment/ArrowCycle register only through a file-scope RegisterShipInitFunc
  * keyed on the key SoH's row writes (PR #1046 moved MM's readers onto it:
  * gSettings.A11yNoScreenFlashForFinishingBlow, gEnhancements.NewDrops,
@@ -212,9 +212,9 @@
  * attributable. Since 2Ship b41f365aa Minigames/Archery.cpp's Swamp registrar is
  * also keyed on Skip Misc Interactions (its VB_ARCHERY_ADD_BONUS_POINTS gate);
  * its row names that bucket. Nothing a TU defines is named here (a reference would un-elide it).
- *   - Skip Misc Interactions: the 26 TUs' registrations (the 25 MiscInteractions TUs and Minigames/Archery.cpp)
+ *   - Skip Misc Interactions: the 28 TUs' registrations (the 27 MiscInteractions TUs and Minigames/Archery.cpp)
  *     are summed per bucket in the table below, each bucket attributed to its TU(s) by name. Several TUs share a bucket
- *     (VB_START_CUTSCENE has eight of them), so one dropped TU leaves its bucket short.
+ *     (VB_START_CUTSCENE has nine of them), so one dropped TU leaves its bucket short.
  *   - #1411 adds Accessibility/NoFinalDayQuakes and Accessibility/NoScreenDistortion to the same table. Their keys
  *     (gEnhancements.A11y.NoFinalDayQuakes, gEnhancements.A11y.NoScreenDistortion) are MM's own, not converged: hosted
  *     rows on SoH's Settings > General write them. Each TU is the only registrant of its VB (VB_EARTHQUAKE_ON_DAY_3,
@@ -1561,9 +1561,11 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
           "Damage Multiplier",
           { { "VB_MULTIPLY_INFLICTED_DMG (DifficultyOptions/DamageMultiplier.cpp)",
               GAP_VB_COUNT(VB_MULTIPLY_INFLICTED_DMG), 1 } } },
-        // Skip Misc Interactions: 25 TUs under Cutscenes/MiscInteractions/, one key. Per registry, the contributors:
-        //   VB_START_CUTSCENE 8 = AlienStartAndFail, DekuTelescope, GivingBombersNotebook, KamaroTeachDance,
-        //     KotakeFlying, MayorsOfficeCutscene, RosaSistersDance, TurtleGoodbye.
+        // Skip Misc Interactions: 27 TUs under Cutscenes/MiscInteractions/ (25 from #1032 + SakonsHideoutCutscenes and
+        // CouplesMaskCutscene from #1755) and Minigames/Archery.cpp's Swamp registrar (2Ship b41f365aa), one key. Per
+        // registry, the contributors:
+        //   VB_START_CUTSCENE 9 = AlienStartAndFail, DekuTelescope, GivingBombersNotebook, KamaroTeachDance,
+        //     KotakeFlying, MayorsOfficeCutscene, RosaSistersDance, SakonsHideoutCutscenes, TurtleGoodbye.
         //   VB_PLAY_TRANSITION_CS 3 = AlienStartAndFail, EvanSong, TatlInterrupts.
         //   ShouldActorInit: EN_MA4 (AlienWarning), DOOR_WARP1 (BossWarpPrompt), EN_SELLNUTS (DekuSalesman),
         //     EN_GEG (HungryGoronDialogue), EN_ZOG (PushingMikau), EN_BAL (TingleTime).
@@ -1575,7 +1577,7 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
         //   The rest are single VB buckets, one TU each (named on the row).
         { "gEnhancements.TimeSavers.SkipMiscInteractions",
           "Skip Misc Interactions",
-          { { "VB_START_CUTSCENE", GAP_VB_COUNT(VB_START_CUTSCENE), 8 },
+          { { "VB_START_CUTSCENE", GAP_VB_COUNT(VB_START_CUTSCENE), 9 },
             { "VB_PLAY_TRANSITION_CS", GAP_VB_COUNT(VB_PLAY_TRANSITION_CS), 3 },
             { "VB_QUEUE_CUTSCENE (SkipEponaReveal.cpp)", GAP_VB_COUNT(VB_QUEUE_CUTSCENE), 1 },
             { "VB_CONTINUE_BANKER_DIALOGUE (SkipBankerDialogue.cpp)", GAP_VB_COUNT(VB_CONTINUE_BANKER_DIALOGUE), 1 },
@@ -1586,6 +1588,7 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
             { "VB_START_GREAT_FAIRY_CUTSCENE (SkipGreatFairyCutscene.cpp)", GAP_VB_COUNT(VB_START_GREAT_FAIRY_CUTSCENE),
               1 },
             { "VB_OWL_TELL_ABOUT_SHRINE (SkipOwlInteractions.cpp)", GAP_VB_COUNT(VB_OWL_TELL_ABOUT_SHRINE), 1 },
+            { "VB_PLAY_COUPLES_MASK_CS (SkipCouplesMaskCutscene.cpp)", GAP_VB_COUNT(VB_PLAY_COUPLES_MASK_CS), 1 },
             { "VB_TATL_INTERRUPT_MSG (SkipTatlInterrupts.cpp)", GAP_VB_COUNT(VB_TATL_INTERRUPT_MSG), 1 },
             { "VB_TATL_INTERRUPT_MSG3 (SkipTatlInterrupts.cpp)", GAP_VB_COUNT(VB_TATL_INTERRUPT_MSG3), 1 },
             { "VB_TATL_INTERRUPT_MSG4 (SkipTatlInterrupts.cpp)", GAP_VB_COUNT(VB_TATL_INTERRUPT_MSG4), 1 },

@@ -59,6 +59,29 @@ extern "C" int MM_SharedSongsTest_OffConvertSong(int song, int mmShuffleSongs) {
 extern "C" uint16_t MM_SharedSongsTest_UnsharedSongId(void) {
     return 0;
 }
+extern "C" void MM_SharedSunSariaTest_SetHeld(int song, int held) {
+    (void)song;
+    (void)held;
+}
+extern "C" int MM_SharedSunSariaTest_Held(int song) {
+    (void)song;
+    return -1;
+}
+extern "C" int MM_SharedSunSariaTest_PoolId(int song) {
+    (void)song;
+    return -1;
+}
+extern "C" uint32_t MM_SharedSunSariaTest_QuestBit(int song) {
+    (void)song;
+    return 0;
+}
+extern "C" uint32_t MM_SharedSunSariaTest_SongBits(void) {
+    return 0;
+}
+extern "C" void MM_SharedSunSariaTest_SetRow(int song, uint32_t value) {
+    (void)song;
+    (void)value;
+}
 #else
 
 extern "C" {
@@ -209,6 +232,63 @@ extern "C" int MM_SharedSongsTest_OffConvertSong(int song, int mmShuffleSongs) {
 /** An MM song no shared rule names, for negative junk-give checks. */
 extern "C" uint16_t MM_SharedSongsTest_UnsharedSongId(void) {
     return (uint16_t)RI_SONG_SONATA;
+}
+
+// ---- #1587 S2: the Shared Sun's Song and Shared Saria's Song's MM members -------
+//
+// `song` is 0 for the Sun's Song and 1 for Saria's Song, each owned through its
+// quest bit alone, as MM's own Item_Give(ITEM_SONG_SUN / ITEM_SONG_SARIA) writes it.
+
+namespace {
+int MMSunSariaQuestBitIndex(int song) {
+    return song == 0 ? (int)QUEST_SONG_SUN : song == 1 ? (int)QUEST_SONG_SARIA : -1;
+}
+} // namespace
+
+extern "C" void MM_SharedSunSariaTest_SetHeld(int song, int held) {
+    const int q = MMSunSariaQuestBitIndex(song);
+    if (q < 0) {
+        return;
+    }
+    if (held != 0) {
+        gSaveContext.save.saveInfo.inventory.questItems |= 1u << q;
+    } else {
+        gSaveContext.save.saveInfo.inventory.questItems &= ~(1u << q);
+    }
+}
+
+extern "C" int MM_SharedSunSariaTest_Held(int song) {
+    const int q = MMSunSariaQuestBitIndex(song);
+    return q < 0 ? -1 : (CHECK_QUEST_ITEM(q) ? 1 : 0);
+}
+
+/** MM's id for the song: the RI_* its pool places it as. */
+extern "C" int MM_SharedSunSariaTest_PoolId(int song) {
+    return song == 0 ? (int)RI_SONG_SUN : song == 1 ? (int)RI_SONG_SARIA : -1;
+}
+
+/** The quest bit of the song, for exact-bit asserts against _SongBits. */
+extern "C" uint32_t MM_SharedSunSariaTest_QuestBit(int song) {
+    const int q = MMSunSariaQuestBitIndex(song);
+    return q < 0 ? 0u : (1u << q);
+}
+
+/** Every song quest bit MM's live save holds (QUEST_SONG_SONATA .. QUEST_SONG_SUN),
+ *  nothing else, so a give of the wrong song (Epona's) or of extra songs shows. */
+extern "C" uint32_t MM_SharedSunSariaTest_SongBits(void) {
+    const uint32_t songs = (1u << ((int)QUEST_SONG_SUN + 1)) - (1u << (int)QUEST_SONG_SONATA);
+    return gSaveContext.save.saveInfo.inventory.questItems & songs;
+}
+
+/** Write MM's own Shuffle Sun's Song (@p song 0) or Shuffle Saria's Song (1) row in
+ *  the live save's rando options, the value MM's pool reads (Rando.h). Arming MM's
+ *  live save zeroes it again. */
+extern "C" void MM_SharedSunSariaTest_SetRow(int song, uint32_t value) {
+    if (song == 0) {
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN] = value;
+    } else if (song == 1) {
+        RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA] = value;
+    }
 }
 
 #endif
