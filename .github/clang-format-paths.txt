@@ -175,6 +175,7 @@ games/oot/soh/oot_netplay_fixes_test.cpp
 games/oot/soh/oot_check_receive_effects_test.cpp
 games/oot/soh/oot_file_select_refusal_test.cpp
 games/oot/soh/oot_log_noise_test.cpp
+games/oot/soh/oot_autosave_load_clock_test.cpp
 games/oot/soh/oot_older_save_meta_test.cpp
 games/oot/soh/oot_file_select_identity_shot.cpp
 games/oot/soh/oot_combo_identity_display_test.cpp
