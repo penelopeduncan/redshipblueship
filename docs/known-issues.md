@@ -68,6 +68,12 @@ Everything below passed the automated gates. None of it has been checked by a pe
   it: in a file that is not a randomizer file, with Fast Chests off, stand in Majora's Mask, press Apply on the preset
   Enhancements - Curated Randomizer (Settings > Presets), and, without reloading the file or crossing, open a chest
   holding an item you do not have yet. It should open at once, without the long opening.
+- Ocarina of Time's autosave timer restarting on a load (issue #1735). Tests call Autosave's load hook and read the
+  timer. No run loads a file from the file select and waits for an autosave. To try it: turn Autosave on and leave
+  Notification on Autosave on, wait more than 3 minutes after starting the program, then load an existing file that
+  starts in normal play (not one that holds the Ocarina of Time without the Song of Time), and do not pause or talk to
+  anyone. "Game autosaved" should not appear in the first few seconds (before the fix it came about 3 seconds after the
+  load); the first one should come about 3 minutes later.
 
 ### New in v0.5.2-alpha
 

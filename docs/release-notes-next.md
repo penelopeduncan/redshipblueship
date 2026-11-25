@@ -66,6 +66,14 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   in a collapsed area, or one the filter hides, is not moved. With an empty filter and every area open, Exclude Visible
   excludes every check on the page in one click, without asking first. This comes from Ship of Harkinian. Nobody has
   pressed the new buttons in a running game.
+- **Eight trick names reworded** (issue #1746), from Ship of Harkinian. On Randomizer > Tricks/Glitches, seven tricks
+  now say "Jumpslash" where they said "Jump Slash" (Kakariko Tower GS with Jumpslash, for example), and "Dodongo's
+  Cavern Dodongo without Bombchus" is now "Dodongo's Cavern Dodongo with Only Bombchus". Several tooltips say
+  "jumpslash" too, and Hard Ground Jumps has a new, shorter tooltip (it is a Glitch trick, so you see it only with the
+  Glitch tag switched on). No logic changed, and tricks you had enabled stay enabled. In the Filter box, "jump slash" no
+  longer finds the seven; "jumpslash" does. Majora's Mask's trick list still says "Jump Slash". A solo Ocarina of Time
+  spoiler log from an older version that names one of the eight by its old name still loads, with that trick off and no
+  message.
 
 ### Cross-game randomizer
 
@@ -165,6 +173,15 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   text only. A name that is too long for one line, such as Time Travel Requires Master Sword, still breaks as before.
   Checked by tests on the label text and on the menu code that draws checkboxes; nobody has looked at the pages since
   the fix.
+- **Ocarina of Time: the autosave timer restarts when you load a file** (issue #1735), from Ship of Harkinian. With
+  Autosave on (Enhancements > Quality of Life > Saving; off by default), Ocarina of Time autosaves once 3 minutes of
+  real time have passed since its last autosave, as soon as you are not paused, in dialogue or in a cutscene. The timer
+  used to start when the program started, so a file loaded more than 3 minutes later was autosaved a few seconds after
+  it opened. Loading a file from Ocarina of Time's file select now restarts the timer. Coming into Ocarina of Time from
+  Majora's Mask does not restart it, and turning Autosave on while a file is loaded does not either, so in those two
+  cases the first autosave can come right away. Majora's Mask's autosave, which the same checkbox switches on and which
+  has its own interval row below it, is unchanged. Tests check that Autosave's load hook resets the timer; no run loads
+  a file or waits out an interval.
 
 ### Build and tests
 
