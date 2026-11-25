@@ -135,6 +135,7 @@ std::map<RandoOptionId, RandoStaticOption> Options = {
     RO(RO_SHUFFLE_HIVE_DROPS,          RO_GENERIC_OFF),
     RO(RO_SHUFFLE_BUTTERFLIES,         RO_GENERIC_OFF),
     RO(RO_HOOKSHOT_ANYWHERE,           RO_HOOKSHOT_ANYWHERE_OFF), // OoTMM hookshotAnywhereMm's default (#1574)
+    RO(RO_HINTS_SONG_OF_SOARING,       RO_GENERIC_OFF), // 2Ship Song of Soaring hint (#1754)
 };
 // clang-format on
 

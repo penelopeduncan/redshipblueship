@@ -3414,6 +3414,10 @@ typedef enum {
     // constant here (Foreign.cpp, PairedStartingItemsForWorld). The identity
     // strings fold it only when it is on (0, the default).
     RO_SHUFFLE_OCARINA,
+    // Appended for the same reason (#1754): 2Ship's Song of Soaring hint option
+    // (e3bfae008, upstream PR 1482). The identity strings fold it only when on
+    // (0, the default).
+    RO_HINTS_SONG_OF_SOARING,
     RO_MAX,
 } RandoOptionId;
 

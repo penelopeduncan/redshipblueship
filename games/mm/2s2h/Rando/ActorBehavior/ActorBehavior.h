@@ -144,6 +144,7 @@ void InitEnSyatekiManBehavior();
 void InitEnTabBehavior();
 void InitEnTakarayaBehavior();
 void InitEnTalkBehavior();
+void InitEnTimeTagBehavior();
 void InitEnTotoBehavior();
 void InitEnTrtBehavior();
 void InitEnYbBehavior();
