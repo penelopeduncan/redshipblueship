@@ -1,7 +1,8 @@
 /**
  * @file mm_moon_crash_rules.c
  * @brief Majora's Mask's Moon Crash Behavior rules for saves and arrivals
- *        (#1728), and where a save in Majora's lair comes back (#1744). The
+ *        (#1728), where a save in Majora's lair comes back (#1744), and when
+ *        the moon's fall skips its cutscenes (#1789). The
  *        model and OoTMM's source are in mm_moon_crash_rules.h.
  */
 #include "mm_moon_crash_rules.h"
@@ -32,4 +33,12 @@ int Combo_MmRoofSaveLandsAtCrossing(int sceneIsRoof, int paired, int frozenMoonC
 
 int Combo_MmLairSaveLandsOnMoonField(int sceneIsLair) {
     return sceneIsLair != 0;
+}
+
+int Combo_MmNewCycleSkipsCrashCutscene(int frozenMoonCrash) {
+    return frozenMoonCrash == RSBS_MM_MOON_CRASH_CYCLE;
+}
+
+int Combo_MmIsMoonFallArrival(uint16_t entrance, int32_t cutsceneIndex, int32_t respawnFlag) {
+    return entrance == RSBS_MM_ENTRANCE_MOON_FALL && cutsceneIndex == 0 && respawnFlag == 0;
 }
