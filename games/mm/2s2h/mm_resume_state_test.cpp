@@ -398,8 +398,9 @@ int RfsRunLegs(uint16_t arrival) {
                   "a paired New Cycle save off the roof must keep Remember Save Location's entrance (#1728 is the "
                   "roof only)");
     // (r5) 2Ship's own choice, unchanged by the factoring: with Remember Save Location off a temple save comes back at
-    //      its temple and every other save in South Clock Town (the roof included, in both modes); with it on and no
-    //      tracked entrance, South Clock Town.
+    //      its temple, a save on the Moon, in a trial or in Majora's lair on the Moon field (#1744, legs m1-m3 below;
+    //      the lair also with it on, m2b), and every other save in South Clock Town (the roof included, in both modes);
+    //      with it on and no tracked entrance, South Clock Town.
     RESUME_ASSERT(SavingEnhancements_PauseSaveEntranceFor(SCENE_MITURIN, 0, kEastClockTown, 1, kCycle, &remembered) ==
                           ENTRANCE(WOODFALL_TEMPLE, 0) &&
                       remembered == 0,
@@ -413,6 +414,94 @@ int RfsRunLegs(uint16_t arrival) {
                       remembered == 1,
                   "with Remember Save Location on and no tracked entrance the save must fall back to South Clock "
                   "Town");
+
+    // ---- #1744: saves on the Moon (2Ship e5e9f3364, the operator's ruling "so save on the moon") ----
+    // (m1) With Remember Save Location off, a save in any of the six Moon scenes comes back at the Moon field's first
+    //      entrance, paired or not and under either Moon Crash Behavior, and keeps no respawn data. Red if the Moon
+    //      case group is dropped or misplaced: the scene falls to `default:` and South Clock Town (0xD800) comes back.
+    const s32 kMoon = ENTRANCE(THE_MOON, 0);
+    RESUME_ASSERT(kMoon != kSouthClockTown, "premise: the Moon's entrance must differ from South Clock Town's");
+    const int kMmsMoonScenes[] = { SCENE_SOUGEN,    SCENE_LAST_DEKU, SCENE_LAST_GORON,
+                                   SCENE_LAST_ZORA, SCENE_LAST_LINK, SCENE_LAST_BS };
+    for (const int moonScene : kMmsMoonScenes) {
+        for (int paired = 0; paired <= 1; paired++) {
+            for (int lastSave = 0; lastSave <= 1; lastSave++) {
+                remembered = -1;
+                const int entrance = SavingEnhancements_PauseSaveEntranceFor(moonScene, 0, kEastClockTown, paired,
+                                                                             lastSave ? kReset : kCycle, &remembered);
+                if (entrance != kMoon || remembered != 0) {
+                    printf("[TEST] mm-startup-restore: #1744 scene 0x%02X paired %d lastSave %d: entrance 0x%04X "
+                           "remembered %d\n",
+                           (unsigned)moonScene, paired, lastSave, (unsigned)entrance, remembered);
+                }
+                RESUME_ASSERT(entrance == kMoon && remembered == 0,
+                              "with Remember Save Location off a save on the Moon, in a trial or in Majora's lair must "
+                              "come back at ENTRANCE(THE_MOON, 0), as 2Ship e5e9f3364 has it (#1744)");
+            }
+        }
+    }
+    // (m2) With Remember Save Location on, a save in a trial comes back where 2Ship e5e9f3364 has it: the last
+    //      entrance Link went through (the trial's own), with the respawn data. Red if the Moon case group is moved
+    //      ahead of the Remember branch (the Moon field comes back), or if the lair rule below leaks to a trial.
+    const s32 kMmsTrialEntrances[][2] = {
+        { SCENE_LAST_DEKU, ENTRANCE(MOON_DEKU_TRIAL, 0) },
+        { SCENE_LAST_GORON, ENTRANCE(MOON_GORON_TRIAL, 0) },
+        { SCENE_LAST_ZORA, ENTRANCE(MOON_ZORA_TRIAL, 0) },
+        { SCENE_LAST_LINK, ENTRANCE(MOON_LINK_TRIAL, 0) },
+    };
+    for (const auto& trial : kMmsTrialEntrances) {
+        for (int paired = 0; paired <= 1; paired++) {
+            for (int lastSave = 0; lastSave <= 1; lastSave++) {
+                remembered = -1;
+                const int entrance = SavingEnhancements_PauseSaveEntranceFor(trial[0], 1, trial[1], paired,
+                                                                             lastSave ? kReset : kCycle, &remembered);
+                if (entrance != trial[1] || remembered != 1) {
+                    printf("[TEST] mm-startup-restore: #1744 trial scene 0x%02X paired %d lastSave %d, Remember on: "
+                           "entrance 0x%04X remembered %d\n",
+                           (unsigned)trial[0], paired, lastSave, (unsigned)entrance, remembered);
+                }
+                RESUME_ASSERT(entrance == trial[1] && remembered == 1,
+                              "with Remember Save Location on a save in a trial must come back at the trial's "
+                              "entrance with its respawn data, as 2Ship e5e9f3364 has it (#1744)");
+            }
+        }
+    }
+    // (m2b) RSBS's one departure from 2Ship e5e9f3364 (the operator's ruling of 2026-11-19 on #1744, "Yes, Moon
+    //      field"): a save in Majora's lair comes back on the Moon field whatever Remember Save Location says, paired
+    //      or not, under either Moon Crash Behavior, and keeps no respawn data (remembered 0, so
+    //      SavingEnhancements_PersistSaveEntranceInfo clears it). The lair has no exit. This replaces the earlier m2
+    //      assertion that a lair save with Remember on came back at ENTRANCE(MAJORAS_LAIR, 0). Red if the lair's early
+    //      return is removed or Combo_MmLairSaveLandsOnMoonField stops answering 1 for the lair: the lair's own
+    //      entrance comes back with remembered 1.
+    RESUME_ASSERT(Combo_MmLairSaveLandsOnMoonField(1) == 1 && Combo_MmLairSaveLandsOnMoonField(0) == 0,
+                  "Combo_MmLairSaveLandsOnMoonField must answer 1 for Majora's lair and 0 for any other scene (#1744)");
+    for (int remember = 0; remember <= 1; remember++) {
+        for (int paired = 0; paired <= 1; paired++) {
+            for (int lastSave = 0; lastSave <= 1; lastSave++) {
+                remembered = -1;
+                const int entrance =
+                    SavingEnhancements_PauseSaveEntranceFor(SCENE_LAST_BS, remember, ENTRANCE(MAJORAS_LAIR, 0), paired,
+                                                            lastSave ? kReset : kCycle, &remembered);
+                if (entrance != kMoon || remembered != 0) {
+                    printf("[TEST] mm-startup-restore: #1744 lair save remember %d paired %d lastSave %d: entrance "
+                           "0x%04X remembered %d\n",
+                           remember, paired, lastSave, (unsigned)entrance, remembered);
+                }
+                RESUME_ASSERT(entrance == kMoon && remembered == 0,
+                              "a save in Majora's lair must come back on the Moon field with no respawn data, even "
+                              "with Remember Save Location on (#1744, the ruling of 2026-11-19)");
+            }
+        }
+    }
+    // (m3) The neighbours are unchanged: the inverted Stone Tower boss room still comes back at the inverted temple,
+    //      and a Clock Town save with Remember Save Location off in South Clock Town. Red if the Stone Tower group
+    //      falls through into the new Moon group, or the Moon group swallows `default:`.
+    RESUME_ASSERT(SavingEnhancements_PauseSaveEntranceFor(SCENE_INISIE_BS, 0, kEastClockTown, 1, kCycle, &remembered) ==
+                      ENTRANCE(STONE_TOWER_TEMPLE_INVERTED, 0),
+                  "the Moon case group must not change Twinmold's room (the inverted Stone Tower Temple)");
+    RESUME_ASSERT(SavingEnhancements_PauseSaveEntranceFor(SCENE_CLOCKTOWER, 0, kEastClockTown, 1, kCycle,
+                                                          &remembered) == kSouthClockTown,
+                  "the Moon case group must not change any other scene's South Clock Town");
 
     // (r6) The live file: the session's pairing and the FROZEN Moon Crash Behavior, never the menu's key. The key says
     //      the opposite of the frozen byte in each leg, so a wrapper that read the key flips both answers.
@@ -522,6 +611,64 @@ int RfsRunLegs(uint16_t arrival) {
         // Consistency only: the staged pair's entrance equals the arrival's, so this does not tell which one was
         // used (this row's 2Ship #1952 pause-save legs, kPauseSaveEntrance != kArrival, prove the pair is used).
         RESUME_ASSERT(gSaveContext.save.entrance == kSouthClockTown, "the arrival must land in South Clock Town");
+    }
+
+    // (m4) #1744: the first arrival after a reload whose last MM save was made on the Moon lands where that save
+    //      recorded, as every other pause save does (#1348): the Moon field, or with Remember Save Location on a
+    //      trial's entrance. A save in Majora's lair with Remember Save Location on records the Moon field (m2b), so
+    //      its first crossing lands on the field: its pair is taken from the save function itself, not written by
+    //      hand (this replaces the earlier ENTRANCE(MAJORAS_LAIR, 0) pair, which no save records any more). The pair
+    //      is left for MM_Player_Init. The crossing's own entrance (arrival, South Clock Town) differs from each, so a
+    //      refusal of Moon entrances at the arrival shows: red if MM_Play_ConsumeStartupEntrance stops using a Moon
+    //      pair (the arrival comes back as 0xD800), or if the lair's early return is removed (the lair comes back).
+    RESUME_ASSERT(arrival != kMoon, "premise: the m4 legs cannot tell the Moon from the crossing's entrance");
+    const s32 kMmsLairPair =
+        SavingEnhancements_PauseSaveEntranceFor(SCENE_LAST_BS, 1, ENTRANCE(MAJORAS_LAIR, 0), 1, kCycle, &remembered);
+    const s32 kMmsArrivalPairs[][2] = {
+        { kMoon, kMoon },
+        { ENTRANCE(MOON_ZORA_TRIAL, 0), ENTRANCE(MOON_ZORA_TRIAL, 0) },
+        { kMmsLairPair, kMoon },
+    };
+    for (const auto& arrivalPair : kMmsArrivalPairs) {
+        const s32 moonPair = arrivalPair[0];
+        StageFrozenPauseSaveHalf(arrival, moonPair, true);
+        Combo_SetStartupEntrance(arrival);
+        MM_Play_ConsumeStartupEntrance();
+        printf("[TEST] mm-startup-restore: #1744 a half saved with pair 0x%04X arrives at 0x%04X (pair 0x%04X, "
+               "isOwlSave %d)\n",
+               (unsigned)moonPair, (unsigned)gSaveContext.save.entrance,
+               (unsigned)gSaveContext.save.shipSaveInfo.pauseSaveEntrance, (int)gSaveContext.save.isOwlSave);
+        RESUME_ASSERT(gSaveContext.save.day == 2, "premise: the m4 leg did not restore its frozen half");
+        RESUME_ASSERT(gSaveContext.save.entrance == arrivalPair[1],
+                      "the first arrival after a reload must land where a Moon save recorded, and after a save in "
+                      "Majora's lair on the Moon field (#1744, #1348)");
+        RESUME_ASSERT(gSaveContext.save.shipSaveInfo.pauseSaveEntrance == moonPair && gSaveContext.save.isOwlSave,
+                      "the arrival cleared a Moon save's pair, which MM_Player_Init needs (#1744, #1348)");
+    }
+
+    // (m5) #1744 with #1728's grace: a New Cycle half saved on the Moon at 05:58 on the Final Day arrives on the Moon
+    //      at 05:49 (the clock is pulled back as for any other New Cycle arrival); earlier clocks and a Last Save file
+    //      are left alone; the day and the Moon entrance hold in every leg. Consistency with g2, plus the one thing
+    //      only this leg sees: red if the grace is skipped for an arrival on the Moon (the first leg keeps 0x3FF0).
+    const RfsArrivalLeg kMmsMoonLegs[] = {
+        { "New Cycle, a Moon save at 05:58 on the Final Day", kCycle, 0x3FF0, 0x3E20 },
+        { "New Cycle, a Moon save at 01:00 on the Final Day", kCycle, (u16)CLOCK_TIME(1, 0), (u16)CLOCK_TIME(1, 0) },
+        { "Last Save, a Moon save at 05:58 on the Final Day", kReset, 0x3FF0, 0x3FF0 },
+    };
+    for (const RfsArrivalLeg& leg : kMmsMoonLegs) {
+        const int frozen = RfsStageFrozenHalfAt(arrival, kMoon, true, 3, leg.time, (u8)leg.moonCrash);
+        RESUME_ASSERT(frozen == leg.moonCrash, "premise: the staged Moon half is not frozen under the leg's Moon "
+                                               "Crash Behavior");
+        Combo_SetStartupEntrance(arrival);
+        MM_Play_ConsumeStartupEntrance();
+        printf("[TEST] mm-startup-restore: #1744 %s: arrives at day %d time 0x%04X entrance 0x%04X\n", leg.name,
+               (int)gSaveContext.save.day, (unsigned)gSaveContext.save.time, (unsigned)gSaveContext.save.entrance);
+        RESUME_ASSERT(gSaveContext.save.day == 3 && gSaveContext.save.eventDayCount == 3,
+                      "a Moon arrival moved the restored day (the grace keeps day 3)");
+        RESUME_ASSERT(gSaveContext.save.time == leg.expected,
+                      "a Moon arrival's clock is not OoTMM's grace period for this file's Moon Crash Behavior "
+                      "(#1744, #1728)");
+        RESUME_ASSERT(gSaveContext.save.entrance == kMoon, "a Moon save's arrival must land on the Moon (#1744)");
     }
     printf("[TEST] mm-startup-restore: #1728 New Cycle roof saves come back in South Clock Town and New Cycle "
            "arrivals take OoTMM's grace period; Last Save is unchanged\n");
@@ -830,8 +977,9 @@ extern "C" int MM_StartupRestore_RunHeadless(void) {
     // leave the pair for MM_Player_Init, which forces the standing start and
     // clears it. Before #1348 the arrival overwrote it with the crossing
     // entrance. A temple entrance, because with Pause Menu Save or Autosave on
-    // and Remember Save Location off, that is the only pause save whose
-    // entrance differs from the crossing's.
+    // and Remember Save Location off, a temple save and a Moon save (#1744, legs
+    // m4 in RfsRunLegs) are the only pause saves whose entrance differs from the
+    // crossing's.
     const s32 kPauseSaveEntrance = ENTRANCE(WOODFALL_TEMPLE, 0);
     RESUME_ASSERT(kPauseSaveEntrance != kArrival, "the pause-save leg cannot tell its entrance from the crossing's");
     StageFrozenPauseSaveHalf(kArrival, kPauseSaveEntrance, true);

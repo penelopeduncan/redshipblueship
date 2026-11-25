@@ -258,6 +258,13 @@ int OoT_ExitHarvestGate_RunHeadless(void);
 // naming neither symbol (a reference would un-elide them by itself). Returns 0
 // on pass, non-zero on fail.
 int OoT_MenuRegistrars_RunHeadless(void);
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750;
+// games/oot/soh/oot_netplay_fixes_test.cpp): verifies HandlePacket_PlayerUpdate
+// missing-key defaults & complete payload updates, DummyPlayer_Update unk_862
+// clamping past GID_MAXIMUM, and GameInteractor::IsGameplayPaused /
+// IsPlayerInControl null-PlayState guards. Pure (no display, no ROM, no
+// connection). Returns 0 on pass, non-zero on fail.
+int OoT_NetplayFixes_RunHeadless(void);
 // Tier-4 combo-settings ROWS (games/oot/soh/soh_combo_settings_rows_test.cpp,
 // #655): the six gCombo.Rando.* keys are SohMenu rows -- in the tier-4 Combo
 // section's Cross-Game Rules page since #497 step 6 moved them off their interim
@@ -376,6 +383,9 @@ int MM_RuntimeParity_RunHeadless(void);
 // Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
 // shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_UpstreamFixes1754_RunHeadless(void);
+// #1755: Majora's Mask cutscene skips (games/mm/2s2h/mm_cutscene_skips_test.cpp).
+// Returns 0 on pass.
+int MM_CutsceneSkips_RunHeadless(void);
 // The MM rando minigame reward hooks (games/mm/2s2h/mm_minigame_offer_hooks_test.cpp):
 // a rupee that stands in for an open check is not given on top of it (#1216).
 // Drives the Rando/ActorBehavior hooks through OnFileLoad against a calloc'd
@@ -605,6 +615,10 @@ int MM_ForeignHoldSurvivesQuit_Run(void);
 // #1217: under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item
 // and no vanilla capacity upgrade; games/oot/soh/oot_deku_theater_prize_test.cpp.
 int OoT_DekuTheaterPrize_RunHeadless(void);
+// #1800: SoH 63597ec63's game-side hunks: the diving-game Zora needs the Zora
+// Jabber Nut, and a super cucco needs the Grab ability;
+// games/oot/soh/oot_diving_zora_talon_cucco_test.cpp.
+int OoT_DivingZoraTalonCucco_RunHeadless(void);
 // Backport bundle O6 (SoH #6795, #6798, #7183): HasItem's folded boss-soul and
 // overworld-door answers, and the shuffled-drop despawn exemption;
 // games/oot/soh/oot_has_item_fold_test.cpp.
@@ -1660,6 +1674,13 @@ static TestResult Test_OoTMenuRegistrars(void) {
     return OoT_MenuRegistrars_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// OoT netplay / Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750; see
+// the extern decl above). Thin wrapper over the C entry point in
+// games/oot/soh/oot_netplay_fixes_test.cpp.
+static TestResult Test_OoTNetplayFixes(void) {
+    return OoT_NetplayFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Tier-4 combo-settings menu rows (#655) — the wrapper lives further down,
 // beside the other rows that need the display-free shared Context bring-up,
 // because CreateHarnessStyleContext is defined below this point.
@@ -1978,6 +1999,17 @@ static TestResult Test_OoTOcarinaNoteMappingCleanup(void) {
         return TEST_FAIL;
     }
     return OoT_OcarinaNoteMappingCleanup_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1747: OoT minigame options (IngoRaceOnce, HorsebackArchery, DivingGameTimer, RupeeDashScaling).
+extern "C" int OoT_MinigameOptions_RunHeadless(void);
+static TestResult Test_OoTMinigameOptions(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameOptions_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1420 (see the extern decl beside oot-price-range-minimum). The display-free shared bring-up, because leg 1 writes
@@ -7191,6 +7223,20 @@ static TestResult Test_MenuComboSection(void) {
     return OoT_MenuComboSection_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
+// visibility under Selection Only / All, Audio API backend filtering, slider label
+// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
+extern "C" int OoT_MenuRobustness_RunHeadless(void);
+
+static TestResult Test_OoTMenuRobustness(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // games/oot/soh/soh_presets_folder_test.cpp (#1210): a non-JSON file in the
 // presets folder is skipped with one log line instead of throwing out of
 // LoadPresets (a boot-time RegisterMenuInitFunc). No bring-up: the seam reads
@@ -7930,6 +7976,24 @@ static TestResult Test_MMUpstreamFixes1754(void) {
     return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1755. Same display-free shared bring-up as mm-runtime-parity: the registrars
+// it drives read CVars through the Ship::Context singleton. It restores
+// gSaveContext, MM_gPlayState and both CVars on the way out, so it has no
+// ordering constraints.
+static TestResult Test_MMCutsceneSkips(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_CutsceneSkips_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1216. Same display-free shared bring-up as mm-song-teacher-hooks. Restores
 // the SaveContext image and MM_gPlayState and re-runs OnFileLoad on the way
 // out, so it has no ordering constraints.
@@ -8426,6 +8490,22 @@ TestResult Test_OoTDekuTheaterPrize(void) {
         return TEST_FAIL;
     }
     return OoT_DekuTheaterPrize_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// SoH 63597ec63's game-side hunks (#1800): the real VB_SPEAK hook and Talon's
+// real cucco-game frame on a stub play state. The same display-free bring-up as
+// the row above: the row authors a real Rando::Context.
+TestResult Test_OoTDivingZoraTalonCucco(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoT_DivingZoraTalonCucco_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // Backport bundle O6: HasItem's folded boss souls and overworld door keys, and the
@@ -8949,6 +9029,13 @@ TestResult Test_SharedSunSariaRule(void) {
         return TEST_FAIL;
     }
     return SharedSunSariaRule_Run();
+}
+
+// #1587 S2: the Shared Sun's Song and Shared Saria's Song members through the real
+// shims. ROM-free and no bring-up, as shared-warp-songs-merge: the rules are frozen
+// directly and nothing it calls reads a CVar.
+TestResult Test_SharedSunSariaMerge(void) {
+    return SharedSunSariaMerge_Run();
 }
 
 // #968: the shared arrows' rule rows, the same bring-up as shared-lens-rule.
@@ -10549,18 +10636,13 @@ TestResult Test_OoTDepartureLinkAge(void) {
     return OoT_DepartureLinkAge_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
-// Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
-// visibility under Selection Only / All, Audio API backend filtering, slider label
-// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
-extern "C" int OoT_MenuRobustness_RunHeadless(void);
+// #1752 / #1735: ROM-free savestate plain-data round-trip (boss statics,
+// OoT_sEffectContext, z_player statics, AudioOcarina statics, transition actor IDs).
+// Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+extern "C" int OoT_SaveStateRoundtrip_RunHeadless(void);
 
-static TestResult Test_OoTMenuRobustness(void) {
-    auto ctx = CreateHarnessStyleContext();
-    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
-        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
-        return TEST_FAIL;
-    }
-    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+TestResult Test_OoTSaveStateRoundtrip(void) {
+    return OoT_SaveStateRoundtrip_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // ============================================================================
@@ -10991,6 +11073,12 @@ const TestDescriptor gTests[] = {
       "is known in the other at arrival and at the load seam; the matchers answer from the family; a far copy is "
       "credited at pickup (#1169 XW10)",
       Test_SharedWarpSongsMerge },
+    // #1587 S2: the Shared Sun's Song and Shared Saria's Song members. ROM-free.
+    { "shared-sun-saria-merge",
+      "Both games register their own Sun's Song and Saria's Song as the shared families' members, and through the "
+      "real shims a song learnt in either game is known in the other at arrival, at the load seam and at pickup; the "
+      "MM members' pooled follows the frozen rule, so the pair is built with MM's row at 0 (#1587)",
+      Test_SharedSunSariaMerge },
     // #1067: the Shared Ocarina Buttons rule on the same mechanism, five pairs
     // behind one bit. ROM-free, as the shields rows.
     { "shared-ocarina-buttons-pairs",
@@ -11455,6 +11543,11 @@ const TestDescriptor gTests[] = {
     { "mm-upstream-fixes-1754",
       "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
       Test_MMUpstreamFixes1754 },
+    // #1755: Majora's Mask cutscene skips. Restores everything it touches.
+    { "mm-cutscene-skips",
+      "MM cutscene skips: OnePoint bell/owl/bean-subtype, Sakon's Hideout (Ikana 14/34, Secom 21), and Couple's Mask "
+      "(#1755)",
+      Test_MMCutsceneSkips },
     // The MM rando minigame reward hooks (#1216). Restores everything it touches.
     { "mm-gallery-rupee-stand-in",
       "A minigame rupee standing in for an open MM check is not given on top of it (#1216)",
@@ -11545,6 +11638,10 @@ const TestDescriptor gTests[] = {
     // no ROM, no Ship::Context).
     { "oot-menu-registrars", "soh_port's RegisterMenuInitFunc registrars survive the link (#640)",
       Test_OoTMenuRegistrars },
+    // Anchor / DummyPlayer / GameInteractor fixes (#1751, #1750): pure (no
+    // display, no ROM, no Ship::Context, no connection).
+    { "oot-netplay-fixes", "PlayerUpdate defaults, DummyPlayer unk_862 clamp & null PlayState (#1751, #1750)",
+      Test_OoTNetplayFixes },
     // #618 (#516 Phase 3): the ExtensionCache rescan MM's two remaining InitOTR
     // entries depend on. Placed near the END on purpose — it MOUNTS an extra MM
     // archive into the shared ArchiveManager, and resolution is last-added-wins,
@@ -11597,6 +11694,13 @@ const TestDescriptor gTests[] = {
       "(#497, #1133)",
       Test_MenuComboSection },
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
+    // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
+    // round-trip, MQ location visibility, Audio API backend filtering, slider
+    // label suffix stripping).
+    { "oot-menu-robustness",
+      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
+      "suffix stripping (#1733)",
+      Test_OoTMenuRobustness },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
     { "write-file-safely-writers",
@@ -11739,6 +11843,10 @@ const TestDescriptor gTests[] = {
       "Stray D-pad mapping ids saved on the four custom ocarina-note buttons are dropped at start-up, the notes' own "
       "and unparseable ids are kept, and the D-pad's own list and settings record are untouched (#1741)",
       Test_OoTOcarinaNoteMappingCleanup },
+    // #1747: display-free and ROM-free; restores CVars, gSaveContext, OoT_gPlayState, gGameInfo, game, and hooks.
+    { "oot-minigame-options",
+      "OoT minigame options registrars and VB/OnPlayerUpdate dispatch match setting toggles (#1747)",
+      Test_OoTMinigameOptions },
     // #1336: display-free and ROM-free: func_80096A74 short-circuits via
     // VB_SHOULD_LOAD_BG_IMAGE when camDataIdx == -1, loads normally when
     // camDataIdx >= 0, and Goron.cpp registers RegisterGoronMessages.
@@ -12686,6 +12794,10 @@ const TestDescriptor gTests[] = {
       "Under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item for the Skull Mask and Mask of Truth "
       "checks and no vanilla Deku Stick or Nut capacity upgrade; a vanilla file still gets the upgrade (#1217)",
       Test_OoTDekuTheaterPrize },
+    { "oot-diving-zora-talon-cucco",
+      "Under Shuffle Jabber Nuts the diving-game Zora refuses to talk without the Zora Jabber Nut, and under Shuffle "
+      "Grab Talon does not count a carried super cucco without the Grab ability (SoH 63597ec63, #1800)",
+      Test_OoTDivingZoraTalonCucco },
     { "oot-has-item-fold",
       "Logic::HasItem answers boss souls under Shuffle Boss Souls and overworld door keys under Lock Overworld Doors, "
       "and a shuffled key or heart drop's despawn timer is stopped (SoH #6795, #6798, #7183)",
@@ -12842,13 +12954,10 @@ const TestDescriptor gTests[] = {
       "A generated All Locations world puts every critical renewable's first copy on a host that renews it, with MM's "
       "shops shuffled and vanilla (#1443)",
       Test_CriticalRenewablesWorld },
-    // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
-    // round-trip, MQ location visibility, Audio API backend filtering, slider
-    // label suffix stripping).
-    { "oot-menu-robustness",
-      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
-      "suffix stripping (#1733)",
-      Test_OoTMenuRobustness },
+    { "oot-savestate-roundtrip",
+      "ROM-free: newly wired OoT savestate blocks (Barinade/Bongo/Morpha, OoT_sEffectContext, z_player, AudioOcarina, "
+      "and transition actor IDs with live-count clamp) round-trip across Save/Load (#1752, #1735)",
+      Test_OoTSaveStateRoundtrip },
     { nullptr, nullptr, nullptr } // Sentinel
 };
 

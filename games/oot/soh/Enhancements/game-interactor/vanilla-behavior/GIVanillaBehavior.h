@@ -566,6 +566,14 @@ typedef enum {
     // true
     // ```
     // #### `args`
+    // - `*EnGe1`
+    VB_END_HORSEBACK_ARCHERY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
     // - `*EnArrow`
     VB_EN_ARROW_MAGIC_CONSUMPTION,
 
@@ -849,6 +857,31 @@ typedef enum {
     // #### `args`
     // - `*EnGe1`
     VB_GIVE_ITEM_FROM_HORSEBACK_ARCHERY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnGe1`
+    // - `*PlayState`
+    VB_PLAY_HORSEBACK_ARCHERY,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*s32` (scoreIndex: 0=30pts, 1=60pts, 2=100pts)
+    VB_SCORE_HORSEBACK_ARCHERY_TARGET,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*InterfaceContext`
+    VB_SET_HORSEBACK_ARCHERY_AMMO,
 
     // #### `result`
     // ```c
@@ -1377,6 +1410,14 @@ typedef enum {
     // #### `args`
     // - `*EnKz`
     VB_KING_ZORA_TUNIC_CHECK,
+
+    // #### `result`
+    // ```c
+    // gSaveContext.eventInf[0] & 0x40
+    // ```
+    // #### `args`
+    // - None
+    VB_LINK_WIN_EPONA,
 
     // #### `result`
     // ```c
@@ -1931,6 +1972,14 @@ typedef enum {
     // true
     // ```
     // #### `args`
+    // - `s32` (entrance index)
+    VB_RACE_INGO,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
     // - `*EnRd`
     VB_REDEAD_GIBDO_FREEZE_LINK,
 
@@ -2018,6 +2067,14 @@ typedef enum {
     // #### `args`
     // - `*EnNiwLady`
     VB_SET_CUCCO_COUNT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_SET_DIVING_GAME_TIME_LIMIT,
 
     // #### `result`
     // ```c

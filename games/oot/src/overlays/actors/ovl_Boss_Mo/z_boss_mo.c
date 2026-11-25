@@ -142,9 +142,9 @@ const ActorInit Boss_Mo_InitVars = {
     (ActorResetFunc)BossMo_Reset,
 };
 
-static BossMo* sMorphaCore = NULL;
-static BossMo* sMorphaTent1 = NULL;
-static BossMo* sMorphaTent2 = NULL;
+BossMo* sMorphaCore = NULL;
+BossMo* sMorphaTent1 = NULL;
+BossMo* sMorphaTent2 = NULL;
 
 static f32 sFlatWidth[41] = {
     15.0f, 12.0f, 9.0f, 6.5f, 4.8f, 4.0f, 3.4f, 3.1f, 3.0f, 3.1f, 3.2f, 3.4f, 3.6f, 3.8f,
@@ -154,26 +154,26 @@ static f32 sFlatWidth[41] = {
 
 #include "z_boss_mo_colchk.c"
 
-static BossMoEffect OoT_sEffects[300];
-static s32 sBossGanonSeed1;
-static s32 sBossGanonSeed2;
-static s32 sBossGanonSeed3;
+BossMoEffect OoT_sEffects[300];
+s32 sBossMoSeed1;
+s32 sBossMoSeed2;
+s32 sBossMoSeed3;
 
 void BossMo_InitRand(s32 seedInit0, s32 seedInit1, s32 seedInit2) {
-    sBossGanonSeed1 = seedInit0;
-    sBossGanonSeed2 = seedInit1;
-    sBossGanonSeed3 = seedInit2;
+    sBossMoSeed1 = seedInit0;
+    sBossMoSeed2 = seedInit1;
+    sBossMoSeed3 = seedInit2;
 }
 
 f32 BossMo_RandZeroOne(void) {
     // Wichmann-Hill algorithm
     f32 randFloat;
 
-    sBossGanonSeed1 = (sBossGanonSeed1 * 171) % 30269;
-    sBossGanonSeed2 = (sBossGanonSeed2 * 172) % 30307;
-    sBossGanonSeed3 = (sBossGanonSeed3 * 170) % 30323;
+    sBossMoSeed1 = (sBossMoSeed1 * 171) % 30269;
+    sBossMoSeed2 = (sBossMoSeed2 * 172) % 30307;
+    sBossMoSeed3 = (sBossMoSeed3 * 170) % 30323;
 
-    randFloat = (sBossGanonSeed1 / 30269.0f) + (sBossGanonSeed2 / 30307.0f) + (sBossGanonSeed3 / 30323.0f);
+    randFloat = (sBossMoSeed1 / 30269.0f) + (sBossMoSeed2 / 30307.0f) + (sBossMoSeed3 / 30323.0f);
     while (randFloat >= 1.0f) {
         randFloat -= 1.0f;
     }
@@ -3619,7 +3619,7 @@ void BossMo_Reset(void) {
     sMorphaTent1 = NULL;
     sMorphaTent2 = NULL;
     memset(OoT_sEffects, 0, sizeof(OoT_sEffects));
-    sBossGanonSeed1 = 0;
-    sBossGanonSeed2 = 0;
-    sBossGanonSeed3 = 0;
+    sBossMoSeed1 = 0;
+    sBossMoSeed2 = 0;
+    sBossMoSeed3 = 0;
 }

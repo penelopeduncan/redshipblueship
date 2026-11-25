@@ -118,6 +118,12 @@ static const std::map<int32_t, const char*> sleepingWaterfallOptions = {
     { WATERFALL_NEVER, "Never" },
 };
 
+static const std::map<int32_t, const char*> ingoRaceOptions = {
+    { INGO_RACE_TWICE, "Twice" },
+    { INGO_RACE_ONCE, "Once" },
+    { INGO_RACE_NONE, "None" },
+};
+
 static const std::map<int32_t, const char*> allPowers = {
     { DAMAGE_VANILLA, "Vanilla (1x)" },      { DAMAGE_DOUBLE, "Double (2x)" },
     { DAMAGE_QUADRUPLE, "Quadruple (4x)" },  { DAMAGE_OCTUPLE, "Octuple (8x)" },
@@ -1587,6 +1593,33 @@ void SohMenu::AddMenuEnhancements() {
                      .DefaultValue(10)
                      .Format("%d bombchus")
                      .Tooltip("The number of Bombchus available at the start of the Bombchu Bowling minigame."));
+    AddWidget(path, "Horseback Archery", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Customize Behavior##HBA", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("CustomizeHorsebackArchery"))
+        .Options(CheckboxOptions().Tooltip("Turn on/off changes to the Horseback Archery minigame behavior."));
+    auto hbaDisabledFunc = [](WidgetInfo& info) {
+        info.options->disabled = CVarGetInteger(CVAR_ENHANCEMENT("CustomizeHorsebackArchery"), 0) == 0;
+        info.options->disabledTooltip = "This option is disabled because \"Customize Behavior\" is turned off.";
+    };
+    AddWidget(path, "Instant Win##HBA", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("InstantHorsebackArcheryWin"))
+        .PreFunc(hbaDisabledFunc)
+        .Options(CheckboxOptions().Tooltip("Skips the Horseback Archery minigame, automatically awarding the prize."));
+    AddWidget(path, "Always Score 100##HBA", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("HorsebackArcheryAlwaysScore"))
+        .PreFunc(hbaDisabledFunc)
+        .Options(CheckboxOptions().Tooltip(
+            "Every arrow that hits a target scores 100 points (inner ring) regardless of where it lands."));
+    AddWidget(path, "Arrow Count", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_ENHANCEMENT("HorsebackArcheryAmmo"))
+        .PreFunc(hbaDisabledFunc)
+        .Options(IntSliderOptions()
+                     .Min(15)
+                     .Max(40)
+                     .DefaultValue(20)
+                     .Format("%d arrows")
+                     .Tooltip("The number of arrows available at the start of the Horseback Archery minigame."));
+
     AddWidget(path, "Frogs' Ocarina Game", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Customize Behavior##Frogs", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("CustomizeFrogsOcarinaGame"))
@@ -1679,7 +1712,21 @@ void SohMenu::AddMenuEnhancements() {
         .CVar(CVAR_ENHANCEMENT("SkipAmyPuzzle"))
         .Options(CheckboxOptions().Tooltip("Amy's block-pushing puzzle is instantly solved."));
 
+    AddWidget(path, "Ingo's Race", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Number of Races", WIDGET_CVAR_COMBOBOX)
+        .CVar(CVAR_ENHANCEMENT("IngoRaceOnce"))
+        .Options(ComboboxOptions()
+                     .ComboMap(ingoRaceOptions)
+                     .DefaultIndex(INGO_RACE_TWICE)
+                     .Tooltip("Number of races Link must win against Ingo to earn Epona. "
+                              "Only works if Link is riding Epona, not the other rideable horse."));
+
     path.column = SECTION_COLUMN_3;
+    AddWidget(path, "Rupee Diving Game", WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, "Time Limit: %d seconds", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_ENHANCEMENT("DivingGame.TimeLimit"))
+        .Options(IntSliderOptions().Min(30).Max(120).DefaultValue(50).Format("%d seconds"));
+
     AddWidget(path, "Fishing", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Customize Behavior##Fishing", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("CustomizeFishing"))
@@ -1738,6 +1785,9 @@ void SohMenu::AddMenuEnhancements() {
             info.options->disabledTooltip = "This setting is forcefully enabled when you are playing a Randomizer.";
         })
         .Options(CheckboxOptions().Tooltip("Dampe awards both prizes on the first race, not just the Hookshot."));
+    AddWidget(path, "Horseback Archery", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("HorsebackArcheryBothPrizes"))
+        .Options(CheckboxOptions().Tooltip("Link can win both Horseback Archery prizes in one attempt"));
     AddMmMinigameRows(*this, path); // W6-MINIGAMES: MM's minigames, in a Majora's Mask block
 
     // Extra Modes
@@ -1772,6 +1822,10 @@ void SohMenu::AddMenuEnhancements() {
     AddWidget(path, "Rupee Dash Mode", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("RupeeDash"))
         .Options(CheckboxOptions().Tooltip("Rupees reduce over time; Link suffers damage when the count hits 0."));
+    AddWidget(path, "Rupee Dash Wallet Scaling", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("RupeeDashScaling"))
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_ENHANCEMENT("RupeeDash"), 0) == 0; })
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip("The larger Link's wallet, the faster Rupees reduce."));
     AddWidget(path, "Rupee Dash Interval: %d seconds", WIDGET_CVAR_SLIDER_INT)
         .CVar(CVAR_ENHANCEMENT("RupeeDashInterval"))
         .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_ENHANCEMENT("RupeeDash"), 0) == 0; })

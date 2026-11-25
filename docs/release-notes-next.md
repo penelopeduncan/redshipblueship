@@ -1,21 +1,125 @@
 # Release notes: next release (draft)
 
-**Status:** draft, not released. There is no tag yet, and a build from `main` still reads `v0.5.1-alpha` in its
+**Status:** draft, not released. There is no tag yet, and a build from `main` still reads `v0.5.3-alpha` in its
 window title until the release candidate changes `src/common/rsbs_version.h`.
-**Version:** planned as `v0.5.2-alpha`, codename "Ellen Charlie" (a `z` bump under [`VERSIONING.md`](VERSIONING.md):
-the film character stays "Ellen" and the code word moves from Bravo to Charlie). Saves stay save format 6; seeds
-come from generator 6.
+**Version:** not decided. A `z` bump under [`VERSIONING.md`](VERSIONING.md) would be `v0.5.4-alpha`, codename
+"Ellen Echo". Saves stay save format 6; seeds come from generator 8.
+**Last release:** `v0.5.3-alpha` ("Ellen Delta"), tagged 2026-11-20. Its notes follow this section.
+**Covers:** everything merged after `v0.5.3-alpha`. Numbers in parentheses are issues of this project.
+
+## Since v0.5.3-alpha
+
+### Read this first
+
+- **Seeds come from generator 8.** A seed package exported by `v0.5.3-alpha` is refused ("Seed package from another
+  generator"), so generate the seed again. So far one change moves worlds, and only with Shuffle Jabber Nuts on: the
+  carpet salesman's rule below. With that option off, which is the default, the pinned test seeds place every item
+  and word every hint as they did in `v0.5.3-alpha`. The save format did not change.
+
+### Ocarina of Time randomizer
+
+- **Shuffle Jabber Nuts: the carpet salesman's bombchus wait for the Hylian Jabber Nut** (issue #1798). Logic counted
+  the carpet salesman in the Haunted Wasteland as a way to restock bombchus as soon as you could reach him and pay
+  his price. Every sale starts with a conversation, and the game refuses that conversation without the Hylian Jabber
+  Nut. Logic now asks for the nut there, as the salesman's own check already did.
+- **Shuffle Jabber Nuts: handing over an adult trade item needs no Jabber Nut, and that is now tested** (issue
+  #1798). A missing Jabber Nut stops Link starting a conversation with A. It does not stop him showing an item from
+  a C button, so a trade item can be handed over to someone he cannot talk to yet: for the sleeping Talon in
+  Kakariko, stand close to him and use the Pocket Cucco from its C button. Logic and the check tracker already
+  counted the hand-overs this way, as Ship of Harkinian does. Getting the Pocket Egg from Anju is a conversation and
+  still needs the Hylian Jabber Nut. This comes from reading the game's code, not from a playtest.
+- **Shuffle Jabber Nuts: the Zora of the Diving Minigame waits for the Zora Jabber Nut** (issue #1800). The Zora who
+  runs the diving game in Zora's Domain talked to Link without the nut, unlike the other Zoras. Logic already asked
+  for the nut at his check.
+- **Shuffle Grab: Talon's chickens wait for the Power Bracelet** (issue #1800). While Link lacks the ability to
+  grab, Talon's game at Lon Lon Ranch no longer counts a super cucco as found. Logic already asked for the Power
+  Bracelet at that check (Talons Chickens). This line and the one above are the two parts of Ship of Harkinian's
+  commit `63597ec63` that an earlier port had left out. Nobody has played Talon's game without the bracelet yet.
+
+# Release notes: v0.5.3-alpha ("Ellen Delta")
+
+**Status:** released on 2026-11-20. The tag `v0.5.3-alpha` is on `main`, on the commit that brought this text.
+**Version:** `v0.5.3-alpha`, codename "Ellen Delta" (`src/common/rsbs_version.h`). Under
+[`VERSIONING.md`](VERSIONING.md) the number is a `z` bump, so it keeps the film character ("Ellen") and takes the
+next NATO phonetic code word, Delta. A build's window title reads
+`RedShipBlueShip v0.5.3-alpha+<commit> (Ellen Delta)`. Saves written by this version are save format 6; seeds come
+from generator 7.
+**Last release:** `v0.5.2-alpha` ("Ellen Charlie"), tagged 2026-11-19. Its notes follow this section.
+**Covers:** everything merged after `v0.5.2-alpha`. Numbers in parentheses are issues of this project.
+**Get it:** the [release page](https://github.com/penelopeduncan/redshipblueship/releases/tag/v0.5.3-alpha) carries
+`redshipblueship-v0.5.3-alpha-windows.zip`, `redshipblueship-v0.5.3-alpha-linux.AppImage` and
+`redshipblueship-v0.5.3-alpha-macos.dmg`.
+
+## Since v0.5.2-alpha
+
+### Read this first
+
+- **This release corrects logic rules that `v0.5.2-alpha` shipped with** (issue #1793). A review had found them before
+  `v0.5.2-alpha` was released, and the finding was not acted on in time. Most apply only under non-default settings:
+  Master Quest dungeons, the Voidout Collection trick, or Masks as Adult. One can matter with the default settings:
+  the Gold Skulltula on the frozen waterfall in Zora's Domain, whose token counts toward the Skulltula House rewards.
+  In a seed made with `v0.5.2-alpha`, logic may have expected something that does not work in those places.
+- **Updating does not repair a file in progress.** A paired file keeps the world it was created with, and this version
+  opens it as it is. Only a new seed, in a new file, is made with the corrected logic. If you think a `v0.5.2-alpha`
+  seed is asking for something impossible in one of the places below, start a new one.
+- **Seeds come from generator 7.** A seed package exported by `v0.5.2-alpha` is refused ("Seed package from another
+  generator"), so generate the seed again. With the default settings the pinned test seeds place every item and word
+  every hint as they did in `v0.5.2-alpha`; another seed can differ where the frozen-waterfall Skulltula's rule
+  mattered. The save format did not change.
+
+### Ocarina of Time randomizer
+
+- **Voidout Collection asks that you survive every real void-out** (issue #1793). With the trick on, the three hearts
+  in the Shadow Trial of Ganon's Castle, and a silver rupee in the Master Quest Fire Trial, were in logic even when
+  the void-out would kill Link (one-hit KO, or one heart without Double Defense, in either case with no fairy). They
+  now need what the trick's other void-outs need.
+- **Master Quest Ganon's Castle: the Shadow Trial's silver rupees** (issue #1793). Logic counted them as collected
+  with the Lens of Truth (or its trick) and only the Hover Boots, or only the Bunny Hood effect. Those ways now also
+  need an adult with the Fairy Bow and the trick "Shadow Trial MQ Torch with Bow", as the exit beside them already
+  did.
+- **Master Quest Gerudo Training Ground: the far lava platform** (issue #1793). With Masks as Adult on and Bunny Hood
+  Effect off, logic expected a Bunny Hood jump that gave no boost. The rule now asks for the Bunny Hood effect.
+- **Master Quest Spirit Temple: one Bunny Hood jump is no longer in logic** (issue #1793): from the statue's head back
+  to the inner right hand. It could only have counted with Masks as Adult and Bunny Hood Effect on.
+- **The Gold Skulltula on the frozen waterfall in Zora's Domain no longer counts bombs** (issue #1793). The rule says
+  the terrain blocks bomb throws, but an adult with magic and bombs was in logic. This is the correction that can
+  matter with the default settings. Bombchus still count. OoTMM does count bombs here; this build takes the stricter
+  rule until someone has tried it.
+
+### Fixes
+
+- **Item text** (issue #1793). In French the Zora's Sapphire read "leSaphir Zora"; in English a hint could read
+  "theGreat Deku Tree Map". Both articles are corrected. The description of the trick "Dodongo's Cavern Dodongo with
+  Goron Bracelet and Bunnyhovers" now calls the option by its name, Bunny Hood Effect.
+
+### Build and tests
+
+- **CI: the registrar check also requires the Deku Butler fix's registrar** (from `v0.5.2-alpha`'s Majora's Mask
+  fixes). Nothing in the game changes.
+
+# Release notes: v0.5.2-alpha ("Ellen Charlie")
+
+**Status:** released on 2026-11-19. The tag `v0.5.2-alpha` is on `main` at `60637a0fc`.
+**Version:** `v0.5.2-alpha`, codename "Ellen Charlie" (`src/common/rsbs_version.h`). Under
+[`VERSIONING.md`](VERSIONING.md) the number is a `z` bump, so it keeps the film character ("Ellen") and takes the
+next NATO phonetic code word, Charlie. A build's window title reads
+`RedShipBlueShip v0.5.2-alpha+<commit> (Ellen Charlie)`. Saves written by this version are save format 6; seeds come
+from generator 6.
 **Last release:** `v0.5.1-alpha` ("Ellen Bravo"), tagged 2026-11-16. Its notes follow this section.
+**Next release:** `v0.5.3-alpha` ("Ellen Delta") corrects logic rules of this one; see the section above.
 **Covers:** everything merged after `v0.5.1-alpha`. Numbers in parentheses are issues of this project, or pull
 requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are named.
+**Get it:** the [release page](https://github.com/penelopeduncan/redshipblueship/releases/tag/v0.5.2-alpha) carries
+`redshipblueship-v0.5.2-alpha-windows.zip`, `redshipblueship-v0.5.2-alpha-linux.AppImage` and
+`redshipblueship-v0.5.2-alpha-macos.dmg`.
 
 ## Since v0.5.1-alpha
 
 ### Read this first
 
 - **Seeds come from generator 6.** The same seed and settings can make a different world than `v0.5.1-alpha` made,
-  with the default settings too. The Death Mountain Crater logic rework, the Ganon's Castle Fire Trial rework, the
-  logic rework of five dungeons, the stricter Gold Skulltula outside Ganon's Castle and Majora's Mask's new Moon
+  with the default settings too. The Death Mountain Crater and Fire Trial reworks, the dungeon logic reworks, the
+  stricter Gold Skulltula outside Ganon's Castle, the stick and nut bag gating of Majora's Mask and its new Moon
   Crash default each move items (all are described below). A seed package exported by `v0.5.1-alpha` is refused
   ("Seed package from another generator"), so generate the seed again.
 - **Save files from `v0.5.1-alpha` still open, but there is no way back.** The save format did not change. Once
@@ -75,8 +179,8 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Dawn of the First Day and you keep your items and progress, as with the Song of Time. It is always New Cycle when
   Shuffle Ocarina or the Cross-Game Rule Shared Song of Time is on. Last Save can still be chosen: Majora's Mask
   then goes back to the file's last save, and what you did in Majora's Mask since then is lost. The choice is part
-  of the world, so the same seed makes a different world than before with the default settings. New Cycle does not
-  yet let you save on the Clock Tower roof (see the known issues).
+  of the world, so the same seed makes a different world than before with the default settings. A save on the
+  Clock Tower roof under New Cycle is described under "Options and quality of life" below.
 - **New option: Shuffle Ocarina** (issue #1671; Randomizer > MM Randomizer, Additional Items; off by default).
   Majora's Mask then starts without the Ocarina of Time, which joins the item pool and can be found in either game.
   You keep the starting Song of Time (unless Shared Song of Time is on), but no song can be played until the
@@ -107,7 +211,9 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   bottle). It covers wonder items in the castle moat, Zora's River and Gerudo Valley, rupees in Zora's River and
   the Gerudo Valley Octorok grotto, the Colossus oasis, the Thieves' Hideout kitchen, the Gold Skulltula outside
   Ganon's Castle, the Deku Tree hearts before the boss, and a few Master Quest Shadow Temple and Ganon's Castle
-  checks. The trick's description also names a Water Temple Gold Skulltula, which logic does not use it for yet.
+  checks. It also covers the Water Temple Gold Skulltula near the boss key chest, two crates in the Master Quest
+  Water Temple's whirlpool room, the hearts in Ganon's Castle's Shadow Trial and the Forest Trial's on-target
+  silver rupee.
   With it off (the default), the Gold Skulltula outside Ganon's Castle now expects the Hookshot or Boomerang, which
   moves items in default worlds. The Gerudo Valley waterfall wonder items and the Master Quest Shadow Temple Gold
   Skulltula near the boss also need more than before, and adult Link needs nothing for the left and right Deku Tree
@@ -128,6 +234,30 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   build that lists the old name loads with this trick off (a paired world's spoiler log is not loaded at all).
   Until now, a trick name the build did not know switched on "Ignore Visible Collision" instead when such a
   log was loaded.
+- **Logic for the remaining dungeons follows the same rework** (SoH #7032, issue #1647): the Water Temple, the Spirit
+  Temple, the Shadow Temple, Gerudo Training Ground and Ganon's Castle, in both quests, and a few rules outside them.
+  That completes the port of Ship of Harkinian's logic overhaul. Examples that need no trick: an adult passes the
+  Beamos on the Spirit Temple's big wall with the Hookshot, the Longshot or the Fairy Bow; in Ganon's Castle the
+  Shadow Trial's front chest needs nothing and its chest platform needs only the Longshot; and the Gold Skulltula on
+  the frozen waterfall in Zora's Domain opens to an adult with Bombchus, or with magic and either bombs or Din's Fire.
+  Most of the Water Temple's changed rules matter only under a trick or Shuffle Swim. The boss entryways of the Water,
+  Spirit and Shadow Temples now lead back into their dungeons, which matters once boss entrances are shuffled. One
+  trick is new: "Navigate Gerudo Training Ground MQ Lava Room without Fire". The trick "Lost Woods Adult GS without
+  Bean" is now called "Lost Woods Adult GS with Hookshot", Ship of Harkinian's name for it; a spoiler log of an
+  unpaired Ocarina of Time world that lists the old name loads with the trick off. With the default settings the
+  pinned test seed places every item where it did; other seeds can place items differently.
+- **A spoiler log or Plandomizer log with an unknown name is refused** (issue #1731). A log that names a location,
+  item, hint, hint type, area or trial this build does not know is no longer read as the first entry of that list. A
+  spoiler log now fails to load, and the Plandomizer refuses the log with its "Invalid Spoiler Log Format" message.
+  Before, the name quietly became "Invalid Location", "No Item" or the Light Trial, and the Plandomizer could write
+  "No Item" back into the file on Save. A saved hint that names something unknown now loads switched off. The
+  Plandomizer also loads a log whose hint has several messages.
+- **Item names, hint texts and messages take Ship of Harkinian's corrections** (issue #1746). Six fixed hints read
+  better in English (the Big Poe collector, the chickens, Malon, horseback archery, the loach and Biggoron). The two
+  Temple of Time altar hints start each area name with a capital letter. French and German item names that were
+  missing are filled in, and a text with no translation is shown in English instead of a placeholder. Many option
+  descriptions and tooltips lose typos. No rule and no placement changes; a world's hints can read differently than
+  the same seed's did before.
 - **A fixed placement stays out of the playthrough and location hints** (SoH #6146). Some checks always keep their
   own item when they are not shuffled: the Master Sword in the Temple of Time, the Kokiri Sword, vanilla songs,
   unshuffled Gold Skulltula tokens and a few others. They are no longer listed in the spoiler log's playthrough,
@@ -190,6 +320,30 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   Layers in Enhancements > Fixes, Gameplay Fixes; on by default). This matters for a file loaded from Majora's
   Mask's own file select, for example Great Bay Coast after Gyorg. A crossing or a paired file's load already did
   this.
+- **Majora's Mask: in a paired New Cycle file, a save on the Clock Tower roof comes back in South Clock Town** (issue
+  #1728), as in OoTMM. With Pause Menu Save or Autosave on, such a save now comes back in South Clock Town even with
+  Remember Save Location on; before, that option brought you back to the roof with its timer started again. In a New
+  Cycle file, arriving in Termina from Hyrule within about ten in-game minutes of the Moon's fall also pulls the clock
+  back to about ten minutes before it (05:49 on the Final Day without Shuffle Time); that holds for every such
+  arrival, not only after a roof save. Last Save files are unchanged: there a roof save with Remember Save Location on
+  still comes back on the roof, with the Moon's timer running.
+- **Majora's Mask: Pause Menu Save and Autosave work on the Moon** (2Ship #2007, issue #1744), in its four trials and
+  in Majora's lair too. Both options stay off by default. With Remember Save Location off, a reload comes back on the
+  Moon field; with it on, at the last entrance Link went through, which can be a trial's. A save in Majora's lair
+  always comes back on the Moon field, because the lair has no exit; 2Ship2Harkinian brings it back inside the lair
+  when Remember Save Location is on. In a paired file the first crossing into Termina after you reopen the file lands
+  there instead of in Clock Town. The known issues list the ways off the Moon.
+- **Majora's Mask: more cutscenes can be skipped** (from 2Ship2Harkinian). "Skip One Point Cutscenes (Chests, Door
+  Unlocks, etc.)" now also covers the Laundry Pool bell and the owl statues, and a statue is activated as soon as you
+  strike it (with owl statues shuffled, the strike makes the statue's check available instead). Skip Misc Interactions
+  now also covers Kafei running to town, the door and the conveyor belt in Sakon's Hideout, and the Couple's Mask
+  cutscene. Both settings are shared by the two games, but in a randomizer file the checkbox shows ticked before you
+  have ever touched it while Majora's Mask reads it as off: untick and tick it once to skip the Termina cutscenes.
+- **Ocarina of Time: new minigame options** (from Ship of Harkinian). Each keeps the game's own behaviour until you
+  change it. Ingo's Race > Number of Races (Twice, Once or None) gives Epona after one race or none; it works only
+  while you ride Epona. Horseback Archery has its own settings (Instant Win, Always Score 100, Arrow Count) and, under
+  Multiple Prizes, can award both prizes for a high score. The Rupee Diving Game's time limit has a slider (30 to 120
+  seconds). Turning Rupee Dash Wallet Scaling off makes Rupee Dash drain at a fixed rate.
 - **Ocarina of Time dev tools and Boss Rush** (from Ship of Harkinian). The Actor Viewer shows category numbers and
   hexadecimal actor ids and parameters, the Mod Menu has a Clear List button, the Collision Viewer has a new
   Scarecrow Spawn setting (off until you choose it), and booting into the debug warp screen applies the time
@@ -212,9 +366,32 @@ requests of Ship of Harkinian (SoH) or 2Ship2Harkinian (2Ship) where those are n
   #7521, issue #1739; Enhancements > Cosmetics Editor, HUD Placement). While one of the four "C Button ...
   position" sections was open, the D-pad's bindings were also put on the F, A, B and high D notes under Ocarina
   Controls in the controller settings. They did nothing there, but two rows then held the same binding, and Ship
-  of Harkinian reports an error, and possibly a crash, when one was removed. Copies made before this fix can
-  still be in your settings. Removing one from a note row also erases the D-pad's own saved binding, which is
-  then gone the next time the game starts, so check the D-pad afterwards.
+  of Harkinian reports an error, and possibly a crash, when one was removed. Copies made before this fix are
+  removed when the game starts, and the D-pad keeps its own bindings (issue #1741).
+- **Ocarina of Time: eleven fixes from Ship of Harkinian** (issues #1742, #1747, #1748, #1750). A swim void without
+  Swim respawns in the entrance's room. Fix Two-Handed Idle Animations works. The Item Tracker's "Personal notes"
+  setting is no longer greyed out, though this build's Item Tracker does not show notes yet. The bow can unequip a
+  magic-arrow button. Customize Fishing's minimum weights also set the vanilla prize, and Fish while Hovering casts as
+  on NTSC 1.0, so Link keeps his momentum. The Save Editor's B-button sword picker updates Link's sword. Title-card
+  positions from the Cosmetics Editor take effect, and positions already saved apply at once. Bow Body keeps the
+  colour picked. The title screen's logo shift is right on Master Quest. In a randomizer file the Lake Hylia minimap
+  matches the water level.
+- **Majora's Mask: fixes from 2Ship2Harkinian** (issues #1754, #1755). Pause Owl Warp now needs the Ocarina and, in a
+  randomizer file, the ocarina buttons the Song of Soaring uses; with Shuffle Ocarina on it stays closed until the
+  Ocarina is found. A restricted song no longer opens an empty text box when Saria's Song is shuffled. Aliens without
+  their soul are drawn gray. The telescope follows the aiming inversion settings. Replaced music no longer swaps sound
+  effects. With Ammo Buyback Options at half price, arrows still sell back at full price. The Swamp archery bonus
+  speed-up follows Skip Misc Interactions. Auto Bank Deposit notifies only at milestones. There is a new option, Fix
+  Deku Butler Shock Animation.
+- **Ocarina of Time: Anchor, Crowd Control and Sail fixes from Ship of Harkinian** (issues #1750, #1751). Anchor skips
+  a packet with a missing field instead of failing (a player update fills in defaults), a dummy player's held item is
+  kept inside the draw table, Crowd Control effects wait until Link is in control and respect the infinite magic,
+  money and ammo cheats, invisible Link's equipment is no longer drawn, and Sail's hooks no longer wait for a
+  connection or a loaded save.
+- **Ocarina of Time: save states keep more of the game** (from Ship of Harkinian; issue #1752). A save state now also
+  keeps the Barinade, Bongo Bongo and Morpha fights, active effects, more of Link's own state, the ocarina and doors
+  between rooms. A save state holds Ocarina of Time only; while Majora's Mask runs, F5 and F7 say "states not
+  available here" (see the known issues).
 
 ### Build and tests
 

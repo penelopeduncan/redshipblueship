@@ -259,6 +259,52 @@ extern "C" int OoT_SharedWarpSongsTest_UnsharedSongId(void) {
     return (int)RG_ZELDAS_LULLABY;
 }
 
+// ---- #1587 S2: the Shared Sun's Song and Shared Saria's Song's OoT members ------
+//
+// `song` is 0 for the Sun's Song and 1 for Saria's Song, each owned through its
+// quest bit alone, as OoT's own Item_Give(ITEM_SONG_SUN / ITEM_SONG_SARIA) writes it.
+
+namespace {
+int OoTSunSariaQuestBitIndex(int song) {
+    return song == 0 ? (int)QUEST_SONG_SUN : song == 1 ? (int)QUEST_SONG_SARIA : -1;
+}
+} // namespace
+
+extern "C" void OoT_SharedSunSariaTest_SetHeld(int song, int held) {
+    const int q = OoTSunSariaQuestBitIndex(song);
+    if (q < 0) {
+        return;
+    }
+    if (held != 0) {
+        gSaveContext.inventory.questItems |= 1u << q;
+    } else {
+        gSaveContext.inventory.questItems &= ~(1u << q);
+    }
+}
+
+extern "C" int OoT_SharedSunSariaTest_Held(int song) {
+    const int q = OoTSunSariaQuestBitIndex(song);
+    return q < 0 ? -1 : (CHECK_QUEST_ITEM(q) ? 1 : 0);
+}
+
+/** OoT's id for the song: the RG_* its pool places it as. */
+extern "C" int OoT_SharedSunSariaTest_PoolId(int song) {
+    return song == 0 ? (int)RG_SUNS_SONG : song == 1 ? (int)RG_SARIAS_SONG : -1;
+}
+
+/** The quest bit of the song, for exact-bit asserts against _SongBits. */
+extern "C" uint32_t OoT_SharedSunSariaTest_QuestBit(int song) {
+    const int q = OoTSunSariaQuestBitIndex(song);
+    return q < 0 ? 0u : (1u << q);
+}
+
+/** Every song quest bit OoT's live save holds (QUEST_SONG_MINUET .. QUEST_SONG_STORMS),
+ *  nothing else, so a give of the wrong song (Epona's) or of extra songs shows. */
+extern "C" uint32_t OoT_SharedSunSariaTest_SongBits(void) {
+    const uint32_t songs = (1u << ((int)QUEST_SONG_STORMS + 1)) - (1u << (int)QUEST_SONG_MINUET);
+    return gSaveContext.inventory.questItems & songs;
+}
+
 // ---- #1561: Shuffle Songs Off vanilla checks, reachability, and junk give -------
 //
 // `song` is 0 for Epona's Song, 1 for the Song of Storms, and 2 for the Song of Time.
