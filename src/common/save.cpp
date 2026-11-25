@@ -1423,9 +1423,16 @@ void SaveManager::EvaluateSlot(int slot, uint32_t ootSavGeneration, int openKind
         const bool countsDiverged = (v.comboDiverged & RSBS_COMBO_DIVERGE_TRIFORCE_COUNTS) != 0u;
         const int classifyPieces = countsDiverged ? (int)Combo_TriforceRecordTotal(&combo.comboTriforce) : -1;
         const int classifyTriforceGoal = countsDiverged ? (int)Combo_TriforceRecordRequired(&combo.comboTriforce) : -1;
+        // #1587 stage A: MM's Sun's Song and Saria's Song rows follow the Shared
+        // Sun's Song and Shared Saria's Song rules, which the rules restore below
+        // writes back into the keys with the rest of the second word; this one
+        // divergence bit covers both words (Combo_ComboItemRules2DivergenceBetween).
+        const int64_t classifyRules2 = (v.comboDiverged & RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS) != 0u
+                                           ? (int64_t)Combo_ComboItemRules2Word(&combo.comboItemRules2)
+                                           : (int64_t)-1;
         v.mmProfile = MM_Rando_ClassifyProfileForLoadAtFileRules(data.mmBlob.data(), data.mmBlob.size(),
                                                                  combo.mmProfileDigest, classifyRung, classifyGoal,
-                                                                 classifyPieces, classifyTriforceGoal);
+                                                                 classifyPieces, classifyTriforceGoal, classifyRules2);
         if (openKind != kOpenLegacy && v.mmProfile == RSBS_MM_PROFILE_LOAD_UNRESTORABLE) {
             // #836 P4: an MM profile the file cannot restore used to load with a
             // warning toast, and the first crossing was then refused.

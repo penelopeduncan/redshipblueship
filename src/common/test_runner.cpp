@@ -383,6 +383,12 @@ int MM_RuntimeParity_RunHeadless(void);
 // Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
 // shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_UpstreamFixes1754_RunHeadless(void);
+// #1587 stage A (games/mm/2s2h/mm_shared_saria_test.cpp): under the frozen Shared Sun's
+// Song / Shared Saria's Song MM's GeneratePools pools no copy of its own, and a shared
+// Saria's Song runs none of 2Ship's prompt, hint or removal. Need the display-free
+// shared bring-up first. Return 0 on pass, non-zero on fail.
+int MM_SharedSongPoolSkip_RunHeadless(void);
+int MM_SharedSariaHooks_RunHeadless(void);
 // #1755: Majora's Mask cutscene skips (games/mm/2s2h/mm_cutscene_skips_test.cpp).
 // Returns 0 on pass.
 int MM_CutsceneSkips_RunHeadless(void);
@@ -530,6 +536,9 @@ int Combo_ItemTrackerWindow_RunHeadless(void);
 // need MM's headers — this file must never acquire them. Return 0 on pass.
 int MM_RandoOptions_RunHeadless(void);
 int MM_PairedProfile_RunHeadless(void);
+// #1587 stage A (same TU): the Shared Sun's Song / Shared Saria's Song force MM's own
+// rows in a paired profile, from the keys, while offered.
+int MM_SharedSongRowCoupled_RunHeadless(void);
 // games/mm/2s2h/mm_placement_confinement_test.cpp (#1502): MM's placement settings
 // as the single bag's host groups, and the fold of the four options. MM-side for
 // the same reason (2Ship's PlacementConstraints and the live save's options). The
@@ -7962,6 +7971,41 @@ static TestResult Test_MMUpstreamFixes1754(void) {
     return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1587 stage A. Same display-free shared bring-up as mm-upstream-fixes-1754: MM's
+// GeneratePools reads CVars, and the Saria's Song legs drive ShipInit-registered hooks
+// through the Ship::Context singleton. Both restore everything they touch; the hooks
+// row re-runs SariasSongHint() under the restored save, so it stays after
+// mm-registrar-coverage (it registers hooks while it runs).
+static TestResult Test_MMSharedSongPoolSkip(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure
+");
+        return TEST_FAIL;
+    }
+    return MM_SharedSongPoolSkip_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+static TestResult Test_MMSharedSariaHooks(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure
+");
+        return TEST_FAIL;
+    }
+    return MM_SharedSariaHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1755. Same display-free shared bring-up as mm-runtime-parity: the registrars
 // it drives read CVars through the Ship::Context singleton. It restores
 // gSaveContext, MM_gPlayState and both CVars on the way out, so it has no
@@ -8698,6 +8742,23 @@ TestResult Test_MMPairedProfile(void) {
     }
 
     return MM_PairedProfile_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1587 stage A: the Shared Sun's / Saria's Song force MM's own rows. The same
+// bring-up as mm-paired-profile (the CVar store; the resolver reads the rule keys).
+TestResult Test_MMSharedSongRowCoupled(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure
+");
+        return TEST_FAIL;
+    }
+    return MM_SharedSongRowCoupled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // MM per-trick TABLE lock (#578 part 1). Same display-free bring-up as the two
@@ -9483,6 +9544,30 @@ TestResult Test_SharedWarpSongsOneCopyAnywhere(void) {
 }
 TestResult Test_SharedWarpSongsEdges(void) {
     return SharedWarpSongsRow(-1);
+}
+
+// #1587 stage A: one copy of the Shared Sun's Song and the Shared Saria's Song per
+// Shuffle Songs value (Off is stage B's), shared-warp-songs-one-copy's bring-up.
+static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton
+");
+        return TEST_FAIL;
+    }
+    static char ssocArg0[] = "redship";
+    static char* ssocArgv[] = { ssocArg0, nullptr };
+    InitOTRForMMFirstBoot(1, ssocArgv);
+    return SharedSunSariaOneCopy_Run(shuffleSongs);
+}
+TestResult Test_SharedSunSariaOneCopySongLocations(void) {
+    return SharedSunSariaOneCopyRow(1);
+}
+TestResult Test_SharedSunSariaOneCopyDungeonRewards(void) {
+    return SharedSunSariaOneCopyRow(2);
+}
+TestResult Test_SharedSunSariaOneCopyAnywhere(void) {
+    return SharedSunSariaOneCopyRow(3);
 }
 
 // #1502: the confined golden's profile (Small Keys, Boss Keys and Stray Fairies at
@@ -11175,6 +11260,12 @@ const TestDescriptor gTests[] = {
       Test_MMSongHostGuard },
     { "mm-paired-profile", "The paired MM profile honours explicit choices and publishes a moving digest (#499)",
       Test_MMPairedProfile },
+    // #1587 stage A: MM's own Sun's Song / Saria's Song rows under the shared rules.
+    { "mm-shared-song-row-coupled",
+      "Under an offered Shared Sun's Song or Shared Saria's Song MM's own row resolves on in a paired profile, from "
+      "the keys and never the frozen record, without writing MM's key, and the load matches at the file's word "
+      "(#1587)",
+      Test_MMSharedSongRowCoupled },
     // Spoiler-drop identity gate (#610): a dropped spoiler's cross-game section
     // is a COMBO commit, so it reaches gComboCtx only when its identity names
     // the live pairing; divergence refuses through the #533 surface.
@@ -11529,6 +11620,16 @@ const TestDescriptor gTests[] = {
     { "mm-upstream-fixes-1754",
       "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
       Test_MMUpstreamFixes1754 },
+    // #1587 stage A: after mm-registrar-coverage (the hooks row registers hooks while it
+    // runs); both restore everything they touch.
+    { "mm-shared-song-pool-skip",
+      "Under the frozen Shared Sun's Song or Shared Saria's Song MM's GeneratePools pools no copy of its own; "
+      "unshared, 2Ship's copy stays (#1587)",
+      Test_MMSharedSongPoolSkip },
+    { "mm-shared-saria-hooks",
+      "A shared Saria's Song plays 2Ship's fanfare fix in MM with no prompt, no redirect, no hint text and no "
+      "removal; unshared, 2Ship's prompt still loads (#1587)",
+      Test_MMSharedSariaHooks },
     // #1755: Majora's Mask cutscene skips. Restores everything it touches.
     { "mm-cutscene-skips",
       "MM cutscene skips: OnePoint bell/owl/bean-subtype, Sakon's Hideout (Ikana 14/34, Secom 21), and Couple's Mask "
@@ -12239,6 +12340,20 @@ const TestDescriptor gTests[] = {
       "With every warp-song rule on and Shuffle Songs Anywhere, each shared warp song is one bag pair row over both "
       "worlds, never Link's Pocket (#1169 XW10)",
       Test_SharedWarpSongsOneCopyAnywhere },
+    // #1587 stage A: the Shared Sun's Song and Shared Saria's Song, one copy each.
+    // Each needs a paired creation; skipped by `--test all` below like its siblings.
+    { "shared-sun-saria-one-copy-song-locations",
+      "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs at Song Locations, each is one bag "
+      "pair row over both worlds and MM's own rows resolve on (#1587)",
+      Test_SharedSunSariaOneCopySongLocations },
+    { "shared-sun-saria-one-copy-dungeon-rewards",
+      "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs at Dungeon Rewards, each is one bag "
+      "pair row over both worlds and MM's own rows resolve on (#1587)",
+      Test_SharedSunSariaOneCopyDungeonRewards },
+    { "shared-sun-saria-one-copy-anywhere",
+      "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs Anywhere, each is one bag pair row over "
+      "both worlds, under Balanced and under Plentiful (the #1653 trim), never Link's Pocket (#1587)",
+      Test_SharedSunSariaOneCopyAnywhere },
     { "shared-warp-songs-edges",
       "The Song of Soaring (OoT) beside a shared Minuet fits Dungeon Rewards, under Off the songs family is armed for "
       "a lone Soaring (OoT) whatever the shared rules and never for a shared warp song alone, and a started shared "
@@ -13144,6 +13259,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "shared-masks-bag") == 0 ||
                 strncmp(gTests[i].name, "shared-songs-one-copy-", 22) == 0 ||
                 strncmp(gTests[i].name, "shared-warp-songs-one-copy-", 27) == 0 ||
+                strncmp(gTests[i].name, "shared-sun-saria-one-copy-", 26) == 0 ||
                 strcmp(gTests[i].name, "shared-warp-songs-edges") == 0 ||
                 strcmp(gTests[i].name, "mm-placement-confined-world") == 0 ||
                 strcmp(gTests[i].name, "mm-placement-default-world") == 0 ||

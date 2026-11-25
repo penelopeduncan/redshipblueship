@@ -543,6 +543,60 @@ extern "C" int OoT_MenuMmRandomizerPages_RunHeadless(void) {
     printf("[TEST] leg 4: every row takes its table's state unpaired and \"Already Decided\" once frozen, keeping "
            "its name\n");
 
+    // ---- Leg 4b (#1587 stage A): a shared song forces MM's own row ------------
+    // Revealed, the Shared Sun's Song / Shared Saria's Song key turns MM's own row
+    // into SoH's disabled row, ticked, with the rule as its reason (ruling 2.3); with
+    // the key off it is the PARTIAL block again (leg 4 above). RED when the page's
+    // SetByCombo or ShownValue branch for the two rows is reverted.
+    {
+        const struct {
+            const char* name;
+            ComboSettingId id;
+            const char* reason;
+        } kForced[2] = {
+            { COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SUN, COMBO_SETTING_SHARED_SONG_SUN,
+              COMBO_SHARED_SUN_SET_BY_RULE_REASON },
+            { COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SARIA, COMBO_SETTING_SHARED_SONG_SARIAS,
+              COMBO_SHARED_SARIA_SET_BY_RULE_REASON },
+        };
+        Freeze(false);
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+        for (const auto& f : kForced) {
+            const ComboMMOptionDesc* desc = nullptr;
+            int index = -1;
+            for (int i = 0; i < count; i++) {
+                if (strcmp(Combo_MMOptionAt(i)->name, f.name) == 0) {
+                    desc = Combo_MMOptionAt(i);
+                    index = i;
+                }
+            }
+            FlatRow* row = desc != nullptr ? FindByName(rows, ExpectedRowName(desc)) : nullptr;
+            MMRP_CHECK(row != nullptr && desc->widget == COMBO_MM_WIDGET_CHECKBOX, "the %s row is not a drawn checkbox",
+                       f.name);
+            if (row == nullptr || index < 0) {
+                continue;
+            }
+            bool* on = std::get<bool*>(row->info->valuePointer);
+            MMRP_CHECK(Combo_ComboSettingSet(f.id, 1) == 1, "the writer refused the %s rule key", f.name);
+            DrawPass(*row->info);
+            MMRP_CHECK(IsDisabled(*row->info) && TooltipShown(*row->info) == SohDisabledShape(f.reason) && *on,
+                       "with its shared rule on, %s is %s, %s, with tooltip \"%s\" (want disabled, ticked, \"%s\")",
+                       f.name, IsDisabled(*row->info) ? "disabled" : "LIVE", *on ? "ticked" : "unticked",
+                       TooltipShown(*row->info).c_str(), f.reason);
+            (void)Combo_ComboSettingClear(f.id);
+            DrawPass(*row->info);
+            MMRP_CHECK(IsDisabled(*row->info) && TooltipShown(*row->info) == SohDisabledShape(desc->disabledReason) &&
+                           !*on,
+                       "with its shared rule off, %s is not the PARTIAL block again (tooltip \"%s\")", f.name,
+                       TooltipShown(*row->info).c_str());
+        }
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+        (void)Combo_ComboSettingClear(COMBO_SETTING_SHARED_SONG_SUN);
+        (void)Combo_ComboSettingClear(COMBO_SETTING_SHARED_SONG_SARIAS);
+        printf("[TEST] leg 4b: a shared Sun's Song or Saria's Song shows MM's own row ticked and disabled with the "
+               "rule as its reason (#1587)\n");
+    }
+
     // ---- Leg 5: staging values and the gated writers ---------------------------
     {
         const ComboMMOptionDesc* checkbox = nullptr;

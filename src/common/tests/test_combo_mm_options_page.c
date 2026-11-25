@@ -167,6 +167,76 @@ bool CmopContains(const char* text, const char* needle) {
     return text != NULL && strstr(text, needle) != NULL;
 }
 
+const ComboMMOptionDesc* CmopOptionNamed(const char* name) {
+    for (int i = 0; i < Combo_MMOptionCount(); i++) {
+        const ComboMMOptionDesc* d = Combo_MMOptionAt(i);
+        if (d != NULL && d->name != NULL && strcmp(d->name, name) == 0) {
+            return d;
+        }
+    }
+    return NULL;
+}
+
+/** #1587 stage A (leg 3's second half): revealed, each shared rule key forces MM's
+ *  own row SET_BY_COMBO, shown on, with the rule as its reason; with the key off the
+ *  row is the PARTIAL block again. Hidden (the production mask), a set key forces
+ *  nothing. The caller clears the keys and the reveal on every return. RED when the
+ *  page's SetByCombo or ShownValue branch for the two rows is reverted, or when the
+ *  Offered gate is dropped (the hidden case). */
+int CmopRunSharedSongRows() {
+    const struct {
+        const char* name;
+        ComboSettingId id;
+        const char* reason;
+    } kRows[2] = {
+        { COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SUN, COMBO_SETTING_SHARED_SONG_SUN, COMBO_SHARED_SUN_SET_BY_RULE_REASON },
+        { COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SARIA, COMBO_SETTING_SHARED_SONG_SARIAS,
+          COMBO_SHARED_SARIA_SET_BY_RULE_REASON },
+    };
+    ComboContext_Init();
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+    for (int k = 0; k < 2; k++) {
+        const ComboMMOptionDesc* d = CmopOptionNamed(kRows[k].name);
+        const ComboMMOptionDesc* other = CmopOptionNamed(kRows[1 - k].name);
+        CMOP_ASSERT(d != NULL && other != NULL);
+        CMOP_ASSERT(d->liveness == COMBO_MM_LIVENESS_PARTIAL && d->disabledReason != NULL &&
+                    d->disabledReason[0] != '\0');
+        const char* reason = NULL;
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionState(d, &reason) == COMBO_MM_ROW_BLOCKED &&
+                    strcmp(reason, d->disabledReason) == 0);
+        CMOP_ASSERT(Combo_ComboSettingSet(kRows[k].id, 1) == 1);
+        const ComboMMRowState state = Combo_MMOptionsPage_OptionState(d, &reason);
+        printf("[TEST] leg 3 (#1587): %s with its shared rule on: state %d, reason \"%s\", shown %d\n", d->name,
+               (int)state, reason, (int)Combo_MMOptionsPage_OptionShownValue(d));
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionSetByCombo(d) && state == COMBO_MM_ROW_SET_BY_COMBO &&
+                    strcmp(reason, kRows[k].reason) == 0 &&
+                    strcmp(Combo_MMOptionsPage_OptionSetByComboReason(d), kRows[k].reason) == 0);
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionShownValue(d) == 1);
+        // The other song's row is not forced by this rule.
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionState(other, &reason) == COMBO_MM_ROW_BLOCKED &&
+                    !Combo_MMOptionsPage_OptionSetByCombo(other));
+        CMOP_ASSERT(Combo_ComboSettingClear(kRows[k].id) == 1);
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionState(d, &reason) == COMBO_MM_ROW_BLOCKED &&
+                    strcmp(reason, d->disabledReason) == 0 && !Combo_MMOptionsPage_OptionSetByCombo(d));
+    }
+    // Both on: four rows are set by a combo rule (Logic, Shuffle Songs and these two).
+    CMOP_ASSERT(Combo_ComboSettingSet(kRows[0].id, 1) == 1 && Combo_ComboSettingSet(kRows[1].id, 1) == 1);
+    int setByCombo = 0;
+    for (int i = 0; i < Combo_MMOptionCount(); i++) {
+        setByCombo += Combo_MMOptionsPage_OptionSetByCombo(Combo_MMOptionAt(i)) ? 1 : 0;
+    }
+    CMOP_ASSERT(setByCombo == 4);
+    // Hidden (#1587 question 4): the keys stay on, nothing is forced.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+    for (int k = 0; k < 2; k++) {
+        const ComboMMOptionDesc* d = CmopOptionNamed(kRows[k].name);
+        const char* reason = NULL;
+        CMOP_ASSERT(Combo_MMOptionsPage_OptionState(d, &reason) == COMBO_MM_ROW_BLOCKED &&
+                    strcmp(reason, d->disabledReason) == 0 && !Combo_MMOptionsPage_OptionSetByCombo(d));
+    }
+    return TEST_PASS;
+}
+
 } // namespace
 
 extern "C" int Combo_MMOptionsPage_RunHeadless(void) {
@@ -282,6 +352,14 @@ extern "C" int Combo_MMOptionsPage_RunHeadless(void) {
             CMOP_ASSERT(gated ? strcmp(reason, d->disabledReason) == 0 && reason[0] != '\0' : reason[0] == '\0');
         }
         CMOP_ASSERT(setByCombo == 2); // Logic (#1367) and Shuffle Songs (#1542)
+        // #1587 stage A: the two rows the shared Sun's and Saria's rules force while
+        // offered. The rules are hidden above (production), so they were BLOCKED.
+        const int sharedSongRows = CmopRunSharedSongRows();
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+        (void)Combo_ComboSettingClear(COMBO_SETTING_SHARED_SONG_SUN);
+        (void)Combo_ComboSettingClear(COMBO_SETTING_SHARED_SONG_SARIAS);
+        ComboContext_Init();
+        CMOP_ASSERT(sharedSongRows == TEST_PASS);
         int live = 0;
         int blockedReserved = 0;
         int blockedUnbound = 0;

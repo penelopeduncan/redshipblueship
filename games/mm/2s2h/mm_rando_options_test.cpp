@@ -106,6 +106,7 @@
 // linkage (matching Foreign.cpp).
 #include "combo_mm_options_view.h"
 #include "combo_settings_view.h" // COMBO_SETTING_LOGIC: [Both Games] Logic (#1367)
+#include "cvar_shared_keys.h"    // #1587 stage A: the Shared Sun's Song / Saria's Song rule keys
 #include "foreign_items.h"
 #include "shared_items.h" // ComboItemClassRow, RSBS_FILL_ARM_CLOCKS* (#1437)
 
@@ -1641,6 +1642,287 @@ extern "C" int MM_PairedProfile_RunHeadless(void) {
     printf("[TEST] PASS: the paired profile derives MM's Logic from [Both Games] Logic, freezes at creation, keeps a "
            "pre-#1367 world's own Logic, refuses divergence without self-healing, and its widened digest moves with "
            "every generation input\n");
+    return 0;
+}
+
+// ============================================================================
+// mm-shared-song-row-coupled (#1587 stage A)
+// ============================================================================
+//
+// Under the Shared Sun's Song or Shared Saria's Song rule MM's own row for the song
+// resolves ON in a paired profile (Foreign.cpp, ResolveProfileValues step 2d),
+// derived from the rule KEYS and never written to MM's key, and only while the rule
+// is offered (#1587 question 4). Drives the real ResolvePairedProfile, the creation
+// stamp and the load's probe and restore over a zeroed MM SaveContext. Every leg but
+// (c) runs under Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL), restored
+// on every return.
+//
+//  (a) a rule key on, MM's key unset: the half holds 1, the stamp moves and the
+//      creation stamp agrees. RED if step 2d is removed.
+//  (b) both rules off: 0 and the default digest. RED if 2d forces unconditionally.
+//  (c) not offered (production mask), keys on: 0 and the default digest. RED if the
+//      Offered gate (Combo_SharedSongForcesMMRowIn) is dropped.
+//  (d) MM's own key is never written by (a)-(g).
+//  (e) a half made with both rules off matches with the rules off.
+//  (f) a stale frozen record: frozen rule-on with the keys off folds 0, frozen
+//      rule-off with the keys on folds 1. RED if 2d reads the record first.
+//  (g) the load: nothing frozen, keys on, a rule-on half's restore answers MATCHES
+//      and writes no MM key (RED for a frozen-record read, F1 of the stage A design);
+//      the probe with the keys off answers MATCHES at the file's word and RESTORABLE
+//      without it, and leaves no override behind (RED if the word is not carried into
+//      sClassifyRules2Override).
+namespace {
+
+struct SsrcSong {
+    RandoOptionId row;
+    uint32_t bit;
+    const char* key;
+    const char* name;
+};
+
+const SsrcSong kSsrcSongs[2] = {
+    { RO_SHUFFLE_SONG_SUN, RSBS_XITEM2_SHARED_SONG_SUN, RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN, "Sun's Song" },
+    { RO_SHUFFLE_SONG_SARIA, RSBS_XITEM2_SHARED_SONG_SARIAS, RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS,
+      "Saria's Song" },
+};
+
+void SsrcCarrier() {
+    ComboContext_Init();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0xC0FFEE11u;
+    gComboCtx.sharedRandoSettingsHash = 0x5EED0411u;
+}
+
+void SsrcFreezeRules2(uint32_t rules2) {
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
+}
+
+void SsrcSetKeys(bool sun, bool saria) {
+    if (sun) {
+        CVarSetInteger(kSsrcSongs[0].key, 1);
+    } else {
+        CVarClear(kSsrcSongs[0].key);
+    }
+    if (saria) {
+        CVarSetInteger(kSsrcSongs[1].key, 1);
+    } else {
+        CVarClear(kSsrcSongs[1].key);
+    }
+}
+
+bool SsrcMMKeysUnset() {
+    return !Combo_CVarIsExplicitInt(Rando::StaticData::Options[RO_SHUFFLE_SONG_SUN].cvar) &&
+           !Combo_CVarIsExplicitInt(Rando::StaticData::Options[RO_SHUFFLE_SONG_SARIA].cvar);
+}
+
+/** ResolvePairedProfile(true); the two rows in @p sun / @p saria; 0 when it threw. */
+uint32_t SsrcResolve(uint32_t* sun, uint32_t* saria) {
+    uint32_t digest = 0;
+    try {
+        digest = Rando::Foreign::ResolvePairedProfile(true);
+    } catch (const std::exception&) {
+        digest = 0;
+    }
+    *sun = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN];
+    *saria = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA];
+    return digest;
+}
+
+int SsrcRunLegs() {
+    const uint32_t both = RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS;
+    uint32_t sun = 0;
+    uint32_t saria = 0;
+
+    // ---- (b) both rules off --------------------------------------------------
+    SsrcSetKeys(false, false);
+    SsrcCarrier();
+    const uint32_t defaultDigest = SsrcResolve(&sun, &saria);
+    if (defaultDigest == 0 || sun != 0 || saria != 0) {
+        return Fail(300, "(b) rules off: digest %08X, Sun's row %u, Saria's row %u (want non-zero, 0, 0)",
+                    (unsigned)defaultDigest, (unsigned)sun, (unsigned)saria);
+    }
+
+    // ---- (a) each rule alone, then both --------------------------------------
+    uint32_t songDigest[2] = { 0, 0 };
+    for (int i = 0; i < 2; i++) {
+        SsrcSetKeys(i == 0, i == 1);
+        SsrcCarrier();
+        songDigest[i] = SsrcResolve(&sun, &saria);
+        const uint32_t own = i == 0 ? sun : saria;
+        const uint32_t other = i == 0 ? saria : sun;
+        const uint32_t stamp = MM_Rando_ComputeProfileStamp();
+        printf("[TEST] mm-shared-song-row-coupled (a) Shared %s on: rows %u/%u, digest %08X (default %08X), "
+               "creation stamp %08X\n",
+               kSsrcSongs[i].name, (unsigned)sun, (unsigned)saria, (unsigned)songDigest[i], (unsigned)defaultDigest,
+               (unsigned)stamp);
+        if (own != (uint32_t)RO_GENERIC_YES || other != 0) {
+            return Fail(301,
+                        "(a) Shared %s on: its row resolved to %u and the other to %u (want 1 and 0): step 2d of "
+                        "ResolveProfileValues does not force MM's own row",
+                        kSsrcSongs[i].name, (unsigned)own, (unsigned)other);
+        }
+        if (songDigest[i] == 0 || songDigest[i] == defaultDigest || stamp != songDigest[i]) {
+            return Fail(302,
+                        "(a) Shared %s on: digest %08X, default %08X, creation stamp %08X (want a moved digest the "
+                        "creation stamp agrees with)",
+                        kSsrcSongs[i].name, (unsigned)songDigest[i], (unsigned)defaultDigest, (unsigned)stamp);
+        }
+        if (!SsrcMMKeysUnset()) {
+            return Fail(303, "(d) Shared %s on: MM's own row key was written", kSsrcSongs[i].name);
+        }
+    }
+    SsrcSetKeys(true, true);
+    SsrcCarrier();
+    const uint32_t bothDigest = SsrcResolve(&sun, &saria);
+    if (sun != 1 || saria != 1 || bothDigest == songDigest[0] || bothDigest == songDigest[1] ||
+        bothDigest == defaultDigest) {
+        return Fail(304, "(a) both rules on: rows %u/%u, digest %08X (each alone %08X/%08X, default %08X)",
+                    (unsigned)sun, (unsigned)saria, (unsigned)bothDigest, (unsigned)songDigest[0],
+                    (unsigned)songDigest[1], (unsigned)defaultDigest);
+    }
+
+    // ---- (c) not offered: the production mask forces nothing ----------------
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+    SsrcCarrier();
+    const uint32_t hiddenDigest = SsrcResolve(&sun, &saria);
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+    if (sun != 0 || saria != 0 || hiddenDigest != defaultDigest) {
+        return Fail(305,
+                    "(c) both keys on but the rules hidden: rows %u/%u, digest %08X (default %08X): a rule that is "
+                    "not offered forced MM's row (#1587 question 4)",
+                    (unsigned)sun, (unsigned)saria, (unsigned)hiddenDigest, (unsigned)defaultDigest);
+    }
+
+    // ---- (f) a stale frozen record never decides ----------------------------
+    SsrcSetKeys(false, false);
+    SsrcCarrier();
+    SsrcFreezeRules2(both); // the last file's record, still resident
+    const uint32_t staleOnDigest = SsrcResolve(&sun, &saria);
+    if (sun != 0 || saria != 0 || staleOnDigest != defaultDigest) {
+        return Fail(306,
+                    "(f) record frozen rule-on, keys off: rows %u/%u, digest %08X (default %08X): the resolution "
+                    "read the frozen record, not the keys",
+                    (unsigned)sun, (unsigned)saria, (unsigned)staleOnDigest, (unsigned)defaultDigest);
+    }
+    SsrcSetKeys(true, true);
+    SsrcCarrier();
+    SsrcFreezeRules2(0u);
+    const uint32_t staleOffDigest = SsrcResolve(&sun, &saria);
+    if (sun != 1 || saria != 1 || staleOffDigest != bothDigest) {
+        return Fail(307, "(f) record frozen rule-off, keys on: rows %u/%u, digest %08X (want %08X)", (unsigned)sun,
+                    (unsigned)saria, (unsigned)staleOffDigest, (unsigned)bothDigest);
+    }
+
+    // ---- (e) a half made with the rules off matches with them off -----------
+    {
+        SsrcSetKeys(false, false);
+        SsrcCarrier();
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+        const uint32_t frozen = SsrcResolve(&sun, &saria);
+        std::vector<uint8_t> half(sizeof(SaveContext));
+        memcpy(half.data(), &gSaveContext, sizeof(SaveContext));
+        ComboContext_Init();
+        const int atKeys =
+            MM_Rando_ClassifyProfileForLoadAtFileRules(half.data(), half.size(), frozen, -1, -1, -1, -1, -1);
+        const int atWord =
+            MM_Rando_ClassifyProfileForLoadAtFileRules(half.data(), half.size(), frozen, -1, -1, -1, -1, 0);
+        if (frozen != defaultDigest || atKeys != RSBS_MM_PROFILE_LOAD_MATCHES ||
+            atWord != RSBS_MM_PROFILE_LOAD_MATCHES) {
+            return Fail(308,
+                        "(e) a rules-off half (%08X, default %08X) classified %d at the keys and %d at its word 0 "
+                        "(want MATCHES for both)",
+                        (unsigned)frozen, (unsigned)defaultDigest, atKeys, atWord);
+        }
+    }
+
+    // ---- (g) the load --------------------------------------------------------
+    {
+        SsrcSetKeys(true, true);
+        SsrcCarrier();
+        memset(&gSaveContext, 0, sizeof(gSaveContext));
+        gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_RANDO;
+        const uint32_t frozen = SsrcResolve(&sun, &saria);
+        std::vector<uint8_t> half(sizeof(SaveContext));
+        memcpy(half.data(), &gSaveContext, sizeof(SaveContext));
+        if (frozen != bothDigest || sun != 1 || saria != 1) {
+            return Fail(309, "(g) the rule-on half was not made with both rows on (%u/%u, %08X vs %08X)",
+                        (unsigned)sun, (unsigned)saria, (unsigned)frozen, (unsigned)bothDigest);
+        }
+
+        // A cold boot: nothing frozen, and the rules restore has put the file's keys back.
+        ComboContext_Init();
+        char names[256] = { 0 };
+        int count = -1;
+        const int restored =
+            MM_Rando_RestoreProfileForLoad(half.data(), half.size(), frozen, names, sizeof(names), &count);
+        printf("[TEST] mm-shared-song-row-coupled (g) cold-boot restore of a rule-on half: %d (%d key(s): %s)\n",
+               restored, count, names);
+        if (restored != RSBS_MM_PROFILE_LOAD_MATCHES || count != 0 || !SsrcMMKeysUnset()) {
+            return Fail(310,
+                        "(g) nothing frozen, rule keys on: the restore of a rule-on half answered %d with %d key(s) "
+                        "written ('%s'), want MATCHES and none: the row is not read from the keys",
+                        restored, count, names);
+        }
+
+        // The file-select probe runs BEFORE the rules restore: the keys are off.
+        SsrcSetKeys(false, false);
+        const int atWord = MM_Rando_ClassifyProfileForLoadAtFileRules(half.data(), half.size(), frozen, -1, -1, -1,
+                                                                       -1, (int64_t)both);
+        const int atKeys =
+            MM_Rando_ClassifyProfileForLoadAtFileRules(half.data(), half.size(), frozen, -1, -1, -1, -1, -1);
+        const int after = MM_Rando_ClassifyProfileForLoad(half.data(), half.size(), frozen);
+        printf("[TEST] mm-shared-song-row-coupled (g) probe with the keys off: at the file's word %d, at the keys %d, "
+               "after %d\n",
+               atWord, atKeys, after);
+        if (atWord != RSBS_MM_PROFILE_LOAD_MATCHES) {
+            return Fail(311,
+                        "(g) the probe at the file's second word answered %d, want MATCHES: step 2d does not read "
+                        "sClassifyRules2Override",
+                        atWord);
+        }
+        if (atKeys != RSBS_MM_PROFILE_LOAD_RESTORABLE || after != RSBS_MM_PROFILE_LOAD_RESTORABLE) {
+            return Fail(312,
+                        "(g) at the keys the probe answered %d and afterwards %d, want RESTORABLE for both (the leg "
+                        "above would be vacuous, or the override leaked)",
+                        atKeys, after);
+        }
+        if (!SsrcMMKeysUnset()) {
+            return Fail(313, "(g) the probe or the restore wrote MM's own row key");
+        }
+    }
+    return 0;
+}
+
+} // namespace
+
+extern "C" int MM_SharedSongRowCoupled_RunHeadless(void) {
+    printf("[TEST] mm-shared-song-row-coupled: the Shared Sun's Song and Shared Saria's Song force MM's own rows in "
+           "a paired profile, from the keys, while offered (#1587 stage A)\n");
+    const GameId prevGame = Context_GetCurrentGame();
+    ClearAllOptionCVars();
+    CVarClear("gRando.ExcludedChecks");
+    memset(&gSaveContext, 0, sizeof(gSaveContext));
+    ComboContext_Init();
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+
+    const int rc = SsrcRunLegs();
+
+    // Leave global state clean for whatever runs next, on pass and on fail.
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+    SsrcSetKeys(false, false);
+    ClearAllOptionCVars();
+    memset(&gSaveContext, 0, sizeof(gSaveContext));
+    ComboContext_Init();
+    Context_SetCurrentGame(prevGame);
+    if (rc != 0) {
+        return rc;
+    }
+    printf("[TEST] PASS: mm-shared-song-row-coupled: each shared rule forces MM's own row on from the keys, only "
+           "while offered, never writing MM's key; a stale record decides nothing; the load matches at the file's "
+           "word\n");
     return 0;
 }
 
