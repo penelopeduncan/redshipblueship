@@ -32,7 +32,7 @@
  *       their own bit at tier 0, whatever the collectible flag, never
  *       ITEM00_NOTHING or another drop;
  *   (S) shelves: MM_Combo_StickGated / MM_Combo_NutGated, the answers the
- *       vanilla shelves ask;
+ *       vanilla shelves ask (a shuffled shelf asks them through (L)'s predicate);
  *   (K) #1691, the offers that are not a drop, in both games: a Deku Baba's or
  *       withered (Mini) Baba's stick, MM's unshuffled chests and OoT's vanilla
  *       business scrubs ask MM_Combo_GetItemGated / OoT_Combo_GetItemGated, each
@@ -44,12 +44,24 @@
  *       OoT's next arrival holds it; a second copy (OoT's next capacity or its
  *       Infinite Upgrades item) crosses; with the bits clear it crosses as
  *       before; OoT's own step of a redeemed bag copy fills the same way;
+ *   (L) #1788 (operator ruling 2026-11-19): a SHUFFLED shelf holding sticks or
+ *       nuts before the pair's bag shows them and refuses the sale, as OoTMM's
+ *       shop does (common/shop.c Shop_Precond, item.c comboItemPrecond), through
+ *       the REAL shelf functions a shopkeeper calls (EnGirlA.cpp): the predicate,
+ *       the draw and name, the refusal before the rupee test, the buy defense,
+ *       the stock (an old file's junk-sold shelf too), the live sale after the
+ *       bag, the Hags' mushroom shelf, and both foreign directions (an OoT pack on
+ *       an MM shelf, an MM pack on an OoT shelf);
  *   (A) the source anchors: each production call site calls its helper, searched
  *       inside the function it names.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * after test_combo_bag_shuffle.c; every symbol under test is C-linkage and every
  * name here carries the Snb prefix so it cannot meet a neighbour's.
+ *
+ * (L) catches, per assertion, the production line named beside it; the obtainable
+ * case (a world whose bag shuffle is off, or tier 1) is asserted beside every
+ * locked one, so each leg tells the lock from its absence.
  */
 
 #include "../context.h"
@@ -76,6 +88,9 @@ int MM_Combo_Item00Gated(int16_t params);
 int MM_Combo_GetItemGated(int16_t getItemId);
 void MM_Combo_ApplyPairedBagBirth(void);
 uint16_t MM_ForeignItem_RedeemAs(uint16_t riId);
+int MM_Combo_ShelfItemLocked(uint16_t riId); // #1788
+// soh/Enhancements/randomizer/ForeignItemsSingleExe.cpp (#1788)
+int OoT_Rando_ShopShelfForeignLocked(uint16_t rc);
 // games/mm/2s2h/mm_stick_nut_bag_test.cpp
 void MM_SnbTest_ArmBorn(void);
 void MM_SnbTest_SetBag(int nut, int tier, int held, int ammo);
@@ -91,6 +106,22 @@ int MM_SnbTest_Convert(int ri);
 int MM_SnbTest_ColdJunkDraw(void);
 void MM_SnbTest_GiveRando(int ri);
 int MM_SnbTest_Item00(int which);
+int MM_SnbTest_ShelfCheck(int slot);
+void MM_SnbTest_PlaceShelf(int slot, int ri, int obtained, int eligible);
+int MM_SnbTest_ShelfForeign(int slot);
+int MM_SnbTest_ShelfLocked(int slot);
+int MM_SnbTest_ShelfItem(int slot);
+int MM_SnbTest_ShelfNamesItem(int slot, int ri);
+int MM_SnbTest_BombShopHandIsShelfItem(void);
+int MM_SnbTest_ShelfSold(int slot);
+int MM_SnbTest_ShelfRestockShows(int slot);
+int MM_SnbTest_ShelfCanBuy(int slot, int rupees, int price);
+int MM_SnbTest_ShelfBuy(int slot, int price);
+int MM_SnbTest_ShelfObtained(int slot);
+int MM_SnbTest_HagsArmable(void);
+int MM_SnbTest_HagsLineArms(int* outFreePotion);
+void MM_SnbTest_ShelfStateSave(void);
+void MM_SnbTest_ShelfStateRestore(void);
 void MM_Rando_TestColdJunkCache(void); // games/mm/2s2h/Rando/ConvertItem.cpp
 // games/mm/2s2h/mm_shared_tier_test.cpp, games/oot/soh/oot_shared_tier_test.cpp
 int MM_SharedTierTest_HostCheck(int which);
@@ -638,6 +669,248 @@ TestResult MMStickNutBagGate_Run(void) {
                   "%s: OoT's crossed packs map to the wrong bag gate", w.what);
     }
 
+    // ---- (L) #1788: a shelf locked behind its bag shows its item and refuses the sale ----
+    // Shelf slots (mm_stick_nut_bag_test.cpp): 0 and 1 the Trading Post, 2 the Hags'
+    // mushroom shelf, 3 the Bomb Shop's first shelf. MM_SnbTest_ShelfCanBuy answers
+    // 0 SUCCESS_2, 1 CANNOT_GET_NOW, 2 NEED_RUPEES. The four shelf checks and the
+    // Hags' weekly free-potion byte are saved here and put back before (A), as
+    // MM_EnGirlA_TestHagsDeliveredFreePotion does for its check and byte.
+    const int kSnbShelfPrice = 10;
+    MM_SnbTest_ShelfStateSave();
+    for (const auto& w : kSnbWorlds) {
+        for (int which = 0; which < 5; which++) {
+            const int ri = MM_SnbTest_RandoId(which);
+            const int nut = which >= 2 ? 1 : 0;
+            const bool gated = nut ? w.nut : w.stick;
+            SnbWorld(w.frozen, w.stick, w.nut);
+            MM_SnbTest_ArmBorn();
+            MM_SnbTest_SetBag(nut, 0, 0, 0);
+            MM_SnbTest_PlaceShelf(0, ri, 0, 0);
+            MM_SnbTest_PlaceShelf(3, ri, 0, 0);
+            SNB_CHECK(MM_SnbTest_ShelfForeign(0) == 0 && MM_SnbTest_ShelfForeign(3) == 0,
+                      "%s: a stale crossing makes the native shelves foreign hosts", w.what);
+
+            // L1, the predicate. Catches: a case line of MM_Combo_ShelfItemLocked
+            // missing (that id), the stick and nut gates swapped (the one-bag worlds).
+            SNB_CHECK(MM_Combo_ShelfItemLocked((uint16_t)ri) == (gated ? 1 : 0) &&
+                          MM_SnbTest_ShelfLocked(0) == (gated ? 1 : 0),
+                      "%s: RI %d's shelf at tier 0 locked %d / %d (expected %d)", w.what, ri,
+                      MM_Combo_ShelfItemLocked((uint16_t)ri), MM_SnbTest_ShelfLocked(0), gated ? 1 : 0);
+
+            // L2, the real item is shown. Catches: ShopShelfItem's locked branch
+            // removed (it draws and names RI_JUNK), BombShopHandItem back on
+            // ConvertItem (the owner holds junk while the shelf shows sticks).
+            SNB_CHECK(MM_SnbTest_ShelfItem(0) == ri && MM_SnbTest_ShelfNamesItem(0, ri) == 1 &&
+                          MM_SnbTest_ShelfItem(3) == ri && MM_SnbTest_BombShopHandIsShelfItem() == 1,
+                      "%s: RI %d's shelf at tier 0 draws %d (names it %d, owner holds it %d)", w.what, ri,
+                      MM_SnbTest_ShelfItem(0), MM_SnbTest_ShelfNamesItem(0, ri), MM_SnbTest_BombShopHandIsShelfItem());
+
+            // L3, refused BEFORE the rupee test. Catches: the lock line in
+            // EnGirlA_RandoCanBuyFunc removed (SUCCESS_2 at 999 rupees) or moved
+            // below the rupee test (NEED_RUPEES at 0).
+            const int rich = MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice);
+            const int broke = MM_SnbTest_ShelfCanBuy(0, 0, kSnbShelfPrice);
+            printf("[TEST] (L3) %s, RI %d at tier 0: can buy %d with 999 rupees, %d with none (expected %d, %d)\n",
+                   w.what, ri, rich, broke, gated ? 1 : 0, gated ? 1 : 2);
+            SNB_CHECK(rich == (gated ? 1 : 0) && broke == (gated ? 1 : 2),
+                      "%s: RI %d's shelf at tier 0 answers %d / %d", w.what, ri, rich, broke);
+
+            // L5, stocked while locked, an old file's junk-sold shelf too (obtained,
+            // the v0.5.3-alpha junk sale). Catches: the lock line in
+            // ShopShelfSlotSold removed or put after JunkSlotSpent (sold 1), the
+            // lock branch in EnGirlA_RandoRestock removed (JunkSlotSpent keeps it
+            // empty). Asked before the buy below so the shelf is still unbought.
+            SNB_CHECK(MM_SnbTest_ShelfSold(0) == 0 && MM_SnbTest_ShelfRestockShows(0) == 1,
+                      "%s: RI %d's unbought shelf reads sold %d, restock shows %d", w.what, ri, MM_SnbTest_ShelfSold(0),
+                      MM_SnbTest_ShelfRestockShows(0));
+            if (gated) {
+                MM_SnbTest_PlaceShelf(0, ri, 1, 0);
+                SNB_CHECK(MM_SnbTest_ShelfSold(0) == 0 && MM_SnbTest_ShelfRestockShows(0) == 1 &&
+                              MM_SnbTest_ShelfItem(0) == ri,
+                          "%s: an old file's junk-sold RI %d shelf reads sold %d, restock shows %d, draws %d (expected "
+                          "0, 1, the item)",
+                          w.what, ri, MM_SnbTest_ShelfSold(0), MM_SnbTest_ShelfRestockShows(0),
+                          MM_SnbTest_ShelfItem(0));
+                MM_SnbTest_PlaceShelf(0, ri, 0, 0);
+            }
+
+            // L4, nothing given, charged or credited. Catches: the defense in
+            // EnGirlA_RandoBuyFunc removed (charged -10, obtained, junk given).
+            if (gated) {
+                const int change = MM_SnbTest_ShelfBuy(0, kSnbShelfPrice);
+                SNB_CHECK(change == 0 && MM_SnbTest_ShelfObtained(0) == 0 && MM_SnbTest_Held(nut) == 0 &&
+                              MM_SnbTest_Ammo(nut) == 0 && MM_SnbTest_Tier(nut) == 0,
+                          "%s: a buy on the locked RI %d shelf changed the rupees by %d, obtained %d, held %d ammo %d",
+                          w.what, ri, change, MM_SnbTest_ShelfObtained(0), MM_SnbTest_Held(nut), MM_SnbTest_Ammo(nut));
+            }
+
+            // L6, the live sale after the bag: the SAME shelf, refused a moment ago,
+            // sells on the next attempt once the tier moves (the bag bought in the
+            // shop, or crossed in). Catches: a predicate that ignores the tier, any
+            // lock state cached between attempts.
+            MM_SnbTest_SetBag(nut, 1, 1, 1);
+            SNB_CHECK(MM_SnbTest_ShelfLocked(0) == 0 && MM_SnbTest_ShelfItem(0) == ri &&
+                          MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice) == 0,
+                      "%s: after the bag RI %d's shelf locked %d, draws %d, can buy %d", w.what, ri,
+                      MM_SnbTest_ShelfLocked(0), MM_SnbTest_ShelfItem(0),
+                      MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice));
+            const int paid = MM_SnbTest_ShelfBuy(0, kSnbShelfPrice);
+            SNB_CHECK(paid == -kSnbShelfPrice && MM_SnbTest_ShelfObtained(0) == 1 && MM_SnbTest_Ammo(nut) > 1 &&
+                          MM_SnbTest_ShelfSold(0) == 0,
+                      "%s: the sale after the bag charged %d, obtained %d, ammo %d, sold %d (expected -%d, 1, >1, 0)",
+                      w.what, paid, MM_SnbTest_ShelfObtained(0), MM_SnbTest_Ammo(nut), MM_SnbTest_ShelfSold(0),
+                      kSnbShelfPrice);
+        }
+
+        // L7, the scope and the control. Catches: a widened predicate (arrows,
+        // junk; bombchus belong to #1702), and the junk-once rule (#1499) lost for
+        // an item that is not locked: arrows with no quiver still sell junk once.
+        SnbWorld(w.frozen, w.stick, w.nut);
+        MM_SnbTest_ArmBorn();
+        MM_SnbTest_SetBag(0, 0, 0, 0);
+        MM_SnbTest_SetBag(1, 0, 0, 0);
+        SNB_CHECK(MM_Combo_ShelfItemLocked((uint16_t)MM_SnbTest_RandoId(8)) == 0 &&
+                      MM_Combo_ShelfItemLocked((uint16_t)MM_SnbTest_RandoId(5)) == 0 &&
+                      MM_Combo_ShelfItemLocked((uint16_t)MM_SnbTest_RandoId(9)) == 0,
+                  "%s: the shelf lock holds an id that is neither a stick nor a nut pack", w.what);
+        MM_SnbTest_PlaceShelf(0, MM_SnbTest_RandoId(8), 0, 0);
+        SNB_CHECK(MM_SnbTest_ShelfLocked(0) == 0 && MM_SnbTest_ShelfItem(0) == MM_SnbTest_RandoId(5) &&
+                      MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice) == 0 && MM_SnbTest_ShelfSold(0) == 0,
+                  "%s: arrows with no quiver no longer offer junk (locked %d, draws %d)", w.what,
+                  MM_SnbTest_ShelfLocked(0), MM_SnbTest_ShelfItem(0));
+        MM_SnbTest_PlaceShelf(0, MM_SnbTest_RandoId(8), 1, 0); // its junk sold
+        SNB_CHECK(MM_SnbTest_ShelfSold(0) == 1 && MM_SnbTest_ShelfRestockShows(0) == 0 &&
+                      MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice) == 1,
+                  "%s: an arrow shelf that sold its junk is stocked again", w.what);
+
+        // L10, the Hags' mushroom shelf (OoTMM sells it as a shelf, common/shop.c):
+        // a stick there before the bag is not armed as a junk gift; the line
+        // settles the free potion and the shelf shows the stick and refuses it.
+        // Catches: the lock line in HagsMushroomSlotArmable removed (armed 1).
+        // Control: after the bag, or without its shuffle, the gift arms as before.
+        for (int nut = 0; nut < 2; nut++) {
+            const int ri = MM_SnbTest_RandoId(nut ? 3 : 0);
+            const bool gated = nut ? w.nut : w.stick;
+            MM_SnbTest_ArmBorn();
+            MM_SnbTest_SetBag(nut, 0, 0, 0);
+            MM_SnbTest_PlaceShelf(2, ri, 0, 0);
+            int freePotion = -1;
+            const int armable = MM_SnbTest_HagsArmable();
+            const int arms = MM_SnbTest_HagsLineArms(&freePotion);
+            printf("[TEST] (L10) %s, RI %d on the Hags' shelf at tier 0: armable %d, line arms %d, free potion %d "
+                   "(expected %d, %d, %d)\n",
+                   w.what, ri, armable, arms, freePotion, gated ? 0 : 1, gated ? 0 : 1, gated ? 1 : 0);
+            SNB_CHECK(armable == (gated ? 0 : 1) && arms == (gated ? 0 : 1) && freePotion == (gated ? 1 : 0),
+                      "%s: the Hags' mushroom line on RI %d at tier 0: armable %d, arms %d, free potion %d", w.what, ri,
+                      armable, arms, freePotion);
+            if (gated) {
+                SNB_CHECK(MM_SnbTest_ShelfItem(2) == ri && MM_SnbTest_ShelfNamesItem(2, ri) == 1 &&
+                              MM_SnbTest_ShelfCanBuy(2, 999, kSnbShelfPrice) == 1 && MM_SnbTest_ShelfSold(2) == 0,
+                          "%s: the Hags' locked shelf draws %d and is not refused as a stocked shelf", w.what,
+                          MM_SnbTest_ShelfItem(2));
+                // An old file whose Hags gift already gave junk (obtained, not armed).
+                MM_SnbTest_PlaceShelf(2, ri, 1, 0);
+                SNB_CHECK(MM_SnbTest_ShelfSold(2) == 0 && MM_SnbTest_ShelfItem(2) == ri,
+                          "%s: an old file's Hags shelf after its junk gift reads sold", w.what);
+                MM_SnbTest_PlaceShelf(2, ri, 0, 0);
+            }
+            MM_SnbTest_SetBag(nut, 1, 1, 1);
+            SNB_CHECK(MM_SnbTest_HagsArmable() == 1, "%s: after the bag the Hags' line does not arm RI %d", w.what, ri);
+        }
+    }
+
+    // L8, an OoT stick or nut pack on an MM shelf (the shelf holds MM's junk cover).
+    // OoTMM asks the owning game's tier (item_buy.c isItemBuyable). Catches: the
+    // foreign branch of ShopShelfLocked removed (sells, and the pack crosses as a
+    // blue rupee), the buy defense removed (it crosses, charges and credits), the
+    // stick and nut kinds swapped (the one-bag worlds). Control: a bomb pack on the
+    // same shelf is never locked.
+    for (const auto& w : kSnbWorlds) {
+        for (int nut = 0; nut < 2; nut++) {
+            const bool gated = nut ? w.nut : w.stick;
+            SnbWorld(w.frozen, w.stick, w.nut);
+            MM_SnbTest_ArmBorn();
+            MM_SnbTest_SetBag(nut, 0, 0, 0);
+            MM_SnbTest_PlaceShelf(0, MM_SnbTest_RandoId(5), 0, 0);
+            const uint16_t host = (uint16_t)MM_SnbTest_ShelfCheck(0);
+            SNB_CHECK(Combo_SetForeignPlacement(host, SnbItem(GAME_OOT, OoT_SharedTierTest_BagPackId(nut))) >= 0 &&
+                          MM_SnbTest_ShelfForeign(0) == 1,
+                      "%s: could not pin OoT's pack on the Trading Post shelf", w.what);
+            const int before = Combo_CountSharedItems(GAME_OOT, /*includeRedeemed=*/true);
+            const int rich = MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice);
+            const int broke = MM_SnbTest_ShelfCanBuy(0, 0, kSnbShelfPrice);
+            printf("[TEST] (L8) %s, OoT's %s pack on an MM shelf at tier 0: locked %d, can buy %d / %d (expected %d, "
+                   "%d, %d)\n",
+                   w.what, nut ? "nut" : "stick", MM_SnbTest_ShelfLocked(0), rich, broke, gated ? 1 : 0, gated ? 1 : 0,
+                   gated ? 1 : 2);
+            SNB_CHECK(MM_SnbTest_ShelfLocked(0) == (gated ? 1 : 0) && rich == (gated ? 1 : 0) &&
+                          broke == (gated ? 1 : 2),
+                      "%s: OoT's pack on an MM shelf at tier 0: locked %d, can buy %d / %d", w.what,
+                      MM_SnbTest_ShelfLocked(0), rich, broke);
+            if (gated) {
+                const int change = MM_SnbTest_ShelfBuy(0, kSnbShelfPrice);
+                const int after = Combo_CountSharedItems(GAME_OOT, /*includeRedeemed=*/true);
+                SNB_CHECK(change == 0 && MM_SnbTest_ShelfObtained(0) == 0 && after == before &&
+                              MM_SnbTest_ShelfSold(0) == 0,
+                          "%s: a buy on a locked OoT pack changed rupees by %d, obtained %d, crossings %d -> %d",
+                          w.what, change, MM_SnbTest_ShelfObtained(0), before, after);
+            }
+            MM_SnbTest_SetBag(nut, 1, 1, 1);
+            SNB_CHECK(MM_SnbTest_ShelfLocked(0) == 0 && MM_SnbTest_ShelfCanBuy(0, 999, kSnbShelfPrice) == 0,
+                      "%s: after the bag OoT's pack on an MM shelf is still refused", w.what);
+            MM_SnbTest_SetBag(nut, 0, 0, 0);
+            Combo_ClearForeignPlacements();
+            SNB_CHECK(Combo_SetForeignPlacement(host, SnbItem(GAME_OOT, OoT_SharedTierTest_BombPackId())) >= 0 &&
+                          MM_SnbTest_ShelfLocked(0) == 0,
+                      "%s: OoT's bomb pack on an MM shelf is locked", w.what);
+            Combo_ClearForeignPlacements();
+        }
+    }
+
+    // L9, an MM stick or nut pack on an OoT shelf (OoT's table holds its junk
+    // cover, so OoT's own obtainability cannot see it). The key is any OoT check id:
+    // OoT_Rando_ShopShelfForeignLocked reads only the placement and OoT's tier.
+    // Catches: MM_ForeignItem_BagGateKind's case lines (that id), the gate reading
+    // anything but OoT's own tier (tier 1), the kinds swapped (the one-bag worlds).
+    {
+        const uint16_t kSnbOotShelfKey = 1788u;
+        for (const auto& w : kSnbWorlds) {
+            SnbWorld(w.frozen, w.stick, w.nut);
+            for (int which = 0; which < 5; which++) {
+                const int ri = MM_SnbTest_RandoId(which);
+                const int nut = which >= 2 ? 1 : 0;
+                const bool gated = nut ? w.nut : w.stick;
+                SNB_CHECK(MM_ForeignItem_BagGateKind((uint16_t)ri) == (nut ? kSnbNutTier : kSnbStickTier),
+                          "%s: MM's RI %d maps to bag kind %u", w.what, ri,
+                          (unsigned)MM_ForeignItem_BagGateKind((uint16_t)ri));
+                Combo_ClearForeignPlacementsOoT();
+                SNB_CHECK(Combo_SetForeignPlacementOoT(kSnbOotShelfKey, SnbItem(GAME_MM, ri)) >= 0,
+                          "%s: could not pin MM's RI %d on an OoT shelf", w.what, ri);
+                OoT_SharedTierTest_ArmLive();
+                OoT_SharedTierTest_SetBagTier(nut, 0);
+                const int locked = OoT_Rando_ShopShelfForeignLocked(kSnbOotShelfKey);
+                OoT_SharedTierTest_SetBagTier(nut, 1);
+                const int opened = OoT_Rando_ShopShelfForeignLocked(kSnbOotShelfKey);
+                SNB_CHECK(locked == (gated ? 1 : 0) && opened == 0,
+                          "%s: MM's RI %d on an OoT shelf: locked %d at tier 0, %d at tier 1 (expected %d, 0)", w.what,
+                          ri, locked, opened, gated ? 1 : 0);
+            }
+            SNB_CHECK(MM_ForeignItem_BagGateKind((uint16_t)MM_SnbTest_RandoId(8)) == 0u &&
+                          MM_ForeignItem_BagGateKind((uint16_t)MM_SnbTest_RandoId(5)) == 0u &&
+                          MM_ForeignItem_BagGateKind((uint16_t)MM_SnbTest_RandoId(9)) == 0u,
+                      "%s: an MM id that is no stick or nut pack maps to a bag kind", w.what);
+            Combo_ClearForeignPlacementsOoT();
+            OoT_SharedTierTest_ArmLive();
+            OoT_SharedTierTest_SetBagTier(0, 0);
+            OoT_SharedTierTest_SetBagTier(1, 0);
+            SNB_CHECK(Combo_SetForeignPlacementOoT(kSnbOotShelfKey, SnbItem(GAME_MM, MM_SnbTest_RandoId(8))) >= 0 &&
+                          OoT_Rando_ShopShelfForeignLocked(kSnbOotShelfKey) == 0,
+                      "%s: MM's arrows on an OoT shelf are locked behind a bag", w.what);
+            Combo_ClearForeignPlacementsOoT();
+        }
+    }
+    MM_SnbTest_ShelfStateRestore();
+
     // ---- (A) The source anchors ----------------------------------------------------------
     {
         const std::string give = SnbReadSource("games/mm/src/code/z_parameter.c");
@@ -746,6 +1019,35 @@ TestResult MMStickNutBagGate_Run(void) {
                       "Combo_SharedBagGateClosed(bagKind", "GiveLinkRupees(5);") &&
                 SnbBefore(SnbBody(ootExports, "static void OoT_AwardSharedItem("), "given == 2", "Notification::Emit("),
             "OoT's redemption does not give and announce a blue rupee for a crossed pack before the bag");
+        // #1788: the shelf paths (L) does not drive. The draw and the actor's init go
+        // through the helpers (L) locks; text 0x660 names the shelf's item; OoT's
+        // shelf refuses a foreign pack, and its own pack, before the rupee test
+        // (OoT's native refusal is parity, not new: locked here so it stays).
+        const std::string mmGirlA = SnbReadSource("games/mm/2s2h/Rando/ActorBehavior/EnGirlA.cpp");
+        SNB_CHECK(SnbBefore(SnbBody(mmGirlA, "void EnGirlA_RandoDrawFunc(Actor* actor, PlayState* play) {"),
+                            "Rando::DrawItem(Rando::ActorBehavior::ShopShelfItem(randoCheckId), actor);", nullptr) &&
+                      SnbBefore(SnbBody(mmGirlA, "void EnGirlA_RandoInit(EnGirlA* enGirlA, PlayState* play) {"),
+                                "Rando::ActorBehavior::ShopShelfSlotSold(", nullptr) &&
+                      SnbBefore(SnbBody(mmGirlA, "void Rando::ActorBehavior::InitEnGirlABehavior() {"),
+                                "COND_ID_HOOK(OnOpenText, 0x660, IS_RANDO",
+                                "EnGirlA_RandoShelfItemId(RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM)"),
+                  "an MM shelf's draw, stock or 0x660 line does not read the shelf's helpers");
+        const std::string ootGirlA = SnbReadSource("games/oot/src/overlays/actors/ovl_En_GirlA/z_en_girla.c");
+        const std::string ootCanBuy =
+            SnbBody(ootGirlA, "s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {");
+        SNB_CHECK(SnbBefore(ootCanBuy, "itemObtainability == CANT_OBTAIN_NEED_UPGRADE",
+                            "gSaveContext.rupees < shopItemIdentity.itemPrice") &&
+                      SnbBefore(ootCanBuy,
+                                "OoT_Rando_ShopShelfForeignLocked(shopItemIdentity.identity.randomizerCheck)",
+                                "gSaveContext.rupees < shopItemIdentity.itemPrice"),
+                  "OoT's shelf does not refuse a stick or nut pack (its own or MM's) before the rupee test");
+        const std::string ootRando = SnbReadSource("games/oot/soh/Enhancements/randomizer/randomizer.cpp");
+        const std::string ootObtain = SnbBody(
+            ootRando, "ItemObtainability Randomizer::GetItemObtainabilityFromRandomizerGet(RandomizerGet randoGet) {");
+        SNB_CHECK(SnbBefore(ootObtain, "case RG_BUY_DEKU_STICK_1:", "RSK_SHUFFLE_DEKU_STICK_BAG") &&
+                      SnbBefore(ootObtain, "case RG_BUY_DEKU_NUTS_10:", "RSK_SHUFFLE_DEKU_NUT_BAG") &&
+                      SnbBefore(ootObtain, "RSK_SHUFFLE_DEKU_NUT_BAG", "CANT_OBTAIN_NEED_UPGRADE"),
+                  "OoT's own stick and nut shelves no longer refuse the sale before the bag");
     }
 
     ComboContext_Init();

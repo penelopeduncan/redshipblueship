@@ -11,6 +11,9 @@ extern "C" {
 #endif
 
 void SavingEnhancements_PersistSaveEntranceInfo();
+// #1728: whether Pause Menu Save is on (on when its key is unset); every reader of the key calls this. Contract on
+// the definition.
+int SavingEnhancements_PauseSaveOn(void);
 // Where a pause save or an autosave comes back; contract on the definition (#1728).
 int SavingEnhancements_PauseSaveEntranceFor(int sceneId, int remember, int lastEntrance, int paired,
                                             int frozenMoonCrash, int* outRemembered);

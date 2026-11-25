@@ -12,9 +12,10 @@ extern "C" {
 #ifdef RSBS_SINGLE_EXECUTABLE
 // #1499: the item the Bomb Shop owner holds, as the shelf draws it
 // (EnGirlA_RandoDrawFunc, through ShopShelfItem): ConvertItem's answer, so a map
-// the player already owns is held as the junk the slot sells, not as the map.
+// the player already owns is held as the junk the slot sells, not as the map;
+// #1788: a shelf locked behind its bag holds its real item.
 RandoItemId Rando::ActorBehavior::BombShopHandItem() {
-    return Rando::ConvertItem(RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_01].randoItemId, RC_BOMB_SHOP_ITEM_01);
+    return Rando::ActorBehavior::ShopShelfItem(RC_BOMB_SHOP_ITEM_01);
 }
 #endif
 

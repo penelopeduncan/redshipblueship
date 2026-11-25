@@ -273,6 +273,14 @@ class PairedFillRefused : public std::runtime_error {
 /** True if this MM check hosts a foreign item in the current paired world. */
 bool IsForeignCheck(RandoCheckId randoCheckId);
 
+/** #1788: true when this MM check hosts an OoT stick or nut pack
+ *  (OoT_ForeignItem_BagGateKind) while the pair's bag holds it out, read over MM's
+ *  own tier (MM_Combo_StickGated / MM_Combo_NutGated), which the shared pool keeps
+ *  equal to OoT's. OoTMM refuses such a sale through the owning game's tier
+ *  (item_buy.c isItemBuyable); a shop shelf asks this through
+ *  Rando::ActorBehavior::ShopShelfLocked. False for every other host. */
+bool ForeignShelfItemLocked(RandoCheckId randoCheckId);
+
 /** Display name for the foreign item hosted by this check, or nullptr. */
 const char* ForeignNameForCheck(RandoCheckId randoCheckId);
 

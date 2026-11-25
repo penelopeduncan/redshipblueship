@@ -473,6 +473,144 @@ def test_paired_pause_save_ends_its_commit():
     )
 
 
+# #1728: Pause Menu Save is on by default (the operator's ruling of 2026-11-19), and every reader of its key must
+# agree. The linked production trees, and the excluded subtrees that never reach the single exe
+# (games/mm/CMakeLists.txt filters 2s2h/BenGui/*.cpp but compiles BenGui/UIWidgets.cpp and BenGui/Menu.cpp
+# elsewhere, and filters 2s2h/PresetManager/*.cpp).
+PAUSE_SAVE_KEY = "gEnhancements.Saving.PauseSave"
+PAUSE_SAVE_KEY_DEFINE = "RSBS_CVAR_MM_SAVING_PAUSE_SAVE"
+PAUSE_SAVE_HELPER = "SavingEnhancements_PauseSaveOn"
+PAUSE_SAVE_HELPER_FILE = "games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp"
+PAUSE_SAVE_SCAN_ROOTS = ("games/mm/src", "games/mm/2s2h", "games/oot/soh", "games/oot/src", "src/common", "rsbs")
+PAUSE_SAVE_SOURCE_SUFFIXES = (".c", ".cpp", ".cc", ".h", ".hpp")
+
+
+def _pause_save_production_sources():
+    for root in PAUSE_SAVE_SCAN_ROOTS:
+        for path in sorted((REPO_ROOT / root).rglob("*")):
+            if not path.is_file() or path.suffix not in PAUSE_SAVE_SOURCE_SUFFIXES:
+                continue
+            rel = path.relative_to(REPO_ROOT).as_posix()
+            if "/tests/" in rel or path.stem.endswith("_test") or path.stem.startswith("test_"):
+                continue
+            if rel.startswith("games/mm/2s2h/PresetManager/"):
+                continue
+            if rel.startswith("games/mm/2s2h/BenGui/") and path.suffix in (".c", ".cpp", ".cc"):
+                if path.name not in ("UIWidgets.cpp", "Menu.cpp"):
+                    continue
+            yield rel, path
+
+
+def _pause_save_key_access_sites():
+    """Every comment-stripped CVarGet* read and CVarSet*/CVarClear write of the key, as (rel, offset, call, args)."""
+    reads, writes = [], []
+    for rel, path in _pause_save_production_sources():
+        raw = path.read_text(encoding="utf-8", errors="replace")
+        if PAUSE_SAVE_KEY not in raw and PAUSE_SAVE_KEY_DEFINE not in raw:
+            continue
+        code = _strip_comments(raw)
+        names = {PAUSE_SAVE_KEY_DEFINE}
+        for match in re.finditer(r"#\s*define\s+(\w+)\s+\"%s\"" % re.escape(PAUSE_SAVE_KEY), code):
+            names.add(match.group(1))
+        for match in re.finditer(r"\b(\w+)\s*=\s*\"%s\"" % re.escape(PAUSE_SAVE_KEY), code):
+            names.add(match.group(1))
+        token = "|".join(["\"%s\"" % re.escape(PAUSE_SAVE_KEY)] + [re.escape(n) for n in sorted(names)])
+        for match in re.finditer(r"\b(CVar(?:Get|Set|Clear)\w*)\s*\(\s*(?:%s)\s*([,)][^;]*)" % token, code):
+            site = (rel, match.start(), match.group(1), match.group(2))
+            (reads if match.group(1).startswith("CVarGet") else writes).append(site)
+    return reads, writes
+
+
+def test_pause_save_default_has_one_reader():
+    """#1728: one shared default, read in one place, called by every reader.
+
+    Red when any C or C++ reader reads the key itself (with 2Ship's `, 0)` or `, false)` it would disagree with the
+    others), when the helper stops passing RSBS_MM_PAUSE_SAVE_DEFAULT, when a reader stops calling the helper, when
+    production code stores the key (a default is the value read when the key is absent, never a write), or when
+    applyPreset stops re-driving the key after ShipInit::InitAll (MMRegistrarCoverage FAIL 28 drives the re-drive
+    itself, so it stays green if only the call is dropped).
+    """
+    reads, writes = _pause_save_key_access_sites()
+    helper_body = _function_body(REPO_ROOT / PAUSE_SAVE_HELPER_FILE, PAUSE_SAVE_HELPER)
+    helper_text = _strip_comments((REPO_ROOT / PAUSE_SAVE_HELPER_FILE).read_text(encoding="utf-8"))
+    helper_start = helper_text.find(helper_body)
+    assert helper_start >= 0
+    helper_end = helper_start + len(helper_body)
+
+    in_helper = [r for r in reads if r[0] == PAUSE_SAVE_HELPER_FILE and helper_start <= r[1] < helper_end]
+    outside = [
+        f"{rel}: {call}(...{args.strip().splitlines()[0][:40]}"
+        for rel, off, call, args in reads
+        if (rel, off, call, args) not in in_helper
+    ]
+    assert in_helper, f"the scan found no read of {PAUSE_SAVE_KEY} in {PAUSE_SAVE_HELPER}: it would pass vacuously"
+    assert not outside, (
+        f"#1728: every read of {PAUSE_SAVE_KEY} goes through {PAUSE_SAVE_HELPER}() so C and C++ agree on the "
+        f"default; these read it themselves: {outside}"
+    )
+    shared = [r for r in in_helper if re.match(r",\s*RSBS_MM_PAUSE_SAVE_DEFAULT\s*\)", r[3])]
+    assert len(shared) == 1, (
+        f"#1728: {PAUSE_SAVE_HELPER} must read the key exactly once with RSBS_MM_PAUSE_SAVE_DEFAULT, found "
+        f"{len(shared)}"
+    )
+    ifdef = helper_body.find("#ifdef RSBS_SINGLE_EXECUTABLE")
+    assert 0 <= ifdef < helper_body.find("RSBS_MM_PAUSE_SAVE_DEFAULT"), (
+        f"#1728: {PAUSE_SAVE_HELPER}'s shared-default read must be its RSBS_SINGLE_EXECUTABLE branch"
+    )
+    assert not writes, f"#1728: production code must never store {PAUSE_SAVE_KEY} to express its default: {writes}"
+
+    keys = _strip_comments((REPO_ROOT / "src/common/cvar_shared_keys.h").read_text(encoding="utf-8"))
+    define = re.search(r"#\s*define\s+RSBS_MM_PAUSE_SAVE_DEFAULT\s+(\S+)", keys)
+    assert define and define.group(1) == "1", "#1728: RSBS_MM_PAUSE_SAVE_DEFAULT must be 1 (on by default)"
+    assert define.start() < keys.find("#ifdef __cplusplus"), (
+        "#1728: RSBS_MM_PAUSE_SAVE_DEFAULT must sit in cvar_shared_keys.h's C-safe region"
+    )
+
+    call = PAUSE_SAVE_HELPER + "()"
+    kaleido = REPO_ROOT / TITLESETUP_GAME_OVER_FILE
+    assert _function_body(kaleido, "MM_KaleidoScope_DrawPages").count(call) >= 1, (
+        "#1728: the save prompt's draw gate in MM_KaleidoScope_DrawPages no longer calls " + call
+    )
+    assert _function_body(kaleido, "MM_KaleidoScope_Update").count(call) >= 3, (
+        "#1728: MM_KaleidoScope_Update's three save-prompt reads (set the pair, clear it, the flash branch) no "
+        "longer all call " + call
+    )
+    pause_save = _strip_comments((REPO_ROOT / "games/mm/2s2h/Enhancements/Saving/PauseSave.cpp").read_text("utf-8"))
+    assert re.search(r"#\s*define\s+CVAR\s+%s\s*\(\s*\)" % PAUSE_SAVE_HELPER, pause_save), (
+        "#1728: PauseSave.cpp's hook gate (CVAR) no longer calls " + call
+    )
+    bgm = _strip_comments((REPO_ROOT / "games/mm/2s2h/Enhancements/Fixes/BgmReplay.cpp").read_text("utf-8"))
+    assert re.search(r"#\s*define\s+CVAR_PAUSE_SAVE\s+%s\s*\(\s*\)" % PAUSE_SAVE_HELPER, bgm), (
+        "#1728: BgmReplay.cpp's Pause Menu Save gate (CVAR_PAUSE_SAVE) no longer calls " + call
+    )
+    end_commit = _function_body(REPO_ROOT / "games/mm/2s2h/GameExports_SingleExe.cpp", "MM_Combo_EndPauseSaveCommit")
+    assert ("MM_Combo_EndPauseSaveCommitFor(%s)" % call) in end_commit, (
+        "#1728: MM_Combo_EndPauseSaveCommit no longer passes " + call
+    )
+    row = _function_body(REPO_ROOT / "games/oot/soh/SohGui/HostedMm/SohMenuHostedMmTimesavers.cpp", "AddMmSavingRows")
+    assert re.search(r"\.DefaultValue\(\s*RSBS_MM_PAUSE_SAVE_DEFAULT\s*!=\s*0\s*\)", row), (
+        "#1728: the hosted Pause Menu Save row must draw RSBS_MM_PAUSE_SAVE_DEFAULT when its key is unset"
+    )
+
+    preset = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp", "applyPreset")
+    init_all = preset.find("ShipInit::InitAll();")
+    assert init_all >= 0, "applyPreset no longer calls ShipInit::InitAll()"
+    redrive = preset.find("Presets_RedriveMmPauseSave();", init_all)
+    assert redrive >= 0, (
+        "#1728: applyPreset must call Presets_RedriveMmPauseSave() after ShipInit::InitAll(): InitAll's \"*\" never "
+        "reaches MM, so after a preset clears gEnhancements the row shows Pause Menu Save on while B closes the menu"
+    )
+    guard = preset.rfind("#ifdef RSBS_SINGLE_EXECUTABLE", init_all, redrive)
+    assert guard >= 0 and preset.find("#endif", guard, redrive) < 0, (
+        "#1728: applyPreset's Presets_RedriveMmPauseSave() call must sit in an RSBS_SINGLE_EXECUTABLE block"
+    )
+    redrive_body = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp",
+                                  "Presets_RedriveMmPauseSave")
+    assert re.search(r"ShipInit::Init\(\s*%s\s*\)" % PAUSE_SAVE_KEY_DEFINE, redrive_body), (
+        "#1728: Presets_RedriveMmPauseSave must re-drive the key with ShipInit::Init(" + PAUSE_SAVE_KEY_DEFINE + ")"
+    )
+
+
 def test_titlesetup_invariant_sees_the_known_transitions():
     """Guard against the guard: a scanner that finds nothing passes vacuously.
 

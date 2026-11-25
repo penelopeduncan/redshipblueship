@@ -15,6 +15,10 @@
 // (#1278) Where a paired file lands after the moon crash; defined in
 // games/mm/2s2h/GameExports_SingleExe.cpp.
 u16 MM_Play_MoonCrashArrivalEntrance(u16 entrance);
+// (#1789) Under Moon Crash Behavior: New Cycle the moon's fall skips the Termina
+// Field and Fire Wall cutscenes, as OoTMM does; defined in
+// games/mm/2s2h/Enhancements/Cutscenes/StoryCutscenes/SkipMoonCrash.cpp.
+int MM_Play_SkipMoonCrashUnderNewCycle(void);
 #include "2s2h/Rando/OoTMasksMM.h"
 #endif
 
@@ -1619,6 +1623,13 @@ void MM_Cutscene_HandleEntranceTriggers(PlayState* play) {
 void func_800EDDB0(PlayState* play) {
     LUSLOG_INFO("Cutscene_HandleConditionalTriggers: entrance: %d, cutsceneIndex: 0x%X", gSaveContext.save.entrance,
                 gSaveContext.save.cutsceneIndex);
+
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // RSBS (#1789): before the dispatch, so under New Cycle the moon's fall resets
+    // the save and takes its landing here, and the Story skip's hook (which
+    // answers this dispatch) then sees the landing, not the fall, and does nothing.
+    MM_Play_SkipMoonCrashUnderNewCycle();
+#endif
 
     if (!GameInteractor_Should(VB_PLAY_TRANSITION_CS, true)) {
         return;

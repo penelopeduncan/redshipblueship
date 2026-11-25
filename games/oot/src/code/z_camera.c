@@ -1529,7 +1529,11 @@ s32 Camera_Free(Camera* camera) {
         camera->play->camY = -0x228C;
     }
 
-    f32 distTarget = CVarGetInteger(CVAR_SETTING("FreeLook.MaxCameraDistance"), para1->distTarget);
+    // SOH [Enhancement] When set, use the game's per-mode default distance (para1->distTarget)
+    // instead of the fixed free-look distance.
+    f32 distTarget = CVarGetInteger(CVAR_SETTING("FreeLook.UseGameDistance"), 0)
+                         ? para1->distTarget
+                         : CVarGetInteger(CVAR_SETTING("FreeLook.MaxCameraDistance"), para1->distTarget);
     f32 speedScaler = CVarGetInteger(CVAR_SETTING("FreeLook.TransitionSpeed"), 25);
     f32 distDiff = ABS(distTarget - camera->dist);
     if (distDiff > 0)
@@ -7409,7 +7413,8 @@ s32 OoT_Camera_UpdateWater(Camera* camera) {
 
 s32 OoT_Camera_UpdateHotRoom(Camera* camera) {
     camera->distortionFlags &= ~DISTORTION_HOT_ROOM;
-    if (camera->play->roomCtx.curRoom.behaviorType2 == ROOM_BEHAVIOR_TYPE2_3) {
+    if (GameInteractor_Should(VB_HOT_ROOM_DISTORTION,
+                              camera->play->roomCtx.curRoom.behaviorType2 == ROOM_BEHAVIOR_TYPE2_3)) {
         camera->distortionFlags |= DISTORTION_HOT_ROOM;
     }
 

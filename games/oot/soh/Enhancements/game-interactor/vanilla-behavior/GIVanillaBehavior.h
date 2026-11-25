@@ -3165,6 +3165,22 @@ typedef enum {
 
     // #### `result`
     // ```c
+    // false
+    // ```
+    // #### `args`
+    // - None
+    VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION,
+
+    // #### `result`
+    // ```c
+    // !usingHoldTargeting
+    // ```
+    // #### `args`
+    // - `int32_t` (usingHoldTargeting - promoted from `s32`)
+    VB_TOGGLE_Z_TARGET_SWITCH_TARGETS,
+
+    // #### `result`
+    // ```c
     // (gSaveContext.inventory.items[gSaveContext.equips.cButtonSlots[button - 1]] == ITEM_MILK_BOTTLE) &&
     //     (item == ITEM_BOTTLE)
     // ```
@@ -3464,6 +3480,59 @@ typedef enum {
     // #### `args`
     // - None
     VB_FISHING_ZERO_XZ,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_LINK_SPIN_WITH_GORON_POT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
+    VB_HOT_ROOM_DISTORTION,
+
+    // #### `result`
+    // ```c
+    // play->sceneNum == SCENE_KOKIRI_FOREST
+    // ```
+    // #### `args`
+    // - `*EnSa`
+    VB_SARIA_GESTURE,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*Actor`
+    VB_ON_ACTOR_THROW_ONLY_CHECK,
+
+    // #### `result`
+    // ```c
+    // false
+    // ```
+    // #### `args`
+    // - `*Player`
+    // - `*PlayState`
+    // - `*Input` (sControlInput)
+    // - `s32` (sFloorType)
+    VB_PLAYER_ROLL_CHAIN,
+
+    // #### `result`
+    // ```c
+    // false
+    // ```
+    // #### `args`
+    // - `*Player`
+    // - `*PlayState`
+    // - `s16 yawTarget` (stick world-space yaw, promoted to int in va_list)
+    VB_PLAYER_ROLL_STEER,
 } GIVanillaBehavior;
 
 #endif

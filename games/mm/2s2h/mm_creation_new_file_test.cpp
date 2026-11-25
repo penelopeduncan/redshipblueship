@@ -137,7 +137,9 @@
 #include "crossing_store.h"
 #include "game.h"
 #include "game_lifecycle.h"
-#include "mm_game_hooks.h" // S2H::GameHooks::ExecuteForID (the EnTest4 pre-update dispatch)
+#include "integration_test_hooks.h" // #1789: the stderr tee the New Cycle skip legs count lines with
+#include "mm_game_hooks.h"          // S2H::GameHooks::ExecuteForID (the EnTest4 pre-update dispatch)
+#include "mm_moon_crash_rules.h"    // #1789: Combo_MmNewCycleSkipsCrashCutscene, Combo_MmIsMoonFallArrival
 #include "save.h"
 #include "shared_items.h"
 #include "shared_resources.h"
@@ -173,6 +175,8 @@ void MM_ApplySharedResources(void);
 int Switch_PrepareHotSwap(GameId departing, const void* saveContext, size_t size);
 uint16_t Switch_GetHotSwapReturnEntrance(GameId departing);
 int Combo_FreezeActiveGameForHotSwap(GameId departing);
+// #1789: games/mm/2s2h/Enhancements/Cutscenes/StoryCutscenes/SkipMoonCrash.cpp.
+int MM_Play_SkipMoonCrashUnderNewCycle(void);
 }
 
 namespace {
@@ -357,6 +361,34 @@ int CrashTheMoon() {
     Sram_ResetSaveFromMoonCrash(&sCrashPlayState.sramCtx);
     MM_gPlayState = savedPlayState;
     CNF_ASSERT(crashDay == 4 && crashEventDay == 4, "Interface_StartMoonCrash sets day 4 / eventDayCount 4 (premise)");
+    return 0;
+}
+
+// #1789: the crash as production drives it under New Cycle since the moon's fall
+// skips its cutscenes. Interface_StartMoonCrash on the same zeroed stand-in as
+// CrashTheMoon, then Play_Init's arrival as the transition hands it over (the
+// save's entrance from nextEntrance, cutscene index 0, no respawn), then the
+// skip itself, called directly: this helper's rows have no logger bring-up for
+// func_800EDDB0's LUSLOG_INFO. *outActed is what the skip returned.
+int CrashTheMoonAtPlayInit(int* outActed) {
+    static u8 sAtInitSaveBuf[SAVE_BUFFER_SIZE];
+    static PlayState sAtInitPlayState;
+    memset(&sAtInitPlayState, 0, sizeof(sAtInitPlayState));
+    memset(sAtInitSaveBuf, 0, sizeof(sAtInitSaveBuf));
+    sAtInitPlayState.sramCtx.saveBuf = sAtInitSaveBuf;
+    PlayState* const savedPlayState = MM_gPlayState;
+    MM_gPlayState = &sAtInitPlayState;
+    Interface_StartMoonCrash(&sAtInitPlayState);
+    const s32 crashDay = gSaveContext.save.day;
+    const s32 crashEventDay = gSaveContext.save.eventDayCount;
+    const u16 fall = (u16)sAtInitPlayState.nextEntrance;
+    gSaveContext.save.entrance = fall;
+    gSaveContext.save.cutsceneIndex = 0;
+    gSaveContext.respawnFlag = 0;
+    *outActed = MM_Play_SkipMoonCrashUnderNewCycle();
+    MM_gPlayState = savedPlayState;
+    CNF_ASSERT(crashDay == 4 && crashEventDay == 4, "Interface_StartMoonCrash sets day 4 / eventDayCount 4 (premise)");
+    CNF_ASSERT(fall == (u16)ENTRANCE(TERMINA_FIELD, 12), "the moon falls into Termina Field spawn 12 (premise)");
     return 0;
 }
 
@@ -1592,7 +1624,10 @@ int CnfCheckNewCycleClockShuffleLanding() {
  * masks and quest items are kept, the last-commit rollback (#785) does not run,
  * and the new cycle is committed. A paired half with a creation commit; play on
  * past it (a mask, a song and a bottle the commit does not hold); crash through
- * the REAL Interface_StartMoonCrash and Sram_ResetSaveFromMoonCrash. Then
+ * the REAL Interface_StartMoonCrash and Sram_ResetSaveFromMoonCrash, which since
+ * #1789 runs at the moon's fall from Play_Init (CrashTheMoonAtPlayInit: the skip
+ * must act and write the landing, 0xC030 for this unpaired row, never leaving
+ * 0x54C0, where Termina Field would load and the cutscene play). Then
  * (#1671) a second crash under Shuffle Time with Day 1 unowned: the first EnTest4
  * update after the Dawn of the First Day stages the earliest owned half-day
  * (CnfCheckNewCycleClockShuffleLanding).
@@ -1651,10 +1686,17 @@ extern "C" int MM_MoonCrashCycleReset_Run(void) {
     gSaveContext.save.equippedMask = PLAYER_MASK_BUNNY;
     const u16 resetsBefore = gSaveContext.save.saveInfo.playerData.threeDayResetCount;
     const uint32_t generationBefore = gComboCtx.commitGeneration;
-    if (CrashTheMoon() != 0) {
+    // #1789: under New Cycle the reset runs at the moon's fall, from Play_Init,
+    // and the Termina Field and Fire Wall cutscenes never play.
+    int acted = 0;
+    if (CrashTheMoonAtPlayInit(&acted) != 0) {
         return 1;
     }
     PrintClock("after the moon crash (New Cycle)");
+    CNF_ASSERT(acted == 1, "the New Cycle crash did not skip the cutscene at Play_Init (#1789)");
+    CNF_ASSERT(gSaveContext.save.entrance == (s32)ENTRANCE(CLOCK_TOWER_INTERIOR, 3),
+               "the skip did not write the moon-crash landing (0xC030 for this unpaired row); 0x54C0 means Termina "
+               "Field loads and the cutscene plays (#1789)");
     printf("[TEST] %s: threeDayResetCount %u -> %u, commit generation %u -> %u, mask slot 0x%02X, bottle 0x%02X, "
            "quest %08X, equipped mask %u\n",
            sRow, (unsigned)resetsBefore, (unsigned)gSaveContext.save.saveInfo.playerData.threeDayResetCount,
@@ -1735,6 +1777,62 @@ int CrashTheMoonStorySkipped(u16* landing) {
     return 0;
 }
 
+// #1789: the two lines the New Cycle skip legs count (SkipMoonCrash.cpp's and
+// z_sram_NES.c's), both kept by the stderr tee's "moon crash: New Cycle" tag.
+const char* const kNewCycleSkipNeedle =
+    "[MM] moon crash: New Cycle skips the Termina Field and Fire Wall cutscenes (#1789)";
+const char* const kNewCycleResetNeedle = "[MM] moon crash: New Cycle (#1069)";
+
+struct PlayInitCrash {
+    u16 landing;    // the save's entrance after Play_Init's dispatch
+    s32 day;        // the save's day after it
+    int resets;     // threeDayResetCount after minus before
+    int skipLines;  // kNewCycleSkipNeedle lines the crash printed
+    int resetLines; // kNewCycleResetNeedle lines the crash printed
+};
+
+/**
+ * #1789: the moon crash as production drives it, through the REAL Play_Init
+ * call site. As CrashTheMoonStorySkipped, but the arrival runs func_800EDDB0
+ * (z_demo.c), which calls the New Cycle skip before the VB_PLAY_TRANSITION_CS
+ * dispatch the Story skip answers, so the legs prove the call site is wired and
+ * its order. The two lines are counted as deltas inside one stderr tee bracket:
+ * the tee's kept lines are never cleared, so an absolute count would add up
+ * earlier legs and rows (--test all).
+ */
+int CrashTheMoonThroughPlayInit(PlayInitCrash* out) {
+    static u8 sThroughSaveBuf[SAVE_BUFFER_SIZE];
+    static PlayState sThroughPlayState;
+    if (!IntegrationTest_StderrCaptureStart()) {
+        printf("[TEST] FAIL (%s): the stderr capture could not start; the #1789 / #1069 line checks cannot run\n",
+               sRow);
+        return 1;
+    }
+    const int skipBefore = IntegrationTest_StderrCaptureCount(kNewCycleSkipNeedle);
+    const int resetBefore = IntegrationTest_StderrCaptureCount(kNewCycleResetNeedle);
+    const u16 resetsBefore = gSaveContext.save.saveInfo.playerData.threeDayResetCount;
+    memset(&sThroughPlayState, 0, sizeof(sThroughPlayState));
+    memset(sThroughSaveBuf, 0, sizeof(sThroughSaveBuf));
+    sThroughPlayState.sramCtx.saveBuf = sThroughSaveBuf;
+    PlayState* const savedPlayState = MM_gPlayState;
+    MM_gPlayState = &sThroughPlayState;
+    Interface_StartMoonCrash(&sThroughPlayState);
+    const u16 fall = (u16)sThroughPlayState.nextEntrance;
+    gSaveContext.save.entrance = fall;
+    gSaveContext.save.cutsceneIndex = 0;
+    gSaveContext.respawnFlag = 0;
+    func_800EDDB0(&sThroughPlayState);
+    MM_gPlayState = savedPlayState;
+    IntegrationTest_StderrCaptureStop();
+    out->landing = (u16)gSaveContext.save.entrance;
+    out->day = gSaveContext.save.day;
+    out->resets = (int)(u16)(gSaveContext.save.saveInfo.playerData.threeDayResetCount - resetsBefore);
+    out->skipLines = IntegrationTest_StderrCaptureCount(kNewCycleSkipNeedle) - skipBefore;
+    out->resetLines = IntegrationTest_StderrCaptureCount(kNewCycleResetNeedle) - resetBefore;
+    CNF_ASSERT(fall == (u16)ENTRANCE(TERMINA_FIELD, 12), "the moon falls into Termina Field spawn 12 (premise)");
+    return 0;
+}
+
 } // namespace
 
 /**
@@ -1757,7 +1855,19 @@ int CrashTheMoonStorySkipped(u16* landing) {
  * pass through unchanged on a paired file, and with no combo file in play (no
  * open slot) 0xC030 is MM's own landing, unchanged.
  *
- * RED without the fix: every paired leg lands on 0xC030.
+ * #1789: under New Cycle the moon's fall skips the Termina Field and Fire Wall
+ * cutscenes, as OoTMM does. Legs 1b and 2b drive the REAL Play_Init call site
+ * (func_800EDDB0, CrashTheMoonThroughPlayInit) and count SkipMoonCrash.cpp's
+ * #1789 line and z_sram_NES.c's #1069 line as deltas: with the Story skip off,
+ * New Cycle resets once at the fall and lands on 0xD800 while Last Save is
+ * still at the fall (0x54C0, day 4, no line); with it on, New Cycle still
+ * resets ONCE (the direct call runs before the hook) and Last Save is the
+ * hook's alone. Leg 4 pins the two pure rules (src/common/mm_moon_crash_rules.h).
+ *
+ * RED without the fix: every paired leg lands on 0xC030. RED without #1789's
+ * call in func_800EDDB0: leg 1b's New Cycle crash stays at 0x54C0 on day 4 with
+ * no line (Termina Field would load and the cutscene play), and leg 2b's New
+ * Cycle crash prints no #1789 line (the Story hook did the reset).
  */
 extern "C" int MM_MoonCrashArrival_Run(void) {
     sRow = "mm-moon-crash-arrival";
@@ -1835,6 +1945,52 @@ extern "C" int MM_MoonCrashArrival_Run(void) {
         expectLanding(leg, MM_Play_MoonCrashArrivalEntrance(kMoonCrashLanding), kSongOfTimeSpawn);
     }
 
+    // #1789: one Play_Init crash's outcome against what the leg expects.
+    auto expectCrash = [&failures](const char* leg, const PlayInitCrash& got, u16 wantLanding, bool wantReset,
+                                   int wantResets, int wantSkipLines, int wantResetLines) {
+        printf("[TEST] %s: %s: lands on 0x%04X (want 0x%04X), day %d, %d more reset(s), %d #1789 line(s), %d #1069 "
+               "line(s)\n",
+               sRow, leg, (unsigned)got.landing, (unsigned)wantLanding, (int)got.day, got.resets, got.skipLines,
+               got.resetLines);
+        const bool reset = got.day != 4;
+        const bool resetsOk = wantResets < 0 || got.resets == wantResets;
+        if (got.landing != wantLanding || reset != wantReset || !resetsOk || got.skipLines != wantSkipLines ||
+            got.resetLines != wantResetLines) {
+            printf("[TEST] FAIL (%s): %s: landing 0x%04X (want 0x%04X), day %d (want %s), resets %d (want %d, -1 "
+                   "for any), #1789 lines %d (want %d), #1069 lines %d (want %d)\n",
+                   sRow, leg, (unsigned)got.landing, (unsigned)wantLanding, (int)got.day,
+                   wantReset ? "not 4: the reset ran" : "4: no reset yet", got.resets, wantResets, got.skipLines,
+                   wantSkipLines, got.resetLines, wantResetLines);
+            failures++;
+        }
+    };
+
+    // ---- 1b. #1789: with the Story skip off, through Play_Init ---------------
+    // New Cycle skips the Termina Field and Fire Wall cutscenes at the moon's
+    // fall: the reset runs once and the save's entrance is the landing, so
+    // Termina Field never loads. Last Save keeps both cutscenes: the arrival is
+    // still the fall, and the reset waits for the Fire Wall's cue (leg 1).
+    CVarSetInteger(kStorySkipKey, 0);
+    ShipInit::Init(kStorySkipKey);
+    {
+        playOn(RSBS_MM_MOON_CRASH_CYCLE);
+        CNF_ASSERT(MM_Rando_FrozenMoonCrash() == RSBS_MM_MOON_CRASH_CYCLE, "the file plays under New Cycle (premise)");
+        PlayInitCrash got = {};
+        if (CrashTheMoonThroughPlayInit(&got) != 0) {
+            return 1;
+        }
+        expectCrash("New Cycle, Story skip off, through Play_Init (#1789)", got, kSongOfTimeSpawn, true, 1, 1, 1);
+
+        playOn(RSBS_MM_MOON_CRASH_RESET);
+        CNF_ASSERT(MM_Rando_FrozenMoonCrash() == RSBS_MM_MOON_CRASH_RESET, "the file plays under Last Save (premise)");
+        got = {};
+        if (CrashTheMoonThroughPlayInit(&got) != 0) {
+            return 1;
+        }
+        expectCrash("Last Save, Story skip off, through Play_Init: the cutscenes still play", got,
+                    (u16)ENTRANCE(TERMINA_FIELD, 12), false, 0, 0, 0);
+    }
+
     // ---- 2. the Story cutscene skip writes the landing itself ----------------
     CVarSetInteger(kStorySkipKey, 1);
     ShipInit::Init(kStorySkipKey);
@@ -1847,6 +2003,21 @@ extern "C" int MM_MoonCrashArrival_Run(void) {
         char leg[96];
         snprintf(leg, sizeof(leg), "%s, Story cutscene skipped", kModeNames[m]);
         expectLanding(leg, landing, kSongOfTimeSpawn);
+    }
+    // #1789: both skips on, through Play_Init. Under New Cycle the direct call
+    // runs before the dispatch and takes the landing, so the Story hook's fall
+    // test fails and the save resets ONCE; under Last Save the hook alone resets.
+    for (int m = 0; m < 2; m++) {
+        playOn(kModes[m]);
+        CNF_ASSERT(MM_Rando_FrozenMoonCrash() == kModes[m], "the file plays under the leg's behaviour (premise)");
+        PlayInitCrash got = {};
+        if (CrashTheMoonThroughPlayInit(&got) != 0) {
+            return 1;
+        }
+        char leg[96];
+        snprintf(leg, sizeof(leg), "%s, Story cutscene skipped, through Play_Init (#1789)", kModeNames[m]);
+        const bool cycle = kModes[m] == RSBS_MM_MOON_CRASH_CYCLE;
+        expectCrash(leg, got, kSongOfTimeSpawn, true, cycle ? 1 : -1, cycle ? 1 : 0, cycle ? 1 : 0);
     }
     if (savedStorySkip == INT_MIN) {
         CVarClear(kStorySkipKey);
@@ -1872,6 +2043,38 @@ extern "C" int MM_MoonCrashArrival_Run(void) {
     CNF_ASSERT(Context_ComboSessionResident() == 0, "no combo file is in play once the slot closes (premise)");
     expectLanding("no combo file in play: MM's own landing", MM_Play_MoonCrashArrivalEntrance(kMoonCrashLanding),
                   kMoonCrashLanding);
+
+    // ---- 4. #1789: the two rules the skip is decided by ----------------------
+    struct FallCase {
+        u16 entrance;
+        s32 cutsceneIndex;
+        s32 respawnFlag;
+        int want;
+        const char* what;
+    };
+    const FallCase kFalls[] = {
+        { (u16)RSBS_MM_ENTRANCE_MOON_FALL, 0, 0, 1, "the moon's fall" },
+        { (u16)RSBS_MM_ENTRANCE_MOON_FALL, 0, -2, 0, "the fall with a respawn (the telescope's fourth day)" },
+        { (u16)ENTRANCE(TERMINA_FIELD, 1), 0xFFF0, 0, 0, "the Giants' failure from the roof (kept, as OoTMM)" },
+        { kSongOfTimeSpawn, 0, 0, 0, "the landing itself (no second skip after the Day Telop)" },
+        { (u16)RSBS_MM_ENTRANCE_MOON_FALL, 0xFFF0, 0, 0, "the fall with a cutscene index" },
+    };
+    for (const FallCase& c : kFalls) {
+        const int got = Combo_MmIsMoonFallArrival(c.entrance, c.cutsceneIndex, c.respawnFlag);
+        if (got != c.want) {
+            printf("[TEST] FAIL (%s): Combo_MmIsMoonFallArrival(0x%04X, 0x%X, %d) = %d, expected %d: %s\n", sRow,
+                   (unsigned)c.entrance, (unsigned)c.cutsceneIndex, (int)c.respawnFlag, got, c.want, c.what);
+            failures++;
+        }
+    }
+    if (Combo_MmNewCycleSkipsCrashCutscene(RSBS_MM_MOON_CRASH_CYCLE) != 1 ||
+        Combo_MmNewCycleSkipsCrashCutscene(RSBS_MM_MOON_CRASH_RESET) != 0) {
+        printf("[TEST] FAIL (%s): Combo_MmNewCycleSkipsCrashCutscene is %d for New Cycle and %d for Last Save, "
+               "expected 1 and 0\n",
+               sRow, Combo_MmNewCycleSkipsCrashCutscene(RSBS_MM_MOON_CRASH_CYCLE),
+               Combo_MmNewCycleSkipsCrashCutscene(RSBS_MM_MOON_CRASH_RESET));
+        failures++;
+    }
 
     mgr.DeleteSave(0);
     mgr.ResetSlotSessionState();

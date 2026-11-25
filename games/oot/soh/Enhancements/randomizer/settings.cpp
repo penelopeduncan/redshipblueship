@@ -1694,9 +1694,9 @@ void Settings::CreateOptions() {
               "You need Deku Sticks or Kokiri Sword to dive with Navi for entering Zora's River.");
     OPT_TRICK(RT_LW_GS_BEAN, RCQUEST_BOTH, RA_THE_LOST_WOODS, { Tricks::Tag::INTERMEDIATE },
               "Lost Woods Adult GS with Hookshot",
-              "You can collect the token with a precise Hookshot use, as long as you can kill the Skulltula somehow "
-              "first. It can be killed using Bow, Bombchus or Din's Fire. Using Longshot to both kill the skull and "
-              "grab the token is in default logic.");
+              "Without the Magic Bean, you can use Longshot to both kill the Skulltula and grab the token. You can "
+              "also collect the token with a precise Hookshot use after killing the Skulltula with Bow, Bombchus, or "
+              "Din's Fire.");
     OPT_TRICK(RT_HC_STORMS_GS, RCQUEST_BOTH, RA_HYRULE_CASTLE, { Tricks::Tag::INTERMEDIATE },
               "Hyrule Castle Storms Grotto GS with Just Boomerang",
               "With precise throws, the Boomerang alone can kill the Skulltula and collect the token, without first "

@@ -97,6 +97,13 @@ bool MM_WarpSongMM_SpawnSongEffect(struct PlayState* play, unsigned state);
 /** z_message.c's DISPLAY_SONG_PLAYED_TEXT_BEGIN: arms "You played the <song>!" in
  *  0x1B78's box and returns the custom text id to continue to. */
 uint16_t MM_WarpSongMM_PlayedTextId(unsigned state);
+/** #1587 stage T, the same case: whether @p state is the Sun's Song
+ *  (Combo_MMSunsSong_IsPlayedState), in every MM file. */
+bool MM_SunsSongMM_IsPlayedState(unsigned state);
+/** For the Sun's Song, arms OoTMM's "You played the Sun's Song!" (the name in
+ *  yellow) in 0x1B78's box and returns the custom text id to continue to; for any
+ *  other state arms nothing and returns the plain arm's 0x1B72 + @p state. */
+uint16_t MM_SunsSongMM_PlayedTextId(unsigned state);
 /** z_message.c's TEXT_CLOSING: the prompt or a refusal for the song of @p state,
  *  as MM_WarpSongMM_PromptActionFor answers. */
 void MM_WarpSongMM_OnSongPlayed(struct PlayState* play, unsigned state);

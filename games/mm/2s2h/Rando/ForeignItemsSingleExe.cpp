@@ -411,6 +411,20 @@ void GiveNow(uint16_t riId, bool announce) {
 // Redemption give (called by MM_AwardSharedItem, the A1 consumer callback)
 // ============================================================================
 
+extern "C" uint8_t MM_ForeignItem_BagGateKind(uint16_t riId) {
+    switch ((RandoItemId)riId) {
+        case RI_DEKU_STICK:
+        case RI_DEKU_STICKS_5:
+            return (uint8_t)RSBS_SHARED_RES_STICK_TIER;
+        case RI_DEKU_NUT:
+        case RI_DEKU_NUTS_5:
+        case RI_DEKU_NUTS_10:
+            return (uint8_t)RSBS_SHARED_RES_NUT_TIER;
+        default:
+            return 0u;
+    }
+}
+
 extern "C" uint16_t MM_ForeignItem_RedeemAs(uint16_t riId) {
     switch ((RandoItemId)riId) {
         case RI_DEKU_STICK:
