@@ -126,7 +126,11 @@ bool Camera_FreeLook(Camera* camera) {
         pitch = minPitch;
     }
 
-    f32 distTarget = CVarGetInteger("gSettings.FreeLook.MaxCameraDistance", roData->unk_04);
+    // RSBS: adapted from SoH 100bae3b9's z_camera.c line. Shared FreeLook.UseGameDistance: when set, follow the
+    // game's default distance (roData->unk_04) instead of the fixed MaxCameraDistance.
+    f32 distTarget = CVarGetInteger("gSettings.FreeLook.UseGameDistance", 0)
+                         ? roData->unk_04
+                         : CVarGetInteger("gSettings.FreeLook.MaxCameraDistance", roData->unk_04);
     f32 transitionSpeed = CVarGetInteger("gSettings.FreeLook.TransitionSpeed", 25);
     // Smooth step camera away to max camera distance. Camera collision is calculated later
     camera->dist = Camera_ScaledStepToCeilF(distTarget, camera->dist,

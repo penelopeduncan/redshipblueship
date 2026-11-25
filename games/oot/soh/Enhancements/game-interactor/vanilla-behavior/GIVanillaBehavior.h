@@ -3100,6 +3100,22 @@ typedef enum {
 
     // #### `result`
     // ```c
+    // false
+    // ```
+    // #### `args`
+    // - None
+    VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION,
+
+    // #### `result`
+    // ```c
+    // !usingHoldTargeting
+    // ```
+    // #### `args`
+    // - `int32_t` (usingHoldTargeting - promoted from `s32`)
+    VB_TOGGLE_Z_TARGET_SWITCH_TARGETS,
+
+    // #### `result`
+    // ```c
     // (gSaveContext.inventory.items[gSaveContext.equips.cButtonSlots[button - 1]] == ITEM_MILK_BOTTLE) &&
     //     (item == ITEM_BOTTLE)
     // ```
