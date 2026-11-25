@@ -44,6 +44,17 @@
  *     the nut it must NOT be reached; with the nut and a price the wallet covers
  *     it must; with the nut and a price above the wallet it must NOT.
  *     (SoH 0702b11b9.)
+ *  JN. Which conversation steps ask for a Jabber Nut (#1798). Shuffle Speak
+ *     blocks only pressing A to talk (VB_SPEAK, asked in
+ *     OoT_Player_ActionHandler_Talk); showing an item from C takes the exchange
+ *     branch of OoT_Player_ActionHandler_13, which never asks it. CM: the
+ *     merchant's event LOGIC_CARPET_MERCHANT (his bombchu refill) must NOT fire
+ *     without the Hylian nut, nor with the Gerudo nut only; it must with the
+ *     Hylian nut, and with Shuffle Speak off and no nut given. TR: the ten adult
+ *     trade steps and LOGIC_WAKE_UP_ADULT_TALON must be reached by an adult with
+ *     every nut withheld. K: five rows that do ask (Anju, King Zora thawed, the
+ *     Biggoron hint, the lab dive, Granny's shop) must NOT be reached without
+ *     their nut in a setup that meets their other terms, and must with it.
  *  E. The four carpenters' check rows (#1191, SoH 2bc50f605): each cell's Gerudo
  *     guard (En_GeldB) drops its key as En_Item00 with params keyFlag | 0x11
  *     (z_en_geldb.c), and the randomizer names the check that drop awards by
@@ -5479,6 +5490,188 @@ void RunReturnedFromCastleLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(savedDamageBoost);
 }
 
+// ---- #1798: which conversation steps ask for a Jabber Nut (leg JN) ----------
+// Shuffle Speak blocks only pressing A to talk: ShuffleSpeak.cpp answers VB_SPEAK,
+// asked only in OoT_Player_ActionHandler_Talk (z_player.c). Showing a trade item
+// from a C button takes the exchange branch of OoT_Player_ActionHandler_13, which
+// sets ACTOR_FLAG_TALK on the talk actor directly and never asks VB_SPEAK.
+
+/** One adult trade step, done by showing the item from C. */
+struct JnTradeStep {
+    const char* leg;
+    RandomizerInf has;
+    /** An event the row also reads (set by hand: Reaches fires only the probed
+     *  region's own events), or LOGIC_NONE. */
+    LogicVal alsoSet;
+    RandomizerRegion region;
+    RandomizerCheck check;
+};
+
+const JnTradeStep kJnTradeSteps[] = {
+    { "TR2 Kak Trade Pocket Cucco (Anju)", RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, LOGIC_WAKE_UP_ADULT_TALON,
+      RR_KAKARIKO_VILLAGE, RC_KAK_TRADE_POCKET_CUCCO },
+    { "TR3 LW Trade Cojiro (Grog)", RAND_INF_ADULT_TRADES_HAS_COJIRO, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_COJIRO },
+    { "TR4 LW Trade Odd Potion (Fado)", RAND_INF_ADULT_TRADES_HAS_ODD_POTION, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_ODD_POTION },
+    { "TR5 Kak Trade Odd Mushroom (Granny)", RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, LOGIC_NONE,
+      RR_KAK_ODD_POTION_BUILDING, RC_KAK_TRADE_ODD_MUSHROOM },
+    { "TR6 GV Trade Saw (carpenters' boss)", RAND_INF_ADULT_TRADES_HAS_SAW, LOGIC_NONE, RR_GV_FORTRESS_SIDE,
+      RC_GV_TRADE_SAW },
+    { "TR7 DMT Trade Broken Sword (Biggoron)", RAND_INF_ADULT_TRADES_HAS_SWORD_BROKEN, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_BROKEN_SWORD },
+    { "TR8 DMT Trade Eyedrops (Biggoron)", RAND_INF_ADULT_TRADES_HAS_EYEDROPS, LOGIC_NONE, RR_DEATH_MOUNTAIN_SUMMIT,
+      RC_DMT_TRADE_EYEDROPS },
+    { "TR9 DMT Trade Claim Check (Biggoron)", RAND_INF_ADULT_TRADES_HAS_CLAIM_CHECK, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_CLAIM_CHECK },
+    { "TR10 ZD Trade Prescription (King Zora)", RAND_INF_ADULT_TRADES_HAS_PRESCRIPTION, LOGIC_KING_ZORA_THAWED,
+      RR_ZORAS_DOMAIN, RC_ZD_TRADE_PRESCRIPTION },
+    { "TR11 LH Trade Frog (lakeside scientist)", RAND_INF_ADULT_TRADES_HAS_FROG, LOGIC_NONE, RR_LH_LAB,
+      RC_LH_TRADE_FROG },
+};
+
+/** The carpet merchant's event setup for leg CM: a child with sticks (a
+ *  jumpslash), the adult wallet (200 rupees) against a 60-rupee price, the
+ *  wasteland's own events fired. Everything LOGIC_CARPET_MERCHANT asks but the nut. */
+void JnCarpetMerchantSetup() {
+    GiveSticks();
+    GiveChildWallet();
+    logic->SetUpgrade(UPG_WALLET, 1);
+    FireEvents(RR_HAUNTED_WASTELAND, false);
+}
+
+void RunJabberNutConversationLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    // ---- CM: the carpet merchant's event (haunted_wasteland.cpp) needs the
+    // Hylian nut, as his check does: his first sale needs A pressed (z_en_js.c
+    // func_80A88F64 offers talk with no auto-accept). The event feeds
+    // BombchuRefill and the bombchu items' HasItem (logic.cpp).
+    // GetCheckPrice reads the merchant's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("CM: no OTRGlobals randomizer context, so the merchant's price cannot be read");
+    } else {
+        Rando::ItemLocation* merchant = randoCtx->GetItemLocation(RC_WASTELAND_BOMBCHU_SALESMAN);
+        const uint16_t savedPrice = merchant->GetPrice();
+        merchant->SetPrice(60);
+        if (merchant->GetPrice() != 60) {
+            GateFail("CM: the merchant's price did not take (a custom price is pinned), so the CM legs are vacuous");
+        } else {
+            ResetLogic();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM1 carpet merchant event, wallet, price and jumpslash, no jabber nut", LOGIC_CARPET_MERCHANT,
+                        false,
+                        "the merchant's bombchu refill counts for a child who cannot talk to him (#1798): the event "
+                        "lost its Hylian nut term");
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_CAN_SPEAK_GERUDO, true);
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM2 carpet merchant event, the Gerudo nut only", LOGIC_CARPET_MERCHANT, false,
+                        "another race's nut opens the Hylian merchant (wrong race, or an any-nut OR)");
+            ResetLogic();
+            GiveNut();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM3 carpet merchant event, with the Hylian nut", LOGIC_CARPET_MERCHANT, true,
+                        "the merchant's event does not fire with the Hylian nut, wallet, price and jumpslash");
+
+            // CM4, Shuffle Speak off: Logic::Reset grants every nut, so the term is
+            // neutral. ResetLogic is NOT used here: it withholds the Hylian nut
+            // whatever the option says.
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(0);
+            logic->Reset(true);
+            logic->CurrentCheckKey = RC_UNKNOWN_CHECK;
+            logic->CalculatingAvailableChecks = false;
+            if (!logic->CheckRandoInf(RAND_INF_CAN_SPEAK_HYLIAN)) {
+                GateFail("CM4: Reset did not grant the Hylian nut with Shuffle Speak off; CM4 would be vacuous");
+            } else {
+                JnCarpetMerchantSetup();
+                ExpectEvent("CM4 carpet merchant event, Shuffle Speak off, no nut given", LOGIC_CARPET_MERCHANT, true,
+                            "the nut term is not neutral with Shuffle Speak off");
+            }
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(1);
+        }
+        merchant->SetPrice(savedPrice);
+    }
+
+    // ---- TR: the ten adult trade steps and Talon's wake need NO nut: each is
+    // done by showing the item from C (z_player.c, OoT_Player_ActionHandler_13's
+    // exchange branch sets ACTOR_FLAG_TALK without asking VB_SPEAK). Shuffle
+    // Speak on, every nut withheld (ResetLogic), adult.
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, true);
+    FireEvents(RR_KAK_CARPENTER_BOSS_HOUSE, true);
+    ExpectEvent("TR1 wake Kakariko Talon with the Pocket Cucco, no jabber nut", LOGIC_WAKE_UP_ADULT_TALON, true,
+                "Talon's wake asks for a nut, but the cucco is shown from C and the exchange never asks VB_SPEAK "
+                "(z_player.c OoT_Player_ActionHandler_13)");
+    for (const JnTradeStep& step : kJnTradeSteps) {
+        char leg[112];
+        ResetLogic();
+        logic->SetRandoInf(step.has, true);
+        if (step.alsoSet != LOGIC_NONE) {
+            logic->Set(step.alsoSet, true);
+        }
+        snprintf(leg, sizeof(leg), "%s, no jabber nut", step.leg);
+        ExpectAs(true, leg, step.region, step.check, true,
+                 "the trade step asks for a nut, but the item is shown from C and the exchange never asks VB_SPEAK "
+                 "(z_player.c OoT_Player_ActionHandler_13)");
+    }
+
+    // ---- K: non-vacuity controls in the same setup. Each control meets every
+    // term of its row but the nut and must NOT be reached; its twin adds the
+    // row's own race and must be.
+    ResetLogic();
+    ExpectAs(true, "K1 Anju as adult, no jabber nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, false,
+             "Anju's adult check is reached with every nut withheld (Shuffle Speak not on, or the row lost its nut)");
+    GiveNut();
+    ExpectAs(true, "K1+ Anju as adult, Hylian nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, true,
+             "Anju's adult check is not reached with the Hylian nut");
+
+    ResetLogic();
+    logic->Set(LOGIC_KING_ZORA_THAWED, true);
+    ExpectAs(true, "K2 King Zora thawed, no jabber nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, false,
+             "King Zora's thawed check is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_ZORA, true);
+    ExpectAs(true, "K2+ King Zora thawed, Zora nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, true,
+             "King Zora's thawed check is not reached with the Zora nut");
+
+    ResetLogic();
+    ExpectAs(true, "K3 Biggoron hint, no jabber nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, false,
+             "Biggoron's hint is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_GORON, true);
+    ExpectAs(true, "K3+ Biggoron hint, Goron nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, true,
+             "Biggoron's hint is not reached with the Goron nut");
+
+    ResetLogic();
+    logic->SetUpgrade(UPG_SCALE, 2);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAs(true, "K4 lab dive, golden scale, no jabber nut", RR_LH_LAB, RC_LH_LAB_DIVE, false,
+             "the lab dive is reached with every nut withheld");
+    GiveNut();
+    ExpectAs(true, "K4+ lab dive, golden scale and Hylian nut", RR_LH_LAB, RC_LH_LAB_DIVE, true,
+             "the lab dive is not reached with the golden scale and the Hylian nut");
+
+    // GetCheckPrice reads Granny's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("K5: no OTRGlobals randomizer context, so Granny's price cannot be read");
+    } else {
+        Rando::ItemLocation* granny = randoCtx->GetItemLocation(RC_KAK_GRANNYS_SHOP);
+        const uint16_t savedPrice = granny->GetPrice();
+        granny->SetPrice(60);
+        if (granny->GetPrice() != 60) {
+            GateFail("K5: Granny's price did not take (a custom price is pinned), so the K5 legs are vacuous");
+        } else {
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, true);
+            logic->SetUpgrade(UPG_WALLET, 1);
+            ExpectAs(true, "K5 Granny's shop, Odd Mushroom and a 60-rupee price in a 200 wallet, no jabber nut",
+                     RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP, false,
+                     "Granny's shop is reached with every nut withheld");
+            GiveNut();
+            ExpectAs(true, "K5+ Granny's shop, plus the Hylian nut", RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP,
+                     true, "Granny's shop is not reached with the Odd Mushroom, the rupees and the Hylian nut");
+        }
+        granny->SetPrice(savedPrice);
+    }
+}
+
 } // namespace
 
 extern "C" int OoT_LogicGates_RunHeadless(void) {
@@ -5606,6 +5799,9 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
         }
         merchant->SetPrice(savedPrice);
     }
+
+    // ---- JN: the carpet merchant's event needs its nut; the trades need none (#1798)
+    RunJabberNutConversationLegs(randoCtx);
 
     // ---- E: each carpenter's row carries its own cell's key (SoH 2bc50f605)
     for (const Carpenter& carpenter : kCarpenters) {

@@ -19,7 +19,9 @@ void RegionTable_Init_HauntedWasteland() {
         //Events
         EventAccess(LOGIC_FAIRY_ACCESS,    []{return logic->CanBreakPots();}),
         EventAccess(LOGIC_NUT_ACCESS,      []{return logic->CanBreakPots();}),
-        EventAccess(LOGIC_CARPET_MERCHANT, []{return logic->HasItem(RG_ADULT_WALLET) && GetCheckPrice(RC_WASTELAND_BOMBCHU_SALESMAN) <= GetWalletCapacity() && (logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood());}),
+        // [RSBS #1798] the merchant's first sale needs A pressed (z_en_js.c func_80A88F64, no auto-accept), so the
+        // Hylian Jabber Nut, as his own check below already asks; SoH's line has no nut term.
+        EventAccess(LOGIC_CARPET_MERCHANT, []{return logic->HasItem(RG_ADULT_WALLET) && logic->HasItem(RG_SPEAK_HYLIAN) && GetCheckPrice(RC_WASTELAND_BOMBCHU_SALESMAN) <= GetWalletCapacity() && (logic->CanJumpslash() || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood());}),
     }, {
         //Locations
         LOCATION(RC_WASTELAND_CHEST,            logic->HasFireSource() && logic->HasItem(RG_OPEN_CHEST)),
