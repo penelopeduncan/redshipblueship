@@ -549,7 +549,9 @@ build would turn the oracle back into a no-op.
    second with the text fixes of #1746 (PRs #1756, #1760 and #1764), ride
    generator 6 and must list their residuals. PR #1795 bumped to 7 after
    `v0.5.2-alpha` shipped generator 6, for the logic corrections of #1793,
-   which move worlds that no golden pins. See
+   which move worlds that no golden pins. PR #1799 bumped to 8 after
+   `v0.5.3-alpha` shipped generator 7, for the carpet merchant's Jabber Nut
+   term of #1798, which moves worlds only with Shuffle Speak on. See
    "The generator version" below.
 
 ## The generator version (#1003)
@@ -1176,6 +1178,29 @@ also pins version 6 beside the older versions. Seed packages written by
 generator 6 are refused, as designed. There is no residual behind an
 unchanged fingerprint: every world this build makes has a new one. No pinned
 seed shows the default-settings move of the Skulltula rule.
+
+Generator 8 (2026-11-24, PR #1799), the first change after `v0.5.3-alpha`.
+With Shuffle Speak on, the Haunted Wasteland carpet merchant's event
+(`LOGIC_CARPET_MERCHANT`) now needs the Hylian Jabber Nut, as his own check
+already did (issue #1798): his first sale needs a conversation that the game
+refuses without it. The event is a bombchu refill source, so a world can move
+where the search counted on bombchus he refilled before that nut was found.
+With Shuffle Speak off, which is the default, every Jabber Nut is held from the
+start and no world moves. The adult trade steps are unchanged: handing over a
+trade item is not a conversation the game refuses, and the same PR adds legs to
+`OoTLogicGates` that keep those rules free of a Jabber Nut.
+
+All thirteen seed digests move, in one field: `comboSettingsHash`, which folds
+the generator version. No placement, crossing or hint field moves in any
+golden, and `paired-attempt-digest` is unchanged. No hand pin moved
+(`RandoStaticHintOrder`, `ComboSingleBag`, `GoldenSeedsRoundBudget` and
+`ComboWarpTravelRounds` pass as they were). The fingerprints in
+`test_cross_item_rules.c`, `test_combo_item_rules_word2.c` and
+`test_warp_songs_mm.c` take their version-8 values; the first of the three
+also pins version 7 beside the older versions. Seed packages written by
+generator 7 are refused, as designed. There is no residual behind an
+unchanged fingerprint: every world this build makes has a new one. No golden
+turns Shuffle Speak on, so no pinned seed shows the move.
 
 ## Comparing two binaries by hand: never read a file a bare `--test` did not write
 
