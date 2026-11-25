@@ -32,10 +32,11 @@
  *   THE WIRING through both games' REAL shims: a family OoT's harvest shim sees
  *   held is given to MM by MM's apply shim (and the other way round), a held
  *   family is not given twice, and with the rule off neither shim calls a
- *   member. Then (#1702 C1) the pair's two POSSESSION slots: armed by stage C0's
- *   frozen bits alone and never rule-armed, OR-harvested and given through both
- *   games' real members, the admission rule for a far copy term by term, no
- *   pickup credit yet, and no callback at all while the bits are off.
+ *   member. Then (#1702 C1, re-keyed by C2) the pair's two POSSESSION slots: the
+ *   wallet slot armed by the frozen Shared Child's Wallet rule alone, the bag slot
+ *   by nothing, neither by stage C0's 0x20 / 0x40 nor rule-armed, OR-harvested and
+ *   given through both games' real members, the admission rule for a far copy
+ *   term by term, no pickup credit yet, and no callback at all in a released file.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage.
@@ -169,15 +170,18 @@ void XirResetMembers() {
 // ---- #1702 C1: the pair's possession slots -----------------------------------
 
 /** XirFreezeWorld with stage C0's two frozen bits: OoT's Shuffle Child's Wallet
- *  @p wallet and Bombchu Bag (not None) @p chu, as the creation applies them. */
-void XirFreezePossession(const ComboItemRulesRecord* rules, bool wallet, bool chu) {
+ *  @p wallet and Bombchu Bag (not None) @p chu, as the creation applies them, and
+ *  (#1702 C2) the second word holding the Shared Child's Wallet rule exactly when
+ *  @p sharedWallet, frozen directly (no Generate, so the hidden rule is not
+ *  refused). */
+void XirFreezePossession(const ComboItemRulesRecord* rules, bool wallet, bool chu, bool sharedWallet) {
     ComboContext_Init();
     Combo_ResetSharedResourceWatermarks();
     XirArmPairing(0x1702C1F0u);
     ComboSettingsRecord rec;
     Combo_ComboSettingsDefaults(&rec);
     Combo_ComboSettingsApplyCreationWalletChuShuffles(&rec, wallet, chu);
-    Combo_FreezeComboSettingsEx(&rec, rules);
+    Combo_FreezeComboSettingsEx2(&rec, rules, sharedWallet ? (uint32_t)RSBS_XITEM2_SHARED_CHILD_WALLET : 0u);
 }
 
 const uint32_t kXirPossSlots[2] = { RSBS_XFAMILY_SLOT_CHILD_WALLET, RSBS_XFAMILY_SLOT_BOMBCHU_BAG };
@@ -884,7 +888,7 @@ TestResult Test_SharedFamilyMerge(void) {
             for (int i = 0; i < 4; i++) {
                 XIR_CHECK(have[i] && (int)got[i].nativeId == want[i] && want[i] >= 0,
                           "(0) possession member %d (OoT wallet, OoT bag, MM wallet, MM bag): registered %d, id %d, "
-                          "want %d (#1702 C1; MM's bag is stage C2's placeholder RI_UNKNOWN)",
+                          "want %d (#1702 C1; MM's bag member keeps RI_UNKNOWN, dead since C2)",
                           i, have[i] ? 1 : 0, (int)got[i].nativeId, want[i]);
             }
             XIR_CHECK(!Combo_SharedFamilyMemberPooled(GAME_OOT, RSBS_XFAMILY_SLOT_CHILD_WALLET) &&
@@ -1047,9 +1051,11 @@ TestResult Test_SharedFamilyMerge(void) {
                   creditedHeld ? 1 : 0, (unsigned)Combo_SharedFamiliesOwned(), sXirGives[GAME_OOT], (unsigned)G);
     }
 
-    // ---- (5) #1702 C1: THE PAIR'S POSSESSION, two slots no rule owns --------------
+    // ---- (5) #1702: THE PAIR'S POSSESSION, two slots no rule family owns ----------
     // The games' REAL members (registered at static init, read in leg (0)), through
-    // both games' real shims, armed only by stage C0's frozen bits.
+    // both games' real shims. Since #1702 C2 the wallet slot is armed only by the
+    // frozen Shared Child's Wallet rule and the bag slot by nothing; stage C0's
+    // comboFlags 0x20 / 0x40 (OoT's own shuffles) arm neither.
     {
         const uint32_t W = RSBS_XFAMILY_SLOT_CHILD_WALLET;
         const uint32_t B = RSBS_XFAMILY_SLOT_BOMBCHU_BAG;
@@ -1057,7 +1063,12 @@ TestResult Test_SharedFamilyMerge(void) {
         int ootBagId = -1;
         OoT_SharedWalletTest_PossessionIds(&ootWalletId, &ootBagId);
 
-        // (5a) ARMING: each C0 bit arms its own slot, and never the rule-armed set.
+        // (5a) ARMING. The pure helper still maps each answer to its own slot (the
+        // slot values are .redsave format). Through the frozen record: the four
+        // 0x20 / 0x40 worlds with the rule off arm nothing (every released file);
+        // with the rule on each arms the wallet slot only, never the bag, and never
+        // the rule-armed set. Catches the arming reverted to the C0 bits (want 0
+        // read W / B), the bag armed by the rule, and the rule not read at all.
         XIR_CHECK(Combo_SharedPossessionSlotsArmedBy(false, false) == 0u &&
                       Combo_SharedPossessionSlotsArmedBy(true, false) == W &&
                       Combo_SharedPossessionSlotsArmedBy(false, true) == B &&
@@ -1070,22 +1081,25 @@ TestResult Test_SharedFamilyMerge(void) {
                   (unsigned)(W | B));
         const bool kWallet[4] = { false, true, false, true };
         const bool kChu[4] = { false, false, true, true };
-        for (int i = 0; i < 4; i++) {
-            XirFreezePossession(NULL, kWallet[i], kChu[i]);
-            const uint32_t want = (kWallet[i] ? W : 0u) | (kChu[i] ? B : 0u);
-            XIR_CHECK(Combo_SharedPossessionArmed() == want && Combo_SharedFamiliesArmed() == 0u,
-                      "(5a) wallet %d chu %d armed possession %08X (want %08X) and rule families %08X (want 0: the "
-                      "possession slots are never rule-armed)",
-                      kWallet[i] ? 1 : 0, kChu[i] ? 1 : 0, (unsigned)Combo_SharedPossessionArmed(), (unsigned)want,
-                      (unsigned)Combo_SharedFamiliesArmed());
+        for (int rule = 0; rule < 2; rule++) {
+            for (int i = 0; i < 4; i++) {
+                XirFreezePossession(NULL, kWallet[i], kChu[i], rule != 0);
+                const uint32_t want = rule != 0 ? W : 0u;
+                XIR_CHECK(Combo_SharedPossessionArmed() == want && Combo_SharedFamiliesArmed() == 0u,
+                          "(5a) rule %d, wallet %d chu %d armed possession %08X (want %08X) and rule families %08X "
+                          "(want 0: the possession slots are never rule-armed)",
+                          rule, kWallet[i] ? 1 : 0, kChu[i] ? 1 : 0, (unsigned)Combo_SharedPossessionArmed(),
+                          (unsigned)want, (unsigned)Combo_SharedFamiliesArmed());
+            }
         }
         ComboContext_Init();
         gComboCtx.comboSettings.comboFlags =
             (uint8_t)(RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET | RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG);
+        Combo_ComboItemRules2Store(&gComboCtx.comboItemRules2, RSBS_XITEM2_SHARED_CHILD_WALLET);
         XIR_CHECK(Combo_SharedPossessionArmed() == 0u, "(5a) an unfrozen record armed possession %08X",
                   (unsigned)Combo_SharedPossessionArmed());
         // The item-id paths never see a possession slot: no name tag, no bag pair.
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         XIR_CHECK(Combo_SharedFamilyArmedBitOf(GAME_OOT, (uint16_t)ootWalletId) == 0u &&
                       Combo_SharedFamilyArmedBitOf(GAME_OOT, (uint16_t)ootBagId) == 0u,
                   "(5a) OoT's wallet or bag id maps to an armed family bit (%08X, %08X): the item-id paths would "
@@ -1093,9 +1107,10 @@ TestResult Test_SharedFamilyMerge(void) {
                   (unsigned)Combo_SharedFamilyArmedBitOf(GAME_OOT, (uint16_t)ootWalletId),
                   (unsigned)Combo_SharedFamilyArmedBitOf(GAME_OOT, (uint16_t)ootBagId));
 
-        // (5b) OR-HARVEST through OoT's real shim: the wallet alone, then the bag,
-        // then an MM harvest holding neither takes nothing away.
-        XirFreezePossession(NULL, true, true);
+        // (5b) OR-HARVEST through OoT's real shim under the rule: the wallet alone,
+        // then the bag (never armed, so never owned), then an MM harvest holding
+        // neither takes nothing away.
+        XirFreezePossession(NULL, true, true, true);
         XirPossArmBothEmpty();
         OoT_SharedWalletTest_ArmLive(0, 0, 1);
         OoT_SharedWalletTest_SetBombchuBag(0);
@@ -1111,50 +1126,64 @@ TestResult Test_SharedFamilyMerge(void) {
         const uint32_t afterMM = Combo_SharedFamiliesOwned();
         printf("[TEST] (5b) OoT wallet, then OoT bag, then MM empty: owned %08X, %08X, %08X (expected %08X, %08X, "
                "%08X)\n",
-               (unsigned)afterWallet, (unsigned)afterBag, (unsigned)afterMM, (unsigned)W, (unsigned)(W | B),
-               (unsigned)(W | B));
+               (unsigned)afterWallet, (unsigned)afterBag, (unsigned)afterMM, (unsigned)W, (unsigned)W, (unsigned)W);
         XIR_CHECK(afterWallet == W, "(5b) OoT holding only the wallet owned %08X, want %08X", (unsigned)afterWallet,
                   (unsigned)W);
-        XIR_CHECK(afterBag == (W | B) && afterMM == (W | B),
-                  "(5b) the bag harvest owned %08X and MM's empty harvest left %08X, want %08X both (OR, never "
-                  "taken away)",
-                  (unsigned)afterBag, (unsigned)afterMM, (unsigned)(W | B));
+        XIR_CHECK(afterBag == W && afterMM == W,
+                  "(5b) the bag harvest owned %08X and MM's empty harvest left %08X, want %08X both (the bag slot "
+                  "is armed by nothing; OR, never taken away)",
+                  (unsigned)afterBag, (unsigned)afterMM, (unsigned)W);
 
-        // (5c) ARRIVAL GIVES: MM gets flags 80 and 81, OoT its flag and its Bombchu item.
+        // (5c) ARRIVAL GIVES under the rule: MM gets flag 80, OoT its wallet flag;
+        // the bag is never given, even owned (a stale 0x400 from a C1 build).
+        XirFreezePossession(NULL, true, true, true);
+        gComboCtx.sharedFamilyOwned |= W | B;
         MM_SharedSwordTest_ArmLive();
         MM_SharedPossessionTest_Set(0, 0);
         MM_ApplySharedResources();
         const int mmBoth = MM_SharedPossessionTest_Held();
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         gComboCtx.sharedFamilyOwned |= W;
         MM_SharedSwordTest_ArmLive();
         MM_SharedPossessionTest_Set(0, 0);
         MM_ApplySharedResources();
         const int mmWalletOnly = MM_SharedPossessionTest_Held();
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         gComboCtx.sharedFamilyOwned |= B;
         MM_SharedSwordTest_ArmLive();
         MM_SharedPossessionTest_Set(0, 0);
         MM_ApplySharedResources();
         const int mmBagOnly = MM_SharedPossessionTest_Held();
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         gComboCtx.sharedFamilyOwned |= W | B;
         OoT_SharedWalletTest_ArmLive(0, 0, 0);
         OoT_SharedWalletTest_SetBombchuBag(0);
         OoT_ApplySharedResources();
         const int ootFlag = OoT_SharedWalletTest_HasWalletFlag();
         const int ootBag = OoT_SharedWalletTest_HasBombchuBag();
-        printf("[TEST] (5c) MM given (both, wallet, bag) %d %d %d (expected 3 1 2); OoT given flag %d, bag %d "
-               "(expected 1 1)\n",
+        printf("[TEST] (5c) MM given (both, wallet, bag) %d %d %d (expected 1 1 0); OoT given flag %d, bag %d "
+               "(expected 1 0)\n",
                mmBoth, mmWalletOnly, mmBagOnly, ootFlag, ootBag);
-        XIR_CHECK(mmBoth == 3 && mmWalletOnly == 1 && mmBagOnly == 2,
-                  "(5c) MM's apply gave possession flags %d / %d / %d, want 3 / 1 / 2 (80 the wallet, 81 the bag)",
+        XIR_CHECK(mmBoth == 1 && mmWalletOnly == 1 && mmBagOnly == 0,
+                  "(5c) MM's apply gave possession flags %d / %d / %d, want 1 / 1 / 0 (80 the wallet; the bag slot "
+                  "is armed by nothing)",
                   mmBoth, mmWalletOnly, mmBagOnly);
-        XIR_CHECK(ootFlag == 1 && ootBag == 1, "(5c) OoT's apply gave the wallet flag %d and the Bombchu item %d",
-                  ootFlag, ootBag);
+        XIR_CHECK(ootFlag == 1 && ootBag == 0,
+                  "(5c) OoT's apply gave the wallet flag %d and the Bombchu item %d (want 1, 0)", ootFlag, ootBag);
+        // The same owned bits in a released file (0x20 | 0x40, no rule): nothing is
+        // given. Catches the C0 arming (MM would get 3).
+        XirFreezePossession(NULL, true, true, false);
+        gComboCtx.sharedFamilyOwned |= W | B;
+        MM_SharedSwordTest_ArmLive();
+        MM_SharedPossessionTest_Set(0, 0);
+        MM_ApplySharedResources();
+        const int mmReleased = MM_SharedPossessionTest_Held();
+        XIR_CHECK(mmReleased == 0, "(5c) a released 0x20 | 0x40 file owning both gave MM possession flags %d",
+                  mmReleased);
 
-        // (5d) ADMISSION: each case decided by exactly one term.
-        XirFreezePossession(NULL, true, true);
+        // (5d) ADMISSION under the rule: each case decided by exactly one term, the
+        // bag never admitted (it is unarmed).
+        XirFreezePossession(NULL, true, true, true);
         XirPossArmBothEmpty();
         const int admittedAll = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         gComboCtx.sharedFamilyOwned |= W | B; // owned, held by nobody, no pool tier
@@ -1162,36 +1191,37 @@ TestResult Test_SharedFamilyMerge(void) {
         gComboCtx.sharedFamilyOwned = 0u;
         // OoT holds both live, nothing owned
         const int heldByOoT = XirPossAdmitted(XirPossArmOoTBoth, XirPossArmMMEmpty);
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         XirPossArmBothEmpty();
         Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_WALLET_TIER, 1); // the pool's tier 1
         const int poolTier1 = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
         const uint32_t ownedAfterAsk = Combo_SharedFamiliesOwned();
-        XirFreezePossession(NULL, false, false);
+        XirFreezePossession(NULL, true, true, false); // a released file: 0x20 | 0x40, no rule
         XirPossArmBothEmpty();
         const int unarmed = XirPossAdmitted(XirPossArmOoTEmpty, XirPossArmMMEmpty);
-        XirFreezePossession(NULL, true, true);
+        XirFreezePossession(NULL, true, true, true);
         const bool oddSlots = Combo_SharedPossessionPickupAdmitted(GAME_OOT, W | B) ||
                               Combo_SharedPossessionPickupAdmitted(GAME_OOT, G) ||
                               Combo_SharedPossessionPickupAdmitted(GAME_NONE, W);
-        printf("[TEST] (5d) admitted: all-clear %X, owned %X, OoT holds %X, pool tier 1 %X, unarmed %X (expected F, "
-               "0, C, A, 0)\n",
+        printf("[TEST] (5d) admitted: all-clear %X, owned %X, OoT holds %X, pool tier 1 %X, unarmed %X (expected 5, "
+               "0, 4, 0, 0)\n",
                (unsigned)admittedAll, (unsigned)ownedOnly, (unsigned)heldByOoT, (unsigned)poolTier1, (unsigned)unarmed);
-        XIR_CHECK(admittedAll == 0xF, "(5d) armed, unowned, unheld: admitted %X, want F", (unsigned)admittedAll);
+        XIR_CHECK(admittedAll == 0x5, "(5d) armed, unowned, unheld: admitted %X, want 5 (the wallet in both games)",
+                  (unsigned)admittedAll);
         XIR_CHECK(ownedOnly == 0, "(5d) an OWNED slot (no member holding it, no pool tier) admitted %X, want 0",
                   (unsigned)ownedOnly);
-        XIR_CHECK(heldByOoT == 0xC,
-                  "(5d) OoT holding both live admitted %X, want C (refused in OoT, its own copy; MM still admits)",
+        XIR_CHECK(heldByOoT == 0x4,
+                  "(5d) OoT holding both live admitted %X, want 4 (refused in OoT, its own copy; MM still admits)",
                   (unsigned)heldByOoT);
-        XIR_CHECK(poolTier1 == 0xA && ownedAfterAsk == 0u,
-                  "(5d) pool wallet tier 1 admitted %X (want A: the wallet is implied, the bag is not) and the ask "
-                  "wrote owned %08X (want 0)",
+        XIR_CHECK(poolTier1 == 0x0 && ownedAfterAsk == 0u,
+                  "(5d) pool wallet tier 1 admitted %X (want 0: the wallet is implied, the bag is unarmed) and the "
+                  "ask wrote owned %08X (want 0)",
                   (unsigned)poolTier1, (unsigned)ownedAfterAsk);
         XIR_CHECK(unarmed == 0 && !oddSlots,
-                  "(5d) unarmed slots admitted %X, or two slots / a rule family / GAME_NONE admitted (%d)",
+                  "(5d) a released file's slots admitted %X, or two slots / a rule family / GAME_NONE admitted (%d)",
                   (unsigned)unarmed, oddSlots ? 1 : 0);
-        // The far-pickup credit never takes a possession copy in C1 (stage C4 does).
-        XirFreezePossession(NULL, true, true);
+        // The far-pickup credit never takes a possession copy yet (stage C4 does).
+        XirFreezePossession(NULL, true, true, true);
         XirPossArmBothEmpty();
         const bool farCredited =
             Combo_SharedFamilies2CreditFarPickup(GAME_MM, (uint8_t)GAME_OOT, (uint16_t)ootWalletId) ||
@@ -1202,7 +1232,9 @@ TestResult Test_SharedFamilyMerge(void) {
                   (unsigned)Combo_SharedFamiliesOwned(), MM_SharedPossessionTest_Held());
 
         // (5e) UNARMED WORLDS RUN NO CALLBACK: spies at both slots, with a rule armed
-        // (Goron) so the shims enter the family loops.
+        // (Goron) so the shims enter the family loops. A released file (0x20 | 0x40,
+        // no Shared Child's Wallet rule) runs none; the rule reaches the wallet spy
+        // only. Catches the C0 arming (released calls > 0, rule-on calls 2).
         {
             ComboItemRulesRecord rG;
             memset(&rG, 0, sizeof(rG));
@@ -1213,7 +1245,7 @@ TestResult Test_SharedFamilyMerge(void) {
                 Combo_RegisterSharedFamilyMember(GAME_OOT, kXirPossSlots[s], &spyOoT);
                 Combo_RegisterSharedFamilyMember(GAME_MM, kXirPossSlots[s], &spyMM);
             }
-            XirFreezePossession(&rG, false, false);
+            XirFreezePossession(&rG, true, true, false);
             XirResetMembers();
             memset(sXirPossHeldCalls, 0, sizeof(sXirPossHeldCalls));
             memset(sXirPossGives, 0, sizeof(sXirPossGives));
@@ -1227,21 +1259,22 @@ TestResult Test_SharedFamilyMerge(void) {
             OoT_ApplySharedResources();
             const int offCalls = sXirPossHeldCalls[GAME_OOT] + sXirPossHeldCalls[GAME_MM] + sXirPossGives[GAME_OOT] +
                                  sXirPossGives[GAME_MM];
-            // The same world with both bits frozen on: the spies are reached.
-            XirFreezePossession(&rG, true, true);
+            // The same world with the rule frozen on: the wallet spy is reached.
+            XirFreezePossession(&rG, true, true, true);
             XirResetMembers();
             memset(sXirPossHeldCalls, 0, sizeof(sXirPossHeldCalls));
             OoT_SharedSwordTest_ArmLive();
             OoT_HarvestSharedResources();
             const int onCalls = sXirPossHeldCalls[GAME_OOT];
             XirRestorePossessionMembers();
-            printf("[TEST] (5e) spies: bits off %d calls, owned %08X (expected 0, 0); bits on %d OoT held calls "
-                   "(expected 2)\n",
+            printf("[TEST] (5e) spies: released 20|40 file %d calls, owned %08X (expected 0, 0); rule on %d OoT held "
+                   "calls (expected 1)\n",
                    offCalls, (unsigned)ownedOff, onCalls);
             XIR_CHECK(offCalls == 0 && ownedOff == 0u,
-                      "(5e) with the C0 bits off a possession member was called %d times or the harvest owned %08X",
+                      "(5e) without the rule a possession member was called %d times or the harvest owned %08X",
                       offCalls, (unsigned)ownedOff);
-            XIR_CHECK(onCalls == 2, "(5e) with the C0 bits on OoT's harvest asked the spies %d times, want 2", onCalls);
+            XIR_CHECK(onCalls == 1, "(5e) with the rule on OoT's harvest asked the spies %d times, want 1 (the wallet)",
+                      onCalls);
         }
         OoT_SharedSwordTest_ArmLive();
         MM_SharedSwordTest_ArmLive();

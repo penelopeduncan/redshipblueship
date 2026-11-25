@@ -222,6 +222,24 @@ TestResult Test_ComboSettingsFormat(void) {
                   RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG == 0x40u && RSBS_COMBO_FLAGS_ALL_V1 == 0x7Fu,
               "RSBS_COMBO_FLAG_* bit positions moved — comboFlags is .redsave format, append-only (#668, #886, "
               "#1369, #1652, #1702)");
+    // #1702 C2: 0x80 is RESERVED for the Shared Bombchu Bag marker and stays
+    // outside both masks until stage C8 (which flips this pin to ALL_V1 0xFF and
+    // CREATION_DERIVED 0xFC with its writer). Catches the marker moving, or joining
+    // either mask early (a pre-C8 build would then accept a frozen 0x80 unplayed).
+    CS_ASSERT(RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG == 0x80u &&
+                  (RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG & RSBS_COMBO_FLAGS_ALL_V1) == 0u &&
+                  RSBS_COMBO_FLAGS_CREATION_DERIVED == 0x7Cu,
+              "the Shared Bombchu Bag marker is not the reserved comboFlags 0x80 outside ALL_V1 (7F) and "
+              "CREATION_DERIVED (7C); stage C8, not C2, allocates it");
+    // #1702 C2: the second word's Shared Child's Wallet rule and derived marker.
+    // Catches either bit moving, a mask not taking it, or either becoming a
+    // second-word family (their transport is the possession slot).
+    CS_ASSERT(RSBS_XITEM2_SHARED_CHILD_WALLET == 0x00010000u && RSBS_XITEM2_OWN_CHILD_WALLETS == 0x00080000u &&
+                  RSBS_XITEM2_DERIVED == 0x00080000u && RSBS_XITEM2_ALL_V1 == 0x0009FFFFu &&
+                  RSBS_XITEM2_HIDDEN == 0x0009C000u &&
+                  ((RSBS_XITEM2_SHARED_CHILD_WALLET | RSBS_XITEM2_OWN_CHILD_WALLETS) & RSBS_XITEM2_FAMILY_MASK) == 0u,
+              "the #1702 second-word bits moved: rule 00010000, derived 00080000, ALL_V1 0009FFFF, HIDDEN "
+              "0009C000, neither a family");
     CS_ASSERT(RSBS_COMBO_SETTINGS_FORMAT_VERSION == 1u,
               "the record format version moved. Spending a spare does NOT earn a bump — #668 spent byte 10 with "
               "a bitset whose CLEAR state is the pre-#668 behaviour, so 'absent' and 'zero' are the same world. "
@@ -864,8 +882,9 @@ TestResult Test_ComboSettingsDivergence(void) {
             case RSBS_COMBO_DIVERGE_SHARED_KOKIRI_SWORD:
                 frozen.comboFlags = (uint8_t)RSBS_COMBO_FLAG_SHARED_KOKIRI_SWORD;
                 break;
-            // 0x80 is UNALLOCATED at formatVersion 1: the byte-level bit is the
-            // honest report for a state a version-1 record may not be in at all.
+            // 0x80 is reserved for the Shared Bombchu Bag marker (#1702 C2) but
+            // UNALLOCATED until C8: the byte-level bit is the report for a bit no
+            // pre-C8 build may accept.
             case RSBS_COMBO_DIVERGE_COMBO_FLAGS:
                 frozen.comboFlags = 0x80u;
                 break;
@@ -925,6 +944,40 @@ TestResult Test_ComboSettingsDivergence(void) {
         // above is passing because the diff refuses everything.
         CS_ASSERT(Combo_ComboSettingsDivergenceBetween(&shared, &shared) == 0,
                   "two identical shared-ocarina records reported divergence");
+    }
+
+    // ---- #1702 C2: a frozen comboFlags 0x80 diverges THROUGH THE SESSION -----
+    // 0x80 is the RESERVED Shared Bombchu Bag marker, unallocated until stage C8.
+    // The loop above passes records straight to the diff; this leg goes through
+    // the session paths (the arrival's Combo_ComboSettingsDivergence and the
+    // load's Combo_ComboSettingsDivergenceFor), which first copy every
+    // creation-derived bit from the file into the live record. A creation-derived
+    // bit (0x40) is therefore no divergence there, and 0x80 must still be one, so
+    // every pre-C8 build refuses a C8 file. Catches 0x80 joining
+    // RSBS_COMBO_FLAGS_CREATION_DERIVED (the copy hides it) or RSBS_COMBO_FLAGS_ALL_V1
+    // (the byte bit no longer covers it) before C8 adds its writer and reader.
+    {
+        ComboContext_Init();
+        ComboSettingsArmPairing(0x17020C2Fu, 0x1111AAAAu, 0x2222BBBBu);
+        ComboSettingsRecord rec;
+        Combo_ResolveComboSettings(&rec);
+        rec.comboFlags = (uint8_t)RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG;
+        Combo_FreezeComboSettings(&rec);
+        const uint32_t derived = Combo_ComboSettingsDivergence();
+        rec.comboFlags = (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG;
+        Combo_FreezeComboSettings(&rec);
+        const uint32_t reserved = Combo_ComboSettingsDivergence();
+        const uint32_t reservedLoad =
+            Combo_ComboSettingsDivergenceFor(&gComboCtx.comboSettings, gComboCtx.comboSettingsHash,
+                                             gComboCtx.sharedRandoSettingsHash, gComboCtx.mmProfileDigest);
+        printf("[TEST] combo-settings-divergence: frozen comboFlags 40 -> %08X, 80 -> arrival %08X, load %08X\n",
+               (unsigned)derived, (unsigned)reserved, (unsigned)reservedLoad);
+        CS_ASSERT(derived == 0u, "a frozen creation-derived comboFlags 0x40 diverged against its own session");
+        CS_ASSERT((reserved & RSBS_COMBO_DIVERGE_COMBO_FLAGS) != 0u &&
+                      (reservedLoad & RSBS_COMBO_DIVERGE_COMBO_FLAGS) != 0u,
+                  "A FROZEN comboFlags 0x80 (the reserved Shared Bombchu Bag marker) did not diverge at the byte "
+                  "through the session compare: a pre-C8 build would play a C8 file with the bag split");
+        ComboContext_Init();
     }
 
     // ---- Several at once render as a list ----------------------------------

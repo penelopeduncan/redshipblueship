@@ -6469,12 +6469,15 @@ const OoTSharedSwimRegistrar gOoTSharedSwimRegistrar;
 // (set by the child wallet's give, randomizer.cpp, at creation when the shuffle is
 // off, savefile.cpp, and by ruling R2 at the wallet-tier apply below) and the
 // Bombchu item in the inventory (Context::HandleGetBombchuBag, SeedContext.cpp).
-// A member is asked only while its slot is armed, which is only while this world's
-// shuffle froze the slot on (Combo_SharedPossessionArmed). The ids are the items
+// A member is asked only while its slot is armed (Combo_SharedPossessionArmed):
+// only while the frozen Shared Child's Wallet rule arms the wallet slot (#1702
+// C2); the bag slot is armed by nothing, so the bag member is registered but dead
+// until C7 replaces the transport. R2 (the wallet-tier apply) does not depend on
+// arming. The ids are the items
 // OoT places: RG_PROGRESSIVE_WALLET resolves to the child wallet while the flag is
 // clear (item.cpp), RG_PROGRESSIVE_BOMBCHU_BAG is the bag under Single and
 // Progressive. The GIVES write the possession only: no rupee or bombchu fill,
-// which stages C2 and C4 decide. POOLED is false: the pair is never a shared bag
+// which later stages of #1702 decide. POOLED is false: the pair is never a shared bag
 // row.
 
 namespace {

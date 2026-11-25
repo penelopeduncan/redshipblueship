@@ -211,6 +211,10 @@ typedef enum {
     // Appended after #980's ids so no id moves.
     COMBO_SETTING_SHARED_SONG_SUN,    // gCombo.Rando.SharedSongSun -> RSBS_XITEM2_SHARED_SONG_SUN
     COMBO_SETTING_SHARED_SONG_SARIAS, // gCombo.Rando.SharedSongSarias -> RSBS_XITEM2_SHARED_SONG_SARIAS
+    // #1702 C2: the Shared Child's Wallet, a bit of the SECOND rules word (no
+    // requirement; hidden until #1702 C5: no row, and Generate refuses). Appended
+    // after #1587's ids so no id moves.
+    COMBO_SETTING_SHARED_CHILD_WALLET, // gCombo.Rando.SharedChildWallet -> RSBS_XITEM2_SHARED_CHILD_WALLET
     COMBO_SETTING_COUNT
 } ComboSettingId;
 

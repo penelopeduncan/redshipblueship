@@ -526,6 +526,12 @@ const char* Combo_ComboItemRule2Name(uint32_t bit) {
             return "sharedSongSun";
         case RSBS_XITEM2_SHARED_SONG_SARIAS: // #1587 S1
             return "sharedSongSarias";
+        // #1702 C2: ours (OoTMM has no single key for either), so a refusal of a
+        // later build's file names the rule a player of this build would know.
+        case RSBS_XITEM2_SHARED_CHILD_WALLET: // first played in stage C5
+            return "sharedChildWallet";
+        case RSBS_XITEM2_OWN_CHILD_WALLETS: // derived; first written and read in stage C3
+            return "ownChildWallets";
         default:
             return "(unknown)";
     }
@@ -547,8 +553,8 @@ bool Combo_ComboItemRules2Valid(uint32_t word) {
 
 uint32_t Combo_ResolveComboItemRules2(void) {
     // THE ONE RESOLVER for the second word (Combo_ResolveComboItemRules'
-    // discipline): ASSEMBLED from the sixteen keys, each through
-    // Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
+    // discipline): ASSEMBLED from the second word's keys (kItemRule2Keys), each
+    // through Combo_ComboSettingResolved, so an unset or out-of-space key is off and a
     // bit no key authors is never on. With nothing authored this is 0, so every
     // world whose player leaves the (hidden) keys alone keeps its fingerprint.
     uint32_t word = Combo_ComboItemRules2Authored() & (uint32_t)RSBS_XITEM2_ALL_V1;
@@ -579,6 +585,19 @@ bool Combo_ComboCrossItemRule2(uint32_t bit) {
     return bit != 0u && (Combo_ComboCrossItemFlags2() & bit) == bit;
 }
 
+bool Combo_ComboOwnChildWallets(void) {
+    // #1702 C2, reserved: the frozen derived marker (stage C3 writes and reads it).
+    return Combo_ComboCrossItemRule2(RSBS_XITEM2_OWN_CHILD_WALLETS);
+}
+
+bool Combo_ComboBombchuBagShared(void) {
+    // #1702 C2, reserved: the frozen record only. 0x80 is unallocated until stage
+    // C8, so no file a pre-C8 build loads holds it (refused at load) and nothing
+    // writes it: false by construction until C8.
+    return Combo_ComboSettingsFrozen() &&
+           (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG) != 0u;
+}
+
 // TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
 // the hidden mask and RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out
 // of it. Since #1587 S1 the mask holds only the Shared Sun's Song and Shared
@@ -607,6 +626,11 @@ bool Combo_ComboItemRule2Offered(uint32_t bit) {
     // Exactly one allocated bit, and not hidden (#1169 XW12): the predicate the
     // Cross-Game Rules rows read, over the same mask the refusal reads.
     if (bit == 0u || (bit & (bit - 1u)) != 0u || (bit & ~(uint32_t)RSBS_XITEM2_ALL_V1) != 0u) {
+        return false;
+    }
+    // #1702 C2: a derived marker is never a row, even under the test reveal and
+    // after it leaves the hidden mask (no key authors it).
+    if ((bit & (uint32_t)RSBS_XITEM2_DERIVED) != 0u) {
         return false;
     }
     return (bit & Combo_ComboItemRules2HiddenMask()) == 0u;

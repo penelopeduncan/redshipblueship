@@ -215,9 +215,11 @@ TestResult SharedSunSariaRule_Run(void) {
         SSR_CHECK(RSBS_XITEM2_SHARED_SONG_SUN == kSsrSongs[0].bit && RSBS_XITEM2_SHARED_SONG_SARIAS == kSsrSongs[1].bit,
                   "(1) the bits moved: Sun %08X, Saria's %08X; they are .redsave format (0x4000, 0x8000)",
                   (unsigned)RSBS_XITEM2_SHARED_SONG_SUN, (unsigned)RSBS_XITEM2_SHARED_SONG_SARIAS);
-        SSR_CHECK(RSBS_XITEM2_ALL_V1 == 0x0000FFFFu && RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
+        // #1702 C2 took 0x10000 (the Shared Child's Wallet rule) and 0x80000 (a
+        // derived marker), so ALL_V1 is 0009FFFF; neither is a family or a song.
+        SSR_CHECK(RSBS_XITEM2_ALL_V1 == 0x0009FFFFu && RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
                       RSBS_XITEM2_SHARED_SONGS == 0x0000FF80u,
-                  "(1) ALL_V1 %08X (want 0000FFFF), FAMILY_MASK %08X and SHARED_SONGS %08X (want 0000FF80)",
+                  "(1) ALL_V1 %08X (want 0009FFFF), FAMILY_MASK %08X and SHARED_SONGS %08X (want 0000FF80)",
                   (unsigned)RSBS_XITEM2_ALL_V1, (unsigned)RSBS_XITEM2_FAMILY_MASK, (unsigned)RSBS_XITEM2_SHARED_SONGS);
         for (int song = 0; song < 2; song++) {
             const SsrSong& s = kSsrSongs[song];
@@ -284,8 +286,9 @@ TestResult SharedSunSariaRule_Run(void) {
             SSR_CHECK(Combo_ComboItemRule2BitFor(ids[song]) == s.bit, "(2) %s authors %08X, not %08X", s.rule,
                       (unsigned)Combo_ComboItemRule2BitFor(ids[song]), (unsigned)s.bit);
         }
-        SSR_CHECK(Combo_ComboItemRule2KeyedBits() == RSBS_XITEM2_ALL_V1,
-                  "(2) the keyed second-word bits are %08X, expected every allocated bit (0000FFFF)",
+        // Every allocated bit but the derived ones (#1702 C2: no key authors them).
+        SSR_CHECK(Combo_ComboItemRule2KeyedBits() == (RSBS_XITEM2_ALL_V1 & ~RSBS_XITEM2_DERIVED),
+                  "(2) the keyed second-word bits are %08X, expected every allocated non-derived bit (0001FFFF)",
                   (unsigned)Combo_ComboItemRule2KeyedBits());
     }
 
@@ -388,7 +391,9 @@ TestResult SharedSunSariaRule_Run(void) {
     // integration proof exists.
     {
         char names[192];
-        SSR_CHECK(RSBS_XITEM2_HIDDEN == kSsrBoth, "(5) the hidden mask is %08X, want 0000C000 until #1587 S7",
+        // Both inside the mask (#1702 C2 added its own two bits beside them).
+        SSR_CHECK((RSBS_XITEM2_HIDDEN & kSsrBoth) == kSsrBoth && (RSBS_XITEM2_HIDDEN & 0x00003FFFu) == 0u,
+                  "(5) the hidden mask is %08X, want both 0000C000 inside it until #1587 S7 and no warp song",
                   (unsigned)RSBS_XITEM2_HIDDEN);
         for (int song = 0; song < 2; song++) {
             const SsrSong& s = kSsrSongs[song];
