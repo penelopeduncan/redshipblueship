@@ -45,6 +45,23 @@ Everything below passed the automated gates. None of it has been checked by a pe
   turn Enable Sun's Song on (Enhancements > Items > Ocarina, in the Majora's Mask block), then play the song in Majora's
   Mask: Right, Down, Up, Right, Down, Up. The text box at the top of the screen should read "You played the Sun's Song!"
   with the name in yellow.
+- The Locations page changes (issue #1733). Tests check which checks count as visible with MQ Dungeon Setting on None,
+  Set Number or Selection Only (Random is not tested), and how the excluded list is stored. No test draws the page,
+  presses Exclude Visible or Include Visible, or generates a seed with a Master Quest check excluded under Selection
+  Only. To try it: Randomizer > Locations, with MQ Dungeon Setting on Selection Only.
+- Some checkbox names break onto two lines (issue #1818). On menu pages with three columns, the checkbox of a randomizer
+  option whose name has about 19 to 30 characters now puts its last word on a second line, for example Shuffle Master
+  Sword and Shuffle Kokiri Sword on Randomizer > Shuffles. The enhancement Skip Child Stealth on Enhancements > Skips &
+  Speed-ups does the same. Other checkboxes are not affected, and the rows work as before. This is a side effect of the
+  search fix for rows with the same name.
+- Seven small Majora's Mask options (issue #1755): Picto Box on C-Up, Always Show Shrine of Truth Feathers, Dash After
+  Roll, Always Find Rock Sirloin, Jumping Game Time Limit, Jumping Game Score and Win Jumping Game Early. Tests call
+  each option's code with made-up game data. No run rolls and dashes, opens the Pictograph Box with C-Up, visits the
+  feather path, breaks a chandelier pot or plays the Fisherman's Jumping Game. With Always Find Rock Sirloin on, the
+  Rock Sirloin appears at whichever pot you break first; nobody has watched that from a pot other than the usual one.
+- Ocarina of Time's minigame options after their move to hooks (issue #1753). Tests call the hooks with made-up game
+  data; no run plays Bombchu Bowling, the Frogs' Ocarina Game or the Shooting Gallery, and nothing checks the removal of
+  a cucco while Link stands in the Bombchu Bowling Alley.
 
 ### New in v0.5.2-alpha
 
