@@ -4903,6 +4903,10 @@ void MM_Message_DrawMain(PlayState* play, Gfx** gfxP) {
                 // Ocarina_DisplaySongPlayedTextbox), not 0x1B72 + 0x80 + song.
                 if (MM_WarpSongMM_IsStaffState(msgCtx->songPlayed)) {
                     MM_Message_ContinueTextbox(play, MM_WarpSongMM_PlayedTextId(msgCtx->songPlayed));
+                } else if (MM_SunsSongMM_IsPlayedState(msgCtx->songPlayed)) {
+                    // #1587 T: the Sun's Song's own text in that box (OoTMM's 0x1b7d
+                    // branch), not MM's empty 0x1B7D.
+                    MM_Message_ContinueTextbox(play, MM_SunsSongMM_PlayedTextId(msgCtx->songPlayed));
                 } else
 #endif
                 if (msgCtx->songPlayed == OCARINA_SONG_SCARECROW_SPAWN) {

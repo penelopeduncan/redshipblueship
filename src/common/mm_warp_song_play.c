@@ -475,6 +475,24 @@ int Combo_MMWarpPlay_LineCount(const char* text) {
     return lines;
 }
 
+/* ---- #1587 stage T: the Sun's Song's played text ------------------------------ */
+
+bool Combo_MMSunsSong_IsPlayedState(unsigned state) {
+    return state == RSBS_MMSUN_SONG_STATE;
+}
+
+int Combo_MMSunsSong_PlayedText(char* out, size_t len) {
+    if (out == NULL || len == 0) {
+        return -1;
+    }
+    const int written = snprintf(out, len, "%s", "You played the %ySun's Song%w!");
+    if (written < 0 || (size_t)written >= len) {
+        out[0] = '\0';
+        return -1;
+    }
+    return written;
+}
+
 /* ---- The latches -------------------------------------------------------------- */
 
 static int8_t sMmWpPendingSong = -1;
