@@ -1565,6 +1565,40 @@ std::vector<ItemTrackerItem> GetDungeonItemsVector(std::vector<ItemTrackerDungeo
 }
 /* ****************************************************** */
 
+// Don't render when setting disabled
+static int32_t GetGatedSectionDisplay(const char* cvar, bool inPool) {
+    return inPool ? CVarGetInteger(cvar, SECTION_DISPLAY_HIDDEN) : SECTION_DISPLAY_HIDDEN;
+}
+
+static int32_t GregDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.Greg"), IS_RANDO);
+}
+
+static int32_t BeanSoulsDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.BeanSouls"),
+                                  IS_RANDO && RAND_GET_OPTION(RSK_SHUFFLE_BEAN_SOULS));
+}
+
+static int32_t JabberNutsDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.JabberNuts"),
+                                  IS_RANDO && RAND_GET_OPTION(RSK_SHUFFLE_SPEAK));
+}
+
+static int32_t OcarinaButtonsDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.OcarinaButtons"),
+                                  IS_RANDO && RAND_GET_OPTION(RSK_SHUFFLE_OCARINA_BUTTONS));
+}
+
+static int32_t OverworldKeysDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.OverworldKeys"),
+                                  IS_RANDO && RAND_GET_OPTION(RSK_LOCK_OVERWORLD_DOORS));
+}
+
+static int32_t FishingPoleDisplay() {
+    return GetGatedSectionDisplay(CVAR_TRACKER_ITEM("DisplayType.FishingPole"),
+                                  IS_RANDO && RAND_GET_OPTION(RSK_SHUFFLE_FISHING_POLE));
+}
+
 void UpdateVectors() {
     if (!shouldUpdateVectors) {
         return;
@@ -1653,8 +1687,7 @@ void UpdateVectors() {
     // if we're adding greg to the misc window,
     // and misc isn't on the main window,
     // and it doesn't already have greg, add him
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Greg"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-            SECTION_DISPLAY_EXTENDED_MISC_WINDOW &&
+    if (GregDisplay() == SECTION_DISPLAY_EXTENDED_MISC_WINDOW &&
         CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Misc"), SECTION_DISPLAY_MAIN_WINDOW) !=
             SECTION_DISPLAY_MAIN_WINDOW) {
         if (std::none_of(miscItems.begin(), miscItems.end(),
@@ -1668,8 +1701,7 @@ void UpdateVectors() {
 
     bool newRowAdded = false;
     // if we're adding greg to the main window
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Greg"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-        SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) {
+    if (GregDisplay() == SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) {
         if (!newRowAdded) {
             // insert empty items until we're on a new row for greg
             while (mainWindowItems.size() % 6) {
@@ -1698,8 +1730,7 @@ void UpdateVectors() {
     }
 
     // if misc is separate and fishing pole isn't added, add fishing pole to misc
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.FishingPole"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-            SECTION_DISPLAY_EXTENDED_MISC_WINDOW &&
+    if (FishingPoleDisplay() == SECTION_DISPLAY_EXTENDED_MISC_WINDOW &&
         CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Misc"), SECTION_DISPLAY_MAIN_WINDOW) !=
             SECTION_DISPLAY_MAIN_WINDOW) {
         if (std::none_of(miscItems.begin(), miscItems.end(),
@@ -1711,8 +1742,7 @@ void UpdateVectors() {
                         miscItems.end());
     }
     // add fishing pole to main window
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.FishingPole"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-        SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) {
+    if (FishingPoleDisplay() == SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) {
         if (!newRowAdded) {
             while (mainWindowItems.size() % 6) {
                 mainWindowItems.push_back(ITEM_TRACKER_ITEM(ITEM_NONE, 0, DrawItem));
@@ -1724,8 +1754,7 @@ void UpdateVectors() {
     }
 
     // If we're adding bean souls to the main window...
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.BeanSouls"), SECTION_DISPLAY_HIDDEN) ==
-        SECTION_DISPLAY_MAIN_WINDOW) {
+    if (BeanSoulsDisplay() == SECTION_DISPLAY_MAIN_WINDOW) {
         //...add empty items on the main window to get the souls on their own row. (Too many to sit with Greg/Triforce
         // pieces)
         while (mainWindowItems.size() % 6) {
@@ -1750,8 +1779,7 @@ void UpdateVectors() {
     }
 
     // If we're adding jabbernuts to the main window...
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.JabberNuts"), SECTION_DISPLAY_HIDDEN) ==
-        SECTION_DISPLAY_MAIN_WINDOW) {
+    if (JabberNutsDisplay() == SECTION_DISPLAY_MAIN_WINDOW) {
         // there are 6 jabbernuts, perfect for a row
         while (mainWindowItems.size() % 6) {
             mainWindowItems.push_back(ITEM_TRACKER_ITEM(ITEM_NONE, 0, DrawItem));
@@ -1762,8 +1790,7 @@ void UpdateVectors() {
     }
 
     // If we're adding ocarina buttons to the main window...
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.OcarinaButtons"), SECTION_DISPLAY_HIDDEN) ==
-        SECTION_DISPLAY_MAIN_WINDOW) {
+    if (OcarinaButtonsDisplay() == SECTION_DISPLAY_MAIN_WINDOW) {
         //...add empty items on the main window to get the buttons on their own row.
         // (Too many to sit with Greg/Triforce pieces/boss souls)
         while (mainWindowItems.size() % 6) {
@@ -1775,8 +1802,7 @@ void UpdateVectors() {
     }
 
     // If we're adding overworld keys to the main window...
-    if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.OverworldKeys"), SECTION_DISPLAY_HIDDEN) ==
-        SECTION_DISPLAY_MAIN_WINDOW) {
+    if (OverworldKeysDisplay() == SECTION_DISPLAY_MAIN_WINDOW) {
         //...add empty items on the main window to get the keys on their own row.
         // (Too many to sit with Greg/Triforce pieces/boss souls/ocarina buttons)
         while (mainWindowItems.size() % 6) {
@@ -1943,12 +1969,10 @@ void ItemTrackerWindow::DrawElement() {
              SECTION_DISPLAY_MAIN_WINDOW) ||
             (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.DungeonItems"), SECTION_DISPLAY_HIDDEN) ==
              SECTION_DISPLAY_MAIN_WINDOW) ||
-            (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Greg"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-             SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) ||
+            (GregDisplay() == SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) ||
             (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.TriforcePieces"), SECTION_DISPLAY_HIDDEN) ==
              SECTION_DISPLAY_MAIN_WINDOW) ||
-            (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.FishingPole"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-             SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) ||
+            (FishingPoleDisplay() == SECTION_DISPLAY_EXTENDED_MAIN_WINDOW) ||
             (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Notes"), SECTION_DISPLAY_HIDDEN) ==
              SECTION_DISPLAY_MAIN_WINDOW)) {
             BeginFloatingWindows("Item Tracker");
@@ -2020,8 +2044,7 @@ void ItemTrackerWindow::DrawElement() {
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.Greg"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-            SECTION_DISPLAY_EXTENDED_SEPARATE) {
+        if (GregDisplay() == SECTION_DISPLAY_EXTENDED_SEPARATE) {
             BeginFloatingWindows("Greg Tracker");
             DrawItemsInRows(gregItems);
             EndFloatingWindows();
@@ -2034,8 +2057,7 @@ void ItemTrackerWindow::DrawElement() {
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.BeanSouls"), SECTION_DISPLAY_HIDDEN) ==
-            SECTION_DISPLAY_SEPARATE) {
+        if (BeanSoulsDisplay() == SECTION_DISPLAY_SEPARATE) {
             BeginFloatingWindows("Bean Soul Tracker");
             DrawItemsInRows(beanSoulItems);
             EndFloatingWindows();
@@ -2048,29 +2070,25 @@ void ItemTrackerWindow::DrawElement() {
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.JabberNuts"), SECTION_DISPLAY_HIDDEN) ==
-            SECTION_DISPLAY_SEPARATE) {
+        if (JabberNutsDisplay() == SECTION_DISPLAY_SEPARATE) {
             BeginFloatingWindows("Jabber Nut Tracker");
             DrawItemsInRows(jabbernutItems);
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.OcarinaButtons"), SECTION_DISPLAY_HIDDEN) ==
-            SECTION_DISPLAY_SEPARATE) {
+        if (OcarinaButtonsDisplay() == SECTION_DISPLAY_SEPARATE) {
             BeginFloatingWindows("Ocarina Button Tracker");
             DrawItemsInRows(ocarinaButtonItems);
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.OverworldKeys"), SECTION_DISPLAY_HIDDEN) ==
-            SECTION_DISPLAY_SEPARATE) {
+        if (OverworldKeysDisplay() == SECTION_DISPLAY_SEPARATE) {
             BeginFloatingWindows("Overworld Key Tracker");
             DrawItemsInRows(overworldKeyItems);
             EndFloatingWindows();
         }
 
-        if (CVarGetInteger(CVAR_TRACKER_ITEM("DisplayType.FishingPole"), SECTION_DISPLAY_EXTENDED_HIDDEN) ==
-            SECTION_DISPLAY_EXTENDED_SEPARATE) {
+        if (FishingPoleDisplay() == SECTION_DISPLAY_EXTENDED_SEPARATE) {
             BeginFloatingWindows("Fishing Pole Tracker");
             DrawItemsInRows(fishingPoleItems);
             EndFloatingWindows();
