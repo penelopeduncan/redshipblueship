@@ -1,3 +1,41 @@
+# Release notes: next release (draft)
+
+**Status:** draft, not released. There is no tag yet, and a build from `main` still reads `v0.5.3-alpha` in its
+window title until the release candidate changes `src/common/rsbs_version.h`.
+**Version:** not decided. A `z` bump under [`VERSIONING.md`](VERSIONING.md) would be `v0.5.4-alpha`, codename
+"Ellen Echo". Saves stay save format 6; seeds come from generator 8.
+**Last release:** `v0.5.3-alpha` ("Ellen Delta"), tagged 2026-11-20. Its notes follow this section.
+**Covers:** everything merged after `v0.5.3-alpha`. Numbers in parentheses are issues of this project.
+
+## Since v0.5.3-alpha
+
+### Read this first
+
+- **Seeds come from generator 8.** A seed package exported by `v0.5.3-alpha` is refused ("Seed package from another
+  generator"), so generate the seed again. So far one change moves worlds, and only with Shuffle Jabber Nuts on: the
+  carpet salesman's rule below. With that option off, which is the default, the pinned test seeds place every item
+  and word every hint as they did in `v0.5.3-alpha`. The save format did not change.
+
+### Ocarina of Time randomizer
+
+- **Shuffle Jabber Nuts: the carpet salesman's bombchus wait for the Hylian Jabber Nut** (issue #1798). Logic counted
+  the carpet salesman in the Haunted Wasteland as a way to restock bombchus as soon as you could reach him and pay
+  his price. Every sale starts with a conversation, and the game refuses that conversation without the Hylian Jabber
+  Nut. Logic now asks for the nut there, as the salesman's own check already did.
+- **Shuffle Jabber Nuts: handing over an adult trade item needs no Jabber Nut, and that is now tested** (issue
+  #1798). A missing Jabber Nut stops Link starting a conversation with A. It does not stop him showing an item from
+  a C button, so a trade item can be handed over to someone he cannot talk to yet: for the sleeping Talon in
+  Kakariko, stand close to him and use the Pocket Cucco from its C button. Logic and the check tracker already
+  counted the hand-overs this way, as Ship of Harkinian does. Getting the Pocket Egg from Anju is a conversation and
+  still needs the Hylian Jabber Nut. This comes from reading the game's code, not from a playtest.
+- **Shuffle Jabber Nuts: the Zora of the Diving Minigame waits for the Zora Jabber Nut** (issue #1800). The Zora who
+  runs the diving game in Zora's Domain talked to Link without the nut, unlike the other Zoras. Logic already asked
+  for the nut at his check.
+- **Shuffle Grab: Talon's chickens wait for the Power Bracelet** (issue #1800). While Link lacks the ability to
+  grab, Talon's game at Lon Lon Ranch no longer counts a super cucco as found. Logic already asked for the Power
+  Bracelet at that check (Talons Chickens). This line and the one above are the two parts of Ship of Harkinian's
+  commit `63597ec63` that an earlier port had left out. Nobody has played Talon's game without the bracelet yet.
+
 # Release notes: v0.5.3-alpha ("Ellen Delta")
 
 **Status:** released on 2026-11-20. The tag `v0.5.3-alpha` is on `main`, on the commit that brought this text.
