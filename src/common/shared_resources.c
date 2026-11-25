@@ -86,6 +86,11 @@ static bool IsMonotonicKind(uint8_t kind) {
         // #970: the bottle count. Bottles are never lost, but a rewound or stale
         // save can harvest fewer than the pair holds; max-merge keeps the count.
         case RSBS_SHARED_RES_BOTTLE_COUNT:
+        // #1702 C7: the Bombchu Bag tier, 0..3. A bag is never lost; a lower
+        // harvest after a full apply (an OoT .sav older than the .redsave, a
+        // Majora's Mask cycle that kept its flags) must not take the bag away,
+        // so max-merge keeps the tier.
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
             return true;
         default:
             // The spent quantities — rupees, current health, current magic, and
@@ -95,19 +100,20 @@ static bool IsMonotonicKind(uint8_t kind) {
 }
 
 // ============================================================================
-// TWO PHYSICAL BLOCKS, ONE LOGICAL ARRAY.
+// THREE PHYSICAL BLOCKS, ONE LOGICAL ARRAY.
 //
-// gComboCtx.sharedResources[8] and gComboCtx.sharedResourcesExt[12] are
-// separate fields at separate .redsave offsets — they must be, because
-// widening the first in place would move the second (and everything carved
-// after it) off the offset every shipped save stored it at. But nothing above
-// this line should have to know that: a "slot" here is a LOGICAL index into
-// the concatenation, and every scan below covers the whole range in one pass.
+// gComboCtx.sharedResources[8], gComboCtx.sharedResourcesExt[12] and
+// gComboCtx.sharedResourcesExt2[8] (#1702 C7, appended after
+// crossingPendingOoT) are separate fields at separate .redsave offsets — they
+// must be, because widening one in place would move everything after it off
+// the offset every shipped save stored it at. But nothing above this line
+// should have to know that: a "slot" here is a LOGICAL index into the
+// concatenation, and every scan below covers the whole range in one pass.
 //
 // This resolver is the only place the split is visible. Keeping it that way is
-// the point — a scan that stops at the first block's end would split a kind
-// across blocks (two slots claiming one resource) or report "full" with twelve
-// free slots behind it.
+// the point — a scan that stops at a block's end would split a kind across
+// blocks (two slots claiming one resource) or report "full" with free slots
+// behind it.
 // ============================================================================
 
 static ComboSharedResource* SlotAt(int logical) {
@@ -117,7 +123,10 @@ static ComboSharedResource* SlotAt(int logical) {
     if (logical < (int)RSBS_SHARED_RESOURCE_CAP) {
         return &gComboCtx.sharedResources[logical];
     }
-    return &gComboCtx.sharedResourcesExt[logical - (int)RSBS_SHARED_RESOURCE_CAP];
+    if (logical < (int)(RSBS_SHARED_RESOURCE_CAP + RSBS_SHARED_RESOURCE_EXT_CAP)) {
+        return &gComboCtx.sharedResourcesExt[logical - (int)RSBS_SHARED_RESOURCE_CAP];
+    }
+    return &gComboCtx.sharedResourcesExt2[logical - (int)(RSBS_SHARED_RESOURCE_CAP + RSBS_SHARED_RESOURCE_EXT_CAP)];
 }
 
 // Locate the occupied slot holding `kind`, or -1 when the resource has never
@@ -153,8 +162,8 @@ static int FindOrCreateSlot(uint8_t kind) {
         }
     }
     fprintf(stderr,
-            "[combo] shared-resource slots full across both blocks; dropping kind=%u (carve a THIRD "
-            "block from reserved[] and span it too — never widen an existing block in place)\n",
+            "[combo] shared-resource slots full across all three blocks; dropping kind=%u (append a "
+            "FOURTH block under growth rule 1 and span it too — never widen an existing block in place)\n",
             (unsigned)kind);
     return -1;
 }
@@ -249,7 +258,68 @@ bool Combo_SharedResourceKindArmed(uint8_t kind) {
     if (kind == (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT) {
         return Combo_ComboCrossItemRule((uint32_t)RSBS_XITEM_SHARED_BOTTLES);
     }
+    // [RSBS #1702 C7] The shared Bombchu Bag tier: armed only by the frozen
+    // comboFlags 0x80 bit, through its one predicate. Nothing writes the bit
+    // before C8, so the kind is inert: no slot, no apply, no step.
+    if (kind == (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER) {
+        return Combo_SharedBombchuBagTierArmed();
+    }
     return true;
+}
+
+bool Combo_SharedBombchuBagTierArmed(void) {
+    // [RSBS #1702 C7] The frozen record's bit only, never a live option: armed
+    // by C8's creation writer, which does not exist yet.
+    return Combo_ComboBombchuBagShared();
+}
+
+uint16_t Combo_SharedChuBagTierOfOoT(uint8_t mode, uint8_t level, bool holdsBombchu) {
+    switch (mode) {
+        case RSBS_CHU_BAG_MODE_SINGLE:
+            // A held Single bag rides as the top tier: OoT's Single cap is 50, the
+            // same as Progressive's level 3.
+            return holdsBombchu ? (uint16_t)RSBS_SHARED_CHU_BAG_MAX_TIER : 0u;
+        case RSBS_CHU_BAG_MODE_PROGRESSIVE:
+            return (uint16_t)(level > RSBS_SHARED_CHU_BAG_MAX_TIER ? RSBS_SHARED_CHU_BAG_MAX_TIER : level);
+        default:
+            // None (or an unknown value): OoT has no bag to share.
+            return 0u;
+    }
+}
+
+void Combo_SharedChuBagOoTFromTier(uint8_t mode, uint16_t tier, uint8_t* inOutLevel, bool* outHolds) {
+    const uint16_t bounded = tier > RSBS_SHARED_CHU_BAG_MAX_TIER ? (uint16_t)RSBS_SHARED_CHU_BAG_MAX_TIER : tier;
+    switch (mode) {
+        case RSBS_CHU_BAG_MODE_SINGLE:
+            // Single never touches the level (OoT's own give does not either).
+            if (outHolds != NULL) {
+                *outHolds = bounded >= 1u;
+            }
+            return;
+        case RSBS_CHU_BAG_MODE_PROGRESSIVE: {
+            uint8_t level = inOutLevel != NULL ? *inOutLevel : 0u;
+            if ((uint8_t)bounded > level) {
+                level = (uint8_t)bounded;
+            }
+            if (inOutLevel != NULL) {
+                *inOutLevel = level;
+            }
+            if (outHolds != NULL) {
+                *outHolds = level >= 1u;
+            }
+            return;
+        }
+        default:
+            return;
+    }
+}
+
+uint16_t Combo_SharedChuBagTierOfMM(bool f1, bool f2, bool f3) {
+    return f3 ? 3u : (f2 ? 2u : (f1 ? 1u : 0u));
+}
+
+uint8_t Combo_SharedChuBagMMFlagsFor(uint16_t tier) {
+    return (uint8_t)((tier >= 1u ? 0x1u : 0u) | (tier >= 2u ? 0x2u : 0u) | (tier >= 3u ? 0x4u : 0u));
 }
 
 void Combo_HarvestSharedResource(GameId game, uint8_t kind, uint16_t liveValue) {
@@ -439,6 +509,13 @@ bool Combo_SharedResourceStepsAtPickup(uint8_t kind) {
             return Combo_ComboStickBagShuffled();
         case RSBS_SHARED_RES_NUT_TIER:
             return Combo_ComboNutBagShuffled();
+        // [RSBS #1702 C7] The shared Bombchu Bag tier, fed by OoT's Progressive
+        // Bombchu Bag, only while the frozen 0x80 bit arms it. Unarmed, the
+        // pickup is not a credit at all, so a far bag crosses exactly as before
+        // (not even a bombchu-count harvest runs). Only the copy that is the bag
+        // is stepped (Combo_SharedPickupStepAdmitted).
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+            return Combo_SharedBombchuBagTierArmed();
         case RSBS_SHARED_RES_WALLET_TIER:
         case RSBS_SHARED_RES_HEALTH_QUARTERS:
         case RSBS_SHARED_RES_DOUBLE_DEFENSE:
@@ -465,6 +542,14 @@ bool Combo_SharedPickupStepAdmitted(SharedItem item, uint8_t kind) {
         // give can make, so it crosses. A never-shared slot reads as no bag.
         uint16_t held = 0u;
         return !Combo_GetSharedResource(kind, &held) || held == 0u;
+    }
+    if (kind == (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER) {
+        // [RSBS #1702 C7] Only the copy that finds the pool without the bag IS
+        // the bag (pool 0 to 1). Majora's Mask cannot tell OoT's Single option
+        // from Progressive, so every later copy crosses and runs OoT's own give
+        // (level++, or Single's bombchu pack); OoT's next harvest raises the pool.
+        uint16_t held = 0u;
+        return !Combo_GetSharedResource(kind, &held) || held == 0u; // #1702 C7: only the bag's own copy
     }
     if (kind != (uint8_t)RSBS_SHARED_RES_KOKIRI_SWORD || item.originGame != (uint8_t)GAME_MM) {
         return true;

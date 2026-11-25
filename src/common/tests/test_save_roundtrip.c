@@ -169,6 +169,13 @@ TestResult Test_SaveRoundtripTiers(void) {
 
     const uint32_t tag = 0x1234ABCDu;
     SaveTestSeed(tag);
+    // #1702 C7: the third shared-resource block rides Tier-1 like the first two.
+    gComboCtx.sharedResourcesExt2[0].kind = (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
+    gComboCtx.sharedResourcesExt2[0].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+    gComboCtx.sharedResourcesExt2[0].value = 3u;
+    gComboCtx.sharedResourcesExt2[7].kind = (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT;
+    gComboCtx.sharedResourcesExt2[7].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+    gComboCtx.sharedResourcesExt2[7].value = 4u;
     // #1129: both games' departure captures ride Tier-1. Patterned bits over
     // counts that end mid-byte, read back through the view.
     std::vector<uint8_t> ootBits(2000 / 8 + 1, 0);
@@ -197,6 +204,12 @@ TestResult Test_SaveRoundtripTiers(void) {
     SAVE_ASSERT(gComboCtx.sharedRandoSeed == (tag ^ 0xA5A5A5A5u), "ComboContext.sharedRandoSeed not restored");
     SAVE_ASSERT(gComboCtx.sourceIsRando, "ComboContext.sourceIsRando not restored");
     SAVE_ASSERT(gComboCtx.sourceGame == GAME_OOT, "ComboContext.sourceGame not restored");
+    SAVE_ASSERT(gComboCtx.sharedResourcesExt2[0].kind == (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER &&
+                    gComboCtx.sharedResourcesExt2[0].flags == (uint8_t)RSBS_SHARED_RES_F_MONOTONIC &&
+                    gComboCtx.sharedResourcesExt2[0].value == 3u &&
+                    gComboCtx.sharedResourcesExt2[7].kind == (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT &&
+                    gComboCtx.sharedResourcesExt2[7].value == 4u,
+                "ComboContext.sharedResourcesExt2 (#1702 C7's third block) not restored");
     SAVE_ASSERT(SaveTestOoTShadowMatchesPattern(), "OoT SaveContext blob not byte-identical after round-trip");
     SAVE_ASSERT(SaveTestMMShadowMatchesPattern(), "MM SaveContext blob not byte-identical after round-trip");
     int ootWrong = 0;
@@ -855,11 +868,61 @@ TestResult Test_SaveComboLegacyRecord(void) {
                     gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] == 0x42u,
                 "the crossing pending set did not read back (first byte 81, last byte 42)");
 
+    // #1702 C7 (layout revision 6): a revision-5 record ends at
+    // offsetof(ComboContext, sharedResourcesExt2). It loads the third
+    // shared-resource block as eight EMPTY slots whatever the live context held,
+    // while the crossing pending set just ahead of it still lands and the stored
+    // revision reads 5. Catches the block not zero-extending (the scribble
+    // survives), a member inserted ahead of it (byte 255 moves) and the revision
+    // left at 5 (the assert below).
+    SAVE_ASSERT(RSBS_SAVE_LAYOUT_REVISION >= 6u, "the layout revision is below 6: #1702 C7's append is not counted");
+    SaveTestSeed(tag);
+    gComboCtx.saveWatermark.layoutRevision = 5u; // what a revision-5 build stamped
+    gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] = 0x42u;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION_MIN,
+                                         (uint32_t)offsetof(ComboContext, sharedResourcesExt2)),
+                "could not write the short v6 slot file that ends before the third shared-resource block");
+    std::memset(gComboCtx.sharedResourcesExt2, 0x5A, sizeof(gComboCtx.sharedResourcesExt2));
+    gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] = 0u;
+    SAVE_ASSERT(mgr.Load(0), "Load refused a v6 Tier-1 record written before the third shared-resource block");
+    bool ext2Empty = true;
+    for (size_t i = 0; i < RSBS_SHARED_RESOURCE_EXT2_CAP; i++) {
+        ext2Empty = ext2Empty && gComboCtx.sharedResourcesExt2[i].kind == RSBS_SHARED_RES_NONE &&
+                    gComboCtx.sharedResourcesExt2[i].flags == 0u && gComboCtx.sharedResourcesExt2[i].value == 0u;
+    }
+    SAVE_ASSERT(ext2Empty, "a revision-5 Tier-1 record did not load the third shared-resource block EMPTY");
+    SAVE_ASSERT(gComboCtx.crossingPendingOoT[sizeof(gComboCtx.crossingPendingOoT) - 1] == 0x42u,
+                "the crossing pending set just ahead of the third block did not load from the revision-5 record");
+    SAVE_ASSERT(gComboCtx.saveWatermark.layoutRevision == 5u, "the revision-5 record's stored revision did not read 5");
+
+    // ... and a full-length record carries it: its first and last slots read
+    // back. Catches the block not being written.
+    SaveTestSeed(tag);
+    gComboCtx.sharedResourcesExt2[0].kind = (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
+    gComboCtx.sharedResourcesExt2[0].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+    gComboCtx.sharedResourcesExt2[0].value = 3u;
+    gComboCtx.sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP - 1].kind = (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT;
+    gComboCtx.sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP - 1].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+    gComboCtx.sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP - 1].value = 4u;
+    mgr.DeleteSave(0);
+    SAVE_ASSERT(SaveTestWriteCraftedSlot(mgr.SlotPath(0), RSBS_SAVE_VERSION, (uint32_t)sizeof(ComboContext)),
+                "could not write the full-length v6 slot file with the third shared-resource block");
+    std::memset(gComboCtx.sharedResourcesExt2, 0, sizeof(gComboCtx.sharedResourcesExt2));
+    SAVE_ASSERT(mgr.Load(0), "Load refused a full-length v6 Tier-1 record with the third shared-resource block");
+    SAVE_ASSERT(gComboCtx.sharedResourcesExt2[0].kind == (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER &&
+                    gComboCtx.sharedResourcesExt2[0].value == 3u &&
+                    gComboCtx.sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP - 1].kind ==
+                        (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT &&
+                    gComboCtx.sharedResourcesExt2[RSBS_SHARED_RESOURCE_EXT2_CAP - 1].value == 4u,
+                "the third shared-resource block did not read back (slot 0 the bag tier at 3, slot 7 bottles at 4)");
+
     mgr.DeleteSave(0);
     printf("[TEST] PASS: pre-headroom Tier-1 loads, added fields read as zero, "
            "bytes 672/676/736/824/880/884 still land in their carves, a v6 record that ends before the "
-           "warp-song record loads it UNSET, one that ends before the second family word loads it 0, and one that "
-           "ends before the crossing pending set loads it empty\n");
+           "warp-song record loads it UNSET, one that ends before the second family word loads it 0, one that "
+           "ends before the crossing pending set loads it empty, and one that ends before the third "
+           "shared-resource block loads it EMPTY\n");
     return TEST_PASS;
 }
 

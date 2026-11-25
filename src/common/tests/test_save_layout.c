@@ -104,7 +104,17 @@ TestResult Test_SaveLayoutPins(void) {
                            mismatches); // XW10
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_CROSSING_PENDING_OOT, offsetof(ComboContext, crossingPendingOoT),
                            mismatches); // #1635
+    RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_SHARED_RES_EXT2, offsetof(ComboContext, sharedResourcesExt2),
+                           mismatches); // #1702 C7
     RSBS_LAYOUT_PIN_REPORT(RSBS_PIN_COMBO_CONTEXT_SIZEOF, sizeof(ComboContext), mismatches);
+    // #1702 C7's append is counted: the third shared-resource block is layout
+    // revision 6. Catches the revision left at 5 (an older build would read a
+    // revision-6 file without the block instead of refusing it).
+    if (RSBS_SAVE_LAYOUT_REVISION < 6u) {
+        printf("[TEST] FAIL: RSBS_SAVE_LAYOUT_REVISION is %u, want 6 or later (#1702 C7 appended a block)\n",
+               (unsigned)RSBS_SAVE_LAYOUT_REVISION);
+        failures++;
+    }
     // Tiers 2 and 3: the games' own TUs.
     mismatches += OoT_SaveLayout_ReportPins();
     mismatches += MM_SaveLayout_ReportPins();

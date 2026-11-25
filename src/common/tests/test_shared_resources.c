@@ -43,6 +43,11 @@
  *      paired with the UNGATED call that proves the gate is what prevented it;
  *      without that pairing a gate stuck at "always true" would still pass.
  *
+ *  (7) #1702 C7, THE SHARED BOMBCHU BAG TIER: kind 22, armed only by the frozen
+ *      comboFlags 0x80 (inert unfrozen and frozen without it: no slot, no apply,
+ *      no step), MONOTONIC when armed, its pure OoT / MM encodings, and the
+ *      third shared-resource block reached once the first two are full.
+ *
  * Display-free, ROM-free and save-free: everything under test is gComboCtx plus
  * a RAM watermark table, so this runs in the plain `redship` tier.
  *
@@ -52,10 +57,12 @@
  */
 
 #include "../context.h"
+#include "../foreign_items.h" // #1702 C7: the frozen record that arms the Bombchu Bag tier
 #include "../shared_resources.h"
 #include "../test_runner.h"
 
 #include <cstdio>
+#include <cstring>
 
 #define SR_ASSERT(cond)                                             \
     do {                                                            \
@@ -105,6 +112,32 @@ static void SR_GatedHarvest(GameId game, int32_t gameMode, uint8_t kind, uint16_
         return;
     }
     Combo_HarvestSharedResource(game, kind, liveValue);
+}
+
+// #1702 C7: a fresh world frozen from the defaults record with comboFlags 0x80
+// (the reserved Shared Bombchu Bag bit, which no production writer sets before
+// C8) on or off.
+static void SR_FreezeChuBagWorld(bool sharedChuBag) {
+    SR_FreshWorld();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0x17027C01u;
+    gComboCtx.sharedRandoSettingsHash = 0x17027C02u;
+    gComboCtx.mmProfileDigest = 0x17027C03u;
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    rec.comboFlags = sharedChuBag ? (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG : 0u;
+    Combo_FreezeComboSettings(&rec);
+}
+
+// True when the third block holds no slot at all.
+static bool SR_ThirdBlockEmpty(void) {
+    for (int i = 0; i < (int)RSBS_SHARED_RESOURCE_EXT2_CAP; i++) {
+        if (gComboCtx.sharedResourcesExt2[i].kind != RSBS_SHARED_RES_NONE ||
+            gComboCtx.sharedResourcesExt2[i].value != 0u) {
+            return false;
+        }
+    }
+    return true;
 }
 
 // Read a slot's value, or a sentinel that no test expects, so a "resource is
@@ -707,6 +740,152 @@ TestResult Test_SharedResources(void) {
     // ...and money earned after it still counts, exactly as in (3).
     SR_GatedHarvest(GAME_OOT, RSBS_GAMEMODE_NORMAL, RSBS_SHARED_RES_RUPEES, 450);
     SR_ASSERT(SR_Pool(RSBS_SHARED_RES_RUPEES) == 450);
+
+    // ------------------------------------------------------------------
+    // (7) #1702 C7: THE SHARED BOMBCHU BAG TIER and THE THIRD BLOCK.
+    // ------------------------------------------------------------------
+    const uint8_t kChuBag = (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
+    // (R1) The kind: 22, the twenty-third count, twenty-eight logical slots.
+    // Catches a renumbered kind (.redsave format) and TOTAL_CAP leaving EXT2 out.
+    SR_ASSERT(RSBS_SHARED_RES_BOMBCHU_BAG_TIER == 22 && RSBS_SHARED_RES_KIND_COUNT == 23u);
+    SR_ASSERT(RSBS_SHARED_RESOURCE_EXT2_CAP == 8u && RSBS_SHARED_RESOURCE_TOTAL_CAP == 28u);
+
+    // (R2) INERT: unfrozen, and frozen without 0x80, nothing arms the kind. No
+    // slot is created by either game's harvest (whole count unchanged, the third
+    // block untouched), a raw slot is not applied, and the step refuses. Catches
+    // the arming predicate answering true (mutation 1).
+    SR_FreshWorld();
+    SR_ASSERT(!Combo_SharedBombchuBagTierArmed() && !Combo_SharedResourceKindArmed(kChuBag));
+    SR_ASSERT(!Combo_SharedResourceStepsAtPickup(kChuBag));
+    for (int frozen = 0; frozen < 2; frozen++) {
+        if (frozen != 0) {
+            SR_FreezeChuBagWorld(false);
+            SR_ASSERT(!Combo_SharedBombchuBagTierArmed() && !Combo_SharedResourceKindArmed(kChuBag));
+            SR_ASSERT(!Combo_SharedResourceStepsAtPickup(kChuBag));
+        }
+        const int before = Combo_CountSharedResources();
+        Combo_HarvestSharedResource(GAME_OOT, kChuBag, 3);
+        Combo_HarvestSharedResource(GAME_MM, kChuBag, 3);
+        SR_ASSERT(Combo_CountSharedResources() == before);
+        SR_ASSERT(!Combo_GetSharedResource(kChuBag, &probe));
+        SR_ASSERT(SR_ThirdBlockEmpty());
+        SR_ASSERT(!Combo_StepSharedTier(kChuBag, 1, 3));
+        SR_ASSERT(!Combo_GetSharedResource(kChuBag, &probe));
+        // A raw slot (as an older save would carry one): the apply refuses it.
+        gComboCtx.sharedResourcesExt2[0].kind = kChuBag;
+        gComboCtx.sharedResourcesExt2[0].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+        gComboCtx.sharedResourcesExt2[0].value = 3u;
+        uint16_t live = 1;
+        SR_ASSERT(!Combo_ApplySharedResource(GAME_OOT, kChuBag, 3, &live));
+        SR_ASSERT(!Combo_ApplySharedResource(GAME_MM, kChuBag, 3, &live));
+        SR_ASSERT(live == 1);
+        memset(&gComboCtx.sharedResourcesExt2[0], 0, sizeof(gComboCtx.sharedResourcesExt2[0]));
+    }
+
+    // (R3) ARMED: max-merge across games, never lowered by a lower harvest after
+    // a full apply (MONOTONIC), applied as min(pool, cap), stepped from 0 to 1
+    // and absorbed at 3. Catches the predicate answering false (mutation 2) and
+    // the kind left out of IsMonotonicKind (OoT 2 then MM 1 would read 1).
+    SR_FreezeChuBagWorld(true);
+    SR_ASSERT(Combo_SharedBombchuBagTierArmed() && Combo_SharedResourceKindArmed(kChuBag));
+    SR_ASSERT(Combo_SharedResourceStepsAtPickup(kChuBag));
+    SR_ASSERT(Combo_StepSharedTier(kChuBag, 1, 3) && SR_Pool(kChuBag) == 1);
+    Combo_HarvestSharedResource(GAME_OOT, kChuBag, 2);
+    SR_ASSERT(SR_Pool(kChuBag) == 2);
+    Combo_HarvestSharedResource(GAME_MM, kChuBag, 1);
+    SR_ASSERT(SR_Pool(kChuBag) == 2);
+    {
+        uint16_t mmTier = 0;
+        SR_ASSERT(Combo_ApplySharedResource(GAME_MM, kChuBag, 3, &mmTier) && mmTier == 2);
+        uint16_t lowCap = 0;
+        SR_ASSERT(Combo_ApplySharedResource(GAME_OOT, kChuBag, 1, &lowCap) && lowCap == 1);
+    }
+    Combo_HarvestSharedResource(GAME_OOT, kChuBag, 0); // a lower harvest after the apply
+    SR_ASSERT(SR_Pool(kChuBag) == 2);
+    Combo_HarvestSharedResource(GAME_MM, kChuBag, 3);
+    SR_ASSERT(SR_Pool(kChuBag) == 3);
+    SR_ASSERT(Combo_StepSharedTier(kChuBag, 1, 3) && SR_Pool(kChuBag) == 3);
+    {
+        SharedItem copy;
+        copy.originGame = (uint8_t)GAME_OOT;
+        copy.flags = 0u;
+        copy.id = 1u;
+        SR_ASSERT(!Combo_SharedPickupStepAdmitted(copy, kChuBag)); // the pool holds the bag
+        SR_FreezeChuBagWorld(true);
+        SR_ASSERT(Combo_SharedPickupStepAdmitted(copy, kChuBag)); // no slot: this copy is the bag
+    }
+
+    // (R4) THE PURE ENCODINGS. Catches Single read as tier 1 (mutation 3) and
+    // MM's thermometer read by its lowest flag (mutation 4).
+    SR_ASSERT(Combo_SharedChuBagTierOfOoT(RSBS_CHU_BAG_MODE_NONE, 3, true) == 0u);
+    SR_ASSERT(Combo_SharedChuBagTierOfOoT(RSBS_CHU_BAG_MODE_SINGLE, 0, true) == 3u);
+    SR_ASSERT(Combo_SharedChuBagTierOfOoT(RSBS_CHU_BAG_MODE_SINGLE, 2, false) == 0u);
+    for (uint8_t level = 0; level <= 3; level++) {
+        SR_ASSERT(Combo_SharedChuBagTierOfOoT(RSBS_CHU_BAG_MODE_PROGRESSIVE, level, false) == level);
+    }
+    SR_ASSERT(Combo_SharedChuBagTierOfOoT(RSBS_CHU_BAG_MODE_PROGRESSIVE, 5, true) == 3u);
+    {
+        uint8_t level = 2;
+        bool holds = false;
+        Combo_SharedChuBagOoTFromTier(RSBS_CHU_BAG_MODE_SINGLE, 1, &level, &holds);
+        SR_ASSERT(level == 2 && holds); // Single keeps the level
+        level = 0;
+        holds = true;
+        Combo_SharedChuBagOoTFromTier(RSBS_CHU_BAG_MODE_SINGLE, 0, &level, &holds);
+        SR_ASSERT(level == 0 && !holds);
+        level = 2;
+        holds = false;
+        Combo_SharedChuBagOoTFromTier(RSBS_CHU_BAG_MODE_PROGRESSIVE, 1, &level, &holds);
+        SR_ASSERT(level == 2 && holds); // a max, never lowered
+        level = 0;
+        Combo_SharedChuBagOoTFromTier(RSBS_CHU_BAG_MODE_PROGRESSIVE, 7, &level, &holds);
+        SR_ASSERT(level == 3 && holds); // bounded at 3
+        level = 1;
+        holds = false;
+        Combo_SharedChuBagOoTFromTier(RSBS_CHU_BAG_MODE_NONE, 3, &level, &holds);
+        SR_ASSERT(level == 1 && !holds); // None writes nothing
+    }
+    for (int bits = 0; bits < 8; bits++) {
+        const uint16_t want = (bits & 4) != 0 ? 3u : ((bits & 2) != 0 ? 2u : ((bits & 1) != 0 ? 1u : 0u));
+        SR_ASSERT(Combo_SharedChuBagTierOfMM((bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0) == want);
+    }
+    for (uint16_t tier = 0; tier <= 3; tier++) {
+        const uint8_t flags = Combo_SharedChuBagMMFlagsFor(tier);
+        SR_ASSERT(Combo_SharedChuBagTierOfMM((flags & 1u) != 0, (flags & 2u) != 0, (flags & 4u) != 0) == tier);
+    }
+    SR_ASSERT(Combo_SharedChuBagMMFlagsFor(0) == 0u && Combo_SharedChuBagMMFlagsFor(3) == 7u &&
+              Combo_SharedChuBagMMFlagsFor(9) == 7u);
+
+    // (R5) THE THIRD BLOCK IS REACHED. Fill both older blocks' twenty slots with
+    // twenty distinct kinds (raw, as a world arming every kind at once holds
+    // them), then the armed Bombchu Bag tier's first harvest must land in
+    // sharedResourcesExt2[0] and read back. Catches SlotAt missing the third
+    // range (the harvest would find no free slot) and a scan stopping at 20.
+    SR_FreezeChuBagWorld(true);
+    {
+        int filled = 0;
+        for (uint8_t kind = 1u; kind <= (uint8_t)RSBS_SHARED_RES_BOTTLE_COUNT; kind++) {
+            if (kind == (uint8_t)RSBS_SHARED_RES_OCARINA_TIER) {
+                continue; // retired, never armed: not in a world's set
+            }
+            ComboSharedResource* slot = filled < (int)RSBS_SHARED_RESOURCE_CAP
+                                            ? &gComboCtx.sharedResources[filled]
+                                            : &gComboCtx.sharedResourcesExt[filled - (int)RSBS_SHARED_RESOURCE_CAP];
+            slot->kind = kind;
+            slot->flags = 0u;
+            slot->value = (uint16_t)(kind + 100u);
+            filled++;
+        }
+        SR_ASSERT(filled == (int)(RSBS_SHARED_RESOURCE_CAP + RSBS_SHARED_RESOURCE_EXT_CAP));
+    }
+    SR_ASSERT(Combo_CountSharedResources() == 20);
+    Combo_HarvestSharedResource(GAME_OOT, kChuBag, 2);
+    SR_ASSERT(Combo_CountSharedResources() == 21);
+    SR_ASSERT(gComboCtx.sharedResourcesExt2[0].kind == kChuBag && gComboCtx.sharedResourcesExt2[0].value == 2u &&
+              gComboCtx.sharedResourcesExt2[0].flags == (uint8_t)RSBS_SHARED_RES_F_MONOTONIC);
+    SR_ASSERT(SR_Pool(kChuBag) == 2);
+    SR_ASSERT(SR_Pool(RSBS_SHARED_RES_BOTTLE_COUNT) == RSBS_SHARED_RES_BOTTLE_COUNT + 100);
+    SR_FreshWorld();
 
     printf("[TEST] PASS: watermark survives the 500/999 round trip, disciplines split, load cannot "
            "double-count, both slot blocks reachable, title-screen saves cannot enter the pool\n");

@@ -643,6 +643,15 @@ int Validate(const rsbs::seedpkg::Entries& entries, nlohmann::json& id, std::str
         why = std::string("the pair turns on cross-game rules this build does not offer (") + refusedRules + ")";
         return RSBS_SEEDPKG_ERR_FORMAT;
     }
+    // [RSBS #1702 C7] A combo flag outside this build's allocated set (today 0x80,
+    // the reserved Shared Bombchu Bag bit, which arms the shared Bombchu Bag tier
+    // and which nothing writes before C8) is another build's world: refused before
+    // anything is applied, as a .redsave holding it is refused at load. Adjusts
+    // itself when C8 adds the bit to RSBS_COMBO_FLAGS_ALL_V1.
+    if (Combo_ComboFlagsUnallocated(rec.comboSettings.comboFlags) != 0u) {
+        why = "the pair holds a combo flag this build does not allocate";
+        return RSBS_SEEDPKG_ERR_FORMAT;
+    }
     // #1169 XW12: the warp-song record invariant (Combo_MMWarpSongRecordBroken).
     // A Majora's Mask warp-song rule with no PRESENT record would be a world whose
     // logic credits warps that play refuses; ApplyComboWorld copies the record as

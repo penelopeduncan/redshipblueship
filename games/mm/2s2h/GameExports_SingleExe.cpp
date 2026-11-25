@@ -304,9 +304,13 @@ static_assert(RI_DEKU_STICK_BAG == RI_MAX_TRAP + 1 && RI_DEKU_NUT_BAG == RI_MAX_
               "#1652 A2: two logic-only credit stand-ins follow the draw-only sentinel");
 static_assert(RANDO_INF_OBTAINED_SONG_DOUBLE_TIME == 78 && RANDO_INF_OBTAINED_SONG_INVERTED_TIME == 79,
               "MM's #1403 randomizer-inf flags are 78 and 79, after RANDO_INF_OBTAINED_OCARINA_BUTTON_C_UP");
-static_assert(RANDO_INF_OBTAINED_CHILD_WALLET == 80 && RANDO_INF_OBTAINED_BOMBCHU_BAG == 81 && RANDO_INF_MAX == 82,
+static_assert(RANDO_INF_OBTAINED_CHILD_WALLET == 80 && RANDO_INF_OBTAINED_BOMBCHU_BAG == 81,
               "#1702 C1: the pair-possession randomizer-inf flags are 80 and 81, after "
               "RANDO_INF_OBTAINED_SONG_INVERTED_TIME");
+// [RSBS #1702 C7] The shared Bombchu Bag tier's thermometer: flag 81 is its first
+// bit, 82 and 83 its levels 2 and 3 (randoInf word 5, bits 1-3).
+static_assert(RANDO_INF_BOMBCHU_BAG_LEVEL_2 == 82 && RANDO_INF_BOMBCHU_BAG_LEVEL_3 == 83 && RANDO_INF_MAX == 84,
+              "#1702 C7: the Bombchu Bag tier's level flags are 82 and 83, after RANDO_INF_OBTAINED_BOMBCHU_BAG");
 // #1548: split freestanding dungeon fairies + Clock Town fairy out from
 // dungeon chest fairies (`RO_PLACEMENT_STRAY_FAIRIES`).
 static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64,
@@ -6472,20 +6476,19 @@ const MMSharedSwimRegistrar gMMSharedSwimRegistrar;
 // The pair's possession of the Child's Wallet and the Bombchu Bag (#1702 C1)
 // ============================================================================
 //
-// MM's copies of the two possession slots (RSBS_XFAMILY_SLOT_CHILD_WALLET,
-// RSBS_XFAMILY_SLOT_BOMBCHU_BAG): RANDO_INF_OBTAINED_CHILD_WALLET and
-// RANDO_INF_OBTAINED_BOMBCHU_BAG, which only these gives write and nothing reads
+// MM's copy of the Child's Wallet possession slot (RSBS_XFAMILY_SLOT_CHILD_WALLET):
+// RANDO_INF_OBTAINED_CHILD_WALLET, which only this give writes and nothing reads
 // until stage C3 (and then only through MM_Combo_WalletGated, WalletChuGate.h). A
 // member is asked only while its slot is armed. Since #1702 C2 the Child's Wallet
 // slot is armed only by the frozen Shared Child's Wallet rule
 // (RSBS_XITEM2_SHARED_CHILD_WALLET, Combo_SharedPossessionArmed), and the Bombchu
-// Bag slot is armed by nothing. The bag member is registered but dead: the bag's
-// only transport will be stage C7's tier kind, and C7 deletes this member before
-// it reuses RANDO_INF_OBTAINED_BOMBCHU_BAG (released 0x40 files may hold the flag
-// set by C1 gives). RI_UNKNOWN stays: the stand-in belongs in
-// Rando_IsSharedCreditStandIn (C8), not here. The GIVES write the flags directly,
-// as the swim give does (no flag-set hook before gameplay). POOLED is false: the
-// pair is never a shared bag row.
+// Bag slot is armed by nothing. MM registers no Bombchu Bag member: the bag's
+// transport is stage C7's tier kind (RSBS_SHARED_RES_BOMBCHU_BAG_TIER), and C7
+// deleted the dead C1 member before reusing RANDO_INF_OBTAINED_BOMBCHU_BAG as the
+// tier's first thermometer flag (released 0x40 files may hold the flag set by C1
+// gives, so every reader of it sits behind MM_Combo_ChuBagShared). The GIVE writes
+// the flag directly, as the swim give does (no flag-set hook before gameplay).
+// POOLED is false: the pair is never a shared bag row.
 
 namespace {
 
@@ -6499,18 +6502,6 @@ void MM_SharedChildWalletGive(uint16_t nativeId) {
     (void)nativeId;
     gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_CHILD_WALLET >> 4] |=
         (u16)(1u << (RANDO_INF_OBTAINED_CHILD_WALLET & 0xF));
-}
-
-bool MM_SharedBombchuBagHeld(uint16_t nativeId) {
-    (void)nativeId;
-    const int flag = RANDO_INF_OBTAINED_BOMBCHU_BAG;
-    return IS_RANDO && (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1 << (flag & 0xF))) != 0;
-}
-
-void MM_SharedBombchuBagGive(uint16_t nativeId) {
-    (void)nativeId;
-    gSaveContext.save.shipSaveInfo.rando.randoInf[RANDO_INF_OBTAINED_BOMBCHU_BAG >> 4] |=
-        (u16)(1u << (RANDO_INF_OBTAINED_BOMBCHU_BAG & 0xF));
 }
 
 bool MM_SharedPossessionPooled(uint16_t nativeId) {
@@ -6546,10 +6537,11 @@ extern "C" void MM_RegisterSharedPossessionFamilies(void) {
     const ComboSharedFamilyMember wallet = { (uint16_t)RI_PROGRESSIVE_WALLET, MM_SharedChildWalletHeld,
                                              MM_SharedChildWalletGive, MM_SharedPossessionPooled };
     Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET, &wallet);
-    // Dead since #1702 C2 (the slot is armed by nothing); C7 deletes this member before reusing flag 81.
-    const ComboSharedFamilyMember bag = { (uint16_t)RI_UNKNOWN, MM_SharedBombchuBagHeld, MM_SharedBombchuBagGive,
-                                          MM_SharedPossessionPooled };
-    Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &bag);
+    // [RSBS #1702 C7] MM has NO Bombchu Bag member: C7 deleted it (it was dead since
+    // C2, its slot armed by nothing) so that RANDO_INF_OBTAINED_BOMBCHU_BAG has one
+    // meaning and one writer, the shared Bombchu Bag tier's thermometer
+    // (MM_WriteChuBagFlags). C8's logic credit goes through the stand-in registry
+    // (Combo_RegisterSharedCreditStandIn), never a possession member.
 }
 
 namespace {
@@ -6701,6 +6693,42 @@ static const MMSharedAmmo* MM_SharedAmmoRowForTier(uint8_t kind) {
     return nullptr;
 }
 
+// [RSBS #1702 C7] The shared Bombchu Bag tier in MM: a thermometer of three rando
+// flags (RANDO_INF_OBTAINED_BOMBCHU_BAG, _LEVEL_2, _LEVEL_3), read by its highest
+// flag (Combo_SharedChuBagTierOfMM). Nothing in MM's gameplay reads them until
+// stage C8, which reads them behind MM_Combo_ChuBagShared (released 0x40 files may
+// hold flag 81 set by C1 gives).
+#define MM_MAX_CHU_BAG_TIER 3u
+
+static bool MM_ChuBagFlagSet(int flag) {
+    return (gSaveContext.save.shipSaveInfo.rando.randoInf[flag >> 4] & (1u << (flag & 0xF))) != 0u;
+}
+
+static uint16_t MM_ReadChuBagTier(void) {
+    if (!IS_RANDO) {
+        return 0u;
+    }
+    return Combo_SharedChuBagTierOfMM(MM_ChuBagFlagSet(RANDO_INF_OBTAINED_BOMBCHU_BAG),
+                                      MM_ChuBagFlagSet(RANDO_INF_BOMBCHU_BAG_LEVEL_2),
+                                      MM_ChuBagFlagSet(RANDO_INF_BOMBCHU_BAG_LEVEL_3));
+}
+
+// Raise MM's thermometer to @p tier: only SETS flags, never clears one (the kind
+// is monotonic). A randomizer file only, like every rando flag.
+static void MM_WriteChuBagFlags(uint16_t tier) {
+    if (!IS_RANDO) {
+        return;
+    }
+    const uint8_t bits = Combo_SharedChuBagMMFlagsFor(tier);
+    const int flags[3] = { RANDO_INF_OBTAINED_BOMBCHU_BAG, RANDO_INF_BOMBCHU_BAG_LEVEL_2,
+                           RANDO_INF_BOMBCHU_BAG_LEVEL_3 };
+    for (int i = 0; i < 3; i++) {
+        if ((bits & (1u << i)) != 0u) {
+            gSaveContext.save.shipSaveInfo.rando.randoInf[flags[i] >> 4] |= (u16)(1u << (flags[i] & 0xF));
+        }
+    }
+}
+
 // The cap MM's apply bounds a MONOTONIC kind with: the highest value MM's own
 // tables define (see each MM_MAX_*). 0 for a kind this table does not bound
 // (the triforce count derives its cap per world).
@@ -6727,6 +6755,8 @@ static uint16_t MM_SharedKindCap(uint8_t kind) {
             return (uint16_t)MM_MAX_KOKIRI_SWORD;
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             return (uint16_t)MM_MAX_BOTTLE_COUNT;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+            return (uint16_t)MM_MAX_CHU_BAG_TIER;
         default:
             return 0u;
     }
@@ -6811,6 +6841,15 @@ static void MM_HarvestSharedKind(uint8_t kind) {
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             // Clamped at OoT's four (MM_ReadBottleCount).
             Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_BOTTLE_COUNT, MM_ReadBottleCount());
+            break;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+            // [RSBS #1702 C7] Armed only by the frozen comboFlags 0x80, which
+            // nothing writes before C8: unarmed the tier harvest is a no-op at its
+            // gate and the bombchu harvest below is not called.
+            Combo_HarvestSharedResource(GAME_MM, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, MM_ReadChuBagTier());
+            if (Combo_SharedBombchuBagTierArmed()) {
+                MM_HarvestSharedBombchus(); // the step's first step for the count it re-applies
+            }
             break;
         case RSBS_SHARED_RES_TRIFORCE_PIECES:
             // MM's counter is a MIRROR of the one combo count, so harvesting it
@@ -7070,6 +7109,19 @@ static void MM_ApplySharedKind(uint8_t kind) {
             }
             break;
         }
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER: {
+            // [RSBS #1702 C7] The pair's one Bombchu Bag (monotonic 0..3), armed
+            // only by the frozen comboFlags 0x80, which nothing writes before C8.
+            // The tier raises MM's thermometer flags (which no MM gameplay reads
+            // yet), then the bombchus are re-applied; unarmed, nothing here runs
+            // past the gate.
+            uint16_t tier = MM_ReadChuBagTier();
+            if (Combo_ApplySharedResource(GAME_MM, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, MM_MAX_CHU_BAG_TIER, &tier)) {
+                MM_WriteChuBagFlags(tier);
+                MM_ApplySharedBombchus(); // C8's capacity will read the tier just applied
+            }
+            break;
+        }
         case RSBS_SHARED_RES_TRIFORCE_PIECES: {
             // --- Triforce pieces (monotonic, ADR 0010 answer O10), armed only when
             // the frozen combo goal is triforce-hunt. MM's counter becomes the whole
@@ -7129,6 +7181,9 @@ extern "C" void MM_HarvestSharedResources(void) {
             Combo_HarvestSharedResource(GAME_MM, row->countKind, MM_ReadAmmo(row->item));
         }
     }
+    // [RSBS #1702 C7] The Bombchu Bag tier; armed only by the frozen comboFlags
+    // 0x80 (a no-op at its gate until C8 writes it).
+    MM_HarvestSharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     MM_HarvestSharedKind(RSBS_SHARED_RES_HOOKSHOT_TIER);
 
@@ -7485,6 +7540,11 @@ extern "C" void MM_ApplySharedResources(void) {
     MM_ApplySharedKind(RSBS_SHARED_RES_HEALTH_QUARTERS); // then the current health
     MM_ApplySharedKind(RSBS_SHARED_RES_DOUBLE_DEFENSE);
     MM_ApplySharedKind(RSBS_SHARED_RES_MAGIC_LEVEL); // then the current magic
+
+    // [RSBS #1702 C7] The Bombchu Bag tier BEFORE the ammo loop, so C8's capacity
+    // sees the tier before the count. Armed only by the frozen comboFlags 0x80;
+    // unarmed the case stops at its gate and the loop runs exactly as before.
+    MM_ApplySharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     // --- Ammo: tier before the count it bounds, per row.
     for (int i = 0; i < ARRAY_COUNT(kMMSharedAmmo); i++) {
