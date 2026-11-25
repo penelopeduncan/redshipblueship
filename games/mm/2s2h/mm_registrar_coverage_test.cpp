@@ -397,6 +397,17 @@
  * Pause Menu Save at a stored 0, Fix Out of Bounds Textures and Fix Circle Shadow Streaks as found (cleared again if
  * they were absent).
  *
+ * TURNING DEBUG MODE OFF RE-DRIVES DISABLE OBJECT DEPENDENCY (#1817) -- FAIL 30. DeveloperTools.cpp's Debug Mode
+ * registrar clears Disable Object Dependency when Debug Mode goes off, but ObjectDependency.cpp's registrar is keyed
+ * only on its own key, and the hosted row is disabled without Debug Mode, so the player could not click it back:
+ *   - (a) both keys 1 and driven: VB_ENABLE_OBJECT_DEPENDENCY gains one handler;
+ *   - (b) Debug Mode cleared and ONLY Debug Mode driven: the key is cleared (absent, not a stored 0) and the handler
+ *     is gone. Without the re-drive in RegisterDebugMode the handler stays, which is the bug;
+ *   - (c) Debug Mode back on and driven with the key at 1: the handler stays and the key stays 1 (a fix that clears
+ *     or disarms under Debug Mode on is red);
+ *   - (d) both off: driving Debug Mode leaves no handler and stores neither key.
+ * Both keys end as found, re-driven.
+ *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
  * behind MM_Rando_AssetsReady() because its ResourceMgr_Load*ByName helpers
@@ -2922,6 +2933,88 @@ int RunBulkCVarWriteLeg() {
     return 0;
 }
 
+// ---- #1817: turning Debug Mode off re-drives Disable Object Dependency (FAIL 30) -----------------------------------
+// See TURNING DEBUG MODE OFF RE-DRIVES DISABLE OBJECT DEPENDENCY in the file header.
+constexpr const char* kDebugOffObjectDependencyCVar = "gDeveloperTools.DisableObjectDependency";
+
+size_t DebugOffObjectDependencyCount() {
+    return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_ENABLE_OBJECT_DEPENDENCY);
+}
+
+void DebugOffObjectDependencyClearBoth() {
+    CVarClear(kDebugOffObjectDependencyCVar);
+    ShipInit::Init(kDebugOffObjectDependencyCVar);
+    CVarClear(kW6DevDebugModeCVar);
+    ShipInit::Init(kW6DevDebugModeCVar);
+    (void)DebugOffObjectDependencyCount();
+}
+
+int RunDebugOffObjectDependencyLeg() {
+    const bool debugWasStored = CVarExists(kW6DevDebugModeCVar);
+    const int32_t debugValue = CVarGetInteger(kW6DevDebugModeCVar, 0);
+    const bool depWasStored = CVarExists(kDebugOffObjectDependencyCVar);
+    const int32_t depValue = CVarGetInteger(kDebugOffObjectDependencyCVar, 0);
+    struct RestoreGuard {
+        bool debugWasStored;
+        int32_t debugValue;
+        bool depWasStored;
+        int32_t depValue;
+        ~RestoreGuard() {
+            DebugOffObjectDependencyClearBoth();
+            if (depWasStored) {
+                CVarSetInteger(kDebugOffObjectDependencyCVar, depValue);
+            }
+            if (debugWasStored) {
+                CVarSetInteger(kW6DevDebugModeCVar, debugValue);
+            }
+            ShipInit::Init(kDebugOffObjectDependencyCVar);
+            ShipInit::Init(kW6DevDebugModeCVar);
+            (void)DebugOffObjectDependencyCount();
+        }
+    } restore{ debugWasStored, debugValue, depWasStored, depValue };
+
+    DebugOffObjectDependencyClearBoth();
+    const size_t base = DebugOffObjectDependencyCount();
+
+    // (a) Both on, each driven: the rewrite arms.
+    CVarSetInteger(kW6DevDebugModeCVar, 1);
+    ShipInit::Init(kW6DevDebugModeCVar);
+    CVarSetInteger(kDebugOffObjectDependencyCVar, 1);
+    ShipInit::Init(kDebugOffObjectDependencyCVar);
+    RC_ASSERT(DebugOffObjectDependencyCount() == base + 1, 30,
+              "(a) Disable Object Dependency did not arm VB_ENABLE_OBJECT_DEPENDENCY with Debug Mode on");
+
+    // (b) Debug Mode off, only Debug Mode driven (what SoH's row runs): the clear must take the rewrite with it.
+    CVarClear(kW6DevDebugModeCVar);
+    ShipInit::Init(kW6DevDebugModeCVar);
+    RC_ASSERT(!CVarExists(kDebugOffObjectDependencyCVar), 30,
+              "(b) turning Debug Mode off did not clear Disable Object Dependency, or stored a value for it");
+    RC_ASSERT(DebugOffObjectDependencyCount() == base, 30,
+              "(b) turning Debug Mode off cleared Disable Object Dependency but left its VB_ENABLE_OBJECT_DEPENDENCY "
+              "rewrite armed: RegisterDebugMode did not re-drive the key it cleared, and the row is disabled without "
+              "Debug Mode, so the player cannot click it back");
+
+    // (c) Debug Mode on with the key at 1: driving Debug Mode keeps both.
+    CVarSetInteger(kW6DevDebugModeCVar, 1);
+    ShipInit::Init(kW6DevDebugModeCVar);
+    CVarSetInteger(kDebugOffObjectDependencyCVar, 1);
+    ShipInit::Init(kDebugOffObjectDependencyCVar);
+    ShipInit::Init(kW6DevDebugModeCVar);
+    RC_ASSERT(CVarGetInteger(kDebugOffObjectDependencyCVar, 0) == 1 && DebugOffObjectDependencyCount() == base + 1, 30,
+              "(c) driving Debug Mode while it is on cleared or disarmed Disable Object Dependency");
+
+    // (d) Both off: driving Debug Mode arms nothing and stores neither key.
+    DebugOffObjectDependencyClearBoth();
+    ShipInit::Init(kW6DevDebugModeCVar);
+    RC_ASSERT(DebugOffObjectDependencyCount() == base && !CVarExists(kDebugOffObjectDependencyCVar) &&
+                  !CVarExists(kW6DevDebugModeCVar),
+              30, "(d) driving Debug Mode off with Disable Object Dependency off armed the rewrite or stored a key");
+
+    printf("[TEST] #1817: turning Debug Mode off clears Disable Object Dependency and disarms its "
+           "VB_ENABLE_OBJECT_DEPENDENCY rewrite\n");
+    return 0;
+}
+
 // ---- Phase 12 (#1215, #1221): the rando-forced gates the link dropped ------
 // See PHASE 12 in the file header for the attribution of each bucket.
 struct RandoGateCounts {
@@ -3581,6 +3674,11 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
     // ---- #1811: a bulk CVar write (a preset, a dropped config) re-arms the MM registrars of the keys it changed
     // ------
     if (const int rc = RunBulkCVarWriteLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- #1817: turning Debug Mode off re-drives Disable Object Dependency -------------------------------------
+    if (const int rc = RunDebugOffObjectDependencyLeg(); rc != 0) {
         return rc;
     }
 

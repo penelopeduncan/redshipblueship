@@ -40,15 +40,26 @@ extern "C" void MM_ShipInit_BeginBulkCVarWrite(void);
 extern "C" int MM_ShipInit_EndBulkCVarWrite(void);
 
 /**
+ * #1817: OoT's half of the same scope. `InitAll()` runs OoT's registrars, but Fix Out of Bounds Textures has none (its
+ * row's callback applies the patches), so Begin reads that key and End reapplies OoT's authentic gfx patches, owner
+ * gated, when its effective value changed. Both only read CVars. Defined in
+ * games/oot/soh/Enhancements/cosmetics/authenticGfxPatches.cpp.
+ */
+extern "C" void OoT_ShipInit_BeginBulkCVarWrite(void);
+extern "C" int OoT_ShipInit_EndBulkCVarWrite(void);
+
+/**
  * #1811: opens a bulk CVar write for MM on construction and closes it on destruction, so an exception still closes
- * it. Declare it before a bulk writer's first CVar write.
+ * it. Declare it before a bulk writer's first CVar write. #1817: it opens and closes OoT's half too.
  */
 struct ShipInitMmBulkCVarWrite {
     ShipInitMmBulkCVarWrite() {
+        OoT_ShipInit_BeginBulkCVarWrite();
         MM_ShipInit_BeginBulkCVarWrite();
     }
     ~ShipInitMmBulkCVarWrite() {
         (void)MM_ShipInit_EndBulkCVarWrite();
+        (void)OoT_ShipInit_EndBulkCVarWrite();
     }
     ShipInitMmBulkCVarWrite(const ShipInitMmBulkCVarWrite&) = delete;
     ShipInitMmBulkCVarWrite& operator=(const ShipInitMmBulkCVarWrite&) = delete;
