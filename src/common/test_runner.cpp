@@ -7979,13 +7979,11 @@ static TestResult Test_MMUpstreamFixes1754(void) {
 static TestResult Test_MMSharedSongPoolSkip(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
-        printf("[TEST] FAIL: could not create Ship::Context singleton
-");
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
         return TEST_FAIL;
     }
     if (OoT_InitSharedContextSubsystems() != 0) {
-        printf("[TEST] FAIL: shared bring-up reported failure
-");
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
         return TEST_FAIL;
     }
     return MM_SharedSongPoolSkip_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
@@ -7994,13 +7992,11 @@ static TestResult Test_MMSharedSongPoolSkip(void) {
 static TestResult Test_MMSharedSariaHooks(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
-        printf("[TEST] FAIL: could not create Ship::Context singleton
-");
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
         return TEST_FAIL;
     }
     if (OoT_InitSharedContextSubsystems() != 0) {
-        printf("[TEST] FAIL: shared bring-up reported failure
-");
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
         return TEST_FAIL;
     }
     return MM_SharedSariaHooks_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
@@ -8749,13 +8745,11 @@ TestResult Test_MMPairedProfile(void) {
 TestResult Test_MMSharedSongRowCoupled(void) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
-        printf("[TEST] FAIL: could not create Ship::Context singleton
-");
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
         return TEST_FAIL;
     }
     if (OoT_InitSharedContextSubsystems() != 0) {
-        printf("[TEST] FAIL: shared bring-up reported failure
-");
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
         return TEST_FAIL;
     }
     return MM_SharedSongRowCoupled_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
@@ -9551,8 +9545,7 @@ TestResult Test_SharedWarpSongsEdges(void) {
 static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
-        printf("[TEST] FAIL: could not create Ship::Context singleton
-");
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
         return TEST_FAIL;
     }
     static char ssocArg0[] = "redship";
