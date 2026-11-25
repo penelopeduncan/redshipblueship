@@ -70,6 +70,6 @@ void ArmAvailableChecksRecalc();
 // Re-sort every area at OoT's next arrival (#1294); see the definition.
 void DeferAllOrdering();
 #endif
-void LoadFromPreset(nlohmann::json info);
+void LoadFromPreset(const nlohmann::json& info);
 bool AreAllSilversSpoiled();
 } // namespace CheckTracker

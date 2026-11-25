@@ -138,7 +138,7 @@ class Settings {
      *
      * @param spoilerFileJson
      */
-    void ParseJson(nlohmann::json spoilerFileJson);
+    void ParseJson(const nlohmann::json& spoilerFileJson);
 
     /**
      * @brief RSBS (#1730): turn on the tricks a spoiler log's "enabledTricks" array names.
