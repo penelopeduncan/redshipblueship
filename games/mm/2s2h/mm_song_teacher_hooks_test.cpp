@@ -50,8 +50,13 @@
  *     tree-wide is SkipLearningSongOfHealing.cpp.
  *   - OnActorUpdate[ACTOR_EN_GO]: sole registrant tree-wide is
  *     SkipLearningGoronLullaby.cpp.
- *   - OnActorInit[ACTOR_EN_TIME_TAG] and OnOpenText[0x0C02]: sole registrant of
- *     each tree-wide is SkipLearningSongOfSoaring.cpp.
+ *   - OnActorInit[ACTOR_EN_TIME_TAG]: sole registrant tree-wide is
+ *     SkipLearningSongOfSoaring.cpp. Its OnOpenText[0x0C02] hook moved to
+ *     CVAR && !IS_RANDO when #1754 (2Ship e3bfae008) split the rando check and
+ *     hint out to Rando/ActorBehavior/EnTimeTag.cpp (armed from OnFileLoad,
+ *     which the ShipInit "IS_RANDO" drive does not re-run); the count therefore
+ *     stays unchanged when rando arms with the Story CVar off, and
+ *     MMHintOptions1754 locks the EnTimeTag.cpp hand-off.
  *   Behaviour legs (VB_START_CUTSCENE has dozens of registrants, so a count
  *   cannot attribute; the dispatch does). Each sets up the (scene, csId) only
  *   one of the nine answers, against a calloc'd PlayState, and requires the
@@ -208,7 +213,6 @@ int RunLegs(PlayState* play) {
         { "Song of Healing: VB_OSN_TEACH_SONG_OF_HEALING", HealingCount, 0 },
         { "Goron Lullaby: OnActorUpdate[ACTOR_EN_GO]", LullabyCount, 0 },
         { "Song of Soaring: OnActorInit[ACTOR_EN_TIME_TAG]", SoaringActorCount, 0 },
-        { "Song of Soaring: OnOpenText[0x0C02]", SoaringTextCount, 0 },
     };
 
     // ---- Leg 1: disarmed baseline (non-vacuity) ----------------------------
@@ -216,6 +220,7 @@ int RunLegs(PlayState* play) {
     for (auto& probe : registryProbes) {
         probe.before = probe.count();
     }
+    const size_t soaringTextBefore = SoaringTextCount();
     MM_gPlayState = play;
     for (const auto& probe : kCutsceneProbes) {
         if (!StartCutsceneVerdict(play, probe.sceneId, probe.csId)) {
@@ -253,6 +258,16 @@ int RunLegs(PlayState* play) {
                    "SkipLearning*.cpp registrar is not in the link or never armed, or a second IS_RANDO "
                    "registrant appeared and the probe is no longer attributable (#1071)\n",
                    probe.song, probe.before, after);
+            return 13;
+        }
+    }
+    {
+        const size_t soaringTextAfter = SoaringTextCount();
+        if (soaringTextAfter != soaringTextBefore) {
+            printf("[TEST] FAIL(13): Song of Soaring: OnOpenText[0x0C02] went %zu -> %zu when rando armed, expected "
+                   "unchanged (+0) - SkipLearningSongOfSoaring.cpp must gate its OnOpenText hook on CVAR && !IS_RANDO "
+                   "after the #1754 split to EnTimeTag.cpp\n",
+                   soaringTextBefore, soaringTextAfter);
             return 13;
         }
     }
@@ -315,8 +330,8 @@ extern "C" int MM_SongTeacherHooks_RunHeadless(void) {
         return rc;
     }
     printf("[TEST] mm-song-teacher-hooks: PASS (four cutscene skips fire under rando, Storms and Bossa Nova hand "
-           "off their checks, six single-registrant hooks armed, Epona and Healing guarded against a missing "
-           "play state)\n");
+           "off their checks, five single-registrant hooks armed, Soaring OnOpenText[0x0C02] stays disarmed in "
+           "SkipLearningSongOfSoaring, Epona and Healing guarded against a missing play state)\n");
     return 0;
 }
 

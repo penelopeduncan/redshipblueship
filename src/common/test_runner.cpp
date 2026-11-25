@@ -383,6 +383,11 @@ int MM_RuntimeParity_RunHeadless(void);
 // Auto Bank Deposit's milestones and Fix Deku Butler Shock Animation. Needs the display-free
 // shared bring-up first. Returns 0 on pass, non-zero on fail.
 int MM_UpstreamFixes1754_RunHeadless(void);
+// #1754: Song of Soaring (2Ship e3bfae008 + 74e519def) and Bank Reward (2Ship 2056ebc7a) hint
+// options (games/mm/2s2h/mm_hint_options_1754_test.cpp): descriptors, HintSources Listed and
+// Resolve, Legacy/Textbox parity, and OnOpenText hooks. Needs the display-free shared bring-up
+// first. Returns 0 on pass, non-zero on fail.
+int MM_HintOptions1754_RunHeadless(void);
 // #1587 stage A (games/mm/2s2h/mm_shared_saria_test.cpp): under the frozen Shared Sun's
 // Song / Shared Saria's Song MM's GeneratePools pools no copy of its own, and a shared
 // Saria's Song runs none of 2Ship's prompt, hint or removal. Need the display-free
@@ -8042,6 +8047,23 @@ static TestResult Test_MMUpstreamFixes1754(void) {
     return MM_UpstreamFixes1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// #1754: Song of Soaring and Bank Reward hint options. Same display-free shared bring-up as
+// mm-upstream-fixes-1754: reads CVars and registers EnTimeTag/BankSignHint hooks, restoring
+// everything it touches (including re-running both Init functions under the restored save).
+static TestResult Test_MMHintOptions1754(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+
+    return MM_HintOptions1754_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1587 stage A. Same display-free shared bring-up as mm-upstream-fixes-1754: MM's
 // GeneratePools reads CVars, and the Saria's Song legs drive ShipInit-registered hooks
 // through the Ship::Context singleton. Both restore everything they touch; the hooks
@@ -11694,6 +11716,11 @@ const TestDescriptor gTests[] = {
     { "mm-upstream-fixes-1754",
       "Pause Owl Warp asks for the Ocarina and its buttons, and seven more 2Ship fixes hold (#1754, #1755)",
       Test_MMUpstreamFixes1754 },
+    // #1754: Song of Soaring and Bank Reward hint options. After mm-registrar-coverage (it
+    // registers hooks while it runs); restores everything it touches.
+    { "mm-hint-options-1754",
+      "Song of Soaring and Bank Reward hint options: descriptors, HintSources resolver, and OnOpenText hooks (#1754)",
+      Test_MMHintOptions1754 },
     // #1587 stage A: after mm-registrar-coverage (the hooks row registers hooks while it
     // runs); both restore everything they touch.
     { "mm-shared-song-pool-skip",

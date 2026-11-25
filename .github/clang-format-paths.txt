@@ -334,6 +334,9 @@ games/oot/soh/Enhancements/randomizer/BlastMaskOoT.cpp
 games/oot/soh/oot_blast_mask_test.cpp
 games/mm/2s2h/mm_runtime_parity_test.cpp
 games/mm/2s2h/mm_upstream_fixes_1754_test.cpp
+games/mm/2s2h/mm_hint_options_1754_test.cpp
+games/mm/2s2h/Rando/ActorBehavior/EnTimeTag.cpp
+games/mm/2s2h/Rando/MiscBehavior/BankSignHint.cpp
 games/mm/2s2h/mm_cutscene_skips_test.cpp
 games/mm/2s2h/Enhancements/Masks/GoronRollingLenientSpikes.cpp
 games/mm/2s2h/Rando/Logic/ShopPrices.cpp

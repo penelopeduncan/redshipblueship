@@ -482,10 +482,11 @@ TestResult MmHintCrossedArea_RunHeadless(void) {
 
     // ---- Sources: every static hint fills its location through ReplaceItemLocation.
     static const char* const kStaticHintSources[] = {
-        "games/mm/2s2h/Rando/ActorBehavior/DmStk.cpp",  // the Oath
-        "games/mm/2s2h/Rando/ActorBehavior/EnTalk.cpp", // boss remains
-        "games/mm/2s2h/Rando/ActorBehavior/EnZow.cpp",  // the Hookshot
-        "games/mm/2s2h/Rando/ActorBehavior/EnKgy.cpp",  // gold dust (two texts)
+        "games/mm/2s2h/Rando/ActorBehavior/DmStk.cpp",     // the Oath
+        "games/mm/2s2h/Rando/ActorBehavior/EnTalk.cpp",    // boss remains
+        "games/mm/2s2h/Rando/ActorBehavior/EnZow.cpp",     // the Hookshot
+        "games/mm/2s2h/Rando/ActorBehavior/EnKgy.cpp",     // gold dust (two texts)
+        "games/mm/2s2h/Rando/ActorBehavior/EnTimeTag.cpp", // Song of Soaring
     };
     int helperCalls = 0;
     for (const char* rel : kStaticHintSources) {
@@ -499,7 +500,7 @@ TestResult MmHintCrossedArea_RunHeadless(void) {
     }
     printf("[TEST]   sources: %d static hint call sites fill their location through ReplaceItemLocation\n",
            helperCalls);
-    CA_ASSERT(helperCalls == 5);
+    CA_ASSERT(helperCalls == 6);
 
     // ---- The world: four MM items, a grotto check of MM's, three OoT hosts with areas.
     SharedItem hookshot;

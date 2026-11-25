@@ -1818,6 +1818,11 @@ if(BUILD_TESTING)
     # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
     # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
     redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
+    # #1754: Song of Soaring (2Ship e3bfae008 + 74e519def) and Bank Reward (2Ship 2056ebc7a)
+    # hint options: live checkbox descriptors, HintSources Listed/Resolve/Legacy parity, and
+    # EnTimeTag/BankSignHint OnOpenText hooks over a calloc'd play state with a three-row
+    # messageTableNES. Pure (no display, no ROM); games/mm/2s2h/mm_hint_options_1754_test.cpp.
+    redship_add_test(NAME MMHintOptions1754 COMMAND redship --test mm-hint-options-1754)
     # #1587 stage A: under the frozen Shared Sun's Song / Shared Saria's Song MM's real
     # GeneratePools pools no copy of its own (the red gate for that skip: the bag's pair
     # pass would trim a second copy and hide it end to end), and a shared Saria's Song

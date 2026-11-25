@@ -164,6 +164,8 @@ const RandoOptionId kAppendedOptions[] = {
     RO_SHUFFLE_SONG_SARIA,
     RO_PLACEMENT_STRAY_FAIRIES_OTHER,
     RO_HOOKSHOT_ANYWHERE,
+    RO_HINTS_SONG_OF_SOARING,
+    RO_HINTS_BANK_SIGN,
 };
 
 /** The five options and MM's host pool (with its cached groups) as the row found
