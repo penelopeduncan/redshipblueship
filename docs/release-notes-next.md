@@ -13,8 +13,16 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
 
 - **Seeds come from generator 8.** A seed package exported by `v0.5.3-alpha` is refused ("Seed package from another
   generator"), so generate the seed again. So far one change moves worlds, and only with Shuffle Jabber Nuts on: the
-  carpet salesman's rule below. With that option off, which is the default, the pinned test seeds place every item
-  and word every hint as they did in `v0.5.3-alpha`. The save format did not change.
+  carpet salesman's rule below. With that option off, which is the default, the pinned test seeds place every item and
+  word every hint as they did in `v0.5.3-alpha`. The save format is still 6, but see the next point before you save an
+  older file in this version.
+- **Once this version writes a file, `v0.5.3-alpha` refuses it** (issue #1702). The save format is still 6, and files
+  from `v0.5.1-alpha`, `v0.5.2-alpha` and `v0.5.3-alpha` open in this version as before. But the first time this version
+  writes the file, it marks the file as written by a newer build. That is any save in either game (an autosave, an owl
+  save or a Song of Time save included), a crossing between the two games, or quitting to the title from Ocarina of
+  Time's game-over screen. Those three versions then refuse the file ("Refused: File made by another build"). The file
+  is not damaged and opens in this version, so do not erase it in the older one. There is no way back to an older
+  version for that file: copy `Save/` first if you may go back. Opening a file does not mark it by itself.
 - **Majora's Mask's pause menu now offers a save.** Pause Menu Save is on by default (issue #1728): wherever a save is
   allowed, B in Majora's Mask's pause menu now opens the save prompt instead of closing the menu, and START closes the
   menu. If you never changed the option, it is now on. If you ticked it on and then off again, it stays off. See Options
@@ -138,9 +146,25 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
 - **Menu search: rows with the same name no longer share an ID** (issue #1733). Skip Child Stealth, Blue Fire Arrows and
   Sunlight Arrows each exist twice, as an enhancement and as a randomizer option. In search results the two rows of a
   pair had the same internal ID; each row now has its own. A side effect: searching for "randomizer" lists every
-  randomizer option row. A second side effect is a defect: the checkbox names of some randomizer options, and of the
-  enhancement Skip Child Stealth, now break onto two lines on pages with three columns, for example Shuffle Master Sword
-  (issue #1818).
+  randomizer option row.
+- **A preset or a dropped config file now reaches Majora's Mask at once** (issue #1811). Applying a preset (Settings >
+  Presets > Apply) or dropping a Ship of Harkinian config file on the window changed the menu rows, but for options that
+  Majora's Mask sets up once, Autosave for example, Majora's Mask went on with the old value until you clicked the row
+  or restarted the game. (Fast Chests also caught up when you next loaded a file or crossed into Majora's Mask.) Now
+  every such option that the preset or the file changed takes effect in Majora's Mask at once. That includes options the
+  preset or file does not name and so puts back to their defaults: the curated Enhancements presets and Reset to Default
+  replace all enhancement, cheat and randomizer-enhancement settings. A Majora's Mask graphics fix that a preset or file
+  changed (Fix Out of Bounds Textures, for example) is applied at once while Majora's Mask runs, and otherwise the next
+  time you enter Majora's Mask. The developer console's `set` command is not covered: a value set there still waits as
+  before. Tests open the same scope that a preset or a dropped file opens and change options themselves; no run presses
+  Apply or drops a file.
+- **Lost Woods Ocarina Game: Unlimited Playback Time fits on one line** (issue #1818). When the menu broke a checkbox
+  name into lines, it counted the name's hidden ID as part of the text. On a page with three columns a name could
+  therefore lose its last word to a second line although the visible text fits. In `v0.5.3-alpha` that happened to
+  Unlimited Playback Time (Enhancements > Minigames, Lost Woods Ocarina Game). Names are now measured by their visible
+  text only. A name that is too long for one line, such as Time Travel Requires Master Sword, still breaks as before.
+  Checked by tests on the label text and on the menu code that draws checkboxes; nobody has looked at the pages since
+  the fix.
 
 ### Build and tests
 
@@ -148,6 +172,17 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   collects in rooms both ages can reach named the adult's reverse-entry rule without ever evaluating it, so that term
   was always true. It is removed, and new logic tests pin the small-key counts around it: the Master Quest like-like pot
   and north climb chest stay in logic with 6 small keys. No world and no check's logic changes.
+- **Groundwork for a shared Sun's Song, Saria's Song and Bombchu Bag** (issues #1587 and #1702). Part of the code that
+  will let one copy of the Sun's Song, of Saria's Song or of the Bombchu Bag count in both games is in this build,
+  switched off. No menu row offers these rules, and no world can be created with them; the Bombchu Bag rule has no
+  setting at all. If you set one of the hidden keys by hand, in the console or the config file, Generate stops with "Not
+  generated: a rule needs a later build." until you clear it: `gCombo.Rando.SharedSongSun`,
+  `gCombo.Rando.SharedSongSarias`, or `gCombo.Rando.SharedChildWallet`, the key of a wallet rule that is not offered yet
+  either. A new integration test row, `IntMMSharedSunSaria`, switches the two song rules on for itself, creates a world
+  and gives Ocarina of Time its own Sun's Song and Saria's Song. In Majora's Mask, in a running game, it then plays
+  both. The Sun's Song must show its played text and speed the clock up until past 18:00. Saria's Song must end without
+  Majora's Mask's "You can't use that song here" text or any extra prompt, and must still be owned afterwards. No world,
+  no placement and no option changes.
 
 # Release notes: v0.5.3-alpha ("Ellen Delta")
 

@@ -49,11 +49,6 @@ Everything below passed the automated gates. None of it has been checked by a pe
   Set Number or Selection Only (Random is not tested), and how the excluded list is stored. No test draws the page,
   presses Exclude Visible or Include Visible, or generates a seed with a Master Quest check excluded under Selection
   Only. To try it: Randomizer > Locations, with MQ Dungeon Setting on Selection Only.
-- Some checkbox names break onto two lines (issue #1818). On menu pages with three columns, the checkbox of a randomizer
-  option whose name has about 19 to 30 characters now puts its last word on a second line, for example Shuffle Master
-  Sword and Shuffle Kokiri Sword on Randomizer > Shuffles. The enhancement Skip Child Stealth on Enhancements > Skips &
-  Speed-ups does the same. Other checkboxes are not affected, and the rows work as before. This is a side effect of the
-  search fix for rows with the same name.
 - Seven small Majora's Mask options (issue #1755): Picto Box on C-Up, Always Show Shrine of Truth Feathers, Dash After
   Roll, Always Find Rock Sirloin, Jumping Game Time Limit, Jumping Game Score and Win Jumping Game Early. Tests call
   each option's code with made-up game data. No run rolls and dashes, opens the Pictograph Box with C-Up, visits the
@@ -62,6 +57,17 @@ Everything below passed the automated gates. None of it has been checked by a pe
 - Ocarina of Time's minigame options after their move to hooks (issue #1753). Tests call the hooks with made-up game
   data; no run plays Bombchu Bowling, the Frogs' Ocarina Game or the Shooting Gallery, and nothing checks the removal of
   a cucco while Link stands in the Bombchu Bowling Alley.
+- A file written by this build is refused by `v0.5.3-alpha` and older (issue #1702). Files from `v0.5.1-alpha`,
+  `v0.5.2-alpha` and `v0.5.3-alpha` open here. But once this build saves one (autosaves and Majora's Mask saves
+  included), you cross between the games in it, or you quit to the title from Ocarina of Time's game-over screen, those
+  versions refuse it ("Refused: File made by another build"). Copy `Save/` first if you may go back. Tests load a
+  made-up older record; no test opens a real `v0.5.3-alpha` file.
+- Presets and dropped config files reaching Majora's Mask (issue #1811). Tests open the same scope that a preset or a
+  dropped config file opens, with option changes the test makes itself, and a source check confirms that both open it.
+  No run presses Apply or drops a file, and nobody has watched Majora's Mask follow a preset in a running game. To try
+  it: in a file that is not a randomizer file, with Fast Chests off, stand in Majora's Mask, press Apply on the preset
+  Enhancements - Curated Randomizer (Settings > Presets), and, without reloading the file or crossing, open a chest
+  holding an item you do not have yet. It should open at once, without the long opening.
 
 ### New in v0.5.2-alpha
 
