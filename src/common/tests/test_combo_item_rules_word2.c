@@ -367,11 +367,12 @@ TestResult ComboItemRulesSecondWord_Run(void) {
             keyed |= k.bit;
         }
         // This file's keys are the fourteen warp-song rules; every allocated bit
-        // (#1587's two included, which shared-sun-saria-rule checks one by one) has
-        // a key.
+        // (#1587's two included, which shared-sun-saria-rule checks one by one, and
+        // #1702's rule) has a key, except the derived markers no key authors
+        // (RSBS_XITEM2_DERIVED, #1702 C2).
         XW2_CHECK(keyed == 0x00003FFFu && (Combo_ComboItemRule2KeyedBits() & 0x00003FFFu) == keyed &&
-                      Combo_ComboItemRule2KeyedBits() == RSBS_XITEM2_ALL_V1,
-                  "the keyed second-word bits are %08X, expected every allocated bit",
+                      Combo_ComboItemRule2KeyedBits() == (RSBS_XITEM2_ALL_V1 & ~RSBS_XITEM2_DERIVED),
+                  "the keyed second-word bits are %08X, expected every allocated non-derived bit",
                   (unsigned)Combo_ComboItemRule2KeyedBits());
         XW2_CHECK(Combo_ComboItemRule2BitFor(COMBO_SETTING_SHARED_SONG_TIME) == 0u &&
                       Combo_ComboItemRule2BitFor(COMBO_SETTING_GOAL) == 0u,
@@ -1077,6 +1078,27 @@ TestResult Test_RulesOffGoldensUnchanged(void) {
                       gComboCtx.comboSettingsHash == 0xE11C153Bu && Combo_SingleBag_SeedFor(0) == 0x7ED4B1E3u,
                   "applying a rules-off package moved the world");
         delete carried;
+    }
+
+    // ---- (4) #1702 C2's bits ship off, so every world above is still main's --------
+    // Catches a default that ships the Shared Child's Wallet rule, the derived
+    // marker or the reserved comboFlags 0x80 on (every new world's fingerprint
+    // would move), the resolver producing either new second-word bit with no key
+    // set, and 0x80 allocated before stage C8.
+    {
+        ComboSettingsRecord shipped;
+        Combo_ComboSettingsDefaults(&shipped);
+        const uint32_t resolved = Combo_ResolveComboItemRules2();
+        XW2_CHECK(RSBS_XITEM2_DEFAULTS == 0u &&
+                      (shipped.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG) == 0u &&
+                      (RSBS_COMBO_FLAGS_ALL_V1 & RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG) == 0u &&
+                      (resolved & (RSBS_XITEM2_SHARED_CHILD_WALLET | RSBS_XITEM2_OWN_CHILD_WALLETS)) == 0u,
+                  "#1702 C2's bits do not ship off (defaults %08X, comboFlags %02X, ALL_V1 %02X, resolved %08X)",
+                  (unsigned)RSBS_XITEM2_DEFAULTS, (unsigned)shipped.comboFlags, (unsigned)RSBS_COMBO_FLAGS_ALL_V1,
+                  (unsigned)resolved);
+        XW2_CHECK(Combo_ComputeComboSettingsHashEx2(&shipped, NULL, 0u, kXw2SettingsHash, kXw2ProfileDigest) ==
+                      Combo_ComputeComboSettingsHashEx(&shipped, NULL, kXw2SettingsHash, kXw2ProfileDigest),
+                  "with #1702 C2's bits off the Ex2 stamp differs from the pre-XW2 Ex entry point");
     }
 
     ComboContext_Init();

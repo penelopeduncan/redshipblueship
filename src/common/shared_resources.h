@@ -748,26 +748,41 @@ int Combo_SharedFamiliesApplyLive(GameId game);
  * under the same OR discipline as every family: harvested from either game's
  * member, given to the other at its arrival, never cleared.
  *
- * ARMED from stage C0's frozen combo flags only (Combo_ComboChildWalletShuffled,
- * Combo_ComboBombchuBagShuffled), and KEPT OUT of Combo_SharedFamiliesArmed: the
- * slots join the OWNERSHIP path (the harvest, the owed set, the live harvest and
- * apply, Combo_SharedFamiliesHeldNow) and nothing else, so no item id is
- * redirected, renamed or paired into the shared bag by them. A file frozen
- * without either bit arms neither and every path is today's.
+ * ARMED since #1702 C2 from the FROZEN Shared Child's Wallet rule
+ * (RSBS_XITEM2_SHARED_CHILD_WALLET) for CHILD_WALLET, and by NOTHING for
+ * BOMBCHU_BAG: never from comboFlags 0x20 / 0x40 (Combo_ComboChildWalletShuffled,
+ * Combo_ComboBombchuBagShuffled), which remain creation-derived records of OoT's
+ * own shuffles with no reader in shared_resources.c, because a split file holds
+ * them too (operator ruling 2026-11-19: shared only when sharing is enabled).
+ * Stage C1 armed from those two bits; a released file holds no rule, so it
+ * disarms. Nothing a player sees changes: only this file reads the slots, the
+ * far-pickup credit and the trackers never used them, and ruling R2 (OoT's
+ * wallet-tier apply) does not depend on arming. What changes is off-screen: MM's
+ * flags 80 and 81 stop being given, sharedFamilyOwned stops gaining 0x200 and
+ * 0x400, and a possession deleted with the debug save editor is not given back.
+ * KEPT OUT of Combo_SharedFamiliesArmed: the slots join the OWNERSHIP path (the
+ * harvest, the owed set, the live harvest and apply, Combo_SharedFamiliesHeldNow)
+ * and nothing else, so no item id is redirected, renamed or paired into the
+ * shared bag by them. A file frozen without the rule arms neither and every path
+ * is today's. The bag members of both games stay registered but dead; the bag's
+ * only transport from stage C7 on is a tier kind.
  *
- * Stage C1 carries possession and acts on none of it: Majora's Mask's member state
- * (two randoInf flags) is read by nothing until stages C2 and C3, and the far
- * pickup credit admits no possession copy until stage C4
- * (Combo_SharedPossessionPickupAdmitted is its rule).
+ * Possession is carried and acted on nowhere yet: Majora's Mask's member state
+ * (two randoInf flags) is read by nothing until stage C3 (through
+ * MM_Combo_WalletGated, never the flag alone), and the far pickup credit admits no
+ * possession copy until stage C4 (Combo_SharedPossessionPickupAdmitted is its
+ * rule).
  */
 
-/** The possession slots stage C0's two frozen bits arm: CHILD_WALLET with
- *  @p childWalletShuffled, BOMBCHU_BAG with @p bombchuBagShuffled. Pure. */
+/** The possession slots two answers arm: CHILD_WALLET with @p childWalletShuffled,
+ *  BOMBCHU_BAG with @p bombchuBagShuffled. Pure. The slot values are .redsave
+ *  format; Combo_SharedPossessionArmed passes false for the bag since #1702 C2. */
 uint32_t Combo_SharedPossessionSlotsArmedBy(bool childWalletShuffled, bool bombchuBagShuffled);
 
-/** The possession slots the FROZEN record arms (Combo_SharedPossessionSlotsArmedBy
- *  of the C0 predicates), 0 while nothing is frozen and in every world frozen
- *  without the C0 bits. Never part of Combo_SharedFamiliesArmed. */
+/** The possession slots the FROZEN record arms: CHILD_WALLET while the frozen
+ *  Shared Child's Wallet rule is on (#1702 C2), never BOMBCHU_BAG; 0 while nothing
+ *  is frozen and in every world frozen without the rule. Never part of
+ *  Combo_SharedFamiliesArmed. */
 uint32_t Combo_SharedPossessionArmed(void);
 
 /** Operator ruling R2 (2026-10-19), one shared wallet progression: a pool wallet

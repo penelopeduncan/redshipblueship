@@ -1569,6 +1569,10 @@ extern "C" int OoT_ComboSettingsRows_RunHeadless(void) {
         ROWS_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SUN, 1) == 1 &&
                        Combo_ComboSettingSet(COMBO_SETTING_SHARED_SONG_SARIAS, 1) == 1,
                    "the writer refused the Shared Sun's Song or Shared Saria's Song value leg 9 needs");
+        // #1702 C2: the Shared Child's Wallet key (no row until #1702 C5): the Reset
+        // button clears it too.
+        ROWS_CHECK(Combo_ComboSettingSet(COMBO_SETTING_SHARED_CHILD_WALLET, 1) == 1,
+                   "the writer refused the Shared Child's Wallet value leg 9 needs");
         for (int i = 0; i < (int)COMBO_SETTING_COUNT; i++) {
             ROWS_CHECK(Combo_ComboSettingIsExplicit((ComboSettingId)i),
                        "leg 9 set '%s' but the store holds no explicit value, so the reset check would be vacuous",

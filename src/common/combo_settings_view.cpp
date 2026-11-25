@@ -104,6 +104,9 @@ const ComboSettingDesc kComboSettingDescs[COMBO_SETTING_COUNT] = {
     // a load that restores one names it in its toast.
     { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN, "Shared Sun's Song" },
     { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS, "Shared Saria's Song" },
+    // #1702 C2: the operator's own name for the row (2026-11-19). No row draws it
+    // until #1702 C5 (RSBS_XITEM2_HIDDEN); a load that restores one names it.
+    { RSBS_CVAR_COMBO_RANDO_SHARED_CHILD_WALLET, "Shared Child's Wallet" },
 };
 
 bool ComboSettingIdValid(ComboSettingId id) {
@@ -179,8 +182,9 @@ const ItemRuleKey kItemRule2Keys[] = {
     { COMBO_SETTING_SHARED_SONG_REQUIEM, RSBS_XITEM2_SHARED_SONG_REQUIEM },
     { COMBO_SETTING_SHARED_SONG_NOCTURNE, RSBS_XITEM2_SHARED_SONG_NOCTURNE },
     { COMBO_SETTING_SHARED_SONG_PRELUDE, RSBS_XITEM2_SHARED_SONG_PRELUDE },
-    { COMBO_SETTING_SHARED_SONG_SUN, RSBS_XITEM2_SHARED_SONG_SUN },       // #1587 S1
-    { COMBO_SETTING_SHARED_SONG_SARIAS, RSBS_XITEM2_SHARED_SONG_SARIAS }, // #1587 S1
+    { COMBO_SETTING_SHARED_SONG_SUN, RSBS_XITEM2_SHARED_SONG_SUN },         // #1587 S1
+    { COMBO_SETTING_SHARED_SONG_SARIAS, RSBS_XITEM2_SHARED_SONG_SARIAS },   // #1587 S1
+    { COMBO_SETTING_SHARED_CHILD_WALLET, RSBS_XITEM2_SHARED_CHILD_WALLET }, // #1702 C2 (played from C5)
 };
 
 } // namespace
@@ -279,8 +283,9 @@ int32_t Combo_ComboSettingDefault(ComboSettingId id) {
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
-        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1
-        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SUN:     // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SARIAS:  // #1587 S1
+        case COMBO_SETTING_SHARED_CHILD_WALLET: // #1702 C2
             // A bit of the second word's defaults, the one definition of "what
             // ships" (RSBS_XITEM2_DEFAULTS: every second-word rule off, OoTMM's).
             return ((uint32_t)RSBS_XITEM2_DEFAULTS & Combo_ComboItemRule2BitFor(id)) != 0u ? 1 : 0;
@@ -353,8 +358,9 @@ bool Combo_ComboSettingValueValid(ComboSettingId id, int32_t value) {
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
-        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1, the same
-        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1, the same
+        case COMBO_SETTING_SHARED_SONG_SUN:     // #1587 S1, the same
+        case COMBO_SETTING_SHARED_SONG_SARIAS:  // #1587 S1, the same
+        case COMBO_SETTING_SHARED_CHILD_WALLET: // #1702 C2, the same
             // EXACTLY 0 or 1, not "nonzero is true" (#886, #668's rule). A flag key
             // holding 2 is a value nobody chose, and the record stores one bit,
             // so a coercion would make two stored values produce the same world.
@@ -626,8 +632,9 @@ const Restorable kRestorable[] = {
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_REQUIEM },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_NOCTURNE },
     { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_PRELUDE },
-    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SUN },    // #1587 S1
-    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SARIAS }, // #1587 S1
+    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SUN },     // #1587 S1
+    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_SONG_SARIAS },  // #1587 S1
+    { RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS, COMBO_SETTING_SHARED_CHILD_WALLET }, // #1702 C2
 };
 
 /** Can the keys put the file's crossItemFlags back? Only when every bit that
@@ -713,8 +720,9 @@ int32_t FrozenValue(const ComboSettingsRecord* frozen, const ComboItemRulesRecor
         case COMBO_SETTING_SHARED_SONG_REQUIEM:
         case COMBO_SETTING_SHARED_SONG_NOCTURNE:
         case COMBO_SETTING_SHARED_SONG_PRELUDE:
-        case COMBO_SETTING_SHARED_SONG_SUN:    // #1587 S1
-        case COMBO_SETTING_SHARED_SONG_SARIAS: // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SUN:     // #1587 S1
+        case COMBO_SETTING_SHARED_SONG_SARIAS:  // #1587 S1
+        case COMBO_SETTING_SHARED_CHILD_WALLET: // #1702 C2
             // A bit of the file's second rules word (0: every rule off).
             return (frozenRules2 & Combo_ComboItemRule2BitFor(id)) != 0u ? 1 : 0;
         default:

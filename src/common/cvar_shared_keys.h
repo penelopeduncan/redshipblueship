@@ -295,6 +295,13 @@
  * until #1587 S7: no row is drawn and Generate refuses a world with either on. */
 #define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SUN "gCombo.Rando.SharedSongSun"
 #define RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS "gCombo.Rando.SharedSongSarias"
+/* #1702 C2: the Shared Child's Wallet (operator ruling 2026-11-19: "shared child
+ * should be an option"), one more bit of the SECOND rules word
+ * (RSBS_XITEM2_SHARED_CHILD_WALLET): one Child's Wallet for the pair. Boolean
+ * (0/1), DEFAULT 0, folded into comboSettingsHash only when on. Inside
+ * RSBS_XITEM2_HIDDEN until #1702 stage C5 draws its row: no row is drawn and
+ * Generate refuses a world with it on. */
+#define RSBS_CVAR_COMBO_RANDO_SHARED_CHILD_WALLET "gCombo.Rando.SharedChildWallet"
 
 /* The common-owned windows' visibility toggles (ADR 0008). PREFERENCE keys:
  * no identity role, live forever. Spelled here so the tier-4 manifest carries
@@ -1749,6 +1756,11 @@ inline constexpr ComboKey kComboKeys[] = {
     { RSBS_CVAR_COMBO_RANDO_SHARED_SONG_SARIAS, ComboKeyClass::Identity,
       "ComboItemRules2Record's RSBS_XITEM2_SHARED_SONG_SARIAS bit (#1587): the two Saria's Songs are one item for "
       "both games (OoTMM sharedSongSarias)" },
+    // #1702 C2: the Shared Child's Wallet, one more bit of the second rules word,
+    // hidden until #1702 C5 and IDENTITY all the same.
+    { RSBS_CVAR_COMBO_RANDO_SHARED_CHILD_WALLET, ComboKeyClass::Identity,
+      "ComboItemRules2Record's RSBS_XITEM2_SHARED_CHILD_WALLET bit (#1702): one Child's Wallet for both games "
+      "(ours; OoTMM's nearest is childWallets under sharedWallets); hidden until #1702 C5" },
     // ---- gCombo.Windows.*: the common-owned windows' visibility (ADR 0008).
     //      All PREFERENCE: whether a pane is open says nothing about a world.
     { RSBS_CVAR_COMBO_WINDOW_SPOILER, ComboKeyClass::Preference, "cross-game spoiler window visibility (#496)" },
@@ -2226,7 +2238,7 @@ static_assert(kDisputedClassificationKeyCount == 0,
               "kSharedIntentKeys by #454");
 
 inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kComboKeys[0]);
-// Forty-nine identity keys (the five of ADR 0011 increment 2 less the two pool sizes
+// Fifty identity keys (the five of ADR 0011 increment 2 less the two pool sizes
 // #801 and the two item classes #834 retired, Goal (ADR 0010 D1), Logic (#1367),
 // TriforcePieces and TriforceGoal (#1389),
 // SharedKokiriSword (#886), SharedShields (#1068), SharedLens (#1065),
@@ -2238,7 +2250,8 @@ inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kCombo
 // warp-song keys SongSoaringOoT, SongMinuetMM .. SongPreludeMM and
 // SharedSongSoaring .. SharedSongPrelude (#1169 XW2),
 // GerudoMaskMM, SkullMaskMM, SpookyMaskMM, SharedMaskGerudo, SharedMaskSkull and
-// SharedMaskSpooky (#980), and SharedSongSun and SharedSongSarias (#1587); #879 retired SharedOcarina (#668)) + four
+// SharedMaskSpooky (#980), SharedSongSun and SharedSongSarias (#1587), and SharedChildWallet (#1702); #879 retired
+// SharedOcarina (#668)) + four
 // window-visibility preferences (the MM randomizer options window's left with
 // it on 2026-09-27, when the options became Combo pages; #458 U0 added the
 // unified item tracker overlay's) + twelve gCombo.Tracker.Items.* preferences
@@ -2249,9 +2262,9 @@ inline constexpr std::size_t kComboKeyCount = sizeof(kComboKeys) / sizeof(kCombo
 // Checks checkbox's visibility).
 // Pinning the count makes a silently dropped row a compile error; the lock's
 // tree scan makes a silently ADDED key a red test.
-static_assert(kComboKeyCount == 69, "forty-nine gCombo.Rando.* identity keys + four gCombo.Windows.* "
+static_assert(kComboKeyCount == 70, "fifty gCombo.Rando.* identity keys + four gCombo.Windows.* "
                                     "preferences + twelve gCombo.Tracker.Items.* preferences + four "
-                                    "gCombo.Tracker.Checks.* preferences = 69");
+                                    "gCombo.Tracker.Checks.* preferences = 70");
 static_assert(kComboRetiredKeyCount == 5, "#1141: the Item Tracker overlay's five twins of SoH's keys");
 
 // #682's curated allowlist was exactly the four keys that issue named; #693 adds

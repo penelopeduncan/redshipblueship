@@ -434,6 +434,24 @@ static inline bool Combo_LogicRungProves(uint8_t rung) {
 #define RSBS_COMBO_FLAG_SHUFFLED_CHILD_WALLET 0x20u
 #define RSBS_COMBO_FLAG_SHUFFLED_BOMBCHU_BAG 0x40u
 
+/**
+ * THE SHARED BOMBCHU BAG MARKER (#1702 stage C2), RESERVED, NOT ALLOCATED: the
+ * last bit of the byte, kept for the creation-derived "this file shares one
+ * Bombchu Bag (and its levels) between the two games" that stage C8 writes and
+ * reads. Until C8 it is in NEITHER RSBS_COMBO_FLAGS_ALL_V1 NOR
+ * RSBS_COMBO_FLAGS_CREATION_DERIVED, on purpose: a frozen 0x80 is then an
+ * unallocated bit, which the session compare never copies from the file and
+ * reports at RSBS_COMBO_DIVERGE_COMBO_FLAGS (Combo_ComboSettingsDivergenceBetween),
+ * so every pre-C8 build refuses a C8 file instead of playing it with the bag
+ * split, whatever the release order of C7 and C8. Nothing writes it before C8;
+ * Combo_ComboBombchuBagShared reads it (0 on every loadable file until then).
+ * C8 moves it into both masks in the same pull request as its writer. With the
+ * bit clear the byte, the canonical bytes and the fingerprint are what they were.
+ * comboFlags has no other free bit, so every later marker of this kind is a
+ * second-word derived bit (RSBS_XITEM2_DERIVED).
+ */
+#define RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG 0x80u
+
 /** The comboFlags bits no key authors: the creation derives them, and every
  *  session compare takes them from the file. */
 #define RSBS_COMBO_FLAGS_CREATION_DERIVED                                                                              \
@@ -480,6 +498,12 @@ RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLA
                        "allocate the next free bit and never re-point an allocated one (ADR 0011 "
                        "decision 1.2.1, amended 2026-09-16 for #668, 2026-10-10 for #886, 2026-11-02 for #1369, "
                        "2026-11-16 for #1652 and 2026-11-19 for #1702)");
+RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG == 0x80u &&
+                           (RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG & RSBS_COMBO_FLAGS_ALL_V1) == 0u &&
+                           (RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG & RSBS_COMBO_FLAGS_CREATION_DERIVED) == 0u,
+                       "comboFlags 0x80 is RESERVED for the Shared Bombchu Bag marker (#1702 C2) and stays "
+                       "unallocated until stage C8 allocates it with its writer, so every pre-C8 build refuses a "
+                       "frozen 0x80 at RSBS_COMBO_DIVERGE_COMBO_FLAGS");
 
 // ============================================================================
 // The cross-game ITEM RULES (#976, epic #975 P1): ComboItemRulesRecord's value
@@ -621,11 +645,16 @@ RSBS_CTX_STATIC_ASSERT(RSBS_COMBO_FLAG_SHARED_OCARINA == 0x01u && RSBS_COMBO_FLA
  *  whose every family bit IS its rule bit (RSBS_XITEM2_FAMILY_MASK), so a
  *  non-rule slot there would take the next second-word rule's bit (#1767 took
  *  0x4000 and 0x8000 for the Shared Sun's and Saria's Songs).
- *  ARMED ONLY BY THE FROZEN COMBO FLAGS of stage C0 (Combo_SharedPossessionArmed,
- *  shared_resources.h), never by a rule: Combo_SharedFamiliesArmed never returns
- *  them, so the item-id paths (the far-pickup credit, the shared bag pairs, the
- *  name tags) never see them, and a file frozen without the C0 bits never writes
- *  them. */
+ *  ARMED (Combo_SharedPossessionArmed, shared_resources.h) since #1702 C2 only by
+ *  the FROZEN Shared Child's Wallet rule (RSBS_XITEM2_SHARED_CHILD_WALLET) for
+ *  CHILD_WALLET, and by NOTHING for BOMBCHU_BAG: never by comboFlags 0x20 / 0x40,
+ *  which stay creation-derived records of OoT's own shuffles with no reader in
+ *  shared_resources.c (stage C1 armed from them; released files therefore disarm,
+ *  which no play path observes). Combo_SharedFamiliesArmed never returns them, so
+ *  the item-id paths (the far-pickup credit, the shared bag pairs, the name tags)
+ *  never see them, and a file frozen without the rule never writes them. The
+ *  BOMBCHU_BAG slot stays allocated (its bit is .redsave format; never re-point
+ *  it), but its only transport from stage C7 on is a tier kind. */
 #define RSBS_XFAMILY_SLOT_CHILD_WALLET 0x00000200u
 #define RSBS_XFAMILY_SLOT_BOMBCHU_BAG 0x00000400u
 /** Both possession slots (#1702 C1). */
@@ -830,7 +859,9 @@ void Combo_ComboSettingsApplyCreationBagShuffles(ComboSettingsRecord* settings, 
  * paired creation took from Ocarina of Time's own option. False while nothing is
  * frozen (an unpaired file, the title screen), and never a CVar or a seed
  * setting: a change of the option after creation does not change the answer.
- * Read by nothing in production yet; the later stages of #1702 do.
+ * Read by nothing in production since #1702 C2 (stage C1's possession arming was
+ * its only reader; the arming follows the Shared Child's Wallet rule now, because
+ * a split file holds these bits too). The bits keep their recorded meaning.
  */
 bool Combo_ComboChildWalletShuffled(void);
 bool Combo_ComboBombchuBagShuffled(void);
@@ -909,7 +940,9 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // `sharedSongSarias` (#1587 S1). Neither has a second-word extension bit:
 // OoTMM's `songSunMm` / `songSariasMm` are Majora's Mask's own song-shuffle rows
 // here (RO_SHUFFLE_SONG_SUN / _SARIA), which the shared rule turns on, so they
-// take no bit in this word. Bits 16-31 are free, which leaves room for OoTMM's
+// take no bit in this word. #1702 C2 took bit 16 (the Shared Child's Wallet rule)
+// and bit 19 (a derived marker), leaving bits 17-18 to its stage C6 and bit 20 to
+// its stage C7. The other bits above 15 are free, which leaves room for OoTMM's
 // seven remaining extensions (`elegyOot`, `songHealingOot`, `songAwakeningOot`,
 // `songGoronOot`, `songZoraOot`, `songOrderOot`, `songZeldaLullabyMm`) and their
 // seven `sharedSong*` rows (the shared Epona's Song, Song of Storms and Song of
@@ -966,6 +999,25 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
 // ruling, #1587 S3).
 #define RSBS_XITEM2_SHARED_SONG_SUN 0x00004000u    // OoTMM sharedSongSun
 #define RSBS_XITEM2_SHARED_SONG_SARIAS 0x00008000u // OoTMM sharedSongSarias
+// #1702 C2: THE SHARED CHILD'S WALLET rule (operator ruling 2026-11-19 and its
+// clarification: "Shared Child's Wallet" is its own row, like Shared Sun's Song).
+// One Child's Wallet for the pair. No OoTMM key of this name: OoTMM's nearest is
+// childWallets under sharedWallets (data.ts:2074, :3360; transform.ts:1183-1191,
+// :1830-1831). Requires no second-word bit. Not a second-word FAMILY: its
+// transport is the first word's possession slot RSBS_XFAMILY_SLOT_CHILD_WALLET,
+// which this rule alone arms (Combo_SharedPossessionArmed). Inside
+// RSBS_XITEM2_HIDDEN until stage C5 draws its row and plays it; stage C3 is the
+// first to read it in a consumer (MM_Combo_ChildWalletShuffled).
+#define RSBS_XITEM2_SHARED_CHILD_WALLET 0x00010000u // ours: "sharedChildWallet"
+// 0x00020000 and 0x00040000 are left for #1702 stage C6's two keyed split rules.
+// #1702 C2 (open question 9, reserved only): THE OWN CHILD'S WALLETS marker, a
+// DERIVED bit no key authors (RSBS_XITEM2_DERIVED): "each game has its own Child's
+// Wallet, so ruling R2 (a pool wallet tier of 1 or more is a wallet) does not
+// hold". Stage C3 is its first writer and reader (the creation ORs it in after
+// the hidden-rules gate; OoT's wallet-tier apply gates R2 on it). No writer and no
+// reader before C3, and inside RSBS_XITEM2_HIDDEN until then, so a file holding
+// it is refused by name rather than played with R2 on.
+#define RSBS_XITEM2_OWN_CHILD_WALLETS 0x00080000u // ours: "ownChildWallets", derived
 
 /** The seven warp-song extensions, and the seven shared songs over them. */
 #define RSBS_XITEM2_WARP_SONG_EXTENSIONS 0x0000007Fu
@@ -976,9 +1028,19 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
  *  Song) (#1587 S1). */
 #define RSBS_XITEM2_SHARED_SONGS \
     (RSBS_XITEM2_WARP_SONG_SHARED | RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)
+/** #1702 C2: the second-word bits NO KEY AUTHORS: creation-derived markers (the
+ *  comboFlags byte is full). Never a row (Combo_ComboItemRule2Offered) and never
+ *  resolved from the keys (Combo_ResolveComboItemRules2). A frozen one has no key
+ *  to restore it, so until its stage takes the session's copy from the file (C3:
+ *  `live2 |= frozenRules2 & RSBS_XITEM2_DERIVED` in the two compares) a file
+ *  holding one diverges; every bit here is also inside RSBS_XITEM2_HIDDEN until
+ *  that stage lands. Stage C7 adds 0x00100000. */
+#define RSBS_XITEM2_DERIVED RSBS_XITEM2_OWN_CHILD_WALLETS
 /** Every RSBS_XITEM2_* bit ALLOCATED by this build. A frozen word holding any
  *  other bit was written by a later build. */
-#define RSBS_XITEM2_ALL_V1 (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_SHARED_SONGS)
+#define RSBS_XITEM2_ALL_V1                                                                           \
+    (RSBS_XITEM2_WARP_SONG_EXTENSIONS | RSBS_XITEM2_SHARED_SONGS | RSBS_XITEM2_SHARED_CHILD_WALLET | \
+     RSBS_XITEM2_DERIVED)
 /** The six Majora's Mask extensions (songMinuetMm .. songPreludeMm). */
 #define RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS 0x0000007Eu
 /** The allocated bits no world of this build may hold yet: the Shared Sun's Song
@@ -989,8 +1051,11 @@ bool Combo_ComboItemRulesClear(const ComboItemRulesRecord* rec);
  *  and XW14 the seven shared warp songs once IntMMWarpSongMinuetShared played a
  *  Minuet learnt only in Ocarina of Time in Majora's Mask, through the shared
  *  family. A rule allocated later and not yet playable goes here until its own
- *  proof is written. */
-#define RSBS_XITEM2_HIDDEN (RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)
+ *  proof is written. #1702 C2: the Shared Child's Wallet rule (until stage C5) and
+ *  the own-child-wallets marker (until stage C3, its first writer and reader). */
+#define RSBS_XITEM2_HIDDEN                                                                            \
+    (RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS | RSBS_XITEM2_SHARED_CHILD_WALLET | \
+     RSBS_XITEM2_OWN_CHILD_WALLETS)
 /** The second-word bits that are SHARED-PAIR FAMILIES (#1169 XW10): the bit is
  *  both the rule and the family's bit in gComboCtx.sharedFamilyOwned2. PINNED,
  *  APPEND-ONLY: a family bit is .redsave format. Never an extension bit. Every
@@ -1012,7 +1077,7 @@ RSBS_CTX_STATIC_ASSERT(
         RSBS_XITEM2_SHARED_SONG_SOARING == 0x80u && RSBS_XITEM2_SHARED_SONG_PRELUDE == 0x2000u &&
         RSBS_XITEM2_SHARED_SONG_SUN == 0x4000u && RSBS_XITEM2_SHARED_SONG_SARIAS == 0x8000u &&
         RSBS_XITEM2_SHARED_SONGS == 0x0000FF80u &&
-        (RSBS_XITEM2_SHARED_SONGS & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u && RSBS_XITEM2_ALL_V1 == 0x0000FFFFu &&
+        (RSBS_XITEM2_SHARED_SONGS & RSBS_XITEM2_WARP_SONG_EXTENSIONS) == 0u && RSBS_XITEM2_ALL_V1 == 0x0009FFFFu &&
         (RSBS_XITEM2_WARP_SONG_EXTENSIONS << RSBS_XITEM2_WARP_SONG_SHARED_SHIFT) == RSBS_XITEM2_WARP_SONG_SHARED &&
         RSBS_XITEM2_MM_WARP_SONG_EXTENSIONS == (RSBS_XITEM2_WARP_SONG_EXTENSIONS & ~RSBS_XITEM2_SONG_SOARING_OOT) &&
         (RSBS_XITEM2_HIDDEN & ~RSBS_XITEM2_ALL_V1) == 0u && RSBS_XITEM2_DEFAULTS == 0u,
@@ -1024,6 +1089,15 @@ RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
                            (RSBS_XITEM2_FAMILY_MASK & ~RSBS_XITEM2_ALL_V1) == 0u,
                        "RSBS_XITEM2_FAMILY_MASK bits are gComboCtx.sharedFamilyOwned2 bits, .redsave format: pinned, "
                        "append-only, never an extension rule (#1169 XW10)");
+RSBS_CTX_STATIC_ASSERT(RSBS_XITEM2_SHARED_CHILD_WALLET == 0x00010000u && RSBS_XITEM2_OWN_CHILD_WALLETS == 0x00080000u &&
+                           RSBS_XITEM2_DERIVED == 0x00080000u && (RSBS_XITEM2_DERIVED & ~RSBS_XITEM2_ALL_V1) == 0u &&
+                           (RSBS_XITEM2_DERIVED & RSBS_XITEM2_HIDDEN) == RSBS_XITEM2_DERIVED &&
+                           (RSBS_XITEM2_SHARED_CHILD_WALLET & RSBS_XITEM2_HIDDEN) == RSBS_XITEM2_SHARED_CHILD_WALLET &&
+                           ((RSBS_XITEM2_DERIVED | RSBS_XITEM2_SHARED_CHILD_WALLET) & RSBS_XITEM2_FAMILY_MASK) == 0u &&
+                           RSBS_XITEM2_HIDDEN == 0x0009C000u,
+                       "#1702 C2: the Shared Child's Wallet rule (0x10000) and the derived own-child-wallets marker "
+                       "(0x80000) are .redsave and seed-package format, allocated, hidden (the rule until C5, the "
+                       "marker until C3), and never a second-word family");
 RSBS_CTX_STATIC_ASSERT(RSBS_XFAMILY_SLOT_COUNT == RSBS_XITEM_BIT_COUNT + RSBS_XITEM2_BIT_COUNT,
                        "a shared-pair buffer holds one pair per family slot of both words, so it is at least "
                        "popcount(RSBS_XFAMILY_SLOTS_ALL) + popcount(RSBS_XITEM2_FAMILY_MASK) (#1169 XW10)");
@@ -1042,8 +1116,9 @@ void Combo_ComboItemRules2Store(ComboItemRules2Record* rec, uint32_t word);
 uint32_t Combo_ComboItemRule2Requires(uint32_t bit);
 
 /** OoTMM's key for ONE RSBS_XITEM2_* bit ("songSoaringOot", "sharedSongMinuet",
- *  ..., "sharedSongSun", "sharedSongSarias"), or "(unknown)" for an unallocated
- *  bit or a mask with more than one bit set. Never NULL. */
+ *  ..., "sharedSongSun", "sharedSongSarias"; #1702 C2's "sharedChildWallet" and
+ *  the derived "ownChildWallets", ours), or "(unknown)" for an unallocated bit or
+ *  a mask with more than one bit set. Never NULL. */
 const char* Combo_ComboItemRule2Name(uint32_t bit);
 
 /**
@@ -1076,6 +1151,25 @@ uint32_t Combo_ComboCrossItemFlags2(void);
 bool Combo_ComboCrossItemRule2(uint32_t bit);
 
 /**
+ * #1702 C2: does this file give EACH GAME ITS OWN Child's Wallet (the frozen
+ * derived marker RSBS_XITEM2_OWN_CHILD_WALLETS)? False while nothing is frozen,
+ * and false on every file a C2 build loads (nothing writes the marker, and a file
+ * holding it is refused while it is inside RSBS_XITEM2_HIDDEN). Read by nothing
+ * yet: stage C3 gates ruling R2 (OoT's wallet-tier apply) on it.
+ */
+bool Combo_ComboOwnChildWallets(void);
+
+/**
+ * #1702 C2: does this file share ONE Bombchu Bag between the two games (the
+ * frozen comboFlags RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG)? Frozen record only, never
+ * a CVar. 0x80 is reserved and unallocated until stage C8 (a frozen 0x80 is
+ * refused at load and nothing writes it), so this is false on every loadable file
+ * until then. Read by nothing yet: stage C7 may arm its tier kind from it, and C8
+ * reads it in OoT's Bombchu grant (OoT_SharedAmmoGrantBlocked) and MM's capacity.
+ */
+bool Combo_ComboBombchuBagShared(void);
+
+/**
  * THE GATE ON A WORLD THIS BUILD CREATES OR ADOPTS (#1169 XW2). The bits of
  * @p word this build refuses to freeze at Generate, to take from a seed
  * package, or to load from a .redsave: an unallocated bit, a shared song
@@ -1094,7 +1188,8 @@ uint32_t Combo_ComboItemRules2Refused(uint32_t word, char* names, size_t len);
  * iff @p bit is exactly one allocated bit outside the hidden mask, read the way
  * Combo_ComboItemRules2Refused reads it (so the test reveal empties it). The
  * Cross-Game Rules page draws a row only while this is true: a bit leaving
- * RSBS_XITEM2_HIDDEN shows its row with no UI change.
+ * RSBS_XITEM2_HIDDEN shows its row with no UI change. A derived bit
+ * (RSBS_XITEM2_DERIVED, #1702 C2) is never offered, even under the reveal.
  */
 bool Combo_ComboItemRule2Offered(uint32_t bit);
 

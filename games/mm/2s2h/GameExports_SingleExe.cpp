@@ -99,6 +99,7 @@
 #include "2s2h/ObjectExtension/ObjectExtension.h" // #666: MM_RetireAbandonedSession
 #include "2s2h/Rando/Foreign.h"                   // attempt-ladder outcome accessors (ADR 0010 inc. 1.2)
 #include "2s2h/Rando/StickNutBagGate.h"           // #1652 A1: defined below, header-checked
+#include "2s2h/Rando/WalletChuGate.h"             // #1702 C2: defined below, header-checked
 #include "2s2h/ShipInit.hpp"
 #include "2s2h/resource/type/2shResourceType.h"
 #include "2s2h/resource/importer/PathFactory.h"
@@ -6404,13 +6405,17 @@ const MMSharedSwimRegistrar gMMSharedSwimRegistrar;
 // MM's copies of the two possession slots (RSBS_XFAMILY_SLOT_CHILD_WALLET,
 // RSBS_XFAMILY_SLOT_BOMBCHU_BAG): RANDO_INF_OBTAINED_CHILD_WALLET and
 // RANDO_INF_OBTAINED_BOMBCHU_BAG, which only these gives write and nothing reads
-// until stages C2 and C3. A member is asked only while its slot is armed, which is
-// only while Ocarina of Time's shuffle froze the slot on
-// (Combo_SharedPossessionArmed), so the raw reads below already follow the
-// frozen bit first. The GIVES write the flags directly, as the swim give does
-// (no flag-set hook before gameplay). POOLED is false: the pair is never a shared
-// bag row. The bag member's id is a PLACEHOLDER (RI_UNKNOWN): MM has no Bombchu
-// Bag item, and stage C2 replaces it with its stand-in.
+// until stage C3 (and then only through MM_Combo_WalletGated, WalletChuGate.h). A
+// member is asked only while its slot is armed. Since #1702 C2 the Child's Wallet
+// slot is armed only by the frozen Shared Child's Wallet rule
+// (RSBS_XITEM2_SHARED_CHILD_WALLET, Combo_SharedPossessionArmed), and the Bombchu
+// Bag slot is armed by nothing. The bag member is registered but dead: the bag's
+// only transport will be stage C7's tier kind, and C7 deletes this member before
+// it reuses RANDO_INF_OBTAINED_BOMBCHU_BAG (released 0x40 files may hold the flag
+// set by C1 gives). RI_UNKNOWN stays: the stand-in belongs in
+// Rando_IsSharedCreditStandIn (C8), not here. The GIVES write the flags directly,
+// as the swim give does (no flag-set hook before gameplay). POOLED is false: the
+// pair is never a shared bag row.
 
 namespace {
 
@@ -6445,13 +6450,33 @@ bool MM_SharedPossessionPooled(uint16_t nativeId) {
 
 } // namespace
 
+// ---- #1702 C2: the pair's Child's Wallet and Bombchu Bag questions --------------
+// (2s2h/Rando/WalletChuGate.h). The frozen record only: nothing here reads a CVar,
+// a fileNum or a PlayState. No consumer reads them until stage C3 (the wallet) and
+// stage C8 (the bag).
+
+extern "C" int MM_Combo_ChildWalletShuffled(void) {
+    // Stage C3 ORs in MM's own frozen RO_SHUFFLE_CHILD_WALLET, never a CVar.
+    return Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_CHILD_WALLET) ? 1 : 0;
+}
+
+extern "C" int MM_Combo_WalletGated(void) {
+    // Never the flag alone: it is clear in every default MM file, and released
+    // 0x20 files may hold it set from C1 gives.
+    return (MM_Combo_ChildWalletShuffled() != 0 && !MM_SharedChildWalletHeld(0)) ? 1 : 0;
+}
+
+extern "C" int MM_Combo_ChuBagShared(void) {
+    return Combo_ComboBombchuBagShared() ? 1 : 0;
+}
+
 /** Register MM's copies of the pair's two possession slots (#1702 C1). Idempotent;
  *  the static registrar below runs it at start-up. */
 extern "C" void MM_RegisterSharedPossessionFamilies(void) {
     const ComboSharedFamilyMember wallet = { (uint16_t)RI_PROGRESSIVE_WALLET, MM_SharedChildWalletHeld,
                                              MM_SharedChildWalletGive, MM_SharedPossessionPooled };
     Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_CHILD_WALLET, &wallet);
-    // Stage C2 replaces RI_UNKNOWN with its Bombchu Bag stand-in.
+    // Dead since #1702 C2 (the slot is armed by nothing); C7 deletes this member before reusing flag 81.
     const ComboSharedFamilyMember bag = { (uint16_t)RI_UNKNOWN, MM_SharedBombchuBagHeld, MM_SharedBombchuBagGive,
                                           MM_SharedPossessionPooled };
     Combo_RegisterSharedFamilyMember(GAME_MM, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, &bag);

@@ -271,6 +271,7 @@ games/oot/soh/oot_load_reconcile_test.cpp
 games/mm/2s2h/mm_shared_tier_test.cpp
 games/oot/soh/oot_shared_tier_test.cpp
 games/mm/2s2h/Rando/StickNutBagGate.h
+games/mm/2s2h/Rando/WalletChuGate.h
 games/oot/soh/Enhancements/randomizer/StickNutBagGate.h
 games/mm/2s2h/mm_stick_nut_bag_test.cpp
 games/mm/2s2h/mm_shared_lens_test.cpp
