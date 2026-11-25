@@ -12392,9 +12392,10 @@ const TestDescriptor gTests[] = {
       "With every warp-song rule on and Shuffle Songs Anywhere, each shared warp song is one bag pair row over both "
       "worlds, never Link's Pocket (#1169 XW10)",
       Test_SharedWarpSongsOneCopyAnywhere },
-    // #1587 stage A: the Shared Sun's Song and Shared Saria's Song, one copy each.
-    // Each needs a paired creation; skipped by `--test all` below like its siblings.
-    // #1587 stage B: under Off each stays on OoT's default check.
+    // #1587: the Shared Sun's Song and Shared Saria's Song, one copy each (stage A:
+    // Song Locations, Dungeon Rewards, Anywhere; stage B: under Off each stays on
+    // OoT's default check). Each needs a paired creation; skipped by `--test all`
+    // below like its siblings.
     { "shared-sun-saria-one-copy-off",
       "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs Off, each stays on OoT's default check "
       "(Royal Family's Tomb, Saria), no copy in MM, one fixed credit OoT -> MM each, delivered (#1587)",

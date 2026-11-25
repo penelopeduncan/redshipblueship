@@ -439,7 +439,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SUN] == RO_GENERIC_YES) {
 #ifdef RSBS_SINGLE_EXECUTABLE
         // [RSBS #1587] Under the frozen Shared Sun's Song rule MM pools no copy of its
-        // own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        // own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h), or under
+        // Shuffle Songs Off it stays on OoT's default check with one fixed credit to MM
+        // (combo_single_bag.c, stage B).
         if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SUN)) {
             itemPool.push_back(RI_SONG_SUN);
         }
@@ -456,7 +458,9 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SARIA] == RO_GENERIC_YES) {
 #ifdef RSBS_SINGLE_EXECUTABLE
         // [RSBS #1587] Under the frozen Shared Saria's Song rule MM pools no copy of
-        // its own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        // its own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h), or
+        // under Shuffle Songs Off it stays on OoT's default check with one fixed credit to
+        // MM (combo_single_bag.c, stage B).
         if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SARIAS)) {
             itemPool.push_back(RI_SONG_SARIA);
         }
