@@ -142,6 +142,10 @@ extern "C" int MM_SnbTest_HagsLineArms(int* outFreePotion) {
     *outFreePotion = -1;
     return -1;
 }
+extern "C" void MM_SnbTest_ShelfStateSave(void) {
+}
+extern "C" void MM_SnbTest_ShelfStateRestore(void) {
+}
 #else
 
 extern "C" {
@@ -440,6 +444,30 @@ extern "C" int MM_SnbTest_HagsLineArms(int* outFreePotion) {
     const int arms = Rando::ActorBehavior::HagsMushroomLineArms() ? 1 : 0;
     *outFreePotion = CHECK_WEEKEVENTREG(WEEKEVENTREG_RECEIVED_FREE_BLUE_POTION) ? 1 : 0;
     return arms;
+}
+
+namespace {
+// The (L) block's snapshot: the four shelf checks (SnbMmShelfCheck) and the weekly
+// byte that holds WEEKEVENTREG_RECEIVED_FREE_BLUE_POTION.
+const int kSnbMmShelfSlots = 4;
+RandoSaveCheck sSnbMmSavedShelfChecks[kSnbMmShelfSlots];
+u8 sSnbMmSavedFreePotionByte;
+} // namespace
+
+/** Save the shelf checks and the free-potion byte the (L) block writes. */
+extern "C" void MM_SnbTest_ShelfStateSave(void) {
+    for (int slot = 0; slot < kSnbMmShelfSlots; slot++) {
+        sSnbMmSavedShelfChecks[slot] = RANDO_SAVE_CHECKS[SnbMmShelfCheck(slot)];
+    }
+    sSnbMmSavedFreePotionByte = WEEKEVENTREG(WEEKEVENTREG_RECEIVED_FREE_BLUE_POTION >> 8);
+}
+
+/** Put back what MM_SnbTest_ShelfStateSave saved. */
+extern "C" void MM_SnbTest_ShelfStateRestore(void) {
+    for (int slot = 0; slot < kSnbMmShelfSlots; slot++) {
+        RANDO_SAVE_CHECKS[SnbMmShelfCheck(slot)] = sSnbMmSavedShelfChecks[slot];
+    }
+    WEEKEVENTREG(WEEKEVENTREG_RECEIVED_FREE_BLUE_POTION >> 8) = sSnbMmSavedFreePotionByte;
 }
 
 #endif

@@ -120,6 +120,8 @@ int MM_SnbTest_ShelfBuy(int slot, int price);
 int MM_SnbTest_ShelfObtained(int slot);
 int MM_SnbTest_HagsArmable(void);
 int MM_SnbTest_HagsLineArms(int* outFreePotion);
+void MM_SnbTest_ShelfStateSave(void);
+void MM_SnbTest_ShelfStateRestore(void);
 void MM_Rando_TestColdJunkCache(void); // games/mm/2s2h/Rando/ConvertItem.cpp
 // games/mm/2s2h/mm_shared_tier_test.cpp, games/oot/soh/oot_shared_tier_test.cpp
 int MM_SharedTierTest_HostCheck(int which);
@@ -670,8 +672,11 @@ TestResult MMStickNutBagGate_Run(void) {
     // ---- (L) #1788: a shelf locked behind its bag shows its item and refuses the sale ----
     // Shelf slots (mm_stick_nut_bag_test.cpp): 0 and 1 the Trading Post, 2 the Hags'
     // mushroom shelf, 3 the Bomb Shop's first shelf. MM_SnbTest_ShelfCanBuy answers
-    // 0 SUCCESS_2, 1 CANNOT_GET_NOW, 2 NEED_RUPEES.
+    // 0 SUCCESS_2, 1 CANNOT_GET_NOW, 2 NEED_RUPEES. The four shelf checks and the
+    // Hags' weekly free-potion byte are saved here and put back before (A), as
+    // MM_EnGirlA_TestHagsDeliveredFreePotion does for its check and byte.
     const int kSnbShelfPrice = 10;
+    MM_SnbTest_ShelfStateSave();
     for (const auto& w : kSnbWorlds) {
         for (int which = 0; which < 5; which++) {
             const int ri = MM_SnbTest_RandoId(which);
@@ -904,6 +909,7 @@ TestResult MMStickNutBagGate_Run(void) {
             Combo_ClearForeignPlacementsOoT();
         }
     }
+    MM_SnbTest_ShelfStateRestore();
 
     // ---- (A) The source anchors ----------------------------------------------------------
     {
