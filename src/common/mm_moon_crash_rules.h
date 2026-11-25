@@ -42,6 +42,18 @@
  * Location says; Combo_MmLairSaveLandsOnMoonField is that rule. The four
  * trials and the Moon field keep 2Ship's choice.
  *
+ * THE CRASH CUTSCENE (#1789). OoTMM's Interface_SkipMoonCrash (mm/interface.c)
+ * replaces Interface_Update's call to Interface_StartMoonCrash and, under
+ * CFG_MM_MOON_CRASH_CYCLE, runs Sram_SaveEndOfCycle on the crash frame and
+ * sends the player through a white fade to its Clock Tower landing (0xC030,
+ * which play.c rewrites to its initial entrance), so neither the Termina Field
+ * moonfall nor the Fire Wall plays. This build keeps Interface_StartMoonCrash
+ * and its white fade, and skips both cutscenes where the Story cutscene skip
+ * already does (SkipMoonCrash.cpp, from Play_Init's func_800EDDB0): when the
+ * arrival is the moon's fall (Combo_MmIsMoonFallArrival) and the file's frozen
+ * behaviour is New Cycle (Combo_MmNewCycleSkipsCrashCutscene). Last Save keeps
+ * both cutscenes, as in OoTMM.
+ *
  * Game-header-free and pure: every input is an argument, so a ROM-free row
  * drives each rule without a PlayState, a CVar or a save.
  */
@@ -99,6 +111,32 @@ int Combo_MmRoofSaveLandsAtCrossing(int sceneIsRoof, int paired, int frozenMoonC
  * keep 2Ship2Harkinian's choice (e5e9f3364).
  */
 int Combo_MmLairSaveLandsOnMoonField(int sceneIsLair);
+
+/**
+ * ENTRANCE(TERMINA_FIELD, 12), where Interface_StartMoonCrash sends the moon's
+ * fall (z_parameter.c) and OoTMM's Last Save branch writes the same literal
+ * (mm/interface.c). SkipMoonCrash.cpp static-asserts the two agree.
+ */
+#define RSBS_MM_ENTRANCE_MOON_FALL 0x54C0u
+
+/**
+ * Whether the moon's fall skips the Termina Field and Fire Wall cutscenes
+ * (#1789): 1 only when the file's frozen Moon Crash Behavior (@p frozenMoonCrash,
+ * MM_Rando_FrozenMoonCrash, which already folds the Shared Song of Time and
+ * Shuffle Ocarina forcing) is New Cycle, the same predicate under which
+ * Sram_ResetSaveFromMoonCrash starts a new cycle. Last Save keeps both.
+ */
+int Combo_MmNewCycleSkipsCrashCutscene(int frozenMoonCrash);
+
+/**
+ * Whether Play_Init is arriving as the moon's fall: @p entrance is
+ * RSBS_MM_ENTRANCE_MOON_FALL with cutscene index 0 (Interface_StartMoonCrash's
+ * nextCutsceneIndex) and no respawn (@p respawnFlag 0: the telescope's
+ * "fourth day" timing the Story skip's own guard keeps). The Giants' failure
+ * from the Clock Tower roof (ENTRANCE(TERMINA_FIELD, 1), 0xFFF0) is not this
+ * arrival, so its cutscene plays, as in OoTMM.
+ */
+int Combo_MmIsMoonFallArrival(uint16_t entrance, int32_t cutsceneIndex, int32_t respawnFlag);
 
 #ifdef __cplusplus
 }

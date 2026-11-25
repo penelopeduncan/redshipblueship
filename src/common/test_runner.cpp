@@ -12828,12 +12828,14 @@ const TestDescriptor gTests[] = {
     { "mm-moon-crash-cycle-reset",
       "A moon crash under New Cycle starts a new cycle (Dawn of the First Day, human form, no mask) keeping inventory "
       "and quest items found after the last commit, and commits it; the last-commit rollback does not run (#1069); "
+      "the reset runs at the moon's fall from Play_Init and writes the landing, so no crash cutscene plays (#1789); "
       "under Shuffle Time the first EnTest4 update lands on the earliest owned half-day (#1671)",
       Test_MMMoonCrashCycleReset },
     { "mm-moon-crash-arrival",
       "After a moon crash (Last Save or New Cycle, Story cutscene skipped or not) a paired file lands in South Clock "
       "Town (0xD800), the Song of Time's spawn, not the Clock Tower interior's spawn 3 (0xC030) with the salesman's "
-      "cutscene; other entrances and a session with no combo file are unchanged (#1278)",
+      "cutscene; other entrances and a session with no combo file are unchanged (#1278); through Play_Init, New "
+      "Cycle skips the crash cutscenes and resets once with or without the Story skip, and Last Save does not (#1789)",
       Test_MMMoonCrashArrival },
     { "mm-moon-crash-story-skip-icons",
       "With the Story cutscene skip on, a New Cycle moon crash with a trade item or a bottled drink on a C or D-pad "
@@ -13028,9 +13030,10 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       INT_TEST_CROSSING_REFUSED_MM, GAME_MM },
     { "int-mm-moon-crash-cycle",
       "MM boots on its debug save outside the Clock Tower, the file is marked New Cycle (OoTMM's moonCrash 'cycle'), "
-      "and the moon falls through the real crash cutscene: the scene after it must be a NEW cycle (one more three-day "
-      "reset, the cycle's Deku record cleared) at the Dawn of the First Day with the mask, the bottle and the song "
-      "kept (#1069)",
+      "and the moon falls: no frame plays in Termina Field or the Fire Wall (the cutscene skip and the reset each log "
+      "once, #1789), and the first scene after the fade, the Clock Tower interior, must be a NEW cycle (one more "
+      "three-day reset, the cycle's Deku record cleared) at the Dawn of the First Day with the mask, the bottle and "
+      "the song kept (#1069)",
       INT_TEST_MM_MOON_CRASH_CYCLE, GAME_MM },
     { nullptr, nullptr, INT_TEST_NONE, GAME_NONE } // Sentinel
 };

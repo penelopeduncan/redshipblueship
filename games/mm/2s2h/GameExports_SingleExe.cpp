@@ -1139,14 +1139,17 @@ static void MMCrRegisterHooks(void) {
 // records what a new cycle must keep (the Bunny Hood, the Song of Healing, a
 // bottle) and what only a new cycle clears (a Deku Playground record and the
 // three-day reset count), and lets the moon fall through the REAL
-// Interface_StartMoonCrash. The moon falls in Termina Field, the Fire Wall
-// follows in the cutscene scene (SCENE_SPOT00), and its
-// CS_MISC_RESET_SAVE_FROM_MOON_CRASH runs the reset. Once gameplay is live in
-// the scene after the Fire Wall, the file must be in a NEW cycle with its
-// progress: day 1 or the dawn before it, one more three-day reset, the record
-// cleared, the mask, the song and the bottle kept. A debug session has no
-// .redsave slot, so under Last Save the crash would restart the clock and keep
-// the bytes (#785's no-commit leg): the reset count and the cleared record are
+// Interface_StartMoonCrash. Since #1789 New Cycle skips the moonfall in Termina
+// Field and the Fire Wall (SCENE_SPOT00), as OoTMM does: the white fade, then
+// Play_Init's func_800EDDB0 runs the reset and takes the landing, so a frame
+// in either scene is a FAIL. Once gameplay is live in the scene after the
+// crash (the Clock Tower interior, 0xC030: a debug session is unpaired), the
+// file must be in a NEW cycle with its progress: day 1 or the dawn before it,
+// one more three-day reset, the record cleared, the mask, the song and the
+// bottle kept, and SkipMoonCrash.cpp's #1789 line and z_sram_NES.c's #1069
+// line each printed exactly once (the stderr tee, started on MM's first
+// frame). A debug session has no .redsave slot, so under Last Save the crash
+// would restart the clock and keep the bytes (#785's no-commit leg): the reset count and the cleared record are
 // what tell a new cycle from that.
 typedef enum {
     MMMC_STAGE_BOOT,
@@ -1161,10 +1164,19 @@ static MMMcStage sMMMcStage = MMMC_STAGE_BOOT;
 static int sMMMcLiveFrames = 0;
 static std::chrono::steady_clock::time_point sMMMcStageStart{};
 static u16 sMMMcResetsBefore = 0;
+static int sMMMcLandingScene = -1;       // the first live scene after the crash (#1789)
+static bool sMMMcCaptureArmed = false;   // the tee was asked for (#1789)
+static bool sMMMcCaptureStarted = false; // and it started
 static const int kMMMcFramesBeforeCrash = 20;
 static const int kMMMcFramesAfterCrash = 30;
-static const int kMMMcStageBudgetSecs = 240; // the crash cutscene plays in full
+// #1789: no crash cutscene plays any more (the fade, the Day Telop and the
+// landing); the boot stage shares the budget, so it keeps room for a cold start.
+static const int kMMMcStageBudgetSecs = 120;
 static const u32 kMMMcRecordSentinel = 1069u;
+// Counted, never printed here (a printed copy would be counted too).
+static const char* const kMMMcSkipNeedle =
+    "[MM] moon crash: New Cycle skips the Termina Field and Fire Wall cutscenes (#1789)";
+static const char* const kMMMcResetNeedle = "[MM] moon crash: New Cycle (#1069)";
 
 static double MMMcSecondsInStage(void) {
     return std::chrono::duration<double>(std::chrono::steady_clock::now() - sMMMcStageStart).count();
@@ -1247,8 +1259,32 @@ static void MMMcVerify(void) {
         MMMcFail("the new cycle lost the Bunny Hood, the bottle or the Song of Healing");
         return;
     }
-    fprintf(stderr, "[MM-INT-TEST] int-mm-moon-crash-cycle: PASS (the moon fell and a new cycle began with the "
-                    "file's progress kept)\n");
+    // #1789: the crash skipped its cutscenes, and the save reset once.
+    if (!sMMMcCaptureStarted) {
+        MMMcFail("the stderr capture could not start; the #1789 / #1069 line checks cannot run");
+        return;
+    }
+    IntegrationTest_StderrCaptureStop();
+    const int skipLines = IntegrationTest_StderrCaptureCount(kMMMcSkipNeedle);
+    const int resetLines = IntegrationTest_StderrCaptureCount(kMMMcResetNeedle);
+    fprintf(stderr,
+            "[MM-INT-TEST] mm-moon-crash-cycle: landing scene %d (expected %d, the Clock Tower interior); the "
+            "cutscene skip logged %d time(s), the New Cycle reset %d time(s) (expected 1 and 1)\n",
+            sMMMcLandingScene, (int)SCENE_INSIDETOWER, skipLines, resetLines);
+    fflush(stderr);
+    if (skipLines != 1 || resetLines != 1) {
+        MMMcFail(
+            "the New Cycle crash did not skip its cutscenes exactly once with exactly one reset (SkipMoonCrash.cpp "
+            "MM_Play_SkipMoonCrashUnderNewCycle, z_sram_NES.c Sram_ResetSaveFromMoonCrash; #1789)");
+        return;
+    }
+    if (sMMMcLandingScene != (int)SCENE_INSIDETOWER) {
+        MMMcFail("after the crash the first live scene is not the Clock Tower interior (0xC030, an unpaired "
+                 "session's moon-crash landing; #1789)");
+        return;
+    }
+    fprintf(stderr, "[MM-INT-TEST] int-mm-moon-crash-cycle: PASS (the moon fell, its cutscenes were skipped, and a "
+                    "new cycle began with the file's progress kept)\n");
     fflush(stderr);
     MMMcSetStage(MMMC_STAGE_DONE);
     IntegrationTest_SignalBootComplete(GAME_MM, "moon crash started a new cycle");
@@ -1260,6 +1296,17 @@ static void MMMcFrame(void) {
     }
     if (sMMMcStage == MMMC_STAGE_DONE || sMMMcStage == MMMC_STAGE_FAILED) {
         return;
+    }
+    if (!sMMMcCaptureArmed) {
+        // #1789: the verdict counts the skip's and the reset's lines; on a
+        // failure the runner's teardown stops the tee (IntegrationTest_StderrCaptureStop).
+        sMMMcCaptureArmed = true;
+        sMMMcCaptureStarted = IntegrationTest_StderrCaptureStart();
+        if (!sMMMcCaptureStarted) {
+            fprintf(stderr, "[MM-INT-TEST] mm-moon-crash-cycle: the stderr capture could not start; the #1789 / #1069 "
+                            "line checks will fail\n");
+            fflush(stderr);
+        }
     }
     if (MMMcSecondsInStage() >= kMMMcStageBudgetSecs) {
         MMMcFail("a stage made no progress within its budget");
@@ -1295,17 +1342,20 @@ static void MMMcFrame(void) {
         }
         return;
     }
-    // CRASHING: Termina Field holds the moon's fall, and its
-    // CS_MISC_DEST_MOON_CRASH_FIRE_WALL hands over to the cutscene scene
-    // (SCENE_SPOT00, cutscene 0xFFF8): the Fire Wall, whose
-    // CS_MISC_RESET_SAVE_FROM_MOON_CRASH cue runs the reset late in its
-    // timeline. Gameplay reads as live through both (GAMEMODE_NORMAL, no
-    // transition), so the verdict waits for the scene after the Fire Wall, where
-    // the new cycle plays; counting frames in SCENE_SPOT00 read the file before
-    // the reset (day 4, time 0x400A: Interface_StartMoonCrash's own values).
+    // CRASHING (#1789): under New Cycle the moon's fall never loads Termina Field
+    // (SCENE_00KEIKOKU, the moonfall) nor the cutscene scene (SCENE_SPOT00, the
+    // Fire Wall): Play_Init resets the save at the fall and lands at once.
+    // Gameplay read as live through both when they played (GAMEMODE_NORMAL, no
+    // transition), so a live frame in either is the cutscene playing.
     if (play->sceneId == SCENE_00KEIKOKU || play->sceneId == SCENE_SPOT00) {
-        sMMMcLiveFrames = 0;
+        MMMcFail("the moon-crash cutscene played under New Cycle (#1789)");
         return;
+    }
+    if (sMMMcLandingScene < 0) {
+        sMMMcLandingScene = (int)play->sceneId;
+        fprintf(stderr, "[MM-INT-TEST] mm-moon-crash-cycle: first live scene after the crash: %d (entrance 0x%04X)\n",
+                sMMMcLandingScene, (unsigned)(u16)gSaveContext.save.entrance);
+        fflush(stderr);
     }
     if (++sMMMcLiveFrames >= kMMMcFramesAfterCrash) {
         MMMcVerify();
@@ -1315,7 +1365,12 @@ static void MMMcFrame(void) {
 static void MMMcRegisterHooks(void) {
     fprintf(stderr, "[MM] Registering integration test hooks for the New Cycle moon crash (#1069)\n");
     fflush(stderr);
+    // #1789: the tee starts on MM's first frame (MMMcFrame), not here: the
+    // ROM-free arming row (mm-gi-shim) arms these hooks with no game running.
+    sMMMcCaptureArmed = false;
+    sMMMcCaptureStarted = false;
     sMMMcStage = MMMC_STAGE_BOOT;
+    sMMMcLandingScene = -1;
     sMMMcLiveFrames = 0;
     sMMMcStageStart = std::chrono::steady_clock::now();
     MM_GameHooks_RegisterOnGameStateMainStart(MMMcFrame);
