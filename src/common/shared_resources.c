@@ -1125,7 +1125,9 @@ bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t oo
     if (ootShuffleSongs != RSBS_SONG_SPOTS_OFF) {
         return false;
     }
-    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_WARP_SONG_SHARED) != 0u ||
+    // [RSBS #1587] stage B: every second-word shared song, the Sun's Song and Saria's
+    // Song beside the seven warp songs (each at OoT's one default check, none in MM).
+    return (Combo_SharedFamily2ArmedBitOf(game, nativeId) & RSBS_XITEM2_SHARED_SONGS) != 0u ||
            (Combo_SharedFamilyArmedBitOf(game, nativeId) & (uint32_t)RSBS_XITEM_SHARED_SONGS_MASK) != 0u;
 }
 

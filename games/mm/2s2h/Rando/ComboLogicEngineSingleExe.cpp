@@ -1726,7 +1726,8 @@ extern "C" bool MM_ComboLogic_IsPairSongItem(uint16_t id) {
  * which GeneratePools left out of the check pool with its vanilla item
  * (RsbsReleasesVanillaSharedSong): a song check holding @p ri that is neither
  * shuffled, skipped nor in the host pool. -1 in every other world and for an id with
- * no such check (MM's six "(MM)" warp songs have none). combo_single_bag.c names the
+ * no such check (MM's six "(MM)" warp songs have none, and #1587's shared Sun's Song
+ * and Saria's Song have none: their one default check is OoT's). combo_single_bag.c names the
  * answer as a fixed credit, so OoT's logic holds the song once MM's logic reaches the
  * check. Read at the creation, where the live save is the one GeneratePools just
  * built.

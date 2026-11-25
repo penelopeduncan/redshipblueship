@@ -64,9 +64,9 @@ static void RsbsHoldBackSharedSongs(std::vector<RandomizerGet>& songs) {
 }
 
 /** Off: empty a held-back song's vanilla check (item_pool.cpp placed it) and put
- *  the song back into the pool. Under #1169 XW15 / #1561 no shared song is held back
- *  under Off (Combo_SharedWarpSongFixedAtHome), so every vanilla song check keeps its
- *  song. */
+ *  the song back into the pool. Under #1169 XW15 / #1561 / #1587 no shared song is
+ *  held back under Off (Combo_SharedWarpSongFixedAtHome), so every vanilla song check
+ *  keeps its song, Royal Family's Tomb and Saria's check included. */
 static void RsbsReleaseVanillaSharedSongs() {
     auto ctx = Rando::Context::GetInstance();
     for (const RandomizerCheck rc : ctx->allLocations) {
@@ -111,7 +111,9 @@ static void RsbsDropReservedSongChecks(std::vector<RandomizerCheck>& locations) 
  *  Locations, Dungeon Rewards and Anywhere its one copy is the bag's shared pair
  *  row. Under Off (#1169 XW15 / #1561) no shared song is held back: OoT's six warp
  *  songs stay on their Sheik checks, the shared Song of Soaring on Majora's Mask's
- *  swamp check, and the three first-word shared songs on both games' vanilla checks.
+ *  swamp check, the shared Sun's Song and Saria's Song on Royal Family's Tomb and
+ *  Saria's check (#1587), and the three first-word shared songs on both games'
+ *  vanilla checks.
  *  The only song in OoT's pool under Off is an unshared Song of Soaring (OoT), which
  *  Link's Pocket may take. */
 static bool RsbsSongHeldForBag(RandomizerGet rg) {

@@ -3155,7 +3155,9 @@ extern "C" int OoT_ComboLogic_DeferGeneralPassWanted(void);
  * the songs are not shuffled): under Shuffle Songs Off NO shared song is held back
  * (Combo_SharedWarpSongFixedAtHome). OoT's six warp songs stay on their Sheik checks
  * and Epona's Song, Song of Storms, and Song of Time stay on Malon, Windmill, and
- * Ocarina of Time (while MM's vanilla checks keep their copies too); fill.cpp's
+ * Ocarina of Time (while MM's vanilla checks keep their copies too), and (#1587
+ * stage B) the shared Sun's Song and Saria's Song stay on Royal Family's Tomb and
+ * with Saria at Sacred Forest Meadow (MM has no default check for either); fill.cpp's
  * release leaves them there, Link's Pocket never sees them, and the songs family is
  * not armed for them; the coordinator credits the other game from each fixed host
  * (OoT_ComboLogic_FixedSharedSongHost, MM_ComboLogic_FixedSharedSongHost). The shared
@@ -3205,8 +3207,9 @@ extern "C" int OoT_ComboLogic_SharedWarpSongHeldBack(uint16_t rg) {
 /**
  * #1169 XW15 / #1561: the OoT check that holds shared song @p rg as its FIXED content
  * under Shuffle Songs Off (Combo_SharedWarpSongFixedAtHome): the hidden song location
- * item_pool.cpp placed it on (its Sheik check, or Malon / Windmill / Ocarina of Time
- * for the three first-word shared songs). -1 in every other world, for an id with no
+ * item_pool.cpp placed it on (its Sheik check, Royal Family's Tomb / Saria's check
+ * for the Sun's Song / Saria's Song (#1587 stage B), or Malon / Windmill / Ocarina of
+ * Time for the three first-word shared songs). -1 in every other world, for an id with no
  * such check (the Song of Soaring (OoT), whose default check is Majora's Mask's), and
  * with no seed context. combo_single_bag.c names the answer as a fixed credit, so
  * Majora's Mask's logic holds the song once the check is reached.

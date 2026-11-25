@@ -9621,8 +9621,9 @@ TestResult Test_SharedWarpSongsEdges(void) {
     return SharedWarpSongsRow(-1);
 }
 
-// #1587 stage A: one copy of the Shared Sun's Song and the Shared Saria's Song per
-// Shuffle Songs value (Off is stage B's), shared-warp-songs-one-copy's bring-up.
+// #1587 stages A and B: one copy of the Shared Sun's Song and the Shared Saria's Song
+// per Shuffle Songs value (Off: on OoT's default check, stage B),
+// shared-warp-songs-one-copy's bring-up.
 static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
     auto ctx = CreateHarnessStyleContext();
     if (!ctx) {
@@ -9633,6 +9634,9 @@ static TestResult SharedSunSariaOneCopyRow(int shuffleSongs) {
     static char* ssocArgv[] = { ssocArg0, nullptr };
     InitOTRForMMFirstBoot(1, ssocArgv);
     return SharedSunSariaOneCopy_Run(shuffleSongs);
+}
+TestResult Test_SharedSunSariaOneCopyOff(void) {
+    return SharedSunSariaOneCopyRow(0);
 }
 TestResult Test_SharedSunSariaOneCopySongLocations(void) {
     return SharedSunSariaOneCopyRow(1);
@@ -12446,8 +12450,14 @@ const TestDescriptor gTests[] = {
       "With every warp-song rule on and Shuffle Songs Anywhere, each shared warp song is one bag pair row over both "
       "worlds, never Link's Pocket (#1169 XW10)",
       Test_SharedWarpSongsOneCopyAnywhere },
-    // #1587 stage A: the Shared Sun's Song and Shared Saria's Song, one copy each.
-    // Each needs a paired creation; skipped by `--test all` below like its siblings.
+    // #1587: the Shared Sun's Song and Shared Saria's Song, one copy each (stage A:
+    // Song Locations, Dungeon Rewards, Anywhere; stage B: under Off each stays on
+    // OoT's default check). Each needs a paired creation; skipped by `--test all`
+    // below like its siblings.
+    { "shared-sun-saria-one-copy-off",
+      "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs Off, each stays on OoT's default check "
+      "(Royal Family's Tomb, Saria), no copy in MM, one fixed credit OoT -> MM each, delivered (#1587)",
+      Test_SharedSunSariaOneCopyOff },
     { "shared-sun-saria-one-copy-song-locations",
       "With the Shared Sun's Song and Shared Saria's Song on and Shuffle Songs at Song Locations, each is one bag "
       "pair row over both worlds and MM's own rows resolve on (#1587)",
