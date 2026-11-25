@@ -1724,10 +1724,13 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     Skulltula case honours inWater, which only that rule passes): this one
  *     needs no non-default setting, since its token counts toward the
  *     Skulltula House rewards, so a DEFAULT world can move where the search
- *     reached that token with bombs as its only weapon. The Great Deku Tree
- *     Map's English article and the Zora's Sapphire's French one gain their
- *     space; that moves hint text, not worlds. Seed packages written by
- *     generator 6 are refused, as designed.
+ *     reached that token with bombs as its only weapon. A fifth rule moves
+ *     no world: with Master Quest Spirit Temple, the adult's reverse access
+ *     to the inner right hand loses its Bunny Hood jump from the statue's
+ *     head (the region graph's own exit there is Hover Boots only). The
+ *     Great Deku Tree Map's English article and the Zora's Sapphire's French
+ *     one gain their space; that moves hint text, not worlds. Seed packages
+ *     written by generator 6 are refused, as designed.
  * 8 = the worlds v0.5.3-alpha (generator 7) made that this build makes
  *     differently: with Shuffle Speak on, the Haunted Wasteland carpet
  *     merchant's event (LOGIC_CARPET_MERCHANT) needs the Hylian Jabber Nut
