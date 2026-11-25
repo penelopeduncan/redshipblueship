@@ -14,5 +14,6 @@ std::string GetRCAreaName(RandomizerCheckArea area);
 std::map<RandomizerCheckArea, std::vector<RandomizerCheck>> GetAllRCObjectsByArea();
 std::map<SceneID, RandomizerCheckArea> GetAllRCAreaBySceneID();
 RandomizerCheckArea GetRCAreaBySceneID(SceneID sceneId);
+bool IsQuestVisible(RandomizerCheckQuest quest, int32_t mqDungeons, int32_t mqDungeonCount);
 void UpdateImGuiVisibility();
 } // namespace RandomizerCheckObjects

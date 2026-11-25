@@ -124,6 +124,15 @@ static bool RsbsSilverExcludeRowsVisible() {
     return CVarGetInteger(CVAR_RANDOMIZER_SETTING("ShuffleSilver"), RO_GENERIC_NO) != 0;
 }
 
+bool RandomizerCheckObjects::IsQuestVisible(RandomizerCheckQuest quest, int32_t mqDungeons, int32_t mqDungeonCount) {
+    return quest == RCQUEST_BOTH ||
+           (quest == RCQUEST_MQ &&
+            ((mqDungeons == RO_MQ_DUNGEONS_SET_NUMBER && mqDungeonCount > 0) || // at least one MQ dungeon
+             mqDungeons == RO_MQ_DUNGEONS_RANDOM_NUMBER || mqDungeons == RO_MQ_DUNGEONS_SELECTION)) ||
+           (quest == RCQUEST_VANILLA &&
+            (mqDungeons != RO_MQ_DUNGEONS_SET_NUMBER || mqDungeonCount < 12)); // at least one vanilla dungeon
+}
+
 void RandomizerCheckObjects::UpdateImGuiVisibility() {
     auto ctx = Rando::Context::GetInstance();
     // SoH #6447 (#1420): under Triforce Hunt the boss key is never placed, so the
@@ -138,22 +147,13 @@ void RandomizerCheckObjects::UpdateImGuiVisibility() {
     Combo_ResolveComboSettings(&comboRules);
     triforceHunt = triforceHunt || comboRules.goal == (uint8_t)RSBS_COMBO_GOAL_TRIFORCE_HUNT;
 #endif
+    const int32_t mqDungeons = CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), RO_MQ_DUNGEONS_NONE);
+    const int32_t mqDungeonCount = CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 12);
     for (auto& location : Rando::StaticData::GetLocationTable()) {
         auto itemLoc = ctx->GetItemLocation(location.GetRandomizerCheck());
         itemLoc->SetVisible(
             (location.GetRandomizerCheck() != RC_UNKNOWN_CHECK) &&
-            (location.GetQuest() == RCQUEST_BOTH ||
-             location.GetQuest() == RCQUEST_MQ &&
-                 ((CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), RO_MQ_DUNGEONS_NONE) ==
-                           RO_MQ_DUNGEONS_SET_NUMBER &&
-                       (CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 12) > 0) || // at least one MQ dungeon
-                   CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), RO_MQ_DUNGEONS_NONE) ==
-                       RO_MQ_DUNGEONS_RANDOM_NUMBER)) ||
-             location.GetQuest() == RCQUEST_VANILLA &&
-                 (CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeons"), RO_MQ_DUNGEONS_NONE) !=
-                      RO_MQ_DUNGEONS_SET_NUMBER ||
-                  CVarGetInteger(CVAR_RANDOMIZER_SETTING("MQDungeonCount"), 12) < 12) // at least one vanilla dungeon
-             ) &&
+            IsQuestVisible(location.GetQuest(), mqDungeons, mqDungeonCount) &&
             (location.GetRCType() != RCTYPE_SHOP ||
              !(ctx->GetOption(RSK_SHOPSANITY).Is(RO_SHOPSANITY_OFF) ||
                (ctx->GetOption(RSK_SHOPSANITY).Is(RO_SHOPSANITY_SPECIFIC_COUNT) &&

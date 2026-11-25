@@ -7263,6 +7263,20 @@ static TestResult Test_MenuComboSection(void) {
     return OoT_MenuComboSection_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport packet #1733 (menu robustness): ExcludedLocations round-trip, MQ Dungeons
+// visibility under Selection Only / All, Audio API backend filtering, slider label
+// suffix stripping. ROM-free; body in games/oot/soh/oot_menu_robustness_test.cpp.
+extern "C" int OoT_MenuRobustness_RunHeadless(void);
+
+static TestResult Test_OoTMenuRobustness(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MenuRobustness_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // games/oot/soh/soh_presets_folder_test.cpp (#1210): a non-JSON file in the
 // presets folder is skipped with one log line instead of throwing out of
 // LoadPresets (a boot-time RegisterMenuInitFunc). No bring-up: the seam reads
@@ -11815,6 +11829,13 @@ const TestDescriptor gTests[] = {
       "(#497, #1133)",
       Test_MenuComboSection },
     { "setmenu-count", "Exactly one menu shell reaches Ship::Gui::SetMenu (#497, ADR 0004 §3)", Test_SetMenuCount },
+    // #1733: ROM-free, display-free menu robustness checks (ExcludedLocations
+    // round-trip, MQ location visibility, Audio API backend filtering, slider
+    // label suffix stripping).
+    { "oot-menu-robustness",
+      "Locations menu ExcludedLocations round-trip and MQ visibility, Audio API backend filtering, and slider label "
+      "suffix stripping (#1733)",
+      Test_OoTMenuRobustness },
     { "presets-skip-non-json", "A non-JSON file in presets/ is skipped with one log line, not thrown (#1210)",
       Test_PresetsSkipNonJson },
     { "write-file-safely-writers",

@@ -1998,6 +1998,11 @@ if(BUILD_TESTING)
     redship_add_test(NAME MenuCapabilityGating COMMAND redship --test menu-capability-gating)
     redship_add_test(NAME MenuComboSection COMMAND redship --test menu-combo-section)
     redship_add_test(NAME SetMenuCount COMMAND redship --test setmenu-count)
+    # Backport packet #1733 (menu robustness): ExcludedLocations trailing-comma
+    # round-trip, MQ Dungeons selection visibility, Audio API backend filtering,
+    # and slider label suffix stripping. Default redship tier;
+    # games/oot/soh/oot_menu_robustness_test.cpp.
+    redship_add_test(NAME OoTMenuRobustness COMMAND redship --test oot-menu-robustness)
     # #1210: SoH's LoadPresets (a boot-time RegisterMenuInitFunc) parsed every
     # entry of presets/ as JSON with no filter and no catch, so a stray
     # index.html ended the process at boot. A scratch folder holding a preset,
