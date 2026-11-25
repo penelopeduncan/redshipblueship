@@ -3418,6 +3418,10 @@ typedef enum {
     // (e3bfae008, upstream PR 1482). The identity strings fold it only when on
     // (0, the default).
     RO_HINTS_SONG_OF_SOARING,
+    // Appended for the same reason (#1754): 2Ship's Bank Reward hint option
+    // (2056ebc7a, upstream PR 1595). The identity strings fold it only when on
+    // (0, the default).
+    RO_HINTS_BANK_SIGN,
     RO_MAX,
 } RandoOptionId;
 
