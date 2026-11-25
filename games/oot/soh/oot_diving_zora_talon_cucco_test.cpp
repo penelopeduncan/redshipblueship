@@ -48,6 +48,7 @@
 
 #include "soh/Enhancements/randomizer/randomizerTypes.h"
 #include "soh/Enhancements/randomizer/SeedContext.h"
+#include "soh/Enhancements/randomizer/logic.h" // Rando::Logic::SetContext
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h" // GameInteractor_Should
 
@@ -94,13 +95,23 @@ void DzcFail(const char* fmt, ...) {
     } while (0)
 
 /** Sets every vanilla-behaviour hook already registered aside for the row's
- *  lifetime, so only the hooks a leg registers answer. */
+ *  lifetime, so only the hooks a leg registers answer. The pending-unregister
+ *  queues go aside too: ExecuteHooks and ExecuteHooksForFilter clear their queue
+ *  against whatever map is current, so a generic unregistration queued before
+ *  the row would otherwise be dropped against the row's empty map and its hook
+ *  would come back live. Whatever the row leaves queued is discarded with the
+ *  row's own maps. */
 struct DzcVbHooksAside {
     using Hooks = GameInteractor::RegisteredGameHooks<GameInteractor::OnVanillaBehavior>;
     decltype(Hooks::functions) functions;
     decltype(Hooks::functionsForID) forId;
     decltype(Hooks::functionsForPtr) forPtr;
     decltype(Hooks::functionsForFilter) filters;
+    using Pending = GameInteractor::HooksToUnregister<GameInteractor::OnVanillaBehavior>;
+    decltype(Pending::hooks) pending;
+    decltype(Pending::hooksForID) pendingForId;
+    decltype(Pending::hooksForPtr) pendingForPtr;
+    decltype(Pending::hooksForFilter) pendingFilters;
     DzcVbHooksAside() {
         Swap();
     }
@@ -112,6 +123,10 @@ struct DzcVbHooksAside {
         forId.swap(Hooks::functionsForID);
         forPtr.swap(Hooks::functionsForPtr);
         filters.swap(Hooks::functionsForFilter);
+        pending.swap(Pending::hooks);
+        pendingForId.swap(Pending::hooksForID);
+        pendingForPtr.swap(Pending::hooksForPtr);
+        pendingFilters.swap(Pending::hooksForFilter);
     }
 };
 
