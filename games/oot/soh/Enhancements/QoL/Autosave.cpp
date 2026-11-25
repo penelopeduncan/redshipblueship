@@ -11,7 +11,7 @@ extern PlayState* OoT_gPlayState;
 #include "variables.h"
 }
 
-static uint64_t lastSaveTimestamp = GetUnixTimestamp();
+static uint64_t lastSaveTimestamp;
 
 #define CVAR_AUTOSAVE_NAME CVAR_ENHANCEMENT("Autosave")
 #define CVAR_AUTOSAVE_DEFAULT AUTOSAVE_OFF
@@ -24,7 +24,6 @@ typedef enum {
 } AutosaveOptions;
 
 static bool Autosave_CanSave() {
-
     // Don't save when in title screen or debug file
     // Don't save a file that doesn't exist (e.g. it was deleted on death by user option)
     // Don't save the first 60 frames to not save the magic meter when it's still in the animation of filling it.
@@ -39,7 +38,7 @@ static bool Autosave_CanSave() {
         return false;
     }
 #endif
-    if (!SaveManager::Instance->SaveFile_Exist(gSaveContext.fileNum) || !GameInteractor::IsSaveLoaded(false) ||
+    if (!GameInteractor::IsSaveLoaded(false) || !SaveManager::Instance->SaveFile_Exist(gSaveContext.fileNum) ||
         OoT_gPlayState->gameplayFrames < 60 || OoT_gPlayState->sceneNum == SCENE_CHAMBER_OF_THE_SAGES ||
         OoT_gPlayState->sceneNum == SCENE_CUTSCENE_MAP ||
         (!CHECK_QUEST_ITEM(QUEST_SONG_TIME) && (INV_CONTENT(ITEM_OCARINA_TIME) == ITEM_OCARINA_TIME))) {
@@ -72,7 +71,6 @@ static void Autosave_IntervalSave() {
     // rupees draining after buying an item. Since the interval can just retry until it
     // passes, it can use more conditions without hampering the player experience.
     if (Autosave_CanSave() && !GameInteractor::IsGameplayPaused()) {
-
         // Reset timestamp, set icon timer to show autosave icon for 5 seconds (100 frames)
         lastSaveTimestamp = currentTimestamp;
 
@@ -87,6 +85,8 @@ static void Autosave_SoftResetSave() {
 }
 
 static void RegisterAutosave() {
+    COND_HOOK(GameInteractor::OnLoadGame, CVAR_AUTOSAVE_VALUE,
+              [](uint32_t fileNme) { lastSaveTimestamp = GetUnixTimestamp(); });
     COND_HOOK(GameInteractor::OnGameFrameUpdate, CVAR_AUTOSAVE_VALUE, Autosave_IntervalSave);
     COND_HOOK(GameInteractor::OnExitGame, CVAR_AUTOSAVE_VALUE, [](int32_t fileNum) { Autosave_SoftResetSave(); });
 }
@@ -103,5 +103,16 @@ extern "C" void OoT_Autosave_TestIntervalFrame(void) {
     lastSaveTimestamp = GetUnixTimestamp() - THREE_MINUTES_IN_UNIX;
     Autosave_IntervalSave();
     lastSaveTimestamp = before;
+}
+
+// TEST BRIDGE (oot-autosave-load-clock, #1735): read and write the interval
+// autosave's clock so the row can prove OnLoadGame updates it and put the
+// previous value back afterwards.
+extern "C" uint64_t OoT_Autosave_TestGetLastSaveTimestamp(void) {
+    return lastSaveTimestamp;
+}
+
+extern "C" void OoT_Autosave_TestSetLastSaveTimestamp(uint64_t timestamp) {
+    lastSaveTimestamp = timestamp;
 }
 #endif

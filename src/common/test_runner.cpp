@@ -10742,6 +10742,21 @@ static TestResult Test_OoTLogNoise(void) {
     return OoT_LogNoise_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// games/oot/soh/oot_autosave_load_clock_test.cpp (#1735, SoH d46bfd971): the
+// interval autosave registers an option-gated OnLoadGame hook that resets its
+// clock. Display-free shared bring-up because the row reads, writes and clears
+// CVAR_ENHANCEMENT("Autosave").
+extern "C" int OoT_AutosaveLoadClock_RunHeadless(void);
+
+static TestResult Test_OoTAutosaveLoadClock(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_AutosaveLoadClock_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // games/oot/soh/oot_older_save_meta_test.cpp (SoH #7434): the file select's
 // meta read takes older OoT saves (old magic names, numeric or absent
 // isMasterQuest, no sohStats) instead of throwing.
@@ -12982,6 +12997,10 @@ const TestDescriptor gTests[] = {
       "The interval autosave's slot probe never asks for the 0xFF sentinel and logs a slot's existence once per "
       "change; a give the player cannot take yet logs one attempt and one count, not one line per frame (#1204)",
       Test_OoTLogNoise },
+    { "oot-autosave-load-clock",
+      "Autosave registers an option-gated OnLoadGame hook that resets lastSaveTimestamp to GetUnixTimestamp() "
+      "(#1735, SoH d46bfd971)",
+      Test_OoTAutosaveLoadClock },
     { "oot-older-save-meta",
       "The file select reads an older OoT save (magicAcquired/doubleMagic, a numeric or absent isMasterQuest, no "
       "sohStats) instead of throwing and quarantining it (SoH #7434)",

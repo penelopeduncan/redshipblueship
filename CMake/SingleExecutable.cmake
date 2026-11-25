@@ -4720,6 +4720,10 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # session), and the item queue logged every offer of a give the player could
     # not take yet. Display-free and ROM-free. games/oot/soh/oot_log_noise_test.cpp.
     redship_add_test(NAME OoTLogNoise COMMAND redship --test oot-log-noise)
+    # #1735 (SoH d46bfd971, upstream PR 6298): Autosave registers an option-gated
+    # OnLoadGame hook that resets lastSaveTimestamp to GetUnixTimestamp().
+    # Display-free and ROM-free. games/oot/soh/oot_autosave_load_clock_test.cpp.
+    redship_add_test(NAME OoTAutosaveLoadClock COMMAND redship --test oot-autosave-load-clock)
     # SoH #7434: the file select's meta read (SaveManager::StartupCheckAndInitMetaImpl)
     # takes an older OoT save, with magicAcquired/doubleMagic, a numeric or absent
     # isMasterQuest, or no sohStats section, instead of throwing a json type_error
