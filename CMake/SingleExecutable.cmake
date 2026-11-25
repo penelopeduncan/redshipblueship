@@ -3949,6 +3949,13 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # own two rows resolved on, the goal proven. The -anywhere row runs a second
     # generation under Item Pool Plentiful, pinning the #1653 trim of OoT's spare (#1587
     # question 13 is open). End-to-end only: MMSharedSongPoolSkip is the pool skip's gate.
+    # #1587 stage B: the -off row, one paired generation under Shuffle Songs Off: each song
+    # on OoT's default check, no MM copy, no bag row, one fixed credit OoT -> MM each,
+    # delivered in an exit round and withheld with Royal Family's Tomb forbidden.
+    redship_add_test(NAME SharedSunSariaOneCopyOff COMMAND redship --test shared-sun-saria-one-copy-off
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedSunSariaOneCopySongLocations
         COMMAND redship --test shared-sun-saria-one-copy-song-locations
         LABEL rando

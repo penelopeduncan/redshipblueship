@@ -858,18 +858,22 @@ uint32_t Combo_SharedFamilyArmedBitOf(GameId game, uint16_t nativeId);
 uint32_t Combo_SharedFamily2ArmedBitOf(GameId game, uint16_t nativeId);
 
 /**
- * #1169 XW15 / #1561 (operator ruling: "a shared song should be at its default
- * location if the songs aren't shuffled"): is @p nativeId, @p game's member of an
- * armed shared song (RSBS_XITEM2_WARP_SONG_SHARED or RSBS_XITEM_SHARED_SONGS_MASK),
- * a song that stays on its own default check in this world? True exactly when OoT's
- * Shuffle Songs value @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF,
- * warp_song_items.h) and Combo_SharedFamily2ArmedBitOf or
- * Combo_SharedFamilyArmedBitOf answers one of those song bits. Each shared warp song
- * has ONE default check (OoT's six Sheik checks, MM's Southern Swamp check); each
- * first-word shared song has TWO (one vanilla check in each game). Neither game
- * pools a copy, no bag row is made, and the coordinator credits the other game from
- * each fixed host (Combo_Logic_SetFixedCredits). False for every other Shuffle Songs
- * mode and for every world with no shared song frozen on.
+ * #1169 XW15 / #1561 / #1587 (operator rulings: "a shared song should be at its
+ * default location if the songs aren't shuffled"): is @p nativeId, @p game's member
+ * of an armed shared song (RSBS_XITEM2_SHARED_SONGS: the seven warp songs, the Sun's
+ * Song and Saria's Song; or RSBS_XITEM_SHARED_SONGS_MASK), a song that stays on its
+ * own default check in this world? True exactly when OoT's Shuffle Songs value
+ * @p ootShuffleSongs is Off (RSBS_SONG_SPOTS_OFF, warp_song_items.h) and
+ * Combo_SharedFamily2ArmedBitOf or Combo_SharedFamilyArmedBitOf answers one of those
+ * song bits. Each second-word shared song has ONE default check: OoT's six Sheik
+ * checks, MM's Southern Swamp check for the Song of Soaring, and OoT's Royal
+ * Family's Tomb and Saria at Sacred Forest Meadow for the Sun's Song and Saria's
+ * Song (#1587 stage B; Majora's Mask has no default check for either, so its host
+ * answer is always -1). Each first-word shared song has TWO (one vanilla check in
+ * each game). Neither game pools a copy, no bag row is made, and the coordinator
+ * credits the other game from each fixed host (Combo_Logic_SetFixedCredits). False
+ * for every other Shuffle Songs mode and for every world with no shared song frozen
+ * on. The name is historical: it predates the Sun's Song and Saria's Song.
  */
 bool Combo_SharedWarpSongFixedAtHome(GameId game, uint16_t nativeId, uint32_t ootShuffleSongs);
 

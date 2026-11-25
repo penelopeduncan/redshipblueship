@@ -1511,8 +1511,9 @@ typedef struct {
     SharedItem farItem;
 } ComboLogicFixedCredit;
 
-/** The most fixed shared credits in force at once (seven shared warp songs at one
- *  host each + three first-word shared songs at two hosts each = 13 <= 16; #1561). */
+/** The most fixed shared credits in force at once (seven shared warp songs + the
+ *  Sun's Song and Saria's Song at one host each + three first-word shared songs at
+ *  two hosts each = 15 <= 16; #1561, #1587; combo_single_bag.c asserts it). */
 #define RSBS_COMBO_LOGIC_FIXED_CREDIT_CAP 16
 
 /**

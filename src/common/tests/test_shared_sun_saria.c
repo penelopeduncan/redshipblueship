@@ -989,6 +989,16 @@ TestResult SharedSunSariaMerge_Run(void) {
 // ROW"); #1587 question 13 is open, and OoTMM would add a spare (transform.ts,
 // plentifulPool over ItemGroups.SONGS): flip this leg if the operator rules one in.
 // Placement is asserted structurally, never by seed.
+//
+// shared-sun-saria-one-copy-off (#1587 stage B; CTest SharedSunSariaOneCopyOff, rando
+// label, one real paired generation). Under OoT's Shuffle Songs Off each shared song
+// STAYS on OoT's default check (Royal Family's Tomb, Saria at Sacred Forest Meadow;
+// item_pool.cpp's Off branch) instead of being released to the bag: no bag pair row,
+// no MM copy (MM has no default check for either and stage A's pool skip adds none),
+// exactly one fixed credit OoT -> MM per song (combo_single_bag.c) that the created
+// world's exit round delivers, and no spot converts to junk. This row IS a red gate
+// for stage A's GeneratePools skip under Off: OoT pools no copy here, so an MM copy
+// would be the pair's only row (a second copy, pairRows 1), never trimmed.
 // ============================================================================
 
 #ifdef __cplusplus
@@ -1000,6 +1010,14 @@ int OoT_Creation_FinishPairedHalf(int writeSpoiler);
 int MM_ComboLogic_TestShuffledItems(uint16_t* outItems, uint16_t* outChecks, int cap);
 int OoT_SharedSongsTest_WorldCopies(int rg);
 int OoT_SharedWarpSongsTest_LinksPocket(void);
+// #1587 stage B (shared-sun-saria-one-copy-off): declared again beside their use,
+// as test_shared_warp_songs.c declares them.
+int OoT_Fill_TestSongHeldForBag(uint16_t rg);
+int OoT_SharedSongsTest_OtherVanillaSongsAtHome(const int* sharedRgs, int sharedCount);
+int OoT_SharedSongsTest_VanillaSongCount(void);
+int MM_PlacementConfinement_WorldCopies(uint16_t id);
+int OoT_ComboLogic_TestSongCheckIndex(uint16_t rc);
+int OoT_ComboLogic_TestHostsHolding(uint16_t rg, uint16_t* out, int cap);
 #ifdef __cplusplus
 }
 #endif
@@ -1058,18 +1076,39 @@ void SsocOneWorld(int shuffleSongs, bool plentiful) {
     printf("[TEST] shared-sun-saria-one-copy (%s, %s): bag %d rows, %d shared pair(s), goal proven %d\n", name, pool,
            bag.bagCount, bag.compose.sharedPairs, bag.fill.goalProven ? 1 : 0);
     SSR_CHECK(bag.status == RSBS_COMBO_LOGIC_OK && bag.fill.goalProven, "the single-bag fill did not prove the GOAL");
+    // #1587 stage B: under Off both songs stay on OoT's default checks, so neither
+    // pool holds a row and the composer pairs nothing (combo_logic.c pass 2b,
+    // "neither pool holds the family"); one fixed credit OoT -> MM per song.
+    const bool off = shuffleSongs == 0;
+    if (off) {
+        SSR_CHECK(bag.compose.sharedPairs == 0,
+                  "under Off the composer made %d shared pair(s): a shared Sun's or Saria's Song left its default "
+                  "check for the bag",
+                  bag.compose.sharedPairs);
+        SSR_CHECK(Combo_Logic_FixedCreditCount() == 2,
+                  "under Off the creation left %d fixed shared credit(s); want 2 (one OoT -> MM per song)",
+                  Combo_Logic_FixedCreditCount());
+    }
 
+    const bool mmVanilla = Combo_PairSongsMmValue((uint32_t)shuffleSongs) == RSBS_MM_SONGS_VANILLA;
     const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
     std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
     const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
     const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+    int creditIndex[2] = { -1, -1 };
     for (int song = 0; song < 2; song++) {
         const uint16_t ootId = (uint16_t)OoT_SharedSunSariaTest_PoolId(song);
         const uint16_t mmId = (uint16_t)MM_SharedSunSariaTest_PoolId(song);
         const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
         int mmCopies = 0;
-        for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
-            mmCopies += items[(size_t)i] == mmId ? 1 : 0;
+        if (mmVanilla) {
+            // MM's Vanilla songs (only OoT's Off gives it): an unshuffled check is in
+            // no shuffled list, so count over MM's whole world.
+            mmCopies = MM_PlacementConfinement_WorldCopies(mmId);
+        } else {
+            for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
+                mmCopies += items[(size_t)i] == mmId ? 1 : 0;
+            }
         }
         const SwsPlaced placed = SwsCountPlaced(ootId, mmId);
         printf("[TEST]   %s: OoT %d, MM %d, bag pair rows %d (%d on a song check), orphans %d\n", kSsrSongNames[song],
@@ -1078,12 +1117,96 @@ void SsocOneWorld(int shuffleSongs, bool plentiful) {
                   "the %s is held by %d OoT and %d MM checks (%s, %s); want ONE over both worlds (the pair's one "
                   "placement, as the hosting game's half)",
                   kSsrSongNames[song], ootCopies, mmCopies, name, pool);
-        SSR_CHECK(placed.pairRows == 1 && placed.orphanRows == 0,
+        const int wantPairRows = off ? 0 : 1;
+        SSR_CHECK(placed.pairRows == wantPairRows && placed.orphanRows == 0,
                   "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it (%s, %s); "
-                  "want one pair row and no orphan copy of either half",
-                  kSsrSongNames[song], placed.pairRows, placed.orphanRows, name, pool);
+                  "want %d pair row(s) and no orphan copy of either half",
+                  kSsrSongNames[song], placed.pairRows, placed.orphanRows, name, pool, wantPairRows);
         SSR_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s: its one copy is the bag's row",
                   kSsrSongNames[song]);
+        if (!off) {
+            continue;
+        }
+        // THE DEFAULT CHECK (#1587 stage B): OoT's one copy, none in MM.
+        SSR_CHECK(ootCopies == 1 && mmCopies == 0,
+                  "under Off the %s is held by %d OoT and %d MM checks; want it on OoT's default check only",
+                  kSsrSongNames[song], ootCopies, mmCopies);
+        SSR_CHECK(OoT_Fill_TestSongHeldForBag(ootId) == 0,
+                  "under Off Link's Pocket's exclusion answers %d for the shared %s; want 0 (not held back: it stays "
+                  "on its own check)",
+                  OoT_Fill_TestSongHeldForBag(ootId), kSsrSongNames[song]);
+        int naming = 0;
+        ComboLogicFixedCredit credit;
+        memset(&credit, 0, sizeof(credit));
+        for (int c = 0; c < Combo_Logic_FixedCreditCount(); c++) {
+            ComboLogicFixedCredit at;
+            if (!Combo_Logic_FixedCreditAt(c, &at)) {
+                continue;
+            }
+            const bool namesSong = (at.farItem.originGame == (uint8_t)GAME_MM && at.farItem.id == mmId) ||
+                                   (at.farItem.originGame == (uint8_t)GAME_OOT && at.farItem.id == ootId);
+            if (!namesSong) {
+                continue;
+            }
+            naming++;
+            if (at.hostGame == (uint8_t)GAME_OOT && at.farItem.originGame == (uint8_t)GAME_MM) {
+                credit = at;
+                creditIndex[song] = c;
+            }
+        }
+        uint16_t hosts[4] = { 0, 0, 0, 0 };
+        const bool hostRight = creditIndex[song] >= 0 && OoT_ComboLogic_TestHostsHolding(ootId, hosts, 4) == 1 &&
+                               hosts[0] == credit.hostCheck && OoT_ComboLogic_TestSongCheckIndex(credit.hostCheck) >= 0;
+        printf("[TEST]   %s: %d fixed credit(s) name it, OoT -> MM at index %d, host %u\n", kSsrSongNames[song], naming,
+               creditIndex[song], (unsigned)credit.hostCheck);
+        SSR_CHECK(naming == 1 && hostRight,
+                  "under Off the %s has %d fixed credit(s); want exactly one, from OoT's own default song check (the "
+                  "one check holding it) to MM's member",
+                  kSsrSongNames[song], naming);
+        SSR_CHECK(!Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, true) &&
+                      !Combo_SharedSongOffGiveBecomesJunk(GAME_MM, mmId, RSBS_SONG_SPOTS_OFF, true),
+                  "under Off the shared %s converts to junk: it has one default check, never a second",
+                  kSsrSongNames[song]);
+    }
+    if (off) {
+        // Every one of OoT's twelve songs is at its vanilla check, Royal Family's Tomb
+        // and Saria's check included (stage A released these two to the bag).
+        const int expectAtHome = OoT_SharedSongsTest_VanillaSongCount();
+        const int atHome = OoT_SharedSongsTest_OtherVanillaSongsAtHome(nullptr, 0);
+        SSR_CHECK(atHome == expectAtHome, "under Off %d of OoT's %d songs are at their vanilla checks", atHome,
+                  expectAtHome);
+        // The created world's exit round delivers both credits; forbidding the Sun's
+        // Song's host withholds its credit (the forbidden-host skip).
+        ComboLogicRoundResult base;
+        int baseDelivered = -1;
+        const int st = SwsExitRound(nullptr, 0, &base, &baseDelivered);
+        const bool sunDelivered = creditIndex[0] >= 0 && Combo_Logic_FixedCreditDeliveredAt(creditIndex[0]);
+        const bool sariaDelivered = creditIndex[1] >= 0 && Combo_Logic_FixedCreditDeliveredAt(creditIndex[1]);
+        printf("[TEST] (Off) exit round: status %d, goal %d, fixed credits delivered %d of %d (Sun %d, Saria %d)\n", st,
+               base.goalExpression, baseDelivered, Combo_Logic_FixedCreditCount(), sunDelivered ? 1 : 0,
+               sariaDelivered ? 1 : 0);
+        SSR_CHECK(st == RSBS_COMBO_LOGIC_OK && base.goalExpression == 1 && baseDelivered == 2 && sunDelivered &&
+                      sariaDelivered,
+                  "(Off) the exit round (status %d, goal %d) delivered %d of the two fixed credits: Royal Family's "
+                  "Tomb or Saria's check was unreached in the proved world, or a credit was not delivered",
+                  st, base.goalExpression, baseDelivered);
+        if (creditIndex[0] >= 0) {
+            ComboLogicFixedCredit sun;
+            memset(&sun, 0, sizeof(sun));
+            (void)Combo_Logic_FixedCreditAt(creditIndex[0], &sun);
+            ComboLogicHostRef sunHost;
+            memset(&sunHost, 0, sizeof(sunHost));
+            sunHost.hostGame = sun.hostGame;
+            sunHost.hostCheck = sun.hostCheck;
+            ComboLogicRoundResult r;
+            int delivered = -1;
+            const int fs = SwsExitRound(&sunHost, 1, &r, &delivered);
+            SSR_CHECK(fs == RSBS_COMBO_LOGIC_OK && !Combo_Logic_FixedCreditDeliveredAt(creditIndex[0]) &&
+                          delivered < baseDelivered,
+                      "(Off) with Royal Family's Tomb forbidden the Sun's Song credit was still delivered (status %d, "
+                      "delivered %d of %d): a forbidden host's credit crossed",
+                      fs, delivered, baseDelivered);
+        }
     }
     SSR_CHECK((Combo_SharedFamilies2Owned() & kSsrBoth) == 0u,
               "the creation left the family word %08X: a simulated pickup leaked",
@@ -1093,14 +1216,20 @@ void SsocOneWorld(int shuffleSongs, bool plentiful) {
 } // namespace
 
 TestResult SharedSunSariaOneCopy_Run(int shuffleSongs) {
-    if (shuffleSongs < 1 || shuffleSongs > 3) {
-        printf("[TEST] shared-sun-saria-one-copy: no row for Shuffle Songs %d (Off is stage B's)\n", shuffleSongs);
+    if (shuffleSongs < 0 || shuffleSongs > 3) {
+        printf("[TEST] shared-sun-saria-one-copy: no row for Shuffle Songs %d\n", shuffleSongs);
         return TEST_FAIL;
     }
-    printf("[TEST] shared-sun-saria-one-copy (Shuffle Songs %s): with the Shared Sun's Song and Shared Saria's Song "
-           "on, the paired world holds ONE copy of each, the bag's shared row, MM's own rows resolve on, and the GOAL "
-           "is still proven (#1587 stage A)\n",
-           kSsocShuffleNames[shuffleSongs]);
+    if (shuffleSongs == 0) {
+        printf("[TEST] shared-sun-saria-one-copy (Shuffle Songs Off): with the Shared Sun's Song and Shared Saria's "
+               "Song on, each stays on OoT's default check, no copy in MM and no bag row, one fixed credit OoT -> MM "
+               "each, delivered, nothing junk, and the GOAL is still proven (#1587 stage B)\n");
+    } else {
+        printf("[TEST] shared-sun-saria-one-copy (Shuffle Songs %s): with the Shared Sun's Song and Shared Saria's "
+               "Song on, the paired world holds ONE copy of each, the bag's shared row, MM's own rows resolve on, and "
+               "the GOAL is still proven (#1587 stage A)\n",
+               kSsocShuffleNames[shuffleSongs]);
+    }
     sSsrFailures = 0;
     SsocRestore restore;
     SsocOneWorld(shuffleSongs, false);

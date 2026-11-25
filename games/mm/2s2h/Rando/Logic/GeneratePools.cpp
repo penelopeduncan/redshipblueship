@@ -60,7 +60,9 @@ static bool RsbsIsTingleMap(RandoItemId randoItemId) {
 // keeps both MM's shared Song of Soaring (Southern Swamp) and the three first-word
 // shared songs (Romani Ranch, Beneath the Graveyard, Clock Tower Roof) on their
 // vanilla checks instead of releasing them to the bag; the coordinator credits OoT
-// from each fixed host (MM_ComboLogic_FixedSharedSongHost).
+// from each fixed host (MM_ComboLogic_FixedSharedSongHost). #1587 stage B: the
+// shared Sun's Song and Saria's Song answer true too, but MM has no song check for
+// either, so this never sees them.
 static bool RsbsReleasesVanillaSharedSong(RandoItemId randoItemId) {
     if (!Combo_ForeignPairingActive()) {
         return false;
