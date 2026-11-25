@@ -381,15 +381,15 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION usr/bin
 endif()
 
 if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Windows")
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION assets/xml COMPONENT ship)
 # In-app extraction spawns the standalone ZAPD executables as subprocesses
 # (issue #325), so they must ship in the zip like they already do in the
 # Linux AppImage (see the usr/bin/assets/extractor rules above).
-install(TARGETS ZAPD_OoT RUNTIME DESTINATION ./assets/extractor COMPONENT ship)
-install(TARGETS ZAPD_MM RUNTIME DESTINATION ./assets/extractor COMPONENT ship)
+install(TARGETS ZAPD_OoT RUNTIME DESTINATION assets/extractor COMPONENT ship)
+install(TARGETS ZAPD_MM RUNTIME DESTINATION assets/extractor COMPONENT ship)
 # soh.o2r (the port's custom assets — fonts, GUI, shaders) cannot be produced
 # by the shipped extractor, so the zip must bundle it. The upstream-parity
 # rule in games/oot/CMakeLists.txt only fires when NOT SINGLE_EXECUTABLE_BUILD,
@@ -639,10 +639,10 @@ install(TARGETS ZAPD_MM RUNTIME DESTINATION ../MacOS COMPONENT ship)
 
 set(PROGRAM_PERMISSIONS_EXECUTE OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE WORLD_READ)
 
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION ./assets/ COMPONENT ship)
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION ./assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/extractor/" DESTINATION assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/oot/assets/xml/" DESTINATION assets/xml COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/extractor/" DESTINATION assets/ COMPONENT ship)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/games/mm/assets/xml/" DESTINATION assets/xml COMPONENT ship)
 
 if(SINGLE_EXECUTABLE_BUILD)
     # MM's port-asset archive, as on Linux and Windows above. The games/mm
