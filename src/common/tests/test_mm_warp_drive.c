@@ -33,6 +33,16 @@
  *        paired predicate names its variant, and the verdict cleanup runs for
  *        it before its no-keys return, so its two in-memory keys never outlive
  *        the run.
+ *     W8 (#1587) int-mm-shared-sun-saria's wiring, by source anchor, each searched
+ *        inside the function it claims: the paired predicate, the Minuet predicate
+ *        (which runs the drive, the departure watch and the verdict cleanup) and
+ *        the stderr capture name GP_VARIANT_MM_SHARED_SUN_SARIA, and the shared
+ *        Minuet predicate does not (the drive would take XW14's no-give branch);
+ *        OoT's MwArmWorld turns the test reveal on and sets both keys before it
+ *        resolves the rules word (else it refuses the hidden bits by name); MM's
+ *        frame watchdog extends for the variant; the drive runs the Sun watch
+ *        before the step. Without it the row silently skips the creation or the
+ *        capture, or rides the shorter watchdog.
  *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++)
  * directly after test_mm_warp_song_play.c, whose anonymous-namespace source
@@ -166,6 +176,8 @@ void MwdCheckSetterRefuses() {
     MWD_CHECK(MM_PadMgr_GetTestButtons() == 0u, "W5: clearing the test buttons did not leave 0\n");
 }
 
+void MwdCheckSunSariaAnchors(const std::string& hooks);
+
 void MwdCheckAnchors() {
     const std::string padmgr = MwpReadSource("games/mm/src/code/padmgr.c");
     if (padmgr.empty()) {
@@ -202,6 +214,46 @@ void MwdCheckAnchors() {
     MWD_CHECK(MwpInOrder(paired, { "INT_TEST_GAMEPLAY_ROUNDTRIP", "GP_VARIANT_MM_SHUFFLE_OCARINA" }),
               "W7: IntegrationTest_PairedFirstCrossing does not name GP_VARIANT_MM_SHUFFLE_OCARINA, so "
               "int-mm-shuffle-ocarina would skip the paired creation\n");
+    MwdCheckSunSariaAnchors(hooks);
+}
+
+void MwdCheckSunSariaAnchors(const std::string& hooks) {
+    // W8 (#1587): int-mm-shared-sun-saria rides the paired first crossing and the
+    // Minuet drive.
+    const char* variant = "GP_VARIANT_MM_SHARED_SUN_SARIA";
+    const std::string paired = MwpFunctionBody(hooks, "bool IntegrationTest_PairedFirstCrossing(void)");
+    MWD_CHECK(MwpInOrder(paired, { "INT_TEST_GAMEPLAY_ROUNDTRIP", variant }),
+              "W8: IntegrationTest_PairedFirstCrossing does not name GP_VARIANT_MM_SHARED_SUN_SARIA, so "
+              "int-mm-shared-sun-saria would skip the paired creation\n");
+    const std::string minuet = MwpFunctionBody(hooks, "bool IntegrationTest_MMWarpSongMinuet(void)");
+    MWD_CHECK(MwpInOrder(minuet, { "INT_TEST_GAMEPLAY_ROUNDTRIP", variant }),
+              "W8: IntegrationTest_MMWarpSongMinuet does not name GP_VARIANT_MM_SHARED_SUN_SARIA, so the drive, the "
+              "world arm and the verdict cleanup would not run for int-mm-shared-sun-saria\n");
+    const std::string shared = MwpFunctionBody(hooks, "bool IntegrationTest_MMWarpSongMinuetShared(void)");
+    MWD_CHECK(!shared.empty() && shared.find(variant) == std::string::npos,
+              "W8: IntegrationTest_MMWarpSongMinuetShared names GP_VARIANT_MM_SHARED_SUN_SARIA (or is gone), so the "
+              "drive would take XW14's no-give branch and the Minuet would never be MM's\n");
+    const std::string capture =
+        MwpFunctionBody(hooks, "void IntegrationTest_SetGameplayVariant(GameplayVariant variant)");
+    MWD_CHECK(MwpInOrder(capture, { variant, "IntegrationTest_StderrCaptureStart()" }),
+              "W8: IntegrationTest_SetGameplayVariant does not start the stderr capture for "
+              "GP_VARIANT_MM_SHARED_SUN_SARIA\n");
+    const std::string ootExports = MwpReadSource("games/oot/soh/GameExports_SingleExe.cpp");
+    const std::string arm = MwpFunctionBody(ootExports, "static bool MwArmWorld(void)");
+    MWD_CHECK(MwpInOrder(arm, { "IntegrationTest_MMSharedSunSaria()",
+                                "Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);",
+                                "COMBO_SETTING_SHARED_SONG_SUN", "COMBO_SETTING_SHARED_SONG_SARIAS",
+                                "Combo_ResolveComboItemRules2()" }),
+              "W8: OoT's MwArmWorld does not turn the test reveal on and set both shared Sun/Saria keys before it "
+              "resolves the rules word\n");
+    const std::string mmExports = MwpReadSource("games/mm/2s2h/GameExports_SingleExe.cpp");
+    const std::string tick = MwpFunctionBody(mmExports, "void MM_IntegrationGameplayFrameTick(void)");
+    MWD_CHECK(MwpInOrder(tick, { "IntegrationTest_MMSharedSunSaria() ? 3600 : 0", "sGpMMWatchdogFrames == " }),
+              "W8: MM's frame watchdog does not extend for int-mm-shared-sun-saria\n");
+    const std::string drive = MwpReadSource("games/mm/2s2h/mm_int_warp_song_drive.cpp");
+    const std::string frame = MwpFunctionBody(drive, "extern \"C\" void MM_IntMwDrive_Frame(PlayState* play)");
+    MWD_CHECK(MwpInOrder(frame, { "if (sMwdr.sun.armed) {", "MwdrSunSample(play);", "switch (sMwdr.step) {" }),
+              "W8: the drive does not run the Sun watch before the step\n");
 }
 
 } // namespace

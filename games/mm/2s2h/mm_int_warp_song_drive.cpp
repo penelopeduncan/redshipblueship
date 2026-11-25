@@ -48,6 +48,26 @@
  *             warp-song kind), seen armed or already turned into the pending
  *             switch; then the phase goes to OoT. 600 frames from A.
  *   (watch)   600 MM frames after the handover MM must have switched to OoT.
+ *
+ * int-mm-shared-sun-saria (#1587, the in-game rows of stages T and A) rides the
+ * same steps with a song cursor: PREPARE also checks the shared Sun's Song and
+ * Saria's Song facts (the apply's give record, the family word, the quest bits,
+ * MM's forced rows, the fanfare fix, the playable mask, the scene's time speed and
+ * the day window), then the cursor plays the Sun's Song, Saria's Song and the
+ * Minuet in that order, each through TAKE_OUT, SETTLE, NOTES and MATCH:
+ *   SUN_TEXT   the played text: 0x004B in 0x1B78's box with stage T's bytes, never
+ *              0x1B7D; ends at the text's close (msgMode NONE). 900 frames.
+ *   SUN_EFFECT after the close: SPEED_TIME seen, then INACTIVE, the clock past
+ *              18:00 and R_TIME_SPEED back to its PREPARE value. 900 frames.
+ *   SARIA_END  no 0x1B95, no restricted mode, no custom text, nothing pressed;
+ *              ends with Link free for 20 frames, the song still owned. 900 frames.
+ * A background sampler (MwdrSunSample) runs from the Sun's MATCH through
+ * SUN_EFFECT: START is never visible from this tick (OceffSpot_End sets it and
+ * Interface_Update turns it into SPEED_TIME in the same Play_Update), so the
+ * first SPEED_TIME frame is what it records. Question 3 is recorded only
+ * (MwdrQ3Sample, a same-scene re-arm count from SUN_EFFECT's end to DEPART).
+ * The old variants keep the Minuet cursor, so their steps, budgets and presses
+ * are unchanged; they gain only frame-free rules-off reads at PREPARE (C1-C4).
  */
 
 #include "global.h"
@@ -62,6 +82,7 @@
 
 #include <libultraship/bridge/consolevariablebridge.h>
 
+#include "combo_song_pool.h" // #1587: Combo_SharedSongFrozenShared, SariasSongHint's gate
 #include "context.h"
 #include "entrance.h"
 #include "foreign_items.h"
@@ -72,6 +93,7 @@
 #include "warp_songs_mm.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/GameInteractor/GameInteractor.h"
+#include "2s2h/ShipInit.hpp" // #1587: re-run FasterSongPlayback's registrar after its in-memory 0
 #include "2s2h/Rando/Foreign.h"
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/Rando/WarpSongsMM.h"
@@ -87,11 +109,34 @@ extern OcarinaStaff MM_sPlayingStaff;
 extern u8 MM_sPlaybackState;
 extern u16 sPlaybackStaffPos;
 extern s16 MM_sLastPlayedSong;
+// #1587: src/code/z_message.c, as SariasSongHint.cpp and
+// mm_crossing_song_playable_test.cpp declare them.
+extern s16 sOcarinaSongFanfares[17];
+u32 MM_Message_BuildOcarinaAvailableSongs(void);
+#include "message_data_static.h" // MessageTableEntry (the vanilla headers of 0x1B78 / 0x1B7D)
 }
 
 namespace {
 
-enum class MwdrStep { Payouts, Prepare, TakeOut, Settle, Notes, Match, Played, Prompt, Depart, Handed, Failed };
+enum class MwdrStep {
+    Payouts,
+    Prepare,
+    TakeOut,
+    Settle,
+    Notes,
+    Match,
+    SunText,
+    SunEffect,
+    SariaEnd,
+    Played,
+    Prompt,
+    Depart,
+    Handed,
+    Failed
+};
+
+// #1587: the song the cursor plays next. The old variants hold Minuet throughout.
+enum class MwdrSong { Sun, Saria, Minuet };
 
 const int kMwdrSong = 0; // Minuet of Forest
 const int kMwdrPayoutBudget = 900;
@@ -107,6 +152,46 @@ const int kMwdrPromptBudget = 300;
 const int kMwdrDepartBudget = 600;
 const int kMwdrTransitionGrace = 3;
 const int kMwdrCrossBudget = 600;
+// #1587 (int-mm-shared-sun-saria only).
+const int kMwdrSunTextBudget = 900;   // PLAYED's: the playback, then "You played"
+const int kMwdrSunEffectBudget = 900; // about 100 frames from 06:00-07:00 to 18:00 at 400 a frame
+const int kMwdrSariaEndBudget = 900;  // PLAYED's: the playback, the text and its close
+const int kMwdrSariaFreeNeeded = 20;  // Link free this many frames in a row: the song is over
+const int kMwdrTimeSpeedSun = 400;    // z_parameter.c's R_TIME_SPEED while SUNSSONG_SPEED_TIME
+const u16 kMwdrSunTextVanilla = (u16)(RSBS_MMSUN_TEXT_VANILLA_BASE + RSBS_MMSUN_SONG_STATE); // 0x1B7D
+const u16 kMwdrSariaTextVanilla = (u16)(RSBS_MMSUN_TEXT_VANILLA_BASE + OCARINA_SONG_SARIAS); // 0x1B77
+// Stage T's bytes after the 11-byte header (mm_suns_song_played_text_test.cpp, S3):
+// "You played the " yellow "Sun's Song" white "!" and the end code.
+const char kMwdrSunTextBody[] = "You played the \x04Sun's Song\x00!\xBF";
+const size_t kMwdrSunTextBodyLen = sizeof(kMwdrSunTextBody) - 1; // 29
+const size_t kMwdrMsgHeaderLen = 11;
+
+struct MwdrSunWatch {
+    bool armed = false;       // from the Sun's MATCH through SUN_EFFECT
+    int matchFrame = -1;      // drive frame of the Sun's MATCH
+    int oceffLastSeen = -1;   // last drive frame an ACTOR_OCEFF_SPOT was in ITEMACTION
+    int firstSpeedFrame = -1; // first drive frame with SUNSSONG_SPEED_TIME
+    int firstSpeedMsgMode = -1;
+    int firstSpeedTextId = -1;
+    int firstSpeedOcarinaMode = -1;
+    int speedFrames = 0;      // SPEED_TIME frames
+    int speedFramesMsgUp = 0; // of which with msgMode != NONE (the clock cannot move)
+    int startFrames = 0;      // SUNSSONG_START seen (never expected: see the file comment)
+    int msgNoneFrame = -1;    // first drive frame msgMode was NONE after the match
+    s16 prePlaySpeed = 0;     // R_TIME_SPEED at PREPARE
+    u16 sceneTimeSpeed = 0;   // play->envCtx.sceneTimeSpeed at PREPARE
+    u16 timeAtFirstSpeed = 0;
+    // SUN_TEXT
+    int customTextFrames = 0; // frames with 0x004B in MSGMODE_16..18
+    bool textChecked = false;
+    int textCloseFrame = -1;
+    // Question 3: the same-scene re-arm window, SUN_EFFECT's end to DEPART.
+    bool q3Armed = false;
+    int q3Frames = 0;
+    int q3RearmFrames = 0;
+    int q3OceffSightings = 0;
+    int q3BlockSunsSong = 0;
+};
 
 struct MwdrState {
     MwdrStep step = MwdrStep::Payouts;
@@ -127,6 +212,11 @@ struct MwdrState {
     bool departed = false;
     int departedFrames = 0;
     bool watchFailed = false;
+    // #1587: int-mm-shared-sun-saria's cursor and records.
+    MwdrSong song = MwdrSong::Minuet;
+    MwdrSunWatch sun;
+    int sariaFreeFrames = 0;
+    int sariaPlayedTextId = -1;
 };
 MwdrState sMwdr;
 
@@ -144,6 +234,12 @@ const char* MwdrStepName(MwdrStep step) {
             return "notes";
         case MwdrStep::Match:
             return "match";
+        case MwdrStep::SunText:
+            return "sun's song played text";
+        case MwdrStep::SunEffect:
+            return "sun's song effect";
+        case MwdrStep::SariaEnd:
+            return "saria's song end";
         case MwdrStep::Played:
             return "you played";
         case MwdrStep::Prompt:
@@ -156,6 +252,99 @@ const char* MwdrStepName(MwdrStep step) {
             return "failed";
     }
     return "?";
+}
+
+const char* MwdrSongName(MwdrSong song) {
+    switch (song) {
+        case MwdrSong::Sun:
+            return "the Sun's Song";
+        case MwdrSong::Saria:
+            return "Saria's Song";
+        case MwdrSong::Minuet:
+            return "the Minuet of Forest";
+    }
+    return "?";
+}
+
+/** The row the failure lines name: the old variants keep their own name. */
+const char* MwdrRowName() {
+    return IntegrationTest_MMSharedSunSaria() ? "int-mm-shared-sun-saria" : "int-mm-warp-song-minuet";
+}
+
+/** MM's own song index of the Sun's Song or Saria's Song (z64ocarina.h); -1 for the
+ *  Minuet, which is OoT's and played from OoTMM's buttons (Combo_MMWarpDrive_*). */
+int MwdrMMSongIndex(MwdrSong song) {
+    return song == MwdrSong::Sun ? (int)OCARINA_SONG_SUNS : song == MwdrSong::Saria ? (int)OCARINA_SONG_SARIAS : -1;
+}
+
+/** How many notes @p song has: the Minuet's from OoTMM's buttons, the Sun's Song
+ *  and Saria's Song from MM's own table, the one MM's matcher reads
+ *  (gOcarinaSongButtons, code_8019AF00.c), so the drive cannot play notes the
+ *  matcher does not know. */
+int MwdrNoteCount(MwdrSong song) {
+    const int index = MwdrMMSongIndex(song);
+    if (index < 0) {
+        return Combo_MMWarpDrive_NoteCount(kMwdrSong);
+    }
+    const int n = (int)gOcarinaSongButtons[index].numButtons;
+    const int cap =
+        (int)(sizeof(gOcarinaSongButtons[index].buttonIndex) / sizeof(gOcarinaSongButtons[index].buttonIndex[0]));
+    return n < cap ? n : cap;
+}
+
+/** The pad bit of note @p note of @p song (0 out of range). */
+u16 MwdrNotePad(MwdrSong song, int note) {
+    const int index = MwdrMMSongIndex(song);
+    if (index < 0) {
+        return Combo_MMWarpDrive_NotePad(kMwdrSong, note);
+    }
+    if (note < 0 || note >= MwdrNoteCount(song)) {
+        return 0;
+    }
+    return Combo_MMWarpDrive_PadButton(gOcarinaSongButtons[index].buttonIndex[note]);
+}
+
+/** What msgCtx.lastPlayedSong reads once MM's matcher took @p song: the warp
+ *  song's staff state (0x80) for the Minuet, MM's own index for the others
+ *  (z_message.c, msgCtx->lastPlayedSong = msgCtx->ocarinaStaff->state). */
+u16 MwdrWant(MwdrSong song) {
+    const int index = MwdrMMSongIndex(song);
+    return index < 0 ? (u16)Combo_MMWarpPlay_StaffState(kMwdrSong) : (u16)index;
+}
+
+/** Is a Sun's Song effect actor (ACTOR_OCEFF_SPOT, ACTORCAT_ITEMACTION) in the
+ *  actor list? */
+bool MwdrOceffSpotPresent(PlayState* play) {
+    for (Actor* a = play->actorCtx.actorLists[ACTORCAT_ITEMACTION].first; a != nullptr; a = a->next) {
+        if (a->id == ACTOR_OCEFF_SPOT) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** The first five header bytes (box, position, icon, next id hi/lo) of the vanilla
+ *  message @p textId in MM's table, walked as CustomMessage::LoadVanillaMessageTableEntry
+ *  walks it; false when the id is absent or its segment short (that function would
+ *  read the terminator instead). */
+bool MwdrVanillaHeader(PlayState* play, u16 textId, u8 out[5]) {
+    const MessageTableEntry* e = play->msgCtx.messageTableNES;
+    if (e == nullptr) {
+        return false;
+    }
+    for (; e->textId != 0xFFFF; e++) {
+        if (e->textId != textId) {
+            continue;
+        }
+        if (e->segment == nullptr || e->msgSize < 5u) {
+            return false;
+        }
+        for (int i = 0; i < 5; i++) {
+            out[i] = (u8)e->segment[i];
+        }
+        return true;
+    }
+    return false;
 }
 
 int MwdrEligibleChecks() {
@@ -273,6 +462,37 @@ std::string MwdrDump(PlayState* play) {
              sMwdr.driveFrames, (unsigned)sMwdr.held, sMwdr.heldFrames, (unsigned)MM_PadMgr_GetTestButtons(),
              sMwdr.note + 1);
     out += buf;
+
+    if (IntegrationTest_MMSharedSunSaria()) {
+        const MwdrSunWatch& s = sMwdr.sun;
+        const u32 avail = MM_Message_BuildOcarinaAvailableSongs();
+        char sunBuf[1536];
+        snprintf(sunBuf, sizeof(sunBuf),
+                 "; sun/saria: song %s, sunsSongState %d R_TIME_SPEED %d (prePlay %d, sceneTimeSpeed now %u at PREPARE "
+                 "%u) time 0x%04X day %d isNight %d, blockSunsSong %d, OceffSpot %s (last seen %d), match %d first "
+                 "SPEED_TIME %d (msgMode %d textId 0x%04X ocarinaMode %d, time 0x%04X), SPEED_TIME frames %d (%d with "
+                 "a message up), START seen %d, msg NONE %d, custom text frames %d, text close %d; available 0x%08X; "
+                 "quest Sun %d Saria %d; rows Sun %d Saria %d; fanfare[SARIAS] 0x%04X; EnableSunsSong %d "
+                 "FasterSongPlayback %d; frozen shared Sun %d Saria %d; saria free %d played text 0x%04X; q3 armed %d "
+                 "frames %d re-arm %d OceffSpot %d",
+                 MwdrSongName(sMwdr.song), (int)gSaveContext.sunsSongState, (int)R_TIME_SPEED, (int)s.prePlaySpeed,
+                 (unsigned)play->envCtx.sceneTimeSpeed, (unsigned)s.sceneTimeSpeed, (unsigned)CURRENT_TIME,
+                 (int)gSaveContext.save.day, (int)gSaveContext.save.isNight, (int)m->blockSunsSong,
+                 MwdrOceffSpotPresent(play) ? "present" : "absent", s.oceffLastSeen, s.matchFrame, s.firstSpeedFrame,
+                 s.firstSpeedMsgMode, (unsigned)(s.firstSpeedTextId & 0xFFFF), s.firstSpeedOcarinaMode,
+                 (unsigned)s.timeAtFirstSpeed, s.speedFrames, s.speedFramesMsgUp, s.startFrames, s.msgNoneFrame,
+                 s.customTextFrames, s.textCloseFrame, (unsigned)avail, CHECK_QUEST_ITEM(QUEST_SONG_SUN) ? 1 : 0,
+                 CHECK_QUEST_ITEM(QUEST_SONG_SARIA) ? 1 : 0, (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN],
+                 (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA],
+                 (unsigned)(u16)sOcarinaSongFanfares[OCARINA_SONG_SARIAS],
+                 (int)CVarGetInteger("gEnhancements.Songs.EnableSunsSong", 0),
+                 (int)CVarGetInteger("gEnhancements.Songs.FasterSongPlayback", 0),
+                 Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SUN) ? 1 : 0,
+                 Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SARIAS) ? 1 : 0, sMwdr.sariaFreeFrames,
+                 (unsigned)(sMwdr.sariaPlayedTextId & 0xFFFF), s.q3Armed ? 1 : 0, s.q3Frames, s.q3RearmFrames,
+                 s.q3OceffSightings);
+        out += sunBuf;
+    }
     return out;
 }
 
@@ -286,9 +506,15 @@ void MwdrFail(PlayState* play, const char* why) {
     sMwdr.held = 0;
     sMwdr.heldFrames = 0;
     MM_PadMgr_SetTestButtons(0);
-    std::string msg = "int-mm-warp-song-minuet, step '";
+    std::string msg = MwdrRowName();
+    msg += ", step '";
     msg += MwdrStepName(at);
     msg += "': ";
+    if (IntegrationTest_MMSharedSunSaria()) {
+        msg += "(playing ";
+        msg += MwdrSongName(sMwdr.song);
+        msg += ") ";
+    }
     msg += why;
     msg += " [";
     msg += state;
@@ -299,8 +525,13 @@ void MwdrFail(PlayState* play, const char* why) {
 /** Moves to @p step, logging the step it leaves as @p outcome ("done", or
  *  "abandoned" when the take-out falls back to the payout wait). */
 void MwdrNext(MwdrStep step, const char* outcome = "done") {
-    fprintf(stderr, "[PFC] mm warp song: step '%s' %s after %d frame(s) (drive frame %d)\n", MwdrStepName(sMwdr.step),
-            outcome, sMwdr.stepFrames, sMwdr.driveFrames);
+    if (IntegrationTest_MMSharedSunSaria()) {
+        fprintf(stderr, "[PFC] mm warp song: step '%s' (%s) %s after %d frame(s) (drive frame %d)\n",
+                MwdrStepName(sMwdr.step), MwdrSongName(sMwdr.song), outcome, sMwdr.stepFrames, sMwdr.driveFrames);
+    } else {
+        fprintf(stderr, "[PFC] mm warp song: step '%s' %s after %d frame(s) (drive frame %d)\n",
+                MwdrStepName(sMwdr.step), outcome, sMwdr.stepFrames, sMwdr.driveFrames);
+    }
     fflush(stderr);
     sMwdr.step = step;
     sMwdr.stepFrames = 0;
@@ -387,6 +618,204 @@ void MwdrStepPayouts(PlayState* play, Player* player) {
     if (sMwdr.stepFrames >= kMwdrPayoutBudget) {
         MwdrFail(play, "starting-check payouts never drained");
     }
+}
+
+/**
+ * int-mm-shared-sun-saria's PREPARE (#1587): everything the two plays are judged
+ * against, read before a note is played, each failure naming its fact.
+ *  - The family carried both songs: MM's ARRIVAL APPLY gave them (its give record,
+ *    which no starting-check payout writes), the family word holds them, and MM's
+ *    quest bits are set (MM_SharedSunSariaGive sets only the quest bit).
+ *  - Foreign.cpp step 2d reached the file: MM's own Shuffle Sun's Song and Shuffle
+ *    Saria's Song rows are on; SariasSongHint registered with its row on (it puts
+ *    NA_BGM_SARIAS_SONG in the fanfare table only then, SariasSongHint.cpp); the
+ *    gate its hook bodies read says shared.
+ *  - The quest bits make both playable (MM_Message_BuildOcarinaAvailableSongs).
+ *    EnableSunsSong is logged: under this row its hook returns early (the rando
+ *    row is on), so it cannot be what makes the Sun's Song playable.
+ *  - The Sun's effect can run and end by day: R_TIME_SPEED is not already 400
+ *    (OceffSpot_End refuses it), the scene has a time speed (else SPECIAL), and the
+ *    clock is in 06:00-16:00 (a night play would run to 06:00 and the day change).
+ *  - FasterSongPlayback forced to 0 in memory: z_parameter.c reads it on the
+ *    START pass (put back at the verdict by IntegrationTest_SoaringCleanup).
+ * Then the cursor goes to the Sun's Song and the question 3 baseline is printed
+ * (a baseline, not evidence: MM's Play init resets it).
+ */
+bool MwdrPrepareSunSaria(PlayState* play) {
+    struct SongFact {
+        uint32_t bit;
+        int quest;
+        int row;
+        int index;
+        const char* name;
+    };
+    static const SongFact kSongs[] = {
+        { RSBS_XITEM2_SHARED_SONG_SUN, (int)QUEST_SONG_SUN, (int)RO_SHUFFLE_SONG_SUN, (int)OCARINA_SONG_SUNS,
+          "Sun's Song" },
+        { RSBS_XITEM2_SHARED_SONG_SARIAS, (int)QUEST_SONG_SARIA, (int)RO_SHUFFLE_SONG_SARIA, (int)OCARINA_SONG_SARIAS,
+          "Saria's Song" },
+    };
+    const uint32_t given = Combo_SharedFamilies2GivenAtLastApply(GAME_MM);
+    const uint32_t owned2 = Combo_SharedFamilies2Owned();
+    const u32 avail = MM_Message_BuildOcarinaAvailableSongs();
+    char why[512];
+    for (const SongFact& f : kSongs) {
+        const bool quest = CHECK_QUEST_ITEM(f.quest) != 0;
+        const u32 row = RANDO_SAVE_OPTIONS[f.row];
+        if ((given & f.bit) == 0u) {
+            snprintf(
+                why, sizeof(why),
+                "the family did not give Majora's Mask the %s at arrival (OoT's harvest at suspend or MM's apply): "
+                "apply give record 0x%08X, family owned2 0x%08X, quest bit %d",
+                f.name, (unsigned)given, (unsigned)owned2, quest ? 1 : 0);
+            MwdrFail(play, why);
+            return false;
+        }
+        if ((owned2 & f.bit) == 0u || !quest) {
+            snprintf(why, sizeof(why),
+                     "the apply gave the %s but the family word or MM's quest bit does not hold it: family owned2 "
+                     "0x%08X, quest bit %d (MM_SharedSunSariaGive)",
+                     f.name, (unsigned)owned2, quest ? 1 : 0);
+            MwdrFail(play, why);
+            return false;
+        }
+        if (row != (u32)RO_GENERIC_YES) {
+            snprintf(why, sizeof(why),
+                     "MM's own Shuffle %s row is %u, not on: Foreign.cpp step 2d (a shared song is MM's too) did not "
+                     "reach the file",
+                     f.name, (unsigned)row);
+            MwdrFail(play, why);
+            return false;
+        }
+        if ((avail & (1u << f.index)) == 0u) {
+            snprintf(why, sizeof(why),
+                     "MM's playable-song mask 0x%08X lacks the %s (bit %d) with its quest bit set "
+                     "(MM_Message_BuildOcarinaAvailableSongs)",
+                     (unsigned)avail, f.name, f.index);
+            MwdrFail(play, why);
+            return false;
+        }
+        if (!Combo_SharedSongFrozenShared(f.bit)) {
+            snprintf(why, sizeof(why),
+                     "Combo_SharedSongFrozenShared says the %s is not shared in the frozen world (rule2 0x%08X)",
+                     f.name, (unsigned)Combo_ComboCrossItemFlags2());
+            MwdrFail(play, why);
+            return false;
+        }
+    }
+    if (sOcarinaSongFanfares[OCARINA_SONG_SARIAS] != NA_BGM_SARIAS_SONG) {
+        snprintf(why, sizeof(why),
+                 "the fanfare of Saria's Song is 0x%04X, not NA_BGM_SARIAS_SONG: SariasSongHint did not register with "
+                 "MM's Saria's Song row on (SariasSongHint.cpp, shouldRegister)",
+                 (unsigned)(u16)sOcarinaSongFanfares[OCARINA_SONG_SARIAS]);
+        MwdrFail(play, why);
+        return false;
+    }
+    MwdrSunWatch& s = sMwdr.sun;
+    s.prePlaySpeed = (s16)R_TIME_SPEED;
+    s.sceneTimeSpeed = play->envCtx.sceneTimeSpeed;
+    if (s.prePlaySpeed == kMwdrTimeSpeedSun) {
+        MwdrFail(play, "R_TIME_SPEED is already 400 before the Sun's Song: OceffSpot_End would refuse the effect");
+        return false;
+    }
+    if (s.sceneTimeSpeed == 0) {
+        MwdrFail(play,
+                 "scene has no time speed: Sun would go SPECIAL (z_parameter.c), so its speed-up cannot be shown");
+        return false;
+    }
+    const u16 now = (u16)CURRENT_TIME;
+    if ((s32)now < CLOCK_TIME(6, 0) || (s32)now >= CLOCK_TIME(16, 0)) {
+        snprintf(
+            why, sizeof(why),
+            "the clock is 0x%04X (day %d, isNight %d), outside 06:00-16:00: a night play runs to 06:00 and the day "
+            "change, and a late one leaves no room before 18:00 (a 12:00 fixture, as the shuffle-ocarina drive "
+            "sets its clock, is the fix)",
+            (unsigned)now, (int)gSaveContext.save.day, (int)gSaveContext.save.isNight);
+        MwdrFail(play, why);
+        return false;
+    }
+    // The CVar alone is not enough: FasterSongPlayback.cpp's hooks are armed from it
+    // by its ShipInit registrar (COND_ID_HOOK on ACTOR_PLAYER), which ran at MM's
+    // InitAll. Re-running the registrar on the key unregisters them with the key 0.
+    const int fasterBefore = (int)CVarGetInteger("gEnhancements.Songs.FasterSongPlayback", 0);
+    IntegrationTest_SoaringSetCVarInt("gEnhancements.Songs.FasterSongPlayback", 0);
+    ShipInit::Init("gEnhancements.Songs.FasterSongPlayback");
+    fprintf(stderr,
+            "[PFC] shared sun/saria: FasterSongPlayback was %d, set to 0 in memory and its ShipInit registrar re-run "
+            "(its OnActorUpdate hook on Player is now unregistered)\n",
+            fasterBefore);
+    fprintf(stderr,
+            "[PFC] shared sun/saria: MM holds both through the family (apply give record 0x%08X, owned2 0x%08X), "
+            "quest bits Sun %d Saria %d, rows Sun %u Saria %u, fanfare[SARIAS] 0x%04X (NA_BGM_SARIAS_SONG), playable "
+            "mask 0x%08X, EnableSunsSong %d (its hook returns early under the row); R_TIME_SPEED %d, sceneTimeSpeed "
+            "%u, clock 0x%04X day %d isNight %d; the drive gives neither\n",
+            (unsigned)given, (unsigned)owned2, CHECK_QUEST_ITEM(QUEST_SONG_SUN) ? 1 : 0,
+            CHECK_QUEST_ITEM(QUEST_SONG_SARIA) ? 1 : 0, (unsigned)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN],
+            (unsigned)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA],
+            (unsigned)(u16)sOcarinaSongFanfares[OCARINA_SONG_SARIAS], (unsigned)avail,
+            (int)CVarGetInteger("gEnhancements.Songs.EnableSunsSong", 0), (int)s.prePlaySpeed,
+            (unsigned)s.sceneTimeSpeed, (unsigned)now, (int)gSaveContext.save.day, (int)gSaveContext.save.isNight);
+    fprintf(stderr,
+            "[PFC] shared sun/saria q3 pre-play baseline, not evidence (MM Play init resets it, z_parameter.c:10083): "
+            "sunsSongState %d, R_TIME_SPEED %d, clock 0x%04X, day %d, isNight %d, sLastPlayedSong 0x%02X, "
+            "lastPlayedSong 0x%02X, blockSunsSong %d\n",
+            (int)gSaveContext.sunsSongState, (int)R_TIME_SPEED, (unsigned)now, (int)gSaveContext.save.day,
+            (int)gSaveContext.save.isNight, (unsigned)(u16)MM_sLastPlayedSong, (unsigned)play->msgCtx.lastPlayedSong,
+            (int)play->msgCtx.blockSunsSong);
+    fflush(stderr);
+    sMwdr.song = MwdrSong::Sun;
+    return true;
+}
+
+/**
+ * The control on int-mm-warp-song-minuet and int-mm-warp-song-minuet-shared
+ * (#1587): frame-free reads, no input, that main's rules-off state did not move.
+ *  C1 neither shared rule is frozen in the created world;
+ *  C2 MM's own Shuffle Sun's Song and Shuffle Saria's Song rows are off (the
+ *     paired profile resets the PARTIAL rows to their default, Foreign.cpp 1a);
+ *  C3 SariasSongHint is unregistered (the fanfare is vanilla NA_BGM_MAJORAS_LAIR);
+ *  C4 neither song is playable on the rules-off rows: no quest bits, and the
+ *     EnableSunsSong VB path (EnableSunsSong.cpp) is off. Read only, never set:
+ *     if that shipped default ever turns on, this goes red by name.
+ */
+bool MwdrRulesOffControl(PlayState* play) {
+    const uint32_t rule2 = Combo_ComboCrossItemFlags2();
+    const uint32_t bits = RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS;
+    const u32 sunRow = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN];
+    const u32 sariaRow = RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA];
+    const u16 fanfare = (u16)sOcarinaSongFanfares[OCARINA_SONG_SARIAS];
+    const u32 avail = MM_Message_BuildOcarinaAvailableSongs();
+    const u32 songBits = (1u << OCARINA_SONG_SARIAS) | (1u << OCARINA_SONG_SUNS);
+    const int enableSuns = (int)CVarGetInteger("gEnhancements.Songs.EnableSunsSong", 0);
+    const char* why = nullptr;
+    if ((rule2 & bits) != 0u) {
+        why = "C1: the created world froze a shared Sun's Song or Saria's Song rule on a rules-off row";
+    } else if (sunRow != 0u || sariaRow != 0u) {
+        why = "C2: MM's own Shuffle Sun's Song or Shuffle Saria's Song row is on with the shared rules off";
+    } else if (fanfare != (u16)NA_BGM_MAJORAS_LAIR) {
+        why = "C3: SariasSongHint registered (the Saria's Song fanfare fix) with MM's Saria's Song row off";
+    } else if ((avail & songBits) != 0u || enableSuns != 0) {
+        why = "C4: a song is playable on a rules-off row (want neither playable: no Sun's or Saria's Song quest bit, "
+              "and the EnableSunsSong VB path, EnableSunsSong.cpp:13-23, off)";
+    }
+    char line[640];
+    snprintf(line, sizeof(line),
+             "rule2 0x%08X, rows Sun %u Saria %u, fanfare[SARIAS] 0x%04X, playable mask 0x%08X (Saria bit %d, Sun bit "
+             "%d), EnableSunsSong %d",
+             (unsigned)rule2, (unsigned)sunRow, (unsigned)sariaRow, (unsigned)fanfare, (unsigned)avail,
+             (avail & (1u << OCARINA_SONG_SARIAS)) != 0u ? 1 : 0, (avail & (1u << OCARINA_SONG_SUNS)) != 0u ? 1 : 0,
+             enableSuns);
+    if (why != nullptr) {
+        std::string msg = why;
+        msg += " [";
+        msg += line;
+        msg += "]";
+        MwdrFail(play, msg.c_str());
+        return false;
+    }
+    fprintf(stderr, "[PFC] mm warp song: the rules-off control C1-C4 holds (%s)\n", line);
+    fflush(stderr);
+    return true;
 }
 
 void MwdrStepPrepare(PlayState* play, Player* player) {
@@ -477,6 +906,11 @@ void MwdrStepPrepare(PlayState* play, Player* player) {
         MwdrFail(play, why.c_str());
         return;
     }
+    // #1587: the shared Sun's and Saria's songs' facts on their own row; on the
+    // two Minuet rows, frame-free reads that the rules-off state did not move.
+    if (IntegrationTest_MMSharedSunSaria() ? !MwdrPrepareSunSaria(play) : !MwdrRulesOffControl(play)) {
+        return;
+    }
     sMwdr.marker = (u16)gSaveContext.save.entrance;
     fprintf(stderr,
             "[PFC] mm warp song: prepared in scene %d at entrance 0x%04X: Ocarina of Time on C-down, Ocarina Button "
@@ -535,7 +969,7 @@ void MwdrStepSettle(PlayState* play) {
 }
 
 void MwdrStepNotes(PlayState* play) {
-    const int count = Combo_MMWarpDrive_NoteCount(kMwdrSong);
+    const int count = MwdrNoteCount(sMwdr.song);
     if (sMwdr.noteFrame == 0) {
         if (play->msgCtx.msgMode != MSGMODE_OCARINA_PLAYING) {
             char why[128];
@@ -543,7 +977,7 @@ void MwdrStepNotes(PlayState* play) {
             MwdrFail(play, why);
             return;
         }
-        MwdrHold(Combo_MMWarpDrive_NotePad(kMwdrSong, sMwdr.note), RSBS_MWD_NOTE_HOLD);
+        MwdrHold(MwdrNotePad(sMwdr.song, sMwdr.note), RSBS_MWD_NOTE_HOLD);
     }
     sMwdr.noteFrame++;
     if (sMwdr.noteFrame >= RSBS_MWD_NOTE_HOLD + RSBS_MWD_NOTE_GAP) {
@@ -556,20 +990,346 @@ void MwdrStepNotes(PlayState* play) {
     }
 }
 
-void MwdrStepMatch(PlayState* play) {
-    const u16 want = Combo_MMWarpPlay_StaffState(kMwdrSong);
-    if (play->msgCtx.lastPlayedSong == want && play->msgCtx.msgMode != MSGMODE_OCARINA_PLAYING) {
-        MwdrNext(MwdrStep::Played);
-        return;
-    }
-    if (sMwdr.stepFrames >= kMwdrMatchBudget) {
-        MwdrFail(play, "the six notes were played but MM's matcher never answered the Minuet (0x80)");
-    }
-}
-
 bool MwdrRefused(PlayState* play) {
     return play->msgCtx.ocarinaMode == OCARINA_MODE_PROCESS_RESTRICTED_SONG ||
            play->msgCtx.currentTextId == RSBS_MMWP_TEXT_RESTRICTED;
+}
+
+void MwdrStepMatch(PlayState* play) {
+    const u16 want = MwdrWant(sMwdr.song);
+    if (play->msgCtx.lastPlayedSong == want && play->msgCtx.msgMode != MSGMODE_OCARINA_PLAYING) {
+        switch (sMwdr.song) {
+            case MwdrSong::Minuet:
+                MwdrNext(MwdrStep::Played);
+                break;
+            case MwdrSong::Sun:
+                // #1587: the Sun watch starts here, not at the text's close: the
+                // OceffSpot is spawned as playback begins and the effect can start
+                // while the playback staff or the text is still up.
+                sMwdr.sun.armed = true;
+                sMwdr.sun.matchFrame = sMwdr.driveFrames;
+                fprintf(stderr,
+                        "[PFC] shared sun/saria: matched the Sun's Song (lastPlayedSong %u) at drive frame %d; "
+                        "the Sun watch is armed\n",
+                        (unsigned)play->msgCtx.lastPlayedSong, sMwdr.driveFrames);
+                fflush(stderr);
+                MwdrNext(MwdrStep::SunText);
+                break;
+            case MwdrSong::Saria:
+                fprintf(stderr, "[PFC] shared sun/saria: matched Saria's Song (lastPlayedSong %u) at drive frame %d\n",
+                        (unsigned)play->msgCtx.lastPlayedSong, sMwdr.driveFrames);
+                fflush(stderr);
+                sMwdr.sariaFreeFrames = 0;
+                sMwdr.sariaPlayedTextId = -1;
+                MwdrNext(MwdrStep::SariaEnd);
+                break;
+        }
+        return;
+    }
+    if (sMwdr.stepFrames >= kMwdrMatchBudget) {
+        if (sMwdr.song == MwdrSong::Minuet) {
+            MwdrFail(play, "the six notes were played but MM's matcher never answered the Minuet (0x80)");
+        } else {
+            char why[160];
+            snprintf(why, sizeof(why), "the six notes of %s were played but MM's matcher never answered it (want %u)",
+                     MwdrSongName(sMwdr.song), (unsigned)want);
+            MwdrFail(play, why);
+        }
+    }
+}
+
+/**
+ * #1587, the Sun watch: every drive tick from the Sun's MATCH through SUN_EFFECT,
+ * before the step. It records the last frame an OceffSpot was seen (not asserted:
+ * a killed actor can stay listed for one more update), the first SPEED_TIME frame
+ * with its msgMode, text and ocarinaMode (z_parameter.c writes OCARINA_MODE_END on
+ * the START pass, the same Play_Update as the SPEED_TIME entry), the SPEED_TIME
+ * frames and those with a message up, and the first frame the message is gone.
+ * It fails at once on SUNSSONG_SPECIAL (persistent), on a SPEED_TIME frame with
+ * R_TIME_SPEED other than 400, and on INACTIVE after SPEED_TIME before 18:00.
+ * START is not observable from this tick (set by OceffSpot_End inside
+ * Actor_UpdateAll and consumed by Interface_Update later in the same
+ * Play_Update); it is counted only in case that ever changes.
+ */
+void MwdrSunSample(PlayState* play) {
+    MwdrSunWatch& s = sMwdr.sun;
+    const MessageContext* m = &play->msgCtx;
+    const s16 state = gSaveContext.sunsSongState;
+    const u16 now = (u16)CURRENT_TIME;
+    if (MwdrOceffSpotPresent(play)) {
+        s.oceffLastSeen = sMwdr.driveFrames;
+    }
+    if (s.msgNoneFrame < 0 && m->msgMode == MSGMODE_NONE) {
+        s.msgNoneFrame = sMwdr.driveFrames;
+    }
+    if (state == SUNSSONG_START) {
+        s.startFrames++;
+    }
+    if (state == SUNSSONG_SPECIAL) {
+        MwdrFail(play, "sunsSongState is SUNSSONG_SPECIAL: the scene's time speed is 0 here (z_parameter.c), so the "
+                       "Sun's Song cannot speed the clock");
+        return;
+    }
+    if (state == SUNSSONG_SPEED_TIME) {
+        if (s.firstSpeedFrame < 0) {
+            s.firstSpeedFrame = sMwdr.driveFrames;
+            s.firstSpeedMsgMode = (int)m->msgMode;
+            s.firstSpeedTextId = (int)m->currentTextId;
+            s.firstSpeedOcarinaMode = (int)m->ocarinaMode;
+            s.timeAtFirstSpeed = now;
+            fprintf(stderr,
+                    "[PFC] shared sun/saria: first SPEED_TIME at drive frame %d (%d after the match; OceffSpot last "
+                    "seen %d) with msgMode %d, textId 0x%04X, ocarinaMode %d (OCARINA_MODE_END expected, from "
+                    "TEXT_CLOSING's free-play write if the text closed first, z_message.c, or from the START pass, "
+                    "z_parameter.c), R_TIME_SPEED %d, clock 0x%04X; START not observable from the tick (set and "
+                    "consumed in one Play_Update)\n",
+                    s.firstSpeedFrame, s.firstSpeedFrame - s.matchFrame, s.oceffLastSeen, s.firstSpeedMsgMode,
+                    (unsigned)(s.firstSpeedTextId & 0xFFFF), s.firstSpeedOcarinaMode, (int)R_TIME_SPEED, (unsigned)now);
+            fflush(stderr);
+        }
+        s.speedFrames++;
+        if (m->msgMode != MSGMODE_NONE) {
+            s.speedFramesMsgUp++;
+        }
+        if ((int)R_TIME_SPEED != kMwdrTimeSpeedSun) {
+            char why[160];
+            snprintf(why, sizeof(why), "a SPEED_TIME frame with R_TIME_SPEED %d, not 400 (z_parameter.c's speed-up)",
+                     (int)R_TIME_SPEED);
+            MwdrFail(play, why);
+        }
+        return;
+    }
+    if (state == SUNSSONG_INACTIVE && s.firstSpeedFrame >= 0 && (s32)now <= CLOCK_TIME(18, 0)) {
+        char why[256];
+        snprintf(why, sizeof(why),
+                 "sunsSongState went back to INACTIVE after SPEED_TIME with the clock at 0x%04X, not past 18:00: "
+                 "En_Rd/ClockShuffle/z_map_exp reset?",
+                 (unsigned)now);
+        MwdrFail(play, why);
+    }
+}
+
+/** #1587, question 3, recorded only: from SUN_EFFECT's end to DEPART (through the
+ *  Saria and Minuet plays, with no Sun's Song played by the drive), count the
+ *  frames the Sun's effect is live again (sunsSongState not INACTIVE or
+ *  R_TIME_SPEED 400) and the OceffSpot sightings. No crossing happens inside it. */
+void MwdrQ3Sample(PlayState* play) {
+    MwdrSunWatch& s = sMwdr.sun;
+    s.q3Frames++;
+    if (gSaveContext.sunsSongState != SUNSSONG_INACTIVE || (int)R_TIME_SPEED == kMwdrTimeSpeedSun) {
+        s.q3RearmFrames++;
+    }
+    if (MwdrOceffSpotPresent(play)) {
+        s.q3OceffSightings++;
+    }
+    s.q3BlockSunsSong = (int)play->msgCtx.blockSunsSong;
+}
+
+/** The custom text's checks, on its first frame in MSGMODE_16..18: 0x1B78's
+ *  header (read live from MM's table, both vanilla headers printed) and stage T's
+ *  body bytes in the font buffer; the box and position the decoder took and a
+ *  log-only look for "Sun's Song" in the decoded text. False on a failed check. */
+bool MwdrSunTextCheck(PlayState* play) {
+    MessageContext* m = &play->msgCtx;
+    const unsigned char* buf = m->font.msgBuf.schar;
+    u8 box[5] = { 0 };
+    u8 vanilla[5] = { 0 };
+    const bool haveBox = MwdrVanillaHeader(play, (u16)RSBS_MMWP_TEXT_PLAYED_BOX, box);
+    const bool haveVanilla = MwdrVanillaHeader(play, kMwdrSunTextVanilla, vanilla);
+    bool sameHeaders = haveBox && haveVanilla;
+    for (int i = 0; i < 5 && sameHeaders; i++) {
+        sameHeaders = box[i] == vanilla[i];
+    }
+    fprintf(stderr,
+            "[PFC] shared sun/saria: the played text 0x%04X (msgLength %d): font header %02X %02X %02X %02X %02X; "
+            "0x1B78's %s %02X %02X %02X %02X %02X; 0x1B7D's %s %02X %02X %02X %02X %02X%s; decoded box %u position "
+            "%u\n",
+            (unsigned)m->currentTextId, (int)m->msgLength, buf[0], buf[1], buf[2], buf[3], buf[4],
+            haveBox ? "header" : "(absent)", box[0], box[1], box[2], box[3], box[4],
+            haveVanilla ? "header" : "(absent)", vanilla[0], vanilla[1], vanilla[2], vanilla[3], vanilla[4],
+            sameHeaders ? " (the two vanilla headers are equal: the header check is vacuous)" : "",
+            (unsigned)m->textBoxType, (unsigned)m->textBoxPos);
+    if (!haveBox) {
+        MwdrFail(play, "0x1B78 is not in MM's message table, so the played text's box cannot be checked");
+        return false;
+    }
+    for (int i = 0; i < 5; i++) {
+        if (buf[i] != box[i]) {
+            MwdrFail(play, "the Sun's played text is not in 0x1B78's box (the font header differs from 0x1B78's)");
+            return false;
+        }
+    }
+    if (std::memcmp(buf + kMwdrMsgHeaderLen, kMwdrSunTextBody, kMwdrSunTextBodyLen) != 0) {
+        std::string got;
+        char hex[4];
+        for (size_t i = 0; i < kMwdrSunTextBodyLen; i++) {
+            snprintf(hex, sizeof(hex), "%02X", (unsigned)buf[kMwdrMsgHeaderLen + i]);
+            got += hex;
+        }
+        std::string why = "the Sun's played text is not stage T's 'You played the ' yellow 'Sun's Song' white '!' "
+                          "(font bytes after the header: ";
+        why += got;
+        why += ")";
+        MwdrFail(play, why.c_str());
+        return false;
+    }
+    // Log only: the decoder's byte form is unverified.
+    const size_t decodedCap = sizeof(m->decodedBuffer.schar);
+    const size_t decodedLen = (size_t)m->decodedTextLen < decodedCap ? (size_t)m->decodedTextLen : decodedCap;
+    const std::string decoded(m->decodedBuffer.schar, decodedLen);
+    fprintf(stderr,
+            "[PFC] shared sun/saria: the Sun's played text is stage T's (0x1B78's box, body bytes equal); decoded text "
+            "%s \"Sun's Song\" (log only, %u bytes)\n",
+            decoded.find("Sun's Song") != std::string::npos ? "contains" : "does not contain", (unsigned)decodedLen);
+    fflush(stderr);
+    return true;
+}
+
+/** #1587, SUN_TEXT: from the Sun's MATCH to the played text's close. */
+void MwdrStepSunText(PlayState* play) {
+    MessageContext* m = &play->msgCtx;
+    MwdrSunWatch& s = sMwdr.sun;
+    if (MwdrRefused(play)) {
+        MwdrFail(play, "the Sun's Song was refused (0x1B95 / the restricted-song mode)");
+        return;
+    }
+    if (m->currentTextId == kMwdrSunTextVanilla) {
+        MwdrFail(play, "MM's own 0x1B7D opened for the Sun's Song: stage T's branch in "
+                       "MSGMODE_DISPLAY_SONG_PLAYED_TEXT_BEGIN did not run");
+        return;
+    }
+    const bool textMode = m->msgMode == MSGMODE_16 || m->msgMode == MSGMODE_17 || m->msgMode == MSGMODE_18;
+    if (m->currentTextId == CUSTOM_MESSAGE_ID && textMode) {
+        s.customTextFrames++;
+        if (!s.textChecked) {
+            s.textChecked = true;
+            if (!MwdrSunTextCheck(play)) {
+                return;
+            }
+        }
+    }
+    if (m->msgMode == MSGMODE_NONE) {
+        if (s.customTextFrames == 0) {
+            MwdrFail(play, "the message closed before the Sun's played text opened (did the START pass's "
+                           "ocarinaMode END, z_parameter.c, close the staff before TEXT_BEGIN?)");
+            return;
+        }
+        s.textCloseFrame = sMwdr.driveFrames;
+        // Recorded only: nothing in the message flow waits for the OceffSpot (about
+        // 100 frames from its spawn to START, z_oceff_spot.c), so SPEED_TIME can
+        // begin on either side of the close. SUN_EFFECT requires it, by name.
+        if (s.firstSpeedFrame < 0) {
+            fprintf(stderr,
+                    "[PFC] shared sun/saria: the Sun's played text was up %d frame(s) and closed at drive frame %d "
+                    "(%d after the match); SPEED_TIME not seen yet (OceffSpot last seen %d): it is required at "
+                    "SUN_EFFECT\n",
+                    s.customTextFrames, s.textCloseFrame, s.textCloseFrame - s.matchFrame, s.oceffLastSeen);
+        } else {
+            fprintf(stderr,
+                    "[PFC] shared sun/saria: the Sun's played text was up %d frame(s) and closed at drive frame %d "
+                    "(%d after the match); first SPEED_TIME at %d, before the close (%d frame(s) with a message up)\n",
+                    s.customTextFrames, s.textCloseFrame, s.textCloseFrame - s.matchFrame, s.firstSpeedFrame,
+                    s.speedFramesMsgUp);
+        }
+        fflush(stderr);
+        MwdrNext(MwdrStep::SunEffect);
+        return;
+    }
+    if (sMwdr.stepFrames >= kMwdrSunTextBudget) {
+        MwdrFail(play, s.customTextFrames == 0 ? "the Sun's played text never opened (see msgMode and ocarinaMode; the "
+                                                 "START pass's early ocarinaMode END is the first suspect)"
+                                               : "the Sun's played text never closed");
+    }
+}
+
+/** #1587, SUN_EFFECT: from the text's close until the speed-up has run its course.
+ *  The clock checks are made with msgMode NONE only (the clock cannot move while a
+ *  message is up, z_kankyo.c). */
+void MwdrStepSunEffect(PlayState* play) {
+    MwdrSunWatch& s = sMwdr.sun;
+    const u16 now = (u16)CURRENT_TIME;
+    const bool done = play->msgCtx.msgMode == MSGMODE_NONE && s.firstSpeedFrame >= 0 &&
+                      gSaveContext.sunsSongState == SUNSSONG_INACTIVE && (s32)now > CLOCK_TIME(18, 0) &&
+                      (s16)R_TIME_SPEED == s.prePlaySpeed;
+    if (done) {
+        fprintf(stderr,
+                "[PFC] shared sun/saria: the Sun's effect ran its course: SPEED_TIME %d frame(s) (%d with a message "
+                "up, R_TIME_SPEED 400 on each), first at drive frame %d with msgMode %d and ocarinaMode %d, from clock "
+                "0x%04X to 0x%04X (past 18:00), R_TIME_SPEED back to %d; OceffSpot last seen at %d; START seen %d\n",
+                s.speedFrames, s.speedFramesMsgUp, s.firstSpeedFrame, s.firstSpeedMsgMode, s.firstSpeedOcarinaMode,
+                (unsigned)s.timeAtFirstSpeed, (unsigned)now, (int)s.prePlaySpeed, s.oceffLastSeen, s.startFrames);
+        fflush(stderr);
+        s.armed = false;
+        s.q3Armed = true;
+        sMwdr.song = MwdrSong::Saria;
+        MwdrNext(MwdrStep::TakeOut);
+        return;
+    }
+    if (sMwdr.stepFrames >= kMwdrSunEffectBudget) {
+        char why[256];
+        snprintf(why, sizeof(why),
+                 "the Sun's effect did not end past 18:00 with the time speed put back within %d frames of the text's "
+                 "close (sunsSongState %d, clock 0x%04X, R_TIME_SPEED %d, want %d)",
+                 kMwdrSunEffectBudget, (int)gSaveContext.sunsSongState, (unsigned)now, (int)R_TIME_SPEED,
+                 (int)s.prePlaySpeed);
+        MwdrFail(play, why);
+    }
+}
+
+/**
+ * #1587, SARIA_END: from Saria's MATCH, nothing pressed. The claim is "the shared
+ * Saria's Song redirect does not open 0x1B95 or enter restricted mode
+ * (SariasSongHint.cpp's VB_MSG_CAPTURE_MSGMODE_TEXT_CLOSING_OCARINA_ACTION body),
+ * and the song stays owned"; the TEXT_DONE and OnOpenText early returns are the
+ * ROM-free MMSharedSariaHooks row's (each is reached only after 0x1B95 opens).
+ */
+void MwdrStepSariaEnd(PlayState* play, Player* player) {
+    MessageContext* m = &play->msgCtx;
+    if (m->currentTextId == RSBS_MMWP_TEXT_RESTRICTED) {
+        MwdrFail(play, "0x1B95 opened after Saria's Song: SariasSongHint's redirect ran under the shared rule");
+        return;
+    }
+    if (m->ocarinaMode == OCARINA_MODE_PROCESS_RESTRICTED_SONG) {
+        MwdrFail(play, "ocarinaMode is PROCESS_RESTRICTED_SONG after Saria's Song: SariasSongHint's redirect ran under "
+                       "the shared rule");
+        return;
+    }
+    if (m->currentTextId == CUSTOM_MESSAGE_ID) {
+        MwdrFail(play, "a custom text opened after Saria's Song (2Ship's one-use prompt or hint)");
+        return;
+    }
+    if (sMwdr.sariaPlayedTextId < 0 &&
+        (m->msgMode == MSGMODE_16 || m->msgMode == MSGMODE_17 || m->msgMode == MSGMODE_18)) {
+        sMwdr.sariaPlayedTextId = (int)m->currentTextId;
+    }
+    sMwdr.sariaFreeFrames = MwdrLinkFree(play, player) ? sMwdr.sariaFreeFrames + 1 : 0;
+    if (sMwdr.sariaFreeFrames >= kMwdrSariaFreeNeeded) {
+        const uint32_t owned2 = Combo_SharedFamilies2Owned();
+        const bool quest = CHECK_QUEST_ITEM(QUEST_SONG_SARIA) != 0;
+        if (!quest || (owned2 & RSBS_XITEM2_SHARED_SONG_SARIAS) == 0u) {
+            char why[256];
+            snprintf(why, sizeof(why),
+                     "Saria's Song is gone after it was played (quest bit %d, family owned2 0x%08X): a shared Saria's "
+                     "Song is permanent (Rando::RemoveItem in SariasSongHint.cpp?)",
+                     quest ? 1 : 0, (unsigned)owned2);
+            MwdrFail(play, why);
+            return;
+        }
+        fprintf(stderr,
+                "[PFC] shared sun/saria: Saria's Song ended with no 0x1B95, no restricted mode and no custom text; "
+                "still owned (quest bit 1, owned2 0x%08X); played text 0x%04X (0x%04X expected, recorded only), "
+                "fanfare 0x%04X, ocarinaMode after the end %d, playedSariasSongState n/a (file-static in "
+                "SariasSongHint.cpp)\n",
+                (unsigned)owned2, (unsigned)(sMwdr.sariaPlayedTextId & 0xFFFF), (unsigned)kMwdrSariaTextVanilla,
+                (unsigned)(u16)sOcarinaSongFanfares[OCARINA_SONG_SARIAS], (int)m->ocarinaMode);
+        fflush(stderr);
+        sMwdr.song = MwdrSong::Minuet;
+        MwdrNext(MwdrStep::TakeOut);
+        return;
+    }
+    if (sMwdr.stepFrames >= kMwdrSariaEndBudget) {
+        MwdrFail(play, "Saria's Song never ended with Link free (see msgMode, ocarinaMode and the player flags)");
+    }
 }
 
 void MwdrStepPlayed(PlayState* play) {
@@ -635,6 +1395,14 @@ void MwdrStepDepart(PlayState* play) {
                 (unsigned)sMwdr.marker, (unsigned)Combo_MMWarpPlay_PadEntrance(kMwdrSong),
                 armed ? "as the one-shot target" : "as the pending switch (the target already spent)", sMwdr.stepFrames,
                 MwdrDeparturePath(play).c_str());
+        if (IntegrationTest_MMSharedSunSaria()) {
+            const MwdrSunWatch& s = sMwdr.sun;
+            fprintf(stderr,
+                    "[MWDR] q3 same-scene re-arm window: %d frames, %d OceffSpot sightings, blockSunsSong=%d (no "
+                    "crossing inside this window; %d frame(s) watched from the Sun's effect's end to the departure, "
+                    "no Sun's Song played by the drive since; recorded only, question 3 stays open)\n",
+                    s.q3RearmFrames, s.q3OceffSightings, s.q3BlockSunsSong, s.q3Frames);
+        }
         fflush(stderr);
         sMwdr.held = 0;
         sMwdr.heldFrames = 0;
@@ -681,6 +1449,17 @@ extern "C" void MM_IntMwDrive_Frame(PlayState* play) {
     }
     sMwdr.driveFrames++;
     sMwdr.stepFrames++;
+    // #1587: the background samplers, int-mm-shared-sun-saria only (their flags
+    // are never set on the other variants), before the step.
+    if (sMwdr.sun.armed) {
+        MwdrSunSample(play);
+        if (sMwdr.step == MwdrStep::Failed) {
+            return;
+        }
+    }
+    if (sMwdr.sun.q3Armed) {
+        MwdrQ3Sample(play);
+    }
     switch (sMwdr.step) {
         case MwdrStep::Payouts:
             MwdrStepPayouts(play, player);
@@ -699,6 +1478,15 @@ extern "C" void MM_IntMwDrive_Frame(PlayState* play) {
             break;
         case MwdrStep::Match:
             MwdrStepMatch(play);
+            break;
+        case MwdrStep::SunText:
+            MwdrStepSunText(play);
+            break;
+        case MwdrStep::SunEffect:
+            MwdrStepSunEffect(play);
+            break;
+        case MwdrStep::SariaEnd:
+            MwdrStepSariaEnd(play, player);
             break;
         case MwdrStep::Played:
             MwdrStepPlayed(play);
@@ -727,8 +1515,8 @@ extern "C" void MM_IntMwDrive_WatchDeparture(void) {
     }
     sMwdr.watchFailed = true;
     const std::string state = MwdrDump(MM_gPlayState);
-    std::string msg = "int-mm-warp-song-minuet, step 'handed to OoT': MM still running 600 frames after the warp "
-                      "armed: the fade never crossed [";
+    std::string msg = MwdrRowName();
+    msg += ", step 'handed to OoT': MM still running 600 frames after the warp armed: the fade never crossed [";
     msg += state;
     msg += "]";
     IntegrationTest_GameplayFail(msg.c_str());

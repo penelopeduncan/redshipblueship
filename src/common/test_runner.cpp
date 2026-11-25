@@ -13246,6 +13246,14 @@ const IntegrationTestDescriptor gIntegrationTests[] = {
       "Minuet is then played in Majora's Mask and crosses to Ocarina of Time as in the unshared row, OoT's own "
       "Minuet still held at the arrival",
       INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_WARP_SONG_MINUET_SHARED },
+    { "int-mm-shared-sun-saria",
+      "int-mm-warp-song-minuet with the Shared Sun's Song and the Shared Saria's Song frozen on (#1587, the in-game "
+      "rows of stages T and A; the hidden rules through the test reveal): OoT is given its own two songs before the "
+      "Happy Mask Shop door and MM's arrival apply must give both; in South Clock Town the Sun's Song is played, its "
+      "played text reads 'You played the Sun's Song!' in 0x1B78's box, and the speed-up runs the clock past 18:00 and "
+      "puts the time speed back; Saria's Song is played and ends with no 0x1B95 redirect and no restricted mode, still "
+      "owned; then the Minuet crosses as in the unshared row, OoT still holding both songs at the arrival",
+      INT_TEST_GAMEPLAY_ROUNDTRIP, GAME_OOT, GP_VARIANT_MM_SHARED_SUN_SARIA },
     { "int-mm-shuffle-ocarina",
       "The paired first crossing with Majora's Mask's Shuffle Ocarina on and Moon Crash Behavior on Last Save "
       "(#1671 B2): the first MM arrival holds the Song of Time and no ocarina, its clock runs at the scene's speed "

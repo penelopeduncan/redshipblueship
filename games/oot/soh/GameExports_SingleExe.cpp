@@ -3754,6 +3754,39 @@ static bool MwArmWorld(void) {
     if (shared) {
         IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_MINUET), 1);
     }
+    // int-mm-shared-sun-saria (#1587): the Shared Sun's Song and the Shared Saria's
+    // Song on too, through their keys (put back at the verdict like the others).
+    // Both bits are inside RSBS_XITEM2_HIDDEN, so the TEST ONLY reveal comes first:
+    // before the resolve and the refusal checks below, and so before the
+    // generation, the creation's freeze, the load-back and MM's arrival, which all
+    // read the reveal-aware mask (as stage A's generating rows do,
+    // test_shared_sun_saria.c). IntegrationTest_SoaringCleanup hides them again.
+    const bool sunSaria = IntegrationTest_MMSharedSunSaria();
+    const uint32_t sunSariaBits = RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS;
+    if (sunSaria) {
+        Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+        IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SUN), 1);
+        IntegrationTest_SoaringSetCVarInt(Combo_ComboSettingKey(COMBO_SETTING_SHARED_SONG_SARIAS), 1);
+        const uint32_t sunSariaWord = Combo_ResolveComboItemRules2();
+        char sunSariaRefused[160] = "";
+        const uint32_t sunSariaRefusedBits =
+            Combo_ComboItemRules2Refused(sunSariaWord, sunSariaRefused, sizeof(sunSariaRefused));
+        const bool sunOffered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SHARED_SONG_SUN);
+        const bool sariaOffered = Combo_ComboItemRule2Offered(RSBS_XITEM2_SHARED_SONG_SARIAS);
+        if (!sunOffered || !sariaOffered || (sunSariaWord & sunSariaBits) != sunSariaBits ||
+            sunSariaRefusedBits != 0u) {
+            char reason[640];
+            snprintf(reason, sizeof(reason),
+                     "int-mm-shared-sun-saria, the world: under the test reveal the Shared Sun's Song (offered %d) "
+                     "or the Shared Saria's Song (offered %d) is not offered, or the resolved second word 0x%08X "
+                     "does not hold both (want 0x%08X), or Generate would refuse it (refused 0x%08X: '%s'); the "
+                     "reveal, the rules' keys or the hidden mask regressed, not the pinned seed",
+                     sunOffered ? 1 : 0, sariaOffered ? 1 : 0, (unsigned)sunSariaWord, (unsigned)sunSariaBits,
+                     (unsigned)sunSariaRefusedBits, sunSariaRefused);
+            IntegrationTest_GameplayFail(reason);
+            return false;
+        }
+    }
     // The rule must be offered before the seed is blamed for anything: a mask
     // that hides songMinuetMm again makes Generate refuse the word by name
     // (playthrough.cpp's hidden-rules gate), which the generation branch would
@@ -3776,10 +3809,18 @@ static bool MwArmWorld(void) {
         IntegrationTest_GameplayFail(reason);
         return false;
     }
-    fprintf(stderr,
-            "[PFC] mm warp song: songMinuetMm on%s (the production mask, no reveal; resolved second word 0x%08X, "
-            "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
-            shared ? " with sharedSongMinuet on" : "", (unsigned)word);
+    if (sunSaria) {
+        fprintf(stderr,
+                "[PFC] mm warp song: songMinuetMm on with shared Sun/Saria (REVEALED: the test reveal, both bits "
+                "still inside RSBS_XITEM2_HIDDEN; resolved second word 0x%08X, none refused), Shuffle Songs "
+                "Anywhere, Shuffle Warp Songs at its default (off)\n",
+                (unsigned)word);
+    } else {
+        fprintf(stderr,
+                "[PFC] mm warp song: songMinuetMm on%s (the production mask, no reveal; resolved second word 0x%08X, "
+                "none refused), Shuffle Songs Anywhere, Shuffle Warp Songs at its default (off)\n",
+                shared ? " with sharedSongMinuet on" : "", (unsigned)word);
+    }
     fflush(stderr);
     return true;
 }
@@ -3843,6 +3884,13 @@ static bool MwCheckCreatedWorld(char* msg, size_t cap) {
                (Combo_SharedFamilies2Owned() != 0u || Combo_MMWarpSongsOwned() != 0u)) {
         why = "the created file already owns a shared warp song or an MM warp song (the drive could not tell the "
               "family's carry from a leftover)";
+    } else if (IntegrationTest_MMSharedSunSaria() && (!Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_SUN) ||
+                                                      !Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_SONG_SARIAS))) {
+        why = "int-mm-shared-sun-saria: the creation did not freeze both sharedSongSun and sharedSongSarias on";
+    } else if (IntegrationTest_MMSharedSunSaria() &&
+               (Combo_SharedFamilies2Owned() & (RSBS_XITEM2_SHARED_SONG_SUN | RSBS_XITEM2_SHARED_SONG_SARIAS)) != 0u) {
+        why = "int-mm-shared-sun-saria: the created file already owns the shared Sun's Song or Saria's Song (the "
+              "drive could not tell the family's carry from a leftover)";
     }
     snprintf(msg, cap,
              "int-mm-warp-song-minuet%s, the created world: %s [rule2 0x%08X, record status %d flags 0x%02X Minuet "
@@ -3862,6 +3910,17 @@ static bool MwCheckCreatedWorld(char* msg, size_t cap) {
                 "[PFC] mm warp song (shared): OoT checks holding OoT's Minuet of Forest: %d (0 means the pair's copy "
                 "is on a Majora's Mask check)\n",
                 OoT_SharedSongsTest_WorldCopies((int)RG_MINUET_OF_FOREST));
+    }
+    if (IntegrationTest_MMSharedSunSaria()) {
+        // Diagnostic only, as above: which game's check holds each pair's one copy.
+        // PREPARE's give-record read proves the apply whichever it is.
+        fprintf(stderr,
+                "[PFC] shared sun/saria: created with both rules frozen (rule2 0x%08X, family owned2 0x%08X); OoT "
+                "checks holding OoT's Sun's Song: %d, Saria's Song: %d (0 means the pair's copy is on a Majora's "
+                "Mask check)\n",
+                (unsigned)Combo_ComboCrossItemFlags2(), (unsigned)Combo_SharedFamilies2Owned(),
+                OoT_SharedSongsTest_WorldCopies((int)RG_SUNS_SONG),
+                OoT_SharedSongsTest_WorldCopies((int)RG_SARIAS_SONG));
     }
     fprintf(stderr,
             "[PFC] mm warp song: created with songMinuetMm frozen on and an unshuffled record; Minuet lands at "
@@ -3921,6 +3980,59 @@ static bool MwSharedGiveOoTMinuet(void) {
     return true;
 }
 
+/** int-mm-shared-sun-saria (#1587): does OoT's live save hold its own member of
+ *  the shared family @p family2Bit (the Sun's Song or Saria's Song), asked through
+ *  OoT's registered member? False when no member is registered. */
+static bool MwOoTSunSariaHeld(uint32_t family2Bit) {
+    ComboSharedFamilyMember m;
+    return Combo_SharedFamily2MemberGet(GAME_OOT, family2Bit, &m) && m.held != NULL && m.held(m.nativeId);
+}
+
+/**
+ * int-mm-shared-sun-saria (#1587), the first OoT leg before the Happy Mask Shop
+ * door: OoT is given its OWN Sun's Song and Saria's Song through its registered
+ * family members (never MM's copies), so the only way Majora's Mask can hold them
+ * at PREPARE is the family: OoT's harvest at the door's suspend, then MM's apply
+ * at its arrival. MwSharedGiveOoTMinuet's shape, one call per song.
+ */
+static bool MwSharedGiveOoTSunSariaOne(uint32_t family2Bit, const char* name) {
+    ComboSharedFamilyMember m;
+    char msg[512];
+    if (!Combo_SharedFamily2MemberGet(GAME_OOT, family2Bit, &m) || m.held == NULL || m.give == NULL) {
+        snprintf(msg, sizeof(msg),
+                 "int-mm-shared-sun-saria, OoT's leg: OoT registers no member of the shared %s (GameExports' "
+                 "OoTSharedFamilyRegistrar)",
+                 name);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    const bool before = m.held(m.nativeId);
+    if (!before) {
+        m.give(m.nativeId); // the member's contract: give() only when held() is false
+    }
+    const bool after = m.held(m.nativeId);
+    if (!after) {
+        snprintf(msg, sizeof(msg),
+                 "int-mm-shared-sun-saria, OoT's leg: OoT's own %s (id %u) is NOT held after its give (family owned2 "
+                 "0x%08X, quest items 0x%08X)",
+                 name, (unsigned)m.nativeId, (unsigned)Combo_SharedFamilies2Owned(),
+                 (unsigned)gSaveContext.inventory.questItems);
+        IntegrationTest_GameplayFail(msg);
+        return false;
+    }
+    fprintf(stderr,
+            "[PFC] shared sun/saria: OoT given its own %s before the door (id %u, held before %d, now 1); family "
+            "owned2 0x%08X (OoT's harvest at the door's suspend owns it)\n",
+            name, (unsigned)m.nativeId, before ? 1 : 0, (unsigned)Combo_SharedFamilies2Owned());
+    fflush(stderr);
+    return true;
+}
+
+static bool MwSharedGiveOoTSunSaria(void) {
+    return MwSharedGiveOoTSunSariaOne(RSBS_XITEM2_SHARED_SONG_SUN, "Sun's Song") &&
+           MwSharedGiveOoTSunSariaOne(RSBS_XITEM2_SHARED_SONG_SARIAS, "Saria's Song");
+}
+
 /** Every value the arrival is judged by, on one line. */
 static void MwDescribeArrival(char* out, size_t cap, int16_t sceneNum, uint16_t entrance) {
     const uint16_t expected = MwExpectedArrival();
@@ -3965,6 +4077,10 @@ static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
         why = "Minuet of Forest (MM) is no longer owned after the crossing";
     } else if (IntegrationTest_MMWarpSongMinuetShared() && !MwOoTMinuetHeld()) {
         why = "OoT's own Minuet of Forest is no longer held after the round trip (the shared family took it away)";
+    } else if (IntegrationTest_MMSharedSunSaria() && (!MwOoTSunSariaHeld(RSBS_XITEM2_SHARED_SONG_SUN) ||
+                                                      !MwOoTSunSariaHeld(RSBS_XITEM2_SHARED_SONG_SARIAS))) {
+        why = "int-mm-shared-sun-saria: OoT's own Sun's Song or Saria's Song is no longer held after the round trip "
+              "(one copy, nothing removed: the shared family or MM's Saria's Song hint took it away)";
     }
     if (why != NULL) {
         char msg[1024];
@@ -3977,6 +4093,12 @@ static bool MwArrivalChecks(int16_t sceneNum, uint16_t entrance) {
     sMwArrivalEntrance = entrance;
     sMwIdleFrames = 0;
     fprintf(stderr, "[PFC] mm warp song 'the arrival': OoT landed at the record's destination [%s]\n", state);
+    if (IntegrationTest_MMSharedSunSaria()) {
+        fprintf(stderr,
+                "[PFC] shared sun/saria 'the arrival': OoT still holds its own Sun's Song and Saria's Song (quest "
+                "items 0x%08X, family owned2 0x%08X): one copy, nothing removed\n",
+                (unsigned)gSaveContext.inventory.questItems, (unsigned)Combo_SharedFamilies2Owned());
+    }
     fflush(stderr);
     return true;
 }
@@ -4027,6 +4149,11 @@ static void MwVerdict(PlayState* play, int frame) {
             "[PFC] PASS: int-mm-warp-song-minuet: Minuet of Forest played in Majora's Mask crossed to Ocarina of "
             "Time as a child at the record's destination (scene %d, entrance 0x%04X), restored, the switch spent\n",
             (int)play->sceneNum, (unsigned)entrance);
+    if (IntegrationTest_MMSharedSunSaria()) {
+        fprintf(stderr, "[PFC] PASS: int-mm-shared-sun-saria: the shared Sun's Song (its played text and its speed-up) "
+                        "and the shared Saria's Song (no prompt, still owned) played in Majora's Mask, then the "
+                        "Minuet crossing\n");
+    }
     fflush(stderr);
     IntegrationTest_SetGameplayPhase(GP_PHASE_DONE);
     // A pass leaves no file behind (a failure keeps it for forensics; the next
@@ -4731,6 +4858,12 @@ static void OoT_RegisterIntegrationTestHooks(void) {
                     // int-mm-warp-song-minuet-shared (#1169 XW14): OoT learns its
                     // own Minuet before the door; MM must then hold it by the family.
                     if (IntegrationTest_MMWarpSongMinuetShared() && !MwSharedGiveOoTMinuet()) {
+                        return;
+                    }
+                    // int-mm-shared-sun-saria (#1587): OoT learns its own Sun's Song
+                    // and Saria's Song before the door; MM must then hold both by the
+                    // family.
+                    if (IntegrationTest_MMSharedSunSaria() && !MwSharedGiveOoTSunSaria()) {
                         return;
                     }
                     if (IntegrationTest_PairedFirstCrossing()) {

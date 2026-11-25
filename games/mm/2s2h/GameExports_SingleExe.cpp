@@ -2432,7 +2432,10 @@ extern "C" void MM_IntegrationGameplayFrameTick(void) {
 
     const GameplayTestConfig* cfg = IntegrationTest_GetGameplayConfig();
     sGpMMWatchdogFrames++;
-    if (sGpMMWatchdogFrames == cfg->framesPerPhase * 4 + 3600) {
+    // int-mm-shared-sun-saria (#1587): two more plays and the Sun's speed-up before
+    // the Minuet, each step with its own deadline, so 3600 frames more for it alone.
+    const int mmWatchdogFrames = cfg->framesPerPhase * 4 + 3600 + (IntegrationTest_MMSharedSunSaria() ? 3600 : 0);
+    if (sGpMMWatchdogFrames == mmWatchdogFrames) {
         PlayState* play = MM_gPlayState;
         fprintf(stderr,
                 "[GP-TEST] MM watchdog: no progress after %d frames "

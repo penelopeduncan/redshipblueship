@@ -171,6 +171,16 @@ typedef struct {
  *       door and MM is given nothing by the drive: MM must hold the song through
  *       the family (OoT's harvest at suspend, MM's apply at arrival, read back
  *       through Combo_SharedFamilies2GivenAtLastApply) before it plays it.
+ *   GP_VARIANT_MM_SHARED_SUN_SARIA (int-mm-shared-sun-saria; #1587, the in-game
+ *       rows of stages T and A): the unshared Minuet variant with the Shared
+ *       Sun's Song and the Shared Saria's Song frozen on too (their keys in
+ *       memory and the TEST ONLY reveal, Combo_ComboItemRules2RevealForTest, both
+ *       put back at the verdict; both bits stay inside RSBS_XITEM2_HIDDEN).
+ *       IntegrationTest_PairedFirstCrossing() and IntegrationTest_MMWarpSongMinuet()
+ *       are true for it; IntegrationTest_MMWarpSongMinuetShared() is not. OoT is
+ *       given its own two songs before the Happy Mask Shop door; the MM drive
+ *       plays the Sun's Song (its played text and its speed-up), then Saria's
+ *       Song (no prompt, nothing removed), then the Minuet as the unshared row.
  */
 typedef enum {
     GP_VARIANT_ROUNDTRIP = 0,
@@ -179,7 +189,8 @@ typedef enum {
     GP_VARIANT_FOREIGN_HOLD_QUIT = 3,
     GP_VARIANT_MM_SHUFFLE_OCARINA = 6, // numbered after the Minuet pair, listed beside its sibling (#1671 B2)
     GP_VARIANT_MM_WARP_SONG_MINUET = 4,
-    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 5
+    GP_VARIANT_MM_WARP_SONG_MINUET_SHARED = 5,
+    GP_VARIANT_MM_SHARED_SUN_SARIA = 7 // numbered after B2's 6, listed beside the Minuet pair it rides (#1587)
 } GameplayVariant;
 
 /**
@@ -199,7 +210,8 @@ GameplayVariant IntegrationTest_GetGameplayVariant(void);
 
 /** True when the running test is int-paired-first-crossing, or
  *  int-soaring-to-owl, int-foreign-hold-quit, int-mm-shuffle-ocarina,
- *  int-mm-warp-song-minuet or int-mm-warp-song-minuet-shared (which ride it). */
+ *  int-mm-warp-song-minuet, int-mm-warp-song-minuet-shared or
+ *  int-mm-shared-sun-saria (which ride it). */
 bool IntegrationTest_PairedFirstCrossing(void);
 
 /** True when the running test is int-soaring-to-owl (#1169 XW6). */
@@ -212,11 +224,15 @@ bool IntegrationTest_ForeignHoldQuit(void);
 bool IntegrationTest_MMShuffleOcarina(void);
 
 /** True when the running test is int-mm-warp-song-minuet (#1169 XW13), or
- *  int-mm-warp-song-minuet-shared (#1169 XW14), which rides it. */
+ *  int-mm-warp-song-minuet-shared (#1169 XW14) or int-mm-shared-sun-saria
+ *  (#1587), which ride it. */
 bool IntegrationTest_MMWarpSongMinuet(void);
 
 /** True when the running test is int-mm-warp-song-minuet-shared (#1169 XW14). */
 bool IntegrationTest_MMWarpSongMinuetShared(void);
+
+/** True when the running test is int-mm-shared-sun-saria (#1587). */
+bool IntegrationTest_MMSharedSunSaria(void);
 
 /**
  * int-soaring-to-owl and int-mm-warp-song-minuet: set the integer CVar @p key to
