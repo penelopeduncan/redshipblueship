@@ -42,6 +42,7 @@
 
 #include "../combo_settings_view.h"
 #include "../combo_single_bag.h"
+#include "../combo_song_pool.h" // #1587 stage A: Combo_SharedSongForcesMMRowIn
 #include "../context.h"
 #include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
@@ -215,9 +216,11 @@ TestResult SharedSunSariaRule_Run(void) {
         SSR_CHECK(RSBS_XITEM2_SHARED_SONG_SUN == kSsrSongs[0].bit && RSBS_XITEM2_SHARED_SONG_SARIAS == kSsrSongs[1].bit,
                   "(1) the bits moved: Sun %08X, Saria's %08X; they are .redsave format (0x4000, 0x8000)",
                   (unsigned)RSBS_XITEM2_SHARED_SONG_SUN, (unsigned)RSBS_XITEM2_SHARED_SONG_SARIAS);
-        SSR_CHECK(RSBS_XITEM2_ALL_V1 == 0x0000FFFFu && RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
+        // #1702 C2 took 0x10000 (the Shared Child's Wallet rule) and 0x80000 (a
+        // derived marker), so ALL_V1 is 0009FFFF; neither is a family or a song.
+        SSR_CHECK(RSBS_XITEM2_ALL_V1 == 0x0009FFFFu && RSBS_XITEM2_FAMILY_MASK == 0x0000FF80u &&
                       RSBS_XITEM2_SHARED_SONGS == 0x0000FF80u,
-                  "(1) ALL_V1 %08X (want 0000FFFF), FAMILY_MASK %08X and SHARED_SONGS %08X (want 0000FF80)",
+                  "(1) ALL_V1 %08X (want 0009FFFF), FAMILY_MASK %08X and SHARED_SONGS %08X (want 0000FF80)",
                   (unsigned)RSBS_XITEM2_ALL_V1, (unsigned)RSBS_XITEM2_FAMILY_MASK, (unsigned)RSBS_XITEM2_SHARED_SONGS);
         for (int song = 0; song < 2; song++) {
             const SsrSong& s = kSsrSongs[song];
@@ -284,8 +287,9 @@ TestResult SharedSunSariaRule_Run(void) {
             SSR_CHECK(Combo_ComboItemRule2BitFor(ids[song]) == s.bit, "(2) %s authors %08X, not %08X", s.rule,
                       (unsigned)Combo_ComboItemRule2BitFor(ids[song]), (unsigned)s.bit);
         }
-        SSR_CHECK(Combo_ComboItemRule2KeyedBits() == RSBS_XITEM2_ALL_V1,
-                  "(2) the keyed second-word bits are %08X, expected every allocated bit (0000FFFF)",
+        // Every allocated bit but the derived ones (#1702 C2: no key authors them).
+        SSR_CHECK(Combo_ComboItemRule2KeyedBits() == (RSBS_XITEM2_ALL_V1 & ~RSBS_XITEM2_DERIVED),
+                  "(2) the keyed second-word bits are %08X, expected every allocated non-derived bit (0001FFFF)",
                   (unsigned)Combo_ComboItemRule2KeyedBits());
     }
 
@@ -388,7 +392,9 @@ TestResult SharedSunSariaRule_Run(void) {
     // integration proof exists.
     {
         char names[192];
-        SSR_CHECK(RSBS_XITEM2_HIDDEN == kSsrBoth, "(5) the hidden mask is %08X, want 0000C000 until #1587 S7",
+        // Both inside the mask (#1702 C2 added its own two bits beside them).
+        SSR_CHECK((RSBS_XITEM2_HIDDEN & kSsrBoth) == kSsrBoth && (RSBS_XITEM2_HIDDEN & 0x00003FFFu) == 0u,
+                  "(5) the hidden mask is %08X, want both 0000C000 inside it until #1587 S7 and no warp song",
                   (unsigned)RSBS_XITEM2_HIDDEN);
         for (int song = 0; song < 2; song++) {
             const SsrSong& s = kSsrSongs[song];
@@ -413,6 +419,13 @@ TestResult SharedSunSariaRule_Run(void) {
                       (unsigned)Combo_ResolveComboItemRules2(), (unsigned)refused, names);
             SsrClearKeys();
         }
+        // #1587 stage A: on the production mask neither rule forces MM's own row,
+        // whatever the word holds (#1587 question 4); revealed, each forces only its
+        // own (MMSharedSongRowCoupled drives the resolver itself). S7 flips the first.
+        for (int song = 0; song < 2; song++) {
+            SSR_CHECK(!Combo_SharedSongForcesMMRowIn(kSsrBoth, kSsrSongs[song].bit),
+                      "(5) hidden, %s forces MM's own row (#1587 stage A)", kSsrSongs[song].rule);
+        }
         // The MM reveal level reads the production mask: still hidden.
         Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_MM_SONGS);
         SSR_CHECK(!Combo_ComboItemRule2Offered(kSsrSongs[0].bit) && !Combo_ComboItemRule2Offered(kSsrSongs[1].bit) &&
@@ -423,6 +436,17 @@ TestResult SharedSunSariaRule_Run(void) {
         SSR_CHECK(Combo_ComboItemRule2Offered(kSsrSongs[0].bit) && Combo_ComboItemRule2Offered(kSsrSongs[1].bit) &&
                       Combo_ComboItemRules2Refused(kSsrBoth, names, sizeof(names)) == 0u,
                   "(5) revealed, the two rules are not offered, or are refused ('%s')", names);
+        for (int song = 0; song < 2; song++) {
+            const uint32_t own = kSsrSongs[song].bit;
+            const uint32_t other = kSsrSongs[1 - song].bit;
+            SSR_CHECK(Combo_SharedSongForcesMMRowIn(own, own) && !Combo_SharedSongForcesMMRowIn(other, own) &&
+                          !Combo_SharedSongForcesMMRowIn((uint32_t)RSBS_XITEM2_ALL_V1, RSBS_XITEM2_SHARED_SONG_PRELUDE),
+                      "(5) revealed, %s's word does not force exactly its own MM row (#1587 stage A)",
+                      kSsrSongs[song].rule);
+            SSR_CHECK(Combo_SharedSongMMCopySkippedIn(own, own) && !Combo_SharedSongMMCopySkippedIn(other, own),
+                      "(5) %s's frozen word does not skip exactly its own MM copy (#1587 stage A)",
+                      kSsrSongs[song].rule);
+        }
         Combo_ComboItemRules2RevealForTest(0);
     }
 
@@ -594,6 +618,7 @@ int MM_SharedSunSariaTest_PoolId(int song);
 uint32_t MM_SharedSunSariaTest_QuestBit(int song);
 uint32_t MM_SharedSunSariaTest_SongBits(void);
 void MM_SharedSunSariaTest_SetRow(int song, uint32_t value);
+int MM_SharedSunSariaTest_Row(int song);
 #ifdef __cplusplus
 }
 #endif
@@ -945,5 +970,146 @@ TestResult SharedSunSariaMerge_Run(void) {
     SsrForgetBoth();
     ComboContext_Init();
     printf("[TEST] shared-sun-saria-merge: %s\n", sSsrFailures == 0 ? "PASS" : "FAIL");
+    return sSsrFailures == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// ============================================================================
+// shared-sun-saria-one-copy-* (#1587 stage A; CTest SharedSunSariaOneCopySongLocations,
+// SharedSunSariaOneCopyDungeonRewards and SharedSunSariaOneCopyAnywhere, rando label,
+// one real paired generation each, the -anywhere row a second one under Item Pool
+// Plentiful). END-TO-END: with both rules on through their keys (revealed for the
+// test: Generate refuses a hidden bit, playthrough.cpp), the paired world holds ONE
+// copy of each song over both worlds, placed by the bag as the shared pair and never
+// as an orphan half, MM's half holds its own two rows at 1 (ResolveProfileValues step
+// 2d), and the goal is proven. These rows are NOT the red gate for MM's GeneratePools
+// skip: with the skip reverted the bag's pair pass trims MM's second copy to MM filler
+// (combo_logic.c pass 2b, combo_single_bag.c), so one copy is still placed;
+// MMSharedSongPoolSkip is that gate. The Plentiful leg PINS THE COMPOSER'S CURRENT
+// #1653 TRIM of OoT's Plentiful spare (combo_logic.c, "NO PLENTIFUL SPARE OF A SHARED
+// ROW"); #1587 question 13 is open, and OoTMM would add a spare (transform.ts,
+// plentifulPool over ItemGroups.SONGS): flip this leg if the operator rules one in.
+// Placement is asserted structurally, never by seed.
+// ============================================================================
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+int Rando_HeadlessSeedTest(const char* seedStr);
+int MM_Rando_HeadlessPairedHalf(void);
+int OoT_Creation_FinishPairedHalf(int writeSpoiler);
+int MM_ComboLogic_TestShuffledItems(uint16_t* outItems, uint16_t* outChecks, int cap);
+int OoT_SharedSongsTest_WorldCopies(int rg);
+int OoT_SharedWarpSongsTest_LinksPocket(void);
+#ifdef __cplusplus
+}
+#endif
+
+namespace {
+const char* const kSsocShuffleNames[4] = { "Off", "Song Locations", "Dungeon Rewards", "Anywhere" };
+const char* const kSsocItemPoolKey = "gRandoSettings.ItemPool"; // SoH RSK_ITEM_POOL
+const int kSsocItemPoolPlentiful = 0;                           // RO_ITEM_POOL_PLENTIFUL
+
+void SsocClearKeys() {
+    for (int song = 0; song < 2; song++) {
+        CVarClear(SsrKey(song).c_str());
+    }
+    CVarClear(kSwsShuffleSongsKey);
+    CVarClear(kSsocItemPoolKey);
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_NONE);
+}
+
+struct SsocRestore {
+    ~SsocRestore() {
+        SsocClearKeys();
+        Combo_SingleBag_Forget();
+        ComboContext_Init();
+    }
+};
+
+/** One paired creation with both shared rules on, Shuffle Songs @p shuffleSongs and,
+ *  when @p plentiful, Item Pool Plentiful; asserts the one copy and finishes the pair. */
+void SsocOneWorld(int shuffleSongs, bool plentiful) {
+    const char* name = kSsocShuffleNames[shuffleSongs];
+    const char* pool = plentiful ? "Plentiful" : "Balanced";
+    Combo_SingleBag_Forget(); // the previous creation's world is never rolled back over this one
+    ComboContext_Init();
+    SsocClearKeys();
+    for (int song = 0; song < 2; song++) {
+        CVarSetInteger(SsrKey(song).c_str(), 1);
+    }
+    CVarSetInteger(kSwsShuffleSongsKey, shuffleSongs);
+    if (plentiful) {
+        CVarSetInteger(kSsocItemPoolKey, kSsocItemPoolPlentiful);
+    }
+    Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+    const int gen = Rando_HeadlessSeedTest("RSBS1587ONECOPY");
+    SSR_CHECK(gen == 0, "the paired OoT generation failed under Shuffle Songs %s, Item Pool %s", name, pool);
+    SSR_CHECK((Combo_ComboCrossItemFlags2() & kSsrBoth) == kSsrBoth, "the creation froze %08X, not both shared rules",
+              (unsigned)Combo_ComboCrossItemFlags2());
+    const int mmHalf = gen == 0 ? MM_Rando_HeadlessPairedHalf() : -1;
+    SSR_CHECK(mmHalf == 0, "MM's creation-time half did not produce a rando world (%s, %s)", name, pool);
+    if (gen != 0 || mmHalf != 0) {
+        return;
+    }
+    SSR_CHECK(MM_SharedSunSariaTest_Row(0) == 1 && MM_SharedSunSariaTest_Row(1) == 1,
+              "MM's half holds its own Sun's / Saria's rows at %d / %d; want 1 / 1 (ResolveProfileValues step 2d)",
+              MM_SharedSunSariaTest_Row(0), MM_SharedSunSariaTest_Row(1));
+    const ComboSingleBagReport bag = *Combo_SingleBag_LastReport();
+    printf("[TEST] shared-sun-saria-one-copy (%s, %s): bag %d rows, %d shared pair(s), goal proven %d\n", name, pool,
+           bag.bagCount, bag.compose.sharedPairs, bag.fill.goalProven ? 1 : 0);
+    SSR_CHECK(bag.status == RSBS_COMBO_LOGIC_OK && bag.fill.goalProven, "the single-bag fill did not prove the GOAL");
+
+    const int shuffledTotal = MM_ComboLogic_TestShuffledItems(nullptr, nullptr, 0);
+    std::vector<uint16_t> items((size_t)(shuffledTotal > 0 ? shuffledTotal : 1));
+    const int shuffled = MM_ComboLogic_TestShuffledItems(items.data(), nullptr, (int)items.size());
+    const int pocketItem = OoT_SharedWarpSongsTest_LinksPocket();
+    for (int song = 0; song < 2; song++) {
+        const uint16_t ootId = (uint16_t)OoT_SharedSunSariaTest_PoolId(song);
+        const uint16_t mmId = (uint16_t)MM_SharedSunSariaTest_PoolId(song);
+        const int ootCopies = OoT_SharedSongsTest_WorldCopies((int)ootId);
+        int mmCopies = 0;
+        for (int i = 0; i < shuffled && i < (int)items.size(); i++) {
+            mmCopies += items[(size_t)i] == mmId ? 1 : 0;
+        }
+        const SwsPlaced placed = SwsCountPlaced(ootId, mmId);
+        printf("[TEST]   %s: OoT %d, MM %d, bag pair rows %d (%d on a song check), orphans %d\n", kSsrSongNames[song],
+               ootCopies, mmCopies, placed.pairRows, placed.onSongCheck, placed.orphanRows);
+        SSR_CHECK(ootCopies >= 0 && ootCopies + mmCopies == 1,
+                  "the %s is held by %d OoT and %d MM checks (%s, %s); want ONE over both worlds (the pair's one "
+                  "placement, as the hosting game's half)",
+                  kSsrSongNames[song], ootCopies, mmCopies, name, pool);
+        SSR_CHECK(placed.pairRows == 1 && placed.orphanRows == 0,
+                  "the %s was placed by the bag %d time(s) as the shared pair and %d time(s) without it (%s, %s); "
+                  "want one pair row and no orphan copy of either half",
+                  kSsrSongNames[song], placed.pairRows, placed.orphanRows, name, pool);
+        SSR_CHECK(pocketItem != (int)ootId, "Link's Pocket holds the shared %s: its one copy is the bag's row",
+                  kSsrSongNames[song]);
+    }
+    SSR_CHECK((Combo_SharedFamilies2Owned() & kSsrBoth) == 0u,
+              "the creation left the family word %08X: a simulated pickup leaked",
+              (unsigned)Combo_SharedFamilies2Owned());
+    SSR_CHECK(OoT_Creation_FinishPairedHalf(0) >= 0, "OoT's side of the creation tail did not finish the pair");
+}
+} // namespace
+
+TestResult SharedSunSariaOneCopy_Run(int shuffleSongs) {
+    if (shuffleSongs < 1 || shuffleSongs > 3) {
+        printf("[TEST] shared-sun-saria-one-copy: no row for Shuffle Songs %d (Off is stage B's)\n", shuffleSongs);
+        return TEST_FAIL;
+    }
+    printf("[TEST] shared-sun-saria-one-copy (Shuffle Songs %s): with the Shared Sun's Song and Shared Saria's Song "
+           "on, the paired world holds ONE copy of each, the bag's shared row, MM's own rows resolve on, and the GOAL "
+           "is still proven (#1587 stage A)\n",
+           kSsocShuffleNames[shuffleSongs]);
+    sSsrFailures = 0;
+    SsocRestore restore;
+    SsocOneWorld(shuffleSongs, false);
+    if (shuffleSongs == 3) {
+        // Pins the composer's current #1653 trim of OoT's Plentiful spare; #1587
+        // question 13 is open (OoTMM would add a spare).
+        SsocOneWorld(shuffleSongs, true);
+    }
+    printf("[TEST] shared-sun-saria-one-copy (%s): %s\n", kSsocShuffleNames[shuffleSongs],
+           sSsrFailures == 0 ? "PASS" : "FAIL");
     return sSsrFailures == 0 ? TEST_PASS : TEST_FAIL;
 }

@@ -14,6 +14,23 @@ extern s16 MM_sLastPlayedSong;
 
 static int playedSariasSongState = 0;
 
+#ifdef RSBS_SINGLE_EXECUTABLE
+// [RSBS #1587] A shared Saria's Song (the frozen Shared Saria's Song rule) is a
+// permanent song in both games (operator rulings 2026-11-17/18): 2Ship's one-use
+// prompt, hint and removal below do not run, and the song plays the fanfare fix and
+// ends. Read in the hook bodies, not at registration: the cross-item record is
+// session state, and a load commits it before MM's OnFileLoad (save.cpp).
+#include "combo_song_pool.h"
+#include "foreign_items.h"
+static bool RsbsSariasSongShared() {
+    return Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SARIAS);
+}
+#else
+static bool RsbsSariasSongShared() {
+    return false;
+}
+#endif
+
 static std::set<RandoItemId> priorityItems = {
     RI_BOW,       RI_HOOKSHOT,          RI_MASK_BLAST,  RI_BOMB_BAG_20,  RI_MASK_DEKU, RI_MASK_GORON,
     RI_MASK_ZORA, RI_MASK_FIERCE_DEITY, RI_SONG_SONATA, RI_SONG_LULLABY, RI_SONG_NOVA, RI_SONG_SOARING,
@@ -78,6 +95,11 @@ void Rando::MiscBehavior::SariasSongHint() {
     });
 
     COND_VB_SHOULD(VB_MSG_CAPTURE_MSGMODE_TEXT_DONE, shouldRegister, {
+        // [RSBS #1587] shared: no prompt to answer (see RsbsSariasSongShared)
+        if (RsbsSariasSongShared()) {
+            va_end(args); // the macro's own va_end is past this return
+            return;
+        }
         if (playedSariasSongState && MM_gPlayState->msgCtx.ocarinaMode == OCARINA_MODE_PROCESS_RESTRICTED_SONG) {
             *should = true;
 
@@ -97,6 +119,11 @@ void Rando::MiscBehavior::SariasSongHint() {
     });
 
     COND_VB_SHOULD(VB_MSG_CAPTURE_MSGMODE_TEXT_CLOSING_OCARINA_ACTION, shouldRegister, {
+        // [RSBS #1587] shared: no redirect to the prompt; vanilla ends the song
+        if (RsbsSariasSongShared()) {
+            va_end(args); // the macro's own va_end is past this return
+            return;
+        }
         MessageContext* msgCtx = &MM_gPlayState->msgCtx;
 
         if (MM_sLastPlayedSong == OCARINA_SONG_SARIAS) {
@@ -107,6 +134,11 @@ void Rando::MiscBehavior::SariasSongHint() {
     });
 
     COND_ID_HOOK(OnOpenText, 0x1B95, shouldRegister, [](u16* textId, bool* loadFromMessageTable) {
+        // [RSBS #1587] shared: a refused song's 0x1B95 keeps its ROM text, never the
+        // prompt the availability hook's state 1 would load
+        if (RsbsSariasSongShared()) {
+            return;
+        }
         CustomMessage::Entry entry;
         if (playedSariasSongState == 1) {
             entry.nextMessageID = 0x1B95;

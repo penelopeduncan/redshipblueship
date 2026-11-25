@@ -26,6 +26,26 @@ this list, the issue link is the place to add detail.
 
 Everything below passed the automated gates. None of it has been checked by a person in a running game.
 
+### Merged after v0.5.3-alpha, not released yet
+
+- A shop shelf with sticks or nuts before the bag (issue #1788). With Shuffle Deku Stick Bag or Shuffle Deku Nut Bag on,
+  a shop shelf holding sticks or nuts, including a pack from the other game, shows them, tells you it cannot sell them,
+  and sells them once the bag is found, in either game. Checked without a running game only. In a file from v0.5.3-alpha
+  where one of Majora's Mask's own shelves already sold its junk, that shelf shows its sticks or nuts again and sells
+  them after the bag; its check stays collected. A shelf that held the other game's pack and already sold it stays sold
+  out. The check trackers still list such a shelf as available before the bag, as Ocarina of Time's do.
+- New Cycle skips the moon-crash cutscene (issue #1789). Automated runs let the Moon fall in a paired file and check
+  where and when Link wakes. No run lets the timer on the Clock Tower roof run out, and none drives the Giants' failure.
+  Nobody has watched the white fade or the arrival in a running game. To try it: in a paired file with Moon Crash
+  Behavior on New Cycle, let the Moon fall, or let the timer on the Clock Tower roof run out.
+- Pause Menu Save on by default (issue #1728). Tests check that the pause menu's save hook is armed with the option
+  untouched, and earlier tests check that a New Cycle roof save comes back in South Clock Town. No test presses B in the
+  pause menu, and nobody has made such a save in a running game since the default changed.
+- The Sun's Song's played text in Majora's Mask (issue #1587). Checked by tests without a running game only. To try it:
+  turn Enable Sun's Song on (Enhancements > Items > Ocarina, in the Majora's Mask block), then play the song in Majora's
+  Mask: Right, Down, Up, Right, Down, Up. The text box at the top of the screen should read "You played the Sun's Song!"
+  with the name in yellow.
+
 ### New in v0.5.2-alpha
 
 - Saves on the Moon and on the Clock Tower roof (issues #1728, #1744): nobody has saved there and reopened the file in
@@ -37,13 +57,18 @@ Everything below passed the automated gates. None of it has been checked by a pe
   #1742, #1747, #1748, #1750, #1751, #1752, #1754, #1755).
 - The logic of the Water Temple, the Spirit Temple, the Shadow Temple, Gerudo Training Ground and Ganon's Castle
   (issue #1647) is checked by logic tests and pinned seeds; nobody has played a seed made with it.
-- With Shuffle Deku Stick Bag or Shuffle Deku Nut Bag on, Majora's Mask now starts without sticks or nuts too
-  (issue #1652). Until the bag is found in either game, its drops, shops and checks give none. A check that holds
-  them gives junk. A shop shelf that sells them as usual will not sell them, and a shuffled shelf sells junk once
-  and stocks the item again after the bag. A stick or nut pack from the other game becomes junk. A bag found in
-  Termina opens both games at once. Later Progressive Deku Stick and Nut upgrades still cross, so Infinite Upgrades
-  keeps working. Files made before this version keep the old rule (Ocarina of Time only). To try it: play a paired
-  file with either shuffle on, find the bag in Termina, then cross. Only tests without a running game cover this.
+- With Shuffle Deku Stick Bag or Shuffle Deku Nut Bag on, Majora's Mask now starts without sticks or nuts too (issue
+  #1652). Until the bag is found in either game, its drops and checks give none. A check that holds them gives junk.
+  Every shop shelf that holds sticks or nuts, in either game and from either game, shows them and refuses the sale with
+  the shop's own "can't buy this now" reply until the bag is found, as OoTMM does (issue #1788). Most Majora's Mask
+  shops say "Sorry, you can't buy this right now."; the Curiosity Shop keeps its own line, and Ocarina of Time's shops
+  their usual one. Before the bag the Hags take your mushroom and give nothing for it, and their potion shelf then shows
+  the sticks or nuts and refuses the sale too. Tingle, the Business Scrubs and the Milk Bar are not shop shelves and
+  still give junk before the bag. At a check that is not a shop shelf, a stick or nut pack from the other game still
+  becomes junk. A bag found in Termina opens both games at once. Later Progressive Deku Stick and Nut upgrades still
+  cross, so Infinite Upgrades keeps working. Files made before v0.5.2-alpha keep the old rule (Ocarina of Time only). To
+  try it: play a paired file with either shuffle on, find the bag in Termina, then cross. Only tests without a running
+  game cover this.
 - Each item waits for its own bag (issue #1691). Before the Deku Stick Bag, a Deku Baba (or a withered one, or a Mini
   Baba in Majora's Mask) leaves no stick in either game, and Ocarina of Time's Business Scrubs do not sell
   sticks. Before the Deku Nut Bag, the Scrubs do not sell nuts, and an unshuffled Majora's Mask chest that holds
@@ -70,10 +95,11 @@ Everything below passed the automated gates. None of it has been checked by a pe
   their door opens onto. Each copy of a drop, or of a check held by several places, counts in its own area's numbers,
   so the areas add up to more than the pane's total. Checked by automated tests only. Inside the Stock Pot Inn the Hint
   Tracker's Majora's Mask pane now scrolls to East Clock Town's hints.
-- Moon Crash Behavior's New Cycle default (issue #1671). One automated run lets the moon fall on Majora's Mask's
-  debug save, and another lets it fall in a paired file where Shuffle Ocarina forces New Cycle. No test lets it
-  fall in a paired file that has New Cycle only from the new default, and nobody has played one. To try it: let
-  the moon fall in a new paired file. You should wake on the Dawn of the First Day with your items.
+- Moon Crash Behavior's New Cycle default (issue #1671). One automated run lets the moon fall on Majora's Mask's debug
+  save, and another lets it fall in a paired file where Shuffle Ocarina forces New Cycle. No test lets it fall in a
+  paired file that has New Cycle only from the new default, and nobody has played one. To try it: let the moon fall in a
+  new paired file. You should wake on the Dawn of the First Day with your items, after a white fade and with no crash
+  cutscene (issue #1789).
 - Shuffle Ocarina (issue #1671). An automated run drives the start without the ocarina, midnight of the Final Day
   in North Clock Town and the moon crash. Nobody has played such a file. Not driven by any run: a song check
   reached before the ocarina, finding the ocarina in either game, and letting the Clock Tower roof's timer run
@@ -285,8 +311,10 @@ game's pool.
   MM starts with the Ocarina alone. With Shuffle Ocarina on (`Randomizer → MM Randomizer`, Additional Items; off
   by default), it starts without the ocarina: the ocarina is then in the item pool, no song can be played until
   you find it, and the Moon Crash is always New Cycle.
-- **Moon Crash Behavior defaults to New Cycle** (issue #1671). It is always New Cycle with Shuffle Ocarina or
-  Shared Song of Time on. In a paired file, a save on the Clock Tower roof under New Cycle comes back in South
+- **Moon Crash Behavior defaults to New Cycle** (issue #1671). It is always New Cycle with Shuffle Ocarina or Shared
+  Song of Time on. Under New Cycle the moon-crash cutscene is skipped: the screen fades to white and the new cycle
+  starts in South Clock Town (issue #1789). Majora's Mask's pause menu offers a save by default (Pause Menu Save, on
+  since issue #1728), on the Clock Tower roof too, and in a paired file a roof save under New Cycle comes back in South
   Clock Town.
 - **Shared Items: one item for both games, rule by rule.** Randomizer → Cross-Game → "Shared Items" holds OoTMM's
   "Shared <Item>" rules in OoTMM's order: Fire, Ice and Light Arrows, Epona's Song, Song of Storms, Song of Time,
@@ -1307,11 +1335,12 @@ create after that inherits it until you change the row. What to expect under Las
   `mm-moon-crash-pool-applied`).
 - A cross-game item that reached MM after the save is not lost: it is delivered again at
   your next arrival in MM.
-- Where you wake (traced in source, not played): the crash cutscene ends in the Clock
-  Tower interior with the Happy Mask Salesman's scene (the same destination the Skip Moon
-  Crash enhancement sets, `ENTRANCE(CLOCK_TOWER_INTERIOR, 3)`), then you walk out into
-  South Clock Town. The Dawn of the First Day card needs the restored clock at day 0
-  before 06:01, so it does not appear after an owl save or autosave.
+- Where you wake (traced in source, not played): under Last Save the crash cutscenes still play
+  (the Termina Field moonfall, then the wall of fire), unless Skip Story Cutscenes is on, and a
+  paired file then comes back in South Clock Town. The Dawn of the First Day card needs the
+  restored clock at day 0 before 06:01, so it does not appear after an owl save or autosave.
+  Under New Cycle the cutscenes are skipped and the new cycle starts in South Clock Town
+  ([#1789](https://github.com/penelopeduncan/redshipblueship/issues/1789)).
 - A session with nothing saved at all (a refused slot, a debug boot) has nothing to reload;
   there the clock alone restarts at dawn. Nothing else about the cycle is reset on that
   path: cycle events (`weekEventReg`) and the rest of the half keep their pre-crash
@@ -1548,9 +1577,9 @@ such a file yet. Until someone has:
   drives the roof with no ocarina.
 - **Under the No Logic rung** the ocarina may land anywhere, somewhere you cannot reach without it included, as with
   every item under OoTMM's No Logic.
-- **The Clock Tower roof save.** As in OoTMM, a paired New Cycle file can save on the Clock Tower roof (with Pause
-  Menu Save or Autosave on), and the save comes back in South Clock Town, even with Remember Save Location on
-  (issue #1728).
+- **The Clock Tower roof save.** As in OoTMM, a paired New Cycle file can save on the Clock Tower roof: press B in the
+  pause menu (Pause Menu Save is on by default) or, with Autosave on, let it save. The save comes back in South Clock
+  Town, even with Remember Save Location on (issue #1728).
 - **Leftovers of the first cycle, accepted as they are.** Some of Majora's Mask's actors still look at whether you
   hold the ocarina, and have no hook to tell them a paired file is past its first cycle. None of them changes what
   you can reach:
@@ -1597,9 +1626,10 @@ so for a paired file. The return on the first crossing comes with PR [#1353](htt
 
 ### Pause Menu Save and Autosave work on the Moon — this is intentional, as in 2Ship2Harkinian ([#1744](https://github.com/penelopeduncan/redshipblueship/issues/1744))
 
-Pause Menu Save and Autosave work on the Moon, in its four trials and in Majora's lair, as they do in
-2Ship2Harkinian. Both options are off by default, and with both off nothing changes. OoTMM does not allow these
-saves; this build follows 2Ship2Harkinian here, with one difference of its own for Majora's lair.
+Pause Menu Save and Autosave work on the Moon, in its four trials and in Majora's lair, as they do in 2Ship2Harkinian.
+Pause Menu Save is on by default (issue #1728) and Autosave is off, so the pause menu offers these saves unless you turn
+Pause Menu Save off; with both options off nothing changes. OoTMM does not allow these saves; this build follows
+2Ship2Harkinian here, with one difference of its own for Majora's lair.
 
 - **Where a reload comes back.** With Remember Save Location off, on the Moon field. With it on, at the last entrance
   Link went through, which can be a trial's entrance.
@@ -1864,11 +1894,11 @@ The case to avoid: a state saved before a crossing can still be loaded after you
 ### ~~New Cycle cannot save on the Clock Tower roof yet~~ — RESOLVED ([#1728](https://github.com/penelopeduncan/redshipblueship/issues/1728))
 
 A paired New Cycle file's save on the Clock Tower roof, made with Pause Menu Save or Autosave on, now comes back in
-  South Clock Town even with Remember Save Location on, as OoTMM's does. In a New Cycle file every arrival in Termina
-  from Hyrule within about ten in-game minutes of the Moon's fall is pulled back to about ten minutes before it. A
-  Last Save file is unchanged: a roof save with Remember Save Location on still comes back on the roof, with the
-  Moon's timer running. Both saving options are still off by default; turning Pause Menu Save on by default in a
-  paired file is decided and not built yet (issue #1728). Checked by automated tests only; not played.
+South Clock Town even with Remember Save Location on, as OoTMM's does. In a New Cycle file every arrival in Termina from
+Hyrule within about ten in-game minutes of the Moon's fall is pulled back to about ten minutes before it. A Last Save
+file is unchanged: a roof save with Remember Save Location on still comes back on the roof, with the Moon's timer
+running. Pause Menu Save is now on by default (issue #1728); Autosave stays off. A Pause Menu Save you ticked off
+yourself stays off, until an Enhancements preset resets it. Checked by automated tests only; not played.
 
 ### ~~OoT's plentiful item pool can wrap the wallet inside the fill's own logic~~ — RESOLVED ([#726](https://github.com/penelopeduncan/redshipblueship/issues/726))
 

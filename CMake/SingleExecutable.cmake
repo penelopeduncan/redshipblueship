@@ -984,7 +984,10 @@ if(BUILD_TESTING)
     # #1652 A0: the pair's one Deku Stick Bag / Deku Nut Bag shuffle, two frozen
     # comboFlags bits from OoT's options (CVar store, display-free bring-up),
     # through the rollback, a seed package and a real .redsave; and #1702 C0's two
-    # more, the pair's one Child's Wallet / Bombchu Bag shuffle, the same way. ROM-free.
+    # more, the pair's one Child's Wallet / Bombchu Bag shuffle, the same way; and
+    # #1702 C2's one-game leg (a released 0x20 / 0x40 file disarms, through a
+    # .redsave), the hidden Shared Child's Wallet rule, the derived marker and the
+    # reserved comboFlags 0x80. ROM-free.
     redship_add_test(NAME ComboBagShuffleFrozen COMMAND redship --test combo-bag-shuffle-frozen)
     # #1652 A1 / A3: under that frozen shuffle Majora's Mask is born without the
     # bag; its give, drops, shelves and checks refuse sticks and nuts until the
@@ -1048,6 +1051,12 @@ if(BUILD_TESTING)
     # never reaches ImGui.
     redship_add_test(NAME MMRandoOptions COMMAND redship --test mm-rando-options)
     redship_add_test(NAME MMPairedProfile COMMAND redship --test mm-paired-profile)
+    # #1587 stage A: under an offered Shared Sun's Song or Shared Saria's Song, MM's own
+    # row resolves on in a paired profile (ResolveProfileValues step 2d), read from the
+    # rule keys and never the frozen record (a stale record decides nothing), never
+    # written to MM's key, and the load's probe matches at the file's own second word.
+    # Display-free like the two above; generates nothing.
+    redship_add_test(NAME MMSharedSongRowCoupled COMMAND redship --test mm-shared-song-row-coupled)
     # #1502: MM's Own Dungeon and Song Locations as the single bag's host groups
     # (the registered MM engine's `hostGroups` against 2Ship's IsItemAllowedAtCheck,
     # the defaults confining nothing) and the four placement options' fold into
@@ -1809,6 +1818,14 @@ if(BUILD_TESTING)
     # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
     # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
     redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
+    # #1587 stage A: under the frozen Shared Sun's Song / Shared Saria's Song MM's real
+    # GeneratePools pools no copy of its own (the red gate for that skip: the bag's pair
+    # pass would trim a second copy and hide it end to end), and a shared Saria's Song
+    # keeps 2Ship's fanfare fix and runs none of its prompt, redirect, hint text or
+    # removal. Over a fresh RandoSaveInfo and a calloc'd play state. Pure (no display,
+    # no ROM), generates nothing; games/mm/2s2h/mm_shared_saria_test.cpp.
+    redship_add_test(NAME MMSharedSongPoolSkip COMMAND redship --test mm-shared-song-pool-skip)
+    redship_add_test(NAME MMSharedSariaHooks COMMAND redship --test mm-shared-saria-hooks)
     # #1755: Majora's Mask cutscene skips ported from 2Ship2Harkinian.
     # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, every
     # bean subtype still skipped as on main), SkipSakonsHideoutCutscenes (Ikana 14/34,
@@ -3925,6 +3942,26 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME SharedWarpSongsOneCopyAnywhere COMMAND redship --test shared-warp-songs-one-copy-anywhere
         LABEL rando
         TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    # #1587 stage A: ONE copy of the Shared Sun's Song and the Shared Saria's Song (both
+    # rules on through their keys, revealed for the test), one real paired generation per
+    # Shuffle Songs value but Off (stage B's): one bag pair row each, no orphan half, MM's
+    # own two rows resolved on, the goal proven. The -anywhere row runs a second
+    # generation under Item Pool Plentiful, pinning the #1653 trim of OoT's spare (#1587
+    # question 13 is open). End-to-end only: MMSharedSongPoolSkip is the pool skip's gate.
+    redship_add_test(NAME SharedSunSariaOneCopySongLocations
+        COMMAND redship --test shared-sun-saria-one-copy-song-locations
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedSunSariaOneCopyDungeonRewards
+        COMMAND redship --test shared-sun-saria-one-copy-dungeon-rewards
+        LABEL rando
+        TIMEOUT 600
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
+    redship_add_test(NAME SharedSunSariaOneCopyAnywhere COMMAND redship --test shared-sun-saria-one-copy-anywhere
+        LABEL rando
+        TIMEOUT 900
         ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     redship_add_test(NAME SharedWarpSongsEdges COMMAND redship --test shared-warp-songs-edges
         LABEL rando

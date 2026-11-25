@@ -296,6 +296,59 @@ bool Combo_SongCheckAcceptsForeign(int songCheck, uint32_t frozenOoTSongs, bool 
  *  class reads it through this declaration. */
 uint32_t OoT_Combo_FrozenShuffleSongs(void);
 
+/* ============================================================================
+ * THE SHARED SUN'S SONG AND SHARED SARIA'S SONG IN MAJORA'S MASK (#1587 stage A;
+ * OoTMM sharedSongSun / sharedSongSarias). Game-header-free.
+ *
+ * Under either rule (RSBS_XITEM2_SHARED_SONG_SUN / _SARIAS, foreign_items.h) the
+ * song is ONE item for both games (operator ruling 2026-11-18: sharing a song also
+ * turns on Majora's Mask's own row for it). So:
+ *
+ *  - MM's own row (RO_SHUFFLE_SONG_SUN / RO_SHUFFLE_SONG_SARIA) RESOLVES ON in a
+ *    paired profile, derived and never written to MM's key (Foreign.cpp step 2d),
+ *    and the MM Randomizer page shows it ticked and greyed with the reason (ruling
+ *    2.3). The value is read from the rule KEYS (Combo_ResolveComboItemRules2),
+ *    never from the frozen record: the creation stamp runs before the freeze, when
+ *    the record may still be the last file's, and the load probe runs before the
+ *    file's record is committed. The keys hold the world's value whenever it
+ *    matters (the creation reads them; a frozen world's writers refuse; a load
+ *    writes the file's rules back before the MM profile is restored), and the
+ *    file-select probe passes the file's own word (Foreign.cpp,
+ *    sClassifyRules2Override). Forced only while the rule is OFFERED (#1587
+ *    question 4, taken as recommended): while RSBS_XITEM2_HIDDEN holds both bits
+ *    nothing is forced in production, and a hand-set hidden key forces nothing.
+ *  - MM POOLS NO COPY of its own (OoTMM adds none under the shared rule,
+ *    transform.ts): Ocarina of Time's copy is the pair row. Read from the FROZEN
+ *    record, the same predicate as MM's pooled member (GameExports_SingleExe.cpp,
+ *    MM_SharedSunSariaRuleOn), so the skip happens exactly when the bag pairs
+ *    OoT's row. Not gated on Offered: a frozen rule is the world's.
+ *  - A shared Saria's Song is permanent in MM (operator rulings 2026-11-17/18):
+ *    2Ship's one-use hint (SariasSongHint.cpp) does not run under the frozen rule.
+ * ============================================================================ */
+
+/** Is @p bit one of the two rules this block covers (RSBS_XITEM2_SHARED_SONG_SUN or
+ *  RSBS_XITEM2_SHARED_SONG_SARIAS)? Pure. */
+bool Combo_SharedSunSariaBit(uint32_t bit);
+
+/** Does the second rules word @p word force MM's own row of @p bit's song on? True
+ *  exactly when @p bit is one of the two, it is set in @p word and
+ *  Combo_ComboItemRule2Offered(@p bit). Pure but for the hidden mask (the test
+ *  reveal). */
+bool Combo_SharedSongForcesMMRowIn(uint32_t word, uint32_t bit);
+
+/** Combo_SharedSongForcesMMRowIn over the rule keys (Combo_ResolveComboItemRules2):
+ *  what the MM Randomizer page reads. */
+bool Combo_SharedSongForcesMMRow(uint32_t bit);
+
+/** Does the frozen second word @p frozenWord leave MM with no own copy of @p bit's
+ *  song? True exactly when @p bit is one of the two and set in @p frozenWord. Pure. */
+bool Combo_SharedSongMMCopySkippedIn(uint32_t frozenWord, uint32_t bit);
+
+/** Combo_SharedSongMMCopySkippedIn over the frozen record (Combo_ComboCrossItemFlags2):
+ *  is @p bit's song shared in the world frozen now? What MM's GeneratePools and
+ *  SariasSongHint read. */
+bool Combo_SharedSongFrozenShared(uint32_t bit);
+
 #ifdef __cplusplus
 }
 #endif

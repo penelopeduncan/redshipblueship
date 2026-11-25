@@ -15,6 +15,10 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   generator"), so generate the seed again. So far one change moves worlds, and only with Shuffle Jabber Nuts on: the
   carpet salesman's rule below. With that option off, which is the default, the pinned test seeds place every item
   and word every hint as they did in `v0.5.3-alpha`. The save format did not change.
+- **Majora's Mask's pause menu now offers a save.** Pause Menu Save is on by default (issue #1728): wherever a save is
+  allowed, B in Majora's Mask's pause menu now opens the save prompt instead of closing the menu, and START closes the
+  menu. If you never changed the option, it is now on. If you ticked it on and then off again, it stays off. See Options
+  and quality of life below.
 
 ### Ocarina of Time randomizer
 
@@ -35,6 +39,56 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   grab, Talon's game at Lon Lon Ranch no longer counts a super cucco as found. Logic already asked for the Power
   Bracelet at that check (Talons Chickens). This line and the one above are the two parts of Ship of Harkinian's
   commit `63597ec63` that an earlier port had left out. Nobody has played Talon's game without the bracelet yet.
+- **Trick tooltip corrected: Lost Woods Adult GS with Hookshot** (issue #1790). The tooltip said that killing the
+  Skulltula above the Deku Theater (the check LW GS Above Theater) and taking its token with the Longshot was in default
+  logic. It is not: without the Magic Bean, logic asks for this trick with the Longshot as well as with the Hookshot.
+  The tooltip now says what the trick allows. Logic did not change.
+
+### Cross-game randomizer
+
+- **A shop shelf with Deku Sticks or Deku Nuts waits for the bag** (issue #1788). With Shuffle Deku Stick Bag or Shuffle
+  Deku Nut Bag on, every shop shelf that holds sticks or nuts, in either game and from either game, now shows them
+  before the bag is found and refuses the sale with the shop's own "can't buy this now" reply, as OoTMM does. Before, a
+  shuffled Majora's Mask shelf sold junk once in their place, and a shelf that held the other game's pack, in either
+  game, sold it and gave junk or a blue rupee. Ocarina of Time's own shelves and unshuffled Majora's Mask shelves
+  already refused. The Hags' potion shelf no longer turns your mushroom into junk when its item is sticks or nuts.
+  Before the bag she takes the mushroom and gives nothing for it, and her shelf then shows the sticks or nuts and
+  refuses the sale until the bag is found. A mushroom handed over after the bag gets the item as her usual gift. Sellers
+  that are not shop shelves (Tingle, the Business Scrubs, the Milk Bar) are unchanged: before the bag they still give
+  junk. Seeds and the save format do not change. Checked by tests without a running game; nobody has played it yet.
+
+### Majora's Mask randomizer
+
+- **Moon Crash Behavior: New Cycle skips the moon-crash cutscene, as OoTMM does** (issue #1789). When the Moon falls on
+  the Final Day, or the Clock Tower roof's timer runs out, the screen fades to white and, in a paired file, the Dawn of
+  the First Day begins at once in South Clock Town. The Termina Field moonfall and the wall of fire no longer play.
+  Nothing else about the new cycle changes: you keep your items and progress as before. Last Save still plays both
+  cutscenes, unless Skip Story Cutscenes is on. When the Giants fail to stop the Moon, that cutscene still plays, as in
+  OoTMM. Checked by automated tests; nobody has played it yet.
+- **Majora's Mask: the Sun's Song says that you played it** (issue #1587). With Enable Sun's Song on (Enhancements >
+  Items > Ocarina, in the Majora's Mask block; off by default), playing the Sun's Song in Majora's Mask now shows "You
+  played the Sun's Song!" with the song's name in yellow, as OoTMM does, instead of an empty text box. Checked by tests
+  without a running game; nobody has played it yet.
+
+### Options and quality of life
+
+- **Majora's Mask: Pause Menu Save is on by default** (issue #1728). OoTMM has no such option and always offers the
+  pause-menu save where it allows one; this build now offers it by default. Wherever a save is allowed, B in Majora's
+  Mask's pause menu opens the save prompt instead of closing the menu; B in the prompt goes back to the menu, and START
+  closes it. Where a save is refused (before you first reach Clock Town, during dialogue or a cutscene, in some
+  minigames), B closes the menu as before. In a paired file the save is a save of the whole file. Under New Cycle you
+  can save on the Clock Tower roof and come back in South Clock Town. Saves on the Moon and in Majora's lair work as
+  before (a lair save comes back on the Moon field); OoTMM refuses those, and this build does not. If you never changed
+  the option, it is now on. If you ticked it on and then off again, it stays off until an Enhancements preset (Reset to
+  Default or a curated one) resets it. The option is under Enhancements > Quality of Life > Saving, in the Majora's Mask
+  block. Autosave stays off by default.
+
+### Build and tests
+
+- **Spirit Temple logic: one term that could never matter is gone** (issue #1797). The logic for checks that a child
+  collects in rooms both ages can reach named the adult's reverse-entry rule without ever evaluating it, so that term
+  was always true. It is removed, and new logic tests pin the small-key counts around it: the Master Quest like-like pot
+  and north climb chest stay in logic with 6 small keys. No world and no check's logic changes.
 
 # Release notes: v0.5.3-alpha ("Ellen Delta")
 

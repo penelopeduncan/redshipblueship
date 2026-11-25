@@ -82,6 +82,10 @@ extern "C" void MM_SharedSunSariaTest_SetRow(int song, uint32_t value) {
     (void)song;
     (void)value;
 }
+extern "C" int MM_SharedSunSariaTest_Row(int song) {
+    (void)song;
+    return -1;
+}
 #else
 
 extern "C" {
@@ -289,6 +293,15 @@ extern "C" void MM_SharedSunSariaTest_SetRow(int song, uint32_t value) {
     } else if (song == 1) {
         RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA] = value;
     }
+}
+
+/** MM's own Shuffle Sun's Song (@p song 0) or Shuffle Saria's Song (1) row as the
+ *  live save's rando options hold it (#1587 stage A: 1 under its shared rule), or -1. */
+extern "C" int MM_SharedSunSariaTest_Row(int song) {
+    if (song == 0) {
+        return (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SUN];
+    }
+    return song == 1 ? (int)RANDO_SAVE_OPTIONS[RO_SHUFFLE_SONG_SARIA] : -1;
 }
 
 #endif

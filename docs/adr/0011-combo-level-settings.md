@@ -2455,6 +2455,70 @@ Locked by `SharedSunSariaRule` (new), with `ComboItemRulesSecondWord` and
 identity keys) and `ComboSettingsRows` (leg 9 sets the two keys the Reset
 clears).
 
+### 2026-11-25 -- The Shared Child's Wallet rule, a derived second-word marker and a reserved comboFlags bit, inert (#1702 stage C2, format note)
+
+Operator ruling 2026-11-19 on #1702: "shared child should be an option,
+otherwise its own option", with the clarification that "Shared Child's Wallet"
+is its own row, like Shared Sun's Song; the bomb items are shared when sharing is
+enabled and split otherwise. Stage C2 of the redrawn plan allocates the frozen
+markers and changes the possession arming; nothing a player sees changes, and no
+world moves.
+
+- **The rule (pinned, .redsave and seed-package format).**
+  `RSBS_XITEM2_SHARED_CHILD_WALLET` 0x00010000, the next free bit of the second
+  word. Ours: OoTMM has no single key for it (its nearest is `childWallets` under
+  `sharedWallets`). Key `gCombo.Rando.SharedChildWallet`, identity, boolean,
+  default 0, labelled "Shared Child's Wallet", one `ComboSettingId` appended
+  after #1587's (manifest 69 -> 70, identity 49 -> 50). Inside
+  `RSBS_XITEM2_HIDDEN` until stage C5, so no row is drawn and Generate, a seed
+  package's validation and a `.redsave` load refuse a world with it on, naming
+  `sharedChildWallet`. Not a second-word family: its transport is the first
+  word's possession slot.
+- **The derived marker (question 9, reserved only).**
+  `RSBS_XITEM2_OWN_CHILD_WALLETS` 0x00080000 under a new `RSBS_XITEM2_DERIVED`
+  mask: bits no key authors, never offered (even under the test reveal), never
+  resolved. Inside `RSBS_XITEM2_HIDDEN` until stage C3 writes and reads it, so a
+  file holding it is refused by name (`ownChildWallets`); no key can restore it,
+  so C3 also takes the session's copy from the file. Bits 0x20000 and 0x40000
+  stay free for stage C6, 0x100000 for C7. `RSBS_XITEM2_ALL_V1` 0xFFFF ->
+  **0x9FFFF**; `RSBS_XITEM2_HIDDEN` 0xC000 -> **0x9C000**;
+  `RSBS_XITEM2_FAMILY_MASK` unchanged (so ADR 0009 claim 23 is unchanged).
+- **comboFlags 0x80 is RESERVED, not allocated.**
+  `RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG` 0x80 is defined for stage C8's
+  creation-derived "one Bombchu Bag for the pair", but stays outside
+  `RSBS_COMBO_FLAGS_ALL_V1` (still 0x7F) and `RSBS_COMBO_FLAGS_CREATION_DERIVED`
+  (still 0x7C). That is the guard: the session compare copies only
+  creation-derived bits from the file, so a frozen 0x80 diverges at
+  `RSBS_COMBO_DIVERGE_COMBO_FLAGS` and every pre-C8 build refuses a C8 file,
+  whatever the release order of C7 and C8. C8 moves the bit into both masks in the
+  same change as its writer and reader. (A departure from the plan's item (2),
+  which made ALL_V1 0xFF in C2.) After C8 the byte is full; later markers are
+  second-word derived bits.
+- **The arming.** `Combo_SharedPossessionArmed` arms the Child's Wallet slot from
+  the frozen rule only and the Bombchu Bag slot from nothing, never from comboFlags
+  0x20 / 0x40 (which keep their recorded meaning, "Ocarina of Time's option is
+  on", and every compare still reads them from the file). Released files disarm.
+  Off-screen differences only: MM's randoInf flags 80 and 81 stop being given,
+  `sharedFamilyOwned` stops gaining 0x200 and 0x400 (bits already set stay set),
+  the `[combo] shared family ... (pair possession)` log lines stop, and a
+  possession deleted with the debug save editor is no longer given back at the
+  next arrival. Ruling R2 (OoT's wallet-tier apply) never depended on arming.
+- **Predicates, no consumer.** `Combo_ComboOwnChildWallets`,
+  `Combo_ComboBombchuBagShared`, and Majora's Mask's `MM_Combo_ChildWalletShuffled`,
+  `MM_Combo_WalletGated` and `MM_Combo_ChuBagShared` (`2s2h/Rando/WalletChuGate.h`)
+  read the frozen record only and are 0 on every released file.
+- **The fingerprint is unchanged** for every world with the new bits clear: the
+  second word is folded only when it is not 0, and canonical byte 10 is the same.
+  No golden, settings hash, generator version or save version moves.
+
+Locked by `ComboSettingsFormat` (the pins), `ComboSettingsDivergence` (a frozen
+0x80 diverges through the session compare), `ComboBagShuffleFrozen` (legs 8-10:
+the one-game leg through a `.redsave`, the rule, the derived marker and the
+reserved bit), `SharedFamilyMerge` (5a-5e re-keyed on the rule), `SharedWallet`
+(7), `CVarClassification` (50 identity keys), `SharedSunSariaRule` and
+`ComboItemRulesSecondWord` (re-pinned masks), `ComboSettingsRows` (leg 9 sets
+the key the Reset clears) and `RulesOffGoldensUnchanged` (leg 4).
+
 ### 2026-11-04 -- Ocarina of Time's Gerudo, Skull and Spooky Masks in Majora's Mask and their shared variants (#980)
 
 Epic #975 P5, OoTMM's `gerudoMaskMm`, `skullMaskMm`, `spookyMaskMm` and
