@@ -183,6 +183,28 @@ extern "C" bool Combo_SongPoolShareOffered(void) {
     return false;
 }
 
+extern "C" bool Combo_SharedSunSariaBit(uint32_t bit) {
+    return bit == (uint32_t)RSBS_XITEM2_SHARED_SONG_SUN || bit == (uint32_t)RSBS_XITEM2_SHARED_SONG_SARIAS;
+}
+
+extern "C" bool Combo_SharedSongForcesMMRowIn(uint32_t word, uint32_t bit) {
+    // #1587 question 4 (taken as recommended): forced only while the rule is
+    // offered, so a hidden or hand-set key greys and forces nothing.
+    return Combo_SharedSunSariaBit(bit) && (word & bit) != 0u && Combo_ComboItemRule2Offered(bit);
+}
+
+extern "C" bool Combo_SharedSongForcesMMRow(uint32_t bit) {
+    return Combo_SharedSongForcesMMRowIn(Combo_ResolveComboItemRules2(), bit);
+}
+
+extern "C" bool Combo_SharedSongMMCopySkippedIn(uint32_t frozenWord, uint32_t bit) {
+    return Combo_SharedSunSariaBit(bit) && (frozenWord & bit) != 0u;
+}
+
+extern "C" bool Combo_SharedSongFrozenShared(uint32_t bit) {
+    return Combo_SharedSongMMCopySkippedIn(Combo_ComboCrossItemFlags2(), bit);
+}
+
 extern "C" void Combo_SongHostsForceForTest(int value) {
     sSongHostsOverride.store((int8_t)(value < 0 ? -1 : (value != 0 ? 1 : 0)), std::memory_order_relaxed);
 }

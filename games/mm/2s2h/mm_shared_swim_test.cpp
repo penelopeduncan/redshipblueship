@@ -180,9 +180,10 @@ extern "C" int MM_SharedPossessionTest_Held(void) {
     return bits;
 }
 
-/** The ids MM's possession members must carry: RI_PROGRESSIVE_WALLET, and stage
- *  C2's placeholder RI_UNKNOWN for the Bombchu Bag (C2 changes both this and the
- *  registration to its stand-in). */
+/** The ids MM's possession members must carry: RI_PROGRESSIVE_WALLET, and
+ *  RI_UNKNOWN for the Bombchu Bag, whose member is dead since #1702 C2 (its slot
+ *  is armed by nothing; stage C7 deletes it, and the stand-in belongs in
+ *  Rando_IsSharedCreditStandIn, C8). */
 extern "C" void MM_SharedPossessionTest_Ids(int* walletId, int* bagId) {
     if (walletId != nullptr) {
         *walletId = (int)RI_PROGRESSIVE_WALLET;

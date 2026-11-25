@@ -41,12 +41,33 @@
  *
  * Nothing in production reads the two #1702 predicates yet; its later stages do.
  *
+ * #1702 stage C2 (the redrawn plan: shared when sharing is enabled, split
+ * otherwise) adds three legs:
+ *   (8) ONE GAME: a world frozen with 0x20 / 0x40 and no new bit (every v0.5.2 and
+ *       v0.5.3 file) arms no possession slot and reads MM_Combo_ChildWalletShuffled,
+ *       MM_Combo_WalletGated, MM_Combo_ChuBagShared, Combo_ComboBombchuBagShared
+ *       and Combo_ComboOwnChildWallets all 0, with MM's flags 80/81 set or clear;
+ *       through a real .redsave it loads, keeps 0x20 | 0x40 and the owned
+ *       possession bits 0x600, and MM's apply gives no flag.
+ *   (9) THE RULE: the Shared Child's Wallet key (appended id, label, default 0,
+ *       exactly 0 or 1, bit 0x10000), hidden (not offered, refused by name;
+ *       offered under the test reveal), resolved alone, folded into the
+ *       fingerprint, arming the wallet slot and the MM predicates when frozen, a
+ *       stray key put back, a .redsave refused hidden and restored revealed, and
+ *       from source Generate's refusal before the freeze.
+ *   (10) THE DERIVED MARKER and THE RESERVED BAG BIT: 0x80000 is keyed by
+ *       nothing, never resolved, never offered (even revealed), refused by name,
+ *       and a .redsave holding it is refused even revealed; a .redsave with
+ *       comboFlags 0x80 is refused at load.
+ *
  * Linkage note: #included into test_runner.cpp at FILE SCOPE (compiled as C++),
  * like its neighbours; every symbol under test is C-linkage. Helpers carry the
  * Cbs prefix because every included test file shares one translation unit.
  */
 
+#include "../combo_settings_view.h"
 #include "../context.h"
+#include "../cvar_shared_keys.h"
 #include "../foreign_items.h"
 #include "../save.h"
 #include "../shared_resources.h"
@@ -69,6 +90,17 @@ extern "C" {
 // games/oot/soh/Enhancements/randomizer/SeedPackageSingleExe.cpp: the package's
 // world-record copy and its apply, end to end.
 int OoT_SeedPackage_WorldRecordRoundTripForTest(const ComboContext* live, ComboContext* outRecordBytes);
+// #1702 C2, legs (8)-(10): MM's live save and possession flags
+// (mm_shared_kokiri_sword_test.cpp, mm_shared_swim_test.cpp), MM's real apply
+// shim, and the three MM predicates (2s2h/Rando/WalletChuGate.h, defined in MM's
+// GameExports_SingleExe.cpp).
+void MM_SharedSwordTest_ArmLive(void);
+void MM_ApplySharedResources(void);
+void MM_SharedPossessionTest_Set(int wallet, int bag);
+int MM_SharedPossessionTest_Held(void);
+int MM_Combo_ChildWalletShuffled(void);
+int MM_Combo_WalletGated(void);
+int MM_Combo_ChuBagShared(void);
 #ifdef __cplusplus
 }
 #endif
@@ -102,6 +134,12 @@ const uint8_t kCbsWallet = 0x20u;
 const uint8_t kCbsChu = 0x40u;
 const char* const kCbsWalletKey = "gRandoSettings.ShuffleChildWallet";
 const char* const kCbsChuKey = "gRandoSettings.BombchuBag";
+// #1702 C2: the Shared Child's Wallet rule, the derived own-child-wallets marker,
+// the reserved Shared Bombchu Bag comboFlags bit, and the two possession slots.
+const uint32_t kCbsRule = 0x00010000u;
+const uint32_t kCbsDerived = 0x00080000u;
+const uint8_t kCbsSharedChu = 0x80u;
+const uint32_t kCbsPossession = 0x00000600u;
 
 /** Freeze a paired world the way the creation event does, with @p stick and
  *  @p nut as OoT's two bag options. */
@@ -149,6 +187,41 @@ bool CbsReadsWalletChu(bool wallet, bool chu) {
 /** A CbsFreezeWorld2 world: its two #1702 bits, and the bag bits it froze beside them. */
 bool CbsReads2(bool wallet, bool chu) {
     return CbsReadsWalletChu(wallet, chu) && CbsReads(true, false);
+}
+
+/** #1702 C2: freeze a paired world from the resolved record with @p flags OR'd
+ *  into its comboFlags and @p rules2 as the second rules word, directly (no
+ *  Generate, so nothing is refused). */
+void CbsFreezeWorldC2(uint8_t flags, uint32_t rules2) {
+    ComboContext_Init();
+    Combo_ResetSharedResourceWatermarks();
+    gComboCtx.sourceIsRando = true;
+    gComboCtx.sharedRandoSeed = 0x1702C2F0u;
+    gComboCtx.sharedRandoSettingsHash = kCbsSettingsHash;
+    gComboCtx.mmProfileDigest = kCbsProfileDigest;
+    ComboSettingsRecord rec;
+    Combo_ResolveComboSettings(&rec);
+    rec.comboFlags = (uint8_t)(rec.comboFlags | flags);
+    Combo_FreezeComboSettingsEx2(&rec, NULL, rules2);
+}
+
+/** #1702 C2: the three MM predicates as bits: 1 ChildWalletShuffled, 2
+ *  WalletGated, 4 ChuBagShared. */
+int CbsMMPredicates() {
+    return (MM_Combo_ChildWalletShuffled() != 0 ? 1 : 0) | (MM_Combo_WalletGated() != 0 ? 2 : 0) |
+           (MM_Combo_ChuBagShared() != 0 ? 4 : 0);
+}
+
+/** #1702 C2: every second-word key back to unset (the store directly, so a frozen
+ *  record's read-only gate cannot keep one). */
+void CbsClearRule2Keys() {
+    for (int i = 0; i < (int)COMBO_SETTING_COUNT; i++) {
+        const ComboSettingId id = (ComboSettingId)i;
+        const char* key = Combo_ComboSettingKey(id);
+        if (Combo_ComboItemRule2BitFor(id) != 0u && key != NULL) {
+            CVarClear(key);
+        }
+    }
 }
 
 std::string CbsReadSource(const char* rel) {
@@ -223,6 +296,8 @@ TestResult ComboBagShuffleFrozen_Run(void) {
     sCbsFailures = 0;
     ComboContext_Init();
     CbsClearKeys();
+    CbsClearRule2Keys();
+    Combo_ComboItemRules2RevealForTest(0);
 
     // ---- (1) The bits: allocated, and authored by no key ------------------------
     {
@@ -543,6 +618,293 @@ TestResult ComboBagShuffleFrozen_Run(void) {
                       loaded ? 1 : 0, (unsigned)bits);
             CbsClearKeys();
         }
+
+        // ---- (8) #1702 C2, ONE GAME: a released file disarms and reads every new
+        // predicate 0. CbsFreezeWorld2(true, true) is a v0.5.2 / v0.5.3 file whose
+        // OoT shuffled both (0x20 | 0x40, no new bit). The owned bits and MM's flags
+        // are written AFTER the freeze, which re-initialises the context.
+        // Catches: Combo_SharedPossessionArmed reverted to the C0 bits (armed 600,
+        // and the apply after the load gives MM flags 80 / 81: given 3), a
+        // predicate keyed on 0x20 / 0x40 (bit 1 or 4 set) or on flag 80 alone
+        // (WalletGated 1 with the flag clear), and a load that drops the record's
+        // bits or the owned word.
+        {
+            RsbsSave_ResetSlotSessionState();
+            mgr.DeleteSave(0);
+            ComboContext_Init();
+            CbsSeedShadows(0x65u);
+            CbsFreezeWorld2(true, true);
+            gComboCtx.sharedFamilyOwned = kCbsPossession;
+            MM_SharedSwordTest_ArmLive();
+            MM_SharedPossessionTest_Set(1, 1);
+            const int predsHeld = CbsMMPredicates();
+            MM_SharedPossessionTest_Set(0, 0);
+            const int predsClear = CbsMMPredicates();
+            const uint32_t armed = Combo_SharedPossessionArmed();
+            printf("[TEST] (8) released 20|40 file: armed %08X, MM predicates flags set %d clear %d, bag shared %d, "
+                   "own wallets %d (expected 0, 0, 0, 0, 0)\n",
+                   (unsigned)armed, predsHeld, predsClear, Combo_ComboBombchuBagShared() ? 1 : 0,
+                   Combo_ComboOwnChildWallets() ? 1 : 0);
+            CBS_CHECK(armed == 0u && predsHeld == 0 && predsClear == 0 && !Combo_ComboBombchuBagShared() &&
+                          !Combo_ComboOwnChildWallets(),
+                      "(8) A RELEASED 0x20 | 0x40 FILE armed possession %08X or read a new predicate (MM %d / %d)",
+                      (unsigned)armed, predsHeld, predsClear);
+            CbsSeedShadows(0x65u);
+            CBS_CHECK(mgr.Save(0), "(8) Save(0) failed");
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool loaded = mgr.Load(0);
+            const uint8_t flags = gComboCtx.comboSettings.comboFlags;
+            const uint32_t owned = gComboCtx.sharedFamilyOwned;
+            const uint32_t armedLoaded = Combo_SharedPossessionArmed();
+            MM_SharedSwordTest_ArmLive();
+            MM_SharedPossessionTest_Set(0, 0);
+            const int predsLoaded = CbsMMPredicates();
+            MM_ApplySharedResources();
+            const int given = MM_SharedPossessionTest_Held();
+            printf("[TEST] (8) after the .redsave: loaded %d, flags %02X, owned %08X, armed %08X, MM predicates %d, "
+                   "MM given %d (expected 1, 68, 00000600, 0, 0, 0)\n",
+                   loaded ? 1 : 0, (unsigned)flags, (unsigned)owned, (unsigned)armedLoaded, predsLoaded, given);
+            CBS_CHECK(loaded && (flags & (kCbsWallet | kCbsChu)) == (kCbsWallet | kCbsChu) &&
+                          (owned & kCbsPossession) == kCbsPossession,
+                      "(8) the released file did not load with its 0x20 | 0x40 and its owned 0x600 (loaded %d, flags "
+                      "%02X, owned %08X)",
+                      loaded ? 1 : 0, (unsigned)flags, (unsigned)owned);
+            CBS_CHECK(armedLoaded == 0u && predsLoaded == 0 && given == 0 && !Combo_ComboBombchuBagShared() &&
+                          !Combo_ComboOwnChildWallets(),
+                      "(8) AFTER THE LOAD the released file armed %08X, read MM predicates %d, or MM's apply gave "
+                      "possession flags %d",
+                      (unsigned)armedLoaded, predsLoaded, given);
+            MM_SharedSwordTest_ArmLive();
+        }
+
+        // ---- (9) #1702 C2, THE SHARED CHILD'S WALLET RULE: a key and a hidden bit ---
+        {
+            const ComboSettingId id = COMBO_SETTING_SHARED_CHILD_WALLET;
+            const std::string wantKey = std::string(RSBS::kComboIdentityKeyPrefix) + "SharedChildWallet";
+            const char* key = Combo_ComboSettingKey(id);
+            // Catches: an id inserted rather than appended (every later id would
+            // move), a missing descriptor, a wrong key or label, a default that
+            // ships on, a value space wider than 0/1, a key authoring another bit.
+            CBS_CHECK((int)id == (int)COMBO_SETTING_SHARED_SONG_SARIAS + 1 && key != NULL && wantKey == key &&
+                          strcmp(Combo_ComboSettingLabel(id), "Shared Child's Wallet") == 0,
+                      "(9) the Shared Child's Wallet setting is id %d with key '%s' and label '%s'", (int)id,
+                      key != NULL ? key : "(null)", Combo_ComboSettingLabel(id));
+            CBS_CHECK(Combo_ComboSettingDefault(id) == 0 && Combo_ComboSettingValueValid(id, 0) &&
+                          Combo_ComboSettingValueValid(id, 1) && !Combo_ComboSettingValueValid(id, 2) &&
+                          !Combo_ComboSettingValueValid(id, -1),
+                      "(9) the Shared Child's Wallet key does not ship off or is not exactly 0 or 1");
+            CBS_CHECK(Combo_ComboItemRule2BitFor(id) == kCbsRule && RSBS_XITEM2_SHARED_CHILD_WALLET == kCbsRule &&
+                          (Combo_ComboItemRule2KeyedBits() & kCbsRule) == kCbsRule,
+                      "(9) the key authors %08X, not 00010000", (unsigned)Combo_ComboItemRule2BitFor(id));
+            // HIDDEN. Catches the rule offered (a row drawn, Generate taking it)
+            // before stage C5, and a refusal that does not name it.
+            char names[192];
+            const uint32_t refused = Combo_ComboItemRules2Refused(kCbsRule, names, sizeof(names));
+            CBS_CHECK((RSBS_XITEM2_HIDDEN & kCbsRule) == kCbsRule && !Combo_ComboItemRule2Offered(kCbsRule) &&
+                          refused == kCbsRule && strcmp(names, "sharedChildWallet") == 0,
+                      "(9) the rule is offered, or refused as %08X ('%s'), before #1702 C5", (unsigned)refused, names);
+            Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+            const bool offeredRevealed = Combo_ComboItemRule2Offered(kCbsRule);
+            const uint32_t refusedRevealed = Combo_ComboItemRules2Refused(kCbsRule, NULL, 0);
+            Combo_ComboItemRules2RevealForTest(0);
+            CBS_CHECK(offeredRevealed && refusedRevealed == 0u,
+                      "(9) under the test reveal the rule is not offered (%d) or still refused (%08X)",
+                      offeredRevealed ? 1 : 0, (unsigned)refusedRevealed);
+            // THE RESOLVER and GENERATE'S QUESTION. Catches the key reaching another
+            // bit, and Generate not refusing a hand-set key while the rule is hidden.
+            ComboContext_Init();
+            CbsClearRule2Keys();
+            CBS_CHECK(Combo_ComboSettingSet(id, 1) == 1, "(9) the writer refused the Shared Child's Wallet key");
+            const uint32_t resolved = Combo_ResolveComboItemRules2();
+            const uint32_t generate = Combo_ComboItemRules2Refused(resolved, names, sizeof(names));
+            printf("[TEST] (9) Generate with Shared Child's Wallet set: resolved %08X, refused %08X (%s)\n",
+                   (unsigned)resolved, (unsigned)generate, names);
+            CBS_CHECK(resolved == kCbsRule && generate == kCbsRule,
+                      "(9) GENERATE MUST REFUSE THE HIDDEN SHARED CHILD'S WALLET: resolved %08X, refused %08X",
+                      (unsigned)resolved, (unsigned)generate);
+            CbsClearRule2Keys();
+            CBS_CHECK(Combo_ResolveComboItemRules2() == 0u, "(9) with the key cleared the word resolved %08X",
+                      (unsigned)Combo_ResolveComboItemRules2());
+            // THE FINGERPRINT. Catches the bit not folded (on == off), and a rule-off
+            // world whose stamp moved. Pinned at version 0 so a generator bump
+            // re-pins nothing: canonical(defaults) ':' LE32(1652BA65) ':'
+            // LE32(1652D16E) [ '%' LE32(00010000) ], FNV-1a 32, computed outside
+            // the build (the same formula reproduces CEA3786B, test_cross_item_rules.c).
+            ComboSettingsRecord defaults;
+            Combo_ComboSettingsDefaults(&defaults);
+            const uint32_t off = Combo_ComputeComboSettingsHashForGeneratorEx2(&defaults, NULL, 0u, kCbsSettingsHash,
+                                                                               kCbsProfileDigest, 0u);
+            const uint32_t on = Combo_ComputeComboSettingsHashForGeneratorEx2(&defaults, NULL, kCbsRule,
+                                                                              kCbsSettingsHash, kCbsProfileDigest, 0u);
+            CBS_CHECK(on != off && off == 0x24DF9AA0u && on == 0x1EEE1BE6u,
+                      "(9) the rule's fingerprint %08X does not differ from the rule-off %08X, or the rule-off world "
+                      "moved",
+                      (unsigned)on, (unsigned)off);
+            // FROZEN ON (directly: no Generate), the rule arms the wallet slot only
+            // and the MM predicates follow it. Catches the arming not reading the
+            // rule (armed 0), arming the bag too (armed 600), and WalletGated not
+            // reading flag 80 (3 with the flag set).
+            CbsFreezeWorldC2(0u, kCbsRule);
+            const uint32_t armedOn = Combo_SharedPossessionArmed();
+            MM_SharedSwordTest_ArmLive();
+            MM_SharedPossessionTest_Set(0, 0);
+            const int predsUnheld = CbsMMPredicates();
+            MM_SharedPossessionTest_Set(1, 0);
+            const int predsHeld = CbsMMPredicates();
+            MM_SharedSwordTest_ArmLive();
+            printf("[TEST] (9) rule frozen on: armed %08X, MM predicates unheld %d held %d (expected 00000200, 3, 1)\n",
+                   (unsigned)armedOn, predsUnheld, predsHeld);
+            CBS_CHECK(armedOn == (uint32_t)RSBS_XFAMILY_SLOT_CHILD_WALLET && predsUnheld == 3 && predsHeld == 1,
+                      "(9) the frozen rule armed %08X (want 00000200) or the MM predicates read %d / %d (want 3 / 1)",
+                      (unsigned)armedOn, predsUnheld, predsHeld);
+            // A SESSION'S STRAY KEY against a rule-off file: put back to the file's
+            // off (frozen wins at load). Catches a missing kRestorable row or
+            // FrozenValue case (unrestorable, or not named).
+            ComboContext_Init();
+            CBS_CHECK(Combo_ComboSettingSet(id, 1) == 1, "(9) the writer refused the stray key");
+            CbsFreezeWorldC2(0u, 0u);
+            const uint32_t stray = Combo_ComboSettingsDivergence();
+            const uint32_t strayUnrestorable =
+                Combo_ComboSettingsUnrestorableBitsEx2(&gComboCtx.comboItemRules, 0u, stray);
+            const int back =
+                Combo_ComboSettingsRestoreLiveEx2(&gComboCtx.comboSettings, &gComboCtx.comboItemRules, 0u,
+                                                  &gComboCtx.comboTriforce, stray, names, sizeof(names), NULL);
+            printf("[TEST] (9) stray key: divergence %08X, unrestorable %08X, restore %d (%s)\n", (unsigned)stray,
+                   (unsigned)strayUnrestorable, back, names);
+            CBS_CHECK(stray == RSBS_COMBO_DIVERGE_CROSS_ITEM_FLAGS && strayUnrestorable == 0u && back == 1 &&
+                          strcmp(names, "Shared Child's Wallet") == 0 && Combo_ComboSettingResolved(id) == 0 &&
+                          Combo_ComboSettingsDivergence() == 0u,
+                      "(9) the stray Shared Child's Wallet key was not put back to the file's off");
+            CbsClearRule2Keys();
+            // THE .redsave: hidden, a file with the rule is refused as another
+            // build's; revealed, it loads, its word and key come back, and it arms.
+            // Catches a hidden rule that loads, and a revealed load that drops it.
+            RsbsSave_ResetSlotSessionState();
+            mgr.DeleteSave(0);
+            ComboContext_Init();
+            CbsSeedShadows(0x66u);
+            CbsFreezeWorldC2(0u, kCbsRule);
+            CbsSeedShadows(0x66u);
+            CBS_CHECK(mgr.Save(0), "(9) Save(0) failed for the Shared Child's Wallet file");
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool hiddenLoaded = mgr.Load(0);
+            CbsClearRule2Keys();
+            Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool revealedLoaded = mgr.Load(0);
+            const uint32_t word = Combo_ComboItemRules2Word(&gComboCtx.comboItemRules2);
+            const int32_t restoredKey = Combo_ComboSettingResolved(id);
+            const uint32_t armedLoaded = Combo_SharedPossessionArmed();
+            Combo_ComboItemRules2RevealForTest(0);
+            CbsClearRule2Keys();
+            printf("[TEST] (9) .redsave with the rule: hidden loaded %d, revealed loaded %d, word %08X, key %d, armed "
+                   "%08X (expected 0, 1, 00010000, 1, 00000200)\n",
+                   hiddenLoaded ? 1 : 0, revealedLoaded ? 1 : 0, (unsigned)word, (int)restoredKey,
+                   (unsigned)armedLoaded);
+            CBS_CHECK(!hiddenLoaded, "(9) A FILE WITH THE HIDDEN SHARED CHILD'S WALLET LOADED on the production mask");
+            CBS_CHECK(revealedLoaded && word == kCbsRule && restoredKey == 1 &&
+                          armedLoaded == (uint32_t)RSBS_XFAMILY_SLOT_CHILD_WALLET,
+                      "(9) revealed, the file did not load with its rule, its key and its arming");
+            ComboContext_Init();
+        }
+
+        // ---- (10) #1702 C2, THE DERIVED MARKER and THE RESERVED BAG BIT ------------
+        {
+            // No key authors the marker. Catches a key added for it (it is
+            // creation-derived) and a resolver that produces it.
+            uint32_t keyedDerived = 0u;
+            for (int i = 0; i < (int)COMBO_SETTING_COUNT; i++) {
+                keyedDerived |= Combo_ComboItemRule2BitFor((ComboSettingId)i) & kCbsDerived;
+            }
+            ComboContext_Init();
+            CbsClearRule2Keys();
+            int keysSet = 0;
+            for (int i = 0; i < (int)COMBO_SETTING_COUNT; i++) {
+                if (Combo_ComboItemRule2BitFor((ComboSettingId)i) != 0u) {
+                    keysSet += Combo_ComboSettingSet((ComboSettingId)i, 1) == 1 ? 1 : 0;
+                }
+            }
+            const uint32_t resolvedAll = Combo_ResolveComboItemRules2();
+            CbsClearRule2Keys();
+            printf("[TEST] (10) every second-word key on (%d keys): resolved %08X\n", keysSet, (unsigned)resolvedAll);
+            CBS_CHECK(RSBS_XITEM2_OWN_CHILD_WALLETS == kCbsDerived && RSBS_XITEM2_DERIVED == kCbsDerived &&
+                          keyedDerived == 0u && (Combo_ComboItemRule2KeyedBits() & kCbsDerived) == 0u &&
+                          (resolvedAll & kCbsDerived) == 0u && (resolvedAll & kCbsRule) == kCbsRule,
+                      "(10) the derived marker is keyed (%08X) or resolved (%08X)", (unsigned)keyedDerived,
+                      (unsigned)resolvedAll);
+            // Refused by name, never offered, even revealed. Catches the Offered
+            // exclusion of RSBS_XITEM2_DERIVED dropped, and a refusal naming "bit 19".
+            char names[192];
+            const uint32_t refused = Combo_ComboItemRules2Refused(kCbsDerived, names, sizeof(names));
+            Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+            const bool offeredRevealed = Combo_ComboItemRule2Offered(kCbsDerived);
+            Combo_ComboItemRules2RevealForTest(0);
+            CBS_CHECK(refused == kCbsDerived && strcmp(names, "ownChildWallets") == 0 &&
+                          !Combo_ComboItemRule2Offered(kCbsDerived) && !offeredRevealed,
+                      "(10) the derived marker was refused as %08X ('%s') or offered (revealed %d)", (unsigned)refused,
+                      names, offeredRevealed ? 1 : 0);
+            // The common predicate reads the frozen marker. Catches it reading the
+            // wrong bit (or nothing): true only for the world frozen with it.
+            CbsFreezeWorldC2(0u, kCbsDerived);
+            const bool ownOn = Combo_ComboOwnChildWallets();
+            CbsFreezeWorldC2(0u, kCbsRule);
+            const bool ownRule = Combo_ComboOwnChildWallets();
+            ComboContext_Init();
+            const bool ownUnfrozen = Combo_ComboOwnChildWallets();
+            CBS_CHECK(ownOn && !ownRule && !ownUnfrozen,
+                      "(10) Combo_ComboOwnChildWallets read %d / %d / %d (marker, rule only, unfrozen; want 1 0 0)",
+                      ownOn ? 1 : 0, ownRule ? 1 : 0, ownUnfrozen ? 1 : 0);
+            // A .redsave holding the marker is refused, EVEN REVEALED: no key can
+            // restore it until stage C3 takes it from the file. Catches the marker
+            // made restorable (a key, or a live copy) before its reader exists.
+            RsbsSave_ResetSlotSessionState();
+            mgr.DeleteSave(0);
+            ComboContext_Init();
+            CbsSeedShadows(0x67u);
+            CbsFreezeWorldC2(0u, kCbsDerived);
+            CbsSeedShadows(0x67u);
+            CBS_CHECK(mgr.Save(0), "(10) Save(0) failed for the derived-marker file");
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool derivedLoaded = mgr.Load(0);
+            Combo_ComboItemRules2RevealForTest(RSBS_XITEM2_REVEAL_ALL);
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool derivedRevealedLoaded = mgr.Load(0);
+            Combo_ComboItemRules2RevealForTest(0);
+            // A .redsave with comboFlags 0x80, the reserved Shared Bombchu Bag
+            // marker, is refused at load: the bit is unallocated until C8. Catches
+            // 0x80 joining CREATION_DERIVED or ALL_V1 before C8 (the load would take
+            // it and play the bag split), and the predicates not reading it.
+            RsbsSave_ResetSlotSessionState();
+            mgr.DeleteSave(0);
+            ComboContext_Init();
+            CbsSeedShadows(0x68u);
+            CbsFreezeWorldC2(kCbsSharedChu, 0u);
+            const bool chuShared = Combo_ComboBombchuBagShared();
+            const int mmChuShared = MM_Combo_ChuBagShared();
+            CbsSeedShadows(0x68u);
+            CBS_CHECK(mgr.Save(0), "(10) Save(0) failed for the comboFlags 0x80 file");
+            RsbsSave_ResetSlotSessionState();
+            ComboContext_Init();
+            const bool chuLoaded = mgr.Load(0);
+            printf("[TEST] (10) .redsave: derived marker loaded %d (revealed %d), comboFlags 80 in memory shared %d / "
+                   "MM %d, loaded %d, quarantine %d (expected 0, 0, 1, 1, 0)\n",
+                   derivedLoaded ? 1 : 0, derivedRevealedLoaded ? 1 : 0, chuShared ? 1 : 0, mmChuShared,
+                   chuLoaded ? 1 : 0, RsbsSave_HasQuarantine(0));
+            CBS_CHECK(!derivedLoaded && !derivedRevealedLoaded,
+                      "(10) A FILE HOLDING THE DERIVED OWN-CHILD-WALLETS MARKER LOADED (revealed %d)",
+                      derivedRevealedLoaded ? 1 : 0);
+            CBS_CHECK(chuShared && mmChuShared == 1,
+                      "(10) the predicates did not read a frozen comboFlags 0x80 (common %d, MM %d)", chuShared ? 1 : 0,
+                      mmChuShared);
+            CBS_CHECK(!chuLoaded && !Combo_ComboBombchuBagShared(),
+                      "(10) A FILE WITH comboFlags 0x80 LOADED: the reserved bit must be refused until stage C8");
+            ComboContext_Init();
+        }
         RsbsSave_ResetSlotSessionState();
         mgr.DeleteSave(0);
         mgr.SetSaveDirectory(priorSaveDir);
@@ -577,10 +939,37 @@ TestResult ComboBagShuffleFrozen_Run(void) {
                       freeze != std::string::npos && call < freeze && callText == wantCall,
                   "Playthrough_Init does not write the wallet / bombchu bag bits from RSK_SHUFFLE_CHILD_WALLET and "
                   "RSK_BOMBCHU_BAG (not None), once, before the freeze");
+        // (9) from source (#1702 C2): Generate asks the hidden-rules question over the
+        // very word it freezes, inside Playthrough_Init, and returns before the
+        // freeze when it is refused, so a hand-set Shared Child's Wallet key never
+        // freezes a world. Catches the gate moved after the freeze, asked of another
+        // word, or no longer returning.
+        const size_t resolveAt = body.find("const uint32_t rsbsItemRules2 = Combo_ResolveComboItemRules2();");
+        const size_t gateAt = (resolveAt == std::string::npos)
+                                  ? std::string::npos
+                                  : body.find("Combo_ComboItemRules2Refused(rsbsItemRules2,", resolveAt);
+        // Only whitespace may lie between the note and its return (a byte bound
+        // broke on the indent alone): catches a statement slipped between them.
+        static const char kCbsHiddenNote[] = "Combo_GenRefusal_Note(RSBS_GEN_REFUSAL_HIDDEN_RULE);";
+        const size_t kCbsHiddenNoteLen = sizeof(kCbsHiddenNote) - 1u;
+        const size_t noteAt = (gateAt == std::string::npos) ? std::string::npos : body.find(kCbsHiddenNote, gateAt);
+        const size_t returnAt = (noteAt == std::string::npos) ? std::string::npos : body.find("return -1;", noteAt);
+        printf("[TEST] (9) Playthrough_Init: resolve at %zu, hidden-rules gate at %zu, its return at %zu, freeze at "
+               "%zu\n",
+               resolveAt, gateAt, returnAt, freeze);
+        const size_t afterNote = (noteAt == std::string::npos)
+                                     ? std::string::npos
+                                     : body.find_first_not_of(" \t\r\n", noteAt + kCbsHiddenNoteLen);
+        CBS_CHECK(resolveAt != std::string::npos && gateAt != std::string::npos && noteAt != std::string::npos &&
+                      returnAt != std::string::npos && returnAt == afterNote && freeze != std::string::npos &&
+                      returnAt < freeze,
+                  "Playthrough_Init does not refuse a hidden second-word rule over the frozen word before the freeze");
     }
 #endif
 
     CbsClearKeys();
+    CbsClearRule2Keys();                   // #1702 C2: legs (9) and (10) set them
+    Combo_ComboItemRules2RevealForTest(0); // and reveal the hidden mask
     ComboContext_Init();
     Combo_ResetSharedResourceWatermarks();
     printf("[TEST] combo-bag-shuffle-frozen: %s\n", sCbsFailures == 0 ? "PASS" : "FAIL");

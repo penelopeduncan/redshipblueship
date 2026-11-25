@@ -785,15 +785,20 @@ uint32_t Combo_SharedPossessionSlotsArmedBy(bool childWalletShuffled, bool bombc
 }
 
 uint32_t Combo_SharedPossessionArmed(void) {
-    // #1702 C1: stage C0's FROZEN bits only (false unfrozen or unpaired).
-    return Combo_SharedPossessionSlotsArmedBy(Combo_ComboChildWalletShuffled(), Combo_ComboBombchuBagShuffled());
+    // #1702 C2: the wallet slot from the FROZEN Shared Child's Wallet rule only,
+    // the bag slot from nothing (stage C7's tier kind is the bag's one transport),
+    // never from comboFlags 0x20 / 0x40 (OoT's own shuffles: a split file holds
+    // them too). False unfrozen or unpaired. Released files hold no rule, so they
+    // disarm: only this file reads the slots, and ruling R2 is applied separately.
+    return Combo_SharedPossessionSlotsArmedBy(Combo_ComboCrossItemRule2(RSBS_XITEM2_SHARED_CHILD_WALLET), false);
 }
 
 /** The first-word slots the OWNERSHIP path arms: every rule-armed family slot and
  *  #1702's possession slots. Only the harvest, the owed set, the live harvest and
  *  apply and Combo_SharedFamiliesHeldNow read it; every item-id path keeps
  *  Combo_SharedFamiliesArmed, which never holds a possession slot. Equal to
- *  Combo_SharedFamiliesArmed in every world frozen without the C0 bits. */
+ *  Combo_SharedFamiliesArmed in every world frozen without the Shared Child's
+ *  Wallet rule (#1702 C2), every released file included. */
 static uint32_t FamiliesOwnershipArmed1(void) {
     return Combo_SharedFamiliesArmed() | Combo_SharedPossessionArmed();
 }
