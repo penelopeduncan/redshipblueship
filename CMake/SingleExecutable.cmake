@@ -4672,6 +4672,13 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # and give frames through the randomizer's real handlers; a vanilla file is
     # the control. ROM-free. games/oot/soh/oot_deku_theater_prize_test.cpp.
     redship_add_test(NAME OoTDekuTheaterPrize COMMAND redship --test oot-deku-theater-prize)
+    # #1800: the two game-side hunks of SoH 63597ec63 (#1178 ported its logic hunk).
+    # Under Shuffle Jabber Nuts the real VB_SPEAK hook refuses the diving-game
+    # Zora's talk without the Zora Jabber Nut, and with Shuffle Grab Talon's real
+    # EnTa_RunCuccoGame does not count a carried super cucco without the Grab
+    # ability; a vanilla file and the abilities held are the controls. ROM-free,
+    # no generation. games/oot/soh/oot_diving_zora_talon_cucco_test.cpp.
+    redship_add_test(NAME OoTDivingZoraTalonCucco COMMAND redship --test oot-diving-zora-talon-cucco)
     # Backport bundle O6 (SoH #6795, #6798, #7183): Logic::HasItem answers boss
     # souls and overworld door keys under Shuffle Boss Souls and Lock Overworld
     # Doors (the folded HasBossSoul and CanOpenOverworldDoor), and the randomizer's

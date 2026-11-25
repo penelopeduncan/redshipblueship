@@ -615,6 +615,10 @@ int MM_ForeignHoldSurvivesQuit_Run(void);
 // #1217: under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item
 // and no vanilla capacity upgrade; games/oot/soh/oot_deku_theater_prize_test.cpp.
 int OoT_DekuTheaterPrize_RunHeadless(void);
+// #1800: SoH 63597ec63's game-side hunks: the diving-game Zora needs the Zora
+// Jabber Nut, and a super cucco needs the Grab ability;
+// games/oot/soh/oot_diving_zora_talon_cucco_test.cpp.
+int OoT_DivingZoraTalonCucco_RunHeadless(void);
 // Backport bundle O6 (SoH #6795, #6798, #7183): HasItem's folded boss-soul and
 // overworld-door answers, and the shuffled-drop despawn exemption;
 // games/oot/soh/oot_has_item_fold_test.cpp.
@@ -8474,6 +8478,22 @@ TestResult Test_OoTDekuTheaterPrize(void) {
     return OoT_DekuTheaterPrize_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH 63597ec63's game-side hunks (#1800): the real VB_SPEAK hook and Talon's
+// real cucco-game frame on a stub play state. The same display-free bring-up as
+// the row above: the row authors a real Rando::Context.
+TestResult Test_OoTDivingZoraTalonCucco(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+    if (OoT_InitSharedContextSubsystems() != 0) {
+        printf("[TEST] FAIL: shared bring-up reported failure\n");
+        return TEST_FAIL;
+    }
+    return OoT_DivingZoraTalonCucco_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // Backport bundle O6: HasItem's folded boss souls and overworld door keys, and the
 // shuffled-drop despawn exemption. The same display-free bring-up as the row
 // above: the row authors a real Rando::Context.
@@ -12753,6 +12773,10 @@ const TestDescriptor gTests[] = {
       "Under Shuffle Jabber Nuts the Deku Theater leader gives the seed's item for the Skull Mask and Mask of Truth "
       "checks and no vanilla Deku Stick or Nut capacity upgrade; a vanilla file still gets the upgrade (#1217)",
       Test_OoTDekuTheaterPrize },
+    { "oot-diving-zora-talon-cucco",
+      "Under Shuffle Jabber Nuts the diving-game Zora refuses to talk without the Zora Jabber Nut, and under Shuffle "
+      "Grab Talon does not count a carried super cucco without the Grab ability (SoH 63597ec63, #1800)",
+      Test_OoTDivingZoraTalonCucco },
     { "oot-has-item-fold",
       "Logic::HasItem answers boss souls under Shuffle Boss Souls and overworld door keys under Lock Overworld Doors, "
       "and a shuffled key or heart drop's despawn timer is stopped (SoH #6795, #6798, #7183)",

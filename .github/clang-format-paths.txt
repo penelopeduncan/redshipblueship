@@ -181,6 +181,7 @@ games/oot/soh/oot_check_state_load_test.cpp
 games/oot/soh/oot_foreign_hold_quit_test.cpp
 games/oot/soh/oot_int_foreign_hold_quit_drive.cpp
 games/oot/soh/oot_deku_theater_prize_test.cpp
+games/oot/soh/oot_diving_zora_talon_cucco_test.cpp
 games/oot/soh/oot_has_item_fold_test.cpp
 games/oot/soh/oot_shuffled_fairy_test.cpp
 games/oot/soh/oot_butterfly_fairy_test.cpp
