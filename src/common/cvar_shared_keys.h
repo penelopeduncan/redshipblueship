@@ -120,6 +120,21 @@
 #define RSBS_VOLUME_SCALE(percent) ((float)(percent) / 100.0f)
 
 /* ==========================================================================
+ * Majora's Mask's Pause Menu Save default (#1728).
+ *
+ * The operator's ruling of 2026-11-19: Pause Menu Save is ON by default in a
+ * paired file, and every file in this build is a paired file. 2Ship2Harkinian's
+ * own default is off; OoTMM has no such option and always offers its
+ * pause-menu save. This is the value read when RSBS_CVAR_MM_SAVING_PAUSE_SAVE
+ * is ABSENT: a stored 0 or 1 wins, and nothing writes the key to make it true.
+ * Every game reader goes through SavingEnhancements_PauseSaveOn()
+ * (games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp), and the hosted
+ * menu row draws this default. Not an RSBS_CVAR_ define on purpose: the key
+ * classification scans those as string-literal keys.
+ * ========================================================================== */
+#define RSBS_MM_PAUSE_SAVE_DEFAULT 1
+
+/* ==========================================================================
  * Tier-4 combo-level keys (ADR 0004 §3 tier 4; ADR 0011 increment 2).
  *
  * The `gCombo.` namespace is the combo's own. Keys here describe the PAIR,

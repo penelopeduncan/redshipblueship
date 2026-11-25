@@ -4205,7 +4205,8 @@ extern "C" void MM_Combo_EndPauseSaveCommitFor(int pauseSaveOn) {
  * check 14.
  */
 extern "C" void MM_Combo_EndPauseSaveCommit(void) {
-    MM_Combo_EndPauseSaveCommitFor(CVarGetInteger("gEnhancements.Saving.PauseSave", 0));
+    // #1728: on by default; the one read of the key, shared with the prompt that set the pair.
+    MM_Combo_EndPauseSaveCommitFor(SavingEnhancements_PauseSaveOn());
 }
 
 namespace {

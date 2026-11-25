@@ -1423,6 +1423,41 @@ extern "C" int OoT_MenuMmEnhancementRows_RunHeadless(void) {
                covered);
     }
 
+    // ---- Leg 11 (#1728): Pause Menu Save draws ticked when its key is unset -------------------------------------
+    // The operator's ruling of 2026-11-19: on by default. CVarCheckbox draws CVarGetInteger(key, defaultValue)
+    // (UIWidgets.cpp), so the row must carry the shared default the game's reads use (RSBS_MM_PAUSE_SAVE_DEFAULT),
+    // or a fresh config shows the option off while B in the pause menu offers a save.
+    {
+        FlatRow* row = FindRowByCVar(rows, RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+        MME_CHECK(row != nullptr, "no row under Enhancements binds %s", RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+        if (row != nullptr) {
+            const bool isCheckbox = row->info->type == WIDGET_CVAR_CHECKBOX && row->info->options != nullptr;
+            MME_CHECK(isCheckbox, "the Pause Menu Save row is not a CVar checkbox with options%s", "");
+            if (isCheckbox) {
+                const auto opts = std::static_pointer_cast<UIWidgets::CheckboxOptions>(row->info->options);
+                MME_CHECK(opts->defaultValue && opts->defaultValue == (RSBS_MM_PAUSE_SAVE_DEFAULT != 0),
+                          "the Pause Menu Save row's default is %d, expected on (RSBS_MM_PAUSE_SAVE_DEFAULT %d, #1728)",
+                          opts->defaultValue ? 1 : 0, RSBS_MM_PAUSE_SAVE_DEFAULT);
+                const bool wasSet = CVarGet(RSBS_CVAR_MM_SAVING_PAUSE_SAVE) != nullptr;
+                const int32_t saved = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, 0);
+                CVarClear(RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+                const int32_t drawnUnset = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, opts->defaultValue);
+                CVarSetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, 0);
+                const int32_t drawnOff = CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, opts->defaultValue);
+                if (wasSet) {
+                    CVarSetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, saved);
+                } else {
+                    CVarClear(RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+                }
+                MME_CHECK(drawnUnset == 1, "with %s unset the Pause Menu Save row draws %d, expected ticked (1)",
+                          RSBS_CVAR_MM_SAVING_PAUSE_SAVE, (int)drawnUnset);
+                MME_CHECK(drawnOff == 0, "with %s stored 0 the Pause Menu Save row draws %d, expected unticked (0)",
+                          RSBS_CVAR_MM_SAVING_PAUSE_SAVE, (int)drawnOff);
+                printf("[TEST] leg 11: Pause Menu Save draws ticked with its key unset and unticked when stored 0\n");
+            }
+        }
+    }
+
     if (gFailures == 0) {
         printf("[TEST] menu-mm-enhancement-rows: PASS\n");
     } else {

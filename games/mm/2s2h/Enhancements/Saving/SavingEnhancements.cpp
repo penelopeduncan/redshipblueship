@@ -23,7 +23,24 @@ extern "C" int RsbsSave_GetActiveSlot(void);
 #include "mm_moon_crash_rules.h"
 extern "C" int Context_ComboSessionResident(void);
 extern "C" int MM_Rando_FrozenMoonCrash(void);
+// #1728: Pause Menu Save's key and its default (on), shared by every reader.
+#include "cvar_shared_keys.h"
 #endif
+
+/**
+ * #1728: whether Pause Menu Save is on. The ONE read of the key: PauseSave.cpp's hook gate, BgmReplay.cpp's gate,
+ * MM_Combo_EndPauseSaveCommit and z_kaleido_scope_NES.c's four save-prompt reads all call this, so the C and C++
+ * readers cannot disagree on the default. A stored 0 or 1 wins; with the key absent the single exe reads
+ * RSBS_MM_PAUSE_SAVE_DEFAULT (on, the operator's ruling of 2026-11-19). Never writes the key. Locked by
+ * MMRegistrarCoverage (FAIL 27, 28) and test_pause_save_default_has_one_reader (tools/tests/test_repo_invariants.py).
+ */
+extern "C" int SavingEnhancements_PauseSaveOn(void) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    return CVarGetInteger(RSBS_CVAR_MM_SAVING_PAUSE_SAVE, RSBS_MM_PAUSE_SAVE_DEFAULT) != 0 ? 1 : 0;
+#else
+    return CVarGetInteger("gEnhancements.Saving.PauseSave", 0) != 0 ? 1 : 0; // 2Ship2Harkinian's own default
+#endif
+}
 
 #define CVAR_REMEMBER_SAVE_LOCATION_NAME "gEnhancements.RememberSaveLocation"
 #define CVAR_REMEMBER_SAVE_LOCATION CVarGetInteger(CVAR_REMEMBER_SAVE_LOCATION_NAME, 0)

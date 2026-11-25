@@ -1,6 +1,7 @@
 #include <libultraship/bridge/consolevariablebridge.h>
 #include "2s2h/GameInteractor/GameInteractor.h"
 #include "2s2h/ShipInit.hpp"
+#include "2s2h/Enhancements/Saving/SavingEnhancements.h" // RSBS (#1728): SavingEnhancements_PauseSaveOn
 
 extern "C" {
 #include "variables.h"
@@ -13,7 +14,8 @@ extern u8 sStartSeqDisabled;
 #define CVAR_NAME_DEBUG_MODE "gDeveloperTools.DebugEnabled"
 
 #define CVAR_FASTER_SCENE_TRANSITIONS CVarGetInteger(CVAR_NAME_FASTER_SCENE_TRANSITIONS, 0)
-#define CVAR_PAUSE_SAVE CVarGetInteger(CVAR_NAME_PAUSE_SAVE, 0)
+// RSBS (#1728): Pause Menu Save is on by default here; its one read is SavingEnhancements_PauseSaveOn.
+#define CVAR_PAUSE_SAVE SavingEnhancements_PauseSaveOn()
 #define CVAR_DEBUG_MODE CVarGetInteger(CVAR_NAME_DEBUG_MODE, 0)
 
 /*

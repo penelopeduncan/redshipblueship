@@ -5,7 +5,8 @@
 extern "C" PlayState* MM_gPlayState;
 
 #define CVAR_NAME "gEnhancements.Saving.PauseSave"
-#define CVAR CVarGetInteger(CVAR_NAME, false)
+// RSBS (#1728): on by default here; the one read of the key is SavingEnhancements_PauseSaveOn.
+#define CVAR SavingEnhancements_PauseSaveOn()
 
 void RegisterPauseSave() {
     COND_VB_SHOULD(VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU, CVAR, {
