@@ -154,20 +154,22 @@ extern "C" {
  * table, which is indexed by KIND (stable) rather than by slot (slots are found
  * by scan and a future compaction could move them).
  */
-#define RSBS_SHARED_RES_KIND_COUNT 22u
+#define RSBS_SHARED_RES_KIND_COUNT 23u
 
-/* Every kind one world can arm at once must have a slot in the two blocks: the
- * real kinds less the retired ocarina tier, which is never armed (#879). Today
- * that is twenty of twenty (#970's bottles took the last one), so the next kind
- * fails here and needs a third block (context.h), rather than silently finding
- * no slot at its first harvest. */
+/* Every kind one world can arm at once must have a slot in the blocks: the real
+ * kinds less the retired ocarina tier, which is never armed (#879). #970's
+ * bottles took the twentieth of the first two blocks' twenty slots; #1702 C7's
+ * Bombchu Bag tier is the twenty-first and came with the appended third block
+ * (context.h), so today that is twenty-one of twenty-eight. A kind that outgrows
+ * all three fails here and needs a fourth block, rather than silently finding no
+ * slot at its first harvest. */
 RSBS_CTX_STATIC_ASSERT(RSBS_SHARED_RES_KIND_COUNT - 2u <= RSBS_SHARED_RESOURCE_TOTAL_CAP,
-                       "more shared-resource kinds can be armed at once than the two blocks have slots");
+                       "more shared-resource kinds can be armed at once than the three blocks have slots");
 
 /**
  * Is `kind` ARMED for this world?
  *
- * Seventeen of the twenty-one kinds are unconditional: #525 decided that both
+ * Seventeen of the twenty-two kinds are unconditional: #525 decided that both
  * games share one wallet, one health bar, one magic meter, one set of ammo and
  * one hookshot, and no save can turn that off. RSBS_SHARED_RES_OCARINA_TIER
  * (#668) was the first that a PLAYER chose, through a tier-4 key frozen into
@@ -180,6 +182,9 @@ RSBS_CTX_STATIC_ASSERT(RSBS_SHARED_RES_KIND_COUNT - 2u <= RSBS_SHARED_RESOURCE_T
  * bit, the player's Cross-Game Rules choice (Combo_ComboSharedKokiriSword).
  * RSBS_SHARED_RES_BOTTLE_COUNT (#970) is armed only by the FROZEN item rules'
  * RSBS_XITEM_SHARED_BOTTLES bit (Combo_ComboCrossItemRule).
+ * RSBS_SHARED_RES_BOMBCHU_BAG_TIER (#1702 C7) is armed only by
+ * Combo_SharedBombchuBagTierArmed (below): the FROZEN comboFlags
+ * RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG bit, which nothing writes before C8.
  *
  * THE GATE LIVES HERE, ONCE, AND BOTH ENTRY POINTS CONSULT IT. A gate written
  * into the four per-game call sites instead would be four chances to gate one
@@ -469,8 +474,9 @@ bool Combo_CreditSharedResource(uint8_t kind, uint16_t amount);
  *  A3) the stick and nut tiers only under the pair's FROZEN bag shuffle
  *  (Combo_SharedBagShuffled), where both halves are born without the bag and
  *  the pool's tier is the pair's one bag. With the shuffle off their items
- *  keep crossing. The arming gate is not consulted here: the step is (so a
- *  disarmed kind's item still crosses). */
+ *  keep crossing. (#1702 C7) The Bombchu Bag tier only while
+ *  Combo_SharedBombchuBagTierArmed. The arming gate is not otherwise consulted
+ *  here: the step is (so a disarmed kind's item still crosses). */
 bool Combo_SharedResourceStepsAtPickup(uint8_t kind);
 
 /**
@@ -492,6 +498,10 @@ bool Combo_SharedResourceStepsAtPickup(uint8_t kind);
  * bag (OoT resolves a Progressive Stick / Nut Upgrade at its tier 0 under the
  * shuffle to the bag); a later copy is OoT's next capacity or, under Infinite
  * Upgrades, its infinite item, which only OoT's give can make, so it crosses.
+ *
+ * #1702 C7: false for a Bombchu Bag tier copy while the pool already holds the
+ * bag, for the same reason: only the first copy is the bag in either OoT mode,
+ * and a game that cannot read OoT's mode cannot tell a later copy's meaning.
  * True for every other kind.
  */
 bool Combo_SharedPickupStepAdmitted(SharedItem item, uint8_t kind);
@@ -583,6 +593,57 @@ bool Combo_SharedBagFillsAfterStep(uint8_t kind, uint16_t tierBefore, uint16_t t
  *  at tier 1, so its pool tier is not a bag and must not open OoT's gate. Under
  *  the bit the pool's tier IS the bag, and the block is lifted (false). */
 bool Combo_SharedBagLegacyGrantBlocked(uint8_t tierKind, bool ootBagOptionOn, uint16_t ootTier);
+
+/*
+ * THE PAIR'S ONE BOMBCHU BAG, ITS TRANSPORT (#1702 C7; operator ruling
+ * 2026-11-19: shared when sharing is on, levels 20/30/50). A MONOTONIC kind,
+ * RSBS_SHARED_RES_BOMBCHU_BAG_TIER, holding a tier 0..3. Ocarina of Time reads
+ * and writes it through its Bombchu Bag option's own state (the upgrade level
+ * under Progressive, the held item under Single, a held Single bag riding as
+ * tier 3); Majora's Mask stores it in a three-flag thermometer in its rando
+ * flags. Each game's shim calls these pure helpers, so ROM-free rows lock the
+ * encodings and the games only ask.
+ *
+ * INERT IN C7: the kind is armed only by Combo_SharedBombchuBagTierArmed, which
+ * reads the frozen comboFlags bit 0x80, and nothing writes that bit before C8.
+ * The transport stores a tier either way, so it does not depend on whether the
+ * pair's levels end at 50 or 40.
+ */
+
+/** Ocarina of Time's Bombchu Bag option (RSK_BOMBCHU_BAG, randomizerTypes.h),
+ *  restated for this game-header-free TU; the OoT shim static_asserts them. */
+#define RSBS_CHU_BAG_MODE_NONE 0u
+#define RSBS_CHU_BAG_MODE_SINGLE 1u
+#define RSBS_CHU_BAG_MODE_PROGRESSIVE 2u
+/** The shared tier's ceiling in both games: three levels after none. */
+#define RSBS_SHARED_CHU_BAG_MAX_TIER 3u
+
+/** [RSBS #1702 C7] Is the shared Bombchu Bag tier armed? The ONE place that
+ *  names the kind's arming: the frozen comboFlags 0x80 bit
+ *  (Combo_ComboBombchuBagShared). False while nothing is frozen, and for every
+ *  world until C8 adds the creation writer. */
+bool Combo_SharedBombchuBagTierArmed(void);
+
+/** The tier Ocarina of Time's live state stands for under its Bombchu Bag
+ *  option @p mode: 0 under None; under Single 3 when OoT holds bombchus (@p
+ *  holdsBombchu), else 0; under Progressive its upgrade @p level, clamped to 3. */
+uint16_t Combo_SharedChuBagTierOfOoT(uint8_t mode, uint8_t level, bool holdsBombchu);
+
+/** The inverse at an apply: raise OoT's state to @p tier under @p mode. None
+ *  writes nothing; Single sets @p outHolds when the tier is 1 or more and leaves
+ *  the level alone; Progressive raises *@p inOutLevel to min(tier, 3) (never
+ *  lowers it) and sets @p outHolds when the level is 1 or more. Either pointer
+ *  may be NULL. */
+void Combo_SharedChuBagOoTFromTier(uint8_t mode, uint16_t tier, uint8_t* inOutLevel, bool* outHolds);
+
+/** The tier Majora's Mask's thermometer flags stand for, read by the HIGHEST
+ *  set flag (@p f1 the bag, @p f2 level 2, @p f3 level 3), so a stray lower flag
+ *  never lowers it. */
+uint16_t Combo_SharedChuBagTierOfMM(bool f1, bool f2, bool f3);
+
+/** The thermometer flags for @p tier: bit 0 for tier >= 1, bit 1 for tier >= 2,
+ *  bit 2 for tier >= 3. */
+uint8_t Combo_SharedChuBagMMFlagsFor(uint16_t tier);
 
 /**
  * Read the shared pool's value for `kind` (trackers / tests / the cycle-safe

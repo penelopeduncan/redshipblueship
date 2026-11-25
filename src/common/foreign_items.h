@@ -1164,10 +1164,19 @@ bool Combo_ComboOwnChildWallets(void);
  * frozen comboFlags RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG)? Frozen record only, never
  * a CVar. 0x80 is reserved and unallocated until stage C8 (a frozen 0x80 is
  * refused at load and nothing writes it), so this is false on every loadable file
- * until then. Read by nothing yet: stage C7 may arm its tier kind from it, and C8
- * reads it in OoT's Bombchu grant (OoT_SharedAmmoGrantBlocked) and MM's capacity.
+ * until then. Stage C7 arms the shared Bombchu Bag tier from it
+ * (Combo_SharedBombchuBagTierArmed, shared_resources.h), and C8 reads it in OoT's
+ * Bombchu grant (OoT_SharedAmmoGrantBlocked) and MM's capacity.
  */
 bool Combo_ComboBombchuBagShared(void);
+
+/**
+ * #1702 C7: the bits of @p comboFlags this build does not allocate (outside
+ * RSBS_COMBO_FLAGS_ALL_V1; today 0x80). A seed package whose world record holds
+ * any is another build's world and is refused (SeedPackageSingleExe.cpp's
+ * Validate), as a .redsave holding one is refused at load. Pure.
+ */
+uint8_t Combo_ComboFlagsUnallocated(uint8_t comboFlags);
 
 /**
  * THE GATE ON A WORLD THIS BUILD CREATES OR ADOPTS (#1169 XW2). The bits of

@@ -5711,6 +5711,48 @@ static uint16_t OoT_BombchuCapacity(void) {
     return (uint16_t)OOT_BOMBCHU_CAPACITY;
 }
 
+// [RSBS #1702 C7] OoT's Bombchu Bag option as the shared tier's helpers spell it
+// (shared_resources.h): the macros restate RO_BOMBCHU_BAG_* for the
+// game-header-free TU, so a renumber upstream is a build error here.
+static_assert(RSBS_CHU_BAG_MODE_NONE == (unsigned)RO_BOMBCHU_BAG_NONE &&
+                  RSBS_CHU_BAG_MODE_SINGLE == (unsigned)RO_BOMBCHU_BAG_SINGLE &&
+                  RSBS_CHU_BAG_MODE_PROGRESSIVE == (unsigned)RO_BOMBCHU_BAG_PROGRESSIVE,
+              "RSBS_CHU_BAG_MODE_* must match RandoOptionBombchuBag");
+
+// The highest shared Bombchu Bag tier OoT applies (#1702 C7): Progressive's
+// level 3 ({0,20,30,50}, GetBombchuCapacity), which is also Single's held bag.
+#define OOT_MAX_CHU_BAG_TIER 3u
+
+// [RSBS #1702 C7] A ROM-free row's stand-in for the seed's RSK_BOMBCHU_BAG: -1
+// (the default, and every production path) reads the seed. Set only by
+// oot_shared_tier_test.cpp through OoT_SharedChuBagTest_SetMode, which every row
+// that sets it puts back to -1.
+static int sOoTChuBagModeForTest = -1;
+
+extern "C" void OoT_SharedChuBagTest_SetMode(int mode) {
+    sOoTChuBagModeForTest = mode;
+}
+
+// OoT's Bombchu Bag option for the shared tier (#1702 C7): the seed's
+// RSK_BOMBCHU_BAG behind OoT_BombchuCapacity's own guard, so a process with no
+// seed context (a ROM-free row, a vanilla file) reads None and shares no bag.
+static uint8_t OoT_SharedChuBagMode(void) {
+    if (sOoTChuBagModeForTest >= 0) {
+        return (uint8_t)sOoTChuBagModeForTest;
+    }
+    if (IS_RANDO && OTRGlobals::Instance != nullptr && OTRGlobals::Instance->gRandoContext != nullptr) {
+        return (uint8_t)Randomizer_GetSettingValue(RSK_BOMBCHU_BAG);
+    }
+    return (uint8_t)RSBS_CHU_BAG_MODE_NONE;
+}
+
+// The tier OoT's live save stands for (#1702 C7; Combo_SharedChuBagTierOfOoT).
+static uint16_t OoT_ReadChuBagTier(void) {
+    return Combo_SharedChuBagTierOfOoT(OoT_SharedChuBagMode(),
+                                       gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel,
+                                       INV_CONTENT(ITEM_BOMBCHU) != ITEM_NONE);
+}
+
 // The count's ceiling in OoT right now: the live capacity for a row that has an
 // upgrade, the live bombchu capacity for the one that does not.
 static uint16_t OoT_AmmoCapacity(const OoTSharedAmmo* row) {
@@ -6927,6 +6969,18 @@ static const OoTSharedAmmo* OoT_SharedAmmoRowForTier(uint8_t kind) {
     return nullptr;
 }
 
+// The tier-less bombchu row (the twin of MM_SharedBombchuRow): the count the
+// shared Bombchu Bag tier (#1702 C7) bounds.
+static const OoTSharedAmmo* OoT_SharedBombchuRow(void) {
+    for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {
+        if (kOoTSharedAmmo[i].tierKind == RSBS_SHARED_RES_NONE &&
+            kOoTSharedAmmo[i].countKind == RSBS_SHARED_RES_BOMBCHU_COUNT) {
+            return &kOoTSharedAmmo[i];
+        }
+    }
+    return nullptr;
+}
+
 // The cap OoT's apply bounds a MONOTONIC kind with: the highest value OoT's
 // own tables define, so a pool value authored by a future build with more
 // tiers cannot index off the end of them (see each OOT_MAX_*). 0 for a kind
@@ -6954,6 +7008,8 @@ static uint16_t OoT_SharedKindCap(uint8_t kind) {
             return (uint16_t)OOT_MAX_KOKIRI_SWORD;
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             return (uint16_t)OOT_MAX_BOTTLE_COUNT;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+            return (uint16_t)OOT_MAX_CHU_BAG_TIER;
         default:
             return 0u;
     }
@@ -7029,6 +7085,19 @@ static void OoT_HarvestSharedKind(uint8_t kind) {
         case RSBS_SHARED_RES_BOTTLE_COUNT:
             Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_BOTTLE_COUNT, OoT_ReadBottleCount());
             break;
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER: {
+            // [RSBS #1702 C7] The pair's one Bombchu Bag, armed only by the frozen
+            // comboFlags 0x80 (Combo_SharedBombchuBagTierArmed; nothing writes it
+            // before C8). Unarmed, the tier harvest is a no-op at its gate and the
+            // count harvest below is not called at all.
+            Combo_HarvestSharedResource(GAME_OOT, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, OoT_ReadChuBagTier());
+            const OoTSharedAmmo* chuRow = OoT_SharedBombchuRow();
+            if (chuRow != nullptr && Combo_SharedBombchuBagTierArmed()) {
+                // The step's first step for the count it re-applies.
+                Combo_HarvestSharedResource(GAME_OOT, chuRow->countKind, OoT_ReadAmmo(chuRow->item));
+            }
+            break;
+        }
         case RSBS_SHARED_RES_TRIFORCE_PIECES:
             // OoT's counter is a MIRROR of the one combo count, so harvesting it
             // max-merges OoT's collects into that count.
@@ -7294,6 +7363,30 @@ static void OoT_ApplySharedKind(uint8_t kind) {
             }
             break;
         }
+        case RSBS_SHARED_RES_BOMBCHU_BAG_TIER: {
+            // [RSBS #1702 C7] The pair's one Bombchu Bag (monotonic 0..3), armed
+            // only by the frozen comboFlags 0x80, which nothing writes before C8.
+            // Progressive raises bombchuUpgradeLevel; Single only sets the item (a
+            // held Single bag is tier 3, and Single's cap is 50 whatever the
+            // level). The count is re-applied only when the tier applied, after
+            // the bag that bounds it; unarmed nothing here runs past the gate.
+            const uint8_t mode = OoT_SharedChuBagMode();
+            uint8_t level = gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel;
+            bool holds = INV_CONTENT(ITEM_BOMBCHU) != ITEM_NONE;
+            uint16_t tier = Combo_SharedChuBagTierOfOoT(mode, level, holds);
+            if (Combo_ApplySharedResource(GAME_OOT, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, OOT_MAX_CHU_BAG_TIER, &tier)) {
+                Combo_SharedChuBagOoTFromTier(mode, tier, &level, &holds);
+                gSaveContext.ship.quest.data.randomizer.bombchuUpgradeLevel = level;
+                if (holds) {
+                    OoT_EnsureInventoryItem(ITEM_BOMBCHU);
+                }
+                const OoTSharedAmmo* chuRow = OoT_SharedBombchuRow();
+                if (chuRow != nullptr) {
+                    OoT_ApplySharedAmmoCount(chuRow, OoT_SharedAmmoGrantBlocked(chuRow));
+                }
+            }
+            break;
+        }
         case RSBS_SHARED_RES_TRIFORCE_PIECES: {
             // --- Triforce pieces (monotonic, ADR 0010 answer O10), armed only when
             // the frozen combo goal is triforce-hunt. OoT's counter becomes the
@@ -7360,6 +7453,9 @@ extern "C" void OoT_HarvestSharedResources(void) {
             Combo_HarvestSharedResource(GAME_OOT, row->countKind, OoT_ReadAmmo(row->item));
         }
     }
+    // [RSBS #1702 C7] The Bombchu Bag tier, after the count it bounds; armed only
+    // by the frozen comboFlags 0x80 (a no-op at its gate until C8 writes it).
+    OoT_HarvestSharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     OoT_HarvestSharedKind(RSBS_SHARED_RES_HOOKSHOT_TIER);
 
@@ -7533,6 +7629,12 @@ extern "C" void OoT_ApplySharedResources(void) {
     OoT_ApplySharedKind(RSBS_SHARED_RES_HEALTH_QUARTERS); // then the current health
     OoT_ApplySharedKind(RSBS_SHARED_RES_DOUBLE_DEFENSE);
     OoT_ApplySharedKind(RSBS_SHARED_RES_MAGIC_LEVEL); // then the current magic
+
+    // [RSBS #1702 C7] The Bombchu Bag tier BEFORE the ammo loop: the bag bounds
+    // the bombchu count (Progressive's capacity reads the level, the grant block
+    // reads the item). Armed only by the frozen comboFlags 0x80; unarmed the case
+    // stops at its gate and the loop below runs exactly as before.
+    OoT_ApplySharedKind(RSBS_SHARED_RES_BOMBCHU_BAG_TIER);
 
     // --- Ammo: every tier BEFORE the count it bounds, in one pass per row.
     for (int i = 0; i < ARRAY_COUNT(kOoTSharedAmmo); i++) {

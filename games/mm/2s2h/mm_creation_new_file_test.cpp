@@ -448,6 +448,7 @@ int CheckMoonCrashRestoresLastCommit(uint32_t expectSeed) {
     // whatever an earlier row or the creation left behind.
     memset(gComboCtx.sharedResources, 0, sizeof(gComboCtx.sharedResources));
     memset(gComboCtx.sharedResourcesExt, 0, sizeof(gComboCtx.sharedResourcesExt));
+    memset(gComboCtx.sharedResourcesExt2, 0, sizeof(gComboCtx.sharedResourcesExt2)); // #1702 C7's third block
     Combo_ResetSharedResourceWatermarks();
 
     // ---- the last commit: an owl save on day 1 at 10:00 --------------------
@@ -1015,6 +1016,7 @@ extern "C" int MM_MoonCrashPoolApplied_Run(void) {
     gSaveContext.rupeeAccumulator = 0;
     memset(gComboCtx.sharedResources, 0, sizeof(gComboCtx.sharedResources));
     memset(gComboCtx.sharedResourcesExt, 0, sizeof(gComboCtx.sharedResourcesExt));
+    memset(gComboCtx.sharedResourcesExt2, 0, sizeof(gComboCtx.sharedResourcesExt2)); // #1702 C7's third block
     Combo_ResetSharedResourceWatermarks();
     const s16 kMMRupees = 80;
     const s16 kMMHealth = 0x30;

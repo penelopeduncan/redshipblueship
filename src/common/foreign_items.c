@@ -598,6 +598,13 @@ bool Combo_ComboBombchuBagShared(void) {
            (gComboCtx.comboSettings.comboFlags & (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG) != 0u;
 }
 
+uint8_t Combo_ComboFlagsUnallocated(uint8_t comboFlags) {
+    // [RSBS #1702 C7] Every bit outside this build's allocated set: today 0x80,
+    // which arms the shared Bombchu Bag tier. Follows the mask, so C8's move of
+    // 0x80 into RSBS_COMBO_FLAGS_ALL_V1 admits it here with no edit.
+    return (uint8_t)(comboFlags & (uint8_t)~RSBS_COMBO_FLAGS_ALL_V1);
+}
+
 // TEST ONLY (Combo_ComboItemRules2RevealForTest): RSBS_XITEM2_REVEAL_ALL empties
 // the hidden mask and RSBS_XITEM2_REVEAL_MM_SONGS takes the six MM extensions out
 // of it. Since #1587 S1 the mask holds only the Shared Sun's Song and Shared

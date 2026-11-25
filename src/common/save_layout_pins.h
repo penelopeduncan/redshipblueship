@@ -131,7 +131,14 @@
 // padding); sizeof 2720 + 256 = 2976, a multiple of the struct's alignment 4, so
 // no tail padding. The gate re-measures.
 #define RSBS_PIN_COMBO_CROSSING_PENDING_OOT 2720u // offsetof(ComboContext, crossingPendingOoT)
-#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 2976u       // sizeof(ComboContext)
+// Layout revision 6 (#1702 C7): sharedResourcesExt2 appended directly after
+// crossingPendingOoT, by hand 2720 + 256 = 2976. sharedResourcesExt2 has
+// alignment 2 (ComboSharedResource is {u8,u8,u16}) and 2976 is a multiple of 2,
+// so no padding precedes it; it is 8 x 4 = 32 bytes and ends at 3008, a multiple
+// of ComboContext's 4-byte alignment, so no tail padding follows. The gate
+// re-measures.
+#define RSBS_PIN_COMBO_SHARED_RES_EXT2 2976u // offsetof(ComboContext, sharedResourcesExt2)
+#define RSBS_PIN_COMBO_CONTEXT_SIZEOF 3008u  // sizeof(ComboContext)
 
 // ---- Tier-2: OoT SaveContext (games/oot/include/z64save.h) -------------------
 // The fields src/common and the arrival/identity readers take by offset

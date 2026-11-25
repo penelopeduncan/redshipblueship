@@ -1047,6 +1047,15 @@ bool Combo_SharedQuantityPolicyOf(uint8_t kind, ComboSharedQuantityPolicy* out) 
                 p.ceilingOoT = 3u; // OOT_MAX_AMMO_TIER
                 p.ceilingMM = 3u;  // MM_MAX_AMMO_TIER
                 break;
+            case RSBS_SHARED_RES_BOMBCHU_BAG_TIER:
+                // [RSBS #1702 C7] The pair's one Bombchu Bag, 0..3 in both games
+                // (OoT's levels {0,20,30,50}; MM's flags 81-83). Armed only by the
+                // frozen 0x80 bit (below): until C8 writes it, KEEP_ALL.
+                p.policy = RSBS_SHARED_QTY_TRIM_TO_SHARED_MAX;
+                p.budget = RSBS_SHARED_QTY_BUDGET_TIER;
+                p.ceilingOoT = 3u; // OOT_MAX_CHU_BAG_TIER
+                p.ceilingMM = 3u;  // MM_MAX_CHU_BAG_TIER: flags 81-83
+                break;
             case RSBS_SHARED_RES_HOOKSHOT_TIER:
             case RSBS_SHARED_RES_OCARINA_TIER:
                 p.policy = RSBS_SHARED_QTY_TRIM_TO_SHARED_MAX;

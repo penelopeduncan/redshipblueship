@@ -180,16 +180,16 @@ extern "C" int MM_SharedPossessionTest_Held(void) {
     return bits;
 }
 
-/** The ids MM's possession members must carry: RI_PROGRESSIVE_WALLET, and
- *  RI_UNKNOWN for the Bombchu Bag, whose member is dead since #1702 C2 (its slot
- *  is armed by nothing; stage C7 deletes it, and the stand-in belongs in
- *  Rando_IsSharedCreditStandIn, C8). */
+/** The ids MM's possession members must carry: RI_PROGRESSIVE_WALLET, and -1 for
+ *  the Bombchu Bag, which has NO member since #1702 C7 deleted it (flag 81 is the
+ *  shared Bombchu Bag tier's first thermometer bit now; C8's logic credit goes
+ *  through the stand-in registry, never a possession member). */
 extern "C" void MM_SharedPossessionTest_Ids(int* walletId, int* bagId) {
     if (walletId != nullptr) {
         *walletId = (int)RI_PROGRESSIVE_WALLET;
     }
     if (bagId != nullptr) {
-        *bagId = (int)RI_UNKNOWN;
+        *bagId = -1;
     }
 }
 

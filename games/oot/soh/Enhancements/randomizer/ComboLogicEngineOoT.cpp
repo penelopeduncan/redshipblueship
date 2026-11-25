@@ -2726,6 +2726,13 @@ uint8_t OoTFillClassSharedKind(RandomizerGet rg) {
         // KEEP_ALL, so the pool and the bag do not move.
         case RG_KOKIRI_SWORD:
             return RSBS_SHARED_RES_KOKIRI_SWORD;
+        // [RSBS #1702 C7] So a pickup of it steps the shared Bombchu Bag tier,
+        // armed only by the frozen comboFlags 0x80 (nothing writes it before C8).
+        // OoT is the kind's only source and its class stays its own; unarmed the
+        // kind is KEEP_ALL and the pickup is not a credit, so the pool, the bag
+        // and every crossing stay as they are.
+        case RG_PROGRESSIVE_BOMBCHU_BAG:
+            return RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
         // #970: a bottle, whatever it holds. Ruto's Letter is not tagged: it is a
         // bottle in the inventory (the shared count sees its slot) but it is OoT's
         // quest item, and the Shared Bottles trim must never take it out of the

@@ -69,6 +69,20 @@
  *            the cap, the Razor Sword kept, no crossing;
  *       (K6) an older save's crossed MM sword redeemed at a swordless MM arrival
  *            with the pool empty: stepped (the Kokiri Sword, pool 1), not queued.
+ *   (L) #1702 C7, the shared Bombchu Bag tier (OoT's option forced through the
+ *       test stand-in, MM a randomizer file):
+ *       (L1) UNARMED (no comboFlags 0x80, every world before C8): OoT's harvest
+ *            grows no tier slot and pools its bombchus as before; a raw tier slot
+ *            is applied by neither game; OoT's bag found in Termina crosses;
+ *       (L2) ARMED: OoT's bag found in Termina sets MM's flag 81 at once (pool 1,
+ *            no crossing) and OoT's next arrival holds level 1 and the item;
+ *       (L3) MM's thermometer: pool 2 gives flags 81|82 and reads back 2; all
+ *            three harvest 3 and OoT's arrival reaches level 3;
+ *       (L4) Single: a held bag rides as 3 (MM gets all three flags); pool 1 at a
+ *            Single arrival gives the item at level 0 and the next harvest 3;
+ *       (L5) a second copy over a pool that holds the bag crosses;
+ *       (L6) an older save's OoT bag crossing redeemed with the pool empty steps
+ *            it once (level 1).
  */
 
 #include <stdio.h>
@@ -139,6 +153,16 @@ int MM_SharedSwordTest_BButton(void);
 int MM_SharedSwordTest_ItemFor(int equipValue);
 int MM_SharedSwordTest_ProgressiveSwordGives(void);
 int MM_SharedSwordTest_PoolSwordId(void);
+// #1702 C7: the shared Bombchu Bag tier's helpers (oot_/mm_shared_tier_test.cpp).
+void OoT_SharedTierTest_SetChuBagMode(int mode);
+void OoT_SharedTierTest_SetChuBag(int level, int holds, int chus);
+int OoT_SharedTierTest_ChuBagLevel(void);
+int OoT_SharedTierTest_HoldsBombchu(void);
+int OoT_SharedTierTest_Bombchus(void);
+int OoT_SharedTierTest_ChuBagId(void);
+void MM_SharedTierTest_SetChuBagFlags(int bits);
+int MM_SharedTierTest_ChuBagFlags(void);
+int OoT_CreditSharedPickup(const SharedItem* item);
 #ifdef __cplusplus
 }
 #endif
@@ -211,6 +235,23 @@ static void StFreezeWorldWith(bool sharedBottles, bool sharedSword) {
 static void StFreezeWorld(bool sharedBottles) {
     StFreezeWorldWith(sharedBottles, false);
 }
+
+/** #1702 C7: a paired world frozen with the reserved Shared Bombchu Bag bit
+ *  (comboFlags 0x80) set when @p sharedChuBag, nothing else on. Only a test can
+ *  freeze it: no production writer sets the bit before C8. */
+static void StFreezeChuBagWorld(bool sharedChuBag) {
+    StFreezeWorldWith(false, false);
+    ComboSettingsRecord rec;
+    Combo_ComboSettingsDefaults(&rec);
+    rec.comboFlags = sharedChuBag ? (uint8_t)RSBS_COMBO_FLAG_SHARED_BOMBCHU_BAG : 0u;
+    ComboItemRulesRecord rules;
+    memset(&rules, 0, sizeof(rules));
+    Combo_FreezeComboSettingsEx(&rec, &rules);
+}
+
+// OoT's Bombchu Bag options (RO_BOMBCHU_BAG_*), restated like ST_MM_SWORD_*.
+#define ST_CHU_MODE_SINGLE 1
+#define ST_CHU_MODE_PROGRESSIVE 2
 
 static SharedItem StItem(GameId origin, int id) {
     SharedItem item;
@@ -329,9 +370,9 @@ TestResult Test_SharedTierPickup(void) {
             RSBS_SHARED_RES_HOOKSHOT_TIER, RSBS_SHARED_RES_BOTTLE_COUNT,    RSBS_SHARED_RES_KOKIRI_SWORD,
         };
         static const uint8_t kNoSteps[] = {
-            RSBS_SHARED_RES_STICK_TIER,     RSBS_SHARED_RES_NUT_TIER, RSBS_SHARED_RES_OCARINA_TIER,
-            RSBS_SHARED_RES_BOMBCHU_COUNT,  RSBS_SHARED_RES_RUPEES,   RSBS_SHARED_RES_TRIFORCE_PIECES,
-            RSBS_SHARED_RES_HEALTH_CURRENT,
+            RSBS_SHARED_RES_STICK_TIER,     RSBS_SHARED_RES_NUT_TIER,         RSBS_SHARED_RES_OCARINA_TIER,
+            RSBS_SHARED_RES_BOMBCHU_COUNT,  RSBS_SHARED_RES_RUPEES,           RSBS_SHARED_RES_TRIFORCE_PIECES,
+            RSBS_SHARED_RES_HEALTH_CURRENT, RSBS_SHARED_RES_BOMBCHU_BAG_TIER, // #1702 C7: unarmed without 0x80
         };
         for (size_t i = 0; i < sizeof(kSteps) / sizeof(kSteps[0]); i++) {
             ST_CHECK(Combo_SharedResourceStepsAtPickup(kSteps[i]), "kind %u is not stepped at pickup",
@@ -868,6 +909,233 @@ TestResult Test_SharedTierPickup(void) {
         ST_CHECK(pending == 0 && unredeemed == 0, "the redemption queued %d give(s) with %d unredeemed", pending,
                  unredeemed);
     }
+
+    // ---- (L) #1702 C7: the shared Bombchu Bag tier, through the real shims ------
+    // OoT's live file is vanilla (no seed context), so its Bombchu Bag option is
+    // forced through the test stand-in (put back to -1 below); MM's is a
+    // randomizer file, because the tier's thermometer is three rando flags.
+    const SharedItem ootChuBag = StItem(GAME_OOT, OoT_SharedTierTest_ChuBagId());
+    const uint8_t kChuBag = (uint8_t)RSBS_SHARED_RES_BOMBCHU_BAG_TIER;
+    const uint8_t kChus = (uint8_t)RSBS_SHARED_RES_BOMBCHU_COUNT;
+    const uint16_t mmHost4 = (uint16_t)MM_SharedTierTest_HostCheck(4);
+    const uint16_t mmHost5 = (uint16_t)MM_SharedTierTest_HostCheck(5);
+    ST_CHECK(Combo_ItemClassSharedKind(ootChuBag) == kChuBag && Combo_ItemClassSharedUnits(ootChuBag) == 1u,
+             "(L) OoT's Bombchu Bag feeds kind %u with %u unit(s), expected the tier's %u with 1",
+             (unsigned)Combo_ItemClassSharedKind(ootChuBag), (unsigned)Combo_ItemClassSharedUnits(ootChuBag),
+             (unsigned)kChuBag);
+
+    // (L1) INERT: the world frozen WITHOUT 0x80 (every world before C8). OoT holds
+    // Progressive level 2 and the item; its harvest creates no tier slot (the
+    // other always-armed kinds do get slots, so no whole-count check here), its
+    // bombchus pool exactly as before. A raw tier slot of 3 (no build writes one
+    // unarmed) is applied by neither game, and OoT's bag found in Termina CROSSES
+    // as today. Catches the arming predicate answering true (mutation 1).
+    StFreezeChuBagWorld(false);
+    OoT_SharedTierTest_SetChuBagMode(ST_CHU_MODE_PROGRESSIVE);
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(2, 1, 7);
+    OoT_HarvestSharedResources();
+    {
+        const int tierSlot = StPool(kChuBag);
+        const int chuPool = StPool(kChus);
+        printf("[TEST] (L1) unarmed, OoT Progressive level 2 with 7 bombchus harvested: tier slot %d, pool bombchus %d "
+               "(expected -1, 7)\n",
+               tierSlot, chuPool);
+        ST_CHECK(tierSlot == -1, "(L1) an unarmed world grew a Bombchu Bag tier slot (%d) from OoT's harvest",
+                 tierSlot);
+        ST_CHECK(chuPool == 7, "(L1) the unarmed harvest pooled %d bombchus, expected today's 7", chuPool);
+    }
+    // A fresh unarmed world for the apply half, so no pooled bombchu count can put
+    // the item in OoT's slot (the count apply does that for a nonzero count).
+    StFreezeChuBagWorld(false);
+    gComboCtx.sharedResourcesExt2[7].kind = kChuBag; // a raw slot no unarmed build writes
+    gComboCtx.sharedResourcesExt2[7].flags = (uint8_t)RSBS_SHARED_RES_F_MONOTONIC;
+    gComboCtx.sharedResourcesExt2[7].value = 3u;
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(0, 0, 7);
+    OoT_ApplySharedResources();
+    MM_SharedTierTest_ArmLive();
+    MM_SharedTierTest_SetChuBagFlags(0);
+    MM_ApplySharedResources();
+    {
+        const int level = OoT_SharedTierTest_ChuBagLevel();
+        const int holds = OoT_SharedTierTest_HoldsBombchu();
+        const int chus = OoT_SharedTierTest_Bombchus();
+        const int mmFlags = MM_SharedTierTest_ChuBagFlags();
+        printf(
+            "[TEST] (L1) unarmed, a raw tier slot of 3: OoT level %d, item %d, bombchus %d; MM flags %d (expected 0, "
+            "0, 7, 0)\n",
+            level, holds, chus, mmFlags);
+        ST_CHECK(level == 0 && holds == 0 && mmFlags == 0,
+                 "(L1) an unarmed tier slot was applied: OoT level %d item %d, MM flags %d", level, holds, mmFlags);
+        ST_CHECK(chus == 7, "(L1) OoT's unarmed arrival holds %d bombchus, expected today's 7", chus);
+    }
+    ST_CHECK(Combo_SetForeignPlacement(mmHost4, ootChuBag) >= 0, "could not place OoT's Bombchu Bag on an MM check");
+    {
+        const int recorded = MM_Rando_Foreign_RecordPickup(mmHost4);
+        const int crossings = Combo_CountSharedItems(GAME_OOT, /*includeRedeemed=*/true);
+        printf("[TEST] (L1) unarmed, OoT's Bombchu Bag picked up in Termina: pickup %d, OoT crossings %d, raw tier %d, "
+               "MM flags %d (expected 1, 1, 3, 0)\n",
+               recorded, crossings, StPool(kChuBag), MM_SharedTierTest_ChuBagFlags());
+        ST_CHECK(recorded == 1 && crossings == 1,
+                 "(L1) an unarmed far Bombchu Bag did not cross as today (pickup %d, crossings %d)", recorded,
+                 crossings);
+        ST_CHECK(StPool(kChuBag) == 3 && MM_SharedTierTest_ChuBagFlags() == 0,
+                 "(L1) the unarmed pickup stepped the pool (%d) or wrote MM's flags (%d)", StPool(kChuBag),
+                 MM_SharedTierTest_ChuBagFlags());
+    }
+
+    // (L2) ARMED: MM finds OoT's bag. MM's flag 81 (and only it) is set at once,
+    // the pool is 1, nothing crosses; OoT's following arrival (Progressive, level
+    // 0) holds level 1 and the item. Catches the predicate answering false
+    // (mutation 2) and OoT's level write removed (mutation 8).
+    StFreezeChuBagWorld(true);
+    ST_CHECK(Combo_SetForeignPlacement(mmHost4, ootChuBag) >= 0, "could not place OoT's Bombchu Bag on an MM check");
+    MM_SharedTierTest_ArmLive();
+    MM_SharedTierTest_SetChuBagFlags(0);
+    MM_HarvestSharedResources();
+    MM_ApplySharedResources();
+    {
+        const int recorded = MM_Rando_Foreign_RecordPickup(mmHost4);
+        const int mmFlags = MM_SharedTierTest_ChuBagFlags();
+        const int crossings = Combo_CountSharedItems(GAME_OOT, /*includeRedeemed=*/true);
+        printf("[TEST] (L2) armed, OoT's Bombchu Bag picked up in Termina: pickup %d, MM flags %d, pool %d, OoT "
+               "crossings %d (expected 1, 1, 1, 0)\n",
+               recorded, mmFlags, StPool(kChuBag), crossings);
+        ST_CHECK(recorded == 1 && mmFlags == 1 && StPool(kChuBag) == 1,
+                 "(L2) the armed pickup step: pickup %d, MM flags %d, pool %d, expected 1 / 1 / 1", recorded, mmFlags,
+                 StPool(kChuBag));
+        ST_CHECK(crossings == 0, "(L2) the armed Bombchu Bag recorded %d crossing(s)", crossings);
+    }
+    MM_HarvestSharedResources(); // MM departs
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(0, 0, 0);
+    OoT_ApplySharedResources();
+    OoT_ConsumeSharedItems();
+    {
+        const int level = OoT_SharedTierTest_ChuBagLevel();
+        const int holds = OoT_SharedTierTest_HoldsBombchu();
+        printf("[TEST] (L2) OoT's next arrival, Progressive at level 0: level %d, item %d (expected 1, 1)\n", level,
+               holds);
+        ST_CHECK(level == 1 && holds == 1, "(L2) OoT's arrival holds level %d item %d, expected the pool's bag (1, 1)",
+                 level, holds);
+    }
+
+    // (L3) MM'S ENCODING: OoT harvests level 2, MM's arrival raises flags 81 and 82
+    // and MM's harvest reads 2 back; MM holding all three harvests 3, and OoT's
+    // arrival reaches level 3. Catches MM's flag write removed (mutation 7), the
+    // thermometer read by its lowest flag (mutation 4) and OoT's tier harvest
+    // call removed (mutation 9).
+    StFreezeChuBagWorld(true);
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(2, 1, 0);
+    OoT_HarvestSharedResources();
+    MM_SharedTierTest_ArmLive();
+    MM_SharedTierTest_SetChuBagFlags(0);
+    MM_ApplySharedResources();
+    {
+        const int mmFlags = MM_SharedTierTest_ChuBagFlags();
+        MM_HarvestSharedResources();
+        printf("[TEST] (L3) OoT level 2 harvested, MM's arrival: MM flags %d, pool after MM's harvest %d (expected 3, "
+               "2)\n",
+               mmFlags, StPool(kChuBag));
+        ST_CHECK(mmFlags == 3 && StPool(kChuBag) == 2,
+                 "(L3) MM's arrival wrote flags %d and its harvest left the pool at %d, expected 81|82 (3) and 2",
+                 mmFlags, StPool(kChuBag));
+    }
+    MM_SharedTierTest_SetChuBagFlags(7);
+    MM_HarvestSharedResources();
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(2, 1, 0);
+    OoT_ApplySharedResources();
+    {
+        const int level = OoT_SharedTierTest_ChuBagLevel();
+        printf("[TEST] (L3) MM holding 81|82|83 harvested: pool %d, OoT's arrival level %d (expected 3, 3)\n",
+               StPool(kChuBag), level);
+        ST_CHECK(StPool(kChuBag) == 3 && level == 3, "(L3) MM's three flags gave pool %d and OoT level %d, expected 3",
+                 StPool(kChuBag), level);
+    }
+
+    // (L4) SINGLE: a held Single bag rides as tier 3 and MM's arrival sets all
+    // three flags; a raw pool of 1 at a Single arrival with no item gives the item
+    // and leaves the level at 0, and OoT's next harvest raises the pool to 3.
+    // Catches Single read as tier 1 (mutation 3).
+    StFreezeChuBagWorld(true);
+    OoT_SharedTierTest_SetChuBagMode(ST_CHU_MODE_SINGLE);
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(0, 1, 0);
+    OoT_HarvestSharedResources();
+    MM_SharedTierTest_ArmLive();
+    MM_SharedTierTest_SetChuBagFlags(0);
+    MM_ApplySharedResources();
+    {
+        const int mmFlags = MM_SharedTierTest_ChuBagFlags();
+        printf("[TEST] (L4) OoT Single holding the bag harvested: pool %d, MM flags %d (expected 3, 7)\n",
+               StPool(kChuBag), mmFlags);
+        ST_CHECK(StPool(kChuBag) == 3 && mmFlags == 7,
+                 "(L4) a held Single bag pooled %d and gave MM flags %d, expected tier 3 and all three flags",
+                 StPool(kChuBag), mmFlags);
+    }
+    StFreezeChuBagWorld(true);
+    Combo_HarvestSharedResource(GAME_MM, kChuBag, 1); // MM's step left the pool at 1
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(0, 0, 0);
+    OoT_ApplySharedResources();
+    {
+        const int level = OoT_SharedTierTest_ChuBagLevel();
+        const int holds = OoT_SharedTierTest_HoldsBombchu();
+        OoT_HarvestSharedResources();
+        printf("[TEST] (L4) pool 1 at a Single arrival with no bag: level %d, item %d; pool after OoT's harvest %d "
+               "(expected 0, 1, 3)\n",
+               level, holds, StPool(kChuBag));
+        ST_CHECK(level == 0 && holds == 1, "(L4) a Single arrival from pool 1 left level %d item %d, expected 0 / 1",
+                 level, holds);
+        ST_CHECK(StPool(kChuBag) == 3, "(L4) OoT's Single harvest raised the pool to %d, expected 3", StPool(kChuBag));
+    }
+
+    // (L5) ADMISSION: the pool holds the bag (1) and MM flag 81; a second OoT copy
+    // found in Termina CROSSES (MM cannot tell what it is) and the pool and MM's
+    // flags stay put. Catches the admission rule removed (mutation 5).
+    StFreezeChuBagWorld(true);
+    ST_CHECK(Combo_SetForeignPlacement(mmHost5, ootChuBag) >= 0, "could not place OoT's Bombchu Bag on an MM check");
+    MM_SharedTierTest_ArmLive();
+    MM_SharedTierTest_SetChuBagFlags(1);
+    MM_HarvestSharedResources(); // the pool learns MM's bag: 1
+    {
+        const int recorded = MM_Rando_Foreign_RecordPickup(mmHost5);
+        const int crossings = Combo_CountSharedItems(GAME_OOT, /*includeRedeemed=*/true);
+        const int mmFlags = MM_SharedTierTest_ChuBagFlags();
+        printf(
+            "[TEST] (L5) pool 1, a second OoT Bombchu Bag in Termina: pickup %d, OoT crossings %d, pool %d, MM flags "
+            "%d (expected 1, 1, 1, 1)\n",
+            recorded, crossings, StPool(kChuBag), mmFlags);
+        ST_CHECK(recorded == 1 && crossings == 1,
+                 "(L5) a later Bombchu Bag copy did not cross (pickup %d, crossings %d): only the bag's own copy steps",
+                 recorded, crossings);
+        ST_CHECK(StPool(kChuBag) == 1 && mmFlags == 1, "(L5) the later copy moved the pool to %d or MM's flags to %d",
+                 StPool(kChuBag), mmFlags);
+    }
+
+    // (L6) An older save's OoT bag crossing redeemed at an OoT arrival with the pool
+    // empty: the credit the arrival consumer asks first steps the pool once (level
+    // 1), so OoT's own give is never reached and the bag is not given twice.
+    StFreezeChuBagWorld(true);
+    OoT_SharedTierTest_SetChuBagMode(ST_CHU_MODE_PROGRESSIVE);
+    OoT_SharedTierTest_ArmLive();
+    OoT_SharedTierTest_SetChuBag(0, 0, 0);
+    OoT_ApplySharedResources();
+    {
+        const int credited = OoT_CreditSharedPickup(&ootChuBag);
+        const int level = OoT_SharedTierTest_ChuBagLevel();
+        const int holds = OoT_SharedTierTest_HoldsBombchu();
+        printf("[TEST] (L6) an older save's OoT Bombchu Bag redeemed at an OoT arrival, pool empty: credited %d, level "
+               "%d, item %d, pool %d (expected 1, 1, 1, 1)\n",
+               credited, level, holds, StPool(kChuBag));
+        ST_CHECK(credited == 1 && level == 1 && holds == 1 && StPool(kChuBag) == 1,
+                 "(L6) the redemption: credited %d, level %d, item %d, pool %d, expected one step (1, 1, 1, 1)",
+                 credited, level, holds, StPool(kChuBag));
+    }
+    OoT_SharedTierTest_SetChuBagMode(-1);
 
     MM_ForeignItem_TestResetPending();
     Combo_ClearSharedItemOutbox();
