@@ -1624,8 +1624,16 @@ int Combo_ComboSettingsHashGeneratorVersionEx2(const ComboSettingsRecord* rec, c
  *     Map's English article and the Zora's Sapphire's French one gain their
  *     space; that moves hint text, not worlds. Seed packages written by
  *     generator 6 are refused, as designed.
+ * 8 = the worlds v0.5.3-alpha (generator 7) made that this build makes
+ *     differently: with Shuffle Speak on, the Haunted Wasteland carpet
+ *     merchant's event (LOGIC_CARPET_MERCHANT) needs the Hylian Jabber Nut
+ *     (#1798), so the merchant no longer counts as a bombchu refill before
+ *     that nut is found, and such a world can move where the search counted
+ *     on bombchus the carpet merchant refilled before the Hylian nut. DEFAULT
+ *     worlds (Shuffle Speak off) do not move. Seed packages written by
+ *     generator 7 are refused, as designed.
  */
-#define RSBS_GENERATOR_VERSION 7u
+#define RSBS_GENERATOR_VERSION 8u
 
 /**
  * The fingerprint formula at an explicit generator version:
