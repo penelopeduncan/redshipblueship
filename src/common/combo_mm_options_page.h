@@ -170,16 +170,24 @@ typedef enum {
  *  (#1542), by its StaticData name. */
 #define COMBO_MM_OPTION_NAME_SHUFFLE_SONGS "RO_SHUFFLE_SONGS"
 
+/** MM's own Sun's Song and Saria's Song rows, which the Shared Sun's Song and
+ *  Shared Saria's Song rules force on while offered (#1587 stage A), by their
+ *  StaticData names. */
+#define COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SUN "RO_SHUFFLE_SONG_SUN"
+#define COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SARIA "RO_SHUFFLE_SONG_SARIA"
+
 /** True for the option row a [Both Games] rule decides (#1367: MM's Logic;
  *  #1389: MM's three Triforce Hunt rows, while the goal the rows show is the
  *  triforce hunt, Combo_ComboSettingsTriforceHuntShown; #1542: MM's Shuffle
- *  Songs, which follows Ocarina of Time's). */
+ *  Songs, which follows Ocarina of Time's; #1587 stage A: MM's Sun's Song or
+ *  Saria's Song row while its offered shared rule forces it on). */
 bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc);
 
 /** The reason a row Combo_MMOptionsPage_OptionSetByCombo names is read-only:
- *  COMBO_LOGIC_SET_BY_COMBO_REASON, COMBO_TRIFORCE_SET_BY_COMBO_REASON or
- *  COMBO_SONGS_SET_BY_OOT_REASON (combo_settings_view.h); "" for any other row.
- *  Never NULL. */
+ *  COMBO_LOGIC_SET_BY_COMBO_REASON, COMBO_TRIFORCE_SET_BY_COMBO_REASON,
+ *  COMBO_SONGS_SET_BY_OOT_REASON, COMBO_SHARED_SUN_SET_BY_RULE_REASON or
+ *  COMBO_SHARED_SARIA_SET_BY_RULE_REASON (combo_settings_view.h); "" for any
+ *  other row. Never NULL. */
 const char* Combo_MMOptionsPage_OptionSetByComboReason(const ComboMMOptionDesc* desc);
 
 /**

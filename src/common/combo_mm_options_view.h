@@ -531,11 +531,16 @@ int MM_Rando_ClassifyProfileForLoadAtRung(const void* mmHalf, size_t mmHalfSize,
  * restores before the MM profile, so the probe asks at @p fileGoal (the record's
  * goal) and @p filePieces / @p fileTriforceGoal (its triforce record's sums) when
  * the rules restore will write them. -1 reads the key, as does a goal outside
- * the pinned RSBS_COMBO_GOAL_* table or a count outside 1..255. Writes nothing.
+ * the pinned RSBS_COMBO_GOAL_* table or a count outside 1..255. #1587 stage A:
+ * @p fileRules2 is the record's second cross-game rules word when the rules
+ * restore will write it (MM's Sun's Song and Saria's Song rows follow the Shared
+ * Sun's Song and Shared Saria's Song rules there), or -1 for the keys; a value
+ * outside 0..UINT32_MAX reads the keys too. Writes nothing.
  * DEFINED MM-SIDE in games/mm/2s2h/Rando/Foreign.cpp; save.cpp's probe calls it.
  */
 int MM_Rando_ClassifyProfileForLoadAtFileRules(const void* mmHalf, size_t mmHalfSize, uint32_t frozenDigest,
-                                               int fileRung, int fileGoal, int filePieces, int fileTriforceGoal);
+                                               int fileRung, int fileGoal, int filePieces, int fileTriforceGoal,
+                                               int64_t fileRules2);
 
 /** Outcomes of MM_Rando_ClassifyHalfForPair. */
 enum {

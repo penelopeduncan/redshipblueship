@@ -396,6 +396,17 @@ uint8_t Combo_ComboSettingsLogicRungShown(void);
  */
 #define COMBO_SONGS_SET_BY_OOT_REASON "Set by Ocarina of Time's Shuffle Songs"
 
+/**
+ * THE SHARED SUN'S SONG AND SHARED SARIA'S SONG (#1587 stage A, operator rulings
+ * 2026-11-18 and 2.3). Sharing either song turns Majora's Mask's own row for it on
+ * (combo_song_pool.h, Combo_SharedSongForcesMMRow), so that row is shown ticked
+ * and read-only with this reason. The wording is #1587 question 5's
+ * recommendation, in COMBO_SONGS_SET_BY_OOT_REASON's shape, open to the operator.
+ * Never NULL.
+ */
+#define COMBO_SHARED_SUN_SET_BY_RULE_REASON "Set by Shared Sun's Song (Cross-Game)"
+#define COMBO_SHARED_SARIA_SET_BY_RULE_REASON "Set by Shared Saria's Song (Cross-Game)"
+
 /** Is the goal the next world freezes, or the resident world's frozen goal,
  *  the triforce hunt? What the per-game Triforce Hunt rows' read-only state
  *  follows (#1389). */

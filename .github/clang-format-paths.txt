@@ -279,6 +279,7 @@ games/mm/2s2h/mm_stick_nut_bag_test.cpp
 games/mm/2s2h/mm_shared_lens_test.cpp
 games/oot/soh/oot_shared_lens_test.cpp
 games/mm/2s2h/mm_shared_songs_test.cpp
+games/mm/2s2h/mm_shared_saria_test.cpp
 games/oot/soh/oot_shared_songs_test.cpp
 games/mm/2s2h/mm_shared_arrows_test.cpp
 games/oot/soh/oot_shared_arrows_test.cpp

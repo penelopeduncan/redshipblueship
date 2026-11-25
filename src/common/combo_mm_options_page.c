@@ -12,7 +12,9 @@
 #include "ComboSettingsWindow.h"     // Combo_ComboSettingsWindow_Init: the tier-4 twin's bring-up
 #include "combo_mm_locations_view.h" // MM_RandoLocationsUi_Register: the third table
 #include "combo_settings_view.h"     // COMBO_LOGIC_SET_BY_COMBO_REASON (#1367)
+#include "combo_song_pool.h"         // #1587 stage A: Combo_SharedSongForcesMMRow
 #include "context.h"                 // Context_GetCurrentGame, for the suspended note
+#include "foreign_items.h"           // #1587 stage A: RSBS_XITEM2_SHARED_SONG_SUN / _SARIAS
 #include "triforce_hunt.h"           // #1389: the split MM's Triforce Hunt rows show under the hunt goal
 
 #include <stdio.h>
@@ -90,6 +92,28 @@ static bool OptionIsSongsRow(const ComboMMOptionDesc* desc) {
     return desc != NULL && desc->name != NULL && strcmp(desc->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONGS) == 0;
 }
 
+/** The second-word rule that forces @p desc on, when @p desc is MM's Sun's Song or
+ *  Saria's Song row (#1587 stage A), else 0. */
+static uint32_t OptionSharedSongRuleBit(const ComboMMOptionDesc* desc) {
+    if (desc == NULL || desc->name == NULL) {
+        return 0u;
+    }
+    if (strcmp(desc->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SUN) == 0) {
+        return (uint32_t)RSBS_XITEM2_SHARED_SONG_SUN;
+    }
+    if (strcmp(desc->name, COMBO_MM_OPTION_NAME_SHUFFLE_SONG_SARIA) == 0) {
+        return (uint32_t)RSBS_XITEM2_SHARED_SONG_SARIAS;
+    }
+    return 0u;
+}
+
+/** Is @p desc MM's Sun's Song or Saria's Song row while its shared rule forces it on
+ *  (#1587 stage A; only while the rule is offered, Combo_SharedSongForcesMMRow)? */
+static bool OptionIsForcedSharedSongRow(const ComboMMOptionDesc* desc) {
+    const uint32_t bit = OptionSharedSongRuleBit(desc);
+    return bit != 0u && Combo_SharedSongForcesMMRow(bit);
+}
+
 bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc) {
     if (desc == NULL || desc->name == NULL) {
         return false;
@@ -97,6 +121,12 @@ bool Combo_MMOptionsPage_OptionSetByCombo(const ComboMMOptionDesc* desc) {
     // #1542 (D2): the pair has one songs setting, Ocarina of Time's, and MM's row
     // follows it (Foreign.cpp's paired resolution), so it is read-only like Logic.
     if (strcmp(desc->name, COMBO_MM_OPTION_NAME_LOGIC) == 0 || OptionIsSongsRow(desc)) {
+        return true;
+    }
+    // #1587 stage A (operator rulings 2026-11-18 and 2.3): sharing the Sun's Song or
+    // Saria's Song turns MM's own row on (Foreign.cpp's paired resolution, step 2d),
+    // so it is read-only, ticked, with the rule as its reason.
+    if (OptionIsForcedSharedSongRow(desc)) {
         return true;
     }
     // #1389: under the triforce-hunt goal MM's half of the hunt is the split of
@@ -111,6 +141,11 @@ const char* Combo_MMOptionsPage_OptionSetByComboReason(const ComboMMOptionDesc* 
     }
     if (OptionIsSongsRow(desc)) {
         return COMBO_SONGS_SET_BY_OOT_REASON;
+    }
+    if (OptionIsForcedSharedSongRow(desc)) {
+        return OptionSharedSongRuleBit(desc) == (uint32_t)RSBS_XITEM2_SHARED_SONG_SUN
+                   ? COMBO_SHARED_SUN_SET_BY_RULE_REASON
+                   : COMBO_SHARED_SARIA_SET_BY_RULE_REASON;
     }
     return OptionIsTriforceRow(desc) ? COMBO_TRIFORCE_SET_BY_COMBO_REASON : COMBO_LOGIC_SET_BY_COMBO_REASON;
 }
@@ -142,6 +177,12 @@ int32_t Combo_MMOptionsPage_OptionShownValue(const ComboMMOptionDesc* desc) {
     // value a paired world is (or was) made with, never MM's key.
     if (OptionIsSongsRow(desc)) {
         return (int32_t)MM_Rando_PairedSongsShown();
+    }
+    // #1587 stage A: a row its shared rule forces is on, whatever MM's key holds
+    // (the value Foreign.cpp's step 2d resolves). Before the generic branch below,
+    // which would show the paired Logic.
+    if (OptionIsForcedSharedSongRow(desc)) {
+        return 1;
     }
     // #1367: MM's Logic follows the pair's [Both Games] Logic, so the row shows
     // what a paired world is (or was) made with, never the key: a value left

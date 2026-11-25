@@ -435,7 +435,15 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
 
     // Songs
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SUN] == RO_GENERIC_YES) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // [RSBS #1587] Under the frozen Shared Sun's Song rule MM pools no copy of its
+        // own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SUN)) {
+            itemPool.push_back(RI_SONG_SUN);
+        }
+#else
         itemPool.push_back(RI_SONG_SUN);
+#endif
     }
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_DOUBLE_TIME] == RO_GENERIC_YES) {
         itemPool.push_back(RI_SONG_DOUBLE_TIME);
@@ -444,7 +452,15 @@ void GeneratePools(RandoSaveInfo& saveInfo, std::vector<RandoCheckId>& checkPool
         itemPool.push_back(RI_SONG_INVERTED_TIME);
     }
     if (saveInfo.randoSaveOptions[RO_SHUFFLE_SONG_SARIA] == RO_GENERIC_YES) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+        // [RSBS #1587] Under the frozen Shared Saria's Song rule MM pools no copy of
+        // its own (OoTMM adds none): OoT's copy is the pair row (combo_song_pool.h).
+        if (!Combo_SharedSongFrozenShared(RSBS_XITEM2_SHARED_SONG_SARIAS)) {
+            itemPool.push_back(RI_SONG_SARIA);
+        }
+#else
         itemPool.push_back(RI_SONG_SARIA);
+#endif
     }
 
     // Shuffle Triforce Pieces into the Pool

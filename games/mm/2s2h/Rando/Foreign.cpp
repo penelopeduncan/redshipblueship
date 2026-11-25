@@ -269,6 +269,27 @@ static thread_local int sClassifyGoalOverride = -1;
 static thread_local int sClassifyPiecesOverride = -1;
 static thread_local int sClassifyTriforceGoalOverride = -1;
 
+/** The second cross-game rules word a load-time classification asks at instead of
+ *  the keys, or -1 for the keys (#1587 stage A): sClassifyGoalOverride's twin for
+ *  the Shared Sun's Song and Shared Saria's Song (step 2d below), set only for the
+ *  length of one MM_Rando_ClassifyProfileForLoadAtFileRules call. int64_t, since
+ *  the word is a full uint32_t. */
+static thread_local int64_t sClassifyRules2Override = -1;
+
+/** The pair's second rules word as the creation freezes it: the one resolver
+ *  (Combo_ResolveComboItemRules2), which reads the keys, as ResolvedComboRung reads
+ *  the rung. NEVER the frozen record (#1587 stage A): the creation stamp runs
+ *  before the freeze (playthrough.cpp), when the record may be the last file's, and
+ *  the load's probe and restore run before the file's record is committed
+ *  (save.cpp). While a world is frozen its identity keys refuse writes, and a load
+ *  writes the file's rules back into them before it restores the MM profile. */
+static uint32_t ResolvedComboRules2() {
+    if (sClassifyRules2Override >= 0) {
+        return (uint32_t)sClassifyRules2Override;
+    }
+    return Combo_ResolveComboItemRules2();
+}
+
 /** The pair's goal as the creation freezes it (the rung's rule). */
 static uint8_t ResolvedComboGoal() {
     if (sClassifyGoalOverride >= 0) {
@@ -436,6 +457,26 @@ static void ResolveProfileValues(uint32_t* values, bool paired,
     // the same reason as (2b). Derived inside the shared resolution and never
     // written to MM's key.
     values[RO_SHUFFLE_SONGS] = ResolvedPairedSongs();
+
+    // (2d) #1587 stage A (operator ruling 2026-11-18; OoTMM sharedSongSun /
+    // sharedSongSarias): sharing the Sun's Song or Saria's Song turns MM's own row
+    // for it on, so a shared song is MM's too (its quest bit plays it; the hint of
+    // SariasSongHint.cpp stays off). After (1a), which resolves both PARTIAL rows to
+    // their default, so the forced value wins, and before the logic's early return
+    // so every candidate derives it. Read from the keys (ResolvedComboRules2), and
+    // forced only while the rule is offered (#1587 question 4): while both bits are
+    // hidden nothing moves. Derived inside the shared resolution and never written
+    // to MM's key. MM's logic gains no edge: by ruling 2.5 for the Sun's Song, and
+    // for Saria's Song because 2Ship's MM logic has none (no ruling taken).
+    {
+        const uint32_t rules2 = ResolvedComboRules2();
+        if (Combo_SharedSongForcesMMRowIn(rules2, RSBS_XITEM2_SHARED_SONG_SUN)) {
+            values[RO_SHUFFLE_SONG_SUN] = RO_GENERIC_YES;
+        }
+        if (Combo_SharedSongForcesMMRowIn(rules2, RSBS_XITEM2_SHARED_SONG_SARIAS)) {
+            values[RO_SHUFFLE_SONG_SARIA] = RO_GENERIC_YES;
+        }
+    }
 
     // (3) The paired logic. #1367 (operator ruling 2026-11-02): a paired world's
     // strictness is ONE [Both Games] choice, the combo rung, and MM's own Logic
@@ -2127,7 +2168,7 @@ extern "C" int MM_Rando_ClassifyProfileForLoadAtRung(const void* mmHalf, size_t 
 
 extern "C" int MM_Rando_ClassifyProfileForLoadAtFileRules(const void* mmHalf, size_t mmHalfSize, uint32_t frozenDigest,
                                                           int fileRung, int fileGoal, int filePieces,
-                                                          int fileTriforceGoal) {
+                                                          int fileTriforceGoal, int64_t fileRules2) {
     // #1389: the goal and the Triforce Hunt counts the load will leave, as the
     // rung (only values this build authors; anything else reads the keys).
     const bool goalPinned = fileGoal >= (int)RSBS_COMBO_GOAL_BEAT_BOTH && fileGoal <= (int)RSBS_COMBO_GOAL_BEAT_MM;
@@ -2136,10 +2177,14 @@ extern "C" int MM_Rando_ClassifyProfileForLoadAtFileRules(const void* mmHalf, si
     Rando::Foreign::sClassifyGoalOverride = goalPinned ? fileGoal : -1;
     Rando::Foreign::sClassifyPiecesOverride = countsPinned ? filePieces : -1;
     Rando::Foreign::sClassifyTriforceGoalOverride = countsPinned ? fileTriforceGoal : -1;
+    // #1587 stage A: the second rules word the load will leave in the keys (step 2d
+    // reads the Shared Sun's Song and Shared Saria's Song there), only a full word.
+    Rando::Foreign::sClassifyRules2Override = fileRules2 >= 0 && fileRules2 <= (int64_t)UINT32_MAX ? fileRules2 : -1;
     const int classified = MM_Rando_ClassifyProfileForLoadAtRung(mmHalf, mmHalfSize, frozenDigest, fileRung);
     Rando::Foreign::sClassifyGoalOverride = -1;
     Rando::Foreign::sClassifyPiecesOverride = -1;
     Rando::Foreign::sClassifyTriforceGoalOverride = -1;
+    Rando::Foreign::sClassifyRules2Override = -1;
     return classified;
 }
 
