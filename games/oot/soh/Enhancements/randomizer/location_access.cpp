@@ -848,8 +848,12 @@ bool SpiritShared(RandomizerRegion region, ConditionFn condition, bool anyAge, R
 
             // If Adult can get there and get the check, we can get the check in logic
             // If reverse spirit is also possible, we need to make sure Adult can get it via reverse entry too
-            result = (curRegionData.adultAccess() &&
-                      (!logic->IsReverseAccessPossible() || curRegionData.reverseAccess) && condition()) ||
+            // [RSBS #1797] upstream reads `curRegionData.reverseAccess` here without calling it, so this reverse
+            // term was always true; the dead term is dropped and the behaviour kept. Calling it would ask 7 keys at
+            // MQ Under Like Like and MQ Sun on Floor (StatueRoomMQKeyLogic as the adult), which the door count and
+            // OoTMM (spirit_temple_mq.yml: "only 6 keys is safe") show is too strict; on every other row a child
+            // cannot be there or the adult's adultAccess already implies its reverseAccess.
+            result = (curRegionData.adultAccess() && condition()) ||
                      (otherRegion != RR_NONE &&
                       (Region::spiritLogicData[otherRegion].adultAccess() &&
                        (!logic->IsReverseAccessPossible() || Region::spiritLogicData[otherRegion].reverseAccess()) &&

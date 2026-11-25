@@ -296,7 +296,10 @@
  *     Hover Boots (EC23, EC24, EC24b); GTG MQ's furthest platform takes the
  *     hood's jump only under Bunny Hood Effect (EC30c, EC30d); the MQ inner right
  *     hand's reverse row takes no hood jump (EC32a); thrown bombs do not kill the
- *     ZD frozen waterfall Gold Skulltula (EC34a). VC59 to VC65 lock CanVoid on
+ *     ZD frozen waterfall Gold Skulltula (EC34a). #1797: SpiritShared's child
+ *     branch keeps 6 keys for the MQ like-like pot and north chest when reverse
+ *     entry is possible (EC32b to EC32i), and the adultAccess-implies-reverse
+ *     tripwire over spiritLogicData (EC32j). VC59 to VC65 lock CanVoid on
  *     the MQ Fire Trial barred-door rupee and the vanilla Shadow Trial end hearts.
  *
  * SoH eca767dcb's Masks as Adult seed setting (RSK_MASKS_AS_ADULT) and the adult
@@ -1769,6 +1772,158 @@ void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
     randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
     logic->CurrentRegionKey = RR_NONE;
+
+    // ---- EC32b..EC32i: SpiritShared's child branch with reverse entry possible (#1797) ----
+    // A child in the region without Certain Access is in logic only if the adult could also collect the check: the
+    // child branch switches to the adult and asks adultAccess() and the condition. Upstream also read the row's
+    // reverseAccess without calling it (always true); #1797 drops that dead term. Calling it would ask
+    // StatueRoomMQKeyLogic as the adult (7 keys) at the two MQ rows below, where 6 keys are enough (OoTMM
+    // spirit_temple_mq.yml: "only 6 keys is safe"). Boss Entrances Full with Decoupled Entrances makes reverse entry
+    // possible; Reset clears the FORWARDS / REVERSE Spirit events, so no age has entered either way.
+    const uint8_t savedBossEntrances = randoCtx->GetOption(RSK_SHUFFLE_BOSS_ENTRANCES).Get();
+    const uint8_t savedDecoupled = randoCtx->GetOption(RSK_DECOUPLED_ENTRANCES).Get();
+    randoCtx->GetOption(RSK_SHUFFLE_BOSS_ENTRANCES).Set(RO_BOSS_ROOM_ENTRANCE_SHUFFLE_FULL);
+    randoCtx->GetOption(RSK_DECOUPLED_ENTRANCES).Set(RO_GENERIC_ON);
+    ResetClimbLogic();
+    ExpectFlag("EC32b0 reverse Spirit entry possible under Boss Entrances Full and Decoupled Entrances",
+               logic->IsReverseAccessPossible(), true,
+               "the legs below would not exercise the reverse term (Logic::IsReverseAccessPossible)");
+    // The like-like pot: Climb, grab (the child's CanBreakPots) and the Master Sword (the adult's CanHitSwitch, not
+    // the child's, so the child's own reverseAccess and Certain Access never hold).
+    GiveClimb();
+    GiveGrab();
+    Give(RG_MASTER_SWORD);
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 5);
+    ExpectAs(false, "EC32b MQ Spirit like-like pot, child, 5 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, false,
+             "the child branch's adult cross-check passes below the adult's 6 keys (looser than adultAccess)");
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+    ExpectAs(false, "EC32c MQ Spirit like-like pot, child, 6 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, true,
+             "the child branch's adult cross-check asks 7 keys: reverseAccess() called, or childAccess() swapped in "
+             "(both are StatueRoomMQKeyLogic as the adult, #1797)");
+    // EC32d: the true side of the cross-check (the adult's adultAccess and reverseAccess both hold at 7 keys; the
+    // child still has no Certain Access). It catches only the first disjunct removed or made false at 7 keys, not a
+    // childAccess() swap (true as the adult at 7 keys): EC32c catches that.
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 7);
+    ExpectAs(false, "EC32d MQ Spirit like-like pot, child, 7 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, true,
+             "the child branch's first adult cross-check disjunct no longer passes at 7 keys");
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+    ExpectAs(true, "EC32e MQ Spirit like-like pot, adult control, 6 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, false,
+             "the adult branch's child cross-check (childAccess, 7 keys) or SpiritCertainAccess changed");
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 7);
+    ExpectAs(true, "EC32f MQ Spirit like-like pot, adult control, 7 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, true,
+             "the adult's Certain Access (adultAccess and reverseAccess at 7 keys) no longer holds");
+    // The north chest: bombs (the Beamos, and the child's CanHitSwitch), Climb and Open Chest.
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    GiveClimb();
+    GiveOpenChest();
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+    ExpectAs(false, "EC32g MQ Spirit north climb chest, child, 6 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_SUN_ON_FLOOR, RC_SPIRIT_TEMPLE_MQ_CHILD_CLIMB_NORTH_CHEST, true,
+             "the child branch's adult cross-check asks 7 keys: reverseAccess() called, or childAccess() swapped in "
+             "(#1797)");
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 7);
+    ExpectAs(false, "EC32h MQ Spirit north climb chest, child, 7 keys, reverse entry possible",
+             RR_SPIRIT_TEMPLE_MQ_SUN_ON_FLOOR, RC_SPIRIT_TEMPLE_MQ_CHILD_CLIMB_NORTH_CHEST, true,
+             "the child's Certain Access (childAccess and reverseAccess at 7 keys) no longer holds");
+    // EC32i: the defaults control. Boss Entrances Off: no reverse entry, and the child still lacks Certain Access at
+    // 6 keys (childAccess needs 7), so the child branch runs; default worlds do not move.
+    randoCtx->GetOption(RSK_SHUFFLE_BOSS_ENTRANCES).Set(RO_BOSS_ROOM_ENTRANCE_SHUFFLE_OFF);
+    ResetClimbLogic();
+    GiveClimb();
+    GiveGrab();
+    Give(RG_MASTER_SWORD);
+    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+    ExpectAs(false, "EC32i MQ Spirit like-like pot, child, 6 keys, Boss Entrances off",
+             RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RC_SPIRIT_TEMPLE_MQ_CHILD_LIKE_LIKE_POT, true,
+             "the default settings' like-like pot needs more than the adult's 6 keys");
+    randoCtx->GetOption(RSK_SHUFFLE_BOSS_ENTRANCES).Set(savedBossEntrances);
+    randoCtx->GetOption(RSK_DECOUPLED_ENTRANCES).Set(savedDecoupled);
+
+    // EC32j (#1797 tripwire): the child branch's cross-check asks the adult's adultAccess only, so every row a child
+    // can be in must keep "adultAccess implies reverseAccess" as the adult, or a row edit would make the dropped term
+    // matter again. Exempt: the two MQ rows the [RSBS #1797] comment names; four vanilla rows no child reaches
+    // (2F Mirror Room, Statue Room Adult, Inner Left Hand, Shortcut Switch: their entries are adult-only in
+    // spirit_temple.cpp); MQ Big Blocks Door, whose only SpiritShared caller's condition is IsChild-only.
+    {
+        const RandomizerRegion kChildCrossCheckExempt[] = {
+            RR_SPIRIT_TEMPLE_MQ_UNDER_LIKE_LIKE, RR_SPIRIT_TEMPLE_MQ_SUN_ON_FLOOR, RR_SPIRIT_TEMPLE_2F_MIRROR_ROOM,
+            RR_SPIRIT_TEMPLE_STATUE_ROOM_ADULT,  RR_SPIRIT_TEMPLE_INNER_LEFT_HAND, RR_SPIRIT_TEMPLE_SHORTCUT_SWITCH,
+            RR_SPIRIT_TEMPLE_MQ_BIG_BLOCKS_DOOR,
+        };
+        int adultReaches = 0;
+        int broken = 0;
+        for (int state = 0; state < 6; state++) {
+            ResetClimbLogic();
+            switch (state) {
+                case 1: // Climb
+                    GiveClimb();
+                    break;
+                case 2: // Climb, grab, bombs, 6 keys
+                    GiveClimb();
+                    GiveGrab();
+                    Give(RG_PROGRESSIVE_BOMB_BAG);
+                    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+                    break;
+                case 3: // Hookshot, grab, 6 keys
+                    GiveHookshot(false);
+                    GiveGrab();
+                    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 6);
+                    break;
+                case 4: // Longshot, grab, bombs, 7 keys
+                    GiveHookshot(true);
+                    GiveGrab();
+                    Give(RG_PROGRESSIVE_BOMB_BAG);
+                    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 7);
+                    break;
+                case 5: // Hover Boots, Hookshot, grab, 7 keys
+                    Give(RG_HOVER_BOOTS);
+                    GiveHookshot(false);
+                    GiveGrab();
+                    logic->SetSmallKeyCount(SCENE_SPIRIT_TEMPLE, 7);
+                    break;
+                default: // nothing
+                    break;
+            }
+            for (const auto& entry : Region::spiritLogicData) {
+                bool exempt = false;
+                for (RandomizerRegion skip : kChildCrossCheckExempt) {
+                    if (skip == entry.first) {
+                        exempt = true;
+                    }
+                }
+                if (exempt) {
+                    continue;
+                }
+                BhlAs(true, entry.first);
+                const bool adultAccess = entry.second.adultAccess();
+                const bool reverseAccess = entry.second.reverseAccess();
+                if (adultAccess) {
+                    adultReaches++;
+                }
+                if (adultAccess && !reverseAccess) {
+                    GateFail("EC32j spiritLogicData row %d, item state %d: the adult's adultAccess holds but its "
+                             "reverseAccess does not, so SpiritShared's child cross-check (#1797) passes a check "
+                             "the adult cannot collect after a reverse entry",
+                             (int)entry.first, state);
+                    broken++;
+                }
+            }
+        }
+        logic->CurrentRegionKey = RR_NONE;
+        if (adultReaches == 0) {
+            GateFail("EC32j no row's adultAccess held in any item state, so the tripwire tested nothing");
+        } else if (broken == 0) {
+            printf("[TEST]   ok: EC32j adultAccess implies reverseAccess as the adult on every non-exempt row "
+                   "(%d probes with adultAccess true)\n",
+                   adultReaches);
+        }
+    }
 
     // ---- EC33..EC34: Zora's Domain frozen waterfall Gold Skulltula -----------
     ResetClimbLogic();
