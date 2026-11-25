@@ -93,6 +93,7 @@
 #include "warp_songs_mm.h"
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/GameInteractor/GameInteractor.h"
+#include "2s2h/ShipInit.hpp" // #1587: re-run FasterSongPlayback's registrar after its in-memory 0
 #include "2s2h/Rando/Foreign.h"
 #include "2s2h/Rando/Rando.h"
 #include "2s2h/Rando/WarpSongsMM.h"
@@ -733,7 +734,16 @@ bool MwdrPrepareSunSaria(PlayState* play) {
         MwdrFail(play, why);
         return false;
     }
+    // The CVar alone is not enough: FasterSongPlayback.cpp's hooks are armed from it
+    // by its ShipInit registrar (COND_ID_HOOK on ACTOR_PLAYER), which ran at MM's
+    // InitAll. Re-running the registrar on the key unregisters them with the key 0.
+    const int fasterBefore = (int)CVarGetInteger("gEnhancements.Songs.FasterSongPlayback", 0);
     IntegrationTest_SoaringSetCVarInt("gEnhancements.Songs.FasterSongPlayback", 0);
+    ShipInit::Init("gEnhancements.Songs.FasterSongPlayback");
+    fprintf(stderr,
+            "[PFC] shared sun/saria: FasterSongPlayback was %d, set to 0 in memory and its ShipInit registrar re-run "
+            "(its OnActorUpdate hook on Player is now unregistered)\n",
+            fasterBefore);
     fprintf(stderr,
             "[PFC] shared sun/saria: MM holds both through the family (apply give record 0x%08X, owned2 0x%08X), "
             "quest bits Sun %d Saria %d, rows Sun %u Saria %u, fanfare[SARIAS] 0x%04X (NA_BGM_SARIAS_SONG), playable "
@@ -1069,9 +1079,10 @@ void MwdrSunSample(PlayState* play) {
             s.timeAtFirstSpeed = now;
             fprintf(stderr,
                     "[PFC] shared sun/saria: first SPEED_TIME at drive frame %d (%d after the match; OceffSpot last "
-                    "seen %d) with msgMode %d, textId 0x%04X, ocarinaMode %d (OCARINA_MODE_END expected from the START "
-                    "pass), R_TIME_SPEED %d, clock 0x%04X; START not observable from the tick (set and consumed in one "
-                    "Play_Update)\n",
+                    "seen %d) with msgMode %d, textId 0x%04X, ocarinaMode %d (OCARINA_MODE_END expected, from "
+                    "TEXT_CLOSING's free-play write if the text closed first, z_message.c, or from the START pass, "
+                    "z_parameter.c), R_TIME_SPEED %d, clock 0x%04X; START not observable from the tick (set and "
+                    "consumed in one Play_Update)\n",
                     s.firstSpeedFrame, s.firstSpeedFrame - s.matchFrame, s.oceffLastSeen, s.firstSpeedMsgMode,
                     (unsigned)(s.firstSpeedTextId & 0xFFFF), s.firstSpeedOcarinaMode, (int)R_TIME_SPEED, (unsigned)now);
             fflush(stderr);
@@ -1204,15 +1215,22 @@ void MwdrStepSunText(PlayState* play) {
             return;
         }
         s.textCloseFrame = sMwdr.driveFrames;
+        // Recorded only: nothing in the message flow waits for the OceffSpot (about
+        // 100 frames from its spawn to START, z_oceff_spot.c), so SPEED_TIME can
+        // begin on either side of the close. SUN_EFFECT requires it, by name.
         if (s.firstSpeedFrame < 0) {
-            MwdrFail(play, "the played text closed but SPEED_TIME was never seen at or before its close (the clock is "
-                           "frozen while a message is up, so a day play cannot have ended already)");
-            return;
+            fprintf(stderr,
+                    "[PFC] shared sun/saria: the Sun's played text was up %d frame(s) and closed at drive frame %d "
+                    "(%d after the match); SPEED_TIME not seen yet (OceffSpot last seen %d): it is required at "
+                    "SUN_EFFECT\n",
+                    s.customTextFrames, s.textCloseFrame, s.textCloseFrame - s.matchFrame, s.oceffLastSeen);
+        } else {
+            fprintf(stderr,
+                    "[PFC] shared sun/saria: the Sun's played text was up %d frame(s) and closed at drive frame %d "
+                    "(%d after the match); first SPEED_TIME at %d, before the close (%d frame(s) with a message up)\n",
+                    s.customTextFrames, s.textCloseFrame, s.textCloseFrame - s.matchFrame, s.firstSpeedFrame,
+                    s.speedFramesMsgUp);
         }
-        fprintf(stderr,
-                "[PFC] shared sun/saria: the Sun's played text was up %d frame(s) and closed at drive frame %d; "
-                "SPEED_TIME seen at or before the close (first at %d, %d frame(s) with a message up)\n",
-                s.customTextFrames, s.textCloseFrame, s.firstSpeedFrame, s.speedFramesMsgUp);
         fflush(stderr);
         MwdrNext(MwdrStep::SunEffect);
         return;
@@ -1497,8 +1515,8 @@ extern "C" void MM_IntMwDrive_WatchDeparture(void) {
     }
     sMwdr.watchFailed = true;
     const std::string state = MwdrDump(MM_gPlayState);
-    std::string msg = "int-mm-warp-song-minuet, step 'handed to OoT': MM still running 600 frames after the warp "
-                      "armed: the fade never crossed [";
+    std::string msg = MwdrRowName();
+    msg += ", step 'handed to OoT': MM still running 600 frames after the warp armed: the fade never crossed [";
     msg += state;
     msg += "]";
     IntegrationTest_GameplayFail(msg.c_str());
