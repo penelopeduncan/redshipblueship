@@ -48,6 +48,7 @@
 // Rando::Logic. (ComputeReachableCheckSet, the reachability gate the retired forward
 // overlay pass filtered host candidates by, is no longer called from here; #996.)
 #include "Rando/Logic/Logic.h"
+#include "Rando/StickNutBagGate.h" // #1788: MM_Combo_StickGated / MM_Combo_NutGated
 #include "2s2h/ShipUtils.h"
 // ResolvePairedProfile reads the option CVars (and asks CVarExists whether the
 // player ever set one) and logs which branch of the logic pin it took.
@@ -1408,6 +1409,21 @@ static const SharedItem* PlacementFor(RandoCheckId randoCheckId) {
 
 bool IsForeignCheck(RandoCheckId randoCheckId) {
     return PlacementFor(randoCheckId) != nullptr;
+}
+
+bool ForeignShelfItemLocked(RandoCheckId randoCheckId) {
+    const SharedItem* item = PlacementFor(randoCheckId);
+    if (item == nullptr || item->originGame != (uint8_t)GAME_OOT) {
+        return false;
+    }
+    const uint8_t kind = OoT_ForeignItem_BagGateKind(item->id);
+    if (kind == (uint8_t)RSBS_SHARED_RES_STICK_TIER) {
+        return MM_Combo_StickGated() != 0;
+    }
+    if (kind == (uint8_t)RSBS_SHARED_RES_NUT_TIER) {
+        return MM_Combo_NutGated() != 0;
+    }
+    return false;
 }
 
 const char* ForeignNameForCheck(RandoCheckId randoCheckId) {

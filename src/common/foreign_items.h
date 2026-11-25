@@ -2174,6 +2174,14 @@ int OoT_ForeignItem_Give(uint16_t rgId);
  *  (defined in OoT's ForeignItemsSingleExe.cpp beside the give that asks it). */
 uint8_t OoT_ForeignItem_BagGateKind(uint16_t rgId);
 
+/** #1788: the twin for a crossed MM pack @p riId: RSBS_SHARED_RES_STICK_TIER for
+ *  RI_DEKU_STICK / _STICKS_5, RSBS_SHARED_RES_NUT_TIER for RI_DEKU_NUT / _NUTS_5 /
+ *  _NUTS_10, 0 for every other id (defined in MM's ForeignItemsSingleExe.cpp
+ *  beside MM_ForeignItem_RedeemAs, so MM's enum stays out of OoT's TUs). OoT's
+ *  shelf asks it (OoT_Rando_ShopShelfForeignLocked) to refuse such a sale before
+ *  the pair's bag, as OoTMM does (item_buy.c isItemBuyable). */
+uint8_t MM_ForeignItem_BagGateKind(uint16_t riId);
+
 /**
  * THE REVERSE DIRECTION'S GIVE-PATH CORE (#493) — the exact twin of
  * MM_Rando_Foreign_RecordPickup, and the OoT counterpart of
