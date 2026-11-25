@@ -85,8 +85,7 @@ struct Ho1754SavedKey {
     bool existed;
     int32_t value;
 
-    explicit Ho1754SavedKey(const char* k)
-        : key(k), existed(Combo_CVarIsExplicitInt(k)), value(CVarGetInteger(k, 0)) {
+    explicit Ho1754SavedKey(const char* k) : key(k), existed(Combo_CVarIsExplicitInt(k)), value(CVarGetInteger(k, 0)) {
     }
     void Restore() const {
         if (existed) {
@@ -119,8 +118,8 @@ void Ho1754InitAuthoredSave(SaveContext* save) {
 
 // 11-byte header + 0xBF terminator (message_data_static.h:6-11).
 const char kEmptyVanillaMsg[MESSAGE_HEADER_SIZE + 1] = {
-    0,           0,           (char)0xFE,  (char)0xFF,  (char)0xFF,  (char)0xFF,
-    (char)0xFF,  (char)0xFF,  (char)0xFF,  (char)0xFF,  (char)0xFF,  (char)0xBF,
+    0,          0,          (char)0xFE, (char)0xFF, (char)0xFF, (char)0xFF,
+    (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xFF, (char)0xBF,
 };
 
 MessageTableEntry kTestMessageTable[3] = {
