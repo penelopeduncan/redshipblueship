@@ -27,4 +27,8 @@ std::vector<std::string> Presets_LoadFolderForTest(const std::string& folder);
 // PRESET_SECTION_MAX when no block saves or applies it. The lock that every Majora's Mask row's key rides the block of
 // the page that holds it reads this.
 PresetSection Presets_BlockForCVar(const char* key);
+
+// #1728: re-runs Majora's Mask's registrars keyed on Pause Menu Save, which applyPreset's ShipInit::InitAll does not
+// reach. Reads the key, never stores it. Contract on the definition.
+extern "C" void Presets_RedriveMmPauseSave(void);
 #endif

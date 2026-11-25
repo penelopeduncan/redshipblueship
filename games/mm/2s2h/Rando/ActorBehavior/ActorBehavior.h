@@ -33,12 +33,14 @@ std::string ShopOfferedItemName(RandoCheckId rc, const std::string& nativeName, 
 // item whose crossing was delivered, for the rest of the game.
 bool ShopCounterSlotSold(RandoCheckId rc);
 // A shelf slot (EnGirlA) is sold out: a native one once its item is no longer
-// obtainable (or, #1499, once it sold the junk its item resolves to), a
-// foreign-hosting one once its crossing was delivered (it never restocks).
+// obtainable (or, #1499, once it sold the junk its item resolves to; never while
+// it is locked behind its bag, #1788), a foreign-hosting one once its crossing
+// was delivered (it never restocks).
 bool ShopShelfSlotSold(RandoCheckId rc);
 // The Hags' mushroom line (text 0x884) may arm RC_HAGS_POTION_SHOP_ITEM_01 for
-// CheckQueue's give: shuffled, not armed yet, and not a foreign host whose
-// crossing was already delivered on an earlier cycle.
+// CheckQueue's give: shuffled, not armed yet, not a foreign host whose crossing
+// was already delivered on an earlier cycle, and (#1788) not locked behind its
+// bag: such a slot is sold as a shelf instead, refused until the bag.
 bool HagsMushroomSlotArmable();
 // The 0x884 line's decision (#1228): true when it arms the slot (the hook then
 // arms it and settles the cycle's free blue potion). When it does not arm a slot
@@ -50,8 +52,14 @@ bool HagsMushroomLineArms();
 std::string TingleOfferedItemName(RandoCheckId rc);
 bool TingleMapSlotSold(RandoCheckId rc);
 #ifdef RSBS_SINGLE_EXECUTABLE
+// #1788: shelf `rc` (EnGirlA) holds an item the pair's bag holds out (a native
+// host: MM_Combo_ShelfItemLocked of its placed item; an OoT item's host:
+// Foreign::ForeignShelfItemLocked). Such a shelf shows its real item, stays
+// stocked, and refuses the sale until the bag (canBuy, then a defense in buy).
+bool ShopShelfLocked(RandoCheckId rc);
 // #1499: what the Bomb Shop owner holds (EnSob1.cpp), what shelf `rc` draws and
-// the name its lines give it (EnGirlA.cpp): all ConvertItem's answer for the slot.
+// the name its lines give it (EnGirlA.cpp): all ConvertItem's answer for the
+// slot, except a locked shelf's (#1788), which is its placed item.
 RandoItemId BombShopHandItem();
 RandoItemId ShopShelfItem(RandoCheckId rc);
 std::string ShopShelfItemName(RandoCheckId rc);

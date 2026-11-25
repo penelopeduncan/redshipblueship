@@ -226,7 +226,7 @@
 			},
 			"lw_gs_bean": {
 				"name": "Lost Woods Adult GS with Hookshot",
-				"description": "You can collect the token with a precise Hookshot use, as long as you can kill the Skulltula somehow first. It can be killed using Bow, Bombchus or Din's Fire. Using Longshot to both kill the skull and grab the token is in default logic."
+				"description": "Without the Magic Bean, you can use Longshot to both kill the Skulltula and grab the token. You can also collect the token with a precise Hookshot use after killing the Skulltula with Bow, Bombchus, or Din's Fire."
 			},
 			"hc_storms_gs": {
 				"name": "Hyrule Castle Storms Grotto GS with Just Boomerang",

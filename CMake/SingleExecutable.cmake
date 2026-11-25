@@ -2185,6 +2185,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
 
+    # #1737 (SoH 2af5d2112 #6322): Reworked Targeting. Enhancements/ReworkedTargeting.cpp answers
+    # VB_TOGGLE_Z_TARGET_SWITCH_TARGETS and VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION only while the setting is on. The row
+    # runs that registrar out of ShipInit's map, then the REAL GameInteractor_Should dispatch with a fake
+    # OoT_gPlayState: off -> vanilla; on with a focus actor -> a plain Z press un-targets; the configured button combo
+    # (R) with a next target switches, with none does not; off again -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTCameraTargetingOptions COMMAND redship --test oot-camera-targeting-options)
+
     # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
     # custom ocarina-note buttons' saved id lists. The row builds that state in
     # the CVar store and runs the start-up clean-up: the stray ids go, the
@@ -2217,6 +2224,15 @@ if(BUILD_TESTING)
     # #1588: OoT infinite-magic and Barinade rematch-intro VB boundary (source leg +
     # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
     redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
+
+    # #1747 (SoH 6606eefbf #6138, ef014a35e #6663, 3250cc27f #6569, 0ed782ddc
+    # #7023, a629af2e9 #6604): the five QoL options' registrars run out of
+    # ShipInit's map under each key, then the REAL GameInteractor_Should
+    # dispatch: Goron Pot spin, heat haze, Saria's gesture in her house,
+    # dropping throw-only actors (and z_player.c's
+    # OoT_Player_CanThrowCarriedActor), roll chaining and roll steering.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTQolOptions1747 COMMAND redship --test oot-qol-options-1747)
 
     # #1755: five small MM options (PictoBoxOnCUp, AlwaysShowShrineFeathers, DashAfterRoll,
     # AlwaysFindRockSirloin, FishermanJumpingGame). Display-free and ROM-free; restores all state.
@@ -4234,6 +4250,14 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMWarpSongPlay COMMAND redship --test mm-warp-song-play)
     redship_add_test(NAME MMWarpSongMatcher COMMAND redship --test mm-warp-song-matcher)
     redship_add_test(NAME MMWarpSongDeparture COMMAND redship --test mm-warp-song-departure)
+    # #1587 stage T: playing the Sun's Song in any MM file shows OoTMM's "You played
+    # the Sun's Song!" (the name in yellow) in 0x1B78's box, not MM's empty 0x1B7D:
+    # the pure helpers, MM's helpers over a stand-in play state and message table
+    # (every other song keeps 0x1B72 + song), and the z_message.c branch's place by
+    # a function-scoped anchor. ROM-free, generating nothing, the CVar store brought
+    # up. src/common/tests/test_mm_suns_song_played_text.c,
+    # games/mm/2s2h/mm_suns_song_played_text_test.cpp.
+    redship_add_test(NAME MMSunSongPlayedText COMMAND redship --test mm-sun-song-played-text)
     # #1169 XW13: the pure half IntMMWarpSongMinuet stands on (MM's test input seam
     # Combo_TestPad_Apply, the Minuet schedule, the arm proofs, the expected OoT
     # arrival), the setter's refusal outside an integration run, and the seam's
@@ -4830,7 +4854,9 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     redship_add_test(NAME MMMoonCrashCycleReset COMMAND redship --test mm-moon-crash-cycle-reset)
     # #1278: after the crash a paired file lands in South Clock Town (0xD800, OoTMM's
     # rewrite of 0xC030), never in the salesman's Clock Tower scene: the Fire Wall's
-    # destination and the Story skip's, under both behaviours. ROM-free (default tier);
+    # destination and the Story skip's, under both behaviours; and (#1789) through
+    # Play_Init's func_800EDDB0, New Cycle skips the crash cutscenes and resets once
+    # with or without the Story skip, Last Save does not. ROM-free (default tier);
     # games/mm/2s2h/mm_creation_new_file_test.cpp.
     redship_add_test(NAME MMMoonCrashArrival COMMAND redship --test mm-moon-crash-arrival)
     # #1305: the Story skip's New Cycle crash runs Sram_SaveEndOfCycle from Play_Init
@@ -5117,13 +5143,16 @@ crossing to refuse (#954).")
     # forces; since #1671 the half is authored from a cleared key, so the row
     # proves New Cycle is the default). MM boots on its debug save outside the
     # Clock Tower, the crash runs
-    # the real Interface_StartMoonCrash and the real crash and Fire Wall
-    # cutscenes (the reset cue is the Fire Wall's, in SCENE_SPOT00), and the scene
-    # after them must be a NEW cycle (one more three-day reset, the cycle's Deku
+    # the real Interface_StartMoonCrash, and since #1789 (as OoTMM) New Cycle skips
+    # the crash and Fire Wall cutscenes: Play_Init resets the save at the moon's
+    # fall, so a frame in Termina Field or SCENE_SPOT00 is a FAIL, the skip's and
+    # the reset's lines must each be logged once, and the first scene after the
+    # fade is the Clock Tower interior (0xC030, an unpaired session). That scene
+    # must be a NEW cycle (one more three-day reset, the cycle's Deku
     # record cleared) at the Dawn of the First Day with the mask, the bottle and
     # the song kept. Red under Last Save: a debug session has no commit, so that
     # path restarts the clock and keeps the bytes but counts no reset. Same
-    # ROM/display needs and timeout as the round trip (the cutscene plays whole).
+    # ROM/display needs and timeout as the round trip.
     redship_add_test(NAME IntMoonCrashCycle
         COMMAND redship --integration-test int-mm-moon-crash-cycle
         LABEL integration
@@ -5343,9 +5372,11 @@ crossing to refuse (#954).")
     # moves the file to Day 3 23:54 in North Clock Town and watches midnight pass
     # with no festival warp (B0's VB_CLOCK_TOWER_OPENING_CONSIDER_THIS_FIRST_CYCLE
     # registrant), then sets the clock to 5:58 and lets the three-day clock
-    # actor drop the moon at 6:00 through the real crash and Fire Wall
-    # cutscenes. The scene after them must be a new cycle (one more three-day
-    # reset, the cycle's Deku record cleared, the "New Cycle" line logged once)
+    # actor drop the moon at 6:00; since #1789 New Cycle skips the crash and Fire
+    # Wall cutscenes (a frame in either scene is a FAIL), and the first scene after
+    # the white fade must be South Clock Town at 0xD800 and a new cycle (one more
+    # three-day reset, the cycle's Deku record cleared, the "New Cycle" reset line
+    # and the #1789 skip line each logged once)
     # at the Dawn of the First Day with the fixture items, the Song of Time and
     # the Last Save byte kept, still without the ocarina and still not on the
     # fast clock. The run ends there, in MM, and a pass erases file 3. Not driven:

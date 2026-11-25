@@ -6365,6 +6365,7 @@ bool IsInteractive(WidgetType t) {
         case WIDGET_CVAR_COMBOBOX:
         case WIDGET_CVAR_SLIDER_INT:
         case WIDGET_CVAR_SLIDER_FLOAT:
+        case WIDGET_CVAR_BTN_SELECTOR:
         case WIDGET_BUTTON:
         case WIDGET_INPUT:
         case WIDGET_CVAR_INPUT:

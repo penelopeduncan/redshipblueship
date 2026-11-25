@@ -92,10 +92,14 @@ void AddMmTimesaverRows(SohMenu& menu, WidgetPath& path) {
 
 void AddMmSavingRows(SohMenu& menu, WidgetPath& path) {
     AddHostedMmBlock(menu, path);
+    // #1728: on by default (the operator's ruling of 2026-11-19; off in 2Ship2Harkinian). The row draws the same
+    // default SavingEnhancements_PauseSaveOn reads when the key is unset, so the tick and the pause menu agree.
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Pause Menu Save", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_SAVING_PAUSE_SAVE)
-        .Options(CheckboxOptions().Tooltip("Offers a save from the current location when B is pressed in the pause "
-                                           "menu. Majora's Mask only."));
+        .Options(CheckboxOptions()
+                     .DefaultValue(RSBS_MM_PAUSE_SAVE_DEFAULT != 0)
+                     .Tooltip("Offers a save from the current location when B is pressed in the pause menu. "
+                              "Majora's Mask only."));
 }
 
 } // namespace SohGui

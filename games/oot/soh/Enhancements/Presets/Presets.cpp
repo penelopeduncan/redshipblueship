@@ -21,6 +21,7 @@
 #ifdef RSBS_SINGLE_EXECUTABLE
 #include "soh/Notification/Notification.h"
 #include "combo_preset_profile.h" // #1368: the Rando Settings block carries the whole paired profile
+#include "cvar_shared_keys.h"     // #1728: RSBS_CVAR_MM_SAVING_PAUSE_SAVE
 #endif
 
 namespace fs = std::filesystem;
@@ -113,6 +114,15 @@ PresetSection Presets_BlockForCVar(const char* key) {
     }
     return PRESET_SECTION_MAX;
 }
+
+// RSBS (#1728): re-run Majora's Mask's registrars keyed on Pause Menu Save. A preset's ShipInit::InitAll is
+// Init("*"), which the MM bridge never forwards (games/mm/2s2h/ShipInitBridge_SingleExe.cpp), and MM's own InitAll
+// runs once, so PauseSave.cpp's and BgmReplay.cpp's hook gates keep the value they read at MM's bring-up. A preset
+// that cleared or replaced gEnhancements would then leave the row ticked (the key is absent, so on by default) while
+// B in MM's pause menu still closes it. This re-reads the key, as a click on the row does; it never stores it.
+extern "C" void Presets_RedriveMmPauseSave(void) {
+    ShipInit::Init(RSBS_CVAR_MM_SAVING_PAUSE_SAVE);
+}
 #endif
 
 std::string FormatPresetPath(std::string name) {
@@ -200,6 +210,12 @@ void applyPreset(std::string presetName, std::vector<PresetSection> includeSecti
         }
     }
     ShipInit::InitAll();
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1728: InitAll is Init("*"), which the MM bridge does not forward, and Pause Menu Save now defaults on, so a
+    // preset that cleared or replaced gEnhancements must re-drive MM's hook gates for it (PauseSave.cpp,
+    // BgmReplay.cpp), or the row and the pause menu disagree. Unconditional: one lookup and a hook re-register.
+    Presets_RedriveMmPauseSave();
+#endif
     OTRGlobals::Instance->ScaleImGui();
 }
 

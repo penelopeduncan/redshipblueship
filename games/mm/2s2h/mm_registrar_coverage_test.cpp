@@ -359,6 +359,23 @@
  * reads z_player.c's sPlayerControlInput, unset in a headless run) and never aims a first-person item (that path
  * writes the B slot); both are playtest items. Nothing ActiveItemOnB.cpp defines is named here.
  *
+ * PAUSE MENU SAVE'S DEFAULT (#1728, the operator's ruling of 2026-11-19) -- FAIL 27 and FAIL 28. The W6-TIMESAVERS
+ * table shows that Saving/PauseSave.cpp and Fixes/BgmReplay.cpp arm on the key stored 1; these legs show what they do
+ * with the key ABSENT, which now means on. BgmReplay.cpp's other two gates (Faster Scene Transitions, Debug Mode) are
+ * held at 0 so its count moves only with this key.
+ *   - FAIL 27: key unset, SavingEnhancements_PauseSaveOn() is 1; driven, VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU and
+ *     VB_PLAY_SCENE_SEQUENCE each gain one handler; MM_Combo_EndPauseSaveCommit clears isOwlSave and
+ *     pauseSaveEntrance. Stored 0: the helper is 0, both handlers go, and the commit's clear leaves the pair alone.
+ *     z_kaleido_scope_NES.c's four reads need a live pause context; test_pause_save_default_has_one_reader
+ *     (tools/tests/test_repo_invariants.py) proves they call the helper.
+ *   - FAIL 28: a stored 0 driven, then the key cleared as a SoH preset clears gEnhancements: the gates stay frozen
+ *     off (the staleness), Presets_RedriveMmPauseSave() arms both, and with a stored 0 it disarms both. The row never
+ *     clears the gEnhancements block (it would erase every other row's stored state); the same lock proves
+ *     applyPreset calls the re-drive after ShipInit::InitAll.
+ * Both leave the key at a stored 0, re-driven. SavingEnhancements.cpp is anchored by production already
+ * (z_kaleido_scope_NES.c calls SavingEnhancements_CanSave), so naming its helper here props up nothing the gate
+ * measures.
+ *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
  * behind MM_Rando_AssetsReady() because its ResourceMgr_Load*ByName helpers
@@ -430,7 +447,12 @@ int MM_ExtensionRescan_CallCount(void);
 // The asset phase's #618 entry point, driven by name below (ADR 0010 increment
 // 2 moved it out of the core phase — see the call site for why).
 void MM_ExtensionRescan_AfterArchiveMount(void);
+// #1728 (FAIL 27, 28): the pause save's post-commit clear (GameExports_SingleExe.cpp) and SoH's preset re-drive of
+// the key (games/oot/soh/Enhancements/Presets/Presets.cpp), both read through SavingEnhancements_PauseSaveOn.
+void MM_Combo_EndPauseSaveCommit(void);
+void Presets_RedriveMmPauseSave(void);
 }
+#include "2s2h/Enhancements/Saving/SavingEnhancements.h" // #1728: SavingEnhancements_PauseSaveOn
 
 namespace {
 
@@ -502,6 +524,10 @@ constexpr const char* kJPGrottosCVar = "gEnhancements.Restorations.JPGrottos";
 constexpr const char* kFasterHookshotCVar = "gEnhancements.Player.FasterHookshot";
 // 2Ship #1972: the key-gap probe and FAIL 24's leg (see the file header).
 constexpr const char* kMayorArguesCVar = "gEnhancements.Cycle.MayorArguesUntilMoonfall";
+// #1728: Pause Menu Save and BgmReplay.cpp's two other gates, for FAIL 27's and FAIL 28's legs (see the file header).
+constexpr const char* kPauseSaveCVar = "gEnhancements.Saving.PauseSave";
+constexpr const char* kPauseSaveFasterTransitionsCVar = "gEnhancements.Timesavers.FasterSceneTransitions";
+constexpr const char* kPauseSaveDebugModeCVar = "gDeveloperTools.DebugEnabled";
 
 // RegisterAutosave registers nothing unless this is set -- it is a runtime
 // toggle, not an unconditional registrar. Forced ON so its absence is a real
@@ -2576,6 +2602,130 @@ int RunActiveItemOnBLeg() {
     return 0;
 }
 
+// ---- #1728: Pause Menu Save is on by default (FAIL 27) and a SoH preset re-drives it (FAIL 28) ---------------------
+// See PAUSE MENU SAVE'S DEFAULT in the file header. Both legs hold BgmReplay's other two gates off, so its
+// VB_PLAY_SCENE_SEQUENCE count moves only with this key, and leave the key at a stored 0, re-driven, as
+// ResetW6PhaseKeys does. Every leg sets the key's state itself first: RunW6Phases left it at a stored 0.
+size_t PauseSaveDefaultHookCount() {
+    return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU);
+}
+
+size_t PauseSaveDefaultBgmCount() {
+    return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_PLAY_SCENE_SEQUENCE);
+}
+
+void PauseSaveDefaultHoldOtherBgmGates() {
+    CVarSetInteger(kPauseSaveFasterTransitionsCVar, 0);
+    ShipInit::Init(kPauseSaveFasterTransitionsCVar);
+    CVarSetInteger(kPauseSaveDebugModeCVar, 0);
+    ShipInit::Init(kPauseSaveDebugModeCVar);
+}
+
+void PauseSaveDefaultLeaveOff() {
+    CVarSetInteger(kPauseSaveCVar, 0);
+    ShipInit::Init(kPauseSaveCVar);
+    (void)PauseSaveDefaultHookCount();
+    (void)PauseSaveDefaultBgmCount();
+}
+
+int RunPauseSaveDefaultLeg() {
+    auto savedSave = std::make_unique<uint8_t[]>(sizeof(gSaveContext));
+    memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
+    struct RestoreGuard {
+        uint8_t* save;
+        ~RestoreGuard() {
+            memcpy(&gSaveContext, save, sizeof(gSaveContext));
+            PauseSaveDefaultLeaveOff();
+        }
+    } restore{ savedSave.get() };
+
+    PauseSaveDefaultHoldOtherBgmGates();
+    PauseSaveDefaultLeaveOff();
+    const size_t baseHook = PauseSaveDefaultHookCount();
+    const size_t baseBgm = PauseSaveDefaultBgmCount();
+
+    // (a) The key absent: the helper every reader calls reads on.
+    CVarClear(kPauseSaveCVar);
+    RC_ASSERT(SavingEnhancements_PauseSaveOn() == 1, 27,
+              "(a) with Pause Menu Save's key unset, SavingEnhancements_PauseSaveOn() is not 1: the default is no "
+              "longer on (#1728, RSBS_MM_PAUSE_SAVE_DEFAULT)");
+
+    // (b) Driven with the key absent: PauseSave.cpp's and BgmReplay.cpp's gates read on and arm one handler each.
+    ShipInit::Init(kPauseSaveCVar);
+    RC_ASSERT(PauseSaveDefaultHookCount() == baseHook + 1, 27,
+              "(b) with the key unset and driven, VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU did not gain exactly one handler: "
+              "PauseSave.cpp's gate does not read the shared default, so B in the pause menu offers no save");
+    RC_ASSERT(PauseSaveDefaultBgmCount() == baseBgm + 1, 27,
+              "(b) with the key unset and driven, VB_PLAY_SCENE_SEQUENCE did not gain exactly one handler: "
+              "BgmReplay.cpp's Pause Menu Save gate does not read the shared default");
+
+    // (c) MM_Combo_EndPauseSaveCommit reads on: it clears the pair the prompt set before its commit.
+    gSaveContext.save.isOwlSave = true;
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance = 0x1A30;
+    MM_Combo_EndPauseSaveCommit();
+    RC_ASSERT(!gSaveContext.save.isOwlSave && gSaveContext.save.shipSaveInfo.pauseSaveEntrance == -1, 27,
+              "(c) with the key unset, MM_Combo_EndPauseSaveCommit left isOwlSave / pauseSaveEntrance set: it does "
+              "not read the shared default, so a default-on pause save spawns Link standing on the next scene");
+
+    // (d) A stored 0 wins everywhere.
+    CVarSetInteger(kPauseSaveCVar, 0);
+    ShipInit::Init(kPauseSaveCVar);
+    RC_ASSERT(SavingEnhancements_PauseSaveOn() == 0, 27,
+              "(d) with Pause Menu Save stored 0, SavingEnhancements_PauseSaveOn() is not 0: a player's off is lost");
+    RC_ASSERT(PauseSaveDefaultHookCount() == baseHook && PauseSaveDefaultBgmCount() == baseBgm, 27,
+              "(d) with Pause Menu Save stored 0 and driven, a PauseSave.cpp or BgmReplay.cpp handler stayed armed");
+    gSaveContext.save.isOwlSave = true;
+    gSaveContext.save.shipSaveInfo.pauseSaveEntrance = 0x1A30;
+    MM_Combo_EndPauseSaveCommit();
+    RC_ASSERT(gSaveContext.save.isOwlSave && gSaveContext.save.shipSaveInfo.pauseSaveEntrance == 0x1A30, 27,
+              "(d) with Pause Menu Save stored 0, MM_Combo_EndPauseSaveCommit cleared the pair: it ignores the "
+              "stored value");
+
+    printf("[TEST] #1728: Pause Menu Save reads on with its key unset (both hook gates and the commit's clear), and a "
+           "stored 0 keeps it off\n");
+    return 0;
+}
+
+int RunPauseSavePresetRedriveLeg() {
+    struct RestoreGuard {
+        ~RestoreGuard() {
+            PauseSaveDefaultLeaveOff();
+        }
+    } restore;
+
+    PauseSaveDefaultHoldOtherBgmGates();
+    PauseSaveDefaultLeaveOff();
+    const size_t offHook = PauseSaveDefaultHookCount();
+    const size_t offBgm = PauseSaveDefaultBgmCount();
+
+    // (a) What a SoH preset does to this key (it clears or replaces the whole gEnhancements block, then runs
+    // ShipInit::InitAll, which the MM bridge does not forward), without wiping the block for the rest of the process.
+    // The gates froze off at the stored 0, so the key reads on and nothing is armed: the staleness the re-drive fixes.
+    // The count check below is a precondition for (b), not a regression lock: CVarClear runs no registrar.
+    CVarClear(kPauseSaveCVar);
+    RC_ASSERT(SavingEnhancements_PauseSaveOn() == 1, 28,
+              "(a) after the key was cleared, SavingEnhancements_PauseSaveOn() is not 1");
+    RC_ASSERT(PauseSaveDefaultHookCount() == offHook && PauseSaveDefaultBgmCount() == offBgm, 28,
+              "(a) clearing the key alone changed a hook count, so (b) could not tell the re-drive from its absence");
+
+    // (b) applyPreset's re-drive arms both gates at once, in step with the ticked row.
+    Presets_RedriveMmPauseSave();
+    RC_ASSERT(PauseSaveDefaultHookCount() == offHook + 1 && PauseSaveDefaultBgmCount() == offBgm + 1, 28,
+              "(b) Presets_RedriveMmPauseSave() did not arm exactly one VB_SAVE_ON_B_BUTTON_IN_PAUSE_MENU and one "
+              "VB_PLAY_SCENE_SEQUENCE handler with the key unset: after a SoH preset the row shows Pause Menu Save "
+              "on while B in Majora's Mask's pause menu still closes it");
+
+    // (c) A stored 0 wins on the same path.
+    CVarSetInteger(kPauseSaveCVar, 0);
+    Presets_RedriveMmPauseSave();
+    RC_ASSERT(PauseSaveDefaultHookCount() == offHook && PauseSaveDefaultBgmCount() == offBgm, 28,
+              "(c) Presets_RedriveMmPauseSave() with Pause Menu Save stored 0 left a handler armed");
+
+    printf("[TEST] #1728: a SoH preset's re-drive arms Pause Menu Save's two gates when it cleared the key, and "
+           "respects a stored 0\n");
+    return 0;
+}
+
 // ---- Phase 12 (#1215, #1221): the rando-forced gates the link dropped ------
 // See PHASE 12 in the file header for the attribution of each bucket.
 struct RandoGateCounts {
@@ -3221,6 +3371,14 @@ extern "C" int MM_RegistrarCoverage_RunHeadless(void) {
 
     // ---- 2Ship #1870, #1578, #1566: Active Item on B overrides B and passes the 5-button seam -----------------------
     if (const int rc = RunActiveItemOnBLeg(); rc != 0) {
+        return rc;
+    }
+
+    // ---- #1728: Pause Menu Save is on by default, and a SoH preset re-drives it -----------------------------------
+    if (const int rc = RunPauseSaveDefaultLeg(); rc != 0) {
+        return rc;
+    }
+    if (const int rc = RunPauseSavePresetRedriveLeg(); rc != 0) {
         return rc;
     }
 

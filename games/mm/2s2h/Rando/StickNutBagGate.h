@@ -11,8 +11,8 @@
  *
  * Defined in games/mm/2s2h/GameExports_SingleExe.cpp; included there and by
  * every caller (z_parameter.c, z_en_girla.c, ConvertItem.cpp, EnItem00.cpp,
- * EnBox.cpp, OnFileCreate.cpp, ComboLogicEngineSingleExe.cpp), so each signature is checked
- * against the definition. C-compatible: two of the callers are C.
+ * EnBox.cpp, EnGirlA.cpp, Foreign.cpp, OnFileCreate.cpp, ComboLogicEngineSingleExe.cpp), so each signature is
+ * checked against the definition. C-compatible: two of the callers are C.
  */
 
 #include <stdint.h>
@@ -43,6 +43,14 @@ int MM_Combo_Item00Gated(int16_t params);
  *  _10) under MM_Combo_NutGated. A Deku Baba's or withered / Mini Baba's stick
  *  (EnItem00.cpp) and an unshuffled chest's item (EnBox.cpp) are asked here. */
 int MM_Combo_GetItemGated(int16_t getItemId);
+
+/** #1788: 1 when a shuffled shop shelf holding MM's RI_* @p riId must show that
+ *  item and refuse the sale (EnGirlA.cpp, Rando::ActorBehavior::ShopShelfLocked):
+ *  a stick pack (RI_DEKU_STICK, _STICKS_5) under MM_Combo_StickGated or a nut pack
+ *  (RI_DEKU_NUT, _NUTS_5, _NUTS_10) under MM_Combo_NutGated; 0 for every other id.
+ *  The one place a shelf's lock is decided: #1702's Bombchu Bag adds its case
+ *  here. Asks the PLACED item, never Rando::ConvertItem's answer. */
+int MM_Combo_ShelfItemLocked(uint16_t riId);
 
 /** The birth flip: a paired MM half authored under the frozen stick (nut) bag
  *  shuffle drops to tier 0 with no item and no ammo. Each bag on its own; a bag
