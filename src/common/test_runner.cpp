@@ -699,6 +699,10 @@ int RandoTest_MapCompassText(void);
 // well-formed; area and trial names read back. Body in
 // games/oot/soh/oot_custom_message_text_test.cpp. Return 0 on pass.
 int OoT_ItemTextTest_Run(void);
+// #1746: trick display names, Hard Ground Jumps description, quoted trick
+// cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+// 692ef416e). Body in games/oot/soh/oot_trick_text_1746_test.cpp. Return 0 on pass.
+int OoT_TrickText1746Test_Run(void);
 // #1556: MM's CustomMessage::AddLineBreaks places its newlines and box breaks where
 // the font widths say. Body in games/mm/2s2h/mm_custom_message_line_breaks_test.cpp.
 // Return 0 on pass.
@@ -4128,6 +4132,27 @@ TestResult Test_CustomMessageReplace(void) {
 // games/oot/soh/oot_custom_message_text_test.cpp.
 TestResult Test_OoTItemText(void) {
     return OoT_ItemTextTest_Run() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1746: trick display names, Hard Ground Jumps description, quoted trick
+// cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+// 692ef416e). Same bring-up as Test_MasterSwordRespawn (OTRGlobals' randomizer
+// context, needed by Settings::CreateOptions). Assertions in
+// games/oot/soh/oot_trick_text_1746_test.cpp.
+TestResult Test_OoTTrickText1746(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx) {
+        printf("[TEST] FAIL: could not create Ship::Context singleton\n");
+        return TEST_FAIL;
+    }
+
+    static char arg0[] = "redship";
+    static char* fakeArgv[] = { arg0, nullptr };
+    InitOTRForMMFirstBoot(1, fakeArgv);
+
+    int rc = OoT_TrickText1746Test_Run();
+    printf("[TEST] %s: oot trick text 1746 rc=%d\n", rc == 0 ? "PASS" : "FAIL", rc);
+    return rc == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // #1556: MM's AddLineBreaks is plain strings and a static width table, so no
@@ -12562,6 +12587,10 @@ const TestDescriptor gTests[] = {
       "item; articles sit in their language's slot; colour codes are well-formed; area and trial names read back "
       "through the translation maps (#1746)",
       Test_OoTItemText },
+    { "oot-trick-text-1746",
+      "OoT trick display names, Hard Ground Jumps description, cross-referenced trick description, and spoiler-log "
+      "enabledTricks lookup match SoH c021a0e8a and 692ef416e (#1746)",
+      Test_OoTTrickText1746 },
     { "mm-custom-message-line-breaks",
       "MM's AddLineBreaks wraps at spaces, makes every fourth wrap a box break, restarts the count at an explicit "
       "one, adds no width for an overflowing space, and loses no letter (#1556)",
@@ -13438,6 +13467,7 @@ int TestRunner_Run(const char* testName) {
                 strcmp(gTests[i].name, "scrub-text-hint-setting") == 0 ||
                 strcmp(gTests[i].name, "map-compass-text") == 0 || strcmp(gTests[i].name, "bombchu-drop-rule") == 0 ||
                 strcmp(gTests[i].name, "master-sword-respawn") == 0 ||
+                strcmp(gTests[i].name, "oot-trick-text-1746") == 0 ||
                 strcmp(gTests[i].name, "rando-warp-arrival") == 0 || strcmp(gTests[i].name, "rando-grotto-void") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-no-heal") == 0 ||
                 strcmp(gTests[i].name, "shuffled-fairy-bottle-guard") == 0 ||

@@ -663,7 +663,7 @@ void RegionTable_Init_ShadowTemple() {
         Entrance(RR_SHADOW_TEMPLE_MQ_STONE_UMBRELLA_ROOM, []{return true;}),
     });
 
-    //For this room, logic assumes you can either take damage, wear passive spike resistence (Goron tunic or hovers) or see the spikes to navigate across the floor
+    //For this room, logic assumes you can either take damage, wear passive spike resistance (Goron tunic or hovers) or see the spikes to navigate across the floor
     //As this only matters with 1 heart/OHKO logic, which is already a trick-level setting, using Hook and Longshot to reach rupees without moving is allowed
     areaTable[RR_SHADOW_TEMPLE_MQ_FLOOR_SPIKES_S_DOOR] = Region("Shadow Temple MQ Floor Spikes South Door", SCENE_SHADOW_TEMPLE, {}, {
         //Locations
