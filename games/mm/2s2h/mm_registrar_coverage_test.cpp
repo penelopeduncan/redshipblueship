@@ -388,10 +388,14 @@
  *     registry is back at its baseline;
  *   - (d) Fix Out of Bounds Textures flipped in a scope: End returns 1 (no registrar key, one gfx reapply request),
  *     an empty scope returns 0, and flipping it back returns 1. With no mm.o2r the reapply itself is a no-op here;
- *     the circle-shadow patch is not driven (its body returns early with no archive) and stays the integration
- *     tier's.
+ *     MM_GfxPatchesTest_ReapplyRequests counts the reapply calls, so each flipping scope must add exactly one and
+ *     the empty scope none;
+ *   - (e) Fix Circle Shadow Streaks flipped in a scope: End returns 1, not 2, and the reapply count rises by one. It
+ *     is the only gfx key with an MM registrar, so this is what tells Begin's gfx-key exclusion from its absence
+ *     (its registrar body returns early with no archive, so the patch itself stays the integration tier's).
  * Every key ends where the row had it: Fast Chests and Easy Frame Advance at the stored 0 the row's start wrote,
- * Pause Menu Save at a stored 0, Fix Out of Bounds Textures as found (cleared again if it was absent).
+ * Pause Menu Save at a stored 0, Fix Out of Bounds Textures and Fix Circle Shadow Streaks as found (cleared again if
+ * they were absent).
  *
  * WHAT THIS DOES NOT COVER. GfxPatcher_ApplyNecessaryAuthenticPatches is a
  * one-shot resource patcher, not a hook registrar, and MM_Rando_Init gates it
@@ -471,6 +475,8 @@ void MM_Combo_EndPauseSaveCommit(void);
 // (games/mm/2s2h/ShipInitBridge_SingleExe.cpp).
 void MM_ShipInit_BeginBulkCVarWrite(void);
 int MM_ShipInit_EndBulkCVarWrite(void);
+// #1811 (FAIL 29 (d), (e)): how many times MM_GfxPatches_Reapply was called (games/mm/2s2h/MmGraphicsSingleExe.cpp).
+int MM_GfxPatchesTest_ReapplyRequests(void);
 }
 #include "2s2h/Enhancements/Saving/SavingEnhancements.h" // #1728: SavingEnhancements_PauseSaveOn
 
@@ -2709,6 +2715,7 @@ int RunPauseSavePresetRedriveLeg() {
 constexpr const char* kBulkCVarWriteFastChestsCVar = "gEnhancements.FastChests";
 constexpr const char* kBulkCVarWriteFrameAdvanceCVar = "gCheats.EasyFrameAdvance";
 constexpr const char* kBulkCVarWriteFixTexturesOobCVar = "gEnhancements.FixTexturesOOB";
+constexpr const char* kBulkCVarWriteCircleShadowCVar = "gFixes.FixCircleShadowStreaks";
 
 size_t BulkCVarWriteChestCount() {
     return SettledCountForId<GameInteractor::ShouldVanillaBehavior>(VB_PLAY_SLOW_CHEST_CS);
@@ -2730,10 +2737,14 @@ int RunBulkCVarWriteLeg() {
     memcpy(savedSave.get(), &gSaveContext, sizeof(gSaveContext));
     const bool oobWasStored = CVarExists(kBulkCVarWriteFixTexturesOobCVar);
     const int32_t oobValue = CVarGetInteger(kBulkCVarWriteFixTexturesOobCVar, 0);
+    const bool shadowWasStored = CVarExists(kBulkCVarWriteCircleShadowCVar);
+    const int32_t shadowValue = CVarGetInteger(kBulkCVarWriteCircleShadowCVar, 1);
     struct RestoreGuard {
         uint8_t* save;
         bool oobWasStored;
         int32_t oobValue;
+        bool shadowWasStored;
+        int32_t shadowValue;
         ~RestoreGuard() {
             (void)MM_ShipInit_EndBulkCVarWrite(); // closes a scope a failed assertion left open; 0 otherwise
             memcpy(&gSaveContext, save, sizeof(gSaveContext));
@@ -2742,9 +2753,14 @@ int RunBulkCVarWriteLeg() {
             } else {
                 CVarClear(kBulkCVarWriteFixTexturesOobCVar);
             }
+            if (shadowWasStored) {
+                CVarSetInteger(kBulkCVarWriteCircleShadowCVar, shadowValue);
+            } else {
+                CVarClear(kBulkCVarWriteCircleShadowCVar);
+            }
             BulkCVarWriteLeaveOff();
         }
-    } restore{ savedSave.get(), oobWasStored, oobValue };
+    } restore{ savedSave.get(), oobWasStored, oobValue, shadowWasStored, shadowValue };
 
     gSaveContext.save.shipSaveInfo.saveType = SAVETYPE_VANILLA;
     PauseSaveDefaultHoldOtherBgmGates();
@@ -2801,16 +2817,23 @@ int RunBulkCVarWriteLeg() {
               "keeps an option the row shows off");
 
     // (d) The gfx leg: Fix Out of Bounds Textures has no MM registrar, so the close must request the keyed reapply
-    // (MM_GfxPatches_Reapply) instead. With no mm.o2r the reapply is a no-op; the return value is the observable.
+    // (MM_GfxPatches_Reapply) instead. With no mm.o2r the reapply does nothing past its entry; the return value and
+    // the reapply's call counter are the observables.
+    int reapplies = MM_GfxPatchesTest_ReapplyRequests();
     MM_ShipInit_BeginBulkCVarWrite();
     CVarSetInteger(kBulkCVarWriteFixTexturesOobCVar, oobValue != 0 ? 0 : 1);
     driven = MM_ShipInit_EndBulkCVarWrite();
     RC_ASSERT(driven == 1, 29,
               "(d) a bulk CVar write that flipped Fix Out of Bounds Textures did not request exactly one gfx reapply "
               "(and no registrar drive): after a preset Majora's Mask keeps its old out-of-bounds texture patches");
+    RC_ASSERT(MM_GfxPatchesTest_ReapplyRequests() == reapplies + 1, 29,
+              "(d) the close of a bulk CVar write that flipped Fix Out of Bounds Textures did not call "
+              "MM_GfxPatches_Reapply exactly once");
+    reapplies = MM_GfxPatchesTest_ReapplyRequests();
     MM_ShipInit_BeginBulkCVarWrite();
     driven = MM_ShipInit_EndBulkCVarWrite();
-    RC_ASSERT(driven == 0, 29, "(d) an empty bulk CVar write requested a gfx reapply");
+    RC_ASSERT(driven == 0 && MM_GfxPatchesTest_ReapplyRequests() == reapplies, 29,
+              "(d) an empty bulk CVar write requested a gfx reapply");
     MM_ShipInit_BeginBulkCVarWrite();
     if (oobWasStored) {
         CVarSetInteger(kBulkCVarWriteFixTexturesOobCVar, oobValue);
@@ -2818,10 +2841,36 @@ int RunBulkCVarWriteLeg() {
         CVarClear(kBulkCVarWriteFixTexturesOobCVar);
     }
     driven = MM_ShipInit_EndBulkCVarWrite();
-    RC_ASSERT(driven == 1, 29, "(d) putting Fix Out of Bounds Textures back did not request exactly one gfx reapply");
+    RC_ASSERT(driven == 1 && MM_GfxPatchesTest_ReapplyRequests() == reapplies + 1, 29,
+              "(d) putting Fix Out of Bounds Textures back did not request exactly one gfx reapply");
+
+    // (e) Fix Circle Shadow Streaks is the one gfx key with an MM registrar. Begin must keep it out of the ShipInit
+    // snapshot, so the close requests the owner-gated reapply and never drives that registrar, whose body is not
+    // owner-gated. End returns 1 when it is excluded and 2 when it leaks into the snapshot (one drive plus one
+    // reapply). Safe ROM-free either way: the registrar returns at its MM_Rando_AssetsReady() check.
+    reapplies = MM_GfxPatchesTest_ReapplyRequests();
+    MM_ShipInit_BeginBulkCVarWrite();
+    CVarSetInteger(kBulkCVarWriteCircleShadowCVar, shadowValue != 0 ? 0 : 1);
+    driven = MM_ShipInit_EndBulkCVarWrite();
+    RC_ASSERT(driven == 1, 29,
+              "(e) a bulk CVar write that flipped Fix Circle Shadow Streaks did not report exactly one gfx reapply "
+              "and no registrar drive: the key leaked into the ShipInit snapshot, so its registrar ran under "
+              "whichever game owns the resource cache");
+    RC_ASSERT(MM_GfxPatchesTest_ReapplyRequests() == reapplies + 1, 29,
+              "(e) the close of a bulk CVar write that flipped Fix Circle Shadow Streaks did not call "
+              "MM_GfxPatches_Reapply exactly once");
+    MM_ShipInit_BeginBulkCVarWrite();
+    if (shadowWasStored) {
+        CVarSetInteger(kBulkCVarWriteCircleShadowCVar, shadowValue);
+    } else {
+        CVarClear(kBulkCVarWriteCircleShadowCVar);
+    }
+    driven = MM_ShipInit_EndBulkCVarWrite();
+    RC_ASSERT(driven == 1, 29, "(e) putting Fix Circle Shadow Streaks back did not request exactly one gfx reapply");
 
     printf("[TEST] #1811: a bulk CVar write re-arms the MM registrars of exactly the keys it changed (COND_VB_SHOULD, "
-           "COND_HOOK and Pause Menu Save's default) and requests one gfx reapply for Fix Out of Bounds Textures\n");
+           "COND_HOOK and Pause Menu Save's default) and requests one gfx reapply for Fix Out of Bounds Textures and "
+           "Fix Circle Shadow Streaks\n");
     return 0;
 }
 

@@ -20,6 +20,10 @@ namespace {
 int sGfxPatchesApplied = 0;
 // 1 when a patch key changed while MM was not the running game; MM_Game_Resume reapplies it under MM's owner.
 int sGfxPatchesPending = 0;
+// #1811: every MM_GfxPatches_Reapply call, counted before its early returns. Read only by
+// MM_GfxPatchesTest_ReapplyRequests (mm_registrar_coverage_test.cpp FAIL 29), which in a ROM-free row cannot see
+// sGfxPatchesPending: the reapply returns at the asset-phase check before it sets it.
+int sGfxPatchesReapplyRequests = 0;
 
 // The patches the four keys choose, each an idempotent patch-or-unpatch on its key's current value
 // (AuthenticGfxPatches.cpp). The other authentic patches are unconditional and were applied once for good. #1811:
@@ -58,6 +62,7 @@ extern "C" void MM_MotionBlur_SetDynamicAlpha(int alpha) {
 }
 
 extern "C" int MM_GfxPatches_Reapply(void) {
+    sGfxPatchesReapplyRequests++;
     if (!sGfxPatchesApplied) {
         // MM's asset phase has not run in this process; it reads the four keys itself when it does.
         return 0;
@@ -83,4 +88,8 @@ extern "C" int MM_GfxPatches_ApplyPending(void) {
     sGfxPatchesPending = 0;
     ApplyKeyedPatches();
     return 1;
+}
+
+extern "C" int MM_GfxPatchesTest_ReapplyRequests(void) {
+    return sGfxPatchesReapplyRequests;
 }
