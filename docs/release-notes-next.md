@@ -43,6 +43,21 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   Skulltula above the Deku Theater (the check LW GS Above Theater) and taking its token with the Longshot was in default
   logic. It is not: without the Magic Bean, logic asks for this trick with the Longshot as well as with the Hookshot.
   The tooltip now says what the trick allows. Logic did not change.
+- **Locations page: Master Quest checks can be excluded under Selection Only** (issue #1733). With MQ Dungeon Setting on
+  Selection Only, the Locations page (Randomizer > Locations) hid every Master Quest check. None of them could be
+  excluded, and seed generation dropped any that were already on the excluded list. They are now listed, and an
+  exclusion is kept. Under Selection Only the page lists both the vanilla and the Master Quest checks of every dungeon,
+  whichever quest each dungeon is set to. With the setting on None, Set Number or Random the page lists what it listed
+  before. The page also follows a change of MQ Dungeon Setting or MQ Dungeon Count at once. This comes from Ship of
+  Harkinian. Tests check which checks count as visible; no test draws the page or generates a seed with such an
+  exclusion.
+- **Locations page: the filter covers both columns, and whole groups of checks can be moved** (issue #1733). The filter
+  box now sits above the two columns and filters the Excluded column as well as the Included one. Each column has
+  Collapse All and Open All buttons for its areas. Exclude Visible moves every check that the Included column lists at
+  that moment to the excluded list, and Include Visible moves every check that the Excluded column lists back. A check
+  in a collapsed area, or one the filter hides, is not moved. With an empty filter and every area open, Exclude Visible
+  excludes every check on the page in one click, without asking first. This comes from Ship of Harkinian. Nobody has
+  pressed the new buttons in a running game.
 
 ### Cross-game randomizer
 
@@ -82,6 +97,50 @@ window title until the release candidate changes `src/common/rsbs_version.h`.
   the option, it is now on. If you ticked it on and then off again, it stays off until an Enhancements preset (Reset to
   Default or a curated one) resets it. The option is under Enhancements > Quality of Life > Saving, in the Majora's Mask
   block. Autosave stays off by default.
+- **Majora's Mask: seven small options from 2Ship** (issue #1755). Each one acts in Majora's Mask only, sits in the
+  Majora's Mask block of the page named, and changes nothing until you set it:
+  - **Picto Box on C-Up** (Enhancements > Items; off by default). While Link has the Pictograph Box and holds no
+    picture, C-Up opens the Pictograph Box instead of the plain first-person view, so the box needs no C button. With a
+    picture held, or without the box, C-Up looks around as before.
+  - **Always Show Shrine of Truth Feathers** (Enhancements > Skips & Speed-ups; off by default). The feathers that mark
+    the invisible path from Goron Village to the Lens of Truth cave are all in place whenever the area loads, and they
+    stay. You no longer follow the owl to see them, and they are there after you have the Lens of Truth too.
+  - **Dash After Roll** (Enhancements > Quality of Life; Off, On or Stack with Bunny Hood; Off by default). Keep A held
+    after a roll that hits nothing and Link dashes for as long as he runs with A held. On gives the Bunny Hood's speed,
+    and wearing the Bunny Hood adds nothing to it. Stack with Bunny Hood multiplies the running speed by 1.5 once more,
+    so with the hood worn the dash is 2.25 times the normal speed.
+  - **Always Find Rock Sirloin** (Enhancements > Difficulty; off by default). The first pot you break on the chandelier
+    in the Goron Shrine drops the Rock Sirloin, whichever pot it is.
+  - **Jumping Game Time Limit** (Enhancements > Minigames; Normal, Double or Infinity; Normal by default). In the
+    Fisherman's Jumping Game a torch stays lit for 5 seconds before it moves to another platform. Double makes that 10
+    seconds. With Infinity the torch moves only when Link lands on its platform. The game's own two-minute timer does
+    not change.
+  - **Jumping Game Score** (Enhancements > Minigames; 1 to 40 points, 20 by default). The score that wins the
+    Fisherman's Jumping Game. The fisherman's explanation of the rules shows the number you chose.
+  - **Win Jumping Game Early** (Enhancements > Minigames; off by default). The game ends as soon as the score reaches
+    the target, without waiting for the timer.
+  2Ship calls the two Jumping Game rows "Fisherman's Jumping Game Torch Time Limit" and "Fisherman's Jumping Game Target
+  Score"; the names are shorter here so that they fit the column. Only the first start of RedShipBlueShip imports your
+  2Ship settings, and that import brings your values for the seven options along. If you have started any earlier
+  version, the import has already run, even if it found no 2Ship settings at the time, and it does not run again: set
+  the seven options here. Checked by tests without a running game; nobody has played with any of the seven yet.
+- **Bombchu Bowling: Remove Small Cucco and Remove Big Cucco act at once** (issue #1753). The options of Bombchu
+  Bowling, the Frogs' Ocarina Game and the Shooting Gallery (Enhancements > Minigames) now work through the game's
+  hooks, as they do in Ship of Harkinian. The rows, their settings and what they do are the same, with one difference:
+  turning Remove Small Cucco or Remove Big Cucco on while Link stands in the Bombchu Bowling Alley now removes that
+  cucco at once, and so does turning Customize Behavior back on there while one of the two is already ticked. Before,
+  the cucco was gone only the next time the alley loaded. Turning the option off still brings the cucco back only when
+  the alley loads again. Tests call the hooks with made-up game data; no run plays any of the three minigames.
+- **Audio API lists only what your system has** (issue #1733). Settings > Audio > Audio API offered Windows Audio
+  Session API on every system. On Linux and macOS the list now holds SDL and Null only. On Windows it is unchanged. If
+  you chose Windows Audio Session API on Linux or macOS in an earlier version, the game has had no sound since then. The
+  box now shows SDL although sound is still off: choose SDL in the list, then restart the game as the setting asks.
+- **Menu search: rows with the same name no longer share an ID** (issue #1733). Skip Child Stealth, Blue Fire Arrows and
+  Sunlight Arrows each exist twice, as an enhancement and as a randomizer option. In search results the two rows of a
+  pair had the same internal ID; each row now has its own. A side effect: searching for "randomizer" lists every
+  randomizer option row. A second side effect is a defect: the checkbox names of some randomizer options, and of the
+  enhancement Skip Child Stealth, now break onto two lines on pages with three columns, for example Shuffle Master Sword
+  (issue #1818).
 
 ### Build and tests
 
