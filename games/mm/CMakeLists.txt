@@ -787,6 +787,40 @@ if(SINGLE_EXECUTABLE_BUILD)
         # #1755: Skip Misc Interactions cutscene skips
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipSakonsHideoutCutscenes.cpp"
         "2s2h/Enhancements/Cutscenes/MiscInteractions/SkipCouplesMaskCutscene.cpp"
+        # #1755: 2Ship #1558 (PictoBoxOnCUp), drawn in Enhancements > Items > Equipment (SohMenuHostedMmPlayer.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides VB_FIRST_PERSON_CAMERA,
+        # appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from MM_Player_ActionHandler_0
+        # (z_player.c). Its body guards MM_gPlayState after *should = false. No stub in mm_stubs.c; no twin of
+        # RegisterPictoBoxOnCUp in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/Items/PictoBoxOnCUp.cpp"
+        # #1755: 2Ship #1594 / #1905 (AlwaysShowShrineFeathers), drawn in Timesavers (SohMenuHostedMmTimesavers.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides OnActorInit[ACTOR_EN_OWL],
+        # OnActorUpdate[ACTOR_EN_OWL], VB_OWL_SPAWN_FEATHER, and VB_OWL_DESPAWN_FEATHER (z_en_owl.c). Its OnActorInit
+        # body guards MM_gPlayState and MM_gPlayState->setupPathList. No stub in mm_stubs.c; no twin of
+        # RegisterAlwaysShowShrineFeathers in games/oot. MMRegistrarCoverage's key-gap table + MMSmallOptions1755
+        # attribute it.
+        "2s2h/Enhancements/Timesavers/AlwaysShowShrineFeathers.cpp"
+        # #1755: 2Ship #1938 (DashAfterRoll), drawn in Quality of Life > Controls (SohMenuHostedMmPlayer.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc lambda on its own MM key and rides
+        # OnPassPlayerInputs, VB_CONSIDER_BUNNY_HOOD_EQUIPPED (On), and VB_SPEED_MODIFIER_WALK (Stack with Bunny Hood),
+        # all dispatched from z_player.c. Its OnPassPlayerInputs body guards MM_gPlayState and GET_PLAYER(MM_gPlayState).
+        # No stub in mm_stubs.c; no twin of initFunc in games/oot. MMRegistrarCoverage's key-gap table +
+        # MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/Player/DashAfterRoll.cpp"
+        # #1755: 2Ship #1944 (AlwaysFindRockSirloin), drawn in Difficulty > Other (SohMenuHostedMmModesDifficulty.cpp).
+        # Registers only through a file-scope RegisterShipInitFunc on its own MM key and rides VB_FIND_ROCK_SIRLOIN,
+        # appended to GIVanillaBehavior and dispatched through MM_GameHooks_ExecuteVBShould from ObjChan_PotAction
+        # (z_obj_chan.c). The body sets only *should = true, so it needs no play-state guard. No stub in mm_stubs.c;
+        # no twin of RegisterAlwaysFindRockSirloin in games/oot. MMRegistrarCoverage's key-gap table +
+        # MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/DifficultyOptions/AlwaysFindRockSirloin.cpp"
+        # #1755: 2Ship #1947 (FishermanJumpingGame), drawn in Minigames (SohMenuHostedMmMinigames.cpp). Three
+        # file-scope RegisterShipInitFunc registrars on its three keys ride VB_JUMPING_GAME_END,
+        # VB_FAIL_FISHERMAN_JUMPING_GAME, VB_JUMPING_GAME_TORCH_RUN_OUT (z_en_jgame_tsn.c), and OnOpenText[0x109A]
+        # (via S2H::CustomMessage). The VB bodies read only gSaveContext and args; the OnOpenText body reads
+        # MM_gPlayState->msgCtx through CustomMessage, so it opens with RSBS_SINGLE_EXE_REQUIRE. No stub in mm_stubs.c; no twin of its registrars in games/oot. MMRegistrarCoverage's key-gap table +
+        # MMSmallOptions1755 attribute it.
+        "2s2h/Enhancements/Minigames/FishermanJumpingGame.cpp"
     )
     list(REMOVE_ITEM ship__Enhancements ${ship__Enh_registrars})
 

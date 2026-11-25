@@ -67,6 +67,11 @@ void AddMmTimesaverRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_TIMESAVERS_DAMPE_DIGGING_SKIP)
         .Options(CheckboxOptions().Tooltip(
             "Summons the Big Poe after Dampe digs up one flame instead of three. Majora's Mask only."));
+    // 2Ship #1594 / #1905: Always Show Shrine of Truth Feathers.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Always Show Shrine of Truth Feathers", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_TIMESAVERS_ALWAYS_SHOW_SHRINE_FEATHERS)
+        .Options(CheckboxOptions().Tooltip(
+            "Always reveals the feather-marked path to the Shrine of Truth. Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Faster Scene Transitions", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_TIMESAVERS_FASTER_SCENE_TRANSITIONS)
         .Options(

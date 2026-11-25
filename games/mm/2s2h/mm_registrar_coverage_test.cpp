@@ -1511,6 +1511,19 @@ RegisterW6Phase sCamGyroPhase{ "W6-CAM-GYRO (#1235, #1236, #1240)", CamGyroProbe
 #define GAP_HOOK_COUNT(hook, id) []() { return SettledCountForId<GameInteractor::hook>(id); }
 #define GAP_UNKEYED_COUNT(hook) []() { return SettledUnkeyedCount<GameInteractor::hook>(); }
 
+// TargetScore arms whenever the CVar differs from its default (20), so a probe drive that leaves it at 0 leaves
+// OnOpenText[0x109A] and VB_FAIL_FISHERMAN_JUMPING_GAME armed. Clear a 0 reading before baseline/reset.
+template <typename H> size_t GapJumpingGameTargetCount(int32_t forId) {
+    constexpr const char* key = "gEnhancements.Minigames.FishermanJumpingGame.TargetScore";
+    if (CVarGetInteger(key, -1) == 0) {
+        CVarClear(key);
+        ShipInit::Init(key);
+    }
+    return SettledCountForId<H>(forId);
+}
+
+#define GAP_JUMPING_GAME_TARGET_COUNT(hook, id) []() { return GapJumpingGameTargetCount<GameInteractor::hook>(id); }
+
 const std::vector<SkipKeyProbe>& KeyGapProbes() {
     static const std::vector<SkipKeyProbe> probes = {
         { "gSettings.A11yNoScreenFlashForFinishingBlow",
@@ -1711,6 +1724,41 @@ const std::vector<SkipKeyProbe>& KeyGapProbes() {
           "Epona Boost",
           { { "VB_CONSUME_EPONA_CARROT (Cheats/InfiniteEponaCarrots.cpp)", GAP_VB_COUNT(VB_CONSUME_EPONA_CARROT),
               1 } } },
+        // #1755: five small MM options (SkipMiscInteractions stays off around AlwaysShowShrineFeathers).
+        { "gEnhancements.Items.PictoBoxOnCUp",
+          "Picto Box on C-Up",
+          { { "VB_FIRST_PERSON_CAMERA (Items/PictoBoxOnCUp.cpp)", GAP_VB_COUNT(VB_FIRST_PERSON_CAMERA), 1 } } },
+        { "gEnhancements.Timesavers.AlwaysShowShrineFeathers",
+          "Always Show Shrine of Truth Feathers",
+          { { "OnActorInit[EN_OWL] (Timesavers/AlwaysShowShrineFeathers.cpp)",
+              GAP_HOOK_COUNT(OnActorInit, ACTOR_EN_OWL), 1 },
+            { "OnActorUpdate[EN_OWL] (Timesavers/AlwaysShowShrineFeathers.cpp)",
+              GAP_HOOK_COUNT(OnActorUpdate, ACTOR_EN_OWL), 1 },
+            { "VB_OWL_SPAWN_FEATHER (Timesavers/AlwaysShowShrineFeathers.cpp)", GAP_VB_COUNT(VB_OWL_SPAWN_FEATHER), 1 },
+            { "VB_OWL_DESPAWN_FEATHER (Timesavers/AlwaysShowShrineFeathers.cpp)", GAP_VB_COUNT(VB_OWL_DESPAWN_FEATHER),
+              1 } } },
+        { "gEnhancements.Player.DashAfterRoll",
+          "Dash After Roll",
+          { { "OnPassPlayerInputs, unkeyed (Player/DashAfterRoll.cpp)", GAP_UNKEYED_COUNT(OnPassPlayerInputs), 1 },
+            { "VB_CONSIDER_BUNNY_HOOD_EQUIPPED (Player/DashAfterRoll.cpp)",
+              GAP_VB_COUNT(VB_CONSIDER_BUNNY_HOOD_EQUIPPED), 1 } } },
+        { "gEnhancements.DifficultyOptions.AlwaysFindRockSirloin",
+          "Always Find Rock Sirloin",
+          { { "VB_FIND_ROCK_SIRLOIN (DifficultyOptions/AlwaysFindRockSirloin.cpp)", GAP_VB_COUNT(VB_FIND_ROCK_SIRLOIN),
+              1 } } },
+        { "gEnhancements.Minigames.FishermanJumpingGame.TorchTimeLimit",
+          "Jumping Game Time Limit",
+          { { "VB_JUMPING_GAME_TORCH_RUN_OUT (Minigames/FishermanJumpingGame.cpp)",
+              GAP_VB_COUNT(VB_JUMPING_GAME_TORCH_RUN_OUT), 1 } } },
+        { "gEnhancements.Minigames.FishermanJumpingGame.TargetScore",
+          "Jumping Game Score",
+          { { "VB_FAIL_FISHERMAN_JUMPING_GAME (Minigames/FishermanJumpingGame.cpp)",
+              GAP_JUMPING_GAME_TARGET_COUNT(ShouldVanillaBehavior, VB_FAIL_FISHERMAN_JUMPING_GAME), 1 },
+            { "OnOpenText[0x109A] (Minigames/FishermanJumpingGame.cpp)",
+              GAP_JUMPING_GAME_TARGET_COUNT(OnOpenText, 0x109A), 1 } } },
+        { "gEnhancements.Minigames.FishermanJumpingGame.EarlyWin",
+          "Win Jumping Game Early",
+          { { "VB_JUMPING_GAME_END (Minigames/FishermanJumpingGame.cpp)", GAP_VB_COUNT(VB_JUMPING_GAME_END), 1 } } },
     };
     return probes;
 }

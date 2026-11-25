@@ -765,6 +765,11 @@ main() {
         # 2Ship #1989: Hot Water Never Cools (Items/HotWaterNeverCools.cpp), in lib2ship_enh_registrars.a. No OoT twin
         # of the name (grep games/oot).
         "RegisterHotWaterNeverCools()"
+        # #1755 (2Ship #1558, #1944): PictoBoxOnCUp and AlwaysFindRockSirloin, in lib2ship_enh_registrars.a. No OoT
+        # twin of either name (grep games/oot). The other three #1755 TUs use static/lambda registrars and are probed
+        # in MMRegistrarCoverage and MMSmallOptions1755.
+        "RegisterPictoBoxOnCUp()"
+        "RegisterAlwaysFindRockSirloin()"
     )
     local sym
     for sym in "${required_mm_registrars[@]}"; do
