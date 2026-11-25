@@ -894,12 +894,16 @@ TestResult SharedSunSariaMerge_Run(void) {
         item.originGame = (uint8_t)GAME_MM;
         item.id = (uint16_t)MM_SharedSunSariaTest_PoolId(0);
         const int ootOff = OoT_CreditSharedPickup(&item);
+        // Read OoT BEFORE MM is armed: MM_SharedSwordTest_ArmLive wipes the save
+        // buffer both games share, so a later read would see 0 whatever OoT's
+        // credit did.
+        const int ootOffHeld = OoT_SharedSunSariaTest_Held(0);
         MM_SharedSwordTest_ArmLive();
         item.originGame = (uint8_t)GAME_OOT;
         item.id = (uint16_t)OoT_SharedSunSariaTest_PoolId(1);
         const int mmOff = MM_CreditSharedPickup(&item);
-        SSR_CHECK(ootOff == 0 && mmOff == 0 && OoT_SharedSunSariaTest_Held(0) == 0 &&
-                      MM_SharedSunSariaTest_Held(1) == 0 && Combo_SharedFamilies2Owned() == 0u,
+        SSR_CHECK(ootOff == 0 && mmOff == 0 && ootOffHeld == 0 && MM_SharedSunSariaTest_Held(1) == 0 &&
+                      Combo_SharedFamilies2Owned() == 0u,
                   "(8) with both rules off a far copy was credited (OoT %d, MM %d) instead of crossing", ootOff, mmOff);
     }
 

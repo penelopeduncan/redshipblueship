@@ -64,7 +64,9 @@ extern "C" int MM_GameOverReviveTest_StateReviveWaitFairy(void) {
 
 /** MM's live save as a cross-game MM session runs it: the 0xFF "no flash slot"
  *  sentinel and GAMEMODE_NORMAL (the gate MM_SaveIsLiveFile reads), with the
- *  given current health and health capacity. Everything else zero. */
+ *  given current health and health capacity. Everything else zero. It wipes the
+ *  live save buffer both games share (src/common/unified_save.c), so a read of
+ *  OoT's live state must come before it. */
 extern "C" void MM_GameOverReviveTest_ArmLive(int16_t health, int16_t capacity) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0xFF;

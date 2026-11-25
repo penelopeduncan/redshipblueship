@@ -1190,6 +1190,9 @@ TestResult Test_SharedSongsOffJunkGive(void) {
         SsSetThreeSongHeldMM(s, 1);
         MM_HarvestSharedResources();
         SsSetThreeSongHeldMM(s, 0);
+        // OoT runs now: arm OoT's own save. MM's ArmLive wiped the buffer both games
+        // share, and OoT's live probe would otherwise read OoT's fields from MM's.
+        OoT_SharedSwordTest_ArmLive();
         Context_SetCurrentGame(GAME_OOT);
         SS_CHECK(Combo_SharedSongOffGiveBecomesJunk(GAME_OOT, ootId, RSBS_SONG_SPOTS_OFF, false),
                  "(2) %s harvested from MM did not convert OoT's default check to junk", kSsOneCopySongs[s].itemName);

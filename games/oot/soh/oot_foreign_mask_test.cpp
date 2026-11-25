@@ -64,7 +64,9 @@ extern "C" void OoT_ForeignMaskTest_DropAtNextInit(void) {
     OoT_ForeignMask_DropAtNextInit();
 }
 
-/** OoT's live save as a real loaded child file (GAMEMODE_NORMAL), all else zero. */
+/** OoT's live save as a real loaded child file (GAMEMODE_NORMAL), all else zero.
+ *  It wipes the live save buffer both games share (src/common/unified_save.c), so
+ *  a read of MM's live state must come before it. */
 extern "C" void OoT_ForeignMaskTest_ArmLive(void) {
     sFmAdultMayWear = 0;
     std::memset(&gSaveContext, 0, sizeof(SaveContext));

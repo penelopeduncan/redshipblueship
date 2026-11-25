@@ -89,7 +89,8 @@ extern SaveContext gSaveContext;
  *  requires before the harvest or a pickup credit does anything), every item
  *  slot at ITEM_NONE as a real save's are (a zeroed slot reads as item 0, which
  *  MM_EnsureInventoryItem treats as occupied), everything else zero, the rando
- *  check table included. */
+ *  check table included. It wipes the live save buffer both games share
+ *  (src/common/unified_save.c), so a read of OoT's live state must come before it. */
 extern "C" void MM_SharedTierTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE, sizeof(gSaveContext.save.saveInfo.inventory.items));
