@@ -2199,6 +2199,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
 
+    # #1737 (SoH 2af5d2112 #6322): Reworked Targeting. Enhancements/ReworkedTargeting.cpp answers
+    # VB_TOGGLE_Z_TARGET_SWITCH_TARGETS and VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION only while the setting is on. The row
+    # runs that registrar out of ShipInit's map, then the REAL GameInteractor_Should dispatch with a fake
+    # OoT_gPlayState: off -> vanilla; on with a focus actor -> a plain Z press un-targets; the configured button combo
+    # (R) with a next target switches, with none does not; off again -> vanilla. Display-free and ROM-free.
+    redship_add_test(NAME OoTCameraTargetingOptions COMMAND redship --test oot-camera-targeting-options)
+
     # #1741: the pre-#1740 Cosmetics Editor left D-pad mapping ids on the four
     # custom ocarina-note buttons' saved id lists. The row builds that state in
     # the CVar store and runs the start-up clean-up: the stray ids go, the
@@ -2231,6 +2238,15 @@ if(BUILD_TESTING)
     # #1588: OoT infinite-magic and Barinade rematch-intro VB boundary (source leg +
     # RandomizerOnVanillaBehaviorHandler + RemoveAllQueuedHooks). Display-free and ROM-free.
     redship_add_test(NAME OoTVanillaMagicBoundary COMMAND redship --test oot-vanilla-magic-boundary)
+
+    # #1747 (SoH 6606eefbf #6138, ef014a35e #6663, 3250cc27f #6569, 0ed782ddc
+    # #7023, a629af2e9 #6604): the five QoL options' registrars run out of
+    # ShipInit's map under each key, then the REAL GameInteractor_Should
+    # dispatch: Goron Pot spin, heat haze, Saria's gesture in her house,
+    # dropping throw-only actors (and z_player.c's
+    # OoT_Player_CanThrowCarriedActor), roll chaining and roll steering.
+    # Display-free and ROM-free.
+    redship_add_test(NAME OoTQolOptions1747 COMMAND redship --test oot-qol-options-1747)
 
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.
