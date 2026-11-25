@@ -312,8 +312,11 @@ static_assert(RANDO_INF_OBTAINED_CHILD_WALLET == 80 && RANDO_INF_OBTAINED_BOMBCH
 static_assert(RO_PLACEMENT_STRAY_FAIRIES_OTHER == 64,
               "MM's #1548 stray-fairy split option is id 64, after RO_SHUFFLE_SONG_SARIA");
 // #1574 made Hookshot Anywhere id 65, after RO_PLACEMENT_STRAY_FAIRIES_OTHER.
-static_assert(RO_HOOKSHOT_ANYWHERE == 65 && RO_SHUFFLE_OCARINA == 66 && RO_MAX == 67,
+static_assert(RO_HOOKSHOT_ANYWHERE == 65 && RO_SHUFFLE_OCARINA == 66,
               "MM's Shuffle Ocarina option is id 66, after RO_HOOKSHOT_ANYWHERE");
+// #1754: the Song of Soaring and Bank Reward hint options are ids 67 and 68, after RO_SHUFFLE_OCARINA.
+static_assert(RO_HINTS_SONG_OF_SOARING == 67 && RO_HINTS_BANK_SIGN == 68 && RO_MAX == 69,
+              "MM's #1754 hint options are ids 67 and 68, after RO_SHUFFLE_OCARINA");
 // THE LAYOUT PINS (src/common/save_layout_pins.h): 0 until measured, then exact.
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_SAVE_CONTEXT_SIZEOF, sizeof(SaveContext));
 RSBS_LAYOUT_PIN_ASSERT(RSBS_PIN_MM_RANDO_SAVE_INFO_SIZEOF, sizeof(RandoSaveInfo));

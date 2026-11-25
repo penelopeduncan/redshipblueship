@@ -36,6 +36,8 @@
 #include <string>
 #include <vector>
 
+#include <libultraship/bridge/consolevariablebridge.h>
+
 #include "2s2h/CustomMessage/CustomMessage.h"
 #include "2s2h/ShipUtils.h"
 #include "Rando/ActorBehavior/ActorBehavior.h" // MarkCheckSeen, ShopOfferedItemName
@@ -158,6 +160,18 @@ const MmFixedSource kMmFixedSources[] = {
       { RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM, RC_UNKNOWN },
       RO_MAX,
       COMBO_AREA_NONE },
+    { RSBS_MM_HINT_SRC_SONG_OF_SOARING,
+      "Engraving (Song of Soaring)",
+      RI_SONG_SOARING,
+      { RC_UNKNOWN, RC_UNKNOWN },
+      RO_HINTS_SONG_OF_SOARING,
+      COMBO_AREA_MM_SOUTHERN_SWAMP },
+    { RSBS_MM_HINT_SRC_BANK_REWARD,
+      "Bank Sign (Bank Reward)",
+      RI_UNKNOWN,
+      { RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART, RC_UNKNOWN },
+      RO_HINTS_BANK_SIGN,
+      COMBO_AREA_NONE },
 };
 
 static_assert(sizeof(kMmFixedSources) / sizeof(kMmFixedSources[0]) ==
@@ -272,6 +286,19 @@ std::string BombShopItemPhrase(const RandoSaveCheck* checks, Rando::HintSources:
     return Rando::ActorBehavior::ShopOfferedItemName(rc, nativeName, true);
 }
 
+/** The Bank Sign line's item phrase (text 0x1C14). Same as BombShopItemPhrase
+ *  without its #1499 UncollectedNamedItem term: PlainItemName for RI_JUNK under
+ *  JunkName::Plain, else GetItemName, both through ShopOfferedItemName so a
+ *  crossed OoT item is named instead of its RI_JUNK cover. */
+std::string BankItemPhrase(const RandoSaveCheck* checks, Rando::HintSources::JunkName junkName) {
+    const RandoCheckId rc = RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART;
+    const RandoItemId item = checks[rc].randoItemId;
+    const std::string nativeName = (junkName == Rando::HintSources::JunkName::Plain && item == RI_JUNK)
+                                       ? PlainItemName(item)
+                                       : Rando::StaticData::GetItemName(item);
+    return Rando::ActorBehavior::ShopOfferedItemName(rc, nativeName, true);
+}
+
 /** A remains poster's boss line, padded as upstream pads it. */
 const char* RemainsBoss(uint16_t source) {
     switch (source) {
@@ -363,6 +390,27 @@ std::string BuildFixedText(const MmFixedSource& row, const RandoSaveCheck* check
                 "If nothing devastating happens to Mommy tonight, we should be able to sell %r{{itemName}}%w.\x19\xA8";
             const std::string itemName = BombShopItemPhrase(checks, junkName);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);
+            break;
+        }
+        case RSBS_MM_HINT_SRC_SONG_OF_SOARING:
+            // EnTimeTag.cpp, text 0xC02.
+            msg = "A note is carved into the stone...\x10What you seek lies " RANDO_HINT_PREPOS(
+                "in") " %y{{location}}%w.";
+            Rando::HintArea::ReplaceItemLocation(checks, &msg, "{{location}}", RI_SONG_SOARING);
+            break;
+        case RSBS_MM_HINT_SRC_BANK_REWARD: {
+            // BankSignHint.cpp, text 0x1C14.
+            const bool useCustomThresholds =
+                CVarGetInteger("gEnhancements.DifficultyOptions.LowerBankRewardThresholds", 0) != 0;
+            const std::string threshold = useCustomThresholds ? "1000" : "5000";
+            msg = "%gSpecial Promotion!%w\n"
+                  "Deposit %r" +
+                  threshold +
+                  " Rupees%w in your account and "
+                  "receive %g{{item}}%w!\n"
+                  "-Clock Town Bank";
+            const std::string itemName = BankItemPhrase(checks, junkName);
+            CustomMessage::Replace(&msg, "{{item}}", itemName);
             break;
         }
         default:
@@ -510,7 +558,9 @@ std::string Rando::HintSources::FixedText(uint16_t source, const RandoSaveCheck*
         }
         for (const RandoCheckId check : row->checks) {
             if (check != RC_UNKNOWN) {
-                AddCheckItem(out, checks, check, row->source == RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK);
+                AddCheckItem(out, checks, check,
+                             row->source == RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK ||
+                                 row->source == RSBS_MM_HINT_SRC_BANK_REWARD);
             }
         }
         (void)Combo_HintResolutionSetText(out, msg.c_str());
@@ -662,6 +712,8 @@ extern "C" void MM_HintSources_TestAuthorSave(void* image, uint32_t finalSeed, i
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_OATH_TO_ORDER] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_HOOKSHOT] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_SPIDER_HOUSES] = on;
+    save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_SONG_OF_SOARING] = on;
+    save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_BANK_SIGN] = on;
     save->save.shipSaveInfo.rando.randoSaveOptions[RO_HINTS_PURCHASEABLE] = 0;
 }
 
@@ -883,6 +935,27 @@ extern "C" int MM_HintSources_TestLegacyFixedText(uint16_t source, char* out, in
             const std::string itemName =
                 Rando::ActorBehavior::ShopOfferedItemName(stockCheck, Rando::StaticData::GetItemName(named), true);
             CustomMessage::Replace(&msg, "{{itemName}}", itemName);
+            break;
+        }
+        case RSBS_MM_HINT_SRC_SONG_OF_SOARING:
+            msg = "A note is carved into the stone...\x10What you seek lies " RANDO_HINT_PREPOS(
+                "in") " %y{{location}}%w.";
+            Rando::HintArea::ReplaceItemLocation(&msg, "{{location}}", RI_SONG_SOARING);
+            break;
+        case RSBS_MM_HINT_SRC_BANK_REWARD: {
+            const bool useCustomThresholds =
+                CVarGetInteger("gEnhancements.DifficultyOptions.LowerBankRewardThresholds", 0) != 0;
+            const std::string threshold = useCustomThresholds ? "1000" : "5000";
+            msg = "%gSpecial Promotion!%w\n"
+                  "Deposit %r" +
+                  threshold +
+                  " Rupees%w in your account and "
+                  "receive %g{{item}}%w!\n"
+                  "-Clock Town Bank";
+            const RandoCheckId bankCheck = RC_CLOCK_TOWN_WEST_BANK_PIECE_OF_HEART;
+            const std::string itemName = Rando::ActorBehavior::ShopOfferedItemName(
+                bankCheck, Rando::StaticData::GetItemName(RANDO_SAVE_CHECKS[bankCheck].randoItemId), true);
+            CustomMessage::Replace(&msg, "{{item}}", itemName);
             break;
         }
         default:

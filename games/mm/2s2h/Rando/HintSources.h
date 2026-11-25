@@ -4,7 +4,8 @@
  *
  * Single-exe only. MM's hints are made where they are read: a gossip stone in
  * its textbox hook (ActorBehavior/EnGs.cpp), each fixed-location hint in its
- * own (EnTalk, DmStk, EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA). This is the one
+ * own (EnTalk, DmStk, EnZow, EnKgy, EnSsh, EnElfgrp, EnGirlA, EnTimeTag,
+ * BankSignHint). This is the one
  * place that says, for every source of src/common's combo_hint_view.h
  * (RSBS_MM_HINT_SRC_*), what it says in a given world, and it is the code those
  * hooks run: a hook builds its text with FixedText (or, for a stone, EnGs.cpp's
@@ -20,14 +21,15 @@
  * THE ONE DELIBERATE DIFFERENCE (JunkName). MM names its own junk padding
  * (RI_JUNK) "Junk (<junk item>)" (Rando::StaticData::GetItemName), and the
  * suffix is Rando::CurrentJunkItem's pick: drawn from MM's global stream, checked
- * against MM's live save, cached for 20 frames. The only hint text that can name
- * it is the Bomb Shop's next-stock line, when its slot holds MM's own RI_JUNK
- * (junk filled there, or the check skipped or excluded). Its hook keeps main's
- * expression (JunkName::Textbox) so the textbox and the stream are byte for byte
- * main's; the resolver names that item "Junk" (JunkName::Plain), so the tracker
- * reads the same text without the frame's suffix. A slot whose OoT item crossed
- * also holds RI_JUNK, as a cover: both forms name the OoT item there, and the
- * resolver never asks GetItemName about the cover.
+ * against MM's live save, cached for 20 frames. The only hint texts that can name
+ * it are the Bomb Shop's next-stock line and the West Clock Town bank sign, when
+ * their slot holds MM's own RI_JUNK (junk filled there, or the check skipped or
+ * excluded). Their hooks keep upstream's expression (JunkName::Textbox) so the
+ * textbox and the stream match upstream byte for byte; the resolver names that
+ * item "Junk" (JunkName::Plain), so the tracker reads the same text without the
+ * frame's suffix. A slot whose OoT item crossed also holds RI_JUNK, as a cover:
+ * both forms name the OoT item there, and the resolver never asks GetItemName
+ * about the cover.
  *
  * THE READ HOOK. MarkRead is called by each hook as it shows a source's hint:
  * it sets the source's bit in the combo save record (ComboContext.mmHintsRead)
@@ -73,24 +75,26 @@ bool ResolveStone(const RandoSaveCheck* checks, uint32_t finalSeed, int index, C
 // ---- The fixed-location hints (HintSourcesSingleExe.cpp) ----
 
 /** How FixedText names MM's own junk padding (RI_JUNK); see THE ONE DELIBERATE
- *  DIFFERENCE above. Only the Bomb Shop's next-stock line can name it. */
+ *  DIFFERENCE above. Only the Bomb Shop's next-stock line and the bank sign can
+ *  name it. */
 enum class JunkName : uint8_t {
     // "Junk": a pure function of the world. The resolver's, and every hook's but
-    // the Bomb Shop's.
+    // the Bomb Shop's and the bank sign's.
     Plain,
     // GetItemName's "Junk (<junk item>)", the suffix drawn by
-    // Rando::CurrentJunkItem from MM's global stream: the Bomb Shop hook's,
-    // main's expression call for call.
+    // Rando::CurrentJunkItem from MM's global stream: the Bomb Shop and bank
+    // sign hooks' form, upstream's expression call for call.
     Textbox,
 };
 
 /**
  * The message fixed source `source` (RSBS_MM_HINT_SRC_REMAINS_ODOLWA ..
- * RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK) shows, built from `checks` exactly as its
+ * RSBS_MM_HINT_SRC_BANK_REWARD) shows, built from `checks` exactly as its
  * textbox hook builds it (before colours and line breaks), and, when `out` is
  * non-NULL, the resolution (type FIXED, the item(s) and check(s) it names, the
  * areas its text names, the text). "" for a source that is not fixed. With
- * `junkName` Plain (the default) it is pure; Textbox is the Bomb Shop hook's form.
+ * `junkName` Plain (the default) it is pure; Textbox is the Bomb Shop and bank
+ * sign hooks' form.
  */
 std::string FixedText(uint16_t source, const RandoSaveCheck* checks, ComboHintResolution* out,
                       JunkName junkName = JunkName::Plain);

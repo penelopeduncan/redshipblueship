@@ -121,8 +121,9 @@ std::string PairedInputSeedString() {
  *  placements (#1361, #1548) at RO_DUNGEON_ITEM_ANYWHERE, the song placement
  *  (#1362) at RO_SONG_SHUFFLE_ANYWHERE, Shuffle Wonder Items (#1406), hive
  *  drops (#1410), butterflies (#1407), the #1403 pool/song rows, Hookshot
- *  Anywhere (#1574, RO_HOOKSHOT_ANYWHERE_OFF) and Shuffle Ocarina (#1671,
- *  RO_GENERIC_NO) at 0, theirs. */
+ *  Anywhere (#1574, RO_HOOKSHOT_ANYWHERE_OFF), Shuffle Ocarina (#1671,
+ *  RO_GENERIC_NO), and the Song of Soaring and Bank Reward hints (#1754,
+ *  RO_GENERIC_OFF) at 0, theirs. */
 static bool IsAppendedOption(RandoOptionId randoOptionId) {
     return randoOptionId == RO_SHUFFLE_TREE_DROPS || randoOptionId == RO_SHOP_PRICES ||
            randoOptionId == RO_TINGLE_PRICES || randoOptionId == RO_PLACEMENT_BOSS_KEYS ||
@@ -133,7 +134,8 @@ static bool IsAppendedOption(RandoOptionId randoOptionId) {
            randoOptionId == RO_SKULLTULA_SHUFFLED || randoOptionId == RO_STRAY_FAIRIES_MAX ||
            randoOptionId == RO_SHUFFLE_SONG_DOUBLE_TIME || randoOptionId == RO_SHUFFLE_SONG_INVERTED_TIME ||
            randoOptionId == RO_SHUFFLE_SONG_SUN || randoOptionId == RO_SHUFFLE_SONG_SARIA ||
-           randoOptionId == RO_HOOKSHOT_ANYWHERE || randoOptionId == RO_SHUFFLE_OCARINA;
+           randoOptionId == RO_HOOKSHOT_ANYWHERE || randoOptionId == RO_SHUFFLE_OCARINA ||
+           randoOptionId == RO_HINTS_SONG_OF_SOARING || randoOptionId == RO_HINTS_BANK_SIGN;
 }
 
 /** #1403/#1548: whether 0 in an appended option's persisted slot means "not yet

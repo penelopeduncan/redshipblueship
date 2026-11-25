@@ -15,7 +15,7 @@
  *
  *   - THE SOURCES. Every MM hint source has a stable id (RSBS_MM_HINT_SRC_*
  *     below): the 58 gossip-stone placements in EnGs.cpp's kMmGossipStones order,
- *     then MM's 16 fixed-location hints. A stone placed in two scene versions
+ *     then MM's 18 fixed-location hints. A stone placed in two scene versions
  *     (the Southern Swamp poisoned and cleared, Mountain Village in winter and
  *     spring) is a separate row of that table with its own scene id, so its own
  *     stone seed and its own hint: the two versions are two sources, keyed by
@@ -93,7 +93,11 @@ enum {
     RSBS_MM_HINT_SRC_FAIRY_IKANA = 72,
     // The Bomb Shop's "we should be able to sell" line (EnGirlA.cpp, 0x648).
     RSBS_MM_HINT_SRC_BOMB_SHOP_STOCK = 73,
-    RSBS_MM_HINT_SRC_COUNT = 74
+    // The Southern Swamp Song of Soaring engraving (EnTimeTag.cpp, 0xC02).
+    RSBS_MM_HINT_SRC_SONG_OF_SOARING = 74,
+    // The West Clock Town bank sign (BankSignHint.cpp, 0x1C14).
+    RSBS_MM_HINT_SRC_BANK_REWARD = 75,
+    RSBS_MM_HINT_SRC_COUNT = 76
 };
 
 // ============================================================================

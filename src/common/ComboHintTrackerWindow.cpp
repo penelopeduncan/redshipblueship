@@ -414,6 +414,7 @@ bool ComboHintMMFixedNamesArea(uint16_t source) {
         case RSBS_MM_HINT_SRC_OATH:
         case RSBS_MM_HINT_SRC_HOOKSHOT:
         case RSBS_MM_HINT_SRC_GOLD_DUST:
+        case RSBS_MM_HINT_SRC_SONG_OF_SOARING:
             return true;
         default:
             return false;
