@@ -22,6 +22,7 @@ void MM_EnGirlA_SetupAction(EnGirlA* enGirlA, EnGirlAActionFunc action);
 #include "2s2h/Rando/Foreign.h"
 #include "2s2h/Rando/ForeignModel.h"
 #include "2s2h/Rando/HintSources.h" // #1475: the hint tracker's resolver and read hook
+#include "2s2h/Rando/StickNutBagGate.h" // #1788: MM_Combo_ShelfItemLocked
 #endif
 
 #define RANDO_DESC_TEXT_ID 0x083F
@@ -76,6 +77,12 @@ bool Rando::ActorBehavior::ShopShelfSlotSold(RandoCheckId rc) {
     if (Rando::Foreign::IsForeignCheck(rc)) {
         return Rando::Foreign::IsDeliveredForeignHost(rc);
     }
+    // #1788: a shelf locked behind its bag stays stocked, showing its item; asked
+    // before the junk test, so a v0.5.3-alpha shelf that already sold junk in its
+    // place shows its item again.
+    if (Rando::ActorBehavior::ShopShelfLocked(rc)) {
+        return false;
+    }
     // #1499: a slot that resolves to junk (its item already owned, or junk itself)
     // sells that junk once. RI_JUNK is always obtainable, so the test below never
     // empties such a slot and it would sell forever.
@@ -94,10 +101,38 @@ bool Rando::ActorBehavior::JunkSlotSpent(RandoCheckId rc) {
            Rando::ConvertItem(randoSaveCheck.randoItemId, rc) == RI_JUNK;
 }
 
+// #1788: as OoTMM's shop asks comboItemPrecond (common/shop.c Shop_Precond), a
+// shelf whose item the pair's bag holds out shows that item and refuses the sale.
+// A native host asks MM_Combo_ShelfItemLocked of its PLACED item, never
+// ConvertItem's answer (junk while the gate is closed); a host of an OoT item asks
+// the OoT item's bag.
+bool Rando::ActorBehavior::ShopShelfLocked(RandoCheckId rc) {
+    if (rc <= RC_UNKNOWN || rc >= RC_MAX) {
+        return false;
+    }
+    if (Rando::Foreign::IsForeignCheck(rc)) {
+        return Rando::Foreign::ForeignShelfItemLocked(rc);
+    }
+    return MM_Combo_ShelfItemLocked((uint16_t)RANDO_SAVE_CHECKS[rc].randoItemId) != 0;
+}
+
 RandoItemId Rando::ActorBehavior::ShopShelfItem(RandoCheckId rc) {
+    if (Rando::ActorBehavior::ShopShelfLocked(rc)) {
+        return RANDO_SAVE_CHECKS[rc].randoItemId; // #1788: the real item, shown and refused
+    }
     return Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc);
 }
 #endif
+
+// The item a shop line names for shelf `rc` (text 0x660 below). The hook calls
+// this in both builds: a directive is ill-formed inside a COND_ID_HOOK argument.
+static RandoItemId EnGirlA_RandoShelfItemId(RandoCheckId rc) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    return Rando::ActorBehavior::ShopShelfItem(rc);
+#else
+    return Rando::ConvertItem(RANDO_SAVE_CHECKS[rc].randoItemId, rc);
+#endif
+}
 
 bool Rando::ActorBehavior::HagsMushroomSlotArmable() {
     const RandoSaveCheck& randoSaveCheck = RANDO_SAVE_CHECKS[RC_HAGS_POTION_SHOP_ITEM_01];
@@ -111,6 +146,12 @@ bool Rando::ActorBehavior::HagsMushroomSlotArmable() {
     if (Rando::Foreign::IsDeliveredForeignHost(RC_HAGS_POTION_SHOP_ITEM_01)) {
         return false;
     }
+    // #1788: a slot locked behind its bag is not made into a gift of junk; the
+    // line settles the free blue potion instead, and the slot is sold as a shelf,
+    // refused until the bag, as OoTMM's shop sells it (common/shop.c).
+    if (Rando::ActorBehavior::ShopShelfLocked(RC_HAGS_POTION_SHOP_ITEM_01)) {
+        return false;
+    }
 #endif
     return true;
 }
@@ -121,9 +162,10 @@ bool Rando::ActorBehavior::HagsMushroomLineArms() {
     }
 #ifdef RSBS_SINGLE_EXECUTABLE
     // #1228: the line does not re-arm a shuffled slot that is already armed (a
-    // crossing the full outbox holds stays `eligible` across the reset, #1222) or
-    // whose OoT item already crossed (#800), but the free blue potion the arming
-    // path settles below must be settled here too. Left clear, the next visit's
+    // crossing the full outbox holds stays `eligible` across the reset, #1222),
+    // whose OoT item already crossed (#800) or whose item is locked behind its bag
+    // (#1788), but the free blue potion the arming path settles below must be
+    // settled here too. Left clear, the next visit's
     // blue-potion shelf answers EnTrt's free-potion line 0x881 (z_en_trt.c
     // EnTrt_GetItemChoiceTextId), whose branch offers the shelf's getItemId and
     // waits on HasParent: a rando shelf has none (GI_NONE, EnGirlA_RandoInit skips
@@ -236,6 +278,12 @@ void EnGirlA_RandoRestock(PlayState* play, EnGirlA* enGirlA) {
 
     RandoCheckId randoCheckId = (RandoCheckId)enGirlA->actor.world.rot.z;
 #ifdef RSBS_SINGLE_EXECUTABLE
+    // #1788: a shelf locked behind its bag stays stocked, showing its item.
+    if (Rando::ActorBehavior::ShopShelfLocked(randoCheckId)) {
+        enGirlA->isOutOfStock = false;
+        enGirlA->actor.draw = EnGirlA_RandoDrawFunc;
+        return;
+    }
     // #1499: a slot that sold the junk its item resolves to stays empty.
     if (Rando::ActorBehavior::JunkSlotSpent(randoCheckId)) {
         return;
@@ -248,6 +296,15 @@ void EnGirlA_RandoRestock(PlayState* play, EnGirlA* enGirlA) {
 }
 
 s32 EnGirlA_RandoCanBuyFunc(PlayState* play, EnGirlA* enGirlA) {
+#ifdef RSBS_SINGLE_EXECUTABLE
+    // #1788: a shelf locked behind its bag (native or foreign) refuses the sale
+    // before the rupee test, as OoTMM's comboItemPrecond (item.c) and the vanilla
+    // gated shelf (z_en_girla.c EnGirlA_CanBuyStick) do. Asked live on every
+    // attempt, so the bag found in the shop opens the next one.
+    if (Rando::ActorBehavior::ShopShelfLocked((RandoCheckId)enGirlA->actor.world.rot.z)) {
+        return CANBUY_RESULT_CANNOT_GET_NOW;
+    }
+#endif
     if (gSaveContext.save.saveInfo.playerData.rupees < play->msgCtx.unk1206C) {
         return CANBUY_RESULT_NEED_RUPEES;
     }
@@ -288,6 +345,11 @@ s32 EnGirlA_RandoCanBuyFunc(PlayState* play, EnGirlA* enGirlA) {
 void EnGirlA_RandoBuyFunc(PlayState* play, EnGirlA* enGirlA) {
     auto& randoSaveCheck = RANDO_SAVE_CHECKS[enGirlA->actor.world.rot.z];
 #ifdef RSBS_SINGLE_EXECUTABLE
+    // #1788: the defense behind canBuy's refusal: a locked shelf crosses, credits,
+    // charges and gives nothing.
+    if (Rando::ActorBehavior::ShopShelfLocked((RandoCheckId)enGirlA->actor.world.rot.z)) {
+        return;
+    }
     // #800: a slot hosting an OoT item hands it to the shared structure through
     // the same foreign give a chest's pickup uses (CheckQueue.cpp), which also
     // marks the slot delivered. The shop keeps its own purchase dialogue, as for
@@ -667,14 +729,12 @@ void Rando::ActorBehavior::InitEnGirlABehavior() {
     // Bomb Shop "I thought we could finally sell"
     COND_ID_HOOK(OnOpenText, 0x660, IS_RANDO, [](u16* textId, bool* loadFromMessageTable) {
         Rando::ActorBehavior::MarkCheckSeen(RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM, RCSEEN_SEEN);
-        auto randoSaveCheck = RANDO_SAVE_CHECKS[RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM];
 
         auto entry = CustomMessage::LoadVanillaMessageTableEntry(*textId);
         entry.msg = "It's over... Now we'll never sell %r{{itemName}}%w...\x19\xA8";
         const std::string itemName = Rando::ActorBehavior::ShopOfferedItemName(
             RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM,
-            Rando::StaticData::GetItemName(
-                Rando::ConvertItem(randoSaveCheck.randoItemId, RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM)),
+            Rando::StaticData::GetItemName(EnGirlA_RandoShelfItemId(RC_BOMB_SHOP_ITEM_04_OR_CURIOSITY_SHOP_ITEM)),
             true);
         CustomMessage::Replace(&entry.msg, "{{itemName}}", itemName);
 

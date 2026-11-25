@@ -673,9 +673,11 @@ int sCounterClamps = 0; // copies a clamp absorbed; the lock reads it
  * or more it changes nothing: MM's logic reads sticks and nuts only as HAS_ITEM
  * (Logic.h), never their tier, and MM has one capacity step. A paired MM half is
  * born at tier 0 under the frozen shuffle (#1652 A1, MM_Combo_ApplyPairedBagBirth,
- * the round's starting save), and until the credit arrives its stick and nut hosts
- * give junk (ConvertItem.cpp) and its give refuses them, so this is the only thing
- * that opens a stick- or nut-gated check. With the shuffle off the half is born at
+ * the round's starting save), and until the credit arrives its stick and nut shop
+ * shelves refuse the sale (#1788), its other stick and nut hosts give junk
+ * (ConvertItem.cpp) and its give refuses them: each yields nothing to the round,
+ * which is what MmGiveOneCopy's GiveItem(ConvertItem(...)) models, so this is the
+ * only thing that opens a stick- or nut-gated check. With the shuffle off the half is born at
  * tier 1 and the stand-in is never credited (Combo_SharedCreditStandIn).
  *
  * It writes gSaveContext directly, NOT through MM_Item_Give: A1's refusal of

@@ -5857,6 +5857,20 @@ extern "C" int MM_Combo_GetItemGated(int16_t getItemId) {
     }
 }
 
+extern "C" int MM_Combo_ShelfItemLocked(uint16_t riId) {
+    switch ((RandoItemId)riId) {
+        case RI_DEKU_STICK:
+        case RI_DEKU_STICKS_5:
+            return MM_Combo_StickGated();
+        case RI_DEKU_NUT:
+        case RI_DEKU_NUTS_5:
+        case RI_DEKU_NUTS_10:
+            return MM_Combo_NutGated();
+        default:
+            return 0;
+    }
+}
+
 extern "C" void MM_Combo_ApplyPairedBagBirth(void) {
     // Born without the bag: tier 0, no item, no ammo. OoT's half under the same
     // option starts the same way (OoT's own new save under the shuffle).

@@ -19,6 +19,8 @@
 // (ForeignItemsSingleExe.cpp, ForeignModelHostOoT.cpp).
 s32 OoT_Rando_Foreign_HostsForeign(u16 rc);
 s32 OoT_Rando_Foreign_HostCollected(u16 rc);
+// #1788: the shelf hosts an MM stick or nut pack the pair's bag holds out.
+s32 OoT_Rando_ShopShelfForeignLocked(u16 rc);
 s32 OoT_ForeignModel_DrawForOoTCheck(PlayState* play, u16 rc);
 // #1482 / #1547: a bought shuffled shelf sells its item again when OoTMM restocks
 // it (ShopRestockSingleExe.cpp), and bottled potion/milk shelves restock as
@@ -891,6 +893,13 @@ s32 EnGirlA_CanBuy_Randomizer(PlayState* play, EnGirlA* this) {
     }
 
 #ifdef RSBS_SINGLE_EXECUTABLE
+    // #1788: an MM stick or nut pack on this shelf is refused before the pair's
+    // bag the same way OoT's own pack is (above): shown, and not sold. The placed
+    // item is OoT's junk cover, so the obtainability above cannot see it.
+    if (OoT_Rando_ShopShelfForeignLocked(shopItemIdentity.identity.randomizerCheck)) {
+        return CANBUY_RESULT_CANT_GET_NOW_5;
+    }
+
     // #1482: a bought shelf whose item OoTMM restocks sells it again (state 0).
     // The refusals around this one are asked of that item (it is the placed
     // item), and a sale that would add nothing (state 2: ammo at capacity, health
