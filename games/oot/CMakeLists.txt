@@ -879,6 +879,8 @@ else()
 	find_package(Vorbis REQUIRED)
 	find_package(Opus REQUIRED)
 	find_package(OpusFile REQUIRED)
+    # clang doesn't pull libm in transitively the way gcc does, link it explicitly
+    find_library(MATH_LIBRARY m)
  	set(ADDITIONAL_LIBRARY_DEPENDENCIES
         "libultraship;"
 		"ZAPDLib;"
@@ -893,6 +895,9 @@ else()
 		${CMAKE_DL_LIBS}
 		Threads::Threads
 	)
+    if(MATH_LIBRARY)
+        list(APPEND ADDITIONAL_LIBRARY_DEPENDENCIES ${MATH_LIBRARY})
+    endif()
 endif()
 
 if(NOT CMAKE_SYSTEM_NAME MATCHES "Darwin|NintendoSwitch|CafeOS" AND NOT SINGLE_EXECUTABLE_BUILD)
