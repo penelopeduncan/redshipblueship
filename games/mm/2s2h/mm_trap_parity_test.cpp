@@ -29,7 +29,8 @@ extern SaveContext gSaveContext;
  *  wallet of tier 0 (99 rupees), @p healthCapacity and @p health in health units
  *  (0x10 a heart), @p magic, @p rupees and the Chateau Romani's endless magic
  *  when @p chateau. Everything else zero, and the magic machine idle, so the
- *  harvest reads exactly these. */
+ *  harvest reads exactly these. It wipes the live save buffer both games share
+ *  (src/common/unified_save.c), so a read of OoT's live state must come before it. */
 extern "C" void MM_TrapParityTest_ArmLive(int health, int healthCapacity, int magic, int rupees, int chateau) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0xFF;

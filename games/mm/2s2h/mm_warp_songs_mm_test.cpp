@@ -88,7 +88,9 @@ extern "C" int MM_WarpSongsTest_Id(int which) {
 }
 
 /** MM's live save as a cross-game MM session runs it: every slot empty, every
- *  RandoSaveInfo byte zero, human, the 0xFF session fileNum. */
+ *  RandoSaveInfo byte zero, human, the 0xFF session fileNum. It wipes the live
+ *  save buffer both games share (src/common/unified_save.c), so a read of OoT's
+ *  live state must come before it. */
 extern "C" void MM_WarpSongsTest_ArmLive(void) {
     std::memset(&gSaveContext, 0, sizeof(SaveContext));
     std::memset(gSaveContext.save.saveInfo.inventory.items, ITEM_NONE,

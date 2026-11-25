@@ -91,7 +91,8 @@ void MM_Rando_InitCore(void);
  *  sentinel and GAMEMODE_NORMAL, which Combo_SaveIsLiveFile requires before
  *  MM_HarvestSharedResources does anything at all. Everything else zero, so the
  *  harvest offers no other kind a nonzero value and the pool holds only what the
- *  row puts there. */
+ *  row puts there. It wipes the live save buffer both games share
+ *  (src/common/unified_save.c), so a read of OoT's live state must come before it. */
 extern "C" void MM_TriforceHuntTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0xFF;

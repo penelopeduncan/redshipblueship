@@ -701,7 +701,12 @@ TestResult Test_SharedTierPickup(void) {
     }
     MM_SharedTierTest_SetWallet(3, 900); // 100 earned in Termina
     MM_HarvestSharedResources();         // MM departs
-    OoT_ApplySharedResources();          // OoT's next arrival
+    // OoT's next arrival restores the save OoT left (the Tycoon's Wallet holding
+    // 800). Re-arm it: MM_SharedTierTest_ArmLive above wiped the save buffer both
+    // games share, so without this OoT's apply and reads below would run on MM's
+    // bytes and pass only because the apply writes the wiped fields back.
+    OoT_SharedWalletTest_ArmLive(3, 800, 1);
+    OoT_ApplySharedResources(); // OoT's next arrival
     {
         const int rupees = OoT_SharedWalletTest_Rupees();
         printf("[TEST] (J) MM earns to 900 and departs, OoT's arrival: pool %d, OoT tier %d, rupees %d (expected 900, "

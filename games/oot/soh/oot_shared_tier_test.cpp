@@ -31,7 +31,9 @@ extern "C" void OoT_Inventory_ChangeUpgrade(s16 upgrade, s16 value); // GameExpo
  *  slot ITEM_NONE (as a real save's are, so a tier rising from zero has an empty
  *  slot to author the item into), GAMEMODE_NORMAL (what Combo_SaveIsLiveFile
  *  requires before the harvest or a pickup credit does anything), everything
- *  else zero, so the harvest offers no kind a nonzero value. */
+ *  else zero, so the harvest offers no kind a nonzero value. It wipes the live
+ *  save buffer both games share (src/common/unified_save.c), so a read of MM's
+ *  live state must come before it. */
 extern "C" void OoT_SharedTierTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     memset(gSaveContext.inventory.items, ITEM_NONE, sizeof(gSaveContext.inventory.items));

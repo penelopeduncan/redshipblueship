@@ -97,7 +97,9 @@ extern "C" void OoT_Rando_WidenTriforceRequiredOptions(void);
 /** OoT's live save as a real loaded file: GAMEMODE_NORMAL is what
  *  Combo_SaveIsLiveFile requires before OoT_HarvestSharedResources does
  *  anything. Everything else zero, so the harvest offers no other kind a nonzero
- *  value and the pool holds only what the row puts there. */
+ *  value and the pool holds only what the row puts there. It wipes the live save
+ *  buffer both games share (src/common/unified_save.c), so a read of MM's live
+ *  state must come before it. */
 extern "C" void OoT_TriforceHuntTest_ArmLive(void) {
     memset(&gSaveContext, 0, sizeof(SaveContext));
     gSaveContext.fileNum = 0;
