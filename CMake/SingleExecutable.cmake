@@ -5437,6 +5437,30 @@ crossing to refuse (#954).")
         LABEL integration
         TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
         ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
+    # #1587, the in-game rows of stages T (#1808) and A (#1810): the unshared
+    # Minuet row with the Shared Sun's Song and the Shared Saria's Song frozen on
+    # (their keys in memory and the TEST ONLY reveal Combo_ComboItemRules2RevealForTest,
+    # both put back at the verdict; both bits stay inside RSBS_XITEM2_HIDDEN). OoT
+    # is given its own two songs before the Happy Mask Shop door; at PREPARE MM's
+    # arrival apply must have given both (the give record), MM's own rows are
+    # forced on (Foreign.cpp step 2d) and SariasSongHint registered. The drive
+    # then plays the Sun's Song: matched, the played text 0x004B in 0x1B78's box
+    # with stage T's bytes (0x1B7D never seen), SPEED_TIME with R_TIME_SPEED 400,
+    # the clock past 18:00 and the speed put back; then Saria's Song: matched, no
+    # 0x1B95, no restricted mode, no custom text, still owned; then the Minuet,
+    # as the unshared row, and OoT must still hold both songs at the arrival.
+    # Question 3 (blockSunsSong) is recorded only: a same-scene re-arm count, no
+    # crossing inside it. One row for both songs: each costs a whole boot,
+    # generation and creation. About 600 MM frames more than the Minuet row (two
+    # more plays and a speed-up of about 100 frames), so the same 600 s timeout;
+    # MM's frame watchdog gets 3600 frames more for this variant only. A crash
+    # skips the cleanup: clear gCombo.Rando.SharedSongSun, SharedSongSarias and
+    # this row's other keys from the staged config by hand, as for XW14.
+    redship_add_test(NAME IntMMSharedSunSaria
+        COMMAND redship --integration-test int-mm-shared-sun-saria
+        LABEL integration
+        TIMEOUT ${REDSHIP_SOARING_TO_OWL_TIMEOUT}
+        ENVIRONMENT "RSBS_GP_WATCHDOG_SECS=120" "RSBS_GP_FRAMES=300")
     # #1055: every int-paired-first-crossing row generates the same pinned seed,
     # so they share Randomizer/<seed>.json, which each drive clears (and
     # IntPairedFirstCrossingForeignSpoiler plants into) between its generation
@@ -5444,8 +5468,8 @@ crossing to refuse (#954).")
     # parallel ctest -j never interleaves two of them.
     set_tests_properties(IntPairedFirstCrossing IntPairedFirstCrossingDiverged IntPairedFirstCrossingTwoCycles
         IntPairedFirstCrossingForeignSpoiler IntPairedFileSelectIdentity IntSoaringToOwl IntForeignHoldQuit
-        IntMMWarpSongMinuet IntMMShuffleOcarina IntMMWarpSongMinuetShared IntSongHostOoT IntSongHostMM
-        PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
+        IntMMWarpSongMinuet IntMMShuffleOcarina IntMMWarpSongMinuetShared IntMMSharedSunSaria IntSongHostOoT
+        IntSongHostMM PROPERTIES RESOURCE_LOCK rsbs_paired_first_crossing)
 
     # ========================================================================
     # #688 — THE ONE DOCUMENTED RE-PIN COMMAND.
