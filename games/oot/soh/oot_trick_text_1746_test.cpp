@@ -95,7 +95,7 @@ extern "C" int OoT_TrickText1746Test_Run(void) {
 
     sTk1746Failures = 0;
 
-    Rando::Settings* settings = Rando::Settings::GetInstance();
+    const std::shared_ptr<Rando::Settings> settings = Rando::Settings::GetInstance();
     settings->CreateOptions();
     const std::shared_ptr<Rando::Context> randoCtx = OTRGlobals::Instance->gRandoContext;
 
