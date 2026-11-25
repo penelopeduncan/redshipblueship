@@ -4110,6 +4110,15 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # item and hint tables, no seed: default tier.
     # games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
+    # #1746: OoT trick display names, Hard Ground Jumps description, quoted trick
+    # cross-reference and spoiler-log enabledTricks lookup (SoH c021a0e8a,
+    # 692ef416e). Bring-up calls InitOTRForMMFirstBoot because CreateOptions reads
+    # OTRGlobals::Instance (same as MasterSwordRespawn): rando tier.
+    # games/oot/soh/oot_trick_text_1746_test.cpp.
+    redship_add_test(NAME OoTTrickText1746 COMMAND redship --test oot-trick-text-1746
+        LABEL rando
+        TIMEOUT 300
+        ENVIRONMENT "SDL_AUDIODRIVER=dummy;RSBS_DISABLE_OTR_INIT=1")
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font

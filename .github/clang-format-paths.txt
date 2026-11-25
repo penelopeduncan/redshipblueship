@@ -201,6 +201,7 @@ games/oot/soh/oot_room_bg_cam_guard_test.cpp
 games/oot/soh/oot_minigame_options_test.cpp
 games/oot/soh/oot_xml_skeleton_empty_limb_test.cpp
 games/oot/soh/oot_custom_message_text_test.cpp
+games/oot/soh/oot_trick_text_1746_test.cpp
 games/oot/soh/oot_master_sword_respawn_test.cpp
 games/oot/soh/oot_menu_robustness_test.cpp
 games/oot/soh/oot_warp_arrival_test.cpp
