@@ -326,7 +326,7 @@ are INTENTIONAL: they cannot act in the paired game. The Timesavers family keeps
 | `gEnhancements.Timesavers.PowderKegCertification` | Skip Powder Keg Certification (likewise) | (O) |
 | `gEnhancements.Timesavers.SkipBalladOfWindfish` | Skip Ballad of Windfish (likewise) | (O) |
 | `gEnhancements.Timesavers.AutoBankDeposit` | Auto Bank Deposit (likewise) | (O) |
-| `gEnhancements.Saving.PauseSave` | Pause Menu Save (Quality of Life > Saving, in a Majora's Mask block after SoH's rows) | (O); the save is a paired `.redsave` commit, not a flash write |
+| `gEnhancements.Saving.PauseSave` | Pause Menu Save (Quality of Life > Saving, in a Majora's Mask block after SoH's rows) | (O); on by default here (ruling of 2026-11-19, #1728), off in 2Ship2Harkinian; the save is a paired `.redsave` commit, not a flash write |
 | `gEnhancements.Saving.FileSlot3` | none | INTENTIONAL: it shapes MM's file select, which paired play never shows (the file select is OoT's) |
 | `gEnhancements.Saving.PersistentOwlSaves` | none | INTENTIONAL: it only stops the owl save's flash delete on continue, and a paired MM session has no flash slot (`func_80147314` returns at the 0xFF fileNum), so the owl save already persists |
 | `gEnhancements.Saving.DisableSaveDelay` | none | INTENTIONAL: it only shortens the wait on a flash write, and a paired MM session never starts one |

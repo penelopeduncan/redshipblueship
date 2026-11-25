@@ -989,7 +989,7 @@ void MM_KaleidoScope_DrawPages(PlayState* play, GraphicsContext* gfxCtx) {
         }
     }
 
-    if (CVarGetInteger("gEnhancements.Saving.PauseSave", 0) || CVarGetInteger("gEnhancements.Kaleido.GameOver", 0)) {
+    if (SavingEnhancements_PauseSaveOn() || CVarGetInteger("gEnhancements.Kaleido.GameOver", 0)) {
         Gfx_SetupDL42_Opa(gfxCtx);
         if ((pauseCtx->state == PAUSE_STATE_SAVEPROMPT) || IS_PAUSE_STATE_GAMEOVER(pauseCtx)) {
             MM_KaleidoScope_UpdatePrompt(play);
@@ -3607,7 +3607,7 @@ void MM_KaleidoScope_Update(PlayState* play) {
                             Audio_PlaySfx(NA_SE_SY_PIECE_OF_HEART);
                             Play_SaveCycleSceneFlags(play);
                             gSaveContext.save.saveInfo.playerData.savedSceneId = play->sceneId;
-                            if (CVarGetInteger("gEnhancements.Saving.PauseSave", 0)) {
+                            if (SavingEnhancements_PauseSaveOn()) {
                                 gSaveContext.save.isOwlSave = true;
                                 SavingEnhancements_PersistSaveEntranceInfo();
                                 SavingEnhancements_AdvancePlaytime();
@@ -3630,7 +3630,7 @@ void MM_KaleidoScope_Update(PlayState* play) {
                             // pauseSaveEntrance over owlWarpId, which is the correct
                             // reading of a pause save.
                             func_8014546C(sramCtx);
-                            if (CVarGetInteger("gEnhancements.Saving.PauseSave", 0)) {
+                            if (SavingEnhancements_PauseSaveOn()) {
                                 gSaveContext.save.isOwlSave = false;
                                 SavingEnhancements_ClearSaveEntranceInfo();
                             }
@@ -3647,7 +3647,7 @@ void MM_KaleidoScope_Update(PlayState* play) {
 #endif
                                 pauseCtx->savePromptState = PAUSE_SAVEPROMPT_STATE_5;
                             } else {
-                                if (CVarGetInteger("gEnhancements.Saving.PauseSave", 0)) {
+                                if (SavingEnhancements_PauseSaveOn()) {
                                     Sram_SetFlashPagesOwlSave(
                                         sramCtx,
                                         gFlashOwlSaveStartPages[gSaveContext.fileNum * FLASH_SAVE_MAIN_MULTIPLIER],
