@@ -1140,7 +1140,9 @@ bool Logic::CanKillEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool wal
                     killed = killed || CanUse(RG_BIGGORON_SWORD) || CanUse(RG_STICKS);
                     [[fallthrough]];
                 case ED_BOMB_THROW:
-                    killed = killed || CanUse(RG_BOMB_BAG);
+                    // [RSBS #1793] inWater blocks bomb throws here as in the other cases (the frozen waterfall's
+                    // rule, the only Gold Skulltula caller that passes it, relies on that)
+                    killed = killed || (CanUse(RG_BOMB_BAG) && !inWater);
                     [[fallthrough]];
                 case ED_BOOMERANG:
                     killed = killed || CanUse(RG_BOOMERANG) || CanUse(RG_DINS_FIRE);
@@ -1552,6 +1554,7 @@ bool Logic::CanAvoidEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool gr
     if (CanKillEnemy(enemy, distance, true, quantity)) {
         return true;
     }
+    bool avoided = false;
     switch (enemy) {
         case RE_GOLD_SKULLTULA:
         case RE_GOHMA_LARVA:
@@ -1584,8 +1587,32 @@ bool Logic::CanAvoidEnemy(RandomizerEnemy enemy, EnemyDistance distance, bool gr
         case RE_WALLTULA:
             return true;
         case RE_BEAMOS:
-            return !grounded || CanUse(RG_NUTS) || CanUse(RG_DINS_FIRE) ||
-                   (quantity == 1 && (CanUse(RG_FAIRY_BOW) || CanUse(RG_FAIRY_SLINGSHOT)));
+            if (!grounded) {
+                return true;
+            }
+            switch (distance) {
+                    // melee can stun, but doing so means getting close anyway
+                case ED_CLOSE:
+                case ED_SHORT_JUMPSLASH:
+                case ED_MASTER_SWORD_JUMPSLASH:
+                case ED_LONG_JUMPSLASH:
+                case ED_BOMB_THROW:
+                    avoided = CanUse(RG_DINS_FIRE) || CanUse(RG_NUTS);
+                    [[fallthrough]];
+                case ED_BOOMERANG:
+                    avoided = avoided || CanUse(RG_BOOMERANG);
+                    [[fallthrough]];
+                case ED_HOOKSHOT:
+                    avoided = avoided || CanUse(RG_HOOKSHOT);
+                    [[fallthrough]];
+                case ED_LONGSHOT:
+                    avoided = avoided || CanUse(RG_LONGSHOT);
+                    [[fallthrough]];
+                case ED_FAR:
+                    avoided = avoided || CanUse(RG_FAIRY_SLINGSHOT) || CanUse(RG_FAIRY_BOW);
+                    break;
+            }
+            return avoided;
         case RE_MAD_SCRUB:
             return !grounded || CanUse(RG_NUTS);
         case RE_KEESE:

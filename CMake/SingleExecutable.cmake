@@ -945,6 +945,11 @@ if(BUILD_TESTING)
     # fingerprint and the load restore; then both games' songs registered and
     # carried by the real harvest/apply shims, each rule only its own song. ROM-free.
     redship_add_test(NAME SharedSongsRule COMMAND redship --test shared-songs-rule)
+    # #1587 S1: the Shared Sun's Song and Shared Saria's Song, two more second-word
+    # rules: both bits (families, requiring nothing) and keys (off by default, 0 or
+    # 1), the fingerprint, HIDDEN (Generate refuses them until #1587 S7), and the
+    # restore through the API and a real .redsave. ROM-free, generates nothing.
+    redship_add_test(NAME SharedSunSariaRule COMMAND redship --test shared-sun-saria-rule)
     redship_add_test(NAME SharedSongsMerge COMMAND redship --test shared-songs-merge)
     # #1561: under Shuffle Songs Off, armed first-word shared songs stay fixed at
     # both games' default checks and convert whichever default check is reached
@@ -959,6 +964,12 @@ if(BUILD_TESTING)
     redship_add_test(NAME SharedWarpFamilyStorage COMMAND redship --test shared-warp-family-storage)
     redship_add_test(NAME WarpSongHeld COMMAND redship --test warp-song-held)
     redship_add_test(NAME SharedWarpSongsMerge COMMAND redship --test shared-warp-songs-merge)
+    # #1587 S2: the Shared Sun's Song and Shared Saria's Song members (OoTMM
+    # sharedSongSun, sharedSongSarias): both games' own songs registered at the two
+    # second-word bits, MM's pooled following the frozen rule (the pair is built with
+    # MM's own rows at 0), carried by the real shims, at the load seam and at pickup,
+    # each rule only its own song. ROM-free, the rules frozen directly, generates nothing.
+    redship_add_test(NAME SharedSunSariaMerge COMMAND redship --test shared-sun-saria-merge)
     # #1067: the Shared Ocarina Buttons rule (OoTMM sharedOcarinaButtons): five
     # pairs behind one bit, registered by both games and composed into one shared
     # row each, and a button found in one game owned in the other on arrival.
@@ -1727,6 +1738,11 @@ if(BUILD_TESTING)
     # what that means for red-before-green. Pure (no display, no ROM, no
     # Ship::Context), so it runs in this redship tier.
     redship_add_test(NAME OoTMenuRegistrars COMMAND redship --test oot-menu-registrars)
+    # #1751 / #1750: Anchor PlayerUpdate missing-key defaults, DummyPlayer unk_862
+    # clamp, and GameInteractor null-PlayState pause/control guards. Pure (no
+    # display, no ROM, no Ship::Context, no connection), so it runs in this
+    # redship tier.
+    redship_add_test(NAME OoTNetplayFixes COMMAND redship --test oot-netplay-fixes)
     # The MM twin of the row above, and the same elided-registrar class (#678).
     # games/mm/2s2h/Enhancements/Songs/BetterSongOfDoubleTime.cpp and
     # SkipSoTCutscenes.cpp register only through a file-scope
@@ -1793,6 +1809,13 @@ if(BUILD_TESTING)
     # Fix Deku Butler Shock Animation keeps the shock loop (f7ccda83a). Over a calloc'd play
     # state. Pure (no display, no ROM); games/mm/2s2h/mm_upstream_fixes_1754_test.cpp.
     redship_add_test(NAME MMUpstreamFixes1754 COMMAND redship --test mm-upstream-fixes-1754)
+    # #1755: Majora's Mask cutscene skips ported from 2Ship2Harkinian.
+    # SkipOnePointCutscenes (bell, owl statue + immediate Sram_ActivateOwl, every
+    # bean subtype still skipped as on main), SkipSakonsHideoutCutscenes (Ikana 14/34,
+    # Sakon's Hideout 21), and SkipCouplesMaskCutscene (VB_PLAY_COUPLES_MASK_CS
+    # phase advance and play-state guard). Pure (no display, no ROM);
+    # games/mm/2s2h/mm_cutscene_skips_test.cpp.
+    redship_add_test(NAME MMCutsceneSkips COMMAND redship --test mm-cutscene-skips)
     # The MM rando minigame reward hooks (Rando/ActorBehavior/, armed through
     # ActorBehavior::OnFileLoad and driven by VB dispatch against a calloc'd
     # play state). MMGalleryRupeeStandIn (#1216): while a shooting gallery's
@@ -2248,6 +2271,11 @@ if(BUILD_TESTING)
     # write only through the gated writers, and the Windows page must no longer
     # offer the retired pop-out.
     redship_add_test(NAME MenuMmRandomizerPages COMMAND redship --test menu-mm-randomizer-pages)
+
+    # #1747: Minigame options backport (SoH #6965, #6975, #6991, #6517, #6982, #6476, #6778).
+    # Drives IngoRaceOnce.cpp, HorsebackArchery.cpp, DivingGameTimer.cpp, and RupeeDash.cpp
+    # registrars and real GameInteractor_Should / OnPlayerUpdate dispatch. Display-free, ROM-free.
+    redship_add_test(NAME OoTMinigameOptions COMMAND redship --test oot-minigame-options)
 
     # Every --test row in one process, so its time grows with the table. On the hosted
     # Windows runner it took 50 s and then timed out at the 60 s default (2026-11-11).
@@ -4014,6 +4042,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # on a two-page text) never returned. Plain strings under a watchdog: default
     # tier. games/oot/soh/oot_custom_message_text_test.cpp.
     redship_add_test(NAME CustomMessageReplace COMMAND redship --test custom-message-replace)
+    # #1746: OoT item names with a missing translation fall back to English and
+    # round-trip through itemNameToEnum, articles sit in their language's slot,
+    # colour codes are well-formed, area and trial names read back. The ROM-free
+    # item and hint tables, no seed: default tier.
+    # games/oot/soh/oot_custom_message_text_test.cpp.
+    redship_add_test(NAME OoTItemText COMMAND redship --test oot-item-text)
     # #1556: MM's CustomMessage::AddLineBreaks (backported with #1403): where its
     # newlines and box breaks land, the count restarting at an explicit box break,
     # and no width for an overflowing space. Plain strings and MM's static font
@@ -4648,6 +4682,13 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # and give frames through the randomizer's real handlers; a vanilla file is
     # the control. ROM-free. games/oot/soh/oot_deku_theater_prize_test.cpp.
     redship_add_test(NAME OoTDekuTheaterPrize COMMAND redship --test oot-deku-theater-prize)
+    # #1800: the two game-side hunks of SoH 63597ec63 (#1178 ported its logic hunk).
+    # Under Shuffle Jabber Nuts the real VB_SPEAK hook refuses the diving-game
+    # Zora's talk without the Zora Jabber Nut, and with Shuffle Grab Talon's real
+    # EnTa_RunCuccoGame does not count a carried super cucco without the Grab
+    # ability; a vanilla file and the abilities held are the controls. ROM-free,
+    # no generation. games/oot/soh/oot_diving_zora_talon_cucco_test.cpp.
+    redship_add_test(NAME OoTDivingZoraTalonCucco COMMAND redship --test oot-diving-zora-talon-cucco)
     # Backport bundle O6 (SoH #6795, #6798, #7183): Logic::HasItem answers boss
     # souls and overworld door keys under Shuffle Boss Souls and Lock Overworld
     # Doors (the folded HasBossSoul and CanOpenOverworldDoor), and the randomizer's
@@ -4893,6 +4934,12 @@ redship --test combo-logic-give-probe, RSBS_COMBO_PROBE_FROM=<n> to resume past 
     # "Extraction Failed" popup in OTRGlobals.cpp::RunExtract. Default redship
     # tier; src/common/tests/test_extractor_picker_guard.c.
     redship_add_test(NAME ExtractorPickerGuard COMMAND redship --test extractor-picker-guard)
+
+    # #1752 / #1735: ROM-free round-trip of newly wired OoT savestate plain-data
+    # blocks (Barinade/Bongo/Morpha statics, OoT_sEffectContext, z_player statics,
+    # AudioOcarina statics, and transition actor IDs + live numActors clamp).
+    # Body in games/oot/soh/oot_savestate_roundtrip_test.cpp.
+    redship_add_test(NAME OoTSaveStateRoundtrip COMMAND redship --test oot-savestate-roundtrip)
 
     # ========================================================================
     # Integration tests (requires display - use Xvfb in CI)

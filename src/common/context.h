@@ -1586,7 +1586,8 @@ typedef struct {
     // #1169 lane XW10 (ADR 0009 claim 23; scoping decision 6): THE SECOND FAMILY
     // WORD, the shared families of the second rules word the player holds, one bit
     // per family at the family's own RSBS_XITEM2_* rule bit (RSBS_XITEM2_FAMILY_MASK:
-    // today the seven shared warp songs). The twin of sharedFamilyOwned above and
+    // the seven shared warp songs, the Sun's Song and Saria's Song, 0xFF80). The
+    // twin of sharedFamilyOwned above and
     // the same OR discipline (shared_resources.h): only the family harvest and a far
     // game's pickup credit write it, only bits the frozen second word arms, and it
     // only ever gains bits. Session state like sharedFamilyOwned: NOT in the

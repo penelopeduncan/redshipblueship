@@ -76,6 +76,8 @@ void RegionTable_Init_GanonsCastle() {
     }, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_SOT_BLOCK_FOREST_SILVER, true),
+        //Assumes RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM_END access
+        LOCATION(RC_GANONS_CASTLE_ON_TARGET_FOREST_SILVER, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid()) || (logic->CanMiddairGroundJump()/*&& (logic->CanUse(RG_ROLL) || logic->BunnyHood())*/)),
     }, {
         //Exits
         Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_WOLFOS_ROOM,        []{return true;}),
@@ -89,7 +91,7 @@ void RegionTable_Init_GanonsCastle() {
         LOCATION(RC_GANONS_CASTLE_ON_TARGET_FOREST_SILVER,      logic->IsAdult || logic->CanUse(RG_HOOKSHOT)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM,            []{return logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM,            []{return logic->CanUse(RG_LONGSHOT) || ((logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS)/* && (logic->CanUse(RG_ROLL) || logic->BunnyHood() || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD))*/) || (logic->CanMiddairGroundJump()/*&& (logic->CanUse(RG_ROLL) || logic->BunnyHood())*/));}),
         Entrance(RR_GANONS_CASTLE_FOREST_TRIAL_BEAMOS_ROOM_FINAL_DOOR, []{return logic->IsAdult || logic->CanGroundJump() || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS);}),
     });
 
@@ -222,7 +224,9 @@ void RegionTable_Init_GanonsCastle() {
         //Exits
         Entrance(RR_GANONS_CASTLE_WATER_TRIAL_BLUE_FIRE_ROOM,    []{return true;}),
         Entrance(RR_GANONS_CASTLE_WATER_TRIAL_BLOCK_ROOM_SWITCH, []{return logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || logic->CanMiddairGroundJump());}),
-        Entrance(RR_GANONS_CASTLE_WATER_TRIAL_BLOCK_ROOM_END,    []{return logic->IsAdult || (logic->HasItem(RG_POWER_BRACELET) && logic->CanUse(RG_HOVER_BOOTS)) || logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP) || (logic->BunnyHood() && ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS));}),
+        Entrance(RR_GANONS_CASTLE_WATER_TRIAL_BLOCK_ROOM_END,    []{return logic->IsAdult || 
+//RANDOTODO when you hover close to the floor, you can pivot out of a backwalk to ledgegrab, should this be in base logic?
+                                                                     (logic->CanUse(RG_HOVER_BOOTS)/* && roll or bunny?*/) || logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP) || ((logic->BunnyHood() || logic->HasItem(RG_POWER_BRACELET)) && ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS));}),
     });
 
     areaTable[RR_GANONS_CASTLE_WATER_TRIAL_BLOCK_ROOM_SWITCH] = Region("Ganon's Castle Water Trial Block Room Switch", SCENE_INSIDE_GANONS_CASTLE, {
@@ -255,13 +259,31 @@ void RegionTable_Init_GanonsCastle() {
 
     areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_START] = Region("Ganon's Castle Shadow Trial Start", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_FRONT_CHEST, (logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild) && logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_FRONT_CHEST, logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MAIN,                       []{return true;}),
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_LONGSHOT);}),
-        // shortcut for longshot to torch, dins, longshot to like like, run to chest platform
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_DINS_FIRE) && logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_MAIN,                        []{return true;}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM,   []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild;}),
+        //start the recoil away from the wall
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH,          []{return logic->CanUse(RG_LONGSHOT) || (logic->IsAdult && logic->CanRecoilHover(RECOIL_HAMMER)) || (logic->CanUse(RG_FIRE_ARROWS) && ((logic->IsAdult && logic->BunnyHood()) || logic->CanUse(RG_HOVER_BOOTS)));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_FIRE_ARROWS);}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM] = Region("Ganon's Castle Shadow Trial SoT Platform", SCENE_INSIDE_GANONS_CASTLE, {}, {
+        //Locations
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_FRONT_CHEST, logic->HasItem(RG_OPEN_CHEST)),
+    }, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_START,          []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_HOVER_BOOTS)/* && bunny or roll or recoil*/) || logic->CanUse(RG_SONG_OF_TIME) || logic->IsChild;}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH,          []{return logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_FIRE_ARROWS);}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH] = Region("Ganon's Castle Shadow Trial Torch", SCENE_INSIDE_GANONS_CASTLE, {}, {}, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_START,          []{return logic->CanUse(RG_LONGSHOT) || (logic->HasFireSource() && logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_LONGSHOT) || (logic->HasFireSource() && logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_LONGSHOT) || (logic->HasFireSource() && logic->CanUse(RG_HOVER_BOOTS));}),
     });
 
     areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM] = Region("Ganon's Castle Shadow Pots Platform", SCENE_INSIDE_GANONS_CASTLE, {}, {
@@ -270,16 +292,16 @@ void RegionTable_Init_GanonsCastle() {
         LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_POT_2, logic->CanBreakPots()),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_START,          []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_LONGSHOT);}),
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOVER_BOOTS) || (logic->Get(LOGIC_SHADOW_TRIAL_LOWER_SWITCH) && logic->CanUse(RG_HOOKSHOT));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_START,          []{return logic->CanUse(RG_FIRE_ARROWS);}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH,          []{return logic->CanUse(RG_LONGSHOT) || (logic->CanUse(RG_FIRE_ARROWS) && ((logic->IsAdult && logic->BunnyHood()) || logic->CanUse(RG_HOVER_BOOTS)));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM,   []{return logic->CanUse(RG_LONGSHOT) || logic->CanUse(RG_FIRE_ARROWS);}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOVER_BOOTS) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_HOOKSHOT));}),
     });
 
-    areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM] = Region("Ganon's Castle Shadow Chest Platform", SCENE_INSIDE_GANONS_CASTLE, {
-        //Events
-        EventAccess(LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, []{return (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS)) && logic->CanUse(RG_MEGATON_HAMMER);}),
-    }, {
+    //rename this?
+    areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM] = Region("Ganon's Castle Shadow Chest Platform", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, logic->Get(LOGIC_SHADOW_TRIAL_LOWER_SWITCH) && logic->HasItem(RG_OPEN_CHEST)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->HasItem(RG_OPEN_CHEST)),
         LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1,                ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2,                ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_BOOMERANG)),
         LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3,                ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_BOOMERANG)),
@@ -287,26 +309,45 @@ void RegionTable_Init_GanonsCastle() {
         //Exits
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS);}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH,  []{return logic->CanUse(RG_FIRE_ARROWS) || ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->BunnyHood() && logic->CanJumpslash());}),
+        //bunny barely makes it without the path but it's tight enough to not be trickless or unintuitive
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, []{return ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || logic->CanUse(RG_HOVER_BOOTS);}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_END,           []{return ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH);}),
     });
 
     areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH] = Region("Ganon's Castle Shadow Trial Lower Switch", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
-        EventAccess(LOGIC_SHADOW_TRIAL_LOWER_SWITCH, []{return true;}),
+        EventAccess(LOGIC_SHADOW_TRIAL_LATE_CHEST, []{return true;}),
     }, {}, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || (logic->Get(LOGIC_SHADOW_TRIAL_LOWER_SWITCH) && logic->CanUse(RG_LONGSHOT));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->CanUse(RG_FIRE_ARROWS) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT));}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH] = Region("Ganon's Castle Shadow Trial Rusted Switch", SCENE_INSIDE_GANONS_CASTLE, {
+        //Events
+        EventAccess(LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, []{return logic->CanUse(RG_MEGATON_HAMMER);}),
+    }, {
+        //Locations
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2, logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3, logic->CanUse(RG_BOOMERANG)),
+    }, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT)) || logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->BunnyHood());}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_END,            []{return logic->CanUse(RG_LONGSHOT);}),
     });
 
     areaTable[RR_GANONS_CASTLE_SHADOW_TRIAL_END] = Region("Ganon's Castle Shadow Trial End", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2, logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_BOOMERANG)),
-        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3, logic->CanUse(RG_HOVER_BOOTS) || logic->CanUse(RG_BOOMERANG)),
+        // [RSBS #1793] each voidout needs CanVoid, as every other Voidout Collection rule of this file has
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && logic->BunnyHovers()),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && logic->CanUse(RG_HOVER_BOOTS)) || logic->CanUse(RG_BOOMERANG)),
+        LOCATION(RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3, (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && (logic->CanUse(RG_HOVER_BOOTS)|| logic->BunnyHood())) || logic->CanUse(RG_BOOMERANG)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH)) || ((logic->CanUse(RG_HOVER_BOOTS) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood())) && logic->HasFireSource()) || (logic->Get(LOGIC_SHADOW_TRIAL_LOWER_SWITCH) && logic->CanUse(RG_LONGSHOT));}),
-        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_LONGSHOT) && logic->CanUse(RG_DINS_FIRE) && (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, []{return (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH)) || ((logic->CanUse(RG_HOVER_BOOTS) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood())) && logic->HasFireSource()) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT));}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_POTS_PLATFORM,  []{return logic->CanUse(RG_DINS_FIRE) && (ctx->GetTrickOption(RT_LENS_GANON) || logic->CanUse(RG_LENS_OF_TRUTH) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood()));}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH,   []{return logic->CanUse(RG_HOVER_BOOTS) || ((logic->IsAdult || logic->CanJumpslash()) && logic->BunnyHood());}),
+        Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH,  []{return (logic->CanUse(RG_HOVER_BOOTS) && (logic->HasFireSource() || logic->BunnyHood()));}),
         Entrance(RR_GANONS_CASTLE_SHADOW_TRIAL_FINAL_ROOM,     []{return logic->Get(LOGIC_SHADOW_TRIAL_RUSTED_SWITCH);}),
     });
 
@@ -511,7 +552,9 @@ void RegionTable_Init_GanonsCastle() {
         LOCATION(RC_GANONS_CASTLE_MQ_FOREST_TRIAL_FROZEN_EYE_SWITCH_CHEST, logic->HasFireSource() && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MQ_FOREST_TRIAL_BEAMOS_ROOM,     []{return logic->Get(LOGIC_FOREST_TRIAL_MQ_SPAWN_BEAMOS_CHEST) && (logic->CanAvoidEnemy(RE_BEAMOS) || logic->CanKillEnemy(RE_ARMOS)) && logic->CanUse(RG_LONGSHOT);}),
+        Entrance(RR_GANONS_CASTLE_MQ_FOREST_TRIAL_BEAMOS_ROOM,     []{return (logic->CanAvoidEnemy(RE_BEAMOS) || logic->CanKillEnemy(RE_ARMOS)) && 
+                                                                   ((logic->Get(LOGIC_FOREST_TRIAL_MQ_SPAWN_BEAMOS_CHEST) && logic->CanUse(RG_LONGSHOT)) || 
+                                                                    (((logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS)/* && (logic->CanUse(RG_ROLL) || logic->BunnyHood() || logic->CanRecoilHover(RECOIL_SWORD_AND_SHIELD))*/) || (logic->CanMiddairGroundJump()/*&& (logic->CanUse(RG_ROLL) || logic->BunnyHood())*/))));}),
         Entrance(RR_GANONS_CASTLE_MQ_FOREST_TRIAL_BEAMOS_ROOM_END, []{return logic->IsAdult || logic->CanGroundJump() || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS);}),
     });
 
@@ -565,7 +608,8 @@ void RegionTable_Init_GanonsCastle() {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_UNDER_PILLAR_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24 && logic->CanUse(RG_GOLDEN_GAUNTLETS)),
         LOCATION(RC_GANONS_CASTLE_MQ_NEAR_TARGET_FIRE_SILVER,     logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
-        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && ((logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 8 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION)))),
+        // [RSBS #1793] the voidout needs CanVoid, as the From Open Door row above has
+        LOCATION(RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER,       logic->CanRecoilHover(RECOIL_HAMMER) && ((logic->FireTimer() >= 32 && logic->CanUse(RG_GOLDEN_GAUNTLETS)) || (logic->FireTimer() >= 8 && ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid()))),
         LOCATION(RC_GANONS_CASTLE_MQ_LAUNCH_PLATFORM_FIRE_SILVER, logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 16),
         LOCATION(RC_GANONS_CASTLE_MQ_JET_PLATFORM_FIRE_SILVER,    logic->CanRecoilHover(RECOIL_HAMMER) && logic->FireTimer() >= 24),
     }, {
@@ -594,7 +638,9 @@ void RegionTable_Init_GanonsCastle() {
 
     areaTable[RR_GANONS_CASTLE_MQ_WATER_TRIAL_GEYSER_ROOM] = Region("Ganon's Castle MQ Water Trial Geyser Room", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
-        EventAccess(LOGIC_BLUE_FIRE_ACCESS,  []{return logic->CanJumpslash() || logic->HasExplosives();}), // bow can also hit at right angle
+        //Hover hoots let you tun in and quickly grab fire, but it's a trick
+        //rang can barely hit the switch through the icicles, but indirect boomerang would be a better place for it
+        EventAccess(LOGIC_BLUE_FIRE_ACCESS,  []{return logic->CanJumpslash() || logic->HasExplosives() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && (logic->CanUse(RG_FAIRY_BOW) || logic->CanUse(RG_FAIRY_SLINGSHOT)));}),
     }, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_WATER_TRIAL_CHEST,                        logic->BlueFire() && logic->HasItem(RG_OPEN_CHEST)),
@@ -629,11 +675,11 @@ void RegionTable_Init_GanonsCastle() {
     areaTable[RR_GANONS_CASTLE_MQ_WATER_TRIAL_BLOCK_ROOM] = Region("Ganon's Castle MQ Water Trial Block Room", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
         EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_WATER,            []{return logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || logic->CanMiddairGroundJump()) && (logic->BlueFire() || (ctx->GetTrickOption(RT_VISIBLE_COLLISION) && logic->CanJumpslash()));}),
-        EventAccess(LOGIC_WATER_TRIAL_MQ_MELTED_FINAL_DOOR_RED_ICE, []{return (ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS)) || ((logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)/* && logic->CanUse(RG_ROLL)*/)) && logic->HasItem(RG_POWER_BRACELET) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE));}),
+        EventAccess(LOGIC_WATER_TRIAL_MQ_MELTED_FINAL_DOOR_RED_ICE, []{return (ctx->GetOption(RSK_BLUE_FIRE_ARROWS) && logic->CanUse(RG_ICE_ARROWS)) || ((logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)) && logic->HasItem(RG_POWER_BRACELET) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE));}),
     }, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_IN_HOLE_WATER_SILVER,              true),
-        LOCATION(RC_GANONS_CASTLE_MQ_AIRBORNE_WATER_SILVER,             logic->IsAdult || logic->CanUse(RG_POWER_BRACELET) || (/*CanUse(RG_ROLL) && */ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS))),
+        LOCATION(RC_GANONS_CASTLE_MQ_AIRBORNE_WATER_SILVER,             logic->IsAdult || logic->CanUse(RG_POWER_BRACELET) || (/*roll or bunny && */ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)) || (logic->CanUse(RG_HOVER_BOOTS)/* && roll or bunny?*/)),
         LOCATION(RC_GANONS_CASTLE_MQ_OVER_PIT_WATER_SILVER,             true),
         LOCATION(RC_GANONS_CASTLE_MQ_NOOK_WATER_SILVER,                 true),
         LOCATION(RC_GANONS_CASTLE_MQ_WATER_TRIAL_SILVER_RUPEE_RED_ICE,  logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || logic->CanMiddairGroundJump()) && logic->BlueFire()),
@@ -646,7 +692,8 @@ void RegionTable_Init_GanonsCastle() {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_WATER_TRIAL_GEYSER_ROOM,     []{return logic->SmallKeys(SCENE_INSIDE_GANONS_CASTLE, 3);}),
         Entrance(RR_GANONS_CASTLE_MQ_WATER_TRIAL_BLOCK_ROOM_HIGH, []{return logic->IsAdult && (logic->HasItem(RG_POWER_BRACELET) || logic->CanMiddairGroundJump());}),
-        Entrance(RR_GANONS_CASTLE_MQ_WATER_TRIAL_BLOCK_ROOM_END,  []{return logic->Get(LOGIC_WATER_TRIAL_MQ_MELTED_FINAL_DOOR_RED_ICE) && (logic->IsAdult || ((logic->CanUse(RG_HOVER_BOOTS) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS)/* && logic->CanUse(RG_ROLL)*/)) && logic->HasItem(RG_POWER_BRACELET)) || logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP));}),
+        Entrance(RR_GANONS_CASTLE_MQ_WATER_TRIAL_BLOCK_ROOM_END,  []{return logic->Get(LOGIC_WATER_TRIAL_MQ_MELTED_FINAL_DOOR_RED_ICE) && 
+                                                                  (logic->IsAdult || (logic->CanUse(RG_HOVER_BOOTS)/* && roll or bunny?*/) || (ctx->GetTrickOption(RT_UNINTUITIVE_JUMPS) && logic->HasItem(RG_POWER_BRACELET)) || logic->CanGroundJump() || ctx->GetTrickOption(RT_SLIDE_JUMP));}),
     });
 
     areaTable[RR_GANONS_CASTLE_MQ_WATER_TRIAL_BLOCK_ROOM_HIGH] = Region("Ganon's Castle MQ Water Trial Block Room High", SCENE_INSIDE_GANONS_CASTLE, {}, {
@@ -688,13 +735,20 @@ void RegionTable_Init_GanonsCastle() {
     areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE] = Region("Ganon's Castle MQ Shadow Trial Starting Ledge", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
         EventAccess(LOGIC_SHADOW_TRIAL_FIRST_CHEST, []{return logic->CanUse(RG_FAIRY_BOW);}),
-        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) &&
-                                                                    (logic->IsAdult && ctx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL) && logic->CanUse(RG_FAIRY_BOW)) &&
-                                                                    (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && logic->CanUse(RG_HOVER_BOOTS));}),
+        //shortcut route for passage involving the torch. defacto the same as the RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST shortcut as everything else is merely lens locked
+        // [RSBS #1793] grouped as the BEAMOS_CHEST shortcut exit below: the Hover Boots and hood terms sit inside the trick-and-bow term
+        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW,  []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && ((logic->BunnyHovers() && logic->CanUse(RG_STICKS)) ||
+                                                                           (logic->IsAdult && ctx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL) && logic->CanUse(RG_FAIRY_BOW) &&
+                                                                            ((logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())));}),
     }, {}, {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_MAIN,                        []{return true;}),
-        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())) || logic->BunnyHovers();}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return (logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT)) || (logic->IsAdult && (logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood())) || logic->BunnyHovers() || logic->CanRecoilHoverFromObject(TRECOIL_SHORT);}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER,    []{return (logic->IsAdult && (logic->CanRecoilHover(RECOIL_HAMMER) || logic->CanRecoilHoverFromObject(TRECOIL_LONG_AND_SHIELD)));}),
+        //shortcut route for passage involving the torch
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST,   []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && ((logic->BunnyHovers() && logic->CanUse(RG_STICKS)) ||
+                                                                                 (logic->IsAdult && ctx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL) && logic->CanUse(RG_FAIRY_BOW) && 
+                                                                                  (((logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->CanUse(RG_HOOKSHOT))) || (logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood()))));})
     });
 
     areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM] = Region("Ganon's Castle MQ Shadow Trial Chest Platform", SCENE_INSIDE_GANONS_CASTLE, {
@@ -705,28 +759,37 @@ void RegionTable_Init_GanonsCastle() {
         LOCATION(RC_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER_CHEST, logic->Get(LOGIC_SHADOW_TRIAL_FIRST_CHEST) && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE,  []{return logic->CanUse(RG_HOOKSHOT) || ((logic->IsAdult || logic->BunnyHood()) && logic->CanUse(RG_HOVER_BOOTS));}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE,  []{return logic->CanUse(RG_HOOKSHOT) || ((logic->IsAdult || logic->BunnyHood() || logic->CanRecoilHover(RECOIL_SWORD)) && logic->CanUse(RG_HOVER_BOOTS));}),
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && (logic->IsAdult || logic->CanUse(RG_HOVER_BOOTS) || logic->BunnyHood());}),
     });
 
-    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM] = Region("Ganon's Castle MQ Shadow Trial Moving Platform", SCENE_INSIDE_GANONS_CASTLE, {
-        //Events
-        //A torch run from RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE is possible but tight, so would be a trick
-        EventAccess(LOGIC_SHADOW_TRIAL_FIRST_CHEST,       []{return logic->CanDetonateUprightBombFlower();}),
-        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) &&
-                                                                    (logic->HasFireSource() || logic->CanUse(RG_HOVER_BOOTS));}),
-    }, {
+    //assumes lens or lens trick is checked on entry
+    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM] = Region("Ganon's Castle MQ Shadow Trial Moving Platform", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_MQ_BOMB_FLOWER_SHADOW_SILVER,     true),
         LOCATION(RC_GANONS_CASTLE_MQ_MOVING_PLATFORM_SHADOW_SILVER, true),
-        LOCATION(RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL, (logic->CanDetonateBombFlowers() || (ctx->GetTrickOption(RT_BLUE_FIRE_MUD_WALLS) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE))) && (logic->TakeDamage() || logic->CanUse(RG_NAYRUS_LOVE))),
     }, {
         //Exits
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_CHEST_PLATFORM, []{return logic->IsAdult || logic->CanUse(RG_HOOKSHOT) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER,    []{return true;}),
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_TORCH,   []{return true;}),
     });
 
+    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER] = Region("Ganon's Castle MQ Shadow Trial Bomb Flower", SCENE_INSIDE_GANONS_CASTLE, {
+        //Events
+        //A torch run from RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE is possible but tight, so would be a trick
+        EventAccess(LOGIC_SHADOW_TRIAL_FIRST_CHEST,        []{return logic->CanDetonateUprightBombFlower();}),
+        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW,  []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) &&
+                                                                      (logic->HasFireSource() || logic->CanUse(RG_HOVER_BOOTS) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_HOOKSHOT)));}),
+    }, {
+        //Locations
+        LOCATION(RC_GANONS_CASTLE_MQ_WONDER_SHADOW_TRIAL,       (logic->CanDetonateBombFlowers() || (ctx->GetTrickOption(RT_BLUE_FIRE_MUD_WALLS) && logic->CanUse(RG_BOTTLE_WITH_BLUE_FIRE))) && logic->TakeDamage()),
+        LOCATION(RC_GANONS_CASTLE_MQ_BOMB_FLOWER_SHADOW_SILVER, true),
+    }, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH));}),
+    });
 
+    //the LOGIC_SHADOW_TRIAL_LATE_CHEST eye target can be hit from here by backflipping into the void while drawing the bow and shooting with good timing, but that's a trick
     areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_TORCH] = Region("Ganon's Castle MQ Shadow Trial Beamos Torch", SCENE_INSIDE_GANONS_CASTLE, {}, {
         //Locations
         LOCATION(RC_GANONS_CASTLE_MQ_NEAR_TORCH_SHADOW_SILVER, true),
@@ -736,30 +799,50 @@ void RegionTable_Init_GanonsCastle() {
         //A torch run from RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE is possible but very tight, so would be a trick
         //The bow trick assumes RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE access, if you can somehow void warp directly here it will need handling properly
         //Hovers is possible as child but a bit tight, requires good rolls
-        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST,    []{return logic->HasFireSource() || logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && ctx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL) && logic->CanUse(RG_FAIRY_BOW));}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST,    []{return logic->HasFireSource() || logic->CanUse(RG_HOVER_BOOTS) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_HOOKSHOT));}),
     });
 
-    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST] = Region("Ganon's Castle MQ Shadow Trial Beamos Chest", SCENE_INSIDE_GANONS_CASTLE, {}, {
+    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST] = Region("Ganon's Castle MQ Shadow Trial Beamos Chest", SCENE_INSIDE_GANONS_CASTLE, {
+        //Events    
+        EventAccess(LOGIC_SHADOW_TRIAL_LATE_CHEST, []{return logic->CanHitEyeTargets();}),
+    }, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_MQ_SHADOW_TRIAL_EYE_SWITCH_CHEST, logic->CanHitEyeTargets() && logic->HasItem(RG_OPEN_CHEST)),
-        LOCATION(RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH) ||
-                                                                        logic->CanUse(RG_HOVER_BOOTS)),
+        LOCATION(RC_GANONS_CASTLE_MQ_SHADOW_TRIAL_EYE_SWITCH_CHEST, logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->HasItem(RG_OPEN_CHEST)),
     }, {
         //Exits
+        //longshot can hit a tiny part of the torch to cross, but it's precise enough to be a trick.
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_TORCH, []{return logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOVER_BOOTS);}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS,   []{return ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH) ||
+                                                                                    logic->CanUse(RG_HOVER_BOOTS);}),
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FINAL_ROOM,   []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH));}),
+    });
+
+    areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS] = Region("Ganon's Castle MQ Shadow Trial Far Beamos", SCENE_INSIDE_GANONS_CASTLE, {
+        //Events
+        EventAccess(LOGIC_SHADOW_TRIAL_LATE_CHEST, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) && logic->CanHitEyeTargets();}),
+    }, {
+        //Locations
+        LOCATION(RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, true),
+    }, {
+        //Exits
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, []{return ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT)) || logic->CanUse(RG_HOVER_BOOTS) || (logic->IsAdult && logic->BunnyHood());}),
+        //it's possible to recoil off the beamos, but it's a huge pain and not currently useful.
     });
 
     areaTable[RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BARRED_DOOR] = Region("Ganon's Castle MQ Shadow Trial Barred Door", SCENE_INSIDE_GANONS_CASTLE, {
         //Events
-        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) &&
-                                                                    logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOVER_BOOTS);}),
-    }, {
+        EventAccess(LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW,  []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) &&
+                                                                          logic->CanUse(RG_FIRE_ARROWS) || logic->CanUse(RG_HOVER_BOOTS);}),
+        }, {
         //Locations
-        LOCATION(RC_GANONS_CASTLE_MQ_GUILLOTINE_SHADOW_SILVER, (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH))),
+        LOCATION(RC_GANONS_CASTLE_MQ_GUILLOTINE_SHADOW_SILVER, (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) ||
+                                                                   (ctx->GetTrickOption(RT_VOIDOUT_COLLECTION) && logic->CanVoid() && logic->CanUse(RG_HOVER_BOOTS)) ||
+                                                                   (ctx->GetTrickOption(RT_ITEM_EXTENSION) && logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT))),
     }, {
         //Exits
-        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH));}),
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, []{return (ctx->GetTrickOption(RT_LENS_GANON_MQ) || logic->CanUse(RG_LENS_OF_TRUTH)) || (logic->Get(LOGIC_SHADOW_TRIAL_LATE_CHEST) && logic->CanUse(RG_LONGSHOT));}),
+        //the beamos makes the recoil annoying, but you can avoid it
+        Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS,   []{return (logic->BunnyHovers() || logic->CanRecoilHover(RECOIL_HAMMER)) && (logic->CanAvoidEnemy(RE_BEAMOS, ED_LONGSHOT, true, 1) || logic->CanUse(RG_NUTS));}),
         Entrance(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FINAL_ROOM,   []{return logic->HasItem(RG_GANONS_CASTLE_MQ_SILVER_SHADOW);}),
     });
 

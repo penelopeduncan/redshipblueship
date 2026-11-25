@@ -4,6 +4,7 @@
 
 extern "C" {
 #include "overlays/actors/ovl_Obj_Syokudai/z_obj_syokudai.h"
+#include "overlays/actors/ovl_Obj_Warpstone/z_obj_warpstone.h"
 }
 
 #define CVAR_NAME "gEnhancements.TimeSavers.SkipCutscene.OnePoint"
@@ -60,6 +61,13 @@ void RegisterSkipOnePointCutscenes() {
                 actor->csId = -1;
                 *should = false;
                 break;
+            case ACTOR_OBJ_WARPSTONE: // Owl Statue
+                // Instantly set the flag, if the player walks away too fast it gets culled and doesn't grant the flag
+                if (GameInteractor_Should(VB_OWL_STATUE_ACTIVATE, true, OBJ_WARPSTONE_GET_OWL_WARP_ID(actor))) {
+                    Sram_ActivateOwl(OBJ_WARPSTONE_GET_OWL_WARP_ID(actor));
+                }
+                *should = false;
+                break;
             case ACTOR_EN_BOX: // Chest
                 // Currently this breaks the treasure chest minigame, so we're not skipping there
                 if (MM_gPlayState->sceneId != SCENE_TAKARAYA) {
@@ -72,6 +80,7 @@ void RegisterSkipOnePointCutscenes() {
                     *should = false;
                 }
                 break;
+            case ACTOR_EN_CHA:    // Bell in Laundry Pool
             case ACTOR_BG_SPDWEB: // Spider Web
             case ACTOR_DOOR_SHUTTER:
             case ACTOR_BG_NUMA_HANA: // Big wooden flower in Woodfall Temple

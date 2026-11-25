@@ -81,6 +81,17 @@ void Anchor::RegisterHooks() {
         }
     });
 
+    // RSBS adaptation (SoH #6384): OoT_Actor_Delete reads ActorDB_Retrieve(actor->id) before
+    // OoT_Actor_Destroy runs, so restore ACTOR_PLAYER in OnActorDestroy before that lookup.
+    // Keep true so a DummyPlayer killed during Anchor::Disable() (after isConnected becomes false)
+    // still restores its id.
+    COND_ID_HOOK(OnActorDestroy, ACTOR_EN_OE2, true, [](void* actorRef) {
+        Actor* actor = (Actor*)actorRef;
+        if (actor->destroy == DummyPlayer_Destroy) {
+            actor->id = ACTOR_PLAYER;
+        }
+    });
+
     COND_HOOK(OnPlayerUpdate, isConnected, [&]() {
         if (justLoadedSave) {
             justLoadedSave = false;
@@ -109,8 +120,26 @@ void Anchor::RegisterHooks() {
         }
     });
 
-    COND_HOOK(OnFlagSet, isConnected,
-              [&](s16 flagType, s16 flag) { SendPacket_SetFlag(SCENE_ID_MAX, flagType, flag); });
+    COND_HOOK(OnFlagSet, isConnected, [&](s16 flagType, s16 flag) {
+        SendPacket_SetFlag(SCENE_ID_MAX, flagType, flag);
+
+        // If we're not in rando, we have to sync some of the great fairy rewards manually
+        if (!IS_RANDO) {
+            if (flagType == FLAG_RANDOMIZER_INF) {
+                switch (flag) {
+                    case RAND_INF_DMT_GREAT_FAIRY_REWARD:
+                        SendPacket_GiveItem(1, RG_MAGIC_SINGLE);
+                        break;
+                    case RAND_INF_DMC_GREAT_FAIRY_REWARD:
+                        SendPacket_GiveItem(1, RG_MAGIC_DOUBLE);
+                        break;
+                    case RAND_INF_OGC_GREAT_FAIRY_REWARD:
+                        SendPacket_GiveItem(1, RG_DOUBLE_DEFENSE);
+                        break;
+                }
+            }
+        }
+    });
 
     COND_HOOK(OnFlagUnset, isConnected,
               [&](s16 flagType, s16 flag) { SendPacket_UnsetFlag(SCENE_ID_MAX, flagType, flag); });

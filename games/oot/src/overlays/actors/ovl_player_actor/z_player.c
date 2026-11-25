@@ -413,10 +413,10 @@ void Player_SetPendingFlag(Player* this, PlayState* play) {
 #pragma endregion
 
 // .bss part 1
-static s32 D_80858AA0;
-static s32 OoT_sSavedCurrentMask;
-static Vec3f OoT_sInteractWallCheckResult;
-static Input* sControlInput;
+s32 D_80858AA0;
+s32 OoT_sSavedCurrentMask;
+Vec3f OoT_sInteractWallCheckResult;
+Input* sControlInput;
 
 // .data
 
@@ -552,25 +552,25 @@ static PlayerAgeProperties OoT_sAgeProperties[] = {
     },
 };
 
-static u32 OoT_sNoclipEnabled = false;
-static f32 OoT_sControlStickMagnitude = 0.0f;
-static s16 OoT_sControlStickAngle = 0;
-static s16 OoT_sControlStickWorldYaw = 0;
-static s32 OoT_sUpperBodyIsBusy = false; // see `OoT_Player_UpdateUpperBody`
-static s32 sFloorType = 0;
-static f32 OoT_sWaterSpeedFactor = 1.0f;    // Set to 0.5f in water, 1.0f otherwise. Influences different speed values.
-static f32 OoT_sInvWaterSpeedFactor = 1.0f; // Inverse of `OoT_sWaterSpeedFactor` (1.0f / OoT_sWaterSpeedFactor)
-static u32 sTouchedWallFlags = 0;
-static u32 sConveyorSpeed = 0;
-static s16 sIsFloorConveyor = false;
-static s16 sConveyorYaw = 0;
-static f32 sYDistToFloor = 0.0f;
-static s32 OoT_sPrevFloorProperty = 0; // floor property from the previous frame
-static s32 OoT_sShapeYawToTouchedWall = 0;
-static s32 OoT_sWorldYawToTouchedWall = 0;
-static s16 sFloorShapePitch = 0;
-static s32 sUseHeldItem = false; // When true, the current held item is used. Is reset to false every frame.
-static s32 sHeldItemButtonIsHeldDown = false; // Indicates if the button for the current held item is held down.
+u32 OoT_sNoclipEnabled = false;
+f32 OoT_sControlStickMagnitude = 0.0f;
+s16 OoT_sControlStickAngle = 0;
+s16 OoT_sControlStickWorldYaw = 0;
+s32 OoT_sUpperBodyIsBusy = false; // see `OoT_Player_UpdateUpperBody`
+s32 sFloorType = 0;
+f32 OoT_sWaterSpeedFactor = 1.0f;    // Set to 0.5f in water, 1.0f otherwise. Influences different speed values.
+f32 OoT_sInvWaterSpeedFactor = 1.0f; // Inverse of `OoT_sWaterSpeedFactor` (1.0f / OoT_sWaterSpeedFactor)
+u32 sTouchedWallFlags = 0;
+u32 sConveyorSpeed = 0;
+s16 sIsFloorConveyor = false;
+s16 sConveyorYaw = 0;
+f32 sYDistToFloor = 0.0f;
+s32 OoT_sPrevFloorProperty = 0; // floor property from the previous frame
+s32 OoT_sShapeYawToTouchedWall = 0;
+s32 OoT_sWorldYawToTouchedWall = 0;
+s16 sFloorShapePitch = 0;
+s32 sUseHeldItem = false; // When true, the current held item is used. Is reset to false every frame.
+s32 sHeldItemButtonIsHeldDown = false; // Indicates if the button for the current held item is held down.
 
 static u16 D_8085361C[] = {
     NA_SE_VO_LI_SWEAT,
@@ -12462,7 +12462,8 @@ void OoT_Player_DrawGameplay(PlayState* play, Player* this, s32 lod, Gfx* cullDL
             MATRIX_TOMTX(bunnyEarMtx);
         }
 
-        if (this->currentMask != PLAYER_MASK_BUNNY || !CVarGetInteger(CVAR_ENHANCEMENT("HideBunnyHood"), 0)) {
+        if (!GameInteractor_InvisibleLinkActive() &&
+            (this->currentMask != PLAYER_MASK_BUNNY || !CVarGetInteger(CVAR_ENHANCEMENT("HideBunnyHood"), 0))) {
             gSPDisplayList(POLY_OPA_DISP++, sMaskDlists[this->currentMask - 1]);
         }
 

@@ -740,10 +740,57 @@ int Combo_SharedFamiliesApplyLive(GameId game);
 
 /*
  * ---------------------------------------------------------------------------
+ * THE PAIR'S POSSESSION (#1702 stage C1)
+ * ---------------------------------------------------------------------------
+ * Whether the pair has found the Child's Wallet, and the Bombchu Bag, is kept in
+ * two first-word family slots that belong to no rule
+ * (RSBS_XFAMILY_SLOT_CHILD_WALLET, RSBS_XFAMILY_SLOT_BOMBCHU_BAG, foreign_items.h),
+ * under the same OR discipline as every family: harvested from either game's
+ * member, given to the other at its arrival, never cleared.
+ *
+ * ARMED from stage C0's frozen combo flags only (Combo_ComboChildWalletShuffled,
+ * Combo_ComboBombchuBagShuffled), and KEPT OUT of Combo_SharedFamiliesArmed: the
+ * slots join the OWNERSHIP path (the harvest, the owed set, the live harvest and
+ * apply, Combo_SharedFamiliesHeldNow) and nothing else, so no item id is
+ * redirected, renamed or paired into the shared bag by them. A file frozen
+ * without either bit arms neither and every path is today's.
+ *
+ * Stage C1 carries possession and acts on none of it: Majora's Mask's member state
+ * (two randoInf flags) is read by nothing until stages C2 and C3, and the far
+ * pickup credit admits no possession copy until stage C4
+ * (Combo_SharedPossessionPickupAdmitted is its rule).
+ */
+
+/** The possession slots stage C0's two frozen bits arm: CHILD_WALLET with
+ *  @p childWalletShuffled, BOMBCHU_BAG with @p bombchuBagShuffled. Pure. */
+uint32_t Combo_SharedPossessionSlotsArmedBy(bool childWalletShuffled, bool bombchuBagShuffled);
+
+/** The possession slots the FROZEN record arms (Combo_SharedPossessionSlotsArmedBy
+ *  of the C0 predicates), 0 while nothing is frozen and in every world frozen
+ *  without the C0 bits. Never part of Combo_SharedFamiliesArmed. */
+uint32_t Combo_SharedPossessionArmed(void);
+
+/** Operator ruling R2 (2026-10-19), one shared wallet progression: a pool wallet
+ *  tier of @p tier implies the pair holds a wallet. One answer for OoT's apply
+ *  (its RAND_INF_HAS_WALLET) and the possession slot, so the two cannot drift.
+ *  Pure. */
+bool Combo_SharedWalletTierImpliesPossession(uint16_t tier);
+
+/** #1702 C1, the admission rule for a far copy (stage C4 is its first caller): a
+ *  copy found in @p running is credited to possession slot @p slot only while
+ *  the slot is armed, unowned, not implied by the pool's wallet tier
+ *  (Combo_SharedWalletTierImpliesPossession), and not held live by @p running's
+ *  own member. A later wallet copy is the wallet-tier step's; a later bag copy
+ *  crosses. False for anything that is not one armed possession slot. */
+bool Combo_SharedPossessionPickupAdmitted(GameId running, uint32_t slot);
+
+/*
+ * ---------------------------------------------------------------------------
  * THE SECOND FAMILY WORD (#1169 lane XW10; scoping decision 6)
  * ---------------------------------------------------------------------------
  * The shared families of the SECOND rules word (foreign_items.h,
- * RSBS_XITEM2_FAMILY_MASK: today the seven shared warp songs) are owned in
+ * RSBS_XITEM2_FAMILY_MASK: the seven shared warp songs, the Sun's Song and
+ * Saria's Song (0xFF80)) are owned in
  * gComboCtx.sharedFamilyOwned2, one bit per family at its own rule bit, under the
  * SAME OR discipline, direction rule and arming rule as the first word (above):
  * armed from the FROZEN second word only, harvest `owned2 |= held & armed2`,

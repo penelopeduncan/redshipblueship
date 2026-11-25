@@ -9,6 +9,8 @@ extern PlayState* OoT_gPlayState;
 
 void OoT_Player_UseItem(PlayState* play, Player* player, s32 item);
 void OoT_Player_Draw(Actor* actor, PlayState* play);
+// z_draw.c: OoT_sDrawItemTable's row count.
+s32 OoT_GetItem_DrawTableCount(void);
 }
 
 static DamageTable DummyPlayerDamageTable = {
@@ -131,7 +133,11 @@ void DummyPlayer_Update(Actor* actor, PlayState* play) {
     player->itemAction = client.itemAction;
     player->heldItemAction = client.heldItemAction;
     player->invincibilityTimer = client.invincibilityTimer;
-    player->unk_862 = client.unk_862;
+    // unk_862 is the get-item draw id + 1 (OoT_Player_DrawGetItemImpl draws row unk_862 - 1). RSBS divergence
+    // from SoH 1ee0f5a65, which bounds it by GID_MAXIMUM: this tree's OoT_sDrawItemTable is one row short of
+    // GID_MAXIMUM (GID_FISHING_POLE has no row, z_draw.c), so the bound is the table's own row count.
+    player->unk_862 = (client.unk_862 > (s16)OoT_GetItem_DrawTableCount()) ? (s16)GID_STONE_OF_AGONY
+                                                                           : client.unk_862; // prevent OOB, show SoA
     player->unk_85C = client.unk_85C;
     player->av1.actionVar1 = client.actionVar1;
 
@@ -242,4 +248,10 @@ void DummyPlayer_Draw(Actor* actor, PlayState* play) {
 }
 
 void DummyPlayer_Destroy(Actor* actor, PlayState* play) {
+    // DummyPlayer Actors are initially spawned as ACTOR_PLAYER, but change their
+    // ID shortly afterwards to ACTOR_EN_OE2. This would cause ACTOR_PLAYER's
+    // ActorDB Entry's `numLoaded` to leak, which is mostly harmless but hits debug
+    // asserts. Set the id back to ACTOR_PLAYER so that `numLoaded` will be decremented
+    // correctly.
+    actor->id = ACTOR_PLAYER;
 }

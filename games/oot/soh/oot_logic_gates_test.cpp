@@ -44,6 +44,17 @@
  *     the nut it must NOT be reached; with the nut and a price the wallet covers
  *     it must; with the nut and a price above the wallet it must NOT.
  *     (SoH 0702b11b9.)
+ *  JN. Which conversation steps ask for a Jabber Nut (#1798). Shuffle Speak
+ *     blocks only pressing A to talk (VB_SPEAK, asked in
+ *     OoT_Player_ActionHandler_Talk); showing an item from C takes the exchange
+ *     branch of OoT_Player_ActionHandler_13, which never asks it. CM: the
+ *     merchant's event LOGIC_CARPET_MERCHANT (his bombchu refill) must NOT fire
+ *     without the Hylian nut, nor with the Gerudo nut only; it must with the
+ *     Hylian nut, and with Shuffle Speak off and no nut given. TR: the ten adult
+ *     trade steps and LOGIC_WAKE_UP_ADULT_TALON must be reached by an adult with
+ *     every nut withheld. K: five rows that do ask (Anju, King Zora thawed, the
+ *     Biggoron hint, the lab dive, Granny's shop) must NOT be reached without
+ *     their nut in a setup that meets their other terms, and must with it.
  *  E. The four carpenters' check rows (#1191, SoH 2bc50f605): each cell's Gerudo
  *     guard (En_GeldB) drops its key as En_Item00 with params keyFlag | 0x11
  *     (z_en_geldb.c), and the randomizer names the check that drop awards by
@@ -247,7 +258,7 @@
  *     RT_UNINTUITIVE_JUMPS, Shadow MQ spikes, Spirit GS ledge, Water Like Like
  *     spikes, MQSpiritStatueToSunBlock with the bracelet, the Deku MQ compass-room
  *     boulder with Boomerang and bombs, the DC MQ lobby's lower-right mud wall with
- *     Goron's Bracelet and its bomb-flower ground jump, and Water's river pots to
+ *     Goron's Bracelet and its bomb-flower ground jump, and Water's river platform to
  *     above the dragon with the slingshot).
  *  OW. The same pairs in Kakariko (backyard), the graveyard (Dampe's race), Death
  *     Mountain Trail (chest with Goron's Bracelet), Zora's Domain (island exit with
@@ -264,8 +275,29 @@
  *     RECOIL_HAMMER_AND_SHIELD does; the old CanHammerRecoilHover() call sites
  *     (Forest courtyard, GF long roof, GV upper stream) open with Hover Boots and
  *     the hammer and no shield, and close with the trick off.
- *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is still false with only
- *     the Bow (its body is unchanged; the Beamos rewrite is stage 5).
+ *  D1. CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2) is true with only the Bow:
+ *     SoH eca767dcb's Beamos body (stage 5) reads the distance, not the count.
+ *  EC. SoH eca767dcb overhaul batch 2b (#1647 stage 5), with 73a739b7a's lines in
+ *     the same files: every new region is built; four grounded Beamos at the Spirit
+ *     MQ call site give way to a child's Boomerang and the body reads the distance;
+ *     the vanilla big wall opens for Climb, hammer and Hookshot (not without the
+ *     Hookshot); Ganon's vanilla Shadow Trial late-chest, rusted-switch, torch and
+ *     Song of Time platform exits and events; the MQ Shadow Trial late chest, bomb
+ *     flower and silver-shadow precedence; GTG MQ's lit torch platforms with and
+ *     without RT_GTG_MQ_LAVA_ROOM; scene searches through each split room, and the
+ *     new exit out of each split (MQ Beamos chest to far Beamos, GTG MQ lit torch
+ *     to torch side), which main lacks, so a revert of either split fails; the
+ *     spiritLogicData MQ inner right hand reverse row; the ZD frozen waterfall
+ *     Gold Skulltula; the Fire MQ crate cage under RT_BOMB_DETONATION; GTG MQ's
+ *     magenta switch with bombs; the Shadow corner-platform target rupee; and the
+ *     Shadow MQ pit stairs' Lens term.
+ *     #1793's fixes: the MQ bomb flower region's own name (EC0a); the MQ silver
+ *     shadow event needs the Lens, the Bow and RT_GANON_MQ_SHADOW_TRIAL with the
+ *     Hover Boots (EC23, EC24, EC24b); GTG MQ's furthest platform takes the
+ *     hood's jump only under Bunny Hood Effect (EC30c, EC30d); the MQ inner right
+ *     hand's reverse row takes no hood jump (EC32a); thrown bombs do not kill the
+ *     ZD frozen waterfall Gold Skulltula (EC34a). VC59 to VC65 lock CanVoid on
+ *     the MQ Fire Trial barred-door rupee and the vanilla Shadow Trial end hearts.
  *
  * SoH eca767dcb's Masks as Adult seed setting (RSK_MASKS_AS_ADULT) and the adult
  * hood terms it makes live (#1647 stage 1b):
@@ -294,6 +326,13 @@
  *     RT_DC_CHILD_LOBBY; closed/open pairs and scene searches cover DC, Jabu, Forest
  *     and Fire's new and split regions; GF's lower-vines bunny hover and Fire's
  *     near-boss hood exits open for an adult with the hood only under Masks as Adult.
+ *  WT. SoH eca767dcb's Water Temple (#1647 stage 4): the four new regions are built;
+ *     the river platform needs the Longshot (the Hookshot only with the hood) and a
+ *     WaterTimer of 16; the river hearts and GS need 8; the platform's GS trick needs
+ *     a far kill; LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES gates both sides of the MQ
+ *     boss key room; the MQ dragon eyes moved to the dragon room bottom (irons), the
+ *     jump-dive tunnel needs its trick; the MQ vortex beds take the submerged crates;
+ *     scene searches cross the river split and the MQ dragon and vortex splits.
  *  TN. Trick names in a spoiler log (#1730): RT_DC_CHILD_LOBBY answers to Ship of
  *     Harkinian's name and not to its old one; a log that lists names this build does
  *     not know turns no trick on (not trick 0 either) and leaves the names unknown;
@@ -302,10 +341,10 @@
  *     hint type, area and trial name this build writes reads back (SN0); an unknown
  *     excluded location, placed location, item, ice-trap model or hint name fails the
  *     spoiler load (SN1-SN5, SN11), an unknown type, location, area or trial loads a
- *     hint disabled (SN6-SN9), and the Plandomizer refuses a log with an unknown location
- *     or item (SN10). No leg adds a name to any table, and none turns into entry 0 (which
- *     has a real name in every table, so the legs check that the lookup missed, not that
- *     a value is non-zero).
+ *     hint disabled (SN6-SN9) as the "enabled": false hint (SN12), and the Plandomizer
+ *     refuses a log with an unknown location or item (SN10). No leg adds a name to any
+ *     table, and none turns into entry 0 (which has a real name in every table, so the
+ *     legs check that the lookup missed, not that a value is non-zero).
  *
  * Every "must NOT" leg is paired with a "must" leg on the same save plus one
  * thing, so a location that is never reachable (a vacuous probe) fails too.
@@ -1356,6 +1395,467 @@ void VcCheckOffOn(const std::shared_ptr<Rando::Context>& randoCtx, const char* l
     randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
 }
 
+// ---- SoH eca767dcb (#7032): overhaul batch 2b (#1647 stage 5), EC ----------
+// Defined with the #1647 stage 1 and 2 legs below.
+void ExpectFlag(const char* leg, bool got, bool expected, const char* why);
+void BhlAs(bool adult, RandomizerRegion region);
+
+struct EcaBatch2bRegion {
+    RandomizerRegion region;
+    const char* name;
+};
+
+const EcaBatch2bRegion kEcaBatch2bRegions[] = {
+    { RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, "RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, "RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, "RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH" },
+    { RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, "RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH" },
+    { RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, "RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER" },
+    { RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, "RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS" },
+};
+
+// The tricks these legs force off (saved and restored), so a trick the context holds on cannot open what a leg
+// expects closed.
+const RandomizerTrick kEcaBatch2bForcedTricks[] = {
+    RT_GTG_MQ_LAVA_ROOM,
+    RT_HOVER_BOOST_SIMPLE,
+    RT_LENS_GANON,
+    RT_LENS_GANON_MQ,
+    RT_LENS_GTG_MQ,
+    RT_LENS_SHADOW_MQ,
+    RT_GANON_MQ_SHADOW_TRIAL,
+    RT_VOIDOUT_COLLECTION,
+    RT_VISIBLE_COLLISION,
+    RT_UNINTUITIVE_JUMPS,
+    RT_SPIRIT_WALL,
+    RT_GROUND_JUMP,
+    RT_GROUND_JUMP_HARD,
+    RT_GTG_FAKE_WALL,
+    RT_GTG_LAVA_JUMP,
+    RT_DAMAGE_BOOST_SIMPLE,
+    RT_SLIDE_JUMP,
+    RT_ITEM_EXTENSION,
+    RT_ZD_GS,
+    RT_BOMB_DETONATION,
+    RT_SPIRIT_STATUE_JUMP,
+    RT_SHADOW_MQ_HUGE_PIT,
+    RT_BLUE_FIRE_MUD_WALLS,
+};
+
+/** ExpectExit for an adult, with `from` holding the adult's access (its exit asks AnyAgeTime). */
+void Eb2bAdultExit(const char* leg, RandomizerRegion from, RandomizerRegion to, bool expected, const char* why) {
+    Region* region = RegionTable(from);
+    const bool saved[4] = { region->childDay, region->childNight, region->adultDay, region->adultNight };
+    region->childDay = false;
+    region->childNight = false;
+    region->adultDay = true;
+    region->adultNight = true;
+    ExpectExit(leg, from, to, true, expected, why);
+    region->childDay = saved[0];
+    region->childNight = saved[1];
+    region->adultDay = saved[2];
+    region->adultNight = saved[3];
+}
+
+void RunEcaOverhaulBatch2bLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedMedallionTrials = randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Get();
+    const uint8_t savedSkullsSuns = randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Get();
+    const bool savedGtgMq = randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->IsMQ();
+    const bool savedGanonMq = randoCtx->GetDungeon(Rando::GANONS_CASTLE)->IsMQ();
+    constexpr size_t kTrickCount = sizeof(kEcaBatch2bForcedTricks) / sizeof(kEcaBatch2bForcedTricks[0]);
+    uint8_t savedTricks[kTrickCount];
+    for (size_t i = 0; i < kTrickCount; i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Get();
+        randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Set(0);
+    }
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(1);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Set(RO_GENERIC_OFF);
+
+    // ---- EC0: every new region is built -------------------------------------
+    int unbuilt = 0;
+    for (const EcaBatch2bRegion& row : kEcaBatch2bRegions) {
+        if (RegionTable(row.region)->regionName.empty()) {
+            GateFail("EC0 %s (%d): RegionTable_Init built no region for it", row.name, (int)row.region);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: EC0 all 6 stage-5 regions built\n");
+    }
+    // EC0a (#1793): the bomb flower region carries its own name, not the moving platform's.
+    const std::string& bombFlowerName = RegionTable(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER)->regionName;
+    if (bombFlowerName != "Ganon's Castle MQ Shadow Trial Bomb Flower" ||
+        bombFlowerName == RegionTable(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_MOVING_PLATFORM)->regionName) {
+        GateFail("EC0a RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER is named \"%s\", not \"Ganon's Castle MQ Shadow "
+                 "Trial Bomb Flower\"",
+                 bombFlowerName.c_str());
+    } else {
+        printf("[TEST]   ok: EC0a the MQ Shadow Trial bomb flower region has its own name\n");
+    }
+
+    // ---- EC1..EC2: four grounded Beamos at the Spirit MQ call site, Boomerang -
+    ResetClimbLogic();
+    GiveFairyOcarina();
+    Give(RG_SONG_OF_TIME);
+    GiveGrab();
+    ExpectExit("EC1 Spirit MQ Beamos Pits to SoT Sun Room, child with Song of Time and grab, no Boomerang",
+               RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS, RR_SPIRIT_TEMPLE_MQ_SOT_SUN_ROOM, false, false,
+               "a child with nothing to stun or out-range the Beamos passes four grounded Beamos");
+    Give(RG_BOOMERANG);
+    ExpectExit("EC2 Spirit MQ Beamos Pits to SoT Sun Room, child with Song of Time, grab and Boomerang",
+               RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS, RR_SPIRIT_TEMPLE_MQ_SOT_SUN_ROOM, false, true,
+               "the Boomerang does not avoid four grounded Beamos at ED_CLOSE (SoH eca767dcb's Beamos body)");
+
+    // ---- EC3..EC4: the Beamos body reads the distance -----------------------
+    ResetClimbLogic();
+    GiveHookshot(false);
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_BEAMOS_PITS);
+    ExpectFlag("EC3 CanAvoidEnemy(RE_BEAMOS, ED_LONGSHOT, grounded, 1), adult with only the Hookshot",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_LONGSHOT, true, 1), false,
+               "the Hookshot avoids a grounded Beamos from Longshot range");
+    ExpectFlag("EC4 CanAvoidEnemy(RE_BEAMOS, ED_HOOKSHOT, grounded, 1), adult with only the Hookshot",
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_HOOKSHOT, true, 1), true,
+               "the Hookshot does not avoid a grounded Beamos from Hookshot range (SoH eca767dcb)");
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- EC5..EC6: vanilla Spirit big wall, only the Beamos term differs -----
+    ResetClimbLogic();
+    GiveClimb();
+    Give(RG_MEGATON_HAMMER);
+    ExpectExit("EC5 Spirit Big Wall Base to Upper, adult with Climb and hammer", RR_SPIRIT_TEMPLE_BIG_WALL_BASE,
+               RR_SPIRIT_TEMPLE_BIG_WALL_UPPER, true, false,
+               "the hammer (which kills the Walltula) also gets past two grounded Beamos");
+    GiveHookshot(false);
+    ExpectExit("EC6 Spirit Big Wall Base to Upper, adult with Climb, hammer and Hookshot",
+               RR_SPIRIT_TEMPLE_BIG_WALL_BASE, RR_SPIRIT_TEMPLE_BIG_WALL_UPPER, true, true,
+               "the Hookshot does not avoid two grounded Beamos at the big wall (SoH eca767dcb)");
+
+    // ---- EC7..EC8: vanilla Shadow Trial late chest event --------------------
+    randoCtx->GetDungeon(Rando::GANONS_CASTLE)->ClearMQ();
+    ResetClimbLogic();
+    GiveOpenChest();
+    ExpectAs(true, "EC7 Shadow Trial gauntlets chest, adult with Open Chest, late-chest switch not hit",
+             RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, false,
+             "the gauntlets chest opens before LOGIC_SHADOW_TRIAL_LATE_CHEST");
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_LOWER_SWITCH, true);
+    ExpectEvent("EC8a Shadow Trial lower switch, adult", LOGIC_SHADOW_TRIAL_LATE_CHEST, true,
+                "the lower switch does not set LOGIC_SHADOW_TRIAL_LATE_CHEST (SoH eca767dcb's rename)");
+    ExpectAs(true, "EC8 Shadow Trial gauntlets chest, adult with Open Chest, late-chest switch hit",
+             RR_GANONS_CASTLE_SHADOW_TRIAL_CHEST_PLATFORM, RC_GANONS_CASTLE_SHADOW_TRIAL_GOLDEN_GAUNTLETS_CHEST, true,
+             "LOGIC_SHADOW_TRIAL_LATE_CHEST does not open the gauntlets chest");
+
+    // ---- EC9..EC10: Shadow Trial start to the torch -------------------------
+    ResetClimbLogic();
+    GiveHookshot(false);
+    ExpectExit("EC9 Shadow Trial Start to Torch, adult with the Hookshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, true, false, "the Hookshot reaches the Shadow Trial torch");
+    GiveHookshot(true);
+    ExpectExit("EC10 Shadow Trial Start to Torch, adult with the Longshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_TORCH, true, true,
+               "the Longshot does not reach the Shadow Trial torch (SoH eca767dcb)");
+
+    // ---- EC11..EC12: a search from the entryway through the split trial ----
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_LENS_OF_TRUTH);
+    GiveHookshot(false);
+    ExpectSearch("EC11 Ganon's Castle search to Shadow Trial heart 1, adult with Lens and the Hookshot",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, false,
+                 "the Hookshot crosses the Shadow Trial to the chest platform");
+    GiveHookshot(true);
+    ExpectSearch("EC12 Ganon's Castle search to Shadow Trial heart 1, adult with Lens and the Longshot",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1, true,
+                 "the Longshot does not reach the chest platform through the torch (SoH eca767dcb)");
+
+    // ---- EC13..EC14: the rusted switch is its own region ------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, true);
+    ExpectEvent("EC13 Shadow Trial rusted switch, adult with nothing", LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, false,
+                "the rusted switch is hit with no hammer");
+    Give(RG_MEGATON_HAMMER);
+    FireEvents(RR_GANONS_CASTLE_SHADOW_TRIAL_RUSTED_SWITCH, true);
+    ExpectEvent("EC14 Shadow Trial rusted switch, adult with the hammer", LOGIC_SHADOW_TRIAL_RUSTED_SWITCH, true,
+                "the hammer does not hit the rusted switch from its region (SoH eca767dcb)");
+
+    // ---- EC15..EC16: Shadow Trial start to the Song of Time platform -------
+    ResetClimbLogic();
+    ExpectExit("EC15 Shadow Trial Start to SoT Platform, adult with nothing", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, true, false,
+               "an adult with nothing reaches the Song of Time platform");
+    GiveHookshot(false);
+    ExpectExit("EC16 Shadow Trial Start to SoT Platform, adult with the Hookshot", RR_GANONS_CASTLE_SHADOW_TRIAL_START,
+               RR_GANONS_CASTLE_SHADOW_TRIAL_SOT_PLATFORM, true, true,
+               "the Hookshot does not reach the Song of Time platform (SoH eca767dcb)");
+
+    // ---- EC17..EC18: MQ Shadow Trial late chest event ----------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, true);
+    ExpectEvent("EC17 MQ Shadow Trial Beamos chest, adult with nothing", LOGIC_SHADOW_TRIAL_LATE_CHEST, false,
+                "the MQ eye switch is hit with nothing");
+    Give(RG_PROGRESSIVE_BOW);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, true);
+    ExpectEvent("EC18 MQ Shadow Trial Beamos chest, adult with the Bow", LOGIC_SHADOW_TRIAL_LATE_CHEST, true,
+                "the Bow does not hit the MQ eye switch (SoH eca767dcb)");
+
+    // ---- EC19..EC20: MQ Shadow Trial bomb flower region ---------------------
+    ResetClimbLogic();
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, true);
+    ExpectEvent("EC19 MQ Shadow Trial bomb flower, adult with nothing", LOGIC_SHADOW_TRIAL_FIRST_CHEST, false,
+                "the bomb flower is set off with nothing");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BOMB_FLOWER, true);
+    ExpectEvent("EC20 MQ Shadow Trial bomb flower, adult with bombs", LOGIC_SHADOW_TRIAL_FIRST_CHEST, true,
+                "bombs do not set off the bomb flower from its region (SoH eca767dcb)");
+
+    // ---- EC21..EC22: an MQ search from the entryway to the far Beamos -------
+    randoCtx->GetDungeon(Rando::GANONS_CASTLE)->SetMQ();
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(1);
+    ResetClimbLogic();
+    Give(RG_MEGATON_HAMMER);
+    ExpectSearch("EC21 Ganon's Castle MQ search to the Beamos platform silver rupee, adult with hammer",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, false,
+                 "the hammer alone crosses the MQ Shadow Trial");
+    Give(RG_HOVER_BOOTS);
+    ExpectSearch("EC22 Ganon's Castle MQ search to the Beamos platform silver rupee, adult with hammer and Hover "
+                 "Boots",
+                 RR_GANONS_CASTLE_ENTRYWAY, true, RR_NONE, RC_GANONS_CASTLE_MQ_BEAMOS_PLATFORM_SHADOW_SILVER, true,
+                 "the Hover Boots do not reach the far Beamos (SoH eca767dcb)");
+
+    // ---- EC22a..EC22b: the split's new exit, MQ Beamos chest to far Beamos ---
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+    ResetClimbLogic();
+    ExpectExit("EC22a MQ Shadow Trial Beamos Chest to Far Beamos, adult with nothing, no Lens",
+               RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, true, false,
+               "an adult with nothing and no Lens crosses to the far Beamos");
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("EC22b MQ Shadow Trial Beamos Chest to Far Beamos, adult with Hover Boots, no Lens",
+               RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_BEAMOS_CHEST, RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_FAR_BEAMOS, true, true,
+               "the Hover Boots do not cross to the far Beamos (SoH eca767dcb)");
+
+    // ---- EC23..EC24b: MQ silver shadow event from the starting ledge (#1793) ----
+    // The Hover Boots term sits inside the trick-and-bow term, as on the paired BEAMOS_CHEST shortcut exit.
+    // EC23 holds everything but the Lens (so dropping the Lens term sets the event), EC24 the Lens and the Hover
+    // Boots only (so the old precedence, which detached the Hover Boots term, sets it), EC24b everything.
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_PROGRESSIVE_BOW);
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(1);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent(
+        "EC23 MQ Shadow Trial starting ledge, adult with Hover Boots, Bow and RT_GANON_MQ_SHADOW_TRIAL, no Lens",
+        LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, false, "the silver rupees are taken without the Lens of Truth");
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_LENS_OF_TRUTH);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent("EC24 MQ Shadow Trial starting ledge, adult with the Lens of Truth and Hover Boots only, trick off",
+                LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, false,
+                "the Lens and the Hover Boots take the silver rupees with no Bow and no RT_GANON_MQ_SHADOW_TRIAL "
+                "(SoH eca767dcb's precedence, #1793)");
+    Give(RG_PROGRESSIVE_BOW);
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(1);
+    FireEvents(RR_GANONS_CASTLE_MQ_SHADOW_TRIAL_STARTING_LEDGE, true);
+    ExpectEvent("EC24b MQ Shadow Trial starting ledge, adult with the Lens, Hover Boots, Bow and "
+                "RT_GANON_MQ_SHADOW_TRIAL",
+                LOGIC_GANONS_CASTLE_MQ_SILVER_SHADOW, true,
+                "the Lens, the Bow, the trick and the Hover Boots do not take the silver rupees");
+    randoCtx->GetTrickOption(RT_GANON_MQ_SHADOW_TRIAL).Set(0);
+    randoCtx->GetTrickOption(RT_LENS_GANON_MQ).Set(0);
+
+    // ---- EC25..EC28: GTG MQ lit torch platforms and the lava room trick -----
+    ResetClimbLogic();
+    ExpectExit("EC25 GTG MQ Maze Right to Platforms Lit Torch, adult with nothing, RT_GTG_MQ_LAVA_ROOM off",
+               RR_GERUDO_TRAINING_GROUND_MQ_MAZE_RIGHT, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, true, false,
+               "an adult with nothing reaches the lit torch platforms with the trick off");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(1);
+    ExpectExit("EC26 GTG MQ Maze Right to Platforms Lit Torch, adult with nothing, RT_GTG_MQ_LAVA_ROOM on",
+               RR_GERUDO_TRAINING_GROUND_MQ_MAZE_RIGHT, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, true, true,
+               "RT_GTG_MQ_LAVA_ROOM does not let an adult jump to the lit torch platforms (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(0);
+    ResetClimbLogic();
+    Give(RG_HOVER_BOOTS);
+    ExpectExit("EC27 GTG MQ Unlit Torch to Lit Torch, adult with Hover Boots, RT_GTG_MQ_LAVA_ROOM off",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_UNLIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH,
+               true, false, "the Hover Boots cross to the lit torch with the trick off");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(1);
+    ExpectExit("EC28 GTG MQ Unlit Torch to Lit Torch, adult with Hover Boots, RT_GTG_MQ_LAVA_ROOM on",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_UNLIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH,
+               true, true, "RT_GTG_MQ_LAVA_ROOM and the Hover Boots do not cross to the lit torch (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_GTG_MQ_LAVA_ROOM).Set(0);
+
+    // ---- EC29..EC30: a GTG MQ search through the split lava room ------------
+    randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->SetMQ();
+    ResetClimbLogic();
+    ExpectSearch("EC29 GTG MQ search to the near-lit-torch lava silver rupee, adult with nothing",
+                 RR_GERUDO_TRAINING_GROUND_ENTRYWAY, true, RR_NONE, RC_GTG_MQ_NEAR_LIT_TORCH_LAVA_SILVER, false,
+                 "an adult with nothing reaches the lava room's torch side");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectSearch("EC30 GTG MQ search to the near-lit-torch lava silver rupee, adult with the Bow",
+                 RR_GERUDO_TRAINING_GROUND_ENTRYWAY, true, RR_NONE, RC_GTG_MQ_NEAR_LIT_TORCH_LAVA_SILVER, true,
+                 "the Bow does not reach the torch side through the Dinolfos room and the lit torch (SoH eca767dcb)");
+
+    // ---- EC30a..EC30b: the split's new exit, lit torch to torch side ----------
+    ResetClimbLogic();
+    ExpectExit("EC30a GTG MQ Platforms Lit Torch to Torch Side Platforms, adult with nothing",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS,
+               true, false, "an adult with nothing lights the far torch from the lit torch platforms");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectExit("EC30b GTG MQ Platforms Lit Torch to Torch Side Platforms, adult with the Bow",
+               RR_GERUDO_TRAINING_GROUND_MQ_PLATFORMS_LIT_TORCH, RR_GERUDO_TRAINING_GROUND_MQ_TORCH_SIDE_PLATFORMS,
+               true, true, "an adult's Bow does not reach the torch side from the lit torch (SoH eca767dcb)");
+
+    // ---- EC30c..EC30d: GTG MQ switch ledge to the furthest platform, the hood's effect (#1793) ----
+    // An adult wearing the hood under Masks as Adult, with Fire Arrows and a sword, no Hover Boots: the hood's jump
+    // needs Bunny Hood Effect (BunnyHood), not only a mask Link can wear (CanUse(RG_BUNNY_HOOD) is true here).
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_FIRE_ARROWS);
+    Give(RG_MASTER_SWORD);
+    ExpectExit("EC30c GTG MQ Switch Ledge to Furthest Platform, adult with the hood, Fire Arrows and a sword, Masks "
+               "as Adult on, Bunny Hood Effect off",
+               RR_GERUDO_TRAINING_GROUND_MQ_SWITCH_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM, true, false,
+               "the hood's jump is in logic with Bunny Hood Effect off (CanUse(RG_BUNNY_HOOD) in place of BunnyHood)");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ExpectExit("EC30d GTG MQ Switch Ledge to Furthest Platform, adult with the hood, Fire Arrows and a sword, Masks "
+               "as Adult on, Bunny Hood Effect on",
+               RR_GERUDO_TRAINING_GROUND_MQ_SWITCH_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_FURTHEST_PLATFORM, true, true,
+               "the hood's jump with a sword and Fire Arrows does not reach the furthest platform (SoH eca767dcb)");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+
+    // ---- EC31..EC32: spiritLogicData, MQ Inner Right Hand reverse access -----
+    ResetClimbLogic();
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND);
+    ExpectFlag("EC31 spiritLogicData MQ Inner Right Hand reverse access, adult with nothing",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), false,
+               "an adult with nothing reaches the MQ inner right hand in reverse");
+    GiveClimb();
+    ExpectFlag("EC32 spiritLogicData MQ Inner Right Hand reverse access, adult with Climb",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), true,
+               "an adult with Climb does not reach the MQ inner right hand in reverse (SoH eca767dcb)");
+    // EC32a (#1793): the statue head's exit to the right hand takes the Hover Boots only (spirit_temple.cpp), so the
+    // reverse access takes no hood jump: an adult with the hood's effect and a sword, no Climb, Hookshot or boots.
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_MASTER_SWORD);
+    BhlAs(true, RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND);
+    ExpectFlag("EC32a spiritLogicData MQ Inner Right Hand reverse access, adult with the hood's effect and a sword",
+               Region::spiritLogicData.at(RR_SPIRIT_TEMPLE_MQ_INNER_RIGHT_HAND).reverseAccess(), false,
+               "a hood jump reaches the MQ inner right hand in reverse, which the statue head's exit does not allow");
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    logic->CurrentRegionKey = RR_NONE;
+
+    // ---- EC33..EC34: Zora's Domain frozen waterfall Gold Skulltula -----------
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    ExpectAs(true, "EC33 ZD GS frozen waterfall, adult with magic only", RR_ZORAS_DOMAIN, RC_ZD_GS_FROZEN_WATERFALL,
+             false, "an adult with magic and no weapon kills the frozen waterfall Skulltula");
+    Give(RG_DINS_FIRE);
+    ExpectAs(true, "EC34 ZD GS frozen waterfall, adult with magic and Din's Fire", RR_ZORAS_DOMAIN,
+             RC_ZD_GS_FROZEN_WATERFALL, true,
+             "Din's Fire does not kill the frozen waterfall Skulltula (SoH eca767dcb's CanKillEnemy form)");
+    // EC34a (#1793): the rule passes inWater because the terrain blocks bomb throws; the Gold Skulltula case of
+    // CanKillEnemy honours it, so magic (which opens ED_SHORT_JUMPSLASH) and bombs kill nothing here.
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    ExpectAs(true, "EC34a ZD GS frozen waterfall, adult with magic and bombs", RR_ZORAS_DOMAIN,
+             RC_ZD_GS_FROZEN_WATERFALL, false,
+             "thrown bombs kill the frozen waterfall Skulltula, which the rule's inWater says they cannot reach");
+
+    // ---- EC35..EC36: Fire MQ maze crate cage under RT_BOMB_DETONATION (73a739b7a)
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    Eb2bAdultExit("EC35 Fire MQ Lower Lizalfos Maze to Maze Crate Cage, adult with bombs, RT_BOMB_DETONATION off",
+                  RR_FIRE_TEMPLE_MQ_LOWER_LIZALFOS_MAZE, RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE, false,
+                  "bombs open the crate cage with the trick off");
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(1);
+    Eb2bAdultExit("EC36 Fire MQ Lower Lizalfos Maze to Maze Crate Cage, adult with bombs, RT_BOMB_DETONATION on",
+                  RR_FIRE_TEMPLE_MQ_LOWER_LIZALFOS_MAZE, RR_FIRE_TEMPLE_MQ_MAZE_CRATE_CAGE, true,
+                  "RT_BOMB_DETONATION and bombs do not open the crate cage (SoH 73a739b7a)");
+    randoCtx->GetTrickOption(RT_BOMB_DETONATION).Set(0);
+
+    // ---- EC37..EC38: GTG MQ statue room ledge to the magenta fire room (73a739b7a)
+    ResetClimbLogic();
+    Eb2bAdultExit("EC37 GTG MQ Statue Room Ledge to Magenta Fire Room, adult with nothing",
+                  RR_GERUDO_TRAINING_GROUND_MQ_STATUE_ROOM_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_MAGENTA_FIRE_ROOM, false,
+                  "an adult with nothing hits the magenta fire switch");
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    Eb2bAdultExit("EC38 GTG MQ Statue Room Ledge to Magenta Fire Room, adult with bombs",
+                  RR_GERUDO_TRAINING_GROUND_MQ_STATUE_ROOM_LEDGE, RR_GERUDO_TRAINING_GROUND_MQ_MAGENTA_FIRE_ROOM, true,
+                  "bombs do not hit the magenta fire switch from ED_BOMB_THROW (SoH 73a739b7a)");
+
+    // ---- EC39..EC40: Shadow spikes corner platform west target rupee --------
+    ResetClimbLogic();
+    ExpectAs(true, "EC39 Shadow spikes corner platform west target rupee, adult with nothing",
+             RR_SHADOW_TEMPLE_SPIKES_CORNER_PLATFORM, RC_SHADOW_W_TARGET_SPIKES_SILVER, false,
+             "an adult with nothing takes the west target rupee from the corner platform");
+    GiveHookshot(false);
+    ExpectAs(true, "EC40 Shadow spikes corner platform west target rupee, adult with the Hookshot",
+             RR_SHADOW_TEMPLE_SPIKES_CORNER_PLATFORM, RC_SHADOW_W_TARGET_SPIKES_SILVER, true,
+             "the Hookshot does not take the west target rupee from the corner platform (SoH eca767dcb)");
+
+    // ---- EC41..EC42: Shadow MQ pit stairs need Lens or its trick ------------
+    ResetClimbLogic();
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    Give(RG_DINS_FIRE);
+    FireEvents(RR_SHADOW_TEMPLE_MQ_UPPER_HUGE_PIT, true);
+    ExpectEvent("EC41 Shadow MQ pit stairs, adult with Din's Fire, no Lens", LOGIC_SHADOW_MQ_PIT_STAIRS, false,
+                "a fire source alone lights the pit stairs without Lens (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(1);
+    FireEvents(RR_SHADOW_TEMPLE_MQ_UPPER_HUGE_PIT, true);
+    ExpectEvent("EC42 Shadow MQ pit stairs, adult with Din's Fire, RT_LENS_SHADOW_MQ", LOGIC_SHADOW_MQ_PIT_STAIRS, true,
+                "a fire source and the Lens trick do not light the pit stairs");
+    randoCtx->GetTrickOption(RT_LENS_SHADOW_MQ).Set(0);
+
+    if (savedGtgMq) {
+        randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::GERUDO_TRAINING_GROUND)->ClearMQ();
+    }
+    if (savedGanonMq) {
+        randoCtx->GetDungeon(Rando::GANONS_CASTLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::GANONS_CASTLE)->ClearMQ();
+    }
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaBatch2bForcedTricks[i]).Set(savedTricks[i]);
+    }
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_MEDALLION_LOCKED_TRIALS).Set(savedMedallionTrials);
+    randoCtx->GetOption(RSK_SKULLS_SUNS_SONG).Set(savedSkullsSuns);
+}
+
 void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
     const uint8_t savedVoidout = randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Get();
     const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
@@ -1551,7 +2051,56 @@ void RunVoidoutCollectionLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                  "VC58 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, no Golden "
                  "Gauntlets, trick on",
                  RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true);
+    // VC59 (#1793): the barred door's voidout needs CanVoid, as the open door's row has (VC3's staging: OHKO, no
+    // fairy, so the void kills Link). Nothing else of the row reads the damage setting.
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("VC59 MQ Fire Trial on-pillar rupee from the barred door, tunic, hammer recoil hover, trick on, OHKO and "
+             "no fairy",
+             RR_GANONS_CASTLE_MQ_FIRE_TRIAL_FROM_BARRED, RC_GANONS_CASTLE_MQ_ON_PILLAR_FIRE_SILVER, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid, #1793)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
     randoCtx->GetTrickOption(RT_HOVER_BOOST_SIMPLE).Set(savedHoverBoost);
+
+    // ---- VC60..VC65: the vanilla Shadow Trial end hearts need CanVoid (#1793) ----
+    // An adult with Hover Boots and the hood's effect (BunnyHovers for heart 1), no Boomerang: with the trick on
+    // each heart is in logic at the default damage and out of it under OHKO with no fairy (VC3's staging).
+    struct VcShadowHeart {
+        RandomizerCheck check;
+        const char* legOn;
+        const char* legOhko;
+    };
+    const VcShadowHeart kVcShadowHearts[] = {
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_1,
+          "VC60 Shadow Trial end heart 1, adult with Hover Boots and the hood, trick on",
+          "VC61 Shadow Trial end heart 1, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_2,
+          "VC62 Shadow Trial end heart 2, adult with Hover Boots and the hood, trick on",
+          "VC63 Shadow Trial end heart 2, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+        { RC_GANONS_CASTLE_SHADOW_TRIAL_HEART_3,
+          "VC64 Shadow Trial end heart 3, adult with Hover Boots and the hood, trick on",
+          "VC65 Shadow Trial end heart 3, adult with Hover Boots and the hood, trick on, OHKO and no fairy" },
+    };
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    VcResetNoSwim();
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_HOVER_BOOTS);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    for (const VcShadowHeart& heart : kVcShadowHearts) {
+        ExpectAt(heart.legOn, RR_GANONS_CASTLE_SHADOW_TRIAL_END, heart.check, true, true,
+                 "the voidout collection is not in logic with the trick on, Hover Boots and the hood");
+        randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+        ExpectAt(heart.legOhko, RR_GANONS_CASTLE_SHADOW_TRIAL_END, heart.check, true, false,
+                 "the voidout is in logic under OHKO with no fairy (CanVoid, #1793)");
+        randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    }
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
 
     randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(savedVoidout);
     randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
@@ -2276,6 +2825,447 @@ void RunEcaOverhaulBatch1Legs(const std::shared_ptr<Rando::Context>& randoCtx) {
     randoCtx->GetTrickOption(RT_FIRE_SKIP_FLAME_WALLS).Set(savedSkipFlames);
 }
 
+// ---- SoH eca767dcb (#7032): the Water Temple (#1647 stage 4), WT -------------
+const EcaBatch1Region kEcaWaterRegions[] = {
+    { RR_WATER_TEMPLE_RIVER_PLATFORM, "RR_WATER_TEMPLE_RIVER_PLATFORM" },
+    { RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, "RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM" },
+    { RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, "RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S" },
+    { RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, "RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N" },
+};
+
+// Every trick water_temple.cpp and the helpers it calls read, forced off (saved and restored), so a trick the
+// context holds on cannot open a path a leg expects closed.
+const RandomizerTrick kEcaWaterTricks[] = {
+    RT_FEWER_TUNIC_REQUIREMENTS,
+    RT_WATER_ADULT_DRAGON,
+    RT_WATER_BK_REGION,
+    RT_WATER_CENTRAL_BOW,
+    RT_WATER_CHILD_DRAGON,
+    RT_WATER_CRACKED_WALL,
+    RT_WATER_CRACKED_WALL_HOVERS,
+    RT_WATER_DRAGON_JUMP_DIVE,
+    RT_WATER_FW_CENTRAL_GS,
+    RT_WATER_HIGH_EMBLEM_JUMP,
+    RT_WATER_HOOKSHOT_FALLING_PLATFORM_GS,
+    RT_WATER_INVISIBLE_HOOKSHOT_TARGET,
+    RT_WATER_IRONS_CENTRAL_GS,
+    RT_WATER_IRON_BOOTS_LEDGE_GRAB,
+    RT_WATER_LONGSHOT_TORCH,
+    RT_WATER_MQ_CENTRAL_PILLAR,
+    RT_WATER_MORPHA_WITHOUT_HOOKSHOT,
+    RT_WATER_NORTH_BASEMENT_LEDGE_JUMP,
+    RT_WATER_RANG_FALLING_PLATFORM_GS,
+    RT_WATER_RIVER_GS,
+    RT_VOIDOUT_COLLECTION,
+    RT_HOVER_BOOST_SIMPLE,
+    RT_DAMAGE_BOOST_SIMPLE,
+    RT_UNINTUITIVE_JUMPS,
+    RT_GROUND_JUMP,
+    RT_GROUND_JUMP_HARD,
+    RT_HOOKSHOT_EXTENSION,
+    RT_OPEN_UNDERWATER_CHEST,
+    RT_VISIBLE_COLLISION,
+};
+
+/** ResetClimbLogic, with Swim granted or withheld (the context's Shuffle Swim decides it otherwise). */
+void EcaWaterReset(bool swim) {
+    ResetClimbLogic();
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, swim);
+}
+
+/** A reset with Starting Hearts @p value (value + 1 hearts, 16 health each), no Swim. Logic::Reset reads the option
+ *  only at reset, so it is set first; WaterTimer is Health() / 2 under RT_FEWER_TUNIC_REQUIREMENTS. */
+void EcaWaterResetHearts(const std::shared_ptr<Rando::Context>& randoCtx, const char* leg, uint8_t value) {
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(value);
+    EcaWaterReset(false);
+    if (logic->Health() != 16 * (value + 1)) {
+        GateFail("%s: Logic::Reset left health capacity %d under Starting Hearts %d, not %d", leg, (int)logic->Health(),
+                 (int)value, 16 * (value + 1));
+    }
+}
+
+void RunEcaOverhaulWaterLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    constexpr size_t kTrickCount = sizeof(kEcaWaterTricks) / sizeof(kEcaWaterTricks[0]);
+    uint8_t savedTricks[kTrickCount];
+    for (size_t i = 0; i < kTrickCount; i++) {
+        savedTricks[i] = randoCtx->GetTrickOption(kEcaWaterTricks[i]).Get();
+    }
+    const uint8_t savedHearts = randoCtx->GetOption(RSK_STARTING_HEARTS).Get();
+    const uint8_t savedDamage = randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Get();
+    const uint8_t savedShuffleClimb = randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Get();
+    const uint8_t savedShuffleOpenChest = randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Get();
+    const uint8_t savedOcarinaButtons = randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Get();
+    const uint8_t savedBunny = randoCtx->GetOption(RSK_BUNNY_HOOD).Get();
+    const uint8_t savedMasksAsAdult = randoCtx->GetOption(RSK_MASKS_AS_ADULT).Get();
+    const uint8_t savedMaskQuest = randoCtx->GetOption(RSK_MASK_QUEST).Get();
+    const bool savedWaterMq = randoCtx->GetDungeon(Rando::WATER_TEMPLE)->IsMQ();
+
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaWaterTricks[i]).Set(0);
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(1);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(1);
+    // Song of Time's buttons (the vanilla walk to the river), granted at reset with the setting off.
+    randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(RO_MASK_QUEST_SHUFFLE);
+
+    // ---- WT0: every new region is built ---------------------------------------
+    int unbuilt = 0;
+    for (const EcaBatch1Region& row : kEcaWaterRegions) {
+        if (RegionTable(row.region)->regionName.empty()) {
+            GateFail("WT0 %s (%d): RegionTable_Init built no region for it", row.name, (int)row.region);
+            unbuilt++;
+        }
+    }
+    if (unbuilt == 0) {
+        printf("[TEST]   ok: WT0 all 4 stage-4 regions built\n");
+    }
+
+    // ---- WT1..WT2: River -> River Platform, adult with irons and tunic, no Swim, hood setting off ----
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    GiveHookshot(false);
+    ExpectExit("WT1 Water River to River Platform, adult with irons, tunic and short Hookshot, no Swim",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, false,
+               "the short Hookshot pulls out of the river without the hood (eca767dcb asks for the Longshot)");
+    GiveHookshot(true);
+    ExpectExit("WT2 Water River to River Platform, adult with irons, tunic and Longshot, no Swim",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, true,
+               "irons, tunic and Longshot do not reach the river platform (SoH eca767dcb)");
+
+    // ---- WT3..WT4: the platform's WaterTimer >= 16, RT_FEWER_TUNIC_REQUIREMENTS, no tunic ----
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    EcaWaterResetHearts(randoCtx, "WT3", 0);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    ExpectExit("WT3 Water River to River Platform, adult with irons and Longshot, one heart (WaterTimer 8)",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, false,
+               "a WaterTimer of 8 reaches the river platform (eca767dcb asks for 16)");
+    EcaWaterResetHearts(randoCtx, "WT4", 1);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    ExpectExit("WT4 Water River to River Platform, adult with irons and Longshot, two hearts (WaterTimer 16)",
+               RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM, true, true,
+               "a WaterTimer of 16 does not reach the river platform (the parent's 32 is still in force)");
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+
+    // ---- WT5..WT6: the hood term on River -> River Platform ------------------------
+    ResetLogicWithBunnyHood();
+    logic->SetRandoInf(RAND_INF_CAN_CLIMB, false);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, false);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    GiveHookshot(false);
+    MaaExitOffOn(
+        randoCtx,
+        "WT5 Water River to River Platform, adult with irons, tunic, short Hookshot and hood, Masks as Adult "
+        "off",
+        "WT6 Water River to River Platform, adult with irons, tunic, short Hookshot and hood, Masks as Adult on",
+        RR_WATER_TEMPLE_RIVER, RR_WATER_TEMPLE_RIVER_PLATFORM);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+
+    // ---- WT7..WT10: the river hearts and the river GS at WaterTimer >= 8 -----------
+    EcaWaterResetHearts(randoCtx, "WT7", 0);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(false);
+    ExpectAs(true, "WT7 Water river heart 1, adult with irons, no tunic, trick off (WaterTimer 0)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_RIVER_HEART_1, false,
+             "irons alone with a WaterTimer of 0 collect the river heart");
+    ExpectAs(true, "WT9 Water river GS, adult with irons and short Hookshot, no tunic, trick off (WaterTimer 0)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_GS_RIVER, false,
+             "irons and Hookshot with a WaterTimer of 0 collect the river GS");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectAs(true, "WT8 Water river heart 1, adult with irons, no tunic, one heart, trick on (WaterTimer 8)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_RIVER_HEART_1, true,
+             "a WaterTimer of 8 does not collect the river heart (the parent's 16 is still in force)");
+    ExpectAs(true, "WT10 Water river GS, adult with irons and short Hookshot, one heart, trick on (WaterTimer 8)",
+             RR_WATER_TEMPLE_RIVER, RC_WATER_TEMPLE_GS_RIVER, true,
+             "a WaterTimer of 8 does not collect the river GS (the parent's 16 is still in force)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+
+    // ---- WT11..WT12: RT_WATER_RIVER_GS on the platform needs a far kill -----------
+    randoCtx->GetTrickOption(RT_WATER_RIVER_GS).Set(1);
+    EcaWaterReset(false);
+    GiveHookshot(true);
+    ExpectAs(true, "WT11 Water river GS from the platform, adult with Longshot, RT_WATER_RIVER_GS, no Bow",
+             RR_WATER_TEMPLE_RIVER_PLATFORM, RC_WATER_TEMPLE_GS_RIVER, false,
+             "the Longshot alone takes the river GS from the platform (eca767dcb asks for a far kill)");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectAs(true, "WT12 Water river GS from the platform, adult with Longshot and Bow, RT_WATER_RIVER_GS",
+             RR_WATER_TEMPLE_RIVER_PLATFORM, RC_WATER_TEMPLE_GS_RIVER, true,
+             "Longshot, Bow and RT_WATER_RIVER_GS do not take the river GS from the platform (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_RIVER_GS).Set(0);
+
+    // ---- WT13..WT14: vanilla search from the entryway across the river split ------
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_IRON_BOOTS);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_HOVER_BOOTS);
+    Give(RG_MASTER_SWORD);
+    GiveFairyOcarina();
+    Give(RG_SONG_OF_TIME);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 6);
+    ExpectSearch("WT13 Water search from entryway to the river chest, adult without Bow", RR_WATER_TEMPLE_ENTRYWAY,
+                 true, RR_NONE, RC_WATER_TEMPLE_RIVER_CHEST, false,
+                 "the river chest is reached without hitting the eye target from the river platform");
+    Give(RG_PROGRESSIVE_BOW);
+    ExpectSearch("WT14 Water search from entryway to the river chest, adult with Bow via the river platform",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_RIVER_CHEST, true,
+                 "an adult with Swim, Longshot, irons, tunic, Hover Boots, sword, Song of Time, Bow and 6 keys cannot "
+                 "reach the river chest through the river platform");
+
+    // ---- WT15..WT18: LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES from either side --------
+    EcaWaterReset(false);
+    Give(RG_DINS_FIRE);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true);
+    ExpectEvent("WT15 Water MQ boss key torches from the switch side, adult with Din's Fire, no switch hitter",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, false,
+                "Din's Fire alone lights the boss key chest torches without hitting the switch");
+    GiveGrab();
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true);
+    ExpectEvent("WT16 Water MQ boss key torches from the switch side, adult with Din's Fire and the bracelet",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true,
+                "Din's Fire and the Power Bracelet do not light the boss key chest torches (SoH eca767dcb)");
+
+    EcaWaterReset(false);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true);
+    ExpectEvent("WT17 Water MQ boss key torches from the chest side, adult with Bow and magic, no fire",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, false, "the chest-side torches light with no fire source");
+    Give(RG_FIRE_ARROWS);
+    FireEvents(RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true);
+    ExpectEvent("WT18 Water MQ boss key torches from the chest side, adult with Fire Arrows",
+                LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true,
+                "Fire Arrows do not light the boss key chest torches from the chest side (SoH eca767dcb)");
+
+    // ---- WT19..WT22: the boss key room's two sides need the torches ---------------
+    EcaWaterReset(false);
+    Give(RG_MASTER_SWORD);
+    ExpectExit("WT19 Water MQ boss key switch side to chest, adult with Master Sword, torches unlit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true, false,
+               "the switch side reaches the chest with the torches unlit");
+    logic->Set(LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true);
+    ExpectExit("WT20 Water MQ boss key switch side to chest, adult with Master Sword, torches lit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, true, true,
+               "a sword and the lit torches do not reach the chest side (SoH eca767dcb)");
+
+    // The short Hookshot hits the switch at bomb-throw range (CanHitSwitch falls through to it); the sword does not.
+    EcaWaterReset(false);
+    GiveHookshot(false);
+    ExpectExit("WT21 Water MQ boss key chest side to switch side, adult with short Hookshot, torches unlit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true, false,
+               "the chest side reaches the switch side with the torches unlit");
+    logic->Set(LOGIC_WATER_MQ_BOSS_KEY_CHEST_TORCHES, true);
+    ExpectExit("WT22 Water MQ boss key chest side to switch side, adult with short Hookshot, torches lit",
+               RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_CHEST, RR_WATER_TEMPLE_MQ_BOSS_KEY_ROOM_SWITCH, true, true,
+               "a Hookshot and the lit torches do not reach the switch side (SoH eca767dcb)");
+
+    // ---- WT23..WT28: the MQ dragon room bottom and the jump-dive tunnel ------------
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT23 Water MQ river pots to dragon room bottom, adult with irons, no tunic",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, true, false,
+               "irons with a WaterTimer of 0 sink to the dragon room bottom");
+    Give(RG_ZORA_TUNIC);
+    ExpectExit("WT24 Water MQ river pots to dragon room bottom, adult with irons and tunic",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, true, true,
+               "irons and tunic do not reach the dragon room bottom (SoH eca767dcb)");
+    ExpectExit("WT27 Water MQ river pots to dragon room tunnel, adult with irons and tunic, jump-dive trick off",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_TUNNEL, true, false,
+               "irons alone dive straight into the tunnel without RT_WATER_DRAGON_JUMP_DIVE");
+    randoCtx->GetTrickOption(RT_WATER_DRAGON_JUMP_DIVE).Set(1);
+    ExpectExit("WT28 Water MQ river pots to dragon room tunnel, adult with irons and tunic, jump-dive trick on",
+               RR_WATER_TEMPLE_MQ_RIVER_POTS, RR_WATER_TEMPLE_MQ_DRAGON_ROOM_TUNNEL, true, true,
+               "irons, tunic and RT_WATER_DRAGON_JUMP_DIVE do not reach the tunnel (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_DRAGON_JUMP_DIVE).Set(0);
+
+    EcaWaterReset(false);
+    ExpectAs(true, "WT25 Water MQ dragon room left eye from the bottom, adult with nothing",
+             RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, false,
+             "the left eye's wonder item drops with no Hookshot");
+    GiveHookshot(false);
+    ExpectAs(true, "WT26 Water MQ dragon room left eye from the bottom, adult with short Hookshot",
+             RR_WATER_TEMPLE_MQ_DRAGON_ROOM_BOTTOM, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, true,
+             "the Hookshot does not take the left eye from the dragon room bottom (SoH eca767dcb)");
+
+    // ---- WT29..WT30: MQ search from the entryway into the dragon room bottom --------
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_MASTER_SWORD);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 2);
+    ExpectSearch("WT29 Water MQ search from entryway to the dragon room left eye, adult without irons",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, false,
+                 "the dragon room eyes are reached without irons (they left the door and tunnel for the bottom)");
+    Give(RG_IRON_BOOTS);
+    ExpectSearch("WT30 Water MQ search from entryway to the dragon room left eye, adult with irons",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WONDER_DRAGON_ROOM_LEFT_EYE, true,
+                 "an adult with Swim, Longshot, tunic, irons, sword, Bow and 2 keys cannot reach the dragon room "
+                 "bottom's left eye");
+
+    // ---- WT31..WT36: the MQ crate vortex beds ---------------------------------------
+    EcaWaterReset(false);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT31 Water MQ crate vortex room to bed south, adult with irons, no tunic",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, false,
+               "irons with a WaterTimer of 0 sink to the vortex bed");
+    Give(RG_ZORA_TUNIC);
+    ExpectExit("WT32 Water MQ crate vortex room to bed south, adult with irons and tunic",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, true,
+               "irons and tunic do not reach the vortex bed (SoH eca767dcb)");
+
+    EcaWaterResetHearts(randoCtx, "WT33", 0);
+    Give(RG_IRON_BOOTS);
+    ExpectExit("WT33 Water MQ crate vortex room to bed south, adult with irons, one heart, trick off (WaterTimer 0)",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, false,
+               "irons with a WaterTimer of 0 sink to the vortex bed");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(1);
+    ExpectExit("WT34 Water MQ crate vortex room to bed south, adult with irons, one heart, trick on (WaterTimer 8)",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_S, true, true,
+               "a WaterTimer of 8 does not reach the vortex bed (eca767dcb asks for 8, the old crates for 16)");
+    randoCtx->GetTrickOption(RT_FEWER_TUNIC_REQUIREMENTS).Set(0);
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(2);
+
+    EcaWaterReset(false);
+    GiveHookshot(false);
+    ExpectExit("WT35 Water MQ crate vortex bed north to cage, adult with short Hookshot, invisible target trick off",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_CAGE, true, false,
+               "the invisible target reaches the vortex cage with RT_WATER_INVISIBLE_HOOKSHOT_TARGET off");
+    randoCtx->GetTrickOption(RT_WATER_INVISIBLE_HOOKSHOT_TARGET).Set(1);
+    ExpectExit("WT36 Water MQ crate vortex bed north to cage, adult with short Hookshot, invisible target trick on",
+               RR_WATER_TEMPLE_MQ_CRATE_VORTEX_BED_N, RR_WATER_TEMPLE_MQ_CRATE_VORTEX_CAGE, true, true,
+               "the short Hookshot and RT_WATER_INVISIBLE_HOOKSHOT_TARGET do not reach the cage (SoH eca767dcb)");
+    randoCtx->GetTrickOption(RT_WATER_INVISIBLE_HOOKSHOT_TARGET).Set(0);
+
+    // ---- WT37..WT38: MQ search through the vortex beds (no bombchus, so the room's own copy stays closed) ----
+    EcaWaterReset(true);
+    GiveHookshot(true);
+    Give(RG_ZORA_TUNIC);
+    Give(RG_MASTER_SWORD);
+    Give(RG_PROGRESSIVE_BOW);
+    Give(RG_DINS_FIRE);
+    Give(RG_PROGRESSIVE_MAGIC_METER);
+    GiveOpenChest();
+    GiveClimb();
+    logic->SetSmallKeyCount(SCENE_WATER_TEMPLE, 2);
+    ExpectSearch("WT37 Water MQ search from entryway to vortex crate 3, adult without irons", RR_WATER_TEMPLE_ENTRYWAY,
+                 true, RR_NONE, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_3, false,
+                 "the submerged vortex crate is reached without irons or bombchus");
+    Give(RG_IRON_BOOTS);
+    ExpectSearch("WT38 Water MQ search from entryway to vortex crate 3, adult with irons via bed north",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_3, true,
+                 "an adult with Swim, Longshot, tunic, irons, sword, Bow, Din's Fire and 2 keys cannot reach vortex "
+                 "crate 3 through the vortex beds");
+
+    // ---- WT39..WT40: the Rising Target Ledge sets no LOGIC_WATER_COULD_LOW (a departure from upstream) ----
+    // Upstream's ledge event (73a739b7a, unchanged on develop) set it from Iron Boots and Swim alone, so WL_MID held
+    // with no tunic although the low emblem is only behind the side tower (WaterTimer >= 24 with irons). With the
+    // tunic the side tower sets LOGIC_WATER_COULD_LOW_FROM_HIGH, which WL_MID reads in the same place. The compass
+    // chest is behind WL_MID: Outside Waterfall -> Outside Jet Lift 2F -> 2F Central LM -> Jet Chest Room.
+    const auto expectWaterMid = [](const char* leg, bool expected, const char* why) {
+        const bool got = logic->WaterLevel(WL_MID);
+        if (got != expected) {
+            GateFail("%s: %s (expected %s, got %s)", leg, why, expected ? "true" : "false", got ? "true" : "false");
+            return;
+        }
+        printf("[TEST]   ok: %s: WaterLevel(WL_MID) %s\n", leg, expected ? "true" : "false");
+    };
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    EcaWaterReset(true);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveZeldasLullaby();
+    Give(RG_HOVER_BOOTS);
+    GiveOpenChest();
+    GiveClimb();
+    ExpectSearch("WT39 Water search from entryway to the compass chest, adult with Swim, irons, Longshot, Bow, "
+                 "Zelda's Lullaby and Hover Boots, no tunic",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_COMPASS_CHEST, false,
+                 "the compass chest is reached behind the middle water level although the water cannot be lowered "
+                 "without the tunic (the ledge's LOGIC_WATER_COULD_LOW is back)");
+    expectWaterMid("WT39 Water WL_MID after that search, no tunic", false,
+                   "the middle water level is in logic with no tunic (the ledge's LOGIC_WATER_COULD_LOW is back)");
+    EcaWaterReset(true);
+    Give(RG_IRON_BOOTS);
+    GiveHookshot(true);
+    Give(RG_PROGRESSIVE_BOW);
+    GiveZeldasLullaby();
+    Give(RG_HOVER_BOOTS);
+    GiveOpenChest();
+    GiveClimb();
+    Give(RG_ZORA_TUNIC);
+    ExpectSearch("WT40 Water search from entryway to the compass chest, the WT39 items and the tunic",
+                 RR_WATER_TEMPLE_ENTRYWAY, true, RR_NONE, RC_WATER_TEMPLE_COMPASS_CHEST, true,
+                 "the tunic does not lower the water through the side tower and reach the compass chest");
+    expectWaterMid("WT40 Water WL_MID after that search, with the tunic", true,
+                   "the side tower's LOGIC_WATER_COULD_LOW_FROM_HIGH does not put the middle water level in logic");
+
+    // ---- WT41..WT44: the MQ vortex crates' voidout needs CanVoid (a departure from upstream) ----
+    // Upstream's disjunct (73a739b7a, unchanged on develop) has no CanVoid. No Swim, irons or Boomerang (and adult),
+    // so the voidout disjunct is the crate's only way; bombchus come from LOGIC_BUY_BOMBCHUS.
+    randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_ON);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_ON);
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(1);
+    EcaWaterReset(false);
+    logic->SetRandoInf(RAND_INF_CHILD_TRADES_HAS_MASK_BUNNY, true);
+    Give(RG_PROGRESSIVE_BOMB_BAG);
+    logic->SetInventory(ITEM_BOMBCHU, ITEM_BOMBCHU);
+    logic->Set(LOGIC_BUY_BOMBCHUS, true);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_OHKO);
+    ExpectAt("WT41 Water MQ vortex submerged crate 1, adult with bombchus and the hood, trick on, OHKO and no fairy",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_1, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    ExpectAt("WT42 Water MQ vortex submerged crate 5, adult with bombchus and the hood, trick on, OHKO and no fairy",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_5, true, false,
+             "the voidout is in logic under OHKO with no fairy (CanVoid)");
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(RO_DAMAGE_MULTIPLIER_DEFAULT);
+    ExpectAt("WT43 Water MQ vortex submerged crate 1, adult with bombchus and the hood, trick on, normal damage",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_1, true, true,
+             "three hearts, the hood, bombchus and RT_VOIDOUT_COLLECTION do not collect the crate by voiding");
+    ExpectAt("WT44 Water MQ vortex submerged crate 5, adult with bombchus and the hood, trick on, normal damage",
+             RR_WATER_TEMPLE_MQ_CRATE_VORTEX_ROOM, RC_WATER_TEMPLE_MQ_WHIRLPOOL_SUBMERGED_CRATE_5, true, true,
+             "three hearts, the hood, bombchus and RT_VOIDOUT_COLLECTION do not collect the crate by voiding");
+    randoCtx->GetTrickOption(RT_VOIDOUT_COLLECTION).Set(0);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(RO_GENERIC_OFF);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(RO_GENERIC_OFF);
+
+    if (savedWaterMq) {
+        randoCtx->GetDungeon(Rando::WATER_TEMPLE)->SetMQ();
+    } else {
+        randoCtx->GetDungeon(Rando::WATER_TEMPLE)->ClearMQ();
+    }
+    for (size_t i = 0; i < kTrickCount; i++) {
+        randoCtx->GetTrickOption(kEcaWaterTricks[i]).Set(savedTricks[i]);
+    }
+    randoCtx->GetOption(RSK_STARTING_HEARTS).Set(savedHearts);
+    randoCtx->GetOption(RSK_DAMAGE_MULTIPLIER).Set(savedDamage);
+    randoCtx->GetOption(RSK_SHUFFLE_CLIMB).Set(savedShuffleClimb);
+    randoCtx->GetOption(RSK_SHUFFLE_OPEN_CHEST).Set(savedShuffleOpenChest);
+    randoCtx->GetOption(RSK_SHUFFLE_OCARINA_BUTTONS).Set(savedOcarinaButtons);
+    randoCtx->GetOption(RSK_BUNNY_HOOD).Set(savedBunny);
+    randoCtx->GetOption(RSK_MASKS_AS_ADULT).Set(savedMasksAsAdult);
+    randoCtx->GetOption(RSK_MASK_QUEST).Set(savedMaskQuest);
+}
+
 // ---- SoH eca767dcb (Bunny Hood Effect) and e7f1801f0 (#7488): BH and LW -----
 void ExpectMode(const char* leg, int got, int expected, const char* why) {
     if (got != expected) {
@@ -2669,15 +3659,20 @@ void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                    randoCtx->GetHint(kStone)->IsEnabled() &&
                        randoCtx->GetHint(kStone)->GetHintType() == HINT_TYPE_MESSAGE,
                    true, "the known stone's hint is not an enabled message");
-        randoCtx->AddHint(kStone, Rando::Hint());
+        // Seeded with an enabled message hint, which a stored rejected hint (disabled, the "no hint" type) is not.
+        randoCtx->AddHint(kStone,
+                          Rando::Hint(kStone, std::vector<CustomMessage>{ CustomMessage(std::string("RSBS seeded")) }));
         nlohmann::json badTypeSection;
         badTypeSection[stoneName]["type"] = kSnNoType;
         badTypeSection[stoneName]["message"] = "x";
         ExpectMode("SN5f a known hint with an unknown type fails the load",
                    SnThrows([&] { randoCtx->ParseHintSectionJson(badTypeSection); }), 1,
                    "a hint with an unknown type did not throw std::runtime_error");
-        ExpectFlag("SN5g a known hint with an unknown type is not stored", randoCtx->GetHint(kStone)->IsEnabled(),
-                   false, "the hint with an unknown type was stored enabled");
+        const Rando::Hint* kept = randoCtx->GetHint(kStone);
+        ExpectFlag("SN5g a known hint with an unknown type is not stored",
+                   kept->IsEnabled() && !kept->HasUnknownName() && kept->GetHintType() == HINT_TYPE_MESSAGE &&
+                       kept->GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN) == "RSBS seeded",
+                   true, "the stone no longer holds the seeded hint");
         SnExpectTablesUntouched("SN5h a hint with an unknown type adds no name", sizes);
     }
 
@@ -2753,6 +3748,67 @@ void RunSpoilerNameLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                        trialHint.GetHintedTrials() == std::vector<TrialKey>{ kTrial },
                    true, "the known trial did not load");
         SnExpectTablesUntouched("SN9d names inside a hint add no name", sizes);
+    }
+
+    // ---- SN12: a hint that met an unknown name is the "enabled": false hint (Hint::MarkUnknownName) ----
+    // The save's reader keeps such a hint, and a stone reads its text without asking IsEnabled (GossipStoneHints.cpp).
+    // A known type read before the unknown name must not survive with its list emptied: GetHintText reads trials[0]
+    // for a Trial hint. Each document has the save writer's shape (a known type, then the unknown name).
+    {
+        nlohmann::json disabledDoc;
+        disabledDoc["enabled"] = false;
+        const Rando::Hint disabled(kStone, disabledDoc);
+        const std::string disabledText = disabled.GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN);
+        const auto typeName = [](HintType type, std::string* name) {
+            uint32_t value = HINT_TYPE_HINT_KEY;
+            return SnFirstName(
+                Rando::StaticData::hintTypeNameToEnum, [type](uint32_t v) { return v == (uint32_t)type; }, name,
+                &value);
+        };
+        std::string trialTypeName;
+        std::string itemTypeName;
+        std::string foolishTypeName;
+        if (!typeName(HINT_TYPE_TRIAL, &trialTypeName) || !typeName(HINT_TYPE_ITEM, &itemTypeName) ||
+            !typeName(HINT_TYPE_FOOLISH, &foolishTypeName)) {
+            GateFail("SN12: the Trial, Item or Foolish type name did not resolve; the legs would prove nothing");
+        } else {
+            const auto expectReset = [&](const char* leg, const Rando::Hint& hint) {
+                const bool shape = hint.HasUnknownName() && !hint.IsEnabled() &&
+                                   hint.GetHintType() == HINT_TYPE_HINT_KEY && hint.GetHintedLocations().empty() &&
+                                   hint.GetHintedAreas().empty() && hint.GetHintedTrials().empty() &&
+                                   hint.GetHintTextKeys().empty() && hint.GetDistribution().empty();
+                // The text is asked for only when the type is not a Trial: a Trial hint with no trial reads
+                // trials[0] out of bounds, which the shape check above already fails on.
+                std::string text;
+                const int threw = hint.GetHintType() == HINT_TYPE_TRIAL
+                                      ? 2
+                                      : SnThrows([&] { text = hint.GetHintMessage(MF_CLEAN, 0).GetEnglish(MF_CLEAN); });
+                ExpectFlag(leg, shape && threw == 0 && !disabledText.empty() && text == disabledText, true,
+                           "the hint with an unknown name is not the \"enabled\": false hint");
+            };
+            nlohmann::json trialDoc;
+            trialDoc["enabled"] = true;
+            trialDoc["distribution"] = "RSBS distribution";
+            trialDoc["type"] = trialTypeName;
+            trialDoc["trials"] = nlohmann::json::array({ kSnNoTrial });
+            trialDoc["hintKeys"] = nlohmann::json::array();
+            expectReset("SN12a a Trial hint with an unknown trial is the disabled hint", Rando::Hint(kStone, trialDoc));
+            nlohmann::json itemDoc;
+            itemDoc["enabled"] = true;
+            itemDoc["distribution"] = "RSBS distribution";
+            itemDoc["type"] = itemTypeName;
+            itemDoc["locations"] = nlohmann::json::array({ kSnNoLocation });
+            itemDoc["areas"] = nlohmann::json::array({ areaName });
+            expectReset("SN12b an Item hint with an unknown location is the disabled hint",
+                        Rando::Hint(kStone, itemDoc));
+            nlohmann::json foolishDoc;
+            foolishDoc["enabled"] = true;
+            foolishDoc["distribution"] = "RSBS distribution";
+            foolishDoc["type"] = foolishTypeName;
+            foolishDoc["areas"] = nlohmann::json::array({ kSnNoArea });
+            expectReset("SN12c a Foolish hint with an unknown area is the disabled hint",
+                        Rando::Hint(kStone, foolishDoc));
+        }
     }
 
     // ---- SN10: the Plandomizer's reader (PlandomizerParseSpoilerJson) ----
@@ -3006,12 +4062,12 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                  "BL34 DC MQ lobby to outside Poes room, child with bracelet, shield, hood, ground jump, on",
                  RR_DODONGOS_CAVERN_MQ_LOBBY, RR_DODONGOS_CAVERN_MQ_OUTSIDE_POES_ROOM);
     randoCtx->GetTrickOption(RT_GROUND_JUMP).Set(0);
-    // Water river pots to above the dragon: the slingshot and the hood.
+    // Water river platform to above the dragon: the slingshot and the hood.
     ResetLogicWithBunnyHood();
     GiveSlingshot();
-    BhlExitOffOn(randoCtx, "BL35 Water river pots to above the dragon, child with slingshot and hood, setting off",
-                 "BL36 Water river pots to above the dragon, child with slingshot and hood, setting on",
-                 RR_WATER_TEMPLE_RIVER_POTS, RR_WATER_TEMPLE_ABOVE_DRAGON);
+    BhlExitOffOn(randoCtx, "BL35 Water river platform to above the dragon, child with slingshot and hood, setting off",
+                 "BL36 Water river platform to above the dragon, child with slingshot and hood, setting on",
+                 RR_WATER_TEMPLE_RIVER_PLATFORM, RR_WATER_TEMPLE_ABOVE_DRAGON);
 
     // ---- OW: the overworld terms -----------------------------------------------
     ResetLogicWithBunnyHood();
@@ -3180,13 +4236,13 @@ void RunBunnyHoodLogicLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
                RR_GV_GROTTO_LEDGE, RR_GV_UPPER_STREAM, true, false,
                "the hammer recoil hover to the upper stream is in logic with its trick off");
 
-    // ---- D1: CanAvoidEnemy's new distance argument leaves the body alone -------
+    // ---- D1: SoH eca767dcb's Beamos body (stage 5) reads the distance, not the count ----
     ResetLogic();
     Give(RG_PROGRESSIVE_BOW);
     BhlAs(true, RR_GF_JAIL_WINDOW);
     ExpectFlag("D1 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 2), adult with only the Bow",
-               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 2), false,
-               "the Bow avoids two grounded Beamos: the body took stage 5's Beamos rewrite");
+               logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 2), true,
+               "the Bow does not avoid two grounded Beamos: the body lacks stage 5's Beamos rewrite");
     ExpectFlag("D2 CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, grounded, 1), adult with only the Bow",
                logic->CanAvoidEnemy(RE_BEAMOS, ED_CLOSE, true, 1), true,
                "the Bow no longer avoids one grounded Beamos");
@@ -4434,6 +5490,188 @@ void RunReturnedFromCastleLegs(const std::shared_ptr<Rando::Context>& randoCtx) 
     randoCtx->GetTrickOption(RT_DAMAGE_BOOST_SIMPLE).Set(savedDamageBoost);
 }
 
+// ---- #1798: which conversation steps ask for a Jabber Nut (leg JN) ----------
+// Shuffle Speak blocks only pressing A to talk: ShuffleSpeak.cpp answers VB_SPEAK,
+// asked only in OoT_Player_ActionHandler_Talk (z_player.c). Showing a trade item
+// from a C button takes the exchange branch of OoT_Player_ActionHandler_13, which
+// sets ACTOR_FLAG_TALK on the talk actor directly and never asks VB_SPEAK.
+
+/** One adult trade step, done by showing the item from C. */
+struct JnTradeStep {
+    const char* leg;
+    RandomizerInf has;
+    /** An event the row also reads (set by hand: Reaches fires only the probed
+     *  region's own events), or LOGIC_NONE. */
+    LogicVal alsoSet;
+    RandomizerRegion region;
+    RandomizerCheck check;
+};
+
+const JnTradeStep kJnTradeSteps[] = {
+    { "TR2 Kak Trade Pocket Cucco (Anju)", RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, LOGIC_WAKE_UP_ADULT_TALON,
+      RR_KAKARIKO_VILLAGE, RC_KAK_TRADE_POCKET_CUCCO },
+    { "TR3 LW Trade Cojiro (Grog)", RAND_INF_ADULT_TRADES_HAS_COJIRO, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_COJIRO },
+    { "TR4 LW Trade Odd Potion (Fado)", RAND_INF_ADULT_TRADES_HAS_ODD_POTION, LOGIC_NONE, RR_THE_LOST_WOODS,
+      RC_LW_TRADE_ODD_POTION },
+    { "TR5 Kak Trade Odd Mushroom (Granny)", RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, LOGIC_NONE,
+      RR_KAK_ODD_POTION_BUILDING, RC_KAK_TRADE_ODD_MUSHROOM },
+    { "TR6 GV Trade Saw (carpenters' boss)", RAND_INF_ADULT_TRADES_HAS_SAW, LOGIC_NONE, RR_GV_FORTRESS_SIDE,
+      RC_GV_TRADE_SAW },
+    { "TR7 DMT Trade Broken Sword (Biggoron)", RAND_INF_ADULT_TRADES_HAS_SWORD_BROKEN, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_BROKEN_SWORD },
+    { "TR8 DMT Trade Eyedrops (Biggoron)", RAND_INF_ADULT_TRADES_HAS_EYEDROPS, LOGIC_NONE, RR_DEATH_MOUNTAIN_SUMMIT,
+      RC_DMT_TRADE_EYEDROPS },
+    { "TR9 DMT Trade Claim Check (Biggoron)", RAND_INF_ADULT_TRADES_HAS_CLAIM_CHECK, LOGIC_NONE,
+      RR_DEATH_MOUNTAIN_SUMMIT, RC_DMT_TRADE_CLAIM_CHECK },
+    { "TR10 ZD Trade Prescription (King Zora)", RAND_INF_ADULT_TRADES_HAS_PRESCRIPTION, LOGIC_KING_ZORA_THAWED,
+      RR_ZORAS_DOMAIN, RC_ZD_TRADE_PRESCRIPTION },
+    { "TR11 LH Trade Frog (lakeside scientist)", RAND_INF_ADULT_TRADES_HAS_FROG, LOGIC_NONE, RR_LH_LAB,
+      RC_LH_TRADE_FROG },
+};
+
+/** The carpet merchant's event setup for leg CM: a child with sticks (a
+ *  jumpslash), the adult wallet (200 rupees) against a 60-rupee price, the
+ *  wasteland's own events fired. Everything LOGIC_CARPET_MERCHANT asks but the nut. */
+void JnCarpetMerchantSetup() {
+    GiveSticks();
+    GiveChildWallet();
+    logic->SetUpgrade(UPG_WALLET, 1);
+    FireEvents(RR_HAUNTED_WASTELAND, false);
+}
+
+void RunJabberNutConversationLegs(const std::shared_ptr<Rando::Context>& randoCtx) {
+    // ---- CM: the carpet merchant's event (haunted_wasteland.cpp) needs the
+    // Hylian nut, as his check does: his first sale needs A pressed (z_en_js.c
+    // func_80A88F64 offers talk with no auto-accept). The event feeds
+    // BombchuRefill and the bombchu items' HasItem (logic.cpp).
+    // GetCheckPrice reads the merchant's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("CM: no OTRGlobals randomizer context, so the merchant's price cannot be read");
+    } else {
+        Rando::ItemLocation* merchant = randoCtx->GetItemLocation(RC_WASTELAND_BOMBCHU_SALESMAN);
+        const uint16_t savedPrice = merchant->GetPrice();
+        merchant->SetPrice(60);
+        if (merchant->GetPrice() != 60) {
+            GateFail("CM: the merchant's price did not take (a custom price is pinned), so the CM legs are vacuous");
+        } else {
+            ResetLogic();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM1 carpet merchant event, wallet, price and jumpslash, no jabber nut", LOGIC_CARPET_MERCHANT,
+                        false,
+                        "the merchant's bombchu refill counts for a child who cannot talk to him (#1798): the event "
+                        "lost its Hylian nut term");
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_CAN_SPEAK_GERUDO, true);
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM2 carpet merchant event, the Gerudo nut only", LOGIC_CARPET_MERCHANT, false,
+                        "another race's nut opens the Hylian merchant (wrong race, or an any-nut OR)");
+            ResetLogic();
+            GiveNut();
+            JnCarpetMerchantSetup();
+            ExpectEvent("CM3 carpet merchant event, with the Hylian nut", LOGIC_CARPET_MERCHANT, true,
+                        "the merchant's event does not fire with the Hylian nut, wallet, price and jumpslash");
+
+            // CM4, Shuffle Speak off: Logic::Reset grants every nut, so the term is
+            // neutral. ResetLogic is NOT used here: it withholds the Hylian nut
+            // whatever the option says.
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(0);
+            logic->Reset(true);
+            logic->CurrentCheckKey = RC_UNKNOWN_CHECK;
+            logic->CalculatingAvailableChecks = false;
+            if (!logic->CheckRandoInf(RAND_INF_CAN_SPEAK_HYLIAN)) {
+                GateFail("CM4: Reset did not grant the Hylian nut with Shuffle Speak off; CM4 would be vacuous");
+            } else {
+                JnCarpetMerchantSetup();
+                ExpectEvent("CM4 carpet merchant event, Shuffle Speak off, no nut given", LOGIC_CARPET_MERCHANT, true,
+                            "the nut term is not neutral with Shuffle Speak off");
+            }
+            randoCtx->GetOption(RSK_SHUFFLE_SPEAK).Set(1);
+        }
+        merchant->SetPrice(savedPrice);
+    }
+
+    // ---- TR: the ten adult trade steps and Talon's wake need NO nut: each is
+    // done by showing the item from C (z_player.c, OoT_Player_ActionHandler_13's
+    // exchange branch sets ACTOR_FLAG_TALK without asking VB_SPEAK). Shuffle
+    // Speak on, every nut withheld (ResetLogic), adult.
+    ResetLogic();
+    logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_POCKET_CUCCO, true);
+    FireEvents(RR_KAK_CARPENTER_BOSS_HOUSE, true);
+    ExpectEvent("TR1 wake Kakariko Talon with the Pocket Cucco, no jabber nut", LOGIC_WAKE_UP_ADULT_TALON, true,
+                "Talon's wake asks for a nut, but the cucco is shown from C and the exchange never asks VB_SPEAK "
+                "(z_player.c OoT_Player_ActionHandler_13)");
+    for (const JnTradeStep& step : kJnTradeSteps) {
+        char leg[112];
+        ResetLogic();
+        logic->SetRandoInf(step.has, true);
+        if (step.alsoSet != LOGIC_NONE) {
+            logic->Set(step.alsoSet, true);
+        }
+        snprintf(leg, sizeof(leg), "%s, no jabber nut", step.leg);
+        ExpectAs(true, leg, step.region, step.check, true,
+                 "the trade step asks for a nut, but the item is shown from C and the exchange never asks VB_SPEAK "
+                 "(z_player.c OoT_Player_ActionHandler_13)");
+    }
+
+    // ---- K: non-vacuity controls in the same setup. Each control meets every
+    // term of its row but the nut and must NOT be reached; its twin adds the
+    // row's own race and must be.
+    ResetLogic();
+    ExpectAs(true, "K1 Anju as adult, no jabber nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, false,
+             "Anju's adult check is reached with every nut withheld (Shuffle Speak not on, or the row lost its nut)");
+    GiveNut();
+    ExpectAs(true, "K1+ Anju as adult, Hylian nut", RR_KAKARIKO_VILLAGE, RC_KAK_ANJU_AS_ADULT, true,
+             "Anju's adult check is not reached with the Hylian nut");
+
+    ResetLogic();
+    logic->Set(LOGIC_KING_ZORA_THAWED, true);
+    ExpectAs(true, "K2 King Zora thawed, no jabber nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, false,
+             "King Zora's thawed check is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_ZORA, true);
+    ExpectAs(true, "K2+ King Zora thawed, Zora nut", RR_ZORAS_DOMAIN, RC_ZD_KING_ZORA_THAWED, true,
+             "King Zora's thawed check is not reached with the Zora nut");
+
+    ResetLogic();
+    ExpectAs(true, "K3 Biggoron hint, no jabber nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, false,
+             "Biggoron's hint is reached with every nut withheld");
+    logic->SetRandoInf(RAND_INF_CAN_SPEAK_GORON, true);
+    ExpectAs(true, "K3+ Biggoron hint, Goron nut", RR_DEATH_MOUNTAIN_SUMMIT, RC_BIGGORON_HINT, true,
+             "Biggoron's hint is not reached with the Goron nut");
+
+    ResetLogic();
+    logic->SetUpgrade(UPG_SCALE, 2);
+    logic->SetRandoInf(RAND_INF_CAN_SWIM, true);
+    ExpectAs(true, "K4 lab dive, golden scale, no jabber nut", RR_LH_LAB, RC_LH_LAB_DIVE, false,
+             "the lab dive is reached with every nut withheld");
+    GiveNut();
+    ExpectAs(true, "K4+ lab dive, golden scale and Hylian nut", RR_LH_LAB, RC_LH_LAB_DIVE, true,
+             "the lab dive is not reached with the golden scale and the Hylian nut");
+
+    // GetCheckPrice reads Granny's ItemLocation through OTRGlobals.
+    if (OTRGlobals::Instance == nullptr || !OTRGlobals::Instance->gRandoContext) {
+        GateFail("K5: no OTRGlobals randomizer context, so Granny's price cannot be read");
+    } else {
+        Rando::ItemLocation* granny = randoCtx->GetItemLocation(RC_KAK_GRANNYS_SHOP);
+        const uint16_t savedPrice = granny->GetPrice();
+        granny->SetPrice(60);
+        if (granny->GetPrice() != 60) {
+            GateFail("K5: Granny's price did not take (a custom price is pinned), so the K5 legs are vacuous");
+        } else {
+            ResetLogic();
+            logic->SetRandoInf(RAND_INF_ADULT_TRADES_HAS_ODD_MUSHROOM, true);
+            logic->SetUpgrade(UPG_WALLET, 1);
+            ExpectAs(true, "K5 Granny's shop, Odd Mushroom and a 60-rupee price in a 200 wallet, no jabber nut",
+                     RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP, false,
+                     "Granny's shop is reached with every nut withheld");
+            GiveNut();
+            ExpectAs(true, "K5+ Granny's shop, plus the Hylian nut", RR_KAK_ODD_POTION_BUILDING, RC_KAK_GRANNYS_SHOP,
+                     true, "Granny's shop is not reached with the Odd Mushroom, the rupees and the Hylian nut");
+        }
+        granny->SetPrice(savedPrice);
+    }
+}
+
 } // namespace
 
 extern "C" int OoT_LogicGates_RunHeadless(void) {
@@ -4562,6 +5800,9 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
         merchant->SetPrice(savedPrice);
     }
 
+    // ---- JN: the carpet merchant's event needs its nut; the trades need none (#1798)
+    RunJabberNutConversationLegs(randoCtx);
+
     // ---- E: each carpenter's row carries its own cell's key (SoH 2bc50f605)
     for (const Carpenter& carpenter : kCarpenters) {
         ExpectCarpenterRow(carpenter);
@@ -4624,12 +5865,16 @@ extern "C" int OoT_LogicGates_RunHeadless(void) {
     RunDmcRefactorLegs(randoCtx);
     // ---- VC: Voidout Collection (SoH e86e0ff69, #1647) -----------------------
     RunVoidoutCollectionLegs(randoCtx);
+    // ---- EC: eca767dcb overhaul batch 2b (#1647 stage 5) ----------------------
+    RunEcaOverhaulBatch2bLegs(randoCtx);
     // ---- LH, GV, GC: the SoH logic batch (156c2a4a, 28ab1206) ---------------
     RunSohLogicBatchLegs(randoCtx);
     // ---- FT: the Fire Trial split by door (139381a0e, 88099e6eb) -------------
     RunFireTrialSplitLegs(randoCtx);
     // ---- EB: eca767dcb overhaul batch 1 (#1647 stage 3) ----------------------
     RunEcaOverhaulBatch1Legs(randoCtx);
+    // ---- WT: eca767dcb Water Temple (#1647 stage 4) ---------------------------
+    RunEcaOverhaulWaterLegs(randoCtx);
     // ---- BH, LW: the Bunny Hood Effect seed setting (eca767dcb, e7f1801f0) -----
     RunBunnyHoodLegs(randoCtx);
     // ---- restore -------------------------------------------------------------
