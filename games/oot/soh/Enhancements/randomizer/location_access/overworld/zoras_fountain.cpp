@@ -108,7 +108,7 @@ void RegionTable_Init_ZorasFountain() {
         LOCATION(RC_ZF_GS_HIDDEN_CAVE, logic->IsAdult && logic->CanGetEnemyDrop(RE_GOLD_SKULLTULA, ED_BOMB_THROW) && logic->CanGetNightTimeGS()),
     }, {
         //Exits
-        //It is possible to avoid fall damage by jumping towards the right and landing in deeper water, but this is basically never relevent
+        //It is possible to avoid fall damage by jumping towards the right and landing in deeper water, but this is basically never relevant
         Entrance(RR_ZORAS_FOUNTAIN, []{return logic->HasItem(RG_BRONZE_SCALE) || logic->TakeDamage();}),
         Entrance(RR_ZF_HIDDEN_CAVE, []{return true;}),
     });

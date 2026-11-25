@@ -2178,7 +2178,7 @@ void Settings::CreateOptions() {
               "In the northern basement there's a ledge from where, in Vanilla Water Temple, boulders roll out into "
               "the room. Normally to jump directly to this ledge logically requires the Hover Boots, but with precise "
               "jump, it can be done without them. This trick applies to both Vanilla and Master Quest.");
-    // Also used in MQ logic, but won't be relevent unless a way to enter tower without irons exists (likely a clip +
+    // Also used in MQ logic, but won't be relevant unless a way to enter tower without irons exists (likely a clip +
     // swim)
     OPT_TRICK(RT_WATER_FW_CENTRAL_GS, RCQUEST_VANILLA, RA_WATER_TEMPLE, { Tricks::Tag::NOVICE },
               "Water Temple Central Pillar GS with Farore\'s Wind",
