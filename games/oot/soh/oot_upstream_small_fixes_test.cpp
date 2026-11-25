@@ -20,6 +20,7 @@
 #include "soh/Enhancements/game-interactor/GameInteractor_Hooks.h"
 #include "src/overlays/actors/ovl_Fishing/z_fishing.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -606,6 +607,87 @@ extern "C" int OoT_HoverFishing_RunHeadless(void) {
     Context_SetCurrentGame(prevGame);
     if (rc == 0) {
         printf("[TEST] oot-hover-fishing: PASS\n");
+    }
+    return rc;
+}
+
+// ---- OoTGuMtxIdent (SoH c642e8c4d, the gu_pc.c hunks, #1732) ----
+
+namespace {
+
+int UsfGuMtxIdentLegs(void) {
+    // (a) guMtxIdent writes a fixed-point identity matrix (without GBI_FLOATS, Mtx is MtxS with int[4][4] words;
+    // main's guMtxIdentF(m->m) wrote 0x3F800000 float bits into m.m[0][0]).
+    Mtx m;
+    memset(&m, 0xCD, sizeof(m));
+    guMtxIdent(&m);
+    static const uint32_t kWantIdent[4][4] = {
+        { 0x00010000u, 0x00000000u, 0x00000001u, 0x00000000u },
+        { 0x00000000u, 0x00010000u, 0x00000000u, 0x00000001u },
+        { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+        { 0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u },
+    };
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 4; c++) {
+            USF_ASSERT(static_cast<uint32_t>(m.m[r][c]) == kWantIdent[r][c],
+                       "(a): guMtxIdent did not produce the fixed-point identity matrix");
+        }
+    }
+
+    // (b) guMtxL2F of that matrix gives exactly 1.0f on the diagonal and 0.0f everywhere else.
+    float out[4][4];
+    memset(out, 0xCD, sizeof(out));
+    guMtxL2F(out, &m);
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 4; c++) {
+            const float want = (r == c) ? 1.0f : 0.0f;
+            USF_ASSERT(out[r][c] == want, "(b): guMtxL2F of guMtxIdent matrix was not the float identity");
+        }
+    }
+
+    // (c) Lock on guMtxF2L / guMtxL2F conversion (the cast hunk's loop): negative and fractional values round-trip
+    // with exact S15.16 bit layout.
+    float in[4][4];
+    memset(in, 0, sizeof(in));
+    in[0][0] = -1.5f;
+    in[0][1] = 0.25f;
+    memset(&m, 0xCD, sizeof(m));
+    guMtxF2L(in, &m);
+    USF_ASSERT(static_cast<uint32_t>(m.m[0][0]) == 0xFFFE0000u,
+               "(c): guMtxF2L integer word m.m[0][0] mismatch for -1.5f / 0.25f");
+    USF_ASSERT(static_cast<uint32_t>(m.m[2][0]) == 0x80004000u,
+               "(c): guMtxF2L fractional word m.m[2][0] mismatch for -1.5f / 0.25f");
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 4; c++) {
+            if ((r == 0 || r == 2) && c == 0) {
+                continue;
+            }
+            USF_ASSERT(static_cast<uint32_t>(m.m[r][c]) == 0u,
+                       "(c): guMtxF2L left non-zero words outside the populated pair");
+        }
+    }
+    memset(out, 0xCD, sizeof(out));
+    guMtxL2F(out, &m);
+    for (int r = 0; r < 4; r++) {
+        for (int c = 0; c < 4; c++) {
+            float want = 0.0f;
+            if (r == 0 && c == 0) {
+                want = -1.5f;
+            } else if (r == 0 && c == 1) {
+                want = 0.25f;
+            }
+            USF_ASSERT(out[r][c] == want, "(c): guMtxL2F did not round-trip -1.5f / 0.25f");
+        }
+    }
+    return 0;
+}
+
+} // namespace
+
+extern "C" int OoT_GuMtxIdent_RunHeadless(void) {
+    const int rc = UsfGuMtxIdentLegs();
+    if (rc == 0) {
+        printf("[TEST] oot-gu-mtx-ident: PASS\n");
     }
     return rc;
 }

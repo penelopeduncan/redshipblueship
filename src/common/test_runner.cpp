@@ -2016,6 +2016,14 @@ static TestResult Test_OoTHoverFishing(void) {
     return OoT_HoverFishing_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// SoH c642e8c4d (#1732, the gu_pc.c hunks): guMtxIdent writes a fixed-point identity matrix when GBI_FLOATS is
+// unset, and guMtxF2L/guMtxL2F round-trip S15.16 values. Body in games/oot/soh/oot_upstream_small_fixes_test.cpp;
+// pure helper, no Context needed.
+extern "C" int OoT_GuMtxIdent_RunHeadless(void);
+static TestResult Test_OoTGuMtxIdent(void) {
+    return OoT_GuMtxIdent_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // #1737 (SoH 2af5d2112): Reworked Targeting answers the two Z-target vanilla behaviours only while its setting is on.
 // Body in games/oot/soh/oot_camera_targeting_options_test.cpp; return 0 on pass. The display-free shared bring-up,
 // because the row writes and clears the setting's CVars.
@@ -12005,6 +12013,11 @@ const TestDescriptor gTests[] = {
       "With Hover Fishing off the fishing cast checks and the stop are vanilla; on, the cast keeps Link's speed "
       "(SoH a089fa60b)",
       Test_OoTHoverFishing },
+    // SoH c642e8c4d: display-free and ROM-free; pure fixed-point matrix math, no Context needed.
+    { "oot-gu-mtx-ident",
+      "guMtxIdent writes a fixed-point identity matrix (not float bit patterns) and guMtxF2L/guMtxL2F round-trip "
+      "S15.16 values (SoH c642e8c4d)",
+      Test_OoTGuMtxIdent },
     // #1737: display-free and ROM-free; restores the two CVars (cleared, never stored, when they were unset), the
     // hooks, the fake play state and the current game.
     { "oot-camera-targeting-options",

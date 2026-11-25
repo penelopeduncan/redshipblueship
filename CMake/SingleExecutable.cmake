@@ -2217,6 +2217,13 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTHoverFishing COMMAND redship --test oot-hover-fishing)
 
+    # SoH c642e8c4d (#1732, the gu_pc.c hunks only): without GBI_FLOATS, Mtx is
+    # fixed-point MtxS (int[4][4]) and guMtxIdent called guMtxIdentF(m->m),
+    # writing float bit patterns into it. The row fills a Mtx with 0xCD, calls
+    # guMtxIdent, checks the exact S15.16 identity words and guMtxL2F round-trip,
+    # and locks guMtxF2L/guMtxL2F on -1.5f and 0.25f. Display-free and ROM-free.
+    redship_add_test(NAME OoTGuMtxIdent COMMAND redship --test oot-gu-mtx-ident)
+
     # #1737 (SoH 2af5d2112 #6322): Reworked Targeting. Enhancements/ReworkedTargeting.cpp answers
     # VB_TOGGLE_Z_TARGET_SWITCH_TARGETS and VB_TOGGLE_Z_TARGET_SWITCH_DIRECTION only while the setting is on. The row
     # runs that registrar out of ShipInit's map, then the REAL GameInteractor_Should dispatch with a fake
