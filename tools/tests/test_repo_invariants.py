@@ -526,9 +526,8 @@ def test_pause_save_default_has_one_reader():
 
     Red when any C or C++ reader reads the key itself (with 2Ship's `, 0)` or `, false)` it would disagree with the
     others), when the helper stops passing RSBS_MM_PAUSE_SAVE_DEFAULT, when a reader stops calling the helper, when
-    production code stores the key (a default is the value read when the key is absent, never a write), or when
-    applyPreset stops re-driving the key after ShipInit::InitAll (MMRegistrarCoverage FAIL 28 drives the re-drive
-    itself, so it stays green if only the call is dropped).
+    production code stores the key (a default is the value read when the key is absent, never a write). That a
+    preset re-drives the key's MM gates is test_bulk_cvar_writers_rearm_mm_registrars's (#1811).
     """
     reads, writes = _pause_save_key_access_sites()
     helper_body = _function_body(REPO_ROOT / PAUSE_SAVE_HELPER_FILE, PAUSE_SAVE_HELPER)
@@ -592,22 +591,85 @@ def test_pause_save_default_has_one_reader():
         "#1728: the hosted Pause Menu Save row must draw RSBS_MM_PAUSE_SAVE_DEFAULT when its key is unset"
     )
 
-    preset = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp", "applyPreset")
-    init_all = preset.find("ShipInit::InitAll();")
-    assert init_all >= 0, "applyPreset no longer calls ShipInit::InitAll()"
-    redrive = preset.find("Presets_RedriveMmPauseSave();", init_all)
-    assert redrive >= 0, (
-        "#1728: applyPreset must call Presets_RedriveMmPauseSave() after ShipInit::InitAll(): InitAll's \"*\" never "
-        "reaches MM, so after a preset clears gEnhancements the row shows Pause Menu Save on while B closes the menu"
+
+BULK_CVAR_WRITE_GUARD = "ShipInitMmBulkCVarWrite"
+BULK_CVAR_BRIDGE = "games/mm/2s2h/ShipInitBridge_SingleExe.cpp"
+
+
+def _bulk_guard_encloses(body, decl, until):
+    """True when the block that declares the guard at `decl` is still open at `until` (its destructor runs after)."""
+    depth = 0
+    for i in range(decl, until):
+        depth += {"{": 1, "}": -1}.get(body[i], 0)
+        if depth < 0:
+            return False
+    return True
+
+
+def test_bulk_cvar_writers_rearm_mm_registrars():
+    """#1811: OoT's bulk CVar writers re-drive Majora's Mask's registrars for the keys they changed.
+
+    applyPreset and SoH_HandleConfigDrop end in ShipInit::InitAll / Init("*"), which the MM bridge never forwards, so
+    each declares the ShipInitMmBulkCVarWrite guard (ShipInit.hpp) inside an RSBS_SINGLE_EXECUTABLE block before its
+    first CVar write, in a block still open at its InitAll. Red when a writer drops the guard, declares it after a
+    write (those keys would be missed) or in a block that closes before the writes; when the old one-key
+    Presets_RedriveMmPauseSave comes back; when the bridge's close stops requesting the gfx reapply for the
+    Fix Out of Bounds Textures and Fix Circle Shadow Streaks keys or starts writing CVars; or when the keyed reapply
+    stops carrying the circle-shadow patch. MMShipInitDriver legs 7-8 and MMRegistrarCoverage FAIL 28-29 drive the
+    scope itself, so they stay green if only a writer's guard is dropped: this lock is what catches that.
+    """
+    writers = (
+        ("games/oot/soh/Enhancements/Presets/Presets.cpp", "applyPreset", "ShipInit::InitAll();"),
+        ("games/oot/soh/OTRGlobals.cpp", "SoH_HandleConfigDrop", 'ShipInit::Init("*");'),
     )
-    guard = preset.rfind("#ifdef RSBS_SINGLE_EXECUTABLE", init_all, redrive)
-    assert guard >= 0 and preset.find("#endif", guard, redrive) < 0, (
-        "#1728: applyPreset's Presets_RedriveMmPauseSave() call must sit in an RSBS_SINGLE_EXECUTABLE block"
+    for rel, name, init_call in writers:
+        body = _function_body(REPO_ROOT / rel, name)
+        decl = body.find(BULK_CVAR_WRITE_GUARD)
+        assert decl >= 0, f"#1811: {name} ({rel}) no longer declares {BULK_CVAR_WRITE_GUARD}"
+        ifdef = body.rfind("#ifdef RSBS_SINGLE_EXECUTABLE", 0, decl)
+        assert ifdef >= 0 and body.find("#endif", ifdef, decl) < 0, (
+            f"#1811: {name}'s {BULK_CVAR_WRITE_GUARD} must sit in an RSBS_SINGLE_EXECUTABLE block"
+        )
+        writes = [m.start() for m in re.finditer(r"\b(?:CVarClearBlock|CVarSet\w*|CVarClear|SetBlock)\s*\(", body)]
+        assert writes, f"#1811: the scan found no CVar write in {name}: it would pass vacuously"
+        assert decl < min(writes), f"#1811: {name} writes a CVar before it declares {BULK_CVAR_WRITE_GUARD}"
+        init = body.find(init_call)
+        assert init > decl, f"#1811: {name} no longer calls {init_call} after its {BULK_CVAR_WRITE_GUARD}"
+        assert _bulk_guard_encloses(body, decl, init), (
+            f"#1811: {name}'s {BULK_CVAR_WRITE_GUARD} closes before {init_call}, so it misses the writes"
+        )
+
+    for rel in ("games/oot/soh/Enhancements/Presets/Presets.cpp", "games/oot/soh/Enhancements/Presets/Presets.h",
+                "games/mm/2s2h/mm_registrar_coverage_test.cpp"):
+        text = _strip_comments((REPO_ROOT / rel).read_text(encoding="utf-8"))
+        assert "Presets_RedriveMmPauseSave" not in text, (
+            f"#1811: {rel} still names Presets_RedriveMmPauseSave; the bulk CVar write scope replaced it"
+        )
+
+    bridge = _strip_comments((REPO_ROOT / BULK_CVAR_BRIDGE).read_text(encoding="utf-8"))
+    gfx = re.search(r"kMmShipInitBridgeGfxPatchKeys\[\]\s*=\s*\{([^}]*)\}", bridge)
+    assert gfx, "#1811: the bridge no longer lists its gfx-patch keys (kMmShipInitBridgeGfxPatchKeys)"
+    for key in ('"gEnhancements.FixTexturesOOB"', '"gFixes.FixCircleShadowStreaks"',
+                "RSBS_CVAR_MM_GRAPHICS_FIX_GEOMETRY_SEAMS", "RSBS_CVAR_MM_GRAPHICS_NO_GEOMETRY_DISTANCE_CHECK"):
+        assert key in gfx.group(1), f"#1811: the bridge's gfx-patch keys no longer include {key}"
+    begin = _function_body(REPO_ROOT / BULK_CVAR_BRIDGE, "MM_ShipInit_BeginBulkCVarWrite")
+    end = _function_body(REPO_ROOT / BULK_CVAR_BRIDGE, "MM_ShipInit_EndBulkCVarWrite")
+    assert "S2H::ShipInit::Init(" in end and "MM_GfxPatches_Reapply()" in end, (
+        "#1811: the bulk close must drive changed keys through S2H::ShipInit::Init and gfx keys through "
+        "MM_GfxPatches_Reapply"
     )
-    redrive_body = _function_body(REPO_ROOT / "games/oot/soh/Enhancements/Presets/Presets.cpp",
-                                  "Presets_RedriveMmPauseSave")
-    assert re.search(r"ShipInit::Init\(\s*%s\s*\)" % PAUSE_SAVE_KEY_DEFINE, redrive_body), (
-        "#1728: Presets_RedriveMmPauseSave must re-drive the key with ShipInit::Init(" + PAUSE_SAVE_KEY_DEFINE + ")"
+    assert "MmShipInitBridge_IsGfxPatchKey" in begin, (
+        "#1811: Begin must keep the gfx-patch keys out of the ShipInit snapshot (the circle-shadow registrar is not "
+        "owner-gated)"
+    )
+    for fn_name, fn_body in (("Begin", begin), ("End", end)):
+        assert not re.search(r"\bCVar(?:Set|Clear|Save|Load)\w*\s*\(", fn_body), (
+            f"#1811: the bridge's bulk {fn_name} writes a CVar; a re-drive reads the keys, never writes them"
+        )
+    keyed = _function_body(REPO_ROOT / "games/mm/2s2h/MmGraphicsSingleExe.cpp", "ApplyKeyedPatches")
+    assert "PatchCircleShadowStreaks();" in keyed, (
+        "#1811: ApplyKeyedPatches must reapply the circle-shadow patch, so a bulk write's change to it lands under "
+        "MM's resource cache owner"
     )
 
 

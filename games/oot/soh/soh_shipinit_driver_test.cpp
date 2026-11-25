@@ -71,6 +71,16 @@
  * registration removed from SavingEnhancements.cpp (RegisterAutosave's own
  * #614 fix), leg 6 fails FAIL(6) — MM has no registrar under the converged
  * Autosave key at all, so re-arming it is a no-op by construction.
+ *
+ * LEGS 7 AND 8 (#1811): OoT's bulk CVar writers (applyPreset, the config-file
+ * drop) end in InitAll, whose "*" leg 3 keeps from MM, so they open the
+ * `ShipInitMmBulkCVarWrite` scope (ShipInit.hpp), whose close re-drives the MM
+ * registrars of the keys that changed. Leg 7 drives the probe and the real
+ * RegisterAutosave through that guard, on and back off; leg 8 proves an empty
+ * scope and a same-value rewrite run nothing, which a wildcard forward, a
+ * drive-every-key close or a stale snapshot would break. With the close made a
+ * no-op (main's behaviour), leg 7 fails FAIL(11). Both legs leave the probe and
+ * Autosave keys absent, never stored.
  */
 
 #ifdef RSBS_SINGLE_EXECUTABLE
@@ -243,9 +253,82 @@ extern "C" int OoT_ShipInitMMDriver_RunHeadless(void) {
     CVarSetInteger(kAutosaveKey, 0);
     MM_ShipInit_OnCVarChanged(kAutosaveKey);
 
+    // ---- leg 7 (#1811): a bulk CVar write re-drives what it changed ----
+    // A preset or a dropped config file rewrites many keys and then runs InitAll, whose "*" leg 3 proved is not
+    // forwarded. The guard both production writers declare (ShipInitMmBulkCVarWrite, ShipInit.hpp) must re-drive the
+    // MM registrars of the keys it changed when it closes, and nothing before. Two registrar kinds: the synthetic
+    // probe (a run counter) and the real RegisterAutosave (its own OnGameStateDrawFinish registrant). This row runs
+    // with MM never brought up, the state of a session that has only played OoT. Every key it touches ends absent
+    // (CVarClear), never stored.
+    MMShipInitTest_ResetProbes();
+    {
+        ShipInitMmBulkCVarWrite bulk;
+        CVarSetInteger(probePath, 1);
+        CVarSetInteger(kAutosaveKey, 1);
+        if (MMShipInitTest_CVarProbeRuns() != 0 || MMShipInitTest_AutosaveDrawFinishSettledCount() != 0) {
+            return Fail(10, "a registrar ran before the bulk CVar write closed (a CVar write runs no registrar), so "
+                            "the close's drive could not be told apart (#1811)");
+        }
+    }
+    if (MMShipInitTest_CVarProbeRuns() != 1) {
+        printf("[TEST] probe runs after the bulk CVar write closed: %d\n", MMShipInitTest_CVarProbeRuns());
+        return Fail(11, "closing a bulk CVar write did not run MM's registrar for a key it changed exactly once, so a "
+                        "preset leaves Majora's Mask's option hooks as they were (#1811)");
+    }
+    if (MMShipInitTest_AutosaveDrawFinishSettledCount() != 1) {
+        return Fail(12, "closing a bulk CVar write that turned Autosave on did not arm MM's RegisterAutosave: every "
+                        "curated preset sets Autosave, and Majora's Mask kept it off (#1811)");
+    }
+    // The reverse: both keys cleared in one scope. Absent reads 0 for MM's Autosave.
+    {
+        ShipInitMmBulkCVarWrite bulk;
+        CVarClear(probePath);
+        CVarClear(kAutosaveKey);
+    }
+    if (MMShipInitTest_CVarProbeRuns() != 2 || MMShipInitTest_AutosaveDrawFinishSettledCount() != 0) {
+        return Fail(13, "closing a bulk CVar write that cleared Autosave left MM's RegisterAutosave armed, or did not "
+                        "re-drive the cleared probe key (#1811)");
+    }
+
+    // ---- leg 8 (#1811): no wildcard, no double drive -------------------
+    // Arm both again, then an empty scope and a scope that rewrites the same values: neither may run anything. This
+    // turns red if the close re-drives unchanged keys, forwards "*" (the probe sits under it) or "IS_RANDO" (the rando
+    // probe), or if Begin does not refresh its snapshot.
+    {
+        ShipInitMmBulkCVarWrite bulk;
+        CVarSetInteger(probePath, 1);
+        CVarSetInteger(kAutosaveKey, 1);
+    }
+    MMShipInitTest_ResetProbes();
+    const int armedDrawFinish = MMShipInitTest_AutosaveDrawFinishSettledCount();
+    { ShipInitMmBulkCVarWrite emptyBulk; }
+    {
+        ShipInitMmBulkCVarWrite bulk;
+        CVarSetInteger(probePath, 1);
+        CVarSetInteger(kAutosaveKey, 1);
+    }
+    if (armedDrawFinish != 1 || MMShipInitTest_CVarProbeRuns() != 0 || MMShipInitTest_RandoProbeRuns() != 0 ||
+        MMShipInitTest_AutosaveDrawFinishSettledCount() != armedDrawFinish) {
+        printf("[TEST] probe runs %d, rando probe runs %d, draw-finish %d (armed %d)\n", MMShipInitTest_CVarProbeRuns(),
+               MMShipInitTest_RandoProbeRuns(), MMShipInitTest_AutosaveDrawFinishSettledCount(), armedDrawFinish);
+        return Fail(14, "a bulk CVar write that changed nothing ran MM registrars: it re-drives unchanged keys or "
+                        "forwards a pseudo-path (#1811)");
+    }
+    // Leave both keys absent and both registrars driven to off, so the next row starts with neither key stored.
+    {
+        ShipInitMmBulkCVarWrite bulk;
+        CVarClear(probePath);
+        CVarClear(kAutosaveKey);
+    }
+    if (MMShipInitTest_AutosaveDrawFinishSettledCount() != 0) {
+        return Fail(15, "clearing Autosave in a bulk CVar write left MM's RegisterAutosave armed (#1811)");
+    }
+    MMShipInitTest_ResetProbes();
+
     printf("[TEST] PASS: a CVar change on the unified menu path re-arms MM's registrars (%d on the converged key), "
            "while the '*' and 'IS_RANDO' pseudo-paths stay MM-driven; the real Autosave registrar (%d on its "
-           "converged key) re-arms idempotently too (#614)\n",
+           "converged key) re-arms idempotently too (#614); a bulk CVar write re-drives exactly the keys it changed "
+           "(#1811)\n",
            convergedRegistrars, autosaveRegistrars);
     return 0;
 }
