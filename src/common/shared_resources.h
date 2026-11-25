@@ -825,11 +825,13 @@ int Combo_SharedFamiliesApplyLive(GameId game);
  * harvest, the owed set, the live harvest and apply, Combo_SharedFamiliesHeldNow)
  * and nothing else, so no item id is redirected, renamed or paired into the
  * shared bag by them. A file frozen without the rule arms neither and every path
- * is today's. The bag members of both games stay registered but dead; the bag's
- * only transport from stage C7 on is a tier kind.
+ * is today's. OoT's bag member stays registered but dead; MM has none since #1702
+ * C7, which reuses RANDO_INF_OBTAINED_BOMBCHU_BAG as the shared Bombchu Bag tier's
+ * first thermometer flag. The bag's only transport is
+ * RSBS_SHARED_RES_BOMBCHU_BAG_TIER.
  *
  * Possession is carried and acted on nowhere yet: Majora's Mask's member state
- * (two randoInf flags) is read by nothing until stage C3 (through
+ * (flag 80, the Child's Wallet) is read by nothing until stage C3 (through
  * MM_Combo_WalletGated, never the flag alone), and the far pickup credit admits no
  * possession copy until stage C4 (Combo_SharedPossessionPickupAdmitted is its
  * rule).

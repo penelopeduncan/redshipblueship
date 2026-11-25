@@ -6513,8 +6513,10 @@ const OoTSharedSwimRegistrar gOoTSharedSwimRegistrar;
 // Bombchu item in the inventory (Context::HandleGetBombchuBag, SeedContext.cpp).
 // A member is asked only while its slot is armed (Combo_SharedPossessionArmed):
 // only while the frozen Shared Child's Wallet rule arms the wallet slot (#1702
-// C2); the bag slot is armed by nothing, so the bag member is registered but dead
-// until C7 replaces the transport. R2 (the wallet-tier apply) does not depend on
+// C2); the bag slot is armed by nothing; the bag's transport since #1702 C7 is
+// RSBS_SHARED_RES_BOMBCHU_BAG_TIER (OoT_HarvestSharedKind / OoT_ApplySharedKind),
+// so this member stays dead and C8 must not arm the slot (or deletes the member,
+// as C7 did for MM's). R2 (the wallet-tier apply) does not depend on
 // arming. The ids are the items
 // OoT places: RG_PROGRESSIVE_WALLET resolves to the child wallet while the flag is
 // clear (item.cpp), RG_PROGRESSIVE_BOMBCHU_BAG is the bag under Single and
