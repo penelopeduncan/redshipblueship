@@ -73,6 +73,11 @@ void AddMmMinigameRows(SohMenu& menu, WidgetPath& path) {
         { 1, "Balanced" },
         { 2, "Skip" },
     };
+    static const std::map<int32_t, const char*> torchTimeLimitOptions = {
+        { 0, "Normal" },
+        { 1, "Double" },
+        { 2, "Infinity" },
+    };
 
     AddHostedMmBlock(menu, path);
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Bombers Hide-and-Seek: %d kids", WIDGET_CVAR_SLIDER_INT)
@@ -142,6 +147,32 @@ void AddMmMinigameRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_MINIGAMES_SKIP_LITTLE_BEAVER)
         .Options(CheckboxOptions().Tooltip(
             "Skips the races against the younger beaver brother, so only the older one is raced. Majora's Mask only."));
+    // 2Ship #1947: Fisherman's Jumping Game difficulty options. The two long upstream names ("Fisherman's Jumping
+    // Game Torch Time Limit" / "... Target Score") do not fit this page's column (UI lint R9), so they are shortened
+    // the way Beaver Race Rings was; the tooltips keep the full name.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Jumping Game Time Limit", WIDGET_CVAR_COMBOBOX)
+        .CVar(RSBS_CVAR_MM_MINIGAMES_JUMPING_TORCH_TIME_LIMIT)
+        .Options(ComboboxOptions()
+                     .ComboMap(torchTimeLimitOptions)
+                     .DefaultIndex(0)
+                     .Tooltip("Sets the time limit for Link to jump to each torch in the Fisherman's Jumping Game.\n"
+                              "- Normal: 5 seconds.\n"
+                              "- Double: 10 seconds.\n"
+                              "- Infinity: No time limit.\n"
+                              "Majora's Mask only."));
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Jumping Game Score: %d points", WIDGET_CVAR_SLIDER_INT)
+        .CVar(RSBS_CVAR_MM_MINIGAMES_JUMPING_TARGET_SCORE)
+        .Options(IntSliderOptions()
+                     .Min(1)
+                     .Max(40)
+                     .DefaultValue(20)
+                     .Format("%d points")
+                     .Tooltip("Sets the target score for the Fisherman's Jumping Game. Majora's Mask only."));
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Win Jumping Game Early", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_MINIGAMES_JUMPING_EARLY_WIN)
+        .Options(CheckboxOptions().Tooltip(
+            "Link wins the Fisherman's Jumping Game immediately upon reaching the target score. "
+            "Majora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Goron Race", WIDGET_CVAR_COMBOBOX)
         .CVar(RSBS_CVAR_MM_DIFFICULTY_GORON_RACE)
         .Options(ComboboxOptions()

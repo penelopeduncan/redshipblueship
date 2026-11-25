@@ -37,15 +37,34 @@
 
 #include "cvar_shared_keys.h" // src/common: the RSBS_CVAR_MM_* defines
 
+#include <map>
+
 namespace SohGui {
 
 /** Quality of Life > Controls, at the end of the section. */
 void AddMmControlsRows(SohMenu& menu, WidgetPath& path) {
+    static const std::map<int32_t, const char*> dashAfterRollOptions = {
+        { 0, "Off" },
+        { 1, "On" },
+        { 2, "Stack with Bunny Hood" },
+    };
+
     AddHostedMmBlock(menu, path);
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Manual Jump", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_PLAYER_MANUAL_JUMP)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Makes Z + A jump instead of jump attacking; press B in midair to jump attack. Majora's Mask only."));
+    // 2Ship #1938: Dash After Roll.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Dash After Roll", WIDGET_CVAR_COMBOBOX)
+        .CVar(RSBS_CVAR_MM_PLAYER_DASH_AFTER_ROLL)
+        .Options(
+            UIWidgets::ComboboxOptions()
+                .ComboMap(dashAfterRollOptions)
+                .DefaultIndex(0)
+                .Tooltip("Keep holding A after a roll to dash.\n\n"
+                         "- On: Dashing runs at Bunny Hood speed, wearing the bunny hood adds nothing extra.\n"
+                         "- Stack with Bunny Hood: Dashing while wearing the Bunny Hood combines both boosts to run "
+                         "even faster.\nMajora's Mask only."));
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Prevent Diving Over Water", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_PLAYER_PREVENT_DIVE_OVER_WATER)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
@@ -105,6 +124,12 @@ void AddMmEquipmentRows(SohMenu& menu, WidgetPath& path) {
         .CVar(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)
         .Options(UIWidgets::CheckboxOptions().Tooltip(
             "Names the target, if any, that a pictograph has captured. Majora's Mask only."));
+    // 2Ship #1558: Picto Box on C-Up.
+    AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Picto Box on C-Up", WIDGET_CVAR_CHECKBOX)
+        .CVar(RSBS_CVAR_MM_ITEMS_PICTO_BOX_ON_C_UP)
+        .Options(UIWidgets::CheckboxOptions().Tooltip(
+            "Press C-Up to activate the Pictograph Box once acquired, without needing to equip it to a C-button. "
+            "Majora's Mask only."));
     // 2Ship #1989: an Items row in 2Ship (after its Color Pictograph), here after Better Picto Message.
     AddHostedMmWidget(menu, path, kHostedMmBlockLabel, "Hot Water Never Cools", WIDGET_CVAR_CHECKBOX)
         .CVar(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)

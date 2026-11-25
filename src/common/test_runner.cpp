@@ -674,6 +674,9 @@ int OoT_RoomBgCamGuard_RunHeadless(void);
 // #1588: z_parameter.c and z_boss_va.c query VB hooks instead of randomizer state directly,
 // RandomizerOnVanillaBehaviorHandler answers them, and RemoveAllQueuedHooks drains queued hooks.
 int OoT_VanillaMagicBoundary_RunHeadless(const char* sourceDir);
+// #1755: five small MM options (PictoBoxOnCUp, AlwaysShowShrineFeathers, DashAfterRoll, AlwaysFindRockSirloin,
+// FishermanJumpingGame). Display-free and ROM-free; body in games/mm/2s2h/mm_small_options_1755_test.cpp.
+int MM_SmallOptions1755_RunHeadless(void);
 // #702: the per-area exclude-location groups reach OoT's settings fingerprint at
 // their shipped sizes, whichever archives are mounted. Body in
 // games/oot/soh/oot_settings_fold_test.cpp. Runs a real generation, so it needs
@@ -1907,6 +1910,19 @@ static TestResult Test_OoTDarkLinkFixes(void) {
     return OoT_DarkLinkFixes_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
+// Backport #1753 (SoH 236c9c81f, 5c55c01c6, cca66cdc5): the Bombchu Bowling, frogs' Ocarina game and Shooting
+// Gallery options are GameInteractor_Should hooks. Body in games/oot/soh/oot_minigame_hookify_test.cpp; return 0
+// on pass. The display-free shared bring-up, because the row writes and clears the option CVars.
+extern "C" int OoT_MinigameHookify_RunHeadless(void);
+static TestResult Test_OoTMinigameHookify(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return OoT_MinigameHookify_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
 // SoH c93b6188c (#1748): the swim-void respawn takes the entrance's room. Body in
 // games/oot/soh/oot_upstream_small_fixes_test.cpp; pure helper, no Context needed.
 extern "C" int OoT_SwimVoidRespawnRoom_RunHeadless(void);
@@ -2077,6 +2093,16 @@ static TestResult Test_OoTQolOptions1747(void) {
         return TEST_FAIL;
     }
     return OoT_QolOptions1747_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
+}
+
+// #1755: five small MM options (display-free shared Context bring-up for ShipInit CVar reads/writes).
+static TestResult Test_MMSmallOptions1755(void) {
+    auto ctx = CreateHarnessStyleContext();
+    if (!ctx || OoT_InitSharedContextSubsystems() != 0 || ctx->GetConsoleVariables() == nullptr) {
+        printf("[TEST] FAIL: the display-free shared Context bring-up failed\n");
+        return TEST_FAIL;
+    }
+    return MM_SmallOptions1755_RunHeadless() == 0 ? TEST_PASS : TEST_FAIL;
 }
 
 // MM new-save session guard (#564 V21; see the extern decl above). The display-free shared bring-up, because leg 7
@@ -11932,6 +11958,14 @@ const TestDescriptor gTests[] = {
       "enemy randomizer, Crowd Control or Sail is on and only then, Link is never refused, and the Gerudo Fighter "
       "labels read Gerudo Thief (SoH #7054, #7272)",
       Test_OoTDarkLinkFixes },
+    // Backport #1753: display-free and ROM-free; restores the thirteen option
+    // CVars (cleared, never stored, when unset), OoT_gPlayState, the age, the
+    // frog pointers, the hooks and the current game.
+    { "oot-minigame-hookify",
+      "The Bombchu Bowling, frogs' Ocarina game and Shooting Gallery options are GameInteractor hooks: every answer is "
+      "vanilla with the options off, and each of the ten moved behaviours holds with its option on (SoH #6968, #6969, "
+      "#6972)",
+      Test_OoTMinigameHookify },
     // SoH c93b6188c: display-free, ROM-free, no global state.
     { "oot-swim-void-respawn-room",
       "A swim void without Swim respawns in the entrance's room when the entrance is in the current scene, and "
@@ -12022,6 +12056,9 @@ const TestDescriptor gTests[] = {
       "Goron Pot spin, heat haze, Saria's gesture, dropping throw-only actors, roll chaining and roll steering follow "
       "their options and are vanilla with them off (SoH #6138, #6663, #6569, #7023, #6604)",
       Test_OoTQolOptions1747 },
+    // #1755: five small MM options (display-free and ROM-free; restores gSaveContext, CVars, play state, hooks).
+    { "mm-small-options-1755", "MM five small enhancement options (2Ship #1558/#1594/#1905/#1938/#1944/#1947)",
+      Test_MMSmallOptions1755 },
     // #682's two halves. Both display-free and ROM-free, and both order-free:
     // menu-mm-enhancement-rows builds its own SohMenu probes and touches only
     // their private registries, and mm-enhancement-toggles leaves every key at 0,

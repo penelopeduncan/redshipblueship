@@ -624,6 +624,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_TIMESAVERS_GALLERY_TWOFER "gEnhancements.Timesavers.GalleryTwofer"
 #define RSBS_CVAR_MM_TIMESAVERS_MARINE_LAB_HP "gEnhancements.Timesavers.MarineLabHP"
 #define RSBS_CVAR_MM_TIMESAVERS_DAMPE_DIGGING_SKIP "gEnhancements.Timesavers.DampeDiggingSkip"
+// 2Ship #1594: always show feathers.
+#define RSBS_CVAR_MM_TIMESAVERS_ALWAYS_SHOW_SHRINE_FEATHERS "gEnhancements.Timesavers.AlwaysShowShrineFeathers"
 #define RSBS_CVAR_MM_TIMESAVERS_FASTER_SCENE_TRANSITIONS "gEnhancements.Timesavers.FasterSceneTransitions"
 #define RSBS_CVAR_MM_TIMESAVERS_POWDER_KEG_CERTIFICATION "gEnhancements.Timesavers.PowderKegCertification"
 #define RSBS_CVAR_MM_TIMESAVERS_SKIP_BALLAD_OF_WINDFISH "gEnhancements.Timesavers.SkipBalladOfWindfish"
@@ -653,6 +655,8 @@ struct DistinctPair {
 // W6-PLAYER (#1236): MM's Player, Equipment and PlayerActions rows, hosted on SoH's Enhancements pages
 // (SohGui/HostedMm/SohMenuHostedMmPlayer.cpp). Climb speed and Bombchu drops are held apart (kMustStayDistinct).
 #define RSBS_CVAR_MM_PLAYER_MANUAL_JUMP "gEnhancements.Player.ManualJump"
+// 2Ship #1938: Dash After Roll.
+#define RSBS_CVAR_MM_PLAYER_DASH_AFTER_ROLL "gEnhancements.Player.DashAfterRoll"
 #define RSBS_CVAR_MM_PLAYER_PREVENT_DIVE_OVER_WATER "gEnhancements.Player.PreventDiveOverWater"
 #define RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING "gEnhancements.Player.InfiniteDekuHopping"
 #define RSBS_CVAR_MM_PLAYER_CLIMB_SPEED "gEnhancements.Player.ClimbSpeed"
@@ -666,6 +670,9 @@ struct DistinctPair {
 // 2Ship #1870: Active Item on B, replacing Great Fairy Sword B-Button Attack.
 #define RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B "gEnhancements.Equipment.ActiveItemOnB"
 #define RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE "gEnhancements.Equipment.BetterPictoMessage"
+// 2Ship #1558: Picto-box on C-up, an Items row in 2Ship, hosted in the same Items > Equipment "Majora's Mask" block
+// between Better Picto Message and Hot Water Never Cools.
+#define RSBS_CVAR_MM_ITEMS_PICTO_BOX_ON_C_UP "gEnhancements.Items.PictoBoxOnCUp"
 // 2Ship #1989: Hot Water Never Cools, an Items row in 2Ship, hosted in the same Items > Equipment "Majora's Mask" block
 // after Better Picto Message. No SoH twin (Ocarina of Time has no Hot Spring Water).
 #define RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS "gEnhancements.Items.HotWaterNeverCools"
@@ -768,6 +775,8 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_DIFFICULTY_JINXED_TIMER "gEnhancements.DifficultyOptions.JinxedTimer"
 #define RSBS_CVAR_MM_DIFFICULTY_LOWER_BANK_REWARD_THRESHOLDS "gEnhancements.DifficultyOptions.LowerBankRewardThresholds"
 #define RSBS_CVAR_MM_DIFFICULTY_DISABLE_TAKKURI_STEAL "gEnhancements.DifficultyOptions.DisableTakkuriSteal"
+// 2Ship #1944: Always find Rock Sirloin.
+#define RSBS_CVAR_MM_DIFFICULTY_ALWAYS_FIND_ROCK_SIRLOIN "gEnhancements.DifficultyOptions.AlwaysFindRockSirloin"
 #define RSBS_CVAR_MM_DIFFICULTY_DEKU_GUARD_SEARCH_BALLS "gEnhancements.DifficultyOptions.DekuGuardSearchBalls"
 #define RSBS_CVAR_MM_DIFFICULTY_GIBDO_TRADE_SEQUENCE "gEnhancements.DifficultyOptions.GibdoTradeSequence"
 #define RSBS_CVAR_MM_DIFFICULTY_HIDDEN_GROTTOS_VISIBILITY "gEnhancements.DifficultyOptions.HiddenGrottosVisibility"
@@ -794,6 +803,10 @@ struct DistinctPair {
 #define RSBS_CVAR_MM_MINIGAMES_SKIP_HORSE_RACE "gEnhancements.Minigames.SkipHorseRace"
 #define RSBS_CVAR_MM_MINIGAMES_BEAVER_RACE_RINGS_COLLECTED "gEnhancements.Minigames.BeaverRaceRingsCollected"
 #define RSBS_CVAR_MM_MINIGAMES_SKIP_LITTLE_BEAVER "gEnhancements.Minigames.SkipLittleBeaver"
+// 2Ship #1947: Difficulty options for Fisherman's Jumping Game.
+#define RSBS_CVAR_MM_MINIGAMES_JUMPING_TORCH_TIME_LIMIT "gEnhancements.Minigames.FishermanJumpingGame.TorchTimeLimit"
+#define RSBS_CVAR_MM_MINIGAMES_JUMPING_TARGET_SCORE "gEnhancements.Minigames.FishermanJumpingGame.TargetScore"
+#define RSBS_CVAR_MM_MINIGAMES_JUMPING_EARLY_WIN "gEnhancements.Minigames.FishermanJumpingGame.EarlyWin"
 #define RSBS_CVAR_MM_DIFFICULTY_GORON_RACE "gEnhancements.DifficultyOptions.GoronRace"
 #define RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_SCORE "gEnhancements.Minigames.BoatArcheryScore"
 #define RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_HEALTH "gEnhancements.Minigames.BoatArcheryHealth"
@@ -1160,6 +1173,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_TIMESAVERS_GALLERY_TWOFER)                        \
     X(RSBS_CVAR_MM_TIMESAVERS_MARINE_LAB_HP)                         \
     X(RSBS_CVAR_MM_TIMESAVERS_DAMPE_DIGGING_SKIP)                    \
+    X(RSBS_CVAR_MM_TIMESAVERS_ALWAYS_SHOW_SHRINE_FEATHERS)           \
     X(RSBS_CVAR_MM_TIMESAVERS_FASTER_SCENE_TRANSITIONS)              \
     X(RSBS_CVAR_MM_TIMESAVERS_POWDER_KEG_CERTIFICATION)              \
     X(RSBS_CVAR_MM_TIMESAVERS_SKIP_BALLAD_OF_WINDFISH)               \
@@ -1181,6 +1195,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_CYCLE_OCEANSIDE_WALLET_ANY_DAY)                   \
     /* W6-PLAYER */                                                  \
     X(RSBS_CVAR_MM_PLAYER_MANUAL_JUMP)                               \
+    X(RSBS_CVAR_MM_PLAYER_DASH_AFTER_ROLL)                           \
     X(RSBS_CVAR_MM_PLAYER_PREVENT_DIVE_OVER_WATER)                   \
     X(RSBS_CVAR_MM_PLAYER_INFINITE_DEKU_HOPPING)                     \
     X(RSBS_CVAR_MM_PLAYER_CLIMB_SPEED)                               \
@@ -1191,6 +1206,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_EQUIPMENT_TWO_HANDED_SWORD_SPIN_ATTACK)           \
     X(RSBS_CVAR_MM_EQUIPMENT_ACTIVE_ITEM_ON_B)                       \
     X(RSBS_CVAR_MM_EQUIPMENT_BETTER_PICTO_MESSAGE)                   \
+    X(RSBS_CVAR_MM_ITEMS_PICTO_BOX_ON_C_UP)                          \
     X(RSBS_CVAR_MM_ITEMS_HOT_WATER_NEVER_COOLS)                      \
     X(RSBS_CVAR_MM_PLAYER_ACTIONS_INSTANT_RECALL)                    \
     X(RSBS_CVAR_MM_EQUIPMENT_CHU_DROPS)                              \
@@ -1263,6 +1279,7 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_DIFFICULTY_JINXED_TIMER)                          \
     X(RSBS_CVAR_MM_DIFFICULTY_LOWER_BANK_REWARD_THRESHOLDS)          \
     X(RSBS_CVAR_MM_DIFFICULTY_DISABLE_TAKKURI_STEAL)                 \
+    X(RSBS_CVAR_MM_DIFFICULTY_ALWAYS_FIND_ROCK_SIRLOIN)              \
     X(RSBS_CVAR_MM_DIFFICULTY_DEKU_GUARD_SEARCH_BALLS)               \
     X(RSBS_CVAR_MM_DIFFICULTY_GIBDO_TRADE_SEQUENCE)                  \
     X(RSBS_CVAR_MM_DIFFICULTY_HIDDEN_GROTTOS_VISIBILITY)             \
@@ -1285,6 +1302,9 @@ inline constexpr std::size_t kTranslatedKeyCount = sizeof(kTranslatedKeys) / siz
     X(RSBS_CVAR_MM_MINIGAMES_SKIP_HORSE_RACE)                        \
     X(RSBS_CVAR_MM_MINIGAMES_BEAVER_RACE_RINGS_COLLECTED)            \
     X(RSBS_CVAR_MM_MINIGAMES_SKIP_LITTLE_BEAVER)                     \
+    X(RSBS_CVAR_MM_MINIGAMES_JUMPING_TORCH_TIME_LIMIT)               \
+    X(RSBS_CVAR_MM_MINIGAMES_JUMPING_TARGET_SCORE)                   \
+    X(RSBS_CVAR_MM_MINIGAMES_JUMPING_EARLY_WIN)                      \
     X(RSBS_CVAR_MM_DIFFICULTY_GORON_RACE)                            \
     X(RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_SCORE)                     \
     X(RSBS_CVAR_MM_MINIGAMES_BOAT_ARCHERY_HEALTH)                    \

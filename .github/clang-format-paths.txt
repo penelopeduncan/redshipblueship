@@ -44,6 +44,11 @@ games/mm/2s2h/Enhancements/FrameInterpolation/FrameInterpolation.h
 games/mm/2s2h/Enhancements/Items/AmmoBuybackPrice.h
 games/mm/2s2h/Enhancements/Items/HotWaterNeverCools.cpp
 games/mm/2s2h/Enhancements/Player/FasterHookshot.cpp
+games/mm/2s2h/Enhancements/Items/PictoBoxOnCUp.cpp
+games/mm/2s2h/Enhancements/Timesavers/AlwaysShowShrineFeathers.cpp
+games/mm/2s2h/Enhancements/Player/DashAfterRoll.cpp
+games/mm/2s2h/Enhancements/DifficultyOptions/AlwaysFindRockSirloin.cpp
+games/mm/2s2h/Enhancements/Minigames/FishermanJumpingGame.cpp
 games/mm/2s2h/Enhancements/Saving/SavingEnhancements.cpp
 games/mm/2s2h/Enhancements/Timesavers/AutoBankDepositMilestones.h
 games/mm/2s2h/GameExports_SingleExe.cpp
@@ -371,6 +376,7 @@ games/oot/soh/oot_gameplay_stats_test.cpp
 games/oot/soh/oot_wonder_items_paired_test.cpp
 games/oot/soh/oot_shuffle_ice_test.cpp
 games/mm/2s2h/mm_text_mods_test.cpp
+games/mm/2s2h/mm_small_options_1755_test.cpp
 games/oot/soh/oot_ice_paired_test.cpp
 games/oot/soh/oot_rocks_paired_test.cpp
 games/oot/soh/oot_chest_silver_confinement_test.cpp
@@ -378,3 +384,4 @@ games/oot/soh/oot_chest_silver_paired_test.cpp
 games/oot/soh/oot_save_editor_name_input_test.cpp
 games/oot/soh/oot_vanilla_magic_boundary_test.cpp
 games/oot/soh/oot_qol_options_1747_test.cpp
+games/oot/soh/oot_minigame_hookify_test.cpp

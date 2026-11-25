@@ -2134,6 +2134,16 @@ if(BUILD_TESTING)
     # ROM-free.
     redship_add_test(NAME OoTDarkLinkFixes COMMAND redship --test oot-dark-link-fixes)
 
+    # Backport #1753 (SoH 236c9c81f #6968, 5c55c01c6 #6969, cca66cdc5 #6972):
+    # the Bombchu Bowling, frogs' Ocarina game and Shooting Gallery options
+    # live in Enhancements/Minigames/{BombchuBowling,FrogsOcarinaGame,
+    # ShootingGallery}.cpp as GameInteractor_Should hooks. The row runs those
+    # ten registrars out of ShipInit's map (under "*" and under each CVar key),
+    # then the REAL GameInteractor_Should dispatch with the arguments the
+    # actors pass: options off -> every answer vanilla; one leg per moved
+    # behaviour (ten) with the option on. Display-free and ROM-free.
+    redship_add_test(NAME OoTMinigameHookify COMMAND redship --test oot-minigame-hookify)
+
     # SoH c93b6188c (#1748): a swim void without Swim moves the respawn to the
     # entrance's position and now also to the entrance's room. The row drives
     # Randomizer_SwimVoidRespawnRoom (hook_handlers.cpp) with a fake entrance
@@ -2256,6 +2266,10 @@ if(BUILD_TESTING)
     # OoT_Player_CanThrowCarriedActor), roll chaining and roll steering.
     # Display-free and ROM-free.
     redship_add_test(NAME OoTQolOptions1747 COMMAND redship --test oot-qol-options-1747)
+
+    # #1755: five small MM options (PictoBoxOnCUp, AlwaysShowShrineFeathers, DashAfterRoll,
+    # AlwaysFindRockSirloin, FishermanJumpingGame). Display-free and ROM-free; restores all state.
+    redship_add_test(NAME MMSmallOptions1755 COMMAND redship --test mm-small-options-1755)
 
     # #682: the curated MM enhancement toggles, in two halves that fail
     # differently on purpose.

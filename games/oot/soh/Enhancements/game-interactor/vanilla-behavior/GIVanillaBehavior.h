@@ -656,6 +656,14 @@ typedef enum {
     // ```
     // #### `args`
     // - None
+    VB_FROGS_OCARINA_GAME_TIMER_TICK,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - None
     VB_GANON_HEAL_BEFORE_FIGHT,
 
     // #### `result`
@@ -1748,6 +1756,14 @@ typedef enum {
     // true
     // ```
     // #### `args`
+    // - `*EnFr`
+    VB_PLAY_FROG_OCARINA_GAME,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
     // - `*EnHeishi2`
     // - `bool` (clearCamera - true if the code clears a sub-camera, false otherwise)
     VB_PLAY_GATE_OPENING_OR_CLOSING_CS,
@@ -1868,6 +1884,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_PLAY_SHIEK_BLOCK_MASTER_SWORD_CS,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnSyatekiItm`
+    VB_PLAY_SHOOTING_GALLERY,
 
     // #### `result`
     // ```c
@@ -2057,6 +2081,14 @@ typedef enum {
     // true
     // ```
     // #### `args`
+    // - `None`
+    VB_SET_BOMBCHU_BOWLING_AMMO,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
     // - `int32_t` (button - promoted from `s16`)
     VB_SET_BUTTON_ITEM_FROM_C_BUTTON_SLOT,
 
@@ -2075,6 +2107,23 @@ typedef enum {
     // #### `args`
     // - None
     VB_SET_DIVING_GAME_TIME_LIMIT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*EnFr`
+    // - `s16` (default time limit)
+    VB_SET_FROG_OCARINA_GAME_TIME_LIMIT,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `*s32` (ammo count)
+    VB_SET_SHOOTING_GALLERY_AMMO,
 
     // #### `result`
     // ```c
@@ -2101,6 +2150,14 @@ typedef enum {
     // #### `args`
     // - None
     VB_SHIEK_PREPARE_TO_GIVE_SERENADE_OF_WATER,
+
+    // #### `result`
+    // ```c
+    // LINK_IS_ADULT
+    // ```
+    // #### `args`
+    // - None
+    VB_SHOOTING_GALLERY_SHUFFLE_ADULT_RUPEES,
 
     // #### `result`
     // ```c
@@ -2241,6 +2298,14 @@ typedef enum {
     // ##### In `z_boss_va.c`:
     // - `*BossVa`
     VB_SPAWN_BLUE_WARP,
+
+    // #### `result`
+    // ```c
+    // true
+    // ```
+    // #### `args`
+    // - `s32` (Cucco index; 0 = small, 1 = big)
+    VB_SPAWN_BOMBCHU_BOWLING_CUCCOS,
 
     // #### `result`
     // ```c
